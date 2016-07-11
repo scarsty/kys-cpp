@@ -1,8 +1,6 @@
 #pragma once
-#include "cocos2d.h"
-#include "config.h"
 
-using namespace cocos2d;
+#include "config.h"
 
 class Character
 {

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "cocos2d.h"
 #include <string>
 #include <fstream>      // std::ifstream
 #include "battle.h"

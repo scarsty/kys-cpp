@@ -37,11 +37,7 @@ void addMenuItem(cocos2d::MenuItem *item);
 */
 
 
-#ifndef __CROTATE_MENU__
-#define __CROTATE_MENU__
-
-#include "cocos2d.h"
-USING_NS_CC;
+#pragma once
 
 class CRotateMenu:public Layer
 {
@@ -86,5 +82,3 @@ private:
 	static float m_aniDuration ;
 };
 
-
-#endif

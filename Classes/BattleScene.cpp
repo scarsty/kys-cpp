@@ -7,11 +7,6 @@
 #include <algorithm>
 #include "config.h"
 #include "Save.h"
-#include "ui/CocosGUI.h"//UI相关的头文件 
-#include"cocostudio/CocoStudio.h"//在CocosStudio.h 头文件中已经包含了Studio所需要的各个头文件(除CocosGUI)因此我们使用Studio仅需要包含他就可以 
-
-using namespace cocos2d;//CSLoader位于cocos2d命名空间。 
-using namespace cocostudio::timeline;//动画相关的类位于cocostuio::timeline当中 
 
 BattleScene::BattleScene()
 {

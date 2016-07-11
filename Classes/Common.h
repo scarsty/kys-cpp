@@ -1,15 +1,5 @@
-﻿#ifndef __Common_H__
-#define __Common_H__
-
-#include "cocos2d.h"
+﻿#pragma once
 #include "battle.h"
-#include "cocostudio/CocoStudio.h"
-#include "cocos-ext.h"
-#include "ui/CocosGUI.h"
-
-USING_NS_CC;
-
-using namespace std;
 
 class MyPoint : public Point
 {
@@ -255,5 +245,3 @@ public:
 
 };
 
-
-#endif 

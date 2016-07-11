@@ -1,5 +1,5 @@
 #pragma once
-#include "cocos2d.h"
+
 #include "config.h"
 
 class BasicData

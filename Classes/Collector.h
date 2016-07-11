@@ -1,9 +1,10 @@
-#ifndef _COLLECTOR_H_
-#define _COLLECTOR_H_
-#include "cocos2d.h"
+#pragma once
+
+
 #include <list>
-USING_NS_CC;
-class Collector : public Node{
+
+class Collector : public Node
+{
 private:
 	Collector();
 public:
@@ -20,4 +21,3 @@ private:
 	std::function<void()> m_callback;
 	float m_time;
 };
-#endif

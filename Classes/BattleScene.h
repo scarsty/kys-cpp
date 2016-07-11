@@ -1,11 +1,9 @@
 #pragma once
 
-#include "cocos2d.h"
 #include "Common.h"
 
 using namespace std;
  
-USING_NS_CC;
 class BattleScene : public CommonScene
 {
 public:

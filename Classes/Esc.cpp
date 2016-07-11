@@ -1,11 +1,6 @@
 #include "Esc.h"
 #include "Save.h"
 
-USING_NS_CC;
-using namespace cocostudio;
-using namespace ui;
-using namespace std;
-
 Esc::Esc()
 {
 	if (!_readed)

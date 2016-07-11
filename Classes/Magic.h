@@ -1,10 +1,7 @@
 #pragma once
 
-#include "cocos2d.h"
-
 class Magic
 {
-
 public:
 	short ListNum;
 	char Name[10];//6
@@ -20,7 +17,5 @@ public:
 
 	Magic();
 	~Magic();
-
-
 };
 

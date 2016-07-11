@@ -1,4 +1,5 @@
 #pragma once
+
 static class Head
 {
 public:

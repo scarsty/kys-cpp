@@ -1,14 +1,6 @@
-#ifndef __Esc_H__
-#define __Esc_H__
+#pragma once
 
-#include "cocos2d.h"
 #include "Common.h"
-#include "cocostudio/CocoStudio.h"
-#include "cocos-ext.h"
-#include "ui/CocosGUI.h"
-
-
-USING_NS_CC;
 
 class Esc : public CommonScene
 {
@@ -32,4 +24,3 @@ public:
 	CREATE_FUNC(Esc);
 };
 
-#endif 

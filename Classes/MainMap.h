@@ -1,11 +1,7 @@
-#ifndef __MainMap_H__
-#define __MainMap_H__
+#pragma once
 
-#include "cocos2d.h"
 #include "Common.h"
 #include "Save.h"
-
-USING_NS_CC;
 
 using namespace std;
 
@@ -149,7 +145,4 @@ public:
 	CREATE_FUNC(Cloud);
 
 };
-
-#endif
-
 
