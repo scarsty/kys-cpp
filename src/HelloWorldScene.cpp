@@ -10,7 +10,7 @@ HelloWorldScene::HelloWorldScene()
 	{
 		auto b = new Button();
 		b->setTexture("title", i + 107);
-		m->addButton(b, 0, i*15);
+		m->addButton(b, 0, i*30);
 	}
 }
 

@@ -22,6 +22,13 @@ void Menu::draw()
 
 void Menu::dealEvent(BP_Event& e)
 {
+	switch (e.type)
+	{
+	case BP_MOUSEMOTION:
+		if (e.button.x > 100)
+			pop();
+		break;
+	}
 
 }
 
