@@ -15,212 +15,67 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Classes\BaoShop.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\BasicData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\battle.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\BattleScene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Calendar.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Character.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Collector.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Common.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\config.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\CRotateMenu.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Error.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Esc.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Event.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Faction.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Head.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\HelloWorldScene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Item.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\LoadingScene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Magic.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\MainMap.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\md5.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\RandomAttribute.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Role.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Save.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\SceneData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\SceneEventData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\SceneMapData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Start.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\SubScene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\Tree.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\type.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Classes\ZhaoShi.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <Library Include="lib\SDL2.lib" />
+    <Library Include="lib\SDL2_image.lib" />
+    <Library Include="lib\SDL2_ttf.lib" />
+    <Library Include="lib\SDL2main.lib" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="kys-cpp.cpp">
+    <ClCompile Include="src\kys-cpp.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\BaoShop.cpp">
+    <ClCompile Include="src\AppDelegate.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\BasicData.cpp">
+    <ClCompile Include="src\Base.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\battle.cpp">
+    <ClCompile Include="src\Engine.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\BattleScene.cpp">
+    <ClCompile Include="src\Scene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\Calendar.cpp">
+    <ClCompile Include="src\Button.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\Character.cpp">
+    <ClCompile Include="src\HelloWorldScene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\Collector.cpp">
+    <ClCompile Include="src\TextureManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Classes\Common.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\config.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\CRotateMenu.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Error.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Esc.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Event.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Faction.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Head.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\HelloWorldScene.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Item.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\LoadingScene.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Magic.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\MainMap.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\md5.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\RandomAttribute.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Role.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Save.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\SceneData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\SceneEventData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\SceneMapData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Start.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\SubScene.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\Tree.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\type.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Classes\ZhaoShi.cpp">
+    <ClCompile Include="src\Menu.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Classes\Common.h.2.mine" />
-    <None Include="Classes\Common.h.mine" />
-    <None Include="Classes\MainMap.cpp.2.mine" />
-    <None Include="Classes\MainMap.cpp.mine" />
-    <None Include="Classes\MainMap.cpp.orig" />
+    <ClInclude Include="src\AppDelegate.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Base.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Engine.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Button.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\HelloWorldScene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextureManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Menu.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="ReadMe.md" />
+    <Text Include="readme.md" />
   </ItemGroup>
 </Project>
