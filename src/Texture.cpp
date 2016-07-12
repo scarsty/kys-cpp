@@ -31,15 +31,35 @@ void Texture::copyTexture(const std::string& path, int num, int x, int y)
 			v[i].dy = *(short*)(s + i * 4 + 2);
 		}
 		delete s;
+		fprintf(stderr, "load textures info %s, %d\n", path.c_str(), l);
 	}
 	auto &t = v[num];
 	if (!t.loaded)
 	{
-		t.tex = engine->loadImage(path + "/" + to_string(num) + ".png");
-		if (!t.tex)
-			t.tex = engine->loadImage(path + "/" + to_string(num) + "_0.png");
-		engine->queryTexture(t.tex, &t.w, &t.h);
+		fprintf(stderr, "load texture %s, %d\n", path.c_str(), num);
+		t.tex[0] = engine->loadImage(path + "/" + to_string(num) + ".png");
+		if (t.tex[0])
+		{
+			for (int i = 1; i < 10; i++)
+			{
+				t.tex[i] = t.tex[0];
+			}
+		}
+		else
+		{
+			for (int i = 0; i < 10; i++)
+			{
+				t.tex[i] = engine->loadImage(path + "/" + to_string(num) + "_" + to_string(i) + ".png");
+				if (!t.tex[i])
+				{
+					t.count = i;
+					break;
+				}
+			}
+		}
+		engine->queryTexture(t.tex[0], &t.w, &t.h);
 		t.loaded = true;
 	}
-	engine->renderCopy(t.tex, x - t.dx, y - t.dy, t.w, t.h);
+	if(t.count)
+	engine->renderCopy(t.tex[rand() % t.count], x - t.dx, y - t.dy, t.w, t.h);
 }

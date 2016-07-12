@@ -18,7 +18,7 @@ MainMap::~MainMap()
 {
 	for (int i = 0; i < 100; i++)
 	{
-		delete Cloud::cloudVector[i];
+		delete cloudVector[i];
 	}
 }
 
@@ -81,6 +81,11 @@ void MainMap::draw()
 		Texture::getInstance()->copyTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
 	}
 	auto t1 = Engine::getInstance()->getTicks();
+	//ÔÆµÄÌùÍ¼
+	for (auto& c : cloudVector)
+	{
+		Texture::getInstance()->copyTexture("cloud", c->num, c->x, c->y);
+	}
 	//log("%d\n", t1 - t0);
 }
 
@@ -128,7 +133,7 @@ void MainMap::init()
 	for (int i = 0; i < 100; i++)
 	{
 		auto c = new Cloud();
-		Cloud::cloudVector.push_back(c);
+		cloudVector.push_back(c);
 		c->initRand();
 	}
 
@@ -292,12 +297,11 @@ bool MainMap::canWalk(int x, int y)
 
 void MainMap::cloudMove()
 {
-	// 	for (auto &c0 : CloudS)
-	// 	{
-	// 		auto c = dynamic_cast<Cloud*>(c0);
-	// 		c->changePosition();
-	// 		c->setPositionOnScreen(Mx, My, Center_X, Center_Y);
-	// 	}
+	for (auto &c : cloudVector)
+	{
+		c->changePosition();
+		c->setPositionOnScreen(Mx, My, Center_X, Center_Y);
+	}
 }
 
 bool MainMap::checkIsEntrance(int x, int y)
@@ -435,14 +439,14 @@ bool MainMap::checkIsOutScreen(int x, int y)
 	}
 }
 
- void MainMap::getMousePosition(Point *point)
- {
- 	int x = point->x;
- 	int y = Center_Y * 2 - point->y;
- 	int yp = 0;
- 	Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Mx;
- 	Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + My;
- }
+void MainMap::getMousePosition(Point *point)
+{
+	int x = point->x;
+	int y = Center_Y * 2 - point->y;
+	int yp = 0;
+	Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Mx;
+	Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + My;
+}
 
 void MainMap::stopFindWay()
 {

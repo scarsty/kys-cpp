@@ -42,6 +42,8 @@ public:
 
 	Cloud::CloudTowards cloudTowards = Cloud::Left;
 
+	std::vector<Cloud*> cloudVector;
+
 	//SceneData* curRScene;
 	void draw() override;
 

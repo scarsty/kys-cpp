@@ -18,12 +18,17 @@ public:
 		MaxType
 	};
 
-	typedef struct
+	struct TextureInfo
 	{
-		BP_Texture* tex = nullptr;
+		BP_Texture* tex[10];
 		int w = 0, h = 0, dx = 0, dy = 0;
 		bool loaded = false;
-	}TextureInfo;
+		int count = 1;
+		TextureInfo()
+		{
+			for (int i = 0; i < 10; tex[i++] = nullptr);
+		}
+	};
 
 	std::map<const std::string, std::vector<TextureInfo>> map;
 	static Texture tm;

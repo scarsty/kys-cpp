@@ -20,15 +20,15 @@ public:
 	Point position;
 	float speed;
 
-	static std::vector<Cloud*> cloudVector;
 
 	const int maxX = 17280;
 	const int maxY = 8640;
 	enum { numTexture = 10 };
+	int num;
 
 	void initRand();
 	void setPositionOnScreen(int x, int y, int Center_X, int Center_Y);
 	void changePosition();
-	static void initTextures();
+
 };
 
