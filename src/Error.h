@@ -5,16 +5,16 @@
 struct ErrorNote
 {
 	int code;
-	string note;
+	std::string note;
 };
 
 static class Error
 {
 public:
 	Error();
-	static void setError(int code,string note);
+	static void setError(int code,std::string note);
 
 private:
 	static int _count;
-	static vector<ErrorNote> _notes;
+	static std::vector<ErrorNote> _notes;
 };

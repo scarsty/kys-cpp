@@ -1,7 +1,7 @@
 #include "error.h"
 
 int Error::_count=0;
-vector<ErrorNote> Error::_notes(1);
+std::vector<ErrorNote> Error::_notes(1);
 
 Error::Error()
 {

@@ -66,6 +66,24 @@
     <ClCompile Include="src\md5.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\BaoShop.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BasicData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Calendar.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Character.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\config.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Error.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -108,6 +126,24 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\md5.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BaoShop.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BasicData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Calendar.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\config.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Error.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

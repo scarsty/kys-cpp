@@ -154,10 +154,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AppDelegate.cpp" />
+    <ClCompile Include="src\BaoShop.cpp" />
     <ClCompile Include="src\Base.cpp" />
+    <ClCompile Include="src\BasicData.cpp" />
     <ClCompile Include="src\Button.cpp" />
+    <ClCompile Include="src\Calendar.cpp" />
+    <ClCompile Include="src\Character.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Error.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
@@ -171,10 +177,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h" />
+    <ClInclude Include="src\BaoShop.h" />
     <ClInclude Include="src\Base.h" />
+    <ClInclude Include="src\BasicData.h" />
     <ClInclude Include="src\Button.h" />
+    <ClInclude Include="src\Calendar.h" />
+    <ClInclude Include="src\Character.h" />
     <ClInclude Include="src\Cloud.h" />
+    <ClInclude Include="src\config.h" />
     <ClInclude Include="src\Engine.h" />
+    <ClInclude Include="src\Error.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
     <ClInclude Include="src\MainMap.h" />
