@@ -16,7 +16,10 @@ MainMap::MainMap()
 
 MainMap::~MainMap()
 {
-
+	for (int i = 0; i < 100; i++)
+	{
+		delete Cloud::cloudVector[i];
+	}
 }
 
 void MainMap::draw()
@@ -122,7 +125,6 @@ void MainMap::init()
 // 		addNewSpriteIntoVector(BuildingS);
 // 	}
 	//100¸öÔÆ
-	Cloud::initTextures();
 	for (int i = 0; i < 100; i++)
 	{
 		auto c = new Cloud();
