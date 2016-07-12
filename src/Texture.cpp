@@ -40,10 +40,7 @@ void Texture::copyTexture(const std::string& path, int num, int x, int y)
 		t.tex[0] = engine->loadImage(path + "/" + to_string(num) + ".png");
 		if (t.tex[0])
 		{
-			for (int i = 1; i < 10; i++)
-			{
-				t.tex[i] = t.tex[0];
-			}
+
 		}
 		else
 		{

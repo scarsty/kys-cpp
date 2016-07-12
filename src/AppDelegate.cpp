@@ -32,11 +32,23 @@ void AppDelegate::mainLoop(BP_Event & e)
 	auto loop = true;
 	while (loop && engine->pollEvent(e) >= 0)
 	{
-		for (auto b : Base::baseVector)
+		//从最后一个独占的开始画
+		int begin_base = 0;
+		for (int i = Base::baseVector.size() - 1; i >= 0; i--)
 		{
+			if (Base::baseVector[i]->full)
+			{
+				begin_base = i;
+				break;
+			}
+		}
+		for (int i = begin_base; i < Base::baseVector.size(); i++)
+		{
+			auto &b = Base::baseVector[i];
 			if (b->visible)
 				b->draw();
 		}
+		//处理最上层的消息
 		if (Base::baseVector.size() > 0)
 			Base::baseVector.back()->dealEvent(e);
 		switch (e.type)

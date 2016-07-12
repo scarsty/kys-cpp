@@ -11,7 +11,7 @@ int MainMap::Mx, MainMap::My;
 
 MainMap::MainMap()
 {
-
+	full = 1;
 }
 
 MainMap::~MainMap()
