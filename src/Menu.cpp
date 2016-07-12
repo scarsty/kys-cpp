@@ -2,12 +2,16 @@
 
 Menu::Menu()
 {
-	push(this);
+
 }
 
 
 Menu::~Menu()
 {
+	for (auto b : bts)
+	{
+		safe_delete(b);
+	}
 }
 
 void Menu::draw()

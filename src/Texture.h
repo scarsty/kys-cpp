@@ -3,11 +3,11 @@
 #include <map>
 #include <vector>
 
-class TextureManager 
+class Texture 
 {
 public:
-	TextureManager();
-	virtual ~TextureManager();
+	Texture();
+	virtual ~Texture();
 
 	enum Type
 	{
@@ -23,12 +23,12 @@ public:
 		BP_Texture* tex = nullptr;
 		int w = 0, h = 0, dx = 0, dy = 0;
 		bool loaded = false;
-	}Texture;
+	}TextureInfo;
 
-	std::map<const char*, std::vector<Texture>> map;
-	static TextureManager tm;
+	std::map<const std::string, std::vector<TextureInfo>> map;
+	static Texture tm;
 
-	static TextureManager* getInstance() { return &tm; }
+	static Texture* getInstance() { return &tm; }
 	void copyTexture(const std::string& path, int num, int x, int y);
 
 };

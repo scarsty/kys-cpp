@@ -20,8 +20,9 @@ bool AppDelegate::applicationDidFinishLaunching()
 
 	BP_Event e;
 	HelloWorldScene h;
+	h.push(&h);
 	mainLoop(e);
-
+	h.pop();
 	return true;
 }
 

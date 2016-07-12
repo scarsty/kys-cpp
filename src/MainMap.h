@@ -1,16 +1,13 @@
 #pragma once
+#include <stack>
+#include "Scene.h"
+#include "Cloud.h"
 
-#include "Common.h"
-#include "Save.h"
-
-using namespace std;
-
-class MainMap : public CommonScene
+class MainMap : public Scene
 {
-private:
-	bool _readed = false;
-	void ReadMap();
 public:
+	MainMap();
+	~MainMap();
 	//RenderTexture* tex[8];
 	int const static maxX = 480;
 	int const static maxY = 480;
@@ -18,19 +15,14 @@ public:
 	typedef short MapArray[maxX][maxY];
 	static MapArray Earth, Surface, Building, BuildX, BuildY, Entrance;
 	//int walk[30][2];
-	stack<MyPoint> wayQue;												//栈(路径栈)
-									
-	std::vector<Sprite*> EarthS, SurfaceS, BuildingS, CloudS;
+	std::stack<Point> wayQue;												//栈(路径栈)
 
-	enum CloudTowards
-	{
-		Left = 0,
-		Right = 1,
-		Up = 2,
-		Down = 3,
-	};
-	
-	int cloudX,cloudY;
+	//std::vector<Sprite*> EarthS, SurfaceS, BuildingS, CloudS;
+
+	static int Mx, My;
+
+
+	int cloudX, cloudY;
 	int step = 0;
 	int manPicture;
 	int restTime = 0;					//停止操作的时间
@@ -48,33 +40,18 @@ public:
 
 	bool isEsc = false;					//是否已打开系统菜单
 
-	CloudTowards cloudTowards = Left;
+	Cloud::CloudTowards cloudTowards = Cloud::Left;
 
-	SceneData* curRScene;
+	//SceneData* curRScene;
+	void draw() override;
 
-	MainMap();
-	~MainMap();
+	bool _readed = false;
+	void init() override;
 
-	virtual bool init();
-	
-	void Draw();
-
-	void keyPressed(EventKeyboard::KeyCode keyCode, Event *event);
-	void keyReleased(EventKeyboard::KeyCode keyCode, Event *event);
-    void mouseDown(EventMouse eventMouse, Event *event);
-    void mouseUp(EventMouse eventMouse, Event *event);
-    void mouseScroll(EventMouse eventMouse, Event *event);
-    void mouseMove(EventMouse eventMouse, Event *event);
-    bool touchBegan(Touch *touch, Event *event);
-    void touchEnded(Touch *touch, Event *event);
-    void touchCancelled(Touch *touch, Event *event);
-    void touchMoved(Touch *touch, Event *event);
-	
-	virtual void checkTimer2();
+	void dealEvent(BP_Event& e) override;
 	void Walk(int x, int y, Towards t);
 	void cloudMove();
 	void getEntrance();
-	void getMousePosition(Point *point);
 
 	virtual bool checkIsBuilding(int x, int y);
 	bool checkIsWater(int x, int y);
@@ -84,65 +61,4 @@ public:
 	bool checkIsEntrance(int x, int y);
 	virtual void FindWay(int Mx, int My, int Fx, int Fy);
 	void stopFindWay();
-
-	void menuCloseCallback(Ref* pSender);
-
-	void test();
-
-	CREATE_FUNC(MainMap);
-
-	static Scene* createScene();
 };
-
-
-class Cloud : public Sprite
-{
-public:
-	Point position;
-	float speed;
-
-	const int maxX = 17280;
-	const int maxY = 8640;
-
-	enum { numTexture = 10 };
-
-	void initRand()
-	{
-		position.x = rand() % maxX;
-		position.y = rand() % maxY;
-		speed = 1 + rand() % 3;
-		auto t = MyTexture2D::getSelfPointer(MyTexture2D::Cloud, rand() % numTexture);
-		//this->setTexture(t->getTexture());
-		t->setToSprite(this, Point(0, 0));
-		this->setOpacity(128 + rand() % 128);
-		this->setColor(Color3B(rand() % 256, rand() % 256, rand() % 256));
-	}
-	void setPositionOnScreen(int x, int y, int Center_X, int Center_Y)
-	{
-		this->setPosition(position.x - (-x * 18 + y * 18 + maxX / 2 - Center_X), -position.y + (x * 9 + y * 9 + 9 - Center_Y));
-		//this->setPosition(324, 200);
-	}
-	void changePosition()
-	{
-		position.x += speed;
-		if (position.x > maxX)
-		{
-			position.x = 0;
-		}
-	}
-
-	static void initTextures()
-	{
-		//云的贴图
-		char* path = "cloud";
-		MyTexture2D::tex[MyTexture2D::Cloud][1].resize(numTexture);
-		for (int i = 0; i < numTexture; i++)
-		{
-			MyTexture2D::addImage(path, MyTexture2D::Cloud, i, 0, 0, 1, true, true);
-		}
-
-	}
-	CREATE_FUNC(Cloud);
-
-};
-

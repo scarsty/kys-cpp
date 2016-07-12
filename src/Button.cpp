@@ -23,17 +23,17 @@ void Button::draw()
 {
 	if (state == 0)
 	{
-		TextureManager::getInstance()->copyTexture(path, num1, x, y);
+		Texture::getInstance()->copyTexture(path, num1, x, y);
 	}
 	else
 	{
 		if (num2 >= 0)
 		{
-			TextureManager::getInstance()->copyTexture(path, num2, x, y);
+			Texture::getInstance()->copyTexture(path, num2, x, y);
 		}
 		else
 		{
-			TextureManager::getInstance()->copyTexture(path, num1, x+1, y+1);
+			Texture::getInstance()->copyTexture(path, num1, x+1, y+1);
 		}
 	}
 }

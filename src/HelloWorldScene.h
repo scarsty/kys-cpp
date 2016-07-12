@@ -12,5 +12,6 @@ public:
 
 	void func(BP_Event &e, void* data);
 	int state = 0;
+	void init() override;
 };
 

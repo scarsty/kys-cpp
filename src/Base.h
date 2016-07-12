@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include "Engine.h"
-#include "TextureManager.h"
+#include "Texture.h"
 
 #define CONNECT(a,b) a##b
 
@@ -32,7 +32,9 @@ public:
 		pointer = nullptr;
 	}
 
-	void push(Base* b) { baseVector.push_back(b); }
+	virtual void init() {}
+
+	void push(Base* b) { baseVector.push_back(b); b->init(); }
 	void pop() { safe_delete(baseVector.back()); baseVector.pop_back(); }
 
 	int x = 0, y = 0;

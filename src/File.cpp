@@ -28,3 +28,16 @@ void File::readFile(const char * filename, unsigned char** s, int* len)
 	fread(*s, length, 1, fp);
 	fclose(fp);
 }
+
+void File::readFile(const char * filename, void* s, int len)
+{
+	FILE *fp = fopen(filename, "rb");
+	if (!fp)
+	{
+		fprintf(stderr, "Can not open file %s\n", filename);
+		return;
+	}
+	fseek(fp, 0, 0);
+	fread(s, len, 1, fp);
+	fclose(fp);
+}

@@ -42,13 +42,22 @@
     <ClCompile Include="src\HelloWorldScene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\TextureManager.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\Menu.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\File.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MainMap.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Texture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Cloud.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Point.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -71,13 +80,22 @@
     <ClInclude Include="src\HelloWorldScene.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\TextureManager.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="src\Menu.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\File.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MainMap.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Texture.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Cloud.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Point.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

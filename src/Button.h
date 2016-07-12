@@ -23,5 +23,7 @@ public:
 	void setFunction(ButtonFunc func) { this->func = func; }
 
 	int state = 0;
+
+	//BIND_FUNC() { return std::bind(,this, std::placeholders::_1, std::placeholders::_2); }
 };
 

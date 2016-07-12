@@ -8,13 +8,7 @@ public:
 	int g, h, f;
 	int Gx, Gy;
 	
-	enum Towards
-	{
-		LeftUp = 0,
-		RightUp = 1,
-		LeftDown = 2,
-		RightDown = 3,
-	}towards;
+
 	MyPoint* parent;
 	MyPoint* child[4];
 

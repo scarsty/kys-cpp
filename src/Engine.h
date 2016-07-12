@@ -60,7 +60,7 @@ private:
 	bool _full_screen = false;
 	bool _keep_ratio = true;
 
-	int _start_w = 320, _start_h = 150; //320, 150
+	int _start_w = 768, _start_h = 240; //320, 150
 	int _win_w, _win_h, _min_x, _min_y, _max_x, _max_y;
 	double _rotation = 0;
 	int _ratio_x = 1, _ratio_y = 1;

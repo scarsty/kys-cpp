@@ -156,24 +156,30 @@
     <ClCompile Include="src\AppDelegate.cpp" />
     <ClCompile Include="src\Base.cpp" />
     <ClCompile Include="src\Button.cpp" />
+    <ClCompile Include="src\Cloud.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
+    <ClCompile Include="src\MainMap.cpp" />
     <ClCompile Include="src\Menu.cpp" />
+    <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Scene.cpp" />
-    <ClCompile Include="src\TextureManager.cpp" />
+    <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h" />
     <ClInclude Include="src\Base.h" />
     <ClInclude Include="src\Button.h" />
+    <ClInclude Include="src\Cloud.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
+    <ClInclude Include="src\MainMap.h" />
     <ClInclude Include="src\Menu.h" />
+    <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Scene.h" />
-    <ClInclude Include="src\TextureManager.h" />
+    <ClInclude Include="src\Texture.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
