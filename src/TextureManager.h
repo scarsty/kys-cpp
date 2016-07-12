@@ -3,9 +3,7 @@
 #include <map>
 #include <vector>
 
-
-
-class TextureManager
+class TextureManager 
 {
 public:
 	TextureManager();

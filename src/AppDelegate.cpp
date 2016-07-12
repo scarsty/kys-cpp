@@ -31,6 +31,13 @@ void AppDelegate::mainLoop(BP_Event & e)
 	auto loop = true;
 	while (loop && engine->pollEvent(e) >= 0)
 	{
+		for (auto b : Base::baseVector)
+		{
+			if (b->visible)
+				b->draw();
+		}
+		if (Base::baseVector.size() > 0)
+			Base::baseVector.back()->dealEvent(e);
 		switch (e.type)
 		{
 		case BP_QUIT:
@@ -40,14 +47,6 @@ void AppDelegate::mainLoop(BP_Event & e)
 		default:
 			break;
 		}
-
-		for (auto b : Base::baseVector)
-		{
-			if (b->visible)
-				b->draw();
-		}
-		if (Base::baseVector.size() > 0)
-			Base::baseVector.back()->dealEvent(e);
 		engine->renderPresent();
 		engine->delay(25);
 	}

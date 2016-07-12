@@ -3,6 +3,8 @@
 #include "Engine.h"
 #include "TextureManager.h"
 
+#define CONNECT(a,b) a##b
+
 struct auto_ptr
 {
 
@@ -33,9 +35,14 @@ public:
 	void push(Base* b) { baseVector.push_back(b); }
 	void pop() { safe_delete(baseVector.back()); baseVector.pop_back(); }
 
-	int x = 0;
-	int y = 0;
+	int x = 0, y = 0;
 	void setPosition(int x, int y) { this->x = x; this->y = y; }
+	int w = 0, h = 0;
+	void setSize(int w, int h) { this->w = w; this->h = h; }
+
+	bool inSide(int x, int y);
+
+	int full = 0;
 
 };
 

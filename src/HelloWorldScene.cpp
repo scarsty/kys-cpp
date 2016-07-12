@@ -11,6 +11,8 @@ HelloWorldScene::HelloWorldScene()
 		auto b = new Button();
 		b->setTexture("title", i + 107);
 		m->addButton(b, 0, i*30);
+		b->setSize(100,30);
+		b->setFunction(BIND_FUNC(HelloWorldScene::func));
 	}
 }
 
@@ -26,8 +28,15 @@ void HelloWorldScene::draw()
 
 void HelloWorldScene::dealEvent(BP_Event &e)
 {
-
+		
 }
 
 
+void HelloWorldScene::func(BP_Event &e, void* data)
+{
+	auto i = *(int*)(data);
+	Engine::getInstance()->showMessage((to_string(i)).c_str());
+	if (i == 2)
+		e.type = BP_QUIT;
+}
 

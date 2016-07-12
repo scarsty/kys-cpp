@@ -4,6 +4,8 @@
 
 std::vector<Base*> Base::baseVector;
 
+
+
 Base::Base()
 {
 }
@@ -21,4 +23,9 @@ void Base::log(const char *format, ...)
 	vsprintf(s, format, arg_ptr);
 	va_end(arg_ptr);
 	fprintf(stderr, s);
+}
+
+bool Base::inSide(int x, int y)
+{
+	return x > this->x&& x< this->x + this->w && y > this->y&& y < this->y + this->h;
 }

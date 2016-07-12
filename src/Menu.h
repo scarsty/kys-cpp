@@ -16,5 +16,8 @@ public:
 
 	void addButton(Button* b, int x, int y);
 
+	int disappear = 0;
+	void setDisappear(int d) { disappear = d; }
+
 };
 
