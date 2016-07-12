@@ -104,7 +104,7 @@ void MainMap::init()
 	//Mx = m_BasicData[0].Mx;
 	//My = m_BasicData[0].My;
 	//CommonScene::towards = (Towards)m_BasicData[0].MFace;
-	//log("toward=%d\n", CommonScene::towards);
+	log("toward=%d\n", towards);
 	//log("Mface=%d\n", SaveGame::getInstance()->RBasic_Data.Mface);
 
 	//µÿ√Ê≤„∫Õ‘∆≤„
@@ -125,10 +125,9 @@ void MainMap::init()
 	Cloud::initTextures();
 	for (int i = 0; i < 100; i++)
 	{
-		// 		auto c = Cloud::create();
-		// 		CloudS.push_back(c);
-		// 		cloudLayer->addChild(c, i);
-		// 		c->initRand();
+		auto c = new Cloud();
+		Cloud::cloudVector.push_back(c);
+		c->initRand();
 	}
 
 	getEntrance();
@@ -153,62 +152,62 @@ void MainMap::dealEvent(BP_Event& e)
 // 		wayQue.pop();
 // 		//log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
 // 	}
-	if (e.type==BP_KEYDOWN)
-	switch (e.key.keysym.sym)
-	{
-	case BPK_LEFT:
-	{
-		y--;
-		checkIsEntrance(x, y);
-		Walk(x, y, LeftDown);
-		stopFindWay();
-		break;
-	}
-	case BPK_RIGHT:
-	{
-		y++;
-		checkIsEntrance(x, y);
-		Walk(x, y, RightUp);
-		stopFindWay();
-		break;
-	}
-	case BPK_UP:
-	{
-		x--;
-		checkIsEntrance(x, y);
-		Walk(x, y, LeftUp);
-		stopFindWay();
-		break;
-	}
-	case BPK_DOWN:
-	{
-		x++;
-		checkIsEntrance(x, y);
-		Walk(x, y, RightDown);
-		stopFindWay();
-		break;
-	}
-	case BPK_ESCAPE:
-	{
-		stopFindWay();
-		break;
-	}
-	case BPK_SPACE:
-	{
-// 		stopFindWay();
-// 		m_BasicData[0].Mx = Mx;
-// 		m_BasicData[0].My = My;
-// 		m_BasicData[0].MFace = towards;
-// 		auto scene = BattleScene::createScene(73);
-// 		auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
-// 		this->pause();
-// 		Director::getInstance()->replaceScene(transitionScene);
-	}
-	default:
-	{
-		restTime++;
-	}
-	}
+	if (e.type == BP_KEYDOWN)
+		switch (e.key.keysym.sym)
+		{
+		case BPK_LEFT:
+		{
+			y--;
+			checkIsEntrance(x, y);
+			Walk(x, y, LeftDown);
+			stopFindWay();
+			break;
+		}
+		case BPK_RIGHT:
+		{
+			y++;
+			checkIsEntrance(x, y);
+			Walk(x, y, RightUp);
+			stopFindWay();
+			break;
+		}
+		case BPK_UP:
+		{
+			x--;
+			checkIsEntrance(x, y);
+			Walk(x, y, LeftUp);
+			stopFindWay();
+			break;
+		}
+		case BPK_DOWN:
+		{
+			x++;
+			checkIsEntrance(x, y);
+			Walk(x, y, RightDown);
+			stopFindWay();
+			break;
+		}
+		case BPK_ESCAPE:
+		{
+			stopFindWay();
+			break;
+		}
+		case BPK_SPACE:
+		{
+			// 		stopFindWay();
+			// 		m_BasicData[0].Mx = Mx;
+			// 		m_BasicData[0].My = My;
+			// 		m_BasicData[0].MFace = towards;
+			// 		auto scene = BattleScene::createScene(73);
+			// 		auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
+			// 		this->pause();
+			// 		Director::getInstance()->replaceScene(transitionScene);
+		}
+		default:
+		{
+			restTime++;
+		}
+		}
 	cloudMove();
 }
 
@@ -424,24 +423,24 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
 
 bool MainMap::checkIsOutScreen(int x, int y)
 {
-	// 	if (abs(Mx - x) >= 2 * widthregion || abs(My - y) >= sumregion)
-	// 	{
-	// 		return true;
-	// 	}
-	// 	else
+	if (abs(Mx - x) >= 2 * widthregion || abs(My - y) >= sumregion)
+	{
+		return true;
+	}
+	else
 	{
 		return false;
 	}
 }
 
-// void MainMap::getMousePosition(Point *point)
-// {
-// 	int x = point->x;
-// 	int y = Center_Y * 2 - point->y;
-// 	int yp = 0;
-// 	Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Mx;
-// 	Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + My;
-// }
+ void MainMap::getMousePosition(Point *point)
+ {
+ 	int x = point->x;
+ 	int y = Center_Y * 2 - point->y;
+ 	int yp = 0;
+ 	Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Mx;
+ 	Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + My;
+ }
 
 void MainMap::stopFindWay()
 {

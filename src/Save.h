@@ -1,15 +1,15 @@
 #pragma once
-#include "BasicData.h"
-#include "Character.h"
-#include "Item.h"
-#include "Magic.h"
-#include "BaoShop.h"
-#include "ZhaoShi.h"
-#include "Faction.h"
-#include "Calendar.h"
-#include "SceneData.h"
-#include "SceneMapData.h"
-#include "SceneEventData.h"
+// #include "BasicData.h"
+// #include "Character.h"
+// #include "Item.h"
+// #include "Magic.h"
+// #include "BaoShop.h"
+// #include "ZhaoShi.h"
+// #include "Faction.h"
+// #include "Calendar.h"
+// #include "SceneData.h"
+// #include "SceneMapData.h"
+// #include "SceneEventData.h"
 #include "md5.h"
 #include "config.h"
 
@@ -51,16 +51,17 @@ public:
 
 	void jiemi(unsigned char *Data, unsigned char key, int len);
 	void encryption(std::string str, unsigned char key);
+
+// 	 std::vector<BaoShop> m_Baoshop;
+// 	 std::vector<BasicData> m_BasicData;
+// 	 std::vector<Character> m_Character;
+// 	 Calendar m_Calendar;
+// 	 std::vector<Faction> m_Faction;
+// 	 std::vector<Magic> m_Magic;
+// 	 std::vector<SceneData> m_SceneData;
+// 	 std::vector<ZhaoShi> m_ZhaoShi;
+// 	 std::vector<Item> m_Item;
+// 	 std::vector<SceneMapData> m_SceneMapData;
+// 	 std::vector<SceneEventData> m_SceneEventData;
 };
 
-extern std::vector<BaoShop> m_Baoshop;
-extern std::vector<BasicData> m_BasicData;
-extern std::vector<Character> m_Character;
-extern Calendar m_Calendar;
-extern std::vector<Faction> m_Faction;
-extern std::vector<Magic> m_Magic;
-extern std::vector<SceneData> m_SceneData;
-extern std::vector<ZhaoShi> m_ZhaoShi;
-extern std::vector<Item> m_Item;
-extern std::vector<SceneMapData> m_SceneMapData;
-extern std::vector<SceneEventData> m_SceneEventData;

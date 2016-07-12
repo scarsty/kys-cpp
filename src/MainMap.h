@@ -57,6 +57,7 @@ public:
 	bool checkIsWater(int x, int y);
 	virtual bool checkIsOutLine(int x, int y);
 	bool checkIsOutScreen(int x, int y);
+	void getMousePosition(Point *point);
 	bool canWalk(int x, int y);
 	bool checkIsEntrance(int x, int y);
 	virtual void FindWay(int Mx, int My, int Fx, int Fy);

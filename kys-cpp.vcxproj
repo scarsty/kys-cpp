@@ -162,8 +162,10 @@
     <ClCompile Include="src\HelloWorldScene.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
     <ClCompile Include="src\MainMap.cpp" />
+    <ClCompile Include="src\md5.cpp" />
     <ClCompile Include="src\Menu.cpp" />
     <ClCompile Include="src\Point.cpp" />
+    <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
@@ -176,8 +178,10 @@
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
     <ClInclude Include="src\MainMap.h" />
+    <ClInclude Include="src\md5.h" />
     <ClInclude Include="src\Menu.h" />
     <ClInclude Include="src\Point.h" />
+    <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\Texture.h" />
   </ItemGroup>
