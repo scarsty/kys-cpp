@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Common.h"
+#include "Scene.h"
 
-using namespace std;
 
-class SubScene : public CommonScene
+class SubScene : public Scene
 {
 public:
     SubScene();

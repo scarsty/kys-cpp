@@ -124,8 +124,7 @@ void SubScene::Draw()
 	{
 		i->second->visit();
 	}
-	renderTex->end();
-	BackGround->getTexture()->setAntiAliasTexParameters();
+
 }
 
 bool SubScene::init(int scenenum)
@@ -295,9 +294,9 @@ void SubScene::Walk(int x, int y, Towards t)
 		Sx = x;
 		Sy = y;
 	}
-	if (CommonScene::towards != t)
+	if (Scene::towards != t)
 	{
-		CommonScene::towards = t;
+		Scene::towards = t;
 		step = 0;
 	}
 	else
