@@ -32,6 +32,7 @@ void AppDelegate::mainLoop(BP_Event & e)
 	auto loop = true;
 	while (loop && engine->pollEvent(e) >= 0)
 	{
+		int t0 = engine->getTicks();
 		//从最后一个独占的开始画
 		int begin_base = 0;
 		for (int i = Base::baseVector.size() - 1; i >= 0; i--)
@@ -61,6 +62,8 @@ void AppDelegate::mainLoop(BP_Event & e)
 			break;
 		}
 		engine->renderPresent();
-		engine->delay(25);
+		int t1 = engine->getTicks();
+		int t = std::max(0, 25 - (t1 - t0));
+		engine->delay(t);
 	}
 }
