@@ -86,7 +86,7 @@ void MainMap::draw()
 	{
 		Texture::getInstance()->copyTexture("cloud", c->num, c->x, c->y);
 	}
-	//log("%d\n", t1 - t0);
+	log("%d\n", t1 - t0);
 }
 
 void MainMap::init()

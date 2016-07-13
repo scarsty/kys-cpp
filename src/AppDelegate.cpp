@@ -16,7 +16,7 @@ bool AppDelegate::applicationDidFinishLaunching()
 	auto engine = Engine::getInstance();
 
 	engine->init();
-	engine->setWindowSize(768, 480);
+	engine->setWindowSize(1024, 480);
 
 	BP_Event e;
 	HelloWorldScene h;
