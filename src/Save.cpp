@@ -221,7 +221,7 @@ bool Save::LoadR(int num)
 // 		return false;
 // 	}
 // 
-// 	return  true;
+ 	return  true;
 }
 
 
@@ -306,7 +306,7 @@ bool Save::SaveR(int num)
 // 	os << " ";
 // 	os.close();
 // 	encryption(filename, key);
-// 	return true;
+ 	return true;
 }
 
 void Save::encryption(string str, unsigned char key)
