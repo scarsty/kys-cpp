@@ -4,9 +4,9 @@
 class SceneMapData
 {
 public:
-	SceneMapData();
-	~SceneMapData();
+    SceneMapData();
+    ~SceneMapData();
 
-	short Data[config::SLayerCount][config::SceneMaxX][config::SceneMaxY];
+    short Data[config::SLayerCount][config::SceneMaxX][config::SceneMaxY];
 };
 

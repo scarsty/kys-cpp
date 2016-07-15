@@ -89,6 +89,15 @@
     <ClCompile Include="src\Audio.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\SceneData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SubScene.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SceneMapData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -152,6 +161,15 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Audio.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SceneData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubScene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SceneMapData.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
