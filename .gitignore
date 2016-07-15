@@ -5,3 +5,5 @@ Release/*
 work/*
 *.tlog
 *.idb
+*.iobj
+*.ipdb

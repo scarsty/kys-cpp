@@ -1,5 +1,10 @@
 ﻿#include "Engine.h"
-#include "Base.h"
+
+#ifdef _MSC_VER
+#define NOMINMAX
+#include <windows.h>
+#pragma comment(lib, "user32.lib")
+#endif
 
 Engine Engine::_engine;
 
@@ -7,7 +12,6 @@ Engine::Engine()
 {
     _this = &_engine;
 }
-
 
 Engine::~Engine()
 {
@@ -57,6 +61,11 @@ void Engine::destroy()
     SDL_DestroyWindow(_win);
 }
 
+void Engine::mixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume)
+{
+    SDL_MixAudioFormat(dst, src, BP_AUDIO_DEVICE_FORMAT, len, volume);
+}
+
 int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f)
 {
     SDL_AudioSpec want;
@@ -75,7 +84,7 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     _callback = f;
     //if (useMap())
     {
-        want.samples = max(size, minsize);
+        want.samples = std::max(size, minsize);
     }
 
     _device = 0;
@@ -137,9 +146,9 @@ BP_Texture* Engine::createSquareTexture(int size)
 }
 
 //注意：当字符串为空时，也会返回一个空字符串  
-vector<string> Engine::splitString(const string& s, const string& delim)
+std::vector<std::string> Engine::splitString(const std::string& s, const std::string& delim)
 {
-    vector<string> ret;
+    std::vector<std::string> ret;
     size_t last = 0;
     size_t index = s.find_first_of(delim, last);
     while (index != std::string::npos)
@@ -155,7 +164,7 @@ vector<string> Engine::splitString(const string& s, const string& delim)
     return ret;
 }
 
-void Engine::drawSubtitle(const string &fontname, const string &text, int size, int x, int y, uint8_t alpha, int align)
+void Engine::drawSubtitle(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align)
 {
     if (alpha == 0)
         return;
@@ -204,7 +213,7 @@ void Engine::drawSubtitle(const string &fontname, const string &text, int size, 
     TTF_CloseFont(font);
 }
 
-BP_Texture* Engine::createTextTexture(const string &fontname, const string &text, int size)
+BP_Texture* Engine::createTextTexture(const std::string &fontname, const std::string &text, int size)
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font) return nullptr;
@@ -216,7 +225,7 @@ BP_Texture* Engine::createTextTexture(const string &fontname, const string &text
     return text_t;
 }
 
-void Engine::drawText(const string &fontname, const string &text, int size, int x, int y, uint8_t alpha, int align)
+void Engine::drawText(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align)
 {
     if (alpha == 0)
         return;
@@ -267,12 +276,24 @@ int Engine::init(void* handle)
     renderPresent();
     TTF_Init();
 
+#ifdef _MSC_VER
+    RECT r;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&r, 0);
+    int w = GetSystemMetrics(SM_CXEDGE);
+    int h = GetSystemMetrics(SM_CYEDGE);
+    _min_x = r.left + w;
+    _min_y = r.top + h + GetSystemMetrics(SM_CYCAPTION);
+    _max_x = r.right - w;
+    _max_y = r.bottom - h;
+#else   
     SDL_Rect r;
     SDL_GetDisplayBounds(0, &r);
     _min_x = r.x;
     _min_y = r.y;
     _max_x = r.w + r.x;
     _max_y = r.h + r.y;
+#endif
+
 
     printf("maximium width and height are: %d, %d\n", _max_x, _max_y);
 
@@ -310,7 +331,7 @@ void Engine::toggleFullscreen()
     SDL_RenderClear(_ren);
 }
 
-BP_Texture* Engine::loadImage(const string& filename)
+BP_Texture* Engine::loadImage(const std::string& filename)
 {
     return IMG_LoadTexture(_ren, filename.c_str());
 }
@@ -342,7 +363,7 @@ void Engine::setPresentPosition()
         if (w_src == 0 || h_src == 0) return;
         double w_ratio = 1.0*w_dst / w_src;
         double h_ratio = 1.0*h_dst / h_src;
-        double ratio = min(w_ratio, h_ratio);
+        double ratio = std::min(w_ratio, h_ratio);
         if (w_ratio > h_ratio)
         {
             //宽度大，左右留空
@@ -388,13 +409,13 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
     return t;
 }
 
-int Engine::showMessage(const string &content)
+int Engine::showMessage(const std::string &content)
 {
     const SDL_MessageBoxButtonData buttons[] =
     {
         { /* .flags, .buttonid, .text */        0, 0, "no" },
         { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
-        //{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 2, "cancel" },
+        { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 2, "cancel" },
     };
     const SDL_MessageBoxColorScheme colorScheme =
     {
@@ -426,12 +447,12 @@ int Engine::showMessage(const string &content)
     return buttonid;
 }
 
-
 void Engine::setWindowSize(int w, int h)
 {
     if (w <= 0 || h <= 0) return;
-    _win_w = min(_max_x - _min_x, w);
-    _win_h = min(_max_y - _min_y, h);
+    _win_w = std::min(_max_x - _min_x, w);
+    _win_h = std::min(_max_y - _min_y, h);
+    if (!_win) return;
     SDL_SetWindowSize(_win, _win_w, _win_h);
     setPresentPosition();
 
@@ -447,10 +468,10 @@ void Engine::resetWindowsPosition()
     int x, y, w, h, x0, y0;
     SDL_GetWindowSize(_win, &w, &h);
     SDL_GetWindowPosition(_win, &x0, &y0);
-    x = max(_min_x, x0);
-    y = max(_min_y, y0);
-    if (x + w > _max_x) x = min(x, _max_x - w);
-    if (y + h > _max_y) y = min(y, _max_y - h);
+    x = std::max(_min_x, x0);
+    y = std::max(_min_y, y0);
+    if (x + w > _max_x) x = std::min(x, _max_x - w);
+    if (y + h > _max_y) y = std::min(y, _max_y - h);
     if (x != x0 || y != y0)
         SDL_SetWindowPosition(_win, x, y);
 }
@@ -463,6 +484,5 @@ void Engine::setWindowPosition(int x, int y)
     if (y == BP_WINDOWPOS_CENTERED) y = _min_y + (_max_y - _min_y - h) / 2;
     SDL_SetWindowPosition(_win, x, y);
 }
-
 
 

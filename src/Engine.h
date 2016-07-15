@@ -12,14 +12,13 @@ extern "C"
 #include <vector>
 #include <string>
 
-using namespace std;
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
 #define BP_AUDIO_DEVICE_FORMAT AUDIO_S16
 #define BP_AUDIO_MIX_MAXVOLUME SDL_MIX_MAXVOLUME
 
-typedef function<void(uint8_t*, int)> AudioCallback;
+typedef std::function<void(uint8_t*, int)> AudioCallback;
 typedef SDL_Renderer BP_Renderer;
 typedef SDL_Window BP_Window;
 typedef SDL_Texture BP_Texture;
@@ -60,7 +59,7 @@ private:
     bool _full_screen = false;
     bool _keep_ratio = true;
 
-    int _start_w = 768, _start_h = 480; //320, 150
+    int _start_w = 320, _start_h = 150; //320, 150
     int _win_w, _win_h, _min_x, _min_y, _max_x, _max_y;
     double _rotation = 0;
     int _ratio_x = 1, _ratio_y = 1;
@@ -74,8 +73,9 @@ public:
     int getMaxWindowWidth() { return _max_x - _min_x; }
     int getMaxWindowHeight() { return _max_y - _min_y; }
     void setWindowSize(int w, int h);
+    void setStartWindowSize(int w, int h) { _start_w = w; _start_h = h; }
     void setWindowPosition(int x, int y);
-    void setWindowTitle(const string &str) { SDL_SetWindowTitle(_win, str.c_str()); }
+    void setWindowTitle(const std::string &str) { SDL_SetWindowTitle(_win, str.c_str()); }
     BP_Renderer* getRenderer() { return _ren; }
 
     void createMainTexture(int w, int h);
@@ -109,7 +109,7 @@ public:
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();
-    BP_Texture* loadImage(const string& filename);
+    BP_Texture* loadImage(const std::string& filename);
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return _rotation = r; }
@@ -123,10 +123,7 @@ public:
     void pauseAudio(int pause) { SDL_PauseAudioDevice(_device, pause); };
     void closeAudio() { SDL_CloseAudioDevice(_device); };
     int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; };
-    void mixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume)
-    {
-        SDL_MixAudioFormat(dst, src, BP_AUDIO_DEVICE_FORMAT, len, volume);
-    };
+    void mixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume);;
 
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
     static void mixAudioCallback(void* userdata, Uint8* stream, int len);
@@ -142,18 +139,19 @@ public:
     void toc() { if (SDL_GetTicks() != _time) printf("%d\n", SDL_GetTicks() - _time); }
     void getMouseState(int &x, int& y) { SDL_GetMouseState(&x, &y); };
     int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); };
+    int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); };
     void free(void* mem) { SDL_free(mem); }
     //UI相关
 private:
     BP_Texture* _square;
 public:
     BP_Texture* createSquareTexture(int size);
-    BP_Texture* createTextTexture(const string &fontname, const string &text, int size);
-    void drawText(const string &fontname, const string &text, int size, int x, int y, uint8_t alpha, int align);
-    void drawSubtitle(const string &fontname, const string &text, int size, int x, int y, uint8_t alpha, int align);
+    BP_Texture* createTextTexture(const std::string &fontname, const std::string &text, int size);
+    void drawText(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align);
+    void drawSubtitle(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align);
     //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
-    vector<string> splitString(const string& s, const string& delim);
-    int showMessage(const string &content);
+    std::vector<std::string> splitString(const std::string& s, const std::string& delim);
+    int showMessage(const std::string &content);
 };
 
 //这里直接照搬SDL
