@@ -19,6 +19,8 @@
     <Library Include="lib\SDL2_image.lib" />
     <Library Include="lib\SDL2_ttf.lib" />
     <Library Include="lib\SDL2main.lib" />
+    <Library Include="lib\bass.lib" />
+    <Library Include="lib\bassmidi.lib" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\kys-cpp.cpp">
@@ -84,6 +86,9 @@
     <ClCompile Include="src\Error.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\Audio.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -144,6 +149,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Error.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Audio.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
