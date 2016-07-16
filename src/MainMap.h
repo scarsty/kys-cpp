@@ -25,15 +25,15 @@ public:
     int cloudX, cloudY;
     int step = 0;
     int manPicture;
-    int restTime = 0;          //停止操作的时间
-    int cloud_restTime = 0;        //云消失的时间
-    int const offset_manPic = 5001;    //初始主角图偏移量
-    int const num_manPic = 7;        //单向主角图张数
-    int const offset_restPic = 5029;    //主角休息图偏移量
-    int const num_restPic = 6;      //单向休息图张数
-    int const begin_restTime = 200;    //开始休息的时间
-    int const each_pictrueTime = 15;    //休息图切换间隔
-    int const cloudSize = 240;        //云朵宽度
+    int restTime = 0;                    //停止操作的时间
+    int cloud_restTime = 0;              //云消失的时间
+    int const offset_manPic = 5001;      //初始主角图偏移量
+    int const num_manPic = 7;            //单向主角图张数
+    int const offset_restPic = 5029;     //主角休息图偏移量
+    int const num_restPic = 6;           //单向休息图张数
+    int const begin_restTime = 200;      //开始休息的时间
+    int const each_pictrueTime = 15;     //休息图切换间隔
+    int const cloudSize = 240;           //云朵宽度
     int const static tag_mainLayer = 1;  //主层编号 
     int const static tag_wordLayer = 1;  //文字层编号
 
