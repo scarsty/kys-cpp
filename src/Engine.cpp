@@ -61,7 +61,7 @@ void Engine::destroy()
     SDL_DestroyWindow(_win);
 }
 
-void Engine::mixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume)
+void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume)
 {
     SDL_MixAudioFormat(dst, src, BP_AUDIO_DEVICE_FORMAT, len, volume);
 }
@@ -72,7 +72,7 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     SDL_zero(want);
 
     printf("\naudio freq/channels: stream %d/%d, ", freq, channels);
-    if (channels <= 2) channels = 2;
+    if (channels <= 2) { channels = 2; }
     want.freq = freq;
     want.format = BP_AUDIO_DEVICE_FORMAT;
     want.channels = channels;
@@ -145,7 +145,7 @@ BP_Texture* Engine::createSquareTexture(int size)
     return _square;
 }
 
-//注意：当字符串为空时，也会返回一个空字符串  
+//注意：当字符串为空时，也会返回一个空字符串
 std::vector<std::string> Engine::splitString(const std::string& s, const std::string& delim)
 {
     std::vector<std::string> ret;
@@ -164,19 +164,19 @@ std::vector<std::string> Engine::splitString(const std::string& s, const std::st
     return ret;
 }
 
-void Engine::drawSubtitle(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align)
+void Engine::drawSubtitle(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align)
 {
     if (alpha == 0)
-        return;
+    { return; }
     auto font = TTF_OpenFont(fontname.c_str(), size);
-    if (!font) return;
+    if (!font) { return; }
     SDL_Color color = { 255, 255, 255, 255 };
     SDL_Color colorb = { 0, 0, 0, 255 };
     auto ret = splitString(text, "\n");
     for (int i = 0; i < ret.size(); i++)
     {
         if (ret[i] == "")
-            continue;
+        { continue; }
         TTF_SetFontOutline(font, 2);
         auto text_sb = TTF_RenderUTF8_Blended(font, ret[i].c_str(), colorb);
         TTF_SetFontOutline(font, 0);
@@ -192,7 +192,7 @@ void Engine::drawSubtitle(const std::string &fontname, const std::string &text, 
 
         SDL_Rect rect;
         SDL_QueryTexture(text_t, nullptr, nullptr, &rect.w, &rect.h);
-        rect.y = y + i*(size + 2);
+        rect.y = y + i * (size + 2);
 
         switch (align)
         {
@@ -213,10 +213,10 @@ void Engine::drawSubtitle(const std::string &fontname, const std::string &text, 
     TTF_CloseFont(font);
 }
 
-BP_Texture* Engine::createTextTexture(const std::string &fontname, const std::string &text, int size)
+BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size)
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
-    if (!font) return nullptr;
+    if (!font) { return nullptr; }
     SDL_Color c = { 255, 255, 255, 128 };
     auto text_s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
     auto text_t = SDL_CreateTextureFromSurface(_ren, text_s);
@@ -225,12 +225,12 @@ BP_Texture* Engine::createTextTexture(const std::string &fontname, const std::st
     return text_t;
 }
 
-void Engine::drawText(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align)
+void Engine::drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align)
 {
     if (alpha == 0)
-        return;
+    { return; }
     auto text_t = createTextTexture(fontname, text, size);
-    if (!text_t) return;
+    if (!text_t) { return; }
     SDL_SetTextureAlphaMod(text_t, alpha);
     SDL_Rect rect;
     SDL_QueryTexture(text_t, nullptr, nullptr, &rect.w, &rect.h);
@@ -258,10 +258,10 @@ int Engine::init(void* handle)
         return -1;
     }
     if (handle)
-        _win = SDL_CreateWindowFrom(handle);
+    { _win = SDL_CreateWindowFrom(handle); }
     else
         _win = SDL_CreateWindow("BigPotPlayer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            _start_w, _start_h, SDL_WINDOW_RESIZABLE);
+                                _start_w, _start_h, SDL_WINDOW_RESIZABLE);
     //SDL_CreateWindowFrom()
     SDL_ShowWindow(_win);
     SDL_RaiseWindow(_win);
@@ -285,7 +285,7 @@ int Engine::init(void* handle)
     _min_y = r.top + h + GetSystemMetrics(SM_CYCAPTION);
     _max_x = r.right - w;
     _max_y = r.bottom - h;
-#else   
+#else
     SDL_Rect r;
     SDL_GetDisplayBounds(0, &r);
     _min_x = r.x;
@@ -325,9 +325,9 @@ void Engine::toggleFullscreen()
 {
     _full_screen = !_full_screen;
     if (_full_screen)
-        SDL_SetWindowFullscreen(_win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    { SDL_SetWindowFullscreen(_win, SDL_WINDOW_FULLSCREEN_DESKTOP); }
     else
-        SDL_SetWindowFullscreen(_win, 0);
+    { SDL_SetWindowFullscreen(_win, 0); }
     SDL_RenderClear(_ren);
 }
 
@@ -351,7 +351,7 @@ void Engine::createMainTexture(int w, int h)
 void Engine::setPresentPosition()
 {
     if (!_tex)
-        return;
+    { return; }
     int w_dst = 0, h_dst = 0;
     int w_src = 0, h_src = 0;
     getWindowSize(w_dst, h_dst);
@@ -360,9 +360,9 @@ void Engine::setPresentPosition()
     h_src *= _ratio_y;
     if (_keep_ratio)
     {
-        if (w_src == 0 || h_src == 0) return;
-        double w_ratio = 1.0*w_dst / w_src;
-        double h_ratio = 1.0*h_dst / h_src;
+        if (w_src == 0 || h_src == 0) { return; }
+        double w_ratio = 1.0 * w_dst / w_src;
+        double h_ratio = 1.0 * h_dst / h_src;
         double ratio = std::min(w_ratio, h_ratio);
         if (w_ratio > h_ratio)
         {
@@ -399,7 +399,7 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
     {
         for (int y = 0; y < h; y++)
         {
-            p[4 * (y*w + x)] = src[y*stride + x];
+            p[4 * (y * w + x)] = src[y * stride + x];
         }
     }
     auto t = SDL_CreateTextureFromSurface(_ren, s);
@@ -409,7 +409,7 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
     return t;
 }
 
-int Engine::showMessage(const std::string &content)
+int Engine::showMessage(const std::string& content)
 {
     const SDL_MessageBoxButtonData buttons[] =
     {
@@ -449,10 +449,9 @@ int Engine::showMessage(const std::string &content)
 
 void Engine::setWindowSize(int w, int h)
 {
-    if (w <= 0 || h <= 0) return;
+    if (w <= 0 || h <= 0) { return; }
     _win_w = std::min(_max_x - _min_x, w);
     _win_h = std::min(_max_y - _min_y, h);
-    if (!_win) return;
     SDL_SetWindowSize(_win, _win_w, _win_h);
     setPresentPosition();
 
@@ -470,18 +469,18 @@ void Engine::resetWindowsPosition()
     SDL_GetWindowPosition(_win, &x0, &y0);
     x = std::max(_min_x, x0);
     y = std::max(_min_y, y0);
-    if (x + w > _max_x) x = std::min(x, _max_x - w);
-    if (y + h > _max_y) y = std::min(y, _max_y - h);
+    if (x + w > _max_x) { x = std::min(x, _max_x - w); }
+    if (y + h > _max_y) { y = std::min(y, _max_y - h); }
     if (x != x0 || y != y0)
-        SDL_SetWindowPosition(_win, x, y);
+    { SDL_SetWindowPosition(_win, x, y); }
 }
 
 void Engine::setWindowPosition(int x, int y)
 {
     int w, h;
     SDL_GetWindowSize(_win, &w, &h);
-    if (x == BP_WINDOWPOS_CENTERED) x = _min_x + (_max_x - _min_x - w) / 2;
-    if (y == BP_WINDOWPOS_CENTERED) y = _min_y + (_max_y - _min_y - h) / 2;
+    if (x == BP_WINDOWPOS_CENTERED) { x = _min_x + (_max_x - _min_x - w) / 2; }
+    if (y == BP_WINDOWPOS_CENTERED) { y = _min_y + (_max_y - _min_y - h) / 2; }
     SDL_SetWindowPosition(_win, x, y);
 }
 

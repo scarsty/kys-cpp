@@ -66,8 +66,8 @@ private:
 public:
     int init(void* handle = 0);
 
-    void getWindowSize(int &w, int &h) { SDL_GetWindowSize(_win, &w, &h); }
-    void getWindowMaxSize(int &w, int &h) { SDL_GetWindowMaximumSize(_win, &w, &h); }
+    void getWindowSize(int& w, int& h) { SDL_GetWindowSize(_win, &w, &h); }
+    void getWindowMaxSize(int& w, int& h) { SDL_GetWindowMaximumSize(_win, &w, &h); }
     int getWindowsWidth();
     int getWindowsHeight();
     int getMaxWindowWidth() { return _max_x - _min_x; }
@@ -75,7 +75,7 @@ public:
     void setWindowSize(int w, int h);
     void setStartWindowSize(int w, int h) { _start_w = w; _start_h = h; }
     void setWindowPosition(int x, int y);
-    void setWindowTitle(const std::string &str) { SDL_SetWindowTitle(_win, str.c_str()); }
+    void setWindowTitle(const std::string& str) { SDL_SetWindowTitle(_win, str.c_str()); }
     BP_Renderer* getRenderer() { return _ren; }
 
     void createMainTexture(int w, int h);
@@ -101,7 +101,7 @@ public:
     void renderPresent() { SDL_RenderPresent(_ren); renderClear(); };
     void renderClear() { SDL_RenderClear(_ren); }
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); };
-    void queryTexture(BP_Texture* t, int* w, int*h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
+    void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
 
     void createWindow() {}
     void createRenderer() {}
@@ -123,7 +123,7 @@ public:
     void pauseAudio(int pause) { SDL_PauseAudioDevice(_device, pause); };
     void closeAudio() { SDL_CloseAudioDevice(_device); };
     int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; };
-    void mixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume);;
+    void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume);;
 
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
     static void mixAudioCallback(void* userdata, Uint8* stream, int len);
@@ -136,8 +136,8 @@ public:
     void delay(const int t) { SDL_Delay(t); }
     uint32_t getTicks() { return SDL_GetTicks(); }
     uint32_t tic() { return _time = SDL_GetTicks(); }
-    void toc() { if (SDL_GetTicks() != _time) printf("%d\n", SDL_GetTicks() - _time); }
-    void getMouseState(int &x, int& y) { SDL_GetMouseState(&x, &y); };
+    void toc() { if (SDL_GetTicks() != _time) { printf("%d\n", SDL_GetTicks() - _time); } }
+    void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
     int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); };
     int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); };
     void free(void* mem) { SDL_free(mem); }
@@ -146,12 +146,12 @@ private:
     BP_Texture* _square;
 public:
     BP_Texture* createSquareTexture(int size);
-    BP_Texture* createTextTexture(const std::string &fontname, const std::string &text, int size);
-    void drawText(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align);
-    void drawSubtitle(const std::string &fontname, const std::string &text, int size, int x, int y, uint8_t alpha, int align);
+    BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size);
+    void drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align);
+    void drawSubtitle(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align);
     //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
     std::vector<std::string> splitString(const std::string& s, const std::string& delim);
-    int showMessage(const std::string &content);
+    int showMessage(const std::string& content);
 };
 
 //这里直接照搬SDL
