@@ -18,9 +18,7 @@ MainMap::MainMap()
 MainMap::~MainMap()
 {
     for (int i = 0; i < 100; i++)
-    {
         delete cloudVector[i];
-    }
 }
 
 void MainMap::draw()
@@ -44,13 +42,9 @@ void MainMap::draw()
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
                 if (Earth[i1][i2] > 0)
-                {
                     Texture::getInstance()->copyTexture("mmap", Earth[i1][i2] / 2, p.x, p.y);
-                }
                 if (Surface[i1][i2] > 0)
-                {
                     Texture::getInstance()->copyTexture("mmap", Surface[i1][i2] / 2, p.x, p.y);
-                }
                 if (Building[i1][i2] > 0)
                 {
                     auto t = Building[i1][i2] / 2;
@@ -67,9 +61,7 @@ void MainMap::draw()
                 {
                     manPicture = offset_manPic + Scene::towards * num_manPic + step;
                     if (restTime >= begin_restTime)
-                    {
                         manPicture = offset_restPic + Scene::towards * num_restPic + (restTime - begin_restTime) / each_pictrueTime % num_restPic;
-                    }
                     int c = 1024 * (i1 + i2) + i1;
                     map[2 * c] = { manPicture, p };
                 }
@@ -78,15 +70,11 @@ void MainMap::draw()
         }
     }
     for (auto i = map.begin(); i != map.end(); i++)
-    {
         Texture::getInstance()->copyTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
-    }
     auto t1 = Engine::getInstance()->getTicks();
     //云的贴图
     for (auto& c : cloudVector)
-    {
         Texture::getInstance()->copyTexture("cloud", c->num, c->x, c->y);
-    }
     //log("%d\n", t1 - t0);
 }
 
@@ -117,19 +105,19 @@ void MainMap::init()
     //log("Mface=%d\n", SaveGame::getInstance()->RBasic_Data.Mface);
 
     //地面层和云层
-// 	auto mainLayer = Node::create();
-// 	auto cloudLayer = Node::create();
-// 	this->addChild(mainLayer, 1);
-// 	this->addChild(cloudLayer, 2);
-// 	auto scene = HelloWorld::createScene();
-// 	Director::getInstance()->replaceScene(scene);
+//  auto mainLayer = Node::create();
+//  auto cloudLayer = Node::create();
+//  this->addChild(mainLayer, 1);
+//  this->addChild(cloudLayer, 2);
+//  auto scene = HelloWorld::createScene();
+//  Director::getInstance()->replaceScene(scene);
     //计算共需多少个
-// 	for (int i = 0; i < calNumberOfSprites(); i++)
-// 	{
-// 		addNewSpriteIntoVector(EarthS);
-// 		addNewSpriteIntoVector(SurfaceS);
-// 		addNewSpriteIntoVector(BuildingS);
-// 	}
+//  for (int i = 0; i < calNumberOfSprites(); i++)
+//  {
+//      addNewSpriteIntoVector(EarthS);
+//      addNewSpriteIntoVector(SurfaceS);
+//      addNewSpriteIntoVector(BuildingS);
+//  }
     //100个云
     for (int i = 0; i < 100; i++)
     {
@@ -148,18 +136,18 @@ void MainMap::dealEvent(BP_Event& e)
 {
     int x = Mx, y = My;
     //drawCount++;
-// 	if (!wayQue.empty())
-// 	{
-// 		MyPoint newMyPoint = wayQue.top();
-// 		x = newMyPoint.x;
-// 		y = newMyPoint.y;
-// 		checkIsEntrance(x, y);
-// 		Towards myTowards = (Towards)(newMyPoint.towards);
-// 		//log("myTowards=%d", myTowards);
-// 		Walk(x, y, myTowards);
-// 		wayQue.pop();
-// 		//log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
-// 	}
+//  if (!wayQue.empty())
+//  {
+//      MyPoint newMyPoint = wayQue.top();
+//      x = newMyPoint.x;
+//      y = newMyPoint.y;
+//      checkIsEntrance(x, y);
+//      Towards myTowards = (Towards)(newMyPoint.towards);
+//      //log("myTowards=%d", myTowards);
+//      Walk(x, y, myTowards);
+//      wayQue.pop();
+//      //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+//  }
     if (e.type == BP_KEYDOWN)
         switch (e.key.keysym.sym)
         {
@@ -202,14 +190,14 @@ void MainMap::dealEvent(BP_Event& e)
         }
         case BPK_SPACE:
         {
-            // 		stopFindWay();
-            // 		m_BasicData[0].Mx = Mx;
-            // 		m_BasicData[0].My = My;
-            // 		m_BasicData[0].MFace = towards;
-            // 		auto scene = BattleScene::createScene(73);
-            // 		auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
-            // 		this->pause();
-            // 		Director::getInstance()->replaceScene(transitionScene);
+            //      stopFindWay();
+            //      m_BasicData[0].Mx = Mx;
+            //      m_BasicData[0].My = My;
+            //      m_BasicData[0].MFace = towards;
+            //      auto scene = BattleScene::createScene(73);
+            //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
+            //      this->pause();
+            //      Director::getInstance()->replaceScene(transitionScene);
         }
         default:
         {
@@ -238,9 +226,7 @@ void MainMap::Walk(int x, int y, Towards t)
         //step = 0;
     }
     else
-    {
         step++;
-    }
     step = step % num_manPic;
     restTime = 0;
 }
@@ -248,61 +234,43 @@ void MainMap::Walk(int x, int y, Towards t)
 bool MainMap::checkIsBuilding(int x, int y)
 {
     if (BuildX[x][y] == 0)
-    {
         return false;
-    }
     else
-    {
         return true;
-    }
 }
 
 bool MainMap::checkIsWater(int x, int y)
 {
     if (Earth[x][y] == 838 || Earth[x][y] >= 612 && Earth[x][y] <= 670)
-    {
         return true;
-    }
     else if (Earth[x][y] >= 358 && Earth[x][y] <= 362
-        || Earth[x][y] >= 506 && Earth[x][y] <= 670
-        || Earth[x][y] >= 1016 && Earth[x][y] <= 1022)
-    {
+             || Earth[x][y] >= 506 && Earth[x][y] <= 670
+             || Earth[x][y] >= 1016 && Earth[x][y] <= 1022)
         return true;
-    }
     else
-    {
         return false;
-    }
 }
 
 
 bool MainMap::checkIsOutLine(int x, int y)
 {
     if (x < 0 || x > maxX || y < 0 || y > maxY)
-    {
         return true;
-    }
     else
-    {
         return false;
-    }
 }
 
 bool MainMap::canWalk(int x, int y)
 {
     if (checkIsBuilding(x, y) || checkIsOutLine(x, y) || checkIsWater(x, y))
-    {
         return false;
-    }
     else
-    {
         return true;
-    }
 }
 
 void MainMap::cloudMove()
 {
-    for (auto &c : cloudVector)
+    for (auto& c : cloudVector)
     {
         c->changePosition();
         c->setPositionOnScreen(Mx, My, Center_X, Center_Y);
@@ -311,17 +279,17 @@ void MainMap::cloudMove()
 
 bool MainMap::checkIsEntrance(int x, int y)
 {
-    //	if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
-    //	{
-    // 		m_BasicData[0].Mx = Mx;
-    // 		m_BasicData[0].My = My;
-    // 		m_BasicData[0].MFace = towards;
-    // 		auto scene = SubScene::createScene(Entrance[x][y]);
-    // 		auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
-    // 		this->pause();
-    // 		Director::getInstance()->replaceScene(transitionScene);
-    // 		return true;
-    //	}
+    //  if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
+    //  {
+    //      m_BasicData[0].Mx = Mx;
+    //      m_BasicData[0].My = My;
+    //      m_BasicData[0].MFace = towards;
+    //      auto scene = SubScene::createScene(Entrance[x][y]);
+    //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
+    //      this->pause();
+    //      Director::getInstance()->replaceScene(transitionScene);
+    //      return true;
+    //  }
     return false;
 }
 
@@ -329,122 +297,116 @@ void MainMap::getEntrance()
 {
     for (int x = 0; x < maxX; x++)
         for (int y = 0; y < maxY; y++)
-        {
             Entrance[x][y] = -1;
-        }
-    // 	for (int i = 0; i < m_SceneData.size(); i++)
-    // 	{
-    // 
-    // 		int x = m_SceneData[i].MainEntranceX1;
-    // 		int y = m_SceneData[i].MainEntranceY1;
-    // 		if (x > 0 && y > 0 && x < maxX && y < maxY)
-    // 		{
-    // 			Entrance[x][y] = i;
-    // 		}
-    // 		x = m_SceneData[i].MainEntranceX2;
-    // 		y = m_SceneData[i].MainEntranceY2;
-    // 		if (x > 0 && y > 0 && x < maxX && y < maxY)
-    // 		{
-    // 			Entrance[x][y] = i;
-    // 		}
-    // 	}
+    //  for (int i = 0; i < m_SceneData.size(); i++)
+    //  {
+    //
+    //      int x = m_SceneData[i].MainEntranceX1;
+    //      int y = m_SceneData[i].MainEntranceY1;
+    //      if (x > 0 && y > 0 && x < maxX && y < maxY)
+    //      {
+    //          Entrance[x][y] = i;
+    //      }
+    //      x = m_SceneData[i].MainEntranceX2;
+    //      y = m_SceneData[i].MainEntranceY2;
+    //      if (x > 0 && y > 0 && x < maxX && y < maxY)
+    //      {
+    //          Entrance[x][y] = i;
+    //      }
+    //  }
 }
 
 //A*寻路
 void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
 {
-    // 	bool visited[479][479] = { false };									//已访问标记(关闭列表)
-    // 	int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };		//四个方向
-    // 	MyPoint *myPoint = new MyPoint;
-    // 	myPoint->x = Mx;
-    // 	myPoint->y = My;
-    // 	myPoint->towards = (MyPoint::Towards)CallFace(Mx, My, Fx, Fy);
-    // 	myPoint->parent = myPoint;
-    // 	myPoint->Heuristic(Fx, Fy);
-    // 	//log("Fx=%d,Fy=%d", Fx, Fy);
-    // 	//log("Mx=%d,My=%d", Mx, My);
-    // 	while (!wayQue.empty())
-    // 	{
-    // 		wayQue.pop();
-    // 	}
-    // 	priority_queue<MyPoint*, vector<MyPoint*>, Compare> que;			//最小优先级队列(开启列表)
-    // 	que.push(myPoint);
-    // 	int sNum = 0;
-    // 	while (!que.empty() && sNum <= 300) {
-    // 		MyPoint *t = new MyPoint();
-    // 		t = que.top();
-    // 		que.pop();
-    // 		visited[t->x][t->y] = true;
-    // 		sNum++;
-    // 		//log("t.x=%d,t.y=%d",t->x,t->y);
-    // 		if (t->x == Fx && t->y == Fy) {
-    // 			minStep = t->step;
-    // 			wayQue.push(*t);
-    // 			int k = 0;
-    // 			while (t != myPoint&&k <= minStep)
-    // 			{
-    // 				//log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
-    // 
-    // 				t->towards = t->parent->towards;
-    // 				wayQue.push(*t);
-    // 				t = t->parent;
-    // 				k++;
-    // 				//log("go in!");
-    // 			}
-    // 			//log("minStep=%d", minStep);
-    // 			//log("wayQue=%d", wayQue.size());
-    // 			break;
-    // 		}
-    // 		else {
-    // 			for (int i = 0; i < 4; i++)
-    // 			{
-    // 				MyPoint *s = new MyPoint();
-    // 				s->x = t->x + dirs[i][0];
-    // 				s->y = t->y + dirs[i][1];
-    // 				if (canWalk(s->x, s->y) && !checkIsOutScreen(s->x, s->y) && !visited[s->x][s->y])
-    // 				{
-    // 					s->g = t->g + 10;
-    // 					s->towards = (MyPoint::Towards)i;
-    // 					if (s->towards == t->towards)
-    // 					{
-    // 						s->Heuristic(Fx, Fy);
-    // 					}
-    // 					else
-    // 					{
-    // 						s->h = s->Heuristic(Fx, Fy) + 1;
-    // 					}
-    // 					s->step = t->step + 1;
-    // 					s->f = s->g + s->h;
-    // 					//t->towards = (MyPoint::Towards)i;
-    // 					//s->Gx = dirs[i][0];
-    // 					//s->Gy = dirs[i][1];
-    // 					//t->child[i] = s;
-    // 					//if (s->parent)
-    // 					s->parent = t;
-    // 					//log("s.x=%d,s.y=%d,t.x=%d,t.y=%d", s->x, s->y, t->x, t->y);
-    // 					//log("s.g=%d,s.h=%d,s.f=%d", s.g, s.h, s.f);
-    // 					que.push(s);
-    // 				}
-    // 			}
-    // 		}
-    // 	}
-    // 	myPoint->delTree(myPoint);
+    //  bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
+    //  int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };      //四个方向
+    //  MyPoint *myPoint = new MyPoint;
+    //  myPoint->x = Mx;
+    //  myPoint->y = My;
+    //  myPoint->towards = (MyPoint::Towards)CallFace(Mx, My, Fx, Fy);
+    //  myPoint->parent = myPoint;
+    //  myPoint->Heuristic(Fx, Fy);
+    //  //log("Fx=%d,Fy=%d", Fx, Fy);
+    //  //log("Mx=%d,My=%d", Mx, My);
+    //  while (!wayQue.empty())
+    //  {
+    //      wayQue.pop();
+    //  }
+    //  priority_queue<MyPoint*, vector<MyPoint*>, Compare> que;            //最小优先级队列(开启列表)
+    //  que.push(myPoint);
+    //  int sNum = 0;
+    //  while (!que.empty() && sNum <= 300) {
+    //      MyPoint *t = new MyPoint();
+    //      t = que.top();
+    //      que.pop();
+    //      visited[t->x][t->y] = true;
+    //      sNum++;
+    //      //log("t.x=%d,t.y=%d",t->x,t->y);
+    //      if (t->x == Fx && t->y == Fy) {
+    //          minStep = t->step;
+    //          wayQue.push(*t);
+    //          int k = 0;
+    //          while (t != myPoint&&k <= minStep)
+    //          {
+    //              //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
+    //
+    //              t->towards = t->parent->towards;
+    //              wayQue.push(*t);
+    //              t = t->parent;
+    //              k++;
+    //              //log("go in!");
+    //          }
+    //          //log("minStep=%d", minStep);
+    //          //log("wayQue=%d", wayQue.size());
+    //          break;
+    //      }
+    //      else {
+    //          for (int i = 0; i < 4; i++)
+    //          {
+    //              MyPoint *s = new MyPoint();
+    //              s->x = t->x + dirs[i][0];
+    //              s->y = t->y + dirs[i][1];
+    //              if (canWalk(s->x, s->y) && !checkIsOutScreen(s->x, s->y) && !visited[s->x][s->y])
+    //              {
+    //                  s->g = t->g + 10;
+    //                  s->towards = (MyPoint::Towards)i;
+    //                  if (s->towards == t->towards)
+    //                  {
+    //                      s->Heuristic(Fx, Fy);
+    //                  }
+    //                  else
+    //                  {
+    //                      s->h = s->Heuristic(Fx, Fy) + 1;
+    //                  }
+    //                  s->step = t->step + 1;
+    //                  s->f = s->g + s->h;
+    //                  //t->towards = (MyPoint::Towards)i;
+    //                  //s->Gx = dirs[i][0];
+    //                  //s->Gy = dirs[i][1];
+    //                  //t->child[i] = s;
+    //                  //if (s->parent)
+    //                  s->parent = t;
+    //                  //log("s.x=%d,s.y=%d,t.x=%d,t.y=%d", s->x, s->y, t->x, t->y);
+    //                  //log("s.g=%d,s.h=%d,s.f=%d", s.g, s.h, s.f);
+    //                  que.push(s);
+    //              }
+    //          }
+    //      }
+    //  }
+    //  myPoint->delTree(myPoint);
 }
 
 
 bool MainMap::checkIsOutScreen(int x, int y)
 {
     if (abs(Mx - x) >= 2 * widthregion || abs(My - y) >= sumregion)
-    {
         return true;
-    }
     else
-    {
         return false;
-    }
 }
 
-void MainMap::getMousePosition(Point *point)
+void MainMap::getMousePosition(Point* point)
 {
     int x = point->x;
     int y = Center_Y * 2 - point->y;
@@ -456,8 +418,6 @@ void MainMap::getMousePosition(Point *point)
 void MainMap::stopFindWay()
 {
     while (!wayQue.empty())
-    {
         wayQue.pop();
-    }
 }
 

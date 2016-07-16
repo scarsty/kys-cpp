@@ -34,7 +34,7 @@ public:
     int const begin_restTime = 200;      //开始休息的时间
     int const each_pictrueTime = 15;     //休息图切换间隔
     int const cloudSize = 240;           //云朵宽度
-    int const static tag_mainLayer = 1;  //主层编号 
+    int const static tag_mainLayer = 1;  //主层编号
     int const static tag_wordLayer = 1;  //文字层编号
 
 
@@ -59,7 +59,7 @@ public:
     bool checkIsWater(int x, int y);
     virtual bool checkIsOutLine(int x, int y);
     bool checkIsOutScreen(int x, int y);
-    void getMousePosition(Point *point);
+    void getMousePosition(Point* point);
     bool canWalk(int x, int y);
     bool checkIsEntrance(int x, int y);
     virtual void FindWay(int Mx, int My, int Fx, int Fy);

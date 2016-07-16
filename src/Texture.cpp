@@ -16,7 +16,7 @@ void Texture::copyTexture(const std::string& path, int num, int x, int y)
 {
     if (num < 0) return;
     auto engine = Engine::getInstance();
-    auto &v = tm.map[path.c_str()];
+    auto& v = tm.map[path.c_str()];
     if (v.size() == 0)
     {
         unsigned char* s;
@@ -33,7 +33,7 @@ void Texture::copyTexture(const std::string& path, int num, int x, int y)
         delete s;
         fprintf(stderr, "load textures info %s, %d\n", path.c_str(), l);
     }
-    auto &t = v[num];
+    auto& t = v[num];
     if (!t.loaded)
     {
         fprintf(stderr, "load texture %s, %d\n", path.c_str(), num);
