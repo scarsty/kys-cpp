@@ -2,6 +2,7 @@
 #include "Base.h"
 #include "Texture.h"
 #include "Point.h"
+#include "Save.h"
 
 class Scene :public Base
 {

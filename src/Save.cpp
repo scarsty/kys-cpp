@@ -21,56 +21,46 @@ Save::~Save()
 
 bool Save::LoadR(int num)
 {
-    unsigned char *Data;
     string filename, filename1;
     int i;
-    // 	filename = "save/R" + to_string(num);
-    // 	if (num == 0)
-    // 	{
-    // 		filename = "save/Ranger";
-    // 	}
-    // 	filename1 = filename + ".idx";
-    // 	cocos2d::Data Ridx = FileUtils::getInstance()->getDataFromFile(filename1);
-    // 
-    // 	if (!Ridx.isNull())
-    // 	{
-    // 		Offset = new int[Ridxlen / 4 + 1];
-    // 		Offset[0] = 0;
-    // 		Offset[1] = 32;
-    // 		memcpy(Offset + 2, Ridx.getBytes(), Ridxlen);
-    // 		for (i = 2; i < Ridxlen / 4 + 1; i++)
-    // 		{
-    // 			Offset[i] += 32;
-    // 		}
-    // 		Ridx.clear();
-    // 	}
-    // 	else
-    // 	{
-    // 		return false;
-    // 	}
-    // 
-    // 	filename1 = filename + ".grp";
-    // 	cocos2d::Data Rgrp = FileUtils::getInstance()->getDataFromFile(filename1);
-    // 
-    // 	if (!Rgrp.isNull())
-    // 	{
-    // 		Rgrplen = Rgrp.getSize();
-    // 		//Rgrp.seekg(0, ifstream::beg);
-    // 		Data = new unsigned char[Rgrplen];
-    // 		memcpy(Data, Rgrp.getBytes(), Rgrplen);
-    // 		jiemi(Data, key, Rgrplen);
-    // 		i = 0;
-    // 		GRPMD5_load = new unsigned char[32];
-    // 		memcpy(GRPMD5_load, Data + Offset[i], Offset[i + 1] - Offset[i]);
-    // 		
-    // 		//载入基本数据
-    // 		i = 1;
-    // 		int a = sizeof(BasicData);
-    // 		int b = (Offset[i + 1] - Offset[i]);
-    // 		B_Count =  1;
-    // 		m_BasicData.resize(B_Count);
-    // 		BasicData* pBasicData = &m_BasicData.at(0);
-    // 		memcpy(pBasicData, Data + Offset[i], Offset[i + 1] - Offset[i]);
+    filename = "save/R" + to_string(num);
+    if (num == 0)
+    {
+     		filename = "save/Ranger";
+    }
+    filename1 = filename + ".idx";
+	unsigned char *Ridx = new unsigned char[Ridxlen];
+	Offset = new int[Ridxlen / 4 + 1];
+	Offset = new int[Ridxlen / 4 + 1];
+	Offset[0] = 0;
+	Offset[1] = 32;
+	fprintf(stderr, "load file %s\n", filename1.c_str());
+	File::readFile(filename1.c_str(), Ridx, Ridxlen);
+	memcpy(Offset + 2, Ridx, Ridxlen);
+	for (i = 2; i < Ridxlen / 4 + 1; i++)
+	{
+		Offset[i] += 32;
+		}
+	delete[] Ridx;
+
+	int GrpLenth;
+    filename1 = filename + ".grp";
+	unsigned char *Rgrp;
+	fprintf(stderr, "load file %s\n", filename1.c_str());
+	File::readFile(filename1.c_str(), &Rgrp, &GrpLenth);
+	//jiemi(Rgrp, key, Rgrplen);
+    i = 0;
+   	GRPMD5_load = new unsigned char[32];
+   	memcpy(GRPMD5_load, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+     		
+    //载入基本数据
+    i = 1;
+    int a = sizeof(BasicData);
+    int b = (Offset[i + 1] - Offset[i]);
+//     B_Count =  1;
+//     m_BasicData.resize(B_Count);
+//    BasicData* pBasicData = m_BasicData.at(0);
+    memcpy(m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
     // 
     // 		//载入人物数据
     // 		i = 2;
@@ -96,15 +86,12 @@ bool Save::LoadR(int num)
     // // 		memcpy(pItem, Data + Offset[i], Offset[i + 1] - Offset[i]);
     // 
     // 		//载入场景数据
-    // 		i = 4;
-    // 		S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SceneData);
-    // 		m_SceneData.resize(S_Count);
-    // 		for (int j = 0; j < S_Count; j++){
-    // 			SceneData* pSceneData = &m_SceneData.at(j);
-    // 			memcpy(pSceneData, Data + Offset[i] + j*sizeof(SceneData), sizeof(SceneData));
-    // 		}
-    // // 		SceneData* pSceneData = &m_SceneData.at(0);
-    // // 		memcpy(pSceneData, Data + Offset[i], Offset[i + 1] - Offset[i]);
+     		i = 4;
+     		S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SceneData);
+     		for (int j = 0; j < S_Count; j++){
+       			memcpy(m_SceneData.at(j), Rgrp + Offset[i] + j*sizeof(SceneData), sizeof(SceneData));
+     		}
+
     // 
     // 		//载入武功数据
     // 		i = 5;
@@ -164,8 +151,7 @@ bool Save::LoadR(int num)
     // 		return  false;
     // 	}
     // 
-    unsigned char *Data1;
-    m_SceneMapData.resize(10);
+    //m_SceneMapData.resize(10);
     filename = "save/S" + to_string(num);
     if (num == 0)
     {
@@ -173,7 +159,7 @@ bool Save::LoadR(int num)
     }
     filename = filename + ".grp";
     fprintf(stderr,"load file %s\n",filename.c_str());
-    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0].Data[0][0][0]), 10 * 64 * 64 * 6 * 2);
+    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0]->Data[0][0][0]), 10 * 64 * 64 * 6 * 2);
 
     // 
     // 

@@ -38,7 +38,7 @@ void File::readFile(const char * filename, void* s, int len)
         fprintf(stderr, "Can not open file %s\n", filename);
         return;
     }
-    fseek(fp, 0, 0);
+	fseek(fp, 0, 0);
     fread(s, len, 1, fp);
     fclose(fp);
 }

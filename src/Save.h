@@ -1,5 +1,5 @@
 #pragma once
-// #include "BasicData.h"
+ #include "BasicData.h"
 // #include "Character.h"
 // #include "Item.h"
 // #include "Magic.h"
@@ -7,7 +7,7 @@
 // #include "ZhaoShi.h"
 // #include "Faction.h"
 // #include "Calendar.h"
-// #include "SceneData.h"
+#include "SceneData.h"
 #include "SceneMapData.h"
 // #include "SceneEventData.h"
 #include "md5.h"
@@ -55,15 +55,15 @@ public:
     void encryption(std::string str, unsigned char key);
 
     // 	 std::vector<BaoShop> m_Baoshop;
-    // 	 std::vector<BasicData> m_BasicData;
+     	 std::vector<BasicData*> m_BasicData;
     // 	 std::vector<Character> m_Character;
     // 	 Calendar m_Calendar;
     // 	 std::vector<Faction> m_Faction;
     // 	 std::vector<Magic> m_Magic;
-    // 	 std::vector<SceneData> m_SceneData;
+     	 std::vector<SceneData*> m_SceneData;
     // 	 std::vector<ZhaoShi> m_ZhaoShi;
     // 	 std::vector<Item> m_Item;
-    std::vector<SceneMapData> m_SceneMapData;
+    std::vector<SceneMapData*> m_SceneMapData;
     // 	 std::vector<SceneEventData> m_SceneEventData;
 };
 

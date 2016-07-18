@@ -1,6 +1,6 @@
 #include "SubScene.h"
 #include "MainMap.h"
-#include "Save.h"
+
 
 SubScene::SubScene()
 {
@@ -31,9 +31,9 @@ void SubScene::draw()
                 //EarthS[k]->setVisible(false);
                 //BuildS[k]->setVisible(false);
                 //这里注意状况
-                Point p1 = Point(0, -m_SceneMapData[sceneNum].Data[4][i1][i2]);
-                Point p2 = Point(0, -m_SceneMapData[sceneNum].Data[5][i1][i2]);
-                int num = m_SceneMapData[sceneNum].Data[0][i1][i2] / 2;
+                Point p1 = Point(0, -m_SceneMapData[sceneNum]->Data[4][i1][i2]);
+                Point p2 = Point(0, -m_SceneMapData[sceneNum]->Data[5][i1][i2]);
+                int num = m_SceneMapData[sceneNum]->Data[0][i1][i2] / 2;
                 if (num >= 0)
                 {
                     Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
@@ -47,7 +47,7 @@ void SubScene::draw()
                     //                     }
                 }
                 //建筑和主角同一层
-                num = m_SceneMapData[sceneNum].Data[1][i1][i2] / 2;
+                num = m_SceneMapData[sceneNum]->Data[1][i1][i2] / 2;
                 if (num > 0)
                 {
                     Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
@@ -60,7 +60,7 @@ void SubScene::draw()
                     //s->visit();
                 }
                 //事件层
-                num = m_SceneMapData[sceneNum].Data[3][i1][i2];
+                num = m_SceneMapData[sceneNum]->Data[3][i1][i2];
                 //                 int picNum = m_SceneEventData[sceneNum].Data[num].BeginPic1 / 2;
                 //                 if (num > 0 && m_SceneEventData[sceneNum].Data[num].IsActive >= 0 && picNum > 0)
                 //                 {
@@ -69,7 +69,7 @@ void SubScene::draw()
                 //                     t->setToSprite(s, p + p1, drawCount);
                 //                     map[calBlockTurn(i1, i2, 2)] = s;
                 //                 }
-                num = m_SceneMapData[sceneNum].Data[2][i1][i2] / 2;
+                num = m_SceneMapData[sceneNum]->Data[2][i1][i2] / 2;
                 if (num > 0)
                 {
                     map[calBlockTurn(i1, i2, 3)] = { num, p };
@@ -88,8 +88,8 @@ void SubScene::draw()
 void SubScene::init()
 {
     Save::getInstance()->LoadR(0);
-    Sx = 32;
-    Sy = 32;
+    Sx = 22;
+    Sy = 22;
     //Sx = m_SceneData[sceneNum].EntranceX;
     //Sy = m_SceneData[sceneNum].EntranceY;
 }
@@ -184,6 +184,7 @@ void SubScene::Walk(int x, int y, Towards t)
 
 bool SubScene::canWalk(int x, int y)
 {
+
     if (checkIsOutLine(x, y) || checkIsBuilding(x, y) || checkIsHinder(x, y)
         || checkIsEvent(x, y) || checkIsFall(x, y))
     {
@@ -197,11 +198,11 @@ bool SubScene::canWalk(int x, int y)
 
 bool SubScene::checkIsBuilding(int x, int y)
 {
-    //     if (m_SceneMapData[sceneNum].Data[1][x][y] >= -2 && m_SceneMapData[sceneNum].Data[1][x][y] <= 0)
-    //     {
-    //         return false;
-    //     }
-    //     else
+         if (Save::getInstance()->m_SceneMapData[sceneNum]->Data[1][x][y] >= -2 && Save::getInstance()->m_SceneMapData[sceneNum]->Data[1][x][y] <= 0)
+         {
+             return false;
+         }
+         else
     {
         return true;
     }

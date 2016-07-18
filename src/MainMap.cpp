@@ -190,6 +190,9 @@ void MainMap::dealEvent(BP_Event& e)
         }
         case BPK_SPACE:
         {
+			auto s = new SubScene();
+			s->setSceneNum(0);
+			push(s);
             //      stopFindWay();
             //      m_BasicData[0].Mx = Mx;
             //      m_BasicData[0].My = My;
@@ -206,9 +209,7 @@ void MainMap::dealEvent(BP_Event& e)
         }
     cloudMove();
 
-    auto s = new SubScene();
-    s->setSceneNum(0);
-    push(s);
+
 }
 
 
@@ -279,17 +280,15 @@ void MainMap::cloudMove()
 
 bool MainMap::checkIsEntrance(int x, int y)
 {
-    //  if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
-    //  {
-    //      m_BasicData[0].Mx = Mx;
-    //      m_BasicData[0].My = My;
-    //      m_BasicData[0].MFace = towards;
-    //      auto scene = SubScene::createScene(Entrance[x][y]);
-    //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
-    //      this->pause();
-    //      Director::getInstance()->replaceScene(transitionScene);
-    //      return true;
-    //  }
+      if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
+      {
+          Save::getInstance()->m_BasicData[0]->Mx = Mx;
+		  Save::getInstance()->m_BasicData[0]->My = My;
+		  Save::getInstance()->m_BasicData[0]->MFace = towards;
+		  auto s = new SubScene();
+		  s->setSceneNum(Entrance[x][y]);
+          return true;
+      }
     return false;
 }
 
@@ -298,22 +297,22 @@ void MainMap::getEntrance()
     for (int x = 0; x < maxX; x++)
         for (int y = 0; y < maxY; y++)
             Entrance[x][y] = -1;
-    //  for (int i = 0; i < m_SceneData.size(); i++)
-    //  {
-    //
-    //      int x = m_SceneData[i].MainEntranceX1;
-    //      int y = m_SceneData[i].MainEntranceY1;
-    //      if (x > 0 && y > 0 && x < maxX && y < maxY)
-    //      {
-    //          Entrance[x][y] = i;
-    //      }
-    //      x = m_SceneData[i].MainEntranceX2;
-    //      y = m_SceneData[i].MainEntranceY2;
-    //      if (x > 0 && y > 0 && x < maxX && y < maxY)
-    //      {
-    //          Entrance[x][y] = i;
-    //      }
-    //  }
+      for (int i = 0; i < Save::getInstance()->m_SceneData.size(); i++)
+      {
+    
+          int x = Save::getInstance()->m_SceneData[i]->MainEntranceX1;
+          int y = Save::getInstance()->m_SceneData[i]->MainEntranceY1;
+          if (x > 0 && y > 0 && x < maxX && y < maxY)
+          {
+              Entrance[x][y] = i;
+          }
+          x = Save::getInstance()->m_SceneData[i]->MainEntranceX2;
+          y = Save::getInstance()->m_SceneData[i]->MainEntranceY2;
+          if (x > 0 && y > 0 && x < maxX && y < maxY)
+          {
+              Entrance[x][y] = i;
+          }
+      }
 }
 
 //A*Ѱ·
