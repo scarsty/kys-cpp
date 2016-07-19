@@ -84,6 +84,9 @@
     <ClCompile Include="src\Error.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\SubScene.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -144,6 +147,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Error.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubScene.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

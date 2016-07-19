@@ -173,6 +173,7 @@
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -195,6 +196,7 @@
     <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\Texture.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

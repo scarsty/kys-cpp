@@ -34,6 +34,11 @@ void HelloWorldScene::func(BP_Event &e, void* data)
 		auto m = new MainMap();
 		push(m);
 	}
+	if (i == 1)
+	{
+		auto m = new MainMap();
+		push(m);
+	}
 }
 
 void HelloWorldScene::init()
