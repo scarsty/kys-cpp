@@ -71,12 +71,16 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)x86\$(Configuration)\</OutDir>
+    <IntDir>x86\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)x86\$(Configuration)\</OutDir>
+    <IntDir>x86\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -88,7 +92,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Classes;.</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Classes;.;include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -117,7 +121,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Classes;.</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Classes;.;include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -147,6 +151,8 @@
     <Text Include="readme.md" />
   </ItemGroup>
   <ItemGroup>
+    <Library Include="lib\bass.lib" />
+    <Library Include="lib\bassmidi.lib" />
     <Library Include="lib\SDL2.lib" />
     <Library Include="lib\SDL2main.lib" />
     <Library Include="lib\SDL2_image.lib" />
@@ -154,6 +160,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\AppDelegate.cpp" />
+    <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BaoShop.cpp" />
     <ClCompile Include="src\Base.cpp" />
     <ClCompile Include="src\BasicData.cpp" />
@@ -173,11 +180,14 @@
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\SceneData.cpp" />
+    <ClCompile Include="src\SceneMapData.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h" />
+    <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\BaoShop.h" />
     <ClInclude Include="src\Base.h" />
     <ClInclude Include="src\BasicData.h" />
@@ -196,6 +206,8 @@
     <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\SceneData.h" />
+    <ClInclude Include="src\SceneMapData.h" />
     <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\Texture.h" />
   </ItemGroup>

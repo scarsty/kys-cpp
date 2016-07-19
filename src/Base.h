@@ -25,7 +25,7 @@ public:
 
 	bool visible = true;
 
-	template <class T> void safe_delete(T* pointer)
+	template <class T> void safe_delete(T*& pointer)
 	{
 		if (pointer)
 			delete pointer;

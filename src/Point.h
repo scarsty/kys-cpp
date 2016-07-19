@@ -2,9 +2,10 @@
 class Point
 {
 public:
-	Point();
-	virtual ~Point();
+    Point();
+    Point(int _x, int _y);
+    virtual ~Point();
 
-	int x, y;
+    int x, y;
 };
 
