@@ -282,9 +282,9 @@ bool MainMap::checkIsEntrance(int x, int y)
 {
       if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
       {
-          Save::getInstance()->m_BasicData[0]->Mx = Mx;
-		  Save::getInstance()->m_BasicData[0]->My = My;
-		  Save::getInstance()->m_BasicData[0]->MFace = towards;
+          Save::getInstance()->m_BasicData[0].Mx = Mx;
+		  Save::getInstance()->m_BasicData[0].My = My;
+		  Save::getInstance()->m_BasicData[0].MFace = towards;
 		  auto s = new SubScene();
 		  s->setSceneNum(Entrance[x][y]);
           return true;
@@ -300,14 +300,14 @@ void MainMap::getEntrance()
       for (int i = 0; i < Save::getInstance()->m_SceneData.size(); i++)
       {
     
-          int x = Save::getInstance()->m_SceneData[i]->MainEntranceX1;
-          int y = Save::getInstance()->m_SceneData[i]->MainEntranceY1;
+          int x = Save::getInstance()->m_SceneData[i].MainEntranceX1;
+          int y = Save::getInstance()->m_SceneData[i].MainEntranceY1;
           if (x > 0 && y > 0 && x < maxX && y < maxY)
           {
               Entrance[x][y] = i;
           }
-          x = Save::getInstance()->m_SceneData[i]->MainEntranceX2;
-          y = Save::getInstance()->m_SceneData[i]->MainEntranceY2;
+          x = Save::getInstance()->m_SceneData[i].MainEntranceX2;
+          y = Save::getInstance()->m_SceneData[i].MainEntranceY2;
           if (x > 0 && y > 0 && x < maxX && y < maxY)
           {
               Entrance[x][y] = i;
