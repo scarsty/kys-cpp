@@ -57,8 +57,8 @@ bool Save::LoadR(int num)
     i = 1;
     int a = sizeof(BasicData);
     int b = (Offset[i + 1] - Offset[i]);
-//     B_Count =  1;
-//     m_BasicData.resize(B_Count);
+    B_Count =  1;
+	m_BasicData.resize(B_Count);
 //    BasicData* pBasicData = m_BasicData.at(0);
     memcpy(m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
     // 
