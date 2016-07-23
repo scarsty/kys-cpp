@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "battle.h"
 
+/**/
 class MyPoint : public Point
 {
 public:
@@ -238,4 +239,6 @@ public:
 	std::string a2u(const char *inbuf);
 
 };
+
+
 

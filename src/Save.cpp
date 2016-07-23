@@ -48,7 +48,7 @@ bool Save::LoadR(int num)
 	unsigned char *Rgrp;
 	fprintf(stderr, "load file %s\n", filename1.c_str());
 	File::readFile(filename1.c_str(), &Rgrp, &GrpLenth);
-	//jiemi(Rgrp, key, Rgrplen);
+	jiemi(Rgrp, key, Rgrplen);
     i = 0;
    	GRPMD5_load = new unsigned char[32];
    	memcpy(GRPMD5_load, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
@@ -57,10 +57,10 @@ bool Save::LoadR(int num)
     i = 1;
     int a = sizeof(BasicData);
     int b = (Offset[i + 1] - Offset[i]);
-    B_Count =  1;
-	m_BasicData.resize(B_Count);
-//    BasicData* pBasicData = m_BasicData.at(0);
-    memcpy(m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+     B_Count =  1;
+     m_BasicData.resize(B_Count);
+    //BasicData* pBasicData = &m_BasicData.at(0);
+    memcpy(&m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
     // 
     // 		//载入人物数据
     // 		i = 2;
@@ -88,8 +88,9 @@ bool Save::LoadR(int num)
     // 		//载入场景数据
      		i = 4;
      		S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SceneData);
+			m_SceneData.resize(S_Count);
      		for (int j = 0; j < S_Count; j++){
-       			memcpy(m_SceneData.at(j), Rgrp + Offset[i] + j*sizeof(SceneData), sizeof(SceneData));
+       			memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j*sizeof(SceneData), sizeof(SceneData));
      		}
 
     // 
@@ -159,7 +160,7 @@ bool Save::LoadR(int num)
     }
     filename = filename + ".grp";
     fprintf(stderr,"load file %s\n",filename.c_str());
-    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0]->Data[0][0][0]), 10 * 64 * 64 * 6 * 2);
+    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0].Data[0][0][0]), 10 * 64 * 64 * 6 * 2);
 
     // 
     // 
