@@ -152,7 +152,7 @@ bool Save::LoadR(int num)
     // 		return  false;
     // 	}
     // 
-    //m_SceneMapData.resize(10);
+    m_SceneMapData.resize(10);
     filename = "save/S" + to_string(num);
     if (num == 0)
     {

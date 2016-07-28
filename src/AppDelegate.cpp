@@ -50,6 +50,7 @@ void AppDelegate::mainLoop(BP_Event & e)
                 b->draw();
         }
         //处理最上层的消息
+		int test = Base::baseVector.size();
         if (Base::baseVector.size() > 0)
             Base::baseVector.back()->dealEvent(e);
         switch (e.type)
