@@ -7,3 +7,4 @@ work/*
 *.idb
 *.iobj
 *.ipdb
+x86/
