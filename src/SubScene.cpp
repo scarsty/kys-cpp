@@ -86,8 +86,7 @@ void SubScene::draw()
 }
 
 void SubScene::init()
-{
-    Save::getInstance()->LoadR(0);
+{    
     Sx = 22;
     Sy = 22;
     //Sx = m_SceneData[sceneNum].EntranceX;

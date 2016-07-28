@@ -31,6 +31,7 @@ void HelloWorldScene::func(BP_Event &e, void* data)
 		e.type = BP_QUIT;
 	if (i == 0)
 	{
+		Save::getInstance()->LoadR(0);
 		auto m = new MainMap();
 		push(m);
 	}
