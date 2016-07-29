@@ -87,10 +87,8 @@ void SubScene::draw()
 
 void SubScene::init()
 {    
-    Sx = 22;
-    Sy = 22;
-    //Sx = m_SceneData[sceneNum].EntranceX;
-    //Sy = m_SceneData[sceneNum].EntranceY;
+    Sx = Save::getInstance()->m_SceneData[sceneNum].EntranceX;
+    Sy = Save::getInstance()->m_SceneData[sceneNum].EntranceY;
 }
 
 void SubScene::dealEvent(BP_Event& e)
