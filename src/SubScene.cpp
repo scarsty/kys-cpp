@@ -114,7 +114,9 @@ void SubScene::dealEvent(BP_Event& e)
         case BPK_LEFT:
         {
             y--;
-            checkIsExit(x, y);
+			if (checkIsExit(x, y)) {
+				break;
+			}
             Walk(x, y, LeftDown);
             stopFindWay();
             break;
@@ -122,7 +124,9 @@ void SubScene::dealEvent(BP_Event& e)
         case BPK_RIGHT:
         {
             y++;
-            checkIsExit(x, y);
+			if (checkIsExit(x, y)) {
+				break;
+			}
             Walk(x, y, RightUp);
             stopFindWay();
             break;
@@ -130,7 +134,9 @@ void SubScene::dealEvent(BP_Event& e)
         case BPK_UP:
         {
             x--;
-            checkIsExit(x, y);
+			if (checkIsExit(x, y)) {
+				break;
+			}
             Walk(x, y, LeftUp);
             stopFindWay();
             break;
@@ -138,7 +144,9 @@ void SubScene::dealEvent(BP_Event& e)
         case BPK_DOWN:
         {
             x++;
-            checkIsExit(x, y);
+			if (checkIsExit(x, y)) {
+				break;
+			}
             Walk(x, y, RightDown);
             stopFindWay();
             break;
@@ -197,11 +205,11 @@ bool SubScene::canWalk(int x, int y)
 
 bool SubScene::checkIsBuilding(int x, int y)
 {
-         if (Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] >= -2 && Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] <= 0)
-         {
-             return false;
-         }
-         else
+	if (Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] >= -2 && Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] <= 0)
+	{
+		return false;
+	}
+	else
     {
         return true;
     }
@@ -221,65 +229,59 @@ bool SubScene::checkIsOutLine(int x, int y)
 
 bool SubScene::checkIsHinder(int x, int y)
 {
-    //     if (m_SceneMapData[sceneNum].Data[0][x][y] >= 358 && m_SceneMapData[sceneNum].Data[0][x][y] <= 362
-    //         || m_SceneMapData[sceneNum].Data[0][x][y] == 522 || m_SceneMapData[sceneNum].Data[0][x][y] == 1022
-    //         || m_SceneMapData[sceneNum].Data[0][x][y] >= 1324 && m_SceneMapData[sceneNum].Data[0][x][y] <= 1330
-    //         || m_SceneMapData[sceneNum].Data[0][x][y] == 1348)
-    //     {
-    //         return true;
-    //     }
+    if (Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] >= 358 && Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] <= 362
+         || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 522 || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 1022
+         || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] >= 1324 && Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] <= 1330
+         || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 1348)
+    {
+		return true;
+    }
     return false;
 }
 
 bool SubScene::checkIsEvent(int x, int y)
 {
-    //     //if (save.SData[sceneNum].SData[4][x][y] >= 0 && (save.DData[sceneNum].DData[save.SData[sceneNum].SData[3][x][y],0] % 10)<1)
-    //     int num = m_SceneMapData[sceneNum].Data[3][x][y];
-    //     int canWalk = m_SceneEventData[sceneNum].Data[num].CanWalk;
-    //     if (canWalk > 0)
-    //     {
-    //         return true;
-    //     }
+        //if (save.SData[sceneNum].SData[4][x][y] >= 0 && (save.DData[sceneNum].DData[save.SData[sceneNum].SData[3][x][y],0] % 10)<1)
+//     int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
+//     int canWalk = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].CanWalk;
+//     if (canWalk > 0)
+//     {
+//         return true;
+//     }
     return false;
 }
 
 bool SubScene::checkIsFall(int x, int y)
 {
-    //     if (abs(m_SceneMapData[sceneNum].Data[4][x][y] - m_SceneMapData[sceneNum].Data[4][Sx][Sy] > 10))
-    //     {
-    //         true;
-    //     }
+    if (abs(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y] - Save::getInstance()->m_SceneMapData[sceneNum].Data[4][Sx][Sy] > 10))
+    {
+		true;
+     }
     return false;
 }
 
 bool SubScene::checkIsExit(int x, int y)
 {
-    //     if ((int)m_SceneData[sceneNum].ExitX[0] == x && (int)m_SceneData[sceneNum].ExitY[0] == y
-    //         || (int)m_SceneData[sceneNum].ExitX[2] == x && (int)m_SceneData[sceneNum].ExitY[2] == y)
-    //     {
-    //         auto map = MainMap::createScene();
-    //         auto transitionMap = TransitionPageTurn::create(0.2f, map, false);
-    //         this->pause();
-    //         Director::getInstance()->replaceScene(transitionMap);
-    //         return true;
-    //     }
-    //     else if ((int)m_SceneData[sceneNum].ExitX[1] == x && (int)m_SceneData[sceneNum].ExitY[1] == y)
-    //     {
-    //         /*
-    //         SaveGame::getInstance()->RBasic_Data.Mface = towards;
-    //         SaveGame::getInstance()->RBasic_Data.Mx = save.RScene[sceneNum]->MainEntranceX2;
-    //         SaveGame::getInstance()->RBasic_Data.My = save.RScene[sceneNum]->MainEntranceY2;
-    //         Mx = save.RScene[sceneNum]->MainEntranceX2;
-    //         My = save.RScene[sceneNum]->MainEntranceY2;
-    //         MainMap* mainMap = dynamic_cast<MainMap*>(Director::getInstance()->getRunningScene()->getChildByTag(MainMap::tag_mainLayer));
-    //         CommonScene::replaceLocation();
-    //         */
-    //         auto map = MainMap::createScene();
-    //         auto transitionMap = TransitionPageTurn::create(0.2f, map, false);
-    //         this->pause();
-    //         Director::getInstance()->replaceScene(transitionMap);
-    //         return true;
-    //     }
+         if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[0] == x && (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[0] == y
+             || (int)Save::getInstance()->m_SceneData[sceneNum].ExitX[2] == x && (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[2] == y)
+         {
+			 pop();
+             return true;
+         }
+         else if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[1] == x && (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[1] == y)
+         {
+             /*
+             SaveGame::getInstance()->RBasic_Data.Mface = towards;
+             SaveGame::getInstance()->RBasic_Data.Mx = save.RScene[sceneNum]->MainEntranceX2;
+             SaveGame::getInstance()->RBasic_Data.My = save.RScene[sceneNum]->MainEntranceY2;
+             Mx = save.RScene[sceneNum]->MainEntranceX2;
+             My = save.RScene[sceneNum]->MainEntranceY2;
+             MainMap* mainMap = dynamic_cast<MainMap*>(Director::getInstance()->getRunningScene()->getChildByTag(MainMap::tag_mainLayer));
+             CommonScene::replaceLocation();
+             */
+			 pop();
+			 return true;
+         }
     return false;
 }
 

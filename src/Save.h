@@ -9,7 +9,7 @@
 // #include "Calendar.h"
 #include "SceneData.h"
 #include "SceneMapData.h"
-// #include "SceneEventData.h"
+#include "SceneEventData.h"
 #include "md5.h"
 #include "config.h"
 #include <vector>
@@ -64,6 +64,6 @@ public:
     // 	 std::vector<ZhaoShi> m_ZhaoShi;
     // 	 std::vector<Item> m_Item;
 	std::vector<SceneMapData> m_SceneMapData;
-    // 	 std::vector<SceneEventData> m_SceneEventData;
+    //std::vector<SceneEventData> m_SceneEventData;
 };
 
