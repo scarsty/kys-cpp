@@ -32,29 +32,29 @@ bool Save::LoadR(int num)
     unsigned char* Ridx = new unsigned char[Ridxlen];
     Offset = new int[Ridxlen / 4 + 1];
     Offset = new int[Ridxlen / 4 + 1];
+    //Offset[0] = 0;
     Offset[0] = 0;
-    Offset[1] = 32;
     fprintf(stderr, "load file %s\n", filename1.c_str());
     File::readFile(filename1.c_str(), Ridx, Ridxlen);
-    memcpy(Offset + 2, Ridx, Ridxlen);
-    for (i = 2; i < Ridxlen / 4 + 1; i++)
-    {
-        Offset[i] += 32;
-    }
-    delete[] Ridx;
+    memcpy(Offset+1, Ridx, Ridxlen);
+//     for (i = 2; i < Ridxlen / 4 + 1; i++)
+//     {
+//         Offset[i] += 32;
+//     }
+//     delete[] Ridx;
 
     int GrpLenth;
     filename1 = filename + ".grp";
     unsigned char* Rgrp;
     fprintf(stderr, "load file %s\n", filename1.c_str());
     File::readFile(filename1.c_str(), &Rgrp, &GrpLenth);
-    jiemi(Rgrp, key, Rgrplen);
-    i = 0;
-    GRPMD5_load = new unsigned char[32];
-    memcpy(GRPMD5_load, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+    //jiemi(Rgrp, key, Rgrplen);
+//     i = 0;
+//     GRPMD5_load = new unsigned char[32];
+//     memcpy(GRPMD5_load, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
 
     //载入基本数据
-    i = 1;
+    i = 0;
     int a = sizeof(BasicData);
     int b = (Offset[i + 1] - Offset[i]);
     B_Count =  1;
@@ -63,7 +63,7 @@ bool Save::LoadR(int num)
     memcpy(&m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
     //
     //      //载入人物数据
-    //      i = 2;
+    //      i = 1;
     //      R_Count = (Offset[i + 1] - Offset[i]) / sizeof(Character);
     //      m_Character.resize(R_Count);
     //      for (int j = 0; j < R_Count; j++){
@@ -75,7 +75,7 @@ bool Save::LoadR(int num)
     //
     //
     //      //载入物品数据
-    //      i = 3;
+    //      i = 2;
     //      I_Count = (Offset[i + 1] - Offset[i]) / sizeof(Item);
     //      m_Item.resize(I_Count);
     //      for (int j = 0; j < I_Count; j++){
@@ -86,13 +86,14 @@ bool Save::LoadR(int num)
     // //       memcpy(pItem, Data + Offset[i], Offset[i + 1] - Offset[i]);
     //
     //      //载入场景数据
-    i = 4;
+    i = 3;
     S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SceneData);
     m_SceneData.resize(S_Count);
-    for (int j = 0; j < S_Count; j++)
-    {
-        memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SceneData), sizeof(SceneData));
-    }
+	memcpy(&m_SceneData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+//     for (int j = 0; j < S_Count; j++)
+//     {
+//         memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SceneData), sizeof(SceneData));
+//     }
 
     //
     //      //载入武功数据
@@ -153,7 +154,7 @@ bool Save::LoadR(int num)
     //      return  false;
     //  }
     //
-    m_SceneMapData.resize(10);
+    m_SceneMapData.resize(S_Count);
     filename = "save/S" + to_string(num);
     if (num == 0)
     {
@@ -161,7 +162,7 @@ bool Save::LoadR(int num)
     }
     filename = filename + ".grp";
     fprintf(stderr, "load file %s\n", filename.c_str());
-    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0].Data[0][0][0]), 10 * 64 * 64 * 6 * 2);
+    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0].Data[0][0][0]), S_Count * 64 * 64 * 6 * 2);
 
     //
     //

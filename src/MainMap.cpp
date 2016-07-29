@@ -190,9 +190,6 @@ void MainMap::dealEvent(BP_Event& e)
         }
         case BPK_SPACE:
         {
-			auto s = new SubScene();
-			s->setSceneNum(0);
-			push(s);
             //      stopFindWay();
             //      m_BasicData[0].Mx = Mx;
             //      m_BasicData[0].My = My;
@@ -201,6 +198,9 @@ void MainMap::dealEvent(BP_Event& e)
             //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
             //      this->pause();
             //      Director::getInstance()->replaceScene(transitionScene);
+			auto s = new SubScene();
+			s->setSceneNum(0);
+			push(s);
         }
         default:
         {
@@ -287,6 +287,7 @@ bool MainMap::checkIsEntrance(int x, int y)
 		  Save::getInstance()->m_BasicData[0].MFace = towards;
 		  auto s = new SubScene();
 		  s->setSceneNum(Entrance[x][y]);
+		  push(s);
           return true;
       }
     return false;
