@@ -37,7 +37,7 @@ public:
     bool checkIsOutScreen(int x, int y);
     void stopFindWay();
 
-    void getMousePosition(Point *point);
+    void getMousePosition(int _x, int _y);
     virtual void FindWay(int Mx, int My, int Fx, int Fy);
 
     inline int calBlockTurn(int x, int y, int layer)

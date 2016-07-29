@@ -205,9 +205,6 @@ void MainMap::dealEvent(BP_Event& e)
             //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
             //      this->pause();
             //      Director::getInstance()->replaceScene(transitionScene);
-			auto s = new SubScene();
-			s->setSceneNum(0);
-			push(s);
         }
         default:
         {
