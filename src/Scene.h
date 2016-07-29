@@ -42,6 +42,15 @@ public:
 
     Point getPositionOnScreen(int x, int y, int CenterX, int CenterY);
     Point getMapPoint(int x, int y, int CenterX, int CenterY);
+	int CallFace(int x1, int y1, int x2, int y2);
 
 };
 
+class Compare
+{
+public:
+	bool operator () (Point *point1, Point *point2)
+	{
+		return point1->lessthan(point2);
+	}
+};
