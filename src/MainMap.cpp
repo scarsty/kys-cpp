@@ -422,7 +422,7 @@ void MainMap::getMousePosition(int _x,int _y)
 	int x = _x;
 	int y = _y;
 	int yp = 0;
-	Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Mx;
-	Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + My;
+	Msx = (-(x - Center_X) / singleMapScene_X + (y - Center_Y) / singleMapScene_Y)/2 + Mx;
+	Msy = ((y - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X)/2 + My;
 }
 
