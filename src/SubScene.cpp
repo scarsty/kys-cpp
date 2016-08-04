@@ -320,8 +320,8 @@ void SubScene::getMousePosition(int _x, int _y)
          int y = _y;
          //int yp = 0;
          int yp = -(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y]);
-         Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Sx;
-         Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Sy;
+		 Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Sx;
+		 Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Sy;
 }
 
 void SubScene::FindWay(int Mx, int My, int Fx, int Fy)
