@@ -98,6 +98,21 @@
     <ClCompile Include="src\SceneMapData.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\Item.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ZhaoShi.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Magic.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Faction.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SceneEventData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -170,6 +185,21 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\SceneMapData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Item.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ZhaoShi.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Magic.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Faction.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SceneEventData.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -171,9 +171,12 @@
     <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Error.cpp" />
+    <ClCompile Include="src\Faction.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
+    <ClCompile Include="src\Item.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
+    <ClCompile Include="src\Magic.cpp" />
     <ClCompile Include="src\MainMap.cpp" />
     <ClCompile Include="src\md5.cpp" />
     <ClCompile Include="src\Menu.cpp" />
@@ -181,9 +184,11 @@
     <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\SceneData.cpp" />
+    <ClCompile Include="src\SceneEventData.cpp" />
     <ClCompile Include="src\SceneMapData.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\ZhaoShi.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h" />
@@ -198,8 +203,11 @@
     <ClInclude Include="src\config.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Error.h" />
+    <ClInclude Include="src\Faction.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
+    <ClInclude Include="src\Item.h" />
+    <ClInclude Include="src\Magic.h" />
     <ClInclude Include="src\MainMap.h" />
     <ClInclude Include="src\md5.h" />
     <ClInclude Include="src\Menu.h" />
@@ -207,9 +215,11 @@
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\SceneData.h" />
+    <ClInclude Include="src\SceneEventData.h" />
     <ClInclude Include="src\SceneMapData.h" />
     <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\ZhaoShi.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

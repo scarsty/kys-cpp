@@ -34,7 +34,7 @@ bool Save::LoadR(int num)
     Offset = new int[Ridxlen / 4 + 1];
     //Offset[0] = 0;
     Offset[0] = 0;
-    fprintf(stderr, "load file %s\n", filename1.c_str());
+    std::fprintf(stderr, "load file %s\n", filename1.c_str());
     File::readFile(filename1.c_str(), Ridx, Ridxlen);
     memcpy(Offset+1, Ridx, Ridxlen);
 //     for (i = 2; i < Ridxlen / 4 + 1; i++)
@@ -46,7 +46,7 @@ bool Save::LoadR(int num)
     int GrpLenth;
     filename1 = filename + ".grp";
     unsigned char* Rgrp;
-    fprintf(stderr, "load file %s\n", filename1.c_str());
+	std::fprintf(stderr, "load file %s\n", filename1.c_str());
     File::readFile(filename1.c_str(), &Rgrp, &GrpLenth);
     //jiemi(Rgrp, key, Rgrplen);
 //     i = 0;
@@ -61,99 +61,87 @@ bool Save::LoadR(int num)
     m_BasicData.resize(B_Count);
     //BasicData* pBasicData = &m_BasicData.at(0);
     memcpy(&m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
-    //
-    //      //载入人物数据
-    //      i = 1;
-    //      R_Count = (Offset[i + 1] - Offset[i]) / sizeof(Character);
-    //      m_Character.resize(R_Count);
-    //      for (int j = 0; j < R_Count; j++){
-    //          Character* pCharacter = &m_Character.at(j);
-    //          memcpy(pCharacter, Data + Offset[i] + j*sizeof(Character), sizeof(Character));
-    //      }
-    // //       Character* pCharacter = &m_Character.at(0);
-    // //       memcpy(pCharacter, Data + Offset[i], Offset[i + 1] - Offset[i]);
-    //
-    //
-    //      //载入物品数据
-    //      i = 2;
-    //      I_Count = (Offset[i + 1] - Offset[i]) / sizeof(Item);
-    //      m_Item.resize(I_Count);
-    //      for (int j = 0; j < I_Count; j++){
-    //          Item* pItem = &m_Item.at(j);
-    //          memcpy(pItem, Data + Offset[i] + j*sizeof(Item), sizeof(Item));
-    //      }
-    // //       Item* pItem = &m_Item.at(0);
-    // //       memcpy(pItem, Data + Offset[i], Offset[i + 1] - Offset[i]);
-    //
-    //      //载入场景数据
+    
+    //载入人物数据
+    i = 1;
+    R_Count = (Offset[i + 1] - Offset[i]) / sizeof(Character);
+    m_Character.resize(R_Count);
+    for (int j = 0; j < R_Count; j++){
+        Character* pCharacter = &m_Character.at(j);
+        memcpy(pCharacter, Rgrp + Offset[i] + j*sizeof(Character), sizeof(Character));
+    }
+    
+    
+    //载入物品数据
+    i = 2;
+    I_Count = (Offset[i + 1] - Offset[i]) / sizeof(Item);
+    m_Item.resize(I_Count);
+    for (int j = 0; j < I_Count; j++){
+        Item* pItem = &m_Item.at(j);
+        memcpy(pItem, Rgrp + Offset[i] + j*sizeof(Item), sizeof(Item));
+    }
+    
+    //载入场景数据
     i = 3;
     S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SceneData);
     m_SceneData.resize(S_Count);
-	memcpy(&m_SceneData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
-//     for (int j = 0; j < S_Count; j++)
-//     {
-//         memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SceneData), sizeof(SceneData));
-//     }
+	//memcpy(&m_SceneData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+     for (int j = 0; j < S_Count; j++)
+     {
+         memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SceneData), sizeof(SceneData));
+     }
+    
+    //载入武功数据
+    i = 4;
+    M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Magic);
+    m_Magic.resize(M_Count);
+    for (int j = 0; j < M_Count; j++){
+        Magic* pMagic = &m_Magic.at(j);
+        memcpy(pMagic, Rgrp + Offset[i] + j*sizeof(Magic), sizeof(Magic));
+    }
 
-    //
-    //      //载入武功数据
-    //      i = 5;
-    //      M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Magic);
-    //      m_Magic.resize(M_Count);
-    //      for (int j = 0; j < M_Count; j++){
-    //          Magic* pMagic = &m_Magic.at(j);
-    //          memcpy(pMagic, Data + Offset[i] + j*sizeof(Magic), sizeof(Magic));
-    //      }
-    // //       Magic* pMagic = &m_Magic.at(0);
-    // //       memcpy(pMagic, Data + Offset[i], Offset[i + 1] - Offset[i]);
-    //
-    //      //载入小宝商店数据
-    //      i = 6;
-    //      SP_Count = (Offset[i + 1] - Offset[i]) / sizeof(BaoShop);
-    //      m_Baoshop.resize(SP_Count);
-    //      for (int j = 0; j < SP_Count; j++){
-    //          BaoShop* pBaoShop = &m_Baoshop.at(j);
-    //          memcpy(pBaoShop, Data + Offset[i] + j*sizeof(BaoShop), sizeof(BaoShop));
-    //      }
-    //
-    //      //载入
-    //      i = 7;
-    //      //Calendar::m_Calendar.resize(1);
-    //      Calendar* pCalendar = &m_Calendar;
-    //      memcpy(pCalendar, Data + Offset[i], Offset[i + 1] - Offset[i]);
-    //
-    //
-    //      i = 8;
-    //      Z_Count = (Offset[i + 1] - Offset[i]) / sizeof(ZhaoShi);
-    //      m_ZhaoShi.resize(Z_Count);
-    //      for (int j = 0; j < Z_Count; j++){
-    //          ZhaoShi* pZhaoShi = &m_ZhaoShi.at(j);
-    //          memcpy(pZhaoShi, Data + Offset[i] + j*sizeof(ZhaoShi), sizeof(ZhaoShi));
-    //      }
-    // //       ZhaoShi* pZhaoShi = &m_ZhaoShi.at(0);
-    // //       memcpy(pZhaoShi, Data + Offset[i], Offset[i + 1] - Offset[i]);
-    //
-    //      i = 9;
-    //      M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Faction);
-    //          m_Faction.resize(M_Count);
-    //          for (int j = 0; j < M_Count; j++){
-    //              Faction* pFaction = &m_Faction.at(j);
-    //              memcpy(pFaction, Data + Offset[i] + j*sizeof(Faction), sizeof(Faction));
-    //          }
-    //      Rgrp.clear();
-    //
-    //
-    // //       GRPMD5_cal = new unsigned char[MD5len];
-    // //       strcpy((char *)GRPMD5_cal, (char *)(MD5Encode(Data + MD5len, Rgrplen - MD5len)));
-    // //       //对比md5
-    // //       memcmp(GRPMD5_cal, Data, MD5len);
-    //      delete(Data);
-    //  }
-    //  else
-    //  {
-    //      return  false;
-    //  }
-    //
+    
+    //载入小宝商店数据
+    i = 5;
+    SP_Count = (Offset[i + 1] - Offset[i]) / sizeof(BaoShop);
+    m_Baoshop.resize(SP_Count);
+    for (int j = 0; j < SP_Count; j++){
+        BaoShop* pBaoShop = &m_Baoshop.at(j);
+        memcpy(pBaoShop, Rgrp + Offset[i] + j*sizeof(BaoShop), sizeof(BaoShop));
+    }
+    
+    //载入
+    i = 6;
+    m_Calendar.resize(1);
+	Calendar* pCalendar = &m_Calendar.at(0);
+    memcpy(pCalendar, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+    
+    
+    i = 7;
+    Z_Count = (Offset[i + 1] - Offset[i]) / sizeof(ZhaoShi);
+    m_ZhaoShi.resize(Z_Count);
+    for (int j = 0; j < Z_Count; j++){
+        ZhaoShi* pZhaoShi = &m_ZhaoShi.at(j);
+        memcpy(pZhaoShi, Rgrp + Offset[i] + j*sizeof(ZhaoShi), sizeof(ZhaoShi));
+    }
+
+    
+    i = 8;
+    M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Faction);
+    m_Faction.resize(M_Count);
+    for (int j = 0; j < M_Count; j++){
+        Faction* pFaction = &m_Faction.at(j);
+        memcpy(pFaction, Rgrp + Offset[i] + j*sizeof(Faction), sizeof(Faction));
+    }
+    // Rgrp.clear();
+    
+    
+     //       GRPMD5_cal = new unsigned char[MD5len];
+     //       strcpy((char *)GRPMD5_cal, (char *)(MD5Encode(Data + MD5len, Rgrplen - MD5len)));
+     //       //对比md5
+     //       memcmp(GRPMD5_cal, Data, MD5len);
+    delete(Rgrp);
+    
     m_SceneMapData.resize(S_Count);
     filename = "save/S" + to_string(num);
     if (num == 0)
