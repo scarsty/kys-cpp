@@ -30,7 +30,7 @@ documentation and/or software.
 
 */
 
-ddd/* interface header */
+/* interface header */
 #include "md5.h"
 
 /* system implementation headers */
