@@ -136,18 +136,25 @@ void MainMap::dealEvent(BP_Event& e)
 {
     int x = Mx, y = My;
     //drawCount++;
-//  if (!wayQue.empty())
-//  {
-//      MyPoint newMyPoint = wayQue.top();
-//      x = newMyPoint.x;
-//      y = newMyPoint.y;
-//      checkIsEntrance(x, y);
-//      Towards myTowards = (Towards)(newMyPoint.towards);
-//      //log("myTowards=%d", myTowards);
-//      Walk(x, y, myTowards);
-//      wayQue.pop();
-//      //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
-//  }
+	if (e.type == BP_MOUSEBUTTONUP) {
+		getMousePosition(e.button.x, e.button.y);
+		stopFindWay();
+		if (canWalk(Msx, Msy) && !checkIsOutScreen(Msx, Msy)) {
+			FindWay(Mx, My, Msx, Msy);
+		}
+	}
+ if (!wayQue.empty())
+ {
+     Point newMyPoint = wayQue.top();
+     x = newMyPoint.x;
+     y = newMyPoint.y;
+     checkIsEntrance(x, y);
+     Towards myTowards = (Towards)(newMyPoint.towards);
+     //log("myTowards=%d", myTowards);
+     Walk(x, y, myTowards);
+     wayQue.pop();
+     //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+ }
     if (e.type == BP_KEYDOWN)
         switch (e.key.keysym.sym)
         {
@@ -198,9 +205,6 @@ void MainMap::dealEvent(BP_Event& e)
             //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
             //      this->pause();
             //      Director::getInstance()->replaceScene(transitionScene);
-			auto s = new SubScene();
-			s->setSceneNum(0);
-			push(s);
         }
         default:
         {
@@ -319,82 +323,82 @@ void MainMap::getEntrance()
 //A*寻路
 void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
 {
-    //  bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
-    //  int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };      //四个方向
-    //  MyPoint *myPoint = new MyPoint;
-    //  myPoint->x = Mx;
-    //  myPoint->y = My;
-    //  myPoint->towards = (MyPoint::Towards)CallFace(Mx, My, Fx, Fy);
-    //  myPoint->parent = myPoint;
-    //  myPoint->Heuristic(Fx, Fy);
-    //  //log("Fx=%d,Fy=%d", Fx, Fy);
-    //  //log("Mx=%d,My=%d", Mx, My);
-    //  while (!wayQue.empty())
-    //  {
-    //      wayQue.pop();
-    //  }
-    //  priority_queue<MyPoint*, vector<MyPoint*>, Compare> que;            //最小优先级队列(开启列表)
-    //  que.push(myPoint);
-    //  int sNum = 0;
-    //  while (!que.empty() && sNum <= 300) {
-    //      MyPoint *t = new MyPoint();
-    //      t = que.top();
-    //      que.pop();
-    //      visited[t->x][t->y] = true;
-    //      sNum++;
-    //      //log("t.x=%d,t.y=%d",t->x,t->y);
-    //      if (t->x == Fx && t->y == Fy) {
-    //          minStep = t->step;
-    //          wayQue.push(*t);
-    //          int k = 0;
-    //          while (t != myPoint&&k <= minStep)
-    //          {
-    //              //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
-    //
-    //              t->towards = t->parent->towards;
-    //              wayQue.push(*t);
-    //              t = t->parent;
-    //              k++;
-    //              //log("go in!");
-    //          }
-    //          //log("minStep=%d", minStep);
-    //          //log("wayQue=%d", wayQue.size());
-    //          break;
-    //      }
-    //      else {
-    //          for (int i = 0; i < 4; i++)
-    //          {
-    //              MyPoint *s = new MyPoint();
-    //              s->x = t->x + dirs[i][0];
-    //              s->y = t->y + dirs[i][1];
-    //              if (canWalk(s->x, s->y) && !checkIsOutScreen(s->x, s->y) && !visited[s->x][s->y])
-    //              {
-    //                  s->g = t->g + 10;
-    //                  s->towards = (MyPoint::Towards)i;
-    //                  if (s->towards == t->towards)
-    //                  {
-    //                      s->Heuristic(Fx, Fy);
-    //                  }
-    //                  else
-    //                  {
-    //                      s->h = s->Heuristic(Fx, Fy) + 1;
-    //                  }
-    //                  s->step = t->step + 1;
-    //                  s->f = s->g + s->h;
-    //                  //t->towards = (MyPoint::Towards)i;
-    //                  //s->Gx = dirs[i][0];
-    //                  //s->Gy = dirs[i][1];
-    //                  //t->child[i] = s;
-    //                  //if (s->parent)
-    //                  s->parent = t;
-    //                  //log("s.x=%d,s.y=%d,t.x=%d,t.y=%d", s->x, s->y, t->x, t->y);
-    //                  //log("s.g=%d,s.h=%d,s.f=%d", s.g, s.h, s.f);
-    //                  que.push(s);
-    //              }
-    //          }
-    //      }
-    //  }
-    //  myPoint->delTree(myPoint);
+     bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
+          int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };      //四个方向
+          Point *myPoint = new Point;
+          myPoint->x = Mx;
+          myPoint->y = My;
+          myPoint->towards = (Point::Towards)CallFace(Mx, My, Fx, Fy);
+          myPoint->parent = myPoint;
+          myPoint->Heuristic(Fx, Fy);
+          //log("Fx=%d,Fy=%d", Fx, Fy);
+          //log("Mx=%d,My=%d", Mx, My);
+          while (!wayQue.empty())
+          {
+              wayQue.pop();
+          }
+          std::priority_queue<Point*, std::vector<Point*>, Compare> que;            //最小优先级队列(开启列表)
+          que.push(myPoint);
+          int sNum = 0;
+          while (!que.empty() && sNum <= 300) {
+              Point *t = new Point();
+              t = que.top();
+              que.pop();
+              visited[t->x][t->y] = true;
+              sNum++;
+              //log("t.x=%d,t.y=%d",t->x,t->y);
+              if (t->x == Fx && t->y == Fy) {
+                  minStep = t->step;
+                  wayQue.push(*t);
+                  int k = 0;
+                  while (t != myPoint&&k <= minStep)
+                  {
+                      //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
+        
+                      t->towards = t->parent->towards;
+                      wayQue.push(*t);
+                      t = t->parent;
+                      k++;
+                      //log("go in!");
+                  }
+                  //log("minStep=%d", minStep);
+                  //log("wayQue=%d", wayQue.size());
+                  break;
+              }
+              else {
+                  for (int i = 0; i < 4; i++)
+                  {
+                      Point *s = new Point();
+                      s->x = t->x + dirs[i][0];
+                      s->y = t->y + dirs[i][1];
+                      if (canWalk(s->x, s->y) && !checkIsOutScreen(s->x, s->y) && !visited[s->x][s->y])
+                      {
+                          s->g = t->g + 10;
+                          s->towards = (Point::Towards)i;
+                          if (s->towards == t->towards)
+                          {
+                              s->Heuristic(Fx, Fy);
+                          }
+                          else
+                          {
+                              s->h = s->Heuristic(Fx, Fy) + 1;
+                          }
+                          s->step = t->step + 1;
+                          s->f = s->g + s->h;
+                          //t->towards = (MyPoint::Towards)i;
+                          //s->Gx = dirs[i][0];
+                          //s->Gy = dirs[i][1];
+                          //t->child[i] = s;
+                          //if (s->parent)
+                          s->parent = t;
+                          //log("s.x=%d,s.y=%d,t.x=%d,t.y=%d", s->x, s->y, t->x, t->y);
+                          //log("s.g=%d,s.h=%d,s.f=%d", s.g, s.h, s.f);
+                          que.push(s);
+                      }
+                  }
+              }
+          }
+          myPoint->delTree(myPoint);
 }
 
 
@@ -406,18 +410,19 @@ bool MainMap::checkIsOutScreen(int x, int y)
         return false;
 }
 
-void MainMap::getMousePosition(Point* point)
-{
-    int x = point->x;
-    int y = Center_Y * 2 - point->y;
-    int yp = 0;
-    Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Mx;
-    Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + My;
-}
 
 void MainMap::stopFindWay()
 {
     while (!wayQue.empty())
         wayQue.pop();
+}
+
+void MainMap::getMousePosition(int _x,int _y)
+{
+	int x = _x;
+	int y = _y;
+	int yp = 0;
+	Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y)/2 + Mx;
+	Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + My;
 }
 

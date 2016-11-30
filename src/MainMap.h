@@ -2,6 +2,7 @@
 #include <stack>
 #include "Scene.h"
 #include "Cloud.h"
+#include <queue>
 
 class MainMap : public Scene
 {
@@ -59,7 +60,7 @@ public:
     bool checkIsWater(int x, int y);
     virtual bool checkIsOutLine(int x, int y);
     bool checkIsOutScreen(int x, int y);
-    void getMousePosition(Point* point);
+    void getMousePosition(int _x, int _y);
     bool canWalk(int x, int y);
     bool checkIsEntrance(int x, int y);
     virtual void FindWay(int Mx, int My, int Fx, int Fy);

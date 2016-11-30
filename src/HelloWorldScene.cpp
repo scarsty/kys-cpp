@@ -34,11 +34,14 @@ void HelloWorldScene::func(BP_Event &e, void* data)
 		Save::getInstance()->LoadR(0);
 		auto m = new MainMap();
 		push(m);
+		SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
 	}
 	if (i == 1)
 	{
+		Save::getInstance()->LoadR(0);
 		auto m = new MainMap();
 		push(m);
+		SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
 	}
 }
 
