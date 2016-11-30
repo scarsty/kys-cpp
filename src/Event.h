@@ -4,6 +4,8 @@
 #include "Common.h"
 #include "config.h"
 #include "Head.h"
+#include <direct.h>
+#include <corecrt_io.h>
 
 //#include "cocos2d.h"
 //USING_NS_CC;

@@ -898,36 +898,30 @@ bool EventManager::initEventData()
 	eventData.resize(0);
 	for (int num1 = 0; num1 <= config::EventFolderNum; num1++)
 	{
-		std::string path = StringUtils::format("event/%.4d", num1);  //事件文件夹结构，第一层4位数目录，第二层3位数文件，文件内还有4位数的事件号
-		if (!FileUtils::getInstance()->isDirectoryExist(path))
-		{
-			continue;
+		char path[20];
+		sprintf(path, "%s%4d", "event/", num1);	//事件文件夹结构，第一层4位数目录，第二层3位数文件，文件内还有4位数的事件号
+		//std::string path = StringUtils::format("event/%.4d", num1);  
+		if (_access(path, 0) == -1) {
+			_mkdir(path);
 		}
 		for (int num2 = 0; num2 <= config::EventFileNum; num2++)
 		{
-			string path1, filename1, filename2;
-			path1 = path + StringUtils::format("/%.3d", num2);
-			filename1 = path1 + ".idx";
-			if (!FileUtils::getInstance()->isFileExist(filename1))
-			{
-				continue;
-			}
-			cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
-			if (!Eidx.isNull())
-			{
-				idxLen = Eidx.getSize();
-				offset = new int[idxLen / 4 + 1];
-				*offset = 0;
-				memcpy(offset + 1, Eidx.getBytes(), idxLen);
-				Eidx.clear();
-			}
-			else
-			{
-				return  false;
-			}
+			char filename1[30], filename2[30];
+			//path1 = path + StringUtils::format("/%.3d", num2);
+			sprintf(filename1, "%s%3d%s", path, num2,".idx");
 
-			filename2 = path1 + ".grp";
-			cocos2d::Data Egrp = FileUtils::getInstance()->getDataFromFile(filename2);
+			unsigned char* Eidx;
+			File::readFile(filename1, Eidx, idxLen);
+			//cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
+			offset = new int[idxLen / 4 + 1];
+			offset = new int[idxLen / 4 + 1];
+			*offset = 0;
+			memcpy(offset + 1, Eidx, idxLen);
+
+			sprintf(filename2, "%s%3d%s", path, num2, ".grp");
+			unsigned char* Egrp;
+			//这儿开始，11.30
+			//cocos2d::Data Egrp = FileUtils::getInstance()->getDataFromFile(filename2);
 			if (!Egrp.isNull())
 			{
 				int Egrplen = Egrp.getSize();

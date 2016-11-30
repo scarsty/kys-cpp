@@ -171,6 +171,7 @@
     <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Error.cpp" />
+    <ClCompile Include="src\Event.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
@@ -198,6 +199,7 @@
     <ClInclude Include="src\config.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Error.h" />
+    <ClInclude Include="src\Event.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
     <ClInclude Include="src\MainMap.h" />
