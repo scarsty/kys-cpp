@@ -920,22 +920,20 @@ bool EventManager::initEventData()
 
 			sprintf(filename2, "%s%3d%s", path, num2, ".grp");
 			unsigned char* Egrp;
+			int EgrpLen;
 			//Õâ¶ù¿ªÊ¼£¬11.30
 			//cocos2d::Data Egrp = FileUtils::getInstance()->getDataFromFile(filename2);
-			if (!Egrp.isNull())
+			File::readFile(filename2, Egrp, EgrpLen);
+			unsigned char *Data;
+			Data = new unsigned char[EgrpLen];
+			memcpy(Data, Egrp, EgrpLen);
+			for (int j = 0; offset[j] < EgrpLen; j++)
 			{
-				int Egrplen = Egrp.getSize();
-				unsigned char *Data;
-				Data = new unsigned char[Egrplen];
-				memcpy(Data, Egrp.getBytes(), Egrplen);
-				for (int j = 0; offset[j] < Egrplen; j++)
-				{
-					eventCount++;
-					eventData.resize(eventCount);
-					int length = offset[j + 1] - offset[j];
-					eventData.at(eventCount - 1).setId(num1 * 10000000 + num2 * 10000 + j);
-					eventData.at(eventCount - 1).arrByOperation(Data + offset[j], length);
-				}
+				eventCount++;
+				eventData.resize(eventCount);
+				int length = offset[j + 1] - offset[j];
+				eventData.at(eventCount - 1).setId(num1 * 10000000 + num2 * 10000 + j);
+				eventData.at(eventCount - 1).arrByOperation(Data + offset[j], length);
 			}
 		}
 	}

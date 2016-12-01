@@ -172,7 +172,9 @@
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Error.cpp" />
     <ClCompile Include="src\Event.cpp" />
+    <ClCompile Include="src\Faction.cpp" />
     <ClCompile Include="src\File.cpp" />
+    <ClCompile Include="src\Head.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
     <ClCompile Include="src\Item.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
@@ -206,6 +208,7 @@
     <ClInclude Include="src\Event.h" />
     <ClInclude Include="src\Faction.h" />
     <ClInclude Include="src\File.h" />
+    <ClInclude Include="src\Head.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
     <ClInclude Include="src\Item.h" />
     <ClInclude Include="src\Magic.h" />

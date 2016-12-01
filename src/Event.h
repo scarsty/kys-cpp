@@ -1,8 +1,5 @@
 #pragma once
-
-#include <vector>
-#include "Common.h"
-#include "config.h"
+#include "save.h"
 #include "Head.h"
 #include <direct.h>
 #include <corecrt_io.h>

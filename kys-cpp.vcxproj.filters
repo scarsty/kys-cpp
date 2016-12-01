@@ -1,208 +1,79 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="源文件">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="头文件">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
-    <Filter Include="资源文件">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
+    <ClCompile Include="src\AppDelegate.cpp" />
+    <ClCompile Include="src\Audio.cpp" />
+    <ClCompile Include="src\BaoShop.cpp" />
+    <ClCompile Include="src\Base.cpp" />
+    <ClCompile Include="src\BasicData.cpp" />
+    <ClCompile Include="src\Button.cpp" />
+    <ClCompile Include="src\Calendar.cpp" />
+    <ClCompile Include="src\Character.cpp" />
+    <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\config.cpp" />
+    <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Error.cpp" />
+    <ClCompile Include="src\Event.cpp" />
+    <ClCompile Include="src\File.cpp" />
+    <ClCompile Include="src\HelloWorldScene.cpp" />
+    <ClCompile Include="src\Item.cpp" />
+    <ClCompile Include="src\kys-cpp.cpp" />
+    <ClCompile Include="src\Magic.cpp" />
+    <ClCompile Include="src\MainMap.cpp" />
+    <ClCompile Include="src\md5.cpp" />
+    <ClCompile Include="src\Menu.cpp" />
+    <ClCompile Include="src\Point.cpp" />
+    <ClCompile Include="src\Save.cpp" />
+    <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\SceneData.cpp" />
+    <ClCompile Include="src\SceneEventData.cpp" />
+    <ClCompile Include="src\SceneMapData.cpp" />
+    <ClCompile Include="src\SubScene.cpp" />
+    <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\ZhaoShi.cpp" />
+    <ClCompile Include="src\Head.cpp" />
+    <ClCompile Include="src\Faction.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Library Include="lib\SDL2.lib" />
-    <Library Include="lib\SDL2_image.lib" />
-    <Library Include="lib\SDL2_ttf.lib" />
-    <Library Include="lib\SDL2main.lib" />
+    <ClInclude Include="src\AppDelegate.h" />
+    <ClInclude Include="src\Audio.h" />
+    <ClInclude Include="src\BaoShop.h" />
+    <ClInclude Include="src\Base.h" />
+    <ClInclude Include="src\BasicData.h" />
+    <ClInclude Include="src\Button.h" />
+    <ClInclude Include="src\Calendar.h" />
+    <ClInclude Include="src\Character.h" />
+    <ClInclude Include="src\Cloud.h" />
+    <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\Engine.h" />
+    <ClInclude Include="src\Error.h" />
+    <ClInclude Include="src\Event.h" />
+    <ClInclude Include="src\Faction.h" />
+    <ClInclude Include="src\File.h" />
+    <ClInclude Include="src\HelloWorldScene.h" />
+    <ClInclude Include="src\Item.h" />
+    <ClInclude Include="src\Magic.h" />
+    <ClInclude Include="src\MainMap.h" />
+    <ClInclude Include="src\md5.h" />
+    <ClInclude Include="src\Menu.h" />
+    <ClInclude Include="src\Point.h" />
+    <ClInclude Include="src\Save.h" />
+    <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\SceneData.h" />
+    <ClInclude Include="src\SceneEventData.h" />
+    <ClInclude Include="src\SceneMapData.h" />
+    <ClInclude Include="src\SubScene.h" />
+    <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\ZhaoShi.h" />
+    <ClInclude Include="src\Head.h" />
+  </ItemGroup>
+  <ItemGroup>
     <Library Include="lib\bass.lib" />
     <Library Include="lib\bassmidi.lib" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="src\kys-cpp.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\AppDelegate.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Base.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Engine.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Scene.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Button.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\HelloWorldScene.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Menu.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\File.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MainMap.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Texture.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Cloud.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Point.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Save.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\md5.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BaoShop.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BasicData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Calendar.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Character.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\config.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Error.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SceneData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubScene.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SceneMapData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ZhaoShi.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Magic.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Faction.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SceneEventData.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\AppDelegate.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Base.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Engine.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Scene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Button.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\HelloWorldScene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Menu.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\File.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MainMap.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Texture.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Cloud.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Point.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Save.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\md5.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BaoShop.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BasicData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Calendar.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Character.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\config.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Error.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Audio.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SceneData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SubScene.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SceneMapData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Item.h">
-    <ClInclude Include="src\Event.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ZhaoShi.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Magic.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Faction.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SceneEventData.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <Library Include="lib\SDL2.lib" />
+    <Library Include="lib\SDL2main.lib" />
+    <Library Include="lib\SDL2_image.lib" />
+    <Library Include="lib\SDL2_ttf.lib" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.md" />
