@@ -9,5 +9,8 @@ public:
     virtual ~AppDelegate();
     virtual bool applicationDidFinishLaunching();
     void mainLoop(BP_Event &e);
+	
+private:
+	
 };
 

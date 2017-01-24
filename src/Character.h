@@ -19,7 +19,7 @@ public:
 	unsigned short Exp;//18
 	short CurrentHP, MaxHP, Wounded, Poison, PhyPower; //23
 	short FightNum;
-	short Equip[config::MaxEquipNum]; // 30
+	short Equip[Config::MaxEquipNum]; // 30
 	short GongTi, TeamState, Angry, IsRandomed, Moveable, SkillPoint, FollowersNumber, Appearance,
 		ActionTime, Difficulty, Loyalty, Rehurt, MPType, CurrentMP, MaxMP, Attack, Speed, Defence,
 		Medcine, UsePoison, MedPoison, DefPoison, Boxing, Fencing, Knife, SpecialSkill, Shader, MartialKnowledge, Morality,

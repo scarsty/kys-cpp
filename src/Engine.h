@@ -2,9 +2,10 @@
 
 extern "C"
 {
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_image.h"
-#include "SDL2/SDL_ttf.h"
+#include "SDL2\SDL.h"
+#include "SDL2\SDL_image.h"
+#include "SDL2\SDL_ttf.h"
+
 }
 
 #include <algorithm>
@@ -152,6 +153,10 @@ public:
     //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
     std::vector<std::string> splitString(const std::string& s, const std::string& delim);
     int showMessage(const std::string& content);
+	//编码转换
+public:
+	std::string Engine::string_To_UTF8(const std::string & str);
+
 };
 
 //这里直接照搬SDL

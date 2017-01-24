@@ -1,11 +1,21 @@
 #pragma once
-
-class config
+#include <string>
+class Config
 {
+protected:
+	Config() {}
+	static Config* m_pInstance ;   //局部静态变量
+private:
+	
 public:
-    config();
-    ~config();
-
+	static Config* GetInstance();
+	void GetWindowParameter();
+	void GetWindowTitle();
+public:
+	//窗口大小;
+	int WindowsWidth, WindowsHeight;
+	//标题;
+	std::string WindowsTitle;
     enum
     {
         _Rtypecount = 10,
@@ -27,6 +37,8 @@ public:
         EventFileNum = 1                                 //单事件文件夹事件文件数
 
     };
+	~Config()
+	{
 
+	}
 };
-
