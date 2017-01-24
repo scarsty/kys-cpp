@@ -1,453 +1,81 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="src\AppDelegate.cpp" />
+    <ClCompile Include="src\Audio.cpp" />
+    <ClCompile Include="src\BaoShop.cpp" />
+    <ClCompile Include="src\Base.cpp" />
+    <ClCompile Include="src\BasicData.cpp" />
+    <ClCompile Include="src\Button.cpp" />
+    <ClCompile Include="src\Calendar.cpp" />
+    <ClCompile Include="src\Character.cpp" />
+    <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\config.cpp" />
+    <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Error.cpp" />
+    <ClCompile Include="src\Event.cpp" />
+    <ClCompile Include="src\File.cpp" />
+    <ClCompile Include="src\HelloWorldScene.cpp" />
+    <ClCompile Include="src\Item.cpp" />
     <ClCompile Include="src\kys-cpp.cpp" />
-    <ClCompile Include="src\AppDelegate.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BaoShop.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Base.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BasicData.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Button.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Calendar.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Character.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Cloud.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\config.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Engine.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Error.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Faction.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\File.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Head.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\HelloWorldScene.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Item.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Magic.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MainMap.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\md5.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Menu.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Point.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Save.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Scene.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SceneData.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SceneEventData.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SceneMapData.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubScene.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Texture.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ZhaoShi.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
-    <ClCompile Include="src\IniFile.cpp">
-      <Filter>CppFile</Filter>
-    </ClCompile>
+    <ClCompile Include="src\Magic.cpp" />
+    <ClCompile Include="src\MainMap.cpp" />
+    <ClCompile Include="src\md5.cpp" />
+    <ClCompile Include="src\Menu.cpp" />
+    <ClCompile Include="src\Point.cpp" />
+    <ClCompile Include="src\Save.cpp" />
+    <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\SceneData.cpp" />
+    <ClCompile Include="src\SceneEventData.cpp" />
+    <ClCompile Include="src\SceneMapData.cpp" />
+    <ClCompile Include="src\SubScene.cpp" />
+    <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\ZhaoShi.cpp" />
+    <ClCompile Include="src\Head.cpp" />
+    <ClCompile Include="src\Faction.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\AppDelegate.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Audio.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BaoShop.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Base.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BasicData.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Button.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Calendar.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Character.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Cloud.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\config.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Engine.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Error.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Event.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Faction.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\File.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Head.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\HelloWorldScene.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Item.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Magic.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MainMap.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\md5.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Menu.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Point.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Save.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Scene.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SceneEventData.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SceneMapData.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SceneData.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SubScene.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Texture.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ZhaoShi.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\begin_code.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\close_code.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_assert.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_atomic.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_audio.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_bits.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_blendmode.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_clipboard.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_config.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_cpuinfo.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_egl.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_endian.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_error.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_events.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_filesystem.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_gamecontroller.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_gesture.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_haptic.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_hints.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_image.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_joystick.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_keyboard.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_keycode.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_loadso.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_log.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_main.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_messagebox.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_mouse.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_mutex.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_name.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengl.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengl_glext.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengles.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengles2.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengles2_gl2.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengles2_gl2ext.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengles2_gl2platform.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_opengles2_khrplatform.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_pixels.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_platform.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_power.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_quit.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_rect.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_render.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_revision.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_rwops.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_scancode.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_shape.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_stdinc.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_surface.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_system.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_syswm.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_assert.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_common.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_compare.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_crc32.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_font.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_fuzzer.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_harness.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_images.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_log.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_md5.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_test_random.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_thread.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_timer.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_touch.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_ttf.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_types.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_version.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="include\SDL2\SDL_video.h">
-      <Filter>SDL</Filter>
-    </ClInclude>
-    <ClInclude Include="src\IniFile.h">
-      <Filter>HeadFile</Filter>
-    </ClInclude>
+    <ClInclude Include="src\AppDelegate.h" />
+    <ClInclude Include="src\Audio.h" />
+    <ClInclude Include="src\BaoShop.h" />
+    <ClInclude Include="src\Base.h" />
+    <ClInclude Include="src\BasicData.h" />
+    <ClInclude Include="src\Button.h" />
+    <ClInclude Include="src\Calendar.h" />
+    <ClInclude Include="src\Character.h" />
+    <ClInclude Include="src\Cloud.h" />
+    <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\Engine.h" />
+    <ClInclude Include="src\Error.h" />
+    <ClInclude Include="src\Event.h" />
+    <ClInclude Include="src\Faction.h" />
+    <ClInclude Include="src\File.h" />
+    <ClInclude Include="src\HelloWorldScene.h" />
+    <ClInclude Include="src\Item.h" />
+    <ClInclude Include="src\Magic.h" />
+    <ClInclude Include="src\MainMap.h" />
+    <ClInclude Include="src\md5.h" />
+    <ClInclude Include="src\Menu.h" />
+    <ClInclude Include="src\Point.h" />
+    <ClInclude Include="src\Save.h" />
+    <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\SceneData.h" />
+    <ClInclude Include="src\SceneEventData.h" />
+    <ClInclude Include="src\SceneMapData.h" />
+    <ClInclude Include="src\SubScene.h" />
+    <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\ZhaoShi.h" />
+    <ClInclude Include="src\Head.h" />
   </ItemGroup>
   <ItemGroup>
-    <Library Include="lib\SDL2.lib">
-      <Filter>Lib</Filter>
-    </Library>
-    <Library Include="lib\SDL2_image.lib">
-      <Filter>Lib</Filter>
-    </Library>
-    <Library Include="lib\SDL2_ttf.lib">
-      <Filter>Lib</Filter>
-    </Library>
-    <Library Include="lib\SDL2main.lib">
-      <Filter>Lib</Filter>
-    </Library>
-    <Library Include="lib\bassmidi.lib">
-      <Filter>Lib</Filter>
-    </Library>
-    <Library Include="lib\bass.lib">
-      <Filter>Lib</Filter>
-    </Library>
+    <Library Include="lib\bass.lib" />
+    <Library Include="lib\bassmidi.lib" />
+    <Library Include="lib\SDL2.lib" />
+    <Library Include="lib\SDL2main.lib" />
+    <Library Include="lib\SDL2_image.lib" />
+    <Library Include="lib\SDL2_ttf.lib" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="HeadFile">
-      <UniqueIdentifier>{39017245-b8f0-4307-98ad-c843a51654b4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="CppFile">
-      <UniqueIdentifier>{959229fb-fc4a-4beb-beca-b37155fcf7aa}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Lib">
-      <UniqueIdentifier>{d102fe4e-86b2-44b1-b964-7c8b006aa920}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="SDL">
-      <UniqueIdentifier>{78b330cd-b015-4152-b647-170b27d78e75}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
 </Project>

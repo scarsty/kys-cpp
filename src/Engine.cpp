@@ -1,5 +1,4 @@
 ﻿#include "Engine.h"
-#include "config.h"
 
 #ifdef _MSC_VER
 #define NOMINMAX
@@ -258,14 +257,10 @@ int Engine::init(void* handle)
     {
         return -1;
     }
-	Config::GetInstance()->GetWindowTitle();
-	std::string title = Config::GetInstance()->WindowsTitle;
-	title = string_To_UTF8(title);
-
     if (handle)
     { _win = SDL_CreateWindowFrom(handle); }
     else
-        _win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        _win = SDL_CreateWindow("BigPotPlayer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                 _start_w, _start_h, SDL_WINDOW_RESIZABLE);
     //SDL_CreateWindowFrom()
     SDL_ShowWindow(_win);
@@ -437,14 +432,11 @@ int Engine::showMessage(const std::string& content)
             { 255,   0, 255 }
         }
     };
-	Config::GetInstance()->GetWindowTitle();
-	std::string title = Config::GetInstance()->WindowsTitle;
-	title = string_To_UTF8(title);
     const SDL_MessageBoxData messageboxdata =
     {
         SDL_MESSAGEBOX_INFORMATION, /* .flags */
         NULL, /* .window */
-		title.c_str(), /* .title */
+        "BigPot Player", /* .title */
         content.c_str(), /* .message */
         SDL_arraysize(buttons), /* .numbuttons */
         buttons, /* .buttons */
@@ -453,33 +445,6 @@ int Engine::showMessage(const std::string& content)
     int buttonid;
     SDL_ShowMessageBox(&messageboxdata, &buttonid);
     return buttonid;
-}
-
-std::string Engine::string_To_UTF8(const std::string & str)
-{
-	int nwLen = ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, NULL, 0);
-
-	wchar_t * pwBuf = new wchar_t[nwLen + 1];//一定要加1，不然会出现尾巴  
-	ZeroMemory(pwBuf, nwLen * 2 + 2);
-
-	::MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), pwBuf, nwLen);
-
-	int nLen = ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, -1, NULL, NULL, NULL, NULL);
-
-	char * pBuf = new char[nLen + 1];
-	ZeroMemory(pBuf, nLen + 1);
-
-	::WideCharToMultiByte(CP_UTF8, 0, pwBuf, nwLen, pBuf, nLen, NULL, NULL);
-
-	std::string retStr(pBuf);
-
-	delete[]pwBuf;
-	delete[]pBuf;
-
-	pwBuf = NULL;
-	pBuf = NULL;
-
-	return retStr;
 }
 
 void Engine::setWindowSize(int w, int h)

@@ -29,7 +29,7 @@ public:
     unsigned char key = 156;
     unsigned char password;
     int Rgrplen;
-    int Ridxlen = Config::_Rtypecount * 4;
+    int Ridxlen = config::_Rtypecount * 4;
     unsigned char* GRPMD5_cal, *GRPMD5_load;
     md5num num1;
     int B_Count;										//基础数据数量

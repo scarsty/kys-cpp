@@ -7,6 +7,6 @@ public:
     SceneMapData();
     ~SceneMapData();
 
-    short Data[Config::SLayerCount][Config::SceneMaxX][Config::SceneMaxY];
+    short Data[config::SLayerCount][config::SceneMaxX][config::SceneMaxY];
 };
 

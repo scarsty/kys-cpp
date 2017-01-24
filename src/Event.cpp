@@ -50,7 +50,7 @@ bool EventManager::initEventData()
     int idxLen = 0;         //存储文件相关
     int* offset;
     eventData.resize(0);
-    for (int num1 = 0; num1 <= Config::EventFolderNum; num1++)
+    for (int num1 = 0; num1 <= config::EventFolderNum; num1++)
     {
         char path[20];
         sprintf(path, "%s%4d", "event/", num1); //事件文件夹结构，第一层4位数目录，第二层3位数文件，文件内还有4位数的事件号
@@ -59,7 +59,7 @@ bool EventManager::initEventData()
         {
             _mkdir(path);
         }
-        for (int num2 = 0; num2 <= Config::EventFileNum; num2++)
+        for (int num2 = 0; num2 <= config::EventFileNum; num2++)
         {
             char filename1[30], filename2[30];
             //path1 = path + StringUtils::format("/%.3d", num2);

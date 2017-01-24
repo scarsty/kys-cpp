@@ -284,7 +284,7 @@ void MainMap::cloudMove()
 
 bool MainMap::checkIsEntrance(int x, int y)
 {
-      if (Entrance[x][y] > 0 && Entrance[x][y] <= Config::MAXScene)
+      if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
       {
           Save::getInstance()->m_BasicData[0].Mx = Mx;
 		  Save::getInstance()->m_BasicData[0].My = My;

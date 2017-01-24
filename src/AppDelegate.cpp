@@ -1,7 +1,6 @@
 #pragma once
 #include "AppDelegate.h"
 #include "HelloWorldScene.h"
-#include "config.h"
 
 AppDelegate::AppDelegate()
 {
@@ -14,10 +13,11 @@ AppDelegate::~AppDelegate()
 
 bool AppDelegate::applicationDidFinishLaunching()
 {
-	Config::GetInstance()->GetWindowParameter();
     auto engine = Engine::getInstance();
-    engine->setStartWindowSize(Config::GetInstance()->Config::WindowsWidth, Config::GetInstance()->Config::WindowsHeight);
+
+    engine->setStartWindowSize(768, 480);
     engine->init();
+
     BP_Event e;
     HelloWorldScene h;
     h.push(&h);
@@ -25,8 +25,6 @@ bool AppDelegate::applicationDidFinishLaunching()
     h.pop();
     return true;
 }
-
-
 
 void AppDelegate::mainLoop(BP_Event & e)
 {

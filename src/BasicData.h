@@ -13,8 +13,8 @@ public:
 		short  Number, Amount;
 	};
 
-	short InShip, Where, My, Mx, Sy, Sx, MFace, ShipX, ShipY, Time, TimeEvent, RandomEvent, SFace, ShipFace, TeamCount, TeamList[Config::MaxTeamMember];
-	TTeamList RItemList[Config::MAX_ITEM_AMOUNT];
+	short InShip, Where, My, Mx, Sy, Sx, MFace, ShipX, ShipY, Time, TimeEvent, RandomEvent, SFace, ShipFace, TeamCount, TeamList[config::MaxTeamMember];
+	TTeamList RItemList[config::MAX_ITEM_AMOUNT];
 	short Difficulty, Cheating, Beiyong[4];
 
 };
