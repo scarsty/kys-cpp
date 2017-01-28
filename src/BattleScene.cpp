@@ -10,46 +10,12 @@
 
 BattleScene::BattleScene()
 {
-    SpriteLayer = Layer::create();
-    this->addChild(SpriteLayer, 5);
+    full = 1;
 }
 
 
 BattleScene::~BattleScene()
 {
-    for (auto &s : EarthS)
-        s->release();
-    for (auto &s : BuildS)
-        s->release();
-    for (auto &s : EventS)
-        s->release();
-    for (auto &s : AirS)
-        s->release();
-
-}
-
-BattleScene* BattleScene::create(int scenenum)
-{
-    BattleScene* pRet = new BattleScene();
-    if (pRet && pRet->init(scenenum))
-    {
-        pRet->autorelease();
-        return pRet;
-    }
-    else
-    {
-        delete pRet;
-        pRet = NULL;
-        return NULL;
-    }
-}
-
-Scene* BattleScene::createScene(int scenenum)
-{
-    auto scene = Scene::create();
-    auto layer = BattleScene::create(scenenum);
-    scene->addChild(layer, 0);
-    return scene;
 }
 
 void BattleScene::Draw()
@@ -655,6 +621,7 @@ void BattleScene::ShowMultiMenu(int max0, int menuNum)
 
 }
 
+/*
 void BattleScene::menuCloseCallback(Ref* pSender)
 {
 #if (CC_TARGET_PLATFORM == CC_PLATFORM_WP8) || (CC_TARGET_PLATFORM == CC_PLATFORM_WINRT)
@@ -1017,7 +984,7 @@ void BattleScene::menuCloseCallback1(Ref* pSender)
     }
 
 }
-
+*/
 void BattleScene::showBattleMenu(int x, int y)
 {
     menuOn();

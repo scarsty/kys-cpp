@@ -219,6 +219,7 @@
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\SubScene.h" />
+    <ClInclude Include="src\SubSceneData.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\ZhaoShi.h" />
   </ItemGroup>

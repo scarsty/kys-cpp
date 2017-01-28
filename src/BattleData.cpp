@@ -13,7 +13,6 @@ BattleData BattleData::bBattle;
 
 BattleData::BattleData()
 {
-    //initData();
 }
 
 

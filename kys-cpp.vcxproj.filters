@@ -183,6 +183,9 @@
     <ClInclude Include="src\BattleData.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\SubSceneData.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib" />

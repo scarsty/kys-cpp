@@ -23,7 +23,6 @@ void HelloWorldScene::dealEvent(BP_Event& e)
 
 }
 
-
 void HelloWorldScene::func(BP_Event& e, void* data)
 {
     auto i = *(int*)(data);

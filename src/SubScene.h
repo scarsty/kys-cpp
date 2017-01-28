@@ -7,6 +7,7 @@ class SubScene : public Scene
 {
 public:
     SubScene();
+    SubScene(int num) : SubScene() { setSceneNum(num); }
     virtual ~SubScene();
 
     int Sx, Sy;
