@@ -25,7 +25,7 @@ public:
     void draw() override;
     void dealEvent(BP_Event& e) override;
 
-    void Walk(int x, int y, Towards t);
+    void walk(int x, int y, Towards t);
 
     void callEvent(int x, int y);
     bool canWalk(int x, int y);

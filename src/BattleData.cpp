@@ -3,7 +3,6 @@
 #include <string>
 #include <fstream>      // std::ifstream
 #include "BattleData.h"
-#include "Common.h"
 #include "File.h"
 
 
@@ -28,16 +27,21 @@ bool BattleData::load()
     int len;
     File::readFile(fileName.c_str(), &buffer, &len);
     size_t B_Count = len / sizeof(BattleData);
-    m_BattleData.resize(B_Count);
-    memcpy(&m_BattleData[0], buffer, sizeof(BattleData)*B_Count);
+    m_BattleInfo.resize(B_Count);
+    memcpy(&m_BattleInfo[0], buffer, sizeof(BattleData)*B_Count);
     delete buffer;
 
     fileName = "warfld.grp";
     File::readFile(fileName.c_str(), &buffer, &len);
-    B_Count = len / (sizeof(BattleSceneData) / 4);
+    int lenBattleFiled2 = 4096 * 2 * 2;
+    B_Count = len / lenBattleFiled2;
     m_BattleSceneData.resize(B_Count);
-    memcpy(&m_BattleSceneData[0], buffer, sizeof(BattleSceneData)*B_Count);
+    for (int i = 0; i < B_Count; i++)
+    {
+        memcpy(&m_BattleSceneData[i], buffer + i * lenBattleFiled2, lenBattleFiled2);
+    }
     delete buffer;
+    return true;
 }
 
 bool BattleData::initSta(int currentBattle)

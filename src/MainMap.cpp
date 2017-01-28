@@ -101,7 +101,7 @@ void MainMap::init()
     //Mx = m_BasicData[0].Mx;
     //My = m_BasicData[0].My;
     //CommonScene::towards = (Towards)m_BasicData[0].MFace;
-    log("toward=%d\n", towards);
+    LOG("toward=%d\n", towards);
     //log("Mface=%d\n", SaveGame::getInstance()->RBasic_Data.Mface);
 
     //µØÃæ²ãºÍÔÆ²ã
@@ -153,7 +153,7 @@ void MainMap::dealEvent(BP_Event& e)
         checkIsEntrance(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
-        Walk(x, y, myTowards);
+        walk(x, y, myTowards);
         wayQue.pop();
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
@@ -164,7 +164,7 @@ void MainMap::dealEvent(BP_Event& e)
         {
             y--;
             checkIsEntrance(x, y);
-            Walk(x, y, LeftDown);
+            walk(x, y, LeftDown);
             stopFindWay();
             break;
         }
@@ -172,7 +172,7 @@ void MainMap::dealEvent(BP_Event& e)
         {
             y++;
             checkIsEntrance(x, y);
-            Walk(x, y, RightUp);
+            walk(x, y, RightUp);
             stopFindWay();
             break;
         }
@@ -180,7 +180,7 @@ void MainMap::dealEvent(BP_Event& e)
         {
             x--;
             checkIsEntrance(x, y);
-            Walk(x, y, LeftUp);
+            walk(x, y, LeftUp);
             stopFindWay();
             break;
         }
@@ -188,7 +188,7 @@ void MainMap::dealEvent(BP_Event& e)
         {
             x++;
             checkIsEntrance(x, y);
-            Walk(x, y, RightDown);
+            walk(x, y, RightDown);
             stopFindWay();
             break;
         }
@@ -218,7 +218,7 @@ void MainMap::dealEvent(BP_Event& e)
 
 
 
-void MainMap::Walk(int x, int y, Towards t)
+void MainMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {

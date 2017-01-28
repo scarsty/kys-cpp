@@ -52,7 +52,7 @@ public:
     void init() override;
 
     void dealEvent(BP_Event& e) override;
-    void Walk(int x, int y, Towards t);
+    void walk(int x, int y, Towards t);
     void cloudMove();
     void getEntrance();
 

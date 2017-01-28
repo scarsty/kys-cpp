@@ -38,14 +38,14 @@ void SubScene::draw()
                 if (num >= 0)
                 {
                     Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
-                    //                     if (p1.y < -0.1)
-                    //                     {
-                    //                         map[calBlockTurn(i1, i2, 0)] = s;
-                    //                     }
-                    //                     else
-                    //                     {
-                    //                         s->visit();
-                    //                     }
+                    /*if (p1.y < -0.1)
+                    {
+                        map[calBlockTurn(i1, i2, 0)] = s;
+                    }
+                    else
+                    {
+                        s->visit();
+                    }*/
                 }
                 //建筑和主角同一层
                 num = m_SceneMapData[sceneNum].Data[1][i1][i2] / 2;
@@ -62,14 +62,14 @@ void SubScene::draw()
                 }
                 //事件层
                 num = m_SceneMapData[sceneNum].Data[3][i1][i2];
-                //                 int picNum = m_SceneEventData[sceneNum].Data[num].BeginPic1 / 2;
-                //                 if (num > 0 && m_SceneEventData[sceneNum].Data[num].IsActive >= 0 && picNum > 0)
-                //                 {
-                //                     auto t = MyTexture2D::getSelfPointer(MyTexture2D::Scene, picNum);
-                //                     auto s = EventS[k];
-                //                     t->setToSprite(s, p + p1, drawCount);
-                //                     map[calBlockTurn(i1, i2, 2)] = s;
-                //                 }
+                /*int picNum = m_SceneEventData[sceneNum].Data[num].BeginPic1 / 2;
+                if (num > 0 && m_SceneEventData[sceneNum].Data[num].IsActive >= 0 && picNum > 0)
+                {
+                    auto t = MyTexture2D::getSelfPointer(MyTexture2D::Scene, picNum);
+                    auto s = EventS[k];
+                    t->setToSprite(s, p + p1, drawCount);
+                    map[calBlockTurn(i1, i2, 2)] = s;
+                }*/
                 num = m_SceneMapData[sceneNum].Data[2][i1][i2] / 2;
                 if (num > 0)
                 {
@@ -113,7 +113,7 @@ void SubScene::dealEvent(BP_Event& e)
         checkIsExit(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
-        Walk(x, y, myTowards);
+        walk(x, y, myTowards);
         wayQue.pop();
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
@@ -128,7 +128,7 @@ void SubScene::dealEvent(BP_Event& e)
             {
                 break;
             }
-            Walk(x, y, LeftDown);
+            walk(x, y, LeftDown);
             stopFindWay();
             break;
         }
@@ -139,7 +139,7 @@ void SubScene::dealEvent(BP_Event& e)
             {
                 break;
             }
-            Walk(x, y, RightUp);
+            walk(x, y, RightUp);
             stopFindWay();
             break;
         }
@@ -150,7 +150,7 @@ void SubScene::dealEvent(BP_Event& e)
             {
                 break;
             }
-            Walk(x, y, LeftUp);
+            walk(x, y, LeftUp);
             stopFindWay();
             break;
         }
@@ -161,7 +161,7 @@ void SubScene::dealEvent(BP_Event& e)
             {
                 break;
             }
-            Walk(x, y, RightDown);
+            walk(x, y, RightDown);
             stopFindWay();
             break;
         }
@@ -190,7 +190,7 @@ void SubScene::dealEvent(BP_Event& e)
     }
 }
 
-void SubScene::Walk(int x, int y, Towards t)
+void SubScene::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {

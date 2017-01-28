@@ -15,7 +15,7 @@ Base::~Base()
 {
 }
 
-void Base::log(const char *format, ...)
+void Base::LOG(const char *format, ...)
 {
 	char s[1000];
 	va_list arg_ptr;

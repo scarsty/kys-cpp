@@ -10,7 +10,7 @@ enum
     BSceneMaxY = 64,                        //战场最大Y坐标
 };
 
-struct BattleData
+struct BattleInfo
 {
     short battleNum;
     char name[10];
@@ -45,9 +45,9 @@ public:
     BattleData();
     ~BattleData();
 
-    std::vector<BattleSceneData> m_BattleSceneData;
     std::vector<BattleRole> m_BattleRole;
-    std::vector<BattleData> m_BattleData;
+    std::vector<BattleInfo> m_BattleInfo;
+    std::vector<BattleSceneData> m_BattleSceneData;
 
     struct FactionBackup
     {
@@ -56,8 +56,6 @@ public:
     };
 
     int* offset;
-
-
     int maxBattleScene;
 
     static BattleData bBattle;
