@@ -164,11 +164,12 @@
     <ClCompile Include="src\BaoShop.cpp" />
     <ClCompile Include="src\Base.cpp" />
     <ClCompile Include="src\BasicData.cpp" />
+    <ClCompile Include="src\BattleData.cpp" />
+    <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Calendar.cpp" />
     <ClCompile Include="src\Character.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
-    <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Error.cpp" />
     <ClCompile Include="src\Event.cpp" />
@@ -177,7 +178,7 @@
     <ClCompile Include="src\Head.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
     <ClCompile Include="src\Item.cpp" />
-    <ClCompile Include="src\kys-cpp.cpp" />
+    <ClCompile Include="src\kys-c++.cpp" />
     <ClCompile Include="src\Magic.cpp" />
     <ClCompile Include="src\MainMap.cpp" />
     <ClCompile Include="src\md5.cpp" />
@@ -185,9 +186,6 @@
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
-    <ClCompile Include="src\SceneData.cpp" />
-    <ClCompile Include="src\SceneEventData.cpp" />
-    <ClCompile Include="src\SceneMapData.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
     <ClCompile Include="src\ZhaoShi.cpp" />
@@ -198,6 +196,8 @@
     <ClInclude Include="src\BaoShop.h" />
     <ClInclude Include="src\Base.h" />
     <ClInclude Include="src\BasicData.h" />
+    <ClInclude Include="src\BattleData.h" />
+    <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Calendar.h" />
     <ClInclude Include="src\Character.h" />
@@ -218,9 +218,6 @@
     <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
-    <ClInclude Include="src\SceneData.h" />
-    <ClInclude Include="src\SceneEventData.h" />
-    <ClInclude Include="src\SceneMapData.h" />
     <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\Texture.h" />
     <ClInclude Include="src\ZhaoShi.h" />

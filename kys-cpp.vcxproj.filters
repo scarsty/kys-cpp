@@ -1,71 +1,188 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\AppDelegate.cpp" />
-    <ClCompile Include="src\Audio.cpp" />
-    <ClCompile Include="src\BaoShop.cpp" />
-    <ClCompile Include="src\Base.cpp" />
-    <ClCompile Include="src\BasicData.cpp" />
-    <ClCompile Include="src\Button.cpp" />
-    <ClCompile Include="src\Calendar.cpp" />
-    <ClCompile Include="src\Character.cpp" />
-    <ClCompile Include="src\Cloud.cpp" />
-    <ClCompile Include="src\config.cpp" />
-    <ClCompile Include="src\Engine.cpp" />
-    <ClCompile Include="src\Error.cpp" />
-    <ClCompile Include="src\Event.cpp" />
-    <ClCompile Include="src\File.cpp" />
-    <ClCompile Include="src\HelloWorldScene.cpp" />
-    <ClCompile Include="src\Item.cpp" />
-    <ClCompile Include="src\kys-cpp.cpp" />
-    <ClCompile Include="src\Magic.cpp" />
-    <ClCompile Include="src\MainMap.cpp" />
-    <ClCompile Include="src\md5.cpp" />
-    <ClCompile Include="src\Menu.cpp" />
-    <ClCompile Include="src\Point.cpp" />
-    <ClCompile Include="src\Save.cpp" />
-    <ClCompile Include="src\Scene.cpp" />
-    <ClCompile Include="src\SceneData.cpp" />
-    <ClCompile Include="src\SceneEventData.cpp" />
-    <ClCompile Include="src\SceneMapData.cpp" />
-    <ClCompile Include="src\SubScene.cpp" />
-    <ClCompile Include="src\Texture.cpp" />
-    <ClCompile Include="src\ZhaoShi.cpp" />
-    <ClCompile Include="src\Head.cpp" />
-    <ClCompile Include="src\Faction.cpp" />
+    <ClCompile Include="src\AppDelegate.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Audio.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Base.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BasicData.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Button.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Calendar.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Character.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Cloud.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Engine.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Error.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Event.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Faction.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\File.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Head.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\HelloWorldScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Item.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Magic.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MainMap.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\md5.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Menu.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Point.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Save.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SubScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Texture.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ZhaoShi.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BaoShop.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleData.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\kys-c++.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\AppDelegate.h" />
-    <ClInclude Include="src\Audio.h" />
-    <ClInclude Include="src\BaoShop.h" />
-    <ClInclude Include="src\Base.h" />
-    <ClInclude Include="src\BasicData.h" />
-    <ClInclude Include="src\Button.h" />
-    <ClInclude Include="src\Calendar.h" />
-    <ClInclude Include="src\Character.h" />
-    <ClInclude Include="src\Cloud.h" />
-    <ClInclude Include="src\config.h" />
-    <ClInclude Include="src\Engine.h" />
-    <ClInclude Include="src\Error.h" />
-    <ClInclude Include="src\Event.h" />
-    <ClInclude Include="src\Faction.h" />
-    <ClInclude Include="src\File.h" />
-    <ClInclude Include="src\HelloWorldScene.h" />
-    <ClInclude Include="src\Item.h" />
-    <ClInclude Include="src\Magic.h" />
-    <ClInclude Include="src\MainMap.h" />
-    <ClInclude Include="src\md5.h" />
-    <ClInclude Include="src\Menu.h" />
-    <ClInclude Include="src\Point.h" />
-    <ClInclude Include="src\Save.h" />
-    <ClInclude Include="src\Scene.h" />
-    <ClInclude Include="src\SceneData.h" />
-    <ClInclude Include="src\SceneEventData.h" />
-    <ClInclude Include="src\SceneMapData.h" />
-    <ClInclude Include="src\SubScene.h" />
-    <ClInclude Include="src\Texture.h" />
-    <ClInclude Include="src\ZhaoShi.h" />
-    <ClInclude Include="src\Head.h" />
+    <ClInclude Include="src\AppDelegate.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Audio.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Base.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BasicData.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Button.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Calendar.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Cloud.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\config.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Engine.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Error.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Event.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Faction.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\File.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Head.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\HelloWorldScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Item.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Magic.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MainMap.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\md5.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Menu.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Point.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Save.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Texture.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ZhaoShi.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BaoShop.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleData.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib" />
@@ -77,5 +194,15 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
+      <Extensions>*.h</Extensions>
+    </Filter>
+    <Filter Include="Sources">
+      <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
+      <Extensions>*.cpp</Extensions>
+    </Filter>
   </ItemGroup>
 </Project>

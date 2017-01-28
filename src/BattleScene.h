@@ -1,16 +1,15 @@
 #pragma once
 
-#include "Common.h"
-
 using namespace std;
  
-class BattleScene : public CommonScene
+class BattleScene : public Scene
 {
 public:
 	BattleScene();
 	~BattleScene();
-	Node* pNode;
-	Layer* SpriteLayer;
+
+    virtual void draw() override {}
+    virtual void dealEvent(BP_Event& e) override {}
 
 	static const int maxBRoleSelect = 6;		//战斗选人最大人数
 	int MaxBRoleNum = 42;						//最大战场参战人数	

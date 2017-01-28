@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "battle.h"
+#include "BattleData.h"
 
 /**/
 class MyPoint : public Point

@@ -3,13 +3,9 @@
 #include "Character.h"
 #include "Item.h"
 #include "Magic.h"
-#include "BaoShop.h"
 #include "ZhaoShi.h"
 #include "Faction.h"
 #include "Calendar.h"
-#include "SceneData.h"
-#include "SceneMapData.h"
-#include "SceneEventData.h"
 #include "md5.h"
 #include "config.h"
 #include <vector>
