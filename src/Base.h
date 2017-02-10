@@ -16,7 +16,7 @@ public:
 	Base();
 	virtual ~Base();
 
-	void log(const char *format, ...);
+	void LOG(const char *format, ...);
 
 	virtual void draw() {}
 	virtual void dealEvent(BP_Event& e) {}

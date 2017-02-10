@@ -1,11 +1,7 @@
 #pragma once
 
-class config
+struct config
 {
-public:
-    config();
-    ~config();
-
     enum
     {
         _Rtypecount = 10,
@@ -25,8 +21,6 @@ public:
         MaxEventFactor = 50,                             //单事件最大参数数
         EventFolderNum = 1,                              //事件文件夹数
         EventFileNum = 1                                 //单事件文件夹事件文件数
-
     };
-
 };
 

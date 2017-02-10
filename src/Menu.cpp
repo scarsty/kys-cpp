@@ -46,7 +46,7 @@ void Menu::dealEvent(BP_Event& e)
 				{
 					int c = i;
 					b->func(e, &c);
-					log("%d\n", i);
+					LOG("%d\n", i);
 				}
 			}
 			if (disappear)
