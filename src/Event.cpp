@@ -921,7 +921,6 @@ bool EventManager::initEventData()
 			sprintf(filename2, "%s%3d%s", path, num2, ".grp");
 			unsigned char* Egrp;
 			int EgrpLen;
-			//Õâ¶ù¿ªÊ¼£¬11.30
 			//cocos2d::Data Egrp = FileUtils::getInstance()->getDataFromFile(filename2);
 			File::readFile(filename2, Egrp, EgrpLen);
 			unsigned char *Data;
