@@ -4,6 +4,7 @@
 
 class BasicData
 {
+
 public:
 	BasicData();
 	~BasicData();

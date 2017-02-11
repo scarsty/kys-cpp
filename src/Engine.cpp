@@ -1,5 +1,7 @@
 ﻿#include "Engine.h"
-
+#include "IniFile.h"
+#include<tchar.h>
+#include<direct.h>
 #ifdef _MSC_VER
 #define NOMINMAX
 #include <windows.h>
@@ -17,6 +19,33 @@ Engine::~Engine()
 {
     //destroy();
 }
+
+
+void Engine::GetParameter()
+{
+	char path[MAX_PATH];
+	_getcwd(path, MAX_PATH);
+	string a;
+	a.assign(path);
+	a = a + "\\sysfile\\System.ini";
+	string valWidth, valHeight;
+	IniReader inifile(a);
+	valWidth = inifile.GetValue("System", "WindowsWidth", "NULL");
+	valHeight = inifile.GetValue("System", "WindowsHeight", "NULL");
+	WindowsTitle = inifile.GetValue("System", "Title", "NULL");
+	if (valWidth != ""&&valHeight != "")
+	{
+		WindowsHeight = atoi(valHeight.c_str());
+		WindowsWidth = atoi(valWidth.c_str());
+	}
+	else
+	{
+		WindowsWidth = 1200;
+		WindowsHeight = 600;
+	}
+
+}
+
 
 BP_Texture* Engine::createYUVTexture(int w, int h)
 {
@@ -257,10 +286,15 @@ int Engine::init(void* handle)
     {
         return -1;
     }
+	GetParameter();
+	_start_w = WindowsWidth;
+	_start_h = WindowsHeight;
+	auto title = string_To_UTF8(WindowsTitle);
+
     if (handle)
     { _win = SDL_CreateWindowFrom(handle); }
     else
-        _win = SDL_CreateWindow("BigPotPlayer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        _win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                 _start_w, _start_h, SDL_WINDOW_RESIZABLE);
     //SDL_CreateWindowFrom()
     SDL_ShowWindow(_win);
@@ -432,11 +466,12 @@ int Engine::showMessage(const std::string& content)
             { 255,   0, 255 }
         }
     };
+	auto title = string_To_UTF8(WindowsTitle);
     const SDL_MessageBoxData messageboxdata =
     {
         SDL_MESSAGEBOX_INFORMATION, /* .flags */
         NULL, /* .window */
-        "BigPot Player", /* .title */
+        title.c_str(), /* .title */
         content.c_str(), /* .message */
         SDL_arraysize(buttons), /* .numbuttons */
         buttons, /* .buttons */
@@ -485,3 +520,29 @@ void Engine::setWindowPosition(int x, int y)
 }
 
 
+std::string Engine::string_To_UTF8(const std::string & str)
+{
+	int nwLen = ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, NULL, 0);
+
+	wchar_t * pwBuf = new wchar_t[nwLen + 1];//一定要加1，不然会出现尾巴  
+	ZeroMemory(pwBuf, nwLen * 2 + 2);
+
+	::MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), pwBuf, nwLen);
+
+	int nLen = ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, -1, NULL, NULL, NULL, NULL);
+
+	char * pBuf = new char[nLen + 1];
+	ZeroMemory(pBuf, nLen + 1);
+
+	::WideCharToMultiByte(CP_UTF8, 0, pwBuf, nwLen, pBuf, nLen, NULL, NULL);
+
+	std::string retStr(pBuf);
+
+	delete[]pwBuf;
+	delete[]pBuf;
+
+	pwBuf = NULL;
+	pBuf = NULL;
+
+	return retStr;
+}

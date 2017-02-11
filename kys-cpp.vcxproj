@@ -177,6 +177,7 @@
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\Head.cpp" />
     <ClCompile Include="src\HelloWorldScene.cpp" />
+    <ClCompile Include="src\IniFile.cpp" />
     <ClCompile Include="src\Item.cpp" />
     <ClCompile Include="src\kys-c++.cpp" />
     <ClCompile Include="src\Magic.cpp" />
@@ -210,6 +211,7 @@
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\Head.h" />
     <ClInclude Include="src\HelloWorldScene.h" />
+    <ClInclude Include="src\IniFile.h" />
     <ClInclude Include="src\Item.h" />
     <ClInclude Include="src\Magic.h" />
     <ClInclude Include="src\MainMap.h" />
