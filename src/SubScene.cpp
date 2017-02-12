@@ -20,6 +20,7 @@ void SubScene::draw()
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     auto& m_SceneMapData = Save::getInstance()->m_SceneMapData;
+	auto& m_SceneEventData = Save::getInstance()->m_SceneEventData;
     for (int sum = -sumregion; sum <= sumregion + 15; sum++)
     {
         for (int i = -widthregion; i <= widthregion; i++)
@@ -62,19 +63,23 @@ void SubScene::draw()
                 }
                 //ÊÂ¼þ²ã
                 num = m_SceneMapData[sceneNum].Data[3][i1][i2];
-                /*int picNum = m_SceneEventData[sceneNum].Data[num].BeginPic1 / 2;
+
+                int picNum = m_SceneEventData[sceneNum].Data[num].BeginPic1 / 2;
                 if (num > 0 && m_SceneEventData[sceneNum].Data[num].IsActive >= 0 && picNum > 0)
                 {
-                    auto t = MyTexture2D::getSelfPointer(MyTexture2D::Scene, picNum);
-                    auto s = EventS[k];
-                    t->setToSprite(s, p + p1, drawCount);
-                    map[calBlockTurn(i1, i2, 2)] = s;
-                }*/
-                num = m_SceneMapData[sceneNum].Data[2][i1][i2] / 2;
-                if (num > 0)
-                {
-                    map[calBlockTurn(i1, i2, 3)] = { num, p };
+// 	                auto t = MyTexture2D::getSelfPointer(MyTexture2D::Scene, picNum);
+//                     auto s = EventS[k];
+//                     t->setToSprite(s, p + p1, drawCount);
+//                     map[calBlockTurn(i1, i2, 2)] = s;
                 }
+
+				//¿ÕÖÐ²ã
+				num = m_SceneMapData[sceneNum].Data[2][i1][i2] / 2;
+				if (num > 0)
+				{
+					p.y = p.y + p1.y + p2.y;				
+					map[calBlockTurn(i1, i2, 3)] = { num, p };
+				}
             }
             k++;
         }
