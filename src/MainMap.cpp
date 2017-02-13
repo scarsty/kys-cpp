@@ -199,14 +199,12 @@ void MainMap::dealEvent(BP_Event& e)
         }
         case BPK_SPACE:
         {
-            //      stopFindWay();
-            //      m_BasicData[0].Mx = Mx;
-            //      m_BasicData[0].My = My;
-            //      m_BasicData[0].MFace = towards;
-            //      auto scene = BattleScene::createScene(73);
-            //      auto transitionScene = TransitionPageTurn::create(0.2f, scene, true);
-            //      this->pause();
-            //      Director::getInstance()->replaceScene(transitionScene);
+                  stopFindWay();
+				  Save::getInstance()->m_BasicData[0].Mx = Mx;
+				  Save::getInstance()->m_BasicData[0].My = My;
+				  Save::getInstance()->m_BasicData[0].MFace = towards;
+				  auto s = new BattleScene(Entrance[x][y]);
+				  push(s);
         }
         default:
         {
