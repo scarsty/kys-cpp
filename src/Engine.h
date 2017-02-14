@@ -146,8 +146,8 @@ private:
     BP_Texture* _square;
 public:
     BP_Texture* createSquareTexture(int size);
-    BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size);
-    void drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align);
+    BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, SDL_Color &c);
+    void drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color &c);
     void drawSubtitle(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align);
     //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
     std::vector<std::string> splitString(const std::string& s, const std::string& delim);

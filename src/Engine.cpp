@@ -242,11 +242,11 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
     TTF_CloseFont(font);
 }
 
-BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size)
+BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size , SDL_Color &c)
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font) { return nullptr; }
-    SDL_Color c = { 255, 255, 255, 128 };
+    //SDL_Color c = { 255, 255, 255, 128 };
     auto text_s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
     auto text_t = SDL_CreateTextureFromSurface(_ren, text_s);
     SDL_FreeSurface(text_s);
@@ -254,11 +254,11 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     return text_t;
 }
 
-void Engine::drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align)
+void Engine::drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color &c)
 {
     if (alpha == 0)
     { return; }
-    auto text_t = createTextTexture(fontname, text, size);
+    auto text_t = createTextTexture(fontname, text, size,c);
     if (!text_t) { return; }
     SDL_SetTextureAlphaMod(text_t, alpha);
     SDL_Rect rect;

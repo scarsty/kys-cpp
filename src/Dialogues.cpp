@@ -2,6 +2,7 @@
 #include <string>
 #include <windows.h>
 #include <iostream>
+#include "Engine.h"
 
 using namespace std;
 
@@ -83,6 +84,10 @@ bool Dialogues::InitDialogusDate()
 			for (int k = 0; k < m_idxLen[j] - 0; k++)
 			{
 				buffer[k] = buffer[k] ^ 0xFF;
+				if (buffer[k] == 0x2A)
+				{
+					buffer[k] = 0;
+				}
 			}
 			str = (char*)buffer;
 			delete buffer;
@@ -96,10 +101,10 @@ bool Dialogues::InitDialogusDate()
 			for (int k = 0; k < m_idxLen[j] - m_idxLen[j - 1]; k++)
 			{
 				buffer[k] = buffer[k] ^ 0xFF;
-				/*if (buffer[k]==0x2A)
+				if (buffer[k]==0x2A)
 				{
 				buffer[k] = 0;
-				}*/
+				}
 			}
 			str = (char*)buffer;
 			delete buffer;
@@ -108,5 +113,24 @@ bool Dialogues::InitDialogusDate()
 		Dialogues::m_Dialogues.push_back(str);
 	}
 	fclose(fp);
+
+	//fontsName = "fonts/Dialogues.ttf";
+
 	return true;
+}
+
+void Dialogues::draw()
+{
+	talkString = GBKToUTF8(m_Dialogues.at(2));
+	Engine::getInstance()->drawText(fontsName, talkString, 20, 5, 5,255,BP_ALIGN_LEFT, color);
+}
+
+void Dialogues::SetFontsName(const string& fontsname)
+{
+	fontsName = fontsname;
+}
+
+void Dialogues::SetFontsColor(SDL_Color &Color)
+{
+	color = Color;
 }
