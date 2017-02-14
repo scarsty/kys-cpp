@@ -94,6 +94,12 @@
     <ClCompile Include="src\IniFile.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Dialogues.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -190,6 +196,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\IniFile.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Dialogues.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

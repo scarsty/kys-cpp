@@ -2,6 +2,7 @@
 #include "Menu.h"
 #include "MainMap.h"
 #include "BattleData.h"
+#include "Dialogues.h"
 
 HelloWorldScene::HelloWorldScene()
 {
@@ -38,10 +39,13 @@ void HelloWorldScene::func(BP_Event& e, void* data)
     }
     if (i == 1)
     {
-        Save::getInstance()->LoadR(0);
+        /*Save::getInstance()->LoadR(0);
         auto m = new MainMap();
         push(m);
-        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
+        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);*/
+		Dialogues myDialogues;
+		myDialogues.InitDialogusDate();
+		//fprintf(stderr, "test dialogues %s", Dialogues::m_Dialogues.at(1).c_str());
     }
     BattleData::getInstance()->load();
 }

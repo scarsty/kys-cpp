@@ -170,6 +170,7 @@
     <ClCompile Include="src\Calendar.cpp" />
     <ClCompile Include="src\Character.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\Dialogues.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Error.cpp" />
     <ClCompile Include="src\Event.cpp" />
@@ -189,6 +190,7 @@
     <ClCompile Include="src\Scene.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\ZhaoShi.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -204,6 +206,7 @@
     <ClInclude Include="src\Character.h" />
     <ClInclude Include="src\Cloud.h" />
     <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\Dialogues.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Error.h" />
     <ClInclude Include="src\Event.h" />
@@ -223,6 +226,7 @@
     <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\SubSceneData.h" />
     <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\UI.h" />
     <ClInclude Include="src\ZhaoShi.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
