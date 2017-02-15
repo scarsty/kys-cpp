@@ -3,6 +3,7 @@
 #include "MainMap.h"
 #include "BattleData.h"
 #include "Dialogues.h"
+#include "UI.h"
 
 HelloWorldScene::HelloWorldScene()
 {
@@ -34,6 +35,7 @@ void HelloWorldScene::func(BP_Event& e, void* data)
     {
         Save::getInstance()->LoadR(0);
         auto m = new MainMap();
+		pop();
         push(m);
         SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
     }
@@ -56,22 +58,22 @@ void HelloWorldScene::init()
 	m_Dialogues->SetFontsName("fonts/Dialogues.ttf");
 	SDL_Color color = { 0, 0, 0, 255 };
 	m_Dialogues->SetFontsColor(color);
-
-	push(m_Dialogues);
-
-    auto m = new Menu();
-    m->setPosition(100, 100);
-    for (int i = 0; i < 3; i++)
-    {
-        auto b = new Button();
-        b->setTexture("title", i + 107);
-        m->addButton(b, 0, i * 30);
-        b->setSize(100, 30);
-        b->setFunction(BIND_FUNC(HelloWorldScene::func));
-    }
-    push(m);
-
 	
+	auto m = new Menu();
+	m->setPosition(100, 100);
+	for (int i = 0; i < 3; i++)
+	{
+		auto b = new Button();
+		b->setTexture("title", i + 107);
+		m->addButton(b, 0, i * 30);
+		b->setSize(100, 30);
+		b->setFunction(BIND_FUNC(HelloWorldScene::func));
+	}
+
+	auto m_UI = new UI();
+	m_UI->AddSprite(m_Dialogues);
+	m_UI->AddSprite(m);
+	push(m_UI);
 	
 }
 

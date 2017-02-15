@@ -1,9 +1,9 @@
 #pragma once
-#include "Base.h"
+#include "UI.h"
 #include "Button.h"
 
 class Menu :
-	public Base
+	public UI
 {
 public:
 	Menu();
@@ -11,7 +11,7 @@ public:
 
 	std::vector<Button*> bts;
 
-	void draw() override;
+	void draw();
 	void dealEvent(BP_Event& e) override;
 
 	void addButton(Button* b, int x, int y);
