@@ -21,7 +21,7 @@ public:
 	virtual void draw() {}
 	virtual void dealEvent(BP_Event& e) {}
 
-	static std::vector<Base*> baseVector;
+	static std::vector<Base*> baseVector;   
 
 	bool visible = true;
 

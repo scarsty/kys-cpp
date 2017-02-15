@@ -91,6 +91,15 @@
     <ClCompile Include="src\kys-c++.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\IniFile.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Dialogues.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -186,14 +195,35 @@
     <ClInclude Include="src\SubSceneData.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\IniFile.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Dialogues.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="lib\bass.lib" />
-    <Library Include="lib\bassmidi.lib" />
-    <Library Include="lib\SDL2.lib" />
-    <Library Include="lib\SDL2main.lib" />
-    <Library Include="lib\SDL2_image.lib" />
-    <Library Include="lib\SDL2_ttf.lib" />
+    <Library Include="lib\bass.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\bassmidi.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\SDL2.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\SDL2_image.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\SDL2_ttf.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\SDL2main.lib">
+      <Filter>lib</Filter>
+    </Library>
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.md" />
@@ -206,6 +236,9 @@
     <Filter Include="Sources">
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
       <Extensions>*.cpp</Extensions>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{e388266b-b26d-4098-bfdd-4e145ce51f17}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
