@@ -188,6 +188,7 @@
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\Sprite.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\Texture.cpp" />
     <ClCompile Include="src\UI.cpp" />
@@ -223,6 +224,7 @@
     <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
+    <ClInclude Include="src\Sprite.h" />
     <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\SubSceneData.h" />
     <ClInclude Include="src\Texture.h" />

@@ -4,6 +4,7 @@
 #include "BattleData.h"
 #include "Dialogues.h"
 #include "UI.h"
+#include "Sprite.h"
 
 HelloWorldScene::HelloWorldScene()
 {
@@ -18,6 +19,37 @@ HelloWorldScene::~HelloWorldScene()
 void HelloWorldScene::draw()
 {
     Texture::getInstance()->copyTexture("title", 0, 0, 0);
+	string filename = "Dialogues/Picture/1.png";
+	auto sprite = new Sprite(filename);
+	speed--;
+	if (speed<0)
+	{
+		if (m_y <= 25 && m_y>=15)
+		{
+			if (b_s)
+			{
+				m_y++;
+			}
+			else
+			{
+				m_y--;
+			}
+			
+		}
+		if (m_y==25)
+		{
+			b_s = false;
+		}
+		if (m_y==15)
+		{
+			b_s = true;
+		}
+		
+
+		speed = 2;
+	}
+	sprite->setPositionAndSize(5, m_y);
+	sprite->draw();
 }
 
 void HelloWorldScene::dealEvent(BP_Event& e)
@@ -70,8 +102,13 @@ void HelloWorldScene::init()
 		b->setFunction(BIND_FUNC(HelloWorldScene::func));
 	}
 
+	string filename = "Dialogues/Picture/1.png";
+	auto sprite = new Sprite(filename);
+	sprite->setPositionAndSize(10, 20);
+
 	auto m_UI = new UI();
 	m_UI->AddSprite(m_Dialogues);
+	//m_UI->AddSprite(sprite);
 	m_UI->AddSprite(m);
 	push(m_UI);
 	
