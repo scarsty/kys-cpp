@@ -50,6 +50,8 @@ void HelloWorldScene::draw()
 	}
 	sprite->setPositionAndSize(5, m_y);
 	sprite->draw();
+	m_Dialogues->draw();
+
 }
 
 void HelloWorldScene::dealEvent(BP_Event& e)
@@ -67,7 +69,7 @@ void HelloWorldScene::func(BP_Event& e, void* data)
     {
         Save::getInstance()->LoadR(0);
         auto m = new MainMap();
-		pop();
+		//pop();
         push(m);
         SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
     }
@@ -85,11 +87,12 @@ void HelloWorldScene::func(BP_Event& e, void* data)
 
 void HelloWorldScene::init()
 {
-	auto m_Dialogues = new Dialogues();
+	/*auto m_Dialogues = new Dialogues();
 	m_Dialogues->InitDialogusDate();
 	m_Dialogues->SetFontsName("fonts/Dialogues.ttf");
 	SDL_Color color = { 0, 0, 0, 255 };
 	m_Dialogues->SetFontsColor(color);
+	m_Dialogues->SetDialoguesNum(2);*/
 	
 	auto m = new Menu();
 	m->setPosition(100, 100);
@@ -107,10 +110,18 @@ void HelloWorldScene::init()
 	sprite->setPositionAndSize(10, 20);
 
 	auto m_UI = new UI();
-	m_UI->AddSprite(m_Dialogues);
+	//m_UI->AddSprite(m_Dialogues);
 	//m_UI->AddSprite(sprite);
 	m_UI->AddSprite(m);
 	push(m_UI);
+
+	m_Dialogues->InitDialogusDate();
+	m_Dialogues->SetFontsName("fonts/Dialogues.ttf");
+	SDL_Color color = { 0, 0, 0, 255 };
+	m_Dialogues->SetFontsColor(color);
+	m_Dialogues->SetDialoguesEffect(true);
+	m_Dialogues->SetDialoguesSpeed(5);
+	m_Dialogues->SetDialoguesNum(2);
 	
 }
 

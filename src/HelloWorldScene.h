@@ -1,5 +1,6 @@
 #pragma once
 #include "Scene.h"
+#include "Dialogues.h"
 
 class HelloWorldScene : public Scene
 {
@@ -16,5 +17,7 @@ public:
 	int speed = 2;
 	int state = 0;
 	void init() override;
+
+	Dialogues * m_Dialogues = new Dialogues();
 };
 
