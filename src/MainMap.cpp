@@ -136,7 +136,7 @@ void MainMap::dealEvent(BP_Event& e)
 {
     int x = Mx, y = My;
     //drawCount++;
-    if (e.type == BP_MOUSEBUTTONUP)
+    if (e.type == BP_MOUSEBUTTONDOWN)
     {
         getMousePosition(e.button.x, e.button.y);
         stopFindWay();

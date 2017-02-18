@@ -101,7 +101,7 @@ void SubScene::dealEvent(BP_Event& e)
 {
     int x = Sx, y = Sy;
     //drawCount++;
-    if (e.type == BP_MOUSEBUTTONUP)
+    if (e.type == BP_MOUSEBUTTONDOWN)
     {
         getMousePosition(e.button.x, e.button.y);
         stopFindWay();

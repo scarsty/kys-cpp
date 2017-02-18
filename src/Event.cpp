@@ -872,6 +872,35 @@ EVENT_FUNC(talk)
     return 4;
 }
 
+EVENT_FUNC(isZhangMen) 
+{
+	int i;
+	if (rnum <= -10) {
+		rnum = getJueSe(rnum);
+	}
+
+	Result: = jump2;
+	if (snum == -2) {
+		for (int i = 0; i < length(rmenpai) - 1; i++) {
+			if(rmenpai[i].zmr == rnum){
+				return jump1;
+			}
+		}
+	}
+	else {
+		if (snum == -1) {
+			snum = CurScene;
+		}
+	}
+	if (rmenpai[Rscene[snum].menpai].zmr = rnum) {
+		return jump1;
+	}
+
+	return 78;
+}
+
+
+
 #undef EVENT_FUNC
 
 vector<EventFunc> EventInstruct::funcs;

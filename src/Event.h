@@ -30,7 +30,8 @@ public:
     EventInstruct();
 #define EVENT_FUNCS \
     EVENT_FUNC(clear_screen);\
-    EVENT_FUNC(talk);
+    EVENT_FUNC(talk);\
+	EVENT_FUNC(isZhangMen);
 
     EVENT_FUNCS;
 
