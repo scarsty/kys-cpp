@@ -850,7 +850,7 @@ void EventInstruct::XXX()
 
 }
 
-#define EVENT_FUNC(name) funcs.push_back(std::bind(&EventInstruct::name, this, std::placeholders::_1))
+#define EVENT_FUNC(name) funcs.push_back(std::bind(&EventInstruct::name, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5))
 
 EventInstruct::EventInstruct()
 {
@@ -860,7 +860,7 @@ EventInstruct::EventInstruct()
 
 #undef EVENT_FUNC
 
-#define EVENT_FUNC(name) int EventInstruct::name(int p)
+#define EVENT_FUNC(name) int EventInstruct::name(int p1,int p2, int p3, int p4,int p5)
 
 EVENT_FUNC(clear_screen)
 {

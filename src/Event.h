@@ -9,7 +9,7 @@
 //USING_NS_CC;
 using namespace std;
 
-typedef function<int(int)> EventFunc;
+typedef function<int(int,int,int,int,int)> EventFunc;
 
 class Operation
 {
@@ -21,7 +21,7 @@ public:
 
 
 //内部载入指令的数据流，传入值为当前指令的指针，返回值为指针需要移动的值，用宏简化代码
-#define EVENT_FUNC(name) int name(int p)
+#define EVENT_FUNC(name) int name(int p1=-2,int p2=-2, int p3=-2, int p4=-2,int p5=-2)
 class EventInstruct  //各种指令的实现写这里
 {
 public:
