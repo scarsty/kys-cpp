@@ -1,10 +1,10 @@
 #pragma once
-#include "Base.h"
+#include "UI.h"
 
 typedef std::function<void(BP_Event&, void*)> ButtonFunc;
 #define BIND_FUNC(func) std::bind(&func, this, std::placeholders::_1, std::placeholders::_2)
 
-class Button : public Base
+class Button : public UI
 {
 public:
     Button();
@@ -15,8 +15,7 @@ public:
     int num2;
     int num3;
     void setTexture(const std::string& path, int num1, int num2 = -1, int num3 = -1);
-
-    void draw() override;
+    void draw();
     //void dealEvent(BP_Event& e) override;
 
     ButtonFunc func = nullptr;

@@ -121,8 +121,27 @@ bool Dialogues::InitDialogusDate()
 
 void Dialogues::draw()
 {
-	talkString = GBKToUTF8(m_Dialogues.at(2));
-	Engine::getInstance()->drawText(fontsName, talkString, 20, 5, 5,255,BP_ALIGN_LEFT, color);
+	
+	if (PrinterEffects)
+	{
+		int length = talkString.length();
+		if (strlength < length)
+		{
+			if (tempSpeed<0)
+			{
+				tempTalk = talkString.substr(0, strlength);
+				strlength+=2;
+				tempSpeed = speed;
+			}
+			tempSpeed--;
+		}	
+	}
+	else
+	{
+		tempTalk = talkString;
+	}
+	Engine::getInstance()->drawText(fontsName,GBKToUTF8(tempTalk), 20, 5, 5, 255, BP_ALIGN_LEFT, color);
+	
 }
 
 void Dialogues::SetFontsName(const string& fontsname)
@@ -133,4 +152,27 @@ void Dialogues::SetFontsName(const string& fontsname)
 void Dialogues::SetFontsColor(SDL_Color &Color)
 {
 	color = Color;
+}
+
+void Dialogues::SetDialoguesEffect(bool b)
+{
+	if (PrinterEffects)
+	{
+	}
+	else
+	{
+		PrinterEffects = b;
+	}
+
+}
+
+void Dialogues::SetDialoguesNum(int num)
+{
+	talkString = m_Dialogues.at(num);
+}
+
+void Dialogues::SetDialoguesSpeed(int sp)
+{
+	speed = sp;
+	tempSpeed = speed;
 }

@@ -100,6 +100,9 @@
     <ClCompile Include="src\UI.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Sprite.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -202,6 +205,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UI.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Sprite.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
