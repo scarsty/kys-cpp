@@ -33,7 +33,7 @@ bool EventManager::callEvent(int num)
     }
     const std::vector<Operation>* operation = eventData.at(eventId).getOperation();
     int parLen;
-    EventInstruct event;
+    //EventInstruct event;
 
     int p = 0;
     int length = 100;
@@ -48,7 +48,7 @@ bool EventManager::callEvent(int num)
         }
         case 0:
         {
-            clear();
+//            clear();
             break;
         }
         case 1:
@@ -715,46 +715,11 @@ int EventData::getOperationLen(int num)
     std::vector<int> ret = { 1, 4, 3, 21, 4, 3, 5, 7, 2, 3, 2, 3, 1, 1, 1, 1, 4, 6, 4, 3, 3, 2, 1, 3, 1, 5, 6, 4, 6, 6, 5, 4, 3, 5, 3, 5, 4, 3, 5, 2, 2, 4, 3, 4, 7, 3, 3, 3, 3, 3, 8, 4, 1, 1, 1, 5, 3, 1, 1, 1, 6, 3, 1, 3, 2, 1, 2, 2, 8, 4, 3, 4, 3, 8, 2, 1, 3, 5, 2, 3, 5, 4, 6, 3, 6, 4, 6, 3, 6, 3, 3, 8, 6, 3, 4, 3, 4, 2, 3, 1, 1, 1, 1, 2, 3, 2, 4, 2, 20, 3, 6, 5, 3, 4, 3, 5, 2, 7, 9, 3, 2, 5, 26, 6, 4, 5, 3, 3, 1, 11, 9, 5, 9, 14, 4, 5, 2, 4, 6, 6 };
     return ret[num];
 }
-void EventInstruct::XXX()
-{
+//void EventInstruct::XXX()
+//{
+//
+//}
 
-}
-
-
-EVENT_FUNC(isZhangMen)
-{
-    int i;
-    if (rnum <= -10)
-    {
-        rnum = getJueSe(rnum);
-    }
-
-Result:
-        = jump2;
-    if (snum == -2)
-    {
-        for (int i = 0; i < length(rmenpai) - 1; i++)
-        {
-            if (rmenpai[i].zmr == rnum)
-            {
-                return jump1;
-            }
-        }
-    }
-    else
-    {
-        if (snum == -1)
-        {
-            snum = CurScene;
-        }
-    }
-    if (rmenpai[Rscene[snum].menpai].zmr = rnum)
-    {
-        return jump1;
-    }
-
-    return 78;
-}
 
 
 
