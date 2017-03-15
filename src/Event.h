@@ -67,6 +67,16 @@ public:
     std::vector<EventData> eventData;
 
     int eventCount = 0;
+	
+
+	void clear();
+	void talk();
+	int getGongtiLevel(int rnum, int gongti);
+	int getRoleSpeed(int rnum, bool equip);
+	int getRoleDefence(int rnum, bool equip);
+	int getRoleAttack(int rnum, bool equip);
+
+	
 };
 
 
