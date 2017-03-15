@@ -75,6 +75,17 @@ public:
 	int getRoleSpeed(int rnum, bool equip);
 	int getRoleDefence(int rnum, bool equip);
 	int getRoleAttack(int rnum, bool equip);
+	int getRoleBoxing(int rnum, bool equip);	
+	int getRoleFencing(int rnum, bool equip);	
+	int getRoleKnife(int rnum, bool equip);
+	int getRoleSpecial(int rnum, bool equip);
+	int getRoleShader(int rnum, bool equip);
+	int getRoleDefpoi(int rnum, bool equip);
+	int getRoleAttpoi(int rnum, bool equip);
+	int getRoleUsepoi(int rnum, bool equip);
+	int getRoleAttpoi(int rnum, bool equip);
+	int getRoleMedpoi(int rnum, bool equip);
+	int getRoleMedicine(int rnum, bool equip);
 
 	
 };

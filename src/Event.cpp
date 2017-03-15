@@ -796,6 +796,198 @@ int EventManager::getRoleAttack(int rnum, bool equip = false) {
 }
 
 
+int EventManager::getRoleBoxing(int rnum, bool equip = false) {
+	short boxing = Save::getInstance()->m_Character[rnum].Boxing;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			boxing += Save::getInstance()->m_Magic[magicnum].AddBoxing;
+		}		
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				boxing += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddBoxing;
+			}
+		}
+	}
+	return boxing;
+}
 
-#undef EVENT_FUNC
+int EventManager::getRoleFencing(int rnum, bool equip = false) {
+	short Fencing = Save::getInstance()->m_Character[rnum].Fencing;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			Fencing += Save::getInstance()->m_Magic[magicnum].AddFencing;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				Fencing += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddFencing;
+			}
+		}
+	}
+	return Fencing;
+}
+
+int EventManager::getRoleKnife(int rnum, bool equip = false) {
+	short knife = Save::getInstance()->m_Character[rnum].Fencing;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			knife += Save::getInstance()->m_Magic[magicnum].AddKnife;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				knife += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddKnife;
+			}
+		}
+	}
+	return knife;
+}
+
+int EventManager::getRoleSpecial(int rnum, bool equip = false) {
+	short special = Save::getInstance()->m_Character[rnum].SpecialSkill;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			special += Save::getInstance()->m_Magic[magicnum].AddSpecial;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				special += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddSpecial;
+			}
+		}
+	}
+	return special;
+}
+
+int EventManager::getRoleShader(int rnum, bool equip = false) {
+	short shader = Save::getInstance()->m_Character[rnum].Shader;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			shader += Save::getInstance()->m_Magic[magicnum].AddShader;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				shader += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddShader;
+			}
+		}
+	}
+	return shader;
+}
+
+int EventManager::getRoleDefpoi(int rnum, bool equip = false) {
+	short defpoi = Save::getInstance()->m_Character[rnum].DefPoison;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			defpoi += Save::getInstance()->m_Magic[magicnum].AddDefPoi;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				defpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddDefPoi;
+			}
+		}
+	}
+	return defpoi;
+}
+
+int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
+	short attpoi = Save::getInstance()->m_Character[rnum].AttPoison;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			attpoi += Save::getInstance()->m_Magic[magicnum].AddAttPoi;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				attpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddAttPoi;
+			}
+		}
+	}
+	return attpoi;
+}
+
+int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
+	short attpoi = Save::getInstance()->m_Character[rnum].AttPoison;
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				attpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddAttPoi;
+			}
+		}
+	}
+	return attpoi;
+}
+
+int EventManager::getRoleUsepoi(int rnum, bool equip = false) {
+	short usepoi = Save::getInstance()->m_Character[rnum].AttPoison;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			usepoi += Save::getInstance()->m_Magic[magicnum].AddUsePoi;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				usepoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddUsePoi;
+			}
+		}
+	}
+	return usepoi;
+}
+
+
+int EventManager::getRoleMedpoi(int rnum, bool equip = false) {
+	short medpoi = Save::getInstance()->m_Character[rnum].AttPoison;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			medpoi += Save::getInstance()->m_Magic[magicnum].AddMedPoi;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				medpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddMedPoison;
+			}
+		}
+	}
+	return medpoi;
+}
+
+int EventManager::getRoleMedicine(int rnum, bool equip = false) {
+	short medicine = Save::getInstance()->m_Character[rnum].AttPoison;
+	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
+			medicine += Save::getInstance()->m_Magic[magicnum].AddMedcine;
+		}
+	}
+	if (equip) {
+		for (int i = 0; i < config::MaxEquipNum; i++) {
+			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
+				medicine += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddMedcine;
+			}
+		}
+	}
+	return medicine;
+}
+
+//#undef EVENT_FUNC
 
