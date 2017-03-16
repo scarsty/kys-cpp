@@ -20,7 +20,8 @@ struct config
         MaxEventNum = 3000,                              //最大事件数
         MaxEventFactor = 50,                             //单事件最大参数数
         EventFolderNum = 1,                              //事件文件夹数
-        EventFileNum = 1                                 //单事件文件夹事件文件数
+        EventFileNum = 1,                                 //单事件文件夹事件文件数
+		MaxMagicNum = 30
     };
 };
 

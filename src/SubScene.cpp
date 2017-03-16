@@ -97,6 +97,12 @@ void SubScene::init()
     Sy = Save::getInstance()->m_SceneData[sceneNum].EntranceY;
 }
 
+void SubScene::setPosition(int x, int y)
+{
+	Sx = x;
+	Sy = y;
+}
+
 void SubScene::dealEvent(BP_Event& e)
 {
     int x = Sx, y = Sy;

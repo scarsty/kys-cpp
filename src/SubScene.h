@@ -22,6 +22,7 @@ public:
     void setSceneNum(int num) { sceneNum = num; }
 
     void init() override;
+	void setPosition(int x, int y);
     void draw() override;
     void dealEvent(BP_Event& e) override;
 

@@ -29,7 +29,7 @@ public:
 	short HatredFaction[2];
 	short CurrentPosition, InnerPosition, InnerToward, Unuse0, ExerciseTendency, MeditationTendency, WorkTendency, OtherTendency, TemporaryPosition, TInnerPosition, TToward,
 		Sx, Sy, IsGift, Contributions, Unuse5, Unuse6, Unuse7, Unuse8, Unuse9, BTNum; //98
-	short LMagic[30], MagLevel[30]; //158
+	short LMagic[config::MaxMagicNum], MagLevel[config::MaxMagicNum]; //158
 	short TakingItem[4], TakingItemAmount[4], ActivateMagic[10], LAction[30];
 	short IsEvent;
 	short AllEvent[9];

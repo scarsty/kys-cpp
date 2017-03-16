@@ -989,5 +989,86 @@ int EventManager::getRoleMedicine(int rnum, bool equip = false) {
 	return medicine;
 }
 
+void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
+	int curScene = snum;
+	if (x == -2) {
+		x = Save::getInstance()->m_SceneData[curScene].EntranceX;
+	}
+	if (y == -2) {
+		y = Save::getInstance()->m_SceneData[curScene].EntranceY;
+	}
+	Save::getInstance()->m_Character[0].CurrentPosition = curScene;
+	auto s = new SubScene(curScene);
+	s->setPosition(x, y);
+	s->push(s);
+	if (Save::getInstance()->m_SceneData[curScene].IsBattle&&Save::getInstance()->m_Character[0].Faction == Save::getInstance()->m_SceneData[curScene].Faction) {
+		//Faction battle need to be finished.
+	}
+}
+
+int EventManager::GetItemCount(int inum) {
+
+	for (int i = 0; i < config::MAX_ITEM_AMOUNT - 1; i++) {
+		if (Save::getInstance()->m_BasicData[0].RItemList->Number == inum) {
+			return Save::getInstance()->m_BasicData[0].RItemList->Amount;
+		}
+	}
+}
+
+void EventManager::StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode) {
+	int max0,tmp;
+	if (dismode == 1) {
+		//nend new talk
+	}
+	else if (newmagicnum == 0) {		//delete magic
+		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
+			if (Save::getInstance()->m_Character[rnum].LMagic[i] == magicnum) {				
+				for (int n = i; n < config::MaxMagicNum - 2; n++) {
+					Save::getInstance()->m_Character[rnum].LMagic[n] = Save::getInstance()->m_Character[rnum].LMagic[n + 1];
+					Save::getInstance()->m_Character[rnum].MagLevel[n] = Save::getInstance()->m_Character[rnum].MagLevel[n + 1];
+				}
+				Save::getInstance()->m_Character[rnum].LMagic[29] = 0;
+				Save::getInstance()->m_Character[rnum].MagLevel[29] = 0;
+				break;
+			}
+		}
+		
+	}
+	else {
+		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
+			if (Save::getInstance()->m_Character[rnum].LMagic[i] == newmagicnum) {
+				if (level == -2) {
+					level = 0;
+				}
+				max0 = 9;
+				if (Save::getInstance()->m_Magic[newmagicnum].MagicType == 5) {
+					max0 = Save::getInstance()->m_Magic[newmagicnum].MaxLevel;
+				}
+				tmp = Save::getInstance()->m_Character[rnum].MagLevel[i];
+				if (max0 * 100 + 99 > Save::getInstance()->m_Character[rnum].MagLevel[i] + level + 100) {
+					Save::getInstance()->m_Character[rnum].MagLevel[i] = Save::getInstance()->m_Character[rnum].MagLevel[i] + level + 100;
+				}
+				else {
+					Save::getInstance()->m_Character[rnum].MagLevel[i] = max0 * 100 + 99;
+				}
+				StudyMagic(rnum, magicnum, 0, 0, 0);
+				break;
+			}
+		}
+		if (magicnum > 0) {
+		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
+			if (Save::getInstance()->m_Character[rnum].LMagic[i] == magicnum || Save::getInstance()->m_Character[rnum].LMagic[i] < 0) {
+				if (level != -2) {
+					Save::getInstance()->m_Character[rnum].MagLevel[i] = level;
+				}
+				Save::getInstance()->m_Character[rnum].LMagic[i] == newmagicnum;
+				break;
+			}
+		}			
+		}
+	}
+}
+
+
 //#undef EVENT_FUNC
 

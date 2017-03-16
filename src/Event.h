@@ -87,6 +87,12 @@ public:
 	int getRoleMedpoi(int rnum, bool equip);
 	int getRoleMedicine(int rnum, bool equip);
 
+	int GetItemCount(int inum);
+
+	void StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode);
+
+	void JumpScene(int snum, int x, int y);
+
 	
 };
 
