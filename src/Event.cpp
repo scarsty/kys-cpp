@@ -906,12 +906,7 @@ int EventManager::getRoleDefpoi(int rnum, bool equip = false) {
 
 int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
 	short attpoi = Save::getInstance()->m_Character[rnum].AttPoison;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			attpoi += Save::getInstance()->m_Magic[magicnum].AddAttPoi;
-		}
-	}
+
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
 			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
