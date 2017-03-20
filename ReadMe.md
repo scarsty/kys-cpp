@@ -1,5 +1,5 @@
-﻿#kys-cpp
-##架构说明
+# kys-cpp
+## 架构说明
 Engine封装了一套SDL的主要实现，取自BigPot。
 
 File是一些读取，写入函数。
