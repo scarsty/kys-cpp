@@ -3,19 +3,25 @@
 #include "bassmidi.h"
 #include <vector>
 
+/**
+* @file		 Audio.h
+* @brief	 √ΩÃÂ¿‡
+* @author    bttt
+
+*/
 class Audio
 {
 private:
     Audio();
     virtual ~Audio();
 
-    std::vector<HSTREAM> music;
-    std::vector<HSAMPLE> asound, esound;
-    BASS_MIDI_FONT sf;
+    std::vector<HSTREAM> m_vcMusic;
+    std::vector<HSAMPLE> m_vcAsound, m_vcEsound;
+    BASS_MIDI_FONT m_sf;
 
-    static Audio audio;
+    static Audio m_Audio;
 public:
-    static Audio* getInstance() { return &audio; }
+    static Audio* getInstance() { return &m_Audio; }
 
     void init();
     void playMusic(int num);

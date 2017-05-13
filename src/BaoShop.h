@@ -11,7 +11,7 @@ public:
 		short INum, Amount;
 	};
 
-	TShopItem ShopItem[18];
+	TShopItem m_ShopItem[18];
 	
 };
 

@@ -32,16 +32,10 @@ bool Save::LoadR(int num)
     unsigned char* Ridx = new unsigned char[Ridxlen];
     Offset = new int[Ridxlen / 4 + 1];
     Offset = new int[Ridxlen / 4 + 1];
-    //Offset[0] = 0;
     Offset[0] = 0;
     std::fprintf(stderr, "load file %s\n", filename1.c_str());
     File::readFile(filename1.c_str(), Ridx, Ridxlen);
     memcpy(Offset+1, Ridx, Ridxlen);
-//     for (i = 2; i < Ridxlen / 4 + 1; i++)
-//     {
-//         Offset[i] += 32;
-//     }
-//     delete[] Ridx;
 
     int GrpLenth;
     filename1 = filename + ".grp";
@@ -151,19 +145,19 @@ bool Save::LoadR(int num)
     filename = filename + ".grp";
     fprintf(stderr, "load file %s\n", filename.c_str());
     File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0].Data[0][0][0]), S_Count * 64 * 64 * 6 * 2);
+   
+     unsigned char *Data2;
+     m_SceneEventData.resize(S_Count);
+     filename = "save/D" + to_string(num);
+     if (num == 0)
+     {
+		 filename = "save/alldef";
+     }
+     filename = filename + ".grp";
+	 fprintf(stderr, "load file %s\n", filename.c_str());
+	 File::readFile(filename.c_str(), (void*)(&m_SceneEventData[0].Data[0]), S_Count * 400 * 18 * 2);
 
-    //
-    //
-    //
-    //  unsigned char *Data2;
-    //  m_SceneEventData.resize(S_Count);
-    //  filename = "save/D" + to_string(num);
-    //  if (num == 0)
-    //  {
-    //      filename = "save/alldef";
-    //  }
-    //  filename = filename + ".grp";
-    //  //readSD(filename1, Data, (unsigned char *)DData, S_Count *sizeof(TSceneDData));
+       //readSD(filename1, Data, (unsigned char *)DData, S_Count *sizeof(TSceneDData));
     //  cocos2d::Data ios = FileUtils::getInstance()->getDataFromFile(filename);
     //  if (!ios.isNull())
     //  {

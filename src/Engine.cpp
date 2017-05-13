@@ -348,20 +348,24 @@ int Engine::getWindowsHeight()
     return h;
 }
 
-bool Engine::isFullScreen()
+bool Engine::isfullScreen()
 {
     Uint32 state = SDL_GetWindowFlags(_win);
-    _full_screen = (state & SDL_WINDOW_FULLSCREEN) || (state & SDL_WINDOW_FULLSCREEN_DESKTOP);
+    _full_screen = (state & SDL_WINDOW_FULLSCREEN) || (state &SDL_WINDOW_FULLSCREEN_DESKTOP);
     return _full_screen;
 }
 
-void Engine::toggleFullscreen()
+void Engine::togglefullscreen()
 {
     _full_screen = !_full_screen;
     if (_full_screen)
-    { SDL_SetWindowFullscreen(_win, SDL_WINDOW_FULLSCREEN_DESKTOP); }
+	{
+		SDL_SetWindowFullscreen(_win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	}
     else
-    { SDL_SetWindowFullscreen(_win, 0); }
+	{
+		SDL_SetWindowFullscreen(_win, 0);
+	}
     SDL_RenderClear(_ren);
 }
 

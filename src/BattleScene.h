@@ -16,53 +16,53 @@ public:
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 
-    static const int maxBRoleSelect = 6;       //战斗选人最大人数
-    int MaxBRoleNum = 42;                      //最大战场参战人数
+    static const int m_nMaxBRoleSelect = 6;       //战斗选人最大人数
+    int m_nMaxBRoleNum = 42;                      //最大战场参战人数
 
-    const int battleSpeed = 0.025;             //战斗速度
-    int Bx = 31, By = 31;                                //当前位置
-    int Ax, Ay;                                //目标位置
-    int linex[480 * 480], liney[480 * 480];
-    int manPicture;
-    int step = 0;
-    int curA;
-    int counter = 0;                           // 计数器解决人物选择逻辑问题
-    int xx = 317;                              // 人物信息界面的x
-    int yy = 382;                              // 人物信息界面的y
+    const int m_nbattleSpeed = 0.025;             //战斗速度
+    int m_nBx = 31, m_nBy = 31;                                //当前位置
+    int m_nAx, m_nAy;                                //目标位置
+    int m_nlinex[480 * 480], m_nliney[480 * 480];
+    int m_nmanPicture;
+    int m_nstep = 0;
+    int m_ncurA;
+    int m_ncounter = 0;                           // 计数器解决人物选择逻辑问题
+    int m_nxx = 317;                              // 人物信息界面的x
+    int m_nyy = 382;                              // 人物信息界面的y
     enum
     {
         kindOfRole = 7                         //人物信息界面的属性种类
     };
-    string s_list[BattleScene::kindOfRole];    // 人物信息界面的属性（默认姓名，攻击，防御，轻功）
-    int num_list = 0;                          // 人物信息界面的列表位置
-    int offset_BRolePic = 1;                   //单向战斗图张数
-    int BRoleAmount = 0;                       //战场人数
-    int mods = 0;                              //战斗模式
-    string menuString[maxBRoleSelect + 2];     //战斗人物选单
-    int max0;                                  //最大人数
-    int maxspeed;                              //最大步数
+    string m_strList[BattleScene::kindOfRole];    // 人物信息界面的属性（默认姓名，攻击，防御，轻功）
+    int m_nList = 0;                          // 人物信息界面的列表位置
+    int m_nOffset_BRolePic = 1;                   //单向战斗图张数
+    int m_nBRoleAmount = 0;                       //战场人数
+    int m_nMods = 0;                              //战斗模式
+    string m_strMenuString[m_nMaxBRoleSelect + 2];     //战斗人物选单
+    int m_nMax0;                                  //最大人数
+    int m_nMaxspeed;                              //最大步数
 
-    int BStatus;
-    bool isBattle;
-    int Where;
-    int curRoleNum;                            //当前人物序号
-    int BattleList[maxBRoleSelect];            //参战人员列表
-    int ResultofBattle[maxBRoleSelect];        //战斗选人结果
+    int m_nBStatus;
+    bool m_bisBattle;
+    int m_nWhere;
+    int m_ncurRoleNum;                            //当前人物序号
+    int m_nBattleList[m_nMaxBRoleSelect];            //参战人员列表
+    int m_nResultofBattle[m_nMaxBRoleSelect];        //战斗选人结果
     //MenuItemFont* item[maxBRoleSelect + 2];                                 //选人控件
-    bool SlectOfresult[maxBRoleSelect + 2];    //选项状态
-    int battleNum;                             //当前战斗号
-    int battleSceneNum = 0;                        //当前战斗场景号
-    int curMagic;                              //当前武功
+    bool m_bSlectOfresult[m_nMaxBRoleSelect + 2];    //选项状态
+    int m_nbattleNum;                             //当前战斗号
+    int m_nbattleSceneNum = 0;                        //当前战斗场景号
+    int m_ncurMagic;                              //当前武功
 
     //std::vector<Sprite*> EarthS, BuildS, AirS, EventS;
-    std::stack<Point> wayQue;                       //栈(路径栈)
+    std::stack<Point> m_wayQue;                       //栈(路径栈)
 
 
-    BattleData& Battle = BattleData::bBattle;  //引用battle
+    BattleData& Battle = BattleData::m_bBattle;  //引用battle
     //vector<battle::TBattleRole> BRole;   //定义战斗人员
-    std::vector<BattleSceneData>& battleSceneData = BattleData::getInstance()->m_BattleSceneData;
-    std::vector<BattleRole>& battleRole = BattleData::getInstance()->m_BattleRole;
-    std::vector<BattleInfo>& battleInfo = BattleData::getInstance()->m_BattleInfo;
+    std::vector<BattleSceneData>& m_vcBattleSceneData = BattleData::getInstance()->m_vcBattleSceneData;
+    std::vector<BattleRole>& m_vcBattleRole = BattleData::getInstance()->m_vcBattleRole;
+    std::vector<BattleInfo>& m_vcBattleInfo = BattleData::getInstance()->m_vcBattleInfo;
 
     void walk(int x, int y, Towards t);
 

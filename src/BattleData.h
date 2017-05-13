@@ -45,9 +45,9 @@ public:
     BattleData();
     ~BattleData();
 
-    std::vector<BattleRole> m_BattleRole;
-    std::vector<BattleInfo> m_BattleInfo;
-    std::vector<BattleSceneData> m_BattleSceneData;
+    std::vector<BattleRole> m_vcBattleRole;
+    std::vector<BattleInfo> m_vcBattleInfo;
+    std::vector<BattleSceneData> m_vcBattleSceneData;
 
     struct FactionBackup
     {
@@ -55,16 +55,16 @@ public:
         int TMenber[10];
     };
 
-    int* offset;
-    int maxBattleScene;
+    int* m_poffset;
+    int m_nMaxBattleScene;
 
-    static BattleData bBattle;
+    static BattleData m_bBattle;
     static BattleData* getInstance()
     {
-        return &bBattle;
+        return &m_bBattle;
     }
 
-    bool load();
-    bool initSta(int currentBattle);
+    bool isLoad();
+    bool isInitSta(int currentBattle);
 };
 

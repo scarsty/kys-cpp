@@ -5,7 +5,7 @@
 
 SubScene::SubScene()
 {
-    full = 1;
+	m_nfull = 1;
 }
 
 
@@ -30,8 +30,8 @@ void SubScene::draw()
             auto p = getPositionOnScreen(i1, i2, Sx, Sy);
             if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
             {
-                //EarthS[k]->setVisible(false);
-                //BuildS[k]->setVisible(false);
+                //EarthS[k]->setm_bvisible(false);
+                //BuildS[k]->setm_bvisible(false);
                 //这里注意状况
                 Point p1 = Point(0, -m_SceneMapData[sceneNum].Data[4][i1][i2]);
                 Point p2 = Point(0, -m_SceneMapData[sceneNum].Data[5][i1][i2]);
@@ -71,6 +71,8 @@ void SubScene::draw()
 //                     auto s = EventS[k];
 //                     t->setToSprite(s, p + p1, drawCount);
 //                     map[calBlockTurn(i1, i2, 2)] = s;
+					Texture::getInstance()->copyTexture("smap", picNum, p.x, p.y);
+					map[calBlockTurn(i1, i2, 2)] = { picNum, p };
                 }
 
 				//空中层
@@ -224,7 +226,7 @@ bool SubScene::canWalk(int x, int y)
 {
 
     if (checkIsOutLine(x, y) || checkIsBuilding(x, y) || checkIsHinder(x, y)
-        || checkIsEvent(x, y) || checkIsFall(x, y))
+        || !checkIsEvent(x, y) || checkIsFall(x, y))
     {
         return false;
     }
@@ -273,13 +275,13 @@ bool SubScene::checkIsHinder(int x, int y)
 bool SubScene::checkIsEvent(int x, int y)
 {
     //if (save.SData[sceneNum].SData[4][x][y] >= 0 && (save.DData[sceneNum].DData[save.SData[sceneNum].SData[3][x][y],0] % 10)<1)
-//     int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
-//     int canWalk = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].CanWalk;
-//     if (canWalk > 0)
-//     {
-//         return true;
-//     }
-    return false;
+    int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
+    int canWalk = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].CanWalk;
+    if (canWalk > 0)
+    {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+		return false;
+	}
+    return true;
 }
 
 bool SubScene::checkIsFall(int x, int y)
@@ -293,14 +295,18 @@ bool SubScene::checkIsFall(int x, int y)
 
 bool SubScene::checkIsExit(int x, int y)
 {
-    if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[0] == x && (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[0] == y
-        || (int)Save::getInstance()->m_SceneData[sceneNum].ExitX[2] == x && (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[2] == y)
+    if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[0] == x 
+		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[0] == y
+        || (int)Save::getInstance()->m_SceneData[sceneNum].ExitX[2] == x 
+		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[2] == y)
     {
         pop();
         return true;
     }
-    else if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[1] == x && (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[1] == y)
+    else if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[1] == x 
+		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[1] == y)
     {
+		
         /*
         SaveGame::getInstance()->RBasic_Data.Mface = towards;
         SaveGame::getInstance()->RBasic_Data.Mx = save.RScene[sceneNum]->MainEntranceX2;
@@ -320,9 +326,10 @@ void SubScene::callEvent(int x, int y)
 {
     if (checkIsEvent(x, y))
     {
-        //         int num = m_SceneMapData[sceneNum].Data[3][x][y];
-        //         int eventNum = m_SceneEventData[sceneNum].Data[num].Num;
+		int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
+        int eventNum = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].Num;
         //触发编号为eventNum的事件
+
     }
 }
 

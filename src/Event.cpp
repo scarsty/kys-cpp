@@ -904,18 +904,6 @@ int EventManager::getRoleDefpoi(int rnum, bool equip = false) {
 	return defpoi;
 }
 
-int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
-	short attpoi = Save::getInstance()->m_Character[rnum].AttPoison;
-
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				attpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddAttPoi;
-			}
-		}
-	}
-	return attpoi;
-}
 
 int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
 	short attpoi = Save::getInstance()->m_Character[rnum].AttPoison;
@@ -1004,8 +992,8 @@ void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
 int EventManager::GetItemCount(int inum) {
 
 	for (int i = 0; i < config::MAX_ITEM_AMOUNT - 1; i++) {
-		if (Save::getInstance()->m_BasicData[0].RItemList->Number == inum) {
-			return Save::getInstance()->m_BasicData[0].RItemList->Amount;
+		if (Save::getInstance()->m_BasicData[0].m_RItemList->Number == inum) {
+			return Save::getInstance()->m_BasicData[0].m_RItemList->Amount;
 		}
 	}
 }

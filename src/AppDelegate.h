@@ -2,6 +2,13 @@
 #include "Base.h"
 #include "Engine.h"
 
+/**
+* @file		 AppDelegate.h
+* @brief	 ”¶”√¿‡
+* @author    bttt
+
+*/
+
 class  AppDelegate : public Base
 {
 public:

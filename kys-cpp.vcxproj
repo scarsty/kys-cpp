@@ -159,6 +159,7 @@
     <Library Include="lib\SDL2_ttf.lib" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Global.cpp" />
     <ClCompile Include="src\AppDelegate.cpp" />
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BaoShop.cpp" />
@@ -195,6 +196,7 @@
     <ClCompile Include="src\ZhaoShi.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Global.h" />
     <ClInclude Include="src\AppDelegate.h" />
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\BaoShop.h" />

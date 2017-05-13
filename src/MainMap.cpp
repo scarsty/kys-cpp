@@ -12,7 +12,7 @@ int MainMap::Mx, MainMap::My;
 
 MainMap::MainMap()
 {
-    full = 1;
+    m_nfull = 1;
 }
 
 MainMap::~MainMap()
@@ -74,7 +74,7 @@ void MainMap::draw()
     auto t1 = Engine::getInstance()->getTicks();
     //ÔÆµÄÌùÍ¼
     for (auto& c : cloudVector)
-    { Texture::getInstance()->copyTexture("cloud", c->num, c->x, c->y); }
+    { Texture::getInstance()->copyTexture("cloud", c->num, c->m_nx, c->m_ny); }
     //log("%d\n", t1 - t0);
 }
 
@@ -284,9 +284,9 @@ bool MainMap::checkIsEntrance(int x, int y)
 {
     if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
     {
-        Save::getInstance()->m_BasicData[0].Mx = Mx;
-        Save::getInstance()->m_BasicData[0].My = My;
-        Save::getInstance()->m_BasicData[0].MFace = towards;
+        Save::getInstance()->m_BasicData[0].m_sMx = Mx;
+        Save::getInstance()->m_BasicData[0].m_sMx = My;
+        Save::getInstance()->m_BasicData[0].m_sMFace = towards;
         auto s = new SubScene(Entrance[x][y]);
         push(s);
         return true;

@@ -103,6 +103,7 @@
     <ClCompile Include="src\Sprite.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Global.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">
@@ -210,6 +211,7 @@
     <ClInclude Include="src\Sprite.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\Global.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">

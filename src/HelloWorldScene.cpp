@@ -82,7 +82,7 @@ void HelloWorldScene::func(BP_Event& e, void* data)
 		
 		//fprintf(stderr, "test dialogues %s", Dialogues::m_Dialogues.at(1).c_str());
     }
-    BattleData::getInstance()->load();
+    BattleData::getInstance()->isLoad();
 }
 
 void HelloWorldScene::init()

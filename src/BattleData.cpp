@@ -8,7 +8,7 @@
 
 using namespace std;
 
-BattleData BattleData::bBattle;
+BattleData BattleData::m_bBattle;
 
 BattleData::BattleData()
 {
@@ -19,7 +19,7 @@ BattleData::~BattleData()
 {
 }
 
-bool BattleData::load()
+bool BattleData::isLoad()
 {
     string fileName;
     fileName = "War.sta";
@@ -27,24 +27,24 @@ bool BattleData::load()
     int len;
     File::readFile(fileName.c_str(), &buffer, &len);
     size_t B_Count = len / sizeof(BattleData);
-    m_BattleInfo.resize(B_Count);
-    memcpy(&m_BattleInfo[0], buffer, sizeof(BattleData)*B_Count);
+    m_vcBattleInfo.resize(B_Count);
+    memcpy(&m_vcBattleInfo[0], buffer, sizeof(BattleData)*B_Count);
     delete buffer;
 
     fileName = "warfld.grp";
     File::readFile(fileName.c_str(), &buffer, &len);
     int lenBattleFiled2 = 4096 * 2 * 2;
     B_Count = len / lenBattleFiled2;
-    m_BattleSceneData.resize(B_Count);
+    m_vcBattleSceneData.resize(B_Count);
     for (int i = 0; i < B_Count; i++)
     {
-        memcpy(&m_BattleSceneData[i], buffer + i * lenBattleFiled2, lenBattleFiled2);
+        memcpy(&m_vcBattleSceneData[i], buffer + i * lenBattleFiled2, lenBattleFiled2);
     }
     delete buffer;
     return true;
 }
 
-bool BattleData::initSta(int currentBattle)
+bool BattleData::isInitSta(int currentBattle)
 {
     return true;
 }

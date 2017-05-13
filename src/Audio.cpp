@@ -1,6 +1,6 @@
 #include "Audio.h"
 
-Audio Audio::audio;
+Audio Audio::m_Audio;
 
 
 Audio::Audio()
@@ -11,15 +11,15 @@ Audio::Audio()
 
 Audio::~Audio()
 {
-    for (auto& i : music)
+    for (auto& i : m_vcMusic)
     {
         BASS_StreamFree(i);
     }
-    for (auto& i : asound)
+    for (auto& i : m_vcAsound)
     {
         BASS_SampleFree(i);
     }
-    for (auto& i : esound)
+    for (auto& i : m_vcEsound)
     {
         BASS_SampleFree(i);
     }
@@ -32,11 +32,11 @@ void Audio::init()
     for (int i = 0; i < 100; i++)
     {
         auto m = BASS_StreamCreateFile(false, "", 0, 0, 0);
-        music.push_back(m);
+		m_vcMusic.push_back(m);
         auto a = BASS_SampleLoad(false, "", 0, 0, 1, flag);
-        asound.push_back(a);
+		m_vcAsound.push_back(a);
         auto e = BASS_SampleLoad(false, "", 0, 0, 1, flag);
-        esound.push_back(e);
+		m_vcEsound.push_back(e);
     }
 }
 

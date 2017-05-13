@@ -107,8 +107,8 @@ public:
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
     void destroy();
-    bool isFullScreen();
-    void toggleFullscreen();
+    bool isfullScreen();
+    void togglefullscreen();
     BP_Texture* loadImage(const std::string& filename);
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);

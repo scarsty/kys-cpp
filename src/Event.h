@@ -83,7 +83,6 @@ public:
 	int getRoleDefpoi(int rnum, bool equip);
 	int getRoleAttpoi(int rnum, bool equip);
 	int getRoleUsepoi(int rnum, bool equip);
-	int getRoleAttpoi(int rnum, bool equip);
 	int getRoleMedpoi(int rnum, bool equip);
 	int getRoleMedicine(int rnum, bool equip);
 

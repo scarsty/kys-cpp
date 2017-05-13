@@ -9,7 +9,7 @@
 
 BattleScene::BattleScene()
 {
-    full = 1;
+    m_nfull = 1;
 }
 
 
@@ -26,17 +26,17 @@ void BattleScene::draw()
     {
         for (int i = -widthregion; i <= widthregion; i++)
         {
-            int i1 = Bx + i + (sum / 2);
-            int i2 = By - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, Bx, By);
+            int i1 = m_nBx + i + (sum / 2);
+            int i2 = m_nBy - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, m_nBx, m_nBy);
             if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
             {
-                //EarthS[k]->setVisible(false);
-                //BuildS[k]->setVisible(false);
+                //EarthS[k]->setm_bvisible(false);
+                //BuildS[k]->setm_bvisible(false);
                 //这里注意状况
-                Point p1 = Point(0, -battleSceneData[battleSceneNum].Data[4][i1][i2]);
-                Point p2 = Point(0, -battleSceneData[battleSceneNum].Data[5][i1][i2]);
-                int num = battleSceneData[battleSceneNum].Data[0][i1][i2] / 2;
+                Point p1 = Point(0, -m_vcBattleSceneData[m_nbattleSceneNum].Data[4][i1][i2]);
+                Point p2 = Point(0, -m_vcBattleSceneData[m_nbattleSceneNum].Data[5][i1][i2]);
+                int num = m_vcBattleSceneData[m_nbattleSceneNum].Data[0][i1][i2] / 2;
                 if (num >= 0)
                 {
                     Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
@@ -50,16 +50,16 @@ void BattleScene::draw()
                     }*/
                 }
                 //建筑和主角同一层
-                num = battleSceneData[battleSceneNum].Data[1][i1][i2] / 2;
+                num = m_vcBattleSceneData[m_nbattleSceneNum].Data[1][i1][i2] / 2;
                 if (num > 0)
                 {
                     Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
                     map[calBlockTurn(i1, i2, 1)] = { num, p };
                 }
-                else if (i1 == Bx && i2 == By)
+                else if (i1 == m_nBx && i2 == m_nBy)
                 {
-                    manPicture = 0 + Scene::towards * 4;
-                    map[calBlockTurn(i1, i2, 1)] = { manPicture, p };
+                    m_nmanPicture = 0 + Scene::towards * 4;
+                    map[calBlockTurn(i1, i2, 1)] = { m_nmanPicture, p };
                     //s->visit();
                 }
             }
@@ -81,7 +81,7 @@ void BattleScene::checkTimer2()
 {
     if (!isMenuOn)
     {
-        moveRole(curRoleNum);
+        moveRole(m_ncurRoleNum);
     }
     //Draw();
 }
@@ -90,19 +90,19 @@ void BattleScene::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        Bx = x;
-        By = y;
+		m_nBx = x;
+		m_nBy = y;
     }
     if (Scene::towards != t)
     {
         Scene::towards = t;
-        step = 0;
+		m_nstep = 0;
     }
     else
     {
-        step++;
+		m_nstep++;
     }
-    step = step % offset_BRolePic;
+	m_nstep = m_nstep % m_nOffset_BRolePic;
 }
 
 bool BattleScene::canWalk(int x, int y)
@@ -120,8 +120,8 @@ bool BattleScene::canWalk(int x, int y)
 
 bool BattleScene::checkIsBuilding(int x, int y)
 {
-    if (battleSceneData[battleSceneNum].Data[1][x][y] >= -2
-        && battleSceneData[battleSceneNum].Data[1][x][y] <= 0)
+    if (m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y] >= -2
+        && m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y] <= 0)
     {
         return false;
     }
@@ -169,7 +169,7 @@ void BattleScene::callEvent(int x, int y)
 
 bool BattleScene::checkIsOutScreen(int x, int y)
 {
-    if (abs(Bx - x) >= 16 || abs(By - y) >= 20)
+    if (abs(m_nBx - x) >= 16 || abs(m_nBy - y) >= 20)
     {
         return true;
     }
@@ -185,9 +185,9 @@ void BattleScene::getMousePosition(Point* point)
     int x = point->x;
     int y = Center_Y * 2 - point->y;
     //int yp = 0;
-    int yp = -(battleSceneData[battleSceneNum].Data[1][x][y]);
-    Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + Bx;
-    Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + By;
+    int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
+    Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + m_nBx;
+    Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + m_nBy;
 }
 
 void BattleScene::FindWay(int Mx, int My, int Fx, int Fy)
@@ -260,37 +260,37 @@ bool BattleScene::autoInBattle()
     int autoCount = 0;
     for (int i = 0; i < MaxBRoleNum; i++)
     {
-        battleRole[i].Team = 1;
-        battleRole[i].rnum = -1;
+		m_vcBattleRole[i].Team = 1;
+		m_vcBattleRole[i].rnum = -1;
         //我方自动参战数据
-        if (mods >= -1)
+        if (m_nMods >= -1)
         {
-            for (int i = 0; i < sizeof(battleInfo[battleNum].mate) / sizeof(battleInfo[battleNum].mate[0]); i++)
+            for (int i = 0; i < sizeof(m_vcBattleInfo[m_nbattleNum].mate) / sizeof(m_vcBattleInfo[m_nbattleNum].mate[0]); i++)
             {
-                x = battleInfo[battleNum].mate_x[i];
-                y = battleInfo[battleNum].mate_y[i];
+                x = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+                y = m_vcBattleInfo[m_nbattleNum].mate_y[i];
             }
-            if (mods == -1)
+            if (m_nMods == -1)
             {
-                battleRole[BRoleAmount].rnum = battleInfo[battleNum].autoMate[i];
-            }
-            else
-            {
-                battleRole[BRoleAmount].rnum = -1;
-            }
-            battleRole[BRoleAmount].Team = 0;
-            battleRole[BRoleAmount].Y = y;
-            battleRole[BRoleAmount].X = x;
-            battleRole[BRoleAmount].Face = 2;
-            if (battleRole[BRoleAmount].rnum == -1)
-            {
-                battleRole[BRoleAmount].Dead = 1;
-                battleRole[BRoleAmount].Show = 1;
+				m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].autoMate[i];
             }
             else
             {
-                battleRole[BRoleAmount].Dead = 0;
-                battleRole[BRoleAmount].Show = 0;
+				m_vcBattleRole[m_nBRoleAmount].rnum = -1;
+            }
+			m_vcBattleRole[m_nBRoleAmount].Team = 0;
+			m_vcBattleRole[m_nBRoleAmount].Y = y;
+			m_vcBattleRole[m_nBRoleAmount].X = x;
+			m_vcBattleRole[m_nBRoleAmount].Face = 2;
+            if (m_vcBattleRole[m_nBRoleAmount].rnum == -1)
+            {
+				m_vcBattleRole[m_nBRoleAmount].Dead = 1;
+				m_vcBattleRole[m_nBRoleAmount].Show = 1;
+            }
+            else
+            {
+				m_vcBattleRole[m_nBRoleAmount].Dead = 0;
+				m_vcBattleRole[m_nBRoleAmount].Show = 0;
                 //if (!((m_Character[battleRole[BRoleAmount].rnum].TeamState == 1)
                 //    || (m_Character[battleRole[BRoleAmount].rnum].TeamState == 2))
                 //    && !(m_Character[battleRole[BRoleAmount].rnum].Faction == m_Character[0].Faction))
@@ -299,27 +299,27 @@ bool BattleScene::autoInBattle()
                 //    autoCount++;
                 //}
             }
-            battleRole[BRoleAmount].Step = 0;
-            battleRole[BRoleAmount].Acted = 0;
-            battleRole[BRoleAmount].ExpGot = 0;
-            if (battleRole[BRoleAmount].rnum == 0)
+			m_vcBattleRole[m_nBRoleAmount].Step = 0;
+			m_vcBattleRole[m_nBRoleAmount].Acted = 0;
+			m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
+            if (m_vcBattleRole[m_nBRoleAmount].rnum == 0)
             {
-                battleRole[BRoleAmount].Auto = -1;
+				m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             }
             else
             {
-                battleRole[BRoleAmount].Auto = 3;
+				m_vcBattleRole[m_nBRoleAmount].Auto = 3;
             }
-            battleRole[BRoleAmount].Progress = 0;
-            battleRole[BRoleAmount].round = 0;
-            battleRole[BRoleAmount].Wait = 0;
-            battleRole[BRoleAmount].frozen = 0;
-            battleRole[BRoleAmount].killed = 0;
-            battleRole[BRoleAmount].Knowledge = 0;
-            battleRole[BRoleAmount].Zhuanzhu = 0;
-            battleRole[BRoleAmount].szhaoshi = 0;
-            battleRole[BRoleAmount].pozhao = 0;
-            battleRole[BRoleAmount].wanfang = 0;
+			m_vcBattleRole[m_nBRoleAmount].Progress = 0;
+			m_vcBattleRole[m_nBRoleAmount].round = 0;
+			m_vcBattleRole[m_nBRoleAmount].Wait = 0;
+			m_vcBattleRole[m_nBRoleAmount].frozen = 0;
+			m_vcBattleRole[m_nBRoleAmount].killed = 0;
+			m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
+			m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
+			m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
+			m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
+			m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
 
         }
         //自动参战结束
@@ -883,65 +883,65 @@ bool BattleScene::initBattleData()
     {
         for (int i2 = 0; i2 <= 63; i2++)
         {
-            battleSceneData[battleSceneNum].Data[2][i1][i2] = -1;
-            battleSceneData[battleSceneNum].Data[4][i1][i2] = -1;
-            battleSceneData[battleSceneNum].Data[5][i1][i2] = -1;
+			m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] = -1;
+			m_vcBattleSceneData[m_nbattleSceneNum].Data[4][i1][i2] = -1;
+			m_vcBattleSceneData[m_nbattleSceneNum].Data[5][i1][i2] = -1;
         }
     }
-    BRoleAmount = 0;
+	m_nBRoleAmount = 0;
     //initBattleRoleState();
     return true;
 }
 
 bool BattleScene::initBattleRoleState()
 {
-    BattleData::getInstance()->m_BattleRole.resize(MaxBRoleNum);
+    BattleData::getInstance()->m_vcBattleRole.resize(MaxBRoleNum);
     for (int i = 0; i < MaxBRoleNum; i++)
     {
-        battleRole[i].X = -1;
-        battleRole[i].Y = -1;
-        battleRole[i].Show = 1;
+		m_vcBattleRole[i].X = -1;
+		m_vcBattleRole[i].Y = -1;
+		m_vcBattleRole[i].Show = 1;
     }
-    BStatus = 0;
-    isBattle = true;
-    if (mods == -1)
+    m_nBStatus = 0;
+    m_bisBattle = true;
+    if (m_nMods == -1)
     {
         selectTeamMembers();
     }
     else
     {
     }
-    BRoleAmount = 0;
+	m_nBRoleAmount = 0;
     int n0 = 0;
     int teamNum = 0;
-    if (battleInfo[battleNum].mate[0] == 0)
+    if (m_vcBattleInfo[m_nbattleNum].mate[0] == 0)
     {
         teamNum = 1;
     }
-    for (int i = 0; teamNum < maxBRoleSelect && i < sizeof(battleInfo[battleNum].mate) / sizeof(battleInfo[battleNum].mate[0]); i++)
+    for (int i = 0; teamNum < m_nMaxBRoleSelect && i < sizeof(m_vcBattleInfo[m_nbattleNum].mate) / sizeof(m_vcBattleInfo[m_nbattleNum].mate[0]); i++)
     {
-        if (battleInfo[battleNum].mate[BRoleAmount] >= 0)
+        if (m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount] >= 0)
         {
-            battleRole[BRoleAmount].Y = battleInfo[battleNum].mate_x[i];
-            battleRole[BRoleAmount].X = battleInfo[battleNum].mate_y[i];
-            battleRole[BRoleAmount].Team = 0;
-            battleRole[BRoleAmount].Face = 2;
-            battleRole[BRoleAmount].rnum = battleInfo[battleNum].mate[BRoleAmount];
-            battleRole[BRoleAmount].Auto = -1;
+			m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+			m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
+			m_vcBattleRole[m_nBRoleAmount].Team = 0;
+			m_vcBattleRole[m_nBRoleAmount].Face = 2;
+			m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
+			m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             setInitState(n0);
         }
-        else if (BattleList[teamNum] >= 0)
+        else if (m_nBattleList[teamNum] >= 0)
         {
-            battleRole[BRoleAmount].Y = battleInfo[battleNum].mate_x[i];
-            battleRole[BRoleAmount].X = battleInfo[battleNum].mate_y[i];
-            battleRole[BRoleAmount].Team = 0;
-            battleRole[BRoleAmount].Face = 2;
-            battleRole[BRoleAmount].rnum = BattleList[teamNum];
-            battleRole[BRoleAmount].Auto = -1;
+			m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+			m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
+			m_vcBattleRole[m_nBRoleAmount].Team = 0;
+			m_vcBattleRole[m_nBRoleAmount].Face = 2;
+			m_vcBattleRole[m_nBRoleAmount].rnum = m_nBattleList[teamNum];
+			m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             setInitState(n0);
             teamNum++;
         }
-        BRoleAmount++;
+		m_nBRoleAmount++;
     }
     calMoveAbility();
     return true;
@@ -949,24 +949,24 @@ bool BattleScene::initBattleRoleState()
 
 void BattleScene::setInitState(int& n0)
 {
-    battleRole[BRoleAmount].Step = 0;
-    battleRole[BRoleAmount].Acted = 0;
-    battleRole[BRoleAmount].ExpGot = 0;
-    battleRole[BRoleAmount].Show = 0;
-    battleRole[BRoleAmount].Progress = 0;
-    battleRole[BRoleAmount].round = 0;
-    battleRole[BRoleAmount].Wait = 0;
-    battleRole[BRoleAmount].frozen = 0;
-    battleRole[BRoleAmount].killed = 0;
-    battleRole[BRoleAmount].Knowledge = 0;
-    battleRole[BRoleAmount].Zhuanzhu = 0;
-    battleRole[BRoleAmount].szhaoshi = 0;
-    battleRole[BRoleAmount].pozhao = 0;
-    battleRole[BRoleAmount].wanfang = 0;
+	m_vcBattleRole[m_nBRoleAmount].Step = 0;
+	m_vcBattleRole[m_nBRoleAmount].Acted = 0;
+	m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
+	m_vcBattleRole[m_nBRoleAmount].Show = 0;
+	m_vcBattleRole[m_nBRoleAmount].Progress = 0;
+	m_vcBattleRole[m_nBRoleAmount].round = 0;
+	m_vcBattleRole[m_nBRoleAmount].Wait = 0;
+	m_vcBattleRole[m_nBRoleAmount].frozen = 0;
+	m_vcBattleRole[m_nBRoleAmount].killed = 0;
+	m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
+	m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
+	m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
+	m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
+	m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
     for (int j = 0; j <= 4; j++)
     {
         n0 = 0;
-        if (battleRole[BRoleAmount].rnum > -1)
+        if (m_vcBattleRole[m_nBRoleAmount].rnum > -1)
         {
             for (int j1 = 0; j1 <= 9; j1++)
             {
@@ -979,13 +979,13 @@ void BattleScene::setInitState(int& n0)
                 //}
             }
         }
-        battleRole[BRoleAmount].zhuangtai[j] = 100;
-        battleRole[BRoleAmount].lzhuangtai[j] = n0;
+		m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = 100;
+		m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
     }
     for (int j = 5; j <= 9; j++)
     {
         n0 = 0;
-        if (battleRole[BRoleAmount].rnum > -1)
+        if (m_vcBattleRole[m_nBRoleAmount].rnum > -1)
         {
             for (int j1 = 0; j1 <= 9; j1++)
             {
@@ -998,12 +998,12 @@ void BattleScene::setInitState(int& n0)
                 //}
             }
         }
-        battleRole[BRoleAmount].zhuangtai[j] = n0;
-        battleRole[BRoleAmount].lzhuangtai[j] = n0;
+		m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = n0;
+		m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
     }
     for (int j = 10; j <= 13; j++)
     {
-        battleRole[BRoleAmount].zhuangtai[j] = 0;
+        m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = 0;
     }
 
 }
@@ -1190,11 +1190,11 @@ void BattleScene::calCanSelect(int bnum, int mode, int Step)
         {
             for (int i2 = 0; i2 <= 63; i2++)
             {
-                battleSceneData[battleSceneNum].Data[3][i1][i2] = -1;
+				m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
             }
         }
-        battleSceneData[battleSceneNum].Data[3][battleRole[bnum].X][battleRole[bnum].Y] = 0;
-        seekPath2(battleRole[bnum].X, battleRole[bnum].Y, Step, battleRole[bnum].Team, mode);
+		m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_vcBattleRole[bnum].X][m_vcBattleRole[bnum].Y] = 0;
+        seekPath2(m_vcBattleRole[bnum].X, m_vcBattleRole[bnum].Y, Step, m_vcBattleRole[bnum].Team, mode);
     }
     if (mode == 1)
     {
@@ -1202,10 +1202,10 @@ void BattleScene::calCanSelect(int bnum, int mode, int Step)
         {
             for (int i2 = 0; i2 <= 63; i2++)
             {
-                battleSceneData[battleSceneNum].Data[3][i1][i2] = -1;
-                if (abs(i1 - battleRole[bnum].X) + abs(i2 - battleRole[bnum].Y) <= step)
+				m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+                if (abs(i1 - m_vcBattleRole[bnum].X) + abs(i2 - m_vcBattleRole[bnum].Y) <= m_nstep)
                 {
-                    battleSceneData[battleSceneNum].Data[3][i1][i2] = 0;
+					m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
                 }
             }
         }
@@ -1217,10 +1217,10 @@ void BattleScene::calCanSelect(int bnum, int mode, int Step)
         {
             for (int i2 = 0; i2 <= 63; i2++)
             {
-                battleSceneData[battleSceneNum].Data[3][i1][i2] = -1;
-                if (battleSceneData[battleSceneNum].Data[2][i1][i2] >= 0)
+				m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+                if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] >= 0)
                 {
-                    battleSceneData[battleSceneNum].Data[3][i1][i2] = 0;
+					m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
                 }
             }
         }
@@ -1269,31 +1269,31 @@ void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
                 {
                     Bgrid[i] = 4;
                 }
-                else if (battleSceneData[battleSceneNum].Data[3][nextX][nextY] >= 0)
+                else if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][nextX][nextY] >= 0)
                 {
                     Bgrid[i] = 5;
                 }
-                else if (battleSceneData[battleSceneNum].Data[1][nextX][nextY] > 0)
+                else if (m_vcBattleSceneData[m_nbattleSceneNum].Data[1][nextX][nextY] > 0)
                 {
                     Bgrid[i] = 1;
                 }
-                else if ((battleSceneData[battleSceneNum].Data[2][nextX][nextY] >= 0)
-                         && (battleRole[battleSceneData[battleSceneNum].Data[2][nextX][nextY]].Dead == 0))
+                else if ((m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY] >= 0)
+                         && (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Dead == 0))
                 {
-                    if (battleRole[battleSceneData[battleSceneNum].Data[2][nextX][nextY]].Team == myteam)
+                    if (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Team == myteam)
                     {
                         Bgrid[i] = 2;
                     }
                     else { Bgrid[i] = 3; }
                 }
-                else if (((battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 >= 179)
-                          && (battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 <= 190))
-                         || (battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 == 261)
-                         || (battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 == 511)
-                         || ((battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 >= 224)
-                             && (battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 <= 232))
-                         || ((battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 >= 662)
-                             && (battleSceneData[battleSceneNum].Data[0][nextX][nextY] / 2 <= 674)))
+                else if (((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 179)
+                          && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 190))
+                         || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 261)
+                         || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 511)
+                         || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 224)
+                             && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 232))
+                         || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 662)
+                             && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 674)))
                 {
                     Bgrid[i] = 6;
                 }
@@ -1318,7 +1318,7 @@ void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
                             Xlist[totalgrid] = curX + Xinc[i];
                             Ylist[totalgrid] = curY + Yinc[i];
                             steplist[totalgrid] = curstep + 1;
-                            battleSceneData[battleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
+                            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
                             totalgrid = totalgrid + 1;
                         }
                     }
@@ -1333,7 +1333,7 @@ void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
                         Xlist[totalgrid] = curX + Xinc[i];
                         Ylist[totalgrid] = curY + Yinc[i];
                         steplist[totalgrid] = curstep + 1;
-                        battleSceneData[battleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
+						m_vcBattleSceneData[m_nbattleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
                         totalgrid = totalgrid + 1;
                     }
                 }
@@ -1348,8 +1348,8 @@ void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
 void BattleScene::moveRole(int bnum)
 {
     int s, i;
-    calCanSelect(bnum, 0, battleRole[bnum].Step);
-    if (selectAim(bnum, battleRole[bnum].Step, 0))
+    calCanSelect(bnum, 0, m_vcBattleRole[bnum].Step);
+    if (selectAim(bnum, m_vcBattleRole[bnum].Step, 0))
     {
         moveAmination(bnum);
     }
@@ -1442,7 +1442,7 @@ void BattleScene::moveAmination(int bnum)
     int Xinc[5], Yinc[5];
     //  Ax = Bx - 4;            //测试用
     //  Ay = By - 4;
-    if (battleSceneData[battleSceneNum].Data[3][Ax][Ay] > 0)     //0空位，1建筑，2友军，3敌军，4出界，5已走过 ，6水面
+    if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy] > 0)     //0空位，1建筑，2友军，3敌军，4出界，5已走过 ，6水面
     {
         Xinc[1] = 1;
         Xinc[2] = -1;
@@ -1459,28 +1459,28 @@ void BattleScene::moveAmination(int bnum)
         //      MyPoint *pAInt = new MyPoint();
         //      pAInt->x = Ax;
         //      pAInt->y = Ay;
-        linex[0] = Bx;
-        liney[0] = By;
-        linex[battleSceneData[battleSceneNum].Data[3][Ax][Ay]] = Ax;
-        liney[battleSceneData[battleSceneNum].Data[3][Ax][Ay]] = Ay;
-        a = battleSceneData[battleSceneNum].Data[3][Ax][Ay] - 1;
+		m_nlinex[0] = m_nBx;
+		m_nliney[0] = m_nBy;
+		m_nlinex[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAx;
+		m_nliney[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAy;
+        a = m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy] - 1;
         while (a >= 0)
         {
             for (int i = 1; i < 5; i++)
             {
-                tempx = linex[a + 1] + Xinc[i];
-                tempy = liney[a + 1] + Yinc[i];
-                if (battleSceneData[battleSceneNum].Data[3][tempx][tempy] == battleSceneData[battleSceneNum].Data[3][linex[a + 1]][liney[a + 1]] - 1)
+                tempx = m_nlinex[a + 1] + Xinc[i];
+                tempy = m_nliney[a + 1] + Yinc[i];
+                if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][tempx][tempy] == m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nlinex[a + 1]][m_nliney[a + 1]] - 1)
                 {
-                    linex[a] = tempx;
-                    liney[a] = tempy;
+					m_nlinex[a] = tempx;
+					m_nliney[a] = tempy;
                     break;
                 }
             }
             a--;
         }
 
-        curA = 1;
+        m_ncurA = 1;
         //schedule(schedule_selector(BattleScene::moveAminationStep), battleSpeed, kRepeatForever, battleSpeed)
     }
 }
@@ -1488,39 +1488,39 @@ void BattleScene::moveAmination(int bnum)
 void BattleScene::moveAminationStep(float dt)
 {
 
-    int a = curA;
-    int bnum = curRoleNum;
-    if (!((battleRole[bnum].Step == 0) || ((Bx == Ax) && (By == Ay))))
+    int a = m_ncurA;
+    int bnum = m_ncurRoleNum;
+    if (!((m_vcBattleRole[bnum].Step == 0) || ((m_nBx == m_nAx) && (m_nBy == m_nAy))))
     {
-        if ((linex[a] - Bx) > 0)
+        if ((m_nlinex[a] - m_nBx) > 0)
         {
-            battleRole[bnum].Face = 3;
+			m_vcBattleRole[bnum].Face = 3;
         }
-        else if ((linex[a] - Bx) < 0)
+        else if ((m_nlinex[a] - m_nBx) < 0)
         {
-            battleRole[bnum].Face = 0;
+			m_vcBattleRole[bnum].Face = 0;
         }
-        else if ((liney[a] - By) < 0)
+        else if ((m_nliney[a] - m_nBy) < 0)
         {
-            battleRole[bnum].Face = 2;
+			m_vcBattleRole[bnum].Face = 2;
         }
-        else { battleRole[bnum].Face = 1; }
-        if (battleSceneData[battleSceneNum].Data[2][Bx][By] == bnum)
+        else { m_vcBattleRole[bnum].Face = 1; }
+        if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == bnum)
         {
-            battleSceneData[battleSceneNum].Data[2][Bx][By] = -1;
+			m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = -1;
 
         }
-        Bx = linex[a];
-        By = liney[a];
-        battleRole[bnum].X = Bx;
-        battleRole[bnum].Y = By;
-        if (battleSceneData[battleSceneNum].Data[2][Bx][By] == -1)
+		m_nBx = m_nlinex[a];
+		m_nBy = m_nliney[a];
+		m_vcBattleRole[bnum].X = m_nBx;
+		m_vcBattleRole[bnum].Y = m_nBy;
+        if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == -1)
         {
-            battleSceneData[battleSceneNum].Data[2][Bx][By] = bnum;
+			m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = bnum;
         }
         a++;
-        curA = a;
-        battleRole[bnum].Step--;
+		m_ncurA = a;
+		m_vcBattleRole[bnum].Step--;
         draw();
     }
     else
@@ -1545,8 +1545,8 @@ void BattleScene::battleMainControl(int mods, int id)
 
     calMoveAbility(); //计算移动能力
     reArrangeBRole();
-    Bx = battleRole[curRoleNum].X;
-    By = battleRole[curRoleNum].Y;
+	m_nBx = m_vcBattleRole[m_ncurRoleNum].X;
+	m_nBy = m_vcBattleRole[m_ncurRoleNum].Y;
     draw();
 }
 
@@ -1554,8 +1554,8 @@ void BattleScene::attack(int bnum)
 {
     int mnum, level;
     int i = 1;
-    int rnum = battleRole[bnum].rnum;
+    int rnum = m_vcBattleRole[bnum].rnum;
     //mnum = m_Character[rnum].LMagic[i];
     //level = m_Character[rnum].MagLevel[i] / 100 + 1;
-    curMagic = mnum;
+	m_ncurMagic = mnum;
 }

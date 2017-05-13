@@ -10,10 +10,10 @@ public:
     Button();
     virtual ~Button();
 
-    std::string path;
-    int num1;
-    int num2;
-    int num3;
+    std::string m_strPath;
+    int m_nnum1;
+    int m_nnum2;
+    int m_nnum3;
     void setTexture(const std::string& path, int num1, int num2 = -1, int num3 = -1);
     void draw();
     //void dealEvent(BP_Event& e) override;

@@ -21,9 +21,9 @@ public:
 	virtual void draw() {}
 	virtual void dealEvent(BP_Event& e) {}
 
-	static std::vector<Base*> baseVector;   
+	static std::vector<Base*> m_vcBase;   
 
-	bool visible = true;
+	bool m_bvisible = true;
 
 	template <class T> void safe_delete(T*& pointer)
 	{
@@ -34,17 +34,17 @@ public:
 
 	virtual void init() {}
 
-	void push(Base* b) { baseVector.push_back(b); b->init(); }
-	void pop() { safe_delete(baseVector.back()); baseVector.pop_back(); }
+	void push(Base* b) { m_vcBase.push_back(b); b->init(); }
+	void pop() { safe_delete(m_vcBase.back()); m_vcBase.pop_back(); }
 
-	int x = 0, y = 0;
-	void setPosition(int x, int y) { this->x = x; this->y = y; }
-	int w = 0, h = 0;
-	void setSize(int w, int h) { this->w = w; this->h = h; }
+	int m_nx = 0, m_ny = 0;
+	void setPosition(int x, int y) { this->m_nx = x; this->m_ny = y; }
+	int m_nw = 0, m_nh = 0;
+	void setSize(int w, int h) { this->m_nw = w; this->m_nh = h; }
 
 	bool inSide(int x, int y);
 
-	int full = 0;
+	int m_nfull = 0;
 
 };
 
