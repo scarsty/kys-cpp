@@ -47,5 +47,7 @@ public:
         return 4 * (128 * (x + y) + x) + layer;
     }
 
+	void ReSetEventPosition(int &x, int &y); //add by xiaowu 修正事件坐标
+
 };
 

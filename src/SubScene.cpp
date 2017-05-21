@@ -186,8 +186,9 @@ void SubScene::dealEvent(BP_Event& e)
         case BPK_RETURN:
         case BPK_SPACE:
         {
-            stopFindWay();
-            callEvent(x, y);
+			stopFindWay();
+			ReSetEventPosition(x, y);
+			callEvent(x, y);
             break;
         }
         case SDLK_b:
@@ -279,7 +280,7 @@ bool SubScene::checkIsEvent(int x, int y)
     int canWalk = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].CanWalk;
     if (canWalk > 0)
     {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-		return false;
+ 		return false;
 	}
     return true;
 }
@@ -324,13 +325,66 @@ bool SubScene::checkIsExit(int x, int y)
 
 void SubScene::callEvent(int x, int y)
 {
-    if (checkIsEvent(x, y))
-    {
-		int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
-        int eventNum = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].Num;
-        //触发编号为eventNum的事件
+	int nNum = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
+	int nEventNum = Save::getInstance()->m_SceneEventData[sceneNum].Data[nNum].Num; //触发编号为eventNum的事件
+	if (nEventNum > 0)
+	{
+		string idxPath, grpPath;
+		idxPath = "resource/kdef.idx";
+		grpPath = "resource/kdef.grp";
+		int nLen = 0, nOffset = 0, nTemp = 0;
+		FILE *fpidx = fopen(idxPath.c_str(), "rb");
+		FILE *fpgrp = fopen(grpPath.c_str(), "rb");
+		if (!fpidx)
+		{
+			fprintf(stderr, "Can not open file %s\n", idxPath.c_str());
+			return;
+		}
+		if (!fpgrp)
+		{
+			fprintf(stderr, "Can not open file %s\n", grpPath.c_str());
+			return;
+		}
+		if (0 == nEventNum)
+		{
+			nOffset = 0;
+			fread(&nLen, 4, 1, fpidx);
+		}
+		else
+		{
+			fseek(fpidx, (nEventNum - 1) * 4, SEEK_SET);
+			fread(&nOffset, 4, 1, fpidx);
+			fread(&nLen, 4, 1, fpidx);
+		}
 
-    }
+		nLen = (nLen - nOffset) / 2;
+
+		vector<int> vc_Event;
+		vc_Event.resize(nLen + 1);
+
+		fseek(fpgrp, nOffset, SEEK_CUR);
+		fread((void*)&vc_Event[0], nLen * 2, 1, fpgrp);
+
+		fclose(fpidx);
+		fclose(fpgrp);
+		int i = 0;
+		while (vc_Event[i] >= 0)
+		{
+			switch (vc_Event[i])
+			{
+			case 0:
+			{
+				break;
+			}
+
+			default:
+				break;
+			}
+		}
+
+	}
+	
+	
 }
 
 bool SubScene::checkIsOutScreen(int x, int y)
@@ -444,4 +498,36 @@ void SubScene::stopFindWay()
     {
         wayQue.pop();
     }
+}
+
+/*========================================
+说明: 修正事件坐标
+==========================================*/
+void SubScene::ReSetEventPosition(int &x, int &y)
+{
+	switch (Scene::towards)
+	{
+	case Scene::LeftDown:
+	{
+		y--;
+		break;
+	}
+	case Scene::RightUp:
+	{
+		y++;
+		break;
+	}
+	case Scene::LeftUp :
+	{
+		x--;
+		break;
+	}
+	case Scene::RightDown:
+	{
+		x++;
+		break;
+	}
+	default:
+		break;
+	}
 }

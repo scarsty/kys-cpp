@@ -78,10 +78,10 @@ bool Dialogues::InitDialogusDate()
 	{
 		if (j == 0)
 		{
-			unsigned char *buffer = new unsigned char[m_idxLen[j] - 0];
+			unsigned char *buffer = new unsigned char[m_idxLen[j]];
 			fseek(fp, 0, SEEK_SET);
-			fread(buffer, m_idxLen[j] - 0, 1, fp);
-			for (int k = 0; k < m_idxLen[j] - 0; k++)
+			fread(buffer, m_idxLen[j], 1, fp);
+			for (int k = 0; k < m_idxLen[j]; k++)
 			{
 				buffer[k] = buffer[k] ^ 0xFF;
 				if (buffer[k] == 0x2A)
