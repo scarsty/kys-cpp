@@ -646,7 +646,6 @@ bool EventManager::initEventData()
             File::readFile(filename1, Eidx, idxLen);
             //cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
             offset = new int[idxLen / 4 + 1];
-            offset = new int[idxLen / 4 + 1];
             *offset = 0;
             memcpy(offset + 1, Eidx, idxLen);
 

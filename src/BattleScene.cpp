@@ -229,21 +229,21 @@ int BattleScene::CallFace(int x1, int y1, int x2, int y2)
 
 void BattleScene::initData(int scenenum)
 {
-    //  for (int i = 0; i < maxBRoleSelect; i++)
-    //  {
-    //      int numBRole = ResultofBattle[i];
-    //      char *fightPath = new char[30];
-    //      sprintf(fightPath, "fight/fight%03d", numBRole);
-    //      char *fightPathIn = new char[30];
-    //      sprintf(fightPathIn, "fight/fight%03d/index.ka", numBRole);
-    //      auto file = FileUtils::getInstance();
-    //      //std::fstream file;
-    //      if (file->isFileExist(fightPathIn)){
-    //          loadTexture(fightPath, MyTexture2D::Battle, 250, numBRole);
-    //      }
-    //      //delete(fightPath);
-    //      delete(fightPathIn);
-    //  }
+//       for (int i = 0; i < maxBRoleSelect; i++)
+//       {
+//           int numBRole = ResultofBattle[i];
+//           char *fightPath = new char[30];
+//           sprintf(fightPath, "fight/fight%03d", numBRole);
+//           char *fightPathIn = new char[30];
+//           sprintf(fightPathIn, "fight/fight%03d/index.ka", numBRole);
+//           auto file = FileUtils::getInstance();
+//           //std::fstream file;
+//           if (file->isFileExist(fightPathIn)){
+//               loadTexture(fightPath, MyTexture2D::Battle, 250, numBRole);
+//           }
+//           //delete(fightPath);
+//           delete(fightPathIn);
+//       }
 }
 
 
@@ -1011,135 +1011,135 @@ void BattleScene::setInitState(int& n0)
 
 void BattleScene::calMoveAbility()
 {
-    //int i, rnum, addspeed;
-    //maxspeed = 0;
-    //for (int i = 0; i < BRole.size(); i++)
-    //{
-    //    rnum = battleRole[i].rnum;
-    //    if (rnum > -1)
-    //    {
-    //        addspeed = 0;
-    //        //          if (CheckEquipSet(RRole[rnum].Equip[0], RRole[rnum].Equip[1], RRole[rnum].Equip[2], RRole[rnum].Equip[3]) == 5){
-    //        //              addspeed += 30;
-    //        //          }
-    //        battleRole[i].speed = (getRoleSpeed(battleRole[i].rnum, true) + addspeed);
-    //        if (battleRole[i].Wait == 0)
-    //        {
-    //            battleRole[i].Step = round(power(battleRole[i].speed / 15, 0.8) * (100 + battleRole[i].zhuangtai[8]) / 100);
-    //            if (maxspeed > battleRole[i].speed)
-    //            {
-    //                maxspeed = maxspeed;
-    //            }
-    //            else { maxspeed = battleRole[i].speed; }
-    //        }
-    //        if (m_Character[rnum].Moveable > 0)
-    //        {
-    //            battleRole[i].Step = 0;
-    //        }
-    //    }
-    //}
+    int i, rnum, addspeed;
+    m_nMaxspeed = 0;
+    for (int i = 0; i < m_vcBattleRole.size(); i++)
+    {
+        rnum = m_vcBattleRole[i].rnum;
+        if (rnum > -1)
+        {
+            addspeed = 0;
+            //          if (CheckEquipSet(RRole[rnum].Equip[0], RRole[rnum].Equip[1], RRole[rnum].Equip[2], RRole[rnum].Equip[3]) == 5){
+            //              addspeed += 30;
+            //          }
+			m_vcBattleRole[i].speed = (getRoleSpeed(m_vcBattleRole[i].rnum, true) + addspeed);
+            if (m_vcBattleRole[i].Wait == 0)
+            {
+				m_vcBattleRole[i].Step = round(power(m_vcBattleRole[i].speed / 15, 0.8) * (100 + m_vcBattleRole[i].zhuangtai[8]) / 100);
+                if (m_nMaxspeed > m_vcBattleRole[i].speed)
+                {
+                    m_nMaxspeed = m_nMaxspeed;
+                }
+                else { m_nMaxspeed = m_vcBattleRole[i].speed; }
+            }
+            if (Rrole[rnum].Moveable > 0)
+            {
+				m_vcBattleRole[i].Step = 0;
+            }
+        }
+    }
 }
 
 //按轻功重排人物(未考虑装备)
 void BattleScene::reArrangeBRole()
 {
-    //int i, n, n1, i1, i2, x, t, s1, s2;
-    //battle::TBattleRole temp;
-    //i1 = 0;
-    //i2 = 1;
-    //for (i1 = 0; i1 < BRole.size() - 1; i1++)
-    //{
-    //    for (i2 = i1 + 1; i2 < BRole.size(); i2++)
-    //    {
-    //        s1 = 0;
-    //        s2 = 0;
-    //        if ((battleRole[i1].rnum > -1) && (battleRole[i1].Dead == 0))
-    //        {
-    //            s1 = getRoleSpeed(battleRole[i1].rnum, true);
-    //            //          if checkEquipSet(Rrole[battleRole[i1].rnum].Equip[0], Rrole[battleRole[i1].rnum].Equip[1],
-    //            //              Rrole[battleRole[i1].rnum].Equip[2], Rrole[battleRole[i1].rnum].Equip[3]) = 5 then
-    //            //          s1  = s1 + 30;
-    //        }
-    //        if ((battleRole[i2].rnum > -1) && (battleRole[i2].Dead == 0))
-    //        {
-    //            s2 = getRoleSpeed(battleRole[i2].rnum, true);
-    //        }
-    //        if ((battleRole[i1].rnum != 0) && (battleRole[i1].Team != 0) && (s1 < s2) && (battleRole[i2].rnum != 0) && (battleRole[i2].Team != 0))
-    //        {
-    //            temp = battleRole[i1];
-    //            battleRole[i1] = battleRole[i2];
-    //            battleRole[i2] = temp;
-    //        }
-    //    }
-    //}
-
-    //for (i1 = 0; i1 < 64; i1++)
-    //{
-    //    for (i2 = 0; i2 < 64; i2++)
-    //    {
-    //        battleSceneData[battleSceneNum].Data[2][i1][i2] = -1;
-    //        battleSceneData[battleSceneNum].Data[5][i1][i2] = -1;
-    //    }
-    //}
-    //n = 0;
-    //for (i = 0; i < BRole.size(); i++)
-    //{
-    //    if ((battleRole[i].Dead == 0) && (battleRole[i].rnum >= 0))
-    //    {
-    //        n++;
-    //    }
-    //}
-    //n1 = 0;
-    //for (i = 0; i < BRole.size(); i++)
-    //{
-    //    if (battleRole[i].rnum >= 0)
-    //    {
-    //        if (battleRole[i].Dead == 0)
-    //        {
-    //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = i;
-    //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = -1;
-    //            //              if battlemode > 0 then
-    //            //                  battleRole[i].Progress : = (n - n1) * 5;
-    //            n1++;
-    //        }
-    //        else
-    //        {
-    //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = -1;
-    //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = i;
-    //        }
-    //    }
-    //}
-    //i2 = 0;
-    //if (battlemode > 0) then
-    //    for i1 : = 0 to length(Brole) - 1 do
-    //        if ((GetPetSkill(5, 1) and (battleRole[i1].rnum = 0)) or (GetPetSkill(5, 3) and (battleRole[i1].Team = 0))) then
-    //            battleRole[i1].Progress : = 299 - i2 * 5;
-    //i2 = i2 + 1;
+    int i, n, n1, i1, i2, x, t, s1, s2;
+        BattleRole temp;
+        i1 = 0;
+        i2 = 1;
+        for (i1 = 0; i1 < m_vcBattleRole.size() - 1; i1++)
+        {
+            for (i2 = i1 + 1; i2 < m_vcBattleRole.size(); i2++)
+            {
+                s1 = 0;
+                s2 = 0;
+                if ((m_vcBattleRole[i1].rnum > -1) && (m_vcBattleRole[i1].Dead == 0))
+                {
+                    s1 = getRoleSpeed(m_vcBattleRole[i1].rnum, true);
+// 					if checkEquipSet(Rrole[m_vcBattleRole[i1].rnum].Equip[0], Rrole[m_vcBattleRole[i1].rnum].Equip[1],
+// 						Rrole[m_vcBattleRole[i1].rnum].Equip[2], Rrole[m_vcBattleRole[i1].rnum].Equip[3]) = 5 then
+// 						s1 = s1 + 30;
+                }
+                if ((m_vcBattleRole[i2].rnum > -1) && (m_vcBattleRole[i2].Dead == 0))
+                {
+                    s2 = getRoleSpeed(m_vcBattleRole[i2].rnum, true);
+                }
+                if ((m_vcBattleRole[i1].rnum != 0) && (m_vcBattleRole[i1].Team != 0) && (s1 < s2) && (m_vcBattleRole[i2].rnum != 0) && (m_vcBattleRole[i2].Team != 0))
+                {
+                    temp = m_vcBattleRole[i1];
+					m_vcBattleRole[i1] = m_vcBattleRole[i2];
+					m_vcBattleRole[i2] = temp;
+                }
+            }
+        }
+    
+        //for (i1 = 0; i1 < 64; i1++)
+        //{
+        //    for (i2 = 0; i2 < 64; i2++)
+        //    {
+        //        battleSceneData[battleSceneNum].Data[2][i1][i2] = -1;
+        //        battleSceneData[battleSceneNum].Data[5][i1][i2] = -1;
+        //    }
+        //}
+        //n = 0;
+        //for (i = 0; i < BRole.size(); i++)
+        //{
+        //    if ((battleRole[i].Dead == 0) && (battleRole[i].rnum >= 0))
+        //    {
+        //        n++;
+        //    }
+        //}
+        //n1 = 0;
+        //for (i = 0; i < BRole.size(); i++)
+        //{
+        //    if (battleRole[i].rnum >= 0)
+        //    {
+        //        if (battleRole[i].Dead == 0)
+        //        {
+        //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = i;
+        //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = -1;
+        //            //              if battlemode > 0 then
+        //            //                  battleRole[i].Progress : = (n - n1) * 5;
+        //            n1++;
+        //        }
+        //        else
+        //        {
+        //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = -1;
+        //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = i;
+        //        }
+        //    }
+        //}
+        //i2 = 0;
+        //if (battlemode > 0) then
+        //    for i1 : = 0 to length(Brole) - 1 do
+        //        if ((GetPetSkill(5, 1) and (battleRole[i1].rnum = 0)) or (GetPetSkill(5, 3) and (battleRole[i1].Team = 0))) then
+        //            battleRole[i1].Progress : = 299 - i2 * 5;
+        //i2 = i2 + 1;
 }
 
 //获取人物速度
 int BattleScene::getRoleSpeed(int rnum, bool Equip)
 {
     int l;
-    //int bResult;
-    //bResult = m_Character[rnum].Speed;
-    //if (m_Character[rnum].GongTi > -1)
-    //{
-    //    l = getGongtiLevel(rnum);
-    //    bResult = m_Magic[m_Character[rnum].LMagic[m_Character[rnum].GongTi]].AddSpd[l];
-    //}
-    //if (Equip)
-    //{
-    //    for (int l = 0; l < config::MaxEquipNum; l++)
-    //    {
-    //        if (m_Character[rnum].Equip[l] >= 0)
-    //        {
-    //            bResult += m_Item[m_Character[rnum].Equip[l]].AddSpeed;
-    //        }
-    //        bResult = bResult * 100 / (100 + m_Character[rnum].Wounded + m_Character[rnum].Poison);
-    //    }
-    //}
-    //return bResult;
+    int bResult;
+    bResult = Save::getInstance()->m_Character[rnum].Speed;
+    if (Save::getInstance()->m_Character[rnum].GongTi > -1)
+    {
+        l = getGongtiLevel(rnum);
+        bResult = Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi]].AddSpd[l];
+    }
+    if (Equip)
+    {
+        for (int l = 0; l < config::MaxEquipNum; l++)
+        {
+            if (Save::getInstance()->m_Character[rnum].Equip[l] >= 0)
+            {
+                bResult += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[l]].AddSpeed;
+            }
+            bResult = bResult * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
+        }
+    }
+    return bResult;
     return 0;
 }
 
@@ -1147,16 +1147,16 @@ int BattleScene::getRoleSpeed(int rnum, bool Equip)
 int BattleScene::getGongtiLevel(int rnum)
 {
     int i;
-    //int n = m_Character[rnum].GongTi;
-    //if ((rnum >= 0) && (n >= -1))
-    //{
-    //    if (m_Magic[m_Character[rnum].LMagic[n]].MaxLevel > m_Character[rnum].MagLevel[n] / 100)
-    //    {
-    //        return m_Character[rnum].MagLevel[n] / 100;
-    //    }
-    //    else { return m_Magic[m_Character[rnum].LMagic[n]].MaxLevel; }
-    //}
-    //else { return 0; }
+    int n = Save::getInstance()->m_Character[rnum].GongTi;
+    if ((rnum >= 0) && (n >= -1))
+    {
+        if (Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel > Save::getInstance()->m_Character[rnum].MagLevel[n] / 100)
+        {
+            return Save::getInstance()->m_Character[rnum].MagLevel[n] / 100;
+        }
+        else { return Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel; }
+    }
+    else { return 0; }
     return 0;
 }
 
