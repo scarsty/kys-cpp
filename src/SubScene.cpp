@@ -323,6 +323,7 @@ bool SubScene::checkIsExit(int x, int y)
     return false;
 }
 
+//111
 void SubScene::callEvent(int x, int y)
 {
 	int nNum = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
