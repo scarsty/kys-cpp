@@ -31,7 +31,7 @@ bool AppDelegate::applicationDidFinishLaunching()
 	auto engine = Engine::getInstance();
     engine->init();
 	BP_Event e;  ///< 事件结构对象
-    HelloWorldScene h;
+    HelloWorldScene h; //开始界面
     h.push(&h);
     mainLoop(e);
     h.pop();
@@ -54,15 +54,15 @@ void AppDelegate::mainLoop(BP_Event & e)
         int t0 = engine->getTicks();
         //从最后一个独占的开始画
         int begin_base = 0;
-        for (int i = Base::m_vcBase.size() - 1; i >= 0; i--)
+        for (int i = Base::m_vcBase.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
         {
-            if (Base::m_vcBase[i]->m_nfull)
+            if (Base::m_vcBase[i]->m_nfull)				
             {
                 begin_base = i;
                 break;
             }
         }
-        for (int i = begin_base; i < Base::m_vcBase.size(); i++)
+        for (int i = begin_base; i < Base::m_vcBase.size(); i++)  //从最高一个
         {
             auto &b = Base::m_vcBase[i];
             if (b->m_bvisible)

@@ -53,22 +53,19 @@ private:
 class EventManager
 {
 public:
-    EventManager();
-    virtual ~EventManager();
-    static EventManager eventManager;
+	EventManager()
+	{};
+	virtual ~EventManager();
     static EventManager* getInstance()
     {
-        return &eventManager;
+		if (m_EventManager == NULL)
+			m_EventManager = new EventManager();
+        return m_EventManager;
     }
     bool initEventData();       //加载事件数据
-
-
     bool callEvent(int num);    //调用指令的内容写这里
     std::vector<EventData> eventData;
-
     int eventCount = 0;
-	
-
 	void clear();
 	void talk();
 	int getGongtiLevel(int rnum, int gongti);
@@ -91,7 +88,9 @@ public:
 	void StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode);
 
 	void JumpScene(int snum, int x, int y);
-
+private:
+	static EventManager *m_EventManager;
+	
 	
 };
 

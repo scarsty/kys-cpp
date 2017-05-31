@@ -3,11 +3,8 @@
 #include "SubScene.h"
 
 
-EventManager EventManager::eventManager;
-EventManager::EventManager()
-{
 
-}
+EventManager *EventManager::m_EventManager = NULL;
 
 
 EventManager::~EventManager()
@@ -627,34 +624,33 @@ bool EventManager::initEventData()
     int idxLen = 0;         //存储文件相关
     int* offset;
     eventData.resize(0);
-    for (int num1 = 0; num1 <= config::EventFolderNum; num1++)
+    for (int num1 = 0; num1 < config::EventFolderNum; num1++)
     {
         char path[20];
-        sprintf(path, "%s%4d", "event/", num1); //事件文件夹结构，第一层4位数目录，第二层3位数文件，文件内还有4位数的事件号
+        sprintf(path, "%s%03d%s", "event/", num1,"/"); //事件文件夹结构，第一层3位数目录，第二层3位数文件，文件内还有3位数的事件号
         //std::string path = StringUtils::format("event/%.4d", num1);
         if (_access(path, 0) == -1)
         {
             _mkdir(path);
         }
-        for (int num2 = 0; num2 <= config::EventFileNum; num2++)
+        for (int num2 = 0; num2 < config::EventFileNum; num2++)
         {
             char filename1[30], filename2[30];
             //path1 = path + StringUtils::format("/%.3d", num2);
-            sprintf(filename1, "%s%3d%s", path, num2, ".idx");
-
-            unsigned char* Eidx;
-            File::readFile(filename1, Eidx, idxLen);
+            sprintf(filename1, "%s%03d%s", path, num2, ".idx");
+            unsigned char* Eidx;			
+            File::readFile(filename1,&Eidx, &idxLen);
             //cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
             offset = new int[idxLen / 4 + 1];
             *offset = 0;
             memcpy(offset + 1, Eidx, idxLen);
 
-            sprintf(filename2, "%s%3d%s", path, num2, ".grp");
+            sprintf(filename2, "%s%03d%s", path, num2, ".grp");
             unsigned char* Egrp;
             int EgrpLen;
             //这儿开始，11.30
             //cocos2d::Data Egrp = FileUtils::getInstance()->getDataFromFile(filename2);
-            File::readFile(filename2, Egrp, EgrpLen);
+			File::readFile(filename2, &Egrp, &EgrpLen);
             unsigned char* Data;
             Data = new unsigned char[EgrpLen];
             memcpy(Data, Egrp, EgrpLen);
@@ -663,7 +659,7 @@ bool EventManager::initEventData()
                 eventCount++;
                 eventData.resize(eventCount);
                 int length = offset[j + 1] - offset[j];
-                eventData.at(eventCount - 1).setId(num1 * 10000000 + num2 * 10000 + j);
+                eventData.at(eventCount - 1).setId(num1 * 1000000 + num2 * 1000 + j);
                 eventData.at(eventCount - 1).arrByOperation(Data + offset[j], length);
             }
         }
@@ -700,6 +696,8 @@ void EventData::arrByOperation(unsigned char* Data, int len)
         Operation tmp;
         tmp.num = *((D + add0));
         int add1 = getOperationLen(tmp.num);
+		if (add1 < 0)
+			cout << "指令号" << tmp.num << "获取长度失败";
         for (int j = 0; j < add1; j++)
         {
             tmp.par.push_back(*(D + add0 + j));
@@ -711,8 +709,12 @@ void EventData::arrByOperation(unsigned char* Data, int len)
 
 int EventData::getOperationLen(int num)
 {
-    std::vector<int> ret = { 1, 4, 3, 21, 4, 3, 5, 7, 2, 3, 2, 3, 1, 1, 1, 1, 4, 6, 4, 3, 3, 2, 1, 3, 1, 5, 6, 4, 6, 6, 5, 4, 3, 5, 3, 5, 4, 3, 5, 2, 2, 4, 3, 4, 7, 3, 3, 3, 3, 3, 8, 4, 1, 1, 1, 5, 3, 1, 1, 1, 6, 3, 1, 3, 2, 1, 2, 2, 8, 4, 3, 4, 3, 8, 2, 1, 3, 5, 2, 3, 5, 4, 6, 3, 6, 4, 6, 3, 6, 3, 3, 8, 6, 3, 4, 3, 4, 2, 3, 1, 1, 1, 1, 2, 3, 2, 4, 2, 20, 3, 6, 5, 3, 4, 3, 5, 2, 7, 9, 3, 2, 5, 26, 6, 4, 5, 3, 3, 1, 11, 9, 5, 9, 14, 4, 5, 2, 4, 6, 6 };
-    return ret[num];
+	if (num == -1)
+		return 1;
+	else if(num < -1)
+		cout<<"指令号"<< num <<"获取长度失败";
+    std::vector<int> ret = { 1, 4, 4, 21, 4, 3, 5, 7, 2, 3, 2, 3, 1, 1, 1, 1, 4, 6, 4, 3, 3, 2, 1, 3, 1, 5, 6, 4, 6, 6, 5, 4, 3, 5, 3,5, 4, 3, 5, 2, 2, 4, 3, 4, 7, 3, 3, 3, 3, 3, 8, 4, 1, 1, 1, 5, 3, 1, 1, 1, 6, 3, 1, 3, 2, 1, 2, 2, 8, 4, 3, 4, 6, 3, 8, 2, 1, 3, 5, 2, 3, 5, 4, 6, 4, 6, 4, 6, 3, 6, 3, 3, 8, 6, 3, 4, 3, 5, 2, 3, 1, 1, 1, 1, 2, 3, 2, 4, 2, 21, 3, 6, 5, 3, 4, 3, 5, 2, 7, 9, 3, 2, 5, 26, 6, 4, 5, 3, 3, 1, 11, 9, 5, 9, 14, 4, 5, 2, 4, 6, 6, 3, 4, 3, 3, 1, 6};
+	return ret[num];
 }
 //void EventInstruct::XXX()
 //{
@@ -721,11 +723,23 @@ int EventData::getOperationLen(int num)
 
 
 void EventManager::clear() {
-	
+	int begin_base = 0;
+	for (int i = Base::m_vcBase.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
+	{
+		if (Base::m_vcBase[i]->m_nfull)
+		{
+			begin_base = i;
+			break;
+		}
+	}
+	Base b;
+	for (int i = begin_base + 1; i < Base::m_vcBase.size(); i++)
+		b.pop();
 }
 
 
 void EventManager::talk() {
+
 
 }
 
