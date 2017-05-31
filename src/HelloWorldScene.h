@@ -1,6 +1,7 @@
 #pragma once
 #include "Scene.h"
 #include "Dialogues.h"
+#include "Event.h"
 
 class HelloWorldScene : public Scene
 {

@@ -2,7 +2,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>      // std::ifstream
-
+#include "Event.h"
 const int MD5len = 32;
 
 using namespace std;
@@ -21,6 +21,9 @@ Save::~Save()
 
 bool Save::LoadR(int num)
 {
+	EventManager *event = EventManager::getInstance();
+	event->initEventData();
+
     string filename, filename1;
     int i;
     filename = "save/R" + to_string(num);

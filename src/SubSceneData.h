@@ -6,8 +6,11 @@ struct SceneMapData
     short Data[config::SLayerCount][config::SceneMaxX][config::SceneMaxY];
 };
 
-struct SceneData
+class SceneData
 {
+public:
+	SceneData();
+	~SceneData();
     short ListNum;
     char Name[10];
     short Placeholder1, ExitMusic, EntranceMusic, Pallet, EnterCondition; //10

@@ -5,6 +5,7 @@
 #include "Dialogues.h"
 #include "UI.h"
 #include "Sprite.h"
+#include "Event.h"
 
 HelloWorldScene::HelloWorldScene()
 {
@@ -67,7 +68,7 @@ void HelloWorldScene::func(BP_Event& e, void* data)
     { e.type = BP_QUIT; }
     if (i == 0)
     {
-        Save::getInstance()->LoadR(0);
+        Save::getInstance()->LoadR(0);		
         auto m = new MainMap();
 		//pop();
         push(m);
@@ -95,13 +96,13 @@ void HelloWorldScene::init()
 	m_Dialogues->SetDialoguesNum(2);*/
 	
 	auto m = new Menu();
-	m->setPosition(100, 100);
+	m->setPosition(265, 305);
 	for (int i = 0; i < 3; i++)
 	{
 		auto b = new Button();
 		b->setTexture("title", i + 107);
-		m->addButton(b, 0, i * 30);
-		b->setSize(100, 30);
+		m->addButton(b, 0, i * 33);
+		b->setSize(110, 24);
 		b->setFunction(BIND_FUNC(HelloWorldScene::func));
 	}
 

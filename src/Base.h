@@ -10,7 +10,7 @@ struct auto_ptr
 
 };
 
-class Base
+class Base		//游戏绘制基础类，凡需要显示画面的，均继承自此
 {
 public:
 	Base();
@@ -21,7 +21,7 @@ public:
 	virtual void draw() {}
 	virtual void dealEvent(BP_Event& e) {}
 
-	static std::vector<Base*> m_vcBase;   
+	static std::vector<Base*> m_vcBase;   //所有需要绘制的内容都存储在m_vcBase中
 
 	bool m_bvisible = true;
 
@@ -44,7 +44,7 @@ public:
 
 	bool inSide(int x, int y);
 
-	int m_nfull = 0;
+	int m_nfull = 0;  //不为0时表示当前画面为起始层，低于本画面的层将不予显示
 
 };
 
