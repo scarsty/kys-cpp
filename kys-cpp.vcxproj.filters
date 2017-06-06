@@ -104,6 +104,7 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Global.cpp" />
+    <ClCompile Include="src\SubSceneData.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\AppDelegate.h">

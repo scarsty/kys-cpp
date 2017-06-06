@@ -1,7 +1,7 @@
 #include "Event.h"
 #include "MainMap.h"
 #include "SubScene.h"
-
+#include "Menu.h"
 
 
 EventManager *EventManager::m_EventManager = NULL;
@@ -648,7 +648,7 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
 		EventEndCount = 0;
 		cout << "事件测试通过";
 	}
-		
+	p++;
 		
 	
 }
@@ -823,7 +823,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 	if (snum == -2)
 		snum = Save::getInstance()->m_BasicData[0].m_sWhere;
 	if (ednum == -2)
-		ednum = Head::Curevent;
+		ednum = Head::CurEvent;
 	TSceneEvent *Ddata;
 	Ddata = &(Save::getInstance()->m_SceneEventData[snum].Data[ednum]);
 	if (XPos == -2)
@@ -845,7 +845,20 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 	Save::getInstance()->m_SceneMapData[snum].Data[3][Ddata->XPos][Ddata->YPos] = ednum;
 
 }
-
+int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
+	if (inum == Head::CurItem)
+		return jump1;
+	return jump2;
+}
+int EventManager::isFight_5(short jump1, short jump2) {
+	Menu2 menu;
+	menu.setButton("title", 12, 13, -1, 14, 15, -1);
+	menu.draw();
+	auto a=menu.getResult();
+	if (a==0)
+		return jump1;
+	return jump2;
+}
 int EventManager::getGongtiLevel(int rnum, int gongti) {
 	if (rnum >= 0 && gongti >= -1) {
 		if (Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[gongti]].MaxLevel > Save::getInstance()->m_Character[rnum].MagLevel[gongti] / 100) {

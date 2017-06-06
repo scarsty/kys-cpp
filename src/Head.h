@@ -4,8 +4,8 @@ static class Head
 {
 public:
 	static int inEvent;	//是否正在事件中
-	static int Curevent;
-
+	static int CurEvent;
+	static int CurItem;
 };
 struct NAlist
 {
