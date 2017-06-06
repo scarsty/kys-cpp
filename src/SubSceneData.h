@@ -1,10 +1,7 @@
 #pragma once
 #include "config.h"
+#include"head.h"
 
-struct SceneMapData
-{
-    short Data[config::SLayerCount][config::SceneMaxX][config::SceneMaxY];
-};
 
 class SceneData
 {
@@ -22,13 +19,4 @@ public:
     short AddResourse[10], Connection[10];
 };
 
-struct SceneEventData
-{
-    struct TSceneEvent
-    {
-        short CanWalk, Num, Event1, Event2, Event3, BeginPic1, EndPic, BeginPic2, PicDelay, XPos, YPos;
-        short StartTime, Duration, Interval, DoneTime, IsActive, OutTime, OutEvent;
-    };
-    TSceneEvent Data[config::PerSceneMaxEvent];
-};
 

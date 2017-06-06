@@ -1,17 +1,14 @@
 #pragma once
-
+#include"head.h"
 class BaoShop
 {
 public:
 	BaoShop();
 	~BaoShop();
 
-	struct TShopItem
-	{
-		short INum, Amount;
-	};
+	
 
-	TShopItem m_ShopItem[18];
+	NAlist m_ShopItem[18];
 	
 };
 

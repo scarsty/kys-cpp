@@ -50,7 +50,7 @@ void HelloWorldScene::draw()
 		speed = 2;
 	}
 	sprite->setPositionAndSize(5, m_y);
-	sprite->draw();
+//	sprite->draw();
 	m_Dialogues->draw();
 
 }

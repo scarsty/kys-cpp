@@ -3,5 +3,11 @@
 static class Head
 {
 public:
-	static bool inEvent;							//是否正在事件中
+	static int inEvent;	//是否正在事件中
+	static int Curevent;
+
+};
+struct NAlist
+{
+	short  Number, Amount;
 };

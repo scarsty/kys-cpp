@@ -36,6 +36,7 @@ public:
 
 	void push(Base* b) { m_vcBase.push_back(b); b->init(); }
 	void pop() { safe_delete(m_vcBase.back()); m_vcBase.pop_back(); }
+	static Base* getCurentBase() { return m_vcBase.at(0); }
 
 	int m_nx = 0, m_ny = 0;
 	void setPosition(int x, int y) { this->m_nx = x; this->m_ny = y; }

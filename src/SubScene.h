@@ -10,7 +10,7 @@ public:
     SubScene(int num) : SubScene() { setSceneNum(num); }
     virtual ~SubScene();
 
-    int Sx, Sy;
+    int Cx, Cy;
     int manPicture;
     int step = 0;
     int const offset_manPic = 5001;  //初始场景主角图偏移量
@@ -28,7 +28,7 @@ public:
 
     void walk(int x, int y, Towards t);
 
-    void callEvent(int x, int y);
+//    void callEvent(int x, int y);
     bool canWalk(int x, int y);
     virtual bool checkIsBuilding(int x, int y);
     virtual bool checkIsOutLine(int x, int y);

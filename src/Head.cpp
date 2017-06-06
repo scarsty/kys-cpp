@@ -1,3 +1,3 @@
 
 #include "Head.h"
-bool Head::inEvent;
+int Head::inEvent = -1;

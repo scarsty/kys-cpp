@@ -25,9 +25,9 @@ void SubScene::draw()
     {
         for (int i = -widthregion; i <= widthregion; i++)
         {
-            int i1 = Sx + i + (sum / 2);
-            int i2 = Sy - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, Sx, Sy);
+            int i1 = Cx + i + (sum / 2);
+            int i2 = Cy - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, Cx, Cy);
             if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
             {
                 //EarthS[k]->setm_bvisible(false);
@@ -55,7 +55,7 @@ void SubScene::draw()
                     Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
                     map[calBlockTurn(i1, i2, 1)] = { num, p };
                 }
-                else if (i1 == Sx && i2 == Sy)
+                else if (i1 == Cx && i2 == Cy)
                 {
                     manPicture = offset_manPic + Scene::towards * num_manPic + step;
                     map[calBlockTurn(i1, i2, 1)] = { manPicture, p };
@@ -95,19 +95,19 @@ void SubScene::draw()
 
 void SubScene::init()
 {
-    Sx = Save::getInstance()->m_SceneData[sceneNum].EntranceX;
-    Sy = Save::getInstance()->m_SceneData[sceneNum].EntranceY;
+    Cx = Save::getInstance()->m_SceneData[sceneNum].EntranceX;
+    Cy = Save::getInstance()->m_SceneData[sceneNum].EntranceY;
 }
 
 void SubScene::setPosition(int x, int y)
 {
-	Sx = x;
-	Sy = y;
+	Cx = x;
+	Cy = y;
 }
 
 void SubScene::dealEvent(BP_Event& e)
 {
-    int x = Sx, y = Sy;
+    int x = Cx, y = Cy;
     //drawCount++;
     if (e.type == BP_MOUSEBUTTONDOWN)
     {
@@ -115,7 +115,7 @@ void SubScene::dealEvent(BP_Event& e)
         stopFindWay();
         if (canWalk(Msx, Msy) && !checkIsOutScreen(Msx, Msy))
         {
-            FindWay(Sx, Sy, Msx, Msy);
+            FindWay(Cx, Cy, Msx, Msy);
         }
     }
     if (!wayQue.empty())
@@ -209,8 +209,8 @@ void SubScene::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        Sx = x;
-        Sy = y;
+        Cx = x;
+        Cy = y;
     }
     if (Scene::towards != t)
     {
@@ -288,7 +288,7 @@ bool SubScene::checkIsEvent(int x, int y)
 
 bool SubScene::checkIsFall(int x, int y)
 {
-    if (abs(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y] - Save::getInstance()->m_SceneMapData[sceneNum].Data[4][Sx][Sy] > 10))
+    if (abs(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y] - Save::getInstance()->m_SceneMapData[sceneNum].Data[4][Cx][Cy] > 10))
     {
         true;
     }
@@ -391,7 +391,7 @@ bool SubScene::checkIsExit(int x, int y)
 
 bool SubScene::checkIsOutScreen(int x, int y)
 {
-    if (abs(Sx - x) >= 2 * widthregion || abs(Sy - y) >= sumregion)
+    if (abs(Cx - x) >= 2 * widthregion || abs(Cy - y) >= sumregion)
     {
         return true;
     }
@@ -407,8 +407,8 @@ void SubScene::getMousePosition(int _x, int _y)
     int y = _y;
     //int yp = 0;
     int yp = -(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y]);
-    Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Sx;
-    Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Sy;
+    Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Cx;
+    Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
 void SubScene::FindWay(int Mx, int My, int Fx, int Fy)

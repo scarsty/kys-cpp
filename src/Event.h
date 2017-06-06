@@ -23,17 +23,7 @@ public:
 //内部载入指令的数据流，传入值为当前指令的指针，返回值为指针需要移动的值，用宏简化代码
 //#define EVENT_FUNC(name) int name(int p1=-2,int p2=-2, int p3=-2, int p4=-2,int p5=-2)
 
-//class EventInstruct  //各种指令的实现写这里
-//{
-//public:
-//    //static vector<EventFunc> funcs;
-//public:
-//    EventInstruct();
-//    void clear();
-//    void talk();
-//
-//    void XXX();
-//};
+
 
 
 class EventData
@@ -64,16 +54,23 @@ public:
     }
     bool initEventData();       //加载事件数据
     bool callEvent(int num);    //调用指令的内容写这里
+	void iniEventRun();
+	void runEvent(const std::vector<Operation>* operation);
     std::vector<EventData> eventData;
     int eventCount = 0;
-	void clear();
-	void talk();
+	
+
+	void clear_0();
+	void talk_1();
+	void getItem_2(short tnum, short amount, short rnum = 0);
+	void getJueSe(short* rnum);
+	void editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent);
 	int getGongtiLevel(int rnum, int gongti);
 	int getRoleSpeed(int rnum, bool equip);
 	int getRoleDefence(int rnum, bool equip);
 	int getRoleAttack(int rnum, bool equip);
-	int getRoleBoxing(int rnum, bool equip);	
-	int getRoleFencing(int rnum, bool equip);	
+	int getRoleBoxing(int rnum, bool equip);
+	int getRoleFencing(int rnum, bool equip);
 	int getRoleKnife(int rnum, bool equip);
 	int getRoleSpecial(int rnum, bool equip);
 	int getRoleShader(int rnum, bool equip);
@@ -82,16 +79,18 @@ public:
 	int getRoleUsepoi(int rnum, bool equip);
 	int getRoleMedpoi(int rnum, bool equip);
 	int getRoleMedicine(int rnum, bool equip);
-
 	int GetItemCount(int inum);
-
 	void StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode);
-
 	void JumpScene(int snum, int x, int y);
+
 private:
 	static EventManager *m_EventManager;
-	
-	
+	static int NowEenWu;
+	static bool isTry;
+	static bool TryGo;
+	static int TryEventTmpI;
+	static int EventEndCount;
+
 };
 
 

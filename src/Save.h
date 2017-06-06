@@ -13,6 +13,22 @@
 #include "SubSceneData.h"
 #include "BaoShop.h"
 
+
+struct SceneMapData
+{
+	short Data[config::SLayerCount][config::SceneMaxX][config::SceneMaxY];
+};
+struct TSceneEvent
+{
+	short CanWalk, Num, Event1, Event2, Event3, BeginPic1, EndPic, BeginPic2, PicDelay, XPos, YPos;
+	short StartTime, Duration, Interval, DoneTime, IsActive, OutTime, OutEvent;
+};
+struct SceneEventData
+{
+
+	TSceneEvent Data[config::PerSceneMaxEvent];
+};
+
 class Save
 {
 public:

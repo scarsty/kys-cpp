@@ -5,7 +5,11 @@
 
 
 EventManager *EventManager::m_EventManager = NULL;
-
+int EventManager::NowEenWu = -1;
+bool EventManager::isTry =false;
+bool EventManager::TryGo = false;
+int EventManager::TryEventTmpI = -1;
+int EventManager::EventEndCount = -1;
 
 EventManager::~EventManager()
 {
@@ -13,31 +17,51 @@ EventManager::~EventManager()
 
 bool EventManager::callEvent(int num)
 {
-    Head::inEvent = true;
-    int eventId = -1;
+	cout << "开始执行事件：" << num;
+	int eventId = -1;
+	for (int i = 0; i < eventCount; i++)
+	{
+		if (eventData.at(i).checkId(num))
+		{
+			eventId = i;
+			break;
+		}
+	}
+	if (eventId < 0)
+	{
+		cout << "事件编号获取失败";
+		return false;
+	}
+	Head::inEvent = eventId;
+	const std::vector<Operation>* operation = eventData.at(eventId).getOperation();
+	int parLen;
+	EventManager event;
+	iniEventRun();	
+	runEvent(operation);
+	Head::inEvent = -1;
+}
 
-    for (int i = 0; i < eventCount; i++)
-    {
-        if (eventData.at(i).checkId(num))
-        {
-            eventId = i;
-            break;
-        }
-    }
-    if (eventId < 0)
-    {
-        return false;
-    }
-    const std::vector<Operation>* operation = eventData.at(eventId).getOperation();
-    int parLen;
-    //EventInstruct event;
-
+void  EventManager::iniEventRun()
+{
+	NowEenWu = -1;
+	isTry = false;
+	TryGo = false;
+	EventEndCount = 0;
+}
+void EventManager::runEvent(const std::vector<Operation>* operation) {
     int p = 0;
     int length = 100;
     while (p < length)
     {
         int instruct = operation->at(p).num;
-        switch (num)
+		string str;
+		for (auto i = 1; i < operation->at(p).par.size();i++) {
+			str += "[";
+			str += operation->at(p).par[i];
+			str += "]";
+		}
+		cout << "执行指令" << operation->at(p).num<< str;
+        switch (instruct)
         {
         case -1:
         {
@@ -45,7 +69,7 @@ bool EventManager::callEvent(int num)
         }
         case 0:
         {
-//            clear();
+            clear_0();
             break;
         }
         case 1:
@@ -274,12 +298,12 @@ bool EventManager::callEvent(int num)
         }
         case 57:
         {
-            return 1;
+ 
             break;
         }
         case 58:
         {
-            return 1;
+        
             break;
         }
         case 59:
@@ -390,7 +414,7 @@ bool EventManager::callEvent(int num)
         }
         case 86:
         {
-            return 4;
+         
             break;
         }
         case 87:
@@ -407,17 +431,17 @@ bool EventManager::callEvent(int num)
         }
         case 90:
         {
-            return 3;
+       
             break;
         }
         case 91:
         {
-            return 3;
+         
             break;
         }
         case 92:
         {
-            return 8;
+           
             break;
         }
         case 93:
@@ -434,7 +458,7 @@ bool EventManager::callEvent(int num)
         }
         case 96:
         {
-            return 3;
+            
             break;
         }
         case 97:
@@ -571,6 +595,8 @@ bool EventManager::callEvent(int num)
         }
         case 130: // 新增自动检测任务
         {
+
+			TryEventTmpI = p;
             break;
         }
         case 131: // 修改任务
@@ -616,6 +642,15 @@ bool EventManager::callEvent(int num)
         }
     }
 
+	if ((isTry) && (TryEventTmpI + EventEndCount <= p)) {
+		isTry = false;
+		p = TryEventTmpI;
+		EventEndCount = 0;
+		cout << "事件测试通过";
+	}
+		
+		
+	
 }
 
 bool EventManager::initEventData()
@@ -642,6 +677,8 @@ bool EventManager::initEventData()
             File::readFile(filename1,&Eidx, &idxLen);
             //cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
             offset = new int[idxLen / 4 + 1];
+			if ((idxLen / 4 + 1) >= 100)
+				cout << filename1<< "单个文件中事件数为:"<< idxLen / 4 <<"超过100";
             *offset = 0;
             memcpy(offset + 1, Eidx, idxLen);
 
@@ -661,6 +698,7 @@ bool EventManager::initEventData()
                 int length = offset[j + 1] - offset[j];
                 eventData.at(eventCount - 1).setId(num1 * 1000000 + num2 * 1000 + j);
                 eventData.at(eventCount - 1).arrByOperation(Data + offset[j], length);
+
             }
         }
     }
@@ -716,13 +754,10 @@ int EventData::getOperationLen(int num)
     std::vector<int> ret = { 1, 4, 4, 21, 4, 3, 5, 7, 2, 3, 2, 3, 1, 1, 1, 1, 4, 6, 4, 3, 3, 2, 1, 3, 1, 5, 6, 4, 6, 6, 5, 4, 3, 5, 3,5, 4, 3, 5, 2, 2, 4, 3, 4, 7, 3, 3, 3, 3, 3, 8, 4, 1, 1, 1, 5, 3, 1, 1, 1, 6, 3, 1, 3, 2, 1, 2, 2, 8, 4, 3, 4, 6, 3, 8, 2, 1, 3, 5, 2, 3, 5, 4, 6, 4, 6, 4, 6, 3, 6, 3, 3, 8, 6, 3, 4, 3, 5, 2, 3, 1, 1, 1, 1, 2, 3, 2, 4, 2, 21, 3, 6, 5, 3, 4, 3, 5, 2, 7, 9, 3, 2, 5, 26, 6, 4, 5, 3, 3, 1, 11, 9, 5, 9, 14, 4, 5, 2, 4, 6, 6, 3, 4, 3, 3, 1, 6};
 	return ret[num];
 }
-//void EventInstruct::XXX()
-//{
-//
-//}
 
 
-void EventManager::clear() {
+
+void EventManager::clear_0() {
 	int begin_base = 0;
 	for (int i = Base::m_vcBase.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
 	{
@@ -735,11 +770,79 @@ void EventManager::clear() {
 	Base b;
 	for (int i = begin_base + 1; i < Base::m_vcBase.size(); i++)
 		b.pop();
+	cout << "0 clear screen";
 }
 
 
-void EventManager::talk() {
+void EventManager::talk_1() {
 
+
+}
+void EventManager::getItem_2(short tnum,short amount,short rnum) {
+	getJueSe(&rnum);
+	Character role;
+	role = Save::getInstance()->m_Character[rnum];
+	if (rnum == 0){
+		for (auto i : Save::getInstance()->m_BasicData[0].m_RItemList)
+		{
+			if (i.Number == tnum) {
+				i.Amount += amount;
+				break;
+			}
+			if (i.Number == -1) {
+				i.Number = tnum;
+				i.Amount = amount;
+				break;
+			}
+		}
+	}
+	else {
+		for (auto i : role.TakingItem) {
+			if (i.Number == tnum) {
+				i.Amount += amount;
+				break;
+			}
+			if (i.Number == -1) {
+				i.Number = tnum;
+				i.Amount = amount;
+				break;
+			}
+		}
+	}
+}
+
+void EventManager::getJueSe(short* rnum) { //未完成，待角色系统建立
+	if (*rnum <= -10)
+	{
+
+	}
+}
+void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent) {
+	
+	
+	if (snum == -2)
+		snum = Save::getInstance()->m_BasicData[0].m_sWhere;
+	if (ednum == -2)
+		ednum = Head::Curevent;
+	TSceneEvent *Ddata;
+	Ddata = &(Save::getInstance()->m_SceneEventData[snum].Data[ednum]);
+	if (XPos == -2)
+		XPos = Ddata->XPos;
+	if (YPos == -2)
+		YPos = Ddata->YPos;
+	Save::getInstance()->m_SceneMapData[snum].Data[3][XPos][YPos] = -1;
+	short oldpic = Ddata->BeginPic1;
+	short newpic = BeginPic1;
+	if (Num >= 0)
+		ednum = Num;
+	short *b;
+	short a[] = { CanWalk, Num,Event1,  Event2,  Event3,  BeginPic1,  EndPic,  BeginPic2,  PicDelay, XPos,  YPos, StartTime,  Duration, Interval, DoneTime, IsActive, OutTime, OutEvent };
+	b = &Ddata->CanWalk;
+	for (int i = 0; i <= 17; i++) {
+		if (a[i] != -2)
+			*(b + i) =a[i];
+	}
+	Save::getInstance()->m_SceneMapData[snum].Data[3][Ddata->XPos][Ddata->YPos] = ednum;
 
 }
 

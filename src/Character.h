@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config.h"
-
+#include"head.h"
 class Character
 {
 public:
@@ -9,7 +9,10 @@ public:
 	Character();
 	~Character();
 	//注意请将要存储在存档的数据放在前面
-
+	struct TItemList
+	{
+		short  Number, Amount;
+	};
 	short ListNum = 999, HeadNum, IncLife, Lucky;
 	char Name[10];
 	short Placeholder1;
@@ -30,7 +33,8 @@ public:
 	short CurrentPosition, InnerPosition, InnerToward, Unuse0, ExerciseTendency, MeditationTendency, WorkTendency, OtherTendency, TemporaryPosition, TInnerPosition, TToward,
 		Sx, Sy, IsGift, Contributions, Unuse5, Unuse6, Unuse7, Unuse8, Unuse9, BTNum; //98
 	short LMagic[config::MaxMagicNum], MagLevel[config::MaxMagicNum]; //158
-	short TakingItem[4], TakingItemAmount[4], ActivateMagic[10], LAction[30];
+	NAlist TakingItem[4];
+	short ActivateMagic[10], LAction[30];
 	short IsEvent;
 	short AllEvent[9];
 	short LeaveEvent;
