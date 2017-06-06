@@ -54,6 +54,8 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
     while (p < length)
     {
         int instruct = operation->at(p).num;
+		if (instruct < 0)
+			break;
 		string str;
 		for (auto i = 1; i < operation->at(p).par.size();i++) {
 			str += "[";
@@ -853,10 +855,21 @@ int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
 int EventManager::isFight_5(short jump1, short jump2) {
 	Menu2 menu;
 	menu.setButton("title", 12, 13, -1, 14, 15, -1);
-	menu.draw();
+	menu.setTitle("是否與之戰鬥？");
+	menu.ini();
 	auto a=menu.getResult();
 	if (a==0)
 		return jump1;
+	return jump2;
+}
+int EventManager::isAdd_8(short jump1, short jump2) {
+	Menu2 menu;
+	menu.setButton("title", 12, 13, -1, 14, 15, -1);
+	menu.setTitle("是否要求加入？");
+	menu.ini();
+	auto a = menu.getResult();
+	if (a == 0)
+		return jump1; 
 	return jump2;
 }
 int EventManager::getGongtiLevel(int rnum, int gongti) {

@@ -1,7 +1,7 @@
 #include "SubScene.h"
 #include "MainMap.h"
 #include "BattleScene.h"
-
+#include"Event.h"
 
 SubScene::SubScene()
 {
@@ -188,7 +188,10 @@ void SubScene::dealEvent(BP_Event& e)
         {
 			stopFindWay();
 			ReSetEventPosition(x, y);
-			//callEvent(x, y);
+			if(Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y] >= 0)
+				if (Save::getInstance()->m_SceneEventData[sceneNum].Data[Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y]].Event1 >=0)
+					EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[sceneNum].Data[Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y]].Event1);
+				
 
             break;
         }

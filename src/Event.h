@@ -67,6 +67,8 @@ public:
 	void editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent);
 	int judgeItem_4(short inum,short jump1,short jump2);
 	int isFight_5(short jump1,short jump2);
+
+	int isAdd_8(short jump1, short jump2);
 	int getGongtiLevel(int rnum, int gongti);
 	int getRoleSpeed(int rnum, bool equip);
 	int getRoleDefence(int rnum, bool equip);

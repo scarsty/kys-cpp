@@ -89,8 +89,8 @@ void MainMap::init()
         File::readFile("resource/earth.002", &Earth, length);
         File::readFile("resource/surface.002", &Surface, length);
         File::readFile("resource/building.002", &Building, length);
-        File::readFile("resource/buildx.002", &BuildY, length);
-        File::readFile("resource/buildy.002", &BuildX, length);
+        File::readFile("resource/buildx.002", &BuildX, length);
+        File::readFile("resource/buildy.002", &BuildY, length);
     }
     _readed = true;
 
@@ -236,10 +236,15 @@ void MainMap::walk(int x, int y, Towards t)
 
 bool MainMap::checkIsBuilding(int x, int y)
 {
-    if (BuildX[x][y] == 0)
+	
+	if (Building[BuildY[x][y]][BuildX[x][y]] > 0)
+		return  true;
+	else
+		return false;
+/*    if (BuildX[x][y] == 0)
     { return false; }
     else
-    { return true; }
+    { return true; }*/
 }
 
 bool MainMap::checkIsWater(int x, int y)

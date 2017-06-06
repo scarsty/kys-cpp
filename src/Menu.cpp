@@ -1,5 +1,5 @@
 #include "Menu.h"
-
+#include"Dialogues.h"
 Menu::Menu()
 {
 
@@ -59,6 +59,17 @@ void Menu::dealEvent(BP_Event& e)
 		break;
 	}
 }
+void Menu2::draw() {
+	SDL_Color color = { 0, 0, 0, 255 };
+	Engine::getInstance()->drawText("fonts/Dialogues.ttf", _title, 20, 5, 5, 255, BP_ALIGN_LEFT, color);
+	for (auto&b : bts)
+	{
+		b->draw();
+	}
+}
+void Menu2::setTitle(std::string str) {
+	_title = str;
+}
 
 void Menu::addButton(Button* b, int x, int y)
 {
@@ -68,7 +79,7 @@ void Menu::addButton(Button* b, int x, int y)
 bool Menu2::getResult() {
 	return _rs;
 }
-void Menu2::fun(BP_Event& e, void* data) {
+void Menu2::func(BP_Event& e, void* data) {
 	auto i = *(int*)(data);
 	if (i == 0)
 	{
@@ -80,24 +91,35 @@ void Menu2::fun(BP_Event& e, void* data) {
 	}
 	
 }
-void Menu2::draw()
-{
-	auto bt1 = new Button();
-	bt1->setTexture(path, _num11, _num12,_num13);
-	auto bt2 = new Button();
-	bt2->setTexture(path, _num21, _num22, _num23);
-	addButton(bt1, 0, 0);
-	addButton(bt2, 100, 0);
-	bt1->setSize(110, 24);
-	bt2->setSize(110, 24);
-	bt1->setFunction(BIND_FUNC(Menu2::getResult));
-	for (auto&b : bts)
+
+void Menu2::ini() {
+	if (!_isIni)
 	{
-		b->draw();
+		auto bt1 = new Button();
+		bt1->setTexture(_path, _num11, _num12, _num13);
+		auto bt2 = new Button();
+		bt2->setTexture(_path, _num21, _num22, _num23);
+		if (_x < 0)
+			_x = 100;
+		if (_y < 0)
+			_y = 100;
+		this->setPosition(_x, _y);
+		this->setSize(150,58);
+		addButton(bt1, 20, 5);
+		addButton(bt2, 20, 29);
+		bt1->setSize(110, 24);
+		bt2->setSize(110, 24);
+		bt1->setFunction(BIND_FUNC(Menu2::func));
+		auto m_UI = new UI();
+		//m_UI->AddSprite(m_Dialogues);		
+		m_UI->AddSprite(this);
+		push(m_UI);
+		_isIni = true;
+
 	}
 }
-void Menu2::setButton(std::string str, int num11, int num12 = -1, int num13 = -1, int num21 = -1, int num22 = -1, int num23 = -1) {
-	path = str;
+void Menu2::setButton(std::string str, int num11, int num12, int num13, int num21, int num22, int num23) {
+	_path = str;
 	_num11 = num11;
 	_num12 = num12;
 	_num13 = num13;
