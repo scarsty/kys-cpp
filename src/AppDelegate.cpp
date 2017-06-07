@@ -83,7 +83,8 @@ void AppDelegate::mainLoop(BP_Event & e)
         }
         engine->renderPresent();
         int t1 = engine->getTicks();
-        int t = std::max(0, 25 - (t1 - t0));
+		
+        int t = max(0, 25 - (t1 - t0));
         engine->delay(t);
     }
 }

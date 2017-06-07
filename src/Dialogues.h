@@ -11,7 +11,7 @@ public:
 	~Dialogues();
 	static vector<string> m_Dialogues;    //对话全部读取到向量中
 	bool InitDialogusDate();
-	string GBKToUTF8(const string& strGBK);
+//	string GBKToUTF8(const string& strGBK);  放head去了
 	void draw();
 	void SetFontsName(const string& fontsName);
 	void SetFontsColor(SDL_Color &color);

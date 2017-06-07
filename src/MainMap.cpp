@@ -8,11 +8,13 @@
 #include "SubScene.h"
 
 MainMap::MapArray MainMap::Earth, MainMap::Surface, MainMap::Building, MainMap::BuildX, MainMap::BuildY, MainMap::Entrance;
-int MainMap::Mx, MainMap::My;
+
 
 MainMap::MainMap()
 {
     m_nfull = 1;
+	_Mx = &Save::getInstance()->m_BasicData[0].m_sMx;
+	_My = &Save::getInstance()->m_BasicData[0].m_sMy;
 }
 
 MainMap::~MainMap()
@@ -34,10 +36,10 @@ void MainMap::draw()
     {
         for (int i = -widthregion; i <= widthregion; i++)
         {
-            int i1 = Mx + i + (sum / 2);
-            int i2 = My - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, Mx, My);
-            //auto p = getMapPoint(i1, i2, Mx, My);
+            int i1 = *_Mx + i + (sum / 2);
+            int i2 = *_My - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, *_Mx, *_My);
+            //auto p = getMapPoint(i1, i2, *_Mx, *_My);
             if (i1 >= 0 && i1 <= MaxMainMapCoord && i2 >= 0 && i2 <= MaxMainMapCoord)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
@@ -57,7 +59,7 @@ void MainMap::draw()
                     int c = ((i1 + i2) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + i1;
                     map[2 * c + 1] = { t, p };
                 }
-                if (i1 == Mx && i2 == My)
+                if (i1 == *_Mx && i2 == *_My)
                 {
                     manPicture = offset_manPic + Scene::towards * num_manPic + step;
                     if (restTime >= begin_restTime)
@@ -94,12 +96,9 @@ void MainMap::init()
     }
     _readed = true;
 
-    Mx = 240;
-    My = 240;
-
     //最开始的坐标.
-    //Mx = m_BasicData[0].Mx;
-    //My = m_BasicData[0].My;
+    //*_Mx = m_BasicData[0].*_Mx;
+    //*_My = m_BasicData[0].*_My;
     //CommonScene::towards = (Towards)m_BasicData[0].MFace;
     LOG("toward=%d\n", towards);
     //log("Mface=%d\n", SaveGame::getInstance()->RBasic_Data.Mface);
@@ -128,13 +127,17 @@ void MainMap::init()
 
     getEntrance();
 
+	auto s = new SubScene(35);//暂时初始进入开封
+	push(s);
+	
+
 }
 
 
 //计时器，负责画图以及一些其他问题
 void MainMap::dealEvent(BP_Event& e)
 {
-    int x = Mx, y = My;
+    int x = *_Mx, y = *_My;
     //drawCount++;
     if (e.type == BP_MOUSEBUTTONDOWN)
     {
@@ -142,7 +145,7 @@ void MainMap::dealEvent(BP_Event& e)
         stopFindWay();
         if (canWalk(Msx, Msy) && !checkIsOutScreen(Msx, Msy))
         {
-            FindWay(Mx, My, Msx, Msy);
+            FindWay(*_Mx, *_My, Msx, Msy);
         }
     }
     if (!wayQue.empty())
@@ -200,8 +203,8 @@ void MainMap::dealEvent(BP_Event& e)
         case BPK_SPACE:
         {
                   stopFindWay();
-// 				  Save::getInstance()->m_BasicData[0].Mx = Mx;
-// 				  Save::getInstance()->m_BasicData[0].My = My;
+// 				  Save::getInstance()->m_BasicData[0].*_Mx = *_Mx;
+// 				  Save::getInstance()->m_BasicData[0].*_My = *_My;
 // 				  Save::getInstance()->m_BasicData[0].MFace = towards;
 // 				  auto s = new BattleScene(Entrance[x][y]);
 // 				  push(s);
@@ -220,8 +223,8 @@ void MainMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        Mx = x;
-        My = y;
+        *_Mx = x;
+        *_My = y;
     }
     if (towards != t)
     {
@@ -281,7 +284,7 @@ void MainMap::cloudMove()
     for (auto& c : cloudVector)
     {
         c->changePosition();
-        c->setPositionOnScreen(Mx, My, Center_X, Center_Y);
+        c->setPositionOnScreen(*_Mx, *_My, Center_X, Center_Y);
     }
 }
 
@@ -289,9 +292,10 @@ bool MainMap::checkIsEntrance(int x, int y)
 {
     if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
     {
-        Save::getInstance()->m_BasicData[0].m_sMx = Mx;
-        Save::getInstance()->m_BasicData[0].m_sMx = My;
+        Save::getInstance()->m_BasicData[0].m_sMx = *_Mx;
+        Save::getInstance()->m_BasicData[0].m_sMx = *_My;
         Save::getInstance()->m_BasicData[0].m_sMFace = towards;
+		Save::getInstance()->m_BasicData[0].m_sWhere = 1;
         auto s = new SubScene(Entrance[x][y]);
         push(s);
         return true;
@@ -409,7 +413,7 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
 
 bool MainMap::checkIsOutScreen(int x, int y)
 {
-    if (abs(Mx - x) >= 2 * widthregion || abs(My - y) >= sumregion)
+    if (abs(*_Mx - x) >= 2 * widthregion || abs(*_My - y) >= sumregion)
     { return true; }
     else
     { return false; }
@@ -427,7 +431,7 @@ void MainMap::getMousePosition(int _x, int _y)
     int x = _x;
     int y = _y;
     int yp = 0;
-    Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Mx;
-    Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + My;
+    Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + *_Mx;
+    Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + *_My;
 }
 

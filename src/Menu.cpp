@@ -1,5 +1,6 @@
 #include "Menu.h"
 #include"Dialogues.h"
+#include "Head.h"
 Menu::Menu()
 {
 
@@ -61,11 +62,12 @@ void Menu::dealEvent(BP_Event& e)
 }
 void Menu2::draw() {
 	SDL_Color color = { 0, 0, 0, 255 };
-	Engine::getInstance()->drawText("fonts/Dialogues.ttf", _title, 20, 5, 5, 255, BP_ALIGN_LEFT, color);
+	
 	for (auto&b : bts)
 	{
 		b->draw();
 	}
+	Engine::getInstance()->drawText("fonts/Dialogues.ttf",_title, 20, 5, 5, 255, BP_ALIGN_LEFT, color); 这里有问题，字符无法显示
 }
 void Menu2::setTitle(std::string str) {
 	_title = str;
@@ -111,9 +113,8 @@ void Menu2::ini() {
 		bt2->setSize(110, 24);
 		bt1->setFunction(BIND_FUNC(Menu2::func));
 		auto m_UI = new UI();
-		//m_UI->AddSprite(m_Dialogues);		
 		m_UI->AddSprite(this);
-		push(m_UI);
+		m_UI->push(m_UI);
 		_isIni = true;
 
 	}

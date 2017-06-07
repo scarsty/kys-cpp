@@ -19,10 +19,7 @@ public:
     std::stack<Point> wayQue;  //Õ»(Â·¾¶Õ»)
 
     //std::vector<Sprite*> EarthS, SurfaceS, BuildingS, CloudS;
-
-    static int Mx, My;
-
-
+	
     int cloudX, cloudY;
     int step = 0;
     int manPicture;
@@ -65,4 +62,6 @@ public:
     bool checkIsEntrance(int x, int y);
     virtual void FindWay(int Mx, int My, int Fx, int Fy);
     void stopFindWay();
+private:
+	short *_Mx, *_My;
 };

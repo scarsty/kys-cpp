@@ -306,6 +306,7 @@ bool SubScene::checkIsExit(int x, int y)
 		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[2] == y)
     {
         pop();
+		Save::getInstance()->m_BasicData[0].m_sWhere = 0;
         return true;
     }
     else if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[1] == x 
@@ -322,6 +323,7 @@ bool SubScene::checkIsExit(int x, int y)
         CommonScene::replaceLocation();
         */
         pop();
+		Save::getInstance()->m_BasicData[0].m_sWhere = 0;
         return true;
     }
     return false;

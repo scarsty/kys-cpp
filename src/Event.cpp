@@ -17,7 +17,7 @@ EventManager::~EventManager()
 
 bool EventManager::callEvent(int num)
 {
-	cout << "开始执行事件：" << num;
+	cout << "开始执行事件：" << num<<endl;
 	int eventId = -1;
 	for (int i = 0; i < eventCount; i++)
 	{
@@ -29,13 +29,12 @@ bool EventManager::callEvent(int num)
 	}
 	if (eventId < 0)
 	{
-		cout << "事件编号获取失败";
+		cout << "事件编号获取失败" << endl;
 		return false;
 	}
 	Head::inEvent = eventId;
 	const std::vector<Operation>* operation = eventData.at(eventId).getOperation();
 	int parLen;
-	EventManager event;
 	iniEventRun();	
 	runEvent(operation);
 	Head::inEvent = -1;
@@ -50,8 +49,7 @@ void  EventManager::iniEventRun()
 }
 void EventManager::runEvent(const std::vector<Operation>* operation) {
     int p = 0;
-    int length = 100;
-    while (p < length)
+    while (p < operation->size())
     {
         int instruct = operation->at(p).num;
 		if (instruct < 0)
@@ -59,10 +57,10 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
 		string str;
 		for (auto i = 1; i < operation->at(p).par.size();i++) {
 			str += "[";
-			str += operation->at(p).par[i];
+			str += to_string(operation->at(p).par[i]);
 			str += "]";
 		}
-		cout << "执行指令" << operation->at(p).num<< str;
+		cout << "执行指令" << operation->at(p).num<< str << endl;
         switch (instruct)
         {
         case -1:
@@ -80,18 +78,22 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 2:
         {
+			getItem_2(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
             break;
         }
         case 3:
         {
+			editEvent3(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3], operation->at(p).par[4], operation->at(p).par[5], operation->at(p).par[6], operation->at(p).par[7], operation->at(p).par[8], operation->at(p).par[9], operation->at(p).par[10], operation->at(p).par[11], operation->at(p).par[12], operation->at(p).par[13], operation->at(p).par[14], operation->at(p).par[15], operation->at(p).par[16], operation->at(p).par[17], operation->at(p).par[18], operation->at(p).par[19], operation->at(p).par[20]);
             break;
         }
         case 4:
         {
+			judgeItem_4(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
             break;
         }
         case 5:
         {
+			isFight_5(operation->at(p).par[1], operation->at(p).par[2]);
             break;
         }
         case 6:
@@ -104,6 +106,7 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 8:
         {
+			isAdd_8(operation->at(p).par[1], operation->at(p).par[2]);
             break;
         }
         case 9:
@@ -642,17 +645,14 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
             break;
         }
         }
-    }
-
-	if ((isTry) && (TryEventTmpI + EventEndCount <= p)) {
-		isTry = false;
-		p = TryEventTmpI;
-		EventEndCount = 0;
-		cout << "事件测试通过";
-	}
-	p++;
-		
-	
+		if ((isTry) && (TryEventTmpI + EventEndCount <= p)) {
+			isTry = false;
+			p = TryEventTmpI;
+			EventEndCount = 0;
+			cout << "事件测试通过" << endl;;
+		}
+		p++;
+    }		
 }
 
 bool EventManager::initEventData()
@@ -680,7 +680,7 @@ bool EventManager::initEventData()
             //cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
             offset = new int[idxLen / 4 + 1];
 			if ((idxLen / 4 + 1) >= 100)
-				cout << filename1<< "单个文件中事件数为:"<< idxLen / 4 <<"超过100";
+				cout << filename1<< "单个文件中事件数为:"<< idxLen / 4 <<"超过100" << endl;;
             *offset = 0;
             memcpy(offset + 1, Eidx, idxLen);
 
@@ -736,8 +736,6 @@ void EventData::arrByOperation(unsigned char* Data, int len)
         Operation tmp;
         tmp.num = *((D + add0));
         int add1 = getOperationLen(tmp.num);
-		if (add1 < 0)
-			cout << "指令号" << tmp.num << "获取长度失败";
         for (int j = 0; j < add1; j++)
         {
             tmp.par.push_back(*(D + add0 + j));
@@ -752,7 +750,7 @@ int EventData::getOperationLen(int num)
 	if (num == -1)
 		return 1;
 	else if(num < -1)
-		cout<<"指令号"<< num <<"获取长度失败";
+		cout<<"指令号"<< num <<"获取长度失败" << endl;;
     std::vector<int> ret = { 1, 4, 4, 21, 4, 3, 5, 7, 2, 3, 2, 3, 1, 1, 1, 1, 4, 6, 4, 3, 3, 2, 1, 3, 1, 5, 6, 4, 6, 6, 5, 4, 3, 5, 3,5, 4, 3, 5, 2, 2, 4, 3, 4, 7, 3, 3, 3, 3, 3, 8, 4, 1, 1, 1, 5, 3, 1, 1, 1, 6, 3, 1, 3, 2, 1, 2, 2, 8, 4, 3, 4, 6, 3, 8, 2, 1, 3, 5, 2, 3, 5, 4, 6, 4, 6, 4, 6, 3, 6, 3, 3, 8, 6, 3, 4, 3, 5, 2, 3, 1, 1, 1, 1, 2, 3, 2, 4, 2, 21, 3, 6, 5, 3, 4, 3, 5, 2, 7, 9, 3, 2, 5, 26, 6, 4, 5, 3, 3, 1, 11, 9, 5, 9, 14, 4, 5, 2, 4, 6, 6, 3, 4, 3, 3, 1, 6};
 	return ret[num];
 }
@@ -823,7 +821,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 	
 	
 	if (snum == -2)
-		snum = Save::getInstance()->m_BasicData[0].m_sWhere;
+		snum = Save::getInstance()->m_Character[0].CurrentPosition;
 	if (ednum == -2)
 		ednum = Head::CurEvent;
 	TSceneEvent *Ddata;
@@ -832,9 +830,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 		XPos = Ddata->XPos;
 	if (YPos == -2)
 		YPos = Ddata->YPos;
-	Save::getInstance()->m_SceneMapData[snum].Data[3][XPos][YPos] = -1;
-	short oldpic = Ddata->BeginPic1;
-	short newpic = BeginPic1;
+	Save::getInstance()->m_SceneMapData[snum].Data[3][YPos][XPos] = -1;
 	if (Num >= 0)
 		ednum = Num;
 	short *b;
@@ -844,7 +840,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 		if (a[i] != -2)
 			*(b + i) =a[i];
 	}
-	Save::getInstance()->m_SceneMapData[snum].Data[3][Ddata->XPos][Ddata->YPos] = ednum;
+	Save::getInstance()->m_SceneMapData[snum].Data[3][Ddata->YPos][Ddata->XPos] = ednum;
 
 }
 int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
@@ -853,21 +849,23 @@ int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
 	return jump2;
 }
 int EventManager::isFight_5(short jump1, short jump2) {
-	Menu2 menu;
-	menu.setButton("title", 12, 13, -1, 14, 15, -1);
-	menu.setTitle("是否與之戰鬥？");
-	menu.ini();
-	auto a=menu.getResult();
+	auto menu=new Menu2();
+	menu->setButton("menu", 12, 14, -1, 13, 15, -1);
+	menu->setTitle("是否與之戰鬥？");
+	menu->ini();
+	
+	auto a=menu->getResult();
 	if (a==0)
 		return jump1;
 	return jump2;
 }
 int EventManager::isAdd_8(short jump1, short jump2) {
-	Menu2 menu;
-	menu.setButton("title", 12, 13, -1, 14, 15, -1);
-	menu.setTitle("是否要求加入？");
-	menu.ini();
-	auto a = menu.getResult();
+	auto menu = new Menu2();
+	menu->setButton("title", 12, 13, -1, 14, 15, -1);
+	menu->setTitle("是否要求加入？");
+	menu->ini();
+	
+	auto a = menu->getResult();
 	if (a == 0)
 		return jump1; 
 	return jump2;
