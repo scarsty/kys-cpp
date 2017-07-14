@@ -2,38 +2,90 @@
 
 
 
-Button::Button()
+Button::Button(const std::string& strNormalpath)
 {
+	InitMumber();
+	m_strNormalpath = strNormalpath;
 }
 
+Button::Button(const std::string& strNormalpath, const std::string& strPasspath, const std::string& strPress)
+{
+	InitMumber();
+	m_strNormalpath = strNormalpath;
+	m_strPasspath = strPasspath;
+	m_strPress = strPress;
+}
 
 Button::~Button()
 {
 }
 
-void Button::setTexture(const std::string& path, int num1, int num2 /*= -1*/, int num3 /*= -1*/)
+void Button::InitMumber()
 {
-    this->m_strPath = path;
-    this->m_nnum1 = num1;
-    this->m_nnum2 = num2;
-    this->m_nnum3 = num3;
+	nState = Normal;
+	m_strNormalpath = "";
+	m_strPasspath = "";
+	m_strPress = "";
+}
+
+void Button::dealEvent(BP_Event& e)
+{
+	switch (e.type)
+	{
+	case BP_MOUSEMOTION:
+	{
+		nState = Normal;
+		if (inSide(e.button.x, e.button.y))
+		{
+			nState = Pass;
+		}
+		break;
+	}
+	case  BP_MOUSEBUTTONDOWN:
+	{
+		if (e.button.button == BP_BUTTON_LEFT)
+		{
+			if (inSide(e.button.x, e.button.y))
+			{
+				nState = Press;
+			}
+		}
+	}
+	case BP_MOUSEBUTTONUP:
+	{
+		if (e.button.button == BP_BUTTON_LEFT)
+		{
+			if (inSide(e.button.x, e.button.y))
+			{
+				func();
+			}
+		}
+		if (e.button.button == BP_BUTTON_RIGHT)
+		{
+			pop();
+		}
+		break;
+	}
+		
+	}
 }
 
 void Button::draw()
 {
-    if (state == 0)
+	std::string strTempPath = m_strNormalpath;
+
+    if (Normal == nState)
     {
-        Texture::getInstance()->copyTexture(m_strPath, m_nnum1, m_nx, m_ny);
+		strTempPath = m_strNormalpath;
     }
-    else
-    {
-        if (m_nnum2 >= 0)
-        {
-            Texture::getInstance()->copyTexture(m_strPath, m_nnum2, m_nx, m_ny);
-        }
-        else
-        {
-            Texture::getInstance()->copyTexture(m_strPath, m_nnum1, m_nx + 1, m_ny + 1);
-        }
-    }
+	else if (Pass == nState && !m_strPasspath.empty())
+	{
+		strTempPath = m_strPasspath;
+	}
+	else if(Press == nState && !m_strPress.empty())
+	{
+		strTempPath = m_strPress;
+	}
+
+	Texture::getInstance()->LoadImageByPath(strTempPath, m_nx, m_ny);
 }

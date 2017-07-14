@@ -12,7 +12,7 @@ public:
     BattleScene();
     ~BattleScene();
 
-    virtual void init() override {}
+	virtual void init() override;
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include "config.h"
 #include "Save.h"
+#include "UI.h"
+#include "Menu.h"
 
 BattleScene::BattleScene()
 {
@@ -70,6 +72,11 @@ void BattleScene::draw()
     {
         Texture::getInstance()->copyTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
     }
+	SDL_Color color = { 0, 0, 0, 255 };
+	string strTemp;
+	strTemp = "中文测试";
+	strTemp = Engine::getInstance()->string_To_UTF8(strTemp);
+	Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
 }
 
 void BattleScene::dealEvent(BP_Event& e)
@@ -1558,4 +1565,23 @@ void BattleScene::attack(int bnum)
     //mnum = m_Character[rnum].LMagic[i];
     //level = m_Character[rnum].MagLevel[i] / 100 + 1;
 	m_ncurMagic = mnum;
+}
+
+void BattleScene::init()
+{
+	
+	// 因为偏移文件的问题，所以暂时读不到这个文件。
+	//auto UiLayer = new UI();
+	//auto MenuSprite = new Menu();
+	//MenuSprite->setPosition(20, 20);
+	//for (int i = 0; i < 3; i++)
+	//{
+	//	auto ButtonSprite = new Button();
+	//	ButtonSprite->setTexture("menu", i + 1, i + 33);
+	//	MenuSprite->addButton(ButtonSprite, 0, i * 33);
+	//	ButtonSprite->setSize(110, 24);
+	//	//ButtonSprite->setFunction(BIND_FUNC(HelloWorldScene::func));
+	//}
+	//UiLayer->AddSprite(MenuSprite);
+	//push(UiLayer);
 }

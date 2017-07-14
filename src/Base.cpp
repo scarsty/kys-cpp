@@ -13,6 +13,7 @@ Base::Base()
 
 Base::~Base()
 {
+
 }
 
 void Base::LOG(const char *format, ...)
@@ -27,5 +28,5 @@ void Base::LOG(const char *format, ...)
 
 bool Base::inSide(int x, int y)
 {
-	return x > this->m_nx&& x< this->m_nx + this->m_nw && y > this->m_ny&& y < this->m_ny + this->m_nh;
+	return x > this->m_nx && x < this->m_nx + this->m_nw && y > this->m_ny&& y < this->m_ny + this->m_nh;
 }

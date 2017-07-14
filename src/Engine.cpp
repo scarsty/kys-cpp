@@ -254,7 +254,7 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     return text_t;
 }
 
-void Engine::drawText(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color &c)
+void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color &c)
 {
     if (alpha == 0)
     { return; }

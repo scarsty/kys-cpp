@@ -673,11 +673,13 @@ bool EventManager::initEventData()
         for (int num2 = 0; num2 < config::EventFileNum; num2++)
         {
             char filename1[30], filename2[30];
-            //path1 = path + StringUtils::format("/%.3d", num2);
             sprintf(filename1, "%s%03d%s", path, num2, ".idx");
-            unsigned char* Eidx;			
-            File::readFile(filename1,&Eidx, &idxLen);
-            //cocos2d::Data Eidx = FileUtils::getInstance()->getDataFromFile(filename1);
+            unsigned char* Eidx;	
+			if (!File::readFile(filename1, &Eidx, &idxLen))
+			{
+				return false;
+			}
+  
             offset = new int[idxLen / 4 + 1];
 			if ((idxLen / 4 + 1) >= 100)
 				cout << filename1<< "单个文件中事件数为:"<< idxLen / 4 <<"超过100" << endl;;
@@ -688,8 +690,11 @@ bool EventManager::initEventData()
             unsigned char* Egrp;
             int EgrpLen;
             //这儿开始，11.30
-            //cocos2d::Data Egrp = FileUtils::getInstance()->getDataFromFile(filename2);
-			File::readFile(filename2, &Egrp, &EgrpLen);
+			if (!File::readFile(filename2, &Egrp, &EgrpLen))
+			{
+				return false;
+			}
+			
             unsigned char* Data;
             Data = new unsigned char[EgrpLen];
             memcpy(Data, Egrp, EgrpLen);

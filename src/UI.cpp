@@ -31,8 +31,8 @@ void UI::AddSprite(UI*b)
 void UI::dealEvent(BP_Event& e)
 {
 	bts.back()->dealEvent(e);
-	/*for (auto&b : bts)
+	for (auto&b : bts)
 	{
 		b->dealEvent(e);
-	}*/
+	}
 }

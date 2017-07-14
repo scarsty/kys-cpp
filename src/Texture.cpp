@@ -1,4 +1,4 @@
-#include "Texture.h"
+﻿#include "Texture.h"
 #include "File.h"
 
 Texture Texture::tm;
@@ -58,5 +58,32 @@ void Texture::copyTexture(const std::string& path, int num, int x, int y)
         t.loaded = true;
     }
     if (t.count)
-        engine->renderCopy(t.tex[rand() % t.count], x - t.dx, y - t.dy, t.w, t.h);
+        engine->renderCopy(t.tex[rand() % t.count], x - t.dx, y - t.dy, t.w, t.h); //这里使用了随机数应该是水面的特效，这里之前和读取图像写到了一起，以后有机会改进一下
+}
+
+/**
+*  通过路径读取图片地址
+
+*  @param [in] 文件路径，x坐标，y坐标
+
+*  @return 
+*/
+
+void Texture::LoadImageByPath(const std::string& strPath, int x, int y)
+{
+	if (!strPath.empty())
+	{
+		auto engine = Engine::getInstance();
+		auto& v = tm.map[strPath.c_str()];
+		v.resize(1);
+		auto& t = v[0];
+		if (!t.loaded)
+		{
+			t.tex[0] = engine->loadImage(strPath);
+			engine->queryTexture(t.tex[0], &t.w, &t.h);
+			t.loaded = true;
+		}
+		if (t.count)
+			engine->renderCopy(t.tex[0], x - t.dx, y - t.dy, t.w, t.h);
+	}
 }

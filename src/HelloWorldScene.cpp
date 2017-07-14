@@ -60,69 +60,44 @@ void HelloWorldScene::dealEvent(BP_Event& e)
 
 }
 
-void HelloWorldScene::func(BP_Event& e, void* data)
+void HelloWorldScene::OnStart()
 {
-    auto i = *(int*)(data);
-    //Engine::getInstance()->showMessage((to_string(i)).c_str());
-    if (i == 2)
-    { e.type = BP_QUIT; }
-    if (i == 0)
-    {
-        Save::getInstance()->LoadR(0);		
-        auto m = new MainMap();
-		//pop();
-        push(m);
-        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
-    }
-    if (i == 1)
-    {
-        /*Save::getInstance()->LoadR(0);
-        auto m = new MainMap();
-        push(m);
-        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);*/
-		
-		//fprintf(stderr, "test dialogues %s", Dialogues::m_Dialogues.at(1).c_str());
-    }
-    BattleData::getInstance()->isLoad();
+	BattleData::getInstance()->isLoad();
 }
+
+//void HelloWorldScene::func()
+//{
+//    auto i = *(int*)(data);
+//    //Engine::getInstance()->showMessage((to_string(i)).c_str());
+//    if (i == 2)
+//    { e.type = BP_QUIT; }
+//    if (i == 0)
+//    {
+//        Save::getInstance()->LoadR(0);		
+//        auto m = new MainMap();
+//		//pop();
+//        push(m);
+//        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
+//    }
+//    if (i == 1)
+//    {
+//        /*Save::getInstance()->LoadR(0);
+//        auto m = new MainMap();
+//        push(m);
+//        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);*/
+//		
+//		//fprintf(stderr, "test dialogues %s", Dialogues::m_Dialogues.at(1).c_str());
+//    }
+//    BattleData::getInstance()->isLoad();
+//}
 
 void HelloWorldScene::init()
 {
-	/*auto m_Dialogues = new Dialogues();
-	m_Dialogues->InitDialogusDate();
-	m_Dialogues->SetFontsName("fonts/Dialogues.ttf");
-	SDL_Color color = { 0, 0, 0, 255 };
-	m_Dialogues->SetFontsColor(color);
-	m_Dialogues->SetDialoguesNum(2);*/
-	
-	auto m = new Menu();
-	m->setPosition(265, 305);
-	for (int i = 0; i < 3; i++)
-	{
-		auto b = new Button();
-		b->setTexture("title", i + 107);
-		m->addButton(b, 0, i * 33);
-		b->setSize(110, 24);
-		b->setFunction(BIND_FUNC(HelloWorldScene::func));
-	}
-
-	string filename = "Dialogues/Picture/1.png";
-	auto sprite = new Sprite(filename);
-	sprite->setPositionAndSize(10, 20);
-
-	auto m_UI = new UI();
-	//m_UI->AddSprite(m_Dialogues);
-	//m_UI->AddSprite(sprite);
-	m_UI->AddSprite(m);
-	push(m_UI);
-
-	m_Dialogues->InitDialogusDate();
-	m_Dialogues->SetFontsName("fonts/Dialogues.ttf");
-	SDL_Color color = { 0, 0, 0, 255 };
-	m_Dialogues->SetFontsColor(color);
-	m_Dialogues->SetDialoguesEffect(true);
-	m_Dialogues->SetDialoguesSpeed(5);
-	m_Dialogues->SetDialoguesNum(2);
+	auto b = new Button("menu/0.png", "menu/6.png", "menu/0.png");
+	b->setPosition(22, 22);
+	b->setSize(110, 24);
+	b->setFunction(BIND_FUNC(HelloWorldScene::OnStart));
+	push(b);
 	
 }
 

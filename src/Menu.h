@@ -2,6 +2,13 @@
 #include "UI.h"
 #include "Button.h"
 
+/**
+* @file		 Menu.h
+* @brief	 ≤Àµ•¿‡
+* @author    xiaowu
+
+*/
+
 class Menu :
 	public UI
 {

@@ -36,5 +36,9 @@ public:
     static Texture* getInstance() { return &tm; }
     void copyTexture(const std::string& path, int num, int x, int y);
 
+	//add by xiaowu for ∂¡»°Õº∆¨
+	void LoadImageByPath(const std::string& strPath, int x, int y);
+	//add end
+
 };
 

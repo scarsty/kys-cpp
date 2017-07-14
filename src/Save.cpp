@@ -22,7 +22,7 @@ Save::~Save()
 bool Save::LoadR(int num)
 {
 	EventManager *event = EventManager::getInstance();
-	event->initEventData();
+//	event->initEventData();
 
     string filename, filename1;
     int i;

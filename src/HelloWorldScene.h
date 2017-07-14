@@ -12,7 +12,8 @@ public:
 	void draw() override;
 	void dealEvent(BP_Event &e) override;
 	
-	void func(BP_Event &e, void* data);
+	void OnStart();
+
 	bool b_s = true;
 	int m_y = 15;
 	int speed = 2;
