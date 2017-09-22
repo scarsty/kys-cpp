@@ -21,8 +21,8 @@ void Cloud::initRand()
 
 void Cloud::setPositionOnScreen(int x, int y, int Center_X, int Center_Y)
 {
-	this->m_nx = position.x - (-x * 18 + y * 18 + maxX / 2 - Center_X);
-	this->m_ny =position.y - (x * 9 + y * 9 + 9 - Center_Y);
+	//this->m_nx = position.x - (-x * 18 + y * 18 + maxX / 2 - Center_X);
+	//this->m_ny =position.y - (x * 9 + y * 9 + 9 - Center_Y);
 }
 
 void Cloud::changePosition()

@@ -2,14 +2,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-std::vector<Base*> Base::m_vcBase;
-
-
+std::vector<Base*> Base::base_vector_;
 
 Base::Base()
 {
 }
-
 
 Base::~Base()
 {
@@ -28,5 +25,5 @@ void Base::LOG(const char *format, ...)
 
 bool Base::inSide(int x, int y)
 {
-	return x > this->m_nx && x < this->m_nx + this->m_nw && y > this->m_ny&& y < this->m_ny + this->m_nh;
+	return x > rect_.x && x < rect_.x + rect_.w && y > rect_.y&& y < rect_.y + rect_.h;
 }

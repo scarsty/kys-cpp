@@ -5,7 +5,7 @@
 
 SubScene::SubScene()
 {
-	m_nfull = 1;
+	full_window_ = 1;
 }
 
 
@@ -38,7 +38,7 @@ void SubScene::draw()
                 int num = m_SceneMapData[sceneNum].Data[0][i1][i2] / 2;
                 if (num >= 0)
                 {
-                    Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
+                    Texture::getInstance()->renderTexture("smap", num, p.x, p.y);
                     /*if (p1.y < -0.1)
                     {
                         map[calBlockTurn(i1, i2, 0)] = s;
@@ -52,7 +52,7 @@ void SubScene::draw()
                 num = m_SceneMapData[sceneNum].Data[1][i1][i2] / 2;
                 if (num > 0)
                 {
-                    Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
+                    Texture::getInstance()->renderTexture("smap", num, p.x, p.y);
                     map[calBlockTurn(i1, i2, 1)] = { num, p };
                 }
                 else if (i1 == Cx && i2 == Cy)
@@ -71,7 +71,7 @@ void SubScene::draw()
 //                     auto s = EventS[k];
 //                     t->setToSprite(s, p + p1, drawCount);
 //                     map[calBlockTurn(i1, i2, 2)] = s;
-					Texture::getInstance()->copyTexture("smap", picNum, p.x, p.y);
+					Texture::getInstance()->renderTexture("smap", picNum, p.x, p.y);
 					map[calBlockTurn(i1, i2, 2)] = { picNum, p };
                 }
 
@@ -88,7 +88,7 @@ void SubScene::draw()
     }
     for (auto i = map.begin(); i != map.end(); i++)
     {
-        Texture::getInstance()->copyTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
+        Texture::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
     }
 
 }

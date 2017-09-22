@@ -764,16 +764,16 @@ int EventData::getOperationLen(int num)
 
 void EventManager::clear_0() {
 	int begin_base = 0;
-	for (int i = Base::m_vcBase.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
+	for (int i = Base::base_vector_.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
 	{
-		if (Base::m_vcBase[i]->m_nfull)
+		if (Base::base_vector_[i]->full_window_)
 		{
 			begin_base = i;
 			break;
 		}
 	}
 	Base b;
-	for (int i = begin_base + 1; i < Base::m_vcBase.size(); i++)
+	for (int i = begin_base + 1; i < Base::base_vector_.size(); i++)
 		b.pop();
 	cout << "0 clear screen";
 }

@@ -8,3 +8,5 @@ work/*
 *.iobj
 *.ipdb
 x86/
+.vs/
+*.zip

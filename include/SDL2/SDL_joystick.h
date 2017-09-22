@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2015 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,7 +24,7 @@
  *
  *  Include file for SDL joystick event handling
  *
- * The term "device_index" identifies currently plugged in joystick devices between 0 and SDL_NumJoysticks, with the exact joystick
+ * The term "device_index" identifies currently plugged in joystick devices between 0 and SDL_NumJoysticks(), with the exact joystick
  *   behind a device_index changing as joysticks are plugged and unplugged.
  *
  * The term "instance_id" is the current instantiation of a joystick device in the system, if the joystick is removed and then re-inserted
@@ -105,6 +105,11 @@ extern DECLSPEC const char *SDLCALL SDL_JoystickNameForIndex(int device_index);
  *  \return A joystick identifier, or NULL if an error occurred.
  */
 extern DECLSPEC SDL_Joystick *SDLCALL SDL_JoystickOpen(int device_index);
+
+/**
+ * Return the SDL_Joystick associated with an instance id.
+ */
+extern DECLSPEC SDL_Joystick *SDLCALL SDL_JoystickFromInstanceID(SDL_JoystickID joyid);
 
 /**
  *  Return the name for this currently opened joystick.
@@ -253,10 +258,9 @@ extern DECLSPEC Uint8 SDLCALL SDL_JoystickGetButton(SDL_Joystick * joystick,
 extern DECLSPEC void SDLCALL SDL_JoystickClose(SDL_Joystick * joystick);
 
 /**
-*  Return the battery level of this joystick
-*/
+ *  Return the battery level of this joystick
+ */
 extern DECLSPEC SDL_JoystickPowerLevel SDLCALL SDL_JoystickCurrentPowerLevel(SDL_Joystick * joystick);
-
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

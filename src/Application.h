@@ -9,12 +9,12 @@
 
 */
 
-class  AppDelegate : public Base
+class  Application : public Base
 {
 public:
-    AppDelegate();
-    virtual ~AppDelegate();
-    virtual bool applicationDidFinishLaunching();
+    Application();
+    virtual ~Application();
+    virtual int launch();
     void mainLoop(BP_Event &e);
 };
 

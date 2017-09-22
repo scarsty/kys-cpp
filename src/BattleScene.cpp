@@ -11,7 +11,7 @@
 
 BattleScene::BattleScene()
 {
-    m_nfull = 1;
+    full_window_ = 1;
 }
 
 
@@ -41,7 +41,7 @@ void BattleScene::draw()
                 int num = m_vcBattleSceneData[m_nbattleSceneNum].Data[0][i1][i2] / 2;
                 if (num >= 0)
                 {
-                    Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
+                    Texture::getInstance()->renderTexture("smap", num, p.x, p.y);
                     /*if (p1.y < -0.1)
                     {
                     map[calBlockTurn(i1, i2, 0)] = s;
@@ -55,7 +55,7 @@ void BattleScene::draw()
                 num = m_vcBattleSceneData[m_nbattleSceneNum].Data[1][i1][i2] / 2;
                 if (num > 0)
                 {
-                    Texture::getInstance()->copyTexture("smap", num, p.x, p.y);
+                    Texture::getInstance()->renderTexture("smap", num, p.x, p.y);
                     map[calBlockTurn(i1, i2, 1)] = { num, p };
                 }
                 else if (i1 == m_nBx && i2 == m_nBy)
@@ -70,13 +70,13 @@ void BattleScene::draw()
     }
     for (auto i = map.begin(); i != map.end(); i++)
     {
-        Texture::getInstance()->copyTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
+        Texture::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
     }
 	SDL_Color color = { 0, 0, 0, 255 };
-	string strTemp;
-	strTemp = "中文测试";
-	strTemp = Engine::getInstance()->string_To_UTF8(strTemp);
-	Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
+	//string strTemp;
+	//strTemp = "中文测试";
+	//strTemp = Engine::getInstance()->string_To_UTF8(strTemp);
+	//Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
 }
 
 void BattleScene::dealEvent(BP_Event& e)

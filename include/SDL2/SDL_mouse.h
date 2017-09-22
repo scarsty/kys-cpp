@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2015 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -41,7 +41,7 @@ extern "C" {
 typedef struct SDL_Cursor SDL_Cursor;   /* Implementation dependent */
 
 /**
- * \brief Cursor types for SDL_CreateSystemCursor.
+ * \brief Cursor types for SDL_CreateSystemCursor().
  */
 typedef enum
 {
@@ -254,9 +254,11 @@ extern DECLSPEC SDL_Cursor *SDLCALL SDL_GetCursor(void);
 extern DECLSPEC SDL_Cursor *SDLCALL SDL_GetDefaultCursor(void);
 
 /**
- *  \brief Frees a cursor created with SDL_CreateCursor().
+ *  \brief Frees a cursor created with SDL_CreateCursor() or similar functions.
  *
  *  \sa SDL_CreateCursor()
+ *  \sa SDL_CreateColorCursor()
+ *  \sa SDL_CreateSystemCursor()
  */
 extern DECLSPEC void SDLCALL SDL_FreeCursor(SDL_Cursor * cursor);
 

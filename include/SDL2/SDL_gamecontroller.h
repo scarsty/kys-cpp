@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2015 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -93,7 +93,7 @@ typedef struct SDL_GameControllerButtonBind
  *      }
  *  }
  *
- *  Using the SDL_HINT_GAMECONTROLLERCONFIG hint or the SDL_GameControllerAddMapping you can add support for controllers SDL is unaware of or cause an existing controller to have a different binding. The format is:
+ *  Using the SDL_HINT_GAMECONTROLLERCONFIG hint or the SDL_GameControllerAddMapping() you can add support for controllers SDL is unaware of or cause an existing controller to have a different binding. The format is:
  *  guid,name,mappings
  *
  *  Where GUID is the string value from SDL_JoystickGetGUIDString(), name is the human readable string for the device and mappings are controller mappings to joystick ones.
@@ -136,14 +136,14 @@ extern DECLSPEC int SDLCALL SDL_GameControllerAddMapping( const char* mappingStr
 /**
  *  Get a mapping string for a GUID
  *
- *  \return the mapping string.  Must be freed with SDL_free.  Returns NULL if no mapping is available
+ *  \return the mapping string.  Must be freed with SDL_free().  Returns NULL if no mapping is available
  */
 extern DECLSPEC char * SDLCALL SDL_GameControllerMappingForGUID( SDL_JoystickGUID guid );
 
 /**
  *  Get a mapping string for an open GameController
  *
- *  \return the mapping string.  Must be freed with SDL_free.  Returns NULL if no mapping is available
+ *  \return the mapping string.  Must be freed with SDL_free().  Returns NULL if no mapping is available
  */
 extern DECLSPEC char * SDLCALL SDL_GameControllerMapping( SDL_GameController * gamecontroller );
 
@@ -170,6 +170,11 @@ extern DECLSPEC const char *SDLCALL SDL_GameControllerNameForIndex(int joystick_
  *  \return A controller identifier, or NULL if an error occurred.
  */
 extern DECLSPEC SDL_GameController *SDLCALL SDL_GameControllerOpen(int joystick_index);
+
+/**
+ * Return the SDL_GameController associated with an instance id.
+ */
+extern DECLSPEC SDL_GameController *SDLCALL SDL_GameControllerFromInstanceID(SDL_JoystickID joyid);
 
 /**
  *  Return the name for this currently opened controller

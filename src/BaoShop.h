@@ -5,10 +5,6 @@ class BaoShop
 public:
 	BaoShop();
 	~BaoShop();
-
-	
-
-	NAlist m_ShopItem[18];
-	
+	NAlist m_ShopItem[18];	
 };
 

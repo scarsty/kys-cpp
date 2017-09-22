@@ -32,7 +32,7 @@ void Menu::dealEvent(BP_Event& e)
 void Menu::addButton(Button* b, int x, int y)
 {
 	bts.push_back(b);
-	b->setPosition(this->m_nx + x, this->m_ny + y);
+	//b->setPosition(this->m_nx + x, this->m_ny + y);
 }
 
 

@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\AppDelegate.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Audio.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -46,9 +43,6 @@
     <ClCompile Include="src\Head.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\HelloWorldScene.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Item.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -56,9 +50,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\MainMap.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\md5.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Menu.cpp">
@@ -91,9 +82,6 @@
     <ClCompile Include="src\kys-c++.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\IniFile.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Dialogues.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -105,11 +93,14 @@
     </ClCompile>
     <ClCompile Include="src\Global.cpp" />
     <ClCompile Include="src\SubSceneData.cpp" />
+    <ClCompile Include="src\Application.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TitleScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\AppDelegate.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Audio.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -155,9 +146,6 @@
     <ClInclude Include="src\Head.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\HelloWorldScene.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Item.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -165,9 +153,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\MainMap.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\md5.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Menu.h">
@@ -200,9 +185,6 @@
     <ClInclude Include="src\SubSceneData.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\IniFile.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Dialogues.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -213,6 +195,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Global.h" />
+    <ClInclude Include="src\Application.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TitleScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">

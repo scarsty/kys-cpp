@@ -1,6 +1,6 @@
 /*
   SDL_ttf:  A companion library to SDL for working with TrueType (tm) fonts
-  Copyright (C) 2001-2013 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2001-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,6 +24,10 @@
     http://www.freetype.org/
 */
 
+/* Note: In many places, SDL_ttf will say "glyph" when it means "code point."
+   Unicode is hard, we learn as we go, and we apologize for adding to the
+   confusion. */
+
 #ifndef _SDL_TTF_H
 #define _SDL_TTF_H
 
@@ -39,7 +43,7 @@ extern "C" {
 */
 #define SDL_TTF_MAJOR_VERSION   2
 #define SDL_TTF_MINOR_VERSION   0
-#define SDL_TTF_PATCHLEVEL      12
+#define SDL_TTF_PATCHLEVEL      14
 
 /* This macro can be used to fill a version structure with the compile-time
  * version of the SDL_ttf library.
@@ -56,6 +60,11 @@ extern "C" {
 #define TTF_MINOR_VERSION   SDL_TTF_MINOR_VERSION
 #define TTF_PATCHLEVEL      SDL_TTF_PATCHLEVEL
 #define TTF_VERSION(X)      SDL_TTF_VERSION(X)
+
+/* Make sure this is defined (only available in newer SDL versions) */
+#ifndef SDL_DEPRECATED
+#define SDL_DEPRECATED
+#endif
 
 /* This function gets the version of the dynamically linked SDL_ttf library.
    it should NOT be used to fill a version structure, instead you should
@@ -247,8 +256,16 @@ extern DECLSPEC void SDLCALL TTF_Quit(void);
 /* Check if the TTF engine is initialized */
 extern DECLSPEC int SDLCALL TTF_WasInit(void);
 
+/* Get the kerning size of two glyphs indices */
+/* DEPRECATED: this function requires FreeType font indexes, not glyphs,
+   by accident, which we don't expose through this API, so it could give
+   wildly incorrect results, especially with non-ASCII values.
+   Going forward, please use TTF_GetFontKerningSizeGlyphs() instead, which
+   does what you probably expected this function to do. */
+extern DECLSPEC int TTF_GetFontKerningSize(TTF_Font *font, int prev_index, int index) SDL_DEPRECATED;
+
 /* Get the kerning size of two glyphs */
-extern DECLSPEC int TTF_GetFontKerningSize(TTF_Font *font, int prev_index, int index);
+extern DECLSPEC int TTF_GetFontKerningSizeGlyphs(TTF_Font *font, Uint16 previous_ch, Uint16 ch);
 
 /* We'll use SDL for reporting errors */
 #define TTF_SetError    SDL_SetError

@@ -3,6 +3,8 @@
 
 class Role
 {
+private:
+    static std::vector<Role*> role_vector_;
 public:
 	Role();
 	~Role();

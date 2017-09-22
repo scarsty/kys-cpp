@@ -1,13 +1,13 @@
 #pragma once
 #include "Scene.h"
-#include "Dialogues.h"
+#include "Menu.h"
 #include "Event.h"
 
-class HelloWorldScene : public Scene
+class TitleScene : public Scene
 {
 public:
-	HelloWorldScene();
-	~HelloWorldScene();
+	TitleScene();
+	~TitleScene();
 
 	void draw() override;
 	void dealEvent(BP_Event &e) override;
@@ -20,6 +20,8 @@ public:
 	int state = 0;
 	void init() override;
 
-	Dialogues * m_Dialogues = new Dialogues();
+    Menu* menu_;
+
+	//Dialogues * m_Dialogues = new Dialogues();
 };
 

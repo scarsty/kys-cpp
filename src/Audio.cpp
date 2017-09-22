@@ -2,7 +2,6 @@
 
 Audio Audio::m_Audio;
 
-
 Audio::Audio()
 {
     BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, nullptr);

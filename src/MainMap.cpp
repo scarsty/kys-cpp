@@ -12,7 +12,7 @@ MainMap::MapArray MainMap::Earth, MainMap::Surface, MainMap::Building, MainMap::
 
 MainMap::MainMap()
 {
-    m_nfull = 1;
+    full_window_ = 1;
 	_Mx = &Save::getInstance()->m_BasicData[0].m_sMx;
 	_My = &Save::getInstance()->m_BasicData[0].m_sMy;
 }
@@ -31,7 +31,7 @@ void MainMap::draw()
 
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
-    Texture::getInstance()->copyTexture("mmap", 0, 0, 0);
+    Texture::getInstance()->renderTexture("mmap", 0, 0, 0);
     for (int sum = -sumregion; sum <= sumregion + 15; sum++)
     {
         for (int i = -widthregion; i <= widthregion; i++)
@@ -44,9 +44,9 @@ void MainMap::draw()
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
                 if (Earth[i1][i2] > 0)
-                { Texture::getInstance()->copyTexture("mmap", Earth[i1][i2] / 2, p.x, p.y); }
+                { Texture::getInstance()->renderTexture("mmap", Earth[i1][i2] / 2, p.x, p.y); }
                 if (Surface[i1][i2] > 0)
-                { Texture::getInstance()->copyTexture("mmap", Surface[i1][i2] / 2, p.x, p.y); }
+                { Texture::getInstance()->renderTexture("mmap", Surface[i1][i2] / 2, p.x, p.y); }
                 if (Building[i1][i2] > 0)
                 {
                     auto t = Building[i1][i2] / 2;
@@ -72,11 +72,11 @@ void MainMap::draw()
         }
     }
     for (auto i = map.begin(); i != map.end(); i++)
-    { Texture::getInstance()->copyTexture("mmap", i->second.i, i->second.p.x, i->second.p.y); }
+    { Texture::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y); }
     auto t1 = Engine::getInstance()->getTicks();
     //云的贴图
-    for (auto& c : cloudVector)
-    { Texture::getInstance()->copyTexture("cloud", c->num, c->m_nx, c->m_ny); }
+    //for (auto& c : cloudVector)
+    //{ Texture::getInstance()->renderTexture("cloud", c->num, c->m_nx, c->m_ny); }
     //log("%d\n", t1 - t0);
 }
 

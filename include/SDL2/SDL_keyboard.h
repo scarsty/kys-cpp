@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2015 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -136,7 +136,7 @@ extern DECLSPEC SDL_Scancode SDLCALL SDL_GetScancodeFromName(const char *name);
  *          copy it.  If the key doesn't have a name, this function returns an
  *          empty string ("").
  *
- *  \sa SDL_Key
+ *  \sa SDL_Keycode
  */
 extern DECLSPEC const char *SDLCALL SDL_GetKeyName(SDL_Keycode key);
 

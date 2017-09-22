@@ -1,5 +1,4 @@
 ﻿#include "Engine.h"
-#include "IniFile.h"
 #include<tchar.h>
 #include<direct.h>
 #ifdef _MSC_VER
@@ -8,11 +7,11 @@
 #pragma comment(lib, "user32.lib")
 #endif
 
-Engine Engine::_engine;
+Engine Engine::engine_;
 
 Engine::Engine()
 {
-    _this = &_engine;
+    this_ = &engine_;
 }
 
 Engine::~Engine()
@@ -20,36 +19,9 @@ Engine::~Engine()
     //destroy();
 }
 
-
-void Engine::GetParameter()
-{
-	char path[MAX_PATH];
-	_getcwd(path, MAX_PATH);
-	string a;
-	a.assign(path);
-	a = a + "\\sysfile\\System.ini";
-	string valWidth, valHeight;
-	IniReader inifile(a);
-	valWidth = inifile.GetValue("System", "WindowsWidth", "NULL");
-	valHeight = inifile.GetValue("System", "WindowsHeight", "NULL");
-	WindowsTitle = inifile.GetValue("System", "Title", "NULL");
-	if (valWidth != ""&&valHeight != "")
-	{
-		WindowsHeight = atoi(valHeight.c_str());
-		WindowsWidth = atoi(valWidth.c_str());
-	}
-	else
-	{
-		WindowsWidth = 1200;
-		WindowsHeight = 600;
-	}
-
-}
-
-
 BP_Texture* Engine::createYUVTexture(int w, int h)
 {
-    return SDL_CreateTexture(_ren, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, w, h);
+    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
 void Engine::updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2)
@@ -59,7 +31,7 @@ void Engine::updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t*
 
 BP_Texture* Engine::createRGBATexture(int w, int h)
 {
-    return SDL_CreateTexture(_ren, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
 void Engine::updateRGBATexture(BP_Texture* t, uint8_t* buffer, int pitch)
@@ -71,23 +43,23 @@ void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, int inPresent
 {
     if (inPresent == 1)
     {
-        x += _rect.x;
-        y += _rect.y;
+        x += rect_.x;
+        y += rect_.y;
     }
     SDL_Rect r = { x, y, w, h };
-    SDL_RenderCopy(_ren, t, nullptr, &r);
+    SDL_RenderCopy(renderer_, t, nullptr, &r);
 }
 
 void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
 {
-    SDL_RenderCopyEx(_ren, testTexture(t), nullptr, &_rect, _rotation, nullptr, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, rotation_, nullptr, SDL_FLIP_NONE);
 }
 
 void Engine::destroy()
 {
-    SDL_DestroyTexture(_tex);
-    SDL_DestroyRenderer(_ren);
-    SDL_DestroyWindow(_win);
+    SDL_DestroyTexture(tex_);
+    SDL_DestroyRenderer(renderer_);
+    SDL_DestroyWindow(window_);
 }
 
 void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume)
@@ -110,33 +82,33 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     //want.userdata = this;
     want.silence = 0;
 
-    _callback = f;
+    callback_ = f;
     //if (useMap())
     {
         want.samples = std::max(size, minsize);
     }
 
-    _device = 0;
+    device_ = 0;
     int i = 10;
-    while (_device == 0 && i > 0)
+    while (device_ == 0 && i > 0)
     {
-        _device = SDL_OpenAudioDevice(NULL, 0, &want, &_spec, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+        device_ = SDL_OpenAudioDevice(NULL, 0, &want, &spec_, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
         want.channels--;
         i--;
     }
-    printf("device %d/%d\n", _spec.freq, _spec.channels);
+    printf("device %d/%d\n", spec_.freq, spec_.channels);
 
-    if (_device)
+    if (device_)
     {
-        SDL_PauseAudioDevice(_device, 0);
+        SDL_PauseAudioDevice(device_, 0);
     }
     else
     {
         printf("failed to open audio: %s\n", SDL_GetError());
     }
 
-    freq = _spec.freq;
-    channels = _spec.channels;
+    freq = spec_.freq;
+    channels = spec_.channels;
 
     return 0;
 }
@@ -144,9 +116,9 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
 void Engine::mixAudioCallback(void* userdata, Uint8* stream, int len)
 {
     SDL_memset(stream, 0, len);
-    if (_engine._callback)
+    if (engine_.callback_)
     {
-        _engine._callback(stream, len);
+        engine_.callback_(stream, len);
     }
 }
 
@@ -167,11 +139,11 @@ BP_Texture* Engine::createSquareTexture(int size)
     }
     }
     */
-    _square = SDL_CreateTextureFromSurface(_ren, square_s);
-    SDL_SetTextureBlendMode(_square, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureAlphaMod(_square, 128);
+    square_ = SDL_CreateTextureFromSurface(renderer_, square_s);
+    SDL_SetTextureBlendMode(square_, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureAlphaMod(square_, 128);
     SDL_FreeSurface(square_s);
-    return _square;
+    return square_;
 }
 
 //注意：当字符串为空时，也会返回一个空字符串
@@ -214,7 +186,7 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
         SDL_Rect rectb = { 2, 2, 0, 0 };
         SDL_BlitSurface(text_s, NULL, text_sb, &rectb);
 
-        auto text_t = SDL_CreateTextureFromSurface(_ren, text_sb);
+        auto text_t = SDL_CreateTextureFromSurface(renderer_, text_sb);
 
         SDL_FreeSurface(text_s);
         SDL_FreeSurface(text_sb);
@@ -236,29 +208,29 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
             break;
         }
 
-        SDL_RenderCopy(_ren, text_t, nullptr, &rect);
+        SDL_RenderCopy(renderer_, text_t, nullptr, &rect);
         SDL_DestroyTexture(text_t);
     }
     TTF_CloseFont(font);
 }
 
-BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size , SDL_Color &c)
+BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, SDL_Color& c)
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font) { return nullptr; }
     //SDL_Color c = { 255, 255, 255, 128 };
     auto text_s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
-    auto text_t = SDL_CreateTextureFromSurface(_ren, text_s);
+    auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
     SDL_FreeSurface(text_s);
     TTF_CloseFont(font);
     return text_t;
 }
 
-void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color &c)
+void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color& c)
 {
     if (alpha == 0)
     { return; }
-    auto text_t = createTextTexture(fontname, text, size,c);
+    auto text_t = createTextTexture(fontname, text, size, c);
     if (!text_t) { return; }
     SDL_SetTextureAlphaMod(text_t, alpha);
     SDL_Rect rect;
@@ -276,7 +248,7 @@ void Engine::drawText(const std::string& fontname, std::string& text, int size, 
         rect.x = x - rect.w / 2;
         break;
     }
-    SDL_RenderCopy(_ren, text_t, nullptr, &rect);
+    SDL_RenderCopy(renderer_, text_t, nullptr, &rect);
     SDL_DestroyTexture(text_t);
 }
 
@@ -286,26 +258,19 @@ int Engine::init(void* handle)
     {
         return -1;
     }
-	GetParameter();
-	_start_w = WindowsWidth;
-	_start_h = WindowsHeight;
-	auto title = string_To_UTF8(WindowsTitle);
 
-    if (handle)
-    { _win = SDL_CreateWindowFrom(handle); }
-    else
-        _win = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                _start_w, _start_h, SDL_WINDOW_RESIZABLE);
-    //SDL_CreateWindowFrom()
-    SDL_ShowWindow(_win);
-    SDL_RaiseWindow(_win);
-    _ren = SDL_CreateRenderer(_win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE/*| SDL_RENDERER_PRESENTVSYNC*/);
+        window_ = SDL_CreateWindow(title_.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            start_w_, start_h_, SDL_WINDOW_RESIZABLE);
+
+    SDL_ShowWindow(window_);
+    SDL_RaiseWindow(window_);
+    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE/*| SDL_RENDERER_PRESENTVSYNC*/);
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
-    _rect = { 0, 0, _start_w, _start_h };
-    _logo = loadImage("logo.png");
+    rect_ = { 0, 0, start_w_, start_h_ };
+    logo_ = loadImage("logo.png");
     showLogo();
     renderPresent();
     TTF_Init();
@@ -315,21 +280,21 @@ int Engine::init(void* handle)
     SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&r, 0);
     int w = GetSystemMetrics(SM_CXEDGE);
     int h = GetSystemMetrics(SM_CYEDGE);
-    _min_x = r.left + w;
-    _min_y = r.top + h + GetSystemMetrics(SM_CYCAPTION);
-    _max_x = r.right - w;
-    _max_y = r.bottom - h;
+    min_x_ = r.left + w;
+    min_y_ = r.top + h + GetSystemMetrics(SM_CYCAPTION);
+    max_x_ = r.right - w;
+    max_y_ = r.bottom - h;
 #else
     SDL_Rect r;
     SDL_GetDisplayBounds(0, &r);
-    _min_x = r.x;
-    _min_y = r.y;
-    _max_x = r.w + r.x;
-    _max_y = r.h + r.y;
+    min_x_ = r.x;
+    min_y_ = r.y;
+    max_x_ = r.w + r.x;
+    max_y_ = r.h + r.y;
 #endif
 
 
-    printf("maximium width and height are: %d, %d\n", _max_x, _max_y);
+    printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
 
     return 0;
 }
@@ -337,66 +302,66 @@ int Engine::init(void* handle)
 int Engine::getWindowsWidth()
 {
     int w;
-    SDL_GetWindowSize(_win, &w, nullptr);
+    SDL_GetWindowSize(window_, &w, nullptr);
     return w;
 }
 
 int Engine::getWindowsHeight()
 {
     int h;
-    SDL_GetWindowSize(_win, nullptr, &h);
+    SDL_GetWindowSize(window_, nullptr, &h);
     return h;
 }
 
 bool Engine::isfullScreen()
 {
-    Uint32 state = SDL_GetWindowFlags(_win);
-    _full_screen = (state & SDL_WINDOW_FULLSCREEN) || (state &SDL_WINDOW_FULLSCREEN_DESKTOP);
-    return _full_screen;
+    Uint32 state = SDL_GetWindowFlags(window_);
+    full_screen_ = (state & SDL_WINDOW_FULLSCREEN) || (state & SDL_WINDOW_FULLSCREEN_DESKTOP);
+    return full_screen_;
 }
 
 void Engine::togglefullscreen()
 {
-    _full_screen = !_full_screen;
-    if (_full_screen)
-	{
-		SDL_SetWindowFullscreen(_win, SDL_WINDOW_FULLSCREEN_DESKTOP);
-	}
+    full_screen_ = !full_screen_;
+    if (full_screen_)
+    {
+        SDL_SetWindowFullscreen(window_, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    }
     else
-	{
-		SDL_SetWindowFullscreen(_win, 0);
-	}
-    SDL_RenderClear(_ren);
+    {
+        SDL_SetWindowFullscreen(window_, 0);
+    }
+    SDL_RenderClear(renderer_);
 }
 
 BP_Texture* Engine::loadImage(const std::string& filename)
 {
-    return IMG_LoadTexture(_ren, filename.c_str());
+    return IMG_LoadTexture(renderer_, filename.c_str());
 }
 
 bool Engine::setKeepRatio(bool b)
 {
-    return _keep_ratio = b;
+    return keep_ratio_ = b;
 }
 
 void Engine::createMainTexture(int w, int h)
 {
-    _tex = createYUVTexture(w, h);
+    tex_ = createYUVTexture(w, h);
     //_tex2 = createRGBATexture(w, h);
     setPresentPosition();
 }
 
 void Engine::setPresentPosition()
 {
-    if (!_tex)
+    if (!tex_)
     { return; }
     int w_dst = 0, h_dst = 0;
     int w_src = 0, h_src = 0;
     getWindowSize(w_dst, h_dst);
-    SDL_QueryTexture(_tex, nullptr, nullptr, &w_src, &h_src);
-    w_src *= _ratio_x;
-    h_src *= _ratio_y;
-    if (_keep_ratio)
+    SDL_QueryTexture(tex_, nullptr, nullptr, &w_src, &h_src);
+    w_src *= ratio_x_;
+    h_src *= ratio_y_;
+    if (keep_ratio_)
     {
         if (w_src == 0 || h_src == 0) { return; }
         double w_ratio = 1.0 * w_dst / w_src;
@@ -405,26 +370,26 @@ void Engine::setPresentPosition()
         if (w_ratio > h_ratio)
         {
             //宽度大，左右留空
-            _rect.x = (w_dst - w_src * ratio) / 2;
-            _rect.y = 0;
-            _rect.w = w_src * ratio;
-            _rect.h = h_dst;
+            rect_.x = (w_dst - w_src * ratio) / 2;
+            rect_.y = 0;
+            rect_.w = w_src * ratio;
+            rect_.h = h_dst;
         }
         else
         {
             //高度大，上下留空
-            _rect.x = 0;
-            _rect.y = (h_dst - h_src * ratio) / 2;
-            _rect.w = w_dst;
-            _rect.h = h_src * ratio;
+            rect_.x = 0;
+            rect_.y = (h_dst - h_src * ratio) / 2;
+            rect_.w = w_dst;
+            rect_.h = h_src * ratio;
         }
     }
     else
     {
-        _rect.x = 0;
-        _rect.y = 0;
-        _rect.w = w_dst;
-        _rect.h = h_dst;
+        rect_.x = 0;
+        rect_.y = 0;
+        rect_.w = w_dst;
+        rect_.h = h_dst;
     }
 }
 
@@ -440,7 +405,7 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
             p[4 * (y * w + x)] = src[y * stride + x];
         }
     }
-    auto t = SDL_CreateTextureFromSurface(_ren, s);
+    auto t = SDL_CreateTextureFromSurface(renderer_, s);
     SDL_FreeSurface(s);
     SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
     SDL_SetTextureAlphaMod(t, 192);
@@ -470,12 +435,11 @@ int Engine::showMessage(const std::string& content)
             { 255,   0, 255 }
         }
     };
-	auto title = string_To_UTF8(WindowsTitle);
     const SDL_MessageBoxData messageboxdata =
     {
         SDL_MESSAGEBOX_INFORMATION, /* .flags */
         NULL, /* .window */
-        title.c_str(), /* .title */
+        title_.c_str(), /* .title */
         content.c_str(), /* .message */
         SDL_arraysize(buttons), /* .numbuttons */
         buttons, /* .buttons */
@@ -489,14 +453,14 @@ int Engine::showMessage(const std::string& content)
 void Engine::setWindowSize(int w, int h)
 {
     if (w <= 0 || h <= 0) { return; }
-    _win_w = std::min(_max_x - _min_x, w);
-    _win_h = std::min(_max_y - _min_y, h);
-    SDL_SetWindowSize(_win, _win_w, _win_h);
+    win_w_ = std::min(max_x_ - min_x_, w);
+    win_h_ = std::min(max_y_ - min_y_, h);
+    SDL_SetWindowSize(window_, win_w_, win_h_);
     setPresentPosition();
 
-    SDL_ShowWindow(_win);
-    SDL_RaiseWindow(_win);
-    SDL_GetWindowSize(_win, &_win_w, &_win_h);
+    SDL_ShowWindow(window_);
+    SDL_RaiseWindow(window_);
+    SDL_GetWindowSize(window_, &win_w_, &win_h_);
     //resetWindowsPosition();
     //renderPresent();
 }
@@ -504,49 +468,21 @@ void Engine::setWindowSize(int w, int h)
 void Engine::resetWindowsPosition()
 {
     int x, y, w, h, x0, y0;
-    SDL_GetWindowSize(_win, &w, &h);
-    SDL_GetWindowPosition(_win, &x0, &y0);
-    x = std::max(_min_x, x0);
-    y = std::max(_min_y, y0);
-    if (x + w > _max_x) { x = std::min(x, _max_x - w); }
-    if (y + h > _max_y) { y = std::min(y, _max_y - h); }
+    SDL_GetWindowSize(window_, &w, &h);
+    SDL_GetWindowPosition(window_, &x0, &y0);
+    x = std::max(min_x_, x0);
+    y = std::max(min_y_, y0);
+    if (x + w > max_x_) { x = std::min(x, max_x_ - w); }
+    if (y + h > max_y_) { y = std::min(y, max_y_ - h); }
     if (x != x0 || y != y0)
-    { SDL_SetWindowPosition(_win, x, y); }
+    { SDL_SetWindowPosition(window_, x, y); }
 }
 
 void Engine::setWindowPosition(int x, int y)
 {
     int w, h;
-    SDL_GetWindowSize(_win, &w, &h);
-    if (x == BP_WINDOWPOS_CENTERED) { x = _min_x + (_max_x - _min_x - w) / 2; }
-    if (y == BP_WINDOWPOS_CENTERED) { y = _min_y + (_max_y - _min_y - h) / 2; }
-    SDL_SetWindowPosition(_win, x, y);
-}
-
-
-std::string Engine::string_To_UTF8(const std::string & str)
-{
-	int nwLen = ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, NULL, 0);
-
-	wchar_t * pwBuf = new wchar_t[nwLen + 1];//一定要加1，不然会出现尾巴  
-	ZeroMemory(pwBuf, nwLen * 2 + 2);
-
-	::MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), pwBuf, nwLen);
-
-	int nLen = ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, -1, NULL, NULL, NULL, NULL);
-
-	char * pBuf = new char[nLen + 1];
-	ZeroMemory(pBuf, nLen + 1);
-
-	::WideCharToMultiByte(CP_UTF8, 0, pwBuf, nwLen, pBuf, nLen, NULL, NULL);
-
-	std::string retStr(pBuf);
-
-	delete[]pwBuf;
-	delete[]pBuf;
-
-	pwBuf = NULL;
-	pBuf = NULL;
-
-	return retStr;
+    SDL_GetWindowSize(window_, &w, &h);
+    if (x == BP_WINDOWPOS_CENTERED) { x = min_x_ + (max_x_ - min_x_ - w) / 2; }
+    if (y == BP_WINDOWPOS_CENTERED) { y = min_y_ + (max_y_ - min_y_ - h) / 2; }
+    SDL_SetWindowPosition(window_, x, y);
 }

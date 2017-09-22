@@ -87,5 +87,5 @@ void Button::draw()
 		strTempPath = m_strPress;
 	}
 
-	Texture::getInstance()->LoadImageByPath(strTempPath, m_nx, m_ny);
+	//Texture::getInstance()->LoadImageByPath(strTempPath, m_nx, m_ny);
 }

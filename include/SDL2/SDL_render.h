@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2015 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -215,7 +215,7 @@ extern DECLSPEC int SDLCALL SDL_GetRendererInfo(SDL_Renderer * renderer,
                                                 SDL_RendererInfo * info);
 
 /**
- *  \brief Get the output size of a rendering context.
+ *  \brief Get the output size in pixels of a rendering context.
  */
 extern DECLSPEC int SDLCALL SDL_GetRendererOutputSize(SDL_Renderer * renderer,
                                                       int *w, int *h);
@@ -500,6 +500,30 @@ extern DECLSPEC int SDLCALL SDL_RenderSetLogicalSize(SDL_Renderer * renderer, in
 extern DECLSPEC void SDLCALL SDL_RenderGetLogicalSize(SDL_Renderer * renderer, int *w, int *h);
 
 /**
+ *  \brief Set whether to force integer scales for resolution-independent rendering
+ *
+ *  \param renderer The renderer for which integer scaling should be set.
+ *  \param enable   Enable or disable integer scaling
+ *
+ *  This function restricts the logical viewport to integer values - that is, when
+ *  a resolution is between two multiples of a logical size, the viewport size is
+ *  rounded down to the lower multiple.
+ *
+ *  \sa SDL_RenderSetLogicalSize()
+ */
+extern DECLSPEC int SDLCALL SDL_RenderSetIntegerScale(SDL_Renderer * renderer,
+                                                      SDL_bool enable);
+
+/**
+ *  \brief Get whether integer scales are forced for resolution-independent rendering
+ *
+ *  \param renderer The renderer from which integer scaling should be queried.
+ *
+ *  \sa SDL_RenderSetIntegerScale()
+ */
+extern DECLSPEC SDL_bool SDLCALL SDL_RenderGetIntegerScale(SDL_Renderer * renderer);
+
+/**
  *  \brief Set the drawing area for rendering on the current target.
  *
  *  \param renderer The renderer for which the drawing area should be set.
@@ -658,7 +682,8 @@ extern DECLSPEC int SDLCALL SDL_GetRenderDrawBlendMode(SDL_Renderer * renderer,
 /**
  *  \brief Clear the current rendering target with the drawing color
  *
- *  This function clears the entire rendering target, ignoring the viewport.
+ *  This function clears the entire rendering target, ignoring the viewport and
+ *  the clip rectangle.
  *
  *  \return 0 on success, or -1 on error
  */

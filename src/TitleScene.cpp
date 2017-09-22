@@ -1,4 +1,4 @@
-#include "HelloWorldScene.h"
+#include "TitleScene.h"
 #include "Menu.h"
 #include "MainMap.h"
 #include "BattleData.h"
@@ -7,21 +7,21 @@
 #include "Sprite.h"
 #include "Event.h"
 
-HelloWorldScene::HelloWorldScene()
+TitleScene::TitleScene()
 {
 
 }
 
-HelloWorldScene::~HelloWorldScene()
+TitleScene::~TitleScene()
 {
 
 }
 
-void HelloWorldScene::draw()
+void TitleScene::draw()
 {
-    Texture::getInstance()->copyTexture("title", 0, 0, 0);
-	string filename = "Dialogues/Picture/1.png";
-	auto sprite = new Sprite(filename);
+    Texture::getInstance()->renderTexture("resource/title", 0, 0, 0);
+	//string filename = "Dialogues/Picture/1.png";
+	//auto sprite = new Sprite(filename);
 	speed--;
 	if (speed<0)
 	{
@@ -49,20 +49,20 @@ void HelloWorldScene::draw()
 
 		speed = 2;
 	}
-	sprite->setPositionAndSize(5, m_y);
+//	sprite->setPositionAndSize(5, m_y);
 //	sprite->draw();
-	m_Dialogues->draw();
+	//m_Dialogues->draw();
 
 }
 
-void HelloWorldScene::dealEvent(BP_Event& e)
+void TitleScene::dealEvent(BP_Event& e)
 {
 
 }
 
-void HelloWorldScene::OnStart()
+void TitleScene::OnStart()
 {
-	BattleData::getInstance()->isLoad();
+	//BattleData::getInstance()->isLoad();
 }
 
 //void HelloWorldScene::func()
@@ -91,12 +91,11 @@ void HelloWorldScene::OnStart()
 //    BattleData::getInstance()->isLoad();
 //}
 
-void HelloWorldScene::init()
+void TitleScene::init()
 {
 	auto b = new Button("menu/0.png", "menu/6.png", "menu/0.png");
-	b->setPosition(22, 22);
-	b->setSize(110, 24);
-	b->setFunction(BIND_FUNC(HelloWorldScene::OnStart));
+	b->setRect(22, 22, 110, 24);
+	b->setFunction(BIND_FUNC(TitleScene::OnStart));
 	push(b);
 	
 }

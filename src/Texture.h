@@ -8,14 +8,14 @@ class Texture
 private:
     Texture();
     virtual ~Texture();
-    static Texture tm;
+    static Texture texture_manager_;
 public:
     enum Type
     {
         MainMap = 0,
-        Scene = 1,
-        Battle = 2,
-        Cloud = 3,
+        Scene,
+        Battle,
+        Cloud,
         MaxType
     };
 
@@ -33,8 +33,8 @@ public:
 
     std::map<const std::string, std::vector<TextureInfo>> map;
 
-    static Texture* getInstance() { return &tm; }
-    void copyTexture(const std::string& path, int num, int x, int y);
+    static Texture* getInstance() { return &texture_manager_; }
+    void renderTexture(const std::string& path, int num, int x, int y);
 
 	//add by xiaowu for ∂¡»°Õº∆¨
 	void LoadImageByPath(const std::string& strPath, int x, int y);
