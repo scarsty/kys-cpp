@@ -25,8 +25,8 @@ public:
     const int MaxMainMapCoord = 479;
     const int MaxSceneCoord = 63;
 
-    const int Center_X = 1200 / 2;
-    const int Center_Y = 600 / 2;
+    const int Center_X = 768 / 2;
+    const int Center_Y = 440 / 2;
     const int singleScene_X = 18;								//小图块大小X
     const int singleScene_Y = 9;							//小图块大小Y
     const int singleMapScene_X = 18;							//地面小图块大小X

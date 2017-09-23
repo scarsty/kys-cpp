@@ -23,6 +23,7 @@ typedef SDL_Renderer BP_Renderer;
 typedef SDL_Window BP_Window;
 typedef SDL_Texture BP_Texture;
 typedef SDL_Rect BP_Rect;
+typedef SDL_Color BP_Color;
 
 typedef enum { BP_ALIGN_LEFT, BP_ALIGN_MIDDLE, BP_ALIGN_RIGHT } BP_Align;
 
@@ -107,14 +108,17 @@ public:
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
     void destroy();
-    bool isfullScreen();
-    void togglefullscreen();
+    bool isFullScreen();
+    void toggleFullscreen();
     BP_Texture* loadImage(const std::string& filename);
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return rotation_ = r; }
     void resetWindowsPosition();
     void setRatio(int x, int y) { ratio_x_ = x; ratio_y_ = y; }
+    void setColor(BP_Texture* tex, BP_Color c, uint8_t alpha);
+    void fillColor(BP_Color color, int x, int y, int w, int h);
+
     //声音相关
 private:
     SDL_AudioDeviceID device_;
@@ -146,8 +150,8 @@ private:
     BP_Texture* square_;
 public:
     BP_Texture* createSquareTexture(int size);
-    BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, SDL_Color& c);
-    void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color& c);
+    BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c);
+    void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c);
     void drawSubtitle(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align);
     //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
     std::vector<std::string> splitString(const std::string& s, const std::string& delim);

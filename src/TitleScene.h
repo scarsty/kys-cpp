@@ -21,6 +21,9 @@ public:
     void init() override;
 
     Menu* menu_;
+    Menu* menu_load_;
+
+    int count_ = 0;
 
     //Dialogues * m_Dialogues = new Dialogues();
 };

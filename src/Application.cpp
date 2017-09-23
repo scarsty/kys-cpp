@@ -29,9 +29,7 @@ int Application::launch()
     engine->init();
     BP_Event e;  ///< 事件结构对象
     auto s = new TitleScene(); //开始界面
-    s->push(s);
-    mainLoop(e);
-    s->pop();
+    s->run();
     return 0;
 }
 
@@ -42,43 +40,5 @@ int Application::launch()
 */
 void Application::mainLoop(BP_Event& e)
 {
-    auto engine = Engine::getInstance();
-    auto loop = true;
-    while (loop && engine->pollEvent(e) >= 0)
-    {
-        int t0 = engine->getTicks();
-        //从最后一个独占屏幕的场景开始画
-        int begin_base = 0;
-        for (int i = 0; i < Base::base_vector_.size(); i--)    //记录最后一个全屏的层
-        {
-            base_vector_[i]->run();
-            if (Base::base_vector_[i]->full_window_)
-            {
-                begin_base = i;
-            }
-        }
-        for (int i = begin_base; i < Base::base_vector_.size(); i++)  //从最后一个全屏层开始画
-        {
-            auto& b = Base::base_vector_[i];
-            if (b->visible_)
-            { b->draw(); }
-        }
-        //仅处理最上层的消息
-        int test = Base::base_vector_.size();
-        if (Base::base_vector_.size() > 0)
-        { Base::base_vector_.back()->dealEvent(e); }
-        switch (e.type)
-        {
-        case BP_QUIT:
-            //if (engine->showMessage("Quit"))
-            loop = false;
-            break;
-        default:
-            break;
-        }
-        engine->renderPresent();
-        int t1 = engine->getTicks();
-        int t = max(0, 25 - (t1 - t0));
-        engine->delay(t);
-    }
+
 }

@@ -3,8 +3,8 @@
 #include "Engine.h"
 
 /**
-* @file		 AppDelegate.h
-* @brief	 应用类
+* @file      AppDelegate.h
+* @brief     应用类
 * @author    bttt
 
 */
@@ -15,6 +15,6 @@ public:
     Application();
     virtual ~Application();
     virtual int launch();
-    void mainLoop(BP_Event &e);
+    void mainLoop(BP_Event& e);
 };
 

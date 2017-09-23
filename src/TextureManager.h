@@ -31,6 +31,7 @@ private:
     TextureManager();
     virtual ~TextureManager();
     static TextureManager texture_manager_;
+    std::string path_ = "../game/resource/";
 public:
     enum Type
     {
@@ -44,13 +45,13 @@ public:
     std::map<const std::string, std::vector<Texture*>> map_;
 
     static TextureManager* getInstance() { return &texture_manager_; }
-    void renderTexture(const std::string& path, int num, int x, int y);
-    void renderTexture(Texture* tex, int x, int y);
+    void renderTexture(const std::string& path, int num, int x, int y, BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);
+    void renderTexture(Texture* tex, int x, int y, BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);
     Texture* loadTexture(const std::string& path, int num);
 
-	//add by xiaowu for ∂¡»°Õº∆¨
-	void LoadImageByPath(const std::string& strPath, int x, int y);
-	//add end
+    //add by xiaowu for ∂¡»°Õº∆¨
+    void LoadImageByPath(const std::string& strPath, int x, int y);
+    //add end
 
 };
 

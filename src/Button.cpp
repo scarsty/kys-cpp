@@ -1,4 +1,5 @@
 #include "Button.h"
+#include "PotConv.h"
 
 Button::Button(const std::string& path, int n1, int n2/*=-1*/, int n3/*=-1*/)
 {

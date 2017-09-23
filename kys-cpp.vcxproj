@@ -154,13 +154,13 @@
   <ItemGroup>
     <Library Include="lib\bass.lib" />
     <Library Include="lib\bassmidi.lib" />
+    <Library Include="lib\libiconv.lib" />
     <Library Include="lib\SDL2.lib" />
     <Library Include="lib\SDL2main.lib" />
     <Library Include="lib\SDL2_image.lib" />
     <Library Include="lib\SDL2_ttf.lib" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Global.cpp" />
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BaoShop.cpp" />
@@ -179,6 +179,7 @@
     <ClCompile Include="src\Faction.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\Head.cpp" />
+    <ClCompile Include="src\PotConv.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
     <ClCompile Include="src\Item.cpp" />
     <ClCompile Include="src\kys-c++.cpp" />
@@ -196,7 +197,6 @@
     <ClCompile Include="src\ZhaoShi.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Global.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\BaoShop.h" />
@@ -208,7 +208,6 @@
     <ClInclude Include="src\Calendar.h" />
     <ClInclude Include="src\Character.h" />
     <ClInclude Include="src\Cloud.h" />
-    <ClInclude Include="src\config.h" />
     <ClInclude Include="src\Dialogues.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Error.h" />
@@ -216,6 +215,7 @@
     <ClInclude Include="src\Faction.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\Head.h" />
+    <ClInclude Include="src\PotConv.h" />
     <ClInclude Include="src\TitleScene.h" />
     <ClInclude Include="src\Item.h" />
     <ClInclude Include="src\Magic.h" />

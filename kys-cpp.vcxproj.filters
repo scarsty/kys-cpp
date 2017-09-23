@@ -88,8 +88,6 @@
     <ClCompile Include="src\Sprite.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Global.cpp" />
-    <ClCompile Include="src\SubSceneData.cpp" />
     <ClCompile Include="src\Application.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -97,6 +95,12 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\TextureManager.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\PotConv.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SubSceneData.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -123,9 +127,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Cloud.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\config.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Engine.h">
@@ -191,7 +192,6 @@
     <ClInclude Include="src\Sprite.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\Global.h" />
     <ClInclude Include="src\Application.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -199,6 +199,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\TextureManager.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PotConv.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
@@ -219,6 +222,9 @@
       <Filter>lib</Filter>
     </Library>
     <Library Include="lib\SDL2main.lib">
+      <Filter>lib</Filter>
+    </Library>
+    <Library Include="lib\libiconv.lib">
       <Filter>lib</Filter>
     </Library>
   </ItemGroup>

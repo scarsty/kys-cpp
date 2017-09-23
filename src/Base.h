@@ -10,16 +10,17 @@ struct auto_ptr
 
 };
 
-class Base      //游戏绘制基础类，凡需要显示画面的，均继承自此
+//游戏绘制基础类，凡需要显示画面的，均继承自此
+class Base
 {
 public:
-    static std::vector<Base*> base_vector_;   //所有需要绘制的内容都存储在m_vcBase中
+    static std::vector<Base*> base_vector_;   //所有需要绘制的内容都存储在
     bool visible_ = true;
 public:
     Base();
     virtual ~Base();
 
-    virtual void run() {}
+    virtual void backRun() {}
     virtual void draw() {}
     virtual void dealEvent(BP_Event& e) {}
     virtual void init() {}
@@ -32,10 +33,9 @@ public:
         pointer = nullptr;
     }
 
-    
-
-    void push(Base* b) { base_vector_.push_back(b); b->init(); }
-    void pop() { base_vector_.pop_back(); }
+    static void drawAll();
+    static void push(Base* b) { base_vector_.push_back(b); b->init(); }
+    static Base* pop();
     static Base* getCurentBase() { return base_vector_.at(0); }
 
     int x_ = 0;
@@ -47,6 +47,9 @@ public:
     bool inSide(int x, int y);
 
     int full_window_ = 0;  //不为0时表示当前画面为起始层，低于本画面的层将不予显示
+
+    bool loop_ = true;
+    void run();
 
 };
 

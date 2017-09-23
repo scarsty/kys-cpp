@@ -855,9 +855,9 @@ int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
 }
 int EventManager::isFight_5(short jump1, short jump2) {
 	auto menu=new MenuText();
-	menu->setButton("menu", 12, 14, -1, 13, 15, -1);
-	menu->setTitle("是否與之戰鬥？");
-	menu->ini();
+	//menu->setButton("menu", 12, 14, -1, 13, 15, -1);
+	//menu->setTitle("是否與之戰鬥？");
+	//menu->ini();
 	
 	auto a=menu->getResult();
 	if (a==0)
@@ -866,9 +866,9 @@ int EventManager::isFight_5(short jump1, short jump2) {
 }
 int EventManager::isAdd_8(short jump1, short jump2) {
 	auto menu = new MenuText();
-	menu->setButton("title", 12, 13, -1, 14, 15, -1);
-	menu->setTitle("是否要求加入？");
-	menu->ini();
+	//menu->setButton("title", 12, 13, -1, 14, 15, -1);
+	//menu->setTitle("是否要求加入？");
+	//menu->ini();
 	
 	auto a = menu->getResult();
 	if (a == 0)

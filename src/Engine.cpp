@@ -6,6 +6,7 @@
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif
+#include "PotConv.h"
 
 Engine Engine::engine_;
 
@@ -214,7 +215,7 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
     TTF_CloseFont(font);
 }
 
-BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, SDL_Color& c)
+BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c)
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font) { return nullptr; }
@@ -226,11 +227,11 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     return text_t;
 }
 
-void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, SDL_Color& c)
+void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c)
 {
     if (alpha == 0)
     { return; }
-    auto text_t = createTextTexture(fontname, text, size, c);
+    auto text_t = createTextTexture(fontname, PotConv::cp936toutf8(text), size, c);
     if (!text_t) { return; }
     SDL_SetTextureAlphaMod(text_t, alpha);
     SDL_Rect rect;
@@ -259,8 +260,8 @@ int Engine::init(void* handle)
         return -1;
     }
 
-        window_ = SDL_CreateWindow(title_.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            start_w_, start_h_, SDL_WINDOW_RESIZABLE);
+    window_ = SDL_CreateWindow(title_.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        start_w_, start_h_, SDL_WINDOW_RESIZABLE);
 
     SDL_ShowWindow(window_);
     SDL_RaiseWindow(window_);
@@ -313,14 +314,14 @@ int Engine::getWindowsHeight()
     return h;
 }
 
-bool Engine::isfullScreen()
+bool Engine::isFullScreen()
 {
     Uint32 state = SDL_GetWindowFlags(window_);
     full_screen_ = (state & SDL_WINDOW_FULLSCREEN) || (state & SDL_WINDOW_FULLSCREEN_DESKTOP);
     return full_screen_;
 }
 
-void Engine::togglefullscreen()
+void Engine::toggleFullscreen()
 {
     full_screen_ = !full_screen_;
     if (full_screen_)
@@ -476,6 +477,20 @@ void Engine::resetWindowsPosition()
     if (y + h > max_y_) { y = std::min(y, max_y_ - h); }
     if (x != x0 || y != y0)
     { SDL_SetWindowPosition(window_, x, y); }
+}
+
+void Engine::setColor(BP_Texture* tex, BP_Color c, uint8_t alpha)
+{
+    SDL_SetTextureColorMod(tex, c.r, c.g, c.b);
+    SDL_SetTextureAlphaMod(tex, alpha);
+}
+
+void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
+{
+    BP_Rect r{ x, y, w, h };
+    SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+    SDL_RenderFillRect(renderer_, &r);
 }
 
 void Engine::setWindowPosition(int x, int y)

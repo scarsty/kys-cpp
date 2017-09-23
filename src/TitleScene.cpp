@@ -14,70 +14,60 @@ TitleScene::TitleScene()
 
 TitleScene::~TitleScene()
 {
-
+    delete menu_;
+    delete menu_load_;
 }
 
 void TitleScene::draw()
 {
-    TextureManager::getInstance()->renderTexture("resource/title", 0, 0, 0);
+    int count = count_ / 20;
+    TextureManager::getInstance()->renderTexture("title", 0, 0, 0);
+    TextureManager::getInstance()->renderTexture("title", 12, 70, 100);
+    TextureManager::getInstance()->renderTexture("title", 10, 70, 100);
+    TextureManager::getInstance()->renderTexture("title", 10, 670, 100);
+
+    int alpha = count_ % 256;
+
+    TextureManager::getInstance()->renderTexture("title", 13, 50, 300, { 255, 255, 255, 255 }, alpha);
+
+    TextureManager::getInstance()->renderTexture("head", count % 115, 50, 300, { 255, 255, 255, 255 }, alpha);
+    count_++;
 }
 
 void TitleScene::dealEvent(BP_Event& e)
 {
-    //auto b1 = new Button("resource/title", 3, 4, 5);
-    ////m->addButton(b, 20, 30);
-    //auto b2 = new Button("resource/title", 6, 7, 8);
-    ////m->addButton(b, 20, 60);
-    //auto b3 = new Button("resource/title", 9, 10, 11);
-
-    //int r = Menu::menu({ b1,b2,b3 }, 20, 20);
-    //pop();
-    //m->addButton(b, 20, 90);
+    menu_->run();
+    int r = menu_->getResult();
+    if (r == 0)
+    {
+        auto m = new MainMap();
+        m->run();
+    }
+    if (r == 1)
+    {
+        menu_load_->run();
+    }
+    if (r == 2)
+    {
+        loop_ = false;
+    }
 }
-
-//void TitleScene::OnStart()
-//{
-//BattleData::getInstance()->isLoad();
-//}
-
-//void HelloWorldScene::func()
-//{
-//    auto i = *(int*)(data);
-//    //Engine::getInstance()->showMessage((to_string(i)).c_str());
-//    if (i == 2)
-//    { e.type = BP_QUIT; }
-//    if (i == 0)
-//    {
-//        Save::getInstance()->LoadR(0);
-//        auto m = new MainMap();
-//      //pop();
-//        push(m);
-//        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);
-//    }
-//    if (i == 1)
-//    {
-//        /*Save::getInstance()->LoadR(0);
-//        auto m = new MainMap();
-//        push(m);
-//        SDL_FlushEvents(SDL_QUIT, SDL_MOUSEWHEEL);*/
-//
-//      //fprintf(stderr, "test dialogues %s", Dialogues::m_Dialogues.at(1).c_str());
-//    }
-//    BattleData::getInstance()->isLoad();
-//}
 
 void TitleScene::init()
 {
-    int r;
-    auto m = new Menu(&r);
-    m->tex_ = TextureManager::getInstance()->loadTexture("resource/title", 17);
-    push(m);
-    auto b = new Button("resource/title", 3, 4, 5);    
-    m->addButton(b, 20, 30);
-    b = new Button("resource/title", 6, 7, 8);
-    m->addButton(b, 20, 60);
-    b = new Button("resource/title", 9, 10, 11);
-    m->addButton(b, 20, 90);
-    printf("%d\n",r);
+    menu_ = new Menu();
+    //m->tex_ = TextureManager::getInstance()->loadTexture("title", 17);
+    menu_->setPosition(400, 250);
+    auto b = new Button("title", 3, 23, 23);
+    menu_->addButton(b, 20, 0);
+    b = new Button("title", 4, 24, 24);
+    menu_->addButton(b, 20, 50);
+    b = new Button("title", 6, 26, 26);
+    menu_->addButton(b, 20, 100);
+
+    menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
+    menu_load_->setPosition(500, 300);
+
+
 }
 

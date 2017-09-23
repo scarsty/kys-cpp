@@ -15,19 +15,23 @@ public:
 
     typedef short MapArray[maxX][maxY];
     static MapArray Earth, Surface, Building, BuildX, BuildY, Entrance;
+
+    void divide2(MapArray& ma);
+
+    static bool _readed;
     //int walk[30][2];
     std::stack<Point> wayQue;  //栈(路径栈)
 
     //std::vector<Sprite*> EarthS, SurfaceS, BuildingS, CloudS;
-	
+
     int cloudX, cloudY;
     int step = 0;
     int manPicture;
     int restTime = 0;                    //停止操作的时间
     int cloud_restTime = 0;              //云消失的时间
-    int const offset_manPic = 5001;      //初始主角图偏移量
+    int const offset_manPic = 2501;      //初始主角图偏移量
     int const num_manPic = 7;            //单向主角图张数
-    int const offset_restPic = 5029;     //主角休息图偏移量
+    int const offset_restPic = 2529;     //主角休息图偏移量
     int const num_restPic = 6;           //单向休息图张数
     int const begin_restTime = 200;      //开始休息的时间
     int const each_pictrueTime = 15;     //休息图切换间隔
@@ -45,7 +49,7 @@ public:
     //SceneData* curRScene;
     void draw() override;
 
-    bool _readed = false;
+
     void init() override;
 
     void dealEvent(BP_Event& e) override;
@@ -63,5 +67,5 @@ public:
     virtual void FindWay(int Mx, int My, int Fx, int Fy);
     void stopFindWay();
 private:
-	short *_Mx, *_My;
+    short Mx = 240, My = 240;
 };

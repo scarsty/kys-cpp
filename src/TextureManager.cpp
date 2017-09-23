@@ -15,35 +15,37 @@ TextureManager::~TextureManager()
         for (auto& t : m.second)
         {
             delete t;
-        }        
+        }
     }
 }
 
-void TextureManager::renderTexture(const std::string& path, int num, int x, int y)
+void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha)
 {
     auto tex = loadTexture(path, num);
-    renderTexture(tex, x, y);
+    renderTexture(tex, x, y, c, alpha);
 }
 
-void TextureManager::renderTexture(Texture* tex, int x, int y)
+void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha)
 {
     auto engine = Engine::getInstance();
-    if (tex)
+    if (tex && tex->tex[0])
     {
+        engine->setColor(tex->tex[rand() % tex->count], c, alpha);
         engine->renderCopy(tex->tex[rand() % tex->count], x - tex->dx, y - tex->dy, tex->w, tex->h);
     }
 }
 
 Texture* TextureManager::loadTexture(const std::string& path, int num)
 {
+    auto p = path_ + path;
     auto engine = Engine::getInstance();
-    auto& v = texture_manager_.map_[path.c_str()];
+    auto& v = texture_manager_.map_[p.c_str()];
     //纹理组信息
     if (v.size() == 0)
     {
         unsigned char* s;
         int l = 0;
-        File::readFile((path + "/index.ka").c_str(), &s, &l);
+        File::readFile((p + "/index.ka").c_str(), &s, &l);
         if (l == 0) { return nullptr; }
         l /= 4;
         v.resize(l);
@@ -54,15 +56,15 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
             v[i]->dy = *(short*)(s + i * 4 + 2);
         }
         delete s;
-        printf("Load texture group from path: %s, find %d textures\n", path.c_str(), l);
+        printf("Load texture group from path: %s, find %d textures\n", p.c_str(), l);
     }
 
     //纹理信息
     auto& t = v[num];
     if (!t->loaded)
     {
-        printf("Load texture %s, %d\n", path.c_str(), num);
-        t->tex[0] = engine->loadImage(path + "/" + std::to_string(num) + ".png");
+        printf("Load texture %s, %d\n", p.c_str(), num);
+        t->tex[0] = engine->loadImage(p + "/" + std::to_string(num) + ".png");
         if (t->tex[0])
         {
 
@@ -71,7 +73,7 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
         {
             for (int i = 0; i < 10; i++)
             {
-                t->tex[i] = engine->loadImage(path + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
+                t->tex[i] = engine->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
                 if (!t->tex[i])
                 {
                     t->count = i;
