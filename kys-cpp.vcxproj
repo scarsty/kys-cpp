@@ -191,7 +191,7 @@
     <ClCompile Include="src\Sprite.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\SubSceneData.cpp" />
-    <ClCompile Include="src\Texture.cpp" />
+    <ClCompile Include="src\TextureManager.cpp" />
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\ZhaoShi.cpp" />
   </ItemGroup>
@@ -227,7 +227,7 @@
     <ClInclude Include="src\Sprite.h" />
     <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\SubSceneData.h" />
-    <ClInclude Include="src\Texture.h" />
+    <ClInclude Include="src\TextureManager.h" />
     <ClInclude Include="src\UI.h" />
     <ClInclude Include="src\ZhaoShi.h" />
   </ItemGroup>

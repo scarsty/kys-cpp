@@ -4,7 +4,7 @@
 #include <istream>
 #include <ostream>
 #include "File.h"
-#include "Texture.h"
+#include "TextureManager.h"
 #include "SubScene.h"
 
 MainMap::MapArray MainMap::Earth, MainMap::Surface, MainMap::Building, MainMap::BuildX, MainMap::BuildY, MainMap::Entrance;
@@ -31,7 +31,7 @@ void MainMap::draw()
 
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
-    Texture::getInstance()->renderTexture("mmap", 0, 0, 0);
+    TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
     for (int sum = -sumregion; sum <= sumregion + 15; sum++)
     {
         for (int i = -widthregion; i <= widthregion; i++)
@@ -44,18 +44,18 @@ void MainMap::draw()
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
                 if (Earth[i1][i2] > 0)
-                { Texture::getInstance()->renderTexture("mmap", Earth[i1][i2] / 2, p.x, p.y); }
+                { TextureManager::getInstance()->renderTexture("mmap", Earth[i1][i2] / 2, p.x, p.y); }
                 if (Surface[i1][i2] > 0)
-                { Texture::getInstance()->renderTexture("mmap", Surface[i1][i2] / 2, p.x, p.y); }
+                { TextureManager::getInstance()->renderTexture("mmap", Surface[i1][i2] / 2, p.x, p.y); }
                 if (Building[i1][i2] > 0)
                 {
                     auto t = Building[i1][i2] / 2;
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
-                    auto w = Texture::getInstance()->map["mmap"][t].w;
-                    auto h = Texture::getInstance()->map["mmap"][t].h;
-                    auto dy = Texture::getInstance()->map["mmap"][t].dy;
+                    auto w = TextureManager::getInstance()->map_["mmap"][t]->w;
+                    auto h = TextureManager::getInstance()->map_["mmap"][t]->h;
+                    auto dy = TextureManager::getInstance()->map_["mmap"][t]->dy;
                     int c = ((i1 + i2) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + i1;
                     map[2 * c + 1] = { t, p };
                 }
@@ -72,7 +72,7 @@ void MainMap::draw()
         }
     }
     for (auto i = map.begin(); i != map.end(); i++)
-    { Texture::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y); }
+    { TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y); }
     auto t1 = Engine::getInstance()->getTicks();
     //云的贴图
     //for (auto& c : cloudVector)

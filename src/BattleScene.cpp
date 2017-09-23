@@ -41,7 +41,7 @@ void BattleScene::draw()
                 int num = m_vcBattleSceneData[m_nbattleSceneNum].Data[0][i1][i2] / 2;
                 if (num >= 0)
                 {
-                    Texture::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                     /*if (p1.y < -0.1)
                     {
                     map[calBlockTurn(i1, i2, 0)] = s;
@@ -55,7 +55,7 @@ void BattleScene::draw()
                 num = m_vcBattleSceneData[m_nbattleSceneNum].Data[1][i1][i2] / 2;
                 if (num > 0)
                 {
-                    Texture::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                     map[calBlockTurn(i1, i2, 1)] = { num, p };
                 }
                 else if (i1 == m_nBx && i2 == m_nBy)
@@ -70,7 +70,7 @@ void BattleScene::draw()
     }
     for (auto i = map.begin(); i != map.end(); i++)
     {
-        Texture::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
+        TextureManager::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
     }
 	SDL_Color color = { 0, 0, 0, 255 };
 	//string strTemp;

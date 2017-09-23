@@ -67,9 +67,6 @@
     <ClCompile Include="src\SubScene.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Texture.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\ZhaoShi.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -97,6 +94,9 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\TitleScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TextureManager.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -170,9 +170,6 @@
     <ClInclude Include="src\SubScene.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\Texture.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\ZhaoShi.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -199,6 +196,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\TitleScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextureManager.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

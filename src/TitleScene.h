@@ -6,22 +6,22 @@
 class TitleScene : public Scene
 {
 public:
-	TitleScene();
-	~TitleScene();
+    TitleScene();
+    ~TitleScene();
 
-	void draw() override;
-	void dealEvent(BP_Event &e) override;
-	
-	void OnStart();
+    void draw() override;
+    void dealEvent(BP_Event& e) override;
 
-	bool b_s = true;
-	int m_y = 15;
-	int speed = 2;
-	int state = 0;
-	void init() override;
+    //void OnStart();
+
+    bool b_s = true;
+    int m_y = 15;
+    int speed = 2;
+    int state = 0;
+    void init() override;
 
     Menu* menu_;
 
-	//Dialogues * m_Dialogues = new Dialogues();
+    //Dialogues * m_Dialogues = new Dialogues();
 };
 

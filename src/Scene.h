@@ -1,6 +1,6 @@
 #pragma once
 #include "Base.h"
-#include "Texture.h"
+#include "TextureManager.h"
 #include "Point.h"
 #include "Save.h"
 
