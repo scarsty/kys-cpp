@@ -1,38 +1,55 @@
 #include "MainMap.h"
-#include <iomanip>
-#include <fstream>
-#include <istream>
-#include <ostream>
 #include "File.h"
 #include "TextureManager.h"
 #include "SubMap.h"
+#include "Save.h"
+#include <time.h>
 
-MainMap::MapArray MainMap::Earth, MainMap::Surface, MainMap::Building, MainMap::BuildX, MainMap::BuildY, MainMap::Entrance;
-
-void MainMap::divide2(MapArray& ma)
-{
-    for (int i = 0; i < maxX; i++)
-    {
-        for (int j = 0; j < maxY; j++)
-        {
-            ma[i][j] /= 2;
-        }
-    }
-}
-
+MapArray* MainMap::Earth, *MainMap::Surface, *MainMap::Building, *MainMap::BuildX, *MainMap::BuildY, *MainMap::Entrance;
 bool MainMap::_readed = false;
 
-MainMap::MainMap()
+MainMap::MainMap() :
+    man_x_(Save::getInstance()->getGlobalData()->MainMapX),
+    man_y_(Save::getInstance()->getGlobalData()->MainMapY)
 {
     full_window_ = 1;
-    //_Mx = &Save::getInstance()->m_BasicData[0].m_sMx;
-    //_My = &Save::getInstance()->m_BasicData[0].m_sMy;
+
+    srand(int(time(nullptr)));
+    if (!_readed)
+    {
+        int length = coord_count_ * coord_count_ * sizeof(uint16_t);
+        Earth = new MapArray(coord_count_, coord_count_);
+        Surface = new MapArray(coord_count_, coord_count_);
+        Building = new MapArray(coord_count_, coord_count_);
+        BuildX = new MapArray(coord_count_, coord_count_);
+        BuildY = new MapArray(coord_count_, coord_count_);
+
+        File::readFile("../game/resource/earth.002", &Earth->data(), length);
+        File::readFile("../game/resource/surface.002", &Surface->data(), length);
+        File::readFile("../game/resource/building.002", &Building->data(), length);
+        File::readFile("../game/resource/buildx.002", &BuildX->data(), length);
+        File::readFile("../game/resource/buildy.002", &BuildY->data(), length);
+
+        Earth->divide2();
+        Surface->divide2();
+        Building->divide2();
+    }
+    _readed = true;
+
+    //100个云
+    for (int i = 0; i < 100; i++)
+    {
+        auto c = new Cloud();
+        cloud_vector_.push_back(c);
+        c->initRand();
+    }
+    getEntrance();
 }
 
 MainMap::~MainMap()
 {
-    for (int i = 0; i < 100; i++)
-    { delete cloudVector[i]; }
+    for (int i = 0; i < cloud_vector_.size(); i++)
+    { delete cloud_vector_[i]; }
 }
 
 void MainMap::draw()
@@ -46,20 +63,20 @@ void MainMap::draw()
     {
         for (int i = -widthregion; i <= widthregion; i++)
         {
-            int i1 = Mx + i + (sum / 2);
-            int i2 = My - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, Mx, My);
+            int i1 = man_x_ + i + (sum / 2);
+            int i2 = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
-            if (i1 >= 0 && i1 <= MaxMainMapCoord && i2 >= 0 && i2 <= MaxMainMapCoord)
+            if (i1 >= 0 && i1 < coord_count_ && i2 >= 0 && i2 < coord_count_)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
-                if (Earth[i1][i2] > 0)
-                { TextureManager::getInstance()->renderTexture("mmap", Earth[i1][i2], p.x, p.y); }
-                if (Surface[i1][i2] > 0)
-                { TextureManager::getInstance()->renderTexture("mmap", Surface[i1][i2], p.x, p.y); }
-                if (Building[i1][i2] > 0)
+                if (Earth->data(i1, i2) > 0)
+                { TextureManager::getInstance()->renderTexture("mmap", Earth->data(i1, i2), p.x, p.y); }
+                if (Surface->data(i1, i2) > 0)
+                { TextureManager::getInstance()->renderTexture("mmap", Surface->data(i1, i2), p.x, p.y); }
+                if (Building->data(i1, i2) > 0)
                 {
-                    auto t = Building[i1][i2];
+                    auto t = Building->data(i1, i2);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -70,13 +87,17 @@ void MainMap::draw()
                     int c = ((i1 + i2) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + i1;
                     map[2 * c + 1] = { t, p };
                 }
-                if (i1 == Mx && i2 == My)
+                if (i1 == man_x_ && i2 == man_y_)
                 {
-                    manPicture = offset_manPic + Scene::towards * num_manPic + step;
-                    if (restTime >= begin_restTime)
-                    { manPicture = offset_restPic + Scene::towards * num_restPic + (restTime - begin_restTime) / each_pictrueTime % num_restPic; }
+                    man_pic_ = man_pic0_ + Scene::towards * num_manPic + step_;
+                    if (rest_time_ >= begin_restTime)
+                    { man_pic_ = offset_restPic + Scene::towards * num_restPic + (rest_time_ - begin_restTime) / each_pictrueTime % num_restPic; }
+                    if (isWater(man_x_, man_y_))
+                    {
+                        man_pic_ = offset_shipPic + Scene::towards * num_shipPic + step_;
+                    }
                     int c = 1024 * (i1 + i2) + i1;
-                    map[2 * c] = { manPicture, p };
+                    map[2 * c] = { man_pic_, p };
                 }
             }
             k++;
@@ -86,78 +107,26 @@ void MainMap::draw()
     { TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y); }
     auto t1 = Engine::getInstance()->getTicks();
     //云的贴图
-    //for (auto& c : cloudVector)
-    //{ Texture::getInstance()->renderTexture("cloud", c->num, c->m_nx, c->m_ny); }
+    for (auto& c : cloud_vector_)
+    {
+        c->draw();
+        c->setPositionOnScreen(man_x_, man_y_, screen_center_x_, screen_center_y_);
+    }
     //log("%d\n", t1 - t0);
 }
-
-void MainMap::init()
-{
-    srand(int(time(nullptr)));
-
-    if (!_readed)
-    {
-        //log("Reading main map.",0);
-        int length = sizeof(MapArray);
-        File::readFile("../game/resource/earth.002", &Earth, length);
-        File::readFile("../game/resource/surface.002", &Surface, length);
-        File::readFile("../game/resource/building.002", &Building, length);
-        File::readFile("../game/resource/buildx.002", &BuildX, length);
-        File::readFile("../game/resource/buildy.002", &BuildY, length);
-        divide2(Earth);
-        divide2(Surface);
-        divide2(Building);
-    }
-    _readed = true;
-
-    //最开始的坐标.
-    //*_Mx = m_BasicData[0].*_Mx;
-    //*_My = m_BasicData[0].*_My;
-    //CommonScene::towards = (Towards)m_BasicData[0].MFace;
-    LOG("toward=%d\n", towards);
-    //log("Mface=%d\n", SaveGame::getInstance()->RBasic_Data.Mface);
-
-    //地面层和云层
-//  auto mainLayer = Node::create();
-//  auto cloudLayer = Node::create();
-//  this->addChild(mainLayer, 1);
-//  this->addChild(cloudLayer, 2);
-//  auto scene = HelloWorld::createScene();
-//  Director::getInstance()->replaceScene(scene);
-    //计算共需多少个
-//  for (int i = 0; i < calNumberOfSprites(); i++)
-//  {
-//      addNewSpriteIntoVector(EarthS);
-//      addNewSpriteIntoVector(SurfaceS);
-//      addNewSpriteIntoVector(BuildingS);
-//  }
-    //100个云
-    for (int i = 0; i < 100; i++)
-    {
-        auto c = new Cloud();
-        cloudVector.push_back(c);
-        c->initRand();
-    }
-
-    getEntrance();
-
-    //auto s = new SubScene(35);//暂时初始进入开封
-
-}
-
 
 //计时器，负责画图以及一些其他问题
 void MainMap::dealEvent(BP_Event& e)
 {
-    int x = Mx, y = My;
+    int x = man_x_, y = man_y_;
     //drawCount++;
     if (e.type == BP_MOUSEBUTTONDOWN)
     {
         getMousePosition(e.button.x, e.button.y);
         stopFindWay();
-        if (canWalk(Msx, Msy) && !checkIsOutScreen(Msx, Msy))
+        if (canWalk(Msx, Msy) && !isOutScreen(Msx, Msy))
         {
-            FindWay(Mx, My, Msx, Msy);
+            FindWay(man_x_, man_y_, Msx, Msy);
         }
     }
     if (!wayQue.empty())
@@ -165,7 +134,7 @@ void MainMap::dealEvent(BP_Event& e)
         Point newMyPoint = wayQue.top();
         x = newMyPoint.x;
         y = newMyPoint.y;
-        checkIsEntrance(x, y);
+        checkEntrance(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
         walk(x, y, myTowards);
@@ -173,36 +142,37 @@ void MainMap::dealEvent(BP_Event& e)
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
     if (e.type == BP_KEYDOWN)
+    {
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
         {
-            y--;
-            checkIsEntrance(x, y);
+            x--;
+            checkEntrance(x, y);
             walk(x, y, LeftDown);
             stopFindWay();
             break;
         }
         case BPK_RIGHT:
         {
-            y++;
-            checkIsEntrance(x, y);
+            x++;
+            checkEntrance(x, y);
             walk(x, y, RightUp);
             stopFindWay();
             break;
         }
         case BPK_UP:
         {
-            x--;
-            checkIsEntrance(x, y);
+            y--;
+            checkEntrance(x, y);
             walk(x, y, LeftUp);
             stopFindWay();
             break;
         }
         case BPK_DOWN:
         {
-            x++;
-            checkIsEntrance(x, y);
+            y++;
+            checkEntrance(x, y);
             walk(x, y, RightDown);
             stopFindWay();
             break;
@@ -215,28 +185,34 @@ void MainMap::dealEvent(BP_Event& e)
         case BPK_SPACE:
         {
             stopFindWay();
-            //                Save::getInstance()->m_BasicData[0].*_Mx = *_Mx;
-            //                Save::getInstance()->m_BasicData[0].*_My = *_My;
-            //                Save::getInstance()->m_BasicData[0].MFace = towards;
-            //                auto s = new BattleScene(Entrance[x][y]);
-            //                push(s);
+            //Save::getInstance()->m_BasicData[0].MFace = towards;
+            //auto s = new BattleScene(Entrance[x][y]);
         }
         default:
         {
-            restTime++;
+            rest_time_++;
         }
         }
-    cloudMove();
+    }
 }
 
+void MainMap::enter()
+{
 
+}
+
+void MainMap::exit()
+{
+    Save::getInstance()->getGlobalData()->MainMapX = man_x_;
+    Save::getInstance()->getGlobalData()->MainMapY = man_y_;
+}
 
 void MainMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        Mx = x;
-        My = y;
+        man_x_ = x;
+        man_y_ = y;
     }
     if (towards != t)
     {
@@ -244,31 +220,32 @@ void MainMap::walk(int x, int y, Towards t)
         //step = 0;
     }
     else
-    { step++; }
-    step = step % num_manPic;
-    restTime = 0;
+    { step_++; }
+    step_ = step_ % num_manPic;
+    if (isWater(man_x_, man_y_))
+    {
+        step_ = step_ % num_shipPic;
+    }
+    rest_time_ = 0;
 }
 
-bool MainMap::checkIsBuilding(int x, int y)
+bool MainMap::isBuilding(int x, int y)
 {
 
-    if (Building[BuildY[x][y]][BuildX[x][y]] > 0)
+    if (Building->data(BuildX->data(x, y), BuildY->data(x, y)) > 0)
     { return  true; }
     else
     { return false; }
-    /*    if (BuildX[x][y] == 0)
-        { return false; }
-        else
-        { return true; }*/
 }
 
-bool MainMap::checkIsWater(int x, int y)
+bool MainMap::isWater(int x, int y)
 {
-    if (Earth[x][y] == 838 || Earth[x][y] >= 612 && Earth[x][y] <= 670)
+    auto pic = Earth->data(x, y);
+    if (pic == 419 || pic >= 306 && pic <= 335)
     { return true; }
-    else if (Earth[x][y] >= 358 && Earth[x][y] <= 362
-        || Earth[x][y] >= 506 && Earth[x][y] <= 670
-        || Earth[x][y] >= 1016 && Earth[x][y] <= 1022)
+    else if (pic >= 179 && pic <= 181
+        || pic >= 253 && pic <= 335
+        || pic >= 508 && pic <= 511)
     {
         return true;
     }
@@ -276,10 +253,9 @@ bool MainMap::checkIsWater(int x, int y)
     { return false; }
 }
 
-
-bool MainMap::checkIsOutLine(int x, int y)
+bool MainMap::isOutLine(int x, int y)
 {
-    if (x < 0 || x > maxX || y < 0 || y > maxY)
+    if (x < 0 || x > coord_count_ || y < 0 || y > coord_count_)
     { return true; }
     else
     { return false; }
@@ -287,23 +263,24 @@ bool MainMap::checkIsOutLine(int x, int y)
 
 bool MainMap::canWalk(int x, int y)
 {
-    if (checkIsBuilding(x, y) || checkIsOutLine(x, y) || checkIsWater(x, y))
+    if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
     { return false; }
     else
     { return true; }
 }
 
-void MainMap::cloudMove()
+bool MainMap::checkEntrance(int x, int y)
 {
-    for (auto& c : cloudVector)
+    for (int i = 0; i < Save::getInstance()->submap_records_.size(); i++)
     {
-        c->changePosition();
-        c->setPositionOnScreen(Mx, My, Center_X, Center_Y);
+        auto s = Save::getInstance()->getSubMapRecord(i);
+        if (x == s->MainEntranceX1 && y == s->MainEntranceY1 || x == s->MainEntranceX2 && y == s->MainEntranceY2)
+        {
+            auto sub_map = new SubMap(i);
+            sub_map->run();
+            return true;
+        }
     }
-}
-
-bool MainMap::checkIsEntrance(int x, int y)
-{
     //if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
     //{
     //    Save::getInstance()->m_BasicData[0].m_sMx = Mx;
@@ -394,7 +371,7 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
                 Point* s = new Point();
                 s->x = t->x + dirs[i][0];
                 s->y = t->y + dirs[i][1];
-                if (canWalk(s->x, s->y) && !checkIsOutScreen(s->x, s->y) && !visited[s->x][s->y])
+                if (canWalk(s->x, s->y) && !isOutScreen(s->x, s->y) && !visited[s->x][s->y])
                 {
                     s->g = t->g + 10;
                     s->towards = (Point::Towards)i;
@@ -424,10 +401,9 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
     myPoint->delTree(myPoint);
 }
 
-
-bool MainMap::checkIsOutScreen(int x, int y)
+bool MainMap::isOutScreen(int x, int y)
 {
-    if (abs(Mx - x) >= 2 * widthregion || abs(My - y) >= sumregion)
+    if (abs(man_x_ - x) >= 2 * widthregion || abs(man_y_ - y) >= sumregion)
     { return true; }
     else
     { return false; }
@@ -445,31 +421,32 @@ void MainMap::getMousePosition(int _x, int _y)
     int x = _x;
     int y = _y;
     int yp = 0;
-    Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Mx;
-    Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + My;
+    Msx = (-(x - screen_center_x_) / singleMapScene_X + (y + yp - screen_center_y_) / singleMapScene_Y) / 2 + man_x_;
+    Msy = ((y + yp - screen_center_y_) / singleMapScene_Y + (x - screen_center_x_) / singleMapScene_X) / 2 + man_y_;
 }
 
 void Cloud::initRand()
 {
-    position.x = rand() % maxX;
-    position.y = rand() % maxY;
-    speed = 1 + rand() % 3;
-    num = rand() % numTexture;
-    //this->setOpacity(128 + rand() % 128);
-    //this->setColor(Color3B(rand() % 256, rand() % 256, rand() % 256));
+    position_.x = rand() % max_X;
+    position_.y = rand() % max_Y;
+    speed_ = 1 + rand() % 3;
+    num_ = rand() % num_style_;
+    alpha_ = 128 + rand() % 128;
+    color_ = { (uint8_t)(rand() % 256), (uint8_t)(rand() % 256), (uint8_t)(rand() % 256), 255 };
 }
 
 void Cloud::setPositionOnScreen(int x, int y, int Center_X, int Center_Y)
 {
-    //this->m_nx = position.x - (-x * 18 + y * 18 + maxX / 2 - Center_X);
-    //this->m_ny =position.y - (x * 9 + y * 9 + 9 - Center_Y);
+    x_ = position_.x - (-y * 18 + x * 18 + max_X / 2 - Center_X);
+    y_ = position_.y - (y * 9 + x * 9 + 9 - Center_Y);
 }
 
-void Cloud::changePosition()
+void Cloud::draw()
 {
-    position.x += speed;
-    if (position.x > maxX)
+    TextureManager::getInstance()->renderTexture("cloud", num_, x_, y_, color_, alpha_);
+    position_.x += speed_;
+    if (position_.x > max_X)
     {
-        position.x = 0;
+        position_.x = 0;
     }
 }

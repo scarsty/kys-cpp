@@ -10,34 +10,24 @@
 
 class Menu : public Base
 {
-protected:
-    int result_ = -1;
 public:
     Menu();
     virtual ~Menu();
 
-    std::vector<Button*> bts;
     Texture* tex_ = nullptr;
-
     void draw() override;
     void dealEvent(BP_Event& e) override;
-    void addButton(Button* b, int x, int y);
     int disappear = 0;
     void setDisappear(int d) { disappear = d; }
-    static int menu(std::vector<Button*> bts, int x, int y);
-public:
-    int getResult() { auto r = result_; result_ = -1; return r; }
 };
 
 class MenuText : public Menu
 {
-private:
-    std::vector<std::string> items_;
 public:
     MenuText() {}
-    ~MenuText() {}
+    virtual ~MenuText() {}
     MenuText(std::vector<std::string> items);
-    void setItems(std::vector<std::string> items);
+    void setStrings(std::vector<std::string> items);
     void draw() override;
     void dealEvent(BP_Event& e) override;
 };

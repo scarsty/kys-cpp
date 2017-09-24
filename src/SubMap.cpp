@@ -1,13 +1,22 @@
 #include "SubMap.h"
 #include "MainMap.h"
-#include "BattleScene.h"
-#include"Event.h"
+#include "BattleMap.h"
+#include "Event.h"
 
 SubMap::SubMap()
 {
-	full_window_ = 1;
+    full_window_ = 1;
 }
 
+
+SubMap::SubMap(int num) : SubMap()
+{
+    setSceneNum(num);
+    current_submap_ = Save::getInstance()->getSubMapRecord(num);
+    current_submap_->ID = num;
+    Cx = current_submap_->EntranceX;
+    Cy = current_submap_->EntranceY;
+}
 
 SubMap::~SubMap()
 {
@@ -18,9 +27,7 @@ void SubMap::draw()
 {
     int k = 0;
     struct DrawInfo { int i; Point p; };
-    std::map<int, DrawInfo> map;
-    auto& m_SceneMapData = Save::getInstance()->m_SceneMapData;
-	auto& m_SceneEventData = Save::getInstance()->m_SceneEventData;
+    //std::map<int, DrawInfo> map;
     for (int sum = -sumregion; sum <= sumregion + 15; sum++)
     {
         for (int i = -widthregion; i <= widthregion; i++)
@@ -30,79 +37,55 @@ void SubMap::draw()
             auto p = getPositionOnScreen(i1, i2, Cx, Cy);
             if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
             {
-                //EarthS[k]->setm_bvisible(false);
-                //BuildS[k]->setm_bvisible(false);
-                //这里注意状况
-                Point p1 = Point(0, -m_SceneMapData[sceneNum].Data[4][i1][i2]);
-                Point p2 = Point(0, -m_SceneMapData[sceneNum].Data[5][i1][i2]);
-                int num = m_SceneMapData[sceneNum].Data[0][i1][i2] / 2;
-                if (num >= 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                    /*if (p1.y < -0.1)
-                    {
-                        map[calBlockTurn(i1, i2, 0)] = s;
-                    }
-                    else
-                    {
-                        s->visit();
-                    }*/
-                }
-                //建筑和主角同一层
-                num = m_SceneMapData[sceneNum].Data[1][i1][i2] / 2;
+                //Point p1 = Point(0, -m_SceneMapData[scene_id_].Data[4][i1][i2]);
+                //Point p2 = Point(0, -m_SceneMapData[scene_id_].Data[5][i1][i2]);
+                //地面
+                int h = current_submap_->BuildingHeight(i1, i2);
+                int num = current_submap_->Earth(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                    map[calBlockTurn(i1, i2, 1)] = { num, p };
                 }
-                else if (i1 == Cx && i2 == Cy)
+                //建筑和主角同一层
+                num = current_submap_->Building(i1, i2) / 2;
+                if (num > 0)
+                {
+
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                }
+                if (i1 == Cx && i2 == Cy)
                 {
                     manPicture = offset_manPic + Scene::towards * num_manPic + step;
-                    map[calBlockTurn(i1, i2, 1)] = { manPicture, p };
-                    //s->visit();
+                    TextureManager::getInstance()->renderTexture("smap", manPicture, p.x, p.y - h);
                 }
                 //事件层
-                num = m_SceneMapData[sceneNum].Data[3][i1][i2];
-
-                int picNum = m_SceneEventData[sceneNum].Data[num].BeginPic1 / 2;
-                if (num > 0 && m_SceneEventData[sceneNum].Data[num].IsActive >= 0 && picNum > 0)
+                auto event = current_submap_->Event(i1, i2);
+                if (event)
                 {
-// 	                auto t = MyTexture2D::getSelfPointer(MyTexture2D::Scene, picNum);
-//                     auto s = EventS[k];
-//                     t->setToSprite(s, p + p1, drawCount);
-//                     map[calBlockTurn(i1, i2, 2)] = s;
-					TextureManager::getInstance()->renderTexture("smap", picNum, p.x, p.y);
-					map[calBlockTurn(i1, i2, 2)] = { picNum, p };
+                    num = current_submap_->Event(i1, i2)->BeginPic1 / 2;
+                    //map[calBlockTurn(i1, i2, 2)] = s;
+                    if (num > 0)
+                    {
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - current_submap_->EventHeight(i1, i2));
+                    }
                 }
 
-				//空中层
-				num = m_SceneMapData[sceneNum].Data[2][i1][i2] / 2;
-				if (num > 0)
-				{
-					p.y = p.y + p1.y + p2.y;				
-					map[calBlockTurn(i1, i2, 3)] = { num, p };
-				}
+                //空中层
+                num = current_submap_->Decoration(i1, i2) / 2;
+                if (num > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                }
             }
             k++;
         }
     }
-    for (auto i = map.begin(); i != map.end(); i++)
-    {
-        TextureManager::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
-    }
-
-}
-
-void SubMap::init()
-{
-    Cx = Save::getInstance()->m_SceneData[sceneNum].EntranceX;
-    Cy = Save::getInstance()->m_SceneData[sceneNum].EntranceY;
 }
 
 void SubMap::setPosition(int x, int y)
 {
-	Cx = x;
-	Cy = y;
+    Cx = x;
+    Cy = y;
 }
 
 void SubMap::dealEvent(BP_Event& e)
@@ -113,7 +96,7 @@ void SubMap::dealEvent(BP_Event& e)
     {
         getMousePosition(e.button.x, e.button.y);
         stopFindWay();
-        if (canWalk(Msx, Msy) && !checkIsOutScreen(Msx, Msy))
+        if (canWalk(Msx, Msy) && !isOutScreen(Msx, Msy))
         {
             FindWay(Cx, Cy, Msx, Msy);
         }
@@ -123,7 +106,7 @@ void SubMap::dealEvent(BP_Event& e)
         Point newMyPoint = wayQue.top();
         x = newMyPoint.x;
         y = newMyPoint.y;
-        checkIsExit(x, y);
+        isExit(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
         walk(x, y, myTowards);
@@ -136,8 +119,8 @@ void SubMap::dealEvent(BP_Event& e)
         {
         case BPK_LEFT:
         {
-            y--;
-            if (checkIsExit(x, y))
+            x--;
+            if (isExit(x, y))
             {
                 break;
             }
@@ -147,8 +130,8 @@ void SubMap::dealEvent(BP_Event& e)
         }
         case BPK_RIGHT:
         {
-            y++;
-            if (checkIsExit(x, y))
+            x++;
+            if (isExit(x, y))
             {
                 break;
             }
@@ -158,8 +141,8 @@ void SubMap::dealEvent(BP_Event& e)
         }
         case BPK_UP:
         {
-            x--;
-            if (checkIsExit(x, y))
+            y--;
+            if (isExit(x, y))
             {
                 break;
             }
@@ -169,8 +152,8 @@ void SubMap::dealEvent(BP_Event& e)
         }
         case BPK_DOWN:
         {
-            x++;
-            if (checkIsExit(x, y))
+            y++;
+            if (isExit(x, y))
             {
                 break;
             }
@@ -186,24 +169,37 @@ void SubMap::dealEvent(BP_Event& e)
         case BPK_RETURN:
         case BPK_SPACE:
         {
-			stopFindWay();
-			ReSetEventPosition(x, y);
-			if(Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y] >= 0)
-				if (Save::getInstance()->m_SceneEventData[sceneNum].Data[Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y]].Event1 >=0)
-					EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[sceneNum].Data[Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y]].Event1);
-				
-
+           /* stopFindWay();
+            ReSetEventPosition(x, y);
+            if (current_submap_->Building();
+            Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y] >= 0)
+                if (Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1 >= 0)
+                    EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1);
+           */
             break;
         }
         case SDLK_b:
         {
-            auto s = new BattleScene();
+            auto s = new BattleMap();
             push(s);
             break;
         }
         default:
         {
         }
+        }
+    }
+}
+
+void SubMap::backRun()
+{
+    for (int i = 0; i < PerSceneMaxEvent; i++)
+    {
+        auto e = current_submap_->Event(i);
+        e->BeginPic1++;
+        if (e->BeginPic1 > e->EndPic)
+        {
+            e->BeginPic1 = e->BeginPic2;
         }
     }
 }
@@ -229,9 +225,8 @@ void SubMap::walk(int x, int y, Towards t)
 
 bool SubMap::canWalk(int x, int y)
 {
-
-    if (checkIsOutLine(x, y) || checkIsBuilding(x, y) || checkIsHinder(x, y)
-        || !checkIsEvent(x, y) || checkIsFall(x, y))
+    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y)
+        || isEvent(x, y) || isFall(x, y))
     {
         return false;
     }
@@ -241,9 +236,9 @@ bool SubMap::canWalk(int x, int y)
     }
 }
 
-bool SubMap::checkIsBuilding(int x, int y)
+bool SubMap::isBuilding(int x, int y)
 {
-    if (Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] >= -2 && Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] <= 0)
+    if (current_submap_->Building(x,y) >= -2 && current_submap_->Building(x, y) <= 0)
     {
         return false;
     }
@@ -253,7 +248,7 @@ bool SubMap::checkIsBuilding(int x, int y)
     }
 }
 
-bool SubMap::checkIsOutLine(int x, int y)
+bool SubMap::isOutLine(int x, int y)
 {
     if (x < 0 || x > MaxSceneCoord || y < 0 || y > MaxSceneCoord)
     {
@@ -265,136 +260,59 @@ bool SubMap::checkIsOutLine(int x, int y)
     }
 }
 
-bool SubMap::checkIsHinder(int x, int y)
+bool SubMap::isWater(int x, int y)
 {
-    if (Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] >= 358 && Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] <= 362
-        || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 522 || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 1022
-        || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] >= 1324 && Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] <= 1330
-        || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 1348)
+    int num = current_submap_->Earth(x, y) / 2;
+    if (num >= 179 && num <= 181
+        || num == 261 || num == 511
+        || num >= 662 && num <= 665
+        || num == 674)
     {
         return true;
     }
     return false;
 }
 
-bool SubMap::checkIsEvent(int x, int y)
+bool SubMap::isEvent(int x, int y)
 {
-    //if (save.SData[sceneNum].SData[4][x][y] >= 0 && (save.DData[sceneNum].DData[save.SData[sceneNum].SData[3][x][y],0] % 10)<1)
-    int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
-    int canWalk = Save::getInstance()->m_SceneEventData[sceneNum].Data[num].CanWalk;
-    if (canWalk > 0)
-    {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
- 		return false;
-	}
-    return true;
-}
-
-bool SubMap::checkIsFall(int x, int y)
-{
-    if (abs(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y] - Save::getInstance()->m_SceneMapData[sceneNum].Data[4][Cx][Cy] > 10))
+    auto e = current_submap_->Event(x,y);
+    if (e && e->CannotWalk)
     {
-        true;
-    }
-    return false;
-}
-
-bool SubMap::checkIsExit(int x, int y)
-{
-    if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[0] == x 
-		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[0] == y
-        || (int)Save::getInstance()->m_SceneData[sceneNum].ExitX[2] == x 
-		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[2] == y)
-    {
-        pop();
-		Save::getInstance()->m_BasicData[0].m_sWhere = 0;
-        return true;
-    }
-    else if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[1] == x 
-		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[1] == y)
-    {
-		
-        /*
-        SaveGame::getInstance()->RBasic_Data.Mface = towards;
-        SaveGame::getInstance()->RBasic_Data.Mx = save.RScene[sceneNum]->MainEntranceX2;
-        SaveGame::getInstance()->RBasic_Data.My = save.RScene[sceneNum]->MainEntranceY2;
-        Mx = save.RScene[sceneNum]->MainEntranceX2;
-        My = save.RScene[sceneNum]->MainEntranceY2;
-        MainMap* mainMap = dynamic_cast<MainMap*>(Director::getInstance()->getRunningScene()->getChildByTag(MainMap::tag_mainLayer));
-        CommonScene::replaceLocation();
-        */
-        pop();
-		Save::getInstance()->m_BasicData[0].m_sWhere = 0;
         return true;
     }
     return false;
 }
 
-//111
-// void SubScene::callEvent(int x, int y)
-// {
-// 	int nNum = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
-// 	int nEventNum = Save::getInstance()->m_SceneEventData[sceneNum].Data[nNum].Num; //触发编号为eventNum的事件
-// 	if (nEventNum > 0)
-// 	{
-// 		string idxPath, grpPath;
-// 		idxPath = "resource/kdef.idx";
-// 		grpPath = "resource/kdef.grp";
-// 		int nLen = 0, nOffset = 0, nTemp = 0;
-// 		FILE *fpidx = fopen(idxPath.c_str(), "rb");
-// 		FILE *fpgrp = fopen(grpPath.c_str(), "rb");
-// 		if (!fpidx)
-// 		{
-// 			fprintf(stderr, "Can not open file %s\n", idxPath.c_str());
-// 			return;
-// 		}
-// 		if (!fpgrp)
-// 		{
-// 			fprintf(stderr, "Can not open file %s\n", grpPath.c_str());
-// 			return;
-// 		}
-// 		if (0 == nEventNum)
-// 		{
-// 			nOffset = 0;
-// 			fread(&nLen, 4, 1, fpidx);
-// 		}
-// 		else
-// 		{
-// 			fseek(fpidx, (nEventNum - 1) * 4, SEEK_SET);
-// 			fread(&nOffset, 4, 1, fpidx);
-// 			fread(&nLen, 4, 1, fpidx);
-// 		}
-// 
-// 		nLen = (nLen - nOffset) / 2;
-// 
-// 		vector<int> vc_Event;
-// 		vc_Event.resize(nLen + 1);
-// 
-// 		fseek(fpgrp, nOffset, SEEK_CUR);
-// 		fread((void*)&vc_Event[0], nLen * 2, 1, fpgrp);
-// 
-// 		fclose(fpidx);
-// 		fclose(fpgrp);
-// 		int i = 0;
-// 		while (vc_Event[i] >= 0)
-// 		{
-// 			switch (vc_Event[i])
-// 			{
-// 			case 0:
-// 			{
-// 				break;
-// 			}
-// 
-// 			default:
-// 				break;
-// 			}
-// 		}
-// 
-// 	}
-// 	
-// 	
-// }
+//what is this?
+bool SubMap::isFall(int x, int y)
+{
+    //if (abs(Save::getInstance()->m_SceneMapData[scene_id_].Data[4][x][y] -
+    //Save::getInstance()->m_SceneMapData[scene_id_].Data[4][Cx][Cy] > 10))
+    //{
+    //    true;
+    //}
+    return false;
+}
 
-bool SubMap::checkIsOutScreen(int x, int y)
+bool SubMap::isExit(int x, int y)
+{
+      if (current_submap_->ExitX[0] == x && current_submap_->ExitY[0] == y
+          || current_submap_->ExitX[1] == x && current_submap_->ExitY[1] == y
+          || current_submap_->ExitX[2] == x && current_submap_->ExitY[2] == y)
+      {
+          loop_ = false;
+          Save::getInstance()->global_data_.unused0 = 1;
+          return true;
+      }
+    return false;
+}
+
+void SubMap::callEvent(int x, int y)
+{
+
+}
+
+bool SubMap::isOutScreen(int x, int y)
 {
     if (abs(Cx - x) >= 2 * widthregion || abs(Cy - y) >= sumregion)
     {
@@ -408,12 +326,12 @@ bool SubMap::checkIsOutScreen(int x, int y)
 
 void SubMap::getMousePosition(int _x, int _y)
 {
-    int x = _x;
-    int y = _y;
-    //int yp = 0;
-    int yp = -(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y]);
-    Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Cx;
-    Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
+    //int x = _x;
+    //int y = _y;
+    ////int yp = 0;
+    //int yp = -(Save::getInstance()->m_SceneMapData[scene_id_].Data[4][x][y]);
+    //Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Cx;
+    //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
 void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
@@ -469,7 +387,7 @@ void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
                 Point* s = new Point();
                 s->x = t->x + dirs[i][0];
                 s->y = t->y + dirs[i][1];
-                if (canWalk(s->x, s->y) && !checkIsOutScreen(s->x, s->y) && !visited[s->x][s->y])
+                if (canWalk(s->x, s->y) && !isOutScreen(s->x, s->y) && !visited[s->x][s->y])
                 {
                     s->g = t->g + 10;
                     s->towards = (Point::Towards)i;
@@ -510,31 +428,31 @@ void SubMap::stopFindWay()
 /*========================================
 说明: 修正事件坐标
 ==========================================*/
-void SubMap::ReSetEventPosition(int &x, int &y)
+void SubMap::ReSetEventPosition(int& x, int& y)
 {
-	switch (Scene::towards)
-	{
-	case Scene::LeftDown:
-	{
-		y--;
-		break;
-	}
-	case Scene::RightUp:
-	{
-		y++;
-		break;
-	}
-	case Scene::LeftUp :
-	{
-		x--;
-		break;
-	}
-	case Scene::RightDown:
-	{
-		x++;
-		break;
-	}
-	default:
-		break;
-	}
+    switch (Scene::towards)
+    {
+    case Scene::LeftDown:
+    {
+        y--;
+        break;
+    }
+    case Scene::RightUp:
+    {
+        y++;
+        break;
+    }
+    case Scene::LeftUp:
+    {
+        x--;
+        break;
+    }
+    case Scene::RightDown:
+    {
+        x++;
+        break;
+    }
+    default:
+        break;
+    }
 }

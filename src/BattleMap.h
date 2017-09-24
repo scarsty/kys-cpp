@@ -4,18 +4,18 @@
 #include "Point.h"
 #include <stack>
 
-using namespace std;
-
-class BattleScene : public Scene
+class BattleMap : public Scene
 {
 public:
-    BattleScene();
-    ~BattleScene();
+    BattleMap();
+    ~BattleMap();
 
-	virtual void init() override;
+	void init();
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 
+
+    int MaxSceneCoord = 63;
     static const int m_nMaxBRoleSelect = 6;       //战斗选人最大人数
     int m_nMaxBRoleNum = 42;                      //最大战场参战人数
 
@@ -33,12 +33,12 @@ public:
     {
         kindOfRole = 7                         //人物信息界面的属性种类
     };
-    string m_strList[BattleScene::kindOfRole];    // 人物信息界面的属性（默认姓名，攻击，防御，轻功）
+    std::string m_strList[BattleMap::kindOfRole];    // 人物信息界面的属性（默认姓名，攻击，防御，轻功）
     int m_nList = 0;                          // 人物信息界面的列表位置
     int m_nOffset_BRolePic = 1;                   //单向战斗图张数
     int m_nBRoleAmount = 0;                       //战场人数
     int m_nMods = 0;                              //战斗模式
-    string m_strMenuString[m_nMaxBRoleSelect + 2];     //战斗人物选单
+    std::string m_strMenuString[m_nMaxBRoleSelect + 2];     //战斗人物选单
     int m_nMax0;                                  //最大人数
     int m_nMaxspeed;                              //最大步数
 
@@ -87,7 +87,7 @@ public:
     void autoSetMagic(int rnum);
     int selectTeamMembers();
     void ShowMultiMenu(int max0, int menu);
-    void showSlectMenu(string* str, int x);                               // 参战人物信息
+    void showSlectMenu(std::string* str, int x);                               // 参战人物信息
     void showBattleMenu(int x, int y);                                    // 战斗界面
 
     void initMultiMenu();
@@ -96,11 +96,6 @@ public:
     virtual void FindWay(int Mx, int My, int Fx, int Fy);
 
     int CallFace(int x1, int y1, int x2, int y2);
-
-    inline int calBlockTurn(int x, int y, int layer)
-    {
-        return 4 * (128 * (x + y) + x) + layer;
-    }
 
     //void menuCloseCallback(Ref* pSender);
     //void menuCloseCallback1(Ref* pSender);

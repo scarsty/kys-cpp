@@ -7,9 +7,6 @@
     <ClCompile Include="src\Base.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleScene.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Button.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -55,15 +52,21 @@
     <ClCompile Include="src\PotConv.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\SubMap.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleMap.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Event.cpp">
+      <Filter>Headers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Base.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleScene.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Button.h">
@@ -112,6 +115,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\SubMap.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

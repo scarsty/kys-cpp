@@ -29,3 +29,12 @@ public:
     int Heuristic(int Fx, int Fy);
 };
 
+class Compare
+{
+public:
+    bool operator()(Point* point1, Point* point2)
+    {
+        return point1->lessthan(point2);
+    }
+};
+

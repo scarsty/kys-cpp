@@ -165,12 +165,14 @@
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\Base.cpp" />
     <ClCompile Include="src\BattleData.cpp" />
-    <ClCompile Include="src\BattleScene.cpp" />
+    <ClCompile Include="src\BattleMap.cpp" />
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Dialogues.cpp" />
     <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Event.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
+    <ClCompile Include="src\SubMap.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
     <ClCompile Include="src\kys-c++.cpp" />
     <ClCompile Include="src\MainMap.cpp" />
@@ -185,7 +187,7 @@
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\Base.h" />
     <ClInclude Include="src\BattleData.h" />
-    <ClInclude Include="src\BattleScene.h" />
+    <ClInclude Include="src\BattleMap.h" />
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Dialogues.h" />
     <ClInclude Include="src\Engine.h" />

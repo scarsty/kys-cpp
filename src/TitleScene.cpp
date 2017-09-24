@@ -3,10 +3,22 @@
 #include "MainMap.h"
 #include "BattleData.h"
 #include "Event.h"
+#include "SubMap.h"
 
 TitleScene::TitleScene()
 {
     full_window_ = 1;
+    menu_ = new Menu();
+    //m->tex_ = TextureManager::getInstance()->loadTexture("title", 17);
+    menu_->setPosition(400, 250);
+    auto b = new Button("title", 3, 23, 23);
+    menu_->addChild(b, 20, 0);
+    b = new Button("title", 4, 24, 24);
+    menu_->addChild(b, 20, 50);
+    b = new Button("title", 6, 26, 26);
+    menu_->addChild(b, 20, 100);
+    menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
+    menu_load_->setPosition(500, 300);
 }
 
 TitleScene::~TitleScene()
@@ -32,38 +44,21 @@ void TitleScene::draw()
 void TitleScene::dealEvent(BP_Event& e)
 {
     Save::getInstance()->LoadR(1);
-    menu_->run();
-    int r = menu_->getResult();
+    int r = menu_->run();
     if (r == 0)
     {        
-        //auto m = new MainMap();
-        //m->run();
+        auto m = new MainMap();
+        m->run();
     }
     if (r == 1)
     {
-        menu_load_->run();
+        auto s = new SubMap(2);
+        s->run();
+        //menu_load_->run();
     }
     if (r == 2)
     {
         loop_ = false;
     }
-}
-
-void TitleScene::init()
-{
-    menu_ = new Menu();
-    //m->tex_ = TextureManager::getInstance()->loadTexture("title", 17);
-    menu_->setPosition(400, 250);
-    auto b = new Button("title", 3, 23, 23);
-    menu_->addButton(b, 20, 0);
-    b = new Button("title", 4, 24, 24);
-    menu_->addButton(b, 20, 50);
-    b = new Button("title", 6, 26, 26);
-    menu_->addButton(b, 20, 100);
-
-    menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
-    menu_load_->setPosition(500, 300);
-
-
 }
 

@@ -18,7 +18,6 @@ public:
     int m_y = 15;
     int speed = 2;
     int state = 0;
-    void init() override;
 
     Menu* menu_;
     Menu* menu_load_;

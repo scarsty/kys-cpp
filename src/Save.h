@@ -7,7 +7,7 @@ enum
     _Rtypecount = 10,
     SceneMaxX = 64,
     SceneMaxY = 64,
-    PerSceneMaxEvent = 400,                          //单场景最大事件数
+    PerSceneMaxEvent = 200,                          //单场景最大事件数
     MAXScene = 200,                                  //最大场景数
     MAX_ITEM_COUNT = 400,                           //最大物品数
     MaxRole = 1000,                                  //最大人物数
@@ -24,7 +24,6 @@ enum
 };
 
 struct ItemList { int16_t item, count; };
-
 //此处成员函数均大写，可以直接访问
 struct GlobalData
 {
@@ -34,8 +33,53 @@ struct GlobalData
     //short m_sDifficulty, m_sCheating, m_sBeiyong[4];
 };
 
-class Save;
+struct Role;
+struct Item;
 struct Magic;
+struct SubMapRecord;
+struct SubMapData;
+struct SubMapArray;
+struct Shop;
+struct SubMapEvent;
+
+class Save
+{
+public:
+    Save();
+    ~Save();
+
+    bool LoadR(int num);
+    bool SaveR(int num);
+
+    static Save save_;
+    static Save* getInstance()
+    {
+        return &save_;
+    }
+
+    std::vector<int> offset_, length_;
+
+    GlobalData global_data_;
+    std::vector<Role> roles_;
+    std::vector<Magic> magics_;
+    std::vector<Item> items_;
+    std::vector<SubMapRecord> submap_records_;
+    std::vector<SubMapData> submap_data_;
+    std::vector<SubMapArray> submap_array_;
+    std::vector<Shop> shops_;
+    std::vector<SubMapEvent> submap_event_;
+
+    GlobalData* getGlobalData() { return &global_data_; }
+
+    Role* getRole(int i) { return &roles_[i]; }
+    Magic* getMagic(int i) { return &magics_[i]; }
+    Item* getItem(int i) { return &items_[i]; }
+    SubMapRecord* getSubMapRecord(int i) { return &submap_records_[i]; }
+
+    static void fromCP950ToCP936(char* s);
+    static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
+
+};
 
 struct Role
 {
@@ -54,21 +98,21 @@ struct Role
     uint16_t ExpForBook;
     int16_t MagicID[10], MagicLevel[10];
     int16_t TakingItem[4], TakingItemAmount[4];
-    Magic* getLearnedMagic(int i) { return nullptr; }
+    Magic* getLearnedMagic(int i) { return Save::getInstance()->getMagic(MagicID[i]); }
 };
 
 struct Item
 {
     int16_t ID;
     char Name[20], Name1[20];
-    char Introduction[30]; //36
-    int16_t Placeholder2, Magic, AmiNum, User, EquipType, ShowIntro, ItemType, Inventory, Price, EventNum; //46
+    char Introduction[30];
+    int16_t MagicID, AmiNum, User, EquipType, ShowIntro, ItemType, UnKnown5, UnKnown6, UnKnown7;
     int16_t AddCurrentHP, AddMaxHP, AddPoi, AddPhyPower, ChangeMPType, AddCurrentMP, AddMaxMP, AddAttack, AddSpeed;
-    int16_t AddDefence, AddMedcine, AddUsePoi, AddMedPoison, AddDefPoi; //60
-    int16_t AddBoxing, AddFencing, AddKnife, AddSpecial, AddShader, AddMKnowledge, AddMorality, AddAttTwice, AddAttPoi; //69
-    int16_t OnlyPracRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoi, NeedMedcine, NeedMedPoi; //77
-    int16_t NeedBoxing, NeedFencing, NeedKnife, NeedSpecial, NeedShader, NeedAptitude; //83
-    int16_t NeedExp, Count, Rate; //86
+    int16_t AddDefence, AddMedcine, AddUsePoi, AddMedPoison, AddDefPoi;
+    int16_t AddFist, AddSword, AddKnife, AddUnusual, AddHidWeapon, AddKnowledge, AddEthics, AddAttTwice, AddAttPoi;
+    int16_t OnlyPracRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoi, NeedMedcine, NeedMedPoi;
+    int16_t NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHidWeapon, NeedAptitude;
+    int16_t NeedExp, NeedExpForItem, NeedMaterial;
     int16_t NeedItem[5], NeedItemAmount[5];
 };
 
@@ -81,90 +125,121 @@ struct Magic
     int16_t Attack[10], MoveDistance[10], AttDistance[10], AddMP[10], HurtMP[10];
 };
 
+struct MapArray
+{
+private:
+    int16_t* data_ = nullptr;
+    int x_max_ = 0, y_max_ = 0;
+    int self_ = 0;
+public:
+    void divide2() { for (int i = 0; i < x_max_ * y_max_; i++) { data_[i] /= 2; } }
+    int16_t& data(int x = 0, int y = 0) { return data_[x + x_max_ * y]; }
+    void setData(int16_t* d, int x, int y) { data_ = d; x_max_ = x; y_max_ = y; }
+public:
+    MapArray() {}
+    MapArray(int x, int y) { data_ = new int16_t[x * y]; x_max_ = x; y_max_ = y; self_ = 1; }
+    MapArray(int16_t* d, int x, int y) { setData(d, x, y); }
+    ~MapArray() { if (self_ && data_) { delete[] data_; } }
+};
+
+struct SubMapArray
+{
+    MapArray Earth;
+    MapArray Building;
+    MapArray Decoration;
+    MapArray EventID;
+    MapArray BuildingHeight;
+    MapArray EventHeight;
+};
+
 struct SubMapRecord
 {
     int16_t ID;
     char Name[10];
     int16_t ExitMusic, EntranceMusic;
     int16_t JumpScence, EnCondition;
-    int16_t MainEntranceY1, MainEntranceX1, MainEntranceY2, MainEntranceX2;
-    int16_t EntranceY, EntranceX;
-    int16_t ExitY[3], ExitX[3];
-    int16_t JumpY1, JumpX1, JumpY2, JumpX2;
+    int16_t MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
+    int16_t EntranceX, EntranceY;
+    int16_t ExitX[3], ExitY[3];
+    int16_t JumpX1, JumpY1, JumpX2, JumpY2;
+    MapArray* Earth()
+    {
+        return &(Save::getInstance()->submap_array_[ID].Earth);
+    }
+    MapArray* Building()
+    {
+        return &(Save::getInstance()->submap_array_[ID].Building);
+    }
+    MapArray* Decoration()
+    {
+        return &(Save::getInstance()->submap_array_[ID].Decoration);
+    }
+    MapArray* EventID()
+    {
+        return &(Save::getInstance()->submap_array_[ID].EventID);
+    }
+    MapArray* BuildingHeight()
+    {
+        return &(Save::getInstance()->submap_array_[ID].BuildingHeight);
+    }
+    MapArray* EventHeight()
+    {
+        return &(Save::getInstance()->submap_array_[ID].EventHeight);
+    }
+
+    int16_t& Earth(int x, int y)
+    {
+        return Save::getInstance()->submap_array_[ID].Earth.data(x, y);
+    }
+    int16_t& Building(int x, int y)
+    {
+        return Save::getInstance()->submap_array_[ID].Building.data(x, y);
+    }
+    int16_t& Decoration(int x, int y)
+    {
+        return Save::getInstance()->submap_array_[ID].Decoration.data(x, y);
+    }
+    int16_t& EventID(int x, int y)
+    {
+        return Save::getInstance()->submap_array_[ID].EventID.data(x, y);
+    }
+    int16_t& BuildingHeight(int x, int y)
+    {
+        return Save::getInstance()->submap_array_[ID].BuildingHeight.data(x, y);
+    }
+    int16_t& EventHeight(int x, int y)
+    {
+        return Save::getInstance()->submap_array_[ID].EventHeight.data(x, y);
+    }
+
+    SubMapEvent* Event(int x, int y)
+    {
+        int i = EventID(x,y);       
+        return Event(i);
+    }
+
+    SubMapEvent* Event(int i)
+    {
+        if (i < 0 || i >= PerSceneMaxEvent)
+        {
+            return nullptr;
+        }
+        return &(Save::getInstance()->submap_event_[PerSceneMaxEvent * ID + i]);
+    }
 };
 
 struct SubMapData
 {
-    short Earth[SceneMaxX][SceneMaxY];
-    short Building[SceneMaxX][SceneMaxY];
-    short Decoration[SceneMaxX][SceneMaxY];
-    short Event[SceneMaxX][SceneMaxY];
-    short BuildingHeight[SceneMaxX][SceneMaxY];
-    short EventHeight[SceneMaxX][SceneMaxY];
+    int16_t data[6][SceneMaxX][SceneMaxY];
 };
 
 struct SubMapEvent
 {
-    int16_t CanWalk, Num, Event1, Event2, Event3, BeginPic1, EndPic, BeginPic2, PicDelay, XPos, YPos;
-};
-
-struct SceneEventData
-{
-    SubMapEvent Data[PerSceneMaxEvent];
+    int16_t CannotWalk, ID, Event1, Event2, Event3, BeginPic1, EndPic, BeginPic2, PicDelay, XPos, YPos;
 };
 
 struct Shop
 {
-   int16_t Item[5], Amount[5], Price[5];
-};
-
-class Save
-{
-public:
-    Save();
-    ~Save();
-
-    int Rgrplen;
-    int Ridxlen = _Rtypecount * 4;
-    int B_Count;                                        //基础数据数量
-    int R_Count;                                        //角色数量
-    int I_Count;                                        //物品数量
-    int S_Count;                                        //场景数量
-    int M_Count;                                        //武功数量
-    int SP_Count;                                       //小宝商店数量
-    int Z_Count;                                        //招式数量
-    int F_Count;                                        //门派数量
-    static const int R_length = 436;                    //角色数据长度
-
-    bool LoadR(int num);
-    bool SaveR(int num);
-
-    static Save save_;
-    static Save* getInstance()
-    {
-        return &save_;
-    }
-
-    std::vector<int> offset, length;
-
-    GlobalData global_data_;
-
-    std::vector<Role> roles_;
-    std::vector<Magic> magics_;
-    std::vector<Item> items_;
-    std::vector<SubMapRecord> submap_records_;
-    std::vector<SubMapData> submap_data_;
-    std::vector<Shop> shops_;
-    std::vector<SceneEventData> m_SceneEventData;
-
-    GlobalData* getGlobalData() { return&global_data_; }
-
-    Role* getRole(int i) { return &roles_[i]; }
-    Magic* getMagic(int i) { return &magics_[i]; }
-    Item* getItem(int i) { return &items_[i]; }
-    SubMapRecord* getSubMapRecord(int i) { return &submap_records_[i]; }
-
-    void fromCP950ToCP936(char* s);
-
+    int16_t Item[5], Amount[5], Price[5];
 };
 

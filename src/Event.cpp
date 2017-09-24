@@ -2,64 +2,52 @@
 #include "MainMap.h"
 #include "SubMap.h"
 #include "Menu.h"
+#include "Save.h"
+#include "PotConv.h"
 
-EventManager *EventManager::m_EventManager = NULL;
-int EventManager::NowEenWu = -1;
-bool EventManager::isTry =false;
-bool EventManager::TryGo = false;
-int EventManager::TryEventTmpI = -1;
-int EventManager::EventEndCount = -1;
+Event Event::event_;
 
-EventManager::~EventManager()
+Event::Event()
+{
+    initEventData();
+}
+
+Event::~Event()
 {
 }
 
-bool EventManager::callEvent(int num)
+bool Event::initEventData()
 {
-	cout << "开始执行事件：" << num<<endl;
-	int eventId = -1;
-	for (int i = 0; i < eventCount; i++)
-	{
-		if (eventData.at(i).checkId(num))
-		{
-			eventId = i;
-			break;
-		}
-	}
-	if (eventId < 0)
-	{
-		cout << "事件编号获取失败" << endl;
-		return false;
-	}
-	Head::inEvent = eventId;
-	const std::vector<Operation>* operation = eventData.at(eventId).getOperation();
-	int parLen;
-	iniEventRun();	
-	runEvent(operation);
-	Head::inEvent = -1;
+    auto talk = Save::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
+    for (int i = 0; i < offset.back(); i++)
+    {
+        if (talk[i])
+        { talk[i] = talk[i] ^ 0xff; }
+    }
+    for (int i = 0; i < length.size(); i++)
+    {
+        talk_.push_back(PotConv::cp950tocp936(talk + offset[i]));
+    }
+    return false;
 }
 
-void  EventManager::iniEventRun()
+bool Event::callEvent(int num)
 {
-	NowEenWu = -1;
-	isTry = false;
-	TryGo = false;
-	EventEndCount = 0;
-}
-void EventManager::runEvent(const std::vector<Operation>* operation) {
+    /*
     int p = 0;
     while (p < operation->size())
     {
         int instruct = operation->at(p).num;
-		if (instruct < 0)
-			break;
-		string str;
-		for (auto i = 1; i < operation->at(p).par.size();i++) {
-			str += "[";
-			str += to_string(operation->at(p).par[i]);
-			str += "]";
-		}
-		cout << "执行指令" << operation->at(p).num<< str << endl;
+        if (instruct < 0)
+        { break; }
+        string str;
+        for (auto i = 1; i < operation->at(p).par.size(); i++)
+        {
+            str += "[";
+            str += to_string(operation->at(p).par[i]);
+            str += "]";
+        }
+        cout << "执行指令" << operation->at(p).num << str << endl;
         switch (instruct)
         {
         case -1:
@@ -68,7 +56,7 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 0:
         {
-            clear_0();
+            clear();
             break;
         }
         case 1:
@@ -77,22 +65,22 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 2:
         {
-			getItem_2(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
+            getItem_2(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
             break;
         }
         case 3:
         {
-			editEvent3(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3], operation->at(p).par[4], operation->at(p).par[5], operation->at(p).par[6], operation->at(p).par[7], operation->at(p).par[8], operation->at(p).par[9], operation->at(p).par[10], operation->at(p).par[11], operation->at(p).par[12], operation->at(p).par[13], operation->at(p).par[14], operation->at(p).par[15], operation->at(p).par[16], operation->at(p).par[17], operation->at(p).par[18], operation->at(p).par[19], operation->at(p).par[20]);
+            editEvent3(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3], operation->at(p).par[4], operation->at(p).par[5], operation->at(p).par[6], operation->at(p).par[7], operation->at(p).par[8], operation->at(p).par[9], operation->at(p).par[10], operation->at(p).par[11], operation->at(p).par[12], operation->at(p).par[13], operation->at(p).par[14], operation->at(p).par[15], operation->at(p).par[16], operation->at(p).par[17], operation->at(p).par[18], operation->at(p).par[19], operation->at(p).par[20]);
             break;
         }
         case 4:
         {
-			judgeItem_4(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
+            judgeItem_4(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
             break;
         }
         case 5:
         {
-			isFight_5(operation->at(p).par[1], operation->at(p).par[2]);
+            isFight_5(operation->at(p).par[1], operation->at(p).par[2]);
             break;
         }
         case 6:
@@ -105,7 +93,7 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 8:
         {
-			isAdd_8(operation->at(p).par[1], operation->at(p).par[2]);
+            isAdd_8(operation->at(p).par[1], operation->at(p).par[2]);
             break;
         }
         case 9:
@@ -302,12 +290,12 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 57:
         {
- 
+
             break;
         }
         case 58:
         {
-        
+
             break;
         }
         case 59:
@@ -399,7 +387,6 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         {
             break;
         }
-
         case 82:
         {
             break;
@@ -418,7 +405,6 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 86:
         {
-         
             break;
         }
         case 87:
@@ -435,17 +421,17 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 90:
         {
-       
+
             break;
         }
         case 91:
         {
-         
+
             break;
         }
         case 92:
         {
-           
+
             break;
         }
         case 93:
@@ -462,7 +448,6 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         }
         case 96:
         {
-            
             break;
         }
         case 97:
@@ -600,7 +585,7 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
         case 130: // 新增自动检测任务
         {
 
-			TryEventTmpI = p;
+            TryEventTmpI = p;
             break;
         }
         case 131: // 修改任务
@@ -644,558 +629,183 @@ void EventManager::runEvent(const std::vector<Operation>* operation) {
             break;
         }
         }
-		if ((isTry) && (TryEventTmpI + EventEndCount <= p)) {
-			isTry = false;
-			p = TryEventTmpI;
-			EventEndCount = 0;
-			cout << "事件测试通过" << endl;;
-		}
-		p++;
-    }		
+        if ((isTry) && (TryEventTmpI + EventEndCount <= p))
+        {
+            isTry = false;
+            p = TryEventTmpI;
+            EventEndCount = 0;
+            cout << "事件测试通过" << endl;;
+        }
+        p++;
+    }*/
+    return 0;
 }
 
-bool EventManager::initEventData()
+
+void Event::clear()
+{
+}
+
+
+void Event::talk_1()
 {
 
-    int idxLen = 0;         //存储文件相关
-    int* offset;
-    eventData.resize(0);
-    for (int num1 = 0; num1 < config::EventFolderNum; num1++)
+}
+void Event::getItem_2(short tnum, short amount, short rnum)
+{
+    //getJueSe(&rnum);
+    ////Character role;
+    //role = Save::getInstance()->roles_[rnum];
+    //if (rnum == 0)
+    //{
+    //    for (auto i : Save::getInstance()->global_data_[0].m_RItemList)
+    //    {
+    //        if (i.Number == tnum)
+    //        {
+    //            i.Amount += amount;
+    //            break;
+    //        }
+    //        if (i.Number == -1)
+    //        {
+    //            i.Number = tnum;
+    //            i.Amount = amount;
+    //            break;
+    //        }
+    //    }
+    //}
+    //else
+    //{
+    //    for (auto i : role.TakingItem)
+    //    {
+    //        if (i.Number == tnum)
+    //        {
+    //            i.Amount += amount;
+    //            break;
+    //        }
+    //        if (i.Number == -1)
+    //        {
+    //            i.Number = tnum;
+    //            i.Amount = amount;
+    //            break;
+    //        }
+    //    }
+    //}
+}
+
+void Event::getJueSe(short* rnum)
+{
+    //未完成，待角色系统建立
+    if (*rnum <= -10)
     {
-        char path[20];
-        sprintf(path, "%s%03d%s", "event/", num1,"/"); //事件文件夹结构，第一层3位数目录，第二层3位数文件，文件内还有3位数的事件号
-        //std::string path = StringUtils::format("event/%.4d", num1);
-        if (_access(path, 0) == -1)
-        {
-            _mkdir(path);
-        }
-        for (int num2 = 0; num2 < config::EventFileNum; num2++)
-        {
-            char filename1[30], filename2[30];
-            sprintf(filename1, "%s%03d%s", path, num2, ".idx");
-            unsigned char* Eidx;	
-			if (!File::readFile(filename1, &Eidx, &idxLen))
-			{
-				return false;
-			}
-  
-            offset = new int[idxLen / 4 + 1];
-			if ((idxLen / 4 + 1) >= 100)
-				cout << filename1<< "单个文件中事件数为:"<< idxLen / 4 <<"超过100" << endl;;
-            *offset = 0;
-            memcpy(offset + 1, Eidx, idxLen);
 
-            sprintf(filename2, "%s%03d%s", path, num2, ".grp");
-            unsigned char* Egrp;
-            int EgrpLen;
-            //这儿开始，11.30
-			if (!File::readFile(filename2, &Egrp, &EgrpLen))
-			{
-				return false;
-			}
-			
-            unsigned char* Data;
-            Data = new unsigned char[EgrpLen];
-            memcpy(Data, Egrp, EgrpLen);
-            for (int j = 0; offset[j] < EgrpLen; j++)
-            {
-                eventCount++;
-                eventData.resize(eventCount);
-                int length = offset[j + 1] - offset[j];
-                eventData.at(eventCount - 1).setId(num1 * 1000000 + num2 * 1000 + j);
-                eventData.at(eventCount - 1).arrByOperation(Data + offset[j], length);
-
-            }
-        }
-    }
-    return true;
-}
-
-
-void EventData::setId(int num)
-{
-    _id = num;
-}
-bool EventData::checkId(int num)
-{
-    return (_id == num);
-}
-const vector<Operation>* EventData::getOperation()
-{
-    return &_operations;
-}
-
-
-void EventData::arrByOperation(unsigned char* Data, int len)
-{
-    int add0 = 0;
-    int count = 0;
-    _operations.resize(0);
-
-    short* D = (short*)Data;
-    len /= 2;
-    while (add0 < len)
-    {
-        count++;
-        Operation tmp;
-        tmp.num = *((D + add0));
-        int add1 = getOperationLen(tmp.num);
-        for (int j = 0; j < add1; j++)
-        {
-            tmp.par.push_back(*(D + add0 + j));
-        }
-        _operations.push_back(tmp);
-        add0 += add1;
     }
 }
-
-int EventData::getOperationLen(int num)
+void Event::editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent)
 {
-	if (num == -1)
-		return 1;
-	else if(num < -1)
-		cout<<"指令号"<< num <<"获取长度失败" << endl;;
-    std::vector<int> ret = { 1, 4, 4, 21, 4, 3, 5, 7, 2, 3, 2, 3, 1, 1, 1, 1, 4, 6, 4, 3, 3, 2, 1, 3, 1, 5, 6, 4, 6, 6, 5, 4, 3, 5, 3,5, 4, 3, 5, 2, 2, 4, 3, 4, 7, 3, 3, 3, 3, 3, 8, 4, 1, 1, 1, 5, 3, 1, 1, 1, 6, 3, 1, 3, 2, 1, 2, 2, 8, 4, 3, 4, 6, 3, 8, 2, 1, 3, 5, 2, 3, 5, 4, 6, 4, 6, 4, 6, 3, 6, 3, 3, 8, 6, 3, 4, 3, 5, 2, 3, 1, 1, 1, 1, 2, 3, 2, 4, 2, 21, 3, 6, 5, 3, 4, 3, 5, 2, 7, 9, 3, 2, 5, 26, 6, 4, 5, 3, 3, 1, 11, 9, 5, 9, 14, 4, 5, 2, 4, 6, 6, 3, 4, 3, 3, 1, 6};
-	return ret[num];
+}
+int Event::judgeItem_4(short inum, short jump1, short jump2)
+{
+    //if (inum == Head::CurItem)
+    //{ return jump1; }
+    return jump2;
+}
+int Event::isFight_5(short jump1, short jump2)
+{
+    auto menu = new MenuText();
+    //menu->setButton("menu", 12, 14, -1, 13, 15, -1);
+    //menu->setTitle("是否與之戰鬥？");
+    //menu->ini();
+
+    auto a = menu->getResult();
+    if (a == 0)
+    { return jump1; }
+    return jump2;
+}
+int Event::isAdd_8(short jump1, short jump2)
+{
+    auto menu = new MenuText();
+    //menu->setButton("title", 12, 13, -1, 14, 15, -1);
+    //menu->setTitle("是否要求加入？");
+    //menu->ini();
+
+    auto a = menu->getResult();
+    if (a == 0)
+    { return jump1; }
+    return jump2;
+}
+
+
+void Event::StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode)
+{
+    //int max0, tmp;
+    //if (dismode == 1)
+    //{
+    //    //nend new talk
+    //}
+    //else if (newmagicnum == 0)          //delete magic
+    //{
+    //    for (int i = 0; i < config::MaxMagicNum - 1; i++)
+    //    {
+    //        if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum)
+    //        {
+    //            for (int n = i; n < config::MaxMagicNum - 2; n++)
+    //            {
+    //                Save::getInstance()->roles_[rnum].LMagic[n] = Save::getInstance()->roles_[rnum].LMagic[n + 1];
+    //                Save::getInstance()->roles_[rnum].MagLevel[n] = Save::getInstance()->roles_[rnum].MagLevel[n + 1];
+    //            }
+    //            Save::getInstance()->roles_[rnum].LMagic[29] = 0;
+    //            Save::getInstance()->roles_[rnum].MagLevel[29] = 0;
+    //            break;
+    //        }
+    //    }
+
+    //}
+    //else
+    //{
+    //    for (int i = 0; i < config::MaxMagicNum - 1; i++)
+    //    {
+    //        if (Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum)
+    //        {
+    //            if (level == -2)
+    //            {
+    //                level = 0;
+    //            }
+    //            max0 = 9;
+    //            if (Save::getInstance()->magics_[newmagicnum].MagicType == 5)
+    //            {
+    //                max0 = Save::getInstance()->magics_[newmagicnum].MaxLevel;
+    //            }
+    //            tmp = Save::getInstance()->roles_[rnum].MagLevel[i];
+    //            if (max0 * 100 + 99 > Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100)
+    //            {
+    //                Save::getInstance()->roles_[rnum].MagLevel[i] = Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100;
+    //            }
+    //            else
+    //            {
+    //                Save::getInstance()->roles_[rnum].MagLevel[i] = max0 * 100 + 99;
+    //            }
+    //            StudyMagic(rnum, magicnum, 0, 0, 0);
+    //            break;
+    //        }
+    //    }
+    //    if (magicnum > 0)
+    //    {
+    //        for (int i = 0; i < config::MaxMagicNum - 1; i++)
+    //        {
+    //            if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum || Save::getInstance()->roles_[rnum].LMagic[i] < 0)
+    //            {
+    //                if (level != -2)
+    //                {
+    //                    Save::getInstance()->roles_[rnum].MagLevel[i] = level;
+    //                }
+    //                Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum;
+    //                break;
+    //            }
+    //        }
+    //    }
+    //}
 }
 
 
 
-void EventManager::clear_0() {
-	int begin_base = 0;
-	for (int i = Base::base_need_draw_.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
-	{
-		if (Base::base_need_draw_[i]->full_window_)
-		{
-			begin_base = i;
-			break;
-		}
-	}
-	Base b;
-	for (int i = begin_base + 1; i < Base::base_need_draw_.size(); i++)
-		b.pop();
-	cout << "0 clear screen";
-}
-
-
-void EventManager::talk_1() {
-
-
-}
-void EventManager::getItem_2(short tnum,short amount,short rnum) {
-	getJueSe(&rnum);
-	Character role;
-	role = Save::getInstance()->roles_[rnum];
-	if (rnum == 0){
-		for (auto i : Save::getInstance()->global_data_[0].m_RItemList)
-		{
-			if (i.Number == tnum) {
-				i.Amount += amount;
-				break;
-			}
-			if (i.Number == -1) {
-				i.Number = tnum;
-				i.Amount = amount;
-				break;
-			}
-		}
-	}
-	else {
-		for (auto i : role.TakingItem) {
-			if (i.Number == tnum) {
-				i.Amount += amount;
-				break;
-			}
-			if (i.Number == -1) {
-				i.Number = tnum;
-				i.Amount = amount;
-				break;
-			}
-		}
-	}
-}
-
-void EventManager::getJueSe(short* rnum) { //未完成，待角色系统建立
-	if (*rnum <= -10)
-	{
-
-	}
-}
-void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent) {
-	
-	
-	if (snum == -2)
-		snum = Save::getInstance()->roles_[0].CurrentPosition;
-	if (ednum == -2)
-		ednum = Head::CurEvent;
-	SubMapEvent *Ddata;
-	Ddata = &(Save::getInstance()->m_SceneEventData[snum].Data[ednum]);
-	if (XPos == -2)
-		XPos = Ddata->XPos;
-	if (YPos == -2)
-		YPos = Ddata->YPos;
-	Save::getInstance()->submap_data_[snum].Data[3][YPos][XPos] = -1;
-	if (Num >= 0)
-		ednum = Num;
-	short *b;
-	short a[] = { CanWalk, Num,Event1,  Event2,  Event3,  BeginPic1,  EndPic,  BeginPic2,  PicDelay, XPos,  YPos, StartTime,  Duration, Interval, DoneTime, IsActive, OutTime, OutEvent };
-	b = &Ddata->CanWalk;
-	for (int i = 0; i <= 17; i++) {
-		if (a[i] != -2)
-			*(b + i) =a[i];
-	}
-	Save::getInstance()->submap_data_[snum].Data[3][Ddata->YPos][Ddata->XPos] = ednum;
-
-}
-int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
-	if (inum == Head::CurItem)
-		return jump1;
-	return jump2;
-}
-int EventManager::isFight_5(short jump1, short jump2) {
-	auto menu=new MenuText();
-	//menu->setButton("menu", 12, 14, -1, 13, 15, -1);
-	//menu->setTitle("是否與之戰鬥？");
-	//menu->ini();
-	
-	auto a=menu->getResult();
-	if (a==0)
-		return jump1;
-	return jump2;
-}
-int EventManager::isAdd_8(short jump1, short jump2) {
-	auto menu = new MenuText();
-	//menu->setButton("title", 12, 13, -1, 14, 15, -1);
-	//menu->setTitle("是否要求加入？");
-	//menu->ini();
-	
-	auto a = menu->getResult();
-	if (a == 0)
-		return jump1; 
-	return jump2;
-}
-int EventManager::getGongtiLevel(int rnum, int gongti) {
-	if (rnum >= 0 && gongti >= -1) {
-		if (Save::getInstance()->magics_[Save::getInstance()->roles_[rnum].LMagic[gongti]].MaxLevel > Save::getInstance()->roles_[rnum].MagLevel[gongti] / 100) {
-			return Save::getInstance()->roles_[rnum].MagLevel[gongti] / 100;
-		}
-		else {
-			return Save::getInstance()->magics_[Save::getInstance()->roles_[rnum].LMagic[gongti]].MaxLevel;
-		}
-	}
-	else {
-		return 0;
-	}
-}
-
-int EventManager::getRoleSpeed(int rnum, bool equip = false) {
-	short speed = Save::getInstance()->roles_[rnum].Speed;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		speed += Save::getInstance()->magics_[magicnum].AddSpd[getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi)];
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				speed += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddSpeed;
-			}
-		}
-	}
-	speed = speed * 100 / (100 + Save::getInstance()->roles_[rnum].Wounded + Save::getInstance()->roles_[rnum].Poison);
-	return speed;	
-}
-
-int EventManager::getRoleDefence(int rnum, bool equip = false) {
-	short defence = Save::getInstance()->roles_[rnum].Defence;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		defence += Save::getInstance()->magics_[magicnum].AddDef[getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi)];
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				defence += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddDefence;
-			}
-		}
-	}
-	defence = defence * 100 / (100 + Save::getInstance()->roles_[rnum].Wounded + Save::getInstance()->roles_[rnum].Poison);
-	return defence;
-}
-
-int EventManager::getRoleAttack(int rnum, bool equip = false) {
-	short attack = Save::getInstance()->roles_[rnum].Attack;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		attack += Save::getInstance()->magics_[magicnum].AddAtt[getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi)];
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				attack += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddAttack;
-			}
-		}
-	}
-	attack = attack * 100 / (100 + Save::getInstance()->roles_[rnum].Wounded + Save::getInstance()->roles_[rnum].Poison);
-	return attack;
-}
-
-
-int EventManager::getRoleBoxing(int rnum, bool equip = false) {
-	short boxing = Save::getInstance()->roles_[rnum].Boxing;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			boxing += Save::getInstance()->magics_[magicnum].AddBoxing;
-		}		
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				boxing += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddBoxing;
-			}
-		}
-	}
-	return boxing;
-}
-
-int EventManager::getRoleFencing(int rnum, bool equip = false) {
-	short Fencing = Save::getInstance()->roles_[rnum].Fencing;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			Fencing += Save::getInstance()->magics_[magicnum].AddFencing;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				Fencing += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddFencing;
-			}
-		}
-	}
-	return Fencing;
-}
-
-int EventManager::getRoleKnife(int rnum, bool equip = false) {
-	short knife = Save::getInstance()->roles_[rnum].Fencing;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			knife += Save::getInstance()->magics_[magicnum].AddKnife;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				knife += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddKnife;
-			}
-		}
-	}
-	return knife;
-}
-
-int EventManager::getRoleSpecial(int rnum, bool equip = false) {
-	short special = Save::getInstance()->roles_[rnum].SpecialSkill;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			special += Save::getInstance()->magics_[magicnum].AddSpecial;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				special += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddSpecial;
-			}
-		}
-	}
-	return special;
-}
-
-int EventManager::getRoleShader(int rnum, bool equip = false) {
-	short shader = Save::getInstance()->roles_[rnum].Shader;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			shader += Save::getInstance()->magics_[magicnum].AddShader;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				shader += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddShader;
-			}
-		}
-	}
-	return shader;
-}
-
-int EventManager::getRoleDefpoi(int rnum, bool equip = false) {
-	short defpoi = Save::getInstance()->roles_[rnum].DefPoison;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			defpoi += Save::getInstance()->magics_[magicnum].AddDefPoi;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				defpoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddDefPoi;
-			}
-		}
-	}
-	return defpoi;
-}
-
-
-int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
-	short attpoi = Save::getInstance()->roles_[rnum].AttPoison;
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				attpoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddAttPoi;
-			}
-		}
-	}
-	return attpoi;
-}
-
-int EventManager::getRoleUsepoi(int rnum, bool equip = false) {
-	short usepoi = Save::getInstance()->roles_[rnum].AttPoison;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			usepoi += Save::getInstance()->magics_[magicnum].AddUsePoi;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				usepoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddUsePoi;
-			}
-		}
-	}
-	return usepoi;
-}
-
-
-int EventManager::getRoleMedpoi(int rnum, bool equip = false) {
-	short medpoi = Save::getInstance()->roles_[rnum].AttPoison;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			medpoi += Save::getInstance()->magics_[magicnum].AddMedPoi;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				medpoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddMedPoison;
-			}
-		}
-	}
-	return medpoi;
-}
-
-int EventManager::getRoleMedicine(int rnum, bool equip = false) {
-	short medicine = Save::getInstance()->roles_[rnum].AttPoison;
-	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
-			medicine += Save::getInstance()->magics_[magicnum].AddMedcine;
-		}
-	}
-	if (equip) {
-		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
-				medicine += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddMedcine;
-			}
-		}
-	}
-	return medicine;
-}
-
-void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
-	int curScene = snum;
-	if (x == -2) {
-		x = Save::getInstance()->submap_records_[curScene].EntranceX;
-	}
-	if (y == -2) {
-		y = Save::getInstance()->submap_records_[curScene].EntranceY;
-	}
-	Save::getInstance()->roles_[0].CurrentPosition = curScene;
-	auto s = new SubMap(curScene);
-	s->setPosition(x, y);
-	s->push(s);
-	if (Save::getInstance()->submap_records_[curScene].IsBattle&&Save::getInstance()->roles_[0].Faction == Save::getInstance()->submap_records_[curScene].Faction) {
-		//Faction battle need to be finished.
-	}
-}
-
-int EventManager::GetItemCount(int inum) {
-
-	for (int i = 0; i < config::MAX_ITEM_COUNT - 1; i++) {
-		if (Save::getInstance()->global_data_[0].m_RItemList->Number == inum) {
-			return Save::getInstance()->global_data_[0].m_RItemList->Amount;
-		}
-	}
-}
-
-void EventManager::StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode) {
-	int max0,tmp;
-	if (dismode == 1) {
-		//nend new talk
-	}
-	else if (newmagicnum == 0) {		//delete magic
-		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
-			if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum) {				
-				for (int n = i; n < config::MaxMagicNum - 2; n++) {
-					Save::getInstance()->roles_[rnum].LMagic[n] = Save::getInstance()->roles_[rnum].LMagic[n + 1];
-					Save::getInstance()->roles_[rnum].MagLevel[n] = Save::getInstance()->roles_[rnum].MagLevel[n + 1];
-				}
-				Save::getInstance()->roles_[rnum].LMagic[29] = 0;
-				Save::getInstance()->roles_[rnum].MagLevel[29] = 0;
-				break;
-			}
-		}
-		
-	}
-	else {
-		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
-			if (Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum) {
-				if (level == -2) {
-					level = 0;
-				}
-				max0 = 9;
-				if (Save::getInstance()->magics_[newmagicnum].MagicType == 5) {
-					max0 = Save::getInstance()->magics_[newmagicnum].MaxLevel;
-				}
-				tmp = Save::getInstance()->roles_[rnum].MagLevel[i];
-				if (max0 * 100 + 99 > Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100) {
-					Save::getInstance()->roles_[rnum].MagLevel[i] = Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100;
-				}
-				else {
-					Save::getInstance()->roles_[rnum].MagLevel[i] = max0 * 100 + 99;
-				}
-				StudyMagic(rnum, magicnum, 0, 0, 0);
-				break;
-			}
-		}
-		if (magicnum > 0) {
-		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
-			if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum || Save::getInstance()->roles_[rnum].LMagic[i] < 0) {
-				if (level != -2) {
-					Save::getInstance()->roles_[rnum].MagLevel[i] = level;
-				}
-				Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum;
-				break;
-			}
-		}			
-		}
-	}
-}
-
-
-//#undef EVENT_FUNC
 

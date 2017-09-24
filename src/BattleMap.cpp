@@ -1,4 +1,4 @@
-#include "BattleScene.h"
+#include "BattleMap.h"
 #include "MainMap.h"
 #include <iostream>
 #include <string>
@@ -7,17 +7,18 @@
 #include "Save.h"
 #include "Menu.h"
 
-BattleScene::BattleScene()
+BattleMap::BattleMap()
 {
     full_window_ = 1;
+    init();
 }
 
 
-BattleScene::~BattleScene()
+BattleMap::~BattleMap()
 {
 }
 
-void BattleScene::draw()
+void BattleMap::draw()
 {
     int k = 0;
     struct DrawInfo { int i; Point p; };
@@ -77,12 +78,12 @@ void BattleScene::draw()
 	//Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
 }
 
-void BattleScene::dealEvent(BP_Event& e)
+void BattleMap::dealEvent(BP_Event& e)
 {
 
 }
 
-void BattleScene::checkTimer2()
+void BattleMap::checkTimer2()
 {
     if (!isMenuOn)
     {
@@ -91,7 +92,7 @@ void BattleScene::checkTimer2()
     //Draw();
 }
 
-void BattleScene::walk(int x, int y, Towards t)
+void BattleMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
@@ -110,7 +111,7 @@ void BattleScene::walk(int x, int y, Towards t)
 	m_nstep = m_nstep % m_nOffset_BRolePic;
 }
 
-bool BattleScene::canWalk(int x, int y)
+bool BattleMap::canWalk(int x, int y)
 {
     if (checkIsOutLine(x, y) || checkIsBuilding(x, y) || checkIsHinder(x, y)
         || checkIsEvent(x, y) || checkIsFall(x, y))
@@ -123,7 +124,7 @@ bool BattleScene::canWalk(int x, int y)
     }
 }
 
-bool BattleScene::checkIsBuilding(int x, int y)
+bool BattleMap::checkIsBuilding(int x, int y)
 {
     if (m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y] >= -2
         && m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y] <= 0)
@@ -136,7 +137,7 @@ bool BattleScene::checkIsBuilding(int x, int y)
     }
 }
 
-bool BattleScene::checkIsOutLine(int x, int y)
+bool BattleMap::checkIsOutLine(int x, int y)
 {
     if (x < 0 || x > MaxSceneCoord || y < 0 || y > MaxSceneCoord)
     {
@@ -148,31 +149,31 @@ bool BattleScene::checkIsOutLine(int x, int y)
     }
 }
 
-bool BattleScene::checkIsHinder(int x, int y)
+bool BattleMap::checkIsHinder(int x, int y)
 {
     return false;
 }
 
-bool BattleScene::checkIsEvent(int x, int y)
+bool BattleMap::checkIsEvent(int x, int y)
 {
     return false;
 }
 
-bool BattleScene::checkIsFall(int x, int y)
+bool BattleMap::checkIsFall(int x, int y)
 {
     return false;
 }
 
-bool BattleScene::checkIsExit(int x, int y)
+bool BattleMap::checkIsExit(int x, int y)
 {
     return false;
 }
 
-void BattleScene::callEvent(int x, int y)
+void BattleMap::callEvent(int x, int y)
 {
 }
 
-bool BattleScene::checkIsOutScreen(int x, int y)
+bool BattleMap::checkIsOutScreen(int x, int y)
 {
     if (abs(m_nBx - x) >= 16 || abs(m_nBy - y) >= 20)
     {
@@ -185,21 +186,21 @@ bool BattleScene::checkIsOutScreen(int x, int y)
 }
 
 //看不明白
-void BattleScene::getMousePosition(Point* point)
+void BattleMap::getMousePosition(Point* point)
 {
     int x = point->x;
-    int y = Center_Y * 2 - point->y;
+    int y = screen_center_y_ * 2 - point->y;
     //int yp = 0;
     int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
-    Msx = (-x + Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + m_nBx;
-    Msy = (x - Center_X + 2 * (y + yp) - 2 * Center_Y + 18) / 36 + m_nBy;
+    Msx = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
+    Msy = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
 }
 
-void BattleScene::FindWay(int Mx, int My, int Fx, int Fy)
+void BattleMap::FindWay(int Mx, int My, int Fx, int Fy)
 {
 }
 
-int BattleScene::CallFace(int x1, int y1, int x2, int y2)
+int BattleMap::CallFace(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
     d1 = x2 - x1;
@@ -232,7 +233,7 @@ int BattleScene::CallFace(int x1, int y1, int x2, int y2)
     }
 }
 
-void BattleScene::initData(int scenenum)
+void BattleMap::initData(int scenenum)
 {
 //       for (int i = 0; i < maxBRoleSelect; i++)
 //       {
@@ -253,13 +254,13 @@ void BattleScene::initData(int scenenum)
 
 
 
-void BattleScene::autoSetMagic(int rnum)
+void BattleMap::autoSetMagic(int rnum)
 {
 
 
 }
 
-bool BattleScene::autoInBattle()
+bool BattleMap::autoInBattle()
 {
     int x, y;
     int autoCount = 0;
@@ -332,7 +333,7 @@ bool BattleScene::autoInBattle()
     return true;
 }
 
-int BattleScene::selectTeamMembers()
+int BattleMap::selectTeamMembers()
 {
     //menuOn();
     //int i, i2;
@@ -352,7 +353,7 @@ int BattleScene::selectTeamMembers()
     return 1;
 }
 
-void BattleScene::ShowMultiMenu(int max0, int menuNum)
+void BattleMap::ShowMultiMenu(int max0, int menuNum)
 {
     ////unschedule(schedule_selector(CommonScene::checkTimer));
     //string str;
@@ -762,7 +763,7 @@ void BattleScene::menuCloseCallback1(Ref* pSender)
 
 }
 */
-void BattleScene::showBattleMenu(int x, int y)
+void BattleMap::showBattleMenu(int x, int y)
 {
     //menuOn();
     //MenuItemImage* item1[12];
@@ -781,7 +782,7 @@ void BattleScene::showBattleMenu(int x, int y)
 }
 
 
-void BattleScene::showSlectMenu(string* str, int x)
+void BattleMap::showSlectMenu(std::string* str, int x)
 {
     //string name = "备战人物姓名：";
     //string attack = "攻击力：";
@@ -815,7 +816,7 @@ void BattleScene::showSlectMenu(string* str, int x)
     //CommonScene::showFiveDimensional(xx + 80, yy, num);
 }
 
-void BattleScene::initMultiMenu()
+void BattleMap::initMultiMenu()
 {
     //auto s = Director::getInstance()->getWinSize();
     //auto menu = Menu::create(item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], nullptr);
@@ -863,12 +864,12 @@ void BattleScene::initMultiMenu()
 }
 
 
-bool BattleScene::battle(int battlenum, int getexp, int mods, int id, int maternum, int enemyrnum)
+bool BattleMap::battle(int battlenum, int getexp, int mods, int id, int maternum, int enemyrnum)
 {
     return true;
 }
 
-bool BattleScene::initBattleData()
+bool BattleMap::initBattleData()
 {
     //battle::FactionBackup FBackup[10];
     //battle::FactionBackup FBackup2[10];
@@ -898,7 +899,7 @@ bool BattleScene::initBattleData()
     return true;
 }
 
-bool BattleScene::initBattleRoleState()
+bool BattleMap::initBattleRoleState()
 {
     BattleData::getInstance()->m_vcBattleRole.resize(MaxBRoleNum);
     for (int i = 0; i < MaxBRoleNum; i++)
@@ -952,7 +953,7 @@ bool BattleScene::initBattleRoleState()
     return true;
 }
 
-void BattleScene::setInitState(int& n0)
+void BattleMap::setInitState(int& n0)
 {
 	m_vcBattleRole[m_nBRoleAmount].Step = 0;
 	m_vcBattleRole[m_nBRoleAmount].Acted = 0;
@@ -1014,7 +1015,7 @@ void BattleScene::setInitState(int& n0)
 }
 //计算可移动步数(考虑装备)
 
-void BattleScene::calMoveAbility()
+void BattleMap::calMoveAbility()
 {
     int i, rnum, addspeed;
     m_nMaxspeed = 0;
@@ -1046,7 +1047,7 @@ void BattleScene::calMoveAbility()
 }
 
 //按轻功重排人物(未考虑装备)
-void BattleScene::reArrangeBRole()
+void BattleMap::reArrangeBRole()
 {
     int i, n, n1, i1, i2, x, t, s1, s2;
         BattleRole temp;
@@ -1123,7 +1124,7 @@ void BattleScene::reArrangeBRole()
 }
 
 //获取人物速度
-int BattleScene::getRoleSpeed(int rnum, bool Equip)
+int BattleMap::getRoleSpeed(int rnum, bool Equip)
 {
     int l;
     int bResult;
@@ -1149,7 +1150,7 @@ int BattleScene::getRoleSpeed(int rnum, bool Equip)
 }
 
 //获取功体经验
-int BattleScene::getGongtiLevel(int rnum)
+int BattleMap::getGongtiLevel(int rnum)
 {
     //int i;
     //int n = Save::getInstance()->m_Character[rnum].GongTi;
@@ -1166,7 +1167,7 @@ int BattleScene::getGongtiLevel(int rnum)
 }
 
 
-float BattleScene::power(float base, float Exponent)
+float BattleMap::power(float base, float Exponent)
 {
     if (Exponent == 0.0)
     {
@@ -1186,7 +1187,7 @@ float BattleScene::power(float base, float Exponent)
 
 //初始化范围
 //mode=0移动，1攻击用毒医疗等，2查看状态
-void BattleScene::calCanSelect(int bnum, int mode, int Step)
+void BattleMap::calCanSelect(int bnum, int mode, int Step)
 {
     int i;
     if (mode == 0)
@@ -1235,7 +1236,7 @@ void BattleScene::calCanSelect(int bnum, int mode, int Step)
 //计算可以被选中的位置
 //利用队列
 //移动过程中，旁边有敌人，则不能继续移动
-void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
+void BattleMap::seekPath2(int x, int y, int step, int myteam, int mode)
 {
     int Xlist[4096];
     int Ylist[4096];
@@ -1350,7 +1351,7 @@ void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
 
 //移动
 
-void BattleScene::moveRole(int bnum)
+void BattleMap::moveRole(int bnum)
 {
     int s, i;
     calCanSelect(bnum, 0, m_vcBattleRole[bnum].Step);
@@ -1361,7 +1362,7 @@ void BattleScene::moveRole(int bnum)
 }
 
 //选择点
-bool BattleScene::selectAim(int bnum, int step, int mods)
+bool BattleMap::selectAim(int bnum, int step, int mods)
 {
     //switch (keypressing)
     //{
@@ -1441,7 +1442,7 @@ bool BattleScene::selectAim(int bnum, int step, int mods)
 }
 
 //移动动画
-void BattleScene::moveAmination(int bnum)
+void BattleMap::moveAmination(int bnum)
 {
     int s, i, a, tempx, tempy;
     int Xinc[5], Yinc[5];
@@ -1490,7 +1491,7 @@ void BattleScene::moveAmination(int bnum)
     }
 }
 
-void BattleScene::moveAminationStep(float dt)
+void BattleMap::moveAminationStep(float dt)
 {
 
     int a = m_ncurA;
@@ -1537,14 +1538,14 @@ void BattleScene::moveAminationStep(float dt)
     }
 }
 
-void BattleScene::battleMainControl()
+void BattleMap::battleMainControl()
 {
 
     battleMainControl(-1, -1);
 
 }
 
-void BattleScene::battleMainControl(int mods, int id)
+void BattleMap::battleMainControl(int mods, int id)
 {
 
 
@@ -1555,7 +1556,7 @@ void BattleScene::battleMainControl(int mods, int id)
     draw();
 }
 
-void BattleScene::attack(int bnum)
+void BattleMap::attack(int bnum)
 {
     int mnum, level;
     int i = 1;
@@ -1565,7 +1566,7 @@ void BattleScene::attack(int bnum)
 	m_ncurMagic = mnum;
 }
 
-void BattleScene::init()
+void BattleMap::init()
 {
 	
 	// 因为偏移文件的问题，所以暂时读不到这个文件。
