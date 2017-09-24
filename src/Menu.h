@@ -1,5 +1,5 @@
 #pragma once
-#include "UI.h"
+#include "Base.h"
 #include "Button.h"
 
 /**
@@ -8,7 +8,7 @@
 * @author    xiaowu
 */
 
-class Menu : public UI
+class Menu : public Base
 {
 protected:
     int result_ = -1;

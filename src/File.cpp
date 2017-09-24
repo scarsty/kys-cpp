@@ -14,12 +14,11 @@ File::~File()
 
 /**
 *  读取文件
-
 *  @param [in] 文件路径，缓存容器，文件大小
-
 *  @return 文件读取成功返回true，失败返回false 
 */
-bool File::readFile(const char * filename, unsigned char** s, int* len)
+
+bool File::readFile(const char * filename, char** s, int* len)
 {
     FILE *fp = fopen(filename, "rb");
     if (!fp)
@@ -31,7 +30,7 @@ bool File::readFile(const char * filename, unsigned char** s, int* len)
     int length = ftell(fp);
     *len = length;
     fseek(fp, 0, 0);
-    *s = new unsigned char[length + 1];
+    *s = new char[length + 1];
     for (int i = 0; i <= length; (*s)[i++] = '\0');
     fread(*s, length, 1, fp);
     fclose(fp);
@@ -50,3 +49,4 @@ void File::readFile(const char * filename, void* s, int len)
     fread(s, len, 1, fp);
     fclose(fp);
 }
+

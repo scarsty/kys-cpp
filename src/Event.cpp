@@ -3,7 +3,6 @@
 #include "SubMap.h"
 #include "Menu.h"
 
-
 EventManager *EventManager::m_EventManager = NULL;
 int EventManager::NowEenWu = -1;
 bool EventManager::isTry =false;
@@ -764,16 +763,16 @@ int EventData::getOperationLen(int num)
 
 void EventManager::clear_0() {
 	int begin_base = 0;
-	for (int i = Base::base_vector_.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
+	for (int i = Base::base_need_draw_.size() - 1; i >= 0; i--)	//从大到小寻找全屏层
 	{
-		if (Base::base_vector_[i]->full_window_)
+		if (Base::base_need_draw_[i]->full_window_)
 		{
 			begin_base = i;
 			break;
 		}
 	}
 	Base b;
-	for (int i = begin_base + 1; i < Base::base_vector_.size(); i++)
+	for (int i = begin_base + 1; i < Base::base_need_draw_.size(); i++)
 		b.pop();
 	cout << "0 clear screen";
 }
@@ -786,9 +785,9 @@ void EventManager::talk_1() {
 void EventManager::getItem_2(short tnum,short amount,short rnum) {
 	getJueSe(&rnum);
 	Character role;
-	role = Save::getInstance()->m_Character[rnum];
+	role = Save::getInstance()->roles_[rnum];
 	if (rnum == 0){
-		for (auto i : Save::getInstance()->m_BasicData[0].m_RItemList)
+		for (auto i : Save::getInstance()->global_data_[0].m_RItemList)
 		{
 			if (i.Number == tnum) {
 				i.Amount += amount;
@@ -826,7 +825,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 	
 	
 	if (snum == -2)
-		snum = Save::getInstance()->m_Character[0].CurrentPosition;
+		snum = Save::getInstance()->roles_[0].CurrentPosition;
 	if (ednum == -2)
 		ednum = Head::CurEvent;
 	SubMapEvent *Ddata;
@@ -835,7 +834,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 		XPos = Ddata->XPos;
 	if (YPos == -2)
 		YPos = Ddata->YPos;
-	Save::getInstance()->m_SceneMapData[snum].Data[3][YPos][XPos] = -1;
+	Save::getInstance()->submap_data_[snum].Data[3][YPos][XPos] = -1;
 	if (Num >= 0)
 		ednum = Num;
 	short *b;
@@ -845,7 +844,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 		if (a[i] != -2)
 			*(b + i) =a[i];
 	}
-	Save::getInstance()->m_SceneMapData[snum].Data[3][Ddata->YPos][Ddata->XPos] = ednum;
+	Save::getInstance()->submap_data_[snum].Data[3][Ddata->YPos][Ddata->XPos] = ednum;
 
 }
 int EventManager::judgeItem_4(short inum, short jump1, short jump2) {
@@ -877,11 +876,11 @@ int EventManager::isAdd_8(short jump1, short jump2) {
 }
 int EventManager::getGongtiLevel(int rnum, int gongti) {
 	if (rnum >= 0 && gongti >= -1) {
-		if (Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[gongti]].MaxLevel > Save::getInstance()->m_Character[rnum].MagLevel[gongti] / 100) {
-			return Save::getInstance()->m_Character[rnum].MagLevel[gongti] / 100;
+		if (Save::getInstance()->magics_[Save::getInstance()->roles_[rnum].LMagic[gongti]].MaxLevel > Save::getInstance()->roles_[rnum].MagLevel[gongti] / 100) {
+			return Save::getInstance()->roles_[rnum].MagLevel[gongti] / 100;
 		}
 		else {
-			return Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[gongti]].MaxLevel;
+			return Save::getInstance()->magics_[Save::getInstance()->roles_[rnum].LMagic[gongti]].MaxLevel;
 		}
 	}
 	else {
@@ -890,69 +889,69 @@ int EventManager::getGongtiLevel(int rnum, int gongti) {
 }
 
 int EventManager::getRoleSpeed(int rnum, bool equip = false) {
-	short speed = Save::getInstance()->m_Character[rnum].Speed;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		speed += Save::getInstance()->m_Magic[magicnum].AddSpd[getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi)];
+	short speed = Save::getInstance()->roles_[rnum].Speed;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		speed += Save::getInstance()->magics_[magicnum].AddSpd[getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi)];
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				speed += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddSpeed;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				speed += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddSpeed;
 			}
 		}
 	}
-	speed = speed * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
+	speed = speed * 100 / (100 + Save::getInstance()->roles_[rnum].Wounded + Save::getInstance()->roles_[rnum].Poison);
 	return speed;	
 }
 
 int EventManager::getRoleDefence(int rnum, bool equip = false) {
-	short defence = Save::getInstance()->m_Character[rnum].Defence;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		defence += Save::getInstance()->m_Magic[magicnum].AddDef[getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi)];
+	short defence = Save::getInstance()->roles_[rnum].Defence;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		defence += Save::getInstance()->magics_[magicnum].AddDef[getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi)];
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				defence += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddDefence;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				defence += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddDefence;
 			}
 		}
 	}
-	defence = defence * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
+	defence = defence * 100 / (100 + Save::getInstance()->roles_[rnum].Wounded + Save::getInstance()->roles_[rnum].Poison);
 	return defence;
 }
 
 int EventManager::getRoleAttack(int rnum, bool equip = false) {
-	short attack = Save::getInstance()->m_Character[rnum].Attack;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		attack += Save::getInstance()->m_Magic[magicnum].AddAtt[getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi)];
+	short attack = Save::getInstance()->roles_[rnum].Attack;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		attack += Save::getInstance()->magics_[magicnum].AddAtt[getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi)];
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				attack += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddAttack;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				attack += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddAttack;
 			}
 		}
 	}
-	attack = attack * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
+	attack = attack * 100 / (100 + Save::getInstance()->roles_[rnum].Wounded + Save::getInstance()->roles_[rnum].Poison);
 	return attack;
 }
 
 
 int EventManager::getRoleBoxing(int rnum, bool equip = false) {
-	short boxing = Save::getInstance()->m_Character[rnum].Boxing;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			boxing += Save::getInstance()->m_Magic[magicnum].AddBoxing;
+	short boxing = Save::getInstance()->roles_[rnum].Boxing;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			boxing += Save::getInstance()->magics_[magicnum].AddBoxing;
 		}		
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				boxing += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddBoxing;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				boxing += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddBoxing;
 			}
 		}
 	}
@@ -960,17 +959,17 @@ int EventManager::getRoleBoxing(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleFencing(int rnum, bool equip = false) {
-	short Fencing = Save::getInstance()->m_Character[rnum].Fencing;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			Fencing += Save::getInstance()->m_Magic[magicnum].AddFencing;
+	short Fencing = Save::getInstance()->roles_[rnum].Fencing;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			Fencing += Save::getInstance()->magics_[magicnum].AddFencing;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				Fencing += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddFencing;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				Fencing += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddFencing;
 			}
 		}
 	}
@@ -978,17 +977,17 @@ int EventManager::getRoleFencing(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleKnife(int rnum, bool equip = false) {
-	short knife = Save::getInstance()->m_Character[rnum].Fencing;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			knife += Save::getInstance()->m_Magic[magicnum].AddKnife;
+	short knife = Save::getInstance()->roles_[rnum].Fencing;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			knife += Save::getInstance()->magics_[magicnum].AddKnife;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				knife += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddKnife;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				knife += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddKnife;
 			}
 		}
 	}
@@ -996,17 +995,17 @@ int EventManager::getRoleKnife(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleSpecial(int rnum, bool equip = false) {
-	short special = Save::getInstance()->m_Character[rnum].SpecialSkill;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			special += Save::getInstance()->m_Magic[magicnum].AddSpecial;
+	short special = Save::getInstance()->roles_[rnum].SpecialSkill;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			special += Save::getInstance()->magics_[magicnum].AddSpecial;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				special += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddSpecial;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				special += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddSpecial;
 			}
 		}
 	}
@@ -1014,17 +1013,17 @@ int EventManager::getRoleSpecial(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleShader(int rnum, bool equip = false) {
-	short shader = Save::getInstance()->m_Character[rnum].Shader;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			shader += Save::getInstance()->m_Magic[magicnum].AddShader;
+	short shader = Save::getInstance()->roles_[rnum].Shader;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			shader += Save::getInstance()->magics_[magicnum].AddShader;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				shader += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddShader;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				shader += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddShader;
 			}
 		}
 	}
@@ -1032,17 +1031,17 @@ int EventManager::getRoleShader(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleDefpoi(int rnum, bool equip = false) {
-	short defpoi = Save::getInstance()->m_Character[rnum].DefPoison;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			defpoi += Save::getInstance()->m_Magic[magicnum].AddDefPoi;
+	short defpoi = Save::getInstance()->roles_[rnum].DefPoison;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			defpoi += Save::getInstance()->magics_[magicnum].AddDefPoi;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				defpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddDefPoi;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				defpoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddDefPoi;
 			}
 		}
 	}
@@ -1051,11 +1050,11 @@ int EventManager::getRoleDefpoi(int rnum, bool equip = false) {
 
 
 int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
-	short attpoi = Save::getInstance()->m_Character[rnum].AttPoison;
+	short attpoi = Save::getInstance()->roles_[rnum].AttPoison;
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				attpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddAttPoi;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				attpoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddAttPoi;
 			}
 		}
 	}
@@ -1063,17 +1062,17 @@ int EventManager::getRoleAttpoi(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleUsepoi(int rnum, bool equip = false) {
-	short usepoi = Save::getInstance()->m_Character[rnum].AttPoison;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			usepoi += Save::getInstance()->m_Magic[magicnum].AddUsePoi;
+	short usepoi = Save::getInstance()->roles_[rnum].AttPoison;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			usepoi += Save::getInstance()->magics_[magicnum].AddUsePoi;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				usepoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddUsePoi;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				usepoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddUsePoi;
 			}
 		}
 	}
@@ -1082,17 +1081,17 @@ int EventManager::getRoleUsepoi(int rnum, bool equip = false) {
 
 
 int EventManager::getRoleMedpoi(int rnum, bool equip = false) {
-	short medpoi = Save::getInstance()->m_Character[rnum].AttPoison;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			medpoi += Save::getInstance()->m_Magic[magicnum].AddMedPoi;
+	short medpoi = Save::getInstance()->roles_[rnum].AttPoison;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			medpoi += Save::getInstance()->magics_[magicnum].AddMedPoi;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				medpoi += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddMedPoison;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				medpoi += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddMedPoison;
 			}
 		}
 	}
@@ -1100,17 +1099,17 @@ int EventManager::getRoleMedpoi(int rnum, bool equip = false) {
 }
 
 int EventManager::getRoleMedicine(int rnum, bool equip = false) {
-	short medicine = Save::getInstance()->m_Character[rnum].AttPoison;
-	if (Save::getInstance()->m_Character[rnum].GongTi > -1) {
-		int magicnum = Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi];
-		if (getGongtiLevel(rnum, Save::getInstance()->m_Character[rnum].GongTi) == Save::getInstance()->m_Magic[magicnum].MaxLevel) {
-			medicine += Save::getInstance()->m_Magic[magicnum].AddMedcine;
+	short medicine = Save::getInstance()->roles_[rnum].AttPoison;
+	if (Save::getInstance()->roles_[rnum].GongTi > -1) {
+		int magicnum = Save::getInstance()->roles_[rnum].LMagic[Save::getInstance()->roles_[rnum].GongTi];
+		if (getGongtiLevel(rnum, Save::getInstance()->roles_[rnum].GongTi) == Save::getInstance()->magics_[magicnum].MaxLevel) {
+			medicine += Save::getInstance()->magics_[magicnum].AddMedcine;
 		}
 	}
 	if (equip) {
 		for (int i = 0; i < config::MaxEquipNum; i++) {
-			if (Save::getInstance()->m_Character[rnum].Equip[i] >= 0) {
-				medicine += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[i]].AddMedcine;
+			if (Save::getInstance()->roles_[rnum].Equip[i] >= 0) {
+				medicine += Save::getInstance()->items_[Save::getInstance()->roles_[rnum].Equip[i]].AddMedcine;
 			}
 		}
 	}
@@ -1120,16 +1119,16 @@ int EventManager::getRoleMedicine(int rnum, bool equip = false) {
 void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
 	int curScene = snum;
 	if (x == -2) {
-		x = Save::getInstance()->m_SceneData[curScene].EntranceX;
+		x = Save::getInstance()->submap_records_[curScene].EntranceX;
 	}
 	if (y == -2) {
-		y = Save::getInstance()->m_SceneData[curScene].EntranceY;
+		y = Save::getInstance()->submap_records_[curScene].EntranceY;
 	}
-	Save::getInstance()->m_Character[0].CurrentPosition = curScene;
+	Save::getInstance()->roles_[0].CurrentPosition = curScene;
 	auto s = new SubMap(curScene);
 	s->setPosition(x, y);
 	s->push(s);
-	if (Save::getInstance()->m_SceneData[curScene].IsBattle&&Save::getInstance()->m_Character[0].Faction == Save::getInstance()->m_SceneData[curScene].Faction) {
+	if (Save::getInstance()->submap_records_[curScene].IsBattle&&Save::getInstance()->roles_[0].Faction == Save::getInstance()->submap_records_[curScene].Faction) {
 		//Faction battle need to be finished.
 	}
 }
@@ -1137,8 +1136,8 @@ void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
 int EventManager::GetItemCount(int inum) {
 
 	for (int i = 0; i < config::MAX_ITEM_COUNT - 1; i++) {
-		if (Save::getInstance()->m_BasicData[0].m_RItemList->Number == inum) {
-			return Save::getInstance()->m_BasicData[0].m_RItemList->Amount;
+		if (Save::getInstance()->global_data_[0].m_RItemList->Number == inum) {
+			return Save::getInstance()->global_data_[0].m_RItemList->Amount;
 		}
 	}
 }
@@ -1150,13 +1149,13 @@ void EventManager::StudyMagic(int rnum, int magicnum, int newmagicnum, int level
 	}
 	else if (newmagicnum == 0) {		//delete magic
 		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
-			if (Save::getInstance()->m_Character[rnum].LMagic[i] == magicnum) {				
+			if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum) {				
 				for (int n = i; n < config::MaxMagicNum - 2; n++) {
-					Save::getInstance()->m_Character[rnum].LMagic[n] = Save::getInstance()->m_Character[rnum].LMagic[n + 1];
-					Save::getInstance()->m_Character[rnum].MagLevel[n] = Save::getInstance()->m_Character[rnum].MagLevel[n + 1];
+					Save::getInstance()->roles_[rnum].LMagic[n] = Save::getInstance()->roles_[rnum].LMagic[n + 1];
+					Save::getInstance()->roles_[rnum].MagLevel[n] = Save::getInstance()->roles_[rnum].MagLevel[n + 1];
 				}
-				Save::getInstance()->m_Character[rnum].LMagic[29] = 0;
-				Save::getInstance()->m_Character[rnum].MagLevel[29] = 0;
+				Save::getInstance()->roles_[rnum].LMagic[29] = 0;
+				Save::getInstance()->roles_[rnum].MagLevel[29] = 0;
 				break;
 			}
 		}
@@ -1164,20 +1163,20 @@ void EventManager::StudyMagic(int rnum, int magicnum, int newmagicnum, int level
 	}
 	else {
 		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
-			if (Save::getInstance()->m_Character[rnum].LMagic[i] == newmagicnum) {
+			if (Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum) {
 				if (level == -2) {
 					level = 0;
 				}
 				max0 = 9;
-				if (Save::getInstance()->m_Magic[newmagicnum].MagicType == 5) {
-					max0 = Save::getInstance()->m_Magic[newmagicnum].MaxLevel;
+				if (Save::getInstance()->magics_[newmagicnum].MagicType == 5) {
+					max0 = Save::getInstance()->magics_[newmagicnum].MaxLevel;
 				}
-				tmp = Save::getInstance()->m_Character[rnum].MagLevel[i];
-				if (max0 * 100 + 99 > Save::getInstance()->m_Character[rnum].MagLevel[i] + level + 100) {
-					Save::getInstance()->m_Character[rnum].MagLevel[i] = Save::getInstance()->m_Character[rnum].MagLevel[i] + level + 100;
+				tmp = Save::getInstance()->roles_[rnum].MagLevel[i];
+				if (max0 * 100 + 99 > Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100) {
+					Save::getInstance()->roles_[rnum].MagLevel[i] = Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100;
 				}
 				else {
-					Save::getInstance()->m_Character[rnum].MagLevel[i] = max0 * 100 + 99;
+					Save::getInstance()->roles_[rnum].MagLevel[i] = max0 * 100 + 99;
 				}
 				StudyMagic(rnum, magicnum, 0, 0, 0);
 				break;
@@ -1185,11 +1184,11 @@ void EventManager::StudyMagic(int rnum, int magicnum, int newmagicnum, int level
 		}
 		if (magicnum > 0) {
 		for (int i = 0; i < config::MaxMagicNum - 1; i++) {
-			if (Save::getInstance()->m_Character[rnum].LMagic[i] == magicnum || Save::getInstance()->m_Character[rnum].LMagic[i] < 0) {
+			if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum || Save::getInstance()->roles_[rnum].LMagic[i] < 0) {
 				if (level != -2) {
-					Save::getInstance()->m_Character[rnum].MagLevel[i] = level;
+					Save::getInstance()->roles_[rnum].MagLevel[i] = level;
 				}
-				Save::getInstance()->m_Character[rnum].LMagic[i] == newmagicnum;
+				Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum;
 				break;
 			}
 		}			

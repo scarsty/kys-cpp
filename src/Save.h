@@ -5,7 +5,6 @@
 enum
 {
     _Rtypecount = 10,
-    SLayerCount = 6,
     SceneMaxX = 64,
     SceneMaxY = 64,
     PerSceneMaxEvent = 400,                          //单场景最大事件数
@@ -35,6 +34,9 @@ struct GlobalData
     //short m_sDifficulty, m_sCheating, m_sBeiyong[4];
 };
 
+class Save;
+struct Magic;
+
 struct Role
 {
     int16_t ID;
@@ -45,21 +47,21 @@ struct Role
     int16_t CurrentHP, MaxHP, Hurt, Poison, PhyPower;
     uint16_t ExpForItem;
     int16_t Equip1, Equip2;
-    int16_t  Frame[12];
+    int16_t Frame[15];
     int16_t MPType, CurrentMP, MaxMP;
     int16_t Attack, Speed, Defence, Medcine, UsePoi, MedPoi, DefPoi, Fist, Sword, Knife, Unusual, HidWeapon;
     int16_t  Knowledge, Ethics, AttPoi, AttTwice, Repute, Aptitude, PracticeBook;
     uint16_t ExpForBook;
-    int16_t Magic[10], MagLevel[10];
+    int16_t MagicID[10], MagicLevel[10];
     int16_t TakingItem[4], TakingItemAmount[4];
+    Magic* getLearnedMagic(int i) { return nullptr; }
 };
-
 
 struct Item
 {
     int16_t ID;
-    char Name[20];
-    int16_t Introduction[30]; //36
+    char Name[20], Name1[20];
+    char Introduction[30]; //36
     int16_t Placeholder2, Magic, AmiNum, User, EquipType, ShowIntro, ItemType, Inventory, Price, EventNum; //46
     int16_t AddCurrentHP, AddMaxHP, AddPoi, AddPhyPower, ChangeMPType, AddCurrentMP, AddMaxMP, AddAttack, AddSpeed;
     int16_t AddDefence, AddMedcine, AddUsePoi, AddMedPoison, AddDefPoi; //60
@@ -79,11 +81,8 @@ struct Magic
     int16_t Attack[10], MoveDistance[10], AttDistance[10], AddMP[10], HurtMP[10];
 };
 
-class SubMapRecord
+struct SubMapRecord
 {
-public:
-    SubMapRecord();
-    ~SubMapRecord();
     int16_t ID;
     char Name[10];
     int16_t ExitMusic, EntranceMusic;
@@ -97,17 +96,16 @@ public:
 struct SubMapData
 {
     short Earth[SceneMaxX][SceneMaxY];
-    short Earth[SceneMaxX][SceneMaxY];
-    short Earth[SceneMaxX][SceneMaxY];
-    short Earth[SceneMaxX][SceneMaxY];
-    short Earth[SceneMaxX][SceneMaxY];
-    short Earth[SceneMaxX][SceneMaxY];
+    short Building[SceneMaxX][SceneMaxY];
+    short Decoration[SceneMaxX][SceneMaxY];
+    short Event[SceneMaxX][SceneMaxY];
+    short BuildingHeight[SceneMaxX][SceneMaxY];
+    short EventHeight[SceneMaxX][SceneMaxY];
 };
 
 struct SubMapEvent
 {
-    short CanWalk, Num, Event1, Event2, Event3, BeginPic1, EndPic, BeginPic2, PicDelay, XPos, YPos;
-    short StartTime, Duration, Interval, DoneTime, IsActive, OutTime, OutEvent;
+    int16_t CanWalk, Num, Event1, Event2, Event3, BeginPic1, EndPic, BeginPic2, PicDelay, XPos, YPos;
 };
 
 struct SceneEventData
@@ -126,12 +124,8 @@ public:
     Save();
     ~Save();
 
-    int* Offset;
-    unsigned char key = 156;
-    unsigned char password;
     int Rgrplen;
     int Ridxlen = _Rtypecount * 4;
-    unsigned char* GRPMD5_cal, *GRPMD5_load;
     int B_Count;                                        //基础数据数量
     int R_Count;                                        //角色数量
     int I_Count;                                        //物品数量
@@ -145,25 +139,32 @@ public:
     bool LoadR(int num);
     bool SaveR(int num);
 
-    static Save save;
+    static Save save_;
     static Save* getInstance()
     {
-        return &save;
+        return &save_;
     }
 
-    void jiemi(unsigned char* Data, unsigned char key, int len);
-    void encryption(std::string str, unsigned char key);
+    std::vector<int> offset, length;
 
-    //std::vector<BaoShop> m_Baoshop;
-    //std::vector<BasicData> m_BasicData;
-    //std::vector<Character> m_Character;
-    //std::vector<Calendar> m_Calendar;
-    //std::vector<Faction> m_Faction;
-    //std::vector<Magic> m_Magic;
-    //std::vector<SceneData> m_SceneData;
-    //std::vector<ZhaoShi> m_ZhaoShi;
-    //std::vector<Item> m_Item;
-    std::vector<SubMapData> m_SceneMapData;
+    GlobalData global_data_;
+
+    std::vector<Role> roles_;
+    std::vector<Magic> magics_;
+    std::vector<Item> items_;
+    std::vector<SubMapRecord> submap_records_;
+    std::vector<SubMapData> submap_data_;
+    std::vector<Shop> shops_;
     std::vector<SceneEventData> m_SceneEventData;
+
+    GlobalData* getGlobalData() { return&global_data_; }
+
+    Role* getRole(int i) { return &roles_[i]; }
+    Magic* getMagic(int i) { return &magics_[i]; }
+    Item* getItem(int i) { return &items_[i]; }
+    SubMapRecord* getSubMapRecord(int i) { return &submap_records_[i]; }
+
+    void fromCP950ToCP936(char* s);
+
 };
 

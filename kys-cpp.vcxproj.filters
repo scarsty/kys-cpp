@@ -13,16 +13,7 @@
     <ClCompile Include="src\Button.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Calendar.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Engine.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Error.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\File.cpp">
@@ -52,12 +43,6 @@
     <ClCompile Include="src\Dialogues.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\UI.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Sprite.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Application.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -68,9 +53,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\PotConv.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -87,19 +69,10 @@
     <ClInclude Include="src\Button.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\Calendar.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Engine.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\Error.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Event.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Faction.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\File.h">
@@ -120,16 +93,10 @@
     <ClInclude Include="src\Scene.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\ZhaoShi.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\BattleData.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Dialogues.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UI.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Application.h">

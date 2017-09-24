@@ -4,9 +4,7 @@
 #include <string>
 #include <math.h>
 #include <algorithm>
-#include "config.h"
 #include "Save.h"
-#include "UI.h"
 #include "Menu.h"
 
 BattleScene::BattleScene()
@@ -1164,7 +1162,7 @@ int BattleScene::getGongtiLevel(int rnum)
     //    else { return Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel; }
     //}
     //else { return 0; }
-    //return 0;
+    return 0;
 }
 
 

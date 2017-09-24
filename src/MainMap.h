@@ -1,7 +1,6 @@
 #pragma once
 #include <stack>
 #include "Scene.h"
-#include "Cloud.h"
 #include <queue>
 
 class Cloud : public Base

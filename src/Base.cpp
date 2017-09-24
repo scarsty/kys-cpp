@@ -2,16 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-std::vector<Base*> Base::base_vector_;
-
-Base::Base()
-{
-}
-
-Base::~Base()
-{
-
-}
+std::vector<Base*> Base::base_need_draw_;
 
 void Base::LOG(const char* format, ...)
 {
@@ -27,17 +18,17 @@ void Base::drawAll()
 {
     //从最后一个独占屏幕的场景开始画
     int begin_base = 0;
-    for (int i = 0; i < Base::base_vector_.size(); i--)    //记录最后一个全屏的层
+    for (int i = 0; i < Base::base_need_draw_.size(); i--)    //记录最后一个全屏的层
     {
-        base_vector_[i]->backRun();
-        if (Base::base_vector_[i]->full_window_)
+        base_need_draw_[i]->backRun();
+        if (Base::base_need_draw_[i]->full_window_)
         {
             begin_base = i;
         }
     }
-    for (int i = begin_base; i < Base::base_vector_.size(); i++)  //从最后一个全屏层开始画
+    for (int i = begin_base; i < Base::base_need_draw_.size(); i++)  //从最后一个全屏层开始画
     {
-        auto b = Base::base_vector_[i];
+        auto b = Base::base_need_draw_[i];
         if (b->visible_)
         { b->draw(); }
     }
@@ -52,12 +43,14 @@ void Base::run()
 {
     BP_Event e;
     auto engine = Engine::getInstance();
+    init();
     push(this);
+    entrance();
     loop_ = true;
     while (loop_ && engine->pollEvent(e) >= 0)
     {
         int t0 = engine->getTicks();
-        if (Base::base_vector_.size() == 0) { break; }
+        if (Base::base_need_draw_.size() == 0) { break; }
         Base::drawAll();
         //仅处理本层的消息
         dealEvent(e);
@@ -76,16 +69,17 @@ void Base::run()
         if (t>0)
         engine->delay(t);
     }
+    exit();
     pop();
 }
 
 Base* Base::pop()
 {
     Base* b = nullptr;
-    if (base_vector_.size() > 0)
+    if (base_need_draw_.size() > 0)
     {
-        b = base_vector_.back();
-        base_vector_.pop_back();
+        b = base_need_draw_.back();
+        base_need_draw_.pop_back();
     }
     return b;
 }

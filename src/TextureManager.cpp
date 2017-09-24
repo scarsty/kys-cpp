@@ -7,7 +7,6 @@ TextureManager::TextureManager()
 {
 }
 
-
 TextureManager::~TextureManager()
 {
     for (auto& m : map_)
@@ -43,7 +42,7 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
     //纹理组信息
     if (v.size() == 0)
     {
-        unsigned char* s;
+        char* s;
         int l = 0;
         File::readFile((p + "/index.ka").c_str(), &s, &l);
         if (l == 0) { return nullptr; }

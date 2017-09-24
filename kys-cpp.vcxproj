@@ -167,11 +167,8 @@
     <ClCompile Include="src\BattleData.cpp" />
     <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\Button.cpp" />
-    <ClCompile Include="src\Calendar.cpp" />
     <ClCompile Include="src\Dialogues.cpp" />
     <ClCompile Include="src\Engine.cpp" />
-    <ClCompile Include="src\Error.cpp" />
-    <ClCompile Include="src\Event.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
@@ -181,10 +178,7 @@
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
     <ClCompile Include="src\Scene.cpp" />
-    <ClCompile Include="src\Sprite.cpp" />
-    <ClCompile Include="src\SubMap.cpp" />
     <ClCompile Include="src\TextureManager.cpp" />
-    <ClCompile Include="src\UI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Application.h" />
@@ -193,12 +187,9 @@
     <ClInclude Include="src\BattleData.h" />
     <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\Button.h" />
-    <ClInclude Include="src\Calendar.h" />
     <ClInclude Include="src\Dialogues.h" />
     <ClInclude Include="src\Engine.h" />
-    <ClInclude Include="src\Error.h" />
     <ClInclude Include="src\Event.h" />
-    <ClInclude Include="src\Faction.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\PotConv.h" />
     <ClInclude Include="src\TitleScene.h" />
@@ -209,8 +200,6 @@
     <ClInclude Include="src\Scene.h" />
     <ClInclude Include="src\SubMap.h" />
     <ClInclude Include="src\TextureManager.h" />
-    <ClInclude Include="src\UI.h" />
-    <ClInclude Include="src\ZhaoShi.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -89,7 +89,7 @@ void MenuText::setItems(std::vector<std::string> items)
     int len = 0;
     for (auto& item : items_)
     {
-        len = max(len, item.length());
+        if (item.length() > len) len = item.length();
     }
     w_ = 10 * len;
     h_ = 25 * items_.size();

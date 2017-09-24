@@ -23,7 +23,7 @@ bool BattleData::isLoad()
 {
     string fileName;
     fileName = "War.sta";
-    unsigned char* buffer;
+    char* buffer;
     int len;
     File::readFile(fileName.c_str(), &buffer, &len);
     size_t B_Count = len / sizeof(BattleData);

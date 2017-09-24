@@ -1,5 +1,5 @@
 #pragma once
-#include "UI.h"
+#include "Base.h"
 
 typedef std::function<void()> ButtonFunc;
 #define BIND_FUNC(func) std::bind(&func, this)
@@ -13,7 +13,7 @@ typedef std::function<void()> ButtonFunc;
 
 */
 
-class Button : public UI
+class Button : public Base
 {
 public:
     Button() {}

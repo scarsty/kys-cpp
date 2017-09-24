@@ -1,10 +1,11 @@
 #pragma once
-#include "UI.h"
 #include <vector>
 #include <string>
+#include "Base.h"
+
 using namespace std;
 class Dialogues :
-	public UI
+	public Base
 {
 public:
 	Dialogues();

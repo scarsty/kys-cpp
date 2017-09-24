@@ -1,13 +1,17 @@
 #include "Save.h"
 #include <string>
 #include <iostream>
-#include <fstream>      // std::ifstream
-#include "Event.h"
-const int MD5len = 32;
+#include <fstream>
+#include "File.h"
+#include "PotConv.h"
 
-using namespace std;
+Save Save::save_;
 
-Save Save::save;
+void Save::fromCP950ToCP936(char* s)
+{
+    auto str = PotConv::cp950tocp936(s);
+    memcpy(s, str.data(), str.length());
+}
 
 Save::Save()
 {
@@ -16,186 +20,196 @@ Save::Save()
 
 Save::~Save()
 {
-
 }
 
 bool Save::LoadR(int num)
 {
-	EventManager *event = EventManager::getInstance();
-//	event->initEventData();
-
-    string filename, filename1;
+    std::string filename, filename_idx;
     int i;
-    filename = "save/R" + to_string(num);
+    filename = "../game/save/r" + std::to_string(num)+".grp";
     if (num == 0)
     {
-        filename = "save/Ranger";
+        filename = "../game/save/ranger.grp";
     }
-    filename1 = filename + ".idx";
-    unsigned char* Ridx = new unsigned char[Ridxlen];
-    Offset = new int[Ridxlen / 4 + 1];
-    Offset = new int[Ridxlen / 4 + 1];
-    Offset[0] = 0;
-    std::fprintf(stderr, "load file %s\n", filename1.c_str());
-    File::readFile(filename1.c_str(), Ridx, Ridxlen);
-    memcpy(Offset+1, Ridx, Ridxlen);
+    filename_idx = "../game/save/ranger.idx";
+    int* Ridx;
+    int len;
+    File::readFile(filename_idx.c_str(), (char**)&Ridx, &len);
 
-    int GrpLenth;
-    filename1 = filename + ".grp";
-    unsigned char* Rgrp;
-	std::fprintf(stderr, "load file %s\n", filename1.c_str());
-    File::readFile(filename1.c_str(), &Rgrp, &GrpLenth);
-    //jiemi(Rgrp, key, Rgrplen);
-//     i = 0;
-//     GRPMD5_load = new unsigned char[32];
-//     memcpy(GRPMD5_load, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
-
-    //载入基本数据
-    i = 0;
-    int a = sizeof(GlobalData);
-    int b = (Offset[i + 1] - Offset[i]);
-    B_Count =  1;
-    m_BasicData.resize(B_Count);
-    //BasicData* pBasicData = &m_BasicData.at(0);
-    memcpy(&m_BasicData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
-    
-    //载入人物数据
-    i = 1;
-    R_Count = (Offset[i + 1] - Offset[i]) / sizeof(Character);
-    m_Character.resize(R_Count);
-    for (int j = 0; j < R_Count; j++){
-        Character* pCharacter = &m_Character.at(j);
-        memcpy(pCharacter, Rgrp + Offset[i] + j*sizeof(Character), sizeof(Character));
-    }
-    
-    
-    //载入物品数据
-    i = 2;
-    I_Count = (Offset[i + 1] - Offset[i]) / sizeof(Item);
-    m_Item.resize(I_Count);
-    for (int j = 0; j < I_Count; j++){
-        Item* pItem = &m_Item.at(j);
-        memcpy(pItem, Rgrp + Offset[i] + j*sizeof(Item), sizeof(Item));
-    }
-    
-    //载入场景数据
-    i = 3;
-    S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SubMapRecord);
-    m_SceneData.resize(S_Count);
-	//memcpy(&m_SceneData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
-     for (int j = 0; j < S_Count; j++)
-     {
-         memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SubMapRecord), sizeof(SubMapRecord));
-     }
-    
-    //载入武功数据
-    i = 4;
-    M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Magic);
-    m_Magic.resize(M_Count);
-    for (int j = 0; j < M_Count; j++){
-        Magic* pMagic = &m_Magic.at(j);
-        memcpy(pMagic, Rgrp + Offset[i] + j*sizeof(Magic), sizeof(Magic));
-    }
-
-    
-    //载入小宝商店数据
-    i = 5;
-    SP_Count = (Offset[i + 1] - Offset[i]) / sizeof(BaoShop);
-    m_Baoshop.resize(SP_Count);
-    for (int j = 0; j < SP_Count; j++){
-        BaoShop* pBaoShop = &m_Baoshop.at(j);
-        memcpy(pBaoShop, Rgrp + Offset[i] + j*sizeof(BaoShop), sizeof(BaoShop));
-    }
-    
-    //载入
-    i = 6;
-    m_Calendar.resize(1);
-	Calendar* pCalendar = &m_Calendar.at(0);
-    memcpy(pCalendar, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
-    
-    
-    i = 7;
-    Z_Count = (Offset[i + 1] - Offset[i]) / sizeof(ZhaoShi);
-    m_ZhaoShi.resize(Z_Count);
-    for (int j = 0; j < Z_Count; j++){
-        ZhaoShi* pZhaoShi = &m_ZhaoShi.at(j);
-        memcpy(pZhaoShi, Rgrp + Offset[i] + j*sizeof(ZhaoShi), sizeof(ZhaoShi));
-    }
-
-    
-    i = 8;
-    M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Faction);
-    m_Faction.resize(M_Count);
-    for (int j = 0; j < M_Count; j++){
-        Faction* pFaction = &m_Faction.at(j);
-        memcpy(pFaction, Rgrp + Offset[i] + j*sizeof(Faction), sizeof(Faction));
-    }
-    // Rgrp.clear();
-    
-    
-     //       GRPMD5_cal = new unsigned char[MD5len];
-     //       strcpy((char *)GRPMD5_cal, (char *)(MD5Encode(Data + MD5len, Rgrplen - MD5len)));
-     //       //对比md5
-     //       memcmp(GRPMD5_cal, Data, MD5len);
-    delete(Rgrp);
-    
-    m_SceneMapData.resize(S_Count);
-    filename = "save/S" + to_string(num);
-    if (num == 0)
+    offset.resize(len / 4 + 1);
+    length.resize(len / 4);
+    offset[0] = 0;
+    for (int i = 0; i < len / 4; i++)
     {
-        filename = "save/allsin";
+        offset[i + 1] = Ridx[i];
+        length[i] = offset[i + 1] - offset[i];
     }
-    filename = filename + ".grp";
-    fprintf(stderr, "load file %s\n", filename.c_str());
-    File::readFile(filename.c_str(), (void*)(&m_SceneMapData[0].Data[0][0][0]), S_Count * 64 * 64 * 6 * 2);
-   
-     unsigned char *Data2;
-     m_SceneEventData.resize(S_Count);
-     filename = "save/D" + to_string(num);
-     if (num == 0)
-     {
-		 filename = "save/alldef";
-     }
-     filename = filename + ".grp";
-	 fprintf(stderr, "load file %s\n", filename.c_str());
-	 File::readFile(filename.c_str(), (void*)(&m_SceneEventData[0].Data[0]), S_Count * 400 * 18 * 2);
+    int total_length = offset.back();
+    delete Ridx;
 
-       //readSD(filename1, Data, (unsigned char *)DData, S_Count *sizeof(TSceneDData));
-    //  cocos2d::Data ios = FileUtils::getInstance()->getDataFromFile(filename);
-    //  if (!ios.isNull())
-    //  {
-    //      int len = ios.getSize();
-    //      int length = (len - 32) / (64 * 64 * 2 * 6);
-    //      Data2 = new unsigned char[len];
-    //      memcpy(Data2, ios.getBytes(), len);
-    //      jiemi(Data2, key, len);
-    //      memcpy(GRPMD5_load, Data2, MD5len);
-    //      SceneEventData* pDData = &m_SceneEventData.at(0);
-    //      memcpy(pDData, Data2 + 32, length * 400 * 18 * 2);
-    //      ios.clear();
-    //      delete(Data2);
-    //  }
-    //  else
-    //  {
-    //      return false;
-    //  }
-    //
+    auto Rgrp = new char[total_length];
+    File::readFile(filename.c_str(), Rgrp, total_length);
 
-    //战场数据
+    memcpy(&global_data_, Rgrp + offset[0], length[0]);
 
-    return  true;
-}
-
-
-void Save::jiemi(unsigned char* Data, unsigned char key, int len)
-{
-    int i;
-    unsigned char password;
-    for (i = 0; i < len; i++)
+    int c = 1;
+    roles_.resize(length[c]/sizeof(Role));
+    memcpy(&roles_[0], Rgrp+offset[c], length[c]);
+    for (auto& r : roles_)
     {
-        password = key << (i % 5);
-        *(Data + i) ^= password;
+        fromCP950ToCP936(r.Name);
+        fromCP950ToCP936(r.Nick);
     }
+
+    c = 2;
+    items_.resize(length[c] / sizeof(Item));
+    memcpy(&items_[0], Rgrp + offset[c], length[c]);
+    for (auto& i : items_)
+    {
+        fromCP950ToCP936(i.Name);
+        fromCP950ToCP936(i.Introduction);
+    }
+
+    c = 3;
+    submap_records_.resize(length[c] / sizeof(SubMapRecord));
+    memcpy(&submap_records_[0], Rgrp + offset[c], length[c]);
+
+    c = 4;
+    int s = sizeof(Magic);
+    magics_.resize(length[c] / sizeof(Magic));
+    memcpy(&magics_[0], Rgrp + offset[c], length[c]);
+
+    c = 5;
+    shops_.resize(length[c] / sizeof(Shop));
+    memcpy(&shops_[0], Rgrp + offset[c], length[c]);
+
+    return true;
+
+//    Offset = new int[Ridxlen / 4 + 1];
+//    Offset = new int[Ridxlen / 4 + 1];
+//    Offset[0] = 0;
+//    std::fprintf(stderr, "load file %s\n", filename_idx.c_str());
+//    File::readFile(filename_idx.c_str(), Ridx, Ridxlen);
+//    memcpy(Offset+1, Ridx, Ridxlen);
+//
+//    int GrpLenth;
+//    filename_idx = filename + ".grp";
+//    unsigned char* Rgrp;
+//	std::fprintf(stderr, "load file %s\n", filename_idx.c_str());
+//    File::readFile(filename_idx.c_str(), &Rgrp, &GrpLenth);
+//    //jiemi(Rgrp, key, Rgrplen);
+////     i = 0;
+////     GRPMD5_load = new unsigned char[32];
+////     memcpy(GRPMD5_load, Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+//
+//    //载入基本数据
+//    i = 0;
+//    int a = sizeof(GlobalData);
+//    int b = (Offset[i + 1] - Offset[i]);
+//    B_Count =  1;
+//    global_data_.resize(B_Count);
+//    //BasicData* pBasicData = &m_BasicData.at(0);
+//    memcpy(&global_data_.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+//    
+//    //载入人物数据
+//    i = 1;
+//    R_Count = (Offset[i + 1] - Offset[i]) / sizeof(Character);
+//    roles_.resize(R_Count);
+//    for (int j = 0; j < R_Count; j++){
+//        Character* pCharacter = &roles_.at(j);
+//        memcpy(pCharacter, Rgrp + Offset[i] + j*sizeof(Character), sizeof(Character));
+//    }
+//    
+//    
+//    //载入物品数据
+//    i = 2;
+//    I_Count = (Offset[i + 1] - Offset[i]) / sizeof(Item);
+//    items_.resize(I_Count);
+//    for (int j = 0; j < I_Count; j++){
+//        Item* pItem = &items_.at(j);
+//        memcpy(pItem, Rgrp + Offset[i] + j*sizeof(Item), sizeof(Item));
+//    }
+//    
+//    //载入场景数据
+//    i = 3;
+//    S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SubMapRecord);
+//    submap_records_.resize(S_Count);
+//	//memcpy(&m_SceneData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
+//     for (int j = 0; j < S_Count; j++)
+//     {
+//         memcpy(&submap_records_.at(j), Rgrp + Offset[i] + j * sizeof(SubMapRecord), sizeof(SubMapRecord));
+//     }
+//    
+//    //载入武功数据
+//    i = 4;
+//    M_Count = (Offset[i + 1] - Offset[i]) / sizeof(Magic);
+//    magics_.resize(M_Count);
+//    for (int j = 0; j < M_Count; j++){
+//        Magic* pMagic = &magics_.at(j);
+//        memcpy(pMagic, Rgrp + Offset[i] + j*sizeof(Magic), sizeof(Magic));
+//    }
+//
+//    
+//    //载入小宝商店数据
+//    i = 5;
+//    SP_Count = (Offset[i + 1] - Offset[i]) / sizeof(BaoShop);
+//    shops_.resize(SP_Count);
+//    for (int j = 0; j < SP_Count; j++){
+//        BaoShop* pBaoShop = &shops_.at(j);
+//        memcpy(pBaoShop, Rgrp + Offset[i] + j*sizeof(BaoShop), sizeof(BaoShop));
+//    }
+//    
+//    // Rgrp.clear();
+//    
+//    
+//     //       GRPMD5_cal = new unsigned char[MD5len];
+//     //       strcpy((char *)GRPMD5_cal, (char *)(MD5Encode(Data + MD5len, Rgrplen - MD5len)));
+//     //       //对比md5
+//     //       memcmp(GRPMD5_cal, Data, MD5len);
+//    delete(Rgrp);
+//    
+//    submap_data_.resize(S_Count);
+//    filename = "save/S" + to_string(num);
+//    if (num == 0)
+//    {
+//        filename = "save/allsin";
+//    }
+//    filename = filename + ".grp";
+//    fprintf(stderr, "load file %s\n", filename.c_str());
+//    File::readFile(filename.c_str(), (void*)(&submap_data_[0].Data[0][0][0]), S_Count * 64 * 64 * 6 * 2);
+//   
+//     unsigned char *Data2;
+//     m_SceneEventData.resize(S_Count);
+//     filename = "save/D" + to_string(num);
+//     if (num == 0)
+//     {
+//		 filename = "save/alldef";
+//     }
+//     filename = filename + ".grp";
+//	 fprintf(stderr, "load file %s\n", filename.c_str());
+//	 File::readFile(filename.c_str(), (void*)(&m_SceneEventData[0].Data[0]), S_Count * 400 * 18 * 2);
+//
+//       //readSD(filename1, Data, (unsigned char *)DData, S_Count *sizeof(TSceneDData));
+//    //  cocos2d::Data ios = FileUtils::getInstance()->getDataFromFile(filename);
+//    //  if (!ios.isNull())
+//    //  {
+//    //      int len = ios.getSize();
+//    //      int length = (len - 32) / (64 * 64 * 2 * 6);
+//    //      Data2 = new unsigned char[len];
+//    //      memcpy(Data2, ios.getBytes(), len);
+//    //      jiemi(Data2, key, len);
+//    //      memcpy(GRPMD5_load, Data2, MD5len);
+//    //      SceneEventData* pDData = &m_SceneEventData.at(0);
+//    //      memcpy(pDData, Data2 + 32, length * 400 * 18 * 2);
+//    //      ios.clear();
+//    //      delete(Data2);
+//    //  }
+//    //  else
+//    //  {
+//    //      return false;
+//    //  }
+//    //
+
 
 }
 
@@ -271,27 +285,4 @@ bool Save::SaveR(int num)
     return true;
 }
 
-void Save::encryption(string str, unsigned char key)
-{
-    //  int i;
-    //  unsigned char *Data;
-    //  unsigned char password;
-    //  cocos2d::Data Rgrp = FileUtils::getInstance()->getDataFromFile(str);
-    //  if (!Rgrp.isNull())
-    //  {
-    //      auto Rgrplen = Rgrp.getSize();
-    //      Data = new unsigned char[Rgrplen];
-    //      memcpy(Data, Rgrp.getBytes(), Rgrplen);
-    //      for (i = 0; i < Rgrplen; i++)
-    //      {
-    //          password = key << (i % 5);
-    //          *(Data + i) ^= password;
-    //      }
-    //  }
-    //  string filename = "save/Ranger.grp";
-    //  ofstream os(filename, ios_base::out | ios_base::binary);
-    //  os.seekp(ios::beg);
-    //  os << Data;
-    //  os.close();
-}
 

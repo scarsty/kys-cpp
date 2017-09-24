@@ -2,9 +2,6 @@
 #include "Menu.h"
 #include "MainMap.h"
 #include "BattleData.h"
-#include "Dialogues.h"
-#include "UI.h"
-#include "Sprite.h"
 #include "Event.h"
 
 TitleScene::TitleScene()
@@ -27,21 +24,20 @@ void TitleScene::draw()
     TextureManager::getInstance()->renderTexture("title", 10, 670, 100);
 
     int alpha = count_ % 256;
-
     TextureManager::getInstance()->renderTexture("title", 13, 50, 300, { 255, 255, 255, 255 }, alpha);
-
     TextureManager::getInstance()->renderTexture("head", count % 115, 50, 300, { 255, 255, 255, 255 }, alpha);
     count_++;
 }
 
 void TitleScene::dealEvent(BP_Event& e)
 {
+    Save::getInstance()->LoadR(1);
     menu_->run();
     int r = menu_->getResult();
     if (r == 0)
-    {
-        auto m = new MainMap();
-        m->run();
+    {        
+        //auto m = new MainMap();
+        //m->run();
     }
     if (r == 1)
     {

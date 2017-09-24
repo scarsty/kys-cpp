@@ -25,5 +25,6 @@ public:
     static std::string conv(const std::string& src, const std::string& from, const std::string& to);
     static std::string cp936toutf8(const std::string& src) { return conv(src, "cp936", "utf-8"); }
     static std::string cp950toutf8(const std::string& src) { return conv(src, "cp950", "utf-8"); }
+    static std::string cp950tocp936(const std::string& src) { return conv(src, "cp950", "cp936"); }
 };
 
