@@ -1,11 +1,6 @@
 #include "LoadingScene.h"
 #include "MainMap.h"
-#include "SubScene.h"
-
-USING_NS_CC;
-using namespace cocostudio;
-using namespace ui;
-using namespace std;
+#include "SubMap.h"
 
 Scene* Loading::createScene()
 {

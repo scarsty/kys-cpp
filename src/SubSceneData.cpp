@@ -15,11 +15,11 @@
 
 
 
-SceneData::SceneData()
+SubMapRecord::SubMapRecord()
 {
 }
 
 
-SceneData::~SceneData()
+SubMapRecord::~SubMapRecord()
 {
 }

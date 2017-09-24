@@ -2,7 +2,7 @@
 #include <string>
 #include <iostream>
 #include "Engine.h"
-#include"Head.h"
+#include "PotConv.h"
 
 using namespace std;
 
@@ -125,7 +125,7 @@ void Dialogues::draw()
 	{
 		tempTalk = talkString;
 	}
-	Engine::getInstance()->drawText(fontsName,GBKToUTF8(tempTalk), 20, 5, 5, 255, BP_ALIGN_LEFT, color);
+	Engine::getInstance()->drawText(fontsName,PotConv::cp936toutf8(tempTalk), 20, 5, 5, 255, BP_ALIGN_LEFT, color);
 	
 }
 

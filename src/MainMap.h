@@ -4,6 +4,35 @@
 #include "Cloud.h"
 #include <queue>
 
+class Cloud : public Base
+{
+public:
+    Cloud() {}
+    virtual ~Cloud() {}
+
+    enum CloudTowards
+    {
+        Left = 0,
+        Right = 1,
+        Up = 2,
+        Down = 3,
+    };
+
+    Point position;
+    float speed;
+
+
+    const int maxX = 17280;
+    const int maxY = 8640;
+    enum { numTexture = 10 };
+    int num;
+
+    void initRand();
+    void setPositionOnScreen(int x, int y, int Center_X, int Center_Y);
+    void changePosition();
+
+};
+
 class MainMap : public Scene
 {
 public:

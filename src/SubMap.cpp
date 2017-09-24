@@ -1,20 +1,20 @@
-#include "SubScene.h"
+#include "SubMap.h"
 #include "MainMap.h"
 #include "BattleScene.h"
 #include"Event.h"
 
-SubScene::SubScene()
+SubMap::SubMap()
 {
 	full_window_ = 1;
 }
 
 
-SubScene::~SubScene()
+SubMap::~SubMap()
 {
 
 }
 
-void SubScene::draw()
+void SubMap::draw()
 {
     int k = 0;
     struct DrawInfo { int i; Point p; };
@@ -93,19 +93,19 @@ void SubScene::draw()
 
 }
 
-void SubScene::init()
+void SubMap::init()
 {
     Cx = Save::getInstance()->m_SceneData[sceneNum].EntranceX;
     Cy = Save::getInstance()->m_SceneData[sceneNum].EntranceY;
 }
 
-void SubScene::setPosition(int x, int y)
+void SubMap::setPosition(int x, int y)
 {
 	Cx = x;
 	Cy = y;
 }
 
-void SubScene::dealEvent(BP_Event& e)
+void SubMap::dealEvent(BP_Event& e)
 {
     int x = Cx, y = Cy;
     //drawCount++;
@@ -208,7 +208,7 @@ void SubScene::dealEvent(BP_Event& e)
     }
 }
 
-void SubScene::walk(int x, int y, Towards t)
+void SubMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
@@ -227,7 +227,7 @@ void SubScene::walk(int x, int y, Towards t)
     step = step % num_manPic;
 }
 
-bool SubScene::canWalk(int x, int y)
+bool SubMap::canWalk(int x, int y)
 {
 
     if (checkIsOutLine(x, y) || checkIsBuilding(x, y) || checkIsHinder(x, y)
@@ -241,7 +241,7 @@ bool SubScene::canWalk(int x, int y)
     }
 }
 
-bool SubScene::checkIsBuilding(int x, int y)
+bool SubMap::checkIsBuilding(int x, int y)
 {
     if (Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] >= -2 && Save::getInstance()->m_SceneMapData[sceneNum].Data[1][x][y] <= 0)
     {
@@ -253,7 +253,7 @@ bool SubScene::checkIsBuilding(int x, int y)
     }
 }
 
-bool SubScene::checkIsOutLine(int x, int y)
+bool SubMap::checkIsOutLine(int x, int y)
 {
     if (x < 0 || x > MaxSceneCoord || y < 0 || y > MaxSceneCoord)
     {
@@ -265,7 +265,7 @@ bool SubScene::checkIsOutLine(int x, int y)
     }
 }
 
-bool SubScene::checkIsHinder(int x, int y)
+bool SubMap::checkIsHinder(int x, int y)
 {
     if (Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] >= 358 && Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] <= 362
         || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 522 || Save::getInstance()->m_SceneMapData[sceneNum].Data[0][x][y] == 1022
@@ -277,7 +277,7 @@ bool SubScene::checkIsHinder(int x, int y)
     return false;
 }
 
-bool SubScene::checkIsEvent(int x, int y)
+bool SubMap::checkIsEvent(int x, int y)
 {
     //if (save.SData[sceneNum].SData[4][x][y] >= 0 && (save.DData[sceneNum].DData[save.SData[sceneNum].SData[3][x][y],0] % 10)<1)
     int num = Save::getInstance()->m_SceneMapData[sceneNum].Data[3][x][y];
@@ -289,7 +289,7 @@ bool SubScene::checkIsEvent(int x, int y)
     return true;
 }
 
-bool SubScene::checkIsFall(int x, int y)
+bool SubMap::checkIsFall(int x, int y)
 {
     if (abs(Save::getInstance()->m_SceneMapData[sceneNum].Data[4][x][y] - Save::getInstance()->m_SceneMapData[sceneNum].Data[4][Cx][Cy] > 10))
     {
@@ -298,7 +298,7 @@ bool SubScene::checkIsFall(int x, int y)
     return false;
 }
 
-bool SubScene::checkIsExit(int x, int y)
+bool SubMap::checkIsExit(int x, int y)
 {
     if ((int)Save::getInstance()->m_SceneData[sceneNum].ExitX[0] == x 
 		&& (int)Save::getInstance()->m_SceneData[sceneNum].ExitY[0] == y
@@ -394,7 +394,7 @@ bool SubScene::checkIsExit(int x, int y)
 // 	
 // }
 
-bool SubScene::checkIsOutScreen(int x, int y)
+bool SubMap::checkIsOutScreen(int x, int y)
 {
     if (abs(Cx - x) >= 2 * widthregion || abs(Cy - y) >= sumregion)
     {
@@ -406,7 +406,7 @@ bool SubScene::checkIsOutScreen(int x, int y)
     }
 }
 
-void SubScene::getMousePosition(int _x, int _y)
+void SubMap::getMousePosition(int _x, int _y)
 {
     int x = _x;
     int y = _y;
@@ -416,7 +416,7 @@ void SubScene::getMousePosition(int _x, int _y)
     Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
-void SubScene::FindWay(int Mx, int My, int Fx, int Fy)
+void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
 {
     bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
     int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };   //四个方向
@@ -499,7 +499,7 @@ void SubScene::FindWay(int Mx, int My, int Fx, int Fy)
     myPoint->delTree(myPoint);
 }
 
-void SubScene::stopFindWay()
+void SubMap::stopFindWay()
 {
     while (!wayQue.empty())
     {
@@ -510,7 +510,7 @@ void SubScene::stopFindWay()
 /*========================================
 说明: 修正事件坐标
 ==========================================*/
-void SubScene::ReSetEventPosition(int &x, int &y)
+void SubMap::ReSetEventPosition(int &x, int &y)
 {
 	switch (Scene::towards)
 	{

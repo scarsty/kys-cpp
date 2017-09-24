@@ -1039,10 +1039,10 @@ void BattleScene::calMoveAbility()
                 }
                 else { m_nMaxspeed = m_vcBattleRole[i].speed; }
             }
-            if (Rrole[rnum].Moveable > 0)
-            {
-				m_vcBattleRole[i].Step = 0;
-            }
+    //        if (Rrole[rnum].Moveable > 0)
+    //        {
+				//m_vcBattleRole[i].Step = 0;
+    //        }
         }
     }
 }
@@ -1129,23 +1129,23 @@ int BattleScene::getRoleSpeed(int rnum, bool Equip)
 {
     int l;
     int bResult;
-    bResult = Save::getInstance()->m_Character[rnum].Speed;
-    if (Save::getInstance()->m_Character[rnum].GongTi > -1)
-    {
-        l = getGongtiLevel(rnum);
-        bResult = Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi]].AddSpd[l];
-    }
-    if (Equip)
-    {
-        for (int l = 0; l < config::MaxEquipNum; l++)
-        {
-            if (Save::getInstance()->m_Character[rnum].Equip[l] >= 0)
-            {
-                bResult += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[l]].AddSpeed;
-            }
-            bResult = bResult * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
-        }
-    }
+    //bResult = Save::getInstance()->m_Character[rnum].Speed;
+    //if (Save::getInstance()->m_Character[rnum].GongTi > -1)
+    //{
+    //    l = getGongtiLevel(rnum);
+    //    bResult = Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi]].AddSpd[l];
+    //}
+    //if (Equip)
+    //{
+    //    for (int l = 0; l < config::MaxEquipNum; l++)
+    //    {
+    //        if (Save::getInstance()->m_Character[rnum].Equip[l] >= 0)
+    //        {
+    //            bResult += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[l]].AddSpeed;
+    //        }
+    //        bResult = bResult * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
+    //    }
+    //}
     return bResult;
     return 0;
 }
@@ -1153,18 +1153,18 @@ int BattleScene::getRoleSpeed(int rnum, bool Equip)
 //获取功体经验
 int BattleScene::getGongtiLevel(int rnum)
 {
-    int i;
-    int n = Save::getInstance()->m_Character[rnum].GongTi;
-    if ((rnum >= 0) && (n >= -1))
-    {
-        if (Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel > Save::getInstance()->m_Character[rnum].MagLevel[n] / 100)
-        {
-            return Save::getInstance()->m_Character[rnum].MagLevel[n] / 100;
-        }
-        else { return Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel; }
-    }
-    else { return 0; }
-    return 0;
+    //int i;
+    //int n = Save::getInstance()->m_Character[rnum].GongTi;
+    //if ((rnum >= 0) && (n >= -1))
+    //{
+    //    if (Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel > Save::getInstance()->m_Character[rnum].MagLevel[n] / 100)
+    //    {
+    //        return Save::getInstance()->m_Character[rnum].MagLevel[n] / 100;
+    //    }
+    //    else { return Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel; }
+    //}
+    //else { return 0; }
+    //return 0;
 }
 
 

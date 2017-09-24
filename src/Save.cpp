@@ -52,7 +52,7 @@ bool Save::LoadR(int num)
 
     //载入基本数据
     i = 0;
-    int a = sizeof(BasicData);
+    int a = sizeof(GlobalData);
     int b = (Offset[i + 1] - Offset[i]);
     B_Count =  1;
     m_BasicData.resize(B_Count);
@@ -80,12 +80,12 @@ bool Save::LoadR(int num)
     
     //载入场景数据
     i = 3;
-    S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SceneData);
+    S_Count = (Offset[i + 1] - Offset[i]) / sizeof(SubMapRecord);
     m_SceneData.resize(S_Count);
 	//memcpy(&m_SceneData.at(0), Rgrp + Offset[i], Offset[i + 1] - Offset[i]);
      for (int j = 0; j < S_Count; j++)
      {
-         memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SceneData), sizeof(SceneData));
+         memcpy(&m_SceneData.at(j), Rgrp + Offset[i] + j * sizeof(SubMapRecord), sizeof(SubMapRecord));
      }
     
     //载入武功数据

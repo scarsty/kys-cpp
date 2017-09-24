@@ -63,7 +63,7 @@ public:
     std::vector<BattleSceneData>& m_vcBattleSceneData = BattleData::getInstance()->m_vcBattleSceneData;
     std::vector<BattleRole>& m_vcBattleRole = BattleData::getInstance()->m_vcBattleRole;
     std::vector<BattleInfo>& m_vcBattleInfo = BattleData::getInstance()->m_vcBattleInfo;
-	std::vector<Character>& Rrole = Save::getInstance()->m_Character;
+	//std::vector<Character>& Rrole = Save::getInstance()->m_Character;
 
     void walk(int x, int y, Towards t);
 

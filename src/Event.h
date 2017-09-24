@@ -1,6 +1,5 @@
 #pragma once
 #include "save.h"
-#include "Head.h"
 #include <direct.h>
 #include <corecrt_io.h>
 #include <functional>

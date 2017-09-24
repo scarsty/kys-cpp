@@ -1,7 +1,4 @@
 #include "Menu.h"
-#include "Dialogues.h"
-#include "Head.h"
-
 
 Menu::Menu()
 {

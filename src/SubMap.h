@@ -3,12 +3,12 @@
 #include "Scene.h"
 #include <stack>
 
-class SubScene : public Scene
+class SubMap : public Scene
 {
 public:
-    SubScene();
-    SubScene(int num) : SubScene() { setSceneNum(num); }
-    virtual ~SubScene();
+    SubMap();
+    SubMap(int num) : SubMap() { setSceneNum(num); }
+    virtual ~SubMap();
 
     int Cx, Cy;
     int manPicture;

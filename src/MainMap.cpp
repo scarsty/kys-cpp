@@ -5,7 +5,7 @@
 #include <ostream>
 #include "File.h"
 #include "TextureManager.h"
-#include "SubScene.h"
+#include "SubMap.h"
 
 MainMap::MapArray MainMap::Earth, MainMap::Surface, MainMap::Building, MainMap::BuildX, MainMap::BuildY, MainMap::Entrance;
 
@@ -304,40 +304,40 @@ void MainMap::cloudMove()
 
 bool MainMap::checkIsEntrance(int x, int y)
 {
-    if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
-    {
-        Save::getInstance()->m_BasicData[0].m_sMx = Mx;
-        Save::getInstance()->m_BasicData[0].m_sMx = My;
-        Save::getInstance()->m_BasicData[0].m_sMFace = towards;
-        Save::getInstance()->m_BasicData[0].m_sWhere = 1;
-        auto s = new SubScene(Entrance[x][y]);
-        push(s);
-        return true;
-    }
+    //if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
+    //{
+    //    Save::getInstance()->m_BasicData[0].m_sMx = Mx;
+    //    Save::getInstance()->m_BasicData[0].m_sMx = My;
+    //    Save::getInstance()->m_BasicData[0].m_sMFace = towards;
+    //    Save::getInstance()->m_BasicData[0].m_sWhere = 1;
+    //    auto s = new SubScene(Entrance[x][y]);
+    //    push(s);
+    //    return true;
+    //}
     return false;
 }
 
 void MainMap::getEntrance()
 {
-    for (int x = 0; x < maxX; x++)
-        for (int y = 0; y < maxY; y++)
-        { Entrance[x][y] = -1; }
-    for (int i = 0; i < Save::getInstance()->m_SceneData.size(); i++)
-    {
+    //for (int x = 0; x < maxX; x++)
+    //    for (int y = 0; y < maxY; y++)
+    //    { Entrance[x][y] = -1; }
+    //for (int i = 0; i < Save::getInstance()->m_SceneData.size(); i++)
+    //{
 
-        int x = Save::getInstance()->m_SceneData[i].MainEntranceX1;
-        int y = Save::getInstance()->m_SceneData[i].MainEntranceY1;
-        if (x > 0 && y > 0 && x < maxX && y < maxY)
-        {
-            Entrance[x][y] = i;
-        }
-        x = Save::getInstance()->m_SceneData[i].MainEntranceX2;
-        y = Save::getInstance()->m_SceneData[i].MainEntranceY2;
-        if (x > 0 && y > 0 && x < maxX && y < maxY)
-        {
-            Entrance[x][y] = i;
-        }
-    }
+    //    int x = Save::getInstance()->m_SceneData[i].MainEntranceX1;
+    //    int y = Save::getInstance()->m_SceneData[i].MainEntranceY1;
+    //    if (x > 0 && y > 0 && x < maxX && y < maxY)
+    //    {
+    //        Entrance[x][y] = i;
+    //    }
+    //    x = Save::getInstance()->m_SceneData[i].MainEntranceX2;
+    //    y = Save::getInstance()->m_SceneData[i].MainEntranceY2;
+    //    if (x > 0 && y > 0 && x < maxX && y < maxY)
+    //    {
+    //        Entrance[x][y] = i;
+    //    }
+    //}
 }
 
 //A*Ѱ·
@@ -449,3 +449,27 @@ void MainMap::getMousePosition(int _x, int _y)
     Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + My;
 }
 
+void Cloud::initRand()
+{
+    position.x = rand() % maxX;
+    position.y = rand() % maxY;
+    speed = 1 + rand() % 3;
+    num = rand() % numTexture;
+    //this->setOpacity(128 + rand() % 128);
+    //this->setColor(Color3B(rand() % 256, rand() % 256, rand() % 256));
+}
+
+void Cloud::setPositionOnScreen(int x, int y, int Center_X, int Center_Y)
+{
+    //this->m_nx = position.x - (-x * 18 + y * 18 + maxX / 2 - Center_X);
+    //this->m_ny =position.y - (x * 9 + y * 9 + 9 - Center_Y);
+}
+
+void Cloud::changePosition()
+{
+    position.x += speed;
+    if (position.x > maxX)
+    {
+        position.x = 0;
+    }
+}

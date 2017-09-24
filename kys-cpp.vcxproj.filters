@@ -7,9 +7,6 @@
     <ClCompile Include="src\Base.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\BasicData.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\BattleScene.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -17,12 +14,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Calendar.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Character.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Cloud.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Engine.cpp">
@@ -34,19 +25,7 @@
     <ClCompile Include="src\Event.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Faction.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\File.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Head.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Item.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Magic.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\MainMap.cpp">
@@ -62,15 +41,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Scene.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubScene.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ZhaoShi.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BaoShop.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\BattleData.cpp">
@@ -100,7 +70,7 @@
     <ClCompile Include="src\PotConv.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\SubSceneData.cpp">
+    <ClCompile Include="src\SubMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -111,9 +81,6 @@
     <ClInclude Include="src\Base.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\BasicData.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\BattleScene.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -121,12 +88,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Calendar.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Character.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Cloud.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Engine.h">
@@ -144,15 +105,6 @@
     <ClInclude Include="src\File.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\Head.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Item.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Magic.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\MainMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -168,28 +120,16 @@
     <ClInclude Include="src\Scene.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\SubScene.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\ZhaoShi.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\BaoShop.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\BattleData.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SubSceneData.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Dialogues.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UI.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Sprite.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Application.h">
@@ -202,6 +142,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\PotConv.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

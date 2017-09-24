@@ -1,6 +1,6 @@
 #include "Event.h"
 #include "MainMap.h"
-#include "SubScene.h"
+#include "SubMap.h"
 #include "Menu.h"
 
 
@@ -829,7 +829,7 @@ void EventManager::editEvent3(short snum, short ednum, short CanWalk, short Num,
 		snum = Save::getInstance()->m_Character[0].CurrentPosition;
 	if (ednum == -2)
 		ednum = Head::CurEvent;
-	TSceneEvent *Ddata;
+	SubMapEvent *Ddata;
 	Ddata = &(Save::getInstance()->m_SceneEventData[snum].Data[ednum]);
 	if (XPos == -2)
 		XPos = Ddata->XPos;
@@ -1126,7 +1126,7 @@ void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
 		y = Save::getInstance()->m_SceneData[curScene].EntranceY;
 	}
 	Save::getInstance()->m_Character[0].CurrentPosition = curScene;
-	auto s = new SubScene(curScene);
+	auto s = new SubMap(curScene);
 	s->setPosition(x, y);
 	s->push(s);
 	if (Save::getInstance()->m_SceneData[curScene].IsBattle&&Save::getInstance()->m_Character[0].Faction == Save::getInstance()->m_SceneData[curScene].Faction) {
@@ -1136,7 +1136,7 @@ void EventManager::JumpScene(int snum, int x =-2, int y=-2) {
 
 int EventManager::GetItemCount(int inum) {
 
-	for (int i = 0; i < config::MAX_ITEM_AMOUNT - 1; i++) {
+	for (int i = 0; i < config::MAX_ITEM_COUNT - 1; i++) {
 		if (Save::getInstance()->m_BasicData[0].m_RItemList->Number == inum) {
 			return Save::getInstance()->m_BasicData[0].m_RItemList->Amount;
 		}
