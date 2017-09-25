@@ -41,11 +41,20 @@ public:
     ~MainMap();
 
     static const int max_coord_ = MAINMAP_MAX_COORD;
+    typedef int16_t MapArray[max_coord_ * max_coord_];
+    static MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
 
-    static MapArray *Earth, *Surface, *Building, *BuildX, *BuildY, *Entrance;
+    static int16_t& Earth(int x, int y) { return Earth_[x + y * max_coord_]; }
+    static int16_t& Surface(int x, int y) { return Surface_[x + y * max_coord_]; }
+    static int16_t& Building(int x, int y) { return Building_[x + y * max_coord_]; }
+    static int16_t& BuildX(int x, int y) { return BuildX_[x + y * max_coord_]; }
+    static int16_t& BuildY(int x, int y) { return BuildY_[x + y * max_coord_]; }
+
+    static void divide2(MapArray& m);
+
     static bool _readed;
 
-    int16_t& man_x_, &man_y_ ;
+    int16_t& man_x_, &man_y_;
     int step_ = 0;
     int man_pic_;
     int rest_time_ = 0;                    //停止操作的时间

@@ -4,6 +4,7 @@
 #include <fstream>
 #include "File.h"
 #include "PotConv.h"
+#include "others/libconvert.h"
 
 Save Save::save_;
 
@@ -20,7 +21,7 @@ std::string Save::getFilename(int i, char c)
     std::string filename;
     if (i > 0)
     {
-        filename = "../game/save/" + c + std::to_string(i) + ".grp";
+        filename = convert::formatString("../game/save/%c%d.grp", c, i);
     }
     else
     {
@@ -95,17 +96,6 @@ bool Save::LoadR(int num)
 
     submap_data_.resize(submap_count);
     File::readFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapData));
-
-    //submap_array_.resize(submap_count);
-    //for (int i = 0; i < submap_count; i++)
-    //{
-    //    submap_array_[i].Earth.setData(&submap_data_[i].data[0][0], SUBMAP_MAX_X, SUBMAP_MAX_Y);
-    //    submap_array_[i].Building.setData(&submap_data_[i].data[1][0], SUBMAP_MAX_X, SUBMAP_MAX_Y);
-    //    submap_array_[i].Decoration.setData(&submap_data_[i].data[2][0], SUBMAP_MAX_X, SUBMAP_MAX_Y);
-    //    submap_array_[i].EventID.setData(&submap_data_[i].data[3][0], SUBMAP_MAX_X, SUBMAP_MAX_Y);
-    //    submap_array_[i].BuildingHeight.setData(&submap_data_[i].data[4][0], SUBMAP_MAX_X, SUBMAP_MAX_Y);
-    //    submap_array_[i].EventHeight.setData(&submap_data_[i].data[5][0], SUBMAP_MAX_X, SUBMAP_MAX_Y);
-    //}
 
     submap_event_.resize(submap_count * SUBMAP_MAX_EVENT);
     File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));

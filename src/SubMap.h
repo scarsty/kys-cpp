@@ -11,11 +11,12 @@ public:
     SubMap(int num);
     virtual ~SubMap();
 
-    int Cx=0, Cy=0;
+    int view_x_=0, view_y_=0;
+    int16_t& man_x_, &man_y_;
     int man_pic_;
-    int step = 0;
+    int step_ = 0;
 
-    const int max_coord_ = SUBMAP_MAX_EVENT;
+    const int max_coord_ = SUBMAP_MAX_COORD;
 
     int const man_pic0_ = 2501;  //初始场景主角图偏移量
     int const num_man_pic_ = 7;  //单向主角图张数

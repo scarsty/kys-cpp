@@ -4,7 +4,7 @@
 enum
 {
     SUBMAP_MAX_COORD = 64,
-    MAINMAP_MAX_COORD = 64,
+    MAINMAP_MAX_COORD = 480,
     SUBMAP_MAX_EVENT = 200,                         //单场景最大事件数
     MAX_ITEM_COUNT = 200,                           //最大物品数
     MAX_TEAM_COUNT = 6,                             //最大队伍人员数
@@ -74,31 +74,21 @@ struct Magic
     int16_t Attack[10], MoveDistance[10], AttDistance[10], AddMP[10], HurtMP[10];
 };
 
-struct MapArray
-{
-private:
-    int16_t* data_ = nullptr;
-    int x_max_ = 0, y_max_ = 0;
-    int self_ = 0;
-public:
-    void divide2() { for (int i = 0; i < x_max_ * y_max_; i++) { data_[i] /= 2; } }
-    int16_t& data(int x = 0, int y = 0) { return data_[x + x_max_ * y]; }
-    void setData(int16_t* d, int x, int y) { data_ = d; x_max_ = x; y_max_ = y; }
-public:
-    MapArray() {}
-    MapArray(int x, int y) { data_ = new int16_t[x * y]; x_max_ = x; y_max_ = y; self_ = 1; }
-    MapArray(int16_t* d, int x, int y) { setData(d, x, y); }
-    ~MapArray() { if (self_ && data_) { delete[] data_; } }
-};
-
-//struct SubMapArray
+//struct MapArray
 //{
-//    MapArray Earth;
-//    MapArray Building;
-//    MapArray Decoration;
-//    MapArray EventID;
-//    MapArray BuildingHeight;
-//    MapArray EventHeight;
+//private:
+//    int16_t* data_ = nullptr;
+//    int x_max_ = 0, y_max_ = 0;
+//    int self_ = 0;
+//public:
+//    void divide2() { for (int i = 0; i < x_max_ * y_max_; i++) { data_[i] /= 2; } }
+//    int16_t& data(int x = 0, int y = 0) { return data_[x + x_max_ * y]; }
+//    void setData(int16_t* d, int x, int y) { data_ = d; x_max_ = x; y_max_ = y; }
+//public:
+//    MapArray() {}
+//    MapArray(int x, int y) { data_ = new int16_t[x * y]; x_max_ = x; y_max_ = y; self_ = 1; }
+//    MapArray(int16_t* d, int x, int y) { setData(d, x, y); }
+//    ~MapArray() { if (self_ && data_) { delete[] data_; } }
 //};
 
 struct SubMapData

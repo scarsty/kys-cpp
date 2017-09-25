@@ -5,7 +5,7 @@
 #include "Save.h"
 #include <time.h>
 
-MapArray* MainMap::Earth, *MainMap::Surface, *MainMap::Building, *MainMap::BuildX, *MainMap::BuildY, *MainMap::Entrance;
+MainMap::MapArray MainMap::Earth_, MainMap::Surface_, MainMap::Building_, MainMap::BuildX_, MainMap::BuildY_, MainMap::Entrance_;
 bool MainMap::_readed = false;
 
 MainMap::MainMap() :
@@ -18,21 +18,16 @@ MainMap::MainMap() :
     if (!_readed)
     {
         int length = max_coord_ * max_coord_ * sizeof(uint16_t);
-        Earth = new MapArray(max_coord_, max_coord_);
-        Surface = new MapArray(max_coord_, max_coord_);
-        Building = new MapArray(max_coord_, max_coord_);
-        BuildX = new MapArray(max_coord_, max_coord_);
-        BuildY = new MapArray(max_coord_, max_coord_);
 
-        File::readFile("../game/resource/earth.002", &Earth->data(), length);
-        File::readFile("../game/resource/surface.002", &Surface->data(), length);
-        File::readFile("../game/resource/building.002", &Building->data(), length);
-        File::readFile("../game/resource/buildx.002", &BuildX->data(), length);
-        File::readFile("../game/resource/buildy.002", &BuildY->data(), length);
+        File::readFile("../game/resource/earth.002", &Earth_[0], length);
+        File::readFile("../game/resource/surface.002", &Surface_[0], length);
+        File::readFile("../game/resource/building.002", &Building_[0], length);
+        File::readFile("../game/resource/buildx.002", &BuildX_[0], length);
+        File::readFile("../game/resource/buildy.002", &BuildY_[0], length);
 
-        Earth->divide2();
-        Surface->divide2();
-        Building->divide2();
+        divide2(Earth_);
+        divide2(Surface_);
+        divide2(Building_);
     }
     _readed = true;
 
@@ -50,6 +45,14 @@ MainMap::~MainMap()
 {
     for (int i = 0; i < cloud_vector_.size(); i++)
     { delete cloud_vector_[i]; }
+}
+
+void MainMap::divide2(MapArray& m)
+{
+    for (int i = 0; i < max_coord_*max_coord_; i++)
+    {
+        m[i] /= 2;
+    }
 }
 
 void MainMap::draw()
@@ -70,13 +73,13 @@ void MainMap::draw()
             if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
-                if (Earth->data(i1, i2) > 0)
-                { TextureManager::getInstance()->renderTexture("mmap", Earth->data(i1, i2), p.x, p.y); }
-                if (Surface->data(i1, i2) > 0)
-                { TextureManager::getInstance()->renderTexture("mmap", Surface->data(i1, i2), p.x, p.y); }
-                if (Building->data(i1, i2) > 0)
+                if (Earth(i1, i2) > 0)
+                { TextureManager::getInstance()->renderTexture("mmap", Earth(i1, i2), p.x, p.y); }
+                if (Surface(i1, i2) > 0)
+                { TextureManager::getInstance()->renderTexture("mmap", Surface(i1, i2), p.x, p.y); }
+                if (Building(i1, i2) > 0)
                 {
-                    auto t = Building->data(i1, i2);
+                    auto t = Building(i1, i2);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -232,7 +235,7 @@ void MainMap::walk(int x, int y, Towards t)
 bool MainMap::isBuilding(int x, int y)
 {
 
-    if (Building->data(BuildX->data(x, y), BuildY->data(x, y)) > 0)
+    if (Building(BuildX(x, y), BuildY(x, y)) > 0)
     { return  true; }
     else
     { return false; }
@@ -240,7 +243,7 @@ bool MainMap::isBuilding(int x, int y)
 
 bool MainMap::isWater(int x, int y)
 {
-    auto pic = Earth->data(x, y);
+    auto pic = Earth(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     { return true; }
     else if (pic >= 179 && pic <= 181

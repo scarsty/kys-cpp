@@ -28,7 +28,6 @@ public:
     std::vector<Item> items_;
     std::vector<SubMapRecord> submap_records_;
     std::vector<SubMapData> submap_data_;
-    //std::vector<SubMapArray> submap_array_;
     std::vector<Shop> shops_;
     std::vector<SubMapEvent> submap_event_;
 

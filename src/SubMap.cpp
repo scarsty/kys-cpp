@@ -3,7 +3,9 @@
 #include "BattleMap.h"
 #include "Event.h"
 
-SubMap::SubMap()
+SubMap::SubMap() : 
+    man_x_(Save::getInstance()->getGlobalData()->SubMapX),
+    man_y_(Save::getInstance()->getGlobalData()->SubMapY)
 {
     full_window_ = 1;
 }
@@ -14,8 +16,8 @@ SubMap::SubMap(int num) : SubMap()
     setSceneNum(num);
     current_submap_ = Save::getInstance()->getSubMapRecord(num);
     current_submap_->ID = num;
-    Cx = current_submap_->EntranceX;
-    Cy = current_submap_->EntranceY;
+    view_x_ = current_submap_->EntranceX;
+    view_y_ = current_submap_->EntranceY;
 }
 
 SubMap::~SubMap()
@@ -32,9 +34,9 @@ void SubMap::draw()
     {
         for (int i = -widthregion; i <= widthregion; i++)
         {
-            int i1 = Cx + i + (sum / 2);
-            int i2 = Cy - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, Cx, Cy);
+            int i1 = view_x_ + i + (sum / 2);
+            int i2 = view_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
             if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
             {
                 //Point p1 = Point(0, -m_SceneMapData[scene_id_].Data[4][i1][i2]);
@@ -53,11 +55,11 @@ void SubMap::draw()
 
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                 }
-                if (i1 == Cx && i2 == Cy)
+                if (i1 == view_x_ && i2 == view_y_)
                 {
                     if (man_pic_ != -1)
                     {
-                        man_pic_ = man_pic0_ + Scene::towards * num_man_pic_ + step;
+                        man_pic_ = man_pic0_ + Scene::towards * num_man_pic_ + step_;
                         TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                     }
                 }
@@ -87,13 +89,13 @@ void SubMap::draw()
 
 void SubMap::setPosition(int x, int y)
 {
-    Cx = x;
-    Cy = y;
+    view_x_ = x;
+    view_y_ = y;
 }
 
 void SubMap::dealEvent(BP_Event& e)
 {
-    int x = Cx, y = Cy;
+    int x = view_x_, y = view_y_;
     //drawCount++;
     if (e.type == BP_MOUSEBUTTONDOWN)
     {
@@ -101,7 +103,7 @@ void SubMap::dealEvent(BP_Event& e)
         stopFindWay();
         if (canWalk(Msx, Msy) && !isOutScreen(Msx, Msy))
         {
-            FindWay(Cx, Cy, Msx, Msy);
+            FindWay(view_x_, view_y_, Msx, Msy);
         }
     }
     if (!way_que_.empty())
@@ -211,19 +213,19 @@ void SubMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        Cx = x;
-        Cy = y;
+        view_x_ = x;
+        view_y_ = y;
     }
     if (Scene::towards != t)
     {
         Scene::towards = t;
-        step = 0;
+        step_ = 0;
     }
     else
     {
-        step++;
+        step_++;
     }
-    step = step % num_man_pic_;
+    step_ = step_ % num_man_pic_;
 }
 
 bool SubMap::canWalk(int x, int y)
@@ -317,7 +319,7 @@ void SubMap::callEvent(int x, int y)
 
 bool SubMap::isOutScreen(int x, int y)
 {
-    if (abs(Cx - x) >= 2 * widthregion || abs(Cy - y) >= sumregion)
+    if (abs(view_x_ - x) >= 2 * widthregion || abs(view_y_ - y) >= sumregion)
     {
         return true;
     }
