@@ -4,6 +4,7 @@
 #include "Menu.h"
 #include "Save.h"
 #include "PotConv.h"
+#include "EventMacro.h"
 
 Event Event::event_;
 
@@ -47,597 +48,281 @@ bool Event::callEvent(int num)
             str += to_string(operation->at(p).par[i]);
             str += "]";
         }
-        cout << "执行指令" << operation->at(p).num << str << endl;
-        switch (instruct)
-        {
-        case -1:
-        {
-            break;
-        }
-        case 0:
-        {
-            clear();
-            break;
-        }
-        case 1:
-        {
-            break;
-        }
-        case 2:
-        {
-            getItem_2(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
-            break;
-        }
-        case 3:
-        {
-            editEvent3(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3], operation->at(p).par[4], operation->at(p).par[5], operation->at(p).par[6], operation->at(p).par[7], operation->at(p).par[8], operation->at(p).par[9], operation->at(p).par[10], operation->at(p).par[11], operation->at(p).par[12], operation->at(p).par[13], operation->at(p).par[14], operation->at(p).par[15], operation->at(p).par[16], operation->at(p).par[17], operation->at(p).par[18], operation->at(p).par[19], operation->at(p).par[20]);
-            break;
-        }
-        case 4:
-        {
-            judgeItem_4(operation->at(p).par[1], operation->at(p).par[2], operation->at(p).par[3]);
-            break;
-        }
-        case 5:
-        {
-            isFight_5(operation->at(p).par[1], operation->at(p).par[2]);
-            break;
-        }
-        case 6:
-        {
-            break;
-        }
-        case 7: // 获取随机舞台
-        {
-            break;
-        }
-        case 8:
-        {
-            isAdd_8(operation->at(p).par[1], operation->at(p).par[2]);
-            break;
-        }
-        case 9:
-        {
-            break;
-        }
-        case 10:
-        {
-            break;
-        }
-        case 11:
-        {
-            break;
-        }
-        case 12:
-        {
-            break;
-        }
-        case 13:
-        {
-            break;
-        }
-        case 14:
-        {
-            break;
-        }
-        case 15:
-        {
-            break;
-        }
-        case 16:
-        {
-            break;
-        }
-        case 17:
-        {
-            break;
-        }
-        case 18:
-        {
-            break;
-        }
-        case 19:
-        {
-            break;
-        }
-        case 20:
-        {
-            break;
-        }
-        case 21:
-        {
-            break;
-        }
-        case 22:
-        {
-            break;
-        }
-        case 23:
-        {
-            break;
-        }
-        case 24:
-        {
-            break;
-        }
-        case 25:
-        {
-            break;
-        }
-        case 26:
-        {
-            break;
-        }
-        case 27:
-        {
-            break;
-        }
-        case 28:
-        {
-            break;
-        }
-        case 29:
-        {
-            break;
-        }
-        case 30:
-        {
-            break;
-        }
-        case 31:
-        {
-            break;
-        }
-        case 32:
-        {
-            break;
-        }
-        case 33:
-        {
-            break;
-        }
-        case 34:
-        {
-            break;
-        }
-        case 35:
-        {
-            break;
-        }
-        case 36:
-        {
-            break;
-        }
-        case 37:
-        {
-            break;
-        }
-        case 38:
-        {
-            break;
-        }
-        case 39:
-        {
-            break;
-        }
-        case 40:
-        {
-            break;
-        }
-        case 41:
-        {
-            break;
-        }
-        case 42:
-        {
-            break;
-        }
-        case 43:
-        {
-            break;
-        }
-        case 44:
-        {
-            break;
-        }
-        case 45:
-        {
-            break;
-        }
-        case 46:
-        {
-            break;
-        }
-        case 47:
-        {
-            break;
-        }
-        case 48:
-        {
-            break;
-        }
-        case 49:
-        {
-            break;
-        }
-        case 50:
-        {
-            break;
-        }
-        case 51:
-        {
-            break;
-        }
-        case 52:
-        {
-            break;
-        }
-        case 53:
-        {
-            break;
-        }
-        case 54:
-        {
-            break;
-        }
-        case 55:
-        {
-            break;
-        }
-        case 56:
-        {
-            break;
-        }
-        case 57:
-        {
+        cout << "执行指令" << operation->at(p).num << str << endl;*/
+    int i = 0;
+    int e[100];
 
-            break;
-        }
-        case 58:
-        {
+    switch (e[i])
+    {
+        RUN_INCTRUCT_3(1, e, i, oldTalk);
+        RUN_INCTRUCT_2(2, e, i, getItem);
+    case 3:
+        instruct_3(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7],
+            e[i + 8], e[i + 9], e[i + 10], e[i + 11], e[i + 12], e[i + 13]);
+        i += 14;
+        break;
+    case 4:
+        i += instruct_4(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 5:
+        i += instruct_5(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 6:
+        i += instruct_6(e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+        i += 5;
+        break;
+    case 7: //Break the event.
+        i += 1;
+        break;
+    case 8:
+        instruct_8(e[i + 1]);
+        i += 2;
+        break;
+    case 9:
+        i += instruct_9(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 10:
+        instruct_10(e[i + 1]);
+        i += 2;
+        break;
+    case 11:
+        i += instruct_11(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 12:
+        instruct_12;
+        i += 1;
+        break;
+    case 13:
+        instruct_13;
+        i += 1;
+        break;
+    case 14:
+        instruct_14;
+        i += 1;
+        break;
+    case 15:
+        instruct_15;
+        i += 1;
+        break;
+    case 16:
+        i += instruct_16(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 17:
+        instruct_17([e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]]);
+        i += 6;
+        break;
+    case 18:
+        i += instruct_18(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 19:
+        instruct_19(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 20:
+        i += instruct_20(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 21:
+        instruct_21(e[i + 1]);
+        i += 2;
+        break;
+    case 22:
+        instruct_22;
+        i += 1;
+        break;
+    case 23:
+        instruct_23(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 24:
+        instruct_24;
+        i += 1;
+        break;
+    case 25:
+        instruct_25(e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+        i += 5;
+        break;
+    case 26:
+        instruct_26(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]);
+        i += 6;
+        break;
+    case 27:
+        instruct_27(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 28:
+        i += instruct_28(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]);
+        i += 6;
+        break;
+    case 29:
+        i += instruct_29(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]);
+        i += 6;
+        break;
+    case 30:
+        instruct_30(e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+        i += 5;
+        break;
+    case 31:
+        i += instruct_31(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 32:
+        instruct_32(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 33:
+        instruct_33(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 34:
+        instruct_34(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 35:
+        instruct_35(e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+        i += 5;
+        break;
+    case 36:
+        i += instruct_36(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 37:
+        instruct_37(e[i + 1]);
+        i += 2;
+        break;
+    case 38:
+        instruct_38(e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+        i += 5;
+        break;
+    case 39:
+        instruct_39(e[i + 1]);
+        i += 2;
+        break;
+    case 40:
+        instruct_40(e[i + 1]);
+        i += 2;
+        break;
+    case 41:
+        instruct_41(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 42:
+        i += instruct_42(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 43:
+        i += instruct_43(e[i + 1], e[i + 2], e[i + 3]);
+        i += 4;
+        break;
+    case 44:
+        instruct_44(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6]);
+        i += 7;
+        break;
+    case 45:
+        instruct_45(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 46:
+        instruct_46(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 47:
+        instruct_47(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 48:
+        instruct_48(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 49:
+        instruct_49(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 50:
+        p = instruct_50([e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]]);
+        i += 8;
+        if p < 622592 then
+        i += p
+            else
+        { e[i + ((p + 32768) div 655360) - 1] = p mod 655360; }
+        break;
+    case 51:
+        instruct_51;
+        i += 1;
+        break;
+    case 52:
+        instruct_52;
+        i += 1;
+        break;
+    case 53:
+        instruct_53;
+        i += 1;
+        break;
+    case 54:
+        instruct_54;
+        i += 1;
+        break;
+    case 55:
+        i += instruct_55(e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+        i += 5;
+        break;
+    case 56:
+        instruct_56(e[i + 1]);
+        i += 2;
+        break;
+    case 57:
+        i += 1;
+        break;
+    case 58:
+        instruct_58;
+        i += 1;
+        break;
+    case 59:
+        instruct_59;
+        i += 1;
+        break;
+    case 60:
+        i += instruct_60(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]);
+        i += 6;
+        break;
+    case 61:
+        i += e[i + 1];
+        i += 3;
+        break;
+    case 62:
+        instruct_62(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6]);
+        i += 7;
+        break;
+    case 63:
+        instruct_63(e[i + 1], e[i + 2]);
+        i += 3;
+        break;
+    case 64:
+        instruct_64;
+        i += 1;
+        break;
+    case 65:
+        i += 1;
+        break;
+    case 66:
+        instruct_66(e[i + 1]);
+        i += 2;
+        break;
+    case 67:
+        instruct_67(e[i + 1]);
+        i += 2;
+        break;
+    default:
+        //不存在的指令，移动一格
+        i += 1;
+    }
 
-            break;
-        }
-        case 59:
-        {
-            break;
-        }
-        case 60:
-        {
-            break;
-        }
-        case 61:
-        {
-            break;
-        }
-        case 62:
-        {
-            break;
-        }
-        case 63:
-        {
-            break;
-        }
-        case 64:
-        {
-            break;
-        }
-        case 65:
-        {
-            break;
-        }
-        case 66:
-        {
-            break;
-        }
-        case 67:
-        {
-            break;
-        }
-        case 68:
-        {
-            break;
-        }
-        case 69:
-        {
-            break;
-        }
-        case 70:
-        {
-            break;
-        }
-        case 71:
-        {
-            break;
-        }
-
-        case 73:
-        {
-            break;
-        }
-        case 74:
-        {
-            break;
-        }
-        case 75:
-        {
-            break;
-        }
-        case 76:
-        {
-            break;
-        }
-        case 77:
-        {
-            break;
-        }
-        case 78:
-        {
-            break;
-        }
-        case 79:
-        {
-            break;
-        }
-        case 80:
-        {
-            break;
-        }
-        case 81:
-        {
-            break;
-        }
-        case 82:
-        {
-            break;
-        }
-        case 83:
-        {
-            break;
-        }
-        case 84:
-        {
-            break;
-        }
-        case 85:
-        {
-            break;
-        }
-        case 86:
-        {
-            break;
-        }
-        case 87:
-        {
-            break;
-        }
-        case 88:
-        {
-            break;
-        }
-        case 89:
-        {
-            break;
-        }
-        case 90:
-        {
-
-            break;
-        }
-        case 91:
-        {
-
-            break;
-        }
-        case 92:
-        {
-
-            break;
-        }
-        case 93:
-        {
-            break;
-        }
-        case 94:
-        {
-            break;
-        }
-        case 95:
-        {
-            break;
-        }
-        case 96:
-        {
-            break;
-        }
-        case 97:
-        {
-            break;
-        }
-        case 98:
-        {
-            break;
-        }
-        case 99:
-        {
-            break;
-        }
-        case 100:
-        {
-            break;
-        }
-        case 101:
-        {
-            break;
-        }
-        case 102:
-        {
-            break;
-        }
-        case 103:
-        {
-            break;
-        }
-        case 104:
-        {
-            break;
-        }
-        case 105:
-        {
-            break;
-        }
-        case 106:
-        {
-            break;
-        }
-        case 107:
-        {
-            break;
-        }
-        case 108:
-        {
-            break;
-        }
-        case 109:
-        {
-            break;
-        }
-        case 110:
-        {
-            break;
-        }
-        case 111:
-        {
-            break;
-        }
-        case 112:
-        {
-            break;
-        }
-        case 113:
-        {
-            break;
-        }
-        case 114:
-        {
-            break;
-        }
-        case 115:
-        {
-            break;
-        }
-        case 116:
-        {
-            break;
-        }
-        case 117:
-        {
-            break;
-        }
-        case 118:
-        {
-            break;
-        }
-        case 119:
-        {
-            break;
-        }
-        case 120:
-        {
-            break;
-        }
-        case 121:
-        {
-            break;
-        }
-        case 122: // 读取当前事件触发人.
-        {
-            break;
-        }
-        case 123: // 直接将人物放到地图
-        {
-            break;
-        }
-        case 124: // 增加或修改任务提示
-        {
-            break;
-        }
-        case 125: // 下场战斗增加人员
-        {
-            break;
-        }
-        case 126: // 比賽
-        {
-            break;
-        }
-        case 127: // 进入堆
-        {
-            break;
-        }
-        case 128: // 弹出堆
-        {
-            break;
-        }
-        case 129: // 清空堆
-        {
-            break;
-        }
-        case 130: // 新增自动检测任务
-        {
-
-            TryEventTmpI = p;
-            break;
-        }
-        case 131: // 修改任务
-        {
-            break;
-        }
-        case 132: // 武功融合
-        {
-            break;
-        }
-        case 133: //搜索人物标签
-        {
-            break;
-        }
-        case 134: //搜索门派
-        {
-            break;
-        }
-        case 135: //设置时代
-        {
-            break;
-        }
-        case 136: //判断时代
-        {
-            break;
-        }
-        case 137: //获得时间
-        {
-            break;
-        }
-        case 138: //获得标签
-        {
-            break;
-        }
-        case 139: //判断标签
-        {
-            break;
-        }
-        case 140: //大排名
-        {
-            break;
-        }
-        }
-        if ((isTry) && (TryEventTmpI + EventEndCount <= p))
-        {
-            isTry = false;
-            p = TryEventTmpI;
-            EventEndCount = 0;
-            cout << "事件测试通过" << endl;;
-        }
-        p++;
-    }*/
     return 0;
 }
 

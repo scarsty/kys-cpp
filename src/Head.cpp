@@ -1,4 +1,5 @@
 #include "Head.h"
+#include "Font.h"
 
 Head::Head(Role* r)
 {
@@ -19,7 +20,7 @@ void Head::draw()
         color = { 128, 128, 128, 255 };
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadNum, x_, y_, color, 255, 0.5);
-    Engine::getInstance()->drawText("../game/font/chinese.ttf", std::string(role_->Name), 15, x_ + 140, y_ + 5, 255, BP_ALIGN_LEFT, { 255, 255, 255, 255 });
+    Font::getInstance()->draw(std::string(role_->Name), 15, x_ + 140, y_ + 5, { 255, 255, 255, 255 });
 }
 
 

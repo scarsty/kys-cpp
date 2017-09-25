@@ -1,5 +1,6 @@
 #include "Button.h"
 #include "PotConv.h"
+#include "Font.h"
 
 Button::Button(const std::string& path, int n1, int n2/*=-1*/, int n3/*=-1*/)
 {
@@ -45,7 +46,7 @@ void Button::draw()
     TextureManager::getInstance()->renderTexture(tex, x_, y_);
     if (text_.size())
     {
-        Engine::getInstance()->drawText("../game/font/chinese.ttf", text_, 20, x_, y_, 255, BP_ALIGN_LEFT, color);
+        Font::getInstance()->draw(text_, 20, x_, y_, color, 255);
     }
 }
 

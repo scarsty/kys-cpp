@@ -85,6 +85,9 @@
     <ClCompile Include="src\UIItem.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Font.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -166,6 +169,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UIItem.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Font.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EventMacro.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

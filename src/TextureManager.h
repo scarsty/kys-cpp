@@ -19,7 +19,7 @@ struct Texture
         {
             if (tex[i])
             {
-                SDL_DestroyTexture(tex[i]);
+                Engine::getInstance()->destroyTexture(tex[i]);
             }
         }
     }
