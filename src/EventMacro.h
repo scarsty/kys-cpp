@@ -16,7 +16,7 @@
 #define RUN_INCTRUCT_12(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i += 13; break; }
 #define RUN_INCTRUCT_13(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i += 14; break; }
 
-/*
+
 指令对应宏，仅参考，不使用
 #define instruct_0
 #define instruct_1 oldTalk
@@ -92,5 +92,5 @@
 #define instruct_65
 #define instruct_66 playMusic
 #define instruct_67 playWave
-*/
+
 

@@ -56,11 +56,7 @@ bool Event::callEvent(int num)
     {
         RUN_INCTRUCT_3(1, e, i, oldTalk);
         RUN_INCTRUCT_2(2, e, i, getItem);
-    case 3:
-        instruct_3(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7],
-            e[i + 8], e[i + 9], e[i + 10], e[i + 11], e[i + 12], e[i + 13]);
-        i += 14;
-        break;
+        RUN_INCTRUCT_13(3, e, i, modifyEvent);
     case 4:
         i += instruct_4(e[i + 1], e[i + 2], e[i + 3]);
         i += 4;

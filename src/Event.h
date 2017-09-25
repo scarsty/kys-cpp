@@ -27,13 +27,13 @@ public:
     //所有事件函数均应返回一个整数，为指令指针移动的数目
     void clear();  //0
     void talk_1();
-    void getItem_2(short tnum, short amount, short rnum = 0);
-    void getJueSe(short* rnum);
-    void editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent);
-    int judgeItem_4(short inum, short jump1, short jump2);
-    int isFight_5(short jump1, short jump2);
+    void getItem_2(int16_t tnum, int16_t amount, int16_t rnum = 0);
+    void getJueSe(int16_t* rnum);
+    void editEvent3(int16_t snum, int16_t ednum, int16_t CanWalk, int16_t Num, int16_t Event1, int16_t Event2, int16_t Event3, int16_t BeginPic1, int16_t EndPic, int16_t BeginPic2, int16_t  PicDelay, int16_t  XPos, int16_t  YPos, int16_t StartTime, int16_t  Duration, int16_t Interval, int16_t  DoneTime, int16_t  IsActive, int16_t  OutTime, int16_t  OutEvent);
+    int judgeItem_4(int16_t inum, int16_t jump1, int16_t jump2);
+    int isFight_5(int16_t jump1, int16_t jump2);
 
-    int isAdd_8(short jump1, short jump2);
+    int isAdd_8(int16_t jump1, int16_t jump2);
     void StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode);
     void JumpScene(int snum, int x, int y);
 
@@ -47,9 +47,10 @@ private:
 
 public:
     void clear() {}
-    void oldTalk(int16_t i1, int16_t i2, int16_t i3);
-    void getItem(int16_t i1, int16_t i2);
-    void modifyEvent();
+    void oldTalk(int16_t talk_id, int16_t head_id, int16_t style);
+    void getItem(int16_t item_id, int16_t count);
+    void modifyEvent(int16_t snum, int16_t ednum, int16_t CanWalk, int16_t Num, int16_t Event1, int16_t Event2, int16_t Event3, 
+        int16_t BeginPic1, int16_t EndPic, int16_t BeginPic2, int16_t  PicDelay, int16_t  XPos, int16_t  YPos);
     void useItem();
     void askBattle();
     void tryBattle();
