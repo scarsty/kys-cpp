@@ -64,13 +64,25 @@
     <ClCompile Include="src\Types.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\MainUI.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Head.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\others\libconvert.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UIStatus.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UISkill.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UISystem.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UIItem.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -135,13 +147,25 @@
     <ClInclude Include="src\Types.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\MainUI.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Head.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\others\libconvert.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UIStatus.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UISkill.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UISystem.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UIItem.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

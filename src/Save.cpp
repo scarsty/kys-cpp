@@ -100,7 +100,7 @@ bool Save::LoadR(int num)
     submap_event_.resize(submap_count * SUBMAP_MAX_EVENT);
     File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));
 
-    makeMaps();
+    //makeMaps();
 
     return true;
 }

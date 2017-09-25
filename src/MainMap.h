@@ -7,7 +7,7 @@
 class Cloud : public Base
 {
 public:
-    Cloud() {}
+    Cloud() { x_ = -1000; y_ = -1000; }
     virtual ~Cloud() {}
 
     enum CloudTowards

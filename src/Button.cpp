@@ -19,24 +19,6 @@ Button::~Button()
 void Button::dealEvent(BP_Event& e)
 {
     result_ = -1;
-    if (e.type == BP_MOUSEMOTION)
-    {
-        if (inSide(e.motion.x, e.motion.y))
-        {
-            setState(Pass);
-        }
-        else
-        {
-            setState(Normal);
-        }
-    }
-    if (e.type == BP_MOUSEBUTTONDOWN)
-    {
-        if (inSide(e.motion.x, e.motion.y))
-        {
-            setState(Press);
-        }
-    }
     if (e.type == BP_MOUSEBUTTONUP)
     {
         if (inSide(e.motion.x, e.motion.y))

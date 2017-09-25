@@ -99,7 +99,7 @@ public:
 
     void renderCopy(BP_Texture* t = nullptr);
     void showLogo() { SDL_RenderCopy(renderer_, logo_, nullptr, nullptr); }
-    void renderPresent() { SDL_RenderPresent(renderer_); renderClear(); };
+    void renderPresent() { SDL_RenderPresent(renderer_); /*renderClear();*/ };
     void renderClear() { SDL_RenderClear(renderer_); }
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); };
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }

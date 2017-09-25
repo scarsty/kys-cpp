@@ -21,8 +21,8 @@ public:
 
     static Towards towards;
 
-    const int screen_center_x_ = 768 / 2;
-    const int screen_center_y_ = 440 / 2;
+    int screen_center_x_ = 0;
+    int screen_center_y_ = 0;
     const int singleScene_X = 18;                               //小图块大小X
     const int singleScene_Y = 9;                            //小图块大小Y
     const int singleMapScene_X = 18;                            //地面小图块大小X
@@ -31,8 +31,8 @@ public:
     int minStep;                                                        //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
     int Msx, Msy;
 
-    int widthregion = screen_center_x_ / 36 + 3;
-    int sumregion = screen_center_y_ / 9 + 2;
+    int widthregion = 0;
+    int sumregion = 0;
 
     bool isMenuOn = 0;
 

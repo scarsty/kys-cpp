@@ -14,7 +14,7 @@ public:
     bool visible_ = true;
 protected:
     int result_ = -1;
-    int full_window_ = 0;                               //不为0时表示当前画面为起始层，低于本画面的层将不予显示
+    int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
     bool loop_ = true;
 public:
     Base() {}
@@ -46,17 +46,21 @@ public:
     static Base* pop();
     static Base* getCurentBase() { return root_.at(0); }
 
+    void addChild(Base* b, int x = 0, int y = 0);
+
     int x_ = 0;
     int y_ = 0;
     int w_ = 0;
     int h_ = 0;
     void setPosition(int x, int y);
     void setSize(int w, int h) { w_ = w; h_ = h; }
-    bool inSide(int x, int y);
 
+    bool inSide(int x, int y)
+    {
+        return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
+    }
 
     int run();                                          //执行本层
-
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
     virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
@@ -65,7 +69,6 @@ public:
 
     int getResult() { return result_; }
     void drawSelfAndChilds();
-    void addChild(Base* b, int x, int y);
     void setVisible(bool v) { visible_ = v; }
 
     enum State
@@ -75,8 +78,10 @@ public:
         Press,
     };
 
-    State state_;   //状态
+    State state_ = Normal;   //状态
+    State getState() { return state_; }
     void setState(State s) { state_ = s; }
+    void checkStateAndEvent(BP_Event &e);
 
 };
 

@@ -54,6 +54,8 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         auto s = new SubMap(2);
         s->run();
+        auto m = new MainMap();
+        m->run();
         //menu_load_->run();
     }
     if (r == 2)

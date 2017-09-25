@@ -52,11 +52,6 @@ void Base::setPosition(int x, int y)
     x_ = x; y_ = y;
 }
 
-bool Base::inSide(int x, int y)
-{
-    return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
-}
-
 int Base::run()
 {
     BP_Event e;
@@ -70,14 +65,7 @@ int Base::run()
         int t0 = engine->getTicks();
         if (Base::root_.size() == 0) { break; }
         Base::drawAll();
-
-        //处理子节点和本节点的消息
-        for (auto c : childs_)
-        {
-            c->dealEvent(e);
-        }
-        dealEvent(e);
-
+        checkStateAndEvent(e);
         switch (e.type)
         {
         case BP_QUIT:
@@ -106,6 +94,11 @@ Base* Base::pop()
         b = root_.back();
         root_.pop_back();
     }
+    //某些特殊的节点不可清理
+    //if (b != UI::getInstance())
+    //{
+    //    delete b;
+    //}
     return b;
 }
 
@@ -125,4 +118,33 @@ void Base::addChild(Base* b, int x, int y)
 {
     childs_.push_back(b);
     b->setPosition(x_ + x, y_ + y);
+}
+
+//只处理当前的节点和当前节点的子节点
+void Base::checkStateAndEvent(BP_Event &e)
+{
+    for (auto c : childs_)
+    {
+        c->checkStateAndEvent(e);
+    }
+    //setState(Normal);
+    if (e.type == BP_MOUSEMOTION)
+    {
+        if (inSide(e.motion.x, e.motion.y))
+        {
+            state_=Pass;
+        }
+        else
+        {
+            state_ = Normal;
+        }
+    }
+    if (e.type == BP_MOUSEBUTTONDOWN)
+    {
+        if (inSide(e.motion.x, e.motion.y))
+        {
+            state_ = Press;
+        }
+    }
+    dealEvent(e);
 }

@@ -2,8 +2,9 @@
 #include "MainMap.h"
 #include "BattleMap.h"
 #include "Event.h"
+#include "UI.h"
 
-SubMap::SubMap() : 
+SubMap::SubMap() :
     man_x_(Save::getInstance()->getGlobalData()->SubMapX),
     man_y_(Save::getInstance()->getGlobalData()->SubMapY)
 {
@@ -30,6 +31,7 @@ void SubMap::draw()
     int k = 0;
     struct DrawInfo { int i; Point p; };
     //std::map<int, DrawInfo> map;
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
     for (int sum = -sumregion; sum <= sumregion + 15; sum++)
     {
         for (int i = -widthregion; i <= widthregion; i++)
@@ -194,6 +196,14 @@ void SubMap::dealEvent(BP_Event& e)
         }
         }
     }
+    if (e.type == BP_KEYUP)
+    {
+        if (e.key.keysym.sym == BPK_ESCAPE)
+        {
+            UI::getInstance()->run();
+            e.type = BP_FIRSTEVENT;
+        }
+    }
 }
 
 void SubMap::backRun()
@@ -201,7 +211,8 @@ void SubMap::backRun()
     for (int i = 0; i < SUBMAP_MAX_EVENT; i++)
     {
         auto e = current_submap_->Event(i);
-        e->CurrentPic++;
+        //if (e->PicDelay > 0)
+        { e->CurrentPic++; }
         if (e->CurrentPic > e->EndPic)
         {
             e->CurrentPic = e->BeginPic;
@@ -306,7 +317,8 @@ bool SubMap::isExit(int x, int y)
         || current_submap_->ExitX[2] == x && current_submap_->ExitY[2] == y)
     {
         loop_ = false;
-        Save::getInstance()->global_data_.unused0 = 1;
+
+        Save::getInstance()->getGlobalData()->unused0 = 1;
         return true;
     }
     return false;

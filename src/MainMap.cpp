@@ -4,6 +4,7 @@
 #include "SubMap.h"
 #include "Save.h"
 #include <time.h>
+#include "UI.h"
 
 MainMap::MapArray MainMap::Earth_, MainMap::Surface_, MainMap::Building_, MainMap::BuildX_, MainMap::BuildY_, MainMap::Entrance_;
 bool MainMap::_readed = false;
@@ -49,7 +50,7 @@ MainMap::~MainMap()
 
 void MainMap::divide2(MapArray& m)
 {
-    for (int i = 0; i < max_coord_*max_coord_; i++)
+    for (int i = 0; i < max_coord_ * max_coord_; i++)
     {
         m[i] /= 2;
     }
@@ -195,6 +196,14 @@ void MainMap::dealEvent(BP_Event& e)
         {
             rest_time_++;
         }
+        }
+    }
+    if (e.type == BP_KEYUP)
+    {
+        if (e.key.keysym.sym == BPK_ESCAPE)
+        {
+            UI::getInstance()->run();
+            e.type = BP_FIRSTEVENT;
         }
     }
 }
