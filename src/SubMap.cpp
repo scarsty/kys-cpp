@@ -35,7 +35,7 @@ void SubMap::draw()
             int i1 = Cx + i + (sum / 2);
             int i2 = Cy - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, Cx, Cy);
-            if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
+            if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
             {
                 //Point p1 = Point(0, -m_SceneMapData[scene_id_].Data[4][i1][i2]);
                 //Point p2 = Point(0, -m_SceneMapData[scene_id_].Data[5][i1][i2]);
@@ -55,18 +55,21 @@ void SubMap::draw()
                 }
                 if (i1 == Cx && i2 == Cy)
                 {
-                    manPicture = offset_manPic + Scene::towards * num_manPic + step;
-                    TextureManager::getInstance()->renderTexture("smap", manPicture, p.x, p.y - h);
+                    if (man_pic_ != -1)
+                    {
+                        man_pic_ = man_pic0_ + Scene::towards * num_man_pic_ + step;
+                        TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
+                    }
                 }
                 //事件层
                 auto event = current_submap_->Event(i1, i2);
                 if (event)
                 {
-                    num = current_submap_->Event(i1, i2)->BeginPic1 / 2;
+                    num = current_submap_->Event(i1, i2)->CurrentPic / 2;
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - current_submap_->EventHeight(i1, i2));
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - current_submap_->EventHeight(i1, i2) - h);
                     }
                 }
 
@@ -101,16 +104,16 @@ void SubMap::dealEvent(BP_Event& e)
             FindWay(Cx, Cy, Msx, Msy);
         }
     }
-    if (!wayQue.empty())
+    if (!way_que_.empty())
     {
-        Point newMyPoint = wayQue.top();
+        Point newMyPoint = way_que_.top();
         x = newMyPoint.x;
         y = newMyPoint.y;
         isExit(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
         walk(x, y, myTowards);
-        wayQue.pop();
+        way_que_.pop();
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
     if (e.type == BP_KEYDOWN)
@@ -169,13 +172,13 @@ void SubMap::dealEvent(BP_Event& e)
         case BPK_RETURN:
         case BPK_SPACE:
         {
-           /* stopFindWay();
-            ReSetEventPosition(x, y);
-            if (current_submap_->Building();
-            Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y] >= 0)
-                if (Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1 >= 0)
-                    EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1);
-           */
+            /* stopFindWay();
+             ReSetEventPosition(x, y);
+             if (current_submap_->Building();
+             Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y] >= 0)
+                 if (Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1 >= 0)
+                     EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1);
+            */
             break;
         }
         case SDLK_b:
@@ -193,13 +196,13 @@ void SubMap::dealEvent(BP_Event& e)
 
 void SubMap::backRun()
 {
-    for (int i = 0; i < PerSceneMaxEvent; i++)
+    for (int i = 0; i < SUBMAP_MAX_EVENT; i++)
     {
         auto e = current_submap_->Event(i);
-        e->BeginPic1++;
-        if (e->BeginPic1 > e->EndPic)
+        e->CurrentPic++;
+        if (e->CurrentPic > e->EndPic)
         {
-            e->BeginPic1 = e->BeginPic2;
+            e->CurrentPic = e->BeginPic;
         }
     }
 }
@@ -220,7 +223,7 @@ void SubMap::walk(int x, int y, Towards t)
     {
         step++;
     }
-    step = step % num_manPic;
+    step = step % num_man_pic_;
 }
 
 bool SubMap::canWalk(int x, int y)
@@ -238,7 +241,7 @@ bool SubMap::canWalk(int x, int y)
 
 bool SubMap::isBuilding(int x, int y)
 {
-    if (current_submap_->Building(x,y) >= -2 && current_submap_->Building(x, y) <= 0)
+    if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
     {
         return false;
     }
@@ -250,7 +253,7 @@ bool SubMap::isBuilding(int x, int y)
 
 bool SubMap::isOutLine(int x, int y)
 {
-    if (x < 0 || x > MaxSceneCoord || y < 0 || y > MaxSceneCoord)
+    if (x < 0 || x >= max_coord_ || y < 0 || y >= max_coord_)
     {
         return true;
     }
@@ -275,7 +278,7 @@ bool SubMap::isWater(int x, int y)
 
 bool SubMap::isEvent(int x, int y)
 {
-    auto e = current_submap_->Event(x,y);
+    auto e = current_submap_->Event(x, y);
     if (e && e->CannotWalk)
     {
         return true;
@@ -296,14 +299,14 @@ bool SubMap::isFall(int x, int y)
 
 bool SubMap::isExit(int x, int y)
 {
-      if (current_submap_->ExitX[0] == x && current_submap_->ExitY[0] == y
-          || current_submap_->ExitX[1] == x && current_submap_->ExitY[1] == y
-          || current_submap_->ExitX[2] == x && current_submap_->ExitY[2] == y)
-      {
-          loop_ = false;
-          Save::getInstance()->global_data_.unused0 = 1;
-          return true;
-      }
+    if (current_submap_->ExitX[0] == x && current_submap_->ExitY[0] == y
+        || current_submap_->ExitX[1] == x && current_submap_->ExitY[1] == y
+        || current_submap_->ExitX[2] == x && current_submap_->ExitY[2] == y)
+    {
+        loop_ = false;
+        Save::getInstance()->global_data_.unused0 = 1;
+        return true;
+    }
     return false;
 }
 
@@ -346,9 +349,9 @@ void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
     myPoint->Heuristic(Fx, Fy);
     //log("Fx=%d,Fy=%d", Fx, Fy);
     //log("Mx=%d,My=%d", Mx, My);
-    while (!wayQue.empty())
+    while (!way_que_.empty())
     {
-        wayQue.pop();
+        way_que_.pop();
     }
     std::priority_queue<Point*, std::vector<Point*>, Compare> que;            //最小优先级队列(开启列表)
     que.push(myPoint);
@@ -364,14 +367,14 @@ void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
         if (t->x == Fx && t->y == Fy)
         {
             minStep = t->step;
-            wayQue.push(*t);
+            way_que_.push(*t);
             int k = 0;
             while (t != myPoint && k <= minStep)
             {
                 //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
 
                 t->towards = t->parent->towards;
-                wayQue.push(*t);
+                way_que_.push(*t);
                 t = t->parent;
                 k++;
                 //log("go in!");
@@ -419,9 +422,9 @@ void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
 
 void SubMap::stopFindWay()
 {
-    while (!wayQue.empty())
+    while (!way_que_.empty())
     {
-        wayQue.pop();
+        way_que_.pop();
     }
 }
 

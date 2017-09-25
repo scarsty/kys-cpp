@@ -18,12 +18,12 @@ File::~File()
 *  @return 文件读取成功返回true，失败返回false 
 */
 
-bool File::readFile(const char * filename, char** s, int* len)
+bool File::readFile(const std::string& filename, char** s, int* len)
 {
-    FILE *fp = fopen(filename, "rb");
+    FILE *fp = fopen(filename.c_str(), "rb");
     if (!fp)
     {
-        fprintf(stderr, "Can not open file %s\n", filename);
+        fprintf(stderr, "Can not open file %s\n", filename.c_str());
         return false;
     }
     fseek(fp, 0, SEEK_END);
@@ -37,16 +37,29 @@ bool File::readFile(const char * filename, char** s, int* len)
 	return true;
 }
 
-void File::readFile(const char * filename, void* s, int len)
+void File::readFile(const std::string& filename, void* s, int len)
 {
-    FILE *fp = fopen(filename, "rb");
+    FILE *fp = fopen(filename.c_str(), "rb");
     if (!fp)
     {
-        fprintf(stderr, "Can not open file %s\n", filename);
+        fprintf(stderr, "Can not open file %s\n", filename.c_str());
         return;
     }
 	fseek(fp, 0, 0);
     fread(s, len, 1, fp);
+    fclose(fp);
+}
+
+void File::writeFile(const std::string& filename, void* s, int len)
+{
+    FILE *fp = fopen(filename.c_str(), "wb");
+    if (!fp)
+    {
+        fprintf(stderr, "Can not open file %s\n", filename.c_str());
+        return;
+    }
+    fseek(fp, 0, 0);
+    fwrite(s, len, 1, fp);
     fclose(fp);
 }
 

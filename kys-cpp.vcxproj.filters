@@ -61,6 +61,15 @@
     <ClCompile Include="src\Event.cpp">
       <Filter>Headers</Filter>
     </ClCompile>
+    <ClCompile Include="src\Types.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MainUI.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Head.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -118,6 +127,15 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\BattleMap.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Types.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MainUI.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Head.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

@@ -71,11 +71,11 @@ void BattleMap::draw()
     {
         TextureManager::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
     }
-	SDL_Color color = { 0, 0, 0, 255 };
-	//string strTemp;
-	//strTemp = "中文测试";
-	//strTemp = Engine::getInstance()->string_To_UTF8(strTemp);
-	//Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
+    SDL_Color color = { 0, 0, 0, 255 };
+    //string strTemp;
+    //strTemp = "中文测试";
+    //strTemp = Engine::getInstance()->string_To_UTF8(strTemp);
+    //Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
 }
 
 void BattleMap::dealEvent(BP_Event& e)
@@ -96,19 +96,19 @@ void BattleMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-		m_nBx = x;
-		m_nBy = y;
+        m_nBx = x;
+        m_nBy = y;
     }
     if (Scene::towards != t)
     {
         Scene::towards = t;
-		m_nstep = 0;
+        m_nstep = 0;
     }
     else
     {
-		m_nstep++;
+        m_nstep++;
     }
-	m_nstep = m_nstep % m_nOffset_BRolePic;
+    m_nstep = m_nstep % m_nOffset_BRolePic;
 }
 
 bool BattleMap::canWalk(int x, int y)
@@ -235,21 +235,21 @@ int BattleMap::CallFace(int x1, int y1, int x2, int y2)
 
 void BattleMap::initData(int scenenum)
 {
-//       for (int i = 0; i < maxBRoleSelect; i++)
-//       {
-//           int numBRole = ResultofBattle[i];
-//           char *fightPath = new char[30];
-//           sprintf(fightPath, "fight/fight%03d", numBRole);
-//           char *fightPathIn = new char[30];
-//           sprintf(fightPathIn, "fight/fight%03d/index.ka", numBRole);
-//           auto file = FileUtils::getInstance();
-//           //std::fstream file;
-//           if (file->isFileExist(fightPathIn)){
-//               loadTexture(fightPath, MyTexture2D::Battle, 250, numBRole);
-//           }
-//           //delete(fightPath);
-//           delete(fightPathIn);
-//       }
+    //       for (int i = 0; i < maxBRoleSelect; i++)
+    //       {
+    //           int numBRole = ResultofBattle[i];
+    //           char *fightPath = new char[30];
+    //           sprintf(fightPath, "fight/fight%03d", numBRole);
+    //           char *fightPathIn = new char[30];
+    //           sprintf(fightPathIn, "fight/fight%03d/index.ka", numBRole);
+    //           auto file = FileUtils::getInstance();
+    //           //std::fstream file;
+    //           if (file->isFileExist(fightPathIn)){
+    //               loadTexture(fightPath, MyTexture2D::Battle, 250, numBRole);
+    //           }
+    //           //delete(fightPath);
+    //           delete(fightPathIn);
+    //       }
 }
 
 
@@ -266,8 +266,8 @@ bool BattleMap::autoInBattle()
     int autoCount = 0;
     for (int i = 0; i < MaxBRoleNum; i++)
     {
-		m_vcBattleRole[i].Team = 1;
-		m_vcBattleRole[i].rnum = -1;
+        m_vcBattleRole[i].Team = 1;
+        m_vcBattleRole[i].rnum = -1;
         //我方自动参战数据
         if (m_nMods >= -1)
         {
@@ -278,25 +278,25 @@ bool BattleMap::autoInBattle()
             }
             if (m_nMods == -1)
             {
-				m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].autoMate[i];
+                m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].autoMate[i];
             }
             else
             {
-				m_vcBattleRole[m_nBRoleAmount].rnum = -1;
+                m_vcBattleRole[m_nBRoleAmount].rnum = -1;
             }
-			m_vcBattleRole[m_nBRoleAmount].Team = 0;
-			m_vcBattleRole[m_nBRoleAmount].Y = y;
-			m_vcBattleRole[m_nBRoleAmount].X = x;
-			m_vcBattleRole[m_nBRoleAmount].Face = 2;
+            m_vcBattleRole[m_nBRoleAmount].Team = 0;
+            m_vcBattleRole[m_nBRoleAmount].Y = y;
+            m_vcBattleRole[m_nBRoleAmount].X = x;
+            m_vcBattleRole[m_nBRoleAmount].Face = 2;
             if (m_vcBattleRole[m_nBRoleAmount].rnum == -1)
             {
-				m_vcBattleRole[m_nBRoleAmount].Dead = 1;
-				m_vcBattleRole[m_nBRoleAmount].Show = 1;
+                m_vcBattleRole[m_nBRoleAmount].Dead = 1;
+                m_vcBattleRole[m_nBRoleAmount].Show = 1;
             }
             else
             {
-				m_vcBattleRole[m_nBRoleAmount].Dead = 0;
-				m_vcBattleRole[m_nBRoleAmount].Show = 0;
+                m_vcBattleRole[m_nBRoleAmount].Dead = 0;
+                m_vcBattleRole[m_nBRoleAmount].Show = 0;
                 //if (!((m_Character[battleRole[BRoleAmount].rnum].TeamState == 1)
                 //    || (m_Character[battleRole[BRoleAmount].rnum].TeamState == 2))
                 //    && !(m_Character[battleRole[BRoleAmount].rnum].Faction == m_Character[0].Faction))
@@ -305,27 +305,27 @@ bool BattleMap::autoInBattle()
                 //    autoCount++;
                 //}
             }
-			m_vcBattleRole[m_nBRoleAmount].Step = 0;
-			m_vcBattleRole[m_nBRoleAmount].Acted = 0;
-			m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
+            m_vcBattleRole[m_nBRoleAmount].Step = 0;
+            m_vcBattleRole[m_nBRoleAmount].Acted = 0;
+            m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
             if (m_vcBattleRole[m_nBRoleAmount].rnum == 0)
             {
-				m_vcBattleRole[m_nBRoleAmount].Auto = -1;
+                m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             }
             else
             {
-				m_vcBattleRole[m_nBRoleAmount].Auto = 3;
+                m_vcBattleRole[m_nBRoleAmount].Auto = 3;
             }
-			m_vcBattleRole[m_nBRoleAmount].Progress = 0;
-			m_vcBattleRole[m_nBRoleAmount].round = 0;
-			m_vcBattleRole[m_nBRoleAmount].Wait = 0;
-			m_vcBattleRole[m_nBRoleAmount].frozen = 0;
-			m_vcBattleRole[m_nBRoleAmount].killed = 0;
-			m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
-			m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
-			m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
-			m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
-			m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
+            m_vcBattleRole[m_nBRoleAmount].Progress = 0;
+            m_vcBattleRole[m_nBRoleAmount].round = 0;
+            m_vcBattleRole[m_nBRoleAmount].Wait = 0;
+            m_vcBattleRole[m_nBRoleAmount].frozen = 0;
+            m_vcBattleRole[m_nBRoleAmount].killed = 0;
+            m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
+            m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
+            m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
+            m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
+            m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
 
         }
         //自动参战结束
@@ -889,12 +889,12 @@ bool BattleMap::initBattleData()
     {
         for (int i2 = 0; i2 <= 63; i2++)
         {
-			m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] = -1;
-			m_vcBattleSceneData[m_nbattleSceneNum].Data[4][i1][i2] = -1;
-			m_vcBattleSceneData[m_nbattleSceneNum].Data[5][i1][i2] = -1;
+            m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] = -1;
+            m_vcBattleSceneData[m_nbattleSceneNum].Data[4][i1][i2] = -1;
+            m_vcBattleSceneData[m_nbattleSceneNum].Data[5][i1][i2] = -1;
         }
     }
-	m_nBRoleAmount = 0;
+    m_nBRoleAmount = 0;
     //initBattleRoleState();
     return true;
 }
@@ -904,9 +904,9 @@ bool BattleMap::initBattleRoleState()
     BattleData::getInstance()->m_vcBattleRole.resize(MaxBRoleNum);
     for (int i = 0; i < MaxBRoleNum; i++)
     {
-		m_vcBattleRole[i].X = -1;
-		m_vcBattleRole[i].Y = -1;
-		m_vcBattleRole[i].Show = 1;
+        m_vcBattleRole[i].X = -1;
+        m_vcBattleRole[i].Y = -1;
+        m_vcBattleRole[i].Show = 1;
     }
     m_nBStatus = 0;
     m_bisBattle = true;
@@ -917,7 +917,7 @@ bool BattleMap::initBattleRoleState()
     else
     {
     }
-	m_nBRoleAmount = 0;
+    m_nBRoleAmount = 0;
     int n0 = 0;
     int teamNum = 0;
     if (m_vcBattleInfo[m_nbattleNum].mate[0] == 0)
@@ -928,26 +928,26 @@ bool BattleMap::initBattleRoleState()
     {
         if (m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount] >= 0)
         {
-			m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-			m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
-			m_vcBattleRole[m_nBRoleAmount].Team = 0;
-			m_vcBattleRole[m_nBRoleAmount].Face = 2;
-			m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
-			m_vcBattleRole[m_nBRoleAmount].Auto = -1;
+            m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+            m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
+            m_vcBattleRole[m_nBRoleAmount].Team = 0;
+            m_vcBattleRole[m_nBRoleAmount].Face = 2;
+            m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
+            m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             setInitState(n0);
         }
         else if (m_nBattleList[teamNum] >= 0)
         {
-			m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-			m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
-			m_vcBattleRole[m_nBRoleAmount].Team = 0;
-			m_vcBattleRole[m_nBRoleAmount].Face = 2;
-			m_vcBattleRole[m_nBRoleAmount].rnum = m_nBattleList[teamNum];
-			m_vcBattleRole[m_nBRoleAmount].Auto = -1;
+            m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+            m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
+            m_vcBattleRole[m_nBRoleAmount].Team = 0;
+            m_vcBattleRole[m_nBRoleAmount].Face = 2;
+            m_vcBattleRole[m_nBRoleAmount].rnum = m_nBattleList[teamNum];
+            m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             setInitState(n0);
             teamNum++;
         }
-		m_nBRoleAmount++;
+        m_nBRoleAmount++;
     }
     calMoveAbility();
     return true;
@@ -955,20 +955,20 @@ bool BattleMap::initBattleRoleState()
 
 void BattleMap::setInitState(int& n0)
 {
-	m_vcBattleRole[m_nBRoleAmount].Step = 0;
-	m_vcBattleRole[m_nBRoleAmount].Acted = 0;
-	m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
-	m_vcBattleRole[m_nBRoleAmount].Show = 0;
-	m_vcBattleRole[m_nBRoleAmount].Progress = 0;
-	m_vcBattleRole[m_nBRoleAmount].round = 0;
-	m_vcBattleRole[m_nBRoleAmount].Wait = 0;
-	m_vcBattleRole[m_nBRoleAmount].frozen = 0;
-	m_vcBattleRole[m_nBRoleAmount].killed = 0;
-	m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
-	m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
-	m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
-	m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
-	m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
+    m_vcBattleRole[m_nBRoleAmount].Step = 0;
+    m_vcBattleRole[m_nBRoleAmount].Acted = 0;
+    m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
+    m_vcBattleRole[m_nBRoleAmount].Show = 0;
+    m_vcBattleRole[m_nBRoleAmount].Progress = 0;
+    m_vcBattleRole[m_nBRoleAmount].round = 0;
+    m_vcBattleRole[m_nBRoleAmount].Wait = 0;
+    m_vcBattleRole[m_nBRoleAmount].frozen = 0;
+    m_vcBattleRole[m_nBRoleAmount].killed = 0;
+    m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
+    m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
+    m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
+    m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
+    m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
     for (int j = 0; j <= 4; j++)
     {
         n0 = 0;
@@ -985,8 +985,8 @@ void BattleMap::setInitState(int& n0)
                 //}
             }
         }
-		m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = 100;
-		m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
+        m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = 100;
+        m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
     }
     for (int j = 5; j <= 9; j++)
     {
@@ -1004,8 +1004,8 @@ void BattleMap::setInitState(int& n0)
                 //}
             }
         }
-		m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = n0;
-		m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
+        m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = n0;
+        m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
     }
     for (int j = 10; j <= 13; j++)
     {
@@ -1028,20 +1028,20 @@ void BattleMap::calMoveAbility()
             //          if (CheckEquipSet(RRole[rnum].Equip[0], RRole[rnum].Equip[1], RRole[rnum].Equip[2], RRole[rnum].Equip[3]) == 5){
             //              addspeed += 30;
             //          }
-			m_vcBattleRole[i].speed = (getRoleSpeed(m_vcBattleRole[i].rnum, true) + addspeed);
+            m_vcBattleRole[i].speed = (getRoleSpeed(m_vcBattleRole[i].rnum, true) + addspeed);
             if (m_vcBattleRole[i].Wait == 0)
             {
-				m_vcBattleRole[i].Step = round(power(m_vcBattleRole[i].speed / 15, 0.8) * (100 + m_vcBattleRole[i].zhuangtai[8]) / 100);
+                m_vcBattleRole[i].Step = round(power(m_vcBattleRole[i].speed / 15, 0.8) * (100 + m_vcBattleRole[i].zhuangtai[8]) / 100);
                 if (m_nMaxspeed > m_vcBattleRole[i].speed)
                 {
                     m_nMaxspeed = m_nMaxspeed;
                 }
                 else { m_nMaxspeed = m_vcBattleRole[i].speed; }
             }
-    //        if (Rrole[rnum].Moveable > 0)
-    //        {
-				//m_vcBattleRole[i].Step = 0;
-    //        }
+            //        if (Rrole[rnum].Moveable > 0)
+            //        {
+            //m_vcBattleRole[i].Step = 0;
+            //        }
         }
     }
 }
@@ -1050,77 +1050,77 @@ void BattleMap::calMoveAbility()
 void BattleMap::reArrangeBRole()
 {
     int i, n, n1, i1, i2, x, t, s1, s2;
-        BattleRole temp;
-        i1 = 0;
-        i2 = 1;
-        for (i1 = 0; i1 < m_vcBattleRole.size() - 1; i1++)
+    BattleRole temp;
+    i1 = 0;
+    i2 = 1;
+    for (i1 = 0; i1 < m_vcBattleRole.size() - 1; i1++)
+    {
+        for (i2 = i1 + 1; i2 < m_vcBattleRole.size(); i2++)
         {
-            for (i2 = i1 + 1; i2 < m_vcBattleRole.size(); i2++)
+            s1 = 0;
+            s2 = 0;
+            if ((m_vcBattleRole[i1].rnum > -1) && (m_vcBattleRole[i1].Dead == 0))
             {
-                s1 = 0;
-                s2 = 0;
-                if ((m_vcBattleRole[i1].rnum > -1) && (m_vcBattleRole[i1].Dead == 0))
-                {
-                    s1 = getRoleSpeed(m_vcBattleRole[i1].rnum, true);
-// 					if checkEquipSet(Rrole[m_vcBattleRole[i1].rnum].Equip[0], Rrole[m_vcBattleRole[i1].rnum].Equip[1],
-// 						Rrole[m_vcBattleRole[i1].rnum].Equip[2], Rrole[m_vcBattleRole[i1].rnum].Equip[3]) = 5 then
-// 						s1 = s1 + 30;
-                }
-                if ((m_vcBattleRole[i2].rnum > -1) && (m_vcBattleRole[i2].Dead == 0))
-                {
-                    s2 = getRoleSpeed(m_vcBattleRole[i2].rnum, true);
-                }
-                if ((m_vcBattleRole[i1].rnum != 0) && (m_vcBattleRole[i1].Team != 0) && (s1 < s2) && (m_vcBattleRole[i2].rnum != 0) && (m_vcBattleRole[i2].Team != 0))
-                {
-                    temp = m_vcBattleRole[i1];
-					m_vcBattleRole[i1] = m_vcBattleRole[i2];
-					m_vcBattleRole[i2] = temp;
-                }
+                s1 = getRoleSpeed(m_vcBattleRole[i1].rnum, true);
+                //                  if checkEquipSet(Rrole[m_vcBattleRole[i1].rnum].Equip[0], Rrole[m_vcBattleRole[i1].rnum].Equip[1],
+                //                      Rrole[m_vcBattleRole[i1].rnum].Equip[2], Rrole[m_vcBattleRole[i1].rnum].Equip[3]) = 5 then
+                //                      s1 = s1 + 30;
+            }
+            if ((m_vcBattleRole[i2].rnum > -1) && (m_vcBattleRole[i2].Dead == 0))
+            {
+                s2 = getRoleSpeed(m_vcBattleRole[i2].rnum, true);
+            }
+            if ((m_vcBattleRole[i1].rnum != 0) && (m_vcBattleRole[i1].Team != 0) && (s1 < s2) && (m_vcBattleRole[i2].rnum != 0) && (m_vcBattleRole[i2].Team != 0))
+            {
+                temp = m_vcBattleRole[i1];
+                m_vcBattleRole[i1] = m_vcBattleRole[i2];
+                m_vcBattleRole[i2] = temp;
             }
         }
-    
-        //for (i1 = 0; i1 < 64; i1++)
-        //{
-        //    for (i2 = 0; i2 < 64; i2++)
-        //    {
-        //        battleSceneData[battleSceneNum].Data[2][i1][i2] = -1;
-        //        battleSceneData[battleSceneNum].Data[5][i1][i2] = -1;
-        //    }
-        //}
-        //n = 0;
-        //for (i = 0; i < BRole.size(); i++)
-        //{
-        //    if ((battleRole[i].Dead == 0) && (battleRole[i].rnum >= 0))
-        //    {
-        //        n++;
-        //    }
-        //}
-        //n1 = 0;
-        //for (i = 0; i < BRole.size(); i++)
-        //{
-        //    if (battleRole[i].rnum >= 0)
-        //    {
-        //        if (battleRole[i].Dead == 0)
-        //        {
-        //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = i;
-        //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = -1;
-        //            //              if battlemode > 0 then
-        //            //                  battleRole[i].Progress : = (n - n1) * 5;
-        //            n1++;
-        //        }
-        //        else
-        //        {
-        //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = -1;
-        //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = i;
-        //        }
-        //    }
-        //}
-        //i2 = 0;
-        //if (battlemode > 0) then
-        //    for i1 : = 0 to length(Brole) - 1 do
-        //        if ((GetPetSkill(5, 1) and (battleRole[i1].rnum = 0)) or (GetPetSkill(5, 3) and (battleRole[i1].Team = 0))) then
-        //            battleRole[i1].Progress : = 299 - i2 * 5;
-        //i2 = i2 + 1;
+    }
+
+    //for (i1 = 0; i1 < 64; i1++)
+    //{
+    //    for (i2 = 0; i2 < 64; i2++)
+    //    {
+    //        battleSceneData[battleSceneNum].Data[2][i1][i2] = -1;
+    //        battleSceneData[battleSceneNum].Data[5][i1][i2] = -1;
+    //    }
+    //}
+    //n = 0;
+    //for (i = 0; i < BRole.size(); i++)
+    //{
+    //    if ((battleRole[i].Dead == 0) && (battleRole[i].rnum >= 0))
+    //    {
+    //        n++;
+    //    }
+    //}
+    //n1 = 0;
+    //for (i = 0; i < BRole.size(); i++)
+    //{
+    //    if (battleRole[i].rnum >= 0)
+    //    {
+    //        if (battleRole[i].Dead == 0)
+    //        {
+    //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = i;
+    //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = -1;
+    //            //              if battlemode > 0 then
+    //            //                  battleRole[i].Progress : = (n - n1) * 5;
+    //            n1++;
+    //        }
+    //        else
+    //        {
+    //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = -1;
+    //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = i;
+    //        }
+    //    }
+    //}
+    //i2 = 0;
+    //if (battlemode > 0) then
+    //    for i1 : = 0 to length(Brole) - 1 do
+    //        if ((GetPetSkill(5, 1) and (battleRole[i1].rnum = 0)) or (GetPetSkill(5, 3) and (battleRole[i1].Team = 0))) then
+    //            battleRole[i1].Progress : = 299 - i2 * 5;
+    //i2 = i2 + 1;
 }
 
 //获取人物速度
@@ -1196,10 +1196,10 @@ void BattleMap::calCanSelect(int bnum, int mode, int Step)
         {
             for (int i2 = 0; i2 <= 63; i2++)
             {
-				m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
             }
         }
-		m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_vcBattleRole[bnum].X][m_vcBattleRole[bnum].Y] = 0;
+        m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_vcBattleRole[bnum].X][m_vcBattleRole[bnum].Y] = 0;
         seekPath2(m_vcBattleRole[bnum].X, m_vcBattleRole[bnum].Y, Step, m_vcBattleRole[bnum].Team, mode);
     }
     if (mode == 1)
@@ -1208,10 +1208,10 @@ void BattleMap::calCanSelect(int bnum, int mode, int Step)
         {
             for (int i2 = 0; i2 <= 63; i2++)
             {
-				m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
                 if (abs(i1 - m_vcBattleRole[bnum].X) + abs(i2 - m_vcBattleRole[bnum].Y) <= m_nstep)
                 {
-					m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
+                    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
                 }
             }
         }
@@ -1223,10 +1223,10 @@ void BattleMap::calCanSelect(int bnum, int mode, int Step)
         {
             for (int i2 = 0; i2 <= 63; i2++)
             {
-				m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
                 if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] >= 0)
                 {
-					m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
+                    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
                 }
             }
         }
@@ -1284,7 +1284,7 @@ void BattleMap::seekPath2(int x, int y, int step, int myteam, int mode)
                     Bgrid[i] = 1;
                 }
                 else if ((m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY] >= 0)
-                         && (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Dead == 0))
+                    && (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Dead == 0))
                 {
                     if (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Team == myteam)
                     {
@@ -1293,13 +1293,13 @@ void BattleMap::seekPath2(int x, int y, int step, int myteam, int mode)
                     else { Bgrid[i] = 3; }
                 }
                 else if (((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 179)
-                          && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 190))
-                         || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 261)
-                         || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 511)
-                         || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 224)
-                             && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 232))
-                         || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 662)
-                             && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 674)))
+                    && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 190))
+                    || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 261)
+                    || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 511)
+                    || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 224)
+                    && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 232))
+                    || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 662)
+                    && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 674)))
                 {
                     Bgrid[i] = 6;
                 }
@@ -1339,7 +1339,7 @@ void BattleMap::seekPath2(int x, int y, int step, int myteam, int mode)
                         Xlist[totalgrid] = curX + Xinc[i];
                         Ylist[totalgrid] = curY + Yinc[i];
                         steplist[totalgrid] = curstep + 1;
-						m_vcBattleSceneData[m_nbattleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
+                        m_vcBattleSceneData[m_nbattleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
                         totalgrid = totalgrid + 1;
                     }
                 }
@@ -1465,10 +1465,10 @@ void BattleMap::moveAmination(int bnum)
         //      MyPoint *pAInt = new MyPoint();
         //      pAInt->x = Ax;
         //      pAInt->y = Ay;
-		m_nlinex[0] = m_nBx;
-		m_nliney[0] = m_nBy;
-		m_nlinex[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAx;
-		m_nliney[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAy;
+        m_nlinex[0] = m_nBx;
+        m_nliney[0] = m_nBy;
+        m_nlinex[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAx;
+        m_nliney[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAy;
         a = m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy] - 1;
         while (a >= 0)
         {
@@ -1478,8 +1478,8 @@ void BattleMap::moveAmination(int bnum)
                 tempy = m_nliney[a + 1] + Yinc[i];
                 if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][tempx][tempy] == m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nlinex[a + 1]][m_nliney[a + 1]] - 1)
                 {
-					m_nlinex[a] = tempx;
-					m_nliney[a] = tempy;
+                    m_nlinex[a] = tempx;
+                    m_nliney[a] = tempy;
                     break;
                 }
             }
@@ -1500,33 +1500,33 @@ void BattleMap::moveAminationStep(float dt)
     {
         if ((m_nlinex[a] - m_nBx) > 0)
         {
-			m_vcBattleRole[bnum].Face = 3;
+            m_vcBattleRole[bnum].Face = 3;
         }
         else if ((m_nlinex[a] - m_nBx) < 0)
         {
-			m_vcBattleRole[bnum].Face = 0;
+            m_vcBattleRole[bnum].Face = 0;
         }
         else if ((m_nliney[a] - m_nBy) < 0)
         {
-			m_vcBattleRole[bnum].Face = 2;
+            m_vcBattleRole[bnum].Face = 2;
         }
         else { m_vcBattleRole[bnum].Face = 1; }
         if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == bnum)
         {
-			m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = -1;
+            m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = -1;
 
         }
-		m_nBx = m_nlinex[a];
-		m_nBy = m_nliney[a];
-		m_vcBattleRole[bnum].X = m_nBx;
-		m_vcBattleRole[bnum].Y = m_nBy;
+        m_nBx = m_nlinex[a];
+        m_nBy = m_nliney[a];
+        m_vcBattleRole[bnum].X = m_nBx;
+        m_vcBattleRole[bnum].Y = m_nBy;
         if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == -1)
         {
-			m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = bnum;
+            m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = bnum;
         }
         a++;
-		m_ncurA = a;
-		m_vcBattleRole[bnum].Step--;
+        m_ncurA = a;
+        m_vcBattleRole[bnum].Step--;
         draw();
     }
     else
@@ -1551,8 +1551,8 @@ void BattleMap::battleMainControl(int mods, int id)
 
     calMoveAbility(); //计算移动能力
     reArrangeBRole();
-	m_nBx = m_vcBattleRole[m_ncurRoleNum].X;
-	m_nBy = m_vcBattleRole[m_ncurRoleNum].Y;
+    m_nBx = m_vcBattleRole[m_ncurRoleNum].X;
+    m_nBy = m_vcBattleRole[m_ncurRoleNum].Y;
     draw();
 }
 
@@ -1563,24 +1563,24 @@ void BattleMap::attack(int bnum)
     int rnum = m_vcBattleRole[bnum].rnum;
     //mnum = m_Character[rnum].LMagic[i];
     //level = m_Character[rnum].MagLevel[i] / 100 + 1;
-	m_ncurMagic = mnum;
+    m_ncurMagic = mnum;
 }
 
 void BattleMap::init()
 {
-	
-	// 因为偏移文件的问题，所以暂时读不到这个文件。
-	//auto UiLayer = new UI();
-	//auto MenuSprite = new Menu();
-	//MenuSprite->setPosition(20, 20);
-	//for (int i = 0; i < 3; i++)
-	//{
-	//	auto ButtonSprite = new Button();
-	//	ButtonSprite->setTexture("menu", i + 1, i + 33);
-	//	MenuSprite->addButton(ButtonSprite, 0, i * 33);
-	//	ButtonSprite->setSize(110, 24);
-	//	//ButtonSprite->setFunction(BIND_FUNC(HelloWorldScene::func));
-	//}
-	//UiLayer->AddSprite(MenuSprite);
-	//push(UiLayer);
+
+    // 因为偏移文件的问题，所以暂时读不到这个文件。
+    //auto UiLayer = new UI();
+    //auto MenuSprite = new Menu();
+    //MenuSprite->setPosition(20, 20);
+    //for (int i = 0; i < 3; i++)
+    //{
+    //  auto ButtonSprite = new Button();
+    //  ButtonSprite->setTexture("menu", i + 1, i + 33);
+    //  MenuSprite->addButton(ButtonSprite, 0, i * 33);
+    //  ButtonSprite->setSize(110, 24);
+    //  //ButtonSprite->setFunction(BIND_FUNC(HelloWorldScene::func));
+    //}
+    //UiLayer->AddSprite(MenuSprite);
+    //push(UiLayer);
 }

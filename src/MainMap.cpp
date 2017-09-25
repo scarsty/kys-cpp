@@ -17,12 +17,12 @@ MainMap::MainMap() :
     srand(int(time(nullptr)));
     if (!_readed)
     {
-        int length = coord_count_ * coord_count_ * sizeof(uint16_t);
-        Earth = new MapArray(coord_count_, coord_count_);
-        Surface = new MapArray(coord_count_, coord_count_);
-        Building = new MapArray(coord_count_, coord_count_);
-        BuildX = new MapArray(coord_count_, coord_count_);
-        BuildY = new MapArray(coord_count_, coord_count_);
+        int length = max_coord_ * max_coord_ * sizeof(uint16_t);
+        Earth = new MapArray(max_coord_, max_coord_);
+        Surface = new MapArray(max_coord_, max_coord_);
+        Building = new MapArray(max_coord_, max_coord_);
+        BuildX = new MapArray(max_coord_, max_coord_);
+        BuildY = new MapArray(max_coord_, max_coord_);
 
         File::readFile("../game/resource/earth.002", &Earth->data(), length);
         File::readFile("../game/resource/surface.002", &Surface->data(), length);
@@ -67,7 +67,7 @@ void MainMap::draw()
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
-            if (i1 >= 0 && i1 < coord_count_ && i2 >= 0 && i2 < coord_count_)
+            if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
                 if (Earth->data(i1, i2) > 0)
@@ -89,12 +89,12 @@ void MainMap::draw()
                 }
                 if (i1 == man_x_ && i2 == man_y_)
                 {
-                    man_pic_ = man_pic0_ + Scene::towards * num_manPic + step_;
-                    if (rest_time_ >= begin_restTime)
-                    { man_pic_ = offset_restPic + Scene::towards * num_restPic + (rest_time_ - begin_restTime) / each_pictrueTime % num_restPic; }
+                    man_pic_ = man_pic0_ + Scene::towards * num_man_pic_ + step_;
+                    if (rest_time_ >= begin_rest_time_)
+                    { man_pic_ = rest_pic0_ + Scene::towards * num_rest_pic_ + (rest_time_ - begin_rest_time_) / rest_interval_ % num_rest_pic_; }
                     if (isWater(man_x_, man_y_))
                     {
-                        man_pic_ = offset_shipPic + Scene::towards * num_shipPic + step_;
+                        man_pic_ = ship_pic0_ + Scene::towards * num_ship_pic_ + step_;
                     }
                     int c = 1024 * (i1 + i2) + i1;
                     map[2 * c] = { man_pic_, p };
@@ -129,16 +129,16 @@ void MainMap::dealEvent(BP_Event& e)
             FindWay(man_x_, man_y_, Msx, Msy);
         }
     }
-    if (!wayQue.empty())
+    if (!way_que_.empty())
     {
-        Point newMyPoint = wayQue.top();
+        Point newMyPoint = way_que_.top();
         x = newMyPoint.x;
         y = newMyPoint.y;
         checkEntrance(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
         walk(x, y, myTowards);
-        wayQue.pop();
+        way_que_.pop();
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
     if (e.type == BP_KEYDOWN)
@@ -196,7 +196,7 @@ void MainMap::dealEvent(BP_Event& e)
     }
 }
 
-void MainMap::enter()
+void MainMap::entrance()
 {
 
 }
@@ -221,10 +221,10 @@ void MainMap::walk(int x, int y, Towards t)
     }
     else
     { step_++; }
-    step_ = step_ % num_manPic;
+    step_ = step_ % num_man_pic_;
     if (isWater(man_x_, man_y_))
     {
-        step_ = step_ % num_shipPic;
+        step_ = step_ % num_ship_pic_;
     }
     rest_time_ = 0;
 }
@@ -255,7 +255,7 @@ bool MainMap::isWater(int x, int y)
 
 bool MainMap::isOutLine(int x, int y)
 {
-    if (x < 0 || x > coord_count_ || y < 0 || y > coord_count_)
+    if (x < 0 || x > max_coord_ || y < 0 || y > max_coord_)
     { return true; }
     else
     { return false; }
@@ -330,9 +330,9 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
     myPoint->Heuristic(Fx, Fy);
     //log("Fx=%d,Fy=%d", Fx, Fy);
     //log("Mx=%d,My=%d", Mx, My);
-    while (!wayQue.empty())
+    while (!way_que_.empty())
     {
-        wayQue.pop();
+        way_que_.pop();
     }
     std::priority_queue<Point*, std::vector<Point*>, Compare> que;            //最小优先级队列(开启列表)
     que.push(myPoint);
@@ -348,14 +348,14 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
         if (t->x == Fx && t->y == Fy)
         {
             minStep = t->step;
-            wayQue.push(*t);
+            way_que_.push(*t);
             int k = 0;
             while (t != myPoint && k <= minStep)
             {
                 //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
 
                 t->towards = t->parent->towards;
-                wayQue.push(*t);
+                way_que_.push(*t);
                 t = t->parent;
                 k++;
                 //log("go in!");
@@ -412,8 +412,8 @@ bool MainMap::isOutScreen(int x, int y)
 
 void MainMap::stopFindWay()
 {
-    while (!wayQue.empty())
-    { wayQue.pop(); }
+    while (!way_que_.empty())
+    { way_que_.pop(); }
 }
 
 void MainMap::getMousePosition(int _x, int _y)

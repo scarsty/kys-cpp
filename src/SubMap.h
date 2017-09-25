@@ -1,7 +1,6 @@
 #pragma once
-
-#include "Scene.h"
 #include <stack>
+#include "Scene.h"
 #include "Save.h"
 
 class SubMap : public Scene
@@ -13,18 +12,18 @@ public:
     virtual ~SubMap();
 
     int Cx=0, Cy=0;
-    int manPicture;
+    int man_pic_;
     int step = 0;
 
-    const int MaxSceneCoord = 63;
+    const int max_coord_ = SUBMAP_MAX_EVENT;
 
-    int const offset_manPic = 2501;  //初始场景主角图偏移量
-    int const num_manPic = 7;  //单向主角图张数
+    int const man_pic0_ = 2501;  //初始场景主角图偏移量
+    int const num_man_pic_ = 7;  //单向主角图张数
     int scene_id_;   //场景号
 
     SubMapRecord* current_submap_;
 
-    std::stack<Point> wayQue;  //栈(路径栈)
+    std::stack<Point> way_que_;  //栈(路径栈)
 
     void setSceneNum(int num) { scene_id_ = num; }
 

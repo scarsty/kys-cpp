@@ -9,11 +9,13 @@
 class Base
 {
 public:
-    static std::vector<Base*> base_root_;   //所有需要绘制的内容都存储在这个向量中
+    static std::vector<Base*> root_;   //所有需要绘制的内容都存储在这个向量中
     std::vector<Base*> childs_;
     bool visible_ = true;
-    protected:
+protected:
     int result_ = -1;
+    int full_window_ = 0;                               //不为0时表示当前画面为起始层，低于本画面的层将不予显示
+    bool loop_ = true;
 public:
     Base() {}
     virtual ~Base();
@@ -21,15 +23,28 @@ public:
     static void LOG(const char* format, ...);
     template <class T> void safe_delete(T*& pointer)
     {
-        if (pointer)
-        { delete pointer; }
+        if (pointer) { delete pointer; }
         pointer = nullptr;
+    }
+    template <class T> static void safe_delete(std::vector<T*>& pointer_v)
+    {
+        for (auto& pointer : pointer_v)
+        {
+            safe_delete(pointer);
+        }
+    }
+    template <class T> static void safe_delete(std::initializer_list<T**> pointer_v)
+    {
+        for (auto& pointer : pointer_v)
+        {
+            safe_delete(*pointer);
+        }
     }
 
     static void drawAll();
-    static void push(Base* b) { base_root_.push_back(b); }
+    static void push(Base* b) { root_.push_back(b); }
     static Base* pop();
-    static Base* getCurentBase() { return base_root_.at(0); }
+    static Base* getCurentBase() { return root_.at(0); }
 
     int x_ = 0;
     int y_ = 0;
@@ -39,19 +54,18 @@ public:
     void setSize(int w, int h) { w_ = w; h_ = h; }
     bool inSide(int x, int y);
 
-    int full_window_ = 0;                               //不为0时表示当前画面为起始层，低于本画面的层将不予显示
 
-    bool loop_ = true;
-    int run();                                         //执行本层
+    int run();                                          //执行本层
 
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
     virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
-    virtual void enter() {}                          //进入本层的事件，例如绘制亮屏等
+    virtual void entrance() {}                          //进入本层的事件，例如绘制亮屏等
     virtual void exit() {}                              //离开本层的事件，例如黑屏等
-    //virtual void init() {}                              //初始化本层，例如放入一些指针，初值的设定
+
     int getResult() { return result_; }
     void drawSelfAndChilds();
     void addChild(Base* b, int x, int y);
+    void setVisible(bool v) { visible_ = v; }
 };
 
