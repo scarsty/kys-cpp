@@ -7,7 +7,7 @@ enum
     MAINMAP_MAX_COORD = 480,
     SUBMAP_MAX_EVENT = 200,                         //单场景最大事件数
     MAX_ITEM_COUNT = 200,                           //最大物品数
-    MAX_TEAM_COUNT = 6,                             //最大队伍人员数
+    MAX_TEAMMATE_COUNT = 6,                             //最大队伍人员数
 };
 
 struct GlobalData;
@@ -23,9 +23,8 @@ struct ItemList { int16_t item, count; };
 struct GlobalData
 {
     int16_t InShip, unused0, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, ShipTowards;
-    int16_t Team[MAX_TEAM_COUNT];
+    int16_t Team[MAX_TEAMMATE_COUNT];
     ItemList ItemList[MAX_ITEM_COUNT];
-    //short m_sDifficulty, m_sCheating, m_sBeiyong[4];
 };
 
 struct Role
@@ -45,9 +44,7 @@ struct Role
     uint16_t ExpForBook;
     int16_t MagicID[10], MagicLevel[10];
     int16_t TakingItem[4], TakingItemAmount[4];
-
     Magic* getLearnedMagic(int i);
-
 };
 
 struct Item

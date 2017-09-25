@@ -67,5 +67,16 @@ public:
     void drawSelfAndChilds();
     void addChild(Base* b, int x, int y);
     void setVisible(bool v) { visible_ = v; }
+
+    enum State
+    {
+        Normal,
+        Pass,
+        Press,
+    };
+
+    State state_;   //״̬
+    void setState(State s) { state_ = s; }
+
 };
 

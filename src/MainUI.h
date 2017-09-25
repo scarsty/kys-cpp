@@ -1,8 +1,7 @@
 #pragma once
 #include "Base.h"
 
-class MainUI :
-    public Base
+class MainUI : public Base
 {
 public:
     MainUI();

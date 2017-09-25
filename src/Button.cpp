@@ -23,18 +23,18 @@ void Button::dealEvent(BP_Event& e)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
-            setState(Button::Pass);
+            setState(Pass);
         }
         else
         {
-            setState(Button::Normal);
+            setState(Normal);
         }
     }
     if (e.type == BP_MOUSEBUTTONDOWN)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
-            setState(Button::Press);
+            setState(Press);
         }
     }
     if (e.type == BP_MOUSEBUTTONUP)

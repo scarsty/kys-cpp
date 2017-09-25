@@ -100,6 +100,8 @@ bool Save::LoadR(int num)
     submap_event_.resize(submap_count * SUBMAP_MAX_EVENT);
     File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));
 
+    makeMaps();
+
     return true;
 }
 
@@ -130,6 +132,68 @@ bool Save::SaveR(int num)
     File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));
 
     return true;
+}
+
+Role* Save::getTeamMate(int i)
+{
+    if (i < 0 || i >= MAX_TEAMMATE_COUNT)
+    {
+        return nullptr;
+    }
+    int r = global_data_.Team[i];
+    if (r < 0 || r >= roles_.size())
+    {
+        return nullptr;
+    }
+    return &(roles_[r]);
+}
+
+Item* Save::getItemFromBag(int i)
+{
+    if (i < 0 || i >= MAX_ITEM_COUNT)
+    {
+        return nullptr;
+    }
+    int r = global_data_.ItemList[i].item;
+    if (r < 0 || r >= items_.size())
+    {
+        return nullptr;
+    }
+    return &(items_[r]);
+}
+
+int16_t Save::getItemCountFromBag(int i)
+{
+    return global_data_.ItemList[i].count;
+}
+
+int16_t Save::getItemCountFromBag(Item* item)
+{
+    for (int i = 0; i < MAX_ITEM_COUNT; i++)
+    {
+        auto id = global_data_.ItemList[i].item;
+        if (id < 0) { break; }
+        if (id == item->ID)
+        {
+            return global_data_.ItemList[i].count;
+        }
+    }
+    return 0;
+}
+
+void Save::makeMaps()
+{
+    roles_by_name_.clear();
+    magics_by_name_.clear();
+    items_by_name_.clear();
+    submap_records_by_name_.clear();
+
+    //有重名的
+    for (auto& r : roles_)
+    {
+        roles_by_name_[r.Name] = &r;
+    }
+
 }
 
 void Save::fromCP950ToCP936(char* s)

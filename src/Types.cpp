@@ -50,3 +50,5 @@ SubMapEvent* SubMapRecord::Event(int i)
     }
     return &(Save::getInstance()->submap_event_[SUBMAP_MAX_EVENT * ID + i]);
 }
+
+
