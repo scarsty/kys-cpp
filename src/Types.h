@@ -22,7 +22,7 @@ struct ItemList { int16_t item, count; };
 //此处成员函数均大写，可以直接访问
 struct GlobalData
 {
-    int16_t InShip, unused0, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, ShipTowards;
+    int16_t InShip, unused0, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
     int16_t Team[MAX_TEAMMATE_COUNT];
     ItemList ItemList[MAX_ITEM_COUNT];
 };

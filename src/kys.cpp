@@ -3,8 +3,8 @@
 
 int main(int argc, char* argv[])
 {
-	Application app;
-	app.launch();
+    Application app;
+    app.launch();
     return 0;
 }
 

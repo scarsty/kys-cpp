@@ -56,38 +56,16 @@ bool Save::LoadR(int num)
     c = 1;
     roles_.resize(length_[c] / sizeof(Role));
     memcpy(&roles_[0], Rgrp + offset_[c], length_[c]);
-    for (auto& r : roles_)
-    {
-        fromCP950ToCP936(r.Name);
-        fromCP950ToCP936(r.Nick);
-    }
-
     c = 2;
     items_.resize(length_[c] / sizeof(Item));
     memcpy(&items_[0], Rgrp + offset_[c], length_[c]);
-    for (auto& i : items_)
-    {
-        fromCP950ToCP936(i.Name);
-        fromCP950ToCP936(i.Introduction);
-    }
-
     c = 3;
     submap_records_.resize(length_[c] / sizeof(SubMapRecord));
     memcpy(&submap_records_[0], Rgrp + offset_[c], length_[c]);
-    for (auto& s : submap_records_)
-    {
-        fromCP950ToCP936(s.Name);
-    }
-
-    c = 4;
+       c = 4;
     magics_.resize(length_[c] / sizeof(Magic));
     memcpy(&magics_[0], Rgrp + offset_[c], length_[c]);
-    for (auto& m : magics_)
-    {
-        fromCP950ToCP936(m.Name);
-    }
-
-    c = 5;
+       c = 5;
     shops_.resize(length_[c] / sizeof(Shop));
     memcpy(&shops_[0], Rgrp + offset_[c], length_[c]);
     delete[] Rgrp;
@@ -101,6 +79,29 @@ bool Save::LoadR(int num)
     File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));
 
     //makeMaps();
+    //ÄÚ²¿±àÂëÎªcp936
+    if (global_data_.Encode != 936)
+    {
+        global_data_.Encode = 936;
+        for (auto& r : roles_)
+        {
+            fromCP950ToCP936(r.Name);
+            fromCP950ToCP936(r.Nick);
+        }
+        for (auto& i : items_)
+        {
+            fromCP950ToCP936(i.Name);
+            fromCP950ToCP936(i.Introduction);
+        }
+        for (auto& s : submap_records_)
+        {
+            fromCP950ToCP936(s.Name);
+        }
+        for (auto& m : magics_)
+        {
+            fromCP950ToCP936(m.Name);
+        }
+    }
 
     return true;
 }

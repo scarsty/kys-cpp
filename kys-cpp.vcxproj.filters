@@ -34,9 +34,6 @@
     <ClCompile Include="src\BattleData.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\kys-c++.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Dialogues.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -57,9 +54,6 @@
     </ClCompile>
     <ClCompile Include="src\BattleMap.cpp">
       <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event.cpp">
-      <Filter>Headers</Filter>
     </ClCompile>
     <ClCompile Include="src\Types.cpp">
       <Filter>Sources</Filter>
@@ -86,6 +80,12 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Font.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Event.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\kys.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>

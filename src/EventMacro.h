@@ -1,23 +1,25 @@
 #pragma once
 
-//这些宏仅为了在事件程序中简化代码，请不要用在其他地方
-#define RUN_INCTRUCT_0(num, e, i, content) { case (num): content(); i += 1; break; }
-#define RUN_INCTRUCT_1(num, e, i, content) { case (num): content(e[i+1]); i += 2; break; }
-#define RUN_INCTRUCT_2(num, e, i, content) { case (num): content(e[i+1],e[i+2]); i += 3; break; }
-#define RUN_INCTRUCT_3(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3]); i += 4; break; }
-#define RUN_INCTRUCT_4(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4]); i += 5; break; }
-#define RUN_INCTRUCT_5(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i += 6; break; }
-#define RUN_INCTRUCT_6(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i += 7; break; }
-#define RUN_INCTRUCT_7(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i += 8; break; }
-#define RUN_INCTRUCT_8(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i += 9; break; }
-#define RUN_INCTRUCT_9(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9];) i += 10; break; }
-#define RUN_INCTRUCT_10(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i += 11; break; }
-#define RUN_INCTRUCT_11(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i += 12; break; }
-#define RUN_INCTRUCT_12(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i += 13; break; }
-#define RUN_INCTRUCT_13(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i += 14; break; }
+//这些宏仅为了在事件程序中简化代码，不要用在其他地方
+#define VOID_INCTRUCT_0(num, e, i, content) { case (num): content(); i += 1; break; }
+#define VOID_INCTRUCT_1(num, e, i, content) { case (num): content(e[i+1]); i += 2; break; }
+#define VOID_INCTRUCT_2(num, e, i, content) { case (num): content(e[i+1],e[i+2]); i += 3; break; }
+#define VOID_INCTRUCT_3(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3]); i += 4; break; }
+#define VOID_INCTRUCT_4(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4]); i += 5; break; }
+#define VOID_INCTRUCT_5(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i += 6; break; }
+#define VOID_INCTRUCT_6(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i += 7; break; }
+#define VOID_INCTRUCT_7(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i += 8; break; }
+#define VOID_INCTRUCT_8(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i += 9; break; }
+#define VOID_INCTRUCT_9(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9];) i += 10; break; }
+#define VOID_INCTRUCT_10(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i += 11; break; }
+#define VOID_INCTRUCT_11(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i += 12; break; }
+#define VOID_INCTRUCT_12(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i += 13; break; }
+#define VOID_INCTRUCT_13(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i += 14; break; }
 
+#define BOOL_INCTRUCT_0(num, e, i, content) { case (num): if (content()) {i += e[i+1];} else {i+= e[i+2];} break; }
+#define BOOL_INCTRUCT_1(num, e, i, content) { case (num): if (content(e[i+1])) {i += e[i+2];} else {i+= e[i+3];} break; }
 
-指令对应宏，仅参考，不使用
+//指令对应宏，仅参考，不使用
 #define instruct_0
 #define instruct_1 oldTalk
 #define instruct_2 getItem

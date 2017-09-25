@@ -178,7 +178,7 @@
     <ClCompile Include="src\PotConv.cpp" />
     <ClCompile Include="src\SubMap.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
-    <ClCompile Include="src\kys-c++.cpp" />
+    <ClCompile Include="src\kys.cpp" />
     <ClCompile Include="src\MainMap.cpp" />
     <ClCompile Include="src\Menu.cpp" />
     <ClCompile Include="src\Point.cpp" />

@@ -328,10 +328,6 @@ void Event::clear()
 }
 
 
-void Event::talk_1()
-{
-
-}
 void Event::getItem_2(short tnum, short amount, short rnum)
 {
     //getJueSe(&rnum);
@@ -373,17 +369,6 @@ void Event::getItem_2(short tnum, short amount, short rnum)
     //}
 }
 
-void Event::getJueSe(short* rnum)
-{
-    //未完成，待角色系统建立
-    if (*rnum <= -10)
-    {
-
-    }
-}
-void Event::editEvent3(short snum, short ednum, short CanWalk, short Num, short Event1, short Event2, short Event3, short BeginPic1, short EndPic, short BeginPic2, short  PicDelay, short  XPos, short  YPos, short StartTime, short  Duration, short Interval, short  DoneTime, short  IsActive, short  OutTime, short  OutEvent)
-{
-}
 int Event::judgeItem_4(short inum, short jump1, short jump2)
 {
     //if (inum == Head::CurItem)

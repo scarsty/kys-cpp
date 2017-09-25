@@ -6,7 +6,6 @@
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif
-#include "PotConv.h"
 
 Engine Engine::engine_;
 
@@ -227,11 +226,12 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     return text_t;
 }
 
+//此处仅接受utf8
 void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c)
 {
     if (alpha == 0)
     { return; }
-    auto text_t = createTextTexture(fontname, PotConv::cp936toutf8(text), size, c);
+    auto text_t = createTextTexture(fontname, text, size, c);
     if (!text_t) { return; }
     SDL_SetTextureAlphaMod(text_t, alpha);
     SDL_Rect rect;
