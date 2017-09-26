@@ -93,12 +93,12 @@ void MainMap::draw()
                 }
                 if (i1 == man_x_ && i2 == man_y_)
                 {
-                    man_pic_ = man_pic0_ + Scene::towards * num_man_pic_ + step_;
+                    man_pic_ = man_pic0_ + Scene::towards_ * num_man_pic_ + step_;
                     if (rest_time_ >= begin_rest_time_)
-                    { man_pic_ = rest_pic0_ + Scene::towards * num_rest_pic_ + (rest_time_ - begin_rest_time_) / rest_interval_ % num_rest_pic_; }
+                    { man_pic_ = rest_pic0_ + Scene::towards_ * num_rest_pic_ + (rest_time_ - begin_rest_time_) / rest_interval_ % num_rest_pic_; }
                     if (isWater(man_x_, man_y_))
                     {
-                        man_pic_ = ship_pic0_ + Scene::towards * num_ship_pic_ + step_;
+                        man_pic_ = ship_pic0_ + Scene::towards_ * num_ship_pic_ + step_;
                     }
                     int c = 1024 * (i1 + i2) + i1;
                     map[2 * c] = { man_pic_, p };
@@ -147,55 +147,57 @@ void MainMap::dealEvent(BP_Event& e)
     }
     if (e.type == BP_KEYDOWN)
     {
+        Towards tw;
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
         {
             x--;
-            checkEntrance(x, y);
-            walk(x, y, LeftDown);
-            stopFindWay();
+            tw = LeftDown;
             break;
         }
         case BPK_RIGHT:
         {
             x++;
-            checkEntrance(x, y);
-            walk(x, y, RightUp);
-            stopFindWay();
+            tw = RightUp;
             break;
         }
         case BPK_UP:
         {
             y--;
-            checkEntrance(x, y);
-            walk(x, y, LeftUp);
-            stopFindWay();
+            tw = LeftUp;
             break;
         }
         case BPK_DOWN:
         {
             y++;
-            checkEntrance(x, y);
-            walk(x, y, RightDown);
-            stopFindWay();
+            tw = RightDown;            
             break;
         }
-        case BPK_ESCAPE:
-        {
-            stopFindWay();
-            break;
-        }
-        case BPK_SPACE:
-        {
-            stopFindWay();
-            //Save::getInstance()->m_BasicData[0].MFace = towards;
-            //auto s = new BattleScene(Entrance[x][y]);
-        }
+        //case BPK_ESCAPE:
+        //{
+        //    stopFindWay();
+        //    break;
+        //}
+        //case BPK_SPACE:
+        //{
+        //    stopFindWay();
+        //    //Save::getInstance()->m_BasicData[0].MFace = towards;
+        //    //auto s = new BattleScene(Entrance[x][y]);
+        //}
         default:
         {
             rest_time_++;
         }
+        }
+        if (checkEntrance(x, y))
+        {
+            clearEvent(e);
+        }
+        else
+        {
+            walk(x, y, tw);
+            stopFindWay();
         }
     }
     if (e.type == BP_KEYUP)
@@ -203,7 +205,7 @@ void MainMap::dealEvent(BP_Event& e)
         if (e.key.keysym.sym == BPK_ESCAPE)
         {
             UI::getInstance()->run();
-            e.type = BP_FIRSTEVENT;
+            clearEvent(e);
         }
     }
 }
@@ -226,9 +228,9 @@ void MainMap::walk(int x, int y, Towards t)
         man_x_ = x;
         man_y_ = y;
     }
-    if (towards != t)
+    if (towards_ != t)
     {
-        towards = t;
+        towards_ = t;
         //step = 0;
     }
     else
@@ -267,10 +269,7 @@ bool MainMap::isWater(int x, int y)
 
 bool MainMap::isOutLine(int x, int y)
 {
-    if (x < 0 || x > max_coord_ || y < 0 || y > max_coord_)
-    { return true; }
-    else
-    { return false; }
+    return (x < 0 || x > max_coord_ || y < 0 || y > max_coord_);
 }
 
 bool MainMap::canWalk(int x, int y)
@@ -415,10 +414,7 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
 
 bool MainMap::isOutScreen(int x, int y)
 {
-    if (abs(man_x_ - x) >= 2 * width_region_ || abs(man_y_ - y) >= sum_region_)
-    { return true; }
-    else
-    { return false; }
+    return (abs(man_x_ - x) >= 2 * width_region_ || abs(man_y_ - y) >= sum_region_);
 }
 
 

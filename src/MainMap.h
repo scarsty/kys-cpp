@@ -11,7 +11,7 @@ public:
     MainMap();
     ~MainMap();
 
-    static const int max_coord_ = MAINMAP_MAX_COORD;
+    static const int max_coord_ = MAX_MAINMAP_COORD;
     typedef int16_t MapArray[max_coord_ * max_coord_];
     static MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
 

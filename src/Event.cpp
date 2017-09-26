@@ -20,6 +20,7 @@ Event::~Event()
 
 bool Event::initEventData()
 {
+    //读取talk
     auto talk = Save::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
     for (int i = 0; i < offset.back(); i++)
     {
@@ -30,6 +31,19 @@ bool Event::initEventData()
     {
         talk_.push_back(PotConv::cp950tocp936(talk + offset[i]));
     }
+    delete talk;
+    //读取事件，全部转为整型
+    auto kdef = Save::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
+    kdef_.resize(length.size());
+    for (int i = 0; i < length.size(); i++)
+    {
+        kdef_[i].resize(length[i] + 20, -1);
+        for (int k = 0; k < length[i]; k++)
+        {
+            kdef_[i][k] = *(int16_t*)(kdef + offset[i] + k * 2);
+        }
+    }
+    delete kdef;
     return false;
 }
 
@@ -37,22 +51,8 @@ bool Event::callEvent(int num)
 {
     int p = 0;
     bool loop = true;
-    //while (p < operation->size())
-    //{
-    //    int instruct = operation->at(p).num;
-    //    if (instruct < 0)
-    //    { break; }
-    //    string str;
-    //    for (auto i = 1; i < operation->at(p).par.size(); i++)
-    //    {
-    //        str += "[";
-    //        str += to_string(operation->at(p).par[i]);
-    //        str += "]";
-    //    }
-    //    cout << "执行指令" << operation->at(p).num << str << endl;*/
     int i = 0;
-    int e[100];
-
+    auto& e = kdef_[num];
     switch (e[i])
     {
         VOID_INCTRUCT_3(1, e, i, oldTalk);
@@ -127,13 +127,13 @@ bool Event::callEvent(int num)
         VOID_INCTRUCT_0(66, e, i, playMusic);
         VOID_INCTRUCT_0(67, e, i, playWave);
 
-        //case 50:
-        //    p = instruct_50([e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]]);
-        //    i += 8;
-        //    if p < 622592 then
-        //    i += p
-        //        else
-        //    { e[i + ((p + 32768) div 655360) - 1] = p mod 655360; }
+    //case 50:
+    //    p = instruct_50([e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]]);
+    //    i += 8;
+    //    if p < 622592 then
+    //    i += p
+    //        else
+    //    { e[i + ((p + 32768) div 655360) - 1] = p mod 655360; }
     case -1:
     case 7:
         loop = false;

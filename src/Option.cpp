@@ -1,9 +1,5 @@
 #include "Option.h"
 
-Option::Option()
-{
-}
-
 void Option::loadIniFile(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);

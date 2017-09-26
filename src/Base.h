@@ -89,6 +89,7 @@ public:
     void checkStateAndEvent(BP_Event &e);
 
     void pollEvent();
+    void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
 
 };
 

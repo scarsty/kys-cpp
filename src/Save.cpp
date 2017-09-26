@@ -75,8 +75,8 @@ bool Save::LoadR(int num)
     submap_data_.resize(submap_count);
     File::readFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapData));
 
-    submap_event_.resize(submap_count * SUBMAP_MAX_EVENT);
-    File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));
+    submap_event_.resize(submap_count * MAX_SUBMAP_EVENT);
+    File::readFile(filenamed, &submap_event_[0], submap_count * MAX_SUBMAP_EVENT * sizeof(SubMapEvent));
 
     //makeMaps();
     //ÄÚ²¿±àÂëÎªcp936
@@ -130,7 +130,7 @@ bool Save::SaveR(int num)
 
     auto submap_count = submap_records_.size();
     File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapData));
-    File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_MAX_EVENT * sizeof(SubMapEvent));
+    File::writeFile(filenamed, &submap_event_[0], submap_count * MAX_SUBMAP_EVENT * sizeof(SubMapEvent));
 
     return true;
 }

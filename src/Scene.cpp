@@ -1,13 +1,13 @@
 #include "Scene.h"
 
-Scene::Towards Scene::towards;
+Scene::Towards Scene::towards_;
 
 Scene::Scene()
 {
     Engine::getInstance()->getPresentSize(screen_center_x_, screen_center_y_);
     screen_center_x_ /= 2;
     screen_center_y_ /= 2;
-    width_region_ = screen_center_x_ / singleScene_X /2 + 3;
+    width_region_ = screen_center_x_ / singleScene_X / 2 + 3;
     sum_region_ = screen_center_y_ / singleScene_Y + 2;
 }
 
@@ -67,4 +67,16 @@ int Scene::CallFace(int x1, int y1, int x2, int y2)
         }
     }
 }
+
+void Scene::getTowardsPosition(int* x, int* y)
+{
+    switch (towards_)
+    {
+    case LeftDown: (*x)--; break;
+    case RightUp: (*x)++; break;
+    case LeftUp: (*y)--; break;
+    case RightDown: (*y)++; break;
+    }
+}
+
 

@@ -59,7 +59,7 @@ void BattleMap::draw()
                 }
                 else if (i1 == m_nBx && i2 == m_nBy)
                 {
-                    m_nmanPicture = 0 + Scene::towards * 4;
+                    m_nmanPicture = 0 + Scene::towards_ * 4;
                     map[calBlockTurn(i1, i2, 1)] = { m_nmanPicture, p };
                     //s->visit();
                 }
@@ -99,9 +99,9 @@ void BattleMap::walk(int x, int y, Towards t)
         m_nBx = x;
         m_nBy = y;
     }
-    if (Scene::towards != t)
+    if (Scene::towards_ != t)
     {
-        Scene::towards = t;
+        Scene::towards_ = t;
         m_nstep = 0;
     }
     else
@@ -285,8 +285,7 @@ bool BattleMap::autoInBattle()
                 m_vcBattleRole[m_nBRoleAmount].RoleID = -1;
             }
             m_vcBattleRole[m_nBRoleAmount].Team = 0;
-            m_vcBattleRole[m_nBRoleAmount].Y = y;
-            m_vcBattleRole[m_nBRoleAmount].X = x;
+            m_vcBattleRole[m_nBRoleAmount].setPosition(x, y);
             m_vcBattleRole[m_nBRoleAmount].Face = 2;
             if (m_vcBattleRole[m_nBRoleAmount].RoleID == -1)
             {
@@ -904,8 +903,7 @@ bool BattleMap::initBattleRoleState()
     BattleData::getInstance()->m_vcBattleRole.resize(MaxBRoleNum);
     for (int i = 0; i < MaxBRoleNum; i++)
     {
-        m_vcBattleRole[i].X = -1;
-        m_vcBattleRole[i].Y = -1;
+        m_vcBattleRole[i].setPosition(-1,-1);
         m_vcBattleRole[i].Show = 1;
     }
     m_nBStatus = 0;
@@ -928,8 +926,8 @@ bool BattleMap::initBattleRoleState()
     {
         if (m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount] >= 0)
         {
-            m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-            m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
+            //m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+            //m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
             m_vcBattleRole[m_nBRoleAmount].Team = 0;
             m_vcBattleRole[m_nBRoleAmount].Face = 2;
             m_vcBattleRole[m_nBRoleAmount].RoleID = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
@@ -938,8 +936,8 @@ bool BattleMap::initBattleRoleState()
         }
         else if (m_nBattleList[teamNum] >= 0)
         {
-            m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-            m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
+            //m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
+            //m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
             m_vcBattleRole[m_nBRoleAmount].Team = 0;
             m_vcBattleRole[m_nBRoleAmount].Face = 2;
             m_vcBattleRole[m_nBRoleAmount].RoleID = m_nBattleList[teamNum];
@@ -1189,48 +1187,48 @@ float BattleMap::power(float base, float Exponent)
 //mode=0移动，1攻击用毒医疗等，2查看状态
 void BattleMap::calCanSelect(int bnum, int mode, int Step)
 {
-    int i;
-    if (mode == 0)
-    {
-        for (int i1 = 0; i1 <= 63; i1++)
-        {
-            for (int i2 = 0; i2 <= 63; i2++)
-            {
-                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
-            }
-        }
-        m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_vcBattleRole[bnum].X][m_vcBattleRole[bnum].Y] = 0;
-        seekPath2(m_vcBattleRole[bnum].X, m_vcBattleRole[bnum].Y, Step, m_vcBattleRole[bnum].Team, mode);
-    }
-    if (mode == 1)
-    {
-        for (int i1 = 0; i1 <= 63; i1++)
-        {
-            for (int i2 = 0; i2 <= 63; i2++)
-            {
-                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
-                if (abs(i1 - m_vcBattleRole[bnum].X) + abs(i2 - m_vcBattleRole[bnum].Y) <= m_nstep)
-                {
-                    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
-                }
-            }
-        }
-    }
+    //int i;
+    //if (mode == 0)
+    //{
+    //    for (int i1 = 0; i1 <= 63; i1++)
+    //    {
+    //        for (int i2 = 0; i2 <= 63; i2++)
+    //        {
+    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+    //        }
+    //    }
+    //    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_vcBattleRole[bnum].X][m_vcBattleRole[bnum].Y] = 0;
+    //    seekPath2(m_vcBattleRole[bnum].X, m_vcBattleRole[bnum].Y, Step, m_vcBattleRole[bnum].Team, mode);
+    //}
+    //if (mode == 1)
+    //{
+    //    for (int i1 = 0; i1 <= 63; i1++)
+    //    {
+    //        for (int i2 = 0; i2 <= 63; i2++)
+    //        {
+    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+    //            if (abs(i1 - m_vcBattleRole[bnum].X()) + abs(i2 - m_vcBattleRole[bnum].Y()) <= m_nstep)
+    //            {
+    //                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
+    //            }
+    //        }
+    //    }
+    //}
 
-    if (mode == 2)
-    {
-        for (int i1 = 0; i1 <= 63; i1++)
-        {
-            for (int i2 = 0; i2 <= 63; i2++)
-            {
-                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
-                if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] >= 0)
-                {
-                    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
-                }
-            }
-        }
-    }
+    //if (mode == 2)
+    //{
+    //    for (int i1 = 0; i1 <= 63; i1++)
+    //    {
+    //        for (int i2 = 0; i2 <= 63; i2++)
+    //        {
+    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
+    //            if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] >= 0)
+    //            {
+    //                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
+    //            }
+    //        }
+    //    }
+    //}
 }
 
 //计算可以被选中的位置
@@ -1518,8 +1516,8 @@ void BattleMap::moveAminationStep(float dt)
         }
         m_nBx = m_nlinex[a];
         m_nBy = m_nliney[a];
-        m_vcBattleRole[bnum].X = m_nBx;
-        m_vcBattleRole[bnum].Y = m_nBy;
+        //m_vcBattleRole[bnum].X = m_nBx;
+        //m_vcBattleRole[bnum].Y = m_nBy;
         if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == -1)
         {
             m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = bnum;
@@ -1551,8 +1549,8 @@ void BattleMap::battleMainControl(int mods, int id)
 
     calMoveAbility(); //计算移动能力
     reArrangeBRole();
-    m_nBx = m_vcBattleRole[m_ncurRoleNum].X;
-    m_nBy = m_vcBattleRole[m_ncurRoleNum].Y;
+    //m_nBx = m_vcBattleRole[m_ncurRoleNum].X;
+    //m_nBy = m_vcBattleRole[m_ncurRoleNum].Y;
     draw();
 }
 

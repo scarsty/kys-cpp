@@ -42,7 +42,6 @@ private:
     virtual ~TextureManager();
     static TextureManager texture_manager_;
     std::string path_ = "../game/resource/";
-    Engine* engine_;
 public:
     enum Type
     {

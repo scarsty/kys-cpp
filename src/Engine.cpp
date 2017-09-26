@@ -31,7 +31,12 @@ void Engine::updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t*
 
 BP_Texture* Engine::createRGBATexture(int w, int h)
 {
-    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+}
+
+BP_Texture* Engine::createRGBARenderedTexture(int w, int h)
+{
+    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
 }
 
 void Engine::updateRGBATexture(BP_Texture* t, uint8_t* buffer, int pitch)
@@ -347,8 +352,9 @@ bool Engine::setKeepRatio(bool b)
 
 void Engine::createMainTexture(int w, int h)
 {
-    tex_ = createYUVTexture(w, h);
+    //tex_ = createYUVTexture(w, h);
     //_tex2 = createRGBATexture(w, h);
+    tex_ = createRGBARenderedTexture(w, h);
     setPresentPosition();
 }
 

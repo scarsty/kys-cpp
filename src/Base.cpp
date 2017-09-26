@@ -47,7 +47,7 @@ void Base::setPosition(int x, int y)
 {
     for (auto c : childs_)
     {
-        setPosition(c->x_ + x - x_, c->y_ + y - y_);
+        c->setPosition(c->x_ + x - x_, c->y_ + y - y_);
     }
     x_ = x; y_ = y;
 }
@@ -81,6 +81,8 @@ int Base::run()
         if (t > 0)
         { engine->delay(t); }
     }
+    //while (engine->pollEvent(e) > 0);
+    //engine->flushEvent();
     exit();
     pop();
     return result_;
@@ -94,12 +96,14 @@ Base* Base::pop()
         b = root_.back();
         root_.pop_back();
     }
+
+    //这里回收垃圾应该是有问题的，待继续设计
     //某些特殊的节点不可清理
     //好像应该使用智能指针，待处理
-    if (b != UI::getInstance())
-    {
-        delete b;
-    }
+    //if (b != UI::getInstance())
+    //{
+    //    delete b;
+    //}
     return b;
 }
 
@@ -122,18 +126,19 @@ void Base::addChild(Base* b, int x, int y)
 }
 
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
-void Base::checkStateAndEvent(BP_Event &e)
+void Base::checkStateAndEvent(BP_Event& e)
 {
-    for (auto c : childs_)
+    //注意这里是反向
+    for (int i = childs_.size() - 1; i >= 0; i--)
     {
-        c->checkStateAndEvent(e);
+        childs_[i]->checkStateAndEvent(e);
     }
     //setState(Normal);
     if (e.type == BP_MOUSEMOTION)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
-            state_=Pass;
+            state_ = Pass;
         }
         else
         {

@@ -3,9 +3,9 @@
 
 enum
 {
-    SUBMAP_MAX_COORD = 64,
-    MAINMAP_MAX_COORD = 480,
-    SUBMAP_MAX_EVENT = 200,                         //单场景最大事件数
+    MAX_SUBMAP_COORD = 64,
+    MAX_MAINMAP_COORD = 480,
+    MAX_SUBMAP_EVENT = 200,                         //单场景最大事件数
     MAX_ITEM_COUNT = 200,                           //最大物品数
     MAX_TEAMMATE_COUNT = 6,                             //最大队伍人员数
 };
@@ -22,7 +22,7 @@ struct ItemList { int16_t item, count; };
 //此处成员函数均大写，可以直接访问
 struct GlobalData
 {
-    int16_t InShip, unused0, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+    int16_t InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
     int16_t Team[MAX_TEAMMATE_COUNT];
     ItemList ItemList[MAX_ITEM_COUNT];
 };
@@ -90,7 +90,7 @@ struct Magic
 
 struct SubMapData
 {
-    int16_t data[6][SUBMAP_MAX_COORD * SUBMAP_MAX_COORD];
+    int16_t data[6][MAX_SUBMAP_COORD * MAX_SUBMAP_COORD];
 };
 
 struct SubMapEvent
@@ -112,7 +112,7 @@ struct SubMapRecord
     int16_t& Earth(int x, int y);
     int16_t& Building(int x, int y);
     int16_t& Decoration(int x, int y);
-    int16_t& EventID(int x, int y);
+    int16_t& EventIndex(int x, int y);
     int16_t& BuildingHeight(int x, int y);
     int16_t& EventHeight(int x, int y);
     SubMapEvent* Event(int x, int y);

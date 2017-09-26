@@ -19,6 +19,8 @@ SubMap::SubMap(int num) : SubMap()
     current_submap_->ID = num;
     view_x_ = current_submap_->EntranceX;
     view_y_ = current_submap_->EntranceY;
+    man_x_ = current_submap_->EntranceX;
+    man_y_ = current_submap_->EntranceY;
 }
 
 SubMap::~SubMap()
@@ -33,6 +35,7 @@ void SubMap::draw()
     //std::map<int, DrawInfo> map;
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
+    //以下画法存在争议，待考证
     //无高度地面一次画出
     for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
     {
@@ -75,11 +78,11 @@ void SubMap::draw()
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                 }
-                if (i1 == view_x_ && i2 == view_y_)
+                if (i1 == man_x_ && i2 == man_y_)
                 {
                     if (man_pic_ != -1)
                     {
-                        man_pic_ = man_pic0_ + Scene::towards * num_man_pic_ + step_;
+                        man_pic_ = man_pic0_ + Scene::towards_ * num_man_pic_ + step_;
                         TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                     }
                 }
@@ -110,11 +113,13 @@ void SubMap::setPosition(int x, int y)
 {
     view_x_ = x;
     view_y_ = y;
+    man_x_ = x;
+    man_y_ = y;
 }
 
 void SubMap::dealEvent(BP_Event& e)
 {
-    int x = view_x_, y = view_y_;
+    int x = man_x_, y = man_y_;
     //drawCount++;
     if (e.type == BP_MOUSEBUTTONDOWN)
     {
@@ -139,6 +144,7 @@ void SubMap::dealEvent(BP_Event& e)
     }
     if (e.type == BP_KEYDOWN)
     {
+        //这部分冗余太多，待清理
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
@@ -218,18 +224,26 @@ void SubMap::dealEvent(BP_Event& e)
         if (e.key.keysym.sym == BPK_ESCAPE)
         {
             UI::getInstance()->run();
-            e.type = BP_FIRSTEVENT;
+            clearEvent(e);
+        }
+        if (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)
+        {
+            if (checkEvent1(x, y, towards_))
+            { clearEvent(e); }
         }
     }
 }
 
 void SubMap::backRun()
 {
-    for (int i = 0; i < SUBMAP_MAX_EVENT; i++)
+    for (int i = 0; i < MAX_SUBMAP_EVENT; i++)
     {
         auto e = current_submap_->Event(i);
         //if (e->PicDelay > 0)
-        { e->CurrentPic++; }
+        {
+            e->CurrentPic++;
+            //e->CurrentPic += e->PicDelay;
+        }
         if (e->CurrentPic > e->EndPic)
         {
             e->CurrentPic = e->BeginPic;
@@ -237,16 +251,19 @@ void SubMap::backRun()
     }
 }
 
+//冗余过多待清理
 void SubMap::walk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
+        man_x_ = x;
+        man_y_ = y;
         view_x_ = x;
         view_y_ = y;
     }
-    if (Scene::towards != t)
+    if (Scene::towards_ != t)
     {
-        Scene::towards = t;
+        Scene::towards_ = t;
         step_ = 0;
     }
     else
@@ -256,41 +273,62 @@ void SubMap::walk(int x, int y, Towards t)
     step_ = step_ % num_man_pic_;
 }
 
-bool SubMap::canWalk(int x, int y)
+//第一类事件，即主动触发
+bool SubMap::checkEvent1(int x, int y, Towards t)
 {
-    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y)
-        || isEvent(x, y) || isFall(x, y))
+    getTowardsPosition(&x, &y);
+    int event_index_submap = current_submap_->EventIndex(x, y);
+    if (event_index_submap >= 0)
     {
-        return false;
-    }
-    else
-    {
+        Event::getInstance()->setEvent(this, x, y);
+        Event::getInstance()->callEvent(current_submap_->Event(x, y)->Event1);
         return true;
     }
+    return false;
+}
+
+//第二类事件，即物品触发事件
+bool SubMap::checkEvent2(int x, int y, Towards t, Item* item)
+{
+    return false;
+}
+
+bool SubMap::checkEvent3(int x, int y)
+{
+    return false;
+}
+
+bool SubMap::canWalk(int x, int y)
+{
+    bool ret = true;
+    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y)
+        || isCannotPassEvent(x, y) || isFall(x, y))
+    {
+        ret = false;
+    }
+    if (isCanPassEvent(x, y))
+    { 
+        ret = true; 
+    }
+    return ret;
 }
 
 bool SubMap::isBuilding(int x, int y)
 {
-    if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
+    return current_submap_->Building(x, y) > 0;
+    //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
+    //{
+    //    return false;
+    //}
+    //else
+    //{
+    //    return true;
+    //}
 }
 
 bool SubMap::isOutLine(int x, int y)
 {
-    if (x < 0 || x >= max_coord_ || y < 0 || y >= max_coord_)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return (x < 0 || x >= max_coord_ || y < 0 || y >= max_coord_);
 }
 
 bool SubMap::isWater(int x, int y)
@@ -306,7 +344,17 @@ bool SubMap::isWater(int x, int y)
     return false;
 }
 
-bool SubMap::isEvent(int x, int y)
+bool SubMap::isCanPassEvent(int x, int y)
+{
+    auto e = current_submap_->Event(x, y);
+    if (e && !e->CannotWalk)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool SubMap::isCannotPassEvent(int x, int y)
 {
     auto e = current_submap_->Event(x, y);
     if (e && e->CannotWalk)
@@ -334,28 +382,15 @@ bool SubMap::isExit(int x, int y)
         || current_submap_->ExitX[2] == x && current_submap_->ExitY[2] == y)
     {
         loop_ = false;
-
-        Save::getInstance()->getGlobalData()->unused0 = 1;
+        Save::getInstance()->getGlobalData()->InSubmap = 1;
         return true;
     }
     return false;
 }
 
-void SubMap::callEvent(int x, int y)
-{
-
-}
-
 bool SubMap::isOutScreen(int x, int y)
 {
-    if (abs(view_x_ - x) >= 2 * width_region_ || abs(view_y_ - y) >= sum_region_)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return (abs(view_x_ - x) >= 2 * width_region_ || abs(view_y_ - y) >= sum_region_);
 }
 
 void SubMap::getMousePosition(int _x, int _y)
@@ -464,7 +499,7 @@ void SubMap::stopFindWay()
 ==========================================*/
 void SubMap::ReSetEventPosition(int& x, int& y)
 {
-    switch (Scene::towards)
+    switch (Scene::towards_)
     {
     case Scene::LeftDown:
     {

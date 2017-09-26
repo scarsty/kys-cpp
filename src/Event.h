@@ -1,5 +1,6 @@
 #pragma once
 #include "Base.h"
+#include "SubMap.h"
 
 class Event : public Base
 {
@@ -14,30 +15,33 @@ public:
     std::vector<int> offset, length;
 
     std::vector<std::string> talk_;
-    std::vector<std::vector<int16_t>> kdef_;
+    std::vector<std::vector<int>> kdef_;
 
-    int16_t* getEvent(int i);
-    char* getTalk(int i);
+public:
+    bool initEventData();            //加载事件数据
+    bool callEvent(int event_id);    //调用指令的内容写这里
 
-
-    bool initEventData();       //加载事件数据
-    bool callEvent(int num);    //调用指令的内容写这里
-    int eventCount = 0;
-
+    void setEvent(SubMap* submap, int x, int y, Item* item = nullptr)
+    {
+        submap_ = submap;
+        x_ = x;
+        y_ = y;
+        item_ = item;
+    }
+    //virtual int run() { callEvent(event_id_); return 0; }
 private:
     static Event event_;
-    static int NowEenWu;
-    static bool isTry;
-    static bool TryGo;
-    static int TryEventTmpI;
-    static int EventEndCount;
+    SubMap* submap_;
+    int x_, y_;
+    //int event_index_submap_;
+    Item* item_;
 
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
     void oldTalk(int talk_id, int head_id, int style);
     void getItem(int item_id, int count) {}
-    void modifyEvent(int snum, int ednum, int cannotWalk, int Num, int Event1, int Event2, int Event3, 
+    void modifyEvent(int snum, int ednum, int cannotWalk, int Num, int Event1, int Event2, int Event3,
         int BeginPic1, int EndPic, int BeginPic2, int  PicDelay, int  XPos, int  YPos) {}
     void useItem() {}
     bool askBattle() { return false; }

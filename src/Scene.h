@@ -19,7 +19,7 @@ public:
         RightDown = 3,
     } Towards;
 
-    static Towards towards;
+    static Towards towards_;
 
     int screen_center_x_ = 0;
     int screen_center_y_ = 0;
@@ -44,6 +44,7 @@ public:
     {
         return 4 * (128 * (x + y) + x) + layer;
     }
+    void getTowardsPosition(int* x, int* y);
 
 };
 
