@@ -3,74 +3,19 @@
 #include <iostream>
 #include "Engine.h"
 #include "PotConv.h"
-
-Talk::Talk()
-{
-}
-
-Talk::~Talk()
-{
-}
-
-bool Talk::InitDialogusDate()
-{
-    return true;
-}
+#include "Font.h"
 
 void Talk::draw()
 {
+    Font::getInstance()->draw(content_, 20, 0, 0, { 255, 255, 255, 255 });
+}
 
-    if (PrinterEffects)
+void Talk::dealEvent(BP_Event& e)
+{
+    if (e.type == BP_KEYUP)
     {
-        int length = talkString.length();
-        if (strlength < length)
-        {
-            if (tempSpeed < 0)
-            {
-                tempTalk = talkString.substr(0, strlength);
-                strlength += 2;
-                tempSpeed = speed;
-            }
-            tempSpeed--;
-        }
+        loop_ = false;
+        e.type = BP_FIRSTEVENT;
     }
-    else
-    {
-        tempTalk = talkString;
-    }
-    Engine::getInstance()->drawText(fontsName, PotConv::cp936toutf8(tempTalk), 20, 5, 5, 255, BP_ALIGN_LEFT, color);
-
 }
 
-void Talk::SetFontsName(const std::string& fontsname)
-{
-    fontsName = fontsname;
-}
-
-void Talk::SetFontsColor(SDL_Color& Color)
-{
-    color = Color;
-}
-
-void Talk::SetDialoguesEffect(bool b)
-{
-    if (PrinterEffects)
-    {
-    }
-    else
-    {
-        PrinterEffects = b;
-    }
-
-}
-
-void Talk::SetDialoguesNum(int num)
-{
-    talkString = m_Dialogues.at(num);
-}
-
-void Talk::SetDialoguesSpeed(int sp)
-{
-    speed = sp;
-    tempSpeed = speed;
-}

@@ -1,6 +1,7 @@
 #include "Base.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include "UI.h"
 
 std::vector<Base*> Base::root_;
 
@@ -95,10 +96,11 @@ Base* Base::pop()
         root_.pop_back();
     }
     //某些特殊的节点不可清理
-    //if (b != UI::getInstance())
-    //{
-    //    delete b;
-    //}
+    //好像应该使用智能指针，待处理
+    if (b != UI::getInstance())
+    {
+        delete b;
+    }
     return b;
 }
 
@@ -120,7 +122,7 @@ void Base::addChild(Base* b, int x, int y)
     b->setPosition(x_ + x, y_ + y);
 }
 
-//只处理当前的节点和当前节点的子节点
+//只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 void Base::checkStateAndEvent(BP_Event &e)
 {
     for (auto c : childs_)

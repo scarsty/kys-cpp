@@ -5,6 +5,7 @@
 #include "Save.h"
 #include "PotConv.h"
 #include "EventMacro.h"
+#include "Talk.h"
 
 Event Event::event_;
 
@@ -146,105 +147,11 @@ bool Event::callEvent(int num)
     return 0;
 }
 
-
-
-//int Event::isFight_5(short jump1, short jump2)
-//{
-//    auto menu = new MenuText();
-//    menu->setButton("menu", 12, 14, -1, 13, 15, -1);
-//    menu->setTitle("是否與之戰鬥？");
-//    menu->ini();
-//
-//    auto a = menu->getResult();
-//    if (a == 0)
-//    { return jump1; }
-//    return jump2;
-//}
-//int Event::isAdd_8(short jump1, short jump2)
-//{
-//    auto menu = new MenuText();
-//    menu->setButton("title", 12, 13, -1, 14, 15, -1);
-//    menu->setTitle("是否要求加入？");
-//    menu->ini();
-//
-//    auto a = menu->getResult();
-//    if (a == 0)
-//    { return jump1; }
-//    return jump2;
-//}
-//
-//
-//void Event::StudyMagic(int rnum, int magicnum, int newmagicnum, int level, int dismode)
-//{
-//    int max0, tmp;
-//    if (dismode == 1)
-//    {
-//        //nend new talk
-//    }
-//    else if (newmagicnum == 0)          //delete magic
-//    {
-//        for (int i = 0; i < config::MaxMagicNum - 1; i++)
-//        {
-//            if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum)
-//            {
-//                for (int n = i; n < config::MaxMagicNum - 2; n++)
-//                {
-//                    Save::getInstance()->roles_[rnum].LMagic[n] = Save::getInstance()->roles_[rnum].LMagic[n + 1];
-//                    Save::getInstance()->roles_[rnum].MagLevel[n] = Save::getInstance()->roles_[rnum].MagLevel[n + 1];
-//                }
-//                Save::getInstance()->roles_[rnum].LMagic[29] = 0;
-//                Save::getInstance()->roles_[rnum].MagLevel[29] = 0;
-//                break;
-//            }
-//        }
-//
-//    }
-//    else
-//    {
-//        for (int i = 0; i < config::MaxMagicNum - 1; i++)
-//        {
-//            if (Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum)
-//            {
-//                if (level == -2)
-//                {
-//                    level = 0;
-//                }
-//                max0 = 9;
-//                if (Save::getInstance()->magics_[newmagicnum].MagicType == 5)
-//                {
-//                    max0 = Save::getInstance()->magics_[newmagicnum].MaxLevel;
-//                }
-//                tmp = Save::getInstance()->roles_[rnum].MagLevel[i];
-//                if (max0 * 100 + 99 > Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100)
-//                {
-//                    Save::getInstance()->roles_[rnum].MagLevel[i] = Save::getInstance()->roles_[rnum].MagLevel[i] + level + 100;
-//                }
-//                else
-//                {
-//                    Save::getInstance()->roles_[rnum].MagLevel[i] = max0 * 100 + 99;
-//                }
-//                StudyMagic(rnum, magicnum, 0, 0, 0);
-//                break;
-//            }
-//        }
-//        if (magicnum > 0)
-//        {
-//            for (int i = 0; i < config::MaxMagicNum - 1; i++)
-//            {
-//                if (Save::getInstance()->roles_[rnum].LMagic[i] == magicnum || Save::getInstance()->roles_[rnum].LMagic[i] < 0)
-//                {
-//                    if (level != -2)
-//                    {
-//                        Save::getInstance()->roles_[rnum].MagLevel[i] = level;
-//                    }
-//                    Save::getInstance()->roles_[rnum].LMagic[i] == newmagicnum;
-//                    break;
-//                }
-//            }
-//        }
-//    }
-//}
-
+void Event::oldTalk(int talk_id, int head_id, int style)
+{
+    auto t = new Talk(talk_[talk_id], head_id);
+    t->run();
+}
 
 
 

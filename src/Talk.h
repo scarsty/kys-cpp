@@ -1,32 +1,22 @@
 #pragma once
-#include "Base.h"
+#include "Head.h"
 #include <vector>
 #include <string>
 
-class Talk :
-    public Base
+class Talk : public Head
 {
 public:
-    Talk();
-    ~Talk();
-    static std::vector<std::string> m_Dialogues;    //对话全部读取到向量中
-    bool InitDialogusDate();
-    //  string GBKToUTF8(const string& strGBK);  放head去了
-    void draw();
-    void SetFontsName(const std::string& fontsName);
-    void SetFontsColor(SDL_Color& color);
-    void SetDialoguesNum(int num);
-    void SetDialoguesEffect(bool b);
-    void SetDialoguesSpeed(int speed);
+    Talk() {}
+    Talk(std::string c, int h = -1) : Talk() { setContent(c); setHeadID(h); }
+    virtual ~Talk() {}
 
+    virtual void draw() override;
+    virtual void dealEvent(BP_Event& e) override;
 private:
-    std::vector<int> m_idxLen;
-    std::string fontsName, talkString;
-    SDL_Color color;
-    int speed = 0;
-    int tempSpeed = 0;
-    int strlength = 0;
-    bool PrinterEffects = false;
-    std::string tempTalk = "";
+    std::string content_;
+    int head_id_ = -1;
+public:
+    void setContent(std::string c) { content_ = c; }
+    void setHeadID(int h) { head_id_=h; }
 };
 

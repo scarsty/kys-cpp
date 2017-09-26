@@ -33,11 +33,12 @@ private:
     static int EventEndCount;
 
 public:
-    void clear() {}
-    void oldTalk(int16_t talk_id, int16_t head_id, int16_t style) {}
-    void getItem(int16_t item_id, int16_t count) {}
-    void modifyEvent(int16_t snum, int16_t ednum, int16_t CanWalk, int16_t Num, int16_t Event1, int16_t Event2, int16_t Event3, 
-        int16_t BeginPic1, int16_t EndPic, int16_t BeginPic2, int16_t  PicDelay, int16_t  XPos, int16_t  YPos) {}
+    //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
+    //void clear() {}
+    void oldTalk(int talk_id, int head_id, int style);
+    void getItem(int item_id, int count) {}
+    void modifyEvent(int snum, int ednum, int cannotWalk, int Num, int Event1, int Event2, int Event3, 
+        int BeginPic1, int EndPic, int BeginPic2, int  PicDelay, int  XPos, int  YPos) {}
     void useItem() {}
     bool askBattle() { return false; }
     bool tryBattle() { return false; }

@@ -16,6 +16,7 @@ protected:
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
     bool loop_ = true;
+    //bool auto_erase_ = false;
 public:
     Base() {}
     virtual ~Base();

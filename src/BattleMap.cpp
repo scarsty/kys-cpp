@@ -267,7 +267,7 @@ bool BattleMap::autoInBattle()
     for (int i = 0; i < MaxBRoleNum; i++)
     {
         m_vcBattleRole[i].Team = 1;
-        m_vcBattleRole[i].rnum = -1;
+        m_vcBattleRole[i].RoleID = -1;
         //我方自动参战数据
         if (m_nMods >= -1)
         {
@@ -278,17 +278,17 @@ bool BattleMap::autoInBattle()
             }
             if (m_nMods == -1)
             {
-                m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].autoMate[i];
+                m_vcBattleRole[m_nBRoleAmount].RoleID = m_vcBattleInfo[m_nbattleNum].autoMate[i];
             }
             else
             {
-                m_vcBattleRole[m_nBRoleAmount].rnum = -1;
+                m_vcBattleRole[m_nBRoleAmount].RoleID = -1;
             }
             m_vcBattleRole[m_nBRoleAmount].Team = 0;
             m_vcBattleRole[m_nBRoleAmount].Y = y;
             m_vcBattleRole[m_nBRoleAmount].X = x;
             m_vcBattleRole[m_nBRoleAmount].Face = 2;
-            if (m_vcBattleRole[m_nBRoleAmount].rnum == -1)
+            if (m_vcBattleRole[m_nBRoleAmount].RoleID == -1)
             {
                 m_vcBattleRole[m_nBRoleAmount].Dead = 1;
                 m_vcBattleRole[m_nBRoleAmount].Show = 1;
@@ -308,7 +308,7 @@ bool BattleMap::autoInBattle()
             m_vcBattleRole[m_nBRoleAmount].Step = 0;
             m_vcBattleRole[m_nBRoleAmount].Acted = 0;
             m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
-            if (m_vcBattleRole[m_nBRoleAmount].rnum == 0)
+            if (m_vcBattleRole[m_nBRoleAmount].RoleID == 0)
             {
                 m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             }
@@ -932,7 +932,7 @@ bool BattleMap::initBattleRoleState()
             m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
             m_vcBattleRole[m_nBRoleAmount].Team = 0;
             m_vcBattleRole[m_nBRoleAmount].Face = 2;
-            m_vcBattleRole[m_nBRoleAmount].rnum = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
+            m_vcBattleRole[m_nBRoleAmount].RoleID = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
             m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             setInitState(n0);
         }
@@ -942,7 +942,7 @@ bool BattleMap::initBattleRoleState()
             m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
             m_vcBattleRole[m_nBRoleAmount].Team = 0;
             m_vcBattleRole[m_nBRoleAmount].Face = 2;
-            m_vcBattleRole[m_nBRoleAmount].rnum = m_nBattleList[teamNum];
+            m_vcBattleRole[m_nBRoleAmount].RoleID = m_nBattleList[teamNum];
             m_vcBattleRole[m_nBRoleAmount].Auto = -1;
             setInitState(n0);
             teamNum++;
@@ -972,7 +972,7 @@ void BattleMap::setInitState(int& n0)
     for (int j = 0; j <= 4; j++)
     {
         n0 = 0;
-        if (m_vcBattleRole[m_nBRoleAmount].rnum > -1)
+        if (m_vcBattleRole[m_nBRoleAmount].RoleID > -1)
         {
             for (int j1 = 0; j1 <= 9; j1++)
             {
@@ -991,7 +991,7 @@ void BattleMap::setInitState(int& n0)
     for (int j = 5; j <= 9; j++)
     {
         n0 = 0;
-        if (m_vcBattleRole[m_nBRoleAmount].rnum > -1)
+        if (m_vcBattleRole[m_nBRoleAmount].RoleID > -1)
         {
             for (int j1 = 0; j1 <= 9; j1++)
             {
@@ -1021,14 +1021,14 @@ void BattleMap::calMoveAbility()
     m_nMaxspeed = 0;
     for (int i = 0; i < m_vcBattleRole.size(); i++)
     {
-        rnum = m_vcBattleRole[i].rnum;
+        rnum = m_vcBattleRole[i].RoleID;
         if (rnum > -1)
         {
             addspeed = 0;
             //          if (CheckEquipSet(RRole[rnum].Equip[0], RRole[rnum].Equip[1], RRole[rnum].Equip[2], RRole[rnum].Equip[3]) == 5){
             //              addspeed += 30;
             //          }
-            m_vcBattleRole[i].speed = (getRoleSpeed(m_vcBattleRole[i].rnum, true) + addspeed);
+            m_vcBattleRole[i].speed = (getRoleSpeed(m_vcBattleRole[i].RoleID, true) + addspeed);
             if (m_vcBattleRole[i].Wait == 0)
             {
                 m_vcBattleRole[i].Step = round(power(m_vcBattleRole[i].speed / 15, 0.8) * (100 + m_vcBattleRole[i].zhuangtai[8]) / 100);
@@ -1059,18 +1059,18 @@ void BattleMap::reArrangeBRole()
         {
             s1 = 0;
             s2 = 0;
-            if ((m_vcBattleRole[i1].rnum > -1) && (m_vcBattleRole[i1].Dead == 0))
+            if ((m_vcBattleRole[i1].RoleID > -1) && (m_vcBattleRole[i1].Dead == 0))
             {
-                s1 = getRoleSpeed(m_vcBattleRole[i1].rnum, true);
+                s1 = getRoleSpeed(m_vcBattleRole[i1].RoleID, true);
                 //                  if checkEquipSet(Rrole[m_vcBattleRole[i1].rnum].Equip[0], Rrole[m_vcBattleRole[i1].rnum].Equip[1],
                 //                      Rrole[m_vcBattleRole[i1].rnum].Equip[2], Rrole[m_vcBattleRole[i1].rnum].Equip[3]) = 5 then
                 //                      s1 = s1 + 30;
             }
-            if ((m_vcBattleRole[i2].rnum > -1) && (m_vcBattleRole[i2].Dead == 0))
+            if ((m_vcBattleRole[i2].RoleID > -1) && (m_vcBattleRole[i2].Dead == 0))
             {
-                s2 = getRoleSpeed(m_vcBattleRole[i2].rnum, true);
+                s2 = getRoleSpeed(m_vcBattleRole[i2].RoleID, true);
             }
-            if ((m_vcBattleRole[i1].rnum != 0) && (m_vcBattleRole[i1].Team != 0) && (s1 < s2) && (m_vcBattleRole[i2].rnum != 0) && (m_vcBattleRole[i2].Team != 0))
+            if ((m_vcBattleRole[i1].RoleID != 0) && (m_vcBattleRole[i1].Team != 0) && (s1 < s2) && (m_vcBattleRole[i2].RoleID != 0) && (m_vcBattleRole[i2].Team != 0))
             {
                 temp = m_vcBattleRole[i1];
                 m_vcBattleRole[i1] = m_vcBattleRole[i2];
@@ -1560,7 +1560,7 @@ void BattleMap::attack(int bnum)
 {
     int mnum, level;
     int i = 1;
-    int rnum = m_vcBattleRole[bnum].rnum;
+    int rnum = m_vcBattleRole[bnum].RoleID;
     //mnum = m_Character[rnum].LMagic[i];
     //level = m_Character[rnum].MagLevel[i] / 100 + 1;
     m_ncurMagic = mnum;
