@@ -17,6 +17,11 @@ protected:
     int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
     bool loop_ = true;
     //bool auto_erase_ = false;
+protected:
+    int x_ = 0;
+    int y_ = 0;
+    int w_ = 0;
+    int h_ = 0;
 public:
     Base() {}
     virtual ~Base();
@@ -43,16 +48,14 @@ public:
     }
 
     static void drawAll();
+
     static void push(Base* b) { root_.push_back(b); }
     static Base* pop();
-    static Base* getCurentBase() { return root_.at(0); }
+
+    //static Base* getCurentBase() { return root_.at(0); }
 
     void addChild(Base* b, int x = 0, int y = 0);
 
-    int x_ = 0;
-    int y_ = 0;
-    int w_ = 0;
-    int h_ = 0;
     void setPosition(int x, int y);
     void setSize(int w, int h) { w_ = w; h_ = h; }
 
@@ -62,6 +65,7 @@ public:
     }
 
     int run();                                          //执行本层
+    
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
     virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
@@ -83,6 +87,8 @@ public:
     State getState() { return state_; }
     void setState(State s) { state_ = s; }
     void checkStateAndEvent(BP_Event &e);
+
+    void pollEvent();
 
 };
 

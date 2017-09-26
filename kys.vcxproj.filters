@@ -58,9 +58,6 @@
     <ClCompile Include="src\Head.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\others\libconvert.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\UI.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -93,6 +90,18 @@
     </ClCompile>
     <ClCompile Include="src\BattleMenu.cpp">
       <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Option.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\others\ini.cpp">
+      <Filter>_others</Filter>
+    </ClCompile>
+    <ClCompile Include="src\others\INIReader.cpp">
+      <Filter>_others</Filter>
+    </ClCompile>
+    <ClCompile Include="src\others\libconvert.cpp">
+      <Filter>_others</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -156,9 +165,6 @@
     <ClInclude Include="src\Head.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\others\libconvert.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\UI.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -190,28 +196,40 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="resource.h" />
+    <ClInclude Include="src\Option.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\others\ini.h">
+      <Filter>_others</Filter>
+    </ClInclude>
+    <ClInclude Include="src\others\INIReader.h">
+      <Filter>_others</Filter>
+    </ClInclude>
+    <ClInclude Include="src\others\libconvert.h">
+      <Filter>_others</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\bassmidi.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\SDL2.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\SDL2_image.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\SDL2_ttf.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\SDL2main.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\libiconv.lib">
-      <Filter>ext-lib</Filter>
+      <Filter>_lib</Filter>
     </Library>
   </ItemGroup>
   <ItemGroup>
@@ -226,7 +244,10 @@
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
       <Extensions>cpp</Extensions>
     </Filter>
-    <Filter Include="ext-lib">
+    <Filter Include="_others">
+      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="_lib">
       <UniqueIdentifier>{e388266b-b26d-4098-bfdd-4e145ce51f17}</UniqueIdentifier>
     </Filter>
   </ItemGroup>

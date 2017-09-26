@@ -47,8 +47,7 @@ void Base::setPosition(int x, int y)
 {
     for (auto c : childs_)
     {
-        c->x_ += x - x_;
-        c->y_ += y - y_;
+        setPosition(c->x_ + x - x_, c->y_ + y - y_);
     }
     x_ = x; y_ = y;
 }
@@ -149,4 +148,22 @@ void Base::checkStateAndEvent(BP_Event &e)
         }
     }
     dealEvent(e);
+}
+
+//这个可以在自己的循环中使用，避免卡死
+void Base::pollEvent()
+{
+    BP_Event e;
+    Engine::getInstance()->pollEvent(e);
+    switch (e.type)
+    {
+    case BP_QUIT:
+        /*if (Engine::getInstance()->showMessage("Quit"))
+        {
+            Engine::getInstance()->destroy();
+        }*/
+        break;
+    default:
+        break;
+    }
 }

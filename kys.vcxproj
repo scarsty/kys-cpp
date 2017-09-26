@@ -170,6 +170,9 @@
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\Option.cpp" />
+    <ClCompile Include="src\others\ini.cpp" />
+    <ClCompile Include="src\others\INIReader.cpp" />
     <ClCompile Include="src\Talk.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Event.cpp" />
@@ -204,6 +207,9 @@
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Cloud.h" />
+    <ClInclude Include="src\Option.h" />
+    <ClInclude Include="src\others\ini.h" />
+    <ClInclude Include="src\others\INIReader.h" />
     <ClInclude Include="src\Talk.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Event.h" />

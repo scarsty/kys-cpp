@@ -28,7 +28,11 @@ typedef int16_t BattleMapArray[BSceneMaxX * BSceneMaxY];
 //short AddResourse[10], Connection[10];
 struct BattleRole
 {
-    int RoleID, Team, X, Y, Face, Dead, Step, Acted;
+    int RoleID, Team;
+private:
+    int X_, Y_;
+public:
+    int Face, Dead, Step, Acted;
     int Pic, ShowNumber, showgongji, showfangyu, szhaoshi, Progress, round, speed; //15
     int ExpGot, Auto, Show, Wait, frozen, killed, Knowledge, LifeAdd, Zhuanzhu, pozhao, wanfang; //24
     //31 luke删除，改为每回合衰减
@@ -36,6 +40,11 @@ struct BattleRole
     int lzhuangtai[10];
     int Address[51];
     Role* getRole() { return nullptr; }
+    void setPosition(int x, int y) {}
+    int X() { return X_; }
+    int Y() { return Y_; }
+private:
+    BattleMapArray* role_layer_;
 };
 
 struct BattleSceneData
