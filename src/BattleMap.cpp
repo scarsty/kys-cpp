@@ -23,9 +23,9 @@ void BattleMap::draw()
     int k = 0;
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
-    for (int sum = -sumregion; sum <= sumregion + 15; sum++)
+    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
     {
-        for (int i = -widthregion; i <= widthregion; i++)
+        for (int i = -width_region_; i <= width_region_; i++)
         {
             int i1 = m_nBx + i + (sum / 2);
             int i2 = m_nBy - i + (sum - sum / 2);

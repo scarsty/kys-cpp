@@ -7,8 +7,8 @@ Scene::Scene()
     Engine::getInstance()->getPresentSize(screen_center_x_, screen_center_y_);
     screen_center_x_ /= 2;
     screen_center_y_ /= 2;
-    widthregion = screen_center_x_ / singleScene_X /2 + 3;
-    sumregion = screen_center_y_ / singleScene_Y + 2;
+    width_region_ = screen_center_x_ / singleScene_X /2 + 3;
+    sum_region_ = screen_center_y_ / singleScene_Y + 2;
 }
 
 

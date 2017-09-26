@@ -63,9 +63,9 @@ void MainMap::draw()
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
-    for (int sum = -sumregion; sum <= sumregion + 15; sum++)
+    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
     {
-        for (int i = -widthregion; i <= widthregion; i++)
+        for (int i = -width_region_; i <= width_region_; i++)
         {
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
@@ -415,7 +415,7 @@ void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
 
 bool MainMap::isOutScreen(int x, int y)
 {
-    if (abs(man_x_ - x) >= 2 * widthregion || abs(man_y_ - y) >= sumregion)
+    if (abs(man_x_ - x) >= 2 * width_region_ || abs(man_y_ - y) >= sum_region_)
     { return true; }
     else
     { return false; }

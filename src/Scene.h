@@ -31,8 +31,8 @@ public:
     int minStep;                                                        //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
     int Msx, Msy;
 
-    int widthregion = 0;
-    int sumregion = 0;
+    int width_region_ = 0;
+    int sum_region_ = 0;
 
     bool isMenuOn = 0;
 

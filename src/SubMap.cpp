@@ -32,29 +32,47 @@ void SubMap::draw()
     struct DrawInfo { int i; Point p; };
     //std::map<int, DrawInfo> map;
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
-    for (int sum = -sumregion; sum <= sumregion + 15; sum++)
+
+    //无高度地面一次画出
+    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
     {
-        for (int i = -widthregion; i <= widthregion; i++)
+        for (int i = -width_region_; i <= width_region_; i++)
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
             if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
             {
-                //Point p1 = Point(0, -m_SceneMapData[scene_id_].Data[4][i1][i2]);
-                //Point p2 = Point(0, -m_SceneMapData[scene_id_].Data[5][i1][i2]);
-                //地面
                 int h = current_submap_->BuildingHeight(i1, i2);
                 int num = current_submap_->Earth(i1, i2) / 2;
-                if (num > 0)
+                //无高度地面
+                if (num > 0 && h == 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
-                //建筑和主角同一层
+            }
+        }
+    }
+    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
+    {
+        for (int i = -width_region_; i <= width_region_; i++)
+        {
+            int i1 = view_x_ + i + (sum / 2);
+            int i2 = view_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
+            if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
+            {
+                //有高度地面
+                int h = current_submap_->BuildingHeight(i1, i2);
+                int num = current_submap_->Earth(i1, i2) / 2;
+                if (num > 0 && h > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                }
+                //建筑和主角
                 num = current_submap_->Building(i1, i2) / 2;
                 if (num > 0)
                 {
-
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                 }
                 if (i1 == view_x_ && i2 == view_y_)
@@ -65,7 +83,7 @@ void SubMap::draw()
                         TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                     }
                 }
-                //事件层
+                //事件
                 auto event = current_submap_->Event(i1, i2);
                 if (event)
                 {
@@ -76,15 +94,14 @@ void SubMap::draw()
                         TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - current_submap_->EventHeight(i1, i2) - h);
                     }
                 }
-
-                //空中层
+                //装饰
                 num = current_submap_->Decoration(i1, i2) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                 }
             }
-            k++;
+            //k++;
         }
     }
 }
@@ -331,7 +348,7 @@ void SubMap::callEvent(int x, int y)
 
 bool SubMap::isOutScreen(int x, int y)
 {
-    if (abs(view_x_ - x) >= 2 * widthregion || abs(view_y_ - y) >= sumregion)
+    if (abs(view_x_ - x) >= 2 * width_region_ || abs(view_y_ - y) >= sum_region_)
     {
         return true;
     }
