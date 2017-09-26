@@ -3,6 +3,7 @@
 #include <map>
 #include <vector>
 
+
 struct Texture
 {
     BP_Texture* tex[10];
@@ -13,7 +14,16 @@ struct Texture
     {
         for (int i = 0; i < 10; tex[i++] = nullptr);
     }
-    ~Texture()
+    ~Texture() { destory(); }
+    void setTex(BP_Texture* t)
+    {
+        destory();
+        tex[0] = t;
+        count = 1;
+        loaded = true;
+    }
+private:
+    void destory()
     {
         for (int i = 0; i < 10; i++)
         {

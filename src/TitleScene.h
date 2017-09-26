@@ -12,8 +12,6 @@ public:
     void draw() override;
     void dealEvent(BP_Event& e) override;
 
-    //void OnStart();
-
     bool b_s = true;
     int m_y = 15;
     int speed = 2;
@@ -23,7 +21,5 @@ public:
     Menu* menu_load_;
 
     int count_ = 0;
-
-    //Dialogues * m_Dialogues = new Dialogues();
 };
 

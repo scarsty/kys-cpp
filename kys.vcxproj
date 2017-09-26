@@ -23,6 +23,7 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>kyscpp</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <ProjectName>kys</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -166,8 +167,10 @@
     <ClCompile Include="src\Base.cpp" />
     <ClCompile Include="src\BattleData.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
+    <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
-    <ClCompile Include="src\Dialogues.cpp" />
+    <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\Talk.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Event.cpp" />
     <ClCompile Include="src\File.cpp" />
@@ -192,13 +195,16 @@
     <ClCompile Include="src\UISystem.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="resource.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\Base.h" />
     <ClInclude Include="src\BattleData.h" />
     <ClInclude Include="src\BattleMap.h" />
+    <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
-    <ClInclude Include="src\Dialogues.h" />
+    <ClInclude Include="src\Cloud.h" />
+    <ClInclude Include="src\Talk.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Event.h" />
     <ClInclude Include="src\EventMacro.h" />
@@ -221,6 +227,9 @@
     <ClInclude Include="src\UISkill.h" />
     <ClInclude Include="src\UIStatus.h" />
     <ClInclude Include="src\UISystem.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="kys.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,9 +1,15 @@
 #include "Head.h"
 #include "Font.h"
 
+Texture Head::square_;
+
 Head::Head(Role* r)
 {
     role_ = r;
+    if (square_.loaded == false)
+    {
+        square_.setTex(Engine::getInstance()->createSquareTexture(100));
+    }
 }
 
 Head::~Head()

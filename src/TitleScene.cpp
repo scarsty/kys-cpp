@@ -4,6 +4,7 @@
 #include "BattleData.h"
 #include "Event.h"
 #include "SubMap.h"
+#include "Button.h"
 
 TitleScene::TitleScene()
 {

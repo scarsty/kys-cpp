@@ -1,12 +1,5 @@
 #pragma once
 #include "Base.h"
-#include "Button.h"
-
-/**
-* @file      Menu.h
-* @brief     ≤Àµ•¿‡
-* @author    xiaowu
-*/
 
 class Menu : public Base
 {
