@@ -6,7 +6,7 @@
 
 SubMapRecord* SubMap::current_submap_record_;
 int SubMap::current_submap_id_;
-int SubMap::current_item_id_;
+//int SubMap::current_item_id_;
 int SubMap::event_x_, SubMap::event_y_;
 
 SubMap::SubMap() :
@@ -115,7 +115,7 @@ void SubMap::dealEvent(BP_Event& e)
     //以下供事件使用
     current_submap_record_ = record_;
     //current_submap_id_ = record_->ID;
-    current_item_id_ = -1;
+    //current_item_id_ = -1;
     event_x_ = man_x_, event_y_ = man_y_;
 
     int x = man_x_, y = man_y_;

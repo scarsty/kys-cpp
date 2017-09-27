@@ -59,12 +59,12 @@ public:
     //以下事件用
     static SubMapRecord* current_submap_record_;
     static int current_submap_id_;
-    static int current_item_id_;
+    //static int current_item_id_;
     static int event_x_, event_y_;
 
     static SubMapRecord* getCurrentSubMapRecord() { return current_submap_record_; }
     static int getCurrentSubMapID() { return current_submap_id_; }
-    static int getCurrentItemID() { return current_item_id_; }
+    //static int getCurrentItemID() { return current_item_id_; }
 
 };
 

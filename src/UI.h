@@ -32,5 +32,6 @@ public:
     UISkill* uiskill_ = nullptr;
     UIItem* uiitem_ = nullptr;
     UISystem* uisystem_ = nullptr;
+    int item_id_ = -1;
 };
 
