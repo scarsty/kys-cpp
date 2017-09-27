@@ -8,6 +8,7 @@
 
 //前置声明，减少编译依赖
 class Head;
+class Button;
 class UIStatus;
 class UISkill;
 class UIItem;
@@ -19,19 +20,21 @@ private:
     UI();
     ~UI();
     //UI菜单单例即可，无需重复创建
-    static UI ui_;
+    static UI* ui_;
 public:
     virtual void entrance() override;
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 
-    static UI* getInstance() { return &ui_; }
+    static UI* getInstance() { if (ui_ == nullptr) { ui_ = new UI(); } return ui_; }
 
     std::vector<Head*> heads_;
-    UIStatus* uistatus_ = nullptr;
-    UISkill* uiskill_ = nullptr;
-    UIItem* uiitem_ = nullptr;
-    UISystem* uisystem_ = nullptr;
+
+    Button* button_status_, *button_skill_, *button_item_, *button_system_;
+    UIStatus* ui_status_ = nullptr;
+    UISkill* ui_skill_ = nullptr;
+    UIItem* ui_item_ = nullptr;
+    UISystem* ui_system_ = nullptr;
     int item_id_ = -1;
 };
 

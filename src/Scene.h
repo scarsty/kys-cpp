@@ -11,14 +11,16 @@ public:
     virtual void draw() override {}
     virtual void dealEvent(BP_Event& e) override {}
 
+    BP_Texture* earth_texture_ = nullptr;
+
     static Towards towards_;
 
     int screen_center_x_ = 0;
     int screen_center_y_ = 0;
-    const int submap_tile_x_ = 18;                               //小图块大小X
-    const int submap_tile_y_ = 9;                                //小图块大小Y
-    const int mainmap_tile_x_ = 18;                              //地面小图块大小X
-    const int mainmap_tile_y_ = 9;                               //地面小图块大小Y
+    const int SUBMAP_TILE_W = 18;                               //小图块大小X
+    const int SUBMAP_TILE_H = 9;                                //小图块大小Y
+    const int MAINMAP_TILE_W = 18;                              //地面小图块大小X
+    const int MAINMAP_TILE_H = 9;                               //地面小图块大小Y
 
     //确定视野使用
     int view_width_region_ = 0;
@@ -65,6 +67,9 @@ public:
     int mouse_x_, mouse_y_;
     void stopFindWay() { way_que_.clear();/*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);
+
+
+
 };
 
 

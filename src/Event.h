@@ -45,13 +45,13 @@ public:
     void getItem(int item_id, int count) {}
     void modifyEvent(int snum, int ednum, int cannotWalk, int Num, int Event1, int Event2, int Event3,
         int BeginPic1, int EndPic, int BeginPic2, int  PicDelay, int  XPos, int  YPos) {}
-    bool isUsingItem(int item_id) { return SubMap::getCurrentItemID() == item_id; }
-    bool askBattle() { return false; }
-    bool tryBattle(int battle_id) { return false; }
+    bool isUsingItem(int item_id) { return 0 == item_id; }
+    bool askBattle();
+    bool tryBattle(int battle_id, int get_exp) { return true; }
     void changeMainMapMusic(int musixc_id) {}
     bool askJoin() { return false; }
     void join(int role_id) {}
-    bool askRest() { return false; }
+    bool askRest();
     void rest() {}
     void lightScence() {}
     void darkScence() {}

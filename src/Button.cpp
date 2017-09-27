@@ -4,13 +4,18 @@
 
 Button::Button(const std::string& path, int n1, int n2/*=-1*/, int n3/*=-1*/)
 {
+    setTexture(path, n1, n2, n3);
+}
+
+void Button::setTexture(const std::string& path, int n1, int n2 /*= -1*/, int n3 /*= -1*/)
+{
     if (n2 < 0) { n2 = n1; }
     if (n3 < 0) { n3 = n1; }
-    normal = TextureManager::getInstance()->loadTexture(path, n1);
-    pass = TextureManager::getInstance()->loadTexture(path, n2);
-    press = TextureManager::getInstance()->loadTexture(path, n3);
-    w_ = normal->w;
-    h_ = normal->h;
+    tex_normal_ = TextureManager::getInstance()->loadTexture(path, n1);
+    tex_pass_ = TextureManager::getInstance()->loadTexture(path, n2);
+    tex_press_ = TextureManager::getInstance()->loadTexture(path, n3);
+    w_ = tex_normal_->w;
+    h_ = tex_normal_->h;
 }
 
 Button::~Button()
@@ -31,22 +36,31 @@ void Button::dealEvent(BP_Event& e)
 
 void Button::draw()
 {
-    auto tex = normal;
+    auto tex = tex_normal_;
     BP_Color color = { 255, 255, 255, 255 };
-    if (Pass == state_)
+    BP_Color color_text = { 255, 255, 255, 255 };
+
+    if (state_ == Normal)
     {
-        tex = pass;
-        color = { 255, 255, 0, 255 };
+        if (tex_normal_ == tex_pass_)
+        {
+            color = { 128, 128, 128, 255 };
+        }
     }
-    else if (Press == state_)
+    if (state_ == Pass)
     {
-        tex = press;
-        color = { 255, 0, 0, 255 };
+        tex = tex_pass_;
+        color_text = { 255, 255, 0, 255 };
     }
-    TextureManager::getInstance()->renderTexture(tex, x_, y_);
+    else if (state_ == Press)
+    {
+        tex = tex_press_;
+        color_text = { 255, 0, 0, 255 };
+    }
+    TextureManager::getInstance()->renderTexture(tex, x_, y_, color);
     if (text_.size())
     {
-        Font::getInstance()->draw(text_, 20, x_, y_, color, 255);
+        Font::getInstance()->draw(text_, 20, x_, y_, color_text, 255);
     }
 }
 

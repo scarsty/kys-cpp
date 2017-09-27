@@ -90,7 +90,7 @@ public:
 
     void destroyMainTexture() { destroyTexture(tex_); }
 
-    void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
+    static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
 
     BP_Texture* createYUVTexture(int w, int h);;
     void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
@@ -106,9 +106,13 @@ public:
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
 
+    void setRenderTarget(BP_Texture* t) { SDL_SetRenderTarget(renderer_, t); }
+    void resetRenderTarget() { SDL_SetRenderTarget(renderer_, nullptr); }
+
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
+    void renderCopy(BP_Texture* t, BP_Rect rect0, BP_Rect rect1, int inPresent = 0);
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();

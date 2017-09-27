@@ -33,6 +33,7 @@ MenuText::MenuText(std::vector<std::string> items) : MenuText()
 
 void MenuText::setStrings(std::vector<std::string> strings)
 {
+    clearChilds();
     int len = 0;
     int i = 0;
     for (auto& str : strings)
@@ -52,20 +53,4 @@ void MenuText::draw()
     Engine::getInstance()->fillColor({ 255, 255, 255, 128 }, x_, y_, w_, h_);
 }
 
-void MenuText::dealEvent(BP_Event& e)
-{
-    if (e.type == BP_MOUSEMOTION)
-    {
-
-    }
-    if (e.type == BP_MOUSEBUTTONDOWN)
-    {
-
-    }
-    if (e.type == BP_MOUSEBUTTONUP)
-    {
-        result_ = 1;
-        loop_ = false;
-    }
-}
 

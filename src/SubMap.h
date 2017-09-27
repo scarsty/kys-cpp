@@ -36,6 +36,8 @@ public:
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
     virtual void backRun() override;
+    virtual void entrance() override;
+    virtual void exit() override;
 
     void tryWalk(int x, int y, Towards t);
 
@@ -65,6 +67,8 @@ public:
     static SubMapRecord* getCurrentSubMapRecord() { return current_submap_record_; }
     static int getCurrentSubMapID() { return current_submap_id_; }
     //static int getCurrentItemID() { return current_item_id_; }
+
+    Point getPositionOnWholeEarth(int x,int y);
 
 };
 

@@ -24,7 +24,6 @@ public:
     MenuText(std::vector<std::string> items);
     void setStrings(std::vector<std::string> items);
     void draw() override;
-    void dealEvent(BP_Event& e) override;
 };
 
 

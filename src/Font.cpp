@@ -3,7 +3,15 @@
 
 Font Font::font_;
 
-void Font::splitText(std::string text)
+Font::~Font()
+{
+    for (auto buffer : buffer_)
+    {
+        Engine::destroyTexture(buffer.second);
+    }
+}
+
+void Font::draw(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha)
 {
     int p = 0;
     while (p < text.size())
@@ -12,13 +20,23 @@ void Font::splitText(std::string text)
         p++;
         if (c > 128)
         {
-            c = (uint8_t)text[p] * 256;
+            c += (uint8_t)text[p] * 256;
             p++;
         }
+        auto index = calIndex(size, c);
+        if (buffer_.count(index) == 0)
+        {
+            uint16_t c2[2] = { 0 };
+            c2[0] = c;
+            auto s = PotConv::cp936toutf8((char*)(c2));
+            auto tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
+            buffer_[index] = tex;
+        }
+        auto tex = buffer_[index];
+        int w, h;
+        Engine::getInstance()->queryTexture(tex, &w, &h);
+        Engine::getInstance()->setColor(tex, color, alpha);
+        Engine::getInstance()->renderCopy(tex, x, y, w, h);
+        x += w;
     }
-}
-
-void Font::draw(std::string text, int size, int x, int y, BP_Color c, uint8_t alpha)
-{
-    Engine::getInstance()->drawText(fontnamec_, PotConv::cp936toutf8(text), size, x, y, alpha, BP_ALIGN_LEFT, { 255, 255, 255, 255 });
 }

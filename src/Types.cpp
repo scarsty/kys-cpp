@@ -3,6 +3,7 @@
 
 Magic* Role::getLearnedMagic(int i)
 {
+    if (i < 0 || i >= MAX_MAGIC_PERSON) { return nullptr; }
     return Save::getInstance()->getMagic(MagicID[i]);
 }
 

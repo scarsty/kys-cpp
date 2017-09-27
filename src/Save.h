@@ -51,10 +51,10 @@ public:
     std::map<std::string, Magic*> magics_by_name_;
     std::map<std::string, SubMapRecord*> submap_records_by_name_;
 
-    Role* getRole(int i) { return &roles_[i]; }
-    Magic* getMagic(int i) { return &magics_[i]; }
-    Item* getItem(int i) { return &items_[i]; }
-    SubMapRecord* getSubMapRecord(int i) { return &submap_records_[i]; }
+    Role* getRole(int i) { if (i < 0 || i > roles_.size()) { return nullptr; } return &roles_[i]; }
+    Magic* getMagic(int i) { if (i <= 0 || i > magics_.size()) { return nullptr; } return &magics_[i]; }  //0∫≈Œ‰π¶Œﬁ–ß
+    Item* getItem(int i) { if (i < 0 || i > items_.size()) { return nullptr; } return &items_[i]; }
+    SubMapRecord* getSubMapRecord(int i) { if (i < 0 || i > submap_records_.size()) { return nullptr; } return &submap_records_[i]; }
 
     Role* getTeamMate(int i);
     Item* getItemByBagIndex(int i);
@@ -67,7 +67,7 @@ public:
     void makeMaps();
 
     Role* getRoleByName(std::string name) { return roles_by_name_[name]; }
-    Magic* getMagicByName(std::string name) { return magics_by_name_[ name]; }
+    Magic* getMagicByName(std::string name) { return magics_by_name_[name]; }
     Item* getItemByName(std::string name) { return items_by_name_[name]; }
     SubMapRecord* getSubMapRecordByName(std::string name) { return submap_records_by_name_[name]; }
 

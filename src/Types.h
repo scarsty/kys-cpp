@@ -8,6 +8,7 @@ enum
     MAX_SUBMAP_EVENT = 200,                         //单场景最大事件数
     MAX_ITEM_COUNT = 200,                           //最大物品数
     MAX_TEAMMATE_COUNT = 6,                         //最大队伍人员数
+    MAX_MAGIC_PERSON = 10,                         //最大队伍人员数
 };
 
 struct Role;
@@ -33,7 +34,7 @@ struct Role
     int16_t Attack, Speed, Defence, Medcine, UsePoison, MedcinePoi, DefencePoison, Fist, Sword, Knife, Unusual, HidWeapon;
     int16_t  Knowledge, Ethics, AttackPoison, AttackTwice, Repute, Aptitude, PracticeBook;
     uint16_t ExpForBook;
-    int16_t MagicID[10], MagicLevel[10];
+    int16_t MagicID[MAX_MAGIC_PERSON], MagicLevel[MAX_MAGIC_PERSON];
     int16_t TakingItem[4], TakingItemAmount[4];
     Magic* getLearnedMagic(int i);
 };

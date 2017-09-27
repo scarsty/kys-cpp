@@ -58,11 +58,15 @@ void MainMap::divide2(MapArray& m)
 
 void MainMap::draw()
 {
+    //LOG("main\n");
     int k = 0;
     auto t0 = Engine::getInstance()->getTicks();
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
+#ifdef _DEBUG
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
+#endif
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -74,8 +78,11 @@ void MainMap::draw()
             if (i1 >= 0 && i1 < MAX_COORD && i2 >= 0 && i2 < MAX_COORD)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
+#ifndef _DEBUG
+                //调试模式下不画出地面，图的数量太多占用CPU很大
                 if (Earth(i1, i2) > 0)
                 { TextureManager::getInstance()->renderTexture("mmap", Earth(i1, i2), p.x, p.y); }
+#endif
                 if (Surface(i1, i2) > 0)
                 { TextureManager::getInstance()->renderTexture("mmap", Surface(i1, i2), p.x, p.y); }
                 if (Building(i1, i2) > 0)
@@ -113,7 +120,7 @@ void MainMap::draw()
     //云的贴图
     for (auto& c : cloud_vector_)
     {
-        c->draw();
+        //c->draw();
         c->setPositionOnScreen(man_x_, man_y_, screen_center_x_, screen_center_y_);
     }
     //log("%d\n", t1 - t0);
@@ -148,7 +155,7 @@ void MainMap::dealEvent(BP_Event& e)
     if (e.type == BP_KEYDOWN)
     {
         //这里应该是不正确，一旦有按键，朝向应立刻改变
-        Towards tw;
+        //Towards tw = towards_;
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
@@ -179,7 +186,7 @@ void MainMap::dealEvent(BP_Event& e)
         }
         else
         {
-            tryWalk(x, y, tw);
+            tryWalk(x, y, towards_);
             stopFindWay();
         }
     }
@@ -208,14 +215,8 @@ void MainMap::tryWalk(int x, int y, Towards t)
     {
         man_x_ = x;
         man_y_ = y;
+        step_++;
     }
-    if (towards_ != t)
-    {
-        towards_ = t;
-        //step = 0;
-    }
-    else
-    { step_++; }
     step_ = step_ % MAN_PIC_COUNT;
     if (isWater(man_x_, man_y_))
     {
@@ -319,8 +320,8 @@ void MainMap::getMousePosition(int _x, int _y)
     int x = _x;
     int y = _y;
     int yp = 0;
-    mouse_x_ = (-(x - screen_center_x_) / mainmap_tile_x_ + (y + yp - screen_center_y_) / mainmap_tile_y_) / 2 + man_x_;
-    mouse_y_ = ((y + yp - screen_center_y_) / mainmap_tile_y_ + (x - screen_center_x_) / mainmap_tile_x_) / 2 + man_y_;
+    mouse_x_ = (-(x - screen_center_x_) / MAINMAP_TILE_W + (y + yp - screen_center_y_) / MAINMAP_TILE_H) / 2 + man_x_;
+    mouse_y_ = ((y + yp - screen_center_y_) / MAINMAP_TILE_H + (x - screen_center_x_) / MAINMAP_TILE_W) / 2 + man_y_;
 }
 
 

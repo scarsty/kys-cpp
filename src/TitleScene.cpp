@@ -44,12 +44,10 @@ void TitleScene::draw()
 
 void TitleScene::dealEvent(BP_Event& e)
 {
-    Save::getInstance()->LoadR(1);
     int r = menu_->run();
     if (r == 0)
-    {        
-        auto m = new MainMap();
-        m->run();
+    {
+
     }
     if (r == 1)
     {
@@ -63,5 +61,12 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         loop_ = false;
     }
+}
+
+void TitleScene::entrance()
+{
+    Save::getInstance()->LoadR(1);
+    auto m = new MainMap();
+    m->run();
 }
 

@@ -37,7 +37,13 @@ void SubMap::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
     //以下画法存在争议
-    //无高度地面一次画出
+    //一整块地面
+#ifndef _DEBUG
+    auto p = getPositionOnWholeEarth(view_x_, view_y_);
+    int w = screen_center_x_ * 2;
+    int h = screen_center_y_ * 2;
+    //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
+    Engine::getInstance()->renderCopy(earth_texture_, { p.x - screen_center_x_, p.y - screen_center_y_, w, h }, { 0, 0, w, h }, 1);
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -49,14 +55,19 @@ void SubMap::draw()
             {
                 int h = record_->BuildingHeight(i1, i2);
                 int num = record_->Earth(i1, i2) / 2;
-                //无高度地面
+                //无高度闪烁地面
                 if (num > 0 && h == 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    auto tex = TextureManager::getInstance()->loadTexture("smap", num);
+                    if (tex->count > 1)
+                    {
+                        TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
+                    }
                 }
             }
         }
     }
+#endif
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -69,10 +80,12 @@ void SubMap::draw()
                 //有高度地面
                 int h = record_->BuildingHeight(i1, i2);
                 int num = record_->Earth(i1, i2) / 2;
+#ifndef _DEBUG
                 if (num > 0 && h > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
+#endif
                 //建筑和主角
                 num = record_->Building(i1, i2) / 2;
                 if (num > 0)
@@ -250,6 +263,38 @@ void SubMap::backRun()
     }
 }
 
+//一大块地面的纹理，未完成
+void SubMap::entrance()
+{
+    earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
+    Engine::getInstance()->setRenderTarget(earth_texture_);
+
+    //二者之差是屏幕中心与大纹理的中心的距离
+    for (int i1 = 0; i1 < MAX_COORD; i1++)
+    {
+        for (int i2 = 0; i2 < MAX_COORD; i2++)
+        {
+            auto p = getPositionOnWholeEarth(i1, i2);
+            int h = record_->BuildingHeight(i1, i2);
+            int num = record_->Earth(i1, i2) / 2;
+            //无高度地面
+            if (num > 0 && h == 0)
+            {
+                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+            }
+        }
+    }
+    Engine::getInstance()->resetRenderTarget();
+}
+
+void SubMap::exit()
+{
+    if (earth_texture_)
+    {
+        Engine::destroyTexture(earth_texture_);
+    }
+}
+
 //冗余过多待清理
 void SubMap::tryWalk(int x, int y, Towards t)
 {
@@ -398,4 +443,11 @@ void SubMap::getMousePosition(int _x, int _y)
     //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
+Point SubMap::getPositionOnWholeEarth(int x, int y)
+{
+    auto p = getPositionOnScreen(x, y, 0, 0);
+    p.x += MAX_COORD * SUBMAP_TILE_W - screen_center_x_;
+    p.y += 2 * SUBMAP_TILE_H - screen_center_y_;
+    return p;
+}
 

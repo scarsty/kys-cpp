@@ -8,8 +8,8 @@ Scene::Scene()
     Engine::getInstance()->getPresentSize(screen_center_x_, screen_center_y_);
     screen_center_x_ /= 2;
     screen_center_y_ /= 2;
-    view_width_region_ = screen_center_x_ / submap_tile_x_ / 2 + 3;
-    view_sum_region_ = screen_center_y_ / submap_tile_y_ + 2;
+    view_width_region_ = screen_center_x_ / SUBMAP_TILE_W / 2 + 3;
+    view_sum_region_ = screen_center_y_ / SUBMAP_TILE_H + 2;
 }
 
 
@@ -22,8 +22,8 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
     Point p;
     x = x - CenterX;
     y = y - CenterY;
-    p.x = -y * submap_tile_x_ + x * submap_tile_x_ + screen_center_x_;
-    p.y = y * submap_tile_y_ + x * submap_tile_y_ + screen_center_y_;
+    p.x = -y * SUBMAP_TILE_W + x * SUBMAP_TILE_W + screen_center_x_;
+    p.y = y * SUBMAP_TILE_H + x * SUBMAP_TILE_H + screen_center_y_;
     return p;
 }
 

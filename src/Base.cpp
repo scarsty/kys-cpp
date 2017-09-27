@@ -81,8 +81,9 @@ int Base::run(bool in_root /*= true*/)
         engine->renderPresent();
         int t1 = engine->getTicks();
         int t = 25 - (t1 - t0);
-        if (t > 0)
-        { engine->delay(t); }
+        if (t <= 0) { t = 1; }
+        engine->delay(t);
+        //LOG("one frame\n");
     }
     //while (engine->pollEvent(e) > 0);
     //engine->flushEvent();

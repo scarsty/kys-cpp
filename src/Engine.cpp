@@ -60,6 +60,16 @@ void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
     SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, rotation_, nullptr, SDL_FLIP_NONE);
 }
 
+void Engine::renderCopy(BP_Texture* t, BP_Rect rect0, BP_Rect rect1, int inPresent /*= 0*/)
+{
+    if (inPresent == 1)
+    {
+        rect1.x += rect_.x;
+        rect1.y += rect_.y;
+    }
+    SDL_RenderCopy(renderer_, t, &rect0, &rect1);
+}
+
 void Engine::destroy()
 {
     SDL_DestroyTexture(tex_);
