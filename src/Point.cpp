@@ -1,15 +1,8 @@
 #include "Point.h"
 #include <cmath>
 
-Point::Point(int _x, int _y) :
-    x(_x), y(_y)
+PointEx::PointEx()
 {
-
-}
-
-Point::Point()
-{
-    x = y = step = g = h = f = Gx = Gy = 0;
     parent = nullptr;
     for (int i = 0; i < 4; i++)
     {
@@ -18,11 +11,7 @@ Point::Point()
     towards = LeftDown;
 }
 
-Point::~Point()
-{
-}
-
-void Point::delTree(Point* root)
+void PointEx::delTree(PointEx* root)
 {
     if (root == nullptr)                // 空子树，直接返回
     {
@@ -38,7 +27,7 @@ void Point::delTree(Point* root)
     }
 }
 
-int Point::Heuristic(int Fx, int Fy)                        //manhattan估价函数
+int PointEx::Heuristic(int Fx, int Fy)                        //manhattan估价函数
 {
     h = (abs(x - Fx) + abs(y - Fy)) * 10;
     return h;

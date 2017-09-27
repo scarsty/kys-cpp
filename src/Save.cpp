@@ -51,7 +51,7 @@ bool Save::LoadR(int num)
     auto Rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
     int c = 0;
-    memcpy(&global_data_, Rgrp + offset_[c], length_[c]);
+    memcpy(this, Rgrp + offset_[c], length_[c]);
 
     c = 1;
     roles_.resize(length_[c] / sizeof(Role));
@@ -78,30 +78,31 @@ bool Save::LoadR(int num)
     submap_event_.resize(submap_count * MAX_SUBMAP_EVENT);
     File::readFile(filenamed, &submap_event_[0], submap_count * MAX_SUBMAP_EVENT * sizeof(SubMapEvent));
 
-    //makeMaps();
     //内部编码为cp936
-    if (global_data_.Encode != 936)
+    if (Encode != 936)
     {
-        global_data_.Encode = 936;
-        for (auto& r : roles_)
+        Encode = 936;
+        for (auto& i : roles_)
         {
-            fromCP950ToCP936(r.Name);
-            fromCP950ToCP936(r.Nick);
+            PotConv::fromCP950ToCP936(i.Name);
+            PotConv::fromCP950ToCP936(i.Nick);
         }
         for (auto& i : items_)
         {
-            fromCP950ToCP936(i.Name);
-            fromCP950ToCP936(i.Introduction);
+            PotConv::fromCP950ToCP936(i.Name);
+            PotConv::fromCP950ToCP936(i.Introduction);
         }
-        for (auto& s : submap_records_)
+        for (auto& i : magics_)
         {
-            fromCP950ToCP936(s.Name);
+            PotConv::fromCP950ToCP936(i.Name);
         }
-        for (auto& m : magics_)
+        for (auto& i : submap_records_)
         {
-            fromCP950ToCP936(m.Name);
+            PotConv::fromCP950ToCP936(i.Name);
         }
     }
+
+    makeMaps();
 
     return true;
 }
@@ -114,7 +115,7 @@ bool Save::SaveR(int num)
 
     char* Rgrp = new char[offset_.back()];
     int c = 0;
-    memcpy(Rgrp + offset_[c], &global_data_, length_[c]);
+    memcpy(Rgrp + offset_[c], this, length_[c]);
     c = 1;
     memcpy(Rgrp + offset_[c], &roles_[0], length_[c]);
     c = 2;
@@ -141,7 +142,7 @@ Role* Save::getTeamMate(int i)
     {
         return nullptr;
     }
-    int r = global_data_.Team[i];
+    int r = Team[i];
     if (r < 0 || r >= roles_.size())
     {
         return nullptr;
@@ -155,7 +156,7 @@ Item* Save::getItemFromBag(int i)
     {
         return nullptr;
     }
-    int r = global_data_.ItemList[i].item;
+    int r = ItemList[i].item_id;
     if (r < 0 || r >= items_.size())
     {
         return nullptr;
@@ -165,18 +166,18 @@ Item* Save::getItemFromBag(int i)
 
 int16_t Save::getItemCountFromBag(int i)
 {
-    return global_data_.ItemList[i].count;
+    return ItemList[i].count;
 }
 
 int16_t Save::getItemCountFromBag(Item* item)
 {
     for (int i = 0; i < MAX_ITEM_COUNT; i++)
     {
-        auto id = global_data_.ItemList[i].item;
+        auto id = ItemList[i].item_id;
         if (id < 0) { break; }
         if (id == item->ID)
         {
-            return global_data_.ItemList[i].count;
+            return ItemList[i].count;
         }
     }
     return 0;
@@ -189,18 +190,24 @@ void Save::makeMaps()
     items_by_name_.clear();
     submap_records_by_name_.clear();
 
-    //有重名的
-    for (auto& r : roles_)
+    //有重名的，斟酌使用
+    for (auto& i : roles_)
     {
-        roles_by_name_[r.Name] = &r;
+        roles_by_name_[i.Name] = &i;
+    }
+    for (auto& i : magics_)
+    {
+        magics_by_name_[i.Name] = &i;
+    }
+    for (auto& i : items_)
+    {
+        items_by_name_[i.Name] = &i;
+    }
+    for (auto& i : submap_records_)
+    {
+        submap_records_by_name_[i.Name] = &i;
     }
 
-}
-
-void Save::fromCP950ToCP936(char* s)
-{
-    auto str = PotConv::cp950tocp936(s);
-    memcpy(s, str.data(), str.length());
 }
 
 char* Save::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)

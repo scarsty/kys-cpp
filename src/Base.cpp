@@ -52,11 +52,13 @@ void Base::setPosition(int x, int y)
     x_ = x; y_ = y;
 }
 
-int Base::run()
+//运行
+//参数为是否在root中运行，为真则参与绘制，为假则不会被画出
+int Base::run(bool in_root /*= true*/)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
-    push(this);
+    if (in_root) { push(this); }
     entrance();
     loop_ = true;
     result_ = -1;
@@ -84,7 +86,7 @@ int Base::run()
     //while (engine->pollEvent(e) > 0);
     //engine->flushEvent();
     exit();
-    pop();
+    if (in_root) { pop(); }
     return result_;
 }
 
@@ -114,7 +116,7 @@ void Base::drawSelfAndChilds()
         draw();
         for (auto c : childs_)
         {
-            c->draw();
+            if (c->visible_) { c->draw(); }
         }
     }
 }
@@ -123,6 +125,15 @@ void Base::addChild(Base* b, int x, int y)
 {
     childs_.push_back(b);
     b->setPosition(x_ + x, y_ + y);
+}
+
+void Base::clearChilds()
+{
+    for (auto c : childs_)
+    {
+        delete c;
+    }
+    childs_.clear();
 }
 
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内

@@ -7,18 +7,18 @@
 #include "UI.h"
 
 MainMap::MapArray MainMap::Earth_, MainMap::Surface_, MainMap::Building_, MainMap::BuildX_, MainMap::BuildY_, MainMap::Entrance_;
-bool MainMap::_readed = false;
+bool MainMap::data_readed_ = false;
 
 MainMap::MainMap() :
-    man_x_(Save::getInstance()->getGlobalData()->MainMapX),
-    man_y_(Save::getInstance()->getGlobalData()->MainMapY)
+    man_x_(Save::getInstance()->MainMapX),
+    man_y_(Save::getInstance()->MainMapY)
 {
     full_window_ = 1;
 
     srand(int(time(nullptr)));
-    if (!_readed)
+    if (!data_readed_)
     {
-        int length = max_coord_ * max_coord_ * sizeof(uint16_t);
+        int length = MAX_COORD * MAX_COORD * sizeof(uint16_t);
 
         File::readFile("../game/resource/earth.002", &Earth_[0], length);
         File::readFile("../game/resource/surface.002", &Surface_[0], length);
@@ -30,7 +30,7 @@ MainMap::MainMap() :
         divide2(Surface_);
         divide2(Building_);
     }
-    _readed = true;
+    data_readed_ = true;
 
     //100个云
     for (int i = 0; i < 100; i++)
@@ -50,7 +50,7 @@ MainMap::~MainMap()
 
 void MainMap::divide2(MapArray& m)
 {
-    for (int i = 0; i < max_coord_ * max_coord_; i++)
+    for (int i = 0; i < MAX_COORD * MAX_COORD; i++)
     {
         m[i] /= 2;
     }
@@ -63,15 +63,15 @@ void MainMap::draw()
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
-    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        for (int i = -width_region_; i <= width_region_; i++)
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
-            if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
+            if (i1 >= 0 && i1 < MAX_COORD && i2 >= 0 && i2 < MAX_COORD)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
                 if (Earth(i1, i2) > 0)
@@ -93,12 +93,12 @@ void MainMap::draw()
                 }
                 if (i1 == man_x_ && i2 == man_y_)
                 {
-                    man_pic_ = man_pic0_ + Scene::towards_ * num_man_pic_ + step_;
-                    if (rest_time_ >= begin_rest_time_)
-                    { man_pic_ = rest_pic0_ + Scene::towards_ * num_rest_pic_ + (rest_time_ - begin_rest_time_) / rest_interval_ % num_rest_pic_; }
+                    man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;
+                    if (rest_time_ >= BEGIN_REST_TIME)
+                    { man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT; }
                     if (isWater(man_x_, man_y_))
                     {
-                        man_pic_ = ship_pic0_ + Scene::towards_ * num_ship_pic_ + step_;
+                        man_pic_ = SHIP_PIC_0 + Scene::towards_ * SHIP_PIC_COUNT + step_;
                     }
                     int c = 1024 * (i1 + i2) + i1;
                     map[2 * c] = { man_pic_, p };
@@ -124,56 +124,41 @@ void MainMap::dealEvent(BP_Event& e)
 {
     int x = man_x_, y = man_y_;
     //drawCount++;
-    if (e.type == BP_MOUSEBUTTONDOWN)
+    if (e.type == BP_MOUSEBUTTONUP)
     {
         getMousePosition(e.button.x, e.button.y);
         stopFindWay();
-        if (canWalk(Msx, Msy) && !isOutScreen(Msx, Msy))
+        if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
         {
-            FindWay(man_x_, man_y_, Msx, Msy);
+            FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
         }
     }
     if (!way_que_.empty())
     {
-        Point newMyPoint = way_que_.top();
+        PointEx newMyPoint = way_que_.back();
         x = newMyPoint.x;
         y = newMyPoint.y;
         checkEntrance(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
-        walk(x, y, myTowards);
-        way_que_.pop();
+        tryWalk(x, y, myTowards);
+        way_que_.pop_back();
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
     if (e.type == BP_KEYDOWN)
     {
+        //这里应该是不正确，一旦有按键，朝向应立刻改变
         Towards tw;
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
-        {
-            x--;
-            tw = LeftDown;
-            break;
-        }
         case BPK_RIGHT:
-        {
-            x++;
-            tw = RightUp;
-            break;
-        }
         case BPK_UP:
-        {
-            y--;
-            tw = LeftUp;
-            break;
-        }
         case BPK_DOWN:
-        {
-            y++;
-            tw = RightDown;            
+            getTowardsFromKey(e.key.keysym.sym);
+            getTowardsPosition(man_x_, man_y_, &x, &y);
+            //walk(x, y, towards_);
             break;
-        }
         //case BPK_ESCAPE:
         //{
         //    stopFindWay();
@@ -186,9 +171,7 @@ void MainMap::dealEvent(BP_Event& e)
         //    //auto s = new BattleScene(Entrance[x][y]);
         //}
         default:
-        {
             rest_time_++;
-        }
         }
         if (checkEntrance(x, y))
         {
@@ -196,7 +179,7 @@ void MainMap::dealEvent(BP_Event& e)
         }
         else
         {
-            walk(x, y, tw);
+            tryWalk(x, y, tw);
             stopFindWay();
         }
     }
@@ -217,11 +200,9 @@ void MainMap::entrance()
 
 void MainMap::exit()
 {
-    Save::getInstance()->getGlobalData()->MainMapX = man_x_;
-    Save::getInstance()->getGlobalData()->MainMapY = man_y_;
 }
 
-void MainMap::walk(int x, int y, Towards t)
+void MainMap::tryWalk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
@@ -235,10 +216,10 @@ void MainMap::walk(int x, int y, Towards t)
     }
     else
     { step_++; }
-    step_ = step_ % num_man_pic_;
+    step_ = step_ % MAN_PIC_COUNT;
     if (isWater(man_x_, man_y_))
     {
-        step_ = step_ % num_ship_pic_;
+        step_ = step_ % SHIP_PIC_COUNT;
     }
     rest_time_ = 0;
 }
@@ -269,7 +250,7 @@ bool MainMap::isWater(int x, int y)
 
 bool MainMap::isOutLine(int x, int y)
 {
-    return (x < 0 || x > max_coord_ || y < 0 || y > max_coord_);
+    return (x < 0 || x > MAX_COORD || y < 0 || y > MAX_COORD);
 }
 
 bool MainMap::canWalk(int x, int y)
@@ -328,100 +309,9 @@ void MainMap::getEntrance()
     //}
 }
 
-//A*寻路
-void MainMap::FindWay(int Mx, int My, int Fx, int Fy)
-{
-    bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
-    int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };      //四个方向
-    Point* myPoint = new Point;
-    myPoint->x = Mx;
-    myPoint->y = My;
-    myPoint->towards = (Point::Towards)CallFace(Mx, My, Fx, Fy);
-    myPoint->parent = myPoint;
-    myPoint->Heuristic(Fx, Fy);
-    //log("Fx=%d,Fy=%d", Fx, Fy);
-    //log("Mx=%d,My=%d", Mx, My);
-    while (!way_que_.empty())
-    {
-        way_que_.pop();
-    }
-    std::priority_queue<Point*, std::vector<Point*>, Compare> que;            //最小优先级队列(开启列表)
-    que.push(myPoint);
-    int sNum = 0;
-    while (!que.empty() && sNum <= 300)
-    {
-        Point* t = new Point();
-        t = que.top();
-        que.pop();
-        visited[t->x][t->y] = true;
-        sNum++;
-        //log("t.x=%d,t.y=%d",t->x,t->y);
-        if (t->x == Fx && t->y == Fy)
-        {
-            minStep = t->step;
-            way_que_.push(*t);
-            int k = 0;
-            while (t != myPoint && k <= minStep)
-            {
-                //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
-
-                t->towards = t->parent->towards;
-                way_que_.push(*t);
-                t = t->parent;
-                k++;
-                //log("go in!");
-            }
-            //log("minStep=%d", minStep);
-            //log("wayQue=%d", wayQue.size());
-            break;
-        }
-        else
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                Point* s = new Point();
-                s->x = t->x + dirs[i][0];
-                s->y = t->y + dirs[i][1];
-                if (canWalk(s->x, s->y) && !isOutScreen(s->x, s->y) && !visited[s->x][s->y])
-                {
-                    s->g = t->g + 10;
-                    s->towards = (Point::Towards)i;
-                    if (s->towards == t->towards)
-                    {
-                        s->Heuristic(Fx, Fy);
-                    }
-                    else
-                    {
-                        s->h = s->Heuristic(Fx, Fy) + 1;
-                    }
-                    s->step = t->step + 1;
-                    s->f = s->g + s->h;
-                    //t->towards = (MyPoint::Towards)i;
-                    //s->Gx = dirs[i][0];
-                    //s->Gy = dirs[i][1];
-                    //t->child[i] = s;
-                    //if (s->parent)
-                    s->parent = t;
-                    //log("s.x=%d,s.y=%d,t.x=%d,t.y=%d", s->x, s->y, t->x, t->y);
-                    //log("s.g=%d,s.h=%d,s.f=%d", s.g, s.h, s.f);
-                    que.push(s);
-                }
-            }
-        }
-    }
-    myPoint->delTree(myPoint);
-}
-
 bool MainMap::isOutScreen(int x, int y)
 {
-    return (abs(man_x_ - x) >= 2 * width_region_ || abs(man_y_ - y) >= sum_region_);
-}
-
-
-void MainMap::stopFindWay()
-{
-    while (!way_que_.empty())
-    { way_que_.pop(); }
+    return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }
 
 void MainMap::getMousePosition(int _x, int _y)
@@ -429,8 +319,8 @@ void MainMap::getMousePosition(int _x, int _y)
     int x = _x;
     int y = _y;
     int yp = 0;
-    Msx = (-(x - screen_center_x_) / singleMapScene_X + (y + yp - screen_center_y_) / singleMapScene_Y) / 2 + man_x_;
-    Msy = ((y + yp - screen_center_y_) / singleMapScene_Y + (x - screen_center_x_) / singleMapScene_X) / 2 + man_y_;
+    mouse_x_ = (-(x - screen_center_x_) / mainmap_tile_x_ + (y + yp - screen_center_y_) / mainmap_tile_y_) / 2 + man_x_;
+    mouse_y_ = ((y + yp - screen_center_y_) / mainmap_tile_y_ + (x - screen_center_x_) / mainmap_tile_x_) / 2 + man_y_;
 }
 
 

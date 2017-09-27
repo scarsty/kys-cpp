@@ -1,6 +1,7 @@
 #pragma once
 #include "Base.h"
 #include "SubMap.h"
+#include "Talk.h"
 
 class Event : public Base
 {
@@ -12,14 +13,21 @@ public:
         return &event_;
     }
 
+private:
     std::vector<int> offset, length;
-
     std::vector<std::string> talk_;
     std::vector<std::vector<int>> kdef_;
 
+    //两个对话，用于上面和下面
+    Talk* talkup_ = nullptr;
+    Talk* talkdown_ = nullptr;
+
+    int event_id_ = -1;
+
 public:
-    bool initEventData();            //加载事件数据
-    bool callEvent(int event_id);    //调用指令的内容写这里
+    bool initEventData();             //加载事件数据
+    //这里再设计
+    bool callEvent(int event_id);     //调用指令的内容写这里
 
     void setEvent(SubMap* submap, int x, int y, Item* item = nullptr)
     {
@@ -28,7 +36,7 @@ public:
         y_ = y;
         item_ = item;
     }
-    //virtual int run() { callEvent(event_id_); return 0; }
+
 private:
     static Event event_;
     SubMap* submap_;

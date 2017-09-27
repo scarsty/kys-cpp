@@ -3,8 +3,18 @@
 #include "Types.h"
 #include <map>
 
+struct ItemList { int16_t item_id, count; };
+
 class Save
 {
+public:
+    //此处为全局数据，载入和保存使用，必须放在类开头，按照顺序，否则自己看着办
+    int16_t InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+    int16_t Team[MAX_TEAMMATE_COUNT];
+    ItemList ItemList[MAX_ITEM_COUNT];
+private:
+    //缓冲区，无他用
+    int16_t buffer_[100];
 public:
     Save();
     ~Save();
@@ -24,7 +34,6 @@ public:
     std::vector<int> offset_, length_;
 
     //这里实际保存所有数据
-    GlobalData global_data_;
     std::vector<Role> roles_;
     std::vector<Magic> magics_;
     std::vector<Item> items_;
@@ -38,8 +47,6 @@ public:
     std::map<std::string, Magic*> magics_by_name_;
     std::map<std::string, SubMapRecord*> submap_records_by_name_;
 
-    GlobalData* getGlobalData() { return &global_data_; }
-
     Role* getRole(int i) { return &roles_[i]; }
     Magic* getMagic(int i) { return &magics_[i]; }
     Item* getItem(int i) { return &items_[i]; }
@@ -52,9 +59,12 @@ public:
 
     void makeMaps();
 
-    static void fromCP950ToCP936(char* s);
-    static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
+    Role* getRoleByName(std::string name) { return roles_by_name_[name]; }
+    Magic* getMagicByName(std::string name) { return magics_by_name_[ name]; }
+    Item* getItemByName(std::string name) { return items_by_name_[name]; }
+    SubMapRecord* getSubMapRecordByName(std::string name) { return submap_records_by_name_[name]; }
 
+    static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
 };
 
 

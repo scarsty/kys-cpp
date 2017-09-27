@@ -1,28 +1,41 @@
 #pragma once
-class Point
+
+
+
+struct Point
 {
 public:
-    Point();
-    Point(int _x, int _y);
-    virtual ~Point();
+    Point() {}
+    Point(int _x, int _y):x(_x), y(_y) {}
+    ~Point() {}
+    int x = 0, y = 0;
+};
 
-    int x, y, step;
-    int g, h, f;
-    int Gx, Gy;
+typedef enum
+{
+    LeftUp = 0,
+    RightUp = 1,
+    LeftDown = 2,
+    RightDown = 3,
+    None
+} Towards;
 
-    enum Towards
-    {
-        LeftUp = 0,
-        RightUp = 1,
-        LeftDown = 2,
-        RightDown = 3,
-    } towards;
-    Point* parent;
-    Point* child[4];
+struct PointEx : public Point
+{
+    PointEx();
+    ~PointEx() {}
 
-    void delTree(Point*);
+    int step = 0;
+    int g = 0, h = 0, f = 0;
+    int Gx = 0, Gy = 0;
 
-    bool lessthan(const Point* myPoint) const
+    Towards towards;
+    PointEx* parent;
+    PointEx* child[4];
+
+    void delTree(PointEx*);
+
+    bool lessthan(const PointEx* myPoint) const
     {
         return f > myPoint->f;                                              //重载比较运算符
     }
@@ -32,7 +45,7 @@ public:
 class Compare
 {
 public:
-    bool operator()(Point* point1, Point* point2)
+    bool operator()(PointEx* point1, PointEx* point2)
     {
         return point1->lessthan(point2);
     }

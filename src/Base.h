@@ -55,6 +55,7 @@ public:
     //static Base* getCurentBase() { return root_.at(0); }
 
     void addChild(Base* b, int x = 0, int y = 0);
+    void clearChilds();
 
     void setPosition(int x, int y);
     void setSize(int w, int h) { w_ = w; h_ = h; }
@@ -64,7 +65,7 @@ public:
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
     }
 
-    int run();                                          //执行本层
+    int run(bool in_root = true);                                          //执行本层
     
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
@@ -89,7 +90,8 @@ public:
     void checkStateAndEvent(BP_Event &e);
 
     void pollEvent();
-    void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
+    static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
+    static Base* getCurrentTopDraw() { return root_.back(); }
 
 };
 

@@ -4,23 +4,24 @@
 #include "Event.h"
 #include "UI.h"
 
+
+SubMap* SubMap::current_submap_;
+Item* SubMap::current_item_;
+int SubMap::event_x_, SubMap::event_y_;
+
 SubMap::SubMap() :
-    man_x_(Save::getInstance()->getGlobalData()->SubMapX),
-    man_y_(Save::getInstance()->getGlobalData()->SubMapY)
+    man_x_(Save::getInstance()->SubMapX),
+    man_y_(Save::getInstance()->SubMapY)
 {
     full_window_ = 1;
 }
 
-
 SubMap::SubMap(int num) : SubMap()
 {
     setSceneNum(num);
-    current_submap_ = Save::getInstance()->getSubMapRecord(num);
-    current_submap_->ID = num;
-    view_x_ = current_submap_->EntranceX;
-    view_y_ = current_submap_->EntranceY;
-    man_x_ = current_submap_->EntranceX;
-    man_y_ = current_submap_->EntranceY;
+    record_ = Save::getInstance()->getSubMapRecord(num);
+    record_->ID = num;
+    setPosition(record_->EntranceX, record_->EntranceY);
 }
 
 SubMap::~SubMap()
@@ -35,19 +36,19 @@ void SubMap::draw()
     //std::map<int, DrawInfo> map;
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
-    //以下画法存在争议，待考证
+    //以下画法存在争议
     //无高度地面一次画出
-    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        for (int i = -width_region_; i <= width_region_; i++)
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
-            if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
+            if (i1 >= 0 && i1 < MAX_COORD && i2 >= 0 && i2 < MAX_COORD)
             {
-                int h = current_submap_->BuildingHeight(i1, i2);
-                int num = current_submap_->Earth(i1, i2) / 2;
+                int h = record_->BuildingHeight(i1, i2);
+                int num = record_->Earth(i1, i2) / 2;
                 //无高度地面
                 if (num > 0 && h == 0)
                 {
@@ -56,24 +57,24 @@ void SubMap::draw()
             }
         }
     }
-    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        for (int i = -width_region_; i <= width_region_; i++)
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
-            if (i1 >= 0 && i1 < max_coord_ && i2 >= 0 && i2 < max_coord_)
+            if (i1 >= 0 && i1 < MAX_COORD && i2 >= 0 && i2 < MAX_COORD)
             {
                 //有高度地面
-                int h = current_submap_->BuildingHeight(i1, i2);
-                int num = current_submap_->Earth(i1, i2) / 2;
+                int h = record_->BuildingHeight(i1, i2);
+                int num = record_->Earth(i1, i2) / 2;
                 if (num > 0 && h > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
                 //建筑和主角
-                num = current_submap_->Building(i1, i2) / 2;
+                num = record_->Building(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
@@ -82,23 +83,23 @@ void SubMap::draw()
                 {
                     if (man_pic_ != -1)
                     {
-                        man_pic_ = man_pic0_ + Scene::towards_ * num_man_pic_ + step_;
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;
                         TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                     }
                 }
                 //事件
-                auto event = current_submap_->Event(i1, i2);
+                auto event = record_->Event(i1, i2);
                 if (event)
                 {
-                    num = current_submap_->Event(i1, i2)->CurrentPic / 2;
+                    num = record_->Event(i1, i2)->CurrentPic / 2;
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - current_submap_->EventHeight(i1, i2) - h);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - record_->EventHeight(i1, i2) - h);
                     }
                 }
                 //装饰
-                num = current_submap_->Decoration(i1, i2) / 2;
+                num = record_->Decoration(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
@@ -109,37 +110,33 @@ void SubMap::draw()
     }
 }
 
-void SubMap::setPosition(int x, int y)
-{
-    view_x_ = x;
-    view_y_ = y;
-    man_x_ = x;
-    man_y_ = y;
-}
-
 void SubMap::dealEvent(BP_Event& e)
 {
+    current_submap_ = this;
+    current_item_ = nullptr;
+    event_x_ = man_x_, event_y_ = man_y_;
+
     int x = man_x_, y = man_y_;
     //drawCount++;
-    if (e.type == BP_MOUSEBUTTONDOWN)
+    if (e.type == BP_MOUSEBUTTONUP)
     {
         getMousePosition(e.button.x, e.button.y);
         stopFindWay();
-        if (canWalk(Msx, Msy) && !isOutScreen(Msx, Msy))
+        if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
         {
-            FindWay(view_x_, view_y_, Msx, Msy);
+            FindWay(view_x_, view_y_, mouse_x_, mouse_y_);
         }
     }
     if (!way_que_.empty())
     {
-        Point newMyPoint = way_que_.top();
+        PointEx newMyPoint = way_que_.back();
         x = newMyPoint.x;
         y = newMyPoint.y;
         isExit(x, y);
         Towards myTowards = (Towards)(newMyPoint.towards);
         //log("myTowards=%d", myTowards);
-        walk(x, y, myTowards);
-        way_que_.pop();
+        tryWalk(x, y, myTowards);
+        way_que_.pop_back();
         //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
     }
     if (e.type == BP_KEYDOWN)
@@ -154,7 +151,7 @@ void SubMap::dealEvent(BP_Event& e)
             {
                 break;
             }
-            walk(x, y, LeftDown);
+            tryWalk(x, y, LeftDown);
             stopFindWay();
             break;
         }
@@ -165,7 +162,7 @@ void SubMap::dealEvent(BP_Event& e)
             {
                 break;
             }
-            walk(x, y, RightUp);
+            tryWalk(x, y, RightUp);
             stopFindWay();
             break;
         }
@@ -176,7 +173,7 @@ void SubMap::dealEvent(BP_Event& e)
             {
                 break;
             }
-            walk(x, y, LeftUp);
+            tryWalk(x, y, LeftUp);
             stopFindWay();
             break;
         }
@@ -187,7 +184,7 @@ void SubMap::dealEvent(BP_Event& e)
             {
                 break;
             }
-            walk(x, y, RightDown);
+            tryWalk(x, y, RightDown);
             stopFindWay();
             break;
         }
@@ -238,7 +235,7 @@ void SubMap::backRun()
 {
     for (int i = 0; i < MAX_SUBMAP_EVENT; i++)
     {
-        auto e = current_submap_->Event(i);
+        auto e = record_->Event(i);
         //if (e->PicDelay > 0)
         {
             e->CurrentPic++;
@@ -252,14 +249,11 @@ void SubMap::backRun()
 }
 
 //冗余过多待清理
-void SubMap::walk(int x, int y, Towards t)
+void SubMap::tryWalk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        man_x_ = x;
-        man_y_ = y;
-        view_x_ = x;
-        view_y_ = y;
+        setPosition(x, y);
     }
     if (Scene::towards_ != t)
     {
@@ -270,18 +264,18 @@ void SubMap::walk(int x, int y, Towards t)
     {
         step_++;
     }
-    step_ = step_ % num_man_pic_;
+    step_ = step_ % MAN_PIC_COUNT;
 }
 
 //第一类事件，即主动触发
 bool SubMap::checkEvent1(int x, int y, Towards t)
 {
-    getTowardsPosition(&x, &y);
-    int event_index_submap = current_submap_->EventIndex(x, y);
+    getTowardsPosition(man_x_, man_y_, &x, &y);
+    int event_index_submap = record_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
-        Event::getInstance()->setEvent(this, x, y);
-        Event::getInstance()->callEvent(current_submap_->Event(x, y)->Event1);
+        //Event::getInstance()->setEvent(this, x, y);
+        Event::getInstance()->callEvent(record_->Event(x, y)->Event1);
         return true;
     }
     return false;
@@ -307,15 +301,15 @@ bool SubMap::canWalk(int x, int y)
         ret = false;
     }
     if (isCanPassEvent(x, y))
-    { 
-        ret = true; 
+    {
+        ret = true;
     }
     return ret;
 }
 
 bool SubMap::isBuilding(int x, int y)
 {
-    return current_submap_->Building(x, y) > 0;
+    return record_->Building(x, y) > 0;
     //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
     //{
     //    return false;
@@ -328,12 +322,12 @@ bool SubMap::isBuilding(int x, int y)
 
 bool SubMap::isOutLine(int x, int y)
 {
-    return (x < 0 || x >= max_coord_ || y < 0 || y >= max_coord_);
+    return (x < 0 || x >= MAX_COORD || y < 0 || y >= MAX_COORD);
 }
 
 bool SubMap::isWater(int x, int y)
 {
-    int num = current_submap_->Earth(x, y) / 2;
+    int num = record_->Earth(x, y) / 2;
     if (num >= 179 && num <= 181
         || num == 261 || num == 511
         || num >= 662 && num <= 665
@@ -346,7 +340,7 @@ bool SubMap::isWater(int x, int y)
 
 bool SubMap::isCanPassEvent(int x, int y)
 {
-    auto e = current_submap_->Event(x, y);
+    auto e = record_->Event(x, y);
     if (e && !e->CannotWalk)
     {
         return true;
@@ -356,7 +350,7 @@ bool SubMap::isCanPassEvent(int x, int y)
 
 bool SubMap::isCannotPassEvent(int x, int y)
 {
-    auto e = current_submap_->Event(x, y);
+    auto e = record_->Event(x, y);
     if (e && e->CannotWalk)
     {
         return true;
@@ -377,12 +371,12 @@ bool SubMap::isFall(int x, int y)
 
 bool SubMap::isExit(int x, int y)
 {
-    if (current_submap_->ExitX[0] == x && current_submap_->ExitY[0] == y
-        || current_submap_->ExitX[1] == x && current_submap_->ExitY[1] == y
-        || current_submap_->ExitX[2] == x && current_submap_->ExitY[2] == y)
+    if (record_->ExitX[0] == x && record_->ExitY[0] == y
+        || record_->ExitX[1] == x && record_->ExitY[1] == y
+        || record_->ExitX[2] == x && record_->ExitY[2] == y)
     {
         loop_ = false;
-        Save::getInstance()->getGlobalData()->InSubmap = 1;
+        Save::getInstance()->InSubmap = 1;
         return true;
     }
     return false;
@@ -390,7 +384,7 @@ bool SubMap::isExit(int x, int y)
 
 bool SubMap::isOutScreen(int x, int y)
 {
-    return (abs(view_x_ - x) >= 2 * width_region_ || abs(view_y_ - y) >= sum_region_);
+    return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
 }
 
 void SubMap::getMousePosition(int _x, int _y)
@@ -403,125 +397,4 @@ void SubMap::getMousePosition(int _x, int _y)
     //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
-void SubMap::FindWay(int Mx, int My, int Fx, int Fy)
-{
-    bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
-    int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };   //四个方向
-    Point* myPoint = new Point;
-    myPoint->x = Mx;
-    myPoint->y = My;
-    myPoint->towards = (Point::Towards)CallFace(Mx, My, Fx, Fy);
-    myPoint->parent = myPoint;
-    myPoint->Heuristic(Fx, Fy);
-    //log("Fx=%d,Fy=%d", Fx, Fy);
-    //log("Mx=%d,My=%d", Mx, My);
-    while (!way_que_.empty())
-    {
-        way_que_.pop();
-    }
-    std::priority_queue<Point*, std::vector<Point*>, Compare> que;            //最小优先级队列(开启列表)
-    que.push(myPoint);
-    int sNum = 0;
-    while (!que.empty() && sNum <= 300)
-    {
-        Point* t = new Point();
-        t = que.top();
-        que.pop();
-        visited[t->x][t->y] = true;
-        sNum++;
-        //log("t.x=%d,t.y=%d",t->x,t->y);
-        if (t->x == Fx && t->y == Fy)
-        {
-            minStep = t->step;
-            way_que_.push(*t);
-            int k = 0;
-            while (t != myPoint && k <= minStep)
-            {
-                //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
 
-                t->towards = t->parent->towards;
-                way_que_.push(*t);
-                t = t->parent;
-                k++;
-                //log("go in!");
-            }
-            //log("minStep=%d", minStep);
-            //log("wayQue=%d", wayQue.size());
-            break;
-        }
-        else
-        {
-            for (int i = 0; i < 4; i++)
-            {
-                Point* s = new Point();
-                s->x = t->x + dirs[i][0];
-                s->y = t->y + dirs[i][1];
-                if (canWalk(s->x, s->y) && !isOutScreen(s->x, s->y) && !visited[s->x][s->y])
-                {
-                    s->g = t->g + 10;
-                    s->towards = (Point::Towards)i;
-                    if (s->towards == t->towards)
-                    {
-                        s->Heuristic(Fx, Fy);
-                    }
-                    else
-                    {
-                        s->h = s->Heuristic(Fx, Fy) + 1;
-                    }
-                    s->step = t->step + 1;
-                    s->f = s->g + s->h;
-                    //t->towards = (MyPoint::Towards)i;
-                    //s->Gx = dirs[i][0];
-                    //s->Gy = dirs[i][1];
-                    //t->child[i] = s;
-                    //if (s->parent)
-                    s->parent = t;
-                    //log("s.x=%d,s.y=%d,t.x=%d,t.y=%d", s->x, s->y, t->x, t->y);
-                    //log("s.g=%d,s.h=%d,s.f=%d", s.g, s.h, s.f);
-                    que.push(s);
-                }
-            }
-        }
-    }
-    myPoint->delTree(myPoint);
-}
-
-void SubMap::stopFindWay()
-{
-    while (!way_que_.empty())
-    {
-        way_que_.pop();
-    }
-}
-
-/*========================================
-说明: 修正事件坐标
-==========================================*/
-void SubMap::ReSetEventPosition(int& x, int& y)
-{
-    switch (Scene::towards_)
-    {
-    case Scene::LeftDown:
-    {
-        y--;
-        break;
-    }
-    case Scene::RightUp:
-    {
-        y++;
-        break;
-    }
-    case Scene::LeftUp:
-    {
-        x--;
-        break;
-    }
-    case Scene::RightDown:
-    {
-        x++;
-        break;
-    }
-    default:
-        break;
-    }
-}

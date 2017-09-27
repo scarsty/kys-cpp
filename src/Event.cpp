@@ -12,6 +12,10 @@ Event Event::event_;
 Event::Event()
 {
     initEventData();
+    talkup_ = new Talk();
+    talkdown_ = new Talk();
+    addChild(talkup_);
+    addChild(talkdown_);
 }
 
 Event::~Event()

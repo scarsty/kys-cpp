@@ -23,9 +23,9 @@ void BattleMap::draw()
     int k = 0;
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
-    for (int sum = -sum_region_; sum <= sum_region_ + 15; sum++)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        for (int i = -width_region_; i <= width_region_; i++)
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
             int i1 = m_nBx + i + (sum / 2);
             int i2 = m_nBy - i + (sum - sum / 2);
@@ -85,11 +85,11 @@ void BattleMap::dealEvent(BP_Event& e)
 
 void BattleMap::checkTimer2()
 {
-    if (!isMenuOn)
-    {
-        moveRole(m_ncurRoleNum);
-    }
-    //Draw();
+    //if (!isMenuOn)
+    //{
+    //    moveRole(m_ncurRoleNum);
+    //}
+    ////Draw();
 }
 
 void BattleMap::walk(int x, int y, Towards t)
@@ -192,8 +192,8 @@ void BattleMap::getMousePosition(Point* point)
     int y = screen_center_y_ * 2 - point->y;
     //int yp = 0;
     int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
-    Msx = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
-    Msy = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
+    mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
+    mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
 }
 
 void BattleMap::FindWay(int Mx, int My, int Fx, int Fy)

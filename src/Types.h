@@ -7,25 +7,16 @@ enum
     MAX_MAINMAP_COORD = 480,
     MAX_SUBMAP_EVENT = 200,                         //单场景最大事件数
     MAX_ITEM_COUNT = 200,                           //最大物品数
-    MAX_TEAMMATE_COUNT = 6,                             //最大队伍人员数
+    MAX_TEAMMATE_COUNT = 6,                         //最大队伍人员数
 };
 
-struct GlobalData;
 struct Role;
 struct Item;
 struct Magic;
 struct SubMapRecord;
 struct Shop;
 
-struct ItemList { int16_t item, count; };
-
-//此处成员函数均大写，可以直接访问
-struct GlobalData
-{
-    int16_t InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
-    int16_t Team[MAX_TEAMMATE_COUNT];
-    ItemList ItemList[MAX_ITEM_COUNT];
-};
+//成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
 struct Role
 {
@@ -71,23 +62,6 @@ struct Magic
     int16_t Attack[10], MoveDistance[10], AttDistance[10], AddMP[10], HurtMP[10];
 };
 
-//struct MapArray
-//{
-//private:
-//    int16_t* data_ = nullptr;
-//    int x_max_ = 0, y_max_ = 0;
-//    int self_ = 0;
-//public:
-//    void divide2() { for (int i = 0; i < x_max_ * y_max_; i++) { data_[i] /= 2; } }
-//    int16_t& data(int x = 0, int y = 0) { return data_[x + x_max_ * y]; }
-//    void setData(int16_t* d, int x, int y) { data_ = d; x_max_ = x; y_max_ = y; }
-//public:
-//    MapArray() {}
-//    MapArray(int x, int y) { data_ = new int16_t[x * y]; x_max_ = x; y_max_ = y; self_ = 1; }
-//    MapArray(int16_t* d, int x, int y) { setData(d, x, y); }
-//    ~MapArray() { if (self_ && data_) { delete[] data_; } }
-//};
-
 struct SubMapData
 {
     int16_t data[6][MAX_SUBMAP_COORD * MAX_SUBMAP_COORD];
@@ -95,7 +69,12 @@ struct SubMapData
 
 struct SubMapEvent
 {
-    int16_t CannotWalk, ID, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay, X, Y;
+    int16_t CannotWalk, ID, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
+private:
+    int16_t X_, Y_;
+public:
+    int16_t X() { return X_; }
+    int16_t Y() { return Y_; }
 };
 
 struct SubMapRecord

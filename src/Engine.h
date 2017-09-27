@@ -24,6 +24,7 @@ typedef SDL_Window BP_Window;
 typedef SDL_Texture BP_Texture;
 typedef SDL_Rect BP_Rect;
 typedef SDL_Color BP_Color;
+typedef SDL_Keycode BP_Keycode;
 
 typedef enum { BP_ALIGN_LEFT, BP_ALIGN_MIDDLE, BP_ALIGN_RIGHT } BP_Align;
 
