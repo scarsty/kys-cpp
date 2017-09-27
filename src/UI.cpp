@@ -26,6 +26,7 @@ UI::UI()
     uisystem_ = new UISystem();
     addChild(uistatus_, 200, 0);
     heads_[0]->setState(Pass);
+    instance_ = true;
 }
 
 

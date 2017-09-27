@@ -42,7 +42,6 @@ public:
     bool checkEvent1(int x, int y, Towards t);
     bool checkEvent2(int x, int y, Towards t, Item* item);
     bool checkEvent3(int x, int y);
-    void callEvent(int x, int y);
 
     virtual bool isBuilding(int x, int y);
     virtual bool isOutLine(int x, int y);
@@ -58,13 +57,14 @@ public:
     void getMousePosition(int _x, int _y);
 
     //以下事件用
-    static SubMap* current_submap_;
-    static Item* current_item_;
+    static SubMapRecord* current_submap_record_;
+    static int current_submap_id_;
+    static int current_item_id_;
     static int event_x_, event_y_;
 
-    SubMap* getCurrentSubmap() { return current_submap_; }
-    Item* getCurrentItem() { return current_item_; }
-
+    static SubMapRecord* getCurrentSubMapRecord() { return current_submap_record_; }
+    static int getCurrentSubMapID() { return current_submap_id_; }
+    static int getCurrentItemID() { return current_item_id_; }
 
 };
 

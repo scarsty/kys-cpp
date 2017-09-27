@@ -150,7 +150,7 @@ Role* Save::getTeamMate(int i)
     return &(roles_[r]);
 }
 
-Item* Save::getItemFromBag(int i)
+Item* Save::getItemByBagIndex(int i)
 {
     if (i < 0 || i >= MAX_ITEM_COUNT)
     {
@@ -164,18 +164,23 @@ Item* Save::getItemFromBag(int i)
     return &(items_[r]);
 }
 
-int16_t Save::getItemCountFromBag(int i)
+int16_t Save::getItemCountByBagIndex(int i)
 {
     return ItemList[i].count;
 }
 
-int16_t Save::getItemCountFromBag(Item* item)
+int16_t Save::getItemCountInBag(Item* item)
+{
+    return getItemCountInBag(item->ID);
+}
+
+int Save::getItemCountInBag(int item_id)
 {
     for (int i = 0; i < MAX_ITEM_COUNT; i++)
     {
         auto id = ItemList[i].item_id;
         if (id < 0) { break; }
-        if (id == item->ID)
+        if (id == item_id)
         {
             return ItemList[i].count;
         }

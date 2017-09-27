@@ -4,9 +4,9 @@
 #include "Event.h"
 #include "UI.h"
 
-
-SubMap* SubMap::current_submap_;
-Item* SubMap::current_item_;
+SubMapRecord* SubMap::current_submap_record_;
+int SubMap::current_submap_id_;
+int SubMap::current_item_id_;
 int SubMap::event_x_, SubMap::event_y_;
 
 SubMap::SubMap() :
@@ -112,8 +112,10 @@ void SubMap::draw()
 
 void SubMap::dealEvent(BP_Event& e)
 {
-    current_submap_ = this;
-    current_item_ = nullptr;
+    //以下供事件使用
+    current_submap_record_ = record_;
+    //current_submap_id_ = record_->ID;
+    current_item_id_ = -1;
     event_x_ = man_x_, event_y_ = man_y_;
 
     int x = man_x_, y = man_y_;
@@ -208,7 +210,7 @@ void SubMap::dealEvent(BP_Event& e)
         case SDLK_b:
         {
             auto s = new BattleMap();
-            push(s);
+            addOnRootTop(s);
             break;
         }
         default:
@@ -274,7 +276,6 @@ bool SubMap::checkEvent1(int x, int y, Towards t)
     int event_index_submap = record_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
-        //Event::getInstance()->setEvent(this, x, y);
         Event::getInstance()->callEvent(record_->Event(x, y)->Event1);
         return true;
     }

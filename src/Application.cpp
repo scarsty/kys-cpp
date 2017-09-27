@@ -25,20 +25,9 @@ Application::~Application()
 */
 int Application::launch()
 {
-    auto engine = Engine::getInstance();
-    engine->init();
-    BP_Event e;  ///< 事件结构对象
+    Engine::getInstance()->init();
     auto s = new TitleScene(); //开始界面
     s->run();
     return 0;
 }
 
-/**
-*  主程序的绘制逻辑
-*  @param [in] 事件结构
-*  @return void
-*/
-void Application::mainLoop(BP_Event& e)
-{
-
-}

@@ -2,20 +2,23 @@
 #include <vector>
 #include "Engine.h"
 #include "TextureManager.h"
+#include <set>
 
 #define CONNECT(a,b) a##b
 
 //游戏绘制基础类，凡需要显示画面的，均继承自此
 class Base
 {
-public:
+private:
     static std::vector<Base*> root_;   //所有需要绘制的内容都存储在这个向量中
+    static std::set<Base*> collector_;
+protected:
     std::vector<Base*> childs_;
     bool visible_ = true;
-protected:
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
     bool loop_ = true;
+    bool instance_ = false;
     //bool auto_erase_ = false;
 protected:
     int x_ = 0;
@@ -49,13 +52,14 @@ public:
 
     static void drawAll();
 
-    static void push(Base* b) { root_.push_back(b); }
-    static Base* pop();
+    static void addOnRootTop(Base* b) { root_.push_back(b); }
+    static Base* removeFromRoot(Base* b);
 
     //static Base* getCurentBase() { return root_.at(0); }
 
     void addChild(Base* b, int x = 0, int y = 0);
-    void clearChilds();
+    void removeChild(Base* b);
+    void clearChilds();   //不推荐
 
     void setPosition(int x, int y);
     void setSize(int w, int h) { w_ = w; h_ = h; }

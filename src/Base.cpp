@@ -4,6 +4,7 @@
 #include "UI.h"
 
 std::vector<Base*> Base::root_;
+std::set<Base*> Base::collector_;
 
 Base::~Base()
 {
@@ -58,7 +59,7 @@ int Base::run(bool in_root /*= true*/)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
-    if (in_root) { push(this); }
+    if (in_root) { addOnRootTop(this); }
     entrance();
     loop_ = true;
     result_ = -1;
@@ -86,26 +87,32 @@ int Base::run(bool in_root /*= true*/)
     //while (engine->pollEvent(e) > 0);
     //engine->flushEvent();
     exit();
-    if (in_root) { pop(); }
+    if (in_root) { removeFromRoot(this); }
     return result_;
 }
 
-Base* Base::pop()
+Base* Base::removeFromRoot(Base* b)
 {
-    Base* b = nullptr;
-    if (root_.size() > 0)
+    if (b == nullptr)
     {
-        b = root_.back();
-        root_.pop_back();
+        if (root_.size() > 0)
+        {
+            b = root_.back();
+            root_.pop_back();
+        }
     }
-
-    //这里回收垃圾应该是有问题的，待继续设计
-    //某些特殊的节点不可清理
-    //好像应该使用智能指针，待处理
-    //if (b != UI::getInstance())
-    //{
-    //    delete b;
-    //}
+    else
+    {
+        for (int i = 0; i < root_.size(); i++)
+        {
+            if (root_[i] == b)
+            {
+                root_.erase(root_.begin() + i);
+                break;
+            }
+        }
+    }
+    collector_.insert(b);
     return b;
 }
 
@@ -125,6 +132,19 @@ void Base::addChild(Base* b, int x, int y)
 {
     childs_.push_back(b);
     b->setPosition(x_ + x, y_ + y);
+}
+
+void Base::removeChild(Base* b)
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        if (childs_[i] == b)
+        {
+            childs_.erase(childs_.begin() + i);
+            break;
+        }
+    }
+    collector_.insert(b);
 }
 
 void Base::clearChilds()

@@ -11,18 +11,19 @@ Event Event::event_;
 
 Event::Event()
 {
-    initEventData();
+    loadEventData();
     talkup_ = new Talk();
     talkdown_ = new Talk();
     addChild(talkup_);
     addChild(talkdown_);
+    instance_ = true;
 }
 
 Event::~Event()
 {
 }
 
-bool Event::initEventData()
+bool Event::loadEventData()
 {
     //读取talk
     auto talk = Save::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
@@ -53,108 +54,119 @@ bool Event::initEventData()
 
 bool Event::callEvent(int num)
 {
+    submap_record_ = SubMap::getCurrentSubMapRecord();
+    save_ = Save::getInstance();
+    //将时间的节点加载到绘图栈的最上，这样两个对话可以画出来
+    addOnRootTop(this);
     int p = 0;
     bool loop = true;
     int i = 0;
     auto& e = kdef_[num];
     switch (e[i])
     {
-        VOID_INCTRUCT_3(1, e, i, oldTalk);
-        VOID_INCTRUCT_2(2, e, i, getItem);
-        VOID_INCTRUCT_13(3, e, i, modifyEvent);
-        VOID_INCTRUCT_0(4, e, i, useItem);
-        BOOL_INCTRUCT_0(5, e, i, askBattle);
-        BOOL_INCTRUCT_0(6, e, i, tryBattle);
-        VOID_INCTRUCT_0(8, e, i, changeMMapMusic);
-        BOOL_INCTRUCT_0(9, e, i, askJoin);
+        VOID_INSTRUCT_3(1, e, i, oldTalk);
+        VOID_INSTRUCT_2(2, e, i, getItem);
+        VOID_INSTRUCT_13(3, e, i, modifyEvent);
+        VOID_INSTRUCT_1(4, e, i, isUsingItem);
+        BOOL_INSTRUCT_0(5, e, i, askBattle);
+        BOOL_INSTRUCT_1(6, e, i, tryBattle);
+        VOID_INSTRUCT_1(8, e, i, changeMainMapMusic);
+        BOOL_INSTRUCT_0(9, e, i, askJoin);
 
-        VOID_INCTRUCT_0(10, e, i, join);
-        BOOL_INCTRUCT_0(11, e, i, askRest);
-        VOID_INCTRUCT_0(12, e, i, rest);
-        VOID_INCTRUCT_0(13, e, i, lightScence);
-        VOID_INCTRUCT_0(14, e, i, darkScence);
-        VOID_INCTRUCT_0(15, e, i, dead);
-        BOOL_INCTRUCT_0(16, e, i, inTeam);
-        VOID_INCTRUCT_0(17, e, i, oldSetScenceMapPro);
-        BOOL_INCTRUCT_0(18, e, i, haveItemBool);
-        VOID_INCTRUCT_0(19, e, i, oldSetScencePosition);
+        VOID_INSTRUCT_1(10, e, i, join);
+        BOOL_INSTRUCT_0(11, e, i, askRest);
+        VOID_INSTRUCT_0(12, e, i, rest);
+        VOID_INSTRUCT_0(13, e, i, lightScence);
+        VOID_INSTRUCT_0(14, e, i, darkScence);
+        VOID_INSTRUCT_0(15, e, i, dead);
+        BOOL_INSTRUCT_0(16, e, i, inTeam);
+        VOID_INSTRUCT_5(17, e, i, setSubMapMapData);
+        BOOL_INSTRUCT_1(18, e, i, haveItemBool);
+        VOID_INSTRUCT_2(19, e, i, oldSetScencePosition);
 
-        BOOL_INCTRUCT_0(20, e, i, teamIsFull);
-        VOID_INCTRUCT_0(21, e, i, leaveTeam);
-        VOID_INCTRUCT_0(22, e, i, zeroAllMP);
-        VOID_INCTRUCT_0(23, e, i, setOneUsePoi);
-        VOID_INCTRUCT_0(24, e, i, blank);
-        VOID_INCTRUCT_0(25, e, i, scenceFromTo);
-        VOID_INCTRUCT_0(26, e, i, add3EventNum);
-        VOID_INCTRUCT_0(27, e, i, playAnimation);
-        BOOL_INCTRUCT_0(28, e, i, judgeEthics);
-        BOOL_INCTRUCT_0(29, e, i, judgeAttack);
+        BOOL_INSTRUCT_0(20, e, i, teamIsFull);
+        VOID_INSTRUCT_1(21, e, i, leaveTeam);
+        VOID_INSTRUCT_0(22, e, i, zeroAllMP);
+        VOID_INSTRUCT_2(23, e, i, setOneUsePoi);
+        VOID_INSTRUCT_0(24, e, i, blank);
+        VOID_INSTRUCT_4(25, e, i, submapFromTo);
+        VOID_INSTRUCT_5(26, e, i, add3EventNum);
+        VOID_INSTRUCT_3(27, e, i, playAnimation);
+        BOOL_INSTRUCT_3(28, e, i, judgeEthics);
+        BOOL_INSTRUCT_3(29, e, i, judgeAttack);
 
-        VOID_INCTRUCT_0(30, e, i, walkFromTo);
-        BOOL_INCTRUCT_0(31, e, i, judgeMoney);
-        VOID_INCTRUCT_0(32, e, i, addItem);
-        VOID_INCTRUCT_0(33, e, i, oldLearnMagic);
-        VOID_INCTRUCT_0(34, e, i, addAptitude);
-        VOID_INCTRUCT_0(35, e, i, setOneMagic);
-        BOOL_INCTRUCT_0(36, e, i, judgeSexual);
-        VOID_INCTRUCT_0(37, e, i, addEthics);
-        VOID_INCTRUCT_0(38, e, i, changeScencePic);
-        VOID_INCTRUCT_0(39, e, i, openScence);
+        VOID_INSTRUCT_4(30, e, i, walkFromTo);
+        BOOL_INSTRUCT_1(31, e, i, judgeMoney);
+        VOID_INSTRUCT_2(32, e, i, getItemWithoutHint);
+        VOID_INSTRUCT_3(33, e, i, oldLearnMagic);
+        VOID_INSTRUCT_2(34, e, i, addAptitude);
+        VOID_INSTRUCT_4(35, e, i, setOneMagic);
+        BOOL_INSTRUCT_1(36, e, i, judgeSexual);
+        VOID_INSTRUCT_1(37, e, i, addEthics);
+        VOID_INSTRUCT_4(38, e, i, changeScencePic);
+        VOID_INSTRUCT_1(39, e, i, openScence);
 
-        VOID_INCTRUCT_0(40, e, i, setRoleFace);
-        VOID_INCTRUCT_0(41, e, i, anotherGetItem);
-        BOOL_INCTRUCT_0(42, e, i, judgeFemaleInTeam);
-        BOOL_INCTRUCT_0(43, e, i, haveItemBool);
-        VOID_INCTRUCT_0(44, e, i, play2Amination);
-        VOID_INCTRUCT_0(45, e, i, addSpeed);
-        VOID_INCTRUCT_0(46, e, i, addMP);
-        VOID_INCTRUCT_0(47, e, i, addAttack);
-        VOID_INCTRUCT_0(48, e, i, addHP);
-        VOID_INCTRUCT_0(49, e, i, setMPPro);
+        VOID_INSTRUCT_1(40, e, i, setTowards);
+        VOID_INSTRUCT_3(41, e, i, roleGetItem);
+        BOOL_INSTRUCT_0(42, e, i, judgeFemaleInTeam);
+        BOOL_INSTRUCT_1(43, e, i, haveItemBool);
+        VOID_INSTRUCT_6(44, e, i, play2Amination);
+        VOID_INSTRUCT_2(45, e, i, addSpeed);
+        VOID_INSTRUCT_2(46, e, i, addMP);
+        VOID_INSTRUCT_2(47, e, i, addAttack);
+        VOID_INSTRUCT_2(48, e, i, addHP);
+        VOID_INSTRUCT_2(49, e, i, setMPPro);
 
-        BOOL_INCTRUCT_0(50, e, i, judge5Item);
-        VOID_INCTRUCT_0(51, e, i, askSoftStar);
-        VOID_INCTRUCT_0(52, e, i, showEthics);
-        VOID_INCTRUCT_0(53, e, i, showRepute);
-        VOID_INCTRUCT_0(54, e, i, openAllScence);
-        BOOL_INCTRUCT_0(55, e, i, judgeEventNum);
-        VOID_INCTRUCT_0(56, e, i, addRepute);
-        VOID_INCTRUCT_0(57, e, i, breakStoneGate);
-        VOID_INCTRUCT_0(58, e, i, fightForTop);
-        VOID_INCTRUCT_0(59, e, i, allLeave);
+        VOID_INSTRUCT_0(51, e, i, askSoftStar);
+        VOID_INSTRUCT_0(52, e, i, showEthics);
+        VOID_INSTRUCT_0(53, e, i, showRepute);
+        VOID_INSTRUCT_0(54, e, i, openAllScence);
+        BOOL_INSTRUCT_2(55, e, i, judgeEventNum);
+        VOID_INSTRUCT_1(56, e, i, addRepute);
+        VOID_INSTRUCT_0(57, e, i, breakStoneGate);
+        VOID_INSTRUCT_0(58, e, i, fightForTop);
+        VOID_INSTRUCT_0(59, e, i, allLeave);
 
-        BOOL_INCTRUCT_0(60, e, i, judgeScencePic);
-        BOOL_INCTRUCT_0(61, e, i, judge14BooksPlaced);
-        VOID_INCTRUCT_0(62, e, i, backHome);
-        VOID_INCTRUCT_0(63, e, i, setSexual);
-        VOID_INCTRUCT_0(64, e, i, weiShop);
-        VOID_INCTRUCT_0(66, e, i, playMusic);
-        VOID_INCTRUCT_0(67, e, i, playWave);
+        BOOL_INSTRUCT_3(60, e, i, judgeSubMapPic);
+        BOOL_INSTRUCT_0(61, e, i, judge14BooksPlaced);
+        VOID_INSTRUCT_0(62, e, i, backHome);
+        VOID_INSTRUCT_2(63, e, i, setSexual);
+        VOID_INSTRUCT_0(64, e, i, weiShop);
+        VOID_INSTRUCT_1(66, e, i, playMusic);
+        VOID_INSTRUCT_1(67, e, i, playWave);
 
-    //case 50:
-    //    p = instruct_50([e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]]);
-    //    i += 8;
-    //    if p < 622592 then
-    //    i += p
-    //        else
-    //    { e[i + ((p + 32768) div 655360) - 1] = p mod 655360; }
+    case 50:
+        if (e[i + 1] > 128)
+        {
+            if (judge5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5])) { i += e[i + 6]; }
+            else { i += e[i + 7]; }
+        }
+        else
+        {
+            i += instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]);
+        }
+        break;
     case -1:
     case 7:
         loop = false;
         break;
-
     default:
         //不存在的指令，移动一格
         i += 1;
     }
-
-    return 0;
+    removeFromRoot(this);
+    if (loop)
+    { return 0; }
+    else
+    { return 1; }
 }
 
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
-    auto t = new Talk(talk_[talk_id], head_id);
-    t->run();
+    talkup_->setVisible(true);
+    talkup_->setContent(talk_[talk_id]);
+    talkup_->run(false);
+    talkup_->setVisible(false);
 }
 
 

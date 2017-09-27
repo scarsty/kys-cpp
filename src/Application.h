@@ -15,6 +15,5 @@ public:
     Application();
     virtual ~Application();
     virtual int launch();
-    void mainLoop(BP_Event& e);
 };
 

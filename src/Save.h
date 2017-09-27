@@ -15,6 +15,10 @@ public:
 private:
     //缓冲区，无他用
     int16_t buffer_[100];
+
+    const int MONEY_ITEM_ID = 174;
+    const int COMPASS_ITEM_ID = 182;
+
 public:
     Save();
     ~Save();
@@ -53,9 +57,12 @@ public:
     SubMapRecord* getSubMapRecord(int i) { return &submap_records_[i]; }
 
     Role* getTeamMate(int i);
-    Item* getItemFromBag(int i);
-    int16_t getItemCountFromBag(int i);
-    int16_t getItemCountFromBag(Item* item);
+    Item* getItemByBagIndex(int i);
+    int16_t getItemCountByBagIndex(int i);
+    int16_t getItemCountInBag(Item* item);
+
+    int getItemCountInBag(int item_id);
+    int getMoneyCountInBag() { return getItemCountInBag(MONEY_ITEM_ID); }
 
     void makeMaps();
 

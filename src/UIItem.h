@@ -1,10 +1,14 @@
 #pragma once
 #include "Base.h"
-class UIItem :
-    public Base
+#include "Button.h"
+
+class UIItem : public Base
 {
 public:
     UIItem();
     ~UIItem();
+
+    std::vector<Button*> item_buttons_;
+
 };
 

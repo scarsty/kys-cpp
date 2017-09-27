@@ -16,11 +16,11 @@ class UISystem;
 class UI : public Base
 {
 private:
+    UI();
+    ~UI();
     //UI菜单单例即可，无需重复创建
     static UI ui_;
 public:
-    UI();
-    ~UI();
     virtual void entrance() override;
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
