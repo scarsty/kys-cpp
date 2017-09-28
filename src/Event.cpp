@@ -17,6 +17,8 @@ Event::Event()
     talkdown_ = new Talk();
     addChild(talkup_);
     addChild(talkdown_, 0, 400);
+    menu2_ = new MenuText({ "確認（Y）", "取消（N）" });
+    text_box_ = new TextBox();
     instance_ = true;
 }
 
@@ -45,7 +47,7 @@ bool Event::loadEventData()
     kdef_.resize(length.size());
     for (int i = 0; i < length.size(); i++)
     {
-        kdef_[i].resize(length[i] + 20, -1);
+        kdef_[i].resize(length[i] + 20, -1);  //20个-1是缓冲区
         for (int k = 0; k < length[i]; k++)
         {
             kdef_[i][k] = *(int16_t*)(kdef + offset[i] + k * 2);
@@ -55,16 +57,29 @@ bool Event::loadEventData()
     return false;
 }
 
-bool Event::callEvent(int num)
+bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, int event_index, int x, int y)
 {
-    submap_record_ = SubMap::getCurrentSubMapRecord();
     save_ = Save::getInstance();
-    //将时间的节点加载到绘图栈的最上，这样两个对话可以画出来
+    submap_ = dynamic_cast<SubMap*>(submap);
+    submap_record_ = nullptr;
+    submap_id_ = -1;
+    if (submap)
+    {
+        submap_record_ = submap_->getRecord();
+        submap_id_ = submap_record_->ID;
+    }
+
+    item_id_ = item_id;
+    event_index_ = event_index;
+    x_ = x;
+    y_ = y;
+
+    //将节点加载到绘图栈的最上，这样两个对话可以画出来
     addOnRootTop(this);
     int p = 0;
     bool loop = true;
     int i = 0;
-    auto& e = kdef_[num];
+    auto& e = kdef_[event_id];
     while (i < e.size() && loop)
     {
         LOG("%d\n", e[i]);
@@ -91,7 +106,7 @@ bool Event::callEvent(int num)
             VOID_INSTRUCT_0(13, e, i, lightScence);
             VOID_INSTRUCT_0(14, e, i, darkScence);
             VOID_INSTRUCT_0(15, e, i, dead);
-            BOOL_INSTRUCT_0(16, e, i, inTeam);
+            BOOL_INSTRUCT_1(16, e, i, inTeam);
             VOID_INSTRUCT_5(17, e, i, setSubMapMapData);
             BOOL_INSTRUCT_1(18, e, i, haveItemBool);
             VOID_INSTRUCT_2(19, e, i, oldSetScencePosition);
@@ -183,16 +198,154 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     //talkup_->setVisible(false);
 }
 
+void Event::getItem(int item_id, int count)
+{
+    getItemWithoutHint(item_id, count);
+    text_box_->setTitle(convert::formatString("获得物品%s%d个", save_->getItem(item_id)->Name, count));
+    text_box_->setTexture(TextureManager::getInstance()->loadTexture("item", item_id));
+    text_box_->run();
+}
+
+void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int index, int event1, int event2, int event3, int currentPic, int endPic, int beginPic, int picDelay, int x, int y)
+{
+    if (submap_id == -2) { submap_id = submap_id_; }
+    if (submap_id < 0) { return; }
+    if (event_index == -2) { event_index = event_index_; }
+    auto e = save_->getSubMapRecord(submap_id)->Event(event_index);
+    if (cannotWalk != -2) { e->CannotWalk = cannotWalk; }
+    if (index != -2) { e->Index = index; }
+    if (event1 != -2) { e->Event1 = event1; }
+    if (event2 != -2) { e->Event2 = event2; }
+    if (event3 != -2) { e->Event3 = event3; }
+    if (currentPic != -2) { e->CurrentPic = currentPic; }
+    if (endPic != -2) { e->EndPic = endPic; }
+    if (beginPic != -2) { e->BeginPic = beginPic; }
+    if (picDelay != -2) { e->PicDelay = picDelay; }
+    e->setPosition(x, y, save_->getSubMapRecord(submap_id));
+}
+
+bool Event::isUsingItem(int item_id)
+{
+    return item_id_ == item_id;
+}
+
 bool Event::askBattle()
 {
-    auto m = new MenuText({ "确认", "取消" });
-    return m->run() == 0;
+    menu2_->setTitle("是否與之過招？");
+    return menu2_->run() == 0;
 }
 
 bool Event::askRest()
 {
-    auto m = new MenuText({ "确认", "取消" });
-    m->setTitle("是否需要住宿");
-    return m->run() == 0;
+    menu2_->setTitle("請選擇是或否？");
+    return menu2_->run() == 0;
+}
+
+bool Event::inTeam(int role_id)
+{
+    for (auto r : save_->Team)
+    {
+        if (r == role_id)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Event::haveItemBool(int item_id)
+{
+    return save_->getItemCountInBag(item_id) > 0;
+}
+
+bool Event::teamIsFull()
+{
+    for (auto r : save_->Team)
+    {
+        if (r < 0) { return false; }
+    }
+    return true;
+}
+
+void Event::zeroAllMP()
+{
+    for (auto r : save_->Team)
+    {
+        if (r >= 0)
+        {
+            save_->getRole(r)->CurrentMP = 0;
+        }
+    }
+}
+
+void Event::setOneUsePoi(int role_id, int v)
+{
+    save_->getRole(role_id)->UsePoison = v;
+}
+
+void Event::walkFromTo(int x0, int y0, int x1, int y1)
+{
+    if (submap_)
+    { submap_->setPosition(x1, y1); }
+}
+
+void Event::getItemWithoutHint(int item_id, int count)
+{
+    int pos = -1;
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+    {
+        if (save_->Items[i].item_id == item_id)
+        {
+            pos = i;
+            break;
+        }
+    }
+    if (pos >= 0)
+    {
+        save_->Items[pos].count += count;
+    }
+    else
+    {
+        for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+        {
+            if (save_->Items[i].item_id < 0)
+            {
+                pos = i;
+                break;
+            }
+        }
+        save_->Items[pos].item_id == item_id;
+        save_->Items[pos].count == count;
+    }
+}
+
+void Event::openScence(int submap_id)
+{
+    save_->getSubMapRecord(submap_id)->EntranceCondition = 0;
+}
+
+void Event::setTowards(int towards)
+{
+    Scene::towards_ = (Towards)towards;
+}
+
+bool Event::judgeFemaleInTeam()
+{
+    for (auto r : save_->Team)
+    {
+        if (r >= 0)
+        {
+            if (save_->getRole(r)->Sexual == 1) { return true; }
+        }
+    }
+    return false;
+}
+
+void Event::allLeave()
+{
+    for (int i = 1; i < TEAMMATE_COUNT; i++)
+    {
+        save_->Team[i] = -1;
+    }
 }
 

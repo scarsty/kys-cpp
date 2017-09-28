@@ -9,15 +9,15 @@ public:
     MainMap();
     ~MainMap();
 
-    static const int MAX_COORD = MAX_MAINMAP_COORD;
-    typedef int16_t MapArray[MAX_COORD * MAX_COORD];
+    static const int COORD_COUNT = MAINMAP_COORD_COUNT;
+    typedef int16_t MapArray[COORD_COUNT * COORD_COUNT];
     static MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
 
-    static int16_t& Earth(int x, int y) { return Earth_[x + y * MAX_COORD]; }
-    static int16_t& Surface(int x, int y) { return Surface_[x + y * MAX_COORD]; }
-    static int16_t& Building(int x, int y) { return Building_[x + y * MAX_COORD]; }
-    static int16_t& BuildX(int x, int y) { return BuildX_[x + y * MAX_COORD]; }
-    static int16_t& BuildY(int x, int y) { return BuildY_[x + y * MAX_COORD]; }
+    static int16_t& Earth(int x, int y) { return Earth_[x + y * COORD_COUNT]; }
+    static int16_t& Surface(int x, int y) { return Surface_[x + y * COORD_COUNT]; }
+    static int16_t& Building(int x, int y) { return Building_[x + y * COORD_COUNT]; }
+    static int16_t& BuildX(int x, int y) { return BuildX_[x + y * COORD_COUNT]; }
+    static int16_t& BuildY(int x, int y) { return BuildY_[x + y * COORD_COUNT]; }
 
     static void divide2(MapArray& m);
 

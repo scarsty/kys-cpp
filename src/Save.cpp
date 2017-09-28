@@ -75,8 +75,8 @@ bool Save::LoadR(int num)
     submap_data_.resize(submap_count);
     File::readFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapData));
 
-    submap_event_.resize(submap_count * MAX_SUBMAP_EVENT);
-    File::readFile(filenamed, &submap_event_[0], submap_count * MAX_SUBMAP_EVENT * sizeof(SubMapEvent));
+    submap_event_.resize(submap_count * SUBMAP_EVENT_COUNT);
+    File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
 
     //ÄÚ²¿±àÂëÎªcp936
     if (Encode != 936)
@@ -131,14 +131,14 @@ bool Save::SaveR(int num)
 
     auto submap_count = submap_records_.size();
     File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapData));
-    File::writeFile(filenamed, &submap_event_[0], submap_count * MAX_SUBMAP_EVENT * sizeof(SubMapEvent));
+    File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
 
     return true;
 }
 
 Role* Save::getTeamMate(int i)
 {
-    if (i < 0 || i >= MAX_TEAMMATE_COUNT)
+    if (i < 0 || i >= TEAMMATE_COUNT)
     {
         return nullptr;
     }
@@ -152,11 +152,11 @@ Role* Save::getTeamMate(int i)
 
 Item* Save::getItemByBagIndex(int i)
 {
-    if (i < 0 || i >= MAX_ITEM_COUNT)
+    if (i < 0 || i >= ITEM_IN_BAG_COUNT)
     {
         return nullptr;
     }
-    int r = ItemList[i].item_id;
+    int r = Items[i].item_id;
     if (r < 0 || r >= items_.size())
     {
         return nullptr;
@@ -166,7 +166,7 @@ Item* Save::getItemByBagIndex(int i)
 
 int16_t Save::getItemCountByBagIndex(int i)
 {
-    return ItemList[i].count;
+    return Items[i].count;
 }
 
 int16_t Save::getItemCountInBag(Item* item)
@@ -176,13 +176,13 @@ int16_t Save::getItemCountInBag(Item* item)
 
 int Save::getItemCountInBag(int item_id)
 {
-    for (int i = 0; i < MAX_ITEM_COUNT; i++)
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        auto id = ItemList[i].item_id;
+        auto id = Items[i].item_id;
         if (id < 0) { break; }
         if (id == item_id)
         {
-            return ItemList[i].count;
+            return Items[i].count;
         }
     }
     return 0;

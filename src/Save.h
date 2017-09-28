@@ -10,8 +10,8 @@ class Save
 public:
     //此处为全局数据，载入和保存使用，必须放在类开头，按照顺序，否则自己看着办
     int16_t InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
-    int16_t Team[MAX_TEAMMATE_COUNT];
-    ItemList ItemList[MAX_ITEM_COUNT];
+    int16_t Team[TEAMMATE_COUNT];
+    ItemList Items[ITEM_IN_BAG_COUNT];
 private:
     //缓冲区，无他用
     int16_t buffer_[100];
@@ -57,6 +57,8 @@ public:
     SubMapRecord* getSubMapRecord(int i) { if (i < 0 || i > submap_records_.size()) { return nullptr; } return &submap_records_[i]; }
 
     Role* getTeamMate(int i);
+    int getTeamMateID(int i) { return Team[i]; }
+
     Item* getItemByBagIndex(int i);
     int16_t getItemCountByBagIndex(int i);
     int16_t getItemCountInBag(Item* item);

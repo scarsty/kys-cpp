@@ -18,7 +18,7 @@ MainMap::MainMap() :
     srand(int(time(nullptr)));
     if (!data_readed_)
     {
-        int length = MAX_COORD * MAX_COORD * sizeof(uint16_t);
+        int length = COORD_COUNT * COORD_COUNT * sizeof(uint16_t);
 
         File::readFile("../game/resource/earth.002", &Earth_[0], length);
         File::readFile("../game/resource/surface.002", &Surface_[0], length);
@@ -50,7 +50,7 @@ MainMap::~MainMap()
 
 void MainMap::divide2(MapArray& m)
 {
-    for (int i = 0; i < MAX_COORD * MAX_COORD; i++)
+    for (int i = 0; i < COORD_COUNT * COORD_COUNT; i++)
     {
         m[i] /= 2;
     }
@@ -75,7 +75,7 @@ void MainMap::draw()
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
-            if (i1 >= 0 && i1 < MAX_COORD && i2 >= 0 && i2 < MAX_COORD)
+            if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
@@ -251,7 +251,7 @@ bool MainMap::isWater(int x, int y)
 
 bool MainMap::isOutLine(int x, int y)
 {
-    return (x < 0 || x > MAX_COORD || y < 0 || y > MAX_COORD);
+    return (x < 0 || x > COORD_COUNT || y < 0 || y > COORD_COUNT);
 }
 
 bool MainMap::canWalk(int x, int y)

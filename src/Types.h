@@ -3,12 +3,12 @@
 
 enum
 {
-    MAX_SUBMAP_COORD = 64,
-    MAX_MAINMAP_COORD = 480,
-    MAX_SUBMAP_EVENT = 200,                         //单场景最大事件数
-    MAX_ITEM_COUNT = 200,                           //最大物品数
-    MAX_TEAMMATE_COUNT = 6,                         //最大队伍人员数
-    MAX_MAGIC_PERSON = 10,                         //最大队伍人员数
+    SUBMAP_COORD_COUNT = 64,
+    MAINMAP_COORD_COUNT = 480,
+    SUBMAP_EVENT_COUNT = 200,                         //单场景最大事件数
+    ITEM_IN_BAG_COUNT = 200,                           //最大物品数
+    TEAMMATE_COUNT = 6,                         //最大队伍人员数
+    MAGIC_PERSON_COUNT = 10,                         //最大队伍人员数
 };
 
 struct Role;
@@ -19,6 +19,7 @@ struct Shop;
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
+//Role的说明：性别 0-男 1 女 2 其他
 struct Role
 {
     int16_t ID;
@@ -34,7 +35,7 @@ struct Role
     int16_t Attack, Speed, Defence, Medcine, UsePoison, MedcinePoi, DefencePoison, Fist, Sword, Knife, Unusual, HidWeapon;
     int16_t  Knowledge, Ethics, AttackPoison, AttackTwice, Repute, Aptitude, PracticeBook;
     uint16_t ExpForBook;
-    int16_t MagicID[MAX_MAGIC_PERSON], MagicLevel[MAX_MAGIC_PERSON];
+    int16_t MagicID[MAGIC_PERSON_COUNT], MagicLevel[MAGIC_PERSON_COUNT];
     int16_t TakingItem[4], TakingItemAmount[4];
     Magic* getLearnedMagic(int i);
 };
@@ -65,17 +66,19 @@ struct Magic
 
 struct SubMapData
 {
-    int16_t data[6][MAX_SUBMAP_COORD * MAX_SUBMAP_COORD];
+    int16_t data[6][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
 };
 
+//event1为主动触发，event2为物品触发，event3为经过触发
 struct SubMapEvent
 {
-    int16_t CannotWalk, ID, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
+    int16_t CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
 private:
     int16_t X_, Y_;
 public:
     int16_t X() { return X_; }
     int16_t Y() { return Y_; }
+    void setPosition(int x, int y, SubMapRecord* submap_record);
 };
 
 struct SubMapRecord

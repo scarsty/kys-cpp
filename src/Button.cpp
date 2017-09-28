@@ -2,20 +2,19 @@
 #include "PotConv.h"
 #include "Font.h"
 
-Button::Button(const std::string& path, int n1, int n2/*=-1*/, int n3/*=-1*/)
+Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)
 {
-    setTexture(path, n1, n2, n3);
+    setTexture(path, normal_id, pass_id, press_id);
 }
 
-void Button::setTexture(const std::string& path, int n1, int n2 /*= -1*/, int n3 /*= -1*/)
+void Button::setTexture(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)
 {
-    if (n2 < 0) { n2 = n1; }
-    if (n3 < 0) { n3 = n1; }
-    tex_normal_ = TextureManager::getInstance()->loadTexture(path, n1);
-    tex_pass_ = TextureManager::getInstance()->loadTexture(path, n2);
-    tex_press_ = TextureManager::getInstance()->loadTexture(path, n3);
-    w_ = tex_normal_->w;
-    h_ = tex_normal_->h;
+    if (pass_id < 0) { pass_id = normal_id; }
+    if (press_id < 0) { press_id = normal_id; }
+    tex_path_ = path;
+    tex_normal_id_ = normal_id;
+    tex_pass_id_ = pass_id;
+    tex_press_id_ = press_id;
 }
 
 Button::~Button()
@@ -36,31 +35,37 @@ void Button::dealEvent(BP_Event& e)
 
 void Button::draw()
 {
-    auto tex = tex_normal_;
+    auto id = tex_normal_id_;
     BP_Color color = { 255, 255, 255, 255 };
     BP_Color color_text = { 255, 255, 255, 255 };
 
     if (state_ == Normal)
     {
-        if (tex_normal_ == tex_pass_)
+        if (tex_normal_id_ == tex_pass_id_)
         {
             color = { 128, 128, 128, 255 };
         }
     }
     if (state_ == Pass)
     {
-        tex = tex_pass_;
+        id = tex_pass_id_;
         color_text = { 255, 255, 0, 255 };
     }
     else if (state_ == Press)
     {
-        tex = tex_press_;
+        id = tex_press_id_;
         color_text = { 255, 0, 0, 255 };
     }
-    TextureManager::getInstance()->renderTexture(tex, x_, y_, color);
+    TextureManager::getInstance()->renderTexture(tex_path_, id, x_, y_, color);
     if (text_.size())
     {
         Font::getInstance()->draw(text_, 20, x_, y_, color_text, 255);
+    }
+    if (w_ * h_ == 0)
+    {
+        auto tex = TextureManager::getInstance()->loadTexture(tex_path_, tex_normal_id_);
+        w_ = tex->w;
+        h_ = tex->h;
     }
 }
 

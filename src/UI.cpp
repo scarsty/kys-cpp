@@ -19,16 +19,16 @@ UI::UI()
     addChild(ui_status_, 300, 0);
 
     //貌似这里不能直接调用其他单例，静态量的创建顺序不确定
-    button_status_ = new Button();
-    button_skill_ = new Button();
-    button_item_ = new Button();
-    button_system_ = new Button();
+    button_status_ = new Button("mmap", 2022);
+    button_skill_ = new Button("mmap", 2023);
+    button_item_ = new Button("mmap", 2024);
+    button_system_ = new Button("mmap", 2025);
     addChild(button_status_, 710, 20);
     addChild(button_skill_, 710, 60);
     addChild(button_item_, 710, 100);
     addChild(button_system_, 710, 140);
 
-    for (int i = 0; i < MAX_TEAMMATE_COUNT; i++)
+    for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = new Head();
         addChild(h, 10, i * 80);
@@ -46,16 +46,12 @@ UI::~UI()
 
 void UI::entrance()
 {
-    button_status_->setTexture("mmap", 2022);
-    button_skill_->setTexture("mmap", 2023);
-    button_item_->setTexture("mmap", 2024);
-    button_system_->setTexture("mmap", 2025);
 }
 
 void UI::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
-    for (int i = 0; i < MAX_TEAMMATE_COUNT; i++)
+    for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         heads_[i]->setRole(Save::getInstance()->getTeamMate(i));
         if (heads_[i]->getState() != Normal)

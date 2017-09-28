@@ -26,5 +26,11 @@ public:
     void draw() override;
 };
 
-
+class TextBox : public Menu
+{
+public:
+    TextBox() {}
+    virtual ~TextBox() {}
+    void dealEvent(BP_Event& e) override;
+};
 

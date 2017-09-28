@@ -5,8 +5,8 @@ class Button : public Base
 {
 public:
     Button() {}
-    Button(const std::string& path, int n1, int n2 = -1, int n3 = -1);
-    void setTexture(const std::string& path, int n1, int n2 = -1, int n3 = -1);
+    Button(const std::string& path, int normal_id, int pass_id = -1, int press_id = -1);
+    void setTexture(const std::string& path, int normal_id, int pass_id = -1, int press_id = -1);
     virtual ~Button();
 
     //void InitMumber();
@@ -14,7 +14,8 @@ public:
     void draw();
     
 private:
-    Texture* tex_normal_ = nullptr, *tex_pass_ = nullptr, *tex_press_ = nullptr; //三种状态的按钮图片
+    std::string tex_path_ = "";
+    int tex_normal_id_ = -1, tex_pass_id_ = -1, tex_press_id_ = -1; //三种状态的按钮图片
     std::string text_ = "";
     int font_size_ = 20;
 public:

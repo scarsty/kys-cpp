@@ -15,7 +15,7 @@ public:
     int man_pic_;
     int step_ = 0;
 
-    const int MAX_COORD = MAX_SUBMAP_COORD;
+    const int COORD_COUNT = SUBMAP_COORD_COUNT;
 
     int const MAN_PIC_0 = 2501;            //初始场景主角图偏移量
     int const MAN_PIC_COUNT = 7;           //单向主角图张数
@@ -57,16 +57,6 @@ public:
     virtual bool canWalk(int x, int y) override;
 
     void getMousePosition(int _x, int _y);
-
-    //以下事件用
-    static SubMapRecord* current_submap_record_;
-    static int current_submap_id_;
-    //static int current_item_id_;
-    static int event_x_, event_y_;
-
-    static SubMapRecord* getCurrentSubMapRecord() { return current_submap_record_; }
-    static int getCurrentSubMapID() { return current_submap_id_; }
-    //static int getCurrentItemID() { return current_item_id_; }
 
     Point getPositionOnWholeEarth(int x,int y);
 
