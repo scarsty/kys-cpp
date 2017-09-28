@@ -100,12 +100,17 @@ void MainMap::draw()
                 }
                 if (i1 == man_x_ && i2 == man_y_)
                 {
-                    man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;
-                    if (rest_time_ >= BEGIN_REST_TIME)
-                    { man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT; }
                     if (isWater(man_x_, man_y_))
                     {
                         man_pic_ = SHIP_PIC_0 + Scene::towards_ * SHIP_PIC_COUNT + step_;
+                    }
+                    else
+                    {
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_ + 1;  //每个方向的第一张是静止图
+                        if (rest_time_ >= BEGIN_REST_TIME)
+                        {
+                            man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
+                        }
                     }
                     int c = 1024 * (i1 + i2) + i1;
                     map[2 * c] = { man_pic_, p };
@@ -130,74 +135,60 @@ void MainMap::draw()
 void MainMap::dealEvent(BP_Event& e)
 {
     int x = man_x_, y = man_y_;
-    //drawCount++;
-    if (e.type == BP_MOUSEBUTTONUP)
+    //功能键
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
+        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
     {
-        getMousePosition(e.button.x, e.button.y);
-        stopFindWay();
-        if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
+        UI::getInstance()->run();
+        clearEvent(e);
+    }
+
+    //键盘走路部分，检测4个方向键
+    int pressed = 0;
+    for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
+    {
+        if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
         {
-            FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
+            pressed = i;
         }
     }
-    if (!way_que_.empty())
+    if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
     {
-        PointEx newMyPoint = way_que_.back();
-        x = newMyPoint.x;
-        y = newMyPoint.y;
-        checkEntrance(x, y);
-        Towards myTowards = (Towards)(newMyPoint.towards);
-        //log("myTowards=%d", myTowards);
-        tryWalk(x, y, myTowards);
-        way_que_.pop_back();
-        //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+        pressed = pre_pressed_;
     }
-    if (e.type == BP_KEYDOWN)
+    pre_pressed_ = pressed;
+
+    if (pressed)
     {
-        //这里应该是不正确，一旦有按键，朝向应立刻改变
-        //Towards tw = towards_;
-        switch (e.key.keysym.sym)
+        getTowardsFromKey(pressed);
+        getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+        tryWalk(x, y, towards_);
+        if (total_step_ <= 1)
         {
-        case BPK_LEFT:
-        case BPK_RIGHT:
-        case BPK_UP:
-        case BPK_DOWN:
-            getTowardsFromKey(e.key.keysym.sym);
-            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-            //walk(x, y, towards_);
-            break;
-        //case BPK_ESCAPE:
-        //{
-        //    stopFindWay();
-        //    break;
-        //}
-        //case BPK_SPACE:
-        //{
-        //    stopFindWay();
-        //    //Save::getInstance()->m_BasicData[0].MFace = towards;
-        //    //auto s = new BattleScene(Entrance[x][y]);
-        //}
-        default:
-            rest_time_++;
+            Engine::getInstance()->delay(50);
         }
+        total_step_++;
         if (checkEntrance(x, y))
         {
             clearEvent(e);
-        }
-        else
-        {
-            tryWalk(x, y, towards_);
-            stopFindWay();
+            total_step_ = 0;
         }
     }
-    if (e.type == BP_KEYUP)
+    else
+    { total_step_ = 0; }
+    rest_time_++;
+
+    //鼠标寻路，未完成
+    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
-        if (e.key.keysym.sym == BPK_ESCAPE)
-        {
-            UI::getInstance()->run();
-            clearEvent(e);
-        }
+        //getMousePosition(e.button.x, e.button.y);
+        //stopFindWay();
+        //if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
+        //{
+        //    FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
+        //}
     }
+
 }
 
 void MainMap::entrance()
@@ -215,12 +206,15 @@ void MainMap::tryWalk(int x, int y, Towards t)
     {
         man_x_ = x;
         man_y_ = y;
-        step_++;
     }
-    step_ = step_ % MAN_PIC_COUNT;
+    step_++;
     if (isWater(man_x_, man_y_))
     {
         step_ = step_ % SHIP_PIC_COUNT;
+    }
+    else
+    {
+        step_ = step_ % (MAN_PIC_COUNT - 1);
     }
     rest_time_ = 0;
 }

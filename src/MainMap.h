@@ -27,7 +27,7 @@ public:
     int step_ = 0;
     int man_pic_;
     int rest_time_ = 0;                     //停止操作的时间
-    
+
     int MAN_PIC_0 = 2501;                   //初始主角图偏移量
     int MAN_PIC_COUNT = 7;                  //单向主角图张数
     int REST_PIC_0 = 2529;                  //主角休息图偏移量
@@ -50,14 +50,17 @@ public:
     void tryWalk(int x, int y, Towards t);
     //void cloudMove();
     void getEntrance();
-    
+
     virtual bool isBuilding(int x, int y);
     bool isWater(int x, int y);
     virtual bool isOutLine(int x, int y);
-    
+
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
-    
+
     bool checkEntrance(int x, int y);
     void getMousePosition(int _x, int _y);
+
+    int total_step_ = 0;
+    BP_Keycode pre_pressed_;
 };

@@ -56,8 +56,12 @@ void UI::draw()
         heads_[i]->setRole(Save::getInstance()->getTeamMate(i));
         if (heads_[i]->getState() != Normal)
         {
-            ui_status_->setRole(heads_[i]->getRole());
-            ui_skill_->setRole(heads_[i]->getRole());
+            auto role = heads_[i]->getRole();
+            if (role)
+            {
+                ui_status_->setRole(role);
+                ui_skill_->setRole(role);
+            }
         }
     }
 }
@@ -71,11 +75,9 @@ void UI::dealEvent(BP_Event& e)
         if (button_item_->getState() == Press) { childs_[0] = ui_item_; }
         if (button_system_->getState() == Press) { childs_[0] = ui_system_; }
     }
-    if (e.type == BP_KEYUP)
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
+        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
     {
-        if (e.key.keysym.sym == BPK_ESCAPE)
-        {
-            loop_ = false;
-        }
+        loop_ = false;
     }
 }

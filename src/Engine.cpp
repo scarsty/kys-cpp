@@ -137,6 +137,11 @@ void Engine::mixAudioCallback(void* userdata, Uint8* stream, int len)
     }
 }
 
+bool Engine::checkKeyPress(BP_Keycode key)
+{
+    return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
+}
+
 BP_Texture* Engine::createSquareTexture(int size)
 {
     int d = size;

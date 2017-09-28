@@ -152,6 +152,7 @@ public:
     int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
     void flushEvent() { SDL_FlushEvent(0); }
     void free(void* mem) { SDL_free(mem); }
+    bool checkKeyPress(BP_Keycode key);
     //UI相关
 private:
     BP_Texture* square_;

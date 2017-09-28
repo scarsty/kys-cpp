@@ -65,7 +65,7 @@ void TitleScene::dealEvent(BP_Event& e)
 
 void TitleScene::entrance()
 {
-    Save::getInstance()->LoadR(6);
+    Save::getInstance()->LoadR(2);
     auto m = new MainMap();
     m->run();
 }
