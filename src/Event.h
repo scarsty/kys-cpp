@@ -4,6 +4,8 @@
 #include "Talk.h"
 #include "Menu.h"
 
+//event_id表示在kdef中的编号，event_index表示在场景中的编号
+
 class Event : Base
 {
 private:
@@ -19,6 +21,7 @@ private:
     std::vector<int> offset, length;
     std::vector<std::string> talk_;
     std::vector<std::vector<int>> kdef_;
+    std::vector<int> leave_event_id_;
 
     //两个对话，用于上面和下面，两个可以同时显示
     //视需要可增加更多
@@ -27,6 +30,7 @@ private:
 
     //专用于显示确认和取消选项
     MenuText* menu2_ = nullptr;
+    //专用于显示一个文本框
     TextBox* text_box_ = nullptr;
     int event_id_ = -1;
 
@@ -55,11 +59,11 @@ public:
     bool isUsingItem(int item_id);
     bool askBattle();
     bool tryBattle(int battle_id, int get_exp) { return true; }
-    void changeMainMapMusic(int musixc_id) {}
-    bool askJoin() { return false; }
-    void join(int role_id) {}
+    void changeMainMapMusic(int music_id) {}
+    bool askJoin();
+    void join(int role_id);
     bool askRest();
-    void rest() {}
+    void rest();
     void lightScence() {}
     void darkScence() {}
     void dead() {}
@@ -70,23 +74,23 @@ public:
     bool teamIsFull();
     void leaveTeam(int tole_id) {}
     void zeroAllMP();
-    void setOneUsePoi(int role_id, int v);
+    void setRoleUsePoison(int role_id, int v);
     void blank() {}
     void submapFromTo(int x0, int y0, int x1, int y1) {}
     void add3EventNum(int submap_id, int event_index, int v1, int v2, int v3) {}
     void playAnimation(int event_id, int begin_pic, int end_pic) {}
-    bool judgeEthics(int role_id, int low, int high) { return false; }
-    bool judgeAttack(int role_id, int low, int high) { return false; }
+    bool checkRoleMorality(int role_id, int low, int high);
+    bool checkRoleAttack(int role_id, int low, int high);
     void walkFromTo(int x0, int y0, int x1, int y1);
-    bool judgeMoney(int money_count) { return false; }
+    bool checkEnoughMoney(int money_count);
     void getItemWithoutHint(int item_id, int count);
     void oldLearnMagic(int role_id, int magic_id, int no_display) {}
-    void addAptitude(int role_id, int aptitude) {}
-    void setOneMagic(int role_id, int magic_index_role, int magic_id, int level) {}
-    bool judgeSexual(int sexual) { return false; }
+    void addIQ(int role_id, int aptitude) {}
+    void setRoleMagic(int role_id, int magic_index_role, int magic_id, int level) {}
+    bool checkRoleSexual(int sexual) { return false; }
     void addEthics(int ethics) {}
     void changeScencePic(int submap_id, int layer, int old_pic, int new_pic) {}
-    void openScence(int submap_id);
+    void openSubMap(int submap_id);
     void setTowards(int towards);
     void roleGetItem(int role_id, int item_id, int count) {}
     bool judgeFemaleInTeam();
@@ -96,24 +100,24 @@ public:
     void addMP(int role_id, int value) {}
     void addAttack(int role_id, int value) {}
     void addHP(int role_id, int value) {}
-    void setMPPro(int role_id, int value) {}
-    bool judge5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5) { return false; }
+    void setMPType(int role_id, int value) {}
+    bool checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5) { return false; }
     void askSoftStar() {}
     void showEthics() {}
     void showRepute() {}
     void openAllScence() {}
-    bool judgeEventNum(int event_index, int value) { return false; }
+    bool checkEventNum(int event_index, int value) { return false; }
     void addRepute(int value) {}
     void breakStoneGate() {}
     void fightForTop() {}
     void allLeave();
-    bool judgeSubMapPic(int submap_id, int event_index, int pic) { return false; }
-    bool judge14BooksPlaced() { return true; }
+    bool checkSubMapPic(int submap_id, int event_index, int pic) { return false; }
+    bool check14BooksPlaced() { return true; }
     void backHome() {}
-    void setSexual(int role_id, int value) {}
-    void weiShop() {}
-    void playMusic(int music_id) {}
-    void playWave(int wave_id) {}
+    void setSexual(int role_id, int value);
+    void shop() {}
+    void playMusic(int music_id);
+    void playWave(int wave_id);
 
 private:
     int16_t x50[0x10000];

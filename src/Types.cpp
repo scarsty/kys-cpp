@@ -3,8 +3,18 @@
 
 Magic* Role::getLearnedMagic(int i)
 {
-    if (i < 0 || i >= MAGIC_PERSON_COUNT) { return nullptr; }
+    if (i < 0 || i >= ROLE_MAGIC_COUNT) { return nullptr; }
     return Save::getInstance()->getMagic(MagicID[i]);
+}
+
+int Role::getLearnedMagicLevel(int i)
+{
+    return MagicLevel[i] / 100;
+}
+
+void Role::limit()
+{
+
 }
 
 int16_t& SubMapRecord::Earth(int x, int y)

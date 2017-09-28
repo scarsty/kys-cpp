@@ -7,6 +7,7 @@
 #include "EventMacro.h"
 #include "Talk.h"
 #include "others/libconvert.h"
+#include "Audio.h"
 
 Event Event::event_;
 
@@ -97,6 +98,9 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             else
             { i += e[i + 3]; }
             break;
+        case 7:
+            loop = false;
+            break;
             VOID_INSTRUCT_1(8, e, i, changeMainMapMusic);
             BOOL_INSTRUCT_0(9, e, i, askJoin);
 
@@ -114,24 +118,24 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             BOOL_INSTRUCT_0(20, e, i, teamIsFull);
             VOID_INSTRUCT_1(21, e, i, leaveTeam);
             VOID_INSTRUCT_0(22, e, i, zeroAllMP);
-            VOID_INSTRUCT_2(23, e, i, setOneUsePoi);
+            VOID_INSTRUCT_2(23, e, i, setRoleUsePoison);
             VOID_INSTRUCT_0(24, e, i, blank);
             VOID_INSTRUCT_4(25, e, i, submapFromTo);
             VOID_INSTRUCT_5(26, e, i, add3EventNum);
             VOID_INSTRUCT_3(27, e, i, playAnimation);
-            BOOL_INSTRUCT_3(28, e, i, judgeEthics);
-            BOOL_INSTRUCT_3(29, e, i, judgeAttack);
+            BOOL_INSTRUCT_3(28, e, i, checkRoleMorality);
+            BOOL_INSTRUCT_3(29, e, i, checkRoleAttack);
 
             VOID_INSTRUCT_4(30, e, i, walkFromTo);
-            BOOL_INSTRUCT_1(31, e, i, judgeMoney);
+            BOOL_INSTRUCT_1(31, e, i, checkEnoughMoney);
             VOID_INSTRUCT_2(32, e, i, getItemWithoutHint);
             VOID_INSTRUCT_3(33, e, i, oldLearnMagic);
-            VOID_INSTRUCT_2(34, e, i, addAptitude);
-            VOID_INSTRUCT_4(35, e, i, setOneMagic);
-            BOOL_INSTRUCT_1(36, e, i, judgeSexual);
+            VOID_INSTRUCT_2(34, e, i, addIQ);
+            VOID_INSTRUCT_4(35, e, i, setRoleMagic);
+            BOOL_INSTRUCT_1(36, e, i, checkRoleSexual);
             VOID_INSTRUCT_1(37, e, i, addEthics);
             VOID_INSTRUCT_4(38, e, i, changeScencePic);
-            VOID_INSTRUCT_1(39, e, i, openScence);
+            VOID_INSTRUCT_1(39, e, i, openSubMap);
 
             VOID_INSTRUCT_1(40, e, i, setTowards);
             VOID_INSTRUCT_3(41, e, i, roleGetItem);
@@ -142,30 +146,11 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             VOID_INSTRUCT_2(46, e, i, addMP);
             VOID_INSTRUCT_2(47, e, i, addAttack);
             VOID_INSTRUCT_2(48, e, i, addHP);
-            VOID_INSTRUCT_2(49, e, i, setMPPro);
-
-            VOID_INSTRUCT_0(51, e, i, askSoftStar);
-            VOID_INSTRUCT_0(52, e, i, showEthics);
-            VOID_INSTRUCT_0(53, e, i, showRepute);
-            VOID_INSTRUCT_0(54, e, i, openAllScence);
-            BOOL_INSTRUCT_2(55, e, i, judgeEventNum);
-            VOID_INSTRUCT_1(56, e, i, addRepute);
-            VOID_INSTRUCT_0(57, e, i, breakStoneGate);
-            VOID_INSTRUCT_0(58, e, i, fightForTop);
-            VOID_INSTRUCT_0(59, e, i, allLeave);
-
-            BOOL_INSTRUCT_3(60, e, i, judgeSubMapPic);
-            BOOL_INSTRUCT_0(61, e, i, judge14BooksPlaced);
-            VOID_INSTRUCT_0(62, e, i, backHome);
-            VOID_INSTRUCT_2(63, e, i, setSexual);
-            VOID_INSTRUCT_0(64, e, i, weiShop);
-            VOID_INSTRUCT_1(66, e, i, playMusic);
-            VOID_INSTRUCT_1(67, e, i, playWave);
-
+            VOID_INSTRUCT_2(49, e, i, setMPType);
         case 50:
             if (e[i + 1] > 128)
             {
-                if (judge5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5])) { i += e[i + 6]; }
+                if (checkHave5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5])) { i += e[i + 6]; }
                 else { i += e[i + 7]; }
             }
             else
@@ -173,10 +158,26 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
                 i += instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]);
             }
             break;
+
+            VOID_INSTRUCT_0(51, e, i, askSoftStar);
+            VOID_INSTRUCT_0(52, e, i, showEthics);
+            VOID_INSTRUCT_0(53, e, i, showRepute);
+            VOID_INSTRUCT_0(54, e, i, openAllScence);
+            BOOL_INSTRUCT_2(55, e, i, checkEventNum);
+            VOID_INSTRUCT_1(56, e, i, addRepute);
+            VOID_INSTRUCT_0(57, e, i, breakStoneGate);
+            VOID_INSTRUCT_0(58, e, i, fightForTop);
+            VOID_INSTRUCT_0(59, e, i, allLeave);
+
+            BOOL_INSTRUCT_3(60, e, i, checkSubMapPic);
+            BOOL_INSTRUCT_0(61, e, i, check14BooksPlaced);
+            VOID_INSTRUCT_0(62, e, i, backHome);
+            VOID_INSTRUCT_2(63, e, i, setSexual);
+            VOID_INSTRUCT_0(64, e, i, shop);
+            VOID_INSTRUCT_1(66, e, i, playMusic);
+            VOID_INSTRUCT_1(67, e, i, playWave);
+
         case -1:
-        case 7:
-            loop = false;
-            break;
         default:
             //不存在的指令，移动一格
             i += 1;
@@ -189,6 +190,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
     { return 1; }
 }
 
+//原对话指令
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
     //talkup_->setVisible(true);
@@ -198,6 +200,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     //talkup_->setVisible(false);
 }
 
+//获得物品，有提示
 void Event::getItem(int item_id, int count)
 {
     getItemWithoutHint(item_id, count);
@@ -206,6 +209,7 @@ void Event::getItem(int item_id, int count)
     text_box_->run();
 }
 
+//修改事件定义
 void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int index, int event1, int event2, int event3, int currentPic, int endPic, int beginPic, int picDelay, int x, int y)
 {
     if (submap_id == -2) { submap_id = submap_id_; }
@@ -224,6 +228,7 @@ void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int inde
     e->setPosition(x, y, save_->getSubMapRecord(submap_id));
 }
 
+//是否使用了某物品
 bool Event::isUsingItem(int item_id)
 {
     return item_id_ == item_id;
@@ -235,12 +240,58 @@ bool Event::askBattle()
     return menu2_->run() == 0;
 }
 
+bool Event::askJoin()
+{
+    menu2_->setTitle("是否要求加入？");
+    return menu2_->run() == 0;
+}
+
+//角色加入，同时获得对方身上的物品
+void Event::join(int role_id)
+{
+    for (auto& r : save_->Team)
+    {
+        if (r < 0)
+        {
+            r = role_id;
+            auto role = save_->getRole(r);
+            for (int i = 0; i < ROLE_TAKING_ITEM_COUNT; i++)
+            {
+                if (role->TakingItem[i] >= 0)
+                {
+                    if (role->TakingItemCount[i] == 0)  { role->TakingItemCount[i] = 1; }
+                    getItem(role->TakingItem[i], role->TakingItemCount[i]);
+                    role->TakingItem[i] = -1;
+                    role->TakingItemCount[i] = 0;
+                }
+            }
+        }
+        return;
+    }
+}
+
 bool Event::askRest()
 {
     menu2_->setTitle("請選擇是或否？");
     return menu2_->run() == 0;
 }
 
+void Event::rest()
+{
+    for (auto r : save_->Team)
+    {
+        auto role = save_->getRole(r);
+        if (role)
+        {
+            role->HP = role->MaxHP;
+            role->MP = role->MaxMP;
+            role->Hurt = 0;
+            role->Poison = 0;
+        }
+    }
+}
+
+//某人是否在队伍
 bool Event::inTeam(int role_id)
 {
     for (auto r : save_->Team)
@@ -273,20 +324,35 @@ void Event::zeroAllMP()
     {
         if (r >= 0)
         {
-            save_->getRole(r)->CurrentMP = 0;
+            save_->getRole(r)->MP = 0;
         }
     }
 }
 
-void Event::setOneUsePoi(int role_id, int v)
+void Event::setRoleUsePoison(int role_id, int v)
 {
     save_->getRole(role_id)->UsePoison = v;
+}
+
+bool Event::checkRoleMorality(int role_id, int low, int high)
+{
+    return (save_->getRole(role_id)->Morality >= low && save_->getRole(role_id)->Morality <= high);
+}
+
+bool Event::checkRoleAttack(int role_id, int low, int high)
+{
+    return (save_->getRole(role_id)->Attack >= low);
 }
 
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
     if (submap_)
     { submap_->setPosition(x1, y1); }
+}
+
+bool Event::checkEnoughMoney(int money_count)
+{
+    return (save_->getMoneyCountInBag() >= money_count);
 }
 
 void Event::getItemWithoutHint(int item_id, int count)
@@ -319,7 +385,7 @@ void Event::getItemWithoutHint(int item_id, int count)
     }
 }
 
-void Event::openScence(int submap_id)
+void Event::openSubMap(int submap_id)
 {
     save_->getSubMapRecord(submap_id)->EntranceCondition = 0;
 }
@@ -347,5 +413,20 @@ void Event::allLeave()
     {
         save_->Team[i] = -1;
     }
+}
+
+void Event::setSexual(int role_id, int value)
+{
+    save_->getRole(role_id)->Sexual = value;
+}
+
+void Event::playMusic(int music_id)
+{
+    Audio::getInstance()->playMusic(music_id);
+}
+
+void Event::playWave(int wave_id)
+{
+    Audio::getInstance()->playSound(wave_id);
 }
 

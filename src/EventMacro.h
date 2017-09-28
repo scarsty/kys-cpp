@@ -47,26 +47,26 @@
 #define instruct_20 teamIsFull
 #define instruct_21 leaveTeam
 #define instruct_22 zeroAllMP
-#define instruct_23 setOneUsePoi
+#define instruct_23 setRoleUsePoison
 #define instruct_24 blank
 #define instruct_25 submapFromTo
 #define instruct_26 add3EventNum
 #define instruct_27 playAnimation
-#define instruct_28 judgeEthics
-#define instruct_29 judgeAttack
+#define instruct_28 checkRoleMorality
+#define instruct_29 checkRoleAttack
 
 #define instruct_30 walkFromTo
-#define instruct_31 judgeMoney
+#define instruct_31 checkEnoughMoney
 #define instruct_32 getItemWithoutHint
 #define instruct_33 oldLearnMagic
-#define instruct_34 addAptitude
-#define instruct_35 setOneMagic
-#define instruct_36 judgeSexual
+#define instruct_34 addIQ
+#define instruct_35 setRoleMagic
+#define instruct_36 checkRoleSexual
 #define instruct_37 addEthics
 #define instruct_38 changeScencePic
-#define instruct_39 openScence
+#define instruct_39 openSubMap
 
-#define instruct_40 setRoleFace
+#define instruct_40 setTowards
 #define instruct_41 roleGetItem
 #define instruct_42 judgeFemaleInTeam
 #define instruct_43 haveItemBool
@@ -75,24 +75,24 @@
 #define instruct_46 addMP
 #define instruct_47 addAttack
 #define instruct_48 addHP
-#define instruct_49 setMPPro
+#define instruct_49 setMPType
 
-#define instruct_50 judge5Item
+#define instruct_50 checkHave5Item
 #define instruct_51 askSoftStar
 #define instruct_52 showEthics
 #define instruct_53 showRepute
 #define instruct_54 openAllScence
-#define instruct_55 judgeEventNum
+#define instruct_55 checkEventNum
 #define instruct_56 addRepute
 #define instruct_57 breakStoneGate
 #define instruct_58 fightForTop
 #define instruct_59 allLeave
 
-#define instruct_60 judgeSubMapPic
-#define instruct_61 judge14BooksPlaced
+#define instruct_60 checkSubMapPic
+#define instruct_61 check14BooksPlaced
 #define instruct_62 backHome
 #define instruct_63 setSexual
-#define instruct_64 weiShop
+#define instruct_64 shop
 #define instruct_65
 #define instruct_66 playMusic
 #define instruct_67 playWave

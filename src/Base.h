@@ -70,7 +70,7 @@ public:
     }
 
     int run(bool in_root = true);                                          //执行本层
-    
+
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
     virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
@@ -91,11 +91,18 @@ public:
     State state_ = Normal;   //状态
     State getState() { return state_; }
     void setState(State s) { state_ = s; }
-    void checkStateAndEvent(BP_Event &e);
+    void checkStateAndEvent(BP_Event& e);
 
     void pollEvent();
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Base* getCurrentTopDraw() { return root_.back(); }
+
+    template <class T> static T limit(T current, T min_value, T max_value)
+    {
+        if (current < min_value) { (current = min_value); }
+        if (current > max_value) { (current = max_value); }
+        return current;
+    }
 
 };
 
