@@ -42,7 +42,7 @@ public:
     std::vector<Magic> magics_;
     std::vector<Item> items_;
     std::vector<SubMapRecord> submap_records_;
-    std::vector<SubMapData> submap_data_;
+    std::vector<SubMapLayerData> submap_data_;
     std::vector<Shop> shops_;
     std::vector<SubMapEvent> submap_event_;
 
@@ -51,10 +51,10 @@ public:
     std::map<std::string, Magic*> magics_by_name_;
     std::map<std::string, SubMapRecord*> submap_records_by_name_;
 
-    Role* getRole(int i) { if (i < 0 || i > roles_.size()) { return nullptr; } return &roles_[i]; }
-    Magic* getMagic(int i) { if (i <= 0 || i > magics_.size()) { return nullptr; } return &magics_[i]; }  //0号武功无效
-    Item* getItem(int i) { if (i < 0 || i > items_.size()) { return nullptr; } return &items_[i]; }
-    SubMapRecord* getSubMapRecord(int i) { if (i < 0 || i > submap_records_.size()) { return nullptr; } return &submap_records_[i]; }
+    Role* getRole(int i) { if (i < 0 || i >= roles_.size()) { return nullptr; } return &roles_[i]; }
+    Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return &magics_[i]; }  //0号武功无效
+    Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return &items_[i]; }
+    SubMapRecord* getSubMapRecord(int i) { if (i < 0 || i >= submap_records_.size()) { return nullptr; } return &submap_records_[i]; }
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }

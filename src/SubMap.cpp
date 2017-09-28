@@ -105,14 +105,14 @@ void SubMap::draw()
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - record_->EventHeight(i1, i2) - h);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                     }
                 }
                 //装饰
                 num = record_->Decoration(i1, i2) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - record_->DecorationHeight(i1, i2));
                 }
             }
             //k++;
@@ -231,10 +231,10 @@ void SubMap::dealEvent(BP_Event& e)
         }
         if (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)
         {
-            if (checkEvent1(x, y, towards_))
-            { clearEvent(e); }
+            if (checkEvent1(x, y, towards_)) { clearEvent(e); }
         }
     }
+    checkEvent3(x, y);
 }
 
 void SubMap::backRun()
@@ -305,28 +305,22 @@ void SubMap::tryWalk(int x, int y, Towards t)
     step_ = step_ % MAN_PIC_COUNT;
 }
 
-//第一类事件，即主动触发
-bool SubMap::checkEvent1(int x, int y, Towards t)
+bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
 {
-    getTowardsPosition(man_x_, man_y_, &x, &y);
+    getTowardsPosition(man_x_, man_y_, t, &x, &y);
     int event_index_submap = record_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
-        int id = record_->Event(x, y)->Event1;
-        Event::getInstance()->callEvent(id, this, record_->ID, -1, event_index_submap, x, y);
-        return true;
+        int id;
+        if (t != None)
+        { id = record_->Event(x, y)->Event1; }
+        else
+        { id = record_->Event(x, y)->Event3; }
+        if (id > 0)
+        {
+            return Event::getInstance()->callEvent(id, this, record_->ID, item_id, event_index_submap, x, y);
+        }
     }
-    return false;
-}
-
-//第二类事件，即物品触发事件
-bool SubMap::checkEvent2(int x, int y, Towards t, Item* item)
-{
-    return false;
-}
-
-bool SubMap::checkEvent3(int x, int y)
-{
     return false;
 }
 

@@ -46,8 +46,9 @@ public:
         }
     }
     //获取面向一格的坐标
-    void getTowardsPosition(int x0, int y0, int* x1, int* y1)
+    void getTowardsPosition(int x0, int y0, Towards tw, int* x1, int* y1)
     {
+        if (towards_ == None) { return; }
         *x1 = x0;
         *y1 = y0;
         switch (towards_)

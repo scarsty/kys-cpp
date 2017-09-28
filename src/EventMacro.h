@@ -16,10 +16,10 @@
 #define VOID_INSTRUCT_12(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i += 13; break; }
 #define VOID_INSTRUCT_13(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i += 14; break; }
 
-#define BOOL_INSTRUCT_0(num, e, i, content) { case (num): if (content()) {i += e[i+1];} else {i+= e[i+2];} break; }
-#define BOOL_INSTRUCT_1(num, e, i, content) { case (num): if (content(e[i+1])) {i += e[i+2];} else {i+= e[i+3];} break; }
-#define BOOL_INSTRUCT_2(num, e, i, content) { case (num): if (content(e[i+1],e[i+2])) {i += e[i+3];} else {i+= e[i+4];} break; }
-#define BOOL_INSTRUCT_3(num, e, i, content) { case (num): if (content(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else {i+= e[i+5];} break; }
+#define BOOL_INSTRUCT_0(num, e, i, content) { case (num): if (content()) {i += e[i+1];} else { i+= e[i+2];} i += 3; break; }
+#define BOOL_INSTRUCT_1(num, e, i, content) { case (num): if (content(e[i+1])) {i += e[i+2];} else { i+= e[i+3];} i += 4; break; }
+#define BOOL_INSTRUCT_2(num, e, i, content) { case (num): if (content(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4];} i += 5; break; }
+#define BOOL_INSTRUCT_3(num, e, i, content) { case (num): if (content(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5];} i += 6; break; }
 
 //指令对应宏，仅参考，不使用
 #define instruct_0
@@ -62,7 +62,7 @@
 #define instruct_34 addIQ
 #define instruct_35 setRoleMagic
 #define instruct_36 checkRoleSexual
-#define instruct_37 addEthics
+#define instruct_37 addMorality
 #define instruct_38 changeScencePic
 #define instruct_39 openSubMap
 
@@ -79,11 +79,11 @@
 
 #define instruct_50 checkHave5Item
 #define instruct_51 askSoftStar
-#define instruct_52 showEthics
-#define instruct_53 showRepute
+#define instruct_52 showMorality
+#define instruct_53 showFame
 #define instruct_54 openAllScence
 #define instruct_55 checkEventNum
-#define instruct_56 addRepute
+#define instruct_56 addFame
 #define instruct_57 breakStoneGate
 #define instruct_58 fightForTop
 #define instruct_59 allLeave

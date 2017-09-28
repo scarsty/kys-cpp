@@ -6,12 +6,14 @@ class Menu : public Base
 public:
     Menu();
     virtual ~Menu();
-private:
+protected:
     Texture* tex_ = nullptr;
     std::string title_;
+    int title_x_ = 0, title_y_ = 0;
 public:
     void setTexture(Texture* t) { tex_ = t; }
     void setTitle(std::string t) { title_ = t; }
+    void setTitlePosition(int x, int y) { title_x_ = x; title_y_ = y; }
     void draw() override;
     void dealEvent(BP_Event& e) override;
 };

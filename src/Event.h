@@ -49,6 +49,8 @@ private:
     Item* item_;
     Save* save_;
 
+private:
+    SubMapRecord* getSubMapRecordFromID(int submap_id);
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
@@ -58,64 +60,63 @@ public:
         int BeginPic1, int EndPic, int BeginPic2, int PicDelay, int x, int y);
     bool isUsingItem(int item_id);
     bool askBattle();
-    bool tryBattle(int battle_id, int get_exp) { return true; }
-    void changeMainMapMusic(int music_id) {}
+    bool tryBattle(int battle_id, int get_exp);
+    void changeMainMapMusic(int music_id);
     bool askJoin();
     void join(int role_id);
     bool askRest();
     void rest();
-    void lightScence() {}
-    void darkScence() {}
-    void dead() {}
+    void lightScence();
+    void darkScence();
+    void dead();
     bool inTeam(int role_id);
-    void setSubMapMapData(int submap_id, int layer, int x, int y, int v) {}
+    void setSubMapMapData(int submap_id, int layer, int x, int y, int v);
     bool haveItemBool(int item_id);
-    void oldSetScencePosition(int x, int y) {}
+    void oldSetScencePosition(int x, int y);
     bool teamIsFull();
-    void leaveTeam(int tole_id) {}
+    void leaveTeam(int tole_id);
     void zeroAllMP();
     void setRoleUsePoison(int role_id, int v);
-    void blank() {}
-    void submapFromTo(int x0, int y0, int x1, int y1) {}
-    void add3EventNum(int submap_id, int event_index, int v1, int v2, int v3) {}
-    void playAnimation(int event_id, int begin_pic, int end_pic) {}
+    //void blank() {}
+    void submapFromTo(int x0, int y0, int x1, int y1);
+    void add3EventNum(int submap_id, int event_index, int v1, int v2, int v3);
+    void playAnimation(int event_id, int begin_pic, int end_pic);
     bool checkRoleMorality(int role_id, int low, int high);
     bool checkRoleAttack(int role_id, int low, int high);
     void walkFromTo(int x0, int y0, int x1, int y1);
     bool checkEnoughMoney(int money_count);
     void getItemWithoutHint(int item_id, int count);
-    void oldLearnMagic(int role_id, int magic_id, int no_display) {}
-    void addIQ(int role_id, int aptitude) {}
-    void setRoleMagic(int role_id, int magic_index_role, int magic_id, int level) {}
-    bool checkRoleSexual(int sexual) { return false; }
-    void addEthics(int ethics) {}
-    void changeScencePic(int submap_id, int layer, int old_pic, int new_pic) {}
+    void oldLearnMagic(int role_id, int magic_id, int no_display);
+    void addIQ(int role_id, int aptitude);
+    void setRoleMagic(int role_id, int magic_index_role, int magic_id, int level);
+    bool checkRoleSexual(int sexual);
+    void addMorality(int value);
+    void changeScencePic(int submap_id, int layer, int old_pic, int new_pic);
     void openSubMap(int submap_id);
     void setTowards(int towards);
-    void roleGetItem(int role_id, int item_id, int count) {}
+    void roleGetItem(int role_id, int item_id, int count);
     bool judgeFemaleInTeam();
-    //void haveItemBool() {}
-    void play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2) {}
-    void addSpeed(int role_id, int value) {}
-    void addMP(int role_id, int value) {}
-    void addAttack(int role_id, int value) {}
-    void addHP(int role_id, int value) {}
-    void setMPType(int role_id, int value) {}
-    bool checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5) { return false; }
-    void askSoftStar() {}
-    void showEthics() {}
-    void showRepute() {}
-    void openAllScence() {}
-    bool checkEventNum(int event_index, int value) { return false; }
-    void addRepute(int value) {}
-    void breakStoneGate() {}
-    void fightForTop() {}
+    void play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2);
+    void addSpeed(int role_id, int value);
+    void addMP(int role_id, int value);
+    void addAttack(int role_id, int value);
+    void addHP(int role_id, int value);
+    void setMPType(int role_id, int value);
+    bool checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5);
+    void askSoftStar();
+    void showMorality();
+    void showFame();
+    void openAllScence();
+    bool checkEventNum(int event_index, int value);
+    void addFame(int value);
+    void breakStoneGate();
+    void fightForTop();
     void allLeave();
-    bool checkSubMapPic(int submap_id, int event_index, int pic) { return false; }
-    bool check14BooksPlaced() { return true; }
+    bool checkSubMapPic(int submap_id, int event_index, int pic);
+    bool check14BooksPlaced();
     void backHome() {}
     void setSexual(int role_id, int value);
-    void shop() {}
+    void shop();
     void playMusic(int music_id);
     void playWave(int wave_id);
 

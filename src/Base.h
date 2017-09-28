@@ -97,7 +97,7 @@ public:
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Base* getCurrentTopDraw() { return root_.back(); }
 
-    template <class T> static T limit(T current, T min_value, T max_value)
+    static int limit(int current, int min_value, int max_value)
     {
         if (current < min_value) { (current = min_value); }
         if (current > max_value) { (current = max_value); }

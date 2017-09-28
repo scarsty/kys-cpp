@@ -95,7 +95,7 @@ struct Magic
     int16_t Attack[10], MoveDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
 };
 
-struct SubMapData
+struct SubMapLayerData
 {
     int16_t data[6][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
 };
@@ -128,9 +128,10 @@ struct SubMapRecord
     int16_t& Decoration(int x, int y);
     int16_t& EventIndex(int x, int y);
     int16_t& BuildingHeight(int x, int y);
-    int16_t& EventHeight(int x, int y);
+    int16_t& DecorationHeight(int x, int y);
     SubMapEvent* Event(int x, int y);
     SubMapEvent* Event(int i);
+    int16_t& LayerData(int layer, int x, int y);
 };
 
 struct Shop

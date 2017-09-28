@@ -38,15 +38,20 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
     auto engine = Engine::getInstance();
-    auto& v = texture_manager_.map_[p];
+    auto& v = texture_manager_.map_[path];
     //纹理组信息
     if (v.size() == 0)
     {
         char* s;
         int l = 0;
         File::readFile((p + "/index.ka").c_str(), &s, &l);
-        if (l == 0) { return nullptr; }
         l /= 4;
+        if (l == 0)
+        {
+            v.resize(1);
+            v[0] = nullptr;
+            return nullptr;
+        }
         v.resize(l);
         for (int i = 0; i < l; i++)
         {

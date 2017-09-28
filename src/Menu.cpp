@@ -12,10 +12,13 @@ Menu::~Menu()
 
 void Menu::draw()
 {
-    TextureManager::getInstance()->renderTexture(tex_, x_, y_);
+    if (tex_)
+    {
+        TextureManager::getInstance()->renderTexture(tex_, x_, y_);
+    }
     if (title_.size() > 0)
     {
-        Font::getInstance()->draw(title_, 20, x_, y_, { 255, 255, 255, 255 });
+        Font::getInstance()->draw(title_, 20, x_ + title_x_, y_ + title_y_, { 255, 255, 255, 255 });
     }
 }
 
@@ -55,6 +58,10 @@ void MenuText::setStrings(std::vector<std::string> strings)
 
 void MenuText::draw()
 {
+    if (title_.size() > 0)
+    {
+        Font::getInstance()->draw(title_, 20, x_ + title_x_, y_ + title_y_, { 255, 255, 255, 255 });
+    }
     Engine::getInstance()->fillColor({ 255, 255, 255, 128 }, x_, y_, w_, h_);
 }
 

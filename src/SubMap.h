@@ -41,9 +41,14 @@ public:
 
     void tryWalk(int x, int y, Towards t);
 
-    bool checkEvent1(int x, int y, Towards t);
-    bool checkEvent2(int x, int y, Towards t, Item* item);
-    bool checkEvent3(int x, int y);
+    bool checkEvent(int x, int y, Towards t = None, int item_id = -1);
+
+    //第一类事件，主动触发
+    bool checkEvent1(int x, int y, Towards t) { return checkEvent(x, y, t, -1); }
+    //第二类事件，物品触发
+    bool checkEvent2(int x, int y, Towards t, int item_id) { return checkEvent(x, y, t, item_id); }
+    //第三类事件，经过触发
+    bool checkEvent3(int x, int y) { return checkEvent(x, y, None, -1); }
 
     virtual bool isBuilding(int x, int y);
     virtual bool isOutLine(int x, int y);
@@ -58,7 +63,7 @@ public:
 
     void getMousePosition(int _x, int _y);
 
-    Point getPositionOnWholeEarth(int x,int y);
+    Point getPositionOnWholeEarth(int x, int y);
 
 };
 

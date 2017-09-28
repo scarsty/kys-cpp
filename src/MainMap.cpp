@@ -163,7 +163,7 @@ void MainMap::dealEvent(BP_Event& e)
         case BPK_UP:
         case BPK_DOWN:
             getTowardsFromKey(e.key.keysym.sym);
-            getTowardsPosition(man_x_, man_y_, &x, &y);
+            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
             //walk(x, y, towards_);
             break;
         //case BPK_ESCAPE:
@@ -269,9 +269,29 @@ bool MainMap::checkEntrance(int x, int y)
         auto s = Save::getInstance()->getSubMapRecord(i);
         if (x == s->MainEntranceX1 && y == s->MainEntranceY1 || x == s->MainEntranceX2 && y == s->MainEntranceY2)
         {
-            auto sub_map = new SubMap(i);
-            sub_map->run();
-            return true;
+            bool can_enter = false;
+            if (s->EntranceCondition == 0)
+            {
+                can_enter = true;
+            }
+            else if (s->EntranceCondition == 2)
+            {
+                //注意进入条件2的设定
+                for (auto r : Save::getInstance()->Team)
+                {
+                    if (Save::getInstance()->getRole(r)->Speed >= 70)
+                    {
+                        can_enter = true;
+                        break;
+                    }
+                }
+            }
+            if (can_enter)
+            {
+                auto sub_map = new SubMap(i);
+                sub_map->run();
+                return true;
+            }
         }
     }
     //if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
