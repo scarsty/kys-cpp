@@ -6,6 +6,7 @@
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif
+#include <cmath>
 
 Engine Engine::engine_;
 
@@ -16,7 +17,7 @@ Engine::Engine()
 
 Engine::~Engine()
 {
-    //destroy();
+    destroy();
 }
 
 BP_Texture* Engine::createYUVTexture(int w, int h)
@@ -29,17 +30,17 @@ void Engine::updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t*
     SDL_UpdateYUVTexture(testTexture(t), nullptr, data0, size0, data1, size1, data2, size2);
 }
 
-BP_Texture* Engine::createRGBATexture(int w, int h)
+BP_Texture* Engine::createARGBTexture(int w, int h)
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-BP_Texture* Engine::createRGBARenderedTexture(int w, int h)
+BP_Texture* Engine::createARGBRenderedTexture(int w, int h)
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
 }
 
-void Engine::updateRGBATexture(BP_Texture* t, uint8_t* buffer, int pitch)
+void Engine::updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch)
 {
     SDL_UpdateTexture(testTexture(t), nullptr, buffer, pitch);
 }
@@ -72,7 +73,8 @@ void Engine::renderCopy(BP_Texture* t, BP_Rect rect0, BP_Rect rect1, int inPrese
 
 void Engine::destroy()
 {
-    SDL_DestroyTexture(tex_);
+    //SDL_DestroyTexture(tex_);
+    destroyMainTexture();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
 }
@@ -146,19 +148,25 @@ BP_Texture* Engine::createSquareTexture(int size)
 {
     int d = size;
     auto square_s = SDL_CreateRGBSurface(0, d, d, 32, RMASK, GMASK, BMASK, AMASK);
-    SDL_FillRect(square_s, nullptr, 0xffffffff);
-    /*SDL_Rect r = { 0, 0, 1, 1 };
-    auto &x = r.x;
-    auto &y = r.y;
+
+    //SDL_FillRect(square_s, nullptr, 0xffffffff);
+    SDL_Rect r = { 0, 0, 1, 1 };
+    auto& x = r.x;
+    auto& y = r.y;
+    uint8_t a = 0;
     for (x = 0; x < d; x++)
-    for (y = 0; y < d; y++)
     {
-    if ((x - d / 2)*(x - d / 2) + (y - d / 2)*(y - d / 2) < (d / 2) * (d / 2))
-    {
-    SDL_FillRect(ball_s, &r, 0xffffffff);
+        for (y = 0; y < d; y++)
+        {
+            a = 255 * cos(M_PI * (1.0 * y / d - 0.5));
+            auto c = 0x00ffffff | (a << 24);
+            SDL_FillRect(square_s, &r, c);
+            /*if ((x - d / 2)*(x - d / 2) + (y - d / 2)*(y - d / 2) < (d / 2) * (d / 2))
+            {
+                SDL_FillRect(square_s, &r, 0x00ffffff | (a<<24));
+            }*/
+        }
     }
-    }
-    */
     square_ = SDL_CreateTextureFromSurface(renderer_, square_s);
     SDL_SetTextureBlendMode(square_, SDL_BLENDMODE_BLEND);
     SDL_SetTextureAlphaMod(square_, 128);
@@ -188,7 +196,9 @@ std::vector<std::string> Engine::splitString(const std::string& s, const std::st
 void Engine::drawSubtitle(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align)
 {
     if (alpha == 0)
-    { return; }
+    {
+        return;
+    }
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font) { return; }
     SDL_Color color = { 255, 255, 255, 255 };
@@ -197,7 +207,9 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
     for (int i = 0; i < ret.size(); i++)
     {
         if (ret[i] == "")
-        { continue; }
+        {
+            continue;
+        }
         TTF_SetFontOutline(font, 2);
         auto text_sb = TTF_RenderUTF8_Blended(font, ret[i].c_str(), colorb);
         TTF_SetFontOutline(font, 0);
@@ -250,7 +262,9 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
 void Engine::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c)
 {
     if (alpha == 0)
-    { return; }
+    {
+        return;
+    }
     auto text_t = createTextTexture(fontname, text, size, c);
     if (!text_t) { return; }
     SDL_SetTextureAlphaMod(text_t, alpha);
@@ -314,7 +328,7 @@ int Engine::init(void* handle)
     max_y_ = r.h + r.y;
 #endif
 
-
+    createMainTexture(640, 400);
     printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
 
     return 0;
@@ -365,18 +379,21 @@ bool Engine::setKeepRatio(bool b)
     return keep_ratio_ = b;
 }
 
+//创建一个专用于画场景的，后期放大
 void Engine::createMainTexture(int w, int h)
 {
     //tex_ = createYUVTexture(w, h);
-    //_tex2 = createRGBATexture(w, h);
-    tex_ = createRGBARenderedTexture(w, h);
+    tex2_ = createARGBRenderedTexture(w, h);
+    //tex_ = createARGBRenderedTexture(768, 480);
     setPresentPosition();
 }
 
 void Engine::setPresentPosition()
 {
     if (!tex_)
-    { return; }
+    {
+        return;
+    }
     int w_dst = 0, h_dst = 0;
     int w_src = 0, h_src = 0;
     getWindowSize(w_dst, h_dst);
@@ -497,13 +514,16 @@ void Engine::resetWindowsPosition()
     if (x + w > max_x_) { x = std::min(x, max_x_ - w); }
     if (y + h > max_y_) { y = std::min(y, max_y_ - h); }
     if (x != x0 || y != y0)
-    { SDL_SetWindowPosition(window_, x, y); }
+    {
+        SDL_SetWindowPosition(window_, x, y);
+    }
 }
 
 void Engine::setColor(BP_Texture* tex, BP_Color c, uint8_t alpha)
 {
     SDL_SetTextureColorMod(tex, c.r, c.g, c.b);
     SDL_SetTextureAlphaMod(tex, alpha);
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
 }
 
 void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
@@ -513,6 +533,12 @@ void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
     SDL_RenderFillRect(renderer_, &r);
+}
+
+void Engine::renderMainTextureToWindow()
+{
+    SDL_SetRenderTarget(renderer_, nullptr);
+    SDL_RenderCopy(renderer_, tex2_, nullptr, nullptr);
 }
 
 void Engine::setWindowPosition(int x, int y)

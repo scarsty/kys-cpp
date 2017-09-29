@@ -21,7 +21,9 @@ struct Texture
         tex[0] = t;
         count = 1;
         loaded = true;
+        Engine::getInstance()->queryTexture(t, &w, &h);
     }
+    BP_Texture* getTexture(int i = 0) { return tex[i]; }
 private:
     void destory()
     {

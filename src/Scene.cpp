@@ -5,7 +5,7 @@ Towards Scene::towards_;
 
 Scene::Scene()
 {
-    Engine::getInstance()->getPresentSize(screen_center_x_, screen_center_y_);
+    Engine::getInstance()->getMainTextureSize(screen_center_x_, screen_center_y_);
     screen_center_x_ /= 2;
     screen_center_y_ /= 2;
     view_width_region_ = screen_center_x_ / SUBMAP_TILE_W / 2 + 3;

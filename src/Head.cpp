@@ -7,10 +7,6 @@ Texture Head::square_;
 Head::Head(Role* r)
 {
     role_ = r;
-    if (square_.loaded == false)
-    {
-        square_.setTex(Engine::getInstance()->createSquareTexture(100));
-    }
 }
 
 Head::~Head()
@@ -20,6 +16,10 @@ Head::~Head()
 void Head::draw()
 {
     if (role_ == nullptr) { return; }
+    if (square_.loaded == false)
+    {
+        square_.setTex(Engine::getInstance()->createSquareTexture(100));
+    }
     BP_Color color = { 255, 255, 255, 255 };
     TextureManager::getInstance()->renderTexture("mmap", 2002, x_, y_);
     if (state_ == Normal)
@@ -27,16 +27,39 @@ void Head::draw()
         color = { 128, 128, 128, 255 };
     }
 
-    BP_Rect r1 = { 5, 5, 200, 50 };
-    //Engine::getInstance()->renderCopy(square_.tex[0], r0, r1);
+    TextureManager::getInstance()->renderTexture("head", role_->HeadNum, x_ + 10, y_, color, 255, 0.5);
+    Font::getInstance()->draw(role_->Name, 15, x_ + 115, y_ + 8, { 255, 255, 255, 255 });
 
-    TextureManager::getInstance()->renderTexture("head", role_->HeadNum, x_, y_, color, 255, 0.5);
-    Font::getInstance()->draw(role_->Name, 15, x_ + 140, y_ + 5, { 255, 255, 255, 255 });
+    int level_x = 99;
+    if (role_->Level >= 10) { level_x -= 3; }
+    BP_Rect r0 = { 0, 0, square_.w, square_.h }, r1;
+    Font::getInstance()->draw(convert::formatString("%d", role_->Level), 15, x_ + level_x, y_ + 5, { 255, 255, 255, 255 });
 
-    Font::getInstance()->draw(convert::formatString("%d", role_->Level), 15, x_ + 100, y_ + 5, { 255, 255, 255, 255 });
-    Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 15, x_ + 140, y_ + 25, { 255, 255, 255, 255 });
-    Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->MP, role_->MaxMP), 15, x_ + 140, y_ + 45, { 255, 255, 255, 255 });
-    Font::getInstance()->draw(convert::formatString("%3d", role_->PhysicalPower), 15, x_ + 140, y_ + 65, { 255, 255, 255, 255 });
+    BP_Color c;
+    r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
+    c = { 196, 25, 16, 255 };
+    Engine::getInstance()->setColor(square_.getTexture(), c, 192);
+    Engine::getInstance()->renderCopy(square_.getTexture(), r0, r1);
+    Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 15, x_ + 138, y_ + 28, { 255, 255, 255, 255 });
+
+    r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
+     c = { 200, 200, 200, 255 };
+    if (role_->MPType == 0)
+    {
+        c = { 112, 12, 112, 255 };
+    }
+    else if (role_->MPType == 1)
+    {
+        c = { 224, 180, 32, 255 };
+    }
+    Engine::getInstance()->setColor(square_.getTexture(), c, 192);
+    Engine::getInstance()->renderCopy(square_.getTexture(), r0, r1);
+    Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->MP, role_->MaxMP), 15, x_ + 138, y_ + 44, { 255, 255, 255, 255 });
+
+    r1 = { x_ + 116, y_ + 65, 83 * role_->MP / role_->MaxMP, 9 };
+    Engine::getInstance()->setColor(square_.getTexture(), { 128, 128, 255, 255 }, 192);
+    Engine::getInstance()->renderCopy(square_.getTexture(), r0, r1);
+    Font::getInstance()->draw(convert::formatString("%3d", role_->PhysicalPower), 15, x_ + 148, y_ + 61, { 255, 255, 255, 255 });
 }
 
 

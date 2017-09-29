@@ -20,6 +20,7 @@ Event::Event()
     addChildOnPosition(talkdown_, 0, 400);
     menu2_ = new MenuText({ "´_ÕJ£¨Y£©", "È¡Ïû£¨N£©" });
     menu2_->setPosition(300, 200);
+    menu2_->arrange(0, 100, 100, 0);
     text_box_ = new TextBox();
     text_box_->setPosition(300, 300);
     instance_ = true;

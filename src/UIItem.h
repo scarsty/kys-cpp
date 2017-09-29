@@ -1,6 +1,7 @@
 #pragma once
 #include "Base.h"
 #include "Button.h"
+#include "Menu.h"
 
 class UIItem : public Base
 {
@@ -12,6 +13,8 @@ public:
     std::vector<Button*> item_buttons_;
     std::vector<int> items_;  //当前种类的物品列表
     int leftup_index_=0;  //左上角第一个物品在当前种类列表中的索引
+
+    MenuText* title_ = nullptr;
 
 };
 

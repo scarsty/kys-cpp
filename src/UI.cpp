@@ -27,15 +27,15 @@ UI::UI()
     button_skill_ = new Button("mmap", 2023);
     button_item_ = new Button("mmap", 2024);
     button_system_ = new Button("mmap", 2025);
-    addChildOnPosition(button_status_, 710, 20);
-    addChildOnPosition(button_skill_, 710, 60);
-    addChildOnPosition(button_item_, 710, 100);
-    addChildOnPosition(button_system_, 710, 140);
+    addChildOnPosition(button_status_, 10, 10);
+    addChildOnPosition(button_skill_, 90, 10);
+    addChildOnPosition(button_item_, 170, 10);
+    addChildOnPosition(button_system_, 250, 10);
 
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = new Head();
-        addChildOnPosition(h, 10, i * 80);
+        addChildOnPosition(h, 20, 60 + i * 90);
         h->setSize(200, 80);
         heads_.push_back(h);
     }

@@ -34,6 +34,16 @@ void Menu::dealEvent(BP_Event& e)
     }
 }
 
+void Menu::arrange(int x, int y, int inc_x, int inc_y)
+{
+    for (auto c : childs_)
+    {
+        c->setPosition(x_ + x, y_ + y);
+        x += inc_x;
+        y += inc_y;
+    }
+}
+
 MenuText::MenuText(std::vector<std::string> items) : MenuText()
 {
     setStrings(items);
@@ -62,7 +72,7 @@ void MenuText::draw()
     {
         Font::getInstance()->draw(title_, 20, x_ + title_x_, y_ + title_y_, { 255, 255, 255, 255 });
     }
-    Engine::getInstance()->fillColor({ 255, 255, 255, 128 }, x_, y_, w_, h_);
+    //Engine::getInstance()->fillColor({ 255, 255, 255, 128 }, x_, y_, w_, h_);
 }
 
 void TextBox::dealEvent(BP_Event& e)

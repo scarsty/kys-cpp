@@ -16,6 +16,7 @@ public:
     void setTitlePosition(int x, int y) { title_x_ = x; title_y_ = y; }
     void draw() override;
     void dealEvent(BP_Event& e) override;
+    void arrange(int x, int y, int inc_x, int inc_y);
 };
 
 class MenuText : public Menu

@@ -58,6 +58,7 @@ void MainMap::divide2(MapArray& m)
 
 void MainMap::draw()
 {
+    Engine::getInstance()->setRenderMainTexture();
     //LOG("main\n");
     int k = 0;
     auto t0 = Engine::getInstance()->getTicks();
@@ -129,6 +130,7 @@ void MainMap::draw()
         c->setPositionOnScreen(man_x_, man_y_, screen_center_x_, screen_center_y_);
     }
     //log("%d\n", t1 - t0);
+    Engine::getInstance()->renderMainTextureToWindow();
 }
 
 //计时器，负责画图以及一些其他问题

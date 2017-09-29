@@ -61,7 +61,7 @@ private:
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
-    int start_w_ = 768, start_h_ = 480;
+    int start_w_ = 1024, start_h_ = 640;
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
     int ratio_x_ = 1, ratio_y_ = 1;
@@ -88,16 +88,18 @@ public:
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }
 
-    void destroyMainTexture() { destroyTexture(tex_); }
+    void getMainTextureSize(int& w, int& h) { SDL_QueryTexture(tex2_, nullptr, nullptr, &w, &h); }
+
+    void destroyMainTexture() { destroyTexture(tex2_); }
 
     static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
 
     BP_Texture* createYUVTexture(int w, int h);;
     void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
 
-    BP_Texture* createRGBATexture(int w, int h);
-    BP_Texture* createRGBARenderedTexture(int w, int h);
-    void updateRGBATexture(BP_Texture* t, uint8_t* buffer, int pitch);
+    BP_Texture* createARGBTexture(int w, int h);
+    BP_Texture* createARGBRenderedTexture(int w, int h);
+    void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
 
     void renderCopy(BP_Texture* t = nullptr);
     void showLogo() { SDL_RenderCopy(renderer_, logo_, nullptr, nullptr); }
@@ -124,6 +126,9 @@ public:
     void setRatio(int x, int y) { ratio_x_ = x; ratio_y_ = y; }
     void setColor(BP_Texture* tex, BP_Color c, uint8_t alpha);
     void fillColor(BP_Color color, int x, int y, int w, int h);
+
+    void setRenderMainTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
+    void renderMainTextureToWindow();
 
     //声音相关
 private:
@@ -166,7 +171,7 @@ public:
     int showMessage(const std::string& content);
 public:
     //标题;
-    std::string title_;
+    std::string title_ = "All Heros in Kam Yung Stories";
 };
 
 //这里直接照搬SDL
