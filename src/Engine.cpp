@@ -61,14 +61,9 @@ void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
     SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, rotation_, nullptr, SDL_FLIP_NONE);
 }
 
-void Engine::renderCopy(BP_Texture* t, BP_Rect rect0, BP_Rect rect1, int inPresent /*= 0*/)
+void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent /*= 0*/)
 {
-    if (inPresent == 1)
-    {
-        rect1.x += rect_.x;
-        rect1.y += rect_.y;
-    }
-    SDL_RenderCopy(renderer_, t, &rect0, &rect1);
+    SDL_RenderCopy(renderer_, t, rect0, rect1);
 }
 
 void Engine::destroy()
@@ -158,7 +153,7 @@ BP_Texture* Engine::createSquareTexture(int size)
     {
         for (y = 0; y < d; y++)
         {
-            a = 255 * cos(M_PI * (1.0 * y / d - 0.5));
+            a = 50 + 200 * cos(M_PI * (1.0 * y / d - 0.5));
             auto c = 0x00ffffff | (a << 24);
             SDL_FillRect(square_s, &r, c);
             /*if ((x - d / 2)*(x - d / 2) + (y - d / 2)*(y - d / 2) < (d / 2) * (d / 2))
@@ -327,6 +322,8 @@ int Engine::init(void* handle)
     max_x_ = r.w + r.x;
     max_y_ = r.h + r.y;
 #endif
+
+    square_ = createSquareTexture(100);
 
     printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
 
@@ -538,6 +535,12 @@ void Engine::renderAssistTextureToWindow()
 {
     SDL_SetRenderTarget(renderer_, nullptr);
     SDL_RenderCopy(renderer_, tex2_, nullptr, nullptr);
+}
+
+void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
+{
+    setColor(square_, color, alpha);
+    renderCopy(square_, nullptr, rect);
 }
 
 void Engine::setWindowPosition(int x, int y)

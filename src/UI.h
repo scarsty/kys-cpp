@@ -20,13 +20,13 @@ private:
     UI();
     ~UI();
     //UI菜单单例即可，无需重复创建
-    static UI* ui_;
+    static UI ui_;
 public:
     virtual void entrance() override;
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 
-    static UI* getInstance() { if (ui_ == nullptr) { ui_ = new UI(); } return ui_; }
+    static UI* getInstance() { return &ui_; }
 
     std::vector<Head*> heads_;
 

@@ -2,8 +2,6 @@
 #include "Font.h"
 #include "others/libconvert.h"
 
-Texture Head::square_;
-
 Head::Head(Role* r)
 {
     role_ = r;
@@ -16,10 +14,6 @@ Head::~Head()
 void Head::draw()
 {
     if (role_ == nullptr) { return; }
-    if (square_.loaded == false)
-    {
-        square_.setTex(Engine::getInstance()->createSquareTexture(100));
-    }
     BP_Color color = { 255, 255, 255, 255 };
     TextureManager::getInstance()->renderTexture("mmap", 2002, x_, y_);
     if (state_ == Normal)
@@ -32,14 +26,13 @@ void Head::draw()
 
     int level_x = 99;
     if (role_->Level >= 10) { level_x -= 3; }
-    BP_Rect r0 = { 0, 0, square_.w, square_.h }, r1;
+    BP_Rect r1;
     Font::getInstance()->draw(convert::formatString("%d", role_->Level), 15, x_ + level_x, y_ + 5, { 255, 255, 255, 255 });
 
     BP_Color c;
     r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
     c = { 196, 25, 16, 255 };
-    Engine::getInstance()->setColor(square_.getTexture(), c, 192);
-    Engine::getInstance()->renderCopy(square_.getTexture(), r0, r1);
+    Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 15, x_ + 138, y_ + 28, { 255, 255, 255, 255 });
 
     r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
@@ -52,13 +45,12 @@ void Head::draw()
     {
         c = { 224, 180, 32, 255 };
     }
-    Engine::getInstance()->setColor(square_.getTexture(), c, 192);
-    Engine::getInstance()->renderCopy(square_.getTexture(), r0, r1);
+    Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->MP, role_->MaxMP), 15, x_ + 138, y_ + 44, { 255, 255, 255, 255 });
 
     r1 = { x_ + 116, y_ + 65, 83 * role_->MP / role_->MaxMP, 9 };
-    Engine::getInstance()->setColor(square_.getTexture(), { 128, 128, 255, 255 }, 192);
-    Engine::getInstance()->renderCopy(square_.getTexture(), r0, r1);
+    c = { 128, 128, 255, 255 };
+    Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     Font::getInstance()->draw(convert::formatString("%3d", role_->PhysicalPower), 15, x_ + 148, y_ + 61, { 255, 255, 255, 255 });
 }
 

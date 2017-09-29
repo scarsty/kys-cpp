@@ -7,7 +7,7 @@
 #include "UIItem.h"
 #include "UISystem.h"
 
-UI* UI::ui_;
+UI UI::ui_;
 
 UI::UI()
 {

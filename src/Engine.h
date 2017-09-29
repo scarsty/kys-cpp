@@ -104,7 +104,7 @@ public:
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
-    void renderCopy(BP_Texture* t, BP_Rect rect0, BP_Rect rect1, int inPresent = 0);
+    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent = 0);
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();
@@ -118,7 +118,7 @@ public:
     void fillColor(BP_Color color, int x, int y, int w, int h);
     void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
     void renderAssistTextureToWindow();
-
+    
     //声音相关
 private:
     SDL_AudioDeviceID device_;
@@ -131,6 +131,7 @@ public:
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
     static void mixAudioCallback(void* userdata, Uint8* stream, int len);
     void setAudioCallback(AudioCallback cb = nullptr) { callback_ = cb; };
+
     //事件相关
 private:
     SDL_Event e_;
@@ -146,6 +147,7 @@ public:
     void flushEvent() { SDL_FlushEvent(0); }
     void free(void* mem) { SDL_free(mem); }
     bool checkKeyPress(BP_Keycode key);
+
     //UI相关
 private:
     BP_Texture* square_;
@@ -157,6 +159,7 @@ public:
     //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
     std::vector<std::string> splitString(const std::string& s, const std::string& delim);
     int showMessage(const std::string& content);
+    void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);
 public:
     //标题;
     std::string title_ = "All Heros in Kam Yung Stories";

@@ -9,7 +9,7 @@ UIItem::UIItem()
         auto b = new Button();
         item_buttons_[i] = b;
         b->setPosition(i % 7 * 85 + 40, i / 7 * 85 + 100);
-        b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
+        //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
         addChild(b);
     }
     title_ = new MenuText();
