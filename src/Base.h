@@ -57,7 +57,8 @@ public:
 
     //static Base* getCurentBase() { return root_.at(0); }
 
-    void addChild(Base* b, int x = 0, int y = 0);
+    void addChild(Base* b);
+    void addChildOnPosition(Base* b, int x = 0, int y = 0);
     void removeChild(Base* b);
     void clearChilds();   //不推荐
 
@@ -69,7 +70,7 @@ public:
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
     }
 
-    int run(bool in_root = true);                                          //执行本层
+    int run(bool in_root = true);                       //执行本层
 
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层

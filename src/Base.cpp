@@ -40,7 +40,9 @@ void Base::drawAll()
     {
         auto b = Base::root_[i];
         if (b->visible_)
-        { b->drawSelfAndChilds(); }
+        {
+            b->drawSelfAndChilds();
+        }
     }
 }
 
@@ -117,21 +119,14 @@ Base* Base::removeFromRoot(Base* b)
     return b;
 }
 
-void Base::drawSelfAndChilds()
-{
-    if (visible_)
-    {
-        draw();
-        for (auto c : childs_)
-        {
-            if (c->visible_) { c->draw(); }
-        }
-    }
-}
-
-void Base::addChild(Base* b, int x, int y)
+void Base::addChild(Base* b)
 {
     childs_.push_back(b);
+}
+
+void Base::addChildOnPosition(Base* b, int x /*= 0*/, int y /*= 0*/)
+{
+    addChild(b);
     b->setPosition(x_ + x, y_ + y);
 }
 
@@ -155,6 +150,18 @@ void Base::clearChilds()
         delete c;
     }
     childs_.clear();
+}
+
+void Base::drawSelfAndChilds()
+{
+    if (visible_)
+    {
+        draw();
+        for (auto c : childs_)
+        {
+            if (c->visible_) { c->drawSelfAndChilds(); }
+        }
+    }
 }
 
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
@@ -184,6 +191,7 @@ void Base::checkStateAndEvent(BP_Event& e)
             state_ = Press;
         }
     }
+    //注意下个时序才会画，所以可以在dealEvent中改变原有状态
     dealEvent(e);
 }
 

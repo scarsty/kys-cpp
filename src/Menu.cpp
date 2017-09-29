@@ -49,7 +49,7 @@ void MenuText::setStrings(std::vector<std::string> strings)
         if (str.length() > len) { len = str.length(); }
         auto b = new Button();
         b->setText(str);
-        addChild(b, 0, i * 25);
+        addChildOnPosition(b, 0, i * 25);
         i++;
     }
     w_ = 10 * len;

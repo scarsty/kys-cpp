@@ -16,27 +16,33 @@ UI::UI()
     ui_skill_ = new UISkill();
     ui_item_ = new UIItem();
     ui_system_ = new UISystem();
-    addChild(ui_status_, 300, 0);
+    ui_status_->setPosition(300, 0);
+    ui_skill_->setPosition(300, 0);
+    ui_item_->setPosition(300, 0);
+    ui_system_->setPosition(300, 0);
+    addChild(ui_status_);
 
     //貌似这里不能直接调用其他单例，静态量的创建顺序不确定
     button_status_ = new Button("mmap", 2022);
     button_skill_ = new Button("mmap", 2023);
     button_item_ = new Button("mmap", 2024);
     button_system_ = new Button("mmap", 2025);
-    addChild(button_status_, 710, 20);
-    addChild(button_skill_, 710, 60);
-    addChild(button_item_, 710, 100);
-    addChild(button_system_, 710, 140);
+    addChildOnPosition(button_status_, 710, 20);
+    addChildOnPosition(button_skill_, 710, 60);
+    addChildOnPosition(button_item_, 710, 100);
+    addChildOnPosition(button_system_, 710, 140);
 
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = new Head();
-        addChild(h, 10, i * 80);
+        addChildOnPosition(h, 10, i * 80);
         h->setSize(200, 80);
         heads_.push_back(h);
     }
     heads_[0]->setState(Pass);
     instance_ = true;
+
+    result_ = -1; //非负：物品id，负数：其他情况，再定
 }
 
 
@@ -50,7 +56,7 @@ void UI::entrance()
 
 void UI::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 64 }, 0, 0, -1, -1);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         heads_[i]->setRole(Save::getInstance()->getTeamMate(i));
@@ -68,8 +74,14 @@ void UI::draw()
 
 void UI::dealEvent(BP_Event& e)
 {
-    if (e.type == BP_MOUSEBUTTONUP)
+    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
+        //这里检测是否使用了物品，返回物品的id
+        if (childs_[0] == ui_item_)
+        {
+            result_ = ui_item_->getResult();
+            loop_ = false;
+        }
         if (button_status_->getState() == Press) { childs_[0] = ui_status_; }
         if (button_skill_->getState() == Press) { childs_[0] = ui_skill_; }
         if (button_item_->getState() == Press) { childs_[0] = ui_item_; }
