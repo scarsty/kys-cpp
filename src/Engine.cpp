@@ -74,7 +74,7 @@ void Engine::renderCopy(BP_Texture* t, BP_Rect rect0, BP_Rect rect1, int inPrese
 void Engine::destroy()
 {
     //SDL_DestroyTexture(tex_);
-    destroyMainTexture();
+    destroyAssistTexture();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
 }
@@ -328,7 +328,6 @@ int Engine::init(void* handle)
     max_y_ = r.h + r.y;
 #endif
 
-    createMainTexture(640, 400);
     printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
 
     return 0;
@@ -380,7 +379,7 @@ bool Engine::setKeepRatio(bool b)
 }
 
 //创建一个专用于画场景的，后期放大
-void Engine::createMainTexture(int w, int h)
+void Engine::createAssistTexture(int w, int h)
 {
     //tex_ = createYUVTexture(w, h);
     tex2_ = createARGBRenderedTexture(w, h);
@@ -535,7 +534,7 @@ void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
     SDL_RenderFillRect(renderer_, &r);
 }
 
-void Engine::renderMainTextureToWindow()
+void Engine::renderAssistTextureToWindow()
 {
     SDL_SetRenderTarget(renderer_, nullptr);
     SDL_RenderCopy(renderer_, tex2_, nullptr, nullptr);

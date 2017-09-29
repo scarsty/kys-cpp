@@ -109,7 +109,9 @@ std::string convert::findANumber(const std::string& s)
             if (c == '.')
             {
                 if (!findPoint)
-                { n += c; }
+                {
+                    n += c;
+                }
                 findPoint = true;
             }
             if (c == 'e' || c == 'E')
@@ -124,7 +126,9 @@ std::string convert::findANumber(const std::string& s)
         else
         {
             if (findNumber)
-            { break; }
+            {
+                break;
+            }
         }
     }
     return n;

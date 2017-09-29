@@ -313,9 +313,13 @@ bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/
     {
         int id;
         if (t != None)
-        { id = record_->Event(x, y)->Event1; }
+        {
+            id = record_->Event(x, y)->Event1;
+        }
         else
-        { id = record_->Event(x, y)->Event3; }
+        {
+            id = record_->Event(x, y)->Event3;
+        }
         if (id > 0)
         {
             return Event::getInstance()->callEvent(id, this, record_->ID, item_id, event_index_submap, x, y);

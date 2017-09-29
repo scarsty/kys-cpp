@@ -80,37 +80,27 @@ public:
     void setWindowTitle(const std::string& str) { SDL_SetWindowTitle(window_, str.c_str()); }
     BP_Renderer* getRenderer() { return renderer_; }
 
-    void createMainTexture(int w, int h);
-
+    void createAssistTexture(int w, int h);
     void setPresentPosition();  //设置贴图的位置
-
     void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }
-
     void getMainTextureSize(int& w, int& h) { SDL_QueryTexture(tex2_, nullptr, nullptr, &w, &h); }
-
-    void destroyMainTexture() { destroyTexture(tex2_); }
-
+    void destroyAssistTexture() { if (tex2_) { destroyTexture(tex2_); } }
     static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
-
     BP_Texture* createYUVTexture(int w, int h);;
     void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
-
     BP_Texture* createARGBTexture(int w, int h);
     BP_Texture* createARGBRenderedTexture(int w, int h);
     void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
-
     void renderCopy(BP_Texture* t = nullptr);
     void showLogo() { SDL_RenderCopy(renderer_, logo_, nullptr, nullptr); }
     void renderPresent() { SDL_RenderPresent(renderer_); /*renderClear();*/ }
     void renderClear() { SDL_RenderClear(renderer_); }
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
-
     void setRenderTarget(BP_Texture* t) { SDL_SetRenderTarget(renderer_, t); }
     void resetRenderTarget() { SDL_SetRenderTarget(renderer_, nullptr); }
-
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
@@ -126,9 +116,8 @@ public:
     void setRatio(int x, int y) { ratio_x_ = x; ratio_y_ = y; }
     void setColor(BP_Texture* tex, BP_Color c, uint8_t alpha);
     void fillColor(BP_Color color, int x, int y, int w, int h);
-
-    void setRenderMainTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
-    void renderMainTextureToWindow();
+    void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
+    void renderAssistTextureToWindow();
 
     //声音相关
 private:
@@ -139,7 +128,6 @@ public:
     void closeAudio() { SDL_CloseAudioDevice(device_); };
     int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; };
     void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume);
-
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
     static void mixAudioCallback(void* userdata, Uint8* stream, int len);
     void setAudioCallback(AudioCallback cb = nullptr) { callback_ = cb; };

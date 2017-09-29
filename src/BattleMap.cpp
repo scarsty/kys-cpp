@@ -903,7 +903,7 @@ bool BattleMap::initBattleRoleState()
     BattleData::getInstance()->m_vcBattleRole.resize(MaxBRoleNum);
     for (int i = 0; i < MaxBRoleNum; i++)
     {
-        m_vcBattleRole[i].setPosition(-1,-1);
+        m_vcBattleRole[i].setPosition(-1, -1);
         m_vcBattleRole[i].Show = 1;
     }
     m_nBStatus = 0;

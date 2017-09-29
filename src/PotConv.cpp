@@ -25,7 +25,9 @@ std::string PotConv::conv(const std::string& src, const char* from, const char* 
     cd = iconv_open(to, from);
     if (cd <= 0) { return ""; }
     if (iconv(cd, &pin, &inlen, &pout, &outlen) == -1)
-    { out[0] = '\0'; }
+    {
+        out[0] = '\0';
+    }
     iconv_close(cd);
     return out;
     return src;

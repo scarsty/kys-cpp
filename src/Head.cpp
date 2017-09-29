@@ -43,7 +43,7 @@ void Head::draw()
     Font::getInstance()->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 15, x_ + 138, y_ + 28, { 255, 255, 255, 255 });
 
     r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
-     c = { 200, 200, 200, 255 };
+    c = { 200, 200, 200, 255 };
     if (role_->MPType == 0)
     {
         c = { 112, 12, 112, 255 };

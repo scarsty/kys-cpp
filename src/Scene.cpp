@@ -72,7 +72,7 @@ Towards Scene::CallFace(int x1, int y1, int x2, int y2)
 void Scene::FindWay(int Mx, int My, int Fx, int Fy)
 {
     bool visited[479][479] = { false };                                 //已访问标记(关闭列表)
-    int dirs[4][2] = { { -1, 0 },{ 0, 1 },{ 0, -1 },{ 1, 0 } };      //四个方向
+    int dirs[4][2] = { { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 0 } };   //四个方向
     auto myPoint = new PointEx();
     myPoint->x = Mx;
     myPoint->y = My;

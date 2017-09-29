@@ -45,7 +45,9 @@ MainMap::MainMap() :
 MainMap::~MainMap()
 {
     for (int i = 0; i < cloud_vector_.size(); i++)
-    { delete cloud_vector_[i]; }
+    {
+        delete cloud_vector_[i];
+    }
 }
 
 void MainMap::divide2(MapArray& m)
@@ -58,7 +60,7 @@ void MainMap::divide2(MapArray& m)
 
 void MainMap::draw()
 {
-    Engine::getInstance()->setRenderMainTexture();
+    Engine::getInstance()->setRenderAssistTexture();
     //LOG("main\n");
     int k = 0;
     auto t0 = Engine::getInstance()->getTicks();
@@ -82,10 +84,14 @@ void MainMap::draw()
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
                 if (Earth(i1, i2) > 0)
-                { TextureManager::getInstance()->renderTexture("mmap", Earth(i1, i2), p.x, p.y); }
+                {
+                    TextureManager::getInstance()->renderTexture("mmap", Earth(i1, i2), p.x, p.y);
+                }
 #endif
                 if (Surface(i1, i2) > 0)
-                { TextureManager::getInstance()->renderTexture("mmap", Surface(i1, i2), p.x, p.y); }
+                {
+                    TextureManager::getInstance()->renderTexture("mmap", Surface(i1, i2), p.x, p.y);
+                }
                 if (Building(i1, i2) > 0)
                 {
                     auto t = Building(i1, i2);
@@ -121,7 +127,9 @@ void MainMap::draw()
         }
     }
     for (auto i = map.begin(); i != map.end(); i++)
-    { TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y); }
+    {
+        TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
+    }
     auto t1 = Engine::getInstance()->getTicks();
     //云的贴图
     for (auto& c : cloud_vector_)
@@ -130,7 +138,7 @@ void MainMap::draw()
         c->setPositionOnScreen(man_x_, man_y_, screen_center_x_, screen_center_y_);
     }
     //log("%d\n", t1 - t0);
-    Engine::getInstance()->renderMainTextureToWindow();
+    Engine::getInstance()->renderAssistTextureToWindow();
 }
 
 //计时器，负责画图以及一些其他问题
@@ -177,7 +185,9 @@ void MainMap::dealEvent(BP_Event& e)
         }
     }
     else
-    { total_step_ = 0; }
+    {
+        total_step_ = 0;
+    }
     rest_time_++;
 
     //鼠标寻路，未完成
@@ -225,16 +235,22 @@ bool MainMap::isBuilding(int x, int y)
 {
 
     if (Building(BuildX(x, y), BuildY(x, y)) > 0)
-    { return  true; }
+    {
+        return  true;
+    }
     else
-    { return false; }
+    {
+        return false;
+    }
 }
 
 bool MainMap::isWater(int x, int y)
 {
     auto pic = Earth(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
-    { return true; }
+    {
+        return true;
+    }
     else if (pic >= 179 && pic <= 181
         || pic >= 253 && pic <= 335
         || pic >= 508 && pic <= 511)
@@ -242,7 +258,9 @@ bool MainMap::isWater(int x, int y)
         return true;
     }
     else
-    { return false; }
+    {
+        return false;
+    }
 }
 
 bool MainMap::isOutLine(int x, int y)
@@ -253,9 +271,13 @@ bool MainMap::isOutLine(int x, int y)
 bool MainMap::canWalk(int x, int y)
 {
     if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
-    { return false; }
+    {
+        return false;
+    }
     else
-    { return true; }
+    {
+        return true;
+    }
 }
 
 bool MainMap::checkEntrance(int x, int y)

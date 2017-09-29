@@ -21,7 +21,7 @@ public:
 
     const int max_X = 17280;
     const int max_Y = 8640;
-    enum { num_style_ = 10 };
+    const int num_style_ = 10;
     int num_;
 
     BP_Color color_;
