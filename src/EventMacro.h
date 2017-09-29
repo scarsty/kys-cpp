@@ -68,7 +68,7 @@
 
 #define instruct_40 setTowards
 #define instruct_41 roleGetItem
-#define instruct_42 judgeFemaleInTeam
+#define instruct_42 checkFemaleInTeam
 #define instruct_43 haveItemBool
 #define instruct_44 play2Amination
 #define instruct_45 addSpeed

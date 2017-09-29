@@ -36,7 +36,9 @@ bool Event::loadEventData()
     for (int i = 0; i < offset.back(); i++)
     {
         if (talk[i])
-        { talk[i] = talk[i] ^ 0xff; }
+        {
+            talk[i] = talk[i] ^ 0xff;
+        }
     }
     for (int i = 0; i < length.size(); i++)
     {
@@ -50,7 +52,7 @@ bool Event::loadEventData()
     kdef_.resize(length.size());
     for (int i = 0; i < length.size(); i++)
     {
-        kdef_[i].resize(length[i] / sizeof(int16_t), -1);  //20¸ö-1ÊÇ»º³åÇø
+        kdef_[i].resize(length[i] / sizeof(int16_t), -1);
         for (int k = 0; k < length[i] / sizeof(int16_t); k++)
         {
             kdef_[i][k] = *(int16_t*)(kdef + offset[i] + k * 2);
@@ -104,9 +106,13 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
         case 6:
             //BOOL_INSTRUCT_2(6, e, i, tryBattle);
             if (tryBattle(e[i + 1], e[i + 4]))
-            { i += e[i + 2]; }
+            {
+                i += e[i + 2];
+            }
             else
-            { i += e[i + 3]; }
+            {
+                i += e[i + 3];
+            }
             i += 5;
             break;
         case 7:
@@ -150,7 +156,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
 
             VOID_INSTRUCT_1(40, e, i, setTowards);
             VOID_INSTRUCT_3(41, e, i, roleGetItem);
-            BOOL_INSTRUCT_0(42, e, i, judgeFemaleInTeam);
+            BOOL_INSTRUCT_0(42, e, i, checkFemaleInTeam);
             BOOL_INSTRUCT_1(43, e, i, haveItemBool);
             VOID_INSTRUCT_6(44, e, i, play2Amination);
             VOID_INSTRUCT_2(45, e, i, addSpeed);
@@ -438,7 +444,9 @@ bool Event::checkRoleAttack(int role_id, int low, int high)
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
     if (submap_)
-    { submap_->setPosition(x1, y1); }
+    {
+        submap_->setPosition(x1, y1);
+    }
 }
 
 bool Event::checkEnoughMoney(int money_count)
@@ -493,7 +501,14 @@ void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int le
 
 bool Event::checkRoleSexual(int sexual)
 {
-    return false;
+    if (sexual <= 255)
+    {
+        return save_->getRole(0)->Sexual == sexual;
+    }
+    else
+    {
+        return x50[0x7000] == 0;
+    }
 }
 
 void Event::addMorality(int value)
@@ -534,7 +549,7 @@ void Event::roleGetItem(int role_id, int item_id, int count)
 
 }
 
-bool Event::judgeFemaleInTeam()
+bool Event::checkFemaleInTeam()
 {
     for (auto r : save_->Team)
     {
@@ -651,9 +666,11 @@ void Event::breakStoneGate()
 
 void Event::fightForTop()
 {
-    std::vector<int> heads = { 8, 21, 23, 31, 32, 43, 7, 11, 14, 20, 33, 34, 10, 12, 19,
+    std::vector<int> heads =
+    {
+        8, 21, 23, 31, 32, 43, 7, 11, 14, 20, 33, 34, 10, 12, 19,
         22, 56, 68, 13, 55, 62, 67, 70, 71, 26, 57, 60, 64, 3, 69
-                     };
+    };
 
 }
 
@@ -667,6 +684,17 @@ void Event::allLeave()
 
 bool Event::checkSubMapPic(int submap_id, int event_index, int pic)
 {
+    auto s = getSubMapRecordFromID(submap_id);
+    if (s)
+    {
+        auto e = s->Event(event_index);
+        {
+            if (e)
+            {
+                return (e->CurrentPic == pic || e->BeginPic == pic || e->EndPic == pic);
+            }
+        }
+    }
     return false;
 }
 
@@ -675,7 +703,9 @@ bool Event::check14BooksPlaced()
     for (int i = 11; i <= 24; i++)
     {
         if (submap_record_->Event(i)->CurrentPic != 4664)
-        { return false; }
+        {
+            return false;
+        }
     }
     return true;
 }
@@ -698,5 +728,77 @@ void Event::playMusic(int music_id)
 void Event::playWave(int wave_id)
 {
     Audio::getInstance()->playSound(wave_id);
+}
+
+int Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6)
+{
+    switch (code)
+    {
+    case 0: break;
+    case 1: break;
+    case 2: break;
+    case 3: break;
+    case 4: break;
+    case 5: break;
+    case 6: break;
+    case 7: break;
+    case 8: break;
+    case 9: break;
+    case 10: break;
+    case 11: break;
+    case 12: break;
+    case 13: break;
+    case 14: break;
+    case 15: break;
+    case 16: break;
+    case 17: break;
+    case 18: break;
+    case 19: break;
+    case 20: break;
+    case 21: break;
+    case 22: break;
+    case 23: break;
+    case 24: break;
+    case 25: break;
+    case 26: break;
+    case 27: break;
+    case 28: break;
+    case 29: break;
+    case 30: break;
+    case 31: break;
+    case 32: break;
+    case 33: break;
+    case 34: break;
+    case 35: break;
+    case 36: break;
+    case 37: break;
+    case 38: break;
+    case 39: break;
+    case 40: break;
+    case 41: break;
+    case 42: break;
+    case 43: break;
+    case 44: break;
+    case 45: break;
+    case 46: break;
+    case 47: break;
+    case 48: break;
+    case 49: break;
+    case 50: break;
+    case 51: break;
+    case 52: break;
+    case 53: break;
+    case 54: break;
+    case 55: break;
+    case 56: break;
+    case 57: break;
+    case 58: break;
+    case 59: break;
+    case 60: break;
+
+    default:
+        break;
+    }
+    return 0;
 }
 

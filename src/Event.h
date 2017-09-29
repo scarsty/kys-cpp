@@ -95,7 +95,7 @@ public:
     void openSubMap(int submap_id);
     void setTowards(int towards);
     void roleGetItem(int role_id, int item_id, int count);
-    bool judgeFemaleInTeam();
+    bool checkFemaleInTeam();
     void play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2);
     void addSpeed(int role_id, int value);
     void addMP(int role_id, int value);
@@ -127,10 +127,14 @@ public:
     {
         int i = t & (1 << bit);
         if (i == 0)
-        { return x; }
+        {
+            return x;
+        }
         else
-        { return x50[x]; }
+        {
+            return x50[x];
+        }
     }
-    int instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6) { return 8; }
+    int instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6);
 };
 
