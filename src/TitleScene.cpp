@@ -69,8 +69,8 @@ void TitleScene::entrance()
 {
     Save::getInstance()->LoadR(2);
 	Audio::getInstance()->init();
-	Audio::getInstance()->playMusic(1);
-	Audio::getInstance()->playESound(1);
+	Audio::getInstance()->playMusic(3);
+	//Audio::getInstance()->playESound(1);
 //     auto m = new MainMap();
 //     m->run();
 }
