@@ -56,7 +56,7 @@ void UI::entrance()
 
 void UI::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 64 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         heads_[i]->setRole(Save::getInstance()->getTeamMate(i));

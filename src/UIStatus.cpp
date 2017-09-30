@@ -19,26 +19,29 @@ void UIStatus::draw()
 
     TextureManager::getInstance()->renderTexture("head", role_->HeadNum, x_, y_);
 
-	Font::getInstance()->draw(convert::formatString("%s", role_->Name), 30, 320, 150, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("等级%5d", role_->Level), 30, 320, 190, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("生命%5d/%5d",role_->HP, role_->MaxHP), 30, 320, 230, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("内力%5d/%5d", role_->MP, role_->MaxMP), 30, 320, 270, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("体力%5d/%5d", role_->IncLife, role_->IncLife), 30, 320, 310, { 255, 255, 255, 255 });//需要修改
-	Font::getInstance()->draw(convert::formatString("经验%10d", role_->Exp), 30, 320, 350, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("升级%10d", role_->Exp), 30, 320, 390, { 255, 255, 255, 255 });//需要修改
+    auto font = Font::getInstance();
+    BP_Color color = { 255, 255, 255, 255 };
+    const int font_size = 30;
+    font->draw(convert::formatString("%s", role_->Name), font_size, x_ + 20, y_ + 150, color);
+    font->draw(convert::formatString("等級%5d", role_->Level), font_size, x_ + 20, y_ + 190, color);
+    font->draw(convert::formatString("生命%5d/%5d", role_->HP, role_->MaxHP), font_size, x_ + 20, y_ + 230, color);
+    font->draw(convert::formatString("內力%5d/%5d", role_->MP, role_->MaxMP), font_size, x_ + 20, y_ + 270, color);
+    font->draw(convert::formatString("體力%5d/%5d", role_->PhysicalPower, 100), font_size, x_ + 20, y_ + 310, color);
+    font->draw(convert::formatString("經驗%10d", role_->Exp), font_size, x_ + 20, y_ + 350, color);
+    font->draw(convert::formatString("升級%10d", role_->Exp), font_size, x_ + 20, y_ + 390, color);//这个再说
 
-	Font::getInstance()->draw(convert::formatString("攻击%10d", role_->Attack), 30, 600, 150, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("防御%10d", role_->Defence), 30, 600, 190, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("轻功%10d", role_->Speed), 30, 600, 230, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("移动%10d", role_->Morality), 30, 600, 270, { 255, 255, 255, 255 });//需要修改
-	Font::getInstance()->draw(convert::formatString("医疗能力%10d", role_->Medcine), 30, 600, 310, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("用毒能力%10d", role_->UsePoison), 30, 600, 350, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("解毒能力%10d", role_->Detoxification), 30, 600, 390, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("拳掌功夫%10d", role_->Fist), 30, 600, 430, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("御剑能力%10d", role_->Sword), 30, 600, 470, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("耍刀能力%10d", role_->Knife), 30, 600, 510, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("特殊兵器%10d", role_->Unusual), 30, 600, 550, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("暗器技巧%10d", role_->HiddenWeapon), 30, 600, 690, { 255, 255, 255, 255 });
+    font->draw(convert::formatString("攻擊%10d", role_->Attack), font_size, x_ + 300, y_ + 150, color);
+    font->draw(convert::formatString("防禦%10d", role_->Defence), font_size, x_ + 300, y_ + 190, color);
+    font->draw(convert::formatString("輕功%10d", role_->Speed), font_size, x_ + 300, y_ + 230, color);
+    //font->draw(convert::formatString("移動%10d", role_->Morality), font_size, x_ + 300, y_ + 270, color);//原版不存在
+    font->draw(convert::formatString("醫療能力%10d", role_->Medcine), font_size, x_ + 300, y_ + 310, color);
+    font->draw(convert::formatString("用毒能力%10d", role_->UsePoison), font_size, x_ + 300, y_ + 350, color);
+    font->draw(convert::formatString("解毒能力%10d", role_->Detoxification), font_size, x_ + 300, y_ + 390, color);
+    font->draw(convert::formatString("拳掌功夫%10d", role_->Fist), font_size, x_ + 300, y_ + 430, color);
+    font->draw(convert::formatString("御劍能力%10d", role_->Sword), font_size, x_ + 300, y_ + 470, color);
+    font->draw(convert::formatString("耍刀能力%10d", role_->Knife), font_size, x_ + 300, y_ + 510, color);
+    font->draw(convert::formatString("特殊兵器%10d", role_->Unusual), font_size, x_ + 300, y_ + 550, color);
+    font->draw(convert::formatString("暗器技巧%10d", role_->HiddenWeapon), font_size, x_ + 300, y_ + 690, color);
 
 
 }

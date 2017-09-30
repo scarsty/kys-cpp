@@ -8,12 +8,15 @@ Scene::Scene()
     Engine::getInstance()->getMainTextureSize(screen_center_x_, screen_center_y_);
     screen_center_x_ /= 2;
     screen_center_y_ /= 2;
-    view_width_region_ = screen_center_x_ / SUBMAP_TILE_W / 2 + 3;
-    view_sum_region_ = screen_center_y_ / SUBMAP_TILE_H + 2;
+    view_width_region_ = screen_center_x_ / TILE_W / 2 + 3;
+    view_sum_region_ = screen_center_y_ / TILE_H + 2;
 }
 
-
 Scene::~Scene()
+{
+}
+
+void Scene::checkWalk(int x, int y, BP_Event& e)
 {
 }
 
@@ -22,8 +25,8 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
     Point p;
     x = x - CenterX;
     y = y - CenterY;
-    p.x = -y * SUBMAP_TILE_W + x * SUBMAP_TILE_W + screen_center_x_;
-    p.y = y * SUBMAP_TILE_H + x * SUBMAP_TILE_H + screen_center_y_;
+    p.x = -y * TILE_W + x * TILE_W + screen_center_x_;
+    p.y = y * TILE_H + x * TILE_H + screen_center_y_;
     return p;
 }
 
@@ -65,6 +68,31 @@ Towards Scene::CallFace(int x1, int y1, int x2, int y2)
                 return RightUp;
             }
         }
+    }
+}
+
+void Scene::getTowardsFromKey(BP_Keycode key)
+{
+    switch (key)
+    {
+    case BPK_LEFT: towards_ = LeftDown; break;
+    case BPK_RIGHT: towards_ = RightUp; break;
+    case BPK_UP: towards_ = LeftUp; break;
+    case BPK_DOWN: towards_ = RightDown; break;
+    }
+}
+
+void Scene::getTowardsPosition(int x0, int y0, Towards tw, int* x1, int* y1)
+{
+    if (towards_ == None) { return; }
+    *x1 = x0;
+    *y1 = y0;
+    switch (towards_)
+    {
+    case LeftDown: (*x1)--; break;
+    case RightUp: (*x1)++; break;
+    case LeftUp: (*y1)--; break;
+    case RightDown: (*y1)++; break;
     }
 }
 
@@ -151,4 +179,5 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     }
     myPoint->delTree(myPoint);
 }
+
 

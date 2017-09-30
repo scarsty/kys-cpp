@@ -88,6 +88,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
     bool loop = true;
     int i = 0;
     auto e = kdef_[event_id];
+    e.resize(e.size() + 20);  //后面的是缓冲区，避免出错
     LOG("%d: ", event_id);
     for (auto c : e)
     {
@@ -173,7 +174,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             }
             else
             {
-                instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]);
+                instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], &e[i + 8]);
             }
             i += 8;
             break;
@@ -483,6 +484,17 @@ void Event::getItemWithoutHint(int item_id, int count)
         save_->Items[pos].item_id == item_id;
         save_->Items[pos].count == count;
     }
+    //当物品数量为负，需要整理背包
+    if (save_->Items[pos].count <= 0)
+    {
+        for (int i=pos;i<ITEM_IN_BAG_COUNT-1;i++)
+        {
+            save_->Items[i].item_id = save_->Items[i+1].item_id;
+            save_->Items[i].count = save_->Items[i+1].count;
+        }
+        save_->Items[ITEM_IN_BAG_COUNT - 1].item_id = -1;
+        save_->Items[ITEM_IN_BAG_COUNT - 1].count = 0;
+    }
 }
 
 void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
@@ -731,11 +743,19 @@ void Event::playWave(int wave_id)
     Audio::getInstance()->playASound(wave_id);
 }
 
-int Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6)
+void Event::arrangeBag()
+{
+
+}
+
+void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
 {
     switch (code)
     {
-    case 0: break;
+    case 0:
+        //赋值
+        x50[e1] = e2;
+        break;
     case 1: break;
     case 2: break;
     case 3: break;
@@ -800,6 +820,5 @@ int Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6
     default:
         break;
     }
-    return 0;
 }
 

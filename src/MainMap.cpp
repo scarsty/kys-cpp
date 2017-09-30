@@ -39,7 +39,7 @@ MainMap::MainMap() :
         cloud_vector_.push_back(c);
         c->initRand();
     }
-    getEntrance();
+    //getEntrance();
 }
 
 MainMap::~MainMap()
@@ -113,7 +113,7 @@ void MainMap::draw()
                     }
                     else
                     {
-                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_ + 1;  //每个方向的第一张是静止图
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;  //每个方向的第一张是静止图
                         if (rest_time_ >= BEGIN_REST_TIME)
                         {
                             man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
@@ -178,16 +178,18 @@ void MainMap::dealEvent(BP_Event& e)
             Engine::getInstance()->delay(50);
         }
         total_step_++;
-        if (checkEntrance(x, y))
-        {
-            clearEvent(e);
-            total_step_ = 0;
-        }
     }
     else
     {
         total_step_ = 0;
     }
+
+    if (pressed && checkEntrance(x, y))
+    {
+        clearEvent(e);
+        total_step_ = 0;
+    }
+
     rest_time_++;
 
     //鼠标寻路，未完成
@@ -200,7 +202,6 @@ void MainMap::dealEvent(BP_Event& e)
         //    FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
         //}
     }
-
 }
 
 void MainMap::entrance()
@@ -226,7 +227,10 @@ void MainMap::tryWalk(int x, int y, Towards t)
     }
     else
     {
-        step_ = step_ % (MAN_PIC_COUNT - 1);
+        if (step_ >= MAN_PIC_COUNT)
+        {
+            step_ = 1;
+        }
     }
     rest_time_ = 0;
 }
@@ -352,14 +356,4 @@ bool MainMap::isOutScreen(int x, int y)
 {
     return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }
-
-void MainMap::getMousePosition(int _x, int _y)
-{
-    int x = _x;
-    int y = _y;
-    int yp = 0;
-    mouse_x_ = (-(x - screen_center_x_) / MAINMAP_TILE_W + (y + yp - screen_center_y_) / MAINMAP_TILE_H) / 2 + man_x_;
-    mouse_y_ = ((y + yp - screen_center_y_) / MAINMAP_TILE_H + (x - screen_center_x_) / MAINMAP_TILE_W) / 2 + man_y_;
-}
-
 

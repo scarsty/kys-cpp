@@ -30,8 +30,9 @@ void SubMap::draw()
     int k = 0;
     struct DrawInfo { int i; Point p; };
     //std::map<int, DrawInfo> map;
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
+    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_*2, screen_center_y_*2);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -93,7 +94,7 @@ void SubMap::draw()
                 {
                     if (man_pic_ != -1)
                     {
-                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;  //每个方向的第一张是静止图
                         TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                     }
                 }
@@ -118,123 +119,89 @@ void SubMap::draw()
             //k++;
         }
     }
+    Engine::getInstance()->renderAssistTextureToWindow();
 }
 
 void SubMap::dealEvent(BP_Event& e)
 {
+    //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
-    //drawCount++;
-    if (e.type == BP_MOUSEBUTTONUP)
+    //功能键
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
+        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
     {
-        getMousePosition(e.button.x, e.button.y);
-        stopFindWay();
-        if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
+        UI::getInstance()->run();
+        clearEvent(e);
+    }
+
+    //键盘走路部分，检测4个方向键
+    int pressed = 0;
+    for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
+    {
+        if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
         {
-            FindWay(view_x_, view_y_, mouse_x_, mouse_y_);
+            pressed = i;
         }
     }
-    if (!way_que_.empty())
+    if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
     {
-        PointEx newMyPoint = way_que_.back();
-        x = newMyPoint.x;
-        y = newMyPoint.y;
-        isExit(x, y);
-        Towards myTowards = (Towards)(newMyPoint.towards);
-        //log("myTowards=%d", myTowards);
-        tryWalk(x, y, myTowards);
-        way_que_.pop_back();
-        //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+        pressed = pre_pressed_;
     }
-    if (e.type == BP_KEYDOWN)
+    pre_pressed_ = pressed;
+
+    if (pressed)
     {
-        //这部分冗余太多，待清理
-        switch (e.key.keysym.sym)
+        getTowardsFromKey(pressed);
+        getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+        tryWalk(x, y, towards_);
+        if (total_step_ <= 1)
         {
-        case BPK_LEFT:
-        {
-            x--;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, LeftDown);
-            stopFindWay();
-            break;
+            Engine::getInstance()->delay(50);
         }
-        case BPK_RIGHT:
-        {
-            x++;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, RightUp);
-            stopFindWay();
-            break;
-        }
-        case BPK_UP:
-        {
-            y--;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, LeftUp);
-            stopFindWay();
-            break;
-        }
-        case BPK_DOWN:
-        {
-            y++;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, RightDown);
-            stopFindWay();
-            break;
-        }
-        case BPK_ESCAPE:
-        {
-            stopFindWay();
-            break;
-        }
-        case BPK_RETURN:
-        case BPK_SPACE:
-        {
-            /* stopFindWay();
-             ReSetEventPosition(x, y);
-             if (current_submap_->Building();
-             Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y] >= 0)
-                 if (Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1 >= 0)
-                     EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1);
-            */
-            break;
-        }
-        case SDLK_b:
-        {
-            auto s = new BattleMap();
-            addOnRootTop(s);
-            break;
-        }
-        default:
-        {
-        }
-        }
+        total_step_++;
     }
-    if (e.type == BP_KEYUP)
+    else
     {
-        if (e.key.keysym.sym == BPK_ESCAPE)
+        total_step_ = 0;
+    }
+
+    if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+    {
+        if (checkEvent1(x, y, towards_))
         {
-            UI::getInstance()->run();
             clearEvent(e);
-        }
-        if (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)
-        {
-            if (checkEvent1(x, y, towards_)) { clearEvent(e); }
+            step_ = 0;
         }
     }
     checkEvent3(x, y);
+    if (isExit(x, y))
+    {
+        clearEvent(e);
+        total_step_ = 0;
+    }
+
+    //鼠标寻路，未完成
+    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+    {
+        //getMousePosition(e.button.x, e.button.y);
+        //stopFindWay();
+        //if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
+        //{
+        //    FindWay(view_x_, view_y_, mouse_x_, mouse_y_);
+        //}
+    }
+    //if (!way_que_.empty())
+    //{
+    //    PointEx newMyPoint = way_que_.back();
+    //    x = newMyPoint.x;
+    //    y = newMyPoint.y;
+    //    isExit(x, y);
+    //    Towards myTowards = (Towards)(newMyPoint.towards);
+    //    //log("myTowards=%d", myTowards);
+    //    tryWalk(x, y, myTowards);
+    //    way_que_.pop_back();
+    //    //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+    //}
 }
 
 void SubMap::backRun()
@@ -291,18 +258,16 @@ void SubMap::tryWalk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        setPosition(x, y);
+        man_x_ = x;
+        man_y_ = y;
+        view_x_ = x;
+        view_y_ = y;
     }
-    if (Scene::towards_ != t)
+    step_++;
+    if (step_ >= MAN_PIC_COUNT)
     {
-        Scene::towards_ = t;
-        step_ = 0;
+        step_ = 1;
     }
-    else
-    {
-        step_++;
-    }
-    step_ = step_ % MAN_PIC_COUNT;
 }
 
 bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
@@ -315,6 +280,7 @@ bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/
         if (t != None)
         {
             id = record_->Event(x, y)->Event1;
+            if (id > 0) { step_ = 0; }
         }
         else
         {
@@ -436,8 +402,8 @@ void SubMap::getMousePosition(int _x, int _y)
 Point SubMap::getPositionOnWholeEarth(int x, int y)
 {
     auto p = getPositionOnScreen(x, y, 0, 0);
-    p.x += COORD_COUNT * SUBMAP_TILE_W - screen_center_x_;
-    p.y += 2 * SUBMAP_TILE_H - screen_center_y_;
+    p.x += COORD_COUNT * TILE_W - screen_center_x_;
+    p.y += 2 * TILE_H - screen_center_y_;
     return p;
 }
 

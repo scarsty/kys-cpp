@@ -24,8 +24,7 @@ public:
     static bool data_readed_;
 
     int16_t& man_x_, &man_y_;
-    int step_ = 0;
-    int man_pic_;
+
     int rest_time_ = 0;                     //停止操作的时间
 
     int MAN_PIC_0 = 2501;                   //初始主角图偏移量
@@ -58,9 +57,5 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
-    bool checkEntrance(int x, int y);
-    void getMousePosition(int _x, int _y);
-
-    int total_step_ = 0;
-    BP_Keycode pre_pressed_;
+    bool checkEntrance(int x, int y);    //主地图主要是检测入口
 };

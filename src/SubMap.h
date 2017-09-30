@@ -10,10 +10,9 @@ public:
     SubMap(int num);
     virtual ~SubMap();
 
-    int view_x_ = 0, view_y_ = 0;
     int16_t& man_x_, &man_y_;
-    int man_pic_;
-    int step_ = 0;
+    int16_t* xxx;
+    int view_x_ = 0, view_y_ = 0;
 
     const int COORD_COUNT = SUBMAP_COORD_COUNT;
 

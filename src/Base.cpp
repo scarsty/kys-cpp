@@ -212,3 +212,19 @@ void Base::pollEvent()
         break;
     }
 }
+
+void Base::setAllChildState(State s)
+{
+    for (auto c : childs_)
+    {
+        c->state_ = s;;
+    }
+}
+
+void Base::setChildState(int i, State s)
+{
+    if (i >= 0 && i < childs_.size())
+    {
+        childs_[i]->state_ = s;
+    }
+}

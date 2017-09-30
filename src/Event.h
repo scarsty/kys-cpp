@@ -120,6 +120,8 @@ public:
     void playMusic(int music_id);
     void playWave(int wave_id);
 
+    void arrangeBag();
+
 private:
     int16_t x50[0x10000];
 public:
@@ -135,6 +137,8 @@ public:
             return x50[x];
         }
     }
-    int instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6);
+
+    //扩展的50指令，传入下一个指令的指针，某一条需要
+    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr);
 };
 

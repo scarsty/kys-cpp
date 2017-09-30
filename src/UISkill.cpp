@@ -14,37 +14,40 @@ UISkill::~UISkill()
 
 void UISkill::draw()
 {
-	if (role_ == nullptr) { return; }
+    if (role_ == nullptr) { return; }
 
-	Font::getInstance()->draw("普通", 30, 350, 60, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("%s%7d","医疗", role_->Medcine), 30, 350, 100, { 255, 255, 255, 255 });
-	Font::getInstance()->draw(convert::formatString("%s%7d", "解毒", role_->Detoxification), 30, 600, 100, { 255, 255, 255, 255 });
+    auto font = Font::getInstance();
+    BP_Color color = { 255, 255, 255, 255 };
+    const int font_size = 20;
+    font->draw("技能", font_size, x_ + 50, y_ + 60, color);
+    font->draw(convert::formatString("%s%7d", "醫療", role_->Medcine), font_size, x_ + 50, y_ + 100, color);
+    font->draw(convert::formatString("%s%7d", "解毒", role_->Detoxification), font_size, x_ + 300, y_ + 100, color);
 
-	Font::getInstance()->draw("武学", 30, 350, 150, { 255, 255, 255, 255 });
+    font->draw("武學", font_size, x_ + 50, y_ + 150, color);
     for (int i = 0; i < 10; i++)
     {
         auto magic = role_->getLearnedMagic(i);
         if (magic)
         {
-			
+
             auto str = convert::formatString("%s%7d", magic->Name, role_->getLearnedMagicLevel(i));
-			if(i < 5)
-				Font::getInstance()->draw(str, 30, 350, 190+40 * i, { 255, 255, 255, 255 });
-			else
-				Font::getInstance()->draw(str, 30, 500, 190 + 40 * (i - 5), { 255, 255, 255, 255 });
+            if (i < 5)
+            {
+                font->draw(str, font_size, x_ + 50, y_ + 190 + 40 * i, color);
+            }
+            else
+            {
+                font->draw(str, font_size, x_ + 200, y_ + 190 + 40 * (i - 5), color);
+            }
         }
     }
 
-	Font::getInstance()->draw("修炼物品", 30, 350, 420, { 255, 255, 255, 255 });
-	auto *save = Save::getInstance();
-	auto *book = save->getItem(role_->PracticeBook);
-	if (save != nullptr && book != nullptr)
-	{
-		Font::getInstance()->draw(convert::formatString("%s", book->Name), 30, 350, 460, { 255, 255, 255, 255 });
-		Font::getInstance()->draw(convert::formatString("%d", role_->ExpForBook), 30, 350, 500, { 255, 255, 255, 255 });
-	}
-	
-
-	
-
+    font->draw("修煉物品", font_size, x_ + 50, y_ + 420, color);
+    auto* book = Save::getInstance()->getItem(role_->PracticeBook);
+    if (book != nullptr)
+    {
+        TextureManager::getInstance()->renderTexture("item", role_->PracticeBook, x_ + 60, y_ + 60);
+        font->draw(convert::formatString("%s", book->Name), font_size, x_ + 50, y_ + 460, color);
+        font->draw(convert::formatString("%d/%d", role_->ExpForBook, book->NeedExp), font_size, x_ + 50, y_ + 500, color);
+    }
 }

@@ -68,10 +68,9 @@ void TitleScene::dealEvent(BP_Event& e)
 void TitleScene::entrance()
 {
     Save::getInstance()->LoadR(2);
-	Audio::getInstance()->init();
-	Audio::getInstance()->playMusic(3);
-	//Audio::getInstance()->playESound(1);
-//     auto m = new MainMap();
-//     m->run();
+    Audio::getInstance()->playMusic(3);
+    //Audio::getInstance()->playESound(1);
+    auto m = new MainMap();
+    m->run();
 }
 

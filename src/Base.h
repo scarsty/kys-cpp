@@ -105,5 +105,8 @@ public:
         return current;
     }
 
+    void setAllChildState(State s);
+    void setChildState(int i, State s);
+
 };
 
