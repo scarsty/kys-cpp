@@ -5,6 +5,7 @@
 #include "Event.h"
 #include "SubMap.h"
 #include "Button.h"
+#include "Audio.h"
 
 TitleScene::TitleScene()
 {
@@ -20,6 +21,7 @@ TitleScene::TitleScene()
     menu_->addChildOnPosition(b, 20, 100);
     menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
     menu_load_->setPosition(500, 300);
+
 }
 
 TitleScene::~TitleScene()
@@ -66,7 +68,10 @@ void TitleScene::dealEvent(BP_Event& e)
 void TitleScene::entrance()
 {
     Save::getInstance()->LoadR(2);
-    auto m = new MainMap();
-    m->run();
+	Audio::getInstance()->init();
+	Audio::getInstance()->playMusic(1);
+	Audio::getInstance()->playESound(1);
+//     auto m = new MainMap();
+//     m->run();
 }
 

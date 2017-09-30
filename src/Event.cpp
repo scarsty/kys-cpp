@@ -728,7 +728,7 @@ void Event::playMusic(int music_id)
 
 void Event::playWave(int wave_id)
 {
-    Audio::getInstance()->playSound(wave_id);
+    Audio::getInstance()->playASound(wave_id);
 }
 
 int Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6)
