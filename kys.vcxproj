@@ -168,7 +168,6 @@
     <ClCompile Include="src\BattleSave.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
-    <ClCompile Include="src\BattleRole.cpp" />
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
     <ClCompile Include="src\Option.cpp" />
@@ -206,7 +205,6 @@
     <ClInclude Include="src\BattleSave.h" />
     <ClInclude Include="src\BattleMap.h" />
     <ClInclude Include="src\BattleMenu.h" />
-    <ClInclude Include="src\BattleRole.h" />
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Cloud.h" />
     <ClInclude Include="src\Option.h" />

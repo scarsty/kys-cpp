@@ -48,26 +48,37 @@ bool Save::LoadR(int num)
     std::string filenamed = getFilename(num, 'd');
     std::string filename_idx = "../game/save/ranger.idx";
 
-    auto Rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
+    auto rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
     int c = 0;
-    memcpy(&InShip, Rgrp + offset_[c], length_[c]);
+    memcpy(&InShip, rgrp + offset_[c], length_[c]);
 
-    File::readDataToVector(Rgrp + offset_[1], length_[1], roles_);
-    File::readDataToVector(Rgrp + offset_[2], length_[2], items_);
-    File::readDataToVector(Rgrp + offset_[3], length_[3], submap_records_);
-    File::readDataToVector(Rgrp + offset_[4], length_[4], magics_);
-    File::readDataToVector(Rgrp + offset_[5], length_[5], shops_);
+    File::readDataToVector(rgrp + offset_[1], length_[1], roles_, sizeof(RoleSave));
+    File::readDataToVector(rgrp + offset_[2], length_[2], items_, sizeof(ItemSave));
+    File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_, sizeof(SubMapInfoSave));
+    File::readDataToVector(rgrp + offset_[4], length_[4], magics_, sizeof(MagicSave));
+    File::readDataToVector(rgrp + offset_[5], length_[5], shops_, sizeof(ShopSave));
 
-    delete[] Rgrp;
+    delete[] rgrp;
 
-    auto submap_count = submap_records_.size();
+    auto submap_count = submap_infos_.size();
 
-    submap_data_.resize(submap_count);
-    File::readFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
+    auto sdata_length = sizeof(int16_t) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
+    auto sdata = new char[submap_count * sdata_length];
+    File::readFile(filenames, sdata, submap_count * sdata_length);
+    auto ddata_length = sizeof(SubMapEvent) * SUBMAP_EVENT_COUNT;
+    auto ddata = new char[submap_count * sdata_length];
+    File::readFile(filenamed, ddata, submap_count * ddata_length);
 
-    submap_event_.resize(submap_count * SUBMAP_EVENT_COUNT);
-    File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
+    for (int i = 0; i < submap_count; i++)
+    {
+        memcpy(&(submap_infos_[i].LayerData(0, 0, 0)), sdata + sdata_length * i, sdata_length);
+        memcpy(submap_infos_[i].Event(0), ddata + ddata_length * i, ddata_length);
+    }
+    delete[] sdata;
+    delete[] ddata;
+
+    setSavePointer(roles_, roles_.size());
 
     //内部编码为cp936
     if (Encode != 936)
@@ -87,7 +98,7 @@ bool Save::LoadR(int num)
         {
             PotConv::fromCP950ToCP936(i.Name);
         }
-        for (auto& i : submap_records_)
+        for (auto& i : submap_infos_)
         {
             PotConv::fromCP950ToCP936(i.Name);
         }
@@ -112,7 +123,7 @@ bool Save::SaveR(int num)
     c = 2;
     memcpy(Rgrp + offset_[c], &items_[0], length_[c]);
     c = 3;
-    memcpy(Rgrp + offset_[c], &submap_records_[0], length_[c]);
+    memcpy(Rgrp + offset_[c], &submap_infos_[0], length_[c]);
     c = 4;
     memcpy(Rgrp + offset_[c], &magics_[0], length_[c]);
     c = 5;
@@ -120,9 +131,9 @@ bool Save::SaveR(int num)
     File::writeFile(filenamer, Rgrp, offset_.back());
     delete[] Rgrp;
 
-    auto submap_count = submap_records_.size();
-    File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
-    File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
+    auto submap_count = submap_infos_.size();
+    //File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
+    //File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
 
     return true;
 }
@@ -184,7 +195,7 @@ void Save::makeMaps()
     roles_by_name_.clear();
     magics_by_name_.clear();
     items_by_name_.clear();
-    submap_records_by_name_.clear();
+    submap_infos_by_name_.clear();
 
     //有重名的，斟酌使用
     for (auto& i : roles_)
@@ -199,9 +210,9 @@ void Save::makeMaps()
     {
         items_by_name_[i.Name] = &i;
     }
-    for (auto& i : submap_records_)
+    for (auto& i : submap_infos_)
     {
-        submap_records_by_name_[i.Name] = &i;
+        submap_infos_by_name_[i.Name] = &i;
     }
 
 }

@@ -9,7 +9,7 @@ Magic* Role::getLearnedMagic(int i)
 
 int Role::getLearnedMagicLevel(int i)
 {
-    return MagicLevel[i] / 100;
+    return MagicLevel[i] / 100 + 1;
 }
 
 void Role::limit()
@@ -17,57 +17,57 @@ void Role::limit()
 
 }
 
-int16_t& SubMapRecord::Earth(int x, int y)
+int16_t& SubMapInfo::Earth(int x, int y)
 {
     return LayerData(0, x, y);
 }
 
-int16_t& SubMapRecord::Building(int x, int y)
+int16_t& SubMapInfo::Building(int x, int y)
 {
     return LayerData(1, x, y);;
 }
 
-int16_t& SubMapRecord::Decoration(int x, int y)
+int16_t& SubMapInfo::Decoration(int x, int y)
 {
     return LayerData(2, x, y);;
 }
 
-int16_t& SubMapRecord::EventIndex(int x, int y)
+int16_t& SubMapInfo::EventIndex(int x, int y)
 {
     return LayerData(3, x, y);;
 }
 
-int16_t& SubMapRecord::BuildingHeight(int x, int y)
+int16_t& SubMapInfo::BuildingHeight(int x, int y)
 {
     return LayerData(4, x, y);;
 }
 
-int16_t& SubMapRecord::DecorationHeight(int x, int y)
+int16_t& SubMapInfo::DecorationHeight(int x, int y)
 {
     return LayerData(5, x, y);;
 }
 
-SubMapEvent* SubMapRecord::Event(int x, int y)
+SubMapEvent* SubMapInfo::Event(int x, int y)
 {
     int i = EventIndex(x, y);
     return Event(i);
 }
 
-SubMapEvent* SubMapRecord::Event(int i)
+SubMapEvent* SubMapInfo::Event(int i)
 {
     if (i < 0 || i >= SUBMAP_EVENT_COUNT)
     {
         return nullptr;
     }
-    return &(Save::getInstance()->submap_event_[SUBMAP_EVENT_COUNT * ID + i]);
+    return &events_[i];
 }
 
-int16_t& SubMapRecord::LayerData(int layer, int x, int y)
+int16_t& SubMapInfo::LayerData(int layer, int x, int y)
 {
-    return Save::getInstance()->submap_data_[ID].Data[layer][x + y * SUBMAP_COORD_COUNT];
+    return LayerData_[layer][x + y * SUBMAP_COORD_COUNT];
 }
 
-void SubMapEvent::setPosition(int x, int y, SubMapRecord* submap_record)
+void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 {
     if (x < 0) { x = X_; }
     if (y < 0) { y = Y_; }

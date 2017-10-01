@@ -40,7 +40,7 @@
 #define instruct_14 darkScence
 #define instruct_15 dead
 #define instruct_16 inTeam
-#define instruct_17 setSubMapMapData
+#define instruct_17 setSubMapLayerData
 #define instruct_18 haveItemBool
 #define instruct_19 oldSetScencePosition
 
@@ -49,7 +49,7 @@
 #define instruct_22 zeroAllMP
 #define instruct_23 setRoleUsePoison
 #define instruct_24 blank
-#define instruct_25 submapFromTo
+#define instruct_25 subMapViewFromTo
 #define instruct_26 add3EventNum
 #define instruct_27 playAnimation
 #define instruct_28 checkRoleMorality
@@ -63,7 +63,7 @@
 #define instruct_35 setRoleMagic
 #define instruct_36 checkRoleSexual
 #define instruct_37 addMorality
-#define instruct_38 changeScencePic
+#define instruct_38 changeSubMapPic
 #define instruct_39 openSubMap
 
 #define instruct_40 setTowards

@@ -41,7 +41,6 @@ public:
 
 private:
     SubMap* submap_;
-    SubMapRecord* submap_record_;
     int submap_id_;
     int x_, y_;
     int event_index_;
@@ -50,7 +49,7 @@ private:
     Save* save_;
 
 private:
-    SubMapRecord* getSubMapRecordFromID(int submap_id);
+    SubMapInfo* getSubMapRecordFromID(int submap_id);
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
@@ -70,7 +69,7 @@ public:
     void darkScence();
     void dead();
     bool inTeam(int role_id);
-    void setSubMapMapData(int submap_id, int layer, int x, int y, int v);
+    void setSubMapLayerData(int submap_id, int layer, int x, int y, int v);
     bool haveItemBool(int item_id);
     void oldSetScencePosition(int x, int y);
     bool teamIsFull();
@@ -78,7 +77,7 @@ public:
     void zeroAllMP();
     void setRoleUsePoison(int role_id, int v);
     //void blank() {}
-    void submapFromTo(int x0, int y0, int x1, int y1);
+    void subMapViewFromTo(int x0, int y0, int x1, int y1);
     void add3EventNum(int submap_id, int event_index, int v1, int v2, int v3);
     void playAnimation(int event_id, int begin_pic, int end_pic);
     bool checkRoleMorality(int role_id, int low, int high);
@@ -91,7 +90,7 @@ public:
     void setRoleMagic(int role_id, int magic_index_role, int magic_id, int level);
     bool checkRoleSexual(int sexual);
     void addMorality(int value);
-    void changeScencePic(int submap_id, int layer, int old_pic, int new_pic);
+    void changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic);
     void openSubMap(int submap_id);
     void setTowards(int towards);
     void roleGetItem(int role_id, int item_id, int count);

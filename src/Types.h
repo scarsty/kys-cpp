@@ -1,20 +1,30 @@
 #pragma once
 #include <cstdint>
 
+//前置声明
+struct Role;
+struct Item;
+struct Magic;
+struct SubMapInfo;
+struct Shop;
+
+class Save;
+
 enum
 {
     SUBMAP_COORD_COUNT = 64,
+    SUBMAP_LAYER_COUNT = 6,
     MAINMAP_COORD_COUNT = 480,
     SUBMAP_EVENT_COUNT = 200,                         //单场景最大事件数
     ITEM_IN_BAG_COUNT = 200,                           //最大物品数
     TEAMMATE_COUNT = 6,                         //最大队伍人员数
-    ROLE_MAGIC_COUNT = 10,                         //最大队伍人员数
-    ROLE_TAKING_ITEM_COUNT = 4,
-
 };
 
 enum
 {
+    ROLE_MAGIC_COUNT = 10,
+    ROLE_TAKING_ITEM_COUNT = 4,
+
     MAX_LEVEL = 30,
     MAX_MP = 999,
     MAX_HP = 999,
@@ -42,22 +52,17 @@ enum
     MAX_APTITUDE = 100,
 };
 
-
-struct Role;
-struct Item;
-struct Magic;
-struct SubMapRecord;
-struct Shop;
-
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
-//Role的说明：性别 0-男 1 女 2 其他
-struct Role
+//置于存档中的角色数据
+struct RoleSave
 {
+public:
     int16_t ID;
     int16_t HeadNum, IncLife, UnUse;
     char Name[10], Nick[10];
-    int16_t Sexual, Level;
+    int16_t Sexual;  //Role的说明：性别 0-男 1 女 2 其他
+    int16_t Level;
     uint16_t Exp;
     int16_t HP, MaxHP, Hurt, Poison, PhysicalPower;
     uint16_t ExpForItem;
@@ -70,12 +75,32 @@ struct Role
     uint16_t ExpForBook;
     int16_t MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int16_t TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
+
+};
+
+//实际的角色数据，基类之外的通常是战斗属性
+struct Role : public RoleSave
+{
+public:
+    int Team;
+public:
+    int Face, Dead, Step, Acted;
+    int Pic, ShowNumber, showgongji, showfangyu, szhaoshi, Progress, round, speed; //15
+    int ExpGot, Auto, Show, Wait, frozen, killed, Knowledge, LifeAdd, Zhuanzhu, pozhao, wanfang; //24
+
+private:
+    int X_, Y_;
+
+public:
+    void setPosition(int x, int y) {}
+    int X() { return X_; }
+    int Y() { return Y_; }
     Magic* getLearnedMagic(int i);
     int getLearnedMagicLevel(int i);
     void limit();
 };
 
-struct Item
+struct ItemSave
 {
     int16_t ID;
     char Name[20], Name1[20];
@@ -90,7 +115,12 @@ struct Item
     int16_t NeedItem[5], NeedItemAmount[5];
 };
 
-struct Magic
+struct Item : ItemSave
+{
+
+};
+
+struct MagicSave
 {
     int16_t ID;
     char Name[10];
@@ -99,24 +129,13 @@ struct Magic
     int16_t Attack[10], MoveDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
 };
 
-struct SubMapLayerData
+struct Magic : MagicSave
 {
-    int16_t Data[6][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
+
 };
 
-//event1为主动触发，event2为物品触发，event3为经过触发
-struct SubMapEvent
-{
-    int16_t CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
-private:
-    int16_t X_, Y_;
-public:
-    int16_t X() { return X_; }
-    int16_t Y() { return Y_; }
-    void setPosition(int x, int y, SubMapRecord* submap_record);
-};
-
-struct SubMapRecord
+//存档中的场景数据
+struct SubMapInfoSave
 {
     int16_t ID;
     char Name[10];
@@ -126,7 +145,25 @@ struct SubMapRecord
     int16_t EntranceX, EntranceY;
     int16_t ExitX[3], ExitY[3];
     int16_t JumpX1, JumpY1, JumpX2, JumpY2;
+};
 
+//场景事件数据
+struct SubMapEvent
+{
+    //event1为主动触发，event2为物品触发，event3为经过触发
+    int16_t CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
+private:
+    int16_t X_, Y_;
+public:
+    int16_t X() { return X_; }
+    int16_t Y() { return Y_; }
+    void setPosition(int x, int y, SubMapInfo* submap_record);
+};
+
+//实际的场景数据
+struct SubMapInfo : public SubMapInfoSave
+{
+public:
     int16_t& Earth(int x, int y);
     int16_t& Building(int x, int y);
     int16_t& Decoration(int x, int y);
@@ -136,9 +173,18 @@ struct SubMapRecord
     SubMapEvent* Event(int x, int y);
     SubMapEvent* Event(int i);
     int16_t& LayerData(int layer, int x, int y);
+
+private:
+    int16_t LayerData_[SUBMAP_LAYER_COUNT][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
+    SubMapEvent events_[SUBMAP_EVENT_COUNT];
 };
 
-struct Shop
+struct ShopSave
 {
     int16_t Item[5], Amount[5], Price[5];
+};
+
+struct Shop:ShopSave
+{
+   
 };

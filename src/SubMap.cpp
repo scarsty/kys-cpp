@@ -3,6 +3,7 @@
 #include "BattleMap.h"
 #include "Event.h"
 #include "UI.h"
+#include "Audio.h"
 
 
 SubMap::SubMap()
@@ -27,7 +28,7 @@ void SubMap::draw()
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderAssistTexture();
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_*2, screen_center_y_*2);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -45,8 +46,8 @@ void SubMap::draw()
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
             if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
             {
-                int h = record_->BuildingHeight(i1, i2);
-                int num = record_->Earth(i1, i2) / 2;
+                int h = info_->BuildingHeight(i1, i2);
+                int num = info_->Earth(i1, i2) / 2;
                 //无高度地面
                 if (num > 0 && h == 0)
                 {
@@ -72,8 +73,8 @@ void SubMap::draw()
             if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
             {
                 //有高度地面
-                int h = record_->BuildingHeight(i1, i2);
-                int num = record_->Earth(i1, i2) / 2;
+                int h = info_->BuildingHeight(i1, i2);
+                int num = info_->Earth(i1, i2) / 2;
 #ifndef _DEBUG
                 if (num > 0 && h > 0)
                 {
@@ -81,7 +82,7 @@ void SubMap::draw()
                 }
 #endif
                 //建筑和主角
-                num = record_->Building(i1, i2) / 2;
+                num = info_->Building(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
@@ -95,10 +96,10 @@ void SubMap::draw()
                     }
                 }
                 //事件
-                auto event = record_->Event(i1, i2);
+                auto event = info_->Event(i1, i2);
                 if (event)
                 {
-                    num = record_->Event(i1, i2)->CurrentPic / 2;
+                    num = info_->Event(i1, i2)->CurrentPic / 2;
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
@@ -106,10 +107,10 @@ void SubMap::draw()
                     }
                 }
                 //装饰
-                num = record_->Decoration(i1, i2) / 2;
+                num = info_->Decoration(i1, i2) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - record_->DecorationHeight(i1, i2));
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - info_->DecorationHeight(i1, i2));
                 }
             }
             //k++;
@@ -204,7 +205,7 @@ void SubMap::backRun()
 {
     for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
     {
-        auto e = record_->Event(i);
+        auto e = info_->Event(i);
         //if (e->PicDelay > 0)
         {
             e->CurrentPic++;
@@ -221,9 +222,12 @@ void SubMap::backRun()
 void SubMap::entrance()
 {
     calViewRegion();
-    record_ = Save::getInstance()->getSubMapRecord(submap_id_);
-    record_->ID = submap_id_;   //这句是修正存档中可能存在的错误
-    setPosition(record_->EntranceX, record_->EntranceY);
+    info_ = Save::getInstance()->getSubMapInfo(submap_id_);
+    if (info_ == nullptr) { loop_ = false; }
+    info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
+    setPosition(info_->EntranceX, info_->EntranceY);
+    exit_music_ = info_->ExitMusic;
+    Audio::getInstance()->playMusic(info_->EntranceMusic);
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 
@@ -247,6 +251,7 @@ void SubMap::entrance()
 
 void SubMap::exit()
 {
+    Audio::getInstance()->playMusic(exit_music_);
     //if (earth_texture_)
     //{
     //    Engine::destroyTexture(earth_texture_);
@@ -273,22 +278,22 @@ void SubMap::tryWalk(int x, int y, Towards t)
 bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
 {
     getTowardsPosition(man_x_, man_y_, t, &x, &y);
-    int event_index_submap = record_->EventIndex(x, y);
+    int event_index_submap = info_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
         int id;
         if (t != None)
         {
-            id = record_->Event(x, y)->Event1;
+            id = info_->Event(x, y)->Event1;
             if (id > 0) { step_ = 0; }
         }
         else
         {
-            id = record_->Event(x, y)->Event3;
+            id = info_->Event(x, y)->Event3;
         }
         if (id > 0)
         {
-            return Event::getInstance()->callEvent(id, this, record_->ID, item_id, event_index_submap, x, y);
+            return Event::getInstance()->callEvent(id, this, info_->ID, item_id, event_index_submap, x, y);
         }
     }
     return false;
@@ -311,7 +316,7 @@ bool SubMap::canWalk(int x, int y)
 
 bool SubMap::isBuilding(int x, int y)
 {
-    return record_->Building(x, y) > 0;
+    return info_->Building(x, y) > 0;
     //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
     //{
     //    return false;
@@ -329,7 +334,7 @@ bool SubMap::isOutLine(int x, int y)
 
 bool SubMap::isWater(int x, int y)
 {
-    int num = record_->Earth(x, y) / 2;
+    int num = info_->Earth(x, y) / 2;
     if (num >= 179 && num <= 181
         || num == 261 || num == 511
         || num >= 662 && num <= 665
@@ -342,7 +347,7 @@ bool SubMap::isWater(int x, int y)
 
 bool SubMap::isCanPassEvent(int x, int y)
 {
-    auto e = record_->Event(x, y);
+    auto e = info_->Event(x, y);
     if (e && !e->CannotWalk)
     {
         return true;
@@ -352,7 +357,7 @@ bool SubMap::isCanPassEvent(int x, int y)
 
 bool SubMap::isCannotPassEvent(int x, int y)
 {
-    auto e = record_->Event(x, y);
+    auto e = info_->Event(x, y);
     if (e && e->CannotWalk)
     {
         return true;
@@ -373,9 +378,9 @@ bool SubMap::isFall(int x, int y)
 
 bool SubMap::isExit(int x, int y)
 {
-    if (record_->ExitX[0] == x && record_->ExitY[0] == y
-        || record_->ExitX[1] == x && record_->ExitY[1] == y
-        || record_->ExitX[2] == x && record_->ExitY[2] == y)
+    if (info_->ExitX[0] == x && info_->ExitY[0] == y
+        || info_->ExitX[1] == x && info_->ExitY[1] == y
+        || info_->ExitX[2] == x && info_->ExitY[2] == y)
     {
         loop_ = false;
         Save::getInstance()->InSubmap = 1;

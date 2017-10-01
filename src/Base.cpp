@@ -61,10 +61,10 @@ int Base::run(bool in_root /*= true*/)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
-    if (in_root) { addOnRootTop(this); }
-    entrance();
     loop_ = true;
     result_ = -1;
+    if (in_root) { addOnRootTop(this); }
+    entrance();
     while (loop_ && engine->pollEvent(e) >= 0)
     {
         int t0 = engine->getTicks();

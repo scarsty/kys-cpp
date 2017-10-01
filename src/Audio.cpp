@@ -72,6 +72,7 @@ void Audio::init()
 
 void Audio::playMusic(int num)
 {
+    if (num < 0) { return; }
     BASS_ChannelStop(current_music_);
     BASS_ChannelPlay(music_[num], true);
     //int error_t = BASS_ErrorGetCode();
@@ -80,6 +81,7 @@ void Audio::playMusic(int num)
 
 void Audio::playASound(int num)
 {
+    if (num < 0) { return; }
     //BASS_ChannelStop(current_sound_);
     BASS_ChannelPlay(asound_[num], true);
     current_sound_ = asound_[num];
@@ -87,6 +89,7 @@ void Audio::playASound(int num)
 
 void Audio::playESound(int num)
 {
+    if (num < 0) { return; }
     //BASS_ChannelStop(current_sound_);
     BASS_ChannelPlay(esound_[num], true);
     current_sound_ = esound_[num];

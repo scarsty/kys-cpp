@@ -100,9 +100,6 @@
     <ClCompile Include="src\others\libconvert.cpp">
       <Filter>_others</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleRole.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\BattleSave.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -209,9 +206,6 @@
       <Filter>_others</Filter>
     </ClInclude>
     <ClInclude Include="src\Random.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleRole.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\BattleSave.h">

@@ -284,9 +284,9 @@ bool MainMap::canWalk(int x, int y)
 
 bool MainMap::checkEntrance(int x, int y)
 {
-    for (int i = 0; i < Save::getInstance()->submap_records_.size(); i++)
+    for (int i = 0; i < Save::getInstance()->submap_infos_.size(); i++)
     {
-        auto s = Save::getInstance()->getSubMapRecord(i);
+        auto s = Save::getInstance()->getSubMapInfo(i);
         if (x == s->MainEntranceX1 && y == s->MainEntranceY1 || x == s->MainEntranceX2 && y == s->MainEntranceY2)
         {
             bool can_enter = false;

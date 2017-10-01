@@ -41,20 +41,20 @@ public:
     std::vector<Role> roles_;
     std::vector<Magic> magics_;
     std::vector<Item> items_;
-    std::vector<SubMapRecord> submap_records_;
-    std::vector<SubMapLayerData> submap_data_;
+    std::vector<SubMapInfo> submap_infos_;
+    //std::vector<SubMapLayerData> submap_data_;
     std::vector<Shop> shops_;
-    std::vector<SubMapEvent> submap_event_;
+    //std::vector<SubMapEvent> submap_event_;
 
     std::map<std::string, Role*> roles_by_name_;
     std::map<std::string, Item*> items_by_name_;
     std::map<std::string, Magic*> magics_by_name_;
-    std::map<std::string, SubMapRecord*> submap_records_by_name_;
+    std::map<std::string, SubMapInfo*> submap_infos_by_name_;
 
     Role* getRole(int i) { if (i < 0 || i >= roles_.size()) { return nullptr; } return &roles_[i]; }
     Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return &magics_[i]; }  //0∫≈Œ‰π¶Œﬁ–ß
     Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return &items_[i]; }
-    SubMapRecord* getSubMapRecord(int i) { if (i < 0 || i >= submap_records_.size()) { return nullptr; } return &submap_records_[i]; }
+    SubMapInfo* getSubMapInfo(int i) { if (i < 0 || i >= submap_infos_.size()) { return nullptr; } return &submap_infos_[i]; }
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }
@@ -71,9 +71,17 @@ public:
     Role* getRoleByName(std::string name) { return roles_by_name_[name]; }
     Magic* getMagicByName(std::string name) { return magics_by_name_[name]; }
     Item* getItemByName(std::string name) { return items_by_name_[name]; }
-    SubMapRecord* getSubMapRecordByName(std::string name) { return submap_records_by_name_[name]; }
+    SubMapInfo* getSubMapRecordByName(std::string name) { return submap_infos_by_name_[name]; }
 
     static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
+
+    template <class T> void setSavePointer(std::vector<T>& v, int size)
+    {
+        for (auto& i : v)
+        {
+            i.save_ = this;
+        }
+    }
 };
 
 
