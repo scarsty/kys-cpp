@@ -11,6 +11,10 @@ enum
     ROLE_MAGIC_COUNT = 10,                         //最大队伍人员数
     ROLE_TAKING_ITEM_COUNT = 4,
 
+};
+
+enum
+{
     MAX_LEVEL = 30,
     MAX_MP = 999,
     MAX_HP = 999,
@@ -36,8 +40,8 @@ enum
     MAX_ATTACK_WITH_POISON = 100,
     MAX_FAME = 999,
     MAX_APTITUDE = 100,
-
 };
+
 
 struct Role;
 struct Item;
@@ -97,7 +101,7 @@ struct Magic
 
 struct SubMapLayerData
 {
-    int16_t data[6][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
+    int16_t Data[6][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
 };
 
 //event1为主动触发，event2为物品触发，event3为经过触发

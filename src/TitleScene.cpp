@@ -1,7 +1,7 @@
 #include "TitleScene.h"
 #include "Menu.h"
 #include "MainMap.h"
-#include "BattleData.h"
+#include "BattleMap.h"
 #include "Event.h"
 #include "SubMap.h"
 #include "Button.h"
@@ -21,7 +21,6 @@ TitleScene::TitleScene()
     menu_->addChildOnPosition(b, 20, 100);
     menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
     menu_load_->setPosition(500, 300);
-
 }
 
 TitleScene::~TitleScene()
@@ -49,18 +48,19 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
-
+        MainMap::getIntance()->run();
     }
     if (r == 1)
     {
         auto s = new SubMap(2);
         s->run();
-        auto m = new MainMap();
-        m->run();
+        MainMap::getIntance()->run();
         //menu_load_->run();
     }
     if (r == 2)
     {
+        auto b = new BattleMap();
+        b->run();
         loop_ = false;
     }
 }
@@ -70,7 +70,5 @@ void TitleScene::entrance()
     Save::getInstance()->LoadR(2);
     Audio::getInstance()->playMusic(3);
     //Audio::getInstance()->playESound(1);
-    auto m = new MainMap();
-    m->run();
 }
 

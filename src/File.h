@@ -12,5 +12,21 @@ public:
     static bool readFile(const std::string& filename, char** s, int* len);
     static void readFile(const std::string& filename, void* s, int len);
     static void writeFile(const std::string& filename, void* s, int len);
+
+    template <class T> static void readDataToVector(void* data, int length, std::vector<T>& v)
+    {
+        int count = length / sizeof(T);
+        v.resize(count);
+        memcpy(&v[0], data, count * sizeof(T));
+    }
+    template <class T> static void readFileToVector(std::string filename, std::vector<T>& v)
+    {
+        char* buffer;
+        int length;
+        readFile(filename, &buffer, &length);
+        readDataToVector(buffer, length, v);
+        delete[] buffer;
+    }
+
 };
 

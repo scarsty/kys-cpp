@@ -13,9 +13,6 @@ public:
 
     //BP_Texture* earth_texture_ = nullptr;
 
-    //int man_x_, man_y_;        //注意在子类中采用引用是因为存档设计和某些指令的问题，不表示推荐这种方案
-    static Towards towards_;     //朝向，共用一个即可
-
     int screen_center_x_ = 0;
     int screen_center_y_ = 0;
     const int TILE_W = 18;  //小图块大小X
@@ -25,11 +22,17 @@ public:
     int view_width_region_ = 0;
     int view_sum_region_ = 0;
 
+    void calViewRegion();
+
     int total_step_ = 0;        //键盘走路的计数
     BP_Keycode pre_pressed_;    //键盘走路的上次按键
 
+    int man_x_, man_y_;
+    static Towards towards_;     //朝向，共用一个即可
     int step_ = 0;
     int man_pic_;
+
+    void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }
     void setManPic(int pic) { man_pic_ = pic; }
 
     void checkWalk(int x, int y, BP_Event& e);   //一些公共部分，未完成

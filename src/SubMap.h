@@ -10,27 +10,24 @@ public:
     SubMap(int num);
     virtual ~SubMap();
 
-    int16_t& man_x_, &man_y_;
-    int16_t* xxx;
     int view_x_ = 0, view_y_ = 0;
 
     const int COORD_COUNT = SUBMAP_COORD_COUNT;
 
     int const MAN_PIC_0 = 2501;            //初始场景主角图偏移量
     int const MAN_PIC_COUNT = 7;           //单向主角图张数
-    int scene_id_;   //场景号
+    int submap_id_;   //场景号
 
     SubMapRecord* record_;
 
 public:
     SubMapRecord* getRecord() { return record_; }
 
-    void setSceneNum(int num) { scene_id_ = num; }
+    void setSceneNum(int num) { submap_id_ = num; }
 
-    void setPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
     //注意视角和主角的位置可能不一样
-    void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }
     void setViewPosition(int x, int y) { view_x_ = x; view_y_ = y; }
+    void setPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;

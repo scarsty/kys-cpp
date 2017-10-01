@@ -5,25 +5,27 @@
 
 class MainMap : public Scene
 {
-public:
+private:
+    static MainMap main_map_;
     MainMap();
     ~MainMap();
 
+public:
+    static MainMap* getIntance() { return &main_map_; }
+
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
+
     typedef int16_t MapArray[COORD_COUNT * COORD_COUNT];
-    static MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
+    MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
+    bool data_readed_ = false;
 
-    static int16_t& Earth(int x, int y) { return Earth_[x + y * COORD_COUNT]; }
-    static int16_t& Surface(int x, int y) { return Surface_[x + y * COORD_COUNT]; }
-    static int16_t& Building(int x, int y) { return Building_[x + y * COORD_COUNT]; }
-    static int16_t& BuildX(int x, int y) { return BuildX_[x + y * COORD_COUNT]; }
-    static int16_t& BuildY(int x, int y) { return BuildY_[x + y * COORD_COUNT]; }
+    int16_t& Earth(int x, int y) { return Earth_[x + y * COORD_COUNT]; }
+    int16_t& Surface(int x, int y) { return Surface_[x + y * COORD_COUNT]; }
+    int16_t& Building(int x, int y) { return Building_[x + y * COORD_COUNT]; }
+    int16_t& BuildX(int x, int y) { return BuildX_[x + y * COORD_COUNT]; }
+    int16_t& BuildY(int x, int y) { return BuildY_[x + y * COORD_COUNT]; }
 
-    static void divide2(MapArray& m);
-
-    static bool data_readed_;
-
-    int16_t& man_x_, &man_y_;
+    void divide2(MapArray& m);
 
     int rest_time_ = 0;                     //停止操作的时间
 

@@ -64,7 +64,7 @@ SubMapEvent* SubMapRecord::Event(int i)
 
 int16_t& SubMapRecord::LayerData(int layer, int x, int y)
 {
-    return Save::getInstance()->submap_data_[ID].data[layer][x + y * SUBMAP_COORD_COUNT];
+    return Save::getInstance()->submap_data_[ID].Data[layer][x + y * SUBMAP_COORD_COUNT];
 }
 
 void SubMapEvent::setPosition(int x, int y, SubMapRecord* submap_record)

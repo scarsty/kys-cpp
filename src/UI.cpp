@@ -23,10 +23,10 @@ UI::UI()
     addChild(ui_status_);
 
     //貌似这里不能直接调用其他单例，静态量的创建顺序不确定
-    button_status_ = new Button("mmap", 2022);
-    button_skill_ = new Button("mmap", 2023);
-    button_item_ = new Button("mmap", 2024);
-    button_system_ = new Button("mmap", 2025);
+    button_status_ = new Button("title", 122);
+    button_skill_ = new Button("title", 123);
+    button_item_ = new Button("title", 124);
+    button_system_ = new Button("title", 125);
     addChildOnPosition(button_status_, 10, 10);
     addChildOnPosition(button_skill_, 90, 10);
     addChildOnPosition(button_item_, 170, 10);

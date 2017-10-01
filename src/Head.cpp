@@ -16,7 +16,7 @@ void Head::draw()
     if (role_ == nullptr) { return; }
     BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
     auto font = Font::getInstance();
-    TextureManager::getInstance()->renderTexture("mmap", 2002, x_, y_);
+    TextureManager::getInstance()->renderTexture("title", 102, x_, y_);
     if (state_ == Normal)
     {
         color = { 128, 128, 128, 255 };

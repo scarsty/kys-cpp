@@ -5,9 +5,7 @@
 #include "UI.h"
 
 
-SubMap::SubMap() :
-    man_x_(Save::getInstance()->SubMapX),
-    man_y_(Save::getInstance()->SubMapY)
+SubMap::SubMap()
 {
     full_window_ = 1;
 }
@@ -15,9 +13,6 @@ SubMap::SubMap() :
 SubMap::SubMap(int num) : SubMap()
 {
     setSceneNum(num);
-    record_ = Save::getInstance()->getSubMapRecord(num);
-    record_->ID = num;
-    setPosition(record_->EntranceX, record_->EntranceY);
 }
 
 SubMap::~SubMap()
@@ -52,11 +47,12 @@ void SubMap::draw()
             {
                 int h = record_->BuildingHeight(i1, i2);
                 int num = record_->Earth(i1, i2) / 2;
-                //无高度闪烁地面
+                //无高度地面
                 if (num > 0 && h == 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                     /*auto tex = TextureManager::getInstance()->loadTexture("smap", num);
+                    //用大图画时的闪烁地面
                     if (tex->count > 1)
                     {
                         TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
@@ -224,6 +220,10 @@ void SubMap::backRun()
 //一大块地面的纹理，未启用
 void SubMap::entrance()
 {
+    calViewRegion();
+    record_ = Save::getInstance()->getSubMapRecord(submap_id_);
+    record_->ID = submap_id_;   //这句是修正存档中可能存在的错误
+    setPosition(record_->EntranceX, record_->EntranceY);
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 

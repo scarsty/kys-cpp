@@ -6,16 +6,12 @@
 #include "Save.h"
 #include "UI.h"
 
-MainMap::MapArray MainMap::Earth_, MainMap::Surface_, MainMap::Building_, MainMap::BuildX_, MainMap::BuildY_, MainMap::Entrance_;
-bool MainMap::data_readed_ = false;
+MainMap MainMap::main_map_;
 
-MainMap::MainMap() :
-    man_x_(Save::getInstance()->MainMapX),
-    man_y_(Save::getInstance()->MainMapY)
+MainMap::MainMap()
 {
     full_window_ = 1;
 
-    srand(int(time(nullptr)));
     if (!data_readed_)
     {
         int length = COORD_COUNT * COORD_COUNT * sizeof(uint16_t);
@@ -206,7 +202,9 @@ void MainMap::dealEvent(BP_Event& e)
 
 void MainMap::entrance()
 {
-
+    calViewRegion();
+    man_x_ = Save::getInstance()->MainMapX;
+    man_y_ = Save::getInstance()->MainMapY;
 }
 
 void MainMap::exit()

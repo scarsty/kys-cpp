@@ -51,23 +51,14 @@ bool Save::LoadR(int num)
     auto Rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
     int c = 0;
-    memcpy(this, Rgrp + offset_[c], length_[c]);
+    memcpy(&InShip, Rgrp + offset_[c], length_[c]);
 
-    c = 1;
-    roles_.resize(length_[c] / sizeof(Role));
-    memcpy(&roles_[0], Rgrp + offset_[c], length_[c]);
-    c = 2;
-    items_.resize(length_[c] / sizeof(Item));
-    memcpy(&items_[0], Rgrp + offset_[c], length_[c]);
-    c = 3;
-    submap_records_.resize(length_[c] / sizeof(SubMapRecord));
-    memcpy(&submap_records_[0], Rgrp + offset_[c], length_[c]);
-    c = 4;
-    magics_.resize(length_[c] / sizeof(Magic));
-    memcpy(&magics_[0], Rgrp + offset_[c], length_[c]);
-    c = 5;
-    shops_.resize(length_[c] / sizeof(Shop));
-    memcpy(&shops_[0], Rgrp + offset_[c], length_[c]);
+    File::readDataToVector(Rgrp + offset_[1], length_[1], roles_);
+    File::readDataToVector(Rgrp + offset_[2], length_[2], items_);
+    File::readDataToVector(Rgrp + offset_[3], length_[3], submap_records_);
+    File::readDataToVector(Rgrp + offset_[4], length_[4], magics_);
+    File::readDataToVector(Rgrp + offset_[5], length_[5], shops_);
+
     delete[] Rgrp;
 
     auto submap_count = submap_records_.size();

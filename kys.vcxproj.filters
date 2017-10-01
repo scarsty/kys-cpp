@@ -31,9 +31,6 @@
     <ClCompile Include="src\Scene.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleData.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Application.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -103,6 +100,12 @@
     <ClCompile Include="src\others\libconvert.cpp">
       <Filter>_others</Filter>
     </ClCompile>
+    <ClCompile Include="src\BattleRole.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleSave.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -136,9 +139,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Scene.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleData.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Application.h">
@@ -207,6 +207,15 @@
     </ClInclude>
     <ClInclude Include="src\others\libconvert.h">
       <Filter>_others</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Random.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleRole.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleSave.h">
+      <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

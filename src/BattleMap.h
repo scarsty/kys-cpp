@@ -1,11 +1,17 @@
 #pragma once
-#include "BattleData.h"
+#include "BattleSave.h"
 #include "Scene.h"
 #include "Point.h"
 #include <stack>
 
 class BattleMap : public Scene
 {
+private:
+    struct BattleMapLayerData
+    {
+        int16_t Data[BATTLEMAP_LAYER_COUNT][BATTLEMAP_COORD_COUNT][BATTLEMAP_COORD_COUNT];
+    };
+
 public:
     BattleMap();
     ~BattleMap();
@@ -58,12 +64,12 @@ public:
     std::stack<Point> m_wayQue;                       //栈(路径栈)
 
 
-    BattleData& Battle = BattleData::m_bBattle;  //引用battle
-    //vector<battle::TBattleRole> BRole;   //定义战斗人员
-    std::vector<BattleSceneData>& m_vcBattleSceneData = BattleData::getInstance()->m_vcBattleSceneData;
-    std::vector<BattleRole>& m_vcBattleRole = BattleData::getInstance()->m_vcBattleRole;
-    std::vector<BattleInfo>& m_vcBattleInfo = BattleData::getInstance()->m_vcBattleInfo;
-	//std::vector<Character>& Rrole = Save::getInstance()->m_Character;
+ //   BattleSave& Battle = BattleSave::battle_data_;  //引用battle
+ //   //vector<battle::TBattleRole> BRole;   //定义战斗人员
+ //   std::vector<BattleMapLayerData>& m_vcBattleSceneData = BattleSave::getInstance()->battle_map_save_layer_data_;
+ //   std::vector<BattleRoles>& m_vcBattleRole = BattleSave::getInstance()->battle_roles_;
+ //   std::vector<BattleInfo>& m_vcBattleInfo = BattleSave::getInstance()->battle_infos_;
+	////std::vector<Character>& Rrole = Save::getInstance()->m_Character;
 
     void walk(int x, int y, Towards t);
 
