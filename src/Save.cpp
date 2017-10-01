@@ -63,7 +63,7 @@ bool Save::LoadR(int num)
 
     auto submap_count = submap_infos_.size();
 
-    auto sdata_length = sizeof(int16_t) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
+    auto sdata_length = sizeof(SAVE_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
     auto sdata = new char[submap_count * sdata_length];
     File::readFile(filenames, sdata, submap_count * sdata_length);
     auto ddata_length = sizeof(SubMapEvent) * SUBMAP_EVENT_COUNT;
@@ -164,12 +164,12 @@ Item* Save::getItemByBagIndex(int i)
     return &(items_[r]);
 }
 
-int16_t Save::getItemCountByBagIndex(int i)
+SAVE_INT Save::getItemCountByBagIndex(int i)
 {
     return Items[i].count;
 }
 
-int16_t Save::getItemCountInBag(Item* item)
+SAVE_INT Save::getItemCountInBag(Item* item)
 {
     return getItemCountInBag(item->ID);
 }

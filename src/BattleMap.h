@@ -6,17 +6,12 @@
 
 class BattleMap : public Scene
 {
-private:
-    struct BattleMapLayerData
-    {
-        int16_t Data[BATTLEMAP_LAYER_COUNT][BATTLEMAP_COORD_COUNT][BATTLEMAP_COORD_COUNT];
-    };
-
 public:
     BattleMap();
     BattleMap(int id);
     ~BattleMap();
 
+    std::vector<Role*> battle_roles_;
 
     int battle_id_ = 0;
     BattleInfo* info_;

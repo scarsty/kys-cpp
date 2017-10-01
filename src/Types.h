@@ -4,13 +4,31 @@
 typedef int16_t SAVE_INT;
 typedef uint16_t SAVE_UINT;
 
+struct MapSquare
+{
+    MapSquare() {}
+    ~MapSquare() { if (data) { delete data; } }
+    //不会保留原始数据
+    void resize(int x)
+    {
+        if (data) { delete data; }
+        data = new SAVE_INT[x * x];
+        line = x;
+    }
+    SAVE_INT* data = nullptr;
+    SAVE_INT line;
+
+    SAVE_INT& operator()(int x, int y) { return data[x + line * y]; }
+    SAVE_INT& operator()(int x) { return data[x]; }
+    int size() { return line * line; }
+};
+
 //前置声明
 struct Role;
 struct Item;
 struct Magic;
 struct SubMapInfo;
 struct Shop;
-
 class Save;
 
 enum
@@ -95,7 +113,9 @@ private:
     int X_, Y_;
 
 public:
-    void setPosition(int x, int y) {}
+    MapSquare* position_layer_ = nullptr;
+    void setPoitionLayer(MapSquare* l) { position_layer_ = l; }
+    void setPosition(int x, int y);
     int X() { return X_; }
     int Y() { return Y_; }
     Magic* getLearnedMagic(int i);

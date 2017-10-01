@@ -20,10 +20,10 @@ BattleSave::~BattleSave()
 {
 }
 
-void BattleSave::copyLayerData(int battle_field_id, int layer, int16_t* out)
+void BattleSave::copyLayerData(int battle_field_id, int layer, SAVE_INT* out)
 {
     auto layer_data = battle_field_data2_[battle_field_id];
-    memcpy(out, &(layer_data.data[layer][0]), sizeof(int16_t) * BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT);
+    memcpy(out, &(layer_data.data[layer][0]), sizeof(SAVE_INT) * BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT);
 }
 
 

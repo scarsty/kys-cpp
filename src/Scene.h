@@ -2,25 +2,6 @@
 #include "Base.h"
 #include "Point.h"
 
-struct MapSquare
-{
-    MapSquare() {}
-    ~MapSquare() { if (data) { delete data; } }
-    //不会保留原始数据
-    void resize(int x)
-    {
-        if (data) { delete data; }
-        data = new int16_t[x * x];
-        line = x;
-    }
-    int16_t* data = nullptr;
-    int16_t line;
-
-    int16_t& operator()(int x, int y) { return data[x + line * y]; }
-    int16_t& operator()(int x) { return data[x]; }
-    int size() { return line * line; }
-};
-
 //主地图，子场景，战斗场景均继承此类
 class Scene : public Base
 {

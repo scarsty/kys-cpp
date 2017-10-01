@@ -20,7 +20,7 @@ MainMap::MainMap()
         build_x_layer_.resize(COORD_COUNT);
         build_y_layer_.resize(COORD_COUNT);
 
-        int length = COORD_COUNT * COORD_COUNT * sizeof(uint16_t);
+        int length = COORD_COUNT * COORD_COUNT * sizeof(SAVE_INT);
 
         File::readFile("../game/resource/earth.002", &earth_layer_(0), length);
         File::readFile("../game/resource/surface.002", &surface_layer_(0), length);

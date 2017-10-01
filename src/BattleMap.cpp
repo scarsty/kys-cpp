@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "Save.h"
 #include "Menu.h"
+#include "others/libconvert.h"
 
 BattleMap::BattleMap()
 {
@@ -16,7 +17,6 @@ BattleMap::BattleMap()
     select_layer_.resize(COORD_COUNT);
     effect_layer_.resize(COORD_COUNT);
 }
-
 
 BattleMap::BattleMap(int id) : BattleMap()
 {
@@ -41,16 +41,14 @@ void BattleMap::setID(int id)
         select_layer_(i) = -1;
         effect_layer_(i) = -1;
     }
-
-    
-
 }
 
 void BattleMap::draw()
 {
     man_x_ = 16;
     man_y_ = 16;
-    int k = 0;
+    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
 #ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
@@ -86,13 +84,15 @@ void BattleMap::draw()
 
                 }
                 num = role_layer_(i1, i2);
-                if (i1 == m_nBx && i2 == m_nBy)
+                if (num>=0)
                 {
-                    TextureManager::getInstance()->renderTexture("fight/fight000", 0, p.x, p.y);
+                    std::string path = convert::formatString("fight/fight%03d", num);
+                    TextureManager::getInstance()->renderTexture(path, 0, p.x, p.y);
                 }
             }
         }
     }
+    Engine::getInstance()->renderAssistTextureToWindow();
 }
 
 void BattleMap::dealEvent(BP_Event& e)
@@ -103,6 +103,34 @@ void BattleMap::dealEvent(BP_Event& e)
 void BattleMap::entrance()
 {
     calViewRegion();
+    //设置全部角色的位置层，避免今后出错
+    for (auto& r : Save::getInstance()->roles_)
+    {
+        r.setPoitionLayer(&role_layer_);
+        r.Team = 2;
+    }
+    //队友
+    for (int i = 0; i < TEAMMATE_COUNT; i++)
+    {
+        auto r = Save::getInstance()->getRole(Save::getInstance()->Team[i]);
+        if (r)
+        {
+            battle_roles_.push_back(r);
+            r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
+            r->Team = 0;
+        }
+    }
+    //敌方
+    for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
+    {
+        auto r = Save::getInstance()->getRole(info_->Enemy[i]);
+        if (r)
+        {
+            battle_roles_.push_back(r);
+            r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
+            r->Team = 1;
+        }
+    }
 }
 
 void BattleMap::checkTimer2()

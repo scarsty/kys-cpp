@@ -3,18 +3,18 @@
 #include "Types.h"
 #include <map>
 
-struct ItemList { int16_t item_id, count; };
+struct ItemList { SAVE_INT item_id, count; };
 
 class Save
 {
 public:
     //此处为全局数据，载入和保存使用，必须放在类开头，按照顺序，否则自己看着办
-    int16_t InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
-    int16_t Team[TEAMMATE_COUNT];
+    SAVE_INT InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+    SAVE_INT Team[TEAMMATE_COUNT];
     ItemList Items[ITEM_IN_BAG_COUNT];
 private:
     //缓冲区，无他用
-    int16_t buffer_[100];
+    SAVE_INT buffer_[100];
 
     const int MONEY_ITEM_ID = 174;
     const int COMPASS_ITEM_ID = 182;
@@ -60,8 +60,8 @@ public:
     int getTeamMateID(int i) { return Team[i]; }
 
     Item* getItemByBagIndex(int i);
-    int16_t getItemCountByBagIndex(int i);
-    int16_t getItemCountInBag(Item* item);
+    SAVE_INT getItemCountByBagIndex(int i);
+    SAVE_INT getItemCountInBag(Item* item);
 
     int getItemCountInBag(int item_id);
     int getMoneyCountInBag() { return getItemCountInBag(MONEY_ITEM_ID); }

@@ -122,7 +122,7 @@ public:
     void arrangeBag();
 
 private:
-    int16_t x50[0x10000];
+    SAVE_INT x50[0x10000];
 public:
     int e_GetValue(int bit, int t, int x)
     {

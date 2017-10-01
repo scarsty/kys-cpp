@@ -16,7 +16,7 @@ int Application::run()
     engine->setStartWindowSize(1024, 640);
     engine->init();
     //初始化之后才能创建纹理
-    engine->createAssistTexture(640, 400);
+    engine->createAssistTexture(768, 480);
 
     auto s = new TitleScene(); //开始界面
     s->run();
