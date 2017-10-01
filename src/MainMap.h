@@ -14,18 +14,10 @@ public:
     static MainMap* getIntance() { return &main_map_; }
 
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
-
-    typedef int16_t MapArray[COORD_COUNT * COORD_COUNT];
-    MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
+    MapSquare earth_layer_ , surface_layer_, building_layer_, build_x_layer_, build_y_layer_, entrance_layer_;
     bool data_readed_ = false;
 
-    int16_t& Earth(int x, int y) { return Earth_[x + y * COORD_COUNT]; }
-    int16_t& Surface(int x, int y) { return Surface_[x + y * COORD_COUNT]; }
-    int16_t& Building(int x, int y) { return Building_[x + y * COORD_COUNT]; }
-    int16_t& BuildX(int x, int y) { return BuildX_[x + y * COORD_COUNT]; }
-    int16_t& BuildY(int x, int y) { return BuildY_[x + y * COORD_COUNT]; }
-
-    void divide2(MapArray& m);
+    void divide2(MapSquare& m);
 
     int rest_time_ = 0;                     //停止操作的时间
 

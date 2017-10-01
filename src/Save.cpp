@@ -78,8 +78,6 @@ bool Save::LoadR(int num)
     delete[] sdata;
     delete[] ddata;
 
-    setSavePointer(roles_, roles_.size());
-
     //ÄÚ²¿±àÂëÎªcp936
     if (Encode != 936)
     {

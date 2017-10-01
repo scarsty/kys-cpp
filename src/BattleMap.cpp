@@ -10,77 +10,99 @@
 BattleMap::BattleMap()
 {
     full_window_ = 1;
-    init();
+    earth_layer_.resize(COORD_COUNT);
+    building_layer_.resize(COORD_COUNT);
+    role_layer_.resize(COORD_COUNT);
+    select_layer_.resize(COORD_COUNT);
+    effect_layer_.resize(COORD_COUNT);
 }
 
+
+BattleMap::BattleMap(int id) : BattleMap()
+{
+    setID(id);
+}
 
 BattleMap::~BattleMap()
 {
 }
 
+void BattleMap::setID(int id)
+{
+    battle_id_ = id;
+    info_ = BattleSave::getInstance()->getBattleInfo(id);
+
+    BattleSave::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_(0));
+    BattleSave::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_(0));
+
+    for (int i = 0; i < COORD_COUNT * COORD_COUNT; i++)
+    {
+        role_layer_(i) = -1;
+        select_layer_(i) = -1;
+        effect_layer_(i) = -1;
+    }
+
+    
+
+}
+
 void BattleMap::draw()
 {
+    man_x_ = 16;
+    man_y_ = 16;
     int k = 0;
-    struct DrawInfo { int i; Point p; };
-    std::map<int, DrawInfo> map;
+#ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            int i1 = m_nBx + i + (sum / 2);
-            int i2 = m_nBy - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, m_nBx, m_nBy);
+            int i1 = man_x_ + i + (sum / 2);
+            int i2 = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
             {
-                //EarthS[k]->setm_bvisible(false);
-                //BuildS[k]->setm_bvisible(false);
-                //这里注意状况
-                //Point p1 = Point(0, -m_vcBattleSceneData[m_nbattleSceneNum].Data[4][i1][i2]);
-                //Point p2 = Point(0, -m_vcBattleSceneData[m_nbattleSceneNum].Data[5][i1][i2]);
-                int num = 0;// m_vcBattleSceneData[m_nbattleSceneNum].Data[0][i1][i2] / 2;
-                if (num >= 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                    /*if (p1.y < -0.1)
-                    {
-                    map[calBlockTurn(i1, i2, 0)] = s;
-                    }
-                    else
-                    {
-                    s->visit();
-                    }*/
-                }
-                //建筑和主角同一层
-                //num = m_vcBattleSceneData[m_nbattleSceneNum].Data[1][i1][i2] / 2;
+                int num = earth_layer_(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                    map[calBlockTurn(i1, i2, 1)] = { num, p };
-                }
-                else if (i1 == m_nBx && i2 == m_nBy)
-                {
-                    m_nmanPicture = 0 + Scene::towards_ * 4;
-                    map[calBlockTurn(i1, i2, 1)] = { m_nmanPicture, p };
-                    //s->visit();
                 }
             }
-            k++;
         }
     }
-    for (auto i = map.begin(); i != map.end(); i++)
+#endif
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        TextureManager::getInstance()->renderTexture("smap", i->second.i, i->second.p.x, i->second.p.y);
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
+        {
+            int i1 = man_x_ + i + (sum / 2);
+            int i2 = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
+            {
+                int num = building_layer_(i1, i2) / 2;
+                if (num > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+
+                }
+                num = role_layer_(i1, i2);
+                if (i1 == m_nBx && i2 == m_nBy)
+                {
+                    TextureManager::getInstance()->renderTexture("fight/fight000", 0, p.x, p.y);
+                }
+            }
+        }
     }
-    SDL_Color color = { 0, 0, 0, 255 };
-    //string strTemp;
-    //strTemp = "中文测试";
-    //strTemp = Engine::getInstance()->string_To_UTF8(strTemp);
-    //Engine::getInstance()->drawText("fonts/Dialogues.ttf", strTemp, 20, 5, 5, 255, BP_ALIGN_LEFT, color); //这里有问题，字符无法显示
 }
 
 void BattleMap::dealEvent(BP_Event& e)
 {
 
+}
+
+void BattleMap::entrance()
+{
+    calViewRegion();
 }
 
 void BattleMap::checkTimer2()

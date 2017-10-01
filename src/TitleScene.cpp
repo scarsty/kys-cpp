@@ -59,7 +59,7 @@ void TitleScene::dealEvent(BP_Event& e)
     }
     if (r == 2)
     {
-        auto b = new BattleMap();
+        auto b = new BattleMap(1);
         b->run();
         loop_ = false;
     }

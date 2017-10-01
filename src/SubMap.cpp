@@ -11,9 +11,9 @@ SubMap::SubMap()
     full_window_ = 1;
 }
 
-SubMap::SubMap(int num) : SubMap()
+SubMap::SubMap(int id) : SubMap()
 {
-    setSceneNum(num);
+    setID(id);
 }
 
 SubMap::~SubMap()

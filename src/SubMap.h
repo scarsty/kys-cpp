@@ -7,7 +7,7 @@ class SubMap : public Scene
 private:
     SubMap();
 public:
-    SubMap(int num);
+    SubMap(int id);
     virtual ~SubMap();
 
     int view_x_ = 0, view_y_ = 0;
@@ -27,7 +27,7 @@ public:
 
     void changeExitMusic(int m) { exit_music_ = m; }
 
-    void setSceneNum(int num) { submap_id_ = num; }
+    void setID(int id) { submap_id_ = id; }
 
     //注意视角和主角的位置可能不一样
     void setViewPosition(int x, int y) { view_x_ = x; view_y_ = y; }

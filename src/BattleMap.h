@@ -14,11 +14,21 @@ private:
 
 public:
     BattleMap();
+    BattleMap(int id);
     ~BattleMap();
+
+
+    int battle_id_ = 0;
+    BattleInfo* info_;
+    void setID(int id);
+    
+    static const int COORD_COUNT = BATTLEMAP_COORD_COUNT;
+    MapSquare earth_layer_, building_layer_, role_layer_, select_layer_, effect_layer_;
 
 	void init();
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
+    virtual void entrance();
 
 
     int MaxSceneCoord = 63;

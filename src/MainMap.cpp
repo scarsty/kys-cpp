@@ -14,17 +14,23 @@ MainMap::MainMap()
 
     if (!data_readed_)
     {
+        earth_layer_.resize(COORD_COUNT);
+        surface_layer_.resize(COORD_COUNT);
+        building_layer_.resize(COORD_COUNT);
+        build_x_layer_.resize(COORD_COUNT);
+        build_y_layer_.resize(COORD_COUNT);
+
         int length = COORD_COUNT * COORD_COUNT * sizeof(uint16_t);
 
-        File::readFile("../game/resource/earth.002", &Earth_[0], length);
-        File::readFile("../game/resource/surface.002", &Surface_[0], length);
-        File::readFile("../game/resource/building.002", &Building_[0], length);
-        File::readFile("../game/resource/buildx.002", &BuildX_[0], length);
-        File::readFile("../game/resource/buildy.002", &BuildY_[0], length);
+        File::readFile("../game/resource/earth.002", &earth_layer_(0), length);
+        File::readFile("../game/resource/surface.002", &surface_layer_(0), length);
+        File::readFile("../game/resource/building.002", &building_layer_(0), length);
+        File::readFile("../game/resource/buildx.002", &build_x_layer_(0), length);
+        File::readFile("../game/resource/buildy.002", &build_y_layer_(0), length);
 
-        divide2(Earth_);
-        divide2(Surface_);
-        divide2(Building_);
+        divide2(earth_layer_);
+        divide2(surface_layer_);
+        divide2(building_layer_);
     }
     data_readed_ = true;
 
@@ -46,11 +52,11 @@ MainMap::~MainMap()
     }
 }
 
-void MainMap::divide2(MapArray& m)
+void MainMap::divide2(MapSquare& m)
 {
-    for (int i = 0; i < COORD_COUNT * COORD_COUNT; i++)
+    for (int i = 0; i < m.size(); i++)
     {
-        m[i] /= 2;
+        m(i) /= 2;
     }
 }
 
@@ -79,18 +85,18 @@ void MainMap::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (Earth(i1, i2) > 0)
+                if (earth_layer_(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", Earth(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_(i1, i2), p.x, p.y);
                 }
 #endif
-                if (Surface(i1, i2) > 0)
+                if (surface_layer_(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", Surface(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_(i1, i2), p.x, p.y);
                 }
-                if (Building(i1, i2) > 0)
+                if (building_layer_(i1, i2) > 0)
                 {
-                    auto t = Building(i1, i2);
+                    auto t = building_layer_(i1, i2);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -236,7 +242,7 @@ void MainMap::tryWalk(int x, int y, Towards t)
 bool MainMap::isBuilding(int x, int y)
 {
 
-    if (Building(BuildX(x, y), BuildY(x, y)) > 0)
+    if (building_layer_(build_x_layer_(x, y), build_y_layer_(x, y)) > 0)
     {
         return  true;
     }
@@ -248,7 +254,7 @@ bool MainMap::isBuilding(int x, int y)
 
 bool MainMap::isWater(int x, int y)
 {
-    auto pic = Earth(x, y);
+    auto pic = earth_layer_(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     {
         return true;
