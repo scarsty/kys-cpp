@@ -37,8 +37,8 @@ public:
 
     void draw() override;
     virtual void dealEvent(BP_Event& e) override;
-    virtual void entrance() override;
-    virtual void exit() override;
+    virtual void onEntrance() override;
+    virtual void onExit() override;
 
     void tryWalk(int x, int y, Towards t);
     //void cloudMove();

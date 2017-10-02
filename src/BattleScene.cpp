@@ -22,6 +22,8 @@ BattleScene::BattleScene()
     battle_menu_->arrange(0, 0, 0, 28);
     head_ = new Head();
     addChild(head_, 100, 100);
+    battle_operator_ = new BattleOperator();
+    battle_operator_->setBattleScene(this);
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
@@ -110,7 +112,7 @@ void BattleScene::dealEvent(BP_Event& e)
     battle_menu_->run();
 }
 
-void BattleScene::entrance()
+void BattleScene::onEntrance()
 {
     calViewRegion();
     //设置全部角色的位置层，避免今后出错

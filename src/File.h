@@ -7,7 +7,6 @@ class File
 private:
     File();
     virtual ~File();
-    static File file;
 public:
     static bool fileExist(const std::string& filename);
     static bool readFile(const std::string& filename, char** s, int* len);
@@ -47,6 +46,5 @@ public:
             memcpy(data + length_one * i, &v[i], length_one);
         }
     }
-
 };
 

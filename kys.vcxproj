@@ -166,6 +166,7 @@
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\Base.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
+    <ClCompile Include="src\BattleOperator.cpp" />
     <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
@@ -197,6 +198,7 @@
     <ClCompile Include="src\UISkill.cpp" />
     <ClCompile Include="src\UIStatus.cpp" />
     <ClCompile Include="src\UISystem.cpp" />
+    <ClCompile Include="src\Util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -204,6 +206,7 @@
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\Base.h" />
     <ClInclude Include="src\BattleMap.h" />
+    <ClInclude Include="src\BattleOperator.h" />
     <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
@@ -236,6 +239,7 @@
     <ClInclude Include="src\UISkill.h" />
     <ClInclude Include="src\UIStatus.h" />
     <ClInclude Include="src\UISystem.h" />
+    <ClInclude Include="src\Util.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="kys.rc" />

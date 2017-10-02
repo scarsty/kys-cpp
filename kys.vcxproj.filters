@@ -106,6 +106,12 @@
     <ClCompile Include="src\TeamMenu.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Util.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleOperator.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -215,6 +221,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\TeamMenu.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleOperator.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,10 +1,7 @@
 #include "Base.h"
-#include <stdio.h>
-#include <stdarg.h>
 #include "UI.h"
 
 std::vector<Base*> Base::root_;
-std::set<Base*> Base::collector_;
 
 Base::~Base()
 {
@@ -12,16 +9,6 @@ Base::~Base()
     {
         delete c;
     }
-}
-
-void Base::LOG(const char* format, ...)
-{
-    char s[1000];
-    va_list arg_ptr;
-    va_start(arg_ptr, format);
-    vsprintf(s, format, arg_ptr);
-    va_end(arg_ptr);
-    fprintf(stderr, s);
 }
 
 void Base::drawAll()
@@ -59,37 +46,16 @@ void Base::setPosition(int x, int y)
 //参数为是否在root中运行，为真则参与绘制，为假则不会被画出
 int Base::run(bool in_root /*= true*/)
 {
-    BP_Event e;
-    auto engine = Engine::getInstance();
-    loop_ = true;
+    exit_ = false;
     result_ = -1;
     if (in_root) { addOnRootTop(this); }
-    entrance();
-    while (loop_ && engine->pollEvent(e) >= 0)
+    onEntrance();
+    while (!exit_)
     {
-        int t0 = engine->getTicks();
         if (Base::root_.size() == 0) { break; }
-        Base::drawAll();
-        checkStateAndEvent(e);
-        switch (e.type)
-        {
-        case BP_QUIT:
-            //if (engine->showMessage("Quit"))
-            //loop_ = false;
-            break;
-        default:
-            break;
-        }
-        engine->renderPresent();
-        int t1 = engine->getTicks();
-        int t = 25 - (t1 - t0);
-        if (t <= 0) { t = 1; }
-        engine->delay(t);
-        //LOG("one frame\n");
+        oneFrame(true);
     }
-    //while (engine->pollEvent(e) > 0);
-    //engine->flushEvent();
-    exit();
+    onExit();
     if (in_root) { removeFromRoot(this); }
     return result_;
 }
@@ -140,7 +106,7 @@ void Base::removeChild(Base* b)
             break;
         }
     }
-    collector_.insert(b);
+    //collector_.insert(b);
 }
 
 void Base::clearChilds()
@@ -199,22 +165,33 @@ void Base::checkStateAndEvent(BP_Event& e)
     }
 }
 
-//这个可以在自己的循环中使用，避免卡死
-void Base::pollEvent()
+//一次循环中的事务，注意也可以单独调用，用于场景动画
+void Base::oneFrame(bool check_event)
 {
     BP_Event e;
-    Engine::getInstance()->pollEvent(e);
+    auto engine = Engine::getInstance();
+    
+    Base::drawAll();
+    engine->pollEvent(e);
+    if (check_event)
+    {
+        checkStateAndEvent(e);
+    }
     switch (e.type)
     {
     case BP_QUIT:
-        /*if (Engine::getInstance()->showMessage("Quit"))
-        {
-            Engine::getInstance()->destroy();
-        }*/
+        //if (engine->showMessage("Quit"))
+        //loop_ = false;
         break;
     default:
         break;
     }
+    int t1 = engine->getTicks();
+    int t = 25 - (t1 - prev_present_ticks_);
+    if (t <= 0) { t = 1; }
+    engine->delay(t);
+    engine->renderPresent();
+    prev_present_ticks_ = t1;
 }
 
 void Base::setAllChildState(State s)

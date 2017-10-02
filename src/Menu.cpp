@@ -29,7 +29,7 @@ void Menu::dealEvent(BP_Event& e)
         if (childs_[i]->getResult() == 0)
         {
             result_ = i;
-            loop_ = false;
+            setExit(true);
         }
     }
 }
@@ -82,6 +82,6 @@ void TextBox::dealEvent(BP_Event& e)
 {
     if (e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYUP)
     {
-        loop_ = false;
+        setExit(true);
     }
 }

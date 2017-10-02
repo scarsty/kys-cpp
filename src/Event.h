@@ -6,7 +6,7 @@
 
 //event_id表示在kdef中的编号，event_index表示在场景中的编号
 
-class Event : Base
+class Event
 {
 private:
     Event();
@@ -25,8 +25,9 @@ private:
 
     //两个对话，用于上面和下面，两个可以同时显示
     //视需要可增加更多
-    Talk* talkup_ = nullptr;
-    Talk* talkdown_ = nullptr;
+    Base* talk_box_;
+    Talk* talk_box_up_ = nullptr;
+    Talk* talk_box_down_ = nullptr;
 
     //专用于显示确认和取消选项
     MenuText* menu2_ = nullptr;

@@ -66,11 +66,11 @@ void TitleScene::dealEvent(BP_Event& e)
         auto b = new BattleScene(132);
         b->run();
         delete b;
-        loop_ = false;
+        setExit(true);
     }
 }
 
-void TitleScene::entrance()
+void TitleScene::onEntrance()
 {
     Save::getInstance()->LoadR(2);
     Audio::getInstance()->playMusic(3);

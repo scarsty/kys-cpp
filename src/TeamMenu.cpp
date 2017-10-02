@@ -21,7 +21,7 @@ TeamMenu::~TeamMenu()
 {
 }
 
-void TeamMenu::entrance()
+void TeamMenu::onEntrance()
 {
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {

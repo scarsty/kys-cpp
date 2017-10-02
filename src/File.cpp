@@ -2,8 +2,6 @@
 #include <iostream>
 #include <fstream>
 
-File File::file;
-
 File::File()
 {
 }

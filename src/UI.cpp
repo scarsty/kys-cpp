@@ -39,8 +39,6 @@ UI::UI()
         heads_.push_back(h);
     }
     heads_[0]->setState(Pass);
-    instance_ = true;
-
     result_ = -1; //非负：物品id，负数：其他情况，再定
 }
 
@@ -54,7 +52,7 @@ UI::~UI()
     delete ui_system_;
 }
 
-void UI::entrance()
+void UI::onEntrance()
 {
 }
 
@@ -84,7 +82,7 @@ void UI::dealEvent(BP_Event& e)
         if (childs_[0] == ui_item_)
         {
             result_ = ui_item_->getResult();
-            loop_ = false;
+            setExit(true);
         }
         if (button_status_->getState() == Press) { childs_[0] = ui_status_; }
         if (button_skill_->getState() == Press) { childs_[0] = ui_skill_; }
@@ -94,6 +92,6 @@ void UI::dealEvent(BP_Event& e)
     if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
         || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
     {
-        loop_ = false;
+        setExit(true);
     }
 }

@@ -206,14 +206,14 @@ void MainScene::dealEvent(BP_Event& e)
     }
 }
 
-void MainScene::entrance()
+void MainScene::onEntrance()
 {
     calViewRegion();
     man_x_ = Save::getInstance()->MainMapX;
     man_y_ = Save::getInstance()->MainMapY;
 }
 
-void MainScene::exit()
+void MainScene::onExit()
 {
 }
 

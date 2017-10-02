@@ -219,11 +219,11 @@ void SubScene::backRun()
 }
 
 //一大块地面的纹理，未启用
-void SubScene::entrance()
+void SubScene::onEntrance()
 {
     calViewRegion();
     info_ = Save::getInstance()->getSubMapInfo(submap_id_);
-    if (info_ == nullptr) { loop_ = false; }
+    if (info_ == nullptr) { setExit(true); }
     info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
     setPosition(info_->EntranceX, info_->EntranceY);
     exit_music_ = info_->ExitMusic;
@@ -249,7 +249,7 @@ void SubScene::entrance()
     //Engine::getInstance()->resetRenderTarget();
 }
 
-void SubScene::exit()
+void SubScene::onExit()
 {
     Audio::getInstance()->playMusic(exit_music_);
     //if (earth_texture_)
@@ -382,7 +382,7 @@ bool SubScene::isExit(int x, int y)
         || info_->ExitX[1] == x && info_->ExitY[1] == y
         || info_->ExitX[2] == x && info_->ExitY[2] == y)
     {
-        loop_ = false;
+        setExit(true);
         Save::getInstance()->InSubmap = 1;
         return true;
     }

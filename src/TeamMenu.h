@@ -12,7 +12,7 @@ public:
 
     std::vector<int> selected_;
 
-    virtual void entrance() override;
+    virtual void onEntrance() override;
 
     int mode_;   //为0是单选，为1是多选
 

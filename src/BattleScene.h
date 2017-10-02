@@ -4,6 +4,7 @@
 #include "Point.h"
 #include <stack>
 #include "BattleMenu.h"
+#include "BattleOperator.h"
 
 class BattleScene : public Scene
 {
@@ -15,6 +16,7 @@ public:
     std::vector<Role*> battle_roles_;
 
     BattleMenu* battle_menu_;
+    BattleOperator* battle_operator_;
     Head* head_;
 
     int battle_id_ = 0;
@@ -27,7 +29,7 @@ public:
 	void init();
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
-    virtual void entrance();
+    virtual void onEntrance();
 
     int calRolePic(Role* r);
 

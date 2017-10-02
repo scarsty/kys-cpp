@@ -22,7 +22,7 @@ private:
     //UI菜单单例即可，无需重复创建
     static UI ui_;
 public:
-    virtual void entrance() override;
+    virtual void onEntrance() override;
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 

@@ -8,22 +8,23 @@
 #include "Talk.h"
 #include "others/libconvert.h"
 #include "Audio.h"
+#include "Util.h"
 
 Event Event::event_;
 
 Event::Event()
 {
     loadEventData();
-    talkup_ = new Talk();
-    talkdown_ = new Talk();
-    addChild(talkup_);
-    addChild(talkdown_, 0, 400);
+    talk_box_ = new Base();
+    talk_box_up_ = new Talk();
+    talk_box_down_ = new Talk();
+    talk_box_->addChild(talk_box_up_);
+    talk_box_->addChild(talk_box_down_, 0, 400);
     menu2_ = new MenuText({ "確認（Y）", "取消（N）" });
     menu2_->setPosition(300, 200);
     menu2_->arrange(0, 100, 100, 0);
     text_box_ = new TextBox();
     text_box_->setPosition(300, 300);
-    instance_ = true;
 }
 
 Event::~Event()
@@ -81,21 +82,21 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
     y_ = y;
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
-    addOnRootTop(this);
+    Base::addOnRootTop(talk_box_);
     int p = 0;
     bool loop = true;
     int i = 0;
     auto e = kdef_[event_id];
     e.resize(e.size() + 20);  //后面的是缓冲区，避免出错
-    LOG("%d: ", event_id);
+    printf("%d: ", event_id);
     for (auto c : e)
     {
-        LOG("%d ", c);
+        printf("%d ", c);
     }
-    LOG("\n");
+    printf("\n");
     while (i < e.size() && loop)
     {
-        LOG("%d,", e[i]);
+        printf("%d,", e[i]);
         switch (e[i])
         {
             VOID_INSTRUCT_3(1, e, i, oldTalk);
@@ -203,7 +204,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             i += 1;
         }
     }
-    removeFromRoot(this);
+    Base::removeFromRoot(talk_box_);
     return true;
     //if (loop)
     //{ return 0; }
@@ -222,9 +223,9 @@ SubMapInfo* Event::getSubMapRecordFromID(int submap_id)
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
     //talkup_->setVisible(true);
-    talkup_->setContent(talk_[talk_id]);
-    talkup_->setHeadID(head_id);
-    talkup_->run(false);
+    talk_box_up_->setContent(talk_[talk_id]);
+    talk_box_up_->setHeadID(head_id);
+    talk_box_up_->run(false);
     //talkup_->setVisible(false);
 }
 
@@ -524,7 +525,7 @@ bool Event::checkRoleSexual(int sexual)
 
 void Event::addMorality(int value)
 {
-    save_->getRole(0)->Morality = limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
+    save_->getRole(0)->Morality = Util::limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
 }
 
 void Event::changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic)
@@ -581,7 +582,7 @@ void Event::addSpeed(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->Speed;
-    r->Speed = limit(v0 + value, 0, MAX_SPEED);
+    r->Speed = Util::limit(v0 + value, 0, MAX_SPEED);
     text_box_->setTitle(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
     text_box_->run();
 }
@@ -590,7 +591,7 @@ void Event::addMP(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxMP;
-    r->MaxMP = limit(v0 + value, 0, MAX_MP);
+    r->MaxMP = Util::limit(v0 + value, 0, MAX_MP);
     text_box_->setTitle(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -599,7 +600,7 @@ void Event::addAttack(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->Attack;
-    r->Attack = limit(v0 + value, 0, MAX_ATTACK);
+    r->Attack = Util::limit(v0 + value, 0, MAX_ATTACK);
     text_box_->setTitle(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
     text_box_->run();
 }
@@ -608,7 +609,7 @@ void Event::addHP(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxHP;
-    r->MaxHP = limit(v0 + value, 0, MAX_HP);
+    r->MaxHP = Util::limit(v0 + value, 0, MAX_HP);
     text_box_->setTitle(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
     text_box_->run();
 }

@@ -8,7 +8,7 @@ Audio::Audio()
 {
     if (!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, nullptr))
     {
-        printf("Init Bass fault!");
+        printf("Init Bass fault!\n");
     }
     init();
 }

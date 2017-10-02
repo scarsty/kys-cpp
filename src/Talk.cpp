@@ -15,7 +15,7 @@ void Talk::dealEvent(BP_Event& e)
 {
     if (e.type == BP_KEYUP)
     {
-        loop_ = false;
+        setExit(true);
         e.type = BP_FIRSTEVENT;
     }
 }

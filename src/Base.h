@@ -2,7 +2,6 @@
 #include <vector>
 #include "Engine.h"
 #include "TextureManager.h"
-#include <set>
 
 #define CONNECT(a,b) a##b
 
@@ -11,15 +10,14 @@ class Base
 {
 private:
     static std::vector<Base*> root_;   //所有需要绘制的内容都存储在这个向量中
-    static std::set<Base*> collector_;
+    //static std::set<Base*> collector_;
+    int prev_present_ticks_;
 protected:
     std::vector<Base*> childs_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
-    bool loop_ = true;
-    bool instance_ = false;
-    //bool auto_erase_ = false;
+    bool exit_ = false;                //子类的过程中设此值为true，即表示退出
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -28,27 +26,6 @@ protected:
 public:
     Base() {}
     virtual ~Base();
-
-    static void LOG(const char* format, ...);
-    template <class T> void safe_delete(T*& pointer)
-    {
-        if (pointer) { delete pointer; }
-        pointer = nullptr;
-    }
-    template <class T> static void safe_delete(std::vector<T*>& pointer_v)
-    {
-        for (auto& pointer : pointer_v)
-        {
-            safe_delete(pointer);
-        }
-    }
-    template <class T> static void safe_delete(std::initializer_list<T**> pointer_v)
-    {
-        for (auto& pointer : pointer_v)
-        {
-            safe_delete(*pointer);
-        }
-    }
 
     static void drawAll();
 
@@ -75,8 +52,8 @@ public:
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
     virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
-    virtual void entrance() {}                          //进入本层的事件，例如绘制亮屏等
-    virtual void exit() {}                              //离开本层的事件，例如黑屏等
+    virtual void onEntrance() {}                          //进入本层的事件，例如绘制亮屏等
+    virtual void onExit() {}                              //离开本层的事件，例如黑屏等
 
     int getResult() { return result_; }
     void drawSelfAndChilds();
@@ -96,19 +73,14 @@ public:
     void setState(State s) { state_ = s; }
     void checkStateAndEvent(BP_Event& e);
 
-    void pollEvent();
+    void oneFrame(bool check_event = false);
+
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Base* getCurrentTopDraw() { return root_.back(); }
-
-    static int limit(int current, int min_value, int max_value)
-    {
-        if (current < min_value) { (current = min_value); }
-        if (current > max_value) { (current = max_value); }
-        return current;
-    }
 
     void setAllChildState(State s);
     void setChildState(int i, State s);
 
+    void setExit(bool e) { exit_ = e; }
 };
 
