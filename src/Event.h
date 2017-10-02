@@ -106,8 +106,8 @@ public:
     void askSoftStar();
     void showMorality();
     void showFame();
-    void openAllScence();
-    bool checkEventNum(int event_index, int value);
+    void openAllSubMap();
+    bool checkEventID(int event_index, int value);
     void addFame(int value);
     void breakStoneGate();
     void fightForTop();

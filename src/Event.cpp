@@ -181,8 +181,8 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             VOID_INSTRUCT_0(51, e, i, askSoftStar);
             VOID_INSTRUCT_0(52, e, i, showMorality);
             VOID_INSTRUCT_0(53, e, i, showFame);
-            VOID_INSTRUCT_0(54, e, i, openAllScence);
-            BOOL_INSTRUCT_2(55, e, i, checkEventNum);
+            VOID_INSTRUCT_0(54, e, i, openAllSubMap);
+            BOOL_INSTRUCT_2(55, e, i, checkEventID);
             VOID_INSTRUCT_1(56, e, i, addFame);
             VOID_INSTRUCT_0(57, e, i, breakStoneGate);
             VOID_INSTRUCT_0(58, e, i, fightForTop);
@@ -643,7 +643,7 @@ void Event::showFame()
     text_box_->run();
 }
 
-void Event::openAllScence()
+void Event::openAllSubMap()
 {
     int i = 0;
     while (save_->getSubMapInfo(i))
@@ -657,9 +657,9 @@ void Event::openAllScence()
     save_->getSubMapInfo(80)->EntranceCondition = 1;
 }
 
-bool Event::checkEventNum(int event_index, int value)
+bool Event::checkEventID(int event_index, int value)
 {
-    return false;
+    return subscene_->getMapInfo()->Event(event_index)->Event1 = value;
 }
 
 void Event::addFame(int value)

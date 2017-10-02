@@ -81,8 +81,8 @@
 #define instruct_51 askSoftStar
 #define instruct_52 showMorality
 #define instruct_53 showFame
-#define instruct_54 openAllScence
-#define instruct_55 checkEventNum
+#define instruct_54 openAllSubMap
+#define instruct_55 checkEventID
 #define instruct_56 addFame
 #define instruct_57 breakStoneGate
 #define instruct_58 fightForTop

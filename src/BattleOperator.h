@@ -1,8 +1,8 @@
 #pragma once
 #include "Element.h"
 
-class BattleOperator :
-    public Element
+//因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以响应事件
+class BattleOperator : public Element
 {
 public:
     BattleOperator();
