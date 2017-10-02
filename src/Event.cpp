@@ -65,15 +65,15 @@ bool Event::loadEventData()
 }
 
 //返回值为是否成功执行事件
-bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, int event_index, int x, int y)
+bool Event::callEvent(int event_id, Base* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
     save_ = Save::getInstance();
-    submap_ = dynamic_cast<SubScene*>(submap);
+    subscene_ = dynamic_cast<SubScene*>(subscene);
     submap_id_ = -1;
-    if (submap)
+    if (subscene)
     {
-        submap_id_ = submap_->getInfo()->ID;
+        submap_id_ = subscene_->getMapInfo()->ID;
     }
 
     item_id_ = item_id;
@@ -215,7 +215,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
 SubMapInfo* Event::getSubMapRecordFromID(int submap_id)
 {
     auto submap_record = save_->getSubMapInfo(submap_id);
-    if (submap_record == nullptr) { submap_record = submap_->getInfo(); }
+    if (submap_record == nullptr) { submap_record = subscene_->getMapInfo(); }
     return submap_record;
 }
 
@@ -374,9 +374,9 @@ bool Event::haveItemBool(int item_id)
 
 void Event::oldSetScencePosition(int x, int y)
 {
-    if (submap_)
+    if (subscene_)
     {
-        submap_->setPosition(x, y);
+        subscene_->setPosition(x, y);
     }
 }
 
@@ -444,9 +444,9 @@ bool Event::checkRoleAttack(int role_id, int low, int high)
 
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
-    if (submap_)
+    if (subscene_)
     {
-        submap_->setPosition(x1, y1);
+        subscene_->setPosition(x1, y1);
     }
 }
 
@@ -714,7 +714,7 @@ bool Event::check14BooksPlaced()
 {
     for (int i = 11; i <= 24; i++)
     {
-        if (submap_->getInfo()->Event(i)->CurrentPic != 4664)
+        if (subscene_->getMapInfo()->Event(i)->CurrentPic != 4664)
         {
             return false;
         }

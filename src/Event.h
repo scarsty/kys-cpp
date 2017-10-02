@@ -38,10 +38,10 @@ private:
 public:
     bool loadEventData();             //加载事件数据
     //这里再设计
-    bool callEvent(int event_id, Base* submap = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);     //调用指令的内容写这里
+    bool callEvent(int event_id, Base* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);     //调用指令的内容写这里
 
 private:
-    SubScene* submap_;
+    SubScene* subscene_;
     int submap_id_;
     int x_, y_;
     int event_index_;

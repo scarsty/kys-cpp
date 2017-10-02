@@ -46,8 +46,8 @@ void SubScene::draw()
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
             if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
             {
-                int h = info_->BuildingHeight(i1, i2);
-                int num = info_->Earth(i1, i2) / 2;
+                int h = submap_info_->BuildingHeight(i1, i2);
+                int num = submap_info_->Earth(i1, i2) / 2;
                 //无高度地面
                 if (num > 0 && h == 0)
                 {
@@ -73,8 +73,8 @@ void SubScene::draw()
             if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
             {
                 //有高度地面
-                int h = info_->BuildingHeight(i1, i2);
-                int num = info_->Earth(i1, i2) / 2;
+                int h = submap_info_->BuildingHeight(i1, i2);
+                int num = submap_info_->Earth(i1, i2) / 2;
 #ifndef _DEBUG
                 if (num > 0 && h > 0)
                 {
@@ -82,7 +82,7 @@ void SubScene::draw()
                 }
 #endif
                 //建筑和主角
-                num = info_->Building(i1, i2) / 2;
+                num = submap_info_->Building(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
@@ -96,10 +96,10 @@ void SubScene::draw()
                     }
                 }
                 //事件
-                auto event = info_->Event(i1, i2);
+                auto event = submap_info_->Event(i1, i2);
                 if (event)
                 {
-                    num = info_->Event(i1, i2)->CurrentPic / 2;
+                    num = submap_info_->Event(i1, i2)->CurrentPic / 2;
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
@@ -107,10 +107,10 @@ void SubScene::draw()
                     }
                 }
                 //装饰
-                num = info_->Decoration(i1, i2) / 2;
+                num = submap_info_->Decoration(i1, i2) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - info_->DecorationHeight(i1, i2));
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(i1, i2));
                 }
             }
             //k++;
@@ -205,7 +205,7 @@ void SubScene::backRun()
 {
     for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
     {
-        auto e = info_->Event(i);
+        auto e = submap_info_->Event(i);
         //if (e->PicDelay > 0)
         {
             e->CurrentPic++;
@@ -222,12 +222,12 @@ void SubScene::backRun()
 void SubScene::onEntrance()
 {
     calViewRegion();
-    info_ = Save::getInstance()->getSubMapInfo(submap_id_);
-    if (info_ == nullptr) { setExit(true); }
-    info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
-    setPosition(info_->EntranceX, info_->EntranceY);
-    exit_music_ = info_->ExitMusic;
-    Audio::getInstance()->playMusic(info_->EntranceMusic);
+    submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
+    if (submap_info_ == nullptr) { setExit(true); }
+    submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
+    setPosition(submap_info_->EntranceX, submap_info_->EntranceY);
+    exit_music_ = submap_info_->ExitMusic;
+    Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 
@@ -278,22 +278,22 @@ void SubScene::tryWalk(int x, int y, Towards t)
 bool SubScene::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
 {
     getTowardsPosition(man_x_, man_y_, t, &x, &y);
-    int event_index_submap = info_->EventIndex(x, y);
+    int event_index_submap = submap_info_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
         int id;
         if (t != None)
         {
-            id = info_->Event(x, y)->Event1;
+            id = submap_info_->Event(x, y)->Event1;
             if (id > 0) { step_ = 0; }
         }
         else
         {
-            id = info_->Event(x, y)->Event3;
+            id = submap_info_->Event(x, y)->Event3;
         }
         if (id > 0)
         {
-            return Event::getInstance()->callEvent(id, this, info_->ID, item_id, event_index_submap, x, y);
+            return Event::getInstance()->callEvent(id, this, submap_info_->ID, item_id, event_index_submap, x, y);
         }
     }
     return false;
@@ -316,7 +316,7 @@ bool SubScene::canWalk(int x, int y)
 
 bool SubScene::isBuilding(int x, int y)
 {
-    return info_->Building(x, y) > 0;
+    return submap_info_->Building(x, y) > 0;
     //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
     //{
     //    return false;
@@ -334,7 +334,7 @@ bool SubScene::isOutLine(int x, int y)
 
 bool SubScene::isWater(int x, int y)
 {
-    int num = info_->Earth(x, y) / 2;
+    int num = submap_info_->Earth(x, y) / 2;
     if (num >= 179 && num <= 181
         || num == 261 || num == 511
         || num >= 662 && num <= 665
@@ -347,7 +347,7 @@ bool SubScene::isWater(int x, int y)
 
 bool SubScene::isCanPassEvent(int x, int y)
 {
-    auto e = info_->Event(x, y);
+    auto e = submap_info_->Event(x, y);
     if (e && !e->CannotWalk)
     {
         return true;
@@ -357,7 +357,7 @@ bool SubScene::isCanPassEvent(int x, int y)
 
 bool SubScene::isCannotPassEvent(int x, int y)
 {
-    auto e = info_->Event(x, y);
+    auto e = submap_info_->Event(x, y);
     if (e && e->CannotWalk)
     {
         return true;
@@ -378,9 +378,9 @@ bool SubScene::isFall(int x, int y)
 
 bool SubScene::isExit(int x, int y)
 {
-    if (info_->ExitX[0] == x && info_->ExitY[0] == y
-        || info_->ExitX[1] == x && info_->ExitY[1] == y
-        || info_->ExitX[2] == x && info_->ExitY[2] == y)
+    if (submap_info_->ExitX[0] == x && submap_info_->ExitY[0] == y
+        || submap_info_->ExitX[1] == x && submap_info_->ExitY[1] == y
+        || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
     {
         setExit(true);
         Save::getInstance()->InSubmap = 1;

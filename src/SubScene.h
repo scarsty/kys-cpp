@@ -18,12 +18,12 @@ public:
     int const MAN_PIC_COUNT = 7;           //单向主角图张数
     int submap_id_;   //场景号
 
-    SubMapInfo* info_;
+    SubMapInfo* submap_info_;
 
     int exit_music_;
 
 public:
-    SubMapInfo* getInfo() { return info_; }
+    SubMapInfo* getMapInfo() { return submap_info_; }
 
     void changeExitMusic(int m) { exit_music_ = m; }
 
