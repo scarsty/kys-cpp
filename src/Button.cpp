@@ -59,13 +59,18 @@ void Button::draw()
     TextureManager::getInstance()->renderTexture(tex_path_, id, x_, y_, color);
     if (text_.size())
     {
-        Font::getInstance()->draw(text_, 20, x_, y_, color_text, 255);
+        Font::getInstance()->drawWithBox(text_, 20, x_, y_, color_text, 255);
     }
+
+    //视情况重新计算尺寸
     if (w_ * h_ == 0)
     {
         auto tex = TextureManager::getInstance()->loadTexture(tex_path_, tex_normal_id_);
-        w_ = tex->w;
-        h_ = tex->h;
+        if (tex)
+        {
+            w_ = tex->w;
+            h_ = tex->h;
+        }
     }
 }
 

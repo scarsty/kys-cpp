@@ -1,5 +1,6 @@
 #include "Font.h"
 #include "PotConv.h"
+#include "TextureManager.h"
 
 Font Font::font_;
 
@@ -61,4 +62,17 @@ void Font::draw(std::string text, int size, int x, int y, BP_Color color, uint8_
         }
         x += w;
     }
+}
+
+void Font::drawWithBox(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha /*= 255*/)
+{
+    TextureManager::getInstance()->renderTexture("title", 19, x, y);
+    for (int i = 0; i < text.size(); i++)
+    {
+        TextureManager::getInstance()->renderTexture("title", 20, x + 19 + 10 * i, y);
+    }
+    TextureManager::getInstance()->renderTexture("title", 21, x + 19 + 10 * text.size(), y);
+
+    draw(text, size, x + 19, y + 3, color, alpha);
+
 }

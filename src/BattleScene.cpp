@@ -16,6 +16,10 @@ BattleScene::BattleScene()
     role_layer_.resize(COORD_COUNT);
     select_layer_.resize(COORD_COUNT);
     effect_layer_.resize(COORD_COUNT);
+    battle_menu_ = new BattleMenu();
+    battle_menu_->setStrings({ "ÒÆ„Ó", "ÎäŒW", "át¯Ÿ", "½â¶¾", "×Ô„Ó", "Éµ±Æ", "°×°V", "´ó±ã", "", "" });
+    battle_menu_->setPosition(100, 100);
+    battle_menu_->arrange(0, 0, 0, 28);
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
@@ -45,8 +49,6 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
-    man_x_ = 16;
-    man_y_ = 16;
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
 #ifndef _DEBUG
@@ -57,7 +59,7 @@ void BattleScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
-            if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
+            if (i1 >= 0 && i1 <= COORD_COUNT && i2 >= 0 && i2 <= COORD_COUNT)
             {
                 int num = earth_layer_(i1, i2) / 2;
                 if (num > 0)
@@ -75,7 +77,7 @@ void BattleScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
-            if (i1 >= 0 && i1 <= MaxSceneCoord && i2 >= 0 && i2 <= MaxSceneCoord)
+            if (i1 >= 0 && i1 <= COORD_COUNT && i2 >= 0 && i2 <= COORD_COUNT)
             {
                 int num = building_layer_(i1, i2) / 2;
                 if (num > 0)
@@ -84,7 +86,7 @@ void BattleScene::draw()
 
                 }
                 num = role_layer_(i1, i2);
-                if (num>=0)
+                if (num >= 0)
                 {
                     std::string path = convert::formatString("fight/fight%03d", num);
                     TextureManager::getInstance()->renderTexture(path, 0, p.x, p.y);
@@ -97,7 +99,10 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
-
+    man_x_ = battle_roles_[0]->X();
+    man_y_ = battle_roles_[0]->Y();
+    battle_menu_->setRole(battle_roles_[0]);
+    battle_menu_->run();
 }
 
 void BattleScene::entrance()
@@ -190,7 +195,7 @@ bool BattleScene::checkIsBuilding(int x, int y)
 
 bool BattleScene::checkIsOutLine(int x, int y)
 {
-    if (x < 0 || x > MaxSceneCoord || y < 0 || y > MaxSceneCoord)
+    if (x < 0 || x > COORD_COUNT || y < 0 || y > COORD_COUNT)
     {
         return true;
     }

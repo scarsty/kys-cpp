@@ -3,6 +3,7 @@
 #include "Scene.h"
 #include "Point.h"
 #include <stack>
+#include "BattleMenu.h"
 
 class BattleScene : public Scene
 {
@@ -12,6 +13,8 @@ public:
     ~BattleScene();
 
     std::vector<Role*> battle_roles_;
+
+    BattleMenu* battle_menu_;
 
     int battle_id_ = 0;
     BattleInfo* info_;
@@ -26,7 +29,6 @@ public:
     virtual void entrance();
 
 
-    int MaxSceneCoord = 63;
     static const int m_nMaxBRoleSelect = 6;       //战斗选人最大人数
     int m_nMaxBRoleNum = 42;                      //最大战场参战人数
 

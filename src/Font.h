@@ -18,7 +18,6 @@ private:
 public:
     static Font* getInstance() { return &font_; };
     void draw(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha = 255);
-
     void drawWithBox(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha = 255);
 };
 
