@@ -1,9 +1,9 @@
 #include "TitleScene.h"
 #include "Menu.h"
-#include "MainMap.h"
-#include "BattleMap.h"
+#include "MainScene.h"
+#include "BattleScene.h"
 #include "Event.h"
-#include "SubMap.h"
+#include "SubScene.h"
 #include "Button.h"
 #include "Audio.h"
 
@@ -48,18 +48,18 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
-        MainMap::getIntance()->run();
+        MainScene::getIntance()->run();
     }
     if (r == 1)
     {
-        auto s = new SubMap(2);
+        auto s = new SubScene(2);
         s->run();
-        MainMap::getIntance()->run();
+        MainScene::getIntance()->run();
         //menu_load_->run();
     }
     if (r == 2)
     {
-        auto b = new BattleMap(1);
+        auto b = new BattleScene(1);
         b->run();
         loop_ = false;
     }

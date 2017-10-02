@@ -16,9 +16,6 @@
     <ClCompile Include="src\File.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\MainMap.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Menu.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -41,12 +38,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\PotConv.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubMap.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Types.cpp">
@@ -100,7 +91,16 @@
     <ClCompile Include="src\others\libconvert.cpp">
       <Filter>_others</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleSave.cpp">
+    <ClCompile Include="src\BattleScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MainScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SubScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -121,9 +121,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\File.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MainMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Menu.h">
@@ -148,12 +145,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\PotConv.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SubMap.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Types.h">
@@ -208,7 +199,16 @@
     <ClInclude Include="src\Random.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleSave.h">
+    <ClInclude Include="src\BattleScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MainScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

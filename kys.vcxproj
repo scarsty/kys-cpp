@@ -165,8 +165,8 @@
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\Base.cpp" />
-    <ClCompile Include="src\BattleSave.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
+    <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
@@ -182,10 +182,10 @@
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\others\libconvert.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
-    <ClCompile Include="src\SubMap.cpp" />
+    <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
     <ClCompile Include="src\kys.cpp" />
-    <ClCompile Include="src\MainMap.cpp" />
+    <ClCompile Include="src\MainScene.cpp" />
     <ClCompile Include="src\Menu.cpp" />
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
@@ -202,8 +202,8 @@
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\Base.h" />
-    <ClInclude Include="src\BattleSave.h" />
     <ClInclude Include="src\BattleMap.h" />
+    <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Cloud.h" />
@@ -222,12 +222,12 @@
     <ClInclude Include="src\others\libconvert.h" />
     <ClInclude Include="src\PotConv.h" />
     <ClInclude Include="src\TitleScene.h" />
-    <ClInclude Include="src\MainMap.h" />
+    <ClInclude Include="src\MainScene.h" />
     <ClInclude Include="src\Menu.h" />
     <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
-    <ClInclude Include="src\SubMap.h" />
+    <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\TextureManager.h" />
     <ClInclude Include="src\Types.h" />
     <ClInclude Include="src\UIItem.h" />

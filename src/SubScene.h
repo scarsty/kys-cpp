@@ -2,13 +2,13 @@
 #include "Scene.h"
 #include "Save.h"
 
-class SubMap : public Scene
+class SubScene : public Scene
 {
 private:
-    SubMap();
+    SubScene();
 public:
-    SubMap(int id);
-    virtual ~SubMap();
+    SubScene(int id);
+    virtual ~SubScene();
 
     int view_x_ = 0, view_y_ = 0;
 

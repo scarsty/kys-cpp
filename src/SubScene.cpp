@@ -1,27 +1,27 @@
-#include "SubMap.h"
-#include "MainMap.h"
-#include "BattleMap.h"
+#include "SubScene.h"
+#include "MainScene.h"
+#include "BattleScene.h"
 #include "Event.h"
 #include "UI.h"
 #include "Audio.h"
 
 
-SubMap::SubMap()
+SubScene::SubScene()
 {
     full_window_ = 1;
 }
 
-SubMap::SubMap(int id) : SubMap()
+SubScene::SubScene(int id) : SubScene()
 {
     setID(id);
 }
 
-SubMap::~SubMap()
+SubScene::~SubScene()
 {
 
 }
 
-void SubMap::draw()
+void SubScene::draw()
 {
     int k = 0;
     struct DrawInfo { int i; Point p; };
@@ -119,7 +119,7 @@ void SubMap::draw()
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void SubMap::dealEvent(BP_Event& e)
+void SubScene::dealEvent(BP_Event& e)
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
@@ -201,7 +201,7 @@ void SubMap::dealEvent(BP_Event& e)
     //}
 }
 
-void SubMap::backRun()
+void SubScene::backRun()
 {
     for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
     {
@@ -219,7 +219,7 @@ void SubMap::backRun()
 }
 
 //一大块地面的纹理，未启用
-void SubMap::entrance()
+void SubScene::entrance()
 {
     calViewRegion();
     info_ = Save::getInstance()->getSubMapInfo(submap_id_);
@@ -249,7 +249,7 @@ void SubMap::entrance()
     //Engine::getInstance()->resetRenderTarget();
 }
 
-void SubMap::exit()
+void SubScene::exit()
 {
     Audio::getInstance()->playMusic(exit_music_);
     //if (earth_texture_)
@@ -259,7 +259,7 @@ void SubMap::exit()
 }
 
 //冗余过多待清理
-void SubMap::tryWalk(int x, int y, Towards t)
+void SubScene::tryWalk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
@@ -275,7 +275,7 @@ void SubMap::tryWalk(int x, int y, Towards t)
     }
 }
 
-bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
+bool SubScene::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
 {
     getTowardsPosition(man_x_, man_y_, t, &x, &y);
     int event_index_submap = info_->EventIndex(x, y);
@@ -299,7 +299,7 @@ bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/
     return false;
 }
 
-bool SubMap::canWalk(int x, int y)
+bool SubScene::canWalk(int x, int y)
 {
     bool ret = true;
     if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y)
@@ -314,7 +314,7 @@ bool SubMap::canWalk(int x, int y)
     return ret;
 }
 
-bool SubMap::isBuilding(int x, int y)
+bool SubScene::isBuilding(int x, int y)
 {
     return info_->Building(x, y) > 0;
     //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
@@ -327,12 +327,12 @@ bool SubMap::isBuilding(int x, int y)
     //}
 }
 
-bool SubMap::isOutLine(int x, int y)
+bool SubScene::isOutLine(int x, int y)
 {
     return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
 
-bool SubMap::isWater(int x, int y)
+bool SubScene::isWater(int x, int y)
 {
     int num = info_->Earth(x, y) / 2;
     if (num >= 179 && num <= 181
@@ -345,7 +345,7 @@ bool SubMap::isWater(int x, int y)
     return false;
 }
 
-bool SubMap::isCanPassEvent(int x, int y)
+bool SubScene::isCanPassEvent(int x, int y)
 {
     auto e = info_->Event(x, y);
     if (e && !e->CannotWalk)
@@ -355,7 +355,7 @@ bool SubMap::isCanPassEvent(int x, int y)
     return false;
 }
 
-bool SubMap::isCannotPassEvent(int x, int y)
+bool SubScene::isCannotPassEvent(int x, int y)
 {
     auto e = info_->Event(x, y);
     if (e && e->CannotWalk)
@@ -366,7 +366,7 @@ bool SubMap::isCannotPassEvent(int x, int y)
 }
 
 //what is this?
-bool SubMap::isFall(int x, int y)
+bool SubScene::isFall(int x, int y)
 {
     //if (abs(Save::getInstance()->m_SceneMapData[scene_id_].Data[4][x][y] -
     //Save::getInstance()->m_SceneMapData[scene_id_].Data[4][Cx][Cy] > 10))
@@ -376,7 +376,7 @@ bool SubMap::isFall(int x, int y)
     return false;
 }
 
-bool SubMap::isExit(int x, int y)
+bool SubScene::isExit(int x, int y)
 {
     if (info_->ExitX[0] == x && info_->ExitY[0] == y
         || info_->ExitX[1] == x && info_->ExitY[1] == y
@@ -389,12 +389,12 @@ bool SubMap::isExit(int x, int y)
     return false;
 }
 
-bool SubMap::isOutScreen(int x, int y)
+bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
 }
 
-void SubMap::getMousePosition(int _x, int _y)
+void SubScene::getMousePosition(int _x, int _y)
 {
     //int x = _x;
     //int y = _y;
@@ -404,7 +404,7 @@ void SubMap::getMousePosition(int _x, int _y)
     //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
-Point SubMap::getPositionOnWholeEarth(int x, int y)
+Point SubScene::getPositionOnWholeEarth(int x, int y)
 {
     auto p = getPositionOnScreen(x, y, 0, 0);
     p.x += COORD_COUNT * TILE_W - screen_center_x_;

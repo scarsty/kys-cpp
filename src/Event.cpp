@@ -1,6 +1,6 @@
 #include "Event.h"
-#include "MainMap.h"
-#include "SubMap.h"
+#include "MainScene.h"
+#include "SubScene.h"
 #include "Menu.h"
 #include "Save.h"
 #include "PotConv.h"
@@ -68,7 +68,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
 {
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
     save_ = Save::getInstance();
-    submap_ = dynamic_cast<SubMap*>(submap);
+    submap_ = dynamic_cast<SubScene*>(submap);
     submap_id_ = -1;
     if (submap)
     {

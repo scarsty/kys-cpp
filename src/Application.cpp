@@ -20,6 +20,8 @@ int Application::run()
 
     auto s = new TitleScene(); //开始界面
     s->run();
+    delete s;
+
     return 0;
 }
 

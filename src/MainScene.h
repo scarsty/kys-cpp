@@ -3,15 +3,15 @@
 #include "Cloud.h"
 #include "Types.h"
 
-class MainMap : public Scene
+class MainScene : public Scene
 {
 private:
-    static MainMap main_map_;
-    MainMap();
-    ~MainMap();
+    static MainScene main_map_;
+    MainScene();
+    ~MainScene();
 
 public:
-    static MainMap* getIntance() { return &main_map_; }
+    static MainScene* getIntance() { return &main_map_; }
 
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
     MapSquare earth_layer_ , surface_layer_, building_layer_, build_x_layer_, build_y_layer_, entrance_layer_;

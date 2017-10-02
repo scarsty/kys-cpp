@@ -1,14 +1,14 @@
-#include "MainMap.h"
+#include "MainScene.h"
 #include <time.h>
 #include "File.h"
 #include "TextureManager.h"
-#include "SubMap.h"
+#include "SubScene.h"
 #include "Save.h"
 #include "UI.h"
 
-MainMap MainMap::main_map_;
+MainScene MainScene::main_map_;
 
-MainMap::MainMap()
+MainScene::MainScene()
 {
     full_window_ = 1;
 
@@ -44,7 +44,7 @@ MainMap::MainMap()
     //getEntrance();
 }
 
-MainMap::~MainMap()
+MainScene::~MainScene()
 {
     for (int i = 0; i < cloud_vector_.size(); i++)
     {
@@ -52,7 +52,7 @@ MainMap::~MainMap()
     }
 }
 
-void MainMap::divide2(MapSquare& m)
+void MainScene::divide2(MapSquare& m)
 {
     for (int i = 0; i < m.size(); i++)
     {
@@ -60,7 +60,7 @@ void MainMap::divide2(MapSquare& m)
     }
 }
 
-void MainMap::draw()
+void MainScene::draw()
 {
     Engine::getInstance()->setRenderAssistTexture();
     //LOG("main\n");
@@ -144,7 +144,7 @@ void MainMap::draw()
 }
 
 //计时器，负责画图以及一些其他问题
-void MainMap::dealEvent(BP_Event& e)
+void MainScene::dealEvent(BP_Event& e)
 {
     int x = man_x_, y = man_y_;
     //功能键
@@ -206,18 +206,18 @@ void MainMap::dealEvent(BP_Event& e)
     }
 }
 
-void MainMap::entrance()
+void MainScene::entrance()
 {
     calViewRegion();
     man_x_ = Save::getInstance()->MainMapX;
     man_y_ = Save::getInstance()->MainMapY;
 }
 
-void MainMap::exit()
+void MainScene::exit()
 {
 }
 
-void MainMap::tryWalk(int x, int y, Towards t)
+void MainScene::tryWalk(int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
@@ -239,7 +239,7 @@ void MainMap::tryWalk(int x, int y, Towards t)
     rest_time_ = 0;
 }
 
-bool MainMap::isBuilding(int x, int y)
+bool MainScene::isBuilding(int x, int y)
 {
 
     if (building_layer_(build_x_layer_(x, y), build_y_layer_(x, y)) > 0)
@@ -252,7 +252,7 @@ bool MainMap::isBuilding(int x, int y)
     }
 }
 
-bool MainMap::isWater(int x, int y)
+bool MainScene::isWater(int x, int y)
 {
     auto pic = earth_layer_(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
@@ -271,12 +271,12 @@ bool MainMap::isWater(int x, int y)
     }
 }
 
-bool MainMap::isOutLine(int x, int y)
+bool MainScene::isOutLine(int x, int y)
 {
     return (x < 0 || x > COORD_COUNT || y < 0 || y > COORD_COUNT);
 }
 
-bool MainMap::canWalk(int x, int y)
+bool MainScene::canWalk(int x, int y)
 {
     if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
     {
@@ -288,7 +288,7 @@ bool MainMap::canWalk(int x, int y)
     }
 }
 
-bool MainMap::checkEntrance(int x, int y)
+bool MainScene::checkEntrance(int x, int y)
 {
     for (int i = 0; i < Save::getInstance()->submap_infos_.size(); i++)
     {
@@ -314,7 +314,7 @@ bool MainMap::checkEntrance(int x, int y)
             }
             if (can_enter)
             {
-                auto sub_map = new SubMap(i);
+                auto sub_map = new SubScene(i);
                 sub_map->run();
                 return true;
             }
@@ -333,7 +333,7 @@ bool MainMap::checkEntrance(int x, int y)
     return false;
 }
 
-void MainMap::getEntrance()
+void MainScene::getEntrance()
 {
     //for (int x = 0; x < maxX; x++)
     //    for (int y = 0; y < maxY; y++)
@@ -356,7 +356,7 @@ void MainMap::getEntrance()
     //}
 }
 
-bool MainMap::isOutScreen(int x, int y)
+bool MainScene::isOutScreen(int x, int y)
 {
     return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }
