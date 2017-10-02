@@ -80,7 +80,7 @@ struct RoleSave
 {
 public:
     SAVE_INT ID;
-    SAVE_INT HeadNum, IncLife, UnUse;
+    SAVE_INT HeadID, IncLife, UnUse;
     char Name[10], Nick[10];
     SAVE_INT Sexual;  //Role的说明：性别 0-男 1 女 2 其他
     SAVE_INT Level;
@@ -88,7 +88,7 @@ public:
     SAVE_INT HP, MaxHP, Hurt, Poison, PhysicalPower;
     SAVE_UINT ExpForItem;
     SAVE_INT Equip1, Equip2;
-    SAVE_INT Frame[15];
+    SAVE_INT Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     SAVE_INT MPType, MP, MaxMP;
     SAVE_INT Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     SAVE_INT Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -108,6 +108,8 @@ public:
     int Face, Dead, Step, Acted;
     int Pic, ShowNumber, BSpeed;
     int ExpGot, Auto, Show, Wait;
+    int FightFrame[5];
+    int FightingFrame;
 
 private:
     int X_, Y_;

@@ -45,8 +45,8 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
 Towards Scene::CallFace(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
-    d1 = x2 - x1;
-    d2 = y2 - y1;
+    d1 = y2 - y1;
+    d2 = x2 - x1;
     dm = abs(d1) - abs(d2);
     if ((d1 != 0) || (d2 != 0))
     {

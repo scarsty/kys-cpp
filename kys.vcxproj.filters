@@ -103,6 +103,9 @@
     <ClCompile Include="src\BattleMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\TeamMenu.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -209,6 +212,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\BattleMap.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TeamMenu.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

@@ -3,20 +3,9 @@
 
 BattleMenu::BattleMenu()
 {
-    head_ = new Head();
-    addChild(head_);
+    setStrings({ "移動", "武學","用毒" , "解毒", "醫療","物品","等待","狀態", "自動", "結束" });
 }
 
 BattleMenu::~BattleMenu()
 {
-}
-
-void BattleMenu::setRole(int role_id)
-{
-    head_->setRole(Save::getInstance()->getRole(role_id));
-}
-
-void BattleMenu::setRole(Role* role)
-{
-    head_->setRole(role);
 }

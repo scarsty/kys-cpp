@@ -38,9 +38,12 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
 {
     for (auto c : childs_)
     {
-        c->setPosition(x_ + x, y_ + y);
-        x += inc_x;
-        y += inc_y;
+        if (c->getVisible())
+        {
+            c->setPosition(x_ + x, y_ + y);
+            x += inc_x;
+            y += inc_y;
+        }
     }
 }
 
@@ -59,7 +62,7 @@ void MenuText::setStrings(std::vector<std::string> strings)
         if (str.length() > len) { len = str.length(); }
         auto b = new Button();
         b->setText(str);
-        addChildOnPosition(b, 0, i * 25);
+        addChild(b, 0, i * 25);
         i++;
     }
     w_ = 10 * len;

@@ -16,8 +16,8 @@ Event::Event()
     loadEventData();
     talkup_ = new Talk();
     talkdown_ = new Talk();
-    addChildOnPosition(talkup_);
-    addChildOnPosition(talkdown_, 0, 400);
+    addChild(talkup_);
+    addChild(talkdown_, 0, 400);
     menu2_ = new MenuText({ "´_ÕJ£¨Y£©", "È¡Ïû£¨N£©" });
     menu2_->setPosition(300, 200);
     menu2_->arrange(0, 100, 100, 0);

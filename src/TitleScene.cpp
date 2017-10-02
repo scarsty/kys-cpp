@@ -6,6 +6,7 @@
 #include "SubScene.h"
 #include "Button.h"
 #include "Audio.h"
+#include "TeamMenu.h"
 
 TitleScene::TitleScene()
 {
@@ -14,11 +15,11 @@ TitleScene::TitleScene()
     menu_->setTexture(TextureManager::getInstance()->loadTexture("title", 17));
     menu_->setPosition(400, 250);
     auto b = new Button("title", 3, 23, 23);
-    menu_->addChildOnPosition(b, 20, 0);
+    menu_->addChild(b, 20, 0);
     b = new Button("title", 4, 24, 24);
-    menu_->addChildOnPosition(b, 20, 50);
+    menu_->addChild(b, 20, 50);
     b = new Button("title", 6, 26, 26);
-    menu_->addChildOnPosition(b, 20, 100);
+    menu_->addChild(b, 20, 100);
     menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
     menu_load_->setPosition(500, 300);
 }
@@ -48,19 +49,23 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
+        auto m = new TeamMenu();
+        m->run();
         MainScene::getIntance()->run();
     }
     if (r == 1)
     {
         auto s = new SubScene(2);
         s->run();
+        delete s;
         MainScene::getIntance()->run();
         //menu_load_->run();
     }
     if (r == 2)
     {
-        auto b = new BattleScene(1);
+        auto b = new BattleScene(132);
         b->run();
+        delete b;
         loop_ = false;
     }
 }

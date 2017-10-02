@@ -18,20 +18,36 @@ TextureManager::~TextureManager()
     }
 }
 
-void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom)
+void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t alpha)
 {
-    auto tex = loadTexture(path, num);
-    renderTexture(tex, x, y, c, alpha, zoom);
+    if (tex && tex->tex[0])
+    {
+        auto engine = Engine::getInstance();
+        engine->setColor(tex->tex[rand() % tex->count], c, alpha);
+        engine->renderCopy(tex->tex[rand() % tex->count], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
+    }
 }
 
-void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom)
+void TextureManager::renderTexture(const std::string& path, int num, BP_Rect r, BP_Color c, uint8_t alpha)
+{
+    auto tex = loadTexture(path, num);
+    renderTexture(tex, r, c, alpha);
+}
+
+void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
 {
     auto engine = Engine::getInstance();
     if (tex && tex->tex[0])
     {
         engine->setColor(tex->tex[rand() % tex->count], c, alpha);
-        engine->renderCopy(tex->tex[rand() % tex->count], x - tex->dx, y - tex->dy, tex->w * zoom, tex->h * zoom);
+        engine->renderCopy(tex->tex[rand() % tex->count], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
     }
+}
+
+void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
+{
+    auto tex = loadTexture(path, num);
+    renderTexture(tex, x, y, c, alpha, zoom_x, zoom_y);
 }
 
 Texture* TextureManager::loadTexture(const std::string& path, int num)

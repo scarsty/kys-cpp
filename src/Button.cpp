@@ -35,9 +35,11 @@ void Button::dealEvent(BP_Event& e)
 
 void Button::draw()
 {
+    int x = x_;
+    int y = y_;
     auto id = tex_normal_id_;
     BP_Color color = { 255, 255, 255, 255 };
-    BP_Color color_text = { 255, 255, 255, 255 };
+    BP_Color color_text = { 32, 32, 32, 255 };
 
     if (state_ == Normal)
     {
@@ -49,17 +51,17 @@ void Button::draw()
     if (state_ == Pass)
     {
         id = tex_pass_id_;
-        color_text = { 255, 255, 0, 255 };
+        color_text = { 255, 255, 255, 255 };
     }
     else if (state_ == Press)
     {
         id = tex_press_id_;
         color_text = { 255, 0, 0, 255 };
     }
-    TextureManager::getInstance()->renderTexture(tex_path_, id, x_, y_, color);
+    TextureManager::getInstance()->renderTexture(tex_path_, id, x, y, color);
     if (text_.size())
     {
-        Font::getInstance()->drawWithBox(text_, 20, x_, y_, color_text, 255);
+        Font::getInstance()->drawWithBox(text_, 20, x, y, color_text, 255);
     }
 
     //视情况重新计算尺寸

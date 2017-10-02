@@ -179,6 +179,7 @@
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\Font.cpp" />
     <ClCompile Include="src\Head.cpp" />
+    <ClCompile Include="src\TeamMenu.cpp" />
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\others\libconvert.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
@@ -218,6 +219,7 @@
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\Font.h" />
     <ClInclude Include="src\Head.h" />
+    <ClInclude Include="src\TeamMenu.h" />
     <ClInclude Include="src\UI.h" />
     <ClInclude Include="src\others\libconvert.h" />
     <ClInclude Include="src\PotConv.h" />

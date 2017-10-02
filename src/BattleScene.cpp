@@ -7,6 +7,7 @@
 #include "Save.h"
 #include "Menu.h"
 #include "others/libconvert.h"
+#include "File.h"
 
 BattleScene::BattleScene()
 {
@@ -17,9 +18,10 @@ BattleScene::BattleScene()
     select_layer_.resize(COORD_COUNT);
     effect_layer_.resize(COORD_COUNT);
     battle_menu_ = new BattleMenu();
-    battle_menu_->setStrings({ "移動", "武學", "醫療", "解毒", "自動", "傻逼", "白癡", "大便", "", "" });
-    battle_menu_->setPosition(100, 100);
+    battle_menu_->setPosition(160, 200);
     battle_menu_->arrange(0, 0, 0, 28);
+    head_ = new Head();
+    addChild(head_, 100, 100);
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
@@ -88,8 +90,9 @@ void BattleScene::draw()
                 num = role_layer_(i1, i2);
                 if (num >= 0)
                 {
+                    auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", num);
-                    TextureManager::getInstance()->renderTexture(path, 0, p.x, p.y);
+                    TextureManager::getInstance()->renderTexture(path, calRolePic(r), p.x, p.y);
                 }
             }
         }
@@ -99,9 +102,11 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
-    man_x_ = battle_roles_[0]->X();
-    man_y_ = battle_roles_[0]->Y();
-    battle_menu_->setRole(battle_roles_[0]);
+    auto role = battle_roles_[1];
+    man_x_ = role->X();
+    man_y_ = role->Y();
+    head_->setRole(role);
+    head_->setState(Base::Pass);
     battle_menu_->run();
 }
 
@@ -114,6 +119,8 @@ void BattleScene::entrance()
         r.setPoitionLayer(&role_layer_);
         r.Team = 2;
     }
+
+    //首先设置位置和阵营，其他的后面统一处理
     //队友
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
@@ -136,15 +143,57 @@ void BattleScene::entrance()
             r->Team = 1;
         }
     }
+
+
+
+    for (auto r : battle_roles_)
+    {
+        r->Acted = 0;
+        r->FightingFrame = 0;
+        //读取动作帧数
+        SAVE_INT frame[10];
+        std::string file = convert::formatString("../game/resource/fight/fight%03d/fightframe.ka", r->HeadID);
+        File::readFile(file, frame, 10);
+        for (int i = 0; i < 5; i++)
+        {
+            r->FightFrame[i] = frame[i];
+        }
+
+        //寻找离自己最近的敌方，设置面向
+        int min_distance = COORD_COUNT * COORD_COUNT;
+        Role* r_near;
+        for (auto r1 : battle_roles_)
+        {
+            if (r->Team != r1->Team)
+            {
+                int dis = abs(r->X() - r1->X()) + abs(r->Y() - r1->Y());
+                if (dis < min_distance)
+                {
+                    r_near = r1;
+                    min_distance = dis;
+                }
+            }
+        }
+
+        r->Face = (int)CallFace(r->X(), r->Y(), r_near->X(), r_near->Y());
+        //r->Face = rand() % 4;
+    }
+
+
+
 }
 
-void BattleScene::checkTimer2()
+//依据动作帧数计算角色的贴图编号
+int BattleScene::calRolePic(Role* r)
 {
-    //if (!isMenuOn)
-    //{
-    //    moveRole(m_ncurRoleNum);
-    //}
-    ////Draw();
+    for (int i = 0; i < 5; i++)
+    {
+        if (r->FightFrame[i] > 0)
+        {
+            return r->FightFrame[i] * r->Face + r->FightingFrame;
+        }
+    }
+    return r->Face;
 }
 
 void BattleScene::walk(int x, int y, Towards t)
@@ -195,14 +244,7 @@ bool BattleScene::checkIsBuilding(int x, int y)
 
 bool BattleScene::checkIsOutLine(int x, int y)
 {
-    if (x < 0 || x > COORD_COUNT || y < 0 || y > COORD_COUNT)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
 
 bool BattleScene::checkIsHinder(int x, int y)
@@ -231,14 +273,7 @@ void BattleScene::callEvent(int x, int y)
 
 bool BattleScene::checkIsOutScreen(int x, int y)
 {
-    if (abs(m_nBx - x) >= 16 || abs(m_nBy - y) >= 20)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return (abs(m_nBx - x) >= 16 || abs(m_nBy - y) >= 20);
 }
 
 //看不明白
@@ -254,39 +289,6 @@ void BattleScene::getMousePosition(Point* point)
 
 void BattleScene::FindWay(int Mx, int My, int Fx, int Fy)
 {
-}
-
-int BattleScene::CallFace(int x1, int y1, int x2, int y2)
-{
-    int d1, d2, dm;
-    d1 = x2 - x1;
-    d2 = y2 - y1;
-    dm = abs(d1) - abs(d2);
-    if ((d1 != 0) || (d2 != 0))
-    {
-        if (dm >= 0)
-        {
-            if (d1 < 0)
-            {
-                return 0;
-            }
-            else
-            {
-                return 3;
-            }
-        }
-        else
-        {
-            if (d2 < 0)
-            {
-                return 2;
-            }
-            else
-            {
-                return 1;
-            }
-        }
-    }
 }
 
 void BattleScene::initData(int scenenum)

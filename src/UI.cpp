@@ -27,16 +27,15 @@ UI::UI()
     button_skill_ = new Button("title", 123);
     button_item_ = new Button("title", 124);
     button_system_ = new Button("title", 125);
-    addChildOnPosition(button_status_, 10, 10);
-    addChildOnPosition(button_skill_, 90, 10);
-    addChildOnPosition(button_item_, 170, 10);
-    addChildOnPosition(button_system_, 250, 10);
+    addChild(button_status_, 10, 10);
+    addChild(button_skill_, 90, 10);
+    addChild(button_item_, 170, 10);
+    addChild(button_system_, 250, 10);
 
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = new Head();
-        addChildOnPosition(h, 20, 60 + i * 90);
-        h->setSize(200, 80);
+        addChild(h, 20, 60 + i * 90);
         heads_.push_back(h);
     }
     heads_[0]->setState(Pass);
@@ -48,6 +47,11 @@ UI::UI()
 
 UI::~UI()
 {
+    childs_[0] = nullptr;
+    delete ui_status_;
+    delete ui_skill_;
+    delete ui_item_;
+    delete ui_system_;
 }
 
 void UI::entrance()

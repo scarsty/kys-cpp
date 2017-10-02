@@ -7,9 +7,5 @@ class BattleMenu : public MenuText
 public:
     BattleMenu();
     virtual ~BattleMenu();
-
-    Head* head_;
-    void setRole(int role_id);
-    void setRole(Role* role);
 };
 

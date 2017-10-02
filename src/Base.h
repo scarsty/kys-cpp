@@ -58,7 +58,7 @@ public:
     //static Base* getCurentBase() { return root_.at(0); }
 
     void addChild(Base* b);
-    void addChildOnPosition(Base* b, int x = 0, int y = 0);
+    void addChild(Base* b, int x, int y);
     void removeChild(Base* b);
     void clearChilds();   //²»ÍÆ¼ö
 
@@ -80,6 +80,8 @@ public:
 
     int getResult() { return result_; }
     void drawSelfAndChilds();
+
+    bool getVisible() { return visible_; }
     void setVisible(bool v) { visible_ = v; }
 
     enum State

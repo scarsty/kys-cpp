@@ -17,7 +17,7 @@ void UIStatus::draw()
 {
     if (role_ == nullptr) { return; }
 
-    TextureManager::getInstance()->renderTexture("head", role_->HeadNum, x_, y_);
+    TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_, y_);
 
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };

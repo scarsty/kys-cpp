@@ -13,6 +13,12 @@ Head::~Head()
 
 void Head::draw()
 {
+    if (w_ * h_ <= 0)
+    {
+        auto tex = TextureManager::getInstance()->loadTexture("title", 102);
+        w_ = tex->w;
+        h_ = tex->h;
+    }
     if (role_ == nullptr) { return; }
     BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
     auto font = Font::getInstance();
@@ -22,7 +28,7 @@ void Head::draw()
         color = { 128, 128, 128, 255 };
     }
 
-    TextureManager::getInstance()->renderTexture("head", role_->HeadNum, x_ + 10, y_, color, 255, 0.5);
+    TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, color, 255, 0.5, 0.5);
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
 
     BP_Rect r1;

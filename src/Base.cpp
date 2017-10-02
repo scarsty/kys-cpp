@@ -115,7 +115,7 @@ Base* Base::removeFromRoot(Base* b)
             }
         }
     }
-    collector_.insert(b);
+    //collector_.insert(b);
     return b;
 }
 
@@ -124,7 +124,7 @@ void Base::addChild(Base* b)
     childs_.push_back(b);
 }
 
-void Base::addChildOnPosition(Base* b, int x /*= 0*/, int y /*= 0*/)
+void Base::addChild(Base* b, int x, int y)
 {
     addChild(b);
     b->setPosition(x_ + x, y_ + y);
@@ -167,32 +167,36 @@ void Base::drawSelfAndChilds()
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 void Base::checkStateAndEvent(BP_Event& e)
 {
-    //注意这里是反向
-    for (int i = childs_.size() - 1; i >= 0; i--)
+    if (visible_)
     {
-        childs_[i]->checkStateAndEvent(e);
-    }
-    //setState(Normal);
-    if (e.type == BP_MOUSEMOTION)
-    {
-        if (inSide(e.motion.x, e.motion.y))
+        //注意这里是反向
+        for (int i = childs_.size() - 1; i >= 0; i--)
         {
-            state_ = Pass;
+            childs_[i]->checkStateAndEvent(e);
         }
-        else
+        //setState(Normal);
+
+        if (e.type == BP_MOUSEMOTION)
         {
-            state_ = Normal;
+            if (inSide(e.motion.x, e.motion.y))
+            {
+                state_ = Pass;
+            }
+            else
+            {
+                state_ = Normal;
+            }
         }
-    }
-    if (e.type == BP_MOUSEBUTTONDOWN)
-    {
-        if (inSide(e.motion.x, e.motion.y))
+        if (e.type == BP_MOUSEBUTTONDOWN)
         {
-            state_ = Press;
+            if (inSide(e.motion.x, e.motion.y))
+            {
+                state_ = Press;
+            }
         }
+        //注意下个时序才会画，所以可以在dealEvent中改变原有状态
+        dealEvent(e);
     }
-    //注意下个时序才会画，所以可以在dealEvent中改变原有状态
-    dealEvent(e);
 }
 
 //这个可以在自己的循环中使用，避免卡死

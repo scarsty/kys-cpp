@@ -15,6 +15,7 @@ public:
     std::vector<Role*> battle_roles_;
 
     BattleMenu* battle_menu_;
+    Head* head_;
 
     int battle_id_ = 0;
     BattleInfo* info_;
@@ -27,6 +28,8 @@ public:
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
     virtual void entrance();
+
+    int calRolePic(Role* r);
 
 
     static const int m_nMaxBRoleSelect = 6;       //战斗选人最大人数
@@ -107,8 +110,6 @@ public:
 
     void getMousePosition(Point* point);
     virtual void FindWay(int Mx, int My, int Fx, int Fy);
-
-    int CallFace(int x1, int y1, int x2, int y2);
 
     //void menuCloseCallback(Ref* pSender);
     //void menuCloseCallback1(Ref* pSender);
