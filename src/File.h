@@ -16,9 +16,7 @@ public:
 
     template <class T> static void readDataToVector(char* data, int length, std::vector<T>& v)
     {
-        int count = length / sizeof(T);
-        v.resize(count);
-        memcpy(&v[0], data, count * sizeof(T));
+        readDataToVector(data, length, v, sizeof(T));
     }
 
     template <class T> static void readDataToVector(char* data, int length, std::vector<T>& v, int length_one)
@@ -38,6 +36,16 @@ public:
         readFile(filename, &buffer, &length);
         readDataToVector(buffer, length, v);
         delete[] buffer;
+    }
+
+    template <class T> static void writeVectorToData(char* data, int length, std::vector<T>& v, int length_one)
+    {
+        int count = length / length_one;
+        v.resize(count);
+        for (int i = 0; i < count; i++)
+        {
+            memcpy(data + length_one * i, &v[i], length_one);
+        }
     }
 
 };

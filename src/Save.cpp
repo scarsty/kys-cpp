@@ -113,21 +113,16 @@ bool Save::SaveR(int num)
     std::string filenames = getFilename(num, 's');
     std::string filenamed = getFilename(num, 'd');
 
-    char* Rgrp = new char[offset_.back()];
-    int c = 0;
-    memcpy(Rgrp + offset_[c], this, length_[c]);
-    c = 1;
-    memcpy(Rgrp + offset_[c], &roles_[0], length_[c]);
-    c = 2;
-    memcpy(Rgrp + offset_[c], &items_[0], length_[c]);
-    c = 3;
-    memcpy(Rgrp + offset_[c], &submap_infos_[0], length_[c]);
-    c = 4;
-    memcpy(Rgrp + offset_[c], &magics_[0], length_[c]);
-    c = 5;
-    memcpy(Rgrp + offset_[c], &shops_[0], length_[c]);
-    File::writeFile(filenamer, Rgrp, offset_.back());
-    delete[] Rgrp;
+    char* rgrp = new char[offset_.back()];
+    memcpy(rgrp + offset_[0], &InShip, length_[0]);
+    File::writeVectorToData(rgrp + offset_[1], length_[1], roles_, sizeof(RoleSave));
+    File::writeVectorToData(rgrp + offset_[2], length_[2], items_, sizeof(ItemSave));
+    File::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_, sizeof(SubMapInfoSave));
+    File::writeVectorToData(rgrp + offset_[4], length_[4], magics_, sizeof(MagicSave));
+    File::writeVectorToData(rgrp + offset_[5], length_[5], shops_, sizeof(ShopSave));
+
+    File::writeFile(filenamer, rgrp, offset_.back());
+    delete[] rgrp;
 
     auto submap_count = submap_infos_.size();
     //File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
