@@ -1,5 +1,5 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 //#include "Head.h"
 //#include "UIStatus.h"
 //#include "UISkill.h"
@@ -14,7 +14,7 @@ class UISkill;
 class UIItem;
 class UISystem;
 
-class UI : public Base
+class UI : public Element
 {
 private:
     UI();

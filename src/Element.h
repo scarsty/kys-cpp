@@ -5,15 +5,15 @@
 
 #define CONNECT(a,b) a##b
 
-//游戏绘制基础类，凡需要显示画面的，均继承自此
-class Base
+//游戏执行和绘制的基础节点，凡需要显示画面或者处理事件的，均继承自此
+class Element
 {
 private:
-    static std::vector<Base*> root_;   //所有需要绘制的内容都存储在这个向量中
+    static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个向量中
     //static std::set<Base*> collector_;
     int prev_present_ticks_;
 protected:
-    std::vector<Base*> childs_;
+    std::vector<Element*> childs_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
@@ -24,19 +24,17 @@ protected:
     int w_ = 0;
     int h_ = 0;
 public:
-    Base() {}
-    virtual ~Base();
+    Element() {}
+    virtual ~Element();
 
     static void drawAll();
 
-    static void addOnRootTop(Base* b) { root_.push_back(b); }
-    static Base* removeFromRoot(Base* b);
+    static void addOnRootTop(Element* b) { root_.push_back(b); }
+    static Element* removeFromRoot(Element* b);
 
-    //static Base* getCurentBase() { return root_.at(0); }
-
-    void addChild(Base* b);
-    void addChild(Base* b, int x, int y);
-    void removeChild(Base* b);
+    void addChild(Element* b);
+    void addChild(Element* b, int x, int y);
+    void removeChild(Element* b);
     void clearChilds();   //不推荐
 
     void setPosition(int x, int y);
@@ -76,7 +74,7 @@ public:
     void oneFrame(bool check_event = false);
 
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
-    static Base* getCurrentTopDraw() { return root_.back(); }
+    static Element* getCurrentTopDraw() { return root_.back(); }
 
     void setAllChildState(State s);
     void setChildState(int i, State s);

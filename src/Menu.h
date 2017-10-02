@@ -1,7 +1,7 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 
-class Menu : public Base
+class Menu : public Element
 {
 public:
     Menu();

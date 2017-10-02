@@ -1,5 +1,5 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 #include "SubScene.h"
 #include "Talk.h"
 #include "Menu.h"
@@ -25,7 +25,7 @@ private:
 
     //两个对话，用于上面和下面，两个可以同时显示
     //视需要可增加更多
-    Base* talk_box_;
+    Element* talk_box_;
     Talk* talk_box_up_ = nullptr;
     Talk* talk_box_down_ = nullptr;
 
@@ -38,7 +38,7 @@ private:
 public:
     bool loadEventData();             //加载事件数据
     //这里再设计
-    bool callEvent(int event_id, Base* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);     //调用指令的内容写这里
+    bool callEvent(int event_id, Element* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);     //调用指令的内容写这里
 
 private:
     SubScene* subscene_;

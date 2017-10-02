@@ -1,9 +1,9 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 #include "Point.h"
 
 //主地图，子场景，战斗场景均继承此类
-class Scene : public Base
+class Scene : public Element
 {
 public:
     Scene();

@@ -1,10 +1,10 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 #include "Types.h"
 #include <memory>
 
 //注意，部分节点继承至此，是为了使用role指针
-class Head : public Base
+class Head : public Element
 {
 protected:
     Role* role_ = nullptr;

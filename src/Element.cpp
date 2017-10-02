@@ -1,9 +1,9 @@
-#include "Base.h"
+#include "Element.h"
 #include "UI.h"
 
-std::vector<Base*> Base::root_;
+std::vector<Element*> Element::root_;
 
-Base::~Base()
+Element::~Element()
 {
     for (auto c : childs_)
     {
@@ -11,21 +11,21 @@ Base::~Base()
     }
 }
 
-void Base::drawAll()
+void Element::drawAll()
 {
     //从最后一个独占屏幕的场景开始画
     int begin_base = 0;
-    for (int i = 0; i < Base::root_.size(); i++)    //记录最后一个全屏的层
+    for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
         root_[i]->backRun();
-        if (Base::root_[i]->full_window_)
+        if (root_[i]->full_window_)
         {
             begin_base = i;
         }
     }
-    for (int i = begin_base; i < Base::root_.size(); i++)  //从最后一个全屏层开始画
+    for (int i = begin_base; i < root_.size(); i++)  //从最后一个全屏层开始画
     {
-        auto b = Base::root_[i];
+        auto b = root_[i];
         if (b->visible_)
         {
             b->drawSelfAndChilds();
@@ -33,7 +33,7 @@ void Base::drawAll()
     }
 }
 
-void Base::setPosition(int x, int y)
+void Element::setPosition(int x, int y)
 {
     for (auto c : childs_)
     {
@@ -44,7 +44,7 @@ void Base::setPosition(int x, int y)
 
 //运行
 //参数为是否在root中运行，为真则参与绘制，为假则不会被画出
-int Base::run(bool in_root /*= true*/)
+int Element::run(bool in_root /*= true*/)
 {
     exit_ = false;
     result_ = -1;
@@ -52,7 +52,7 @@ int Base::run(bool in_root /*= true*/)
     onEntrance();
     while (!exit_)
     {
-        if (Base::root_.size() == 0) { break; }
+        if (Element::root_.size() == 0) { break; }
         oneFrame(true);
     }
     onExit();
@@ -60,7 +60,7 @@ int Base::run(bool in_root /*= true*/)
     return result_;
 }
 
-Base* Base::removeFromRoot(Base* b)
+Element* Element::removeFromRoot(Element* b)
 {
     if (b == nullptr)
     {
@@ -85,18 +85,18 @@ Base* Base::removeFromRoot(Base* b)
     return b;
 }
 
-void Base::addChild(Base* b)
+void Element::addChild(Element* b)
 {
     childs_.push_back(b);
 }
 
-void Base::addChild(Base* b, int x, int y)
+void Element::addChild(Element* b, int x, int y)
 {
     addChild(b);
     b->setPosition(x_ + x, y_ + y);
 }
 
-void Base::removeChild(Base* b)
+void Element::removeChild(Element* b)
 {
     for (int i = 0; i < childs_.size(); i++)
     {
@@ -109,7 +109,7 @@ void Base::removeChild(Base* b)
     //collector_.insert(b);
 }
 
-void Base::clearChilds()
+void Element::clearChilds()
 {
     for (auto c : childs_)
     {
@@ -118,7 +118,7 @@ void Base::clearChilds()
     childs_.clear();
 }
 
-void Base::drawSelfAndChilds()
+void Element::drawSelfAndChilds()
 {
     if (visible_)
     {
@@ -131,7 +131,7 @@ void Base::drawSelfAndChilds()
 }
 
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
-void Base::checkStateAndEvent(BP_Event& e)
+void Element::checkStateAndEvent(BP_Event& e)
 {
     if (visible_)
     {
@@ -166,12 +166,12 @@ void Base::checkStateAndEvent(BP_Event& e)
 }
 
 //一次循环中的事务，注意也可以单独调用，用于场景动画
-void Base::oneFrame(bool check_event)
+void Element::oneFrame(bool check_event)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
     
-    Base::drawAll();
+    drawAll();
     engine->pollEvent(e);
     if (check_event)
     {
@@ -194,7 +194,7 @@ void Base::oneFrame(bool check_event)
     prev_present_ticks_ = t1;
 }
 
-void Base::setAllChildState(State s)
+void Element::setAllChildState(State s)
 {
     for (auto c : childs_)
     {
@@ -202,7 +202,7 @@ void Base::setAllChildState(State s)
     }
 }
 
-void Base::setChildState(int i, State s)
+void Element::setChildState(int i, State s)
 {
     if (i >= 0 && i < childs_.size())
     {

@@ -159,7 +159,8 @@ struct Magic : MagicSave
 
 };
 
-//存档中的场景数据
+//存档中的子场景数据
+//约定：Scene表示游戏中运行的某个节点实例，而Map表示存储
 struct SubMapInfoSave
 {
     SAVE_INT ID;

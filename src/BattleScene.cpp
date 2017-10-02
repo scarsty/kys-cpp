@@ -108,7 +108,7 @@ void BattleScene::dealEvent(BP_Event& e)
     man_x_ = role->X();
     man_y_ = role->Y();
     head_->setRole(role);
-    head_->setState(Base::Pass);
+    head_->setState(Element::Pass);
     battle_menu_->run();
 }
 

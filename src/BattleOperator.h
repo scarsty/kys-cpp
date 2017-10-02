@@ -1,16 +1,16 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 
 class BattleOperator :
-    public Base
+    public Element
 {
 public:
     BattleOperator();
     ~BattleOperator();
 
-    Base* battle_scene_;  //这个是指向BattleScene的指针，看一下是不是只操作前两层就够了，要直接用要dynamic_cast
+    Element* battle_scene_;  //这个是指向BattleScene的指针，看一下是不是只操作前两层就够了，要直接用要dynamic_cast
 
-    void setBattleScene(Base* b) { battle_scene_ = b; }
+    void setBattleScene(Element* b) { battle_scene_ = b; }
 
 };
 

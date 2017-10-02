@@ -15,7 +15,7 @@ Event Event::event_;
 Event::Event()
 {
     loadEventData();
-    talk_box_ = new Base();
+    talk_box_ = new Element();
     talk_box_up_ = new Talk();
     talk_box_down_ = new Talk();
     talk_box_->addChild(talk_box_up_);
@@ -65,7 +65,7 @@ bool Event::loadEventData()
 }
 
 //返回值为是否成功执行事件
-bool Event::callEvent(int event_id, Base* subscene, int supmap_id, int item_id, int event_index, int x, int y)
+bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
     save_ = Save::getInstance();
@@ -82,7 +82,7 @@ bool Event::callEvent(int event_id, Base* subscene, int supmap_id, int item_id, 
     y_ = y;
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
-    Base::addOnRootTop(talk_box_);
+    Element::addOnRootTop(talk_box_);
     int p = 0;
     bool loop = true;
     int i = 0;
@@ -204,7 +204,7 @@ bool Event::callEvent(int event_id, Base* subscene, int supmap_id, int item_id, 
             i += 1;
         }
     }
-    Base::removeFromRoot(talk_box_);
+    Element::removeFromRoot(talk_box_);
     return true;
     //if (loop)
     //{ return 0; }
