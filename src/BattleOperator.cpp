@@ -15,7 +15,7 @@ void BattleOperator::dealEvent(BP_Event& e)
     auto battle_scene = dynamic_cast<BattleScene*>(battle_scene_);
     if (battle_scene == nullptr) { return; }
 
-    if (mode_ == 0)
+    if (mode_ == Move)
     {
         if (e.type == BP_KEYDOWN)
         {

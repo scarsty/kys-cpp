@@ -40,7 +40,8 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
 //    return p;
 //}
 
-int Scene::CallFace(int x1, int y1, int x2, int y2)
+//角色处于x1，y1，朝向x2，y2时，脸的方向
+int Scene::calFace(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
     d1 = y2 - y1;
@@ -109,7 +110,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     auto myPoint = new PointEx();
     myPoint->x = Mx;
     myPoint->y = My;
-    myPoint->towards = CallFace(Mx, My, Fx, Fy);
+    myPoint->towards = calFace(Mx, My, Fx, Fy);
     myPoint->parent = myPoint;
     myPoint->Heuristic(Fx, Fy);
     //log("Fx=%d,Fy=%d", Fx, Fy);

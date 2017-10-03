@@ -201,14 +201,20 @@ void BattleScene::setRoleInitState(Role* r)
         }
     }
 
-    r->Face = (int)CallFace(r->X(), r->Y(), r_near->X(), r_near->Y());
+    r->Face = (int)calFace(r->X(), r->Y(), r_near->X(), r_near->Y());
     //r->Face = rand() % 4;
 }
 
+//角色排序
 void BattleScene::sortRoles()
+{    
+    std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
+}
+
+//角色排序的规则
+bool BattleScene::compareRole(Role* r1, Role* r2)
 {
-    auto sort_role = [](Role * a, Role * b)->bool { return a->Speed > b->Speed; };
-    std::sort(battle_roles_.begin(), battle_roles_.end(), sort_role);
+    return r1->Speed > r2->Speed;
 }
 
 //依据动作帧数计算角色的贴图编号

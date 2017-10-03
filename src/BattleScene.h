@@ -40,13 +40,15 @@ public:
     void setRoleInitState(Role* r);
 
     void sortRoles();
+    static bool compareRole(Role* r1, Role* r2);
+
 
     int calRolePic(Role* r);
 
     void calSelectLayer(Role* r, int mode, int step);
 
     bool canSelect(int x, int y);
-    
+
     void walk(Role* r, int x, int y, Towards t);
 
     virtual bool canWalk(int x, int y) override;

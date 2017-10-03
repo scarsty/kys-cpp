@@ -39,7 +39,7 @@ public:
 
     Point getPositionOnScreen(int x, int y, int CenterX, int CenterY);
 
-    int CallFace(int x1, int y1, int x2, int y2);
+    int calFace(int x1, int y1, int x2, int y2);
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
