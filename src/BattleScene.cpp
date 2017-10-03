@@ -23,6 +23,7 @@ BattleScene::BattleScene()
     addChild(head_, 100, 100);
     battle_operator_ = new BattleOperator();
     battle_operator_->setBattleScene(this);
+    //battle_operator_->setOperator(&select_x_, &select_y_, &select_layer_, &effect_layer_);
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
@@ -32,6 +33,8 @@ BattleScene::BattleScene(int id) : BattleScene()
 
 BattleScene::~BattleScene()
 {
+    delete battle_menu_;
+    delete battle_operator_;
 }
 
 void BattleScene::setID(int id)
@@ -39,15 +42,12 @@ void BattleScene::setID(int id)
     battle_id_ = id;
     info_ = BattleMap::getInstance()->getBattleInfo(id);
 
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_(0));
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_(0));
+    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_.data(0));
+    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_.data(0));
 
-    for (int i = 0; i < COORD_COUNT * COORD_COUNT; i++)
-    {
-        role_layer_(i) = -1;
-        select_layer_(i) = -1;
-        effect_layer_(i) = -1;
-    }
+    role_layer_.setAll(-1);
+    select_layer_.setAll(-1);
+    effect_layer_.setAll(-1);
 }
 
 void BattleScene::draw()
@@ -82,13 +82,13 @@ void BattleScene::draw()
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             if (i1 >= 0 && i1 <= COORD_COUNT && i2 >= 0 && i2 <= COORD_COUNT)
             {
-                int num = building_layer_(i1, i2) / 2;
+                int num = building_layer_.data(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
 
                 }
-                num = role_layer_(i1, i2);
+                num = role_layer_.data(i1, i2);
                 if (num >= 0)
                 {
                     auto r = Save::getInstance()->getRole(num);
@@ -111,6 +111,12 @@ void BattleScene::dealEvent(BP_Event& e)
     head_->setState(Element::Pass);
 
     battle_menu_->runAsRole(role);
+
+    battle_operator_->setRoleAndMagic(role);
+    battle_operator_->run();
+
+
+    //依据行动选项和目标搞之
 
     role->Acted = 1;
 
@@ -157,41 +163,52 @@ void BattleScene::onEntrance()
         }
     }
 
+    //初始状态
     for (auto r : battle_roles_)
     {
-        r->Acted = 0;
-        r->FightingFrame = 0;
-        //读取动作帧数
-        SAVE_INT frame[10];
-        std::string file = convert::formatString("../game/resource/fight/fight%03d/fightframe.ka", r->HeadID);
-        File::readFile(file, frame, 10);
-        for (int i = 0; i < 5; i++)
-        {
-            r->FightFrame[i] = frame[i];
-        }
+        setRoleInitState(r);
+    }
+    //排序
+    sortRoles();
+}
 
-        //寻找离自己最近的敌方，设置面向
-        int min_distance = COORD_COUNT * COORD_COUNT;
-        Role* r_near;
-        for (auto r1 : battle_roles_)
-        {
-            if (r->Team != r1->Team)
-            {
-                int dis = abs(r->X() - r1->X()) + abs(r->Y() - r1->Y());
-                if (dis < min_distance)
-                {
-                    r_near = r1;
-                    min_distance = dis;
-                }
-            }
-        }
-
-        r->Face = (int)CallFace(r->X(), r->Y(), r_near->X(), r_near->Y());
-        //r->Face = rand() % 4;
+void BattleScene::setRoleInitState(Role* r)
+{
+    r->Acted = 0;
+    r->FightingFrame = 0;
+    //读取动作帧数
+    SAVE_INT frame[10];
+    std::string file = convert::formatString("../game/resource/fight/fight%03d/fightframe.ka", r->HeadID);
+    File::readFile(file, frame, 10);
+    for (int i = 0; i < 5; i++)
+    {
+        r->FightFrame[i] = frame[i];
     }
 
+    //寻找离自己最近的敌方，设置面向
+    int min_distance = COORD_COUNT * COORD_COUNT;
+    Role* r_near;
+    for (auto r1 : battle_roles_)
+    {
+        if (r->Team != r1->Team)
+        {
+            int dis = abs(r->X() - r1->X()) + abs(r->Y() - r1->Y());
+            if (dis < min_distance)
+            {
+                r_near = r1;
+                min_distance = dis;
+            }
+        }
+    }
 
+    r->Face = (int)CallFace(r->X(), r->Y(), r_near->X(), r_near->Y());
+    //r->Face = rand() % 4;
+}
 
+void BattleScene::sortRoles()
+{
+    auto sort_role = [](Role * a, Role * b)->bool { return a->Speed > b->Speed; };
+    std::sort(battle_roles_.begin(), battle_roles_.end(), sort_role);
 }
 
 //依据动作帧数计算角色的贴图编号
@@ -207,29 +224,74 @@ int BattleScene::calRolePic(Role* r)
     return r->Face;
 }
 
-void BattleScene::walk(int x, int y, Towards t)
+//计算可以被选择的范围，会改写选择层
+//mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选
+void BattleScene::calSelectLayer(Role* r, int mode, int step)
+{
+    if (mode == 0)
+    {
+        select_layer_.setAll(-1);
+        std::vector<Point> cal_stack;
+        cal_stack.push_back({ r->X(), r->Y() });
+        int count = 0;
+        while (step >= 0)
+        {
+            std::vector<Point> cal_stack_next;
+            for (auto p : cal_stack)
+            {
+                select_layer_.data(p.x, p.y) = step;
+                auto check_next = [&](Point p1)->void
+                {
+                    //未计算过且可以走的格子参与下一步的计算
+                    if (select_layer_.data(p1.x, p1.y) == -1 && canWalk(p1.x, p1.y))
+                    {
+                        cal_stack_next.push_back(p1);
+                        count++;
+                    }
+                };
+                //检测4个相邻点
+                check_next({ p.x - 1, p.y });
+                check_next({ p.x + 1, p.y });
+                check_next({ p.x, p.y - 1 });
+                check_next({ p.x, p.y + 1 });
+                if (count >= COORD_COUNT * COORD_COUNT) { break; }  //最多计算次数，避免死掉
+            }
+            cal_stack = cal_stack_next;
+            step--;
+        }
+    }
+    else if (mode == 1)
+    {
+        for (int ix = 0; ix < COORD_COUNT; ix++)
+        {
+            for (int iy = 0; iy < COORD_COUNT; iy++)
+            {
+                select_layer_.data(ix, iy) = step - abs(ix - r->X()) - abs(iy - r->Y());
+            }
+        }
+    }
+    else if (mode == 2)
+    {
+        select_layer_.setAll(0);
+    }
+}
+
+bool BattleScene::canSelect(int x, int y)
+{
+    return (!isOutLine(x, y) && select_layer_.data(x, y));
+}
+
+void BattleScene::walk(Role* r, int x, int y, Towards t)
 {
     if (canWalk(x, y))
     {
-        m_nBx = x;
-        m_nBy = y;
+        r->setPosition(x, y);
     }
-    if (Scene::towards_ != t)
-    {
-        Scene::towards_ = t;
-        m_nstep = 0;
-    }
-    else
-    {
-        m_nstep++;
-    }
-    m_nstep = m_nstep % m_nOffset_BRolePic;
 }
 
 bool BattleScene::canWalk(int x, int y)
 {
-    if (checkIsOutLine(x, y) || checkIsBuilding(x, y) || checkIsHinder(x, y)
-        || checkIsEvent(x, y) || checkIsFall(x, y))
+    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) || isRole(x, y))
     {
         return false;
     }
@@ -239,52 +301,37 @@ bool BattleScene::canWalk(int x, int y)
     }
 }
 
-bool BattleScene::checkIsBuilding(int x, int y)
+bool BattleScene::isBuilding(int x, int y)
 {
-    //if (m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y] >= -2
-    //    && m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y] <= 0)
-    //{
-    //    return false;
-    //}
-    //else
-    //{
-    //    return true;
-    //}
-    return false;
+    return building_layer_.data(x, y) > 0;
 }
 
-bool BattleScene::checkIsOutLine(int x, int y)
+bool BattleScene::isOutLine(int x, int y)
 {
     return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
 
-bool BattleScene::checkIsHinder(int x, int y)
+bool BattleScene::isWater(int x, int y)
 {
+    int num = earth_layer_.data(x, y) / 2;
+    if (num >= 179 && num <= 181
+        || num == 261 || num == 511
+        || num >= 662 && num <= 665
+        || num == 674)
+    {
+        return true;
+    }
     return false;
 }
 
-bool BattleScene::checkIsEvent(int x, int y)
+bool BattleScene::isRole(int x, int y)
 {
-    return false;
+    return role_layer_.data(x, y) > 0;
 }
 
-bool BattleScene::checkIsFall(int x, int y)
+bool BattleScene::isOutScreen(int x, int y)
 {
-    return false;
-}
-
-bool BattleScene::checkIsExit(int x, int y)
-{
-    return false;
-}
-
-void BattleScene::callEvent(int x, int y)
-{
-}
-
-bool BattleScene::checkIsOutScreen(int x, int y)
-{
-    return (abs(m_nBx - x) >= 16 || abs(m_nBy - y) >= 20);
+    return (abs(man_x_ - x) >= 16 || abs(man_y_ - y) >= 20);
 }
 
 //看不明白
@@ -296,109 +343,6 @@ void BattleScene::getMousePosition(Point* point)
     //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
     //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
     //mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
-}
-
-void BattleScene::FindWay(int Mx, int My, int Fx, int Fy)
-{
-}
-
-void BattleScene::initData(int scenenum)
-{
-    //       for (int i = 0; i < maxBRoleSelect; i++)
-    //       {
-    //           int numBRole = ResultofBattle[i];
-    //           char *fightPath = new char[30];
-    //           sprintf(fightPath, "fight/fight%03d", numBRole);
-    //           char *fightPathIn = new char[30];
-    //           sprintf(fightPathIn, "fight/fight%03d/index.ka", numBRole);
-    //           auto file = FileUtils::getInstance();
-    //           //std::fstream file;
-    //           if (file->isFileExist(fightPathIn)){
-    //               loadTexture(fightPath, MyTexture2D::Battle, 250, numBRole);
-    //           }
-    //           //delete(fightPath);
-    //           delete(fightPathIn);
-    //       }
-}
-
-
-
-void BattleScene::autoSetMagic(int rnum)
-{
-
-
-}
-
-bool BattleScene::autoInBattle()
-{
-    //int x, y;
-    //int autoCount = 0;
-    //for (int i = 0; i < BATTLE_ROLE_COUNT = 4096; i++)
-    //{
-    //    m_vcBattleRole[i].Team = 1;
-    //    m_vcBattleRole[i].RoleID = -1;
-    //    //我方自动参战数据
-    //    if (m_nMods >= -1)
-    //    {
-    //        for (int i = 0; i < sizeof(m_vcBattleInfo[m_nbattleNum].mate) / sizeof(m_vcBattleInfo[m_nbattleNum].mate[0]); i++)
-    //        {
-    //            x = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-    //            y = m_vcBattleInfo[m_nbattleNum].mate_y[i];
-    //        }
-    //        if (m_nMods == -1)
-    //        {
-    //            m_vcBattleRole[m_nBRoleAmount].RoleID = m_vcBattleInfo[m_nbattleNum].autoMate[i];
-    //        }
-    //        else
-    //        {
-    //            m_vcBattleRole[m_nBRoleAmount].RoleID = -1;
-    //        }
-    //        m_vcBattleRole[m_nBRoleAmount].Team = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].setPosition(x, y);
-    //        m_vcBattleRole[m_nBRoleAmount].Face = 2;
-    //        if (m_vcBattleRole[m_nBRoleAmount].RoleID == -1)
-    //        {
-    //            m_vcBattleRole[m_nBRoleAmount].Dead = 1;
-    //            m_vcBattleRole[m_nBRoleAmount].Show = 1;
-    //        }
-    //        else
-    //        {
-    //            m_vcBattleRole[m_nBRoleAmount].Dead = 0;
-    //            m_vcBattleRole[m_nBRoleAmount].Show = 0;
-    //            //if (!((m_Character[battleRole[BRoleAmount].rnum].TeamState == 1)
-    //            //    || (m_Character[battleRole[BRoleAmount].rnum].TeamState == 2))
-    //            //    && !(m_Character[battleRole[BRoleAmount].rnum].Faction == m_Character[0].Faction))
-    //            //{
-    //            //    autoSetMagic(battleRole[BRoleAmount].rnum);
-    //            //    autoCount++;
-    //            //}
-    //        }
-    //        m_vcBattleRole[m_nBRoleAmount].Step = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].Acted = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
-    //        if (m_vcBattleRole[m_nBRoleAmount].RoleID == 0)
-    //        {
-    //            m_vcBattleRole[m_nBRoleAmount].Auto = -1;
-    //        }
-    //        else
-    //        {
-    //            m_vcBattleRole[m_nBRoleAmount].Auto = 3;
-    //        }
-    //        m_vcBattleRole[m_nBRoleAmount].Progress = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].round = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].Wait = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].frozen = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].killed = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
-    //        m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
-
-    //    }
-    //    //自动参战结束
-    //}
-    return true;
 }
 
 int BattleScene::selectTeamMembers()
@@ -467,370 +411,6 @@ void BattleScene::ShowMultiMenu(int max0, int menuNum)
     //CommonScene::drawWords(s_list, 20, BattleScene::kindOfRole, vec);
 }
 
-/*
-void BattleScene::menuCloseCallback(Ref* pSender)
-{
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_WP8) || (CC_TARGET_PLATFORM == CC_PLATFORM_WINRT)
-    MessageBox("You pressed the close button. Windows Store Apps do not implement a close button.", "Alert");
-    return;
-#endif
-    auto p = dynamic_cast<MenuItemFont*> (pSender);
-    if (p == nullptr)
-        return;
-    switch (p->getTag())
-    {
-    case 1:
-    {
-        SlectOfresult[0] = !SlectOfresult[0];
-        if (SlectOfresult[0] == true)
-        {
-            counter = max0 - 1;
-            for (int i = 1; i < 7; i++)
-            {
-                if (m_BasicData[0].TeamList[i - 1] >= 0)
-                {
-                    item[i]->setColor(Color3B::RED);
-                }
-            }
-            for (int i = 0; i < 6; i++)
-            {
-                if (m_BasicData[0].TeamList[i] >= 0)
-                {
-                    SlectOfresult[i + 1] = true;
-                    ResultofBattle[i] = 1;
-                }
-            }
-        }
-        else if (SlectOfresult[0] == false)
-        {
-            counter = 0;
-            for (int i = 1; i < 7; i++)
-            {
-                item[i]->setColor(Color3B::WHITE);
-            }
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-        break;
-    }
-    case 2:
-    {
-
-        SlectOfresult[1] = !SlectOfresult[1];
-        if (SlectOfresult[1] == true)
-        {
-            item[1]->setColor(Color3B::RED);
-            ResultofBattle[0] = 1;
-            counter++;
-        }
-        else if (SlectOfresult[1] == false)
-        {
-            item[1]->setColor(Color3B::WHITE);
-            ResultofBattle[0] = 0;
-            counter--;
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-
-
-
-
-        break;
-    }
-    case 3:
-    {
-        SlectOfresult[2] = !SlectOfresult[2];
-        if (SlectOfresult[2] == true)
-        {
-            item[2]->setColor(Color3B::RED);
-            ResultofBattle[1] = 1;
-            counter++;
-        }
-        else if (SlectOfresult[2] == false)
-        {
-            item[2]->setColor(Color3B::WHITE);
-            ResultofBattle[1] = 0;
-            counter--;
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-        break;
-    }
-
-    case 4:
-    {
-        SlectOfresult[3] = !SlectOfresult[3];
-        if (SlectOfresult[3] == true)
-        {
-
-            item[3]->setColor(Color3B::RED);
-            ResultofBattle[2] = 1;
-            counter++;
-        }
-        else if (SlectOfresult[3] == false)
-        {
-            item[3]->setColor(Color3B::WHITE);
-            ResultofBattle[2] = 0;
-            counter--;
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-        break;
-    }
-    case 5:
-    {
-        SlectOfresult[4] = !SlectOfresult[4];
-        if (SlectOfresult[4] == true)
-        {
-
-            item[4]->setColor(Color3B::RED);
-            ResultofBattle[3] = 1;
-            counter++;
-        }
-        else if (SlectOfresult[4] == false)
-        {
-            item[4]->setColor(Color3B::WHITE);
-            ResultofBattle[3] = 0;
-            counter--;
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-        break;
-    }
-    case 6:
-    {
-
-        SlectOfresult[5] = !SlectOfresult[5];
-        if (SlectOfresult[5] == true)
-        {
-            item[5]->setColor(Color3B::RED);
-            ResultofBattle[4] = 1;
-            counter++;
-        }
-        else if (SlectOfresult[5] == false)
-        {
-            item[5]->setColor(Color3B::WHITE);
-            ResultofBattle[4] = 0;
-            counter--;
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-        break;
-    }
-    case 7:
-    {
-        SlectOfresult[6] = !SlectOfresult[6];
-        if (SlectOfresult[6] == true)
-        {
-            item[6]->setColor(Color3B::RED);
-            ResultofBattle[5] = 1;
-            counter++;
-        }
-        else if (SlectOfresult[1] == false)
-        {
-            item[6]->setColor(Color3B::WHITE);
-            ResultofBattle[5] = 0;
-            counter--;
-        }
-        if (counter > 0)
-        {
-            item[max0]->setEnabled(true);
-        }
-        else
-        {
-            item[max0]->setEnabled(false);
-        }
-        break;
-    }
-    case 8:
-    {
-        //  开始战斗入口
-        for (int i = 0; i < config::MaxTeamMember; i++)
-        {
-            if (ResultofBattle[i])
-            {
-                BattleList[i] = m_BasicData[0].TeamList[i];
-            }
-
-        }
-        initBattleRoleState();
-        battleMainControl();
-        CommonScene::cleanAllWords();
-        CommonScene::cleanRoleVerticaldRawing();
-        CommonScene::cleanFiveDimensional();
-        SpriteLayer->removeAllChildren();
-        Draw();
-        menuClose();
-        showBattleMenu(50, 500);
-        //schedule(schedule_selector(CommonScene::checkTimer), 0.025, kRepeatForever, 0.025);
-
-        break;
-    }
-    }
-}
-
-void BattleScene::menuCloseCallback1(Ref* pSender)
-{
-#if (CC_TARGET_PLATFORM == CC_PLATFORM_WP8) || (CC_TARGET_PLATFORM == CC_PLATFORM_WINRT)
-    MessageBox("You pressed the close button. Windows Store Apps do not implement a close button.", "Alert");
-    return;
-#endif
-    auto p = dynamic_cast<MenuItemImage*> (pSender);
-    Vec2 vec[7];
-    for (int i = 0; i < 7; i++)
-    {
-        vec[i].x = xx;
-        vec[i].y = yy - 170 - i * 20;
-    }
-    if (p == nullptr)
-        return;
-    switch (p->getTag())
-    {
-    case 9:
-    {
-        num_list--;
-        if ((num_list >= 0) && (m_BasicData[0].TeamList[num_list] >= 0))
-        {
-            CommonScene::cleanRoleVerticaldRawing();
-            CommonScene::cleanAllWords();
-            showSlectMenu(s_list, num_list);
-            CommonScene::drawWords(s_list, 20, BattleScene::kindOfRole, vec);
-
-        }
-        else
-        {
-            num_list = 0;
-        }
-        break;
-    }
-    case 10:
-    {
-        num_list++;
-        if ((num_list <= 5) && (m_BasicData[0].TeamList[num_list] >= 0))
-        {
-            CommonScene::cleanRoleVerticaldRawing();
-            CommonScene::cleanAllWords();
-            showSlectMenu(s_list, num_list);
-            CommonScene::drawWords(s_list, 20, BattleScene::kindOfRole, vec);
-
-        }
-        else
-        {
-            num_list = 5;
-        }
-        break;
-    }
-    case 11:
-    {
-        //  移动;
-        if (battleRole[curRoleNum].Step > 0) {
-            SpriteLayer->removeAllChildren();
-            menuClose();
-            Msx = Bx;
-            Msy = By;
-            Ax = Bx;
-            Ay = By;
-            moveRole(curRoleNum);
-
-        }
-        break;
-    }
-
-    case 12:
-    {
-        //  武学;
-        break;
-    }
-    case 13:
-    {
-        //  用毒;
-        break;
-    }
-    case 14:
-    {
-        //  解毒;
-        break;
-    }
-    case 15:
-    {
-        //  医疗;
-        break;
-    }
-    case 16:
-    {
-        //  解穴;
-        break;
-    }
-    case 17:
-    {
-        //  专注;
-        break;
-    }
-    case 18:
-    {
-        //  物品;
-        break;
-    }
-    case 19:
-    {
-        //  等待;
-        break;
-    }
-    case 20:
-    {
-        //  状态;
-        break;
-    }
-    case 21:
-    {
-        //  休息;
-        break;
-    }
-    case 22:
-    {
-        //  自动;
-        break;
-    }
-    }
-
-}
-*/
 void BattleScene::showBattleMenu(int x, int y)
 {
     //menuOn();
@@ -936,6 +516,8 @@ bool BattleScene::battle(int battlenum, int getexp, int mods, int id, int matern
 {
     return true;
 }
+
+
 
 bool BattleScene::initBattleData()
 {
@@ -1190,231 +772,6 @@ void BattleScene::reArrangeBRole()
     //i2 = i2 + 1;
 }
 
-//获取人物速度
-int BattleScene::getRoleSpeed(int rnum, bool Equip)
-{
-    int l;
-    int bResult;
-    //bResult = Save::getInstance()->m_Character[rnum].Speed;
-    //if (Save::getInstance()->m_Character[rnum].GongTi > -1)
-    //{
-    //    l = getGongtiLevel(rnum);
-    //    bResult = Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[Save::getInstance()->m_Character[rnum].GongTi]].AddSpd[l];
-    //}
-    //if (Equip)
-    //{
-    //    for (int l = 0; l < config::MaxEquipNum; l++)
-    //    {
-    //        if (Save::getInstance()->m_Character[rnum].Equip[l] >= 0)
-    //        {
-    //            bResult += Save::getInstance()->m_Item[Save::getInstance()->m_Character[rnum].Equip[l]].AddSpeed;
-    //        }
-    //        bResult = bResult * 100 / (100 + Save::getInstance()->m_Character[rnum].Wounded + Save::getInstance()->m_Character[rnum].Poison);
-    //    }
-    //}
-    return bResult;
-    return 0;
-}
-
-//获取功体经验
-int BattleScene::getGongtiLevel(int rnum)
-{
-    //int i;
-    //int n = Save::getInstance()->m_Character[rnum].GongTi;
-    //if ((rnum >= 0) && (n >= -1))
-    //{
-    //    if (Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel > Save::getInstance()->m_Character[rnum].MagLevel[n] / 100)
-    //    {
-    //        return Save::getInstance()->m_Character[rnum].MagLevel[n] / 100;
-    //    }
-    //    else { return Save::getInstance()->m_Magic[Save::getInstance()->m_Character[rnum].LMagic[n]].MaxLevel; }
-    //}
-    //else { return 0; }
-    return 0;
-}
-
-
-float BattleScene::power(float base, float Exponent)
-{
-    if (Exponent == 0.0)
-    {
-        return 1.0;
-    }
-    else if ((base == 0.0) && (Exponent > 0.0))
-    {
-        return 0.0;
-    }
-    else if (base < 0)
-    {
-        /*Error(reInvalidOp);*/
-        return 0.0; // avoid warning W1035 Return value of function '%s' might be undefined
-    }
-    else { return exp(Exponent * log(base)); }
-}
-
-//初始化范围
-//mode=0移动，1攻击用毒医疗等，2查看状态
-void BattleScene::calCanSelect(int bnum, int mode, int Step)
-{
-    //int i;
-    //if (mode == 0)
-    //{
-    //    for (int i1 = 0; i1 <= 63; i1++)
-    //    {
-    //        for (int i2 = 0; i2 <= 63; i2++)
-    //        {
-    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
-    //        }
-    //    }
-    //    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_vcBattleRole[bnum].X][m_vcBattleRole[bnum].Y] = 0;
-    //    seekPath2(m_vcBattleRole[bnum].X, m_vcBattleRole[bnum].Y, Step, m_vcBattleRole[bnum].Team, mode);
-    //}
-    //if (mode == 1)
-    //{
-    //    for (int i1 = 0; i1 <= 63; i1++)
-    //    {
-    //        for (int i2 = 0; i2 <= 63; i2++)
-    //        {
-    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
-    //            if (abs(i1 - m_vcBattleRole[bnum].X()) + abs(i2 - m_vcBattleRole[bnum].Y()) <= m_nstep)
-    //            {
-    //                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
-    //            }
-    //        }
-    //    }
-    //}
-
-    //if (mode == 2)
-    //{
-    //    for (int i1 = 0; i1 <= 63; i1++)
-    //    {
-    //        for (int i2 = 0; i2 <= 63; i2++)
-    //        {
-    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = -1;
-    //            if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] >= 0)
-    //            {
-    //                m_vcBattleSceneData[m_nbattleSceneNum].Data[3][i1][i2] = 0;
-    //            }
-    //        }
-    //    }
-    //}
-}
-
-//计算可以被选中的位置
-//利用队列
-//移动过程中，旁边有敌人，则不能继续移动
-void BattleScene::seekPath2(int x, int y, int step, int myteam, int mode)
-{
-    //int Xlist[4096];
-    //int Ylist[4096];
-    //int steplist[4096];
-    //int curgrid, totalgrid;
-    //int Bgrid[5]; //0空位，1建筑，2友军，3敌军，4出界，5已走过 ，6水面
-    //int Xinc[5], Yinc[5];
-    //int curX, curY, curstep, nextX, nextY, i;
-
-    //Xinc[1] = 1;
-    //Xinc[2] = -1;
-    //Xinc[3] = 0;
-    //Xinc[4] = 0;
-    //Yinc[1] = 0;
-    //Yinc[2] = 0;
-    //Yinc[3] = 1;
-    //Yinc[4] = -1;
-    //curgrid = 0;
-    //totalgrid = 0;
-    //Xlist[totalgrid] = x;
-    //Ylist[totalgrid] = y;
-    //steplist[totalgrid] = 0;
-    //totalgrid = totalgrid + 1;
-    //while (curgrid < totalgrid)
-    //{
-    //    curX = Xlist[curgrid];
-    //    curY = Ylist[curgrid];
-    //    curstep = steplist[curgrid];
-    //    if (curstep < step)
-    //    {
-    //        for (int i = 1; i < 5; i++)
-    //        {
-    //            nextX = curX + Xinc[i];
-    //            nextY = curY + Yinc[i];
-    //            if ((nextX < 0) || (nextX > 63) || (nextY < 0) || (nextY > 63))
-    //            {
-    //                Bgrid[i] = 4;
-    //            }
-    //            else if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][nextX][nextY] >= 0)
-    //            {
-    //                Bgrid[i] = 5;
-    //            }
-    //            else if (m_vcBattleSceneData[m_nbattleSceneNum].Data[1][nextX][nextY] > 0)
-    //            {
-    //                Bgrid[i] = 1;
-    //            }
-    //            else if ((m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY] >= 0)
-    //                && (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Dead == 0))
-    //            {
-    //                if (m_vcBattleRole[m_vcBattleSceneData[m_nbattleSceneNum].Data[2][nextX][nextY]].Team == myteam)
-    //                {
-    //                    Bgrid[i] = 2;
-    //                }
-    //                else { Bgrid[i] = 3; }
-    //            }
-    //            else if (((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 179)
-    //                && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 190))
-    //                || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 261)
-    //                || (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 == 511)
-    //                || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 224)
-    //                && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 232))
-    //                || ((m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 >= 662)
-    //                && (m_vcBattleSceneData[m_nbattleSceneNum].Data[0][nextX][nextY] / 2 <= 674)))
-    //            {
-    //                Bgrid[i] = 6;
-    //            }
-    //            else
-    //            {
-    //                Bgrid[i] = 0;
-    //            }
-    //        }
-
-    //        //移动的情况
-    //        //若为初始位置，不考虑旁边是敌军的情况
-    //        //在移动过程中，旁边没有敌军的情况下才继续移动
-
-    //        if (mode == 0)
-    //        {
-    //            if ((curstep == 0) || ((Bgrid[1] != 3) && (Bgrid[2] != 3) && (Bgrid[3] != 3) && (Bgrid[4] != 3)))
-    //            {
-    //                for (int i = 1; i < 5; i++)
-    //                {
-    //                    if (Bgrid[i] == 0)
-    //                    {
-    //                        Xlist[totalgrid] = curX + Xinc[i];
-    //                        Ylist[totalgrid] = curY + Yinc[i];
-    //                        steplist[totalgrid] = curstep + 1;
-    //                        m_vcBattleSceneData[m_nbattleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
-    //                        totalgrid = totalgrid + 1;
-    //                    }
-    //                }
-    //            }
-    //        }
-    //        else                    //非移动的情况，攻击、医疗等
-    //        {
-    //            for (int i = 1; i < 5; i++)
-    //            {
-    //                if ((Bgrid[i] == 0) || (Bgrid[i] == 2) || ((Bgrid[i] == 3)))
-    //                {
-    //                    Xlist[totalgrid] = curX + Xinc[i];
-    //                    Ylist[totalgrid] = curY + Yinc[i];
-    //                    steplist[totalgrid] = curstep + 1;
-    //                    m_vcBattleSceneData[m_nbattleSceneNum].Data[3][Xlist[totalgrid]][Ylist[totalgrid]] = steplist[totalgrid];
-    //                    totalgrid = totalgrid + 1;
-    //                }
-    //            }
-    //        }
-    //    }
-    //    curgrid++;
-    //}
-}
 
 //移动
 
@@ -1633,21 +990,3 @@ void BattleScene::moveAminationStep(float dt)
 //    //m_ncurMagic = mnum;
 //}
 
-void BattleScene::init()
-{
-    //
-    //    // 因为偏移文件的问题，所以暂时读不到这个文件。
-    //    //auto UiLayer = new UI();
-    //    //auto MenuSprite = new Menu();
-    //    //MenuSprite->setPosition(20, 20);
-    //    //for (int i = 0; i < 3; i++)
-    //    //{
-    //    //  auto ButtonSprite = new Button();
-    //    //  ButtonSprite->setTexture("menu", i + 1, i + 33);
-    //    //  MenuSprite->addButton(ButtonSprite, 0, i * 33);
-    //    //  ButtonSprite->setSize(110, 24);
-    //    //  //ButtonSprite->setFunction(BIND_FUNC(HelloWorldScene::func));
-    //    //}
-    //    //UiLayer->AddSprite(MenuSprite);
-    //    //push(UiLayer);
-}

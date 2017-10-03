@@ -1,8 +1,6 @@
 #include "Scene.h"
 #include <queue>
 
-Towards Scene::towards_;
-
 Scene::Scene()
 {
 }
@@ -42,7 +40,7 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
 //    return p;
 //}
 
-Towards Scene::CallFace(int x1, int y1, int x2, int y2)
+int Scene::CallFace(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
     d1 = y2 - y1;
@@ -54,49 +52,52 @@ Towards Scene::CallFace(int x1, int y1, int x2, int y2)
         {
             if (d1 < 0)
             {
-                return LeftUp;
+                return Towards_LeftUp;
             }
             else
             {
-                return RightDown;
+                return Towards_RightDown;
             }
         }
         else
         {
             if (d2 < 0)
             {
-                return LeftDown;
+                return Towards_LeftDown;
             }
             else
             {
-                return RightUp;
+                return Towards_RightUp;
             }
         }
     }
+    return Towards_None;
 }
 
-void Scene::getTowardsFromKey(BP_Keycode key)
+int Scene::getTowardsFromKey(BP_Keycode key)
 {
+    auto tw = Towards_None;
     switch (key)
     {
-    case BPK_LEFT: towards_ = LeftDown; break;
-    case BPK_RIGHT: towards_ = RightUp; break;
-    case BPK_UP: towards_ = LeftUp; break;
-    case BPK_DOWN: towards_ = RightDown; break;
+    case BPK_LEFT: tw = Towards_LeftDown; break;
+    case BPK_RIGHT: tw = Towards_RightUp; break;
+    case BPK_UP: tw = Towards_LeftUp; break;
+    case BPK_DOWN: tw = Towards_RightDown; break;
     }
+    return tw;
 }
 
-void Scene::getTowardsPosition(int x0, int y0, Towards tw, int* x1, int* y1)
+void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
 {
-    if (towards_ == None) { return; }
+    if (tw == Towards_None) { return; }
     *x1 = x0;
     *y1 = y0;
-    switch (towards_)
+    switch (tw)
     {
-    case LeftDown: (*x1)--; break;
-    case RightUp: (*x1)++; break;
-    case LeftUp: (*y1)--; break;
-    case RightDown: (*y1)++; break;
+    case Towards_LeftDown: (*x1)--; break;
+    case Towards_RightUp: (*x1)++; break;
+    case Towards_LeftUp: (*y1)--; break;
+    case Towards_RightDown: (*y1)++; break;
     }
 }
 

@@ -8,7 +8,7 @@
 #include "Talk.h"
 #include "others/libconvert.h"
 #include "Audio.h"
-#include "Util.h"
+#include "GameUtil.h"
 
 Event Event::event_;
 
@@ -525,7 +525,7 @@ bool Event::checkRoleSexual(int sexual)
 
 void Event::addMorality(int value)
 {
-    save_->getRole(0)->Morality = Util::limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
+    save_->getRole(0)->Morality = GameUtil::limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
 }
 
 void Event::changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic)
@@ -553,7 +553,7 @@ void Event::openSubMap(int submap_id)
 
 void Event::setTowards(int towards)
 {
-    Scene::towards_ = (Towards)towards;
+    subscene_->towards_ = (Towards)towards;
 }
 
 void Event::roleGetItem(int role_id, int item_id, int count)
@@ -582,7 +582,7 @@ void Event::addSpeed(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->Speed;
-    r->Speed = Util::limit(v0 + value, 0, MAX_SPEED);
+    r->Speed = GameUtil::limit(v0 + value, 0, MAX_SPEED);
     text_box_->setTitle(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
     text_box_->run();
 }
@@ -591,7 +591,7 @@ void Event::addMP(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxMP;
-    r->MaxMP = Util::limit(v0 + value, 0, MAX_MP);
+    r->MaxMP = GameUtil::limit(v0 + value, 0, MAX_MP);
     text_box_->setTitle(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -600,7 +600,7 @@ void Event::addAttack(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->Attack;
-    r->Attack = Util::limit(v0 + value, 0, MAX_ATTACK);
+    r->Attack = GameUtil::limit(v0 + value, 0, MAX_ATTACK);
     text_box_->setTitle(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
     text_box_->run();
 }
@@ -609,7 +609,7 @@ void Event::addHP(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxHP;
-    r->MaxHP = Util::limit(v0 + value, 0, MAX_HP);
+    r->MaxHP = GameUtil::limit(v0 + value, 0, MAX_HP);
     text_box_->setTitle(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
     text_box_->run();
 }

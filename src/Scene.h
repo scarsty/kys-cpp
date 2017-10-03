@@ -28,7 +28,7 @@ public:
     BP_Keycode pre_pressed_;    //键盘走路的上次按键
 
     int man_x_, man_y_;
-    static Towards towards_;     //朝向，共用一个即可
+    int towards_;              //朝向，共用一个即可
     int step_ = 0;
     int man_pic_;
 
@@ -39,13 +39,13 @@ public:
 
     Point getPositionOnScreen(int x, int y, int CenterX, int CenterY);
 
-    Towards CallFace(int x1, int y1, int x2, int y2);
+    int CallFace(int x1, int y1, int x2, int y2);
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
-    void getTowardsFromKey(BP_Keycode key);
+    static int getTowardsFromKey(BP_Keycode key);
     //获取面向一格的坐标
-    void getTowardsPosition(int x0, int y0, Towards tw, int* x1, int* y1);
+    static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
 
     virtual bool canWalk(int x, int y) { return false; }
     virtual bool isOutScreen(int x, int y) { return false; }

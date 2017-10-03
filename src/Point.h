@@ -1,6 +1,14 @@
 #pragma once
 
-
+//这里如果用枚举类型会有一些麻烦，干脆改为整型
+enum Towards
+{
+    Towards_LeftUp = 0,
+    Towards_RightUp = 1,
+    Towards_LeftDown = 2,
+    Towards_RightDown = 3,
+    Towards_None
+};
 
 struct Point
 {
@@ -11,15 +19,6 @@ public:
     int x = 0, y = 0;
 };
 
-typedef enum
-{
-    LeftUp = 0,
-    RightUp = 1,
-    LeftDown = 2,
-    RightDown = 3,
-    None
-} Towards;
-
 struct PointEx : public Point
 {
     PointEx();
@@ -29,7 +28,7 @@ struct PointEx : public Point
     int g = 0, h = 0, f = 0;
     int Gx = 0, Gy = 0;
 
-    Towards towards;
+    int towards;
     PointEx* parent;
     PointEx* child[4];
 

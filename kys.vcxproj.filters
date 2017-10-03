@@ -112,6 +112,9 @@
     <ClCompile Include="src\Element.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\GameUtil.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -227,6 +230,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Element.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameUtil.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

@@ -171,6 +171,7 @@
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
     <ClCompile Include="src\Element.cpp" />
+    <ClCompile Include="src\GameUtil.cpp" />
     <ClCompile Include="src\Option.cpp" />
     <ClCompile Include="src\others\ini.cpp" />
     <ClCompile Include="src\others\INIReader.cpp" />
@@ -211,6 +212,7 @@
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Cloud.h" />
     <ClInclude Include="src\Element.h" />
+    <ClInclude Include="src\GameUtil.h" />
     <ClInclude Include="src\Option.h" />
     <ClInclude Include="src\others\ini.h" />
     <ClInclude Include="src\others\INIReader.h" />

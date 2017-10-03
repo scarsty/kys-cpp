@@ -22,11 +22,11 @@ MainScene::MainScene()
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(SAVE_INT);
 
-        File::readFile("../game/resource/earth.002", &earth_layer_(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer_(0), length);
-        File::readFile("../game/resource/building.002", &building_layer_(0), length);
-        File::readFile("../game/resource/buildx.002", &build_x_layer_(0), length);
-        File::readFile("../game/resource/buildy.002", &build_y_layer_(0), length);
+        File::readFile("../game/resource/earth.002", &earth_layer_.data(0), length);
+        File::readFile("../game/resource/surface.002", &surface_layer_.data(0), length);
+        File::readFile("../game/resource/building.002", &building_layer_.data(0), length);
+        File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
+        File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
 
         divide2(earth_layer_);
         divide2(surface_layer_);
@@ -54,9 +54,9 @@ MainScene::~MainScene()
 
 void MainScene::divide2(MapSquare& m)
 {
-    for (int i = 0; i < m.size(); i++)
+    for (int i = 0; i < m.squareSize(); i++)
     {
-        m(i) /= 2;
+        m.data(i) /= 2;
     }
 }
 
@@ -85,18 +85,18 @@ void MainScene::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_(i1, i2) > 0)
+                if (earth_layer_.data(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(i1, i2), p.x, p.y);
                 }
 #endif
-                if (surface_layer_(i1, i2) > 0)
+                if (surface_layer_.data(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_.data(i1, i2), p.x, p.y);
                 }
-                if (building_layer_(i1, i2) > 0)
+                if (building_layer_.data(i1, i2) > 0)
                 {
-                    auto t = building_layer_(i1, i2);
+                    auto t = building_layer_.data(i1, i2);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -172,9 +172,10 @@ void MainScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        getTowardsFromKey(pressed);
+        auto tw = getTowardsFromKey(pressed);
+        if (tw != Towards_None) { towards_ = tw; }
         getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-        tryWalk(x, y, towards_);
+        tryWalk(x, y);
         if (total_step_ <= 1)
         {
             Engine::getInstance()->delay(50);
@@ -217,7 +218,7 @@ void MainScene::onExit()
 {
 }
 
-void MainScene::tryWalk(int x, int y, Towards t)
+void MainScene::tryWalk(int x, int y)
 {
     if (canWalk(x, y))
     {
@@ -242,7 +243,7 @@ void MainScene::tryWalk(int x, int y, Towards t)
 bool MainScene::isBuilding(int x, int y)
 {
 
-    if (building_layer_(build_x_layer_(x, y), build_y_layer_(x, y)) > 0)
+    if (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0)
     {
         return  true;
     }
@@ -254,7 +255,7 @@ bool MainScene::isBuilding(int x, int y)
 
 bool MainScene::isWater(int x, int y)
 {
-    auto pic = earth_layer_(x, y);
+    auto pic = earth_layer_.data(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     {
         return true;

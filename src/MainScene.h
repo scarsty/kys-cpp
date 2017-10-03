@@ -40,7 +40,7 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
 
-    void tryWalk(int x, int y, Towards t);
+    void tryWalk(int x, int y);
     //void cloudMove();
     void getEntrance();
 

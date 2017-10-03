@@ -148,9 +148,10 @@ void SubScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        getTowardsFromKey(pressed);
+        auto tw = getTowardsFromKey(pressed);
+        if (tw != Towards_None) { towards_ = tw; }
         getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-        tryWalk(x, y, towards_);
+        tryWalk(x, y);
         if (total_step_ <= 1)
         {
             Engine::getInstance()->delay(50);
@@ -259,7 +260,7 @@ void SubScene::onExit()
 }
 
 //冗余过多待清理
-void SubScene::tryWalk(int x, int y, Towards t)
+void SubScene::tryWalk(int x, int y)
 {
     if (canWalk(x, y))
     {
@@ -275,14 +276,14 @@ void SubScene::tryWalk(int x, int y, Towards t)
     }
 }
 
-bool SubScene::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
+bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
 {
-    getTowardsPosition(man_x_, man_y_, t, &x, &y);
+    getTowardsPosition(man_x_, man_y_, tw, &x, &y);
     int event_index_submap = submap_info_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
         int id;
-        if (t != None)
+        if (tw != Towards_None)
         {
             id = submap_info_->Event(x, y)->Event1;
             if (id > 0) { step_ = 0; }

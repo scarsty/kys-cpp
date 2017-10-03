@@ -7,20 +7,23 @@ typedef uint16_t SAVE_UINT;
 struct MapSquare
 {
     MapSquare() {}
-    ~MapSquare() { if (data) { delete data; } }
+    ~MapSquare() { if (data_) { delete data_; } }
     //不会保留原始数据
     void resize(int x)
     {
-        if (data) { delete data; }
-        data = new SAVE_INT[x * x];
-        line = x;
+        if (data_) { delete data_; }
+        data_ = new SAVE_INT[x * x];
+        line_ = x;
     }
-    SAVE_INT* data = nullptr;
-    SAVE_INT line;
 
-    SAVE_INT& operator()(int x, int y) { return data[x + line * y]; }
-    SAVE_INT& operator()(int x) { return data[x]; }
-    int size() { return line * line; }
+    SAVE_INT& data(int x, int y) { return data_[x + line_ * y]; }
+    SAVE_INT& data(int x) { return data_[x]; }
+    int size() { return line_; }
+    int squareSize() { return line_ * line_; }
+    void setAll(int v) { for (int i = 0; i < squareSize(); i++) { data_[i] = v; } }
+private:
+    SAVE_INT* data_ = nullptr;
+    SAVE_INT line_ = 0;
 };
 
 //前置声明
@@ -250,7 +253,7 @@ struct ShopSave
     SAVE_INT Item[5], Amount[5], Price[5];
 };
 
-struct Shop:ShopSave
+struct Shop : ShopSave
 {
-   
+
 };

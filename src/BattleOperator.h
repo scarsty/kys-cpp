@@ -9,13 +9,26 @@ public:
     BattleOperator();
     ~BattleOperator();
 
-    Element* battle_scene_;  //这个是指向BattleScene的指针，看一下是不是只操作前两层就够了，要直接用要dynamic_cast
+    int* select_x_ = nullptr, *select_y_ = nullptr;
+    MapSquare* select_layer_ = nullptr, *effect_layer_ = nullptr;
 
-    void setBattleScene(Element* b) { battle_scene_ = b; }
+    Role* role_ = nullptr;
+    Magic* magic_ = nullptr;
 
-    Role* role = nullptr;
+    void setRoleAndMagic(Role* r, Magic* m = nullptr) { role_ = r; magic_ = m; }
 
-    void setRole(Role* r) { role = r; }
+    void dealEvent(BP_Event& e) override;
+
+    int mode_ = 0;
+
+    enum
+    {
+        Move = 0,
+        Action,
+    };
+
+    Element* battle_scene_ = nullptr;
+    void setBattleScene(Element* element) { battle_scene_ = element; }
 
 };
 

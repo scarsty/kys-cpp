@@ -8,13 +8,6 @@ public:
     Util();
     ~Util();
 
-    static int limit(int current, int min_value, int max_value)
-    {
-        if (current < min_value) { (current = min_value); }
-        if (current > max_value) { (current = max_value); }
-        return current;
-    }
-
     static void LOG(const char* format, ...);
 
     template <class T> static void safe_delete(T*& pointer)
