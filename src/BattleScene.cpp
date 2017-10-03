@@ -19,7 +19,6 @@ BattleScene::BattleScene()
     effect_layer_.resize(COORD_COUNT);
     battle_menu_ = new BattleMenu();
     battle_menu_->setPosition(160, 200);
-    battle_menu_->arrange(0, 0, 0, 28);
     head_ = new Head();
     addChild(head_, 100, 100);
     battle_operator_ = new BattleOperator();
@@ -93,7 +92,7 @@ void BattleScene::draw()
                 if (num >= 0)
                 {
                     auto r = Save::getInstance()->getRole(num);
-                    std::string path = convert::formatString("fight/fight%03d", num);
+                    std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     TextureManager::getInstance()->renderTexture(path, calRolePic(r), p.x, p.y);
                 }
             }
@@ -104,12 +103,24 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
-    auto role = battle_roles_[1];
+    //选择第一个人
+    auto role = battle_roles_[0];
     man_x_ = role->X();
     man_y_ = role->Y();
     head_->setRole(role);
     head_->setState(Element::Pass);
-    battle_menu_->run();
+
+    battle_menu_->runAsRole(role);
+
+    role->Acted = 1;
+
+    //如果此人行动过，则放到队尾
+    if (role->Acted)
+    {
+        role->Acted = 0;
+        battle_roles_.erase(battle_roles_.begin());
+        battle_roles_.push_back(role);
+    }
 }
 
 void BattleScene::onEntrance()
@@ -145,8 +156,6 @@ void BattleScene::onEntrance()
             r->Team = 1;
         }
     }
-
-
 
     for (auto r : battle_roles_)
     {

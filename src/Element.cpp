@@ -60,13 +60,13 @@ int Element::run(bool in_root /*= true*/)
     return result_;
 }
 
-Element* Element::removeFromRoot(Element* b)
+Element* Element::removeFromRoot(Element* element)
 {
-    if (b == nullptr)
+    if (element == nullptr)
     {
         if (root_.size() > 0)
         {
-            b = root_.back();
+            element = root_.back();
             root_.pop_back();
         }
     }
@@ -74,39 +74,37 @@ Element* Element::removeFromRoot(Element* b)
     {
         for (int i = 0; i < root_.size(); i++)
         {
-            if (root_[i] == b)
+            if (root_[i] == element)
             {
                 root_.erase(root_.begin() + i);
                 break;
             }
         }
     }
-    //collector_.insert(b);
-    return b;
+    return element;
 }
 
-void Element::addChild(Element* b)
+void Element::addChild(Element* element)
 {
-    childs_.push_back(b);
+    childs_.push_back(element);
 }
 
-void Element::addChild(Element* b, int x, int y)
+void Element::addChild(Element* element, int x, int y)
 {
-    addChild(b);
-    b->setPosition(x_ + x, y_ + y);
+    addChild(element);
+    element->setPosition(x_ + x, y_ + y);
 }
 
-void Element::removeChild(Element* b)
+void Element::removeChild(Element* element)
 {
     for (int i = 0; i < childs_.size(); i++)
     {
-        if (childs_[i] == b)
+        if (childs_[i] == element)
         {
             childs_.erase(childs_.begin() + i);
             break;
         }
     }
-    //collector_.insert(b);
 }
 
 void Element::clearChilds()

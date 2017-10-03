@@ -10,7 +10,6 @@ class Element
 {
 private:
     static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个向量中
-    //static std::set<Base*> collector_;
     int prev_present_ticks_;
 protected:
     std::vector<Element*> childs_;
@@ -29,12 +28,13 @@ public:
 
     static void drawAll();
 
-    static void addOnRootTop(Element* b) { root_.push_back(b); }
-    static Element* removeFromRoot(Element* b);
+    static void addOnRootTop(Element* element) { root_.push_back(element); }
+    static Element* removeFromRoot(Element* element);
 
-    void addChild(Element* b);
-    void addChild(Element* b, int x, int y);
-    void removeChild(Element* b);
+    void addChild(Element* element);
+    void addChild(Element* element, int x, int y);
+    Element* getChild(int i) { return childs_[i]; }
+    void removeChild(Element* element);
     void clearChilds();   //不推荐
 
     void setPosition(int x, int y);

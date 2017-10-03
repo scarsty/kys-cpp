@@ -16,8 +16,11 @@ void Head::draw()
     if (w_ * h_ <= 0)
     {
         auto tex = TextureManager::getInstance()->loadTexture("title", 102);
-        w_ = tex->w;
-        h_ = tex->h;
+        if (tex)
+        {
+            w_ = tex->w;
+            h_ = tex->h;
+        }
     }
     if (role_ == nullptr) { return; }
     BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
@@ -34,7 +37,7 @@ void Head::draw()
     BP_Rect r1;
 
     //注意这里计算某个数字长度的方法
-    font->draw(convert::formatString("%d", role_->Level), 16, x_ + 99 - 4 * floor(log10(0.5 + abs(role_->Level))), y_ + 5, white);
+    font->draw(convert::formatString("%d", role_->Level), 16, x_ + 99 - 4 * floor(log10(0.5 + abs(role_->Level))), y_ + 5, { 250, 200, 50, 255 });
 
     BP_Color c;
     r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
@@ -58,7 +61,7 @@ void Head::draw()
     r1 = { x_ + 116, y_ + 65, 82 * role_->PhysicalPower / 100, 9 };
     c = { 128, 128, 255, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-    font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * floor(log10(0.5 + abs(role_->PhysicalPower))), y_ + 61, white);
+    font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * floor(log10(0.5 + abs(role_->PhysicalPower))), y_ + 61, { 250, 200, 50, 255 });
 }
 
 
