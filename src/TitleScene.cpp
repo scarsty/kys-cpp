@@ -73,7 +73,7 @@ void TitleScene::dealEvent(BP_Event& e)
 void TitleScene::onEntrance()
 {
     Save::getInstance()->LoadR(2);
-    Audio::getInstance()->playMusic(3);
+    //Audio::getInstance()->playMusic(3);
     //Audio::getInstance()->playESound(1);
 }
 

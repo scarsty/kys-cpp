@@ -17,6 +17,11 @@ void BattleMenu::onEntrance()
         c->setVisible(true);
     }
 
+    //移动过则不可移动
+    if (role->Moved)
+    {
+        childs_[0]->setVisible(false);
+    }
     //用毒
     if (role->UsePoison <= 0)
     {
@@ -36,10 +41,10 @@ void BattleMenu::onEntrance()
     arrange(0, 0, 0, 28);
 }
 
-void BattleMenu::runAsRole(Role* r)
+int BattleMenu::runAsRole(Role* r)
 {
     setRole(r);
-    run();
+    return run();
 }
 
 

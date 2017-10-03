@@ -108,19 +108,23 @@ struct Role : public RoleSave
 public:
     int Team;
 public:
-    int Face, Dead, Step, Acted;
+    int Face, Dead, Step;
     int Pic, ShowNumber, BSpeed;
     int ExpGot, Auto, Show, Wait;
     int FightFrame[5];
     int FightingFrame;
 
+    int Moved, Acted;
+
 private:
     int X_, Y_;
-
+    int prevX_, prevY_;
 public:
     MapSquare* position_layer_ = nullptr;
     void setPoitionLayer(MapSquare* l) { position_layer_ = l; }
     void setPosition(int x, int y);
+    void setPrevPosition(int x, int y) { prevX_ = x; prevY_ = y; }
+    void resetPosition() { setPosition(prevX_, prevY_); }
     int X() { return X_; }
     int Y() { return Y_; }
     Magic* getLearnedMagic(int i);

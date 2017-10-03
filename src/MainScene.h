@@ -42,7 +42,7 @@ public:
 
     void tryWalk(int x, int y);
     //void cloudMove();
-    void getEntrance();
+    void setEntrance();
 
     virtual bool isBuilding(int x, int y);
     bool isWater(int x, int y);

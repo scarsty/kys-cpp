@@ -44,7 +44,7 @@ void SubScene::draw()
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
-            if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
+            if (!isOutLine(i1, i2))
             {
                 int h = submap_info_->BuildingHeight(i1, i2);
                 int num = submap_info_->Earth(i1, i2) / 2;
@@ -70,7 +70,7 @@ void SubScene::draw()
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
-            if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
+            if (!isOutLine(i1, i2))
             {
                 //有高度地面
                 int h = submap_info_->BuildingHeight(i1, i2);

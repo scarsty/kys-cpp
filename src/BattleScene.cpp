@@ -8,6 +8,7 @@
 #include "Menu.h"
 #include "others/libconvert.h"
 #include "File.h"
+#include "GameUtil.h"
 
 BattleScene::BattleScene()
 {
@@ -54,7 +55,7 @@ void BattleScene::draw()
 {
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
-#ifndef _DEBUG
+#ifndef _DeEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -62,12 +63,28 @@ void BattleScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
-            if (i1 >= 0 && i1 <= COORD_COUNT && i2 >= 0 && i2 <= COORD_COUNT)
+            if (!isOutLine(i1, i2))
             {
-                int num = earth_layer_(i1, i2) / 2;
+                int num = earth_layer_.data(i1, i2) / 2;
+                BP_Color color = { 255, 255, 255, 255 };
+                if (battle_operator_->isRunning())
+                {
+                    if (select_layer_.data(i1, i2) < 0)
+                    {
+                        color = { 64, 64, 64, 255 };
+                    }
+                    else
+                    {
+                        color = { 160, 160, 160, 255 };
+                    }
+                    if (i1 == select_x_ && i2 == select_y_)
+                    {
+                        color = { 255, 255, 255, 255 };
+                    }
+                }
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
                 }
             }
         }
@@ -80,7 +97,7 @@ void BattleScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
-            if (i1 >= 0 && i1 <= COORD_COUNT && i2 >= 0 && i2 <= COORD_COUNT)
+            if (!isOutLine(i1, i2))
             {
                 int num = building_layer_.data(i1, i2) / 2;
                 if (num > 0)
@@ -107,18 +124,29 @@ void BattleScene::dealEvent(BP_Event& e)
     auto role = battle_roles_[0];
     man_x_ = role->X();
     man_y_ = role->Y();
+    select_x_ = role->X();
+    select_y_ = role->Y();
     head_->setRole(role);
     head_->setState(Element::Pass);
 
-    battle_menu_->runAsRole(role);
+    int result = battle_menu_->runAsRole(role);
 
-    battle_operator_->setRoleAndMagic(role);
-    battle_operator_->run();
-
-
-    //依据行动选项和目标搞之
-
-    role->Acted = 1;
+    switch (result)
+    {
+    case 0: actMove(role); break;
+    case 1: actAttack(role); break;
+    case 2: actUsePoison(role); break;
+    case 3: actDetoxification(role); break;
+    case 4: actMedcine(role); break;
+    case 5: actUseItem(role); break;
+    case 6: actWait(role); break;
+    case 7: actStatus(role); break;
+    case 8: actAuto(role); break;
+    case 9: actRest(role); break;
+    default:
+        //默认值为什么都不做
+        break;
+    }
 
     //如果此人行动过，则放到队尾
     if (role->Acted)
@@ -207,7 +235,7 @@ void BattleScene::setRoleInitState(Role* r)
 
 //角色排序
 void BattleScene::sortRoles()
-{    
+{
     std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
 }
 
@@ -284,7 +312,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
 
 bool BattleScene::canSelect(int x, int y)
 {
-    return (!isOutLine(x, y) && select_layer_.data(x, y));
+    return (!isOutLine(x, y) && select_layer_.data(x, y) >= 0);
 }
 
 void BattleScene::walk(Role* r, int x, int y, Towards t)
@@ -338,6 +366,68 @@ bool BattleScene::isRole(int x, int y)
 bool BattleScene::isOutScreen(int x, int y)
 {
     return (abs(man_x_ - x) >= 16 || abs(man_y_ - y) >= 20);
+}
+
+void BattleScene::actMove(Role* r)
+{
+    calSelectLayer(r, 0, 15);
+    battle_operator_->setRoleAndMagic(r);
+    battle_operator_->setMode(BattleOperator::Move);
+    battle_operator_->run();
+}
+
+void BattleScene::actAttack(Role* r)
+{
+
+}
+
+void BattleScene::actUsePoison(Role* r)
+{
+
+}
+
+void BattleScene::actDetoxification(Role* r)
+{
+
+}
+
+void BattleScene::actMedcine(Role* r)
+{
+
+}
+
+void BattleScene::actUseItem(Role* r)
+{
+
+}
+
+void BattleScene::actWait(Role* r)
+{
+
+}
+
+void BattleScene::actStatus(Role* r)
+{
+
+}
+
+void BattleScene::actAuto(Role* r)
+{
+
+}
+
+void BattleScene::actRest(Role* r)
+{
+    r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, MAX_PHYSICAL_POWER);
+    r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, MAX_HP);
+    r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, MAX_MP);
+    r->Acted = 1;
+}
+
+//r1使用武功magic攻击r2的伤害
+int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic, int magic_level)
+{
+    return 100;
 }
 
 //看不明白
@@ -415,24 +505,6 @@ void BattleScene::ShowMultiMenu(int max0, int menuNum)
     //    vec[i].y = yy - 170 - i * 20;
     //}
     //CommonScene::drawWords(s_list, 20, BattleScene::kindOfRole, vec);
-}
-
-void BattleScene::showBattleMenu(int x, int y)
-{
-    //menuOn();
-    //MenuItemImage* item1[12];
-    //for (int i = 0; i < 12; i++)
-    //{
-    //    string str, str1;
-    //    str = "menu/" + to_string(21 + i) + ".png";
-    //    str1 = "menu/" + to_string(33 + i) + ".png";
-    //    item1[i] = MenuItemImage::create(str, str1, CC_CALLBACK_1(BattleScene::menuCloseCallback1, this));
-    //    item1[i]->setTag(11 + i);
-    //    item1[i]->setPositionY(-30 * i);
-    //}
-    //auto menu = Menu::create(item1[0], item1[1], item1[2], item1[3], item1[4], item1[5], item1[6], item1[7], item1[8], item1[9], item1[10], item1[11], NULL);
-    //menu->setPosition(Vec2(x, y));
-    //SpriteLayer->addChild(menu);
 }
 
 
@@ -516,13 +588,6 @@ void BattleScene::initMultiMenu()
     //SpriteLayer->addChild(menu);
 
 }
-
-
-bool BattleScene::battle(int battlenum, int getexp, int mods, int id, int maternum, int enemyrnum)
-{
-    return true;
-}
-
 
 
 bool BattleScene::initBattleData()
@@ -789,86 +854,6 @@ void BattleScene::moveRole(int bnum)
     //{
     //    moveAmination(bnum);
     //}
-}
-
-//选择点
-bool BattleScene::selectAim(int bnum, int step, int mods)
-{
-    //switch (keypressing)
-    //{
-    //case EventKeyboard::KeyCode::KEY_LEFT_ARROW:
-    //{
-    //    Ay--;
-    //    if ((abs(Ax - Bx) + abs(Ay - By) > step) || (battleSceneData[battleSceneNum].Data[3][Ax][Ay] < 0))
-    //    {
-    //        Ay++;
-    //    }
-    //    return false;
-    //    break;
-    //}
-    //case EventKeyboard::KeyCode::KEY_RIGHT_ARROW:
-    //{
-    //    Ay++;
-    //    if ((abs(Ax - Bx) + abs(Ay - By) > step) || (battleSceneData[battleSceneNum].Data[3][Ax][Ay] < 0))
-    //    {
-    //        Ay--;
-    //    }
-    //    return false;
-    //    break;
-    //}
-    //case EventKeyboard::KeyCode::KEY_UP_ARROW:
-    //{
-    //    Ax--;
-    //    if ((abs(Ax - Bx) + abs(Ay - By) > step) || (battleSceneData[battleSceneNum].Data[3][Ax][Ay] < 0))
-    //    {
-    //        Ax++;
-    //    }
-    //    return false;
-    //    break;
-    //}
-    //case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
-    //{
-    //    Ax++;
-    //    if ((abs(Ax - Bx) + abs(Ay - By) > step) || (battleSceneData[battleSceneNum].Data[3][Ax][Ay] < 0))
-    //    {
-    //        Ax--;
-    //    }
-    //    return false;
-    //    break;
-    //}
-    //case EventKeyboard::KeyCode::KEY_ESCAPE:
-    //{
-    //    Ax = Bx;
-    //    Ay = By;
-    //    return false;
-    //    break;
-    //}
-    //case EventKeyboard::KeyCode::KEY_SPACE:
-    //case EventKeyboard::KeyCode::KEY_KP_ENTER:
-    //{
-    //    return true;
-    //    break;
-    //}
-    //default:
-    //{
-    //    if (Msx >= 0 && Msy >= 0 && Msx != Ax && Msy != Ay)
-    //    {
-    //        if ((abs(Msx - Bx) + abs(Msy - By) > step) || (battleSceneData[battleSceneNum].Data[3][Msx][Msy] < 0))
-    //        {
-    //            Ax = Bx;
-    //            Ay = By;
-    //        }
-    //        else
-    //        {
-    //            Ax = Msx;
-    //            Ay = Msy;
-    //        }
-    //        return true;
-    //    }
-    //    return false;
-    //}
-    //}
-    return true;
 }
 
 //移动动画

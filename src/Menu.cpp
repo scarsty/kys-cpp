@@ -32,6 +32,14 @@ void Menu::dealEvent(BP_Event& e)
             setExit(true);
         }
     }
+    if (e.type == BP_KEYUP)
+    {
+        if (e.key.keysym.sym == BPK_ESCAPE)
+        {
+            result_ = -1;
+            setExit(true);
+        }
+    }
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)

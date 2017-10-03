@@ -10,13 +10,13 @@ class Element
 {
 private:
     static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个向量中
-    int prev_present_ticks_;
+    static int prev_present_ticks_;
 protected:
     std::vector<Element*> childs_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
-    bool exit_ = false;                //子类的过程中设此值为true，即表示退出
+    bool exit_ = true;                //子类的过程中设此值为true，即表示退出
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -80,5 +80,6 @@ public:
     void setChildState(int i, State s);
 
     void setExit(bool e) { exit_ = e; }
+    bool isRunning() { return !exit_; }
 };
 

@@ -16,16 +16,16 @@ public:
     Magic* magic_ = nullptr;
 
     void setRoleAndMagic(Role* r, Magic* m = nullptr) { role_ = r; magic_ = m; }
-
     void dealEvent(BP_Event& e) override;
-
-    int mode_ = 0;
-
+    
+    int mode_ = Move;
     enum
     {
-        Move = 0,
+        Other = -1,
+        Move,
         Action,
     };
+    void setMode(int m) { mode_ = m; }
 
     Element* battle_scene_ = nullptr;
     void setBattleScene(Element* element) { battle_scene_ = element; }

@@ -58,6 +58,22 @@ public:
     bool isRole(int x, int y);
     bool isOutScreen(int x, int y);
 
+
+    //"移動", "武學", "用毒", "解毒", "醫療", "物品", "等待", "狀態", "自動", "結束"
+    void actMove(Role* r);
+    void actAttack(Role* r);
+    void actUsePoison(Role* r);
+    void actDetoxification(Role* r);
+    void actMedcine(Role* r);
+    void actUseItem(Role* r);
+    void actWait(Role* r);
+    void actStatus(Role* r);
+    void actAuto(Role* r);
+    void actRest(Role* r);
+
+    int calHurt(Role* r1, Role* r2, Magic* magic, int magic_level);
+
+
     bool initBattleData();
     bool initBattleRoleState();
 

@@ -12,7 +12,7 @@ public:
 
     Role* role = nullptr;
     void setRole(Role* r) { role = r; }
-    void runAsRole(Role* r);
+    int runAsRole(Role* r);
 };
 
 

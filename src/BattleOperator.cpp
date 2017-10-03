@@ -27,5 +27,12 @@ void BattleOperator::dealEvent(BP_Event& e)
                 battle_scene->setSelectPosition(x, y);
             }
         }
+        if (e.type == BP_KEYUP)
+        {
+            if (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)
+            {
+                setExit(true);
+            }
+        }
     }
 }

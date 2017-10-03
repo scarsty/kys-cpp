@@ -2,6 +2,7 @@
 #include "UI.h"
 
 std::vector<Element*> Element::root_;
+int Element::prev_present_ticks_ = 0;
 
 Element::~Element()
 {
@@ -186,6 +187,7 @@ void Element::oneFrame(bool check_event)
     }
     int t1 = engine->getTicks();
     int t = 25 - (t1 - prev_present_ticks_);
+    if (t > 25) { t = 25; }
     if (t <= 0) { t = 1; }
     engine->delay(t);
     engine->renderPresent();

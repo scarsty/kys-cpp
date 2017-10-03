@@ -72,6 +72,7 @@ void MainScene::draw()
 #ifdef _DEBUG
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 #endif
+    //下面的15是下方较高贴图的余量，其余场景同
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -80,7 +81,7 @@ void MainScene::draw()
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
-            if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
+            if (!isOutLine(i1, i2))
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
@@ -334,7 +335,7 @@ bool MainScene::checkEntrance(int x, int y)
     return false;
 }
 
-void MainScene::getEntrance()
+void MainScene::setEntrance()
 {
     //for (int x = 0; x < maxX; x++)
     //    for (int y = 0; y < maxY; y++)
