@@ -19,6 +19,9 @@ private:
     const int MONEY_ITEM_ID = 174;
     const int COMPASS_ITEM_ID = 182;
 
+    int sdata_length_ = sizeof(SAVE_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
+    int ddata_length_ = sizeof(SubMapEvent) * SUBMAP_EVENT_COUNT;
+
 public:
     Save();
     ~Save();
@@ -72,6 +75,8 @@ public:
     Magic* getMagicByName(std::string name) { return magics_by_name_[name]; }
     Item* getItemByName(std::string name) { return items_by_name_[name]; }
     SubMapInfo* getSubMapRecordByName(std::string name) { return submap_infos_by_name_[name]; }
+
+    Magic* getRoleLearnedMagic(Role* r, int i);
 
     static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
 

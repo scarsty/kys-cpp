@@ -17,7 +17,7 @@ public:
 
     void setRoleAndMagic(Role* r, Magic* m = nullptr) { role_ = r; magic_ = m; }
     void dealEvent(BP_Event& e) override;
-    
+
     int mode_ = Move;
     enum
     {
@@ -26,6 +26,7 @@ public:
         Action,
     };
     void setMode(int m) { mode_ = m; }
+    int getMode() { return mode_; }
 
     Element* battle_scene_ = nullptr;
     void setBattleScene(Element* element) { battle_scene_ = element; }

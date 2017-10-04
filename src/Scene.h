@@ -56,6 +56,9 @@ public:
     void stopFindWay() { way_que_.clear();/*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);
 
+    void lightScene() {}
+    void darkScene() {}
+
 };
 
 

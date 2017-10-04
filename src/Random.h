@@ -1,5 +1,6 @@
 #pragma once
 #include <random>
+#include <time.h>
 
 typedef enum
 {
@@ -58,6 +59,12 @@ public:
     {
         generator_ = std::mt19937(seed);
     }
+};
 
+class RandomClassical
+{
+public:
+    static void srand() { ::srand(time(NULL)); }
+    static int rand(int n) { return ::rand() % n; }
 };
 

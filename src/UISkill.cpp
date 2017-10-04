@@ -26,7 +26,7 @@ void UISkill::draw()
     font->draw("Œ‰åW", font_size, x_ + 50, y_ + 150, color);
     for (int i = 0; i < 10; i++)
     {
-        auto magic = role_->getLearnedMagic(i);
+        auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
         if (magic)
         {
 

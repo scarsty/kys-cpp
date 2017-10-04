@@ -152,9 +152,9 @@ void SubScene::dealEvent(BP_Event& e)
         if (tw != Towards_None) { towards_ = tw; }
         getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
         tryWalk(x, y);
-        if (total_step_ <= 1)
+        if (total_step_ < 1)
         {
-            Engine::getInstance()->delay(50);
+            Engine::getInstance()->delay(100);
         }
         total_step_++;
     }

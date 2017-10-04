@@ -54,7 +54,8 @@ int Element::run(bool in_root /*= true*/)
     while (!exit_)
     {
         if (Element::root_.size() == 0) { break; }
-        oneFrame(true);
+        drawAll();
+        checkEventAndPresent(25, true);
     }
     onExit();
     if (in_root) { removeFromRoot(this); }
@@ -164,14 +165,14 @@ void Element::checkStateAndEvent(BP_Event& e)
     }
 }
 
-//一次循环中的事务，注意也可以单独调用，用于场景动画
-void Element::oneFrame(bool check_event)
+//检测事件并将绘制的图显示出来
+//drawAll与checkEventAndPresent(false)配合可以用来制作动画
+void Element::checkEventAndPresent(int max_delay, bool check_event)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
-    
-    drawAll();
-    engine->pollEvent(e);
+    while (engine->pollEvent(e) > 0);  //实际是只要最后一个事件
+    //engine->pollEvent(e);
     if (check_event)
     {
         checkStateAndEvent(e);
@@ -186,8 +187,8 @@ void Element::oneFrame(bool check_event)
         break;
     }
     int t1 = engine->getTicks();
-    int t = 25 - (t1 - prev_present_ticks_);
-    if (t > 25) { t = 25; }
+    int t = max_delay - (t1 - prev_present_ticks_);
+    if (t > max_delay) { t = max_delay; }
     if (t <= 0) { t = 1; }
     engine->delay(t);
     engine->renderPresent();

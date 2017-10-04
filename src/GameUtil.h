@@ -16,6 +16,16 @@ public:
         return current;
     }
 
+    static void limitRefrence(int& current, int min_value, int max_value)
+    {
+        current = limit(current, min_value, max_value);
+    }
+
+    static void limitRefrence(int16_t& current, int min_value, int max_value)
+    {
+        current = limit(current, min_value, max_value);
+    }
+
     static bool canUseItem(Role* r, Item* i) { return false; }
     static bool useItem(Role* r, Item* i) { return false; }
 };

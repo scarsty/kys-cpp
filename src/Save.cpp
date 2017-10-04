@@ -63,17 +63,14 @@ bool Save::LoadR(int num)
 
     auto submap_count = submap_infos_.size();
 
-    auto sdata_length = sizeof(SAVE_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
-    auto sdata = new char[submap_count * sdata_length];
-    File::readFile(filenames, sdata, submap_count * sdata_length);
-    auto ddata_length = sizeof(SubMapEvent) * SUBMAP_EVENT_COUNT;
-    auto ddata = new char[submap_count * sdata_length];
-    File::readFile(filenamed, ddata, submap_count * ddata_length);
-
+    auto sdata = new char[submap_count * sdata_length_];
+    auto ddata = new char[submap_count * ddata_length_];
+    File::readFile(filenames, sdata, submap_count * sdata_length_);
+    File::readFile(filenamed, ddata, submap_count * ddata_length_);
     for (int i = 0; i < submap_count; i++)
     {
-        memcpy(&(submap_infos_[i].LayerData(0, 0, 0)), sdata + sdata_length * i, sdata_length);
-        memcpy(submap_infos_[i].Event(0), ddata + ddata_length * i, ddata_length);
+        memcpy(&(submap_infos_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
+        memcpy(submap_infos_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
     }
     delete[] sdata;
     delete[] ddata;
@@ -125,8 +122,18 @@ bool Save::SaveR(int num)
     delete[] rgrp;
 
     auto submap_count = submap_infos_.size();
-    //File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
-    //File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
+
+    auto sdata = new char[submap_count * sdata_length_];
+    auto ddata = new char[submap_count * ddata_length_];
+    for (int i = 0; i < submap_count; i++)
+    {
+        memcpy(sdata + sdata_length_ * i, &(submap_infos_[i].LayerData(0, 0, 0)), sdata_length_);
+        memcpy(ddata + ddata_length_ * i, submap_infos_[i].Event(0), ddata_length_);
+    }
+    File::writeFile(filenames, sdata, submap_count * sdata_length_);
+    File::writeFile(filenamed, ddata, submap_count * ddata_length_);
+    delete[] sdata;
+    delete[] ddata;
 
     return true;
 }
@@ -208,6 +215,12 @@ void Save::makeMaps()
         submap_infos_by_name_[i.Name] = &i;
     }
 
+}
+
+Magic* Save::getRoleLearnedMagic(Role* r, int i)
+{
+    if (i < 0 || i >= ROLE_MAGIC_COUNT) { return nullptr; }
+    return Save::getInstance()->getMagic(r->MagicID[i]);
 }
 
 char* Save::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)

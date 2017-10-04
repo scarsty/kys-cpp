@@ -21,6 +21,11 @@ void Head::draw()
             w_ = tex->w;
             h_ = tex->h;
         }
+        else
+        {
+            w_ = 200;
+            h_ = 80;
+        }
     }
     if (role_ == nullptr) { return; }
     BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
@@ -43,7 +48,7 @@ void Head::draw()
     r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
     c = { 196, 25, 16, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-    font->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 16, x_ + 138, y_ + 28, white);
+    font->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 16, x_ + 138, y_ + 28, { 250, 200, 50, 255 });
 
     r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
     c = { 200, 200, 200, 255 };

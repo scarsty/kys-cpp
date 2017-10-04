@@ -55,7 +55,7 @@ void BattleScene::draw()
 {
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
-#ifndef _DeEBUG
+#ifndef _DEBUG0
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -77,11 +77,19 @@ void BattleScene::draw()
                     {
                         color = { 160, 160, 160, 255 };
                     }
+                    if (battle_operator_->getMode() == BattleOperator::Action)
+                    {
+                        if (effect_layer_.data(i1, i2) >= 0)
+                        {
+                            color = { 192, 192, 192, 255 };
+                        }
+                    }
                     if (i1 == select_x_ && i2 == select_y_)
                     {
                         color = { 255, 255, 255, 255 };
                     }
                 }
+
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
@@ -278,7 +286,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                 auto check_next = [&](Point p1)->void
                 {
                     //未计算过且可以走的格子参与下一步的计算
-                    if (select_layer_.data(p1.x, p1.y) == -1 && canWalk(p1.x, p1.y))
+                    if (canWalk(p1.x, p1.y) && select_layer_.data(p1.x, p1.y) == -1)
                     {
                         cal_stack_next.push_back(p1);
                         count++;
@@ -369,6 +377,11 @@ bool BattleScene::isOutScreen(int x, int y)
     return (abs(man_x_ - x) >= 16 || abs(man_y_ - y) >= 20);
 }
 
+bool BattleScene::isNearEnemy(int x, int y)
+{
+    return false;
+}
+
 void BattleScene::actMove(Role* r)
 {
     calSelectLayer(r, 0, 15);
@@ -434,7 +447,7 @@ void BattleScene::actRest(Role* r)
 //r1使用武功magic攻击r2的伤害
 int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic, int magic_level)
 {
-    int v = r1->Attack - r2->Defence + magic->Attack[magic_level / 100];
+    int v = r1->Attack - r2->Defence + magic->Attack[magic_level / 100] / 3;
     return 100;
 }
 
@@ -778,6 +791,37 @@ void BattleScene::calMoveAbility()
 //移动动画
 void BattleScene::moveAnimation(Role* r, int x, int y)
 {
+    //从目标往回找确定路线
+    std::vector<Point> way;
+    auto check_next = [&](Point p1, int step)->bool
+    {
+        if (canSelect(p1.x, p1.y) && select_layer_.data(p1.x, p1.y) == step)
+        {
+            way.push_back(p1);
+            return true;
+        }
+        return false;
+    };
+
+    way.push_back({ x, y });
+    for (int i = select_layer_.data(x, y); i < select_layer_.data(r->X(), r->Y()); i++)
+    {
+        int x1 = way.back().x, y1 = way.back().y;
+        if (check_next({ x1 - 1, y1 }, i + 1)) { continue; }
+        if (check_next({ x1 + 1, y1 }, i + 1)) { continue; }
+        if (check_next({ x1, y1 - 1 }, i + 1)) { continue; }
+        if (check_next({ x1, y1 + 1 }, i + 1)) { continue; }
+    }
+
+    for (int i = way.size() - 1; i >= 0; i--)
+    {
+        r->Face = calFace(r->X(), r->Y(), way[i].x, way[i].y);
+        r->setPosition(way[i].x, way[i].y);
+        drawAll();
+        checkEventAndPresent(100);
+    }
     r->setPosition(x, y);
+    r->Moved = 1;
+    select_layer_.setAll(-1);
 }
 

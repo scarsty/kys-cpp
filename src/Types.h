@@ -73,7 +73,7 @@ enum
     MAX_MORALITY = 100,
     MAX_ATTACK_WITH_POISON = 100,
     MAX_FAME = 999,
-    MAX_APTITUDE = 100,
+    MAX_IQ = 100,
 };
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
@@ -127,7 +127,6 @@ public:
     void resetPosition() { setPosition(prevX_, prevY_); }
     int X() { return X_; }
     int Y() { return Y_; }
-    Magic* getLearnedMagic(int i);
     int getShowLearnedMagicLevel(int i);
     void limit();
 };

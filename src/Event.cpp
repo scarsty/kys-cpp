@@ -9,6 +9,7 @@
 #include "others/libconvert.h"
 #include "Audio.h"
 #include "GameUtil.h"
+#include "Random.h"
 
 Event Event::event_;
 
@@ -336,12 +337,18 @@ void Event::rest()
 
 void Event::lightScence()
 {
-
+    if (subscene_)
+    {
+        subscene_->lightScene();
+    }
 }
 
 void Event::darkScence()
 {
-
+    if (subscene_)
+    {
+        subscene_->darkScene();
+    }
 }
 
 void Event::dead()
@@ -621,14 +628,13 @@ void Event::setMPType(int role_id, int value)
 
 bool Event::checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5)
 {
-
     return (haveItemBool(item_id1) && haveItemBool(item_id2) && haveItemBool(item_id3)
         && haveItemBool(item_id4) && haveItemBool(item_id5));
 }
 
 void Event::askSoftStar()
 {
-    oldTalk(2547 + rand() % 18, 114, 0);
+    oldTalk(2547 + RandomClassical::rand(18), 114, 0);
 }
 
 void Event::showMorality()
