@@ -28,6 +28,11 @@ Audio::~Audio()
     {
         BASS_SampleFree(i);
     }
+    if (mid_sound_font_.font)
+    {
+        BASS_MIDI_FontFree(mid_sound_font_.font);
+    }
+
     BASS_Free();
 }
 
@@ -38,18 +43,17 @@ void Audio::init()
     std::string music_path;
     std::string asound_path;
     std::string esound_path;
-    BASS_MIDI_FONT sf;
-    sf.font = BASS_MIDI_FontInit("../game/music/mid.sf2", 0);
-    sf.preset = -1;
-    sf.bank = 0;
-    BASS_MIDI_StreamSetFonts(0, &sf, 1);
+    mid_sound_font_.font = BASS_MIDI_FontInit("../game/music/mid.sf2", 0);
+    mid_sound_font_.preset = -1;
+    mid_sound_font_.bank = 0;
+    BASS_MIDI_StreamSetFonts(0, &mid_sound_font_, 1);
     for (int i = 0; i < 100; i++)
     {
         music_path = convert::formatString("../game/music/%d.mid", i);
         if (File::fileExist(music_path))
         {
             auto m = BASS_MIDI_StreamCreateFile(false, music_path.c_str(), 0, 0, 0, 0);
-            BASS_MIDI_StreamSetFonts(m, &sf, 1);
+            BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
             music_.push_back(m);
         }
         else

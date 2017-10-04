@@ -128,7 +128,7 @@ public:
     int X() { return X_; }
     int Y() { return Y_; }
     Magic* getLearnedMagic(int i);
-    int getLearnedMagicLevel(int i);
+    int getShowLearnedMagicLevel(int i);
     void limit();
 };
 

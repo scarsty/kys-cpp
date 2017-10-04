@@ -37,7 +37,8 @@ void BattleMenu::onEntrance()
     {
         childs_[4]->setVisible(false);
     }
-    
+    //½ûÓÃµÈ´ý
+    childs_[6]->setVisible(false);
     arrange(0, 0, 0, 28);
 }
 

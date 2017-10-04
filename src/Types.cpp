@@ -25,7 +25,8 @@ Magic* Role::getLearnedMagic(int i)
     return Save::getInstance()->getMagic(MagicID[i]);
 }
 
-int Role::getLearnedMagicLevel(int i)
+//显示用的，比内部数组用的多1
+int Role::getShowLearnedMagicLevel(int i)
 {
     return MagicLevel[i] / 100 + 1;
 }

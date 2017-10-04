@@ -30,7 +30,7 @@ void UISkill::draw()
         if (magic)
         {
 
-            auto str = convert::formatString("%s%7d", magic->Name, role_->getLearnedMagicLevel(i));
+            auto str = convert::formatString("%s%7d", magic->Name, role_->getShowLearnedMagicLevel(i));
             if (i < 5)
             {
                 font->draw(str, font_size, x_ + 50, y_ + 190 + 40 * i, color);

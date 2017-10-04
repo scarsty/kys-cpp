@@ -5,7 +5,6 @@ BattleOperator::BattleOperator()
 {
 }
 
-
 BattleOperator::~BattleOperator()
 {
 }
@@ -31,6 +30,12 @@ void BattleOperator::dealEvent(BP_Event& e)
         {
             if (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)
             {
+                result_ = 0;
+                setExit(true);
+            }
+            if (e.key.keysym.sym == BPK_ESCAPE)
+            {
+                result_ = -1;
                 setExit(true);
             }
         }

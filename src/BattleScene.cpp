@@ -121,39 +121,40 @@ void BattleScene::draw()
 void BattleScene::dealEvent(BP_Event& e)
 {
     //选择第一个人
-    auto role = battle_roles_[0];
-    man_x_ = role->X();
-    man_y_ = role->Y();
-    select_x_ = role->X();
-    select_y_ = role->Y();
-    head_->setRole(role);
+    auto r = battle_roles_[0];
+    man_x_ = r->X();
+    man_y_ = r->Y();
+    select_x_ = r->X();
+    select_y_ = r->Y();
+    head_->setRole(r);
     head_->setState(Element::Pass);
 
-    int result = battle_menu_->runAsRole(role);
+    int result = battle_menu_->runAsRole(r);
 
     switch (result)
     {
-    case 0: actMove(role); break;
-    case 1: actAttack(role); break;
-    case 2: actUsePoison(role); break;
-    case 3: actDetoxification(role); break;
-    case 4: actMedcine(role); break;
-    case 5: actUseItem(role); break;
-    case 6: actWait(role); break;
-    case 7: actStatus(role); break;
-    case 8: actAuto(role); break;
-    case 9: actRest(role); break;
+    case 0: actMove(r); break;
+    case 1: actUseMagic(r); break;
+    case 2: actUsePoison(r); break;
+    case 3: actDetoxification(r); break;
+    case 4: actMedcine(r); break;
+    case 5: actUseItem(r); break;
+    case 6: actWait(r); break;
+    case 7: actStatus(r); break;
+    case 8: actAuto(r); break;
+    case 9: actRest(r); break;
     default:
         //默认值为什么都不做
         break;
     }
 
-    //如果此人行动过，则放到队尾
-    if (role->Acted)
+    //如果此人行动过，则清除行动状态，放到队尾
+    if (r->Acted)
     {
-        role->Acted = 0;
+        r->Acted = 0;
+        r->Moved = 0;
         battle_roles_.erase(battle_roles_.begin());
-        battle_roles_.push_back(role);
+        battle_roles_.push_back(r);
     }
 }
 
@@ -373,10 +374,15 @@ void BattleScene::actMove(Role* r)
     calSelectLayer(r, 0, 15);
     battle_operator_->setRoleAndMagic(r);
     battle_operator_->setMode(BattleOperator::Move);
-    battle_operator_->run();
+    if (battle_operator_->run() == 0)
+    {
+        r->setPrevPosition(r->X(), r->Y());
+        moveAnimation(r, select_x_, select_y_);
+        r->Moved = 1;
+    }
 }
 
-void BattleScene::actAttack(Role* r)
+void BattleScene::actUseMagic(Role* r)
 {
 
 }
@@ -403,7 +409,8 @@ void BattleScene::actUseItem(Role* r)
 
 void BattleScene::actWait(Role* r)
 {
-
+    battle_roles_.erase(battle_roles_.begin());
+    battle_roles_.push_back(r);
 }
 
 void BattleScene::actStatus(Role* r)
@@ -427,6 +434,7 @@ void BattleScene::actRest(Role* r)
 //r1使用武功magic攻击r2的伤害
 int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic, int magic_level)
 {
+    int v = r1->Attack - r2->Defence + magic->Attack[magic_level / 100];
     return 100;
 }
 
@@ -766,218 +774,10 @@ void BattleScene::calMoveAbility()
     //}
 }
 
-//按轻功重排人物(未考虑装备)
-void BattleScene::reArrangeBRole()
-{
-    //int i, n, n1, i1, i2, x, t, s1, s2;
-    //BattleRoles temp;
-    //i1 = 0;
-    //i2 = 1;
-    //for (i1 = 0; i1 < m_vcBattleRole.size() - 1; i1++)
-    //{
-    //    for (i2 = i1 + 1; i2 < m_vcBattleRole.size(); i2++)
-    //    {
-    //        s1 = 0;
-    //        s2 = 0;
-    //        if ((m_vcBattleRole[i1].RoleID > -1) && (m_vcBattleRole[i1].Dead == 0))
-    //        {
-    //            s1 = getRoleSpeed(m_vcBattleRole[i1].RoleID, true);
-    //            //                  if checkEquipSet(Rrole[m_vcBattleRole[i1].rnum].Equip[0], Rrole[m_vcBattleRole[i1].rnum].Equip[1],
-    //            //                      Rrole[m_vcBattleRole[i1].rnum].Equip[2], Rrole[m_vcBattleRole[i1].rnum].Equip[3]) = 5 then
-    //            //                      s1 = s1 + 30;
-    //        }
-    //        if ((m_vcBattleRole[i2].RoleID > -1) && (m_vcBattleRole[i2].Dead == 0))
-    //        {
-    //            s2 = getRoleSpeed(m_vcBattleRole[i2].RoleID, true);
-    //        }
-    //        if ((m_vcBattleRole[i1].RoleID != 0) && (m_vcBattleRole[i1].Team != 0) && (s1 < s2) && (m_vcBattleRole[i2].RoleID != 0) && (m_vcBattleRole[i2].Team != 0))
-    //        {
-    //            temp = m_vcBattleRole[i1];
-    //            m_vcBattleRole[i1] = m_vcBattleRole[i2];
-    //            m_vcBattleRole[i2] = temp;
-    //        }
-    //    }
-    //}
-
-    //for (i1 = 0; i1 < 64; i1++)
-    //{
-    //    for (i2 = 0; i2 < 64; i2++)
-    //    {
-    //        battleSceneData[battleSceneNum].Data[2][i1][i2] = -1;
-    //        battleSceneData[battleSceneNum].Data[5][i1][i2] = -1;
-    //    }
-    //}
-    //n = 0;
-    //for (i = 0; i < BRole.size(); i++)
-    //{
-    //    if ((battleRole[i].Dead == 0) && (battleRole[i].rnum >= 0))
-    //    {
-    //        n++;
-    //    }
-    //}
-    //n1 = 0;
-    //for (i = 0; i < BRole.size(); i++)
-    //{
-    //    if (battleRole[i].rnum >= 0)
-    //    {
-    //        if (battleRole[i].Dead == 0)
-    //        {
-    //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = i;
-    //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = -1;
-    //            //              if battlemode > 0 then
-    //            //                  battleRole[i].Progress : = (n - n1) * 5;
-    //            n1++;
-    //        }
-    //        else
-    //        {
-    //            battleSceneData[battleSceneNum].Data[2][battleRole[i].X][battleRole[i].Y] = -1;
-    //            battleSceneData[battleSceneNum].Data[5][battleRole[i].X][battleRole[i].Y] = i;
-    //        }
-    //    }
-    //}
-    //i2 = 0;
-    //if (battlemode > 0) then
-    //    for i1 : = 0 to length(Brole) - 1 do
-    //        if ((GetPetSkill(5, 1) and (battleRole[i1].rnum = 0)) or (GetPetSkill(5, 3) and (battleRole[i1].Team = 0))) then
-    //            battleRole[i1].Progress : = 299 - i2 * 5;
-    //i2 = i2 + 1;
-}
-
-
-//移动
-
-void BattleScene::moveRole(int bnum)
-{
-    //int s, i;
-    //calCanSelect(bnum, 0, m_vcBattleRole[bnum].Step);
-    //if (selectAim(bnum, m_vcBattleRole[bnum].Step, 0))
-    //{
-    //    moveAmination(bnum);
-    //}
-}
 
 //移动动画
-void BattleScene::moveAmination(int bnum)
+void BattleScene::moveAnimation(Role* r, int x, int y)
 {
-    //int s, i, a, tempx, tempy;
-    //int Xinc[5], Yinc[5];
-    ////  Ax = Bx - 4;            //测试用
-    ////  Ay = By - 4;
-    //if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy] > 0)     //0空位，1建筑，2友军，3敌军，4出界，5已走过 ，6水面
-    //{
-    //    Xinc[1] = 1;
-    //    Xinc[2] = -1;
-    //    Xinc[3] = 0;
-    //    Xinc[4] = 0;
-    //    Yinc[1] = 0;
-    //    Yinc[2] = 0;
-    //    Yinc[3] = 1;
-    //    Yinc[4] = -1;
-    //    //      MyPoint *pInt = new MyPoint();
-    //    //      pInt->x = Bx;
-    //    //      pInt->y = By;
-    //    //      wayQue.push(*pInt);
-    //    //      MyPoint *pAInt = new MyPoint();
-    //    //      pAInt->x = Ax;
-    //    //      pAInt->y = Ay;
-    //    m_nlinex[0] = m_nBx;
-    //    m_nliney[0] = m_nBy;
-    //    m_nlinex[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAx;
-    //    m_nliney[m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy]] = m_nAy;
-    //    a = m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nAx][m_nAy] - 1;
-    //    while (a >= 0)
-    //    {
-    //        for (int i = 1; i < 5; i++)
-    //        {
-    //            tempx = m_nlinex[a + 1] + Xinc[i];
-    //            tempy = m_nliney[a + 1] + Yinc[i];
-    //            if (m_vcBattleSceneData[m_nbattleSceneNum].Data[3][tempx][tempy] == m_vcBattleSceneData[m_nbattleSceneNum].Data[3][m_nlinex[a + 1]][m_nliney[a + 1]] - 1)
-    //            {
-    //                m_nlinex[a] = tempx;
-    //                m_nliney[a] = tempy;
-    //                break;
-    //            }
-    //        }
-    //        a--;
-    //    }
-
-    //    m_ncurA = 1;
-    //    //schedule(schedule_selector(BattleScene::moveAminationStep), battleSpeed, kRepeatForever, battleSpeed)
-    //}
+    r->setPosition(x, y);
 }
-
-void BattleScene::moveAminationStep(float dt)
-{
-
-    //    int a = m_ncurA;
-    //    int bnum = m_ncurRoleNum;
-    //    if (!((m_vcBattleRole[bnum].Step == 0) || ((m_nBx == m_nAx) && (m_nBy == m_nAy))))
-    //    {
-    //        if ((m_nlinex[a] - m_nBx) > 0)
-    //        {
-    //            m_vcBattleRole[bnum].Face = 3;
-    //        }
-    //        else if ((m_nlinex[a] - m_nBx) < 0)
-    //        {
-    //            m_vcBattleRole[bnum].Face = 0;
-    //        }
-    //        else if ((m_nliney[a] - m_nBy) < 0)
-    //        {
-    //            m_vcBattleRole[bnum].Face = 2;
-    //        }
-    //        else { m_vcBattleRole[bnum].Face = 1; }
-    //        if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == bnum)
-    //        {
-    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = -1;
-    //
-    //        }
-    //        m_nBx = m_nlinex[a];
-    //        m_nBy = m_nliney[a];
-    //        //m_vcBattleRole[bnum].X = m_nBx;
-    //        //m_vcBattleRole[bnum].Y = m_nBy;
-    //        if (m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] == -1)
-    //        {
-    //            m_vcBattleSceneData[m_nbattleSceneNum].Data[2][m_nBx][m_nBy] = bnum;
-    //        }
-    //        a++;
-    //        m_ncurA = a;
-    //        m_vcBattleRole[bnum].Step--;
-    //        draw();
-    //    }
-    //    else
-    //    {
-    //        //      battleRole[bnum].X = Bx;
-    //        //      battleRole[bnum].Y = By;
-    //        //unschedule(schedule_selector(BattleScene::moveAminationStep));
-    //        showBattleMenu(50, 500);
-    //    }
-}
-
-//void BattleMap::battleMainControl()
-//{
-//
-//    battleMainControl(-1, -1);
-//
-//}
-
-//void BattleMap::battleMainControl(int mods, int id)
-//{
-//
-//
-//    calMoveAbility(); //计算移动能力
-//    reArrangeBRole();
-//    //m_nBx = m_vcBattleRole[m_ncurRoleNum].X;
-//    //m_nBy = m_vcBattleRole[m_ncurRoleNum].Y;
-//    draw();
-//}
-
-//void BattleMap::attack(int bnum)
-//{
-//    //int mnum, level;
-//    //int i = 1;
-//    //int rnum = m_vcBattleRole[bnum].RoleID;
-//    ////mnum = m_Character[rnum].LMagic[i];
-//    ////level = m_Character[rnum].MagLevel[i] / 100 + 1;
-//    //m_ncurMagic = mnum;
-//}
 
