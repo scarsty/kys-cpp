@@ -110,7 +110,7 @@ public:
 public:
     int Face, Dead, Step;
     int Pic, ShowNumber, BSpeed;
-    int ExpGot, Auto, Show, Wait;
+    int ExpGot, Auto;
     int FightFrame[5];
     int FightingFrame;
 
@@ -162,7 +162,7 @@ struct MagicSave
     SAVE_INT Unknown[5];
     SAVE_INT SoundID;
     SAVE_INT MagicType;  //1-拳，2-剑，3-刀，4-特殊
-    SAVE_INT AnimationNum;
+    SAVE_INT Animation;
     SAVE_INT HurtType;  //0-普通，1-吸取MP
     SAVE_INT AttackAreaType;  //0-点，1-线，2-十字，3-面
     SAVE_INT NeedMP, WithPoison;

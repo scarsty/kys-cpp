@@ -140,7 +140,22 @@ void BattleScene::draw()
                             color = { 255, 192, 192, 255 };
                         }
                     }
-                    TextureManager::getInstance()->renderTexture(path, calRolePic(r), p.x, p.y, color);
+                    int pic;
+                    if (r == r0)
+                    {
+                        pic = calRolePic(r, action_type_, action_frame_);
+                    }
+                    else
+                    {
+                        pic = calRolePic(r);
+                    }
+                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color);
+                }
+                if (effect_index_ >= 0 && effect_layer_.data(i1, i2) >= 0)
+                {
+                    std::string path = convert::formatString("eft/eft%03d", effect_index_);
+                    num = effect_frame_ + RandomClassical::rand(3) - RandomClassical::rand(3);
+                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y);
                 }
             }
         }
@@ -253,7 +268,7 @@ void BattleScene::setRoleInitState(Role* r)
     {
         if (r->Team != r1->Team)
         {
-            int dis = abs(r->X() - r1->X()) + abs(r->Y() - r1->Y());
+            int dis = calDistance(r, r1);
             if (dis < min_distance)
             {
                 r_near = r1;
@@ -296,13 +311,28 @@ int BattleScene::calMoveStep(Role* r)
 }
 
 //依据动作帧数计算角色的贴图编号
-int BattleScene::calRolePic(Role* r)
+int BattleScene::calRolePic(Role* r, int style, int frame)
 {
-    for (int i = 0; i < 5; i++)
+    if (style == -1)
     {
-        if (r->FightFrame[i] > 0)
+        for (int i = 0; i < 5; i++)
         {
-            return r->FightFrame[i] * r->Face + r->FightingFrame;
+            if (r->FightFrame[i] > 0)
+            {
+                return r->FightFrame[i] * r->Face;
+            }
+        }
+    }
+    else
+    {
+        int total = 0;
+        for (int i = 0; i < 5; i++)
+        {
+            if (i == style)
+            {
+                return total + r->FightFrame[style] * r->Face + frame;
+            }
+            total += r->FightFrame[i] * 4;
         }
     }
     return r->Face;
@@ -333,7 +363,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                         count++;
                     }
                 };
-                //检测是否在地方身旁，视情况打开此选项
+                //检测是否在敌方身旁，视情况打开此选项
                 if (!isNearEnemy(r, p.x, p.y))
                 {
                     //检测4个相邻点
@@ -354,7 +384,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
         {
             for (int iy = 0; iy < COORD_COUNT; iy++)
             {
-                select_layer_.data(ix, iy) = step - abs(ix - r->X()) - abs(iy - r->Y());
+                select_layer_.data(ix, iy) = step - calDistance(ix, iy, r->X(), r->Y());
             }
         }
     }
@@ -389,7 +419,7 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
     {
         int x = select_x_, y = select_y_;
         effect_layer_.setAll(-1);
-        int dis = m->AttackDistance[level_index];
+        int dis = m->AttackDistance[Save::getInstance()->getRoleLearnedMagicLevelIndex(r, m)];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
             for (int iy = y - dis; iy <= y + dis; iy++)
@@ -533,6 +563,9 @@ void BattleScene::actUseMagic(Role* r)
         else
         {
             //播放攻击画面，计算伤害
+            useMagicAnimation(r, magic);
+            calAllHurt(r, magic);
+            showNumberAnimation();
             r->Acted = 1;
             break;
         }
@@ -582,14 +615,6 @@ void BattleScene::actRest(Role* r)
     r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, MAX_HP);
     r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, MAX_MP);
     r->Acted = 1;
-}
-
-//r1使用武功magic攻击r2的伤害
-int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic, int magic_level)
-{
-    int v = r1->Attack - r2->Defence + magic->Attack[magic_level / 100] / 3;
-    v += RandomClassical::rand(10) - RandomClassical::rand(10);
-    return v;
 }
 
 //看不明白
@@ -717,8 +742,6 @@ bool BattleScene::initBattleRoleState()
     return true;
 }
 
-
-
 //移动动画
 void BattleScene::moveAnimation(Role* r, int x, int y)
 {
@@ -757,8 +780,65 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
 }
 
 //使用武学动画
-void BattleScene::useMagicAnimation(Role* r, int x, int y)
+void BattleScene::useMagicAnimation(Role* r, Magic* m)
 {
+    if (r->X() != select_x_ || r->Y() != select_y_)
+    {
+        r->Face = calFace(r->X(), r->Y(), select_x_, select_y_);
+    }
+    auto frame_count = r->FightFrame[m->MagicType];
+    action_type_ = m->MagicType;
+    for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
+    {
+        drawAll();
+        checkEventAndPresent(50);
+    }
+    effect_index_ = m->Animation;
+    auto path = convert::formatString("eft/eft%03d", effect_index_);
+    auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+    for (effect_frame_ = 0; effect_frame_ < effect_count; effect_frame_++)
+    {
+        drawAll();
+        checkEventAndPresent(50);
+    }
+    action_frame_ = 0;
+    action_type_ = -1;
+    effect_frame_ = 0;
+    effect_index_ = -1;
+}
 
+//r1使用武功magic攻击r2的伤害
+int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
+{
+    int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
+    int v = r1->Attack - r2->Defence + magic->Attack[level_index] / 3;
+    v += RandomClassical::rand(10) - RandomClassical::rand(10);
+    return v;
+}
+
+//计算全部人物的伤害
+int BattleScene::calAllHurt(Role* r, Magic* m)
+{
+    int total = 0;
+    for (auto r1 : battle_roles_)
+    {
+        r1->ShowNumber = 0;
+        if (r1->Team != r->Team)
+        {
+            int hurt = calHurt(r, r1, m);
+            r->ShowNumber = hurt;
+            r->HP -= hurt;
+            total += hurt;
+        }
+    }
+    return total;
+}
+
+void BattleScene::showNumberAnimation()
+{
+    for (auto r : battle_roles_)
+    {
+        r->ShowNumber = 0;
+    }
 }
 

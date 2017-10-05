@@ -55,10 +55,9 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
     auto p = path_ + path;
     auto& v = texture_manager_.map_[path];
     //纹理组信息
-    if (v.size() == 0)
+    if (getTextureGroupCount(path) == 0)
     {
-        initialTextureGroup(path);
-        if (getTextureGroupCount(path) == 0) { return nullptr; }
+        return nullptr;
     }
     //纹理信息
     if (num < 0 || num >= v.size())
@@ -88,7 +87,7 @@ int TextureManager::getTextureGroupCount(const std::string& path)
     }
     else
     {
-        return int(v.size());
+        return v.size();
     }
 }
 

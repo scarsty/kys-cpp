@@ -34,6 +34,15 @@ public:
     int select_x_, select_y_;
     void setSelectPosition(int x, int y) { select_x_ = x; select_y_ = y; }
 
+    //以下画图用
+    int action_frame_ = 0;
+    int action_type_ = -1;
+    int show_number_y_ = 0;
+    int effect_index_ = -1;
+    int effect_frame_ = 0;
+
+
+
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
@@ -46,7 +55,7 @@ public:
 
     int calMoveStep(Role* r);
 
-    int calRolePic(Role* r);
+    int calRolePic(Role* r, int style = -1, int frame = 0);
 
     void calSelectLayer(Role* r, int mode, int step);
     void calEffectLayer(Role* r, Magic* m, int level_index);
@@ -78,19 +87,13 @@ public:
     void actRest(Role* r);
 
     void moveAnimation(Role* r, int x, int y);
-    void useMagicAnimation(Role* r, int x, int y);
+    void useMagicAnimation(Role* r, Magic* m);
 
-    int calHurt(Role* r1, Role* r2, Magic* magic, int magic_level);
+    int calAllHurt(Role* r, Magic* m);
+    void showNumberAnimation();
+    int calHurt(Role* r1, Role* r2, Magic* magic);
 
-
-    bool initBattleData();
     bool initBattleRoleState();
-
-    int selectTeamMembers();
-    void ShowMultiMenu(int max0, int menu);
-    void showSlectMenu(std::string* str, int x);                               // 参战人物信息
-
-    void initMultiMenu();
 
     void getMousePosition(Point* point);
 
