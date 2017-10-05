@@ -14,8 +14,8 @@ public:
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
-
-    void setRoleAndMagic(Role* r, Magic* m = nullptr) { role_ = r; magic_ = m; }
+    int level_index_ = 0;
+    void setRoleAndMagic(Role* r, Magic* m = nullptr, int l = 0) { role_ = r; magic_ = m; level_index_ = l; }
     void dealEvent(BP_Event& e) override;
 
     int mode_ = Move;
@@ -30,6 +30,12 @@ public:
 
     Element* battle_scene_ = nullptr;
     void setBattleScene(Element* element) { battle_scene_ = element; }
+
+
+    void dealMoveEvent(BP_Event& e);
+    void dealActionEvent(BP_Event& e);
+
+    void onEntrance() override;
 
 };
 

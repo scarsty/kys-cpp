@@ -220,7 +220,19 @@ void Save::makeMaps()
 Magic* Save::getRoleLearnedMagic(Role* r, int i)
 {
     if (i < 0 || i >= ROLE_MAGIC_COUNT) { return nullptr; }
-    return Save::getInstance()->getMagic(r->MagicID[i]);
+    return getMagic(r->MagicID[i]);
+}
+
+int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
+{
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (r->MagicID[i] == m->ID)
+        {
+            return r->getMagicLevelIndex(i);
+        }
+    }
+    return -1;
 }
 
 char* Save::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)

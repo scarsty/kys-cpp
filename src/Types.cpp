@@ -22,7 +22,15 @@ void Role::setPosition(int x, int y)
 //显示用的，比内部数组用的多1
 int Role::getShowLearnedMagicLevel(int i)
 {
-    return MagicLevel[i] / 100 + 1;
+    return getMagicLevelIndex(i) + 1;
+}
+
+int Role::getMagicLevelIndex(int i)
+{
+    int l = MagicLevel[i] / 100;
+    if (l < 0) { l = 0; }
+    if (l > 9) { l = 9; }
+    return l;
 }
 
 void Role::limit()
@@ -53,6 +61,16 @@ void Role::limit()
     GameUtil::limitRefrence(AttackWithPoison, 0, MAX_ATTACK_WITH_POISON);
     GameUtil::limitRefrence(Fame, 0, MAX_FAME);
     GameUtil::limitRefrence(IQ, 0, MAX_IQ);
+}
+
+int Role::getLearnedMagicCount()
+{
+    int n = 0;
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (MagicID[i] > 0) { n++; }
+    }
+    return n;
 }
 
 void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)

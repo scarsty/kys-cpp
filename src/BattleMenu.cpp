@@ -22,6 +22,10 @@ void BattleMenu::onEntrance()
     {
         childs_[0]->setVisible(false);
     }
+    if (role->getLearnedMagicCount() <= 0)
+    {
+        childs_[1]->setVisible(false);
+    }
     //ÓÃ¶¾
     if (role->UsePoison <= 0)
     {

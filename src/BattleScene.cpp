@@ -9,6 +9,7 @@
 #include "others/libconvert.h"
 #include "File.h"
 #include "GameUtil.h"
+#include "Random.h"
 
 BattleScene::BattleScene()
 {
@@ -25,6 +26,7 @@ BattleScene::BattleScene()
     battle_operator_ = new BattleOperator();
     battle_operator_->setBattleScene(this);
     //battle_operator_->setOperator(&select_x_, &select_y_, &select_layer_, &effect_layer_);
+    save_ = Save::getInstance();
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
@@ -53,6 +55,7 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
+    auto r0 = battle_roles_[0];  //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
 #ifndef _DEBUG0
@@ -75,13 +78,20 @@ void BattleScene::draw()
                     }
                     else
                     {
-                        color = { 160, 160, 160, 255 };
+                        color = { 128, 128, 128, 255 };
                     }
                     if (battle_operator_->getMode() == BattleOperator::Action)
                     {
                         if (effect_layer_.data(i1, i2) >= 0)
                         {
-                            color = { 192, 192, 192, 255 };
+                            if (select_layer_.data(i1, i2) < 0)
+                            {
+                                color = { 160, 160, 160, 255 };
+                            }
+                            else
+                            {
+                                color = { 192, 192, 192, 255 };
+                            }
                         }
                     }
                     if (i1 == select_x_ && i2 == select_y_)
@@ -118,7 +128,19 @@ void BattleScene::draw()
                 {
                     auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
-                    TextureManager::getInstance()->renderTexture(path, calRolePic(r), p.x, p.y);
+                    BP_Color color = { 255, 255, 255, 255 };
+                    if (effect_layer_.data(i1, i2) >= 0)
+                    {
+                        if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
+                        {
+                            color = { 255, 255, 192, 255 };
+                        }
+                        else if (r0->ActTeam != 0 && battle_roles_[0]->Team != r->Team)
+                        {
+                            color = { 255, 192, 192, 255 };
+                        }
+                    }
+                    TextureManager::getInstance()->renderTexture(path, calRolePic(r), p.x, p.y, color);
                 }
             }
         }
@@ -212,6 +234,8 @@ void BattleScene::onEntrance()
 void BattleScene::setRoleInitState(Role* r)
 {
     r->Acted = 0;
+    r->ExpGot = 0;
+    r->ShowNumber = 0;
     r->FightingFrame = 0;
     //读取动作帧数
     SAVE_INT frame[10];
@@ -239,7 +263,7 @@ void BattleScene::setRoleInitState(Role* r)
     }
 
     r->Face = (int)calFace(r->X(), r->Y(), r_near->X(), r_near->Y());
-    //r->Face = rand() % 4;
+    r->Face = RandomClassical::rand(4);
 }
 
 //角色排序
@@ -252,6 +276,23 @@ void BattleScene::sortRoles()
 bool BattleScene::compareRole(Role* r1, Role* r2)
 {
     return r1->Speed > r2->Speed;
+}
+
+//计算可移动步数(考虑装备)
+int BattleScene::calMoveStep(Role* r)
+{
+    int speed = r->Speed;
+    if (r->Equip1 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip1);
+        speed += i->AddSpeed;
+    }
+    if (r->Equip2 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip2);
+        speed += i->AddSpeed;
+    }
+    return speed / 15 + 1;
 }
 
 //依据动作帧数计算角色的贴图编号
@@ -268,7 +309,7 @@ int BattleScene::calRolePic(Role* r)
 }
 
 //计算可以被选择的范围，会改写选择层
-//mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选
+//mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子
 void BattleScene::calSelectLayer(Role* r, int mode, int step)
 {
     if (mode == 0)
@@ -292,11 +333,15 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                         count++;
                     }
                 };
-                //检测4个相邻点
-                check_next({ p.x - 1, p.y });
-                check_next({ p.x + 1, p.y });
-                check_next({ p.x, p.y - 1 });
-                check_next({ p.x, p.y + 1 });
+                //检测是否在地方身旁，视情况打开此选项
+                if (!isNearEnemy(r, p.x, p.y))
+                {
+                    //检测4个相邻点
+                    check_next({ p.x - 1, p.y });
+                    check_next({ p.x + 1, p.y });
+                    check_next({ p.x, p.y - 1 });
+                    check_next({ p.x, p.y + 1 });
+                }
                 if (count >= COORD_COUNT * COORD_COUNT) { break; }  //最多计算次数，避免死掉
             }
             cal_stack = cal_stack_next;
@@ -316,6 +361,45 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
     else if (mode == 2)
     {
         select_layer_.setAll(0);
+    }
+    else if (mode == 3)
+    {
+        for (int ix = 0; ix < COORD_COUNT; ix++)
+        {
+            for (int iy = 0; iy < COORD_COUNT; iy++)
+            {
+                int dx = abs(ix - r->X());
+                int dy = abs(iy - r->Y());
+                if (dx == 0 && dy <= step || dy == 0 && dx <= step)
+                {
+                    select_layer_.data(ix, iy) = 0;
+                }
+                else
+                {
+                    select_layer_.data(ix, iy) = -1;
+                }
+            }
+        }
+    }
+}
+
+void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
+{
+    if (m->AttackAreaType == 3)
+    {
+        int x = select_x_, y = select_y_;
+        effect_layer_.setAll(-1);
+        int dis = m->AttackDistance[level_index];
+        for (int ix = x - dis; ix <= x + dis; ix++)
+        {
+            for (int iy = y - dis; iy <= y + dis; iy++)
+            {
+                if (!isOutLine(ix, iy))
+                {
+                    effect_layer_.data(ix, iy) = 0;
+                }
+            }
+        }
     }
 }
 
@@ -377,14 +461,22 @@ bool BattleScene::isOutScreen(int x, int y)
     return (abs(man_x_ - x) >= 16 || abs(man_y_ - y) >= 20);
 }
 
-bool BattleScene::isNearEnemy(int x, int y)
+bool BattleScene::isNearEnemy(Role* r, int x, int y)
 {
+    for (auto r1 : battle_roles_)
+    {
+        if (r->Team != r1->Team && calDistance(r1->X(), r1->Y(), x, y) <= 1)
+        {
+            return true;
+        }
+    }
     return false;
 }
 
 void BattleScene::actMove(Role* r)
 {
-    calSelectLayer(r, 0, 15);
+    int step = calMoveStep(r);
+    calSelectLayer(r, 0, step);
     battle_operator_->setRoleAndMagic(r);
     battle_operator_->setMode(BattleOperator::Move);
     if (battle_operator_->run() == 0)
@@ -397,7 +489,55 @@ void BattleScene::actMove(Role* r)
 
 void BattleScene::actUseMagic(Role* r)
 {
+    auto magic_menu = new MenuText();
+    std::vector<std::string> magic_names;
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        auto m = Save::getInstance()->getRoleLearnedMagic(r, i);
+        if (m)
+        {
+            magic_names.push_back(convert::formatString("%s%7d", m->Name, r->MagicLevel[i]));
+        }
+    }
+    magic_menu->setStrings(magic_names);
+    magic_menu->setPosition(200, 200);
 
+    while (true)
+    {
+        int select_magic = magic_menu->run();
+        if (select_magic < 0) { break; }
+
+        r->ActTeam = 1;
+        auto magic = Save::getInstance()->getRoleLearnedMagic(r, select_magic);
+        //level_index表示从0到9，而level从0到999
+        int level_index = r->getMagicLevelIndex(select_magic);
+        //计算可选择的范围
+        if (magic->AttackAreaType == 1 || magic->AttackAreaType == 3)
+        {
+            calSelectLayer(r, 1, magic->SelectDistance[level_index]);
+        }
+        else
+        {
+            calSelectLayer(r, 3, magic->SelectDistance[level_index]);
+        }
+        //选择目标
+        battle_operator_->setMode(BattleOperator::Action);
+        battle_operator_->setRoleAndMagic(r, magic, level_index);
+        calEffectLayer(r, magic, level_index);
+        int select_aim = battle_operator_->run();
+        //取消选择目标则重新进入选武功
+        if (select_aim < 0)
+        {
+            continue;
+        }
+        else
+        {
+            //播放攻击画面，计算伤害
+            r->Acted = 1;
+            break;
+        }
+    }
+    delete magic_menu;
 }
 
 void BattleScene::actUsePoison(Role* r)
@@ -448,7 +588,8 @@ void BattleScene::actRest(Role* r)
 int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic, int magic_level)
 {
     int v = r1->Attack - r2->Defence + magic->Attack[magic_level / 100] / 3;
-    return 100;
+    v += RandomClassical::rand(10) - RandomClassical::rand(10);
+    return v;
 }
 
 //看不明白
@@ -460,185 +601,6 @@ void BattleScene::getMousePosition(Point* point)
     //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
     //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
     //mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
-}
-
-int BattleScene::selectTeamMembers()
-{
-    //menuOn();
-    //int i, i2;
-    //max0 = 1;
-    //menuString[0] = "全員出戰";
-    //for (i = 0; i < config::MaxTeamMember; i++)
-    //{
-    //    if (m_BasicData[0].TeamList[i] >= 0)
-    //    {
-    //        menuString[i + 1] = m_Character[m_BasicData[0].TeamList[i]].Name;
-    //        max0++;
-    //    }
-    //}
-    //menuString[max0] = "開始戰鬥";
-    //ShowMultiMenu(max0, 0);
-    //Draw();
-    return 1;
-}
-
-void BattleScene::ShowMultiMenu(int max0, int menuNum)
-{
-    ////unschedule(schedule_selector(CommonScene::checkTimer));
-    //string str;
-    //for (int k = 0; k < 8; k++)
-    //{
-    //    SlectOfresult[k] = false;
-    //    item[k] = nullptr;
-    //}
-
-    //for (int i = 0; i < 6; i++)
-    //{
-    //    ResultofBattle[i] = -1;
-    //    BattleList[i] = -1;//  参战人员列表初始化 不参战为-1
-    //}
-    //for (int i = 0; i <= max0; i++)
-    //{
-    //    MenuItemFont::setFontName("fonts/chinese.ttf");
-    //    MenuItemFont::setFontSize(24);
-    //    str = CommonScene::a2u(menuString[i].c_str());
-    //    item[i] = MenuItemFont::create(str, CC_CALLBACK_1(BattleScene::menuCloseCallback, this));
-    //    if (menuString[i] == "開始戰鬥")
-    //    {
-    //        item[i]->setTag(8);
-    //    }
-    //    else
-    //    {
-    //        item[i]->setTag(i + 1);
-    //    }
-
-
-    //}
-
-    //item[max0]->setEnabled(false);
-    //CommonScene::cleanAllWords();
-    //initMultiMenu();
-    //showSlectMenu(s_list, 0);
-    //Vec2 vec[7];
-    //for (int i = 0; i < 7; i++)
-    //{
-    //    vec[i].x = xx;
-    //    vec[i].y = yy - 170 - i * 20;
-    //}
-    //CommonScene::drawWords(s_list, 20, BattleScene::kindOfRole, vec);
-}
-
-
-void BattleScene::showSlectMenu(std::string* str, int x)
-{
-    //string name = "备战人物姓名：";
-    //string attack = "攻击力：";
-    //string defense = "防御力：";
-    //string dodge = "轻功    ：";
-    //string sword = "剑法    ：";
-    //string quanfa = "拳法    ：";
-    //string daofa = "刀法    ：";
-    //int num = m_BasicData[0].TeamList[x];
-    //name += m_Character[num].Name;
-    //attack += to_string(m_Character[num].Attack);
-    //defense += to_string(m_Character[num].Defence);
-    //dodge += to_string(m_Character[num].Speed);
-    //str[0] = name;
-    //str[1] = attack;
-    //str[2] = defense;
-    //str[3] = dodge;
-    //str[4] = sword;
-    //int num1 = ((m_Character[num].Fencing) / 200.0) * 10;
-    //CommonScene::showRoleAbility(xx + 90, yy - 170 - 4 * 20 + 10, num1);
-    //str[5] = quanfa;
-    //num1 = ((m_Character[num].Boxing) / 200.0) * 10;
-    //CommonScene::showRoleAbility(xx + 90, yy - 170 - 5 * 20 + 10, num1);
-    //str[6] = daofa;
-    //num1 = ((m_Character[num].Knife) / 200.0) * 10;
-    //CommonScene::showRoleAbility(xx + 90, yy - 170 - 6 * 20 + 10, num1);
-    //CommonScene::showRoleVerticaldRawing(xx + 20, 63, num, 40, 0.8, 0.9);
-    //string str1 = "ui/beizhan/Node.csb";
-    //CommonScene::myRunAction(str1, 0, 25);
-    //CommonScene::cleanFiveDimensional();
-    //CommonScene::showFiveDimensional(xx + 80, yy, num);
-}
-
-void BattleScene::initMultiMenu()
-{
-    //auto s = Director::getInstance()->getWinSize();
-    //auto menu = Menu::create(item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], nullptr);
-    //menu->alignItemsVertically();
-    //menu->setPosition(Vec2(s.width / 2.0 + 150, s.height / 2.0 + 50));
-
-    //auto m_backgrand = Sprite::create("ui/beizhan/1.png");
-    //m_backgrand->setPosition(Vec2(s.width / 2.0, s.height / 2.0));
-
-    //auto m_backgrand1 = Sprite::create("ui/beizhan/21.png");
-    //m_backgrand1->setScaleX(0.4);
-    //m_backgrand1->setScaleY(1.0);
-    //m_backgrand1->setPosition(Vec2(s.width / 2.0 + 150, s.height / 2.0 + 50));
-
-    //auto m_backgrand4 = Sprite::create("ui/beizhan/21.png");
-    //m_backgrand4->setScaleX(1);
-    //m_backgrand4->setScaleY(1.3);
-    //m_backgrand4->setOpacity(50);
-    //m_backgrand4->setPosition(Vec2(s.width / 2.0, s.height / 2.0));
-
-    //auto m_backgrand2 = Sprite::create("ui/beizhan/4.png");
-    //m_backgrand2->setPosition(Vec2(s.width / 2.0 - 170, s.height / 2.0));
-    //m_backgrand2->setScale(1.3);
-    //m_backgrand2->setOpacity(40);
-
-    //auto m_backgrand3 = Sprite::create("ui/beizhan/5.png");
-    //m_backgrand3->setPosition(Vec2(s.width / 2.0 + 50, s.height / 2.0));
-    //m_backgrand3->setScale(1.3);
-    //m_backgrand3->setOpacity(40);
-
-    //auto item1 = MenuItemImage::create("ui/beizhan/1-1.png", "ui/beizhan/1-1.png", CC_CALLBACK_1(BattleScene::menuCloseCallback1, this));
-    //item1->setTag(9);
-    //auto item2 = MenuItemImage::create("ui/beizhan/1-2.png", "ui/beizhan/1-2.png", CC_CALLBACK_1(BattleScene::menuCloseCallback1, this));
-    //item2->setTag(10);
-    //item2->setPositionY(-75);
-    //auto menu1 = Menu::create(item1, item2, NULL);
-    //menu1->setPosition(Vec2(297, 392 - 170));
-
-    //SpriteLayer->addChild(m_backgrand);
-    //SpriteLayer->addChild(m_backgrand4);
-    ////addChild(m_backgrand3);
-    //SpriteLayer->addChild(menu1);
-    //SpriteLayer->addChild(menu);
-
-}
-
-
-bool BattleScene::initBattleData()
-{
-    //battle::FactionBackup FBackup[10];
-    //battle::FactionBackup FBackup2[10];
-    //battle::FactionBackup TFBackup;
-
-    //TFBackup.len = 0;
-    //TFBackup.captain = -1;
-    //for (int i = 0; i < 10; i++)
-    //{
-    //    FBackup[i].len = 0;
-    //    FBackup[i].captain = -1;
-    //    FBackup2[i].len = 0;
-    //    FBackup2[i].captain = -1;
-    //}
-
-    //for (int i1 = 0; i1 <= 63; i1++)
-    //{
-    //    for (int i2 = 0; i2 <= 63; i2++)
-    //    {
-    //        m_vcBattleSceneData[m_nbattleSceneNum].Data[2][i1][i2] = -1;
-    //        m_vcBattleSceneData[m_nbattleSceneNum].Data[4][i1][i2] = -1;
-    //        m_vcBattleSceneData[m_nbattleSceneNum].Data[5][i1][i2] = -1;
-    //    }
-    //}
-    //m_nBRoleAmount = 0;
-    ////initBattleRoleState();
-    return true;
 }
 
 bool BattleScene::initBattleRoleState()
@@ -754,38 +716,7 @@ bool BattleScene::initBattleRoleState()
     //    }
     return true;
 }
-//计算可移动步数(考虑装备)
 
-void BattleScene::calMoveAbility()
-{
-    //int i, rnum, addspeed;
-    //m_nMaxspeed = 0;
-    //for (int i = 0; i < m_vcBattleRole.size(); i++)
-    //{
-    //    rnum = m_vcBattleRole[i].RoleID;
-    //    if (rnum > -1)
-    //    {
-    //        addspeed = 0;
-    //        //          if (CheckEquipSet(RRole[rnum].Equip[0], RRole[rnum].Equip[1], RRole[rnum].Equip[2], RRole[rnum].Equip[3]) == 5){
-    //        //              addspeed += 30;
-    //        //          }
-    //        m_vcBattleRole[i].speed = (getRoleSpeed(m_vcBattleRole[i].RoleID, true) + addspeed);
-    //        if (m_vcBattleRole[i].Wait == 0)
-    //        {
-    //            m_vcBattleRole[i].Step = round(power(m_vcBattleRole[i].speed / 15, 0.8) * (100 + m_vcBattleRole[i].zhuangtai[8]) / 100);
-    //            if (m_nMaxspeed > m_vcBattleRole[i].speed)
-    //            {
-    //                m_nMaxspeed = m_nMaxspeed;
-    //            }
-    //            else { m_nMaxspeed = m_vcBattleRole[i].speed; }
-    //        }
-    //        //        if (Rrole[rnum].Moveable > 0)
-    //        //        {
-    //        //m_vcBattleRole[i].Step = 0;
-    //        //        }
-    //    }
-    //}
-}
 
 
 //移动动画
@@ -823,5 +754,11 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     r->setPosition(x, y);
     r->Moved = 1;
     select_layer_.setAll(-1);
+}
+
+//使用武学动画
+void BattleScene::useMagicAnimation(Role* r, int x, int y)
+{
+
 }
 

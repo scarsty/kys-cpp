@@ -3,7 +3,6 @@
 #include <map>
 #include <vector>
 
-
 struct Texture
 {
     BP_Texture* tex[10];
@@ -69,5 +68,9 @@ public:
         BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1);
 
     Texture* loadTexture(const std::string& path, int num);
+    int getTextureGroupCount(const std::string& path);
+private:
+    void initialTextureGroup(const std::string& path, bool load_all = false);
+    void loadTexture2(const std::string& path, int num, Texture* t);
 };
 

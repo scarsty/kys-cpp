@@ -46,7 +46,7 @@ public:
     }
 
     int run(bool in_root = true);                       //执行本层
-    int runAtPosition(bool in_root = true, int x = 0, int y = 0) { setPosition(x, y); return run(in_root); }
+    int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
 
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层

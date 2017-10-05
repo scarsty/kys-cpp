@@ -77,6 +77,7 @@ public:
     SubMapInfo* getSubMapRecordByName(std::string name) { return submap_infos_by_name_[name]; }
 
     Magic* getRoleLearnedMagic(Role* r, int i);
+    int getRoleLearnedMagicLevelIndex(Role* r, Magic* m);
 
     static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
 

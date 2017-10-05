@@ -8,6 +8,8 @@
 
 class BattleScene : public Scene
 {
+private:
+    Save* save_;
 public:
     BattleScene();
     BattleScene(int id);
@@ -42,10 +44,12 @@ public:
     void sortRoles();
     static bool compareRole(Role* r1, Role* r2);
 
+    int calMoveStep(Role* r);
 
     int calRolePic(Role* r);
 
     void calSelectLayer(Role* r, int mode, int step);
+    void calEffectLayer(Role* r, Magic* m, int level_index);
 
     bool canSelect(int x, int y);
 
@@ -57,7 +61,9 @@ public:
     bool isWater(int x, int y);
     bool isRole(int x, int y);
     bool isOutScreen(int x, int y);
-    bool isNearEnemy(int x, int y);
+    bool isNearEnemy(Role* r, int x, int y);
+    int calDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }
+    int calDistance(int x1, int y1, int x2, int y2) { return abs(x1 - x2) + abs(y1 - y2); }
 
     //"移動", "武學", "用毒", "解毒", "醫療", "物品", "等待", "狀態", "自動", "結束"
     void actMove(Role* r);
@@ -72,6 +78,7 @@ public:
     void actRest(Role* r);
 
     void moveAnimation(Role* r, int x, int y);
+    void useMagicAnimation(Role* r, int x, int y);
 
     int calHurt(Role* r1, Role* r2, Magic* magic, int magic_level);
 
@@ -87,7 +94,7 @@ public:
 
     void getMousePosition(Point* point);
 
-    void calMoveAbility();
 
-   
+
+
 };

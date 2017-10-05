@@ -116,6 +116,8 @@ public:
 
     int Moved, Acted;
 
+    int ActTeam;  //选择行动阵营 0-我方，1-非我方，画效果层时有效
+
 private:
     int X_, Y_;
     int prevX_, prevY_;
@@ -128,7 +130,9 @@ public:
     int X() { return X_; }
     int Y() { return Y_; }
     int getShowLearnedMagicLevel(int i);
+    int getMagicLevelIndex(int i);
     void limit();
+    int getLearnedMagicCount();
 };
 
 struct ItemSave
@@ -156,8 +160,13 @@ struct MagicSave
     SAVE_INT ID;
     char Name[10];
     SAVE_INT Unknown[5];
-    SAVE_INT SoundNum, MagicType, AmiNum, HurtType, AttackAreaType, NeedMP, WithPoison;
-    SAVE_INT Attack[10], MoveDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
+    SAVE_INT SoundID;
+    SAVE_INT MagicType;  //1-拳，2-剑，3-刀，4-特殊
+    SAVE_INT AnimationNum;
+    SAVE_INT HurtType;  //0-普通，1-吸取MP
+    SAVE_INT AttackAreaType;  //0-点，1-线，2-十字，3-面
+    SAVE_INT NeedMP, WithPoison;
+    SAVE_INT Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
 };
 
 struct Magic : MagicSave
