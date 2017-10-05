@@ -53,6 +53,8 @@ public:
     std::vector<PointEx> way_que_;  //栈(路径栈)
     int minStep;                                                        //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
     int mouse_x_, mouse_y_;
+    //看不明白
+    void getMousePosition(Point* point);
     void stopFindWay() { way_que_.clear();/*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);
 

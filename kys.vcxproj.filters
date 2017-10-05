@@ -252,10 +252,10 @@
     <Library Include="lib\SDL2_ttf.lib">
       <Filter>_lib</Filter>
     </Library>
-    <Library Include="lib\SDL2main.lib">
+    <Library Include="lib\libiconv.lib">
       <Filter>_lib</Filter>
     </Library>
-    <Library Include="lib\libiconv.lib">
+    <Library Include="lib\SDL2main.lib">
       <Filter>_lib</Filter>
     </Library>
   </ItemGroup>

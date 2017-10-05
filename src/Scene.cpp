@@ -102,6 +102,16 @@ void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
     }
 }
 
+void Scene::getMousePosition(Point* point)
+{
+    int x = point->x;
+    int y = screen_center_y_ * 2 - point->y;
+    //int yp = 0;
+    //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
+    //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
+    //mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
+}
+
 //A*
 void Scene::FindWay(int Mx, int My, int Fx, int Fy)
 {

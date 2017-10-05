@@ -10,6 +10,7 @@
 #include "File.h"
 #include "GameUtil.h"
 #include "Random.h"
+#include "UIStatus.h"
 
 BattleScene::BattleScene()
 {
@@ -129,7 +130,7 @@ void BattleScene::draw()
                     auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
-                    if (effect_layer_.data(i1, i2) >= 0)
+                    if (battle_operator_->isRunning() && effect_layer_.data(i1, i2) >= 0)
                     {
                         if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
                         {
@@ -154,8 +155,8 @@ void BattleScene::draw()
                 if (effect_index_ >= 0 && effect_layer_.data(i1, i2) >= 0)
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_index_);
-                    num = effect_frame_ + RandomClassical::rand(3) - RandomClassical::rand(3);
-                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y);
+                    num = effect_frame_ + RandomClassical::rand(10) - RandomClassical::rand(10);
+                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
             }
         }
@@ -313,6 +314,10 @@ int BattleScene::calMoveStep(Role* r)
 //依据动作帧数计算角色的贴图编号
 int BattleScene::calRolePic(Role* r, int style, int frame)
 {
+    if (r->FightFrame[style] <= 0)
+    {
+        style = -1;
+    }
     if (style == -1)
     {
         for (int i = 0; i < 5; i++)
@@ -415,10 +420,11 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
 
 void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
 {
-    if (m->AttackAreaType == 3)
+    effect_layer_.setAll(-1);
+    if (m->AttackAreaType == 1 || m->AttackAreaType == 3)
     {
         int x = select_x_, y = select_y_;
-        effect_layer_.setAll(-1);
+        //effect_layer_.setAll(-1);
         int dis = m->AttackDistance[Save::getInstance()->getRoleLearnedMagicLevelIndex(r, m)];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
@@ -575,17 +581,17 @@ void BattleScene::actUseMagic(Role* r)
 
 void BattleScene::actUsePoison(Role* r)
 {
-
+    calSelectLayer(r, 1, 1);
 }
 
 void BattleScene::actDetoxification(Role* r)
 {
-
+    calSelectLayer(r, 1, 1);
 }
 
 void BattleScene::actMedcine(Role* r)
 {
-
+    calSelectLayer(r, 1, 1);
 }
 
 void BattleScene::actUseItem(Role* r)
@@ -601,7 +607,13 @@ void BattleScene::actWait(Role* r)
 
 void BattleScene::actStatus(Role* r)
 {
+    auto uistatus = new UIStatus();
+    addChild(uistatus);
 
+
+
+    removeChild(uistatus);
+    delete uistatus;
 }
 
 void BattleScene::actAuto(Role* r)
@@ -615,131 +627,6 @@ void BattleScene::actRest(Role* r)
     r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, MAX_HP);
     r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, MAX_MP);
     r->Acted = 1;
-}
-
-//看不明白
-void BattleScene::getMousePosition(Point* point)
-{
-    int x = point->x;
-    int y = screen_center_y_ * 2 - point->y;
-    //int yp = 0;
-    //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
-    //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
-    //mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
-}
-
-bool BattleScene::initBattleRoleState()
-{
-    //    BattleSave::getInstance()->battle_roles_.resize(BATTLE_ROLE_COUNT);
-    //    for (int i = 0; i < BATTLE_ROLE_COUNT = 4096; i++)
-    //    {
-    //        m_vcBattleRole[i].setPosition(-1, -1);
-    //        m_vcBattleRole[i].Show = 1;
-    //    }
-    //    m_nBStatus = 0;
-    //    m_bisBattle = true;
-    //    if (m_nMods == -1)
-    //    {
-    //        selectTeamMembers();
-    //    }
-    //    else
-    //    {
-    //    }
-    //    m_nBRoleAmount = 0;
-    //    int n0 = 0;
-    //    int teamNum = 0;
-    //    if (m_vcBattleInfo[m_nbattleNum].mate[0] == 0)
-    //    {
-    //        teamNum = 1;
-    //    }
-    //    for (int i = 0; teamNum < m_nMaxBRoleSelect && i < sizeof(m_vcBattleInfo[m_nbattleNum].mate) / sizeof(m_vcBattleInfo[m_nbattleNum].mate[0]); i++)
-    //    {
-    //        if (m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount] >= 0)
-    //        {
-    //            //m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-    //            //m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
-    //            m_vcBattleRole[m_nBRoleAmount].Team = 0;
-    //            m_vcBattleRole[m_nBRoleAmount].Face = 2;
-    //            m_vcBattleRole[m_nBRoleAmount].RoleID = m_vcBattleInfo[m_nbattleNum].mate[m_nBRoleAmount];
-    //            m_vcBattleRole[m_nBRoleAmount].Auto = -1;
-    //            setInitState(n0);
-    //        }
-    //        else if (m_nBattleList[teamNum] >= 0)
-    //        {
-    //            //m_vcBattleRole[m_nBRoleAmount].Y = m_vcBattleInfo[m_nbattleNum].mate_x[i];
-    //            //m_vcBattleRole[m_nBRoleAmount].X = m_vcBattleInfo[m_nbattleNum].mate_y[i];
-    //            m_vcBattleRole[m_nBRoleAmount].Team = 0;
-    //            m_vcBattleRole[m_nBRoleAmount].Face = 2;
-    //            m_vcBattleRole[m_nBRoleAmount].RoleID = m_nBattleList[teamNum];
-    //            m_vcBattleRole[m_nBRoleAmount].Auto = -1;
-    //            setInitState(n0);
-    //            teamNum++;
-    //        }
-    //        m_nBRoleAmount++;
-    //    }
-    //    calMoveAbility();
-    //    return true;
-    //}
-    //
-    //void BattleMap::setInitState(int& n0)
-    //{
-    //    m_vcBattleRole[m_nBRoleAmount].Step = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].Acted = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].ExpGot = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].Show = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].Progress = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].round = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].Wait = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].frozen = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].killed = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].Knowledge = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].Zhuanzhu = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].szhaoshi = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].pozhao = 0;
-    //    m_vcBattleRole[m_nBRoleAmount].wanfang = 0;
-    //    for (int j = 0; j <= 4; j++)
-    //    {
-    //        n0 = 0;
-    //        if (m_vcBattleRole[m_nBRoleAmount].RoleID > -1)
-    //        {
-    //            for (int j1 = 0; j1 <= 9; j1++)
-    //            {
-    //                //if (m_Character[battleRole[BRoleAmount].rnum].GongTi >= 0)
-    //                //{
-    //                //    if ((m_Magic[m_Character[battleRole[BRoleAmount].rnum].LMagic[m_Character[battleRole[BRoleAmount].rnum].GongTi]].MoveDistance[j1] == 60 + j))
-    //                //    {
-    //                //        n0 = m_Magic[m_Character[battleRole[BRoleAmount].rnum].LMagic[m_Character[battleRole[BRoleAmount].rnum].GongTi]].AttDistance[j1];
-    //                //    }
-    //                //}
-    //            }
-    //        }
-    //        m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = 100;
-    //        m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
-    //    }
-    //    for (int j = 5; j <= 9; j++)
-    //    {
-    //        n0 = 0;
-    //        if (m_vcBattleRole[m_nBRoleAmount].RoleID > -1)
-    //        {
-    //            for (int j1 = 0; j1 <= 9; j1++)
-    //            {
-    //                //if (m_Character[battleRole[BRoleAmount].rnum].GongTi >= 0)
-    //                //{
-    //                //    if ((m_Magic[m_Character[battleRole[BRoleAmount].rnum].LMagic[m_Character[battleRole[BRoleAmount].rnum].GongTi]].MoveDistance[j1] == 60 + j))
-    //                //    {
-    //                //        n0 = m_Magic[m_Character[battleRole[BRoleAmount].rnum].LMagic[m_Character[battleRole[BRoleAmount].rnum].GongTi]].AttDistance[j1];
-    //                //    }
-    //                //}
-    //            }
-    //        }
-    //        m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = n0;
-    //        m_vcBattleRole[m_nBRoleAmount].lzhuangtai[j] = n0;
-    //    }
-    //    for (int j = 10; j <= 13; j++)
-    //    {
-    //        m_vcBattleRole[m_nBRoleAmount].zhuangtai[j] = 0;
-    //    }
-    return true;
 }
 
 //移动动画
@@ -791,15 +678,16 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
         drawAll();
-        checkEventAndPresent(50);
+        checkEventAndPresent(25);
     }
+    action_frame_ = frame_count - 1;
     effect_index_ = m->Animation;
     auto path = convert::formatString("eft/eft%03d", effect_index_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
-    for (effect_frame_ = 0; effect_frame_ < effect_count; effect_frame_++)
+    for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
     {
         drawAll();
-        checkEventAndPresent(50);
+        checkEventAndPresent(25);
     }
     action_frame_ = 0;
     action_type_ = -1;
@@ -826,8 +714,8 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
         if (r1->Team != r->Team)
         {
             int hurt = calHurt(r, r1, m);
-            r->ShowNumber = hurt;
-            r->HP -= hurt;
+            r1->ShowNumber = hurt;
+            r1->HP -= hurt;
             total += hurt;
         }
     }
@@ -840,5 +728,19 @@ void BattleScene::showNumberAnimation()
     {
         r->ShowNumber = 0;
     }
+}
+
+void BattleScene::clearDead()
+{
+    std::vector<Role*> alive;
+    for (auto r : battle_roles_)
+    {
+        if (r->HP > 0)
+        {
+            alive.push_back(r);
+        }
+    }
+    //如需要退场动画放在这里
+    battle_roles_ = alive;
 }
 

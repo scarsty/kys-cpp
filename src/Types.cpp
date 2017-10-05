@@ -1,17 +1,18 @@
 #include "Types.h"
 #include "GameUtil.h"
 
+//若坐标为负，相当于从人物层清除
 void Role::setPosition(int x, int y)
 {
-    if (position_layer_ == nullptr || x < 0 || y < 0)
+    if (position_layer_ == nullptr)
     {
         return;
     }
-    if (X_ > 0 && Y_ > 0)
+    if (X_ >= 0 && Y_ >= 0)
     {
         position_layer_->data(X_, Y_) = -1;
     }
-    if (x > 0 && y > 0)
+    if (x >= 0 && y >= 0)
     {
         position_layer_->data(x, y) = ID;
     }

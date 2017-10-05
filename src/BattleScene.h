@@ -40,7 +40,7 @@ public:
     int show_number_y_ = 0;
     int effect_index_ = -1;
     int effect_frame_ = 0;
-
+    int dead_frame_ = -1;
 
 
 
@@ -89,9 +89,10 @@ public:
     void moveAnimation(Role* r, int x, int y);
     void useMagicAnimation(Role* r, Magic* m);
 
+    int calHurt(Role* r1, Role* r2, Magic* magic);
     int calAllHurt(Role* r, Magic* m);
     void showNumberAnimation();
-    int calHurt(Role* r1, Role* r2, Magic* magic);
+    void clearDead();
 
     bool initBattleRoleState();
 

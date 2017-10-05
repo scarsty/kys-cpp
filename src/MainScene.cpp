@@ -316,46 +316,20 @@ bool MainScene::checkEntrance(int x, int y)
             }
             if (can_enter)
             {
+                //这里看起来要主动多画一帧，待修
+                drawAll();
+                checkEventAndPresent();
                 auto sub_map = new SubScene(i);
                 sub_map->run();
                 return true;
             }
         }
     }
-    //if (Entrance[x][y] > 0 && Entrance[x][y] <= config::MAXScene)
-    //{
-    //    Save::getInstance()->m_BasicData[0].m_sMx = Mx;
-    //    Save::getInstance()->m_BasicData[0].m_sMx = My;
-    //    Save::getInstance()->m_BasicData[0].m_sMFace = towards;
-    //    Save::getInstance()->m_BasicData[0].m_sWhere = 1;
-    //    auto s = new SubScene(Entrance[x][y]);
-    //    push(s);
-    //    return true;
-    //}
     return false;
 }
 
 void MainScene::setEntrance()
 {
-    //for (int x = 0; x < maxX; x++)
-    //    for (int y = 0; y < maxY; y++)
-    //    { Entrance[x][y] = -1; }
-    //for (int i = 0; i < Save::getInstance()->m_SceneData.size(); i++)
-    //{
-
-    //    int x = Save::getInstance()->m_SceneData[i].MainEntranceX1;
-    //    int y = Save::getInstance()->m_SceneData[i].MainEntranceY1;
-    //    if (x > 0 && y > 0 && x < maxX && y < maxY)
-    //    {
-    //        Entrance[x][y] = i;
-    //    }
-    //    x = Save::getInstance()->m_SceneData[i].MainEntranceX2;
-    //    y = Save::getInstance()->m_SceneData[i].MainEntranceY2;
-    //    if (x > 0 && y > 0 && x < maxX && y < maxY)
-    //    {
-    //        Entrance[x][y] = i;
-    //    }
-    //}
 }
 
 bool MainScene::isOutScreen(int x, int y)

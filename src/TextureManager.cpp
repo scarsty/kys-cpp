@@ -135,7 +135,7 @@ void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
     auto p = path_ + path;
     if (!t->loaded)
     {
-        printf("Load texture %s, %d\n", p.c_str(), num);
+        //printf("Load texture %s, %d\n", p.c_str(), num);
         t->tex[0] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + ".png");
         if (t->tex[0])
         {

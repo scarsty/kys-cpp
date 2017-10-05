@@ -206,6 +206,8 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
         }
     }
     Element::removeFromRoot(talk_box_);
+    talk_box_up_->setContent("");
+    talk_box_down_->setContent("");
     return true;
     //if (loop)
     //{ return 0; }
