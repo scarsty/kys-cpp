@@ -80,6 +80,8 @@ void MainScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            p.x += x_;
+            p.y += y_;
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
             if (!isOutLine(i1, i2))
             {

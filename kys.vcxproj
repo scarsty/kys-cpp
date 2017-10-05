@@ -164,6 +164,7 @@
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
+    <ClCompile Include="src\AutoBattle.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
     <ClCompile Include="src\BattleOperator.cpp" />
     <ClCompile Include="src\BattleScene.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />
+    <ClInclude Include="src\AutoBattle.h" />
     <ClInclude Include="src\BattleMap.h" />
     <ClInclude Include="src\BattleOperator.h" />
     <ClInclude Include="src\BattleScene.h" />

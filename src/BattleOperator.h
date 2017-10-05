@@ -2,7 +2,7 @@
 #include "Element.h"
 #include "Types.h"
 
-//因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以响应事件
+//因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以操作选择行动目标
 class BattleOperator : public Element
 {
 public:

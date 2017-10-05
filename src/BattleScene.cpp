@@ -67,6 +67,8 @@ void BattleScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            p.x += x_;
+            p.y += y_;
             if (!isOutLine(i1, i2))
             {
                 int num = earth_layer_.data(i1, i2) / 2;
@@ -116,13 +118,14 @@ void BattleScene::draw()
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            p.x += x_;
+            p.y += y_;
             if (!isOutLine(i1, i2))
             {
                 int num = building_layer_.data(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-
                 }
                 num = role_layer_.data(i1, i2);
                 if (num >= 0)
@@ -175,9 +178,17 @@ void BattleScene::dealEvent(BP_Event& e)
     head_->setRole(r);
     head_->setState(Element::Pass);
 
-    int result = battle_menu_->runAsRole(r);
+    int select_act;
+    if (r->Team == 0 && r->Auto == 0)
+    {
+        select_act = battle_menu_->runAsRole(r);
+    }
+    else
+    {
+        //此处应写AI部分？
+    }
 
-    switch (result)
+    switch (select_act)
     {
     case 0: actMove(r); break;
     case 1: actUseMagic(r); break;
@@ -194,7 +205,7 @@ void BattleScene::dealEvent(BP_Event& e)
         break;
     }
 
-    //如果此人行动过，则清除行动状态，放到队尾
+    //如果此人成功行动过，则清除行动状态，放到队尾
     if (r->Acted)
     {
         r->Acted = 0;
@@ -202,6 +213,8 @@ void BattleScene::dealEvent(BP_Event& e)
         battle_roles_.erase(battle_roles_.begin());
         battle_roles_.push_back(r);
     }
+    //清除被击退的人物
+    clearDead();
 }
 
 void BattleScene::onEntrance()
@@ -686,6 +699,8 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
     {
+        x_ = RandomClassical::rand(5) - RandomClassical::rand(5);
+        y_ = RandomClassical::rand(5) - RandomClassical::rand(5);
         drawAll();
         checkEventAndPresent(25);
     }
@@ -693,6 +708,8 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
     action_type_ = -1;
     effect_frame_ = 0;
     effect_index_ = -1;
+    x_ = 0;
+    y_ = 0;
 }
 
 //r1使用武功magic攻击r2的伤害
