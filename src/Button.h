@@ -1,7 +1,7 @@
 #pragma once
-#include "Element.h"
+#include "TextBox.h"
 
-class Button : public Element
+class Button : public TextBox
 {
 public:
     Button() {}
@@ -16,11 +16,6 @@ public:
 private:
     std::string tex_path_ = "";
     int tex_normal_id_ = -1, tex_pass_id_ = -1, tex_press_id_ = -1; //三种状态的按钮图片
-    std::string text_ = "";
-    int font_size_ = 20;
-public:
 
-    void setText(std::string text);
-    void setFongSize(int size) { font_size_ = size; }
 };
 

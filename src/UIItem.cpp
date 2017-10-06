@@ -14,7 +14,9 @@ UIItem::UIItem()
     }
     title_ = new MenuText();
     title_->setStrings({ "劇情", "藥品", "兵甲", "拳經", "劍譜", "刀錄", "奇門", "心法" });
-    title_->arrange(0, 50, 50, 0);
+    title_->setFontSize(25);
+    title_->arrange(0, 50, 60, 0);
+
     addChild(title_);
 }
 

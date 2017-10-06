@@ -111,7 +111,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
         switch (e[i])
         {
             VOID_INSTRUCT_3(1, e, i, oldTalk);
-            VOID_INSTRUCT_2(2, e, i, getItem);
+            VOID_INSTRUCT_2(2, e, i, addItem);
             VOID_INSTRUCT_13(3, e, i, modifyEvent);
             VOID_INSTRUCT_1(4, e, i, isUsingItem);
             BOOL_INSTRUCT_0(5, e, i, askBattle);
@@ -157,7 +157,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 
             VOID_INSTRUCT_4(30, e, i, walkFromTo);
             BOOL_INSTRUCT_1(31, e, i, checkEnoughMoney);
-            VOID_INSTRUCT_2(32, e, i, getItemWithoutHint);
+            VOID_INSTRUCT_2(32, e, i, addItemWithoutHint);
             VOID_INSTRUCT_3(33, e, i, oldLearnMagic);
             VOID_INSTRUCT_2(34, e, i, addIQ);
             VOID_INSTRUCT_4(35, e, i, setRoleMagic);
@@ -167,7 +167,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             VOID_INSTRUCT_1(39, e, i, openSubMap);
 
             VOID_INSTRUCT_1(40, e, i, setTowards);
-            VOID_INSTRUCT_3(41, e, i, roleGetItem);
+            VOID_INSTRUCT_3(41, e, i, roleAddItem);
             BOOL_INSTRUCT_0(42, e, i, checkFemaleInTeam);
             BOOL_INSTRUCT_1(43, e, i, haveItemBool);
             VOID_INSTRUCT_6(44, e, i, play2Amination);
@@ -255,10 +255,10 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 }
 
 //获得物品，有提示
-void Event::getItem(int item_id, int count)
+void Event::addItem(int item_id, int count)
 {
-    getItemWithoutHint(item_id, count);
-    text_box_->setTitle(convert::formatString("获得物品%s%d个", save_->getItem(item_id)->Name, count));
+    addItemWithoutHint(item_id, count);
+    text_box_->setText(convert::formatString("获得物品%s%d个", save_->getItem(item_id)->Name, count));
     text_box_->setTexture(TextureManager::getInstance()->loadTexture("item", item_id));
     text_box_->run();
 }
@@ -294,7 +294,7 @@ bool Event::isUsingItem(int item_id)
 
 bool Event::askBattle()
 {
-    menu2_->setTitle("是否與之過招？");
+    menu2_->setText("是否與之過招？");
     return menu2_->run() == 0;
 }
 
@@ -310,7 +310,7 @@ void Event::changeMainMapMusic(int music_id)
 
 bool Event::askJoin()
 {
-    menu2_->setTitle("是否要求加入？");
+    menu2_->setText("是否要求加入？");
     return menu2_->run() == 0;
 }
 
@@ -328,7 +328,7 @@ void Event::join(int role_id)
                 if (role->TakingItem[i] >= 0)
                 {
                     if (role->TakingItemCount[i] == 0) { role->TakingItemCount[i] = 1; }
-                    getItem(role->TakingItem[i], role->TakingItemCount[i]);
+                    addItem(role->TakingItem[i], role->TakingItemCount[i]);
                     role->TakingItem[i] = -1;
                     role->TakingItemCount[i] = 0;
                 }
@@ -340,7 +340,7 @@ void Event::join(int role_id)
 
 bool Event::askRest()
 {
-    menu2_->setTitle("請選擇是或否？");
+    menu2_->setText("請選擇是或否？");
     return menu2_->run() == 0;
 }
 
@@ -497,7 +497,7 @@ bool Event::checkEnoughMoney(int money_count)
     return (save_->getMoneyCountInBag() >= money_count);
 }
 
-void Event::getItemWithoutHint(int item_id, int count)
+void Event::addItemWithoutHint(int item_id, int count)
 {
     int pos = -1;
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
@@ -598,7 +598,7 @@ void Event::setTowards(int towards)
     subscene_->towards_ = (Towards)towards;
 }
 
-void Event::roleGetItem(int role_id, int item_id, int count)
+void Event::roleAddItem(int role_id, int item_id, int count)
 {
 
 }
@@ -625,7 +625,7 @@ void Event::addSpeed(int role_id, int value)
     auto r = save_->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, MAX_SPEED);
-    text_box_->setTitle(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
+    text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
     text_box_->run();
 }
 
@@ -634,7 +634,7 @@ void Event::addMP(int role_id, int value)
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, MAX_MP);
-    text_box_->setTitle(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
+    text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
 
@@ -643,7 +643,7 @@ void Event::addAttack(int role_id, int value)
     auto r = save_->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, MAX_ATTACK);
-    text_box_->setTitle(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
+    text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
     text_box_->run();
 }
 
@@ -652,7 +652,7 @@ void Event::addHP(int role_id, int value)
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, MAX_HP);
-    text_box_->setTitle(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
+    text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
     text_box_->run();
 }
 
@@ -674,13 +674,13 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setTitle(convert::formatString("你的道德指數為%d", save_->getRole(0)->Morality));
+    text_box_->setText(convert::formatString("你的道德指數為%d", save_->getRole(0)->Morality));
     text_box_->run();
 }
 
 void Event::showFame()
 {
-    text_box_->setTitle(convert::formatString("你的聲望指數為%d", save_->getRole(0)->Fame));
+    text_box_->setText(convert::formatString("你的聲望指數為%d", save_->getRole(0)->Fame));
     text_box_->run();
 }
 

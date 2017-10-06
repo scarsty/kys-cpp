@@ -96,6 +96,5 @@ public:
     //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现
     //virtual void pressedOK() override { exitWithResult(0); }
     //virtual void pressedCancel() override { exitWithResult(-1); }
-
 };
 

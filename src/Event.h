@@ -59,7 +59,7 @@ public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
     void oldTalk(int talk_id, int head_id, int style);
-    void getItem(int item_id, int count);
+    void addItem(int item_id, int count);
     void modifyEvent(int submap_id, int event_index, int cannotWalk, int Num, int Event1, int Event2, int Event3,
         int BeginPic1, int EndPic, int BeginPic2, int PicDelay, int x, int y);
     bool isUsingItem(int item_id);
@@ -89,7 +89,7 @@ public:
     bool checkRoleAttack(int role_id, int low, int high);
     void walkFromTo(int x0, int y0, int x1, int y1);
     bool checkEnoughMoney(int money_count);
-    void getItemWithoutHint(int item_id, int count);
+    void addItemWithoutHint(int item_id, int count);
     void oldLearnMagic(int role_id, int magic_id, int no_display);
     void addIQ(int role_id, int aptitude);
     void setRoleMagic(int role_id, int magic_index_role, int magic_id, int level);
@@ -98,7 +98,7 @@ public:
     void changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic);
     void openSubMap(int submap_id);
     void setTowards(int towards);
-    void roleGetItem(int role_id, int item_id, int count);
+    void roleAddItem(int role_id, int item_id, int count);
     bool checkFemaleInTeam();
     void play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2);
     void addSpeed(int role_id, int value);

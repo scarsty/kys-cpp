@@ -76,9 +76,4 @@ void Button::draw()
     }
 }
 
-void Button::setText(std::string text)
-{
-    text_ = text;
-    w_ = font_size_ * text.length() / 2;
-    h_ = font_size_;
-}
+
