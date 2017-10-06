@@ -85,7 +85,7 @@ public:
     SAVE_INT ID;
     SAVE_INT HeadID, IncLife, UnUse;
     char Name[10], Nick[10];
-    SAVE_INT Sexual;  //Role的说明：性别 0-男 1 女 2 其他
+    SAVE_INT Sexual;  //性别 0-男 1 女 2 其他
     SAVE_INT Level;
     SAVE_UINT Exp;
     SAVE_INT HP, MaxHP, Hurt, Poison, PhysicalPower;
@@ -107,7 +107,6 @@ struct Role : public RoleSave
 {
 public:
     int Team;
-public:
     int Face, Dead, Step;
     int Pic, ShowNumber, BSpeed;
     int ExpGot, Auto;
@@ -162,7 +161,7 @@ struct MagicSave
     SAVE_INT Unknown[5];
     SAVE_INT SoundID;
     SAVE_INT MagicType;  //1-拳，2-剑，3-刀，4-特殊
-    SAVE_INT Animation;
+    SAVE_INT EffectID;
     SAVE_INT HurtType;  //0-普通，1-吸取MP
     SAVE_INT AttackAreaType;  //0-点，1-线，2-十字，3-面
     SAVE_INT NeedMP, WithPoison;

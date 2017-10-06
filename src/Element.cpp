@@ -176,7 +176,19 @@ void Element::checkEventAndPresent(int max_delay, bool check_event)
     if (check_event)
     {
         checkStateAndEvent(e);
+    }       
+
+    if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
+    {
+        pressedOK();
     }
+    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
+    {
+        pressedCancel();
+    }
+
     switch (e.type)
     {
     case BP_QUIT:
@@ -210,3 +222,4 @@ void Element::setChildState(int i, State s)
         childs_[i]->state_ = s;
     }
 }
+

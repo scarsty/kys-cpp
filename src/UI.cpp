@@ -89,9 +89,4 @@ void UI::dealEvent(BP_Event& e)
         if (button_item_->getState() == Press) { childs_[0] = ui_item_; }
         if (button_system_->getState() == Press) { childs_[0] = ui_system_; }
     }
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
-        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-    {
-        setExit(true);
-    }
 }

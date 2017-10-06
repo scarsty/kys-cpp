@@ -21,6 +21,8 @@ private:
     std::vector<int> offset, length;
     std::vector<std::string> talk_;
     std::vector<std::vector<int>> kdef_;
+
+    int leave_event_0_;
     std::vector<int> leave_event_id_;
 
     //两个对话，用于上面和下面，两个可以同时显示
@@ -52,6 +54,8 @@ private:
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);
 public:
+    int getLeaveEvent(Role* role);
+public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
     void oldTalk(int talk_id, int head_id, int style);
@@ -74,7 +78,7 @@ public:
     bool haveItemBool(int item_id);
     void oldSetScencePosition(int x, int y);
     bool teamIsFull();
-    void leaveTeam(int tole_id);
+    void leaveTeam(int role_id);
     void zeroAllMP();
     void setRoleUsePoison(int role_id, int v);
     //void blank() {}

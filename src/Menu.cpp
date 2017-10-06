@@ -22,29 +22,6 @@ void Menu::draw()
     }
 }
 
-void Menu::dealEvent(BP_Event& e)
-{
-    if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
-    {
-        for (int i = 0; i < childs_.size(); i++)
-        {
-            if (childs_[i]->getResult() == 0)
-            {
-                result_ = i;
-                setExit(true);
-            }
-        }
-    }
-    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
-    {
-        result_ = -1;
-        setExit(true);
-    }
-
-}
-
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
 {
     for (auto c : childs_)
@@ -54,6 +31,17 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
             c->setPosition(x_ + x, y_ + y);
             x += inc_x;
             y += inc_y;
+        }
+    }
+}
+
+void Menu::pressedOK()
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        if (childs_[i]->getResult() == 0)
+        {
+            exitWithResult(i);
         }
     }
 }

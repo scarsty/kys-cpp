@@ -62,6 +62,16 @@ bool Event::loadEventData()
         }
     }
     delete kdef;
+
+    //读取离队列表
+
+    std::string leave_txt = convert::readStringFromFile("../game/list/leave.txt");
+    convert::findNumbers(leave_txt, &leave_event_id_);
+    if (leave_event_id_.size() > 0)
+    {
+        leave_event_0_ = leave_event_id_[0];
+        leave_event_id_.erase(leave_event_id_.begin());
+    }
     return false;
 }
 
@@ -89,7 +99,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     int i = 0;
     auto e = kdef_[event_id];
     e.resize(e.size() + 20);  //后面的是缓冲区，避免出错
-    printf("%d: ", event_id);
+    printf("Event %d: ", event_id);
     for (auto c : e)
     {
         printf("%d ", c);
@@ -97,7 +107,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     printf("\n");
     while (i < e.size() && loop)
     {
-        printf("%d,", e[i]);
+        printf("instruct %d\n", e[i]);
         switch (e[i])
         {
             VOID_INSTRUCT_3(1, e, i, oldTalk);
@@ -220,6 +230,18 @@ SubMapInfo* Event::getSubMapRecordFromID(int submap_id)
     auto submap_record = save_->getSubMapInfo(submap_id);
     if (submap_record == nullptr) { submap_record = subscene_->getMapInfo(); }
     return submap_record;
+}
+
+int Event::getLeaveEvent(Role* role)
+{
+    for (int i = 0; i < leave_event_id_.size(); i++)
+    {
+        if (leave_event_id_[i] == role->ID)
+        {
+            return leave_event_0_ + 2 * i + 1;
+        }
+    }
+    return -1;
 }
 
 //原对话指令
@@ -398,9 +420,20 @@ bool Event::teamIsFull()
     return true;
 }
 
-void Event::leaveTeam(int tole_id)
+void Event::leaveTeam(int role_id)
 {
-
+    for (int i = 0; i < TEAMMATE_COUNT; i++)
+    {
+        if (save_->Team[i] == role_id)
+        {
+            for (int j = i; j < TEAMMATE_COUNT - 1; j++)
+            {
+                save_->Team[j] = save_->Team[j + 1];
+            }
+            save_->Team[TEAMMATE_COUNT - 1] == -1;
+            break;
+        }
+    }
 }
 
 void Event::zeroAllMP()
@@ -495,10 +528,10 @@ void Event::getItemWithoutHint(int item_id, int count)
     //当物品数量为负，需要整理背包
     if (save_->Items[pos].count <= 0)
     {
-        for (int i=pos;i<ITEM_IN_BAG_COUNT-1;i++)
+        for (int i = pos; i < ITEM_IN_BAG_COUNT - 1; i++)
         {
-            save_->Items[i].item_id = save_->Items[i+1].item_id;
-            save_->Items[i].count = save_->Items[i+1].count;
+            save_->Items[i].item_id = save_->Items[i + 1].item_id;
+            save_->Items[i].count = save_->Items[i + 1].count;
         }
         save_->Items[ITEM_IN_BAG_COUNT - 1].item_id = -1;
         save_->Items[ITEM_IN_BAG_COUNT - 1].count = 0;

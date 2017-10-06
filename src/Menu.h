@@ -14,9 +14,11 @@ public:
     void setTexture(Texture* t) { tex_ = t; }
     void setTitle(std::string t) { title_ = t; }
     void setTitlePosition(int x, int y) { title_x_ = x; title_y_ = y; }
-    void draw() override;
-    void dealEvent(BP_Event& e) override;
+    virtual void draw() override;
+    //virtual void dealEvent(BP_Event& e) override;
     void arrange(int x, int y, int inc_x, int inc_y);
+    virtual void pressedOK() override;
+    virtual void pressedCancel() override { exitWithResult(-1); }
 };
 
 class MenuText : public Menu

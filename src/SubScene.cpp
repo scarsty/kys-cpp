@@ -233,6 +233,9 @@ void SubScene::onEntrance()
     setPosition(submap_info_->EntranceX, submap_info_->EntranceY);
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
+
+    printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
+
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 

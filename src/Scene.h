@@ -15,6 +15,10 @@ public:
 
     int screen_center_x_ = 0;
     int screen_center_y_ = 0;
+
+    int window_center_x_ = 0;
+    int window_center_y_ = 0;
+
     const int TILE_W = 18;  //小图块大小X
     const int TILE_H = 9;   //小图块大小Y
 

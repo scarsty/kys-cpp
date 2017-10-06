@@ -22,8 +22,11 @@ BattleScene::BattleScene()
     effect_layer_.resize(COORD_COUNT);
     battle_menu_ = new BattleMenu();
     battle_menu_->setPosition(160, 200);
-    head_ = new Head();
-    addChild(head_, 100, 100);
+    head_self_ = new Head();
+    addChild(head_self_);
+    ui_status_ = new UIStatus();
+    ui_status_->setVisible(false);
+    addChild(ui_status_, 300, 0);
     battle_operator_ = new BattleOperator();
     battle_operator_->setBattleScene(this);
     //battle_operator_->setOperator(&select_x_, &select_y_, &select_layer_, &effect_layer_);
@@ -155,9 +158,9 @@ void BattleScene::draw()
                     }
                     TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color);
                 }
-                if (effect_index_ >= 0 && effect_layer_.data(i1, i2) >= 0)
+                if (effect_id_ >= 0 && effect_layer_.data(i1, i2) >= 0)
                 {
-                    std::string path = convert::formatString("eft/eft%03d", effect_index_);
+                    std::string path = convert::formatString("eft/eft%03d", effect_id_);
                     num = effect_frame_ + RandomClassical::rand(10) - RandomClassical::rand(10);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
@@ -165,20 +168,27 @@ void BattleScene::draw()
         }
     }
     Engine::getInstance()->renderAssistTextureToWindow();
+
+    //ui的设定
+    if (ui_status_->getVisible())
+    {
+        int r = role_layer_.data(select_x_, select_y_);
+        ui_status_->setRole(Save::getInstance()->getRole(r));
+    }
 }
 
 void BattleScene::dealEvent(BP_Event& e)
 {
-    //选择第一个人
+    //选择位于人物数组中的第一个人
     auto r = battle_roles_[0];
     man_x_ = r->X();
     man_y_ = r->Y();
     select_x_ = r->X();
     select_y_ = r->Y();
-    head_->setRole(r);
-    head_->setState(Element::Pass);
+    head_self_->setRole(r);
+    head_self_->setState(Element::Pass);
 
-    int select_act;
+    int select_act = 0;
     if (r->Team == 0 && r->Auto == 0)
     {
         select_act = battle_menu_->runAsRole(r);
@@ -220,6 +230,10 @@ void BattleScene::dealEvent(BP_Event& e)
 void BattleScene::onEntrance()
 {
     calViewRegion();
+
+    //注意此时才能得到窗口的大小，用来设置头像的位置
+    head_self_->setPosition(100, 100);
+
     //设置全部角色的位置层，避免今后出错
     for (auto& r : Save::getInstance()->roles_)
     {
@@ -266,13 +280,22 @@ void BattleScene::setRoleInitState(Role* r)
     r->ExpGot = 0;
     r->ShowNumber = 0;
     r->FightingFrame = 0;
+    r->Auto = 0;
+
     //读取动作帧数
-    SAVE_INT frame[10];
-    std::string file = convert::formatString("../game/resource/fight/fight%03d/fightframe.ka", r->HeadID);
-    File::readFile(file, frame, 10);
-    for (int i = 0; i < 5; i++)
+    bool frame_readed = false;
+    //注意这个判断不太准，应该在构造函数里面设一个不合理的初值
+    /*for (int i = 0; i < 5; i++)
     {
-        r->FightFrame[i] = frame[i];
+        if (r->FightFrame[i] > 0)
+        {
+            frame_readed = true;
+            break;
+        }
+    }*/
+    if (!frame_readed)
+    {
+        readFightFrame(r);
     }
 
     //寻找离自己最近的敌方，设置面向
@@ -292,7 +315,23 @@ void BattleScene::setRoleInitState(Role* r)
     }
 
     r->Face = (int)calFace(r->X(), r->Y(), r_near->X(), r_near->Y());
-    r->Face = RandomClassical::rand(4);
+    r->Face = RandomClassical::rand(4);  //没头苍蝇随意选择面向
+}
+
+void BattleScene::readFightFrame(Role* r)
+{
+    for (int i = 0; i < 5; i++)
+    {
+        r->FightFrame[i] = 0;
+    }
+    std::string file = convert::formatString("../game/resource/fight/fight%03d/fightframe.txt", r->HeadID);
+    std::string frame_txt = convert::readStringFromFile(file);
+    std::vector<int> frames;
+    convert::findNumbers(frame_txt, &frames);
+    for (int i = 0; i < frames.size() / 2; i++)
+    {
+        r->FightFrame[frames[i * 2]] = frames[i * 2 + 1];
+    }
 }
 
 //角色排序
@@ -434,6 +473,14 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
 void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
 {
     effect_layer_.setAll(-1);
+
+    //若未指定武学，则认为只选择一个点
+    if (m == nullptr)
+    {
+        effect_layer_.data(select_x_, select_y_) = 0;
+        return;
+    }
+
     if (m->AttackAreaType == 1 || m->AttackAreaType == 3)
     {
         int x = select_x_, y = select_y_;
@@ -549,7 +596,7 @@ void BattleScene::actUseMagic(Role* r)
         }
     }
     magic_menu->setStrings(magic_names);
-    magic_menu->setPosition(200, 200);
+    magic_menu->setPosition(160, 200);
 
     while (true)
     {
@@ -573,9 +620,9 @@ void BattleScene::actUseMagic(Role* r)
         battle_operator_->setMode(BattleOperator::Action);
         battle_operator_->setRoleAndMagic(r, magic, level_index);
         calEffectLayer(r, magic, level_index);
-        int select_aim = battle_operator_->run();
+        int selected = battle_operator_->run();
         //取消选择目标则重新进入选武功
-        if (select_aim < 0)
+        if (selected < 0)
         {
             continue;
         }
@@ -594,17 +641,50 @@ void BattleScene::actUseMagic(Role* r)
 
 void BattleScene::actUsePoison(Role* r)
 {
-    calSelectLayer(r, 1, 1);
+    calSelectLayer(r, 1, r->UsePoison / 15 + 1);
+    battle_operator_->setMode(BattleOperator::Action);
+    battle_operator_->setRoleAndMagic(r);
+    r->ActTeam = 1;
+    calEffectLayer(r);
+    int selected = battle_operator_->run();
+    if (selected >= 0)
+    {
+        actionAnimation(r, 0, 30);
+        showNumberAnimation();
+        r->Acted = 1;
+    }
 }
 
 void BattleScene::actDetoxification(Role* r)
 {
-    calSelectLayer(r, 1, 1);
+    calSelectLayer(r, 1, r->Detoxification / 15 + 1);
+    battle_operator_->setMode(BattleOperator::Action);
+    battle_operator_->setRoleAndMagic(r);
+    r->ActTeam = 0;
+    calEffectLayer(r);
+    int selected = battle_operator_->run();
+    if (selected >= 0)
+    {
+        actionAnimation(r, 0, 36);
+        showNumberAnimation();
+        r->Acted = 1;
+    }
 }
 
 void BattleScene::actMedcine(Role* r)
 {
-    calSelectLayer(r, 1, 1);
+    calSelectLayer(r, 1, r->Medcine / 15 + 1);
+    battle_operator_->setMode(BattleOperator::Action);
+    battle_operator_->setRoleAndMagic(r);
+    r->ActTeam = 0;
+    calEffectLayer(r);
+    int selected = battle_operator_->run();
+    if (selected >= 0)
+    {
+        actionAnimation(r, 0, 0);
+        showNumberAnimation();
+        r->Acted = 1;
+    }
 }
 
 void BattleScene::actUseItem(Role* r)
@@ -620,13 +700,17 @@ void BattleScene::actWait(Role* r)
 
 void BattleScene::actStatus(Role* r)
 {
-    auto uistatus = new UIStatus();
-    addChild(uistatus);
+    head_self_->setVisible(false);
+    ui_status_->setVisible(true);
+    battle_operator_->getHead()->setVisible(false);
 
+    calSelectLayer(r, 2, 0);
+    battle_operator_->setRoleAndMagic(r);
+    battle_operator_->run();
 
-
-    removeChild(uistatus);
-    delete uistatus;
+    head_self_->setVisible(true);
+    ui_status_->setVisible(false);
+    battle_operator_->getHead()->setVisible(true);
 }
 
 void BattleScene::actAuto(Role* r)
@@ -682,20 +766,28 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
 //使用武学动画
 void BattleScene::useMagicAnimation(Role* r, Magic* m)
 {
+    if (r && m)
+    {
+        actionAnimation(r, m->MagicType, m->EffectID);
+    }
+}
+
+void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
+{
     if (r->X() != select_x_ || r->Y() != select_y_)
     {
         r->Face = calFace(r->X(), r->Y(), select_x_, select_y_);
     }
-    auto frame_count = r->FightFrame[m->MagicType];
-    action_type_ = m->MagicType;
+    auto frame_count = r->FightFrame[action_type];
+    action_type_ = action_type;
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
         drawAll();
         checkEventAndPresent(25);
     }
     action_frame_ = frame_count - 1;
-    effect_index_ = m->Animation;
-    auto path = convert::formatString("eft/eft%03d", effect_index_);
+    effect_id_ = effect_id;
+    auto path = convert::formatString("eft/eft%03d", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
     {
@@ -707,7 +799,7 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
     action_frame_ = 0;
     action_type_ = -1;
     effect_frame_ = 0;
-    effect_index_ = -1;
+    effect_id_ = -1;
     x_ = 0;
     y_ = 0;
 }
@@ -741,6 +833,26 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
 
 void BattleScene::showNumberAnimation()
 {
+    for (int i = 0; i < 10; i++)
+    {
+        drawAll();
+        for (auto r : battle_roles_)
+        {
+            //等于0显示个毛（待定）
+            //if (r->ShowNumber != 0)
+            {
+                //int   x : = -(Brole[i].X - man_x_) * 18 + (Brole[i].Y - By) * 18 + CENTER_X - 10;
+                //int  y : = (Brole[i].X - Bx) * 9 + (Brole[i].Y - By) * 9 + CENTER_Y - 40;
+                //if word[i] <> '' then
+                //    DrawEngShadowText(screen, @word[i, 1], x, y - i1 * 2, color1, color2);
+            }
+        }
+        checkEventAndPresent(25);
+    }
+
+
+
+    //清除所有人的显示
     for (auto r : battle_roles_)
     {
         r->ShowNumber = 0;

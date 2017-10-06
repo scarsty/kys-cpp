@@ -16,6 +16,10 @@ void Scene::calViewRegion()
     screen_center_y_ /= 2;
     view_width_region_ = screen_center_x_ / TILE_W / 2 + 3;
     view_sum_region_ = screen_center_y_ / TILE_H + 2;
+
+    Engine::getInstance()->getPresentSize(window_center_x_, window_center_y_);
+    window_center_x_ /= 2;
+    window_center_y_ /= 2;
 }
 
 void Scene::checkWalk(int x, int y, BP_Event& e)

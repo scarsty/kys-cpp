@@ -12,7 +12,7 @@ public:
     Head(Role* r = nullptr);
     virtual ~Head();
 
-    virtual void draw();
+    virtual void draw() override;
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }
 };

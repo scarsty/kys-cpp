@@ -36,5 +36,7 @@ public:
     UIItem* ui_item_ = nullptr;
     UISystem* ui_system_ = nullptr;
     int item_id_ = -1;
+
+    virtual void pressedCancel() override { exitWithResult(-1); }
 };
 

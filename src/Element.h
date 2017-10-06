@@ -40,6 +40,9 @@ public:
     void setPosition(int x, int y);
     void setSize(int w, int h) { w_ = w; h_ = h; }
 
+    void getPosition(int& x, int& y) { x = x_; y = y_; }
+    void getSize(int& w, int& h) { w = w_; h = h_; }
+
     bool inSide(int x, int y)
     {
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
@@ -82,5 +85,17 @@ public:
 
     void setExit(bool e) { exit_ = e; }
     bool isRunning() { return !exit_; }
+
+    //按下回车或鼠标左键的事件
+    virtual void pressedOK() {}
+    //按下esc或鼠标右键的事件
+    virtual void pressedCancel() {}
+
+    void exitWithResult(int r) { setExit(true); result_ = r; }
+
+    //需要通常退出的请复制这两个
+    //virtual void pressedOK() override { exitWithResult(0); }
+    //virtual void pressedCancel() override { exitWithResult(-1); }
+
 };
 

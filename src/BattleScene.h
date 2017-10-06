@@ -5,6 +5,7 @@
 #include <stack>
 #include "BattleMenu.h"
 #include "BattleOperator.h"
+#include "UIStatus.h"
 
 class BattleScene : public Scene
 {
@@ -19,7 +20,10 @@ public:
 
     BattleMenu* battle_menu_;
     BattleOperator* battle_operator_;
-    Head* head_;
+    Head* head_self_;
+    UIStatus* ui_status_;
+
+    //Head* head_selected_;
 
     int battle_id_ = 0;
     BattleInfo* info_;
@@ -31,24 +35,23 @@ public:
 
     int select_state_ = 0;  //0-其他，1-选移动目标，2-选行动目标
 
-    int select_x_, select_y_;
+    int select_x_ = 0, select_y_ = 0;
     void setSelectPosition(int x, int y) { select_x_ = x; select_y_ = y; }
 
     //以下画图用
     int action_frame_ = 0;
     int action_type_ = -1;
     int show_number_y_ = 0;
-    int effect_index_ = -1;
+    int effect_id_ = -1;
     int effect_frame_ = 0;
     int dead_frame_ = -1;
-
-
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
     virtual void onEntrance();
 
     void setRoleInitState(Role* r);
+    void readFightFrame(Role* r);
 
     void sortRoles();
     static bool compareRole(Role* r1, Role* r2);
@@ -57,8 +60,8 @@ public:
 
     int calRolePic(Role* r, int style = -1, int frame = 0);
 
-    void calSelectLayer(Role* r, int mode, int step);
-    void calEffectLayer(Role* r, Magic* m, int level_index);
+    void calSelectLayer(Role* r, int mode, int step = 0);
+    void calEffectLayer(Role* r, Magic* m = nullptr, int level_index = 0);
 
     bool canSelect(int x, int y);
 
@@ -88,17 +91,11 @@ public:
 
     void moveAnimation(Role* r, int x, int y);
     void useMagicAnimation(Role* r, Magic* m);
+    void actionAnimation(Role* r, int style, int effect_id);
 
     int calHurt(Role* r1, Role* r2, Magic* magic);
     int calAllHurt(Role* r, Magic* m);
     void showNumberAnimation();
     void clearDead();
-
-    bool initBattleRoleState();
-
-    void getMousePosition(Point* point);
-
-
-
 
 };
