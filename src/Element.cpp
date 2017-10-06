@@ -224,19 +224,11 @@ void Element::checkEventAndPresent(int max_delay, bool check_event)
     prev_present_ticks_ = t1;
 }
 
-void Element::setAllChildState(State s)
+void Element::setAllChildState(int s)
 {
     for (auto c : childs_)
     {
         c->state_ = s;;
-    }
-}
-
-void Element::setChildState(int i, State s)
-{
-    if (i >= 0 && i < childs_.size())
-    {
-        childs_[i]->state_ = s;
     }
 }
 
@@ -258,3 +250,19 @@ int Element::findNextVisibleChild(int i0, int direct)
     return i0;
 }
 
+//void Element::setChildState(int i, int s)
+//{
+//    if (i >= 0 && i < childs_.size())
+//    {
+//        childs_[i]->state_ = s;
+//    }
+//}
+//
+//int Element::getChildState(int i)
+//{
+//    if (i >= 0 && i < childs_.size())
+//    {
+//        return childs_[i]->state_;
+//    }
+//    return Normal;
+//}

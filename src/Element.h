@@ -34,6 +34,7 @@ public:
     void addChild(Element* element);
     void addChild(Element* element, int x, int y);
     Element* getChild(int i) { return childs_[i]; }
+    int getChildCount() { return childs_.size(); }
     void removeChild(Element* element);
     void clearChilds();   //²»ÍÆ¼ö
 
@@ -70,9 +71,9 @@ public:
         Press,
     };
 
-    State state_ = Normal;   //×´Ì¬
-    State getState() { return state_; }
-    void setState(State s) { state_ = s; }
+    int state_ = Normal;   //×´Ì¬
+    int getState() { return state_; }
+    void setState(int s) { state_ = s; }
     void checkStateAndEvent(BP_Event& e);
 
     void checkEventAndPresent(int max_delay=25, bool check_event = false);
@@ -80,8 +81,9 @@ public:
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Element* getCurrentTopDraw() { return root_.back(); }
 
-    void setAllChildState(State s);
-    void setChildState(int i, State s);
+    void setAllChildState(int s);
+    //void setChildState(int i, int s);
+    //int getChildState(int i);
 
     int findNextVisibleChild(int i0, int direct);
 

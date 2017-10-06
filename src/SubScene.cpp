@@ -152,13 +152,12 @@ void SubScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        auto tw = getTowardsFromKey(pressed);
-        if (tw != Towards_None) { towards_ = tw; }
-        getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-        tryWalk(x, y);
-        if (total_step_ < 1)
+        if (total_step_ < 1 || total_step_ >= 5)
         {
-            Engine::getInstance()->delay(100);
+            auto tw = getTowardsFromKey(pressed);
+            if (tw != Towards_None) { towards_ = tw; }
+            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+            tryWalk(x, y);
         }
         total_step_++;
     }
