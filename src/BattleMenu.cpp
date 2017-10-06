@@ -18,26 +18,26 @@ void BattleMenu::onEntrance()
     }
 
     //移动过则不可移动
-    if (role->Moved)
+    if (role_->Moved)
     {
         childs_[0]->setVisible(false);
     }
-    if (role->getLearnedMagicCount() <= 0)
+    if (role_->getLearnedMagicCount() <= 0)
     {
         childs_[1]->setVisible(false);
     }
     //用毒
-    if (role->UsePoison <= 0)
+    if (role_->UsePoison <= 0)
     {
         childs_[2]->setVisible(false);
     }
     //解毒
-    if (role->Detoxification <= 0)
+    if (role_->Detoxification <= 0)
     {
         childs_[3]->setVisible(false);
     }
     //医疗
-    if (role->Medcine <= 0)
+    if (role_->Medcine <= 0)
     {
         childs_[4]->setVisible(false);
     }
@@ -52,4 +52,11 @@ int BattleMenu::runAsRole(Role* r)
     return run();
 }
 
+void BattleMenu::dealEvent(BP_Event& e)
+{
+    if (battle_scene_ == nullptr) { return; }
+    if (role_)
+    {
+    }
+}
 

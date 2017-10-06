@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <string>
+#include "Engine.h"
 
 typedef int16_t SAVE_INT;
 typedef uint16_t SAVE_UINT;
@@ -74,11 +76,13 @@ enum
     MAX_ATTACK_WITH_POISON = 100,
     MAX_FAME = 999,
     MAX_IQ = 100,
+
+    MAX_MAGIC_LEVEL = 999,
 };
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
-//置于存档中的角色数据
+//存档中的角色数据
 struct RoleSave
 {
 public:
@@ -108,14 +112,15 @@ struct Role : public RoleSave
 public:
     int Team;
     int Face, Dead, Step;
-    int Pic, ShowNumber, BSpeed;
+    int Pic, BattleSpeed;
     int ExpGot, Auto;
     int FightFrame[5];
     int FightingFrame;
-
     int Moved, Acted;
-
     int ActTeam;  //选择行动阵营 0-我方，1-非我方，画效果层时有效
+
+    std::string ShowString;
+    BP_Color ShowColor;
 
 private:
     int X_, Y_;
@@ -134,6 +139,7 @@ public:
     int getLearnedMagicCount();
 };
 
+//存档中的物品数据
 struct ItemSave
 {
     SAVE_INT ID;
@@ -149,11 +155,13 @@ struct ItemSave
     SAVE_INT NeedItem[5], NeedItemAmount[5];
 };
 
+//实际的物品数据
 struct Item : ItemSave
 {
 
 };
 
+//存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）
 struct MagicSave
 {
     SAVE_INT ID;
@@ -259,11 +267,13 @@ private:
     SubMapEvent events_[SUBMAP_EVENT_COUNT];
 };
 
+//存档中的商店数据
 struct ShopSave
 {
     SAVE_INT Item[5], Amount[5], Price[5];
 };
 
+//实际商店数据
 struct Shop : ShopSave
 {
 

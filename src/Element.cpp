@@ -34,6 +34,7 @@ void Element::drawAll()
     }
 }
 
+//设置位置，会改变子节点的位置
 void Element::setPosition(int x, int y)
 {
     for (auto c : childs_)
@@ -62,6 +63,7 @@ int Element::run(bool in_root /*= true*/)
     return result_;
 }
 
+//从绘制的根节点移除
 Element* Element::removeFromRoot(Element* element)
 {
     if (element == nullptr)
@@ -86,17 +88,20 @@ Element* Element::removeFromRoot(Element* element)
     return element;
 }
 
+//添加子节点
 void Element::addChild(Element* element)
 {
     childs_.push_back(element);
 }
 
+//添加节点并同时设置子节点的位置
 void Element::addChild(Element* element, int x, int y)
 {
     addChild(element);
     element->setPosition(x_ + x, y_ + y);
 }
 
+//移除某个节点
 void Element::removeChild(Element* element)
 {
     for (int i = 0; i < childs_.size(); i++)
@@ -109,6 +114,7 @@ void Element::removeChild(Element* element)
     }
 }
 
+//清除子节点
 void Element::clearChilds()
 {
     for (auto c : childs_)
@@ -118,6 +124,7 @@ void Element::clearChilds()
     childs_.clear();
 }
 
+//画出自身和子节点
 void Element::drawSelfAndChilds()
 {
     if (visible_)
@@ -130,6 +137,7 @@ void Element::drawSelfAndChilds()
     }
 }
 
+//处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 void Element::checkStateAndEvent(BP_Event& e)
 {

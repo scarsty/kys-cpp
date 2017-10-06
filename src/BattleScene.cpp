@@ -11,6 +11,7 @@
 #include "GameUtil.h"
 #include "Random.h"
 #include "UIStatus.h"
+#include "Font.h"
 
 BattleScene::BattleScene()
 {
@@ -21,14 +22,15 @@ BattleScene::BattleScene()
     select_layer_.resize(COORD_COUNT);
     effect_layer_.resize(COORD_COUNT);
     battle_menu_ = new BattleMenu();
+    battle_menu_->setBattleScene(this);
     battle_menu_->setPosition(160, 200);
     head_self_ = new Head();
     addChild(head_self_);
     ui_status_ = new UIStatus();
     ui_status_->setVisible(false);
     addChild(ui_status_, 300, 0);
-    battle_operator_ = new BattleOperator();
-    battle_operator_->setBattleScene(this);
+    battle_cursor_ = new BattleCursor();
+    battle_cursor_->setBattleScene(this);
     //battle_operator_->setOperator(&select_x_, &select_y_, &select_layer_, &effect_layer_);
     save_ = Save::getInstance();
 }
@@ -41,7 +43,7 @@ BattleScene::BattleScene(int id) : BattleScene()
 BattleScene::~BattleScene()
 {
     delete battle_menu_;
-    delete battle_operator_;
+    delete battle_cursor_;
 }
 
 void BattleScene::setID(int id)
@@ -76,7 +78,7 @@ void BattleScene::draw()
             {
                 int num = earth_layer_.data(i1, i2) / 2;
                 BP_Color color = { 255, 255, 255, 255 };
-                if (battle_operator_->isRunning())
+                if (battle_cursor_->isRunning())
                 {
                     if (select_layer_.data(i1, i2) < 0)
                     {
@@ -86,7 +88,7 @@ void BattleScene::draw()
                     {
                         color = { 128, 128, 128, 255 };
                     }
-                    if (battle_operator_->getMode() == BattleOperator::Action)
+                    if (battle_cursor_->getMode() == BattleCursor::Action)
                     {
                         if (effect_layer_.data(i1, i2) >= 0)
                         {
@@ -136,7 +138,7 @@ void BattleScene::draw()
                     auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
-                    if (battle_operator_->isRunning() && effect_layer_.data(i1, i2) >= 0)
+                    if (battle_cursor_->isRunning() && effect_layer_.data(i1, i2) >= 0)
                     {
                         if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
                         {
@@ -189,7 +191,9 @@ void BattleScene::dealEvent(BP_Event& e)
     head_self_->setState(Element::Pass);
 
     int select_act = 0;
-    if (r->Team == 0 && r->Auto == 0)
+
+    //注意这里只判断是否为自动？
+    if (r->Auto == 0)
     {
         select_act = battle_menu_->runAsRole(r);
     }
@@ -238,7 +242,8 @@ void BattleScene::onEntrance()
     for (auto& r : Save::getInstance()->roles_)
     {
         r.setPoitionLayer(&role_layer_);
-        r.Team = 2;
+        r.Team = 2;  //先全部设置成不存在的阵营
+        r.Auto = 1;
     }
 
     //首先设置位置和阵营，其他的后面统一处理
@@ -251,6 +256,7 @@ void BattleScene::onEntrance()
             battle_roles_.push_back(r);
             r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
             r->Team = 0;
+            r->Auto = 0;
         }
     }
     //敌方
@@ -262,6 +268,7 @@ void BattleScene::onEntrance()
             battle_roles_.push_back(r);
             r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
             r->Team = 1;
+            r->Auto = 1;
         }
     }
 
@@ -274,11 +281,20 @@ void BattleScene::onEntrance()
     sortRoles();
 }
 
+void BattleScene::onExit()
+{
+    //清空全部角色的位置层
+    for (auto& r : Save::getInstance()->roles_)
+    {
+        r.setPoitionLayer(nullptr);
+    }
+}
+
 void BattleScene::setRoleInitState(Role* r)
 {
     r->Acted = 0;
     r->ExpGot = 0;
-    r->ShowNumber = 0;
+    r->ShowString = "";
     r->FightingFrame = 0;
     r->Auto = 0;
 
@@ -573,9 +589,9 @@ void BattleScene::actMove(Role* r)
 {
     int step = calMoveStep(r);
     calSelectLayer(r, 0, step);
-    battle_operator_->setRoleAndMagic(r);
-    battle_operator_->setMode(BattleOperator::Move);
-    if (battle_operator_->run() == 0)
+    battle_cursor_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Move);
+    if (battle_cursor_->run() == 0)
     {
         r->setPrevPosition(r->X(), r->Y());
         moveAnimation(r, select_x_, select_y_);
@@ -617,10 +633,10 @@ void BattleScene::actUseMagic(Role* r)
             calSelectLayer(r, 3, magic->SelectDistance[level_index]);
         }
         //选择目标
-        battle_operator_->setMode(BattleOperator::Action);
-        battle_operator_->setRoleAndMagic(r, magic, level_index);
+        battle_cursor_->setMode(BattleCursor::Action);
+        battle_cursor_->setRoleAndMagic(r, magic, level_index);
         calEffectLayer(r, magic, level_index);
-        int selected = battle_operator_->run();
+        int selected = battle_cursor_->run();
         //取消选择目标则重新进入选武功
         if (selected < 0)
         {
@@ -642,11 +658,11 @@ void BattleScene::actUseMagic(Role* r)
 void BattleScene::actUsePoison(Role* r)
 {
     calSelectLayer(r, 1, r->UsePoison / 15 + 1);
-    battle_operator_->setMode(BattleOperator::Action);
-    battle_operator_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Action);
+    battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 1;
     calEffectLayer(r);
-    int selected = battle_operator_->run();
+    int selected = battle_cursor_->run();
     if (selected >= 0)
     {
         actionAnimation(r, 0, 30);
@@ -658,11 +674,11 @@ void BattleScene::actUsePoison(Role* r)
 void BattleScene::actDetoxification(Role* r)
 {
     calSelectLayer(r, 1, r->Detoxification / 15 + 1);
-    battle_operator_->setMode(BattleOperator::Action);
-    battle_operator_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Action);
+    battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;
     calEffectLayer(r);
-    int selected = battle_operator_->run();
+    int selected = battle_cursor_->run();
     if (selected >= 0)
     {
         actionAnimation(r, 0, 36);
@@ -674,11 +690,11 @@ void BattleScene::actDetoxification(Role* r)
 void BattleScene::actMedcine(Role* r)
 {
     calSelectLayer(r, 1, r->Medcine / 15 + 1);
-    battle_operator_->setMode(BattleOperator::Action);
-    battle_operator_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Action);
+    battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;
     calEffectLayer(r);
-    int selected = battle_operator_->run();
+    int selected = battle_cursor_->run();
     if (selected >= 0)
     {
         actionAnimation(r, 0, 0);
@@ -702,15 +718,15 @@ void BattleScene::actStatus(Role* r)
 {
     head_self_->setVisible(false);
     ui_status_->setVisible(true);
-    battle_operator_->getHead()->setVisible(false);
+    battle_cursor_->getHead()->setVisible(false);
 
     calSelectLayer(r, 2, 0);
-    battle_operator_->setRoleAndMagic(r);
-    battle_operator_->run();
+    battle_cursor_->setRoleAndMagic(r);
+    battle_cursor_->run();
 
     head_self_->setVisible(true);
     ui_status_->setVisible(false);
-    battle_operator_->getHead()->setVisible(true);
+    battle_cursor_->getHead()->setVisible(true);
 }
 
 void BattleScene::actAuto(Role* r)
@@ -819,11 +835,11 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
     int total = 0;
     for (auto r1 : battle_roles_)
     {
-        r1->ShowNumber = 0;
         if (r1->Team != r->Team)
         {
             int hurt = calHurt(r, r1, m);
-            r1->ShowNumber = hurt;
+            r1->ShowString = convert::formatString("-%d", hurt);
+            r1->ShowColor = { 255, 20, 20, 255 };
             r1->HP -= hurt;
             total += hurt;
         }
@@ -833,29 +849,29 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
 
 void BattleScene::showNumberAnimation()
 {
-    for (int i = 0; i < 10; i++)
+    int size = 28;
+    for (int i = 0; i <= 10; i++)
     {
         drawAll();
         for (auto r : battle_roles_)
         {
-            //等于0显示个毛（待定）
-            //if (r->ShowNumber != 0)
+            //等于0不显示个（待定）
+            if (r->ShowString.size() > 0)
             {
-                //int   x : = -(Brole[i].X - man_x_) * 18 + (Brole[i].Y - By) * 18 + CENTER_X - 10;
-                //int  y : = (Brole[i].X - Bx) * 9 + (Brole[i].Y - By) * 9 + CENTER_Y - 40;
-                //if word[i] <> '' then
-                //    DrawEngShadowText(screen, @word[i, 1], x, y - i1 * 2, color1, color2);
+                auto p = getPositionOnScreen(r->X(), r->Y(), man_x_, man_y_);
+                p.x = p.x * window_center_x_ / screen_center_x_;
+                p.y = p.y * window_center_y_ / screen_center_y_;
+                int x = p.x - size * r->ShowString.size() / 4;
+                int y = p.y - 75 - i * 2;
+                Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
             }
         }
-        checkEventAndPresent(25);
+        checkEventAndPresent(50);
     }
-
-
-
     //清除所有人的显示
     for (auto r : battle_roles_)
     {
-        r->ShowNumber = 0;
+        r->ShowString = "";
     }
 }
 

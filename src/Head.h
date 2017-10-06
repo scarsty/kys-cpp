@@ -3,7 +3,8 @@
 #include "Types.h"
 #include <memory>
 
-//注意，部分节点继承至此，是为了使用role指针
+//绘制带人物头像的简明状态
+//注意，部分类型继承此类，是为了使用role指针
 class Head : public Element
 {
 protected:

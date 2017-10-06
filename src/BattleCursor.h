@@ -3,12 +3,15 @@
 #include "Types.h"
 #include "Head.h"
 
-//因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以操作选择行动目标
-class BattleOperator : public Element
+class BattleScene;
+
+//因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以操作光标
+//注意，AI选择目标的行为也在这里面
+class BattleCursor : public Element
 {
 public:
-    BattleOperator();
-    ~BattleOperator();
+    BattleCursor();
+    ~BattleCursor();
 
     int* select_x_ = nullptr, *select_y_ = nullptr;
     MapSquare* select_layer_ = nullptr, *effect_layer_ = nullptr;
@@ -33,8 +36,8 @@ public:
     void setMode(int m) { mode_ = m; }
     int getMode() { return mode_; }
 
-    Element* battle_scene_ = nullptr;
-    void setBattleScene(Element* element) { battle_scene_ = element; }
+    BattleScene* battle_scene_ = nullptr;
+    void setBattleScene(BattleScene* b) { battle_scene_ = b; }
 
     void dealEvent(BP_Event& e) override;
 

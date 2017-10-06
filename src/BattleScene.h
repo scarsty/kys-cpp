@@ -4,7 +4,7 @@
 #include "Point.h"
 #include <stack>
 #include "BattleMenu.h"
-#include "BattleOperator.h"
+#include "BattleCursor.h"
 #include "UIStatus.h"
 
 class BattleScene : public Scene
@@ -19,7 +19,7 @@ public:
     std::vector<Role*> battle_roles_;
 
     BattleMenu* battle_menu_;
-    BattleOperator* battle_operator_;
+    BattleCursor* battle_cursor_;
     Head* head_self_;
     UIStatus* ui_status_;
 
@@ -48,7 +48,8 @@ public:
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
-    virtual void onEntrance();
+    virtual void onEntrance() override;
+    virtual void onExit() override;
 
     void setRoleInitState(Role* r);
     void readFightFrame(Role* r);

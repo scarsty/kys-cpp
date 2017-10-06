@@ -5,18 +5,18 @@
 
 #define CONNECT(a,b) a##b
 
-//游戏执行和绘制的基础节点，凡需要显示画面或者处理事件的，均继承自此
+//游戏执行和绘制的基础类，凡需要显示画面或者处理事件的，均继承自此
 class Element
 {
 private:
-    static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个向量中
+    static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个静态向量中
     static int prev_present_ticks_;
 protected:
     std::vector<Element*> childs_;
     bool visible_ = true;
     int result_ = -1;
-    int full_window_ = 0;              //不为0时表示当前画面为起始层，低于本画面的层将不予显示
-    bool exit_ = true;                //子类的过程中设此值为true，即表示退出
+    int full_window_ = 0;              //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
+    bool exit_ = true;                 //子类的过程中设此值为true，即表示下一个循环将退出
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -93,7 +93,7 @@ public:
 
     void exitWithResult(int r) { setExit(true); result_ = r; }
 
-    //需要通常退出的请复制这两个
+    //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现
     //virtual void pressedOK() override { exitWithResult(0); }
     //virtual void pressedCancel() override { exitWithResult(-1); }
 
