@@ -8,7 +8,7 @@ PointEx::PointEx()
     {
         child[i] = nullptr;
     }
-    towards = LeftDown;
+    towards = Towards_LeftDown;
 }
 
 void PointEx::delTree(PointEx* root)

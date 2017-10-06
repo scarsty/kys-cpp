@@ -1,10 +1,19 @@
 #pragma once
 #include "Menu.h"
+#include "Head.h"
 
-class BattleMenu : public Menu
+class BattleMenu : public MenuText
 {
 public:
     BattleMenu();
     virtual ~BattleMenu();
+
+    virtual void onEntrance() override;
+
+    Role* role = nullptr;
+    void setRole(Role* r) { role = r; }
+    int runAsRole(Role* r);
 };
+
+
 

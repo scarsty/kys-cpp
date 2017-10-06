@@ -1,7 +1,7 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 class UISystem :
-    public Base
+    public Element
 {
 public:
     UISystem();

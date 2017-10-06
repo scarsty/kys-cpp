@@ -57,7 +57,7 @@ private:
     BP_Texture* tex_ = nullptr, *tex2_ = nullptr, *logo_ = nullptr;
     BP_AudioSpec want_, spec_;
     BP_Rect rect_;
-    BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; };
+    BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; }
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
@@ -88,7 +88,7 @@ public:
     void getMainTextureSize(int& w, int& h) { SDL_QueryTexture(tex2_, nullptr, nullptr, &w, &h); }
     void destroyAssistTexture() { if (tex2_) { destroyTexture(tex2_); } }
     static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
-    BP_Texture* createYUVTexture(int w, int h);;
+    BP_Texture* createYUVTexture(int w, int h);
     void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
     BP_Texture* createARGBTexture(int w, int h);
     BP_Texture* createARGBRenderedTexture(int w, int h);
@@ -130,7 +130,7 @@ public:
     void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume);
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
     static void mixAudioCallback(void* userdata, Uint8* stream, int len);
-    void setAudioCallback(AudioCallback cb = nullptr) { callback_ = cb; };
+    void setAudioCallback(AudioCallback cb = nullptr) { callback_ = cb; }
 
     //事件相关
 private:
@@ -162,7 +162,7 @@ public:
     void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);
 public:
     //标题;
-    std::string title_ = "All Heros in Kam Yung Stories";
+    std::string title_ = "All Heroes in Kam Yung Stories";
 };
 
 //这里直接照搬SDL

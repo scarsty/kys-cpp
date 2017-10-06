@@ -3,29 +3,22 @@
 #include "Cloud.h"
 #include "Types.h"
 
-class MainMap : public Scene
+class MainScene : public Scene
 {
+private:
+    static MainScene main_map_;
+    MainScene();
+    ~MainScene();
+
 public:
-    MainMap();
-    ~MainMap();
+    static MainScene* getIntance() { return &main_map_; }
 
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
-    typedef int16_t MapArray[COORD_COUNT * COORD_COUNT];
-    static MapArray Earth_, Surface_, Building_, BuildX_, BuildY_, Entrance_;
+    MapSquare earth_layer_ , surface_layer_, building_layer_, build_x_layer_, build_y_layer_, entrance_layer_;
+    bool data_readed_ = false;
 
-    static int16_t& Earth(int x, int y) { return Earth_[x + y * COORD_COUNT]; }
-    static int16_t& Surface(int x, int y) { return Surface_[x + y * COORD_COUNT]; }
-    static int16_t& Building(int x, int y) { return Building_[x + y * COORD_COUNT]; }
-    static int16_t& BuildX(int x, int y) { return BuildX_[x + y * COORD_COUNT]; }
-    static int16_t& BuildY(int x, int y) { return BuildY_[x + y * COORD_COUNT]; }
+    void divide2(MapSquare& m);
 
-    static void divide2(MapArray& m);
-
-    static bool data_readed_;
-
-    int16_t& man_x_, &man_y_;
-    int step_ = 0;
-    int man_pic_;
     int rest_time_ = 0;                     //停止操作的时间
 
     int MAN_PIC_0 = 2501;                   //初始主角图偏移量
@@ -44,12 +37,12 @@ public:
 
     void draw() override;
     virtual void dealEvent(BP_Event& e) override;
-    virtual void entrance() override;
-    virtual void exit() override;
+    virtual void onEntrance() override;
+    virtual void onExit() override;
 
-    void tryWalk(int x, int y, Towards t);
+    void tryWalk(int x, int y);
     //void cloudMove();
-    void getEntrance();
+    void setEntrance();
 
     virtual bool isBuilding(int x, int y);
     bool isWater(int x, int y);
@@ -58,9 +51,5 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
-    bool checkEntrance(int x, int y);
-    void getMousePosition(int _x, int _y);
-
-    int total_step_ = 0;
-    BP_Keycode pre_pressed_;
+    bool checkEntrance(int x, int y);    //主地图主要是检测入口
 };

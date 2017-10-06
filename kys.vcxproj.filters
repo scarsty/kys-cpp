@@ -4,9 +4,6 @@
     <ClCompile Include="src\Audio.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Base.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Button.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -14,9 +11,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\File.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MainMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Menu.cpp">
@@ -31,9 +25,6 @@
     <ClCompile Include="src\Scene.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleData.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Application.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -44,12 +35,6 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\PotConv.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubMap.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleMap.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Types.cpp">
@@ -103,12 +88,39 @@
     <ClCompile Include="src\others\libconvert.cpp">
       <Filter>_others</Filter>
     </ClCompile>
+    <ClCompile Include="src\BattleScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MainScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SubScene.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleMap.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TeamMenu.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Util.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BattleOperator.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Element.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameUtil.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AutoBattle.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Base.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Button.h">
@@ -123,9 +135,6 @@
     <ClInclude Include="src\File.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\MainMap.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Menu.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -138,9 +147,6 @@
     <ClInclude Include="src\Scene.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleData.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Application.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -151,12 +157,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\PotConv.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SubMap.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleMap.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Types.h">
@@ -208,6 +208,39 @@
     <ClInclude Include="src\others\libconvert.h">
       <Filter>_others</Filter>
     </ClInclude>
+    <ClInclude Include="src\Random.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MainScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleMap.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TeamMenu.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleOperator.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Element.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameUtil.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AutoBattle.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">
@@ -225,10 +258,10 @@
     <Library Include="lib\SDL2_ttf.lib">
       <Filter>_lib</Filter>
     </Library>
-    <Library Include="lib\SDL2main.lib">
+    <Library Include="lib\libiconv.lib">
       <Filter>_lib</Filter>
     </Library>
-    <Library Include="lib\libiconv.lib">
+    <Library Include="lib\SDL2main.lib">
       <Filter>_lib</Filter>
     </Library>
   </ItemGroup>

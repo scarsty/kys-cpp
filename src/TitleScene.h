@@ -12,7 +12,7 @@ public:
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 
-    virtual void entrance() override;
+    virtual void onEntrance() override;
 
     bool b_s = true;
     int m_y = 15;

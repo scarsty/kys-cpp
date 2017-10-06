@@ -48,35 +48,32 @@ bool Save::LoadR(int num)
     std::string filenamed = getFilename(num, 'd');
     std::string filename_idx = "../game/save/ranger.idx";
 
-    auto Rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
+    auto rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
     int c = 0;
-    memcpy(this, Rgrp + offset_[c], length_[c]);
+    memcpy(&InShip, rgrp + offset_[c], length_[c]);
 
-    c = 1;
-    roles_.resize(length_[c] / sizeof(Role));
-    memcpy(&roles_[0], Rgrp + offset_[c], length_[c]);
-    c = 2;
-    items_.resize(length_[c] / sizeof(Item));
-    memcpy(&items_[0], Rgrp + offset_[c], length_[c]);
-    c = 3;
-    submap_records_.resize(length_[c] / sizeof(SubMapRecord));
-    memcpy(&submap_records_[0], Rgrp + offset_[c], length_[c]);
-    c = 4;
-    magics_.resize(length_[c] / sizeof(Magic));
-    memcpy(&magics_[0], Rgrp + offset_[c], length_[c]);
-    c = 5;
-    shops_.resize(length_[c] / sizeof(Shop));
-    memcpy(&shops_[0], Rgrp + offset_[c], length_[c]);
-    delete[] Rgrp;
+    File::readDataToVector(rgrp + offset_[1], length_[1], roles_, sizeof(RoleSave));
+    File::readDataToVector(rgrp + offset_[2], length_[2], items_, sizeof(ItemSave));
+    File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_, sizeof(SubMapInfoSave));
+    File::readDataToVector(rgrp + offset_[4], length_[4], magics_, sizeof(MagicSave));
+    File::readDataToVector(rgrp + offset_[5], length_[5], shops_, sizeof(ShopSave));
 
-    auto submap_count = submap_records_.size();
+    delete[] rgrp;
 
-    submap_data_.resize(submap_count);
-    File::readFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
+    auto submap_count = submap_infos_.size();
 
-    submap_event_.resize(submap_count * SUBMAP_EVENT_COUNT);
-    File::readFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
+    auto sdata = new char[submap_count * sdata_length_];
+    auto ddata = new char[submap_count * ddata_length_];
+    File::readFile(filenames, sdata, submap_count * sdata_length_);
+    File::readFile(filenamed, ddata, submap_count * ddata_length_);
+    for (int i = 0; i < submap_count; i++)
+    {
+        memcpy(&(submap_infos_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
+        memcpy(submap_infos_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
+    }
+    delete[] sdata;
+    delete[] ddata;
 
     //内部编码为cp936
     if (Encode != 936)
@@ -96,7 +93,7 @@ bool Save::LoadR(int num)
         {
             PotConv::fromCP950ToCP936(i.Name);
         }
-        for (auto& i : submap_records_)
+        for (auto& i : submap_infos_)
         {
             PotConv::fromCP950ToCP936(i.Name);
         }
@@ -113,25 +110,30 @@ bool Save::SaveR(int num)
     std::string filenames = getFilename(num, 's');
     std::string filenamed = getFilename(num, 'd');
 
-    char* Rgrp = new char[offset_.back()];
-    int c = 0;
-    memcpy(Rgrp + offset_[c], this, length_[c]);
-    c = 1;
-    memcpy(Rgrp + offset_[c], &roles_[0], length_[c]);
-    c = 2;
-    memcpy(Rgrp + offset_[c], &items_[0], length_[c]);
-    c = 3;
-    memcpy(Rgrp + offset_[c], &submap_records_[0], length_[c]);
-    c = 4;
-    memcpy(Rgrp + offset_[c], &magics_[0], length_[c]);
-    c = 5;
-    memcpy(Rgrp + offset_[c], &shops_[0], length_[c]);
-    File::writeFile(filenamer, Rgrp, offset_.back());
-    delete[] Rgrp;
+    char* rgrp = new char[offset_.back()];
+    memcpy(rgrp + offset_[0], &InShip, length_[0]);
+    File::writeVectorToData(rgrp + offset_[1], length_[1], roles_, sizeof(RoleSave));
+    File::writeVectorToData(rgrp + offset_[2], length_[2], items_, sizeof(ItemSave));
+    File::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_, sizeof(SubMapInfoSave));
+    File::writeVectorToData(rgrp + offset_[4], length_[4], magics_, sizeof(MagicSave));
+    File::writeVectorToData(rgrp + offset_[5], length_[5], shops_, sizeof(ShopSave));
 
-    auto submap_count = submap_records_.size();
-    File::writeFile(filenames, &submap_data_[0], submap_count * sizeof(SubMapLayerData));
-    File::writeFile(filenamed, &submap_event_[0], submap_count * SUBMAP_EVENT_COUNT * sizeof(SubMapEvent));
+    File::writeFile(filenamer, rgrp, offset_.back());
+    delete[] rgrp;
+
+    auto submap_count = submap_infos_.size();
+
+    auto sdata = new char[submap_count * sdata_length_];
+    auto ddata = new char[submap_count * ddata_length_];
+    for (int i = 0; i < submap_count; i++)
+    {
+        memcpy(sdata + sdata_length_ * i, &(submap_infos_[i].LayerData(0, 0, 0)), sdata_length_);
+        memcpy(ddata + ddata_length_ * i, submap_infos_[i].Event(0), ddata_length_);
+    }
+    File::writeFile(filenames, sdata, submap_count * sdata_length_);
+    File::writeFile(filenamed, ddata, submap_count * ddata_length_);
+    delete[] sdata;
+    delete[] ddata;
 
     return true;
 }
@@ -164,12 +166,12 @@ Item* Save::getItemByBagIndex(int i)
     return &(items_[r]);
 }
 
-int16_t Save::getItemCountByBagIndex(int i)
+SAVE_INT Save::getItemCountByBagIndex(int i)
 {
     return Items[i].count;
 }
 
-int16_t Save::getItemCountInBag(Item* item)
+SAVE_INT Save::getItemCountInBag(Item* item)
 {
     return getItemCountInBag(item->ID);
 }
@@ -193,7 +195,7 @@ void Save::makeMaps()
     roles_by_name_.clear();
     magics_by_name_.clear();
     items_by_name_.clear();
-    submap_records_by_name_.clear();
+    submap_infos_by_name_.clear();
 
     //有重名的，斟酌使用
     for (auto& i : roles_)
@@ -208,11 +210,29 @@ void Save::makeMaps()
     {
         items_by_name_[i.Name] = &i;
     }
-    for (auto& i : submap_records_)
+    for (auto& i : submap_infos_)
     {
-        submap_records_by_name_[i.Name] = &i;
+        submap_infos_by_name_[i.Name] = &i;
     }
 
+}
+
+Magic* Save::getRoleLearnedMagic(Role* r, int i)
+{
+    if (i < 0 || i >= ROLE_MAGIC_COUNT) { return nullptr; }
+    return getMagic(r->MagicID[i]);
+}
+
+int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
+{
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (r->MagicID[i] == m->ID)
+        {
+            return r->getMagicLevelIndex(i);
+        }
+    }
+    return -1;
 }
 
 char* Save::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)

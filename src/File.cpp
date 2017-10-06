@@ -1,22 +1,32 @@
 ﻿#include "File.h"
 #include <iostream>
-
-File File::file;
+#include <fstream>
 
 File::File()
 {
 }
 
-
 File::~File()
 {
 }
 
-/**
-*  读取文件
-*  @param [in] 文件路径，缓存容器，文件大小
-*  @return 文件读取成功返回true，失败返回false
-*/
+bool File::fileExist(const std::string& filename)
+{
+    if (filename.length() <= 0)
+    {
+        return false;
+    }
+
+    std::fstream file;
+    bool ret = false;
+    file.open(filename.c_str(), std::ios::in);
+    if (file)
+    {
+        ret = true;
+        file.close();
+    }
+    return ret;
+}
 
 bool File::readFile(const std::string& filename, char** s, int* len)
 {

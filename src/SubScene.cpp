@@ -1,37 +1,34 @@
-#include "SubMap.h"
-#include "MainMap.h"
-#include "BattleMap.h"
+#include "SubScene.h"
+#include "MainScene.h"
+#include "BattleScene.h"
 #include "Event.h"
 #include "UI.h"
+#include "Audio.h"
 
 
-SubMap::SubMap() :
-    man_x_(Save::getInstance()->SubMapX),
-    man_y_(Save::getInstance()->SubMapY)
+SubScene::SubScene()
 {
     full_window_ = 1;
 }
 
-SubMap::SubMap(int num) : SubMap()
+SubScene::SubScene(int id) : SubScene()
 {
-    setSceneNum(num);
-    record_ = Save::getInstance()->getSubMapRecord(num);
-    record_->ID = num;
-    setPosition(record_->EntranceX, record_->EntranceY);
+    setID(id);
 }
 
-SubMap::~SubMap()
+SubScene::~SubScene()
 {
 
 }
 
-void SubMap::draw()
+void SubScene::draw()
 {
     int k = 0;
     struct DrawInfo { int i; Point p; };
     //std::map<int, DrawInfo> map;
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
+    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -47,15 +44,18 @@ void SubMap::draw()
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
-            if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
+            p.x += x_;
+            p.y += y_;
+            if (!isOutLine(i1, i2))
             {
-                int h = record_->BuildingHeight(i1, i2);
-                int num = record_->Earth(i1, i2) / 2;
-                //无高度闪烁地面
+                int h = submap_info_->BuildingHeight(i1, i2);
+                int num = submap_info_->Earth(i1, i2) / 2;
+                //无高度地面
                 if (num > 0 && h == 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                     /*auto tex = TextureManager::getInstance()->loadTexture("smap", num);
+                    //用大图画时的闪烁地面
                     if (tex->count > 1)
                     {
                         TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
@@ -72,11 +72,13 @@ void SubMap::draw()
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
             auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
-            if (i1 >= 0 && i1 < COORD_COUNT && i2 >= 0 && i2 < COORD_COUNT)
+            p.x += x_;
+            p.y += y_;
+            if (!isOutLine(i1, i2))
             {
                 //有高度地面
-                int h = record_->BuildingHeight(i1, i2);
-                int num = record_->Earth(i1, i2) / 2;
+                int h = submap_info_->BuildingHeight(i1, i2);
+                int num = submap_info_->Earth(i1, i2) / 2;
 #ifndef _DEBUG
                 if (num > 0 && h > 0)
                 {
@@ -84,7 +86,7 @@ void SubMap::draw()
                 }
 #endif
                 //建筑和主角
-                num = record_->Building(i1, i2) / 2;
+                num = submap_info_->Building(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
@@ -93,15 +95,15 @@ void SubMap::draw()
                 {
                     if (man_pic_ != -1)
                     {
-                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;  //每个方向的第一张是静止图
                         TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                     }
                 }
                 //事件
-                auto event = record_->Event(i1, i2);
+                auto event = submap_info_->Event(i1, i2);
                 if (event)
                 {
-                    num = record_->Event(i1, i2)->CurrentPic / 2;
+                    num = submap_info_->Event(i1, i2)->CurrentPic / 2;
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
@@ -109,139 +111,106 @@ void SubMap::draw()
                     }
                 }
                 //装饰
-                num = record_->Decoration(i1, i2) / 2;
+                num = submap_info_->Decoration(i1, i2) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - record_->DecorationHeight(i1, i2));
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(i1, i2));
                 }
             }
             //k++;
         }
     }
+    Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void SubMap::dealEvent(BP_Event& e)
+void SubScene::dealEvent(BP_Event& e)
 {
+    //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
-    //drawCount++;
-    if (e.type == BP_MOUSEBUTTONUP)
+    //功能键
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
+        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
     {
-        getMousePosition(e.button.x, e.button.y);
-        stopFindWay();
-        if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
+        UI::getInstance()->run();
+        clearEvent(e);
+    }
+
+    //键盘走路部分，检测4个方向键
+    int pressed = 0;
+    for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
+    {
+        if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
         {
-            FindWay(view_x_, view_y_, mouse_x_, mouse_y_);
+            pressed = i;
         }
     }
-    if (!way_que_.empty())
+    if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
     {
-        PointEx newMyPoint = way_que_.back();
-        x = newMyPoint.x;
-        y = newMyPoint.y;
-        isExit(x, y);
-        Towards myTowards = (Towards)(newMyPoint.towards);
-        //log("myTowards=%d", myTowards);
-        tryWalk(x, y, myTowards);
-        way_que_.pop_back();
-        //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+        pressed = pre_pressed_;
     }
-    if (e.type == BP_KEYDOWN)
+    pre_pressed_ = pressed;
+
+    if (pressed)
     {
-        //这部分冗余太多，待清理
-        switch (e.key.keysym.sym)
+        auto tw = getTowardsFromKey(pressed);
+        if (tw != Towards_None) { towards_ = tw; }
+        getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+        tryWalk(x, y);
+        if (total_step_ < 1)
         {
-        case BPK_LEFT:
-        {
-            x--;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, LeftDown);
-            stopFindWay();
-            break;
+            Engine::getInstance()->delay(100);
         }
-        case BPK_RIGHT:
-        {
-            x++;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, RightUp);
-            stopFindWay();
-            break;
-        }
-        case BPK_UP:
-        {
-            y--;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, LeftUp);
-            stopFindWay();
-            break;
-        }
-        case BPK_DOWN:
-        {
-            y++;
-            if (isExit(x, y))
-            {
-                break;
-            }
-            tryWalk(x, y, RightDown);
-            stopFindWay();
-            break;
-        }
-        case BPK_ESCAPE:
-        {
-            stopFindWay();
-            break;
-        }
-        case BPK_RETURN:
-        case BPK_SPACE:
-        {
-            /* stopFindWay();
-             ReSetEventPosition(x, y);
-             if (current_submap_->Building();
-             Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y] >= 0)
-                 if (Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1 >= 0)
-                     EventManager::getInstance()->callEvent(Save::getInstance()->m_SceneEventData[scene_id_].Data[Save::getInstance()->m_SceneMapData[scene_id_].Data[3][x][y]].Event1);
-            */
-            break;
-        }
-        case SDLK_b:
-        {
-            auto s = new BattleMap();
-            addOnRootTop(s);
-            break;
-        }
-        default:
-        {
-        }
-        }
+        total_step_++;
     }
-    if (e.type == BP_KEYUP)
+    else
     {
-        if (e.key.keysym.sym == BPK_ESCAPE)
+        total_step_ = 0;
+    }
+
+    if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+    {
+        if (checkEvent1(x, y, towards_))
         {
-            UI::getInstance()->run();
             clearEvent(e);
-        }
-        if (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)
-        {
-            if (checkEvent1(x, y, towards_)) { clearEvent(e); }
+            step_ = 0;
         }
     }
     checkEvent3(x, y);
+    if (isExit(x, y))
+    {
+        clearEvent(e);
+        total_step_ = 0;
+    }
+
+    //鼠标寻路，未完成
+    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+    {
+        //getMousePosition(e.button.x, e.button.y);
+        //stopFindWay();
+        //if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
+        //{
+        //    FindWay(view_x_, view_y_, mouse_x_, mouse_y_);
+        //}
+    }
+    //if (!way_que_.empty())
+    //{
+    //    PointEx newMyPoint = way_que_.back();
+    //    x = newMyPoint.x;
+    //    y = newMyPoint.y;
+    //    isExit(x, y);
+    //    Towards myTowards = (Towards)(newMyPoint.towards);
+    //    //log("myTowards=%d", myTowards);
+    //    tryWalk(x, y, myTowards);
+    //    way_que_.pop_back();
+    //    //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+    //}
 }
 
-void SubMap::backRun()
+void SubScene::backRun()
 {
     for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
     {
-        auto e = record_->Event(i);
+        auto e = submap_info_->Event(i);
         //if (e->PicDelay > 0)
         {
             e->CurrentPic++;
@@ -255,8 +224,15 @@ void SubMap::backRun()
 }
 
 //一大块地面的纹理，未启用
-void SubMap::entrance()
+void SubScene::onEntrance()
 {
+    calViewRegion();
+    submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
+    if (submap_info_ == nullptr) { setExit(true); }
+    submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
+    setPosition(submap_info_->EntranceX, submap_info_->EntranceY);
+    exit_music_ = submap_info_->ExitMusic;
+    Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 
@@ -278,8 +254,9 @@ void SubMap::entrance()
     //Engine::getInstance()->resetRenderTarget();
 }
 
-void SubMap::exit()
+void SubScene::onExit()
 {
+    Audio::getInstance()->playMusic(exit_music_);
     //if (earth_texture_)
     //{
     //    Engine::destroyTexture(earth_texture_);
@@ -287,48 +264,47 @@ void SubMap::exit()
 }
 
 //冗余过多待清理
-void SubMap::tryWalk(int x, int y, Towards t)
+void SubScene::tryWalk(int x, int y)
 {
     if (canWalk(x, y))
     {
-        setPosition(x, y);
+        man_x_ = x;
+        man_y_ = y;
+        view_x_ = x;
+        view_y_ = y;
     }
-    if (Scene::towards_ != t)
+    step_++;
+    if (step_ >= MAN_PIC_COUNT)
     {
-        Scene::towards_ = t;
-        step_ = 0;
+        step_ = 1;
     }
-    else
-    {
-        step_++;
-    }
-    step_ = step_ % MAN_PIC_COUNT;
 }
 
-bool SubMap::checkEvent(int x, int y, Towards t /*= None*/, int item_id /*= -1*/)
+bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
 {
-    getTowardsPosition(man_x_, man_y_, t, &x, &y);
-    int event_index_submap = record_->EventIndex(x, y);
+    getTowardsPosition(man_x_, man_y_, tw, &x, &y);
+    int event_index_submap = submap_info_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
         int id;
-        if (t != None)
+        if (tw != Towards_None)
         {
-            id = record_->Event(x, y)->Event1;
+            id = submap_info_->Event(x, y)->Event1;
+            if (id > 0) { step_ = 0; }
         }
         else
         {
-            id = record_->Event(x, y)->Event3;
+            id = submap_info_->Event(x, y)->Event3;
         }
         if (id > 0)
         {
-            return Event::getInstance()->callEvent(id, this, record_->ID, item_id, event_index_submap, x, y);
+            return Event::getInstance()->callEvent(id, this, submap_info_->ID, item_id, event_index_submap, x, y);
         }
     }
     return false;
 }
 
-bool SubMap::canWalk(int x, int y)
+bool SubScene::canWalk(int x, int y)
 {
     bool ret = true;
     if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y)
@@ -343,9 +319,9 @@ bool SubMap::canWalk(int x, int y)
     return ret;
 }
 
-bool SubMap::isBuilding(int x, int y)
+bool SubScene::isBuilding(int x, int y)
 {
-    return record_->Building(x, y) > 0;
+    return submap_info_->Building(x, y) > 0;
     //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
     //{
     //    return false;
@@ -356,14 +332,14 @@ bool SubMap::isBuilding(int x, int y)
     //}
 }
 
-bool SubMap::isOutLine(int x, int y)
+bool SubScene::isOutLine(int x, int y)
 {
     return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
 
-bool SubMap::isWater(int x, int y)
+bool SubScene::isWater(int x, int y)
 {
-    int num = record_->Earth(x, y) / 2;
+    int num = submap_info_->Earth(x, y) / 2;
     if (num >= 179 && num <= 181
         || num == 261 || num == 511
         || num >= 662 && num <= 665
@@ -374,9 +350,9 @@ bool SubMap::isWater(int x, int y)
     return false;
 }
 
-bool SubMap::isCanPassEvent(int x, int y)
+bool SubScene::isCanPassEvent(int x, int y)
 {
-    auto e = record_->Event(x, y);
+    auto e = submap_info_->Event(x, y);
     if (e && !e->CannotWalk)
     {
         return true;
@@ -384,9 +360,9 @@ bool SubMap::isCanPassEvent(int x, int y)
     return false;
 }
 
-bool SubMap::isCannotPassEvent(int x, int y)
+bool SubScene::isCannotPassEvent(int x, int y)
 {
-    auto e = record_->Event(x, y);
+    auto e = submap_info_->Event(x, y);
     if (e && e->CannotWalk)
     {
         return true;
@@ -395,7 +371,7 @@ bool SubMap::isCannotPassEvent(int x, int y)
 }
 
 //what is this?
-bool SubMap::isFall(int x, int y)
+bool SubScene::isFall(int x, int y)
 {
     //if (abs(Save::getInstance()->m_SceneMapData[scene_id_].Data[4][x][y] -
     //Save::getInstance()->m_SceneMapData[scene_id_].Data[4][Cx][Cy] > 10))
@@ -405,25 +381,25 @@ bool SubMap::isFall(int x, int y)
     return false;
 }
 
-bool SubMap::isExit(int x, int y)
+bool SubScene::isExit(int x, int y)
 {
-    if (record_->ExitX[0] == x && record_->ExitY[0] == y
-        || record_->ExitX[1] == x && record_->ExitY[1] == y
-        || record_->ExitX[2] == x && record_->ExitY[2] == y)
+    if (submap_info_->ExitX[0] == x && submap_info_->ExitY[0] == y
+        || submap_info_->ExitX[1] == x && submap_info_->ExitY[1] == y
+        || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
     {
-        loop_ = false;
+        setExit(true);
         Save::getInstance()->InSubmap = 1;
         return true;
     }
     return false;
 }
 
-bool SubMap::isOutScreen(int x, int y)
+bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
 }
 
-void SubMap::getMousePosition(int _x, int _y)
+void SubScene::getMousePosition(int _x, int _y)
 {
     //int x = _x;
     //int y = _y;
@@ -433,11 +409,11 @@ void SubMap::getMousePosition(int _x, int _y)
     //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
-Point SubMap::getPositionOnWholeEarth(int x, int y)
+Point SubScene::getPositionOnWholeEarth(int x, int y)
 {
     auto p = getPositionOnScreen(x, y, 0, 0);
-    p.x += COORD_COUNT * SUBMAP_TILE_W - screen_center_x_;
-    p.y += 2 * SUBMAP_TILE_H - screen_center_y_;
+    p.x += COORD_COUNT * TILE_W - screen_center_x_;
+    p.y += 2 * TILE_H - screen_center_y_;
     return p;
 }
 

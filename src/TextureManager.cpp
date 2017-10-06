@@ -18,28 +18,85 @@ TextureManager::~TextureManager()
     }
 }
 
-void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom)
+void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t alpha)
 {
-    auto tex = loadTexture(path, num);
-    renderTexture(tex, x, y, c, alpha, zoom);
+    if (tex && tex->tex[0])
+    {
+        auto engine = Engine::getInstance();
+        engine->setColor(tex->tex[rand() % tex->count], c, alpha);
+        engine->renderCopy(tex->tex[rand() % tex->count], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
+    }
 }
 
-void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom)
+void TextureManager::renderTexture(const std::string& path, int num, BP_Rect r, BP_Color c, uint8_t alpha)
+{
+    auto tex = loadTexture(path, num);
+    renderTexture(tex, r, c, alpha);
+}
+
+void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
 {
     auto engine = Engine::getInstance();
     if (tex && tex->tex[0])
     {
         engine->setColor(tex->tex[rand() % tex->count], c, alpha);
-        engine->renderCopy(tex->tex[rand() % tex->count], x - tex->dx, y - tex->dy, tex->w * zoom, tex->h * zoom);
+        engine->renderCopy(tex->tex[rand() % tex->count], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
     }
+}
+
+void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
+{
+    auto tex = loadTexture(path, num);
+    renderTexture(tex, x, y, c, alpha, zoom_x, zoom_y);
 }
 
 Texture* TextureManager::loadTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
-    auto engine = Engine::getInstance();
     auto& v = texture_manager_.map_[path];
     //纹理组信息
+    if (getTextureGroupCount(path) == 0)
+    {
+        return nullptr;
+    }
+    //纹理信息
+    if (num < 0 || num >= v.size())
+    {
+        return nullptr;
+    }
+    auto& t = v[num];
+    if (!t->loaded)
+    {
+        loadTexture2(path, num, t);
+    }
+    return t;
+}
+
+int TextureManager::getTextureGroupCount(const std::string& path)
+{
+    auto& v = texture_manager_.map_[path];
+
+    if (v.size() == 0)
+    {
+        initialTextureGroup(path);
+    }
+
+    if (v.size() == 1 && v[0] == nullptr)
+    {
+        return 0;
+    }
+    else
+    {
+        return v.size();
+    }
+}
+
+void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
+{
+    auto p = path_ + path;
+    auto& v = texture_manager_.map_[path];
+    //纹理组信息
+    //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针
     if (v.size() == 0)
     {
         char* s;
@@ -50,7 +107,7 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
         {
             v.resize(1);
             v[0] = nullptr;
-            return nullptr;
+            return;
         }
         v.resize(l);
         for (int i = 0; i < l; i++)
@@ -62,17 +119,24 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
         delete s;
         printf("Load texture group from path: %s, find %d textures\n", p.c_str(), l);
     }
-
-    //纹理信息
-    if (num < 0 || num >= v.size())
+    if (load_all)
     {
-        return nullptr;
+        auto engine = Engine::getInstance();
+        for (int i = 0; i < v.size(); i++)
+        {
+            loadTexture2(path, i, v[i]);
+        }
     }
-    auto& t = v[num];
+}
+
+//这个内部使用
+void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
+{
+    auto p = path_ + path;
     if (!t->loaded)
     {
-        printf("Load texture %s, %d\n", p.c_str(), num);
-        t->tex[0] = engine->loadImage(p + "/" + std::to_string(num) + ".png");
+        //printf("Load texture %s, %d\n", p.c_str(), num);
+        t->tex[0] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + ".png");
         if (t->tex[0])
         {
 
@@ -81,7 +145,7 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
         {
             for (int i = 0; i < 10; i++)
             {
-                t->tex[i] = engine->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
+                t->tex[i] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
                 if (!t->tex[i])
                 {
                     t->count = i;
@@ -89,11 +153,7 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
                 }
             }
         }
-        engine->queryTexture(t->tex[0], &t->w, &t->h);
+        Engine::getInstance()->queryTexture(t->tex[0], &t->w, &t->h);
         t->loaded = true;
     }
-    return t;
-    //这里使用了随机数应该是水面的特效，这里之前和读取图像写到了一起，以后有机会改进一下
-    //if (t.count)
-    //{ engine->renderCopy(t.tex[rand() % t.count], x - t.dx, y - t.dy, t.w, t.h); }
 }

@@ -1,7 +1,7 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 
-class Button : public Base
+class Button : public Element
 {
 public:
     Button() {}

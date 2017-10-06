@@ -1,11 +1,12 @@
 #include "TitleScene.h"
 #include "Menu.h"
-#include "MainMap.h"
-#include "BattleData.h"
+#include "MainScene.h"
+#include "BattleScene.h"
 #include "Event.h"
-#include "SubMap.h"
+#include "SubScene.h"
 #include "Button.h"
 #include "Audio.h"
+#include "TeamMenu.h"
 
 TitleScene::TitleScene()
 {
@@ -14,14 +15,13 @@ TitleScene::TitleScene()
     menu_->setTexture(TextureManager::getInstance()->loadTexture("title", 17));
     menu_->setPosition(400, 250);
     auto b = new Button("title", 3, 23, 23);
-    menu_->addChildOnPosition(b, 20, 0);
+    menu_->addChild(b, 20, 0);
     b = new Button("title", 4, 24, 24);
-    menu_->addChildOnPosition(b, 20, 50);
+    menu_->addChild(b, 20, 50);
     b = new Button("title", 6, 26, 26);
-    menu_->addChildOnPosition(b, 20, 100);
+    menu_->addChild(b, 20, 100);
     menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
     menu_load_->setPosition(500, 300);
-
 }
 
 TitleScene::~TitleScene()
@@ -49,29 +49,31 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
-
+        auto m = new TeamMenu();
+        m->run();
+        MainScene::getIntance()->run();
     }
     if (r == 1)
     {
-        auto s = new SubMap(2);
+        auto s = new SubScene(2);
         s->run();
-        auto m = new MainMap();
-        m->run();
+        delete s;
+        MainScene::getIntance()->run();
         //menu_load_->run();
     }
     if (r == 2)
     {
-        loop_ = false;
+        auto b = new BattleScene(132);
+        b->run();
+        delete b;
+        setExit(true);
     }
 }
 
-void TitleScene::entrance()
+void TitleScene::onEntrance()
 {
     Save::getInstance()->LoadR(2);
-	Audio::getInstance()->init();
-	Audio::getInstance()->playMusic(3);
-	//Audio::getInstance()->playESound(1);
-//     auto m = new MainMap();
-//     m->run();
+    //Audio::getInstance()->playMusic(3);
+    //Audio::getInstance()->playESound(1);
 }
 

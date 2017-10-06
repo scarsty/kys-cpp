@@ -1,19 +1,24 @@
 #include "Scene.h"
 #include <queue>
 
-Towards Scene::towards_;
-
 Scene::Scene()
+{
+}
+
+Scene::~Scene()
+{
+}
+
+void Scene::calViewRegion()
 {
     Engine::getInstance()->getMainTextureSize(screen_center_x_, screen_center_y_);
     screen_center_x_ /= 2;
     screen_center_y_ /= 2;
-    view_width_region_ = screen_center_x_ / SUBMAP_TILE_W / 2 + 3;
-    view_sum_region_ = screen_center_y_ / SUBMAP_TILE_H + 2;
+    view_width_region_ = screen_center_x_ / TILE_W / 2 + 3;
+    view_sum_region_ = screen_center_y_ / TILE_H + 2;
 }
 
-
-Scene::~Scene()
+void Scene::checkWalk(int x, int y, BP_Event& e)
 {
 }
 
@@ -22,8 +27,8 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
     Point p;
     x = x - CenterX;
     y = y - CenterY;
-    p.x = -y * SUBMAP_TILE_W + x * SUBMAP_TILE_W + screen_center_x_;
-    p.y = y * SUBMAP_TILE_H + x * SUBMAP_TILE_H + screen_center_y_;
+    p.x = -y * TILE_W + x * TILE_W + screen_center_x_;
+    p.y = y * TILE_H + x * TILE_H + screen_center_y_;
     return p;
 }
 
@@ -35,11 +40,12 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
 //    return p;
 //}
 
-Towards Scene::CallFace(int x1, int y1, int x2, int y2)
+//角色处于x1，y1，朝向x2，y2时，脸的方向
+int Scene::calFace(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
-    d1 = x2 - x1;
-    d2 = y2 - y1;
+    d1 = y2 - y1;
+    d2 = x2 - x1;
     dm = abs(d1) - abs(d2);
     if ((d1 != 0) || (d2 != 0))
     {
@@ -47,25 +53,63 @@ Towards Scene::CallFace(int x1, int y1, int x2, int y2)
         {
             if (d1 < 0)
             {
-                return LeftUp;
+                return Towards_LeftUp;
             }
             else
             {
-                return RightDown;
+                return Towards_RightDown;
             }
         }
         else
         {
             if (d2 < 0)
             {
-                return LeftDown;
+                return Towards_LeftDown;
             }
             else
             {
-                return RightUp;
+                return Towards_RightUp;
             }
         }
     }
+    return Towards_None;
+}
+
+int Scene::getTowardsFromKey(BP_Keycode key)
+{
+    auto tw = Towards_None;
+    switch (key)
+    {
+    case BPK_LEFT: tw = Towards_LeftDown; break;
+    case BPK_RIGHT: tw = Towards_RightUp; break;
+    case BPK_UP: tw = Towards_LeftUp; break;
+    case BPK_DOWN: tw = Towards_RightDown; break;
+    }
+    return tw;
+}
+
+void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
+{
+    if (tw == Towards_None) { return; }
+    *x1 = x0;
+    *y1 = y0;
+    switch (tw)
+    {
+    case Towards_LeftDown: (*x1)--; break;
+    case Towards_RightUp: (*x1)++; break;
+    case Towards_LeftUp: (*y1)--; break;
+    case Towards_RightDown: (*y1)++; break;
+    }
+}
+
+void Scene::getMousePosition(Point* point)
+{
+    int x = point->x;
+    int y = screen_center_y_ * 2 - point->y;
+    //int yp = 0;
+    //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
+    //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
+    //mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
 }
 
 //A*
@@ -76,7 +120,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     auto myPoint = new PointEx();
     myPoint->x = Mx;
     myPoint->y = My;
-    myPoint->towards = CallFace(Mx, My, Fx, Fy);
+    myPoint->towards = calFace(Mx, My, Fx, Fy);
     myPoint->parent = myPoint;
     myPoint->Heuristic(Fx, Fy);
     //log("Fx=%d,Fy=%d", Fx, Fy);
@@ -151,4 +195,5 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     }
     myPoint->delTree(myPoint);
 }
+
 

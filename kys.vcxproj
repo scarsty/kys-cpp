@@ -165,12 +165,15 @@
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
-    <ClCompile Include="src\Base.cpp" />
-    <ClCompile Include="src\BattleData.cpp" />
+    <ClCompile Include="src\AutoBattle.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
+    <ClCompile Include="src\BattleOperator.cpp" />
+    <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
+    <ClCompile Include="src\Element.cpp" />
+    <ClCompile Include="src\GameUtil.cpp" />
     <ClCompile Include="src\Option.cpp" />
     <ClCompile Include="src\others\ini.cpp" />
     <ClCompile Include="src\others\INIReader.cpp" />
@@ -180,13 +183,14 @@
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="src\Font.cpp" />
     <ClCompile Include="src\Head.cpp" />
+    <ClCompile Include="src\TeamMenu.cpp" />
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="src\others\libconvert.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
-    <ClCompile Include="src\SubMap.cpp" />
+    <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
     <ClCompile Include="src\kys.cpp" />
-    <ClCompile Include="src\MainMap.cpp" />
+    <ClCompile Include="src\MainScene.cpp" />
     <ClCompile Include="src\Menu.cpp" />
     <ClCompile Include="src\Point.cpp" />
     <ClCompile Include="src\Save.cpp" />
@@ -197,20 +201,25 @@
     <ClCompile Include="src\UISkill.cpp" />
     <ClCompile Include="src\UIStatus.cpp" />
     <ClCompile Include="src\UISystem.cpp" />
+    <ClCompile Include="src\Util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />
-    <ClInclude Include="src\Base.h" />
-    <ClInclude Include="src\BattleData.h" />
+    <ClInclude Include="src\AutoBattle.h" />
     <ClInclude Include="src\BattleMap.h" />
+    <ClInclude Include="src\BattleOperator.h" />
+    <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
     <ClInclude Include="src\Cloud.h" />
+    <ClInclude Include="src\Element.h" />
+    <ClInclude Include="src\GameUtil.h" />
     <ClInclude Include="src\Option.h" />
     <ClInclude Include="src\others\ini.h" />
     <ClInclude Include="src\others\INIReader.h" />
+    <ClInclude Include="src\Random.h" />
     <ClInclude Include="src\Talk.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Event.h" />
@@ -218,22 +227,24 @@
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\Font.h" />
     <ClInclude Include="src\Head.h" />
+    <ClInclude Include="src\TeamMenu.h" />
     <ClInclude Include="src\UI.h" />
     <ClInclude Include="src\others\libconvert.h" />
     <ClInclude Include="src\PotConv.h" />
     <ClInclude Include="src\TitleScene.h" />
-    <ClInclude Include="src\MainMap.h" />
+    <ClInclude Include="src\MainScene.h" />
     <ClInclude Include="src\Menu.h" />
     <ClInclude Include="src\Point.h" />
     <ClInclude Include="src\Save.h" />
     <ClInclude Include="src\Scene.h" />
-    <ClInclude Include="src\SubMap.h" />
+    <ClInclude Include="src\SubScene.h" />
     <ClInclude Include="src\TextureManager.h" />
     <ClInclude Include="src\Types.h" />
     <ClInclude Include="src\UIItem.h" />
     <ClInclude Include="src\UISkill.h" />
     <ClInclude Include="src\UIStatus.h" />
     <ClInclude Include="src\UISystem.h" />
+    <ClInclude Include="src\Util.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="kys.rc" />

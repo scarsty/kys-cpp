@@ -1,5 +1,5 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 //#include "Head.h"
 //#include "UIStatus.h"
 //#include "UISkill.h"
@@ -14,7 +14,7 @@ class UISkill;
 class UIItem;
 class UISystem;
 
-class UI : public Base
+class UI : public Element
 {
 private:
     UI();
@@ -22,7 +22,7 @@ private:
     //UI菜单单例即可，无需重复创建
     static UI ui_;
 public:
-    virtual void entrance() override;
+    virtual void onEntrance() override;
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 

@@ -1,6 +1,6 @@
 #include "Event.h"
-#include "MainMap.h"
-#include "SubMap.h"
+#include "MainScene.h"
+#include "SubScene.h"
 #include "Menu.h"
 #include "Save.h"
 #include "PotConv.h"
@@ -8,22 +8,24 @@
 #include "Talk.h"
 #include "others/libconvert.h"
 #include "Audio.h"
+#include "GameUtil.h"
+#include "Random.h"
 
 Event Event::event_;
 
 Event::Event()
 {
     loadEventData();
-    talkup_ = new Talk();
-    talkdown_ = new Talk();
-    addChildOnPosition(talkup_);
-    addChildOnPosition(talkdown_, 0, 400);
+    talk_box_ = new Element();
+    talk_box_up_ = new Talk();
+    talk_box_down_ = new Talk();
+    talk_box_->addChild(talk_box_up_);
+    talk_box_->addChild(talk_box_down_, 0, 400);
     menu2_ = new MenuText({ "確認（Y）", "取消（N）" });
     menu2_->setPosition(300, 200);
     menu2_->arrange(0, 100, 100, 0);
     text_box_ = new TextBox();
     text_box_->setPosition(300, 300);
-    instance_ = true;
 }
 
 Event::~Event()
@@ -64,17 +66,15 @@ bool Event::loadEventData()
 }
 
 //返回值为是否成功执行事件
-bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, int event_index, int x, int y)
+bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
     save_ = Save::getInstance();
-    submap_ = dynamic_cast<SubMap*>(submap);
-    submap_record_ = nullptr;
+    subscene_ = dynamic_cast<SubScene*>(subscene);
     submap_id_ = -1;
-    if (submap)
+    if (subscene)
     {
-        submap_record_ = submap_->getRecord();
-        submap_id_ = submap_record_->ID;
+        submap_id_ = subscene_->getMapInfo()->ID;
     }
 
     item_id_ = item_id;
@@ -83,20 +83,21 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
     y_ = y;
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
-    addOnRootTop(this);
+    Element::addOnRootTop(talk_box_);
     int p = 0;
     bool loop = true;
     int i = 0;
     auto e = kdef_[event_id];
-    LOG("%d: ", event_id);
+    e.resize(e.size() + 20);  //后面的是缓冲区，避免出错
+    printf("%d: ", event_id);
     for (auto c : e)
     {
-        LOG("%d ", c);
+        printf("%d ", c);
     }
-    LOG("\n");
+    printf("\n");
     while (i < e.size() && loop)
     {
-        LOG("%d,", e[i]);
+        printf("%d,", e[i]);
         switch (e[i])
         {
             VOID_INSTRUCT_3(1, e, i, oldTalk);
@@ -129,7 +130,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             VOID_INSTRUCT_0(14, e, i, darkScence);
             VOID_INSTRUCT_0(15, e, i, dead);
             BOOL_INSTRUCT_1(16, e, i, inTeam);
-            VOID_INSTRUCT_5(17, e, i, setSubMapMapData);
+            VOID_INSTRUCT_5(17, e, i, setSubMapLayerData);
             BOOL_INSTRUCT_1(18, e, i, haveItemBool);
             VOID_INSTRUCT_2(19, e, i, oldSetScencePosition);
 
@@ -138,7 +139,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             VOID_INSTRUCT_0(22, e, i, zeroAllMP);
             VOID_INSTRUCT_2(23, e, i, setRoleUsePoison);
             //VOID_INSTRUCT_0(24, e, i, blank);
-            VOID_INSTRUCT_4(25, e, i, submapFromTo);
+            VOID_INSTRUCT_4(25, e, i, subMapViewFromTo);
             VOID_INSTRUCT_5(26, e, i, add3EventNum);
             VOID_INSTRUCT_3(27, e, i, playAnimation);
             BOOL_INSTRUCT_3(28, e, i, checkRoleMorality);
@@ -152,7 +153,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             VOID_INSTRUCT_4(35, e, i, setRoleMagic);
             BOOL_INSTRUCT_1(36, e, i, checkRoleSexual);
             VOID_INSTRUCT_1(37, e, i, addMorality);
-            VOID_INSTRUCT_4(38, e, i, changeScencePic);
+            VOID_INSTRUCT_4(38, e, i, changeSubMapPic);
             VOID_INSTRUCT_1(39, e, i, openSubMap);
 
             VOID_INSTRUCT_1(40, e, i, setTowards);
@@ -173,7 +174,7 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             }
             else
             {
-                instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]);
+                instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], &e[i + 8]);
             }
             i += 8;
             break;
@@ -181,8 +182,8 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             VOID_INSTRUCT_0(51, e, i, askSoftStar);
             VOID_INSTRUCT_0(52, e, i, showMorality);
             VOID_INSTRUCT_0(53, e, i, showFame);
-            VOID_INSTRUCT_0(54, e, i, openAllScence);
-            BOOL_INSTRUCT_2(55, e, i, checkEventNum);
+            VOID_INSTRUCT_0(54, e, i, openAllSubMap);
+            BOOL_INSTRUCT_2(55, e, i, checkEventID);
             VOID_INSTRUCT_1(56, e, i, addFame);
             VOID_INSTRUCT_0(57, e, i, breakStoneGate);
             VOID_INSTRUCT_0(58, e, i, fightForTop);
@@ -204,7 +205,9 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
             i += 1;
         }
     }
-    removeFromRoot(this);
+    Element::removeFromRoot(talk_box_);
+    talk_box_up_->setContent("");
+    talk_box_down_->setContent("");
     return true;
     //if (loop)
     //{ return 0; }
@@ -212,10 +215,10 @@ bool Event::callEvent(int event_id, Base* submap, int supmap_id, int item_id, in
     //{ return 1; }
 }
 
-SubMapRecord* Event::getSubMapRecordFromID(int submap_id)
+SubMapInfo* Event::getSubMapRecordFromID(int submap_id)
 {
-    auto submap_record = save_->getSubMapRecord(submap_id);
-    if (submap_record == nullptr) { submap_record = submap_record_; }
+    auto submap_record = save_->getSubMapInfo(submap_id);
+    if (submap_record == nullptr) { submap_record = subscene_->getMapInfo(); }
     return submap_record;
 }
 
@@ -223,9 +226,9 @@ SubMapRecord* Event::getSubMapRecordFromID(int submap_id)
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
     //talkup_->setVisible(true);
-    talkup_->setContent(talk_[talk_id]);
-    talkup_->setHeadID(head_id);
-    talkup_->run(false);
+    talk_box_up_->setContent(talk_[talk_id]);
+    talk_box_up_->setHeadID(head_id);
+    talk_box_up_->run(false);
     //talkup_->setVisible(false);
 }
 
@@ -244,7 +247,7 @@ void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int inde
     if (submap_id < 0) { submap_id = submap_id_; }
     if (submap_id < 0) { return; }
     if (event_index < 0) { event_index = event_index_; }
-    auto e = save_->getSubMapRecord(submap_id)->Event(event_index);
+    auto e = save_->getSubMapInfo(submap_id)->Event(event_index);
     //下面的值为-2表示不要修改
     if (cannotWalk >= -1) { e->CannotWalk = cannotWalk; }
     if (index >= -1) { e->Index = index; }
@@ -257,7 +260,7 @@ void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int inde
     if (picDelay >= -1) { e->PicDelay = picDelay; }
     if (x < -1) { x = e->X(); }
     if (y < -1) { y = e->Y(); }
-    e->setPosition(x, y, save_->getSubMapRecord(submap_id));
+    e->setPosition(x, y, save_->getSubMapInfo(submap_id));
 }
 
 //是否使用了某物品
@@ -336,12 +339,18 @@ void Event::rest()
 
 void Event::lightScence()
 {
-
+    if (subscene_)
+    {
+        subscene_->lightScene();
+    }
 }
 
 void Event::darkScence()
 {
-
+    if (subscene_)
+    {
+        subscene_->darkScene();
+    }
 }
 
 void Event::dead()
@@ -362,7 +371,7 @@ bool Event::inTeam(int role_id)
     return false;
 }
 
-void Event::setSubMapMapData(int submap_id, int layer, int x, int y, int v)
+void Event::setSubMapLayerData(int submap_id, int layer, int x, int y, int v)
 {
     getSubMapRecordFromID(submap_id)->LayerData(layer, x, y) = v;
 }
@@ -374,9 +383,9 @@ bool Event::haveItemBool(int item_id)
 
 void Event::oldSetScencePosition(int x, int y)
 {
-    if (submap_)
+    if (subscene_)
     {
-        submap_->setPosition(x, y);
+        subscene_->setPosition(x, y);
     }
 }
 
@@ -410,7 +419,7 @@ void Event::setRoleUsePoison(int role_id, int v)
     save_->getRole(role_id)->UsePoison = v;
 }
 
-void Event::submapFromTo(int x0, int y0, int x1, int y1)
+void Event::subMapViewFromTo(int x0, int y0, int x1, int y1)
 {
 
 }
@@ -444,9 +453,9 @@ bool Event::checkRoleAttack(int role_id, int low, int high)
 
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
-    if (submap_)
+    if (subscene_)
     {
-        submap_->setPosition(x1, y1);
+        subscene_->setPosition(x1, y1);
     }
 }
 
@@ -483,6 +492,17 @@ void Event::getItemWithoutHint(int item_id, int count)
         save_->Items[pos].item_id == item_id;
         save_->Items[pos].count == count;
     }
+    //当物品数量为负，需要整理背包
+    if (save_->Items[pos].count <= 0)
+    {
+        for (int i=pos;i<ITEM_IN_BAG_COUNT-1;i++)
+        {
+            save_->Items[i].item_id = save_->Items[i+1].item_id;
+            save_->Items[i].count = save_->Items[i+1].count;
+        }
+        save_->Items[ITEM_IN_BAG_COUNT - 1].item_id = -1;
+        save_->Items[ITEM_IN_BAG_COUNT - 1].count = 0;
+    }
 }
 
 void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
@@ -514,10 +534,10 @@ bool Event::checkRoleSexual(int sexual)
 
 void Event::addMorality(int value)
 {
-    save_->getRole(0)->Morality = limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
+    save_->getRole(0)->Morality = GameUtil::limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
 }
 
-void Event::changeScencePic(int submap_id, int layer, int old_pic, int new_pic)
+void Event::changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic)
 {
     auto s = getSubMapRecordFromID(submap_id);
     if (s)
@@ -537,12 +557,12 @@ void Event::changeScencePic(int submap_id, int layer, int old_pic, int new_pic)
 
 void Event::openSubMap(int submap_id)
 {
-    save_->getSubMapRecord(submap_id)->EntranceCondition = 0;
+    save_->getSubMapInfo(submap_id)->EntranceCondition = 0;
 }
 
 void Event::setTowards(int towards)
 {
-    Scene::towards_ = (Towards)towards;
+    subscene_->towards_ = (Towards)towards;
 }
 
 void Event::roleGetItem(int role_id, int item_id, int count)
@@ -571,7 +591,7 @@ void Event::addSpeed(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->Speed;
-    r->Speed = limit(v0 + value, 0, MAX_SPEED);
+    r->Speed = GameUtil::limit(v0 + value, 0, MAX_SPEED);
     text_box_->setTitle(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
     text_box_->run();
 }
@@ -580,7 +600,7 @@ void Event::addMP(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxMP;
-    r->MaxMP = limit(v0 + value, 0, MAX_MP);
+    r->MaxMP = GameUtil::limit(v0 + value, 0, MAX_MP);
     text_box_->setTitle(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -589,7 +609,7 @@ void Event::addAttack(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->Attack;
-    r->Attack = limit(v0 + value, 0, MAX_ATTACK);
+    r->Attack = GameUtil::limit(v0 + value, 0, MAX_ATTACK);
     text_box_->setTitle(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
     text_box_->run();
 }
@@ -598,7 +618,7 @@ void Event::addHP(int role_id, int value)
 {
     auto r = save_->getRole(role_id);
     auto v0 = r->MaxHP;
-    r->MaxHP = limit(v0 + value, 0, MAX_HP);
+    r->MaxHP = GameUtil::limit(v0 + value, 0, MAX_HP);
     text_box_->setTitle(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
     text_box_->run();
 }
@@ -610,14 +630,13 @@ void Event::setMPType(int role_id, int value)
 
 bool Event::checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5)
 {
-
     return (haveItemBool(item_id1) && haveItemBool(item_id2) && haveItemBool(item_id3)
         && haveItemBool(item_id4) && haveItemBool(item_id5));
 }
 
 void Event::askSoftStar()
 {
-    oldTalk(2547 + rand() % 18, 114, 0);
+    oldTalk(2547 + RandomClassical::rand(18), 114, 0);
 }
 
 void Event::showMorality()
@@ -632,23 +651,23 @@ void Event::showFame()
     text_box_->run();
 }
 
-void Event::openAllScence()
+void Event::openAllSubMap()
 {
     int i = 0;
-    while (save_->getSubMapRecord(i))
+    while (save_->getSubMapInfo(i))
     {
-        save_->getSubMapRecord(i)->EntranceCondition = 0;
+        save_->getSubMapInfo(i)->EntranceCondition = 0;
         i++;
     }
-    save_->getSubMapRecord(2)->EntranceCondition = 2;
-    save_->getSubMapRecord(38)->EntranceCondition = 2;
-    save_->getSubMapRecord(75)->EntranceCondition = 1;
-    save_->getSubMapRecord(80)->EntranceCondition = 1;
+    save_->getSubMapInfo(2)->EntranceCondition = 2;
+    save_->getSubMapInfo(38)->EntranceCondition = 2;
+    save_->getSubMapInfo(75)->EntranceCondition = 1;
+    save_->getSubMapInfo(80)->EntranceCondition = 1;
 }
 
-bool Event::checkEventNum(int event_index, int value)
+bool Event::checkEventID(int event_index, int value)
 {
-    return false;
+    return subscene_->getMapInfo()->Event(event_index)->Event1 = value;
 }
 
 void Event::addFame(int value)
@@ -703,7 +722,7 @@ bool Event::check14BooksPlaced()
 {
     for (int i = 11; i <= 24; i++)
     {
-        if (submap_record_->Event(i)->CurrentPic != 4664)
+        if (subscene_->getMapInfo()->Event(i)->CurrentPic != 4664)
         {
             return false;
         }
@@ -731,11 +750,19 @@ void Event::playWave(int wave_id)
     Audio::getInstance()->playASound(wave_id);
 }
 
-int Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6)
+void Event::arrangeBag()
+{
+
+}
+
+void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
 {
     switch (code)
     {
-    case 0: break;
+    case 0:
+        //赋值
+        x50[e1] = e2;
+        break;
     case 1: break;
     case 2: break;
     case 3: break;
@@ -800,6 +827,5 @@ int Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6
     default:
         break;
     }
-    return 0;
 }
 

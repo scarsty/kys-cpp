@@ -24,23 +24,37 @@ void Menu::draw()
 
 void Menu::dealEvent(BP_Event& e)
 {
-    for (int i = 0; i < childs_.size(); i++)
+    if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
     {
-        if (childs_[i]->getResult() == 0)
+        for (int i = 0; i < childs_.size(); i++)
         {
-            result_ = i;
-            loop_ = false;
+            if (childs_[i]->getResult() == 0)
+            {
+                result_ = i;
+                setExit(true);
+            }
         }
     }
+    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
+    {
+        result_ = -1;
+        setExit(true);
+    }
+
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
 {
     for (auto c : childs_)
     {
-        c->setPosition(x_ + x, y_ + y);
-        x += inc_x;
-        y += inc_y;
+        if (c->getVisible())
+        {
+            c->setPosition(x_ + x, y_ + y);
+            x += inc_x;
+            y += inc_y;
+        }
     }
 }
 
@@ -59,7 +73,7 @@ void MenuText::setStrings(std::vector<std::string> strings)
         if (str.length() > len) { len = str.length(); }
         auto b = new Button();
         b->setText(str);
-        addChildOnPosition(b, 0, i * 25);
+        addChild(b, 0, i * 25);
         i++;
     }
     w_ = 10 * len;
@@ -79,6 +93,6 @@ void TextBox::dealEvent(BP_Event& e)
 {
     if (e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYUP)
     {
-        loop_ = false;
+        setExit(true);
     }
 }

@@ -1,9 +1,9 @@
 #pragma once
-#include "Base.h"
+#include "Element.h"
 #include "Button.h"
 #include "Menu.h"
 
-class UIItem : public Base
+class UIItem : public Element
 {
 public:
     UIItem();
