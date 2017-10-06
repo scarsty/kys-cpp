@@ -243,7 +243,7 @@ void Element::setChildState(int i, State s)
 int Element::findNextVisibleChild(int i0, int direct)
 {
     if (direct == 0 || childs_.size() == 0) { return i0; }
-    direct = direct/abs(direct);
+    direct = direct > 0 ? 1 : -1;
 
     int i1 = i0;
     for (int i = 1; i < childs_.size(); i++)
