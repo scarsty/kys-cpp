@@ -43,6 +43,7 @@ void BattleMenu::onEntrance()
     }
     //½ûÓÃµÈ´ý
     childs_[6]->setVisible(false);
+    setFontSize(20);
     arrange(0, 0, 0, 28);
 }
 
@@ -54,6 +55,7 @@ int BattleMenu::runAsRole(Role* r)
 
 void BattleMenu::dealEvent(BP_Event& e)
 {
+    Menu::dealEvent(e);
     if (battle_scene_ == nullptr) { return; }
     if (role_)
     {

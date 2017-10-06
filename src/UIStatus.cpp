@@ -21,7 +21,7 @@ void UIStatus::draw()
 
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };
-    const int font_size = 30;
+    const int font_size = 25;
     font->draw(convert::formatString("%s", role_->Name), font_size, x_ + 20, y_ + 150, color);
     font->draw(convert::formatString("µÈ¼‰%5d", role_->Level), font_size, x_ + 20, y_ + 190, color);
     font->draw(convert::formatString("ÉúÃü%5d/%5d", role_->HP, role_->MaxHP), font_size, x_ + 20, y_ + 230, color);

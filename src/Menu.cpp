@@ -4,6 +4,7 @@
 
 Menu::Menu()
 {
+    result_ = 0;
 }
 
 Menu::~Menu()
@@ -22,6 +23,41 @@ void Menu::draw()
     }
 }
 
+void Menu::dealEvent(BP_Event& e)
+{
+    //此处处理键盘响应
+    if (e.type == BP_KEYDOWN)
+    {
+        if (e.key.keysym.sym == BPK_LEFT || e.key.keysym.sym == BPK_UP)
+        {
+            setAllChildState(Normal);
+            result_ = findNextVisibleChild(result_, -1);
+            childs_[result_]->setState(Pass);
+        }
+        if (e.key.keysym.sym == BPK_RIGHT || e.key.keysym.sym == BPK_DOWN)
+        {
+            setAllChildState(Normal);
+            result_ = findNextVisibleChild(result_, 1);
+            childs_[result_]->setState(Pass);
+        }
+    }
+
+    //获取当前正在被激活的按钮，主要针对鼠标
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        if (childs_[i]->getState() != Normal)
+        {
+            result_ = i;
+        }
+    }
+
+    //重置当前被激活的按钮状态
+    if (result_ >= 0 && childs_[result_]->getState() == Normal)
+    {
+        childs_[result_]->setState(Pass);
+    }
+}
+
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
 {
     for (auto c : childs_)
@@ -37,15 +73,8 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
 
 void Menu::pressedOK()
 {
-    for (int i = 0; i < childs_.size(); i++)
-    {
-        if (childs_[i]->getResult() == 0)
-        {
-            exitWithResult(i);
-        }
-    }
+    setExit(true);
 }
-
 
 MenuText::MenuText(std::vector<std::string> items) : MenuText()
 {

@@ -49,7 +49,6 @@ void Element::setPosition(int x, int y)
 int Element::run(bool in_root /*= true*/)
 {
     exit_ = false;
-    result_ = -1;
     if (in_root) { addOnRootTop(this); }
     onEntrance();
     while (!exit_)
@@ -149,7 +148,6 @@ void Element::checkStateAndEvent(BP_Event& e)
             childs_[i]->checkStateAndEvent(e);
         }
         //setState(Normal);
-
         if (e.type == BP_MOUSEMOTION)
         {
             if (inSide(e.motion.x, e.motion.y))
@@ -161,9 +159,20 @@ void Element::checkStateAndEvent(BP_Event& e)
                 state_ = Normal;
             }
         }
-        if (e.type == BP_MOUSEBUTTONDOWN)
+        if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
         {
             if (inSide(e.motion.x, e.motion.y))
+            {
+                state_ = Press;
+            }
+            else
+            {
+                state_ = Normal;
+            }
+        }
+        if ((e.type == BP_KEYDOWN && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)))
+        {
+            if (state_ == Pass)
             {
                 state_ = Press;
             }
@@ -231,4 +240,21 @@ void Element::setChildState(int i, State s)
     }
 }
 
+int Element::findNextVisibleChild(int i0, int direct)
+{
+    if (direct == 0 || childs_.size() == 0) { return i0; }
+    direct = direct/abs(direct);
+
+    int i1 = i0;
+    for (int i = 1; i < childs_.size(); i++)
+    {
+        i1 += direct;
+        i1 = (i1 + childs_.size()) % childs_.size();
+        if (childs_[i1]->visible_)
+        {
+            return i1;
+        }
+    }
+    return i0;
+}
 

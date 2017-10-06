@@ -28,7 +28,7 @@ void SubScene::draw()
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderAssistTexture();
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -43,7 +43,7 @@ void SubScene::draw()
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
+            auto p = getPositionOnRender(i1, i2, view_x_, view_y_);
             p.x += x_;
             p.y += y_;
             if (!isOutLine(i1, i2))
@@ -71,7 +71,7 @@ void SubScene::draw()
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
+            auto p = getPositionOnRender(i1, i2, view_x_, view_y_);
             p.x += x_;
             p.y += y_;
             if (!isOutLine(i1, i2))
@@ -414,9 +414,9 @@ void SubScene::getMousePosition(int _x, int _y)
 
 Point SubScene::getPositionOnWholeEarth(int x, int y)
 {
-    auto p = getPositionOnScreen(x, y, 0, 0);
-    p.x += COORD_COUNT * TILE_W - screen_center_x_;
-    p.y += 2 * TILE_H - screen_center_y_;
+    auto p = getPositionOnRender(x, y, 0, 0);
+    p.x += COORD_COUNT * TILE_W - render_center_x_;
+    p.y += 2 * TILE_H - render_center_y_;
     return p;
 }
 

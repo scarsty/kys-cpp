@@ -13,8 +13,8 @@ public:
 
     //BP_Texture* earth_texture_ = nullptr;
 
-    int screen_center_x_ = 0;
-    int screen_center_y_ = 0;
+    int render_center_x_ = 0;
+    int render_center_y_ = 0;
 
     int window_center_x_ = 0;
     int window_center_y_ = 0;
@@ -41,8 +41,8 @@ public:
 
     void checkWalk(int x, int y, BP_Event& e);   //一些公共部分，未完成
 
-    Point getPositionOnScreen(int x, int y, int CenterX, int CenterY);
-
+    Point getPositionOnRender(int x, int y, int view_x, int view_y);
+    Point getPositionOnWindow(int x, int y, int view_x, int view_y);
     int calFace(int x1, int y1, int x2, int y2);
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }

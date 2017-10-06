@@ -83,6 +83,8 @@ public:
     void setAllChildState(State s);
     void setChildState(int i, State s);
 
+    int findNextVisibleChild(int i0, int direct);
+
     void setExit(bool e) { exit_ = e; }
     bool isRunning() { return !exit_; }
 

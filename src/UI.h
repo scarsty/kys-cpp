@@ -21,6 +21,8 @@ private:
     ~UI();
     //UI菜单单例即可，无需重复创建
     static UI ui_;
+    int current_head_ = 0;
+    int current_button_ = 0;
 public:
     virtual void onEntrance() override;
     virtual void draw() override;
@@ -29,6 +31,7 @@ public:
     static UI* getInstance() { return &ui_; }
 
     std::vector<Head*> heads_;
+    std::vector<Button*> buttons_;
 
     Button* button_status_, *button_skill_, *button_item_, *button_system_;
     UIStatus* ui_status_ = nullptr;

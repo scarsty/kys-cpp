@@ -8,7 +8,7 @@ public:
     virtual ~Menu();
 public:
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override {};
+    virtual void dealEvent(BP_Event& e) override;;
     void arrange(int x, int y, int inc_x, int inc_y);
     virtual void pressedOK() override;
     virtual void pressedCancel() override { exitWithResult(-1); }

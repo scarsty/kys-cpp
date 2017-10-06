@@ -31,6 +31,10 @@ UI::UI()
     addChild(button_skill_, 90, 10);
     addChild(button_item_, 170, 10);
     addChild(button_system_, 250, 10);
+    buttons_.push_back(button_status_);
+    buttons_.push_back(button_skill_);
+    buttons_.push_back(button_item_);
+    buttons_.push_back(button_system_);
 
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
@@ -58,17 +62,18 @@ void UI::onEntrance()
 
 void UI::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         heads_[i]->setRole(Save::getInstance()->getTeamMate(i));
-        if (heads_[i]->getState() != Normal)
+        if (heads_[i]->getState() == Pass)
         {
             auto role = heads_[i]->getRole();
             if (role)
             {
                 ui_status_->setRole(role);
                 ui_skill_->setRole(role);
+                current_head_ = i;
             }
         }
     }
@@ -82,11 +87,33 @@ void UI::dealEvent(BP_Event& e)
         if (childs_[0] == ui_item_)
         {
             result_ = ui_item_->getResult();
-            setExit(true);
+            if (result_ >= 0)
+            {
+                setExit(true);
+            }
         }
-        if (button_status_->getState() == Press) { childs_[0] = ui_status_; }
-        if (button_skill_->getState() == Press) { childs_[0] = ui_skill_; }
-        if (button_item_->getState() == Press) { childs_[0] = ui_item_; }
-        if (button_system_->getState() == Press) { childs_[0] = ui_system_; }
+        if (button_status_->getState() == Press)
+        {
+            childs_[0] = ui_status_;
+            current_button_ = 0;
+        }
+        if (button_skill_->getState() == Press)
+        {
+            childs_[0] = ui_skill_;
+            current_button_ = 1;
+        }
+        if (button_item_->getState() == Press)
+        {
+            childs_[0] = ui_item_;
+            current_button_ = 2;
+        }
+        if (button_system_->getState() == Press)
+        {
+            childs_[0] = ui_system_;
+            current_button_ = 3;
+        }
     }
+    //这里设定当前头像为Press，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
+    heads_[current_head_]->setState(Press);
+    buttons_[current_button_]->setState(Press);
 }

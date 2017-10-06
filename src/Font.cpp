@@ -64,7 +64,7 @@ void Font::draw(std::string text, int size, int x, int y, BP_Color color, uint8_
     }
 }
 
-void Font::drawWithBox(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha /*= 255*/)
+void Font::drawWithBox(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha, uint8_t alpha_box)
 {
     //TextureManager::getInstance()->renderTexture("title", 19, x - 19, y - 3);
     //for (int i = 0; i < text.size(); i++)
@@ -76,7 +76,7 @@ void Font::drawWithBox(std::string text, int size, int x, int y, BP_Color color,
     r.y = y - 3;
     r.w = size * text.size() / 2 + 20;
     r.h = size + 6;
-    TextureManager::getInstance()->renderTexture("title", 126, r);
+    TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
 }
 

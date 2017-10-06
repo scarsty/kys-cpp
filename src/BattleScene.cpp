@@ -63,7 +63,7 @@ void BattleScene::draw()
 {
     auto r0 = battle_roles_[0];  //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 #ifndef _DEBUG0
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
@@ -71,7 +71,7 @@ void BattleScene::draw()
         {
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
             if (!isOutLine(i1, i2))
@@ -122,7 +122,7 @@ void BattleScene::draw()
         {
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
             if (!isOutLine(i1, i2))
@@ -138,15 +138,20 @@ void BattleScene::draw()
                     auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
-                    if (battle_cursor_->isRunning() && effect_layer_.data(i1, i2) >= 0)
+                    if (battle_cursor_->isRunning())
                     {
-                        if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
+                        color = { 128, 128, 128, 255 };
+                        if (effect_layer_.data(i1, i2) >= 0)
                         {
-                            color = { 255, 255, 192, 255 };
-                        }
-                        else if (r0->ActTeam != 0 && battle_roles_[0]->Team != r->Team)
-                        {
-                            color = { 255, 192, 192, 255 };
+                            if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
+                            {
+                                color = { 255, 255, 255, 255 };
+                            }
+                            else if (r0->ActTeam != 0 && battle_roles_[0]->Team != r->Team)
+                            {
+                                uint8_t r = uint8_t(127 + RandomClassical::rand(128));
+                                color = { 255, 255, 255, 255 };
+                            }
                         }
                     }
                     int pic;
@@ -624,7 +629,7 @@ void BattleScene::actUseMagic(Role* r)
         //level_index表示从0到9，而level从0到999
         int level_index = r->getMagicLevelIndex(select_magic);
         //计算可选择的范围
-        if (magic->AttackAreaType == 1 || magic->AttackAreaType == 3)
+        if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
         {
             calSelectLayer(r, 1, magic->SelectDistance[level_index]);
         }
@@ -722,6 +727,7 @@ void BattleScene::actStatus(Role* r)
 
     calSelectLayer(r, 2, 0);
     battle_cursor_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Check);
     battle_cursor_->run();
 
     head_self_->setVisible(true);
@@ -858,9 +864,7 @@ void BattleScene::showNumberAnimation()
             //等于0不显示个（待定）
             if (r->ShowString.size() > 0)
             {
-                auto p = getPositionOnScreen(r->X(), r->Y(), man_x_, man_y_);
-                p.x = p.x * window_center_x_ / screen_center_x_;
-                p.y = p.y * window_center_y_ / screen_center_y_;
+                auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
                 int x = p.x - size * r->ShowString.size() / 4;
                 int y = p.y - 75 - i * 2;
                 Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
@@ -883,6 +887,10 @@ void BattleScene::clearDead()
         if (r->HP > 0)
         {
             alive.push_back(r);
+        }
+        else
+        {
+            r->setPosition(-1, -1);
         }
     }
     //如需要退场动画放在这里

@@ -79,7 +79,7 @@ void MainScene::draw()
         {
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
@@ -140,7 +140,7 @@ void MainScene::draw()
     for (auto& c : cloud_vector_)
     {
         //c->draw();
-        c->setPositionOnScreen(man_x_, man_y_, screen_center_x_, screen_center_y_);
+        c->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
     }
     //log("%d\n", t1 - t0);
     Engine::getInstance()->renderAssistTextureToWindow();
