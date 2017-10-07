@@ -9,6 +9,7 @@ typedef uint16_t SAVE_UINT;
 struct MapSquare
 {
     MapSquare() {}
+    MapSquare(int size) : MapSquare() { resize(size); }
     ~MapSquare() { if (data_) { delete data_; } }
     //不会保留原始数据
     void resize(int x)

@@ -12,15 +12,16 @@
 #include "Random.h"
 #include "UIStatus.h"
 #include "Font.h"
+#include "Util.h"
 
 BattleScene::BattleScene()
 {
     full_window_ = 1;
-    earth_layer_.resize(COORD_COUNT);
-    building_layer_.resize(COORD_COUNT);
-    role_layer_.resize(COORD_COUNT);
-    select_layer_.resize(COORD_COUNT);
-    effect_layer_.resize(COORD_COUNT);
+    earth_layer_ = new MapSquare(COORD_COUNT);
+    building_layer_ = new MapSquare(COORD_COUNT);
+    role_layer_ = new MapSquare(COORD_COUNT);
+    select_layer_ = new MapSquare(COORD_COUNT);
+    effect_layer_ = new MapSquare(COORD_COUNT);
     battle_menu_ = new BattleMenu();
     battle_menu_->setBattleScene(this);
     battle_menu_->setPosition(160, 200);
@@ -31,7 +32,6 @@ BattleScene::BattleScene()
     addChild(ui_status_, 300, 0);
     battle_cursor_ = new BattleCursor();
     battle_cursor_->setBattleScene(this);
-    //battle_operator_->setOperator(&select_x_, &select_y_, &select_layer_, &effect_layer_);
     save_ = Save::getInstance();
 }
 
@@ -44,6 +44,7 @@ BattleScene::~BattleScene()
 {
     delete battle_menu_;
     delete battle_cursor_;
+    Util::safe_delete({ &earth_layer_, &building_layer_, &role_layer_, &select_layer_, &effect_layer_ });
 }
 
 void BattleScene::setID(int id)
@@ -51,12 +52,12 @@ void BattleScene::setID(int id)
     battle_id_ = id;
     info_ = BattleMap::getInstance()->getBattleInfo(id);
 
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_.data(0));
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_.data(0));
+    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_->data(0));
+    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_->data(0));
 
-    role_layer_.setAll(-1);
-    select_layer_.setAll(-1);
-    effect_layer_.setAll(-1);
+    role_layer_->setAll(-1);
+    select_layer_->setAll(-1);
+    effect_layer_->setAll(-1);
 }
 
 void BattleScene::draw()
@@ -76,11 +77,11 @@ void BattleScene::draw()
             p.y += y_;
             if (!isOutLine(i1, i2))
             {
-                int num = earth_layer_.data(i1, i2) / 2;
+                int num = earth_layer_->data(i1, i2) / 2;
                 BP_Color color = { 255, 255, 255, 255 };
                 if (battle_cursor_->isRunning())
                 {
-                    if (select_layer_.data(i1, i2) < 0)
+                    if (select_layer_->data(i1, i2) < 0)
                     {
                         color = { 64, 64, 64, 255 };
                     }
@@ -90,9 +91,9 @@ void BattleScene::draw()
                     }
                     if (battle_cursor_->getMode() == BattleCursor::Action)
                     {
-                        if (effect_layer_.data(i1, i2) >= 0)
+                        if (effect_layer_->data(i1, i2) >= 0)
                         {
-                            if (select_layer_.data(i1, i2) < 0)
+                            if (select_layer_->data(i1, i2) < 0)
                             {
                                 color = { 160, 160, 160, 255 };
                             }
@@ -127,12 +128,12 @@ void BattleScene::draw()
             p.y += y_;
             if (!isOutLine(i1, i2))
             {
-                int num = building_layer_.data(i1, i2) / 2;
+                int num = building_layer_->data(i1, i2) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
-                num = role_layer_.data(i1, i2);
+                num = role_layer_->data(i1, i2);
                 if (num >= 0)
                 {
                     auto r = Save::getInstance()->getRole(num);
@@ -141,7 +142,7 @@ void BattleScene::draw()
                     if (battle_cursor_->isRunning())
                     {
                         color = { 128, 128, 128, 255 };
-                        if (effect_layer_.data(i1, i2) >= 0)
+                        if (effect_layer_->data(i1, i2) >= 0)
                         {
                             if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
                             {
@@ -165,7 +166,7 @@ void BattleScene::draw()
                     }
                     TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color);
                 }
-                if (effect_id_ >= 0 && effect_layer_.data(i1, i2) >= 0)
+                if (effect_id_ >= 0 && effect_layer_->data(i1, i2) >= 0)
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
                     num = effect_frame_ + RandomClassical::rand(10) - RandomClassical::rand(10);
@@ -179,7 +180,7 @@ void BattleScene::draw()
     //ui的设定
     if (ui_status_->getVisible())
     {
-        int r = role_layer_.data(select_x_, select_y_);
+        int r = role_layer_->data(select_x_, select_y_);
         ui_status_->setRole(Save::getInstance()->getRole(r));
     }
 }
@@ -188,6 +189,14 @@ void BattleScene::dealEvent(BP_Event& e)
 {
     //选择位于人物数组中的第一个人
     auto r = battle_roles_[0];
+
+    //若第一个人已经行动过，说明所有人都行动了，则清除行动状态，重排人物
+    if (r->Acted != 0)
+    {
+        resetRolesAct();
+        sortRoles();
+    }
+
     man_x_ = r->X();
     man_y_ = r->Y();
     select_x_ = r->X();
@@ -224,10 +233,9 @@ void BattleScene::dealEvent(BP_Event& e)
         break;
     }
 
-    //如果此人成功行动过，则清除行动状态，放到队尾
+    //如果此人成功行动过，则放到队尾
     if (r->Acted)
     {
-        r->Acted = 0;
         r->Moved = 0;
         battle_roles_.erase(battle_roles_.begin());
         battle_roles_.push_back(r);
@@ -244,11 +252,11 @@ void BattleScene::onEntrance()
     head_self_->setPosition(100, 100);
 
     //设置全部角色的位置层，避免今后出错
-    for (auto& r : Save::getInstance()->roles_)
+    for (auto r : Save::getInstance()->getRoles())
     {
-        r.setPoitionLayer(&role_layer_);
-        r.Team = 2;  //先全部设置成不存在的阵营
-        r.Auto = 1;
+        r->setPoitionLayer(role_layer_);
+        r->Team = 2;  //先全部设置成不存在的阵营
+        r->Auto = 1;
     }
 
     //首先设置位置和阵营，其他的后面统一处理
@@ -289,9 +297,9 @@ void BattleScene::onEntrance()
 void BattleScene::onExit()
 {
     //清空全部角色的位置层
-    for (auto& r : Save::getInstance()->roles_)
+    for (auto r : Save::getInstance()->getRoles())
     {
-        r.setPoitionLayer(nullptr);
+        r->setPoitionLayer(nullptr);
     }
 }
 
@@ -367,6 +375,14 @@ bool BattleScene::compareRole(Role* r1, Role* r2)
     return r1->Speed > r2->Speed;
 }
 
+void BattleScene::resetRolesAct()
+{
+    for (auto r : battle_roles_)
+    {
+        r->Acted = 0;
+    }
+}
+
 //计算可移动步数(考虑装备)
 int BattleScene::calMoveStep(Role* r)
 {
@@ -422,7 +438,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
 {
     if (mode == 0)
     {
-        select_layer_.setAll(-1);
+        select_layer_->setAll(-1);
         std::vector<Point> cal_stack;
         cal_stack.push_back({ r->X(), r->Y() });
         int count = 0;
@@ -431,11 +447,11 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
             std::vector<Point> cal_stack_next;
             for (auto p : cal_stack)
             {
-                select_layer_.data(p.x, p.y) = step;
+                select_layer_->data(p.x, p.y) = step;
                 auto check_next = [&](Point p1)->void
                 {
                     //未计算过且可以走的格子参与下一步的计算
-                    if (canWalk(p1.x, p1.y) && select_layer_.data(p1.x, p1.y) == -1)
+                    if (canWalk(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == -1)
                     {
                         cal_stack_next.push_back(p1);
                         count++;
@@ -462,13 +478,13 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
         {
             for (int iy = 0; iy < COORD_COUNT; iy++)
             {
-                select_layer_.data(ix, iy) = step - calDistance(ix, iy, r->X(), r->Y());
+                select_layer_->data(ix, iy) = step - calDistance(ix, iy, r->X(), r->Y());
             }
         }
     }
     else if (mode == 2)
     {
-        select_layer_.setAll(0);
+        select_layer_->setAll(0);
     }
     else if (mode == 3)
     {
@@ -480,11 +496,11 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                 int dy = abs(iy - r->Y());
                 if (dx == 0 && dy <= step || dy == 0 && dx <= step)
                 {
-                    select_layer_.data(ix, iy) = 0;
+                    select_layer_->data(ix, iy) = 0;
                 }
                 else
                 {
-                    select_layer_.data(ix, iy) = -1;
+                    select_layer_->data(ix, iy) = -1;
                 }
             }
         }
@@ -493,12 +509,12 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
 
 void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
 {
-    effect_layer_.setAll(-1);
+    effect_layer_->setAll(-1);
 
     //若未指定武学，则认为只选择一个点
     if (m == nullptr)
     {
-        effect_layer_.data(select_x_, select_y_) = 0;
+        effect_layer_->data(select_x_, select_y_) = 0;
         return;
     }
 
@@ -513,7 +529,7 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
             {
                 if (!isOutLine(ix, iy))
                 {
-                    effect_layer_.data(ix, iy) = 0;
+                    effect_layer_->data(ix, iy) = 0;
                 }
             }
         }
@@ -522,7 +538,7 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
 
 bool BattleScene::canSelect(int x, int y)
 {
-    return (!isOutLine(x, y) && select_layer_.data(x, y) >= 0);
+    return (!isOutLine(x, y) && select_layer_->data(x, y) >= 0);
 }
 
 void BattleScene::walk(Role* r, int x, int y, Towards t)
@@ -547,7 +563,7 @@ bool BattleScene::canWalk(int x, int y)
 
 bool BattleScene::isBuilding(int x, int y)
 {
-    return building_layer_.data(x, y) > 0;
+    return building_layer_->data(x, y) > 0;
 }
 
 bool BattleScene::isOutLine(int x, int y)
@@ -557,7 +573,7 @@ bool BattleScene::isOutLine(int x, int y)
 
 bool BattleScene::isWater(int x, int y)
 {
-    int num = earth_layer_.data(x, y) / 2;
+    int num = earth_layer_->data(x, y) / 2;
     if (num >= 179 && num <= 181
         || num == 261 || num == 511
         || num >= 662 && num <= 665
@@ -570,7 +586,7 @@ bool BattleScene::isWater(int x, int y)
 
 bool BattleScene::isRole(int x, int y)
 {
-    return role_layer_.data(x, y) > 0;
+    return role_layer_->data(x, y) > 0;
 }
 
 bool BattleScene::isOutScreen(int x, int y)
@@ -713,10 +729,17 @@ void BattleScene::actUseItem(Role* r)
 
 }
 
+//等待，将自己插入到最后一个没行动的人的后面
 void BattleScene::actWait(Role* r)
 {
-    battle_roles_.erase(battle_roles_.begin());
-    battle_roles_.push_back(r);
+    for (int i = 1; i < battle_roles_.size(); i++)
+    {
+        if (battle_roles_[i]->Acted == 0)
+        {
+            battle_roles_.erase(battle_roles_.begin());
+            battle_roles_.insert(battle_roles_.begin() + i, r);
+        }
+    }
 }
 
 void BattleScene::actStatus(Role* r)
@@ -755,7 +778,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     std::vector<Point> way;
     auto check_next = [&](Point p1, int step)->bool
     {
-        if (canSelect(p1.x, p1.y) && select_layer_.data(p1.x, p1.y) == step)
+        if (canSelect(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == step)
         {
             way.push_back(p1);
             return true;
@@ -764,7 +787,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     };
 
     way.push_back({ x, y });
-    for (int i = select_layer_.data(x, y); i < select_layer_.data(r->X(), r->Y()); i++)
+    for (int i = select_layer_->data(x, y); i < select_layer_->data(r->X(), r->Y()); i++)
     {
         int x1 = way.back().x, y1 = way.back().y;
         if (check_next({ x1 - 1, y1 }, i + 1)) { continue; }
@@ -782,7 +805,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     }
     r->setPosition(x, y);
     r->Moved = 1;
-    select_layer_.setAll(-1);
+    select_layer_->setAll(-1);
 }
 
 //使用武学动画

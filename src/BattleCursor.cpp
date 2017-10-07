@@ -33,7 +33,7 @@ void BattleCursor::dealEvent(BP_Event& e)
             battle_scene_->setSelectPosition(x, y);
             if (head_selected_->getVisible())
             {
-                int r = battle_scene_->role_layer_.data(x, y);
+                int r = battle_scene_->role_layer_->data(x, y);
                 head_selected_->setRole(Save::getInstance()->getRole(r));
             }
         }

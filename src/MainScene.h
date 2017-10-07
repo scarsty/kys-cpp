@@ -14,10 +14,10 @@ public:
     static MainScene* getIntance() { return &main_map_; }
 
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
-    MapSquare earth_layer_ , surface_layer_, building_layer_, build_x_layer_, build_y_layer_, entrance_layer_;
+    MapSquare* earth_layer_ , *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
     bool data_readed_ = false;
 
-    void divide2(MapSquare& m);
+    void divide2(MapSquare* m);
 
     int rest_time_ = 0;                     //停止操作的时间
 

@@ -53,11 +53,17 @@ bool Save::LoadR(int num)
     int c = 0;
     memcpy(&InShip, rgrp + offset_[c], length_[c]);
 
-    File::readDataToVector(rgrp + offset_[1], length_[1], roles_, sizeof(RoleSave));
-    File::readDataToVector(rgrp + offset_[2], length_[2], items_, sizeof(ItemSave));
-    File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_, sizeof(SubMapInfoSave));
-    File::readDataToVector(rgrp + offset_[4], length_[4], magics_, sizeof(MagicSave));
-    File::readDataToVector(rgrp + offset_[5], length_[5], shops_, sizeof(ShopSave));
+    File::readDataToVector(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    File::readDataToVector(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    File::readDataToVector(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    File::readDataToVector(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+
+    getPtrVector(roles_mem_,roles_);
+    getPtrVector(items_mem_, items_);
+    getPtrVector(submap_infos_mem_, submap_infos_);
+    getPtrVector(magics_mem_, magics_);
+    getPtrVector(shops_mem_, shops_);
 
     delete[] rgrp;
 
@@ -69,8 +75,8 @@ bool Save::LoadR(int num)
     File::readFile(filenamed, ddata, submap_count * ddata_length_);
     for (int i = 0; i < submap_count; i++)
     {
-        memcpy(&(submap_infos_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
-        memcpy(submap_infos_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
+        memcpy(&(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
+        memcpy(submap_infos_mem_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
     }
     delete[] sdata;
     delete[] ddata;
@@ -79,23 +85,23 @@ bool Save::LoadR(int num)
     if (Encode != 936)
     {
         Encode = 936;
-        for (auto& i : roles_)
+        for (auto i : roles_)
         {
-            PotConv::fromCP950ToCP936(i.Name);
-            PotConv::fromCP950ToCP936(i.Nick);
+            PotConv::fromCP950ToCP936(i->Name);
+            PotConv::fromCP950ToCP936(i->Nick);
         }
-        for (auto& i : items_)
+        for (auto i : items_)
         {
-            PotConv::fromCP950ToCP936(i.Name);
-            PotConv::fromCP950ToCP936(i.Introduction);
+            PotConv::fromCP950ToCP936(i->Name);
+            PotConv::fromCP950ToCP936(i->Introduction);
         }
-        for (auto& i : magics_)
+        for (auto i : magics_)
         {
-            PotConv::fromCP950ToCP936(i.Name);
+            PotConv::fromCP950ToCP936(i->Name);
         }
-        for (auto& i : submap_infos_)
+        for (auto i : submap_infos_)
         {
-            PotConv::fromCP950ToCP936(i.Name);
+            PotConv::fromCP950ToCP936(i->Name);
         }
     }
 
@@ -112,23 +118,23 @@ bool Save::SaveR(int num)
 
     char* rgrp = new char[offset_.back()];
     memcpy(rgrp + offset_[0], &InShip, length_[0]);
-    File::writeVectorToData(rgrp + offset_[1], length_[1], roles_, sizeof(RoleSave));
-    File::writeVectorToData(rgrp + offset_[2], length_[2], items_, sizeof(ItemSave));
-    File::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_, sizeof(SubMapInfoSave));
-    File::writeVectorToData(rgrp + offset_[4], length_[4], magics_, sizeof(MagicSave));
-    File::writeVectorToData(rgrp + offset_[5], length_[5], shops_, sizeof(ShopSave));
+    File::writeVectorToData(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    File::writeVectorToData(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    File::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    File::writeVectorToData(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    File::writeVectorToData(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
 
     File::writeFile(filenamer, rgrp, offset_.back());
     delete[] rgrp;
 
-    auto submap_count = submap_infos_.size();
+    auto submap_count = submap_infos_mem_.size();
 
     auto sdata = new char[submap_count * sdata_length_];
     auto ddata = new char[submap_count * ddata_length_];
     for (int i = 0; i < submap_count; i++)
     {
-        memcpy(sdata + sdata_length_ * i, &(submap_infos_[i].LayerData(0, 0, 0)), sdata_length_);
-        memcpy(ddata + ddata_length_ * i, submap_infos_[i].Event(0), ddata_length_);
+        memcpy(sdata + sdata_length_ * i, &(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata_length_);
+        memcpy(ddata + ddata_length_ * i, submap_infos_mem_[i].Event(0), ddata_length_);
     }
     File::writeFile(filenames, sdata, submap_count * sdata_length_);
     File::writeFile(filenamed, ddata, submap_count * ddata_length_);
@@ -145,11 +151,11 @@ Role* Save::getTeamMate(int i)
         return nullptr;
     }
     int r = Team[i];
-    if (r < 0 || r >= roles_.size())
+    if (r < 0 || r >= roles_mem_.size())
     {
         return nullptr;
     }
-    return &(roles_[r]);
+    return &(roles_mem_[r]);
 }
 
 Item* Save::getItemByBagIndex(int i)
@@ -159,11 +165,11 @@ Item* Save::getItemByBagIndex(int i)
         return nullptr;
     }
     int r = Items[i].item_id;
-    if (r < 0 || r >= items_.size())
+    if (r < 0 || r >= items_mem_.size())
     {
         return nullptr;
     }
-    return &(items_[r]);
+    return &(items_mem_[r]);
 }
 
 SAVE_INT Save::getItemCountByBagIndex(int i)
@@ -200,19 +206,19 @@ void Save::makeMaps()
     //有重名的，斟酌使用
     for (auto& i : roles_)
     {
-        roles_by_name_[i.Name] = &i;
+        roles_by_name_[i->Name] = i;
     }
     for (auto& i : magics_)
     {
-        magics_by_name_[i.Name] = &i;
+        magics_by_name_[i->Name] = i;
     }
     for (auto& i : items_)
     {
-        items_by_name_[i.Name] = &i;
+        items_by_name_[i->Name] = i;
     }
     for (auto& i : submap_infos_)
     {
-        submap_infos_by_name_[i.Name] = &i;
+        submap_infos_by_name_[i->Name] = i;
     }
 
 }

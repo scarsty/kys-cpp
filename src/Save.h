@@ -36,28 +36,50 @@ public:
     }
 
     static std::string getFilename(int i, char c);
-
+private:
     //注意在读取之后，offset比length尾部会多一个元素，该值即总长度
     std::vector<int> offset_, length_;
 
     //这里实际保存所有数据
-    std::vector<Role> roles_;
-    std::vector<Magic> magics_;
-    std::vector<Item> items_;
-    std::vector<SubMapInfo> submap_infos_;
-    //std::vector<SubMapLayerData> submap_data_;
-    std::vector<Shop> shops_;
-    //std::vector<SubMapEvent> submap_event_;
+    std::vector<Role> roles_mem_;
+    std::vector<Magic> magics_mem_;
+    std::vector<Item> items_mem_;
+    std::vector<SubMapInfo> submap_infos_mem_;
+    std::vector<Shop> shops_mem_;
+
+    //下面保存的是指针，大部分时候使用
+    std::vector<Role*> roles_;
+    std::vector<Magic*> magics_;
+    std::vector<Item*> items_;
+    std::vector<SubMapInfo*> submap_infos_;
+    std::vector<Shop*> shops_;
 
     std::map<std::string, Role*> roles_by_name_;
     std::map<std::string, Item*> items_by_name_;
     std::map<std::string, Magic*> magics_by_name_;
     std::map<std::string, SubMapInfo*> submap_infos_by_name_;
 
-    Role* getRole(int i) { if (i < 0 || i >= roles_.size()) { return nullptr; } return &roles_[i]; }
-    Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return &magics_[i]; }  //0号武功无效
-    Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return &items_[i]; }
-    SubMapInfo* getSubMapInfo(int i) { if (i < 0 || i >= submap_infos_.size()) { return nullptr; } return &submap_infos_[i]; }
+    template <class T> void setSavePointer(std::vector<T>& v, int size)
+    {
+        for (auto& i : v)
+        {
+            i.save_ = this;
+        }
+    }
+
+    template <class T> void getPtrVector(std::vector<T>& v, std::vector<T*>& v_ptr)
+    {
+        v_ptr.clear();
+        for (auto& i : v)
+        {
+            v_ptr.push_back(&i);
+        }
+    }
+public:
+    Role* getRole(int i) { if (i < 0 || i >= roles_.size()) { return nullptr; } return roles_[i]; }
+    Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return magics_[i]; }  //0号武功无效
+    Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return items_[i]; }
+    SubMapInfo* getSubMapInfo(int i) { if (i < 0 || i >= submap_infos_.size()) { return nullptr; } return submap_infos_[i]; }
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }
@@ -81,13 +103,11 @@ public:
 
     static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
 
-    template <class T> void setSavePointer(std::vector<T>& v, int size)
-    {
-        for (auto& i : v)
-        {
-            i.save_ = this;
-        }
-    }
+    const std::vector<Role*>& getRoles() { return roles_; }
+    const std::vector<Magic*>& getMagics() { return magics_; }
+    const std::vector<Item*>& getItems() { return items_; }
+    const std::vector<SubMapInfo*>& getSubMapInfos() { return submap_infos_; }
+    const std::vector<Shop*>& getShops() { return shops_; }
 };
 
 
