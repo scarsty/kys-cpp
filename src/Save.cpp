@@ -59,11 +59,11 @@ bool Save::LoadR(int num)
     File::readDataToVector(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
     File::readDataToVector(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
 
-    getPtrVector(roles_mem_,roles_);
-    getPtrVector(items_mem_, items_);
-    getPtrVector(submap_infos_mem_, submap_infos_);
-    getPtrVector(magics_mem_, magics_);
-    getPtrVector(shops_mem_, shops_);
+    toPtrVector(roles_mem_,roles_);
+    toPtrVector(items_mem_, items_);
+    toPtrVector(submap_infos_mem_, submap_infos_);
+    toPtrVector(magics_mem_, magics_);
+    toPtrVector(shops_mem_, shops_);
 
     delete[] rgrp;
 

@@ -81,6 +81,13 @@ enum
     MAX_MAGIC_LEVEL = 999,
 };
 
+enum
+{
+    MONEY_ITEM_ID = 174,
+    COMPASS_ITEM_ID = 182,
+};
+
+
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
 //存档中的角色数据
@@ -146,20 +153,20 @@ struct ItemSave
     SAVE_INT ID;
     char Name[20], Name1[20];
     char Introduction[30];
-    SAVE_INT MagicID, AmiNum, User, EquipType, ShowIntro, ItemType, UnKnown5, UnKnown6, UnKnown7;
-    SAVE_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP, AddAttack, AddSpeed;
-    SAVE_INT AddDefence, AddMedcine, AddUsePoi, AddMedPoison, AddAntiPoison;
-    SAVE_INT AddFist, AddSword, AddKnife, AddUnusual, AddHidWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
-    SAVE_INT OnlyPracRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoi, NeedMedcine, NeedMedPoi;
+    SAVE_INT MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntro, ItemType, UnKnown5, UnKnown6, UnKnown7;
+    SAVE_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;    
+    SAVE_INT AddAttack, AddSpeed, AddDefence, AddMedcine, AddUsePoison, AddDetoxification, AddAntiPoison;
+    SAVE_INT AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
+    SAVE_INT OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;
     SAVE_INT NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
     SAVE_INT NeedExp, NeedExpForItem, NeedMaterial;
-    SAVE_INT NeedItem[5], NeedItemAmount[5];
+    SAVE_INT NeedItem[5], NeedItemCount[5];
 };
 
 //实际的物品数据
 struct Item : ItemSave
 {
-
+    bool isCompass() { return ID == COMPASS_ITEM_ID; }
 };
 
 //存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）

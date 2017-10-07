@@ -43,7 +43,7 @@ public:
         }
     }
 
-    static bool canUseItem(Role* r, Item* i) { return false; }
+    static bool canUseItem(Role* r, Item* i);
     static bool useItem(Role* r, Item* i) { return false; }
 };
 

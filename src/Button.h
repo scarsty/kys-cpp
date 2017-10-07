@@ -16,6 +16,7 @@ public:
 private:
     std::string tex_path_ = "";
     int tex_normal_id_ = -1, tex_pass_id_ = -1, tex_press_id_ = -1; //三种状态的按钮图片
-
+public:
+    int getNormalTextureID() { return tex_normal_id_; }
 };
 

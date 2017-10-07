@@ -6,6 +6,8 @@
 Head::Head(Role* r)
 {
     role_ = r;
+    setTextPosition(30, 65);
+    setFontSize(15);
 }
 
 Head::~Head()
@@ -68,6 +70,8 @@ void Head::draw()
     c = { 128, 128, 255, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });
+
+    TextBox::draw();
 }
 
 

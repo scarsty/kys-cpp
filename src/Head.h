@@ -1,11 +1,11 @@
 #pragma once
-#include "Element.h"
+#include "TextBox.h"
 #include "Types.h"
 #include <memory>
 
 //绘制带人物头像的简明状态
 //注意，部分类型继承此类，是为了使用role指针
-class Head : public Element
+class Head : public TextBox
 {
 protected:
     Role* role_ = nullptr;

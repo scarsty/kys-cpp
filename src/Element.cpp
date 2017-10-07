@@ -53,7 +53,7 @@ int Element::run(bool in_root /*= true*/)
     onEntrance();
     while (!exit_)
     {
-        if (Element::root_.size() == 0) { break; }
+        if (root_.empty()) { break; }
         drawAll();
         checkEventAndPresent(25, true);
     }
@@ -67,7 +67,7 @@ Element* Element::removeFromRoot(Element* element)
 {
     if (element == nullptr)
     {
-        if (root_.size() > 0)
+        if (!root_.empty())
         {
             element = root_.back();
             root_.pop_back();

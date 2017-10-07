@@ -40,5 +40,8 @@ void TextBox::setColor(BP_Color c1, BP_Color c2, BP_Color c3)
 void TextBox::draw()
 {
     //实际上仅用了一个颜色，需要有颜色变化请用button
-    Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+    if (!text_.empty())
+    {
+        Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+    }
 }

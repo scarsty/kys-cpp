@@ -70,7 +70,7 @@ void Button::draw()
     TextureManager::getInstance()->renderTexture(tex_path_, id, x, y, color, alpha);
 
 
-    if (text_.size())
+    if (!text_.empty())
     {
         BP_Color color_text = color_normal_;
         if (state_ == Pass)

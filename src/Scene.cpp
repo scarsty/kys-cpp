@@ -17,9 +17,9 @@ void Scene::calViewRegion()
     view_width_region_ = render_center_x_ / TILE_W / 2 + 3;
     view_sum_region_ = render_center_y_ / TILE_H + 2;
 
-    Engine::getInstance()->getPresentSize(window_center_x_, window_center_y_);
-    window_center_x_ /= 2;
-    window_center_y_ /= 2;
+    //Engine::getInstance()->getPresentSize(window_center_x_, window_center_y_);
+    //window_center_x_ /= 2;
+    //window_center_y_ /= 2;
 }
 
 void Scene::checkWalk(int x, int y, BP_Event& e)
@@ -41,8 +41,10 @@ Point Scene::getPositionOnRender(int x, int y, int view_x, int view_y)
 Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
 {
     auto p = getPositionOnRender(x, y, view_x, view_y);
-    p.x = p.x * window_center_x_ / render_center_x_;
-    p.y = p.y * window_center_y_ / render_center_y_;
+    int w, h;
+    Engine::getInstance()->getPresentSize(w, h);
+    p.x = p.x * w / render_center_x_ / 2;
+    p.y = p.y * h / render_center_y_ / 2;
     return p;
 }
 

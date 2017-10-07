@@ -884,8 +884,7 @@ void BattleScene::showNumberAnimation()
         drawAll();
         for (auto r : battle_roles_)
         {
-            //等于0不显示个（待定）
-            if (r->ShowString.size() > 0)
+            if (!r->ShowString.empty())
             {
                 auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
                 int x = p.x - size * r->ShowString.size() / 4;
@@ -898,7 +897,7 @@ void BattleScene::showNumberAnimation()
     //清除所有人的显示
     for (auto r : battle_roles_)
     {
-        r->ShowString = "";
+        r->ShowString.clear();
     }
 }
 

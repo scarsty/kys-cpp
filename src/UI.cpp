@@ -6,6 +6,8 @@
 #include "UISkill.h"
 #include "UIItem.h"
 #include "UISystem.h"
+#include "Font.h"
+#include "GameUtil.h"
 
 UI UI::ui_;
 
@@ -65,15 +67,35 @@ void UI::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
-        heads_[i]->setRole(Save::getInstance()->getTeamMate(i));
-        if (heads_[i]->getState() == Pass)
+        auto head = heads_[i];
+        auto role = Save::getInstance()->getTeamMate(i);
+        if (role == nullptr) { continue; }
+        head->setRole(role);
+        if (head->getState() == Pass)
         {
-            auto role = heads_[i]->getRole();
-            if (role)
+            ui_status_->setRole(role);
+            ui_skill_->setRole(role);
+            current_head_ = i;
+        }
+
+        if (childs_[0] == ui_item_)
+        {
+            int item_id = ui_item_->getResult();
+            if (item_id >= 0)
             {
-                ui_status_->setRole(role);
-                ui_skill_->setRole(role);
-                current_head_ = i;
+                if (role->Equip1 == item_id || role->Equip2 == item_id || role->PracticeBook == item_id)
+                {
+                    head->setText("使用中");
+                    //Font::getInstance()->draw("使用中", 25, x + 5, y + 60, { 255,255,255,255 });
+                }
+                else
+                {
+                    head->setText("");
+                }
+                if (GameUtil::canUseItem(role, Save::getInstance()->getItem(item_id)))
+                {
+                    head->setState(Pass);
+                }
             }
         }
     }
@@ -91,7 +113,15 @@ void UI::dealEvent(BP_Event& e)
             {
                 setExit(true);
             }
+
+
+            //需增加头像的判断
+
         }
+
+
+
+        //四个按钮的响应
         if (button_status_->getState() == Press)
         {
             childs_[0] = ui_status_;
@@ -114,6 +144,9 @@ void UI::dealEvent(BP_Event& e)
         }
     }
     //这里设定当前头像为Press，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
-    heads_[current_head_]->setState(Press);
+    if (childs_[0] == ui_status_ || childs_[0] == ui_skill_)
+    {
+        heads_[current_head_]->setState(Press);
+    }
     buttons_[current_button_]->setState(Press);
 }

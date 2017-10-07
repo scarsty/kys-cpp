@@ -17,7 +17,7 @@ void Menu::draw()
     {
         TextureManager::getInstance()->renderTexture(tex_, x_, y_);
     }
-    if (text_.size() > 0)
+    if (!text_.empty())
     {
         Font::getInstance()->draw(text_, font_size_, x_ + text_x_, y_ + text_y_, { 255, 255, 255, 255 });
     }

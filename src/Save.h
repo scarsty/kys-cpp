@@ -16,9 +16,6 @@ private:
     //缓冲区，无他用
     SAVE_INT buffer_[100];
 
-    const int MONEY_ITEM_ID = 174;
-    const int COMPASS_ITEM_ID = 182;
-
     int sdata_length_ = sizeof(SAVE_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
     int ddata_length_ = sizeof(SubMapEvent) * SUBMAP_EVENT_COUNT;
 
@@ -67,7 +64,7 @@ private:
         }
     }
 
-    template <class T> void getPtrVector(std::vector<T>& v, std::vector<T*>& v_ptr)
+    template <class T> void toPtrVector(std::vector<T>& v, std::vector<T*>& v_ptr)
     {
         v_ptr.clear();
         for (auto& i : v)
@@ -108,6 +105,7 @@ public:
     const std::vector<Item*>& getItems() { return items_; }
     const std::vector<SubMapInfo*>& getSubMapInfos() { return submap_infos_; }
     const std::vector<Shop*>& getShops() { return shops_; }
+
 };
 
 
