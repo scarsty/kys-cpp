@@ -30,7 +30,7 @@ void TextBox::setText(std::string text)
 
 }
 
-void TextBox::setColor(BP_Color c1, BP_Color c2, BP_Color c3)
+void TextBox::setTextColor(BP_Color c1, BP_Color c2, BP_Color c3)
 {
     color_normal_ = c1;
     color_pass_ = c2;
@@ -42,6 +42,13 @@ void TextBox::draw()
     //实际上仅用了一个颜色，需要有颜色变化请用button
     if (!text_.empty())
     {
-        Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+        if (have_box_)
+        {
+            Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+        }
+        else
+        {
+            Font::getInstance()->draw(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+        }
     }
 }

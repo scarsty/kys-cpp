@@ -21,18 +21,47 @@ void Role::setPosition(int x, int y)
 }
 
 //显示用的，比内部数组用的多1
-int Role::getShowLearnedMagicLevel(int i)
+int Role::getRoleShowLearnedMagicLevel(int i)
 {
-    return getMagicLevelIndex(i) + 1;
+    return getRoleMagicLevelIndex(i) + 1;
 }
 
 //获取武学等级，返回值是0~9，可以直接用于索引武功的威力等数据
-int Role::getMagicLevelIndex(int i)
+int Role::getRoleMagicLevelIndex(int i)
 {
     int l = MagicLevel[i] / 100;
     if (l < 0) { l = 0; }
     if (l > 9) { l = 9; }
     return l;
+}
+
+//已学习武学的数量
+int Role::getLearnedMagicCount()
+{
+    int n = 0;
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (MagicID[i] > 0) { n++; }
+    }
+    return n;
+}
+
+//依据武学指针获取等级，-1表示未学得
+int Role::getMagicLevelIndex(Magic* magic)
+{
+    return getMagicLevelIndex(magic->ID);
+}
+
+int Role::getMagicLevelIndex(int magic_id)
+{
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (MagicID[i] == magic_id)
+        {
+            return getRoleMagicLevelIndex(i);
+        }
+    }
+    return -1;
 }
 
 //限制人物的属性
@@ -69,17 +98,6 @@ void Role::limit()
     {
         GameUtil::limit2(MagicLevel[i], 0, MAX_MAGIC_LEVEL);
     }
-}
-
-//已学习武学的数量
-int Role::getLearnedMagicCount()
-{
-    int n = 0;
-    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
-    {
-        if (MagicID[i] > 0) { n++; }
-    }
-    return n;
 }
 
 //设置某个事件的坐标，在一些MOD里面此语句有错误

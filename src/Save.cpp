@@ -235,7 +235,7 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     {
         if (r->MagicID[i] == m->ID)
         {
-            return r->getMagicLevelIndex(i);
+            return r->getRoleMagicLevelIndex(i);
         }
     }
     return -1;

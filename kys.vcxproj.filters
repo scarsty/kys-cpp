@@ -118,6 +118,9 @@
     <ClCompile Include="src\TextBox.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\ShowRoleDifference.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -239,6 +242,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\TextBox.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ShowDifference.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

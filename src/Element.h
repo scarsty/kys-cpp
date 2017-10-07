@@ -52,6 +52,8 @@ public:
     int run(bool in_root = true);                       //执行本层
     int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
 
+    //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
+
     virtual void backRun() {}                           //一直运行，可以放入总计数器
     virtual void draw() {}                              //如何画本层
     virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件

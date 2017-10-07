@@ -13,6 +13,7 @@
 #include "UIStatus.h"
 #include "Font.h"
 #include "Util.h"
+#include "ShowRoleDifference.h"
 
 BattleScene::BattleScene()
 {
@@ -187,6 +188,13 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
+    auto df = new ShowRoleDifference();
+
+    df->setTwinRole(Save::getInstance()->getRole(27), Save::getInstance()->getRole(27));
+    df->run();
+
+    delete df;
+
     //选择位于人物数组中的第一个人
     auto r = battle_roles_[0];
 
@@ -643,7 +651,7 @@ void BattleScene::actUseMagic(Role* r)
         r->ActTeam = 1;
         auto magic = Save::getInstance()->getRoleLearnedMagic(r, select_magic);
         //level_index表示从0到9，而level从0到999
-        int level_index = r->getMagicLevelIndex(select_magic);
+        int level_index = r->getRoleMagicLevelIndex(select_magic);
         //计算可选择的范围
         if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
         {

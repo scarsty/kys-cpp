@@ -67,7 +67,7 @@ void MainScene::draw()
     Engine::getInstance()->setRenderAssistTexture();
     //LOG("main\n");
     int k = 0;
-    auto t0 = Engine::getInstance()->getTicks();
+    //auto t0 = Engine::getInstance()->getTicks();
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
@@ -92,7 +92,7 @@ void MainScene::draw()
                 //调试模式下不画出地面，图的数量太多占用CPU很大
                 if (earth_layer_->data(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_->data(i1, i2), p.x, p.y);
                 }
 #endif
                 if (surface_layer_->data(i1, i2) > 0)
@@ -137,15 +137,26 @@ void MainScene::draw()
     {
         TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     }
-    auto t1 = Engine::getInstance()->getTicks();
+
+    for (auto& c : cloud_vector_)
+    {
+        c->draw();
+    }
+
+    //auto t1 = Engine::getInstance()->getTicks();
+
+    //log("%d\n", t1 - t0);
+    Engine::getInstance()->renderAssistTextureToWindow();
+}
+
+void MainScene::backRun()
+{
     //云的贴图
     for (auto& c : cloud_vector_)
     {
-        //c->draw();
+        c->flow();
         c->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
     }
-    //log("%d\n", t1 - t0);
-    Engine::getInstance()->renderAssistTextureToWindow();
 }
 
 //计时器，负责画图以及一些其他问题

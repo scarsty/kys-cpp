@@ -79,6 +79,7 @@ enum
     MAX_IQ = 100,
 
     MAX_MAGIC_LEVEL = 999,
+    MAX_MAGIC_LEVEL_INDEX = 9,
 };
 
 enum
@@ -141,10 +142,16 @@ public:
     void resetPosition() { setPosition(prevX_, prevY_); }
     int X() { return X_; }
     int Y() { return Y_; }
-    int getShowLearnedMagicLevel(int i);
-    int getMagicLevelIndex(int i);
-    void limit();
+
+    //带role的，表示后面的参数是人物武功栏
+    int getRoleShowLearnedMagicLevel(int i);
+    int getRoleMagicLevelIndex(int i);
+
     int getLearnedMagicCount();
+    int getMagicLevelIndex(Magic* magic);
+    int getMagicLevelIndex(int magic_id);
+
+    void limit();
 };
 
 //存档中的物品数据

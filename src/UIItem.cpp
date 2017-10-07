@@ -3,10 +3,11 @@
 #include "others\libconvert.h"
 #include "Font.h"
 #include "MainScene.h"
+#include "GameUtil.h"
 
 UIItem::UIItem()
 {
-    item_buttons_.resize(21);
+    item_buttons_.resize(line_count_ * item_each_line_);
     items_.resize(ITEM_IN_BAG_COUNT);
     for (int i = 0; i < item_buttons_.size(); i++)
     {
@@ -68,7 +69,8 @@ int UIItem::getItemDetailType(Item* item)
 }
 
 //注意填充到列表的是在背包中的位置而不是物品id
-void UIItem::geItemBagIndex(int item_type)
+//返回值为个数
+int UIItem::geItemBagIndexByType(int item_type)
 {
     std::fill(items_.begin(), items_.end(), -1);
     int k = 0;
@@ -80,25 +82,48 @@ void UIItem::geItemBagIndex(int item_type)
             k++;
         }
     }
+    return k;
 }
 
 void UIItem::draw()
 {
-    geItemBagIndex(title_->getResult());
+    showItemProperty(current_item_);
+}
 
-    Item* current_item = nullptr;
-    int current_count = 0;
+void UIItem::dealEvent(BP_Event& e)
+{
+    int type_item_count = geItemBagIndexByType(title_->getResult());
+    //从这里计算出左上角可以取的最大值
+    //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
+    int max_leftup = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
+    if (max_leftup < 0) { max_leftup = 0; }
+
+    if (e.type == BP_MOUSEWHEEL)
+    {
+        if (e.wheel.y > 0)
+        {
+            leftup_index_ -= item_each_line_;
+        }
+        else if (e.wheel.y < 0)
+        {
+            leftup_index_ += item_each_line_;
+        }
+    }
+    leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup);
+
+    //计算当前指向的物品
     result_ = -1;
+    current_item_ = nullptr;
     for (int i = 0; i < item_buttons_.size(); i++)
     {
-        auto item = Save::getInstance()->getItemByBagIndex(items_[i]);
+        auto item = Save::getInstance()->getItemByBagIndex(items_[i + leftup_index_]);
         if (item)
         {
             item_buttons_[i]->setTexture("item", item->ID);
             if (item_buttons_[i]->getState() == Pass)
             {
-                current_item = item;
-                current_count = Save::getInstance()->getItemCountByBagIndex(items_[i]);
+                current_item_ = item;
+                result_ = current_item_->ID;
             }
         }
         else
@@ -106,25 +131,20 @@ void UIItem::draw()
             item_buttons_[i]->setTexture("item", -1);
         }
     }
-    if (current_item)
-    {
-        auto str = convert::formatString("%s", current_item->Name);
-        Font::getInstance()->draw(str, 25, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
-        str = convert::formatString("%5d", current_count);
-        Font::getInstance()->draw(str, 25, x_ + 10 + 25 * 7, y_ + 370, { 255, 255, 255, 255 });
-        result_ = current_item->ID;
-        showItemProperty(current_item);
-    }
-}
-
-void UIItem::dealEvent(BP_Event& e)
-{
-
-
 }
 
 void UIItem::showItemProperty(Item* item)
 {
+    if (item == nullptr)
+    {
+        return;
+    }
+    //物品名和数量
+    auto str = convert::formatString("%s", item->Name);
+    Font::getInstance()->draw(str, 25, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
+    str = convert::formatString("%5d", Save::getInstance()->getItemCountInBag(current_item_->ID));
+    Font::getInstance()->draw(str, 25, x_ + 10 + 25 * 7, y_ + 370, { 255, 255, 255, 255 });
+
     Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
 
     int x = 10, y = 430;

@@ -6,8 +6,10 @@
 Head::Head(Role* r)
 {
     role_ = r;
-    setTextPosition(30, 65);
-    setFontSize(15);
+    setTextPosition(20, 65);
+    setFontSize(20);
+    setTextColor({ 255,255,255,255 });
+    setHaveBox(false);
 }
 
 Head::~Head()

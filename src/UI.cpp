@@ -65,6 +65,11 @@ void UI::onEntrance()
 void UI::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
+}
+
+void UI::dealEvent(BP_Event& e)
+{
+
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto head = heads_[i];
@@ -99,10 +104,7 @@ void UI::draw()
             }
         }
     }
-}
 
-void UI::dealEvent(BP_Event& e)
-{
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
         //这里检测是否使用了物品，返回物品的id

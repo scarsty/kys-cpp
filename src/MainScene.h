@@ -35,7 +35,8 @@ public:
     Cloud::CloudTowards cloud_towards = Cloud::Left;
     std::vector<Cloud*> cloud_vector_;
 
-    void draw() override;
+    virtual void draw() override;
+    virtual void backRun() override;
     virtual void dealEvent(BP_Event& e) override;
     virtual void onEntrance() override;
     virtual void onExit() override;

@@ -20,6 +20,10 @@ void Cloud::setPositionOnScreen(int x, int y, int Center_X, int Center_Y)
 void Cloud::draw()
 {
     TextureManager::getInstance()->renderTexture("cloud", num_, x_, y_, color_, alpha_);
+}
+
+void Cloud::flow()
+{
     position_.x += speed_;
     if (position_.x > max_X)
     {
