@@ -19,28 +19,16 @@ public:
     virtual void draw() override;
 
 private:
-    template<typename T> void showOneDifference(T& pro1, const std::string& format_str, int size, BP_Color c, int& x, int& y)
+    template<typename T> void showOneDifference(T& pro1, const std::string& format_str, int size, BP_Color c, int& x, int& y, int force = 0)
     {
         //注意，以下操作并不安全，请自己看着办
+        auto diff = (char*)&pro1 - (char*)role1_;
+        if (diff > sizeof(Role) || diff < 0) { return; }
         auto p1 = pro1;
-        auto p2 = *(T*)((char*)&pro1 - (char*)role1_ + (char*)role2_);
-        if (p1 != p2)
+        auto p2 = *(T*)(diff + (char*)role2_);
+        if (p1 != p2 || force)
         {
             auto str = convert::formatString(format_str.c_str(), p1, p2);
-            Font::getInstance()->draw(str, size, x, y, c);
-            y += size + 5;
-        }
-    }
-    template<typename T> void showOneDifference(T& pro1a, T& pro1b, const std::string& format_str, int size, BP_Color c, int& x, int& y)
-    {
-        //注意，以下操作并不安全，请自己看着办
-        auto p1a = pro1a;
-        auto p2a = *(T*)((char*)&pro1a - (char*)role1_ + (char*)role2_);
-        auto p1b = pro1b;
-        auto p2b = *(T*)((char*)&pro1b - (char*)role1_ + (char*)role2_);
-        if (p1a != p2a || p1b != p2b)
-        {
-            auto str = convert::formatString(format_str.c_str(), p1a, p1b, p2a, p2b);
             Font::getInstance()->draw(str, size, x, y, c);
             y += size + 5;
         }

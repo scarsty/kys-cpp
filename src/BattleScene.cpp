@@ -188,13 +188,6 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
-    auto df = new ShowRoleDifference();
-
-    df->setTwinRole(Save::getInstance()->getRole(27), Save::getInstance()->getRole(27));
-    df->run();
-
-    delete df;
-
     //选择位于人物数组中的第一个人
     auto r = battle_roles_[0];
 
