@@ -113,8 +113,8 @@ void UI::pressedOK()
     //这里检测是否使用了物品，返回物品的id
     if (childs_[0] == ui_item_)
     {
-        result_ = ui_item_->getResult();
-        if (result_ >= 0)
+        auto item = ui_item_->getCurrentItem();
+        if (item && item->ItemType == 0)
         {
             setExit(true);
         }

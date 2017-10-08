@@ -113,7 +113,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             VOID_INSTRUCT_3(1, e, i, oldTalk);
             VOID_INSTRUCT_2(2, e, i, addItem);
             VOID_INSTRUCT_13(3, e, i, modifyEvent);
-            VOID_INSTRUCT_1(4, e, i, isUsingItem);
+            BOOL_INSTRUCT_1(4, e, i, isUsingItem);
             BOOL_INSTRUCT_0(5, e, i, askBattle);
         case 6:
             //BOOL_INSTRUCT_2(6, e, i, tryBattle);
@@ -288,7 +288,6 @@ void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int inde
 //是否使用了某物品
 bool Event::isUsingItem(int item_id)
 {
-    return true;
     return item_id_ == item_id;
 }
 

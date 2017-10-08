@@ -296,7 +296,7 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
     int event_index_submap = submap_info_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
-        int id;
+        int id = 0;
         if (tw != Towards_None)
         {
             if (item_id < 0)
