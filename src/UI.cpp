@@ -1,11 +1,5 @@
 #include "UI.h"
-#include "Types.h"
 #include "Save.h"
-#include "Head.h"
-#include "UIStatus.h"
-#include "UISkill.h"
-#include "UIItem.h"
-#include "UISystem.h"
 #include "Font.h"
 #include "GameUtil.h"
 
@@ -83,12 +77,13 @@ void UI::dealEvent(BP_Event& e)
             current_head_ = i;
         }
 
+        //如在物品栏则判断是否在使用，或者可以使用
         if (childs_[0] == ui_item_)
         {
-            int item_id = ui_item_->getResult();
-            if (item_id >= 0)
+            Item* item = ui_item_->getCurrentItem();
+            if (item)
             {
-                if (role->Equip1 == item_id || role->Equip2 == item_id || role->PracticeBook == item_id)
+                if (role->Equip1 == item->ID || role->Equip2 == item->ID || role->PracticeBook == item->ID)
                 {
                     head->setText("使用中");
                     //Font::getInstance()->draw("使用中", 25, x + 5, y + 60, { 255,255,255,255 });
@@ -97,7 +92,7 @@ void UI::dealEvent(BP_Event& e)
                 {
                     head->setText("");
                 }
-                if (GameUtil::canUseItem(role, Save::getInstance()->getItem(item_id)))
+                if (GameUtil::canUseItem(role, item))
                 {
                     head->setState(Pass);
                 }
@@ -105,50 +100,46 @@ void UI::dealEvent(BP_Event& e)
         }
     }
 
-    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
-    {
-        //这里检测是否使用了物品，返回物品的id
-        if (childs_[0] == ui_item_)
-        {
-            result_ = ui_item_->getResult();
-            if (result_ >= 0)
-            {
-                setExit(true);
-            }
-
-
-            //需增加头像的判断
-
-        }
-
-
-
-        //四个按钮的响应
-        if (button_status_->getState() == Press)
-        {
-            childs_[0] = ui_status_;
-            current_button_ = 0;
-        }
-        if (button_skill_->getState() == Press)
-        {
-            childs_[0] = ui_skill_;
-            current_button_ = 1;
-        }
-        if (button_item_->getState() == Press)
-        {
-            childs_[0] = ui_item_;
-            current_button_ = 2;
-        }
-        if (button_system_->getState() == Press)
-        {
-            childs_[0] = ui_system_;
-            current_button_ = 3;
-        }
-    }
     //这里设定当前头像为Press，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
     if (childs_[0] == ui_status_ || childs_[0] == ui_skill_)
     {
         heads_[current_head_]->setState(Press);
     }
     buttons_[current_button_]->setState(Press);
+}
+
+void UI::pressedOK()
+{
+    //这里检测是否使用了物品，返回物品的id
+    if (childs_[0] == ui_item_)
+    {
+        result_ = ui_item_->getResult();
+        if (result_ >= 0)
+        {
+            setExit(true);
+        }
+        //需增加头像的判断
+    }
+
+    //四个按钮的响应
+    if (button_status_->getState() == Press)
+    {
+        childs_[0] = ui_status_;
+        current_button_ = 0;
+    }
+    if (button_skill_->getState() == Press)
+    {
+        childs_[0] = ui_skill_;
+        current_button_ = 1;
+    }
+    if (button_item_->getState() == Press)
+    {
+        childs_[0] = ui_item_;
+        current_button_ = 2;
+    }
+    if (button_system_->getState() == Press)
+    {
+        childs_[0] = ui_system_;
+        current_button_ = 3;
+    }
 }

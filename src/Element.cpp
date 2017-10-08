@@ -147,7 +147,8 @@ void Element::checkStateAndEvent(BP_Event& e)
         {
             childs_[i]->checkStateAndEvent(e);
         }
-        //setState(Normal);
+
+        //检测鼠标经过，按下等状态
         if (e.type == BP_MOUSEMOTION)
         {
             if (inSide(e.motion.x, e.motion.y))
@@ -177,8 +178,20 @@ void Element::checkStateAndEvent(BP_Event& e)
                 state_ = Press;
             }
         }
+
         //注意下个时序才会画，所以可以在dealEvent中改变原有状态
         dealEvent(e);
+        //为简化代码，将按下回车和ESC的操作写在此处
+        if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
+        {
+            pressedOK();
+        }
+        if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
+        {
+            pressedCancel();
+        }
     }
 }
 
@@ -193,17 +206,6 @@ void Element::checkEventAndPresent(int max_delay, bool check_event)
     if (check_event)
     {
         checkStateAndEvent(e);
-    }
-
-    if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
-    {
-        pressedOK();
-    }
-    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
-    {
-        pressedCancel();
     }
 
     switch (e.type)

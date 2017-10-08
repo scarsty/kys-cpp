@@ -23,7 +23,10 @@ UIItem::UIItem()
     title_->arrange(0, 50, 65, 0);
 
     addChild(title_);
-    int i = 0;
+
+    cursor_ = new TextBox();
+    cursor_->setTexture("title", 100);
+    addChild(cursor_);
 }
 
 UIItem::~UIItem()
@@ -112,23 +115,29 @@ void UIItem::dealEvent(BP_Event& e)
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup);
 
     //计算当前指向的物品
-    result_ = -1;
+    //result_ = -1;
     current_item_ = nullptr;
+    current_button_ = nullptr;
     for (int i = 0; i < item_buttons_.size(); i++)
     {
+        auto button = item_buttons_[i];
         auto item = Save::getInstance()->getItemByBagIndex(items_[i + leftup_index_]);
         if (item)
         {
-            item_buttons_[i]->setTexture("item", item->ID);
-            if (item_buttons_[i]->getState() == Pass)
+            button->setTexture("item", item->ID);
+            if (button->getState() == Pass || button->getState() == Press)
             {
                 current_item_ = item;
-                result_ = current_item_->ID;
+                current_button_ = button;
+                int x, y;
+                current_button_->getPosition(x, y);
+                cursor_->setPosition(x, y);
+                //result_ = current_item_->ID;
             }
         }
         else
         {
-            item_buttons_[i]->setTexture("item", -1);
+            button->setTexture("item", -1);
         }
     }
 }
@@ -262,5 +271,14 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
         }
         Font::getInstance()->draw(str, size, x_ + x, y_ + y, c);
         x += draw_length;
+    }
+}
+
+void UIItem::pressedOK()
+{
+    //仅在使用剧情物品的时候，发出退出的提示
+    if (current_item_ && current_item_->ItemType == 0)
+    {
+        result_ = current_item_->ID;
     }
 }

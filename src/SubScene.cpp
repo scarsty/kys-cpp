@@ -133,6 +133,14 @@ void SubScene::dealEvent(BP_Event& e)
     {
         UI::getInstance()->run();
         clearEvent(e);
+        auto item = UI::getInstance()->getUsedItem();
+        if (item && item->ItemType == 0)
+        {
+            if (checkEvent2(x, y, towards_, item->ID))
+            {
+                step_ = 0;
+            }
+        }
     }
 
     //键盘走路部分，检测4个方向键
@@ -291,7 +299,14 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
         int id;
         if (tw != Towards_None)
         {
-            id = submap_info_->Event(x, y)->Event1;
+            if (item_id < 0)
+            {
+                id = submap_info_->Event(x, y)->Event1;
+            }
+            else
+            {
+                id = submap_info_->Event(x, y)->Event2;
+            }
             if (id > 0) { step_ = 0; }
         }
         else

@@ -140,6 +140,7 @@ void BattleScene::draw()
                     auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
+                    uint8_t alpha = 255;
                     if (battle_cursor_->isRunning())
                     {
                         color = { 128, 128, 128, 255 };
@@ -165,7 +166,8 @@ void BattleScene::draw()
                     {
                         pic = calRolePic(r);
                     }
-                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color);
+                    if (r->HP <= 0) { alpha = dead_alpha_; }
+                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color, alpha);
                 }
                 if (effect_id_ >= 0 && effect_layer_->data(i1, i2) >= 0)
                 {
@@ -840,7 +842,7 @@ void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
         x_ = RandomClassical::rand(5) - RandomClassical::rand(5);
         y_ = RandomClassical::rand(5) - RandomClassical::rand(5);
         drawAll();
-        checkEventAndPresent(25);
+        checkEventAndPresent(animation_delay_);
     }
     action_frame_ = 0;
     action_type_ = -1;
@@ -893,7 +895,7 @@ void BattleScene::showNumberAnimation()
                 Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
             }
         }
-        checkEventAndPresent(50);
+        checkEventAndPresent(animation_delay_);
     }
     //清除所有人的显示
     for (auto r : battle_roles_)
@@ -904,19 +906,40 @@ void BattleScene::showNumberAnimation()
 
 void BattleScene::clearDead()
 {
-    std::vector<Role*> alive;
+    //判断有没有人应退场
+    bool have_dead = false;
     for (auto r : battle_roles_)
     {
-        if (r->HP > 0)
+        if (r->HP <= 0)
         {
-            alive.push_back(r);
-        }
-        else
-        {
-            r->setPosition(-1, -1);
+            have_dead = true;
         }
     }
-    //如需要退场动画放在这里
-    battle_roles_ = alive;
+
+    if (have_dead)
+    {
+        //退场动画，清理人物
+        for (int i = 0; i <= 25; i++)
+        {
+            dead_alpha_ = 255 - i * 10;
+            if (dead_alpha_ < 0) { dead_alpha_ = 0; }
+            drawAll();
+            checkEventAndPresent(animation_delay_);
+        }
+
+        std::vector<Role*> alive;
+        for (auto r : battle_roles_)
+        {
+            if (r->HP > 0)
+            {
+                alive.push_back(r);
+            }
+            else
+            {
+                r->setPosition(-1, -1);
+            }
+        }
+        battle_roles_ = alive;
+    }
 }
 

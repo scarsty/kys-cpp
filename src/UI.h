@@ -1,18 +1,11 @@
 #pragma once
 #include "Element.h"
-//#include "Head.h"
-//#include "UIStatus.h"
-//#include "UISkill.h"
-//#include "UIItem.h"
-//#include "UISystem.h"
-
-//Ç°ÖÃÉùÃ÷£¬¼õÉÙ±àÒëÒÀÀµ
-class Head;
-class Button;
-class UIStatus;
-class UISkill;
-class UIItem;
-class UISystem;
+#include "Types.h"
+#include "Head.h"
+#include "UIStatus.h"
+#include "UISkill.h"
+#include "UIItem.h"
+#include "UISystem.h"
 
 class UI : public Element
 {
@@ -40,6 +33,9 @@ public:
     UISystem* ui_system_ = nullptr;
     int item_id_ = -1;
 
+    virtual void pressedOK() override;
     virtual void pressedCancel() override { exitWithResult(-1); }
+
+    Item* getUsedItem() { return ui_item_->getCurrentItem(); }
 };
 

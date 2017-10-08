@@ -44,7 +44,8 @@ public:
     int show_number_y_ = 0;
     int effect_id_ = -1;
     int effect_frame_ = 0;
-    int dead_frame_ = -1;
+    uint8_t dead_alpha_ = 255;
+    const int animation_delay_ = 50;
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;

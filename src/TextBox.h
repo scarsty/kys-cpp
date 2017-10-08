@@ -17,7 +17,14 @@ protected:
     BP_Color color_pass_ = { 255, 255, 255, 255 };
     BP_Color color_press_ = { 255, 0, 0, 255 };
     bool have_box_ = true;
+
+    std::string texture_path_ = "";
+    int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1; //三种状态的按钮图片
+
 public:
+    void setTexture(const std::string& path, int normal_id, int pass_id = -1, int press_id = -1);
+    int getNormalTextureID() { return texture_normal_id_; }
+
     void setFontSize(int size);
     void setText(std::string text);
     void setTexture(Texture* t) { tex_ = t; }
