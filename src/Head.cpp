@@ -40,7 +40,9 @@ void Head::draw()
     {
         color = { 128, 128, 128, 255 };
     }
-
+    //中毒时突出绿色
+    color.r -= 2 * role_->Poison;
+    color.b -= 2 * role_->Poison;
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, color, 255, 0.5, 0.5);
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
 

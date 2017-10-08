@@ -18,26 +18,27 @@ void BattleMenu::onEntrance()
     }
 
     //移动过则不可移动
-    if (role_->Moved)
+    if (role_->Moved || role_->PhysicalPower < 10)
     {
         childs_[0]->setVisible(false);
     }
-    if (role_->getLearnedMagicCount() <= 0)
+    //武学
+    if (role_->getLearnedMagicCount() <= 0 || role_->PhysicalPower < 20)
     {
         childs_[1]->setVisible(false);
     }
     //用毒
-    if (role_->UsePoison <= 0)
+    if (role_->UsePoison <= 0 || role_->PhysicalPower < 30)
     {
         childs_[2]->setVisible(false);
     }
     //解毒
-    if (role_->Detoxification <= 0)
+    if (role_->Detoxification <= 0 || role_->PhysicalPower < 30)
     {
         childs_[3]->setVisible(false);
     }
     //医疗
-    if (role_->Medcine <= 0)
+    if (role_->Medcine <= 0 || role_->PhysicalPower < 10)
     {
         childs_[4]->setVisible(false);
     }

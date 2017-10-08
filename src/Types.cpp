@@ -69,8 +69,12 @@ void Role::limit()
 {
     GameUtil::limit2(Level, 0, MAX_LEVEL);
 
+    GameUtil::limit2(Poison, 0, MAX_POISON);
+
     GameUtil::limit2(MaxHP, 0, MAX_HP);
     GameUtil::limit2(MaxMP, 0, MAX_MP);
+    GameUtil::limit2(HP, 0, MaxHP);
+    GameUtil::limit2(MP, 0, MaxMP);
     GameUtil::limit2(PhysicalPower, 0, MAX_PHYSICAL_POWER);
 
     GameUtil::limit2(Attack, 0, MAX_ATTACK);

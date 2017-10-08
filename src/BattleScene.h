@@ -46,6 +46,10 @@ public:
     int effect_frame_ = 0;
     uint8_t dead_alpha_ = 255;
     const int animation_delay_ = 50;
+    
+    bool fail_exp_ = false;
+
+    void setHaveFailExp(bool b) { fail_exp_ = b; }
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
@@ -80,6 +84,8 @@ public:
     int calDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }
     int calDistance(int x1, int y1, int x2, int y2) { return abs(x1 - x2) + abs(y1 - y2); }
 
+    Role* getSelectedRole();
+
     //"移動", "武學", "用毒", "解毒", "醫療", "物品", "等待", "狀態", "自動", "結束"
     void actMove(Role* r);
     void actUseMagic(Role* r);
@@ -100,5 +106,8 @@ public:
     int calAllHurt(Role* r, Magic* m);
     void showNumberAnimation();
     void clearDead();
+    void poisonEffect(Role* r);
+
+    int checkResult();
 
 };

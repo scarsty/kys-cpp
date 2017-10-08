@@ -24,7 +24,7 @@ void ShowRoleDifference::draw()
     head2_->setRole(role2_);
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
-        head2_->setRole(nullptr);
+        head1_->setRole(nullptr);
     }
 
     auto font = Font::getInstance();

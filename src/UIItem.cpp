@@ -160,7 +160,7 @@ void UIItem::showItemProperty(Item* item)
     int size = 20;
 
     //以下显示物品的属性
-    BP_Color c = { 255, 228, 196, 255 };
+    BP_Color c = { 255, 215, 0, 255 };
 
     //特别判断罗盘
     if (item->isCompass())
@@ -226,7 +226,7 @@ void UIItem::showItemProperty(Item* item)
 
     x = 10;
     y += size + 10;  //换行
-    c = { 230, 230, 250, 255 };
+    c = { 224, 170, 255, 255 };
     //Font::getInstance()->draw("需求：", size, x_ + x, y_ + y, c);
     //y += size + 10;
     auto role = Save::getInstance()->getRole(item->OnlySuitableRole);

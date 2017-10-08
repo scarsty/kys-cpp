@@ -57,6 +57,8 @@ enum
     MAX_HP = 999,
     MAX_PHYSICAL_POWER = 100,
 
+    MAX_POISON = 100,
+
     MAX_ATTACK = 100,
     MAX_DEFENCE = 100,
     MAX_SPEED = 100,

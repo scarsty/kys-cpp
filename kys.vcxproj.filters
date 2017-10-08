@@ -244,7 +244,7 @@
     <ClInclude Include="src\TextBox.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\ShowDifference.h">
+    <ClInclude Include="src\ShowRoleDifference.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

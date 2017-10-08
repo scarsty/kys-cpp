@@ -180,6 +180,7 @@ void BattleScene::draw()
     }
     Engine::getInstance()->renderAssistTextureToWindow();
 
+    //printf("Battle scene drawn\n");
     //ui的设定
     if (ui_status_->getVisible())
     {
@@ -242,9 +243,16 @@ void BattleScene::dealEvent(BP_Event& e)
         r->Moved = 0;
         battle_roles_.erase(battle_roles_.begin());
         battle_roles_.push_back(r);
+        poisonEffect(r);
     }
     //清除被击退的人物
     clearDead();
+
+    //检测战斗结果
+    if (checkResult() >= 0)
+    {
+        setExit(true);
+    }
 }
 
 void BattleScene::onEntrance()
@@ -609,6 +617,13 @@ bool BattleScene::isNearEnemy(Role* r, int x, int y)
     return false;
 }
 
+//获取恰好在选择点的角色
+Role* BattleScene::getSelectedRole()
+{
+    int r = role_layer_->data(select_x_, select_y_);
+    return Save::getInstance()->getRole(r);
+}
+
 void BattleScene::actMove(Role* r)
 {
     int step = calMoveStep(r);
@@ -689,6 +704,14 @@ void BattleScene::actUsePoison(Role* r)
     int selected = battle_cursor_->run();
     if (selected >= 0)
     {
+        auto r2 = getSelectedRole();
+        if (r2)
+        {
+            int v = GameUtil::usePoison(r, r2);
+            r2->ShowString = convert::formatString("%+d", v);
+            r2->ShowColor = { 20, 255, 20, 255 };
+        }
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
         actionAnimation(r, 0, 30);
         showNumberAnimation();
         r->Acted = 1;
@@ -705,6 +728,14 @@ void BattleScene::actDetoxification(Role* r)
     int selected = battle_cursor_->run();
     if (selected >= 0)
     {
+        auto r2 = getSelectedRole();
+        if (r2)
+        {
+            int v = GameUtil::detoxification(r, r2);
+            r2->ShowString = convert::formatString("-%d", -v);
+            r2->ShowColor = { 20, 200, 255, 255 };
+        }
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
         actionAnimation(r, 0, 36);
         showNumberAnimation();
         r->Acted = 1;
@@ -721,6 +752,14 @@ void BattleScene::actMedcine(Role* r)
     int selected = battle_cursor_->run();
     if (selected >= 0)
     {
+        auto r2 = getSelectedRole();
+        if (r2)
+        {
+            int v = GameUtil::medcine(r, r2);
+            r2->ShowString = convert::formatString("%+d", v);
+            r2->ShowColor = { 255, 255, 200, 255 };
+        }
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
         actionAnimation(r, 0, 0);
         showNumberAnimation();
         r->Acted = 1;
@@ -865,14 +904,15 @@ int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
 int BattleScene::calAllHurt(Role* r, Magic* m)
 {
     int total = 0;
-    for (auto r1 : battle_roles_)
+    for (auto r2 : battle_roles_)
     {
-        if (r1->Team != r->Team)
+        //非我方且被击中（即所在位置的效果层非负）
+        if (r2->Team != r->Team && effect_layer_->data(r2->X(), r2->Y()) >= 0)
         {
-            int hurt = calHurt(r, r1, m);
-            r1->ShowString = convert::formatString("-%d", hurt);
-            r1->ShowColor = { 255, 20, 20, 255 };
-            r1->HP -= hurt;
+            int hurt = calHurt(r, r2, m);
+            r2->ShowString = convert::formatString("-%d", hurt);
+            r2->ShowColor = { 255, 20, 20, 255 };
+            r2->HP -= hurt;
             total += hurt;
         }
     }
@@ -881,6 +921,18 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
 
 void BattleScene::showNumberAnimation()
 {
+    //判断是否有需要显示的数字
+    bool need_show = false;
+    for (auto r : battle_roles_)
+    {
+        if (!r->ShowString.empty())
+        {
+            need_show = true;
+            break;
+        }
+    }
+    if (!need_show) { return; }
+
     int size = 28;
     for (int i = 0; i <= 10; i++)
     {
@@ -906,40 +958,58 @@ void BattleScene::showNumberAnimation()
 
 void BattleScene::clearDead()
 {
-    //判断有没有人应退场
-    bool have_dead = false;
+    //判断是否有人应退场
+    bool found_dead = false;
     for (auto r : battle_roles_)
     {
         if (r->HP <= 0)
         {
-            have_dead = true;
+            found_dead = true;
+            break;
         }
     }
+    if (!found_dead) { return; }
 
-    if (have_dead)
+    //退场动画，清理人物
+    for (int i = 0; i <= 25; i++)
     {
-        //退场动画，清理人物
-        for (int i = 0; i <= 25; i++)
-        {
-            dead_alpha_ = 255 - i * 10;
-            if (dead_alpha_ < 0) { dead_alpha_ = 0; }
-            drawAll();
-            checkEventAndPresent(animation_delay_);
-        }
-
-        std::vector<Role*> alive;
-        for (auto r : battle_roles_)
-        {
-            if (r->HP > 0)
-            {
-                alive.push_back(r);
-            }
-            else
-            {
-                r->setPosition(-1, -1);
-            }
-        }
-        battle_roles_ = alive;
+        dead_alpha_ = 255 - i * 10;
+        if (dead_alpha_ < 0) { dead_alpha_ = 0; }
+        drawAll();
+        checkEventAndPresent(animation_delay_);
     }
+
+    std::vector<Role*> alive;
+    for (auto r : battle_roles_)
+    {
+        if (r->HP > 0)
+        {
+            alive.push_back(r);
+        }
+        else
+        {
+            r->setPosition(-1, -1);
+        }
+    }
+    battle_roles_ = alive;
+}
+
+//中毒的效果
+void BattleScene::poisonEffect(Role* r)
+{
+    if (r)
+    {
+        r->HP -= r->Poison / 3;
+        //最低扣到1点
+        if (r->HP < 1) { r->HP = 1; }
+    }
+}
+
+//检查是否有一方全灭
+//返回负值表示仍需持续，返回非负则为胜利方的team标记
+int BattleScene::checkResult()
+{
+
+    return -1;
 }
 

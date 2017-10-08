@@ -9,6 +9,9 @@ class GameUtil
 private:
     GameUtil();
     ~GameUtil();
+    static GameUtil game_util_;
+    std::vector<int> level_up_list_;
+    //std::vector<int> level_up_list_;
 public:
     //返回限制值
     static int limit(int current, int min_value, int max_value)
@@ -44,6 +47,14 @@ public:
     }
 
     static bool canUseItem(Role* r, Item* i);
-    static bool useItem(Role* r, Item* i) { return false; }
+    static void useItem(Role* r, Item* i);
+    static void levelUp(Role* r);
+    static bool canLevelUp(Role* r);
+    static bool canLearnBook(Role* r);
+
+    //以下3个函数的返回值为需要显示的数值
+    static int medcine(Role* r1, Role* r2);
+    static int detoxification(Role* r1, Role* r2);
+    static int usePoison(Role* r1, Role* r2);
 };
 
