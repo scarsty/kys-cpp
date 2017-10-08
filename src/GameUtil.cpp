@@ -15,7 +15,7 @@ GameUtil::~GameUtil()
 bool GameUtil::canUseItem(Role* r, Item* i)
 {
     if (r == nullptr) { return false; }
-    if (i == nullptr) { return true; }
+    if (i == nullptr) { return false; }
     if (i->ItemType == 0)
     {
         //剧情类无人可以使用

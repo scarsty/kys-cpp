@@ -6,6 +6,9 @@ BattleCursor::BattleCursor()
 {
     head_selected_ = new Head();
     addChild(head_selected_);
+    ui_status_ = new UIStatus();
+    ui_status_->setVisible(false);
+    addChild(ui_status_, 300, 0);
 }
 
 BattleCursor::~BattleCursor()
@@ -35,6 +38,12 @@ void BattleCursor::dealEvent(BP_Event& e)
             {
                 int r = battle_scene_->role_layer_->data(x, y);
                 head_selected_->setRole(Save::getInstance()->getRole(r));
+            }
+            //uiµÄÉè¶¨
+            if (ui_status_->getVisible())
+            {
+                int r = battle_scene_->role_layer_->data(x, y);
+                ui_status_->setRole(Save::getInstance()->getRole(r));
             }
         }
         if (mode_ == Move)

@@ -2,6 +2,7 @@
 #include <vector>
 #include "Engine.h"
 #include "TextureManager.h"
+#include <functional>
 
 #define CONNECT(a,b) a##b
 
@@ -11,6 +12,7 @@ class Element
 private:
     static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个静态向量中
     static int prev_present_ticks_;
+    const int max_delay_ = 25;
 protected:
     std::vector<Element*> childs_;
     bool visible_ = true;
@@ -49,20 +51,7 @@ public:
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
     }
 
-    int run(bool in_root = true);                       //执行本层
-    int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
-
-    //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
-
-    virtual void backRun() {}                           //一直运行，可以放入总计数器
-    virtual void draw() {}                              //如何画本层
-    virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
-    virtual void onEntrance() {}                          //进入本层的事件，例如绘制亮屏等
-    virtual void onExit() {}                              //离开本层的事件，例如黑屏等
-
     int getResult() { return result_; }
-    void drawSelfAndChilds();
-
     bool getVisible() { return visible_; }
     void setVisible(bool v) { visible_ = v; }
 
@@ -76,9 +65,6 @@ public:
     int state_ = Normal;   //状态
     int getState() { return state_; }
     void setState(int s) { state_ = s; }
-    void checkStateAndEvent(BP_Event& e);
-
-    void checkEventAndPresent(int max_delay=25, bool check_event = false);
 
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Element* getCurrentTopDraw() { return root_.back(); }
@@ -92,14 +78,31 @@ public:
     void setExit(bool e) { exit_ = e; }
     bool isRunning() { return !exit_; }
 
-    //按下回车或鼠标左键的事件
-    virtual void pressedOK() {}
-    //按下esc或鼠标右键的事件
-    virtual void pressedCancel() {}
-
     void exitWithResult(int r) { setExit(true); result_ = r; }
 
-    //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现
+
+    //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
+
+    virtual void backRun() {}                           //一直运行，可以放入总计数器
+    virtual void draw() {}                              //如何画本层
+    virtual void dealEvent(BP_Event& e) {}              //每个循环中处理事件
+    virtual void onEntrance() {}                        //进入本层的事件，例如绘制亮屏等
+    virtual void onExit() {}                            //离开本层的事件，例如黑屏等
+
+    virtual void pressedOK() {}                         //按下回车或鼠标左键的事件
+    virtual void pressedCancel() {}                     //按下esc或鼠标右键的事件
+
+private:
+    void drawSelfAndChilds();
+    void checkStateAndEvent(BP_Event& e);
+    void checkEventAndPresent(bool check_event = false);
+
+public:
+    int run(bool in_root = true);                       //执行本层
+    int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
+    int drawAndPresent(int times = 1, std::function<void(void)> func = nullptr);
+
+    //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，你想改成宏也行
     //virtual void pressedOK() override { exitWithResult(0); }
     //virtual void pressedCancel() override { exitWithResult(-1); }
 };

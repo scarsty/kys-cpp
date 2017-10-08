@@ -331,8 +331,7 @@ bool MainScene::checkEntrance(int x, int y)
             if (can_enter)
             {
                 //这里看起来要主动多画一帧，待修
-                drawAll();
-                checkEventAndPresent();
+                drawAndPresent();
                 auto sub_map = new SubScene(i);
                 sub_map->run();
                 return true;

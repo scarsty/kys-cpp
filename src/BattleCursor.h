@@ -2,6 +2,7 @@
 #include "Element.h"
 #include "Types.h"
 #include "Head.h"
+#include "UIStatus.h"
 
 class BattleScene;
 
@@ -22,8 +23,11 @@ public:
     void setRoleAndMagic(Role* r, Magic* m = nullptr, int l = 0);
 
     Head* head_selected_;
-    void setHead(Head* h) { head_selected_ = h; }
+    //void setHead(Head* h) { head_selected_ = h; }
     Head* getHead() { return head_selected_; }
+
+    UIStatus* ui_status_;
+    UIStatus* getUIStatus() { return ui_status_; }
 
     int mode_ = Move;
     enum

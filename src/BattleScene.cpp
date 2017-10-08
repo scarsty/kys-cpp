@@ -28,9 +28,6 @@ BattleScene::BattleScene()
     battle_menu_->setPosition(160, 200);
     head_self_ = new Head();
     addChild(head_self_);
-    ui_status_ = new UIStatus();
-    ui_status_->setVisible(false);
-    addChild(ui_status_, 300, 0);
     battle_cursor_ = new BattleCursor();
     battle_cursor_->setBattleScene(this);
     save_ = Save::getInstance();
@@ -179,14 +176,7 @@ void BattleScene::draw()
         }
     }
     Engine::getInstance()->renderAssistTextureToWindow();
-
     //printf("Battle scene drawn\n");
-    //ui的设定
-    if (ui_status_->getVisible())
-    {
-        int r = role_layer_->data(select_x_, select_y_);
-        ui_status_->setRole(Save::getInstance()->getRole(r));
-    }
 }
 
 void BattleScene::dealEvent(BP_Event& e)
@@ -787,8 +777,8 @@ void BattleScene::actWait(Role* r)
 void BattleScene::actStatus(Role* r)
 {
     head_self_->setVisible(false);
-    ui_status_->setVisible(true);
     battle_cursor_->getHead()->setVisible(false);
+    battle_cursor_->getUIStatus()->setVisible(true);
 
     calSelectLayer(r, 2, 0);
     battle_cursor_->setRoleAndMagic(r);
@@ -796,8 +786,8 @@ void BattleScene::actStatus(Role* r)
     battle_cursor_->run();
 
     head_self_->setVisible(true);
-    ui_status_->setVisible(false);
     battle_cursor_->getHead()->setVisible(true);
+    battle_cursor_->getUIStatus()->setVisible(false);
 }
 
 void BattleScene::actAuto(Role* r)
@@ -842,8 +832,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     {
         r->Face = calFace(r->X(), r->Y(), way[i].x, way[i].y);
         r->setPosition(way[i].x, way[i].y);
-        drawAll();
-        checkEventAndPresent(100);
+        drawAndPresent(4);
     }
     r->setPosition(x, y);
     r->Moved = 1;
@@ -869,8 +858,7 @@ void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
     action_type_ = action_type;
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
-        drawAll();
-        checkEventAndPresent(25);
+        drawAndPresent(animation_delay_);
     }
     action_frame_ = frame_count - 1;
     effect_id_ = effect_id;
@@ -880,8 +868,7 @@ void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
     {
         x_ = RandomClassical::rand(5) - RandomClassical::rand(5);
         y_ = RandomClassical::rand(5) - RandomClassical::rand(5);
-        drawAll();
-        checkEventAndPresent(animation_delay_);
+        drawAndPresent(animation_delay_);
     }
     action_frame_ = 0;
     action_type_ = -1;
@@ -936,18 +923,20 @@ void BattleScene::showNumberAnimation()
     int size = 28;
     for (int i = 0; i <= 10; i++)
     {
-        drawAll();
-        for (auto r : battle_roles_)
+        auto drawNumber = [&]()->void
         {
-            if (!r->ShowString.empty())
+            for (auto r : battle_roles_)
             {
-                auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
-                int x = p.x - size * r->ShowString.size() / 4;
-                int y = p.y - 75 - i * 2;
-                Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
+                if (!r->ShowString.empty())
+                {
+                    auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
+                    int x = p.x - size * r->ShowString.size() / 4;
+                    int y = p.y - 75 - i * 2;
+                    Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
+                }
             }
-        }
-        checkEventAndPresent(animation_delay_);
+        };
+        drawAndPresent(animation_delay_, drawNumber);
     }
     //清除所有人的显示
     for (auto r : battle_roles_)
@@ -975,8 +964,7 @@ void BattleScene::clearDead()
     {
         dead_alpha_ = 255 - i * 10;
         if (dead_alpha_ < 0) { dead_alpha_ = 0; }
-        drawAll();
-        checkEventAndPresent(animation_delay_);
+        drawAndPresent(animation_delay_);
     }
 
     std::vector<Role*> alive;

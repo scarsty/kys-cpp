@@ -44,24 +44,6 @@ void Element::setPosition(int x, int y)
     x_ = x; y_ = y;
 }
 
-//运行
-//参数为是否在root中运行，为真则参与绘制，为假则不会被画出
-int Element::run(bool in_root /*= true*/)
-{
-    exit_ = false;
-    if (in_root) { addOnRootTop(this); }
-    onEntrance();
-    while (!exit_)
-    {
-        if (root_.empty()) { break; }
-        drawAll();
-        checkEventAndPresent(25, true);
-    }
-    onExit();
-    if (in_root) { removeFromRoot(this); }
-    return result_;
-}
-
 //从绘制的根节点移除
 Element* Element::removeFromRoot(Element* element)
 {
@@ -136,6 +118,49 @@ void Element::drawSelfAndChilds()
     }
 }
 
+void Element::setAllChildState(int s)
+{
+    for (auto c : childs_)
+    {
+        c->state_ = s;;
+    }
+}
+
+int Element::findNextVisibleChild(int i0, int direct)
+{
+    if (direct == 0 || childs_.size() == 0) { return i0; }
+    direct = direct > 0 ? 1 : -1;
+
+    int i1 = i0;
+    for (int i = 1; i < childs_.size(); i++)
+    {
+        i1 += direct;
+        i1 = (i1 + childs_.size()) % childs_.size();
+        if (childs_[i1]->visible_)
+        {
+            return i1;
+        }
+    }
+    return i0;
+}
+
+//运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
+int Element::run(bool in_root /*= true*/)
+{
+    exit_ = false;
+    if (in_root) { addOnRootTop(this); }
+    onEntrance();
+    while (!exit_)
+    {
+        if (root_.empty()) { break; }
+        drawAll();
+        checkEventAndPresent(true);
+    }
+    onExit();
+    if (in_root) { removeFromRoot(this); }
+    return result_;
+}
+
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 void Element::checkStateAndEvent(BP_Event& e)
@@ -196,8 +221,7 @@ void Element::checkStateAndEvent(BP_Event& e)
 }
 
 //检测事件并将绘制的图显示出来
-//drawAll与checkEventAndPresent(false)配合可以用来制作动画
-void Element::checkEventAndPresent(int max_delay, bool check_event)
+void Element::checkEventAndPresent(bool check_event)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
@@ -207,7 +231,6 @@ void Element::checkEventAndPresent(int max_delay, bool check_event)
     {
         checkStateAndEvent(e);
     }
-
     switch (e.type)
     {
     case BP_QUIT:
@@ -218,38 +241,30 @@ void Element::checkEventAndPresent(int max_delay, bool check_event)
         break;
     }
     int t1 = engine->getTicks();
-    int t = max_delay - (t1 - prev_present_ticks_);
-    if (t > max_delay) { t = max_delay; }
+    int t = max_delay_ - (t1 - prev_present_ticks_);
+    if (t > max_delay_) { t = max_delay_; }
     if (t <= 0) { t = 1; }
     engine->delay(t);
     engine->renderPresent();
     prev_present_ticks_ = t1;
 }
 
-void Element::setAllChildState(int s)
+//专门用来某些情况下动画的显示和延时
+//中间可以插入一个函数补充些什么，想不到更好的方法了
+int Element::drawAndPresent(int times, std::function<void(void)> func)
 {
-    for (auto c : childs_)
+    if (times < 1) { times = 1; }
+    if (times > 100) { times = 100; }
+    for (int i = 0; i < times; i++)
     {
-        c->state_ = s;;
-    }
-}
-
-int Element::findNextVisibleChild(int i0, int direct)
-{
-    if (direct == 0 || childs_.size() == 0) { return i0; }
-    direct = direct > 0 ? 1 : -1;
-
-    int i1 = i0;
-    for (int i = 1; i < childs_.size(); i++)
-    {
-        i1 += direct;
-        i1 = (i1 + childs_.size()) % childs_.size();
-        if (childs_[i1]->visible_)
+        drawAll();
+        if (func)
         {
-            return i1;
+            func();
         }
+        checkEventAndPresent(false);
     }
-    return i0;
+    return times;
 }
 
 //void Element::setChildState(int i, int s)

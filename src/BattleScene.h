@@ -2,10 +2,8 @@
 #include "BattleMap.h"
 #include "Scene.h"
 #include "Point.h"
-#include <stack>
 #include "BattleMenu.h"
 #include "BattleCursor.h"
-#include "UIStatus.h"
 
 class BattleScene : public Scene
 {
@@ -21,7 +19,6 @@ public:
     BattleMenu* battle_menu_;
     BattleCursor* battle_cursor_;
     Head* head_self_;
-    UIStatus* ui_status_;
 
     //Head* head_selected_;
 
@@ -45,7 +42,7 @@ public:
     int effect_id_ = -1;
     int effect_frame_ = 0;
     uint8_t dead_alpha_ = 255;
-    const int animation_delay_ = 50;
+    const int animation_delay_ = 2;
     
     bool fail_exp_ = false;
 
