@@ -7,7 +7,6 @@ public:
     TextBox() {}
     virtual ~TextBox() {}
     void dealEvent(BP_Event& e) override;
-
 protected:
     std::string text_ = "";
     int font_size_ = 20;
@@ -20,7 +19,6 @@ protected:
 
     std::string texture_path_ = "";
     int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1; //三种状态的按钮图片
-
 public:
     void setTexture(const std::string& path, int normal_id, int pass_id = -1, int press_id = -1);
     int getNormalTextureID() { return texture_normal_id_; }
@@ -34,5 +32,19 @@ public:
 
     virtual void draw() override;
     void setHaveBox(bool h) { have_box_ = h; }
+};
+
+//可以维持数帧后自动消失的文本框
+class TextBoxAutoExit : TextBox
+{
+public:
+    TextBoxAutoExit() {}
+    ~TextBoxAutoExit() {}
+private:
+    int stay_frame_ = -1;
+    int current_frame_ = 0;
+public:
+    void setStayFrame(int s) { stay_frame_ = s; }
+    virtual void dealEvent(BP_Event& e) override;
 };
 

@@ -38,7 +38,7 @@ public:
     Element* getChild(int i) { return childs_[i]; }
     int getChildCount() { return childs_.size(); }
     void removeChild(Element* element);
-    void clearChilds();   //不推荐
+    void clearChilds();
 
     void setPosition(int x, int y);
     void setSize(int w, int h) { w_ = w; h_ = h; }
@@ -55,6 +55,7 @@ public:
     bool getVisible() { return visible_; }
     void setVisible(bool v) { visible_ = v; }
 
+    //状态
     enum State
     {
         Normal,
@@ -62,7 +63,7 @@ public:
         Press,
     };
 
-    int state_ = Normal;   //状态
+    int state_ = Normal;
     int getState() { return state_; }
     void setState(int s) { state_ = s; }
 
@@ -102,7 +103,8 @@ public:
     int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
     int drawAndPresent(int times = 1, std::function<void(void)> func = nullptr);
 
-    //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，你想改成宏也行
+    //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，改成宏也行
+    //注意子类的子类可能会出现继承关系，需视情况再改写
     //virtual void pressedOK() override { exitWithResult(0); }
     //virtual void pressedCancel() override { exitWithResult(-1); }
 };

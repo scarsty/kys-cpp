@@ -66,3 +66,14 @@ void TextBox::draw()
         }
     }
 }
+
+void TextBoxAutoExit::dealEvent(BP_Event& e)
+{
+    TextBox::dealEvent(e);
+    if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
+    {
+        setVisible(false);
+        setExit(true);
+    }
+    current_frame_++;
+}
