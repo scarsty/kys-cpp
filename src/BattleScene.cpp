@@ -352,7 +352,7 @@ void BattleScene::setRoleInitState(Role* r)
     }
 
     r->FaceTowards = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
-    //r->Face = RandomClassical::rand(4);  //没头苍蝇随意选择面向
+    //r->FaceTowards = RandomClassical::rand(4);  //没头苍蝇随意选择面向
 }
 
 void BattleScene::readFightFrame(Role* r)

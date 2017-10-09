@@ -73,4 +73,5 @@ void BattleCursor::onEntrance()
     int w, h;
     Engine::getInstance()->getPresentSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
+    battle_scene_->towards_ = role_->FaceTowards;
 }
