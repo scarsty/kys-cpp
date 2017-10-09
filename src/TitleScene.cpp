@@ -70,6 +70,6 @@ void TitleScene::dealEvent(BP_Event& e)
 
 void TitleScene::onEntrance()
 {
-    Save::getInstance()->LoadR(1);
+    Save::getInstance()->LoadR(2);
 }
 

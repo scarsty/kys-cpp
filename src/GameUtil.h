@@ -55,6 +55,7 @@ public:
     static void useItem(Role* r, Item* i);
     static void levelUp(Role* r);
     static bool canLevelUp(Role* r);
+    static int getLevelUpExp(int level);
     static bool canFinishedItem(Role* r);
     static int getFinishedExpForItem(Role* r, Item* i);
 

@@ -50,11 +50,13 @@ bool GameUtil::canUseItem(Role* r, Item* i)
         }
 
         //若有相关武学，满级则为假，未满级为真
+        //若已经学满武学，则为假
         //此处注意，如果有可制成物品的秘籍，则武学满级之后不会再制药了，请尽量避免这样的设置
         if (i->MagicID > 0)
         {
             int level = r->getMagicLevelIndex(i->MagicID);
             if (level >= 0 && level < MAX_MAGIC_LEVEL_INDEX) { return true; }
+            if (level < 0 && r->getLearnedMagicCount() == ROLE_MAGIC_COUNT) { return false; }
             if (level == MAX_MAGIC_LEVEL_INDEX) { return false; }
         }
 
@@ -142,12 +144,17 @@ bool GameUtil::canLevelUp(Role* r)
 {
     if (r->Level >= 1 && r->Level <= MAX_LEVEL)
     {
-        if (r->Exp >= game_util_.level_up_list_[r->Level - 1])
+        if (r->Exp >= getLevelUpExp(r->Level))
         {
             return true;
         }
     }
     return false;
+}
+
+int GameUtil::getLevelUpExp(int level)
+{
+    return game_util_.level_up_list_[level - 1];
 }
 
 //物品经验值是否足够
