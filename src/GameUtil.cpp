@@ -94,7 +94,44 @@ bool GameUtil::canUseItem(Role* r, Item* i)
 //使用物品时属性变化
 void GameUtil::useItem(Role* r, Item* i)
 {
+    r->PhysicalPower += i->AddPhysicalPower;
+    r->HP += i->AddHP;
+    r->MaxHP += i->AddMaxHP;
+    r->MP += i->AddMP;
+    r->MaxMP += i->AddMaxMP;
 
+    r->Poison += i->AddPoison;
+
+    r->Medcine = i->AddMedcine;
+    r->Detoxification += i->AddDetoxification;
+    r->UsePoison += i->AddUsePoison;
+
+    r->Attack += i->AddAttack;
+    r->Defence += i->AddDefence;
+    r->Speed += i->AddSpeed;
+
+    r->Fist += i->AddFist;
+    r->Sword += i->AddSword;
+    r->Knife += i->AddKnife;
+    r->Unusual += i->AddUnusual;
+    r->HiddenWeapon += i->AddHiddenWeapon;
+
+    r->Knowledge += i->AddKnowledge;
+    r->Morality += i->AddMorality;
+    r->AntiPoison += i->AddAntiPoison;
+    r->AttackWithPoison += i->AddAttackWithPoison;
+
+    if (i->ChangeMPType == 2) { r->MPType = 2; }
+    if (i->AddAttackTwice) { r->AttackTwice = 1; }
+
+    int need_item_exp = getFinishedExpForItem(r, i);
+    if (r->ExpForItem >= need_item_exp)
+    {
+        r->learnMagic(i->MagicID);
+        r->ExpForItem -= need_item_exp;
+    }
+
+    r->limit();
 }
 
 //升级的属性变化
@@ -154,13 +191,14 @@ bool GameUtil::canLevelUp(Role* r)
 
 int GameUtil::getLevelUpExp(int level)
 {
+    if (level >= MAX_LEVEL) { return INT_MAX; }
     return game_util_.level_up_list_[level - 1];
 }
 
 //物品经验值是否足够
 bool GameUtil::canFinishedItem(Role* r)
 {
-    auto item = Save::getInstance()->getItem(r->PracticeBook);
+    auto item = Save::getInstance()->getItem(r->PracticeItem);
     if (r->ExpForItem >= getFinishedExpForItem(r, item))
     {
         return true;
@@ -200,6 +238,7 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
 //医疗的效果
 int GameUtil::medcine(Role* r1, Role* r2)
 {
+    if (r1 == nullptr || r2 == nullptr) { return 0; }
     auto temp = r2->HP;
     r2->HP += r1->Medcine;
     GameUtil::limit2(r2->HP, 0, r2->MaxHP);
@@ -210,6 +249,7 @@ int GameUtil::medcine(Role* r1, Role* r2)
 //注意这个返回值通常应为负
 int GameUtil::detoxification(Role* r1, Role* r2)
 {
+    if (r1 == nullptr || r2 == nullptr) { return 0; }
     auto temp = r2->Poison;
     r2->Poison -= r1->Detoxification / 3;
     GameUtil::limit2(r2->Poison, 0, MAX_POISON);
@@ -219,6 +259,7 @@ int GameUtil::detoxification(Role* r1, Role* r2)
 //用毒
 int GameUtil::usePoison(Role* r1, Role* r2)
 {
+    if (r1 == nullptr || r2 == nullptr) { return 0; }
     auto temp = r2->Poison;
     r2->Poison += r1->UsePoison / 3;
     GameUtil::limit2(r2->Poison, 0, MAX_POISON);

@@ -10,9 +10,9 @@ ShowRoleDifference::ShowRoleDifference()
     head2_ = new Head();
     addChild(head2_, 400, 0);
     //setText("修習成功");
-    setTextPosition(100, 200);
+    setPosition(250, 180);
+    setTextPosition(0, -30);
 }
-
 
 ShowRoleDifference::~ShowRoleDifference()
 {
@@ -20,13 +20,16 @@ ShowRoleDifference::~ShowRoleDifference()
 
 void ShowRoleDifference::draw()
 {
+    if (role1_ == nullptr || role2_ == nullptr) { return; }
     Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
 
     head1_->setRole(role1_);
     head2_->setRole(role2_);
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
-        head1_->setRole(nullptr);
+        head1_->setRole(role2_);
+        head1_->setPosition(200, 50);
+        head2_->setRole(nullptr);
     }
 
     auto font = Font::getInstance();
@@ -91,7 +94,7 @@ void ShowRoleDifference::draw()
         }
     }
 
-    if (y == 100)
+    if (y == y_)
     {
         Font::getInstance()->draw("無明显效果", 20, x, y, color);
     }

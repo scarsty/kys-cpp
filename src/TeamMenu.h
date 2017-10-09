@@ -19,5 +19,11 @@ public:
 
     int mode_;   //为0是单选，为1是多选
 
+    Role* getRole();
+
+    std::vector<Role*> getRoles();
+
+    virtual void draw() override;
+
 };
 

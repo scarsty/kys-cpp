@@ -27,7 +27,6 @@ void TextBox::setText(std::string text)
     text_ = text;
     w_ = font_size_ * text.length() / 2;
     h_ = font_size_;
-
 }
 
 void TextBox::setTexture(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)

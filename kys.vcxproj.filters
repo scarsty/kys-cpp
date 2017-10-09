@@ -49,9 +49,6 @@
     <ClCompile Include="src\UIStatus.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\UISkill.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\UISystem.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -121,6 +118,9 @@
     <ClCompile Include="src\ShowRoleDifference.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\ShowExp.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -172,9 +172,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UIStatus.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UISkill.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UISystem.h">
@@ -245,6 +242,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\ShowRoleDifference.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ShowExp.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

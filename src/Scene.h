@@ -44,11 +44,11 @@ public:
 
     Point getPositionOnRender(int x, int y, int view_x, int view_y);
     Point getPositionOnWindow(int x, int y, int view_x, int view_y);
-    int calFace(int x1, int y1, int x2, int y2);
+    int calTowards(int x1, int y1, int x2, int y2);
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
-    static int getTowardsFromKey(BP_Keycode key);
+    int changeTowardsByKey(BP_Keycode key);
     //获取面向一格的坐标
     static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
 

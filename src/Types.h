@@ -112,7 +112,7 @@ public:
     SAVE_INT MPType, MP, MaxMP;
     SAVE_INT Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     SAVE_INT Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
-    SAVE_INT PracticeBook;
+    SAVE_INT PracticeItem;
     SAVE_UINT ExpForItem;
     SAVE_INT MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     SAVE_INT TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
@@ -124,7 +124,7 @@ struct Role : public RoleSave
 {
 public:
     int Team;
-    int Face, Dead, Step;
+    int FaceTowards, Dead, Step;
     int Pic, BattleSpeed;
     int ExpGot, Auto;
     int FightFrame[5];
@@ -156,6 +156,9 @@ public:
     int getMagicLevelIndex(int magic_id);
 
     void limit();
+
+    int learnMagic(Magic* magic);
+    int learnMagic(int magic_id);
 };
 
 //存档中的物品数据

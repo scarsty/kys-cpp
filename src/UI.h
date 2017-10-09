@@ -3,7 +3,6 @@
 #include "Types.h"
 #include "Head.h"
 #include "UIStatus.h"
-#include "UISkill.h"
 #include "UIItem.h"
 #include "UISystem.h"
 
@@ -26,9 +25,8 @@ public:
     std::vector<Head*> heads_;
     std::vector<Button*> buttons_;
 
-    Button* button_status_, *button_skill_, *button_item_, *button_system_;
+    Button* button_status_, *button_item_, *button_system_;
     UIStatus* ui_status_ = nullptr;
-    UISkill* ui_skill_ = nullptr;
     UIItem* ui_item_ = nullptr;
     UISystem* ui_system_ = nullptr;
     int item_id_ = -1;

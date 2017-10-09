@@ -175,6 +175,7 @@
     <ClCompile Include="src\Option.cpp" />
     <ClCompile Include="src\others\ini.cpp" />
     <ClCompile Include="src\others\INIReader.cpp" />
+    <ClCompile Include="src\ShowExp.cpp" />
     <ClCompile Include="src\ShowRoleDifference.cpp" />
     <ClCompile Include="src\Talk.cpp" />
     <ClCompile Include="src\Engine.cpp" />
@@ -198,7 +199,6 @@
     <ClCompile Include="src\TextureManager.cpp" />
     <ClCompile Include="src\Types.cpp" />
     <ClCompile Include="src\UIItem.cpp" />
-    <ClCompile Include="src\UISkill.cpp" />
     <ClCompile Include="src\UIStatus.cpp" />
     <ClCompile Include="src\UISystem.cpp" />
     <ClCompile Include="src\Util.cpp" />
@@ -219,6 +219,7 @@
     <ClInclude Include="src\others\ini.h" />
     <ClInclude Include="src\others\INIReader.h" />
     <ClInclude Include="src\Random.h" />
+    <ClInclude Include="src\ShowExp.h" />
     <ClInclude Include="src\ShowRoleDifference.h" />
     <ClInclude Include="src\Talk.h" />
     <ClInclude Include="src\Engine.h" />
@@ -242,7 +243,6 @@
     <ClInclude Include="src\TextureManager.h" />
     <ClInclude Include="src\Types.h" />
     <ClInclude Include="src\UIItem.h" />
-    <ClInclude Include="src\UISkill.h" />
     <ClInclude Include="src\UIStatus.h" />
     <ClInclude Include="src\UISystem.h" />
     <ClInclude Include="src\Util.h" />

@@ -8,6 +8,7 @@ BattleCursor::BattleCursor()
     addChild(head_selected_);
     ui_status_ = new UIStatus();
     ui_status_->setVisible(false);
+    ui_status_->setShowButton(false);
     addChild(ui_status_, 300, 0);
 }
 
@@ -29,7 +30,7 @@ void BattleCursor::dealEvent(BP_Event& e)
     if (e.type == BP_KEYDOWN)
     {
         int x = 0, y = 0;
-        battle_scene_->towards_ = Scene::getTowardsFromKey(e.key.keysym.sym);
+        battle_scene_->changeTowardsByKey(e.key.keysym.sym);
         Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, battle_scene_->towards_, &x, &y);
         if (battle_scene_->canSelect(x, y))
         {

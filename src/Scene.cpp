@@ -57,7 +57,7 @@ Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
 //}
 
 //角色处于x1，y1，朝向x2，y2时，脸的方向
-int Scene::calFace(int x1, int y1, int x2, int y2)
+int Scene::calTowards(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
     d1 = y2 - y1;
@@ -91,17 +91,16 @@ int Scene::calFace(int x1, int y1, int x2, int y2)
     return Towards_None;
 }
 
-int Scene::getTowardsFromKey(BP_Keycode key)
+int Scene::changeTowardsByKey(BP_Keycode key)
 {
-    auto tw = Towards_None;
     switch (key)
     {
-    case BPK_LEFT: tw = Towards_LeftDown; break;
-    case BPK_RIGHT: tw = Towards_RightUp; break;
-    case BPK_UP: tw = Towards_LeftUp; break;
-    case BPK_DOWN: tw = Towards_RightDown; break;
+    case BPK_LEFT: towards_ = Towards_LeftDown; break;
+    case BPK_RIGHT: towards_ = Towards_RightUp; break;
+    case BPK_UP: towards_ = Towards_LeftUp; break;
+    case BPK_DOWN: towards_ = Towards_RightDown; break;
     }
-    return tw;
+    return towards_;
 }
 
 void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
@@ -136,7 +135,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     auto myPoint = new PointEx();
     myPoint->x = Mx;
     myPoint->y = My;
-    myPoint->towards = calFace(Mx, My, Fx, Fy);
+    myPoint->towards = calTowards(Mx, My, Fx, Fy);
     myPoint->parent = myPoint;
     myPoint->Heuristic(Fx, Fy);
     //log("Fx=%d,Fy=%d", Fx, Fy);

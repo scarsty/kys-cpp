@@ -108,6 +108,50 @@ void Role::limit()
     }
 }
 
+int Role::learnMagic(Magic* magic)
+{
+    if (magic == nullptr || magic->ID <= 0) { return -1; }  //武学id错误
+    return learnMagic(magic->ID);
+}
+
+int Role::learnMagic(int magic_id)
+{
+    if (magic_id <= 0) { return -1; }
+    //检查是否已经学得
+    int index = -1;
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (MagicID[i] == magic_id)
+        {
+            if (MagicLevel[i] / 100 < MAX_MAGIC_LEVEL_INDEX)
+            {
+                MagicLevel[i] += 100;
+                return 0;
+            }
+            else
+            {
+                return -2;   //满级
+            }
+        }
+        if (MagicID[i] <= 0)
+        {
+            index = i;
+        }
+    }
+
+    if (index < 0)
+    {
+        return -3;   //若进行到此index为负，表示武学栏已满
+    }
+    else
+    {
+        //增加武学
+        MagicID[index] = magic_id;
+        MagicLevel[index] = 0;
+        return 0;
+    }
+}
+
 //设置某个事件的坐标，在一些MOD里面此语句有错误
 void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 {

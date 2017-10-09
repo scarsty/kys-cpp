@@ -25,7 +25,8 @@ UIItem::UIItem()
     addChild(title_);
 
     cursor_ = new TextBox();
-    cursor_->setTexture("title", 100);
+    cursor_->setTexture("title", 127);
+    cursor_->setVisible(false);
     addChild(cursor_);
 }
 
@@ -129,16 +130,26 @@ void UIItem::dealEvent(BP_Event& e)
             {
                 current_item_ = item;
                 current_button_ = button;
-                int x, y;
-                current_button_->getPosition(x, y);
-                cursor_->setPosition(x, y);
                 //result_ = current_item_->ID;
             }
+
         }
         else
         {
-            button->setTexture("item", -1);
+            button->setTexture("item", -1);            
         }
+    }
+    //让光标显示出来
+    if (current_button_)
+    {
+        int x, y;
+        current_button_->getPosition(x, y);
+        cursor_->setPosition(x, y);
+        cursor_->setVisible(true);
+    }
+    else
+    {
+        cursor_->setVisible(false);
     }
 }
 

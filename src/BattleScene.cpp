@@ -351,7 +351,7 @@ void BattleScene::setRoleInitState(Role* r)
         }
     }
 
-    r->Face = calFace(r->X(), r->Y(), r_near->X(), r_near->Y());
+    r->FaceTowards = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
     //r->Face = RandomClassical::rand(4);  //没头苍蝇随意选择面向
 }
 
@@ -421,7 +421,7 @@ int BattleScene::calRolePic(Role* r, int style, int frame)
         {
             if (r->FightFrame[i] > 0)
             {
-                return r->FightFrame[i] * r->Face;
+                return r->FightFrame[i] * r->FaceTowards;
             }
         }
     }
@@ -432,12 +432,12 @@ int BattleScene::calRolePic(Role* r, int style, int frame)
         {
             if (i == style)
             {
-                return total + r->FightFrame[style] * r->Face + frame;
+                return total + r->FightFrame[style] * r->FaceTowards + frame;
             }
             total += r->FightFrame[i] * 4;
         }
     }
-    return r->Face;
+    return r->FaceTowards;
 }
 
 //计算可以被选择的范围，会改写选择层
@@ -532,12 +532,14 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
     if (m->AttackAreaType == 1)
     {
         int x = r->X(), y = r->Y();
+        select_x_ = x;
+        select_y_ = y;
         int dis = m->SelectDistance[level_index];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
             for (int iy = y - dis; iy <= y + dis; iy++)
             {
-                if (!isOutLine(ix, iy) && (x == ix || y == iy) && calFace(ix, iy, x, y) == towards_)
+                if (!isOutLine(ix, iy) && (x == ix || y == iy) && calTowards(x, y, ix, iy) == towards_)
                 {
                     effect_layer_->data(ix, iy) = 0;
                 }
@@ -547,6 +549,8 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
     else if (m->AttackAreaType == 2)
     {
         int x = r->X(), y = r->Y();
+        select_x_ = x;
+        select_y_ = y;
         int dis = m->SelectDistance[level_index];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
@@ -704,6 +708,7 @@ void BattleScene::actUseMagic(Role* r)
         //选择目标
         battle_cursor_->setMode(BattleCursor::Action);
         battle_cursor_->setRoleAndMagic(r, magic, level_index);
+        towards_ = r->FaceTowards;
         calEffectLayer(r, magic, level_index);
         int selected = battle_cursor_->run();
         //取消选择目标则重新进入选武功
@@ -838,8 +843,8 @@ void BattleScene::actAuto(Role* r)
 void BattleScene::actRest(Role* r)
 {
     r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, MAX_PHYSICAL_POWER);
-    r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, MAX_HP);
-    r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, MAX_MP);
+    r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
+    r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
     r->Acted = 1;
 }
 
@@ -870,7 +875,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
 
     for (int i = way.size() - 2; i >= 0; i--)
     {
-        r->Face = calFace(r->X(), r->Y(), way[i].x, way[i].y);
+        r->FaceTowards = calTowards(r->X(), r->Y(), way[i].x, way[i].y);
         r->setPosition(way[i].x, way[i].y);
         //setPosition(r->X(), r->Y());
         drawAndPresent(2);
@@ -893,7 +898,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
 {
     if (r->X() != select_x_ || r->Y() != select_y_)
     {
-        r->Face = calFace(r->X(), r->Y(), select_x_, select_y_);
+        r->FaceTowards = calTowards(r->X(), r->Y(), select_x_, select_y_);
     }
     auto frame_count = r->FightFrame[style];
     action_type_ = style;
@@ -932,7 +937,7 @@ int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
     int v = attack - defence;
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
     if (v < 1) { v = 1; }
-    v = 300;  //测试用
+    v = 999;  //测试用
     return v;
 }
 
@@ -1088,7 +1093,7 @@ void BattleScene::calExpGot()
         Role r0 = *r;  //用于比较的状态
         r->ExpGot += info_->Exp / alive_teammate.size();
 
-        auto item = Save::getInstance()->getItem(r->PracticeBook);
+        auto item = Save::getInstance()->getItem(r->PracticeItem);
 
         if (r->Level >= MAX_LEVEL)
         {
@@ -1121,23 +1126,26 @@ void BattleScene::calExpGot()
         if (change)
         {
             diff->setTwinRole(&r0, r);
-            diff->setText("昇級");
+            diff->setText("升級");
             diff->run();
         }
 
         //修炼秘笈
-        r0 = *r;
-        change = 0;
-        while (GameUtil::canFinishedItem(r))
+        if (item)
         {
-            change++;
-            break;
-        }
-        if (change)
-        {
-            diff->setTwinRole(&r0, r);
-            diff->setText(convert::formatString("修煉%s成功", r->Name));
-            diff->run();
+            r0 = *r;
+            change = 0;
+            while (GameUtil::canFinishedItem(r))
+            {
+                GameUtil::useItem(r, item);
+                change++;
+            }
+            if (change)
+            {
+                diff->setTwinRole(&r0, r);
+                diff->setText(convert::formatString("修煉%s成功", item->Name));
+                diff->run();
+            }
         }
     }
     delete diff;

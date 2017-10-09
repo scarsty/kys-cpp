@@ -13,7 +13,11 @@ TeamMenu::TeamMenu()
     }
     auto button = new Button();
     button->setText("È«²¿ßx“ñ");
-    addChild(button, 50, 50);
+    if (mode_ == 1)
+    {
+        addChild(button, 50, 50);
+    }
+    setPosition(200, 100);
 }
 
 TeamMenu::~TeamMenu()
@@ -26,4 +30,21 @@ void TeamMenu::onEntrance()
     {
         heads_[i]->setRole(Save::getInstance()->getTeamMate(i));
     }
+}
+
+Role* TeamMenu::getRole()
+{
+    return heads_[0]->getRole();
+    return nullptr;
+}
+
+std::vector<Role*> TeamMenu::getRoles()
+{
+    std::vector<Role*> roles;
+    return roles;
+}
+
+void TeamMenu::draw()
+{
+    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
 }
