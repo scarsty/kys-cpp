@@ -251,7 +251,7 @@ void Element::checkEventAndPresent(bool check_event)
 
 //专门用来某些情况下动画的显示和延时
 //中间可以插入一个函数补充些什么，想不到更好的方法了
-int Element::drawAndPresent(int times, std::function<void(void)> func)
+int Element::drawAndPresent(int times, std::function<void(void*)> func, void* data)
 {
     if (times < 1) { times = 1; }
     if (times > 100) { times = 100; }
@@ -260,7 +260,7 @@ int Element::drawAndPresent(int times, std::function<void(void)> func)
         drawAll();
         if (func)
         {
-            func();
+            func(data);
         }
         checkEventAndPresent(false);
     }

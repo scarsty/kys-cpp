@@ -48,6 +48,6 @@ void UISkill::draw()
     {
         TextureManager::getInstance()->renderTexture("item", role_->PracticeBook, x_ + 60, y_ + 60);
         font->draw(convert::formatString("%s", book->Name), font_size, x_ + 50, y_ + 460, color);
-        font->draw(convert::formatString("%d/%d", role_->ExpForBook, book->NeedExp), font_size, x_ + 50, y_ + 500, color);
+        font->draw(convert::formatString("%d/%d", role_->ExpForItem, book->NeedExp), font_size, x_ + 50, y_ + 500, color);
     }
 }

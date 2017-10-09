@@ -20,6 +20,8 @@ ShowRoleDifference::~ShowRoleDifference()
 
 void ShowRoleDifference::draw()
 {
+    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
+
     head1_->setRole(role1_);
     head2_->setRole(role2_);
     if (role1_ && role2_ && role1_->ID == role2_->ID)
@@ -30,7 +32,7 @@ void ShowRoleDifference::draw()
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };
     const int font_size = 25;
-    int x = x_ + 100, y = y_ + 100;
+    int x = x_, y = y_;
 
     std::string str;
 

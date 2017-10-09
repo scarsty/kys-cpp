@@ -64,7 +64,7 @@ void TitleScene::dealEvent(BP_Event& e)
         auto b = new BattleScene(132);
         b->run();
         delete b;
-        setExit(true);
+        //setExit(true);
     }
 }
 

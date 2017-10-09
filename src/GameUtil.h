@@ -32,6 +32,11 @@ public:
         current = limit(current, min_value, max_value);
     }
 
+    static void limit2(uint16_t& current, int min_value, int max_value)
+    {
+        current = limit(current, min_value, max_value);
+    }
+
     //计算某个数值的位数
     static int digit(int x)
     {
@@ -50,7 +55,8 @@ public:
     static void useItem(Role* r, Item* i);
     static void levelUp(Role* r);
     static bool canLevelUp(Role* r);
-    static bool canLearnBook(Role* r);
+    static bool canFinishedItem(Role* r);
+    static int getFinishedExpForItem(Role* r, Item* i);
 
     //以下3个函数的返回值为需要显示的数值
     static int medcine(Role* r1, Role* r2);

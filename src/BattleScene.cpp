@@ -239,9 +239,16 @@ void BattleScene::dealEvent(BP_Event& e)
     clearDead();
 
     //检测战斗结果
-    if (checkResult() >= 0)
+    int battle_result = checkResult();
+    //我方胜
+    if (battle_result >= 0)
     {
+        result_ == battle_result;
         setExit(true);
+    }
+    if (battle_result == 0 || battle_result != 0 && fail_exp_)
+    {
+        calExpGot();
     }
 }
 
@@ -344,8 +351,8 @@ void BattleScene::setRoleInitState(Role* r)
         }
     }
 
-    r->Face = (int)calFace(r->X(), r->Y(), r_near->X(), r_near->Y());
-    r->Face = RandomClassical::rand(4);  //没头苍蝇随意选择面向
+    r->Face = calFace(r->X(), r->Y(), r_near->X(), r_near->Y());
+    //r->Face = RandomClassical::rand(4);  //没头苍蝇随意选择面向
 }
 
 void BattleScene::readFightFrame(Role* r)
@@ -513,17 +520,50 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
     effect_layer_->setAll(-1);
 
     //若未指定武学，则认为只选择一个点
-    if (m == nullptr)
+    if (m == nullptr || m->AttackAreaType == 0)
     {
         effect_layer_->data(select_x_, select_y_) = 0;
         return;
     }
 
-    if (m->AttackAreaType == 1 || m->AttackAreaType == 3)
+    level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r, m);
+
+    //此处比较累赘，就这样吧
+    if (m->AttackAreaType == 1)
+    {
+        int x = r->X(), y = r->Y();
+        int dis = m->SelectDistance[level_index];
+        for (int ix = x - dis; ix <= x + dis; ix++)
+        {
+            for (int iy = y - dis; iy <= y + dis; iy++)
+            {
+                if (!isOutLine(ix, iy) && (x == ix || y == iy) && calFace(ix, iy, x, y) == towards_)
+                {
+                    effect_layer_->data(ix, iy) = 0;
+                }
+            }
+        }
+    }
+    else if (m->AttackAreaType == 2)
+    {
+        int x = r->X(), y = r->Y();
+        int dis = m->SelectDistance[level_index];
+        for (int ix = x - dis; ix <= x + dis; ix++)
+        {
+            for (int iy = y - dis; iy <= y + dis; iy++)
+            {
+                if (!isOutLine(ix, iy) && (x == ix || y == iy))
+                {
+                    effect_layer_->data(ix, iy) = 0;
+                }
+            }
+        }
+    }
+    else if (m->AttackAreaType == 3)
     {
         int x = select_x_, y = select_y_;
         //effect_layer_.setAll(-1);
-        int dis = m->AttackDistance[Save::getInstance()->getRoleLearnedMagicLevelIndex(r, m)];
+        int dis = m->AttackDistance[level_index];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
             for (int iy = y - dis; iy <= y + dis; iy++)
@@ -828,11 +868,12 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
         if (check_next({ x1, y1 + 1 }, i + 1)) { continue; }
     }
 
-    for (int i = way.size() - 1; i >= 0; i--)
+    for (int i = way.size() - 2; i >= 0; i--)
     {
         r->Face = calFace(r->X(), r->Y(), way[i].x, way[i].y);
         r->setPosition(way[i].x, way[i].y);
-        drawAndPresent(4);
+        //setPosition(r->X(), r->Y());
+        drawAndPresent(2);
     }
     r->setPosition(x, y);
     r->Moved = 1;
@@ -878,12 +919,17 @@ void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
     y_ = 0;
 }
 
-//r1使用武功magic攻击r2的伤害
+//r1使用武功magic攻击r2的伤害，结果为一正数
 int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
 {
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
-    int v = r1->Attack - r2->Defence + magic->Attack[level_index] / 3;
+
+    int attack = r1->Attack + magic->Attack[level_index] / 3;
+    int defence = r2->Defence;
+    int v = attack - defence;
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
+    if (v < 1) { v = 1; }
+    v = 300;  //测试用
     return v;
 }
 
@@ -899,7 +945,7 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
             int hurt = calHurt(r, r2, m);
             r2->ShowString = convert::formatString("-%d", hurt);
             r2->ShowColor = { 255, 20, 20, 255 };
-            r2->HP -= hurt;
+            r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
             total += hurt;
         }
     }
@@ -923,7 +969,7 @@ void BattleScene::showNumberAnimation()
     int size = 28;
     for (int i = 0; i <= 10; i++)
     {
-        auto drawNumber = [&]()->void
+        auto drawNumber = [&](void*)->void
         {
             for (auto r : battle_roles_)
             {
@@ -993,11 +1039,104 @@ void BattleScene::poisonEffect(Role* r)
     }
 }
 
+int BattleScene::getTeamMateCount(int team)
+{
+    int count = 0;
+    for (auto r : battle_roles_)
+    {
+        if (r->Team == team)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 //检查是否有一方全灭
 //返回负值表示仍需持续，返回非负则为胜利方的team标记
+//实际上只是检测我方人数与当前总人数是否相等或者为0
+//更复杂的判断请使用set或者map
 int BattleScene::checkResult()
 {
-
+    int team0 = getTeamMateCount(0);
+    if (team0 == battle_roles_.size()) { return 0; }
+    if (team0 == 0) { return 1; }
     return -1;
+}
+
+void BattleScene::calExpGot()
+{
+    head_self_->setVisible(false);
+
+    std::vector<Role*> alive_teammate;
+    for (auto r : battle_roles_)
+    {
+        if (r->Team == 0)
+        {
+            alive_teammate.push_back(r);
+        }
+    }
+
+    //还在场的人获得经验，升级
+    auto diff = new ShowRoleDifference();
+
+    for (auto r : alive_teammate)
+    {
+        Role r0 = *r;  //用于比较的状态
+        r->ExpGot += info_->Exp / alive_teammate.size();
+
+        auto item = Save::getInstance()->getItem(r->PracticeBook);
+
+        if (r->Level >= MAX_LEVEL)
+        {
+            //已满级，全加到物品经验
+            r->ExpForItem += r->ExpGot;
+        }
+        else if (item)
+        {
+            //未满级，平分经验
+            r->Exp += r->ExpGot / 2;
+            r->ExpForItem += r->ExpGot / 2;
+        }
+        else
+        {
+            //其余情况全加到人物经验
+            r->Exp += r->ExpGot;
+        }
+
+        //避免越界
+        if (r->Exp < r0.Exp) { r->Exp == MAX_EXP; }
+        if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem == MAX_EXP; }
+
+        //升级
+        int change = 0;
+        while (GameUtil::canLevelUp(r))
+        {
+            GameUtil::levelUp(r);
+            change++;
+        }
+        if (change)
+        {
+            diff->setTwinRole(&r0, r);
+            diff->setText("昇級");
+            diff->run();
+        }
+
+        //修炼秘笈
+        r0 = *r;
+        change = 0;
+        while (GameUtil::canFinishedItem(r))
+        {
+            change++;
+            break;
+        }
+        if (change)
+        {
+            diff->setTwinRole(&r0, r);
+            diff->setText(convert::formatString("修煉%s成功", r->Name));
+            diff->run();
+        }
+    }
+    delete diff;
 }
 

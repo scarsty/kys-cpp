@@ -10,6 +10,7 @@
 #include "Audio.h"
 #include "GameUtil.h"
 #include "Random.h"
+#include "BattleScene.h"
 
 Event Event::event_;
 
@@ -98,7 +99,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     bool loop = true;
     int i = 0;
     auto e = kdef_[event_id];
-    e.resize(e.size() + 20);  //后面的是缓冲区，避免出错
+    e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
     printf("Event %d: ", event_id);
     for (auto c : e)
     {
@@ -299,7 +300,11 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    return true;
+    auto battle = new BattleScene(battle_id);
+    battle->setHaveFailExp(get_exp);
+    int result = battle->run();
+    delete battle;
+    return result == 0;
 }
 
 void Event::changeMainMapMusic(int music_id)

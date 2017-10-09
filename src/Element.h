@@ -101,7 +101,7 @@ private:
 public:
     int run(bool in_root = true);                       //执行本层
     int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
-    int drawAndPresent(int times = 1, std::function<void(void)> func = nullptr);
+    int drawAndPresent(int times = 1, std::function<void(void*)> func = nullptr, void* data = nullptr);
 
     //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，改成宏也行
     //注意子类的子类可能会出现继承关系，需视情况再改写

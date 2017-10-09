@@ -82,6 +82,8 @@ enum
 
     MAX_MAGIC_LEVEL = 999,
     MAX_MAGIC_LEVEL_INDEX = 9,
+
+    MAX_EXP = 65535,
 };
 
 enum
@@ -104,14 +106,14 @@ public:
     SAVE_INT Level;
     SAVE_UINT Exp;
     SAVE_INT HP, MaxHP, Hurt, Poison, PhysicalPower;
-    SAVE_UINT ExpForItem;
+    SAVE_UINT ExpForMakeItem;
     SAVE_INT Equip1, Equip2;
     SAVE_INT Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     SAVE_INT MPType, MP, MaxMP;
     SAVE_INT Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     SAVE_INT Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
     SAVE_INT PracticeBook;
-    SAVE_UINT ExpForBook;
+    SAVE_UINT ExpForItem;
     SAVE_INT MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     SAVE_INT TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
 
@@ -168,8 +170,8 @@ struct ItemSave
     SAVE_INT AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
     SAVE_INT OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;
     SAVE_INT NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
-    SAVE_INT NeedExp, NeedExpForItem, NeedMaterial;
-    SAVE_INT NeedItem[5], NeedItemCount[5];
+    SAVE_INT NeedExp, NeedExpForMakeItem, NeedMaterial;
+    SAVE_INT MakeItem[5], MakeItemCount[5];
 };
 
 //实际的物品数据

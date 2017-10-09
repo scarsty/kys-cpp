@@ -29,8 +29,8 @@ void BattleCursor::dealEvent(BP_Event& e)
     if (e.type == BP_KEYDOWN)
     {
         int x = 0, y = 0;
-        auto tw = Scene::getTowardsFromKey(e.key.keysym.sym);
-        Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, tw, &x, &y);
+        battle_scene_->towards_ = Scene::getTowardsFromKey(e.key.keysym.sym);
+        Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, battle_scene_->towards_, &x, &y);
         if (battle_scene_->canSelect(x, y))
         {
             battle_scene_->setSelectPosition(x, y);

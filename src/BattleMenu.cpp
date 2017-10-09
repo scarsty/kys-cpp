@@ -15,6 +15,7 @@ void BattleMenu::onEntrance()
     for (auto c : childs_)
     {
         c->setVisible(true);
+        c->setState(Normal);
     }
 
     //移动过则不可移动
@@ -46,6 +47,7 @@ void BattleMenu::onEntrance()
     childs_[6]->setVisible(false);
     setFontSize(20);
     arrange(0, 0, 0, 28);
+    childs_[findNextVisibleChild(getChildCount() - 1, 1)]->setState(Pass);
 }
 
 int BattleMenu::runAsRole(Role* r)

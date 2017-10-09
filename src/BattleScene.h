@@ -105,6 +105,8 @@ public:
     void clearDead();
     void poisonEffect(Role* r);
 
+    int getTeamMateCount(int team);
     int checkResult();
+    void calExpGot();
 
 };
