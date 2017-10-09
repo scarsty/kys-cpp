@@ -97,7 +97,7 @@ public:
 
     void moveAnimation(Role* r, int x, int y);
     void useMagicAnimation(Role* r, Magic* m);
-    void actionAnimation(Role* r, int style, int effect_id);
+    void actionAnimation(Role* r, int style, int effect_id, int shake = 0);
 
     int calHurt(Role* r1, Role* r2, Magic* magic);
     int calAllHurt(Role* r, Magic* m);

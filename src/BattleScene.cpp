@@ -889,14 +889,14 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
     }
 }
 
-void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
+void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /*= 0*/)
 {
     if (r->X() != select_x_ || r->Y() != select_y_)
     {
         r->Face = calFace(r->X(), r->Y(), select_x_, select_y_);
     }
-    auto frame_count = r->FightFrame[action_type];
-    action_type_ = action_type;
+    auto frame_count = r->FightFrame[style];
+    action_type_ = style;
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
         drawAndPresent(animation_delay_);
@@ -907,8 +907,11 @@ void BattleScene::actionAnimation(Role* r, int action_type, int effect_id)
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
     {
-        x_ = RandomClassical::rand(5) - RandomClassical::rand(5);
-        y_ = RandomClassical::rand(5) - RandomClassical::rand(5);
+        if (shake > 0)
+        {
+            x_ = RandomClassical::rand(shake) - RandomClassical::rand(shake);
+            y_ = RandomClassical::rand(shake) - RandomClassical::rand(shake);
+        }
         drawAndPresent(animation_delay_);
     }
     action_frame_ = 0;
