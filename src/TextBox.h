@@ -39,7 +39,7 @@ public:
 };
 
 //可以维持数帧后自动消失的文本框
-class TextBoxAutoExit : TextBox
+class TextBoxAutoExit : public TextBox
 {
 public:
     TextBoxAutoExit() {}

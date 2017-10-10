@@ -10,3 +10,8 @@ ShowExp::ShowExp()
 ShowExp::~ShowExp()
 {
 }
+
+void ShowExp::draw()
+{
+
+}

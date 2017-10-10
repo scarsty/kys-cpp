@@ -22,6 +22,14 @@ public:
 
     void dealEvent(BP_Event& e) override;
 
+    int autoSelect(Role* r);
+
+    int ai_action_ = 0;
+    int ai_move_x_, ai_move_y_;
+    int ai_action_x_, ai_action_y_;
+    int ai_towards_;
+    Magic* ai_magic_ = nullptr;
+
 };
 
 

@@ -14,6 +14,7 @@
 #include "Font.h"
 #include "Util.h"
 #include "ShowRoleDifference.h"
+#include "ShowExp.h"
 
 BattleScene::BattleScene()
 {
@@ -674,6 +675,7 @@ void BattleScene::actMove(Role* r)
     battle_cursor_->setMode(BattleCursor::Move);
     if (battle_cursor_->run() == 0)
     {
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, MAX_PHYSICAL_POWER);
         r->setPrevPosition(r->X(), r->Y());
         moveAnimation(r, select_x_, select_y_);
         r->Moved = 1;
@@ -727,6 +729,14 @@ void BattleScene::actUseMagic(Role* r)
         else
         {
             //播放攻击画面，计算伤害
+            auto magic_name = new TextBoxAutoExit();
+            magic_name->setText(magic->Name);
+            magic_name->setPosition(450, 150);
+            magic_name->setFontSize(20);
+            magic_name->setStayFrame(20);
+            magic_name->run();
+            delete magic_name;
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
             useMagicAnimation(r, magic);
             calAllHurt(r, magic);
             showNumberAnimation();
@@ -1092,6 +1102,11 @@ void BattleScene::calExpGot()
             alive_teammate.push_back(r);
         }
     }
+
+    auto show_exp = new ShowExp();
+    show_exp->setRoles(alive_teammate);
+    show_exp->run();
+    delete show_exp;
 
     //还在场的人获得经验，升级
     auto diff = new ShowRoleDifference();

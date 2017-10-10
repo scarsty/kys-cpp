@@ -1,5 +1,6 @@
 #include "BattleMenu.h"
 #include "Save.h"
+#include "Random.h"
 
 BattleMenu::BattleMenu()
 {
@@ -58,10 +59,65 @@ int BattleMenu::runAsRole(Role* r)
 
 void BattleMenu::dealEvent(BP_Event& e)
 {
-    Menu::dealEvent(e);
+
     if (battle_scene_ == nullptr) { return; }
-    if (role_)
+    if (role_->Auto)
     {
+        setResult(autoSelect(role_));
     }
+    else
+    {
+        Menu::dealEvent(e);
+    }
+}
+
+//"0移動", "1武學", "2用毒", "3解毒", "4醫療", "5物品", "6等待"
+int BattleMenu::autoSelect(Role* r)
+{
+    Random<double> rand;   //梅森旋转法随机数
+    rand.set_seed();
+
+    std::vector<int> points(10);
+    //ai为每种行动评分，武学，用毒，解毒，医疗
+
+    //若自身生命低于20%，0.8概率考虑吃药
+    if (r->HP < 0.2*r->MaxHP)
+    {
+        points[5] = 0;
+    }
+
+    if (r->MP < 0.2*r->MaxMP)
+    {
+        points[5] = 0;
+    }
+
+    if (r->Morality > 50)
+    {
+        //会解毒的，检查队友中有无中毒较深者，接近并解毒
+        if (childs_[3]->getVisible())
+        {
+            points[3] == 0;
+        }
+
+        if (childs_[4]->getVisible())
+        {
+            points[4] == 0;
+        }
+    }
+    else
+    {
+        //考虑用毒
+        if (childs_[2]->getVisible())
+        {
+            points[2] == 0;
+        }
+    }
+
+    if (childs_[1]->getVisible())
+    {
+        points[1] = 0;
+    }
+
+    return 0;
 }
 
