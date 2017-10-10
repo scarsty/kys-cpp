@@ -21,6 +21,8 @@ public:
 
     MenuText* title_ = nullptr;
 
+    int force_item_type_ = -1;
+
     int getItemDetailType(Item* item);
 
     int geItemBagIndexByType(int item_type);

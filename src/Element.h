@@ -52,6 +52,7 @@ public:
     }
 
     int getResult() { return result_; }
+    void setResult(int r) { result_ = r; }
     bool getVisible() { return visible_; }
     void setVisible(bool v) { visible_ = v; }
 

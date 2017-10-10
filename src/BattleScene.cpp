@@ -402,14 +402,14 @@ void BattleScene::resetRolesAct()
 int BattleScene::calMoveStep(Role* r)
 {
     int speed = r->Speed;
+    if (r->Equip0 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip0);
+        speed += i->AddSpeed;
+    }
     if (r->Equip1 >= 0)
     {
         auto i = Save::getInstance()->getItem(r->Equip1);
-        speed += i->AddSpeed;
-    }
-    if (r->Equip2 >= 0)
-    {
-        auto i = Save::getInstance()->getItem(r->Equip2);
         speed += i->AddSpeed;
     }
     return speed / 15 + 1;

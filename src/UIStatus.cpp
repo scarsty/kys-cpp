@@ -126,6 +126,19 @@ void UIStatus::draw()
     x = x_ + 20;
     y = y_ + 445;
     font->draw("武器", 25, x - 10, y, color);
+    auto equip0 = Save::getInstance()->getItem(role_->Equip0);
+    if (equip0)
+    {
+        TextureManager::getInstance()->renderTexture("item", equip0->ID, x, y + 30);
+        font->draw(convert::formatString("%s", equip0->Name), font_size, x + 90, y + 30, color);
+        font->draw(convert::formatString("攻擊%+d", equip0->AddAttack), 18, x + 90, y + 55, color);
+        font->draw(convert::formatString("防禦%+d", equip0->AddDefence), 18, x + 90, y + 75, color);
+        font->draw(convert::formatString("輕功%+d", equip0->AddSpeed), 18, x + 90, y + 95, color);
+    }
+
+    x = x_ + 220;
+    y = y_ + 445;
+    font->draw("防具", 25, x - 10, y, color);
     auto equip1 = Save::getInstance()->getItem(role_->Equip1);
     if (equip1)
     {
@@ -134,19 +147,6 @@ void UIStatus::draw()
         font->draw(convert::formatString("攻擊%+d", equip1->AddAttack), 18, x + 90, y + 55, color);
         font->draw(convert::formatString("防禦%+d", equip1->AddDefence), 18, x + 90, y + 75, color);
         font->draw(convert::formatString("輕功%+d", equip1->AddSpeed), 18, x + 90, y + 95, color);
-    }
-
-    x = x_ + 220;
-    y = y_ + 445;
-    font->draw("防具", 25, x - 10, y, color);
-    auto equip2 = Save::getInstance()->getItem(role_->Equip2);
-    if (equip2)
-    {
-        TextureManager::getInstance()->renderTexture("item", equip2->ID, x, y + 30);
-        font->draw(convert::formatString("%s", equip2->Name), font_size, x + 90, y + 30, color);
-        font->draw(convert::formatString("攻擊%+d", equip2->AddAttack), 18, x + 90, y + 55, color);
-        font->draw(convert::formatString("防禦%+d", equip2->AddDefence), 18, x + 90, y + 75, color);
-        font->draw(convert::formatString("輕功%+d", equip2->AddSpeed), 18, x + 90, y + 95, color);
     }
 }
 
@@ -166,6 +166,7 @@ void UIStatus::pressedOK()
     else if (button_medcine_->getState() == Press)
     {
         auto team_menu = new TeamMenu();
+        team_menu->setText(convert::formatString("%s要為誰醫療", role_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         delete team_menu;
@@ -182,6 +183,7 @@ void UIStatus::pressedOK()
     else if (button_detoxification_->getState() == Press)
     {
         auto team_menu = new TeamMenu();
+        team_menu->setText(convert::formatString("%s要為誰解毒", role_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         delete team_menu;

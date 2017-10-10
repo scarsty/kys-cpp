@@ -94,6 +94,8 @@ bool GameUtil::canUseItem(Role* r, Item* i)
 //使用物品时属性变化
 void GameUtil::useItem(Role* r, Item* i)
 {
+    if (r == nullptr) { return; }
+    if (i == nullptr) { return; }
     r->PhysicalPower += i->AddPhysicalPower;
     r->HP += i->AddHP;
     r->MaxHP += i->AddMaxHP;
@@ -233,6 +235,40 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
         }
     }
     return i->NeedExp * multiple;
+}
+
+void GameUtil::equip(Role* r, Item* i)
+{
+    if (r == nullptr) { return; }
+    if (i == nullptr) { return; }
+
+    auto r0 = Save::getInstance()->getRole(i->User);
+    auto book = Save::getInstance()->getItem(r->PracticeItem);
+    auto equip0 = Save::getInstance()->getItem(r->Equip0);
+    auto equip1 = Save::getInstance()->getItem(r->Equip1);
+
+    if (r0) { r0->PracticeItem = -1; }
+    i->User = r->ID;
+
+    if (i->ItemType == 2)
+    {
+        //秘籍        
+        if (book) { book->User = -1; }
+        r->PracticeItem = i->ID;        
+    }
+    if (i->ItemType == 1)
+    {
+        if (i->EquipType == 0)
+        {
+            if (equip0) { equip0->User = -1; }
+            r->Equip0 = i->ID;
+        }
+        if (i->EquipType == 1)
+        {
+            if (equip1) { equip1->User = -1; }
+            r->Equip1 = i->ID;
+        }
+    }
 }
 
 //医疗的效果

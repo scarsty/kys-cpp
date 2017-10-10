@@ -99,6 +99,8 @@ void UIItem::draw()
 
 void UIItem::dealEvent(BP_Event& e)
 {
+    //强制停留在某类物品
+    if (force_item_type_ >= 0) { title_->setResult(force_item_type_); }
     int type_item_count = geItemBagIndexByType(title_->getResult());
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
@@ -292,7 +294,7 @@ void UIItem::pressedOK()
 {
     if (!current_item_) { return; }
 
-    //仅在使用剧情物品的时候，发出退出的提示
+    //在使用剧情物品的时候，返回一个结果，主UI判断此时可以退出
     if (current_item_->ItemType == 0)
     {
         result_ = current_item_->ID;
@@ -300,7 +302,8 @@ void UIItem::pressedOK()
     else if (current_item_->ItemType == 3)
     {
         auto team_menu = new TeamMenu();
-        //team_menu->setItem(current_item_);
+        team_menu->setItem(current_item_);
+        team_menu->setText(convert::formatString("誰要使用%s", current_item_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         delete team_menu;
@@ -315,4 +318,24 @@ void UIItem::pressedOK()
             Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
         }
     }
+    else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
+    {
+        auto team_menu = new TeamMenu();
+        team_menu->setItem(current_item_);
+        auto format_str = "誰要修煉%s";
+        if (current_item_->ItemType == 1) { format_str = "誰要裝備%s"; }
+        team_menu->setText(convert::formatString(format_str, current_item_->Name));
+        team_menu->run();
+        auto role = team_menu->getRole();
+        delete team_menu;
+        if (role)
+        {
+            GameUtil::equip(role, current_item_);
+        }
+    }
+    else if (current_item_->ItemType == 4)
+    {
+        //战斗时似乎不需要特殊处理
+    }
+    setExit(true);   //用于战斗时。平时物品栏不是以根节点运行，设置这个没有作用
 }

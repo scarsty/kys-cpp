@@ -109,7 +109,7 @@ public:
     SAVE_UINT Exp;
     SAVE_INT HP, MaxHP, Hurt, Poison, PhysicalPower;
     SAVE_UINT ExpForMakeItem;
-    SAVE_INT Equip1, Equip2;
+    SAVE_INT Equip0, Equip1;
     SAVE_INT Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     SAVE_INT MPType, MP, MaxMP;
     SAVE_INT Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;

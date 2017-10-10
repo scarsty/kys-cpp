@@ -18,20 +18,8 @@ Head::~Head()
 
 void Head::draw()
 {
-    if (w_ * h_ <= 0)
-    {
-        auto tex = TextureManager::getInstance()->loadTexture("title", 102);
-        if (tex)
-        {
-            w_ = tex->w;
-            h_ = tex->h;
-        }
-        else
-        {
-            w_ = 80;
-            h_ = 80;
-        }
-    }
+    w_ = 250;
+    h_ = 90;
     if (role_ == nullptr) { return; }
     BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
     auto font = Font::getInstance();
@@ -58,7 +46,6 @@ void Head::draw()
 
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
     BP_Rect r1;
-    //注意这里计算某个数字长度的方法
     font->draw(convert::formatString("%d", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 });
 
     BP_Color c, c_text;
@@ -73,12 +60,12 @@ void Head::draw()
     if (role_->MPType == 0)
     {
         c = { 112, 12, 112, 255 };
-        c_text = { 200, 150, 200, 255 };
+        c_text = { 240, 150, 240, 255 };
     }
     else if (role_->MPType == 1)
     {
         c = { 224, 180, 32, 255 };
-        c_text = { 200, 200, 150, 255 };
+        c_text = { 250, 200, 50, 255 };
     }
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     font->draw(convert::formatString("%3d/%3d", role_->MP, role_->MaxMP), 16, x_ + 138, y_ + 44, c_text);
@@ -87,7 +74,6 @@ void Head::draw()
     c = { 128, 128, 255, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });
-
 
 }
 

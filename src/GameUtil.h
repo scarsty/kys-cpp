@@ -59,6 +59,8 @@ public:
     static bool canFinishedItem(Role* r);
     static int getFinishedExpForItem(Role* r, Item* i);
 
+    static void equip(Role* r, Item* i);
+
     //以下3个函数的返回值为需要显示的数值
     static int medcine(Role* r1, Role* r2);
     static int detoxification(Role* r1, Role* r2);

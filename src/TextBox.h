@@ -19,12 +19,16 @@ protected:
 
     std::string texture_path_ = "";
     int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1; //三种状态的按钮图片
+
+    bool resize_with_text_ = false;
+
 public:
     void setTexture(const std::string& path, int normal_id, int pass_id = -1, int press_id = -1);
     int getNormalTextureID() { return texture_normal_id_; }
 
     void setFontSize(int size);
     void setText(std::string text);
+    std::string  getText() { return text_; };
     void setTexture(Texture* t) { tex_ = t; }
     void setTextPosition(int x, int y) { text_x_ = x; text_y_ = y; }  //注意：这个会导致焦点出现问题，通常是为了实现一些其他效果，请勿任意使用
     void setTextColor(BP_Color c1, BP_Color c2, BP_Color c3);

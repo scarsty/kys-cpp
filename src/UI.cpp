@@ -75,7 +75,7 @@ void UI::dealEvent(BP_Event& e)
             Item* item = ui_item_->getCurrentItem();
             if (item)
             {
-                if (role->Equip1 == item->ID || role->Equip2 == item->ID || role->PracticeItem == item->ID)
+                if (role->Equip0 == item->ID || role->Equip1 == item->ID || role->PracticeItem == item->ID)
                 {
                     head->setText("使用中");
                     //Font::getInstance()->draw("使用中", 25, x + 5, y + 60, { 255,255,255,255 });
