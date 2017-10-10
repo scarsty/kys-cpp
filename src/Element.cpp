@@ -34,6 +34,7 @@ void Element::drawAll()
     }
 }
 
+//设置位置，会改变子节点的位置
 void Element::setPosition(int x, int y)
 {
     for (auto c : childs_)
@@ -43,30 +44,12 @@ void Element::setPosition(int x, int y)
     x_ = x; y_ = y;
 }
 
-//运行
-//参数为是否在root中运行，为真则参与绘制，为假则不会被画出
-int Element::run(bool in_root /*= true*/)
-{
-    exit_ = false;
-    result_ = -1;
-    if (in_root) { addOnRootTop(this); }
-    onEntrance();
-    while (!exit_)
-    {
-        if (Element::root_.size() == 0) { break; }
-        drawAll();
-        checkEventAndPresent(25, true);
-    }
-    onExit();
-    if (in_root) { removeFromRoot(this); }
-    return result_;
-}
-
+//从绘制的根节点移除
 Element* Element::removeFromRoot(Element* element)
 {
     if (element == nullptr)
     {
-        if (root_.size() > 0)
+        if (!root_.empty())
         {
             element = root_.back();
             root_.pop_back();
@@ -86,17 +69,20 @@ Element* Element::removeFromRoot(Element* element)
     return element;
 }
 
+//添加子节点
 void Element::addChild(Element* element)
 {
     childs_.push_back(element);
 }
 
+//添加节点并同时设置子节点的位置
 void Element::addChild(Element* element, int x, int y)
 {
     addChild(element);
     element->setPosition(x_ + x, y_ + y);
 }
 
+//移除某个节点
 void Element::removeChild(Element* element)
 {
     for (int i = 0; i < childs_.size(); i++)
@@ -109,6 +95,7 @@ void Element::removeChild(Element* element)
     }
 }
 
+//清除子节点
 void Element::clearChilds()
 {
     for (auto c : childs_)
@@ -118,6 +105,7 @@ void Element::clearChilds()
     childs_.clear();
 }
 
+//画出自身和子节点
 void Element::drawSelfAndChilds()
 {
     if (visible_)
@@ -130,6 +118,50 @@ void Element::drawSelfAndChilds()
     }
 }
 
+void Element::setAllChildState(int s)
+{
+    for (auto c : childs_)
+    {
+        c->state_ = s;;
+    }
+}
+
+int Element::findNextVisibleChild(int i0, int direct)
+{
+    if (direct == 0 || childs_.size() == 0) { return i0; }
+    direct = direct > 0 ? 1 : -1;
+
+    int i1 = i0;
+    for (int i = 1; i < childs_.size(); i++)
+    {
+        i1 += direct;
+        i1 = (i1 + childs_.size()) % childs_.size();
+        if (childs_[i1]->visible_)
+        {
+            return i1;
+        }
+    }
+    return i0;
+}
+
+//运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
+int Element::run(bool in_root /*= true*/)
+{
+    exit_ = false;
+    if (in_root) { addOnRootTop(this); }
+    onEntrance();
+    while (!exit_)
+    {
+        if (root_.empty()) { break; }
+        drawAll();
+        checkEventAndPresent(true);
+    }
+    onExit();
+    if (in_root) { removeFromRoot(this); }
+    return result_;
+}
+
+//处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 void Element::checkStateAndEvent(BP_Event& e)
 {
@@ -140,8 +172,8 @@ void Element::checkStateAndEvent(BP_Event& e)
         {
             childs_[i]->checkStateAndEvent(e);
         }
-        //setState(Normal);
 
+        //检测鼠标经过，按下等状态
         if (e.type == BP_MOUSEMOTION)
         {
             if (inSide(e.motion.x, e.motion.y))
@@ -153,21 +185,43 @@ void Element::checkStateAndEvent(BP_Event& e)
                 state_ = Normal;
             }
         }
-        if (e.type == BP_MOUSEBUTTONDOWN)
+        if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
         {
             if (inSide(e.motion.x, e.motion.y))
             {
                 state_ = Press;
             }
+            else
+            {
+                state_ = Normal;
+            }
         }
+        if ((e.type == BP_KEYDOWN && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)))
+        {
+            if (state_ == Pass)
+            {
+                state_ = Press;
+            }
+        }
+
         //注意下个时序才会画，所以可以在dealEvent中改变原有状态
         dealEvent(e);
+        //为简化代码，将按下回车和ESC的操作写在此处
+        if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
+        {
+            pressedOK();
+        }
+        if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
+        {
+            pressedCancel();
+        }
     }
 }
 
 //检测事件并将绘制的图显示出来
-//drawAll与checkEventAndPresent(false)配合可以用来制作动画
-void Element::checkEventAndPresent(int max_delay, bool check_event)
+void Element::checkEventAndPresent(bool check_event)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
@@ -187,26 +241,45 @@ void Element::checkEventAndPresent(int max_delay, bool check_event)
         break;
     }
     int t1 = engine->getTicks();
-    int t = max_delay - (t1 - prev_present_ticks_);
-    if (t > max_delay) { t = max_delay; }
+    int t = max_delay_ - (t1 - prev_present_ticks_);
+    if (t > max_delay_) { t = max_delay_; }
     if (t <= 0) { t = 1; }
     engine->delay(t);
     engine->renderPresent();
     prev_present_ticks_ = t1;
 }
 
-void Element::setAllChildState(State s)
+//专门用来某些情况下动画的显示和延时
+//中间可以插入一个函数补充些什么，想不到更好的方法了
+int Element::drawAndPresent(int times, std::function<void(void*)> func, void* data)
 {
-    for (auto c : childs_)
+    if (times < 1) { times = 1; }
+    if (times > 100) { times = 100; }
+    for (int i = 0; i < times; i++)
     {
-        c->state_ = s;;
+        drawAll();
+        if (func)
+        {
+            func(data);
+        }
+        checkEventAndPresent(false);
     }
+    return times;
 }
 
-void Element::setChildState(int i, State s)
-{
-    if (i >= 0 && i < childs_.size())
-    {
-        childs_[i]->state_ = s;
-    }
-}
+//void Element::setChildState(int i, int s)
+//{
+//    if (i >= 0 && i < childs_.size())
+//    {
+//        childs_[i]->state_ = s;
+//    }
+//}
+//
+//int Element::getChildState(int i)
+//{
+//    if (i >= 0 && i < childs_.size())
+//    {
+//        return childs_[i]->state_;
+//    }
+//    return Normal;
+//}

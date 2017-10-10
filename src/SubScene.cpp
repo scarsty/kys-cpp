@@ -28,7 +28,7 @@ void SubScene::draw()
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderAssistTexture();
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, screen_center_x_ * 2, screen_center_y_ * 2);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -43,7 +43,7 @@ void SubScene::draw()
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
+            auto p = getPositionOnRender(i1, i2, view_x_, view_y_);
             p.x += x_;
             p.y += y_;
             if (!isOutLine(i1, i2))
@@ -71,7 +71,7 @@ void SubScene::draw()
         {
             int i1 = view_x_ + i + (sum / 2);
             int i2 = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, view_x_, view_y_);
+            auto p = getPositionOnRender(i1, i2, view_x_, view_y_);
             p.x += x_;
             p.y += y_;
             if (!isOutLine(i1, i2))
@@ -133,6 +133,14 @@ void SubScene::dealEvent(BP_Event& e)
     {
         UI::getInstance()->run();
         clearEvent(e);
+        auto item = UI::getInstance()->getUsedItem();
+        if (item && item->ItemType == 0)
+        {
+            if (checkEvent2(x, y, towards_, item->ID))
+            {
+                step_ = 0;
+            }
+        }
     }
 
     //键盘走路部分，检测4个方向键
@@ -152,13 +160,11 @@ void SubScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        auto tw = getTowardsFromKey(pressed);
-        if (tw != Towards_None) { towards_ = tw; }
-        getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-        tryWalk(x, y);
-        if (total_step_ < 1)
+        if (total_step_ < 1 || total_step_ >= 5)
         {
-            Engine::getInstance()->delay(100);
+            changeTowardsByKey(pressed);
+            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+            tryWalk(x, y);
         }
         total_step_++;
     }
@@ -233,6 +239,9 @@ void SubScene::onEntrance()
     setPosition(submap_info_->EntranceX, submap_info_->EntranceY);
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
+
+    printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
+
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 
@@ -286,10 +295,17 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
     int event_index_submap = submap_info_->EventIndex(x, y);
     if (event_index_submap >= 0)
     {
-        int id;
+        int id = 0;
         if (tw != Towards_None)
         {
-            id = submap_info_->Event(x, y)->Event1;
+            if (item_id < 0)
+            {
+                id = submap_info_->Event(x, y)->Event1;
+            }
+            else
+            {
+                id = submap_info_->Event(x, y)->Event2;
+            }
             if (id > 0) { step_ = 0; }
         }
         else
@@ -411,9 +427,9 @@ void SubScene::getMousePosition(int _x, int _y)
 
 Point SubScene::getPositionOnWholeEarth(int x, int y)
 {
-    auto p = getPositionOnScreen(x, y, 0, 0);
-    p.x += COORD_COUNT * TILE_W - screen_center_x_;
-    p.y += 2 * TILE_H - screen_center_y_;
+    auto p = getPositionOnRender(x, y, 0, 0);
+    p.x += COORD_COUNT * TILE_W - render_center_x_;
+    p.y += 2 * TILE_H - render_center_y_;
     return p;
 }
 

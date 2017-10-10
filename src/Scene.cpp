@@ -11,24 +11,40 @@ Scene::~Scene()
 
 void Scene::calViewRegion()
 {
-    Engine::getInstance()->getMainTextureSize(screen_center_x_, screen_center_y_);
-    screen_center_x_ /= 2;
-    screen_center_y_ /= 2;
-    view_width_region_ = screen_center_x_ / TILE_W / 2 + 3;
-    view_sum_region_ = screen_center_y_ / TILE_H + 2;
+    Engine::getInstance()->getMainTextureSize(render_center_x_, render_center_y_);
+    render_center_x_ /= 2;
+    render_center_y_ /= 2;
+    view_width_region_ = render_center_x_ / TILE_W / 2 + 3;
+    view_sum_region_ = render_center_y_ / TILE_H + 2;
+
+    //Engine::getInstance()->getPresentSize(window_center_x_, window_center_y_);
+    //window_center_x_ /= 2;
+    //window_center_y_ /= 2;
 }
 
 void Scene::checkWalk(int x, int y, BP_Event& e)
 {
 }
 
-Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
+//后面两个参数是当前屏幕中心位置的游戏坐标，通常是人的坐标
+Point Scene::getPositionOnRender(int x, int y, int view_x, int view_y)
 {
     Point p;
-    x = x - CenterX;
-    y = y - CenterY;
-    p.x = -y * TILE_W + x * TILE_W + screen_center_x_;
-    p.y = y * TILE_H + x * TILE_H + screen_center_y_;
+    x = x - view_x;
+    y = y - view_y;
+    p.x = -y * TILE_W + x * TILE_W + render_center_x_;
+    p.y = y * TILE_H + x * TILE_H + render_center_y_;
+    return p;
+}
+
+//后面两个参数同上，一些情况下窗口尺寸和渲染尺寸不同
+Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
+{
+    auto p = getPositionOnRender(x, y, view_x, view_y);
+    int w, h;
+    Engine::getInstance()->getPresentSize(w, h);
+    p.x = p.x * w / render_center_x_ / 2;
+    p.y = p.y * h / render_center_y_ / 2;
     return p;
 }
 
@@ -41,7 +57,7 @@ Point Scene::getPositionOnScreen(int x, int y, int CenterX, int CenterY)
 //}
 
 //角色处于x1，y1，朝向x2，y2时，脸的方向
-int Scene::calFace(int x1, int y1, int x2, int y2)
+int Scene::calTowards(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
     d1 = y2 - y1;
@@ -75,17 +91,16 @@ int Scene::calFace(int x1, int y1, int x2, int y2)
     return Towards_None;
 }
 
-int Scene::getTowardsFromKey(BP_Keycode key)
+int Scene::changeTowardsByKey(BP_Keycode key)
 {
-    auto tw = Towards_None;
     switch (key)
     {
-    case BPK_LEFT: tw = Towards_LeftDown; break;
-    case BPK_RIGHT: tw = Towards_RightUp; break;
-    case BPK_UP: tw = Towards_LeftUp; break;
-    case BPK_DOWN: tw = Towards_RightDown; break;
+    case BPK_LEFT: towards_ = Towards_LeftDown; break;
+    case BPK_RIGHT: towards_ = Towards_RightUp; break;
+    case BPK_UP: towards_ = Towards_LeftUp; break;
+    case BPK_DOWN: towards_ = Towards_RightDown; break;
     }
-    return tw;
+    return towards_;
 }
 
 void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
@@ -105,7 +120,7 @@ void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
 void Scene::getMousePosition(Point* point)
 {
     int x = point->x;
-    int y = screen_center_y_ * 2 - point->y;
+    int y = render_center_y_ * 2 - point->y;
     //int yp = 0;
     //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
     //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
@@ -120,7 +135,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     auto myPoint = new PointEx();
     myPoint->x = Mx;
     myPoint->y = My;
-    myPoint->towards = calFace(Mx, My, Fx, Fy);
+    myPoint->towards = calTowards(Mx, My, Fx, Fy);
     myPoint->parent = myPoint;
     myPoint->Heuristic(Fx, Fy);
     //log("Fx=%d,Fy=%d", Fx, Fy);

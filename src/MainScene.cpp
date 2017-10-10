@@ -5,6 +5,7 @@
 #include "SubScene.h"
 #include "Save.h"
 #include "UI.h"
+#include "Util.h"
 
 MainScene MainScene::main_map_;
 
@@ -14,19 +15,19 @@ MainScene::MainScene()
 
     if (!data_readed_)
     {
-        earth_layer_.resize(COORD_COUNT);
-        surface_layer_.resize(COORD_COUNT);
-        building_layer_.resize(COORD_COUNT);
-        build_x_layer_.resize(COORD_COUNT);
-        build_y_layer_.resize(COORD_COUNT);
+        earth_layer_ = new MapSquare(COORD_COUNT);
+        surface_layer_ = new MapSquare(COORD_COUNT);
+        building_layer_ = new MapSquare(COORD_COUNT);
+        build_x_layer_ = new MapSquare(COORD_COUNT);
+        build_y_layer_ = new MapSquare(COORD_COUNT);
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(SAVE_INT);
 
-        File::readFile("../game/resource/earth.002", &earth_layer_.data(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer_.data(0), length);
-        File::readFile("../game/resource/building.002", &building_layer_.data(0), length);
-        File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
-        File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
+        File::readFile("../game/resource/earth.002", &earth_layer_->data(0), length);
+        File::readFile("../game/resource/surface.002", &surface_layer_->data(0), length);
+        File::readFile("../game/resource/building.002", &building_layer_->data(0), length);
+        File::readFile("../game/resource/buildx.002", &build_x_layer_->data(0), length);
+        File::readFile("../game/resource/buildy.002", &build_y_layer_->data(0), length);
 
         divide2(earth_layer_);
         divide2(surface_layer_);
@@ -50,13 +51,14 @@ MainScene::~MainScene()
     {
         delete cloud_vector_[i];
     }
+    Util::safe_delete({ &earth_layer_, &surface_layer_, &building_layer_, &build_x_layer_, &build_y_layer_, &entrance_layer_ });
 }
 
-void MainScene::divide2(MapSquare& m)
+void MainScene::divide2(MapSquare* m)
 {
-    for (int i = 0; i < m.squareSize(); i++)
+    for (int i = 0; i < m->squareSize(); i++)
     {
-        m.data(i) /= 2;
+        m->data(i) /= 2;
     }
 }
 
@@ -65,7 +67,7 @@ void MainScene::draw()
     Engine::getInstance()->setRenderAssistTexture();
     //LOG("main\n");
     int k = 0;
-    auto t0 = Engine::getInstance()->getTicks();
+    //auto t0 = Engine::getInstance()->getTicks();
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
@@ -79,7 +81,7 @@ void MainScene::draw()
         {
             int i1 = man_x_ + i + (sum / 2);
             int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnScreen(i1, i2, man_x_, man_y_);
+            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
             //auto p = getMapPoint(i1, i2, *_Mx, *_My);
@@ -88,18 +90,18 @@ void MainScene::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_.data(i1, i2) > 0)
+                if (earth_layer_->data(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_->data(i1, i2), p.x, p.y);
                 }
 #endif
-                if (surface_layer_.data(i1, i2) > 0)
+                if (surface_layer_->data(i1, i2) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_.data(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_->data(i1, i2), p.x, p.y);
                 }
-                if (building_layer_.data(i1, i2) > 0)
+                if (building_layer_->data(i1, i2) > 0)
                 {
-                    auto t = building_layer_.data(i1, i2);
+                    auto t = building_layer_->data(i1, i2);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -135,15 +137,26 @@ void MainScene::draw()
     {
         TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     }
-    auto t1 = Engine::getInstance()->getTicks();
+
+    for (auto& c : cloud_vector_)
+    {
+        c->draw();
+    }
+
+    //auto t1 = Engine::getInstance()->getTicks();
+
+    //log("%d\n", t1 - t0);
+    Engine::getInstance()->renderAssistTextureToWindow();
+}
+
+void MainScene::backRun()
+{
     //云的贴图
     for (auto& c : cloud_vector_)
     {
-        //c->draw();
-        c->setPositionOnScreen(man_x_, man_y_, screen_center_x_, screen_center_y_);
+        c->flow();
+        c->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
     }
-    //log("%d\n", t1 - t0);
-    Engine::getInstance()->renderAssistTextureToWindow();
 }
 
 //计时器，负责画图以及一些其他问题
@@ -175,13 +188,12 @@ void MainScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        auto tw = getTowardsFromKey(pressed);
-        if (tw != Towards_None) { towards_ = tw; }
-        getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-        tryWalk(x, y);
-        if (total_step_ < 1)
+        //注意，中间空出几个步数是为了可以单步行动，子场景同
+        if (total_step_ < 1 || total_step_ >= 5)
         {
-            Engine::getInstance()->delay(100);
+            changeTowardsByKey(pressed);
+            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+            tryWalk(x, y);
         }
         total_step_++;
     }
@@ -245,8 +257,7 @@ void MainScene::tryWalk(int x, int y)
 
 bool MainScene::isBuilding(int x, int y)
 {
-
-    if (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0)
+    if (building_layer_->data(build_x_layer_->data(x, y), build_y_layer_->data(x, y)) > 0)
     {
         return  true;
     }
@@ -258,7 +269,7 @@ bool MainScene::isBuilding(int x, int y)
 
 bool MainScene::isWater(int x, int y)
 {
-    auto pic = earth_layer_.data(x, y);
+    auto pic = earth_layer_->data(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     {
         return true;
@@ -294,7 +305,7 @@ bool MainScene::canWalk(int x, int y)
 
 bool MainScene::checkEntrance(int x, int y)
 {
-    for (int i = 0; i < Save::getInstance()->submap_infos_.size(); i++)
+    for (int i = 0; i < Save::getInstance()->getSubMapInfos().size(); i++)
     {
         auto s = Save::getInstance()->getSubMapInfo(i);
         if (x == s->MainEntranceX1 && y == s->MainEntranceY1 || x == s->MainEntranceX2 && y == s->MainEntranceY2)
@@ -319,8 +330,7 @@ bool MainScene::checkEntrance(int x, int y)
             if (can_enter)
             {
                 //这里看起来要主动多画一帧，待修
-                drawAll();
-                checkEventAndPresent();
+                drawAndPresent();
                 auto sub_map = new SubScene(i);
                 sub_map->run();
                 return true;

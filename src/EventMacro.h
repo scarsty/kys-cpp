@@ -24,7 +24,7 @@
 //指令对应宏，仅参考，不使用
 #define instruct_0
 #define instruct_1 oldTalk
-#define instruct_2 getItem
+#define instruct_2 addItem
 #define instruct_3 modifyEvent
 #define instruct_4 isUsingItem
 #define instruct_5 askBattle
@@ -57,7 +57,7 @@
 
 #define instruct_30 walkFromTo
 #define instruct_31 checkEnoughMoney
-#define instruct_32 getItemWithoutHint
+#define instruct_32 addItemWithoutHint
 #define instruct_33 oldLearnMagic
 #define instruct_34 addIQ
 #define instruct_35 setRoleMagic
@@ -67,7 +67,7 @@
 #define instruct_39 openSubMap
 
 #define instruct_40 setTowards
-#define instruct_41 roleGetItem
+#define instruct_41 roleAddItem
 #define instruct_42 checkFemaleInTeam
 #define instruct_43 haveItemBool
 #define instruct_44 play2Amination

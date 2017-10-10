@@ -7,16 +7,6 @@ Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int
     setTexture(path, normal_id, pass_id, press_id);
 }
 
-void Button::setTexture(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)
-{
-    if (pass_id < 0) { pass_id = normal_id; }
-    if (press_id < 0) { press_id = normal_id; }
-    tex_path_ = path;
-    tex_normal_id_ = normal_id;
-    tex_pass_id_ = pass_id;
-    tex_press_id_ = press_id;
-}
-
 Button::~Button()
 {
 }
@@ -35,50 +25,54 @@ void Button::dealEvent(BP_Event& e)
 
 void Button::draw()
 {
-    int x = x_;
-    int y = y_;
-    auto id = tex_normal_id_;
-    BP_Color color = { 255, 255, 255, 255 };
-    BP_Color color_text = { 32, 32, 32, 255 };
-
-    if (state_ == Normal)
-    {
-        if (tex_normal_id_ == tex_pass_id_)
-        {
-            color = { 128, 128, 128, 255 };
-        }
-    }
-    if (state_ == Pass)
-    {
-        id = tex_pass_id_;
-        color_text = { 255, 255, 255, 255 };
-    }
-    else if (state_ == Press)
-    {
-        id = tex_press_id_;
-        color_text = { 255, 0, 0, 255 };
-    }
-    TextureManager::getInstance()->renderTexture(tex_path_, id, x, y, color);
-    if (text_.size())
-    {
-        Font::getInstance()->drawWithBox(text_, 20, x, y, color_text, 255);
-    }
-
     //视情况重新计算尺寸
     if (w_ * h_ == 0)
     {
-        auto tex = TextureManager::getInstance()->loadTexture(tex_path_, tex_normal_id_);
+        auto tex = TextureManager::getInstance()->loadTexture(texture_path_, texture_normal_id_);
         if (tex)
         {
             w_ = tex->w;
             h_ = tex->h;
         }
     }
+    int x = x_;
+    int y = y_;
+    auto id = texture_normal_id_;
+    BP_Color color = { 255, 255, 255, 255 };
+    uint8_t alpha = 225;
+    if (state_ == Normal)
+    {
+        if (texture_normal_id_ == texture_pass_id_)
+        {
+            color = { 128, 128, 128, 255 };
+        }
+    }
+    if (state_ == Pass)
+    {
+        id = texture_pass_id_;
+        alpha = 240;
+    }
+    else if (state_ == Press)
+    {
+        id = texture_press_id_;
+        alpha = 255;
+    }
+    TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, color, alpha);
+
+
+    if (!text_.empty())
+    {
+        BP_Color color_text = color_normal_;
+        if (state_ == Pass)
+        {
+            color_text = color_pass_;
+        }
+        else if (state_ == Press)
+        {
+            color_text = color_press_;
+        }
+        Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_text, 255, alpha);
+    }
 }
 
-void Button::setText(std::string text)
-{
-    text_ = text;
-    w_ = font_size_ * text.length() / 2;
-    h_ = font_size_;
-}
+

@@ -30,11 +30,13 @@ public:
 
     template <class T> static void readFileToVector(std::string filename, std::vector<T>& v)
     {
-        char* buffer;
+        char* buffer = nullptr;
         int length;
-        readFile(filename, &buffer, &length);
-        readDataToVector(buffer, length, v);
-        delete[] buffer;
+        if (readFile(filename, &buffer, &length))
+        {
+            readDataToVector(buffer, length, v);
+            delete[] buffer;
+        }
     }
 
     template <class T> static void writeVectorToData(char* data, int length, std::vector<T>& v, int length_one)

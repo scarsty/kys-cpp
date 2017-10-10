@@ -76,7 +76,7 @@ int TextureManager::getTextureGroupCount(const std::string& path)
 {
     auto& v = texture_manager_.map_[path];
 
-    if (v.size() == 0)
+    if (v.empty())
     {
         initialTextureGroup(path);
     }
@@ -97,7 +97,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
     auto& v = texture_manager_.map_[path];
     //纹理组信息
     //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针
-    if (v.size() == 0)
+    if (v.empty())
     {
         char* s;
         int l = 0;

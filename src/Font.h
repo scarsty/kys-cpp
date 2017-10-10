@@ -17,7 +17,7 @@ private:
     int calIndex(int size, uint16_t c) { return size * 0x1000000 + c; }
 public:
     static Font* getInstance() { return &font_; };
-    void draw(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha = 255);
-    void drawWithBox(std::string text, int size, int x, int y, BP_Color color, uint8_t alpha = 255);
+    void draw(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha = 255);
+    void drawWithBox(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha = 255, uint8_t alpha_box = 255);
 };
 

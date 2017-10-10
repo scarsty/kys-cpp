@@ -13,8 +13,12 @@ public:
 
     //BP_Texture* earth_texture_ = nullptr;
 
-    int screen_center_x_ = 0;
-    int screen_center_y_ = 0;
+    int render_center_x_ = 0;
+    int render_center_y_ = 0;
+
+    //int window_center_x_ = 0;
+    //int window_center_y_ = 0;
+
     const int TILE_W = 18;  //小图块大小X
     const int TILE_H = 9;   //小图块大小Y
 
@@ -33,17 +37,18 @@ public:
     int man_pic_;
 
     void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }
+    void getManPosition(int& x, int& y) { x = man_x_; y = man_y_; }
     void setManPic(int pic) { man_pic_ = pic; }
 
     void checkWalk(int x, int y, BP_Event& e);   //一些公共部分，未完成
 
-    Point getPositionOnScreen(int x, int y, int CenterX, int CenterY);
-
-    int calFace(int x1, int y1, int x2, int y2);
+    Point getPositionOnRender(int x, int y, int view_x, int view_y);
+    Point getPositionOnWindow(int x, int y, int view_x, int view_y);
+    int calTowards(int x1, int y1, int x2, int y2);
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
-    static int getTowardsFromKey(BP_Keycode key);
+    int changeTowardsByKey(BP_Keycode key);
     //获取面向一格的坐标
     static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
 

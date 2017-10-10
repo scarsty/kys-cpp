@@ -18,5 +18,8 @@ private:
 public:
     void setContent(std::string c) { content_ = c; }
     void setHeadID(int h) { head_id_=h; }
+
+    virtual void pressedOK() override { exitWithResult(0); }
+    virtual void pressedCancel() override { exitWithResult(-1); }
 };
 

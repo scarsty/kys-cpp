@@ -49,8 +49,6 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
-        auto m = new TeamMenu();
-        m->run();
         MainScene::getIntance()->run();
     }
     if (r == 1)
@@ -66,14 +64,12 @@ void TitleScene::dealEvent(BP_Event& e)
         auto b = new BattleScene(132);
         b->run();
         delete b;
-        setExit(true);
+        //setExit(true);
     }
 }
 
 void TitleScene::onEntrance()
 {
     Save::getInstance()->LoadR(2);
-    //Audio::getInstance()->playMusic(3);
-    //Audio::getInstance()->playESound(1);
 }
 

@@ -1,10 +1,15 @@
 #include "Head.h"
 #include "Font.h"
 #include "others/libconvert.h"
+#include "GameUtil.h"
 
 Head::Head(Role* r)
 {
     role_ = r;
+    setTextPosition(20, 65);
+    setFontSize(20);
+    setTextColor({ 255,255,255,255 });
+    setHaveBox(false);
 }
 
 Head::~Head()
@@ -35,14 +40,16 @@ void Head::draw()
     {
         color = { 128, 128, 128, 255 };
     }
-
+    //中毒时突出绿色
+    color.r -= 2 * role_->Poison;
+    color.b -= 2 * role_->Poison;
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, color, 255, 0.5, 0.5);
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
 
     BP_Rect r1;
 
     //注意这里计算某个数字长度的方法
-    font->draw(convert::formatString("%d", role_->Level), 16, x_ + 99 - 4 * floor(log10(0.5 + abs(role_->Level))), y_ + 5, { 250, 200, 50, 255 });
+    font->draw(convert::formatString("%d", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 });
 
     BP_Color c;
     r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
@@ -66,7 +73,9 @@ void Head::draw()
     r1 = { x_ + 116, y_ + 65, 82 * role_->PhysicalPower / 100, 9 };
     c = { 128, 128, 255, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-    font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * floor(log10(0.5 + abs(role_->PhysicalPower))), y_ + 61, { 250, 200, 50, 255 });
+    font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });
+
+    TextBox::draw();
 }
 
 

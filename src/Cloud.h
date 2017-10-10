@@ -30,5 +30,7 @@ public:
     void initRand();
     void setPositionOnScreen(int x, int y, int Center_X, int Center_Y);
     virtual void draw() override;
+
+    void flow();
 };
 

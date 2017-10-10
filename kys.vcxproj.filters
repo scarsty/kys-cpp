@@ -49,9 +49,6 @@
     <ClCompile Include="src\UIStatus.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\UISkill.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\UISystem.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -106,16 +103,22 @@
     <ClCompile Include="src\Util.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleOperator.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Element.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="src\GameUtil.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\AutoBattle.cpp">
+    <ClCompile Include="src\BattleCursor.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TextBox.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ShowRoleDifference.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ShowExp.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -169,9 +172,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UIStatus.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UISkill.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UISystem.h">
@@ -229,16 +229,22 @@
     <ClInclude Include="src\Util.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleOperator.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Element.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\GameUtil.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\AutoBattle.h">
+    <ClInclude Include="src\BattleCursor.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextBox.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ShowRoleDifference.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ShowExp.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
