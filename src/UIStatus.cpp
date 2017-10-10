@@ -5,6 +5,7 @@
 #include "GameUtil.h"
 #include "TeamMenu.h"
 #include "ShowRoleDifference.h"
+#include "Event.h"
 
 UIStatus::UIStatus()
 {
@@ -159,7 +160,8 @@ void UIStatus::pressedOK()
 
     if (button_leave_->getState() == Press)
     {
-
+        Event::getInstance()->callLeaveEvent(role_);
+        role_ = nullptr;
     }
     else if (button_medcine_->getState() == Press)
     {
@@ -169,9 +171,10 @@ void UIStatus::pressedOK()
         delete team_menu;
         if (role)
         {
-            GameUtil::medcine(role_, role);
             Role r = *role;
+            GameUtil::medcine(role_, role);
             auto df = new ShowRoleDifference(&r, role);
+            df->setText(convert::formatString("%s接受%s醫療", role->Name, role_->Name));
             df->run();
             delete df;
         }
@@ -184,9 +187,10 @@ void UIStatus::pressedOK()
         delete team_menu;
         if (role)
         {
-            GameUtil::detoxification(role_, role);
             Role r = *role;
+            GameUtil::detoxification(role_, role);
             auto df = new ShowRoleDifference(&r, role);
+            df->setText(convert::formatString("%s接受%s解毒", role->Name, role_->Name));
             df->run();
             delete df;
         }

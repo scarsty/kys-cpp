@@ -79,7 +79,6 @@ bool Event::loadEventData()
 bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
-    save_ = Save::getInstance();
     subscene_ = dynamic_cast<SubScene*>(subscene);
     submap_id_ = -1;
     if (subscene)
@@ -227,7 +226,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 
 SubMapInfo* Event::getSubMapRecordFromID(int submap_id)
 {
-    auto submap_record = save_->getSubMapInfo(submap_id);
+    auto submap_record = Save::getInstance()->getSubMapInfo(submap_id);
     if (submap_record == nullptr) { submap_record = subscene_->getMapInfo(); }
     return submap_record;
 }
@@ -238,7 +237,7 @@ int Event::getLeaveEvent(Role* role)
     {
         if (leave_event_id_[i] == role->ID)
         {
-            return leave_event_0_ + 2 * i + 1;
+            return leave_event_0_ + 2 * i;
         }
     }
     return -1;
@@ -263,7 +262,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(convert::formatString("获得物品%s%d个", save_->getItem(item_id)->Name, count));
+    text_box_->setText(convert::formatString("获得物品%s%d个", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture(TextureManager::getInstance()->loadTexture("item", item_id));
     text_box_->run();
 }
@@ -274,7 +273,7 @@ void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int inde
     if (submap_id < 0) { submap_id = submap_id_; }
     if (submap_id < 0) { return; }
     if (event_index < 0) { event_index = event_index_; }
-    auto e = save_->getSubMapInfo(submap_id)->Event(event_index);
+    auto e = Save::getInstance()->getSubMapInfo(submap_id)->Event(event_index);
     //下面的值为-2表示不要修改
     if (cannotWalk >= -1) { e->CannotWalk = cannotWalk; }
     if (index >= -1) { e->Index = index; }
@@ -287,7 +286,7 @@ void Event::modifyEvent(int submap_id, int event_index, int cannotWalk, int inde
     if (picDelay >= -1) { e->PicDelay = picDelay; }
     if (x < -1) { x = e->X(); }
     if (y < -1) { y = e->Y(); }
-    e->setPosition(x, y, save_->getSubMapInfo(submap_id));
+    e->setPosition(x, y, Save::getInstance()->getSubMapInfo(submap_id));
 }
 
 //是否使用了某物品
@@ -325,12 +324,12 @@ bool Event::askJoin()
 //角色加入，同时获得对方身上的物品
 void Event::join(int role_id)
 {
-    for (auto& r : save_->Team)
+    for (auto& r : Save::getInstance()->Team)
     {
         if (r < 0)
         {
             r = role_id;
-            auto role = save_->getRole(r);
+            auto role = Save::getInstance()->getRole(r);
             for (int i = 0; i < ROLE_TAKING_ITEM_COUNT; i++)
             {
                 if (role->TakingItem[i] >= 0)
@@ -354,9 +353,9 @@ bool Event::askRest()
 
 void Event::rest()
 {
-    for (auto r : save_->Team)
+    for (auto r : Save::getInstance()->Team)
     {
-        auto role = save_->getRole(r);
+        auto role = Save::getInstance()->getRole(r);
         if (role)
         {
             role->HP = role->MaxHP;
@@ -391,7 +390,7 @@ void Event::dead()
 //某人是否在队伍
 bool Event::inTeam(int role_id)
 {
-    for (auto r : save_->Team)
+    for (auto r : Save::getInstance()->Team)
     {
         if (r == role_id)
         {
@@ -408,7 +407,7 @@ void Event::setSubMapLayerData(int submap_id, int layer, int x, int y, int v)
 
 bool Event::haveItemBool(int item_id)
 {
-    return save_->getItemCountInBag(item_id) > 0;
+    return Save::getInstance()->getItemCountInBag(item_id) > 0;
 }
 
 void Event::oldSetScencePosition(int x, int y)
@@ -421,7 +420,7 @@ void Event::oldSetScencePosition(int x, int y)
 
 bool Event::teamIsFull()
 {
-    for (auto r : save_->Team)
+    for (auto r : Save::getInstance()->Team)
     {
         if (r < 0) { return false; }
     }
@@ -430,15 +429,16 @@ bool Event::teamIsFull()
 
 void Event::leaveTeam(int role_id)
 {
+    auto save = Save::getInstance();
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
-        if (save_->Team[i] == role_id)
+        if (save->Team[i] == role_id)
         {
             for (int j = i; j < TEAMMATE_COUNT - 1; j++)
             {
-                save_->Team[j] = save_->Team[j + 1];
+                save->Team[j] = save->Team[j + 1];
             }
-            save_->Team[TEAMMATE_COUNT - 1] == -1;
+            save->Team[TEAMMATE_COUNT - 1] == -1;
             break;
         }
     }
@@ -446,18 +446,19 @@ void Event::leaveTeam(int role_id)
 
 void Event::zeroAllMP()
 {
-    for (auto r : save_->Team)
+    auto save = Save::getInstance();
+    for (auto r : save->Team)
     {
         if (r >= 0)
         {
-            save_->getRole(r)->MP = 0;
+            save->getRole(r)->MP = 0;
         }
     }
 }
 
 void Event::setRoleUsePoison(int role_id, int v)
 {
-    save_->getRole(role_id)->UsePoison = v;
+    Save::getInstance()->getRole(role_id)->UsePoison = v;
 }
 
 void Event::subMapViewFromTo(int x0, int y0, int x1, int y1)
@@ -484,12 +485,13 @@ void Event::playAnimation(int event_id, int begin_pic, int end_pic)
 
 bool Event::checkRoleMorality(int role_id, int low, int high)
 {
-    return (save_->getRole(role_id)->Morality >= low && save_->getRole(role_id)->Morality <= high);
+    auto role = Save::getInstance()->getRole(role_id);
+    return (role->Morality >= low && role->Morality <= high);
 }
 
 bool Event::checkRoleAttack(int role_id, int low, int high)
 {
-    return (save_->getRole(role_id)->Attack >= low);
+    return (Save::getInstance()->getRole(role_id)->Attack >= low);
 }
 
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
@@ -502,15 +504,16 @@ void Event::walkFromTo(int x0, int y0, int x1, int y1)
 
 bool Event::checkEnoughMoney(int money_count)
 {
-    return (save_->getMoneyCountInBag() >= money_count);
+    return (Save::getInstance()->getMoneyCountInBag() >= money_count);
 }
 
 void Event::addItemWithoutHint(int item_id, int count)
 {
     int pos = -1;
+    auto save = Save::getInstance();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        if (save_->Items[i].item_id == item_id)
+        if (save->Items[i].item_id == item_id)
         {
             pos = i;
             break;
@@ -518,38 +521,39 @@ void Event::addItemWithoutHint(int item_id, int count)
     }
     if (pos >= 0)
     {
-        save_->Items[pos].count += count;
+        save->Items[pos].count += count;
     }
     else
     {
         for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
         {
-            if (save_->Items[i].item_id < 0)
+            if (save->Items[i].item_id < 0)
             {
                 pos = i;
                 break;
             }
         }
-        save_->Items[pos].item_id == item_id;
-        save_->Items[pos].count == count;
+        save->Items[pos].item_id == item_id;
+        save->Items[pos].count == count;
     }
     //当物品数量为负，需要整理背包
-    if (save_->Items[pos].count <= 0)
+
+    if (save->Items[pos].count <= 0)
     {
         for (int i = pos; i < ITEM_IN_BAG_COUNT - 1; i++)
         {
-            save_->Items[i].item_id = save_->Items[i + 1].item_id;
-            save_->Items[i].count = save_->Items[i + 1].count;
+            save->Items[i].item_id = save->Items[i + 1].item_id;
+            save->Items[i].count = save->Items[i + 1].count;
         }
-        save_->Items[ITEM_IN_BAG_COUNT - 1].item_id = -1;
-        save_->Items[ITEM_IN_BAG_COUNT - 1].count = 0;
+        save->Items[ITEM_IN_BAG_COUNT - 1].item_id = -1;
+        save->Items[ITEM_IN_BAG_COUNT - 1].count = 0;
     }
 }
 
 void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
 {
-    auto r = save_->getRole(role_id);
-    auto m = save_->getMagic(magic_id);
+    auto r = Save::getInstance()->getRole(role_id);
+    auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
     text_box_->setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
@@ -558,7 +562,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
 
 void Event::addIQ(int role_id, int value)
 {
-    auto r = save_->getRole(role_id);
+    auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, MAX_IQ);
     text_box_->setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
@@ -567,7 +571,7 @@ void Event::addIQ(int role_id, int value)
 
 void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int level)
 {
-    auto r = save_->getRole(role_id);
+    auto r = Save::getInstance()->getRole(role_id);
     r->MagicID[magic_index_role] = magic_id;
     r->MagicLevel[magic_index_role] = level;
 }
@@ -576,7 +580,7 @@ bool Event::checkRoleSexual(int sexual)
 {
     if (sexual <= 255)
     {
-        return save_->getRole(0)->Sexual == sexual;
+        return Save::getInstance()->getRole(0)->Sexual == sexual;
     }
     else
     {
@@ -586,7 +590,8 @@ bool Event::checkRoleSexual(int sexual)
 
 void Event::addMorality(int value)
 {
-    save_->getRole(0)->Morality = GameUtil::limit(save_->getRole(0)->Morality + value, 0, MAX_MORALITY);
+    auto role = Save::getInstance()->getRole(0);
+    role->Morality = GameUtil::limit(role->Morality + value, 0, MAX_MORALITY);
 }
 
 void Event::changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic)
@@ -609,7 +614,7 @@ void Event::changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic)
 
 void Event::openSubMap(int submap_id)
 {
-    save_->getSubMapInfo(submap_id)->EntranceCondition = 0;
+    Save::getInstance()->getSubMapInfo(submap_id)->EntranceCondition = 0;
 }
 
 void Event::setTowards(int towards)
@@ -624,11 +629,11 @@ void Event::roleAddItem(int role_id, int item_id, int count)
 
 bool Event::checkFemaleInTeam()
 {
-    for (auto r : save_->Team)
+    for (auto r : Save::getInstance()->Team)
     {
         if (r >= 0)
         {
-            if (save_->getRole(r)->Sexual == 1) { return true; }
+            if (Save::getInstance()->getRole(r)->Sexual == 1) { return true; }
         }
     }
     return false;
@@ -641,7 +646,7 @@ void Event::play2Amination(int event_index1, int begin_pic1, int end_pic1, int e
 
 void Event::addSpeed(int role_id, int value)
 {
-    auto r = save_->getRole(role_id);
+    auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, MAX_SPEED);
     text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
@@ -650,7 +655,7 @@ void Event::addSpeed(int role_id, int value)
 
 void Event::addMP(int role_id, int value)
 {
-    auto r = save_->getRole(role_id);
+    auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, MAX_MP);
     text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
@@ -659,7 +664,7 @@ void Event::addMP(int role_id, int value)
 
 void Event::addAttack(int role_id, int value)
 {
-    auto r = save_->getRole(role_id);
+    auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, MAX_ATTACK);
     text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
@@ -668,7 +673,7 @@ void Event::addAttack(int role_id, int value)
 
 void Event::addHP(int role_id, int value)
 {
-    auto r = save_->getRole(role_id);
+    auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, MAX_HP);
     text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
@@ -677,7 +682,7 @@ void Event::addHP(int role_id, int value)
 
 void Event::setMPType(int role_id, int value)
 {
-    save_->getRole(role_id)->MPType = value;
+    Save::getInstance()->getRole(role_id)->MPType = value;
 }
 
 bool Event::checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5)
@@ -693,28 +698,29 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setText(convert::formatString("你的道德指數為%d", save_->getRole(0)->Morality));
+    text_box_->setText(convert::formatString("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
     text_box_->run();
 }
 
 void Event::showFame()
 {
-    text_box_->setText(convert::formatString("你的聲望指數為%d", save_->getRole(0)->Fame));
+    text_box_->setText(convert::formatString("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
     text_box_->run();
 }
 
 void Event::openAllSubMap()
 {
     int i = 0;
-    while (save_->getSubMapInfo(i))
+    auto save = Save::getInstance();
+    while (save->getSubMapInfo(i))
     {
-        save_->getSubMapInfo(i)->EntranceCondition = 0;
+        save->getSubMapInfo(i)->EntranceCondition = 0;
         i++;
     }
-    save_->getSubMapInfo(2)->EntranceCondition = 2;
-    save_->getSubMapInfo(38)->EntranceCondition = 2;
-    save_->getSubMapInfo(75)->EntranceCondition = 1;
-    save_->getSubMapInfo(80)->EntranceCondition = 1;
+    save->getSubMapInfo(2)->EntranceCondition = 2;
+    save->getSubMapInfo(38)->EntranceCondition = 2;
+    save->getSubMapInfo(75)->EntranceCondition = 1;
+    save->getSubMapInfo(80)->EntranceCondition = 1;
 }
 
 bool Event::checkEventID(int event_index, int value)
@@ -724,8 +730,9 @@ bool Event::checkEventID(int event_index, int value)
 
 void Event::addFame(int value)
 {
-    save_->getRole(0)->Fame += value;
-    if (save_->getRole(0)->Fame > 200 && save_->getRole(0)->Fame - value <= 200)
+    auto save = Save::getInstance();
+    save->getRole(0)->Fame += value;
+    if (save->getRole(0)->Fame > 200 && save->getRole(0)->Fame - value <= 200)
     {
         modifyEvent(70, 11, 0, 11, 932, -1, -1, 7968, 7968, 7968, 0, 18, 21);
     }
@@ -750,7 +757,7 @@ void Event::allLeave()
 {
     for (int i = 1; i < TEAMMATE_COUNT; i++)
     {
-        save_->Team[i] = -1;
+        Save::getInstance()->Team[i] = -1;
     }
 }
 
@@ -784,7 +791,7 @@ bool Event::check14BooksPlaced()
 
 void Event::setSexual(int role_id, int value)
 {
-    save_->getRole(role_id)->Sexual = value;
+    Save::getInstance()->getRole(role_id)->Sexual = value;
 }
 
 void Event::shop()

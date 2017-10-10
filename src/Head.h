@@ -9,6 +9,7 @@ class Head : public TextBox
 {
 protected:
     Role* role_ = nullptr;
+    bool only_head_ = false;
 public:
     Head(Role* r = nullptr);
     virtual ~Head();
@@ -16,5 +17,6 @@ public:
     virtual void draw() override;
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }
+    void setOnlyHead(bool b) { only_head_ = b; }
 };
 

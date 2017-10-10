@@ -169,8 +169,10 @@ struct ItemSave
     SAVE_INT ID;
     char Name[20], Name1[20];
     char Introduction[30];
-    SAVE_INT MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntro, ItemType, UnKnown5, UnKnown6, UnKnown7;
-    SAVE_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;    
+    SAVE_INT MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
+    SAVE_INT ItemType;   //0剧情，1装备，2秘笈，3药品，4暗器
+    SAVE_INT UnKnown5, UnKnown6, UnKnown7;
+    SAVE_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
     SAVE_INT AddAttack, AddSpeed, AddDefence, AddMedcine, AddUsePoison, AddDetoxification, AddAntiPoison;
     SAVE_INT AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
     SAVE_INT OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;

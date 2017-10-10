@@ -49,7 +49,7 @@ private:
     int event_index_;
     int item_id_;
     Item* item_;
-    Save* save_;
+    //Save* save_;
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);

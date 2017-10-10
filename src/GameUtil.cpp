@@ -102,7 +102,7 @@ void GameUtil::useItem(Role* r, Item* i)
 
     r->Poison += i->AddPoison;
 
-    r->Medcine = i->AddMedcine;
+    r->Medcine += i->AddMedcine;
     r->Detoxification += i->AddDetoxification;
     r->UsePoison += i->AddUsePoison;
 

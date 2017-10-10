@@ -4,6 +4,9 @@
 #include "Font.h"
 #include "MainScene.h"
 #include "GameUtil.h"
+#include "TeamMenu.h"
+#include "ShowRoleDifference.h"
+#include "Event.h"
 
 UIItem::UIItem()
 {
@@ -136,7 +139,7 @@ void UIItem::dealEvent(BP_Event& e)
         }
         else
         {
-            button->setTexture("item", -1);            
+            button->setTexture("item", -1);
         }
     }
     //让光标显示出来
@@ -287,9 +290,29 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
 
 void UIItem::pressedOK()
 {
+    if (!current_item_) { return; }
+
     //仅在使用剧情物品的时候，发出退出的提示
-    if (current_item_ && current_item_->ItemType == 0)
+    if (current_item_->ItemType == 0)
     {
         result_ = current_item_->ID;
+    }
+    else if (current_item_->ItemType == 3)
+    {
+        auto team_menu = new TeamMenu();
+        //team_menu->setItem(current_item_);
+        team_menu->run();
+        auto role = team_menu->getRole();
+        delete team_menu;
+        if (role)
+        {
+            Role r = *role;
+            GameUtil::useItem(role, current_item_);
+            auto df = new ShowRoleDifference(&r, role);
+            df->setText(convert::formatString("%s使用%s", role->Name, current_item_->Name));
+            df->run();
+            delete df;
+            Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
+        }
     }
 }

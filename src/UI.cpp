@@ -61,8 +61,8 @@ void UI::dealEvent(BP_Event& e)
     {
         auto head = heads_[i];
         auto role = Save::getInstance()->getTeamMate(i);
-        if (role == nullptr) { continue; }
         head->setRole(role);
+        if (role == nullptr) { continue; }        
         if (head->getState() == Pass)
         {
             ui_status_->setRole(role);
