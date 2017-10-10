@@ -65,7 +65,6 @@ bool Event::loadEventData()
     delete kdef;
 
     //读取离队列表
-
     std::string leave_txt = convert::readStringFromFile("../game/list/leave.txt");
     convert::findNumbers(leave_txt, &leave_event_id_);
     if (leave_event_id_.size() > 0)
@@ -243,6 +242,11 @@ int Event::getLeaveEvent(Role* role)
         }
     }
     return -1;
+}
+
+void Event::callLeaveEvent(Role* role)
+{
+    callEvent(getLeaveEvent(role));
 }
 
 //原对话指令
@@ -544,17 +548,28 @@ void Event::addItemWithoutHint(int item_id, int count)
 
 void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
 {
-
+    auto r = save_->getRole(role_id);
+    auto m = save_->getMagic(magic_id);
+    r->learnMagic(m);
+    if (no_display) { return; }
+    text_box_->setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
+    text_box_->run();
 }
 
-void Event::addIQ(int role_id, int aptitude)
+void Event::addIQ(int role_id, int value)
 {
-
+    auto r = save_->getRole(role_id);
+    auto v0 = r->IQ;
+    r->IQ = GameUtil::limit(v0 + value, 0, MAX_IQ);
+    text_box_->setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
+    text_box_->run();
 }
 
 void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int level)
 {
-
+    auto r = save_->getRole(role_id);
+    r->MagicID[magic_index_role] = magic_id;
+    r->MagicLevel[magic_index_role] = level;
 }
 
 bool Event::checkRoleSexual(int sexual)

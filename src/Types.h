@@ -24,6 +24,8 @@ struct MapSquare
     int size() { return line_; }
     int squareSize() { return line_ * line_; }
     void setAll(int v) { for (int i = 0; i < squareSize(); i++) { data_[i] = v; } }
+    void copyTo(MapSquare* ms) { for (int i = 0; i < squareSize(); i++) { ms->data_[i] = data_[i]; } }
+    void copyFrom(MapSquare* ms) { for (int i = 0; i < squareSize(); i++) { data_[i] = ms->data_[i]; } }
 private:
     SAVE_INT* data_ = nullptr;
     SAVE_INT line_ = 0;

@@ -55,6 +55,7 @@ private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);
 public:
     int getLeaveEvent(Role* role);
+    void callLeaveEvent(Role* role);
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
@@ -91,7 +92,7 @@ public:
     bool checkEnoughMoney(int money_count);
     void addItemWithoutHint(int item_id, int count);
     void oldLearnMagic(int role_id, int magic_id, int no_display);
-    void addIQ(int role_id, int aptitude);
+    void addIQ(int role_id, int value);
     void setRoleMagic(int role_id, int magic_index_role, int magic_id, int level);
     bool checkRoleSexual(int sexual);
     void addMorality(int value);
