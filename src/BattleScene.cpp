@@ -1,4 +1,4 @@
-#include "BattleScene.h"
+﻿#include "BattleScene.h"
 #include "MainScene.h"
 #include <iostream>
 #include <string>
@@ -60,7 +60,7 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
-    auto r0 = battle_roles_[0];  //��ǰ�����ж��еĽ�ɫ
+    auto r0 = battle_roles_[0];  //µ±Ç°ÕýÔÚÐÐ¶¯ÖÐµÄ½ÇÉ«
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 #ifndef _DEBUG0
@@ -181,10 +181,10 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
-    //ѡ��λ�����������еĵ�һ����
+    //Ñ¡ÔñÎ»ÓÚÈËÎïÊý×éÖÐµÄµÚÒ»¸öÈË
     auto r = battle_roles_[0];
 
-    //����һ�����Ѿ��ж�����˵�������˶��ж��ˣ�������ж�״̬����������
+    //ÈôµÚÒ»¸öÈËÒÑ¾­ÐÐ¶¯¹ý£¬ËµÃ÷ËùÓÐÈË¶¼ÐÐ¶¯ÁË£¬ÔòÇå³ýÐÐ¶¯×´Ì¬£¬ÖØÅÅÈËÎï
     if (r->Acted != 0)
     {
         resetRolesAct();
@@ -200,15 +200,62 @@ void BattleScene::dealEvent(BP_Event& e)
 
     int select_act = 0;
 
-    //ע������ֻ�ж��Ƿ�Ϊ�Զ���
+    //×¢ÒâÕâÀïÖ»ÅÐ¶ÏÊÇ·ñÎª×Ô¶¯£¿
     if (r->Auto == 0)
     {
         select_act = battle_menu_->runAsRole(r);
-    }
-    else
-    {
-        //�˴�ӦдAI���֣�
-    }
+	}
+	else {
+		//我方在AI类型为策略(傻子)时才会选择吃药
+		if ((r->Auto == 2 && r->Team == 0) || r->Team != 0) {
+			//生命低于20%, 70%可能医疗或吃药
+			if (r->Acted != 1 && r->HP < r->MaxHP/5) {
+				if (RandomClassical::rand(100) < 70) {
+					if(r->Medcine >= 50 && r->PhysicalPower >= 50){
+						//医疗自己
+						//medcine(r);
+					}
+					else {
+						//吃加血药
+						//AutoUseitem(r, 45);
+					}
+				}			
+			}
+			//内力低于20%, 60%可能吃药
+			if (r->Acted != 1 && r->MP < r->MaxMP / 5) {
+				if (RandomClassical::rand(100) < 60) {
+					//吃内力药
+					//AutoUseitem(r, 50);
+				}
+			}
+			//体力低于20%, 80%可能吃药
+			if (r->Acted != 1 && r->PhysicalPower < 20) {
+				if (RandomClassical::rand(100) < 60) {
+					//吃体力药
+					//AutoUseitem(r, 48);
+				}
+			}
+		}
+		//我方在AI类型为策略或者辅助(傻子或呆子)时才会选择医疗, 解毒, 用毒, 暗器
+		else if (((r->Auto == 2||r->Auto == 3) && r->Team == 0) || r->Team != 0 ) {
+			//When Medcine is more than 50, and physical power is more than 70, 50% probability to cure one teammate.
+			if (r->Acted != 1 && r->Medcine > 50 && r->PhysicalPower >= 70) {
+				if (RandomClassical::rand(100) < 50) {
+					//自动移动到最近地方目标区域
+					//NearestMoveByPro()
+					r->setPrevPosition(r->X(), r->Y());
+					moveAnimation(r, select_x_, select_y_);
+					r->Moved = 1;
+					//Medicine(r)
+				}
+			}
+		}
+		else {	    
+			//´Ë´¦Ó¦Ð´AI²¿·Ö£¿
+			//乱码差评
+			select_act = 0;
+		}
+	}
 
     switch (select_act)
     {
@@ -223,11 +270,11 @@ void BattleScene::dealEvent(BP_Event& e)
     case 8: actAuto(r); break;
     case 9: actRest(r); break;
     default:
-        //Ĭ��ֵΪʲô������
+        //Ä¬ÈÏÖµÎªÊ²Ã´¶¼²»×ö
         break;
     }
 
-    //������˳ɹ��ж�������ŵ���β
+    //Èç¹û´ËÈË³É¹¦ÐÐ¶¯¹ý£¬Ôò·Åµ½¶ÓÎ²
     if (r->Acted)
     {
         r->Moved = 0;
@@ -235,12 +282,12 @@ void BattleScene::dealEvent(BP_Event& e)
         battle_roles_.push_back(r);
         poisonEffect(r);
     }
-    //��������˵�����
+    //Çå³ý±»»÷ÍËµÄÈËÎï
     clearDead();
 
-    //���ս�����
+    //¼ì²âÕ½¶·½á¹û
     int battle_result = checkResult();
-    //�ҷ�ʤ
+    //ÎÒ·½Ê¤
     if (battle_result >= 0)
     {
         result_ == battle_result;
@@ -256,19 +303,19 @@ void BattleScene::onEntrance()
 {
     calViewRegion();
 
-    //ע���ʱ���ܵõ����ڵĴ�С����������ͷ���λ��
+    //×¢Òâ´ËÊ±²ÅÄÜµÃµ½´°¿ÚµÄ´óÐ¡£¬ÓÃÀ´ÉèÖÃÍ·ÏñµÄÎ»ÖÃ
     head_self_->setPosition(100, 100);
 
-    //����ȫ����ɫ��λ�ò㣬���������
+    //ÉèÖÃÈ«²¿½ÇÉ«µÄÎ»ÖÃ²ã£¬±ÜÃâ½ñºó³ö´í
     for (auto r : Save::getInstance()->getRoles())
     {
         r->setPoitionLayer(role_layer_);
-        r->Team = 2;  //��ȫ�����óɲ����ڵ���Ӫ
+        r->Team = 2;  //ÏÈÈ«²¿ÉèÖÃ³É²»´æÔÚµÄÕóÓª
         r->Auto = 1;
     }
 
-    //��������λ�ú���Ӫ�������ĺ���ͳһ����
-    //����
+    //Ê×ÏÈÉèÖÃÎ»ÖÃºÍÕóÓª£¬ÆäËûµÄºóÃæÍ³Ò»´¦Àí
+    //¶ÓÓÑ
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto r = Save::getInstance()->getRole(Save::getInstance()->Team[i]);
@@ -280,7 +327,7 @@ void BattleScene::onEntrance()
             r->Auto = 0;
         }
     }
-    //�з�
+    //µÐ·½
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
         auto r = Save::getInstance()->getRole(info_->Enemy[i]);
@@ -291,7 +338,7 @@ void BattleScene::onEntrance()
             r->Team = 1;
             r->Auto = 1;
 
-            //�з��лظ�״̬���Ŵ�
+            //µÐ·½ÓÐ»Ø¸´×´Ì¬µÄÓÅ´ý
             r->PhysicalPower = 90;
             r->HP = r->MaxHP;
             r->MP = r->MaxMP;
@@ -300,18 +347,18 @@ void BattleScene::onEntrance()
         }
     }
 
-    //��ʼ״̬
+    //³õÊ¼×´Ì¬
     for (auto r : battle_roles_)
     {
         setRoleInitState(r);
     }
-    //����
+    //ÅÅÐò
     sortRoles();
 }
 
 void BattleScene::onExit()
 {
-    //���ȫ����ɫ��λ�ò�
+    //Çå¿ÕÈ«²¿½ÇÉ«µÄÎ»ÖÃ²ã
     for (auto r : Save::getInstance()->getRoles())
     {
         r->setPoitionLayer(nullptr);
@@ -326,9 +373,9 @@ void BattleScene::setRoleInitState(Role* r)
     r->FightingFrame = 0;
     r->Auto = 0;
 
-    //��ȡ����֡��
+    //¶ÁÈ¡¶¯×÷Ö¡Êý
     bool frame_readed = false;
-    //ע������жϲ�̫׼��Ӧ���ڹ��캯��������һ���������ĳ�ֵ
+    //×¢ÒâÕâ¸öÅÐ¶Ï²»Ì«×¼£¬Ó¦¸ÃÔÚ¹¹Ôìº¯ÊýÀïÃæÉèÒ»¸ö²»ºÏÀíµÄ³õÖµ
     /*for (int i = 0; i < 5; i++)
     {
         if (r->FightFrame[i] > 0)
@@ -342,7 +389,7 @@ void BattleScene::setRoleInitState(Role* r)
         readFightFrame(r);
     }
 
-    //Ѱ�����Լ�����ĵз�����������
+    //Ñ°ÕÒÀë×Ô¼º×î½üµÄµÐ·½£¬ÉèÖÃÃæÏò
     int min_distance = COORD_COUNT * COORD_COUNT;
     Role* r_near;
     for (auto r1 : battle_roles_)
@@ -359,7 +406,7 @@ void BattleScene::setRoleInitState(Role* r)
     }
 
     r->FaceTowards = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
-    //r->FaceTowards = RandomClassical::rand(4);  //ûͷ��Ӭ����ѡ������
+    //r->FaceTowards = RandomClassical::rand(4);  //Ã»Í·²ÔÓ¬ËæÒâÑ¡ÔñÃæÏò
 }
 
 void BattleScene::readFightFrame(Role* r)
@@ -378,13 +425,13 @@ void BattleScene::readFightFrame(Role* r)
     }
 }
 
-//��ɫ����
+//½ÇÉ«ÅÅÐò
 void BattleScene::sortRoles()
 {
     std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
 }
 
-//��ɫ����Ĺ���
+//½ÇÉ«ÅÅÐòµÄ¹æÔò
 bool BattleScene::compareRole(Role* r1, Role* r2)
 {
     return r1->Speed > r2->Speed;
@@ -398,7 +445,7 @@ void BattleScene::resetRolesAct()
     }
 }
 
-//������ƶ�����(����װ��)
+//¼ÆËã¿ÉÒÆ¶¯²½Êý(¿¼ÂÇ×°±¸)
 int BattleScene::calMoveStep(Role* r)
 {
     int speed = r->Speed;
@@ -415,7 +462,7 @@ int BattleScene::calMoveStep(Role* r)
     return speed / 15 + 1;
 }
 
-//���ݶ���֡�������ɫ����ͼ���
+//ÒÀ¾Ý¶¯×÷Ö¡Êý¼ÆËã½ÇÉ«µÄÌùÍ¼±àºÅ
 int BattleScene::calRolePic(Role* r, int style, int frame)
 {
     if (r->FightFrame[style] <= 0)
@@ -447,8 +494,8 @@ int BattleScene::calRolePic(Role* r, int style, int frame)
     return r->FaceTowards;
 }
 
-//������Ա�ѡ��ķ�Χ�����дѡ���
-//mode���壺0-�ƶ����ܲ������ϰ�Ӱ�죻1�����ö�ҽ�ƵȽ��ܲ���Ӱ�죻2�鿴״̬��ȫ����ѡ��3����ѡֱ�ߵĸ���
+//¼ÆËã¿ÉÒÔ±»Ñ¡ÔñµÄ·¶Î§£¬»á¸ÄÐ´Ñ¡Ôñ²ã
+//modeº¬Òå£º0-ÒÆ¶¯£¬ÊÜ²½ÊýºÍÕÏ°­Ó°Ïì£»1¹¥»÷ÓÃ¶¾Ò½ÁÆµÈ½öÊÜ²½ÊýÓ°Ïì£»2²é¿´×´Ì¬£¬È«¶¼ÄÜÑ¡£»3½öÄÜÑ¡Ö±ÏßµÄ¸ñ×Ó
 void BattleScene::calSelectLayer(Role* r, int mode, int step)
 {
     if (mode == 0)
@@ -465,25 +512,25 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                 select_layer_->data(p.x, p.y) = step;
                 auto check_next = [&](Point p1)->void
                 {
-                    //δ������ҿ����ߵĸ��Ӳ�����һ���ļ���
+                    //Î´¼ÆËã¹ýÇÒ¿ÉÒÔ×ßµÄ¸ñ×Ó²ÎÓëÏÂÒ»²½µÄ¼ÆËã
                     if (canWalk(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == -1)
                     {
                         cal_stack_next.push_back(p1);
                         count++;
                     }
                 };
-                //����Ƿ��ڵз����ԣ�������򿪴�ѡ��
+                //¼ì²âÊÇ·ñÔÚµÐ·½ÉíÅÔ£¬ÊÓÇé¿ö´ò¿ª´ËÑ¡Ïî
                 if (!isNearEnemy(r, p.x, p.y))
                 {
-                    //���4�����ڵ�
+                    //¼ì²â4¸öÏàÁÚµã
                     check_next({ p.x - 1, p.y });
                     check_next({ p.x + 1, p.y });
                     check_next({ p.x, p.y - 1 });
                     check_next({ p.x, p.y + 1 });
                 }
-                if (count >= COORD_COUNT * COORD_COUNT) { break; }  //�������������������
+                if (count >= COORD_COUNT * COORD_COUNT) { break; }  //×î¶à¼ÆËã´ÎÊý£¬±ÜÃâËÀµô
             }
-            if (cal_stack_next.size() == 0) { break; }  //���µĵ㣬����
+            if (cal_stack_next.size() == 0) { break; }  //ÎÞÐÂµÄµã£¬½áÊø
             cal_stack = cal_stack_next;
             step--;
         }
@@ -527,7 +574,7 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
 {
     effect_layer_->setAll(-1);
 
-    //��δָ����ѧ������Ϊֻѡ��һ����
+    //ÈôÎ´Ö¸¶¨ÎäÑ§£¬ÔòÈÏÎªÖ»Ñ¡ÔñÒ»¸öµã
     if (m == nullptr || m->AttackAreaType == 0)
     {
         effect_layer_->data(select_x_, select_y_) = 0;
@@ -536,7 +583,7 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
 
     level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r, m);
 
-    //�˴��Ƚ���׸����������
+    //´Ë´¦±È½ÏÀÛ×¸£¬¾ÍÕâÑù°É
     if (m->AttackAreaType == 1)
     {
         int x = r->X(), y = r->Y();
@@ -659,7 +706,7 @@ bool BattleScene::isNearEnemy(Role* r, int x, int y)
     return false;
 }
 
-//��ȡǡ����ѡ���Ľ�ɫ
+//»ñÈ¡Ç¡ºÃÔÚÑ¡ÔñµãµÄ½ÇÉ«
 Role* BattleScene::getSelectedRole()
 {
     int r = role_layer_->data(select_x_, select_y_);
@@ -702,9 +749,9 @@ void BattleScene::actUseMagic(Role* r)
 
         r->ActTeam = 1;
         auto magic = Save::getInstance()->getRoleLearnedMagic(r, select_magic);
-        //level_index��ʾ��0��9����level��0��999
+        //level_index±íÊ¾´Ó0µ½9£¬¶ølevel´Ó0µ½999
         int level_index = r->getRoleMagicLevelIndex(select_magic);
-        //�����ѡ��ķ�Χ
+        //¼ÆËã¿ÉÑ¡ÔñµÄ·¶Î§
         if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
         {
             calSelectLayer(r, 1, magic->SelectDistance[level_index]);
@@ -713,20 +760,20 @@ void BattleScene::actUseMagic(Role* r)
         {
             calSelectLayer(r, 3, magic->SelectDistance[level_index]);
         }
-        //ѡ��Ŀ��
+        //Ñ¡ÔñÄ¿±ê
         battle_cursor_->setMode(BattleCursor::Action);
         battle_cursor_->setRoleAndMagic(r, magic, level_index);
         towards_ = r->FaceTowards;
         calEffectLayer(r, magic, level_index);
         int selected = battle_cursor_->run();
-        //ȡ��ѡ��Ŀ�������½���ѡ�书
+        //È¡ÏûÑ¡ÔñÄ¿±êÔòÖØÐÂ½øÈëÑ¡Îä¹¦
         if (selected < 0)
         {
             continue;
         }
         else
         {
-            //���Ź������棬�����˺�
+            //²¥·Å¹¥»÷»­Ãæ£¬¼ÆËãÉËº¦
             useMagicAnimation(r, magic);
             calAllHurt(r, magic);
             showNumberAnimation();
@@ -814,7 +861,7 @@ void BattleScene::actUseItem(Role* r)
 
 }
 
-//�ȴ������Լ����뵽���һ��û�ж����˵ĺ���
+//µÈ´ý£¬½«×Ô¼º²åÈëµ½×îºóÒ»¸öÃ»ÐÐ¶¯µÄÈËµÄºóÃæ
 void BattleScene::actWait(Role* r)
 {
     for (int i = 1; i < battle_roles_.size(); i++)
@@ -856,10 +903,10 @@ void BattleScene::actRest(Role* r)
     r->Acted = 1;
 }
 
-//�ƶ�����
+//ÒÆ¶¯¶¯»­
 void BattleScene::moveAnimation(Role* r, int x, int y)
 {
-    //��Ŀ��������ȷ��·��
+    //´ÓÄ¿±êÍù»ØÕÒÈ·¶¨Â·Ïß
     std::vector<Point> way;
     auto check_next = [&](Point p1, int step)->bool
     {
@@ -893,7 +940,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     select_layer_->setAll(-1);
 }
 
-//ʹ����ѧ����
+//Ê¹ÓÃÎäÑ§¶¯»­
 void BattleScene::useMagicAnimation(Role* r, Magic* m)
 {
     if (r && m)
@@ -935,7 +982,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     y_ = 0;
 }
 
-//r1ʹ���书magic����r2���˺������Ϊһ����
+//r1Ê¹ÓÃÎä¹¦magic¹¥»÷r2µÄÉËº¦£¬½á¹ûÎªÒ»ÕýÊý
 int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
 {
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
@@ -945,17 +992,17 @@ int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
     int v = attack - defence;
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
     if (v < 1) { v = 1; }
-    v = 999;  //������
+    v = 999;  //²âÊÔÓÃ
     return v;
 }
 
-//����ȫ��������˺�
+//¼ÆËãÈ«²¿ÈËÎïµÄÉËº¦
 int BattleScene::calAllHurt(Role* r, Magic* m)
 {
     int total = 0;
     for (auto r2 : battle_roles_)
     {
-        //���ҷ��ұ����У�������λ�õ�Ч����Ǹ���
+        //·ÇÎÒ·½ÇÒ±»»÷ÖÐ£¨¼´ËùÔÚÎ»ÖÃµÄÐ§¹û²ã·Ç¸º£©
         if (r2->Team != r->Team && effect_layer_->data(r2->X(), r2->Y()) >= 0)
         {
             int hurt = calHurt(r, r2, m);
@@ -970,7 +1017,7 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
 
 void BattleScene::showNumberAnimation()
 {
-    //�ж��Ƿ�����Ҫ��ʾ������
+    //ÅÐ¶ÏÊÇ·ñÓÐÐèÒªÏÔÊ¾µÄÊý×Ö
     bool need_show = false;
     for (auto r : battle_roles_)
     {
@@ -1000,7 +1047,7 @@ void BattleScene::showNumberAnimation()
         };
         drawAndPresent(animation_delay_, drawNumber);
     }
-    //��������˵���ʾ
+    //Çå³ýËùÓÐÈËµÄÏÔÊ¾
     for (auto r : battle_roles_)
     {
         r->ShowString.clear();
@@ -1009,7 +1056,7 @@ void BattleScene::showNumberAnimation()
 
 void BattleScene::clearDead()
 {
-    //�ж��Ƿ�����Ӧ�˳�
+    //ÅÐ¶ÏÊÇ·ñÓÐÈËÓ¦ÍË³¡
     bool found_dead = false;
     for (auto r : battle_roles_)
     {
@@ -1021,7 +1068,7 @@ void BattleScene::clearDead()
     }
     if (!found_dead) { return; }
 
-    //�˳���������������
+    //ÍË³¡¶¯»­£¬ÇåÀíÈËÎï
     for (int i = 0; i <= 25; i++)
     {
         dead_alpha_ = 255 - i * 10;
@@ -1044,13 +1091,13 @@ void BattleScene::clearDead()
     battle_roles_ = alive;
 }
 
-//�ж���Ч��
+//ÖÐ¶¾µÄÐ§¹û
 void BattleScene::poisonEffect(Role* r)
 {
     if (r)
     {
         r->HP -= r->Poison / 3;
-        //��Ϳ۵�1��
+        //×îµÍ¿Ûµ½1µã
         if (r->HP < 1) { r->HP = 1; }
     }
 }
@@ -1068,10 +1115,10 @@ int BattleScene::getTeamMateCount(int team)
     return count;
 }
 
-//����Ƿ���һ��ȫ��
-//���ظ�ֵ��ʾ������������طǸ���Ϊʤ������team���
-//ʵ����ֻ�Ǽ���ҷ������뵱ǰ�������Ƿ���Ȼ���Ϊ0
-//�����ӵ��ж���ʹ��set����map
+//¼ì²éÊÇ·ñÓÐÒ»·½È«Ãð
+//·µ»Ø¸ºÖµ±íÊ¾ÈÔÐè³ÖÐø£¬·µ»Ø·Ç¸ºÔòÎªÊ¤Àû·½µÄteam±ê¼Ç
+//Êµ¼ÊÉÏÖ»ÊÇ¼ì²âÎÒ·½ÈËÊýÓëµ±Ç°×ÜÈËÊýÊÇ·ñÏàµÈ»òÕßÎª0
+//¸ü¸´ÔÓµÄÅÐ¶ÏÇëÊ¹ÓÃset»òÕßmap
 int BattleScene::checkResult()
 {
     int team0 = getTeamMateCount(0);
@@ -1093,38 +1140,38 @@ void BattleScene::calExpGot()
         }
     }
 
-    //���ڳ����˻�þ��飬����
+    //»¹ÔÚ³¡µÄÈË»ñµÃ¾­Ñé£¬Éý¼¶
     auto diff = new ShowRoleDifference();
 
     for (auto r : alive_teammate)
     {
-        Role r0 = *r;  //���ڱȽϵ�״̬
+        Role r0 = *r;  //ÓÃÓÚ±È½ÏµÄ×´Ì¬
         r->ExpGot += info_->Exp / alive_teammate.size();
 
         auto item = Save::getInstance()->getItem(r->PracticeItem);
 
         if (r->Level >= MAX_LEVEL)
         {
-            //��������ȫ�ӵ���Ʒ����
+            //ÒÑÂú¼¶£¬È«¼Óµ½ÎïÆ·¾­Ñé
             r->ExpForItem += r->ExpGot;
         }
         else if (item)
         {
-            //δ������ƽ�־���
+            //Î´Âú¼¶£¬Æ½·Ö¾­Ñé
             r->Exp += r->ExpGot / 2;
             r->ExpForItem += r->ExpGot / 2;
         }
         else
         {
-            //�������ȫ�ӵ����ﾭ��
+            //ÆäÓàÇé¿öÈ«¼Óµ½ÈËÎï¾­Ñé
             r->Exp += r->ExpGot;
         }
 
-        //����Խ��
+        //±ÜÃâÔ½½ç
         if (r->Exp < r0.Exp) { r->Exp == MAX_EXP; }
         if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem == MAX_EXP; }
 
-        //����
+        //Éý¼¶
         int change = 0;
         while (GameUtil::canLevelUp(r))
         {
@@ -1134,11 +1181,11 @@ void BattleScene::calExpGot()
         if (change)
         {
             diff->setTwinRole(&r0, r);
-            diff->setText("����");
+            diff->setText("Éý¼‰");
             diff->run();
         }
 
-        //��������
+        //ÐÞÁ¶ÃØóÅ
         if (item)
         {
             r0 = *r;
@@ -1151,11 +1198,62 @@ void BattleScene::calExpGot()
             if (change)
             {
                 diff->setTwinRole(&r0, r);
-                diff->setText(convert::formatString("�ޟ�%s�ɹ�", item->Name));
+                diff->setText(convert::formatString("ÐÞŸ’%s³É¹¦", item->Name));
                 diff->run();
             }
         }
     }
     delete diff;
+}
+
+void BattleScene::NearestMoveByPro(int Mx1, int My1, int Ax1, int Ay1, Role* r, Role* TeamMate, int KeepDis, int Prolist, int MaxMinPro, int Mode) {
+	int myteam = r->Team;
+	int mindis = 9999;
+	int step = calMoveStep(r);
+	int teampPro = 0;
+	if (MaxMinPro < 0) {
+		teampPro = 10000;
+	}
+	bool select_t = false;
+	bool check;
+	if (KeepDis < 0) {
+		KeepDis = 0;
+	}
+	Mx1 = select_x_;
+	My1 = select_y_;
+	int aimX = -1;
+	int aimY = -1;
+
+	if (MaxMinPro != 0 && Prolist > 0) {
+		for (auto i : battle_roles_) {
+			if (((TeamMate == 0 && myteam != i->Team) || (TeamMate->ID != 0 && myteam == i->Team)) && (i->Dead == 0)) {
+				if (abs(i->X() - select_x_) + abs(i->Y() - select_y_) <= KeepDis + step) {
+					check = false;
+					switch (Mode)
+					{
+					case 0:
+						check = true;
+					case 1:
+						if (r->HP < r->MaxHP * 2 / 3) {
+							check = true;
+						}
+					case 2:
+						if (r->Poison > 33) {
+							check = true;
+						}
+					default:
+						break;
+					}
+					if (check) {
+						aimX = i->X();
+						aimY = i->Y();
+						void* tempt = i + Prolist * sizeof(SAVE_INT);
+						teampPro = &tempt;
+						select_t = true;
+					}
+				}			
+			}
+		}
+	}
 }
 

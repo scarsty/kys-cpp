@@ -108,5 +108,6 @@ public:
     int getTeamMateCount(int team);
     int checkResult();
     void calExpGot();
+	void NearestMoveByPro(int Mx1, int My1, int Ax1, int Ay1, Role* r, Role* TeamMate, int KeepDis, int Prolist, int MaxMinPro, int Mode);
 
 };
