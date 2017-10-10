@@ -50,8 +50,8 @@ void BattleScene::setID(int id)
     battle_id_ = id;
     info_ = BattleMap::getInstance()->getBattleInfo(id);
 
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_->data(0));
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_->data(0));
+    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, earth_layer_);
+    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, building_layer_);
 
     role_layer_->setAll(-1);
     select_layer_->setAll(-1);
@@ -290,6 +290,13 @@ void BattleScene::onEntrance()
             r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
             r->Team = 1;
             r->Auto = 1;
+
+            //敌方有回复状态的优待
+            r->PhysicalPower = 90;
+            r->HP = r->MaxHP;
+            r->MP = r->MaxMP;
+            r->Poison = 0;
+            r->Hurt = 0;
         }
     }
 
@@ -476,6 +483,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                 }
                 if (count >= COORD_COUNT * COORD_COUNT) { break; }  //最多计算次数，避免死掉
             }
+            if (cal_stack_next.size() == 0) { break; }  //无新的点，结束
             cal_stack = cal_stack_next;
             step--;
         }

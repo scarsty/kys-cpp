@@ -48,9 +48,14 @@ void UIStatus::draw()
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };
     int font_size = 22;
-    font->draw(convert::formatString("%s", role_->Name), 30, x_ + 190, y_ + 50, color);
-    font->draw(convert::formatString("等級%5d", role_->Level), font_size, x_ + 200, y_ + 100, color);
-    font->draw(convert::formatString("經驗%5d", role_->Exp), font_size, x_ + 200, y_ + 125, color);
+
+    int x, y;
+
+    x = x_ + 200;
+    y = y_ + 50;
+    font->draw(convert::formatString("%s", role_->Name), 30, x - 10, y, color);
+    font->draw(convert::formatString("等級%5d", role_->Level), font_size, x, y + 50, color);
+    font->draw(convert::formatString("經驗%5d", role_->Exp), font_size, x, y + 75, color);
 
     std::string str = "升級 ----";
     int exp_up = GameUtil::getLevelUpExp(role_->Level);
@@ -58,27 +63,34 @@ void UIStatus::draw()
     {
         str = convert::formatString("升級%5d", exp_up);
     }
-    font->draw(str, font_size, x_ + 200, y_ + 150, color);
-    font->draw(convert::formatString("生命%5d/%5d", role_->HP, role_->MaxHP), font_size, x_ + 355, y_ + 100, color);
-    font->draw(convert::formatString("內力%5d/%5d", role_->MP, role_->MaxMP), font_size, x_ + 355, y_ + 125, color);
-    font->draw(convert::formatString("體力%5d/%5d", role_->PhysicalPower, 100), font_size, x_ + 355, y_ + 150, color);
+    font->draw(str, font_size, x, y + 100, color);
+    font->draw(convert::formatString("生命%5d/%5d", role_->HP, role_->MaxHP), font_size, x + 155, y + 50, color);
+    font->draw(convert::formatString("內力%5d/%5d", role_->MP, role_->MaxMP), font_size, x + 155, y + 75, color);
+    font->draw(convert::formatString("體力%5d/%5d", role_->PhysicalPower, 100), font_size, x + 155, y + 100, color);
 
-    font->draw(convert::formatString("攻擊%5d", role_->Attack), font_size, x_ + 20, y_ + 200, color);
-    font->draw(convert::formatString("防禦%5d", role_->Defence), font_size, x_ + 220, y_ + 200, color);
-    font->draw(convert::formatString("輕功%5d", role_->Speed), font_size, x_ + 420, y_ + 200, color);
+    x = x_ + 20;
+    y = y_ + 200;
 
-    font->draw(convert::formatString("醫療%5d", role_->Medcine), font_size, x_ + 20, y_ + 225, color);
-    font->draw(convert::formatString("解毒%5d", role_->Detoxification), font_size, x_ + 220, y_ + 225, color);
-    font->draw(convert::formatString("用毒%5d", role_->UsePoison), font_size, x_ + 420, y_ + 225, color);
+    font->draw(convert::formatString("攻擊%5d", role_->Attack), font_size, x, y, color);
+    font->draw(convert::formatString("防禦%5d", role_->Defence), font_size, x + 200, y, color);
+    font->draw(convert::formatString("輕功%5d", role_->Speed), font_size, x + 400, y, color);
 
-    font->draw("技能", 25, x_ + 10, y_ + 270, color);
-    font->draw(convert::formatString("拳掌%5d", role_->Fist), font_size, x_ + 20, y_ + 300, color);
-    font->draw(convert::formatString("御劍%5d", role_->Sword), font_size, x_ + 20, y_ + 325, color);
-    font->draw(convert::formatString("耍刀%5d", role_->Knife), font_size, x_ + 20, y_ + 350, color);
-    font->draw(convert::formatString("特殊%5d", role_->Unusual), font_size, x_ + 20, y_ + 375, color);
-    font->draw(convert::formatString("暗器%5d", role_->HiddenWeapon), font_size, x_ + 20, y_ + 400, color);
+    font->draw(convert::formatString("醫療%5d", role_->Medcine), font_size, x, y + 25, color);
+    font->draw(convert::formatString("解毒%5d", role_->Detoxification), font_size, x + 200, y + 25, color);
+    font->draw(convert::formatString("用毒%5d", role_->UsePoison), font_size, x + 400, y + 25, color);
 
-    font->draw("武學", 25, x_ + 210, y_ + 270, color);
+    x = x_ + 20;
+    y = y_ + 270;
+    font->draw("技能", 25, x - 10, y, color);
+    font->draw(convert::formatString("拳掌%5d", role_->Fist), font_size, x, y + 30, color);
+    font->draw(convert::formatString("御劍%5d", role_->Sword), font_size, x, y + 55, color);
+    font->draw(convert::formatString("耍刀%5d", role_->Knife), font_size, x, y + 80, color);
+    font->draw(convert::formatString("特殊%5d", role_->Unusual), font_size, x, y + 105, color);
+    font->draw(convert::formatString("暗器%5d", role_->HiddenWeapon), font_size, x, y + 130, color);
+
+    x = x_ + 220;
+    y = y_ + 270;
+    font->draw("武學", 25, x - 10, y, color);
     for (int i = 0; i < 10; i++)
     {
         auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
@@ -87,46 +99,53 @@ void UIStatus::draw()
         {
             str = convert::formatString("%-12s%3d", magic->Name, role_->getRoleShowLearnedMagicLevel(i));
         }
-        int x = x_ + 220 + i % 2 * 200;
-        int y = y_ + 300 + i / 2 * 25;
-        font->draw(str, font_size, x, y, color);
+        int x1 = x + i % 2 * 200;
+        int y1 = y + 30 + i / 2 * 25;
+        font->draw(str, font_size, x1, y1, color);
     }
 
-    font->draw("修煉", 25, x_ + 10, y_ + 445, color);
+    x = x_ + 420;
+    y = y_ + 445;
+    font->draw("修煉", 25, x - 10, y, color);
     auto book = Save::getInstance()->getItem(role_->PracticeItem);
     if (book)
     {
-        TextureManager::getInstance()->renderTexture("item", book->ID, x_ + 20, y_ + 475);
-        font->draw(convert::formatString("%s", book->Name), font_size, x_ + 110, y_ + 475, color);
-        font->draw(convert::formatString("經驗%5d", role_->ExpForItem), 18, x_ + 110, y_ + 500, color);
-                std::string str = "升級 ----";
+        TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
+        font->draw(convert::formatString("%s", book->Name), font_size, x + 90, y + 30, color);
+        font->draw(convert::formatString("經驗%5d", role_->ExpForItem), 18, x + 90, y + 55, color);
+        std::string str = "升級 ----";
         int exp_up = GameUtil::getFinishedExpForItem(role_, book);
         if (exp_up != INT_MAX)
         {
             str = convert::formatString("升級%5d", exp_up);
         }
-        font->draw(str, 18, x_ + 110, y_ + 520, color);
+        font->draw(str, 18, x + 90, y + 75, color);
     }
 
-    font->draw("裝備", 25, x_ + 210, y_ + 445, color);
+    x = x_ + 20;
+    y = y_ + 445;
+    font->draw("武器", 25, x - 10, y, color);
     auto equip1 = Save::getInstance()->getItem(role_->Equip1);
     if (equip1)
     {
-        TextureManager::getInstance()->renderTexture("item", equip1->ID, x_ + 220, y_ + 475);
-        font->draw(convert::formatString("%s", equip1->Name), font_size, x_ + 310, y_ + 475, color);
-        font->draw(convert::formatString("攻擊%+d", equip1->AddAttack), 18, x_ + 310, y_ + 500, color);
-        font->draw(convert::formatString("防禦%+d", equip1->AddDefence), 18, x_ + 310, y_ + 520, color);
-        font->draw(convert::formatString("輕功%+d", equip1->AddSpeed), 18, x_ + 310, y_ + 540, color);
+        TextureManager::getInstance()->renderTexture("item", equip1->ID, x, y + 30);
+        font->draw(convert::formatString("%s", equip1->Name), font_size, x + 90, y + 30, color);
+        font->draw(convert::formatString("攻擊%+d", equip1->AddAttack), 18, x + 90, y + 55, color);
+        font->draw(convert::formatString("防禦%+d", equip1->AddDefence), 18, x + 90, y + 75, color);
+        font->draw(convert::formatString("輕功%+d", equip1->AddSpeed), 18, x + 90, y + 95, color);
     }
 
+    x = x_ + 220;
+    y = y_ + 445;
+    font->draw("防具", 25, x - 10, y, color);
     auto equip2 = Save::getInstance()->getItem(role_->Equip2);
     if (equip2)
     {
-        TextureManager::getInstance()->renderTexture("item", equip2->ID, x_ + 420, y_ + 475);
-        font->draw(convert::formatString("%s", equip2->Name), font_size, x_ + 510, y_ + 475, color);
-        font->draw(convert::formatString("攻擊%+d", equip2->AddAttack), 18, x_ + 510, y_ + 500, color);
-        font->draw(convert::formatString("防禦%+d", equip2->AddDefence), 18, x_ + 510, y_ + 520, color);
-        font->draw(convert::formatString("輕功%+d", equip2->AddSpeed), 18, x_ + 510, y_ + 540, color);
+        TextureManager::getInstance()->renderTexture("item", equip2->ID, x, y + 30);
+        font->draw(convert::formatString("%s", equip2->Name), font_size, x + 90, y + 30, color);
+        font->draw(convert::formatString("攻擊%+d", equip2->AddAttack), 18, x + 90, y + 55, color);
+        font->draw(convert::formatString("防禦%+d", equip2->AddDefence), 18, x + 90, y + 75, color);
+        font->draw(convert::formatString("輕功%+d", equip2->AddSpeed), 18, x + 90, y + 95, color);
     }
 }
 
@@ -140,7 +159,7 @@ void UIStatus::pressedOK()
 
     if (button_leave_->getState() == Press)
     {
-        
+
     }
     else if (button_medcine_->getState() == Press)
     {
