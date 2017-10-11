@@ -35,7 +35,15 @@ void BattleCursor::dealEvent(BP_Event& e)
         if (e.type == BP_KEYDOWN)
         {
             battle_scene_->changeTowardsByKey(e.key.keysym.sym);
-            Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, battle_scene_->towards_, &x, &y);
+            //线型的特殊处理一下
+            if (magic_ && magic_->AttackAreaType == 1)
+            {
+                Scene::getTowardsPosition(role_->X(), role_->Y(), battle_scene_->towards_, &x, &y);
+            }
+            else
+            {
+                Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, battle_scene_->towards_, &x, &y);
+            }
         }
     }
     else

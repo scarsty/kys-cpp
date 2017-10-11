@@ -64,7 +64,7 @@ void BattleScene::draw()
     auto r0 = battle_roles_[0];  //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
-#ifndef _DEBUG0
+#ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -142,17 +142,9 @@ void BattleScene::draw()
                     if (battle_cursor_->isRunning())
                     {
                         color = { 128, 128, 128, 255 };
-                        if (effect_layer_->data(i1, i2) >= 0)
+                        if (inEffect(r0, r))
                         {
-                            if (r0->ActTeam == 0 && battle_roles_[0]->Team == r->Team)
-                            {
-                                color = { 255, 255, 255, 255 };
-                            }
-                            else if (r0->ActTeam != 0 && battle_roles_[0]->Team != r->Team)
-                            {
-                                uint8_t r = uint8_t(127 + RandomClassical::rand(128));
-                                color = { 255, 255, 255, 255 };
-                            }
+                            color = { 255, 255, 255, 255 };
                         }
                     }
                     int pic;
@@ -262,7 +254,7 @@ void BattleScene::onEntrance()
 
     //首先设置位置和阵营，其他的后面统一处理
     //队友
-    for (int i = 0; i < TEAMMATE_COUNT; i++)
+    for (int i = 1; i < TEAMMATE_COUNT; i++)
     {
         auto r = Save::getInstance()->getRole(Save::getInstance()->Team[i]);
         if (r)
@@ -317,7 +309,6 @@ void BattleScene::setRoleInitState(Role* r)
     r->ExpGot = 0;
     r->ShowString = "";
     r->FightingFrame = 0;
-    //r->Auto = 0;
 
     //读取动作帧数
     bool frame_readed = false;
@@ -441,14 +432,15 @@ int BattleScene::calRolePic(Role* r, int style, int frame)
 }
 
 //计算可以被选择的范围，会改写选择层
-//mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子
-void BattleScene::calSelectLayer(Role* r, int mode, int step)
+//mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子；4不能选
+void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 0*/)
 {
     if (mode == 0)
     {
         select_layer_->setAll(-1);
         std::vector<Point> cal_stack;
-        cal_stack.push_back({ r->X(), r->Y() });
+        select_layer_->data(x, y) = step;
+        cal_stack.push_back({ x, y });
         int count = 0;
         while (step >= 0)
         {
@@ -456,7 +448,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
             auto check_next = [&](Point p1)->void
             {
                 //未计算过且可以走的格子参与下一步的计算
-                if (canWalk(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == -1)
+                if (select_layer_->data(p1.x, p1.y) == -1 && canWalk(p1.x, p1.y))
                 {
                     select_layer_->data(p1.x, p1.y) = step - 1;
                     cal_stack_next.push_back(p1);
@@ -466,7 +458,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
             for (auto p : cal_stack)
             {
                 //检测是否在敌方身旁，视情况打开此选项
-                if (!isNearEnemy(r, p.x, p.y))
+                if (!isNearEnemy(team, p.x, p.y))
                 {
                     //检测4个相邻点
                     check_next({ p.x - 1, p.y });
@@ -487,7 +479,7 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
         {
             for (int iy = 0; iy < COORD_COUNT; iy++)
             {
-                select_layer_->data(ix, iy) = step - calDistance(ix, iy, r->X(), r->Y());
+                select_layer_->data(ix, iy) = step - calDistance(ix, iy, x, y);
             }
         }
     }
@@ -501,8 +493,8 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
         {
             for (int iy = 0; iy < COORD_COUNT; iy++)
             {
-                int dx = abs(ix - r->X());
-                int dy = abs(iy - r->Y());
+                int dx = abs(ix - x);
+                int dy = abs(iy - y);
                 if (dx == 0 && dy <= step || dy == 0 && dx <= step)
                 {
                     select_layer_->data(ix, iy) = 0;
@@ -513,10 +505,33 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
                 }
             }
         }
+        select_layer_->data(x, y) = -1;
+    }
+    else
+    {
+        select_layer_->setAll(-1);
     }
 }
 
-void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
+//计算武学可选择的范围
+void BattleScene::calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index)
+{
+    if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
+    {
+        calSelectLayer(x, y, team, 1, magic->SelectDistance[level_index]);
+    }
+    else if (magic->AttackAreaType == 1)
+    {
+        calSelectLayer(x, y, team, 3, magic->SelectDistance[level_index]);
+    }
+    else
+    {
+        calSelectLayer(x, y, team, 4, magic->SelectDistance[level_index]);
+    }
+}
+
+//x，y为选择的中心点，即人所在的位置
+void BattleScene::calEffectLayer(int x, int y, Magic* m /*= nullptr*/, int level_index /*= 0*/)
 {
     effect_layer_->setAll(-1);
 
@@ -527,20 +542,16 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
         return;
     }
 
-    level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r, m);
-
     //此处比较累赘，就这样吧
     if (m->AttackAreaType == 1)
     {
-        int x = r->X(), y = r->Y();
-        select_x_ = x;
-        select_y_ = y;
+        int tw = calTowards(x, y, select_x_, select_y_);
         int dis = m->SelectDistance[level_index];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
             for (int iy = y - dis; iy <= y + dis; iy++)
             {
-                if (!isOutLine(ix, iy) && (x == ix || y == iy) && calTowards(x, y, ix, iy) == towards_)
+                if (!isOutLine(ix, iy) && (x == ix || y == iy) && calTowards(x, y, ix, iy) == tw)
                 {
                     effect_layer_->data(ix, iy) = 0;
                 }
@@ -549,9 +560,6 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
     }
     else if (m->AttackAreaType == 2)
     {
-        int x = r->X(), y = r->Y();
-        select_x_ = x;
-        select_y_ = y;
         int dis = m->SelectDistance[level_index];
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
@@ -566,12 +574,10 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
     }
     else if (m->AttackAreaType == 3)
     {
-        int x = select_x_, y = select_y_;
-        //effect_layer_.setAll(-1);
         int dis = m->AttackDistance[level_index];
-        for (int ix = x - dis; ix <= x + dis; ix++)
+        for (int ix = select_x_ - dis; ix <= select_x_ + dis; ix++)
         {
-            for (int iy = y - dis; iy <= y + dis; iy++)
+            for (int iy = select_y_ - dis; iy <= select_y_ + dis; iy++)
             {
                 if (!isOutLine(ix, iy))
                 {
@@ -580,6 +586,23 @@ void BattleScene::calEffectLayer(Role* r, Magic* m, int level_index)
             }
         }
     }
+}
+
+//r2是不是在效果层里面，且会被r1的效果打中
+bool BattleScene::inEffect(Role* r1, Role* r2)
+{
+    if (effect_layer_->data(r2->X(), r2->Y()) >= 0)
+    {
+        if (r1->ActTeam == 0 && r1->Team == r2->Team)
+        {
+            return true;
+        }
+        else if (r1->ActTeam != 0 && r1->Team != r2->Team)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool BattleScene::canSelect(int x, int y)
@@ -640,11 +663,12 @@ bool BattleScene::isOutScreen(int x, int y)
     return (abs(man_x_ - x) >= 16 || abs(man_y_ - y) >= 20);
 }
 
-bool BattleScene::isNearEnemy(Role* r, int x, int y)
+//是否x，y上的人物与team不一致
+bool BattleScene::isNearEnemy(int team, int x, int y)
 {
     for (auto r1 : battle_roles_)
     {
-        if (r->Team != r1->Team && calDistance(r1->X(), r1->Y(), x, y) <= 1)
+        if (team != r1->Team && calDistance(r1->X(), r1->Y(), x, y) <= 1)
         {
             return true;
         }
@@ -679,26 +703,16 @@ void BattleScene::actUseMagic(Role* r)
     auto magic_menu = new BattleMagicMenu();
     while (true)
     {
-        int select_magic = magic_menu->runAsRole(r);
-        auto magic = Save::getInstance()->getRoleLearnedMagic(r, select_magic);
+        magic_menu->runAsRole(r);
+        auto magic = magic_menu->getMagic();
         if (magic == nullptr) { break; }
         r->ActTeam = 1;
-       
         //level_index表示从0到9，而level从0到999
         int level_index = r->getMagicLevelIndex(magic->ID);
-        //计算可选择的范围
-        if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
-        {
-            calSelectLayer(r, 1, magic->SelectDistance[level_index]);
-        }
-        else
-        {
-            calSelectLayer(r, 3, magic->SelectDistance[level_index]);
-        }
+        calSelectLayerByMagic(r->X(), r->Y(), r->Team, magic, level_index);
         //选择目标
         battle_cursor_->setMode(BattleCursor::Action);
         battle_cursor_->setRoleAndMagic(r, magic, level_index);
-        towards_ = r->FaceTowards;
         calEffectLayer(r, magic, level_index);
         int selected = battle_cursor_->run();
         //取消选择目标则重新进入选武功
@@ -717,6 +731,7 @@ void BattleScene::actUseMagic(Role* r)
             magic_name->run();
             delete magic_name;
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
+            r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index) / 2, 0, r->MaxMP);
             useMagicAnimation(r, magic);
             calAllHurt(r, magic);
             showNumberAnimation();
@@ -935,12 +950,12 @@ int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
     int v = attack - defence;
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
     if (v < 1) { v = 1; }
-    v = 999;  //测试用
+    //v = 999;  //测试用
     return v;
 }
 
 //计算全部人物的伤害
-int BattleScene::calAllHurt(Role* r, Magic* m)
+int BattleScene::calAllHurt(Role* r, Magic* m, bool simulation)
 {
     int total = 0;
     for (auto r2 : battle_roles_)
@@ -949,9 +964,19 @@ int BattleScene::calAllHurt(Role* r, Magic* m)
         if (r2->Team != r->Team && effect_layer_->data(r2->X(), r2->Y()) >= 0)
         {
             int hurt = calHurt(r, r2, m);
-            r2->ShowString = convert::formatString("-%d", hurt);
-            r2->ShowColor = { 255, 20, 20, 255 };
-            r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
+            if (!simulation)
+            {
+                r2->ShowString = convert::formatString("-%d", hurt);
+                r2->ShowColor = { 255, 20, 20, 255 };
+                r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
+            }
+            else
+            {
+                if (hurt > r2->HP)
+                {
+                    hurt *= 2;
+                }
+            }
             total += hurt;
         }
     }
@@ -1018,6 +1043,7 @@ void BattleScene::clearDead()
         if (dead_alpha_ < 0) { dead_alpha_ = 0; }
         drawAndPresent(animation_delay_);
     }
+    dead_alpha_ = 255;
 
     std::vector<Role*> alive;
     for (auto r : battle_roles_)

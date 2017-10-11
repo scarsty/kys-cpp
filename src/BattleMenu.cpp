@@ -190,6 +190,46 @@ int BattleActionMenu::autoSelect(Role* role)
                     }
                 }
             }
+
+
+
+
+            //遍历武学
+            int max_hurt = -1;
+            for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+            {
+                auto magic = Save::getInstance()->getRoleLearnedMagic(role, i);
+                if (magic == nullptr) { continue; }
+                int level_index = role->getRoleMagicLevelIndex(i);
+
+                battle_scene_->calSelectLayerByMagic(role->AI_MoveX, role->AI_MoveY, role->Team, magic, level_index);
+
+                //对所有能选到的点测试，估算收益
+                auto& ix = battle_scene_->select_x_;
+                auto& iy = battle_scene_->select_y_;
+                for (ix = 0; ix < BATTLEMAP_COORD_COUNT; ix++)
+                {
+                    for (iy = 0; iy < BATTLEMAP_COORD_COUNT; iy++)
+                    {
+                        int total_hurt = 0;
+                        if (battle_scene_->canSelect(ix, iy))
+                        {
+
+                            battle_scene_->calEffectLayer(role->X(), role->Y(), magic, level_index);
+                            total_hurt = battle_scene_->calAllHurt(role, magic, true);
+                            if (total_hurt > max_hurt)
+                            {
+                                max_hurt = total_hurt;
+                                role->AI_Magic = magic;
+                                role->AI_ActionX = ix;
+                                role->AI_ActionY = iy;
+                            }
+                            printf("%s (%d,%d): %d\n", magic->Name, ix, iy, total_hurt);
+                        }
+
+                    }
+                }
+            }
             points[1] = 0;
             role->AI_Action = 1;
         }
@@ -207,6 +247,7 @@ void BattleActionMenu::calDistanceLayer(int x, int y, int max_step/*=64*/)
 {
     distance_layer_->setAll(max_step + 1);
     std::vector<Point> cal_stack;
+    distance_layer_->data(x, y) = 0;
     cal_stack.push_back({ x, y });
     int count = 0;
     int step = 0;
@@ -216,7 +257,7 @@ void BattleActionMenu::calDistanceLayer(int x, int y, int max_step/*=64*/)
         auto check_next = [&](Point p1)->void
         {
             //未计算过且可以走的格子参与下一步的计算
-            if (battle_scene_->canWalk(p1.x, p1.y) && distance_layer_->data(p1.x, p1.y) == max_step + 1)
+            if (distance_layer_->data(p1.x, p1.y) == max_step + 1 && battle_scene_->canWalk(p1.x, p1.y))
             {
                 distance_layer_->data(p1.x, p1.y) = step + 1;
                 cal_stack_next.push_back(p1);
@@ -266,6 +307,6 @@ void BattleMagicMenu::dealEvent(BP_Event& e)
     else
     {
         Menu::dealEvent(e);
-        auto magic = Save::getInstance()->getRoleLearnedMagic(role_, result_);
+        magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
     }
 }

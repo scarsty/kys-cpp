@@ -166,7 +166,6 @@ public:
     int AI_Action = 0;
     int AI_MoveX, AI_MoveY;
     int AI_ActionX, AI_ActionY;
-    int AI_towards;
     Magic* AI_Magic = nullptr;
 };
 
@@ -211,7 +210,8 @@ struct MagicSave
 
 struct Magic : MagicSave
 {
-
+    int calNeedMP(int level_index) { return NeedMP*(level_index + 2) / 2; }
+    int calMaxLevelIndexByMP(int mp, int max_level);
 };
 
 //存档中的子场景数据

@@ -65,8 +65,12 @@ public:
 
     int calRolePic(Role* r, int style = -1, int frame = 0);
 
-    void calSelectLayer(Role* r, int mode, int step = 0);
-    void calEffectLayer(Role* r, Magic* m = nullptr, int level_index = 0);
+    void calSelectLayer(Role* r, int mode, int step = 0) { calSelectLayer(r->X(), r->Y(), r->Team, mode, step); }
+    void calSelectLayer(int x, int y, int team, int mode, int step = 0);
+    void calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index);
+    void calEffectLayer(Role* r, Magic* m = nullptr, int level_index = 0) { calEffectLayer(r->X(), r->Y(), m, level_index); } 
+    void calEffectLayer(int x, int y, Magic* m = nullptr, int level_index = 0);
+    bool inEffect(Role* r1, Role* r2);
 
     bool canSelect(int x, int y);
 
@@ -78,7 +82,7 @@ public:
     bool isWater(int x, int y);
     bool isRole(int x, int y);
     bool isOutScreen(int x, int y);
-    bool isNearEnemy(Role* r, int x, int y);
+    bool isNearEnemy(int team, int x, int y);
     int calDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }
     int calDistance(int x1, int y1, int x2, int y2) { return abs(x1 - x2) + abs(y1 - y2); }
 
@@ -101,7 +105,7 @@ public:
     void actionAnimation(Role* r, int style, int effect_id, int shake = 0);
 
     int calHurt(Role* r1, Role* r2, Magic* magic);
-    int calAllHurt(Role* r, Magic* m);
+    int calAllHurt(Role* r, Magic* m, bool simulation = false);
     void showNumberAnimation();
     void clearDead();
     void poisonEffect(Role* r);
