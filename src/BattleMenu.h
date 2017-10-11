@@ -5,32 +5,48 @@
 class BattleScene;
 
 //注意，AI选择行动的行为也在这里面
-class BattleMenu : public MenuText
+class BattleActionMenu : public MenuText
 {
 public:
-    BattleMenu();
-    virtual ~BattleMenu();
+    BattleActionMenu();
+    virtual ~BattleActionMenu();
 
     virtual void onEntrance() override;
 
     Role* role_ = nullptr;
     void setRole(Role* r) { role_ = r; }
-    int runAsRole(Role* r);
+    int runAsRole(Role* r) { setRole(r); return run(); }
 
     BattleScene* battle_scene_ = nullptr;
     void setBattleScene(BattleScene* b) { battle_scene_ = b; }
 
     void dealEvent(BP_Event& e) override;
 
-    int autoSelect(Role* r);
+    int autoSelect(Role* role);
 
-    int ai_action_ = 0;
-    int ai_move_x_, ai_move_y_;
-    int ai_action_x_, ai_action_y_;
-    int ai_towards_;
-    Magic* ai_magic_ = nullptr;
+    MapSquare* distance_layer_;
+
+    void calDistanceLayer(int x, int y, int max_step = 64);
 
 };
 
+class BattleMagicMenu : public MenuText
+{
+public:
+    BattleMagicMenu() {}
+    virtual ~BattleMagicMenu() {}
+
+    virtual void onEntrance() override;
+
+    void dealEvent(BP_Event& e) override;
+
+    Role* role_ = nullptr;
+    Magic* magic_ = nullptr;
+    void setRole(Role* r) { role_ = r; }
+    int runAsRole(Role* r) { setRole(r); return run(); }
+
+    Magic* getMagic() { return magic_; }
+
+};
 
 

@@ -821,7 +821,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     char* pString = new char(1000);
 
     std::string str;
-
+    /*
     switch (code)
     {
     case 0:
@@ -1471,7 +1471,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             //Sy: = e4;
             //Cx: = Sx;
             //Cy: = Sy;
-            instruct_14;
+            //instruct_14;
             //InitialScence;
             //DrawScence;
             //ShowScenceName(CurScence);
@@ -1553,7 +1553,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
 
         break;
     case 51: //Enter a number.
-        /*
+        
         if( FULLSCREEN == 0)
         {
         while (true)
@@ -1571,7 +1571,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         }
 
         }
-        */
+        
         x50[e1] = i;
 
         break;
@@ -1591,14 +1591,10 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 57: break;
     case 58: break;
     case 59: break;
-    case 60: //Call scripts.
-        e2 = e_GetValue(0, e1, e2);
-        e3 = e_GetValue(1, e1, e3);
-        //ExecScript(PChar('script/' + IntToStr(e2) + '.lua'), PChar('f' + IntToStr(e3)));
-        break;
+    case 60: break;
 
     default:
         break;
-    }
+    }*/
 }
 

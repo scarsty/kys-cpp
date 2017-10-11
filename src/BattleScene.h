@@ -16,7 +16,7 @@ public:
 
     std::vector<Role*> battle_roles_;
 
-    BattleMenu* battle_menu_;
+    BattleActionMenu* battle_menu_;
     BattleCursor* battle_cursor_;
     Head* head_self_;
 

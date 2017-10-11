@@ -153,8 +153,8 @@ int Element::run(bool in_root /*= true*/)
     while (!exit_)
     {
         if (root_.empty()) { break; }
-        drawAll();
         checkEventAndPresent(true);
+        drawAll();
     }
     onExit();
     if (in_root) { removeFromRoot(this); }

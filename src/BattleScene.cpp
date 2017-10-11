@@ -24,7 +24,7 @@ BattleScene::BattleScene()
     role_layer_ = new MapSquare(COORD_COUNT);
     select_layer_ = new MapSquare(COORD_COUNT);
     effect_layer_ = new MapSquare(COORD_COUNT);
-    battle_menu_ = new BattleMenu();
+    battle_menu_ = new BattleActionMenu();
     battle_menu_->setBattleScene(this);
     battle_menu_->setPosition(160, 200);
     head_self_ = new Head();
@@ -201,15 +201,7 @@ void BattleScene::dealEvent(BP_Event& e)
 
     int select_act = 0;
 
-    //注意这里只判断是否为自动？
-    if (r->Auto == 0)
-    {
-        select_act = battle_menu_->runAsRole(r);
-    }
-    else
-    {
-        //此处应写AI部分？
-    }
+    select_act = battle_menu_->runAsRole(r);
 
     switch (select_act)
     {
@@ -278,7 +270,7 @@ void BattleScene::onEntrance()
             battle_roles_.push_back(r);
             r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
             r->Team = 0;
-            r->Auto = 0;
+            r->Auto = 1;
         }
     }
     //敌方
@@ -325,7 +317,7 @@ void BattleScene::setRoleInitState(Role* r)
     r->ExpGot = 0;
     r->ShowString = "";
     r->FightingFrame = 0;
-    r->Auto = 0;
+    //r->Auto = 0;
 
     //读取动作帧数
     bool frame_readed = false;
@@ -461,18 +453,18 @@ void BattleScene::calSelectLayer(Role* r, int mode, int step)
         while (step >= 0)
         {
             std::vector<Point> cal_stack_next;
+            auto check_next = [&](Point p1)->void
+            {
+                //未计算过且可以走的格子参与下一步的计算
+                if (canWalk(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == -1)
+                {
+                    select_layer_->data(p1.x, p1.y) = step - 1;
+                    cal_stack_next.push_back(p1);
+                    count++;
+                }
+            };
             for (auto p : cal_stack)
             {
-                select_layer_->data(p.x, p.y) = step;
-                auto check_next = [&](Point p1)->void
-                {
-                    //未计算过且可以走的格子参与下一步的计算
-                    if (canWalk(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == -1)
-                    {
-                        cal_stack_next.push_back(p1);
-                        count++;
-                    }
-                };
                 //检测是否在敌方身旁，视情况打开此选项
                 if (!isNearEnemy(r, p.x, p.y))
                 {
@@ -684,28 +676,16 @@ void BattleScene::actMove(Role* r)
 
 void BattleScene::actUseMagic(Role* r)
 {
-    auto magic_menu = new MenuText();
-    std::vector<std::string> magic_names;
-    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
-    {
-        auto m = Save::getInstance()->getRoleLearnedMagic(r, i);
-        if (m)
-        {
-            magic_names.push_back(convert::formatString("%s%7d", m->Name, r->MagicLevel[i]));
-        }
-    }
-    magic_menu->setStrings(magic_names);
-    magic_menu->setPosition(160, 200);
-
+    auto magic_menu = new BattleMagicMenu();
     while (true)
     {
-        int select_magic = magic_menu->run();
-        if (select_magic < 0) { break; }
-
-        r->ActTeam = 1;
+        int select_magic = magic_menu->runAsRole(r);
         auto magic = Save::getInstance()->getRoleLearnedMagic(r, select_magic);
+        if (magic == nullptr) { break; }
+        r->ActTeam = 1;
+       
         //level_index表示从0到9，而level从0到999
-        int level_index = r->getRoleMagicLevelIndex(select_magic);
+        int level_index = r->getMagicLevelIndex(magic->ID);
         //计算可选择的范围
         if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
         {

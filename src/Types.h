@@ -161,6 +161,13 @@ public:
 
     int learnMagic(Magic* magic);
     int learnMagic(int magic_id);
+
+public:
+    int AI_Action = 0;
+    int AI_MoveX, AI_MoveY;
+    int AI_ActionX, AI_ActionY;
+    int AI_towards;
+    Magic* AI_Magic = nullptr;
 };
 
 //存档中的物品数据
