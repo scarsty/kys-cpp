@@ -179,11 +179,8 @@ void UIItem::showItemProperty(Item* item)
         return;
     }
     //物品名和数量
-    auto str = convert::formatString("%s", item->Name);
-    Font::getInstance()->draw(str, 25, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
-    str = convert::formatString("%5d", Save::getInstance()->getItemCountInBag(current_item_->ID));
-    Font::getInstance()->draw(str, 25, x_ + 10 + 25 * 7, y_ + 370, { 255, 255, 255, 255 });
-
+    auto str = convert::formatString("%-14s%5d", item->Name, Save::getInstance()->getItemCountInBag(current_item_->ID));
+    Font::getInstance()->draw(str, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
 
     int x = 10, y = 430;

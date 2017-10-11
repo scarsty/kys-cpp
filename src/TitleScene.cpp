@@ -7,6 +7,7 @@
 #include "Button.h"
 #include "Audio.h"
 #include "TeamMenu.h"
+#include "UIShop.h"
 
 TitleScene::TitleScene()
 {
@@ -71,5 +72,8 @@ void TitleScene::dealEvent(BP_Event& e)
 void TitleScene::onEntrance()
 {
     Save::getInstance()->LoadR(2);
+    auto s = new UIShop();
+    s->shop_ = Save::getInstance()->getShop(0);
+    s->run();
 }
 

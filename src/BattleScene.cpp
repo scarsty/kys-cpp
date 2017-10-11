@@ -809,7 +809,7 @@ void BattleScene::actMedcine(Role* r)
         if (r2)
         {
             int v = GameUtil::medcine(r, r2);
-            r2->ShowString = convert::formatString("%+d", v);
+            r2->ShowString = convert::formatString("-%d", abs(v));
             r2->ShowColor = { 255, 255, 200, 255 };
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);

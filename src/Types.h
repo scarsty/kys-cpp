@@ -94,6 +94,11 @@ enum
     COMPASS_ITEM_ID = 182,
 };
 
+enum
+{
+    SHOP_ITEM_COUNT = 5,
+};
+
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
@@ -303,7 +308,7 @@ private:
 //存档中的商店数据
 struct ShopSave
 {
-    SAVE_INT Item[5], Amount[5], Price[5];
+    SAVE_INT ItemID[SHOP_ITEM_COUNT], Total[SHOP_ITEM_COUNT], Price[SHOP_ITEM_COUNT];
 };
 
 //实际商店数据

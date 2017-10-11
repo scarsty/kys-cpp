@@ -77,6 +77,7 @@ public:
     Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return magics_[i]; }  //0∫≈Œ‰π¶Œﬁ–ß
     Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return items_[i]; }
     SubMapInfo* getSubMapInfo(int i) { if (i < 0 || i >= submap_infos_.size()) { return nullptr; } return submap_infos_[i]; }
+    Shop* getShop(int i) { if (i < 0 || i >= shops_.size()) { return nullptr; } return shops_[i]; }
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }
