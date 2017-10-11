@@ -749,7 +749,7 @@ void BattleScene::actUseMagic(Role* r)
 
 void BattleScene::actUsePoison(Role* r)
 {
-    calSelectLayer(r, 1, r->UsePoison / 15 + 1);
+    calSelectLayer(r, 1, calActionStep(r->UsePoison));
     battle_cursor_->setMode(BattleCursor::Action);
     battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 1;
@@ -773,7 +773,7 @@ void BattleScene::actUsePoison(Role* r)
 
 void BattleScene::actDetoxification(Role* r)
 {
-    calSelectLayer(r, 1, r->Detoxification / 15 + 1);
+    calSelectLayer(r, 1, calActionStep(r->Detoxification));
     battle_cursor_->setMode(BattleCursor::Action);
     battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;
@@ -797,7 +797,7 @@ void BattleScene::actDetoxification(Role* r)
 
 void BattleScene::actMedcine(Role* r)
 {
-    calSelectLayer(r, 1, r->Medcine / 15 + 1);
+    calSelectLayer(r, 1, calActionStep(r->Medcine));
     battle_cursor_->setMode(BattleCursor::Action);
     battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;

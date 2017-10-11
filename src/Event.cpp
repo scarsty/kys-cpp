@@ -816,64 +816,774 @@ void Event::arrangeBag()
 
 void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
 {
+    int nIndex = 0, nLen = 0, nOffset = 0, Result = 0;
+    char* pChar = nullptr, *pChar1 = nullptr;
+    char* pString = new char(1000);
+
+    std::string str;
+
     switch (code)
     {
     case 0:
         //赋值
         x50[e1] = e2;
         break;
-    case 1: break;
-    case 2: break;
-    case 3: break;
-    case 4: break;
-    case 5: break;
-    case 6: break;
-    case 7: break;
-    case 8: break;
-    case 9: break;
-    case 10: break;
-    case 11: break;
-    case 12: break;
+    case 1: //Give a value to one member in parameter group.
+        nIndex = e3 + e_GetValue(0, e1, e4);
+        //nIndex = CutRegion(nIndex);
+        x50[nIndex] = e_GetValue(1, e1, e4);
+        if (1 == e2)
+        {
+            x50[nIndex] = x50[nIndex] & 0xff;
+        }
+        break;
+    case 2: //Get the value of one member in parameter group.
+        nIndex = e3 + e_GetValue(0, e1, e4);
+        //nIndex = CutRegion(nIndex);
+        x50[e5] = x50[nIndex];
+        if (1 == e2)
+        {
+            x50[nIndex] = x50[nIndex] & 0xff;
+        }
+        break;
+    case 3:
+        nIndex = e_GetValue(0, e1, e5);
+        switch (e2)
+        {
+        case 0:
+            x50[e3] = x50[e4] + nIndex;
+            break;
+        case 1:
+            x50[e3] = x50[e4] - nIndex;
+            break;
+        case 2:
+            x50[e3] = x50[e4] * nIndex;
+            break;
+        case 3:
+            if (nIndex != 0)
+            {
+                x50[e3] = x50[e4] / nIndex;
+            }
+            break;
+        case 4:
+            if (nIndex != 0)
+            {
+                x50[e3] = x50[e4] % nIndex;
+            }
+            break;
+        case 5:
+            if (nIndex != 0)
+            {
+                x50[e3] = Uint16(x50[e4]) / nIndex;
+            }
+            break;
+        }
+        break;
+    case 4:
+        x50[0x7000] = 0;
+        nIndex = e_GetValue(0, e1, e4);
+        switch (e2)
+        {
+        case 0:
+            if (!(x50[e3] < nIndex))
+            {
+                x50[0x7000] = 1;
+            }
+            break;
+        case 1:
+            if (!(x50[e3] <= nIndex))
+            {
+                x50[0x7000] = 1;
+            }
+            break;
+        case 2:
+            if (!(x50[e3] == nIndex))
+            {
+                x50[0x7000] = 1;
+            }
+            break;
+        case 3:
+            if (!(x50[e3] != nIndex))
+            {
+                x50[0x7000] = 1;
+            }
+            break;
+        case 4:
+            if (!(x50[e3] >= nIndex))
+            {
+                x50[0x7000] = 1;
+            }
+            break;
+        case 5:
+            if (!(x50[e3] > nIndex))
+            {
+                x50[0x7000] = 1;
+            }
+            break;
+        case 6:
+            x50[0x7000] = 0;
+            break;
+        case 7:
+            x50[0x7000] = 1;
+        }
+        break;
+    case 5: //Zero all parameters.
+        memset(x50, 0, sizeof(x50));
+        break;
+    case 6:
+        break;
+    case 7:
+        break;
+    case 8: //Read talk to string.
+        nIndex = e_GetValue(0, e1, e2);
+        nLen = 0;
+        if (0 == nIndex)
+        {
+            nOffset = 0;
+            nLen = offset[0];
+        }
+        else
+        {
+            nOffset = offset[nIndex - 1];
+            nLen = offset[nIndex] - nOffset;
+        }
+        memcpy(&offset[nOffset], &x50[e3], nLen);
+        pChar = (char*)&x50[e3];
+        for (int i = 0; i < nLen - 2; i++)
+        {
+            *pChar = char(*pChar ^ 0xff);
+            pChar++;
+        }
+        *pChar = char(0);
+        break;
+    case 9: //Format the string.
+        e4 = e_GetValue(0, e1, e4);
+        pChar = (char*)&x50[e2];
+        pChar1 = (char*)&x50[e3];
+        snprintf(pString, 1000, "%s", e4); // 这里的整体代码写的都有些问题，主要是用了字符串数组之后，没有保护越界，或者获取字符串数组长度使用strlen 的时候必须要保证是\0 结尾
+        for (int i = 0; i < strlen(pString); i++)
+        {
+            *pChar = pString[i + 1];
+            pChar++;
+        }
+        break;
+    case 10: //Get the length of a string.
+        x50[e2] = strlen((char*)&x50[e1]);  // 感觉这样有问题把
+        break;
+    case 11: // Combine 2 strings.
+        pChar = (char*)&x50[e1];
+        pChar1 = (char*)&x50[e2];
+        for (int i = 1; i < strlen(pChar1); i++)
+        {
+            *pChar = *(pChar1 + i);
+            pChar++;
+        }
+
+        if (1 == strlen(pChar1) % 2)
+        {
+            *pChar = char(0x20);
+            pChar++;
+        }
+        pChar1 = (char*)&x50[e3];
+        for (int i = 1; i < strlen(pChar1); i++)
+        {
+            *pChar = *(pChar1 + i);
+            pChar++;
+        }
+
+        break;
+    case 12:  //Build a string with spaces.
+        //Note: here the width of one 'space' is the same as one Chinese charactor.
+        e3 = e_GetValue(0, e1, e3);
+        pChar = (char*)&x50[e2];
+        for (int i = 0; i < e3 / 2; i++)
+        {
+            *pChar = char(0x20);
+            pChar++;
+        }
+        *pChar = char(0);
+        break;
     case 13: break;
     case 14: break;
     case 15: break;
-    case 16: break;
-    case 17: break;
-    case 18: break;
-    case 19: break;
-    case 20: break;
-    case 21: break;
-    case 22: break;
-    case 23: break;
-    case 24: break;
-    case 25: break;
-    case 26: break;
-    case 27: break;
-    case 28: break;
-    case 29: break;
-    case 30: break;
-    case 31: break;
-    case 32: break;
-    case 33: break;
-    case 34: break;
-    case 35: break;
-    case 36: break;
-    case 37: break;
-    case 38: break;
-    case 39: break;
-    case 40: break;
-    case 41: break;
-    case 42: break;
-    case 43: break;
-    case 44: break;
-    case 45: break;
-    case 46: break;
-    case 47: break;
-    case 48: break;
-    case 49: break;
-    case 50: break;
-    case 51: break;
-    case 52: break;
+    case 16: //Write R data.
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        switch (e2) // 注释的都需要确认一下
+        {
+        case 0:
+            //0 : Rrole[e3].Data[e4 div 2] : = e5;
+            //1: Ritem[e3].Data[e4 div 2] : = e5;
+            //2: Rscence[e3].Data[e4 div 2] : = e5;
+            //3: Rmagic[e3].Data[e4 div 2] : = e5;
+            //4: Rshop[e3].Data[e4 div 2] : = e5;
+        }
+        break;
+    case 17:
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        //case e2 of
+        //  0: x50[e5] : = Rrole[e3].Data[e4 div 2];
+        //  1: x50[e5] : = Ritem[e3].Data[e4 div 2];
+        //  2: x50[e5] : = Rscence[e3].Data[e4 div 2];
+        //  3: x50[e5] : = Rmagic[e3].Data[e4 div 2];
+        //  4: x50[e5] : = Rshop[e3].Data[e4 div 2];
+        //  end;
+        break;
+    case 18:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        //TeamList[e2] := e3;
+        break;
+    case 19: //Read team data.
+        e2 = e_GetValue(0, e1, e2);
+        //x50[e3] : = TeamList[e2];
+        break;
+    case 20:  //Get the amount of one item.
+        e2 = e_GetValue(0, e1, e2);
+        x50[e3] = 0;
+        //for i : = 0 to MAX_ITEM_AMOUNT - 1 do
+        //  if RItemList[i].Number = e2 then
+        //      begin
+        //      x50[e3] : = RItemList[i].Amount;
+        break;
+    case 21: //Write event in scence.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        //Ddata[e2, e3, e4] : = e5;
+        break;
+    case 22:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        //x50[e5] : = Ddata[e2, e3, e4];
+        break;
+    case 23:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        e6 = e_GetValue(4, e1, e6);
+        //Sdata[e2, e3, e5, e4] : = e6;
+        break;
+    case 24:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        //x50[e6] : = Sdata[e2, e3, e5, e4];
+        break;
+    case 25:
+        e5 = e_GetValue(0, e1, e5);
+        e6 = e_GetValue(1, e1, e6);
+        nIndex = Uint16(e3) + Uint16(e4) * 0x10000 + Uint16(e6);
+        auto i = Uint16(e3) + Uint16(e4) * 0x10000;
+        switch (nIndex)
+        {
+        case 0x1D295A:
+            //sx = e5;
+            break;
+        case 0x1D295C:
+            //Sy := e5;
+            break;
+        }
+        switch (i)
+        {
+        case 0x18FE2C:
+            if (e6 % 4 <= 1)
+            {
+                //Ritemlist[e6 div 4].Number : = e5
+            }
+            else
+            {
+                //Ritemlist[e6 div 4].Amount : = e5;
+            }
+            break;
+        case 0x051C83:
+            //puint16(@Acol[e6]) ^ : = e5;
+            //puint16(@Acol1[e6]) ^ : = e5;
+            //puint16(@Acol2[e6]) ^ : = e5;
+            break;
+        case 0x01D295E:
+            //CurScence: = e5;
+            break;
+        }
+        //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h); 应该是不要了
+        break;
+    case 26:
+        e6 = e_GetValue(0, e1, e6);
+        nIndex = nIndex = Uint16(e3) + Uint16(e4) * 0x10000 + Uint16(e6);
+        auto i = Uint16(e3) + Uint16(e4) * 0x10000;
+        switch (nIndex)
+        {
+        case 0x1D295E:
+            //x50[e5] := CurScence;
+            break;
+        case 0x1D295A:
+            //x50[e5] := Sx;
+            break;
+        case 0x1D295C:
+            //x50[e5] := Sy;
+            break;
+        case 0x1C0B88:
+            //x50[e5] := Mx;
+            break;
+        case 0x1C0B8C:
+            //x50[e5] := My;
+            break;
+        case 0x05B53A:
+            x50[e5] = 1;
+            break;
+        case 0x0544F2:
+            //x50[e5] := Sface;
+            break;
+        case 0x1E6ED6:
+            x50[e5] = x50[28100];
+            break;
+        case 0x556DA:
+            //x50[e5] := Ax;
+            break;
+        case 0x556DC:
+            //x50[e5] := Ay;
+            break;
+        case 0x1C0B90:
+            x50[e5] = SDL_GetTicks() / 55 % 65536;
+            break;
+        }
+        if ((nIndex - 0x18FE2C >= 0) && (nIndex - 0x18FE2C < 800))
+        {
+            i = nIndex - 0x18FE2C;
+            if (i % 4 <= 1)
+            {
+                //x50[e5] : = Ritemlist[i div 4].Number
+            }
+            else
+            {
+                //x50[e5] : = Ritemlist[i div 4].Amount;
+            }
+            if ((nIndex >= 0x1E4A04) && (nIndex < 0x1E6A04))
+            {
+                i = (nIndex - 0x1E4A04) / 2;
+                //x50[e5]  = Bfield[2, i mod 64, i div 64];
+            }
+        }
+
+        break;
+    case 27: //Read name to string.
+        e3 = e_GetValue(0, e1, e3);
+        pChar = (char*)&x50[e4];
+        switch (e2)
+        {
+        case 0:
+            //pChar1: = @Rrole[e3].Name;
+            break;
+        case 1:
+            //pChar1: = @Ritem[e3].Name;
+            break;
+        case 2:
+            //pChar1: = @Rscence[e3].Name;
+            break;
+        case 3:
+            //pChar1: = @Rmagic[e3].Name;
+            break;
+        }
+
+        int nlen = 10 < strlen(pChar1) ? 10 : strlen(pChar1);
+
+        for (size_t i = 0; i < nlen - 1; i++)
+        {
+            *pChar = *(pChar1 + i);
+            pChar++;
+        }
+
+        if (1 == nlen % 2)
+        {
+            *pChar = char(0x20);
+            pChar++;
+        }
+        *pChar = char(0);
+
+
+        break;
+    case 28: //Get the battle number.
+        x50[e1] = x50[28005];
+        break;
+    case 29: //Select aim.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        if (0 == e5)
+        {
+            //selectAim(e2, e3);
+        }
+        //x50[e4] : = bfield[2, Ax, Ay];
+        break;
+    case 30: //Read battle properties.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        //x50[e4]  = Brole[e2].Data[e3 div 2];
+        break;
+    case 31: //Write battle properties.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        //Brole[e2].Data[e3 div 2] : = e4;
+        break;
+    case 32: //Modify next instruct.
+        e3 = e_GetValue(0, e1, e3);
+        Result = 655360 * (e3 + 1) + x50[e2];
+        break;
+    case 33: //Draw a string.
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        int i = 0;
+        nIndex = 0;
+
+        pChar = (char*)&x50[e2];
+        pChar1 = pChar;
+        while (*pChar > 0)
+        {
+            if (0x2A == *pChar)
+            {
+                *pChar = char(0);
+                //DrawBig5ShadowText(screen, p1, e3 - 2, e4 + 22 * i - 3, ColColor(e5 and $FF),ColColor((e5 and $FF00) shl 8));
+                i++;
+                pChar1++;
+            }
+            pChar++;
+        }
+        //DrawBig5ShadowText(screen, p1, e3 - 2, e4 + 22 * i - 3, ColColor(e5 and $FF), ColColor((e5 and $FF00) shl 8));
+        //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h);
+        break;
+    case 34: //Draw a rectangle as background.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        //DrawRectangle(screen, e2, e3, e4, e5, 0, ColColor($FF), 50);
+        //SDL_UpdateRect2(screen,e1,e2,e3+1,e4+1);
+        break;
+    case 35: // Pause and wait a key.
+        //auto i = WaitAnyKey;
+        x50[e1] = i;
+        switch (i)
+        {
+        case SDLK_LEFT:
+            x50[e1] = 154;
+            break;
+        case SDLK_RIGHT:
+            x50[e1] = 156;
+            break;
+        case SDLK_UP:
+            x50[e1] = 158;
+            break;
+        case SDLK_DOWN:
+            x50[e1] = 152;
+            break;
+        }
+        break;
+    case 36: //Draw a string with background then pause, if the key pressed is 'Y' then jump=0.
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        pChar = (char*)&x50[e2];
+        auto i1 = 0;
+        auto i2 = 0;
+        nIndex = 0;
+        e3 = abs(e3);
+
+        while (*pChar > 0)
+        {
+            if (*pChar == 0x2A)
+            {
+                if (nIndex > i2)
+                {
+                    i2 = nIndex;
+                }
+                nIndex = 0;
+                i1++;
+            }
+            if (*pChar == 0x20)
+            {
+                nIndex++;
+            }
+            pChar++;
+            nIndex++;
+        }
+
+        if (nIndex > i2)
+        {
+            i2 = nIndex;
+        }
+        pChar--;
+        if (i1 == 0)
+        {
+            i1 = 1;
+        }
+        if (*pChar == 0x2A)
+        {
+            i1--;
+        }
+        //DrawRectangle(screen, e3, e4, i2 * 10 + 25, i1 * 22 + 5, 0, ColColor(255), 50);
+        pChar = (char*)&x50[e2];
+        pChar1 = pChar;
+        i = 0;
+
+        while (*pChar > 0)
+        {
+            if (*pChar == 0x2A)
+            {
+                *pChar = char(0);
+                //DrawBig5ShadowText(screen, p1, e3 + 3, e4 + 22 * i + 2, ColColor(e5 and $FF),ColColor((e5 and $FF00) shl 8));
+                i++;
+                pChar1 = pChar + 1;
+            }
+            pChar++;
+        }
+
+        //DrawBig5ShadowText(screen, p1, e3 + 3, e4 + 22 * i + 2, ColColor(e5 and $FF), ColColor((e5 and $FF00) shl 8));
+        //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h);
+
+        //i = WaitAnyKey;
+        if (i == SDLK_y)
+        {
+            x50[0x7000] = 0;
+        }
+        else
+        {
+            x50[0x7000] = 1;
+        }
+
+
+        break;
+    case 37: //Delay.
+        e2 = e_GetValue(0, e1, e2);
+        SDL_Delay(e2);
+        break;
+    case 38: //Get a number randomly.
+        e2 = e_GetValue(0, e1, e2);
+        //default_random_engine e;
+        //uniform_int_distribution<unsigned> u(0, e2);
+        //x50[e3] = u(e);
+        break;
+    case 39: //Show a menu to select.
+        e2 = e_GetValue(0, e1, e2);
+        e5 = e_GetValue(1, e1, e5);
+        e6 = e_GetValue(2, e1, e6);
+        //setlength(menuString, e2);
+        //setlength(menuEngString, 0);
+        nIndex = 0;
+        for (int i = 0; i < e2 - 1; i++)
+        {
+            //menuString[i] : = Big5ToUnicode(@x50[x50[e3 + i]]);
+            auto i1 = strlen((char*)&x50[x50[e3 + i]]);
+            if (i1 > nIndex)
+            {
+                nIndex = i1;
+            }
+            //x50[e4] := CommonMenu(e5, e6, t1 * 10 + 5, e2 - 1, menuString) + 1;
+        }
+        break;
+    case 40: // Show a scroll menu to select.
+        e2 = e_GetValue(0, e1, e2);
+        e5 = e_GetValue(1, e1, e5);
+        e6 = e_GetValue(2, e1, e6);
+        //setlength(menuString, e2);
+        //setlength(menuEngString, 0);
+        auto i2 = 0;
+        for (int i = 0; i < e2 - 1; i++)
+        {
+            //menuString[i] : = Big5ToUnicode(@x50[x50[e3 + i]]);
+            auto i1 = strlen((char*)&x50[x50[e3 + i]]);
+            if (i1 > i2)
+            {
+                i2 = i1;
+            }
+        }
+        nIndex = (e1 << 8) & 0xff;
+        if (nIndex == 0)
+        {
+            nIndex = 5;
+        }
+
+        //  x50[e4] : = CommonScrollMenu(e5, e6, i2 * 10 + 5, e2 - 1, t1, menuString) + 1;
+        break;
+    case 41: //Draw a picture.
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        switch (e2)
+        {
+        case 0:
+            //if (where < > 1) or ((ModVersion = 22) and (CurEvent = -1)) then
+            //  DrawMPic(e5 div 2, e3, e4)
+            //else
+            //  DrawSPic(e5 div 2, e3, e4, 0, 0, screen.w, screen.h);
+            break;
+        case 1:
+            //DrawHeadPic(e5, e3, e4);
+            break;
+        case 2:
+            //str: = AppPath + 'pic/' + IntToStr(e5) + '.png';
+            //display_img(@str[1], e3, e4);
+            break;
+        }
+        //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h);
+        break;
+    case 42: //Change the poistion on world map.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(0, e1, e3);
+        //Mx: = e3;
+        //My: = e2;
+        break;
+    case 43: //Call another event.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        e6 = e_GetValue(4, e1, e6);
+        x50[0x7100] = e3;
+        x50[0x77101] = e4;
+        x50[0x77102] = e5;
+        x50[0x77103] = e6;
+        if (e2 == 202) // 得到物品
+        {
+            if (e5 == 0)
+            {
+                instruct_2(e3, e4);
+            }
+            else
+            {
+                instruct_32(e3, e4);
+            }
+        }
+        else if (e2 == 201) //新对话
+        {
+            //NewTalk(e3, e4, e5, e6 mod 100, (e6 mod 100) div 10, e6 div 100, 0)
+        }
+        else if (e2 == 999)// && MODVersion == 62)
+        {
+            //CurScence: = e3;
+            //Sx: = e5;
+            //Sy: = e4;
+            //Cx: = Sx;
+            //Cy: = Sy;
+            instruct_14;
+            //InitialScence;
+            //DrawScence;
+            //ShowScenceName(CurScence);
+            //CheckEvent3;
+        }
+        else if (e2 == 176)// && MODVersion == 22) // 菠萝三国输入数字
+        {
+            //x50[10032]  = EnterNumber(0, 32767, CENTER_X, CENTER_Y - 100);
+            x50[0x7000] = 0;
+            //Redraw;
+        }
+        else
+        {
+            callEvent(e2);
+        }
+
+        break;
+    case 44: // Play amination.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        //PlayActionAmination(e2, e3);
+        //PlayMagicAmination(e2, e4);
+        break;
+    case 45: //Show values.
+        e2 = e_GetValue(0, e1, e2);
+        //ShowHurtValue(e2);
+        break;
+    case 46: //Set effect layer.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        e6 = e_GetValue(4, e1, e6);
+        for (int i1 = e2; i1 < e2 + e4 - 1; i1++)
+        {
+            for (int i2 = e3; i1 < e3 + e5 - 1; i2++)
+            {
+                //bfield[4, i1, i2] : = e6;
+            }
+        }
+        break;
+    case 47: //Here no need to re-set the pic.
+        break;
+    case 48: //Show some parameters.
+        str = "";
+        char c[100], s[100];
+
+        for (int i = e1; i < e1 + e2 - 1; i++)
+        {
+            sprintf(c, "%d", i);
+            sprintf(s, "%d", x50[i]);
+            str = str + "x" + c + "=" + s + char(13) + char(10);
+            //if FULLSCREEN = 0 then
+            //  messagebox(0, @str[1], 'KYS Windows', MB_OK);
+        }
+        break;
+    case 49: //In PE files, you can't call any procedure as your wish.
+        break;
+    case 50: //Enter name for items, magics and roles.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        switch (e2)
+        {
+            //0: p: = @Rrole[e3].Name[0];
+            //1: p: = @Ritem[e3].Name[0];
+            //2: p: = @Rmagic[e3].Name[0];
+            //3: p: = @Rscence[e3].Name[0];
+        }
+        str = "請輸入名字：";
+        pChar1 = (char*)&str[1];
+        auto nlen = e5 < strlen(pChar1) ? e5 : strlen(pChar1);
+        for (int i = 0; i < nlen - 1; i++)
+        {
+            *(pChar + i) = *(pChar1 + i);
+        }
+
+        break;
+    case 51: //Enter a number.
+        /*
+        if( FULLSCREEN == 0)
+        {
+        while (true)
+        {
+        word: = InputBox('输入数量 ', '输入数量', '0');
+        try
+        {
+        i: = StrToInt(word);
+        break;
+        }
+        catch (CException* e)
+        {
+        ShowMessage('输入错误，请重新输入!');
+        }
+        }
+
+        }
+        */
+        x50[e1] = i;
+
+        break;
+    case 52: //Judge someone grasp some magic.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        x50[0x7000] = 1;
+
+        //if (HaveMagic(e2, e3, e4) = True) then
+        //  x50[$7000] : = 0;
+        break;
     case 53: break;
     case 54: break;
     case 55: break;
@@ -881,7 +1591,11 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 57: break;
     case 58: break;
     case 59: break;
-    case 60: break;
+    case 60: //Call scripts.
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        //ExecScript(PChar('script/' + IntToStr(e2) + '.lua'), PChar('f' + IntToStr(e3)));
+        break;
 
     default:
         break;

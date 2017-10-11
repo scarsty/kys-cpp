@@ -61,6 +61,7 @@ public:
     void resetRolesAct();
 
     int calMoveStep(Role* r);
+    int calActionStep(int ability) { return ability / 15 + 1; }
 
     int calRolePic(Role* r, int style = -1, int frame = 0);
 
