@@ -54,6 +54,7 @@ public:
     virtual void onExit() override;
 
     void setRoleInitState(Role* r);
+    void setFaceTowardsNearestEnemy(Role* r);
     void readFightFrame(Role* r);
 
     void sortRoles();
@@ -68,8 +69,9 @@ public:
     void calSelectLayer(Role* r, int mode, int step = 0) { calSelectLayer(r->X(), r->Y(), r->Team, mode, step); }
     void calSelectLayer(int x, int y, int team, int mode, int step = 0);
     void calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index);
-    void calEffectLayer(Role* r, Magic* m = nullptr, int level_index = 0) { calEffectLayer(r->X(), r->Y(), m, level_index); } 
-    void calEffectLayer(int x, int y, Magic* m = nullptr, int level_index = 0);
+    void calEffectLayer(Role* r, int select_x, int select_y, Magic* m = nullptr, int level_index = 0) { calEffectLayer(r->X(), r->Y(), select_x, select_y, m, level_index); }
+    void calEffectLayer(int x, int y, int select_x, int select_y, Magic* m = nullptr, int level_index = 0);
+    bool haveEffect(int x, int y) { return effect_layer_->data(x, y) >= 0; }
     bool inEffect(Role* r1, Role* r2);
 
     bool canSelect(int x, int y);
@@ -88,13 +90,16 @@ public:
 
     Role* getSelectedRole();
 
-    //"移動", "武學", "用毒", "解毒", "醫療", "物品", "等待", "狀態", "自動", "結束"
+
+    void action(Role* r);
+
     void actMove(Role* r);
     void actUseMagic(Role* r);
     void actUsePoison(Role* r);
     void actDetoxification(Role* r);
     void actMedcine(Role* r);
-    void actUseItem(Role* r);
+    void actUseHiddenWeapon(Role* r);
+    void actUseDrag(Role* r);
     void actWait(Role* r);
     void actStatus(Role* r);
     void actAuto(Role* r);

@@ -96,6 +96,8 @@ MenuText::MenuText(std::vector<std::string> items) : MenuText()
 
 void MenuText::setStrings(std::vector<std::string> strings)
 {
+    strings_ = strings;
+
     clearChilds();
     int len = 0;
     int i = 0;
@@ -109,6 +111,32 @@ void MenuText::setStrings(std::vector<std::string> strings)
     }
     w_ = 10 * len;
     h_ = 25 * strings.size();
+
+    childs_text_.clear();
+    for (int i = 0; i < strings_.size(); i++)
+    {
+        childs_text_[strings_[i]] = childs_[i];
+    }
 }
 
+std::string MenuText::getStringFromResult(int i)
+{
+    if (i >= 0 && i < strings_.size())
+    {
+        return strings_[i];
+    }
+    return "";
+}
+
+int MenuText::getResultFromString(std::string str)
+{
+    for (int i = 0; i < strings_.size(); i++)
+    {
+        if (str == strings_[i])
+        {
+            return i;
+        }
+    }
+    return -1;
+}
 

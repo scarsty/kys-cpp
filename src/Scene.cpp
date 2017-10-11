@@ -91,7 +91,7 @@ int Scene::calTowards(int x1, int y1, int x2, int y2)
     return Towards_None;
 }
 
-int Scene::changeTowardsByKey(BP_Keycode key)
+void Scene::changeTowardsByKey(BP_Keycode key)
 {
     switch (key)
     {
@@ -100,7 +100,19 @@ int Scene::changeTowardsByKey(BP_Keycode key)
     case BPK_UP: towards_ = Towards_LeftUp; break;
     case BPK_DOWN: towards_ = Towards_RightDown; break;
     }
-    return towards_;
+}
+
+int Scene::getTowardsByKey(BP_Keycode key)
+{
+    int tw = Towards_None;
+    switch (key)
+    {
+    case BPK_LEFT: tw = Towards_LeftDown; break;
+    case BPK_RIGHT: tw = Towards_RightUp; break;
+    case BPK_UP: tw = Towards_LeftUp; break;
+    case BPK_DOWN: tw = Towards_RightDown; break;
+    }
+    return tw;
 }
 
 void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)

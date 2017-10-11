@@ -48,7 +48,9 @@ public:
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
-    int changeTowardsByKey(BP_Keycode key);
+    void changeTowardsByKey(BP_Keycode key);
+    int getTowardsByKey(BP_Keycode key);
+
     //获取面向一格的坐标
     static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
 

@@ -23,6 +23,14 @@ public:
 
     int force_item_type_ = -1;
 
+    bool select_user_ = true;
+
+    MenuText* getTitle() { return title_; }
+
+    void setForceItemType(int f);
+
+    void setSelectUser(bool s) { select_user_ = s; }
+
     int getItemDetailType(Item* item);
 
     int geItemBagIndexByType(int item_type);

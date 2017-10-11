@@ -37,6 +37,13 @@ UIItem::~UIItem()
 {
 }
 
+void UIItem::setForceItemType(int f)
+{
+    force_item_type_ = f;
+    title_->setAllChildVisible(false);
+    title_->getChild(f)->setVisible(true);
+}
+
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
 //详细分类："0劇情", "1兵甲", "2丹藥", "3暗器", "4拳經", "5劍譜", "6刀錄", "7奇門", "8心法"
 int UIItem::getItemDetailType(Item* item)
@@ -299,43 +306,48 @@ void UIItem::pressedOK()
     {
         result_ = current_item_->ID;
     }
-    else if (current_item_->ItemType == 3)
+    
+    if (select_user_)
     {
-        auto team_menu = new TeamMenu();
-        team_menu->setItem(current_item_);
-        team_menu->setText(convert::formatString("誰要使用%s", current_item_->Name));
-        team_menu->run();
-        auto role = team_menu->getRole();
-        delete team_menu;
-        if (role)
+        if (current_item_->ItemType == 3)
         {
-            Role r = *role;
-            GameUtil::useItem(role, current_item_);
-            auto df = new ShowRoleDifference(&r, role);
-            df->setText(convert::formatString("%s使用%s", role->Name, current_item_->Name));
-            df->run();
-            delete df;
-            Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
+            auto team_menu = new TeamMenu();
+            team_menu->setItem(current_item_);
+            team_menu->setText(convert::formatString("誰要使用%s", current_item_->Name));
+            team_menu->run();
+            auto role = team_menu->getRole();
+            delete team_menu;
+            if (role)
+            {
+                Role r = *role;
+                GameUtil::useItem(role, current_item_);
+                auto df = new ShowRoleDifference(&r, role);
+                df->setText(convert::formatString("%s服用%s", role->Name, current_item_->Name));
+                df->run();
+                delete df;
+                Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
+            }
+        }
+        else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
+        {
+            auto team_menu = new TeamMenu();
+            team_menu->setItem(current_item_);
+            auto format_str = "誰要修煉%s";
+            if (current_item_->ItemType == 1) { format_str = "誰要裝備%s"; }
+            team_menu->setText(convert::formatString(format_str, current_item_->Name));
+            team_menu->run();
+            auto role = team_menu->getRole();
+            delete team_menu;
+            if (role)
+            {
+                GameUtil::equip(role, current_item_);
+            }
+        }
+        else if (current_item_->ItemType == 4)
+        {
+            //似乎不需要特殊处理
         }
     }
-    else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
-    {
-        auto team_menu = new TeamMenu();
-        team_menu->setItem(current_item_);
-        auto format_str = "誰要修煉%s";
-        if (current_item_->ItemType == 1) { format_str = "誰要裝備%s"; }
-        team_menu->setText(convert::formatString(format_str, current_item_->Name));
-        team_menu->run();
-        auto role = team_menu->getRole();
-        delete team_menu;
-        if (role)
-        {
-            GameUtil::equip(role, current_item_);
-        }
-    }
-    else if (current_item_->ItemType == 4)
-    {
-        //战斗时似乎不需要特殊处理
-    }
+
     setExit(true);   //用于战斗时。平时物品栏不是以根节点运行，设置这个没有作用
 }

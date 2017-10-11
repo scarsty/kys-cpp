@@ -74,6 +74,7 @@ public:
     void setAllChildState(int s);
     //void setChildState(int i, int s);
     //int getChildState(int i);
+    void setAllChildVisible(bool v);
 
     int findNextVisibleChild(int i0, int direct);
 

@@ -122,7 +122,15 @@ void Element::setAllChildState(int s)
 {
     for (auto c : childs_)
     {
-        c->state_ = s;;
+        c->state_ = s;
+    }
+}
+
+void Element::setAllChildVisible(bool v)
+{
+    for (auto c : childs_)
+    {
+        c->visible_ = v;
     }
 }
 

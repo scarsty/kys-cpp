@@ -21,8 +21,11 @@ ShowRoleDifference::~ShowRoleDifference()
 void ShowRoleDifference::draw()
 {
     if (role1_ == nullptr || role2_ == nullptr) { return; }
-    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
 
+    if (black_screen_)
+    {
+        Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
+    }
     head1_->setRole(role1_);
     head2_->setRole(role2_);
     head1_->setState(Press);
@@ -33,6 +36,9 @@ void ShowRoleDifference::draw()
         head1_->setPosition(200, 50);
         head2_->setRole(nullptr);
     }
+
+    head1_->setVisible(show_head_);
+    head2_->setVisible(show_head_);
 
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };

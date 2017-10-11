@@ -22,7 +22,6 @@ TeamMenu::TeamMenu()
     addChild(button_ok_, 150, 300);
     setPosition(200, 150);
     setTextPosition(20, -30);
-    mode_ = 1;
 }
 
 TeamMenu::~TeamMenu()

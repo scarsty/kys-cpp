@@ -22,6 +22,12 @@ public:
     MenuText(std::vector<std::string> items);
     void setStrings(std::vector<std::string> items);
     //void draw() override;
+
+    std::vector<std::string> strings_;
+    std::map<std::string, Element*> childs_text_;
+    std::string getStringFromResult(int i);
+    std::string getResultString() { return getStringFromResult(result_); }
+    int getResultFromString(std::string str);
 };
 
 

@@ -20,6 +20,10 @@ public:
 
     virtual void draw() override;
 
+    void setShowHead(bool s) { show_head_ = s; }
+
+    void setBlackScreen(bool b) { black_screen_ = b; }
+
 private:
     template<typename T> void showOneDifference(T& pro1, const std::string& format_str, int size, BP_Color c, int& x, int& y, int force = 0)
     {
@@ -38,6 +42,8 @@ private:
     Head* head1_ = nullptr;
     Head* head2_ = nullptr;
 
+    bool show_head_ = true;
+    bool black_screen_ = true;
 };
 
 

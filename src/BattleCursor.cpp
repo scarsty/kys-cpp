@@ -34,15 +34,15 @@ void BattleCursor::dealEvent(BP_Event& e)
     {
         if (e.type == BP_KEYDOWN)
         {
-            battle_scene_->changeTowardsByKey(e.key.keysym.sym);
+            int tw = battle_scene_->getTowardsByKey(e.key.keysym.sym);
             //线型的特殊处理一下
             if (magic_ && magic_->AttackAreaType == 1)
             {
-                Scene::getTowardsPosition(role_->X(), role_->Y(), battle_scene_->towards_, &x, &y);
+                Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
             }
             else
             {
-                Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, battle_scene_->towards_, &x, &y);
+                Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, tw, &x, &y);
             }
         }
     }
@@ -84,7 +84,7 @@ void BattleCursor::dealEvent(BP_Event& e)
     }
     else if (mode_ == Action)
     {
-        battle_scene_->calEffectLayer(role_, magic_, level_index_);
+        battle_scene_->calEffectLayer(role_, battle_scene_->select_x_, battle_scene_->select_y_, magic_, level_index_);
     }
 }
 
