@@ -11,6 +11,7 @@
 #include "GameUtil.h"
 #include "Random.h"
 #include "BattleScene.h"
+#include "UIShop.h"
 
 Event Event::event_;
 
@@ -312,7 +313,10 @@ bool Event::tryBattle(int battle_id, int get_exp)
 
 void Event::changeMainMapMusic(int music_id)
 {
-
+    if (subscene_)
+    {
+        subscene_->changeExitMusic(music_id);
+    }
 }
 
 bool Event::askJoin()
@@ -615,7 +619,28 @@ void Event::setTowards(int towards)
 
 void Event::roleAddItem(int role_id, int item_id, int count)
 {
-
+    auto role = Save::getInstance()->getRole(role_id);
+    if (role)
+    {
+    }
+    std::map<int, int> item_count;
+    auto save = Save::getInstance();
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+    {
+        if (save->Items[i].item_id >= 0)
+        {
+            item_count[save->Items[i].item_id] += save->Items[i].count;
+        }
+        save->Items[i].item_id = -1;
+        save->Items[i].count = 0;
+    }
+    int k = 0;
+    for (auto i : item_count)
+    {
+        save->Items[k].item_id = i.first;
+        save->Items[k].count = i.second;
+        k++;
+    }
 }
 
 bool Event::checkFemaleInTeam()
@@ -742,6 +767,33 @@ void Event::fightForTop()
         22, 56, 68, 13, 55, 62, 67, 70, 71, 26, 57, 60, 64, 3, 69
     };
 
+    for (int i = 0; i < 15; i++)
+    {
+        int p = RandomClassical::rand(2);
+        oldTalk(2854 + i * 2 + p, heads[i * 2 + p], RandomClassical::rand(2) * 4 + RandomClassical::rand(2));
+        //if not (Battle(102 + i * 2 + p, 0)) then
+        //    begin
+        //    instruct_15;
+        //break;
+        //end;
+        darkScence();
+        lightScence();
+        if (i % 3 == 2)
+        {
+            oldTalk(2891, 70, 4);
+            rest();
+            darkScence();
+            lightScence();
+        }
+    }
+
+    oldTalk(2884, 0, 3);
+    oldTalk(2885, 0, 3);
+    oldTalk(2886, 0, 3);
+    oldTalk(2887, 0, 3);
+    oldTalk(2888, 0, 3);
+    oldTalk(2889, 0, 1);
+    addItem(0x8F, 1);
 }
 
 void Event::allLeave()
@@ -787,7 +839,17 @@ void Event::setSexual(int role_id, int value)
 
 void Event::shop()
 {
-
+    oldTalk(0xB9E, 0x6F, 0);
+    auto shop = new UIShop();
+    shop->setShopID(RandomClassical::rand(5));
+    int result = shop->run();
+    if (result < 0)
+    {
+    }
+    else
+    {
+        oldTalk(0xBA0, 0x6F, 0);
+    }
 }
 
 void Event::playMusic(int music_id)

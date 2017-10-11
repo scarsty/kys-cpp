@@ -36,6 +36,11 @@ UIShop::~UIShop()
 {
 }
 
+void UIShop::setShopID(int id)
+{
+    shop_ = Save::getInstance()->getShop(id);
+}
+
 void UIShop::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);

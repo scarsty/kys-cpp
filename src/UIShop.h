@@ -9,7 +9,9 @@ public:
     UIShop();
     ~UIShop();
 
-    Shop* shop_;
+    void setShopID(int id);
+
+    Shop* shop_ = nullptr;
 
     std::vector<int> plan_buy_;
     std::vector<Button*> buttons_;
