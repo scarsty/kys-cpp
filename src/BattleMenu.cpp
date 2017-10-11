@@ -311,3 +311,8 @@ void BattleMagicMenu::dealEvent(BP_Event& e)
         magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
     }
 }
+
+BattleItemMenu::BattleItemMenu()
+{
+    setSelectUser(false);
+}

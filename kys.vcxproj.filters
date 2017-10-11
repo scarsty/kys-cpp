@@ -121,6 +121,9 @@
     <ClCompile Include="src\ShowExp.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\UIShop.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -245,6 +248,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\ShowExp.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UIShop.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

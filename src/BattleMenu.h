@@ -1,6 +1,7 @@
 #pragma once
 #include "Menu.h"
 #include "Head.h"
+#include "UIItem.h"
 
 class BattleScene;
 
@@ -50,6 +51,19 @@ public:
     virtual void pressedOK() override { exitWithResult(0); }
     virtual void pressedCancel() override { magic_ = nullptr; exitWithResult(-1); }
 
+};
+
+
+class BattleItemMenu : public UIItem
+{
+public:
+    BattleItemMenu();
+    virtual ~BattleItemMenu() {}
+private:
+    Role* role_ = nullptr;
+public:
+    void setRole(Role* r) { role_ = r; }
+    Role* getRole() { return role_; }
 };
 
 

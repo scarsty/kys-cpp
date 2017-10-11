@@ -15,7 +15,6 @@
 #include "Util.h"
 #include "ShowRoleDifference.h"
 #include "ShowExp.h"
-#include "UIItem.h"
 #include "Event.h"
 
 BattleScene::BattleScene()
@@ -66,7 +65,7 @@ void BattleScene::draw()
     auto r0 = battle_roles_[0];  //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
-#ifndef _DEBUG0
+#ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -240,7 +239,7 @@ void BattleScene::onEntrance()
             battle_roles_.push_back(r);
             r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
             r->Team = 0;
-            r->Auto = 0;
+            r->Auto = 1;
         }
     }
     //敌方
@@ -822,12 +821,12 @@ void BattleScene::actMedcine(Role* r)
 
 void BattleScene::actUseHiddenWeapon(Role* r)
 {
-    auto ui_item = new UIItem();
-    ui_item->setForceItemType(3);
-    ui_item->setSelectUser(false);
-    ui_item->runAtPosition(300, 0);
+    auto item_menu = new BattleItemMenu();
+    item_menu->setRole(r);
+    item_menu->setForceItemType(3);
+    item_menu->runAtPosition(300, 0);
 
-    auto item = ui_item->getCurrentItem();
+    auto item = item_menu->getCurrentItem();
     if (item)
     {
         calSelectLayer(r, 1, calActionStep(r->HiddenWeapon));
@@ -840,27 +839,27 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             auto r2 = getSelectedRole();
             if (r2)
             {
-                int v = GameUtil::medcine(r, r2);
+                int v = -r->HiddenWeapon - item->AddHP;
                 r2->ShowString = convert::formatString("%+d", v);
-                r2->ShowColor = { 255, 255, 200, 255 };
+                r2->ShowColor = { 255, 20, 20, 255 };
             }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
-            actionAnimation(r, 0, 0);
+            actionAnimation(r, 0, item->HiddenWeaponEffectID);
             showNumberAnimation();
             r->Acted = 1;
         }
     }
-    delete ui_item;
+    delete item_menu;
 }
 
 void BattleScene::actUseDrag(Role* r)
 {
-    auto ui_item = new UIItem();
-    ui_item->setForceItemType(2);
-    ui_item->setSelectUser(false);
-    ui_item->runAtPosition(300, 0);
+    auto item_menu = new BattleItemMenu();
+    item_menu->setForceItemType(2);
+    item_menu->setRole(r);
+    item_menu->runAtPosition(300, 0);
 
-    auto item = ui_item->getCurrentItem();
+    auto item = item_menu->getCurrentItem();
     if (item)
     {
         Role r0 = *r;
@@ -876,7 +875,7 @@ void BattleScene::actUseDrag(Role* r)
         r->Acted = 1;
     }
 
-    delete ui_item;
+    delete item_menu;
 }
 
 //等待，将自己插入到最后一个没行动的人的后面
@@ -1125,6 +1124,9 @@ void BattleScene::poisonEffect(Role* r)
 {
     if (r)
     {
+        //抗毒高者会自动解毒
+        r->Poison -= r->AntiPoison;
+        GameUtil::limit2(r->Poison, 0, MAX_POISON);
         r->HP -= r->Poison / 3;
         //最低扣到1点
         if (r->HP < 1) { r->HP = 1; }
@@ -1168,19 +1170,22 @@ void BattleScene::calExpGot()
             alive_teammate.push_back(r);
         }
     }
+    //还在场的人获得经验
+    for (auto r : alive_teammate)
+    {
+        r->ExpGot += info_->Exp / alive_teammate.size();
+    }
 
     auto show_exp = new ShowExp();
     show_exp->setRoles(alive_teammate);
     show_exp->run();
     delete show_exp;
 
-    //还在场的人获得经验，升级
+    //升级，修炼物品
     auto diff = new ShowRoleDifference();
-
     for (auto r : alive_teammate)
     {
         Role r0 = *r;  //用于比较的状态
-        r->ExpGot += info_->Exp / alive_teammate.size();
 
         auto item = Save::getInstance()->getItem(r->PracticeItem);
 

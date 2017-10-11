@@ -40,8 +40,15 @@ UIItem::~UIItem()
 void UIItem::setForceItemType(int f)
 {
     force_item_type_ = f;
-    title_->setAllChildVisible(false);
-    title_->getChild(f)->setVisible(true);
+    if (f >= 0)
+    {
+        title_->setAllChildVisible(false);
+        title_->getChild(f)->setVisible(true);
+    }
+    else
+    {
+        title_->setAllChildVisible(true);
+    }
 }
 
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
