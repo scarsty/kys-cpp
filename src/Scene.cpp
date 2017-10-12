@@ -1,5 +1,6 @@
 #include "Scene.h"
 #include <queue>
+#include "GameUtil.h"
 
 Scene::Scene()
 {
@@ -223,4 +224,29 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     myPoint->delTree(myPoint);
 }
 
+void Scene::lightScene()
+{
+    for (int i = 10; i <= 0; i--)
+    {
+        auto fill = [&](void*)->void
+        {
+            uint8_t alpha = GameUtil::limit(i * 25, 0, 255);
+            Engine::getInstance()->fillColor({ 0, 0, 0, alpha }, 0, 0, -1, -1);
+        };
+        drawAndPresent(1, fill);
+    }
+}
+
+void Scene::darkScene()
+{
+    for (int i = 0; i <= 10; i++)
+    {
+        auto fill = [&](void*)->void
+        {
+            uint8_t alpha = GameUtil::limit(i * 25, 0, 255);
+            Engine::getInstance()->fillColor({ 0, 0, 0, alpha }, 0, 0, -1, -1);
+        };
+        drawAndPresent(1, fill);
+    }
+}
 

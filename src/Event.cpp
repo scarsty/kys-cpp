@@ -12,6 +12,7 @@
 #include "Random.h"
 #include "BattleScene.h"
 #include "UIShop.h"
+#include "Font.h"
 
 Event Event::event_;
 
@@ -27,7 +28,8 @@ Event::Event()
     menu2_->setPosition(300, 200);
     menu2_->arrange(0, 100, 100, 0);
     text_box_ = new TextBox();
-    text_box_->setPosition(300, 300);
+    text_box_->setPosition(400, 200);
+    text_box_->setTextPosition(-20, 100);
 }
 
 Event::~Event()
@@ -128,6 +130,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             i += 5;
             break;
         case 7:
+            i += 1;
             loop = false;
             break;
             VOID_INSTRUCT_1(8, e, i, changeMainMapMusic);
@@ -252,10 +255,32 @@ void Event::callLeaveEvent(Role* role)
 //原对话指令
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
+    Talk* talk;
     //talkup_->setVisible(true);
-    talk_box_up_->setContent(talk_[talk_id]);
-    talk_box_up_->setHeadID(head_id);
-    talk_box_up_->run(false);
+    if (style % 2 == 0)
+    {
+        talk = talk_box_up_;
+    }
+    else
+    {
+        talk = talk_box_down_;
+    }
+
+    talk->setContent(talk_[talk_id]);
+    talk->setHeadID(head_id);
+    if (style == 2 || style == 3)
+    {
+        talk->setHeadID(-1);
+    }
+    if (style == 0 || style == 5)
+    {
+        talk->setHeadStyle(0);
+    }
+    if (style == 4 || style == 1)
+    {
+        talk->setHeadStyle(1);
+    }
+    talk->run(false);
     //talkup_->setVisible(false);
 }
 
@@ -263,8 +288,8 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(convert::formatString("获得物品%s%d个", Save::getInstance()->getItem(item_id)->Name, count));
-    text_box_->setTexture(TextureManager::getInstance()->loadTexture("item", item_id));
+    text_box_->setText(convert::formatString("获得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setTexture("item", item_id);
     text_box_->run();
 }
 
@@ -296,6 +321,7 @@ bool Event::isUsingItem(int item_id)
     return item_id_ == item_id;
 }
 
+//询问战斗
 bool Event::askBattle()
 {
     menu2_->setText("是否與之過招？");
@@ -467,7 +493,26 @@ void Event::setRoleUsePoison(int role_id, int v)
 
 void Event::subMapViewFromTo(int x0, int y0, int x1, int y1)
 {
-
+    if (subscene_ == nullptr) { return; }
+    int incx = sign(x1 - x0);
+    int incy = sign(y1 - y0);
+    if (incx)
+    {
+        for (int i = x0; i != x1; i += incx)
+        {
+            subscene_->setViewPosition(i, y0);
+            subscene_->drawAndPresent();
+        }
+    }
+    if (incy)
+    {
+        for (int i = y0; i != y1; i += incy)
+        {
+            subscene_->setViewPosition(x1, i);
+            subscene_->drawAndPresent();
+        }
+    }
+    subscene_->setViewPosition(x1, y1);
 }
 
 void Event::add3EventNum(int submap_id, int event_index, int v1, int v2, int v3)
@@ -482,9 +527,33 @@ void Event::add3EventNum(int submap_id, int event_index, int v1, int v2, int v3)
     }
 }
 
-void Event::playAnimation(int event_id, int begin_pic, int end_pic)
+void Event::playAnimation(int event_index, int begin_pic, int end_pic)
 {
-
+    if (subscene_ == nullptr) { return; }
+    if (event_index = -1)
+    {
+        int inc = sign(end_pic - begin_pic);
+        for (int i = begin_pic; i != end_pic; i += inc)
+        {
+            subscene_->forceManPic(i);
+            subscene_->drawAndPresent();
+        }
+        subscene_->forceManPic(end_pic);
+    }
+    else
+    {
+        auto e = subscene_->getMapInfo()->Event(event_index);
+        if (e)
+        {
+            int inc = sign(end_pic - begin_pic);
+            for (int i = begin_pic; i != end_pic; i += inc)
+            {
+                e->setPic(i);
+                subscene_->drawAndPresent();
+            }
+            e->setPic(end_pic);
+        }
+    }
 }
 
 bool Event::checkRoleMorality(int role_id, int low, int high)
@@ -500,10 +569,29 @@ bool Event::checkRoleAttack(int role_id, int low, int high)
 
 void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
-    if (subscene_)
+    if (subscene_ == nullptr) { return; }
+
+    int incx = sign(x1 - x0);
+    int incy = sign(y1 - y0);
+    if (incx)
     {
-        subscene_->setPosition(x1, y1);
+        for (int i = x0; i != x1; i += incx)
+        {
+            subscene_->tryWalk(i, y0);
+            subscene_->setTowards(subscene_->calTowards(x0, y0, i, y0));
+            subscene_->drawAndPresent();
+        }
     }
+    if (incy)
+    {
+        for (int i = y0; i != y1; i += incy)
+        {
+            subscene_->tryWalk(x1, i);
+            subscene_->setTowards(subscene_->calTowards(x1, y0, x1, i));
+            subscene_->drawAndPresent();
+        }
+    }
+    subscene_->setPosition(x1, y1);
 }
 
 bool Event::checkEnoughMoney(int money_count)
@@ -513,7 +601,7 @@ bool Event::checkEnoughMoney(int money_count)
 
 void Event::addItemWithoutHint(int item_id, int count)
 {
-    if (count == 0) { return; }
+    if (item_id < 0 || count == 0) { return; }
     int pos = -1;
     auto save = Save::getInstance();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
@@ -619,26 +707,53 @@ void Event::setTowards(int towards)
 
 void Event::roleAddItem(int role_id, int item_id, int count)
 {
+    if (item_id < 0 || count == 0) { return; }
     auto role = Save::getInstance()->getRole(role_id);
-    if (role)
+    int pos = -1;
+    if (role == nullptr) { return; }
+
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
+        if (role->TakingItem[i] == item_id)
+        {
+            pos = i;
+            break;
+        }
     }
+    if (pos >= 0)
+    {
+        role->TakingItemCount[pos] += count;
+    }
+    else
+    {
+        for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+        {
+            if (role->TakingItem[i] < 0)
+            {
+                pos = i;
+                break;
+            }
+        }
+        role->TakingItem[pos] = item_id;
+        role->TakingItemCount[pos] = count;
+    }
+
+    //整理角色的物品，注意：实际上并没有必要每次都整理
     std::map<int, int> item_count;
-    auto save = Save::getInstance();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        if (save->Items[i].item_id >= 0)
+        if (role->TakingItem[i] >= 0 && role->TakingItemCount[i] > 0)
         {
-            item_count[save->Items[i].item_id] += save->Items[i].count;
+            item_count[role->TakingItem[i]] += role->TakingItemCount[i];
         }
-        save->Items[i].item_id = -1;
-        save->Items[i].count = 0;
+        role->TakingItem[i] = -1;
+        role->TakingItemCount[i] = 0;
     }
     int k = 0;
     for (auto i : item_count)
     {
-        save->Items[k].item_id = i.first;
-        save->Items[k].count = i.second;
+        role->TakingItem[k] = i.first;
+        role->TakingItemCount[k] = i.second;
         k++;
     }
 }
@@ -657,7 +772,41 @@ bool Event::checkFemaleInTeam()
 
 void Event::play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2)
 {
+    auto e1 = subscene_->getMapInfo()->Event(event_index1);
+    auto e2 = subscene_->getMapInfo()->Event(event_index2);
+    if (e1 && e2)
+    {
+        int inc1 = sign(end_pic1 - begin_pic1);
+        for (int i = 0; i != end_pic1 - begin_pic1; i += inc1)
+        {
+            e1->setPic(begin_pic1 + i);
+            e2->setPic(begin_pic2 + i);
+            subscene_->drawAndPresent();
+        }
+        e1->setPic(end_pic1);
+        e2->setPic(begin_pic2 + end_pic1 - begin_pic1);
+    }
+}
 
+void Event::play3Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int event_index3, int begin_pic3)
+{
+    auto e1 = subscene_->getMapInfo()->Event(event_index1);
+    auto e2 = subscene_->getMapInfo()->Event(event_index2);
+    auto e3 = subscene_->getMapInfo()->Event(event_index2);
+    if (e1 && e2 && e3)
+    {
+        int inc1 = sign(end_pic1 - begin_pic1);
+        for (int i = 0; i != end_pic1 - begin_pic1; i += inc1)
+        {
+            e1->setPic(begin_pic1 + i);
+            e2->setPic(begin_pic2 + i);
+            e3->setPic(begin_pic3 + i);
+            subscene_->drawAndPresent();
+        }
+        e1->setPic(end_pic1);
+        e2->setPic(begin_pic2 + end_pic1 - begin_pic1);
+        e3->setPic(begin_pic3 + end_pic1 - begin_pic1);
+    }
 }
 
 void Event::addSpeed(int role_id, int value)
@@ -756,9 +905,11 @@ void Event::addFame(int value)
 
 void Event::breakStoneGate()
 {
-
+    playAnimation(-1, 3832 * 2, 3844 * 2);
+    play3Amination(2, 3845 * 2, 3873 * 2, 3, 3874 * 2, 4, 3903 * 2);
 }
 
+//武林大会
 void Event::fightForTop()
 {
     std::vector<int> heads =
@@ -771,11 +922,11 @@ void Event::fightForTop()
     {
         int p = RandomClassical::rand(2);
         oldTalk(2854 + i * 2 + p, heads[i * 2 + p], RandomClassical::rand(2) * 4 + RandomClassical::rand(2));
-        //if not (Battle(102 + i * 2 + p, 0)) then
-        //    begin
-        //    instruct_15;
-        //break;
-        //end;
+        if (!tryBattle(102 + i * 2 + p, 0))
+        {
+            dead();
+            return;
+        }
         darkScence();
         lightScence();
         if (i % 3 == 2)
@@ -796,6 +947,7 @@ void Event::fightForTop()
     addItem(0x8F, 1);
 }
 
+//所有人离队
 void Event::allLeave()
 {
     for (int i = 1; i < TEAMMATE_COUNT; i++)
@@ -868,7 +1020,7 @@ void Event::arrangeBag()
     auto save = Save::getInstance();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        if (save->Items[i].item_id >= 0)
+        if (save->Items[i].item_id >= 0 && save->Items[i].count > 0)
         {
             item_count[save->Items[i].item_id] += save->Items[i].count;
         }
@@ -884,114 +1036,82 @@ void Event::arrangeBag()
     }
 }
 
+//50扩展指令
+//虽然有一定程度的支持，但是这不表示推荐使用
 void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
 {
-    int nIndex = 0, nLen = 0, nOffset = 0, Result = 0;
-    char* pChar = nullptr, *pChar1 = nullptr;
-    char* pString = new char(1000);
-
-    auto i1 = 0;
-    auto i2 = 0;
-
+    int index = 0, len = 0, offset = 0;
+    char* char_ptr = nullptr, *char_ptr1 = nullptr;
+    SAVE_INT* save_int_ptr = nullptr;
+    int i1 = 0;
+    int i2 = 0;
     std::string str;
+    std::vector<std::string> strs;
+    MenuText* menu = nullptr;
+
+    auto save = Save::getInstance();
 
     switch (code)
     {
-    case 0:
-        //赋值
+    case 0: //赋值
         x50[e1] = e2;
         break;
-    case 1: //Give a value to one member in parameter group.
-        nIndex = e3 + e_GetValue(0, e1, e4);
-        //nIndex = CutRegion(nIndex);
-        x50[nIndex] = e_GetValue(1, e1, e4);
-        if (1 == e2)
-        {
-            x50[nIndex] = x50[nIndex] & 0xff;
-        }
+    case 1: //数组赋值，e2不为0表示仅要一个字节
+        index = e3 + e_GetValue(0, e1, e4);
+        x50[index] = e_GetValue(1, e1, e4);
+        if (e2) { x50[index] = x50[index] & 0xff; }
         break;
-    case 2: //Get the value of one member in parameter group.
-        nIndex = e3 + e_GetValue(0, e1, e4);
-        //nIndex = CutRegion(nIndex);
-        x50[e5] = x50[nIndex];
-        if (1 == e2)
-        {
-            x50[nIndex] = x50[nIndex] & 0xff;
-        }
+    case 2: //数组取值
+        index = e3 + e_GetValue(0, e1, e4);
+        x50[e5] = x50[index];
+        if (e2) { x50[index] = x50[index] & 0xff; }
         break;
-    case 3:
-        nIndex = e_GetValue(0, e1, e5);
+    case 3: //基本运算
+        index = e_GetValue(0, e1, e5);
         switch (e2)
         {
         case 0:
-            x50[e3] = x50[e4] + nIndex;
+            x50[e3] = x50[e4] + index;
             break;
         case 1:
-            x50[e3] = x50[e4] - nIndex;
+            x50[e3] = x50[e4] - index;
             break;
         case 2:
-            x50[e3] = x50[e4] * nIndex;
+            x50[e3] = x50[e4] * index;
             break;
         case 3:
-            if (nIndex != 0)
-            {
-                x50[e3] = x50[e4] / nIndex;
-            }
+            if (index != 0) { x50[e3] = x50[e4] / index; }
             break;
         case 4:
-            if (nIndex != 0)
-            {
-                x50[e3] = x50[e4] % nIndex;
-            }
+            if (index != 0) { x50[e3] = x50[e4] % index; }
             break;
         case 5:
-            if (nIndex != 0)
-            {
-                x50[e3] = Uint16(x50[e4]) / nIndex;
-            }
+            if (index != 0) { x50[e3] = SAVE_UINT(x50[e4]) / index; }
             break;
         }
         break;
-    case 4:
+    case 4: //判断变量，改写跳转标记
         x50[0x7000] = 0;
-        nIndex = e_GetValue(0, e1, e4);
+        index = e_GetValue(0, e1, e4);
         switch (e2)
         {
         case 0:
-            if (!(x50[e3] < nIndex))
-            {
-                x50[0x7000] = 1;
-            }
+            if (!(x50[e3] < index)) { x50[0x7000] = 1; }
             break;
         case 1:
-            if (!(x50[e3] <= nIndex))
-            {
-                x50[0x7000] = 1;
-            }
+            if (!(x50[e3] <= index)) { x50[0x7000] = 1; }
             break;
         case 2:
-            if (!(x50[e3] == nIndex))
-            {
-                x50[0x7000] = 1;
-            }
+            if (!(x50[e3] == index)) { x50[0x7000] = 1; }
             break;
         case 3:
-            if (!(x50[e3] != nIndex))
-            {
-                x50[0x7000] = 1;
-            }
+            if (!(x50[e3] != index)) { x50[0x7000] = 1; }
             break;
         case 4:
-            if (!(x50[e3] >= nIndex))
-            {
-                x50[0x7000] = 1;
-            }
+            if (!(x50[e3] >= index)) { x50[0x7000] = 1; }
             break;
         case 5:
-            if (!(x50[e3] > nIndex))
-            {
-                x50[0x7000] = 1;
-            }
+            if (!(x50[e3] > index)) { x50[0x7000] = 1; }
             break;
         case 6:
             x50[0x7000] = 0;
@@ -1000,650 +1120,285 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             x50[0x7000] = 1;
         }
         break;
-    case 5: //Zero all parameters.
+    case 5: //全部清零
         memset(x50, 0, sizeof(x50));
         break;
-    case 6:
+    case 6: break;
+    case 7: break;
+    case 8: //读对话
+        index = e_GetValue(0, e1, e2);
+        char_ptr = (char*)&x50[e3];
+        sprintf(char_ptr, "%s", talk_[index].c_str());
         break;
-    case 7:
-        break;
-    case 8: //Read talk to string.
-        nIndex = e_GetValue(0, e1, e2);
-        nLen = 0;
-        if (0 == nIndex)
-        {
-            nOffset = 0;
-            nLen = offset[0];
-        }
-        else
-        {
-            nOffset = offset[nIndex - 1];
-            nLen = offset[nIndex] - nOffset;
-        }
-        memcpy(&offset[nOffset], &x50[e3], nLen);
-        pChar = (char*)&x50[e3];
-        for (int i = 0; i < nLen - 2; i++)
-        {
-            *pChar = char(*pChar ^ 0xff);
-            pChar++;
-        }
-        *pChar = char(0);
-        break;
-    case 9: //Format the string.
+    case 9: //格式化字串
         e4 = e_GetValue(0, e1, e4);
-        pChar = (char*)&x50[e2];
-        pChar1 = (char*)&x50[e3];
-        snprintf(pString, 1000, "%s", e4); // 这里的整体代码写的都有些问题，主要是用了字符串数组之后，没有保护越界，或者获取字符串数组长度使用strlen 的时候必须要保证是\0 结尾
-        for (int i = 0; i < strlen(pString); i++)
+        char_ptr = (char*)&x50[e2];
+        char_ptr1 = (char*)&x50[e3];
+        sprintf(char_ptr, char_ptr1, e4);
+        break;
+    case 10: //字串长度
+        x50[e2] = strlen((char*)&x50[e1]);  //感觉这样有问题，不管了
+        break;
+    case 11: //合并字串
+        char_ptr = (char*)&x50[e1];
+        char_ptr1 = (char*)&x50[e2];
+        sprintf(char_ptr, "%s%s", char_ptr, char_ptr1);
+        break;
+    case 12:  //制造一个是空格的字串
+        //Note: here the width of one 'space' is the same as one Chinese character.
+        e3 = e_GetValue(0, e1, e3);
+        char_ptr = (char*)&x50[e2];
+        for (int i = 0; i < e3 / 2; i++)
         {
-            *pChar = pString[i + 1];
-            pChar++;
+            *char_ptr = char(0x20);
+            char_ptr++;
+        }
+        *char_ptr = char(0);
+        break;
+    case 13: break;
+    case 14: break;
+    case 15: break;
+    case 16: //写存档数据
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        save_int_ptr = nullptr;
+        switch (e2)
+        {
+        case 0: save_int_ptr = (SAVE_INT*)((char*)(save->getRole(e3)) + e4); break;
+        case 1: save_int_ptr = (SAVE_INT*)((char*)(save->getItem(e3)) + e4); break;
+        case 2: save_int_ptr = (SAVE_INT*)((char*)(save->getSubMapInfo(e3)) + e4); break;
+        case 3: save_int_ptr = (SAVE_INT*)((char*)(save->getMagic(e3)) + e4); break;
+        case 4: save_int_ptr = (SAVE_INT*)((char*)(save->getShop(e3)) + e4); break;
+        }
+        if (save_int_ptr) { *save_int_ptr = e5; }
+        break;
+    case 17: //读存档数据
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        switch (e2)
+        {
+        case 0: x50[e5] = *(SAVE_INT*)((char*)(save->getRole(e3)) + e4); break;
+        case 1: x50[e5] = *(SAVE_INT*)((char*)(save->getItem(e3)) + e4); break;
+        case 2: x50[e5] = *(SAVE_INT*)((char*)(save->getSubMapInfo(e3)) + e4); break;
+        case 3: x50[e5] = *(SAVE_INT*)((char*)(save->getMagic(e3)) + e4); break;
+        case 4: x50[e5] = *(SAVE_INT*)((char*)(save->getShop(e3)) + e4); break;
         }
         break;
-    case 10: //Get the length of a string.
-        x50[e2] = strlen((char*)&x50[e1]);  // 感觉这样有问题把
+    case 18: //写队伍数据
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        save->Team[e2] = e3;
         break;
-        /*case 11: // Combine 2 strings.
-            pChar = (char*)&x50[e1];
-            pChar1 = (char*)&x50[e2];
-            for (int i = 1; i < strlen(pChar1); i++)
+    case 19: //读队伍数据
+        e2 = e_GetValue(0, e1, e2);
+        x50[e3] = save->Team[e2];
+        break;
+    case 20:  //获取物品个数
+        e2 = e_GetValue(0, e1, e2);
+        x50[e3] = save->getItemCountInBag(e2);
+        break;
+    case 21: //写场景事件数据
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        *(SAVE_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4) = e5;
+        break;
+    case 22: //读场景事件数据
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        x50[e5] = *(SAVE_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4);
+        break;
+    case 23:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        e6 = e_GetValue(4, e1, e6);
+        save->getSubMapInfo(e2)->LayerData(e3, e4, e5) = e6;
+        break;
+    case 24:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        x50[e6] = save->getSubMapInfo(e2)->LayerData(e3, e4, e5);
+        break;
+    case 25: //强行写入内存地址，不要了，自己看着办
+        e5 = e_GetValue(0, e1, e5);
+        e6 = e_GetValue(1, e1, e6);
+        break;
+    case 26: //读内存地址，同上
+        e6 = e_GetValue(0, e1, e6);
+        break;
+    case 27: //读名字到变量
+        e3 = e_GetValue(0, e1, e3);
+        char_ptr = (char*)&x50[e4];
+        switch (e2)
+        {
+        case 0: sprintf(char_ptr, "%s", save->getRole(e3)->Name); break;
+        case 1: sprintf(char_ptr, "%s", save->getItem(e3)->Name); break;
+        case 2: sprintf(char_ptr, "%s", save->getSubMapInfo(e3)->Name); break;
+        case 3: sprintf(char_ptr, "%s", save->getMagic(e3)->Name); break;
+        }
+        break;
+    case 28: //28~31为战斗指令，不要了
+        break;
+    case 29: break;
+    case 30: break;
+    case 31: break;
+    case 32: //修改下一条指令
+        e3 = e_GetValue(0, e1, e3);
+        *(code_ptr + e3) = x50[e2];
+        break;
+    case 33: //画一个字串
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        char_ptr = (char*)&x50[e2];
+        Font::getInstance()->draw(char_ptr, 20, e3, e4/*BP_Color(e5)*/);
+        break;
+    case 34: //画一个背景框
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, e2, e3, e4, e5);
+        break;
+    case 35: //暂停等待按键
+        text_box_->setText("");
+        text_box_->setTexture("", 0);
+        x50[e1] = text_box_->run();
+        switch (x50[e1])
+        {
+        case SDLK_LEFT: x50[e1] = 154; break;
+        case SDLK_RIGHT: x50[e1] = 156; break;
+        case SDLK_UP: x50[e1] = 158; break;
+        case SDLK_DOWN: x50[e1] = 152; break;
+        }
+        break;
+    case 36: //画带背景框的字串等待按键，如果按下的是y设置跳转指示为0
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        char_ptr = (char*)&x50[e2];
+        talk_box_up_->setContent(char_ptr);
+        talk_box_up_->setHeadID(-1);
+        talk_box_up_->setHeadStyle(2);
+        x50[0x7000] = talk_box_up_->run();
+        break;
+    case 37: //延时
+        Engine::getInstance()->delay(e2 = e_GetValue(0, e1, e2));
+        break;
+    case 38: //随机数
+        e2 = e_GetValue(0, e1, e2);
+        x50[e3] = RandomClassical::rand(e2);
+        break;
+    case 39:
+    case 40: //菜单
+        e2 = e_GetValue(0, e1, e2);
+        e5 = e_GetValue(1, e1, e5);
+        e6 = e_GetValue(2, e1, e6);
+        menu = new MenuText();
+        for (int i = 0; i < e2 - 1; i++)
+        {
+            strs.push_back((char*)x50[x50[e3 + i]]);
+        }
+        menu->setStrings(strs);
+        x50[e4] = menu->run();
+        delete menu;
+        break;
+    case 41: //画一张图
+        e3 = e_GetValue(0, e1, e3);
+        e4 = e_GetValue(1, e1, e4);
+        e5 = e_GetValue(2, e1, e5);
+        switch (e2)
+        {
+        case 0: TextureManager::getInstance()->renderTexture("mmap", e5, e3, e4); break;
+        case 1: TextureManager::getInstance()->renderTexture("head", e5, e3, e4); break;
+        }
+        break;
+    case 42: //改变主地图坐标
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(0, e1, e3);
+        MainScene::getIntance()->setManPosition(e2, e3);
+        break;
+    case 43: //调用另外事件
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        e6 = e_GetValue(4, e1, e6);
+        x50[0x7100] = e3;
+        x50[0x77101] = e4;
+        x50[0x77102] = e5;
+        x50[0x77103] = e6;
+        callEvent(e2);
+        break;
+    case 44: //44~47为战斗指令，不要了
+        break;
+    case 45: break;
+    case 46:
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        e6 = e_GetValue(4, e1, e6);
+        for (int i1 = e2; i1 < e2 + e4 - 1; i1++)
+        {
+            for (int i2 = e3; i1 < e3 + e5 - 1; i2++)
             {
-                *pChar = *(pChar1 + i);
-                pChar++;
+                //bfield[4, i1, i2] : = e6;
             }
-
-            if (1 == strlen(pChar1) % 2)
-            {
-                *pChar = char(0x20);
-                pChar++;
-            }
-            pChar1 = (char*)&x50[e3];
-            for (int i = 1; i < strlen(pChar1); i++)
-            {
-                *pChar = *(pChar1 + i);
-                pChar++;
-            }
-
-            break;
-        case 12:  //Build a string with spaces.
-            //Note: here the width of one 'space' is the same as one Chinese charactor.
-            e3 = e_GetValue(0, e1, e3);
-            pChar = (char*)&x50[e2];
-            for (int i = 0; i < e3 / 2; i++)
-            {
-                *pChar = char(0x20);
-                pChar++;
-            }
-            *pChar = char(0);
-            break;
-        case 13: break;
-        case 14: break;
-        case 15: break;
-        case 16: //Write R data.
-            e3 = e_GetValue(0, e1, e3);
-            e4 = e_GetValue(1, e1, e4);
-            e5 = e_GetValue(2, e1, e5);
-            switch (e2) // 注释的都需要确认一下
-            {
-            case 0:
-                //0 : Rrole[e3].Data[e4 div 2] : = e5;
-                //1: Ritem[e3].Data[e4 div 2] : = e5;
-                //2: Rscence[e3].Data[e4 div 2] : = e5;
-                //3: Rmagic[e3].Data[e4 div 2] : = e5;
-                //4: Rshop[e3].Data[e4 div 2] : = e5;
-            }
-            break;
-        case 17:
-            e3 = e_GetValue(0, e1, e3);
-            e4 = e_GetValue(1, e1, e4);
-            //case e2 of
-            //  0: x50[e5] : = Rrole[e3].Data[e4 div 2];
-            //  1: x50[e5] : = Ritem[e3].Data[e4 div 2];
-            //  2: x50[e5] : = Rscence[e3].Data[e4 div 2];
-            //  3: x50[e5] : = Rmagic[e3].Data[e4 div 2];
-            //  4: x50[e5] : = Rshop[e3].Data[e4 div 2];
-            //  end;
-            break;
-        case 18:
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            //TeamList[e2] := e3;
-            break;
-        case 19: //Read team data.
-            e2 = e_GetValue(0, e1, e2);
-            //x50[e3] : = TeamList[e2];
-            break;
-        case 20:  //Get the amount of one item.
-            e2 = e_GetValue(0, e1, e2);
-            x50[e3] = 0;
-            //for i : = 0 to MAX_ITEM_AMOUNT - 1 do
-            //  if RItemList[i].Number = e2 then
-            //      begin
-            //      x50[e3] : = RItemList[i].Amount;
-            break;
-        case 21: //Write event in scence.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            //Ddata[e2, e3, e4] : = e5;
-            break;
-        case 22:
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            //x50[e5] : = Ddata[e2, e3, e4];
-            break;
-        case 23:
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            e6 = e_GetValue(4, e1, e6);
-            //Sdata[e2, e3, e5, e4] : = e6;
-            break;
-        case 24:
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            //x50[e6] : = Sdata[e2, e3, e5, e4];
-            break;
-        case 25:
-            e5 = e_GetValue(0, e1, e5);
-            e6 = e_GetValue(1, e1, e6);
-            nIndex = Uint16(e3) + Uint16(e4) * 0x10000 + Uint16(e6);
-            auto i = Uint16(e3) + Uint16(e4) * 0x10000;
-            switch (nIndex)
-            {
-            case 0x1D295A:
-                //sx = e5;
-                break;
-            case 0x1D295C:
-                //Sy := e5;
-                break;
-            }
-            switch (i)
-            {
-            case 0x18FE2C:
-                if (e6 % 4 <= 1)
-                {
-                    //Ritemlist[e6 div 4].Number : = e5
-                }
-                else
-                {
-                    //Ritemlist[e6 div 4].Amount : = e5;
-                }
-                break;
-            case 0x051C83:
-                //puint16(@Acol[e6]) ^ : = e5;
-                //puint16(@Acol1[e6]) ^ : = e5;
-                //puint16(@Acol2[e6]) ^ : = e5;
-                break;
-            case 0x01D295E:
-                //CurScence: = e5;
-                break;
-            }
-            //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h); 应该是不要了
-            break;
-        case 26:
-            e6 = e_GetValue(0, e1, e6);
-            nIndex = nIndex = Uint16(e3) + Uint16(e4) * 0x10000 + Uint16(e6);
-            auto i = Uint16(e3) + Uint16(e4) * 0x10000;
-            switch (nIndex)
-            {
-            case 0x1D295E:
-                //x50[e5] := CurScence;
-                break;
-            case 0x1D295A:
-                //x50[e5] := Sx;
-                break;
-            case 0x1D295C:
-                //x50[e5] := Sy;
-                break;
-            case 0x1C0B88:
-                //x50[e5] := Mx;
-                break;
-            case 0x1C0B8C:
-                //x50[e5] := My;
-                break;
-            case 0x05B53A:
-                x50[e5] = 1;
-                break;
-            case 0x0544F2:
-                //x50[e5] := Sface;
-                break;
-            case 0x1E6ED6:
-                x50[e5] = x50[28100];
-                break;
-            case 0x556DA:
-                //x50[e5] := Ax;
-                break;
-            case 0x556DC:
-                //x50[e5] := Ay;
-                break;
-            case 0x1C0B90:
-                x50[e5] = SDL_GetTicks() / 55 % 65536;
-                break;
-            }
-            if ((nIndex - 0x18FE2C >= 0) && (nIndex - 0x18FE2C < 800))
-            {
-                i = nIndex - 0x18FE2C;
-                if (i % 4 <= 1)
-                {
-                    //x50[e5] : = Ritemlist[i div 4].Number
-                }
-                else
-                {
-                    //x50[e5] : = Ritemlist[i div 4].Amount;
-                }
-                if ((nIndex >= 0x1E4A04) && (nIndex < 0x1E6A04))
-                {
-                    i = (nIndex - 0x1E4A04) / 2;
-                    //x50[e5]  = Bfield[2, i mod 64, i div 64];
-                }
-            }
-
-            break;
-        case 27: //Read name to string.
-            e3 = e_GetValue(0, e1, e3);
-            pChar = (char*)&x50[e4];
-            switch (e2)
-            {
-            case 0:
-                //pChar1: = @Rrole[e3].Name;
-                break;
-            case 1:
-                //pChar1: = @Ritem[e3].Name;
-                break;
-            case 2:
-                //pChar1: = @Rscence[e3].Name;
-                break;
-            case 3:
-                //pChar1: = @Rmagic[e3].Name;
-                break;
-            }
-
-            int nlen = 10 < strlen(pChar1) ? 10 : strlen(pChar1);
-
-            for (size_t i = 0; i < nlen - 1; i++)
-            {
-                *pChar = *(pChar1 + i);
-                pChar++;
-            }
-
-            if (1 == nlen % 2)
-            {
-                *pChar = char(0x20);
-                pChar++;
-            }
-            *pChar = char(0);
-
-
-            break;
-        case 28: //Get the battle number.
-            x50[e1] = x50[28005];
-            break;
-        case 29: //Select aim.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            if (0 == e5)
-            {
-                //selectAim(e2, e3);
-            }
-            //x50[e4] : = bfield[2, Ax, Ay];
-            break;
-        case 30: //Read battle properties.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            //x50[e4]  = Brole[e2].Data[e3 div 2];
-            break;
-        case 31: //Write battle properties.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            //Brole[e2].Data[e3 div 2] : = e4;
-            break;
-        case 32: //Modify next instruct.
-            e3 = e_GetValue(0, e1, e3);
-            Result = 655360 * (e3 + 1) + x50[e2];
-            break;
-        case 33: //Draw a string.
-            e3 = e_GetValue(0, e1, e3);
-            e4 = e_GetValue(1, e1, e4);
-            e5 = e_GetValue(2, e1, e5);
-            int i = 0;
-            nIndex = 0;
-
-            pChar = (char*)&x50[e2];
-            pChar1 = pChar;
-            while (*pChar > 0)
-            {
-                if (0x2A == *pChar)
-                {
-                    *pChar = char(0);
-                    //DrawBig5ShadowText(screen, p1, e3 - 2, e4 + 22 * i - 3, ColColor(e5 and $FF),ColColor((e5 and $FF00) shl 8));
-                    i++;
-                    pChar1++;
-                }
-                pChar++;
-            }
-            //DrawBig5ShadowText(screen, p1, e3 - 2, e4 + 22 * i - 3, ColColor(e5 and $FF), ColColor((e5 and $FF00) shl 8));
-            //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h);
-            break;
-        case 34: //Draw a rectangle as background.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            //DrawRectangle(screen, e2, e3, e4, e5, 0, ColColor($FF), 50);
-            //SDL_UpdateRect2(screen,e1,e2,e3+1,e4+1);
-            break;
-        case 35: // Pause and wait a key.
-            //auto i = WaitAnyKey;
-            x50[e1] = i;
-            switch (i)
-            {
-            case SDLK_LEFT:
-                x50[e1] = 154;
-                break;
-            case SDLK_RIGHT:
-                x50[e1] = 156;
-                break;
-            case SDLK_UP:
-                x50[e1] = 158;
-                break;
-            case SDLK_DOWN:
-                x50[e1] = 152;
-                break;
-            }
-            break;
-        case 36: //Draw a string with background then pause, if the key pressed is 'Y' then jump=0.
-            e3 = e_GetValue(0, e1, e3);
-            e4 = e_GetValue(1, e1, e4);
-            e5 = e_GetValue(2, e1, e5);
-            pChar = (char*)&x50[e2];
-            nIndex = 0;
-            e3 = abs(e3);
-
-            while (*pChar > 0)
-            {
-                if (*pChar == 0x2A)
-                {
-                    if (nIndex > i2)
-                    {
-                        i2 = nIndex;
-                    }
-                    nIndex = 0;
-                    i1++;
-                }
-                if (*pChar == 0x20)
-                {
-                    nIndex++;
-                }
-                pChar++;
-                nIndex++;
-            }
-
-            if (nIndex > i2)
-            {
-                i2 = nIndex;
-            }
-            pChar--;
-            if (i1 == 0)
-            {
-                i1 = 1;
-            }
-            if (*pChar == 0x2A)
-            {
-                i1--;
-            }
-            //DrawRectangle(screen, e3, e4, i2 * 10 + 25, i1 * 22 + 5, 0, ColColor(255), 50);
-            pChar = (char*)&x50[e2];
-            pChar1 = pChar;
-            i = 0;
-
-            while (*pChar > 0)
-            {
-                if (*pChar == 0x2A)
-                {
-                    *pChar = char(0);
-                    //DrawBig5ShadowText(screen, p1, e3 + 3, e4 + 22 * i + 2, ColColor(e5 and $FF),ColColor((e5 and $FF00) shl 8));
-                    i++;
-                    pChar1 = pChar + 1;
-                }
-                pChar++;
-            }
-
-            //DrawBig5ShadowText(screen, p1, e3 + 3, e4 + 22 * i + 2, ColColor(e5 and $FF), ColColor((e5 and $FF00) shl 8));
-            //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h);
-
-            //i = WaitAnyKey;
-            if (i == SDLK_y)
-            {
-                x50[0x7000] = 0;
-            }
-            else
-            {
-                x50[0x7000] = 1;
-            }
-
-
-            break;
-        case 37: //Delay.
-            e2 = e_GetValue(0, e1, e2);
-            SDL_Delay(e2);
-            break;
-        case 38: //Get a number randomly.
-            e2 = e_GetValue(0, e1, e2);
-            //default_random_engine e;
-            //uniform_int_distribution<unsigned> u(0, e2);
-            //x50[e3] = u(e);
-            break;
-        case 39: //Show a menu to select.
-            e2 = e_GetValue(0, e1, e2);
-            e5 = e_GetValue(1, e1, e5);
-            e6 = e_GetValue(2, e1, e6);
-            //setlength(menuString, e2);
-            //setlength(menuEngString, 0);
-            nIndex = 0;
-            for (int i = 0; i < e2 - 1; i++)
-            {
-                //menuString[i] : = Big5ToUnicode(@x50[x50[e3 + i]]);
-                auto i1 = strlen((char*)&x50[x50[e3 + i]]);
-                if (i1 > nIndex)
-                {
-                    nIndex = i1;
-                }
-                //x50[e4] := CommonMenu(e5, e6, t1 * 10 + 5, e2 - 1, menuString) + 1;
-            }
-            break;
-        case 40: // Show a scroll menu to select.
-            e2 = e_GetValue(0, e1, e2);
-            e5 = e_GetValue(1, e1, e5);
-            e6 = e_GetValue(2, e1, e6);
-            //setlength(menuString, e2);
-            //setlength(menuEngString, 0);
-            auto i2 = 0;
-            for (int i = 0; i < e2 - 1; i++)
-            {
-                //menuString[i] : = Big5ToUnicode(@x50[x50[e3 + i]]);
-                auto i1 = strlen((char*)&x50[x50[e3 + i]]);
-                if (i1 > i2)
-                {
-                    i2 = i1;
-                }
-            }
-            nIndex = (e1 << 8) & 0xff;
-            if (nIndex == 0)
-            {
-                nIndex = 5;
-            }
-
-            //  x50[e4] : = CommonScrollMenu(e5, e6, i2 * 10 + 5, e2 - 1, t1, menuString) + 1;
-            break;
-        case 41: //Draw a picture.
-            e3 = e_GetValue(0, e1, e3);
-            e4 = e_GetValue(1, e1, e4);
-            e5 = e_GetValue(2, e1, e5);
-            switch (e2)
-            {
-            case 0:
-                //if (where < > 1) or ((ModVersion = 22) and (CurEvent = -1)) then
-                //  DrawMPic(e5 div 2, e3, e4)
-                //else
-                //  DrawSPic(e5 div 2, e3, e4, 0, 0, screen.w, screen.h);
-                break;
-            case 1:
-                //DrawHeadPic(e5, e3, e4);
-                break;
-            case 2:
-                //str: = AppPath + 'pic/' + IntToStr(e5) + '.png';
-                //display_img(@str[1], e3, e4);
-                break;
-            }
-            //SDL_UpdateRect2(screen, 0, 0, screen.w, screen.h);
-            break;
-        case 42: //Change the poistion on world map.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(0, e1, e3);
-            //Mx: = e3;
-            //My: = e2;
-            break;
-        case 43: //Call another event.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            e6 = e_GetValue(4, e1, e6);
-            x50[0x7100] = e3;
-            x50[0x77101] = e4;
-            x50[0x77102] = e5;
-            x50[0x77103] = e6;
-            if (e2 == 202) // 得到物品
-            {
-                if (e5 == 0)
-                {
-                    instruct_2(e3, e4);
-                }
-                else
-                {
-                    instruct_32(e3, e4);
-                }
-            }
-            else if (e2 == 201) //新对话
-            {
-                //NewTalk(e3, e4, e5, e6 mod 100, (e6 mod 100) div 10, e6 div 100, 0)
-            }
-            else if (e2 == 999)// && MODVersion == 62)
-            {
-                //CurScence: = e3;
-                //Sx: = e5;
-                //Sy: = e4;
-                //Cx: = Sx;
-                //Cy: = Sy;
-                //instruct_14;
-                //InitialScence;
-                //DrawScence;
-                //ShowScenceName(CurScence);
-                //CheckEvent3;
-            }
-            else if (e2 == 176)// && MODVersion == 22) // 菠萝三国输入数字
-            {
-                //x50[10032]  = EnterNumber(0, 32767, CENTER_X, CENTER_Y - 100);
-                x50[0x7000] = 0;
-                //Redraw;
-            }
-            else
-            {
-                callEvent(e2);
-            }
-
-            break;
-        case 44: // Play amination.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            //PlayActionAmination(e2, e3);
-            //PlayMagicAmination(e2, e4);
-            break;
-        case 45: //Show values.
-            e2 = e_GetValue(0, e1, e2);
-            //ShowHurtValue(e2);
-            break;
-        case 46: //Set effect layer.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            e6 = e_GetValue(4, e1, e6);
-            for (int i1 = e2; i1 < e2 + e4 - 1; i1++)
-            {
-                for (int i2 = e3; i1 < e3 + e5 - 1; i2++)
-                {
-                    //bfield[4, i1, i2] : = e6;
-                }
-            }
-            break;
-        case 47: //Here no need to re-set the pic.
-            break;
-        case 48: //Show some parameters.
-            str = "";
-            char c[100], s[100];
-
-            for (int i = e1; i < e1 + e2 - 1; i++)
-            {
-                sprintf(c, "%d", i);
-                sprintf(s, "%d", x50[i]);
-                str = str + "x" + c + "=" + s + char(13) + char(10);
-                //if FULLSCREEN = 0 then
-                //  messagebox(0, @str[1], 'KYS Windows', MB_OK);
-            }
-            break;
-        case 49: //In PE files, you can't call any procedure as your wish.
-            break;
-        case 50: //Enter name for items, magics and roles.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            e5 = e_GetValue(3, e1, e5);
-            switch (e2)
-            {
-                //0: p: = @Rrole[e3].Name[0];
-                //1: p: = @Ritem[e3].Name[0];
-                //2: p: = @Rmagic[e3].Name[0];
-                //3: p: = @Rscence[e3].Name[0];
-            }
-            str = "請輸入名字：";
-            pChar1 = (char*)&str[1];
-            auto nlen = e5 < strlen(pChar1) ? e5 : strlen(pChar1);
-            for (int i = 0; i < nlen - 1; i++)
-            {
-                *(pChar + i) = *(pChar1 + i);
-            }
-
-            break;
-        case 51: break;
-        case 52: //Judge someone grasp some magic.
-            e2 = e_GetValue(0, e1, e2);
-            e3 = e_GetValue(1, e1, e3);
-            e4 = e_GetValue(2, e1, e4);
-            x50[0x7000] = 1;
-
-            //if (HaveMagic(e2, e3, e4) = True) then
-            //  x50[$7000] : = 0;
-            break;
-        case 53: break;
-        case 54: break;
-        case 55: break;
-        case 56: break;
-        case 57: break;
-        case 58: break;
-        case 59: break;
-        case 60: break;
-
-        default:
-            break;*/
+        }
+        break;
+    case 47: break;
+    case 48: //自己调试吧，懒得管你
+        for (int i = e1; i < e1 + e2 - 1; i++)
+        {
+            printf("x50[%d]=%d\n", i, x50[i]);
+        }
+        break;
+    case 49: break;
+    case 50: //输入名字，删除
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        e5 = e_GetValue(3, e1, e5);
+        switch (e2)
+        {
+            //0: p: = @Rrole[e3].Name[0];
+            //1: p: = @Ritem[e3].Name[0];
+            //2: p: = @Rmagic[e3].Name[0];
+            //3: p: = @Rscence[e3].Name[0];
+        }
+        str = "請輸入名字：";
+        char_ptr1 = (char*)&str[1];
+        auto nlen = e5 < strlen(char_ptr1) ? e5 : strlen(char_ptr1);
+        for (int i = 0; i < nlen - 1; i++)
+        {
+            *(char_ptr + i) = *(char_ptr1 + i);
+        }
+        break;
+    case 51: break;
+    case 52: //判断某人是否已掌握某武学等级
+        e2 = e_GetValue(0, e1, e2);
+        e3 = e_GetValue(1, e1, e3);
+        e4 = e_GetValue(2, e1, e4);
+        x50[0x7000] = 1;
+        if (save->getRole(e2)->getMagicLevelIndex(e3) + 1 >= e4) { x50[0x7000] = 0; }
+        break;
+    case 53: break;
+    case 54: break;
+    case 55: break;
+    case 56: break;
+    case 57: break;
+    case 58: break;
+    case 59: break;
+    case 60: break;
+    default: break;
     }
 }
 

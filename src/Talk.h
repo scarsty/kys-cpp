@@ -1,9 +1,9 @@
 #pragma once
-#include "Head.h"
+#include "Element.h"
 #include <vector>
 #include <string>
 
-class Talk : public Head
+class Talk : public Element
 {
 public:
     Talk() {}
@@ -15,11 +15,19 @@ public:
 private:
     std::string content_;
     int head_id_ = -1;
+    int head_style_ = 0;
+    int current_line_ = 0;
+    int width_ = 40;
+    int height_ = 5;
+    std::vector<std::string> contents_;
 public:
     void setContent(std::string c) { content_ = c; }
     void setHeadID(int h) { head_id_=h; }
+    void setHeadStyle(int s) { head_style_ = 0; }
 
     virtual void pressedOK() override { exitWithResult(0); }
     virtual void pressedCancel() override { exitWithResult(-1); }
+
+    virtual void onEntrance() override;
 };
 

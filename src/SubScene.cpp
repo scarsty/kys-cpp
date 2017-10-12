@@ -93,11 +93,16 @@ void SubScene::draw()
                 }
                 if (i1 == man_x_ && i2 == man_y_)
                 {
-                    if (man_pic_ != -1)
+                    //此处当主角的贴图为负值时，表示强制设置贴图号
+                    if (man_pic_ > 0)
                     {
-                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;  //每个方向的第一张是静止图
-                        TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
+                        man_pic_ = calManPic();
                     }
+                    else
+                    {
+                        man_pic_ = -man_pic_;
+                    }
+                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);                    
                 }
                 //事件
                 auto event = submap_info_->Event(i1, i2);

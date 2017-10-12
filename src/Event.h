@@ -53,6 +53,7 @@ private:
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);
+    int sign(int v) { if (v > 0) { return 1; } if (v < 0) { return -1; } return 0; }
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
@@ -85,7 +86,7 @@ public:
     //void blank() {}
     void subMapViewFromTo(int x0, int y0, int x1, int y1);
     void add3EventNum(int submap_id, int event_index, int v1, int v2, int v3);
-    void playAnimation(int event_id, int begin_pic, int end_pic);
+    void playAnimation(int event_index, int begin_pic, int end_pic);
     bool checkRoleMorality(int role_id, int low, int high);
     bool checkRoleAttack(int role_id, int low, int high);
     void walkFromTo(int x0, int y0, int x1, int y1);
@@ -102,6 +103,7 @@ public:
     void roleAddItem(int role_id, int item_id, int count);
     bool checkFemaleInTeam();
     void play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2);
+    void play3Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int event_index3, int begin_pic3);
     void addSpeed(int role_id, int value);
     void addMP(int role_id, int value);
     void addAttack(int role_id, int value);

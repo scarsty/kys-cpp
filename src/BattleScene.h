@@ -53,6 +53,8 @@ public:
     virtual void onEntrance() override;
     virtual void onExit() override;
 
+    void readBattleInfo();
+
     void setRoleInitState(Role* r);
     void setFaceTowardsNearestEnemy(Role* r);
     void readFightFrame(Role* r);

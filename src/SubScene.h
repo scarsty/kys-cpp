@@ -66,5 +66,7 @@ public:
 
     Point getPositionOnWholeEarth(int x, int y);
 
+    int calManPic() { return MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_; }  //每个方向的第一张是静止图
+    void forceManPic(int pic) { man_pic_ = -pic; }
 };
 

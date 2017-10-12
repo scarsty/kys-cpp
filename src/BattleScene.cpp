@@ -205,12 +205,8 @@ void BattleScene::dealEvent(BP_Event& e)
     //我方胜
     if (battle_result >= 0)
     {
-        result_ == battle_result;
+        result_ = battle_result;
         setExit(true);
-    }
-    if (battle_result == 0 || battle_result != 0 && fail_exp_)
-    {
-        calExpGot();
     }
 }
 
@@ -221,47 +217,7 @@ void BattleScene::onEntrance()
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(80, 100);
 
-    //设置全部角色的位置层，避免今后出错
-    for (auto r : Save::getInstance()->getRoles())
-    {
-        r->setPoitionLayer(role_layer_);
-        r->Team = 2;  //先全部设置成不存在的阵营
-        r->Auto = 1;
-    }
-
-    //首先设置位置和阵营，其他的后面统一处理
-    //队友
-    for (int i = 1; i < TEAMMATE_COUNT; i++)
-    {
-        auto r = Save::getInstance()->getRole(Save::getInstance()->Team[i]);
-        if (r)
-        {
-            battle_roles_.push_back(r);
-            r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
-            r->Team = 0;
-            r->Auto = 1;
-        }
-    }
-    //敌方
-    for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
-    {
-        auto r = Save::getInstance()->getRole(info_->Enemy[i]);
-        if (r)
-        {
-            battle_roles_.push_back(r);
-            r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
-            r->Team = 1;
-            r->Auto = 1;
-
-            //敌方有回复状态的优待
-            r->PhysicalPower = 90;
-            r->HP = r->MaxHP;
-            r->MP = r->MaxMP;
-            r->Poison = 0;
-            r->Hurt = 0;
-        }
-    }
-
+    readBattleInfo();
     //初始状态
     for (auto r : battle_roles_)
     {
@@ -273,10 +229,47 @@ void BattleScene::onEntrance()
 
 void BattleScene::onExit()
 {
+    if (result_ == 0 || result_ == 1 && fail_exp_)
+    {
+        calExpGot();
+    }
     //清空全部角色的位置层
     for (auto r : Save::getInstance()->getRoles())
     {
         r->setPoitionLayer(nullptr);
+    }
+}
+
+//读取战斗信息，确定是选人物还是自动人物
+void BattleScene::readBattleInfo()
+{
+    //设置全部角色的位置层，避免今后出错
+    for (auto r : Save::getInstance()->getRoles())
+    {
+        r->setPoitionLayer(role_layer_);
+        r->Team = 2;  //先全部设置成不存在的阵营
+        r->Auto = 1;
+    }
+    //首先设置位置和阵营，其他的后面统一处理
+    //队友
+    for (int i = 1; i < TEAMMATE_COUNT; i++)
+    {
+        auto r = Save::getInstance()->getRole(Save::getInstance()->Team[i]);
+        if (r)
+        {
+            battle_roles_.push_back(r);
+            r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
+        }
+    }
+    //敌方
+    for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
+    {
+        auto r = Save::getInstance()->getRole(info_->Enemy[i]);
+        if (r)
+        {
+            battle_roles_.push_back(r);
+            r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
+        }
     }
 }
 
@@ -286,6 +279,26 @@ void BattleScene::setRoleInitState(Role* r)
     r->ExpGot = 0;
     r->ShowString = "";
     r->FightingFrame = 0;
+
+    if (r->Team == 0)
+    {
+        r->Team = 0;
+        r->Auto = 1;
+        GameUtil::limit2(r->HP, r->MaxHP / 10, r->MaxHP);
+        GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);;
+    }
+    else
+    {
+        r->Team = 1;
+        r->Auto = 1;
+
+        //敌方有回复状态的优待
+        r->PhysicalPower = 90;
+        r->HP = r->MaxHP;
+        r->MP = r->MaxMP;
+        r->Poison = 0;
+        r->Hurt = 0;
+    }
 
     //读取动作帧数
     bool frame_readed = false;
@@ -1150,6 +1163,7 @@ int BattleScene::getTeamMateCount(int team)
 //返回负值表示仍需持续，返回非负则为胜利方的team标记
 //实际上只是检测我方人数与当前总人数是否相等或者为0
 //更复杂的判断请使用set或者map
+//0-我方胜，1-敌方胜，-1-胜负未分
 int BattleScene::checkResult()
 {
     int team0 = getTeamMateCount(0);

@@ -45,6 +45,7 @@ public:
     Point getPositionOnRender(int x, int y, int view_x, int view_y);
     Point getPositionOnWindow(int x, int y, int view_x, int view_y);
     int calTowards(int x1, int y1, int x2, int y2);
+    void setTowards(int t) { towards_ = t; }
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
@@ -65,8 +66,8 @@ public:
     void stopFindWay() { way_que_.clear();/*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);
 
-    void lightScene() {}
-    void darkScene() {}
+    void lightScene();
+    void darkScene();
 
 };
 

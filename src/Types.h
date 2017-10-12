@@ -244,6 +244,7 @@ public:
     SAVE_INT X() { return X_; }
     SAVE_INT Y() { return Y_; }
     void setPosition(int x, int y, SubMapInfo* submap_record);
+    void setPic(int pic) { BeginPic = pic; CurrentPic = pic; EndPic = pic; }
 };
 
 //实际的场景数据
