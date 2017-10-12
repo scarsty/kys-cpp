@@ -99,8 +99,6 @@ public:
     Magic* getRoleLearnedMagic(Role* r, int i);
     int getRoleLearnedMagicLevelIndex(Role* r, Magic* m);
 
-    static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
-
     const std::vector<Role*>& getRoles() { return roles_; }
     const std::vector<Magic*>& getMagics() { return magics_; }
     const std::vector<Item*>& getItems() { return items_; }

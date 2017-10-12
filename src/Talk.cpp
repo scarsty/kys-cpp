@@ -18,7 +18,7 @@ void Talk::draw()
             }
             else
             {
-                TextureManager::getInstance()->renderTexture("head", head_id_, x_ + 750, y_ + 50);
+                TextureManager::getInstance()->renderTexture("head", head_id_, x_ + 770, y_ + 50);
             }
         }
         int end_line = current_line_ + height_;

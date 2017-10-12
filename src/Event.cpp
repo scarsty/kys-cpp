@@ -13,6 +13,7 @@
 #include "BattleScene.h"
 #include "UIShop.h"
 #include "Font.h"
+#include "File.h"
 
 Event Event::event_;
 
@@ -39,7 +40,7 @@ Event::~Event()
 bool Event::loadEventData()
 {
     //读取talk
-    auto talk = Save::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
+    auto talk = File::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
     for (int i = 0; i < offset.back(); i++)
     {
         if (talk[i])
@@ -55,7 +56,7 @@ bool Event::loadEventData()
     }
     delete talk;
     //读取事件，全部转为整型
-    auto kdef = Save::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
+    auto kdef = File::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
     kdef_.resize(length.size());
     for (int i = 0; i < length.size(); i++)
     {
@@ -334,6 +335,8 @@ bool Event::tryBattle(int battle_id, int get_exp)
     battle->setHaveFailExp(get_exp);
     int result = battle->run();
     delete battle;
+    talk_box_up_->setContent("");
+    talk_box_down_->setContent("");
     return result == 0;
 }
 
@@ -1376,11 +1379,6 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         }
         str = "請輸入名字：";
         char_ptr1 = (char*)&str[1];
-        auto nlen = e5 < strlen(char_ptr1) ? e5 : strlen(char_ptr1);
-        for (int i = 0; i < nlen - 1; i++)
-        {
-            *(char_ptr + i) = *(char_ptr1 + i);
-        }
         break;
     case 51: break;
     case 52: //判断某人是否已掌握某武学等级

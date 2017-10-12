@@ -124,6 +124,7 @@ void TeamMenu::pressedOK()
         }
         if (button_ok_->getState() == Press)
         {
+            //没有人被选中，不能确定
             for (auto h : heads_)
             {
                 if (h->getResult() == 0)

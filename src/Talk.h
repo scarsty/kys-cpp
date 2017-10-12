@@ -23,7 +23,7 @@ private:
 public:
     void setContent(std::string c) { content_ = c; }
     void setHeadID(int h) { head_id_=h; }
-    void setHeadStyle(int s) { head_style_ = 0; }
+    void setHeadStyle(int s) { head_style_ = s; }
 
     virtual void pressedOK() override { exitWithResult(0); }
     virtual void pressedCancel() override { exitWithResult(-1); }

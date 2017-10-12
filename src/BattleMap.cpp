@@ -8,7 +8,17 @@ BattleMap BattleMap::battle_data_;
 BattleMap::BattleMap()
 {
     File::readFileToVector("../game/resource/war.sta", battle_infos_);
-    File::readFileToVector("../game/resource/warfld.grp", battle_field_data2_);
+
+    //地图的长度不一致，故换方法读取
+    std::vector<int> offset, length;
+    auto battle_map = File::getIdxContent("../game/resource/warfld.idx", "../game/resource/warfld.grp", &offset, &length);
+    battle_field_data2_.resize(length.size());
+    for (int i=0;i<battle_field_data2_.size();i++)
+    {
+        memcpy(battle_field_data2_[i].data, battle_map+offset[i], sizeof(BattleFieldData2));
+    }
+    //File::readFileToVector("../game/resource/warfld.grp", battle_field_data2_);
+
     for (auto& i : battle_infos_)
     {
         PotConv::fromCP950ToCP936(i.Name);

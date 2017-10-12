@@ -16,6 +16,7 @@
 #include "ShowRoleDifference.h"
 #include "ShowExp.h"
 #include "Event.h"
+#include "TeamMenu.h"
 
 BattleScene::BattleScene()
 {
@@ -251,16 +252,6 @@ void BattleScene::readBattleInfo()
         r->Auto = 1;
     }
     //首先设置位置和阵营，其他的后面统一处理
-    //队友
-    for (int i = 1; i < TEAMMATE_COUNT; i++)
-    {
-        auto r = Save::getInstance()->getRole(Save::getInstance()->Team[i]);
-        if (r)
-        {
-            battle_roles_.push_back(r);
-            r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
-        }
-    }
     //敌方
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
@@ -269,6 +260,37 @@ void BattleScene::readBattleInfo()
         {
             battle_roles_.push_back(r);
             r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
+            r->Team = 1;
+        }
+    }
+
+    std::vector<Role*> friends;
+    //判断是不是有自动战斗人物
+    if (info_->AutoTeamMate[0] >= 0)
+    { 
+        for (int i = 1; i < TEAMMATE_COUNT; i++)
+        {
+            auto r = Save::getInstance()->getRole(info_->AutoTeamMate[i]);
+            if (r) { friends.push_back(r); }
+        }
+    }
+    else
+    {
+        auto team_menu = new TeamMenu();
+        team_menu->setMode(1);
+        team_menu->run();
+        friends = team_menu->getRoles();
+        delete team_menu;
+    }
+    //队友
+    for (int i = 0; i < friends.size(); i++)
+    {
+        auto r = friends[i];
+        if (r)
+        {
+            battle_roles_.push_back(r);
+            r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
+            r->Team = 0;
         }
     }
 }
@@ -282,16 +304,13 @@ void BattleScene::setRoleInitState(Role* r)
 
     if (r->Team == 0)
     {
-        r->Team = 0;
         r->Auto = 1;
         GameUtil::limit2(r->HP, r->MaxHP / 10, r->MaxHP);
         GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);;
     }
     else
     {
-        r->Team = 1;
         r->Auto = 1;
-
         //敌方有回复状态的优待
         r->PhysicalPower = 90;
         r->HP = r->MaxHP;

@@ -48,7 +48,7 @@ bool Save::LoadR(int num)
     std::string filenamed = getFilename(num, 'd');
     std::string filename_idx = "../game/save/ranger.idx";
 
-    auto rgrp = getIdxContent(filename_idx, filenamer, &offset_, &length_);
+    auto rgrp = File::getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
     int c = 0;
     memcpy(&InShip, rgrp + offset_[c], length_[c]);
@@ -241,24 +241,4 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
-char* Save::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)
-{
-    int* Ridx;
-    int len = 0;
-    File::readFile(filename_idx, (char**)&Ridx, &len);
 
-    offset->resize(len / 4 + 1);
-    length->resize(len / 4);
-    offset->at(0) = 0;
-    for (int i = 0; i < len / 4; i++)
-    {
-        (*offset)[i + 1] = Ridx[i];
-        (*length)[i] = (*offset)[i + 1] - (*offset)[i];
-    }
-    int total_length = offset->back();
-    delete[] Ridx;
-
-    auto Rgrp = new char[total_length];
-    File::readFile(filename_grp, Rgrp, total_length);
-    return Rgrp;
-}
