@@ -58,6 +58,7 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         int save = menu_load_->run() + 1;
         Save::getInstance()->LoadR(save);
+        Script::getInstance()->runScript("../game/script/0.lua");
         MainScene::getIntance()->run();
     }
     if (r == 2)

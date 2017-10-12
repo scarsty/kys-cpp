@@ -3,20 +3,20 @@
 #include "Types.h"
 #include <map>
 
-struct ItemList { SAVE_INT item_id, count; };
+struct ItemList { int item_id, count; };
 
 class Save
 {
 public:
     //此处为全局数据，载入和保存使用，必须放在类开头，按照顺序，否则自己看着办
-    SAVE_INT InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
-    SAVE_INT Team[TEAMMATE_COUNT];
+    int InShip, InSubmap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+    int Team[TEAMMATE_COUNT];
     ItemList Items[ITEM_IN_BAG_COUNT];
 private:
     //缓冲区，无他用
-    SAVE_INT buffer_[100];
+    int buffer_[100];
 
-    int sdata_length_ = sizeof(SAVE_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
+    int sdata_length_ = sizeof(MAP_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
     int ddata_length_ = sizeof(SubMapEvent) * SUBMAP_EVENT_COUNT;
 
 public:
@@ -83,8 +83,8 @@ public:
     int getTeamMateID(int i) { return Team[i]; }
 
     Item* getItemByBagIndex(int i);
-    SAVE_INT getItemCountByBagIndex(int i);
-    SAVE_INT getItemCountInBag(Item* item);
+    int getItemCountByBagIndex(int i);
+    int getItemCountInBag(Item* item);
 
     int getItemCountInBag(int item_id);
     int getMoneyCountInBag() { return getItemCountInBag(MONEY_ITEM_ID); }

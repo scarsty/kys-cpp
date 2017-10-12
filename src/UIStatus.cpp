@@ -55,19 +55,19 @@ void UIStatus::draw()
     x = x_ + 200;
     y = y_ + 50;
     font->draw(convert::formatString("%s", role_->Name), 30, x - 10, y, color);
-    font->draw(convert::formatString("等級%5d", role_->Level), font_size, x, y + 50, color);
-    font->draw(convert::formatString("經驗%5d", role_->Exp), font_size, x, y + 75, color);
+    font->draw(convert::formatString("等級%7d", role_->Level), font_size, x, y + 50, color);
+    font->draw(convert::formatString("經驗%7d", role_->Exp), font_size, x, y + 75, color);
 
-    std::string str = "升級 ----";
+    std::string str = "升級 ------";
     int exp_up = GameUtil::getLevelUpExp(role_->Level);
     if (exp_up != INT_MAX)
     {
-        str = convert::formatString("升級%5d", exp_up);
+        str = convert::formatString("升級%7d", exp_up);
     }
     font->draw(str, font_size, x, y + 100, color);
-    font->draw(convert::formatString("生命%5d/%5d", role_->HP, role_->MaxHP), font_size, x + 155, y + 50, color);
-    font->draw(convert::formatString("內力%5d/%5d", role_->MP, role_->MaxMP), font_size, x + 155, y + 75, color);
-    font->draw(convert::formatString("體力%5d/%5d", role_->PhysicalPower, 100), font_size, x + 155, y + 100, color);
+    font->draw(convert::formatString("生命%5d/%5d", role_->HP, role_->MaxHP), font_size, x + 175, y + 50, color);
+    font->draw(convert::formatString("內力%5d/%5d", role_->MP, role_->MaxMP), font_size, x + 175, y + 75, color);
+    font->draw(convert::formatString("體力%5d/%5d", role_->PhysicalPower, 100), font_size, x + 175, y + 100, color);
 
     x = x_ + 20;
     y = y_ + 200;

@@ -132,7 +132,7 @@ public:
     void blank() {}
 
 private:
-    SAVE_INT x50[0x10000];
+    int x50[0x10000];
 public:
     int e_GetValue(int bit, int t, int x)
     {

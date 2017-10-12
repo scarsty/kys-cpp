@@ -24,12 +24,17 @@
     <ClCompile Include="src\others\ini.cpp" />
     <ClCompile Include="src\others\INIReader.cpp" />
     <ClCompile Include="src\others\libconvert.cpp" />
+    <ClCompile Include="src\PotConv.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="abc\TypesABC.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="src\others\ini.h" />
     <ClInclude Include="src\others\INIReader.h" />
     <ClInclude Include="src\others\libconvert.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\libiconv.lib" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -102,6 +107,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

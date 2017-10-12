@@ -656,7 +656,10 @@ void Event::addItemWithoutHint(int item_id, int count)
         save->Items[pos].count = count;
     }
     //当物品数量为负，需要整理背包
-    arrangeBag();
+    if (count < 0)
+    {
+        arrangeBag();
+    }
 }
 
 void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
@@ -1068,7 +1071,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
 {
     int index = 0, len = 0, offset = 0;
     char* char_ptr = nullptr, *char_ptr1 = nullptr;
-    SAVE_INT* save_int_ptr = nullptr;
+    int* save_int_ptr = nullptr;
     int i1 = 0;
     int i2 = 0;
     std::string str;
@@ -1112,7 +1115,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             if (index != 0) { x50[e3] = x50[e4] % index; }
             break;
         case 5:
-            if (index != 0) { x50[e3] = SAVE_UINT(x50[e4]) / index; }
+            if (index != 0) { x50[e3] = unsigned int(x50[e4]) / index; }
             break;
         }
         break;
@@ -1191,11 +1194,11 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         save_int_ptr = nullptr;
         switch (e2)
         {
-        case 0: save_int_ptr = (SAVE_INT*)((char*)(save->getRole(e3)) + e4); break;
-        case 1: save_int_ptr = (SAVE_INT*)((char*)(save->getItem(e3)) + e4); break;
-        case 2: save_int_ptr = (SAVE_INT*)((char*)(save->getSubMapInfo(e3)) + e4); break;
-        case 3: save_int_ptr = (SAVE_INT*)((char*)(save->getMagic(e3)) + e4); break;
-        case 4: save_int_ptr = (SAVE_INT*)((char*)(save->getShop(e3)) + e4); break;
+        case 0: save_int_ptr = (int*)((char*)(save->getRole(e3)) + e4); break;
+        case 1: save_int_ptr = (int*)((char*)(save->getItem(e3)) + e4); break;
+        case 2: save_int_ptr = (int*)((char*)(save->getSubMapInfo(e3)) + e4); break;
+        case 3: save_int_ptr = (int*)((char*)(save->getMagic(e3)) + e4); break;
+        case 4: save_int_ptr = (int*)((char*)(save->getShop(e3)) + e4); break;
         }
         if (save_int_ptr) { *save_int_ptr = e5; }
         break;
@@ -1204,11 +1207,11 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e4 = e_GetValue(1, e1, e4);
         switch (e2)
         {
-        case 0: x50[e5] = *(SAVE_INT*)((char*)(save->getRole(e3)) + e4); break;
-        case 1: x50[e5] = *(SAVE_INT*)((char*)(save->getItem(e3)) + e4); break;
-        case 2: x50[e5] = *(SAVE_INT*)((char*)(save->getSubMapInfo(e3)) + e4); break;
-        case 3: x50[e5] = *(SAVE_INT*)((char*)(save->getMagic(e3)) + e4); break;
-        case 4: x50[e5] = *(SAVE_INT*)((char*)(save->getShop(e3)) + e4); break;
+        case 0: x50[e5] = *(int*)((char*)(save->getRole(e3)) + e4); break;
+        case 1: x50[e5] = *(int*)((char*)(save->getItem(e3)) + e4); break;
+        case 2: x50[e5] = *(int*)((char*)(save->getSubMapInfo(e3)) + e4); break;
+        case 3: x50[e5] = *(int*)((char*)(save->getMagic(e3)) + e4); break;
+        case 4: x50[e5] = *(int*)((char*)(save->getShop(e3)) + e4); break;
         }
         break;
     case 18: //写队伍数据
@@ -1229,13 +1232,13 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
         e5 = e_GetValue(3, e1, e5);
-        *(SAVE_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4) = e5;
+        *(MAP_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4) = e5;
         break;
     case 22: //读场景事件数据
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
-        x50[e5] = *(SAVE_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4);
+        x50[e5] = *(MAP_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4);
         break;
     case 23:
         e2 = e_GetValue(0, e1, e2);

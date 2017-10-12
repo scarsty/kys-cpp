@@ -61,7 +61,7 @@ bool GameUtil::canUseItem(Role* r, Item* i)
         }
 
         //ÅĞ¶ÏÄ³¸öÊôĞÔÊÇ·ñÊÊºÏ
-        auto test = [](SAVE_INT v, SAVE_INT v_need)->bool
+        auto test = [](int v, int v_need)->bool
         {
             if (v_need > 0 && v < v_need) { return false; }
             if (v_need < 0 && v > -v_need) { return false; }
@@ -157,7 +157,7 @@ void GameUtil::levelUp(Role* r)
     r->Speed += RandomClassical::rand(7);
     r->Defence += RandomClassical::rand(7);
 
-    auto check_up = [&](SAVE_INT & value, int limit, int max_inc)->void
+    auto check_up = [&](int& value, int limit, int max_inc)->void
     {
         if (value > limit)
         {

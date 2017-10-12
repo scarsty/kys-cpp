@@ -1,9 +1,9 @@
 #pragma once
 #include <cstdint>
 #include <string>
-#include "Engine.h"
 
 typedef int16_t MAP_INT;
+typedef uint16_t SAVE_UINT;
 
 struct MapSquare
 {
@@ -84,7 +84,7 @@ enum
     MAX_MAGIC_LEVEL = 999,
     MAX_MAGIC_LEVEL_INDEX = 9,
 
-    MAX_EXP = 99999,
+    MAX_EXP = 65535,
 };
 
 enum
@@ -100,6 +100,101 @@ enum
 
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
+
+//存档中的角色数据
+struct RoleSave1
+{
+public:
+    MAP_INT ID;
+    MAP_INT HeadID, IncLife, UnUse;
+    char Name[10], Nick[10];
+    MAP_INT Sexual;  //性别 0-男 1 女 2 其他
+    MAP_INT Level;
+    SAVE_UINT Exp;
+    MAP_INT HP, MaxHP, Hurt, Poison, PhysicalPower;
+    SAVE_UINT ExpForMakeItem;
+    MAP_INT Equip0, Equip1;
+    MAP_INT Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
+    MAP_INT MPType, MP, MaxMP;
+    MAP_INT Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
+    MAP_INT Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
+    MAP_INT PracticeItem;
+    SAVE_UINT ExpForItem;
+    MAP_INT MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
+    MAP_INT TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
+
+};
+
+//存档中的物品数据
+struct ItemSave1
+{
+    MAP_INT ID;
+    char Name[20];
+    MAP_INT Name1[10];
+    char Introduction[30];
+    MAP_INT MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
+    MAP_INT ItemType;   //0剧情，1装备，2秘笈，3药品，4暗器
+    MAP_INT UnKnown5, UnKnown6, UnKnown7;
+    MAP_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
+    MAP_INT AddAttack, AddSpeed, AddDefence, AddMedcine, AddUsePoison, AddDetoxification, AddAntiPoison;
+    MAP_INT AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
+    MAP_INT OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;
+    MAP_INT NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
+    MAP_INT NeedExp, NeedExpForMakeItem, NeedMaterial;
+    MAP_INT MakeItem[5], MakeItemCount[5];
+};
+
+
+//存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）
+struct MagicSave1
+{
+    MAP_INT ID;
+    char Name[10];
+    MAP_INT Unknown[5];
+    MAP_INT SoundID;
+    MAP_INT MagicType;  //1-拳，2-剑，3-刀，4-特殊
+    MAP_INT EffectID;
+    MAP_INT HurtType;  //0-普通，1-吸取MP
+    MAP_INT AttackAreaType;  //0-点，1-线，2-十字，3-面
+    MAP_INT NeedMP, WithPoison;
+    MAP_INT Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
+};
+
+//存档中的子场景数据
+//约定：Scene表示游戏中运行的某个Element实例，而Map表示存储的数据
+struct SubMapInfoSave1
+{
+    MAP_INT ID;
+    char Name[10];
+    MAP_INT ExitMusic, EntranceMusic;
+    MAP_INT JumpScence, EntranceCondition;
+    MAP_INT MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
+    MAP_INT EntranceX, EntranceY;
+    MAP_INT ExitX[3], ExitY[3];
+    MAP_INT JumpX1, JumpY1, JumpX2, JumpY2;
+};
+
+//场景事件数据
+struct SubMapEvent1
+{
+    //event1为主动触发，event2为物品触发，event3为经过触发
+    MAP_INT CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
+};
+
+//实际的场景数据
+struct SubMapInfo1 : public SubMapInfoSave1
+{
+private:
+    MAP_INT layer_data_[SUBMAP_LAYER_COUNT][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
+    SubMapEvent1 events_[SUBMAP_EVENT_COUNT];
+};
+
+//存档中的商店数据
+struct ShopSave1
+{
+    MAP_INT ItemID[SHOP_ITEM_COUNT], Total[SHOP_ITEM_COUNT], Price[SHOP_ITEM_COUNT];
+};
+
 
 //存档中的角色数据
 struct RoleSave
@@ -125,56 +220,6 @@ public:
 
 };
 
-//实际的角色数据，基类之外的通常是战斗属性
-struct Role : public RoleSave
-{
-public:
-    int Team;
-    int FaceTowards, Dead, Step;
-    int Pic, BattleSpeed;
-    int ExpGot, Auto;
-    int FightFrame[5];
-    int FightingFrame;
-    int Moved, Acted;
-    int ActTeam;  //选择行动阵营 0-我方，1-非我方，画效果层时有效
-
-    std::string ShowString;
-    BP_Color ShowColor;
-
-private:
-    int X_, Y_;
-    int prevX_, prevY_;
-public:
-    MapSquare* position_layer_ = nullptr;
-    void setPoitionLayer(MapSquare* l) { position_layer_ = l; }
-    void setPosition(int x, int y);
-    void setPrevPosition(int x, int y) { prevX_ = x; prevY_ = y; }
-    void resetPosition() { setPosition(prevX_, prevY_); }
-    int X() { return X_; }
-    int Y() { return Y_; }
-
-    //带role的，表示后面的参数是人物武功栏
-    int getRoleShowLearnedMagicLevel(int i);
-    int getRoleMagicLevelIndex(int i);
-
-    int getLearnedMagicCount();
-    int getMagicLevelIndex(Magic* magic);
-    int getMagicLevelIndex(int magic_id);
-
-    void limit();
-
-    int learnMagic(Magic* magic);
-    int learnMagic(int magic_id);
-
-    bool isAuto() { return Auto != 0 || Team != 0; }
-
-public:
-    int AI_Action = 0;
-    int AI_MoveX, AI_MoveY;
-    int AI_ActionX, AI_ActionY;
-    Magic* AI_Magic = nullptr;
-};
-
 //存档中的物品数据
 struct ItemSave
 {
@@ -194,11 +239,6 @@ struct ItemSave
     int MakeItem[5], MakeItemCount[5];
 };
 
-//实际的物品数据
-struct Item : ItemSave
-{
-    bool isCompass() { return ID == COMPASS_ITEM_ID; }
-};
 
 //存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）
 struct MagicSave
@@ -213,12 +253,6 @@ struct MagicSave
     int AttackAreaType;  //0-点，1-线，2-十字，3-面
     int NeedMP, WithPoison;
     int Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
-};
-
-struct Magic : MagicSave
-{
-    int calNeedMP(int level_index) { return NeedMP * (level_index + 2) / 2; }
-    int calMaxLevelIndexByMP(int mp, int max_level);
 };
 
 //存档中的子场景数据
@@ -239,72 +273,14 @@ struct SubMapInfoSave
 struct SubMapEvent
 {
     //event1为主动触发，event2为物品触发，event3为经过触发
-    MAP_INT CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
-private:
-    MAP_INT X_, Y_;
-public:
-    MAP_INT X() { return X_; }
-    MAP_INT Y() { return Y_; }
-    void setPosition(int x, int y, SubMapInfo* submap_record);
-    void setPic(int pic) { BeginPic = pic; CurrentPic = pic; EndPic = pic; }
+    int CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
 };
 
 //实际的场景数据
 struct SubMapInfo : public SubMapInfoSave
 {
-public:
-    MAP_INT& LayerData(int layer, int x, int y)
-    {
-        return layer_data_[layer][x + y * SUBMAP_COORD_COUNT];
-    }
-
-    MAP_INT& Earth(int x, int y)
-    {
-        return LayerData(0, x, y);
-    }
-
-    MAP_INT& Building(int x, int y)
-    {
-        return LayerData(1, x, y);;
-    }
-
-    MAP_INT& Decoration(int x, int y)
-    {
-        return LayerData(2, x, y);;
-    }
-
-    MAP_INT& EventIndex(int x, int y)
-    {
-        return LayerData(3, x, y);;
-    }
-
-    MAP_INT& BuildingHeight(int x, int y)
-    {
-        return LayerData(4, x, y);;
-    }
-
-    MAP_INT& DecorationHeight(int x, int y)
-    {
-        return LayerData(5, x, y);;
-    }
-
-    SubMapEvent* Event(int x, int y)
-    {
-        int i = EventIndex(x, y);
-        return Event(i);
-    }
-
-    SubMapEvent* Event(int i)
-    {
-        if (i < 0 || i >= SUBMAP_EVENT_COUNT)
-        {
-            return nullptr;
-        }
-        return &events_[i];
-    }
-
 private:
-    MAP_INT layer_data_[SUBMAP_LAYER_COUNT][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
+    int layer_data_[SUBMAP_LAYER_COUNT][SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT];
     SubMapEvent events_[SUBMAP_EVENT_COUNT];
 };
 
@@ -312,10 +288,4 @@ private:
 struct ShopSave
 {
     int ItemID[SHOP_ITEM_COUNT], Total[SHOP_ITEM_COUNT], Price[SHOP_ITEM_COUNT];
-};
-
-//实际商店数据
-struct Shop : ShopSave
-{
-
 };

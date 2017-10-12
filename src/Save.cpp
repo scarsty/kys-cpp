@@ -21,13 +21,13 @@ std::string Save::getFilename(int i, char c)
     std::string filename;
     if (i > 0)
     {
-        filename = convert::formatString("../game/save/%c%d.grp", c, i);
+        filename = convert::formatString("../game/save/%c%d.grp32", c, i);
     }
     else
     {
         if (c == 'r')
         {
-            filename = "../game/save/ranger.grp";
+            filename = "../game/save/ranger.grp32";
         }
         else if (c == 's')
         {
@@ -46,7 +46,7 @@ bool Save::LoadR(int num)
     std::string filenamer = getFilename(num, 'r');
     std::string filenames = getFilename(num, 's');
     std::string filenamed = getFilename(num, 'd');
-    std::string filename_idx = "../game/save/ranger.idx";
+    std::string filename_idx = "../game/save/ranger.idx32";
 
     auto rgrp = File::getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
@@ -172,12 +172,12 @@ Item* Save::getItemByBagIndex(int i)
     return &(items_mem_[r]);
 }
 
-SAVE_INT Save::getItemCountByBagIndex(int i)
+int Save::getItemCountByBagIndex(int i)
 {
     return Items[i].count;
 }
 
-SAVE_INT Save::getItemCountInBag(Item* item)
+int Save::getItemCountInBag(Item* item)
 {
     return getItemCountInBag(item->ID);
 }

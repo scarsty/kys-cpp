@@ -21,7 +21,7 @@ MainScene::MainScene()
         build_x_layer_ = new MapSquare(COORD_COUNT);
         build_y_layer_ = new MapSquare(COORD_COUNT);
 
-        int length = COORD_COUNT * COORD_COUNT * sizeof(SAVE_INT);
+        int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
         File::readFile("../game/resource/earth.002", &earth_layer_->data(0), length);
         File::readFile("../game/resource/surface.002", &surface_layer_->data(0), length);
