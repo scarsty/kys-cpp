@@ -124,6 +124,9 @@
     <ClCompile Include="src\UIShop.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Script.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -253,6 +256,9 @@
     <ClInclude Include="src\UIShop.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\Script.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">
@@ -274,6 +280,9 @@
       <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\SDL2main.lib">
+      <Filter>_lib</Filter>
+    </Library>
+    <Library Include="lib\lua.lib">
       <Filter>_lib</Filter>
     </Library>
   </ItemGroup>

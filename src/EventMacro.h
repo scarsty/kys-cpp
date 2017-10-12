@@ -1,21 +1,5 @@
 #pragma once
 
-//这些宏仅为了在事件程序中简化代码，不要用在其他地方
-#define VOID_INSTRUCT_0(num, e, i, content) { case (num): content(); i += 1; break; }
-#define VOID_INSTRUCT_1(num, e, i, content) { case (num): content(e[i+1]); i += 2; break; }
-#define VOID_INSTRUCT_2(num, e, i, content) { case (num): content(e[i+1],e[i+2]); i += 3; break; }
-#define VOID_INSTRUCT_3(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3]); i += 4; break; }
-#define VOID_INSTRUCT_4(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4]); i += 5; break; }
-#define VOID_INSTRUCT_5(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i += 6; break; }
-#define VOID_INSTRUCT_6(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i += 7; break; }
-#define VOID_INSTRUCT_7(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i += 8; break; }
-#define VOID_INSTRUCT_8(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i += 9; break; }
-#define VOID_INSTRUCT_9(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9];) i += 10; break; }
-#define VOID_INSTRUCT_10(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i += 11; break; }
-#define VOID_INSTRUCT_11(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i += 12; break; }
-#define VOID_INSTRUCT_12(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i += 13; break; }
-#define VOID_INSTRUCT_13(num, e, i, content) { case (num): content(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i += 14; break; }
-
 #define BOOL_INSTRUCT_0(num, e, i, content) { case (num): if (content()) {i += e[i+1];} else { i+= e[i+2];} i += 3; break; }
 #define BOOL_INSTRUCT_1(num, e, i, content) { case (num): if (content(e[i+1])) {i += e[i+2];} else { i+= e[i+3];} i += 4; break; }
 #define BOOL_INSTRUCT_2(num, e, i, content) { case (num): if (content(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4];} i += 5; break; }

@@ -108,15 +108,40 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
         printf("%d ", c);
     }
     printf("\n");
+
+    //这些宏仅为了在事件程序中简化代码，不要用在其他地方
+#define VOID_PARA0(function) { function(); i+=1; }
+#define VOID_PARA1(function) { function(e[i+1]); i+=2; }
+#define VOID_PARA2(function) { function(e[i+1],e[i+2]); i+=3; }
+#define VOID_PARA3(function) { function(e[i+1],e[i+2],e[i+3]); i+=4; }
+#define VOID_PARA4(function) { function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
+#define VOID_PARA5(function) { function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
+#define VOID_PARA6(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
+#define VOID_PARA7(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
+#define VOID_PARA8(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
+#define VOID_PARA9(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9]); i+=10; }
+#define VOID_PARA10(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i+=11; }
+#define VOID_PARA11(function) { function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i+=12; }
+#define VOID_PARA12(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i+=13; }
+#define VOID_PARA13(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i+=14; }
+
+#define BOOL_PARA0(function) { if (function()) {i += e[i+1];} else { i+= e[i+2];} i += 3; }
+#define BOOL_PARA1(function) { if (function(e[i+1])) {i += e[i+2];} else { i+= e[i+3];} i += 4; }
+#define BOOL_PARA2(function) { if (function(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4];} i += 5; }
+#define BOOL_PARA3(function) { if (function(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5];} i += 6; }
+
+#define REGISTER_INSTRUCT(code, function, PARA) { case (code): PARA(function); break; }
+
+
     while (i < e.size() && loop)
     {
         printf("instruct %d\n", e[i]);
         switch (e[i])
         {
-            VOID_INSTRUCT_3(1, e, i, oldTalk);
-            VOID_INSTRUCT_2(2, e, i, addItem);
-            VOID_INSTRUCT_13(3, e, i, modifyEvent);
-            BOOL_INSTRUCT_1(4, e, i, isUsingItem);
+            REGISTER_INSTRUCT(1, oldTalk, VOID_PARA3);
+            REGISTER_INSTRUCT(2, addItem, VOID_PARA2);
+            REGISTER_INSTRUCT(3, modifyEvent, VOID_PARA13);
+            REGISTER_INSTRUCT(4, isUsingItem, BOOL_PARA1);
             BOOL_INSTRUCT_0(5, e, i, askBattle);
         case 6:
             //BOOL_INSTRUCT_2(6, e, i, tryBattle);
@@ -216,7 +241,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             break;
         default:
             //不存在的指令，移动一格
-            i += 1;
+            i += 1;*/
         }
     }
     Element::removeFromRoot(talk_box_);

@@ -8,6 +8,7 @@
 #include "Audio.h"
 #include "TeamMenu.h"
 #include "UIShop.h"
+#include "Script.h"
 
 TitleScene::TitleScene()
 {
@@ -72,5 +73,6 @@ void TitleScene::dealEvent(BP_Event& e)
 void TitleScene::onEntrance()
 {
     Save::getInstance()->LoadR(6);
+    Script::getInstance()->runScript("../game/script/0.lua");
 }
 
