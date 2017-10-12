@@ -51,9 +51,9 @@
 #define instruct_43 haveItemBool
 #define instruct_44 play2Amination
 #define instruct_45 addSpeed
-#define instruct_46 addMP
+#define instruct_46 addMaxMP
 #define instruct_47 addAttack
-#define instruct_48 addHP
+#define instruct_48 addMaxHP
 #define instruct_49 setMPType
 
 #define instruct_50 checkHave5Item

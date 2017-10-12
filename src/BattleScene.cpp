@@ -264,14 +264,25 @@ void BattleScene::readBattleInfo()
         }
     }
 
-    std::vector<Role*> friends;
+    //视角转至第一个敌人
+    if (battle_roles_.size() > 0)
+    {
+        man_x_ = battle_roles_[0]->X();
+        man_y_ = battle_roles_[0]->Y();
+    }
+    else
+    {
+        man_x_ = COORD_COUNT / 2;
+        man_y_ = COORD_COUNT / 2;
+    }
+
     //判断是不是有自动战斗人物
     if (info_->AutoTeamMate[0] >= 0)
-    { 
+    {
         for (int i = 1; i < TEAMMATE_COUNT; i++)
         {
             auto r = Save::getInstance()->getRole(info_->AutoTeamMate[i]);
-            if (r) { friends.push_back(r); }
+            if (r) { friends_.push_back(r); }
         }
     }
     else
@@ -279,13 +290,13 @@ void BattleScene::readBattleInfo()
         auto team_menu = new TeamMenu();
         team_menu->setMode(1);
         team_menu->run();
-        friends = team_menu->getRoles();
+        friends_ = team_menu->getRoles();
         delete team_menu;
     }
     //队友
-    for (int i = 0; i < friends.size(); i++)
+    for (int i = 0; i < friends_.size(); i++)
     {
-        auto r = friends[i];
+        auto r = friends_[i];
         if (r)
         {
             battle_roles_.push_back(r);
@@ -1196,13 +1207,21 @@ void BattleScene::calExpGot()
     head_self_->setVisible(false);
 
     std::vector<Role*> alive_teammate;
-    for (auto r : battle_roles_)
+    if (result_ == 0)
     {
-        if (r->Team == 0)
+        for (auto r : battle_roles_)
         {
-            alive_teammate.push_back(r);
+            if (r->Team == 0)
+            {
+                alive_teammate.push_back(r);
+            }
         }
     }
+    else
+    {
+        alive_teammate = friends_;
+    }
+
     //还在场的人获得经验
     for (auto r : alive_teammate)
     {

@@ -3,7 +3,7 @@
 #include "File.h"
 #include "PotConv.h"
 
-BattleMap BattleMap::battle_data_;
+BattleMap BattleMap::battle_map_;
 
 BattleMap::BattleMap()
 {

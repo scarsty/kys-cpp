@@ -7,7 +7,7 @@
 #include "UI.h"
 #include "Util.h"
 
-MainScene MainScene::main_map_;
+MainScene MainScene::main_scene_;
 
 MainScene::MainScene()
 {
@@ -227,6 +227,12 @@ void MainScene::onEntrance()
     calViewRegion();
     man_x_ = Save::getInstance()->MainMapX;
     man_y_ = Save::getInstance()->MainMapY;
+    if (begin_submap_ >= 0) 
+    {
+        auto sub_map = new SubScene(begin_submap_);
+        sub_map->run();
+        delete sub_map;
+    }
 }
 
 void MainScene::onExit()
@@ -333,6 +339,7 @@ bool MainScene::checkEntrance(int x, int y)
                 drawAndPresent();
                 auto sub_map = new SubScene(i);
                 sub_map->run();
+                delete sub_map;
                 return true;
             }
         }

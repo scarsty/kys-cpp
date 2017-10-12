@@ -6,12 +6,12 @@
 class MainScene : public Scene
 {
 private:
-    static MainScene main_map_;
+    static MainScene main_scene_;
     MainScene();
     ~MainScene();
 
 public:
-    static MainScene* getIntance() { return &main_map_; }
+    static MainScene* getIntance() { return &main_scene_; }
 
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
     MapSquare* earth_layer_ , *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
@@ -29,6 +29,8 @@ public:
     int SHIP_PIC_COUNT = 4;                 //单向主角图张数
     int BEGIN_REST_TIME = 200;              //开始休息的时间
     int REST_INTERVAL = 15;                 //休息图切换间隔
+
+    int begin_submap_ = -1;
 
     //todo: 休息未完成
 
@@ -53,4 +55,5 @@ public:
     virtual bool canWalk(int x, int y) override;
 
     bool checkEntrance(int x, int y);    //主地图主要是检测入口
+    void setBeginSubMap(int b) { begin_submap_ = b; }
 };

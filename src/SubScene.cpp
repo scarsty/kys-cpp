@@ -94,7 +94,7 @@ void SubScene::draw()
                 if (i1 == man_x_ && i2 == man_y_)
                 {
                     //此处当主角的贴图为负值时，表示强制设置贴图号
-                    if (man_pic_ > 0)
+                    if (man_pic_ >= 0)
                     {
                         man_pic_ = calManPic();
                     }

@@ -105,9 +105,9 @@ public:
     void play2Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2);
     void play3Amination(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int event_index3, int begin_pic3);
     void addSpeed(int role_id, int value);
-    void addMP(int role_id, int value);
+    void addMaxMP(int role_id, int value);
     void addAttack(int role_id, int value);
-    void addHP(int role_id, int value);
+    void addMaxHP(int role_id, int value);
     void setMPType(int role_id, int value);
     bool checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id4, int item_id5);
     void askSoftStar();
@@ -129,6 +129,8 @@ public:
 
     void arrangeBag();
 
+    void blank() {}
+
 private:
     SAVE_INT x50[0x10000];
 public:
@@ -146,6 +148,6 @@ public:
     }
 
     //扩展的50指令，传入下一个指令的指针，某一条需要
-    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr);
+    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr);
 };
 

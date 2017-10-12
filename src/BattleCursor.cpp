@@ -30,7 +30,7 @@ void BattleCursor::dealEvent(BP_Event& e)
     if (battle_scene_ == nullptr) { return; }
 
     int x = -1, y = -1;
-    if (role_->Auto == 0)
+    if (!role_->isAuto())
     {
         if (e.type == BP_KEYDOWN)
         {
@@ -53,13 +53,15 @@ void BattleCursor::dealEvent(BP_Event& e)
             x = role_->AI_MoveX;
             y = role_->AI_MoveY;
             setResult(0);
-            exit_next_frame_ = true; //AI会停留一帧，画出选择图形
+            setExit(true);
+            exit_next_frame_ = true; //AI会停留一帧，画出选择图形，取消，看着太乱
         }
         else if (mode_ == Action)
         {
             x = role_->AI_ActionX;
             y = role_->AI_ActionY;
             setResult(0);
+            setExit(true);
             exit_next_frame_ = true;
         }
     }

@@ -15,6 +15,7 @@ public:
     ~BattleScene();
 
     std::vector<Role*> battle_roles_;
+    std::vector<Role*> friends_;    //保存开始就参战的人物，用来计算失败经验
 
     BattleActionMenu* battle_menu_;
     BattleCursor* battle_cursor_;

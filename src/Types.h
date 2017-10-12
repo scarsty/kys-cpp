@@ -167,6 +167,8 @@ public:
     int learnMagic(Magic* magic);
     int learnMagic(int magic_id);
 
+    bool isAuto() { return Auto != 0 || Team != 0; }
+
 public:
     int AI_Action = 0;
     int AI_MoveX, AI_MoveY;
@@ -178,7 +180,8 @@ public:
 struct ItemSave
 {
     SAVE_INT ID;
-    char Name[20], Name1[20];
+    char Name[20];
+    SAVE_INT Name1[10];
     char Introduction[30];
     SAVE_INT MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
     SAVE_INT ItemType;   //0剧情，1装备，2秘笈，3药品，4暗器
@@ -215,7 +218,7 @@ struct MagicSave
 
 struct Magic : MagicSave
 {
-    int calNeedMP(int level_index) { return NeedMP*(level_index + 2) / 2; }
+    int calNeedMP(int level_index) { return NeedMP * (level_index + 2) / 2; }
     int calMaxLevelIndexByMP(int mp, int max_level);
 };
 

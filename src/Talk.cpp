@@ -9,7 +9,7 @@ void Talk::draw()
 {
     if (!content_.empty())
     {
-        Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, x_ + 225, y_ + 65, 530, 150);
+        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, x_ + 225, y_ + 65, 530, 150);
         if (head_id_ >= 0)
         {
             if (head_style_ == 0)

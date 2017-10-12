@@ -4,7 +4,6 @@
 #include "Menu.h"
 #include "Save.h"
 #include "PotConv.h"
-#include "EventMacro.h"
 #include "Talk.h"
 #include "others/libconvert.h"
 #include "Audio.h"
@@ -115,7 +114,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 #define VOID_PARA2(function) { function(e[i+1],e[i+2]); i+=3; }
 #define VOID_PARA3(function) { function(e[i+1],e[i+2],e[i+3]); i+=4; }
 #define VOID_PARA4(function) { function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
-#define VOID_PARA5(function) { function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
+#define VOID_PARA5(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
 #define VOID_PARA6(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
 #define VOID_PARA7(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
 #define VOID_PARA8(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
@@ -159,51 +158,51 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             i += 1;
             loop = false;
             break;
-            REGISTER_INSTRUCT(8,changeMainMapMusic, VOID_PARA1);
+            REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_PARA1);
             REGISTER_INSTRUCT(9, askJoin, BOOL_PARA0);
 
-            REGISTER_INSTRUCT(10,join, VOID_PARA3);
-            REGISTER_INSTRUCT(11,askRest, BOOL_PARA0);
-            REGISTER_INSTRUCT(12,rest, VOID_PARA3);
-            REGISTER_INSTRUCT(13,lightScence, VOID_PARA3);
-            REGISTER_INSTRUCT(14,darkScence, VOID_PARA3);
-            REGISTER_INSTRUCT(15,dead, VOID_PARA3);
-            REGISTER_INSTRUCT(16,inTeam, BOOL_PARA1);
-            REGISTER_INSTRUCT(17,setSubMapLayerData);
-            REGISTER_INSTRUCT(18,haveItemBool, BOOL_PARA1);
-            REGISTER_INSTRUCT(19,oldSetScencePosition, VOID_PARA3);
+            REGISTER_INSTRUCT(10, join, VOID_PARA1);
+            REGISTER_INSTRUCT(11, askRest, BOOL_PARA0);
+            REGISTER_INSTRUCT(12, rest, VOID_PARA0);
+            REGISTER_INSTRUCT(13, lightScence, VOID_PARA0);
+            REGISTER_INSTRUCT(14, darkScence, VOID_PARA0);
+            REGISTER_INSTRUCT(15, dead, VOID_PARA0);
+            REGISTER_INSTRUCT(16, inTeam, BOOL_PARA1);
+            REGISTER_INSTRUCT(17, setSubMapLayerData, VOID_PARA5);
+            REGISTER_INSTRUCT(18, haveItemBool, BOOL_PARA1);
+            REGISTER_INSTRUCT(19, oldSetScencePosition, VOID_PARA2);
 
-            REGISTER_INSTRUCT(20,teamIsFull, BOOL_PARA0);
-            REGISTER_INSTRUCT(21,leaveTeam, VOID_PARA3);
-            REGISTER_INSTRUCT(22,zeroAllMP, VOID_PARA3);
-            REGISTER_INSTRUCT(23,setRoleUsePoison, VOID_PARA3);
-            REGISTER_INSTRUCT(25,subMapViewFromTo, VOID_PARA3);
-            REGISTER_INSTRUCT(26,add3EventNum, VOID_PARA3);
-            REGISTER_INSTRUCT(27,playAnimation, VOID_PARA3);
-            REGISTER_INSTRUCT(28,checkRoleMorality,BOOL_PARA3);
-            REGISTER_INSTRUCT(29,checkRoleAttack, BOOL_PARA3);
+            REGISTER_INSTRUCT(20, teamIsFull, BOOL_PARA0);
+            REGISTER_INSTRUCT(21, leaveTeam, VOID_PARA1);
+            REGISTER_INSTRUCT(22, zeroAllMP, VOID_PARA0);
+            REGISTER_INSTRUCT(23, setRoleUsePoison, VOID_PARA2);
+            REGISTER_INSTRUCT(25, subMapViewFromTo, VOID_PARA4);
+            REGISTER_INSTRUCT(26, add3EventNum, VOID_PARA5);
+            REGISTER_INSTRUCT(27, playAnimation, VOID_PARA3);
+            REGISTER_INSTRUCT(28, checkRoleMorality, BOOL_PARA3);
+            REGISTER_INSTRUCT(29, checkRoleAttack, BOOL_PARA3);
 
-            REGISTER_INSTRUCT(30,walkFromTo, VOID_PARA3);
-            REGISTER_INSTRUCT(31,checkEnoughMoney, BOOL_PARA1);
-            REGISTER_INSTRUCT(32,addItemWithoutHint, VOID_PARA3);
-            REGISTER_INSTRUCT(33,oldLearnMagic, VOID_PARA3);
-            REGISTER_INSTRUCT(34,addIQ, VOID_PARA3);
-            REGISTER_INSTRUCT(35,setRoleMagic, VOID_PARA3);
-            REGISTER_INSTRUCT(36,checkRoleSexual, BOOL_PARA1);
-            REGISTER_INSTRUCT(37,addMorality, VOID_PARA3);
-            REGISTER_INSTRUCT(38,changeSubMapPic, VOID_PARA3);
-            REGISTER_INSTRUCT(39,openSubMap, VOID_PARA3);
+            REGISTER_INSTRUCT(30, walkFromTo, VOID_PARA4);
+            REGISTER_INSTRUCT(31, checkEnoughMoney, BOOL_PARA1);
+            REGISTER_INSTRUCT(32, addItemWithoutHint, VOID_PARA2);
+            REGISTER_INSTRUCT(33, oldLearnMagic, VOID_PARA3);
+            REGISTER_INSTRUCT(34, addIQ, VOID_PARA2);
+            REGISTER_INSTRUCT(35, setRoleMagic, VOID_PARA4);
+            REGISTER_INSTRUCT(36, checkRoleSexual, BOOL_PARA1);
+            REGISTER_INSTRUCT(37, addMorality, VOID_PARA1);
+            REGISTER_INSTRUCT(38, changeSubMapPic, VOID_PARA4);
+            REGISTER_INSTRUCT(39, openSubMap, VOID_PARA1);
 
-            REGISTER_INSTRUCT(40,setTowards, VOID_PARA3);
-            REGISTER_INSTRUCT(41,roleAddItem, VOID_PARA3);
-            REGISTER_INSTRUCT(42,checkFemaleInTeam, BOOL_PARA0);
-            REGISTER_INSTRUCT(43,haveItemBool, BOOL_PARA1);
-            REGISTER_INSTRUCT(44,play2Amination, VOID_PARA3);
-            REGISTER_INSTRUCT(45,addSpeed, VOID_PARA3);
-            REGISTER_INSTRUCT(46,addMP, VOID_PARA3);
-            REGISTER_INSTRUCT(47,addAttack, VOID_PARA3);
-            REGISTER_INSTRUCT(48,addHP, VOID_PARA3);
-            REGISTER_INSTRUCT(49,setMPType, VOID_PARA3);
+            REGISTER_INSTRUCT(40, setTowards, VOID_PARA1);
+            REGISTER_INSTRUCT(41, roleAddItem, VOID_PARA3);
+            REGISTER_INSTRUCT(42, checkFemaleInTeam, BOOL_PARA0);
+            REGISTER_INSTRUCT(43, haveItemBool, BOOL_PARA1);
+            REGISTER_INSTRUCT(44, play2Amination, VOID_PARA6);
+            REGISTER_INSTRUCT(45, addSpeed, VOID_PARA2);
+            REGISTER_INSTRUCT(46, addMaxMP, VOID_PARA2);
+            REGISTER_INSTRUCT(47, addAttack, VOID_PARA2);
+            REGISTER_INSTRUCT(48, addMaxHP, VOID_PARA2);
+            REGISTER_INSTRUCT(49, setMPType, VOID_PARA2);
         case 50:
             if (e[i + 1] > 128)
             {
@@ -217,23 +216,23 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             i += 8;
             break;
 
-            REGISTER_INSTRUCT(51,askSoftStar, VOID_PARA3);
-            REGISTER_INSTRUCT(52,showMorality, VOID_PARA3);
-            REGISTER_INSTRUCT(53,showFame, VOID_PARA3);
-            REGISTER_INSTRUCT(54,openAllSubMap, VOID_PARA3);
-            REGISTER_INSTRUCT(55,checkEventID, BOOL_PARA2);
-            REGISTER_INSTRUCT(56,addFame, VOID_PARA3);
-            REGISTER_INSTRUCT(57,breakStoneGate, VOID_PARA3);
-            REGISTER_INSTRUCT(58,fightForTop, VOID_PARA3);
-            REGISTER_INSTRUCT(59,allLeave, VOID_PARA3);
+            REGISTER_INSTRUCT(51, askSoftStar, VOID_PARA0);
+            REGISTER_INSTRUCT(52, showMorality, VOID_PARA0);
+            REGISTER_INSTRUCT(53, showFame, VOID_PARA0);
+            REGISTER_INSTRUCT(54, openAllSubMap, VOID_PARA0);
+            REGISTER_INSTRUCT(55, checkEventID, BOOL_PARA2);
+            REGISTER_INSTRUCT(56, addFame, VOID_PARA1);
+            REGISTER_INSTRUCT(57, breakStoneGate, VOID_PARA0);
+            REGISTER_INSTRUCT(58, fightForTop, VOID_PARA0);
+            REGISTER_INSTRUCT(59, allLeave, VOID_PARA0);
 
-            REGISTER_INSTRUCT(60,checkSubMapPic, BOOL_PARA3);
-            REGISTER_INSTRUCT(61,check14BooksPlaced, BOOL_PARA0);
-            REGISTER_INSTRUCT(62,backHome, VOID_PARA3);
-            REGISTER_INSTRUCT(63,setSexual, VOID_PARA3);
-            REGISTER_INSTRUCT(64,shop, VOID_PARA3);
-            REGISTER_INSTRUCT(66,playMusic, VOID_PARA3);
-            REGISTER_INSTRUCT(67,playWave, VOID_PARA3);
+            REGISTER_INSTRUCT(60, checkSubMapPic, BOOL_PARA3);
+            REGISTER_INSTRUCT(61, check14BooksPlaced, BOOL_PARA0);
+            REGISTER_INSTRUCT(62, backHome, VOID_PARA0);
+            REGISTER_INSTRUCT(63, setSexual, VOID_PARA2);
+            REGISTER_INSTRUCT(64, shop, VOID_PARA0);
+            REGISTER_INSTRUCT(66, playMusic, VOID_PARA1);
+            REGISTER_INSTRUCT(67, playWave, VOID_PARA1);
 
         case -1:
             loop = false;
@@ -845,7 +844,7 @@ void Event::addSpeed(int role_id, int value)
     text_box_->run();
 }
 
-void Event::addMP(int role_id, int value)
+void Event::addMaxMP(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
@@ -863,7 +862,7 @@ void Event::addAttack(int role_id, int value)
     text_box_->run();
 }
 
-void Event::addHP(int role_id, int value)
+void Event::addMaxHP(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;

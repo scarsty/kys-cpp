@@ -24,6 +24,7 @@ TitleScene::TitleScene()
     menu_->addChild(b, 20, 100);
     menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
     menu_load_->setPosition(500, 300);
+    menu_load_->setFontSize(30);
 }
 
 TitleScene::~TitleScene()
@@ -55,24 +56,17 @@ void TitleScene::dealEvent(BP_Event& e)
     }
     if (r == 1)
     {
-        auto s = new SubScene(2);
-        s->run();
-        delete s;
+        int save = menu_load_->run() + 1;
+        Save::getInstance()->LoadR(save);
         MainScene::getIntance()->run();
-        //menu_load_->run();
     }
     if (r == 2)
     {
-        auto b = new BattleScene(132);
-        b->run();
-        delete b;
-        //setExit(true);
+        setExit(true);
     }
 }
 
 void TitleScene::onEntrance()
 {
-    Save::getInstance()->LoadR(6);
-    Script::getInstance()->runScript("../game/script/0.lua");
 }
 

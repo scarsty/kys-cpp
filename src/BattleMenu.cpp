@@ -18,6 +18,7 @@ BattleActionMenu::~BattleActionMenu()
 
 void BattleActionMenu::onEntrance()
 {
+    setVisible(true);
     for (auto c : childs_)
     {
         c->setVisible(true);
@@ -61,13 +62,14 @@ void BattleActionMenu::onEntrance()
 void BattleActionMenu::dealEvent(BP_Event& e)
 {
     if (battle_scene_ == nullptr) { return; }
-    if (role_->Auto)
+    if (role_->isAuto())
     {
         int act = autoSelect(role_);
         setResult(act);
         setAllChildState(Normal);
         childs_[act]->setState(Press);
         setExit(true);
+        setVisible(false);  //AI²»»­²Ëµ¥ÁË£¬Ì«ÂÒ
     }
     else
     {
@@ -282,6 +284,7 @@ void BattleActionMenu::calDistanceLayer(int x, int y, int max_step/*=64*/)
 
 void BattleMagicMenu::onEntrance()
 {
+    setVisible(true);
     std::vector<std::string> magic_names;
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
@@ -298,12 +301,13 @@ void BattleMagicMenu::onEntrance()
 void BattleMagicMenu::dealEvent(BP_Event& e)
 {
     if (role_ == nullptr) { return; }
-    if (role_->Auto)
+    if (role_->isAuto())
     {
         magic_ = role_->AI_Magic;
         setAllChildState(Normal);
         setResult(0);
         setExit(true);
+        setVisible(false);
     }
     else
     {
