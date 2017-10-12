@@ -652,8 +652,11 @@ void Event::addItemWithoutHint(int item_id, int count)
                 break;
             }
         }
-        save->Items[pos].item_id = item_id;
-        save->Items[pos].count = count;
+        if (pos >= 0)
+        {
+            save->Items[pos].item_id = item_id;
+            save->Items[pos].count = count;
+        }
     }
     //当物品数量为负，需要整理背包
     if (count < 0)
