@@ -13,6 +13,8 @@ private:
     std::vector<int> level_up_list_;
     //std::vector<int> level_up_list_;
 public:
+    static int sign(int v) { if (v > 0) { return 1; } if (v < 0) { return -1; } return 0; }
+
     //返回限制值
     static int limit(int current, int min_value, int max_value)
     {

@@ -21,7 +21,8 @@ std::string Save::getFilename(int i, char c)
     std::string filename;
     if (i > 0)
     {
-        filename = convert::formatString("../game/save/%c%d.grp32", c, i);
+        filename = convert::formatString("../game/save/%c%d.grp", c, i);
+        if (c == 'r') { filename += "32"; }
     }
     else
     {
@@ -59,7 +60,7 @@ bool Save::LoadR(int num)
     File::readDataToVector(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
     File::readDataToVector(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
 
-    toPtrVector(roles_mem_,roles_);
+    toPtrVector(roles_mem_, roles_);
     toPtrVector(items_mem_, items_);
     toPtrVector(submap_infos_mem_, submap_infos_);
     toPtrVector(magics_mem_, magics_);

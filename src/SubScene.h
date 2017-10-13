@@ -31,7 +31,7 @@ public:
 
     //注意视角和主角的位置可能不一样
     void setViewPosition(int x, int y) { view_x_ = x; view_y_ = y; }
-    void setPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
+    void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;

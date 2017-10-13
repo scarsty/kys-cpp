@@ -773,19 +773,22 @@ void BattleScene::actUseMagic(Role* r)
         }
         else
         {
-            //²¥·Å¹¥»÷»­Ãæ£¬¼ÆËãÉËº¦
-            auto magic_name = new TextBoxAutoExit();
-            magic_name->setText(magic->Name);
-            magic_name->setPosition(450, 150);
-            magic_name->setFontSize(20);
-            magic_name->setStayFrame(20);
-            magic_name->run();
-            delete magic_name;
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
-            r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index) / 2, 0, r->MaxMP);
-            useMagicAnimation(r, magic);
-            calAllHurt(r, magic);
-            showNumberAnimation();
+            for (int i = 0; i <= GameUtil::sign(r->AttackTwice); i++)
+            {
+                //²¥·Å¹¥»÷»­Ãæ£¬¼ÆËãÉËº¦
+                auto magic_name = new TextBoxAutoExit();
+                magic_name->setText(magic->Name);
+                magic_name->setPosition(450, 150);
+                magic_name->setFontSize(20);
+                magic_name->setStayFrame(20);
+                magic_name->run();
+                delete magic_name;
+                r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
+                r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index) / 2, 0, r->MaxMP);
+                useMagicAnimation(r, magic);
+                calAllHurt(r, magic);
+                showNumberAnimation();
+            }
             r->Acted = 1;
             break;
         }

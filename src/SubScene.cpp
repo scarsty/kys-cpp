@@ -240,12 +240,11 @@ void SubScene::onEntrance()
     calViewRegion();
     submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
     if (submap_info_ == nullptr) { setExit(true); }
-    submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
-    setPosition(submap_info_->EntranceX, submap_info_->EntranceY);
+    //submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
-
     printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
+    //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
 
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
@@ -409,7 +408,7 @@ bool SubScene::isExit(int x, int y)
         || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
     {
         setExit(true);
-        Save::getInstance()->InSubmap = 1;
+        //Save::getInstance()->InSubMap = 1;
         return true;
     }
     return false;

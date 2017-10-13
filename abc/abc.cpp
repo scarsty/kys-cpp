@@ -77,10 +77,10 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
         std::vector<MagicSave1> magics_mem_;
         std::vector<ItemSave1> items_mem_;
         std::vector<SubMapInfoSave1> submap_infos_mem_;
-        File::readDataToVector(rgrp1 + offset[1], length[1], roles_mem_);
-        File::readDataToVector(rgrp1 + offset[2], length[2], items_mem_);
-        File::readDataToVector(rgrp1 + offset[3], length[3], submap_infos_mem_);
-        File::readDataToVector(rgrp1 + offset[4], length[4], magics_mem_);
+        File::readDataToVector(rgrp1 + offset1[1], length1[1], roles_mem_);
+        File::readDataToVector(rgrp1 + offset1[2], length1[2], items_mem_);
+        File::readDataToVector(rgrp1 + offset1[3], length1[3], submap_infos_mem_);
+        File::readDataToVector(rgrp1 + offset1[4], length1[4], magics_mem_);
         auto rgrp = (char*)s32;
         std::vector<RoleSave> roles;
         std::vector<MagicSave> magics;
@@ -140,9 +140,9 @@ int main()
         std::string grp = "work/game/save/r" + std::to_string(i) + ".grp";
         expandR("work/game/save/ranger.idx", grp);
         grp = "work/game/save/s" + std::to_string(i) + ".grp";
-        expandR("work/game/save/allsin.idx", grp);
+        expandR("work/game/save/allsin.idx", grp, false);
         grp = "work/game/save/d" + std::to_string(i) + ".grp";
-        expandR("work/game/save/alldef.idx", grp);
+        expandR("work/game/save/alldef.idx", grp, false);
     }
     expandR("work/game/resource/kdef.idx", "work/game/resource/kdef.grp", false);
     expandR("work/game/resource/warfld.idx", "work/game/resource/warfld.grp", false);

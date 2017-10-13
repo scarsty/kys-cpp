@@ -9,6 +9,7 @@
 #include "TeamMenu.h"
 #include "UIShop.h"
 #include "Script.h"
+#include "UISave.h"
 
 TitleScene::TitleScene()
 {
@@ -22,9 +23,8 @@ TitleScene::TitleScene()
     menu_->addChild(b, 20, 50);
     b = new Button("title", 6, 26, 26);
     menu_->addChild(b, 20, 100);
-    menu_load_ = new MenuText({ "载入进度一", "載入進度二", "載入進度3" });
+    menu_load_ = new UISave();
     menu_load_->setPosition(500, 300);
-    menu_load_->setFontSize(30);
 }
 
 TitleScene::~TitleScene()

@@ -23,13 +23,13 @@ UIShop::UIShop()
     }
     button_ok_ = new Button();
     button_ok_->setText("確認");
-    addChild(button_ok_, 360, 180);
+    addChild(button_ok_, 300, 190);
     button_cancel_ = new Button();
     button_cancel_->setText("取消");
-    addChild(button_cancel_, 450, 180);
+    addChild(button_cancel_, 400, 190);
     button_clear_ = new Button();
     button_clear_->setText("清除");
-    addChild(button_clear_, 540, 180);
+    addChild(button_clear_, 500, 190);
 }
 
 UIShop::~UIShop()
@@ -50,7 +50,7 @@ void UIShop::draw()
     auto font = Font::getInstance();
 
     str = convert::formatString("%-12s%8s%8s%8s%8s", "品名", "價格", "存貨", "持有", "計劃");
-    font->draw(str, 24, x, y, { 255, 255, 255, 255 });
+    font->draw(str, 24, x, y, { 200, 150, 50, 255 });
 
 
     for (int i = 0; i < 5; i++)
@@ -62,14 +62,14 @@ void UIShop::draw()
     }
 
     int need_money = calNeedMoney();
-    str = convert::formatString("總計%6d", need_money);
+    str = convert::formatString("總計銀兩%8d", need_money);
     font->draw(str, 24, x, y + 25 + 6 * 25, { 255, 255, 255, 255 });
 
     BP_Color c = { 255, 255, 255, 255 };
     int money = Save::getInstance()->getMoneyCountInBag();
-    str = convert::formatString("持有銀兩%6d", money);
+    str = convert::formatString("持有銀兩%8d", money);
     if (money < need_money) { c = { 250, 50, 50, 255 }; };
-    font->draw(str, 24, x + 144, y + 25 + 6 * 25, c);
+    font->draw(str, 24, x, y + 25 + 7 * 25, c);
 }
 
 void UIShop::pressedOK()

@@ -230,6 +230,7 @@ void MainScene::onEntrance()
     if (begin_submap_ >= 0) 
     {
         auto sub_map = new SubScene(begin_submap_);
+        sub_map->setManViewPosition(begin_submap_x_, begin_submap_y_);
         sub_map->run();
         delete sub_map;
     }
@@ -338,6 +339,7 @@ bool MainScene::checkEntrance(int x, int y)
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
                 auto sub_map = new SubScene(i);
+                sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
                 sub_map->run();
                 delete sub_map;
                 return true;

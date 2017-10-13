@@ -11,18 +11,6 @@ Menu::~Menu()
 {
 }
 
-void Menu::draw()
-{
-    if (tex_)
-    {
-        TextureManager::getInstance()->renderTexture(tex_, x_, y_);
-    }
-    if (!text_.empty())
-    {
-        Font::getInstance()->draw(text_, font_size_, x_ + text_x_, y_ + text_y_, { 255, 255, 255, 255 });
-    }
-}
-
 void Menu::dealEvent(BP_Event& e)
 {
     //此处处理键盘响应

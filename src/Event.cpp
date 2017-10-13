@@ -25,8 +25,10 @@ Event::Event()
     talk_box_->addChild(talk_box_up_);
     talk_box_->addChild(talk_box_down_, 0, 400);
     menu2_ = new MenuText({ "確認（Y）", "取消（N）" });
-    menu2_->setPosition(300, 200);
-    menu2_->arrange(0, 100, 100, 0);
+    menu2_->setPosition(400, 300);
+    menu2_->setFontSize(24);
+    menu2_->setHaveBox(true);
+    menu2_->arrange(0, 50, 150, 0);
     text_box_ = new TextBox();
     text_box_->setPosition(400, 200);
     text_box_->setTextPosition(-20, 100);
@@ -100,41 +102,43 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     bool loop = true;
     int i = 0;
     auto e = kdef_[event_id];
-    e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
+
     printf("Event %d: ", event_id);
     for (auto c : e)
     {
         printf("%d ", c);
     }
     printf("\n");
+    e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
-#define VOID_PARA0(function) { function(); i+=1; }
-#define VOID_PARA1(function) { function(e[i+1]); i+=2; }
-#define VOID_PARA2(function) { function(e[i+1],e[i+2]); i+=3; }
-#define VOID_PARA3(function) { function(e[i+1],e[i+2],e[i+3]); i+=4; }
-#define VOID_PARA4(function) { function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
-#define VOID_PARA5(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
-#define VOID_PARA6(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
-#define VOID_PARA7(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
-#define VOID_PARA8(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
-#define VOID_PARA9(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9]); i+=10; }
-#define VOID_PARA10(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i+=11; }
-#define VOID_PARA11(function) { function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i+=12; }
-#define VOID_PARA12(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i+=13; }
-#define VOID_PARA13(function) { function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i+=14; }
+#define PRINT_E(n) do { for (int __i=1;__i<=n;__i++) { printf("%d, ", e[i+__i]); } printf("\b\b  \n"); } while (0)
+#define VOID_PARA0(function) { PRINT_E(0); function(); i+=1; }
+#define VOID_PARA1(function) { PRINT_E(1); function(e[i+1]); i+=2; }
+#define VOID_PARA2(function) { PRINT_E(2); function(e[i+1],e[i+2]); i+=3; }
+#define VOID_PARA3(function) { PRINT_E(3); function(e[i+1],e[i+2],e[i+3]); i+=4; }
+#define VOID_PARA4(function) { PRINT_E(4); function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
+#define VOID_PARA5(function) { PRINT_E(5); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
+#define VOID_PARA6(function) { PRINT_E(6); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
+#define VOID_PARA7(function) { PRINT_E(7); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
+#define VOID_PARA8(function) { PRINT_E(8); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
+#define VOID_PARA9(function) { PRINT_E(9); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9]); i+=10; }
+#define VOID_PARA10(function) { PRINT_E(10); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i+=11; }
+#define VOID_PARA11(function) { PRINT_E(11); function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i+=12; }
+#define VOID_PARA12(function) { PRINT_E(12); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i+=13; }
+#define VOID_PARA13(function) { PRINT_E(13); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i+=14; }
 
-#define BOOL_PARA0(function) { if (function()) {i += e[i+1];} else { i+= e[i+2];} i += 3; }
-#define BOOL_PARA1(function) { if (function(e[i+1])) {i += e[i+2];} else { i+= e[i+3];} i += 4; }
-#define BOOL_PARA2(function) { if (function(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4];} i += 5; }
-#define BOOL_PARA3(function) { if (function(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5];} i += 6; }
+#define BOOL_PARA0(function) { PRINT_E(0); if (function()) {i += e[i+1];} else { i+= e[i+2];} i += 3; }
+#define BOOL_PARA1(function) { PRINT_E(1); if (function(e[i+1])) {i += e[i+2];} else { i+= e[i+3];} i += 4; }
+#define BOOL_PARA2(function) { PRINT_E(2); if (function(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4];} i += 5; }
+#define BOOL_PARA3(function) { PRINT_E(3); if (function(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5];} i += 6; }
 
-#define REGISTER_INSTRUCT(code, function, PARA) { case (code): PARA(function); break; }
+#define REGISTER_INSTRUCT(code, function, PARA) { case (code): printf("%s: ", #function); PARA(function); break; }
 
 
     while (i < e.size() && loop)
     {
-        printf("instruct %d\n", e[i]);
+        //printf("instruct %d\n", e[i]);
         switch (e[i])
         {
             REGISTER_INSTRUCT(1, oldTalk, VOID_PARA3);
@@ -280,7 +284,6 @@ void Event::callLeaveEvent(Role* role)
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
     Talk* talk;
-    //talkup_->setVisible(true);
     if (style % 2 == 0)
     {
         talk = talk_box_up_;
@@ -291,6 +294,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     }
 
     talk->setContent(talk_[talk_id]);
+    printf("%s\n", talk_[talk_id].c_str());
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -305,7 +309,6 @@ void Event::oldTalk(int talk_id, int head_id, int style)
         talk->setHeadStyle(1);
     }
     talk->run(false);
-    //talkup_->setVisible(false);
 }
 
 //获得物品，有提示
@@ -470,7 +473,7 @@ void Event::oldSetScencePosition(int x, int y)
 {
     if (subscene_)
     {
-        subscene_->setPosition(x, y);
+        subscene_->setManViewPosition(x, y);
     }
 }
 
@@ -520,8 +523,8 @@ void Event::setRoleUsePoison(int role_id, int v)
 void Event::subMapViewFromTo(int x0, int y0, int x1, int y1)
 {
     if (subscene_ == nullptr) { return; }
-    int incx = sign(x1 - x0);
-    int incy = sign(y1 - y0);
+    int incx = GameUtil::sign(x1 - x0);
+    int incy = GameUtil::sign(y1 - y0);
     if (incx)
     {
         for (int i = x0; i != x1; i += incx)
@@ -558,7 +561,7 @@ void Event::playAnimation(int event_index, int begin_pic, int end_pic)
     if (subscene_ == nullptr) { return; }
     if (event_index = -1)
     {
-        int inc = sign(end_pic - begin_pic);
+        int inc = GameUtil::sign(end_pic - begin_pic);
         for (int i = begin_pic; i != end_pic; i += inc)
         {
             subscene_->forceManPic(i);
@@ -571,7 +574,7 @@ void Event::playAnimation(int event_index, int begin_pic, int end_pic)
         auto e = subscene_->getMapInfo()->Event(event_index);
         if (e)
         {
-            int inc = sign(end_pic - begin_pic);
+            int inc = GameUtil::sign(end_pic - begin_pic);
             for (int i = begin_pic; i != end_pic; i += inc)
             {
                 e->setPic(i);
@@ -597,8 +600,8 @@ void Event::walkFromTo(int x0, int y0, int x1, int y1)
 {
     if (subscene_ == nullptr) { return; }
 
-    int incx = sign(x1 - x0);
-    int incy = sign(y1 - y0);
+    int incx = GameUtil::sign(x1 - x0);
+    int incy = GameUtil::sign(y1 - y0);
     if (incx)
     {
         for (int i = x0; i != x1; i += incx)
@@ -617,7 +620,7 @@ void Event::walkFromTo(int x0, int y0, int x1, int y1)
             subscene_->drawAndPresent();
         }
     }
-    subscene_->setPosition(x1, y1);
+    subscene_->setManViewPosition(x1, y1);
 }
 
 bool Event::checkEnoughMoney(int money_count)
@@ -808,7 +811,7 @@ void Event::play2Amination(int event_index1, int begin_pic1, int end_pic1, int e
     auto e2 = subscene_->getMapInfo()->Event(event_index2);
     if (e1 && e2)
     {
-        int inc1 = sign(end_pic1 - begin_pic1);
+        int inc1 = GameUtil::sign(end_pic1 - begin_pic1);
         for (int i = 0; i != end_pic1 - begin_pic1; i += inc1)
         {
             e1->setPic(begin_pic1 + i);
@@ -827,7 +830,7 @@ void Event::play3Amination(int event_index1, int begin_pic1, int end_pic1, int e
     auto e3 = subscene_->getMapInfo()->Event(event_index2);
     if (e1 && e2 && e3)
     {
-        int inc1 = sign(end_pic1 - begin_pic1);
+        int inc1 = GameUtil::sign(end_pic1 - begin_pic1);
         for (int i = 0; i != end_pic1 - begin_pic1; i += inc1)
         {
             e1->setPic(begin_pic1 + i);

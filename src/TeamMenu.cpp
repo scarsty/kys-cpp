@@ -117,9 +117,20 @@ void TeamMenu::pressedOK()
         }
         if (button_all_->getState() == Press)
         {
+            //如果已经全选，则是清除
+            int all = -1;
             for (auto h : heads_)
             {
-                h->setResult(0);
+                if (h->getResult() != 0)
+                {
+                    all = 0;
+                    break;
+                }
+            }
+
+            for (auto h : heads_)
+            {
+                h->setResult(all);
             }
         }
         if (button_ok_->getState() == Press)

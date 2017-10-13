@@ -52,8 +52,7 @@ private:
     //Save* save_;
 
 private:
-    SubMapInfo* getSubMapRecordFromID(int submap_id);
-    int sign(int v) { if (v > 0) { return 1; } if (v < 0) { return -1; } return 0; }
+    SubMapInfo* getSubMapRecordFromID(int submap_id);    
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
