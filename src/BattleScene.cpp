@@ -315,7 +315,7 @@ void BattleScene::setRoleInitState(Role* r)
 
     if (r->Team == 0)
     {
-        r->Auto = 1;
+        r->Auto = 0;
         GameUtil::limit2(r->HP, r->MaxHP / 10, r->MaxHP);
         GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);;
     }
@@ -354,7 +354,7 @@ void BattleScene::setFaceTowardsNearestEnemy(Role* r)
 {
     //寻找离自己最近的敌方，设置面向
     int min_distance = COORD_COUNT * COORD_COUNT;
-    Role* r_near;
+    Role* r_near = nullptr;
     for (auto r1 : battle_roles_)
     {
         if (r->Team != r1->Team)
@@ -367,7 +367,10 @@ void BattleScene::setFaceTowardsNearestEnemy(Role* r)
             }
         }
     }
-    r->FaceTowards = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
+    if (r_near)
+    {
+        r->FaceTowards = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
+    }
 }
 
 void BattleScene::readFightFrame(Role* r)
@@ -784,7 +787,7 @@ void BattleScene::actUseMagic(Role* r)
                 magic_name->run();
                 delete magic_name;
                 r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
-                r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index) / 2, 0, r->MaxMP);
+                r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
                 useMagicAnimation(r, magic);
                 calAllHurt(r, magic);
                 showNumberAnimation();

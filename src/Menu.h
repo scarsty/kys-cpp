@@ -8,6 +8,8 @@ public:
     virtual ~Menu();
 public:
     //virtual void draw() override;
+    int active_child_ = 0;
+    int getActiveChild() { return active_child_; }
     virtual void dealEvent(BP_Event& e) override;
     void arrange(int x, int y, int inc_x, int inc_y);
     virtual void onPressedOK() override;

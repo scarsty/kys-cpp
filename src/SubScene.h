@@ -22,12 +22,14 @@ public:
 
     int exit_music_;
 
+    int force_man_pic_ = -1;
+
 public:
     SubMapInfo* getMapInfo() { return submap_info_; }
 
     void changeExitMusic(int m) { exit_music_ = m; }
 
-    void setID(int id) { submap_id_ = id; }
+    void setID(int id);
 
     //注意视角和主角的位置可能不一样
     void setViewPosition(int x, int y) { view_x_ = x; view_y_ = y; }
@@ -66,7 +68,9 @@ public:
 
     Point getPositionOnWholeEarth(int x, int y);
 
-    int calManPic() { return MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_; }  //每个方向的第一张是静止图
-    void forceManPic(int pic) { man_pic_ = -pic; }
+    int calManPic() { return MAN_PIC_0 + towards_ * MAN_PIC_COUNT + step_; }  //每个方向的第一张是静止图
+    void forceManPic(int pic) { force_man_pic_ = pic; }
+
+    void forceExit();
 };
 

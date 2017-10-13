@@ -48,7 +48,7 @@ public:
 
     Magic* getMagic() { return magic_; }
 
-    virtual void onPressedOK() override { exitWithResult(0); }
+    virtual void onPressedOK() override;
     virtual void onPressedCancel() override { magic_ = nullptr; exitWithResult(-1); }
 
 };

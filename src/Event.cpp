@@ -100,7 +100,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
     Element::addOnRootTop(talk_box_);
     int p = 0;
-    bool loop = true;
+    loop_ = true;
     int i = 0;
     auto e = kdef_[event_id];
 
@@ -140,7 +140,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 #define REGISTER_INSTRUCT(code, function, PARA) { case (code): printf("%s: ", #function); PARA(function); break; }
 
 
-    while (i < e.size() && loop)
+    while (i < e.size() && loop_)
     {
         //printf("instruct %d\n", e[i]);
         switch (e[i])
@@ -164,7 +164,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             break;
         case 7:
             i += 1;
-            loop = false;
+            loop_ = false;
             break;
             REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_PARA1);
             REGISTER_INSTRUCT(9, askJoin, BOOL_PARA0);
@@ -243,7 +243,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             REGISTER_INSTRUCT(67, playWave, VOID_PARA1);
 
         case -1:
-            loop = false;
+            loop_ = false;
             break;
         default:
             //不存在的指令，移动一格
@@ -563,7 +563,7 @@ void Event::add3EventNum(int submap_id, int event_index, int v1, int v2, int v3)
 void Event::playAnimation(int event_index, int begin_pic, int end_pic)
 {
     if (subscene_ == nullptr) { return; }
-    if (event_index = -1)
+    if (event_index == -1)
     {
         int inc = GameUtil::sign(end_pic - begin_pic);
         for (int i = begin_pic / 2; i != end_pic / 2; i += inc)
@@ -572,6 +572,8 @@ void Event::playAnimation(int event_index, int begin_pic, int end_pic)
             subscene_->drawAndPresent();
         }
         subscene_->forceManPic(end_pic / 2);
+        subscene_->drawAndPresent();
+        subscene_->forceManPic(-1);
     }
     else
     {

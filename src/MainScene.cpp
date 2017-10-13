@@ -6,6 +6,7 @@
 #include "Save.h"
 #include "UI.h"
 #include "Util.h"
+#include "UISave.h"
 
 MainScene MainScene::main_scene_;
 
@@ -162,6 +163,16 @@ void MainScene::backRun()
 //计时器，负责画图以及一些其他问题
 void MainScene::dealEvent(BP_Event& e)
 {
+    //强制进入，通常用于开始
+    if (force_submap_ >= 0)
+    {
+        auto sub_map = new SubScene(force_submap_);
+        sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
+        sub_map->run();
+        delete sub_map;
+        force_submap_ = -1;
+        setVisible(true);
+    }
     int x = man_x_, y = man_y_;
     //功能键
     if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
@@ -225,13 +236,10 @@ void MainScene::dealEvent(BP_Event& e)
 void MainScene::onEntrance()
 {
     calViewRegion();
-    if (begin_submap_ >= 0)
-    {
-        auto sub_map = new SubScene(begin_submap_);
-        sub_map->setManViewPosition(begin_submap_x_, begin_submap_y_);
-        sub_map->run();
-        delete sub_map;
-    }
+    //if (force_submap_ >= 0)
+    //{
+    //    forceEnterSubScene(force_submap_, force_submap_x_, force_submap_y_);
+    //}
 }
 
 void MainScene::onExit()
@@ -334,6 +342,7 @@ bool MainScene::checkEntrance(int x, int y)
             }
             if (can_enter)
             {
+                UISave::save(99);
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
                 auto sub_map = new SubScene(i);
@@ -347,11 +356,12 @@ bool MainScene::checkEntrance(int x, int y)
     return false;
 }
 
-void MainScene::setBeginSubMap(int b, int x /*= -1*/, int y /*= -1*/)
+void MainScene::forceEnterSubScene(int submap_id, int x, int y)
 {
-    begin_submap_ = b;
-    if (x >= 0) { begin_submap_x_ = x; }
-    if (y >= 0) { begin_submap_y_ = y; }
+    force_submap_ = submap_id;
+    if (x >= 0) { force_submap_x_ = x; }
+    if (y >= 0) { force_submap_y_ = y; }
+    setVisible(false);
 }
 
 void MainScene::setEntrance()

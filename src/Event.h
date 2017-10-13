@@ -50,12 +50,14 @@ private:
     int item_id_;
     Item* item_;
     //Save* save_;
+    bool loop_;
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);    
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
+    void forceExit() { loop_ = false; }
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}

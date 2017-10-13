@@ -43,10 +43,6 @@ void trans_fight_frame()
     }
 }
 
-
-
-
-
 int expandR(std::string idx, std::string grp, bool ranger = true)
 {
     if (!File::fileExist(grp) || !File::fileExist(idx))
@@ -119,6 +115,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
         File::writeVectorToData(rgrp + offset[3], length[3], submap_infos, sizeof(SubMapInfoSave));
         File::writeVectorToData(rgrp + offset[4], length[4], magics, sizeof(MagicSave));
     }
+    s32[1]--;
     File::writeFile(grp + "32", s32, len * 2);
     File::writeFile(idx + "32", &offset[1], 4 * offset.size() - 4);
     delete rgrp1;

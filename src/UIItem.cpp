@@ -22,8 +22,8 @@ UIItem::UIItem()
     }
     title_ = new MenuText();
     title_->setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
-    title_->setFontSize(25);
-    title_->arrange(0, 50, 65, 0);
+    title_->setFontSize(24);
+    title_->arrange(0, 50, 64, 0);
     addChild(title_);
 
     cursor_ = new TextBox();
@@ -114,7 +114,7 @@ void UIItem::dealEvent(BP_Event& e)
 {
     //强制停留在某类物品
     if (force_item_type_ >= 0) { title_->setResult(force_item_type_); }
-    int type_item_count = geItemBagIndexByType(title_->getResult());
+    int type_item_count = geItemBagIndexByType(title_->getActiveChild());
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
     int max_leftup = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;

@@ -23,8 +23,8 @@ public:
     Save();
     ~Save();
 
-    bool LoadR(int num);
-    bool SaveR(int num);
+    bool load(int num);
+    bool save(int num);
 
     static Save save_;
     static Save* getInstance()

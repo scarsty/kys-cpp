@@ -14,7 +14,7 @@ public:
     static MainScene* getIntance() { return &main_scene_; }
 
     static const int COORD_COUNT = MAINMAP_COORD_COUNT;
-    MapSquare* earth_layer_ , *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
+    MapSquare* earth_layer_, *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
     bool data_readed_ = false;
 
     void divide2(MapSquare* m);
@@ -30,9 +30,9 @@ public:
     int BEGIN_REST_TIME = 200;              //开始休息的时间
     int REST_INTERVAL = 15;                 //休息图切换间隔
 
-    int begin_submap_ = -1;
-    int begin_submap_x_ = -1;
-    int begin_submap_y_ = -1;
+    int force_submap_ = -1;
+    int force_submap_x_ = -1;
+    int force_submap_y_ = -1;
 
     //todo: 休息未完成
 
@@ -57,5 +57,6 @@ public:
     virtual bool canWalk(int x, int y) override;
 
     bool checkEntrance(int x, int y);    //主地图主要是检测入口
-    void setBeginSubMap(int b, int x = -1, int y = -1);
+
+    void forceEnterSubScene(int submap_id, int x, int y);
 };

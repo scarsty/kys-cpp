@@ -32,9 +32,9 @@ public:
     BP_Keycode pre_pressed_;    //键盘走路的上次按键
 
     int man_x_, man_y_;
-    int towards_;              //朝向，共用一个即可
+    int towards_ = 0;              //朝向，共用一个即可
     int step_ = 0;
-    int man_pic_;
+    int man_pic_ = 0;
 
     void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }
     void getManPosition(int& x, int& y) { x = man_x_; y = man_y_; }

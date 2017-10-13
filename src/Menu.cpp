@@ -4,7 +4,7 @@
 
 Menu::Menu()
 {
-    result_ = 0;
+    active_child_ = 0;
 }
 
 Menu::~Menu()
@@ -32,30 +32,37 @@ void Menu::dealEvent(BP_Event& e)
             //仅有两项的菜单两头封住
             if (getChildCount() <= 2)
             {
-                result_ = direct > 0 ? getChildCount() - 1 : 0;
+                active_child_ = direct > 0 ? getChildCount() - 1 : 0;
             }
             else
             {
-                result_ = findNextVisibleChild(result_, direct);
+                active_child_ = findNextVisibleChild(active_child_, direct);
             }
-            getChild(result_)->setState(Pass);
+            getChild(active_child_)->setState(Pass);
         }
-
     }
 
-    //获取当前正在被激活的按钮，主要针对鼠标
-    for (int i = 0; i < getChildCount(); i++)
+    for (int i = 0; i < childs_.size(); i++)
     {
-        if (getChild(i)->getState() != Normal)
+        if (childs_[i]->getState() == Pass)
         {
-            result_ = i;
+            active_child_ = i;
         }
     }
-
-    //重置当前被激活的按钮状态
-    if (getChild(result_)->getState() == Normal)
+    for (int i = 0; i < childs_.size(); i++)
     {
-        getChild(result_)->setState(Pass);
+        if (i != active_child_)
+        {
+            childs_[i]->setState(Normal);
+        }
+    }
+    //重置当前被激活的按钮状态
+    if (active_child_ >= 0)
+    {
+        if (getChild(active_child_)->getState() == Normal)
+        {
+            getChild(active_child_)->setState(Pass);
+        }
     }
 }
 
@@ -74,6 +81,7 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
 
 void Menu::onPressedOK()
 {
+    active_child_ = result_;
     setExit(true);
 }
 

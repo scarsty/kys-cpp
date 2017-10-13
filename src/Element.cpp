@@ -1,5 +1,5 @@
 #include "Element.h"
-#include "UI.h"
+#include "UISystem.h"
 
 std::vector<Element*> Element::root_;
 int Element::prev_present_ticks_ = 0;
@@ -27,7 +27,7 @@ void Element::drawAll()
     for (int i = begin_base; i < root_.size(); i++)  //从最后一个全屏层开始画
     {
         auto b = root_[i];
-        if (b->visible_)
+        if (b->visible_ && !b->exit_)
         {
             b->drawSelfAndChilds();
         }
@@ -118,6 +118,18 @@ void Element::drawSelfAndChilds()
     }
 }
 
+void Element::checkResult()
+{
+    //获取当前正在被激活的按钮，主要针对鼠标
+    for (int i = 0; i < getChildCount(); i++)
+    {
+        if (getChild(i)->getState() == Press)
+        {
+            result_ = i;
+        }
+    }
+}
+
 void Element::setAllChildState(int s)
 {
     for (auto c : childs_)
@@ -152,10 +164,23 @@ int Element::findNextVisibleChild(int i0, int direct)
     return i0;
 }
 
+int Element::findFristVisibleChild()
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        if (childs_[i]->visible_)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
 int Element::run(bool in_root /*= true*/)
 {
     exit_ = false;
+    visible_ = true;
     if (in_root) { addOnRootTop(this); }
     onEntrance();
     while (!exit_)
@@ -171,9 +196,10 @@ int Element::run(bool in_root /*= true*/)
 
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
+//注意全屏类的节点要一直接受事件
 void Element::checkStateAndEvent(BP_Event& e)
 {
-    if (visible_)
+    if (visible_ || full_window_ != 0)
     {
         //注意这里是反向
         for (int i = childs_.size() - 1; i >= 0; i--)
@@ -218,6 +244,7 @@ void Element::checkStateAndEvent(BP_Event& e)
         if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
         {
+            checkResult();
             onPressedOK();
         }
         if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
@@ -246,8 +273,7 @@ void Element::checkEventAndPresent(bool check_event)
     switch (e.type)
     {
     case BP_QUIT:
-        //if (engine->showMessage("Quit"))
-        //loop_ = false;
+        UISystem::askExit();
         break;
     default:
         break;
@@ -259,6 +285,18 @@ void Element::checkEventAndPresent(bool check_event)
     engine->delay(t);
     engine->renderPresent();
     prev_present_ticks_ = t1;
+}
+
+void Element::exitAll(int begin)
+{
+    for (int i = begin; i < root_.size(); i++)
+    {
+        root_[i]->exit_ = true;
+        for (auto c : root_[i]->childs_)
+        {
+            c->exit_ = true;
+        }
+    }
 }
 
 //专门用来某些情况下动画的显示和延时

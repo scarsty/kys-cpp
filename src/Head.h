@@ -18,5 +18,8 @@ public:
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }
     void setOnlyHead(bool b) { only_head_ = b; }
+
+    virtual void onPressedOK() override {}
+    virtual void onPressedCancel() override {}
 };
 

@@ -18,7 +18,7 @@ protected:
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
-    bool exit_ = true;                 //子类的过程中设此值为true，即表示下一个循环将退出
+    bool exit_ = false;                 //子类的过程中设此值为true，即表示下一个循环将退出
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -56,6 +56,8 @@ public:
     bool getVisible() { return visible_; }
     void setVisible(bool v) { visible_ = v; }
 
+    void checkResult();
+
     //状态
     enum State
     {
@@ -77,6 +79,7 @@ public:
     void setAllChildVisible(bool v);
 
     int findNextVisibleChild(int i0, int direct);
+    int findFristVisibleChild();
 
     void setExit(bool e) { exit_ = e; }
     bool isRunning() { return !exit_; }
@@ -103,7 +106,20 @@ private:
 public:
     int run(bool in_root = true);                       //执行本层
     int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
+    static void exitAll(int begin = 0);
     int drawAndPresent(int times = 1, std::function<void(void*)> func = nullptr, void* data = nullptr);
+
+    template <class T> static T* getPointerFromRoot()
+    {
+        for (int i = root_.size() - 1; i >= 0; i--)
+        {
+            T* ptr = dynamic_cast<T*>(root_[i]);
+            if (ptr) { return ptr; }
+        }
+        return nullptr;
+    }
+
+
 
     //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，改成宏也行
     //注意子类的子类可能会出现继承关系，需视情况再改写

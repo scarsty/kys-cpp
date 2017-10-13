@@ -217,7 +217,7 @@ struct MagicSave
 
 struct Magic : MagicSave
 {
-    int calNeedMP(int level_index) { return NeedMP * (level_index + 2) / 2; }
+    int calNeedMP(int level_index) { return NeedMP * ((level_index + 2) / 2); }
     int calMaxLevelIndexByMP(int mp, int max_level);
 };
 

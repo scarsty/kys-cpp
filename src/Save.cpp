@@ -42,7 +42,7 @@ std::string Save::getFilename(int i, char c)
     return filename;
 }
 
-bool Save::LoadR(int num)
+bool Save::load(int num)
 {
     std::string filenamer = getFilename(num, 'r');
     std::string filenames = getFilename(num, 's');
@@ -111,7 +111,7 @@ bool Save::LoadR(int num)
     return true;
 }
 
-bool Save::SaveR(int num)
+bool Save::save(int num)
 {
     std::string filenamer = getFilename(num, 'r');
     std::string filenames = getFilename(num, 's');

@@ -127,7 +127,6 @@ void TeamMenu::onPressedOK()
                     break;
                 }
             }
-
             for (auto h : heads_)
             {
                 h->setResult(all);

@@ -52,9 +52,10 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
-        Save::getInstance()->LoadR(0);
+        Save::getInstance()->load(0);
         MainScene::getIntance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-        MainScene::getIntance()->setBeginSubMap(70, 19, 20);
+        MainScene::getIntance()->forceEnterSubScene(70, 19, 20);
+        MainScene::getIntance()->setTowards(1);
         MainScene::getIntance()->run();
     }
     if (r == 1)

@@ -21,6 +21,17 @@ SubScene::~SubScene()
 
 }
 
+void SubScene::setID(int id)
+{
+    submap_id_ = id;
+    submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
+    if (submap_info_ == nullptr) { setExit(true); }
+    //submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
+    exit_music_ = submap_info_->ExitMusic;
+    Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
+    printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
+}
+
 void SubScene::draw()
 {
     int k = 0;
@@ -94,15 +105,15 @@ void SubScene::draw()
                 if (i1 == man_x_ && i2 == man_y_)
                 {
                     //此处当主角的贴图为负值时，表示强制设置贴图号
-                    if (man_pic_ >= 0)
+                    if (force_man_pic_ < 0)
                     {
                         man_pic_ = calManPic();
                     }
                     else
                     {
-                        man_pic_ = -man_pic_;
+                        man_pic_ = force_man_pic_;
                     }
-                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);                    
+                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                 }
                 //事件
                 auto event = submap_info_->Event(i1, i2);
@@ -238,12 +249,6 @@ void SubScene::backRun()
 void SubScene::onEntrance()
 {
     calViewRegion();
-    submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
-    if (submap_info_ == nullptr) { setExit(true); }
-    //submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
-    exit_music_ = submap_info_->ExitMusic;
-    Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
-    printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
 
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
@@ -435,5 +440,11 @@ Point SubScene::getPositionOnWholeEarth(int x, int y)
     p.x += COORD_COUNT * TILE_W - render_center_x_;
     p.y += 2 * TILE_H - render_center_y_;
     return p;
+}
+
+void SubScene::forceExit()
+{
+    setVisible(false);
+    setExit(true);
 }
 

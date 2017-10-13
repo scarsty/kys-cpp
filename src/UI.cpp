@@ -62,7 +62,7 @@ void UI::dealEvent(BP_Event& e)
         auto head = heads_[i];
         auto role = Save::getInstance()->getTeamMate(i);
         head->setRole(role);
-        if (role == nullptr) { continue; }        
+        if (role == nullptr) { continue; }
         if (head->getState() == Pass)
         {
             ui_status_->setRole(role);
@@ -110,7 +110,14 @@ void UI::onPressedOK()
         {
             setExit(true);
         }
-        //需增加头像的判断
+    }
+
+    if (childs_[0] == ui_system_)
+    {
+        if (ui_system_->getResult() == 0)
+        {
+            setExit(true);
+        }
     }
 
     //四个按钮的响应

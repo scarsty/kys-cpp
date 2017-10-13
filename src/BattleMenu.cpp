@@ -56,7 +56,8 @@ void BattleActionMenu::onEntrance()
 
     setFontSize(20);
     arrange(0, 0, 0, 28);
-    childs_[findNextVisibleChild(getChildCount() - 1, 1)]->setState(Pass);
+    active_child_ = findFristVisibleChild();
+    childs_[active_child_]->setState(Pass);
 }
 
 void BattleActionMenu::dealEvent(BP_Event& e)
@@ -312,8 +313,13 @@ void BattleMagicMenu::dealEvent(BP_Event& e)
     else
     {
         Menu::dealEvent(e);
-        magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
     }
+}
+
+void BattleMagicMenu::onPressedOK()
+{
+    magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
+    setExit(true);
 }
 
 BattleItemMenu::BattleItemMenu()
