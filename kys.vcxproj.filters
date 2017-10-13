@@ -300,6 +300,9 @@
     <Library Include="lib\libminizip.lib">
       <Filter>_lib</Filter>
     </Library>
+    <Library Include="lib\TinyPot.lib">
+      <Filter>_lib</Filter>
+    </Library>
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.md" />

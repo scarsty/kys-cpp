@@ -162,6 +162,7 @@
     <Library Include="lib\SDL2main.lib" />
     <Library Include="lib\SDL2_image.lib" />
     <Library Include="lib\SDL2_ttf.lib" />
+    <Library Include="lib\TinyPot.lib" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
