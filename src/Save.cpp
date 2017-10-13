@@ -156,7 +156,7 @@ Role* Save::getTeamMate(int i)
     {
         return nullptr;
     }
-    return &(roles_mem_[r]);
+    return roles_[r];
 }
 
 Item* Save::getItemByBagIndex(int i)
@@ -170,7 +170,7 @@ Item* Save::getItemByBagIndex(int i)
     {
         return nullptr;
     }
-    return &(items_mem_[r]);
+    return items_[r];
 }
 
 int Save::getItemCountByBagIndex(int i)
@@ -221,7 +221,6 @@ void Save::makeMaps()
     {
         submap_infos_by_name_[i->Name] = i;
     }
-
 }
 
 Magic* Save::getRoleLearnedMagic(Role* r, int i)

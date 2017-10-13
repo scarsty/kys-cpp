@@ -2,6 +2,7 @@
 #include "Scene.h"
 #include "Menu.h"
 #include "Event.h"
+#include "UISave.h"
 
 class TitleScene : public Scene
 {
@@ -14,14 +15,12 @@ public:
 
     virtual void onEntrance() override;
 
-    bool b_s = true;
-    int m_y = 15;
-    int speed = 2;
-    int state = 0;
-
     Menu* menu_;
-    Menu* menu_load_;
+    UISave* menu_load_;
 
     int count_ = 0;
+    int head_id_ = 0;
+
+    int head_x_, head_y_;
 };
 

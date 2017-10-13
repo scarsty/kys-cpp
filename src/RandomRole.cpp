@@ -1,0 +1,53 @@
+#include "RandomRole.h"
+#include "Random.h"
+
+RandomRole::RandomRole()
+{
+    setShowButton(false);
+
+    button_ok_ = new Button();
+    button_ok_->setText("´_¶¨");
+    addChild(button_ok_, 350, 55);
+    head_ = new Head();
+    addChild(head_, -290, 100);
+}
+
+RandomRole::~RandomRole()
+{
+}
+
+void RandomRole::onPressedOK()
+{
+    if (button_ok_->getState() == Press)
+    {
+        result_ = 0;
+        setExit(true);
+        return;
+    }
+
+    role_->MaxHP = 25 + RandomClassical::rand(26);
+    role_->HP = role_->MaxHP;
+    role_->MaxMP = 25 + RandomClassical::rand(26);
+    role_->MP = role_->MaxMP;
+    role_->MPType = RandomClassical::rand(2);
+    role_->IncLife = 1 + RandomClassical::rand(10);
+    role_->Attack = 25 + RandomClassical::rand(6);
+    role_->Speed = 25 + RandomClassical::rand(6);
+    role_->Defence = 25 + RandomClassical::rand(6);
+    role_->Medcine = 25 + RandomClassical::rand(6);
+    role_->UsePoison = 25 + RandomClassical::rand(6);
+    role_->Detoxification = 25 + RandomClassical::rand(6);
+    role_->Fist = 25 + RandomClassical::rand(6);
+    role_->Sword = 25 + RandomClassical::rand(6);
+    role_->Knife = 25 + RandomClassical::rand(6);
+    role_->Unusual = 25 + RandomClassical::rand(6);
+    role_->HiddenWeapon = 25 + RandomClassical::rand(6);
+    role_->IQ = 1 + RandomClassical::rand(100);
+}
+
+void RandomRole::draw()
+{
+    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
+    head_->setRole(role_);
+    UIStatus::draw();
+}

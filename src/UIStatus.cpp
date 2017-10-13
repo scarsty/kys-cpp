@@ -28,6 +28,13 @@ UIStatus::~UIStatus()
 
 void UIStatus::draw()
 {
+    if (role_ == nullptr || !show_button_)
+    {
+        button_medcine_->setVisible(false);
+        button_detoxification_->setVisible(false);
+        button_leave_->setVisible(false);
+    }
+
     if (role_)
     {
         if (show_button_)
@@ -39,9 +46,6 @@ void UIStatus::draw()
     }
     else
     {
-        button_medcine_->setVisible(false);
-        button_detoxification_->setVisible(false);
-        button_leave_->setVisible(false);
         return;
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);

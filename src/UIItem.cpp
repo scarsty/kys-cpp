@@ -135,8 +135,8 @@ void UIItem::dealEvent(BP_Event& e)
 
     //计算当前指向的物品
     //result_ = -1;
-    current_item_ = nullptr;
-    current_button_ = nullptr;
+    //current_item_ = nullptr;
+    //current_button_ = nullptr;
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
@@ -150,7 +150,6 @@ void UIItem::dealEvent(BP_Event& e)
                 current_button_ = button;
                 //result_ = current_item_->ID;
             }
-
         }
         else
         {
@@ -302,14 +301,25 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
 
 void UIItem::onPressedOK()
 {
-    if (!current_item_) { return; }
+    current_item_ = nullptr;
+    for (int i = 0; i < item_buttons_.size(); i++)
+    {
+        auto button = item_buttons_[i];
+        auto item = Save::getInstance()->getItemByBagIndex(items_[i + leftup_index_]);
+        if (item && button->getState() == Press)
+        {
+            current_item_ = item;
+        }
+    }
+
+    if (current_item_ == nullptr) { return; }
 
     //在使用剧情物品的时候，返回一个结果，主UI判断此时可以退出
     if (current_item_->ItemType == 0)
     {
         result_ = current_item_->ID;
     }
-    
+
     if (select_user_)
     {
         if (current_item_->ItemType == 3)
