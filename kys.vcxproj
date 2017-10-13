@@ -177,6 +177,7 @@
     <ClCompile Include="src\Option.cpp" />
     <ClCompile Include="src\others\ini.cpp" />
     <ClCompile Include="src\others\INIReader.cpp" />
+    <ClCompile Include="src\RandomRole.cpp" />
     <ClCompile Include="src\Script.cpp" />
     <ClCompile Include="src\ShowExp.cpp" />
     <ClCompile Include="src\ShowRoleDifference.cpp" />
@@ -224,6 +225,7 @@
     <ClInclude Include="src\others\ini.h" />
     <ClInclude Include="src\others\INIReader.h" />
     <ClInclude Include="src\Random.h" />
+    <ClInclude Include="src\RandomRole.h" />
     <ClInclude Include="src\Script.h" />
     <ClInclude Include="src\ShowExp.h" />
     <ClInclude Include="src\ShowRoleDifference.h" />

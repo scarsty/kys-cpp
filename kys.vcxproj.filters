@@ -130,6 +130,9 @@
     <ClCompile Include="src\UISave.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\RandomRole.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -263,6 +266,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\UISave.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RandomRole.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

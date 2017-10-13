@@ -47,7 +47,7 @@ void UISave::onPressedOK()
         }
         setExit(true);
     }
-    result_ = -1;
+    //result_ = -1;
 }
 
 void UISave::load(int r)

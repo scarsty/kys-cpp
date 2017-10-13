@@ -10,6 +10,8 @@
 #include "UIShop.h"
 #include "Script.h"
 #include "UISave.h"
+#include "RandomRole.h"
+#include "Random.h"
 
 TitleScene::TitleScene()
 {
@@ -37,14 +39,15 @@ void TitleScene::draw()
 {
     int count = count_ / 20;
     TextureManager::getInstance()->renderTexture("title", 0, 0, 0);
-    TextureManager::getInstance()->renderTexture("title", 12, 70, 100);
-    TextureManager::getInstance()->renderTexture("title", 10, 70, 100);
-    TextureManager::getInstance()->renderTexture("title", 10, 670, 100);
-
-    int alpha = count_ % 256;
-    TextureManager::getInstance()->renderTexture("title", 13, 50, 300, { 255, 255, 255, 255 }, alpha);
-    TextureManager::getInstance()->renderTexture("head", count % 115, 50, 300, { 255, 255, 255, 255 }, alpha);
+    int alpha = 255 - abs(255 - count_ % 510);
     count_++;
+    if (alpha == 0)
+    {
+        head_id_ = RandomClassical::rand(115);
+        head_x_ = RandomClassical::rand(1024 - 150);
+        head_y_ = RandomClassical::rand(640 - 150);
+    }
+    TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
 }
 
 void TitleScene::dealEvent(BP_Event& e)
@@ -53,15 +56,22 @@ void TitleScene::dealEvent(BP_Event& e)
     if (r == 0)
     {
         Save::getInstance()->load(0);
-        MainScene::getIntance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-        MainScene::getIntance()->forceEnterSubScene(70, 19, 20);
-        MainScene::getIntance()->setTowards(1);
-        MainScene::getIntance()->run();
+        auto random_role = new RandomRole();
+        random_role->setRole(Save::getInstance()->getRole(0));
+        if (random_role->runAtPosition(300, 0) == 0)
+        {
+            MainScene::getIntance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+            MainScene::getIntance()->forceEnterSubScene(70, 19, 20);
+            MainScene::getIntance()->setTowards(1);
+            MainScene::getIntance()->run();
+        }
     }
     if (r == 1)
     {
-        int save = menu_load_->run();
-        MainScene::getIntance()->run();
+        if (menu_load_->run() >= 0)
+        {
+            MainScene::getIntance()->run();
+        }
     }
     if (r == 2)
     {
