@@ -350,7 +350,7 @@ void BattleScene::setRoleInitState(Role* r)
     //r->FaceTowards = RandomClassical::rand(4);  //没头苍蝇随意选择面向
 }
 
-void BattleScene::setFaceTowardsNearestEnemy(Role* r)
+void BattleScene::setFaceTowardsNearestEnemy(Role* r, bool in_effect /*= false*/)
 {
     //寻找离自己最近的敌方，设置面向
     int min_distance = COORD_COUNT * COORD_COUNT;
@@ -359,11 +359,14 @@ void BattleScene::setFaceTowardsNearestEnemy(Role* r)
     {
         if (r->Team != r1->Team)
         {
-            int dis = calDistance(r, r1);
-            if (dis < min_distance)
+            if (!in_effect || in_effect && inEffect(r, r1))
             {
-                r_near = r1;
-                min_distance = dis;
+                int dis = calDistance(r, r1);
+                if (dis < min_distance)
+                {
+                    r_near = r1;
+                    min_distance = dis;
+                }
             }
         }
     }
@@ -958,7 +961,10 @@ void BattleScene::actStatus(Role* r)
 
 void BattleScene::actAuto(Role* r)
 {
-
+    for (auto r:battle_roles_)
+    {
+        r->Auto = 1;
+    }
 }
 
 void BattleScene::actRest(Role* r)
@@ -1020,6 +1026,11 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     if (r->X() != select_x_ || r->Y() != select_y_)
     {
         r->FaceTowards = calTowards(r->X(), r->Y(), select_x_, select_y_);
+    }
+    if (r->isAuto())
+    {
+        //自的情況下面向一个敌人，否则看着很奇怪
+        setFaceTowardsNearestEnemy(r, true);
     }
     auto frame_count = r->FightFrame[style];
     action_type_ = style;

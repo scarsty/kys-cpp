@@ -183,12 +183,14 @@ int Element::run(bool in_root /*= true*/)
     visible_ = true;
     if (in_root) { addOnRootTop(this); }
     onEntrance();
+    running_ = true;
     while (!exit_)
     {
         if (root_.empty()) { break; }
         checkEventAndPresent(true);
         drawAll();
     }
+    running_ = false;
     onExit();
     if (in_root) { removeFromRoot(this); }
     return result_;
@@ -219,9 +221,10 @@ void Element::checkStateAndEvent(BP_Event& e)
                 state_ = Normal;
             }
         }
-        if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
+        if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
+            && e.button.button == BP_BUTTON_LEFT)
         {
-            if (inSide(e.motion.x, e.motion.y))
+            if (inSide(e.button.x, e.button.y))
             {
                 state_ = Press;
             }
@@ -246,6 +249,7 @@ void Element::checkStateAndEvent(BP_Event& e)
         {
             checkResult();
             onPressedOK();
+            //if (result_==0) clearEvent(e);
         }
         if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
@@ -278,6 +282,7 @@ void Element::checkEventAndPresent(bool check_event)
     default:
         break;
     }
+    clearEvent(e);
     int t1 = engine->getTicks();
     int t = max_delay_ - (t1 - prev_present_ticks_);
     if (t > max_delay_) { t = max_delay_; }

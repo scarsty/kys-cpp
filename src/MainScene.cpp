@@ -168,6 +168,7 @@ void MainScene::dealEvent(BP_Event& e)
     {
         auto sub_map = new SubScene(force_submap_);
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
+        sub_map->setTowards(towards_);
         sub_map->run();
         delete sub_map;
         force_submap_ = -1;

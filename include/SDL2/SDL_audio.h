@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,8 +25,8 @@
  *  Access to the raw audio mixing buffer for the SDL library.
  */
 
-#ifndef _SDL_audio_h
-#define _SDL_audio_h
+#ifndef SDL_audio_h_
+#define SDL_audio_h_
 
 #include "SDL_stdinc.h"
 #include "SDL_error.h"
@@ -171,7 +171,7 @@ typedef struct SDL_AudioSpec
     SDL_AudioFormat format;     /**< Audio data format */
     Uint8 channels;             /**< Number of channels: 1 mono, 2 stereo */
     Uint8 silence;              /**< Audio buffer silence value (calculated) */
-    Uint16 samples;             /**< Audio buffer size in samples (power of 2) */
+    Uint16 samples;             /**< Audio buffer size in sample FRAMES (total samples divided by channel count) */
     Uint16 padding;             /**< Necessary for some compile environments */
     Uint32 size;                /**< Audio buffer size in bytes (calculated) */
     SDL_AudioCallback callback; /**< Callback that feeds the audio device (NULL to use SDL_QueueAudio()). */
@@ -184,7 +184,23 @@ typedef void (SDLCALL * SDL_AudioFilter) (struct SDL_AudioCVT * cvt,
                                           SDL_AudioFormat format);
 
 /**
- *  A structure to hold a set of audio conversion filters and buffers.
+ *  \brief Upper limit of filters in SDL_AudioCVT
+ *
+ *  The maximum number of SDL_AudioFilter functions in SDL_AudioCVT is
+ *  currently limited to 9. The SDL_AudioCVT.filters array has 10 pointers,
+ *  one of which is the terminating NULL pointer.
+ */
+#define SDL_AUDIOCVT_MAX_FILTERS 9
+
+/**
+ *  \struct SDL_AudioCVT
+ *  \brief A structure to hold a set of audio conversion filters and buffers.
+ *
+ *  Note that various parts of the conversion pipeline can take advantage
+ *  of SIMD operations (like SSE2, for example). SDL_AudioCVT doesn't require
+ *  you to pass it aligned data, but can possibly run much faster if you
+ *  set both its (buf) field to a pointer that is aligned to 16 bytes, and its
+ *  (len) field to something that's a multiple of 16, if possible.
  */
 #ifdef __GNUC__
 /* This structure is 84 bytes on 32-bit architectures, make sure GCC doesn't
@@ -208,7 +224,7 @@ typedef struct SDL_AudioCVT
     int len_cvt;                /**< Length of converted audio buffer */
     int len_mult;               /**< buffer must be len*len_mult big */
     double len_ratio;           /**< Given len, final size is len*len_ratio */
-    SDL_AudioFilter filters[10];        /**< Filter list */
+    SDL_AudioFilter filters[SDL_AUDIOCVT_MAX_FILTERS + 1]; /**< NULL-terminated list of filter functions */
     int filter_index;           /**< Current audio conversion function */
 } SDL_AUDIOCVT_PACKED SDL_AudioCVT;
 
@@ -434,10 +450,10 @@ extern DECLSPEC void SDLCALL SDL_FreeWAV(Uint8 * audio_buf);
  *  This function takes a source format and rate and a destination format
  *  and rate, and initializes the \c cvt structure with information needed
  *  by SDL_ConvertAudio() to convert a buffer of audio data from one format
- *  to the other.
+ *  to the other. An unsupported format causes an error and -1 will be returned.
  *
- *  \return -1 if the format conversion is not supported, 0 if there's
- *  no conversion needed, or 1 if the audio filter is set up.
+ *  \return 0 if no conversion is needed, 1 if the audio filter is set up,
+ *  or -1 on error.
  */
 extern DECLSPEC int SDLCALL SDL_BuildAudioCVT(SDL_AudioCVT * cvt,
                                               SDL_AudioFormat src_format,
@@ -456,6 +472,8 @@ extern DECLSPEC int SDLCALL SDL_BuildAudioCVT(SDL_AudioCVT * cvt,
  *  The data conversion may expand the size of the audio data, so the buffer
  *  \c cvt->buf should be allocated after the \c cvt structure is initialized by
  *  SDL_BuildAudioCVT(), and should be \c cvt->len*cvt->len_mult bytes long.
+ *
+ *  \return 0 on success or -1 if \c cvt->buf is NULL.
  */
 extern DECLSPEC int SDLCALL SDL_ConvertAudio(SDL_AudioCVT * cvt);
 
@@ -667,6 +685,6 @@ extern DECLSPEC void SDLCALL SDL_CloseAudioDevice(SDL_AudioDeviceID dev);
 #endif
 #include "close_code.h"
 
-#endif /* _SDL_audio_h */
+#endif /* SDL_audio_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

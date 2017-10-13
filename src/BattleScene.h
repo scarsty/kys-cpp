@@ -57,7 +57,7 @@ public:
     void readBattleInfo();
 
     void setRoleInitState(Role* r);
-    void setFaceTowardsNearestEnemy(Role* r);
+    void setFaceTowardsNearestEnemy(Role* r, bool in_effect = false);
     void readFightFrame(Role* r);
 
     void sortRoles();

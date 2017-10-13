@@ -19,6 +19,7 @@ protected:
     int result_ = -1;
     int full_window_ = 0;              //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
     bool exit_ = false;                 //子类的过程中设此值为true，即表示下一个循环将退出
+    bool running_ = false;
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -82,7 +83,7 @@ public:
     int findFristVisibleChild();
 
     void setExit(bool e) { exit_ = e; }
-    bool isRunning() { return !exit_; }
+    bool isRunning() { return running_; }
 
     void exitWithResult(int r) { setExit(true); result_ = r; }
 
@@ -118,8 +119,6 @@ public:
         }
         return nullptr;
     }
-
-
 
     //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，改成宏也行
     //注意子类的子类可能会出现继承关系，需视情况再改写

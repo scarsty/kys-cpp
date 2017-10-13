@@ -19,17 +19,32 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef SDL_config_windows_h_
-#define SDL_config_windows_h_
+#ifndef SDL_config_winrt_h_
+#define SDL_config_winrt_h_
 #define SDL_config_h_
 
 #include "SDL_platform.h"
+
+/* Make sure the Windows SDK's NTDDI_VERSION macro gets defined.  This is used
+   by SDL to determine which version of the Windows SDK is being used.
+*/
+#include <sdkddkver.h>
+
+/* Define possibly-undefined NTDDI values (used when compiling SDL against
+   older versions of the Windows SDK.
+*/
+#ifndef NTDDI_WINBLUE
+#define NTDDI_WINBLUE 0x06030000
+#endif
+#ifndef NTDDI_WIN10
+#define NTDDI_WIN10 0x0A000000
+#endif
 
 /* This is a set of defines to configure the SDL features */
 
 #if !defined(_STDINT_H_) && (!defined(HAVE_STDINT_H) || !_HAVE_STDINT_H)
 #if defined(__GNUC__) || defined(__DMC__) || defined(__WATCOMC__)
-#define HAVE_STDINT_H   1
+#define HAVE_STDINT_H	1
 #elif defined(_MSC_VER)
 typedef signed __int8 int8_t;
 typedef unsigned __int8 uint8_t;
@@ -77,23 +92,19 @@ typedef unsigned int uintptr_t;
 # define SIZEOF_VOIDP 4
 #endif
 
-#define HAVE_DDRAW_H 1
-#define HAVE_DINPUT_H 1
-#define HAVE_DSOUND_H 1
-#define HAVE_DXGI_H 1
-#define HAVE_XINPUT_H 1
-
-/* This is disabled by default to avoid C runtime dependencies and manifest requirements */
-#ifdef HAVE_LIBC
 /* Useful headers */
-#define STDC_HEADERS 1
-#define HAVE_CTYPE_H 1
-#define HAVE_FLOAT_H 1
-#define HAVE_LIMITS_H 1
-#define HAVE_MATH_H 1
-#define HAVE_SIGNAL_H 1
+#define HAVE_DXGI_H 1
+#if WINAPI_FAMILY != WINAPI_FAMILY_PHONE_APP
+#define HAVE_XINPUT_H 1
+#endif
+#define HAVE_LIBC 1
 #define HAVE_STDIO_H 1
+#define STDC_HEADERS 1
 #define HAVE_STRING_H 1
+#define HAVE_CTYPE_H 1
+#define HAVE_MATH_H 1
+#define HAVE_FLOAT_H 1
+#define HAVE_SIGNAL_H 1
 
 /* C library functions */
 #define HAVE_MALLOC 1
@@ -110,14 +121,16 @@ typedef unsigned int uintptr_t;
 #define HAVE_STRLEN 1
 #define HAVE__STRREV 1
 #define HAVE__STRUPR 1
-#define HAVE__STRLWR 1
+//#define HAVE__STRLWR 1	// TODO, WinRT: consider using _strlwr_s instead
 #define HAVE_STRCHR 1
 #define HAVE_STRRCHR 1
 #define HAVE_STRSTR 1
-#define HAVE__LTOA 1
-#define HAVE__ULTOA 1
+//#define HAVE_ITOA 1   // TODO, WinRT: consider using _itoa_s instead
+//#define HAVE__LTOA 1	// TODO, WinRT: consider using _ltoa_s instead
+//#define HAVE__ULTOA 1	// TODO, WinRT: consider using _ultoa_s instead
 #define HAVE_STRTOL 1
 #define HAVE_STRTOUL 1
+//#define HAVE_STRTOLL 1
 #define HAVE_STRTOD 1
 #define HAVE_ATOI 1
 #define HAVE_ATOF 1
@@ -125,110 +138,78 @@ typedef unsigned int uintptr_t;
 #define HAVE_STRNCMP 1
 #define HAVE__STRICMP 1
 #define HAVE__STRNICMP 1
+#define HAVE_VSNPRINTF 1
+//#define HAVE_SSCANF 1	// TODO, WinRT: consider using sscanf_s instead
+#define HAVE_M_PI 1
 #define HAVE_ATAN 1
 #define HAVE_ATAN2 1
-#define HAVE_ACOS  1
-#define HAVE_ASIN  1
 #define HAVE_CEIL 1
+#define HAVE__COPYSIGN 1
 #define HAVE_COS 1
 #define HAVE_COSF 1
 #define HAVE_FABS 1
 #define HAVE_FLOOR 1
 #define HAVE_LOG 1
 #define HAVE_POW 1
+//#define HAVE_SCALBN 1
+#define HAVE__SCALB 1
 #define HAVE_SIN 1
 #define HAVE_SINF 1
 #define HAVE_SQRT 1
 #define HAVE_SQRTF 1
 #define HAVE_TAN 1
 #define HAVE_TANF 1
-#define HAVE__COPYSIGN 1
-#if defined(_MSC_VER)
-/* These functions were added with the VC++ 2013 C runtime library */
-#if _MSC_VER >= 1800
-#define HAVE_STRTOLL 1
-#define HAVE_VSSCANF 1
-#define HAVE_SCALBN 1
-#endif
-/* This function is available with at least the VC++ 2008 C runtime library */
-#if _MSC_VER >= 1400
 #define HAVE__FSEEKI64 1
-#endif
-#endif
-#if !defined(_MSC_VER) || defined(_USE_MATH_DEFINES)
-#define HAVE_M_PI 1
-#endif
-#else
-#define HAVE_STDARG_H   1
-#define HAVE_STDDEF_H   1
-#endif
 
 /* Enable various audio drivers */
-#define SDL_AUDIO_DRIVER_WASAPI 1
-#define SDL_AUDIO_DRIVER_DSOUND 1
-#define SDL_AUDIO_DRIVER_XAUDIO2    0
-#define SDL_AUDIO_DRIVER_WINMM  1
-#define SDL_AUDIO_DRIVER_DISK   1
-#define SDL_AUDIO_DRIVER_DUMMY  1
+#define SDL_AUDIO_DRIVER_XAUDIO2	1
+#define SDL_AUDIO_DRIVER_DISK	1
+#define SDL_AUDIO_DRIVER_DUMMY	1
 
 /* Enable various input drivers */
-#define SDL_JOYSTICK_DINPUT 1
+#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
+#define SDL_JOYSTICK_DISABLED 1
+#define SDL_HAPTIC_DISABLED	1
+#else
 #define SDL_JOYSTICK_XINPUT 1
-#define SDL_HAPTIC_DINPUT   1
 #define SDL_HAPTIC_XINPUT   1
+#endif
 
 /* Enable various shared object loading systems */
-#define SDL_LOADSO_WINDOWS  1
+#define SDL_LOADSO_WINDOWS	1
 
 /* Enable various threading systems */
+#if (NTDDI_VERSION >= NTDDI_WINBLUE)
 #define SDL_THREAD_WINDOWS  1
+#else
+/* WinRT on Windows 8.0 and Windows Phone 8.0 don't support CreateThread() */
+#define SDL_THREAD_STDCPP   1
+#endif
 
 /* Enable various timer systems */
-#define SDL_TIMER_WINDOWS   1
+#define SDL_TIMER_WINDOWS	1
 
 /* Enable various video drivers */
+#define SDL_VIDEO_DRIVER_WINRT	1
 #define SDL_VIDEO_DRIVER_DUMMY  1
-#define SDL_VIDEO_DRIVER_WINDOWS    1
 
-#ifndef SDL_VIDEO_RENDER_D3D
-#define SDL_VIDEO_RENDER_D3D    1
-#endif
-#ifndef SDL_VIDEO_RENDER_D3D11
-#define SDL_VIDEO_RENDER_D3D11	0
-#endif
+/* Enable OpenGL ES 2.0 (via a modified ANGLE library) */
+#define SDL_VIDEO_OPENGL_ES2 1
+#define SDL_VIDEO_OPENGL_EGL 1
 
-/* Enable OpenGL support */
-#ifndef SDL_VIDEO_OPENGL
-#define SDL_VIDEO_OPENGL    1
-#endif
-#ifndef SDL_VIDEO_OPENGL_WGL
-#define SDL_VIDEO_OPENGL_WGL    1
-#endif
-#ifndef SDL_VIDEO_RENDER_OGL
-#define SDL_VIDEO_RENDER_OGL    1
-#endif
-#ifndef SDL_VIDEO_RENDER_OGL_ES2
-#define SDL_VIDEO_RENDER_OGL_ES2    1
-#endif
-#ifndef SDL_VIDEO_OPENGL_ES2
-#define SDL_VIDEO_OPENGL_ES2    1
-#endif
-#ifndef SDL_VIDEO_OPENGL_EGL
-#define SDL_VIDEO_OPENGL_EGL    1
-#endif
+/* Enable appropriate renderer(s) */
+#define SDL_VIDEO_RENDER_D3D11  1
 
-/* Enable Vulkan support */
-#define SDL_VIDEO_VULKAN 1
+#if SDL_VIDEO_OPENGL_ES2
+#define SDL_VIDEO_RENDER_OGL_ES2 1
+#endif
 
 /* Enable system power support */
-#define SDL_POWER_WINDOWS 1
-
-/* Enable filesystem support */
-#define SDL_FILESYSTEM_WINDOWS  1
+#define SDL_POWER_WINRT 1
 
 /* Enable assembly routines (Win64 doesn't have inline asm) */
 #ifndef _WIN64
-#define SDL_ASSEMBLY_ROUTINES   1
+#define SDL_ASSEMBLY_ROUTINES	1
 #endif
 
-#endif /* SDL_config_windows_h_ */
+#endif /* SDL_config_winrt_h_ */
