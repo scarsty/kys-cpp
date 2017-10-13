@@ -19,7 +19,7 @@ private:
     Role* role_ = nullptr;
 public:
     virtual void dealEvent(BP_Event& e) override;
-    virtual void pressedOK() override;
+    virtual void onPressedOK() override;
     void setShowButton(bool b) { show_button_ = b; }
 
     void setRole(Role* r) { role_ = r; }

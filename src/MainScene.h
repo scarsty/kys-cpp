@@ -57,5 +57,5 @@ public:
     virtual bool canWalk(int x, int y) override;
 
     bool checkEntrance(int x, int y);    //主地图主要是检测入口
-    void setBeginSubMap(int b, int x = -1, int y = -1) { begin_submap_ = b; begin_submap_x_ = x;  begin_submap_y_ = y; }
+    void setBeginSubMap(int b, int x = -1, int y = -1);
 };

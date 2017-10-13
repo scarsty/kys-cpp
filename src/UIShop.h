@@ -19,8 +19,8 @@ public:
     Button* button_ok_, *button_cancel_, *button_clear_;
 
     virtual void draw() override;
-    virtual void pressedOK() override;
-    virtual void pressedCancel() override { }
+    virtual void onPressedOK() override;
+    virtual void onPressedCancel() override { }
 
     int calNeedMoney();
 };

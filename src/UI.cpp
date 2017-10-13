@@ -100,7 +100,7 @@ void UI::dealEvent(BP_Event& e)
     buttons_[current_button_]->setState(Pass);
 }
 
-void UI::pressedOK()
+void UI::onPressedOK()
 {
     //这里检测是否使用了物品，返回物品的id
     if (childs_[0] == ui_item_)

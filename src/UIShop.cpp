@@ -72,7 +72,7 @@ void UIShop::draw()
     font->draw(str, 24, x, y + 25 + 7 * 25, c);
 }
 
-void UIShop::pressedOK()
+void UIShop::onPressedOK()
 {
     for (int i = 0; i < SHOP_ITEM_COUNT * 2; i++)
     {

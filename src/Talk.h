@@ -25,8 +25,8 @@ public:
     void setHeadID(int h) { head_id_=h; }
     void setHeadStyle(int s) { head_style_ = s; }
 
-    virtual void pressedOK() override { exitWithResult(0); }
-    virtual void pressedCancel() override { exitWithResult(-1); }
+    virtual void onPressedOK() override { exitWithResult(0); }
+    virtual void onPressedCancel() override { exitWithResult(-1); }
 
     virtual void onEntrance() override;
 };

@@ -1,14 +1,6 @@
 #include "TextBox.h"
 #include "Font.h"
 
-void TextBox::dealEvent(BP_Event& e)
-{
-    if (e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYUP)
-    {
-        setExit(true);
-    }
-}
-
 void TextBox::setFontSize(int size)
 {
     for (auto c : childs_)

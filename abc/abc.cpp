@@ -133,7 +133,7 @@ int main()
 {
     //trans_bin_list();
     //trans_fight_frame();
-    //expandR("work/game/save/ranger.idx", "work/game/save/ranger.grp");
+    expandR("work/game/save/ranger.idx", "work/game/save/ranger.grp");
 
     for (int i = 1; i <= 20; i++)
     {

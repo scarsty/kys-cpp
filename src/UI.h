@@ -31,8 +31,8 @@ public:
     UISystem* ui_system_ = nullptr;
     int item_id_ = -1;
 
-    virtual void pressedOK() override;
-    virtual void pressedCancel() override { exitWithResult(-1); }
+    virtual void onPressedOK() override;
+    virtual void onPressedCancel() override { exitWithResult(-1); }
 
     Item* getUsedItem() { return ui_item_->getCurrentItem(); }
 };

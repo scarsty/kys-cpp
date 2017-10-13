@@ -92,8 +92,8 @@ public:
     virtual void onEntrance() {}                        //进入本层的事件，例如绘制亮屏等
     virtual void onExit() {}                            //离开本层的事件，例如黑屏等
 
-    virtual void pressedOK() {}                         //按下回车或鼠标左键的事件
-    virtual void pressedCancel() {}                     //按下esc或鼠标右键的事件
+    virtual void onPressedOK() {}                         //按下回车或鼠标左键的事件
+    virtual void onPressedCancel() {}                     //按下esc或鼠标右键的事件
 
 private:
     void drawSelfAndChilds();
@@ -107,7 +107,7 @@ public:
 
     //需要普通退出功能的子节点，请复制这两个过去，如退出的形式不同请自行实现，改成宏也行
     //注意子类的子类可能会出现继承关系，需视情况再改写
-    //virtual void pressedOK() override { exitWithResult(0); }
-    //virtual void pressedCancel() override { exitWithResult(-1); }
+    //virtual void onPressedOK() override { exitWithResult(0); }
+    //virtual void onPressedCancel() override { exitWithResult(-1); }
 };
 

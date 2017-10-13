@@ -35,6 +35,7 @@
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\libiconv.lib" />
+    <Library Include="lib\libminizip.lib" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

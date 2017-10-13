@@ -81,7 +81,7 @@ void TeamMenu::draw()
     TextBox::draw();
 }
 
-void TeamMenu::pressedOK()
+void TeamMenu::onPressedOK()
 {
     if (mode_ == 0)
     {
@@ -147,7 +147,7 @@ void TeamMenu::pressedOK()
     }
 }
 
-void TeamMenu::pressedCancel()
+void TeamMenu::onPressedCancel()
 {
     if (mode_ == 0)
     {

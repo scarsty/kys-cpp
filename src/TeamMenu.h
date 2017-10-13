@@ -26,8 +26,8 @@ public:
 
     virtual void onEntrance() override;
     virtual void draw() override;
-    virtual void pressedOK() override;
-    virtual void pressedCancel() override;
+    virtual void onPressedOK() override;
+    virtual void onPressedCancel() override;
     virtual void dealEvent(BP_Event& e) override;
 
     Role* getRole();

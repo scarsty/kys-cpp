@@ -1,4 +1,8 @@
 #include "UISave.h"
+#include "Save.h"
+#include "File.h"
+#include "others/libconvert.h"
+#include "MainScene.h"
 
 UISave::UISave()
 {
@@ -11,9 +15,27 @@ UISave::~UISave()
 void UISave::onEntrance()
 {
     std::vector<std::string> strings;
-    for (int i = 1; i <= 10; i++)
+    for (int i = 0; i <= 10; i++)
     {
-        strings.push_back("進度"+std::to_string(i));
+        auto str = convert::formatString("進度%02d  %s", i, File::getFileTime(Save::getFilename(i, 'r')).c_str());
+        strings.push_back(str);
     }
     setStrings(strings);
+    childs_[0]->setVisible(false); //屏蔽进度0
+    arrange(0, 0, 0, 25);
+}
+
+void UISave::onPressedOK()
+{
+    if (mode_ == 0)
+    {
+        Save::getInstance()->LoadR(result_);        
+        MainScene::getIntance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+    }
+    if (mode_ == 1)
+    {
+        MainScene::getIntance()->getManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+        Save::getInstance()->SaveR(result_);
+    }
+    setExit(true);
 }

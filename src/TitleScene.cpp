@@ -52,13 +52,14 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
+        Save::getInstance()->LoadR(0);
+        MainScene::getIntance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+        MainScene::getIntance()->setBeginSubMap(70, 19, 20);
         MainScene::getIntance()->run();
     }
     if (r == 1)
     {
-        int save = menu_load_->run() + 1;
-        Save::getInstance()->LoadR(save);
-        Script::getInstance()->runScript("../game/script/0.lua");
+        int save = menu_load_->run();
         MainScene::getIntance()->run();
     }
     if (r == 2)

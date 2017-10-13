@@ -6,7 +6,6 @@ class TextBox : public Element
 public:
     TextBox() {}
     virtual ~TextBox() {}
-    void dealEvent(BP_Event& e) override;
 protected:
     std::string text_ = "";
     int font_size_ = 20;
@@ -36,6 +35,9 @@ public:
 
     virtual void draw() override;
     void setHaveBox(bool h) { have_box_ = h; }
+
+    virtual void onPressedOK() override { exitWithResult(0); }
+    virtual void onPressedCancel() override { exitWithResult(-1); }
 };
 
 //可以维持数帧后自动消失的文本框

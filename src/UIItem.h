@@ -46,7 +46,7 @@ public:
 
     Item* getCurrentItem() { return current_item_; }
 
-    virtual void pressedOK() override;
+    virtual void onPressedOK() override;
 
 };
 

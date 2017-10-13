@@ -13,6 +13,7 @@
 #include "UIShop.h"
 #include "Font.h"
 #include "File.h"
+#include "Script.h"
 
 Event Event::event_;
 
@@ -110,6 +111,9 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     }
     printf("\n");
     e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
+
+    //auto script = convert::formatString("../game/script/oldevent/oldevent_%d.lua", event_id);
+    //Script::getInstance()->runScript(script);
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
 #define PRINT_E(n) do { for (int __i=1;__i<=n;__i++) { printf("%d, ", e[i+__i]); } printf("\b\b  \n"); } while (0)
@@ -562,12 +566,12 @@ void Event::playAnimation(int event_index, int begin_pic, int end_pic)
     if (event_index = -1)
     {
         int inc = GameUtil::sign(end_pic - begin_pic);
-        for (int i = begin_pic; i != end_pic; i += inc)
+        for (int i = begin_pic / 2; i != end_pic / 2; i += inc)
         {
             subscene_->forceManPic(i);
             subscene_->drawAndPresent();
         }
-        subscene_->forceManPic(end_pic);
+        subscene_->forceManPic(end_pic / 2);
     }
     else
     {

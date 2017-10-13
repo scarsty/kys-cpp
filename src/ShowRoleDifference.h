@@ -15,8 +15,8 @@ public:
 
     void setTwinRole(Role* r1, Role* r2) { role1_ = r1; role2_ = r2; }
 
-    virtual void pressedOK() override { exitWithResult(0); }
-    virtual void pressedCancel() override { exitWithResult(-1); }
+    virtual void onPressedOK() override { exitWithResult(0); }
+    virtual void onPressedCancel() override { exitWithResult(-1); }
 
     virtual void draw() override;
 

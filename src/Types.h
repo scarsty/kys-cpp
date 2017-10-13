@@ -265,27 +265,27 @@ public:
 
     MAP_INT& Building(int x, int y)
     {
-        return LayerData(1, x, y);;
+        return LayerData(1, x, y);
     }
 
     MAP_INT& Decoration(int x, int y)
     {
-        return LayerData(2, x, y);;
+        return LayerData(2, x, y);
     }
 
     MAP_INT& EventIndex(int x, int y)
     {
-        return LayerData(3, x, y);;
+        return LayerData(3, x, y);
     }
 
     MAP_INT& BuildingHeight(int x, int y)
     {
-        return LayerData(4, x, y);;
+        return LayerData(4, x, y);
     }
 
     MAP_INT& DecorationHeight(int x, int y)
     {
-        return LayerData(5, x, y);;
+        return LayerData(5, x, y);
     }
 
     SubMapEvent* Event(int x, int y)

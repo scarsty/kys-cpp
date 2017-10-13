@@ -9,7 +9,11 @@ public:
 
     int mode_ = 0;  //0Îª¶Áµµ£¬1Îª´æµµ
 
+    void setMode(int m) { mode_ = m; }
+
     void onEntrance() override;
+
+    virtual void onPressedOK() override;
 
 };
 

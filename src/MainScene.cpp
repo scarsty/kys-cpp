@@ -225,9 +225,7 @@ void MainScene::dealEvent(BP_Event& e)
 void MainScene::onEntrance()
 {
     calViewRegion();
-    man_x_ = Save::getInstance()->MainMapX;
-    man_y_ = Save::getInstance()->MainMapY;
-    if (begin_submap_ >= 0) 
+    if (begin_submap_ >= 0)
     {
         auto sub_map = new SubScene(begin_submap_);
         sub_map->setManViewPosition(begin_submap_x_, begin_submap_y_);
@@ -347,6 +345,13 @@ bool MainScene::checkEntrance(int x, int y)
         }
     }
     return false;
+}
+
+void MainScene::setBeginSubMap(int b, int x /*= -1*/, int y /*= -1*/)
+{
+    begin_submap_ = b;
+    if (x >= 0) { begin_submap_x_ = x; }
+    if (y >= 0) { begin_submap_y_ = y; }
 }
 
 void MainScene::setEntrance()

@@ -218,13 +218,17 @@ void Element::checkStateAndEvent(BP_Event& e)
         if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
         {
-            pressedOK();
+            onPressedOK();
         }
         if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
         {
-            pressedCancel();
+            onPressedCancel();
         }
+    }
+    else
+    {
+        state_ = Normal;
     }
 }
 

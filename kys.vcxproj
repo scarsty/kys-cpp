@@ -156,6 +156,7 @@
     <Library Include="lib\bass.lib" />
     <Library Include="lib\bassmidi.lib" />
     <Library Include="lib\libiconv.lib" />
+    <Library Include="lib\libminizip.lib" />
     <Library Include="lib\lua.lib" />
     <Library Include="lib\SDL2.lib" />
     <Library Include="lib\SDL2main.lib" />

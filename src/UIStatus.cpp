@@ -154,7 +154,7 @@ void UIStatus::dealEvent(BP_Event& e)
 {
 }
 
-void UIStatus::pressedOK()
+void UIStatus::onPressedOK()
 {
     if (role_ == nullptr) { return; }
 

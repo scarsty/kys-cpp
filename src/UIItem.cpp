@@ -24,7 +24,6 @@ UIItem::UIItem()
     title_->setStrings({ "„¡Çé", "±ø¼×", "µ¤ËŽ", "°µÆ÷", "È­½›", "„¦×V", "µ¶ä›", "ÆæéT", "ÐÄ·¨" });
     title_->setFontSize(25);
     title_->arrange(0, 50, 65, 0);
-
     addChild(title_);
 
     cursor_ = new TextBox();
@@ -301,7 +300,7 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
     }
 }
 
-void UIItem::pressedOK()
+void UIItem::onPressedOK()
 {
     if (!current_item_) { return; }
 
