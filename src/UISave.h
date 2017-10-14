@@ -14,10 +14,8 @@ public:
     void onEntrance() override;
 
     virtual void onPressedOK() override;
-    virtual void onPressedCancel() override { exitWithResult(-1); }
 
     static void load(int r);
     static void save(int r);
-
 };
 

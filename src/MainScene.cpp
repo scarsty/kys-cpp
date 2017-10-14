@@ -13,6 +13,7 @@ MainScene MainScene::main_scene_;
 MainScene::MainScene()
 {
     full_window_ = 1;
+    COORD_COUNT = MAINMAP_COORD_COUNT;
 
     if (!data_readed_)
     {
@@ -298,11 +299,6 @@ bool MainScene::isWater(int x, int y)
     {
         return false;
     }
-}
-
-bool MainScene::isOutLine(int x, int y)
-{
-    return (x < 0 || x > COORD_COUNT || y < 0 || y > COORD_COUNT);
 }
 
 bool MainScene::canWalk(int x, int y)

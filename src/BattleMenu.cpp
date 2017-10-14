@@ -56,8 +56,8 @@ void BattleActionMenu::onEntrance()
 
     setFontSize(20);
     arrange(0, 0, 0, 28);
-    active_child_ = findFristVisibleChild();
-    childs_[active_child_]->setState(Pass);
+    pass_child_ = findFristVisibleChild();
+    forcePassChild();
 }
 
 void BattleActionMenu::dealEvent(BP_Event& e)

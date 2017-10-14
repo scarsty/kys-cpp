@@ -21,6 +21,8 @@
 BattleScene::BattleScene()
 {
     full_window_ = 1;
+    COORD_COUNT = BATTLEMAP_COORD_COUNT;
+
     earth_layer_ = new MapSquare(COORD_COUNT);
     building_layer_ = new MapSquare(COORD_COUNT);
     role_layer_ = new MapSquare(COORD_COUNT);
@@ -211,6 +213,20 @@ void BattleScene::dealEvent(BP_Event& e)
     }
 }
 
+void BattleScene::dealEvent2(BP_Event& e)
+{
+    if (isPressCancel(e))
+    {
+        for (auto r : battle_roles_)
+        {
+            if (r->Team == 0)
+            {
+                r->Auto = 0;
+            }
+        }
+    }
+}
+
 void BattleScene::onEntrance()
 {
     calViewRegion();
@@ -346,27 +362,24 @@ void BattleScene::setRoleInitState(Role* r)
         readFightFrame(r);
     }
 
-    setFaceTowardsNearestEnemy(r);
+    setFaceTowardsNearest(r);
     //r->FaceTowards = RandomClassical::rand(4);  //没头苍蝇随意选择面向
 }
 
-void BattleScene::setFaceTowardsNearestEnemy(Role* r, bool in_effect /*= false*/)
+void BattleScene::setFaceTowardsNearest(Role* r, bool in_effect /*= false*/)
 {
     //寻找离自己最近的敌方，设置面向
     int min_distance = COORD_COUNT * COORD_COUNT;
     Role* r_near = nullptr;
     for (auto r1 : battle_roles_)
     {
-        if (r->Team != r1->Team)
+        if (!in_effect && r->Team != r1->Team || in_effect && inEffect(r, r1))
         {
-            if (!in_effect || in_effect && inEffect(r, r1))
+            int dis = calDistance(r, r1);
+            if (dis < min_distance)
             {
-                int dis = calDistance(r, r1);
-                if (dis < min_distance)
-                {
-                    r_near = r1;
-                    min_distance = dis;
-                }
+                r_near = r1;
+                min_distance = dis;
             }
         }
     }
@@ -392,13 +405,11 @@ void BattleScene::readFightFrame(Role* r)
     }
 }
 
-//角色排序
 void BattleScene::sortRoles()
 {
     std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
 }
 
-//角色排序的规则
 bool BattleScene::compareRole(Role* r1, Role* r2)
 {
     return r1->Speed > r2->Speed;
@@ -412,7 +423,6 @@ void BattleScene::resetRolesAct()
     }
 }
 
-//计算可移动步数(考虑装备)
 int BattleScene::calMoveStep(Role* r)
 {
     int speed = r->Speed;
@@ -429,7 +439,6 @@ int BattleScene::calMoveStep(Role* r)
     return speed / 15 + 1;
 }
 
-//依据动作帧数计算角色的贴图编号
 int BattleScene::calRolePic(Role* r, int style, int frame)
 {
     if (r->FightFrame[style] <= 0)
@@ -461,8 +470,6 @@ int BattleScene::calRolePic(Role* r, int style, int frame)
     return r->FaceTowards;
 }
 
-//计算可以被选择的范围，会改写选择层
-//mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子；4不能选
 void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 0*/)
 {
     if (mode == 0)
@@ -543,7 +550,6 @@ void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 
     }
 }
 
-//计算武学可选择的范围
 void BattleScene::calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index)
 {
     if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
@@ -560,7 +566,6 @@ void BattleScene::calSelectLayerByMagic(int x, int y, int team, Magic* magic, in
     }
 }
 
-//x，y为选择的中心点，即人所在的位置
 void BattleScene::calEffectLayer(int x, int y, int select_x, int select_y, Magic* m /*= nullptr*/, int level_index /*= 0*/)
 {
     effect_layer_->setAll(-1);
@@ -618,7 +623,6 @@ void BattleScene::calEffectLayer(int x, int y, int select_x, int select_y, Magic
     }
 }
 
-//r2是不是在效果层里面，且会被r1的效果打中
 bool BattleScene::inEffect(Role* r1, Role* r2)
 {
     if (haveEffect(r2->X(), r2->Y()))
@@ -665,11 +669,6 @@ bool BattleScene::isBuilding(int x, int y)
     return building_layer_->data(x, y) > 0;
 }
 
-bool BattleScene::isOutLine(int x, int y)
-{
-    return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
-}
-
 bool BattleScene::isWater(int x, int y)
 {
     int num = earth_layer_->data(x, y) / 2;
@@ -693,7 +692,6 @@ bool BattleScene::isOutScreen(int x, int y)
     return (abs(man_x_ - x) >= 16 || abs(man_y_ - y) >= 20);
 }
 
-//是否x，y上的人物与team不一致
 bool BattleScene::isNearEnemy(int team, int x, int y)
 {
     for (auto r1 : battle_roles_)
@@ -706,7 +704,6 @@ bool BattleScene::isNearEnemy(int team, int x, int y)
     return false;
 }
 
-//获取恰好在选择点的角色
 Role* BattleScene::getSelectedRole()
 {
     int r = role_layer_->data(select_x_, select_y_);
@@ -930,9 +927,9 @@ void BattleScene::actUseDrag(Role* r)
     delete item_menu;
 }
 
-//等待，将自己插入到最后一个没行动的人的后面
 void BattleScene::actWait(Role* r)
 {
+    //等待，将自己插入到最后一个没行动的人的后面
     for (int i = 1; i < battle_roles_.size(); i++)
     {
         if (battle_roles_[i]->Acted == 0)
@@ -961,7 +958,7 @@ void BattleScene::actStatus(Role* r)
 
 void BattleScene::actAuto(Role* r)
 {
-    for (auto r:battle_roles_)
+    for (auto r : battle_roles_)
     {
         r->Auto = 1;
     }
@@ -975,7 +972,6 @@ void BattleScene::actRest(Role* r)
     r->Acted = 1;
 }
 
-//移动动画
 void BattleScene::moveAnimation(Role* r, int x, int y)
 {
     //从目标往回找确定路线
@@ -1030,7 +1026,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     if (r->isAuto())
     {
         //自的情況下面向一个敌人，否则看着很奇怪
-        setFaceTowardsNearestEnemy(r, true);
+        setFaceTowardsNearest(r, true);
     }
     auto frame_count = r->FightFrame[style];
     action_type_ = style;

@@ -24,10 +24,9 @@ public:
     void setContent(std::string c) { content_ = c; }
     void setHeadID(int h) { head_id_=h; }
     void setHeadStyle(int s) { head_style_ = s; }
-
-    virtual void onPressedOK() override { exitWithResult(0); }
-    virtual void onPressedCancel() override { exitWithResult(-1); }
-
     virtual void onEntrance() override;
+
+    DEFAULT_OK_EXIT;
+    DEFAULT_CANCEL_EXIT;
 };
 

@@ -12,8 +12,6 @@ public:
 
     int view_x_ = 0, view_y_ = 0;
 
-    const int COORD_COUNT = SUBMAP_COORD_COUNT;
-
     int const MAN_PIC_0 = 2501;            //初始场景主角图偏移量
     int const MAN_PIC_COUNT = 7;           //单向主角图张数
     int submap_id_;   //场景号
@@ -54,7 +52,6 @@ public:
     bool checkEvent3(int x, int y) { return checkEvent(x, y, Towards_None, -1); }
 
     virtual bool isBuilding(int x, int y);
-    virtual bool isOutLine(int x, int y);
     bool isWater(int x, int y);
     bool isCanPassEvent(int x, int y);
     bool isCannotPassEvent(int x, int y);

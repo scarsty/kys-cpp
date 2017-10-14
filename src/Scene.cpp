@@ -170,10 +170,10 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
         //log("t.x=%d,t.y=%d",t->x,t->y);
         if (t->x == Fx && t->y == Fy)
         {
-            minStep = t->step;
+            min_step_ = t->step;
             way_que_.push_back(*t);
             int k = 0;
-            while (t != myPoint && k <= minStep)
+            while (t != myPoint && k <= min_step_)
             {
                 //log("t.x=%d,t.y=%d,s.x=%d,s.y=%d,t.f=%d", t->x, t->y, t->parent->x, t->parent->y,t->f);
 
@@ -248,5 +248,10 @@ void Scene::darkScene()
         };
         drawAndPresent(1, fill);
     }
+}
+
+bool Scene::isOutLine(int x, int y)
+{
+    return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
 

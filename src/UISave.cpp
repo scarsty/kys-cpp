@@ -35,6 +35,7 @@ void UISave::onEntrance()
 
 void UISave::onPressedOK()
 {
+    pressToResult();
     if (result_ >= 0)
     {
         if (mode_ == 0)
@@ -47,7 +48,6 @@ void UISave::onPressedOK()
         }
         setExit(true);
     }
-    //result_ = -1;
 }
 
 void UISave::load(int r)

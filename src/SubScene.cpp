@@ -9,6 +9,7 @@
 SubScene::SubScene()
 {
     full_window_ = 1;
+    COORD_COUNT = SUBMAP_COORD_COUNT;
 }
 
 SubScene::SubScene(int id) : SubScene()
@@ -355,11 +356,6 @@ bool SubScene::isBuilding(int x, int y)
     //{
     //    return true;
     //}
-}
-
-bool SubScene::isOutLine(int x, int y)
-{
-    return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
 
 bool SubScene::isWater(int x, int y)

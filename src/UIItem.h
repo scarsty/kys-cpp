@@ -47,6 +47,7 @@ public:
     Item* getCurrentItem() { return current_item_; }
 
     virtual void onPressedOK() override;
+    virtual void onPressedCancel() override;
 
 };
 

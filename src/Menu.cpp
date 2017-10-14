@@ -4,7 +4,7 @@
 
 Menu::Menu()
 {
-    active_child_ = 0;
+    pass_child_ = 0;
 }
 
 Menu::~Menu()
@@ -32,38 +32,16 @@ void Menu::dealEvent(BP_Event& e)
             //仅有两项的菜单两头封住
             if (getChildCount() <= 2)
             {
-                active_child_ = direct > 0 ? getChildCount() - 1 : 0;
+                pass_child_ = direct > 0 ? getChildCount() - 1 : 0;
             }
             else
             {
-                active_child_ = findNextVisibleChild(active_child_, direct);
+                pass_child_ = findNextVisibleChild(pass_child_, direct);
             }
-            getChild(active_child_)->setState(Pass);
         }
     }
-
-    for (int i = 0; i < childs_.size(); i++)
-    {
-        if (childs_[i]->getState() == Pass)
-        {
-            active_child_ = i;
-        }
-    }
-    for (int i = 0; i < childs_.size(); i++)
-    {
-        if (i != active_child_)
-        {
-            childs_[i]->setState(Normal);
-        }
-    }
-    //重置当前被激活的按钮状态
-    if (active_child_ >= 0)
-    {
-        if (getChild(active_child_)->getState() == Normal)
-        {
-            getChild(active_child_)->setState(Pass);
-        }
-    }
+    //事务处理中可以强制改变子项的Pass，用于菜单中固定某项
+    forcePassChild();
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
@@ -81,9 +59,21 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
 
 void Menu::onPressedOK()
 {
-    if (result_ >= 0) { active_child_ = result_; }
-    setExit(true);
+    pressToResult();
+    if (result_ >= 0)
+    {
+        setExit(true);
+    }
 }
+
+//void Menu::onPressedOK()
+//{
+//    pressToResult();
+//    if (result_ >= 0)
+//    {
+//        setExit(true);
+//    }
+//}
 
 MenuText::MenuText(std::vector<std::string> items) : MenuText()
 {

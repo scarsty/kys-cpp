@@ -118,18 +118,6 @@ void Element::drawSelfAndChilds()
     }
 }
 
-void Element::checkResult()
-{
-    //获取当前正在被激活的按钮，主要针对鼠标
-    for (int i = 0; i < getChildCount(); i++)
-    {
-        if (getChild(i)->getState() == Press)
-        {
-            result_ = i;
-        }
-    }
-}
-
 void Element::setAllChildState(int s)
 {
     for (auto c : childs_)
@@ -176,6 +164,18 @@ int Element::findFristVisibleChild()
     return -1;
 }
 
+void Element::forcePassChild()
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        childs_[i]->setState(Normal);
+        if (i == pass_child_)
+        {
+            childs_[i]->setState(Pass);
+        }
+    }
+}
+
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
 int Element::run(bool in_root /*= true*/)
 {
@@ -208,54 +208,14 @@ void Element::checkStateAndEvent(BP_Event& e)
         {
             childs_[i]->checkStateAndEvent(e);
         }
-
-        //检测鼠标经过，按下等状态
-        if (e.type == BP_MOUSEMOTION)
-        {
-            if (inSide(e.motion.x, e.motion.y))
-            {
-                state_ = Pass;
-            }
-            else
-            {
-                state_ = Normal;
-            }
-        }
-        if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
-            && e.button.button == BP_BUTTON_LEFT)
-        {
-            if (inSide(e.button.x, e.button.y))
-            {
-                state_ = Press;
-            }
-            else
-            {
-                state_ = Normal;
-            }
-        }
-        if ((e.type == BP_KEYDOWN && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)))
-        {
-            if (state_ == Pass)
-            {
-                state_ = Press;
-            }
-        }
-
-        //注意下个时序才会画，所以可以在dealEvent中改变原有状态
+        
+        checkSelfState(e);
+        checkChildState();
+        //可以在dealEvent中改变原有状态，强制设置某些情况
         dealEvent(e);
         //为简化代码，将按下回车和ESC的操作写在此处
-        if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT))
-        {
-            checkResult();
-            onPressedOK();
-            //if (result_==0) clearEvent(e);
-        }
-        if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT))
-        {
-            onPressedCancel();
-        }
+        if (isPressOK(e)) { onPressedOK(); }
+        if (isPressCancel(e)) { onPressedCancel(); }
     }
     else
     {
@@ -274,6 +234,7 @@ void Element::checkEventAndPresent(bool check_event)
     {
         checkStateAndEvent(e);
     }
+    dealEvent2(e);
     switch (e.type)
     {
     case BP_QUIT:
@@ -290,6 +251,60 @@ void Element::checkEventAndPresent(bool check_event)
     engine->delay(t);
     engine->renderPresent();
     prev_present_ticks_ = t1;
+}
+
+void Element::checkChildState()
+{
+    press_child_ = -1;
+    //pass_child_ = -1;  注意pass是不改的，维持上一次的状态
+    //获取子节点的状态
+    for (int i = 0; i < getChildCount(); i++)
+    {
+        if (getChild(i)->getState() == Press)
+        {
+            press_child_ = i;
+        }
+        if (getChild(i)->getState() == Pass)
+        {
+            pass_child_ = i;
+        }
+    }
+    if (press_child_ >= 0) { pass_child_ = press_child_; }
+}
+
+void Element::checkSelfState(BP_Event &e)
+{
+    //检测鼠标经过，按下等状态
+    if (e.type == BP_MOUSEMOTION)
+    {
+        if (inSide(e.motion.x, e.motion.y))
+        {
+            state_ = Pass;
+        }
+        else
+        {
+            state_ = Normal;
+        }
+    }
+    if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
+        && e.button.button == BP_BUTTON_LEFT)
+    {
+        if (inSide(e.button.x, e.button.y))
+        {
+            state_ = Press;
+        }
+        else
+        {
+            state_ = Normal;
+        }
+    }
+    if ((e.type == BP_KEYDOWN && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)))
+    {
+        if (state_ == Pass)
+        {
+            state_ = Press;
+        }
+    }
 }
 
 void Element::exitAll(int begin)
@@ -322,19 +337,3 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
     return times;
 }
 
-//void Element::setChildState(int i, int s)
-//{
-//    if (i >= 0 && i < childs_.size())
-//    {
-//        childs_[i]->state_ = s;
-//    }
-//}
-//
-//int Element::getChildState(int i)
-//{
-//    if (i >= 0 && i < childs_.size())
-//    {
-//        return childs_[i]->state_;
-//    }
-//    return Normal;
-//}

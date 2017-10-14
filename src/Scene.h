@@ -36,6 +36,8 @@ public:
     int step_ = 0;
     int man_pic_ = 0;
 
+    int COORD_COUNT = 0;
+
     void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }
     void getManPosition(int& x, int& y) { x = man_x_; y = man_y_; }
     void setManPic(int pic) { man_pic_ = pic; }
@@ -59,7 +61,7 @@ public:
     virtual bool isOutScreen(int x, int y) { return false; }
 
     std::vector<PointEx> way_que_;  //栈(路径栈)
-    int minStep;                                                        //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
+    int min_step_;                    //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
     int mouse_x_, mouse_y_;
     //看不明白
     void getMousePosition(Point* point);
@@ -69,6 +71,7 @@ public:
     void lightScene();
     void darkScene();
 
+    bool isOutLine(int x, int y);
 };
 
 
