@@ -167,11 +167,11 @@ struct SubMapInfoSave1
     MAP_INT ID;
     char Name[10];
     MAP_INT ExitMusic, EntranceMusic;
-    MAP_INT JumpScence, EntranceCondition;
+    MAP_INT JumpSubMap, EntranceCondition;
     MAP_INT MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
     MAP_INT EntranceX, EntranceY;
     MAP_INT ExitX[3], ExitY[3];
-    MAP_INT JumpX1, JumpY1, JumpX2, JumpY2;
+    MAP_INT JumpX, JumpY, JumpReturnX, JumpReturnY;
 };
 
 //场景事件数据
@@ -262,11 +262,11 @@ struct SubMapInfoSave
     int ID;
     char Name[20];
     int ExitMusic, EntranceMusic;
-    int JumpScence, EntranceCondition;
+    int JumpSubMap, EntranceCondition;
     int MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
     int EntranceX, EntranceY;
     int ExitX[3], ExitY[3];
-    int JumpX1, JumpY1, JumpX2, JumpY2;
+    int JumpX, JumpY, JumpReturnX, JumpReturnY;
 };
 
 //场景事件数据

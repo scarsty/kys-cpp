@@ -339,7 +339,7 @@ bool MainScene::checkEntrance(int x, int y)
             }
             if (can_enter)
             {
-                UISave::save(99);
+                UISave::autoSave();
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
                 auto sub_map = new SubScene(i);

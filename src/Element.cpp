@@ -208,7 +208,7 @@ void Element::checkStateAndEvent(BP_Event& e)
         {
             childs_[i]->checkStateAndEvent(e);
         }
-        
+
         checkSelfState(e);
         checkChildState();
         //可以在dealEvent中改变原有状态，强制设置某些情况
@@ -272,7 +272,7 @@ void Element::checkChildState()
     if (press_child_ >= 0) { pass_child_ = press_child_; }
 }
 
-void Element::checkSelfState(BP_Event &e)
+void Element::checkSelfState(BP_Event& e)
 {
     //检测鼠标经过，按下等状态
     if (e.type == BP_MOUSEMOTION)
@@ -298,8 +298,10 @@ void Element::checkSelfState(BP_Event &e)
             state_ = Normal;
         }
     }
-    if ((e.type == BP_KEYDOWN && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE)))
+    if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP)
+        && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
+        //按下键盘的空格或者回车时，将pass的按键改为press
         if (state_ == Pass)
         {
             state_ = Press;

@@ -33,6 +33,7 @@ public:
     }
 
     static std::string getFilename(int i, char c);
+    static bool checkSaveFileExist(int num);
 private:
     //注意在读取之后，offset比length尾部会多一个元素，该值即总长度
     std::vector<int> offset_, length_;
@@ -104,7 +105,6 @@ public:
     const std::vector<Item*>& getItems() { return items_; }
     const std::vector<SubMapInfo*>& getSubMapInfos() { return submap_infos_; }
     const std::vector<Shop*>& getShops() { return shops_; }
-
 };
 
 

@@ -17,5 +17,6 @@ public:
 
     static void load(int r);
     static void save(int r);
+    static void autoSave() { save(11); }
 };
 

@@ -199,7 +199,7 @@ void SubScene::dealEvent(BP_Event& e)
         }
     }
     checkEvent3(x, y);
-    if (isExit(x, y))
+    if (isExit(x, y) || isJumpSubScene(x, y))
     {
         clearEvent(e);
         total_step_ = 0;
@@ -415,6 +415,30 @@ bool SubScene::isExit(int x, int y)
     return false;
 }
 
+bool SubScene::isJumpSubScene(int x, int y)
+{
+    if (submap_info_->JumpSubMap >= 0 && man_x_ == submap_info_->JumpX && man_y_ == submap_info_->JumpY)
+    {
+        int x, y;
+        auto new_submap = Save::getInstance()->getSubMapInfo(submap_info_->JumpSubMap);
+        if (submap_info_->MainEntranceX1 != 0)
+        {
+            //若原场景在大地图上有正常入口，则设置人物位置为新场景入口位置
+            x = new_submap->EntranceX;
+            y = new_submap->EntranceY;
+        }
+        else
+        {
+            //若原场景无法从大地图上进入，则设置人物在跳转返回位置
+            x = new_submap->JumpReturnX;
+            y = new_submap->JumpReturnY;
+        }
+        forceJumpSubScene(submap_info_->JumpSubMap, x, y);
+        return true;
+    }
+    return false;
+}
+
 bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
@@ -442,5 +466,11 @@ void SubScene::forceExit()
 {
     setVisible(false);
     setExit(true);
+}
+
+void SubScene::forceJumpSubScene(int submap_id, int x, int y)
+{
+    setID(submap_id);
+    setManViewPosition(x, y);
 }
 

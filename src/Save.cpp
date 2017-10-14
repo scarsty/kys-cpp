@@ -42,6 +42,13 @@ std::string Save::getFilename(int i, char c)
     return filename;
 }
 
+bool Save::checkSaveFileExist(int num)
+{
+    return File::fileExist(getFilename(num, 'r'))
+        && File::fileExist(getFilename(num, 's'))
+        && File::fileExist(getFilename(num, 'd'));
+}
+
 bool Save::load(int num)
 {
     std::string filenamer = getFilename(num, 'r');

@@ -66,6 +66,12 @@ void Menu::onPressedOK()
     }
 }
 
+void Menu::onEntrance()
+{
+    pass_child_ = findFristVisibleChild();
+    forcePassChild();
+}
+
 //void Menu::onPressedOK()
 //{
 //    pressToResult();

@@ -57,6 +57,7 @@ public:
     bool isCannotPassEvent(int x, int y);
     bool isFall(int x, int y);
     bool isExit(int x, int y);
+    bool isJumpSubScene(int x, int y);
 
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
@@ -69,5 +70,6 @@ public:
     void forceManPic(int pic) { force_man_pic_ = pic; }
 
     void forceExit();
+    void forceJumpSubScene(int submap_id, int x, int y);
 };
 

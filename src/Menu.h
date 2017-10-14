@@ -10,6 +10,7 @@ public:
     virtual void dealEvent(BP_Event& e) override;
     void arrange(int x, int y, int inc_x, int inc_y);
     virtual void onPressedOK() override;
+    virtual void onEntrance() override;
     DEFAULT_CANCEL_EXIT;
 };
 
