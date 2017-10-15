@@ -121,8 +121,10 @@ public:
     void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //行动动画
     void showMagicName(std::string name);
 
-    int calHurt(Role* r1, Role* r2, Magic* magic);
-    int calAllHurt(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
+    int calMagicHurt(Role* r1, Role* r2, Magic* magic);
+    int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
+    int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);
+
     void showNumberAnimation();
     void clearDead();
     void poisonEffect(Role* r);    //中毒效果

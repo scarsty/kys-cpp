@@ -69,7 +69,7 @@ void BattleScene::draw()
     auto r0 = battle_roles_[0];  //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
-#ifndef _DEBUG0
+#ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -329,6 +329,8 @@ void BattleScene::setRoleInitState(Role* r)
     r->ExpGot = 0;
     r->ShowString = "";
     r->FightingFrame = 0;
+    r->Moved = 0;
+    r->AI_Action = -1;
 
     if (r->Team == 0)
     {
@@ -794,7 +796,7 @@ void BattleScene::actUseMagic(Role* r)
                 r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
                 r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
                 useMagicAnimation(r, magic);
-                calAllHurt(r, magic);
+                calMagiclHurtAllEnemies(r, magic);
                 showNumberAnimation();
             }
             r->Acted = 1;
@@ -894,7 +896,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             int v = 0;
             if (r2)
             {
-                v = r->HiddenWeapon - item->AddHP;
+                v = calHiddenWeaponHurt(r, r2, item);
                 r2->ShowString = convert::formatString("-%d", v);
                 r2->ShowColor = { 255, 20, 20, 255 };
             }
@@ -976,9 +978,12 @@ void BattleScene::actAuto(Role* r)
 
 void BattleScene::actRest(Role* r)
 {
-    r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, MAX_PHYSICAL_POWER);
-    r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
-    r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
+    if (!r->Moved)
+    {
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, MAX_PHYSICAL_POWER);
+        r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
+        r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
+    }
     r->Acted = 1;
 }
 
@@ -1080,12 +1085,12 @@ void BattleScene::showMagicName(std::string name)
 }
 
 //r1使用武功magic攻击r2的伤害，结果为一正数
-int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
+int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 {
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
 
     int attack = r1->Attack + magic->Attack[level_index] / 3;
-    int defence = r2->Defence;    
+    int defence = r2->Defence;
 
     //装备的效果
     if (r1->Equip0 >= 0)
@@ -1121,7 +1126,7 @@ int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
 }
 
 //计算全部人物的伤害
-int BattleScene::calAllHurt(Role* r, Magic* m, bool simulation)
+int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 {
     int total = 0;
     for (auto r2 : battle_roles_)
@@ -1129,7 +1134,7 @@ int BattleScene::calAllHurt(Role* r, Magic* m, bool simulation)
         //非我方且被击中（即所在位置的效果层非负）
         if (r2->Team != r->Team && haveEffect(r2->X(), r2->Y()))
         {
-            int hurt = calHurt(r, r2, m);
+            int hurt = calMagicHurt(r, r2, m);
             if (!simulation)
             {
                 r2->ShowString = convert::formatString("-%d", hurt);
@@ -1139,15 +1144,26 @@ int BattleScene::calAllHurt(Role* r, Magic* m, bool simulation)
             }
             else
             {
-                if (hurt > r2->HP)
+                if (hurt >= r2->HP)
                 {
-                    hurt *= 1.25;
+                    hurt = 1.25 * r2->HP;
                 }
             }
             total += hurt;
         }
     }
     return total;
+}
+
+//返回值为一正数
+int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
+{
+    int v = r1->HiddenWeapon - item->AddHP;
+    int dis = calDistance(r1, r2);
+    v = v / exp((dis - 1) / 10);
+    v += RandomClassical::rand(10) - RandomClassical::rand(10);
+    if (v < 1) { v = 1; }
+    return v;
 }
 
 void BattleScene::showNumberAnimation()

@@ -32,11 +32,11 @@ public:
     struct AIAction
     {
         int Action;
+        int point = 0;
         int MoveX, MoveY;
         int ActionX, ActionY;
         Magic* magic = nullptr;
         Item* item = nullptr;
-        int point = 0;
     };
 
     void setAIActionToRole(AIAction& aa, Role* role)
@@ -54,6 +54,8 @@ public:
     void getNearestPosition(int x0, int y0, int& x, int& y);
     Role* getNearestRole(Role* role, std::vector<Role*> roles);
     void calAIActionNearest(Role* r2, AIAction& aa);
+    int calNeedActionDistance(AIAction& aa);
+
 };
 
 class BattleMagicMenu : public MenuText
@@ -93,6 +95,10 @@ public:
     Role* getRole() { return role_; }
 
     void addItem(Item* item, int count);
+
+    std::vector<Item*> getAvaliableItems();
+    static std::vector<Item*> getAvaliableItems(Role* role, int type);
+
 };
 
 
