@@ -17,6 +17,7 @@
 #include "ShowExp.h"
 #include "Event.h"
 #include "TeamMenu.h"
+#include "Audio.h"
 
 BattleScene::BattleScene()
 {
@@ -230,7 +231,7 @@ void BattleScene::dealEvent2(BP_Event& e)
 void BattleScene::onEntrance()
 {
     calViewRegion();
-
+    Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(80, 100);
 
@@ -421,6 +422,7 @@ void BattleScene::resetRolesAct()
     {
         r->Acted = 0;
         r->Moved = 0;
+        r->setPosition(r->X(), r->Y());
     }
 }
 
@@ -694,7 +696,7 @@ bool BattleScene::isWater(int x, int y)
 
 bool BattleScene::isRole(int x, int y)
 {
-    return role_layer_->data(x, y) > 0;
+    return role_layer_->data(x, y) >= 0;
 }
 
 bool BattleScene::isOutScreen(int x, int y)
@@ -741,7 +743,6 @@ void BattleScene::action(Role* r)
     //如果此人成功行动过，则放到队尾
     if (r->Acted)
     {
-        r->Moved = 0;
         battle_roles_.erase(battle_roles_.begin());
         battle_roles_.push_back(r);
         poisonEffect(r);
@@ -890,15 +891,17 @@ void BattleScene::actUseHiddenWeapon(Role* r)
         if (selected >= 0)
         {
             auto r2 = getSelectedRole();
+            int v = 0;
             if (r2)
             {
-                int v = -r->HiddenWeapon - item->AddHP;
-                r2->ShowString = convert::formatString("%+d", v);
+                v = r->HiddenWeapon - item->AddHP;
+                r2->ShowString = convert::formatString("-%d", v);
                 r2->ShowColor = { 255, 20, 20, 255 };
             }
             showMagicName(item->Name);
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
             actionAnimation(r, 0, item->HiddenWeaponEffectID);
+            if (r2) { r2->HP = GameUtil::limit(r2->HP - v, 0, r2->MaxHP); }
             showNumberAnimation();
             item_menu->addItem(item, -1);
             r->Acted = 1;
@@ -1020,6 +1023,7 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
 {
     if (r && m)
     {
+        Audio::getInstance()->playASound(m->SoundID);    //这里播放音效严格说不正确，不管了
         actionAnimation(r, m->MagicType, m->EffectID);
     }
 }
@@ -1032,11 +1036,12 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     }
     if (r->isAuto())
     {
-        //自的情況下面向一个敌人，否则看着很奇怪
+        //自动的情況下面向一个敌人，否则看着很奇怪
         setFaceTowardsNearest(r, true);
     }
     auto frame_count = r->FightFrame[style];
     action_type_ = style;
+    //Audio::getInstance()->playASound(style);
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
         drawAndPresent(animation_delay_);
@@ -1045,6 +1050,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     effect_id_ = effect_id;
     auto path = convert::formatString("eft/eft%03d", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+    Audio::getInstance()->playESound(effect_id);
     for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
     {
         if (shake > 0)

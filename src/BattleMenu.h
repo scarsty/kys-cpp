@@ -29,7 +29,6 @@ public:
 
     void calDistanceLayer(int x, int y, int max_step = 64);
 
-
     struct AIAction
     {
         int Action;
@@ -40,18 +39,21 @@ public:
         int point = 0;
     };
 
-    void setAIAction(AIAction* aa, Role* role)
+    void setAIActionToRole(AIAction& aa, Role* role)
     {
-        role->AI_Action = aa->Action;
-        role->AI_MoveX = aa->MoveX;
-        role->AI_MoveY = aa->MoveY;
-        role->AI_ActionX = aa->ActionX;
-        role->AI_ActionY = aa->ActionY;
-        role->AI_Magic = aa->magic;
-        role->AI_Item = aa->item;
-
+        role->AI_Action = aa.Action;
+        role->AI_MoveX = aa.MoveX;
+        role->AI_MoveY = aa.MoveY;
+        role->AI_ActionX = aa.ActionX;
+        role->AI_ActionY = aa.ActionY;
+        role->AI_Magic = aa.magic;
+        role->AI_Item = aa.item;
     }
 
+    void getFarthestToAll(Role* role, std::vector<Role*> roles, int& x, int& y);
+    void getNearestPosition(int x0, int y0, int& x, int& y);
+    Role* getNearestRole(Role* role, std::vector<Role*> roles);
+    void calAIActionNearest(Role* r2, AIAction& aa);
 };
 
 class BattleMagicMenu : public MenuText

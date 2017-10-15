@@ -775,13 +775,16 @@ void Event::roleAddItem(int role_id, int item_id, int count)
                 break;
             }
         }
-        role->TakingItem[pos] = item_id;
-        role->TakingItemCount[pos] = count;
+        if (pos >= 0)
+        {
+            role->TakingItem[pos] = item_id;
+            role->TakingItemCount[pos] = count;
+        }
     }
 
     //整理角色的物品，注意：实际上并没有必要每次都整理
     std::map<int, int> item_count;
-    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+    for (int i = 0; i < ROLE_TAKING_ITEM_COUNT; i++)
     {
         if (role->TakingItem[i] >= 0 && role->TakingItemCount[i] > 0)
         {
