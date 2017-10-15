@@ -65,6 +65,6 @@ class RandomClassical
 {
 public:
     static void srand() { ::srand(time(NULL)); }
-    static int rand(int n) { return ::rand() % n; }
+    static int rand(int n) { if (n <= 0) { return 0; } return ::rand() % n; }
 };
 

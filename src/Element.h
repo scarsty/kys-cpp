@@ -20,6 +20,9 @@ protected:
     int full_window_ = 0;              //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
     bool exit_ = false;                 //子类的过程中设此值为true，即表示下一个循环将退出
     bool running_ = false;
+
+    int stay_frame_ = -1;
+    int current_frame_ = 0;
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -29,6 +32,9 @@ protected:
     int pass_child_ = -1;
     int press_child_ = -1;
 public:
+
+    int user_data_;
+
     Element() {}
     virtual ~Element();
 
@@ -102,6 +108,9 @@ public:
 
     virtual void onPressedOK() {}                             //按下回车或鼠标左键的事件，子类需要继承此物
     virtual void onPressedCancel() {}                         //默认按下esc或鼠标右键的事件，如果需要其他功能请继承时覆盖
+
+    void setStayFrame(int s) { stay_frame_ = s; }
+    void checkFrame();
 
     bool isPressOK(BP_Event& e)
     {

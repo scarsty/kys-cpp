@@ -82,7 +82,7 @@ void BattleScene::draw()
             {
                 int num = earth_layer_->data(i1, i2) / 2;
                 BP_Color color = { 255, 255, 255, 255 };
-                if (battle_cursor_->isRunning())
+                if (battle_cursor_->isRunning() && !r0->isAuto())  //如果是自动人物没有变暗的选择效果看着太乱
                 {
                     if (select_layer_->data(i1, i2) < 0)
                     {
@@ -143,7 +143,7 @@ void BattleScene::draw()
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
-                    if (battle_cursor_->isRunning())
+                    if (battle_cursor_->isRunning() && !r0->isAuto())
                     {
                         color = { 128, 128, 128, 255 };
                         if (inEffect(r0, r))
@@ -420,11 +420,16 @@ void BattleScene::resetRolesAct()
     for (auto r : battle_roles_)
     {
         r->Acted = 0;
+        r->Moved = 0;
     }
 }
 
 int BattleScene::calMoveStep(Role* r)
 {
+    if (r->Moved)
+    {
+        return 0;
+    }
     int speed = r->Speed;
     if (r->Equip0 >= 0)
     {
@@ -495,7 +500,7 @@ void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 
             for (auto p : cal_stack)
             {
                 //检测是否在敌方身旁，视情况打开此选项
-                if (!isNearEnemy(team, p.x, p.y))
+                if (!isNearEnemy(team, p.x, p.y) || (p.x == x && p.y == y))
                 {
                     //检测4个相邻点
                     check_next({ p.x - 1, p.y });
@@ -548,6 +553,11 @@ void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 
     {
         select_layer_->setAll(-1);
     }
+}
+
+void BattleScene::calSelectLayer(Role* r, int mode, int step /*= 0*/)
+{
+    calSelectLayer(r->X(), r->Y(), r->Team, mode, step);
 }
 
 void BattleScene::calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index)
@@ -890,6 +900,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
             actionAnimation(r, 0, item->HiddenWeaponEffectID);
             showNumberAnimation();
+            item_menu->addItem(item, -1);
             r->Acted = 1;
         }
     }
@@ -913,9 +924,10 @@ void BattleScene::actUseDrag(Role* r)
         df->setBlackScreen(false);
         df->setShowHead(false);
         df->setPosition(250, 220);
+        df->setStayFrame(40);
         df->run();
         delete df;
-        Event::getInstance()->addItemWithoutHint(item->ID, -1);
+        item_menu->addItem(item, -1);
         r->Acted = 1;
     }
 
@@ -1052,7 +1064,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
 
 void BattleScene::showMagicName(std::string name)
 {
-    auto magic_name = new TextBoxAutoExit();
+    auto magic_name = new TextBox();
     magic_name->setText(name);
     magic_name->setPosition(450, 150);
     magic_name->setFontSize(20);
@@ -1090,6 +1102,7 @@ int BattleScene::calAllHurt(Role* r, Magic* m, bool simulation)
                 r2->ShowString = convert::formatString("-%d", hurt);
                 r2->ShowColor = { 255, 20, 20, 255 };
                 r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
+                r->ExpGot += hurt / 10;
             }
             else
             {

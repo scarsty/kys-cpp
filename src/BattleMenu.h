@@ -29,6 +29,29 @@ public:
 
     void calDistanceLayer(int x, int y, int max_step = 64);
 
+
+    struct AIAction
+    {
+        int Action;
+        int MoveX, MoveY;
+        int ActionX, ActionY;
+        Magic* magic = nullptr;
+        Item* item = nullptr;
+        int point = 0;
+    };
+
+    void setAIAction(AIAction* aa, Role* role)
+    {
+        role->AI_Action = aa->Action;
+        role->AI_MoveX = aa->MoveX;
+        role->AI_MoveY = aa->MoveY;
+        role->AI_ActionX = aa->ActionX;
+        role->AI_ActionY = aa->ActionY;
+        role->AI_Magic = aa->magic;
+        role->AI_Item = aa->item;
+
+    }
+
 };
 
 class BattleMagicMenu : public MenuText
@@ -62,8 +85,12 @@ public:
 private:
     Role* role_ = nullptr;
 public:
+    virtual void dealEvent(BP_Event& e) override;
+
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }
+
+    void addItem(Item* item, int count);
 };
 
 

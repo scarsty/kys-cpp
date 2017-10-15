@@ -40,17 +40,3 @@ public:
     virtual void onPressedCancel() override { exitWithResult(-1); }
 };
 
-//可以维持数帧后自动消失的文本框
-class TextBoxAutoExit : public TextBox
-{
-public:
-    TextBoxAutoExit() {}
-    ~TextBoxAutoExit() {}
-private:
-    int stay_frame_ = -1;
-    int current_frame_ = 0;
-public:
-    void setStayFrame(int s) { stay_frame_ = s; }
-    virtual void dealEvent(BP_Event& e) override;
-};
-

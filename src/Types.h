@@ -173,6 +173,7 @@ public:
     int AI_MoveX, AI_MoveY;
     int AI_ActionX, AI_ActionY;
     Magic* AI_Magic = nullptr;
+    Item* AI_Item = nullptr;
 };
 
 //存档中的物品数据

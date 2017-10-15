@@ -11,7 +11,7 @@
 UIItem::UIItem()
 {
     item_buttons_.resize(line_count_ * item_each_line_);
-    items_.resize(ITEM_IN_BAG_COUNT);
+
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto b = new Button();
@@ -88,21 +88,26 @@ int UIItem::getItemDetailType(Item* item)
     return 0;
 }
 
-//注意填充到列表的是在背包中的位置而不是物品id
-//返回值为个数
-int UIItem::geItemBagIndexByType(int item_type)
+void UIItem::geItemsByType(int item_type)
 {
-    std::fill(items_.begin(), items_.end(), -1);
-    int k = 0;
+    available_items_.clear();
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
-        if (getItemDetailType(Save::getInstance()->getItemByBagIndex(i)) == item_type)
+        auto item = Save::getInstance()->getItemByBagIndex(i);
+        if (getItemDetailType(item) == item_type)
         {
-            items_[k] = i;
-            k++;
+            available_items_.push_back(item);
         }
     }
-    return k;
+}
+
+Item* UIItem::getAvailableItem(int i)
+{
+    if (i >= 0 && i < available_items_.size())
+    {
+        return available_items_[i];
+    }
+    return nullptr;
 }
 
 void UIItem::draw()
@@ -114,7 +119,9 @@ void UIItem::dealEvent(BP_Event& e)
 {
     //强制停留在某类物品
     if (force_item_type_ >= 0) { title_->setResult(force_item_type_); }
-    int type_item_count = geItemBagIndexByType(title_->getPassChild());
+    geItemsByType(title_->getPassChild());
+    int type_item_count = available_items_.size();
+
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
     int max_leftup = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
@@ -140,7 +147,8 @@ void UIItem::dealEvent(BP_Event& e)
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
-        auto item = Save::getInstance()->getItemByBagIndex(items_[i + leftup_index_]);
+        int index = i + leftup_index_;
+        auto item = getAvailableItem(index);
         if (item)
         {
             button->setTexture("item", item->ID);
@@ -305,9 +313,9 @@ void UIItem::onPressedOK()
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
-        auto item = Save::getInstance()->getItemByBagIndex(items_[i + leftup_index_]);
-        if (item && button->getState() == Press)
+        if (button->getState() == Press)
         {
+            auto item = getAvailableItem(i + leftup_index_);
             current_item_ = item;
         }
     }

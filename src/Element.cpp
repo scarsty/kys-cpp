@@ -176,6 +176,15 @@ void Element::forcePassChild()
     }
 }
 
+void Element::checkFrame()
+{
+    current_frame_++;
+    if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
+    {
+        exit_ = true;
+    }
+}
+
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
 int Element::run(bool in_root /*= true*/)
 {
@@ -189,6 +198,7 @@ int Element::run(bool in_root /*= true*/)
         if (root_.empty()) { break; }
         checkEventAndPresent(true);
         drawAll();
+        checkFrame();
     }
     running_ = false;
     onExit();
