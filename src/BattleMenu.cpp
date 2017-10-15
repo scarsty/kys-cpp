@@ -351,7 +351,7 @@ void BattleActionMenu::getFarthestToAll(Role* role, std::vector<Role*> roles, in
                 int cur_dis = 0;
                 for (auto r2 : roles)
                 {
-                    cur_dis += battle_scene_->calDistance(role, r2);
+                    cur_dis += battle_scene_->calDistance(ix, iy, r2->X(), r2->Y());
                 }
                 if (cur_dis > max_dis || (cur_dis == max_dis && rand.rand() < 1.0 / (k++)))
                 {
@@ -369,7 +369,7 @@ void BattleActionMenu::getNearestPosition(int x0, int y0, int& x, int& y)
     Random<double> rand;   //梅森旋转法随机数
     rand.set_seed();
     calDistanceLayer(x0, y0);
-    printf("%d %d %d\n", x0, y0, battle_scene_->select_layer_->data(x0,y0));
+    printf("%d %d %d\n", x0, y0, battle_scene_->select_layer_->data(x0, y0));
     int min_dis = BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT;
     int k = 2;
     for (int ix = 0; ix < BATTLEMAP_COORD_COUNT; ix++)
@@ -450,8 +450,9 @@ void BattleMagicMenu::dealEvent(BP_Event& e)
 
 void BattleMagicMenu::onPressedOK()
 {
+    pressToResult();
     magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
-    setExit(true);
+    if (magic_) { setExit(true); }
 }
 
 BattleItemMenu::BattleItemMenu()

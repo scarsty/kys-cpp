@@ -137,6 +137,12 @@ void SubScene::draw()
             //k++;
         }
     }
+
+    //鼠标的位置
+    auto p = getMousePosition(view_x_, view_y_);
+    p = getPositionOnRender(p.x, p.y, view_x_, view_y_);
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
+
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
@@ -144,21 +150,6 @@ void SubScene::dealEvent(BP_Event& e)
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
-    //功能键
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
-        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-    {
-        UI::getInstance()->run();
-        clearEvent(e);
-        auto item = UI::getInstance()->getUsedItem();
-        if (item && item->ItemType == 0)
-        {
-            if (checkEvent2(x, y, towards_, item->ID))
-            {
-                step_ = 0;
-            }
-        }
-    }
 
     //键盘走路部分，检测4个方向键
     int pressed = 0;
@@ -280,6 +271,19 @@ void SubScene::onExit()
     //{
     //    Engine::destroyTexture(earth_texture_);
     //}
+}
+
+void SubScene::onPressedCancel()
+{
+    UI::getInstance()->run();
+    auto item = UI::getInstance()->getUsedItem();
+    if (item && item->ItemType == 0)
+    {
+        if (checkEvent2(man_x_, man_y_, towards_, item->ID))
+        {
+            step_ = 0;
+        }
+    }
 }
 
 //冗余过多待清理
@@ -442,16 +446,6 @@ bool SubScene::isJumpSubScene(int x, int y)
 bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
-}
-
-void SubScene::getMousePosition(int _x, int _y)
-{
-    //int x = _x;
-    //int y = _y;
-    ////int yp = 0;
-    //int yp = -(Save::getInstance()->m_SceneMapData[scene_id_].Data[4][x][y]);
-    //Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Cx;
-    //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
 Point SubScene::getPositionOnWholeEarth(int x, int y)

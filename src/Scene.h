@@ -53,6 +53,7 @@ public:
 
     void changeTowardsByKey(BP_Keycode key);
     int getTowardsByKey(BP_Keycode key);
+    int getTowardsByMouse(int mouse_x, int mouse_y);
 
     //获取面向一格的坐标
     static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
@@ -62,9 +63,11 @@ public:
 
     std::vector<PointEx> way_que_;  //栈(路径栈)
     int min_step_;                    //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
-    int mouse_x_, mouse_y_;
+    //int mouse_x_, mouse_y_;
     //看不明白
-    void getMousePosition(Point* point);
+    Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
+    Point getMousePosition(int view_x, int view_y);
+
     void stopFindWay() { way_que_.clear();/*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);
 

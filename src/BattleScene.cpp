@@ -69,7 +69,7 @@ void BattleScene::draw()
     auto r0 = battle_roles_[0];  //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
-#ifndef _DEBUG
+#ifndef _DEBUG0
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -1085,8 +1085,35 @@ int BattleScene::calHurt(Role* r1, Role* r2, Magic* magic)
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
 
     int attack = r1->Attack + magic->Attack[level_index] / 3;
-    int defence = r2->Defence;
+    int defence = r2->Defence;    
+
+    //装备的效果
+    if (r1->Equip0 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r1->Equip0);
+        attack += i->AddAttack;
+    }
+    if (r1->Equip1 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r1->Equip1);
+        attack += i->AddAttack;
+    }
+    if (r2->Equip0 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r2->Equip0);
+        defence += i->AddDefence;
+    }
+    if (r2->Equip1 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r2->Equip1);
+        defence += i->AddDefence;
+    }
+
     int v = attack - defence;
+    //距离衰减
+    int dis = calDistance(r1, r2);
+    v = v / exp((dis - 1) / 10);
+
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
     if (v < 1) { v = 1; }
     //v = 999;  //测试用

@@ -43,6 +43,7 @@ public:
     virtual void dealEvent(BP_Event& e) override;
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void onPressedCancel() override;
 
     void tryWalk(int x, int y);
     void setEntrance();

@@ -49,14 +49,6 @@ Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
     return p;
 }
 
-//Point Scene::getMapPoint(int x, int y, int CenterX, int CenterY)
-//{
-//    Point p;
-//    p.x = -(y - CenterY) * singleMapScene_X + (x - CenterX) * singleMapScene_X + screen_center_x_;
-//    p.y = ((y - CenterY) * singleMapScene_Y + (x - CenterX) * singleMapScene_Y + screen_center_y_);
-//    return p;
-//}
-
 //角色处于x1，y1，朝向x2，y2时，脸的方向
 int Scene::calTowards(int x1, int y1, int x2, int y2)
 {
@@ -70,22 +62,22 @@ int Scene::calTowards(int x1, int y1, int x2, int y2)
         {
             if (d1 < 0)
             {
-                return Towards_LeftUp;
+                return Towards_RightUp;
             }
             else
             {
-                return Towards_RightDown;
+                return Towards_LeftDown;
             }
         }
         else
         {
             if (d2 < 0)
             {
-                return Towards_LeftDown;
+                return Towards_LeftUp;
             }
             else
             {
-                return Towards_RightUp;
+                return Towards_RightDown;
             }
         }
     }
@@ -94,13 +86,8 @@ int Scene::calTowards(int x1, int y1, int x2, int y2)
 
 void Scene::changeTowardsByKey(BP_Keycode key)
 {
-    switch (key)
-    {
-    case BPK_LEFT: towards_ = Towards_LeftDown; break;
-    case BPK_RIGHT: towards_ = Towards_RightUp; break;
-    case BPK_UP: towards_ = Towards_LeftUp; break;
-    case BPK_DOWN: towards_ = Towards_RightDown; break;
-    }
+    int tw = getTowardsByKey(key);
+    if (tw != Towards_None) { towards_ = tw; }
 }
 
 int Scene::getTowardsByKey(BP_Keycode key)
@@ -108,12 +95,37 @@ int Scene::getTowardsByKey(BP_Keycode key)
     int tw = Towards_None;
     switch (key)
     {
-    case BPK_LEFT: tw = Towards_LeftDown; break;
-    case BPK_RIGHT: tw = Towards_RightUp; break;
-    case BPK_UP: tw = Towards_LeftUp; break;
-    case BPK_DOWN: tw = Towards_RightDown; break;
+    case BPK_LEFT: tw = Towards_LeftUp; break;
+    case BPK_RIGHT: tw = Towards_RightDown; break;
+    case BPK_UP: tw = Towards_RightUp; break;
+    case BPK_DOWN: tw = Towards_LeftDown; break;
     }
     return tw;
+}
+
+int Scene::getTowardsByMouse(int mouse_x, int mouse_y)
+{
+    int w, h;
+    Engine::getInstance()->getPresentSize(w, h);
+    mouse_x = mouse_x * render_center_x_ * 2 / w;
+    mouse_y = mouse_y * render_center_y_ * 2 / h;
+    if (mouse_x < render_center_x_ && mouse_y < render_center_y_)
+    {
+        return Towards_LeftUp;
+    }
+    if (mouse_x < render_center_x_ && mouse_y > render_center_y_)
+    {
+        return Towards_LeftDown;
+    }
+    if (mouse_x > render_center_x_ && mouse_y < render_center_y_)
+    {
+        return Towards_RightUp;
+    }
+    if (mouse_x > render_center_x_ && mouse_y > render_center_y_)
+    {
+        return Towards_RightDown;
+    }
+    return Towards_None;
 }
 
 void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
@@ -123,21 +135,32 @@ void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
     *y1 = y0;
     switch (tw)
     {
-    case Towards_LeftDown: (*x1)--; break;
-    case Towards_RightUp: (*x1)++; break;
-    case Towards_LeftUp: (*y1)--; break;
-    case Towards_RightDown: (*y1)++; break;
+    case Towards_LeftUp: (*x1)--; break;
+    case Towards_RightDown: (*x1)++; break;
+    case Towards_RightUp: (*y1)--; break;
+    case Towards_LeftDown: (*y1)++; break;
     }
 }
 
-void Scene::getMousePosition(Point* point)
+//从鼠标的位置反推出在游戏地图上的坐标
+Point Scene::getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
 {
-    int x = point->x;
-    int y = render_center_y_ * 2 - point->y;
-    //int yp = 0;
-    //int yp = -(m_vcBattleSceneData[m_nbattleSceneNum].Data[1][x][y]);
-    //mouse_x_ = (-x + screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBx;
-    //mouse_y_ = (x - screen_center_x_ + 2 * (y + yp) - 2 * screen_center_y_ + 18) / 36 + m_nBy;
+    int w, h;
+    Engine::getInstance()->getPresentSize(w, h);
+    mouse_x = mouse_x * render_center_x_ * 2 / w;
+    mouse_y = mouse_y * render_center_y_ * 2 / h;
+
+    Point p;
+    p.x = ((mouse_x - render_center_x_) / TILE_W + (mouse_y - render_center_y_) / TILE_H) / 2 + view_x;
+    p.y = ((-mouse_x + render_center_x_) / TILE_W + (mouse_y - render_center_y_) / TILE_H) / 2 + view_y;
+    return p;
+}
+
+Point Scene::getMousePosition(int view_x, int view_y)
+{
+    int mouse_x, mouse_y;
+    Engine::getInstance()->getMouseState(mouse_x, mouse_y);
+    return getMousePosition(mouse_x, mouse_y, view_x, view_y);
 }
 
 //A*

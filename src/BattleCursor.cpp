@@ -44,6 +44,21 @@ void BattleCursor::dealEvent(BP_Event& e)
                 Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, tw, &x, &y);
             }
         }
+        if (e.type == BP_MOUSEMOTION)
+        {
+            //线型的特殊处理一下
+            if (magic_ && magic_->AttackAreaType == 1)
+            {
+                int tw = battle_scene_->getTowardsByMouse(e.motion.x, e.motion.y);
+                Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
+            }
+            else
+            {
+                auto p = battle_scene_->getMousePosition(e.motion.x, e.motion.y, role_->X(), role_->Y());
+                x = p.x;
+                y = p.y;
+            }
+        }
     }
     else
     {

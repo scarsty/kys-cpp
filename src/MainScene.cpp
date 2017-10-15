@@ -140,6 +140,11 @@ void MainScene::draw()
         TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     }
 
+    //鼠标的位置
+    auto p = getMousePosition(man_x_, man_y_);
+    p = getPositionOnRender(p.x, p.y, man_x_, man_y_);
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
+
     for (auto& c : cloud_vector_)
     {
         c->draw();
@@ -176,13 +181,6 @@ void MainScene::dealEvent(BP_Event& e)
         setVisible(true);
     }
     int x = man_x_, y = man_y_;
-    //功能键
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
-        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-    {
-        UI::getInstance()->run();
-        clearEvent(e);
-    }
 
     //键盘走路部分，检测4个方向键
     int pressed = 0;
@@ -233,6 +231,12 @@ void MainScene::dealEvent(BP_Event& e)
         //    FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
         //}
     }
+
+    //if (e.type == BP_MOUSEMOTION)
+    //{
+    //    auto p = getMousePosition(e.motion.x, e.motion.y, man_x_, man_y_);
+    //    printf("%d, %d,     %d,%d,%d,%d\n", p.x, p.y, e.motion.x, e.motion.y, man_x_, man_y_);
+    //}
 }
 
 void MainScene::onEntrance()
@@ -246,6 +250,11 @@ void MainScene::onEntrance()
 
 void MainScene::onExit()
 {
+}
+
+void MainScene::onPressedCancel()
+{
+    UI::getInstance()->run();
 }
 
 void MainScene::tryWalk(int x, int y)

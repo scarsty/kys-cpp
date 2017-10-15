@@ -198,9 +198,9 @@ void UIItem::showItemProperty(Item* item)
     //特别判断罗盘
     if (item->isCompass())
     {
-        int x, y;
-        MainScene::getIntance()->getManPosition(x, y);
-        auto str = convert::formatString("當前坐標（%d, %d）", x, y);
+        int man_x, man_y;
+        MainScene::getIntance()->getManPosition(man_x, man_y);
+        auto str = convert::formatString("當前坐標 %d, %d", man_x, man_y);
         showOneProperty(1, str, size, c, x, y);
     }
 

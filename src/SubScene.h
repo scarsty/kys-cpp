@@ -38,6 +38,7 @@ public:
     virtual void backRun() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void onPressedCancel() override;
 
     void tryWalk(int x, int y);
 
@@ -61,8 +62,6 @@ public:
 
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
-
-    void getMousePosition(int _x, int _y);
 
     Point getPositionOnWholeEarth(int x, int y);
 
