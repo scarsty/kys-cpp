@@ -5,12 +5,11 @@
 #include "../src/File.h"
 #include "../src/others/libconvert.h"
 #include "TypesABC.h"
-#include "../src/PotConv.h"
 
 void trans_bin_list()
 {
     std::vector<int16_t> leave_list;
-    File::readFileToVector("work/game/binlist/levelup.bin", leave_list);
+    File::readFileToVector("../game/binlist/levelup.bin", leave_list);
 
     for (auto a : leave_list)
     {
@@ -22,7 +21,7 @@ void trans_fight_frame()
 {
     for (int i = 0; i <= 109; i++)
     {
-        std::string path = convert::formatString("work/game/resource/fight/fight%03d", i);
+        std::string path = convert::formatString("../game/resource/fight/fight%03d", i);
         std::vector<int16_t> frame;
         std::string filename = path + "/fightframe.ka";
         if (File::fileExist(filename))
@@ -50,18 +49,18 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
         return -1;
     }
 
-    std::vector<int> offset1, length1, offset, length;
+    std::vector<int> offset1, length1, offset2, length2;
     auto rgrp1 = File::getIdxContent(idx, grp, &offset1, &length1);
-    offset = offset1;
-    length = length1;
-    for (auto& i : offset) { i *= 2; }
-    for (auto& i : length) { i *= 2; }
+    offset2 = offset1;
+    length2 = length1;
+    for (auto& i : offset2) { i *= 2; }
+    for (auto& i : length2) { i *= 2; }
 
     int len = offset1.back();
-    int16_t* s16 = (int16_t*)rgrp1;
+    auto rgrp2 = new char[len * 2];
 
-    int* s32 = new int[len / 2];
-
+    auto s16 = (int16_t*)rgrp1;
+    auto s32 = (int*)rgrp2;
     for (int i = 0; i < len / 2; i++)
     {
         s32[i] = s16[i];
@@ -77,15 +76,15 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
         File::readDataToVector(rgrp1 + offset1[2], length1[2], items_mem_);
         File::readDataToVector(rgrp1 + offset1[3], length1[3], submap_infos_mem_);
         File::readDataToVector(rgrp1 + offset1[4], length1[4], magics_mem_);
-        auto rgrp = (char*)s32;
+
         std::vector<RoleSave> roles;
         std::vector<MagicSave> magics;
         std::vector<ItemSave> items;
         std::vector<SubMapInfoSave> submap_infos;
-        File::readDataToVector(rgrp + offset[1], length[1], roles);
-        File::readDataToVector(rgrp + offset[2], length[2], items);
-        File::readDataToVector(rgrp + offset[3], length[3], submap_infos);
-        File::readDataToVector(rgrp + offset[4], length[4], magics);
+        File::readDataToVector(rgrp2 + offset2[1], length2[1], roles);
+        File::readDataToVector(rgrp2 + offset2[2], length2[2], items);
+        File::readDataToVector(rgrp2 + offset2[3], length2[3], submap_infos);
+        File::readDataToVector(rgrp2 + offset2[4], length2[4], magics);
         for (int i = 0; i < roles.size(); i++)
         {
             memset(roles[i].Name, 0, sizeof(roles[i].Name));
@@ -110,39 +109,37 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
             memset(submap_infos[i].Name, 0, sizeof(submap_infos[i].Name));
             memcpy(submap_infos[i].Name, submap_infos_mem_[i].Name, sizeof(submap_infos_mem_[i].Name));
         }
-        File::writeVectorToData(rgrp + offset[1], length[1], roles, sizeof(RoleSave));
-        File::writeVectorToData(rgrp + offset[2], length[2], items, sizeof(ItemSave));
-        File::writeVectorToData(rgrp + offset[3], length[3], submap_infos, sizeof(SubMapInfoSave));
-        File::writeVectorToData(rgrp + offset[4], length[4], magics, sizeof(MagicSave));
+        File::writeVectorToData(rgrp2 + offset2[1], length2[1], roles, sizeof(RoleSave));
+        File::writeVectorToData(rgrp2 + offset2[2], length2[2], items, sizeof(ItemSave));
+        File::writeVectorToData(rgrp2 + offset2[3], length2[3], submap_infos, sizeof(SubMapInfoSave));
+        File::writeVectorToData(rgrp2 + offset2[4], length2[4], magics, sizeof(MagicSave));
     }
-    s32[1]--;
-    File::writeFile(grp + "32", s32, len * 2);
-    File::writeFile(idx + "32", &offset[1], 4 * offset.size() - 4);
+    s32[1]--; //submap scene id
+    File::writeFile(grp + "32", rgrp2, len * 2);
+    File::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
     delete rgrp1;
-    delete s32;
+    delete rgrp2;
     printf("trans %s end\n", grp.c_str());
     return 0;
 }
-
-
 
 int main()
 {
     //trans_bin_list();
     //trans_fight_frame();
-    expandR("work/game/save/ranger.idx", "work/game/save/ranger.grp");
+    expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
 
     for (int i = 1; i <= 20; i++)
     {
-        std::string grp = "work/game/save/r" + std::to_string(i) + ".grp";
-        expandR("work/game/save/ranger.idx", grp);
-        grp = "work/game/save/s" + std::to_string(i) + ".grp";
-        expandR("work/game/save/allsin.idx", grp, false);
-        grp = "work/game/save/d" + std::to_string(i) + ".grp";
-        expandR("work/game/save/alldef.idx", grp, false);
+        std::string grp = "../game/save/r" + std::to_string(i) + ".grp";
+        expandR("../game/save/ranger.idx", grp);
+        grp = "../game/save/s" + std::to_string(i) + ".grp";
+        expandR("../game/save/allsin.idx", grp, false);
+        grp = "../game/save/d" + std::to_string(i) + ".grp";
+        expandR("../game/save/alldef.idx", grp, false);
     }
-    expandR("work/game/resource/kdef.idx", "work/game/resource/kdef.grp", false);
-    expandR("work/game/resource/warfld.idx", "work/game/resource/warfld.grp", false);
+    expandR("../game/resource/kdef.idx", "../game/resource/kdef.grp", false);
+    expandR("../game/resource/warfld.idx", "../game/resource/warfld.grp", false);
 
     return 0;
 }

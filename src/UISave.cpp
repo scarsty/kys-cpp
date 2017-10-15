@@ -13,7 +13,7 @@ UISave::UISave()
         auto str = convert::formatString("進度%02d  %s", i, File::getFileTime(Save::getFilename(i, 'r')).c_str());
         strings.push_back(str);
     }
-    auto str = convert::formatString("自動檔  %s", File::getFileTime(Save::getFilename(99, 'r')).c_str());
+    auto str = convert::formatString("自動檔  %s", File::getFileTime(Save::getFilename(AUTO_SAVE_ID, 'r')).c_str());
     strings.push_back(str);
     setStrings(strings);
     childs_[0]->setVisible(false); //屏蔽进度0
@@ -26,10 +26,10 @@ UISave::~UISave()
 
 void UISave::onEntrance()
 {
-    //11号为自动存档
+    //存档时屏蔽自动档
     if (mode_ == 1)
     {
-        childs_[11]->setVisible(false);
+        childs_.back()->setVisible(false);
     }
 }
 

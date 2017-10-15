@@ -779,13 +779,7 @@ void BattleScene::actUseMagic(Role* r)
             for (int i = 0; i <= GameUtil::sign(r->AttackTwice); i++)
             {
                 //播放攻击画面，计算伤害
-                auto magic_name = new TextBoxAutoExit();
-                magic_name->setText(magic->Name);
-                magic_name->setPosition(450, 150);
-                magic_name->setFontSize(20);
-                magic_name->setStayFrame(20);
-                magic_name->run();
-                delete magic_name;
+                showMagicName(magic->Name);
                 r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
                 r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
                 useMagicAnimation(r, magic);
@@ -892,6 +886,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
                 r2->ShowString = convert::formatString("%+d", v);
                 r2->ShowColor = { 255, 20, 20, 255 };
             }
+            showMagicName(item->Name);
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
             actionAnimation(r, 0, item->HiddenWeaponEffectID);
             showNumberAnimation();
@@ -1053,6 +1048,17 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     effect_id_ = -1;
     x_ = 0;
     y_ = 0;
+}
+
+void BattleScene::showMagicName(std::string name)
+{
+    auto magic_name = new TextBoxAutoExit();
+    magic_name->setText(name);
+    magic_name->setPosition(450, 150);
+    magic_name->setFontSize(20);
+    magic_name->setStayFrame(20);
+    magic_name->run();
+    delete magic_name;
 }
 
 //r1使用武功magic攻击r2的伤害，结果为一正数

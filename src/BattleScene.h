@@ -119,6 +119,7 @@ public:
     void moveAnimation(Role* r, int x, int y);    //移动动画
     void useMagicAnimation(Role* r, Magic* m);    //使用武学动画
     void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //行动动画
+    void showMagicName(std::string name);
 
     int calHurt(Role* r1, Role* r2, Magic* magic);
     int calAllHurt(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
