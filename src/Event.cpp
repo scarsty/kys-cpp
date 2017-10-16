@@ -117,27 +117,31 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
 #define PRINT_E(n) do { for (int __i=1;__i<=n;__i++) { printf("%d, ", e[i+__i]); } printf("\b\b  \n"); } while (0)
-#define VOID_PARA0(function) { PRINT_E(0); function(); i+=1; }
-#define VOID_PARA1(function) { PRINT_E(1); function(e[i+1]); i+=2; }
-#define VOID_PARA2(function) { PRINT_E(2); function(e[i+1],e[i+2]); i+=3; }
-#define VOID_PARA3(function) { PRINT_E(3); function(e[i+1],e[i+2],e[i+3]); i+=4; }
-#define VOID_PARA4(function) { PRINT_E(4); function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
-#define VOID_PARA5(function) { PRINT_E(5); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
-#define VOID_PARA6(function) { PRINT_E(6); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
-#define VOID_PARA7(function) { PRINT_E(7); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
-#define VOID_PARA8(function) { PRINT_E(8); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
-#define VOID_PARA9(function) { PRINT_E(9); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9]); i+=10; }
-#define VOID_PARA10(function) { PRINT_E(10); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i+=11; }
-#define VOID_PARA11(function) { PRINT_E(11); function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i+=12; }
-#define VOID_PARA12(function) { PRINT_E(12); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i+=13; }
-#define VOID_PARA13(function) { PRINT_E(13); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i+=14; }
+#define VOID_0(function) { PRINT_E(0); function(); i+=1; }
+#define VOID_1(function) { PRINT_E(1); function(e[i+1]); i+=2; }
+#define VOID_2(function) { PRINT_E(2); function(e[i+1],e[i+2]); i+=3; }
+#define VOID_3(function) { PRINT_E(3); function(e[i+1],e[i+2],e[i+3]); i+=4; }
+#define VOID_4(function) { PRINT_E(4); function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
+#define VOID_5(function) { PRINT_E(5); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
+#define VOID_6(function) { PRINT_E(6); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
+#define VOID_7(function) { PRINT_E(7); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
+#define VOID_8(function) { PRINT_E(8); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
+#define VOID_9(function) { PRINT_E(9); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9]); i+=10; }
+#define VOID_10(function) { PRINT_E(10); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i+=11; }
+#define VOID_11(function) { PRINT_E(11); function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i+=12; }
+#define VOID_12(function) { PRINT_E(12); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i+=13; }
+#define VOID_13(function) { PRINT_E(13); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i+=14; }
 
-#define BOOL_PARA0(function) { PRINT_E(0); if (function()) {i += e[i+1];} else { i+= e[i+2];} i += 3; }
-#define BOOL_PARA1(function) { PRINT_E(1); if (function(e[i+1])) {i += e[i+2];} else { i+= e[i+3];} i += 4; }
-#define BOOL_PARA2(function) { PRINT_E(2); if (function(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4];} i += 5; }
-#define BOOL_PARA3(function) { PRINT_E(3); if (function(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5];} i += 6; }
+#define BOOL_0(function) { PRINT_E(0); if (function()) {i += e[i+1];} else { i+= e[i+2]; } i += 3; }
+#define BOOL_1(function) { PRINT_E(1); if (function(e[i+1])) {i += e[i+2];} else { i+= e[i+3]; } i += 4; }
+#define BOOL_2(function) { PRINT_E(2); if (function(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4]; } i += 5; }
+#define BOOL_2_2(function) { PRINT_E(2); if (function(e[i+1],e[i+4])) {i += e[i+2];} else { i+= e[i+3]; } i += 5; }
+#define BOOL_3(function) { PRINT_E(3); if (function(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5]; } i += 6; }
+#define BOOL_4(function) { PRINT_E(4); if (function(e[i+1],e[i+2],e[i+3],e[i+4]))) {i += e[i+5];} else { i+= e[i+6]; } i += 7; }
+#define BOOL_5(function) { PRINT_E(5); if (function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5])) {i += e[i+6];} else { i+= e[i+7]; } i += 8; }
 
-#define REGISTER_INSTRUCT(code, function, PARA) { case (code): printf("%s: ", #function); PARA(function); break; }
+#define RUN_INSTRUCT(function, INSTRUCT_TYPE) do { printf("%s: ", #function); INSTRUCT_TYPE(function); } while(0)
+#define REGISTER_INSTRUCT(code, function, INSTRUCT_TYPE) { case (code): RUN_INSTRUCT(function, INSTRUCT_TYPE); break; }
 
 
     while (i < e.size() && loop_)
@@ -145,104 +149,91 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
         //printf("instruct %d\n", e[i]);
         switch (e[i])
         {
-            REGISTER_INSTRUCT(1, oldTalk, VOID_PARA3);
-            REGISTER_INSTRUCT(2, addItem, VOID_PARA2);
-            REGISTER_INSTRUCT(3, modifyEvent, VOID_PARA13);
-            REGISTER_INSTRUCT(4, isUsingItem, BOOL_PARA1);
-            REGISTER_INSTRUCT(5, askBattle, BOOL_PARA0);
-        case 6:
-            //这个指令顺序不一样
-            if (tryBattle(e[i + 1], e[i + 4]))
-            {
-                i += e[i + 2];
-            }
-            else
-            {
-                i += e[i + 3];
-            }
-            i += 5;
-            break;
-        case 7:
-            i += 1;
-            loop_ = false;
-            break;
-            REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_PARA1);
-            REGISTER_INSTRUCT(9, askJoin, BOOL_PARA0);
+            REGISTER_INSTRUCT(1, oldTalk, VOID_3);
+            REGISTER_INSTRUCT(2, addItem, VOID_2);
+            REGISTER_INSTRUCT(3, modifyEvent, VOID_13);
+            REGISTER_INSTRUCT(4, isUsingItem, BOOL_1);
+            REGISTER_INSTRUCT(5, askBattle, BOOL_0);
+            REGISTER_INSTRUCT(6, tryBattle, BOOL_2_2);    //6这个顺序不同
+            REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_1);
+            REGISTER_INSTRUCT(9, askJoin, BOOL_0);
 
-            REGISTER_INSTRUCT(10, join, VOID_PARA1);
-            REGISTER_INSTRUCT(11, askRest, BOOL_PARA0);
-            REGISTER_INSTRUCT(12, rest, VOID_PARA0);
-            REGISTER_INSTRUCT(13, lightScence, VOID_PARA0);
-            REGISTER_INSTRUCT(14, darkScence, VOID_PARA0);
-            REGISTER_INSTRUCT(15, dead, VOID_PARA0);
-            REGISTER_INSTRUCT(16, inTeam, BOOL_PARA1);
-            REGISTER_INSTRUCT(17, setSubMapLayerData, VOID_PARA5);
-            REGISTER_INSTRUCT(18, haveItemBool, BOOL_PARA1);
-            REGISTER_INSTRUCT(19, oldSetScencePosition, VOID_PARA2);
+            REGISTER_INSTRUCT(10, join, VOID_1);
+            REGISTER_INSTRUCT(11, askRest, BOOL_0);
+            REGISTER_INSTRUCT(12, rest, VOID_0);
+            REGISTER_INSTRUCT(13, lightScence, VOID_0);
+            REGISTER_INSTRUCT(14, darkScence, VOID_0);
+            REGISTER_INSTRUCT(15, dead, VOID_0);
+            REGISTER_INSTRUCT(16, inTeam, BOOL_1);
+            REGISTER_INSTRUCT(17, setSubMapLayerData, VOID_5);
+            REGISTER_INSTRUCT(18, haveItemBool, BOOL_1);
+            REGISTER_INSTRUCT(19, oldSetScencePosition, VOID_2);
 
-            REGISTER_INSTRUCT(20, teamIsFull, BOOL_PARA0);
-            REGISTER_INSTRUCT(21, leaveTeam, VOID_PARA1);
-            REGISTER_INSTRUCT(22, zeroAllMP, VOID_PARA0);
-            REGISTER_INSTRUCT(23, setRoleUsePoison, VOID_PARA2);
-            REGISTER_INSTRUCT(25, subMapViewFromTo, VOID_PARA4);
-            REGISTER_INSTRUCT(26, add3EventNum, VOID_PARA5);
-            REGISTER_INSTRUCT(27, playAnimation, VOID_PARA3);
-            REGISTER_INSTRUCT(28, checkRoleMorality, BOOL_PARA3);
-            REGISTER_INSTRUCT(29, checkRoleAttack, BOOL_PARA3);
+            REGISTER_INSTRUCT(20, teamIsFull, BOOL_0);
+            REGISTER_INSTRUCT(21, leaveTeam, VOID_1);
+            REGISTER_INSTRUCT(22, zeroAllMP, VOID_0);
+            REGISTER_INSTRUCT(23, setRoleUsePoison, VOID_2);
+            REGISTER_INSTRUCT(25, subMapViewFromTo, VOID_4);
+            REGISTER_INSTRUCT(26, add3EventNum, VOID_5);
+            REGISTER_INSTRUCT(27, playAnimation, VOID_3);
+            REGISTER_INSTRUCT(28, checkRoleMorality, BOOL_3);
+            REGISTER_INSTRUCT(29, checkRoleAttack, BOOL_3);
 
-            REGISTER_INSTRUCT(30, walkFromTo, VOID_PARA4);
-            REGISTER_INSTRUCT(31, checkEnoughMoney, BOOL_PARA1);
-            REGISTER_INSTRUCT(32, addItemWithoutHint, VOID_PARA2);
-            REGISTER_INSTRUCT(33, oldLearnMagic, VOID_PARA3);
-            REGISTER_INSTRUCT(34, addIQ, VOID_PARA2);
-            REGISTER_INSTRUCT(35, setRoleMagic, VOID_PARA4);
-            REGISTER_INSTRUCT(36, checkRoleSexual, BOOL_PARA1);
-            REGISTER_INSTRUCT(37, addMorality, VOID_PARA1);
-            REGISTER_INSTRUCT(38, changeSubMapPic, VOID_PARA4);
-            REGISTER_INSTRUCT(39, openSubMap, VOID_PARA1);
+            REGISTER_INSTRUCT(30, walkFromTo, VOID_4);
+            REGISTER_INSTRUCT(31, checkEnoughMoney, BOOL_1);
+            REGISTER_INSTRUCT(32, addItemWithoutHint, VOID_2);
+            REGISTER_INSTRUCT(33, oldLearnMagic, VOID_3);
+            REGISTER_INSTRUCT(34, addIQ, VOID_2);
+            REGISTER_INSTRUCT(35, setRoleMagic, VOID_4);
+            REGISTER_INSTRUCT(36, checkRoleSexual, BOOL_1);
+            REGISTER_INSTRUCT(37, addMorality, VOID_1);
+            REGISTER_INSTRUCT(38, changeSubMapPic, VOID_4);
+            REGISTER_INSTRUCT(39, openSubMap, VOID_1);
 
-            REGISTER_INSTRUCT(40, setTowards, VOID_PARA1);
-            REGISTER_INSTRUCT(41, roleAddItem, VOID_PARA3);
-            REGISTER_INSTRUCT(42, checkFemaleInTeam, BOOL_PARA0);
-            REGISTER_INSTRUCT(43, haveItemBool, BOOL_PARA1);
-            REGISTER_INSTRUCT(44, play2Amination, VOID_PARA6);
-            REGISTER_INSTRUCT(45, addSpeed, VOID_PARA2);
-            REGISTER_INSTRUCT(46, addMaxMP, VOID_PARA2);
-            REGISTER_INSTRUCT(47, addAttack, VOID_PARA2);
-            REGISTER_INSTRUCT(48, addMaxHP, VOID_PARA2);
-            REGISTER_INSTRUCT(49, setMPType, VOID_PARA2);
+            REGISTER_INSTRUCT(40, setTowards, VOID_1);
+            REGISTER_INSTRUCT(41, roleAddItem, VOID_3);
+            REGISTER_INSTRUCT(42, checkFemaleInTeam, BOOL_0);
+            REGISTER_INSTRUCT(43, haveItemBool, BOOL_1);
+            REGISTER_INSTRUCT(44, play2Amination, VOID_6);
+            REGISTER_INSTRUCT(45, addSpeed, VOID_2);
+            REGISTER_INSTRUCT(46, addMaxMP, VOID_2);
+            REGISTER_INSTRUCT(47, addAttack, VOID_2);
+            REGISTER_INSTRUCT(48, addMaxHP, VOID_2);
+            REGISTER_INSTRUCT(49, setMPType, VOID_2);
+
+            REGISTER_INSTRUCT(51, askSoftStar, VOID_0);
+            REGISTER_INSTRUCT(52, showMorality, VOID_0);
+            REGISTER_INSTRUCT(53, showFame, VOID_0);
+            REGISTER_INSTRUCT(54, openAllSubMap, VOID_0);
+            REGISTER_INSTRUCT(55, checkEventID, BOOL_2);
+            REGISTER_INSTRUCT(56, addFame, VOID_1);
+            REGISTER_INSTRUCT(57, breakStoneGate, VOID_0);
+            REGISTER_INSTRUCT(58, fightForTop, VOID_0);
+            REGISTER_INSTRUCT(59, allLeave, VOID_0);
+
+            REGISTER_INSTRUCT(60, checkSubMapPic, BOOL_3);
+            REGISTER_INSTRUCT(61, check14BooksPlaced, BOOL_0);
+            REGISTER_INSTRUCT(62, backHome, VOID_0);
+            REGISTER_INSTRUCT(63, setSexual, VOID_2);
+            REGISTER_INSTRUCT(64, shop, VOID_0);
+            REGISTER_INSTRUCT(66, playMusic, VOID_1);
+            REGISTER_INSTRUCT(67, playWave, VOID_1);
+
         case 50:
             if (e[i + 1] > 128)
             {
-                if (checkHave5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5])) { i += e[i + 6]; }
-                else { i += e[i + 7]; }
+                RUN_INSTRUCT(checkHave5Item, BOOL_5);
             }
             else
             {
                 instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], &e[i + 8]);
+                i += 8;
             }
-            i += 8;
             break;
 
-            REGISTER_INSTRUCT(51, askSoftStar, VOID_PARA0);
-            REGISTER_INSTRUCT(52, showMorality, VOID_PARA0);
-            REGISTER_INSTRUCT(53, showFame, VOID_PARA0);
-            REGISTER_INSTRUCT(54, openAllSubMap, VOID_PARA0);
-            REGISTER_INSTRUCT(55, checkEventID, BOOL_PARA2);
-            REGISTER_INSTRUCT(56, addFame, VOID_PARA1);
-            REGISTER_INSTRUCT(57, breakStoneGate, VOID_PARA0);
-            REGISTER_INSTRUCT(58, fightForTop, VOID_PARA0);
-            REGISTER_INSTRUCT(59, allLeave, VOID_PARA0);
-
-            REGISTER_INSTRUCT(60, checkSubMapPic, BOOL_PARA3);
-            REGISTER_INSTRUCT(61, check14BooksPlaced, BOOL_PARA0);
-            REGISTER_INSTRUCT(62, backHome, VOID_PARA0);
-            REGISTER_INSTRUCT(63, setSexual, VOID_PARA2);
-            REGISTER_INSTRUCT(64, shop, VOID_PARA0);
-            REGISTER_INSTRUCT(66, playMusic, VOID_PARA1);
-            REGISTER_INSTRUCT(67, playWave, VOID_PARA1);
-
+        case 7:
         case -1:
+            i += 1;
             loop_ = false;
             break;
         default:
