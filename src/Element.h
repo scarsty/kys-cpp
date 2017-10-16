@@ -100,14 +100,14 @@ public:
     //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
 
     virtual void backRun() {}                                  //一直运行，可以放入总计数器
-    virtual void draw() {}                                     //如何画本层
+    virtual void draw() {}                                     //如何画本节点
     virtual void dealEvent(BP_Event& e) {}                     //每个循环中处理事件，在子节点需要执行动画时可以不被进行
     virtual void dealEvent2(BP_Event& e) {}                    //每个循环中处理事件，任何时候都会被执行，可用于制动
-    virtual void onEntrance() {}                               //进入本层的事件，例如绘制亮屏等
-    virtual void onExit() {}                                   //离开本层的事件，例如黑屏等
+    virtual void onEntrance() {}                               //进入本节点的事件，例如亮屏等
+    virtual void onExit() {}                                   //离开本节点的事件，例如黑屏等
 
-    virtual void onPressedOK() {}                             //按下回车或鼠标左键的事件，子类需要继承此物
-    virtual void onPressedCancel() {}                         //默认按下esc或鼠标右键的事件，如果需要其他功能请继承时覆盖
+    virtual void onPressedOK() {}                             //按下回车或鼠标左键的事件，子类视情况继承或者留空
+    virtual void onPressedCancel() {}                         //按下esc或鼠标右键的事件，子类视情况继承或者留空
 
     void setStayFrame(int s) { stay_frame_ = s; }
     void checkFrame();

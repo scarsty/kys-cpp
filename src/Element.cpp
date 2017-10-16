@@ -335,7 +335,7 @@ void Element::exitAll(int begin)
 //中间可以插入一个函数补充些什么，想不到更好的方法了
 int Element::drawAndPresent(int times, std::function<void(void*)> func, void* data)
 {
-    if (times < 1) { times = 1; }
+    if (times < 1) { return 0; }
     if (times > 100) { times = 100; }
     for (int i = 0; i < times; i++)
     {
