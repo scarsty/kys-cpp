@@ -72,6 +72,7 @@ Element* Element::removeFromRoot(Element* element)
 //添加子节点
 void Element::addChild(Element* element)
 {
+    element->setTag(childs_.size());
     childs_.push_back(element);
 }
 

@@ -31,9 +31,10 @@ protected:
 
     int pass_child_ = -1;
     int press_child_ = -1;
-public:
 
-    int user_data_;
+    int tag_;
+
+public:
 
     Element() {}
     virtual ~Element();
@@ -77,6 +78,9 @@ public:
     int state_ = Normal;
     int getState() { return state_; }
     void setState(int s) { state_ = s; }
+
+    int getTag() { return tag_; }
+    void setTag(int t) { tag_ = t; }
 
     static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Element* getCurrentTopDraw() { return root_.back(); }
