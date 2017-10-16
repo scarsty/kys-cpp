@@ -160,6 +160,7 @@ public:
     int getLearnedMagicCount();
     int getMagicLevelIndex(Magic* magic);
     int getMagicLevelIndex(int magic_id);
+    int getMagicOfRoleIndex(Magic* magic);
 
     void limit();
 

@@ -64,6 +64,19 @@ int Role::getMagicLevelIndex(int magic_id)
     return -1;
 }
 
+//武学在角色的栏位编号
+int Role::getMagicOfRoleIndex(Magic* magic)
+{
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (MagicID[i] == magic->ID)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 //限制人物的属性
 void Role::limit()
 {

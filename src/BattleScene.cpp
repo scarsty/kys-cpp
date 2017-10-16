@@ -798,6 +798,13 @@ void BattleScene::actUseMagic(Role* r)
                 useMagicAnimation(r, magic);
                 calMagiclHurtAllEnemies(r, magic);
                 showNumberAnimation();
+                //武学等级增加
+                auto index = 1 + r->getMagicOfRoleIndex(magic);
+                if (index >= 0)
+                {
+                    r->MagicLevel[index] += RandomClassical::rand(2);
+                    GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
+                }
             }
             r->Acted = 1;
             break;
