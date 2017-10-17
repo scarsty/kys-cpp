@@ -20,8 +20,8 @@ public:
 
     virtual void draw() override;
     virtual void onPressedOK() override;
-    virtual void onPressedCancel() override { }
-
     int calNeedMoney();
+
+    DEFAULT_CANCEL_EXIT;
 };
 

@@ -9,6 +9,7 @@
 SubScene::SubScene()
 {
     full_window_ = 1;
+    COORD_COUNT = SUBMAP_COORD_COUNT;
 }
 
 SubScene::SubScene(int id) : SubScene()
@@ -136,6 +137,12 @@ void SubScene::draw()
             //k++;
         }
     }
+
+    //鼠标的位置
+    auto p = getMousePosition(view_x_, view_y_);
+    p = getPositionOnRender(p.x, p.y, view_x_, view_y_);
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
+
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
@@ -143,21 +150,6 @@ void SubScene::dealEvent(BP_Event& e)
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
-    //功能键
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
-        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-    {
-        UI::getInstance()->run();
-        clearEvent(e);
-        auto item = UI::getInstance()->getUsedItem();
-        if (item && item->ItemType == 0)
-        {
-            if (checkEvent2(x, y, towards_, item->ID))
-            {
-                step_ = 0;
-            }
-        }
-    }
 
     //键盘走路部分，检测4个方向键
     int pressed = 0;
@@ -198,7 +190,7 @@ void SubScene::dealEvent(BP_Event& e)
         }
     }
     checkEvent3(x, y);
-    if (isExit(x, y))
+    if (isExit(x, y) || isJumpSubScene(x, y))
     {
         clearEvent(e);
         total_step_ = 0;
@@ -281,6 +273,19 @@ void SubScene::onExit()
     //}
 }
 
+void SubScene::onPressedCancel()
+{
+    UI::getInstance()->run();
+    auto item = UI::getInstance()->getUsedItem();
+    if (item && item->ItemType == 0)
+    {
+        if (checkEvent2(man_x_, man_y_, towards_, item->ID))
+        {
+            step_ = 0;
+        }
+    }
+}
+
 //冗余过多待清理
 void SubScene::tryWalk(int x, int y)
 {
@@ -357,11 +362,6 @@ bool SubScene::isBuilding(int x, int y)
     //}
 }
 
-bool SubScene::isOutLine(int x, int y)
-{
-    return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
-}
-
 bool SubScene::isWater(int x, int y)
 {
     int num = submap_info_->Earth(x, y) / 2;
@@ -419,19 +419,33 @@ bool SubScene::isExit(int x, int y)
     return false;
 }
 
+bool SubScene::isJumpSubScene(int x, int y)
+{
+    if (submap_info_->JumpSubMap >= 0 && man_x_ == submap_info_->JumpX && man_y_ == submap_info_->JumpY)
+    {
+        int x, y;
+        auto new_submap = Save::getInstance()->getSubMapInfo(submap_info_->JumpSubMap);
+        if (submap_info_->MainEntranceX1 != 0)
+        {
+            //若原场景在大地图上有正常入口，则设置人物位置为新场景入口位置
+            x = new_submap->EntranceX;
+            y = new_submap->EntranceY;
+        }
+        else
+        {
+            //若原场景无法从大地图上进入，则设置人物在跳转返回位置
+            x = new_submap->JumpReturnX;
+            y = new_submap->JumpReturnY;
+        }
+        forceJumpSubScene(submap_info_->JumpSubMap, x, y);
+        return true;
+    }
+    return false;
+}
+
 bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
-}
-
-void SubScene::getMousePosition(int _x, int _y)
-{
-    //int x = _x;
-    //int y = _y;
-    ////int yp = 0;
-    //int yp = -(Save::getInstance()->m_SceneMapData[scene_id_].Data[4][x][y]);
-    //Msx = (-(x - Center_X) / singleMapScene_X + (y + yp - Center_Y) / singleMapScene_Y) / 2 + Cx;
-    //Msy = ((y + yp - Center_Y) / singleMapScene_Y + (x - Center_X) / singleMapScene_X) / 2 + Cy;
 }
 
 Point SubScene::getPositionOnWholeEarth(int x, int y)
@@ -446,5 +460,11 @@ void SubScene::forceExit()
 {
     setVisible(false);
     setExit(true);
+}
+
+void SubScene::forceJumpSubScene(int submap_id, int x, int y)
+{
+    setID(submap_id);
+    setManViewPosition(x, y);
 }
 

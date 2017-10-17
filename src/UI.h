@@ -32,8 +32,7 @@ public:
     int item_id_ = -1;
 
     virtual void onPressedOK() override;
-    virtual void onPressedCancel() override { exitWithResult(-1); }
-
+    DEFAULT_CANCEL_EXIT;
     Item* getUsedItem() { return ui_item_->getCurrentItem(); }
 };
 

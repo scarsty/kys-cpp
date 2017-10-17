@@ -13,7 +13,7 @@ public:
     //这里注意，用来显示物品图片的按钮的纹理编号实际就是物品编号
     std::vector<Button*> item_buttons_;
     TextBox* cursor_ = nullptr;
-    std::vector<int> items_;  //当前种类的物品列表
+
     int leftup_index_ = 0;  //左上角第一个物品在当前种类列表中的索引
 
     const int item_each_line_ = 7;
@@ -32,8 +32,9 @@ public:
     void setSelectUser(bool s) { select_user_ = s; }
 
     int getItemDetailType(Item* item);
+    Item* getAvailableItem(int i);
 
-    int geItemBagIndexByType(int item_type);
+    void geItemsByType(int item_type);
 
     void draw() override;
     void dealEvent(BP_Event& e) override;
@@ -42,11 +43,13 @@ public:
     void showOneProperty(int v, std::string format_str, int size, BP_Color c, int& x, int& y);
 
     Item* current_item_ = nullptr;
+    std::vector<Item*> available_items_;
     Button* current_button_ = nullptr;
 
     Item* getCurrentItem() { return current_item_; }
 
     virtual void onPressedOK() override;
+    virtual void onPressedCancel() override;
 
 };
 

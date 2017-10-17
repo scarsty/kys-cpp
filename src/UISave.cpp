@@ -13,7 +13,7 @@ UISave::UISave()
         auto str = convert::formatString("進度%02d  %s", i, File::getFileTime(Save::getFilename(i, 'r')).c_str());
         strings.push_back(str);
     }
-    auto str = convert::formatString("進度%02d  %s", 99, File::getFileTime(Save::getFilename(99, 'r')).c_str());
+    auto str = convert::formatString("自動檔  %s", File::getFileTime(Save::getFilename(AUTO_SAVE_ID, 'r')).c_str());
     strings.push_back(str);
     setStrings(strings);
     childs_[0]->setVisible(false); //屏蔽进度0
@@ -26,28 +26,29 @@ UISave::~UISave()
 
 void UISave::onEntrance()
 {
-    //11号为自动存档
+    //存档时屏蔽自动档
     if (mode_ == 1)
     {
-        childs_[11]->setVisible(false);
+        childs_.back()->setVisible(false);
     }
 }
 
 void UISave::onPressedOK()
 {
+    pressToResult();
     if (result_ >= 0)
     {
-        if (mode_ == 0)
+        if (mode_ == 0 && Save::checkSaveFileExist(result_))
         {
             load(result_);
+            setExit(true);
         }
         if (mode_ == 1)
         {
             save(result_);
+            setExit(true);
         }
-        setExit(true);
     }
-    //result_ = -1;
 }
 
 void UISave::load(int r)
@@ -61,8 +62,7 @@ void UISave::load(int r)
     {
         if (sub_scene)
         {
-            sub_scene->setID(save->InSubMap);
-            sub_scene->setManViewPosition(save->SubMapX, save->SubMapY);
+            sub_scene->forceJumpSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
         }
         else
         {

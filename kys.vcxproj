@@ -162,6 +162,7 @@
     <Library Include="lib\SDL2main.lib" />
     <Library Include="lib\SDL2_image.lib" />
     <Library Include="lib\SDL2_ttf.lib" />
+    <Library Include="lib\TinyPot.lib" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
@@ -208,6 +209,7 @@
     <ClCompile Include="src\UIStatus.cpp" />
     <ClCompile Include="src\UISystem.cpp" />
     <ClCompile Include="src\Util.cpp" />
+    <ClCompile Include="src\Zip.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -256,6 +258,7 @@
     <ClInclude Include="src\UIStatus.h" />
     <ClInclude Include="src\UISystem.h" />
     <ClInclude Include="src\Util.h" />
+    <ClInclude Include="src\Zip.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="kys.rc" />

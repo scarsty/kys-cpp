@@ -12,8 +12,6 @@ public:
 
     int view_x_ = 0, view_y_ = 0;
 
-    const int COORD_COUNT = SUBMAP_COORD_COUNT;
-
     int const MAN_PIC_0 = 2501;            //初始场景主角图偏移量
     int const MAN_PIC_COUNT = 7;           //单向主角图张数
     int submap_id_;   //场景号
@@ -40,6 +38,7 @@ public:
     virtual void backRun() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void onPressedCancel() override;
 
     void tryWalk(int x, int y);
 
@@ -54,17 +53,15 @@ public:
     bool checkEvent3(int x, int y) { return checkEvent(x, y, Towards_None, -1); }
 
     virtual bool isBuilding(int x, int y);
-    virtual bool isOutLine(int x, int y);
     bool isWater(int x, int y);
     bool isCanPassEvent(int x, int y);
     bool isCannotPassEvent(int x, int y);
     bool isFall(int x, int y);
     bool isExit(int x, int y);
+    bool isJumpSubScene(int x, int y);
 
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
-
-    void getMousePosition(int _x, int _y);
 
     Point getPositionOnWholeEarth(int x, int y);
 
@@ -72,5 +69,6 @@ public:
     void forceManPic(int pic) { force_man_pic_ = pic; }
 
     void forceExit();
+    void forceJumpSubScene(int submap_id, int x, int y);
 };
 

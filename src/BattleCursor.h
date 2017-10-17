@@ -53,7 +53,5 @@ public:
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }
 
-    bool exit_next_frame_ = false;
-
 };
 

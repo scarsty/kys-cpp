@@ -23,7 +23,7 @@ void Head::draw()
     if (role_ == nullptr) { return; }
     BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
     auto font = Font::getInstance();
-    
+
     if (!only_head_)
     {
         TextureManager::getInstance()->renderTexture("title", 102, x_, y_);
@@ -45,16 +45,30 @@ void Head::draw()
     //下面都是画血条等
 
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
-    BP_Rect r1;
+    BP_Rect r1 = { 0, 0, 0, 0 };
     font->draw(convert::formatString("%d", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 });
 
     BP_Color c, c_text;
-    r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
+    if (role_->MaxHP > 0)
+    {
+        r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
+    }
+    else
+    {
+        r1 = { 0, 0, 0, 0 };
+    }
     c = { 196, 25, 16, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     font->draw(convert::formatString("%3d/%3d", role_->HP, role_->MaxHP), 16, x_ + 138, y_ + 28, { 250, 200, 50, 255 });
 
-    r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
+    if (role_->MaxMP > 0)
+    {
+        r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
+    }
+    else
+    {
+        r1 = { 0, 0, 0, 0 };
+    }
     c = { 200, 200, 200, 255 };
     c_text = white;
     if (role_->MPType == 0)

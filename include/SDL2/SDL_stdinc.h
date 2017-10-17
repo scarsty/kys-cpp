@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,8 +25,8 @@
  *  This is a general header that includes C language support.
  */
 
-#ifndef _SDL_stdinc_h
-#define _SDL_stdinc_h
+#ifndef SDL_stdinc_h_
+#define SDL_stdinc_h_
 
 #include "SDL_config.h"
 
@@ -61,6 +61,9 @@
 #endif
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
+#endif
+#ifdef HAVE_WCHAR_H
+# include <wchar.h>
 #endif
 #if defined(HAVE_INTTYPES_H)
 # include <inttypes.h>
@@ -127,11 +130,18 @@
  */
 /* @{ */
 
+#ifdef __CC_ARM
+/* ARM's compiler throws warnings if we use an enum: like "SDL_bool x = a < b;" */
+#define SDL_FALSE 0
+#define SDL_TRUE 1
+typedef int SDL_bool;
+#else
 typedef enum
 {
     SDL_FALSE = 0,
     SDL_TRUE = 1
 } SDL_bool;
+#endif
 
 /**
  * \brief A signed 8-bit integer type.
@@ -262,7 +272,7 @@ typedef uint64_t Uint64;
 #endif /* SDL_DISABLE_ANALYZE_MACROS */
 
 #define SDL_COMPILE_TIME_ASSERT(name, x)               \
-       typedef int SDL_dummy_ ## name[(x) * 2 - 1]
+       typedef int SDL_compile_time_assert_ ## name[(x) * 2 - 1]
 /** \cond */
 #ifndef DOXYGEN_SHOULD_IGNORE_THIS
 SDL_COMPILE_TIME_ASSERT(uint8, sizeof(Uint8) == 1);
@@ -379,10 +389,10 @@ SDL_FORCE_INLINE void SDL_memset4(void *dst, Uint32 val, size_t dwords)
         return;
     switch (dwords % 4)
     {
-        case 0: do {    *_p++ = _val;
-        case 3:         *_p++ = _val;
-        case 2:         *_p++ = _val;
-        case 1:         *_p++ = _val;
+        case 0: do {    *_p++ = _val;   /* fallthrough */
+        case 3:         *_p++ = _val;   /* fallthrough */
+        case 2:         *_p++ = _val;   /* fallthrough */
+        case 1:         *_p++ = _val;   /* fallthrough */
         } while ( --_n );
     }
 #endif
@@ -397,6 +407,7 @@ extern DECLSPEC int SDLCALL SDL_memcmp(const void *s1, const void *s2, size_t le
 extern DECLSPEC size_t SDLCALL SDL_wcslen(const wchar_t *wstr);
 extern DECLSPEC size_t SDLCALL SDL_wcslcpy(SDL_OUT_Z_CAP(maxlen) wchar_t *dst, const wchar_t *src, size_t maxlen);
 extern DECLSPEC size_t SDLCALL SDL_wcslcat(SDL_INOUT_Z_CAP(maxlen) wchar_t *dst, const wchar_t *src, size_t maxlen);
+extern DECLSPEC int SDLCALL SDL_wcscmp(const wchar_t *str1, const wchar_t *str2);
 
 extern DECLSPEC size_t SDLCALL SDL_strlen(const char *str);
 extern DECLSPEC size_t SDLCALL SDL_strlcpy(SDL_OUT_Z_CAP(maxlen) char *dst, const char *src, size_t maxlen);
@@ -409,6 +420,7 @@ extern DECLSPEC char *SDLCALL SDL_strlwr(char *str);
 extern DECLSPEC char *SDLCALL SDL_strchr(const char *str, int c);
 extern DECLSPEC char *SDLCALL SDL_strrchr(const char *str, int c);
 extern DECLSPEC char *SDLCALL SDL_strstr(const char *haystack, const char *needle);
+extern DECLSPEC size_t SDLCALL SDL_utf8strlen(const char *str);
 
 extern DECLSPEC char *SDLCALL SDL_itoa(int value, char *str, int radix);
 extern DECLSPEC char *SDLCALL SDL_uitoa(unsigned int value, char *str, int radix);
@@ -437,7 +449,7 @@ extern DECLSPEC int SDLCALL SDL_vsnprintf(SDL_OUT_Z_CAP(maxlen) char *text, size
 
 #ifndef HAVE_M_PI
 #ifndef M_PI
-#define M_PI    3.14159265358979323846264338327950288   /* pi */
+#define M_PI    3.14159265358979323846264338327950288   /**< pi */
 #endif
 #endif
 
@@ -526,6 +538,6 @@ SDL_FORCE_INLINE void *SDL_memcpy4(SDL_OUT_BYTECAP(dwords*4) void *dst, SDL_IN_B
 #endif
 #include "close_code.h"
 
-#endif /* _SDL_stdinc_h */
+#endif /* SDL_stdinc_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */

@@ -42,8 +42,16 @@ std::string Save::getFilename(int i, char c)
     return filename;
 }
 
+bool Save::checkSaveFileExist(int num)
+{
+    return File::fileExist(getFilename(num, 'r'))
+        && File::fileExist(getFilename(num, 's'))
+        && File::fileExist(getFilename(num, 'd'));
+}
+
 bool Save::load(int num)
 {
+    if (!checkSaveFileExist(num)) { return false; }
     std::string filenamer = getFilename(num, 'r');
     std::string filenames = getFilename(num, 's');
     std::string filenamed = getFilename(num, 'd');
@@ -51,9 +59,7 @@ bool Save::load(int num)
 
     auto rgrp = File::getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
-    int c = 0;
-    memcpy(&InShip, rgrp + offset_[c], length_[c]);
-
+    memcpy(&InShip, rgrp + offset_[0], length_[0]);
     File::readDataToVector(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
     File::readDataToVector(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
     File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));

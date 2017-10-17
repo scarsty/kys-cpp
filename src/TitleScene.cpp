@@ -81,5 +81,7 @@ void TitleScene::dealEvent(BP_Event& e)
 
 void TitleScene::onEntrance()
 {
+    Engine::getInstance()->playVideo("");
+    Audio::getInstance()->playMusic(16);
 }
 

@@ -13,6 +13,7 @@ MainScene MainScene::main_scene_;
 MainScene::MainScene()
 {
     full_window_ = 1;
+    COORD_COUNT = MAINMAP_COORD_COUNT;
 
     if (!data_readed_)
     {
@@ -139,6 +140,11 @@ void MainScene::draw()
         TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     }
 
+    //鼠标的位置
+    auto p = getMousePosition(man_x_, man_y_);
+    p = getPositionOnRender(p.x, p.y, man_x_, man_y_);
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
+
     for (auto& c : cloud_vector_)
     {
         c->draw();
@@ -168,19 +174,13 @@ void MainScene::dealEvent(BP_Event& e)
     {
         auto sub_map = new SubScene(force_submap_);
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
+        sub_map->setTowards(towards_);
         sub_map->run();
         delete sub_map;
         force_submap_ = -1;
         setVisible(true);
     }
     int x = man_x_, y = man_y_;
-    //功能键
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
-        || e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-    {
-        UI::getInstance()->run();
-        clearEvent(e);
-    }
 
     //键盘走路部分，检测4个方向键
     int pressed = 0;
@@ -231,6 +231,12 @@ void MainScene::dealEvent(BP_Event& e)
         //    FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
         //}
     }
+
+    //if (e.type == BP_MOUSEMOTION)
+    //{
+    //    auto p = getMousePosition(e.motion.x, e.motion.y, man_x_, man_y_);
+    //    printf("%d, %d,     %d,%d,%d,%d\n", p.x, p.y, e.motion.x, e.motion.y, man_x_, man_y_);
+    //}
 }
 
 void MainScene::onEntrance()
@@ -244,6 +250,11 @@ void MainScene::onEntrance()
 
 void MainScene::onExit()
 {
+}
+
+void MainScene::onPressedCancel()
+{
+    UI::getInstance()->run();
 }
 
 void MainScene::tryWalk(int x, int y)
@@ -299,11 +310,6 @@ bool MainScene::isWater(int x, int y)
     }
 }
 
-bool MainScene::isOutLine(int x, int y)
-{
-    return (x < 0 || x > COORD_COUNT || y < 0 || y > COORD_COUNT);
-}
-
 bool MainScene::canWalk(int x, int y)
 {
     if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
@@ -342,7 +348,7 @@ bool MainScene::checkEntrance(int x, int y)
             }
             if (can_enter)
             {
-                UISave::save(99);
+                UISave::autoSave();
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
                 auto sub_map = new SubScene(i);

@@ -13,7 +13,6 @@ private:
 public:
     static MainScene* getIntance() { return &main_scene_; }
 
-    static const int COORD_COUNT = MAINMAP_COORD_COUNT;
     MapSquare* earth_layer_, *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
     bool data_readed_ = false;
 
@@ -44,19 +43,18 @@ public:
     virtual void dealEvent(BP_Event& e) override;
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void onPressedCancel() override;
 
     void tryWalk(int x, int y);
-    //void cloudMove();
     void setEntrance();
 
     virtual bool isBuilding(int x, int y);
     bool isWater(int x, int y);
-    virtual bool isOutLine(int x, int y);
 
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
     bool checkEntrance(int x, int y);    //主地图主要是检测入口
 
-    void forceEnterSubScene(int submap_id, int x, int y);
+    void forceEnterSubScene(int submap_id, int x, int y);    //在下一个事件循环会强制进入某场景，用于开始和读取存档
 };

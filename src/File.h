@@ -50,10 +50,6 @@ public:
     }
 
     static char* getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length);
-
-    static int zip(std::string zip_file, std::vector<std::string> files);     //压缩文件
-    static int unzip(std::string zip_file, std::vector<std::string> files);   //解压文件
-
     static std::string getFileTime(std::string filename);
 };
 

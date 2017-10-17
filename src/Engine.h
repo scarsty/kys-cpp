@@ -11,7 +11,7 @@ extern "C"
 #include <functional>
 #include <vector>
 #include <string>
-
+#include "tinypot/PotDll.h"
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
@@ -118,7 +118,7 @@ public:
     void fillColor(BP_Color color, int x, int y, int w, int h);
     void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
     void renderAssistTextureToWindow();
-    
+
     //声音相关
 private:
     SDL_AudioDeviceID device_;
@@ -163,6 +163,10 @@ public:
 public:
     //标题;
     std::string title_ = "All Heroes in Kam Yung Stories";
+private:
+    void* tinypot_ = nullptr;
+public:
+    int playVideo(std::string filename);
 };
 
 //这里直接照搬SDL

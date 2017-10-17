@@ -26,7 +26,6 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
 
 void BattleCursor::dealEvent(BP_Event& e)
 {
-    if (exit_next_frame_) { setExit(true); }
     if (battle_scene_ == nullptr) { return; }
 
     int x = -1, y = -1;
@@ -45,6 +44,21 @@ void BattleCursor::dealEvent(BP_Event& e)
                 Scene::getTowardsPosition(battle_scene_->select_x_, battle_scene_->select_y_, tw, &x, &y);
             }
         }
+        if (e.type == BP_MOUSEMOTION)
+        {
+            //线型的特殊处理一下
+            if (magic_ && magic_->AttackAreaType == 1)
+            {
+                int tw = battle_scene_->getTowardsByMouse(e.motion.x, e.motion.y);
+                Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
+            }
+            else
+            {
+                auto p = battle_scene_->getMousePosition(e.motion.x, e.motion.y, role_->X(), role_->Y());
+                x = p.x;
+                y = p.y;
+            }
+        }
     }
     else
     {
@@ -54,7 +68,6 @@ void BattleCursor::dealEvent(BP_Event& e)
             y = role_->AI_MoveY;
             setResult(0);
             setExit(true);
-            exit_next_frame_ = true; //AI会停留一帧，画出选择图形，取消，看着太乱
         }
         else if (mode_ == Action)
         {
@@ -62,7 +75,6 @@ void BattleCursor::dealEvent(BP_Event& e)
             y = role_->AI_ActionY;
             setResult(0);
             setExit(true);
-            exit_next_frame_ = true;
         }
     }
 
@@ -107,5 +119,4 @@ void BattleCursor::onEntrance()
     Engine::getInstance()->getPresentSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
-    exit_next_frame_ = false;
 }

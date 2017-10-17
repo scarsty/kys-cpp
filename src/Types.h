@@ -160,6 +160,7 @@ public:
     int getLearnedMagicCount();
     int getMagicLevelIndex(Magic* magic);
     int getMagicLevelIndex(int magic_id);
+    int getMagicOfRoleIndex(Magic* magic);
 
     void limit();
 
@@ -173,6 +174,7 @@ public:
     int AI_MoveX, AI_MoveY;
     int AI_ActionX, AI_ActionY;
     Magic* AI_Magic = nullptr;
+    Item* AI_Item = nullptr;
 };
 
 //存档中的物品数据
@@ -228,11 +230,11 @@ struct SubMapInfoSave
     int ID;
     char Name[20];
     int ExitMusic, EntranceMusic;
-    int JumpScence, EntranceCondition;
+    int JumpSubMap, EntranceCondition;
     int MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
     int EntranceX, EntranceY;
     int ExitX[3], ExitY[3];
-    int JumpX1, JumpY1, JumpX2, JumpY2;
+    int JumpX, JumpY, JumpReturnX, JumpReturnY;
 };
 
 //场景事件数据

@@ -29,6 +29,33 @@ public:
 
     void calDistanceLayer(int x, int y, int max_step = 64);
 
+    struct AIAction
+    {
+        int Action;
+        int point = 0;
+        int MoveX, MoveY;
+        int ActionX, ActionY;
+        Magic* magic = nullptr;
+        Item* item = nullptr;
+    };
+
+    void setAIActionToRole(AIAction& aa, Role* role)
+    {
+        role->AI_Action = aa.Action;
+        role->AI_MoveX = aa.MoveX;
+        role->AI_MoveY = aa.MoveY;
+        role->AI_ActionX = aa.ActionX;
+        role->AI_ActionY = aa.ActionY;
+        role->AI_Magic = aa.magic;
+        role->AI_Item = aa.item;
+    }
+
+    void getFarthestToAll(Role* role, std::vector<Role*> roles, int& x, int& y);
+    void getNearestPosition(int x0, int y0, int& x, int& y);
+    Role* getNearestRole(Role* role, std::vector<Role*> roles);
+    void calAIActionNearest(Role* r2, AIAction& aa);
+    int calNeedActionDistance(AIAction& aa);
+
 };
 
 class BattleMagicMenu : public MenuText
@@ -62,8 +89,16 @@ public:
 private:
     Role* role_ = nullptr;
 public:
+    virtual void dealEvent(BP_Event& e) override;
+
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }
+
+    void addItem(Item* item, int count);
+
+    std::vector<Item*> getAvaliableItems();
+    static std::vector<Item*> getAvaliableItems(Role* role, int type);
+
 };
 
 

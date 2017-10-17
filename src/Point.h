@@ -3,10 +3,10 @@
 //这里如果用枚举类型会有一些麻烦，干脆改为整型
 enum Towards
 {
-    Towards_LeftUp = 0,
-    Towards_RightUp = 1,
-    Towards_LeftDown = 2,
-    Towards_RightDown = 3,
+    Towards_RightUp = 0,
+    Towards_RightDown = 1,
+    Towards_LeftUp = 2,
+    Towards_LeftDown = 3,
     Towards_None
 };
 

@@ -133,6 +133,9 @@
     <ClCompile Include="src\RandomRole.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Zip.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -271,6 +274,9 @@
     <ClInclude Include="src\RandomRole.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\Zip.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">
@@ -298,6 +304,9 @@
       <Filter>_lib</Filter>
     </Library>
     <Library Include="lib\libminizip.lib">
+      <Filter>_lib</Filter>
+    </Library>
+    <Library Include="lib\TinyPot.lib">
       <Filter>_lib</Filter>
     </Library>
   </ItemGroup>

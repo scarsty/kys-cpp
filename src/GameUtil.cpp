@@ -193,7 +193,7 @@ bool GameUtil::canLevelUp(Role* r)
 
 int GameUtil::getLevelUpExp(int level)
 {
-    if (level >= MAX_LEVEL) { return INT_MAX; }
+    if (level<=0 || level >= MAX_LEVEL) { return INT_MAX; }
     return game_util_.level_up_list_[level - 1];
 }
 

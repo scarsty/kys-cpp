@@ -72,6 +72,7 @@ void Engine::destroy()
     destroyAssistTexture();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
+    PotDestory(tinypot_);
 }
 
 void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume)
@@ -327,6 +328,8 @@ int Engine::init(void* handle)
 
     printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
 
+    tinypot_ = PotCreateFromWindow(window_);
+
     return 0;
 }
 
@@ -541,6 +544,11 @@ void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
 {
     setColor(square_, color, alpha);
     renderCopy(square_, nullptr, rect);
+}
+
+int Engine::playVideo(std::string filename)
+{
+    return PotInputVideo(tinypot_, (char*)filename.c_str());
 }
 
 void Engine::setWindowPosition(int x, int y)
