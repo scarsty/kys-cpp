@@ -10,3 +10,4 @@ work/*
 x86/
 .vs/
 *.zip
+*vcxproj*
