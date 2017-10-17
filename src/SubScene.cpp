@@ -199,25 +199,25 @@ void SubScene::dealEvent(BP_Event& e)
     //鼠标寻路，未完成
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
-        //getMousePosition(e.button.x, e.button.y);
-        //stopFindWay();
-        //if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
-        //{
-        //    FindWay(view_x_, view_y_, mouse_x_, mouse_y_);
-        //}
+        Point p = getMousePosition(e.button.x, e.button.y, x, y);
+        stopFindWay();
+        if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
+        {
+            FindWay(x, y, p.x, p.y);
+        }
     }
-    //if (!way_que_.empty())
-    //{
-    //    PointEx newMyPoint = way_que_.back();
-    //    x = newMyPoint.x;
-    //    y = newMyPoint.y;
-    //    isExit(x, y);
-    //    Towards myTowards = (Towards)(newMyPoint.towards);
-    //    //log("myTowards=%d", myTowards);
-    //    tryWalk(x, y, myTowards);
-    //    way_que_.pop_back();
-    //    //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
-    //}
+    if (!way_que_.empty())
+    {
+        PointEx newMyPoint = way_que_.back();
+        x = newMyPoint.x;
+        y = newMyPoint.y;
+        isExit(x, y);
+		towards_ = newMyPoint.towards;
+        //log("myTowards=%d", myTowards);
+        tryWalk(x, y);
+        way_que_.pop_back();
+        //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+    }
 }
 
 void SubScene::backRun()
