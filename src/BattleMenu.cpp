@@ -82,9 +82,6 @@ void BattleActionMenu::dealEvent(BP_Event& e)
 //"0移動", "1武學", "2用毒", "3解毒", "4醫療", "5暗器", "6藥品", "7等待", "8狀態", "9自動", "10結束"
 int BattleActionMenu::autoSelect(Role* role)
 {
-    Random<double> rand;   //梅森旋转法随机数
-    rand.set_seed();
-
     std::vector<Role*> friends, enemies;
     for (auto r : battle_scene_->battle_roles_)
     {
@@ -287,22 +284,24 @@ int BattleActionMenu::autoSelect(Role* role)
         }
 
         //查找最大评分的行动
-        int max_point = -1;
-        int k = 2;
+        double max_point = -1;
+        Random<double> rand;    //梅森旋转法随机数
+        rand.set_seed();
         for (auto aa : ai_action)
         {
             printf("AI %s: %s ", role->Name, getStringFromResult(aa.Action).c_str());
             if (aa.item) { printf("%s ", aa.item->Name); }
             if (aa.magic) { printf("%s ", aa.magic->Name); }
-            printf("评分%d\n", aa.point);
+            aa.point += rand.rand();    //用于同分的情况，可以随机选择
+            printf("评分%.2f\n", aa.point);
 
-            //若评分是0，说明不在范围内，仅移动并结束
-            if (aa.point == 0)
+            //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
+            if (aa.point < 1)
             {
                 aa.Action = getResultFromString("結束");
             }
 
-            if (aa.point > max_point || (aa.point == max_point && rand.rand() < 1.0 / (k++)))
+            if (aa.point > max_point)
             {
                 max_point = aa.point;
                 setAIActionToRole(aa, role);
@@ -363,20 +362,19 @@ void BattleActionMenu::getFarthestToAll(Role* role, std::vector<Role*> roles, in
     Random<double> rand;   //梅森旋转法随机数
     rand.set_seed();
     //选择离所有敌方距离和最大的点
-    int max_dis = 0;
-    int k = 2;  //这个概率计算方法是出现指标相同的点时，选到的概率相同
+    double max_dis = 0;
     for (int ix = 0; ix < BATTLEMAP_COORD_COUNT; ix++)
     {
         for (int iy = 0; iy < BATTLEMAP_COORD_COUNT; iy++)
         {
             if (battle_scene_->canSelect(ix, iy))
             {
-                int cur_dis = 0;
+                double cur_dis = rand.rand();
                 for (auto r2 : roles)
                 {
                     cur_dis += battle_scene_->calDistance(ix, iy, r2->X(), r2->Y());
                 }
-                if (cur_dis > max_dis || (cur_dis == max_dis && rand.rand() < 1.0 / (k++)))
+                if (cur_dis > max_dis)
                 {
                     max_dis = cur_dis;
                     x = ix;
@@ -392,17 +390,15 @@ void BattleActionMenu::getNearestPosition(int x0, int y0, int& x, int& y)
     Random<double> rand;   //梅森旋转法随机数
     rand.set_seed();
     calDistanceLayer(x0, y0);
-
-    int min_dis = BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT;
-    int k = 2;
+    double min_dis = BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT;
     for (int ix = 0; ix < BATTLEMAP_COORD_COUNT; ix++)
     {
         for (int iy = 0; iy < BATTLEMAP_COORD_COUNT; iy++)
         {
             if (battle_scene_->canSelect(ix, iy))
             {
-                int cur_dis = distance_layer_->data(ix, iy);
-                if (cur_dis < min_dis || (cur_dis == min_dis && rand.rand() < 1.0 / (k++)))
+                double cur_dis = distance_layer_->data(ix, iy) + rand.rand();
+                if (cur_dis < min_dis)
                 {
                     min_dis = cur_dis;
                     x = ix;

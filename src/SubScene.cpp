@@ -4,6 +4,7 @@
 #include "Event.h"
 #include "UI.h"
 #include "Audio.h"
+#include "Random.h"
 
 
 SubScene::SubScene()
@@ -35,12 +36,15 @@ void SubScene::setID(int id)
 
 void SubScene::draw()
 {
-    int k = 0;
+    //int k = 0;
     struct DrawInfo { int i; Point p; };
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
+
+    //鼠标的位置
+    auto position_mouse = getMousePosition(view_x_, view_y_);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -97,6 +101,11 @@ void SubScene::draw()
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
 #endif
+                //鼠标位置
+                if (i1 == position_mouse.x && i2 == position_mouse.y)
+                {
+                    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
+                }
                 //建筑和主角
                 num = submap_info_->Building(i1, i2) / 2;
                 if (num > 0)
@@ -137,12 +146,6 @@ void SubScene::draw()
             //k++;
         }
     }
-
-    //鼠标的位置
-    auto p = getMousePosition(view_x_, view_y_);
-    p = getPositionOnRender(p.x, p.y, view_x_, view_y_);
-    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
-
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
@@ -197,14 +200,30 @@ void SubScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
 
-    //鼠标寻路，未完成
+    //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
+        setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         stopFindWay();
         if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
         {
             FindWay(x, y, p.x, p.y);
+        }
+        //存在事件则在其周围取一点尝试寻路
+        if (isCannotPassEvent(p.x, p.y) && !isOutScreen(p.x, p.y))
+        {
+            std::vector<Point> ps;
+            if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
+            if (canWalk(p.x + 1, p.y)) { ps.push_back({ p.x + 1, p.y }); }
+            if (canWalk(p.x, p.y - 1)) { ps.push_back({ p.x, p.y - 1 }); }
+            if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
+            if (!ps.empty())
+            {
+                int i = RandomClassical::rand(ps.size());
+                FindWay(x, y, ps[i].x, ps[i].y);
+                setMouseEventPoint(p.x, p.y);
+            }
         }
     }
     if (!way_que_.empty())
@@ -212,12 +231,17 @@ void SubScene::dealEvent(BP_Event& e)
         PointEx newMyPoint = way_que_.back();
         x = newMyPoint.x;
         y = newMyPoint.y;
-        isExit(x, y);
-        towards_ = newMyPoint.towards;
-        //log("myTowards=%d", myTowards);
+        auto tw = calTowards(man_x_, man_y_, x, y);
+        if (tw != Towards_None) { towards_ = tw; }
         tryWalk(x, y);
         way_que_.pop_back();
-        //log("not empty2 %d,%d", wayQue.top()->x, wayQue.top()->y);
+        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        {
+            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+            checkEvent1(man_x_, man_y_, towards_);
+            setMouseEventPoint(-1, -1);
+        }
+        if (isExit(x, y)) { way_que_.clear(); }
     }
 }
 

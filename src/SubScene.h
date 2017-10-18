@@ -70,5 +70,7 @@ public:
 
     void forceExit();
     void forceJumpSubScene(int submap_id, int x, int y);
+
+
 };
 

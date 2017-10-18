@@ -32,7 +32,7 @@ public:
     struct AIAction
     {
         int Action;
-        int point = 0;
+        double point = 0;
         int MoveX, MoveY;
         int ActionX, ActionY;
         Magic* magic = nullptr;

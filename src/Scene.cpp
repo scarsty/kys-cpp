@@ -147,12 +147,15 @@ Point Scene::getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
 {
     int w, h;
     Engine::getInstance()->getPresentSize(w, h);
-    mouse_x = mouse_x * render_center_x_ * 2 / w;
-    mouse_y = mouse_y * render_center_y_ * 2 / h;
+    double mouse_x1 = mouse_x * render_center_x_ * 2.0 / w;
+    double mouse_y1 = mouse_y * render_center_y_ * 2.0 / h;
+
+    //mouse_x1 += TILE_W;
+    mouse_y1 += TILE_H * 2;
 
     Point p;
-    p.x = ((mouse_x - render_center_x_) / TILE_W + (mouse_y - render_center_y_) / TILE_H) / 2 + view_x;
-    p.y = ((-mouse_x + render_center_x_) / TILE_W + (mouse_y - render_center_y_) / TILE_H) / 2 + view_y;
+    p.x = ((mouse_x1 - render_center_x_) / TILE_W + (mouse_y1 - render_center_y_) / TILE_H) / 2 + view_x;
+    p.y = ((-mouse_x1 + render_center_x_) / TILE_W + (mouse_y1 - render_center_y_) / TILE_H) / 2 + view_y;
     return p;
 }
 

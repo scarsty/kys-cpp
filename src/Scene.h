@@ -32,6 +32,7 @@ public:
     BP_Keycode pre_pressed_;    //键盘走路的上次按键
 
     int man_x_, man_y_;
+    int mouse_event_x_ = -1, mouse_event_y_ = -1;    //鼠标行路时的最终目标，可能为事件或者入口
     int towards_ = 0;              //朝向，共用一个即可
     int step_ = 0;
     int man_pic_ = 0;
@@ -75,6 +76,8 @@ public:
     void darkScene();
 
     bool isOutLine(int x, int y);
+
+    void setMouseEventPoint(int x, int y) { mouse_event_x_ = x; mouse_event_y_ = y; }
 };
 
 
