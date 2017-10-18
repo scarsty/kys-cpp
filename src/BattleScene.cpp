@@ -278,6 +278,8 @@ void BattleScene::readBattleInfo()
             battle_roles_.push_back(r);
             r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
             r->Team = 1;
+            readFightFrame(r);
+            r->FaceTowards = RandomClassical::rand(4);
         }
     }
 
@@ -350,20 +352,7 @@ void BattleScene::setRoleInitState(Role* r)
     }
 
     //读取动作帧数
-    bool frame_readed = false;
-    //注意这个判断不太准，应该在构造函数里面设一个不合理的初值
-    /*for (int i = 0; i < 5; i++)
-    {
-        if (r->FightFrame[i] > 0)
-        {
-            frame_readed = true;
-            break;
-        }
-    }*/
-    if (!frame_readed)
-    {
-        readFightFrame(r);
-    }
+    readFightFrame(r);
 
     setFaceTowardsNearest(r);
     //r->FaceTowards = RandomClassical::rand(4);  //没头苍蝇随意选择面向
@@ -394,6 +383,10 @@ void BattleScene::setFaceTowardsNearest(Role* r, bool in_effect /*= false*/)
 
 void BattleScene::readFightFrame(Role* r)
 {
+    if (r->FightFrame[0] >= 0)
+    {
+        return;
+    }
     for (int i = 0; i < 5; i++)
     {
         r->FightFrame[i] = 0;
@@ -1127,7 +1120,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     v = v / exp((dis - 1) / 10);
 
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
-    if (v < 1) { v = 1; }
+    if (v < 10) { v = 1 + RandomClassical::rand(10); }
     //v = 999;  //测试用
     return v;
 }

@@ -354,6 +354,7 @@ bool MainScene::checkEntrance(int x, int y)
                 auto sub_map = new SubScene(i);
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
                 sub_map->run();
+                towards_ = sub_map->towards_;
                 delete sub_map;
                 return true;
             }

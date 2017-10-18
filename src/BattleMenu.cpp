@@ -207,7 +207,8 @@ int BattleActionMenu::autoSelect(Role* role)
                 if (action_dis >= calNeedActionDistance(aa))
                 {
                     aa.Action = getResultFromString(action_text);
-                    aa.point = std::min(MAX_POISON - r2->Poison, role->UsePoison);
+                    aa.point = std::min(MAX_POISON - r2->Poison, role->UsePoison) / 2;
+                    if (r2->HP < 10) { aa.point = 1; }
                     ai_action.push_back(aa);
                 }
             }

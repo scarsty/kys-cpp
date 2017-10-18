@@ -46,6 +46,7 @@ void UISystem::onPressedOK()
 int UISystem::askExit()
 {
     static bool asking = false;
+    int ret = -1;
     if (!asking)
     {
         asking = true;
@@ -58,15 +59,15 @@ int UISystem::askExit()
         {
             exitAll();
             Event::getInstance()->forceExit();
-            return 0;
+            ret = 0;
         }
         else if (r == 1)
         {
             exitAll(1);
             Event::getInstance()->forceExit();
-            return 0;
+            ret = 0;
         }
         asking = false;
     }
-    return -1;
+    return ret;
 }

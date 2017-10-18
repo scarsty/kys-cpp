@@ -133,7 +133,7 @@ public:
     int FaceTowards, Dead, Step;
     int Pic, BattleSpeed;
     int ExpGot, Auto;
-    int FightFrame[5];
+    int FightFrame[5] = { -1 };
     int FightingFrame;
     int Moved, Acted;
     int ActTeam;  //选择行动阵营 0-我方，1-非我方，画效果层时有效

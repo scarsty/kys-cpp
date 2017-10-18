@@ -70,6 +70,7 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         if (menu_load_->run() >= 0)
         {
+            //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //²âÊÔÓÃ
             MainScene::getIntance()->run();
         }
     }

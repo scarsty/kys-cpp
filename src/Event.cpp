@@ -98,6 +98,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     y_ = y;
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
+    talk_box_->setExit(false);
     Element::addOnRootTop(talk_box_);
     int p = 0;
     loop_ = true;
@@ -438,7 +439,8 @@ void Event::darkScence()
 
 void Event::dead()
 {
-
+    Element::exitAll(1);
+    forceExit();
 }
 
 //某人是否在队伍

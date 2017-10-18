@@ -151,6 +151,7 @@ void SubScene::dealEvent(BP_Event& e)
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
 
+    checkEvent3(x, y);
     //键盘走路部分，检测4个方向键
     int pressed = 0;
     for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
@@ -189,7 +190,7 @@ void SubScene::dealEvent(BP_Event& e)
             step_ = 0;
         }
     }
-    checkEvent3(x, y);
+
     if (isExit(x, y) || isJumpSubScene(x, y))
     {
         clearEvent(e);
@@ -212,7 +213,7 @@ void SubScene::dealEvent(BP_Event& e)
         x = newMyPoint.x;
         y = newMyPoint.y;
         isExit(x, y);
-		towards_ = newMyPoint.towards;
+        towards_ = newMyPoint.towards;
         //log("myTowards=%d", myTowards);
         tryWalk(x, y);
         way_que_.pop_back();
@@ -241,6 +242,7 @@ void SubScene::backRun()
 void SubScene::onEntrance()
 {
     calViewRegion();
+    towards_ = MainScene::getIntance()->towards_;
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
 
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
