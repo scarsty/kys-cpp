@@ -54,7 +54,7 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
-    bool checkEntrance(int x, int y, bool isIn = true);    //主地图主要是检测入口
+    bool checkEntrance(int x, int y, bool only_check = false);    //主地图主要是检测入口
 
     void forceEnterSubScene(int submap_id, int x, int y);    //在下一个事件循环会强制进入某场景，用于开始和读取存档
 };

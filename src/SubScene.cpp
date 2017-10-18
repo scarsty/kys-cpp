@@ -57,15 +57,15 @@ void SubScene::draw()
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            int i1 = view_x_ + i + (sum / 2);
-            int i2 = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(i1, i2, view_x_, view_y_);
+            int ix = view_x_ + i + (sum / 2);
+            int iy = view_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnRender(ix, iy, view_x_, view_y_);
             p.x += x_;
             p.y += y_;
-            if (!isOutLine(i1, i2))
+            if (!isOutLine(ix, iy))
             {
-                int h = submap_info_->BuildingHeight(i1, i2);
-                int num = submap_info_->Earth(i1, i2) / 2;
+                int h = submap_info_->BuildingHeight(ix, iy);
+                int num = submap_info_->Earth(ix, iy) / 2;
                 //无高度地面
                 if (num > 0 && h == 0)
                 {
@@ -85,16 +85,16 @@ void SubScene::draw()
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            int i1 = view_x_ + i + (sum / 2);
-            int i2 = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(i1, i2, view_x_, view_y_);
+            int ix = view_x_ + i + (sum / 2);
+            int iy = view_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnRender(ix, iy, view_x_, view_y_);
             p.x += x_;
             p.y += y_;
-            if (!isOutLine(i1, i2))
+            if (!isOutLine(ix, iy))
             {
                 //有高度地面
-                int h = submap_info_->BuildingHeight(i1, i2);
-                int num = submap_info_->Earth(i1, i2) / 2;
+                int h = submap_info_->BuildingHeight(ix, iy);
+                int num = submap_info_->Earth(ix, iy) / 2;
 #ifndef _DEBUG
                 if (num > 0 && h > 0)
                 {
@@ -102,17 +102,17 @@ void SubScene::draw()
                 }
 #endif
                 //鼠标位置
-                if (i1 == position_mouse.x && i2 == position_mouse.y)
+                if (ix == position_mouse.x && iy == position_mouse.y)
                 {
                     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
                 }
                 //建筑和主角
-                num = submap_info_->Building(i1, i2) / 2;
+                num = submap_info_->Building(ix, iy) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                 }
-                if (i1 == man_x_ && i2 == man_y_)
+                if (ix == man_x_ && iy == man_y_)
                 {
                     //此处当主角的贴图为负值时，表示强制设置贴图号
                     if (force_man_pic_ < 0)
@@ -126,10 +126,10 @@ void SubScene::draw()
                     TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                 }
                 //事件
-                auto event = submap_info_->Event(i1, i2);
+                auto event = submap_info_->Event(ix, iy);
                 if (event)
                 {
-                    num = submap_info_->Event(i1, i2)->CurrentPic / 2;
+                    num = submap_info_->Event(ix, iy)->CurrentPic / 2;
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
@@ -137,10 +137,10 @@ void SubScene::draw()
                     }
                 }
                 //装饰
-                num = submap_info_->Decoration(i1, i2) / 2;
+                num = submap_info_->Decoration(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(i1, i2));
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy));
                 }
             }
             //k++;
@@ -228,9 +228,9 @@ void SubScene::dealEvent(BP_Event& e)
     }
     if (!way_que_.empty())
     {
-        PointEx newMyPoint = way_que_.back();
-        x = newMyPoint.x;
-        y = newMyPoint.y;
+        Point p = way_que_.back();
+        x = p.x;
+        y = p.y;
         auto tw = calTowards(man_x_, man_y_, x, y);
         if (tw != Towards_None) { towards_ = tw; }
         tryWalk(x, y);

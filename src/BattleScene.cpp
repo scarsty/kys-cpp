@@ -74,18 +74,18 @@ void BattleScene::draw()
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            int i1 = man_x_ + i + (sum / 2);
-            int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
+            int ix = man_x_ + i + (sum / 2);
+            int iy = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
-            if (!isOutLine(i1, i2))
+            if (!isOutLine(ix, iy))
             {
-                int num = earth_layer_->data(i1, i2) / 2;
+                int num = earth_layer_->data(ix, iy) / 2;
                 BP_Color color = { 255, 255, 255, 255 };
                 if (battle_cursor_->isRunning() && !r0->isAuto())  //如果是自动人物没有变暗的选择效果看着太乱
                 {
-                    if (select_layer_->data(i1, i2) < 0)
+                    if (select_layer_->data(ix, iy) < 0)
                     {
                         color = { 64, 64, 64, 255 };
                     }
@@ -95,9 +95,9 @@ void BattleScene::draw()
                     }
                     if (battle_cursor_->getMode() == BattleCursor::Action)
                     {
-                        if (haveEffect(i1, i2))
+                        if (haveEffect(ix, iy))
                         {
-                            if (!canSelect(i1, i2))
+                            if (!canSelect(ix, iy))
                             {
                                 color = { 160, 160, 160, 255 };
                             }
@@ -107,7 +107,7 @@ void BattleScene::draw()
                             }
                         }
                     }
-                    if (i1 == select_x_ && i2 == select_y_)
+                    if (ix == select_x_ && iy == select_y_)
                     {
                         color = { 255, 255, 255, 255 };
                     }
@@ -125,19 +125,19 @@ void BattleScene::draw()
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            int i1 = man_x_ + i + (sum / 2);
-            int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
+            int ix = man_x_ + i + (sum / 2);
+            int iy = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
-            if (!isOutLine(i1, i2))
+            if (!isOutLine(ix, iy))
             {
-                int num = building_layer_->data(i1, i2) / 2;
+                int num = building_layer_->data(ix, iy) / 2;
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
-                num = role_layer_->data(i1, i2);
+                num = role_layer_->data(ix, iy);
                 if (num >= 0)
                 {
                     auto r = Save::getInstance()->getRole(num);
@@ -164,7 +164,7 @@ void BattleScene::draw()
                     if (r->HP <= 0) { alpha = dead_alpha_; }
                     TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color, alpha);
                 }
-                if (effect_id_ >= 0 && haveEffect(i1, i2))
+                if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
                     num = effect_frame_ + RandomClassical::rand(10) - RandomClassical::rand(10);

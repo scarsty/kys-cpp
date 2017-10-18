@@ -7,6 +7,7 @@
 #include "UI.h"
 #include "Util.h"
 #include "UISave.h"
+#include "Random.h"
 
 MainScene MainScene::main_scene_;
 
@@ -81,29 +82,29 @@ void MainScene::draw()
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            int i1 = man_x_ + i + (sum / 2);
-            int i2 = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(i1, i2, man_x_, man_y_);
+            int ix = man_x_ + i + (sum / 2);
+            int iy = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
             p.x += x_;
             p.y += y_;
-            //auto p = getMapPoint(i1, i2, *_Mx, *_My);
-            if (!isOutLine(i1, i2))
+            //auto p = getMapPoint(ix, iy, *_Mx, *_My);
+            if (!isOutLine(ix, iy))
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_->data(i1, i2) > 0)
+                if (earth_layer_->data(ix, iy) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_->data(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_->data(ix, iy), p.x, p.y);
                 }
 #endif
-                if (surface_layer_->data(i1, i2) > 0)
+                if (surface_layer_->data(ix, iy) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_->data(i1, i2), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_->data(ix, iy), p.x, p.y);
                 }
-                if (building_layer_->data(i1, i2) > 0)
+                if (building_layer_->data(ix, iy) > 0)
                 {
-                    auto t = building_layer_->data(i1, i2);
+                    auto t = building_layer_->data(ix, iy);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -111,10 +112,10 @@ void MainScene::draw()
                     auto w = tex->w;
                     auto h = tex->h;
                     auto dy = tex->dy;
-                    int c = ((i1 + i2) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + i1;
+                    int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
                     map[2 * c + 1] = { t, p };
                 }
-                if (i1 == man_x_ && i2 == man_y_)
+                if (ix == man_x_ && iy == man_y_)
                 {
                     if (isWater(man_x_, man_y_))
                     {
@@ -128,7 +129,7 @@ void MainScene::draw()
                             man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
                         }
                     }
-                    int c = 1024 * (i1 + i2) + i1;
+                    int c = 1024 * (ix + iy) + ix;
                     map[2 * c] = { man_pic_, p };
                 }
             }
@@ -140,7 +141,7 @@ void MainScene::draw()
         TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     }
 
-    //鼠标的位置
+    //鼠标的位置，此处直接画到最上面了
     auto p = getMousePosition(man_x_, man_y_);
     p = getPositionOnRender(p.x, p.y, man_x_, man_y_);
     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
@@ -176,6 +177,7 @@ void MainScene::dealEvent(BP_Event& e)
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
         sub_map->setTowards(towards_);
         sub_map->run();
+        towards_ = sub_map->towards_;
         delete sub_map;
         force_submap_ = -1;
         setVisible(true);
@@ -222,35 +224,73 @@ void MainScene::dealEvent(BP_Event& e)
     rest_time_++;
 
     //鼠标寻路，未完成
-	if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
-	{
-		setMouseEventPoint(-1, -1);
-		Point p = getMousePosition(e.button.x, e.button.y, x, y);
-		stopFindWay();
-		if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
-		{
-			FindWay(x, y, p.x, p.y);
-		}
-		//存在事件则在其周围取一点尝试寻路
-		//大地图无触发事件
-	}
-	if (!way_que_.empty())
-	{
-		PointEx newMyPoint = way_que_.back();
-		x = newMyPoint.x;
-		y = newMyPoint.y;
-		auto tw = calTowards(man_x_, man_y_, x, y);
-		if (tw != Towards_None) { towards_ = tw; }
-		tryWalk(x, y);
-		way_que_.pop_back();
-		if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
-		{
-			towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
-			//checkEvent1(man_x_, man_y_, towards_);
-			setMouseEventPoint(-1, -1);
-		}
-		if (checkEntrance(x, y)) { way_que_.clear(); }
-	}
+    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+    {
+        setMouseEventPoint(-1, -1);
+        Point p = getMousePosition(e.button.x, e.button.y, x, y);
+        stopFindWay();
+        if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
+        {
+            FindWay(x, y, p.x, p.y);
+        }
+        //如果是建筑，在此建筑的附近试图查找入口
+        if (isBuilding(p.x, p.y))
+        {
+            int buiding_x = build_x_layer_->data(p.x, p.y);
+            int buiding_y = build_y_layer_->data(p.x, p.y);
+            bool found_entrance = false;
+            for (int ix = buiding_x + 1; ix > buiding_x - 9; ix--)
+            {
+                for (int iy = buiding_y + 1; iy > buiding_y - 9; iy--)
+                {
+                    if (build_x_layer_->data(ix, iy) == buiding_x
+                        && build_y_layer_->data(ix, iy) == buiding_y
+                        && checkEntrance(ix, iy, true))
+                    {
+                        p.x = ix;
+                        p.y = iy;    //p的值变化了
+                        found_entrance = true;
+                        break;
+                    }
+                }
+                if (found_entrance) { break; }
+            }
+            if (found_entrance)
+            {
+                //在入口四周查找一个可以走到的地方
+                std::vector<Point> ps;
+                if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
+                if (canWalk(p.x + 1, p.y)) { ps.push_back({ p.x + 1, p.y }); }
+                if (canWalk(p.x, p.y - 1)) { ps.push_back({ p.x, p.y - 1 }); }
+                if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
+                if (!ps.empty())
+                {
+                    int i = RandomClassical::rand(ps.size());
+                    FindWay(x, y, ps[i].x, ps[i].y);
+                    setMouseEventPoint(p.x, p.y);
+                }
+            }
+        }
+    }
+    if (!way_que_.empty())
+    {
+        Point p = way_que_.back();
+        x = p.x;
+        y = p.y;
+        auto tw = calTowards(man_x_, man_y_, x, y);
+        if (tw != Towards_None) { towards_ = tw; }
+        tryWalk(x, y);
+        way_que_.pop_back();
+        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        {
+            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+            if (checkEntrance(mouse_event_x_, mouse_event_y_))
+            {
+                way_que_.clear();
+                setMouseEventPoint(-1, -1);
+            }
+        }
+    }
 }
 
 void MainScene::onEntrance()
@@ -295,14 +335,7 @@ void MainScene::tryWalk(int x, int y)
 
 bool MainScene::isBuilding(int x, int y)
 {
-    if (building_layer_->data(build_x_layer_->data(x, y), build_y_layer_->data(x, y)) > 0)
-    {
-        return  true;
-    }
-    else
-    {
-        return false;
-    }
+    return (building_layer_->data(build_x_layer_->data(x, y), build_y_layer_->data(x, y)) > 0);
 }
 
 bool MainScene::isWater(int x, int y)
@@ -326,9 +359,10 @@ bool MainScene::isWater(int x, int y)
 
 bool MainScene::canWalk(int x, int y)
 {
-	if (checkEntrance(x, y, false)) {
-		return true;
-	}
+    //if (checkEntrance(x, y, true))
+    //{
+    //    return true;
+    //}  这里不需要加，实际上入口都是无法走到的
     if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
     {
         return false;
@@ -339,7 +373,7 @@ bool MainScene::canWalk(int x, int y)
     }
 }
 
-bool MainScene::checkEntrance(int x, int y , bool isIn)
+bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
 {
     for (int i = 0; i < Save::getInstance()->getSubMapInfos().size(); i++)
     {
@@ -363,9 +397,10 @@ bool MainScene::checkEntrance(int x, int y , bool isIn)
                     }
                 }
             }
-			if (!isIn) {
-				return true;
-			}
+            if (only_check)
+            {
+                return true;
+            }
             if (can_enter)
             {
                 UISave::autoSave();
