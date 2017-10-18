@@ -222,21 +222,35 @@ void MainScene::dealEvent(BP_Event& e)
     rest_time_++;
 
     //鼠标寻路，未完成
-    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
-    {
-        //getMousePosition(e.button.x, e.button.y);
-        //stopFindWay();
-        //if (canWalk(mouse_x_, mouse_y_) && !isOutScreen(mouse_x_, mouse_y_))
-        //{
-        //    FindWay(man_x_, man_y_, mouse_x_, mouse_y_);
-        //}
-    }
-
-    //if (e.type == BP_MOUSEMOTION)
-    //{
-    //    auto p = getMousePosition(e.motion.x, e.motion.y, man_x_, man_y_);
-    //    printf("%d, %d,     %d,%d,%d,%d\n", p.x, p.y, e.motion.x, e.motion.y, man_x_, man_y_);
-    //}
+	if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+	{
+		setMouseEventPoint(-1, -1);
+		Point p = getMousePosition(e.button.x, e.button.y, x, y);
+		stopFindWay();
+		if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
+		{
+			FindWay(x, y, p.x, p.y);
+		}
+		//存在事件则在其周围取一点尝试寻路
+		//大地图无触发事件
+	}
+	if (!way_que_.empty())
+	{
+		PointEx newMyPoint = way_que_.back();
+		x = newMyPoint.x;
+		y = newMyPoint.y;
+		auto tw = calTowards(man_x_, man_y_, x, y);
+		if (tw != Towards_None) { towards_ = tw; }
+		tryWalk(x, y);
+		way_que_.pop_back();
+		if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+		{
+			towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+			//checkEvent1(man_x_, man_y_, towards_);
+			setMouseEventPoint(-1, -1);
+		}
+		if (checkEntrance(x, y)) { way_que_.clear(); }
+	}
 }
 
 void MainScene::onEntrance()
@@ -312,6 +326,9 @@ bool MainScene::isWater(int x, int y)
 
 bool MainScene::canWalk(int x, int y)
 {
+	if (checkEntrance(x, y, false)) {
+		return true;
+	}
     if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
     {
         return false;
@@ -322,7 +339,7 @@ bool MainScene::canWalk(int x, int y)
     }
 }
 
-bool MainScene::checkEntrance(int x, int y)
+bool MainScene::checkEntrance(int x, int y , bool isIn)
 {
     for (int i = 0; i < Save::getInstance()->getSubMapInfos().size(); i++)
     {
@@ -346,6 +363,9 @@ bool MainScene::checkEntrance(int x, int y)
                     }
                 }
             }
+			if (!isIn) {
+				return true;
+			}
             if (can_enter)
             {
                 UISave::autoSave();
