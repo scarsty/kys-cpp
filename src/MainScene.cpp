@@ -229,7 +229,7 @@ void MainScene::dealEvent(BP_Event& e)
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         stopFindWay();
-        if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
+        if (canWalk(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
         {
             FindWay(x, y, p.x, p.y);
         }

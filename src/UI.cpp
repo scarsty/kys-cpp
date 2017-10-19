@@ -69,7 +69,7 @@ void UI::dealEvent(BP_Event& e)
             current_head_ = i;
         }
 
-        //如在物品栏则判断是否在使用，或者可以使用
+        //如在物品栏则判断是否在使用，或者可以使用，设置对应的头像状态
         if (childs_[0] == ui_item_)
         {
             Item* item = ui_item_->getCurrentItem();
@@ -89,6 +89,10 @@ void UI::dealEvent(BP_Event& e)
                     head->setState(Pass);
                 }
             }
+        }
+        else
+        {
+            head->setText("");
         }
     }
 

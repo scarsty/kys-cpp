@@ -186,7 +186,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     std::priority_queue<PointEx*, std::vector<PointEx*>, Compare> que;            //最小优先级队列(开启列表)
     que.push(myPoint);
     int sNum = 0;
-    while (!que.empty() && sNum <= 300)
+    while (!que.empty() && sNum <= 512)
     {
         auto t = new PointEx();
         t = que.top();

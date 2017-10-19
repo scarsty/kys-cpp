@@ -211,7 +211,7 @@ void SubScene::dealEvent(BP_Event& e)
             FindWay(x, y, p.x, p.y);
         }
         //存在事件则在其周围取一点尝试寻路
-        if (isCannotPassEvent(p.x, p.y) && !isOutScreen(p.x, p.y))
+        if (isCannotPassEvent(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
         {
             std::vector<Point> ps;
             if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
