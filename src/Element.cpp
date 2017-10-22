@@ -346,6 +346,7 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
             func(data);
         }
         checkEventAndPresent(false);
+        if (exit_) { break; }
     }
     return times;
 }

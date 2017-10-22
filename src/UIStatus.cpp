@@ -51,17 +51,46 @@ void UIStatus::draw()
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
 
     auto font = Font::getInstance();
-    BP_Color color = { 255, 255, 255, 255 };
-	BP_Color color_name = { 249, 249, 199, 255 };
-	BP_Color color_ability1 = { 249, 146, 16, 255 };
-	BP_Color color_ability2 = { 236, 200, 40, 255 };
-	BP_Color color_red = { 216, 20, 24, 255 };
-	BP_Color color_magic = { 236, 200, 40, 255 };
-	BP_Color color_magic_level1 = { 253, 101, 101, 255 };
-	BP_Color color_magic_level2 = { 208, 152, 208, 255 };
-	BP_Color color_magic_empty = { 236, 200, 40, 76 };
-	BP_Color color_equip = { 165, 28, 218, 255 };
-	
+    BP_Color color_white = { 255, 255, 255, 255 };
+    BP_Color color_name = { 255, 215, 0, 255 };
+    BP_Color color_ability1 = { 255, 250, 205, 255 };
+    BP_Color color_ability2 = { 236, 200, 40, 255 };
+    BP_Color color_red = { 255, 90, 60, 255 };
+    BP_Color color_magic = { 236, 200, 40, 255 };
+    BP_Color color_magic_level1 = { 253, 101, 101, 255 };
+    BP_Color color_purple = { 208, 152, 208, 255 };
+    BP_Color color_magic_empty = { 236, 200, 40, 255 };
+    BP_Color color_equip = { 165, 28, 218, 255 };
+
+
+    auto select_color1 = [&](int v, int max_v)->BP_Color
+    {
+        if (v >= max_v * 0.9)
+        {
+            return color_red;
+        }
+        else if (v >= max_v * 0.8)
+        {
+            return { 255, 165, 79, 255 };
+        }
+        else if (v >= max_v * 0.7)
+        {
+            return { 255, 255, 50, 255 };
+        }
+        else if (v < 0)
+        {
+            return color_purple;
+        }
+        return color_white;
+    };
+
+    auto select_color2 = [&](int v)->BP_Color
+    {
+        if (v > 0) { return color_red; }
+        if (v < 0) { return color_purple; }
+        return color_white;
+    };
+
     int font_size = 22;
 
     int x, y;
@@ -69,145 +98,159 @@ void UIStatus::draw()
     x = x_ + 200;
     y = y_ + 50;
     font->draw(convert::formatString("%s", role_->Name), 30, x - 10, y, color_name);
-	font->draw("µ»ºâ", font_size, x, y + 50, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Level), font_size, x + 66, y + 50, color_ability2);
-	font->draw("ΩõÚû", font_size, x, y + 75, color_ability1);
-	font->draw(convert::formatString("%5d", role_->Exp), font_size, x + 66, y + 75, color_ability2);
+    font->draw("µ»ºâ", font_size, x, y + 50, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Level), font_size, x + 66, y + 50, color_white);
+    font->draw("ΩõÚû", font_size, x, y + 75, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Exp), font_size, x + 66, y + 75, color_white);
 
     std::string str = "";
-	font->draw("…˝ºâ", font_size, x, y + 100, color_ability1);
+    font->draw("…˝ºâ", font_size, x, y + 100, color_ability1);
 
     int exp_up = GameUtil::getLevelUpExp(role_->Level);
-	if (exp_up != INT_MAX)
-	{
-		str = convert::formatString("%7d", exp_up);
-	}
-	else
-	{
-		str = "------";
-	}
-    font->draw(str, font_size, x+55, y + 100, color_ability2);
-	font->draw("…˙√¸", font_size, x + 175, y + 50, color_ability1);
-	font->draw(convert::formatString("%5d/", role_->HP), font_size, x + 219, y + 50, color_ability2);
-	font->draw(convert::formatString("%5d", role_->MaxHP), font_size, x + 285, y + 50, color_ability2);
-	font->draw("É»¡¶", font_size, x + 175, y + 75, color_ability1);
-	font->draw(convert::formatString("%5d/", role_->MP), font_size, x + 219, y + 75, color_ability2);
-	font->draw(convert::formatString("%5d", role_->MaxMP), font_size, x + 285, y + 75, color_ability2);
-	font->draw("Ûw¡¶", font_size, x + 175, y + 100, color_ability1);
-	font->draw(convert::formatString("%5d/", role_->PhysicalPower), font_size, x + 219, y + 100, color_ability2);
-	font->draw(convert::formatString("%5d", 100), font_size, x + 285, y + 100, color_ability2);
+    if (exp_up != INT_MAX)
+    {
+        str = convert::formatString("%6d", exp_up);
+    }
+    else
+    {
+        str = "------";
+    }
+    font->draw(str, font_size, x + 55, y + 100, color_white);
+    font->draw("…˙√¸", font_size, x + 175, y + 50, color_ability1);
+    font->draw(convert::formatString("%5d/", role_->HP), font_size, x + 219, y + 50, color_white);
+    font->draw(convert::formatString("%5d", role_->MaxHP), font_size, x + 285, y + 50, color_white);
+    font->draw("É»¡¶", font_size, x + 175, y + 75, color_ability1);
+
+    BP_Color c = color_white;
+    if (role_->MPType == 0)
+    {
+        c = color_purple;
+    }
+    else if (role_->MPType == 1)
+    {
+        c = color_magic;
+    }
+
+    font->draw(convert::formatString("%5d/", role_->MP), font_size, x + 219, y + 75, c);
+    font->draw(convert::formatString("%5d", role_->MaxMP), font_size, x + 285, y + 75, c);
+    font->draw("Ûw¡¶", font_size, x + 175, y + 100, color_ability1);
+    font->draw(convert::formatString("%5d/", role_->PhysicalPower), font_size, x + 219, y + 100, color_white);
+    font->draw(convert::formatString("%5d", 100), font_size, x + 285, y + 100, color_white);
 
 
     x = x_ + 20;
     y = y_ + 200;
 
-	font->draw("π•ìÙ", font_size, x, y, color);
-    font->draw(convert::formatString("%5d", role_->Attack), font_size, x + 44, y, color_ability2);
-	font->draw("∑¿∂R", font_size, x + 200, y, color);
-    font->draw(convert::formatString("%5d", role_->Defence), font_size, x + 244, y, color_ability2);
-	font->draw("›pπ¶", font_size, x + 400, y, color);
-    font->draw(convert::formatString("%5d", role_->Speed), font_size, x + 444, y, color_ability2);
+    font->draw("π•ìÙ", font_size, x, y, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, MAX_ATTACK));
+    font->draw("∑¿∂R", font_size, x + 200, y, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, MAX_DEFENCE));
+    font->draw("›pπ¶", font_size, x + 400, y, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, MAX_SPEED));
 
-	font->draw("·tØü", font_size, x, y + 25, color);
-	font->draw(convert::formatString("%5d", role_->Medcine), font_size, x + 44, y + 25, color_ability2);
-	font->draw("Ω‚∂æ", font_size, x + 200, y + 25, color);
-	font->draw(convert::formatString("%5d", role_->Detoxification), font_size, x + 244, y + 25, color_ability2);
-	font->draw("”√∂æ", font_size, x + 400, y + 25, color);
-	font->draw(convert::formatString("%5d", role_->UsePoison), font_size, x + 444, y + 25, color_ability2);
+    font->draw("·tØü", font_size, x, y + 25, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Medcine), font_size, x + 44, y + 25, select_color1(role_->Medcine, MAX_MEDCINE));
+    font->draw("Ω‚∂æ", font_size, x + 200, y + 25, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, MAX_DETOXIFICATION));
+    font->draw("”√∂æ", font_size, x + 400, y + 25, color_ability1);
+    font->draw(convert::formatString("%5d", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, MAX_USE_POISON));
 
 
     x = x_ + 20;
     y = y_ + 270;
-    font->draw("ººƒ‹", 25, x - 10, y, color_red);
+    font->draw("ººƒ‹", 25, x - 10, y, color_name);
 
-	font->draw("»≠’∆", font_size, x, y + 30, color);
-	font->draw(convert::formatString("%5d", role_->Fist), font_size, x + 44, y + 30, color_ability2);
-	font->draw("”˘Ñ¶", font_size, x, y + 55, color);
-	font->draw(convert::formatString("%5d", role_->Sword), font_size, x + 44, y + 55, color_ability2);
-	font->draw("À£µ∂", font_size, x, y + 80, color);
-	font->draw(convert::formatString("%5d", role_->Knife), font_size, x + 44, y + 80, color_ability2);
-	font->draw("Ãÿ ‚", font_size, x, y + 105, color);
-	font->draw(convert::formatString("%5d", role_->Unusual), font_size, x + 44, y + 105, color_ability2);
-	font->draw("∞µ∆˜", font_size, x, y + 130, color);
-	font->draw(convert::formatString("%5d", role_->HiddenWeapon), font_size, x + 44, y + 130, color_ability2);
+    font->draw("»≠’∆", font_size, x, y + 30, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, MAX_FIST));
+    font->draw("”˘Ñ¶", font_size, x, y + 55, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, MAX_SWORD));
+    font->draw("À£µ∂", font_size, x, y + 80, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, MAX_KNIFE));
+    font->draw("Ãÿ ‚", font_size, x, y + 105, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, MAX_UNUSUAL));
+    font->draw("∞µ∆˜", font_size, x, y + 130, color_ability1);
+    font->draw(convert::formatString("%5d", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, MAX_HIDDEN_WEAPON));
 
     x = x_ + 220;
     y = y_ + 270;
-    font->draw("Œ‰åW", 25, x - 10, y, color_red);
+    font->draw("Œ‰åW", 25, x - 10, y, color_name);
     for (int i = 0; i < 10; i++)
     {
         auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
         std::string str = "__________";
         if (magic)
         {
-			int x1 = x + i % 2 * 200;
-			int y1 = y + 30 + i / 2 * 25;
-			
-			str = convert::formatString("%s", magic->Name);
-			font->draw(str, font_size, x1, y1, color_magic);
+            int x1 = x + i % 2 * 200;
+            int y1 = y + 30 + i / 2 * 25;
+
+            str = convert::formatString("%s", magic->Name);
+            font->draw(str, font_size, x1, y1, color_ability1);
             str = convert::formatString("%3d", role_->getRoleShowLearnedMagicLevel(i));
-			font->draw(str, font_size, x1+100, y1, role_->getRoleShowLearnedMagicLevel(i)>9 ? color_magic_level1 : color_magic_level2);
+            font->draw(str, font_size, x1 + 100, y1, role_->getRoleShowLearnedMagicLevel(i) > 9 ? color_red : color_purple);
         }
-		else
-		{
-			int x1 = x + i % 2 * 200;
-			int y1 = y + 30 + i / 2 * 25;
-			font->draw("__________", font_size, x1, y1, color_magic_empty);
-		}
+        else
+        {
+            int x1 = x + i % 2 * 200;
+            int y1 = y + 30 + i / 2 * 25;
+            font->draw("__________", font_size, x1, y1, color_ability1);
+        }
 
     }
 
     x = x_ + 420;
     y = y_ + 445;
-    font->draw("–ﬁüí", 25, x - 10, y, color_red);
+    font->draw("–ﬁüí", 25, x - 10, y, color_name);
     auto book = Save::getInstance()->getItem(role_->PracticeItem);
     if (book)
     {
         TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
-        font->draw(convert::formatString("%s", book->Name), font_size, x + 90, y + 30, color_magic);
-        font->draw(convert::formatString("ΩõÚû%5d", role_->ExpForItem), 18, x + 90, y + 55, color);
+        font->draw(convert::formatString("%s", book->Name), font_size, x + 90, y + 30, color_name);
+        font->draw(convert::formatString("ΩõÚû%5d", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
         std::string str = "…˝ºâ ----";
         int exp_up = GameUtil::getFinishedExpForItem(role_, book);
         if (exp_up != INT_MAX)
         {
             str = convert::formatString("…˝ºâ%5d", exp_up);
         }
-        font->draw(str, 18, x + 90, y + 75, color);
+        font->draw(str, 18, x + 90, y + 75, color_ability1);
     }
+
+
 
     x = x_ + 20;
     y = y_ + 445;
-    font->draw("Œ‰∆˜", 25, x - 10, y, color_red);
+    font->draw("Œ‰∆˜", 25, x - 10, y, color_name);
     auto equip0 = Save::getInstance()->getItem(role_->Equip0);
     if (equip0)
     {
         TextureManager::getInstance()->renderTexture("item", equip0->ID, x, y + 30);
-        font->draw(convert::formatString("%s", equip0->Name), font_size, x + 90, y + 30, color_magic);
-		font->draw("π•ìÙ", 18, x + 90, y + 55, color);
-		font->draw(convert::formatString("%+d", equip0->AddAttack), 18, x + 126, y + 75, color_magic_level2);
-		font->draw("∑¿∂R", 18, x + 90, y + 75, color);
-		font->draw(convert::formatString("%+d", equip0->AddDefence), 18, x + 126, y + 95, color_magic_level2);
-		font->draw("›pπ¶", 18, x + 90, y + 95, color);
-		font->draw(convert::formatString("%+d", equip0->AddSpeed), 18, x + 126, y + 55, color_magic_level2);
+        font->draw(convert::formatString("%s", equip0->Name), font_size, x + 90, y + 30, color_name);
+        font->draw("π•ìÙ", 18, x + 90, y + 55, color_ability1);
+        font->draw(convert::formatString("%+d", equip0->AddAttack), 18, x + 126, y + 75, select_color2(equip0->AddAttack));
+        font->draw("∑¿∂R", 18, x + 90, y + 75, color_ability1);
+        font->draw(convert::formatString("%+d", equip0->AddDefence), 18, x + 126, y + 95, select_color2(equip0->AddDefence));
+        font->draw("›pπ¶", 18, x + 90, y + 95, color_ability1);
+        font->draw(convert::formatString("%+d", equip0->AddSpeed), 18, x + 126, y + 55, select_color2(equip0->AddSpeed));
 
     }
 
     x = x_ + 220;
     y = y_ + 445;
-    font->draw("∑¿æﬂ", 25, x - 10, y, color_red);
+    font->draw("∑¿æﬂ", 25, x - 10, y, color_name);
     auto equip1 = Save::getInstance()->getItem(role_->Equip1);
     if (equip1)
     {
         TextureManager::getInstance()->renderTexture("item", equip1->ID, x, y + 30);
-        font->draw(convert::formatString("%s", equip1->Name), font_size, x + 90, y + 30, color_magic);
-		font->draw("π•ìÙ", 18, x + 90, y + 55, color);
-		font->draw(convert::formatString("%+d", equip1->AddAttack), 18, x + 126, y + 75, color_magic_level2);
-		font->draw("∑¿∂R", 18, x + 90, y + 75, color);
-		font->draw(convert::formatString("%+d", equip1->AddDefence), 18, x + 126, y + 95, color_magic_level2);
-		font->draw("›pπ¶", 18, x + 90, y + 95, color);
-		font->draw(convert::formatString("%+d", equip1->AddSpeed), 18, x + 126, y + 55, color_magic_level2);
+        font->draw(convert::formatString("%s", equip1->Name), font_size, x + 90, y + 30, color_name);
+        font->draw("π•ìÙ", 18, x + 90, y + 55, color_ability1);
+        font->draw(convert::formatString("%+d", equip1->AddAttack), 18, x + 126, y + 75, select_color2(equip0->AddAttack));
+        font->draw("∑¿∂R", 18, x + 90, y + 75, color_ability1);
+        font->draw(convert::formatString("%+d", equip1->AddDefence), 18, x + 126, y + 95, select_color2(equip0->AddDefence));
+        font->draw("›pπ¶", 18, x + 90, y + 95, color_ability1);
+        font->draw(convert::formatString("%+d", equip1->AddSpeed), 18, x + 126, y + 55, select_color2(equip0->AddSpeed));
     }
 }
+
 
 void UIStatus::dealEvent(BP_Event& e)
 {
