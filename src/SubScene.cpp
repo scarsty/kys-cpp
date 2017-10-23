@@ -197,6 +197,7 @@ void SubScene::dealEvent(BP_Event& e)
 
     if (isExit(x, y) || isJumpSubScene(x, y))
     {
+        way_que_.clear();
         clearEvent(e);
         total_step_ = 0;
     }
