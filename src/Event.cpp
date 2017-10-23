@@ -927,7 +927,7 @@ void Event::openAllSubMap()
 
 bool Event::checkEventID(int event_index, int value)
 {
-    return subscene_->getMapInfo()->Event(event_index)->Event1 = value;
+    return subscene_->getMapInfo()->Event(event_index)->Event1 == value;
 }
 
 void Event::addFame(int value)
