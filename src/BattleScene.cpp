@@ -1302,7 +1302,7 @@ void BattleScene::calExpGot()
     {
         alive_teammate = friends_;
     }
-
+    if (alive_teammate.empty()) { return; }
     //还在场的人获得经验
     for (auto r : alive_teammate)
     {

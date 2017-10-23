@@ -67,7 +67,7 @@ std::vector<Role*> TeamMenu::getRoles()
     std::vector<Role*> roles;
     for (auto h : heads_)
     {
-        if (h->getResult() == 0)
+        if (h->getResult() == 0 && h->getRole())
         {
             roles.push_back(h->getRole());
         }

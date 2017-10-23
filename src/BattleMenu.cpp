@@ -245,7 +245,6 @@ int BattleActionMenu::autoSelect(Role* role)
             auto r2 = getNearestRole(role, enemies);
             calAIActionNearest(r2, aa);
             //±È¿˙Œ‰—ß
-
             for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
             {
                 int max_hurt = -1;
@@ -262,7 +261,7 @@ int BattleActionMenu::autoSelect(Role* role)
                         int total_hurt = 0;
                         if (battle_scene_->canSelect(ix, iy))
                         {
-                            battle_scene_->calEffectLayer(role->X(), role->Y(), ix, iy, magic, level_index);
+                            battle_scene_->calEffectLayer(aa.MoveX, aa.MoveY, ix, iy, magic, level_index);
                             total_hurt = battle_scene_->calMagiclHurtAllEnemies(role, magic, true);
                             if (total_hurt > max_hurt)
                             {

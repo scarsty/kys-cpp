@@ -56,6 +56,7 @@ void TitleScene::dealEvent(BP_Event& e)
     if (r == 0)
     {
         Save::getInstance()->load(0);
+        Script::getInstance()->runScript("../game/script/0.lua");
         auto random_role = new RandomRole();
         random_role->setRole(Save::getInstance()->getRole(0));
         if (random_role->runAtPosition(300, 0) == 0)

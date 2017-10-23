@@ -51,7 +51,7 @@ void Head::draw()
     BP_Color c, c_text;
     if (role_->MaxHP > 0)
     {
-        r1 = { x_ + 97, y_ + 32, 137 * role_->HP / role_->MaxHP, 9 };
+        r1 = { x_ + 96, y_ + 32, 138 * role_->HP / role_->MaxHP, 9 };
     }
     else
     {
@@ -63,7 +63,7 @@ void Head::draw()
 
     if (role_->MaxMP > 0)
     {
-        r1 = { x_ + 97, y_ + 48, 137 * role_->MP / role_->MaxMP, 9 };
+        r1 = { x_ + 96, y_ + 48, 138 * role_->MP / role_->MaxMP, 9 };
     }
     else
     {
@@ -84,7 +84,7 @@ void Head::draw()
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     font->draw(convert::formatString("%3d/%3d", role_->MP, role_->MaxMP), 16, x_ + 138, y_ + 44, c_text);
 
-    r1 = { x_ + 116, y_ + 65, 82 * role_->PhysicalPower / 100, 9 };
+    r1 = { x_ + 115, y_ + 65, 83 * role_->PhysicalPower / 100, 9 };
     c = { 128, 128, 255, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
     font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });

@@ -12,7 +12,7 @@ class Element
 private:
     static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个静态向量中
     static int prev_present_ticks_;
-    const int max_delay_ = 25;
+    const int max_delay_ = 40;
 protected:
     std::vector<Element*> childs_;
     bool visible_ = true;
