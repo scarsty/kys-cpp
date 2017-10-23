@@ -187,6 +187,7 @@ void SubScene::dealEvent(BP_Event& e)
 
     if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
+
         if (checkEvent1(x, y, towards_))
         {
             clearEvent(e);
@@ -206,7 +207,7 @@ void SubScene::dealEvent(BP_Event& e)
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         stopFindWay();
-        if (canWalk(p.x, p.y) && !isOutScreen(p.x, p.y))
+        if (canWalk(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
         {
             FindWay(x, y, p.x, p.y);
         }
