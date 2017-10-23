@@ -1,13 +1,14 @@
 #include "UISystem.h"
 #include "UISave.h"
 #include "Event.h"
+#include "Script.h"
 
 UISystem::UISystem()
 {
     title_ = new MenuText();
-    title_->setStrings({ "讀檔", "存檔", "離開" });
+    title_->setStrings({ "讀取進度", "保存進度", "我的代碼", "離開遊戲" });
     title_->setFontSize(24);
-    title_->arrange(100, 50, 64, 0);
+    title_->arrange(100, 50, 120, 0);
     addChild(title_);
 }
 
@@ -33,10 +34,14 @@ void UISystem::onPressedOK()
         auto ui_save = new UISave();
         ui_save->setMode(1);
         ui_save->setFontSize(22);
-        result_ = ui_save->runAtPosition(464, 100);
+        result_ = ui_save->runAtPosition(520, 100);
         delete ui_save;
     }
     else if (title_->getResult() == 2)
+    {
+        Script::getInstance()->runScript("../game/script/1.lua");
+    }
+    else if (title_->getResult() == title_->getChildCount()-1)
     {
         result_ = askExit();
     }
@@ -54,7 +59,7 @@ int UISystem::askExit()
         menu->setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
         menu->setFontSize(50);
         menu->arrange(0, 0, 0, 100);
-        int r = menu->runAtPosition(528, 100);
+        int r = menu->runAtPosition(760, 100);
         if (r == 0)
         {
             exitAll();

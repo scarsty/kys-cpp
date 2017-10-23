@@ -239,8 +239,8 @@ void Element::checkEventAndPresent(bool check_event)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
-    while (engine->pollEvent(e) > 0);  //实际是只要最后一个事件
-    //engine->pollEvent(e);
+    //while (engine->pollEvent(e) > 0);  //实际是只要最后一个事件
+    engine->pollEvent(e);
     if (check_event)
     {
         checkStateAndEvent(e);
