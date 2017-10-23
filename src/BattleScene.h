@@ -27,8 +27,11 @@ public:
     BattleInfo* info_;
     void setID(int id);
 
-    //地面层，建筑层，角色层，选择层（负值为不可选，0和正值为可选）
-    MapSquare* earth_layer_, *building_layer_, *role_layer_, *select_layer_, *effect_layer_;
+    //地面层，建筑层，选择层（负值为不可选，0和正值为可选）
+    MapSquareInt* earth_layer_, *building_layer_, *select_layer_, *effect_layer_;
+
+    //角色层
+    MapSquare<Role*>* role_layer_;
 
     int select_state_ = 0;  //0-其他，1-选移动目标，2-选行动目标
 

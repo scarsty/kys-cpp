@@ -494,7 +494,7 @@ void Event::leaveTeam(int role_id)
             {
                 save->Team[j] = save->Team[j + 1];
             }
-            save->Team[TEAMMATE_COUNT - 1] == -1;
+            save->Team[TEAMMATE_COUNT - 1] = -1;
             break;
         }
     }

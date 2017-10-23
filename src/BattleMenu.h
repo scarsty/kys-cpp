@@ -25,7 +25,7 @@ public:
 
     int autoSelect(Role* role);
 
-    MapSquare* distance_layer_;
+    MapSquareInt* distance_layer_;
 
     void calDistanceLayer(int x, int y, int max_step = 64);
 
@@ -53,7 +53,7 @@ public:
     void getFarthestToAll(Role* role, std::vector<Role*> roles, int& x, int& y);
     void getNearestPosition(int x0, int y0, int& x, int& y);
     Role* getNearestRole(Role* role, std::vector<Role*> roles);
-    void calAIActionNearest(Role* r2, AIAction& aa);
+    void calAIActionNearest(Role* r2, AIAction& aa, Role* r_temp = nullptr);
     int calNeedActionDistance(AIAction& aa);
 
 };

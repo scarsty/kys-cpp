@@ -18,11 +18,11 @@ MainScene::MainScene()
 
     if (!data_readed_)
     {
-        earth_layer_ = new MapSquare(COORD_COUNT);
-        surface_layer_ = new MapSquare(COORD_COUNT);
-        building_layer_ = new MapSquare(COORD_COUNT);
-        build_x_layer_ = new MapSquare(COORD_COUNT);
-        build_y_layer_ = new MapSquare(COORD_COUNT);
+        earth_layer_ = new MapSquareInt(COORD_COUNT);
+        surface_layer_ = new MapSquareInt(COORD_COUNT);
+        building_layer_ = new MapSquareInt(COORD_COUNT);
+        build_x_layer_ = new MapSquareInt(COORD_COUNT);
+        build_y_layer_ = new MapSquareInt(COORD_COUNT);
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
@@ -57,7 +57,7 @@ MainScene::~MainScene()
     Util::safe_delete({ &earth_layer_, &surface_layer_, &building_layer_, &build_x_layer_, &build_y_layer_, &entrance_layer_ });
 }
 
-void MainScene::divide2(MapSquare* m)
+void MainScene::divide2(MapSquareInt* m)
 {
     for (int i = 0; i < m->squareSize(); i++)
     {

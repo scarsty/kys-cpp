@@ -17,7 +17,7 @@ public:
     };
 
     Point position_;
-    float speed_;
+    int speed_;
 
     const int max_X = 17280;
     const int max_Y = 8640;

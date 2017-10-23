@@ -39,7 +39,7 @@ public:
 
     static BattleMap* getInstance() { return &battle_map_; }
     BattleInfo* getBattleInfo(int i) { if (i < 0 || i >= battle_infos_.size()) { return nullptr; } return &battle_infos_[i]; }
-    void copyLayerData(int battle_field_id, int layer, MapSquare* out);
+    void copyLayerData(int battle_field_id, int layer, MapSquareInt* out);
 
 };
 

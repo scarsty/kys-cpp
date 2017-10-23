@@ -83,14 +83,12 @@ void BattleCursor::dealEvent(BP_Event& e)
         battle_scene_->setSelectPosition(x, y);
         if (head_selected_->getVisible())
         {
-            int r = battle_scene_->role_layer_->data(x, y);
-            head_selected_->setRole(Save::getInstance()->getRole(r));
+            head_selected_->setRole(battle_scene_->role_layer_->data(x, y));
         }
         //uiµÄÉè¶¨
         if (ui_status_->getVisible())
         {
-            int r = battle_scene_->role_layer_->data(x, y);
-            ui_status_->setRole(Save::getInstance()->getRole(r));
+            ui_status_->setRole(battle_scene_->role_layer_->data(x, y));
         }
     }
     if (mode_ == Move)

@@ -15,7 +15,7 @@ public:
     ~BattleCursor();
 
     int* select_x_ = nullptr, *select_y_ = nullptr;
-    MapSquare* select_layer_ = nullptr, *effect_layer_ = nullptr;
+    MapSquareInt* select_layer_ = nullptr, *effect_layer_ = nullptr;
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;

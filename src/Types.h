@@ -5,6 +5,7 @@
 
 typedef int16_t MAP_INT;
 
+template <typename T>
 struct MapSquare
 {
     MapSquare() {}
@@ -14,21 +15,23 @@ struct MapSquare
     void resize(int x)
     {
         if (data_) { delete data_; }
-        data_ = new MAP_INT[x * x];
+        data_ = new T[x * x];
         line_ = x;
     }
 
-    MAP_INT& data(int x, int y) { return data_[x + line_ * y]; }
-    MAP_INT& data(int x) { return data_[x]; }
+    T& data(int x, int y) { return data_[x + line_ * y]; }
+    T& data(int x) { return data_[x]; }
     int size() { return line_; }
     int squareSize() { return line_ * line_; }
-    void setAll(int v) { for (int i = 0; i < squareSize(); i++) { data_[i] = v; } }
+    void setAll(T v) { for (int i = 0; i < squareSize(); i++) { data_[i] = v; } }
     void copyTo(MapSquare* ms) { for (int i = 0; i < squareSize(); i++) { ms->data_[i] = data_[i]; } }
     void copyFrom(MapSquare* ms) { for (int i = 0; i < squareSize(); i++) { data_[i] = ms->data_[i]; } }
 private:
-    MAP_INT* data_ = nullptr;
-    MAP_INT line_ = 0;
+    T* data_ = nullptr;
+    int line_ = 0;
 };
+
+typedef MapSquare<MAP_INT> MapSquareInt;
 
 //Ç°ÖÃÉùÃ÷
 struct Role;
@@ -145,9 +148,10 @@ private:
     int X_, Y_;
     int prevX_, prevY_;
 public:
-    MapSquare* position_layer_ = nullptr;
-    void setPoitionLayer(MapSquare* l) { position_layer_ = l; }
+    MapSquare<Role*>* position_layer_ = nullptr;
+    void setRolePoitionLayer(MapSquare<Role*>* l) { position_layer_ = l; }
     void setPosition(int x, int y);
+    void setPositionOnly(int x, int y) { X_ = x; Y_ = y; }
     void setPrevPosition(int x, int y) { prevX_ = x; prevY_ = y; }
     void resetPosition() { setPosition(prevX_, prevY_); }
     int X() { return X_; }

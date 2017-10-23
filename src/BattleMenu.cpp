@@ -8,7 +8,7 @@
 BattleActionMenu::BattleActionMenu()
 {
     setStrings({ "移動", "武學", "用毒", "解毒", "醫療", "暗器", "藥品", "等待", "狀態", "自動", "結束" });
-    distance_layer_ = new MapSquare();
+    distance_layer_ = new MapSquareInt();
     distance_layer_->resize(BATTLEMAP_COORD_COUNT);
 }
 
@@ -100,8 +100,11 @@ int BattleActionMenu::autoSelect(Role* role)
 
     if (role->AI_Action == -1)
     {
+        auto _role_temp = *role;
+        auto role_temp = &_role_temp;    //临时人物指针，用于一些含有距离衰减的计算
+
         //开始计算本轮的策略
-        role->AI_Action == getResultFromString("結束");
+        role->AI_Action = getResultFromString("結束");
         role->AI_MoveX = role->X();
         role->AI_MoveY = role->Y();
         role->AI_ActionX = role->X();
@@ -113,7 +116,6 @@ int BattleActionMenu::autoSelect(Role* role)
         battle_scene_->calSelectLayer(role, 0, battle_scene_->calMoveStep(role));
 
         //考虑吃药
-
         std::string action_text = "藥品";
         if (childs_text_[action_text]->getVisible() &&
             (role->HP < 0.2 * role->MaxHP || role->MP < 0.2 * role->MaxMP || role_->PhysicalPower < 0.2 * MAX_PHYSICAL_POWER))
@@ -217,7 +219,7 @@ int BattleActionMenu::autoSelect(Role* role)
         {
             auto r2 = getNearestRole(role, enemies);
             AIAction aa;
-            calAIActionNearest(r2, aa);
+            calAIActionNearest(r2, aa, role_temp);    //临时人物指针用来计算伤害，因为含有距离衰减，武学同
             int action_dis = battle_scene_->calActionStep(role->HiddenWeapon);
             if (action_dis >= calNeedActionDistance(aa))
             {
@@ -225,7 +227,7 @@ int BattleActionMenu::autoSelect(Role* role)
                 auto items = BattleItemMenu::getAvaliableItems(role, 3);
                 for (auto item : items)
                 {
-                    aa.point = battle_scene_->calHiddenWeaponHurt(role, r2, item);
+                    aa.point = battle_scene_->calHiddenWeaponHurt(role_temp, r2, item);
                     if (aa.point > r2->HP)
                     {
                         aa.point = r2->HP * 1.25 - 10;    //暗器分值略低
@@ -243,7 +245,7 @@ int BattleActionMenu::autoSelect(Role* role)
             AIAction aa;
             aa.Action = getResultFromString(action_text);
             auto r2 = getNearestRole(role, enemies);
-            calAIActionNearest(r2, aa);
+            calAIActionNearest(r2, aa, role_temp);
             //遍历武学
             for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
             {
@@ -262,7 +264,7 @@ int BattleActionMenu::autoSelect(Role* role)
                         if (battle_scene_->canSelect(ix, iy))
                         {
                             battle_scene_->calEffectLayer(aa.MoveX, aa.MoveY, ix, iy, magic, level_index);
-                            total_hurt = battle_scene_->calMagiclHurtAllEnemies(role, magic, true);
+                            total_hurt = battle_scene_->calMagiclHurtAllEnemies(role_temp, magic, true);
                             if (total_hurt > max_hurt)
                             {
                                 max_hurt = total_hurt;
@@ -278,6 +280,7 @@ int BattleActionMenu::autoSelect(Role* role)
                     }
                 }
                 aa.point = max_hurt;
+                if (role->AttackTwice) { aa.point *= 2; }
                 ai_action.push_back(aa);
             }
         }
@@ -426,11 +429,15 @@ Role* BattleActionMenu::getNearestRole(Role* role, std::vector<Role*> roles)
 }
 
 //需事先计算好可以移动的范围
-void BattleActionMenu::calAIActionNearest(Role* r2, AIAction& aa)
+void BattleActionMenu::calAIActionNearest(Role* r2, AIAction& aa, Role* r_temp)
 {
     getNearestPosition(r2->X(), r2->Y(), aa.MoveX, aa.MoveY);
     aa.ActionX = r2->X();
     aa.ActionY = r2->Y();
+    if (r_temp)
+    {
+        r_temp->setPositionOnly(aa.MoveX, aa.MoveY);
+    }
 }
 
 int BattleActionMenu::calNeedActionDistance(AIAction& aa)

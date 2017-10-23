@@ -24,12 +24,14 @@ BattleScene::BattleScene()
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
 
-    earth_layer_ = new MapSquare(COORD_COUNT);
-    building_layer_ = new MapSquare(COORD_COUNT);
-    role_layer_ = new MapSquare(COORD_COUNT);
-    select_layer_ = new MapSquare(COORD_COUNT);
-    effect_layer_ = new MapSquare(COORD_COUNT);
+    earth_layer_ = new MapSquareInt(COORD_COUNT);
+    building_layer_ = new MapSquareInt(COORD_COUNT);
+    select_layer_ = new MapSquareInt(COORD_COUNT);
+    effect_layer_ = new MapSquareInt(COORD_COUNT);
     battle_menu_ = new BattleActionMenu();
+
+    role_layer_ = new MapSquare<Role*>(COORD_COUNT);
+
     battle_menu_->setBattleScene(this);
     battle_menu_->setPosition(160, 200);
     head_self_ = new Head();
@@ -48,7 +50,8 @@ BattleScene::~BattleScene()
 {
     delete battle_menu_;
     delete battle_cursor_;
-    Util::safe_delete({ &earth_layer_, &building_layer_, &role_layer_, &select_layer_, &effect_layer_ });
+    Util::safe_delete({ &earth_layer_, &building_layer_, &select_layer_, &effect_layer_ });
+    delete role_layer_;
 }
 
 void BattleScene::setID(int id)
@@ -59,7 +62,7 @@ void BattleScene::setID(int id)
     BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, earth_layer_);
     BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, building_layer_);
 
-    role_layer_->setAll(-1);
+    role_layer_->setAll(nullptr);
     select_layer_->setAll(-1);
     effect_layer_->setAll(-1);
 }
@@ -112,7 +115,6 @@ void BattleScene::draw()
                         color = { 255, 255, 255, 255 };
                     }
                 }
-
                 if (num > 0)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
@@ -137,10 +139,9 @@ void BattleScene::draw()
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
-                num = role_layer_->data(ix, iy);
-                if (num >= 0)
+                auto r = role_layer_->data(ix, iy);
+                if (r)
                 {
-                    auto r = Save::getInstance()->getRole(num);
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
@@ -254,7 +255,7 @@ void BattleScene::onExit()
     //清空全部角色的位置层
     for (auto r : Save::getInstance()->getRoles())
     {
-        r->setPoitionLayer(nullptr);
+        r->setRolePoitionLayer(nullptr);
     }
 }
 
@@ -264,7 +265,7 @@ void BattleScene::readBattleInfo()
     //设置全部角色的位置层，避免今后出错
     for (auto r : Save::getInstance()->getRoles())
     {
-        r->setPoitionLayer(role_layer_);
+        r->setRolePoitionLayer(role_layer_);
         r->Team = 2;  //先全部设置成不存在的阵营
         r->Auto = 1;
     }
@@ -691,7 +692,7 @@ bool BattleScene::isWater(int x, int y)
 
 bool BattleScene::isRole(int x, int y)
 {
-    return role_layer_->data(x, y) >= 0;
+    return role_layer_->data(x, y);
 }
 
 bool BattleScene::isOutScreen(int x, int y)
@@ -713,8 +714,7 @@ bool BattleScene::isNearEnemy(int team, int x, int y)
 
 Role* BattleScene::getSelectedRole()
 {
-    int r = role_layer_->data(select_x_, select_y_);
-    return Save::getInstance()->getRole(r);
+    return role_layer_->data(select_x_, select_y_);
 }
 
 void BattleScene::action(Role* r)
@@ -1079,7 +1079,7 @@ void BattleScene::showMagicName(std::string name)
     magic_name->setText(name);
     magic_name->setPosition(450, 150);
     magic_name->setFontSize(20);
-    magic_name->setStayFrame(20);
+    magic_name->setStayFrame(40);
     magic_name->run();
     delete magic_name;
 }
@@ -1340,8 +1340,8 @@ void BattleScene::calExpGot()
         }
 
         //避免越界
-        if (r->Exp < r0.Exp) { r->Exp == MAX_EXP; }
-        if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem == MAX_EXP; }
+        if (r->Exp < r0.Exp) { r->Exp = MAX_EXP; }
+        if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem = MAX_EXP; }
 
         //升级
         int change = 0;

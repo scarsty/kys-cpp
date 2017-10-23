@@ -10,11 +10,11 @@ void Role::setPosition(int x, int y)
     }
     if (X_ >= 0 && Y_ >= 0)
     {
-        position_layer_->data(X_, Y_) = -1;
+        position_layer_->data(X_, Y_) = nullptr;
     }
     if (x >= 0 && y >= 0)
     {
-        position_layer_->data(x, y) = ID;
+        position_layer_->data(x, y) = this;
     }
     X_ = x;
     Y_ = y;
