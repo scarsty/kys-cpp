@@ -364,7 +364,7 @@ bool MainScene::canWalk(int x, int y)
     //{
     //    return true;
     //}  这里不需要加，实际上入口都是无法走到的
-    if (isBuilding(x, y) || isOutLine(x, y)/*|| checkIsWater(x, y)*/)
+    if (isOutLine(x, y) || isBuilding(x, y)/*|| checkIsWater(x, y)*/)
     {
         return false;
     }

@@ -314,6 +314,7 @@ void Event::addItem(int item_id, int count)
     text_box_->setText(convert::formatString("获得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
+    text_box_->setTexture("item", -1);
 }
 
 //修改事件定义
@@ -356,6 +357,7 @@ bool Event::tryBattle(int battle_id, int get_exp)
     auto battle = new BattleScene(battle_id);
     battle->setHaveFailExp(get_exp);
     int result = battle->run();
+    //int result = 0;    //测试用
     delete battle;
     talk_box_up_->setContent("");
     talk_box_down_->setContent("");

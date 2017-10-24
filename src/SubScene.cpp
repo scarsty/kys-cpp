@@ -155,6 +155,12 @@ void SubScene::dealEvent(BP_Event& e)
     int x = man_x_, y = man_y_;
 
     checkEvent3(x, y);
+    if (isExit(x, y) || isJumpSubScene(x, y))
+    {
+        way_que_.clear();
+        clearEvent(e);
+        total_step_ = 0;
+    }
     //键盘走路部分，检测4个方向键
     int pressed = 0;
     for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
@@ -193,13 +199,6 @@ void SubScene::dealEvent(BP_Event& e)
             clearEvent(e);
             step_ = 0;
         }
-    }
-
-    if (isExit(x, y) || isJumpSubScene(x, y))
-    {
-        way_que_.clear();
-        clearEvent(e);
-        total_step_ = 0;
     }
 
     //鼠标寻路
@@ -370,10 +369,10 @@ bool SubScene::canWalk(int x, int y)
     {
         ret = false;
     }
-    if (isCanPassEvent(x, y))
-    {
-        ret = true;
-    }
+    //if (isCanPassEvent(x, y))
+    //{
+    //    ret = true;
+    //}
     return ret;
 }
 
