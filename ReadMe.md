@@ -43,12 +43,20 @@ run过程会返回一个函数值，可以利用进行一些判断，例如菜�
 
 ## 授权
 
-代码以zlib授权发布。
+Created by SB500@www.dawuxia.net.
 
-附加两项补充：
+Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, SB250 and ICE.
 
-如果以此代码为基础，制作非金庸群侠传相关游戏，可以任意使用。
+The source codes are distributed under zlib license, with two additional clauses.
 
-如果以此代码为基础，制作任何金庸群侠传相关游戏，则严禁任何试图盈利的行为！！除此之外，也可以任意使用。
+Full right of the codes is granted if they are used in non-KYS related games.
+
+If the codes are used in KYS related games, the game itself shall not involve any sort of profit making aspect.
+
+A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome screen.
+
+
+
+
 
 

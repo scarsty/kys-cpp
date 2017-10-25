@@ -1,0 +1,9 @@
+Lua is free software distributed under the terms of the MIT license reproduced here. Lua may be used for any purpose, including commercial purposes, at absolutely no cost. No paperwork, no royalties, no GNU-like "copyleft" restrictions, either. Just download it and use it.
+
+Lua is certified Open Source software.  [osi certified] Its license is simple and liberal and is compatible with GPL. Lua is not in the public domain and PUC-Rio keeps its copyright.
+
+The spirit of the Lua license is that you are free to use Lua for any purpose at no cost without having to ask us. The only requirement is that if you do use Lua, then you should give us credit by including the copyright notice somewhere in your product or its documentation. A nice, but optional, way to give us further credit is to include a Lua logo and a link to our site in a web page for your product.
+
+The Lua language is entirely designed, implemented, and maintained by a team at PUC-Rio in Brazil. The implementation is not derived from licensed software.
+
+Before Lua 5.0, Lua used its own license, which was very close to the zlib license and others, but not quite the same. Check the source distribution for the exact license text for each version before Lua 5.0. Nevertheless, if you wish to use those old versions, you may hereby assume that they have all been re-licensed under the MIT license as described above.

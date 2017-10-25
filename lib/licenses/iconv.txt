@@ -1,0 +1,4 @@
+Copyright
+
+The libiconv and libcharset libraries and their header files are under LGPL.
+The iconv program is under GPL.
