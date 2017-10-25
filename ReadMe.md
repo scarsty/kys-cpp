@@ -45,7 +45,7 @@ run过程会返回一个函数值，可以利用进行一些判断，例如菜�
 
 Created by SB500@www.dawuxia.net.
 
-Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, SB250 and ICE.
+Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SB250 and ICE.
 
 The source codes are distributed under zlib license, with two additional clauses.
 
