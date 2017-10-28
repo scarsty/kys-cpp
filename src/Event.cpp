@@ -243,8 +243,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
         }
     }
     Element::removeFromRoot(talk_box_);
-    talk_box_up_->setContent("");
-    talk_box_down_->setContent("");
+    clearTalkBox();
     return true;
     //if (loop)
     //{ return 0; }
@@ -359,8 +358,8 @@ bool Event::tryBattle(int battle_id, int get_exp)
     int result = battle->run();
     //int result = 0;    //≤‚ ‘”√
     delete battle;
-    talk_box_up_->setContent("");
-    talk_box_down_->setContent("");
+    clearTalkBox();
+
     return result == 0;
 }
 
@@ -429,6 +428,7 @@ void Event::lightScence()
     {
         subscene_->lightScene();
     }
+    clearTalkBox();
 }
 
 void Event::darkScence()
@@ -1073,6 +1073,12 @@ void Event::arrangeBag()
         save->Items[k].count = i.second;
         k++;
     }
+}
+
+void Event::clearTalkBox()
+{
+    talk_box_up_->setContent("");
+    talk_box_down_->setContent("");
 }
 
 //50¿©’π÷∏¡Ó

@@ -129,7 +129,7 @@ public:
     void playWave(int wave_id);
 
     void arrangeBag();
-
+    void clearTalkBox();
     void blank() {}
 
 private:
