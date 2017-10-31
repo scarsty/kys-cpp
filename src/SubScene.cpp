@@ -245,20 +245,21 @@ void SubScene::dealEvent(BP_Event& e)
         if (isExit(x, y)) { way_que_.clear(); }
     }
     rest_time_++;
-    if (rest_time_ > 50)
-    {
-        step_ = 0;
-    }
 }
 
 void SubScene::backRun()
 {
-    for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
+    //停止走动一段时间恢复站立姿势
+    if (rest_time_ > 50)
     {
-        auto e = submap_info_->Event(i);
-        if (e->BeginPic < e->EndPic)
+        step_ = 0;
+    }
+    if (current_frame_ % 2 == 0)
+    {
+        for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
         {
-            if (current_frame_ % 2 == 0)
+            auto e = submap_info_->Event(i);
+            if (e->BeginPic < e->EndPic)
             {
                 e->CurrentPic++;
                 if (e->CurrentPic > e->EndPic)
