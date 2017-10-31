@@ -18,8 +18,6 @@ public:
 
     void divide2(MapSquareInt* m);
 
-    int rest_time_ = 0;                     //停止操作的时间
-
     int MAN_PIC_0 = 2501;                   //初始主角图偏移量
     int MAN_PIC_COUNT = 7;                  //单向主角图张数
     int REST_PIC_0 = 2529;                  //主角休息图偏移量

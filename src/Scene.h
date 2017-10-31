@@ -37,6 +37,8 @@ public:
     int step_ = 0;
     int man_pic_ = 0;
 
+    int rest_time_ = 0;                     //停止操作的时间
+
     int COORD_COUNT = 0;
 
     void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }

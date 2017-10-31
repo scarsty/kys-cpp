@@ -222,9 +222,7 @@ void MainScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
 
-    rest_time_++;
-
-    //鼠标寻路，未完成
+    //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
         setMouseEventPoint(-1, -1);
@@ -292,6 +290,7 @@ void MainScene::dealEvent(BP_Event& e)
             }
         }
     }
+    rest_time_++;    //只要出现走动，rest_time就会清零
 }
 
 void MainScene::onEntrance()

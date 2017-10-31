@@ -244,6 +244,11 @@ void SubScene::dealEvent(BP_Event& e)
         }
         if (isExit(x, y)) { way_que_.clear(); }
     }
+    rest_time_++;
+    if (rest_time_ > 50)
+    {
+        step_ = 0;
+    }
 }
 
 void SubScene::backRun()
@@ -251,14 +256,16 @@ void SubScene::backRun()
     for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
     {
         auto e = submap_info_->Event(i);
-        //if (e->PicDelay > 0)
+        if (e->BeginPic < e->EndPic)
         {
-            e->CurrentPic++;
-            //e->CurrentPic += e->PicDelay;
-        }
-        if (e->CurrentPic > e->EndPic)
-        {
-            e->CurrentPic = e->BeginPic;
+            if (current_frame_ % 2 == 0)
+            {
+                e->CurrentPic++;
+                if (e->CurrentPic > e->EndPic)
+                {
+                    e->CurrentPic = e->BeginPic;
+                }
+            }
         }
     }
 }
@@ -268,6 +275,16 @@ void SubScene::onEntrance()
 {
     calViewRegion();
     towards_ = MainScene::getIntance()->towards_;
+
+    for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
+    {
+        auto e = submap_info_->Event(i);
+        if (e->BeginPic < e->EndPic)
+        {
+            e->CurrentPic = e->BeginPic + e->PicDelay * 2 % (e->EndPic - e->BeginPic);
+        }
+    }
+
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
 
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
@@ -328,6 +345,7 @@ void SubScene::tryWalk(int x, int y)
     {
         step_ = 1;
     }
+    rest_time_ = 0;
 }
 
 bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
