@@ -73,7 +73,7 @@ libass <https://github.com/libass/libass>
 
 fribidi <https://www.fribidi.org/>
 
-除BASS和BASSMINI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
+除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
 编译minizip时，需要手动添加minishared.h和minishared.c，并在其中的函数声明中添加导出至dll的标记。
 
