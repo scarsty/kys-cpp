@@ -136,6 +136,9 @@
     <ClCompile Include="src\Zip.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\Color.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -275,6 +278,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Zip.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Color.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
