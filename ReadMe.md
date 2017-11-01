@@ -6,6 +6,8 @@
 
 同时相当于提供了一个使用该引擎制作DOS游戏《金庸群侠传》移植版的范例。
 
+可以使用Visual Studio编译。
+
 ## 架构的简单说明
 
 ### 公用类
@@ -40,6 +42,27 @@ run过程会返回一个函数值，可以利用进行一些判断，例如菜�
 部分节点使用了单例，这些节点请留给程序运行结束自动销毁。
 
 请不要让子节点出现递归包含，这样会迅速消耗掉所有资源。
+
+## 使用到的其他开发库
+
+SDL <https://www.libsdl.org/>
+SDL_image <https://www.libsdl.org/projects/SDL_image/>
+libpng <http://www.libpng.org/pub/png/libpng.html>
+SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
+freetype <https://www.freetype.org/>
+BASS, BASSMIDI <http://www.un4seen.com/>
+FFmpeg <https://www.ffmpeg.org/>
+libiconv <https://www.gnu.org/software/libiconv/>
+lua <https://www.lua.org/>
+minizip <https://github.com/nmoinvaz/minizip/tree/1.2>
+zlib <https://zlib.net/>
+tinypot <https://github.com/scarsty/tinypot>
+libass <https://github.com/libass/libass>
+fribidi <https://www.fribidi.org/>
+
+除BASS和BASSMINI，其他均为开源工程。
+
+编译minizip时，需要手动添加minishared.h和minishared.c，并在其中的函数声明中添加导出至dll的标记。
 
 ## 授权
 
