@@ -30,20 +30,17 @@ void Talk::draw()
     }
 }
 
-void Talk::dealEvent(BP_Event& e)
+void Talk::onPressedOK()
 {
-    if (e.type == BP_KEYUP)
+    if (current_line_ + height_ >= contents_.size())
     {
-        if (current_line_ + height_ >= contents_.size())
-        {
-            setExit(true);
-        }
-        else
-        {
-            current_line_ += height_;
-        }
-        e.type = BP_FIRSTEVENT;
+        setExit(true);
     }
+    else
+    {
+        current_line_ += height_;
+    }
+    //e.type = BP_FIRSTEVENT;
 }
 
 void Talk::onEntrance()

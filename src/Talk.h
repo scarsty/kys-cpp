@@ -11,7 +11,8 @@ public:
     virtual ~Talk() {}
 
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    //virtual void dealEvent(BP_Event& e) override;
+    virtual void onPressedOK() override;
 private:
     std::string content_;
     int head_id_ = -1;
@@ -26,7 +27,6 @@ public:
     void setHeadStyle(int s) { head_style_ = s; }
     virtual void onEntrance() override;
 
-    DEFAULT_OK_EXIT;
     DEFAULT_CANCEL_EXIT;
 };
 
