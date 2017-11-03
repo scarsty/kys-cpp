@@ -84,6 +84,7 @@ bool Event::loadEventData()
 //返回值为是否成功执行事件
 bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
+    bool ret = true;
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
     subscene_ = dynamic_cast<SubScene*>(subscene);
     submap_id_ = -1;
@@ -113,11 +114,6 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     printf("\n");
     e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
 
-    if (use_script_)
-    {
-        auto script = convert::formatString("../game/script/oldevent/oldevent_%d.lua", event_id);
-        return Script::getInstance()->runScript(script) == 0;
-    }
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
 #define PRINT_E(n) do { for (int __i=1;__i<=n;__i++) { printf("%d, ", e[i+__i]); } printf("\b\b  \n"); } while (0)
 #define VOID_0(function) { PRINT_E(0); function(); i+=1; }
@@ -146,107 +142,114 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 #define RUN_INSTRUCT(function, INSTRUCT_TYPE) do { printf("%s: ", #function); INSTRUCT_TYPE(function); } while(0)
 #define REGISTER_INSTRUCT(code, function, INSTRUCT_TYPE) { case (code): RUN_INSTRUCT(function, INSTRUCT_TYPE); break; }
 
-
-    while (i < e.size() && loop_)
+    if (use_script_)
     {
-        //printf("instruct %d\n", e[i]);
-        switch (e[i])
+        auto script = convert::formatString("../game/script/oldevent/oldevent_%d.lua", event_id);
+        ret = Script::getInstance()->runScript(script) == 0;
+    }
+    else
+    {
+        while (i < e.size() && loop_)
         {
-            REGISTER_INSTRUCT(1, oldTalk, VOID_3);
-            REGISTER_INSTRUCT(2, addItem, VOID_2);
-            REGISTER_INSTRUCT(3, modifyEvent, VOID_13);
-            REGISTER_INSTRUCT(4, isUsingItem, BOOL_1);
-            REGISTER_INSTRUCT(5, askBattle, BOOL_0);
-            REGISTER_INSTRUCT(6, tryBattle, BOOL_2_2);    //6这个顺序不同
-            REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_1);
-            REGISTER_INSTRUCT(9, askJoin, BOOL_0);
-
-            REGISTER_INSTRUCT(10, join, VOID_1);
-            REGISTER_INSTRUCT(11, askRest, BOOL_0);
-            REGISTER_INSTRUCT(12, rest, VOID_0);
-            REGISTER_INSTRUCT(13, lightScence, VOID_0);
-            REGISTER_INSTRUCT(14, darkScence, VOID_0);
-            REGISTER_INSTRUCT(15, dead, VOID_0);
-            REGISTER_INSTRUCT(16, inTeam, BOOL_1);
-            REGISTER_INSTRUCT(17, setSubMapLayerData, VOID_5);
-            REGISTER_INSTRUCT(18, haveItemBool, BOOL_1);
-            REGISTER_INSTRUCT(19, oldSetScencePosition, VOID_2);
-
-            REGISTER_INSTRUCT(20, teamIsFull, BOOL_0);
-            REGISTER_INSTRUCT(21, leaveTeam, VOID_1);
-            REGISTER_INSTRUCT(22, zeroAllMP, VOID_0);
-            REGISTER_INSTRUCT(23, setRoleUsePoison, VOID_2);
-            REGISTER_INSTRUCT(25, subMapViewFromTo, VOID_4);
-            REGISTER_INSTRUCT(26, add3EventNum, VOID_5);
-            REGISTER_INSTRUCT(27, playAnimation, VOID_3);
-            REGISTER_INSTRUCT(28, checkRoleMorality, BOOL_3);
-            REGISTER_INSTRUCT(29, checkRoleAttack, BOOL_3);
-
-            REGISTER_INSTRUCT(30, walkFromTo, VOID_4);
-            REGISTER_INSTRUCT(31, checkEnoughMoney, BOOL_1);
-            REGISTER_INSTRUCT(32, addItemWithoutHint, VOID_2);
-            REGISTER_INSTRUCT(33, oldLearnMagic, VOID_3);
-            REGISTER_INSTRUCT(34, addIQ, VOID_2);
-            REGISTER_INSTRUCT(35, setRoleMagic, VOID_4);
-            REGISTER_INSTRUCT(36, checkRoleSexual, BOOL_1);
-            REGISTER_INSTRUCT(37, addMorality, VOID_1);
-            REGISTER_INSTRUCT(38, changeSubMapPic, VOID_4);
-            REGISTER_INSTRUCT(39, openSubMap, VOID_1);
-
-            REGISTER_INSTRUCT(40, setTowards, VOID_1);
-            REGISTER_INSTRUCT(41, roleAddItem, VOID_3);
-            REGISTER_INSTRUCT(42, checkFemaleInTeam, BOOL_0);
-            REGISTER_INSTRUCT(43, haveItemBool, BOOL_1);
-            REGISTER_INSTRUCT(44, play2Amination, VOID_6);
-            REGISTER_INSTRUCT(45, addSpeed, VOID_2);
-            REGISTER_INSTRUCT(46, addMaxMP, VOID_2);
-            REGISTER_INSTRUCT(47, addAttack, VOID_2);
-            REGISTER_INSTRUCT(48, addMaxHP, VOID_2);
-            REGISTER_INSTRUCT(49, setMPType, VOID_2);
-
-            REGISTER_INSTRUCT(51, askSoftStar, VOID_0);
-            REGISTER_INSTRUCT(52, showMorality, VOID_0);
-            REGISTER_INSTRUCT(53, showFame, VOID_0);
-            REGISTER_INSTRUCT(54, openAllSubMap, VOID_0);
-            REGISTER_INSTRUCT(55, checkEventID, BOOL_2);
-            REGISTER_INSTRUCT(56, addFame, VOID_1);
-            REGISTER_INSTRUCT(57, breakStoneGate, VOID_0);
-            REGISTER_INSTRUCT(58, fightForTop, VOID_0);
-            REGISTER_INSTRUCT(59, allLeave, VOID_0);
-
-            REGISTER_INSTRUCT(60, checkSubMapPic, BOOL_3);
-            REGISTER_INSTRUCT(61, check14BooksPlaced, BOOL_0);
-            REGISTER_INSTRUCT(62, backHome, VOID_0);
-            REGISTER_INSTRUCT(63, setSexual, VOID_2);
-            REGISTER_INSTRUCT(64, shop, VOID_0);
-            REGISTER_INSTRUCT(66, playMusic, VOID_1);
-            REGISTER_INSTRUCT(67, playWave, VOID_1);
-
-        case 50:
-            if (e[i + 1] > 128)
+            //printf("instruct %d\n", e[i]);
+            switch (e[i])
             {
-                RUN_INSTRUCT(checkHave5Item, BOOL_5);
-            }
-            else
-            {
-                instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], &e[i + 8]);
-                i += 8;
-            }
-            break;
+                REGISTER_INSTRUCT(1, oldTalk, VOID_3);
+                REGISTER_INSTRUCT(2, addItem, VOID_2);
+                REGISTER_INSTRUCT(3, modifyEvent, VOID_13);
+                REGISTER_INSTRUCT(4, isUsingItem, BOOL_1);
+                REGISTER_INSTRUCT(5, askBattle, BOOL_0);
+                REGISTER_INSTRUCT(6, tryBattle, BOOL_2_2);    //6这个顺序不同
+                REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_1);
+                REGISTER_INSTRUCT(9, askJoin, BOOL_0);
 
-        case 7:
-        case -1:
-            i += 1;
-            loop_ = false;
-            break;
-        default:
-            //不存在的指令，移动一格
-            i += 1;
+                REGISTER_INSTRUCT(10, join, VOID_1);
+                REGISTER_INSTRUCT(11, askRest, BOOL_0);
+                REGISTER_INSTRUCT(12, rest, VOID_0);
+                REGISTER_INSTRUCT(13, lightScence, VOID_0);
+                REGISTER_INSTRUCT(14, darkScence, VOID_0);
+                REGISTER_INSTRUCT(15, dead, VOID_0);
+                REGISTER_INSTRUCT(16, inTeam, BOOL_1);
+                REGISTER_INSTRUCT(17, setSubMapLayerData, VOID_5);
+                REGISTER_INSTRUCT(18, haveItemBool, BOOL_1);
+                REGISTER_INSTRUCT(19, oldSetScencePosition, VOID_2);
+
+                REGISTER_INSTRUCT(20, teamIsFull, BOOL_0);
+                REGISTER_INSTRUCT(21, leaveTeam, VOID_1);
+                REGISTER_INSTRUCT(22, zeroAllMP, VOID_0);
+                REGISTER_INSTRUCT(23, setRoleUsePoison, VOID_2);
+                REGISTER_INSTRUCT(25, subMapViewFromTo, VOID_4);
+                REGISTER_INSTRUCT(26, add3EventNum, VOID_5);
+                REGISTER_INSTRUCT(27, playAnimation, VOID_3);
+                REGISTER_INSTRUCT(28, checkRoleMorality, BOOL_3);
+                REGISTER_INSTRUCT(29, checkRoleAttack, BOOL_3);
+
+                REGISTER_INSTRUCT(30, walkFromTo, VOID_4);
+                REGISTER_INSTRUCT(31, checkEnoughMoney, BOOL_1);
+                REGISTER_INSTRUCT(32, addItemWithoutHint, VOID_2);
+                REGISTER_INSTRUCT(33, oldLearnMagic, VOID_3);
+                REGISTER_INSTRUCT(34, addIQ, VOID_2);
+                REGISTER_INSTRUCT(35, setRoleMagic, VOID_4);
+                REGISTER_INSTRUCT(36, checkRoleSexual, BOOL_1);
+                REGISTER_INSTRUCT(37, addMorality, VOID_1);
+                REGISTER_INSTRUCT(38, changeSubMapPic, VOID_4);
+                REGISTER_INSTRUCT(39, openSubMap, VOID_1);
+
+                REGISTER_INSTRUCT(40, setTowards, VOID_1);
+                REGISTER_INSTRUCT(41, roleAddItem, VOID_3);
+                REGISTER_INSTRUCT(42, checkFemaleInTeam, BOOL_0);
+                REGISTER_INSTRUCT(43, haveItemBool, BOOL_1);
+                REGISTER_INSTRUCT(44, play2Amination, VOID_6);
+                REGISTER_INSTRUCT(45, addSpeed, VOID_2);
+                REGISTER_INSTRUCT(46, addMaxMP, VOID_2);
+                REGISTER_INSTRUCT(47, addAttack, VOID_2);
+                REGISTER_INSTRUCT(48, addMaxHP, VOID_2);
+                REGISTER_INSTRUCT(49, setMPType, VOID_2);
+
+                REGISTER_INSTRUCT(51, askSoftStar, VOID_0);
+                REGISTER_INSTRUCT(52, showMorality, VOID_0);
+                REGISTER_INSTRUCT(53, showFame, VOID_0);
+                REGISTER_INSTRUCT(54, openAllSubMap, VOID_0);
+                REGISTER_INSTRUCT(55, checkEventID, BOOL_2);
+                REGISTER_INSTRUCT(56, addFame, VOID_1);
+                REGISTER_INSTRUCT(57, breakStoneGate, VOID_0);
+                REGISTER_INSTRUCT(58, fightForTop, VOID_0);
+                REGISTER_INSTRUCT(59, allLeave, VOID_0);
+
+                REGISTER_INSTRUCT(60, checkSubMapPic, BOOL_3);
+                REGISTER_INSTRUCT(61, check14BooksPlaced, BOOL_0);
+                REGISTER_INSTRUCT(62, backHome, VOID_0);
+                REGISTER_INSTRUCT(63, setSexual, VOID_2);
+                REGISTER_INSTRUCT(64, shop, VOID_0);
+                REGISTER_INSTRUCT(66, playMusic, VOID_1);
+                REGISTER_INSTRUCT(67, playWave, VOID_1);
+
+            case 50:
+                if (e[i + 1] > 128)
+                {
+                    RUN_INSTRUCT(checkHave5Item, BOOL_5);
+                }
+                else
+                {
+                    instruct_50e(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], &e[i + 8]);
+                    i += 8;
+                }
+                break;
+
+            case 7:
+            case -1:
+                i += 1;
+                loop_ = false;
+                break;
+            default:
+                //不存在的指令，移动一格
+                i += 1;
+            }
         }
     }
     Element::removeFromRoot(talk_box_);
     clearTalkBox();
-    return true;
+    return ret;
     //if (loop)
     //{ return 0; }
     //else
