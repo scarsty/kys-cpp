@@ -51,6 +51,7 @@ private:
     Item* item_;
     //Save* save_;
     bool loop_;
+    int use_script_ = 0;
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);    
@@ -58,6 +59,7 @@ public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
     void forceExit() { loop_ = false; }
+    void setUseScript(int u) { use_script_ = u; }
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}

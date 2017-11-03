@@ -213,7 +213,6 @@
     <ClInclude Include="src\BattleMenu.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="resource.h" />
     <ClInclude Include="src\Option.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -283,6 +282,7 @@
     <ClInclude Include="src\Color.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">

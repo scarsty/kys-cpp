@@ -78,6 +78,8 @@ void Audio::playMusic(int num)
 {
     if (num < 0 || num >= music_.size() || music_[num] == 0) { return; }
     StopMusic();
+    BASS_ChannelSetAttribute(music_[num], BASS_ATTRIB_VOL, volume_ / 100.0);
+    BASS_Apply3D();
     BASS_ChannelPlay(music_[num], true);
     current_music_ = music_[num];
 }
@@ -86,6 +88,8 @@ void Audio::playASound(int num)
 {
     if (num < 0 || num >= asound_.size() || asound_[num] == 0) { return; }
     //BASS_ChannelStop(current_sound_);
+auto ch = BASS_SampleGetChannel(asound_[num], false);
+    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_ / 100.0);
     BASS_ChannelPlay(asound_[num], true);
     current_sound_ = asound_[num];
 }
@@ -93,7 +97,8 @@ void Audio::playASound(int num)
 void Audio::playESound(int num)
 {
     if (num < 0 || num>=esound_.size() || esound_[num] == 0) { return; }
-    //BASS_ChannelStop(current_sound_);
+    auto ch = BASS_SampleGetChannel(esound_[num], false);
+    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_ / 100.0);
     BASS_ChannelPlay(esound_[num], true);
     current_sound_ = esound_[num];
 }

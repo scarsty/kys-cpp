@@ -113,9 +113,11 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     printf("\n");
     e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
 
-    //auto script = convert::formatString("../game/script/oldevent/oldevent_%d.lua", event_id);
-    //Script::getInstance()->runScript(script);
-
+    if (use_script_)
+    {
+        auto script = convert::formatString("../game/script/oldevent/oldevent_%d.lua", event_id);
+        return Script::getInstance()->runScript(script) == 0;
+    }
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
 #define PRINT_E(n) do { for (int __i=1;__i<=n;__i++) { printf("%d, ", e[i+__i]); } printf("\b\b  \n"); } while (0)
 #define VOID_0(function) { PRINT_E(0); function(); i+=1; }

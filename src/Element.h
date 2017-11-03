@@ -12,7 +12,7 @@ class Element
 private:
     static std::vector<Element*> root_;   //所有需要绘制的内容都存储在这个静态向量中
     static int prev_present_ticks_;
-    const int max_delay_ = 25;
+    static int refresh_interval_;
 protected:
     std::vector<Element*> childs_;
     bool visible_ = true;
@@ -38,6 +38,8 @@ public:
 
     Element() {}
     virtual ~Element();
+
+    static void setRefreshInterval(int i) { refresh_interval_ = i; }
 
     static void drawAll();
 

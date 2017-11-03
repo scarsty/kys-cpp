@@ -16,6 +16,8 @@ private:
     HSTREAM current_music_;
     HSTREAM current_sound_;
 
+    int volume_ = 64;
+
 public:
     static Audio* getInstance() { return &audio_; }
 
@@ -26,5 +28,7 @@ public:
     void PauseMusic();
     void ContinueMusic();
     void StopMusic();
+
+    void setVolume(int v) { volume_ = v; }
 };
 

@@ -2,6 +2,8 @@
 #include "TitleScene.h"
 #include "Engine.h"
 #include "Random.h"
+#include "Option.h"
+#include "Audio.h"
 
 Application::Application()
 {
@@ -13,8 +15,8 @@ Application::~Application()
 
 int Application::run()
 {
-    RandomClassical::srand();
-    auto engine = Engine::getInstance();
+    config();
+       auto engine = Engine::getInstance();
     engine->setStartWindowSize(1024, 640);
     engine->init();                       //引擎初始化之后才能创建纹理
 
@@ -25,5 +27,16 @@ int Application::run()
     delete s;
 
     return 0;
+}
+
+void Application::config()
+{
+    RandomClassical::srand();
+    auto option = new Option();
+    option->loadIniFile("../game/config/kysmod.ini");
+    Element::setRefreshInterval(option->getInt("refresh_interval", 25));
+    Audio::getInstance()->setVolume(option->getInt("volume", 50));
+    Event::getInstance()->setUseScript(option->getInt("use_script", 0));
+    delete option;
 }
 

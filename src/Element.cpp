@@ -3,6 +3,7 @@
 
 std::vector<Element*> Element::root_;
 int Element::prev_present_ticks_ = 0;
+int Element::refresh_interval_ = 25;
 
 Element::~Element()
 {
@@ -256,8 +257,8 @@ void Element::checkEventAndPresent(bool check_event)
     }
     clearEvent(e);
     int t1 = engine->getTicks();
-    int t = max_delay_ - (t1 - prev_present_ticks_);
-    if (t > max_delay_) { t = max_delay_; }
+    int t = refresh_interval_ - (t1 - prev_present_ticks_);
+    if (t > refresh_interval_) { t = refresh_interval_; }
     if (t <= 0) { t = 1; }
     engine->delay(t);
     engine->renderPresent();
