@@ -6,20 +6,22 @@
 #include "../src/others/libconvert.h"
 #include "TypesABC.h"
 
-void trans_bin_list()
+void trans_bin_list(std::string in, std::string out)
 {
     std::vector<int16_t> leave_list;
-    File::readFileToVector("../game/binlist/levelup.bin", leave_list);
+    File::readFileToVector(in, leave_list);
 
+    std::string s;
     for (auto a : leave_list)
     {
-        printf("%d, ", a);
+        convert::formatAppendString(s, "%d, ", a);
     }
+    convert::writeStringToFile(s, out);
 }
 
 void trans_fight_frame()
 {
-    for (int i = 0; i <= 109; i++)
+    for (int i = 0; i <= 300; i++)
     {
         std::string path = convert::formatString("../game/resource/fight/fight%03d", i);
         std::vector<int16_t> frame;
@@ -125,8 +127,11 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
 
 int main()
 {
-    //trans_bin_list();
-    //trans_fight_frame();
+    trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
+    trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
+    trans_fight_frame();
+
+    
     expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
 
     for (int i = 1; i <= 20; i++)

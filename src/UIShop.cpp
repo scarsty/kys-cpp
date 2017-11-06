@@ -3,6 +3,7 @@
 #include "others/libconvert.h"
 #include "Save.h"
 #include "Event.h"
+#include "Option.h"
 
 UIShop::UIShop()
 {
@@ -105,7 +106,7 @@ void UIShop::onPressedOK()
                 Event::getInstance()->addItemWithoutHint(shop_->ItemID[i], plan_buy_[i]);
                 shop_->Total[i] -= plan_buy_[i];
             }
-            Event::getInstance()->addItemWithoutHint(MONEY_ITEM_ID, -calNeedMoney());
+            Event::getInstance()->addItemWithoutHint(Option::getInstance()->MoneyItemID, -calNeedMoney());
             exitWithResult(0);
         }
     }

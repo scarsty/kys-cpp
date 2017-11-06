@@ -56,44 +56,8 @@ enum
     ROLE_MAGIC_COUNT = 10,
     ROLE_TAKING_ITEM_COUNT = 4,
 
-    MAX_LEVEL = 30,
-    MAX_MP = 999,
-    MAX_HP = 999,
-    MAX_PHYSICAL_POWER = 100,
-
-    MAX_POISON = 100,
-
-    MAX_ATTACK = 100,
-    MAX_DEFENCE = 100,
-    MAX_SPEED = 100,
-
-    MAX_MEDCINE = 100,
-    MAX_USE_POISON = 100,
-    MAX_DETOXIFICATION = 100,
-    MAX_ANTI_POISON = 100,
-
-    MAX_FIST = 100,
-    MAX_SWORD = 100,
-    MAX_KNIFE = 100,
-    MAX_UNUSUAL = 100,
-    MAX_HIDDEN_WEAPON = 100,
-
-    MAX_KNOWLEDGE = 100,
-    MAX_MORALITY = 100,
-    MAX_ATTACK_WITH_POISON = 100,
-    MAX_FAME = 999,
-    MAX_IQ = 100,
-
     MAX_MAGIC_LEVEL = 999,
     MAX_MAGIC_LEVEL_INDEX = 9,
-
-    MAX_EXP = 99999,
-};
-
-enum
-{
-    MONEY_ITEM_ID = 174,
-    COMPASS_ITEM_ID = 182,
 };
 
 enum
@@ -203,7 +167,7 @@ struct ItemSave
 //实际的物品数据
 struct Item : ItemSave
 {
-    bool isCompass() { return ID == COMPASS_ITEM_ID; }
+    bool isCompass();
 };
 
 //存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）

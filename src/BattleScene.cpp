@@ -18,6 +18,7 @@
 #include "Event.h"
 #include "TeamMenu.h"
 #include "Audio.h"
+#include "Option.h"
 
 BattleScene::BattleScene()
 {
@@ -752,7 +753,7 @@ void BattleScene::actMove(Role* r)
     battle_cursor_->setMode(BattleCursor::Move);
     if (battle_cursor_->run() == 0)
     {
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, MAX_PHYSICAL_POWER);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, Option::getInstance()->MaxPhysicalPower);
         r->setPrevPosition(r->X(), r->Y());
         moveAnimation(r, select_x_, select_y_);
         r->Moved = 1;
@@ -786,7 +787,7 @@ void BattleScene::actUseMagic(Role* r)
             {
                 //播放攻击画面，计算伤害
                 showMagicName(magic->Name);
-                r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
+                r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Option::getInstance()->MaxPhysicalPower);
                 r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
                 useMagicAnimation(r, magic);
                 calMagiclHurtAllEnemies(r, magic);
@@ -822,7 +823,7 @@ void BattleScene::actUsePoison(Role* r)
             r2->ShowString = convert::formatString("%+d", v);
             r2->ShowColor = { 20, 255, 20, 255 };
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, MAX_PHYSICAL_POWER);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Option::getInstance()->MaxPhysicalPower);
         actionAnimation(r, 0, 30);
         showNumberAnimation();
         r->Acted = 1;
@@ -845,7 +846,7 @@ void BattleScene::actDetoxification(Role* r)
             r2->ShowString = convert::formatString("-%d", -v);
             r2->ShowColor = { 20, 200, 255, 255 };
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Option::getInstance()->MaxPhysicalPower);
         actionAnimation(r, 0, 36);
         showNumberAnimation();
         r->Acted = 1;
@@ -868,7 +869,7 @@ void BattleScene::actMedcine(Role* r)
             r2->ShowString = convert::formatString("-%d", abs(v));
             r2->ShowColor = { 255, 255, 200, 255 };
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Option::getInstance()->MaxPhysicalPower);
         actionAnimation(r, 0, 0);
         showNumberAnimation();
         r->Acted = 1;
@@ -901,7 +902,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
                 r2->ShowColor = { 255, 20, 20, 255 };
             }
             showMagicName(item->Name);
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, MAX_PHYSICAL_POWER);
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Option::getInstance()->MaxPhysicalPower);
             actionAnimation(r, 0, item->HiddenWeaponEffectID);
             if (r2) { r2->HP = GameUtil::limit(r2->HP - v, 0, r2->MaxHP); }
             showNumberAnimation();
@@ -980,7 +981,7 @@ void BattleScene::actRest(Role* r)
 {
     if (!r->Moved)
     {
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, MAX_PHYSICAL_POWER);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, Option::getInstance()->MaxPhysicalPower);
         r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
         r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
     }
@@ -1250,7 +1251,7 @@ void BattleScene::poisonEffect(Role* r)
     {
         //抗毒高者会自动解毒
         r->Poison -= r->AntiPoison;
-        GameUtil::limit2(r->Poison, 0, MAX_POISON);
+        GameUtil::limit2(r->Poison, 0, Option::getInstance()->MaxPosion);
         r->HP -= r->Poison / 3;
         //最低扣到1点
         if (r->HP < 1) { r->HP = 1; }
@@ -1322,7 +1323,7 @@ void BattleScene::calExpGot()
 
         auto item = Save::getInstance()->getItem(r->PracticeItem);
 
-        if (r->Level >= MAX_LEVEL)
+        if (r->Level >= Option::getInstance()->MaxLevel)
         {
             //已满级，全加到物品经验
             r->ExpForItem += r->ExpGot;
@@ -1340,8 +1341,8 @@ void BattleScene::calExpGot()
         }
 
         //避免越界
-        if (r->Exp < r0.Exp) { r->Exp = MAX_EXP; }
-        if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem = MAX_EXP; }
+        if (r->Exp < r0.Exp) { r->Exp = Option::getInstance()->MaxExp; }
+        if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem = Option::getInstance()->MaxExp; }
 
         //升级
         int change = 0;

@@ -20,6 +20,7 @@ void Element::drawAll()
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
         root_[i]->backRun();
+        root_[i]->current_frame_++;
         if (root_[i]->full_window_)
         {
             begin_base = i;
@@ -180,7 +181,6 @@ void Element::forcePassChild()
 
 void Element::checkFrame()
 {
-    current_frame_++;
     if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
     {
         exit_ = true;

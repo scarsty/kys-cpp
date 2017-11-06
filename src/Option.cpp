@@ -1,5 +1,7 @@
 #include "Option.h"
 
+Option Option::option_;
+
 void Option::loadIniFile(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);
@@ -70,4 +72,41 @@ void Option::setOptions(std::string section, std::vector<std::string> name_value
     }
 }
 
+void Option::loadSaveValues()
+{
+#define GET_VALUE_INT(v) v = this->getInt(#v, v)
+
+    GET_VALUE_INT(MaxLevel);
+    GET_VALUE_INT(MaxHP);
+    GET_VALUE_INT(MaxMP);
+    GET_VALUE_INT(MaxPhysicalPower);
+
+    GET_VALUE_INT(MaxPosion);
+
+    GET_VALUE_INT(MaxAttack);
+    GET_VALUE_INT(MaxDefence);
+    GET_VALUE_INT(MaxSpeed);
+
+    GET_VALUE_INT(MaxMedcine);
+    GET_VALUE_INT(MaxUsePoison);
+    GET_VALUE_INT(MaxDetoxification);
+    GET_VALUE_INT(MaxAntiPoison);
+
+    GET_VALUE_INT(MaxFist);
+    GET_VALUE_INT(MaxSword);
+    GET_VALUE_INT(MaxKnife);
+    GET_VALUE_INT(MaxUnusual);
+    GET_VALUE_INT(MaxHiddenWeapon);
+
+    GET_VALUE_INT(MaxKnowledge);
+    GET_VALUE_INT(MaxMorality);
+    GET_VALUE_INT(MaxAttackWithPoison);
+    GET_VALUE_INT(MaxFame);
+    GET_VALUE_INT(MaxIQ);
+
+    GET_VALUE_INT(MaxExp);
+
+    GET_VALUE_INT(MoneyItemID);
+    GET_VALUE_INT(CompassItemID);
+}
 

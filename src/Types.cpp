@@ -1,5 +1,6 @@
 #include "Types.h"
 #include "GameUtil.h"
+#include "Option.h"
 
 //设置人物坐标，若输入值为负，相当于从人物层清除
 void Role::setPosition(int x, int y)
@@ -80,40 +81,41 @@ int Role::getMagicOfRoleIndex(Magic* magic)
 //限制人物的属性
 void Role::limit()
 {
-    GameUtil::limit2(Level, 0, MAX_LEVEL);
+    auto option = Option::getInstance();
+    GameUtil::limit2(Level, 0, option->MaxLevel);
 
-    GameUtil::limit2(Exp, 0, MAX_EXP);
-    GameUtil::limit2(ExpForItem, 0, MAX_EXP);
-    GameUtil::limit2(ExpForMakeItem, 0, MAX_EXP);
+    GameUtil::limit2(Exp, 0, option->MaxExp);
+    GameUtil::limit2(ExpForItem, 0, option->MaxExp);
+    GameUtil::limit2(ExpForMakeItem, 0, option->MaxExp);
 
-    GameUtil::limit2(Poison, 0, MAX_POISON);
+    GameUtil::limit2(Poison, 0, option->MaxPosion);
 
-    GameUtil::limit2(MaxHP, 0, MAX_HP);
-    GameUtil::limit2(MaxMP, 0, MAX_MP);
+    GameUtil::limit2(MaxHP, 0, option->MaxHP);
+    GameUtil::limit2(MaxMP, 0, option->MaxMP);
     GameUtil::limit2(HP, 0, MaxHP);
     GameUtil::limit2(MP, 0, MaxMP);
-    GameUtil::limit2(PhysicalPower, 0, MAX_PHYSICAL_POWER);
+    GameUtil::limit2(PhysicalPower, 0, option->MaxPhysicalPower);
 
-    GameUtil::limit2(Attack, 0, MAX_ATTACK);
-    GameUtil::limit2(Defence, 0, MAX_DEFENCE);
-    GameUtil::limit2(Speed, 0, MAX_SPEED);
+    GameUtil::limit2(Attack, 0, option->MaxAttack);
+    GameUtil::limit2(Defence, 0, option->MaxDefence);
+    GameUtil::limit2(Speed, 0, option->MaxSpeed);
 
-    GameUtil::limit2(Medcine, 0, MAX_MEDCINE);
-    GameUtil::limit2(UsePoison, 0, MAX_USE_POISON);
-    GameUtil::limit2(Detoxification, 0, MAX_DETOXIFICATION);
-    GameUtil::limit2(AntiPoison, 0, MAX_ANTI_POISON);
+    GameUtil::limit2(Medcine, 0, option->MaxMedcine);
+    GameUtil::limit2(UsePoison, 0, option->MaxUsePoison);
+    GameUtil::limit2(Detoxification, 0, option->MaxDetoxification);
+    GameUtil::limit2(AntiPoison, 0, option->MaxAntiPoison);
 
-    GameUtil::limit2(Fist, 0, MAX_FIST);
-    GameUtil::limit2(Sword, 0, MAX_SWORD);
-    GameUtil::limit2(Knife, 0, MAX_KNIFE);
-    GameUtil::limit2(Unusual, 0, MAX_UNUSUAL);
-    GameUtil::limit2(HiddenWeapon, 0, MAX_HIDDEN_WEAPON);
+    GameUtil::limit2(Fist, 0, option->MaxFist);
+    GameUtil::limit2(Sword, 0, option->MaxSword);
+    GameUtil::limit2(Knife, 0, option->MaxKnife);
+    GameUtil::limit2(Unusual, 0, option->MaxUnusual);
+    GameUtil::limit2(HiddenWeapon, 0, option->MaxHiddenWeapon);
 
-    GameUtil::limit2(Knowledge, 0, MAX_KNOWLEDGE);
-    GameUtil::limit2(Morality, 0, MAX_MORALITY);
-    GameUtil::limit2(AttackWithPoison, 0, MAX_ATTACK_WITH_POISON);
-    GameUtil::limit2(Fame, 0, MAX_FAME);
-    GameUtil::limit2(IQ, 0, MAX_IQ);
+    GameUtil::limit2(Knowledge, 0, option->MaxKnowledge);
+    GameUtil::limit2(Morality, 0, option->MaxMorality);
+    GameUtil::limit2(AttackWithPoison, 0, option->MaxAttackWithPoison);
+    GameUtil::limit2(Fame, 0, option->MaxFame);
+    GameUtil::limit2(IQ, 0, option->MaxIQ);
 
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
@@ -182,4 +184,9 @@ int Magic::calMaxLevelIndexByMP(int mp, int max_level)
     max_level = GameUtil::limit(max_level, 0, MAX_MAGIC_LEVEL_INDEX);
     int level = GameUtil::limit(mp / (NeedMP * 2) * 2 - 1, 0, max_level);
     return level;
+}
+
+bool Item::isCompass()
+{
+    return ID == Option::getInstance()->CompassItemID;
 }

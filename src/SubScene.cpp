@@ -269,6 +269,7 @@ void SubScene::backRun()
             }
         }
     }
+    printf("sub scene %d,", current_frame_);
 }
 
 //一大块地面的纹理，未启用

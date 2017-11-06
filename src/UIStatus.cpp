@@ -6,6 +6,7 @@
 #include "TeamMenu.h"
 #include "ShowRoleDifference.h"
 #include "Event.h"
+#include "Option.h"
 
 UIStatus::UIStatus()
 {
@@ -142,18 +143,18 @@ void UIStatus::draw()
     y = y_ + 200;
 
     font->draw("¹¥“ô", font_size, x, y, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, MAX_ATTACK));
+    font->draw(convert::formatString("%5d", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, Option::getInstance()->MaxAttack));
     font->draw("·À¶R", font_size, x + 200, y, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, MAX_DEFENCE));
+    font->draw(convert::formatString("%5d", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, Option::getInstance()->MaxDefence));
     font->draw("Ýp¹¦", font_size, x + 400, y, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, MAX_SPEED));
+    font->draw(convert::formatString("%5d", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Option::getInstance()->MaxSpeed));
 
     font->draw("át¯Ÿ", font_size, x, y + 25, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Medcine), font_size, x + 44, y + 25, select_color1(role_->Medcine, MAX_MEDCINE));
+    font->draw(convert::formatString("%5d", role_->Medcine), font_size, x + 44, y + 25, select_color1(role_->Medcine, Option::getInstance()->MaxMedcine));
     font->draw("½â¶¾", font_size, x + 200, y + 25, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, MAX_DETOXIFICATION));
+    font->draw(convert::formatString("%5d", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Option::getInstance()->MaxDetoxification));
     font->draw("ÓÃ¶¾", font_size, x + 400, y + 25, color_ability1);
-    font->draw(convert::formatString("%5d", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, MAX_USE_POISON));
+    font->draw(convert::formatString("%5d", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, Option::getInstance()->MaxUsePoison));
 
 
     x = x_ + 20;
@@ -161,15 +162,15 @@ void UIStatus::draw()
     font->draw("¼¼ÄÜ", 25, x - 10, y, color_name);
 
     font->draw("È­ÕÆ", font_size, x, y + 30, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, MAX_FIST));
+    font->draw(convert::formatString("%5d", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, Option::getInstance()->MaxFist));
     font->draw("Óù„¦", font_size, x, y + 55, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, MAX_SWORD));
+    font->draw(convert::formatString("%5d", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, Option::getInstance()->MaxSword));
     font->draw("Ë£µ¶", font_size, x, y + 80, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, MAX_KNIFE));
+    font->draw(convert::formatString("%5d", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, Option::getInstance()->MaxKnife));
     font->draw("ÌØÊâ", font_size, x, y + 105, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, MAX_UNUSUAL));
+    font->draw(convert::formatString("%5d", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, Option::getInstance()->MaxUnusual));
     font->draw("°µÆ÷", font_size, x, y + 130, color_ability1);
-    font->draw(convert::formatString("%5d", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, MAX_HIDDEN_WEAPON));
+    font->draw(convert::formatString("%5d", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, Option::getInstance()->MaxHiddenWeapon));
 
     x = x_ + 220;
     y = y_ + 270;

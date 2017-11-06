@@ -88,7 +88,7 @@ public:
     int getItemCountInBag(Item* item);
 
     int getItemCountInBag(int item_id);
-    int getMoneyCountInBag() { return getItemCountInBag(MONEY_ITEM_ID); }
+    int getMoneyCountInBag();
 
     void makeMaps();
 

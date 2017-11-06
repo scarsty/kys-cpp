@@ -16,7 +16,7 @@ Application::~Application()
 int Application::run()
 {
     config();
-       auto engine = Engine::getInstance();
+    auto engine = Engine::getInstance();
     engine->setStartWindowSize(1024, 640);
     engine->init();                       //引擎初始化之后才能创建纹理
 
@@ -32,11 +32,11 @@ int Application::run()
 void Application::config()
 {
     RandomClassical::srand();
-    auto option = new Option();
+    auto option = Option::getInstance();
     option->loadIniFile("../game/config/kysmod.ini");
+    option->loadSaveValues();
     Element::setRefreshInterval(option->getInt("refresh_interval", 25));
     Audio::getInstance()->setVolume(option->getInt("volume", 50));
     Event::getInstance()->setUseScript(option->getInt("use_script", 0));
-    delete option;
 }
 

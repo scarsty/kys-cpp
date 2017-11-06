@@ -2,6 +2,7 @@
 #include "others/libconvert.h"
 #include "Save.h"
 #include "Random.h"
+#include "Option.h"
 
 GameUtil GameUtil::game_util_;
 
@@ -9,9 +10,9 @@ GameUtil::GameUtil()
 {
     auto str = convert::readStringFromFile("../game/list/levelup.txt");
     convert::findNumbers(str, &level_up_list_);
-    if (level_up_list_.size() < MAX_LEVEL)
+    if (level_up_list_.size() < Option::getInstance()->MaxLevel)
     {
-        level_up_list_.resize(MAX_LEVEL, 60000);
+        level_up_list_.resize(Option::getInstance()->MaxLevel, 60000);
     }
 }
 
@@ -144,7 +145,7 @@ void GameUtil::levelUp(Role* r)
     r->Exp -= game_util_.level_up_list_[r->Level - 1];
     r->Level++;
 
-    r->PhysicalPower = MAX_PHYSICAL_POWER;
+    r->PhysicalPower = Option::getInstance()->MaxPhysicalPower;
     r->MaxHP += r->IncLife * 3 + RandomClassical::rand(6);
     r->HP = r->MaxHP;
     r->MaxMP += 20 + RandomClassical::rand(6);
@@ -181,7 +182,7 @@ void GameUtil::levelUp(Role* r)
 //是否可以升级
 bool GameUtil::canLevelUp(Role* r)
 {
-    if (r->Level >= 1 && r->Level <= MAX_LEVEL)
+    if (r->Level >= 1 && r->Level <= Option::getInstance()->MaxLevel)
     {
         if (r->Exp >= getLevelUpExp(r->Level))
         {
@@ -193,7 +194,7 @@ bool GameUtil::canLevelUp(Role* r)
 
 int GameUtil::getLevelUpExp(int level)
 {
-    if (level<=0 || level >= MAX_LEVEL) { return INT_MAX; }
+    if (level<=0 || level >= Option::getInstance()->MaxLevel) { return INT_MAX; }
     return game_util_.level_up_list_[level - 1];
 }
 
@@ -288,7 +289,7 @@ int GameUtil::detoxification(Role* r1, Role* r2)
     if (r1 == nullptr || r2 == nullptr) { return 0; }
     auto temp = r2->Poison;
     r2->Poison -= r1->Detoxification / 3;
-    GameUtil::limit2(r2->Poison, 0, MAX_POISON);
+    GameUtil::limit2(r2->Poison, 0, Option::getInstance()->MaxPosion);
     return r2->Poison - temp;
 }
 
@@ -298,6 +299,6 @@ int GameUtil::usePoison(Role* r1, Role* r2)
     if (r1 == nullptr || r2 == nullptr) { return 0; }
     auto temp = r2->Poison;
     r2->Poison += r1->UsePoison / 3;
-    GameUtil::limit2(r2->Poison, 0, MAX_POISON);
+    GameUtil::limit2(r2->Poison, 0, Option::getInstance()->MaxPosion);
     return r2->Poison - temp;
 }
