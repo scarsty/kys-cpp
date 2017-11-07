@@ -1,5 +1,9 @@
 # kys-cpp
 
+https://github.com/scarsty/kys-cpp
+
+https://gitee.com/scarsty/kys-cpp
+
 这是一个以SDL2为基础实现的2D游戏引擎。
 
 基本按照当代游戏引擎的思路实现，但是没有使用回调，因为回调会增加初学者的使用难度。
