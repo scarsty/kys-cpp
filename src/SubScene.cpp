@@ -28,7 +28,7 @@ void SubScene::setID(int id)
     submap_id_ = id;
     submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
     if (submap_info_ == nullptr) { setExit(true); }
-    //submap_info_->ID = submap_id_;   //这句是修正存档中可能存在的错误
+    //submap_info_->ID = submap_id_;    //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
     printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
@@ -269,7 +269,7 @@ void SubScene::backRun()
             }
         }
     }
-    printf("sub scene %d,", current_frame_);
+    //printf("sub scene %d,", current_frame_);
 }
 
 //一大块地面的纹理，未启用

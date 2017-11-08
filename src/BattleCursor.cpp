@@ -103,7 +103,6 @@ void BattleCursor::dealEvent(BP_Event& e)
 void BattleCursor::dealMoveEvent(BP_Event& e)
 {
 
-
 }
 
 void BattleCursor::dealActionEvent(BP_Event& e)
@@ -114,7 +113,7 @@ void BattleCursor::dealActionEvent(BP_Event& e)
 void BattleCursor::onEntrance()
 {
     int w, h;
-    Engine::getInstance()->getPresentSize(w, h);
+    Engine::getInstance()->getWindowSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
 }

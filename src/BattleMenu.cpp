@@ -448,6 +448,8 @@ int BattleActionMenu::calNeedActionDistance(AIAction& aa)
 
 void BattleMagicMenu::onEntrance()
 {
+    result_ = -1;
+    magic_ = nullptr;
     setVisible(true);
     std::vector<std::string> magic_names;
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
