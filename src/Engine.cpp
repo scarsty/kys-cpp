@@ -527,7 +527,7 @@ void Engine::setColor(BP_Texture* tex, BP_Color c, uint8_t alpha)
 
 void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
 {
-    if (w < 0 || h < 0) { getPresentSize(w, h); }
+    if (w < 0 || h < 0) { getWindowSize(w, h); }
     BP_Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
