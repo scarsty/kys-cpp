@@ -1,14 +1,16 @@
 # kys-cpp
 
-https://github.com/scarsty/kys-cpp
+github：https://github.com/scarsty/kys-cpp
 
-https://gitee.com/scarsty/kys-cpp
+码云（不定期同步）：https://gitee.com/scarsty/kys-cpp
 
 这是一个以SDL2为基础实现的2D游戏引擎。
 
 基本按照当代游戏引擎的思路实现，但是没有使用回调，因为回调会增加初学者的使用难度。
 
 同时相当于提供了一个使用该引擎制作DOS游戏《金庸群侠传》移植版的范例。
+
+资源文件：<http://pan.baidu.com/s/1sl2X9wD>
 
 可以使用Visual Studio编译。
 
