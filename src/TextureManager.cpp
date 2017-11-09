@@ -50,7 +50,7 @@ void TextureManager::renderTexture(const std::string& path, int num, int x, int 
     renderTexture(tex, x, y, c, alpha, zoom_x, zoom_y);
 }
 
-Texture* TextureManager::loadTexture(const std::string& path, int num)
+TextureManager::Texture* TextureManager::loadTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
     auto& v = texture_manager_.map_[path];
@@ -143,7 +143,7 @@ void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
         }
         else
         {
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < SUB_TEXTURE_COUNT; i++)
             {
                 t->tex[i] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
                 if (!t->tex[i])

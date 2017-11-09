@@ -17,7 +17,6 @@ TitleScene::TitleScene()
 {
     full_window_ = 1;
     menu_ = new Menu();
-    menu_->setTexture(TextureManager::getInstance()->loadTexture("title", 17));
     menu_->setPosition(400, 250);
     auto b = new Button("title", 3, 23, 23);
     menu_->addChild(b, 20, 0);
