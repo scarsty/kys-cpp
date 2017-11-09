@@ -767,7 +767,7 @@ void BattleScene::actUseMagic(Role* r)
     {
         magic_menu->runAsRole(r);
         auto magic = magic_menu->getMagic();
-        if (magic == nullptr) { break; }
+        if (magic == nullptr) { break; }    //可能是退出游戏，或者是没有选武功
         r->ActTeam = 1;
         //level_index表示从0到9，而level从0到999
         int level_index = r->getMagicLevelIndex(magic->ID);

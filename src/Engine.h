@@ -82,7 +82,7 @@ public:
 
     void createAssistTexture(int w, int h);
     void setPresentPosition();  //设置贴图的位置
-    void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
+    //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }
     void getMainTextureSize(int& w, int& h) { SDL_QueryTexture(tex2_, nullptr, nullptr, &w, &h); }

@@ -43,7 +43,7 @@ Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
 {
     auto p = getPositionOnRender(x, y, view_x, view_y);
     int w, h;
-    Engine::getInstance()->getPresentSize(w, h);
+    Engine::getInstance()->getWindowSize(w, h);
     p.x = p.x * w / render_center_x_ / 2;
     p.y = p.y * h / render_center_y_ / 2;
     return p;
@@ -106,7 +106,7 @@ int Scene::getTowardsByKey(BP_Keycode key)
 int Scene::getTowardsByMouse(int mouse_x, int mouse_y)
 {
     int w, h;
-    Engine::getInstance()->getPresentSize(w, h);
+    Engine::getInstance()->getWindowSize(w, h);
     mouse_x = mouse_x * render_center_x_ * 2 / w;
     mouse_y = mouse_y * render_center_y_ * 2 / h;
     if (mouse_x < render_center_x_ && mouse_y < render_center_y_)
