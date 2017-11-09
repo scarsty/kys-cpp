@@ -139,7 +139,7 @@ void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
         t->tex[0] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + ".png");
         if (t->tex[0])
         {
-
+            t->count = 1;
         }
         else
         {
