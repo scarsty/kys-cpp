@@ -244,11 +244,11 @@ void SubScene::dealEvent(BP_Event& e)
         }
         if (isExit(x, y)) { way_que_.clear(); }
     }
-    rest_time_++;
 }
 
 void SubScene::backRun()
 {
+    rest_time_++;
     //停止走动一段时间恢复站立姿势
     if (rest_time_ > 50)
     {

@@ -181,6 +181,11 @@ void BattleScene::draw()
 
 void BattleScene::dealEvent(BP_Event& e)
 {
+    if (battle_roles_.empty())
+    {
+        exitWithResult(0);
+    }
+
     //选择位于人物数组中的第一个人
     auto r = battle_roles_[0];
 
@@ -300,7 +305,7 @@ void BattleScene::readBattleInfo()
     //判断是不是有自动战斗人物
     if (info_->AutoTeamMate[0] >= 0)
     {
-        for (int i = 1; i < TEAMMATE_COUNT; i++)
+        for (int i = 0; i < TEAMMATE_COUNT; i++)
         {
             auto r = Save::getInstance()->getRole(info_->AutoTeamMate[i]);
             if (r) { friends_.push_back(r); }
