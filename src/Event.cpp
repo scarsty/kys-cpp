@@ -420,6 +420,7 @@ void Event::rest()
         auto role = Save::getInstance()->getRole(r);
         if (role)
         {
+            role->PhysicalPower = Option::getInstance()->MaxPhysicalPower;
             role->HP = role->MaxHP;
             role->MP = role->MaxMP;
             role->Hurt = 0;

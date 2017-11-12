@@ -94,7 +94,8 @@ void ShowRoleDifference::draw()
 
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
-        if (role2_->MagicID[i] > 0 && role1_->getRoleShowLearnedMagicLevel(i) != role2_->getRoleShowLearnedMagicLevel(i))
+        if (role2_->MagicID[i] > 0 
+            && (role1_->MagicID[i] <= 0 || role1_->getRoleShowLearnedMagicLevel(i) != role2_->getRoleShowLearnedMagicLevel(i)))
         {
             str = convert::formatString("ÎäŒW%sÄ¿Ç°ÐÞžé%d",
                 Save::getInstance()->getMagic(role2_->MagicID[i])->Name, role2_->getRoleShowLearnedMagicLevel(i));

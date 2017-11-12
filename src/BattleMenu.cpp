@@ -460,11 +460,24 @@ void BattleMagicMenu::onEntrance()
         auto m = Save::getInstance()->getRoleLearnedMagic(role_, i);
         if (m)
         {
-            magic_names.push_back(convert::formatString("%s%7d", m->Name, role_->getRoleShowLearnedMagicLevel(i)));
+            magic_names.push_back(convert::formatString("%-12s%4d  ", m->Name, role_->getRoleShowLearnedMagicLevel(i)));
+        }
+        else
+        {
+            magic_names.push_back("");
         }
     }
     setStrings(magic_names);
     setPosition(160, 200);
+    
+    //如果宽度为0的项隐藏
+    for (auto child : childs_)
+    {
+        int w, h;
+        child->getSize(w, h);
+        if (w <= 0) { child->setVisible(false); }
+    }
+    arrange(0, 0, 0, 30);
 }
 
 void BattleMagicMenu::dealEvent(BP_Event& e)

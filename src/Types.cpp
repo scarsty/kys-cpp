@@ -148,7 +148,8 @@ int Role::learnMagic(int magic_id)
                 return -2;   //满级
             }
         }
-        if (MagicID[i] <= 0)
+        //记录最靠前的空位
+        if (MagicID[i] <= 0 && index == -1)
         {
             index = i;
         }

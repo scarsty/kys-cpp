@@ -1145,8 +1145,11 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             {
                 r2->ShowString = convert::formatString("-%d", hurt);
                 r2->ShowColor = { 255, 20, 20, 255 };
+                int prevHP = r2->HP;
                 r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
-                r->ExpGot += hurt / 10;
+                int hurt1 = prevHP - r2->HP;
+                r->ExpGot += hurt1;
+                if (r2->HP <= 0) { r->ExpGot += hurt1 / 2; }
             }
             else
             {

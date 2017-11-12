@@ -230,7 +230,7 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
             return INT_MAX;
         }
         //初次修炼和从1级升到2级的是一样的
-        if (MAX_MAGIC_LEVEL_INDEX > 0)
+        if (magic_level_index > 0)
         {
             multiple *= magic_level_index;
         }
