@@ -129,19 +129,20 @@ int BattleActionMenu::autoSelect(Role* role)
                 auto items = BattleItemMenu::getAvaliableItems(role, 2);
                 for (auto item : items)
                 {
-                    //分数计算
+                    //分数计算，后面的差是尽量吃刚刚好的药
                     aa.point = 0;
                     if (item->AddHP > 0)
                     {
-                        aa.point += std::min(item->AddHP, role->MaxHP - role->HP) - item->AddHP / 10;  //后面的差是尽量吃刚刚好的药
+                        aa.point += std::min(item->AddHP, role->MaxHP - role->HP) - item->AddHP / 10;
                     }
                     if (item->AddMP > 0)
                     {
-                        aa.point += std::min(item->AddMP, role->MaxMP - role->MP) / 2 - item->AddMP / 10;  //后面的差是尽量吃刚刚好的药
+                        aa.point += std::min(item->AddMP, role->MaxMP - role->MP) / 2 - item->AddMP / 10;
                     }
-                    else if (item->AddMP > 0)
+                    else if (item->AddPhysicalPower > 0)
                     {
-                        aa.point += std::min(item->AddPhysicalPower, Option::getInstance()->MaxPhysicalPower - role->PhysicalPower);
+                        aa.point += std::min(item->AddPhysicalPower, Option::getInstance()->MaxPhysicalPower - role->PhysicalPower)
+                            - item->AddPhysicalPower / 10;
                     }
                     if (aa.point > 0)
                     {
@@ -469,7 +470,7 @@ void BattleMagicMenu::onEntrance()
     }
     setStrings(magic_names);
     setPosition(160, 200);
-    
+
     //如果宽度为0的项隐藏
     for (auto child : childs_)
     {
