@@ -1094,41 +1094,55 @@ void BattleScene::showMagicName(std::string name)
 int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 {
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
-
-    int attack = r1->Attack + magic->Attack[level_index] / 3;
-    int defence = r2->Defence;
-
-    //装备的效果
-    if (r1->Equip0 >= 0)
+    level_index = magic->calMaxLevelIndexByMP(r1->MP, level_index);
+    if (magic->HurtType == 0)
     {
-        auto i = Save::getInstance()->getItem(r1->Equip0);
-        attack += i->AddAttack;
-    }
-    if (r1->Equip1 >= 0)
-    {
-        auto i = Save::getInstance()->getItem(r1->Equip1);
-        attack += i->AddAttack;
-    }
-    if (r2->Equip0 >= 0)
-    {
-        auto i = Save::getInstance()->getItem(r2->Equip0);
-        defence += i->AddDefence;
-    }
-    if (r2->Equip1 >= 0)
-    {
-        auto i = Save::getInstance()->getItem(r2->Equip1);
-        defence += i->AddDefence;
-    }
+        if (r1->MP <= 10)
+        {
+            return 1 + RandomClassical::rand(10);
+        }
+        int attack = r1->Attack + magic->Attack[level_index] / 3;
+        int defence = r2->Defence;
 
-    int v = attack - defence;
-    //距离衰减
-    int dis = calDistance(r1, r2);
-    v = v / exp((dis - 1) / 10);
+        //装备的效果
+        if (r1->Equip0 >= 0)
+        {
+            auto i = Save::getInstance()->getItem(r1->Equip0);
+            attack += i->AddAttack;
+        }
+        if (r1->Equip1 >= 0)
+        {
+            auto i = Save::getInstance()->getItem(r1->Equip1);
+            attack += i->AddAttack;
+        }
+        if (r2->Equip0 >= 0)
+        {
+            auto i = Save::getInstance()->getItem(r2->Equip0);
+            defence += i->AddDefence;
+        }
+        if (r2->Equip1 >= 0)
+        {
+            auto i = Save::getInstance()->getItem(r2->Equip1);
+            defence += i->AddDefence;
+        }
 
-    v += RandomClassical::rand(10) - RandomClassical::rand(10);
-    if (v < 10) { v = 1 + RandomClassical::rand(10); }
-    //v = 999;  //测试用
-    return v;
+        int v = attack - defence;
+        //距离衰减
+        int dis = calDistance(r1, r2);
+        v = v / exp((dis - 1) / 10);
+
+        v += RandomClassical::rand(10) - RandomClassical::rand(10);
+        if (v < 10) { v = 1 + RandomClassical::rand(10); }
+        //v = 999;  //测试用
+        return v;
+    }
+    else if (magic->HurtType == 1)
+    {
+        int v = magic->HurtMP[level_index];
+        v += RandomClassical::rand(10) - RandomClassical::rand(10);
+        if (v < 10) { v = 1 + RandomClassical::rand(10); }
+        return v;
+    }
 }
 
 //计算全部人物的伤害
@@ -1143,19 +1157,39 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             int hurt = calMagicHurt(r, r2, m);
             if (!simulation)
             {
-                r2->ShowString = convert::formatString("-%d", hurt);
-                r2->ShowColor = { 255, 20, 20, 255 };
-                int prevHP = r2->HP;
-                r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
-                int hurt1 = prevHP - r2->HP;
-                r->ExpGot += hurt1;
-                if (r2->HP <= 0) { r->ExpGot += hurt1 / 2; }
+                if (m->HurtType == 0)
+                {
+                    r2->ShowString = convert::formatString("-%d", hurt);
+                    r2->ShowColor = { 255, 20, 20, 255 };
+                    int prevHP = r2->HP;
+                    r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
+                    int hurt1 = prevHP - r2->HP;
+                    r->ExpGot += hurt1;
+                    if (r2->HP <= 0) { r->ExpGot += hurt1 / 2; }
+                }
+                else if (m->HurtType == 1)
+                {
+                    r2->ShowString = convert::formatString("-%d", hurt);
+                    r2->ShowColor = { 160, 32, 240, 255 };
+                    int prevMP = r2->MP;
+                    r2->MP = GameUtil::limit(r2->MP - hurt, 0, r2->MaxMP);
+                    int hurt1 = prevMP - r2->MP;
+                    r->ExpGot += hurt1 / 2;
+                }
             }
             else
             {
-                if (hurt >= r2->HP)
+                //这里是计算ai分数
+                if (m->HurtType == 0)
                 {
-                    hurt = 1.25 * r2->HP;
+                    if (hurt >= r2->HP)
+                    {
+                        hurt = 1.25 * r2->HP;
+                    }
+                }
+                else if (m->HurtType == 1)
+                {
+                    hurt /= 5;
                 }
             }
             total += hurt;
