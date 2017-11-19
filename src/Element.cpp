@@ -29,7 +29,7 @@ void Element::drawAll()
     for (int i = begin_base; i < root_.size(); i++)  //从最后一个全屏层开始画
     {
         auto b = root_[i];
-        if (b->visible_ && !b->exit_)
+        if (b->visible_/* && !b->exit_*/)
         {
             b->drawSelfAndChilds();
         }
@@ -55,6 +55,7 @@ Element* Element::removeFromRoot(Element* element)
         {
             element = root_.back();
             root_.pop_back();
+            return element;
         }
     }
     else
@@ -64,11 +65,12 @@ Element* Element::removeFromRoot(Element* element)
             if (root_[i] == element)
             {
                 root_.erase(root_.begin() + i);
+                return element;
                 break;
             }
         }
     }
-    return element;
+    return nullptr;
 }
 
 //添加子节点
@@ -198,9 +200,10 @@ int Element::run(bool in_root /*= true*/)
     while (!exit_)
     {
         if (root_.empty()) { break; }
-        checkEventAndPresent(true);
+        checkEvent(true);
         drawAll();
         checkFrame();
+        present();
     }
     running_ = false;
     onExit();
@@ -236,7 +239,7 @@ void Element::checkStateAndEvent(BP_Event& e)
 }
 
 //检测事件并将绘制的图显示出来
-void Element::checkEventAndPresent(bool check_event)
+void Element::checkEvent(bool check_event)
 {
     BP_Event e;
     auto engine = Engine::getInstance();
@@ -256,12 +259,10 @@ void Element::checkEventAndPresent(bool check_event)
         break;
     }
     clearEvent(e);
-    int t1 = engine->getTicks();
+    int t1 = Engine::getTicks();
     int t = refresh_interval_ - (t1 - prev_present_ticks_);
     if (t > refresh_interval_) { t = refresh_interval_; }
-    if (t <= 0) { t = 1; }
-    engine->delay(t);
-    engine->renderPresent();
+    if (t > 0) { Engine::delay(t); }
     prev_present_ticks_ = t1;
 }
 
@@ -321,6 +322,11 @@ void Element::checkSelfState(BP_Event& e)
     }
 }
 
+void Element::present()
+{
+    Engine::getInstance()->renderPresent();
+}
+
 void Element::exitAll(int begin)
 {
     for (int i = begin; i < root_.size(); i++)
@@ -341,12 +347,13 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
     if (times > 100) { times = 100; }
     for (int i = 0; i < times; i++)
     {
+        checkEvent(false);
         drawAll();
         if (func)
         {
             func(data);
         }
-        checkEventAndPresent(false);
+        present();
         if (exit_) { break; }
     }
     return times;

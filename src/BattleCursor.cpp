@@ -98,6 +98,7 @@ void BattleCursor::dealEvent(BP_Event& e)
     {
         battle_scene_->calEffectLayer(role_, battle_scene_->select_x_, battle_scene_->select_y_, magic_, level_index_);
     }
+    setVisible(!exit_);
 }
 
 void BattleCursor::dealMoveEvent(BP_Event& e)
@@ -116,4 +117,5 @@ void BattleCursor::onEntrance()
     Engine::getInstance()->getWindowSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
+    //setVisible(true);
 }

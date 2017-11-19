@@ -44,7 +44,7 @@ void UIShop::setShopID(int id)
 
 void UIShop::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     int x = x_, y = y_;
 
     std::string str;

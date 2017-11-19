@@ -519,6 +519,7 @@ void BattleItemMenu::dealEvent(BP_Event& e)
         {
             current_item_ = role_->AI_Item;
             setExit(true);
+            setVisible(false);
         }
     }
     else

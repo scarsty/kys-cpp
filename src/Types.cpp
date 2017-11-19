@@ -183,6 +183,7 @@ void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 int Magic::calMaxLevelIndexByMP(int mp, int max_level)
 {
     max_level = GameUtil::limit(max_level, 0, MAX_MAGIC_LEVEL_INDEX);
+    if (NeedMP <= 0) { return max_level; }
     int level = GameUtil::limit(mp / (NeedMP * 2) * 2 - 1, 0, max_level);
     return level;
 }

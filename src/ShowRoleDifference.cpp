@@ -22,10 +22,10 @@ void ShowRoleDifference::draw()
 {
     if (role1_ == nullptr || role2_ == nullptr) { return; }
 
-    if (black_screen_)
-    {
-        Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
-    }
+    //if (black_screen_)
+    //{
+    //    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    //}
     head1_->setRole(role1_);
     head2_->setRole(role2_);
     head1_->setState(Press);

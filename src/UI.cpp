@@ -52,7 +52,7 @@ void UI::onEntrance()
 
 void UI::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
 }
 
 void UI::dealEvent(BP_Event& e)

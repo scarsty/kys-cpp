@@ -41,6 +41,8 @@ public:
 
     int COORD_COUNT = 0;
 
+    int first_step_delay_ = 5;
+
     void setManPosition(int x, int y) { man_x_ = x; man_y_ = y; }
     void getManPosition(int& x, int& y) { x = man_x_; y = man_y_; }
     void setManPic(int pic) { man_pic_ = pic; }

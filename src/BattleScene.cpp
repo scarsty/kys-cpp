@@ -176,6 +176,11 @@ void BattleScene::draw()
         }
     }
     Engine::getInstance()->renderAssistTextureToWindow();
+
+    if (result_ >= 0)
+    {
+        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    }
     //printf("Battle scene drawn\n");
 }
 
@@ -213,10 +218,15 @@ void BattleScene::dealEvent(BP_Event& e)
 
     //检测战斗结果
     int battle_result = checkResult();
+
     //我方胜
     if (battle_result >= 0)
     {
         result_ = battle_result;
+        if (result_ == 0 || result_ == 1 && fail_exp_)
+        {
+            calExpGot();
+        }
         setExit(true);
     }
 }
@@ -254,10 +264,6 @@ void BattleScene::onEntrance()
 
 void BattleScene::onExit()
 {
-    if (result_ == 0 || result_ == 1 && fail_exp_)
-    {
-        calExpGot();
-    }
     //清空全部角色的位置层
     for (auto r : Save::getInstance()->getRoles())
     {
@@ -932,7 +938,6 @@ void BattleScene::actUseDrag(Role* r)
         GameUtil::useItem(r, item);
         auto df = new ShowRoleDifference(&r0, r);
         df->setText(convert::formatString("%s服用%s", r->Name, item->Name));
-        df->setBlackScreen(false);
         df->setShowHead(false);
         df->setPosition(250, 220);
         df->setStayFrame(40);
@@ -1173,6 +1178,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                     r2->ShowColor = { 160, 32, 240, 255 };
                     int prevMP = r2->MP;
                     r2->MP = GameUtil::limit(r2->MP - hurt, 0, r2->MaxMP);
+                    r->MP = GameUtil::limit(r->MP + hurt, 0, r->MaxMP);
                     int hurt1 = prevMP - r2->MP;
                     r->ExpGot += hurt1 / 2;
                 }

@@ -22,7 +22,7 @@ public:
 
     void setShowHead(bool s) { show_head_ = s; }
 
-    void setBlackScreen(bool b) { black_screen_ = b; }
+    //void setBlackScreen(bool b) { black_screen_ = b; }
 
 private:
     template<typename T> void showOneDifference(T& pro1, const std::string& format_str, int size, BP_Color c, int& x, int& y, int force = 0)

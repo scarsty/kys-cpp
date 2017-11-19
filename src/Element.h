@@ -132,9 +132,10 @@ public:
 private:
     void drawSelfAndChilds();
     void checkStateAndEvent(BP_Event& e);
-    void checkEventAndPresent(bool check_event = false);
+    void checkEvent(bool check_event = false);
     void checkChildState();
     void checkSelfState(BP_Event& e);
+    static void present();
 
 public:
     int run(bool in_root = true);                       //Ö´ÐÐ±¾²ã

@@ -137,16 +137,16 @@ private:
     SDL_Event e_;
     int time_;
 public:
-    void delay(const int t) { SDL_Delay(t); }
-    uint32_t getTicks() { return SDL_GetTicks(); }
+    static void delay(const int t) { SDL_Delay(t); }
+    static uint32_t getTicks() { return SDL_GetTicks(); }
     uint32_t tic() { return time_ = SDL_GetTicks(); }
     void toc() { if (SDL_GetTicks() != time_) { printf("%d\n", SDL_GetTicks() - time_); } }
-    void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
-    int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); }
-    int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
-    void flushEvent() { SDL_FlushEvent(0); }
-    void free(void* mem) { SDL_free(mem); }
-    bool checkKeyPress(BP_Keycode key);
+    static void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
+    static int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); }
+    static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
+    static void flushEvent() { SDL_FlushEvent(0); }
+    static void free(void* mem) { SDL_free(mem); }
+    static bool checkKeyPress(BP_Keycode key);
 
     //UI相关
 private:

@@ -4,6 +4,7 @@
 #include "others/libconvert.h"
 #include "MainScene.h"
 #include "SubScene.h"
+#include "UI.h"
 
 UISave::UISave()
 {
@@ -76,6 +77,7 @@ void UISave::load(int r)
             sub_scene->forceExit();
         }
     }
+    UI::getInstance()->setExit(true);
 }
 
 void UISave::save(int r)

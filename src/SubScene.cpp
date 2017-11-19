@@ -178,7 +178,7 @@ void SubScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        if (total_step_ < 1 || total_step_ >= 5)
+        if (total_step_ < 1 || total_step_ >= first_step_delay_)
         {
             changeTowardsByKey(pressed);
             getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
