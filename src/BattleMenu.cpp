@@ -62,7 +62,7 @@ void BattleActionMenu::onEntrance()
     if (!role_->Moved) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
-void BattleActionMenu::dealEvent(BP_Event& e)
+void BattleActionMenu::frontRunRoot()
 {
     if (battle_scene_ == nullptr) { return; }
     if (role_->isAuto())
@@ -73,10 +73,6 @@ void BattleActionMenu::dealEvent(BP_Event& e)
         childs_[act]->setState(Press);
         setExit(true);
         setVisible(false);  //AI不画菜单了，太乱
-    }
-    else
-    {
-        Menu::dealEvent(e);
     }
 }
 
@@ -481,7 +477,7 @@ void BattleMagicMenu::onEntrance()
     arrange(0, 0, 0, 30);
 }
 
-void BattleMagicMenu::dealEvent(BP_Event& e)
+void BattleMagicMenu::frontRunRoot()
 {
     if (role_ == nullptr) { return; }
     if (role_->isAuto())
@@ -491,10 +487,6 @@ void BattleMagicMenu::dealEvent(BP_Event& e)
         setResult(0);
         setExit(true);
         setVisible(false);
-    }
-    else
-    {
-        Menu::dealEvent(e);
     }
 }
 
@@ -510,7 +502,7 @@ BattleItemMenu::BattleItemMenu()
     setSelectUser(false);
 }
 
-void BattleItemMenu::dealEvent(BP_Event& e)
+void BattleItemMenu::frontRunRoot()
 {
     if (role_ == nullptr) { return; }
     if (role_->isAuto())
@@ -524,7 +516,7 @@ void BattleItemMenu::dealEvent(BP_Event& e)
     }
     else
     {
-        UIItem::dealEvent(e);
+        checkCurrentItem();
     }
 }
 

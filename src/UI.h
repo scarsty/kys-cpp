@@ -18,7 +18,7 @@ private:
 public:
     virtual void onEntrance() override;
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void frontRunRoot() override;
 
     static UI* getInstance() { return &ui_; }
 

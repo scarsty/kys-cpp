@@ -84,7 +84,7 @@ public:
     int getTag() { return tag_; }
     void setTag(int t) { tag_ = t; }
 
-    static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
+    //static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
     static Element* getCurrentTopDraw() { return root_.back(); }
 
     void setAllChildState(int s);
@@ -105,10 +105,12 @@ public:
 
     //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
 
-    virtual void backRun() {}                                  //一直运行，可以放入总计数器
+    virtual void frontRunRoot() {}                             //作为主节点时，每个循环执行的内容
+    virtual void frontRunChild() {}                            //作为子节点时，每个循环执行的内容
+    virtual void backRunRoot() {}                              //节点在root中就运行，可以放入总计数器
     virtual void draw() {}                                     //如何画本节点
-    virtual void dealEvent(BP_Event& e) {}                     //每个循环中处理事件，在子节点需要执行动画时可以不被进行
-    virtual void dealEvent2(BP_Event& e) {}                    //每个循环中处理事件，任何时候都会被执行，可用于制动
+    virtual void dealEvent(BP_Event& e) {}                     //处理事件，执行模式时检查到事件时执行
+    virtual void dealEvent2(BP_Event& e) {}                    //处理事件，执行模式和动画模式都会被执行，可用于制动
     virtual void onEntrance() {}                               //进入本节点的事件，例如亮屏等
     virtual void onExit() {}                                   //离开本节点的事件，例如黑屏等
 
@@ -132,7 +134,8 @@ public:
 private:
     void drawSelfAndChilds();
     void checkStateAndEvent(BP_Event& e);
-    void checkEvent(bool check_event = false);
+    void runAll();
+    void checkAllEvent(bool check_event = false);
     void checkChildState();
     void checkSelfState(BP_Event& e);
     static void present();

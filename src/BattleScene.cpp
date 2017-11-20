@@ -184,7 +184,7 @@ void BattleScene::draw()
     //printf("Battle scene drawn\n");
 }
 
-void BattleScene::dealEvent(BP_Event& e)
+void BattleScene::frontRunRoot()
 {
     if (battle_roles_.empty())
     {

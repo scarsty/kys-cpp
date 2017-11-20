@@ -157,7 +157,7 @@ void MainScene::draw()
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void MainScene::backRun()
+void MainScene::backRunRoot()
 {
     //云的贴图
     for (auto& c : cloud_vector_)
@@ -167,8 +167,7 @@ void MainScene::backRun()
     }
 }
 
-//计时器，负责画图以及一些其他问题
-void MainScene::dealEvent(BP_Event& e)
+void MainScene::frontRunRoot()
 {
     //强制进入，通常用于开始
     if (force_submap_ >= 0)
@@ -218,10 +217,35 @@ void MainScene::dealEvent(BP_Event& e)
     if (pressed && checkEntrance(x, y))
     {
         way_que_.clear();
-        clearEvent(e);
         total_step_ = 0;
     }
 
+    if (!way_que_.empty())
+    {
+        Point p = way_que_.back();
+        x = p.x;
+        y = p.y;
+        auto tw = calTowards(man_x_, man_y_, x, y);
+        if (tw != Towards_None) { towards_ = tw; }
+        tryWalk(x, y);
+        way_que_.pop_back();
+        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        {
+            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+            if (checkEntrance(mouse_event_x_, mouse_event_y_))
+            {
+                way_que_.clear();
+                setMouseEventPoint(-1, -1);
+            }
+        }
+    }
+    rest_time_++;    //只要出现走动，rest_time就会清零
+}
+
+//计时器，负责画图以及一些其他问题
+void MainScene::dealEvent(BP_Event& e)
+{
+    int x = man_x_, y = man_y_;
     //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
@@ -271,26 +295,6 @@ void MainScene::dealEvent(BP_Event& e)
             }
         }
     }
-    if (!way_que_.empty())
-    {
-        Point p = way_que_.back();
-        x = p.x;
-        y = p.y;
-        auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None) { towards_ = tw; }
-        tryWalk(x, y);
-        way_que_.pop_back();
-        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
-        {
-            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
-            if (checkEntrance(mouse_event_x_, mouse_event_y_))
-            {
-                way_que_.clear();
-                setMouseEventPoint(-1, -1);
-            }
-        }
-    }
-    rest_time_++;    //只要出现走动，rest_time就会清零
 }
 
 void MainScene::onEntrance()

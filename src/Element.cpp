@@ -19,7 +19,7 @@ void Element::drawAll()
     int begin_base = 0;
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
-        root_[i]->backRun();
+        root_[i]->backRunRoot();
         root_[i]->current_frame_++;
         if (root_[i]->full_window_)
         {
@@ -189,28 +189,6 @@ void Element::checkFrame()
     }
 }
 
-//运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
-int Element::run(bool in_root /*= true*/)
-{
-    exit_ = false;
-    visible_ = true;
-    if (in_root) { addOnRootTop(this); }
-    onEntrance();
-    running_ = true;
-    while (!exit_)
-    {
-        if (root_.empty()) { break; }
-        checkEvent(true);
-        drawAll();
-        checkFrame();
-        present();
-    }
-    running_ = false;
-    onExit();
-    if (in_root) { removeFromRoot(this); }
-    return result_;
-}
-
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 //注意全屏类的节点要一直接受事件
@@ -238,32 +216,37 @@ void Element::checkStateAndEvent(BP_Event& e)
     }
 }
 
-//检测事件并将绘制的图显示出来
-void Element::checkEvent(bool check_event)
+void Element::runAll()
+{
+    frontRunRoot();
+    for (auto c : childs_)
+    {
+        c->frontRunChild();
+    }
+}
+
+//检测事件
+void Element::checkAllEvent(bool check_event)
 {
     BP_Event e;
-    auto engine = Engine::getInstance();
-    //while (engine->pollEvent(e) > 0);  //实际是只要最后一个事件
-    engine->pollEvent(e);
-    if (check_event)
+    //clearEvent(e);    //e的初值不确定
+    //while (Engine::pollEvent(e) > 0);    //实际是只要最后一个事件
+    if (Engine::pollEvent(e))
     {
-        checkStateAndEvent(e);
+        if (check_event)
+        {
+            checkStateAndEvent(e);
+        }
+        dealEvent2(e);
+        switch (e.type)
+        {
+        case BP_QUIT:
+            UISystem::askExit();
+            break;
+        default:
+            break;
+        }
     }
-    dealEvent2(e);
-    switch (e.type)
-    {
-    case BP_QUIT:
-        UISystem::askExit();
-        break;
-    default:
-        break;
-    }
-    clearEvent(e);
-    int t1 = Engine::getTicks();
-    int t = refresh_interval_ - (t1 - prev_present_ticks_);
-    if (t > refresh_interval_) { t = refresh_interval_; }
-    if (t > 0) { Engine::delay(t); }
-    prev_present_ticks_ = t1;
 }
 
 void Element::checkChildState()
@@ -324,7 +307,35 @@ void Element::checkSelfState(BP_Event& e)
 
 void Element::present()
 {
+    int t1 = Engine::getTicks();
+    int t = refresh_interval_ - (t1 - prev_present_ticks_);
+    if (t > refresh_interval_) { t = refresh_interval_; }
+    if (t > 0) { Engine::delay(t); }
+    prev_present_ticks_ = t1;
     Engine::getInstance()->renderPresent();
+}
+
+//运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
+int Element::run(bool in_root /*= true*/)
+{
+    exit_ = false;
+    visible_ = true;
+    if (in_root) { addOnRootTop(this); }
+    onEntrance();
+    running_ = true;
+    while (!exit_)
+    {
+        if (root_.empty()) { break; }
+        checkAllEvent(true);
+        runAll();
+        drawAll();
+        checkFrame();
+        present();
+    }
+    running_ = false;
+    onExit();
+    if (in_root) { removeFromRoot(this); }
+    return result_;
 }
 
 void Element::exitAll(int begin)
@@ -335,6 +346,7 @@ void Element::exitAll(int begin)
         for (auto c : root_[i]->childs_)
         {
             c->exit_ = true;
+            c->visible_ = false;
         }
     }
 }
@@ -347,7 +359,7 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
     if (times > 100) { times = 100; }
     for (int i = 0; i < times; i++)
     {
-        checkEvent(false);
+        checkAllEvent(false);
         drawAll();
         if (func)
         {

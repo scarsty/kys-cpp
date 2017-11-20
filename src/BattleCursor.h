@@ -43,12 +43,12 @@ public:
     BattleScene* battle_scene_ = nullptr;
     void setBattleScene(BattleScene* b) { battle_scene_ = b; }
 
-    void dealEvent(BP_Event& e) override;
+    virtual void frontRunRoot() override;
+    virtual void dealEvent(BP_Event& e) override;
 
-    void dealMoveEvent(BP_Event& e);
-    void dealActionEvent(BP_Event& e);
+    void setCursor(int x, int y);
 
-    void onEntrance() override;
+    virtual void onEntrance() override;
 
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }

@@ -149,7 +149,7 @@ void SubScene::draw()
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void SubScene::dealEvent(BP_Event& e)
+void SubScene::frontRunRoot()
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
@@ -158,7 +158,7 @@ void SubScene::dealEvent(BP_Event& e)
     if (isExit(x, y) || isJumpSubScene(x, y))
     {
         way_que_.clear();
-        clearEvent(e);
+        //clearEvent(e);
         total_step_ = 0;
     }
     //键盘走路部分，检测4个方向键
@@ -191,12 +191,35 @@ void SubScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
 
+    if (!way_que_.empty())
+    {
+        Point p = way_que_.back();
+        x = p.x;
+        y = p.y;
+        auto tw = calTowards(man_x_, man_y_, x, y);
+        if (tw != Towards_None) { towards_ = tw; }
+        tryWalk(x, y);
+        way_que_.pop_back();
+        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        {
+            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+            checkEvent1(man_x_, man_y_, towards_);
+            setMouseEventPoint(-1, -1);
+        }
+        if (isExit(x, y)) { way_que_.clear(); }
+    }
+}
+
+void SubScene::dealEvent(BP_Event& e)
+{
+    int x = man_x_, y = man_y_;
+
     if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
 
         if (checkEvent1(x, y, towards_))
         {
-            clearEvent(e);
+            //clearEvent(e);
             step_ = 0;
         }
     }
@@ -227,26 +250,10 @@ void SubScene::dealEvent(BP_Event& e)
             }
         }
     }
-    if (!way_que_.empty())
-    {
-        Point p = way_que_.back();
-        x = p.x;
-        y = p.y;
-        auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None) { towards_ = tw; }
-        tryWalk(x, y);
-        way_que_.pop_back();
-        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
-        {
-            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
-            checkEvent1(man_x_, man_y_, towards_);
-            setMouseEventPoint(-1, -1);
-        }
-        if (isExit(x, y)) { way_que_.clear(); }
-    }
+
 }
 
-void SubScene::backRun()
+void SubScene::backRunRoot()
 {
     rest_time_++;
     //停止走动一段时间恢复站立姿势
@@ -350,7 +357,7 @@ void SubScene::tryWalk(int x, int y)
     rest_time_ = 0;
 }
 
-bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
+bool SubScene::checkAllEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
 {
     getTowardsPosition(man_x_, man_y_, tw, &x, &y);
     int event_index_submap = submap_info_->EventIndex(x, y);

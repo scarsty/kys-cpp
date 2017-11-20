@@ -101,43 +101,22 @@ void UIItem::geItemsByType(int item_type)
     }
 }
 
-Item* UIItem::getAvailableItem(int i)
-{
-    if (i >= 0 && i < available_items_.size())
-    {
-        return available_items_[i];
-    }
-    return nullptr;
-}
-
-void UIItem::draw()
-{
-    showItemProperty(current_item_);
-}
-
-void UIItem::dealEvent(BP_Event& e)
+void UIItem::checkCurrentItem()
 {
     //强制停留在某类物品
-    if (force_item_type_ >= 0) { title_->setResult(force_item_type_); }
-    geItemsByType(title_->getPassChild());
+    if (force_item_type_ >= 0)
+    {
+        title_->setResult(force_item_type_);
+        title_->setAllChildState(Normal);
+        title_->getChild(force_item_type_)->setState(Pass);
+    }
+    geItemsByType(title_->getResult());
     int type_item_count = available_items_.size();
-
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
     int max_leftup = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
     if (max_leftup < 0) { max_leftup = 0; }
 
-    if (e.type == BP_MOUSEWHEEL)
-    {
-        if (e.wheel.y > 0)
-        {
-            leftup_index_ -= item_each_line_;
-        }
-        else if (e.wheel.y < 0)
-        {
-            leftup_index_ += item_each_line_;
-        }
-    }
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup);
 
     //计算当前指向的物品
@@ -175,6 +154,35 @@ void UIItem::dealEvent(BP_Event& e)
     else
     {
         cursor_->setVisible(false);
+    }
+}
+
+Item* UIItem::getAvailableItem(int i)
+{
+    if (i >= 0 && i < available_items_.size())
+    {
+        return available_items_[i];
+    }
+    return nullptr;
+}
+
+void UIItem::draw()
+{
+    showItemProperty(current_item_);
+}
+
+void UIItem::dealEvent(BP_Event& e)
+{
+    if (e.type == BP_MOUSEWHEEL)
+    {
+        if (e.wheel.y > 0)
+        {
+            leftup_index_ -= item_each_line_;
+        }
+        else if (e.wheel.y < 0)
+        {
+            leftup_index_ += item_each_line_;
+        }
     }
 }
 

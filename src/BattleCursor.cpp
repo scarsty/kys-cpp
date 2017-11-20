@@ -24,13 +24,37 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
     head_selected_->setRole(r);
 }
 
+void BattleCursor::frontRunRoot()
+{
+    if (battle_scene_ == nullptr) { return; }
+    if (role_->isAuto())
+    {
+        int x = -1, y = -1;
+        if (mode_ == Move)
+        {
+            x = role_->AI_MoveX;
+            y = role_->AI_MoveY;
+            setResult(0);
+            setExit(true);
+        }
+        else if (mode_ == Action)
+        {
+            x = role_->AI_ActionX;
+            y = role_->AI_ActionY;
+            setResult(0);
+            setExit(true);
+        }
+        setVisible(!exit_);
+        setCursor(x, y);
+    }
+}
+
 void BattleCursor::dealEvent(BP_Event& e)
 {
     if (battle_scene_ == nullptr) { return; }
-
-    int x = -1, y = -1;
     if (!role_->isAuto())
     {
+        int x = -1, y = -1;
         if (e.type == BP_KEYDOWN)
         {
             int tw = battle_scene_->getTowardsByKey(e.key.keysym.sym);
@@ -59,25 +83,12 @@ void BattleCursor::dealEvent(BP_Event& e)
                 y = p.y;
             }
         }
+        setCursor(x, y);
     }
-    else
-    {
-        if (mode_ == Move)
-        {
-            x = role_->AI_MoveX;
-            y = role_->AI_MoveY;
-            setResult(0);
-            setExit(true);
-        }
-        else if (mode_ == Action)
-        {
-            x = role_->AI_ActionX;
-            y = role_->AI_ActionY;
-            setResult(0);
-            setExit(true);
-        }
-    }
+}
 
+void BattleCursor::setCursor(int x, int y)
+{
     if (battle_scene_->canSelect(x, y))
     {
         battle_scene_->setSelectPosition(x, y);
@@ -98,17 +109,6 @@ void BattleCursor::dealEvent(BP_Event& e)
     {
         battle_scene_->calEffectLayer(role_, battle_scene_->select_x_, battle_scene_->select_y_, magic_, level_index_);
     }
-    setVisible(!exit_);
-}
-
-void BattleCursor::dealMoveEvent(BP_Event& e)
-{
-
-}
-
-void BattleCursor::dealActionEvent(BP_Event& e)
-{
-
 }
 
 void BattleCursor::onEntrance()

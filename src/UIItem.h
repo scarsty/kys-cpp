@@ -36,8 +36,11 @@ public:
 
     void geItemsByType(int item_type);
 
-    void draw() override;
-    void dealEvent(BP_Event& e) override;
+    void checkCurrentItem();
+    virtual void frontRunRoot() override { checkCurrentItem(); }
+    virtual void frontRunChild() override { checkCurrentItem(); }
+    virtual void draw() override;
+    virtual void dealEvent(BP_Event& e) override;
 
     void showItemProperty(Item* item);
     void showOneProperty(int v, std::string format_str, int size, BP_Color c, int& x, int& y);

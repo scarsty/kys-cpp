@@ -52,7 +52,7 @@ public:
     void setHaveFailExp(bool b) { fail_exp_ = b; }    //是否输了也有经验
 
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;    //战场主循环
+    virtual void frontRunRoot() override;    //战场主循环
     virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;

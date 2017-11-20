@@ -34,8 +34,9 @@ public:
     void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
     virtual void draw() override;
+    virtual void frontRunRoot() override;
     virtual void dealEvent(BP_Event& e) override;
-    virtual void backRun() override;
+    virtual void backRunRoot() override;
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void onPressedCancel() override;
@@ -43,14 +44,14 @@ public:
     void tryWalk(int x, int y);
 
     //第三个参数为朝向
-    bool checkEvent(int x, int y, int tw = Towards_None, int item_id = -1);
+    bool checkAllEvent(int x, int y, int tw = Towards_None, int item_id = -1);
 
     //第一类事件，主动触发
-    bool checkEvent1(int x, int y, int tw) { return checkEvent(x, y, tw, -1); }
+    bool checkEvent1(int x, int y, int tw) { return checkAllEvent(x, y, tw, -1); }
     //第二类事件，物品触发
-    bool checkEvent2(int x, int y, int tw, int item_id) { return checkEvent(x, y, tw, item_id); }
+    bool checkEvent2(int x, int y, int tw, int item_id) { return checkAllEvent(x, y, tw, item_id); }
     //第三类事件，经过触发
-    bool checkEvent3(int x, int y) { return checkEvent(x, y, Towards_None, -1); }
+    bool checkEvent3(int x, int y) { return checkAllEvent(x, y, Towards_None, -1); }
 
     virtual bool isBuilding(int x, int y);
     bool isWater(int x, int y);
