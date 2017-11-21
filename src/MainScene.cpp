@@ -157,7 +157,7 @@ void MainScene::draw()
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void MainScene::backRunRoot()
+void MainScene::backRun()
 {
     //云的贴图
     for (auto& c : cloud_vector_)
@@ -167,7 +167,7 @@ void MainScene::backRunRoot()
     }
 }
 
-void MainScene::frontRunRoot()
+void MainScene::frontRun()
 {
     //强制进入，通常用于开始
     if (force_submap_ >= 0)

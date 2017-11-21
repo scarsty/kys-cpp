@@ -43,7 +43,7 @@ public:
     BattleScene* battle_scene_ = nullptr;
     void setBattleScene(BattleScene* b) { battle_scene_ = b; }
 
-    virtual void frontRunRoot() override;
+    virtual void frontRun() override;
     virtual void dealEvent(BP_Event& e) override;
 
     void setCursor(int x, int y);

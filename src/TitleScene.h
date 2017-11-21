@@ -11,7 +11,7 @@ public:
     ~TitleScene();
 
     virtual void draw() override;
-    virtual void frontRunRoot() override;
+    virtual void frontRun() override;
 
     virtual void onEntrance() override;
 

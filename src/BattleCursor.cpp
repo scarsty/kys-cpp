@@ -24,7 +24,7 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
     head_selected_->setRole(r);
 }
 
-void BattleCursor::frontRunRoot()
+void BattleCursor::frontRun()
 {
     if (battle_scene_ == nullptr) { return; }
     if (role_->isAuto())

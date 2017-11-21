@@ -62,7 +62,7 @@ void BattleActionMenu::onEntrance()
     if (!role_->Moved) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
-void BattleActionMenu::frontRunRoot()
+void BattleActionMenu::frontRun()
 {
     if (battle_scene_ == nullptr) { return; }
     if (role_->isAuto())
@@ -477,7 +477,7 @@ void BattleMagicMenu::onEntrance()
     arrange(0, 0, 0, 30);
 }
 
-void BattleMagicMenu::frontRunRoot()
+void BattleMagicMenu::frontRun()
 {
     if (role_ == nullptr) { return; }
     if (role_->isAuto())
@@ -492,7 +492,7 @@ void BattleMagicMenu::frontRunRoot()
 
 void BattleMagicMenu::onPressedOK()
 {
-    pressToResult();
+    pressIndexToResult();
     magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
     if (magic_) { setExit(true); }
 }
@@ -502,7 +502,7 @@ BattleItemMenu::BattleItemMenu()
     setSelectUser(false);
 }
 
-void BattleItemMenu::frontRunRoot()
+void BattleItemMenu::frontRun()
 {
     if (role_ == nullptr) { return; }
     if (role_->isAuto())

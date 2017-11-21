@@ -184,7 +184,7 @@ void BattleScene::draw()
     //printf("Battle scene drawn\n");
 }
 
-void BattleScene::frontRunRoot()
+void BattleScene::frontRun()
 {
     if (battle_roles_.empty())
     {

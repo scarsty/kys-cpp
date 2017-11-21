@@ -19,7 +19,7 @@ void Element::drawAll()
     int begin_base = 0;
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
-        root_[i]->backRunRoot();
+        root_[i]->backRun();
         root_[i]->current_frame_++;
         if (root_[i]->full_window_)
         {
@@ -192,14 +192,14 @@ void Element::checkFrame()
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 //注意全屏类的节点要一直接受事件
-void Element::checkStateAndEvent(BP_Event& e)
+void Element::checkSelfAndChildsStateAndEvent(BP_Event& e)
 {
     if (visible_ || full_window_ != 0)
     {
         //注意这里是反向
         for (int i = childs_.size() - 1; i >= 0; i--)
         {
-            childs_[i]->checkStateAndEvent(e);
+            childs_[i]->checkSelfAndChildsStateAndEvent(e);
         }
 
         checkSelfState(e);
@@ -216,17 +216,8 @@ void Element::checkStateAndEvent(BP_Event& e)
     }
 }
 
-void Element::runAll()
-{
-    frontRunRoot();
-    for (auto c : childs_)
-    {
-        c->frontRunChild();
-    }
-}
-
 //检测事件
-void Element::checkAllEvent(bool check_event)
+void Element::checkEvent(bool check_event)
 {
     BP_Event e;
     //clearEvent(e);    //e的初值不确定
@@ -235,7 +226,7 @@ void Element::checkAllEvent(bool check_event)
     {
         if (check_event)
         {
-            checkStateAndEvent(e);
+            checkSelfAndChildsStateAndEvent(e);
         }
         dealEvent2(e);
         switch (e.type)
@@ -326,8 +317,8 @@ int Element::run(bool in_root /*= true*/)
     while (!exit_)
     {
         if (root_.empty()) { break; }
-        checkAllEvent(true);
-        runAll();
+        checkEvent(true);
+        frontRun();
         drawAll();
         checkFrame();
         present();
@@ -359,7 +350,7 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
     if (times > 100) { times = 100; }
     for (int i = 0; i < times; i++)
     {
-        checkAllEvent(false);
+        checkEvent(false);
         drawAll();
         if (func)
         {

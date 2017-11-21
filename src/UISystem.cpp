@@ -12,7 +12,6 @@ UISystem::UISystem()
     addChild(title_);
 }
 
-
 UISystem::~UISystem()
 {
 }

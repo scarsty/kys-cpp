@@ -37,8 +37,8 @@ public:
     std::vector<Cloud*> cloud_vector_;
 
     virtual void draw() override;
-    virtual void backRunRoot() override;
-    virtual void frontRunRoot() override;
+    virtual void backRun() override;
+    virtual void frontRun() override;
     virtual void dealEvent(BP_Event& e) override;
     virtual void onEntrance() override;
     virtual void onExit() override;

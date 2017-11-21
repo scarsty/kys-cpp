@@ -110,7 +110,7 @@ void UIItem::checkCurrentItem()
         title_->setAllChildState(Normal);
         title_->getChild(force_item_type_)->setState(Pass);
     }
-    geItemsByType(title_->getResult());
+    geItemsByType(title_->getPassChildIndex());
     int type_item_count = available_items_.size();
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
@@ -168,6 +168,7 @@ Item* UIItem::getAvailableItem(int i)
 
 void UIItem::draw()
 {
+    checkCurrentItem();
     showItemProperty(current_item_);
 }
 

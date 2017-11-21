@@ -21,7 +21,7 @@ public:
     BattleScene* battle_scene_ = nullptr;
     void setBattleScene(BattleScene* b) { battle_scene_ = b; }
 
-    virtual void frontRunRoot() override;
+    virtual void frontRun() override;
 
     int autoSelect(Role* role);
 
@@ -66,7 +66,7 @@ public:
 
     virtual void onEntrance() override;
 
-    virtual void frontRunRoot() override;
+    virtual void frontRun() override;
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
@@ -89,7 +89,7 @@ public:
 private:
     Role* role_ = nullptr;
 public:
-    virtual void frontRunRoot() override;
+    virtual void frontRun() override;
 
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }

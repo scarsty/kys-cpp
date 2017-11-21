@@ -49,7 +49,7 @@ void TitleScene::draw()
     TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
 }
 
-void TitleScene::frontRunRoot()
+void TitleScene::frontRun()
 {
     int r = menu_->run();
     if (r == 0)

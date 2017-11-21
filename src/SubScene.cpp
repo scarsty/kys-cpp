@@ -149,7 +149,7 @@ void SubScene::draw()
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void SubScene::frontRunRoot()
+void SubScene::frontRun()
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
@@ -253,7 +253,7 @@ void SubScene::dealEvent(BP_Event& e)
 
 }
 
-void SubScene::backRunRoot()
+void SubScene::backRun()
 {
     rest_time_++;
     //停止走动一段时间恢复站立姿势
@@ -357,7 +357,7 @@ void SubScene::tryWalk(int x, int y)
     rest_time_ = 0;
 }
 
-bool SubScene::checkAllEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
+bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
 {
     getTowardsPosition(man_x_, man_y_, tw, &x, &y);
     int event_index_submap = submap_info_->EventIndex(x, y);
