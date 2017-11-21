@@ -106,9 +106,8 @@ void UIItem::checkCurrentItem()
     //强制停留在某类物品
     if (force_item_type_ >= 0)
     {
-        title_->setResult(force_item_type_);
-        title_->setAllChildState(Normal);
-        title_->getChild(force_item_type_)->setState(Pass);
+        //title_->setResult(force_item_type_);
+        title_->forcePassChild(force_item_type_);
     }
     geItemsByType(title_->getPassChildIndex());
     int type_item_count = available_items_.size();
@@ -164,12 +163,6 @@ Item* UIItem::getAvailableItem(int i)
         return available_items_[i];
     }
     return nullptr;
-}
-
-void UIItem::draw()
-{
-    checkCurrentItem();
-    showItemProperty(current_item_);
 }
 
 void UIItem::dealEvent(BP_Event& e)

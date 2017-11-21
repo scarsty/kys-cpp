@@ -12,10 +12,10 @@ public:
     BattleActionMenu();
     virtual ~BattleActionMenu();
 
-    virtual void onEntrance() override;
+    //virtual void onEntrance() override;
 
     Role* role_ = nullptr;
-    void setRole(Role* r) { role_ = r; }
+    void setRole(Role* r);
     int runAsRole(Role* r) { setRole(r); return run(); }
 
     BattleScene* battle_scene_ = nullptr;
@@ -64,13 +64,13 @@ public:
     BattleMagicMenu() {}
     virtual ~BattleMagicMenu() {}
 
-    virtual void onEntrance() override;
+    //virtual void onEntrance() override;
 
     virtual void frontRun() override;
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
-    void setRole(Role* r) { role_ = r; }
+    void setRole(Role* r);
     int runAsRole(Role* r) { setRole(r); return run(); }
 
     Magic* getMagic() { return magic_; }

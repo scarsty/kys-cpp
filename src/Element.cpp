@@ -19,7 +19,7 @@ void Element::drawAll()
     int begin_base = 0;
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
-        root_[i]->backRun();
+        root_[i]->backRunSelfChilds();
         root_[i]->current_frame_++;
         if (root_[i]->full_window_)
         {
@@ -31,7 +31,7 @@ void Element::drawAll()
         auto b = root_[i];
         if (b->visible_/* && !b->exit_*/)
         {
-            b->drawSelfAndChilds();
+            b->drawSelfChilds();
         }
     }
 }
@@ -111,14 +111,14 @@ void Element::clearChilds()
 }
 
 //画出自身和子节点
-void Element::drawSelfAndChilds()
+void Element::drawSelfChilds()
 {
     if (visible_)
     {
         draw();
         for (auto c : childs_)
         {
-            if (c->visible_) { c->drawSelfAndChilds(); }
+            if (c->visible_) { c->drawSelfChilds(); }
         }
     }
 }
@@ -192,23 +192,27 @@ void Element::checkFrame()
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 //注意全屏类的节点要一直接受事件
-void Element::checkSelfAndChildsStateAndEvent(BP_Event& e)
+void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
 {
-    if (visible_ || full_window_ != 0)
+    //if (exit_) { return; }
+    if (visible_ || full_window_)
     {
         //注意这里是反向
         for (int i = childs_.size() - 1; i >= 0; i--)
         {
-            childs_[i]->checkSelfAndChildsStateAndEvent(e);
+            childs_[i]->checkStateSelfChilds(e, check_event);
         }
-
-        checkSelfState(e);
-        checkChildState();
-        //可以在dealEvent中改变原有状态，强制设置某些情况
-        dealEvent(e);
-        //为简化代码，将按下回车和ESC的操作写在此处
-        if (isPressOK(e)) { onPressedOK(); }
-        if (isPressCancel(e)) { onPressedCancel(); }
+        if (check_event)
+        {
+            checkSelfState(e);
+            checkChildState();
+            //可以在dealEvent中改变原有状态，强制设置某些情况
+            dealEvent(e);
+            //为简化代码，将按下回车和ESC的操作写在此处
+            if (isPressOK(e)) { onPressedOK(); }
+            if (isPressCancel(e)) { onPressedCancel(); }
+        }
+        dealEvent2(e);
     }
     else
     {
@@ -216,8 +220,27 @@ void Element::checkSelfAndChildsStateAndEvent(BP_Event& e)
     }
 }
 
+void Element::frontRunSelfChilds()
+{
+    if (exit_) { return; }
+    for (auto c : childs_)
+    {
+        c->frontRunSelfChilds();
+    }
+    frontRun();
+}
+
+void Element::backRunSelfChilds()
+{
+    for (auto c : childs_)
+    {
+        c->backRunSelfChilds();
+    }
+    backRun();
+}
+
 //检测事件
-void Element::checkEvent(bool check_event)
+void Element::dealEventSelfChilds(bool check_event)
 {
     BP_Event e;
     //clearEvent(e);    //e的初值不确定
@@ -226,9 +249,8 @@ void Element::checkEvent(bool check_event)
     {
         if (check_event)
         {
-            checkSelfAndChildsStateAndEvent(e);
+            checkStateSelfChilds(e, check_event);
         }
-        dealEvent2(e);
         switch (e.type)
         {
         case BP_QUIT:
@@ -317,8 +339,8 @@ int Element::run(bool in_root /*= true*/)
     while (!exit_)
     {
         if (root_.empty()) { break; }
-        checkEvent(true);
-        frontRun();
+        dealEventSelfChilds(true);
+        frontRunSelfChilds();
         drawAll();
         checkFrame();
         present();
@@ -350,7 +372,7 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
     if (times > 100) { times = 100; }
     for (int i = 0; i < times; i++)
     {
-        checkEvent(false);
+        dealEventSelfChilds(false);
         drawAll();
         if (func)
         {

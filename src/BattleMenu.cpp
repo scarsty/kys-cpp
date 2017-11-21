@@ -18,8 +18,9 @@ BattleActionMenu::~BattleActionMenu()
     delete distance_layer_;
 }
 
-void BattleActionMenu::onEntrance()
+void BattleActionMenu::setRole(Role* r)
 {
+    role_ = r;
     setVisible(true);
     for (auto c : childs_)
     {
@@ -57,8 +58,12 @@ void BattleActionMenu::onEntrance()
 
     setFontSize(20);
     arrange(0, 0, 0, 28);
-    pass_child_ = findFristVisibleChild();
-    forcePassChild();
+    if (start_ == 0 || !getChild(pass_child_)->getVisible())
+    {
+        pass_child_ = findFristVisibleChild();
+        forcePassChild();
+    }
+    start_ = pass_child_;
     if (!role_->Moved) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
@@ -74,6 +79,7 @@ void BattleActionMenu::frontRun()
         setExit(true);
         setVisible(false);  //AI不画菜单了，太乱
     }
+    forcePassChild();
 }
 
 //"0移動", "1武學", "2用毒", "3解毒", "4醫療", "5暗器", "6藥品", "7等待", "8狀態", "9自動", "10結束"
@@ -446,8 +452,23 @@ int BattleActionMenu::calNeedActionDistance(AIAction& aa)
     return battle_scene_->calDistance(aa.MoveX, aa.MoveY, aa.ActionX, aa.ActionY);
 }
 
-void BattleMagicMenu::onEntrance()
+void BattleMagicMenu::frontRun()
 {
+    if (role_ == nullptr) { return; }
+    if (role_->isAuto())
+    {
+        magic_ = role_->AI_Magic;
+        setAllChildState(Normal);
+        setResult(0);
+        setExit(true);
+        setVisible(false);
+    }
+    forcePassChild();
+}
+
+void BattleMagicMenu::setRole(Role* r)
+{
+    role_ = r;
     result_ = -1;
     magic_ = nullptr;
     setVisible(true);
@@ -475,19 +496,6 @@ void BattleMagicMenu::onEntrance()
         if (w <= 0) { child->setVisible(false); }
     }
     arrange(0, 0, 0, 30);
-}
-
-void BattleMagicMenu::frontRun()
-{
-    if (role_ == nullptr) { return; }
-    if (role_->isAuto())
-    {
-        magic_ = role_->AI_Magic;
-        setAllChildState(Normal);
-        setResult(0);
-        setExit(true);
-        setVisible(false);
-    }
 }
 
 void BattleMagicMenu::onPressedOK()

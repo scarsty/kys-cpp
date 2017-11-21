@@ -66,11 +66,18 @@ void Menu::onPressedOK()
 
 void Menu::onEntrance()
 {
-    pass_child_ = findFristVisibleChild();
+    if (start_ < 0 || start_ >= getChildCount())
+    {
+        pass_child_ = findFristVisibleChild();
+    }
+    else
+    {
+        pass_child_ = start_;
+    }
     forcePassChild();
 }
 
-void Menu::draw()
+void Menu::frontRun()
 {
     forcePassChild();
 }

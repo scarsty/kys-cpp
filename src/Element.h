@@ -132,9 +132,11 @@ public:
     }
 
 private:
-    void drawSelfAndChilds();
-    void checkSelfAndChildsStateAndEvent(BP_Event& e);
-    void checkEvent(bool check_event = false);
+    void drawSelfChilds();
+    void checkStateSelfChilds(BP_Event& e, bool check_event = false);
+    void frontRunSelfChilds();
+    void backRunSelfChilds();
+    void dealEventSelfChilds(bool check_event = false);
     void checkChildState();
     void checkSelfState(BP_Event& e);
     static void present();

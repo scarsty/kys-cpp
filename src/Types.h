@@ -108,6 +108,8 @@ public:
     std::string ShowString;
     BP_Color ShowColor;
 
+    int SelectedMagic;
+
 private:
     int X_, Y_;
     int prevX_, prevY_;

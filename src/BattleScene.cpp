@@ -213,6 +213,14 @@ void BattleScene::frontRun()
     //行动
     action(r);
 
+    //如果此人成功行动过，则放到队尾
+    if (r->Acted)
+    {
+        battle_roles_.erase(battle_roles_.begin());
+        battle_roles_.push_back(r);
+        poisonEffect(r);
+    }
+
     //清除被击退的人物
     clearDead();
 
@@ -747,12 +755,9 @@ void BattleScene::action(Role* r)
     else if (str == "自動") { actAuto(r); }
     else if (str == "結束") { actRest(r); }
 
-    //如果此人成功行动过，则放到队尾
     if (r->Acted)
     {
-        battle_roles_.erase(battle_roles_.begin());
-        battle_roles_.push_back(r);
-        poisonEffect(r);
+        battle_menu_->setStartItem(0);
     }
 }
 
@@ -776,8 +781,10 @@ void BattleScene::actUseMagic(Role* r)
     auto magic_menu = new BattleMagicMenu();
     while (true)
     {
+        magic_menu->setStartItem(r->SelectedMagic);
         magic_menu->runAsRole(r);
         auto magic = magic_menu->getMagic();
+        r->SelectedMagic = magic_menu->getResult();
         if (magic == nullptr) { break; }    //可能是退出游戏，或者是没有选武功
         r->ActTeam = 1;
         //level_index表示从0到9，而level从0到999
