@@ -40,8 +40,6 @@ void Menu::dealEvent(BP_Event& e)
             }
         }
     }
-    //事务处理中可以强制改变子项的Pass，用于菜单中固定某项
-    forcePassChild();
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
@@ -69,6 +67,11 @@ void Menu::onPressedOK()
 void Menu::onEntrance()
 {
     pass_child_ = findFristVisibleChild();
+    forcePassChild();
+}
+
+void Menu::draw()
+{
     forcePassChild();
 }
 

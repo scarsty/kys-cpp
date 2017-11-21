@@ -11,6 +11,7 @@ public:
     void arrange(int x, int y, int inc_x, int inc_y);
     virtual void onPressedOK() override;
     virtual void onEntrance() override;
+    virtual void draw() override;
     DEFAULT_CANCEL_EXIT;
 };
 

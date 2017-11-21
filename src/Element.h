@@ -100,6 +100,7 @@ public:
 
     int getPassChildIndex() { return pass_child_; }
     void forcePassChild();
+    void forcePassChild(int index) { pass_child_ = index; forcePassChild(); }
     int getPressChildIndex() { return press_child_; }
     void pressIndexToResult() { result_ = press_child_; }
 
