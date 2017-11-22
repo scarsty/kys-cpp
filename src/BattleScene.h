@@ -72,7 +72,7 @@ public:
     int calRolePic(Role* r, int style = -1, int frame = 0);    //依据动作帧数计算角色的贴图编号
 
     //计算可以被选择的范围，会改写选择层
-    //mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子；4不能选
+    //mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子；4仅能选自己
     void calSelectLayer(Role* r, int mode, int step = 0);
     void calSelectLayer(int x, int y, int team, int mode, int step = 0);
     //计算武学可选择的范围

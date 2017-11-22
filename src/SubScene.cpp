@@ -5,7 +5,7 @@
 #include "UI.h"
 #include "Audio.h"
 #include "Random.h"
-
+#include "PotConv.h"
 
 SubScene::SubScene()
 {
@@ -31,7 +31,7 @@ void SubScene::setID(int id)
     //submap_info_->ID = submap_id_;    //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
-    printf("Sub Scene %d, %s\n", submap_id_, submap_info_->Name);
+    printf("Sub Scene %d, %s\n", submap_id_, PotConv::to_read(submap_info_->Name).c_str());
 }
 
 void SubScene::draw()
@@ -43,8 +43,6 @@ void SubScene::draw()
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
-    //鼠标的位置
-    auto position_mouse = getMousePosition(view_x_, view_y_);
     //以下画法存在争议
     //一整块地面
 #ifndef _DEBUG
@@ -102,7 +100,7 @@ void SubScene::draw()
                 }
 #endif
                 //鼠标位置
-                if (ix == position_mouse.x && iy == position_mouse.y)
+                if (ix == cursor_x_ && iy == cursor_y_)
                 {
                     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
                 }
@@ -218,6 +216,8 @@ void SubScene::dealEvent(BP_Event& e)
             step_ = 0;
         }
     }
+
+    calCursorPosition(view_x_, view_y_);
 
     //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)

@@ -1,6 +1,7 @@
 #include "Script.h"
 #include "others/libconvert.h"
 #include "EventMacro.h"
+#include "PotConv.h"
 
 Script Script::script_;
 
@@ -25,7 +26,7 @@ Script::~Script()
 int Script::runScript(std::string filename)
 {
     std::string content = convert::readStringFromFile(filename);
-    printf("%s\n", content.c_str());
+    printf("%s\n", PotConv::to_read(content).c_str());
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
     return lua_pcall(lua_state_, 0, 0, 0);

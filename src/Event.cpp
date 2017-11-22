@@ -295,7 +295,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     }
 
     talk->setContent(talk_[talk_id]);
-    printf("%s\n", talk_[talk_id].c_str());
+    printf("%s\n", PotConv::to_read(talk_[talk_id]).c_str());
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -1407,7 +1407,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         }
         break;
     case 47: break;
-    case 48: //自己调试吧，懒得管你
+    case 48: //自己调试吧，懒得管
         for (int i = e1; i < e1 + e2 - 1; i++)
         {
             printf("x50[%d]=%d\n", i, x50[i]);

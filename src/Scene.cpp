@@ -166,6 +166,14 @@ Point Scene::getMousePosition(int view_x, int view_y)
     return getMousePosition(mouse_x, mouse_y, view_x, view_y);
 }
 
+void Scene::calCursorPosition(int x, int y)
+{
+    //光标的位置
+    auto p = getMousePosition(x, y);
+    cursor_x_ = p.x;
+    cursor_y_ = p.y;
+}
+
 //A*
 void Scene::FindWay(int Mx, int My, int Fx, int Fy)
 {

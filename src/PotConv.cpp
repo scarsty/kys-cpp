@@ -37,3 +37,13 @@ std::string PotConv::conv(const std::string& src, const std::string& from, const
 {
     return conv(src, from.c_str(), to.c_str());
 }
+
+std::string PotConv::to_read(const std::string& src)
+{
+#ifdef _WIN32
+    return src;
+#else
+    return conv(src, "cp936", "utf-8");
+#endif
+}
+

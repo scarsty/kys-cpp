@@ -141,9 +141,7 @@ void MainScene::draw()
         TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     }
 
-    //鼠标的位置，此处直接画到最上面了
-    auto p = getMousePosition(man_x_, man_y_);
-    p = getPositionOnRender(p.x, p.y, man_x_, man_y_);
+    auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
 
     for (auto& c : cloud_vector_)
@@ -173,6 +171,7 @@ void MainScene::dealEvent(BP_Event& e)
     //强制进入，通常用于开始
     if (force_submap_ >= 0)
     {
+        setVisible(true);
         auto sub_map = new SubScene(force_submap_);
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
         sub_map->setTowards(towards_);
@@ -180,7 +179,6 @@ void MainScene::dealEvent(BP_Event& e)
         towards_ = sub_map->towards_;
         delete sub_map;
         force_submap_ = -1;
-        setVisible(true);
     }
 
     int x = man_x_, y = man_y_;
@@ -241,6 +239,8 @@ void MainScene::dealEvent(BP_Event& e)
             }
         }
     }
+
+    calCursorPosition(x, y);
 
     //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)

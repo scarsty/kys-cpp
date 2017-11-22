@@ -31,5 +31,6 @@ public:
         auto str = PotConv::cp950tocp936(s);
         memcpy(s, str.data(), str.length());
     }
+    static std::string to_read(const std::string& src);
 };
 

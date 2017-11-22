@@ -8,8 +8,6 @@ public:
     Util();
     ~Util();
 
-    static void LOG(const char* format, ...);
-
     template <class T> static void safe_delete(T*& pointer)
     {
         if (pointer) { delete pointer; }

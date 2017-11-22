@@ -562,3 +562,4 @@ void Engine::setWindowPosition(int x, int y)
     if (y == BP_WINDOWPOS_CENTERED) { y = min_y_ + (max_y_ - min_y_ - h) / 2; }
     SDL_SetWindowPosition(window_, x, y);
 }
+

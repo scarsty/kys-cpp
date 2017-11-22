@@ -7,7 +7,7 @@ void Cloud::initRand()
     position_.y = RandomClassical::rand(max_Y);
     speed_ = 1 + RandomClassical::rand(3);
     num_ = RandomClassical::rand(num_style_);
-    alpha_ = 128 + RandomClassical::rand(128);
+    alpha_ = 64 + RandomClassical::rand(192);
     color_ = { (uint8_t)(RandomClassical::rand(256)), (uint8_t)(RandomClassical::rand(256)), (uint8_t)(RandomClassical::rand(256)), 255 };
 }
 
@@ -27,6 +27,7 @@ void Cloud::flow()
     position_.x += speed_;
     if (position_.x > max_X)
     {
+        initRand();
         position_.x = 0;
     }
 }

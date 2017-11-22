@@ -5,6 +5,7 @@
 #include "others/libconvert.h"
 #include "Event.h"
 #include "Option.h"
+#include "PotConv.h"
 
 BattleActionMenu::BattleActionMenu()
 {
@@ -239,8 +240,9 @@ int BattleActionMenu::autoSelect(Role* role)
                         aa.point = battle_scene_->calHiddenWeaponHurt(role_temp, r2, item);
                         if (aa.point > r2->HP)
                         {
-                            aa.point = r2->HP * 1.25 - 10;    //暗器分值略低
+                            aa.point = r2->HP * 1.25;
                         }
+                        aa.point *= 0.9;    //暗器分值略低
                         aa.item = item;
                         ai_action.push_back(aa);
                     }
@@ -281,7 +283,7 @@ int BattleActionMenu::autoSelect(Role* role)
                                     aa.ActionX = ix;
                                     aa.ActionY = iy;
                                 }
-                                if (total_hurt > 0)
+                                if (total_hurt > -1)
                                 {
                                     //printf("AI %s %s (%d, %d): %d\n", role->Name, magic->Name, ix, iy, total_hurt);
                                 }
@@ -289,7 +291,7 @@ int BattleActionMenu::autoSelect(Role* role)
                         }
                     }
                     aa.point = max_hurt;
-                    if (role->AttackTwice) { aa.point *= 2; }
+                    //if (role->AttackTwice) { aa.point *= 2; }
                     ai_action.push_back(aa);
                 }
             }
@@ -298,13 +300,14 @@ int BattleActionMenu::autoSelect(Role* role)
         double max_point = -1;
         Random<double> rand;    //梅森旋转法随机数
         rand.set_seed();
+        rand.set_parameter(0, 10);
         for (auto aa : ai_action)
         {
-            printf("AI %s: %s ", role->Name, getStringFromResult(aa.Action).c_str());
-            if (aa.item) { printf("%s ", aa.item->Name); }
-            if (aa.magic) { printf("%s ", aa.magic->Name); }
+            printf("AI %s: %s ", PotConv::to_read(role->Name).c_str(), PotConv::to_read(getStringFromResult(aa.Action)).c_str());
+            if (aa.item) { printf("%s ", PotConv::to_read(aa.item->Name).c_str()); }
+            if (aa.magic) { printf("%s ", PotConv::to_read(aa.magic->Name).c_str()); }
             aa.point += rand.rand();    //用于同分的情况，可以随机选择
-            printf("评分%.2f\n", aa.point);
+            printf("score %.2f\n", aa.point);
 
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
             if (aa.point < 1)

@@ -28,11 +28,7 @@ void Element::drawAll()
     }
     for (int i = begin_base; i < root_.size(); i++)  //从最后一个全屏层开始画
     {
-        auto b = root_[i];
-        if (b->visible_/* && !b->exit_*/)
-        {
-            b->drawSelfChilds();
-        }
+        root_[i]->drawSelfChilds();
     }
 }
 
@@ -234,7 +230,7 @@ void Element::dealEventSelfChilds(bool check_event)
 {
     BP_Event e;
     e.type = BP_FIRSTEVENT;
-    Engine::pollEvent(e);
+    while (Engine::pollEvent(e));
     if (check_event)
     {
         checkStateSelfChilds(e, check_event);
@@ -342,11 +338,7 @@ void Element::exitAll(int begin)
     for (int i = begin; i < root_.size(); i++)
     {
         root_[i]->exit_ = true;
-        for (auto c : root_[i]->childs_)
-        {
-            c->exit_ = true;
-            c->visible_ = false;
-        }
+        root_[i]->visible_ = false;
     }
 }
 

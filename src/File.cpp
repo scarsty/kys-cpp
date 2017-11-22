@@ -259,7 +259,7 @@ std::string File::getFileTime(std::string filename)
         filedate = localtime(&tm_t);
         char buf[128] = { 0 };
         strftime(buf, 64, "%Y-%m-%d  %H:%M:%S", filedate);
-        printf("%s:%s\n", filename.c_str(), buf);
+        fprintf(stdout, "%s:%s\n", filename.c_str(), buf);
         return buf;
     }
     return "--------------------";  //20

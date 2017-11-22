@@ -33,6 +33,7 @@ public:
 
     int man_x_, man_y_;
     int mouse_event_x_ = -1, mouse_event_y_ = -1;    //鼠标行路时的最终目标，可能为事件或者入口
+    int cursor_x_ = 0, cursor_y_ = 0;
     int towards_ = 0;              //朝向，共用一个即可
     int step_ = 0;
     int man_pic_ = 0;
@@ -55,7 +56,6 @@ public:
     void setTowards(int t) { towards_ = t; }
 
     int calDistance(int x1, int y1, int x2, int y2) { return abs(x1 - x2) + abs(y1 - y2); }
-
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
     void changeTowardsByKey(BP_Keycode key);
@@ -74,6 +74,7 @@ public:
     //看不明白
     Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
     Point getMousePosition(int view_x, int view_y);
+    void calCursorPosition(int x, int y);
 
     void stopFindWay() { way_que_.clear();/*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);

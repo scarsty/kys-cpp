@@ -570,6 +570,7 @@ void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 
     else
     {
         select_layer_->setAll(-1);
+        select_layer_->data(x, y) = 0;
     }
 }
 
@@ -590,7 +591,7 @@ void BattleScene::calSelectLayerByMagic(int x, int y, int team, Magic* magic, in
     }
     else
     {
-        calSelectLayer(x, y, team, 4, magic->SelectDistance[level_index]);
+        calSelectLayer(x, y, team, 4);
     }
 }
 
@@ -1193,6 +1194,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             else
             {
                 //这里是计算ai分数
+                if (r->AttackTwice) { hurt *= 2; }
                 if (m->HurtType == 0)
                 {
                     if (hurt >= r2->HP)
