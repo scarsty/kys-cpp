@@ -40,6 +40,7 @@ void Menu::dealEvent(BP_Event& e)
             }
         }
     }
+    forcePassChild();
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)
@@ -74,11 +75,6 @@ void Menu::onEntrance()
     {
         pass_child_ = start_;
     }
-    forcePassChild();
-}
-
-void Menu::frontRun()
-{
     forcePassChild();
 }
 

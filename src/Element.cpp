@@ -19,7 +19,7 @@ void Element::drawAll()
     int begin_base = 0;
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
-        root_[i]->backRunSelfChilds();
+        root_[i]->backRun();
         root_[i]->current_frame_++;
         if (root_[i]->full_window_)
         {
@@ -220,16 +220,6 @@ void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
     }
 }
 
-void Element::frontRunSelfChilds()
-{
-    if (exit_) { return; }
-    for (auto c : childs_)
-    {
-        c->frontRunSelfChilds();
-    }
-    frontRun();
-}
-
 void Element::backRunSelfChilds()
 {
     for (auto c : childs_)
@@ -243,22 +233,19 @@ void Element::backRunSelfChilds()
 void Element::dealEventSelfChilds(bool check_event)
 {
     BP_Event e;
-    //clearEvent(e);    //e的初值不确定
-    //while (Engine::pollEvent(e) > 0);    //实际是只要最后一个事件
-    if (Engine::pollEvent(e))
+    e.type = BP_FIRSTEVENT;
+    Engine::pollEvent(e);
+    if (check_event)
     {
-        if (check_event)
-        {
-            checkStateSelfChilds(e, check_event);
-        }
-        switch (e.type)
-        {
-        case BP_QUIT:
-            UISystem::askExit();
-            break;
-        default:
-            break;
-        }
+        checkStateSelfChilds(e, check_event);
+    }
+    switch (e.type)
+    {
+    case BP_QUIT:
+        UISystem::askExit();
+        break;
+    default:
+        break;
     }
 }
 
@@ -340,7 +327,6 @@ int Element::run(bool in_root /*= true*/)
     {
         if (root_.empty()) { break; }
         dealEventSelfChilds(true);
-        frontRunSelfChilds();
         drawAll();
         checkFrame();
         present();

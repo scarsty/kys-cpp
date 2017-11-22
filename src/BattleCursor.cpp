@@ -24,31 +24,6 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
     head_selected_->setRole(r);
 }
 
-void BattleCursor::frontRun()
-{
-    if (battle_scene_ == nullptr) { return; }
-    if (role_->isAuto())
-    {
-        int x = -1, y = -1;
-        if (mode_ == Move)
-        {
-            x = role_->AI_MoveX;
-            y = role_->AI_MoveY;
-            setResult(0);
-            setExit(true);
-        }
-        else if (mode_ == Action)
-        {
-            x = role_->AI_ActionX;
-            y = role_->AI_ActionY;
-            setResult(0);
-            setExit(true);
-        }
-        setVisible(!exit_);
-        setCursor(x, y);
-    }
-}
-
 void BattleCursor::dealEvent(BP_Event& e)
 {
     if (battle_scene_ == nullptr) { return; }
@@ -113,9 +88,36 @@ void BattleCursor::setCursor(int x, int y)
 
 void BattleCursor::onEntrance()
 {
+    if (battle_scene_ == nullptr)
+    {
+        setExit(true);
+        setVisible(!exit_);
+        return;
+    }
+
     int w, h;
     Engine::getInstance()->getWindowSize(w, h);
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
-    //setVisible(true);
+
+    if (role_->isAuto())
+    {
+        int x = -1, y = -1;
+        if (mode_ == Move)
+        {
+            x = role_->AI_MoveX;
+            y = role_->AI_MoveY;
+            setResult(0);
+            setExit(true);
+        }
+        else if (mode_ == Action)
+        {
+            x = role_->AI_ActionX;
+            y = role_->AI_ActionY;
+            setResult(0);
+            setExit(true);
+        }
+        setVisible(!exit_);
+        setCursor(x, y);
+    }
 }

@@ -19,7 +19,7 @@ BattleActionMenu::~BattleActionMenu()
 }
 
 void BattleActionMenu::setRole(Role* r)
-{
+{    
     role_ = r;
     setVisible(true);
     for (auto c : childs_)
@@ -67,9 +67,10 @@ void BattleActionMenu::setRole(Role* r)
     if (!role_->Moved) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
-void BattleActionMenu::frontRun()
+void BattleActionMenu::dealEvent(BP_Event& e)
 {
     if (battle_scene_ == nullptr) { return; }
+    //如果是ai，计算行动，不再进入其他循环
     if (role_->isAuto())
     {
         int act = autoSelect(role_);
@@ -78,8 +79,9 @@ void BattleActionMenu::frontRun()
         childs_[act]->setState(Press);
         setExit(true);
         setVisible(false);  //AI不画菜单了，太乱
+        return;
     }
-    forcePassChild();
+    Menu::dealEvent(e);
 }
 
 //"0移動", "1武學", "2用毒", "3解毒", "4醫療", "5暗器", "6藥品", "7等待", "8狀態", "9自動", "10結束"
@@ -425,7 +427,7 @@ Role* BattleActionMenu::getNearestRole(Role* role, std::vector<Role*> roles)
     //选择离得最近的敌人
     for (auto r : roles)
     {
-        auto cur_dis = battle_scene_->calDistance(role, r);
+        auto cur_dis = battle_scene_->calRoleDistance(role, r);
         if (cur_dis < min_dis)
         {
             r2 = r;
@@ -452,7 +454,7 @@ int BattleActionMenu::calNeedActionDistance(AIAction& aa)
     return battle_scene_->calDistance(aa.MoveX, aa.MoveY, aa.ActionX, aa.ActionY);
 }
 
-void BattleMagicMenu::frontRun()
+void BattleMagicMenu::onEntrance()
 {
     if (role_ == nullptr) { return; }
     if (role_->isAuto())
@@ -462,6 +464,7 @@ void BattleMagicMenu::frontRun()
         setResult(0);
         setExit(true);
         setVisible(false);
+        return;
     }
     forcePassChild();
 }
@@ -510,7 +513,7 @@ BattleItemMenu::BattleItemMenu()
     setSelectUser(false);
 }
 
-void BattleItemMenu::frontRun()
+void BattleItemMenu::onEntrance()
 {
     if (role_ == nullptr) { return; }
     if (role_->isAuto())
@@ -521,10 +524,6 @@ void BattleItemMenu::frontRun()
             setExit(true);
             setVisible(false);
         }
-    }
-    else
-    {
-        checkCurrentItem();
     }
 }
 

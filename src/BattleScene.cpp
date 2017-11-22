@@ -184,7 +184,7 @@ void BattleScene::draw()
     //printf("Battle scene drawn\n");
 }
 
-void BattleScene::frontRun()
+void BattleScene::dealEvent(BP_Event& e)
 {
     if (battle_roles_.empty())
     {
@@ -388,7 +388,7 @@ void BattleScene::setFaceTowardsNearest(Role* r, bool in_effect /*= false*/)
     {
         if (!in_effect && r->Team != r1->Team || in_effect && inEffect(r, r1))
         {
-            int dis = calDistance(r, r1);
+            int dis = calRoleDistance(r, r1);
             if (dis < min_distance)
             {
                 r_near = r1;
@@ -1140,7 +1140,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 
         int v = attack - defence;
         //¾àÀëË¥¼õ
-        int dis = calDistance(r1, r2);
+        int dis = calRoleDistance(r1, r2);
         v = v / exp((dis - 1) / 10);
 
         v += RandomClassical::rand(10) - RandomClassical::rand(10);
@@ -1215,7 +1215,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
 {
     int v = r1->HiddenWeapon - item->AddHP;
-    int dis = calDistance(r1, r2);
+    int dis = calRoleDistance(r1, r2);
     v = v / exp((dis - 1) / 10);
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
     if (v < 1) { v = 1; }

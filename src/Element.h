@@ -106,10 +106,9 @@ public:
 
     //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
 
-    virtual void frontRun() {}                                 //作为执行中的主节点时，每个循环执行的内容
     virtual void backRun() {}                                  //节点在root中就运行，可以放入总计数器
     virtual void draw() {}                                     //如何画本节点
-    virtual void dealEvent(BP_Event& e) {}                     //处理事件，执行模式时检查到事件时执行
+    virtual void dealEvent(BP_Event& e) {}                     //处理事件，会一直执行，相当于主循环体
     virtual void dealEvent2(BP_Event& e) {}                    //处理事件，执行模式和动画模式都会被执行，可用于制动
     virtual void onEntrance() {}                               //进入本节点的事件，例如亮屏等
     virtual void onExit() {}                                   //离开本节点的事件，例如黑屏等
@@ -134,7 +133,6 @@ public:
 private:
     void drawSelfChilds();
     void checkStateSelfChilds(BP_Event& e, bool check_event = false);
-    void frontRunSelfChilds();
     void backRunSelfChilds();
     void dealEventSelfChilds(bool check_event = false);
     void checkChildState();

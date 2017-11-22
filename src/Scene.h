@@ -54,6 +54,8 @@ public:
     int calTowards(int x1, int y1, int x2, int y2);
     void setTowards(int t) { towards_ = t; }
 
+    int calDistance(int x1, int y1, int x2, int y2) { return abs(x1 - x2) + abs(y1 - y2); }
+
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
     void changeTowardsByKey(BP_Keycode key);

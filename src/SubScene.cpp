@@ -149,7 +149,7 @@ void SubScene::draw()
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
-void SubScene::frontRun()
+void SubScene::dealEvent(BP_Event& e)
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
@@ -208,15 +208,10 @@ void SubScene::frontRun()
         }
         if (isExit(x, y)) { way_que_.clear(); }
     }
-}
 
-void SubScene::dealEvent(BP_Event& e)
-{
-    int x = man_x_, y = man_y_;
-
+    //检查触发剧情事件
     if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
-
         if (checkEvent1(x, y, towards_))
         {
             //clearEvent(e);
@@ -235,13 +230,20 @@ void SubScene::dealEvent(BP_Event& e)
             FindWay(x, y, p.x, p.y);
         }
         //存在事件则在其周围取一点尝试寻路
-        if (isCannotPassEvent(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
+        if (isCannotPassEvent(p.x, p.y) || isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)
         {
             std::vector<Point> ps;
-            if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
-            if (canWalk(p.x + 1, p.y)) { ps.push_back({ p.x + 1, p.y }); }
-            if (canWalk(p.x, p.y - 1)) { ps.push_back({ p.x, p.y - 1 }); }
-            if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
+            if (calDistance(p.x, p.y, x, y) == 1)
+            {
+                ps.push_back({ x, y });
+            }
+            else
+            {
+                if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
+                if (canWalk(p.x + 1, p.y)) { ps.push_back({ p.x + 1, p.y }); }
+                if (canWalk(p.x, p.y - 1)) { ps.push_back({ p.x, p.y - 1 }); }
+                if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
+            }
             if (!ps.empty())
             {
                 int i = RandomClassical::rand(ps.size());
@@ -250,7 +252,6 @@ void SubScene::dealEvent(BP_Event& e)
             }
         }
     }
-
 }
 
 void SubScene::backRun()
@@ -429,10 +430,11 @@ bool SubScene::isWater(int x, int y)
     return false;
 }
 
-bool SubScene::isCanPassEvent(int x, int y)
+//是否是可通过的事件，好像只有硝石使用了
+bool SubScene::isCanPassEvent1(int x, int y)
 {
     auto e = submap_info_->Event(x, y);
-    if (e && !e->CannotWalk)
+    if (e && !e->CannotWalk && e->Event1 > 0)
     {
         return true;
     }

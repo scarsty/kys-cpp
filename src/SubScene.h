@@ -34,7 +34,6 @@ public:
     void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
     virtual void draw() override;
-    virtual void frontRun() override;
     virtual void dealEvent(BP_Event& e) override;
     virtual void backRun() override;
     virtual void onEntrance() override;

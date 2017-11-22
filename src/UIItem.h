@@ -37,7 +37,6 @@ public:
     void geItemsByType(int item_type);
 
     void checkCurrentItem();
-    virtual void frontRun() override { checkCurrentItem(); }
     virtual void draw() override { showItemProperty(current_item_); }
     virtual void dealEvent(BP_Event& e) override;
 

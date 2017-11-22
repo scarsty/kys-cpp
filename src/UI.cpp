@@ -55,7 +55,7 @@ void UI::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
 }
 
-void UI::frontRun()
+void UI::dealEvent(BP_Event& e)
 {
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {

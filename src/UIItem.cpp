@@ -167,6 +167,7 @@ Item* UIItem::getAvailableItem(int i)
 
 void UIItem::dealEvent(BP_Event& e)
 {
+    checkCurrentItem();
     if (e.type == BP_MOUSEWHEEL)
     {
         if (e.wheel.y > 0)

@@ -167,7 +167,7 @@ void MainScene::backRun()
     }
 }
 
-void MainScene::frontRun()
+void MainScene::dealEvent(BP_Event& e)
 {
     //强制进入，通常用于开始
     if (force_submap_ >= 0)
@@ -181,6 +181,7 @@ void MainScene::frontRun()
         force_submap_ = -1;
         setVisible(true);
     }
+
     int x = man_x_, y = man_y_;
 
     //键盘走路部分，检测4个方向键
@@ -240,12 +241,7 @@ void MainScene::frontRun()
         }
     }
     rest_time_++;    //只要出现走动，rest_time就会清零
-}
 
-//计时器，负责画图以及一些其他问题
-void MainScene::dealEvent(BP_Event& e)
-{
-    int x = man_x_, y = man_y_;
     //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {

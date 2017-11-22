@@ -18,10 +18,10 @@ public:
     void setRole(Role* r);
     int runAsRole(Role* r) { setRole(r); return run(); }
 
+    void dealEvent(BP_Event& e) override;
+
     BattleScene* battle_scene_ = nullptr;
     void setBattleScene(BattleScene* b) { battle_scene_ = b; }
-
-    virtual void frontRun() override;
 
     int autoSelect(Role* role);
 
@@ -66,14 +66,13 @@ public:
 
     //virtual void onEntrance() override;
 
-    virtual void frontRun() override;
-
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
     void setRole(Role* r);
     int runAsRole(Role* r) { setRole(r); return run(); }
 
     Magic* getMagic() { return magic_; }
+    void onEntrance() override;
 
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override { magic_ = nullptr; exitWithResult(-1); }
@@ -89,12 +88,12 @@ public:
 private:
     Role* role_ = nullptr;
 public:
-    virtual void frontRun() override;
-
     void setRole(Role* r) { role_ = r; }
     Role* getRole() { return role_; }
 
     void addItem(Item* item, int count);
+
+    void onEntrance() override;
 
     std::vector<Item*> getAvaliableItems();
     static std::vector<Item*> getAvaliableItems(Role* role, int type);
