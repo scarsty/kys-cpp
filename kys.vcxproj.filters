@@ -344,4 +344,7 @@
   <ItemGroup>
     <ResourceCompile Include="kys.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="kys.ico" />
+  </ItemGroup>
 </Project>

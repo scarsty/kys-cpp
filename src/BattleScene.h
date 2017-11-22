@@ -96,7 +96,7 @@ public:
     bool isBuilding(int x, int y);
     bool isWater(int x, int y);
     bool isRole(int x, int y);
-    bool isOutScreen(int x, int y);
+    bool isOutScreen(int x, int y) override;
     bool isNearEnemy(int team, int x, int y);    //是否x，y上的人物与team不一致
 
     //计算距离
