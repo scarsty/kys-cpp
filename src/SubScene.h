@@ -54,7 +54,7 @@ public:
 
     virtual bool isBuilding(int x, int y);
     bool isWater(int x, int y);
-    bool isCanPassEvent(int x, int y);
+    bool isCanPassEvent1(int x, int y);
     bool isCannotPassEvent(int x, int y);
     bool isFall(int x, int y);
     bool isExit(int x, int y);

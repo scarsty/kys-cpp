@@ -194,7 +194,7 @@ bool GameUtil::canLevelUp(Role* r)
 
 int GameUtil::getLevelUpExp(int level)
 {
-    if (level<=0 || level >= Option::getInstance()->MaxLevel) { return INT_MAX; }
+    if (level <= 0 || level >= Option::getInstance()->MaxLevel) { return INT_MAX; }
     return game_util_.level_up_list_[level - 1];
 }
 
@@ -248,14 +248,14 @@ void GameUtil::equip(Role* r, Item* i)
     auto equip0 = Save::getInstance()->getItem(r->Equip0);
     auto equip1 = Save::getInstance()->getItem(r->Equip1);
 
-    if (r0) { r0->PracticeItem = -1; }
     i->User = r->ID;
 
     if (i->ItemType == 2)
     {
-        //ÃØ¼®        
+        //ÃØ¼®
         if (book) { book->User = -1; }
-        r->PracticeItem = i->ID;        
+        r->PracticeItem = i->ID;
+        if (r0) { r0->PracticeItem = -1; }
     }
     if (i->ItemType == 1)
     {
@@ -263,11 +263,13 @@ void GameUtil::equip(Role* r, Item* i)
         {
             if (equip0) { equip0->User = -1; }
             r->Equip0 = i->ID;
+            if (r0) { r0->Equip0 = -1; }
         }
         if (i->EquipType == 1)
         {
             if (equip1) { equip1->User = -1; }
             r->Equip1 = i->ID;
+            if (r0) { r0->Equip1 = -1; }
         }
     }
 }

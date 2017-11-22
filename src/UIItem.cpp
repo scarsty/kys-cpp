@@ -1,6 +1,6 @@
 #include "UIItem.h"
 #include "Save.h"
-#include "others\libconvert.h"
+#include "others/libconvert.h"
 #include "Font.h"
 #include "MainScene.h"
 #include "GameUtil.h"
@@ -118,10 +118,7 @@ void UIItem::checkCurrentItem()
 
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup);
 
-    //计算当前指向的物品
-    //result_ = -1;
-    //current_item_ = nullptr;
-    //current_button_ = nullptr;
+    //计算被激活的按钮
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
@@ -130,23 +127,26 @@ void UIItem::checkCurrentItem()
         if (item)
         {
             button->setTexture("item", item->ID);
-            if (button->getState() == Pass || button->getState() == Press)
-            {
-                current_item_ = item;
-                current_button_ = button;
-                //result_ = current_item_->ID;
-            }
         }
         else
         {
             button->setTexture("item", -1);
         }
+        if (button->getState() == Pass || button->getState() == Press)
+        {
+            current_button_ = button;
+            //result_ = current_item_->ID;
+        }
     }
-    //让光标显示出来
+
+    //计算被激活的按钮对应的物品
+    current_item_ = nullptr;
     if (current_button_)
     {
         int x, y;
         current_button_->getPosition(x, y);
+        current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
+        //让光标显示出来
         cursor_->setPosition(x, y);
         cursor_->setVisible(true);
     }

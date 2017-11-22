@@ -139,6 +139,9 @@
     <ClCompile Include="src\Color.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\others\minishared.c">
+      <Filter>_others</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -283,6 +286,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="resource.h" />
+    <ClInclude Include="src\others\minishared.h">
+      <Filter>_others</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\bass.lib">

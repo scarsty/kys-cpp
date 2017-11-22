@@ -1,5 +1,6 @@
 #include "Point.h"
 #include <cmath>
+#include <stdlib.h>
 
 PointEx::PointEx()
 {

@@ -159,6 +159,7 @@ void MainScene::draw()
 
 void MainScene::backRun()
 {
+    rest_time_++;    //只要出现走动，rest_time就会清零
     //云的贴图
     for (auto& c : cloud_vector_)
     {
@@ -240,7 +241,6 @@ void MainScene::dealEvent(BP_Event& e)
             }
         }
     }
-    rest_time_++;    //只要出现走动，rest_time就会清零
 
     //鼠标寻路
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)

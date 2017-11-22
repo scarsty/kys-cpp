@@ -1,6 +1,8 @@
 #pragma once
 #include "TextBox.h"
 #include "Head.h"
+#include "others/libconvert.h"
+#include "Font.h"
 
 //这个类专用于显示两个Role的不同，供升级，吃药等显示前后比较
 //可以在属性变化前，以一临时对象记录，再比较前后的变化

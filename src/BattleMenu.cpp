@@ -2,7 +2,7 @@
 #include "Save.h"
 #include "Random.h"
 #include "BattleScene.h"
-#include "others\libconvert.h"
+#include "others/libconvert.h"
 #include "Event.h"
 #include "Option.h"
 

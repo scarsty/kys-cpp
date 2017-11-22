@@ -12,5 +12,6 @@ public:
     //void InitMumber();
     void dealEvent(BP_Event& e) override;
     void draw();
+    int getTexutreID() { return texture_normal_id_; }
 };
 

@@ -68,7 +68,7 @@ void UI::dealEvent(BP_Event& e)
             ui_status_->setRole(role);
             current_head_ = i;
         }
-
+        head->setText("");
         //如在物品栏则判断是否在使用，或者可以使用，设置对应的头像状态
         if (childs_[0] == ui_item_)
         {
@@ -80,19 +80,11 @@ void UI::dealEvent(BP_Event& e)
                     head->setText("使用中");
                     //Font::getInstance()->draw("使用中", 25, x + 5, y + 60, { 255,255,255,255 });
                 }
-                else
-                {
-                    head->setText("");
-                }
                 if (GameUtil::canUseItem(role, item))
                 {
                     head->setState(Pass);
                 }
             }
-        }
-        else
-        {
-            head->setText("");
         }
     }
 

@@ -8,6 +8,10 @@
 #else
 #include "dirent.h"
 #endif
+#ifdef __GNUC__
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
 
 File::File()
 {
@@ -239,13 +243,16 @@ char* File::getIdxContent(std::string filename_idx, std::string filename_grp, st
 
 std::string File::getFileTime(std::string filename)
 {
+#if defined(__clang__) && defined(_WIN32)
+    struct __stat64 s;
+    int sss = __stat64(filename.c_str(), &s);
+#else
     struct stat s;
+    int sss = stat(filename.c_str(), &s);
+#endif
     struct tm* filedate = NULL;
     time_t tm_t = 0;
-
     uint32_t dos_date;
-
-    int sss = stat(filename.c_str(), &s);
     if (sss == 0)
     {
         tm_t = s.st_mtime;

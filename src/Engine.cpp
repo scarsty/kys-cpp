@@ -1,6 +1,4 @@
 ﻿#include "Engine.h"
-#include<tchar.h>
-#include<direct.h>
 #ifdef _MSC_VER
 #define NOMINMAX
 #include <windows.h>
@@ -72,7 +70,9 @@ void Engine::destroy()
     destroyAssistTexture();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
+#ifdef _WIN32
     PotDestory(tinypot_);
+#endif
 }
 
 void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume)
@@ -327,9 +327,9 @@ int Engine::init(void* handle)
     square_ = createSquareTexture(100);
 
     printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
-
+#ifdef _WIN32
     tinypot_ = PotCreateFromWindow(window_);
-
+#endif
     return 0;
 }
 
@@ -548,7 +548,10 @@ void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
 
 int Engine::playVideo(std::string filename)
 {
+#ifdef _WIN32
     return PotInputVideo(tinypot_, (char*)filename.c_str());
+#endif
+    return 0;
 }
 
 void Engine::setWindowPosition(int x, int y)

@@ -1138,7 +1138,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             if (index != 0) { x50[e3] = x50[e4] % index; }
             break;
         case 5:
-            if (index != 0) { x50[e3] = unsigned int(x50[e4]) / index; }
+            if (index != 0) { x50[e3] = uint32_t(x50[e4]) / index; }
             break;
         }
         break;
