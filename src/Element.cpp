@@ -165,18 +165,6 @@ int Element::findFristVisibleChild()
     return -1;
 }
 
-void Element::forcePassChild()
-{
-    for (int i = 0; i < childs_.size(); i++)
-    {
-        childs_[i]->setState(Normal);
-        if (i == pass_child_)
-        {
-            childs_[i]->setState(Pass);
-        }
-    }
-}
-
 void Element::checkFrame()
 {
     if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
@@ -205,8 +193,16 @@ void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
             //可以在dealEvent中改变原有状态，强制设置某些情况
             dealEvent(e);
             //为简化代码，将按下回车和ESC的操作写在此处
-            if (isPressOK(e)) { onPressedOK(); }
-            if (isPressCancel(e)) { onPressedCancel(); }
+            if (isPressOK(e))
+            {
+                onPressedOK();
+                setAllChildState(Normal);                
+            }
+            if (isPressCancel(e))
+            {
+                onPressedCancel();
+                setAllChildState(Normal);
+            }
         }
         dealEvent2(e);
     }
@@ -245,16 +241,33 @@ void Element::dealEventSelfChilds(bool check_event)
     }
 }
 
+void Element::forcePassChild()
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        childs_[i]->setState(Normal);
+        if (i == pass_child_)
+        {
+            childs_[i]->setState(Pass);
+        }
+        if (i == press_child_)
+        {
+            childs_[i]->setState(Press);
+        }
+    }
+}
+
 void Element::checkChildState()
 {
     press_child_ = -1;
-    //pass_child_ = -1;  注意pass是不改的，维持上一次的状态
+    //pass_child_ = -1;  //注意pass是不改的，维持上一次的状态
     //获取子节点的状态
     for (int i = 0; i < getChildCount(); i++)
     {
         if (getChild(i)->getState() == Press)
         {
             press_child_ = i;
+            pass_child_ = i;
         }
         if (getChild(i)->getState() == Pass)
         {
@@ -267,16 +280,21 @@ void Element::checkChildState()
 void Element::checkSelfState(BP_Event& e)
 {
     //检测鼠标经过，按下等状态
-    //if (e.type == BP_MOUSEMOTION)
-    int x, y;
-    Engine::getMouseState(x, y);
-    if (inSide(x, y))
+    //注意BP_MOUSEMOTION在mac下面有些问题，待查
+    if (e.type == BP_MOUSEMOTION)
     {
-        state_ = Pass;
-    }
-    else
-    {
-        state_ = Normal;
+        if (inSide(e.motion.x, e.motion.y))
+        {
+            state_ = Pass;
+            if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT))
+            {
+                state_ = Press;
+            }
+        }
+        else
+        {
+            state_ = Normal;
+        }
     }
     if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
         && e.button.button == BP_BUTTON_LEFT)
