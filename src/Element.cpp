@@ -267,16 +267,16 @@ void Element::checkChildState()
 void Element::checkSelfState(BP_Event& e)
 {
     //检测鼠标经过，按下等状态
-    if (e.type == BP_MOUSEMOTION)
+    //if (e.type == BP_MOUSEMOTION)
+    int x, y;
+    Engine::getMouseState(x, y);
+    if (inSide(x, y))
     {
-        if (inSide(e.motion.x, e.motion.y))
-        {
-            state_ = Pass;
-        }
-        else
-        {
-            state_ = Normal;
-        }
+        state_ = Pass;
+    }
+    else
+    {
+        state_ = Normal;
     }
     if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
         && e.button.button == BP_BUTTON_LEFT)

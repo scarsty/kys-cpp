@@ -240,7 +240,7 @@ void MainScene::dealEvent(BP_Event& e)
         }
     }
 
-    calCursorPosition(x, y);
+    calCursorPosition(man_x_, man_y_);
 
     //Êó±êÑ°Â·
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
