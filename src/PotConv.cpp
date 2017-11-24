@@ -23,7 +23,7 @@ std::string PotConv::conv(const std::string& src, const char* from, const char* 
     memcpy(in, src.c_str(), inlen);
     iconv_t cd;
     cd = iconv_open(to, from);
-    if (cd <= 0) { return ""; }
+    if (cd == nullptr) { return ""; }
     if (iconv(cd, &pin, &inlen, &pout, &outlen) == -1)
     {
         out[0] = '\0';
