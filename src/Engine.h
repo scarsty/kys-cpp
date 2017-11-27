@@ -15,8 +15,6 @@ extern "C"
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
-#define BP_AUDIO_DEVICE_FORMAT AUDIO_S16
-#define BP_AUDIO_MIX_MAXVOLUME SDL_MIX_MAXVOLUME
 
 typedef std::function<void(uint8_t*, int)> AudioCallback;
 typedef SDL_Renderer BP_Renderer;
@@ -119,22 +117,8 @@ public:
     void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
     void renderAssistTextureToWindow();
 
-    //声音相关
-private:
-    SDL_AudioDeviceID device_;
-    AudioCallback callback_ = nullptr;
-public:
-    void pauseAudio(int pause) { SDL_PauseAudioDevice(device_, pause); }
-    void closeAudio() { SDL_CloseAudioDevice(device_); };
-    int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; };
-    void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume);
-    int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
-    static void mixAudioCallback(void* userdata, Uint8* stream, int len);
-    void setAudioCallback(AudioCallback cb = nullptr) { callback_ = cb; }
-
     //事件相关
 private:
-    SDL_Event e_;
     int time_;
 public:
     static void delay(const int t) { SDL_Delay(t); }

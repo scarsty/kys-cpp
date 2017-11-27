@@ -75,66 +75,6 @@ void Engine::destroy()
 #endif
 }
 
-void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume)
-{
-    SDL_MixAudioFormat(dst, src, BP_AUDIO_DEVICE_FORMAT, len, volume);
-}
-
-int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f)
-{
-    SDL_AudioSpec want;
-    SDL_zero(want);
-
-    printf("\naudio freq/channels: stream %d/%d, ", freq, channels);
-    if (channels <= 2) { channels = 2; }
-    want.freq = freq;
-    want.format = BP_AUDIO_DEVICE_FORMAT;
-    want.channels = channels;
-    want.samples = size;
-    want.callback = mixAudioCallback;
-    //want.userdata = this;
-    want.silence = 0;
-
-    callback_ = f;
-    //if (useMap())
-    {
-        want.samples = std::max(size, minsize);
-    }
-
-    device_ = 0;
-    int i = 10;
-    while (device_ == 0 && i > 0)
-    {
-        device_ = SDL_OpenAudioDevice(NULL, 0, &want, &spec_, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
-        want.channels--;
-        i--;
-    }
-    printf("device %d/%d\n", spec_.freq, spec_.channels);
-
-    if (device_)
-    {
-        SDL_PauseAudioDevice(device_, 0);
-    }
-    else
-    {
-        printf("failed to open audio: %s\n", SDL_GetError());
-    }
-
-    freq = spec_.freq;
-    channels = spec_.channels;
-
-    return 0;
-}
-
-void Engine::mixAudioCallback(void* userdata, Uint8* stream, int len)
-{
-    SDL_memset(stream, 0, len);
-    if (engine_.callback_)
-    {
-        engine_.callback_(stream, len);
-    }
-}
-
 bool Engine::checkKeyPress(BP_Keycode key)
 {
     return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
