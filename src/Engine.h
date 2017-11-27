@@ -45,7 +45,6 @@ private:
     virtual ~Engine();
 private:
     static Engine engine_;
-    Engine* this_;
 public:
     static Engine* getInstance() { return &engine_; };
     //图形相关
@@ -53,7 +52,6 @@ private:
     BP_Window* window_ = nullptr;
     BP_Renderer* renderer_ = nullptr;
     BP_Texture* tex_ = nullptr, *tex2_ = nullptr, *logo_ = nullptr;
-    BP_AudioSpec want_, spec_;
     BP_Rect rect_;
     BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; }
     bool full_screen_ = false;

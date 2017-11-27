@@ -10,7 +10,6 @@ Engine Engine::engine_;
 
 Engine::Engine()
 {
-    this_ = &engine_;
 }
 
 Engine::~Engine()
