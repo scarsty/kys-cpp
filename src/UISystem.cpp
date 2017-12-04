@@ -40,7 +40,7 @@ void UISystem::onPressedOK()
     {
         Script::getInstance()->runScript("../game/script/1.lua");
     }
-    else if (title_->getResult() == title_->getChildCount()-1)
+    else if (title_->getResult() == title_->getChildCount() - 1)
     {
         result_ = askExit();
     }

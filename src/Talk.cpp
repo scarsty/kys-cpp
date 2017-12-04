@@ -70,7 +70,7 @@ void Talk::onEntrance()
             }
         }
         //若英文字符为奇数个，且最后一个字为中文，则多算一个字符
-        if (eng_count % 2 == 1 && len == width_ && uint8_t(content_.at(i+len))>=128)
+        if (eng_count % 2 == 1 && len == width_ && uint8_t(content_.at(i + len)) >= 128)
         {
             len++;
             line = content_.substr(i, len);

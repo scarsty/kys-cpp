@@ -196,7 +196,7 @@ void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
             if (isPressOK(e))
             {
                 onPressedOK();
-                setAllChildState(Normal);                
+                setAllChildState(Normal);
             }
             if (isPressCancel(e))
             {

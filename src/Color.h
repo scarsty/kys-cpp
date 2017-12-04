@@ -2,7 +2,7 @@
 #include <map>
 #include <string>
 
-typedef enum 
+typedef enum
 {
     CONSOLE_COLOR_NONE = -1,
     CONSOLE_COLOR_RED = 4,

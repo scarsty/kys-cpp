@@ -7,10 +7,10 @@ public:
     UISave();
     ~UISave();
 private:
-    enum 
+    enum
     {
         AUTO_SAVE_ID = 11,
-    }; 
+    };
 
     int mode_ = 0;  //0Îª¶Áµµ£¬1Îª´æµµ
 public:

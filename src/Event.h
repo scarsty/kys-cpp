@@ -54,7 +54,7 @@ private:
     int use_script_ = 0;
 
 private:
-    SubMapInfo* getSubMapRecordFromID(int submap_id);    
+    SubMapInfo* getSubMapRecordFromID(int submap_id);
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);

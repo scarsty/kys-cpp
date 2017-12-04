@@ -168,7 +168,8 @@ std::vector<std::string> File::getFilesInDir(std::string dirname)
             std::string filedir = filename;
             ret.push_back(filedir);
         }
-    } while (FindNextFileA(hFind, &ffd) != 0);
+    }
+    while (FindNextFileA(hFind, &ffd) != 0);
 
 
     dwError = GetLastError();

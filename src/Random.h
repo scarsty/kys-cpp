@@ -28,25 +28,33 @@ public:
 
     void set_parameter(T a, T b)
     {
-        uniform_dist_.param(decltype(uniform_dist_.param()){ a, b });
-        normal_dist_.param(decltype(normal_dist_.param()){ a, b });
+        uniform_dist_.param(decltype(uniform_dist_.param()) { a, b });
+        normal_dist_.param(decltype(normal_dist_.param()) { a, b });
     }
 
     T rand()
     {
         if (type_ == RANDOM_UNIFORM)
-        { return uniform_dist_(generator_); }
+        {
+            return uniform_dist_(generator_);
+        }
         else if (type_ == RANDOM_NORMAL)
-        { return normal_dist_(generator_); }
+        {
+            return normal_dist_(generator_);
+        }
         return 0;
     }
 
     T rand_fast()
     {
         if (type_ == RANDOM_UNIFORM)
-        { return uniform_dist_(generator_fast_); }
+        {
+            return uniform_dist_(generator_fast_);
+        }
         else if (type_ == RANDOM_NORMAL)
-        { return normal_dist_(generator_fast_); }
+        {
+            return normal_dist_(generator_fast_);
+        }
         return 0;
     }
 

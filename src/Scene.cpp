@@ -228,7 +228,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
                 auto s = new PointEx();
                 s->x = t->x + dirs[i][0];
                 s->y = t->y + dirs[i][1];
-                if (canWalk(s->x, s->y) /*&& !isOutScreen(s->x, s->y) */&& !visited[s->x][s->y])
+                if (canWalk(s->x, s->y) /*&& !isOutScreen(s->x, s->y) */ && !visited[s->x][s->y])
                 {
                     s->g = t->g + 10;
                     s->towards = i;

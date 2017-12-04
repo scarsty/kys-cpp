@@ -20,7 +20,7 @@ BattleActionMenu::~BattleActionMenu()
 }
 
 void BattleActionMenu::setRole(Role* r)
-{    
+{
     role_ = r;
     setVisible(true);
     for (auto c : childs_)

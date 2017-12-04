@@ -23,7 +23,7 @@ private:
     std::vector<std::string> content_lines_;
 public:
     void setContent(std::string c) { content_ = c; }
-    void setHeadID(int h) { head_id_=h; }
+    void setHeadID(int h) { head_id_ = h; }
     void setHeadStyle(int s) { head_style_ = s; }
     virtual void onEntrance() override;
 
