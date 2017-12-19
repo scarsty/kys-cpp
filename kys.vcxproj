@@ -93,11 +93,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Classes;.;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Classes;.;include;$(USR_LOCAL)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -123,13 +125,15 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>Classes;.;include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Classes;.;include;$(USR_LOCAL)\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -151,18 +155,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="readme.md" />
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="lib\bass.lib" />
-    <Library Include="lib\bassmidi.lib" />
-    <Library Include="lib\libiconv.lib" />
-    <Library Include="lib\libminizip.lib" />
-    <Library Include="lib\lua.lib" />
-    <Library Include="lib\SDL2.lib" />
-    <Library Include="lib\SDL2main.lib" />
-    <Library Include="lib\SDL2_image.lib" />
-    <Library Include="lib\SDL2_ttf.lib" />
-    <Library Include="lib\TinyPot.lib" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />

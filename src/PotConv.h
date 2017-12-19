@@ -3,7 +3,7 @@
 extern "C"
 {
 #ifdef _MSC_VER
-#include "libiconv/iconv.h"
+#include "iconv/iconv.h"
 #else
 #include <iconv.h>
 #endif
