@@ -1,4 +1,5 @@
 #include "libconvert.h"
+#include <stdio.h>
 
 #ifdef _MSC_VER
 #define vsprintf vsprintf_s
@@ -29,6 +30,13 @@ void convert::writeStringToFile(const std::string& str, const std::string& filen
     int length = str.length();
     fwrite(str.c_str(), length, 1, fp);
     fclose(fp);
+}
+
+void convert::writeStringAppendToFile(const std::string& str, FILE* fp)
+{
+    int length = str.length();
+    fwrite(str.c_str(), length, 1, fp);
+    fputc('\n', fp);
 }
 
 int convert::replaceString(std::string& s, const std::string& oldstring, const std::string& newstring, int pos0/*=0*/)
@@ -150,7 +158,7 @@ std::vector<std::string> convert::splitString(std::string str, std::string patte
 {
     std::string::size_type pos;
     std::vector<std::string> result;
-    str += pattern;
+    str += pattern; //扩展字符串以方便操作
     int size = str.size();
 
     for (int i = 0; i < size; i++)
