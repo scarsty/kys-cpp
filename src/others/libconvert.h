@@ -2,15 +2,14 @@
 #include <string>
 #include <vector>
 #include <stdarg.h>
-#include <math.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 namespace convert
 {
 //string functions
 std::string readStringFromFile(const std::string& filename);
 void writeStringToFile(const std::string& str, const std::string& filename);
+void writeStringAppendToFile(const std::string& str, FILE *fp);
 int replaceString(std::string& s, const std::string& oldstring, const std::string& newstring, int pos0 = 0);
 int replaceAllString(std::string& s, const std::string& oldstring, const std::string& newstring);
 void replaceStringInFile(const std::string& oldfilename, const std::string& newfilename, const std::string& oldstring, const std::string& newstring);

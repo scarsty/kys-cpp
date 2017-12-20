@@ -87,6 +87,8 @@ libconvert https://github.com/scarsty/convert
 
 编译minizip时，需要手动添加minishared.h和minishared.c，并在其中的函数声明中添加导出至dll的标记。
 
+部分库和对应的头文件可以从<https://github.com/scarsty/local-lib>取得。
+
 ## 授权
 
 Created by SB500@www.dawuxia.net.
