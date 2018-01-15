@@ -1048,7 +1048,7 @@ void BattleScene::useMagicAnimation(Role* r, Magic* m)
     if (r && m)
     {
         Audio::getInstance()->playASound(m->SoundID);    //这里播放音效严格说不正确，不管了
-        actionAnimation(r, m->MagicType, m->EffectID);
+        actionAnimation(r, m->MagicType, m->EffectID, r->Attack / 5);
     }
 }
 
