@@ -493,6 +493,18 @@ int Engine::playVideo(std::string filename)
     return 0;
 }
 
+int Engine::saveScreen(const char* filename)
+{
+    SDL_Rect rect;
+    rect.x = 0;
+    rect.y = 0;
+    SDL_GetWindowSize(window_, &rect.w, &rect.h);
+    SDL_Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
+    SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
+    SDL_SaveBMP(sur, filename);
+    return 0;
+}
+
 void Engine::setWindowPosition(int x, int y)
 {
     int w, h;

@@ -149,6 +149,7 @@ private:
     void* tinypot_ = nullptr;
 public:
     int playVideo(std::string filename);
+    int saveScreen(const char* filename);
 };
 
 //这里直接照搬SDL
