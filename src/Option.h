@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "others/SimpleIni.h"
+#include "others/INIReader.h"
 #include <algorithm>
 #include "others/libconvert.h"
 #include <functional>
@@ -18,7 +18,7 @@ private:
 
     static Option option_;
 
-    CSimpleIniA ini_reader_;
+    INIReader ini_reader_;
     std::string default_section_ = "";
 
     std::string dealString(std::string str)
@@ -57,13 +57,18 @@ public:
     //从指定section提取
     int getIntFromSection(const std::string& section, const std::string& key, int default_value = 0)
     {
-        return int(ini_reader_.GetDoubleValue(dealString(section).c_str(), dealString(key).c_str(), default_value));
+        return int(ini_reader_.GetReal(section, dealString(key), default_value));
     }
     double getRealFromSection(const std::string& section, const std::string& key, double default_value = 0.0)
     {
-        return ini_reader_.GetDoubleValue(dealString(section).c_str(), dealString(key).c_str(), default_value);
+        return ini_reader_.GetReal(section, dealString(key), default_value);
     }
     std::string getStringFromSection(const std::string& section, const std::string& key, std::string default_value = "");
+
+    void setOption(std::string section, std::string key, std::string value)
+    {
+        ini_reader_.SetKey(section, dealString(key), value);
+    }
 
     void print();
 

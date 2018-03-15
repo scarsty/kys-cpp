@@ -5,29 +5,35 @@ Option Option::option_;
 void Option::loadIniFile(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);
-    content = dealString(content);
     loadIniString(content);
     print();
 }
 
 void Option::loadIniString(const std::string& content)
 {
-    ini_reader_.LoadData(content);
+    ini_reader_.load(content);
     //包含文件仅载入一层
     auto filenames = convert::splitString(getString("load_ini"), ",");
     for (auto filename : filenames)
     {
         if (filename != "")
         {
-            ini_reader_.LoadData(dealString(convert::readStringFromFile(filename)));
+            ini_reader_.load(convert::readStringFromFile(filename));
+        }
+    }
+    for (auto section : ini_reader_.GetAllSections())
+    {
+        for (auto key : ini_reader_.GetAllKeys(section))
+        {
+            setOption(section, dealString(key), ini_reader_.Get(section, key, ""));
         }
     }
 }
 
 //提取字串属性，会去掉单引号，双引号
-std::string Option::getStringFromSection(const std::string& section, const std::string& name, std::string v /*= ""*/)
+std::string Option::getStringFromSection(const std::string& section, const std::string& key, std::string v /*= ""*/)
 {
-    std::string str = ini_reader_.GetValue(dealString(section).c_str(), dealString(name).c_str(), v.c_str());
+    std::string str = ini_reader_.Get(section, dealString(key), v);
     convert::replaceAllString(str, "\'", "");
     convert::replaceAllString(str, "\"", "");
     return str;
@@ -35,15 +41,11 @@ std::string Option::getStringFromSection(const std::string& section, const std::
 
 void Option::print()
 {
-    CSimpleIniA::TNamesDepend sections;
-    ini_reader_.GetAllSections(sections);
-    for (auto section : sections)
+    for (auto section : ini_reader_.GetAllSections())
     {
-        CSimpleIniA::TNamesDepend keys;
-        ini_reader_.GetAllKeys(section.pItem, keys);
-        for (auto key : keys)
+        for (auto key : ini_reader_.GetAllKeys(section))
         {
-            fprintf(stdout, "[%s] %s = %s\n", section.pItem, key.pItem, ini_reader_.GetValue(section.pItem, key.pItem));
+            fprintf(stdout, "[%s] %s = %s\n", section.c_str(), key.c_str(), getStringFromSection(section, key).c_str());
         }
     }
 }
