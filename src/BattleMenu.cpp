@@ -138,15 +138,15 @@ int BattleActionMenu::autoSelect(Role* role)
                     aa.point = 0;
                     if (item->AddHP > 0)
                     {
-                        aa.point += std::min(item->AddHP, role->MaxHP - role->HP) - item->AddHP / 10;
+                        aa.point += (std::min)(item->AddHP, role->MaxHP - role->HP) - item->AddHP / 10;
                     }
                     if (item->AddMP > 0)
                     {
-                        aa.point += std::min(item->AddMP, role->MaxMP - role->MP) / 2 - item->AddMP / 10;
+                        aa.point += (std::min)(item->AddMP, role->MaxMP - role->MP) / 2 - item->AddMP / 10;
                     }
                     else if (item->AddPhysicalPower > 0)
                     {
-                        aa.point += std::min(item->AddPhysicalPower, Option::getInstance()->MaxPhysicalPower - role->PhysicalPower)
+                        aa.point += (std::min)(item->AddPhysicalPower, Option::getInstance()->MaxPhysicalPower - role->PhysicalPower)
                             - item->AddPhysicalPower / 10;
                     }
                     if (aa.point > 0)
@@ -216,7 +216,7 @@ int BattleActionMenu::autoSelect(Role* role)
                     if (action_dis >= calNeedActionDistance(aa))
                     {
                         aa.Action = getResultFromString(action_text);
-                        aa.point = std::min(Option::getInstance()->MaxPosion - r2->Poison, role->UsePoison) / 2;
+                        aa.point = (std::min)(Option::getInstance()->MaxPosion - r2->Poison, role->UsePoison) / 2;
                         if (r2->HP < 10) { aa.point = 1; }
                         ai_action.push_back(aa);
                     }

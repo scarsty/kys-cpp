@@ -21,15 +21,11 @@
   <ItemGroup>
     <ClCompile Include="abc\abc.cpp" />
     <ClCompile Include="src\File.cpp" />
-    <ClCompile Include="src\others\ini.cpp" />
-    <ClCompile Include="src\others\INIReader.cpp" />
     <ClCompile Include="src\others\libconvert.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc\TypesABC.h" />
     <ClInclude Include="src\File.h" />
-    <ClInclude Include="src\others\ini.h" />
-    <ClInclude Include="src\others\INIReader.h" />
     <ClInclude Include="src\others\libconvert.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

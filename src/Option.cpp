@@ -5,19 +5,21 @@ Option Option::option_;
 void Option::loadIniFile(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);
+    content = dealString(content);
     loadIniString(content);
+    print();
 }
 
 void Option::loadIniString(const std::string& content)
 {
-    ini_reader_.load(content);
+    ini_reader_.LoadData(content);
     //包含文件仅载入一层
     auto filenames = convert::splitString(getString("load_ini"), ",");
     for (auto filename : filenames)
     {
         if (filename != "")
         {
-            ini_reader_.load(convert::readStringFromFile(filename));
+            ini_reader_.LoadData(dealString(convert::readStringFromFile(filename)));
         }
     }
 }
@@ -25,15 +27,30 @@ void Option::loadIniString(const std::string& content)
 //提取字串属性，会去掉单引号，双引号
 std::string Option::getStringFromSection(const std::string& section, const std::string& name, std::string v /*= ""*/)
 {
-    auto str = ini_reader_.Get(section, name, v);
+    std::string str = ini_reader_.GetValue(dealString(section).c_str(), dealString(name).c_str(), v.c_str());
     convert::replaceAllString(str, "\'", "");
     convert::replaceAllString(str, "\"", "");
     return str;
 }
 
+void Option::print()
+{
+    CSimpleIniA::TNamesDepend sections;
+    ini_reader_.GetAllSections(sections);
+    for (auto section : sections)
+    {
+        CSimpleIniA::TNamesDepend keys;
+        ini_reader_.GetAllKeys(section.pItem, keys);
+        for (auto key : keys)
+        {
+            fprintf(stdout, "[%s] %s = %s\n", section.pItem, key.pItem, ini_reader_.GetValue(section.pItem, key.pItem));
+        }
+    }
+}
+
 void Option::loadSaveValues()
 {
-#define GET_VALUE_INT(v) v = this->getInt(#v, v)
+#define GET_VALUE_INT(v) do {v = this->getInt(#v, v); printf("%s = %d\n", #v, v);} while(0)
 
     GET_VALUE_INT(MaxLevel);
     GET_VALUE_INT(MaxHP);
