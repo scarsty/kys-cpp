@@ -2,7 +2,7 @@
 #include <map>
 #include <string>
 
-typedef enum
+typedef enum 
 {
     CONSOLE_COLOR_NONE = -1,
     CONSOLE_COLOR_RED = 4,
@@ -23,9 +23,9 @@ private:
 
     static Color color_;
     unsigned short old_color_;
-    std::map<ConsoleColor, std::string> color_map_;
+    std::map<int, std::string> color_map_;
 
 public:
-    static void set(ConsoleColor c);
+    static void set(int c);
 };
 

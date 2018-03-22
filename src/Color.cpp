@@ -38,7 +38,7 @@ Color::~Color()
 {
 }
 
-void Color::set(ConsoleColor c)
+void Color::set(int c)
 {
 #ifdef _MSC_VER
     if (c != CONSOLE_COLOR_NONE)
