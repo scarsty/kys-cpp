@@ -306,18 +306,17 @@ int BattleActionMenu::autoSelect(Role* role)
             printf("AI %s: %s ", PotConv::to_read(role->Name).c_str(), PotConv::to_read(getStringFromResult(aa.Action)).c_str());
             if (aa.item) { printf("%s ", PotConv::to_read(aa.item->Name).c_str()); }
             if (aa.magic) { printf("%s ", PotConv::to_read(aa.magic->Name).c_str()); }
-            aa.point += rand.rand();    //用于同分的情况，可以随机选择
-            printf("score %.2f\n", aa.point);
-
+            auto r = rand.rand();    //用于同分的情况，可以随机选择
+            printf("score %.2f(%.2f)\n", aa.point, r);
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
-            if (aa.point < 1)
+            if (aa.point == 0)
             {
                 aa.Action = getResultFromString("結束");
             }
-
-            if (aa.point > max_point)
+            auto p = aa.point + r;
+            if (p > max_point)
             {
-                max_point = aa.point;
+                max_point = p;
                 setAIActionToRole(aa, role);
             }
         }
