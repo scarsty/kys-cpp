@@ -130,9 +130,6 @@
     <ClCompile Include="src\Zip.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Color.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\others\minishared.c">
       <Filter>_others</Filter>
     </ClCompile>
@@ -274,9 +271,6 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Zip.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Color.h">
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="resource.h" />
