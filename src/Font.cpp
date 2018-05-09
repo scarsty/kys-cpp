@@ -12,6 +12,28 @@ Font::~Font()
     }
 }
 
+BP_Texture* Font::indexTex(int size, uint16_t c)
+{
+    auto index = size * 0x1000000 + c;
+    if (buffer_.count(index) == 0)
+    {
+        uint16_t c2[2] = { 0 };
+        c2[0] = c;
+        auto s = PotConv::cp936toutf8((char*)(c2));
+        BP_Texture* tex;
+        if (c > 128)
+        {
+            tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
+        }
+        else
+        {
+            tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
+        }
+        buffer_[index] = tex;
+    }
+    return buffer_[index];
+}
+
 void Font::draw(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha)
 {
     int p = 0;
@@ -25,27 +47,8 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
             c += (uint8_t)text[p] * 256;
             p++;
         }
-        auto index = calIndex(size, c);
-        if (buffer_.count(index) == 0)
-        {
-            uint16_t c2[2] = { 0 };
-            c2[0] = c;
-            auto s = PotConv::cp936toutf8((char*)(c2));
-            BP_Texture* tex;
-            if (c > 128)
-            {
-                tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
-            }
-            else
-            {
-                tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
-            }
-            buffer_[index] = tex;
-        }
-        auto tex = buffer_[index];
-
+        auto tex = indexTex(size, c);
         //Engine::getInstance()->queryTexture(tex, &w, &h);
-
         if (c <= 128)
         {
             w = size / 2;
