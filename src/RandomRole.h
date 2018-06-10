@@ -1,7 +1,7 @@
 #pragma once
+#include "Head.h"
 #include "Types.h"
 #include "UIStatus.h"
-#include "Head.h"
 
 class RandomRole : public UIStatus
 {
@@ -16,4 +16,3 @@ public:
     Button* button_ok_;
     Head* head_;
 };
-

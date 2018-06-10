@@ -15,4 +15,3 @@ public:
     virtual void draw() override;
     void setRoles(std::vector<Role*> r) { roles_ = r; }
 };
-

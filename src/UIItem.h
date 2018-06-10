@@ -1,6 +1,6 @@
 #pragma once
-#include "Element.h"
 #include "Button.h"
+#include "Element.h"
 #include "Menu.h"
 #include "Types.h"
 
@@ -14,7 +14,7 @@ public:
     std::vector<Button*> item_buttons_;
     TextBox* cursor_ = nullptr;
 
-    int leftup_index_ = 0;  //左上角第一个物品在当前种类列表中的索引
+    int leftup_index_ = 0; //左上角第一个物品在当前种类列表中的索引
 
     const int item_each_line_ = 7;
     const int line_count_ = 3;
@@ -51,6 +51,4 @@ public:
 
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override;
-
 };
-

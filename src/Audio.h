@@ -31,4 +31,3 @@ public:
 
     void setVolume(int v) { volume_ = v; }
 };
-

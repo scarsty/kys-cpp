@@ -14,7 +14,11 @@ struct Point
 {
 public:
     Point() {}
-    Point(int _x, int _y) : x(_x), y(_y) {}
+    Point(int _x, int _y)
+        : x(_x)
+        , y(_y)
+    {
+    }
     ~Point() {}
     int x = 0, y = 0;
 };
@@ -34,9 +38,9 @@ struct PointEx : public Point
 
     void delTree(PointEx*);
 
-    bool lessthan(const PointEx* myPoint) const
+    bool lessthan(const PointEx* myPoint)
     {
-        return f > myPoint->f;                                              //重载比较运算符
+        return f > myPoint->f; //重载比较运算符
     }
     int Heuristic(int Fx, int Fy);
 };
@@ -49,4 +53,3 @@ public:
         return point1->lessthan(point2);
     }
 };
-

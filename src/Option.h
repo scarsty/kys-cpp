@@ -1,9 +1,9 @@
 #pragma once
-#include <string>
 #include "others/INIReader.h"
-#include <algorithm>
 #include "others/libconvert.h"
+#include <algorithm>
 #include <functional>
+#include <string>
 
 //该类用于读取配置文件，并转换其中的字串设置为枚举
 //注意实数只获取双精度数，如果是单精度模式会包含隐式转换
@@ -11,11 +11,10 @@
 struct Option
 {
     Option() {}
-    Option(const std::string& filename) : Option() { loadIniFile(filename); }
+    Option(const std::string& filename);
     ~Option() {}
 
 private:
-
     static Option option_;
 
     INIReader ini_reader_;
@@ -29,7 +28,6 @@ private:
     }
 
 public:
-
     static Option* getInstance() { return &option_; }
 
     //载入ini文件
@@ -108,5 +106,3 @@ public:
 
     void loadSaveValues();
 };
-
-

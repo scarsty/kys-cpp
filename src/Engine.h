@@ -1,17 +1,14 @@
 ﻿#pragma once
 
-extern "C"
-{
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
 #include "SDL2/SDL_ttf.h"
-}
 
+#include "tinypot/PotDll.h"
 #include <algorithm>
 #include <functional>
-#include <vector>
 #include <string>
-#include "tinypot/PotDll.h"
+#include <vector>
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
@@ -24,7 +21,12 @@ typedef SDL_Rect BP_Rect;
 typedef SDL_Color BP_Color;
 typedef SDL_Keycode BP_Keycode;
 
-typedef enum { BP_ALIGN_LEFT, BP_ALIGN_MIDDLE, BP_ALIGN_RIGHT } BP_Align;
+enum
+{
+    BP_ALIGN_LEFT,
+    BP_ALIGN_MIDDLE,
+    BP_ALIGN_RIGHT
+} BP_Align;
 
 #define BP_WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED
 
@@ -43,15 +45,17 @@ class Engine
 private:
     Engine();
     virtual ~Engine();
+
 private:
     static Engine engine_;
+
 public:
     static Engine* getInstance() { return &engine_; };
     //图形相关
 private:
     BP_Window* window_ = nullptr;
     BP_Renderer* renderer_ = nullptr;
-    BP_Texture* tex_ = nullptr, *tex2_ = nullptr, *logo_ = nullptr;
+    BP_Texture *tex_ = nullptr, *tex2_ = nullptr, *logo_ = nullptr;
     BP_Rect rect_;
     BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; }
     bool full_screen_ = false;
@@ -61,6 +65,7 @@ private:
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
     int ratio_x_ = 1, ratio_y_ = 1;
+
 public:
     int init(void* handle = 0);
 
@@ -71,18 +76,28 @@ public:
     int getMaxWindowWidth() { return max_x_ - min_x_; }
     int getMaxWindowHeight() { return max_y_ - min_y_; }
     void setWindowSize(int w, int h);
-    void setStartWindowSize(int w, int h) { start_w_ = w; start_h_ = h; }
+    void setStartWindowSize(int w, int h)
+    {
+        start_w_ = w;
+        start_h_ = h;
+    }
     void setWindowPosition(int x, int y);
     void setWindowTitle(const std::string& str) { SDL_SetWindowTitle(window_, str.c_str()); }
     BP_Renderer* getRenderer() { return renderer_; }
 
     void createAssistTexture(int w, int h);
-    void setPresentPosition();  //设置贴图的位置
+    void setPresentPosition(); //设置贴图的位置
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }
     void getMainTextureSize(int& w, int& h) { SDL_QueryTexture(tex2_, nullptr, nullptr, &w, &h); }
-    void destroyAssistTexture() { if (tex2_) { destroyTexture(tex2_); } }
+    void destroyAssistTexture()
+    {
+        if (tex2_)
+        {
+            destroyTexture(tex2_);
+        }
+    }
     static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
     BP_Texture* createYUVTexture(int w, int h);
     void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
@@ -109,7 +124,11 @@ public:
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return rotation_ = r; }
     void resetWindowsPosition();
-    void setRatio(int x, int y) { ratio_x_ = x; ratio_y_ = y; }
+    void setRatio(int x, int y)
+    {
+        ratio_x_ = x;
+        ratio_y_ = y;
+    }
     void setColor(BP_Texture* tex, BP_Color c, uint8_t alpha);
     void fillColor(BP_Color color, int x, int y, int w, int h);
     void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
@@ -118,11 +137,18 @@ public:
     //事件相关
 private:
     int time_;
+
 public:
     static void delay(const int t) { SDL_Delay(t); }
     static uint32_t getTicks() { return SDL_GetTicks(); }
     uint32_t tic() { return time_ = SDL_GetTicks(); }
-    void toc() { if (SDL_GetTicks() != time_) { printf("%d\n", SDL_GetTicks() - time_); } }
+    void toc()
+    {
+        if (SDL_GetTicks() != time_)
+        {
+            printf("%d\n", SDL_GetTicks() - time_);
+        }
+    }
     static void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
     static int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); }
     static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
@@ -133,6 +159,7 @@ public:
     //UI相关
 private:
     BP_Texture* square_;
+
 public:
     BP_Texture* createSquareTexture(int size);
     BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c);
@@ -142,11 +169,14 @@ public:
     std::vector<std::string> splitString(const std::string& s, const std::string& delim);
     int showMessage(const std::string& content);
     void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);
+
 public:
     //标题;
     std::string title_ = "All Heroes in Kam Yung Stories";
+
 private:
     void* tinypot_ = nullptr;
+
 public:
     int playVideo(std::string filename);
     int saveScreen(const char* filename);
@@ -155,7 +185,7 @@ public:
 //这里直接照搬SDL
 //更换底层需自己定义一套
 //好像是瞎折腾
-typedef enum
+enum BP_EventType
 {
     BP_FIRSTEVENT = SDL_FIRSTEVENT,
     //按关闭按钮
@@ -181,11 +211,11 @@ typedef enum
     BP_RENDER_TARGETS_RESET = SDL_RENDER_TARGETS_RESET,
 
     BP_LASTEVENT = SDL_LASTEVENT
-} BP_EventType;
+};
 
-typedef enum
+enum BP_WindowEventID
 {
-    BP_WINDOWEVENT_NONE = SDL_WINDOWEVENT_NONE,           /**< Never used */
+    BP_WINDOWEVENT_NONE = SDL_WINDOWEVENT_NONE, /**< Never used */
     BP_WINDOWEVENT_SHOWN = SDL_WINDOWEVENT_SHOWN,
     BP_WINDOWEVENT_HIDDEN = SDL_WINDOWEVENT_HIDDEN,
     BP_WINDOWEVENT_EXPOSED = SDL_WINDOWEVENT_EXPOSED,
@@ -203,9 +233,9 @@ typedef enum
     BP_WINDOWEVENT_FOCUS_GAINED = SDL_WINDOWEVENT_FOCUS_GAINED,
     BP_WINDOWEVENT_FOCUS_LOST = SDL_WINDOWEVENT_FOCUS_LOST,
     BP_WINDOWEVENT_CLOSE = SDL_WINDOWEVENT_CLOSE
-} BP_WindowEventID;
+};
 
-typedef enum
+enum BP_KeyBoard
 {
     BPK_LEFT = SDLK_LEFT,
     BPK_RIGHT = SDLK_RIGHT,
@@ -216,14 +246,14 @@ typedef enum
     BPK_RETURN = SDLK_RETURN,
     BPK_DELETE = SDLK_DELETE,
     BPK_BACKSPACE = SDLK_BACKSPACE
-} BP_KeyBoard;
+};
 
-typedef enum
+enum BP_Button
 {
     BP_BUTTON_LEFT = SDL_BUTTON_LEFT,
     BP_BUTTON_MIDDLE = SDL_BUTTON_MIDDLE,
     BP_BUTTON_RIGHT = SDL_BUTTON_RIGHT
-} BP_Button;
+};
 
 //mingw无std::mutex
 #ifdef __MINGW32__
@@ -231,6 +261,7 @@ class mutex
 {
 private:
     SDL_mutex* _mutex;
+
 public:
     mutex() { _mutex = SDL_CreateMutex(); }
     ~mutex() { SDL_DestroyMutex(_mutex); }

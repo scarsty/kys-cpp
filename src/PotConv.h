@@ -1,13 +1,10 @@
 #pragma once
 
-extern "C"
-{
 #include <iconv.h>
-}
 
+#include <algorithm>
 #include <cstring>
 #include <string>
-#include <algorithm>
 
 #define CONV_BUFFER_SIZE 2048
 
@@ -29,4 +26,3 @@ public:
     }
     static std::string to_read(const std::string& src);
 };
-

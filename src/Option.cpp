@@ -2,6 +2,12 @@
 
 Option Option::option_;
 
+Option::Option(const std::string& filename)
+    : Option()
+{
+    loadIniFile(filename);
+}
+
 void Option::loadIniFile(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);
@@ -52,7 +58,12 @@ void Option::print()
 
 void Option::loadSaveValues()
 {
-#define GET_VALUE_INT(v) do {v = this->getInt(#v, v); printf("%s = %d\n", #v, v);} while(0)
+#define GET_VALUE_INT(v)            \
+    do                              \
+    {                               \
+        v = this->getInt(#v, v);    \
+        printf("%s = %d\n", #v, v); \
+    } while (0)
 
     GET_VALUE_INT(MaxLevel);
     GET_VALUE_INT(MaxHP);
@@ -87,4 +98,3 @@ void Option::loadSaveValues()
     GET_VALUE_INT(MoneyItemID);
     GET_VALUE_INT(CompassItemID);
 }
-

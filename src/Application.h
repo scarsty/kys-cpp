@@ -1,6 +1,6 @@
 #pragma once
 
-class  Application
+class Application
 {
 public:
     Application();
@@ -8,4 +8,3 @@ public:
     int run();
     void config();
 };
-

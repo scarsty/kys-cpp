@@ -1,12 +1,13 @@
 #pragma once
+#include "Event.h"
 #include "lua/lua.hpp"
 #include <string>
-#include "Event.h"
 
 class Script
 {
 private:
     static Script script_;
+
 public:
     Script();
     ~Script();
@@ -18,6 +19,4 @@ public:
     int runScript(std::string filename);
 
     int registerEventFunctions();
-
 };
-

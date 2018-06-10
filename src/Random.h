@@ -2,11 +2,11 @@
 #include <random>
 #include <time.h>
 
-typedef enum
+enum RandomType
 {
     RANDOM_UNIFORM = 0,
     RANDOM_NORMAL = 1,
-} RandomType;
+};
 
 template <typename T = float>
 
@@ -19,6 +19,7 @@ private:
     std::uniform_real_distribution<T> uniform_dist_{ 0, 1 };
     std::normal_distribution<T> normal_dist_{ 0, 1 };
     std::minstd_rand0 generator_fast_;
+
 public:
     Random() {}
 
@@ -28,8 +29,8 @@ public:
 
     void set_parameter(T a, T b)
     {
-        uniform_dist_.param(decltype(uniform_dist_.param()) { a, b });
-        normal_dist_.param(decltype(normal_dist_.param()) { a, b });
+        uniform_dist_.param(decltype(uniform_dist_.param()){ a, b });
+        normal_dist_.param(decltype(normal_dist_.param()){ a, b });
     }
 
     T rand()
@@ -73,6 +74,12 @@ class RandomClassical
 {
 public:
     static void srand() { ::srand(time(NULL)); }
-    static int rand(int n) { if (n <= 0) { return 0; } return ::rand() % n; }
+    static int rand(int n)
+    {
+        if (n <= 0)
+        {
+            return 0;
+        }
+        return ::rand() % n;
+    }
 };
-
