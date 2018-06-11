@@ -35,8 +35,8 @@ void Application::config()
     auto option = Option::getInstance();
     option->loadIniFile("../game/config/kysmod.ini");
     option->loadSaveValues();
-    Element::setRefreshInterval(option->getInt("refresh_interval", 25));
-    Audio::getInstance()->setVolume(option->getInt("volume", 50));
-    Event::getInstance()->setUseScript(option->getInt("use_script", 0));
+    Element::setRefreshInterval(option->getInt("game", "refresh_interval", 25));
+    Audio::getInstance()->setVolume(option->getInt("game", "volume", 50));
+    Event::getInstance()->setUseScript(option->getInt("game", "use_script", 0));
 }
 

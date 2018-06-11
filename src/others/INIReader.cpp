@@ -18,24 +18,24 @@ void INIReader::load(std::string content)
 {
     //convert::replaceAllString(content, "\r", "\n");
     //content += "\n";
-    _error = ini_parse_content(content.c_str(), ValueHandler, this);
+    error_ = ini_parse_content(content.c_str(), valueHandler, this);
 }
 
-int INIReader::ParseError() const
+int INIReader::parseError() const
 {
-    return _error;
+    return error_;
 }
 
-string INIReader::Get(string section, string name, string default_value) const
+string INIReader::getString(string section, string name, string default_value) const
 {
-    string key = MakeKey(section, name);
+    string key = makeKey(section, name);
     // Use _values.find() here instead of _values.at() to support pre C++11 compilers
-    return _values.count(key) ? _values.find(key)->second : default_value;
+    return values_.count(key) ? values_.find(key)->second : default_value;
 }
 
-long INIReader::GetInteger(string section, string name, long default_value) const
+long INIReader::getInt(string section, string name, long default_value) const
 {
-    string valstr = Get(section, name, "");
+    string valstr = getString(section, name, "");
     const char* value = valstr.c_str();
     char* end;
     // This parses "1234" (decimal) and also "0x4D2" (hex)
@@ -43,18 +43,18 @@ long INIReader::GetInteger(string section, string name, long default_value) cons
     return end > value ? n : default_value;
 }
 
-double INIReader::GetReal(string section, string name, double default_value) const
+double INIReader::getReal(string section, string name, double default_value) const
 {
-    string valstr = Get(section, name, "");
+    string valstr = getString(section, name, "");
     const char* value = valstr.c_str();
     char* end;
     double n = strtod(value, &end);
     return end > value ? n : default_value;
 }
 
-bool INIReader::GetBoolean(string section, string name, bool default_value) const
+bool INIReader::getBoolean(string section, string name, bool default_value) const
 {
-    string valstr = Get(section, name, "");
+    string valstr = getString(section, name, "");
     // Convert to lower case to make string comparisons case-insensitive
     std::transform(valstr.begin(), valstr.end(), valstr.begin(), ::tolower);
     if (valstr == "true" || valstr == "yes" || valstr == "on" || valstr == "1")
@@ -71,9 +71,9 @@ bool INIReader::GetBoolean(string section, string name, bool default_value) cons
     }
 }
 
-bool INIReader::HasSection(std::string section)
+bool INIReader::hasSection(std::string section)
 {
-    for (auto& value : _values)
+    for (auto& value : values_)
     {
         if (value.first.find_first_of(section + "=") == 0)
         {
@@ -83,9 +83,9 @@ bool INIReader::HasSection(std::string section)
     return false;
 }
 
-bool INIReader::HasKey(std::string section, std::string name)
+bool INIReader::hasKey(std::string section, std::string name)
 {
-    for (auto& value : _values)
+    for (auto& value : values_)
     {
         if (value.first == section + "=" + name)
         {
@@ -95,10 +95,10 @@ bool INIReader::HasKey(std::string section, std::string name)
     return false;
 }
 
-std::vector<std::string> INIReader::GetAllSections()
+std::vector<std::string> INIReader::getAllSections()
 {
     std::vector<std::string> ret;
-    for (auto& value : _values)
+    for (auto& value : values_)
     {
         auto p = value.first.find("=");
         if (p != std::string::npos)
@@ -112,10 +112,10 @@ std::vector<std::string> INIReader::GetAllSections()
 }
 
 
-std::vector<std::string> INIReader::GetAllKeys(std::string section)
+std::vector<std::string> INIReader::getAllKeys(std::string section)
 {
     std::vector<std::string> ret;
-    for (auto& value : _values)
+    for (auto& value : values_)
     {
         auto p = value.first.find(section + "=");
         if (p == 0)
@@ -126,21 +126,21 @@ std::vector<std::string> INIReader::GetAllKeys(std::string section)
     return ret;
 }
 
-void INIReader::SetKey(std::string section, std::string name, std::string value)
+void INIReader::setKey(std::string section, std::string name, std::string value)
 {
-    string key = MakeKey(section, name);
-    _values[key] = value;
+    string key = makeKey(section, name);
+    values_[key] = value;
 }
 
 void INIReader::print()
 {
-    for (auto& value : _values)
+    for (auto& value : values_)
     {
         fprintf(stdout, "%s, %s\n", value.first.c_str(), value.second.c_str());
     }
 }
 
-string INIReader::MakeKey(string section, string name)
+string INIReader::makeKey(string section, string name)
 {
     string key = section + "=" + name;
     // Convert to lower case to make section/name lookups case-insensitive
@@ -148,13 +148,13 @@ string INIReader::MakeKey(string section, string name)
     return key;
 }
 
-int INIReader::ValueHandler(void* user, const char* section, const char* name,
+int INIReader::valueHandler(void* user, const char* section, const char* name,
     const char* value)
 {
     INIReader* reader = (INIReader*)user;
-    string key = MakeKey(section, name);
+    string key = makeKey(section, name);
     //if (reader->_values[key].size() > 0)
     //{ reader->_values[key] += "\n"; }
-    reader->_values[key] = value;
+    reader->values_[key] = value;
     return 1;
 }

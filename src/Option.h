@@ -38,34 +38,20 @@ public:
     void setDefautlSection(const std::string& section) { default_section_ = section; }
     const std::string& getDefautlSection() { return default_section_; }
 
-    //从默认section提取
-    int getInt(const std::string& key, int default_value = 0)
-    {
-        return int(getRealFromSection(default_section_, key, default_value));
-    }
-    double getReal(const std::string& key, double default_value = 0.0)
-    {
-        return getRealFromSection(default_section_, key, default_value);
-    }
-    std::string getString(const std::string& key, std::string default_value = "")
-    {
-        return getStringFromSection(default_section_, key, default_value);
-    }
-
     //从指定section提取
-    int getIntFromSection(const std::string& section, const std::string& key, int default_value = 0)
+    int getInt(const std::string& section, const std::string& key, int default_value = 0)
     {
-        return int(ini_reader_.GetReal(section, dealString(key), default_value));
+        return int(ini_reader_.getReal(section, dealString(key), default_value));
     }
-    double getRealFromSection(const std::string& section, const std::string& key, double default_value = 0.0)
+    double getReal(const std::string& section, const std::string& key, double default_value = 0.0)
     {
-        return ini_reader_.GetReal(section, dealString(key), default_value);
+        return ini_reader_.getReal(section, dealString(key), default_value);
     }
-    std::string getStringFromSection(const std::string& section, const std::string& key, std::string default_value = "");
+    std::string getString(const std::string& section, const std::string& key, std::string default_value = "");
 
     void setOption(std::string section, std::string key, std::string value)
     {
-        ini_reader_.SetKey(section, dealString(key), value);
+        ini_reader_.setKey(section, dealString(key), value);
     }
 
     void print();

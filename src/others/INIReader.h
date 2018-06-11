@@ -19,46 +19,46 @@ class INIReader
 public:
     // Construct INIReader and parse given filename. See ini.h for more info
     // about the parsing.
-    INIReader() { _error = 0; }
+    INIReader() { error_ = 0; }
     void load(std::string content);
 
     // Return the result of ini_parse(), i.e., 0 on success, line number of
     // first error on parse error, or -1 on file open error.
-    int ParseError() const;
+    int parseError() const;
 
     // Get a string value from INI file, returning default_value if not found.
-    std::string Get(std::string section, std::string name,
+    std::string getString(std::string section, std::string name,
                     std::string default_value) const;
 
     // Get an integer (long) value from INI file, returning default_value if
     // not found or not a valid integer (decimal "1234", "-1234", or hex "0x4d2").
-    long GetInteger(std::string section, std::string name, long default_value) const;
+    long getInt(std::string section, std::string name, long default_value) const;
 
     // Get a real (floating point double) value from INI file, returning
     // default_value if not found or not a valid floating point value
     // according to strtod().
-    double GetReal(std::string section, std::string name, double default_value) const;
+    double getReal(std::string section, std::string name, double default_value) const;
 
     // Get a boolean value from INI file, returning default_value if not found or if
     // not a valid true/false value. Valid true values are "true", "yes", "on", "1",
     // and valid false values are "false", "no", "off", "0" (not case sensitive).
-    bool GetBoolean(std::string section, std::string name, bool default_value) const;
+    bool getBoolean(std::string section, std::string name, bool default_value) const;
 
-    bool HasSection(std::string section);
-    bool HasKey(std::string section, std::string name);
+    bool hasSection(std::string section);
+    bool hasKey(std::string section, std::string name);
 
-    std::vector<std::string> GetAllSections();
-    std::vector<std::string> GetAllKeys(std::string section);
+    std::vector<std::string> getAllSections();
+    std::vector<std::string> getAllKeys(std::string section);
 
-    void SetKey(std::string section, std::string name, std::string value);
+    void setKey(std::string section, std::string name, std::string value);
 
     void print();
 
 private:
-    int _error;
-    std::map<std::string, std::string> _values;
-    static std::string MakeKey(std::string section, std::string name);
-    static int ValueHandler(void* user, const char* section, const char* name, const char* value);
+    int error_;
+    std::map<std::string, std::string> values_;
+    static std::string makeKey(std::string section, std::string name);
+    static int valueHandler(void* user, const char* section, const char* name, const char* value);
 };
 
 #endif  // __INIREADER_H__

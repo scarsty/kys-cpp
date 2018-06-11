@@ -19,7 +19,7 @@ void Option::loadIniString(const std::string& content)
 {
     ini_reader_.load(content);
     //包含文件仅载入一层
-    auto filenames = convert::splitString(getString("load_ini"), ",");
+    auto filenames = convert::splitString(getString("", "load_ini"), ",");
     for (auto filename : filenames)
     {
         if (filename != "")
@@ -27,19 +27,19 @@ void Option::loadIniString(const std::string& content)
             ini_reader_.load(convert::readStringFromFile(filename));
         }
     }
-    for (auto section : ini_reader_.GetAllSections())
+    for (auto section : ini_reader_.getAllSections())
     {
-        for (auto key : ini_reader_.GetAllKeys(section))
+        for (auto key : ini_reader_.getAllKeys(section))
         {
-            setOption(section, dealString(key), ini_reader_.Get(section, key, ""));
+            setOption(section, dealString(key), ini_reader_.getString(section, key, ""));
         }
     }
 }
 
 //提取字串属性，会去掉单引号，双引号
-std::string Option::getStringFromSection(const std::string& section, const std::string& key, std::string v /*= ""*/)
+std::string Option::getString(const std::string& section, const std::string& key, std::string v /*= ""*/)
 {
-    std::string str = ini_reader_.Get(section, dealString(key), v);
+    std::string str = ini_reader_.getString(section, dealString(key), v);
     convert::replaceAllString(str, "\'", "");
     convert::replaceAllString(str, "\"", "");
     return str;
@@ -47,11 +47,11 @@ std::string Option::getStringFromSection(const std::string& section, const std::
 
 void Option::print()
 {
-    for (auto section : ini_reader_.GetAllSections())
+    for (auto section : ini_reader_.getAllSections())
     {
-        for (auto key : ini_reader_.GetAllKeys(section))
+        for (auto key : ini_reader_.getAllKeys(section))
         {
-            fprintf(stdout, "[%s] %s = %s\n", section.c_str(), key.c_str(), getStringFromSection(section, key).c_str());
+            fprintf(stdout, "[%s] %s = %s\n", section.c_str(), key.c_str(), getString(section, key).c_str());
         }
     }
 }
@@ -61,7 +61,7 @@ void Option::loadSaveValues()
 #define GET_VALUE_INT(v)            \
     do                              \
     {                               \
-        v = this->getInt(#v, v);    \
+        v = this->getInt("constant", #v, v);    \
         printf("%s = %d\n", #v, v); \
     } while (0)
 
