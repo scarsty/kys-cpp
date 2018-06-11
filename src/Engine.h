@@ -4,11 +4,14 @@
 #include "SDL2/SDL_image.h"
 #include "SDL2/SDL_ttf.h"
 
-#include "tinypot/PotDll.h"
 #include <algorithm>
 #include <functional>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#include "tinypot/PotDll.h"
+#endif
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
@@ -21,12 +24,12 @@ typedef SDL_Rect BP_Rect;
 typedef SDL_Color BP_Color;
 typedef SDL_Keycode BP_Keycode;
 
-enum
+enum BP_Align
 {
     BP_ALIGN_LEFT,
     BP_ALIGN_MIDDLE,
     BP_ALIGN_RIGHT
-} BP_Align;
+};
 
 #define BP_WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED
 
@@ -86,7 +89,7 @@ public:
     BP_Renderer* getRenderer() { return renderer_; }
 
     void createAssistTexture(int w, int h);
-    void setPresentPosition(); //设置贴图的位置
+    void setPresentPosition();    //设置贴图的位置
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }

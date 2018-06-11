@@ -135,7 +135,10 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
         return;
     }
     auto font = TTF_OpenFont(fontname.c_str(), size);
-    if (!font) { return; }
+    if (!font)
+    {
+        return;
+    }
     SDL_Color color = { 255, 255, 255, 255 };
     SDL_Color colorb = { 0, 0, 0, 255 };
     auto ret = splitString(text, "\n");
@@ -184,7 +187,10 @@ void Engine::drawSubtitle(const std::string& fontname, const std::string& text, 
 BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c)
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
-    if (!font) { return nullptr; }
+    if (!font)
+    {
+        return nullptr;
+    }
     //SDL_Color c = { 255, 255, 255, 128 };
     auto text_s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
@@ -201,7 +207,10 @@ void Engine::drawText(const std::string& fontname, std::string& text, int size, 
         return;
     }
     auto text_t = createTextTexture(fontname, text, size, c);
-    if (!text_t) { return; }
+    if (!text_t)
+    {
+        return;
+    }
     SDL_SetTextureAlphaMod(text_t, alpha);
     SDL_Rect rect;
     SDL_QueryTexture(text_t, nullptr, nullptr, &rect.w, &rect.h);
@@ -234,7 +243,7 @@ int Engine::init(void* handle)
 
     SDL_ShowWindow(window_);
     SDL_RaiseWindow(window_);
-    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE/*| SDL_RENDERER_PRESENTVSYNC*/);
+    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /*| SDL_RENDERER_PRESENTVSYNC*/);
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
@@ -340,7 +349,10 @@ void Engine::setPresentPosition()
     h_src *= ratio_y_;
     if (keep_ratio_)
     {
-        if (w_src == 0 || h_src == 0) { return; }
+        if (w_src == 0 || h_src == 0)
+        {
+            return;
+        }
         double w_ratio = 1.0 * w_dst / w_src;
         double h_ratio = 1.0 * h_dst / h_src;
         double ratio = std::min(w_ratio, h_ratio);
@@ -393,7 +405,7 @@ int Engine::showMessage(const std::string& content)
 {
     const SDL_MessageBoxButtonData buttons[] =
     {
-        { /* .flags, .buttonid, .text */        0, 0, "no" },
+        { /* .flags, .buttonid, .text */ 0, 0, "no" },
         { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
         { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 2, "cancel" },
     };
@@ -401,26 +413,26 @@ int Engine::showMessage(const std::string& content)
     {
         { /* .colors (.r, .g, .b) */
             /* [SDL_MESSAGEBOX_COLOR_BACKGROUND] */
-            { 255,   0,   0 },
+            { 255, 0, 0 },
             /* [SDL_MESSAGEBOX_COLOR_TEXT] */
-            {   0, 255,   0 },
+            { 0, 255, 0 },
             /* [SDL_MESSAGEBOX_COLOR_BUTTON_BORDER] */
-            { 255, 255,   0 },
+            { 255, 255, 0 },
             /* [SDL_MESSAGEBOX_COLOR_BUTTON_BACKGROUND] */
-            {   0,   0, 255 },
+            { 0, 0, 255 },
             /* [SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED] */
-            { 255,   0, 255 }
+            { 255, 0, 255 }
         }
     };
     const SDL_MessageBoxData messageboxdata =
     {
         SDL_MESSAGEBOX_INFORMATION, /* .flags */
-        NULL, /* .window */
-        title_.c_str(), /* .title */
-        content.c_str(), /* .message */
-        SDL_arraysize(buttons), /* .numbuttons */
-        buttons, /* .buttons */
-        &colorScheme /* .colorScheme */
+        NULL,                       /* .window */
+        title_.c_str(),             /* .title */
+        content.c_str(),            /* .message */
+        SDL_arraysize(buttons),     /* .numbuttons */
+        buttons,                    /* .buttons */
+        &colorScheme                /* .colorScheme */
     };
     int buttonid;
     SDL_ShowMessageBox(&messageboxdata, &buttonid);
@@ -429,7 +441,10 @@ int Engine::showMessage(const std::string& content)
 
 void Engine::setWindowSize(int w, int h)
 {
-    if (w <= 0 || h <= 0) { return; }
+    if (w <= 0 || h <= 0)
+    {
+        return;
+    }
     win_w_ = std::min(max_x_ - min_x_, w);
     win_h_ = std::min(max_y_ - min_y_, h);
     SDL_SetWindowSize(window_, win_w_, win_h_);
@@ -449,8 +464,14 @@ void Engine::resetWindowsPosition()
     SDL_GetWindowPosition(window_, &x0, &y0);
     x = std::max(min_x_, x0);
     y = std::max(min_y_, y0);
-    if (x + w > max_x_) { x = std::min(x, max_x_ - w); }
-    if (y + h > max_y_) { y = std::min(y, max_y_ - h); }
+    if (x + w > max_x_)
+    {
+        x = std::min(x, max_x_ - w);
+    }
+    if (y + h > max_y_)
+    {
+        y = std::min(y, max_y_ - h);
+    }
     if (x != x0 || y != y0)
     {
         SDL_SetWindowPosition(window_, x, y);
@@ -466,7 +487,10 @@ void Engine::setColor(BP_Texture* tex, BP_Color c, uint8_t alpha)
 
 void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
 {
-    if (w < 0 || h < 0) { getWindowSize(w, h); }
+    if (w < 0 || h < 0)
+    {
+        getWindowSize(w, h);
+    }
     BP_Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
@@ -509,8 +533,13 @@ void Engine::setWindowPosition(int x, int y)
 {
     int w, h;
     SDL_GetWindowSize(window_, &w, &h);
-    if (x == BP_WINDOWPOS_CENTERED) { x = min_x_ + (max_x_ - min_x_ - w) / 2; }
-    if (y == BP_WINDOWPOS_CENTERED) { y = min_y_ + (max_y_ - min_y_ - h) / 2; }
+    if (x == BP_WINDOWPOS_CENTERED)
+    {
+        x = min_x_ + (max_x_ - min_x_ - w) / 2;
+    }
+    if (y == BP_WINDOWPOS_CENTERED)
+    {
+        y = min_y_ + (max_y_ - min_y_ - h) / 2;
+    }
     SDL_SetWindowPosition(window_, x, y);
 }
-

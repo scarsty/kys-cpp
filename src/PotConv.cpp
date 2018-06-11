@@ -1,10 +1,8 @@
 #include "PotConv.h"
 
-
 PotConv::PotConv()
 {
 }
-
 
 PotConv::~PotConv()
 {
@@ -19,11 +17,14 @@ std::string PotConv::conv(const std::string& src, const char* from, const char* 
     char in[CONV_BUFFER_SIZE] = { '\0' };
     char out[CONV_BUFFER_SIZE] = { '\0' };
 
-    char* pin = in, *pout = out;
+    char *pin = in, *pout = out;
     memcpy(in, src.c_str(), inlen);
     iconv_t cd;
     cd = iconv_open(to, from);
-    if (cd == nullptr) { return ""; }
+    if (cd == nullptr)
+    {
+        return "";
+    }
     if (iconv(cd, &pin, &inlen, &pout, &outlen) == -1)
     {
         out[0] = '\0';
@@ -46,4 +47,3 @@ std::string PotConv::to_read(const std::string& src)
     return conv(src, "cp936", "utf-8");
 #endif
 }
-
