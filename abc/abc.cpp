@@ -1,7 +1,6 @@
 
 //一些辅助的功能，例如将二进制文件转为文本文件等
 
-
 #include "../src/File.h"
 #include "../src/others/libconvert.h"
 #include "TypesABC.h"
@@ -55,8 +54,14 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     auto rgrp1 = File::getIdxContent(idx, grp, &offset1, &length1);
     offset2 = offset1;
     length2 = length1;
-    for (auto& i : offset2) { i *= 2; }
-    for (auto& i : length2) { i *= 2; }
+    for (auto& i : offset2)
+    {
+        i *= 2;
+    }
+    for (auto& i : length2)
+    {
+        i *= 2;
+    }
 
     int len = offset1.back();
     auto rgrp2 = new char[len * 2];
@@ -116,7 +121,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
         File::writeVectorToData(rgrp2 + offset2[3], length2[3], submap_infos, sizeof(SubMapInfoSave));
         File::writeVectorToData(rgrp2 + offset2[4], length2[4], magics, sizeof(MagicSave));
     }
-    s32[1]--; //submap scene id
+    s32[1]--;    //submap scene id
     File::writeFile(grp + "32", rgrp2, len * 2);
     File::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
     delete rgrp1;
@@ -131,7 +136,6 @@ int main()
     trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
     trans_fight_frame();
 
-    
     expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
 
     for (int i = 1; i <= 20; i++)
@@ -148,4 +152,3 @@ int main()
 
     return 0;
 }
-

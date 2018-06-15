@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="abc\abc.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\File.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\others\libconvert.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\File.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\others\libconvert.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="abc\TypesABC.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="headers">
+      <UniqueIdentifier>{bce1f623-8fc9-4a1d-a3df-e8d9e0033590}</UniqueIdentifier>
+      <Extensions>h</Extensions>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{ade47958-7190-4c27-b14f-77d4cb2df770}</UniqueIdentifier>
+      <Extensions>cpp;c</Extensions>
+    </Filter>
+  </ItemGroup>
+</Project>

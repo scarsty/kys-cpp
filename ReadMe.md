@@ -4,11 +4,11 @@ github：https://github.com/scarsty/kys-cpp
 
 码云（不定期同步）：https://gitee.com/scarsty/kys-cpp
 
-这是一个以SDL2为基础实现的2D游戏引擎。
+这是一个以SDL2为基础实现的2D游戏框架。
 
 基本按照当代游戏引擎的思路实现，但是没有使用回调，因为回调会增加初学者的使用难度。
 
-同时相当于提供了一个使用该引擎制作DOS游戏《金庸群侠传》移植版的范例。
+同时相当于提供了一个使用该框架制作DOS游戏《金庸群侠传》移植版的范例。
 
 资源文件：<http://pan.baidu.com/s/1sl2X9wD>
 
@@ -17,7 +17,6 @@ github：https://github.com/scarsty/kys-cpp
 ## 架构的简单说明
 
 ### 公用类
-
 
 Engine封装了一套SDL2的主要实现，主要取自TinyPot。
 
@@ -35,7 +34,7 @@ Element是游戏中的基本执行类，包含5个重要的虚函数：backRun�
 
 其中每个节点可以包含数个子节点，在绘图时子节点也会被自动一一绘出。需注意在画自身的部分不需要处理子节点，除非有特殊的需要。
 
-存在一个全局的的Element栈root（实际是std::vector），引擎会从下到上依次画出每个Element。Element类有一个占满全屏的属性，表示这个类将占用全部的屏幕，因此引擎在绘制的时候，会仅找出最靠上的含有该属性的节点，并从这里开始往上画。
+存在一个全局的的Element栈root（实际是std::vector），会从下到上依次画出每个Element。Element类有一个占满全屏的属性，表示这个类将占用全部的屏幕，因此引擎在绘制的时候，会仅找出最靠上的含有该属性的节点，并从这里开始往上画。
 
 创建一个节点，并调用run过程即可运行此节点，注意使用run执行的节点是完全独占的，其子节点也会有事件响应。如果需要退出当前节点，在适当的地方使用setExit(true)即可，但是子节点调用是无效的，除非拥有当前运行节点的指针。
 
@@ -91,6 +90,12 @@ minishared.h和minishared.c来自minizip，已放入工程。
 
 ## 授权
 
+以zlib授权发布，但是包含两个附加条款：
+
+一般情况下，可以自由使用代码。
+
+但若将其用于基于《金庸群侠传》题材的游戏，则严禁任何形式的牟利行为。
+
 Created by SB500@www.dawuxia.net.
 
 Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SB250 and ICE.
@@ -99,7 +104,7 @@ The source codes are distributed under zlib license, with two additional clauses
 
 Full right of the codes is granted if they are used in non-KYS related games.
 
-If the codes are used in KYS related games, the game itself shall not involve any sort of profit making aspect.
+If the codes are used in KYS related games, the game is strictly prohibited for profit.
 
 A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome screen.
 

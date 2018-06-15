@@ -27,38 +27,42 @@ public:
     int parseError() const;
 
     // Get a string value from INI file, returning default_value if not found.
-    std::string getString(std::string section, std::string name,
-                    std::string default_value) const;
+    std::string getString(std::string section, std::string key, std::string default_value) const;
 
     // Get an integer (long) value from INI file, returning default_value if
     // not found or not a valid integer (decimal "1234", "-1234", or hex "0x4d2").
-    long getInt(std::string section, std::string name, long default_value) const;
+    long getInt(std::string section, std::string key, long default_value) const;
 
     // Get a real (floating point double) value from INI file, returning
     // default_value if not found or not a valid floating point value
     // according to strtod().
-    double getReal(std::string section, std::string name, double default_value) const;
+    double getReal(std::string section, std::string key, double default_value) const;
 
     // Get a boolean value from INI file, returning default_value if not found or if
     // not a valid true/false value. Valid true values are "true", "yes", "on", "1",
     // and valid false values are "false", "no", "off", "0" (not case sensitive).
-    bool getBoolean(std::string section, std::string name, bool default_value) const;
+    bool getBoolean(std::string section, std::string key, bool default_value) const;
 
     bool hasSection(std::string section);
-    bool hasKey(std::string section, std::string name);
+    bool hasKey(std::string section, std::string key);
 
     std::vector<std::string> getAllSections();
     std::vector<std::string> getAllKeys(std::string section);
 
-    void setKey(std::string section, std::string name, std::string value);
-
+    void setKey(std::string section, std::string key, std::string value);
+    void eraseKey(std::string section, std::string key);
     void print();
 
 private:
+    struct SectionKey
+    {
+        std::string section, key;
+        bool operator<(const SectionKey& sk2) const { return section + " " + key < sk2.section + " " + sk2.key; }
+    };
     int error_;
-    std::map<std::string, std::string> values_;
-    static std::string makeKey(std::string section, std::string name);
-    static int valueHandler(void* user, const char* section, const char* name, const char* value);
+    std::map<SectionKey, std::string> values_;
+    static SectionKey makeKey(std::string section, std::string key);
+    static int valueHandler(void* user, const char* section, const char* key, const char* value);
 };
 
-#endif  // __INIREADER_H__
+#endif    // __INIREADER_H__
