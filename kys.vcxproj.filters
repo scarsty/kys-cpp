@@ -285,9 +285,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="readme.md" />
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="Headers">
       <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
       <Extensions>h</Extensions>

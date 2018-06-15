@@ -12,7 +12,7 @@ github：https://github.com/scarsty/kys-cpp
 
 资源文件：<http://pan.baidu.com/s/1sl2X9wD>
 
-可以使用Visual Studio编译。
+Windows下可以使用Visual Studio编译，其他系统下可以使用CMake生成Makefile，使用Clang或者GCC编译。
 
 ## 架构的简单说明
 
@@ -108,7 +108,7 @@ If the codes are used in KYS related games, the game is strictly prohibited for 
 
 A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome screen.
 
-# 运行截图
+## 运行截图
 
 <img src='https://pic2.zhimg.com/80/v2-fcac09adf861ee474477bbe91bf0fbab_hd.jpg' />
 

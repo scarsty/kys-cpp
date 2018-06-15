@@ -155,9 +155,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="readme.md" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
