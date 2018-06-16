@@ -19,7 +19,7 @@ class INIReader
 public:
     // Construct INIReader and parse given filename. See ini.h for more info
     // about the parsing.
-    INIReader() { error_ = 0; }
+    INIReader() {}
     void load(std::string content);
 
     // Return the result of ini_parse(), i.e., 0 on success, line number of
@@ -59,10 +59,14 @@ private:
         std::string section, key;
         bool operator<(const SectionKey& sk2) const { return section + " " + key < sk2.section + " " + sk2.key; }
     };
-    int error_;
+    int error_ = 0;
     std::map<SectionKey, std::string> values_;
     static SectionKey makeKey(std::string section, std::string key);
-    static int valueHandler(void* user, const char* section, const char* key, const char* value);
+    int valueHandler(const std::string& section, const std::string& key, const std::string& value);
+
+private:
+    int ini_parse_content(const std::string& content);
+    int ini_parse_lines(std::vector<std::string>& lines);
 };
 
 #endif    // __INIREADER_H__

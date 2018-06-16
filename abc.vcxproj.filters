@@ -25,11 +25,11 @@
   <ItemGroup>
     <Filter Include="headers">
       <UniqueIdentifier>{bce1f623-8fc9-4a1d-a3df-e8d9e0033590}</UniqueIdentifier>
-      <Extensions>h</Extensions>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
     <Filter Include="sources">
       <UniqueIdentifier>{ade47958-7190-4c27-b14f-77d4cb2df770}</UniqueIdentifier>
-      <Extensions>cpp;c</Extensions>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
   </ItemGroup>
 </Project>

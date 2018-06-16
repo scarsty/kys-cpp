@@ -9,7 +9,6 @@ enum RandomType
 };
 
 template <typename T = float>
-
 class Random
 {
 private:
@@ -29,8 +28,8 @@ public:
 
     void set_parameter(T a, T b)
     {
-        uniform_dist_.param(decltype(uniform_dist_.param()){ a, b });
-        normal_dist_.param(decltype(normal_dist_.param()){ a, b });
+        uniform_dist_.param(decltype(uniform_dist_.param())(a, b));
+        normal_dist_.param(decltype(normal_dist_.param())(a, b));
     }
 
     T rand()
