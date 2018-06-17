@@ -33,7 +33,7 @@ int Application::run()
 void Application::config()
 {
     RandomClassical::srand();
-    INIReader ini;
+    INIReaderNormal ini;
     ini.loadFile(GameUtil::configFile());
     Role::setMaxValue(&ini);
     Item::setSpecialItems(&ini);

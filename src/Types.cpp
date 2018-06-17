@@ -182,7 +182,7 @@ int Role::learnMagic(int magic_id)
     }
 }
 
-void Role::setMaxValue(INIReader* ini)
+void Role::setMaxValue(INIReaderNormal* ini)
 {
 #define GET_VALUE_INT(v, default_v)                                 \
     do                                                              \
@@ -267,7 +267,7 @@ bool Item::isCompass()
     return ID == CompassItemID;
 }
 
-void Item::setSpecialItems(INIReader* ini)
+void Item::setSpecialItems(INIReaderNormal* ini)
 {
 #define GET_VALUE_INT(v)                    \
     do                                      \

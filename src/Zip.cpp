@@ -1,7 +1,6 @@
 #include "Zip.h"
 #include "minizip/zip.h"
 #include "minizip/unzip.h"
-#include "minizip/minishared.h"
 
 Zip::Zip()
 {
@@ -28,7 +27,8 @@ int Zip::zip(std::string zip_file, std::vector<std::string> files)
         auto s = (char*)malloc(length + 1);
         fread(s, length, 1, fp);
         fclose(fp);
-        get_file_date(zip_file.c_str(), &zi.dos_date);
+        //the interface of "file date" is not uniform, to suit it is difficult
+        //get_file_date(zip_file.c_str(), &zi.dos_date);
         //zi.dos_date = time(NULL);
         zipOpenNewFileInZip(zip, filename.c_str(), &zi, NULL, 0, NULL, 0, NULL, Z_DEFLATED, Z_DEFAULT_COMPRESSION);
         zipWriteInFileInZip(zip, s, length);

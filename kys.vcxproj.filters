@@ -127,12 +127,6 @@
     <ClCompile Include="src\Zip.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\others\minishared.c">
-      <Filter>_others</Filter>
-    </ClCompile>
-    <ClCompile Include="src\others\INIReader.cpp">
-      <Filter>_others</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Audio.h">
@@ -263,9 +257,6 @@
     </ClInclude>
     <ClInclude Include="src\Zip.h">
       <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\others\minishared.h">
-      <Filter>_others</Filter>
     </ClInclude>
     <ClInclude Include="src\others\INIReader.h">
       <Filter>_others</Filter>

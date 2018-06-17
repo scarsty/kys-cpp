@@ -188,7 +188,7 @@ public:
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }
-    static void setMaxValue(INIReader* ini);
+    static void setMaxValue(INIReaderNormal* ini);
 private:
     static Role max_role_value_;
 };
@@ -221,7 +221,7 @@ public:
 
 public:
     bool isCompass();
-    static void setSpecialItems(INIReader* ini);
+    static void setSpecialItems(INIReaderNormal* ini);
 };
 
 //存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）

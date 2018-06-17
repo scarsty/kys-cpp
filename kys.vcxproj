@@ -101,8 +101,6 @@
     <ClCompile Include="src\Cloud.cpp" />
     <ClCompile Include="src\Element.cpp" />
     <ClCompile Include="src\GameUtil.cpp" />
-    <ClCompile Include="src\others\INIReader.cpp" />
-    <ClCompile Include="src\others\minishared.c" />
     <ClCompile Include="src\RandomRole.cpp" />
     <ClCompile Include="src\Script.cpp" />
     <ClCompile Include="src\ShowExp.cpp" />
@@ -149,7 +147,6 @@
     <ClInclude Include="src\Element.h" />
     <ClInclude Include="src\GameUtil.h" />
     <ClInclude Include="src\others\INIReader.h" />
-    <ClInclude Include="src\others\minishared.h" />
     <ClInclude Include="src\Random.h" />
     <ClInclude Include="src\RandomRole.h" />
     <ClInclude Include="src\Script.h" />
