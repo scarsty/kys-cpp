@@ -187,6 +187,9 @@
   <ItemGroup>
     <ResourceCompile Include="resource\kys.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="src\CMakeLists.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

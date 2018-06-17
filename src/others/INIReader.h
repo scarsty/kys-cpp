@@ -53,12 +53,17 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 struct CaseInsensitivityCompare
 {
     bool operator()(const std::string& l, const std::string& r) const
     {
-        return stricmp(l.data(), r.data()) < 0;
+        auto l1 = l;
+        auto r1 = r;
+        std::transform(l1.begin(), l1.end(), l1.begin(), ::tolower);
+        std::transform(r1.begin(), r1.end(), r1.begin(), ::tolower);
+        return l1 < r1;
     }
 };
 
