@@ -21,7 +21,7 @@ public:
     // about the parsing.
     INIReader() {}
     void load(std::string content);
-
+    void loadFile(std::string filename);
     // Return the result of ini_parse(), i.e., 0 on success, line number of
     // first error on parse error, or -1 on file open error.
     int parseError() const;

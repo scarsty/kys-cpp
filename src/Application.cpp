@@ -1,9 +1,10 @@
 ﻿#include "Application.h"
-#include "TitleScene.h"
-#include "Engine.h"
-#include "Random.h"
-#include "Option.h"
 #include "Audio.h"
+#include "Engine.h"
+#include "GameUtil.h"
+#include "INIReader.h"
+#include "Random.h"
+#include "TitleScene.h"
 
 Application::Application()
 {
@@ -18,11 +19,11 @@ int Application::run()
     config();
     auto engine = Engine::getInstance();
     engine->setStartWindowSize(1024, 640);
-    engine->init();                       //引擎初始化之后才能创建纹理
+    engine->init();    //引擎初始化之后才能创建纹理
 
     engine->createAssistTexture(768, 480);
 
-    auto s = new TitleScene();            //开始界面
+    auto s = new TitleScene();    //开始界面
     s->run();
     delete s;
 
@@ -32,11 +33,11 @@ int Application::run()
 void Application::config()
 {
     RandomClassical::srand();
-    auto option = Option::getInstance();
-    option->loadIniFile("../game/config/kysmod.ini");
-    option->loadSaveValues();
-    Element::setRefreshInterval(option->getInt("game", "refresh_interval", 25));
-    Audio::getInstance()->setVolume(option->getInt("game", "volume", 50));
-    Event::getInstance()->setUseScript(option->getInt("game", "use_script", 0));
+    INIReader ini;
+    ini.loadFile(GameUtil::configFile());
+    Role::setMaxValue(&ini);
+    Item::setSpecialItems(&ini);
+    Element::setRefreshInterval(ini.getInt("game", "refresh_interval", 25));
+    Audio::getInstance()->setVolume(ini.getInt("game", "volume", 50));
+    Event::getInstance()->setUseScript(ini.getInt("game", "use_script", 0));
 }
-

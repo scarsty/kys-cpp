@@ -1,24 +1,22 @@
-#include "BattleScene.h"
-#include "MainScene.h"
-#include <iostream>
-#include <string>
-#include <math.h>
-#include <algorithm>
-#include "Save.h"
-#include "Menu.h"
-#include "others/libconvert.h"
-#include "File.h"
-#include "GameUtil.h"
-#include "Random.h"
-#include "UIStatus.h"
-#include "Font.h"
-#include "Util.h"
-#include "ShowRoleDifference.h"
-#include "ShowExp.h"
-#include "Event.h"
-#include "TeamMenu.h"
 #include "Audio.h"
-#include "Option.h"
+#include "BattleScene.h"
+#include "Event.h"
+#include "File.h"
+#include "Font.h"
+#include "GameUtil.h"
+#include "MainScene.h"
+#include "Menu.h"
+#include "Random.h"
+#include "Save.h"
+#include "ShowExp.h"
+#include "ShowRoleDifference.h"
+#include "TeamMenu.h"
+#include "UIStatus.h"
+#include "Util.h"
+#include <algorithm>
+#include <iostream>
+#include <math.h>
+#include <string>
 
 BattleScene::BattleScene()
 {
@@ -42,7 +40,8 @@ BattleScene::BattleScene()
     save_ = Save::getInstance();
 }
 
-BattleScene::BattleScene(int id) : BattleScene()
+BattleScene::BattleScene(int id)
+    : BattleScene()
 {
     setID(id);
 }
@@ -70,7 +69,7 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
-    auto r0 = battle_roles_[0];  //当前正在行动中的角色
+    auto r0 = battle_roles_[0];    //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 #ifndef _DEBUG
@@ -87,7 +86,7 @@ void BattleScene::draw()
             {
                 int num = earth_layer_->data(ix, iy) / 2;
                 BP_Color color = { 255, 255, 255, 255 };
-                if (battle_cursor_->isRunning() && !r0->isAuto())  //如果是自动人物没有变暗的选择效果看着太乱
+                if (battle_cursor_->isRunning() && !r0->isAuto())    //如果是自动人物没有变暗的选择效果看着太乱
                 {
                     if (select_layer_->data(ix, iy) < 0)
                     {
@@ -163,7 +162,10 @@ void BattleScene::draw()
                     {
                         pic = calRolePic(r);
                     }
-                    if (r->HP <= 0) { alpha = dead_alpha_; }
+                    if (r->HP <= 0)
+                    {
+                        alpha = dead_alpha_;
+                    }
                     TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color, alpha);
                 }
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
@@ -286,7 +288,7 @@ void BattleScene::readBattleInfo()
     for (auto r : Save::getInstance()->getRoles())
     {
         r->setRolePoitionLayer(role_layer_);
-        r->Team = 2;  //先全部设置成不存在的阵营
+        r->Team = 2;    //先全部设置成不存在的阵营
         r->Auto = 1;
     }
     //首先设置位置和阵营，其他的后面统一处理
@@ -322,7 +324,10 @@ void BattleScene::readBattleInfo()
         for (int i = 0; i < TEAMMATE_COUNT; i++)
         {
             auto r = Save::getInstance()->getRole(info_->AutoTeamMate[i]);
-            if (r) { friends_.push_back(r); }
+            if (r)
+            {
+                friends_.push_back(r);
+            }
         }
     }
     else
@@ -359,7 +364,8 @@ void BattleScene::setRoleInitState(Role* r)
     {
         r->Auto = 0;
         GameUtil::limit2(r->HP, r->MaxHP / 10, r->MaxHP);
-        GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);;
+        GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);
+        ;
     }
     else
     {
@@ -505,7 +511,7 @@ void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 
         while (step >= 0)
         {
             std::vector<Point> cal_stack_next;
-            auto check_next = [&](Point p1)->void
+            auto check_next = [&](Point p1) -> void
             {
                 //未计算过且可以走的格子参与下一步的计算
                 if (select_layer_->data(p1.x, p1.y) == -1 && canWalk(p1.x, p1.y))
@@ -526,9 +532,15 @@ void BattleScene::calSelectLayer(int x, int y, int team, int mode, int step /*= 
                     check_next({ p.x, p.y - 1 });
                     check_next({ p.x, p.y + 1 });
                 }
-                if (count >= COORD_COUNT * COORD_COUNT) { break; }  //最多计算次数，避免死掉
+                if (count >= COORD_COUNT * COORD_COUNT)
+                {
+                    break;
+                }    //最多计算次数，避免死掉
             }
-            if (cal_stack_next.size() == 0) { break; }  //无新的点，结束
+            if (cal_stack_next.size() == 0)
+            {
+                break;
+            }    //无新的点，结束
             cal_stack = cal_stack_next;
             step--;
         }
@@ -744,17 +756,50 @@ void BattleScene::action(Role* r)
     std::string str = battle_menu_->getResultString();
 
     //这里如果用整型表示返回，添加新项就太复杂了
-    if (str == "移動") { actMove(r); }
-    else if (str == "武學") { actUseMagic(r); }
-    else if (str == "用毒") { actUsePoison(r); }
-    else if (str == "解毒") { actDetoxification(r); }
-    else if (str == "醫療") { actMedcine(r); }
-    else if (str == "暗器") { actUseHiddenWeapon(r); }
-    else if (str == "藥品") { actUseDrag(r); }
-    else if (str == "等待") { actWait(r); }
-    else if (str == "狀態") { actStatus(r); }
-    else if (str == "自動") { actAuto(r); }
-    else if (str == "結束") { actRest(r); }
+    if (str == "移動")
+    {
+        actMove(r);
+    }
+    else if (str == "武學")
+    {
+        actUseMagic(r);
+    }
+    else if (str == "用毒")
+    {
+        actUsePoison(r);
+    }
+    else if (str == "解毒")
+    {
+        actDetoxification(r);
+    }
+    else if (str == "醫療")
+    {
+        actMedcine(r);
+    }
+    else if (str == "暗器")
+    {
+        actUseHiddenWeapon(r);
+    }
+    else if (str == "藥品")
+    {
+        actUseDrag(r);
+    }
+    else if (str == "等待")
+    {
+        actWait(r);
+    }
+    else if (str == "狀態")
+    {
+        actStatus(r);
+    }
+    else if (str == "自動")
+    {
+        actAuto(r);
+    }
+    else if (str == "結束")
+    {
+        actRest(r);
+    }
 
     if (r->Acted)
     {
@@ -770,7 +815,7 @@ void BattleScene::actMove(Role* r)
     battle_cursor_->setMode(BattleCursor::Move);
     if (battle_cursor_->run() == 0)
     {
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, Option::getInstance()->MaxPhysicalPower);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, Role::getMaxValue()->PhysicalPower);
         r->setPrevPosition(r->X(), r->Y());
         moveAnimation(r, select_x_, select_y_);
         r->Moved = 1;
@@ -786,7 +831,10 @@ void BattleScene::actUseMagic(Role* r)
         magic_menu->runAsRole(r);
         auto magic = magic_menu->getMagic();
         r->SelectedMagic = magic_menu->getResult();
-        if (magic == nullptr) { break; }    //可能是退出游戏，或者是没有选武功
+        if (magic == nullptr)
+        {
+            break;
+        }    //可能是退出游戏，或者是没有选武功
         r->ActTeam = 1;
         //level_index表示从0到9，而level从0到999
         int level_index = r->getMagicLevelIndex(magic->ID);
@@ -806,7 +854,7 @@ void BattleScene::actUseMagic(Role* r)
             {
                 //播放攻击画面，计算伤害
                 showMagicName(magic->Name);
-                r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Option::getInstance()->MaxPhysicalPower);
+                r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
                 r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
                 useMagicAnimation(r, magic);
                 calMagiclHurtAllEnemies(r, magic);
@@ -842,7 +890,7 @@ void BattleScene::actUsePoison(Role* r)
             r2->ShowString = convert::formatString("%+d", v);
             r2->ShowColor = { 20, 255, 20, 255 };
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Option::getInstance()->MaxPhysicalPower);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
         actionAnimation(r, 0, 30);
         showNumberAnimation();
         r->Acted = 1;
@@ -865,7 +913,7 @@ void BattleScene::actDetoxification(Role* r)
             r2->ShowString = convert::formatString("-%d", -v);
             r2->ShowColor = { 20, 200, 255, 255 };
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Option::getInstance()->MaxPhysicalPower);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         actionAnimation(r, 0, 36);
         showNumberAnimation();
         r->Acted = 1;
@@ -888,7 +936,7 @@ void BattleScene::actMedcine(Role* r)
             r2->ShowString = convert::formatString("-%d", abs(v));
             r2->ShowColor = { 255, 255, 200, 255 };
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Option::getInstance()->MaxPhysicalPower);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         actionAnimation(r, 0, 0);
         showNumberAnimation();
         r->Acted = 1;
@@ -921,9 +969,12 @@ void BattleScene::actUseHiddenWeapon(Role* r)
                 r2->ShowColor = { 255, 20, 20, 255 };
             }
             showMagicName(item->Name);
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Option::getInstance()->MaxPhysicalPower);
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
             actionAnimation(r, 0, item->HiddenWeaponEffectID);
-            if (r2) { r2->HP = GameUtil::limit(r2->HP - v, 0, r2->MaxHP); }
+            if (r2)
+            {
+                r2->HP = GameUtil::limit(r2->HP - v, 0, r2->MaxHP);
+            }
             showNumberAnimation();
             item_menu->addItem(item, -1);
             r->Acted = 1;
@@ -999,7 +1050,7 @@ void BattleScene::actRest(Role* r)
 {
     if (!r->Moved)
     {
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, Option::getInstance()->MaxPhysicalPower);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, Role::getMaxValue()->PhysicalPower);
         r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
         r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
     }
@@ -1010,7 +1061,7 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
 {
     //从目标往回找确定路线
     std::vector<Point> way;
-    auto check_next = [&](Point p1, int step)->bool
+    auto check_next = [&](Point p1, int step) -> bool
     {
         if (canSelect(p1.x, p1.y) && select_layer_->data(p1.x, p1.y) == step)
         {
@@ -1024,10 +1075,22 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
     for (int i = select_layer_->data(x, y); i < select_layer_->data(r->X(), r->Y()); i++)
     {
         int x1 = way.back().x, y1 = way.back().y;
-        if (check_next({ x1 - 1, y1 }, i + 1)) { continue; }
-        if (check_next({ x1 + 1, y1 }, i + 1)) { continue; }
-        if (check_next({ x1, y1 - 1 }, i + 1)) { continue; }
-        if (check_next({ x1, y1 + 1 }, i + 1)) { continue; }
+        if (check_next({ x1 - 1, y1 }, i + 1))
+        {
+            continue;
+        }
+        if (check_next({ x1 + 1, y1 }, i + 1))
+        {
+            continue;
+        }
+        if (check_next({ x1, y1 - 1 }, i + 1))
+        {
+            continue;
+        }
+        if (check_next({ x1, y1 + 1 }, i + 1))
+        {
+            continue;
+        }
     }
 
     for (int i = way.size() - 2; i >= 0; i--)
@@ -1145,7 +1208,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         v = v / exp((dis - 1) / 10);
 
         v += RandomClassical::rand(10) - RandomClassical::rand(10);
-        if (v < 10) { v = 1 + RandomClassical::rand(10); }
+        if (v < 10)
+        {
+            v = 1 + RandomClassical::rand(10);
+        }
         //v = 999;  //测试用
         return v;
     }
@@ -1153,7 +1219,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     {
         int v = magic->HurtMP[level_index];
         v += RandomClassical::rand(10) - RandomClassical::rand(10);
-        if (v < 10) { v = 1 + RandomClassical::rand(10); }
+        if (v < 10)
+        {
+            v = 1 + RandomClassical::rand(10);
+        }
         return v;
     }
 }
@@ -1178,7 +1247,10 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                     r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
                     int hurt1 = prevHP - r2->HP;
                     r->ExpGot += hurt1;
-                    if (r2->HP <= 0) { r->ExpGot += hurt1 / 2; }
+                    if (r2->HP <= 0)
+                    {
+                        r->ExpGot += hurt1 / 2;
+                    }
                 }
                 else if (m->HurtType == 1)
                 {
@@ -1194,7 +1266,10 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             else
             {
                 //这里是计算ai分数
-                if (r->AttackTwice) { hurt *= 2; }
+                if (r->AttackTwice)
+                {
+                    hurt *= 2;
+                }
                 if (m->HurtType == 0)
                 {
                     if (hurt >= r2->HP)
@@ -1220,7 +1295,10 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
     int dis = calRoleDistance(r1, r2);
     v = v / exp((dis - 1) / 10);
     v += RandomClassical::rand(10) - RandomClassical::rand(10);
-    if (v < 1) { v = 1; }
+    if (v < 1)
+    {
+        v = 1;
+    }
     return v;
 }
 
@@ -1236,12 +1314,15 @@ void BattleScene::showNumberAnimation()
             break;
         }
     }
-    if (!need_show) { return; }
+    if (!need_show)
+    {
+        return;
+    }
 
     int size = 28;
     for (int i = 0; i <= 10; i++)
     {
-        auto drawNumber = [&](void*)->void
+        auto drawNumber = [&](void*) -> void
         {
             for (auto r : battle_roles_)
             {
@@ -1275,13 +1356,19 @@ void BattleScene::clearDead()
             break;
         }
     }
-    if (!found_dead) { return; }
+    if (!found_dead)
+    {
+        return;
+    }
 
     //退场动画，清理人物
     for (int i = 0; i <= 25; i++)
     {
         dead_alpha_ = 255 - i * 10;
-        if (dead_alpha_ < 0) { dead_alpha_ = 0; }
+        if (dead_alpha_ < 0)
+        {
+            dead_alpha_ = 0;
+        }
         drawAndPresent(animation_delay_);
     }
     dead_alpha_ = 255;
@@ -1308,10 +1395,13 @@ void BattleScene::poisonEffect(Role* r)
     {
         //抗毒高者会自动解毒
         r->Poison -= r->AntiPoison;
-        GameUtil::limit2(r->Poison, 0, Option::getInstance()->MaxPosion);
+        GameUtil::limit2(r->Poison, 0, Role::getMaxValue()->Poison);
         r->HP -= r->Poison / 3;
         //最低扣到1点
-        if (r->HP < 1) { r->HP = 1; }
+        if (r->HP < 1)
+        {
+            r->HP = 1;
+        }
     }
 }
 
@@ -1336,8 +1426,14 @@ int BattleScene::getTeamMateCount(int team)
 int BattleScene::checkResult()
 {
     int team0 = getTeamMateCount(0);
-    if (team0 == battle_roles_.size()) { return 0; }
-    if (team0 == 0) { return 1; }
+    if (team0 == battle_roles_.size())
+    {
+        return 0;
+    }
+    if (team0 == 0)
+    {
+        return 1;
+    }
     return -1;
 }
 
@@ -1360,7 +1456,10 @@ void BattleScene::calExpGot()
     {
         alive_teammate = friends_;
     }
-    if (alive_teammate.empty()) { return; }
+    if (alive_teammate.empty())
+    {
+        return;
+    }
     //还在场的人获得经验
     for (auto r : alive_teammate)
     {
@@ -1376,11 +1475,11 @@ void BattleScene::calExpGot()
     auto diff = new ShowRoleDifference();
     for (auto r : alive_teammate)
     {
-        Role r0 = *r;  //用于比较的状态
+        Role r0 = *r;    //用于比较的状态
 
         auto item = Save::getInstance()->getItem(r->PracticeItem);
 
-        if (r->Level >= Option::getInstance()->MaxLevel)
+        if (r->Level >= Role::getMaxValue()->Level)
         {
             //已满级，全加到物品经验
             r->ExpForItem += r->ExpGot;
@@ -1398,8 +1497,14 @@ void BattleScene::calExpGot()
         }
 
         //避免越界
-        if (r->Exp < r0.Exp) { r->Exp = Option::getInstance()->MaxExp; }
-        if (r->ExpForItem < r0.ExpForItem) { r->ExpForItem = Option::getInstance()->MaxExp; }
+        if (r->Exp < r0.Exp)
+        {
+            r->Exp = Role::getMaxValue()->Exp;
+        }
+        if (r->ExpForItem < r0.ExpForItem)
+        {
+            r->ExpForItem = Role::getMaxValue()->Exp;
+        }
 
         //升级
         int change = 0;
@@ -1435,4 +1540,3 @@ void BattleScene::calExpGot()
     }
     delete diff;
 }
-

@@ -105,6 +105,41 @@ public:
     const std::vector<Item*>& getItems() { return items_; }
     const std::vector<SubMapInfo*>& getSubMapInfos() { return submap_infos_; }
     const std::vector<Shop*>& getShops() { return shops_; }
+
+public:
+    int MaxLevel = 30;
+    int MaxHP = 999;
+    int MaxMP = 999;
+    int MaxPhysicalPower = 100;
+
+    int MaxPosion = 100;
+
+    int MaxAttack = 100;
+    int MaxDefence = 100;
+    int MaxSpeed = 100;
+
+    int MaxMedcine = 100;
+    int MaxUsePoison = 100;
+    int MaxDetoxification = 100;
+    int MaxAntiPoison = 100;
+
+    int MaxFist = 100;
+    int MaxSword = 100;
+    int MaxKnife = 100;
+    int MaxUnusual = 100;
+    int MaxHiddenWeapon = 100;
+
+    int MaxKnowledge = 100;
+    int MaxMorality = 100;
+    int MaxAttackWithPoison = 100;
+    int MaxFame = 999;
+    int MaxIQ = 100;
+
+    int MaxExp = 99999;
+
+
+
+    void loadSaveValues();
 };
 
 

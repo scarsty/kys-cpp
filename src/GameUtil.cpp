@@ -1,18 +1,17 @@
 #include "GameUtil.h"
-#include "others/libconvert.h"
-#include "Save.h"
 #include "Random.h"
-#include "Option.h"
+#include "Save.h"
+#include "libconvert.h"
 
 GameUtil GameUtil::game_util_;
 
 GameUtil::GameUtil()
 {
     auto str = convert::readStringFromFile("../game/list/levelup.txt");
-    convert::findNumbers(str, &level_up_list_);
-    if (level_up_list_.size() < Option::getInstance()->MaxLevel)
+    level_up_list_ = convert::findNumbers<int>(str);
+    if (level_up_list_.size() < Role::getMaxValue()->Level)
     {
-        level_up_list_.resize(Option::getInstance()->MaxLevel, 60000);
+        level_up_list_.resize(Role::getMaxValue()->Level, 60000);
     }
 }
 
@@ -24,8 +23,14 @@ GameUtil::~GameUtil()
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
 bool GameUtil::canUseItem(Role* r, Item* i)
 {
-    if (r == nullptr) { return false; }
-    if (i == nullptr) { return false; }
+    if (r == nullptr)
+    {
+        return false;
+    }
+    if (i == nullptr)
+    {
+        return false;
+    }
     if (i->ItemType == 0)
     {
         //剧情类无人可以使用
@@ -56,25 +61,44 @@ bool GameUtil::canUseItem(Role* r, Item* i)
         if (i->MagicID > 0)
         {
             int level = r->getMagicLevelIndex(i->MagicID);
-            if (level >= 0 && level < MAX_MAGIC_LEVEL_INDEX) { return true; }
-            if (level < 0 && r->getLearnedMagicCount() == ROLE_MAGIC_COUNT) { return false; }
-            if (level == MAX_MAGIC_LEVEL_INDEX) { return false; }
+            if (level >= 0 && level < MAX_MAGIC_LEVEL_INDEX)
+            {
+                return true;
+            }
+            if (level < 0 && r->getLearnedMagicCount() == ROLE_MAGIC_COUNT)
+            {
+                return false;
+            }
+            if (level == MAX_MAGIC_LEVEL_INDEX)
+            {
+                return false;
+            }
         }
 
         //判断某个属性是否适合
-        auto test = [](int v, int v_need)->bool
+        auto test = [](int v, int v_need) -> bool
         {
-            if (v_need > 0 && v < v_need) { return false; }
-            if (v_need < 0 && v > -v_need) { return false; }
+            if (v_need > 0 && v < v_need)
+            {
+                return false;
+            }
+            if (v_need < 0 && v > -v_need)
+            {
+                return false;
+            }
             return true;
         };
 
         //上面的判断未确定则进入下面的判断链
-        return test(r->Attack, i->NeedAttack) && test(r->Speed, i->NeedSpeed)
+        return test(r->Attack, i->NeedAttack)
+            && test(r->Speed, i->NeedSpeed)
             && test(r->Medcine, i->NeedMedcine)
-            && test(r->UsePoison, i->NeedUsePoison) && test(r->Detoxification, i->NeedDetoxification)
-            && test(r->Fist, i->NeedFist) && test(r->Sword, i->NeedSword)
-            && test(r->Knife, i->NeedKnife) && test(r->Unusual, i->NeedUnusual)
+            && test(r->UsePoison, i->NeedUsePoison)
+            && test(r->Detoxification, i->NeedDetoxification)
+            && test(r->Fist, i->NeedFist)
+            && test(r->Sword, i->NeedSword)
+            && test(r->Knife, i->NeedKnife)
+            && test(r->Unusual, i->NeedUnusual)
             && test(r->HiddenWeapon, i->NeedHiddenWeapon)
             && test(r->MP, i->NeedMP)
             && test(r->IQ, i->NeedIQ);
@@ -95,8 +119,14 @@ bool GameUtil::canUseItem(Role* r, Item* i)
 //使用物品时属性变化
 void GameUtil::useItem(Role* r, Item* i)
 {
-    if (r == nullptr) { return; }
-    if (i == nullptr) { return; }
+    if (r == nullptr)
+    {
+        return;
+    }
+    if (i == nullptr)
+    {
+        return;
+    }
     r->PhysicalPower += i->AddPhysicalPower;
     r->HP += i->AddHP;
     r->MaxHP += i->AddMaxHP;
@@ -124,8 +154,14 @@ void GameUtil::useItem(Role* r, Item* i)
     r->AntiPoison += i->AddAntiPoison;
     r->AttackWithPoison += i->AddAttackWithPoison;
 
-    if (i->ChangeMPType == 2) { r->MPType = 2; }
-    if (i->AddAttackTwice) { r->AttackTwice = 1; }
+    if (i->ChangeMPType == 2)
+    {
+        r->MPType = 2;
+    }
+    if (i->AddAttackTwice)
+    {
+        r->AttackTwice = 1;
+    }
 
     int need_item_exp = getFinishedExpForItem(r, i);
     if (r->ExpForItem >= need_item_exp)
@@ -140,12 +176,15 @@ void GameUtil::useItem(Role* r, Item* i)
 //升级的属性变化
 void GameUtil::levelUp(Role* r)
 {
-    if (r == nullptr) { return; }
+    if (r == nullptr)
+    {
+        return;
+    }
 
     r->Exp -= game_util_.level_up_list_[r->Level - 1];
     r->Level++;
 
-    r->PhysicalPower = Option::getInstance()->MaxPhysicalPower;
+    r->PhysicalPower = Role::getMaxValue()->PhysicalPower;
     r->MaxHP += r->IncLife * 3 + RandomClassical::rand(6);
     r->HP = r->MaxHP;
     r->MaxMP += 20 + RandomClassical::rand(6);
@@ -158,7 +197,7 @@ void GameUtil::levelUp(Role* r)
     r->Speed += RandomClassical::rand(7);
     r->Defence += RandomClassical::rand(7);
 
-    auto check_up = [&](int& value, int limit, int max_inc)->void
+    auto check_up = [&](int& value, int limit, int max_inc) -> void
     {
         if (value > limit)
         {
@@ -182,7 +221,7 @@ void GameUtil::levelUp(Role* r)
 //是否可以升级
 bool GameUtil::canLevelUp(Role* r)
 {
-    if (r->Level >= 1 && r->Level <= Option::getInstance()->MaxLevel)
+    if (r->Level >= 1 && r->Level <= Role::getMaxValue()->Level)
     {
         if (r->Exp >= getLevelUpExp(r->Level))
         {
@@ -194,7 +233,10 @@ bool GameUtil::canLevelUp(Role* r)
 
 int GameUtil::getLevelUpExp(int level)
 {
-    if (level <= 0 || level >= Option::getInstance()->MaxLevel) { return INT_MAX; }
+    if (level <= 0 || level >= Role::getMaxValue()->Level)
+    {
+        return INT_MAX;
+    }
     return game_util_.level_up_list_[level - 1];
 }
 
@@ -219,7 +261,10 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
     }
 
     int multiple = 7 - r->IQ / 15;
-    if (multiple <= 0) { multiple = 1; }
+    if (multiple <= 0)
+    {
+        multiple = 1;
+    }
 
     //有关联武学的，如已满级则不可修炼
     if (i->MagicID > 0)
@@ -240,8 +285,14 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
 
 void GameUtil::equip(Role* r, Item* i)
 {
-    if (r == nullptr) { return; }
-    if (i == nullptr) { return; }
+    if (r == nullptr)
+    {
+        return;
+    }
+    if (i == nullptr)
+    {
+        return;
+    }
 
     auto r0 = Save::getInstance()->getRole(i->User);
     auto book = Save::getInstance()->getItem(r->PracticeItem);
@@ -253,23 +304,41 @@ void GameUtil::equip(Role* r, Item* i)
     if (i->ItemType == 2)
     {
         //秘籍
-        if (book) { book->User = -1; }
+        if (book)
+        {
+            book->User = -1;
+        }
         r->PracticeItem = i->ID;
-        if (r0) { r0->PracticeItem = -1; }
+        if (r0)
+        {
+            r0->PracticeItem = -1;
+        }
     }
     if (i->ItemType == 1)
     {
         if (i->EquipType == 0)
         {
-            if (equip0) { equip0->User = -1; }
+            if (equip0)
+            {
+                equip0->User = -1;
+            }
             r->Equip0 = i->ID;
-            if (r0) { r0->Equip0 = -1; }
+            if (r0)
+            {
+                r0->Equip0 = -1;
+            }
         }
         if (i->EquipType == 1)
         {
-            if (equip1) { equip1->User = -1; }
+            if (equip1)
+            {
+                equip1->User = -1;
+            }
             r->Equip1 = i->ID;
-            if (r0) { r0->Equip1 = -1; }
+            if (r0)
+            {
+                r0->Equip1 = -1;
+            }
         }
     }
 }
@@ -277,7 +346,10 @@ void GameUtil::equip(Role* r, Item* i)
 //医疗的效果
 int GameUtil::medcine(Role* r1, Role* r2)
 {
-    if (r1 == nullptr || r2 == nullptr) { return 0; }
+    if (r1 == nullptr || r2 == nullptr)
+    {
+        return 0;
+    }
     auto temp = r2->HP;
     r2->HP += r1->Medcine;
     GameUtil::limit2(r2->HP, 0, r2->MaxHP);
@@ -288,19 +360,25 @@ int GameUtil::medcine(Role* r1, Role* r2)
 //注意这个返回值通常应为负
 int GameUtil::detoxification(Role* r1, Role* r2)
 {
-    if (r1 == nullptr || r2 == nullptr) { return 0; }
+    if (r1 == nullptr || r2 == nullptr)
+    {
+        return 0;
+    }
     auto temp = r2->Poison;
     r2->Poison -= r1->Detoxification / 3;
-    GameUtil::limit2(r2->Poison, 0, Option::getInstance()->MaxPosion);
+    GameUtil::limit2(r2->Poison, 0, Role::getMaxValue()->Poison);
     return r2->Poison - temp;
 }
 
 //用毒
 int GameUtil::usePoison(Role* r1, Role* r2)
 {
-    if (r1 == nullptr || r2 == nullptr) { return 0; }
+    if (r1 == nullptr || r2 == nullptr)
+    {
+        return 0;
+    }
     auto temp = r2->Poison;
     r2->Poison += r1->UsePoison / 3;
-    GameUtil::limit2(r2->Poison, 0, Option::getInstance()->MaxPosion);
+    GameUtil::limit2(r2->Poison, 0, Role::getMaxValue()->Poison);
     return r2->Poison - temp;
 }

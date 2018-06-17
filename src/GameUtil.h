@@ -1,7 +1,7 @@
 #pragma once
 #include "Types.h"
-#include <cmath>
 #include <climits>
+#include <cmath>
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
@@ -14,13 +14,30 @@ private:
     std::vector<int> level_up_list_;
     //std::vector<int> level_up_list_;
 public:
-    static int sign(int v) { if (v > 0) { return 1; } if (v < 0) { return -1; } return 0; }
+    static int sign(int v)
+    {
+        if (v > 0)
+        {
+            return 1;
+        }
+        if (v < 0)
+        {
+            return -1;
+        }
+        return 0;
+    }
 
     //返回限制值
     static int limit(int current, int min_value, int max_value)
     {
-        if (current < min_value) { current = min_value; }
-        if (current > max_value) { current = max_value; }
+        if (current < min_value)
+        {
+            current = min_value;
+        }
+        if (current > max_value)
+        {
+            current = max_value;
+        }
         return current;
     }
 
@@ -64,9 +81,10 @@ public:
 
     static void equip(Role* r, Item* i);
 
+    static const std::string configFile() { return "../game/config/kysmod.ini"; }
+
     //以下3个函数的返回值为需要显示的数值
     static int medcine(Role* r1, Role* r2);
     static int detoxification(Role* r1, Role* r2);
     static int usePoison(Role* r1, Role* r2);
 };
-

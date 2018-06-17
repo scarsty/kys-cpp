@@ -5,7 +5,6 @@
 #include "File.h"
 #include "PotConv.h"
 #include "others/libconvert.h"
-#include "Option.h"
 
 Save Save::save_;
 
@@ -206,7 +205,7 @@ int Save::getItemCountInBag(int item_id)
 
 int Save::getMoneyCountInBag()
 {
-    return getItemCountInBag(Option::getInstance()->MoneyItemID);
+    return getItemCountInBag(Item::MoneyItemID);
 }
 
 void Save::makeMaps()
@@ -252,5 +251,3 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     }
     return -1;
 }
-
-

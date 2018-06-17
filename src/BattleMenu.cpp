@@ -4,7 +4,6 @@
 #include "BattleScene.h"
 #include "others/libconvert.h"
 #include "Event.h"
-#include "Option.h"
 #include "PotConv.h"
 
 BattleActionMenu::BattleActionMenu()
@@ -127,7 +126,7 @@ int BattleActionMenu::autoSelect(Role* role)
             //¿¼ÂÇ³ÔÒ©
             std::string action_text = "ËŽÆ·";
             if (childs_text_[action_text]->getVisible() &&
-                (role->HP < 0.2 * role->MaxHP || role->MP < 0.2 * role->MaxMP || role_->PhysicalPower < 0.2 * Option::getInstance()->MaxPhysicalPower))
+                (role->HP < 0.2 * role->MaxHP || role->MP < 0.2 * role->MaxMP || role_->PhysicalPower < 0.2 * Save::getInstance()->MaxPhysicalPower))
             {
                 AIAction aa;
                 aa.Action = getResultFromString(action_text);
@@ -146,7 +145,7 @@ int BattleActionMenu::autoSelect(Role* role)
                     }
                     else if (item->AddPhysicalPower > 0)
                     {
-                        aa.point += (std::min)(item->AddPhysicalPower, Option::getInstance()->MaxPhysicalPower - role->PhysicalPower)
+                        aa.point += (std::min)(item->AddPhysicalPower, Save::getInstance()->MaxPhysicalPower - role->PhysicalPower)
                             - item->AddPhysicalPower / 10;
                     }
                     if (aa.point > 0)
@@ -216,7 +215,7 @@ int BattleActionMenu::autoSelect(Role* role)
                     if (action_dis >= calNeedActionDistance(aa))
                     {
                         aa.Action = getResultFromString(action_text);
-                        aa.point = (std::min)(Option::getInstance()->MaxPosion - r2->Poison, role->UsePoison) / 2;
+                        aa.point = (std::min)(Save::getInstance()->MaxPosion - r2->Poison, role->UsePoison) / 2;
                         if (r2->HP < 10) { aa.point = 1; }
                         ai_action.push_back(aa);
                     }

@@ -1,9 +1,8 @@
-#include "UIShop.h"
-#include "Font.h"
-#include "others/libconvert.h"
-#include "Save.h"
 #include "Event.h"
-#include "Option.h"
+#include "Font.h"
+#include "Save.h"
+#include "UIShop.h"
+#include "others/libconvert.h"
 
 UIShop::UIShop()
 {
@@ -53,7 +52,6 @@ void UIShop::draw()
     str = convert::formatString("%-12s%8s%8s%8s%8s", "品名", "價格", "存貨", "持有", "計劃");
     font->draw(str, 24, x, y, { 200, 150, 50, 255 });
 
-
     for (int i = 0; i < 5; i++)
     {
         auto item = Save::getInstance()->getItem(shop_->ItemID[i]);
@@ -69,7 +67,10 @@ void UIShop::draw()
     BP_Color c = { 255, 255, 255, 255 };
     int money = Save::getInstance()->getMoneyCountInBag();
     str = convert::formatString("持有銀兩%8d", money);
-    if (money < need_money) { c = { 250, 50, 50, 255 }; };
+    if (money < need_money)
+    {
+        c = { 250, 50, 50, 255 };
+    };
     font->draw(str, 24, x, y + 25 + 7 * 25, c);
 }
 
@@ -106,7 +107,7 @@ void UIShop::onPressedOK()
                 Event::getInstance()->addItemWithoutHint(shop_->ItemID[i], plan_buy_[i]);
                 shop_->Total[i] -= plan_buy_[i];
             }
-            Event::getInstance()->addItemWithoutHint(Option::getInstance()->MoneyItemID, -calNeedMoney());
+            Event::getInstance()->addItemWithoutHint(Item::MoneyItemID, -calNeedMoney());
             exitWithResult(0);
         }
     }
@@ -132,4 +133,3 @@ int UIShop::calNeedMoney()
     }
     return need_money;
 }
-

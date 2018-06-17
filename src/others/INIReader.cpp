@@ -55,9 +55,25 @@
 
 void INIReader::load(std::string content)
 {
-    //convert::replaceAllString(content, "\r", "\n");
-    //content += "\n";
     error_ = ini_parse_content(content);
+}
+
+void INIReader::loadFile(std::string filename)
+{
+    FILE* fp = fopen(filename.c_str(), "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "Cannot open file %s\n", filename.c_str());
+        return;
+    }
+    fseek(fp, 0, SEEK_END);
+    int length = ftell(fp);
+    fseek(fp, 0, 0);
+    std::string str;
+    str.resize(length, '\0');
+    fread((void*)str.c_str(), length, 1, fp);
+    fclose(fp);
+    load(str);
 }
 
 int INIReader::parseError() const
