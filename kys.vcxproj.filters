@@ -1,134 +1,134 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\Audio.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Button.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Engine.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\File.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Menu.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Point.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Save.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Scene.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
     <ClCompile Include="src\Application.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TitleScene.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TextureManager.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\PotConv.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Types.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Head.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UIStatus.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UISystem.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UIItem.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Font.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event.cpp">
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="src\kys.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\Talk.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="common\libconvert.cpp">
+      <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="src\Cloud.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleMenu.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleScene.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MainScene.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubScene.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleMap.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TeamMenu.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Util.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Element.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="src\GameUtil.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="common\File.cpp">
+      <Filter>common</Filter>
     </ClCompile>
     <ClCompile Include="src\BattleCursor.cpp">
-      <Filter>sources</Filter>
+      <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="src\TextBox.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="src\BattleMap.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="src\ShowRoleDifference.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="src\BattleMenu.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="src\ShowExp.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="src\BattleScene.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="src\UIShop.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="src\Audio.cpp">
+      <Filter>engine</Filter>
     </ClCompile>
-    <ClCompile Include="src\Script.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="src\Engine.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UIItem.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="src\UISave.cpp">
-      <Filter>sources</Filter>
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="src\RandomRole.cpp">
-      <Filter>sources</Filter>
+    <ClCompile Include="src\UIShop.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UIStatus.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UISystem.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TeamMenu.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Talk.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Head.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Menu.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Button.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TextureManager.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Cloud.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Font.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Point.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MainScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SubScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TitleScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TextBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ShowRoleDifference.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ShowExp.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameUtil.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Util.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Types.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Element.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="src\PotConv.cpp">
+      <Filter>engine</Filter>
     </ClCompile>
     <ClCompile Include="src\Zip.cpp">
-      <Filter>sources</Filter>
+      <Filter>engine</Filter>
     </ClCompile>
-    <ClCompile Include="common\libconvert.cpp">
-      <Filter>_others</Filter>
+    <ClCompile Include="src\RandomRole.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Event.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Script.cpp">
+      <Filter>event</Filter>
     </ClCompile>
     <ClCompile Include="src\GrpIdxFile.cpp">
-      <Filter>sources</Filter>
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Save.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scene.cpp">
+      <Filter>scene</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -142,9 +142,6 @@
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Event.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\File.h">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="src\Menu.h">
@@ -201,22 +198,10 @@
     <ClInclude Include="src\Cloud.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleMenu.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Random.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleScene.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\MainScene.h">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="src\SubScene.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleMap.h">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="src\TeamMenu.h">
@@ -229,9 +214,6 @@
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="src\GameUtil.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleCursor.h">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="src\TextBox.h">
@@ -262,19 +244,34 @@
       <Filter>_Resources</Filter>
     </ClInclude>
     <ClInclude Include="common\INIReader.h">
-      <Filter>_others</Filter>
+      <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="common\libconvert.h">
-      <Filter>_others</Filter>
+      <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="src\GrpIdxFile.h">
       <Filter>headers</Filter>
     </ClInclude>
+    <ClInclude Include="common\Random.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="common\File.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleCursor.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleMap.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleMenu.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleScene.h">
+      <Filter>battle</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="_others">
-      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
-    </Filter>
     <Filter Include="_Resources">
       <UniqueIdentifier>{7ab4a26b-b9ce-4c3e-84a0-221cbbc561bf}</UniqueIdentifier>
     </Filter>
@@ -285,6 +282,30 @@
     <Filter Include="sources">
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util">
+      <UniqueIdentifier>{3c678943-dbdf-4d4f-a01c-0c5b1e6321a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="battle">
+      <UniqueIdentifier>{083e5283-fe94-4dd8-b3e7-6e76cca649a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="scene">
+      <UniqueIdentifier>{8ea8370a-cb14-48f8-bc02-e1e6075dba48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{8061a8bd-3982-40e7-81ac-ad7f04a93865}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine">
+      <UniqueIdentifier>{9a45ad9e-99a5-4c12-bcb1-061a80dcf7c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="event">
+      <UniqueIdentifier>{30786fa7-72a0-4216-9bb9-7d45e9ee1975}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="save">
+      <UniqueIdentifier>{757d4cc3-0d27-4fe1-89f8-331989fe526b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

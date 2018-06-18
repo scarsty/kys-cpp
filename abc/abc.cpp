@@ -2,8 +2,9 @@
 //一些辅助的功能，例如将二进制文件转为文本文件等
 
 #include "File.h"
-#include "libconvert.h"
+#include "GrpIdxFile.h"
 #include "TypesABC.h"
+#include "libconvert.h"
 
 void trans_bin_list(std::string in, std::string out)
 {
@@ -51,7 +52,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     }
 
     std::vector<int> offset1, length1, offset2, length2;
-    auto rgrp1 = File::getIdxContent(idx, grp, &offset1, &length1);
+    auto rgrp1 = GrpIdxFile::getIdxContent(idx, grp, &offset1, &length1);
     offset2 = offset1;
     length2 = length1;
     for (auto& i : offset2)

@@ -14,11 +14,13 @@
     <ClCompile Include="abc\abc.cpp" />
     <ClCompile Include="src\File.cpp" />
     <ClCompile Include="common\libconvert.cpp" />
+    <ClCompile Include="src\GrpIdxFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc\TypesABC.h" />
     <ClInclude Include="src\File.h" />
     <ClInclude Include="common\libconvert.h" />
+    <ClInclude Include="src\GrpIdxFile.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

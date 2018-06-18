@@ -1,6 +1,5 @@
 #pragma once
 #include <random>
-#include <time.h>
 
 enum RandomType
 {
@@ -20,7 +19,7 @@ private:
     std::minstd_rand0 generator_fast_;
 
 public:
-    Random() {}
+    Random() { set_seed(); }
 
     virtual ~Random() {}
 
@@ -67,18 +66,16 @@ public:
     {
         generator_ = std::mt19937(seed);
     }
-};
 
-class RandomClassical
-{
-public:
-    static void srand() { ::srand(time(NULL)); }
-    static int rand(int n)
+    int rand_int(int n)
     {
         if (n <= 0)
         {
             return 0;
         }
-        return ::rand() % n;
+        return int(rand() * n);
     }
 };
+
+typedef Random<double> RandomDouble;    //use this in usual
+typedef Random<float> RandomFloat;      //use this in usual

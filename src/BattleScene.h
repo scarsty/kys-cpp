@@ -1,14 +1,17 @@
 #pragma once
-#include "BattleMap.h"
-#include "Scene.h"
-#include "Point.h"
-#include "BattleMenu.h"
 #include "BattleCursor.h"
+#include "BattleMap.h"
+#include "BattleMenu.h"
+#include "Point.h"
+#include "Random.h"
+#include "Scene.h"
 
 class BattleScene : public Scene
 {
 private:
     Save* save_;
+    RandomDouble rand_;
+
 public:
     BattleScene();
     BattleScene(int id);
@@ -33,10 +36,14 @@ public:
     //角色层
     MapSquare<Role*>* role_layer_;
 
-    int select_state_ = 0;  //0-其他，1-选移动目标，2-选行动目标
+    int select_state_ = 0;    //0-其他，1-选移动目标，2-选行动目标
 
     int select_x_ = 0, select_y_ = 0;
-    void setSelectPosition(int x, int y) { select_x_ = x; select_y_ = y; }
+    void setSelectPosition(int x, int y)
+    {
+        select_x_ = x;
+        select_y_ = y;
+    }
 
     //以下画图用
     int action_frame_ = 0;
@@ -52,29 +59,27 @@ public:
     void setHaveFailExp(bool b) { fail_exp_ = b; }    //是否输了也有经验
 
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;    //战场主循环
+    virtual void dealEvent(BP_Event& e) override;     //战场主循环
     virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
 
-    void readBattleInfo();    //读取战场人物的数据
-
-    void setRoleInitState(Role* r);    //初始化人物的属性
+    void readBattleInfo();                                          //读取战场人物的数据
+    void setRoleInitState(Role* r);                                 //初始化人物的属性
     void setFaceTowardsNearest(Role* r, bool in_effect = false);    //以离得最近的敌人设置面向，参数为是否敌人在自己行动效果中
-    void readFightFrame(Role* r);    //读取人物行动帧数
-
-    void sortRoles();    //角色排序
-    static bool compareRole(Role* r1, Role* r2);    //角色排序的规则
-    void resetRolesAct();    //设置所有人未行动过
-
-    int calMoveStep(Role* r);  //计算可移动步数(考虑装备)
-    int calActionStep(int ability) { return ability / 15 + 1; }    //依据能力值计算行动的范围步数
-    int calRolePic(Role* r, int style = -1, int frame = 0);    //依据动作帧数计算角色的贴图编号
+    void readFightFrame(Role* r);                                   //读取人物行动帧数
+    void sortRoles();                                               //角色排序
+    static bool compareRole(Role* r1, Role* r2);                    //角色排序的规则
+    void resetRolesAct();                                           //设置所有人未行动过
+    int calMoveStep(Role* r);                                       //计算可移动步数(考虑装备)
+    int calActionStep(int ability) { return ability / 15 + 1; }     //依据能力值计算行动的范围步数
+    int calRolePic(Role* r, int style = -1, int frame = 0);         //依据动作帧数计算角色的贴图编号
 
     //计算可以被选择的范围，会改写选择层
     //mode含义：0-移动，受步数和障碍影响；1攻击用毒医疗等仅受步数影响；2查看状态，全都能选；3仅能选直线的格子；4仅能选自己
     void calSelectLayer(Role* r, int mode, int step = 0);
     void calSelectLayer(int x, int y, int team, int mode, int step = 0);
+
     //计算武学可选择的范围
     void calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index);
 
@@ -118,8 +123,8 @@ public:
     void actAuto(Role* r);
     void actRest(Role* r);
 
-    void moveAnimation(Role* r, int x, int y);    //移动动画
-    void useMagicAnimation(Role* r, Magic* m);    //使用武学动画
+    void moveAnimation(Role* r, int x, int y);                                 //移动动画
+    void useMagicAnimation(Role* r, Magic* m);                                 //使用武学动画
     void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //行动动画
     void showMagicName(std::string name);
 
@@ -134,5 +139,4 @@ public:
     int getTeamMateCount(int team);    //获取队员数目
     int checkResult();
     void calExpGot();    //计算经验
-
 };

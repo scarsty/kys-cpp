@@ -284,7 +284,8 @@ void MainScene::dealEvent(BP_Event& e)
                 if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
                 if (!ps.empty())
                 {
-                    int i = RandomClassical::rand(ps.size());
+                    RandomDouble r;
+                    int i = r.rand_int(ps.size());
                     FindWay(x, y, ps[i].x, ps[i].y);
                     setMouseEventPoint(p.x, p.y);
                 }

@@ -183,25 +183,25 @@ void GameUtil::levelUp(Role* r)
 
     r->Exp -= game_util_.level_up_list_[r->Level - 1];
     r->Level++;
-
+    RandomDouble rand;
     r->PhysicalPower = Role::getMaxValue()->PhysicalPower;
-    r->MaxHP += r->IncLife * 3 + RandomClassical::rand(6);
+    r->MaxHP += r->IncLife * 3 + rand.rand_int(6);
     r->HP = r->MaxHP;
-    r->MaxMP += 20 + RandomClassical::rand(6);
+    r->MaxMP += 20 + rand.rand_int(6);
     r->MP = r->MaxMP;
 
     r->Hurt = 0;
     r->Poison = 0;
 
-    r->Attack += RandomClassical::rand(7);
-    r->Speed += RandomClassical::rand(7);
-    r->Defence += RandomClassical::rand(7);
+    r->Attack += rand.rand_int(7);
+    r->Speed += rand.rand_int(7);
+    r->Defence += rand.rand_int(7);
 
     auto check_up = [&](int& value, int limit, int max_inc) -> void
     {
         if (value > limit)
         {
-            value += 1 + RandomClassical::rand(max_inc);
+            value += 1 + rand.rand_int(max_inc);
         }
     };
 

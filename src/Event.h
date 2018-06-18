@@ -1,8 +1,9 @@
 #pragma once
 #include "Element.h"
+#include "Menu.h"
+#include "Random.h"
 #include "SubScene.h"
 #include "Talk.h"
-#include "Menu.h"
 
 //event_id表示在kdef中的编号，event_index表示在场景中的编号
 
@@ -12,11 +13,13 @@ private:
     Event();
     virtual ~Event();
     static Event event_;
+
 public:
     static Event* getInstance()
     {
         return &event_;
     }
+
 private:
     std::vector<int> offset, length;
     std::vector<std::string> talk_;
@@ -37,10 +40,12 @@ private:
     TextBox* text_box_ = nullptr;
     int event_id_ = -1;
 
+    RandomDouble rand_;
+
 public:
-    bool loadEventData();             //加载事件数据
+    bool loadEventData();    //加载事件数据
     //这里再设计
-    bool callEvent(int event_id, Element* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);     //调用指令的内容写这里
+    bool callEvent(int event_id, Element* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //调用指令的内容写这里
 
 private:
     SubScene* subscene_;
@@ -55,11 +60,13 @@ private:
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);
+
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
     void forceExit() { loop_ = false; }
     void setUseScript(int u) { use_script_ = u; }
+
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
@@ -136,6 +143,7 @@ public:
 
 private:
     int x50[0x10000];
+
 public:
     int e_GetValue(int bit, int t, int x)
     {
@@ -153,4 +161,3 @@ public:
     //扩展的50指令，传入下一个指令的指针，某一条需要
     void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr);
 };
-

@@ -42,9 +42,10 @@ void TitleScene::draw()
     count_++;
     if (alpha == 0)
     {
-        head_id_ = RandomClassical::rand(115);
-        head_x_ = RandomClassical::rand(1024 - 150);
-        head_y_ = RandomClassical::rand(640 - 150);
+        RandomDouble r;
+        head_id_ = r.rand_int(115);
+        head_x_ = r.rand_int(1024 - 150);
+        head_y_ = r.rand_int(640 - 150);
     }
     TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
 }

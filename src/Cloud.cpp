@@ -3,12 +3,13 @@
 
 void Cloud::initRand()
 {
-    position_.x = RandomClassical::rand(max_X);
-    position_.y = RandomClassical::rand(max_Y);
-    speed_ = 1 + RandomClassical::rand(3);
-    num_ = RandomClassical::rand(num_style_);
-    alpha_ = 64 + RandomClassical::rand(192);
-    color_ = { (uint8_t)(RandomClassical::rand(256)), (uint8_t)(RandomClassical::rand(256)), (uint8_t)(RandomClassical::rand(256)), 255 };
+    RandomDouble r;
+    position_.x = r.rand_int(max_X);
+    position_.y = r.rand_int(max_Y);
+    speed_ = 1 + r.rand_int(3);
+    num_ = r.rand_int(num_style_);
+    alpha_ = 64 + r.rand_int(192);
+    color_ = { (uint8_t)(r.rand_int(256)), (uint8_t)(r.rand_int(256)), (uint8_t)(r.rand_int(256)), 255 };
 }
 
 void Cloud::setPositionOnScreen(int x, int y, int Center_X, int Center_Y)

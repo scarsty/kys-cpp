@@ -171,7 +171,7 @@ void BattleScene::draw()
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
-                    num = effect_frame_ + RandomClassical::rand(10) - RandomClassical::rand(10);
+                    num = effect_frame_ + rand_.rand_int(10) - rand_.rand_int(10);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
             }
@@ -302,7 +302,7 @@ void BattleScene::readBattleInfo()
             r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
             r->Team = 1;
             readFightFrame(r);
-            r->FaceTowards = RandomClassical::rand(4);
+            r->FaceTowards = rand_.rand_int(4);
         }
     }
 
@@ -863,7 +863,7 @@ void BattleScene::actUseMagic(Role* r)
                 auto index = 1 + r->getMagicOfRoleIndex(magic);
                 if (index >= 0)
                 {
-                    r->MagicLevel[index] += RandomClassical::rand(2);
+                    r->MagicLevel[index] += rand_.rand_int(2);
                     GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
                 }
             }
@@ -1142,8 +1142,8 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     {
         if (shake > 0)
         {
-            x_ = RandomClassical::rand(shake) - RandomClassical::rand(shake);
-            y_ = RandomClassical::rand(shake) - RandomClassical::rand(shake);
+            x_ = rand_.rand_int(shake) - rand_.rand_int(shake);
+            y_ = rand_.rand_int(shake) - rand_.rand_int(shake);
         }
         drawAndPresent(animation_delay_);
     }
@@ -1175,7 +1175,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     {
         if (r1->MP <= 10)
         {
-            return 1 + RandomClassical::rand(10);
+            return 1 + rand_.rand_int(10);
         }
         int attack = r1->Attack + magic->Attack[level_index] / 3;
         int defence = r2->Defence;
@@ -1207,10 +1207,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         int dis = calRoleDistance(r1, r2);
         v = v / exp((dis - 1) / 10);
 
-        v += RandomClassical::rand(10) - RandomClassical::rand(10);
+        v += rand_.rand_int(10) - rand_.rand_int(10);
         if (v < 10)
         {
-            v = 1 + RandomClassical::rand(10);
+            v = 1 + rand_.rand_int(10);
         }
         //v = 999;  //²âÊÔÓÃ
         return v;
@@ -1218,10 +1218,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     else if (magic->HurtType == 1)
     {
         int v = magic->HurtMP[level_index];
-        v += RandomClassical::rand(10) - RandomClassical::rand(10);
+        v += rand_.rand_int(10) - rand_.rand_int(10);
         if (v < 10)
         {
-            v = 1 + RandomClassical::rand(10);
+            v = 1 + rand_.rand_int(10);
         }
         return v;
     }
@@ -1294,7 +1294,7 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
     int v = r1->HiddenWeapon - item->AddHP;
     int dis = calRoleDistance(r1, r2);
     v = v / exp((dis - 1) / 10);
-    v += RandomClassical::rand(10) - RandomClassical::rand(10);
+    v += rand_.rand_int(10) - rand_.rand_int(10);
     if (v < 1)
     {
         v = 1;

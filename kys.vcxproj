@@ -109,7 +109,7 @@
     <ClCompile Include="src\Talk.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Event.cpp" />
-    <ClCompile Include="src\File.cpp" />
+    <ClCompile Include="common\File.cpp" />
     <ClCompile Include="src\Font.cpp" />
     <ClCompile Include="src\Head.cpp" />
     <ClCompile Include="src\TeamMenu.cpp" />
@@ -149,7 +149,7 @@
     <ClInclude Include="src\GameUtil.h" />
     <ClInclude Include="common\INIReader.h" />
     <ClInclude Include="src\GrpIdxFile.h" />
-    <ClInclude Include="src\Random.h" />
+    <ClInclude Include="common\Random.h" />
     <ClInclude Include="src\RandomRole.h" />
     <ClInclude Include="src\Script.h" />
     <ClInclude Include="src\ShowExp.h" />
@@ -158,7 +158,7 @@
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Event.h" />
     <ClInclude Include="src\EventMacro.h" />
-    <ClInclude Include="src\File.h" />
+    <ClInclude Include="common\File.h" />
     <ClInclude Include="src\Font.h" />
     <ClInclude Include="src\Head.h" />
     <ClInclude Include="src\TeamMenu.h" />

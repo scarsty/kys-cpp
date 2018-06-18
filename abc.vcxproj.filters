@@ -10,6 +10,9 @@
     <ClCompile Include="common\libconvert.cpp">
       <Filter>sources</Filter>
     </ClCompile>
+    <ClCompile Include="src\GrpIdxFile.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\File.h">
@@ -19,6 +22,9 @@
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="common\libconvert.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GrpIdxFile.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>

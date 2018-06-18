@@ -1,6 +1,5 @@
-﻿#include "File.h"
-#include <iostream>
-#include <fstream>
+#include "File.h"
+#include <stdio.h>
 #include <time.h>
 #ifdef _WIN32
 #include <Windows.h>
@@ -8,6 +7,8 @@
 #else
 #include "dirent.h"
 #endif
+#include <fstream>
+#include <string.h>
 #ifdef __GNUC__
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -39,49 +40,45 @@ bool File::fileExist(const std::string& filename)
     return ret;
 }
 
-bool File::readFile(const std::string& filename, char** s, int* len)
+unsigned char* File::readFile(const char* filename, int length /*= 0*/)
 {
-    FILE* fp = fopen(filename.c_str(), "rb");
+    FILE* fp = fopen(filename, "rb");
     if (!fp)
     {
-        fprintf(stderr, "Can not open file %s\n", filename.c_str());
-        return false;
+        fprintf(stderr, "Cannot open file %s\n", filename);
+        return nullptr;
     }
     fseek(fp, 0, SEEK_END);
-    int length = ftell(fp);
-    *len = length;
-    fseek(fp, 0, 0);
-    *s = new char[length + 1];
-    for (int i = 0; i <= length; (*s)[i++] = '\0');
-    fread(*s, length, 1, fp);
-    fclose(fp);
-    return true;
-}
-
-void File::readFile(const std::string& filename, void* s, int len)
-{
-    FILE* fp = fopen(filename.c_str(), "rb");
-    if (!fp)
+    if (length <= 0)
     {
-        fprintf(stderr, "Can not open file %s\n", filename.c_str());
-        return;
+        length = ftell(fp);
     }
     fseek(fp, 0, 0);
-    fread(s, len, 1, fp);
+    auto s = new unsigned char[length + 1];
+    memset(s, '\0', length);
+    fread(s, length, 1, fp);
     fclose(fp);
+    return s;
 }
 
-void File::writeFile(const std::string& filename, void* s, int len)
+void File::deleteBuffer(unsigned char* buffer)
 {
-    FILE* fp = fopen(filename.c_str(), "wb");
-    if (!fp)
+    if (buffer)
     {
-        fprintf(stderr, "Can not open file %s\n", filename.c_str());
-        return;
+        delete[] buffer;
     }
-    fseek(fp, 0, 0);
-    fwrite(s, len, 1, fp);
-    fclose(fp);
+}
+
+void File::reverse(unsigned char* c, int n)
+{
+    for (int i = 0; i < n / 2; i++)
+    {
+        auto& a = *(c + i);
+        auto& b = *(c + n - 1 - i);
+        auto t = b;
+        b = a;
+        a = t;
+    }
 }
 
 std::string File::getFileExt(const std::string& filename)
@@ -164,13 +161,11 @@ std::vector<std::string> File::getFilesInDir(std::string dirname)
     {
         if (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
         {
-            std::string filename = ffd.cFileName;//(const char*)
+            std::string filename = ffd.cFileName;    //(const char*)
             std::string filedir = filename;
             ret.push_back(filedir);
         }
-    }
-    while (FindNextFileA(hFind, &ffd) != 0);
-
+    } while (FindNextFileA(hFind, &ffd) != 0);
 
     dwError = GetLastError();
     if (dwError != ERROR_NO_MORE_FILES)
@@ -201,7 +196,7 @@ int File::getLastPathPos(const std::string& filename)
     int pos_win = std::string::npos;
 #ifdef _WIN32
     pos_win = filename.find_last_of('\\');
-#endif // _WIN32
+#endif    // _WIN32
     int pos_other = filename.find_last_of('/');
     if (pos_win == std::string::npos)
     {
@@ -218,6 +213,52 @@ int File::getLastPathPos(const std::string& filename)
             return pos_other > pos_win ? pos_other : pos_win;
         }
     }
+}
+
+bool File::readFile(const std::string& filename, char** s, int* len)
+{
+    FILE* fp = fopen(filename.c_str(), "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "Cannot open file %s\n", filename.c_str());
+        return false;
+    }
+    fseek(fp, 0, SEEK_END);
+    int length = ftell(fp);
+    *len = length;
+    fseek(fp, 0, 0);
+    *s = new char[length + 1];
+    memset(*s, '\0', length);
+    fread(*s, length, 1, fp);
+    fclose(fp);
+    return true;
+}
+
+void File::readFile(const std::string& filename, void* s, int len)
+{
+    FILE* fp = fopen(filename.c_str(), "rb");
+    if (!fp)
+    {
+        fprintf(stderr, "Cannot open file %s\n", filename.c_str());
+        return;
+    }
+    fseek(fp, 0, 0);
+    fread(s, len, 1, fp);
+    fclose(fp);
+}
+
+int File::writeFile(const std::string& filename, void* s, int len)
+{
+    FILE* fp = fopen(filename.c_str(), "wb");
+    if (!fp)
+    {
+        fprintf(stderr, "Cannot open file %s\n", filename.c_str());
+        return 0;
+    }
+    fseek(fp, 0, 0);
+    fwrite(s, len, 1, fp);
+    fclose(fp);
+    return len;
 }
 
 std::string File::getFileTime(std::string filename)
@@ -241,5 +282,5 @@ std::string File::getFileTime(std::string filename)
         fprintf(stdout, "%s:%s\n", filename.c_str(), buf);
         return buf;
     }
-    return "--------------------";  //20
+    return "";
 }

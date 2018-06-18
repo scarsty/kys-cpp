@@ -1,6 +1,10 @@
 #pragma once
 #include "Event.h"
+#ifdef _WIN32
 #include "lua/lua.hpp"
+#else
+#include "lua5.3/lua.hpp"
+#endif
 #include <string>
 
 class Script

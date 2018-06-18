@@ -8,7 +8,6 @@
 #include "libconvert.h"
 #include "Audio.h"
 #include "GameUtil.h"
-#include "Random.h"
 #include "BattleScene.h"
 #include "UIShop.h"
 #include "Font.h"
@@ -904,7 +903,7 @@ bool Event::checkHave5Item(int item_id1, int item_id2, int item_id3, int item_id
 
 void Event::askSoftStar()
 {
-    oldTalk(2547 + RandomClassical::rand(18), 114, 0);
+    oldTalk(2547 + rand_.rand_int(18), 114, 0);
 }
 
 void Event::showMorality()
@@ -966,8 +965,8 @@ void Event::fightForTop()
 
     for (int i = 0; i < 15; i++)
     {
-        int p = RandomClassical::rand(2);
-        oldTalk(2854 + i * 2 + p, heads[i * 2 + p], RandomClassical::rand(2) * 4 + RandomClassical::rand(2));
+        int p = rand_.rand_int(2);
+        oldTalk(2854 + i * 2 + p, heads[i * 2 + p], rand_.rand_int(2) * 4 + rand_.rand_int(2));
         if (!tryBattle(102 + i * 2 + p, 0))
         {
             dead();
@@ -1039,7 +1038,7 @@ void Event::shop()
 {
     oldTalk(0xB9E, 0x6F, 0);
     auto shop = new UIShop();
-    shop->setShopID(RandomClassical::rand(5));
+    shop->setShopID(rand_.rand_int(5));
     int result = shop->run();
     if (result < 0)
     {
@@ -1346,7 +1345,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         break;
     case 38: //Ëæ»úÊý
         e2 = e_GetValue(0, e1, e2);
-        x50[e3] = RandomClassical::rand(e2);
+        x50[e3] = rand_.rand_int(e2);
         break;
     case 39:
     case 40: //²Ëµ¥
