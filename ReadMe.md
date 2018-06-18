@@ -68,7 +68,7 @@ libiconv <https://www.gnu.org/software/libiconv/>
 
 lua <https://www.lua.org/>
 
-minizip <https://github.com/nmoinvaz/minizip/tree/1.2>
+minizip <https://github.com/madler/zlib/tree/master/contrib/minizip>
 
 zlib <https://zlib.net/>
 
@@ -83,8 +83,6 @@ ini Reader https://github.com/benhoyt/inih
 libconvert https://github.com/scarsty/convert
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
-
-minishared.h和minishared.c来自minizip，已放入工程。
 
 部分库和对应的头文件可以从<https://github.com/scarsty/local-lib>取得。
 
