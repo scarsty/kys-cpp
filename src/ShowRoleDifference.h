@@ -1,7 +1,7 @@
 #pragma once
 #include "TextBox.h"
 #include "Head.h"
-#include "others/libconvert.h"
+#include "libconvert.h"
 #include "Font.h"
 
 //这个类专用于显示两个Role的不同，供升级，吃药等显示前后比较

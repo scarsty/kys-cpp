@@ -31,29 +31,19 @@
 #define INI_INLINE_COMMENT_PREFIXES ";#"
 #endif
 
-//Nonzero to use stack, zero to use heap (malloc/free).
-#ifndef INI_USE_STACK
-#define INI_USE_STACK 1
-#endif
-
 //Stop parsing on first error (default is to keep parsing).
 #ifndef INI_STOP_ON_FIRST_ERROR
 #define INI_STOP_ON_FIRST_ERROR 0
-#endif
-
-//Maximum line length for any line in INI file.
-#ifndef INI_MAX_LINE
-#define INI_MAX_LINE 200
 #endif
 
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
-#include <algorithm>
 
 struct CaseInsensitivityCompare
 {

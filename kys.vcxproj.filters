@@ -73,9 +73,6 @@
     <ClCompile Include="src\BattleMenu.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\others\libconvert.cpp">
-      <Filter>_others</Filter>
-    </ClCompile>
     <ClCompile Include="src\BattleScene.cpp">
       <Filter>sources</Filter>
     </ClCompile>
@@ -125,6 +122,12 @@
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="src\Zip.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="common\libconvert.cpp">
+      <Filter>_others</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GrpIdxFile.cpp">
       <Filter>sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -201,9 +204,6 @@
     <ClInclude Include="src\BattleMenu.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\others\libconvert.h">
-      <Filter>_others</Filter>
-    </ClInclude>
     <ClInclude Include="src\Random.h">
       <Filter>headers</Filter>
     </ClInclude>
@@ -258,11 +258,17 @@
     <ClInclude Include="src\Zip.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\others\INIReader.h">
-      <Filter>_others</Filter>
-    </ClInclude>
     <ClInclude Include="resource\resource.h">
       <Filter>_Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="common\INIReader.h">
+      <Filter>_others</Filter>
+    </ClInclude>
+    <ClInclude Include="common\libconvert.h">
+      <Filter>_others</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GrpIdxFile.h">
+      <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -60,7 +60,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;include;$(USR_LOCAL)\include;src/others;src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;include;$(USR_LOCAL)\include;common;src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -78,7 +78,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>include;$(USR_LOCAL)\include;src/others;src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;$(USR_LOCAL)\include;common;src</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -101,6 +101,7 @@
     <ClCompile Include="src\Cloud.cpp" />
     <ClCompile Include="src\Element.cpp" />
     <ClCompile Include="src\GameUtil.cpp" />
+    <ClCompile Include="src\GrpIdxFile.cpp" />
     <ClCompile Include="src\RandomRole.cpp" />
     <ClCompile Include="src\Script.cpp" />
     <ClCompile Include="src\ShowExp.cpp" />
@@ -114,7 +115,7 @@
     <ClCompile Include="src\TeamMenu.cpp" />
     <ClCompile Include="src\TextBox.cpp" />
     <ClCompile Include="src\UI.cpp" />
-    <ClCompile Include="src\others\libconvert.cpp" />
+    <ClCompile Include="common\libconvert.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
@@ -146,7 +147,8 @@
     <ClInclude Include="src\Cloud.h" />
     <ClInclude Include="src\Element.h" />
     <ClInclude Include="src\GameUtil.h" />
-    <ClInclude Include="src\others\INIReader.h" />
+    <ClInclude Include="common\INIReader.h" />
+    <ClInclude Include="src\GrpIdxFile.h" />
     <ClInclude Include="src\Random.h" />
     <ClInclude Include="src\RandomRole.h" />
     <ClInclude Include="src\Script.h" />
@@ -162,7 +164,7 @@
     <ClInclude Include="src\TeamMenu.h" />
     <ClInclude Include="src\TextBox.h" />
     <ClInclude Include="src\UI.h" />
-    <ClInclude Include="src\others\libconvert.h" />
+    <ClInclude Include="common\libconvert.h" />
     <ClInclude Include="src\PotConv.h" />
     <ClInclude Include="src\TitleScene.h" />
     <ClInclude Include="src\MainScene.h" />

@@ -7,7 +7,7 @@
     <ClCompile Include="src\File.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="src\others\libconvert.cpp">
+    <ClCompile Include="common\libconvert.cpp">
       <Filter>sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -15,10 +15,10 @@
     <ClInclude Include="src\File.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="src\others\libconvert.h">
+    <ClInclude Include="abc\TypesABC.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="abc\TypesABC.h">
+    <ClInclude Include="common\libconvert.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>

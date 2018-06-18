@@ -13,12 +13,12 @@
   <ItemGroup>
     <ClCompile Include="abc\abc.cpp" />
     <ClCompile Include="src\File.cpp" />
-    <ClCompile Include="src\others\libconvert.cpp" />
+    <ClCompile Include="common\libconvert.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc\TypesABC.h" />
     <ClInclude Include="src\File.h" />
-    <ClInclude Include="src\others\libconvert.h" />
+    <ClInclude Include="common\libconvert.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -69,7 +69,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -85,6 +85,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>src;common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

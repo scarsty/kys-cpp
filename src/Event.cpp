@@ -5,7 +5,7 @@
 #include "Save.h"
 #include "PotConv.h"
 #include "Talk.h"
-#include "others/libconvert.h"
+#include "libconvert.h"
 #include "Audio.h"
 #include "GameUtil.h"
 #include "Random.h"
@@ -14,6 +14,7 @@
 #include "Font.h"
 #include "File.h"
 #include "Script.h"
+#include "GrpIdxFile.h"
 
 Event Event::event_;
 
@@ -42,7 +43,7 @@ Event::~Event()
 bool Event::loadEventData()
 {
     //读取talk
-    auto talk = File::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
+    auto talk = GrpIdxFile::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
     for (int i = 0; i < offset.back(); i++)
     {
         if (talk[i])
@@ -58,7 +59,7 @@ bool Event::loadEventData()
     }
     delete talk;
     //读取事件，全部转为整型
-    auto kdef = File::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
+    auto kdef = GrpIdxFile::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
     kdef_.resize(length.size());
     for (int i = 0; i < length.size(); i++)
     {

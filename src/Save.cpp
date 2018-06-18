@@ -1,10 +1,11 @@
-#include "Save.h"
-#include <string>
-#include <iostream>
-#include <fstream>
 #include "File.h"
+#include "GrpIdxFile.h"
 #include "PotConv.h"
-#include "others/libconvert.h"
+#include "Save.h"
+#include "libconvert.h"
+#include <fstream>
+#include <iostream>
+#include <string>
 
 Save Save::save_;
 
@@ -22,7 +23,10 @@ std::string Save::getFilename(int i, char c)
     if (i > 0)
     {
         filename = convert::formatString("../game/save/%c%d.grp", c, i);
-        if (c == 'r') { filename += "32"; }
+        if (c == 'r')
+        {
+            filename += "32";
+        }
     }
     else
     {
@@ -51,13 +55,16 @@ bool Save::checkSaveFileExist(int num)
 
 bool Save::load(int num)
 {
-    if (!checkSaveFileExist(num)) { return false; }
+    if (!checkSaveFileExist(num))
+    {
+        return false;
+    }
     std::string filenamer = getFilename(num, 'r');
     std::string filenames = getFilename(num, 's');
     std::string filenamed = getFilename(num, 'd');
     std::string filename_idx = "../game/save/ranger.idx32";
 
-    auto rgrp = File::getIdxContent(filename_idx, filenamer, &offset_, &length_);
+    auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
     memcpy(&InShip, rgrp + offset_[0], length_[0]);
     File::readDataToVector(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
@@ -194,7 +201,10 @@ int Save::getItemCountInBag(int item_id)
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
         auto id = Items[i].item_id;
-        if (id < 0) { break; }
+        if (id < 0)
+        {
+            break;
+        }
         if (id == item_id)
         {
             return Items[i].count;
@@ -236,7 +246,10 @@ void Save::makeMaps()
 
 Magic* Save::getRoleLearnedMagic(Role* r, int i)
 {
-    if (i < 0 || i >= ROLE_MAGIC_COUNT) { return nullptr; }
+    if (i < 0 || i >= ROLE_MAGIC_COUNT)
+    {
+        return nullptr;
+    }
     return getMagic(r->MagicID[i]);
 }
 

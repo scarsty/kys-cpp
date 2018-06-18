@@ -1,8 +1,8 @@
 
 //一些辅助的功能，例如将二进制文件转为文本文件等
 
-#include "../src/File.h"
-#include "../src/others/libconvert.h"
+#include "File.h"
+#include "libconvert.h"
 #include "TypesABC.h"
 
 void trans_bin_list(std::string in, std::string out)

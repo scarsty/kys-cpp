@@ -1,6 +1,6 @@
 #include "Head.h"
 #include "Font.h"
-#include "others/libconvert.h"
+#include "libconvert.h"
 #include "GameUtil.h"
 
 Head::Head(Role* r)
