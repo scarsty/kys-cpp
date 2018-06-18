@@ -1,11 +1,12 @@
 
-//一些辅助的功能，例如将二进制文件转为文本文件等
+//一些辅助的功能
 
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "TypesABC.h"
 #include "libconvert.h"
 
+//转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)
 {
     std::vector<int16_t> leave_list;
@@ -19,6 +20,7 @@ void trans_bin_list(std::string in, std::string out)
     convert::writeStringToFile(s, out);
 }
 
+//导出战斗帧数为文本
 void trans_fight_frame()
 {
     for (int i = 0; i <= 300; i++)
@@ -44,6 +46,7 @@ void trans_fight_frame()
     }
 }
 
+//扩展存档，将短整数扩展为int32
 int expandR(std::string idx, std::string grp, bool ranger = true)
 {
     if (!File::fileExist(grp) || !File::fileExist(idx))

@@ -52,9 +52,6 @@
     <ClCompile Include="src\TeamMenu.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="src\Talk.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
     <ClCompile Include="src\Head.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -109,9 +106,6 @@
     <ClCompile Include="src\PotConv.cpp">
       <Filter>engine</Filter>
     </ClCompile>
-    <ClCompile Include="src\Zip.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="src\RandomRole.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -130,114 +124,15 @@
     <ClCompile Include="src\Scene.cpp">
       <Filter>scene</Filter>
     </ClCompile>
+    <ClCompile Include="src\Talk.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Zip.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Audio.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Button.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Engine.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Event.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Menu.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Point.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Save.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Scene.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\Application.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\TitleScene.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\TextureManager.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\PotConv.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Types.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Head.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UI.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UIStatus.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UISystem.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UIItem.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Font.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\EventMacro.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Talk.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Cloud.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MainScene.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\SubScene.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\TeamMenu.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Util.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Element.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\GameUtil.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\TextBox.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ShowRoleDifference.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ShowExp.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UIShop.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Script.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UISave.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\RandomRole.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Zip.h">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="resource\resource.h">
@@ -248,9 +143,6 @@
     </ClInclude>
     <ClInclude Include="common\libconvert.h">
       <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\GrpIdxFile.h">
-      <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="common\Random.h">
       <Filter>common</Filter>
@@ -269,6 +161,114 @@
     </ClInclude>
     <ClInclude Include="src\BattleScene.h">
       <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UISystem.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UIItem.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UISave.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UIShop.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UIStatus.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Button.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Font.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Head.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Menu.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Save.h">
+      <Filter>save</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GrpIdxFile.h">
+      <Filter>save</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Element.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameUtil.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Types.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Audio.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Engine.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MainScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Scene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SubScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TitleScene.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Point.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Cloud.h">
+      <Filter>scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Event.h">
+      <Filter>event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EventMacro.h">
+      <Filter>event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Script.h">
+      <Filter>event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ShowExp.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ShowRoleDifference.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RandomRole.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TeamMenu.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextureManager.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PotConv.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Talk.h">
+      <Filter>event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextBox.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Zip.h">
+      <Filter>save</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -295,9 +295,6 @@
     <Filter Include="scene">
       <UniqueIdentifier>{8ea8370a-cb14-48f8-bc02-e1e6075dba48}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ui">
-      <UniqueIdentifier>{8061a8bd-3982-40e7-81ac-ad7f04a93865}</UniqueIdentifier>
-    </Filter>
     <Filter Include="engine">
       <UniqueIdentifier>{9a45ad9e-99a5-4c12-bcb1-061a80dcf7c1}</UniqueIdentifier>
     </Filter>
@@ -306,6 +303,9 @@
     </Filter>
     <Filter Include="save">
       <UniqueIdentifier>{757d4cc3-0d27-4fe1-89f8-331989fe526b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{8061a8bd-3982-40e7-81ac-ad7f04a93865}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
