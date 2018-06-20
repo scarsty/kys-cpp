@@ -88,7 +88,7 @@ common <https://github.com/scarsty/common>
 
 ### Common
 
-common目录包含了一些常用的公共功能，被多个工程使用。为了维护方便，这里实际上是一个指向目录的软链接。代码请从<https://github.com/scarsty/common>下载并放在上一级目录，或者使用get-common.sh将软链接替换为实际代码。
+common目录包含了一些常用的公共功能，被多个工程使用。为了维护方便，这里是一个指向其他目录的软链接。实际的代码请从<https://github.com/scarsty/common>下载并置于适合的位置，或者参考get-common.sh中的命令。
 
 ## 授权
 
