@@ -78,13 +78,17 @@ libass <https://github.com/libass/libass>
 
 fribidi <https://www.fribidi.org/>
 
-ini Reader https://github.com/benhoyt/inih
+ini Reader <https://github.com/benhoyt/inih>
 
-libconvert https://github.com/scarsty/convert
+common <https://github.com/scarsty/common>
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
 部分库和对应的头文件可以从<https://github.com/scarsty/local-lib>取得。
+
+### Common
+
+common目录包含了一些常用的公共功能，被多个工程使用。为了维护方便，这里实际上是一个指向目录的软链接。代码请从<https://github.com/scarsty/common>下载并放在上一级目录，或者使用get-common.sh将软链接替换为实际代码。
 
 ## 授权
 
