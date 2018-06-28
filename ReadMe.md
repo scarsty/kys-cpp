@@ -12,7 +12,7 @@ github：https://github.com/scarsty/kys-cpp
 
 资源文件：<http://pan.baidu.com/s/1sl2X9wD>
 
-Windows下可以使用Visual Studio编译，其他系统下可以使用CMake生成Makefile，使用Clang或者GCC编译。
+Windows下可以使用Visual Studio编译，其他系统下可以在src目录使用CMake生成Makefile，使用Clang或者GCC编译。
 
 ## 架构的简单说明
 
@@ -72,13 +72,13 @@ minizip <https://github.com/madler/zlib/tree/master/contrib/minizip>
 
 zlib <https://zlib.net/>
 
-tinypot <https://github.com/scarsty/tinypot>
-
 libass <https://github.com/libass/libass>
 
 fribidi <https://www.fribidi.org/>
 
 ini Reader <https://github.com/benhoyt/inih>
+
+tinypot <https://github.com/scarsty/tinypot>
 
 common <https://github.com/scarsty/common>
 
@@ -86,9 +86,13 @@ common <https://github.com/scarsty/common>
 
 部分库和对应的头文件可以从<https://github.com/scarsty/local-lib>取得。
 
-### Common
+### common
 
 common目录包含了一些常用的公共功能，被多个工程使用。代码请从<https://github.com/scarsty/common>下载并置于适合的位置，或者使用脚本get-common.sh获取。
+
+### tinypot
+
+游戏中使用这个库进行视频的播放，如果难以处理，可以将预处理定义宏中的\_TINYPOT删除。
 
 ## 授权
 
