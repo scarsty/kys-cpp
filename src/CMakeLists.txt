@@ -8,9 +8,10 @@ set(CMAKE_CXX_FLAGS "-O3 -std=c++11 -pthread")
 include_directories(../include . ../common)
 link_directories(. ../lib)
 
-aux_source_directory(./ SRC_LIST)
-aux_source_directory(../common COMMON_SRC_LIST)
-list(APPEND SRC_LIST ${COMMON_SRC_LIST})
+file(GLOB SRC_LIST
+    ./*.cpp
+    ../common/libconvert.cpp
+    ../common/File.cpp)
 
 set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2main lua5.3 bass bassmidi minizip)
 
