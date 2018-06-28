@@ -69,7 +69,7 @@ void Engine::destroy()
     destroyAssistTexture();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
-#ifdef _WIN32
+#if defined(_WIN32) && defined(_TINYPOT)
     PotDestory(tinypot_);
 #endif
 }
@@ -275,7 +275,7 @@ int Engine::init(void* handle)
     square_ = createSquareTexture(100);
 
     printf("maximum width and height are: %d, %d\n", max_x_, max_y_);
-#ifdef _WIN32
+#if defined(_WIN32) && defined(_TINYPOT)
     tinypot_ = PotCreateFromWindow(window_);
 #endif
     return 0;
@@ -511,7 +511,7 @@ void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
 
 int Engine::playVideo(std::string filename)
 {
-#ifdef _WIN32
+#if defined(_WIN32) && defined(_TINYPOT)
     return PotInputVideo(tinypot_, (char*)filename.c_str());
 #endif
     return 0;

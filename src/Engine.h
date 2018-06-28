@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
+#if defined(_WIN32) && defined(_TINYPOT)
 #include "tinypot/PotDll.h"
 #endif
 
