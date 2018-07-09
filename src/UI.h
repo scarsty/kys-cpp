@@ -12,7 +12,6 @@ private:
     UI();
     ~UI();
     //UI菜单单例即可，无需重复创建
-    static UI ui_;
     int current_head_ = 0;
     int current_button_ = 0;
 public:
@@ -20,7 +19,11 @@ public:
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;
 
-    static UI* getInstance() { return &ui_; }
+    static UI* getInstance()
+    {
+        static UI ui;
+        return &ui;
+    }
 
     std::vector<Head*> heads_;
     std::vector<Button*> buttons_;

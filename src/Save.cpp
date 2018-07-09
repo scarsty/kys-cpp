@@ -7,8 +7,6 @@
 #include <iostream>
 #include <string>
 
-Save Save::save_;
-
 Save::Save()
 {
 }

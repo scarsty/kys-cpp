@@ -12,12 +12,12 @@ class Event
 private:
     Event();
     virtual ~Event();
-    static Event event_;
 
 public:
     static Event* getInstance()
     {
-        return &event_;
+        static Event e;
+        return &e;
     }
 
 private:

@@ -49,11 +49,12 @@ private:
     Engine();
     virtual ~Engine();
 
-private:
-    static Engine engine_;
-
 public:
-    static Engine* getInstance() { return &engine_; };
+    static Engine* getInstance()
+    {   
+        static Engine engine;
+        return &engine; 
+    }
     //图形相关
 private:
     BP_Window* window_ = nullptr;

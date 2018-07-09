@@ -9,8 +9,6 @@
 #include "UISave.h"
 #include "Random.h"
 
-MainScene MainScene::main_scene_;
-
 MainScene::MainScene()
 {
     full_window_ = 1;

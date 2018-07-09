@@ -4,8 +4,6 @@
 #include "GrpIdxFile.h"
 #include "PotConv.h"
 
-BattleMap BattleMap::battle_map_;
-
 BattleMap::BattleMap()
 {
     File::readFileToVector("../game/resource/war.sta", battle_infos_);

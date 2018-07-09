@@ -2,8 +2,6 @@
 #include "PotConv.h"
 #include "TextureManager.h"
 
-Font Font::font_;
-
 Font::~Font()
 {
     for (auto buffer : buffer_)

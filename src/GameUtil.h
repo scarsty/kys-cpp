@@ -10,7 +10,12 @@ class GameUtil
 private:
     GameUtil();
     ~GameUtil();
-    static GameUtil game_util_;
+    
+    static GameUtil* getInstance()
+    {
+        static GameUtil gu;
+        return &gu;
+    }
     std::vector<int> level_up_list_;
     //std::vector<int> level_up_list_;
 public:

@@ -12,7 +12,6 @@ class TextureManager
 private:
     TextureManager();
     virtual ~TextureManager();
-    static TextureManager texture_manager_;
     std::string path_ = "../game/resource/";
 
     enum
@@ -65,7 +64,11 @@ public:
 
     std::map<const std::string, std::vector<Texture*>> map_;
 
-    static TextureManager* getInstance() { return &texture_manager_; }
+    static TextureManager* getInstance()
+    {
+        static TextureManager tm;
+        return &tm;
+    }
 
     void renderTexture(Texture* tex, BP_Rect r,
         BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);

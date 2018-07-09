@@ -8,7 +8,6 @@ class Audio
 private:
     Audio();
     virtual ~Audio();
-    static Audio audio_;
 
     std::vector<HSTREAM> music_;
     std::vector<HSAMPLE> asound_, esound_;
@@ -16,18 +15,24 @@ private:
     HSTREAM current_music_;
     HSTREAM current_sound_;
 
-    int volume_ = 64;
+    int volume_ = 50;
 
 public:
-    static Audio* getInstance() { return &audio_; }
+    static Audio* getInstance() 
+    {
+        static Audio a;
+        return &a;
+    }
 
     void init();
     void playMusic(int num);
     void playASound(int num);
     void playESound(int num);
-    void PauseMusic();
-    void ContinueMusic();
-    void StopMusic();
+    void pauseMusic();
+    void continueMusic();
+    void stopMusic();
 
     void setVolume(int v) { volume_ = v; }
+
+    void free();
 };

@@ -32,12 +32,15 @@ class BattleMap
 private:
     std::vector<BattleInfo> battle_infos_;
     std::vector<BattleFieldData2> battle_field_data2_;
-    static BattleMap battle_map_;
 public:
     BattleMap();
     ~BattleMap();
 
-    static BattleMap* getInstance() { return &battle_map_; }
+    static BattleMap* getInstance() 
+    {
+        static BattleMap bm;
+        return &bm;
+    }
     BattleInfo* getBattleInfo(int i) { if (i < 0 || i >= battle_infos_.size()) { return nullptr; } return &battle_infos_[i]; }
     void copyLayerData(int battle_field_id, int layer, MapSquareInt* out);
 

@@ -26,10 +26,10 @@ public:
     bool load(int num);
     bool save(int num);
 
-    static Save save_;
     static Save* getInstance()
     {
-        return &save_;
+        static Save s;
+        return &s;
     }
 
     static std::string getFilename(int i, char c);

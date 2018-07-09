@@ -9,16 +9,17 @@
 
 class Script
 {
-private:
-    static Script script_;
-
 public:
     Script();
     ~Script();
 
     lua_State* lua_state_ = nullptr;
 
-    static Script* getInstance() { return &script_; }
+    static Script* getInstance()
+    {
+        static Script s;
+        return &s;
+    }
 
     int runScript(std::string filename);
 

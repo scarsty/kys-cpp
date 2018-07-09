@@ -1,8 +1,6 @@
 ﻿#include "TextureManager.h"
 #include "File.h"
 
-TextureManager TextureManager::texture_manager_;
-
 TextureManager::TextureManager()
 {
 }
@@ -53,7 +51,7 @@ void TextureManager::renderTexture(const std::string& path, int num, int x, int 
 TextureManager::Texture* TextureManager::loadTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
-    auto& v = texture_manager_.map_[path];
+    auto& v = getInstance()->map_[path];
     //纹理组信息
     if (getTextureGroupCount(path) == 0)
     {
@@ -74,7 +72,7 @@ TextureManager::Texture* TextureManager::loadTexture(const std::string& path, in
 
 int TextureManager::getTextureGroupCount(const std::string& path)
 {
-    auto& v = texture_manager_.map_[path];
+    auto& v = getInstance()->map_[path];
 
     if (v.empty())
     {
@@ -94,7 +92,7 @@ int TextureManager::getTextureGroupCount(const std::string& path)
 void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
 {
     auto p = path_ + path;
-    auto& v = texture_manager_.map_[path];
+    auto& v = getInstance()->map_[path];
     //纹理组信息
     //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针
     if (v.empty())

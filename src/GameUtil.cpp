@@ -3,8 +3,6 @@
 #include "Save.h"
 #include "libconvert.h"
 
-GameUtil GameUtil::game_util_;
-
 GameUtil::GameUtil()
 {
     auto str = convert::readStringFromFile("../game/list/levelup.txt");
@@ -181,7 +179,7 @@ void GameUtil::levelUp(Role* r)
         return;
     }
 
-    r->Exp -= game_util_.level_up_list_[r->Level - 1];
+    r->Exp -= getInstance()->level_up_list_[r->Level - 1];
     r->Level++;
     RandomDouble rand;
     r->PhysicalPower = Role::getMaxValue()->PhysicalPower;
@@ -237,7 +235,7 @@ int GameUtil::getLevelUpExp(int level)
     {
         return INT_MAX;
     }
-    return game_util_.level_up_list_[level - 1];
+    return getInstance()->level_up_list_[level - 1];
 }
 
 //物品经验值是否足够

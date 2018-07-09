@@ -3,8 +3,6 @@
 #include "EventMacro.h"
 #include "PotConv.h"
 
-Script Script::script_;
-
 Script::Script()
 {
     lua_state_ = luaL_newstate();

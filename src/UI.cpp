@@ -3,8 +3,6 @@
 #include "Font.h"
 #include "GameUtil.h"
 
-UI UI::ui_;
-
 UI::UI()
 {
     //注意，此处约定childs_[0]为子UI，创建好对应的指针，需要显示哪个赋值到childs_[0]即可

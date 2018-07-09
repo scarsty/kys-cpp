@@ -6,12 +6,15 @@
 class MainScene : public Scene
 {
 private:
-    static MainScene main_scene_;
     MainScene();
     ~MainScene();
 
 public:
-    static MainScene* getIntance() { return &main_scene_; }
+    static MainScene* getIntance()
+    {
+        static MainScene ms;
+        return &ms;
+    }
 
     MapSquareInt* earth_layer_, *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
     bool data_readed_ = false;

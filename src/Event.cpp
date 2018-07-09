@@ -15,8 +15,6 @@
 #include "Script.h"
 #include "GrpIdxFile.h"
 
-Event Event::event_;
-
 Event::Event()
 {
     loadEventData();

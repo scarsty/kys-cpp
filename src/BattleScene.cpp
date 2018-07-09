@@ -1225,6 +1225,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         }
         return v;
     }
+    return 0;
 }
 
 //计算全部人物的伤害

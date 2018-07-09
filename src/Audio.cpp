@@ -1,8 +1,6 @@
 #include "Audio.h"
-#include "libconvert.h"
 #include "File.h"
-
-Audio Audio::audio_;
+#include "libconvert.h"
 
 Audio::Audio()
 {
@@ -13,30 +11,10 @@ Audio::Audio()
     init();
 }
 
-
 Audio::~Audio()
 {
-    for (auto& i : music_)
-    {
-        BASS_StreamFree(i);
-    }
-    for (auto& i : asound_)
-    {
-        BASS_SampleFree(i);
-    }
-    for (auto& i : esound_)
-    {
-        BASS_SampleFree(i);
-    }
-    if (mid_sound_font_.font)
-    {
-        BASS_MIDI_FontFree(mid_sound_font_.font);
-    }
-
-    BASS_Free();
 }
 
-//Î´Íê³É
 void Audio::init()
 {
     auto flag = BASS_SAMPLE_3D | BASS_SAMPLE_MONO;
@@ -76,8 +54,11 @@ void Audio::init()
 
 void Audio::playMusic(int num)
 {
-    if (num < 0 || num >= music_.size() || music_[num] == 0) { return; }
-    StopMusic();
+    if (num < 0 || num >= music_.size() || music_[num] == 0)
+    {
+        return;
+    }
+    stopMusic();
     BASS_ChannelSetAttribute(music_[num], BASS_ATTRIB_VOL, volume_ / 100.0);
     BASS_Apply3D();
     BASS_ChannelFlags(music_[num], BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
@@ -87,7 +68,10 @@ void Audio::playMusic(int num)
 
 void Audio::playASound(int num)
 {
-    if (num < 0 || num >= asound_.size() || asound_[num] == 0) { return; }
+    if (num < 0 || num >= asound_.size() || asound_[num] == 0)
+    {
+        return;
+    }
     //BASS_ChannelStop(current_sound_);
     auto ch = BASS_SampleGetChannel(asound_[num], false);
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_ / 100.0);
@@ -97,26 +81,36 @@ void Audio::playASound(int num)
 
 void Audio::playESound(int num)
 {
-    if (num < 0 || num >= esound_.size() || esound_[num] == 0) { return; }
+    if (num < 0 || num >= esound_.size() || esound_[num] == 0)
+    {
+        return;
+    }
     auto ch = BASS_SampleGetChannel(esound_[num], false);
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_ / 100.0);
     BASS_ChannelPlay(esound_[num], false);
     current_sound_ = esound_[num];
 }
 
-void Audio::PauseMusic()
+void Audio::pauseMusic()
 {
     BASS_ChannelPause(current_music_);
 }
 
-void Audio::ContinueMusic()
+void Audio::continueMusic()
 {
     BASS_ChannelPlay(current_music_, false);
 }
 
-void Audio::StopMusic()
+void Audio::stopMusic()
 {
     BASS_ChannelStop(current_music_);
 }
 
-
+void Audio::free()
+{
+    if (mid_sound_font_.font)
+    {
+        BASS_MIDI_FontFree(mid_sound_font_.font);
+    }
+    BASS_Free();
+}
