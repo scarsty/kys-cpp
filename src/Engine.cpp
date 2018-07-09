@@ -246,6 +246,11 @@ int Engine::init(void* handle)
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
+    //屏蔽触摸板
+    SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
+    SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
+    SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
+
     rect_ = { 0, 0, start_w_, start_h_ };
     logo_ = loadImage("logo.png");
     showLogo();
