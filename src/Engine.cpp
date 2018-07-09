@@ -70,6 +70,7 @@ void Engine::destroy()
 #if defined(_WIN32) && defined(_TINYPOT)
     PotDestory(tinypot_);
 #endif
+    SDL_Quit();
 }
 
 bool Engine::checkKeyPress(BP_Keycode key)

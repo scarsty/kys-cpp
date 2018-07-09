@@ -1476,6 +1476,11 @@ void BattleScene::calExpGot()
     auto diff = new ShowRoleDifference();
     for (auto r : alive_teammate)
     {
+        if (exit_)
+        {
+            break;
+        }
+
         Role r0 = *r;    //用于比较的状态
 
         auto item = Save::getInstance()->getItem(r->PracticeItem);

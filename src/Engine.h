@@ -52,8 +52,8 @@ private:
 public:
     static Engine* getInstance()
     {   
-        static Engine engine;
-        return &engine; 
+        static Engine e;
+        return &e; 
     }
     //图形相关
 private:
