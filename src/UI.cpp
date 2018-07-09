@@ -1,7 +1,7 @@
-#include "UI.h"
-#include "Save.h"
 #include "Font.h"
 #include "GameUtil.h"
+#include "Save.h"
+#include "UI.h"
 
 UI::UI()
 {
@@ -32,9 +32,8 @@ UI::UI()
         heads_.push_back(h);
     }
     heads_[0]->setState(Pass);
-    result_ = -1; //非负：物品id，负数：其他情况，再定
+    result_ = -1;    //非负：物品id，负数：其他情况，再定
 }
-
 
 UI::~UI()
 {
@@ -60,7 +59,10 @@ void UI::dealEvent(BP_Event& e)
         auto head = heads_[i];
         auto role = Save::getInstance()->getTeamMate(i);
         head->setRole(role);
-        if (role == nullptr) { continue; }
+        if (role == nullptr)
+        {
+            continue;
+        }
         if (head->getState() == Pass)
         {
             ui_status_->setRole(role);

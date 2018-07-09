@@ -13,6 +13,11 @@ Audio::Audio()
 
 Audio::~Audio()
 {
+    if (mid_sound_font_.font)
+    {
+        BASS_MIDI_FontFree(mid_sound_font_.font);
+    }
+    BASS_Free();
 }
 
 void Audio::init()
@@ -104,13 +109,4 @@ void Audio::continueMusic()
 void Audio::stopMusic()
 {
     BASS_ChannelStop(current_music_);
-}
-
-void Audio::free()
-{
-    if (mid_sound_font_.font)
-    {
-        BASS_MIDI_FontFree(mid_sound_font_.font);
-    }
-    BASS_Free();
 }
