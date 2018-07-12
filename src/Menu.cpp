@@ -38,6 +38,7 @@ void Menu::dealEvent(BP_Event& e)
             {
                 pass_child_ = findNextVisibleChild(pass_child_, direct);
             }
+            press_child_ = -1;
         }
     }
     forcePassChild();
@@ -63,6 +64,12 @@ void Menu::onPressedOK()
     {
         setExit(true);
     }
+}
+
+
+void Menu::onPressedCancel()
+{
+    exitWithResult(-1);
 }
 
 void Menu::onEntrance()

@@ -10,9 +10,9 @@ public:
     virtual void dealEvent(BP_Event& e) override;
     void arrange(int x, int y, int inc_x, int inc_y);
     virtual void onPressedOK() override;
+        virtual void onPressedCancel() override;
     virtual void onEntrance() override;
     void setStartItem(int s) { start_ = s; }
-    DEFAULT_CANCEL_EXIT;
 protected:
     int start_ = 0;
 };

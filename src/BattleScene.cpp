@@ -1095,6 +1095,10 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
 
     for (int i = way.size() - 2; i >= 0; i--)
     {
+        if (exit_)
+        {
+            break;
+        }
         r->FaceTowards = calTowards(r->X(), r->Y(), way[i].x, way[i].y);
         r->setPosition(way[i].x, way[i].y);
         //setPosition(r->X(), r->Y());
@@ -1131,6 +1135,10 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     //Audio::getInstance()->playASound(style);
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
+        if (exit_)
+        {
+            break;
+        }
         drawAndPresent(animation_delay_);
     }
     action_frame_ = frame_count - 1;
@@ -1140,6 +1148,10 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     Audio::getInstance()->playESound(effect_id);
     for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
     {
+        if (exit_)
+        {
+            break;
+        }
         if (shake > 0)
         {
             x_ = rand_.rand_int(shake) - rand_.rand_int(shake);
