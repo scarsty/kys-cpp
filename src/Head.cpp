@@ -31,7 +31,7 @@ void Head::draw()
 
     if (state_ == Normal)
     {
-        color = { 128, 128, 128, 255 };
+        color = { 160, 160, 160, 255 };
     }
     //中毒时突出绿色
     color.r -= 2 * role_->Poison;

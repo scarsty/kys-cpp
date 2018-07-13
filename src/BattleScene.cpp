@@ -818,6 +818,7 @@ void BattleScene::actMove(Role* r)
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, Role::getMaxValue()->PhysicalPower);
         r->setPrevPosition(r->X(), r->Y());
         moveAnimation(r, select_x_, select_y_);
+        r->ExpGot += 1;
         r->Moved = 1;
     }
 }
@@ -889,6 +890,7 @@ void BattleScene::actUsePoison(Role* r)
             int v = GameUtil::usePoison(r, r2);
             r2->ShowString = convert::formatString("%+d", v);
             r2->ShowColor = { 20, 255, 20, 255 };
+            r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
         actionAnimation(r, 0, 30);
@@ -912,6 +914,7 @@ void BattleScene::actDetoxification(Role* r)
             int v = GameUtil::detoxification(r, r2);
             r2->ShowString = convert::formatString("-%d", -v);
             r2->ShowColor = { 20, 200, 255, 255 };
+            r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         actionAnimation(r, 0, 36);
@@ -935,6 +938,7 @@ void BattleScene::actMedcine(Role* r)
             int v = GameUtil::medcine(r, r2);
             r2->ShowString = convert::formatString("-%d", abs(v));
             r2->ShowColor = { 255, 255, 200, 255 };
+            r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         actionAnimation(r, 0, 0);
@@ -977,6 +981,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             }
             showNumberAnimation();
             item_menu->addItem(item, -1);
+            r->ExpGot += v;
             r->Acted = 1;
         }
     }

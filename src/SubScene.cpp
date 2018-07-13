@@ -204,7 +204,7 @@ void SubScene::dealEvent(BP_Event& e)
             checkEvent1(man_x_, man_y_, towards_);
             setMouseEventPoint(-1, -1);
         }
-        if (isExit(x, y)) { way_que_.clear(); }
+        //if (isExit(x, y)) { way_que_.clear(); }
     }
 
     //检查触发剧情事件

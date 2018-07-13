@@ -45,7 +45,7 @@ void Button::draw()
     {
         if (texture_normal_id_ == texture_pass_id_)
         {
-            color = { 128, 128, 128, 255 };
+            color = { 224, 224, 224, 255 };
         }
     }
     if (state_ == Pass)

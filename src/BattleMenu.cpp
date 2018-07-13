@@ -103,6 +103,10 @@ int BattleActionMenu::autoSelect(Role* role)
     //ai为每种行动评分
     std::vector<AIAction> ai_action;
 
+    Random<double> rand;    //梅森旋转法随机数
+    rand.set_seed();
+    rand.set_parameter(0, 1);
+
     if (role->AI_Action == -1)
     {
         auto _role_temp = *role;
@@ -241,7 +245,7 @@ int BattleActionMenu::autoSelect(Role* role)
                         {
                             aa.point = r2->HP * 1.25;
                         }
-                        aa.point *= 0.9;    //暗器分值略低
+                        aa.point *= 0.5;    //暗器分值略低
                         aa.item = item;
                         ai_action.push_back(aa);
                     }
@@ -297,15 +301,12 @@ int BattleActionMenu::autoSelect(Role* role)
         }
         //查找最大评分的行动
         double max_point = -1;
-        Random<double> rand;    //梅森旋转法随机数
-        rand.set_seed();
-        rand.set_parameter(0, 10);
         for (auto aa : ai_action)
         {
             printf("AI %s: %s ", PotConv::to_read(role->Name).c_str(), PotConv::to_read(getStringFromResult(aa.Action)).c_str());
             if (aa.item) { printf("%s ", PotConv::to_read(aa.item->Name).c_str()); }
             if (aa.magic) { printf("%s ", PotConv::to_read(aa.magic->Name).c_str()); }
-            double r = rand.rand();    //用于同分的情况，可以随机选择
+            double r = rand.rand() * 10;    //用于同分的情况，可以随机选择
             printf("score %.2f(%.2f)\n", aa.point, r);
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
             if (aa.point == 0)

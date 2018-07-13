@@ -43,6 +43,7 @@ void RandomRole::onPressedOK()
     role_->Unusual = 25 + r.rand_int(6);
     role_->HiddenWeapon = 25 + r.rand_int(6);
     role_->IQ = 1 + r.rand_int(100);
+    printf("IQ is %d\n", role_->IQ);
 }
 
 void RandomRole::draw()
