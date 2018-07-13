@@ -12,7 +12,7 @@ protected:
     int text_x_ = 0, text_y_ = 0;
     BP_Color color_normal_ = { 32, 32, 32, 255 };
     BP_Color color_pass_ = { 255, 255, 255, 255 };
-    BP_Color color_press_ = { 255, 0, 0, 255 };
+    BP_Color color_press_ = { 255, 255, 255, 255 };
     bool have_box_ = true;
 
     std::string texture_path_ = "";

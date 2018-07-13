@@ -1,8 +1,9 @@
 #include "Button.h"
-#include "PotConv.h"
 #include "Font.h"
+#include "PotConv.h"
 
-Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/) : Button()
+Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)
+    : Button()
 {
     setTexture(path, normal_id, pass_id, press_id);
 }
@@ -51,14 +52,16 @@ void Button::draw()
     {
         id = texture_pass_id_;
         alpha = 240;
+        x += 2;
     }
     else if (state_ == Press)
     {
         id = texture_press_id_;
         alpha = 255;
+        x += 2;
+        y += 2;
     }
     TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, color, alpha);
-
 
     if (!text_.empty())
     {
@@ -71,8 +74,6 @@ void Button::draw()
         {
             color_text = color_press_;
         }
-        Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_text, 255, alpha);
+        Font::getInstance()->drawWithBox(text_, font_size_, x + text_x_, y + text_y_, color_text, 255, alpha);
     }
 }
-
-
