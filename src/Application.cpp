@@ -1,6 +1,7 @@
 ﻿#include "Application.h"
 #include "Audio.h"
 #include "Engine.h"
+#include "Font.h"
 #include "GameUtil.h"
 #include "INIReader.h"
 #include "Random.h"
@@ -39,4 +40,5 @@ void Application::config()
     Element::setRefreshInterval(ini.getInt("game", "refresh_interval", 25));
     Audio::getInstance()->setVolume(ini.getInt("game", "volume", 50));
     Event::getInstance()->setUseScript(ini.getInt("game", "use_script", 0));
+    Font::getInstance()->setStatMessage(ini.getInt("game", "stat_font", 0));
 }

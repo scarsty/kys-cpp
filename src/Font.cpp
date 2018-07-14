@@ -28,9 +28,10 @@ BP_Texture* Font::indexTex(int size, uint16_t c)
             tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
         buffer_[index] = tex;
-#ifdef _FONT_STAT
-        printf("%s", (char*)(c2));
-#endif
+        if (stat_message_)
+        {
+            printf("%s", (char*)(c2));
+        }
     }
     return buffer_[index];
 }
@@ -39,9 +40,11 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
 {
     int p = 0;
     int char_count = 0;
-#ifdef _FONT_STAT
-    int s1 = buffer_.size();
-#endif
+    int s1;
+    if (stat_message_)
+    {
+        s1 = buffer_.size();
+    }
     while (p < text.size())
     {
         int w = size, h = size;
@@ -68,13 +71,14 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         }
         x += w;
     }
-#ifdef _FONT_STAT
-    int s = buffer_.size() - s1;
-    if (s > 0)
+    if (stat_message_)
     {
-        printf(" %d/%d, %d, total = %d\n", s, char_count, size, buffer_.size());
+        int s = buffer_.size() - s1;
+        if (s > 0)
+        {
+            printf(" %d/%d, %d, total = %d\n", s, char_count, size, buffer_.size());
+        }
     }
-#endif
 }
 
 void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha, uint8_t alpha_box)

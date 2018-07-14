@@ -147,6 +147,14 @@ void UIItem::checkCurrentItem()
         current_button_->getPosition(x, y);
         current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
         //让光标显示出来
+        if (current_button_->getState()==Pass)
+        {
+            x += 2;
+        }
+        if (current_button_->getState() == Press)
+        {
+            y += 2;
+        }
         cursor_->setPosition(x, y);
         cursor_->setVisible(true);
     }

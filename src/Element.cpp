@@ -224,20 +224,24 @@ void Element::backRunSelfChilds()
 //¼ì²âÊÂ¼þ
 void Element::dealEventSelfChilds(bool check_event)
 {
-    BP_Event e;
-    e.type = BP_FIRSTEVENT;
-    while (Engine::pollEvent(e));
     if (check_event)
     {
+        BP_Event e;
+        e.type = BP_FIRSTEVENT;
+        while (Engine::pollEvent(e));
         checkStateSelfChilds(e, check_event);
+        switch (e.type)
+        {
+        case BP_QUIT:
+            UISystem::askExit();
+            break;
+        default:
+            break;
+        }
     }
-    switch (e.type)
+    else
     {
-    case BP_QUIT:
-        UISystem::askExit();
-        break;
-    default:
-        break;
+        Engine::pollEvent();
     }
 }
 

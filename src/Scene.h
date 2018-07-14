@@ -5,42 +5,6 @@
 //主地图，子场景，战斗场景均继承此类
 class Scene : public Element
 {
-private:
-    struct PointAStar : public Point
-    {
-        PointAStar() {}
-        PointAStar(int _x, int _y)
-            : Point(_x, _y)
-        {
-        }
-        ~PointAStar() {}
-
-    public:
-        int step = 0;
-
-    private:
-        int f = 0;
-        PointAStar* parent = nullptr;
-
-    public:
-        void calF(int Fx, int Fy) { f = step + (abs(x - Fx) + abs(y - Fy)); }
-        PointAStar* getParent() { return parent; }
-        void setParent(PointAStar* p)
-        {
-            parent = p;
-            step = p->step + 1;
-        }
-
-        class Compare
-        {
-        public:
-            bool operator()(PointAStar* point1, PointAStar* point2)
-            {
-                return point1->f > point2->f;
-            }
-        };
-    };
-
 public:
     Scene();
     virtual ~Scene();
@@ -112,7 +76,7 @@ public:
     virtual bool canWalk(int x, int y) { return false; }
     virtual bool isOutScreen(int x, int y) { return false; }
 
-    std::vector<PointAStar> way_que_;    //栈(路径栈)
+    std::vector<Point> way_que_;    //栈(路径栈)
     //int mouse_x_, mouse_y_;
     //看不明白
     Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);

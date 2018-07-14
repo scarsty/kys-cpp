@@ -226,11 +226,11 @@ void UIStatus::draw()
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
         font->draw(convert::formatString("%s", equip->Name), font_size, x + 90, y + 30, color_name);
         font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
-        font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 75, select_color2(equip->AddAttack));
+        font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
         font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
-        font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 95, select_color2(equip->AddDefence));
+        font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
         font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
-        font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 55, select_color2(equip->AddSpeed));
+        font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
 
     x = x_ + 220;
@@ -242,11 +242,11 @@ void UIStatus::draw()
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
         font->draw(convert::formatString("%s", equip->Name), font_size, x + 90, y + 30, color_name);
         font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
-        font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 75, select_color2(equip->AddAttack));
+        font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
         font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
-        font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 95, select_color2(equip->AddDefence));
+        font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
         font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
-        font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 55, select_color2(equip->AddSpeed));
+        font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
 }
 

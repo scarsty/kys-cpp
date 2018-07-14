@@ -31,7 +31,7 @@ public:
     void setID(int id);
 
     //地面层，建筑层，选择层（负值为不可选，0和正值为可选）
-    MapSquareInt* earth_layer_, *building_layer_, *select_layer_, *effect_layer_;
+    MapSquareInt *earth_layer_, *building_layer_, *select_layer_, *effect_layer_;
 
     //角色层
     MapSquare<Role*>* role_layer_;
@@ -46,6 +46,8 @@ public:
     }
 
     //以下画图用
+    int min_distance_;
+    int max_distance_;
     int action_frame_ = 0;
     int action_type_ = -1;
     int show_number_y_ = 0;
@@ -106,7 +108,7 @@ public:
 
     //计算距离
     int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }
-
+    int calDistanceRound(int x1, int x2, int y1, int y2) { return sqrt((x1 - y1) * (x1 - y1) + (x2 - y2) * (x2 - y2)); }
     Role* getSelectedRole();    //获取恰好在选择点的角色
 
     void action(Role* r);    //行动主控

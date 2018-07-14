@@ -1,11 +1,11 @@
-#include "SubScene.h"
-#include "MainScene.h"
+#include "Audio.h"
 #include "BattleScene.h"
 #include "Event.h"
-#include "UI.h"
-#include "Audio.h"
-#include "Random.h"
+#include "MainScene.h"
 #include "PotConv.h"
+#include "Random.h"
+#include "SubScene.h"
+#include "UI.h"
 
 SubScene::SubScene()
 {
@@ -13,21 +13,24 @@ SubScene::SubScene()
     COORD_COUNT = SUBMAP_COORD_COUNT;
 }
 
-SubScene::SubScene(int id) : SubScene()
+SubScene::SubScene(int id)
+    : SubScene()
 {
     setID(id);
 }
 
 SubScene::~SubScene()
 {
-
 }
 
 void SubScene::setID(int id)
 {
     submap_id_ = id;
     submap_info_ = Save::getInstance()->getSubMapInfo(submap_id_);
-    if (submap_info_ == nullptr) { setExit(true); }
+    if (submap_info_ == nullptr)
+    {
+        setExit(true);
+    }
     //submap_info_->ID = submap_id_;    //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
@@ -37,7 +40,11 @@ void SubScene::setID(int id)
 void SubScene::draw()
 {
     //int k = 0;
-    struct DrawInfo { int i; Point p; };
+    struct DrawInfo
+    {
+        int i;
+        Point p;
+    };
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderAssistTexture();
@@ -152,7 +159,10 @@ void SubScene::dealEvent(BP_Event& e)
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
     int x = man_x_, y = man_y_;
 
-    checkEvent3(x, y);
+    if (checkEvent3(x, y))
+    {
+        //way_que_.clear();
+    }
     if (isExit(x, y) || isJumpSubScene(x, y))
     {
         way_que_.clear();
@@ -195,7 +205,10 @@ void SubScene::dealEvent(BP_Event& e)
         x = p.x;
         y = p.y;
         auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None) { towards_ = tw; }
+        if (tw != Towards_None)
+        {
+            towards_ = tw;
+        }
         tryWalk(x, y);
         way_que_.pop_back();
         if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
@@ -225,30 +238,17 @@ void SubScene::dealEvent(BP_Event& e)
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         stopFindWay();
-        if (canWalk(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
+        if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
         {
             FindWay(x, y, p.x, p.y);
         }
-        //存在事件则在其周围取一点尝试寻路
+        //存在事件点则仅会走到倒数第二格
         if (isCannotPassEvent(p.x, p.y) || isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)
         {
-            std::vector<Point> ps;
-            if (calDistance(p.x, p.y, x, y) == 1)
+            FindWay(x, y, p.x, p.y);
+            if (way_que_.size() >= 1)
             {
-                ps.push_back({ x, y });
-            }
-            else
-            {
-                if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
-                if (canWalk(p.x + 1, p.y)) { ps.push_back({ p.x + 1, p.y }); }
-                if (canWalk(p.x, p.y - 1)) { ps.push_back({ p.x, p.y - 1 }); }
-                if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
-            }
-            if (!ps.empty())
-            {
-                RandomDouble r;
-                int i = r.rand_int(ps.size());
-                FindWay(x, y, ps[i].x, ps[i].y);
+                way_que_ = std::vector<Point>(way_que_.begin() + 1, way_que_.end());
                 setMouseEventPoint(p.x, p.y);
             }
         }
@@ -376,7 +376,10 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
             {
                 id = submap_info_->Event(x, y)->Event2;
             }
-            if (id > 0) { step_ = 0; }
+            if (id > 0)
+            {
+                step_ = 0;
+            }
         }
         else
         {
@@ -445,7 +448,7 @@ bool SubScene::isCanPassEvent1(int x, int y)
 bool SubScene::isCannotPassEvent(int x, int y)
 {
     auto e = submap_info_->Event(x, y);
-    if (e && e->CannotWalk)
+    if (e && (e->CannotWalk || isBuilding(x, y)))    //这里加上判断建筑可能是不对
     {
         return true;
     }
@@ -524,4 +527,3 @@ void SubScene::forceJumpSubScene(int submap_id, int x, int y)
     setID(submap_id);
     setManViewPosition(x, y);
 }
-

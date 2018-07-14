@@ -17,6 +17,7 @@
 #include <iostream>
 #include <math.h>
 #include <string>
+#include "PotConv.h"
 
 BattleScene::BattleScene()
 {
@@ -171,7 +172,7 @@ void BattleScene::draw()
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
-                    num = effect_frame_ + rand_.rand_int(10) - rand_.rand_int(10);
+                    num = effect_frame_ - calDistance(r0->X(), r0->Y(), ix, iy) + min_distance_ + rand_.rand_int(3) - rand_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
             }
@@ -861,12 +862,13 @@ void BattleScene::actUseMagic(Role* r)
                 calMagiclHurtAllEnemies(r, magic);
                 showNumberAnimation();
                 //武学等级增加
-                auto index = 1 + r->getMagicOfRoleIndex(magic);
+                auto index = r->getMagicOfRoleIndex(magic);
                 if (index >= 0)
                 {
-                    r->MagicLevel[index] += rand_.rand_int(2);
+                    r->MagicLevel[index] += 1 + rand_.rand_int(2);
                     GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
                 }
+                printf("%s %s level is %d\n", PotConv::to_read(r->Name).c_str(), PotConv::to_read(magic->Name).c_str(), r->MagicLevel[index]);
             }
             r->Acted = 1;
             break;
@@ -1151,7 +1153,24 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     auto path = convert::formatString("eft/eft%03d", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     Audio::getInstance()->playESound(effect_id);
-    for (effect_frame_ = 0; effect_frame_ < effect_count + 10; effect_frame_++)
+
+    //由近到远的动画效果
+    min_distance_ = 9999;
+    max_distance_ = 0;
+    for (int ix = 0; ix < COORD_COUNT; ix++)
+    {
+        for (int iy = 0; iy < COORD_COUNT; iy++)
+        {
+            if (haveEffect(ix, iy))
+            {
+                int dis = calDistance(r->X(), r->Y(), ix, iy);
+                min_distance_ = (std::min)(min_distance_, dis);
+                max_distance_ = (std::max)(max_distance_, dis);
+            }
+        }
+    }
+
+    for (effect_frame_ = 0; effect_frame_ < effect_count + max_distance_ - min_distance_ + 1; effect_frame_++)
     {
         if (exit_)
         {

@@ -1,4 +1,5 @@
 #include "GameUtil.h"
+#include "Random.h"
 #include "Scene.h"
 #include <queue>
 
@@ -199,10 +200,41 @@ void Scene::calCursorPosition(int x, int y)
 //A*
 void Scene::FindWay(int Mx, int My, int Fx, int Fy)
 {
+    struct PointAStar : public Point
+    {
+        PointAStar() {}
+        PointAStar(int _x, int _y)
+            : Point(_x, _y)
+        {
+        }
+        ~PointAStar() {}
+
+    private:
+        int step = 0, f = 0;
+        PointAStar* parent = nullptr;
+
+    public:
+        //g: step, h: distance between current and final points
+        //controlled by coefficients
+        void calF(int Fx, int Fy) { f = step + 2 * (abs(x - Fx) + abs(y - Fy)); }
+        PointAStar* getParent() { return parent; }
+        void setParent(PointAStar* p)
+        {
+            parent = p;
+            step = p->step + 1;
+        }
+        class Compare
+        {
+        public:
+            bool operator()(PointAStar* point1, PointAStar* point2) { return point1->f > point2->f; }
+        };
+    };
+
     way_que_.clear();
-    std::map<std::pair<int, int>, PointAStar*> point_map;                             //已经访问过的点的指针(关闭列表)
-    Point dirs[4] = { { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, 0 } };                  //四个方向
+    std::map<std::pair<int, int>, PointAStar*> point_map;                                   //已经访问过的点的指针(关闭列表)
+    Point dirs[4] = { { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, 0 } };                           //四个方向
     std::priority_queue<PointAStar*, std::vector<PointAStar*>, PointAStar::Compare> que;    //最小优先级队列(开启列表)
+    //RandomDouble rand;
 
     auto begin_point = new PointAStar(Mx, My);
     begin_point->calF(Fx, Fy);
@@ -231,11 +263,11 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
             {
                 int x = t->x + dirs[i].x, y = t->y + dirs[i].y;
                 auto s = new PointAStar(x, y);
-                if (canWalk(x, y) && point_map.count({ x, y }) == 0)
+                if ((canWalk(x, y) || x == Fx && y == Fy) && point_map.count({ x, y }) == 0)
                 {
                     point_map[{ x, y }] = s;
-                    s->calF(Fx, Fy);
                     s->setParent(t);
+                    s->calF(Fx, Fy);
                     que.push(s);
                 }
             }

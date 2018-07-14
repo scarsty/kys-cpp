@@ -155,6 +155,7 @@ public:
     }
     static void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
     static int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); }
+    static int pollEvent() { return SDL_PollEvent(nullptr); }
     static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
     static void flushEvent() { SDL_FlushEvent(0); }
     static void free(void* mem) { SDL_free(mem); }
