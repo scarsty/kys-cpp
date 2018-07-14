@@ -172,7 +172,8 @@ void BattleScene::draw()
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
-                    num = effect_frame_ - calDistance(r0->X(), r0->Y(), ix, iy) + min_distance_ + rand_.rand_int(3) - rand_.rand_int(3);
+                    int dis = calDistance(r0->X(), r0->Y(), ix, iy);
+                    num = effect_frame_ - dis + rand_.rand_int(3) - rand_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
             }
@@ -1155,8 +1156,8 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     Audio::getInstance()->playESound(effect_id);
 
     //由近到远的动画效果
-    min_distance_ = 9999;
-    max_distance_ = 0;
+    int min_dis = 9999;
+    int max_dis = 0;
     for (int ix = 0; ix < COORD_COUNT; ix++)
     {
         for (int iy = 0; iy < COORD_COUNT; iy++)
@@ -1164,13 +1165,13 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
             if (haveEffect(ix, iy))
             {
                 int dis = calDistance(r->X(), r->Y(), ix, iy);
-                min_distance_ = (std::min)(min_distance_, dis);
-                max_distance_ = (std::max)(max_distance_, dis);
+                min_dis = (std::min)(min_dis, dis);
+                max_dis = (std::max)(max_dis, dis);
             }
         }
     }
 
-    for (effect_frame_ = 0; effect_frame_ < effect_count + max_distance_ - min_distance_ + 1; effect_frame_++)
+    for (effect_frame_ = -min_dis; effect_frame_ < effect_count + max_dis + 1; effect_frame_++)
     {
         if (exit_)
         {

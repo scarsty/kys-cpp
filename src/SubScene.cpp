@@ -238,12 +238,7 @@ void SubScene::dealEvent(BP_Event& e)
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         stopFindWay();
-        if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
-        {
-            FindWay(x, y, p.x, p.y);
-        }
-        //存在事件点则仅会走到倒数第二格
-        if (isCannotPassEvent(p.x, p.y) || isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)
+        if (isCannotPassEvent(p.x, p.y))    //存在事件点则仅会走到倒数第二格
         {
             FindWay(x, y, p.x, p.y);
             if (way_que_.size() >= 1)
@@ -251,6 +246,15 @@ void SubScene::dealEvent(BP_Event& e)
                 way_que_ = std::vector<Point>(way_que_.begin() + 1, way_que_.end());
                 setMouseEventPoint(p.x, p.y);
             }
+        }
+        else if (isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)    //身边的特殊事件点，仅用于硝石
+        {
+            FindWay(x, y, x, y);
+            setMouseEventPoint(p.x, p.y);
+        }
+        else if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
+        {
+            FindWay(x, y, p.x, p.y);
         }
     }
 }

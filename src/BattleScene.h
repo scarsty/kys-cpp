@@ -46,8 +46,6 @@ public:
     }
 
     //ртоб╩╜м╪сц
-    int min_distance_;
-    int max_distance_;
     int action_frame_ = 0;
     int action_type_ = -1;
     int show_number_y_ = 0;
