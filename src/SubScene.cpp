@@ -407,7 +407,7 @@ bool SubScene::canWalk(int x, int y)
 
 bool SubScene::isBuilding(int x, int y)
 {
-    return submap_info_->Building(x, y) > 0;
+    return submap_info_->Building(x, y) > 0 && submap_info_->Building(x, y) < 9999;
     //if (current_submap_->Building(x, y) >= -2 && current_submap_->Building(x, y) <= 0)
     //{
     //    return false;

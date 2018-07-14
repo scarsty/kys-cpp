@@ -5,6 +5,42 @@
 //主地图，子场景，战斗场景均继承此类
 class Scene : public Element
 {
+private:
+    struct PointAStar : public Point
+    {
+        PointAStar() {}
+        PointAStar(int _x, int _y)
+            : Point(_x, _y)
+        {
+        }
+        ~PointAStar() {}
+
+    public:
+        int step = 0;
+
+    private:
+        int f = 0;
+        PointAStar* parent = nullptr;
+
+    public:
+        void calF(int Fx, int Fy) { f = step + (abs(x - Fx) + abs(y - Fy)); }
+        PointAStar* getParent() { return parent; }
+        void setParent(PointAStar* p)
+        {
+            parent = p;
+            step = p->step + 1;
+        }
+
+        class Compare
+        {
+        public:
+            bool operator()(PointAStar* point1, PointAStar* point2)
+            {
+                return point1->f > point2->f;
+            }
+        };
+    };
+
 public:
     Scene();
     virtual ~Scene();
@@ -19,8 +55,8 @@ public:
     //int window_center_x_ = 0;
     //int window_center_y_ = 0;
 
-    const int TILE_W = 18; //小图块大小X
-    const int TILE_H = 9;  //小图块大小Y
+    const int TILE_W = 18;    //小图块大小X
+    const int TILE_H = 9;     //小图块大小Y
 
     //确定视野使用
     int view_width_region_ = 0;
@@ -28,17 +64,17 @@ public:
 
     void calViewRegion();
 
-    int total_step_ = 0;     //键盘走路的计数
-    BP_Keycode pre_pressed_; //键盘走路的上次按键
+    int total_step_ = 0;        //键盘走路的计数
+    BP_Keycode pre_pressed_;    //键盘走路的上次按键
 
     int man_x_, man_y_;
-    int mouse_event_x_ = -1, mouse_event_y_ = -1; //鼠标行路时的最终目标，可能为事件或者入口
+    int mouse_event_x_ = -1, mouse_event_y_ = -1;    //鼠标行路时的最终目标，可能为事件或者入口
     int cursor_x_ = 0, cursor_y_ = 0;
-    int towards_ = 0; //朝向，共用一个即可
+    int towards_ = 0;    //朝向，共用一个即可
     int step_ = 0;
     int man_pic_ = 0;
 
-    int rest_time_ = 0; //停止操作的时间
+    int rest_time_ = 0;    //停止操作的时间
 
     int COORD_COUNT = 0;
 
@@ -56,7 +92,7 @@ public:
     }
     void setManPic(int pic) { man_pic_ = pic; }
 
-    void checkWalk(int x, int y, BP_Event& e); //一些公共部分，未完成
+    void checkWalk(int x, int y, BP_Event& e);    //一些公共部分，未完成
 
     Point getPositionOnRender(int x, int y, int view_x, int view_y);
     Point getPositionOnWindow(int x, int y, int view_x, int view_y);
@@ -76,8 +112,7 @@ public:
     virtual bool canWalk(int x, int y) { return false; }
     virtual bool isOutScreen(int x, int y) { return false; }
 
-    std::vector<PointEx> way_que_; //栈(路径栈)
-    int min_step_;                 //起点(Mx,My),终点(Fx,Fy),最少移动次数minStep
+    std::vector<PointAStar> way_que_;    //栈(路径栈)
     //int mouse_x_, mouse_y_;
     //看不明白
     Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
