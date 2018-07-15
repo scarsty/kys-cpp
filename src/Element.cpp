@@ -26,7 +26,7 @@ void Element::drawAll()
             begin_base = i;
         }
     }
-    for (int i = begin_base; i < root_.size(); i++)  //从最后一个全屏层开始画
+    for (int i = begin_base; i < root_.size(); i++)    //从最后一个全屏层开始画
     {
         root_[i]->drawSelfChilds();
     }
@@ -39,7 +39,8 @@ void Element::setPosition(int x, int y)
     {
         c->setPosition(c->x_ + x - x_, c->y_ + y - y_);
     }
-    x_ = x; y_ = y;
+    x_ = x;
+    y_ = y;
 }
 
 //从绘制的根节点移除
@@ -114,7 +115,10 @@ void Element::drawSelfChilds()
         draw();
         for (auto c : childs_)
         {
-            if (c->visible_) { c->drawSelfChilds(); }
+            if (c->visible_)
+            {
+                c->drawSelfChilds();
+            }
         }
     }
 }
@@ -137,7 +141,10 @@ void Element::setAllChildVisible(bool v)
 
 int Element::findNextVisibleChild(int i0, int direct)
 {
-    if (direct == 0 || childs_.size() == 0) { return i0; }
+    if (direct == 0 || childs_.size() == 0)
+    {
+        return i0;
+    }
     direct = direct > 0 ? 1 : -1;
 
     int i1 = i0;
@@ -228,7 +235,20 @@ void Element::dealEventSelfChilds(bool check_event)
     {
         BP_Event e;
         e.type = BP_FIRSTEVENT;
-        while (Engine::pollEvent(e));
+        while (Engine::pollEvent(e))
+        {
+            //一些按键类提前停止避免丢键
+            if (e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONUP
+                ||e.type == BP_KEYDOWN || e.type == BP_KEYUP)
+            {
+                break;
+            }
+        }
+        //Engine::pollEvent(e);
+        //if (e.type == BP_MOUSEBUTTONUP)
+        //{
+        //    printf("BP_MOUSEBUTTONUP\n");
+        //}
         checkStateSelfChilds(e, check_event);
         switch (e.type)
         {
@@ -278,7 +298,10 @@ void Element::checkChildState()
             pass_child_ = i;
         }
     }
-    if (press_child_ >= 0) { pass_child_ = press_child_; }
+    if (press_child_ >= 0)
+    {
+        pass_child_ = press_child_;
+    }
 }
 
 void Element::checkSelfState(BP_Event& e)
@@ -327,8 +350,14 @@ void Element::present()
 {
     int t1 = Engine::getTicks();
     int t = refresh_interval_ - (t1 - prev_present_ticks_);
-    if (t > refresh_interval_) { t = refresh_interval_; }
-    if (t > 0) { Engine::delay(t); }
+    if (t > refresh_interval_)
+    {
+        t = refresh_interval_;
+    }
+    if (t > 0)
+    {
+        Engine::delay(t);
+    }
     prev_present_ticks_ = t1;
     Engine::getInstance()->renderPresent();
 }
@@ -338,12 +367,18 @@ int Element::run(bool in_root /*= true*/)
 {
     exit_ = false;
     visible_ = true;
-    if (in_root) { addOnRootTop(this); }
+    if (in_root)
+    {
+        addOnRootTop(this);
+    }
     onEntrance();
     running_ = true;
     while (!exit_)
     {
-        if (root_.empty()) { break; }
+        if (root_.empty())
+        {
+            break;
+        }
         dealEventSelfChilds(true);
         drawAll();
         checkFrame();
@@ -351,7 +386,10 @@ int Element::run(bool in_root /*= true*/)
     }
     running_ = false;
     onExit();
-    if (in_root) { removeFromRoot(this); }
+    if (in_root)
+    {
+        removeFromRoot(this);
+    }
     return result_;
 }
 
@@ -368,8 +406,14 @@ void Element::exitAll(int begin)
 //中间可以插入一个函数补充些什么，想不到更好的方法了
 int Element::drawAndPresent(int times, std::function<void(void*)> func, void* data)
 {
-    if (times < 1) { return 0; }
-    if (times > 100) { times = 100; }
+    if (times < 1)
+    {
+        return 0;
+    }
+    if (times > 100)
+    {
+        times = 100;
+    }
     for (int i = 0; i < times; i++)
     {
         dealEventSelfChilds(false);
@@ -379,8 +423,10 @@ int Element::drawAndPresent(int times, std::function<void(void*)> func, void* da
             func(data);
         }
         present();
-        if (exit_) { break; }
+        if (exit_)
+        {
+            break;
+        }
     }
     return times;
 }
-
