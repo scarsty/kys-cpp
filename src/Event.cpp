@@ -98,6 +98,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
     talk_box_->setExit(false);
+    talk_box_->setVisible(true);
     Element::addOnRootTop(talk_box_);
     int p = 0;
     loop_ = true;
