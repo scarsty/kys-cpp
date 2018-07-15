@@ -83,7 +83,6 @@ public:
     Point getMousePosition(int view_x, int view_y);
     void calCursorPosition(int x, int y);
 
-    void stopFindWay() { way_que_.clear(); /*while (!way_que_.empty()) { way_que_.pop(); }*/ }
     void FindWay(int Mx, int My, int Fx, int Fy);
 
     void lightScene();

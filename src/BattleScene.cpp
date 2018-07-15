@@ -6,6 +6,7 @@
 #include "GameUtil.h"
 #include "MainScene.h"
 #include "Menu.h"
+#include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
 #include "ShowExp.h"
@@ -17,7 +18,6 @@
 #include <iostream>
 #include <math.h>
 #include <string>
-#include "PotConv.h"
 
 BattleScene::BattleScene()
 {
@@ -406,7 +406,11 @@ void BattleScene::setFaceTowardsNearest(Role* r, bool in_effect /*= false*/)
     }
     if (r_near)
     {
-        r->FaceTowards = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
+        auto tw = calTowards(r->X(), r->Y(), r_near->X(), r_near->Y());
+        if (tw != Towards_None)
+        {
+            r->FaceTowards = tw;
+        }
     }
 }
 
@@ -1538,6 +1542,7 @@ void BattleScene::calExpGot()
             //其余情况全加到人物经验
             r->Exp += r->ExpGot;
         }
+        r->ExpForMakeItem += r->ExpGot;
 
         //避免越界
         if (r->Exp < r0.Exp)
@@ -1578,6 +1583,21 @@ void BattleScene::calExpGot()
                 diff->setTwinRole(&r0, r);
                 diff->setText(convert::formatString("修煉%s成功", item->Name));
                 diff->run();
+            }
+            if (item->MakeItem[0] >= 0 && r->ExpForMakeItem >= item->NeedExpForMakeItem && Event::getInstance()->haveItemBool(item->NeedMaterial))
+            {
+                std::vector<ItemList> make_item;
+                for (int i = 0; i < 5; i++)
+                {
+                    if (item->MakeItem[i] >= 0)
+                    {
+                        make_item.push_back({ item->MakeItem[i], item->MakeItemCount[i] });
+                    }
+                }
+                int index = rand_.rand_int(make_item.size());
+                Event::getInstance()->addItem(make_item[index].item_id, make_item[index].count);
+                Event::getInstance()->addItemWithoutHint(item->NeedMaterial, -1);
+                r->ExpForMakeItem = 0;
             }
         }
     }

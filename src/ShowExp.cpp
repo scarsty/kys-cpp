@@ -15,7 +15,7 @@ ShowExp::~ShowExp()
 
 void ShowExp::draw()
 {
-    //Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     for (int i = 0; i < roles_.size(); i++)
     {
         auto r = roles_[i];

@@ -22,7 +22,7 @@ public:
 
 private:
     std::vector<int> offset, length;
-    std::vector<std::string> talk_;
+    std::vector<std::string> talk_contents_;
     std::vector<std::vector<int>> kdef_;
 
     int leave_event_0_;
@@ -131,7 +131,7 @@ public:
     void allLeave();
     bool checkSubMapPic(int submap_id, int event_index, int pic);
     bool check14BooksPlaced();
-    void backHome() {}
+    void backHome(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2);
     void setSexual(int role_id, int value);
     void shop();
     void playMusic(int music_id);

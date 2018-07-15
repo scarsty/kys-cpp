@@ -24,7 +24,7 @@ void ShowRoleDifference::draw()
 
     //if (black_screen_)
     //{
-    //    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     //}
     head1_->setRole(role1_);
     head2_->setRole(role2_);

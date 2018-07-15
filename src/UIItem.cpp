@@ -1,12 +1,12 @@
-#include "UIItem.h"
-#include "Save.h"
-#include "libconvert.h"
-#include "Font.h"
-#include "MainScene.h"
-#include "GameUtil.h"
-#include "TeamMenu.h"
-#include "ShowRoleDifference.h"
 #include "Event.h"
+#include "Font.h"
+#include "GameUtil.h"
+#include "MainScene.h"
+#include "Save.h"
+#include "ShowRoleDifference.h"
+#include "TeamMenu.h"
+#include "UIItem.h"
+#include "libconvert.h"
 
 UIItem::UIItem()
 {
@@ -54,7 +54,10 @@ void UIItem::setForceItemType(int f)
 //详细分类："0劇情", "1兵甲", "2丹藥", "3暗器", "4拳經", "5劍譜", "6刀錄", "7奇門", "8心法"
 int UIItem::getItemDetailType(Item* item)
 {
-    if (item == nullptr) { return -1; }
+    if (item == nullptr)
+    {
+        return -1;
+    }
     if (item->ItemType == 0)
     {
         return 0;
@@ -114,7 +117,10 @@ void UIItem::checkCurrentItem()
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
     int max_leftup = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
-    if (max_leftup < 0) { max_leftup = 0; }
+    if (max_leftup < 0)
+    {
+        max_leftup = 0;
+    }
 
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup);
 
@@ -147,7 +153,7 @@ void UIItem::checkCurrentItem()
         current_button_->getPosition(x, y);
         current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
         //让光标显示出来
-        if (current_button_->getState()==Pass)
+        if (current_button_->getState() == Pass)
         {
             x += 2;
         }
@@ -269,7 +275,7 @@ void UIItem::showItemProperty(Item* item)
     }
 
     x = 10;
-    y += size + 10;  //换行
+    y += size + 10;    //换行
     c = { 224, 170, 255, 255 };
     //Font::getInstance()->draw("需求：", size, x_ + x, y_ + y, c);
     //y += size + 10;
@@ -298,6 +304,26 @@ void UIItem::showItemProperty(Item* item)
     showOneProperty(item->NeedIQ, "資質%d", size, c, x, y);
 
     showOneProperty(item->NeedExp, "基礎經驗%d", size, c, x, y);
+
+    if (item->NeedMaterial >= 0)
+    {
+        std::string str = "耗費";
+        str += Save::getInstance()->getItem(item->NeedMaterial)->Name;
+        showOneProperty(1, str, size, c, x, y);
+    }
+
+    x = 10;
+    y += size + 10;
+    for (int i = 0; i < 5; i++)
+    {
+        int make = item->MakeItem[i];
+        if (make >= 0)
+        {
+            std::string str = Save::getInstance()->getItem(make)->Name;
+            //str += " %d";
+            showOneProperty(item->MakeItemCount[i], str, size, c, x, y);
+        }
+    }
 }
 
 void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c, int& x, int& y)
@@ -331,7 +357,10 @@ void UIItem::onPressedOK()
         }
     }
 
-    if (current_item_ == nullptr) { return; }
+    if (current_item_ == nullptr)
+    {
+        return;
+    }
 
     //在使用剧情物品的时候，返回一个结果，主UI判断此时可以退出
     if (current_item_->ItemType == 0)
@@ -365,7 +394,10 @@ void UIItem::onPressedOK()
             auto team_menu = new TeamMenu();
             team_menu->setItem(current_item_);
             auto format_str = "誰要修煉%s";
-            if (current_item_->ItemType == 1) { format_str = "誰要裝備%s"; }
+            if (current_item_->ItemType == 1)
+            {
+                format_str = "誰要裝備%s";
+            }
             team_menu->setText(convert::formatString(format_str, current_item_->Name));
             team_menu->run();
             auto role = team_menu->getRole();
@@ -380,7 +412,7 @@ void UIItem::onPressedOK()
             //似乎不需要特殊处理
         }
     }
-    setExit(true);   //用于战斗时。平时物品栏不是以根节点运行，设置这个没有作用
+    setExit(true);    //用于战斗时。平时物品栏不是以根节点运行，设置这个没有作用
 }
 
 void UIItem::onPressedCancel()

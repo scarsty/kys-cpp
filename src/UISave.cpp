@@ -5,6 +5,7 @@
 #include "UI.h"
 #include "UISave.h"
 #include "libconvert.h"
+#include "Event.h"
 
 UISave::UISave()
 {
@@ -56,6 +57,7 @@ void UISave::onPressedOK()
         }
         if (mode_ == 1)
         {
+            Event::getInstance()->arrangeBag();    //存档时会整理物品背包
             save(result_);
             setExit(true);
         }

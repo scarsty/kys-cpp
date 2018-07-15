@@ -52,7 +52,7 @@ bool Event::loadEventData()
     {
         std::string str = PotConv::cp950tocp936(talk + offset[i]);
         convert::replaceAllString(str, "*", "");
-        talk_.push_back(str);
+        talk_contents_.push_back(str);
     }
     delete talk;
     //读取事件，全部转为整型
@@ -216,7 +216,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
 
                 REGISTER_INSTRUCT(60, checkSubMapPic, BOOL_3);
                 REGISTER_INSTRUCT(61, check14BooksPlaced, BOOL_0);
-                REGISTER_INSTRUCT(62, backHome, VOID_0);
+                REGISTER_INSTRUCT(62, backHome, VOID_6);
                 REGISTER_INSTRUCT(63, setSexual, VOID_2);
                 REGISTER_INSTRUCT(64, shop, VOID_0);
                 REGISTER_INSTRUCT(66, playMusic, VOID_1);
@@ -247,6 +247,10 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     }
     Element::removeFromRoot(talk_box_);
     clearTalkBox();
+    if (subscene_)
+    {
+        subscene_->forceManPic(-1);
+    }
     return ret;
     //if (loop)
     //{ return 0; }
@@ -281,6 +285,10 @@ void Event::callLeaveEvent(Role* role)
 //原对话指令
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
+    if (talk_id < 0 || talk_id >= talk_contents_.size())
+    {
+        return;
+    }
     Talk* talk;
     if (style % 2 == 0)
     {
@@ -290,9 +298,8 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     {
         talk = talk_box_down_;
     }
-
-    talk->setContent(talk_[talk_id]);
-    printf("%s\n", PotConv::to_read(talk_[talk_id]).c_str());
+    talk->setContent(talk_contents_[talk_id]);
+    printf("%s\n", PotConv::to_read(talk_contents_[talk_id]).c_str());
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -572,7 +579,7 @@ void Event::playAnimation(int event_index, int begin_pic, int end_pic)
         }
         subscene_->forceManPic(end_pic / 2);
         subscene_->drawAndPresent();
-        subscene_->forceManPic(-1);
+        //subscene_->forceManPic(-1);
     }
     else
     {
@@ -1027,6 +1034,14 @@ bool Event::check14BooksPlaced()
     return true;
 }
 
+void Event::backHome(int event_index1, int begin_pic1, int end_pic1, int event_index2, int begin_pic2, int end_pic2)
+{
+    subscene_->forceManPic(-2);
+    play2Amination(event_index1, begin_pic1, end_pic1, event_index2, begin_pic2, end_pic2);
+    Element::exitAll(1);
+    forceExit();
+}
+
 void Event::setSexual(int role_id, int value)
 {
     Save::getInstance()->getRole(role_id)->Sexual = value;
@@ -1177,7 +1192,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 8: //读对话
         index = e_GetValue(0, e1, e2);
         char_ptr = (char*)&x50[e3];
-        sprintf(char_ptr, "%s", talk_[index].c_str());
+        sprintf(char_ptr, "%s", talk_contents_[index].c_str());
         break;
     case 9: //格式化字串
         e4 = e_GetValue(0, e1, e4);

@@ -119,8 +119,8 @@ void SubScene::draw()
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
-                    //此处当主角的贴图为负值时，表示强制设置贴图号
-                    if (force_man_pic_ < 0)
+                    //当主角的贴图为-1时，表示强制设置贴图号
+                    if (force_man_pic_ == -1)
                     {
                         man_pic_ = calManPic();
                     }
@@ -204,18 +204,29 @@ void SubScene::dealEvent(BP_Event& e)
         Point p = way_que_.back();
         x = p.x;
         y = p.y;
-        auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None)
+        if (calDistance(man_x_, man_y_, x, y) <= 1)
         {
-            towards_ = tw;
+            auto tw = calTowards(man_x_, man_y_, x, y);
+            if (tw != Towards_None)
+            {
+                towards_ = tw;
+            }
+            tryWalk(x, y);
+            way_que_.pop_back();
+            if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+            {
+                auto tw = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+                if (tw != Towards_None)
+                {
+                    towards_ = tw;
+                }
+                checkEvent1(man_x_, man_y_, towards_);
+                setMouseEventPoint(-1, -1);
+            }
         }
-        tryWalk(x, y);
-        way_que_.pop_back();
-        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        else
         {
-            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
-            checkEvent1(man_x_, man_y_, towards_);
-            setMouseEventPoint(-1, -1);
+            way_que_.clear();
         }
         //if (isExit(x, y)) { way_que_.clear(); }
     }
@@ -237,7 +248,7 @@ void SubScene::dealEvent(BP_Event& e)
     {
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
-        stopFindWay();
+        way_que_.clear();
         if (isCannotPassEvent(p.x, p.y))    //存在事件点则仅会走到倒数第二格
         {
             FindWay(x, y, p.x, p.y);

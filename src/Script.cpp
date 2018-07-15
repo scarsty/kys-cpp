@@ -140,7 +140,7 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(allLeave, VOID_0);
     REGISTER_INSTRUCT(checkSubMapPic, BOOL_3);
     REGISTER_INSTRUCT(check14BooksPlaced, BOOL_0);
-    REGISTER_INSTRUCT(backHome, VOID_0);
+    REGISTER_INSTRUCT(backHome, VOID_6);
     REGISTER_INSTRUCT(setSexual, VOID_2);
     REGISTER_INSTRUCT(shop, VOID_0);
     REGISTER_INSTRUCT(playMusic, VOID_1);
@@ -208,7 +208,7 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(instruct_59, VOID_0);
     REGISTER_INSTRUCT(instruct_60, BOOL_3);
     REGISTER_INSTRUCT(instruct_61, BOOL_0);
-    REGISTER_INSTRUCT(instruct_62, VOID_0);
+    REGISTER_INSTRUCT(instruct_62, VOID_6);
     REGISTER_INSTRUCT(instruct_63, VOID_2);
     REGISTER_INSTRUCT(instruct_64, VOID_0);
     lua_register(lua_state_, "instruct_65", blank);

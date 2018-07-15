@@ -72,9 +72,7 @@ void MainScene::draw()
     struct DrawInfo { int i; Point p; };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
-#ifdef _DEBUG
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
-#endif
     //下面的15是下方较高贴图的余量，其余场景同
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
@@ -245,7 +243,7 @@ void MainScene::dealEvent(BP_Event& e)
     {
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
-        stopFindWay();
+        way_que_.clear();
         if (canWalk(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
         {
             FindWay(x, y, p.x, p.y);
