@@ -48,7 +48,7 @@ void TextureManager::renderTexture(const std::string& path, int num, int x, int 
     renderTexture(tex, x, y, c, alpha, zoom_x, zoom_y);
 }
 
-TextureManager::Texture* TextureManager::loadTexture(const std::string& path, int num)
+Texture* TextureManager::loadTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
     auto& v = getInstance()->map_[path];
@@ -66,6 +66,7 @@ TextureManager::Texture* TextureManager::loadTexture(const std::string& path, in
     if (!t->loaded)
     {
         loadTexture2(path, num, t);
+        Engine::getInstance()->setTextureAlphaMod(t->getTexture(), SDL_BLENDMODE_BLEND);
     }
     return t;
 }
@@ -141,7 +142,7 @@ void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
         }
         else
         {
-            for (int i = 0; i < SUB_TEXTURE_COUNT; i++)
+            for (int i = 0; i < Texture::SUB_TEXTURE_COUNT; i++)
             {
                 t->tex[i] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
                 if (!t->tex[i])

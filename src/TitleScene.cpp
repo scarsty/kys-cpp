@@ -12,6 +12,7 @@
 #include "UISave.h"
 #include "RandomRole.h"
 #include "Random.h"
+#include "ParticleExamples.h"
 
 TitleScene::TitleScene()
 {
@@ -86,5 +87,14 @@ void TitleScene::onEntrance()
 {
     Engine::getInstance()->playVideo("");
     Audio::getInstance()->playMusic(16);
+    auto c1 = new ParticleFire();
+    addChild(c1);    
+    c1->setPosition(50, 600);
+    c1->init();
+    auto c2 = new ParticleFire();
+    addChild(c2);
+    c2->setPosition(1024-60, 600);
+    c2->init();
+    //c->initWithTotalParticles(100);
 }
 
