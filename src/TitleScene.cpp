@@ -1,18 +1,18 @@
-#include "TitleScene.h"
-#include "Menu.h"
-#include "MainScene.h"
-#include "BattleScene.h"
-#include "Event.h"
-#include "SubScene.h"
-#include "Button.h"
 #include "Audio.h"
-#include "TeamMenu.h"
-#include "UIShop.h"
-#include "Script.h"
-#include "UISave.h"
-#include "RandomRole.h"
-#include "Random.h"
+#include "BattleScene.h"
+#include "Button.h"
+#include "Event.h"
+#include "MainScene.h"
+#include "Menu.h"
 #include "ParticleExamples.h"
+#include "Random.h"
+#include "RandomRole.h"
+#include "Script.h"
+#include "SubScene.h"
+#include "TeamMenu.h"
+#include "TitleScene.h"
+#include "UISave.h"
+#include "UIShop.h"
 
 TitleScene::TitleScene()
 {
@@ -88,13 +88,12 @@ void TitleScene::onEntrance()
     Engine::getInstance()->playVideo("");
     Audio::getInstance()->playMusic(16);
     auto c1 = new ParticleFire();
-    addChild(c1);    
-    c1->setPosition(50, 600);
+    addChild(c1);
+    c1->setPosition(50, 630);
     c1->init();
     auto c2 = new ParticleFire();
     addChild(c2);
-    c2->setPosition(1024-60, 600);
+    c2->setPosition(1024 - 50, 630);
     c2->init();
     //c->initWithTotalParticles(100);
 }
-

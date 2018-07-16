@@ -481,7 +481,7 @@ void ParticleSystem::draw()
     for (int i = 0; i < _particleCount; i++)
     {
         auto& p = _particleData[i];
-        BP_Rect r = { int(p.posx + p.startPosX - _texture->w / 2), int(p.posy + p.startPosY - _texture->h / 2), int(p.size), int(p.size) };
+        BP_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
         BP_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
         TextureManager::getInstance()->renderTexture(_texture, r, c, Uint8(p.colorA * 255));
     }
