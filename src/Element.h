@@ -40,6 +40,7 @@ public:
     virtual ~Element();
 
     static void setRefreshInterval(int i) { refresh_interval_ = i; }
+    static int getRefreshInterval() { return refresh_interval_; }
 
     static void drawAll();
 
