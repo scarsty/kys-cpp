@@ -2,6 +2,7 @@
 #include "Engine.h"
 #include <cstdint>
 #include <string>
+#include <vector>
 #include "INIReader.h"
 
 typedef int16_t MAP_INT;
@@ -17,19 +18,11 @@ struct MapSquare
     }
     ~MapSquare()
     {
-        if (data_)
-        {
-            delete data_;
-        }
     }
     //不会保留原始数据
     void resize(int x)
     {
-        if (data_)
-        {
-            delete data_;
-        }
-        data_ = new T[x * x];
+        data_ = std::vector<T>(x * x);
         line_ = x;
     }
 
@@ -60,7 +53,7 @@ struct MapSquare
     }
 
 private:
-    T* data_ = nullptr;
+    std::vector<T> data_;
     int line_ = 0;
 };
 

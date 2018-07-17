@@ -7,13 +7,6 @@ TextureManager::TextureManager()
 
 TextureManager::~TextureManager()
 {
-    for (auto& m : map_)
-    {
-        for (auto& t : m.second)
-        {
-            delete t;
-        }
-    }
 }
 
 void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t alpha)
@@ -65,9 +58,9 @@ TextureManager::Texture* TextureManager::loadTexture(const std::string& path, in
     auto& t = v[num];
     if (!t->loaded)
     {
-        loadTexture2(path, num, t);
+        loadTexture2(path, num, t.get());
     }
-    return t;
+    return t.get();
 }
 
 int TextureManager::getTextureGroupCount(const std::string& path)
@@ -97,12 +90,11 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
     //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针
     if (v.empty())
     {
-        char* s;
-        int l = 0;
-        File::readFile((p + "/index.ka").c_str(), &s, &l);
-        l /= 4;
+        auto s = File::readFileVecChar((p + "/index.ka").c_str());
+        int l = s.size() / 4;
         if (l == 0)
         {
+            //如果没有这个空指针要求，完全可以抛弃指针
             v.resize(1);
             v[0] = nullptr;
             return;
@@ -110,11 +102,10 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
         v.resize(l);
         for (int i = 0; i < l; i++)
         {
-            v[i] = new Texture();
-            v[i]->dx = *(short*)(s + i * 4);
-            v[i]->dy = *(short*)(s + i * 4 + 2);
+			v[i] = std::unique_ptr<Texture>(new Texture());
+            v[i]->dx = *(short*)(s.data() + i * 4);
+            v[i]->dy = *(short*)(s.data() + i * 4 + 2);
         }
-        delete s;
         printf("Load texture group from path: %s, find %d textures\n", p.c_str(), l);
     }
     if (load_all)
@@ -122,7 +113,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
         auto engine = Engine::getInstance();
         for (int i = 0; i < v.size(); i++)
         {
-            loadTexture2(path, i, v[i]);
+            loadTexture2(path, i, v[i].get());
         }
     }
 }

@@ -69,12 +69,12 @@ void BattleCursor::setCursor(int x, int y)
         battle_scene_->setSelectPosition(x, y);
         if (head_selected_->getVisible())
         {
-            head_selected_->setRole(battle_scene_->role_layer_->data(x, y));
+            head_selected_->setRole(battle_scene_->role_layer_.data(x, y));
         }
         //uiµÄÉè¶¨
         if (ui_status_->getVisible())
         {
-            ui_status_->setRole(battle_scene_->role_layer_->data(x, y));
+            ui_status_->setRole(battle_scene_->role_layer_.data(x, y));
         }
     }
     if (mode_ == Move)

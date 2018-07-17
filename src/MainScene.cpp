@@ -9,50 +9,36 @@
 #include "UISave.h"
 #include "Random.h"
 
-MainScene::MainScene()
+MainScene::MainScene() : earth_layer_(MAINMAP_COORD_COUNT), surface_layer_(MAINMAP_COORD_COUNT), building_layer_(MAINMAP_COORD_COUNT), 
+    build_x_layer_(MAINMAP_COORD_COUNT), build_y_layer_(MAINMAP_COORD_COUNT)
 {
     full_window_ = 1;
     COORD_COUNT = MAINMAP_COORD_COUNT;
 
-    if (!data_readed_)
-    {
-        earth_layer_ = new MapSquareInt(COORD_COUNT);
-        surface_layer_ = new MapSquareInt(COORD_COUNT);
-        building_layer_ = new MapSquareInt(COORD_COUNT);
-        build_x_layer_ = new MapSquareInt(COORD_COUNT);
-        build_y_layer_ = new MapSquareInt(COORD_COUNT);
+    int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
+    File::readFile("../game/resource/earth.002", &earth_layer_.data(0), length);
+    File::readFile("../game/resource/surface.002", &surface_layer_.data(0), length);
+    File::readFile("../game/resource/building.002", &building_layer_.data(0), length);
+    File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
+    File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
 
-        File::readFile("../game/resource/earth.002", &earth_layer_->data(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer_->data(0), length);
-        File::readFile("../game/resource/building.002", &building_layer_->data(0), length);
-        File::readFile("../game/resource/buildx.002", &build_x_layer_->data(0), length);
-        File::readFile("../game/resource/buildy.002", &build_y_layer_->data(0), length);
+    divide2(&earth_layer_);
+    divide2(&surface_layer_);
+    divide2(&building_layer_);
 
-        divide2(earth_layer_);
-        divide2(surface_layer_);
-        divide2(building_layer_);
-    }
-    data_readed_ = true;
 
     //100个云
     for (int i = 0; i < 100; i++)
     {
-        auto c = new Cloud();
-        cloud_vector_.push_back(c);
-        c->initRand();
+        cloud_vector_.emplace_back();
+        cloud_vector_.back().initRand();
     }
     //getEntrance();
 }
 
 MainScene::~MainScene()
 {
-    for (int i = 0; i < cloud_vector_.size(); i++)
-    {
-        delete cloud_vector_[i];
-    }
-    Util::safe_delete({ &earth_layer_, &surface_layer_, &building_layer_, &build_x_layer_, &build_y_layer_, &entrance_layer_ });
 }
 
 void MainScene::divide2(MapSquareInt* m)
@@ -89,18 +75,18 @@ void MainScene::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_->data(ix, iy) > 0)
+                if (earth_layer_.data(ix, iy) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_->data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(ix, iy), p.x, p.y);
                 }
 #endif
-                if (surface_layer_->data(ix, iy) > 0)
+                if (surface_layer_.data(ix, iy) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_->data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_.data(ix, iy), p.x, p.y);
                 }
-                if (building_layer_->data(ix, iy) > 0)
+                if (building_layer_.data(ix, iy) > 0)
                 {
-                    auto t = building_layer_->data(ix, iy);
+                    auto t = building_layer_.data(ix, iy);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -142,7 +128,7 @@ void MainScene::draw()
 
     for (auto& c : cloud_vector_)
     {
-        c->draw();
+        c.draw();
     }
 
     //auto t1 = Engine::getInstance()->getTicks();
@@ -157,8 +143,8 @@ void MainScene::backRun()
     //云的贴图
     for (auto& c : cloud_vector_)
     {
-        c->flow();
-        c->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
+        c.flow();
+        c.setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
     }
 }
 
@@ -168,12 +154,11 @@ void MainScene::dealEvent(BP_Event& e)
     if (force_submap_ >= 0)
     {
         setVisible(true);
-        auto sub_map = new SubScene(force_submap_);
-        sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
-        sub_map->setTowards(towards_);
-        sub_map->run();
-        towards_ = sub_map->towards_;
-        delete sub_map;
+        SubScene sub_map(force_submap_);
+        sub_map.setManViewPosition(force_submap_x_, force_submap_y_);
+        sub_map.setTowards(towards_);
+        sub_map.run();
+        towards_ = sub_map.towards_;
         force_submap_ = -1;
     }
 
@@ -251,15 +236,15 @@ void MainScene::dealEvent(BP_Event& e)
         //如果是建筑，在此建筑的附近试图查找入口
         if (isBuilding(p.x, p.y))
         {
-            int buiding_x = build_x_layer_->data(p.x, p.y);
-            int buiding_y = build_y_layer_->data(p.x, p.y);
+            int buiding_x = build_x_layer_.data(p.x, p.y);
+            int buiding_y = build_y_layer_.data(p.x, p.y);
             bool found_entrance = false;
             for (int ix = buiding_x + 1; ix > buiding_x - 9; ix--)
             {
                 for (int iy = buiding_y + 1; iy > buiding_y - 9; iy--)
                 {
-                    if (build_x_layer_->data(ix, iy) == buiding_x
-                        && build_y_layer_->data(ix, iy) == buiding_y
+                    if (build_x_layer_.data(ix, iy) == buiding_x
+                        && build_y_layer_.data(ix, iy) == buiding_y
                         && checkEntrance(ix, iy, true))
                     {
                         p.x = ix;
@@ -332,12 +317,12 @@ void MainScene::tryWalk(int x, int y)
 
 bool MainScene::isBuilding(int x, int y)
 {
-    return (building_layer_->data(build_x_layer_->data(x, y), build_y_layer_->data(x, y)) > 0);
+    return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0);
 }
 
 bool MainScene::isWater(int x, int y)
 {
-    auto pic = earth_layer_->data(x, y);
+    auto pic = earth_layer_.data(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     {
         return true;
@@ -403,11 +388,10 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
                 UISave::autoSave();
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
-                auto sub_map = new SubScene(i);
-                sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
-                sub_map->run();
-                towards_ = sub_map->towards_;
-                delete sub_map;
+                SubScene sub_map(i);
+                sub_map.setManViewPosition(s->EntranceX, s->EntranceY);
+                sub_map.run();
+                towards_ = sub_map.towards_;
                 return true;
             }
         }

@@ -16,8 +16,7 @@ public:
         return &ms;
     }
 
-    MapSquareInt* earth_layer_, *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
-    bool data_readed_ = false;
+    MapSquareInt earth_layer_, surface_layer_, building_layer_, build_x_layer_, build_y_layer_, entrance_layer_;
 
     void divide2(MapSquareInt* m);
 
@@ -37,7 +36,7 @@ public:
     //todo: ÐÝÏ¢Î´Íê³É
 
     Cloud::CloudTowards cloud_towards = Cloud::Left;
-    std::vector<Cloud*> cloud_vector_;
+    std::vector<Cloud> cloud_vector_;
 
     virtual void draw() override;
     virtual void backRun() override;

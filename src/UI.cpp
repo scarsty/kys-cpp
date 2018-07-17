@@ -6,13 +6,10 @@
 UI::UI()
 {
     //注意，此处约定childs_[0]为子UI，创建好对应的指针，需要显示哪个赋值到childs_[0]即可
-    ui_status_ = new UIStatus();
-    ui_item_ = new UIItem();
-    ui_system_ = new UISystem();
-    ui_status_->setPosition(300, 0);
-    ui_item_->setPosition(300, 0);
-    ui_system_->setPosition(300, 0);
-    addChild(ui_status_);
+    ui_status_.setPosition(300, 0);
+    ui_item_.setPosition(300, 0);
+    ui_system_.setPosition(300, 0);
+    addChild(&ui_status_);
 
     //貌似这里不能直接调用其他单例，静态量的创建顺序不确定
     button_status_ = new Button("title", 122);
@@ -38,9 +35,6 @@ UI::UI()
 UI::~UI()
 {
     childs_[0] = nullptr;
-    delete ui_status_;
-    delete ui_item_;
-    delete ui_system_;
 }
 
 void UI::onEntrance()
@@ -65,14 +59,14 @@ void UI::dealEvent(BP_Event& e)
         }
         if (head->getState() == Pass)
         {
-            ui_status_->setRole(role);
+            ui_status_.setRole(role);
             current_head_ = i;
         }
         head->setText("");
         //如在物品栏则判断是否在使用，或者可以使用，设置对应的头像状态
-        if (childs_[0] == ui_item_)
+        if (childs_[0] == &ui_item_)
         {
-            Item* item = ui_item_->getCurrentItem();
+            Item* item = ui_item_.getCurrentItem();
             if (item)
             {
                 if (role->Equip0 == item->ID || role->Equip1 == item->ID || role->PracticeItem == item->ID)
@@ -89,7 +83,7 @@ void UI::dealEvent(BP_Event& e)
     }
 
     //这里设定当前头像为Pass，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
-    if (childs_[0] == ui_status_)
+    if (childs_[0] == &ui_status_)
     {
         heads_[current_head_]->setState(Pass);
     }
@@ -99,18 +93,18 @@ void UI::dealEvent(BP_Event& e)
 void UI::onPressedOK()
 {
     //这里检测是否使用了物品，返回物品的id
-    if (childs_[0] == ui_item_)
+    if (childs_[0] == &ui_item_)
     {
-        auto item = ui_item_->getCurrentItem();
+        auto item = ui_item_.getCurrentItem();
         if (item && item->ItemType == 0)
         {
             setExit(true);
         }
     }
 
-    if (childs_[0] == ui_system_)
+    if (childs_[0] == &ui_system_)
     {
-        if (ui_system_->getResult() == 0)
+        if (ui_system_.getResult() == 0)
         {
             setExit(true);
         }
@@ -119,17 +113,17 @@ void UI::onPressedOK()
     //四个按钮的响应
     if (button_status_->getState() == Press)
     {
-        childs_[0] = ui_status_;
+        childs_[0] = &ui_status_;
         current_button_ = 0;
     }
     if (button_item_->getState() == Press)
     {
-        childs_[0] = ui_item_;
+        childs_[0] = &ui_item_;
         current_button_ = 1;
     }
     if (button_system_->getState() == Press)
     {
-        childs_[0] = ui_system_;
+        childs_[0] = &ui_system_;
         current_button_ = 2;
     }
 }

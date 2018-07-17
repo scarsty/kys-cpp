@@ -24,9 +24,8 @@ int Application::run()
 
     engine->createAssistTexture(768, 480);
 
-    auto s = new TitleScene();    //开始界面
-    s->run();
-    delete s;
+    TitleScene s;
+    s.run();
 
     return 0;
 }
