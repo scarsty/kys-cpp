@@ -17,22 +17,18 @@
 TitleScene::TitleScene()
 {
     full_window_ = 1;
-    menu_ = new Menu();
-    menu_->setPosition(400, 250);
+    menu_.setPosition(400, 250);
     auto b = new Button("title", 3, 23, 23);
-    menu_->addChild(b, 20, 0);
+    menu_.addChild(b, 20, 0);
     b = new Button("title", 4, 24, 24);
-    menu_->addChild(b, 20, 50);
+    menu_.addChild(b, 20, 50);
     b = new Button("title", 6, 26, 26);
-    menu_->addChild(b, 20, 100);
-    menu_load_ = new UISave();
-    menu_load_->setPosition(500, 300);
+    menu_.addChild(b, 20, 100);
+    menu_load_.setPosition(500, 300);
 }
 
 TitleScene::~TitleScene()
 {
-    delete menu_;
-    delete menu_load_;
 }
 
 void TitleScene::draw()
@@ -53,7 +49,7 @@ void TitleScene::draw()
 
 void TitleScene::dealEvent(BP_Event& e)
 {
-    int r = menu_->run();
+    int r = menu_.run();
     if (r == 0)
     {
         Save::getInstance()->load(0);
@@ -70,7 +66,7 @@ void TitleScene::dealEvent(BP_Event& e)
     }
     if (r == 1)
     {
-        if (menu_load_->run() >= 0)
+        if (menu_load_.run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //²âÊÔÓÃ
             //Script::getInstance()->runScript("../game/script/0.lua");

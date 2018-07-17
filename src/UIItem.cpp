@@ -372,36 +372,33 @@ void UIItem::onPressedOK()
     {
         if (current_item_->ItemType == 3)
         {
-            auto team_menu = new TeamMenu();
-            team_menu->setItem(current_item_);
-            team_menu->setText(convert::formatString("誰要使用%s", current_item_->Name));
-            team_menu->run();
-            auto role = team_menu->getRole();
-            delete team_menu;
+            TeamMenu team_menu;
+            team_menu.setItem(current_item_);
+            team_menu.setText(convert::formatString("誰要使用%s", current_item_->Name));
+            team_menu.run();
+            auto role = team_menu.getRole();
             if (role)
             {
                 Role r = *role;
                 GameUtil::useItem(role, current_item_);
-                auto df = new ShowRoleDifference(&r, role);
-                df->setText(convert::formatString("%s服用%s", role->Name, current_item_->Name));
-                df->run();
-                delete df;
+                ShowRoleDifference df(&r, role);
+                df.setText(convert::formatString("%s服用%s", role->Name, current_item_->Name));
+                df.run();
                 Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
             }
         }
         else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
         {
-            auto team_menu = new TeamMenu();
-            team_menu->setItem(current_item_);
+            TeamMenu team_menu;
+            team_menu.setItem(current_item_);
             auto format_str = "誰要修煉%s";
             if (current_item_->ItemType == 1)
             {
                 format_str = "誰要裝備%s";
             }
-            team_menu->setText(convert::formatString(format_str, current_item_->Name));
-            team_menu->run();
-            auto role = team_menu->getRole();
-            delete team_menu;
+            team_menu.setText(convert::formatString(format_str, current_item_->Name));
+            team_menu.run();
+            auto role = team_menu.getRole();
             if (role)
             {
                 GameUtil::equip(role, current_item_);

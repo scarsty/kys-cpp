@@ -1,24 +1,21 @@
 ﻿#include "File.h"
 #include "GrpIdxFile.h"
 
-char* GrpIdxFile::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)
+std::vector<char> GrpIdxFile::getIdxContent(std::string filename_idx, std::string filename_grp, std::vector<int>* offset, std::vector<int>* length)
 {
-    int* Ridx;
-    int len = 0;
-    File::readFile(filename_idx, (char**)&Ridx, &len);
-
-    offset->resize(len / 4 + 1);
-    length->resize(len / 4);
+    auto rIdxBytes = File::readFileVecChar(filename_idx);
+    offset->resize(rIdxBytes.size() / 4 + 1);
+    length->resize(rIdxBytes.size() / 4);
     offset->at(0) = 0;
-    for (int i = 0; i < len / 4; i++)
+    for (int i = 0; i < rIdxBytes.size() / 4; i++)
     {
-        (*offset)[i + 1] = Ridx[i];
+        //转换为int
+        memcpy(&(*offset)[i + 1], rIdxBytes.data() + i * sizeof(int), sizeof(int));
         (*length)[i] = (*offset)[i + 1] - (*offset)[i];
     }
     int total_length = offset->back();
-    delete[] Ridx;
 
-    auto Rgrp = new char[total_length];
-    File::readFile(filename_grp, Rgrp, total_length);
+	std::vector<char> Rgrp(total_length);
+    File::readFile(filename_grp, Rgrp.data(), total_length);
     return Rgrp;
 }

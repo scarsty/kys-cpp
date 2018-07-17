@@ -29,13 +29,13 @@ public:
     std::vector<Button*> buttons_;
 
     Button* button_status_, *button_item_, *button_system_;
-    UIStatus* ui_status_ = nullptr;
-    UIItem* ui_item_ = nullptr;
-    UISystem* ui_system_ = nullptr;
+    UIStatus ui_status_;
+    UIItem ui_item_;
+    UISystem ui_system_;
     int item_id_ = -1;
 
     virtual void onPressedOK() override;
     DEFAULT_CANCEL_EXIT;
-    Item* getUsedItem() { return ui_item_->getCurrentItem(); }
+    Item* getUsedItem() { return ui_item_.getCurrentItem(); }
 };
 
