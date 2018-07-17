@@ -174,9 +174,11 @@ void MainScene::dealEvent(BP_Event& e)
         SubScene sub_map(force_submap_);
         sub_map.setManViewPosition(force_submap_x_, force_submap_y_);
         sub_map.setTowards(towards_);
+        sub_map.setForceBeginEvent(force_event_);
         sub_map.run();
         towards_ = sub_map.towards_;
         force_submap_ = -1;
+        force_event_ = -1;
     }
 
     int x = man_x_, y = man_y_;
@@ -353,20 +355,22 @@ bool MainScene::isBuilding(int x, int y)
     return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0);
 }
 
-bool MainScene::isWater(int x, int y)
+//1 - can walk
+//2 - cannot walk
+int MainScene::isWater(int x, int y)
 {
     auto pic = earth_layer_.data(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     {
-        return true;
+        return 2;
     }
     else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
     {
-        return true;
+        return 1;
     }
     else
     {
-        return false;
+        return 0;
     }
 }
 
@@ -376,7 +380,7 @@ bool MainScene::canWalk(int x, int y)
     //{
     //    return true;
     //}  这里不需要加，实际上入口都是无法走到的
-    if (isOutLine(x, y) || isBuilding(x, y) /*|| checkIsWater(x, y)*/)
+    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) == 2)
     {
         return false;
     }
@@ -430,7 +434,7 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
     return false;
 }
 
-void MainScene::forceEnterSubScene(int submap_id, int x, int y)
+void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
 {
     force_submap_ = submap_id;
     if (x >= 0)
@@ -441,6 +445,7 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y)
     {
         force_submap_y_ = y;
     }
+    force_event_ = event;
     setVisible(false);
 }
 

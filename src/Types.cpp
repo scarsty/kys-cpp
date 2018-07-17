@@ -1,4 +1,3 @@
-#include "GameUtil.h"
 #include "Types.h"
 
 //设置人物坐标，若输入值为负，相当于从人物层清除
@@ -89,45 +88,57 @@ int Role::getMagicOfRoleIndex(Magic* magic)
 //限制人物的属性
 void Role::limit()
 {
+    auto limit2 = [&](int& v, int v1, int v2)
+    {
+        if (v < v1)
+        {
+            v = v1;
+        }
+        if (v > v2)
+        {
+            v = v2;
+        }
+    };
+
     auto r_max = Role::getMaxValue();
-    GameUtil::limit2(Level, 0, r_max->Level);
+    limit2(Level, 0, r_max->Level);
 
-    GameUtil::limit2(Exp, 0, r_max->Exp);
-    GameUtil::limit2(ExpForItem, 0, r_max->Exp);
-    GameUtil::limit2(ExpForMakeItem, 0, r_max->Exp);
+    limit2(Exp, 0, r_max->Exp);
+    limit2(ExpForItem, 0, r_max->Exp);
+    limit2(ExpForMakeItem, 0, r_max->Exp);
 
-    GameUtil::limit2(Poison, 0, r_max->Poison);
+    limit2(Poison, 0, r_max->Poison);
 
-    GameUtil::limit2(MaxHP, 0, r_max->HP);
-    GameUtil::limit2(MaxMP, 0, r_max->MP);
-    GameUtil::limit2(HP, 0, MaxHP);
-    GameUtil::limit2(MP, 0, MaxMP);
-    GameUtil::limit2(PhysicalPower, 0, r_max->PhysicalPower);
+    limit2(MaxHP, 0, r_max->HP);
+    limit2(MaxMP, 0, r_max->MP);
+    limit2(HP, 0, MaxHP);
+    limit2(MP, 0, MaxMP);
+    limit2(PhysicalPower, 0, r_max->PhysicalPower);
 
-    GameUtil::limit2(Attack, 0, r_max->Attack);
-    GameUtil::limit2(Defence, 0, r_max->Defence);
-    GameUtil::limit2(Speed, 0, r_max->Speed);
+    limit2(Attack, 0, r_max->Attack);
+    limit2(Defence, 0, r_max->Defence);
+    limit2(Speed, 0, r_max->Speed);
 
-    GameUtil::limit2(Medcine, 0, r_max->Medcine);
-    GameUtil::limit2(UsePoison, 0, r_max->UsePoison);
-    GameUtil::limit2(Detoxification, 0, r_max->Detoxification);
-    GameUtil::limit2(AntiPoison, 0, r_max->AntiPoison);
+    limit2(Medcine, 0, r_max->Medcine);
+    limit2(UsePoison, 0, r_max->UsePoison);
+    limit2(Detoxification, 0, r_max->Detoxification);
+    limit2(AntiPoison, 0, r_max->AntiPoison);
 
-    GameUtil::limit2(Fist, 0, r_max->Fist);
-    GameUtil::limit2(Sword, 0, r_max->Sword);
-    GameUtil::limit2(Knife, 0, r_max->Knife);
-    GameUtil::limit2(Unusual, 0, r_max->Unusual);
-    GameUtil::limit2(HiddenWeapon, 0, r_max->HiddenWeapon);
+    limit2(Fist, 0, r_max->Fist);
+    limit2(Sword, 0, r_max->Sword);
+    limit2(Knife, 0, r_max->Knife);
+    limit2(Unusual, 0, r_max->Unusual);
+    limit2(HiddenWeapon, 0, r_max->HiddenWeapon);
 
-    GameUtil::limit2(Knowledge, 0, r_max->Knowledge);
-    GameUtil::limit2(Morality, 0, r_max->Morality);
-    GameUtil::limit2(AttackWithPoison, 0, r_max->AttackWithPoison);
-    GameUtil::limit2(Fame, 0, r_max->Fame);
-    GameUtil::limit2(IQ, 0, r_max->IQ);
+    limit2(Knowledge, 0, r_max->Knowledge);
+    limit2(Morality, 0, r_max->Morality);
+    limit2(AttackWithPoison, 0, r_max->AttackWithPoison);
+    limit2(Fame, 0, r_max->Fame);
+    limit2(IQ, 0, r_max->IQ);
 
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
-        GameUtil::limit2(MagicLevel[i], 0, MAX_MAGIC_LEVEL);
+        limit2(MagicLevel[i], 0, MAX_MAGIC_LEVEL);
     }
 }
 
@@ -182,52 +193,6 @@ int Role::learnMagic(int magic_id)
     }
 }
 
-void Role::setMaxValue(INIReaderNormal* ini)
-{
-#define GET_VALUE_INT(v, default_v)                                 \
-    do                                                              \
-    {                                                               \
-        max_role_value_.v = ini->getInt("constant", #v, default_v); \
-        printf("%s = %d\n", #v, max_role_value_.v);                 \
-    } while (0)
-
-    printf("Max values of roles: \n");
-
-    GET_VALUE_INT(Level, 30);
-    GET_VALUE_INT(HP, 999);
-    GET_VALUE_INT(MP, 999);
-    GET_VALUE_INT(PhysicalPower, 100);
-
-    GET_VALUE_INT(Poison, 100);
-
-    GET_VALUE_INT(Attack, 100);
-    GET_VALUE_INT(Defence, 100);
-    GET_VALUE_INT(Speed, 100);
-
-    GET_VALUE_INT(Medcine, 100);
-    GET_VALUE_INT(UsePoison, 100);
-    GET_VALUE_INT(Detoxification, 100);
-    GET_VALUE_INT(AntiPoison, 100);
-
-    GET_VALUE_INT(Fist, 100);
-    GET_VALUE_INT(Sword, 100);
-    GET_VALUE_INT(Knife, 100);
-    GET_VALUE_INT(Unusual, 100);
-    GET_VALUE_INT(HiddenWeapon, 100);
-
-    GET_VALUE_INT(Knowledge, 100);
-    GET_VALUE_INT(Morality, 100);
-    GET_VALUE_INT(AttackWithPoison, 100);
-    GET_VALUE_INT(Fame, 999);
-    GET_VALUE_INT(IQ, 100);
-
-    GET_VALUE_INT(Exp, 99999);
-
-    printf("\n");
-
-#undef GET_VALUE_INT
-}
-
 Role Role::max_role_value_;
 
 //设置某个事件的坐标，在一些MOD里面此语句有错误
@@ -250,12 +215,23 @@ void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 
 int Magic::calMaxLevelIndexByMP(int mp, int max_level)
 {
-    max_level = GameUtil::limit(max_level, 0, MAX_MAGIC_LEVEL_INDEX);
+    auto limit = [&](int v, int v1, int v2) {
+        if (v < v1)
+        {
+            v = v1;
+        }
+        if (v > v2)
+        {
+            v = v2;
+        }
+        return v;
+    };
+    max_level = limit(max_level, 0, MAX_MAGIC_LEVEL_INDEX);
     if (NeedMP <= 0)
     {
         return max_level;
     }
-    int level = GameUtil::limit(mp / (NeedMP * 2) * 2 - 1, 0, max_level);
+    int level = limit(mp / (NeedMP * 2) * 2 - 1, 0, max_level);
     return level;
 }
 
@@ -265,19 +241,4 @@ int Item::CompassItemID = 182;
 bool Item::isCompass()
 {
     return ID == CompassItemID;
-}
-
-void Item::setSpecialItems(INIReaderNormal* ini)
-{
-#define GET_VALUE_INT(v)                    \
-    do                                      \
-    {                                       \
-        v = ini->getInt("constant", #v, v); \
-        printf("%s = %d\n", #v, v);         \
-    } while (0)
-
-    GET_VALUE_INT(MoneyItemID);
-    GET_VALUE_INT(CompassItemID);
-
-#undef GET_VALUE_INT
 }

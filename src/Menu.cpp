@@ -28,20 +28,34 @@ void Menu::dealEvent(BP_Event& e)
 
         if (direct != 0)
         {
-            setAllChildState(Normal);
-            //仅有两项的菜单两头封住
-            if (getChildCount() <= 2)
+            //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
+            bool all_normal = true;
+            for (auto c : childs_)
             {
-                pass_child_ = direct > 0 ? getChildCount() - 1 : 0;
+                if (c->getState() != Normal)
+                {
+                    all_normal = false;
+                    break;
+                }
             }
-            else
+            setAllChildState(Normal);
+
+            if (!all_normal)
             {
-                pass_child_ = findNextVisibleChild(pass_child_, direct);
+                //仅有两项的菜单两头封住
+                if (getChildCount() <= 2)
+                {
+                    pass_child_ = direct > 0 ? getChildCount() - 1 : 0;
+                }
+                else
+                {
+                    pass_child_ = findNextVisibleChild(pass_child_, direct);
+                }
             }
             press_child_ = -1;
         }
+        forcePassChild();
     }
-    forcePassChild();
 }
 
 void Menu::arrange(int x, int y, int inc_x, int inc_y)

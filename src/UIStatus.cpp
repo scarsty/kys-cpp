@@ -297,3 +297,8 @@ void UIStatus::onPressedOK()
         }
     }
 }
+
+void UIStatus::setRoleName(std::string name)
+{
+    memcpy(role_->Name, name.c_str(), name.size());
+}

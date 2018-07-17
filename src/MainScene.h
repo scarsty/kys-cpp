@@ -33,6 +33,7 @@ public:
     int force_submap_ = -1;
     int force_submap_x_ = -1;
     int force_submap_y_ = -1;
+    int force_event_ = -1;
 
     //todo: 休息未完成
 
@@ -50,14 +51,14 @@ public:
     void setEntrance();
 
     virtual bool isBuilding(int x, int y);
-    bool isWater(int x, int y);
+    int isWater(int x, int y);
 
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
     bool checkEntrance(int x, int y, bool only_check = false);    //主地图主要是检测入口
 
-    void forceEnterSubScene(int submap_id, int x, int y);    //在下一个事件循环会强制进入某场景，用于开始和读取存档
+    void forceEnterSubScene(int submap_id, int x, int y, int event = -1);    //在下一个事件循环会强制进入某场景，用于开始和读取存档
 
     bool inNorth() { return man_x_ + man_y_ <= 220; }
     int view_cloud_ = 0;

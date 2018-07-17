@@ -2,10 +2,10 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="src\Application.cpp">
-      <Filter>sources</Filter>
+      <Filter>application</Filter>
     </ClCompile>
     <ClCompile Include="src\kys.cpp">
-      <Filter>sources</Filter>
+      <Filter>application</Filter>
     </ClCompile>
     <ClCompile Include="common\libconvert.cpp">
       <Filter>common</Filter>
@@ -70,9 +70,6 @@
     <ClCompile Include="src\Font.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="src\Point.cpp">
-      <Filter>scene</Filter>
-    </ClCompile>
     <ClCompile Include="src\MainScene.cpp">
       <Filter>scene</Filter>
     </ClCompile>
@@ -135,6 +132,9 @@
     </ClCompile>
     <ClCompile Include="src\ParticleExample.cpp">
       <Filter>particle</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Point.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -234,9 +234,6 @@
     <ClInclude Include="src\TitleScene.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\Point.h">
-      <Filter>scene</Filter>
-    </ClInclude>
     <ClInclude Include="src\Cloud.h">
       <Filter>scene</Filter>
     </ClInclude>
@@ -282,6 +279,9 @@
     <ClInclude Include="src\ParticleExample.h">
       <Filter>particle</Filter>
     </ClInclude>
+    <ClInclude Include="src\Point.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -290,10 +290,6 @@
     <Filter Include="headers">
       <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
-    <Filter Include="sources">
-      <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
     <Filter Include="common">
       <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
@@ -321,6 +317,10 @@
     </Filter>
     <Filter Include="particle">
       <UniqueIdentifier>{6722987a-15f3-49a3-96bf-4212140bfab3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="application">
+      <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>

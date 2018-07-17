@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "INIReader.h"
 
 typedef int16_t MAP_INT;
 
@@ -134,6 +133,12 @@ public:
 
     int SelectedMagic;
 
+    int Progress;
+
+    int HPChange;
+    int MPChange;
+    int ProgressChange;
+
 private:
     int X_, Y_;
     int prevX_, prevY_;
@@ -181,7 +186,7 @@ public:
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }
-    static void setMaxValue(INIReaderNormal* ini);
+
 private:
     static Role max_role_value_;
 };
@@ -209,12 +214,11 @@ struct ItemSave
 struct Item : ItemSave
 {
 public:
-    static int MoneyItemID ;
+    static int MoneyItemID;
     static int CompassItemID;
 
 public:
     bool isCompass();
-    static void setSpecialItems(INIReaderNormal* ini);
 };
 
 //存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）

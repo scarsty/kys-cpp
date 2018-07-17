@@ -2,23 +2,23 @@
 #include "Types.h"
 #include <climits>
 #include <cmath>
+#include "INIReader.h"
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
-class GameUtil
+class GameUtil : public INIReaderNormal
 {
 private:
     GameUtil();
     ~GameUtil();
-    
+    std::vector<int> level_up_list_;
+    //std::vector<int> level_up_list_;
+public:
     static GameUtil* getInstance()
     {
         static GameUtil gu;
         return &gu;
     }
-    std::vector<int> level_up_list_;
-    //std::vector<int> level_up_list_;
-public:
     static int sign(int v)
     {
         if (v > 0)
@@ -86,10 +86,11 @@ public:
 
     static void equip(Role* r, Item* i);
 
-    static const std::string configFile() { return "../game/config/kysmod.ini"; }
-
     //以下3个函数的返回值为需要显示的数值
     static int medcine(Role* r1, Role* r2);
     static int detoxification(Role* r1, Role* r2);
     static int usePoison(Role* r1, Role* r2);
+
+    void setRoleMaxValue(Role* role);
+    void setSpecialItems();
 };
