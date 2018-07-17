@@ -2,6 +2,7 @@
 #include "BattleScene.h"
 #include "Event.h"
 #include "MainScene.h"
+#include "ParticleExample.h"
 #include "PotConv.h"
 #include "Random.h"
 #include "SubScene.h"
@@ -11,6 +12,7 @@ SubScene::SubScene()
 {
     full_window_ = 1;
     COORD_COUNT = SUBMAP_COORD_COUNT;
+    addChild(MainScene::getInstance()->getWeather());
 }
 
 SubScene::SubScene(int id)
@@ -300,7 +302,7 @@ void SubScene::backRun()
 void SubScene::onEntrance()
 {
     calViewRegion();
-    towards_ = MainScene::getIntance()->towards_;
+    towards_ = MainScene::getInstance()->towards_;
 
     for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
     {
@@ -310,7 +312,6 @@ void SubScene::onEntrance()
             e->CurrentPic = e->BeginPic + e->PicDelay * 2 % (e->EndPic - e->BeginPic);
         }
     }
-
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
 
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
@@ -411,8 +412,7 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
 bool SubScene::canWalk(int x, int y)
 {
     bool ret = true;
-    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y)
-        || isCannotPassEvent(x, y) || isFall(x, y))
+    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) || isCannotPassEvent(x, y) || isFall(x, y))
     {
         ret = false;
     }
@@ -439,10 +439,7 @@ bool SubScene::isBuilding(int x, int y)
 bool SubScene::isWater(int x, int y)
 {
     int num = submap_info_->Earth(x, y) / 2;
-    if (num >= 179 && num <= 181
-        || num == 261 || num == 511
-        || num >= 662 && num <= 665
-        || num == 674)
+    if (num >= 179 && num <= 181 || num == 261 || num == 511 || num >= 662 && num <= 665 || num == 674)
     {
         return true;
     }
@@ -483,9 +480,7 @@ bool SubScene::isFall(int x, int y)
 
 bool SubScene::isExit(int x, int y)
 {
-    if (submap_info_->ExitX[0] == x && submap_info_->ExitY[0] == y
-        || submap_info_->ExitX[1] == x && submap_info_->ExitY[1] == y
-        || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
+    if (submap_info_->ExitX[0] == x && submap_info_->ExitY[0] == y || submap_info_->ExitX[1] == x && submap_info_->ExitY[1] == y || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
     {
         setExit(true);
         //Save::getInstance()->InSubMap = 1;

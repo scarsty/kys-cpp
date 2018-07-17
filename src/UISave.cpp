@@ -68,7 +68,7 @@ void UISave::load(int r)
 {
     auto sub_scene = getPointerFromRoot<SubScene>();    //可以知道在不在子场景中
     auto save = Save::getInstance();
-    auto main_scene = MainScene::getIntance();
+    auto main_scene = MainScene::getInstance();
     save->load(r);
     main_scene->setManPosition(save->MainMapX, save->MainMapY);
     if (save->InSubMap >= 0)
@@ -96,7 +96,7 @@ void UISave::save(int r)
 {
     auto sub_scene = getPointerFromRoot<SubScene>();    //可以知道在不在子场景中
     auto save = Save::getInstance();
-    auto main_scene = MainScene::getIntance();
+    auto main_scene = MainScene::getInstance();
     main_scene->getManPosition(save->MainMapX, save->MainMapY);
     if (sub_scene)
     {

@@ -9,7 +9,10 @@ Element::~Element()
 {
     for (auto c : childs_)
     {
-        delete c;
+        if (c && c->parent_ == this)
+        {
+            delete c;
+        }
     }
 }
 
@@ -74,6 +77,10 @@ Element* Element::removeFromRoot(Element* element)
 void Element::addChild(Element* element)
 {
     element->setTag(childs_.size());
+    if (element->parent_ == nullptr)
+    {
+        element->parent_ = this;
+    }
     childs_.push_back(element);
 }
 
@@ -238,8 +245,7 @@ void Element::dealEventSelfChilds(bool check_event)
         while (Engine::pollEvent(e))
         {
             //一些按键类提前停止避免丢键
-            if (e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONUP
-                ||e.type == BP_KEYDOWN || e.type == BP_KEYUP)
+            if (e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYDOWN || e.type == BP_KEYUP)
             {
                 break;
             }
@@ -323,8 +329,7 @@ void Element::checkSelfState(BP_Event& e)
             state_ = Normal;
         }
     }
-    if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
-        && e.button.button == BP_BUTTON_LEFT)
+    if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP) && e.button.button == BP_BUTTON_LEFT)
     {
         if (inSide(e.button.x, e.button.y))
         {
@@ -335,8 +340,7 @@ void Element::checkSelfState(BP_Event& e)
             state_ = Normal;
         }
     }
-    if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP)
-        && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+    if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP) && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
         //按下键盘的空格或者回车时，将pass的按键改为press
         if (state_ == Pass)

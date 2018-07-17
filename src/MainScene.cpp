@@ -1,13 +1,13 @@
-#include "MainScene.h"
-#include <time.h>
 #include "File.h"
-#include "TextureManager.h"
-#include "SubScene.h"
-#include "Save.h"
-#include "UI.h"
-#include "Util.h"
-#include "UISave.h"
+#include "MainScene.h"
 #include "Random.h"
+#include "Save.h"
+#include "SubScene.h"
+#include "TextureManager.h"
+#include "UI.h"
+#include "UISave.h"
+#include "Util.h"
+#include <time.h>
 
 MainScene::MainScene()
 {
@@ -44,6 +44,11 @@ MainScene::MainScene()
         c->initRand();
     }
     //getEntrance();
+    particle_ = new ParticleExample();
+    particle_->setPosition(window_w_ / 2, 0);
+    particle_->setPosVar({ 1.0f * window_w_ / 2, 0 });
+    particle_->stopSystem();
+    addChild(particle_);
 }
 
 MainScene::~MainScene()
@@ -69,7 +74,11 @@ void MainScene::draw()
     //LOG("main\n");
     int k = 0;
     //auto t0 = Engine::getInstance()->getTicks();
-    struct DrawInfo { int i; Point p; };
+    struct DrawInfo
+    {
+        int i;
+        Point p;
+    };
     std::map<int, DrawInfo> map;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
@@ -119,7 +128,7 @@ void MainScene::draw()
                     }
                     else
                     {
-                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;  //每个方向的第一张是静止图
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;    //每个方向的第一张是静止图
                         if (rest_time_ >= BEGIN_REST_TIME)
                         {
                             man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
@@ -155,11 +164,19 @@ void MainScene::backRun()
 {
     rest_time_++;    //只要出现走动，rest_time就会清零
     //云的贴图
+    view_cloud_ = 0;
     for (auto& c : cloud_vector_)
     {
         c->flow();
         c->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
+        int x, y;
+        c->getPosition(x, y);
+        if (x > -render_center_x_ * 1 && x < render_center_x_ * 3 && y > -0 && y < render_center_y_ * 2)
+        {
+            view_cloud_++;
+        }
     }
+    setWeather();
 }
 
 void MainScene::dealEvent(BP_Event& e)
@@ -222,7 +239,10 @@ void MainScene::dealEvent(BP_Event& e)
         x = p.x;
         y = p.y;
         auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None) { towards_ = tw; }
+        if (tw != Towards_None)
+        {
+            towards_ = tw;
+        }
         tryWalk(x, y);
         way_que_.pop_back();
         if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
@@ -244,7 +264,7 @@ void MainScene::dealEvent(BP_Event& e)
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         way_que_.clear();
-        if (canWalk(p.x, p.y)/* && !isOutScreen(p.x, p.y)*/)
+        if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
         {
             FindWay(x, y, p.x, p.y);
         }
@@ -258,9 +278,7 @@ void MainScene::dealEvent(BP_Event& e)
             {
                 for (int iy = buiding_y + 1; iy > buiding_y - 9; iy--)
                 {
-                    if (build_x_layer_->data(ix, iy) == buiding_x
-                        && build_y_layer_->data(ix, iy) == buiding_y
-                        && checkEntrance(ix, iy, true))
+                    if (build_x_layer_->data(ix, iy) == buiding_x && build_y_layer_->data(ix, iy) == buiding_y && checkEntrance(ix, iy, true))
                     {
                         p.x = ix;
                         p.y = iy;    //p的值变化了
@@ -268,16 +286,31 @@ void MainScene::dealEvent(BP_Event& e)
                         break;
                     }
                 }
-                if (found_entrance) { break; }
+                if (found_entrance)
+                {
+                    break;
+                }
             }
             if (found_entrance)
             {
                 //在入口四周查找一个可以走到的地方
                 std::vector<Point> ps;
-                if (canWalk(p.x - 1, p.y)) { ps.push_back({ p.x - 1, p.y }); }
-                if (canWalk(p.x + 1, p.y)) { ps.push_back({ p.x + 1, p.y }); }
-                if (canWalk(p.x, p.y - 1)) { ps.push_back({ p.x, p.y - 1 }); }
-                if (canWalk(p.x, p.y + 1)) { ps.push_back({ p.x, p.y + 1 }); }
+                if (canWalk(p.x - 1, p.y))
+                {
+                    ps.push_back({ p.x - 1, p.y });
+                }
+                if (canWalk(p.x + 1, p.y))
+                {
+                    ps.push_back({ p.x + 1, p.y });
+                }
+                if (canWalk(p.x, p.y - 1))
+                {
+                    ps.push_back({ p.x, p.y - 1 });
+                }
+                if (canWalk(p.x, p.y + 1))
+                {
+                    ps.push_back({ p.x, p.y + 1 });
+                }
                 if (!ps.empty())
                 {
                     RandomDouble r;
@@ -342,9 +375,7 @@ bool MainScene::isWater(int x, int y)
     {
         return true;
     }
-    else if (pic >= 179 && pic <= 181
-        || pic >= 253 && pic <= 335
-        || pic >= 508 && pic <= 511)
+    else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
     {
         return true;
     }
@@ -360,7 +391,7 @@ bool MainScene::canWalk(int x, int y)
     //{
     //    return true;
     //}  这里不需要加，实际上入口都是无法走到的
-    if (isOutLine(x, y) || isBuilding(x, y)/*|| checkIsWater(x, y)*/)
+    if (isOutLine(x, y) || isBuilding(x, y) /*|| checkIsWater(x, y)*/)
     {
         return false;
     }
@@ -418,9 +449,47 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
 void MainScene::forceEnterSubScene(int submap_id, int x, int y)
 {
     force_submap_ = submap_id;
-    if (x >= 0) { force_submap_x_ = x; }
-    if (y >= 0) { force_submap_y_ = y; }
+    if (x >= 0)
+    {
+        force_submap_x_ = x;
+    }
+    if (y >= 0)
+    {
+        force_submap_y_ = y;
+    }
     setVisible(false);
+}
+
+void MainScene::setWeather()
+{
+    if (inNorth())
+    {
+        particle_->setStyle(ParticleExample::SNOW);
+        if (!particle_->isActive())
+        {
+            particle_->resetSystem();
+        }
+    }
+    else
+    {
+        if (view_cloud_)
+        {
+            particle_->setStyle(ParticleExample::RAIN);
+            particle_->setEmissionRate(50 * view_cloud_);
+            particle_->setGravity({ 0, -20 });
+            if (!particle_->isActive())
+            {
+                particle_->resetSystem();
+            }
+        }
+        else
+        {
+            if (particle_->isActive())
+            {
+                particle_->stopSystem();
+            }
+        }
+    }
 }
 
 void MainScene::setEntrance()
@@ -431,4 +500,3 @@ bool MainScene::isOutScreen(int x, int y)
 {
     return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }
-

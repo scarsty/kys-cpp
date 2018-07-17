@@ -2,6 +2,7 @@
 #include "Scene.h"
 #include "Cloud.h"
 #include "Types.h"
+#include "ParticleExample.h"
 
 class MainScene : public Scene
 {
@@ -10,7 +11,7 @@ private:
     ~MainScene();
 
 public:
-    static MainScene* getIntance()
+    static MainScene* getInstance()
     {
         static MainScene ms;
         return &ms;
@@ -58,4 +59,12 @@ public:
     bool checkEntrance(int x, int y, bool only_check = false);    //主地图主要是检测入口
 
     void forceEnterSubScene(int submap_id, int x, int y);    //在下一个事件循环会强制进入某场景，用于开始和读取存档
+
+    bool inNorth() { return man_x_ + man_y_ <= 220; }
+    int view_cloud_ = 0;
+    int getViewCloud() { return view_cloud_; }
+
+    void setWeather();
+    ParticleExample* getWeather() { return particle_; }
+    ParticleExample* particle_ = nullptr;
 };

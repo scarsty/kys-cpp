@@ -39,6 +39,7 @@ BattleScene::BattleScene()
     battle_cursor_ = new BattleCursor();
     battle_cursor_->setBattleScene(this);
     save_ = Save::getInstance();
+    addChild(MainScene::getInstance()->getWeather());
 }
 
 BattleScene::BattleScene(int id)
@@ -272,6 +273,15 @@ void BattleScene::onEntrance()
     }
     //排序
     sortRoles();
+
+    //if (MainScene::getIntance()->inNorth())
+    //{
+    //    auto c1 = ParticleCreator::create("snow");
+    //    addChild(c1);
+    //    c1->init();
+    //    c1->setPosition(512, 0);
+    //    c1->setPosVar({ 512, 0 });
+    //}
 }
 
 void BattleScene::onExit()
@@ -281,6 +291,10 @@ void BattleScene::onExit()
     {
         r->setRolePoitionLayer(nullptr);
     }
+}
+
+void BattleScene::backRun()
+{
 }
 
 //读取战斗信息，确定是选人物还是自动人物

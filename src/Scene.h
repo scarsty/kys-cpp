@@ -16,6 +16,9 @@ public:
     int render_center_x_ = 0;
     int render_center_y_ = 0;
 
+    int window_w_ = 0;
+    int window_h_ = 0;
+
     //int window_center_x_ = 0;
     //int window_center_y_ = 0;
 

@@ -41,44 +41,44 @@ struct Color4F
 class ParticleData
 {
 public:
-    float posx;
-    float posy;
-    float startPosX;
-    float startPosY;
+    float posx = 0;
+    float posy = 0;
+    float startPosX = 0;
+    float startPosY = 0;
 
-    float colorR;
-    float colorG;
-    float colorB;
-    float colorA;
+    float colorR = 0;
+    float colorG = 0;
+    float colorB = 0;
+    float colorA = 0;
 
-    float deltaColorR;
-    float deltaColorG;
-    float deltaColorB;
-    float deltaColorA;
+    float deltaColorR = 0;
+    float deltaColorG = 0;
+    float deltaColorB = 0;
+    float deltaColorA = 0;
 
-    float size;
-    float deltaSize;
-    float rotation;
-    float deltaRotation;
-    float timeToLive;
-    unsigned int atlasIndex;
+    float size = 0;
+    float deltaSize = 0;
+    float rotation = 0;
+    float deltaRotation = 0;
+    float timeToLive = 0;
+    unsigned int atlasIndex = 0;
 
     //! Mode A: gravity, direction, radial accel, tangential accel
     struct
     {
-        float dirX;
-        float dirY;
-        float radialAccel;
-        float tangentialAccel;
+        float dirX = 0;
+        float dirY = 0;
+        float radialAccel = 0;
+        float tangentialAccel = 0;
     } modeA;
 
     //! Mode B: radius mode
     struct
     {
-        float angle;
-        float degreesPerSecond;
-        float radius;
-        float deltaRadius;
+        float angle = 0;
+        float degreesPerSecond = 0;
+        float radius = 0;
+        float deltaRadius = 0;
     } modeB;
 };
 
@@ -637,11 +637,6 @@ public:
 protected:
     //virtual void updateBlendFunc();
 
-private:
-    friend class EngineDataManager;
-    /** Internal use only, it's used by EngineDataManager class for Android platform */
-    static void setTotalParticleCountFactor(float factor);
-
 protected:
     /** whether or not the particles are using blend additive.
      If enabled, the following blending function will be used.
@@ -702,7 +697,7 @@ protected:
     } modeB;
 
     //particle data
-    std::vector<ParticleData> _particleData;
+    std::vector<ParticleData> particle_data_;
 
     //Emitter name
     std::string _configName;
@@ -802,6 +797,4 @@ protected:
 
     /** is sourcePosition compatible */
     bool _sourcePositionCompatible;
-
-    static std::vector<ParticleSystem*> __allInstances;
 };

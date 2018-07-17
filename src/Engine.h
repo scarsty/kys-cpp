@@ -109,6 +109,7 @@ public:
     BP_Texture* createARGBRenderedTexture(int w, int h);
     void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
     void renderCopy(BP_Texture* t = nullptr);
+    void renderCopy(BP_Texture* t, BP_Rect* rect1, double angle);
     void showLogo() { SDL_RenderCopy(renderer_, logo_, nullptr, nullptr); }
     void renderPresent() { SDL_RenderPresent(renderer_); /*renderClear();*/ }
     void renderClear() { SDL_RenderClear(renderer_); }

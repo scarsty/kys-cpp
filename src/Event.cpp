@@ -1388,7 +1388,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 42: //改变主地图坐标
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(0, e1, e3);
-        MainScene::getIntance()->setManPosition(e2, e3);
+        MainScene::getInstance()->setManPosition(e2, e3);
         break;
     case 43: //调用另外事件
         e2 = e_GetValue(0, e1, e2);

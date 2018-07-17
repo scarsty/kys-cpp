@@ -1,19 +1,23 @@
-#include "ParticleExamples.h"
+#include "ParticleExample.h"
 
-//
-// ParticleFire
-//
-
-static Texture* getDefaultTexture()
+void ParticleExample::setStyle(PatticleStyle style)
 {
-    static Texture* t = TextureManager::getInstance()->loadTexture("title", 201);
-    return t;
-}
-
-bool ParticleFire::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    if (style_ == style)
     {
+        return;
+    }
+    style_ = style;
+    if (style == NONE)
+    {
+        stopSystem();
+    }
+    setTexture(getDefaultTexture());
+    switch (style)
+    {
+    case ParticleExample::FIRE:
+    {
+        initWithTotalParticles(250);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -65,27 +69,14 @@ bool ParticleFire::initWithTotalParticles(int numberOfParticles)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
+        _posVar = { 40.0f, 20.0f };
 
-        // additive
-        //this->setBlendAdditive(true);
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleFireworks
-//
-
-bool ParticleFireworks::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::FIRE_WORK:
     {
+        initWithTotalParticles(1500);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -137,26 +128,12 @@ bool ParticleFireworks::initWithTotalParticles(int numberOfParticles)
         _startSizeVar = 2.0f;
         _endSize = START_SIZE_EQUAL_TO_END_SIZE;
 
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-        // additive
-        //this->setBlendAdditive(false);
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleSun
-//
-
-bool ParticleSun::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::SUN:
     {
+        initWithTotalParticles(350);
+
         // additive
         //this->setBlendAdditive(true);
 
@@ -211,25 +188,11 @@ bool ParticleSun::initWithTotalParticles(int numberOfParticles)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleGalaxy
-//
-
-bool ParticleGalaxy::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::GALAXY:
     {
+        initWithTotalParticles(200);
         // duration
         _duration = DURATION_INFINITY;
 
@@ -285,27 +248,12 @@ bool ParticleGalaxy::initWithTotalParticles(int numberOfParticles)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(true);
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleFlower
-//
-
-bool ParticleFlower::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::FLOWER:
     {
+        initWithTotalParticles(250);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -360,27 +308,12 @@ bool ParticleFlower::initWithTotalParticles(int numberOfParticles)
         _endColorVar.g = 0.0f;
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
-
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(true);
-        return true;
+        break;
     }
-    return false;
-}
-//
-// ParticleMeteor
-//
-
-bool ParticleMeteor::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::METEOR:
     {
+        initWithTotalParticles(150);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -435,28 +368,12 @@ bool ParticleMeteor::initWithTotalParticles(int numberOfParticles)
         _endColorVar.g = 0.0f;
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
-
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(true);
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleSpiral
-//
-
-bool ParticleSpiral::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::SPIRAL:
     {
+        initWithTotalParticles(500);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -511,28 +428,12 @@ bool ParticleSpiral::initWithTotalParticles(int numberOfParticles)
         _endColorVar.g = 0.5f;
         _endColorVar.b = 0.5f;
         _endColorVar.a = 0.0f;
-
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(false);
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleExplosion
-//
-
-bool ParticleExplosion::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::EXPLOSION:
     {
+        initWithTotalParticles(700);
+
         // duration
         _duration = 0.1f;
 
@@ -586,28 +487,12 @@ bool ParticleExplosion::initWithTotalParticles(int numberOfParticles)
         _endColorVar.g = 0.5f;
         _endColorVar.b = 0.5f;
         _endColorVar.a = 0.0f;
-
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(false);
-        return true;
+        break;
     }
-    return false;
-}
-
-//
-// ParticleSmoke
-//
-
-bool ParticleSmoke::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::SMOKE:
     {
+        initWithTotalParticles(200);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -659,27 +544,13 @@ bool ParticleSmoke::initWithTotalParticles(int numberOfParticles)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(false);
-        return true;
+        _posVar = { 20.0f, 0.0f };
+        break;
     }
-    return false;
-}
-
-//
-// ParticleSnow
-//
-
-bool ParticleSnow::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::SNOW:
     {
+        initWithTotalParticles(700);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -735,26 +606,13 @@ bool ParticleSnow::initWithTotalParticles(int numberOfParticles)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
-
-        // additive
-        //this->setBlendAdditive(false);
-        return true;
+        _posVar = { float(Engine::getInstance()->getWindowsWidth() / 2), 0.0f };
+        break;
     }
-    return false;
-}
-//
-// ParticleRain
-//
-
-bool ParticleRain::initWithTotalParticles(int numberOfParticles)
-{
-    if (ParticleSystem::initWithTotalParticles(numberOfParticles))
+    case ParticleExample::RAIN:
     {
+        initWithTotalParticles(1000);
+
         // duration
         _duration = DURATION_INFINITY;
 
@@ -810,66 +668,11 @@ bool ParticleRain::initWithTotalParticles(int numberOfParticles)
         _endColorVar.a = 0.0f;
 
         Texture* texture = getDefaultTexture();
-        if (texture != nullptr)
-        {
-            setTexture(texture);
-        }
 
-        // additive
-        //this->setBlendAdditive(false);
-        return true;
+        _posVar = { float(Engine::getInstance()->getWindowsWidth() / 2), 0.0f };
+        break;
     }
-    return false;
-}
-
-ParticleSystem* ParticleCreator::create(const std::string type)
-{
-    ParticleSystem* p = nullptr;
-    auto type1 = type;
-    std::transform(type1.begin(), type1.end(), type1.begin(),::tolower);
-    if (type1=="fire")
-    {
-        p = new ParticleFire();
+    default:
+        break;
     }
-    else if (type1=="fileworks")
-    {
-        p = new ParticleFireworks();
-    }
-    else if (type1 == "sun")
-    {
-        p = new ParticleSun();
-    }
-    else if (type1 == "galaxy")
-    {
-        p = new ParticleGalaxy();
-    }
-    else if (type1 == "flower")
-    {
-        p = new ParticleFlower();
-    }
-    else if (type1 == "meteor")
-    {
-        p = new ParticleMeteor();
-    }
-    else if (type1 == "spiral")
-    {
-        p = new ParticleSpiral();
-    }
-    else if (type1 == "explosion")
-    {
-        p = new ParticleExplosion();
-    }
-    else if (type1 == "smoke")
-    {
-        p = new ParticleSmoke();
-    }
-    else if (type1 == "snow")
-    {
-        p = new ParticleSnow();
-    }
-    else if (type1 == "rain")
-    {
-        p = new ParticleRain();
-    }
-    return p;
 }

@@ -4,7 +4,6 @@
 #include "Event.h"
 #include "MainScene.h"
 #include "Menu.h"
-#include "ParticleExamples.h"
 #include "Random.h"
 #include "RandomRole.h"
 #include "Script.h"
@@ -62,10 +61,10 @@ void TitleScene::dealEvent(BP_Event& e)
         random_role->setRole(Save::getInstance()->getRole(0));
         if (random_role->runAtPosition(300, 0) == 0)
         {
-            MainScene::getIntance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-            MainScene::getIntance()->forceEnterSubScene(70, 19, 20);
-            MainScene::getIntance()->setTowards(1);
-            MainScene::getIntance()->run();
+            MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+            MainScene::getInstance()->forceEnterSubScene(70, 19, 20);
+            MainScene::getInstance()->setTowards(1);
+            MainScene::getInstance()->run();
         }
     }
     if (r == 1)
@@ -74,7 +73,7 @@ void TitleScene::dealEvent(BP_Event& e)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //²âÊÔÓÃ
             //Script::getInstance()->runScript("../game/script/0.lua");
-            MainScene::getIntance()->run();
+            MainScene::getInstance()->run();
         }
     }
     if (r == 2)
@@ -87,13 +86,4 @@ void TitleScene::onEntrance()
 {
     Engine::getInstance()->playVideo("");
     Audio::getInstance()->playMusic(16);
-    auto c1 = new ParticleFire();
-    addChild(c1);
-    c1->setPosition(50, 630);
-    c1->init();
-    auto c2 = new ParticleFire();
-    addChild(c2);
-    c2->setPosition(1024 - 50, 630);
-    c2->init();
-    //c->initWithTotalParticles(100);
 }

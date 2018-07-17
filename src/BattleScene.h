@@ -63,6 +63,7 @@ public:
     virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void backRun() override;
 
     void readBattleInfo();                                          //读取战场人物的数据
     void setRoleInitState(Role* r);                                 //初始化人物的属性

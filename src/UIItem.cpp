@@ -216,7 +216,7 @@ void UIItem::showItemProperty(Item* item)
     if (item->isCompass())
     {
         int man_x, man_y;
-        MainScene::getIntance()->getManPosition(man_x, man_y);
+        MainScene::getInstance()->getManPosition(man_x, man_y);
         auto str = convert::formatString("®”Ç°×ø˜Ë %d, %d", man_x, man_y);
         showOneProperty(1, str, size, c, x, y);
     }

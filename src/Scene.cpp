@@ -5,6 +5,7 @@
 
 Scene::Scene()
 {
+    Engine::getInstance()->getWindowSize(window_w_, window_h_);
 }
 
 Scene::~Scene()
