@@ -40,6 +40,7 @@ BattleScene::BattleScene()
     battle_cursor_->setBattleScene(this);
     save_ = Save::getInstance();
     addChild(MainScene::getInstance()->getWeather());
+    semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
 }
 
 BattleScene::BattleScene(int id)
@@ -71,7 +72,6 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
-    auto r0 = battle_roles_[0];    //当前正在行动中的角色
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 #ifndef _DEBUG
@@ -88,7 +88,7 @@ void BattleScene::draw()
             {
                 int num = earth_layer_->data(ix, iy) / 2;
                 BP_Color color = { 255, 255, 255, 255 };
-                if (battle_cursor_->isRunning() && !r0->isAuto())    //如果是自动人物没有变暗的选择效果看着太乱
+                if (battle_cursor_->isRunning() && !acting_role_->isAuto())    //如果是自动人物没有变暗的选择效果看着太乱
                 {
                     if (select_layer_->data(ix, iy) < 0)
                     {
@@ -147,16 +147,16 @@ void BattleScene::draw()
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
-                    if (battle_cursor_->isRunning() && !r0->isAuto())
+                    if (battle_cursor_->isRunning() && !acting_role_->isAuto())
                     {
                         color = { 128, 128, 128, 255 };
-                        if (inEffect(r0, r))
+                        if (inEffect(acting_role_, r))
                         {
                             color = { 255, 255, 255, 255 };
                         }
                     }
                     int pic;
-                    if (r == r0)
+                    if (r == acting_role_)
                     {
                         pic = calRolePic(r, action_type_, action_frame_);
                     }
@@ -173,7 +173,7 @@ void BattleScene::draw()
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
-                    int dis = calDistance(r0->X(), r0->Y(), ix, iy);
+                    int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
                     num = effect_frame_ - dis + rand_.rand_int(3) - rand_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
@@ -182,10 +182,26 @@ void BattleScene::draw()
     }
     Engine::getInstance()->renderAssistTextureToWindow();
 
+    if (semi_real_)
+    {
+        TextureManager::getInstance()->renderTexture("title", 202, 200, window_h_ - 100);
+        for (auto r : battle_roles_)
+        {
+            int x = 300 + r->Progress / 2;
+            uint8_t alpha = 255;
+            if (r->HP <= 0)
+            {
+                alpha = dead_alpha_;
+            }
+            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, window_h_ - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
+        }
+    }
+
     if (result_ >= 0)
     {
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     }
+
     //printf("Battle scene drawn\n");
 }
 
@@ -196,34 +212,69 @@ void BattleScene::dealEvent(BP_Event& e)
         exitWithResult(0);
     }
 
-    //选择位于人物数组中的第一个人
-    auto r = battle_roles_[0];
-
-    //若第一个人已经行动过，说明所有人都行动了，则清除行动状态，重排人物
-    if (r->Acted != 0)
+    Role* role = nullptr;
+    if (semi_real_ == 0)
     {
-        resetRolesAct();
-        sortRoles();
-        r = battle_roles_[0];
+        //选择位于人物数组中的第一个人
+        role = battle_roles_[0];
+
+        //若第一个人已经行动过，说明所有人都行动了，则清除行动状态，重排人物
+        if (role->Acted != 0)
+        {
+            resetRolesAct();
+            sortRoles();
+            role = battle_roles_[0];
+        }
+    }
+    else
+    {
+        //首先试图选出一人
+        for (auto r : battle_roles_)
+        {
+            if (r->Progress > 1000)
+            {
+                role = r;
+                break;
+            }
+        }
+        //无法选出人，增加所有人进度条，继续
+        if (role == nullptr)
+        {
+            for (auto r : battle_roles_)
+            {
+                r->Progress += r->Speed / 4;
+            }
+            return;
+        }
     }
 
+    acting_role_ = role;
+
     //定位
-    man_x_ = r->X();
-    man_y_ = r->Y();
-    select_x_ = r->X();
-    select_y_ = r->Y();
-    head_self_->setRole(r);
+    man_x_ = role->X();
+    man_y_ = role->Y();
+    select_x_ = role->X();
+    select_y_ = role->Y();
+    head_self_->setRole(role);
     head_self_->setState(Element::Pass);
 
     //行动
-    action(r);
+    action(role);
 
     //如果此人成功行动过，则放到队尾
-    if (r->Acted)
+    if (role->Acted)
     {
-        battle_roles_.erase(battle_roles_.begin());
-        battle_roles_.push_back(r);
-        poisonEffect(r);
+        if (semi_real_ == 0)
+        {
+            battle_roles_.erase(battle_roles_.begin());
+            battle_roles_.push_back(role);
+        }
+        else
+        {
+            role->Progress -= 1000;
+            resetRolesAct();
+        }
+        poisonEffect(role);
     }
 
     //清除被击退的人物
@@ -273,7 +324,7 @@ void BattleScene::onEntrance()
     }
     //排序
     sortRoles();
-
+    acting_role_ = battle_roles_[0];
     //if (MainScene::getIntance()->inNorth())
     //{
     //    auto c1 = ParticleCreator::create("snow");
@@ -450,12 +501,24 @@ void BattleScene::readFightFrame(Role* r)
 
 void BattleScene::sortRoles()
 {
-    std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
+    if (semi_real_ == 0)
+    {
+        std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
+    }
+    else
+    {
+        std::sort(battle_roles_.begin(), battle_roles_.end(), compareRoleReal);
+    }
 }
 
 bool BattleScene::compareRole(Role* r1, Role* r2)
 {
     return r1->Speed > r2->Speed;
+}
+
+bool BattleScene::compareRoleReal(Role* r1, Role* r2)
+{
+    return r1->Progress > r2->Progress;
 }
 
 void BattleScene::resetRolesAct()
@@ -733,10 +796,7 @@ bool BattleScene::isBuilding(int x, int y)
 bool BattleScene::isWater(int x, int y)
 {
     int num = earth_layer_->data(x, y) / 2;
-    if (num >= 179 && num <= 181
-        || num == 261 || num == 511
-        || num >= 662 && num <= 665
-        || num == 674)
+    if (num >= 179 && num <= 181 || num == 261 || num == 511 || num >= 662 && num <= 665 || num == 674)
     {
         return true;
     }
@@ -1307,6 +1367,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                     {
                         r->ExpGot += hurt1 / 2;
                     }
+                    r2->ProgressChange = -hurt / 5;
                 }
                 else if (m->HurtType == 1)
                 {
@@ -1358,6 +1419,7 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
     return v;
 }
 
+//显示数字，同时显示打退进度条
 void BattleScene::showNumberAnimation()
 {
     //判断是否有需要显示的数字
@@ -1376,7 +1438,7 @@ void BattleScene::showNumberAnimation()
     }
 
     int size = 28;
-    for (int i = 0; i <= 10; i++)
+    for (int i = 0; i < 10; i++)
     {
         auto drawNumber = [&](void*) -> void
         {
@@ -1389,6 +1451,7 @@ void BattleScene::showNumberAnimation()
                     int y = p.y - 75 - i * 2;
                     Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
                 }
+                r->Progress += r->ProgressChange / 10;
             }
         };
         drawAndPresent(animation_delay_, drawNumber);
@@ -1397,6 +1460,8 @@ void BattleScene::showNumberAnimation()
     for (auto r : battle_roles_)
     {
         r->ShowString.clear();
+        r->Progress += r->ProgressChange - 10 * (r->ProgressChange / 10);
+        r->ProgressChange = 0;
     }
 }
 

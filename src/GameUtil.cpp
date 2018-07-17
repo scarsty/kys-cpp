@@ -5,12 +5,15 @@
 
 GameUtil::GameUtil()
 {
+    loadFile("../game/config/kysmod.ini");
     auto str = convert::readStringFromFile("../game/list/levelup.txt");
     level_up_list_ = convert::findNumbers<int>(str);
     if (level_up_list_.size() < Role::getMaxValue()->Level)
     {
         level_up_list_.resize(Role::getMaxValue()->Level, 60000);
     }
+    setRoleMaxValue(Role::getMaxValue());
+    setSpecialItems();
 }
 
 GameUtil::~GameUtil()
@@ -379,4 +382,65 @@ int GameUtil::usePoison(Role* r1, Role* r2)
     r2->Poison += r1->UsePoison / 3;
     GameUtil::limit2(r2->Poison, 0, Role::getMaxValue()->Poison);
     return r2->Poison - temp;
+}
+
+void GameUtil::setRoleMaxValue(Role* role)
+{
+#define GET_VALUE_INT(v, default_v)                  \
+    do                                               \
+    {                                                \
+        role->v = getInt("constant", #v, default_v); \
+        printf("%s = %d\n", #v, role->v);            \
+    } while (0)
+
+    printf("Max values of roles: \n");
+
+    GET_VALUE_INT(Level, 30);
+    GET_VALUE_INT(HP, 999);
+    GET_VALUE_INT(MP, 999);
+    GET_VALUE_INT(PhysicalPower, 100);
+
+    GET_VALUE_INT(Poison, 100);
+
+    GET_VALUE_INT(Attack, 100);
+    GET_VALUE_INT(Defence, 100);
+    GET_VALUE_INT(Speed, 100);
+
+    GET_VALUE_INT(Medcine, 100);
+    GET_VALUE_INT(UsePoison, 100);
+    GET_VALUE_INT(Detoxification, 100);
+    GET_VALUE_INT(AntiPoison, 100);
+
+    GET_VALUE_INT(Fist, 100);
+    GET_VALUE_INT(Sword, 100);
+    GET_VALUE_INT(Knife, 100);
+    GET_VALUE_INT(Unusual, 100);
+    GET_VALUE_INT(HiddenWeapon, 100);
+
+    GET_VALUE_INT(Knowledge, 100);
+    GET_VALUE_INT(Morality, 100);
+    GET_VALUE_INT(AttackWithPoison, 100);
+    GET_VALUE_INT(Fame, 999);
+    GET_VALUE_INT(IQ, 100);
+
+    GET_VALUE_INT(Exp, 99999);
+
+    printf("\n");
+
+#undef GET_VALUE_INT
+}
+
+void GameUtil::setSpecialItems()
+{
+#define GET_VALUE_INT(v)                           \
+    do                                             \
+    {                                              \
+        Item::v = getInt("constant", #v, Item::v); \
+        printf("%s = %d\n", #v, Item::v);          \
+    } while (0)
+
+    GET_VALUE_INT(MoneyItemID);
+    GET_VALUE_INT(CompassItemID);
+
+#undef GET_VALUE_INT
 }

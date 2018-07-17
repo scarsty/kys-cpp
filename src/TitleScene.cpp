@@ -12,6 +12,8 @@
 #include "TitleScene.h"
 #include "UISave.h"
 #include "UIShop.h"
+#include "INIReader.h"
+#include "GameUtil.h"
 
 TitleScene::TitleScene()
 {
@@ -56,14 +58,15 @@ void TitleScene::dealEvent(BP_Event& e)
     if (r == 0)
     {
         Save::getInstance()->load(0);
-        Script::getInstance()->runScript("../game/script/0.lua");
+        //Script::getInstance()->runScript("../game/script/0.lua");
         auto random_role = new RandomRole();
         random_role->setRole(Save::getInstance()->getRole(0));
+        random_role->setRoleName(GameUtil::getInstance()->getString("constant", "name"));
         if (random_role->runAtPosition(300, 0) == 0)
         {
             MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-            MainScene::getInstance()->forceEnterSubScene(70, 19, 20);
             MainScene::getInstance()->setTowards(1);
+            MainScene::getInstance()->forceEnterSubScene(GameUtil::getInstance()->getInt("constant", "begin_scene", 70), 19, 20, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
             MainScene::getInstance()->run();
         }
     }

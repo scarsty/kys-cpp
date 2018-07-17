@@ -21,6 +21,7 @@ public:
     void setShowButton(bool b) { show_button_ = b; }
 
     void setRole(Role* r) { role_ = r; }
+    void setRoleName(std::string name);
     Role* getRole() { return role_; }
 };
 

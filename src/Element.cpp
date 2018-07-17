@@ -245,7 +245,7 @@ void Element::dealEventSelfChilds(bool check_event)
         while (Engine::pollEvent(e))
         {
             //一些按键类提前停止避免丢键
-            if (e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYDOWN || e.type == BP_KEYUP)
+            if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYDOWN || e.type == BP_KEYUP)
             {
                 break;
             }
@@ -259,7 +259,7 @@ void Element::dealEventSelfChilds(bool check_event)
         switch (e.type)
         {
         case BP_QUIT:
-            UISystem::askExit();
+            UISystem::askExit(1);
             break;
         default:
             break;

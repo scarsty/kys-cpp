@@ -18,7 +18,8 @@ public:
     ~BattleScene();
 
     std::vector<Role*> battle_roles_;
-    std::vector<Role*> friends_;    //保存开始就参战的人物，用来计算失败经验
+    std::vector<Role*> friends_;     //保存开始就参战的人物，用来计算失败经验
+    Role* acting_role_ = nullptr;    //当前正在行动中的角色
 
     BattleActionMenu* battle_menu_;
     BattleCursor* battle_cursor_;
@@ -56,6 +57,8 @@ public:
 
     bool fail_exp_ = false;
 
+    int semi_real_ = 0;
+
     void setHaveFailExp(bool b) { fail_exp_ = b; }    //是否输了也有经验
 
     virtual void draw() override;
@@ -71,6 +74,7 @@ public:
     void readFightFrame(Role* r);                                   //读取人物行动帧数
     void sortRoles();                                               //角色排序
     static bool compareRole(Role* r1, Role* r2);                    //角色排序的规则
+    static bool compareRoleReal(Role* r1, Role* r2);                //角色排序的规则
     void resetRolesAct();                                           //设置所有人未行动过
     int calMoveStep(Role* r);                                       //计算可移动步数(考虑装备)
     int calActionStep(int ability) { return ability / 15 + 1; }     //依据能力值计算行动的范围步数

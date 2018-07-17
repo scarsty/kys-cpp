@@ -1,5 +1,5 @@
-﻿#include "TextureManager.h"
-#include "File.h"
+﻿#include "File.h"
+#include "TextureManager.h"
 
 TextureManager::TextureManager()
 {
@@ -21,8 +21,9 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
     if (tex && tex->tex[0])
     {
         auto engine = Engine::getInstance();
-        engine->setColor(tex->tex[rand() % tex->count], c, alpha);
-        engine->renderCopy(tex->tex[rand() % tex->count], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
+        int i = rand() % tex->count;
+        engine->setColor(tex->tex[i], c, alpha);
+        engine->renderCopy(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
     }
 }
 
@@ -37,8 +38,9 @@ void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8
     auto engine = Engine::getInstance();
     if (tex && tex->tex[0])
     {
-        engine->setColor(tex->tex[rand() % tex->count], c, alpha);
-        engine->renderCopy(tex->tex[rand() % tex->count], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
+        int i = rand() % tex->count;
+        engine->setColor(tex->tex[i], c, alpha);
+        engine->renderCopy(tex->tex[i], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
     }
 }
 
@@ -98,25 +100,22 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
     //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针
     if (v.empty())
     {
-        char* s;
-        int l = 0;
-        File::readFile((p + "/index.ka").c_str(), &s, &l);
-        l /= 4;
-        if (l == 0)
+        std::vector<short> offset;
+        File::readFileToVector((p + "/index.ka").c_str(), offset);
+        if (offset.size() == 0)
         {
             v.resize(1);
             v[0] = nullptr;
             return;
         }
-        v.resize(l);
-        for (int i = 0; i < l; i++)
+        v.resize(offset.size() / 2);
+        for (int i = 0; i < v.size(); i++)
         {
             v[i] = new Texture();
-            v[i]->dx = *(short*)(s + i * 4);
-            v[i]->dy = *(short*)(s + i * 4 + 2);
+            v[i]->dx = offset[i * 2];
+            v[i]->dy = offset[i * 2 + 1];
         }
-        delete[] s;
-        printf("Load texture group from path: %s, find %d textures\n", p.c_str(), l);
+        printf("Load texture group from path: %s, find %d textures\n", p.c_str(), v.size());
     }
     if (load_all)
     {
@@ -145,7 +144,7 @@ void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
             for (int i = 0; i < Texture::SUB_TEXTURE_COUNT; i++)
             {
                 t->tex[i] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
-                if (!t->tex[i])
+                if (t->tex[i] == nullptr)
                 {
                     t->count = i;
                     break;

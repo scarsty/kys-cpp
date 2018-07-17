@@ -14,15 +14,10 @@ struct Texture
         SUB_TEXTURE_COUNT = 10,
     };
 
-    BP_Texture* tex[SUB_TEXTURE_COUNT];
+    BP_Texture* tex[SUB_TEXTURE_COUNT] = { nullptr };
     int w = 0, h = 0, dx = 0, dy = 0;
     bool loaded = false;
     int count = 1;
-    Texture()
-    {
-        for (int i = 0; i < SUB_TEXTURE_COUNT; tex[i++] = nullptr)
-            ;
-    }
     ~Texture() { destory(); }
     void setTex(BP_Texture* t)
     {

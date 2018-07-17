@@ -283,6 +283,18 @@ void Event::callLeaveEvent(Role* role)
     callEvent(getLeaveEvent(role));
 }
 
+void Event::setUseScript(int u)
+{
+    use_script_ = u;
+    if (u)
+    {
+        auto str = convert::readStringFromFile("../game/script/talk.txt");
+        convert::replaceAllString(str, "\r", "");
+        convert::replaceAllString(str, "*", "");
+        talk_contents_ = convert::splitString(str, "\n");
+    }
+}
+
 //原对话指令
 void Event::oldTalk(int talk_id, int head_id, int style)
 {
@@ -751,6 +763,7 @@ void Event::openSubMap(int submap_id)
 void Event::setTowards(int towards)
 {
     subscene_->towards_ = (Towards)towards;
+    subscene_->force_man_pic_ = -1;
 }
 
 void Event::roleAddItem(int role_id, int item_id, int count)

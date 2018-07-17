@@ -13,6 +13,6 @@ public:
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override { exitWithResult(-1); }
 
-    static int askExit();
+    static int askExit(int mode = 0);
 };
 

@@ -312,6 +312,11 @@ void SubScene::onEntrance()
             e->CurrentPic = e->BeginPic + e->PicDelay * 2 % (e->EndPic - e->BeginPic);
         }
     }
+
+    if (force_begin_event_ >= 0)
+    {
+        Event::getInstance()->callEvent(force_begin_event_, this);
+    }
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
 
     //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);

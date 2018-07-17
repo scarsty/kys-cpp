@@ -22,6 +22,8 @@ public:
 
     int force_man_pic_ = -1;
 
+    int force_begin_event_ = -1;
+
 public:
     SubMapInfo* getMapInfo() { return submap_info_; }
 
@@ -71,6 +73,7 @@ public:
     void forceExit();
     void forceJumpSubScene(int submap_id, int x, int y);
 
+    void setForceBeginEvent(int e) { force_begin_event_ = e; }
 
 };
 

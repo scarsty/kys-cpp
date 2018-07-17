@@ -2,6 +2,7 @@
 #include "UISave.h"
 #include "Event.h"
 #include "Script.h"
+#include "Engine.h"
 
 UISystem::UISystem()
 {
@@ -47,7 +48,7 @@ void UISystem::onPressedOK()
     title_->setResult(-1);
 }
 
-int UISystem::askExit()
+int UISystem::askExit(int mode)
 {
     static bool asking = false;
     int ret = -1;
@@ -56,9 +57,15 @@ int UISystem::askExit()
         asking = true;
         auto menu = new MenuText();
         menu->setStrings({ "ëxé_ß[‘ò", "·µ»Øé_î^", "ÎÒücåeÁË" });
-        menu->setFontSize(50);
-        menu->arrange(0, 0, 0, 100);
-        int r = menu->runAtPosition(760, 100);
+        menu->setFontSize(24);
+        menu->arrange(0, 0, 0, 40);
+        int x = 760, y = 100;
+        if (mode == 1)
+        {
+            x = Engine::getInstance()->getWindowsWidth() - 150;
+            y = 20;
+        }
+        int r = menu->runAtPosition(x, y);
         if (r == 0)
         {
             exitAll();
