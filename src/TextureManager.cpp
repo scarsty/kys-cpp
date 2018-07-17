@@ -115,7 +115,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
             v[i]->dx = *(short*)(s + i * 4);
             v[i]->dy = *(short*)(s + i * 4 + 2);
         }
-        delete s;
+        delete[] s;
         printf("Load texture group from path: %s, find %d textures\n", p.c_str(), l);
     }
     if (load_all)
