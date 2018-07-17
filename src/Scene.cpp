@@ -232,15 +232,15 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     };
 
     way_que_.clear();
-    std::map<std::pair<int, int>, PointAStar*> point_map;                                   //已经访问过的点的指针(关闭列表)
+    std::map<std::pair<int, int>, PointAStar> point_map;                                   //已经访问过的点的指针(关闭列表)
     Point dirs[4] = { { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, 0 } };                           //四个方向
     std::priority_queue<PointAStar*, std::vector<PointAStar*>, PointAStar::Compare> que;    //最小优先级队列(开启列表)
     //RandomDouble rand;
 
-    auto begin_point = new PointAStar(Mx, My);
-    begin_point->calF(Fx, Fy);
+    auto begin_point = PointAStar(Mx, My);
+    begin_point.calF(Fx, Fy);
     point_map[{ Mx, My }] = begin_point;
-    que.push(begin_point);
+    que.push(&begin_point);
 
     int s_num = 0;
     while (!que.empty() && s_num <= 4096)
@@ -263,23 +263,18 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
             for (int i = 0; i < 4; i++)
             {
                 int x = t->x + dirs[i].x, y = t->y + dirs[i].y;
-                auto s = new PointAStar(x, y);
-                if ((canWalk(x, y) || x == Fx && y == Fy) && point_map.count({ x, y }) == 0)
+                if ((canWalk(x, y) || x == Fx && y == Fy) && point_map.find({ x, y }) == point_map.end())
                 {
-                    point_map[{ x, y }] = s;
-                    s->setParent(t);
-                    s->calF(Fx, Fy);
-                    que.push(s);
+                    point_map[{ x, y }] = PointAStar(x, y);
+                    auto& point_ref = point_map[{ x, y }];
+                    point_ref.setParent(t);
+                    point_ref.calF(Fx, Fy);
+                    que.push(&point_ref);
                 }
             }
         }
     }
     printf("Found a way in %d times, %d steps\n", s_num, way_que_.size());
-    //最终统一在此销毁指针
-    for (auto t : point_map)
-    {
-        delete t.second;
-    }
 }
 
 void Scene::lightScene()
