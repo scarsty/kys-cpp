@@ -301,7 +301,7 @@ void BattleScene::dealEvent2(BP_Event& e)
     {
         for (auto r : battle_roles_)
         {
-            if (r->Team == 0)
+            if (r->Team == 0 && r->Auto == 1)    //注意：auto为其他值的不能取消
             {
                 r->Auto = 0;
             }
@@ -394,6 +394,7 @@ void BattleScene::readBattleInfo()
             if (r)
             {
                 friends_.push_back(r);
+                r->Auto = 2;    //由AI控制
             }
         }
     }
@@ -881,6 +882,7 @@ void BattleScene::action(Role* r)
         actRest(r);
     }
 
+    //下一个行动的，菜单项从第一个开始
     if (r->Acted)
     {
         battle_menu_->setStartItem(0);

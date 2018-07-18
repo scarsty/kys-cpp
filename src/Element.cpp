@@ -271,42 +271,28 @@ void Element::dealEventSelfChilds(bool check_event)
     }
 }
 
-void Element::forcePassChild()
+void Element::forceActiveChild()
 {
     for (int i = 0; i < childs_.size(); i++)
     {
         childs_[i]->setState(Normal);
-        if (i == pass_child_)
+        if (i == active_child_)
         {
             childs_[i]->setState(Pass);
-        }
-        if (i == press_child_)
-        {
-            childs_[i]->setState(Press);
         }
     }
 }
 
 void Element::checkChildState()
 {
-    press_child_ = -1;
-    //pass_child_ = -1;  //注意pass是不改的，维持上一次的状态
+    //注意active是不改的，维持上一次的状态
     //获取子节点的状态
     for (int i = 0; i < getChildCount(); i++)
     {
-        if (getChild(i)->getState() == Press)
+        if (getChild(i)->getState() != Normal)
         {
-            press_child_ = i;
-            pass_child_ = i;
+            active_child_ = i;
         }
-        if (getChild(i)->getState() == Pass)
-        {
-            pass_child_ = i;
-        }
-    }
-    if (press_child_ >= 0)
-    {
-        pass_child_ = press_child_;
     }
 }
 
