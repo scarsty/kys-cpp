@@ -180,11 +180,9 @@ void BattleScene::draw()
             }
         }
     }
-    Engine::getInstance()->renderAssistTextureToWindow();
-
     if (semi_real_)
     {
-        int h = Engine::getInstance()->getWindowHeight();
+        int h = render_center_y_ * 2;
         TextureManager::getInstance()->renderTexture("title", 202, 200, h - 100);
         for (auto r : battle_roles_)
         {
@@ -197,6 +195,8 @@ void BattleScene::draw()
             TextureManager::getInstance()->renderTexture("head", r->HeadID, x, h - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
         }
     }
+
+    Engine::getInstance()->renderAssistTextureToWindow();
 
     if (result_ >= 0)
     {
@@ -1443,6 +1443,10 @@ void BattleScene::showNumberAnimation()
     int size = 28;
     for (int i = 0; i < 10; i++)
     {
+        if (exit_)
+        {
+            break;
+        }
         auto drawNumber = [&](void*) -> void
         {
             for (auto r : battle_roles_)

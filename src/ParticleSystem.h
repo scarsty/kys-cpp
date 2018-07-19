@@ -2,8 +2,7 @@
 
 //移植自Cocos2dx，版权声明请查看licenses文件夹
 
-#include "Element.h"
-#include "TextureManager.h"
+#include "SDL2/SDL.h"
 #include <vector>
 
 struct Pointf
@@ -116,7 +115,7 @@ emitter.startSpin = 0;
 
 */
 
-class ParticleSystem : public Element
+class ParticleSystem
 {
 public:
     enum class Mode
@@ -581,12 +580,9 @@ public:
     void setOpacityModifyRGB(bool opacityModifyRGB) { _opacityModifyRGB = opacityModifyRGB; }
     bool isOpacityModifyRGB() const { return _opacityModifyRGB; }
 
-    // Overrides
-    virtual void onEntrance() override;
-    virtual void onExit() override;
-    virtual Texture* getTexture() const;
-    virtual void setTexture(Texture* texture);
-    virtual void draw() override;
+    SDL_Texture* getTexture();
+    void setTexture(SDL_Texture* texture);
+    void draw();
     void update();
 
     ParticleSystem();
@@ -613,9 +609,9 @@ protected:
     bool _isBlendAdditive = true;
 
     /** whether or not the node will be auto-removed when it has no particles left.
-     By default it is false.
-     @since v0.8
-     */
+    By default it is false.
+    @since v0.8
+    */
     bool _isAutoRemoveOnFinish = false;
 
     std::string _plistFile;
@@ -710,9 +706,9 @@ protected:
     float _angleVar = 0;
 
     /** Switch between different kind of emitter modes:
-     - kParticleModeGravity: uses gravity, speed, radial and tangential acceleration
-     - kParticleModeRadius: uses radius movement + rotation
-     */
+    - kParticleModeGravity: uses gravity, speed, radial and tangential acceleration
+    - kParticleModeRadius: uses radius movement + rotation
+    */
     Mode _emitterMode = Mode::GRAVITY;
 
     /** start size in pixels of each particle */
@@ -744,7 +740,7 @@ protected:
     /** maximum particles of the system */
     int _totalParticles = 0;
     /** conforms to CocosNodeTexture protocol */
-    Texture* _texture = nullptr;
+    SDL_Texture* _texture = nullptr;
     /** conforms to CocosNodeTexture protocol */
     //BlendFunc _blendFunc;
     /** does the alpha value modify color */
@@ -753,8 +749,8 @@ protected:
     int _yCoordFlipped = 1;
 
     /** particles movement type: Free or Grouped
-     @since v0.8
-     */
+    @since v0.8
+    */
     //PositionType _positionType;
 
     /** is the emitter paused */
@@ -762,4 +758,10 @@ protected:
 
     /** is sourcePosition compatible */
     bool _sourcePositionCompatible = false;
+
+    SDL_Renderer* _renderer = nullptr;
+    int x_ = 0, y_ = 0;
+public:
+    void setRenderer(SDL_Renderer* ren) { _renderer = ren; }
+    void setPosition(int x, int y) { x_ = x; y_ = y; }
 };

@@ -138,9 +138,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Application.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="resource\resource.h">
       <Filter>_Resources</Filter>
     </ClInclude>
@@ -281,6 +278,9 @@
     </ClInclude>
     <ClInclude Include="src\Point.h">
       <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Application.h">
+      <Filter>application</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

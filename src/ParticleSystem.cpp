@@ -1,4 +1,5 @@
 #include "ParticleSystem.h"
+#include <algorithm>
 #include <assert.h>
 #include <string>
 
@@ -62,6 +63,7 @@ ParticleSystem::ParticleSystem()
 }
 
 // implementation ParticleSystem
+
 bool ParticleSystem::initWithTotalParticles(int numberOfParticles)
 {
     _totalParticles = numberOfParticles;
@@ -197,13 +199,13 @@ void ParticleSystem::addParticles(int count)
     if (_emitterMode == Mode::GRAVITY)
     {
 
-        // radial acceleration
+        // radial accel
         for (int i = start; i < _particleCount; ++i)
         {
             particle_data_[i].modeA.radialAccel = modeA.radialAccel + modeA.radialAccelVar * RANDOM_M11(&RANDSEED);
         }
 
-        // tangential acceleration
+        // tangential accel
         for (int i = start; i < _particleCount; ++i)
         {
             particle_data_[i].modeA.tangentialAccel = modeA.tangentialAccel + modeA.tangentialAccelVar * RANDOM_M11(&RANDSEED);
@@ -273,14 +275,6 @@ void ParticleSystem::addParticles(int count)
     }
 }
 
-void ParticleSystem::onEntrance()
-{
-}
-
-void ParticleSystem::onExit()
-{
-}
-
 void ParticleSystem::stopSystem()
 {
     _isActive = false;
@@ -342,13 +336,13 @@ void ParticleSystem::update()
         particle_data_[i].timeToLive -= dt;
     }
 
-    //ÔÙÉú
+    // rebirth
     for (int i = 0; i < _particleCount; ++i)
     {
         if (particle_data_[i].timeToLive <= 0.0f)
         {
             int j = _particleCount - 1;
-            //while (j > 0 && _particleData[i].timeToLive <= 0)
+            //while (j > 0 && particle_data_[i].timeToLive <= 0)
             //{
             //    _particleCount--;
             //    j--;
@@ -422,7 +416,7 @@ void ParticleSystem::update()
 }
 
 // ParticleSystem - Texture protocol
-void ParticleSystem::setTexture(Texture* var)
+void ParticleSystem::setTexture(SDL_Texture* var)
 {
     if (_texture != var)
     {
@@ -435,15 +429,17 @@ void ParticleSystem::draw()
     for (int i = 0; i < _particleCount; i++)
     {
         auto& p = particle_data_[i];
-        BP_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
-        BP_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
-        Engine::getInstance()->setColor(_texture->getTexture(), c, Uint8(p.colorA * 255));
-        Engine::getInstance()->renderCopy(_texture->getTexture(), &r, p.rotation);
+        SDL_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
+        SDL_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
+        SDL_SetTextureColorMod(_texture, c.r, c.g, c.b);
+        SDL_SetTextureAlphaMod(_texture, c.a);
+        SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
+        SDL_RenderCopyEx(_renderer, _texture, nullptr, &r, p.rotation, nullptr, SDL_FLIP_NONE);
     }
     update();
 }
 
-Texture* ParticleSystem::getTexture() const
+SDL_Texture* ParticleSystem::getTexture()
 {
     return _texture;
 }
