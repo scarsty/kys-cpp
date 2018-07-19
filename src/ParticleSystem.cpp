@@ -390,10 +390,6 @@ void ParticleSystem::update()
             tmp.y = particle_data_[i].modeA.dirY * dt * _yCoordFlipped;
             particle_data_[i].posx += tmp.x;
             particle_data_[i].posy += tmp.y;
-            if (tmp.y < 0)
-            {
-                printf("%f  %f ", tmp.y, modeA.gravity.y);
-            }
         }
     }
     else
