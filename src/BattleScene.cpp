@@ -184,7 +184,8 @@ void BattleScene::draw()
 
     if (semi_real_)
     {
-        TextureManager::getInstance()->renderTexture("title", 202, 200, window_h_ - 100);
+        int h = Engine::getInstance()->getWindowHeight();
+        TextureManager::getInstance()->renderTexture("title", 202, 200, h - 100);
         for (auto r : battle_roles_)
         {
             int x = 300 + r->Progress / 2;
@@ -193,7 +194,7 @@ void BattleScene::draw()
             {
                 alpha = dead_alpha_;
             }
-            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, window_h_ - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
+            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, h - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
         }
     }
 

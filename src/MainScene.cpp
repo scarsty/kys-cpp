@@ -45,8 +45,6 @@ MainScene::MainScene()
     }
     //getEntrance();
     particle_ = new ParticleExample();
-    particle_->setPosition(window_w_ / 2, 0);
-    particle_->setPosVar({ 1.0f * window_w_ / 2, 0 });
     particle_->stopSystem();
     addChild(particle_);
 }
@@ -467,6 +465,7 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
 
 void MainScene::setWeather()
 {
+    particle_->setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
     if (inNorth())
     {
         particle_->setStyle(ParticleExample::SNOW);

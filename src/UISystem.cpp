@@ -62,7 +62,7 @@ int UISystem::askExit(int mode)
         int x = 760, y = 100;
         if (mode == 1)
         {
-            x = Engine::getInstance()->getWindowsWidth() - 150;
+            x = Engine::getInstance()->getWindowWidth() - 150;
             y = 20;
         }
         int r = menu->runAtPosition(x, y);

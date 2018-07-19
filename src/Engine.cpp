@@ -290,14 +290,14 @@ int Engine::init(void* handle)
     return 0;
 }
 
-int Engine::getWindowsWidth()
+int Engine::getWindowWidth()
 {
     int w;
     SDL_GetWindowSize(window_, &w, nullptr);
     return w;
 }
 
-int Engine::getWindowsHeight()
+int Engine::getWindowHeight()
 {
     int h;
     SDL_GetWindowSize(window_, nullptr, &h);
