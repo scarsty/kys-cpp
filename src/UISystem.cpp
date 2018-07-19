@@ -23,20 +23,18 @@ void UISystem::onPressedOK()
     if (title_->getResult() == 0)
     {
         //读档
-        auto ui_save = new UISave();
-        ui_save->setMode(0);
-        ui_save->setFontSize(22);
-        result_ = ui_save->runAtPosition(400, 100);
-        delete ui_save;
+        UISave ui_save;
+        ui_save.setMode(0);
+        ui_save.setFontSize(22);
+        result_ = ui_save.runAtPosition(400, 100);
     }
     else if (title_->getResult() == 1)
     {
         //存档
-        auto ui_save = new UISave();
-        ui_save->setMode(1);
-        ui_save->setFontSize(22);
-        result_ = ui_save->runAtPosition(520, 100);
-        delete ui_save;
+        UISave ui_save;
+        ui_save.setMode(1);
+        ui_save.setFontSize(22);
+        result_ = ui_save.runAtPosition(520, 100);
     }
     else if (title_->getResult() == 2)
     {
@@ -56,17 +54,17 @@ int UISystem::askExit(int mode)
     if (!asking)
     {
         asking = true;
-        auto menu = new MenuText();
-        menu->setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
-        menu->setFontSize(24);
-        menu->arrange(0, 0, 0, 40);
+        MenuText menu;
+        menu.setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
+        menu.setFontSize(24);
+        menu.arrange(0, 0, 0, 40);
         int x = 760, y = 100;
         if (mode == 1)
         {
             x = Engine::getInstance()->getWindowWidth() - 150;
             y = 20;
         }
-        int r = menu->runAtPosition(x, y);
+        int r = menu.runAtPosition(x, y);
         if (r == 0)
         {
             exitAll();

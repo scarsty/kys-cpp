@@ -7,13 +7,6 @@ TextureManager::TextureManager()
 
 TextureManager::~TextureManager()
 {
-    for (auto& m : map_)
-    {
-        for (auto& t : m.second)
-        {
-            delete t;
-        }
-    }
 }
 
 void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t alpha)
@@ -67,10 +60,10 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
     auto& t = v[num];
     if (!t->loaded)
     {
-        loadTexture2(path, num, t);
+        loadTexture2(path, num, t.get());
         Engine::getInstance()->setTextureAlphaMod(t->getTexture(), SDL_BLENDMODE_BLEND);
     }
-    return t;
+    return t.get();
 }
 
 int TextureManager::getTextureGroupCount(const std::string& path)
@@ -104,6 +97,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
         File::readFileToVector((p + "/index.ka").c_str(), offset);
         if (offset.size() == 0)
         {
+            //如果没有这个空指针要求，完全可以抛弃指针
             v.resize(1);
             v[0] = nullptr;
             return;
@@ -111,7 +105,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
         v.resize(offset.size() / 2);
         for (int i = 0; i < v.size(); i++)
         {
-            v[i] = new Texture();
+            v[i] = std::unique_ptr<Texture>(new Texture());
             v[i]->dx = offset[i * 2];
             v[i]->dy = offset[i * 2 + 1];
         }
@@ -122,7 +116,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
         auto engine = Engine::getInstance();
         for (int i = 0; i < v.size(); i++)
         {
-            loadTexture2(path, i, v[i]);
+            loadTexture2(path, i, v[i].get());
         }
     }
 }

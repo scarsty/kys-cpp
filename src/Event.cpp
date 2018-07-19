@@ -50,11 +50,11 @@ bool Event::loadEventData()
     }
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = PotConv::cp950tocp936(talk + offset[i]);
+        std::string str = PotConv::cp950tocp936(talk.data() + offset[i]);
         convert::replaceAllString(str, "*", "");
         talk_contents_.push_back(str);
     }
-    delete talk;
+
     //读取事件，全部转为整型
     auto kdef = GrpIdxFile::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
     kdef_.resize(length.size());
@@ -63,10 +63,9 @@ bool Event::loadEventData()
         kdef_[i].resize(length[i] / sizeof(int16_t), -1);
         for (int k = 0; k < length[i] / sizeof(int16_t); k++)
         {
-            kdef_[i][k] = *(int16_t*)(kdef + offset[i] + k * 2);
+            kdef_[i][k] = *(int16_t*)(kdef.data() + offset[i] + k * 2);
         }
     }
-    delete kdef;
 
     //读取离队列表
     std::string leave_txt = convert::readStringFromFile("../game/list/leave.txt");
@@ -376,11 +375,10 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    auto battle = new BattleScene(battle_id);
-    battle->setHaveFailExp(get_exp);
-    int result = battle->run();
+    BattleScene battle(battle_id);
+    battle.setHaveFailExp(get_exp);
+    int result = battle.run();
     //int result = 0;    //测试用
-    delete battle;
     clearTalkBox();
 
     return result == 0;
@@ -1125,7 +1123,6 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     int i2 = 0;
     std::string str;
     std::vector<std::string> strs;
-    MenuText* menu = nullptr;
 
     auto save = Save::getInstance();
 
@@ -1376,18 +1373,19 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         break;
     case 39:
     case 40: //菜单
+	{
         e2 = e_GetValue(0, e1, e2);
         e5 = e_GetValue(1, e1, e5);
         e6 = e_GetValue(2, e1, e6);
-        menu = new MenuText();
+        MenuText menu;
         for (int i = 0; i < e2 - 1; i++)
         {
-            strs.push_back((char*)x50[x50[e3 + i]]);
+	        strs.push_back((char*)x50[x50[e3 + i]]);
         }
-        menu->setStrings(strs);
-        x50[e4] = menu->run();
-        delete menu;
+        menu.setStrings(strs);
+        x50[e4] = menu.run();
         break;
+	}
     case 41: //画一张图
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);

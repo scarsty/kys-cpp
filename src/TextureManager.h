@@ -1,6 +1,7 @@
 #pragma once
 #include "Engine.h"
 #include <map>
+#include <memory>
 #include <vector>
 
 //图片纹理类，用字串和编号来索引
@@ -49,6 +50,8 @@ private:
     virtual ~TextureManager();
     std::string path_ = "../game/resource/";
 
+    std::map<const std::string, std::vector<std::unique_ptr<Texture>>> map_;
+
 public:
     enum Type
     {
@@ -59,7 +62,7 @@ public:
         MaxType
     };
 
-    std::map<const std::string, std::vector<Texture*>> map_;
+    
 
     static TextureManager* getInstance()
     {
