@@ -1374,17 +1374,17 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 39:
     case 40: //²Ëµ¥
 	{
-		e2 = e_GetValue(0, e1, e2);
-		e5 = e_GetValue(1, e1, e5);
-		e6 = e_GetValue(2, e1, e6);
+        e2 = e_GetValue(0, e1, e2);
+        e5 = e_GetValue(1, e1, e5);
+        e6 = e_GetValue(2, e1, e6);
         MenuText menu;
-		for (int i = 0; i < e2 - 1; i++)
-		{
-			strs.push_back((char*)x50[x50[e3 + i]]);
-		}
-		menu.setStrings(strs);
-		x50[e4] = menu.run();
-		break;
+        for (int i = 0; i < e2 - 1; i++)
+        {
+	        strs.push_back((char*)x50[x50[e3 + i]]);
+        }
+        menu.setStrings(strs);
+        x50[e4] = menu.run();
+        break;
 	}
     case 41: //»­Ò»ÕÅÍ¼
         e3 = e_GetValue(0, e1, e3);

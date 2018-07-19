@@ -260,8 +260,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
                 int x = t->x + dirs[i].x, y = t->y + dirs[i].y;
                 if ((canWalk(x, y) || x == Fx && y == Fy) && point_map.find({ x, y }) == point_map.end())
                 {
-                    point_map[{ x, y }] = PointAStar(x, y);
-                    auto& point_ref = point_map[{ x, y }];
+                    auto& point_ref = point_map[{ x, y }] = PointAStar(x, y);
                     point_ref.setParent(t);
                     point_ref.calF(Fx, Fy);
                     que.push(&point_ref);

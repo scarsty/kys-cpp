@@ -50,7 +50,7 @@ private:
     virtual ~TextureManager();
     std::string path_ = "../game/resource/";
 
-	std::map<const std::string, std::vector<std::unique_ptr<Texture>>> map_;
+    std::map<const std::string, std::vector<std::unique_ptr<Texture>>> map_;
 
 public:
     enum Type

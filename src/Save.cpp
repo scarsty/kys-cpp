@@ -136,8 +136,8 @@ bool Save::save(int num)
 
     auto submap_count = submap_infos_mem_.size();
 
-	std::vector<char> sdata(submap_count * sdata_length_);
-	std::vector<char> ddata(submap_count * ddata_length_);
+    std::vector<char> sdata(submap_count * sdata_length_);
+    std::vector<char> ddata(submap_count * ddata_length_);
     for (int i = 0; i < submap_count; i++)
     {
         memcpy(sdata.data() + sdata_length_ * i, &(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata_length_);

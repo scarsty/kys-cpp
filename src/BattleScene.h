@@ -22,7 +22,7 @@ public:
     Role* acting_role_ = nullptr;    //当前正在行动中的角色
 
     BattleActionMenu battle_menu_;
-	BattleCursor battle_cursor_;
+    BattleCursor battle_cursor_;
     Head* head_self_;
 
     //Head* head_selected_;
@@ -35,7 +35,7 @@ public:
     MapSquareInt earth_layer_, building_layer_, select_layer_, effect_layer_;
 
     //角色层
-	MapSquare<Role*> role_layer_;
+    MapSquare<Role*> role_layer_;
 
     int select_state_ = 0;    //0-其他，1-选移动目标，2-选行动目标
 

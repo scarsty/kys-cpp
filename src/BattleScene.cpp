@@ -343,7 +343,6 @@ void BattleScene::readBattleInfo()
     //设置全部角色的位置层，避免今后出错
     for (auto r : Save::getInstance()->getRoles())
     {
-		//稳妥点把role_layer_改成shared_ptr，实则这个设计需要再考虑下
         r->setRolePoitionLayer(&role_layer_);
         r->Team = 2;    //先全部设置成不存在的阵营
         r->Auto = 1;

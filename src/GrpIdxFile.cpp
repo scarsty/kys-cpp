@@ -16,7 +16,7 @@ std::vector<char> GrpIdxFile::getIdxContent(std::string filename_idx, std::strin
     }
     int total_length = offset->back();
 
-	std::vector<char> Rgrp(total_length);
+    std::vector<char> Rgrp(total_length);
     File::readFile(filename_grp, Rgrp.data(), total_length);
     return Rgrp;
 }
