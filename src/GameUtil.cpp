@@ -256,7 +256,7 @@ bool GameUtil::canFinishedItem(Role* r)
 int GameUtil::getFinishedExpForItem(Role* r, Item* i)
 {
     //无经验设定物品不可修炼
-    if (i == nullptr || i->ItemType !=2 || i->NeedExp < 0)
+    if (i == nullptr || i->ItemType != 2 || i->NeedExp < 0)
     {
         return INT_MAX;
     }

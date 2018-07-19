@@ -481,7 +481,7 @@ void MainScene::setWeather()
         {
             particle_->setStyle(ParticleExample::RAIN);
             particle_->setEmissionRate(50 * view_cloud_);
-            particle_->setGravity({ 0, -20 });
+            particle_->setGravity({ 10, 20 });
             if (!particle_->isActive())
             {
                 particle_->resetSystem();

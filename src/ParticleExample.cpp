@@ -32,7 +32,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         this->modeA.radialAccelVar = 0;
 
         // Gravity Mode: speed of particles
-        this->modeA.speed = 60;
+        this->modeA.speed = -60;
         this->modeA.speedVar = 20;
 
         // starting angle
@@ -70,7 +70,6 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.a = 0.0f;
 
         _posVar = { 40.0f, 20.0f };
-
         break;
     }
     case ParticleExample::FIRE_WORK:
@@ -84,14 +83,14 @@ void ParticleExample::setStyle(PatticleStyle style)
         this->_emitterMode = Mode::GRAVITY;
 
         // Gravity Mode: gravity
-        this->modeA.gravity = { 0.0f, -90.0f };
+        this->modeA.gravity = { 0.0f, 90.0f };
 
         // Gravity Mode:  radial
         this->modeA.radialAccel = 0.0f;
         this->modeA.radialAccelVar = 0.0f;
 
         //  Gravity Mode: speed of particles
-        this->modeA.speed = 180.0f;
+        this->modeA.speed = -180.0f;
         this->modeA.speedVar = 50.0f;
 
         // angle
@@ -128,6 +127,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         _startSizeVar = 2.0f;
         _endSize = START_SIZE_EQUAL_TO_END_SIZE;
 
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::SUN:
@@ -151,7 +151,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setRadialAccelVar(0);
 
         // Gravity mode: speed of particles
-        setSpeed(20);
+        setSpeed(-20);
         setSpeedVar(5);
 
         // angle
@@ -188,6 +188,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::GALAXY:
@@ -203,7 +204,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setGravity(Vec2(0, 0));
 
         // Gravity Mode: speed of particles
-        setSpeed(60);
+        setSpeed(-60);
         setSpeedVar(10);
 
         // Gravity Mode: radial
@@ -248,6 +249,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::FLOWER:
@@ -264,7 +266,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setGravity(Vec2(0, 0));
 
         // Gravity Mode: speed of particles
-        setSpeed(80);
+        setSpeed(-80);
         setSpeedVar(10);
 
         // Gravity Mode: radial
@@ -308,6 +310,8 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.g = 0.0f;
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
+
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::METEOR:
@@ -321,10 +325,10 @@ void ParticleExample::setStyle(PatticleStyle style)
         setEmitterMode(Mode::GRAVITY);
 
         // Gravity Mode: gravity
-        setGravity(Vec2(-200, 200));
+        setGravity(Vec2(-200, -200));
 
         // Gravity Mode: speed of particles
-        setSpeed(15);
+        setSpeed(-15);
         setSpeedVar(5);
 
         // Gravity Mode: radial
@@ -368,6 +372,8 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.g = 0.0f;
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
+
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::SPIRAL:
@@ -384,7 +390,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setGravity(Vec2(0, 0));
 
         // Gravity Mode: speed of particles
-        setSpeed(150);
+        setSpeed(-150);
         setSpeedVar(0);
 
         // Gravity Mode: radial
@@ -428,6 +434,8 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.g = 0.5f;
         _endColorVar.b = 0.5f;
         _endColorVar.a = 0.0f;
+
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::EXPLOSION:
@@ -443,7 +451,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setGravity(Vec2(0, 0));
 
         // Gravity Mode: speed of particles
-        setSpeed(70);
+        setSpeed(-70);
         setSpeedVar(40);
 
         // Gravity Mode: radial
@@ -487,6 +495,8 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.g = 0.5f;
         _endColorVar.b = 0.5f;
         _endColorVar.a = 0.0f;
+
+        _posVar = { 0, 0 };
         break;
     }
     case ParticleExample::SMOKE:
@@ -507,7 +517,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setRadialAccelVar(0);
 
         // Gravity Mode: speed of particles
-        setSpeed(25);
+        setSpeed(-25);
         setSpeedVar(10);
 
         // angle
@@ -558,10 +568,10 @@ void ParticleExample::setStyle(PatticleStyle style)
         setEmitterMode(Mode::GRAVITY);
 
         // Gravity Mode: gravity
-        setGravity(Vec2(0, -1));
+        setGravity(Vec2(0, 1));
 
         // Gravity Mode: speed of particles
-        setSpeed(5);
+        setSpeed(-5);
         setSpeedVar(1);
 
         // Gravity Mode: radial
@@ -606,7 +616,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        _posVar = { float(Engine::getInstance()->getWindowsWidth() / 2), 0.0f };
+        _posVar = { 1.0f * x_, 0.0f };
         break;
     }
     case ParticleExample::RAIN:
@@ -619,7 +629,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setEmitterMode(Mode::GRAVITY);
 
         // Gravity Mode: gravity
-        setGravity(Vec2(10, -10));
+        setGravity(Vec2(10, 10));
 
         // Gravity Mode: radial
         setRadialAccel(0);
@@ -630,7 +640,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         setTangentialAccelVar(1);
 
         // Gravity Mode: speed of particles
-        setSpeed(130);
+        setSpeed(-130);
         setSpeedVar(30);
 
         // angle
@@ -667,9 +677,7 @@ void ParticleExample::setStyle(PatticleStyle style)
         _endColorVar.b = 0.0f;
         _endColorVar.a = 0.0f;
 
-        Texture* texture = getDefaultTexture();
-
-        _posVar = { float(Engine::getInstance()->getWindowsWidth() / 2), 0.0f };
+        _posVar = { 1.0f * x_, 0.0f };
         break;
     }
     default:

@@ -23,9 +23,12 @@ public:
         RAIN,
     };
 
-    PatticleStyle style_ = NONE;
     void setStyle(PatticleStyle style);
-    static Texture* getDefaultTexture()
+
+private:
+    PatticleStyle style_ = NONE;
+
+    Texture* getDefaultTexture()
     {
         static Texture* t = TextureManager::getInstance()->loadTexture("title", 201);
         return t;
