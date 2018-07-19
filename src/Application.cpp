@@ -23,7 +23,7 @@ int Application::run()
     engine->createAssistTexture(768, 480);
 
     config();
-    TitleScene s;
+    TitleScene s;      //开始界面
     s.run();
 
     return 0;
