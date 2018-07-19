@@ -4,7 +4,7 @@
 
 Menu::Menu()
 {
-    pass_child_ = 0;
+    active_child_ = 0;
 }
 
 Menu::~Menu()
@@ -29,32 +29,22 @@ void Menu::dealEvent(BP_Event& e)
         if (direct != 0)
         {
             //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
-            bool all_normal = true;
-            for (auto c : childs_)
-            {
-                if (c->getState() != Normal)
-                {
-                    all_normal = false;
-                    break;
-                }
-            }
+            bool all_normal = checkAllNormal();
             setAllChildState(Normal);
-
             if (!all_normal)
             {
                 //仅有两项的菜单两头封住
                 if (getChildCount() <= 2)
                 {
-                    pass_child_ = direct > 0 ? getChildCount() - 1 : 0;
+                    active_child_ = direct > 0 ? getChildCount() - 1 : 0;
                 }
                 else
                 {
-                    pass_child_ = findNextVisibleChild(pass_child_, direct);
+                    active_child_ = findNextVisibleChild(active_child_, direct);
                 }
             }
-            press_child_ = -1;
         }
-        forcePassChild();
+        forceActiveChild();
     }
 }
 
@@ -73,7 +63,7 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
 
 void Menu::onPressedOK()
 {
-    pressIndexToResult();
+    activeIndexToResult();
     if (result_ >= 0)
     {
         setExit(true);
@@ -88,15 +78,30 @@ void Menu::onPressedCancel()
 
 void Menu::onEntrance()
 {
-    if (start_ < 0 || start_ >= getChildCount())
+    if (!checkAllNormal())
     {
-        pass_child_ = findFristVisibleChild();
+        active_child_ = start_;
     }
-    else
+    forceActiveChild();
+}
+
+void Menu::onExit()
+{
+    start_ = active_child_;
+}
+
+bool Menu::checkAllNormal()
+{
+    bool all_normal = true;
+    for (auto c : childs_)
     {
-        pass_child_ = start_;
+        if (c->getState() != Normal)
+        {
+            all_normal = false;
+            break;
+        }
     }
-    forcePassChild();
+    return all_normal;
 }
 
 //void Menu::onPressedOK()

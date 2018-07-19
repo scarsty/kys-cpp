@@ -68,15 +68,15 @@ private:
     int start_w_ = 1024, start_h_ = 640;
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
-    int ratio_x_ = 1, ratio_y_ = 1;
+    double ratio_x_ = 1, ratio_y_ = 1;
 
 public:
     int init(void* handle = 0);
 
     void getWindowSize(int& w, int& h) { SDL_GetWindowSize(window_, &w, &h); }
     void getWindowMaxSize(int& w, int& h) { SDL_GetWindowMaximumSize(window_, &w, &h); }
-    int getWindowsWidth();
-    int getWindowsHeight();
+    int getWindowWidth();
+    int getWindowHeight();
     int getMaxWindowWidth() { return max_x_ - min_x_; }
     int getMaxWindowHeight() { return max_y_ - min_y_; }
     void setWindowSize(int w, int h);
@@ -129,7 +129,7 @@ public:
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return rotation_ = r; }
     void resetWindowsPosition();
-    void setRatio(int x, int y)
+    void setRatio(double x, double y)
     {
         ratio_x_ = x;
         ratio_y_ = y;
@@ -170,9 +170,6 @@ public:
     BP_Texture* createSquareTexture(int size);
     BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c);
     void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c);
-    void drawSubtitle(const std::string& fontname, const std::string& text, int size, int x, int y, uint8_t alpha, int align);
-    //void split(std::string& s, std::string& delim, std::vector< std::string >* ret);
-    std::vector<std::string> splitString(const std::string& s, const std::string& delim);
     int showMessage(const std::string& content);
     void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);
 

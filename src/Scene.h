@@ -16,12 +16,6 @@ public:
     int render_center_x_ = 0;
     int render_center_y_ = 0;
 
-    int window_w_ = 0;
-    int window_h_ = 0;
-
-    //int window_center_x_ = 0;
-    //int window_center_y_ = 0;
-
     const int TILE_W = 18;    //小图块大小X
     const int TILE_H = 9;     //小图块大小Y
 
@@ -80,8 +74,7 @@ public:
     virtual bool isOutScreen(int x, int y) { return false; }
 
     std::vector<Point> way_que_;    //栈(路径栈)
-    //int mouse_x_, mouse_y_;
-    //看不明白
+
     Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
     Point getMousePosition(int view_x, int view_y);
     void calCursorPosition(int x, int y);

@@ -110,9 +110,9 @@ void UIItem::checkCurrentItem()
     if (force_item_type_ >= 0)
     {
         //title_->setResult(force_item_type_);
-        title_->forcePassChild(force_item_type_);
+        title_->forceActiveChild(force_item_type_);
     }
-    geItemsByType(title_->getPassChildIndex());
+    geItemsByType(title_->getActiveChildIndex());
     int type_item_count = available_items_.size();
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数

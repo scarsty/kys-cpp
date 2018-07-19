@@ -168,11 +168,10 @@ void BattleScene::draw()
             }
         }
     }
-    Engine::getInstance()->renderAssistTextureToWindow();
-
     if (semi_real_)
     {
-        TextureManager::getInstance()->renderTexture("title", 202, 200, window_h_ - 100);
+        int h = render_center_y_ * 2;
+        TextureManager::getInstance()->renderTexture("title", 202, 200, h - 100);
         for (auto r : battle_roles_)
         {
             int x = 300 + r->Progress / 2;
@@ -181,9 +180,11 @@ void BattleScene::draw()
             {
                 alpha = dead_alpha_;
             }
-            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, window_h_ - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
+            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, h - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
         }
     }
+
+    Engine::getInstance()->renderAssistTextureToWindow();
 
     if (result_ >= 0)
     {
@@ -289,7 +290,7 @@ void BattleScene::dealEvent2(BP_Event& e)
     {
         for (auto r : battle_roles_)
         {
-            if (r->Team == 0)
+            if (r->Team == 0 && r->Auto == 1)    //注意：auto为其他值的不能取消
             {
                 r->Auto = 0;
             }
@@ -383,6 +384,7 @@ void BattleScene::readBattleInfo()
             if (r)
             {
                 friends_.push_back(r);
+                r->Auto = 2;    //由AI控制
             }
         }
     }
@@ -869,6 +871,7 @@ void BattleScene::action(Role* r)
         actRest(r);
     }
 
+    //下一个行动的，菜单项从第一个开始
     if (r->Acted)
     {
         battle_menu_.setStartItem(0);
@@ -1422,6 +1425,10 @@ void BattleScene::showNumberAnimation()
     int size = 28;
     for (int i = 0; i < 10; i++)
     {
+        if (exit_)
+        {
+            break;
+        }
         auto drawNumber = [&](void*) -> void
         {
             for (auto r : battle_roles_)

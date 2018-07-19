@@ -4,6 +4,21 @@
 #include "Types.h"
 #include "ParticleExample.h"
 
+class ParticleWeather : public Element, public ParticleExample
+{
+public:
+    //注意这个继承方法比较扯淡，其他时候尽量不要这样用
+    virtual void draw() override
+    {
+        ParticleSystem::draw();
+    }
+    void setPosition(int x, int y)
+    {
+        Element::setPosition(x, y);
+        ParticleSystem::setPosition(x, y);
+    }
+};
+
 class MainScene : public Scene
 {
 private:
@@ -65,6 +80,6 @@ public:
     int getViewCloud() { return view_cloud_; }
 
     void setWeather();
-    ParticleExample* getWeather() { return particle_; }
-    ParticleExample* particle_ = nullptr;
+    ParticleWeather* getWeather() { return weather_; }
+    ParticleWeather* weather_ = nullptr;
 };

@@ -2,9 +2,7 @@
 
 //移植自Cocos2dx，版权声明请查看licenses文件夹
 
-#include "Element.h"
-#include "Point.h"
-#include "TextureManager.h"
+#include "SDL2/SDL.h"
 #include <vector>
 
 struct Pointf
@@ -35,7 +33,7 @@ typedef Pointf Vec2;
 
 struct Color4F
 {
-    float r, g, b, a;
+    float r = 0, g = 0, b = 0, a = 0;
 };
 
 class ParticleData
@@ -117,7 +115,7 @@ emitter.startSpin = 0;
 
 */
 
-class ParticleSystem : public Element
+class ParticleSystem
 {
 public:
     enum class Mode
@@ -316,27 +314,6 @@ public:
      * @return True if the particle system is active.
      */
     virtual bool isActive() const;
-    /** Whether or not the particle system is blend additive.
-     *
-     * @return True if the particle system is blend additive.
-     */
-    //virtual bool isBlendAdditive() const;
-    /** Sets the particle system blend additive.
-     *
-     * @param value True if the particle system is blend additive.
-     */
-    //virtual void setBlendAdditive(bool value);
-
-    /** Gets the batch node.
-     *
-     * @return The batch node.
-     */
-    //virtual ParticleBatchNode* getBatchNode() const;
-    /** Sets the batch node.
-     *
-     * @param batchNode The batch node.
-     */
-    //virtual void setBatchNode(ParticleBatchNode* batchNode);
 
     /** Gets the index of system in batch node array.
      *
@@ -603,33 +580,17 @@ public:
     void setOpacityModifyRGB(bool opacityModifyRGB) { _opacityModifyRGB = opacityModifyRGB; }
     bool isOpacityModifyRGB() const { return _opacityModifyRGB; }
 
-    /** Gets the particles movement type: Free or Grouped.
-     @since v0.8
-     *
-     * @return The particles movement type.
-     */
-    //PositionType getPositionType() const { return _positionType; }
-    /** Sets the particles movement type: Free or Grouped.
-    @since v0.8
-     *
-     * @param type The particles movement type.
-     */
-    //void setPositionType(PositionType type) { _positionType = type; }
-
-    // Overrides
-    virtual void onEntrance() override;
-    virtual void onExit() override;
-    virtual Texture* getTexture() const;
-    virtual void setTexture(Texture* texture);
-    virtual void draw() override;
+    SDL_Texture* getTexture();
+    void setTexture(SDL_Texture* texture);
+    void draw();
     void update();
 
     ParticleSystem();
     virtual ~ParticleSystem();
 
     /** initializes a ParticleSystem*/
-    virtual bool init();
     virtual bool initWithTotalParticles(int numberOfParticles);
+    virtual void resetTotalParticles(int numberOfParticles);
     virtual bool isPaused() const;
     virtual void pauseEmissions();
     virtual void resumeEmissions();
@@ -645,55 +606,55 @@ protected:
      dest blend function = GL_ONE;
      @endcode
      */
-    bool _isBlendAdditive;
+    bool _isBlendAdditive = true;
 
     /** whether or not the node will be auto-removed when it has no particles left.
-     By default it is false.
-     @since v0.8
-     */
-    bool _isAutoRemoveOnFinish;
+    By default it is false.
+    @since v0.8
+    */
+    bool _isAutoRemoveOnFinish = false;
 
     std::string _plistFile;
     //! time elapsed since the start of the system (in seconds)
-    float _elapsed;
+    float _elapsed = 0;
 
     // Different modes
     //! Mode A:Gravity + Tangential Accel + Radial Accel
     struct
     {
         /** Gravity value. Only available in 'Gravity' mode. */
-        Vec2 gravity;
+        Vec2 gravity = { 0, 0 };
         /** speed of each particle. Only available in 'Gravity' mode.  */
-        float speed;
+        float speed = 0;
         /** speed variance of each particle. Only available in 'Gravity' mode. */
-        float speedVar;
+        float speedVar = 0;
         /** tangential acceleration of each particle. Only available in 'Gravity' mode. */
-        float tangentialAccel;
+        float tangentialAccel = 0;
         /** tangential acceleration variance of each particle. Only available in 'Gravity' mode. */
-        float tangentialAccelVar;
+        float tangentialAccelVar = 0;
         /** radial acceleration of each particle. Only available in 'Gravity' mode. */
-        float radialAccel;
+        float radialAccel = 0;
         /** radial acceleration variance of each particle. Only available in 'Gravity' mode. */
-        float radialAccelVar;
+        float radialAccelVar = 0;
         /** set the rotation of each particle to its direction Only available in 'Gravity' mode. */
-        bool rotationIsDir;
+        bool rotationIsDir = 0;
     } modeA;
 
     //! Mode B: circular movement (gravity, radial accel and tangential accel don't are not used in this mode)
     struct
     {
         /** The starting radius of the particles. Only available in 'Radius' mode. */
-        float startRadius;
+        float startRadius = 0;
         /** The starting radius variance of the particles. Only available in 'Radius' mode. */
-        float startRadiusVar;
+        float startRadiusVar = 0;
         /** The ending radius of the particles. Only available in 'Radius' mode. */
-        float endRadius;
+        float endRadius = 0;
         /** The ending radius variance of the particles. Only available in 'Radius' mode. */
-        float endRadiusVar;
+        float endRadiusVar = 0;
         /** Number of degrees to rotate a particle around the source pos per second. Only available in 'Radius' mode. */
-        float rotatePerSecond;
+        float rotatePerSecond = 0;
         /** Variance in degrees for rotatePerSecond. Only available in 'Radius' mode. */
-        float rotatePerSecondVar;
+        float rotatePerSecondVar = 0;
     } modeB;
 
     //particle data
@@ -706,7 +667,7 @@ protected:
     //    BOOL colorModulate;
 
     //! How many particles can be emitted per second
-    float _emitCounter;
+    float _emitCounter = 0;
 
     // Optimization
     //CC_UPDATE_PARTICLE_IMP    updateParticleImp;
@@ -716,85 +677,91 @@ protected:
     //ParticleBatchNode* _batchNode;
 
     // index of system in batch node array
-    int _atlasIndex;
+    int _atlasIndex = 0;
 
     //true if scaled or rotated
-    bool _transformSystemDirty;
+    bool _transformSystemDirty = false;
     // Number of allocated particles
-    int _allocatedParticles;
+    int _allocatedParticles = 0;
 
     /** Is the emitter active */
-    bool _isActive;
+    bool _isActive = true;
 
     /** Quantity of particles that are being simulated at the moment */
-    int _particleCount;
+    int _particleCount = 0;
 
     /** How many seconds the emitter will run. -1 means 'forever' */
-    float _duration;
+    float _duration = 0;
     /** sourcePosition of the emitter */
-    Vec2 _sourcePosition;
+    Vec2 _sourcePosition = { 0, 0 };
     /** Position variance of the emitter */
-    Vec2 _posVar;
+    Vec2 _posVar = { 0, 0 };
     /** life, and life variation of each particle */
-    float _life;
+    float _life = 0;
     /** life variance of each particle */
-    float _lifeVar;
+    float _lifeVar = 0;
     /** angle and angle variation of each particle */
-    float _angle;
+    float _angle = 0;
     /** angle variance of each particle */
-    float _angleVar;
+    float _angleVar = 0;
 
     /** Switch between different kind of emitter modes:
-     - kParticleModeGravity: uses gravity, speed, radial and tangential acceleration
-     - kParticleModeRadius: uses radius movement + rotation
-     */
-    Mode _emitterMode;
+    - kParticleModeGravity: uses gravity, speed, radial and tangential acceleration
+    - kParticleModeRadius: uses radius movement + rotation
+    */
+    Mode _emitterMode = Mode::GRAVITY;
 
     /** start size in pixels of each particle */
-    float _startSize;
+    float _startSize = 0;
     /** size variance in pixels of each particle */
-    float _startSizeVar;
+    float _startSizeVar = 0;
     /** end size in pixels of each particle */
-    float _endSize;
+    float _endSize = 0;
     /** end size variance in pixels of each particle */
-    float _endSizeVar;
+    float _endSizeVar = 0;
     /** start color of each particle */
-    Color4F _startColor;
+    Color4F _startColor = { 0, 0, 0, 0 };
     /** start color variance of each particle */
-    Color4F _startColorVar;
+    Color4F _startColorVar = { 0, 0, 0, 0 };
     /** end color and end color variation of each particle */
-    Color4F _endColor;
+    Color4F _endColor = { 0, 0, 0, 0 };
     /** end color variance of each particle */
-    Color4F _endColorVar;
+    Color4F _endColorVar = { 0, 0, 0, 0 };
     //* initial angle of each particle
-    float _startSpin;
+    float _startSpin = 0;
     //* initial angle of each particle
-    float _startSpinVar;
+    float _startSpinVar = 0;
     //* initial angle of each particle
-    float _endSpin;
+    float _endSpin = 0;
     //* initial angle of each particle
-    float _endSpinVar;
+    float _endSpinVar = 0;
     /** emission rate of the particles */
-    float _emissionRate;
+    float _emissionRate = 0;
     /** maximum particles of the system */
-    int _totalParticles;
+    int _totalParticles = 0;
     /** conforms to CocosNodeTexture protocol */
-    Texture* _texture;
+    SDL_Texture* _texture = nullptr;
     /** conforms to CocosNodeTexture protocol */
     //BlendFunc _blendFunc;
     /** does the alpha value modify color */
-    bool _opacityModifyRGB;
+    bool _opacityModifyRGB = false;
     /** does FlippedY variance of each particle */
-    int _yCoordFlipped;
+    int _yCoordFlipped = 1;
 
     /** particles movement type: Free or Grouped
-     @since v0.8
-     */
+    @since v0.8
+    */
     //PositionType _positionType;
 
     /** is the emitter paused */
-    bool _paused;
+    bool _paused = false;
 
     /** is sourcePosition compatible */
-    bool _sourcePositionCompatible;
+    bool _sourcePositionCompatible = false;
+
+    SDL_Renderer* _renderer = nullptr;
+    int x_ = 0, y_ = 0;
+public:
+    void setRenderer(SDL_Renderer* ren) { _renderer = ren; }
+    void setPosition(int x, int y) { x_ = x; y_ = y; }
 };

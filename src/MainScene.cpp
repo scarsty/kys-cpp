@@ -35,11 +35,11 @@ MainScene::MainScene() : earth_layer_(MAINMAP_COORD_COUNT), surface_layer_(MAINM
         cloud_vector_.back().initRand();
     }
     //getEntrance();
-    particle_ = new ParticleExample();
-    particle_->setPosition(window_w_ / 2, 0);
-    particle_->setPosVar({ 1.0f * window_w_ / 2, 0 });
-    particle_->stopSystem();
-    addChild(particle_);
+    weather_ = new ParticleWeather();
+    weather_->setRenderer(Engine::getInstance()->getRenderer());
+    weather_->setTexture(TextureManager::getInstance()->loadTexture("title", 201)->getTexture());
+    weather_->stopSystem();
+    addChild(weather_);
 }
 
 MainScene::~MainScene()
@@ -376,10 +376,7 @@ int MainScene::isWater(int x, int y)
 
 bool MainScene::canWalk(int x, int y)
 {
-    //if (checkEntrance(x, y, true))
-    //{
-    //    return true;
-    //}  这里不需要加，实际上入口都是无法走到的
+    //这里不需要加，实际上入口都是无法走到的
     if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) == 2)
     {
         return false;
@@ -451,31 +448,32 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
 
 void MainScene::setWeather()
 {
+    weather_->setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
     if (inNorth())
     {
-        particle_->setStyle(ParticleExample::SNOW);
-        if (!particle_->isActive())
+        weather_->setStyle(ParticleExample::SNOW);
+        if (!weather_->isActive())
         {
-            particle_->resetSystem();
+            weather_->resetSystem();
         }
     }
     else
     {
         if (view_cloud_)
         {
-            particle_->setStyle(ParticleExample::RAIN);
-            particle_->setEmissionRate(50 * view_cloud_);
-            particle_->setGravity({ 0, -20 });
-            if (!particle_->isActive())
+            weather_->setStyle(ParticleExample::RAIN);
+            weather_->setEmissionRate(50 * view_cloud_);
+            weather_->setGravity({ 10, 20 });
+            if (!weather_->isActive())
             {
-                particle_->resetSystem();
+                weather_->resetSystem();
             }
         }
         else
         {
-            if (particle_->isActive())
+            if (weather_->isActive())
             {
-                particle_->stopSystem();
+                weather_->stopSystem();
             }
         }
     }

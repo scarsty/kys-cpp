@@ -1,4 +1,5 @@
 #include "ParticleSystem.h"
+#include <algorithm>
 #include <assert.h>
 #include <string>
 
@@ -58,75 +59,30 @@ inline static float RANDOM_M11(unsigned int* seed)
 }
 
 ParticleSystem::ParticleSystem()
-    : _isBlendAdditive(false)
-    , _isAutoRemoveOnFinish(false)
-    , _plistFile("")
-    , _elapsed(0)
-    , _configName("")
-    , _emitCounter(0)
-      //, _batchNode(nullptr)
-    , _atlasIndex(0)
-    , _transformSystemDirty(false)
-    , _allocatedParticles(0)
-    , _isActive(true)
-    , _particleCount(0)
-    , _duration(0)
-    , _life(0)
-    , _lifeVar(0)
-    , _angle(0)
-    , _angleVar(0)
-    , _emitterMode(Mode::GRAVITY)
-    , _startSize(0)
-    , _startSizeVar(0)
-    , _endSize(0)
-    , _endSizeVar(0)
-    , _startSpin(0)
-    , _startSpinVar(0)
-    , _endSpin(0)
-    , _endSpinVar(0)
-    , _emissionRate(0)
-    , _totalParticles(0)
-    , _texture(nullptr)
-      //, _blendFunc(BlendFunc::ALPHA_PREMULTIPLIED)
-    , _opacityModifyRGB(false)
-    , _yCoordFlipped(1)
-      //, _positionType(PositionType::FREE)
-    , _paused(false)
-    , _sourcePositionCompatible(true)    // In the furture this member's default value maybe false or be removed.
 {
-    modeA.gravity = { 0, 0 };
-    modeA.speed = 0;
-    modeA.speedVar = 0;
-    modeA.tangentialAccel = 0;
-    modeA.tangentialAccelVar = 0;
-    modeA.radialAccel = 0;
-    modeA.radialAccelVar = 0;
-    modeA.rotationIsDir = false;
-    modeB.startRadius = 0;
-    modeB.startRadiusVar = 0;
-    modeB.endRadius = 0;
-    modeB.endRadiusVar = 0;
-    modeB.rotatePerSecond = 0;
-    modeB.rotatePerSecondVar = 0;
 }
 
 // implementation ParticleSystem
-bool ParticleSystem::init()
-{
-    return initWithTotalParticles(150);
-}
 
 bool ParticleSystem::initWithTotalParticles(int numberOfParticles)
 {
     _totalParticles = numberOfParticles;
-
-    particle_data_.resize(numberOfParticles);
     _isActive = true;
     _emitterMode = Mode::GRAVITY;
     _isAutoRemoveOnFinish = false;
     _transformSystemDirty = false;
 
+    resetTotalParticles(numberOfParticles);
+
     return true;
+}
+
+void ParticleSystem::resetTotalParticles(int numberOfParticles)
+{
+    if (particle_data_.size() < numberOfParticles)
+    {
+        particle_data_.resize(numberOfParticles);
+    }
 }
 
 ParticleSystem::~ParticleSystem()
@@ -163,9 +119,9 @@ void ParticleSystem::addParticles(int count)
     }
 
     //color
-#define SET_COLOR(c, b, v)                                                \
-    for (int i = start; i < _particleCount; ++i)                          \
-    {                                                                     \
+#define SET_COLOR(c, b, v)                                                 \
+    for (int i = start; i < _particleCount; ++i)                           \
+    {                                                                      \
         particle_data_[i].c = clampf(b + v * RANDOM_M11(&RANDSEED), 0, 1); \
     }
 
@@ -179,9 +135,9 @@ void ParticleSystem::addParticles(int count)
     SET_COLOR(deltaColorB, _endColor.b, _endColorVar.b);
     SET_COLOR(deltaColorA, _endColor.a, _endColorVar.a);
 
-#define SET_DELTA_COLOR(c, dc)                                                                          \
-    for (int i = start; i < _particleCount; ++i)                                                        \
-    {                                                                                                   \
+#define SET_DELTA_COLOR(c, dc)                                                                              \
+    for (int i = start; i < _particleCount; ++i)                                                            \
+    {                                                                                                       \
         particle_data_[i].dc = (particle_data_[i].dc - particle_data_[i].c) / particle_data_[i].timeToLive; \
     }
 
@@ -319,14 +275,6 @@ void ParticleSystem::addParticles(int count)
     }
 }
 
-void ParticleSystem::onEntrance()
-{
-}
-
-void ParticleSystem::onExit()
-{
-}
-
 void ParticleSystem::stopSystem()
 {
     _isActive = false;
@@ -388,13 +336,13 @@ void ParticleSystem::update()
         particle_data_[i].timeToLive -= dt;
     }
 
-    //ÔÙÉú
+    // rebirth
     for (int i = 0; i < _particleCount; ++i)
     {
         if (particle_data_[i].timeToLive <= 0.0f)
         {
             int j = _particleCount - 1;
-            //while (j > 0 && _particleData[i].timeToLive <= 0)
+            //while (j > 0 && particle_data_[i].timeToLive <= 0)
             //{
             //    _particleCount--;
             //    j--;
@@ -440,7 +388,7 @@ void ParticleSystem::update()
             tmp.x = particle_data_[i].modeA.dirX * dt * _yCoordFlipped;
             tmp.y = particle_data_[i].modeA.dirY * dt * _yCoordFlipped;
             particle_data_[i].posx += tmp.x;
-            particle_data_[i].posy -= tmp.y;
+            particle_data_[i].posy += tmp.y;
         }
     }
     else
@@ -468,7 +416,7 @@ void ParticleSystem::update()
 }
 
 // ParticleSystem - Texture protocol
-void ParticleSystem::setTexture(Texture* var)
+void ParticleSystem::setTexture(SDL_Texture* var)
 {
     if (_texture != var)
     {
@@ -481,16 +429,17 @@ void ParticleSystem::draw()
     for (int i = 0; i < _particleCount; i++)
     {
         auto& p = particle_data_[i];
-        BP_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
-        BP_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
-        Engine::getInstance()->setColor(_texture->getTexture(), c, Uint8(p.colorA * 255));
-        Engine::getInstance()->renderCopy(_texture->getTexture(),&r, p.rotation);
-
+        SDL_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
+        SDL_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
+        SDL_SetTextureColorMod(_texture, c.r, c.g, c.b);
+        SDL_SetTextureAlphaMod(_texture, c.a);
+        SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
+        SDL_RenderCopyEx(_renderer, _texture, nullptr, &r, p.rotation, nullptr, SDL_FLIP_NONE);
     }
     update();
 }
 
-Texture* ParticleSystem::getTexture() const
+SDL_Texture* ParticleSystem::getTexture()
 {
     return _texture;
 }

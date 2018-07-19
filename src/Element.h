@@ -30,8 +30,7 @@ protected:
     int w_ = 0;
     int h_ = 0;
 
-    int pass_child_ = -1;
-    int press_child_ = -1;
+    int active_child_ = -1;
 
     int tag_;
 
@@ -100,11 +99,10 @@ public:
 
     void exitWithResult(int r) { setExit(true); result_ = r; }
 
-    int getPassChildIndex() { return pass_child_; }
-    void forcePassChild();
-    void forcePassChild(int index) { pass_child_ = index; forcePassChild(); }
-    int getPressChildIndex() { return press_child_; }
-    void pressIndexToResult() { result_ = press_child_; }
+    int getActiveChildIndex() { return active_child_; }
+    void forceActiveChild();
+    void forceActiveChild(int index) { active_child_ = index; forceActiveChild(); }
+    void activeIndexToResult() { result_ = active_child_; }
 
     //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
 

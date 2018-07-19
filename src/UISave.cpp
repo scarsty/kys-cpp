@@ -28,7 +28,7 @@ UISave::UISave()
     strings.push_back(str);
     setStrings(strings);
     childs_[0]->setVisible(false);    //фа╠н╫Ь╤х0
-    forcePassChild(1);
+    forceActiveChild(1);
     arrange(0, 0, 0, 28);
 }
 
@@ -47,7 +47,7 @@ void UISave::onEntrance()
 
 void UISave::onPressedOK()
 {
-    pressIndexToResult();
+    activeIndexToResult();
     if (result_ >= 0)
     {
         if (mode_ == 0 && Save::checkSaveFileExist(result_))

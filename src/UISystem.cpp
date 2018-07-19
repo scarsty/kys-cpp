@@ -30,6 +30,7 @@ void UISystem::onPressedOK()
     }
     else if (title_->getResult() == 1)
     {
+        //´æµµ
         UISave ui_save;
         ui_save.setMode(1);
         ui_save.setFontSize(22);
@@ -60,7 +61,7 @@ int UISystem::askExit(int mode)
         int x = 760, y = 100;
         if (mode == 1)
         {
-            x = Engine::getInstance()->getWindowsWidth() - 150;
+            x = Engine::getInstance()->getWindowWidth() - 150;
             y = 20;
         }
         int r = menu.runAtPosition(x, y);

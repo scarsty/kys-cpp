@@ -56,12 +56,11 @@ void BattleActionMenu::setRole(Role* r)
 
     setFontSize(20);
     arrange(0, 0, 0, 28);
-    if (start_ == 0 || !getChild(pass_child_)->getVisible())
+    if (start_ == 0 || !getChild(active_child_)->getVisible())
     {
-        pass_child_ = findFristVisibleChild();
-        forcePassChild();
+        active_child_ = findFristVisibleChild();
+        forceActiveChild();
     }
-    start_ = pass_child_;
     if (!role_->Moved) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
@@ -286,7 +285,7 @@ int BattleActionMenu::autoSelect(Role* role)
                                 }
                                 if (total_hurt > -1)
                                 {
-                                    //printf("AI %s %s (%d, %d): %d\n", role->Name, magic->Name, ix, iy, total_hurt);
+                                    //printf("AI %s %s (%d, %d): %d\n", PotConv::to_read(role->Name).c_str(), PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
                                 }
                             }
                         }
@@ -466,7 +465,7 @@ void BattleMagicMenu::onEntrance()
         setVisible(false);
         return;
     }
-    forcePassChild();
+    forceActiveChild();
 }
 
 void BattleMagicMenu::setRole(Role* r)
@@ -503,7 +502,7 @@ void BattleMagicMenu::setRole(Role* r)
 
 void BattleMagicMenu::onPressedOK()
 {
-    pressIndexToResult();
+    activeIndexToResult();
     magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
     if (magic_) { setExit(true); }
 }
