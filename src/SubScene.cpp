@@ -12,7 +12,6 @@ SubScene::SubScene()
 {
     full_window_ = 1;
     COORD_COUNT = SUBMAP_COORD_COUNT;
-    addChild(MainScene::getInstance()->getWeather());
 }
 
 SubScene::SubScene(int id)
@@ -338,6 +337,7 @@ void SubScene::onEntrance()
     //    }
     //}
     //Engine::getInstance()->resetRenderTarget();
+    Element::addOnRootTop(MainScene::getInstance()->getWeather());
 }
 
 void SubScene::onExit()
@@ -347,6 +347,7 @@ void SubScene::onExit()
     //{
     //    Engine::destroyTexture(earth_texture_);
     //}
+    Element::removeFromRoot(MainScene::getInstance()->getWeather());
 }
 
 void SubScene::onPressedCancel()

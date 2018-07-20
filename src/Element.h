@@ -15,7 +15,6 @@ private:
     static int refresh_interval_;
 protected:
     std::vector<Element*> childs_;
-    Element* parent_ = nullptr;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;               //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源

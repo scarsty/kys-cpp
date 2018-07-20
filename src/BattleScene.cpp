@@ -39,7 +39,6 @@ BattleScene::BattleScene()
     battle_cursor_ = new BattleCursor();
     battle_cursor_->setBattleScene(this);
     save_ = Save::getInstance();
-    addChild(MainScene::getInstance()->getWeather());
     semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
 }
 
@@ -180,9 +179,11 @@ void BattleScene::draw()
             }
         }
     }
+    Engine::getInstance()->renderAssistTextureToWindow();
+
     if (semi_real_)
     {
-        int h = render_center_y_ * 2;
+        int h = Engine::getInstance()->getWindowHeight();
         TextureManager::getInstance()->renderTexture("title", 202, 200, h - 100);
         for (auto r : battle_roles_)
         {
@@ -195,8 +196,6 @@ void BattleScene::draw()
             TextureManager::getInstance()->renderTexture("head", r->HeadID, x, h - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
         }
     }
-
-    Engine::getInstance()->renderAssistTextureToWindow();
 
     if (result_ >= 0)
     {
@@ -322,6 +321,7 @@ void BattleScene::onEntrance()
     for (auto r : battle_roles_)
     {
         setRoleInitState(r);
+        r->Progress = 0;
     }
     //ÅÅÐò
     sortRoles();
@@ -334,6 +334,7 @@ void BattleScene::onEntrance()
     //    c1->setPosition(512, 0);
     //    c1->setPosVar({ 512, 0 });
     //}
+    Element::addOnRootTop(MainScene::getInstance()->getWeather());
 }
 
 void BattleScene::onExit()
@@ -343,6 +344,7 @@ void BattleScene::onExit()
     {
         r->setRolePoitionLayer(nullptr);
     }
+    Element::removeFromRoot(MainScene::getInstance()->getWeather());
 }
 
 void BattleScene::backRun()

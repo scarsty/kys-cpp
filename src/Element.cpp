@@ -9,7 +9,7 @@ Element::~Element()
 {
     for (auto c : childs_)
     {
-        if (c && c->parent_ == this)
+        if (c)
         {
             delete c;
         }
@@ -77,10 +77,6 @@ Element* Element::removeFromRoot(Element* element)
 void Element::addChild(Element* element)
 {
     element->setTag(childs_.size());
-    if (element->parent_ == nullptr)
-    {
-        element->parent_ = this;
-    }
     childs_.push_back(element);
 }
 
