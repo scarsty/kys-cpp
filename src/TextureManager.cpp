@@ -35,9 +35,9 @@ void TextureManager::renderTexture(const std::string& path, int num, BP_Rect r, 
 
 void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
 {
-    auto engine = Engine::getInstance();
     if (tex && tex->tex[0])
     {
+        auto engine = Engine::getInstance();
         int i = rand() % tex->count;
         engine->setColor(tex->tex[i], c, alpha);
         engine->renderCopy(tex->tex[i], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
@@ -97,7 +97,7 @@ void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
     auto p = path_ + path;
     auto& v = getInstance()->map_[path];
     //纹理组信息
-    //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针
+    //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针，避免反复尝试初始化
     if (v.empty())
     {
         std::vector<short> offset;

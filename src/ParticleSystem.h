@@ -4,6 +4,7 @@
 
 #include "SDL2/SDL.h"
 #include <vector>
+#include <string>
 
 struct Pointf
 {
@@ -623,7 +624,7 @@ protected:
     struct
     {
         /** Gravity value. Only available in 'Gravity' mode. */
-        Vec2 gravity = { 0, 0 };
+        Vec2 gravity;
         /** speed of each particle. Only available in 'Gravity' mode.  */
         float speed = 0;
         /** speed variance of each particle. Only available in 'Gravity' mode. */
@@ -693,9 +694,9 @@ protected:
     /** How many seconds the emitter will run. -1 means 'forever' */
     float _duration = 0;
     /** sourcePosition of the emitter */
-    Vec2 _sourcePosition = { 0, 0 };
+    Vec2 _sourcePosition;
     /** Position variance of the emitter */
-    Vec2 _posVar = { 0, 0 };
+    Vec2 _posVar;
     /** life, and life variation of each particle */
     float _life = 0;
     /** life variance of each particle */
@@ -720,13 +721,13 @@ protected:
     /** end size variance in pixels of each particle */
     float _endSizeVar = 0;
     /** start color of each particle */
-    Color4F _startColor = { 0, 0, 0, 0 };
+    Color4F _startColor;
     /** start color variance of each particle */
-    Color4F _startColorVar = { 0, 0, 0, 0 };
+    Color4F _startColorVar;
     /** end color and end color variation of each particle */
-    Color4F _endColor = { 0, 0, 0, 0 };
+    Color4F _endColor;
     /** end color variance of each particle */
-    Color4F _endColorVar = { 0, 0, 0, 0 };
+    Color4F _endColorVar;
     //* initial angle of each particle
     float _startSpin = 0;
     //* initial angle of each particle

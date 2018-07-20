@@ -6,6 +6,7 @@ class TextBox : public Element
 public:
     TextBox() {}
     virtual ~TextBox() {}
+
 protected:
     std::string text_ = "";
     int font_size_ = 20;
@@ -16,7 +17,7 @@ protected:
     bool have_box_ = true;
 
     std::string texture_path_ = "";
-    int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1; //三种状态的按钮图片
+    int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1;    //三种状态的按钮图片
 
     bool resize_with_text_ = false;
 
@@ -26,8 +27,15 @@ public:
 
     void setFontSize(int size);
     void setText(std::string text);
-    std::string  getText() { return text_; };
-    void setTextPosition(int x, int y) { text_x_ = x; text_y_ = y; }  //注意：这个会导致焦点出现问题，通常是为了实现一些其他效果，请勿任意使用
+    std::string getText() { return text_; };
+
+    //注意：这个会导致焦点出现问题，通常是为了实现一些其他效果，请勿任意使用
+    void setTextPosition(int x, int y)
+    {
+        text_x_ = x;
+        text_y_ = y;
+    }
+
     void setTextColor(BP_Color c1, BP_Color c2, BP_Color c3);
     void setTextColor(BP_Color c1) { color_normal_ = c1; }
 
@@ -37,4 +45,3 @@ public:
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }
 };
-
