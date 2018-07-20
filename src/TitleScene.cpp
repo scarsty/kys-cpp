@@ -14,6 +14,7 @@
 #include "UIShop.h"
 #include "INIReader.h"
 #include "GameUtil.h"
+#include "InputBox.h"
 
 TitleScene::TitleScene()
 {
@@ -59,9 +60,16 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript("../game/script/0.lua");
+        auto input = new InputBox("ÉÙ‚b£¬ÄãµÄÃû×Ö£¿", 30);
+        input->setInputPosition(350, 50);
+        input->run();
+        auto name = input->getText();
+        printf("my name is %s\n", name.c_str());
+        delete input;
         auto random_role = new RandomRole();
         random_role->setRole(Save::getInstance()->getRole(0));
-        random_role->setRoleName(GameUtil::getInstance()->getString("constant", "name"));
+        random_role->setRoleName(name);
+        // random_role->setRoleName(GameUtil::getInstance()->getString("constant", "name"));
         if (random_role->runAtPosition(300, 0) == 0)
         {
             MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);

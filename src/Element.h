@@ -24,6 +24,7 @@ protected:
 
     int stay_frame_ = -1;
     int current_frame_ = 0;
+    bool pre_stop_ = true;              //按键类提前停止避免丢键，文本输入时需要这个为false
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -119,12 +120,12 @@ public:
     void setStayFrame(int s) { stay_frame_ = s; }
     void checkFrame();
 
-    bool isPressOK(BP_Event& e)
+    virtual bool isPressOK(BP_Event& e)
     {
         return (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT);
     }
-    bool isPressCancel(BP_Event& e)
+    virtual bool isPressCancel(BP_Event& e)
     {
         return (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT);

@@ -138,6 +138,12 @@ public:
     void fillColor(BP_Color color, int x, int y, int w, int h);
     void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
     void renderAssistTextureToWindow();
+    void startTextInput() { SDL_StartTextInput(); }
+    void stopTextInput() { SDL_StopTextInput(); }
+    void setTextInputRect(int x, int y) {
+        SDL_Rect r = { x, y, 0, 0 };
+        SDL_SetTextInputRect(&r);
+    }
 
     //事件相关
 private:
