@@ -238,15 +238,20 @@ void Element::dealEventSelfChilds(bool check_event)
     {
         BP_Event e;
         e.type = BP_FIRSTEVENT;
-        while (Engine::pollEvent(e))
-        {
-            //一些按键类提前停止避免丢键
-            if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYDOWN || e.type == BP_KEYUP)
+        if (pre_stop_) {
+            while (Engine::pollEvent(e))
             {
-                break;
+                //一些按键类提前停止避免丢键
+                if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYDOWN || e.type == BP_KEYUP)
+                {
+                    break;
+                }
             }
         }
-        //Engine::pollEvent(e);
+        else {
+            Engine::pollEvent(e);
+        }
+        
         //if (e.type == BP_MOUSEBUTTONUP)
         //{
         //    printf("BP_MOUSEBUTTONUP\n");

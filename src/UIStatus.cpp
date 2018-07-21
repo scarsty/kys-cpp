@@ -304,5 +304,6 @@ void UIStatus::onPressedOK()
 
 void UIStatus::setRoleName(std::string name)
 {
-    memcpy(role_->Name, name.c_str(), name.size());
+    memset(role_->Name, '\0', sizeof(role_->Name));
+    memcpy(role_->Name, name.c_str(), std::min(name.size(), sizeof(role_->Name)));
 }
