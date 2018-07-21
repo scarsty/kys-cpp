@@ -23,7 +23,7 @@ protected:
 
     int stay_frame_ = -1;
     int current_frame_ = 0;
-    bool pre_stop_ = true;              //按键类提前停止避免丢键，文本输入时需要这个为false
+
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -113,18 +113,18 @@ public:
     virtual void onEntrance() {}                               //进入本节点的事件，例如亮屏等
     virtual void onExit() {}                                   //离开本节点的事件，例如黑屏等
 
-    virtual void onPressedOK() {}                             //按下回车或鼠标左键的事件，子类视情况继承或者留空
-    virtual void onPressedCancel() {}                         //按下esc或鼠标右键的事件，子类视情况继承或者留空
+    virtual void onPressedOK() {}                              //按下回车或鼠标左键的事件，子类视情况继承或者留空
+    virtual void onPressedCancel() {}                          //按下esc或鼠标右键的事件，子类视情况继承或者留空
 
     void setStayFrame(int s) { stay_frame_ = s; }
     void checkFrame();
 
-    virtual bool isPressOK(BP_Event& e)
+    bool isPressOK(BP_Event& e)
     {
         return (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT);
     }
-    virtual bool isPressCancel(BP_Event& e)
+    bool isPressCancel(BP_Event& e)
     {
         return (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
             || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT);
@@ -135,6 +135,8 @@ private:
     void checkStateSelfChilds(BP_Event& e, bool check_event = false);
     void backRunSelfChilds();
     void dealEventSelfChilds(bool check_event = false);
+
+    bool isSpecialEvent(BP_Event &e);    //是否为游戏需要处理的类型
     void checkChildState();
     void checkSelfState(BP_Event& e);
     static void present();

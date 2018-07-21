@@ -238,20 +238,14 @@ void Element::dealEventSelfChilds(bool check_event)
     {
         BP_Event e;
         e.type = BP_FIRSTEVENT;
-        if (pre_stop_) {
-            while (Engine::pollEvent(e))
-            {
-                //一些按键类提前停止避免丢键
-                if (e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP || e.type == BP_KEYDOWN || e.type == BP_KEYUP)
-                {
-                    break;
-                }
-            }
+        //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
+        while (Engine::pollEvent(e))
+        {
+           if (isSpecialEvent(e))
+           {
+               break;
+           }
         }
-        else {
-            Engine::pollEvent(e);
-        }
-        
         //if (e.type == BP_MOUSEBUTTONUP)
         //{
         //    printf("BP_MOUSEBUTTONUP\n");
@@ -270,6 +264,17 @@ void Element::dealEventSelfChilds(bool check_event)
     {
         Engine::pollEvent();
     }
+}
+
+//是否为游戏需要处理的类型，避免丢失一些操作
+bool Element::isSpecialEvent(BP_Event& e) 
+{
+    return e.type == BP_MOUSEBUTTONDOWN
+        || e.type == BP_MOUSEBUTTONUP
+        || e.type == BP_KEYDOWN
+        || e.type == BP_KEYUP
+        || e.type == BP_TEXTINPUT
+        || e.type == BP_TEXTEDITING;
 }
 
 void Element::forceActiveChild()

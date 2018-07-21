@@ -136,6 +136,9 @@
     <ClCompile Include="src\Point.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="src\InputBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -281,6 +284,9 @@
     </ClInclude>
     <ClInclude Include="src\Application.h">
       <Filter>application</Filter>
+    </ClInclude>
+    <ClInclude Include="src\InputBox.h">
+      <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

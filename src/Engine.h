@@ -138,12 +138,6 @@ public:
     void fillColor(BP_Color color, int x, int y, int w, int h);
     void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
     void renderAssistTextureToWindow();
-    void startTextInput() { SDL_StartTextInput(); }
-    void stopTextInput() { SDL_StopTextInput(); }
-    void setTextInputRect(int x, int y) {
-        SDL_Rect r = { x, y, 0, 0 };
-        SDL_SetTextInputRect(&r);
-    }
 
     //事件相关
 private:
@@ -189,6 +183,15 @@ private:
 public:
     int playVideo(std::string filename);
     int saveScreen(const char* filename);
+
+    //输入相关
+    void startTextInput() { SDL_StartTextInput(); }
+    void stopTextInput() { SDL_StopTextInput(); }
+    void setTextInputRect(int x, int y, int w = 0, int h = 0)
+    {
+        SDL_Rect r = { x, y, w, h };
+        SDL_SetTextInputRect(&r);
+    }
 };
 
 //这里直接照搬SDL

@@ -60,8 +60,9 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript("../game/script/0.lua");
-        auto input = new InputBox("少俠，你的名字？", 30);
-        input->setInputPosition(350, 50);
+#ifdef _MSC_VER
+        auto input = new InputBox("請輸入姓名：", 30);
+        input->setInputPosition(350, 300);
         input->run();
         auto name = input->getText();
         printf("my name is %s\n", name.c_str());
@@ -69,7 +70,9 @@ void TitleScene::dealEvent(BP_Event& e)
         auto random_role = new RandomRole();
         random_role->setRole(Save::getInstance()->getRole(0));
         random_role->setRoleName(name);
-        // random_role->setRoleName(GameUtil::getInstance()->getString("constant", "name"));
+#else
+        random_role->setRoleName(GameUtil::getInstance()->getString("constant", "name"));
+#endif
         if (random_role->runAtPosition(300, 0) == 0)
         {
             MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
