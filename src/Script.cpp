@@ -60,9 +60,13 @@ int Script::registerEventFunctions()
     { \
         auto function = [](lua_State* L)->int \
         { \
-            INSTRUCT_TYPE(function); \
+            if (Event::getInstance()->isLooping()) \
+            { \
+                INSTRUCT_TYPE(function); \
+            } \
+            return -1; \
         }; \
-        std::string name = #function;\
+        std::string name = #function; \
         std::transform(name.begin(), name.end(), name.begin(), ::tolower); \
         lua_register(lua_state_, name.c_str(), function); \
     }
@@ -71,7 +75,11 @@ int Script::registerEventFunctions()
     { \
         auto name = [](lua_State* L)->int \
         { \
-            INSTRUCT_TYPE(function); \
+            if (Event::getInstance()->isLooping()) \
+            { \
+                INSTRUCT_TYPE(function); \
+            } \
+            return -1; \
         }; \
         lua_register(lua_state_, #name, name); \
     }

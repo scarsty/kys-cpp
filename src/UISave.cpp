@@ -47,7 +47,7 @@ void UISave::onEntrance()
 
 void UISave::onPressedOK()
 {
-    activeIndexToResult();
+    checkActiveToResult();
     if (result_ >= 0)
     {
         if (mode_ == 0 && Save::checkSaveFileExist(result_))

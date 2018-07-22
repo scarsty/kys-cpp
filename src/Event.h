@@ -66,6 +66,7 @@ public:
     void callLeaveEvent(Role* role);
     void forceExit() { loop_ = false; }
     void setUseScript(int u);
+    bool isLooping() { return loop_; }
 
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能

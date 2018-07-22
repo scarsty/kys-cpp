@@ -60,25 +60,31 @@ void TitleScene::dealEvent(BP_Event& e)
     {
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript("../game/script/0.lua");
+        std::string name = "";
 #ifdef _MSC_VER
         auto input = new InputBox("Õˆİ”ÈëĞÕÃû£º", 30);
         input->setInputPosition(350, 300);
         input->run();
-        auto name = input->getText();
-        printf("my name is %s\n", name.c_str());
-        delete input;
-        auto random_role = new RandomRole();
-        random_role->setRole(Save::getInstance()->getRole(0));
-        random_role->setRoleName(name);
-#else
-        random_role->setRoleName(GameUtil::getInstance()->getString("constant", "name"));
-#endif
-        if (random_role->runAtPosition(300, 0) == 0)
+        if (input->getResult() >= 0)
         {
-            MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-            MainScene::getInstance()->setTowards(1);
-            MainScene::getInstance()->forceEnterSubScene(GameUtil::getInstance()->getInt("constant", "begin_scene", 70), 19, 20, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
-            MainScene::getInstance()->run();
+            name = input->getText();
+        }
+        delete input;
+#else
+        name = GameUtil::getInstance()->getString("constant", "name");
+#endif
+        if (!name.empty())
+        {
+            auto random_role = new RandomRole();
+            random_role->setRole(Save::getInstance()->getRole(0));
+            random_role->setRoleName(name);
+            if (random_role->runAtPosition(300, 0) == 0)
+            {
+                MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+                MainScene::getInstance()->setTowards(1);
+                MainScene::getInstance()->forceEnterSubScene(GameUtil::getInstance()->getInt("constant", "begin_scene", 70), 19, 20, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
+                MainScene::getInstance()->run();
+            }
         }
     }
     if (r == 1)

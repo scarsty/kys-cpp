@@ -199,7 +199,7 @@ void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
         if (check_event)
         {
             checkSelfState(e);
-            checkChildState();
+            active_child_ = checkChildState();
             //可以在dealEvent中改变原有状态，强制设置某些情况
             dealEvent(e);
             //为简化代码，将按下回车和ESC的操作写在此处
@@ -241,10 +241,10 @@ void Element::dealEventSelfChilds(bool check_event)
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
         while (Engine::pollEvent(e))
         {
-           if (isSpecialEvent(e))
-           {
-               break;
-           }
+            if (isSpecialEvent(e))
+            {
+                break;
+            }
         }
         //if (e.type == BP_MOUSEBUTTONUP)
         //{
@@ -267,7 +267,7 @@ void Element::dealEventSelfChilds(bool check_event)
 }
 
 //是否为游戏需要处理的类型，避免丢失一些操作
-bool Element::isSpecialEvent(BP_Event& e) 
+bool Element::isSpecialEvent(BP_Event& e)
 {
     return e.type == BP_MOUSEBUTTONDOWN
         || e.type == BP_MOUSEBUTTONUP
@@ -289,17 +289,29 @@ void Element::forceActiveChild()
     }
 }
 
-void Element::checkChildState()
+//检测
+void Element::checkActiveToResult()
 {
-    //注意active是不改的，维持上一次的状态
-    //获取子节点的状态
+    result_ = -1;
+    int r = checkChildState();
+    if (r == active_child_)
+    {
+        result_ = active_child_;
+    }
+}
+
+//获取子节点的状态
+int Element::checkChildState()
+{
+    int r = -1;
     for (int i = 0; i < getChildCount(); i++)
     {
         if (getChild(i)->getState() != Normal)
         {
-            active_child_ = i;
+            r = i;
         }
     }
+    return r;
 }
 
 void Element::checkSelfState(BP_Event& e)

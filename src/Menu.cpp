@@ -63,7 +63,7 @@ void Menu::arrange(int x, int y, int inc_x, int inc_y)
 
 void Menu::onPressedOK()
 {
-    activeIndexToResult();
+    checkActiveToResult();
     if (result_ >= 0)
     {
         setExit(true);

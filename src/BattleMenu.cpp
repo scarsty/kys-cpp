@@ -504,7 +504,7 @@ void BattleMagicMenu::setRole(Role* r)
 
 void BattleMagicMenu::onPressedOK()
 {
-    activeIndexToResult();
+    checkActiveToResult();
     magic_ = Save::getInstance()->getRoleLearnedMagic(role_, result_);
     if (magic_) { setExit(true); }
 }

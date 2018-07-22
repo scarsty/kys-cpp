@@ -19,7 +19,7 @@ public:
     void setInputPosition(int x, int y);
     void setTextColor(BP_Color c) { color_ = c; }
 
-    virtual void onPressedCancel() override { setText(""); }
+    virtual void onPressedCancel() override { exitWithResult(-1); }
     virtual void onPressedOK() override { }
     virtual void onEntrance() override;
     virtual void onExit() override;

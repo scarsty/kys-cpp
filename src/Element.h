@@ -102,7 +102,7 @@ public:
     int getActiveChildIndex() { return active_child_; }
     void forceActiveChild();
     void forceActiveChild(int index) { active_child_ = index; forceActiveChild(); }
-    void activeIndexToResult() { result_ = active_child_; }
+    void checkActiveToResult();
 
     //通常来说，部分与操作无关的逻辑放入draw和dealEvent都问题不大，但是建议draw中仅有绘图相关的操作
 
@@ -137,7 +137,7 @@ private:
     void dealEventSelfChilds(bool check_event = false);
 
     bool isSpecialEvent(BP_Event &e);    //是否为游戏需要处理的类型
-    void checkChildState();
+    int checkChildState();
     void checkSelfState(BP_Event& e);
     static void present();
 
