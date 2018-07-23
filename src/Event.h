@@ -64,7 +64,7 @@ private:
 public:
     int getLeaveEvent(Role* role);
     void callLeaveEvent(Role* role);
-    void forceExit() { loop_ = false; }
+    void forceExit();
     void setUseScript(int u);
     bool isLooping() { return loop_; }
 

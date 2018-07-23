@@ -1,14 +1,14 @@
 #pragma once
 
 //指令对应，仅参考，不使用
-#define instruct_0
+#define instruct_0 blank
 #define instruct_1 oldTalk
 #define instruct_2 addItem
 #define instruct_3 modifyEvent
 #define instruct_4 isUsingItem
 #define instruct_5 askBattle
 #define instruct_6 tryBattle
-#define instruct_7
+#define instruct_7 forceExit
 #define instruct_8 changeMainMapMusic
 #define instruct_9 askJoin
 
@@ -27,7 +27,7 @@
 #define instruct_21 leaveTeam
 #define instruct_22 zeroAllMP
 #define instruct_23 setRoleUsePoison
-#define instruct_24 blank
+#define instruct_24 dead
 #define instruct_25 subMapViewFromTo
 #define instruct_26 add3EventNum
 #define instruct_27 playAnimation

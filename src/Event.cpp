@@ -153,12 +153,15 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             //printf("instruct %d\n", e[i]);
             switch (e[i])
             {
+                REGISTER_INSTRUCT(-1, forceExit, VOID_0);
+
                 REGISTER_INSTRUCT(1, oldTalk, VOID_3);
                 REGISTER_INSTRUCT(2, addItem, VOID_2);
                 REGISTER_INSTRUCT(3, modifyEvent, VOID_13);
                 REGISTER_INSTRUCT(4, isUsingItem, BOOL_1);
                 REGISTER_INSTRUCT(5, askBattle, BOOL_0);
-                REGISTER_INSTRUCT(6, tryBattle, BOOL_2_2);    //6这个顺序不同
+                REGISTER_INSTRUCT(6, tryBattle, BOOL_2_2);    //顺序不同
+                REGISTER_INSTRUCT(7, forceExit, VOID_0);
                 REGISTER_INSTRUCT(8, changeMainMapMusic, VOID_1);
                 REGISTER_INSTRUCT(9, askJoin, BOOL_0);
 
@@ -177,6 +180,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
                 REGISTER_INSTRUCT(21, leaveTeam, VOID_1);
                 REGISTER_INSTRUCT(22, zeroAllMP, VOID_0);
                 REGISTER_INSTRUCT(23, setRoleUsePoison, VOID_2);
+                REGISTER_INSTRUCT(24, dead, VOID_0);
                 REGISTER_INSTRUCT(25, subMapViewFromTo, VOID_4);
                 REGISTER_INSTRUCT(26, add3EventNum, VOID_5);
                 REGISTER_INSTRUCT(27, playAnimation, VOID_3);
@@ -235,11 +239,6 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
                 }
                 break;
 
-            case 7:
-            case -1:
-                i += 1;
-                loop_ = false;
-                break;
             default:
                 //不存在的指令，移动一格
                 i += 1;
@@ -281,6 +280,13 @@ int Event::getLeaveEvent(Role* role)
 void Event::callLeaveEvent(Role* role)
 {
     callEvent(getLeaveEvent(role));
+}
+
+void Event::forceExit()
+{
+    loop_ = false;
+    talk_box_up_->setExit(true);
+    talk_box_down_->setExit(true);
 }
 
 void Event::setUseScript(int u)

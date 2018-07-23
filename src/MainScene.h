@@ -12,7 +12,7 @@ public:
     {
         ParticleSystem::draw();
     }
-    void setPosition(int x, int y)
+    virtual void setPosition(int x, int y)
     {
         Element::setPosition(x, y);
         ParticleSystem::setPosition(x, y);

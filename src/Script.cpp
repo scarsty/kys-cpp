@@ -34,37 +34,36 @@ int Script::registerEventFunctions()
 {
 #define _I(i) (lua_tonumber(L, i))
 
-#define VOID_0(function) { Event::getInstance()->function(); return 0; }
-#define VOID_1(function) { Event::getInstance()->function(_I(1)); return 0; }
-#define VOID_2(function) { Event::getInstance()->function(_I(1),_I(2)); return 0; }
-#define VOID_3(function) { Event::getInstance()->function(_I(1),_I(2),_I(3)); return 0; }
-#define VOID_4(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4)); return 0; }
-#define VOID_5(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5)); return 0; }
-#define VOID_6(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6)); return 0; }
-#define VOID_7(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7)); return 0; }
-#define VOID_8(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8)); return 0; }
-#define VOID_9(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9)); return 0; }
-#define VOID_10(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10)); return 0; }
-#define VOID_11(function) { Event::getInstance()->function((_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11)); return 0; }
-#define VOID_12(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11),_I(12)); return 0; }
-#define VOID_13(function) { Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11),_I(12),_I(13)); return 0; }
+#define EVENT_VOID(function, ...) { if (Event::getInstance()->isLooping()) { Event::getInstance()->function(__VA_ARGS__); } return 0; }
+#define EVENT_BOOL(function, ...) { if (Event::getInstance()->isLooping()) { lua_pushboolean(L,Event::getInstance()->function(__VA_ARGS__)); return 1; } return 0; }
 
-#define BOOL_0(function) { lua_pushboolean(L,Event::getInstance()->function()); return 1; }
-#define BOOL_1(function) { lua_pushboolean(L,Event::getInstance()->function(_I(1))); return 1; }
-#define BOOL_2(function) { lua_pushboolean(L,Event::getInstance()->function(_I(1),_I(2))); return 1; }
-#define BOOL_3(function) { lua_pushboolean(L,Event::getInstance()->function(_I(1),_I(2),_I(3))); return 1; }
-#define BOOL_4(function) { lua_pushboolean(L,Event::getInstance()->function(_I(1),_I(2),_I(3), I(4))); return 1; }
-#define BOOL_5(function) { lua_pushboolean(L,Event::getInstance()->function(_I(1),_I(2),_I(3),_I(4),_I(5))); return 1; }
+#define VOID_0(function) { EVENT_VOID(function); }
+#define VOID_1(function) { EVENT_VOID(function,_I(1)); }
+#define VOID_2(function) { EVENT_VOID(function,_I(1),_I(2)); }
+#define VOID_3(function) { EVENT_VOID(function,_I(1),_I(2),_I(3)); }
+#define VOID_4(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4)); }
+#define VOID_5(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5)); }
+#define VOID_6(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6)); }
+#define VOID_7(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7)); }
+#define VOID_8(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8)); }
+#define VOID_9(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9)); }
+#define VOID_10(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10)); }
+#define VOID_11(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11)); }
+#define VOID_12(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11),_I(12)); }
+#define VOID_13(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11),_I(12),_I(13)); }
+
+#define BOOL_0(function) { EVENT_BOOL(function); }
+#define BOOL_1(function) { EVENT_BOOL(function,_I(1)); }
+#define BOOL_2(function) { EVENT_BOOL(function,_I(1),_I(2));}
+#define BOOL_3(function) { EVENT_BOOL(function,_I(1),_I(2),_I(3)); }
+#define BOOL_4(function) { EVENT_BOOL(function,_I(1),_I(2),_I(3), I(4));}
+#define BOOL_5(function) { EVENT_BOOL(function,_I(1),_I(2),_I(3),_I(4),_I(5)); }
 
 #define REGISTER_INSTRUCT(function, INSTRUCT_TYPE) \
     { \
         auto function = [](lua_State* L)->int \
         { \
-            if (Event::getInstance()->isLooping()) \
-            { \
-                INSTRUCT_TYPE(function); \
-            } \
-            return -1; \
+            INSTRUCT_TYPE(function); \
         }; \
         std::string name = #function; \
         std::transform(name.begin(), name.end(), name.begin(), ::tolower); \
@@ -75,11 +74,7 @@ int Script::registerEventFunctions()
     { \
         auto name = [](lua_State* L)->int \
         { \
-            if (Event::getInstance()->isLooping()) \
-            { \
-                INSTRUCT_TYPE(function); \
-            } \
-            return -1; \
+            INSTRUCT_TYPE(function); \
         }; \
         lua_register(lua_state_, #name, name); \
     }
@@ -95,6 +90,7 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(isUsingItem, BOOL_1);
     REGISTER_INSTRUCT(askBattle, BOOL_0);
     REGISTER_INSTRUCT(tryBattle, BOOL_2);
+    REGISTER_INSTRUCT(forceExit, VOID_0);
     REGISTER_INSTRUCT(changeMainMapMusic, VOID_1);
     REGISTER_INSTRUCT(askJoin, BOOL_0);
     REGISTER_INSTRUCT(join, VOID_1);
@@ -154,14 +150,14 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(playMusic, VOID_1);
     REGISTER_INSTRUCT(playWave, VOID_1);
 
-    lua_register(lua_state_, "instruct_0", blank);
+    REGISTER_INSTRUCT(instruct_0, VOID_0);
     REGISTER_INSTRUCT(instruct_1, VOID_3);
     REGISTER_INSTRUCT(instruct_2, VOID_2);
     REGISTER_INSTRUCT(instruct_3, VOID_13);
     REGISTER_INSTRUCT(instruct_4, BOOL_1);
     REGISTER_INSTRUCT(instruct_5, BOOL_0);
     REGISTER_INSTRUCT(instruct_6, BOOL_2);
-    lua_register(lua_state_, "instruct_7", blank);
+    REGISTER_INSTRUCT(instruct_7, VOID_0);
     REGISTER_INSTRUCT(instruct_8, VOID_1);
     REGISTER_INSTRUCT(instruct_9, BOOL_0);
     REGISTER_INSTRUCT(instruct_10, VOID_1);
@@ -178,7 +174,7 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(instruct_21, VOID_1);
     REGISTER_INSTRUCT(instruct_22, VOID_0);
     REGISTER_INSTRUCT(instruct_23, VOID_2);
-    lua_register(lua_state_, "instruct_24", blank);
+    REGISTER_INSTRUCT(instruct_24, VOID_0);
     REGISTER_INSTRUCT(instruct_25, VOID_4);
     REGISTER_INSTRUCT(instruct_26, VOID_5);
     REGISTER_INSTRUCT(instruct_27, VOID_3);
