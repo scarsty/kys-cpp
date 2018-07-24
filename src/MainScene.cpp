@@ -8,6 +8,7 @@
 #include "UISave.h"
 #include "Util.h"
 #include <time.h>
+//#include "Timer.h"
 
 MainScene::MainScene()
 {
@@ -71,15 +72,18 @@ void MainScene::divide2(MapSquareInt* m)
 void MainScene::draw()
 {
     Engine::getInstance()->setRenderAssistTexture();
-    //LOG("main\n");
-    int k = 0;
-    //auto t0 = Engine::getInstance()->getTicks();
+
     struct DrawInfo
     {
+        int index;
         int i;
         Point p;
     };
-    std::map<int, DrawInfo> map;
+
+    //Timer t1;
+    //std::map<int, DrawInfo> map;
+    static std::vector<DrawInfo> building_vec(10000);
+    int building_count = 0;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
     //下面的15是下方较高贴图的余量，其余场景同
@@ -118,7 +122,8 @@ void MainScene::draw()
                     auto h = tex->h;
                     auto dy = tex->dy;
                     int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
-                    map[2 * c + 1] = { t, p };
+                    //map[2 * c + 1] = { 2*c+1, t, p };
+                    building_vec[building_count++] = { 2 * c + 1, t, p };
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
@@ -135,15 +140,26 @@ void MainScene::draw()
                         }
                     }
                     int c = 1024 * (ix + iy) + ix;
-                    map[2 * c] = { man_pic_, p };
+                    //map[2 * c] = {2*c, man_pic_, p };
+                    building_vec[building_count++] = { 2 * c, man_pic_, p };
                 }
             }
-            k++;
         }
     }
-    for (auto i = map.begin(); i != map.end(); i++)
+    //for (auto i = map.begin(); i != map.end(); i++)
+    //{
+    //    TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
+    //}
+
+    auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
     {
-        TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
+        return d1.index < d2.index;
+    };
+    std::sort(building_vec.begin(), building_vec.begin() + building_count, sort_building);
+    for (int i = 0; i < building_count; i++)
+    {
+        auto& d = building_vec[i];
+        TextureManager::getInstance()->renderTexture("mmap", d.i, d.p.x, d.p.y);
     }
 
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
@@ -153,10 +169,7 @@ void MainScene::draw()
     {
         c->draw();
     }
-
-    //auto t1 = Engine::getInstance()->getTicks();
-
-    //log("%d\n", t1 - t0);
+    //printf("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     Engine::getInstance()->renderAssistTextureToWindow();
 }
 
