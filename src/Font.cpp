@@ -64,9 +64,9 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         }
         if (c != 32)
         {
-            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 2), uint8_t(color.g / 2), uint8_t(color.b / 2), color.a }, alpha);
+            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 2), uint8_t(color.g / 2), uint8_t(color.b / 2), color.a });
             Engine::getInstance()->renderCopy(tex, x + 1, y, w, h);
-            Engine::getInstance()->setColor(tex, color, alpha);
+            Engine::getInstance()->setColor(tex, color);
             Engine::getInstance()->renderCopy(tex, x, y, w, h);
         }
         x += w;

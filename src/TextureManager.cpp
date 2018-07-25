@@ -22,7 +22,8 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
     {
         auto engine = Engine::getInstance();
         int i = rand() % tex->count;
-        engine->setColor(tex->tex[i], c, alpha);
+        c.a = alpha;
+        engine->setColor(tex->tex[i], c);
         engine->renderCopy(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
     }
 }
@@ -39,7 +40,8 @@ void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8
     {
         auto engine = Engine::getInstance();
         int i = rand() % tex->count;
-        engine->setColor(tex->tex[i], c, alpha);
+        c.a = alpha;
+        engine->setColor(tex->tex[i], c);
         engine->renderCopy(tex->tex[i], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
     }
 }

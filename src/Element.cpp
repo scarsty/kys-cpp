@@ -199,7 +199,11 @@ void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
         if (check_event)
         {
             checkSelfState(e);
-            active_child_ = checkChildState();
+            int r = checkChildState();
+            if (r >= 0)
+            {
+                active_child_ = r;
+            }
             //可以在dealEvent中改变原有状态，强制设置某些情况
             dealEvent(e);
             //为简化代码，将按下回车和ESC的操作写在此处
@@ -323,10 +327,6 @@ void Element::checkSelfState(BP_Event& e)
         if (inSide(e.motion.x, e.motion.y))
         {
             state_ = Pass;
-            if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT))
-            {
-                state_ = Press;
-            }
         }
         else
         {
@@ -381,13 +381,17 @@ int Element::run(bool in_root /*= true*/)
     }
     onEntrance();
     running_ = true;
-    while (!exit_)
+    while (true)
     {
         if (root_.empty())
         {
             break;
         }
         dealEventSelfChilds(true);
+        if (exit_)
+        {
+            break;
+        }
         drawAll();
         checkFrame();
         present();

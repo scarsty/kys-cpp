@@ -16,6 +16,8 @@
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
 
+//每个SDL的函数和结构通常仅出现一次，其余的均用已封的功能完成
+
 typedef std::function<void(uint8_t*, int)> AudioCallback;
 typedef SDL_Renderer BP_Renderer;
 typedef SDL_Window BP_Window;
@@ -23,6 +25,7 @@ typedef SDL_Texture BP_Texture;
 typedef SDL_Rect BP_Rect;
 typedef SDL_Color BP_Color;
 typedef SDL_Keycode BP_Keycode;
+typedef SDL_Surface BP_Surface;
 
 enum BP_Align
 {
@@ -51,9 +54,9 @@ private:
 
 public:
     static Engine* getInstance()
-    {   
+    {
         static Engine e;
-        return &e; 
+        return &e;
     }
     //图形相关
 private:
@@ -94,7 +97,7 @@ public:
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }
-    void getMainTextureSize(int& w, int& h) { SDL_QueryTexture(tex2_, nullptr, nullptr, &w, &h); }
+    void getMainTextureSize(int& w, int& h) { queryTexture(tex2_, &w, &h); }
     void destroyAssistTexture()
     {
         if (tex2_)
@@ -110,17 +113,17 @@ public:
     void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
     void renderCopy(BP_Texture* t = nullptr);
     void renderCopy(BP_Texture* t, BP_Rect* rect1, double angle);
-    void showLogo() { SDL_RenderCopy(renderer_, logo_, nullptr, nullptr); }
+    void showLogo() { renderCopy(logo_, nullptr, nullptr); }
     void renderPresent() { SDL_RenderPresent(renderer_); /*renderClear();*/ }
     void renderClear() { SDL_RenderClear(renderer_); }
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
     void setRenderTarget(BP_Texture* t) { SDL_SetRenderTarget(renderer_, t); }
-    void resetRenderTarget() { SDL_SetRenderTarget(renderer_, nullptr); }
+    void resetRenderTarget() { setRenderTarget(nullptr); }
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
-    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent = 0);
+    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent = 0) { SDL_RenderCopy(renderer_, t, rect0, rect1); }
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();
@@ -134,11 +137,11 @@ public:
         ratio_x_ = x;
         ratio_y_ = y;
     }
-    void setColor(BP_Texture* tex, BP_Color c, uint8_t alpha);
+    void setColor(BP_Texture* tex, BP_Color c);
     void fillColor(BP_Color color, int x, int y, int w, int h);
-    void setRenderAssistTexture() { SDL_SetRenderTarget(renderer_, tex2_); }
+    void setRenderAssistTexture() { setRenderTarget(tex2_); }
     void renderAssistTextureToWindow();
-
+    void setTextureBlendMode(BP_Texture* t) { SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
     //事件相关
 private:
     int time_;
@@ -189,7 +192,7 @@ public:
     void stopTextInput() { SDL_StopTextInput(); }
     void setTextInputRect(int x, int y, int w = 0, int h = 0)
     {
-        SDL_Rect r = { x, y, w, h };
+        BP_Rect r = { x, y, w, h };
         SDL_SetTextInputRect(&r);
     }
 };

@@ -47,8 +47,8 @@ void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, int inPresent
         x += rect_.x;
         y += rect_.y;
     }
-    SDL_Rect r = { x, y, w, h };
-    SDL_RenderCopy(renderer_, t, nullptr, &r);
+    BP_Rect r = { x, y, w, h };
+    renderCopy(t, nullptr, &r);
 }
 
 void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
@@ -59,11 +59,6 @@ void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
 void Engine::renderCopy(BP_Texture* t, BP_Rect* rect1, double angle)
 {
     SDL_RenderCopyEx(renderer_, t, nullptr, rect1, angle, nullptr, SDL_FLIP_NONE);
-}
-
-void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent /*= 0*/)
-{
-    SDL_RenderCopy(renderer_, t, rect0, rect1);
 }
 
 void Engine::destroy()
@@ -89,7 +84,7 @@ BP_Texture* Engine::createSquareTexture(int size)
     auto square_s = SDL_CreateRGBSurface(0, d, d, 32, RMASK, GMASK, BMASK, AMASK);
 
     //SDL_FillRect(square_s, nullptr, 0xffffffff);
-    SDL_Rect r = { 0, 0, 1, 1 };
+    BP_Rect r = { 0, 0, 1, 1 };
     auto& x = r.x;
     auto& y = r.y;
     uint8_t a = 0;
@@ -107,8 +102,8 @@ BP_Texture* Engine::createSquareTexture(int size)
         }
     }
     square_ = SDL_CreateTextureFromSurface(renderer_, square_s);
-    SDL_SetTextureBlendMode(square_, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureAlphaMod(square_, 128);
+    setTextureBlendMode(square_);
+    setTextureAlphaMod(square_, 128);
     SDL_FreeSurface(square_s);
     return square_;
 }
@@ -140,9 +135,9 @@ void Engine::drawText(const std::string& fontname, std::string& text, int size, 
     {
         return;
     }
-    SDL_SetTextureAlphaMod(text_t, alpha);
-    SDL_Rect rect;
-    SDL_QueryTexture(text_t, nullptr, nullptr, &rect.w, &rect.h);
+    setTextureAlphaMod(text_t, alpha);
+    BP_Rect rect;
+    queryTexture(text_t, &rect.w, &rect.h);
     rect.y = y;
     switch (align)
     {
@@ -156,8 +151,8 @@ void Engine::drawText(const std::string& fontname, std::string& text, int size, 
         rect.x = x - rect.w / 2;
         break;
     }
-    SDL_RenderCopy(renderer_, text_t, nullptr, &rect);
-    SDL_DestroyTexture(text_t);
+    renderCopy(text_t, nullptr, &rect);
+    destroyTexture(text_t);
 }
 
 int Engine::init(void* handle)
@@ -198,7 +193,7 @@ int Engine::init(void* handle)
     max_x_ = r.right - w;
     max_y_ = r.bottom - h;
 #else
-    SDL_Rect r;
+    BP_Rect r;
     SDL_GetDisplayBounds(0, &r);
     min_x_ = r.x;
     min_y_ = r.y;
@@ -217,15 +212,15 @@ int Engine::init(void* handle)
 
 int Engine::getWindowWidth()
 {
-    int w;
-    SDL_GetWindowSize(window_, &w, nullptr);
+    int w, h;
+    getWindowSize(w, h);
     return w;
 }
 
 int Engine::getWindowHeight()
 {
-    int h;
-    SDL_GetWindowSize(window_, nullptr, &h);
+    int w, h;
+    getWindowSize(w, h);
     return h;
 }
 
@@ -247,7 +242,7 @@ void Engine::toggleFullscreen()
     {
         SDL_SetWindowFullscreen(window_, 0);
     }
-    SDL_RenderClear(renderer_);
+    renderClear();
 }
 
 BP_Texture* Engine::loadImage(const std::string& filename)
@@ -278,7 +273,7 @@ void Engine::setPresentPosition()
     int w_dst = 0, h_dst = 0;
     int w_src = 0, h_src = 0;
     getWindowSize(w_dst, h_dst);
-    SDL_QueryTexture(tex_, nullptr, nullptr, &w_src, &h_src);
+    queryTexture(tex_, &w_src, &h_src);
     w_src *= ratio_x_;
     h_src *= ratio_y_;
     if (keep_ratio_)
@@ -330,8 +325,8 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
     }
     auto t = SDL_CreateTextureFromSurface(renderer_, s);
     SDL_FreeSurface(s);
-    SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
-    SDL_SetTextureAlphaMod(t, 192);
+    setTextureBlendMode(t);
+    setTextureAlphaMod(t, 192);
     return t;
 }
 
@@ -383,10 +378,7 @@ void Engine::setWindowSize(int w, int h)
     win_h_ = std::min(max_y_ - min_y_, h);
     SDL_SetWindowSize(window_, win_w_, win_h_);
     setPresentPosition();
-
-    SDL_ShowWindow(window_);
-    SDL_RaiseWindow(window_);
-    SDL_GetWindowSize(window_, &win_w_, &win_h_);
+    getWindowSize(win_w_, win_h_);
     //resetWindowsPosition();
     //renderPresent();
 }
@@ -394,7 +386,7 @@ void Engine::setWindowSize(int w, int h)
 void Engine::resetWindowsPosition()
 {
     int x, y, w, h, x0, y0;
-    SDL_GetWindowSize(window_, &w, &h);
+    getWindowSize(w, h);
     SDL_GetWindowPosition(window_, &x0, &y0);
     x = std::max(min_x_, x0);
     y = std::max(min_y_, y0);
@@ -408,15 +400,15 @@ void Engine::resetWindowsPosition()
     }
     if (x != x0 || y != y0)
     {
-        SDL_SetWindowPosition(window_, x, y);
+        setWindowPosition(x, y);
     }
 }
 
-void Engine::setColor(BP_Texture* tex, BP_Color c, uint8_t alpha)
+void Engine::setColor(BP_Texture* tex, BP_Color c)
 {
     SDL_SetTextureColorMod(tex, c.r, c.g, c.b);
-    SDL_SetTextureAlphaMod(tex, alpha);
-    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    setTextureAlphaMod(tex, c.a);
+    setTextureBlendMode(tex);
 }
 
 void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
@@ -433,13 +425,14 @@ void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
 
 void Engine::renderAssistTextureToWindow()
 {
-    SDL_SetRenderTarget(renderer_, nullptr);
-    SDL_RenderCopy(renderer_, tex2_, nullptr, nullptr);
+    resetRenderTarget();
+    renderCopy(tex2_, nullptr, nullptr);
 }
 
 void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
 {
-    setColor(square_, color, alpha);
+    color.a = alpha;
+    setColor(square_, color);
     renderCopy(square_, nullptr, rect);
 }
 
@@ -453,20 +446,21 @@ int Engine::playVideo(std::string filename)
 
 int Engine::saveScreen(const char* filename)
 {
-    SDL_Rect rect;
+    BP_Rect rect;
     rect.x = 0;
     rect.y = 0;
-    SDL_GetWindowSize(window_, &rect.w, &rect.h);
-    SDL_Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
+    getWindowSize(rect.w, rect.h);
+    BP_Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
     SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
     SDL_SaveBMP(sur, filename);
+    SDL_FreeSurface(sur);
     return 0;
 }
 
 void Engine::setWindowPosition(int x, int y)
 {
     int w, h;
-    SDL_GetWindowSize(window_, &w, &h);
+    getWindowSize(w, h);
     if (x == BP_WINDOWPOS_CENTERED)
     {
         x = min_x_ + (max_x_ - min_x_ - w) / 2;
