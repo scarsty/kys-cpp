@@ -11,21 +11,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{0B2302D7-3C55-442F-8F3E-764B54328B45}</ProjectGuid>
+    <ProjectGuid>{0B182EC1-436E-4559-A397-DEE8920BC53C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>kyscpp</RootNamespace>
-    <ProjectName>kys</ProjectName>
+    <ProjectName>battle</ProjectName>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -92,19 +92,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="resource\resource.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="resource\kys.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="resource\kys.rc" />
+    <ClInclude Include="extension\battle.h" />
+    <ClInclude Include="extension\BattleMod.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="src\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\kys.cpp" />
+    <ClCompile Include="extension\battle.cpp" />
+    <ClCompile Include="extension\BattleMod.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\Users\sty\Desktop\yaml-cpp-yaml-cpp-0.6.0\Release\libyaml-cppmd.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

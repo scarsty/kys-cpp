@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="extension\BattleMod.h" />
+    <ClInclude Include="extension\battle.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="extension\BattleMod.cpp" />
+    <ClCompile Include="extension\battle.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\..\Users\sty\Desktop\yaml-cpp-yaml-cpp-0.6.0\Release\libyaml-cppmd.lib" />
+  </ItemGroup>
+</Project>

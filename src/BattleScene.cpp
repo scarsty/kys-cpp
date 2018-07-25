@@ -507,22 +507,12 @@ void BattleScene::sortRoles()
 {
     if (semi_real_ == 0)
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), compareRole);
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) { return r1->Speed > r2->Speed; });
     }
     else
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), compareRoleReal);
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) { return r1->Progress > r2->Progress; });
     }
-}
-
-bool BattleScene::compareRole(Role* r1, Role* r2)
-{
-    return r1->Speed > r2->Speed;
-}
-
-bool BattleScene::compareRoleReal(Role* r1, Role* r2)
-{
-    return r1->Progress > r2->Progress;
 }
 
 void BattleScene::resetRolesAct()
@@ -1275,17 +1265,6 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     y_ = 0;
 }
 
-void BattleScene::showMagicName(std::string name)
-{
-    auto magic_name = new TextBox();
-    magic_name->setText(name);
-    magic_name->setPosition(450, 150);
-    magic_name->setFontSize(20);
-    magic_name->setStayFrame(40);
-    magic_name->run();
-    delete magic_name;
-}
-
 //r1使用武功magic攻击r2的伤害，结果为一正数
 int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 {
@@ -1424,6 +1403,17 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
     return v;
 }
 
+void BattleScene::showMagicName(std::string name)
+{
+    auto magic_name = new TextBox();
+    magic_name->setText(name);
+    magic_name->setPosition(450, 150);
+    magic_name->setFontSize(20);
+    magic_name->setStayFrame(40);
+    magic_name->run();
+    delete magic_name;
+}
+
 //显示数字，同时显示打退进度条
 void BattleScene::showNumberAnimation()
 {
@@ -1465,7 +1455,7 @@ void BattleScene::showNumberAnimation()
         };
         drawAndPresent(animation_delay_, drawNumber);
     }
-    //清除所有人的显示
+    //清除所有人的显示，处理不能被整除的击退值
     for (auto r : battle_roles_)
     {
         r->ShowString.clear();

@@ -87,7 +87,7 @@ void BattleActionMenu::dealEvent(BP_Event& e)
 int BattleActionMenu::autoSelect(Role* role)
 {
     std::vector<Role*> friends, enemies;
-    for (auto r : battle_scene_->battle_roles_)
+    for (auto r : battle_scene_->getBattleRoles())
     {
         if (r->Team == role->Team)
         {
