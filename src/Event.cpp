@@ -8,7 +8,7 @@
 #include "libconvert.h"
 #include "Audio.h"
 #include "GameUtil.h"
-#include "BattleCreator.h"
+#include "BattleScene.h"
 #include "UIShop.h"
 #include "Font.h"
 #include "File.h"
@@ -382,7 +382,7 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    auto battle = BattleCreator::createBattleScene();
+    auto battle = new BattleScene();
     battle->setID(battle_id);
     battle->setHaveFailExp(get_exp);
     int result = battle->run();
