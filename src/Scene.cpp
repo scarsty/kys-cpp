@@ -273,7 +273,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
 
 void Scene::lightScene()
 {
-    for (int i = 10; i <= 0; i--)
+    for (int i = 10; i >= 0; i--)
     {
         if (exit_)
         {

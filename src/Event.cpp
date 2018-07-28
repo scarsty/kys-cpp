@@ -1417,9 +1417,9 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e5 = e_GetValue(3, e1, e5);
         e6 = e_GetValue(4, e1, e6);
         x50[0x7100] = e3;
-        x50[0x77101] = e4;
-        x50[0x77102] = e5;
-        x50[0x77103] = e6;
+        x50[0x7101] = e4;
+        x50[0x7102] = e5;
+        x50[0x7103] = e6;
         callEvent(e2);
         break;
     case 44: //44~47为战斗指令，不要了
