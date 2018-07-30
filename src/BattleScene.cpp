@@ -342,7 +342,7 @@ void BattleScene::onExit()
     //清空全部角色的位置层
     for (auto r : Save::getInstance()->getRoles())
     {
-        r->setRolePoitionLayer(nullptr);
+        r->setRolePositionLayer(nullptr);
     }
     Element::removeFromRoot(MainScene::getInstance()->getWeather());
 }
@@ -357,7 +357,7 @@ void BattleScene::readBattleInfo()
     //设置全部角色的位置层，避免今后出错
     for (auto r : Save::getInstance()->getRoles())
     {
-        r->setRolePoitionLayer(role_layer_);
+        r->setRolePositionLayer(role_layer_);
         r->Team = 2;    //先全部设置成不存在的阵营
         r->Auto = 1;
     }
@@ -848,7 +848,7 @@ void BattleScene::action(Role* r)
     }
     else if (str == "醫療")
     {
-        actMedcine(r);
+        actMedicine(r);
     }
     else if (str == "暗器")
     {
@@ -999,9 +999,9 @@ void BattleScene::actDetoxification(Role* r)
     }
 }
 
-void BattleScene::actMedcine(Role* r)
+void BattleScene::actMedicine(Role* r)
 {
-    calSelectLayer(r, 1, calActionStep(r->Medcine));
+    calSelectLayer(r, 1, calActionStep(r->Medicine));
     battle_cursor_->setMode(BattleCursor::Action);
     battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;
@@ -1011,7 +1011,7 @@ void BattleScene::actMedcine(Role* r)
         auto r2 = getSelectedRole();
         if (r2)
         {
-            int v = GameUtil::medcine(r, r2);
+            int v = GameUtil::medicine(r, r2);
             r2->ShowString = convert::formatString("-%d", abs(v));
             r2->ShowColor = { 255, 255, 200, 255 };
             r->ExpGot += v;

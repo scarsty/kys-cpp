@@ -119,7 +119,7 @@ void Role::limit()
     limit2(Defence, 0, r_max->Defence);
     limit2(Speed, 0, r_max->Speed);
 
-    limit2(Medcine, 0, r_max->Medcine);
+    limit2(Medicine, 0, r_max->Medicine);
     limit2(UsePoison, 0, r_max->UsePoison);
     limit2(Detoxification, 0, r_max->Detoxification);
     limit2(AntiPoison, 0, r_max->AntiPoison);

@@ -125,7 +125,7 @@ public:
     virtual void actUseMagic(Role* r);           //武学
     virtual void actUsePoison(Role* r);          //用毒
     virtual void actDetoxification(Role* r);     //解毒
-    virtual void actMedcine(Role* r);            //医疗
+    virtual void actMedicine(Role* r);            //医疗
     virtual void actUseHiddenWeapon(Role* r);    //暗器
     virtual void actUseDrag(Role* r);            //吃药
     virtual void actWait(Role* r);               //等待

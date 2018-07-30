@@ -68,7 +68,7 @@ void ShowRoleDifference::draw()
     showOneDifference(role1_->Defence, "·À¶R %7d   -> %7d", 20, color, x, y);
     showOneDifference(role1_->Speed, "Ýp¹¦ %7d   -> %7d", 20, color, x, y);
 
-    showOneDifference(role1_->Medcine, "át¯Ÿ %7d   -> %7d", 20, color, x, y);
+    showOneDifference(role1_->Medicine, "át¯Ÿ %7d   -> %7d", 20, color, x, y);
     showOneDifference(role1_->UsePoison, "ÓÃ¶¾ %7d   -> %7d", 20, color, x, y);
     showOneDifference(role1_->Detoxification, "½â¶¾ %7d   -> %7d", 20, color, x, y);
     showOneDifference(role1_->AntiPoison, "¿¹¶¾ %7d   -> %7d", 20, color, x, y);

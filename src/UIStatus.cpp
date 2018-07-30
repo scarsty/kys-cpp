@@ -9,9 +9,9 @@
 
 UIStatus::UIStatus()
 {
-    button_medcine_ = new Button();
-    button_medcine_->setText("醫療");
-    addChild(button_medcine_, 350, 55);
+    button_medicine_ = new Button();
+    button_medicine_->setText("醫療");
+    addChild(button_medicine_, 350, 55);
 
     button_detoxification_ = new Button();
     button_detoxification_->setText("解毒");
@@ -30,7 +30,7 @@ void UIStatus::draw()
 {
     if (role_ == nullptr || !show_button_)
     {
-        button_medcine_->setVisible(false);
+        button_medicine_->setVisible(false);
         button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
     }
@@ -39,7 +39,7 @@ void UIStatus::draw()
     {
         if (show_button_)
         {
-            button_medcine_->setVisible(role_->Medcine > 0);
+            button_medicine_->setVisible(role_->Medicine > 0);
             button_detoxification_->setVisible(role_->Detoxification > 0);
             button_leave_->setVisible(role_->ID != 0);
         }
@@ -153,7 +153,7 @@ void UIStatus::draw()
     font->draw(convert::formatString("%5d", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Role::getMaxValue()->Speed));
 
     font->draw("醫療", font_size, x, y + 25, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Medcine), font_size, x + 44, y + 25, select_color1(role_->Medcine, Role::getMaxValue()->Medcine));
+    font->draw(convert::formatString("%5d", role_->Medicine), font_size, x + 44, y + 25, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
     font->draw("解毒", font_size, x + 200, y + 25, color_ability1);
     font->draw(convert::formatString("%5d", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
     font->draw("用毒", font_size, x + 400, y + 25, color_ability1);
@@ -266,7 +266,7 @@ void UIStatus::onPressedOK()
         Event::getInstance()->callLeaveEvent(role_);
         role_ = nullptr;
     }
-    else if (button_medcine_->getState() == Press)
+    else if (button_medicine_->getState() == Press)
     {
         auto team_menu = new TeamMenu();
         team_menu->setText(convert::formatString("%s要為誰醫療", role_->Name));
@@ -276,7 +276,7 @@ void UIStatus::onPressedOK()
         if (role)
         {
             Role r = *role;
-            GameUtil::medcine(role_, role);
+            GameUtil::medicine(role_, role);
             auto df = new ShowRoleDifference(&r, role);
             df->setText(convert::formatString("%s接受%s醫療", role->Name, role_->Name));
             df->run();

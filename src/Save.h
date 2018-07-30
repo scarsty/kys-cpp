@@ -118,7 +118,7 @@ public:
     int MaxDefence = 100;
     int MaxSpeed = 100;
 
-    int MaxMedcine = 100;
+    int MaxMedicine = 100;
     int MaxUsePoison = 100;
     int MaxDetoxification = 100;
     int MaxAntiPoison = 100;

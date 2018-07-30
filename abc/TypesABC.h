@@ -96,7 +96,7 @@ enum
     MAX_DEFENCE = 100,
     MAX_SPEED = 100,
 
-    MAX_MEDCINE = 100,
+    MAX_MEDICINE = 100,
     MAX_USE_POISON = 100,
     MAX_DETOXIFICATION = 100,
     MAX_ANTI_POISON = 100,
@@ -147,7 +147,7 @@ public:
     MAP_INT Equip0, Equip1;
     MAP_INT Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     MAP_INT MPType, MP, MaxMP;
-    MAP_INT Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
+    MAP_INT Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     MAP_INT Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
     MAP_INT PracticeItem;
     SAVE_UINT ExpForItem;
@@ -166,9 +166,9 @@ struct ItemSave1
     MAP_INT ItemType;    //0剧情，1装备，2秘笈，3药品，4暗器
     MAP_INT UnKnown5, UnKnown6, UnKnown7;
     MAP_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
-    MAP_INT AddAttack, AddSpeed, AddDefence, AddMedcine, AddUsePoison, AddDetoxification, AddAntiPoison;
+    MAP_INT AddAttack, AddSpeed, AddDefence, AddMedicine, AddUsePoison, AddDetoxification, AddAntiPoison;
     MAP_INT AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
-    MAP_INT OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;
+    MAP_INT OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedicine, NeedDetoxification;
     MAP_INT NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
     MAP_INT NeedExp, NeedExpForMakeItem, NeedMaterial;
     MAP_INT MakeItem[5], MakeItemCount[5];
@@ -239,7 +239,7 @@ public:
     int Equip0, Equip1;
     int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     int MPType, MP, MaxMP;
-    int Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
+    int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
     int PracticeItem;
     int ExpForItem;
@@ -258,9 +258,9 @@ struct ItemSave
     int ItemType;    //0剧情，1装备，2秘笈，3药品，4暗器
     int UnKnown5, UnKnown6, UnKnown7;
     int AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
-    int AddAttack, AddSpeed, AddDefence, AddMedcine, AddUsePoison, AddDetoxification, AddAntiPoison;
+    int AddAttack, AddSpeed, AddDefence, AddMedicine, AddUsePoison, AddDetoxification, AddAntiPoison;
     int AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
-    int OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;
+    int OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedicine, NeedDetoxification;
     int NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
     int NeedExp, NeedExpForMakeItem, NeedMaterial;
     int MakeItem[5], MakeItemCount[5];

@@ -243,7 +243,7 @@ void UIItem::showItemProperty(Item* item)
     showOneProperty(item->AddSpeed, "輕功%+d", size, c, x, y);
     showOneProperty(item->AddDefence, "防禦%+d", size, c, x, y);
 
-    showOneProperty(item->AddMedcine, "醫療%+d", size, c, x, y);
+    showOneProperty(item->AddMedicine, "醫療%+d", size, c, x, y);
     showOneProperty(item->AddUsePoison, "用毒%+d", size, c, x, y);
     showOneProperty(item->AddDetoxification, "解毒%+d", size, c, x, y);
     showOneProperty(item->AddAntiPoison, "抗毒%+d", size, c, x, y);
@@ -293,7 +293,7 @@ void UIItem::showItemProperty(Item* item)
     showOneProperty(item->NeedAttack, "攻擊%d", size, c, x, y);
     showOneProperty(item->NeedSpeed, "輕功%d", size, c, x, y);
 
-    showOneProperty(item->NeedMedcine, "醫療%d", size, c, x, y);
+    showOneProperty(item->NeedMedicine, "醫療%d", size, c, x, y);
     showOneProperty(item->NeedUsePoison, "用毒%d", size, c, x, y);
     showOneProperty(item->NeedDetoxification, "解毒%d", size, c, x, y);
 

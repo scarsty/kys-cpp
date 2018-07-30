@@ -45,7 +45,7 @@ void BattleActionMenu::setRole(Role* r)
     {
         childs_text_["½â¶¾"]->setVisible(false);
     }
-    if (role_->Medcine <= 0 || role_->PhysicalPower < 10)
+    if (role_->Medicine <= 0 || role_->PhysicalPower < 10)
     {
         childs_text_["át¯Ÿ"]->setVisible(false);
     }
@@ -194,11 +194,11 @@ int BattleActionMenu::autoSelect(Role* role)
                         {
                             AIAction aa;
                             calAIActionNearest(r2, aa);
-                            int action_dis = battle_scene_->calActionStep(role->Medcine);
+                            int action_dis = battle_scene_->calActionStep(role->Medicine);
                             if (action_dis >= calNeedActionDistance(aa))
                             {
                                 aa.Action = getResultFromString(action_text);
-                                aa.point = r2->Medcine;
+                                aa.point = r2->Medicine;
                                 ai_action.push_back(aa);
                             }
                         }

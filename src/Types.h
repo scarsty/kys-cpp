@@ -114,7 +114,7 @@ public:
     int Equip0, Equip1;
     int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     int MPType, MP, MaxMP;
-    int Attack, Speed, Defence, Medcine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
+    int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
     int PracticeItem;
     int ExpForItem;
@@ -152,7 +152,7 @@ private:
 
 public:
     MapSquare<Role*>* position_layer_ = nullptr;
-    void setRolePoitionLayer(MapSquare<Role*>* l) { position_layer_ = l; }
+    void setRolePositionLayer(MapSquare<Role*>* l) { position_layer_ = l; }
     void setPosition(int x, int y);
     void setPositionOnly(int x, int y)
     {
@@ -209,9 +209,9 @@ struct ItemSave
     int ItemType;    //0剧情，1装备，2秘笈，3药品，4暗器
     int UnKnown5, UnKnown6, UnKnown7;
     int AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
-    int AddAttack, AddSpeed, AddDefence, AddMedcine, AddUsePoison, AddDetoxification, AddAntiPoison;
+    int AddAttack, AddSpeed, AddDefence, AddMedicine, AddUsePoison, AddDetoxification, AddAntiPoison;
     int AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
-    int OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedcine, NeedDetoxification;
+    int OnlySuitableRole, NeedMPType, NeedMP, NeedAttack, NeedSpeed, NeedUsePoison, NeedMedicine, NeedDetoxification;
     int NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
     int NeedExp, NeedExpForMakeItem, NeedMaterial;
     int MakeItem[5], MakeItemCount[5];

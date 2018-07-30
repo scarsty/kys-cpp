@@ -9,7 +9,7 @@ public:
     UIStatus();
     ~UIStatus();
 protected:
-    Button* button_medcine_;
+    Button* button_medicine_;
     Button* button_detoxification_;
     Button* button_leave_;
     bool show_button_ = true;

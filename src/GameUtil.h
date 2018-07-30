@@ -87,7 +87,7 @@ public:
     static void equip(Role* r, Item* i);
 
     //以下3个函数的返回值为需要显示的数值
-    static int medcine(Role* r1, Role* r2);
+    static int medicine(Role* r1, Role* r2);
     static int detoxification(Role* r1, Role* r2);
     static int usePoison(Role* r1, Role* r2);
 

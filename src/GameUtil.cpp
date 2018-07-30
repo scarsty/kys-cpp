@@ -93,7 +93,7 @@ bool GameUtil::canUseItem(Role* r, Item* i)
         //上面的判断未确定则进入下面的判断链
         return test(r->Attack, i->NeedAttack)
             && test(r->Speed, i->NeedSpeed)
-            && test(r->Medcine, i->NeedMedcine)
+            && test(r->Medicine, i->NeedMedicine)
             && test(r->UsePoison, i->NeedUsePoison)
             && test(r->Detoxification, i->NeedDetoxification)
             && test(r->Fist, i->NeedFist)
@@ -136,7 +136,7 @@ void GameUtil::useItem(Role* r, Item* i)
 
     r->Poison += i->AddPoison;
 
-    r->Medcine += i->AddMedcine;
+    r->Medicine += i->AddMedicine;
     r->Detoxification += i->AddDetoxification;
     r->UsePoison += i->AddUsePoison;
 
@@ -206,7 +206,7 @@ void GameUtil::levelUp(Role* r)
         }
     };
 
-    check_up(r->Medcine, 0, 3);
+    check_up(r->Medicine, 0, 3);
     check_up(r->Detoxification, 0, 3);
     check_up(r->UsePoison, 0, 3);
 
@@ -345,14 +345,14 @@ void GameUtil::equip(Role* r, Item* i)
 }
 
 //医疗的效果
-int GameUtil::medcine(Role* r1, Role* r2)
+int GameUtil::medicine(Role* r1, Role* r2)
 {
     if (r1 == nullptr || r2 == nullptr)
     {
         return 0;
     }
     auto temp = r2->HP;
-    r2->HP += r1->Medcine;
+    r2->HP += r1->Medicine;
     GameUtil::limit2(r2->HP, 0, r2->MaxHP);
     return r2->HP - temp;
 }
@@ -406,7 +406,7 @@ void GameUtil::setRoleMaxValue(Role* role)
     GET_VALUE_INT(Defence, 100);
     GET_VALUE_INT(Speed, 100);
 
-    GET_VALUE_INT(Medcine, 100);
+    GET_VALUE_INT(Medicine, 100);
     GET_VALUE_INT(UsePoison, 100);
     GET_VALUE_INT(Detoxification, 100);
     GET_VALUE_INT(AntiPoison, 100);

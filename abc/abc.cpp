@@ -1,12 +1,12 @@
 
-//ä¸€äº›è¾…åŠ©çš„åŠŸèƒ½
+//Ò»Ğ©¸¨ÖúµÄ¹¦ÄÜ
 
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "TypesABC.h"
 #include "libconvert.h"
 
-//è½¬æ¢äºŒè¿›åˆ¶æ–‡ä»¶ä¸ºæ–‡æœ¬
+//×ª»»¶ş½øÖÆÎÄ¼şÎªÎÄ±¾
 void trans_bin_list(std::string in, std::string out)
 {
     std::vector<int16_t> leave_list;
@@ -20,7 +20,7 @@ void trans_bin_list(std::string in, std::string out)
     convert::writeStringToFile(s, out);
 }
 
-//å¯¼å‡ºæˆ˜æ–—å¸§æ•°ä¸ºæ–‡æœ¬
+//µ¼³öÕ½¶·Ö¡ÊıÎªÎÄ±¾
 void trans_fight_frame()
 {
     for (int i = 0; i <= 300; i++)
@@ -46,7 +46,7 @@ void trans_fight_frame()
     }
 }
 
-//æ‰©å±•å­˜æ¡£ï¼Œå°†çŸ­æ•´æ•°æ‰©å±•ä¸ºint32
+//À©Õ¹´æµµ£¬½«¶ÌÕûÊıÀ©Õ¹Îªint32
 int expandR(std::string idx, std::string grp, bool ranger = true)
 {
     if (!File::fileExist(grp) || !File::fileExist(idx))
