@@ -173,6 +173,7 @@ namespace BattleMod {
         void addConditions(Conditions&& c);
 
     protected:
+        bool checkConditions(const Role * attacker, const Role * defender, const Magic * wg);
         std::vector<Conditions> conditionz_;
     };
 
