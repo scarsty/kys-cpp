@@ -160,6 +160,7 @@ namespace BattleMod {
         EffectIntsPair eip_;
     };
 
+    using Conditions = std::vector<Condition>;
     class ProccableEffect {
     public:
         virtual ~ProccableEffect() = default;
@@ -169,10 +170,10 @@ namespace BattleMod {
         // proc返回触发的效果，nullptr为触发失败
         virtual std::optional<EffectIntsPair> proc(const Role* attacker, const Role* defender, const Magic* wg) = 0;
         // Condition传递进去之后就是垃圾了
-        void addCondition(Condition&& c);
+        void addConditions(Conditions&& c);
 
     protected:
-        std::vector<Condition> conditions_;
+        std::vector<Conditions> conditionz_;
     };
 
     enum class ProcProbability {
@@ -266,7 +267,7 @@ namespace BattleMod {
         std::vector<std::pair<const BattleStatus&, int>> materialize();
     private:
         Role* r_;
-        // 这里很烦必须用ptr, 其他方法不太行，除非另外一边用ptr
+        // 这里很烦必须用ptr, reference_wrapper 除非另外一边用ptr
         const std::vector<BattleStatus>* status_;
         std::map<int, int> tempStatusVal_;
         std::map<int, int> actualStatusVal_;
@@ -285,7 +286,7 @@ private:
     std::vector<std::string> strPool_;
 
     std::vector<BattleMod::SpecialEffect> effects_;
-    std::vector<BattleMod::BattleStatus> status_;
+    std::vector<BattleStatus> battleStatus_;
 
     // 武功效果，不想碰Magic这个类，修改的东西太多
     // 主动武功效果，必须使用这个武功才行
@@ -322,7 +323,6 @@ private:
     // 回合 也一个！
     EffectManager turnEffectManager_;
 
-    std::vector<BattleStatus> battleStatus_;
     std::unordered_map<int, BattleStatusManager> battleStatusManager_;
 
     // simulation对calMagicHurt很不友好
@@ -332,6 +332,7 @@ private:
     Variable readVariable(const YAML::Node& node);
     std::unique_ptr<Adder> readAdder(const YAML::Node& node);
     VariableParam readVariableParam(const YAML::Node& node);
+    Conditions readConditions(const YAML::Node& node);
     Condition readCondition(const YAML::Node& node);
     std::unique_ptr<ProccableEffect> readProccableEffect(const YAML::Node& node);
     EffectParamPair readEffectParamPair(const YAML::Node& node);
@@ -359,7 +360,11 @@ public:
 
     // 暂且考虑修改这些函数
     virtual void setRoleInitState(Role* r) override;
+
+    virtual void actUseMagic(Role* r);           //武学
+
     virtual void useMagic(Role* r, Magic* m);
+
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
     virtual void showNumberAnimation();

@@ -122,7 +122,7 @@ BattleMod::VariableParam::VariableParam(int base) : base_(base)
 
 int BattleMod::VariableParam::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
 {
-    int sum = 0;
+    int sum = base_;
     // Adder 之间 嗯，暂且加起来，以后有心情加入 max/min等
     for (const auto& adder : adders_) {
         sum += adder->getVal(attacker, defender, wg);
@@ -167,9 +167,9 @@ void BattleMod::EffectParamPair::addParam(VariableParam && vp)
     params_.push_back(std::move(vp));
 }
 
-void BattleMod::ProccableEffect::addCondition(Condition&& c)
+void BattleMod::ProccableEffect::addConditions(Conditions&& c)
 {
-    conditions_.push_back(std::move(c));
+    conditionz_.push_back(std::move(c));
 }
 
 BattleMod::EffectSingle::EffectSingle(VariableParam && p, EffectParamPair && epp) :
@@ -324,7 +324,7 @@ void BattleMod::BattleModifier::init()
     YAML::Node baseNode;
     // 可以整个都套try，出了问题就特效全清空
     try {
-        YAML::Node baseNode = YAML::LoadFile(PATH);
+        baseNode = YAML::LoadFile(PATH);
     }
     catch (...) {
         printf("yaml config missing\n");
@@ -346,9 +346,10 @@ void BattleMod::BattleModifier::init()
         int id = bNode[u8"编号"].as<int>();
         assert(battleStatus_.size() == id);
         auto desc = PotConv::conv(bNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
+        printf("%d %s\n", id, desc.c_str());
         int max = 100;
         if (const auto& maxNode = bNode[u8"满值"]) {
-            max = bNode.as<int>();
+            max = maxNode.as<int>();
         }
         strPool_.push_back(desc);
         battleStatus_.emplace_back(id, max, strPool_.back());
@@ -356,9 +357,11 @@ void BattleMod::BattleModifier::init()
 
     // 以下可以refactor，TODO 改！！！
     if (baseNode[u8"武功"]) {
+        printf("number of wg %d\n", baseNode[u8"武功"].size());
         for (const auto& magicNode : baseNode[u8"武功"]) {
             int wid = magicNode[u8"武功编号"].as<int>();
             if (magicNode[u8"攻击"]) {
+                printf("number of atk %d\n", magicNode[u8"攻击"].size());
                 readIntoMapping(magicNode[u8"攻击"], atkMagic_[wid]);
             }
             if (magicNode[u8"防守"]) {
@@ -374,6 +377,7 @@ void BattleMod::BattleModifier::init()
     }
 
     if (auto const& allNode = baseNode[u8"全人物"]) {
+        printf("size %d\n", allNode.size());
         if (allNode[u8"攻击"]) {
             readIntoMapping(allNode[u8"攻击"], atkAll_);
         }
@@ -412,7 +416,13 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
 {
     BattleInfoFunc f;
     VarTarget target = VarTarget::Self;
-    if (node[u8"状态"]) {
+    if (node.IsScalar()) {
+        int v = node.as<int>();
+        f = [v](const Role* character, const Magic* wg) {
+            return v;
+        };
+    }
+    else if (node[u8"状态"]) {
         // 这个简单
         int statusID = node[u8"状态"].as<int>();
         f = [this, statusID](const Role* character, const Magic* wg) {
@@ -625,8 +635,9 @@ VariableParam BattleMod::BattleModifier::readVariableParam(const YAML::Node & no
     if (node.IsScalar()) {
         return VariableParam(node.as<int>());
     }
-    VariableParam vp(node[u8"基础"].as<int>());
-    if (const auto& adders = node[u8"加成"]) {
+    const auto& pNode = node[u8"可变参数"];
+    VariableParam vp(pNode[u8"基础"].as<int>());
+    if (const auto& adders = pNode[u8"加成"]) {
         for (const auto& adder : adders) {
             vp.addAdder(readAdder(adder));
         }
@@ -634,8 +645,20 @@ VariableParam BattleMod::BattleModifier::readVariableParam(const YAML::Node & no
     return vp;
 }
 
+Conditions BattleMod::BattleModifier::readConditions(const YAML::Node & node)
+{
+    Conditions conditions;
+    const auto& condNode = node[u8"条件"];
+    for (const auto& cond : condNode) {
+        conditions.push_back(std::move(readCondition(cond)));
+    }
+    return conditions;
+}
+
 Condition BattleMod::BattleModifier::readCondition(const YAML::Node & node)
 {
+    const auto& condNode = node[u8"条件"];
+    printf("%d\n", node.size());
     Variable lhs = readVariable(node[u8"左边"]);
     Variable rhs = readVariable(node[u8"右边"]);
     ConditionOp opID = static_cast<ConditionOp>(node[u8"对比"].as<int>());
@@ -655,7 +678,7 @@ EffectParamPair BattleModifier::readEffectParamPair(const YAML::Node& node) {
     printf("读入 %s\n", display.c_str());
     // 这里效果参数以后要可配置
     EffectParamPair epp(effects_[id], strPool_.back());
-    if (node[u8"效果参数"].IsScalar()) {
+    if (node[u8"效果参数"].IsScalar() || node[u8"效果参数"].IsMap()) {
         epp.addParam(readVariableParam(node[u8"效果参数"]));
     }
     else {
@@ -678,7 +701,7 @@ std::unique_ptr<ProccableEffect> BattleModifier::readProccableEffect(const YAML:
         break;
     }
     case ProcProbability::distributed: {
-        auto group = std::make_unique<EffectWeightedGroup>(node[u8"总比重"].as<int>());
+        auto group = std::make_unique<EffectWeightedGroup>(readVariableParam(node[u8"总比重"]));
         for (const auto& eNode : node[u8"特效"]) {
             group->addProbEPP(readVariableParam(eNode[u8"发动参数"]), readEffectParamPair(eNode));
         }
@@ -703,7 +726,7 @@ std::unique_ptr<ProccableEffect> BattleModifier::readProccableEffect(const YAML:
     if (pe) {
         if (const auto& reqNode = node[u8"需求"]) {
             for (const auto& condNode : reqNode) {
-                pe->addCondition(readCondition(condNode));
+                pe->addConditions(readConditions(condNode));
             }
         }
     }
@@ -806,7 +829,42 @@ void BattleModifier::setRoleInitState(Role* r)
 {
     BattleScene::setRoleInitState(r);
 
-    battleStatusManager_[r->ID].initStatus(r, &status_);
+    battleStatusManager_[r->ID].initStatus(r, &battleStatus_);
+}
+
+void BattleMod::BattleModifier::actUseMagic(Role * r)
+{
+    auto magic_menu = new BattleMagicMenu();
+    while (true)
+    {
+        magic_menu->setStartItem(r->SelectedMagic);
+        magic_menu->runAsRole(r);
+        auto magic = magic_menu->getMagic();
+        r->SelectedMagic = magic_menu->getResult();
+        if (magic == nullptr)
+        {
+            break;
+        }    //可能是退出游戏，或者是没有选武功
+        r->ActTeam = 1;
+        //level_index表示从0到9，而level从0到999
+        int level_index = r->getMagicLevelIndex(magic->ID);
+        calSelectLayerByMagic(r->X(), r->Y(), r->Team, magic, level_index);
+        //选择目标
+        battle_cursor_->setMode(BattleCursor::Action);
+        battle_cursor_->setRoleAndMagic(r, magic, level_index);
+        int selected = battle_cursor_->run();
+        //取消选择目标则重新进入选武功
+        if (selected < 0)
+        {
+            continue;
+        }
+        else
+        {
+            useMagic(r, magic);
+            break;
+        }
+    }
+    delete magic_menu;
 }
 
 void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
