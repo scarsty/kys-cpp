@@ -6,341 +6,11 @@
 #include "PotConv.h"
 #include "Event.h"
 
+#include <numeric>
 #include <cassert>
 #include <unordered_set>
 
 using namespace BattleMod;
-
-BattleMod::SpecialEffect::SpecialEffect(int id, const std::string & desc) :
-    id(id), description(desc)
-{
-}
-
-BattleMod::EffectIntsPair::EffectIntsPair(const SpecialEffect & effect, const std::string & desc) :
-    effect(effect), description(desc)
-{
-}
-
-int BattleMod::EffectIntsPair::getParam0()
-{
-    return params_[0];
-}
-
-const std::vector<int> & BattleMod::EffectIntsPair::getParams()
-{
-    return params_;
-}
-
-void BattleMod::EffectIntsPair::addParam(int p)
-{
-    params_.push_back(p);
-}
-
-
-EffectIntsPair & BattleMod::EffectIntsPair::operator+=(const EffectIntsPair & rhs)
-{
-    // id 必须相同
-    if (effect.id != rhs.effect.id) {
-        return *this;
-    }
-
-    // 上状态的时候，不这样处理！
-    // 怎么处理呢，我也不知道，怎么搞好
-    if (effect.id == 6 || effect.id == 7) {
-        std::unordered_map<int, int> statusStrMap;
-        // 参数每第一个是编号，第二个强度
-        for (std::size_t i = 0; i < rhs.params_.size() / 2; i += 2) {
-            statusStrMap[rhs.params_[i]] = rhs.params_[i + 1];
-        }
-        for (std::size_t i = 0; i < params_.size() / 2; i += 2) {
-            statusStrMap[params_[i]] = params_[i + 1];
-        }
-        params_.clear();
-        for (const auto& p : statusStrMap) {
-            params_.push_back(p.first);
-            params_.push_back(p.second);
-        }
-        return *this;
-    }
-
-    if (params_.size() != rhs.params_.size()) {
-        return *this;
-    }
-
-    // 一般直接加完事
-    for (std::size_t i = 0; i < params_.size(); i++) {
-        params_[i] += rhs.params_[i];
-    }
-    return *this;
-}
-
-BattleMod::Variable::Variable(BattleInfoFunc func, VarTarget target) : func_(func), target_(target)
-{
-}
-
-// 其实这个attacker defender并不一定是这样
-// TODO rename attacker/defender
-int BattleMod::Variable::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
-{
-    switch (target_) {
-    case VarTarget::Other: return func_(defender, wg);
-    default: return func_(attacker, wg);
-    }
-    return 0;
-}
-
-BattleMod::RandomAdder::RandomAdder(int min, int max) : min_(min), max_(max)
-{
-    if (max_ < min_)
-        max_ = min_;
-}
-
-BattleMod::RandomAdder::RandomAdder(std::vector<int>&& items) : items_(std::move(items))
-{
-}
-
-int BattleMod::RandomAdder::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
-{
-    if (items_.empty()) {
-        // 机器猫老师，这个很不好用啊
-        // 4, 10: 10-4 = 6 -> 7 -> 0~6
-        return BattleModifier::rng.rand_int(max_ - min_ + 1) + min_;
-    }
-    return items_[BattleModifier::rng.rand_int(items_.size())];
-}
-
-BattleMod::LinearAdder::LinearAdder(double k, Variable&& v) : k_(k), v_(std::move(v))
-{
-}
-
-int BattleMod::LinearAdder::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
-{
-    return int(k_ * v_.getVal(attacker, defender, wg));
-}
-
-BattleMod::VariableParam::VariableParam(int base) : base_(base)
-{
-}
-
-int BattleMod::VariableParam::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
-{
-    int sum = base_;
-    // Adder 之间 嗯，暂且加起来，以后有心情加入 max/min等
-    for (const auto& adder : adders_) {
-        sum += adder->getVal(attacker, defender, wg);
-    }
-    // 是不是就看attacker就够了呢？防御者特效的时候是否防御者变成了attacker？
-    // 这个命名方式一定要改
-    return sum;
-}
-
-void BattleMod::VariableParam::addAdder(std::unique_ptr<Adder> adder)
-{
-    adders_.push_back(std::move(adder));
-}
-
-
-BattleMod::Condition::Condition(Variable left, Variable right, std::function<bool(int, int)> binOp) :
-    left_(left), right_(right), binOp_(binOp)
-{
-}
-
-bool BattleMod::Condition::check(const Role * attacker, const Role * defender, const Magic * wg) const
-{
-    return binOp_(left_.getVal(attacker, defender, wg), right_.getVal(attacker, defender, wg));
-}
-
-BattleMod::EffectParamPair::EffectParamPair(const SpecialEffect & effect, const std::string & desc) : eip_(effect, desc)
-{
-}
-
-EffectIntsPair BattleMod::EffectParamPair::materialize(const Role * attacker, const Role * defender, const Magic * wg) const
-{
-    // 需要一个copy
-    EffectIntsPair eip = eip_;
-    for (const auto& param : params_) {
-        eip.addParam(param.getVal(attacker, defender, wg));
-    }
-    if (!eip.description.empty())
-        printf("成功触发%d %s\n", eip.effect.id, eip.description.c_str());
-    return eip;
-}
-
-void BattleMod::EffectParamPair::addParam(VariableParam && vp)
-{
-    params_.push_back(std::move(vp));
-}
-
-void BattleMod::ProccableEffect::addConditions(Conditions&& c)
-{
-    conditionz_.push_back(std::move(c));
-}
-
-bool BattleMod::ProccableEffect::checkConditions(const Role * attacker, const Role * defender, const Magic * wg)
-{
-    if (conditionz_.empty()) return true;
-    // 在"需求"内，每一项之间的关系是"或"（既OR）
-    // 在"条件"内，每一项之间的关系是"和"（既AND）
-    for (auto const& conds : conditionz_) {             // 需求
-        for (auto const& cond : conds) {                // 条件
-            if (!cond.check(attacker, defender, wg)) {
-                // goto的最后一片净土
-                goto nextConds;
-            }
-        }
-        // 单个检查通过 ok
-        return true;
-    nextConds:;
-    }
-    return false;
-}
-
-
-BattleMod::EffectSingle::EffectSingle(VariableParam && p, EffectParamPair && epp) :
-    percentProb_(std::move(p)), effectPair_(std::move(epp))
-{
-}
-
-// 现在EffectIntsPair是个copy，不能直接返回ptr了，反正我瞎搞直接上最符合要求的std::optional(C++17)，另外就是heap allocated std::unique_ptr我不喜欢
-std::optional<EffectIntsPair> BattleMod::EffectSingle::proc(const Role * attacker, const Role * defender, const Magic * wg)
-{
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return std::nullopt;
-    // rand [0 1)
-    // 乘以100，取整，就是说实际范围是0-99
-    int prob = percentProb_.getVal(attacker, defender, wg);
-    if (prob != 100)
-        printf("触发概率 %d\n", prob);
-    if (BattleModifier::rng.rand_int(100) < prob) {
-        return effectPair_.materialize(attacker, defender, wg);
-    }
-    return std::nullopt;
-}
-
-std::optional<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(const Role * attacker, const Role * defender, const Magic * wg)
-{
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
-    // printf("尝试触发\n");
-    // [0 total)
-    int t = BattleModifier::rng.rand_int(total_.getVal(attacker, defender, wg));
-    int c = 0;
-    for (const auto& p : group_) {
-        c += p.first.getVal(attacker, defender, wg);
-        if (t < c) {
-            return p.second.materialize(attacker, defender, wg);
-        }
-    }
-    return std::nullopt;
-}
-
-BattleMod::EffectWeightedGroup::EffectWeightedGroup(VariableParam && total) : total_(std::move(total))
-{
-}
-
-void BattleMod::EffectWeightedGroup::addProbEPP(VariableParam && weight, EffectParamPair && epp)
-{
-    group_.emplace_back(std::move(weight), std::move(epp));
-}
-
-BattleMod::EffectPrioritizedGroup::EffectPrioritizedGroup()
-{
-}
-
-// 这里考虑重构一下
-std::optional<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(const Role * attacker, const Role * defender, const Magic * wg)
-{
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
-    for (const auto& p : group_) {
-        if (BattleModifier::rng.rand_int(100) < p.first.getVal(attacker, defender, wg)) {
-            return p.second.materialize(attacker, defender, wg);
-        }
-    }
-    return std::nullopt;
-}
-
-void BattleMod::EffectPrioritizedGroup::addProbEPP(VariableParam && weight, EffectParamPair && epp)
-{
-    group_.emplace_back(std::move(weight), std::move(epp));
-}
-
-BattleMod::EffectCounter::EffectCounter(VariableParam && total, VariableParam && add, EffectParamPair && epp) :
-    total_(std::move(total)), add_(std::move(add)), effectPair_(std::move(epp))
-{
-}
-
-std::optional<EffectIntsPair> BattleMod::EffectCounter::proc(const Role * attacker, const Role * defender, const Magic * wg)
-{
-    if (attacker == nullptr) return {};
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
-    int id = attacker->ID;
-    auto& count = counter_[id];
-    count += add_.getVal(attacker, defender, wg);
-    if (count > total_.getVal(attacker, defender, wg)) {
-        count = 0;
-        return effectPair_.materialize(attacker, defender, wg);
-    }
-    return {};
-}
-
-bool BattleMod::EffectManager::hasEffect(int eid)
-{
-    return epps_.find(eid) != epps_.end();
-}
-
-int BattleMod::EffectManager::getEffectParam0(int eid)
-{
-    auto iter = epps_.find(eid);
-    // 返回0这样应该没问题吧。。
-    if (iter == epps_.end()) return 0;
-    return iter->second.getParam0();
-}
-
-std::vector<int> BattleMod::EffectManager::getAllEffectParams(int eid)
-{
-    auto iter = epps_.find(eid);
-    if (iter == epps_.end()) return {};
-    return iter->second.getParams();
-}
-
-EffectIntsPair * BattleMod::EffectManager::getEPP(int eid)
-{
-    auto iter = epps_.find(eid);
-    if (iter == epps_.end())
-        return nullptr;
-    return &(iter->second);
-}
-
-void BattleMod::EffectManager::unionEffects(const EffectManager & other)
-{
-    for (const auto& idPair : other.epps_) {
-        auto myEpp = getEPP(idPair.first);
-        if (myEpp) {
-            *myEpp += idPair.second;
-        }
-        else {
-            epps_.insert(idPair);
-        }
-    }
-}
-
-void BattleMod::EffectManager::addEPP(const EffectIntsPair & ewp)
-{
-    auto iter = epps_.find(ewp.effect.id);
-    if (iter == epps_.end())
-        epps_.insert({ ewp.effect.id, ewp });
-    else {
-        iter->second += ewp;
-    }
-}
-
-std::size_t BattleMod::EffectManager::size()
-{
-    return epps_.size();
-}
-
-void BattleMod::EffectManager::clear()
-{
-    epps_.clear();
-}
 
 RandomDouble BattleModifier::rng;
 
@@ -357,8 +27,6 @@ void BattleMod::BattleModifier::init()
     Save::getInstance()->getRole(0)->MaxHP = 999;
     Save::getInstance()->getRole(0)->HP = 999;
     Save::getInstance()->getRole(0)->Defence = 80;
-
-
 
     YAML::Node baseNode;
     // 可以整个都套try，出了问题就特效全清空
@@ -378,12 +46,12 @@ void BattleMod::BattleModifier::init()
         // 必须按顺序来，因为我懒，TODO 改一改？还是不改呢，有空再改！
         assert(effects_.size() == spNode[u8"编号"].as<int>());
         auto desc = PotConv::conv(spNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
-        std::string& descRef = strPool_[0];
+        std::reference_wrapper<std::string> descRef(strPool_.front());
         if (!desc.empty()) {
             strPool_.push_back(desc);
             descRef = strPool_.back();
         }
-        printf("%d %s\n", spNode[u8"编号"].as<int>(), desc.c_str());
+        printf("%d %s\n", spNode[u8"编号"].as<int>(), descRef.get().c_str());
         effects_.emplace_back(spNode[u8"编号"].as<int>(), descRef);
     }
 
@@ -391,17 +59,18 @@ void BattleMod::BattleModifier::init()
         int id = bNode[u8"编号"].as<int>();
         assert(battleStatus_.size() == id);
         auto desc = PotConv::conv(bNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
-        printf("%d %s\n", id, desc.c_str());
+        
         int max = 100;
         if (const auto& maxNode = bNode[u8"满值"]) {
             max = maxNode.as<int>();
         }
-        std::string& descRef = strPool_[0];
+
+        std::reference_wrapper<std::string> descRef(strPool_.front());
         if (!desc.empty()) {
             strPool_.push_back(desc);
             descRef = strPool_.back();
         }
-        strPool_.push_back(desc);
+        printf("%d %s\n", id, descRef.get().c_str());
         battleStatus_.emplace_back(id, max, descRef);
     }
 
@@ -523,6 +192,8 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             var_has_wg = 33,
             var_wg_type = 34,
             var_is_person = 35,
+            var_has_status = 36,
+            var_wg_power = 37,
         };
         zzz varType = static_cast<zzz>(varID);
 #define ATTR( attribute ) f = [this](const Role* c, const Magic* wg){ if (c == nullptr) return 0; return c->attribute; }; break;
@@ -655,6 +326,30 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             };
             break;
         }
+        case zzz::var_has_status: {
+            const auto& paramNode = varNode[u8"参数"];
+            int statusID = paramNode[0].as<int>();
+            int val = paramNode[1].as<int>();
+            f = [this, statusID, val](const Role* c, const Magic* wg) {
+                if (c == nullptr) return 0;
+                if (battleStatusManager_[c->ID].getBattleStatusVal(statusID) >= val)
+                    return 1;
+                return 0;
+            };
+            break;
+        }
+        case zzz::var_wg_power: {
+            f = [this](const Role* c, const Magic* wg) {
+                if (c == nullptr || wg == nullptr) return 0;
+                // 问世间，我用了const 他没有
+                Role* cc = const_cast<Role*>(c);
+                Magic* mm = const_cast<Magic*>(wg);
+                // 或者靠id走 Save:: 也可以
+                int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(cc, mm);
+                level_index = mm->calMaxLevelIndexByMP(cc->MP, level_index);
+                return mm->Attack[level_index];
+            };
+        }
         default: {
             printf("%d variable id not found\n", varID);
             break;
@@ -679,6 +374,7 @@ std::unique_ptr<Adder> BattleMod::BattleModifier::readAdder(const YAML::Node & n
             adder = std::make_unique<RandomAdder>(std::move(range));
         }
         else {
+            // 我突然反应过来这个也可以是variable TODO 改成读variable
             int min = rangeNode[u8"最小"].as<int>();
             int max = rangeNode[u8"最大"].as<int>();
             adder = std::make_unique<RandomAdder>(min, max);
@@ -734,14 +430,14 @@ Condition BattleMod::BattleModifier::readCondition(const YAML::Node & node)
 EffectParamPair BattleModifier::readEffectParamPair(const YAML::Node& node) {
     int id = node[u8"编号"].as<int>();
     auto display = PotConv::conv(node[u8"显示"].as<std::string>(), "utf-8", "cp936");
-    auto& displayRef = strPool_.front();
+    std::reference_wrapper<std::string> displayRef(strPool_.front());
     if (!display.empty()) {
         strPool_.push_back(display);
         displayRef = strPool_.back();
     }
-    printf("读入 %s\n", display.c_str());
+    printf("读入 %d %s\n", id, displayRef.get().c_str());
     // 这里效果参数以后要可配置
-    EffectParamPair epp(effects_[id], strPool_.back());
+    EffectParamPair epp(effects_[id], displayRef);
     if (node[u8"效果参数"].IsScalar() || node[u8"效果参数"].IsMap()) {
         epp.addParam(readVariableParam(node[u8"效果参数"]));
     }
@@ -753,6 +449,19 @@ EffectParamPair BattleModifier::readEffectParamPair(const YAML::Node& node) {
     return epp;
 }
 
+std::vector<EffectParamPair> BattleModifier::readEffectParamPairs(const YAML::Node& node) {
+    std::vector<EffectParamPair> pairs;
+    if (node.IsMap()) {
+        pairs.push_back(std::move(readEffectParamPair(node)));
+    }
+    else {
+        for (const auto& enode : node) {
+            pairs.push_back(std::move(readEffectParamPair(enode)));
+        }
+    }
+    return pairs;
+}
+
 
 
 std::unique_ptr<ProccableEffect> BattleModifier::readProccableEffect(const YAML::Node& node) {
@@ -761,7 +470,7 @@ std::unique_ptr<ProccableEffect> BattleModifier::readProccableEffect(const YAML:
     std::unique_ptr<ProccableEffect> pe;
     switch (prob) {
     case ProcProbability::random: {
-        pe = std::make_unique<EffectSingle>(readVariableParam(node[u8"特效"][u8"发动参数"]), readEffectParamPair(node[u8"特效"]));
+        pe = std::make_unique<EffectSingle>(readVariableParam(node[u8"发动参数"]), readEffectParamPairs(node[u8"特效"]));
         break;
     }
     case ProcProbability::distributed: {
@@ -782,8 +491,8 @@ std::unique_ptr<ProccableEffect> BattleModifier::readProccableEffect(const YAML:
     }
     case ProcProbability::counter: {
         pe = std::make_unique<EffectCounter>(readVariableParam(node[u8"计数"]), 
-                                             readVariableParam(node[u8"特效"][u8"发动参数"]), 
-                                             readEffectParamPair(node[u8"特效"]));
+                                             readVariableParam(node[u8"发动参数"]), 
+                                             readEffectParamPairs(node[u8"特效"]));
         break;
     }
     }
@@ -808,15 +517,10 @@ std::vector<EffectIntsPair> BattleMod::BattleModifier::tryProcAndAddToManager(co
 {
     std::vector<EffectIntsPair> procd;
     for (const auto& effect : list) {
-        auto epp = effect->proc(attacker, defender, wg);
-        if (epp.has_value()) {
-            if (epp->effect.id == 4) {
-                printf("暴击在此\n");
-            }
-            manager.addEPP(epp.value());
-            procd.push_back(epp.value());
-            if (!epp->description.empty())
-                printf("触发效果 %s\n", epp->description.c_str());
+        auto epps = effect->proc(attacker, defender, wg);
+        for (const auto& epp : epps) {
+            manager.addEPP(epp);
+            procd.push_back(epp);
         }
     }
     return procd;
@@ -831,11 +535,10 @@ std::vector<EffectIntsPair> BattleMod::BattleModifier::tryProcAndAddToManager(in
     if (iter != table.end()) {
         // TODO 用上面那个
         for (const auto& effect : iter->second) {
-            if (auto epp = effect->proc(attacker, defender, wg)) {
-                manager.addEPP(epp.value());
-                procd.push_back(epp.value());
-                if (!epp->description.empty())
-                    printf("触发效果 %s\n", epp->description.c_str());
+            auto epps = effect->proc(attacker, defender, wg);
+            for (const auto& epp : epps) {
+                manager.addEPP(epp);
+                procd.push_back(epp);
             }
         }
     }
@@ -853,7 +556,7 @@ int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max
     // 机器猫写的不好用
     int curTemp = cur;
     cur = GameUtil::limit(cur + add, min, max);
-    return curTemp - cur;
+    return cur - curTemp;
 }
 
 int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
@@ -870,7 +573,16 @@ int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
 
 void BattleMod::BattleStatusManager::incrementBattleStatusVal(int statusID, int val)
 {
+    if (val != 0) {
+        printf("pid %d add %s %d\n", r_->ID, (*status_)[statusID].display.c_str(), val);
+    }
     tempStatusVal_[statusID] += val;
+}
+
+void BattleMod::BattleStatusManager::setBattleStatusVal(int statusID, int val)
+{
+    actualStatusVal_[statusID] = val;
+    tempStatusVal_[statusID] = 0;
 }
 
 void BattleMod::BattleStatusManager::initStatus(Role * r, const std::vector<BattleStatus>* status)
@@ -882,7 +594,7 @@ void BattleMod::BattleStatusManager::initStatus(Role * r, const std::vector<Batt
 std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager::materialize()
 {
     std::vector<std::pair<const BattleStatus&, int>> changes;
-    for (const auto& p : tempStatusVal_) {
+    for (auto& p : tempStatusVal_) {
         int add = 0;
         switch (p.first) {
         case 0: add = myLimit(r_->Hurt, p.second, 0, Role::getMaxValue()->Hurt); break;
@@ -891,6 +603,8 @@ std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager:
         default: add = myLimit(actualStatusVal_[p.first], p.second, (*status_)[p.first].min, (*status_)[p.first].max); break;
         }
         changes.emplace_back((*status_)[p.first], add);
+        printf("%d 当前 %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
+        p.second = 0;
     }
     return changes;
 }
@@ -941,7 +655,8 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
 {
     int level_index = r->getMagicLevelIndex(magic->ID);
     // 连击的判断我要改的
-    for (int i = 0; i <= GameUtil::sign(r->AttackTwice); i++)
+    multiAtk_ = 0;
+    for (int i = 0; i <= multiAtk_; i++)
     {
         calMagiclHurtAllEnemies(r, magic);
 
@@ -979,6 +694,19 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     for (int i = 0; i < r2->getLearnedMagicCount(); i++) {
         tryProcAndAddToManager(r2->MagicID[i], defMagic_, defEffectManager_, r2, r1, Save::getInstance()->getMagic(r2->MagicID[i]));
     }
+
+    tryProcAndAddToManager(defAll_, defEffectManager_, r2, r1, magic);
+
+    // 强制特效直接判断
+    // 特效8 9
+    // 8 攻击方的敌人的
+    setStatusFromParams(atkEffectManager_.getAllEffectParams(8), r2);
+    // 9 攻击方自己
+    applyStatusFromParams(atkEffectManager_.getAllEffectParams(9), r1);
+    // 然后倒过来 8 防御方的敌人
+    applyStatusFromParams(defEffectManager_.getAllEffectParams(8), r1);
+    // 9 防御方自己
+    applyStatusFromParams(defEffectManager_.getAllEffectParams(9), r2);
 
     // 集气伤害，正数代表集气条后退
     int progressHurt = 0;
@@ -1062,16 +790,16 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         hurt = v;
     }
 
+    // 特效12 防御方加减集气（无视气防 气攻）
+    r2->ProgressChange += defEffectManager_.getEffectParam0(12);
+
     // 特效6，特效7 上状态
-    auto enemyStat = atkEffectManager_.getAllEffectParams(6);
-    applyStatusFromParams(enemyStat, r2);
-    auto selfStat = atkEffectManager_.getAllEffectParams(7);
-    applyStatusFromParams(selfStat, r1);
+    // 己方视角
+    applyStatusFromParams(atkEffectManager_.getAllEffectParams(6), r2);
+    applyStatusFromParams(atkEffectManager_.getAllEffectParams(7), r1);
     // 然后倒过来
-    enemyStat = defEffectManager_.getAllEffectParams(7);
-    applyStatusFromParams(enemyStat, r2);
-    selfStat = defEffectManager_.getAllEffectParams(6);
-    applyStatusFromParams(selfStat, r1);
+    applyStatusFromParams(defEffectManager_.getAllEffectParams(7), r2);
+    applyStatusFromParams(defEffectManager_.getAllEffectParams(6), r1);
 
     // 不增加，只护体
     if (progressHurt > 0) {
@@ -1113,22 +841,28 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
     auto effects = tryProcAndAddToManager(m->ID, atkMagic_, atkEffectManager_, r, nullptr, m);
     // 简单的做个显示~ TODO 修好它
     for (const auto& effect : effects) {
-        names.push_back(std::cref(effect.description));
+        if (!effect.description.empty())
+            names.push_back(std::cref(effect.description));
     }
 
     // 再添加人物自身的攻击特效
     effects = tryProcAndAddToManager(r->ID, atkRole_, atkEffectManager_, r, nullptr, m);
     for (const auto& effect : effects) {
-        names.push_back(std::cref(effect.description));
+        if (!effect.description.empty())
+            names.push_back(std::cref(effect.description));
     }
 
     // 所有人物的
     effects = tryProcAndAddToManager(atkAll_, atkEffectManager_, r, nullptr, m);
     for (const auto& effect : effects) {
-        names.push_back(std::cref(effect.description));
+        if (!effect.description.empty())
+            names.push_back(std::cref(effect.description));
     }
 
     showMagicNames(names);
+
+    // 特效11 连击, 不控制就是无限连
+    multiAtk_ += atkEffectManager_.getEffectParam0(11);
 
     int total = 0;
     for (auto r2 : battle_roles_)
@@ -1174,6 +908,8 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
     }
     
     // 我需要好好想一想显示效果怎么做
+    // 特效12 加集气
+    r->ProgressChange += atkEffectManager_.getEffectParam0(12);
 
     // 打完了，清空攻击效果
     atkEffectManager_.clear();
@@ -1231,8 +967,14 @@ void BattleModifier::dealEvent(BP_Event& e)
         tryProcAndAddToManager(role->ID, turnRole_, turnEffectManager_, role, nullptr, nullptr);
         tryProcAndAddToManager(turnAll_, turnEffectManager_, role, nullptr, nullptr);
 
+        // 特效9 强制
+        setStatusFromParams(speedEffectManager_.getAllEffectParams(9), role);
+
         // 特效7 上状态
         applyStatusFromParams(turnEffectManager_.getAllEffectParams(7), role);
+
+        // 特效12 加集气
+        role->ProgressChange += turnEffectManager_.getEffectParam0(12);
 
         if (semi_real_ == 0)
         {
@@ -1245,25 +987,28 @@ void BattleModifier::dealEvent(BP_Event& e)
             resetRolesAct();
         }
 
-        // 中毒？ 开玩笑，我这里特效全权接管了，有你什么事
-        // poisonEffect(role);
+        // 中毒？ 开玩笑，我这里理论上特效全权接管了，有你什么事
+        // 算了.. TODO 接管
+        poisonEffect(role);
 
+        // 说实话，
         auto const& result = battleStatusManager_[role->ID].materialize();
         for (auto const& p : result) {
+            printf("%d自己上状态%d %d\n", role->ID, p.first.id, p.second);
             // 这玩意儿怎么显示呢
             if (p.first.show) {
                 // TODO 还可以选颜色！慢慢来
                 role->ShowString = convert::formatString("%s %d", p.first.display, p.second);
                 // 疯狂调用，虽然只有一个人会有显示，不过无所谓，减集气第一次显示，也无所谓吧？
-                // TODO 再写一个单人的
+                // TODO 这玩意儿没用
                 showNumberAnimation();
             }
         }
 
-        // 结算回合结束后的一些状态，比如说回血内力 等一系列
+        // 结算回合结束后的一些特效，比如说回血内力 等一系列
+        // 等我有心情再做
 
         turnEffectManager_.clear();
-
     }
 
     //清除被击退的人物
@@ -1360,20 +1105,22 @@ Role* BattleModifier::semiRealPickOrTick() {
         for (int i = 0; i < r->getLearnedMagicCount(); i++) {
             tryProcAndAddToManager(r->MagicID[i], speedMagic_, speedEffectManager_, r, nullptr, Save::getInstance()->getMagic(r->MagicID[i]));
         }
+        // 强制状态 特效9
+        auto forceStat = speedEffectManager_.getAllEffectParams(9);
+        setStatusFromParams(forceStat, r);
 
         int progress = 0;
         
         // 先上/下状态，给自己，给别人也不是不行，再搞个循环，判断不在一个队伍的
-        speedEffectManager_.getAllEffectParams(7);
-        auto selfStat = speedEffectManager_.getAllEffectParams(7);
-        applyStatusFromParams(selfStat, r);
+        // 特效7
+        applyStatusFromParams(speedEffectManager_.getAllEffectParams(7), r);
 
         // 特效3 集气速度
         progress = speedEffectManager_.getEffectParam0(3);
         // printf("基础集气速度%d\n", progress);
-        // printf("集气加成 %d%%\n", speedEffectManager_.getEffectParam0(8));
-        // 特效8 集气速度百分比增加
-        progress = int((speedEffectManager_.getEffectParam0(8) / 100.0) * progress) + progress;
+        printf("%d集气加成 %d%%\n", r->ID, speedEffectManager_.getEffectParam0(10));
+        // 特效10 集气速度百分比增加
+        progress = int((speedEffectManager_.getEffectParam0(10) / 100.0) * progress) + progress;
 
         progress = progress < 0 ? 0 : progress;
 
@@ -1385,7 +1132,7 @@ Role* BattleModifier::semiRealPickOrTick() {
     return nullptr;
 }
 
-void BattleMod::BattleModifier::applyStatusFromParams(std::vector<int> params, Role * target)
+void BattleMod::BattleModifier::applyStatusFromParams(const std::vector<int>& params, Role * target)
 {
     if (params.empty()) return;
     // [状态id, 状态强度, 状态id, 状态强度...]
@@ -1394,24 +1141,37 @@ void BattleMod::BattleModifier::applyStatusFromParams(std::vector<int> params, R
     }
 }
 
+
+void BattleMod::BattleModifier::setStatusFromParams(const std::vector<int>& params, Role * target)
+{
+    if (params.empty()) return;
+    // [状态id, 状态强度, 状态id, 状态强度...]
+    for (std::size_t i = 0; i < params.size() / 2; i += 2) {
+        battleStatusManager_[target->ID].setBattleStatusVal(params[i], params[i + 1]);
+    }
+}
+
 void BattleMod::BattleModifier::showMagicNames(const std::vector<std::reference_wrapper<const std::string>>& names)
 {
-    // UI不好写啊，算了瞎搞
-    std::vector<std::unique_ptr<TextBox>> boxes;
-    int fontSize = 30;
+    // UI不好写啊，搞不出来，放弃
+    if (names.empty()) return;
+
+    std::string hugeStr = std::accumulate(std::next(names.begin()), names.end(), names[0].get(), 
+                                          [](std::string a, const std::string& b) {
+                                            return a + " - " + b;
+                                          });
+    int fontSize = 25;
     int stayFrame = 40;
-    int i = 0;
-    for (const std::string& name : names) {
-        if (name.empty()) continue;
-        auto box = std::make_unique<TextBox>();
-        box->setText(name);
-        box->setPosition(450, 150 + (fontSize + 1) * i);
-        box->setFontSize(fontSize);
-        box->setStayFrame(stayFrame * (i + 1));
-        boxes.push_back(std::move(box));
-        i++;
-    }
-    for (auto& box : boxes) {
-        box->run();
-    }
+    std::unique_ptr<TextBox> boxRoot = std::make_unique<TextBox>();
+    int w, h;
+    Engine::getInstance()->getWindowSize(w, h);
+    // boxRoot->setHaveBox(false);
+    // 丑的我不能直视
+    boxRoot->setText(hugeStr);
+    boxRoot->setPosition(w/2.0 - (hugeStr.size()/4.0) * fontSize, 50);
+    boxRoot->setFontSize(fontSize);
+    boxRoot->setStayFrame(stayFrame);
+    // 允许设定颜色吧。。。
+    // boxRoot->setTextColor({});
+    boxRoot->run();
 }
