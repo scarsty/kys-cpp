@@ -1417,7 +1417,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
 {
     //判断是否有需要显示的数字
     bool need_show = false;
-    int total_frames = 10;
+    int total_frames = 15;
     // 人物id -> (eft路径, eft长度)
     // std::unordered_map<int, std::pair<std::string, int>> efts;
     for (auto r : battle_roles_)
@@ -1460,7 +1460,6 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
                 }
                 if (!r->ShowStrings.empty())
                 {
-                    // 可以考虑做一个y居中的效果，既文字行数少的时候可以靠下一点
                     int y_pos = -75;
                     for (int i_show = 0; i_show < r->ShowStrings.size(); i_show++)
                     {
@@ -1469,7 +1468,8 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
                         int y = p.y - i_frame * 2 + y_pos;
                         if (!floating) 
                         {
-                            y = p.y - total_frames * 2 + y_pos;
+                            // 调整一下
+                            y = p.y - total_frames + y_pos;
                         }
                         Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 20 * i_frame);
                         y_pos += show_string.Size + 2;
