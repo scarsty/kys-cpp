@@ -426,7 +426,7 @@ void BattleScene::setRoleInitState(Role* r)
 {
     r->Acted = 0;
     r->ExpGot = 0;
-    r->ShowString = "";
+    r->clearShowStrings();
     r->FightingFrame = 0;
     r->Moved = 0;
     r->AI_Action = -1;
@@ -964,8 +964,7 @@ void BattleScene::actUsePoison(Role* r)
         if (r2)
         {
             int v = GameUtil::usePoison(r, r2);
-            r2->ShowString = convert::formatString("%+d", v);
-            r2->ShowColor = { 20, 255, 20, 255 };
+            r2->addShowString(convert::formatString("%+d", v), { 20, 255, 20, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
@@ -988,8 +987,7 @@ void BattleScene::actDetoxification(Role* r)
         if (r2)
         {
             int v = GameUtil::detoxification(r, r2);
-            r2->ShowString = convert::formatString("-%d", -v);
-            r2->ShowColor = { 20, 200, 255, 255 };
+            r2->addShowString(convert::formatString("-%d", -v), { 20, 200, 255, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1012,8 +1010,7 @@ void BattleScene::actMedicine(Role* r)
         if (r2)
         {
             int v = GameUtil::medicine(r, r2);
-            r2->ShowString = convert::formatString("-%d", abs(v));
-            r2->ShowColor = { 255, 255, 200, 255 };
+            r2->addShowString(convert::formatString("-%d", abs(v)), { 255, 255, 200, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1045,8 +1042,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             if (r2)
             {
                 v = calHiddenWeaponHurt(r, r2, item);
-                r2->ShowString = convert::formatString("-%d", v);
-                r2->ShowColor = { 255, 20, 20, 255 };
+                r2->addShowString(convert::formatString("-%d", v), { 255, 20, 20, 255 });
             }
             showMagicName(item->Name);
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1341,8 +1337,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             {
                 if (m->HurtType == 0)
                 {
-                    r2->ShowString = convert::formatString("-%d", hurt);
-                    r2->ShowColor = { 255, 20, 20, 255 };
+                    r2->addShowString(convert::formatString("-%d", hurt), { 255, 20, 20, 255 });
                     int prevHP = r2->HP;
                     r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
                     int hurt1 = prevHP - r2->HP;
@@ -1355,8 +1350,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                 }
                 else if (m->HurtType == 1)
                 {
-                    r2->ShowString = convert::formatString("-%d", hurt);
-                    r2->ShowColor = { 160, 32, 240, 255 };
+                    r2->addShowString(convert::formatString("-%d", hurt), { 160, 32, 240, 255 });
                     int prevMP = r2->MP;
                     r2->MP = GameUtil::limit(r2->MP - hurt, 0, r2->MaxMP);
                     r->MP = GameUtil::limit(r->MP + hurt, 0, r->MaxMP);
@@ -1421,7 +1415,7 @@ void BattleScene::showNumberAnimation()
     bool need_show = false;
     for (auto r : battle_roles_)
     {
-        if (!r->ShowString.empty())
+        if (!r->ShowStrings.empty())
         {
             need_show = true;
             break;
@@ -1432,8 +1426,7 @@ void BattleScene::showNumberAnimation()
         return;
     }
 
-    int size = 28;
-    for (int i = 0; i < 10; i++)
+    for (int i_frame = 0; i_frame < 10; i_frame++)
     {
         if (exit_)
         {
@@ -1443,12 +1436,18 @@ void BattleScene::showNumberAnimation()
         {
             for (auto r : battle_roles_)
             {
-                if (!r->ShowString.empty())
+                if (!r->ShowStrings.empty())
                 {
-                    auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
-                    int x = p.x - size * r->ShowString.size() / 4;
-                    int y = p.y - 75 - i * 2;
-                    Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
+                    int y_pos = 0;
+                    for (int i_show = 0; i_show < r->ShowStrings.size(); i_show++)
+                    {
+                        auto& show_string = r->ShowStrings[i_show];
+                        auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
+                        int x = p.x - show_string.Size * show_string.Text.size() / 4;
+                        int y = p.y - 75 - i_frame * 2 + y_pos;
+                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 20 * i_frame);
+                        y_pos += show_string.Size + 2;
+                    }
                 }
                 r->Progress += r->ProgressChange / 10;
             }
@@ -1458,7 +1457,7 @@ void BattleScene::showNumberAnimation()
     //清除所有人的显示，处理不能被整除的击退值
     for (auto r : battle_roles_)
     {
-        r->ShowString.clear();
+        r->clearShowStrings();
         r->Progress += r->ProgressChange - 10 * (r->ProgressChange / 10);
         r->ProgressChange = 0;
     }

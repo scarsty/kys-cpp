@@ -135,8 +135,13 @@ public:
     int Moved, Acted;
     int ActTeam;    //选择行动阵营 0-我方，1-非我方，画效果层时有效
 
-    std::string ShowString;
-    BP_Color ShowColor;
+    struct ShowString
+    {
+        std::string Text;
+        BP_Color Color;
+        int Size;
+    };
+    std::vector<ShowString> ShowStrings;
 
     int SelectedMagic;
 
@@ -183,6 +188,9 @@ public:
     int learnMagic(int magic_id);
 
     bool isAuto() { return Auto != 0 || Team != 0; }
+
+    void addShowString(std::string text, BP_Color color = { 255,255,255,255 }, int size = 28) { ShowStrings.push_back({ text,color, size }); }
+    void clearShowStrings() { ShowStrings.clear(); }
 
 public:
     int AI_Action = 0;
