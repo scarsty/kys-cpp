@@ -110,7 +110,7 @@ public:
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
-    virtual void showNumberAnimation();
+    // virtual void showNumberAnimation();
     // 这个是新加的
     virtual Role* semiRealPickOrTick();
 

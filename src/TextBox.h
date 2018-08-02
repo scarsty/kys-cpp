@@ -15,6 +15,9 @@ protected:
     BP_Color color_pass_ = { 255, 255, 255, 255 };
     BP_Color color_press_ = { 255, 255, 255, 255 };
     bool have_box_ = true;
+    bool have_alpha_box_ = false;
+    BP_Color outline_color_;
+    BP_Color background_color_;
 
     std::string texture_path_ = "";
     int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1;    //三种状态的按钮图片
@@ -22,6 +25,7 @@ protected:
     bool resize_with_text_ = false;
 
 public:
+    void setAlphaBox(BP_Color outlineColor, BP_Color backgroundColor);
     void setTexture(const std::string& path, int normal_id, int pass_id = -1, int press_id = -1);
     int getNormalTextureID() { return texture_normal_id_; }
 

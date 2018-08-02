@@ -29,6 +29,13 @@ void TextBox::setText(std::string text)
     }
 }
 
+void TextBox::setAlphaBox(BP_Color outline_color, BP_Color background_color)
+{
+    outline_color_ = outline_color;
+    background_color_ = background_color;
+    have_alpha_box_ = true;
+}
+
 void TextBox::setTexture(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)
 {
     if (pass_id < 0) { pass_id = normal_id; }
@@ -51,6 +58,19 @@ void TextBox::draw()
     if (!texture_path_.empty())
     {
         TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
+    }
+    if (have_alpha_box_) {
+        auto rect = Font::getBoxSize(text_.size(), font_size_, x_ + text_x_, y_ + text_y_);
+        // 背景
+        Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);
+        // 上面的
+        Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, rect.w, 1);
+        // 下边的
+        Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y + rect.h, rect.w, 1);
+        // 左边
+        Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, 1, rect.h);
+        // 右边
+        Engine::getInstance()->fillColor(outline_color_, rect.x + rect.w, rect.y, 1, rect.h);
     }
     //实际上仅用了一个颜色，需要有颜色变化请用button
     if (!text_.empty())

@@ -65,13 +65,27 @@ void BattleMod::BattleModifier::init()
             max = maxNode.as<int>();
         }
 
+        int hide = false;
+        if (const auto& hideNode = bNode[u8"隐藏"]) {
+            hide = hideNode.as<bool>();
+        }
+
+        // 默认白色
+        BP_Color c = { 255, 255, 255, 255 };
+        if (const auto& cNode = bNode[u8"颜色"]) {
+            c = { (Uint8)cNode[0].as<int>(), (Uint8)cNode[1].as<int>(), (Uint8)cNode[2].as<int>(), 255 };
+            if (cNode.size() >= 4) {
+                c.a = (Uint8)cNode[3].as<int>();
+            }
+        }
+
         std::reference_wrapper<std::string> descRef(strPool_.front());
         if (!desc.empty()) {
             strPool_.push_back(desc);
             descRef = strPool_.back();
         }
         printf("%d %s\n", id, descRef.get().c_str());
-        battleStatus_.emplace_back(id, max, descRef);
+        battleStatus_.emplace_back(id, max, descRef, hide, c);
     }
 
     // 以下可以refactor，TODO 改！！！
@@ -211,7 +225,7 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
         case zzz::var_char_attack: ATTR(Attack);
         case zzz::var_char_speed: ATTR(Speed);
         case zzz::var_char_defence: ATTR(Defence);
-        case zzz::var_char_medicine: ATTR(Medcine);
+        case zzz::var_char_medicine: ATTR(Medicine);
         case zzz::var_char_usepoison: ATTR(UsePoison);
         case zzz::var_char_detoxification: ATTR(Detoxification);
         case zzz::var_char_antipoison: ATTR(AntiPoison);
@@ -545,70 +559,6 @@ std::vector<EffectIntsPair> BattleMod::BattleModifier::tryProcAndAddToManager(in
     return procd;
 }
 
-BattleMod::BattleStatus::BattleStatus(int id, int max, const std::string & display) : id(id), max(max), display(display)
-{
-}
-
-
-
-int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max)
-{
-    // 机器猫写的不好用
-    int curTemp = cur;
-    cur = GameUtil::limit(cur + add, min, max);
-    return cur - curTemp;
-}
-
-int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
-{
-    switch (statusID) {
-        // 这几个凭什么不一样，应该全部统一？
-        case 0: return r_->Hurt;
-        case 1: return r_->Poison;
-        case 2: return r_->PhysicalPower;
-        default: break;
-    }
-    return actualStatusVal_[statusID];
-}
-
-void BattleMod::BattleStatusManager::incrementBattleStatusVal(int statusID, int val)
-{
-    if (val != 0) {
-        printf("pid %d add %s %d\n", r_->ID, (*status_)[statusID].display.c_str(), val);
-    }
-    tempStatusVal_[statusID] += val;
-}
-
-void BattleMod::BattleStatusManager::setBattleStatusVal(int statusID, int val)
-{
-    actualStatusVal_[statusID] = val;
-    tempStatusVal_[statusID] = 0;
-}
-
-void BattleMod::BattleStatusManager::initStatus(Role * r, const std::vector<BattleStatus>* status)
-{
-    status_ = status;
-    r_ = r;
-}
-
-std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager::materialize()
-{
-    std::vector<std::pair<const BattleStatus&, int>> changes;
-    for (auto& p : tempStatusVal_) {
-        int add = 0;
-        switch (p.first) {
-        case 0: add = myLimit(r_->Hurt, p.second, 0, Role::getMaxValue()->Hurt); break;
-        case 1: add = myLimit(r_->Poison, p.second, 0, Role::getMaxValue()->Poison); break;
-        case 2: add = myLimit(r_->PhysicalPower, p.second, 0, Role::getMaxValue()->PhysicalPower); break;
-        default: add = myLimit(actualStatusVal_[p.first], p.second, (*status_)[p.first].min, (*status_)[p.first].max); break;
-        }
-        changes.emplace_back((*status_)[p.first], add);
-        printf("%d 当前 %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
-        p.second = 0;
-    }
-    return changes;
-}
-
 void BattleModifier::setRoleInitState(Role* r)
 {
     BattleScene::setRoleInitState(r);
@@ -660,11 +610,49 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
     {
         calMagiclHurtAllEnemies(r, magic);
 
+        useMagicAnimation(r, magic);
+
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
         r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
-        
-        useMagicAnimation(r, magic);
-        showNumberAnimation();
+
+        for (auto r2 : battle_roles_) {
+            if (r2 != r) {
+                r2->Eft = 6;
+                r2->addShowString("啊机器猫技术帝", { 255, 20, 20, 255 });
+                r2->addShowString("劳资无敌", { 160, 32, 240, 255 });
+                r2->addShowString("废物");
+            }
+        }
+
+        // 应该先护体，不显示伤害
+        showNumberAnimation(2, false);
+
+        // 然后显示伤害
+        for (auto r2 : battle_roles_) {
+            if (r2->BattleHurt != 0) {
+                if (magic->HurtType == 0)
+                {
+                    r2->addShowString(convert::formatString("-%d", r2->BattleHurt), { 255, 20, 20, 255 });
+                }
+                else if (magic->HurtType == 1)
+                {
+                    r2->addShowString(convert::formatString("-%d", r2->BattleHurt), { 160, 32, 240, 255 });
+                }
+            }
+            r2->BattleHurt = 0;
+        }
+
+        // 再来搞一波状态
+        for (auto r2 : battle_roles_) {
+            // 这里先都扔进去，伤害结算完了算状态，憋算了
+            auto result = battleStatusManager_[r2->ID].materialize();
+            for (auto const& p : result) {
+                if (!p.first.hide)
+                    r2->addShowString(convert::formatString("%s %d", p.first.display.c_str(), p.second), p.first.color);
+            }
+        }
+        showNumberAnimation(3);
+
         //武学等级增加
         auto index = r->getMagicOfRoleIndex(magic);
         if (index >= 0)
@@ -870,13 +858,12 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
         //非我方且被击中（即所在位置的效果层非负）
         if (r2->Team != r->Team && haveEffect(r2->X(), r2->Y()))
         {
-            int hurt = calMagicHurt(r, r2, m);
+            r2->BattleHurt = calMagicHurt(r, r2, m);
             if (m->HurtType == 0)
             {
-                r2->ShowString = convert::formatString("-%d", hurt);
-                r2->ShowColor = { 255, 20, 20, 255 };
+                // r2->addShowString(convert::formatString("-%d", hurt), { 255, 20, 20, 255 }, 30);
                 int prevHP = r2->HP;
-                r2->HP = GameUtil::limit(r2->HP - hurt, 0, r2->MaxHP);
+                r2->HP = GameUtil::limit(r2->HP - r2->BattleHurt, 0, r2->MaxHP);
                 int hurt1 = prevHP - r2->HP;
                 r->ExpGot += hurt1;
                 if (r2->HP <= 0)
@@ -887,22 +874,12 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             }
             else if (m->HurtType == 1)
             {
-                r2->ShowString = convert::formatString("-%d", hurt);
-                r2->ShowColor = { 160, 32, 240, 255 };
+                // r2->addShowString(convert::formatString("-%d", hurt), { 160, 32, 240, 255 }, 30);
                 int prevMP = r2->MP;
-                r2->MP = GameUtil::limit(r2->MP - hurt, 0, r2->MaxMP);
-                r->MP = GameUtil::limit(r->MP + hurt, 0, r->MaxMP);
+                r2->MP = GameUtil::limit(r2->MP - r2->BattleHurt, 0, r2->MaxMP);
+                r->MP = GameUtil::limit(r->MP + r2->BattleHurt, 0, r->MaxMP);
                 int hurt1 = prevMP - r2->MP;
                 r->ExpGot += hurt1 / 2;
-            }
-        }
-
-        // 这里先都扔进去，伤害结算完了算状态
-        auto result = battleStatusManager_[r2->ID].materialize();
-        for (auto const& p : result) {
-            if (p.first.show) {
-                // 这个我要改
-                r2->ShowString += convert::formatString(" %s %d", p.first.display, p.second);
             }
         }
     }
@@ -991,20 +968,13 @@ void BattleModifier::dealEvent(BP_Event& e)
         // 算了.. TODO 接管
         poisonEffect(role);
 
-        // 说实话，
         auto const& result = battleStatusManager_[role->ID].materialize();
         for (auto const& p : result) {
             printf("%d自己上状态%d %d\n", role->ID, p.first.id, p.second);
-            // 这玩意儿怎么显示呢
-            if (p.first.show) {
-                // TODO 还可以选颜色！慢慢来
-                role->ShowString = convert::formatString("%s %d", p.first.display, p.second);
-                // 疯狂调用，虽然只有一个人会有显示，不过无所谓，减集气第一次显示，也无所谓吧？
-                // TODO 这玩意儿没用
-                showNumberAnimation();
-            }
+            if (!p.first.hide)
+                role->addShowString(convert::formatString("%s %d", p.first.display.c_str(), p.second), p.first.color);
         }
-
+        showNumberAnimation();
         // 结算回合结束后的一些特效，比如说回血内力 等一系列
         // 等我有心情再做
 
@@ -1026,56 +996,6 @@ void BattleModifier::dealEvent(BP_Event& e)
             calExpGot();
         }
         setExit(true);
-    }
-}
-
-
-void BattleModifier::showNumberAnimation()
-{
-    //判断是否有需要显示的数字
-    bool need_show = false;
-    for (auto r : battle_roles_)
-    {
-        if (!r->ShowString.empty() || r->ProgressChange != 0)
-        {
-            need_show = true;
-            break;
-        }
-    }
-    if (!need_show)
-    {
-        return;
-    }
-
-    int size = 28;
-    for (int i = 0; i < 10; i++)
-    {
-        if (exit_)
-        {
-            break;
-        }
-        auto drawNumber = [&](void*) -> void
-        {
-            for (auto r : battle_roles_)
-            {
-                if (!r->ShowString.empty())
-                {
-                    auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
-                    int x = p.x - size * r->ShowString.size() / 4;
-                    int y = p.y - 75 - i * 2;
-                    Font::getInstance()->draw(r->ShowString, size, x, y, r->ShowColor, 255 - 20 * i);
-                }
-                r->Progress += r->ProgressChange / 10;
-            }
-        };
-        drawAndPresent(animation_delay_, drawNumber);
-    }
-    //清除所有人的显示，处理不能被整除的击退值
-    for (auto r : battle_roles_)
-    {
-        r->ShowString.clear();
-        r->Progress += r->ProgressChange - 10 * (r->ProgressChange / 10);
-        r->ProgressChange = 0;
     }
 }
 
@@ -1165,13 +1085,14 @@ void BattleMod::BattleModifier::showMagicNames(const std::vector<std::reference_
     std::unique_ptr<TextBox> boxRoot = std::make_unique<TextBox>();
     int w, h;
     Engine::getInstance()->getWindowSize(w, h);
-    // boxRoot->setHaveBox(false);
+    boxRoot->setHaveBox(false);
     // 丑的我不能直视
     boxRoot->setText(hugeStr);
     boxRoot->setPosition(w/2.0 - (hugeStr.size()/4.0) * fontSize, 50);
     boxRoot->setFontSize(fontSize);
     boxRoot->setStayFrame(stayFrame);
+    boxRoot->setAlphaBox({ 255, 165, 79, 255 }, { 0, 0, 0, 128 });
     // 允许设定颜色吧。。。
-    // boxRoot->setTextColor({});
+    boxRoot->setTextColor({ 255, 165, 79, 255 });
     boxRoot->run();
 }

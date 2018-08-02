@@ -55,7 +55,7 @@ protected:
     int effect_id_ = -1;
     int effect_frame_ = 0;
     uint8_t dead_alpha_ = 255;
-    const int animation_delay_ = 2;
+    static const int animation_delay_ = 2;
 
     bool fail_exp_ = false;    //输后是否有经验
 
@@ -142,10 +142,10 @@ public:
 
     virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //计算暗器伤害
 
-    virtual void showMagicName(std::string name);    //显示武学名
-    virtual void showNumberAnimation();              //显示数字
-    virtual void clearDead();                        //清除被击退的角色
-    virtual void poisonEffect(Role* r);              //中毒效果
+    virtual void showMagicName(std::string name);                                           //显示武学名
+    virtual void showNumberAnimation(int delay = animation_delay_, bool floating = true);   //显示数字
+    virtual void clearDead();                                                               //清除被击退的角色
+    virtual void poisonEffect(Role* r);                                                     //中毒效果
 
     virtual int getTeamMateCount(int team);    //获取队员数目
     virtual int checkResult();                 //检查结果

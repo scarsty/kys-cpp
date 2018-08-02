@@ -430,6 +430,8 @@ void BattleScene::setRoleInitState(Role* r)
     r->FightingFrame = 0;
     r->Moved = 0;
     r->AI_Action = -1;
+    r->Eft = -1;
+    r->BattleHurt = 0;
 
     if (r->Team == 0)
     {
@@ -1409,16 +1411,28 @@ void BattleScene::showMagicName(std::string name)
 }
 
 //显示数字，同时显示打退进度条
-void BattleScene::showNumberAnimation()
+// delay: 延迟，默认2
+// floating: 数字是否漂浮
+void BattleScene::showNumberAnimation(int delay, bool floating)
 {
     //判断是否有需要显示的数字
     bool need_show = false;
+    int total_frames = 10;
+    // 人物id -> (eft路径, eft长度)
+    // std::unordered_map<int, std::pair<std::string, int>> efts;
     for (auto r : battle_roles_)
     {
         if (!r->ShowStrings.empty())
         {
             need_show = true;
-            break;
+        }
+        if (r->Eft != 1) 
+        {
+            need_show = true;
+            auto path = convert::formatString("eft/eft%03d", r->Eft);
+            auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+            total_frames = max(total_frames, effect_count);
+            // efts[r->ID] = { path, effect_count };
         }
     }
     if (!need_show)
@@ -1426,7 +1440,8 @@ void BattleScene::showNumberAnimation()
         return;
     }
 
-    for (int i_frame = 0; i_frame < 10; i_frame++)
+
+    for (int i_frame = 0; i_frame < total_frames; i_frame++)
     {
         if (exit_)
         {
@@ -1436,29 +1451,41 @@ void BattleScene::showNumberAnimation()
         {
             for (auto r : battle_roles_)
             {
+                auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
+                // 有越界保护，直接显示就好了
+                if (r->Eft != 1) 
+                {
+                    auto path = convert::formatString("eft/eft%03d", r->Eft);
+                    TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, { 255, 255, 255, 255 }, 224);
+                }
                 if (!r->ShowStrings.empty())
                 {
-                    int y_pos = 0;
+                    // 可以考虑做一个y居中的效果，既文字行数少的时候可以靠下一点
+                    int y_pos = -75;
                     for (int i_show = 0; i_show < r->ShowStrings.size(); i_show++)
                     {
                         auto& show_string = r->ShowStrings[i_show];
-                        auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
                         int x = p.x - show_string.Size * show_string.Text.size() / 4;
-                        int y = p.y - 75 - i_frame * 2 + y_pos;
+                        int y = p.y - i_frame * 2 + y_pos;
+                        if (!floating) 
+                        {
+                            y = p.y - total_frames * 2 + y_pos;
+                        }
                         Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 20 * i_frame);
                         y_pos += show_string.Size + 2;
                     }
                 }
-                r->Progress += r->ProgressChange / 10;
+                r->Progress += r->ProgressChange / total_frames;
             }
         };
-        drawAndPresent(animation_delay_, drawNumber);
+        drawAndPresent(delay, drawNumber);
     }
     //清除所有人的显示，处理不能被整除的击退值
     for (auto r : battle_roles_)
     {
+        r->Eft = -1;
         r->clearShowStrings();
-        r->Progress += r->ProgressChange - 10 * (r->ProgressChange / 10);
+        r->Progress += r->ProgressChange - total_frames * (r->ProgressChange / total_frames);
         r->ProgressChange = 0;
     }
 }

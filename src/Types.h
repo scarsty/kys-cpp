@@ -151,6 +151,9 @@ public:
     int MPChange;
     int ProgressChange;
 
+    int BattleHurt;
+    int Eft;
+
 private:
     int X_, Y_;
     int prevX_, prevY_;
