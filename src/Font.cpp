@@ -51,6 +51,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     int p = 0;
     int char_count = 0;
     int s1;
+    color.a = alpha;
     if (stat_message_)
     {
         s1 = buffer_.size();

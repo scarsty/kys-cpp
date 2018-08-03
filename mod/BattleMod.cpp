@@ -617,7 +617,7 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
 
         for (auto r2 : battle_roles_) {
             if (r2 != r) {
-                r2->Eft = 6;
+                r2->Effect = 6;
                 r2->addShowString("啊机器猫技术帝", { 255, 20, 20, 255 });
                 r2->addShowString("劳资无敌", { 160, 32, 240, 255 });
                 r2->addShowString("废物");

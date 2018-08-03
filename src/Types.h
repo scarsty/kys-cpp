@@ -152,7 +152,7 @@ public:
     int ProgressChange;
 
     int BattleHurt;
-    int Eft;
+    int Effect;
 
 private:
     int X_, Y_;

@@ -4,6 +4,7 @@
 #include "BattleScene.h"
 #include "BattleConfig.h"
 
+#define YAML_CPP_DLL
 #include "yaml-cpp/yaml.h"
 
 #include <string>

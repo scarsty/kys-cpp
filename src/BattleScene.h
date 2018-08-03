@@ -125,7 +125,7 @@ public:
     virtual void actUseMagic(Role* r);           //武学
     virtual void actUsePoison(Role* r);          //用毒
     virtual void actDetoxification(Role* r);     //解毒
-    virtual void actMedicine(Role* r);            //医疗
+    virtual void actMedicine(Role* r);           //医疗
     virtual void actUseHiddenWeapon(Role* r);    //暗器
     virtual void actUseDrag(Role* r);            //吃药
     virtual void actWait(Role* r);               //等待
@@ -142,10 +142,10 @@ public:
 
     virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //计算暗器伤害
 
-    virtual void showMagicName(std::string name);                                           //显示武学名
-    virtual void showNumberAnimation(int delay = animation_delay_, bool floating = true);   //显示数字
-    virtual void clearDead();                                                               //清除被击退的角色
-    virtual void poisonEffect(Role* r);                                                     //中毒效果
+    virtual void showMagicName(std::string name);                                            //显示武学名
+    virtual void showNumberAnimation(int delay = animation_delay_, bool floating = true);    //显示数字
+    virtual void clearDead();                                                                //清除被击退的角色
+    virtual void poisonEffect(Role* r);                                                      //中毒效果
 
     virtual int getTeamMateCount(int team);    //获取队员数目
     virtual int checkResult();                 //检查结果

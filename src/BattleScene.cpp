@@ -430,7 +430,7 @@ void BattleScene::setRoleInitState(Role* r)
     r->FightingFrame = 0;
     r->Moved = 0;
     r->AI_Action = -1;
-    r->Eft = -1;
+    r->Effect = -1;
     r->BattleHurt = 0;
 
     if (r->Team == 0)
@@ -1426,12 +1426,12 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
         {
             need_show = true;
         }
-        if (r->Eft != 1) 
+        if (r->Effect != -1)
         {
             need_show = true;
-            auto path = convert::formatString("eft/eft%03d", r->Eft);
+            auto path = convert::formatString("eft/eft%03d", r->Effect);
             auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
-            total_frames = max(total_frames, effect_count);
+            total_frames = std::max(total_frames, effect_count);
             // efts[r->ID] = { path, effect_count };
         }
     }
@@ -1439,7 +1439,6 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
     {
         return;
     }
-
 
     for (int i_frame = 0; i_frame < total_frames; i_frame++)
     {
@@ -1453,9 +1452,9 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
             {
                 auto p = getPositionOnWindow(r->X(), r->Y(), man_x_, man_y_);
                 // 有越界保护，直接显示就好了
-                if (r->Eft != 1) 
+                if (r->Effect != -1)
                 {
-                    auto path = convert::formatString("eft/eft%03d", r->Eft);
+                    auto path = convert::formatString("eft/eft%03d", r->Effect);
                     TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
                 if (!r->ShowStrings.empty())
@@ -1466,12 +1465,12 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
                         auto& show_string = r->ShowStrings[i_show];
                         int x = p.x - show_string.Size * show_string.Text.size() / 4;
                         int y = p.y - i_frame * 2 + y_pos;
-                        if (!floating) 
+                        if (!floating)
                         {
                             // 调整一下
                             y = p.y - total_frames + y_pos;
                         }
-                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 20 * i_frame);
+                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 255 / total_frames * i_frame);
                         y_pos += show_string.Size + 2;
                     }
                 }
@@ -1483,7 +1482,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
     //清除所有人的显示，处理不能被整除的击退值
     for (auto r : battle_roles_)
     {
-        r->Eft = -1;
+        r->Effect = -1;
         r->clearShowStrings();
         r->Progress += r->ProgressChange - total_frames * (r->ProgressChange / total_frames);
         r->ProgressChange = 0;

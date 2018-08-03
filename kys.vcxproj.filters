@@ -139,6 +139,12 @@
     <ClCompile Include="src\InputBox.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="mod\BattleConfig.cpp">
+      <Filter>battle-mod</Filter>
+    </ClCompile>
+    <ClCompile Include="mod\BattleMod.cpp">
+      <Filter>battle-mod</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -288,6 +294,12 @@
     <ClInclude Include="src\InputBox.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="mod\BattleConfig.h">
+      <Filter>battle-mod</Filter>
+    </ClInclude>
+    <ClInclude Include="mod\BattleMod.h">
+      <Filter>battle-mod</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -327,6 +339,9 @@
     <Filter Include="application">
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="battle-mod">
+      <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
