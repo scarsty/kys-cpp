@@ -1,5 +1,6 @@
 #include "BattleConfig.h"
 #include "BattleMod.h"
+#include "GameUtil.h"
 
 using namespace BattleMod;
 
@@ -341,4 +342,70 @@ std::size_t BattleMod::EffectManager::size()
 void BattleMod::EffectManager::clear()
 {
     epps_.clear();
+}
+
+BattleMod::BattleStatus::BattleStatus(int id, int max, const std::string & display, bool hide, BP_Color color) : 
+    id(id), max(max), display(display), hide(hide), color(color)
+{
+}
+
+
+
+int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max)
+{
+    // 机器猫写的不好用
+    int curTemp = cur;
+    cur = GameUtil::limit(cur + add, min, max);
+    return cur - curTemp;
+}
+
+int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
+{
+    switch (statusID) {
+        // 这几个凭什么不一样，应该全部统一？
+    case 0: return r_->Hurt;
+    case 1: return r_->Poison;
+    case 2: return r_->PhysicalPower;
+    default: break;
+    }
+    return actualStatusVal_[statusID];
+}
+
+void BattleMod::BattleStatusManager::incrementBattleStatusVal(int statusID, int val)
+{
+    if (val != 0) {
+        printf("pid %d add %s %d\n", r_->ID, (*status_)[statusID].display.c_str(), val);
+    }
+    tempStatusVal_[statusID] += val;
+}
+
+void BattleMod::BattleStatusManager::setBattleStatusVal(int statusID, int val)
+{
+    actualStatusVal_[statusID] = val;
+    tempStatusVal_[statusID] = 0;
+}
+
+void BattleMod::BattleStatusManager::initStatus(Role * r, const std::vector<BattleStatus>* status)
+{
+    status_ = status;
+    r_ = r;
+}
+
+std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager::materialize()
+{
+    std::vector<std::pair<const BattleStatus&, int>> changes;
+    for (auto& p : tempStatusVal_) {
+        int add = 0;
+        switch (p.first) {
+        case 0: add = myLimit(r_->Hurt, p.second, 0, Role::getMaxValue()->Hurt); break;
+        case 1: add = myLimit(r_->Poison, p.second, 0, Role::getMaxValue()->Poison); break;
+        case 2: add = myLimit(r_->PhysicalPower, p.second, 0, Role::getMaxValue()->PhysicalPower); break;
+        default: add = myLimit(actualStatusVal_[p.first], p.second, (*status_)[p.first].min, (*status_)[p.first].max); break;
+        }
+        if (add != 0)
+            changes.emplace_back((*status_)[p.first], add);
+        printf("%d 当前 %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
+        p.second = 0;
+    }
+    return changes;
 }

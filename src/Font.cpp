@@ -36,6 +36,16 @@ BP_Texture* Font::indexTex(int size, uint16_t c)
     return buffer_[index];
 }
 
+BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
+{
+    BP_Rect r;
+    r.x = x - 10;
+    r.y = y - 3;
+    r.w = size * textLen / 2 + 20;
+    r.h = size + 6;
+    return r;
+}
+
 void Font::draw(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha)
 {
     int p = 0;
@@ -88,11 +98,7 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
     //{
     //TextureManager::getInstance()->renderTexture("title", 20, x + 10 * i, y - 3);
     //}
-    BP_Rect r;
-    r.x = x - 10;
-    r.y = y - 3;
-    r.w = size * text.size() / 2 + 20;
-    r.h = size + 6;
+    auto r = getBoxSize(text.size(), size, x, y);
     TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
 }

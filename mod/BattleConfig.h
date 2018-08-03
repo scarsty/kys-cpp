@@ -264,13 +264,13 @@ namespace BattleMod {
     class BattleStatus {
     public:
         // 不一定要显示，可以做别的处理
-        BattleStatus(int id, int max, const std::string& display);
+        BattleStatus(int id, int max, const std::string& display, bool hide, BP_Color color);
         const int id;
         const int max;
         const std::string& display;
-        // 这个以后再说
         const int min = 0;
-        const bool show = false;
+        const bool hide;
+        BP_Color color;
     };
 
     class BattleStatusManager {
