@@ -1431,7 +1431,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
             need_show = true;
             auto path = convert::formatString("eft/eft%03d", r->Effect);
             auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
-            total_frames = std::max(total_frames, effect_count);
+            total_frames = (std::max)(total_frames, effect_count);
             // efts[r->ID] = { path, effect_count };
         }
     }

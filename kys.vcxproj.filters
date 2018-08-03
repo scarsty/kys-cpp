@@ -139,12 +139,6 @@
     <ClCompile Include="src\InputBox.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="mod\BattleConfig.cpp">
-      <Filter>battle-mod</Filter>
-    </ClCompile>
-    <ClCompile Include="mod\BattleMod.cpp">
-      <Filter>battle-mod</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -293,12 +287,6 @@
     </ClInclude>
     <ClInclude Include="src\InputBox.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="mod\BattleConfig.h">
-      <Filter>battle-mod</Filter>
-    </ClInclude>
-    <ClInclude Include="mod\BattleMod.h">
-      <Filter>battle-mod</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

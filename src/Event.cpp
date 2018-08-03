@@ -14,9 +14,6 @@
 #include "File.h"
 #include "Script.h"
 #include "GrpIdxFile.h"
-#ifdef __BATTLE_MOD
-#include "BattleMod.h"
-#endif
 
 Event::Event()
 {
@@ -385,11 +382,7 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-#ifdef __BATTLE_MOD
-    auto battle = new BattleMod::BattleModifier();
-#else
     auto battle = new BattleScene();
-#endif
     battle->setID(battle_id);
     battle->setHaveFailExp(get_exp);
     int result = battle->run();
