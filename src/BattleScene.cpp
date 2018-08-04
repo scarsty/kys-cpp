@@ -1214,6 +1214,16 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     //Audio::getInstance()->playASound(style);
     for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
     {
+        // 如果有特效动画，抬手1帧后运行
+        if (action_frame_ == 1)
+        {
+            if (r->Effect != -1 || !r->ShowStrings.empty())
+            {
+                showNumberAnimation(2, false);
+                action_frame_ = 0;
+                continue;
+            }
+        }
         if (exit_)
         {
             break;
