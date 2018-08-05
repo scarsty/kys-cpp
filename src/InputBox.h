@@ -1,12 +1,13 @@
 #pragma once
 
 #include "TextBox.h"
+#include "opencc/opencc.h"
 #include <string>
 
 class InputBox : public TextBox
 {
 public:
-    InputBox() {}
+    InputBox();
     InputBox(const std::string& title, int font_size);
     virtual ~InputBox();
     void setTitle(const std::string& t) { title_ = t; }
@@ -28,4 +29,7 @@ protected:
     std::string title_;
     int text_x_ = 0, text_y_ = 0;
     BP_Color color_ = { 32, 32, 32, 255 };
+    // º”»ÎPotConv
+    opencc::SimpleConverter ccConv_;
+    
 };

@@ -4,8 +4,14 @@
 #include "PotConv.h"
 #include "Save.h"
 
+InputBox::InputBox()
+    : ccConv_("s2t.json")
+{
+}
+
+
 InputBox::InputBox(const std::string& title, int font_size)
-    : title_(title)
+    : title_(title), ccConv_("s2t.json")
 {
     font_size_ = font_size;
 }
@@ -20,7 +26,8 @@ void InputBox::dealEvent(BP_Event& e)
     {
     case BP_TEXTINPUT:
     {
-        auto converted = PotConv::conv(e.text.text, "utf-8", "cp936");
+        auto converted = ccConv_.Convert(e.text.text);
+        converted = PotConv::conv(converted, "utf-8", "cp936");
         //printf("input %s\n", converted.c_str());
         text_ += converted;
         break;
