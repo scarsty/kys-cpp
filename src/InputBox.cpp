@@ -2,6 +2,7 @@
 #include "Font.h"
 #include "InputBox.h"
 #include "PotConv.h"
+#include "Save.h"
 
 InputBox::InputBox(const std::string& title, int font_size)
     : title_(title)

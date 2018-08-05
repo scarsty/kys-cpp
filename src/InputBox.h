@@ -16,7 +16,7 @@ public:
     virtual void draw() override;
     void setText(const std::string& text) { text_ = text; }
     std::string  getText() { return text_; };
-    void setInputPosition(int x, int y);
+    virtual void setInputPosition(int x, int y);
     void setTextColor(BP_Color c) { color_ = c; }
 
     virtual void onPressedCancel() override { exitWithResult(-1); }
