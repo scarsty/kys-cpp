@@ -6,8 +6,6 @@
 #include "MainScene.h"
 #include "SuperMenuText.h"
 
-#include "opencc/opencc.h"
-
 #include <string>
 #include <vector>
 #include <utility>
@@ -78,7 +76,7 @@ Console::Console() {
             generated.push_back("a" + std::to_string(i));
         }
         SuperMenuText smt("少废话", 28, generated, 10);
-        smt.setInputPosition(150, 50);
+        smt.setInputPosition(180, 80);
         smt.run();
         int id = smt.getResult();
         printf("result %d\n", id);
@@ -92,7 +90,7 @@ Console::Console() {
             locs.push_back(name + " " + std::to_string(info->ID));
         }
         SuperMenuText smt("請輸入傳送地名（可半自動補全）：", 28, locs, 15);
-        smt.setInputPosition(150, 50);
+        smt.setInputPosition(180, 80);
         smt.run();
         int id = smt.getResult();
         if (id != -1)

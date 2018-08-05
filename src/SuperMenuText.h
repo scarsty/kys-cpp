@@ -1,5 +1,6 @@
 #include "Menu.h"
 #include "InputBox.h"
+#include "Button.h"
 
 #include <vector>
 #include <string>
@@ -13,15 +14,13 @@ public:
     virtual void setInputPosition(int x, int y) override;
 
 private:
-
-
     void defaultPage();
     void flipPage(int pInc);
     void search(const std::string& text);
     void updateMaxPages();
 
-
-    MenuText * flipPage_;
+    Button * previous_;
+    Button * next_;
     int curPage_ = 0;
     int maxPages_ = 1;
     int itemsPerPage_ = 10;

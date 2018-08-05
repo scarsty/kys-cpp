@@ -6,9 +6,13 @@
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::string>& allItems, int itemsPerPage) :
     InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
-    // 套MenuText做翻页就是吃翔，键盘操作令人窒息
-    flipPage_ = new MenuText({ "上一頁", "下一頁" });
-    addChild(flipPage_);
+    previous_ = new Button();
+    previous_->setText("上一頁PgUp");
+    next_ = new Button();
+    next_->setText("下一頁PgDown");
+
+    addChild(previous_);
+    addChild(next_);
     selections_ = new MenuText();
     addChild(selections_);
     setAllChildState(Normal);
@@ -18,8 +22,9 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
 void SuperMenuText::setInputPosition(int x, int y)
 {
     InputBox::setInputPosition(x, y);
-    selections_->setPosition(x, y + 100);
-    flipPage_->setPosition(x - font_size_ * 3, y);
+    selections_->setPosition(x, y + font_size_ * 3);
+    previous_->setPosition(x, y - font_size_ * 1.5);
+    next_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
 }
 
 void SuperMenuText::defaultPage() {
@@ -55,7 +60,7 @@ void SuperMenuText::flipPage(int pInc)
         }
         selections_->setStrings(displays);
     }
-    curDefault_ = false;
+    // curDefault_ = false;
 }
 
 void SuperMenuText::search(const std::string& text) {
@@ -89,20 +94,22 @@ void SuperMenuText::updateMaxPages()
 }
 
 void SuperMenuText::dealEvent(BP_Event & e)
-{
-    if (flipPage_->getResult() >= 0) {
-        // 检测是否可以翻页
-        // 0是往前 1是往后
-        if (flipPage_->getResult() == 0) {
-            flipPage(-1);
-        }
-        else {
-            flipPage(1);
-        }
-        flipPage_->setResult(-1);
+{   
+    // get不到result 为何
+    // 不知道这玩意儿在干嘛，瞎搞即可
+    if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP) {
+        flipPage(-1);
+        previous_->setState(Normal);
+        previous_->setResult(-1);
+    }
+    else if (next_->getState() == Press && e.type == BP_MOUSEBUTTONUP) {
+        flipPage(1);
+        next_->setState(Normal);
+        next_->setResult(-1);
     }
 
     bool research = false;
+    // 为什么switch自动缩进是这样
     switch (e.type)
     {
     case BP_TEXTINPUT:
@@ -117,7 +124,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
     {
         break;
     }
-    case BP_KEYDOWN:
+    case BP_KEYDOWN: {
         if (e.key.keysym.sym == BPK_BACKSPACE)
         {
             if (text_.size() >= 1)
@@ -131,6 +138,22 @@ void SuperMenuText::dealEvent(BP_Event & e)
             research = true;
         }
         break;
+    }
+    case BP_KEYUP: {
+        switch (e.key.keysym.sym) {
+        case BPK_PAGEUP:
+        {
+            flipPage(-1);
+            break;
+        }
+        case BPK_PAGEDOWN:
+        {
+            flipPage(1);
+            break;
+        }
+        }
+        break;
+    }
     }
 
     if (text_.empty()) {
@@ -146,6 +169,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
         auto selected = selections_->getResultString();
         // 如果文字一样的话，直接当确定
         // 这里有个致命问题，我还没想好怎么解决，晚点再说
+        // 我似乎忘了是什么问题
         if (text_ == selected) {
             result_ = activeIndices_[selections_->getResult()];
             setExit(true);

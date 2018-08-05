@@ -79,7 +79,7 @@ void InputBox::setInputPosition(int x, int y)
     x_ = x;
     y_ = y;
     text_x_ = x;
-    text_y_ = y + font_size_ * 2;
+    text_y_ = y + font_size_ * 1.5;
 }
 
 void InputBox::onEntrance()
