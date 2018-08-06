@@ -1,7 +1,6 @@
 #pragma once
 
 #include "TextBox.h"
-#include "opencc/opencc.h"
 #include <string>
 
 class InputBox : public TextBox
@@ -29,7 +28,4 @@ protected:
     std::string title_;
     int text_x_ = 0, text_y_ = 0;
     BP_Color color_ = { 32, 32, 32, 255 };
-    // º”»ÎPotConv
-    opencc::SimpleConverter ccConv_;
-    
 };

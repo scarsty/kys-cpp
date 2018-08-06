@@ -139,6 +139,18 @@
     <ClCompile Include="src\InputBox.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="src\SuperMenuText.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Console.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DrawableOnCall.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\OpenCCConverter.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -287,6 +299,18 @@
     </ClInclude>
     <ClInclude Include="src\InputBox.h">
       <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SuperMenuText.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Console.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\DrawableOnCall.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\OpenCCConverter.h">
+      <Filter>util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

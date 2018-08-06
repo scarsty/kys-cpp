@@ -3,15 +3,14 @@
 #include "InputBox.h"
 #include "PotConv.h"
 #include "Save.h"
+#include "OpenCCConverter.h"
 
 InputBox::InputBox()
-    : ccConv_("s2t.json")
 {
 }
 
-
 InputBox::InputBox(const std::string& title, int font_size)
-    : title_(title), ccConv_("s2t.json")
+    : title_(title)
 {
     font_size_ = font_size;
 }
@@ -26,7 +25,7 @@ void InputBox::dealEvent(BP_Event& e)
     {
     case BP_TEXTINPUT:
     {
-        auto converted = ccConv_.Convert(e.text.text);
+        auto converted = OpenCCConverter::getInstance()->convertUTF8(e.text.text);
         converted = PotConv::conv(converted, "utf-8", "cp936");
         //printf("input %s\n", converted.c_str());
         text_ += converted;

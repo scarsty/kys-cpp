@@ -19,6 +19,7 @@ public:
     static std::string cp936toutf8(const std::string& src) { return conv(src, "cp936", "utf-8"); }
     static std::string cp950toutf8(const std::string& src) { return conv(src, "cp950", "utf-8"); }
     static std::string cp950tocp936(const std::string& src) { return conv(src, "cp950", "cp936"); }
+    static std::string utf8tocp936(const std::string& src) { return conv(src, "utf-8", "cp936"); }
     static void fromCP950ToCP936(char* s)
     {
         auto str = PotConv::cp950tocp936(s);

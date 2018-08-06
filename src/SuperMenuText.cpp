@@ -2,6 +2,7 @@
 #include "PotConv.h"
 #include <cmath>
 #include <algorithm>
+#include "OpenCCConverter.h"
 
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::string>& allItems, int itemsPerPage) :
     InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
@@ -121,7 +122,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
     {
     case BP_TEXTINPUT:
     {
-        auto converted = ccConv_.Convert(e.text.text);
+        auto converted = OpenCCConverter::getInstance()->convertUTF8(e.text.text);
         converted = PotConv::conv(converted, "utf-8", "cp936");
         text_ += converted;
         research = true;

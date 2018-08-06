@@ -66,7 +66,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;opencc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -88,7 +88,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;opencc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -100,7 +100,10 @@
     <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
+    <ClCompile Include="src\Console.cpp" />
+    <ClCompile Include="src\DrawableOnCall.cpp" />
     <ClCompile Include="src\InputBox.cpp" />
+    <ClCompile Include="src\OpenCCConverter.cpp" />
     <ClCompile Include="src\ParticleExample.cpp" />
     <ClCompile Include="src\ParticleSystem.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
@@ -111,6 +114,7 @@
     <ClCompile Include="src\Script.cpp" />
     <ClCompile Include="src\ShowExp.cpp" />
     <ClCompile Include="src\ShowRoleDifference.cpp" />
+    <ClCompile Include="src\SuperMenuText.cpp" />
     <ClCompile Include="src\Talk.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Event.cpp" />
@@ -149,7 +153,10 @@
     <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
+    <ClInclude Include="src\Console.h" />
+    <ClInclude Include="src\DrawableOnCall.h" />
     <ClInclude Include="src\InputBox.h" />
+    <ClInclude Include="src\OpenCCConverter.h" />
     <ClInclude Include="src\ParticleExample.h" />
     <ClInclude Include="src\ParticleSystem.h" />
     <ClInclude Include="src\Cloud.h" />
@@ -162,6 +169,7 @@
     <ClInclude Include="src\Script.h" />
     <ClInclude Include="src\ShowExp.h" />
     <ClInclude Include="src\ShowRoleDifference.h" />
+    <ClInclude Include="src\SuperMenuText.h" />
     <ClInclude Include="src\Talk.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\Event.h" />

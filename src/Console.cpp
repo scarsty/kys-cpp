@@ -122,7 +122,6 @@ Console::Console() {
                     }
                 }
             }
-
         };
         auto doc = new DrawableOnCall(drawScene);
         SuperMenuText smt("請輸入傳送地名（可半自動補全）：", 28, locs, 15);
