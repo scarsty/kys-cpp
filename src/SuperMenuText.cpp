@@ -175,6 +175,17 @@ void SuperMenuText::dealEvent(BP_Event & e)
         }
         break;
     }
+	case BP_MOUSEWHEEL: {
+		if (e.wheel.y > 0) 
+		{
+			flipPage(-1);
+		}
+		else if (e.wheel.y < 0)
+		{
+			flipPage(1);
+		}
+		break;
+	}
     }
 
     if (text_.empty()) {
