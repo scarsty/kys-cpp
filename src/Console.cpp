@@ -41,24 +41,30 @@ Console::Console() {
         printf("result %d\n", id);
     }
     else if (code == u8"teleport") {
-        // 如果需要过滤不能进入的，这里就会比较复杂了
-        // 返回的idx需要再映射一边
+        // 返回的idx需要再映射一遍
         std::vector<std::string> locs;
+        std::unordered_map<int, int> realIdxMapping;
         for (const auto& info : Save::getInstance()->getSubMapInfos()) {
-            std::string name(info->Name);
-            locs.push_back(name + " " + std::to_string(info->ID));
+            // 还有其他要求 这里作为一个demo就意思意思
+            if (info->MainEntranceX1 != 0 && info->MainEntranceY1 != 0) {
+                realIdxMapping[locs.size()] = info->ID;
+                std::string name(info->Name);
+                // 有空格方便完成双击确认
+                locs.push_back(name + " ");
+            }
         }
         int dx = 180;
         int dy = 80;
-        auto drawScene = [dx, dy](DrawableOnCall* d) {
+        auto drawScene = [dx, dy, &realIdxMapping](DrawableOnCall* d) {
             if (d->getID() == -1) return;
-            auto scene = Save::getInstance()->getSubMapInfos()[d->getID()];
+            int id = realIdxMapping[d->getID()];
+            auto scene = Save::getInstance()->getSubMapInfos()[id];
             int nx = dx + 350;
             int ny = dy + 100;
             int fontSize = 28;
             Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, nx, ny, 400, 400);
-            Font::getInstance()->draw(scene->Name, fontSize, nx + 20, ny + 20);
-            Font::getInstance()->draw(convert::formatString("(%d, %d)", scene->MainEntranceX1, scene->MainEntranceY1), 
+            Font::getInstance()->draw(convert::formatString("%s，%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
+            Font::getInstance()->draw(convert::formatString("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1), 
                                       fontSize, nx + 20, ny + 20 + fontSize*1.5);
 
             int man_x_ = scene->MainEntranceX1;
@@ -126,8 +132,8 @@ Console::Console() {
         int id = smt.getResult();
         if (id != -1)
         {
+            id = realIdxMapping[id];
             auto scene = Save::getInstance()->getSubMapInfos()[id];
-
             MainScene::getInstance()->forceEnterSubScene(id, scene->EntranceX, scene->EntranceY);
             printf("傳送到%d\n", id);
         }

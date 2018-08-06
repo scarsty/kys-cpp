@@ -195,6 +195,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
         else {
             text_ = selected;
             search(selected);
+            selections_->forceActiveChild(0);
         }
         selections_->setResult(-1);
     }
