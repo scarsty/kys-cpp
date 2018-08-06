@@ -6,8 +6,8 @@ class OpenCCConverter
 public:
     OpenCCConverter();
     virtual ~OpenCCConverter();
-    std::string convertUTF8(std::string in);
-    std::string convertCP936(std::string in);
+    std::string convertUTF8(const std::string& in);
+    std::string convertCP936(const std::string& in);
 
     static OpenCCConverter* getInstance()
     {
