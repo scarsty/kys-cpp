@@ -1,3 +1,4 @@
+#include "Console.h"
 #include "File.h"
 #include "MainScene.h"
 #include "Random.h"
@@ -213,6 +214,12 @@ void MainScene::dealEvent(BP_Event& e)
 
     //键盘走路部分，检测4个方向键
     int pressed = 0;
+
+    // Tab激活控制台
+    if (Engine::getInstance()->checkKeyPress(BPK_TAB)) {
+        Console c;
+    }
+
     for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
     {
         if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
