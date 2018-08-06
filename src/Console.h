@@ -1,6 +1,7 @@
 #pragma once
 
-class Console {
+class Console 
+{
 public:
     Console();
 };

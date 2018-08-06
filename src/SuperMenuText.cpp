@@ -36,15 +36,18 @@ void SuperMenuText::addDrawableOnCall(DrawableOnCall * doc)
 
 void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, const std::string&)> match)
 {
-	matchFunc_ = match;
+    matchFunc_ = match;
 }
 
-void SuperMenuText::defaultPage() {
+void SuperMenuText::defaultPage()
+{
     if (curDefault_) return;
     std::vector<std::string> displays;
     searchResultIndices_.clear();
-    for (int i = 0; i < items_.size(); i++) {
-        if (i < std::min((std::size_t)itemsPerPage_, items_.size())) {
+    for (int i = 0; i < items_.size(); i++)
+    {
+        if (i < std::min((std::size_t)itemsPerPage_, items_.size()))
+        {
             activeIndices_.push_back(i);
             displays.push_back(items_[i]);
         }
@@ -60,13 +63,15 @@ void SuperMenuText::defaultPage() {
 
 void SuperMenuText::flipPage(int pInc)
 {
-    if (curPage_ + pInc >= 0 && curPage_ + pInc < maxPages_) {
+    if (curPage_ + pInc >= 0 && curPage_ + pInc < maxPages_)
+    {
         // 允许你翻页！
         curPage_ += pInc;
         int startIdx = curPage_ * itemsPerPage_;
         std::vector<std::string> displays;
         activeIndices_.clear();
-        for (std::size_t i = startIdx; i < std::min(searchResultIndices_.size(), (std::size_t)startIdx + itemsPerPage_); i++) {
+        for (std::size_t i = startIdx; i < std::min(searchResultIndices_.size(), (std::size_t)startIdx + itemsPerPage_); i++)
+        {
             activeIndices_.push_back(searchResultIndices_[i]);
             displays.push_back(items_[searchResultIndices_[i]]);
         }
@@ -75,33 +80,41 @@ void SuperMenuText::flipPage(int pInc)
     // curDefault_ = false;
 }
 
-void SuperMenuText::search(const std::string& text) {
+void SuperMenuText::search(const std::string& text) 
+{
     std::vector<std::string> results;
     activeIndices_.clear();
     searchResultIndices_.clear();
     // 只返回itemsPerPage_数量
     // 更高级的Trie，LCS编辑距离等等 有缘人来搞
-    for (int i = 0; i < items_.size(); i++) {
-		bool matched = false;
-		auto& opt = items_[i];
-		if (matchFunc_ && matchFunc_(text, opt)) {
-			matched = true;
-		}
-		else {
-			if (opt.size() < text.size()) {
-				continue;
-			}
-			if (memcmp(text.c_str(), opt.c_str(), text.size()) == 0) {
-				matched = true;
-			}
-		}
-		if (matched) {
-			if (results.size() < itemsPerPage_) {
-				results.emplace_back(opt);
-				activeIndices_.push_back(i);
-			}
-			searchResultIndices_.push_back(i);
-		}
+    for (int i = 0; i < items_.size(); i++)
+    {
+        bool matched = false;
+        auto& opt = items_[i];
+        if (matchFunc_ && matchFunc_(text, opt))
+        {
+            matched = true;
+        } 
+        else
+        {
+            if (opt.size() < text.size())
+            {
+                continue;
+            }
+            if (memcmp(text.c_str(), opt.c_str(), text.size()) == 0)
+            {
+                matched = true;
+            }
+        }
+        if (matched)
+        {
+            if (results.size() < itemsPerPage_)
+            {
+                results.emplace_back(opt);
+                activeIndices_.push_back(i);
+            }
+            searchResultIndices_.push_back(i);
+        }
     }
     updateMaxPages();
     curPage_ = 0;
@@ -118,12 +131,14 @@ void SuperMenuText::dealEvent(BP_Event & e)
 {   
     // get不到result 为何
     // 不知道这玩意儿在干嘛，瞎搞即可
-    if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP) {
+    if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    {
         flipPage(-1);
         previous_->setState(Normal);
         previous_->setResult(-1);
     }
-    else if (next_->getState() == Press && e.type == BP_MOUSEBUTTONUP) {
+    else if (next_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    {
         flipPage(1);
         next_->setState(Normal);
         next_->setResult(-1);
@@ -145,7 +160,8 @@ void SuperMenuText::dealEvent(BP_Event & e)
     {
         break;
     }
-    case BP_KEYDOWN: {
+    case BP_KEYDOWN:
+    {
         if (e.key.keysym.sym == BPK_BACKSPACE)
         {
             if (text_.size() >= 1)
@@ -160,8 +176,10 @@ void SuperMenuText::dealEvent(BP_Event & e)
         }
         break;
     }
-    case BP_KEYUP: {
-        switch (e.key.keysym.sym) {
+    case BP_KEYUP:
+    {
+        switch (e.key.keysym.sym)
+        {
         case BPK_PAGEUP:
         {
             flipPage(-1);
@@ -175,49 +193,59 @@ void SuperMenuText::dealEvent(BP_Event & e)
         }
         break;
     }
-	case BP_MOUSEWHEEL: {
-		if (e.wheel.y > 0) 
-		{
-			flipPage(-1);
-		}
-		else if (e.wheel.y < 0)
-		{
-			flipPage(1);
-		}
-		break;
-	}
+    case BP_MOUSEWHEEL:
+    {
+        if (e.wheel.y > 0) 
+        {
+            flipPage(-1);
+        }
+        else if (e.wheel.y < 0)
+        {
+            flipPage(1);
+        }
+        break;
+    }
     }
 
-    if (text_.empty()) {
+    if (text_.empty())
+    {
         defaultPage();
     }
 
-    if (research) {
+    if (research)
+    {
         search(text_);
     }
+
     int selectionIdx = selections_->getActiveChildIndex();
-    if (selectionIdx != -1) {
+    if (selectionIdx != -1)
+    {
         int idx = activeIndices_[selectionIdx];
-        for (auto& doc : docs_) {
+        for (auto& doc : docs_)
+        {
             doc->updateScreenWithID(idx);
         }
     }
 
-    if (selections_->getResult() >= 0) {
+    if (selections_->getResult() >= 0)
+    {
         selections_->setExit(false);
         auto selected = selections_->getResultString();
         int idx = activeIndices_[selections_->getResult()];
-        for (auto& doc : docs_) {
+        for (auto& doc : docs_)
+        {
             doc->updateScreenWithID(idx);
         }
         // 如果文字一样的话，直接当确定
         // 这里有个致命问题，我还没想好怎么解决，晚点再说
         // 我似乎忘了是什么问题
-        if (text_ == selected) {
+        if (text_ == selected)
+        {
             result_ = idx;
             setExit(true);
         }
-        else {
+        else
+        {
             text_ = selected;
             search(selected);
             selections_->forceActiveChild(0);
