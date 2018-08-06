@@ -7,6 +7,7 @@
 #include "SuperMenuText.h"
 #include "Font.h"
 #include "libconvert.h"
+#include "hanzi2pinyin.h"
 
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@
 #include <unordered_map>
 #include <functional>
 #include <algorithm>
+#include <sstream>
 
 
 Console::Console() {
@@ -40,7 +42,7 @@ Console::Console() {
         int id = smt.getResult();
         printf("result %d\n", id);
     }
-    else if (code == u8"teleport") {
+    else if (code == u8"chuansong" || code == u8"傳送") {
         // 返回的idx需要再映射一遍
         std::vector<std::string> locs;
         std::unordered_map<int, int> realIdxMapping;
@@ -127,6 +129,40 @@ Console::Console() {
         SuperMenuText smt("請輸入傳送地名（可半自動補全）：", 28, locs, 15);
         smt.setInputPosition(dx, dy);
         smt.addDrawableOnCall(doc);
+		if (code == u8"chuansong") 
+		{
+			// 拼音流，效率稍微低了点，不重要
+			auto f = [](const std::string& input, const std::string& name) 
+			{
+				auto u8Name = PotConv::cp936toutf8(name);
+				std::string pinyin;
+				pinyin.resize(1024);
+				int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
+				pinyin.resize(size);
+				// 至今为止 std::string 不能split和join 真是失败
+				// 超低效率判断
+				auto pys = convert::splitString(pinyin, " ");
+				// 先判断开头
+				if (input.size() <= pys.size()) {
+					bool initialOk = true;
+					for (int i = 0; i < input.size(); i++) {
+						if (input[i] != pys[i][0]) {
+							initialOk = false;
+						}
+					}
+					if (initialOk) return true;
+				}
+				// 再全判断
+				std::stringstream ss;
+				for (auto& py : pys) {
+					ss << py;
+				}
+				std::string fullPy = ss.str();
+				if (fullPy.size() < input.size()) return false;
+				return (memcmp(fullPy.c_str(), input.c_str(), input.size()) == 0);
+			};
+			smt.setMatchFunction(f);
+		}
         smt.run();
         int id = smt.getResult();
         if (id != -1)

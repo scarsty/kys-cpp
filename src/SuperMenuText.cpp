@@ -34,6 +34,11 @@ void SuperMenuText::addDrawableOnCall(DrawableOnCall * doc)
     addChild(doc);
 }
 
+void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, const std::string&)> match)
+{
+	matchFunc_ = match;
+}
+
 void SuperMenuText::defaultPage() {
     if (curDefault_) return;
     std::vector<std::string> displays;
@@ -77,18 +82,26 @@ void SuperMenuText::search(const std::string& text) {
     // 只返回itemsPerPage_数量
     // 更高级的Trie，LCS编辑距离等等 有缘人来搞
     for (int i = 0; i < items_.size(); i++) {
-        auto& opt = items_[i];
-        if (opt.size() < text.size()) {
-            continue;
-        }
-        auto size = std::min(opt.size(), text.size());
-        if (memcmp(text.c_str(), opt.c_str(), size) == 0) {
-            if (results.size() < itemsPerPage_) {
-                results.emplace_back(opt);
-                activeIndices_.push_back(i);
-            }
-            searchResultIndices_.push_back(i);
-        }
+		bool matched = false;
+		auto& opt = items_[i];
+		if (matchFunc_ && matchFunc_(text, opt)) {
+			matched = true;
+		}
+		else {
+			if (opt.size() < text.size()) {
+				continue;
+			}
+			if (memcmp(text.c_str(), opt.c_str(), text.size()) == 0) {
+				matched = true;
+			}
+		}
+		if (matched) {
+			if (results.size() < itemsPerPage_) {
+				results.emplace_back(opt);
+				activeIndices_.push_back(i);
+			}
+			searchResultIndices_.push_back(i);
+		}
     }
     updateMaxPages();
     curPage_ = 0;
