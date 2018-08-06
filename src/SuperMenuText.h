@@ -1,6 +1,7 @@
 #include "Menu.h"
 #include "InputBox.h"
 #include "Button.h"
+#include "DrawableOnCall.h"
 
 #include <vector>
 #include <string>
@@ -12,6 +13,7 @@ public:
     virtual ~SuperMenuText() = default;
     void dealEvent(BP_Event& e) override;
     virtual void setInputPosition(int x, int y) override;
+    void addDrawableOnCall(DrawableOnCall* doc);
 
 private:
     void defaultPage();
@@ -35,5 +37,6 @@ private:
     std::vector<int> activeIndices_;
     // 所有搜索结果
     std::vector<int> searchResultIndices_;
+    std::vector<DrawableOnCall*> docs_;
 
 };

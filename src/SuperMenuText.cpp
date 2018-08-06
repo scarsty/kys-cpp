@@ -27,6 +27,12 @@ void SuperMenuText::setInputPosition(int x, int y)
     next_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
 }
 
+void SuperMenuText::addDrawableOnCall(DrawableOnCall * doc)
+{
+    docs_.push_back(doc);
+    addChild(doc);
+}
+
 void SuperMenuText::defaultPage() {
     if (curDefault_) return;
     std::vector<std::string> displays;
@@ -68,6 +74,7 @@ void SuperMenuText::search(const std::string& text) {
     activeIndices_.clear();
     searchResultIndices_.clear();
     // 只返回itemsPerPage_数量
+    // 更高级的Trie，LCS编辑距离等等 有缘人来搞
     for (int i = 0; i < items_.size(); i++) {
         auto& opt = items_[i];
         if (opt.size() < text.size()) {
@@ -163,15 +170,26 @@ void SuperMenuText::dealEvent(BP_Event & e)
     if (research) {
         search(text_);
     }
+    int selectionIdx = selections_->getActiveChildIndex();
+    if (selectionIdx != -1) {
+        int idx = activeIndices_[selectionIdx];
+        for (auto& doc : docs_) {
+            doc->updateScreenWithID(idx);
+        }
+    }
 
     if (selections_->getResult() >= 0) {
         selections_->setExit(false);
         auto selected = selections_->getResultString();
+        int idx = activeIndices_[selections_->getResult()];
+        for (auto& doc : docs_) {
+            doc->updateScreenWithID(idx);
+        }
         // 如果文字一样的话，直接当确定
         // 这里有个致命问题，我还没想好怎么解决，晚点再说
         // 我似乎忘了是什么问题
         if (text_ == selected) {
-            result_ = activeIndices_[selections_->getResult()];
+            result_ = idx;
             setExit(true);
         }
         else {
