@@ -68,17 +68,22 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         }
         auto tex = indexTex(size, c);
         char_count++;
+        int w1 = w;
+        int x1 = x;
         //Engine::getInstance()->queryTexture(tex, &w, &h);
         if (c <= 128)
         {
             w = size / 2;
+            Engine::getInstance()->queryTexture(tex, &w1, nullptr);
+            w1 = (std::min)(w1, w);
+            x1 += (w - w1) / 2;
         }
         if (c != 32)
         {
             Engine::getInstance()->setColor(tex, { uint8_t(color.r / 2), uint8_t(color.g / 2), uint8_t(color.b / 2), color.a });
-            Engine::getInstance()->renderCopy(tex, x + 1, y, w, h);
+            Engine::getInstance()->renderCopy(tex, x1 + 1, y, w1, h);
             Engine::getInstance()->setColor(tex, color);
-            Engine::getInstance()->renderCopy(tex, x, y, w, h);
+            Engine::getInstance()->renderCopy(tex, x1, y, w1, h);
         }
         x += w;
     }
