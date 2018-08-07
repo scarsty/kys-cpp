@@ -6,14 +6,17 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <functional>
 
-class SuperMenuText : public InputBox {
+class SuperMenuText : public InputBox
+{
 public:
     SuperMenuText(const std::string& title, int font_size, const std::vector<std::string>& allItems, int itemsPerPage);
     virtual ~SuperMenuText() = default;
     void dealEvent(BP_Event& e) override;
     virtual void setInputPosition(int x, int y) override;
     void addDrawableOnCall(DrawableOnCall* doc);
+    void setMatchFunction(std::function<bool(const std::string&, const std::string&)> match);
 
 private:
     void defaultPage();
@@ -38,5 +41,7 @@ private:
     // 所有搜索结果
     std::vector<int> searchResultIndices_;
     std::vector<DrawableOnCall*> docs_;
+	std::function<bool(const std::string&, const std::string&)> matchFunc_;
+	
 
 };
