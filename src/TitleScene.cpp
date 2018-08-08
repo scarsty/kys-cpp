@@ -29,6 +29,7 @@ TitleScene::TitleScene()
     menu_->addChild(b, 20, 100);
     menu_load_ = new UISave();
     menu_load_->setPosition(500, 300);
+    render_message_ = 1;
 }
 
 TitleScene::~TitleScene()

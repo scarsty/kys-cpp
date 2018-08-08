@@ -34,6 +34,8 @@ protected:
 
     int tag_;
 
+    static int render_message_;
+
 public:
 
     Element() {}

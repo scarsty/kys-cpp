@@ -6,6 +6,7 @@
 #include "PotConv.h"
 #include "Random.h"
 #include "SubScene.h"
+#include "Timer.h"
 #include "UI.h"
 
 SubScene::SubScene()
@@ -51,14 +52,20 @@ void SubScene::draw()
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
+    //Timer t0;
+
     //以下画法存在争议
     //一整块地面
+    if (earth_texture_)
+    {
+        auto p = getPositionOnWholeEarth(view_x_, view_y_);
+        int w = render_center_x_ * 2;
+        int h = render_center_y_ * 2;
+        //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
+        BP_Rect rect0 = { p.x - render_center_x_, p.y - render_center_y_, w, h }, rect1 = { 0, 0, w, h };
+        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
+    }
 #ifndef _DEBUG
-    //auto p = getPositionOnWholeEarth(view_x_, view_y_);
-    //int w = screen_center_x_ * 2;
-    //int h = screen_center_y_ * 2;
-    //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-    //Engine::getInstance()->renderCopy(earth_texture_, { p.x - screen_center_x_, p.y - screen_center_y_, w, h }, { 0, 0, w, h }, 1);
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -75,19 +82,25 @@ void SubScene::draw()
                 //无高度地面
                 if (num > 0 && h == 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                    /*auto tex = TextureManager::getInstance()->loadTexture("smap", num);
-                    //用大图画时的闪烁地面
-                    if (tex->count > 1)
+                    if (earth_texture_ == nullptr)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
-                    }*/
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    }
+                    else
+                    {
+                        auto tex = TextureManager::getInstance()->loadTexture("smap", num);
+                        //用大图画时的闪烁地面
+                        if (tex->count > 1)
+                        {
+                            TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
+                        }
+                    }
                 }
             }
         }
     }
 #endif
-    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 20; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
@@ -153,6 +166,7 @@ void SubScene::draw()
         }
     }
     Engine::getInstance()->renderAssistTextureToWindow();
+    //printf("%g\n", t0.getElapsedTime());
 }
 
 void SubScene::dealEvent(BP_Event& e)
@@ -297,7 +311,6 @@ void SubScene::backRun()
     //printf("sub scene %d,", current_frame_);
 }
 
-//一大块地面的纹理，未启用
 void SubScene::onEntrance()
 {
     calViewRegion();
@@ -317,37 +330,40 @@ void SubScene::onEntrance()
         Event::getInstance()->callEvent(force_begin_event_, this);
     }
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
-
-    //earth_texture_ = Engine::getInstance()->createRGBARenderedTexture(MAX_COORD * SUBMAP_TILE_W * 2, MAX_COORD * SUBMAP_TILE_H * 2);
-    //Engine::getInstance()->setRenderTarget(earth_texture_);
-
-    ////二者之差是屏幕中心与大纹理的中心的距离
-    //for (int i1 = 0; i1 < MAX_COORD; i1++)
-    //{
-    //    for (int i2 = 0; i2 < MAX_COORD; i2++)
-    //    {
-    //        auto p = getPositionOnWholeEarth(i1, i2);
-    //        int h = record_->BuildingHeight(i1, i2);
-    //        int num = record_->Earth(i1, i2) / 2;
-    //        //无高度地面
-    //        if (num > 0 && h == 0)
-    //        {
-    //            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-    //        }
-    //    }
-    //}
-    //Engine::getInstance()->resetRenderTarget();
     Element::addOnRootTop(MainScene::getInstance()->getWeather());
+
+    //一大块地面的纹理
+    earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->setRenderTarget(earth_texture_);
+
+    //二者之差是屏幕中心与大纹理的中心的距离
+    for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    {
+        for (int i2 = 0; i2 < COORD_COUNT; i2++)
+        {
+            auto p = getPositionOnWholeEarth(i1, i2);
+            int h = submap_info_->BuildingHeight(i1, i2);
+            int num = submap_info_->Earth(i1, i2) / 2;
+            //无高度地面
+            if (num > 0 && h == 0)
+            {
+                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+            }
+        }
+    }
+    Engine::getInstance()->resetRenderTarget();
+    //Engine::getInstance()->saveTexture(earth_texture_, "1.bmp");
 }
 
 void SubScene::onExit()
 {
     Audio::getInstance()->playMusic(exit_music_);
-    //if (earth_texture_)
-    //{
-    //    Engine::destroyTexture(earth_texture_);
-    //}
     Element::removeFromRoot(MainScene::getInstance()->getWeather());
+
+    if (earth_texture_)
+    {
+        Engine::destroyTexture(earth_texture_);
+    }
 }
 
 void SubScene::onPressedCancel()
@@ -522,14 +538,6 @@ bool SubScene::isJumpSubScene(int x, int y)
 bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
-}
-
-Point SubScene::getPositionOnWholeEarth(int x, int y)
-{
-    auto p = getPositionOnRender(x, y, 0, 0);
-    p.x += COORD_COUNT * TILE_W - render_center_x_;
-    p.y += 2 * TILE_H - render_center_y_;
-    return p;
 }
 
 void SubScene::forceExit()

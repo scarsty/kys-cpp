@@ -1,9 +1,11 @@
 #include "Element.h"
 #include "UISystem.h"
+#include "Font.h"
 
 std::vector<Element*> Element::root_;
 int Element::prev_present_ticks_ = 0;
 int Element::refresh_interval_ = 25;
+int Element::render_message_ = 0;
 
 Element::~Element()
 {
@@ -357,17 +359,26 @@ void Element::checkSelfState(BP_Event& e)
 void Element::present()
 {
     int t1 = Engine::getTicks();
-    int t = refresh_interval_ - (t1 - prev_present_ticks_);
-    if (t > refresh_interval_)
+    int t = t1 - prev_present_ticks_;
+
+    if (render_message_)
     {
-        t = refresh_interval_;
+        Font::getInstance()->draw("Render one frame in " + std::to_string(t) + "ms", 20, 10, 10);
+        Font::getInstance()->draw("RenderCopy times: " + std::to_string(Engine::getInstance()->getRenderTimes()), 20, 10, 35);
+        Engine::getInstance()->resetRenderTimes(0);
+        Engine::getInstance()->renderPresent();
     }
-    if (t > 0)
+
+    int t_delay = refresh_interval_ - t;
+    if (t_delay > refresh_interval_)
     {
-        Engine::delay(t);
+        t_delay = refresh_interval_;
+    }
+    if (t_delay > 0)
+    {
+        Engine::delay(t_delay);
     }
     prev_present_ticks_ = t1;
-    Engine::getInstance()->renderPresent();
 }
 
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出

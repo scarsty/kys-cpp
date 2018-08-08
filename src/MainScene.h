@@ -10,7 +10,8 @@ public:
     //注意这个继承方法比较扯淡，其他时候尽量不要这样用
     virtual void draw() override
     {
-        ParticleSystem::draw();
+        int c = ParticleSystem::draw();
+        Engine::getInstance()->resetRenderTimes(Engine::getInstance()->getRenderTimes() + c);
     }
     virtual void setPosition(int x, int y)
     {

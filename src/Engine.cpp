@@ -54,11 +54,19 @@ void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, int inPresent
 void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
 {
     SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, rotation_, nullptr, SDL_FLIP_NONE);
+    render_times_++;
 }
 
 void Engine::renderCopy(BP_Texture* t, BP_Rect* rect1, double angle)
 {
     SDL_RenderCopyEx(renderer_, t, nullptr, rect1, angle, nullptr, SDL_FLIP_NONE);
+    render_times_++;
+}
+
+void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent /*= 0*/)
+{
+    SDL_RenderCopy(renderer_, t, rect0, rect1);
+    render_times_++;
 }
 
 void Engine::destroy()
@@ -454,6 +462,21 @@ int Engine::saveScreen(const char* filename)
     SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
     SDL_SaveBMP(sur, filename);
     SDL_FreeSurface(sur);
+    return 0;
+}
+
+int Engine::saveTexture(BP_Texture* tex, const char* filename)
+{
+    BP_Rect rect;
+    rect.x = 0;
+    rect.y = 0;
+    queryTexture(tex, &rect.w, &rect.h);
+    setRenderTarget(tex);
+    BP_Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
+    SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
+    SDL_SaveBMP(sur, filename);
+    SDL_FreeSurface(sur);
+    resetRenderTarget();
     return 0;
 }
 

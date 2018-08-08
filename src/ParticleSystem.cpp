@@ -424,12 +424,13 @@ void ParticleSystem::setTexture(SDL_Texture* var)
     }
 }
 
-void ParticleSystem::draw()
+int ParticleSystem::draw()
 {
     if (_texture == nullptr)
     {
-        return;
+        return 0;
     }
+    int count = 0;
     for (int i = 0; i < _particleCount; i++)
     {
         auto& p = particle_data_[i];
@@ -443,8 +444,10 @@ void ParticleSystem::draw()
         SDL_SetTextureAlphaMod(_texture, c.a);
         SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
         SDL_RenderCopyEx(_renderer, _texture, nullptr, &r, p.rotation, nullptr, SDL_FLIP_NONE);
+        count++;
     }
     update();
+    return count;
 }
 
 SDL_Texture* ParticleSystem::getTexture()

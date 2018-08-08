@@ -73,25 +73,48 @@ void BattleScene::draw()
 {
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
-#ifndef _DEBUG
-    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+
+    //地面是否需要亮度的变化，自动人物或者选择位置部分没有运行
+    bool need_change_earth_color_ = battle_cursor_->isRunning() && !acting_role_->isAuto();
+
+    //一整块地面
+    if (earth_texture_)
     {
-        for (int i = -view_width_region_; i <= view_width_region_; i++)
+        BP_Color c = { 255, 255, 255, 255 };
+        if (need_change_earth_color_)
         {
-            int ix = man_x_ + i + (sum / 2);
-            int iy = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
-            p.x += x_;
-            p.y += y_;
-            if (!isOutLine(ix, iy))
+            c = { 64, 64, 64, 255 };    //如果地面需要亮度变化，则以画最暗的为主
+        }
+        Engine::getInstance()->setColor(earth_texture_, c);
+        auto p = getPositionOnWholeEarth(man_x_, man_y_);
+        int w = render_center_x_ * 2;
+        int h = render_center_y_ * 2;
+        //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
+        BP_Rect rect0 = { p.x - render_center_x_ - x_, p.y - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
+        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
+    }
+
+#ifndef _DEBUG
+    if (need_change_earth_color_)
+    {
+        for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+        {
+            for (int i = -view_width_region_; i <= view_width_region_; i++)
             {
-                int num = earth_layer_->data(ix, iy) / 2;
-                BP_Color color = { 255, 255, 255, 255 };
-                if (battle_cursor_->isRunning() && !acting_role_->isAuto())    //如果是自动人物没有变暗的选择效果看着太乱
+                int ix = man_x_ + i + (sum / 2);
+                int iy = man_y_ - i + (sum - sum / 2);
+                auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
+                p.x += x_;
+                p.y += y_;
+                if (!isOutLine(ix, iy))
                 {
+                    int num = earth_layer_->data(ix, iy) / 2;
+                    BP_Color color = { 255, 255, 255, 255 };
+                    bool need_draw = true;
                     if (select_layer_->data(ix, iy) < 0)
                     {
                         color = { 64, 64, 64, 255 };
+                        need_draw = earth_texture_ == nullptr;
                     }
                     else
                     {
@@ -115,10 +138,10 @@ void BattleScene::draw()
                     {
                         color = { 255, 255, 255, 255 };
                     }
-                }
-                if (num > 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
+                    if (need_draw && num > 0)
+                    {
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
+                    }
                 }
             }
         }
@@ -316,6 +339,26 @@ void BattleScene::onEntrance()
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(80, 100);
 
+    Element::addOnRootTop(MainScene::getInstance()->getWeather());
+
+    earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->setRenderTarget(earth_texture_);
+    //二者之差是屏幕中心与大纹理的中心的距离
+    for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    {
+        for (int i2 = 0; i2 < COORD_COUNT; i2++)
+        {
+            auto p = getPositionOnWholeEarth(i1, i2);
+            int num = earth_layer_->data(i1, i2) / 2;
+            //无高度地面
+            if (num > 0)
+            {
+                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+            }
+        }
+    }
+    Engine::getInstance()->resetRenderTarget();
+
     readBattleInfo();
     //初始状态
     for (auto r : battle_roles_)
@@ -326,15 +369,6 @@ void BattleScene::onEntrance()
     //排序
     sortRoles();
     acting_role_ = battle_roles_[0];
-    //if (MainScene::getIntance()->inNorth())
-    //{
-    //    auto c1 = ParticleCreator::create("snow");
-    //    addChild(c1);
-    //    c1->init();
-    //    c1->setPosition(512, 0);
-    //    c1->setPosVar({ 512, 0 });
-    //}
-    Element::addOnRootTop(MainScene::getInstance()->getWeather());
 }
 
 void BattleScene::onExit()
@@ -345,6 +379,10 @@ void BattleScene::onExit()
         r->setRolePositionLayer(nullptr);
     }
     Element::removeFromRoot(MainScene::getInstance()->getWeather());
+    if (earth_texture_)
+    {
+        Engine::destroyTexture(earth_texture_);
+    }
 }
 
 void BattleScene::backRun()

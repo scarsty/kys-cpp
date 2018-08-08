@@ -41,6 +41,8 @@ public:
 
     int first_step_delay_ = 5;
 
+    BP_Texture* earth_texture_ = nullptr;
+
     void setManPosition(int x, int y)
     {
         man_x_ = x;
@@ -91,4 +93,6 @@ public:
         mouse_event_x_ = x;
         mouse_event_y_ = y;
     }
+
+    Point getPositionOnWholeEarth(int x, int y);
 };

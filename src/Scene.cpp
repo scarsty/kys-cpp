@@ -309,3 +309,11 @@ bool Scene::isOutLine(int x, int y)
 {
     return (x < 0 || x >= COORD_COUNT || y < 0 || y >= COORD_COUNT);
 }
+
+Point Scene::getPositionOnWholeEarth(int x, int y)
+{
+    auto p = getPositionOnRender(x, y, 0, 0);
+    p.x += COORD_COUNT * TILE_W - render_center_x_;
+    p.y += 2 * TILE_H - render_center_y_;
+    return p;
+}

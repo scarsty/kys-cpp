@@ -65,8 +65,6 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
-    Point getPositionOnWholeEarth(int x, int y);
-
     int calManPic() { return MAN_PIC_0 + towards_ * MAN_PIC_COUNT + step_; }  //每个方向的第一张是静止图
     void forceManPic(int pic) { force_man_pic_ = pic; }
 

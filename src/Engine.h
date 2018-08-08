@@ -73,6 +73,8 @@ private:
     double rotation_ = 0;
     double ratio_x_ = 1, ratio_y_ = 1;
 
+    int render_times_ = 0;
+
 public:
     int init(void* handle = 0);
 
@@ -123,7 +125,7 @@ public:
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
-    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent = 0) { SDL_RenderCopy(renderer_, t, rect0, rect1); }
+    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent = 0);
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();
@@ -142,6 +144,10 @@ public:
     void setRenderAssistTexture() { setRenderTarget(tex2_); }
     void renderAssistTextureToWindow();
     void setTextureBlendMode(BP_Texture* t) { SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
+
+    void resetRenderTimes(int t) { render_times_ = t; }
+    int getRenderTimes() { return render_times_; }
+
     //事件相关
 private:
     int time_;
@@ -186,6 +192,7 @@ private:
 public:
     int playVideo(std::string filename);
     int saveScreen(const char* filename);
+    int saveTexture(BP_Texture* tex, const char* filename);
 
     //输入相关
     void startTextInput() { SDL_StartTextInput(); }

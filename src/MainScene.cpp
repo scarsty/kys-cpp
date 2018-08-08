@@ -352,6 +352,8 @@ void MainScene::onEntrance()
     //{
     //    forceEnterSubScene(force_submap_, force_submap_x_, force_submap_y_);
     //}
+    //一大块地面的纹理
+    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 }
 
 void MainScene::onExit()

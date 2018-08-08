@@ -583,7 +583,7 @@ public:
 
     SDL_Texture* getTexture();
     void setTexture(SDL_Texture* texture);
-    void draw();
+    int draw();
     void update();
 
     ParticleSystem();
