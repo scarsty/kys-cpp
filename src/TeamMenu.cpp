@@ -1,7 +1,7 @@
-#include "TeamMenu.h"
-#include "Save.h"
 #include "Button.h"
 #include "GameUtil.h"
+#include "Save.h"
+#include "TeamMenu.h"
 
 TeamMenu::TeamMenu()
 {
@@ -41,7 +41,6 @@ void TeamMenu::onEntrance()
                 if (!GameUtil::canUseItem(r, item_))
                 {
                     heads_[i]->setText("²»ßmºÏ");
-
                 }
                 if (r->PracticeItem == item_->ID || r->Equip0 == item_->ID || r->Equip1 == item_->ID)
                 {
@@ -54,6 +53,10 @@ void TeamMenu::onEntrance()
     {
         button_all_->setVisible(false);
         button_ok_->setVisible(false);
+    }
+    for (auto h : heads_)
+    {
+        h->setVisible(h->getRole());
     }
 }
 
