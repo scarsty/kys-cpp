@@ -80,6 +80,15 @@ public:
         Press,
     };
 
+    enum Direct
+    {
+        None,
+        Left,
+        Up,
+        Right,
+        Down
+    };
+
     int state_ = Normal;
     int getState() { return state_; }
     void setState(int s) { state_ = s; }
@@ -93,7 +102,7 @@ public:
     void setAllChildState(int s);
     void setAllChildVisible(bool v);
 
-    int findNextVisibleChild(int i0, int direct);
+    int findNextVisibleChild(int i0, Direct direct);
     int findFristVisibleChild();
 
     void setExit(bool e) { exit_ = e; }

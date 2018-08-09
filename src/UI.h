@@ -25,7 +25,7 @@ public:
         return &ui;
     }
 
-    std::vector<Head*> heads_;
+    Menu* heads_ = nullptr;
     std::vector<Button*> buttons_;
 
     Button* button_status_, *button_item_, *button_system_;

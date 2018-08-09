@@ -1,6 +1,6 @@
 #include "Element.h"
-#include "UISystem.h"
 #include "Font.h"
+#include "UISystem.h"
 
 std::vector<Element*> Element::root_;
 int Element::prev_present_ticks_ = 0;
@@ -144,25 +144,58 @@ void Element::setAllChildVisible(bool v)
     }
 }
 
-int Element::findNextVisibleChild(int i0, int direct)
+int Element::findNextVisibleChild(int i0, Direct direct)
 {
-    if (direct == 0 || childs_.size() == 0)
+    if (direct == None || childs_.size() == 0)
     {
         return i0;
     }
-    direct = direct > 0 ? 1 : -1;
+    auto current = getChild(i0);
 
+    int min1 = 9999, min2 = 10;
     int i1 = i0;
-    for (int i = 1; i < childs_.size(); i++)
+    //1表示按键方向上的距离，2表示垂直于按键方向上的距离
+    for (int i = 0; i < childs_.size(); i++)
     {
-        i1 += direct;
-        i1 = (i1 + childs_.size()) % childs_.size();
-        if (childs_[i1]->visible_)
+        if (i == i0 || childs_[i]->visible_ == false)
         {
-            return i1;
+            continue;
+        }
+        auto c = childs_[i];
+        int dis1, dis2;
+        switch (direct)
+        {
+        case Left:
+            dis1 = current->x_ - c->x_;
+            dis2 = abs(c->y_ - current->y_);
+            break;
+        case Up:
+            dis1 = current->y_ - c->y_;
+            dis2 = abs(c->x_ - current->x_);
+            break;
+        case Right:
+            dis1 = c->x_ - current->x_;
+            dis2 = abs(c->y_ - current->y_);
+            break;
+        case Down:
+            dis1 = c->y_ - current->y_ ;
+            dis2 = abs(c->x_ - current->x_);
+            break;
+        default:
+            break;
+        }
+        if (dis1 < 0)
+        {
+            dis1 += 9999;
+        }
+        if (dis1 < min1 && dis2 <= min2)
+        {
+            min1 = (std::min)(min1, dis1);
+            min2 = (std::min)(min2, dis2 + 10);
+            i1 = i;
         }
     }
-    return i0;
+    return i1;
 }
 
 int Element::findFristVisibleChild()

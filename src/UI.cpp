@@ -25,13 +25,14 @@ UI::UI()
     buttons_.push_back(button_item_);
     buttons_.push_back(button_system_);
 
+    heads_ = new Menu();
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = new Head();
-        addChild(h, 20, 60 + i * 90);
-        heads_.push_back(h);
+        heads_->addChild(h, 20, 60 + i * 90);
     }
-    heads_[0]->setState(Pass);
+    heads_->getChild(0)->setState(Pass);
+    addChild(heads_);
     result_ = -1;    //非负：物品id，负数：其他情况，再定
 }
 
@@ -56,7 +57,7 @@ void UI::dealEvent(BP_Event& e)
 {
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
-        auto head = heads_[i];
+        auto head = (Head*)heads_->getChild(i);
         auto role = Save::getInstance()->getTeamMate(i);
         head->setRole(role);
         if (role == nullptr)
@@ -91,9 +92,32 @@ void UI::dealEvent(BP_Event& e)
     //这里设定当前头像为Pass，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
     if (childs_[0] == ui_status_)
     {
-        heads_[current_head_]->setState(Pass);
+        heads_->getChild(current_head_)->setState(Pass);
     }
     buttons_[current_button_]->setState(Pass);
+
+    if (e.type == BP_KEYUP)
+    {
+        switch (e.key.keysym.sym)
+        {
+        case BPK_1:
+            childs_[0] = ui_status_;
+            current_button_ = 0;
+            break;
+        case BPK_2:
+            childs_[0] = ui_item_;
+            current_button_ = 1;
+            break;
+        case BPK_3:
+            childs_[0] = ui_system_;
+            current_button_ = 2;
+            break;
+        default:
+            break;
+        }
+    }
+
+
 }
 
 void UI::onPressedOK()

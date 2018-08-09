@@ -158,6 +158,7 @@ void TeamMenu::onPressedCancel()
 
 void TeamMenu::dealEvent(BP_Event& e)
 {
+    Menu::dealEvent(e);
     if (mode_ == 0)
     {
         if (item_)

@@ -9,17 +9,20 @@
 
 UIStatus::UIStatus()
 {
+    menu_ = new Menu();
     button_medicine_ = new Button();
     button_medicine_->setText("醫療");
-    addChild(button_medicine_, 350, 55);
+    menu_->addChild(button_medicine_, 350, 55);
 
     button_detoxification_ = new Button();
     button_detoxification_->setText("解毒");
-    addChild(button_detoxification_, 400, 55);
+    menu_->addChild(button_detoxification_, 400, 55);
 
     button_leave_ = new Button();
     button_leave_->setText("離隊");
-    addChild(button_leave_, 450, 55);
+    menu_->addChild(button_leave_, 450, 55);
+
+    addChild(menu_);
 }
 
 UIStatus::~UIStatus()
@@ -261,12 +264,7 @@ void UIStatus::onPressedOK()
         return;
     }
 
-    if (button_leave_->getState() == Press)
-    {
-        Event::getInstance()->callLeaveEvent(role_);
-        role_ = nullptr;
-    }
-    else if (button_medicine_->getState() == Press)
+    if (menu_->getResult() == 0)
     {
         auto team_menu = new TeamMenu();
         team_menu->setText(convert::formatString("%s要為誰醫療", role_->Name));
@@ -283,7 +281,7 @@ void UIStatus::onPressedOK()
             delete df;
         }
     }
-    else if (button_detoxification_->getState() == Press)
+    else if (menu_->getResult() == 1)
     {
         auto team_menu = new TeamMenu();
         team_menu->setText(convert::formatString("%s要為誰解毒", role_->Name));
@@ -299,6 +297,11 @@ void UIStatus::onPressedOK()
             df->run();
             delete df;
         }
+    }
+    else if (menu_->getResult() == 2)
+    {
+        Event::getInstance()->callLeaveEvent(role_);
+        role_ = nullptr;
     }
 }
 
