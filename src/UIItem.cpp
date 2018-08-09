@@ -30,6 +30,9 @@ UIItem::UIItem()
     cursor_->setTexture("title", 127);
     cursor_->setVisible(false);
     addChild(cursor_);
+
+    active_child_ = 0;
+    getChild(0)->setState(Pass);
 }
 
 UIItem::~UIItem()
@@ -118,13 +121,13 @@ void UIItem::checkCurrentItem()
     int type_item_count = available_items_.size();
     //从这里计算出左上角可以取的最大值
     //计算方法：先计算出总行数，减去可见行数，乘以每行成员数
-    int max_leftup = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
-    if (max_leftup < 0)
+    max_leftup_ = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
+    if (max_leftup_ < 0)
     {
-        max_leftup = 0;
+        max_leftup_ = 0;
     }
 
-    leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup);
+    leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup_);
 
     //计算被激活的按钮
     for (int i = 0; i < item_buttons_.size(); i++)
@@ -193,6 +196,80 @@ void UIItem::dealEvent(BP_Event& e)
         else if (e.wheel.y < 0)
         {
             leftup_index_ += item_each_line_;
+        }
+    }
+
+    //此处处理键盘响应  未完成
+    if (focus_ == 1)
+    {
+        if (e.type == BP_KEYDOWN)
+        {
+            switch (e.key.keysym.sym)
+            {
+            case BPK_LEFT:
+                if (active_child_ > 0)
+                {
+                    active_child_--;
+                }
+                else
+                {
+                    if (leftup_index_ > 0)
+                    {
+                        leftup_index_ -= item_each_line_;
+                        active_child_ = item_each_line_ - 1;
+                    }
+                }
+                break;
+            case BPK_RIGHT:
+                if (active_child_ < item_each_line_ * line_count_ - 1)
+                {
+                    active_child_++;
+                }
+                else
+                {
+                    leftup_index_ += item_each_line_;
+                    if (leftup_index_ <= max_leftup_)
+                    active_child_ = item_each_line_ * (line_count_ - 1);
+                }
+                break;
+            case BPK_UP:
+                if (active_child_ < item_each_line_ && leftup_index_ == 0)
+                {
+                    focus_ = 0;
+                }
+                else if (active_child_ < item_each_line_)
+                {
+                    leftup_index_ -= item_each_line_;
+                }
+                else
+                {
+                    active_child_ -= item_each_line_;
+                }
+                break;
+            case BPK_DOWN:
+                if (active_child_ < item_each_line_ * (line_count_-1))
+                {
+                    active_child_ += item_each_line_;
+                }
+                else
+                {
+                    leftup_index_ += item_each_line_;
+                }
+                break;
+            default:
+                break;
+            }
+            forceActiveChild();
+        }
+        title_->setDealEvent(0);
+        title_->setAllChildState(Normal);
+    }
+    if (focus_ == 0)
+    {
+        title_->setDealEvent(1);
+        if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_DOWN)
+        {
+            focus_ = 1;
         }
     }
 }

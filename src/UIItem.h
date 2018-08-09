@@ -1,10 +1,9 @@
 #pragma once
 #include "Button.h"
-#include "Element.h"
 #include "Menu.h"
 #include "Types.h"
 
-class UIItem : public Element
+class UIItem : public Menu
 {
 public:
     UIItem();
@@ -15,6 +14,7 @@ public:
     TextBox* cursor_ = nullptr;
 
     int leftup_index_ = 0; //左上角第一个物品在当前种类列表中的索引
+    int max_leftup_ = 0;
 
     const int item_each_line_ = 7;
     const int line_count_ = 3;
@@ -24,6 +24,8 @@ public:
     int force_item_type_ = -1;
 
     bool select_user_ = true;
+
+    int focus_ = 0;    //焦点位置：0分类栏，1物品栏
 
     MenuText* getTitle() { return title_; }
 

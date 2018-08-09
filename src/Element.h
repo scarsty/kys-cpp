@@ -36,6 +36,8 @@ protected:
 
     static int render_message_;
 
+    int deal_event_ = 1;
+
 public:
 
     Element() {}
@@ -71,6 +73,8 @@ public:
     void setResult(int r) { result_ = r; }
     bool getVisible() { return visible_; }
     void setVisible(bool v) { visible_ = v; }
+
+    void setDealEvent(int d) { deal_event_ = d; }
 
     //״̬
     enum State

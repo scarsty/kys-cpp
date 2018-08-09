@@ -52,8 +52,8 @@ void Menu::dealEvent(BP_Event& e)
             {
                 active_child_ = findNextVisibleChild(active_child_, direct);
             }
+            forceActiveChild();
         }
-        forceActiveChild();
     }
 }
 

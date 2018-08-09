@@ -18,8 +18,8 @@ TeamMenu::TeamMenu()
     button_all_->setText("È«ßx");
     button_ok_ = new Button();
     button_ok_->setText("´_¶¨");
-    addChild(button_all_, 50, 300);
-    addChild(button_ok_, 150, 300);
+    addChild(button_all_, 0, 300);
+    addChild(button_ok_, 100, 300);
     setPosition(200, 150);
     setTextPosition(20, -30);
 }
@@ -185,5 +185,6 @@ void TeamMenu::dealEvent(BP_Event& e)
                 h->setText("");
             }
         }
+        getChild(active_child_)->setState(Press);
     }
 }

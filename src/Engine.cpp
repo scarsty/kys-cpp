@@ -446,6 +446,10 @@ void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
 
 int Engine::playVideo(std::string filename)
 {
+    if (filename == "")
+    {
+        return 0;
+    }
 #if defined(_WIN32) && defined(_TINYPOT)
     return PotInputVideo(tinypot_, (char*)filename.c_str());
 #endif

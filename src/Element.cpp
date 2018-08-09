@@ -152,7 +152,7 @@ int Element::findNextVisibleChild(int i0, Direct direct)
     }
     auto current = getChild(i0);
 
-    int min1 = 9999, min2 = 10;
+    int min1 = 9999, min2 = 9999 * 2;
     int i1 = i0;
     //1表示按键方向上的距离，2表示垂直于按键方向上的距离
     for (int i = 0; i < childs_.size(); i++)
@@ -178,22 +178,23 @@ int Element::findNextVisibleChild(int i0, Direct direct)
             dis2 = abs(c->y_ - current->y_);
             break;
         case Down:
-            dis1 = c->y_ - current->y_ ;
+            dis1 = c->y_ - current->y_;
             dis2 = abs(c->x_ - current->x_);
             break;
         default:
             break;
         }
-        if (dis1 < 0)
+        if (dis1 <= 0)
         {
-            dis1 += 9999;
+            dis1 += 10000;
         }
-        if (dis1 < min1 && dis2 <= min2)
+        if (dis1 <= min1 && dis1 + dis2 < min2)
         {
             min1 = (std::min)(min1, dis1);
-            min2 = (std::min)(min2, dis2 + 10);
+            min2 = (std::min)(min2, dis1 + dis2);
             i1 = i;
         }
+        //以上数字的取法：如有坐标一致的点，不考虑第二距离（好像不太明显，以后再改吧）
     }
     return i1;
 }
@@ -240,17 +241,20 @@ void Element::checkStateSelfChilds(BP_Event& e, bool check_event)
                 active_child_ = r;
             }
             //可以在dealEvent中改变原有状态，强制设置某些情况
-            dealEvent(e);
-            //为简化代码，将按下回车和ESC的操作写在此处
-            if (isPressOK(e))
+            if (deal_event_)
             {
-                onPressedOK();
-                setAllChildState(Normal);
-            }
-            if (isPressCancel(e))
-            {
-                onPressedCancel();
-                setAllChildState(Normal);
+                dealEvent(e);
+                //为简化代码，将按下回车和ESC的操作写在此处
+                if (isPressOK(e))
+                {
+                    onPressedOK();
+                    //setAllChildState(Normal);
+                }
+                if (isPressCancel(e))
+                {
+                    onPressedCancel();
+                    //setAllChildState(Normal);
+                }
             }
         }
         dealEvent2(e);
@@ -396,10 +400,11 @@ void Element::present()
 
     if (render_message_)
     {
-        Font::getInstance()->draw("Render one frame in " + std::to_string(t) + "ms", 20, 10, 10);
-        Font::getInstance()->draw("RenderCopy times: " + std::to_string(Engine::getInstance()->getRenderTimes()), 20, 10, 35);
-        Engine::getInstance()->resetRenderTimes(0);
-        Engine::getInstance()->renderPresent();
+        auto e = Engine::getInstance();
+        Font::getInstance()->draw("Render one frame in " + std::to_string(t) + "ms", 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
+        Font::getInstance()->draw("RenderCopy times: " + std::to_string(Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 30);
+        e->resetRenderTimes();
+        e->renderPresent();
     }
 
     int t_delay = refresh_interval_ - t;
@@ -428,6 +433,10 @@ int Element::run(bool in_root /*= true*/)
     while (true)
     {
         if (root_.empty())
+        {
+            break;
+        }
+        if (exit_)
         {
             break;
         }

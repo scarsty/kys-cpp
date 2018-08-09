@@ -145,7 +145,7 @@ public:
     void renderAssistTextureToWindow();
     void setTextureBlendMode(BP_Texture* t) { SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
 
-    void resetRenderTimes(int t) { render_times_ = t; }
+    void resetRenderTimes(int t = 0) { render_times_ = t; }
     int getRenderTimes() { return render_times_; }
 
     //事件相关

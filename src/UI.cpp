@@ -96,20 +96,27 @@ void UI::dealEvent(BP_Event& e)
     }
     buttons_[current_button_]->setState(Pass);
 
+    //快捷键切换
     if (e.type == BP_KEYUP)
     {
         switch (e.key.keysym.sym)
         {
         case BPK_1:
             childs_[0] = ui_status_;
+            setAllChildState(Normal);
+            button_status_->setState(Press);
             current_button_ = 0;
             break;
         case BPK_2:
             childs_[0] = ui_item_;
+            setAllChildState(Normal);
+            button_item_->setState(Press);
             current_button_ = 1;
             break;
         case BPK_3:
             childs_[0] = ui_system_;
+            setAllChildState(Normal);
+            button_system_->setState(Press);
             current_button_ = 2;
             break;
         default:
@@ -117,7 +124,15 @@ void UI::dealEvent(BP_Event& e)
         }
     }
 
-
+    //仅在状态部分，左侧头像才接收事件
+    if (childs_[0] == ui_status_)
+    {
+        heads_->setDealEvent(1);
+    }
+    else
+    {
+        heads_->setDealEvent(0);
+    }
 }
 
 void UI::onPressedOK()
