@@ -8,6 +8,7 @@
 #include "Font.h"
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
+#include "NewSave.h"
 
 #include <string>
 #include <vector>
@@ -32,6 +33,8 @@ Console::Console()
     }
     // 捂脸
     code = PotConv::conv(code, "cp936", "utf-8");
+    auto splits = convert::splitString(code, " ");
+    if (splits.empty()) return;
     if (code == u8"menutest")
     {
         std::vector<std::string> generated;
@@ -45,7 +48,7 @@ Console::Console()
         int id = smt.getResult();
         printf("result %d\n", id);
     }
-    else if (code == u8"chuansong" || code == u8"傳送") 
+    else if (code == u8"chuansong" || code == u8"teleport") 
     {
         // 返回的idx需要再映射一遍
         std::vector<std::string> locs;
@@ -184,4 +187,35 @@ Console::Console()
             printf("傳送到%d\n", id);
         }
     }
+    else if (splits[0] == u8"newsave" && splits.size() >= 2) {
+        int rec;
+        try {
+            rec = std::stoi(splits[1]);
+        }
+        catch (...) {
+            return;
+        }
+        Save::getInstance()->saveCSV(rec);
+    }
+    else if (splits[0] == u8"newload" && splits.size() >= 2) {
+        int rec;
+        try {
+            rec = std::stoi(splits[1]);
+        }
+        catch (...) {
+            return;
+        }
+        Save::getInstance()->loadCSV(rec);
+    }
+    else if (splits[0] == u8"rinsert" && splits.size() >= 3) {
+        int idx;
+        try {
+            idx = std::stoi(splits[2]);
+        }
+        catch (...) {
+            return;
+        }
+        Save::getInstance()->insertAt(splits[1], idx);
+    }
+
 }
