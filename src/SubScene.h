@@ -73,5 +73,6 @@ public:
 
     void setForceBeginEvent(int e) { force_begin_event_ = e; }
 
+    void fillEarth();
 };
 

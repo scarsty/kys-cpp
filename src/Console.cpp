@@ -8,7 +8,7 @@
 #include "Font.h"
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
-#include "NewSave.h"
+//#include "NewSave.h"
 
 #include <string>
 #include <vector>
