@@ -229,27 +229,8 @@ void SuperMenuText::dealEvent(BP_Event & e)
 
     if (selections_->getResult() >= 0)
     {
-        selections_->setExit(false);
         auto selected = selections_->getResultString();
-        int idx = activeIndices_[selections_->getResult()];
-        for (auto& doc : docs_)
-        {
-            doc->updateScreenWithID(idx);
-        }
-        // 如果文字一样的话，直接当确定
-        // 这里有个致命问题，我还没想好怎么解决，晚点再说
-        // 我似乎忘了是什么问题
-        if (text_ == selected)
-        {
-            result_ = idx;
-            setExit(true);
-        }
-        else
-        {
-            text_ = selected;
-            search(selected);
-            selections_->forceActiveChild(0);
-        }
-        selections_->setResult(-1);
+        result_ = activeIndices_[selections_->getResult()];
+        setExit(true);
     }
 }

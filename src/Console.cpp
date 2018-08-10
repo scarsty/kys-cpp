@@ -150,30 +150,29 @@ Console::Console()
                 int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
                 pinyin.resize(size);
                 // 至今为止 std::string 不能split和join 真是失败
+
                 // 超低效率判断
+                // 新算法，比如说华山派 = hua shan pai
+                // 直接生成所有 单个字拼音的开头/全身组合
+                // 即，h-s-p, hua-s-p, h-shan-p, h-s-pai, hua-s-pai, hua-shan-p 等
                 auto pys = convert::splitString(pinyin, " ");
-                // 先判断开头
-                if (input.size() <= pys.size())
-                {
-                    bool initialOk = true;
-                    for (int i = 0; i < input.size(); i++)
-                    {
-                        if (input[i] != pys[i][0])
-                        {
-                            initialOk = false;
-                        }
+                std::vector<std::string> acceptables;
+
+                std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx) {
+                    if (idx == pys.size()) {
+                        acceptables.push_back(curStr);
+                        return;
                     }
-                    if (initialOk) return true;
+                    comboGenerator(curStr + pys[idx][0], idx + 1);
+                    comboGenerator(curStr + pys[idx], idx + 1);
+                };
+                comboGenerator("", 0);
+
+                for (auto& acc : acceptables) {
+                    if (acc.size() < input.size()) continue;
+                    if (memcmp(acc.c_str(), input.c_str(), input.size()) == 0) return true;
                 }
-                // 再全判断
-                std::stringstream ss;
-                for (auto& py : pys)
-                {
-                    ss << py;
-                }
-                std::string fullPy = ss.str();
-                if (fullPy.size() < input.size()) return false;
-                return (memcmp(fullPy.c_str(), input.c_str(), input.size()) == 0);
+                return false;
             };
             smt.setMatchFunction(f);
         }
