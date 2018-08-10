@@ -73,6 +73,9 @@ private:
             v_ptr.push_back(&i);
         }
     }
+
+    void updateAllPtrVector();
+
 public:
     Role* getRole(int i) { if (i < 0 || i >= roles_.size()) { return nullptr; } return roles_[i]; }
     Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return magics_[i]; }  //0号武功无效
@@ -140,6 +143,48 @@ public:
 
 
     void loadSaveValues();
+
+
+    // 新保存系列
+private:
+    // 这个先这样，不然改一大坨代码很烦，先慢慢来
+    struct BaseInfo {
+        int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+        int Team[TEAMMATE_COUNT];
+    };
+
+    class NewSave {
+    public:
+        static void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record);
+        static void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record);
+        // 背包
+        static void Save::NewSave::SaveToCSVItemList(ItemList* data, int length, int record);
+        static void Save::NewSave::LoadFromCSVItemList(ItemList* data, int length, int record);
+        // 人物
+        static void Save::NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record);
+        static void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record);
+        static void Save::NewSave::InsertRoleAt(std::vector<Role>& data, int idx);
+        // 物品
+        static void Save::NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record);
+        static void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record);
+        static void Save::NewSave::InsertItemAt(std::vector<Item>& data, int idx);
+        // 场景
+        static void Save::NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record);
+        static void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record);
+        static void Save::NewSave::InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx);
+        // 武功
+        static void Save::NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record);
+        static void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record);
+        static void Save::NewSave::InsertMagicAt(std::vector<Magic>& data, int idx);
+        // 商店
+        static void Save::NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record);
+        static void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record);
+        static void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx);
+    };
+public:
+    void saveCSV(int num);
+    void loadCSV(int num);
+    bool insertAt(const std::string& type, int idx);
 };
 
 
