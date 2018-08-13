@@ -63,16 +63,6 @@ void SubScene::draw()
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
         BP_Rect rect0 = { p.x - render_center_x_, p.y - render_center_y_, w, h }, rect1 = { 0, 0, w, h };
-        if (rect0.x < 0) 
-        {
-            rect1.x = -rect0.x;
-            rect0.x = 0;
-        }
-        if (rect0.y < 0)
-        {
-            rect1.y = -rect0.y;
-            rect0.y = 0;
-        }
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
         //在rect0的坐标越界时似乎不太正常，懒得弄了
     }
@@ -346,25 +336,25 @@ void SubScene::onEntrance()
     //fillEarth();
 
     //一大块地面的纹理
-    earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    Engine::getInstance()->setRenderTarget(earth_texture_);
+    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //Engine::getInstance()->setRenderTarget(earth_texture_);
 
-    //二者之差是屏幕中心与大纹理的中心的距离
-    for (int i1 = 0; i1 < COORD_COUNT; i1++)
-    {
-        for (int i2 = 0; i2 < COORD_COUNT; i2++)
-        {
-            auto p = getPositionOnWholeEarth(i1, i2);
-            int h = submap_info_->BuildingHeight(i1, i2);
-            int num = submap_info_->Earth(i1, i2) / 2;
-            //无高度地面
-            if (num > 0 && h == 0)
-            {
-                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-            }
-        }
-    }
-    Engine::getInstance()->resetRenderTarget();
+    ////二者之差是屏幕中心与大纹理的中心的距离
+    //for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    //{
+    //    for (int i2 = 0; i2 < COORD_COUNT; i2++)
+    //    {
+    //        auto p = getPositionOnWholeEarth(i1, i2);
+    //        int h = submap_info_->BuildingHeight(i1, i2);
+    //        int num = submap_info_->Earth(i1, i2) / 2;
+    //        //无高度地面
+    //        if (num > 0 && h == 0)
+    //        {
+    //            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+    //        }
+    //    }
+    //}
+    //Engine::getInstance()->resetRenderTarget();
     //Engine::getInstance()->saveTexture(earth_texture_, "1.bmp");
 }
 

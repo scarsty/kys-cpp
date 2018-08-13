@@ -341,23 +341,23 @@ void BattleScene::onEntrance()
 
     Element::addOnRootTop(MainScene::getInstance()->getWeather());
 
-    earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    Engine::getInstance()->setRenderTarget(earth_texture_);
-    //二者之差是屏幕中心与大纹理的中心的距离
-    for (int i1 = 0; i1 < COORD_COUNT; i1++)
-    {
-        for (int i2 = 0; i2 < COORD_COUNT; i2++)
-        {
-            auto p = getPositionOnWholeEarth(i1, i2);
-            int num = earth_layer_->data(i1, i2) / 2;
-            //无高度地面
-            if (num > 0)
-            {
-                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-            }
-        }
-    }
-    Engine::getInstance()->resetRenderTarget();
+    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //Engine::getInstance()->setRenderTarget(earth_texture_);
+    ////二者之差是屏幕中心与大纹理的中心的距离
+    //for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    //{
+    //    for (int i2 = 0; i2 < COORD_COUNT; i2++)
+    //    {
+    //        auto p = getPositionOnWholeEarth(i1, i2);
+    //        int num = earth_layer_->data(i1, i2) / 2;
+    //        //无高度地面
+    //        if (num > 0)
+    //        {
+    //            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+    //        }
+    //    }
+    //}
+    //Engine::getInstance()->resetRenderTarget();
 
     readBattleInfo();
     //初始状态
