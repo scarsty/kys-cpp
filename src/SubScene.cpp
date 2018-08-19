@@ -1,3 +1,4 @@
+#include "SubScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Event.h"
@@ -5,7 +6,6 @@
 #include "ParticleExample.h"
 #include "PotConv.h"
 #include "Random.h"
-#include "SubScene.h"
 #include "Timer.h"
 #include "UI.h"
 

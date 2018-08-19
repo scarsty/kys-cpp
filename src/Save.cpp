@@ -1,9 +1,9 @@
+#include "Save.h"
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "PotConv.h"
-#include "Save.h"
-#include "libconvert.h"
 #include "csv.h"
+#include "libconvert.h"
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -270,7 +270,8 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
-void Save::saveCSV(int num) {
+void Save::saveCSV(int num)
+{
     NewSave::SaveToCSVBaseInfo((BaseInfo*)this, 1, num);
     // 背包
     NewSave::SaveToCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
@@ -286,7 +287,8 @@ void Save::saveCSV(int num) {
     NewSave::SaveToCSVShopSave(shops_mem_, num);
 }
 
-void Save::loadCSV(int num) {
+void Save::loadCSV(int num)
+{
     NewSave::LoadFromCSVBaseInfo((BaseInfo*)this, 1, num);
     NewSave::LoadFromCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
     NewSave::LoadFromCSVRoleSave(roles_mem_, num);
@@ -299,23 +301,28 @@ void Save::loadCSV(int num) {
 
 bool Save::insertAt(const std::string& type, int idx)
 {
-    if (type == u8"Role") {
+    if (type == u8"Role")
+    {
         NewSave::InsertRoleAt(roles_mem_, idx);
         return true;
     }
-    else if (type == u8"Item") {
+    else if (type == u8"Item")
+    {
         NewSave::InsertItemAt(items_mem_, idx);
         return true;
     }
-    else if (type == u8"Magic") {
+    else if (type == u8"Magic")
+    {
         NewSave::InsertMagicAt(magics_mem_, idx);
         return true;
     }
-    else if (type == u8"SubMapInfo") {
+    else if (type == u8"SubMapInfo")
+    {
         NewSave::InsertSubMapInfoAt(submap_infos_mem_, idx);
         return true;
     }
-    else if (type == u8"Shop") {
+    else if (type == u8"Shop")
+    {
         NewSave::InsertShopAt(shops_mem_, idx);
         return true;
     }
@@ -323,28 +330,47 @@ bool Save::insertAt(const std::string& type, int idx)
 }
 
 // 基本
-void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record) {
+void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_基本.csv");
     fout << "乘船";
-    fout << ",";    fout << "子场景内";
-    fout << ",";    fout << "主地图X";
-    fout << ",";    fout << "主地图Y";
-    fout << ",";    fout << "子场景X";
-    fout << ",";    fout << "子场景Y";
-    fout << ",";    fout << "面朝方向";
-    fout << ",";    fout << "船X";
-    fout << ",";    fout << "船Y";
-    fout << ",";    fout << "船X1";
-    fout << ",";    fout << "船Y1";
-    fout << ",";    fout << "内部编码";
-    fout << ",";    fout << "队友1";
-    fout << ",";    fout << "队友2";
-    fout << ",";    fout << "队友3";
-    fout << ",";    fout << "队友4";
-    fout << ",";    fout << "队友5";
-    fout << ",";    fout << "队友6";
+    fout << ",";
+    fout << "子场景内";
+    fout << ",";
+    fout << "主地图X";
+    fout << ",";
+    fout << "主地图Y";
+    fout << ",";
+    fout << "子场景X";
+    fout << ",";
+    fout << "子场景Y";
+    fout << ",";
+    fout << "面朝方向";
+    fout << ",";
+    fout << "船X";
+    fout << ",";
+    fout << "船Y";
+    fout << ",";
+    fout << "船X1";
+    fout << ",";
+    fout << "船Y1";
+    fout << ",";
+    fout << "内部编码";
+    fout << ",";
+    fout << "队友1";
+    fout << ",";
+    fout << "队友2";
+    fout << ",";
+    fout << "队友3";
+    fout << ",";
+    fout << "队友4";
+    fout << ",";
+    fout << "队友5";
+    fout << ",";
+    fout << "队友6";
     fout << std::endl;
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++)
+    {
         fout << data[i].InShip;
         fout << ",";
         fout << data[i].InSubMap;
@@ -369,20 +395,25 @@ void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record) {
         fout << ",";
         fout << data[i].Encode;
         fout << ",";
-        for (int j = 0; j < 6; j++) {
+        for (int j = 0; j < 6; j++)
+        {
             fout << data[i].Team[j];
-            if (j != 6 - 1) fout << ",";
+            if (j != 6 - 1)
+            { fout << ","; }
         }
         fout << std::endl;
     }
 }
 // 背包
-void Save::NewSave::SaveToCSVItemList(ItemList* data, int length, int record) {
+void Save::NewSave::SaveToCSVItemList(ItemList* data, int length, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_背包.csv");
     fout << "物品编号";
-    fout << ",";    fout << "物品数量";
+    fout << ",";
+    fout << "物品数量";
     fout << std::endl;
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++)
+    {
         fout << data[i].item_id;
         fout << ",";
         fout << data[i].count;
@@ -390,94 +421,178 @@ void Save::NewSave::SaveToCSVItemList(ItemList* data, int length, int record) {
     }
 }
 // 人物
-void Save::NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record) {
+void Save::NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_人物.csv");
     fout << "编号";
-    fout << ",";    fout << "头像";
-    fout << ",";    fout << "生命成长";
-    fout << ",";    fout << "无用";
-    fout << ",";    fout << "名字";
-    fout << ",";    fout << "外号";
-    fout << ",";    fout << "性别";
-    fout << ",";    fout << "等级";
-    fout << ",";    fout << "经验";
-    fout << ",";    fout << "生命";
-    fout << ",";    fout << "生命最大值";
-    fout << ",";    fout << "内伤";
-    fout << ",";    fout << "中毒";
-    fout << ",";    fout << "体力";
-    fout << ",";    fout << "物品修炼点数";
-    fout << ",";    fout << "武器";
-    fout << ",";    fout << "防具";
-    fout << ",";    fout << "动作帧数1";
-    fout << ",";    fout << "动作帧数2";
-    fout << ",";    fout << "动作帧数3";
-    fout << ",";    fout << "动作帧数4";
-    fout << ",";    fout << "动作帧数5";
-    fout << ",";    fout << "动作帧数6";
-    fout << ",";    fout << "动作帧数7";
-    fout << ",";    fout << "动作帧数8";
-    fout << ",";    fout << "动作帧数9";
-    fout << ",";    fout << "动作帧数10";
-    fout << ",";    fout << "动作帧数11";
-    fout << ",";    fout << "动作帧数12";
-    fout << ",";    fout << "动作帧数13";
-    fout << ",";    fout << "动作帧数14";
-    fout << ",";    fout << "动作帧数15";
-    fout << ",";    fout << "内力性质";
-    fout << ",";    fout << "内力";
-    fout << ",";    fout << "内力最大值";
-    fout << ",";    fout << "攻击力";
-    fout << ",";    fout << "轻功";
-    fout << ",";    fout << "防御力";
-    fout << ",";    fout << "医疗";
-    fout << ",";    fout << "用毒";
-    fout << ",";    fout << "解毒";
-    fout << ",";    fout << "抗毒";
-    fout << ",";    fout << "拳掌";
-    fout << ",";    fout << "御剑";
-    fout << ",";    fout << "耍刀";
-    fout << ",";    fout << "特殊";
-    fout << ",";    fout << "暗器";
-    fout << ",";    fout << "武学常识";
-    fout << ",";    fout << "品德";
-    fout << ",";    fout << "攻击带毒";
-    fout << ",";    fout << "左右互搏";
-    fout << ",";    fout << "声望";
-    fout << ",";    fout << "资质";
-    fout << ",";    fout << "修炼物品";
-    fout << ",";    fout << "修炼点数";
-    fout << ",";    fout << "所会武功1";
-    fout << ",";    fout << "所会武功2";
-    fout << ",";    fout << "所会武功3";
-    fout << ",";    fout << "所会武功4";
-    fout << ",";    fout << "所会武功5";
-    fout << ",";    fout << "所会武功6";
-    fout << ",";    fout << "所会武功7";
-    fout << ",";    fout << "所会武功8";
-    fout << ",";    fout << "所会武功9";
-    fout << ",";    fout << "所会武功10";
-    fout << ",";    fout << "武功等级1";
-    fout << ",";    fout << "武功等级2";
-    fout << ",";    fout << "武功等级3";
-    fout << ",";    fout << "武功等级4";
-    fout << ",";    fout << "武功等级5";
-    fout << ",";    fout << "武功等级6";
-    fout << ",";    fout << "武功等级7";
-    fout << ",";    fout << "武功等级8";
-    fout << ",";    fout << "武功等级9";
-    fout << ",";    fout << "武功等级10";
-    fout << ",";    fout << "携带物品1";
-    fout << ",";    fout << "携带物品2";
-    fout << ",";    fout << "携带物品3";
-    fout << ",";    fout << "携带物品4";
-    fout << ",";    fout << "携带物品数量1";
-    fout << ",";    fout << "携带物品数量2";
-    fout << ",";    fout << "携带物品数量3";
-    fout << ",";    fout << "携带物品数量4";
+    fout << ",";
+    fout << "头像";
+    fout << ",";
+    fout << "生命成长";
+    fout << ",";
+    fout << "无用";
+    fout << ",";
+    fout << "名字";
+    fout << ",";
+    fout << "外号";
+    fout << ",";
+    fout << "性别";
+    fout << ",";
+    fout << "等级";
+    fout << ",";
+    fout << "经验";
+    fout << ",";
+    fout << "生命";
+    fout << ",";
+    fout << "生命最大值";
+    fout << ",";
+    fout << "内伤";
+    fout << ",";
+    fout << "中毒";
+    fout << ",";
+    fout << "体力";
+    fout << ",";
+    fout << "物品修炼点数";
+    fout << ",";
+    fout << "武器";
+    fout << ",";
+    fout << "防具";
+    fout << ",";
+    fout << "动作帧数1";
+    fout << ",";
+    fout << "动作帧数2";
+    fout << ",";
+    fout << "动作帧数3";
+    fout << ",";
+    fout << "动作帧数4";
+    fout << ",";
+    fout << "动作帧数5";
+    fout << ",";
+    fout << "动作帧数6";
+    fout << ",";
+    fout << "动作帧数7";
+    fout << ",";
+    fout << "动作帧数8";
+    fout << ",";
+    fout << "动作帧数9";
+    fout << ",";
+    fout << "动作帧数10";
+    fout << ",";
+    fout << "动作帧数11";
+    fout << ",";
+    fout << "动作帧数12";
+    fout << ",";
+    fout << "动作帧数13";
+    fout << ",";
+    fout << "动作帧数14";
+    fout << ",";
+    fout << "动作帧数15";
+    fout << ",";
+    fout << "内力性质";
+    fout << ",";
+    fout << "内力";
+    fout << ",";
+    fout << "内力最大值";
+    fout << ",";
+    fout << "攻击力";
+    fout << ",";
+    fout << "轻功";
+    fout << ",";
+    fout << "防御力";
+    fout << ",";
+    fout << "医疗";
+    fout << ",";
+    fout << "用毒";
+    fout << ",";
+    fout << "解毒";
+    fout << ",";
+    fout << "抗毒";
+    fout << ",";
+    fout << "拳掌";
+    fout << ",";
+    fout << "御剑";
+    fout << ",";
+    fout << "耍刀";
+    fout << ",";
+    fout << "特殊";
+    fout << ",";
+    fout << "暗器";
+    fout << ",";
+    fout << "武学常识";
+    fout << ",";
+    fout << "品德";
+    fout << ",";
+    fout << "攻击带毒";
+    fout << ",";
+    fout << "左右互搏";
+    fout << ",";
+    fout << "声望";
+    fout << ",";
+    fout << "资质";
+    fout << ",";
+    fout << "修炼物品";
+    fout << ",";
+    fout << "修炼点数";
+    fout << ",";
+    fout << "所会武功1";
+    fout << ",";
+    fout << "所会武功2";
+    fout << ",";
+    fout << "所会武功3";
+    fout << ",";
+    fout << "所会武功4";
+    fout << ",";
+    fout << "所会武功5";
+    fout << ",";
+    fout << "所会武功6";
+    fout << ",";
+    fout << "所会武功7";
+    fout << ",";
+    fout << "所会武功8";
+    fout << ",";
+    fout << "所会武功9";
+    fout << ",";
+    fout << "所会武功10";
+    fout << ",";
+    fout << "武功等级1";
+    fout << ",";
+    fout << "武功等级2";
+    fout << ",";
+    fout << "武功等级3";
+    fout << ",";
+    fout << "武功等级4";
+    fout << ",";
+    fout << "武功等级5";
+    fout << ",";
+    fout << "武功等级6";
+    fout << ",";
+    fout << "武功等级7";
+    fout << ",";
+    fout << "武功等级8";
+    fout << ",";
+    fout << "武功等级9";
+    fout << ",";
+    fout << "武功等级10";
+    fout << ",";
+    fout << "携带物品1";
+    fout << ",";
+    fout << "携带物品2";
+    fout << ",";
+    fout << "携带物品3";
+    fout << ",";
+    fout << "携带物品4";
+    fout << ",";
+    fout << "携带物品数量1";
+    fout << ",";
+    fout << "携带物品数量2";
+    fout << ",";
+    fout << "携带物品数量3";
+    fout << ",";
+    fout << "携带物品数量4";
     fout << std::endl;
     int length = data.size();
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++)
+    {
         fout << data[i].ID;
         fout << ",";
         fout << data[i].HeadID;
@@ -512,9 +627,11 @@ void Save::NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record)
         fout << ",";
         fout << data[i].Equip1;
         fout << ",";
-        for (int j = 0; j < 15; j++) {
+        for (int j = 0; j < 15; j++)
+        {
             fout << data[i].Frame[j];
-            if (j != 15 - 1) fout << ",";
+            if (j != 15 - 1)
+            { fout << ","; }
         }
         fout << ",";
         fout << data[i].MPType;
@@ -563,113 +680,196 @@ void Save::NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record)
         fout << ",";
         fout << data[i].ExpForItem;
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].MagicID[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].MagicLevel[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 4; j++) {
+        for (int j = 0; j < 4; j++)
+        {
             fout << data[i].TakingItem[j];
-            if (j != 4 - 1) fout << ",";
+            if (j != 4 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 4; j++) {
+        for (int j = 0; j < 4; j++)
+        {
             fout << data[i].TakingItemCount[j];
-            if (j != 4 - 1) fout << ",";
+            if (j != 4 - 1)
+            { fout << ","; }
         }
         fout << std::endl;
     }
 }
 // 物品
-void Save::NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record) {
+void Save::NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_物品.csv");
     fout << "编号";
-    fout << ",";    fout << "物品名";
-    fout << ",";    fout << "物品名无用1";
-    fout << ",";    fout << "物品名无用2";
-    fout << ",";    fout << "物品名无用3";
-    fout << ",";    fout << "物品名无用4";
-    fout << ",";    fout << "物品名无用5";
-    fout << ",";    fout << "物品名无用6";
-    fout << ",";    fout << "物品名无用7";
-    fout << ",";    fout << "物品名无用8";
-    fout << ",";    fout << "物品名无用9";
-    fout << ",";    fout << "物品名无用10";
-    fout << ",";    fout << "物品说明";
-    fout << ",";    fout << "练出武功";
-    fout << ",";    fout << "暗器动画编号";
-    fout << ",";    fout << "使用人";
-    fout << ",";    fout << "装备类型";
-    fout << ",";    fout << "显示物品说明";
-    fout << ",";    fout << "物品类型";
-    fout << ",";    fout << "未知5";
-    fout << ",";    fout << "未知6";
-    fout << ",";    fout << "未知7";
-    fout << ",";    fout << "加生命";
-    fout << ",";    fout << "加生命最大值";
-    fout << ",";    fout << "加中毒解毒";
-    fout << ",";    fout << "加体力";
-    fout << ",";    fout << "改变内力性质";
-    fout << ",";    fout << "加内力";
-    fout << ",";    fout << "加内力最大值";
-    fout << ",";    fout << "加攻击力";
-    fout << ",";    fout << "加轻功";
-    fout << ",";    fout << "加防御力";
-    fout << ",";    fout << "加医疗";
-    fout << ",";    fout << "加使毒";
-    fout << ",";    fout << "加解毒";
-    fout << ",";    fout << "加抗毒";
-    fout << ",";    fout << "加拳掌";
-    fout << ",";    fout << "加御剑";
-    fout << ",";    fout << "加耍刀";
-    fout << ",";    fout << "加特殊兵器";
-    fout << ",";    fout << "加暗器技巧";
-    fout << ",";    fout << "加武学常识";
-    fout << ",";    fout << "加品德";
-    fout << ",";    fout << "加左右互搏";
-    fout << ",";    fout << "加攻击带毒";
-    fout << ",";    fout << "仅修炼人物";
-    fout << ",";    fout << "需内力性质";
-    fout << ",";    fout << "需内力";
-    fout << ",";    fout << "需攻击力";
-    fout << ",";    fout << "需轻功";
-    fout << ",";    fout << "需用毒";
-    fout << ",";    fout << "需医疗";
-    fout << ",";    fout << "需解毒";
-    fout << ",";    fout << "需拳掌";
-    fout << ",";    fout << "需御剑";
-    fout << ",";    fout << "需耍刀";
-    fout << ",";    fout << "需特殊兵器";
-    fout << ",";    fout << "需暗器";
-    fout << ",";    fout << "需资质";
-    fout << ",";    fout << "需经验";
-    fout << ",";    fout << "练出物品需经验";
-    fout << ",";    fout << "需材料";
-    fout << ",";    fout << "练出物品1";
-    fout << ",";    fout << "练出物品2";
-    fout << ",";    fout << "练出物品3";
-    fout << ",";    fout << "练出物品4";
-    fout << ",";    fout << "练出物品5";
-    fout << ",";    fout << "练出物品数量1";
-    fout << ",";    fout << "练出物品数量2";
-    fout << ",";    fout << "练出物品数量3";
-    fout << ",";    fout << "练出物品数量4";
-    fout << ",";    fout << "练出物品数量5";
+    fout << ",";
+    fout << "物品名";
+    fout << ",";
+    fout << "物品名无用1";
+    fout << ",";
+    fout << "物品名无用2";
+    fout << ",";
+    fout << "物品名无用3";
+    fout << ",";
+    fout << "物品名无用4";
+    fout << ",";
+    fout << "物品名无用5";
+    fout << ",";
+    fout << "物品名无用6";
+    fout << ",";
+    fout << "物品名无用7";
+    fout << ",";
+    fout << "物品名无用8";
+    fout << ",";
+    fout << "物品名无用9";
+    fout << ",";
+    fout << "物品名无用10";
+    fout << ",";
+    fout << "物品说明";
+    fout << ",";
+    fout << "练出武功";
+    fout << ",";
+    fout << "暗器动画编号";
+    fout << ",";
+    fout << "使用人";
+    fout << ",";
+    fout << "装备类型";
+    fout << ",";
+    fout << "显示物品说明";
+    fout << ",";
+    fout << "物品类型";
+    fout << ",";
+    fout << "未知5";
+    fout << ",";
+    fout << "未知6";
+    fout << ",";
+    fout << "未知7";
+    fout << ",";
+    fout << "加生命";
+    fout << ",";
+    fout << "加生命最大值";
+    fout << ",";
+    fout << "加中毒解毒";
+    fout << ",";
+    fout << "加体力";
+    fout << ",";
+    fout << "改变内力性质";
+    fout << ",";
+    fout << "加内力";
+    fout << ",";
+    fout << "加内力最大值";
+    fout << ",";
+    fout << "加攻击力";
+    fout << ",";
+    fout << "加轻功";
+    fout << ",";
+    fout << "加防御力";
+    fout << ",";
+    fout << "加医疗";
+    fout << ",";
+    fout << "加使毒";
+    fout << ",";
+    fout << "加解毒";
+    fout << ",";
+    fout << "加抗毒";
+    fout << ",";
+    fout << "加拳掌";
+    fout << ",";
+    fout << "加御剑";
+    fout << ",";
+    fout << "加耍刀";
+    fout << ",";
+    fout << "加特殊兵器";
+    fout << ",";
+    fout << "加暗器技巧";
+    fout << ",";
+    fout << "加武学常识";
+    fout << ",";
+    fout << "加品德";
+    fout << ",";
+    fout << "加左右互搏";
+    fout << ",";
+    fout << "加攻击带毒";
+    fout << ",";
+    fout << "仅修炼人物";
+    fout << ",";
+    fout << "需内力性质";
+    fout << ",";
+    fout << "需内力";
+    fout << ",";
+    fout << "需攻击力";
+    fout << ",";
+    fout << "需轻功";
+    fout << ",";
+    fout << "需用毒";
+    fout << ",";
+    fout << "需医疗";
+    fout << ",";
+    fout << "需解毒";
+    fout << ",";
+    fout << "需拳掌";
+    fout << ",";
+    fout << "需御剑";
+    fout << ",";
+    fout << "需耍刀";
+    fout << ",";
+    fout << "需特殊兵器";
+    fout << ",";
+    fout << "需暗器";
+    fout << ",";
+    fout << "需资质";
+    fout << ",";
+    fout << "需经验";
+    fout << ",";
+    fout << "练出物品需经验";
+    fout << ",";
+    fout << "需材料";
+    fout << ",";
+    fout << "练出物品1";
+    fout << ",";
+    fout << "练出物品2";
+    fout << ",";
+    fout << "练出物品3";
+    fout << ",";
+    fout << "练出物品4";
+    fout << ",";
+    fout << "练出物品5";
+    fout << ",";
+    fout << "练出物品数量1";
+    fout << ",";
+    fout << "练出物品数量2";
+    fout << ",";
+    fout << "练出物品数量3";
+    fout << ",";
+    fout << "练出物品数量4";
+    fout << ",";
+    fout << "练出物品数量5";
     fout << std::endl;
     int length = data.size();
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++)
+    {
         fout << data[i].ID;
         fout << ",";
         fout << '"' << data[i].Name << '"';
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].Name1[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
         fout << '"' << data[i].Introduction << '"';
@@ -772,46 +972,73 @@ void Save::NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record)
         fout << ",";
         fout << data[i].NeedMaterial;
         fout << ",";
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             fout << data[i].MakeItem[j];
-            if (j != 5 - 1) fout << ",";
+            if (j != 5 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             fout << data[i].MakeItemCount[j];
-            if (j != 5 - 1) fout << ",";
+            if (j != 5 - 1)
+            { fout << ","; }
         }
         fout << std::endl;
     }
 }
 // 场景
-void Save::NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record) {
+void Save::NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_场景.csv");
     fout << "编号";
-    fout << ",";    fout << "名称";
-    fout << ",";    fout << "出门音乐";
-    fout << ",";    fout << "进门音乐";
-    fout << ",";    fout << "跳转场景";
-    fout << ",";    fout << "进入条件";
-    fout << ",";    fout << "外景入口X1";
-    fout << ",";    fout << "外景入口Y1";
-    fout << ",";    fout << "外景入口X2";
-    fout << ",";    fout << "外景入口Y2";
-    fout << ",";    fout << "入口X";
-    fout << ",";    fout << "入口Y";
-    fout << ",";    fout << "出口X1";
-    fout << ",";    fout << "出口X2";
-    fout << ",";    fout << "出口X3";
-    fout << ",";    fout << "出口Y1";
-    fout << ",";    fout << "出口Y2";
-    fout << ",";    fout << "出口Y3";
-    fout << ",";    fout << "跳转X";
-    fout << ",";    fout << "跳转Y";
-    fout << ",";    fout << "跳转返还X";
-    fout << ",";    fout << "跳转返还Y";
+    fout << ",";
+    fout << "名称";
+    fout << ",";
+    fout << "出门音乐";
+    fout << ",";
+    fout << "进门音乐";
+    fout << ",";
+    fout << "跳转场景";
+    fout << ",";
+    fout << "进入条件";
+    fout << ",";
+    fout << "外景入口X1";
+    fout << ",";
+    fout << "外景入口Y1";
+    fout << ",";
+    fout << "外景入口X2";
+    fout << ",";
+    fout << "外景入口Y2";
+    fout << ",";
+    fout << "入口X";
+    fout << ",";
+    fout << "入口Y";
+    fout << ",";
+    fout << "出口X1";
+    fout << ",";
+    fout << "出口X2";
+    fout << ",";
+    fout << "出口X3";
+    fout << ",";
+    fout << "出口Y1";
+    fout << ",";
+    fout << "出口Y2";
+    fout << ",";
+    fout << "出口Y3";
+    fout << ",";
+    fout << "跳转X";
+    fout << ",";
+    fout << "跳转Y";
+    fout << ",";
+    fout << "跳转返还X";
+    fout << ",";
+    fout << "跳转返还Y";
     fout << std::endl;
     int length = data.size();
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++)
+    {
         fout << data[i].ID;
         fout << ",";
         fout << '"' << data[i].Name << '"';
@@ -836,14 +1063,18 @@ void Save::NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data,
         fout << ",";
         fout << data[i].EntranceY;
         fout << ",";
-        for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++)
+        {
             fout << data[i].ExitX[j];
-            if (j != 3 - 1) fout << ",";
+            if (j != 3 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++)
+        {
             fout << data[i].ExitY[j];
-            if (j != 3 - 1) fout << ",";
+            if (j != 3 - 1)
+            { fout << ","; }
         }
         fout << ",";
         fout << data[i].JumpX;
@@ -857,82 +1088,149 @@ void Save::NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data,
     }
 }
 // 武功
-void Save::NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record) {
+void Save::NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_武功.csv");
     fout << "编号";
-    fout << ",";    fout << "名称";
-    fout << ",";    fout << "未知1";
-    fout << ",";    fout << "未知2";
-    fout << ",";    fout << "未知3";
-    fout << ",";    fout << "未知4";
-    fout << ",";    fout << "未知5";
-    fout << ",";    fout << "出招音效";
-    fout << ",";    fout << "武功类型";
-    fout << ",";    fout << "武功动画";
-    fout << ",";    fout << "伤害类型";
-    fout << ",";    fout << "攻击范围类型";
-    fout << ",";    fout << "消耗内力";
-    fout << ",";    fout << "敌人中毒";
-    fout << ",";    fout << "威力1";
-    fout << ",";    fout << "威力2";
-    fout << ",";    fout << "威力3";
-    fout << ",";    fout << "威力4";
-    fout << ",";    fout << "威力5";
-    fout << ",";    fout << "威力6";
-    fout << ",";    fout << "威力7";
-    fout << ",";    fout << "威力8";
-    fout << ",";    fout << "威力9";
-    fout << ",";    fout << "威力10";
-    fout << ",";    fout << "移动范围1";
-    fout << ",";    fout << "移动范围2";
-    fout << ",";    fout << "移动范围3";
-    fout << ",";    fout << "移动范围4";
-    fout << ",";    fout << "移动范围5";
-    fout << ",";    fout << "移动范围6";
-    fout << ",";    fout << "移动范围7";
-    fout << ",";    fout << "移动范围8";
-    fout << ",";    fout << "移动范围9";
-    fout << ",";    fout << "移动范围10";
-    fout << ",";    fout << "杀伤范围1";
-    fout << ",";    fout << "杀伤范围2";
-    fout << ",";    fout << "杀伤范围3";
-    fout << ",";    fout << "杀伤范围4";
-    fout << ",";    fout << "杀伤范围5";
-    fout << ",";    fout << "杀伤范围6";
-    fout << ",";    fout << "杀伤范围7";
-    fout << ",";    fout << "杀伤范围8";
-    fout << ",";    fout << "杀伤范围9";
-    fout << ",";    fout << "杀伤范围10";
-    fout << ",";    fout << "加内力1";
-    fout << ",";    fout << "加内力2";
-    fout << ",";    fout << "加内力3";
-    fout << ",";    fout << "加内力4";
-    fout << ",";    fout << "加内力5";
-    fout << ",";    fout << "加内力6";
-    fout << ",";    fout << "加内力7";
-    fout << ",";    fout << "加内力8";
-    fout << ",";    fout << "加内力9";
-    fout << ",";    fout << "加内力10";
-    fout << ",";    fout << "杀伤内力1";
-    fout << ",";    fout << "杀伤内力2";
-    fout << ",";    fout << "杀伤内力3";
-    fout << ",";    fout << "杀伤内力4";
-    fout << ",";    fout << "杀伤内力5";
-    fout << ",";    fout << "杀伤内力6";
-    fout << ",";    fout << "杀伤内力7";
-    fout << ",";    fout << "杀伤内力8";
-    fout << ",";    fout << "杀伤内力9";
-    fout << ",";    fout << "杀伤内力10";
+    fout << ",";
+    fout << "名称";
+    fout << ",";
+    fout << "未知1";
+    fout << ",";
+    fout << "未知2";
+    fout << ",";
+    fout << "未知3";
+    fout << ",";
+    fout << "未知4";
+    fout << ",";
+    fout << "未知5";
+    fout << ",";
+    fout << "出招音效";
+    fout << ",";
+    fout << "武功类型";
+    fout << ",";
+    fout << "武功动画";
+    fout << ",";
+    fout << "伤害类型";
+    fout << ",";
+    fout << "攻击范围类型";
+    fout << ",";
+    fout << "消耗内力";
+    fout << ",";
+    fout << "敌人中毒";
+    fout << ",";
+    fout << "威力1";
+    fout << ",";
+    fout << "威力2";
+    fout << ",";
+    fout << "威力3";
+    fout << ",";
+    fout << "威力4";
+    fout << ",";
+    fout << "威力5";
+    fout << ",";
+    fout << "威力6";
+    fout << ",";
+    fout << "威力7";
+    fout << ",";
+    fout << "威力8";
+    fout << ",";
+    fout << "威力9";
+    fout << ",";
+    fout << "威力10";
+    fout << ",";
+    fout << "移动范围1";
+    fout << ",";
+    fout << "移动范围2";
+    fout << ",";
+    fout << "移动范围3";
+    fout << ",";
+    fout << "移动范围4";
+    fout << ",";
+    fout << "移动范围5";
+    fout << ",";
+    fout << "移动范围6";
+    fout << ",";
+    fout << "移动范围7";
+    fout << ",";
+    fout << "移动范围8";
+    fout << ",";
+    fout << "移动范围9";
+    fout << ",";
+    fout << "移动范围10";
+    fout << ",";
+    fout << "杀伤范围1";
+    fout << ",";
+    fout << "杀伤范围2";
+    fout << ",";
+    fout << "杀伤范围3";
+    fout << ",";
+    fout << "杀伤范围4";
+    fout << ",";
+    fout << "杀伤范围5";
+    fout << ",";
+    fout << "杀伤范围6";
+    fout << ",";
+    fout << "杀伤范围7";
+    fout << ",";
+    fout << "杀伤范围8";
+    fout << ",";
+    fout << "杀伤范围9";
+    fout << ",";
+    fout << "杀伤范围10";
+    fout << ",";
+    fout << "加内力1";
+    fout << ",";
+    fout << "加内力2";
+    fout << ",";
+    fout << "加内力3";
+    fout << ",";
+    fout << "加内力4";
+    fout << ",";
+    fout << "加内力5";
+    fout << ",";
+    fout << "加内力6";
+    fout << ",";
+    fout << "加内力7";
+    fout << ",";
+    fout << "加内力8";
+    fout << ",";
+    fout << "加内力9";
+    fout << ",";
+    fout << "加内力10";
+    fout << ",";
+    fout << "杀伤内力1";
+    fout << ",";
+    fout << "杀伤内力2";
+    fout << ",";
+    fout << "杀伤内力3";
+    fout << ",";
+    fout << "杀伤内力4";
+    fout << ",";
+    fout << "杀伤内力5";
+    fout << ",";
+    fout << "杀伤内力6";
+    fout << ",";
+    fout << "杀伤内力7";
+    fout << ",";
+    fout << "杀伤内力8";
+    fout << ",";
+    fout << "杀伤内力9";
+    fout << ",";
+    fout << "杀伤内力10";
     fout << std::endl;
     int length = data.size();
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length; i++)
+    {
         fout << data[i].ID;
         fout << ",";
         fout << '"' << data[i].Name << '"';
         fout << ",";
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             fout << data[i].Unknown[j];
-            if (j != 5 - 1) fout << ",";
+            if (j != 5 - 1)
+            { fout << ","; }
         }
         fout << ",";
         fout << data[i].SoundID;
@@ -949,73 +1247,106 @@ void Save::NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int recor
         fout << ",";
         fout << data[i].WithPoison;
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].Attack[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].SelectDistance[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].AttackDistance[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].AddMP[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             fout << data[i].HurtMP[j];
-            if (j != 10 - 1) fout << ",";
+            if (j != 10 - 1)
+            { fout << ","; }
         }
         fout << std::endl;
     }
 }
 // 商店
-void Save::NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record) {
+void Save::NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record)
+{
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_商店.csv");
     fout << "物品编号1";
-    fout << ",";    fout << "物品编号2";
-    fout << ",";    fout << "物品编号3";
-    fout << ",";    fout << "物品编号4";
-    fout << ",";    fout << "物品编号5";
-    fout << ",";    fout << "物品总量1";
-    fout << ",";    fout << "物品总量2";
-    fout << ",";    fout << "物品总量3";
-    fout << ",";    fout << "物品总量4";
-    fout << ",";    fout << "物品总量5";
-    fout << ",";    fout << "物品价格1";
-    fout << ",";    fout << "物品价格2";
-    fout << ",";    fout << "物品价格3";
-    fout << ",";    fout << "物品价格4";
-    fout << ",";    fout << "物品价格5";
+    fout << ",";
+    fout << "物品编号2";
+    fout << ",";
+    fout << "物品编号3";
+    fout << ",";
+    fout << "物品编号4";
+    fout << ",";
+    fout << "物品编号5";
+    fout << ",";
+    fout << "物品总量1";
+    fout << ",";
+    fout << "物品总量2";
+    fout << ",";
+    fout << "物品总量3";
+    fout << ",";
+    fout << "物品总量4";
+    fout << ",";
+    fout << "物品总量5";
+    fout << ",";
+    fout << "物品价格1";
+    fout << ",";
+    fout << "物品价格2";
+    fout << ",";
+    fout << "物品价格3";
+    fout << ",";
+    fout << "物品价格4";
+    fout << ",";
+    fout << "物品价格5";
     fout << std::endl;
     int length = data.size();
-    for (int i = 0; i < length; i++) {
-        for (int j = 0; j < 5; j++) {
+    for (int i = 0; i < length; i++)
+    {
+        for (int j = 0; j < 5; j++)
+        {
             fout << data[i].ItemID[j];
-            if (j != 5 - 1) fout << ",";
+            if (j != 5 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             fout << data[i].Total[j];
-            if (j != 5 - 1) fout << ",";
+            if (j != 5 - 1)
+            { fout << ","; }
         }
         fout << ",";
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             fout << data[i].Price[j];
-            if (j != 5 - 1) fout << ",";
+            if (j != 5 - 1)
+            { fout << ","; }
         }
         fout << std::endl;
     }
 }
 // 基本
-void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record) {
+void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record)
+{
     io::CSVReader<18, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_基本.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
         "乘船",
@@ -1035,9 +1366,9 @@ void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record) 
         "队友3",
         "队友4",
         "队友5",
-        "队友6"
-    );
-    auto getDefault = []() {
+        "队友6");
+    auto getDefault = []()
+    {
         BaseInfo nextLineData;
         nextLineData.InShip = 0;
         nextLineData.InSubMap = 0;
@@ -1051,7 +1382,8 @@ void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record) 
         nextLineData.ShipX1 = 0;
         nextLineData.ShipY1 = 0;
         nextLineData.Encode = 0;
-        for (int j = 0; j < 6; j++) {
+        for (int j = 0; j < 6; j++)
+        {
             nextLineData.Team[j] = -1;
         }
         return nextLineData;
@@ -1076,22 +1408,24 @@ void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record) 
         nextLineData.Team[2],
         nextLineData.Team[3],
         nextLineData.Team[4],
-        nextLineData.Team[5]
-    )) {
+        nextLineData.Team[5]))
+    {
         data[lines] = nextLineData;
-        if (lines + 1 == length) break;
+        if (lines + 1 == length)
+        { break; }
         lines++;
         nextLineData = getDefault();
     }
 }
 // 背包
-void Save::NewSave::LoadFromCSVItemList(ItemList* data, int length, int record) {
+void Save::NewSave::LoadFromCSVItemList(ItemList* data, int length, int record)
+{
     io::CSVReader<2, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_背包.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
         "物品编号",
-        "物品数量"
-    );
-    auto getDefault = []() {
+        "物品数量");
+    auto getDefault = []()
+    {
         ItemList nextLineData;
         nextLineData.item_id = -1;
         nextLineData.count = 0;
@@ -1101,16 +1435,18 @@ void Save::NewSave::LoadFromCSVItemList(ItemList* data, int length, int record) 
     auto nextLineData = getDefault();
     while (in.read_row(
         nextLineData.item_id,
-        nextLineData.count
-    )) {
+        nextLineData.count))
+    {
         data[lines] = nextLineData;
-        if (lines + 1 == length) break;
+        if (lines + 1 == length)
+        { break; }
         lines++;
         nextLineData = getDefault();
     }
 }
 // 人物
-void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record) {
+void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record)
+{
     data.clear();
     io::CSVReader<83, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_人物.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1196,9 +1532,9 @@ void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record) {
         "携带物品数量1",
         "携带物品数量2",
         "携带物品数量3",
-        "携带物品数量4"
-    );
-    auto getDefault = []() {
+        "携带物品数量4");
+    auto getDefault = []()
+    {
         Role nextLineData;
         nextLineData.ID = 0;
         nextLineData.HeadID = 0;
@@ -1217,7 +1553,8 @@ void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record) {
         nextLineData.ExpForMakeItem = 0;
         nextLineData.Equip0 = -1;
         nextLineData.Equip1 = -1;
-        for (int j = 0; j < 15; j++) {
+        for (int j = 0; j < 15; j++)
+        {
             nextLineData.Frame[j] = 0;
         }
         nextLineData.MPType = 0;
@@ -1243,22 +1580,26 @@ void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record) {
         nextLineData.IQ = 0;
         nextLineData.PracticeItem = -1;
         nextLineData.ExpForItem = 0;
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.MagicID[j] = 0;
         }
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.MagicLevel[j] = 0;
         }
-        for (int j = 0; j < 4; j++) {
+        for (int j = 0; j < 4; j++)
+        {
             nextLineData.TakingItem[j] = -1;
         }
-        for (int j = 0; j < 4; j++) {
+        for (int j = 0; j < 4; j++)
+        {
             nextLineData.TakingItemCount[j] = 0;
         }
         return nextLineData;
     };
-    char * Name__;
-    char * Nick__;
+    char* Name__;
+    char* Nick__;
     int lines = 0;
     auto nextLineData = getDefault();
     while (in.read_row(
@@ -1344,8 +1685,8 @@ void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record) {
         nextLineData.TakingItemCount[0],
         nextLineData.TakingItemCount[1],
         nextLineData.TakingItemCount[2],
-        nextLineData.TakingItemCount[3]
-    )) {
+        nextLineData.TakingItemCount[3]))
+    {
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         strncpy(nextLineData.Nick, Nick__, sizeof(nextLineData.Nick) - 1);
         data.push_back(nextLineData);
@@ -1354,7 +1695,8 @@ void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record) {
     }
 }
 // 物品
-void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record) {
+void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record)
+{
     data.clear();
     io::CSVReader<72, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_物品.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1429,13 +1771,14 @@ void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record) {
         "练出物品数量2",
         "练出物品数量3",
         "练出物品数量4",
-        "练出物品数量5"
-    );
-    auto getDefault = []() {
+        "练出物品数量5");
+    auto getDefault = []()
+    {
         Item nextLineData;
         nextLineData.ID = 0;
         memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.Name1[j] = 0;
         }
         memset(nextLineData.Introduction, '\0', sizeof(nextLineData.Introduction));
@@ -1488,16 +1831,18 @@ void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record) {
         nextLineData.NeedExp = 0;
         nextLineData.NeedExpForMakeItem = 0;
         nextLineData.NeedMaterial = -1;
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             nextLineData.MakeItem[j] = -1;
         }
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             nextLineData.MakeItemCount[j] = 0;
         }
         return nextLineData;
     };
-    char * Name__;
-    char * Introduction__;
+    char* Name__;
+    char* Introduction__;
     int lines = 0;
     auto nextLineData = getDefault();
     while (in.read_row(
@@ -1572,8 +1917,8 @@ void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record) {
         nextLineData.MakeItemCount[1],
         nextLineData.MakeItemCount[2],
         nextLineData.MakeItemCount[3],
-        nextLineData.MakeItemCount[4]
-    )) {
+        nextLineData.MakeItemCount[4]))
+    {
         strncpy(nextLineData.Introduction, Introduction__, sizeof(nextLineData.Introduction) - 1);
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         data.push_back(nextLineData);
@@ -1582,7 +1927,8 @@ void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record) {
     }
 }
 // 场景
-void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record) {
+void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
+{
     data.clear();
     io::CSVReader<22, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_场景.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1607,9 +1953,9 @@ void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int
         "跳转X",
         "跳转Y",
         "跳转返还X",
-        "跳转返还Y"
-    );
-    auto getDefault = []() {
+        "跳转返还Y");
+    auto getDefault = []()
+    {
         SubMapInfo nextLineData;
         nextLineData.ID = 0;
         memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
@@ -1623,10 +1969,12 @@ void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int
         nextLineData.MainEntranceY2 = 0;
         nextLineData.EntranceX = 0;
         nextLineData.EntranceY = 0;
-        for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++)
+        {
             nextLineData.ExitX[j] = -1;
         }
-        for (int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++)
+        {
             nextLineData.ExitY[j] = -1;
         }
         nextLineData.JumpX = 0;
@@ -1635,7 +1983,7 @@ void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int
         nextLineData.JumpReturnY = 0;
         return nextLineData;
     };
-    char * Name__;
+    char* Name__;
     int lines = 0;
     auto nextLineData = getDefault();
     while (in.read_row(
@@ -1660,8 +2008,8 @@ void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int
         nextLineData.JumpX,
         nextLineData.JumpY,
         nextLineData.JumpReturnX,
-        nextLineData.JumpReturnY
-    )) {
+        nextLineData.JumpReturnY))
+    {
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         data.push_back(nextLineData);
         lines++;
@@ -1669,7 +2017,8 @@ void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int
     }
 }
 // 武功
-void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record) {
+void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record)
+{
     data.clear();
     io::CSVReader<64, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_武功.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1736,13 +2085,14 @@ void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record) {
         "杀伤内力7",
         "杀伤内力8",
         "杀伤内力9",
-        "杀伤内力10"
-    );
-    auto getDefault = []() {
+        "杀伤内力10");
+    auto getDefault = []()
+    {
         Magic nextLineData;
         nextLineData.ID = 0;
         memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             nextLineData.Unknown[j] = 0;
         }
         nextLineData.SoundID = 0;
@@ -1752,24 +2102,29 @@ void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record) {
         nextLineData.AttackAreaType = 0;
         nextLineData.NeedMP = 0;
         nextLineData.WithPoison = 0;
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.Attack[j] = 0;
         }
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.SelectDistance[j] = 0;
         }
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.AttackDistance[j] = 0;
         }
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.AddMP[j] = 0;
         }
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             nextLineData.HurtMP[j] = 0;
         }
         return nextLineData;
     };
-    char * Name__;
+    char* Name__;
     int lines = 0;
     auto nextLineData = getDefault();
     while (in.read_row(
@@ -1836,8 +2191,8 @@ void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record) {
         nextLineData.HurtMP[6],
         nextLineData.HurtMP[7],
         nextLineData.HurtMP[8],
-        nextLineData.HurtMP[9]
-    )) {
+        nextLineData.HurtMP[9]))
+    {
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         data.push_back(nextLineData);
         lines++;
@@ -1845,7 +2200,8 @@ void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record) {
     }
 }
 // 商店
-void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record) {
+void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record)
+{
     data.clear();
     io::CSVReader<15, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_商店.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1863,17 +2219,20 @@ void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record) {
         "物品价格2",
         "物品价格3",
         "物品价格4",
-        "物品价格5"
-    );
-    auto getDefault = []() {
+        "物品价格5");
+    auto getDefault = []()
+    {
         Shop nextLineData;
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             nextLineData.ItemID[j] = -1;
         }
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             nextLineData.Total[j] = 0;
         }
-        for (int j = 0; j < 5; j++) {
+        for (int j = 0; j < 5; j++)
+        {
             nextLineData.Price[j] = 0;
         }
         return nextLineData;
@@ -1895,106 +2254,161 @@ void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record) {
         nextLineData.Price[1],
         nextLineData.Price[2],
         nextLineData.Price[3],
-        nextLineData.Price[4]
-    )) {
+        nextLineData.Price[4]))
+    {
         data.push_back(nextLineData);
         lines++;
         nextLineData = getDefault();
     }
 }
-void Save::NewSave::InsertRoleAt(std::vector<Role>& data, int idx) {
+void Save::NewSave::InsertRoleAt(std::vector<Role>& data, int idx)
+{
     auto newCopy = data[idx];
     data.insert(data.begin() + idx, newCopy);
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; i < data.size(); i++)
+    {
         data[i].ID = i;
     }
     Save::getInstance()->updateAllPtrVector();
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 1; i++)
+    {
         auto p = Save::getInstance();
-        if (p->Team[0] >= idx) p->Team[0] += 1;
-        if (p->Team[1] >= idx) p->Team[1] += 1;
-        if (p->Team[2] >= idx) p->Team[2] += 1;
-        if (p->Team[3] >= idx) p->Team[3] += 1;
-        if (p->Team[4] >= idx) p->Team[4] += 1;
-        if (p->Team[5] >= idx) p->Team[5] += 1;
+        if (p->Team[0] >= idx)
+        { p->Team[0] += 1; }
+        if (p->Team[1] >= idx)
+        { p->Team[1] += 1; }
+        if (p->Team[2] >= idx)
+        { p->Team[2] += 1; }
+        if (p->Team[3] >= idx)
+        { p->Team[3] += 1; }
+        if (p->Team[4] >= idx)
+        { p->Team[4] += 1; }
+        if (p->Team[5] >= idx)
+        { p->Team[5] += 1; }
     }
-    for (auto& p : Save::getInstance()->getItems()) {
-        if (p->User >= idx) p->User += 1;
-        if (p->OnlySuitableRole >= idx) p->OnlySuitableRole += 1;
+    for (auto& p : Save::getInstance()->getItems())
+    {
+        if (p->User >= idx)
+        { p->User += 1; }
+        if (p->OnlySuitableRole >= idx)
+        { p->OnlySuitableRole += 1; }
     }
 }
-void Save::NewSave::InsertItemAt(std::vector<Item>& data, int idx) {
+void Save::NewSave::InsertItemAt(std::vector<Item>& data, int idx)
+{
     auto newCopy = data[idx];
     data.insert(data.begin() + idx, newCopy);
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; i < data.size(); i++)
+    {
         data[i].ID = i;
     }
     Save::getInstance()->updateAllPtrVector();
-    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++) {
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+    {
         auto* p = &(Save::getInstance()->Items[i]);
         if (p->item_id >= idx)
-            p->item_id += 1;
+        { p->item_id += 1; }
     }
-    for (auto& p : Save::getInstance()->getRoles()) {
-        if (p->Equip0 >= idx) p->Equip0 += 1;
-        if (p->Equip1 >= idx) p->Equip1 += 1;
-        if (p->PracticeItem >= idx) p->PracticeItem += 1;
-        if (p->TakingItem[0] >= idx) p->TakingItem[0] += 1;
-        if (p->TakingItem[1] >= idx) p->TakingItem[1] += 1;
-        if (p->TakingItem[2] >= idx) p->TakingItem[2] += 1;
-        if (p->TakingItem[3] >= idx) p->TakingItem[3] += 1;
+    for (auto& p : Save::getInstance()->getRoles())
+    {
+        if (p->Equip0 >= idx)
+        { p->Equip0 += 1; }
+        if (p->Equip1 >= idx)
+        { p->Equip1 += 1; }
+        if (p->PracticeItem >= idx)
+        { p->PracticeItem += 1; }
+        if (p->TakingItem[0] >= idx)
+        { p->TakingItem[0] += 1; }
+        if (p->TakingItem[1] >= idx)
+        { p->TakingItem[1] += 1; }
+        if (p->TakingItem[2] >= idx)
+        { p->TakingItem[2] += 1; }
+        if (p->TakingItem[3] >= idx)
+        { p->TakingItem[3] += 1; }
     }
-    for (auto& p : Save::getInstance()->getItems()) {
-        if (p->NeedMaterial >= idx) p->NeedMaterial += 1;
-        if (p->MakeItem[0] >= idx) p->MakeItem[0] += 1;
-        if (p->MakeItem[1] >= idx) p->MakeItem[1] += 1;
-        if (p->MakeItem[2] >= idx) p->MakeItem[2] += 1;
-        if (p->MakeItem[3] >= idx) p->MakeItem[3] += 1;
-        if (p->MakeItem[4] >= idx) p->MakeItem[4] += 1;
+    for (auto& p : Save::getInstance()->getItems())
+    {
+        if (p->NeedMaterial >= idx)
+        { p->NeedMaterial += 1; }
+        if (p->MakeItem[0] >= idx)
+        { p->MakeItem[0] += 1; }
+        if (p->MakeItem[1] >= idx)
+        { p->MakeItem[1] += 1; }
+        if (p->MakeItem[2] >= idx)
+        { p->MakeItem[2] += 1; }
+        if (p->MakeItem[3] >= idx)
+        { p->MakeItem[3] += 1; }
+        if (p->MakeItem[4] >= idx)
+        { p->MakeItem[4] += 1; }
     }
-    for (auto& p : Save::getInstance()->getShops()) {
-        if (p->ItemID[0] >= idx) p->ItemID[0] += 1;
-        if (p->ItemID[1] >= idx) p->ItemID[1] += 1;
-        if (p->ItemID[2] >= idx) p->ItemID[2] += 1;
-        if (p->ItemID[3] >= idx) p->ItemID[3] += 1;
-        if (p->ItemID[4] >= idx) p->ItemID[4] += 1;
+    for (auto& p : Save::getInstance()->getShops())
+    {
+        if (p->ItemID[0] >= idx)
+        { p->ItemID[0] += 1; }
+        if (p->ItemID[1] >= idx)
+        { p->ItemID[1] += 1; }
+        if (p->ItemID[2] >= idx)
+        { p->ItemID[2] += 1; }
+        if (p->ItemID[3] >= idx)
+        { p->ItemID[3] += 1; }
+        if (p->ItemID[4] >= idx)
+        { p->ItemID[4] += 1; }
     }
 }
-void Save::NewSave::InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx) {
+void Save::NewSave::InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx)
+{
     auto newCopy = data[idx];
     data.insert(data.begin() + idx, newCopy);
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; i < data.size(); i++)
+    {
         data[i].ID = i;
     }
     Save::getInstance()->updateAllPtrVector();
 }
-void Save::NewSave::InsertMagicAt(std::vector<Magic>& data, int idx) {
+void Save::NewSave::InsertMagicAt(std::vector<Magic>& data, int idx)
+{
     auto newCopy = data[idx];
     data.insert(data.begin() + idx, newCopy);
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; i < data.size(); i++)
+    {
         data[i].ID = i;
     }
     Save::getInstance()->updateAllPtrVector();
-    for (auto& p : Save::getInstance()->getRoles()) {
-        if (p->MagicID[0] >= idx) p->MagicID[0] += 1;
-        if (p->MagicID[1] >= idx) p->MagicID[1] += 1;
-        if (p->MagicID[2] >= idx) p->MagicID[2] += 1;
-        if (p->MagicID[3] >= idx) p->MagicID[3] += 1;
-        if (p->MagicID[4] >= idx) p->MagicID[4] += 1;
-        if (p->MagicID[5] >= idx) p->MagicID[5] += 1;
-        if (p->MagicID[6] >= idx) p->MagicID[6] += 1;
-        if (p->MagicID[7] >= idx) p->MagicID[7] += 1;
-        if (p->MagicID[8] >= idx) p->MagicID[8] += 1;
-        if (p->MagicID[9] >= idx) p->MagicID[9] += 1;
+    for (auto& p : Save::getInstance()->getRoles())
+    {
+        if (p->MagicID[0] >= idx)
+        { p->MagicID[0] += 1; }
+        if (p->MagicID[1] >= idx)
+        { p->MagicID[1] += 1; }
+        if (p->MagicID[2] >= idx)
+        { p->MagicID[2] += 1; }
+        if (p->MagicID[3] >= idx)
+        { p->MagicID[3] += 1; }
+        if (p->MagicID[4] >= idx)
+        { p->MagicID[4] += 1; }
+        if (p->MagicID[5] >= idx)
+        { p->MagicID[5] += 1; }
+        if (p->MagicID[6] >= idx)
+        { p->MagicID[6] += 1; }
+        if (p->MagicID[7] >= idx)
+        { p->MagicID[7] += 1; }
+        if (p->MagicID[8] >= idx)
+        { p->MagicID[8] += 1; }
+        if (p->MagicID[9] >= idx)
+        { p->MagicID[9] += 1; }
     }
-    for (auto& p : Save::getInstance()->getItems()) {
-        if (p->MagicID >= idx) p->MagicID += 1;
+    for (auto& p : Save::getInstance()->getItems())
+    {
+        if (p->MagicID >= idx)
+        { p->MagicID += 1; }
     }
 }
-void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx) {
+void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx)
+{
     auto newCopy = data[idx];
     data.insert(data.begin() + idx, newCopy);
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; i < data.size(); i++)
+    {
         // data[i].ID = i;
     }
     Save::getInstance()->updateAllPtrVector();

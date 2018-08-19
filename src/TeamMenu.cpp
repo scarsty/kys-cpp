@@ -1,7 +1,7 @@
+#include "TeamMenu.h"
 #include "Button.h"
 #include "GameUtil.h"
 #include "Save.h"
-#include "TeamMenu.h"
 
 TeamMenu::TeamMenu()
 {

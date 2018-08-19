@@ -1,3 +1,4 @@
+#include "UIItem.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -5,7 +6,6 @@
 #include "Save.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
-#include "UIItem.h"
 #include "libconvert.h"
 
 UIItem::UIItem()
@@ -229,7 +229,7 @@ void UIItem::dealEvent(BP_Event& e)
                 {
                     leftup_index_ += item_each_line_;
                     if (leftup_index_ <= max_leftup_)
-                    active_child_ = item_each_line_ * (line_count_ - 1);
+                    { active_child_ = item_each_line_ * (line_count_ - 1); }
                 }
                 break;
             case BPK_UP:
@@ -247,7 +247,7 @@ void UIItem::dealEvent(BP_Event& e)
                 }
                 break;
             case BPK_DOWN:
-                if (active_child_ < item_each_line_ * (line_count_-1))
+                if (active_child_ < item_each_line_ * (line_count_ - 1))
                 {
                     active_child_ += item_each_line_;
                 }
