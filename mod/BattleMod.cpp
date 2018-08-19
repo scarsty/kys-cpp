@@ -5,6 +5,7 @@
 #include "libconvert.h"
 #include "PotConv.h"
 #include "Event.h"
+#include "DrawableOnCall.h"
 
 #include <numeric>
 #include <cassert>
@@ -65,7 +66,7 @@ void BattleMod::BattleModifier::init()
             max = maxNode.as<int>();
         }
 
-        int hide = false;
+        bool hide = false;
         if (const auto& hideNode = bNode[u8"隐藏"]) {
             hide = hideNode.as<bool>();
         }
@@ -566,6 +567,66 @@ void BattleModifier::setRoleInitState(Role* r)
     battleStatusManager_[r->ID].initStatus(r, &battleStatus_);
 }
 
+void BattleMod::BattleModifier::action(Role * r)
+{
+    if (!network_) {
+        BattleScene::action(r);
+        return;
+    }
+    
+    // 如果是敌人，则获取敌人行动，假装敌人是个AI
+    // 己方行动的时候也要同时记录AI
+    if (r->Team != 0) {
+        BattleNetwork::SerializableBattleAction action;
+        auto f = [](DrawableOnCall* d) {
+            Font::getInstance()->draw("等待对方玩家行动...", 40, 30, 30, { 200, 200, 50, 255 });
+        };
+        DrawableOnCall waitThis(f);
+
+        // getOpponentAction读取完毕会调用此函数关闭显示
+        auto exit = [&, this](std::error_code err, std::size_t bytes) {
+            printf("recv %s\n", err.message());
+            waitThis.setExit(true);
+        };
+        // 打开后既开始获取数据
+        waitThis.setEntrance([this,&action,&exit]() {
+            network_->getOpponentAction(action, exit);
+            // network_->asyncRun();
+        });
+        waitThis.run();
+        // 这里返回后，就已经获得action
+        action.print();
+        r->AI_Action = action.Action;
+        r->AI_ActionX = action.ActionX;
+        r->AI_ActionY = action.ActionY;
+        r->AI_Item = Save::getInstance()->getItem(action.itemID);
+        r->AI_Magic = Save::getInstance()->getMagic(action.magicID);
+        r->AI_MoveX = action.MoveX;
+        r->AI_MoveY = action.MoveY;
+        r->networked = true;
+        BattleScene::action(r);
+    }
+    else {
+        BattleScene::action(r);
+        BattleNetwork::SerializableBattleAction action;
+        action.Action = r->AI_Action;
+        action.ActionX = r->AI_ActionX;
+        action.ActionY = r->AI_ActionY;
+        if (r->AI_Item)
+            action.itemID = r->AI_Item->ID;
+        else
+            action.itemID = -1;
+        if (r->AI_Magic)
+            action.magicID = r->AI_Magic->ID;
+        else
+            action.magicID = 0;
+        action.MoveX = r->AI_MoveX;
+        action.MoveY = r->AI_MoveY;
+        action.print();
+        network_->sendMyAction(action);
+    }
+}
+
 void BattleMod::BattleModifier::actUseMagic(Role * r)
 {
     auto magic_menu = new BattleMagicMenu();
@@ -574,6 +635,7 @@ void BattleMod::BattleModifier::actUseMagic(Role * r)
         magic_menu->setStartItem(r->SelectedMagic);
         magic_menu->runAsRole(r);
         auto magic = magic_menu->getMagic();
+        r->AI_Magic = magic;
         r->SelectedMagic = magic_menu->getResult();
         if (magic == nullptr)
         {
@@ -594,6 +656,8 @@ void BattleMod::BattleModifier::actUseMagic(Role * r)
         }
         else
         {
+            r->AI_ActionX = select_x_;
+            r->AI_ActionY = select_y_;
             useMagic(r, magic);
             break;
         }
@@ -615,6 +679,7 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
         r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
 
+        /*
         for (auto r2 : battle_roles_) {
             if (r2 != r) {
                 r2->Effect = 6;
@@ -623,6 +688,7 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
                 r2->addShowString("废物");
             }
         }
+        */
 
         // 应该先护体，不显示伤害
         showNumberAnimation(2, false);
@@ -999,6 +1065,79 @@ void BattleModifier::dealEvent(BP_Event& e)
     }
 }
 
+void BattleMod::BattleModifier::setupRolePosition(Role * r, int team, int x, int y)
+{
+    if (r == nullptr) return;
+    r->setPosition(x, y);
+    r->Team = team;
+    readFightFrame(r);
+    r->FaceTowards = rand_.rand_int(4);
+    battle_roles_.push_back(r);
+}
+
+//读取战斗信息，确定是选人物还是自动人物
+void BattleModifier::readBattleInfo()
+{
+    // 默认
+    if (!network_) {
+        BattleScene::readBattleInfo();
+        return;
+    }
+
+    // 对抗 BattleInfo就应该写死算数，先借用单挑老顽童 场景67
+
+    //设置全部角色的位置层，避免今后出错
+    for (auto r : Save::getInstance()->getRoles())
+    {
+        r->setRolePositionLayer(role_layer_);
+        r->Team = 2;    //先全部设置成不存在的阵营
+        r->Auto = 1;
+    }
+
+    // 先获取随机种子
+    unsigned int seed;
+    network_->getRandSeed(seed);
+    // 因为一些愚蠢的原因，我需要两个
+    rand_.set_seed(seed);
+    rng.set_seed(seed + 1);
+    
+    // 获取对方参战人物id
+    int your_id;
+    network_->getOpponentRoleID(my_id_, your_id);
+
+    if (network_->isHost()) {
+        // 敌人为敌人
+        auto r = Save::getInstance()->getRole(your_id);
+        setupRolePosition(r, 1, info_->EnemyX[0], info_->EnemyY[0]);
+
+        // 己方
+        r = Save::getInstance()->getRole(my_id_);
+        setupRolePosition(r, 0, info_->TeamMateX[0], info_->TeamMateY[0]);
+    }
+    else {
+        // 位置倒过来
+        auto r = Save::getInstance()->getRole(your_id);
+        setupRolePosition(r, 1, info_->TeamMateX[0], info_->TeamMateY[0]);
+
+        r = Save::getInstance()->getRole(my_id_);
+        setupRolePosition(r, 0, info_->EnemyX[0], info_->EnemyY[0]);
+    }
+
+
+    //视角转至第一个敌人
+    if (battle_roles_.size() > 0)
+    {
+        man_x_ = battle_roles_[0]->X();
+        man_y_ = battle_roles_[0]->Y();
+    }
+    else
+    {
+        man_x_ = COORD_COUNT / 2;
+        man_y_ = COORD_COUNT / 2;
+    }
+}
+
+
 // 集气在这里
 Role* BattleModifier::semiRealPickOrTick() {
     //首先试图选出一人
@@ -1038,7 +1177,7 @@ Role* BattleModifier::semiRealPickOrTick() {
         // 特效3 集气速度
         progress = speedEffectManager_.getEffectParam0(3);
         // printf("基础集气速度%d\n", progress);
-        printf("%d集气加成 %d%%\n", r->ID, speedEffectManager_.getEffectParam0(10));
+        // printf("%d集气加成 %d%%\n", r->ID, speedEffectManager_.getEffectParam0(10));
         // 特效10 集气速度百分比增加
         progress = int((speedEffectManager_.getEffectParam0(10) / 100.0) * progress) + progress;
 
@@ -1096,3 +1235,12 @@ void BattleMod::BattleModifier::showMagicNames(const std::vector<std::reference_
     boxRoot->setTextColor({ 255, 165, 79, 255 });
     boxRoot->run();
 }
+
+void BattleMod::BattleModifier::setupNetwork(std::unique_ptr<BattleNetwork> net, int my_id, int battle_id)
+{
+    network_ = std::move(net);
+    my_id_ = my_id;
+    setID(battle_id);
+}
+
+

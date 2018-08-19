@@ -869,6 +869,8 @@ void BattleScene::action(Role* r)
     battle_menu_->runAsRole(r);
     std::string str = battle_menu_->getResultString();
 
+    r->AI_Action = battle_menu_->getResult();
+
     //这里如果用整型表示返回，添加新项就太复杂了
     if (str == "移動")
     {
@@ -914,6 +916,8 @@ void BattleScene::action(Role* r)
     {
         actRest(r);
     }
+
+    printf("%s\n", str.c_str());
 
     //下一个行动的，菜单项从第一个开始
     if (r->Acted)
@@ -1070,6 +1074,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
     auto item = item_menu->getCurrentItem();
     if (item)
     {
+        r->AI_Item = item;
         calSelectLayer(r, 1, calActionStep(r->HiddenWeapon));
         battle_cursor_->setMode(BattleCursor::Action);
         battle_cursor_->setRoleAndMagic(r);
@@ -1176,6 +1181,7 @@ void BattleScene::actRest(Role* r)
 
 void BattleScene::moveAnimation(Role* r, int x, int y)
 {
+    printf("moving towards %d %d\n", x, y);
     //从目标往回找确定路线
     std::vector<Point> way;
     auto check_next = [&](Point p1, int step) -> bool
@@ -1221,6 +1227,8 @@ void BattleScene::moveAnimation(Role* r, int x, int y)
         //setPosition(r->X(), r->Y());
         drawAndPresent(2);
     }
+    r->AI_MoveX = x;
+    r->AI_MoveY = y;
     r->setPosition(x, y);
     r->Moved = 1;
     select_layer_->setAll(-1);

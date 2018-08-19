@@ -8,6 +8,7 @@
 #include "Font.h"
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
+#include "BattleMod.h"
 //#include "NewSave.h"
 
 #include <string>
@@ -216,5 +217,32 @@ Console::Console()
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
+    else if (splits[0] == u8"host" && splits.size() >= 2) {
+        int id;
+        try {
+            id = std::stoi(splits[1]);
+        }
+        catch (...) {
+            return;
+        }
 
+        auto host = BattleNetworkFactory::MakeHost();
+        BattleMod::BattleModifier battle;
+        battle.setupNetwork(std::move(host), id);
+        battle.run();
+    }
+    else if (splits[0] == u8"client" && splits.size() >= 2) {
+        int id;
+        try {
+            id = std::stoi(splits[1]);
+        }
+        catch (...) {
+            return;
+        }
+        auto client = BattleNetworkFactory::MakeClient("localhost","8122");
+        BattleMod::BattleModifier battle;
+        battle.setupNetwork(std::move(client), id);
+        battle.run();
+    }
+    
 }

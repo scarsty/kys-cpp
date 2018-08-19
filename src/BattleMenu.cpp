@@ -63,7 +63,7 @@ void BattleActionMenu::setRole(Role* r)
         active_child_ = findFristVisibleChild();
         forceActiveChild();
     }
-    if (!role_->Moved) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
+    if (!role_->Moved&&!role_->networked) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
 void BattleActionMenu::dealEvent(BP_Event& e)
@@ -86,6 +86,11 @@ void BattleActionMenu::dealEvent(BP_Event& e)
 //"0移動", "1武學", "2用毒", "3解毒", "4醫療", "5暗器", "6藥品", "7等待", "8狀態", "9自動", "10結束"
 int BattleActionMenu::autoSelect(Role* role)
 {
+    // 提前退出，AI操作都都读好了
+    if (role->networked) {
+        return role->AI_Action;
+    }
+
     std::vector<Role*> friends, enemies;
     for (auto r : battle_scene_->getBattleRoles())
     {

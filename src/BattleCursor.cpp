@@ -79,9 +79,16 @@ void BattleCursor::setCursor(int x, int y)
     }
     if (mode_ == Move)
     {
+        // 都记录算数 TODO貌似没用，删除
+        role_->AI_MoveX = x;
+        role_->AI_MoveY = y;
+        role_->AI_ActionX = x;
+        role_->AI_ActionY = y;
     }
     else if (mode_ == Action)
     {
+        role_->AI_ActionX = x;
+        role_->AI_ActionY = y;
         battle_scene_->calEffectLayer(role_, battle_scene_->selectX(), battle_scene_->selectY(), magic_, level_index_);
     }
 }

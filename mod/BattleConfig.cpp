@@ -155,8 +155,8 @@ EffectIntsPair BattleMod::EffectParamPair::materialize(const Role * attacker, co
     for (const auto& param : params_) {
         eip.addParam(param.getVal(attacker, defender, wg));
     }
-    if (!eip.description.empty())
-        printf("成功触发%d %s\n", eip.effect.id, eip.description.c_str());
+    //if (!eip.description.empty())
+    //    printf("成功触发%d %s\n", eip.effect.id, eip.description.c_str());
     return eip;
 }
 
@@ -374,7 +374,7 @@ int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
 void BattleMod::BattleStatusManager::incrementBattleStatusVal(int statusID, int val)
 {
     if (val != 0) {
-        printf("pid %d add %s %d\n", r_->ID, (*status_)[statusID].display.c_str(), val);
+        // printf("pid %d add %s %d\n", r_->ID, (*status_)[statusID].display.c_str(), val);
     }
     tempStatusVal_[statusID] += val;
 }
@@ -404,7 +404,7 @@ std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager:
         }
         if (add != 0)
             changes.emplace_back((*status_)[p.first], add);
-        printf("%d 当前 %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
+        // printf("%d 当前 %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
         p.second = 0;
     }
     return changes;

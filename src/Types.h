@@ -203,6 +203,9 @@ public:
     Item* AI_Item = nullptr;
 
 public:
+    bool networked = false;
+
+public:
     static Role* getMaxValue() { return &max_role_value_; }
 
 private:
