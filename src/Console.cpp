@@ -194,7 +194,12 @@ Console::Console()
         catch (...) {
             return;
         }
-        Save::getInstance()->saveCSV(rec);
+        auto save = Save::getInstance();
+        auto main_scene = MainScene::getInstance();
+        main_scene->getManPosition(save->MainMapX, save->MainMapY);
+        save->InSubMap = -1;
+        Save::getInstance()->saveRToCSV(rec);
+        Save::getInstance()->saveSD(rec);
     }
     else if (splits[0] == u8"newload" && splits.size() >= 2) {
         int rec;
@@ -204,7 +209,15 @@ Console::Console()
         catch (...) {
             return;
         }
-        Save::getInstance()->loadCSV(rec);
+        auto save = Save::getInstance();
+        auto main_scene = MainScene::getInstance();
+        Save::getInstance()->loadRFromCSV(rec);
+        Save::getInstance()->loadSD(rec);
+        main_scene->setManPosition(save->MainMapX, save->MainMapY);
+        if (save->InSubMap >= 0)
+        {
+            main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+        }
     }
     else if (splits[0] == u8"rinsert" && splits.size() >= 3) {
         int idx;
