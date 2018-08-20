@@ -77,7 +77,6 @@ private:
     // 是否为联网
     std::unique_ptr<BattleNetwork> network_;
     BattleInfo overrideInfo_;                   // 暂时没用
-    int my_id_;                                 // 参战选手
 
     void init();
     Variable readVariable(const YAML::Node& node);
@@ -135,7 +134,7 @@ public:
 
     // 先在外面用BattleNetworkFactory，然后传递进来
     // 同时可能还需要一个battleinfo, 以后再说！
-    void setupNetwork(std::unique_ptr<BattleNetwork> net, int my_id, int battle_id = 67);
+    void setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id = 67);
 
 };
 

@@ -163,11 +163,13 @@ bool Save::save(int num)
     return true;
 }
 
-void Save::resetRData(const std::vector<Role>& newData)
+void Save::resetRData(const std::vector<RoleSave>& newData)
 {
-    roles_mem_ = newData;
-    for (int i = 0; i < roles_mem_.size(); i++) {
-        auto& r = roles_mem_[i];
+    roles_mem_.clear();
+    for (int i = 0; i < newData.size(); i++) {
+        roles_mem_.emplace_back();
+        auto& r = roles_mem_.back();
+        memcpy(&r, &newData[i], sizeof(RoleSave));
         r.RealID = r.ID;
         r.ID = i;
     }

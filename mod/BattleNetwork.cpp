@@ -55,21 +55,23 @@ bool BattleHost::getRandSeed(unsigned int & seed)
     return true;
 }
 
-
-void BattleHost::rDataHandshake(RoleSave me, std::vector<Role>& roles)
+void BattleHost::rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles)
 {
-    // 自己
-    socket_.send(asio::buffer(&me, sizeof(me)));
-    Role me_extended;
-    memcpy(&me_extended, &me, sizeof(me));
-    roles.push_back(me_extended);
+    // 先传输人数
+    size_t num = my_roles.size();
+    socket_.send(asio::buffer(&num, sizeof(num)));
+    for (int i = 0; i < num; i++) {
+        socket_.send(asio::buffer(&my_roles[i], sizeof(RoleSave)));
+        roles.push_back(my_roles[i]);
+    }
 
-    // 对面
-    RoleSave you;
-    asio::read(socket_, asio::buffer(&you, sizeof(you)));
-    Role you_extended;
-    memcpy(&you_extended, &you, sizeof(you));
-    roles.push_back(you_extended);
+    // 获取对面人数
+    asio::read(socket_, asio::buffer(&num, sizeof(num)));
+    for (int i = 0; i < num; i++) {
+        RoleSave r;
+        asio::read(socket_, asio::buffer(&r, sizeof(RoleSave)));
+        roles.push_back(r);
+    }
 }
 
 BattleClient::BattleClient(const std::string& host, const std::string& port)
@@ -91,18 +93,22 @@ bool BattleClient::getRandSeed(unsigned int & seed)
     return true;
 }
 
-void BattleClient::rDataHandshake(RoleSave me, std::vector<Role>& roles)
+void BattleClient::rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles)
 {
-    // 先对面
-    RoleSave you;
-    asio::read(socket_, asio::buffer(&you, sizeof(you)));
-    Role you_extended;
-    memcpy(&you_extended, &you, sizeof(you));
-    roles.push_back(you_extended);
+    // 获取对面人数
+    size_t num;
+    asio::read(socket_, asio::buffer(&num, sizeof(num)));
+    for (int i = 0; i < num; i++) {
+        RoleSave r;
+        asio::read(socket_, asio::buffer(&r, sizeof(RoleSave)));
+        roles.push_back(r);
+    }
 
-    // 再自己
-    socket_.send(asio::buffer(&me, sizeof(me)));
-    Role me_extended;
-    memcpy(&me_extended, &me, sizeof(me));
-    roles.push_back(me_extended);
+    // 传输人数
+    num = my_roles.size();
+    socket_.send(asio::buffer(&num, sizeof(num)));
+    for (int i = 0; i < num; i++) {
+        socket_.send(asio::buffer(&my_roles[i], sizeof(RoleSave)));
+        roles.push_back(my_roles[i]);
+    }
 }

@@ -34,7 +34,7 @@ public:
     virtual bool getRandSeed(unsigned int& seed) = 0;
 
     // 己方参战id，最终roles结果
-    virtual void rDataHandshake(RoleSave me, std::vector<Role>& roles) = 0;
+    virtual void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) = 0;
 
     struct SerializableBattleAction
     {
@@ -45,7 +45,7 @@ public:
         int itemID = -1;
         void print() {
             printf("action %d, movex %d, movey %d, actionx %d, actiony %d magic %d, item %d\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
-        };
+        }
     };
     static_assert(sizeof(SerializableBattleAction) == 28, "introduced extra struct padding");
 
@@ -72,14 +72,14 @@ class BattleHost : public BattleNetwork {
 public:
     BattleHost();
     bool getRandSeed(unsigned int& seed) override;
-    void rDataHandshake(RoleSave me, std::vector<Role>& roles) override;
+    void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) override;
 };
 
 class BattleClient : public BattleNetwork {
 public:
     BattleClient(const std::string& host, const std::string& port);
     bool getRandSeed(unsigned int& seed) override;
-    void rDataHandshake(RoleSave me, std::vector<Role>& roles) override;
+    void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) override;
 };
 
 class BattleNetworkFactory {

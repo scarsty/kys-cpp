@@ -6,6 +6,7 @@
 #include "PotConv.h"
 #include "Event.h"
 #include "DrawableOnCall.h"
+#include "TeamMenu.h"
 
 #include <numeric>
 #include <cassert>
@@ -1112,22 +1113,29 @@ void BattleModifier::readBattleInfo()
         return;
     }
 
-    // 对抗 BattleInfo就应该写死算数，先借用单挑老顽童 场景67
-
     // 先获取随机种子
     unsigned int seed;
     network_->getRandSeed(seed);
     // 因为一些愚蠢的原因，我需要两个
     rand_.set_seed(seed);
     rng.set_seed(seed + 1);
-    
-    // 获取对方参战人物id
-    RoleSave me;
-    Role* me_extended = Save::getInstance()->getRole(my_id_);
-    std::vector<Role> sandBoxRoles;
 
-    memcpy(&me, me_extended, sizeof(me));
-    network_->rDataHandshake(me, sandBoxRoles);
+    // 选择队友
+    TeamMenu team;
+    team.setMode(1);
+    team.run();
+    friends_ = team.getRoles();
+
+    std::vector<RoleSave> serializableRoles;
+    for (auto r : friends_) {
+        RoleSave me;
+        memcpy(&me, r, sizeof(me));
+        serializableRoles.push_back(me);
+    }
+
+    // 传输己方，并获取对方参战人物id
+    std::vector<RoleSave> sandBoxRoles;
+    network_->rDataHandshake(serializableRoles, sandBoxRoles);
 
     Save::getInstance()->resetRData(sandBoxRoles);
 
@@ -1140,21 +1148,31 @@ void BattleModifier::readBattleInfo()
     }
 
     if (network_->isHost()) {
-        // 敌人为敌人
-        auto r = Save::getInstance()->getRole(1);
-        setupRolePosition(r, 1, info_->EnemyX[0], info_->EnemyY[0]);
-
-        // 己方
-        r = Save::getInstance()->getRole(0);
-        setupRolePosition(r, 0, info_->TeamMateX[0], info_->TeamMateY[0]);
+        // friends_占据前几个
+        for (int i = 0; i < friends_.size(); i++) {
+            auto r = Save::getInstance()->getRole(i);
+            setupRolePosition(r, 0, info_->TeamMateX[i], info_->TeamMateY[i]);
+        }
+        // 因为知道friends_大小，可得知几个敌人
+        for (int i = 0; i < sandBoxRoles.size() - friends_.size(); i++) {
+            auto r = Save::getInstance()->getRole(i + friends_.size());
+            setupRolePosition(r, 1, info_->EnemyX[i], info_->EnemyY[i]);
+        }
     }
     else {
-        // 位置倒过来，0是对方
-        auto r = Save::getInstance()->getRole(0);
-        setupRolePosition(r, 1, info_->TeamMateX[0], info_->TeamMateY[0]);
-
-        r = Save::getInstance()->getRole(1);
-        setupRolePosition(r, 0, info_->EnemyX[0], info_->EnemyY[0]);
+        // friends_占据后几个
+        // 先对方
+        for (int i = 0; i < sandBoxRoles.size() - friends_.size(); i++) {
+            auto r = Save::getInstance()->getRole(i);
+            // TeamMateX实际是对面的
+            setupRolePosition(r, 1, info_->TeamMateX[i], info_->TeamMateY[i]);
+        }
+        // 然后是自己
+        for (int i = 0; i < friends_.size(); i++) {
+            int friend_idx = sandBoxRoles.size() - friends_.size() + i;
+            auto r = Save::getInstance()->getRole(friend_idx);
+            setupRolePosition(r, 0, info_->EnemyX[i], info_->EnemyY[i]);
+        }
     }
 
 
@@ -1270,10 +1288,9 @@ void BattleMod::BattleModifier::showMagicNames(const std::vector<std::reference_
     boxRoot->run();
 }
 
-void BattleMod::BattleModifier::setupNetwork(std::unique_ptr<BattleNetwork> net, int my_id, int battle_id)
+void BattleMod::BattleModifier::setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id)
 {
     network_ = std::move(net);
-    my_id_ = my_id;
     setID(battle_id);
 }
 

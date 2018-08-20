@@ -27,7 +27,7 @@ public:
     bool save(int num);
 
     // °ïÖúÍøÂç½»Á÷
-    void resetRData(const std::vector<Role>& newData);
+    void resetRData(const std::vector<RoleSave>& newData);
 
     static Save* getInstance()
     {
