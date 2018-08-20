@@ -203,6 +203,7 @@ public:
     Item* AI_Item = nullptr;
 
 public:
+    int RealID = -1;
     bool networked = false;
 
 public:

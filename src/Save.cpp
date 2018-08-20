@@ -163,6 +163,17 @@ bool Save::save(int num)
     return true;
 }
 
+void Save::resetRData(const std::vector<Role>& newData)
+{
+    roles_mem_ = newData;
+    for (int i = 0; i < roles_mem_.size(); i++) {
+        auto& r = roles_mem_[i];
+        r.RealID = r.ID;
+        r.ID = i;
+    }
+    updateAllPtrVector();
+}
+
 Role* Save::getTeamMate(int i)
 {
     if (i < 0 || i >= TEAMMATE_COUNT)

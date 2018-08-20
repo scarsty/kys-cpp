@@ -226,6 +226,7 @@ Console::Console()
             return;
         }
         Save::getInstance()->saveCSV(-1);
+        
         auto host = BattleNetworkFactory::MakeHost();
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(host), id);
@@ -244,8 +245,8 @@ Console::Console()
         std::string host("localhost");
         std::string port("8122");
         if (splits.size() >= 4) {
-            host = splits[2];
-            port = splits[3];
+            host = PotConv::conv(splits[2], "utf-8", "ascii");
+            port = PotConv::conv(splits[3], "utf-8", "ascii");
         }
         auto client = BattleNetworkFactory::MakeClient(host, port);
         BattleMod::BattleModifier battle;

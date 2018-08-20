@@ -336,7 +336,7 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             int pid = varNode[u8"参数"].as<int>();
             f = [this, pid](const Role* c, const Magic* wg) {
                 if (c == nullptr) return 0;
-                if (c->ID == pid) return 1;
+                if (c->RealID == pid) return 1;
                 return 0;
             };
             break;
@@ -563,8 +563,28 @@ std::vector<EffectIntsPair> BattleMod::BattleModifier::tryProcAndAddToManager(in
 void BattleModifier::setRoleInitState(Role* r)
 {
     BattleScene::setRoleInitState(r);
-
+    if (r->RealID == -1)
+        r->RealID = r->ID;
+    r->Progress = 0;
+    r->ProgressChange = 0;
+    r->BattleHurt = 0;
     battleStatusManager_[r->ID].initStatus(r, &battleStatus_);
+}
+
+void BattleMod::BattleModifier::sortRoles()
+{
+    if (semi_real_ == 0)
+    {
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) { 
+            return std::tie(r1->Speed, r1->ID) > std::tie(r2->Speed, r2->ID);
+        });
+    }
+    else
+    {
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) { 
+            return std::tie(r1->Progress, r1->ID) > std::tie(r2->Progress, r2->ID);
+        });
+    }
 }
 
 void BattleMod::BattleModifier::action(Role * r)
@@ -742,7 +762,7 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     
     // 这里考虑怎么加入显示效果
     // 先加入防守方特效，注意r2先来，其实这里传递magic也行，效果不明就是的
-    tryProcAndAddToManager(r2->ID, defRole_, defEffectManager_, r2, r1, nullptr);
+    tryProcAndAddToManager(r2->RealID, defRole_, defEffectManager_, r2, r1, nullptr);
     
     // 再加入挨打者的武功被动特效
     for (int i = 0; i < r2->getLearnedMagicCount(); i++) {
@@ -900,7 +920,7 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
     }
 
     // 再添加人物自身的攻击特效
-    effects = tryProcAndAddToManager(r->ID, atkRole_, atkEffectManager_, r, nullptr, m);
+    effects = tryProcAndAddToManager(r->RealID, atkRole_, atkEffectManager_, r, nullptr, m);
     for (const auto& effect : effects) {
         if (!effect.description.empty())
             names.push_back(std::cref(effect.description));
@@ -1007,7 +1027,7 @@ void BattleModifier::dealEvent(BP_Event& e)
         for (int i = 0; i < role->getLearnedMagicCount(); i++) {
             tryProcAndAddToManager(role->MagicID[i], turnMagic_, turnEffectManager_, role, nullptr, Save::getInstance()->getMagic(role->MagicID[i]));
         }
-        tryProcAndAddToManager(role->ID, turnRole_, turnEffectManager_, role, nullptr, nullptr);
+        tryProcAndAddToManager(role->RealID, turnRole_, turnEffectManager_, role, nullptr, nullptr);
         tryProcAndAddToManager(turnAll_, turnEffectManager_, role, nullptr, nullptr);
 
         // 特效9 强制
@@ -1086,14 +1106,6 @@ void BattleModifier::readBattleInfo()
 
     // 对抗 BattleInfo就应该写死算数，先借用单挑老顽童 场景67
 
-    //设置全部角色的位置层，避免今后出错
-    for (auto r : Save::getInstance()->getRoles())
-    {
-        r->setRolePositionLayer(role_layer_);
-        r->Team = 2;    //先全部设置成不存在的阵营
-        r->Auto = 1;
-    }
-
     // 先获取随机种子
     unsigned int seed;
     network_->getRandSeed(seed);
@@ -1102,24 +1114,38 @@ void BattleModifier::readBattleInfo()
     rng.set_seed(seed + 1);
     
     // 获取对方参战人物id
-    int your_id;
-    network_->getOpponentRoleID(my_id_, your_id);
+    RoleSave me;
+    Role* me_extended = Save::getInstance()->getRole(my_id_);
+    std::vector<Role> sandBoxRoles;
+
+    memcpy(&me, me_extended, sizeof(me));
+    network_->rDataHandshake(me, sandBoxRoles);
+
+    Save::getInstance()->resetRData(sandBoxRoles);
+
+    //设置全部角色的位置层，避免今后出错
+    for (auto r : Save::getInstance()->getRoles())
+    {
+        r->setRolePositionLayer(role_layer_);
+        r->Team = 2;    //先全部设置成不存在的阵营
+        r->Auto = 1;
+    }
 
     if (network_->isHost()) {
         // 敌人为敌人
-        auto r = Save::getInstance()->getRole(your_id);
+        auto r = Save::getInstance()->getRole(1);
         setupRolePosition(r, 1, info_->EnemyX[0], info_->EnemyY[0]);
 
         // 己方
-        r = Save::getInstance()->getRole(my_id_);
+        r = Save::getInstance()->getRole(0);
         setupRolePosition(r, 0, info_->TeamMateX[0], info_->TeamMateY[0]);
     }
     else {
-        // 位置倒过来
-        auto r = Save::getInstance()->getRole(your_id);
+        // 位置倒过来，0是对方
+        auto r = Save::getInstance()->getRole(0);
         setupRolePosition(r, 1, info_->TeamMateX[0], info_->TeamMateY[0]);
 
-        r = Save::getInstance()->getRole(my_id_);
+        r = Save::getInstance()->getRole(1);
         setupRolePosition(r, 0, info_->EnemyX[0], info_->EnemyY[0]);
     }
 

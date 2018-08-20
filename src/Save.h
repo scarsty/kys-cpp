@@ -26,6 +26,9 @@ public:
     bool load(int num);
     bool save(int num);
 
+    // °ïÖúÍøÂç½»Á÷
+    void resetRData(const std::vector<Role>& newData);
+
     static Save* getInstance()
     {
         static Save s;
@@ -186,5 +189,3 @@ public:
     void loadCSV(int num);
     bool insertAt(const std::string& type, int idx);
 };
-
-

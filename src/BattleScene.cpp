@@ -869,7 +869,8 @@ void BattleScene::action(Role* r)
     battle_menu_->runAsRole(r);
     std::string str = battle_menu_->getResultString();
 
-    if (r->networked)
+    // 己方行动， 总之这个很蠢
+    if (r->Team == 0)
         r->AI_Action = battle_menu_->getResult();
 
     //这里如果用整型表示返回，添加新项就太复杂了

@@ -1,9 +1,10 @@
 #pragma once
 
+#include "asio.hpp"
 #include "BattleMenu.h"
 #include <thread>
 #include <memory>
-#include <asio.hpp>
+
 
 // #define _WIN32_WINNT 0x0A00
 
@@ -32,8 +33,8 @@ public:
 
     virtual bool getRandSeed(unsigned int& seed) = 0;
 
-    // 这里以后改传送r数据
-    virtual bool getOpponentRoleID(int my_id, int& your_id) = 0;
+    // 己方参战id，最终roles结果
+    virtual void rDataHandshake(RoleSave me, std::vector<Role>& roles) = 0;
 
     struct SerializableBattleAction
     {
@@ -71,14 +72,14 @@ class BattleHost : public BattleNetwork {
 public:
     BattleHost();
     bool getRandSeed(unsigned int& seed) override;
-    bool getOpponentRoleID(int my_id, int& your_id) override;
+    void rDataHandshake(RoleSave me, std::vector<Role>& roles) override;
 };
 
 class BattleClient : public BattleNetwork {
 public:
     BattleClient(const std::string& host, const std::string& port);
     bool getRandSeed(unsigned int& seed) override;
-    bool getOpponentRoleID(int my_id, int& your_id) override;
+    void rDataHandshake(RoleSave me, std::vector<Role>& roles) override;
 };
 
 class BattleNetworkFactory {

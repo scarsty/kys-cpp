@@ -14,7 +14,6 @@
 #include <utility>
 #include <memory>
 #include <functional>
-#include <optional>
 
 // 先偷懒放一起
 namespace BattleMod {
@@ -118,6 +117,7 @@ public:
 
     // 暂且考虑修改这些函数
     virtual void setRoleInitState(Role* r) override;
+    virtual void sortRoles() override;
 
     virtual void action(Role* r) override;
     virtual void actUseMagic(Role* r);           //武学
