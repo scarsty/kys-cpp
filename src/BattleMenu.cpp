@@ -54,6 +54,12 @@ void BattleActionMenu::setRole(Role* r)
         childs_text_["暗器"]->setVisible(false);
     }
 
+    if (role_->Competing)
+    {
+        childs_text_["藥品"]->setVisible(false);
+        childs_text_["暗器"]->setVisible(false);
+    }
+
     childs_text_["等待"]->setVisible(false);  //禁用等待
 
     setFontSize(20);
@@ -63,7 +69,8 @@ void BattleActionMenu::setRole(Role* r)
         active_child_ = findFristVisibleChild();
         forceActiveChild();
     }
-    if (!role_->Moved&&!role_->networked) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
+
+    if (!role_->Moved&&!role_->Networked) { role_->AI_Action = -1; }  //设置为未计算过ai的行动
 }
 
 void BattleActionMenu::dealEvent(BP_Event& e)
@@ -87,7 +94,7 @@ void BattleActionMenu::dealEvent(BP_Event& e)
 int BattleActionMenu::autoSelect(Role* role)
 {
     // 提前退出，AI操作都都读好了
-    if (role->networked) {
+    if (role->Networked) {
         return role->AI_Action;
     }
 

@@ -204,7 +204,8 @@ public:
 
 public:
     int RealID = -1;
-    bool networked = false;
+    bool Networked = false;
+    bool Competing = false;
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }

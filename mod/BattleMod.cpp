@@ -565,6 +565,13 @@ void BattleModifier::setRoleInitState(Role* r)
     BattleScene::setRoleInitState(r);
     if (r->RealID == -1)
         r->RealID = r->ID;
+    r->Networked = false;
+    if (network_) {
+        r->Competing = true;
+    }
+    else {
+        r->Competing = false;
+    }
     r->Progress = 0;
     r->ProgressChange = 0;
     r->BattleHurt = 0;
@@ -623,11 +630,12 @@ void BattleMod::BattleModifier::action(Role * r)
         r->AI_Magic = Save::getInstance()->getMagic(action.magicID);
         r->AI_MoveX = action.MoveX;
         r->AI_MoveY = action.MoveY;
-        r->networked = true;
+        r->Networked = true;
         BattleScene::action(r);
     }
     else {
         BattleScene::action(r);
+        if (r->AI_Action == -1) return;
         BattleNetwork::SerializableBattleAction action;
         action.Action = r->AI_Action;
         action.ActionX = r->AI_ActionX;

@@ -225,13 +225,13 @@ Console::Console()
         catch (...) {
             return;
         }
-        Save::getInstance()->saveCSV(-1);
+        Save::getInstance()->save(-1);
         
         auto host = BattleNetworkFactory::MakeHost();
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(host), id);
         battle.run();
-        Save::getInstance()->loadCSV(-1);
+        Save::getInstance()->load(-1);
     }
     else if (splits[0] == u8"client" && splits.size() >= 2) {
         int id;
@@ -241,18 +241,18 @@ Console::Console()
         catch (...) {
             return;
         }
-        Save::getInstance()->saveCSV(-1);
+        Save::getInstance()->save(-1);
         std::string host("localhost");
         std::string port("8122");
-        if (splits.size() >= 4) {
+        if (splits.size() >= 3) {
             host = PotConv::conv(splits[2], "utf-8", "ascii");
-            port = PotConv::conv(splits[3], "utf-8", "ascii");
+            // port = PotConv::conv(splits[3], "utf-8", "ascii");
         }
         auto client = BattleNetworkFactory::MakeClient(host, port);
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(client), id);
         battle.run();
-        Save::getInstance()->loadCSV(-1);
+        Save::getInstance()->load(-1);
     }
     
 }
