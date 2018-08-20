@@ -1,9 +1,9 @@
+#include "InputBox.h"
 #include "Engine.h"
 #include "Font.h"
-#include "InputBox.h"
+#include "OpenCCConverter.h"
 #include "PotConv.h"
 #include "Save.h"
-#include "OpenCCConverter.h"
 
 InputBox::InputBox()
 {

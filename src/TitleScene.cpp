@@ -1,7 +1,11 @@
+#include "TitleScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Button.h"
 #include "Event.h"
+#include "GameUtil.h"
+#include "INIReader.h"
+#include "InputBox.h"
 #include "MainScene.h"
 #include "Menu.h"
 #include "Random.h"
@@ -9,12 +13,8 @@
 #include "Script.h"
 #include "SubScene.h"
 #include "TeamMenu.h"
-#include "TitleScene.h"
 #include "UISave.h"
 #include "UIShop.h"
-#include "INIReader.h"
-#include "GameUtil.h"
-#include "InputBox.h"
 
 TitleScene::TitleScene()
 {

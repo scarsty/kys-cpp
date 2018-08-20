@@ -1,7 +1,7 @@
+#include "UI.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"
-#include "UI.h"
 
 UI::UI()
 {

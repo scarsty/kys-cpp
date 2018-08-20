@@ -1,6 +1,6 @@
+#include "Menu.h"
 #include "Button.h"
 #include "Font.h"
-#include "Menu.h"
 
 Menu::Menu()
 {

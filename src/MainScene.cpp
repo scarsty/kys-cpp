@@ -1,6 +1,6 @@
+#include "MainScene.h"
 #include "Console.h"
 #include "File.h"
-#include "MainScene.h"
 #include "Random.h"
 #include "Save.h"
 #include "SubScene.h"
@@ -152,7 +152,7 @@ void MainScene::draw()
     //    TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     //}
 
-    auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
+    auto sort_building = [](DrawInfo & d1, DrawInfo & d2)
     {
         return d1.index < d2.index;
     };
@@ -216,7 +216,8 @@ void MainScene::dealEvent(BP_Event& e)
     int pressed = 0;
 
     // Tab¼¤»î¿ØÖÆÌ¨
-    if (Engine::getInstance()->checkKeyPress(BPK_TAB)) {
+    if (Engine::getInstance()->checkKeyPress(BPK_TAB))
+    {
         Console c;
     }
 

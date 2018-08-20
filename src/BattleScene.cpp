@@ -1,5 +1,5 @@
-#include "Audio.h"
 #include "BattleScene.h"
+#include "Audio.h"
 #include "Event.h"
 #include "File.h"
 #include "Font.h"
@@ -547,11 +547,11 @@ void BattleScene::sortRoles()
 {
     if (semi_real_ == 0)
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) { return r1->Speed > r2->Speed; });
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role * r1, Role * r2) { return r1->Speed > r2->Speed; });
     }
     else
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) { return r1->Progress > r2->Progress; });
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role * r1, Role * r2) { return r1->Progress > r2->Progress; });
     }
 }
 

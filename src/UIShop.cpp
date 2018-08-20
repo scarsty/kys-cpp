@@ -1,7 +1,7 @@
+#include "UIShop.h"
 #include "Event.h"
 #include "Font.h"
 #include "Save.h"
-#include "UIShop.h"
 #include "libconvert.h"
 
 UIShop::UIShop()

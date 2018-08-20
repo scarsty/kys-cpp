@@ -1,10 +1,10 @@
+#include "UIStatus.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
-#include "UIStatus.h"
 #include "libconvert.h"
 
 UIStatus::UIStatus()
