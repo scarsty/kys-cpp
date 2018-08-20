@@ -24,7 +24,11 @@ public:
     ~Save();
 
     bool load(int num);
+    void loadR(int num);
+    void loadSD(int num);
     bool save(int num);
+    void saveR(int num);
+    void saveSD(int num);
 
     // °ïÖúÍøÂç½»Á÷
     void resetRData(const std::vector<RoleSave>& newData);
@@ -185,7 +189,7 @@ private:
         static void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx);
     };
 public:
-    void saveCSV(int num);
-    void loadCSV(int num);
+    void saveRToCSV(int num);
+    void loadRFromCSV(int num);
     bool insertAt(const std::string& type, int idx);
 };

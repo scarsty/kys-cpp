@@ -68,37 +68,9 @@ bool Save::load(int num)
     {
         return false;
     }
-    std::string filenamer = getFilename(num, 'r');
-    std::string filenames = getFilename(num, 's');
-    std::string filenamed = getFilename(num, 'd');
-    std::string filename_idx = "../game/save/ranger.idx32";
 
-    auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
-
-    memcpy(&InShip, rgrp + offset_[0], length_[0]);
-    File::readDataToVector(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
-    File::readDataToVector(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
-    File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
-    File::readDataToVector(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
-    File::readDataToVector(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
-
-    updateAllPtrVector();
-
-    delete[] rgrp;
-
-    auto submap_count = submap_infos_.size();
-
-    auto sdata = new char[submap_count * sdata_length_];
-    auto ddata = new char[submap_count * ddata_length_];
-    File::readFile(filenames, sdata, submap_count * sdata_length_);
-    File::readFile(filenamed, ddata, submap_count * ddata_length_);
-    for (int i = 0; i < submap_count; i++)
-    {
-        memcpy(&(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
-        memcpy(submap_infos_mem_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
-    }
-    delete[] sdata;
-    delete[] ddata;
+    loadR(num);
+    loadSD(num);
 
     //内部编码为cp936
     if (Encode != 936)
@@ -129,11 +101,55 @@ bool Save::load(int num)
     return true;
 }
 
-bool Save::save(int num)
+void Save::loadR(int num)
 {
     std::string filenamer = getFilename(num, 'r');
+    std::string filename_idx = "../game/save/ranger.idx32";
+    auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
+
+    memcpy(&InShip, rgrp + offset_[0], length_[0]);
+    File::readDataToVector(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    File::readDataToVector(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    File::readDataToVector(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    File::readDataToVector(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+
+    updateAllPtrVector();
+
+    delete[] rgrp;
+}
+
+void Save::loadSD(int num)
+{
     std::string filenames = getFilename(num, 's');
     std::string filenamed = getFilename(num, 'd');
+
+    auto submap_count = submap_infos_.size();
+
+    auto sdata = new char[submap_count * sdata_length_];
+    auto ddata = new char[submap_count * ddata_length_];
+    File::readFile(filenames, sdata, submap_count * sdata_length_);
+    File::readFile(filenamed, ddata, submap_count * ddata_length_);
+    for (int i = 0; i < submap_count; i++)
+    {
+        memcpy(&(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
+        memcpy(submap_infos_mem_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
+    }
+    delete[] sdata;
+    delete[] ddata;
+
+}
+
+bool Save::save(int num)
+{
+    saveR(num);
+    saveSD(num);
+    return true;
+}
+
+void Save::saveR(int num)
+{
+    std::string filenamer = getFilename(num, 'r');
 
     char* rgrp = new char[offset_.back()];
     memcpy(rgrp + offset_[0], &InShip, length_[0]);
@@ -145,7 +161,12 @@ bool Save::save(int num)
 
     File::writeFile(filenamer, rgrp, offset_.back());
     delete[] rgrp;
+}
 
+void Save::saveSD(int num)
+{
+    std::string filenames = getFilename(num, 's');
+    std::string filenamed = getFilename(num, 'd');
     auto submap_count = submap_infos_mem_.size();
 
     auto sdata = new char[submap_count * sdata_length_];
@@ -159,8 +180,6 @@ bool Save::save(int num)
     File::writeFile(filenamed, ddata, submap_count * ddata_length_);
     delete[] sdata;
     delete[] ddata;
-
-    return true;
 }
 
 void Save::resetRData(const std::vector<RoleSave>& newData)
@@ -283,7 +302,7 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
-void Save::saveCSV(int num)
+void Save::saveRToCSV(int num)
 {
     NewSave::SaveToCSVBaseInfo((BaseInfo*)this, 1, num);
     // 背包
@@ -300,7 +319,7 @@ void Save::saveCSV(int num)
     NewSave::SaveToCSVShopSave(shops_mem_, num);
 }
 
-void Save::loadCSV(int num)
+void Save::loadRFromCSV(int num)
 {
     NewSave::LoadFromCSVBaseInfo((BaseInfo*)this, 1, num);
     NewSave::LoadFromCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
@@ -310,6 +329,7 @@ void Save::loadCSV(int num)
     NewSave::LoadFromCSVMagicSave(magics_mem_, num);
     NewSave::LoadFromCSVShopSave(shops_mem_, num);
     updateAllPtrVector();
+    makeMaps();
 }
 
 bool Save::insertAt(const std::string& type, int idx)

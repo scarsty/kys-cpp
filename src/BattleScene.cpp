@@ -95,22 +95,22 @@ void BattleScene::draw()
     }
 
 #ifndef _DEBUG
-    if (need_change_earth_color_)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            for (int i = -view_width_region_; i <= view_width_region_; i++)
+            int ix = man_x_ + i + (sum / 2);
+            int iy = man_y_ - i + (sum - sum / 2);
+            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
+            p.x += x_;
+            p.y += y_;
+            if (!isOutLine(ix, iy))
             {
-                int ix = man_x_ + i + (sum / 2);
-                int iy = man_y_ - i + (sum - sum / 2);
-                auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
-                p.x += x_;
-                p.y += y_;
-                if (!isOutLine(ix, iy))
+                int num = earth_layer_->data(ix, iy) / 2;
+                BP_Color color = { 255, 255, 255, 255 };
+                bool need_draw = true;
+                if (need_change_earth_color_)
                 {
-                    int num = earth_layer_->data(ix, iy) / 2;
-                    BP_Color color = { 255, 255, 255, 255 };
-                    bool need_draw = true;
                     if (select_layer_->data(ix, iy) < 0)
                     {
                         color = { 64, 64, 64, 255 };
@@ -138,10 +138,10 @@ void BattleScene::draw()
                     {
                         color = { 255, 255, 255, 255 };
                     }
-                    if (need_draw && num > 0)
-                    {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
-                    }
+                }
+                if (need_draw && num > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
                 }
             }
         }
