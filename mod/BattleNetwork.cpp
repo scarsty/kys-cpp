@@ -10,6 +10,7 @@ bool BattleNetwork::sendMyAction(const BattleNetwork::SerializableBattleAction &
     asio::async_write(socket_, asio::buffer(&action, sizeof(action)), [](std::error_code err, std::size_t bytes) {
         printf("send %s\n", err.message().c_str());
     });
+    // asio::write(socket_, asio::buffer(&action, sizeof(action)));
     return true;
 }
 
@@ -17,6 +18,7 @@ bool BattleNetwork::getOpponentAction(BattleNetwork::SerializableBattleAction & 
 {
     printf("getOpponentAction\n");
     asio::async_read(socket_, asio::buffer(&action, sizeof(action)), f);
+    // asio::read(socket_, asio::buffer(&action, sizeof(action)));
     return true;
 }
 

@@ -612,16 +612,16 @@ void BattleMod::BattleModifier::action(Role * r)
         DrawableOnCall waitThis(f);
 
         // getOpponentAction读取完毕会调用此函数关闭显示
-        auto exit = [&, this](std::error_code err, std::size_t bytes) {
-            printf("recv %s\n", err.message());
+        auto exit = [&waitThis, this](std::error_code err, std::size_t bytes) {
+            printf("recv %s\n", err.message().c_str());
             waitThis.setExit(true);
         };
         // 打开后既开始获取数据
-        waitThis.setEntrance([this,&action,&exit]() {
+        waitThis.setEntrance([this, &action, exit]() {
             network_->getOpponentAction(action, exit);
-            // network_->asyncRun();
         });
         waitThis.run();
+
         // 这里返回后，就已经获得action
         action.print();
         r->AI_Action = action.Action;
@@ -837,7 +837,9 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
             defence += i->AddDefence;
         }
 
-        int v = attack - defence;
+        // 伤害太高，减少一点
+        int v = attack - defence * 2;
+
         //距离衰减
         //这个我应该也接手了..
         //思考，怎么改，怎么把calRoleDistance搞成一个变量，修改变量函数指针签名了只有
