@@ -14,6 +14,7 @@
 #include <vector>
 #include <utility>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <algorithm>
 #include <sstream>
@@ -48,11 +49,12 @@ Console::Console()
         int id = smt.getResult();
         printf("result %d\n", id);
     }
-    else if (code == u8"chuansong" || code == u8"teleport") 
+    else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache") 
     {
         // 返回的idx需要再映射一遍
         std::vector<std::string> locs;
         std::unordered_map<int, int> realIdxMapping;
+        std::unordered_map<std::string, std::unordered_set<std::string>> matches;
         for (const auto& info : Save::getInstance()->getSubMapInfos()) 
         {
             // 还有其他要求 这里作为一个demo就意思意思
@@ -61,7 +63,43 @@ Console::Console()
                 realIdxMapping[locs.size()] = info->ID;
                 std::string name(info->Name);
                 // 有空格方便完成双击确认
-                locs.push_back(name + " ");
+                locs.push_back(name);
+
+                // 拼音
+                auto u8Name = PotConv::cp936toutf8(name);
+                std::string pinyin;
+                pinyin.resize(1024);
+                int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
+                pinyin.resize(size);
+                auto pys = convert::splitString(pinyin, " ");
+                std::vector<std::string> acceptables;
+
+                std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx) {
+                    if (idx == pys.size()) {
+                        acceptables.push_back(curStr);
+                        return;
+                    }
+                    comboGenerator(curStr + pys[idx][0], idx + 1);
+                    comboGenerator(curStr + pys[idx], idx + 1);
+                };
+                comboGenerator("", 0);
+
+                for (auto& acc : acceptables) {
+                    for (int i = 0; i < acc.size(); i++) {
+                        matches[acc.substr(0, i + 1)].insert(name);
+                    }
+                }
+
+                // 直接对字，可以两个跳，但是不管了
+                for (int i = 0; i < name.size(); i++) {
+                    matches[name.substr(0, i + 1)].insert(name);
+                }
+
+                // 对id
+                std::string strID = std::to_string(info->ID);
+                for (int i = 0; i < strID.size(); i++) {
+                    matches[strID.substr(0, i + 1)].insert(name);
+                }
             }
         }
         int dx = 180;
@@ -136,46 +174,21 @@ Console::Console()
             }
         };
         auto doc = new DrawableOnCall(drawScene);
-        SuperMenuText smt("請輸入傳送地名（可半自動補全）：", 28, locs, 15);
+        SuperMenuText smt("可輸入傳送地名，編號或拼音搜索：", 28, locs, 15);
         smt.setInputPosition(dx, dy);
         smt.addDrawableOnCall(doc);
-        if (code == u8"chuansong") 
+
+        auto f = [&matches](const std::string& input, const std::string& name) 
         {
-            // 拼音流，效率稍微低了点，不重要
-            auto f = [](const std::string& input, const std::string& name) 
-            {
-                auto u8Name = PotConv::cp936toutf8(name);
-                std::string pinyin;
-                pinyin.resize(1024);
-                int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
-                pinyin.resize(size);
-                // 至今为止 std::string 不能split和join 真是失败
+            auto iterInput = matches.find(input);
+            if (iterInput != matches.end()) {
+                auto iterName = iterInput->second.find(name);
+                if (iterName != iterInput->second.end()) return true;
+            }
+            return false;
+        };
+        smt.setMatchFunction(f);
 
-                // 超低效率判断
-                // 新算法，比如说华山派 = hua shan pai
-                // 直接生成所有 单个字拼音的开头/全身组合
-                // 即，h-s-p, hua-s-p, h-shan-p, h-s-pai, hua-s-pai, hua-shan-p 等
-                auto pys = convert::splitString(pinyin, " ");
-                std::vector<std::string> acceptables;
-
-                std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx) {
-                    if (idx == pys.size()) {
-                        acceptables.push_back(curStr);
-                        return;
-                    }
-                    comboGenerator(curStr + pys[idx][0], idx + 1);
-                    comboGenerator(curStr + pys[idx], idx + 1);
-                };
-                comboGenerator("", 0);
-
-                for (auto& acc : acceptables) {
-                    if (acc.size() < input.size()) continue;
-                    if (memcmp(acc.c_str(), input.c_str(), input.size()) == 0) return true;
-                }
-                return false;
-            };
-            smt.setMatchFunction(f);
-        }
         smt.run();
         int id = smt.getResult();
         if (id != -1)
