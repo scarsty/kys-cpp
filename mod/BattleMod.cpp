@@ -609,12 +609,16 @@ void BattleMod::BattleModifier::action(Role * r)
         auto f = [](DrawableOnCall* d) {
             Font::getInstance()->draw("等待对方玩家行动...", 40, 30, 30, { 200, 200, 50, 255 });
         };
+
         DrawableOnCall waitThis(f);
 
         // getOpponentAction读取完毕会调用此函数关闭显示
         auto exit = [&waitThis, this](std::error_code err, std::size_t bytes) {
             printf("recv %s\n", err.message().c_str());
             waitThis.setExit(true);
+            if (err) {
+                this->setExit(true);
+            }
         };
         // 打开后既开始获取数据
         waitThis.setEntrance([this, &action, exit]() {
@@ -1115,13 +1119,6 @@ void BattleModifier::readBattleInfo()
         return;
     }
 
-    // 先获取随机种子
-    unsigned int seed;
-    network_->getRandSeed(seed);
-    // 因为一些愚蠢的原因，我需要两个
-    rand_.set_seed(seed);
-    rng.set_seed(seed + 1);
-
     // 选择队友
     TeamMenu team;
     team.setMode(1);
@@ -1135,10 +1132,41 @@ void BattleModifier::readBattleInfo()
         serializableRoles.push_back(me);
     }
 
-    // 传输己方，并获取对方参战人物id
-    std::vector<RoleSave> sandBoxRoles;
-    network_->rDataHandshake(serializableRoles, sandBoxRoles);
+    
+    auto f = [](DrawableOnCall* d) {
+        Font::getInstance()->draw("等待对方玩家连接...", 40, 30, 30, { 200, 200, 50, 255 });
+    };
+    DrawableOnCall waitThis(f);
 
+    // 连接会调用此函数关闭显示
+    auto exit = [&waitThis, this](std::error_code err, std::size_t bytes) {
+        printf("recv %s\n", err.message().c_str());
+        waitThis.setExit(true);
+        if (err) {
+            this->setExit(true);
+        }
+    };
+    // 打开后既开始获取数据
+    waitThis.setEntrance([this, exit]() {
+        network_->waitConnection(exit);
+    });
+    waitThis.run();
+
+    unsigned int seed;
+    std::vector<RoleSave> sandBoxRoles;
+    try {
+        // 传输己方，并获取对方参战人物id
+        // 这个是同步
+        network_->getRandSeed(seed);
+        network_->rDataHandshake(serializableRoles, sandBoxRoles);
+    }
+    catch (...) {
+        setExit(true);
+    }
+
+    // 因为一些愚蠢的原因，我需要两个
+    rand_.set_seed(seed);
+    rng.set_seed(seed + 1);
     Save::getInstance()->resetRData(sandBoxRoles);
 
     //设置全部角色的位置层，避免今后出错

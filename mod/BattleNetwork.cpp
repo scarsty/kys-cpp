@@ -1,5 +1,8 @@
 #include "BattleNetwork.h"
+#include "GameUtil.h"
+
 #include <random>
+
 
 using asio::ip::tcp;
 
@@ -47,7 +50,8 @@ void BattleNetwork::makeConnection(const std::string & port)
 {
     tcp::resolver resolver(io_context_);
     // 从ini读取吧，现在先localhost，等我搭建好
-    asio::ip::tcp::resolver::query q("localhost", port);
+    std::string server = GameUtil::getInstance()->getString("network", "server", "138.197.200.52");
+    asio::ip::tcp::resolver::query q(server, port);
     asio::error_code ec;
     auto endpoints = resolver.resolve(q, ec);
     printf("resolver %s\n", ec.message().c_str());
@@ -81,6 +85,12 @@ BattleHost::BattleHost(const std::string& strID) : BattleNetwork(strID)
     makeConnection("31111");
 }
 
+void BattleHost::waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f)
+{
+    int letItGo;
+    asio::async_read(socket_, asio::buffer(&letItGo, sizeof(letItGo)), f);
+}
+
 bool BattleHost::getRandSeed(unsigned int & seed)
 {
     std::random_device device;
@@ -112,6 +122,12 @@ BattleClient::BattleClient(const std::string& strID) : BattleNetwork(strID)
 {
     is_host_ = false;
     makeConnection("31112");
+}
+
+void BattleClient::waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f)
+{
+    int letItGo = 42;
+    asio::async_write(socket_, asio::buffer(&letItGo, sizeof(letItGo)), f);
 }
 
 bool BattleClient::getRandSeed(unsigned int & seed)
