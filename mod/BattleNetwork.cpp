@@ -22,31 +22,63 @@ bool BattleNetwork::getOpponentAction(BattleNetwork::SerializableBattleAction & 
     return true;
 }
 
+void BattleNetwork::setup()
+{
+    if (err_) return;
+    int len = strID_.size();
+    asio::write(socket_, asio::buffer(&len, sizeof(len)));
+    asio::write(socket_, asio::buffer(strID_.data(), len));
+    int result;
+    asio::read(socket_, asio::buffer(&result, sizeof(result)));
+    err_ = result == 0;
+}
+
+bool BattleNetwork::hasErr()
+{
+    return err_;
+}
+
 bool BattleNetwork::isHost()
 {
     return is_host_;
 }
 
-
-std::unique_ptr<BattleNetwork> BattleNetworkFactory::MakeHost()
+void BattleNetwork::makeConnection(const std::string & port)
 {
-    auto host = std::make_unique<BattleHost>();
+    tcp::resolver resolver(io_context_);
+    // 从ini读取吧，现在先localhost，等我搭建好
+    asio::ip::tcp::resolver::query q("localhost", port);
+    asio::error_code ec;
+    auto endpoints = resolver.resolve(q, ec);
+    printf("resolver %s\n", ec.message().c_str());
+    asio::connect(socket_, endpoints, ec);
+    printf("connection %s\n", ec.message().c_str());
+    if (ec) {
+        err_ = true;
+    }
+}
+
+
+std::unique_ptr<BattleNetwork> BattleNetworkFactory::MakeHost(const std::string& id)
+{
+    auto host = std::make_unique<BattleHost>(id);
     host->asyncRun();
+    host->setup();
     return std::move(host);
 }
 
-std::unique_ptr<BattleNetwork> BattleNetworkFactory::MakeClient(const std::string & host, const std::string & port)
+std::unique_ptr<BattleNetwork> BattleNetworkFactory::MakeClient(const std::string& id)
 {
-    auto client = std::make_unique<BattleClient>(host, port);
+    auto client = std::make_unique<BattleClient>(id);
     client->asyncRun();
+    client->setup();
     return std::move(client);
 }
 
-BattleHost::BattleHost()
+BattleHost::BattleHost(const std::string& strID) : BattleNetwork(strID)
 {
-    tcp::acceptor acceptor(io_context_, tcp::endpoint(tcp::v4(), 8122));
-    acceptor.accept(socket_);
     is_host_ = true;
+    makeConnection("31111");
 }
 
 bool BattleHost::getRandSeed(unsigned int & seed)
@@ -76,17 +108,10 @@ void BattleHost::rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<Rol
     }
 }
 
-BattleClient::BattleClient(const std::string& host, const std::string& port)
+BattleClient::BattleClient(const std::string& strID) : BattleNetwork(strID)
 {
-    printf("trying to connect to %s, %s\n", host.c_str(), port.c_str());
-    tcp::resolver resolver(io_context_);
-    asio::ip::tcp::resolver::query q(host, port);
-    asio::error_code ec;
-    auto endpoints = resolver.resolve(q, ec);
-    printf("resolver %s\n", ec.message().c_str());
-    asio::connect(socket_, endpoints, ec);
-    printf("connection %s\n", ec.message().c_str());
     is_host_ = false;
+    makeConnection("31112");
 }
 
 bool BattleClient::getRandSeed(unsigned int & seed)

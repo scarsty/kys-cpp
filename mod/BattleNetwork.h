@@ -11,7 +11,7 @@
 class BattleNetwork {
 public:
     // , strand_(io_context_) 
-    BattleNetwork() : socket_(io_context_), work_(io_context_){};
+    BattleNetwork(const std::string& strID) : socket_(io_context_), work_(io_context_), strID_(strID) {};
 
     virtual ~BattleNetwork() {
         io_context_.stop();
@@ -55,29 +55,35 @@ public:
     // async，成功后
     bool getOpponentAction(BattleNetwork::SerializableBattleAction& action, std::function<void(std::error_code err, std::size_t bytes)> f);
 
+    void setup();
+
+    bool hasErr();
     bool isHost();
 
 protected:
+    void makeConnection(const std::string& port);
+
     asio::io_context io_context_;
     asio::ip::tcp::socket socket_;
     asio::io_service::work  work_;
     // asio::io_context::strand strand_;
     bool is_host_;
+    bool err_ = false;
     std::thread worker_;
-
+    std::string strID_;
 };
 
 
 class BattleHost : public BattleNetwork {
 public:
-    BattleHost();
+    BattleHost(const std::string& strID);
     bool getRandSeed(unsigned int& seed) override;
     void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) override;
 };
 
 class BattleClient : public BattleNetwork {
 public:
-    BattleClient(const std::string& host, const std::string& port);
+    BattleClient(const std::string& strID);
     bool getRandSeed(unsigned int& seed) override;
     void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) override;
 };
@@ -85,6 +91,6 @@ public:
 class BattleNetworkFactory {
 public:
     // 等待连接
-    static std::unique_ptr<BattleNetwork> MakeHost();
-    static std::unique_ptr<BattleNetwork> MakeClient(const std::string& host, const std::string& port);
+    static std::unique_ptr<BattleNetwork> MakeHost(const std::string& id);
+    static std::unique_ptr<BattleNetwork> MakeClient(const std::string& id);
 };

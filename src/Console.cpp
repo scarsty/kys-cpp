@@ -230,24 +230,27 @@ Console::Console()
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
-    else if (splits[0] == u8"host") {
+    else if (splits[0] == u8"host" && splits.size() >= 1) {
         Save::getInstance()->save(11);
         
-        auto host = BattleNetworkFactory::MakeHost();
+        auto host = BattleNetworkFactory::MakeHost(splits[1]);
+        if (host->hasErr()) {
+            printf("连接出错了，可能是ID重复\n");
+            return;
+        }
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(host));
         battle.run();
+
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == u8"client") {
+    else if (splits[0] == u8"client" && splits.size() >= 1) {
         Save::getInstance()->save(11);
-        std::string host("localhost");
-        std::string port("8122");
-        if (splits.size() >= 2) {
-            host = PotConv::conv(splits[1], "utf-8", "ascii");
-            // port = PotConv::conv(splits[2], "utf-8", "ascii");
+        auto client = BattleNetworkFactory::MakeClient(splits[1]);
+        if (client->hasErr()) {
+            printf("连接出错了，可能是ID不存在\n");
+            return;
         }
-        auto client = BattleNetworkFactory::MakeClient(host, port);
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(client));
         battle.run();
