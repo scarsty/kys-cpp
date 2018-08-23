@@ -4,7 +4,7 @@
 
 std::vector<Element*> Element::root_;
 int Element::prev_present_ticks_ = 0;
-int Element::refresh_interval_ = 25;
+int Element::refresh_interval_ = 16;
 int Element::render_message_ = 0;
 
 Element::~Element()
@@ -395,8 +395,7 @@ void Element::checkSelfState(BP_Event& e)
 
 void Element::present()
 {
-    int t1 = Engine::getTicks();
-    int t = t1 - prev_present_ticks_;
+    int t = Engine::getTicks() - prev_present_ticks_;
 
     if (render_message_)
     {
@@ -404,19 +403,19 @@ void Element::present()
         Font::getInstance()->draw("Render one frame in " + std::to_string(t) + "ms", 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
         Font::getInstance()->draw("RenderCopy times: " + std::to_string(Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 30);
         e->resetRenderTimes();
-        e->renderPresent();
     }
-
+    Engine::getInstance()->renderPresent();
     int t_delay = refresh_interval_ - t;
     if (t_delay > refresh_interval_)
     {
         t_delay = refresh_interval_;
     }
+    //printf("%d/%d ", t_delay, prev_present_ticks_);
     if (t_delay > 0)
     {
         Engine::delay(t_delay);
     }
-    prev_present_ticks_ = t1;
+    prev_present_ticks_ = Engine::getTicks();
 }
 
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出

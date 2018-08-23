@@ -148,6 +148,8 @@ public:
     void resetRenderTimes(int t = 0) { render_times_ = t; }
     int getRenderTimes() { return render_times_; }
 
+    BP_Texture* getRenderAssistTexture() { return tex2_; }
+
     //事件相关
 private:
     int time_;
