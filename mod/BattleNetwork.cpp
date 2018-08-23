@@ -85,9 +85,8 @@ BattleHost::BattleHost(const std::string& strID) : BattleNetwork(strID)
     makeConnection("31111");
 }
 
-void BattleHost::waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f)
+void BattleHost::waitConnection(int& letItGo, std::function<void(std::error_code err, std::size_t bytes)> f)
 {
-    int letItGo;
     asio::async_read(socket_, asio::buffer(&letItGo, sizeof(letItGo)), f);
 }
 
@@ -124,10 +123,10 @@ BattleClient::BattleClient(const std::string& strID) : BattleNetwork(strID)
     makeConnection("31112");
 }
 
-void BattleClient::waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f)
+void BattleClient::waitConnection(int& letItGo, std::function<void(std::error_code err, std::size_t bytes)> f)
 {
-    int letItGo = 42;
-    asio::async_write(socket_, asio::buffer(&letItGo, sizeof(letItGo)), f);
+    asio::async_write(socket_, asio::buffer(&go_, sizeof(go_)), f);
+    letItGo = BattleClient::GO;
 }
 
 bool BattleClient::getRandSeed(unsigned int & seed)

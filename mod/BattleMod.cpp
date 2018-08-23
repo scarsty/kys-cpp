@@ -1118,6 +1118,35 @@ void BattleModifier::readBattleInfo()
         BattleScene::readBattleInfo();
         return;
     }
+    
+    auto f = [](DrawableOnCall* d) {
+        Font::getInstance()->draw("等待对方玩家连接...", 40, 30, 30, { 200, 200, 50, 255 });
+    };
+    DrawableOnCall waitThis(f);
+
+    int go = 0;
+    // 连接会调用此函数关闭显示
+    std::function<void(std::error_code err, std::size_t bytes)> exit = 
+        [&waitThis, &go, &exit, this](std::error_code err, std::size_t bytes) {
+            printf("recv %s\n", err.message().c_str());
+            if (err) {
+                this->setExit(true);
+                waitThis.setExit(true);
+                return;
+            }
+            if (go == BattleClient::GO) {
+                waitThis.setExit(true);
+            }
+            else {
+                // keep on waiting until GO
+                network_->waitConnection(go, exit);
+            }
+        };
+    // 打开后既开始获取数据
+    waitThis.setEntrance([this, exit, &go]() {
+        network_->waitConnection(go, exit);
+    });
+    waitThis.run();
 
     // 选择队友
     TeamMenu team;
@@ -1128,29 +1157,9 @@ void BattleModifier::readBattleInfo()
     std::vector<RoleSave> serializableRoles;
     for (auto r : friends_) {
         RoleSave me;
-        memcpy(&me, r, sizeof(me));
+        std::memcpy(&me, r, sizeof(me));
         serializableRoles.push_back(me);
     }
-
-    
-    auto f = [](DrawableOnCall* d) {
-        Font::getInstance()->draw("等待对方玩家连接...", 40, 30, 30, { 200, 200, 50, 255 });
-    };
-    DrawableOnCall waitThis(f);
-
-    // 连接会调用此函数关闭显示
-    auto exit = [&waitThis, this](std::error_code err, std::size_t bytes) {
-        printf("recv %s\n", err.message().c_str());
-        waitThis.setExit(true);
-        if (err) {
-            this->setExit(true);
-        }
-    };
-    // 打开后既开始获取数据
-    waitThis.setEntrance([this, exit]() {
-        network_->waitConnection(exit);
-    });
-    waitThis.run();
 
     unsigned int seed;
     std::vector<RoleSave> sandBoxRoles;
@@ -1322,6 +1331,35 @@ void BattleMod::BattleModifier::setupNetwork(std::unique_ptr<BattleNetwork> net,
 {
     network_ = std::move(net);
     setID(battle_id);
+}
+
+void BattleMod::BattleModifier::renderExtraInfo(Role * r, int x, int y)
+{
+    BP_Color background_color = { 0, 255, 0, 128 };
+    BP_Color outline_color = { 0, 0, 0, 128 };
+    if (r->Team == 1)
+        background_color = { 255, 0, 0, 128 };
+    int hp_x = x - 20;
+    int hp_y = y - 63;
+    int hp_max_w = 40;
+    int hp_h = 3;
+    Engine::getInstance()->fillColor(background_color, hp_x, hp_y, ((double)r->HP / r->MaxHP) * hp_max_w, hp_h);
+    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, hp_max_w, 1);
+    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
+    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
+    Engine::getInstance()->fillColor(outline_color, hp_x + hp_max_w, hp_y, 1, hp_h);
+    int i = 4;
+    for (auto& s : battleStatus_) {
+        if (!s.hide) {
+            int val = battleStatusManager_[r->ID].getBattleStatusVal(s.id);
+            if (val == 0) continue;
+            int actual_w = ((double)val / 100.0) * hp_max_w;
+            Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + i, hp_max_w, 1);
+            Engine::getInstance()->fillColor(s.color, hp_x + 1, hp_y + i, actual_w, 1);
+            i += 1;
+        }
+    }
+    
 }
 
 

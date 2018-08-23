@@ -31,7 +31,7 @@ public:
         });
     }
 
-    virtual void waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f) = 0;
+    virtual void waitConnection(int& letItGo, std::function<void(std::error_code err, std::size_t bytes)> f) = 0;
     virtual bool getRandSeed(unsigned int& seed) = 0;
 
     // 己方参战id，最终roles结果
@@ -78,17 +78,20 @@ protected:
 class BattleHost : public BattleNetwork {
 public:
     BattleHost(const std::string& strID);
-    void waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f) override;
+    void waitConnection(int& letItGo, std::function<void(std::error_code err, std::size_t bytes)> f) override;
     bool getRandSeed(unsigned int& seed) override;
     void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) override;
 };
 
 class BattleClient : public BattleNetwork {
 public:
+    static const int GO = 42;
     BattleClient(const std::string& strID);
-    void waitConnection(std::function<void(std::error_code err, std::size_t bytes)> f) override;
+    void waitConnection(int& letItGo, std::function<void(std::error_code err, std::size_t bytes)> f) override;
     bool getRandSeed(unsigned int& seed) override;
     void rDataHandshake(std::vector<RoleSave>& my_roles, std::vector<RoleSave>& roles) override;
+private:
+    int go_ = GO;
 };
 
 class BattleNetworkFactory {

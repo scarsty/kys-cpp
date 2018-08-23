@@ -136,6 +136,7 @@ public:
     // 同时可能还需要一个battleinfo, 以后再说！
     void setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id = 67);
 
+    void renderExtraInfo(Role* r, int x, int y) override;
 };
 
 }

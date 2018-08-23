@@ -150,4 +150,7 @@ public:
     virtual int getTeamMateCount(int team);    //获取队员数目
     virtual int checkResult();                 //检查结果
     virtual void calExpGot();                  //计算经验
+
+
+    virtual void renderExtraInfo(Role* r, int x, int y) {};
 };

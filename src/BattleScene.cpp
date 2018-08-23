@@ -191,6 +191,8 @@ void BattleScene::draw()
                         alpha = dead_alpha_;
                     }
                     TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color, alpha);
+                    renderExtraInfo(r, p.x, p.y);
+                    // ÆäËû×´Ì¬
                 }
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
