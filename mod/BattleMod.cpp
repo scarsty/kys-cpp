@@ -25,10 +25,12 @@ void BattleMod::BattleModifier::init()
 {
 
     // 测试
+    /*
     Event::getInstance()->setRoleMagic(0, 1, 2, 999);
     Save::getInstance()->getRole(0)->MaxHP = 999;
     Save::getInstance()->getRole(0)->HP = 999;
     Save::getInstance()->getRole(0)->Defence = 80;
+    */
 
     YAML::Node baseNode;
     // 可以整个都套try，出了问题就特效全清空
@@ -569,6 +571,12 @@ void BattleModifier::setRoleInitState(Role* r)
     r->Networked = false;
     if (network_) {
         r->Competing = true;
+        r->Auto = 0;
+        r->PhysicalPower = 90;
+        r->HP = r->MaxHP;
+        r->MP = r->MaxMP;
+        r->Poison = 0;
+        r->Hurt = 0;
     }
     else {
         r->Competing = false;
@@ -576,6 +584,7 @@ void BattleModifier::setRoleInitState(Role* r)
     r->Progress = 0;
     r->ProgressChange = 0;
     r->BattleHurt = 0;
+    printf("ID %d realID %d Team %d\n", r->ID, r->RealID, r->Team);
     battleStatusManager_[r->ID].initStatus(r, &battleStatus_);
 }
 
@@ -1214,7 +1223,6 @@ void BattleModifier::readBattleInfo()
         }
     }
 
-
     //视角转至第一个敌人
     if (battle_roles_.size() > 0)
     {
@@ -1250,7 +1258,7 @@ Role* BattleModifier::semiRealPickOrTick() {
         // 先是全部效果
         tryProcAndAddToManager(speedAll_, speedEffectManager_, r, nullptr, nullptr);
         // 自己的效果
-        tryProcAndAddToManager(r->ID, speedRole_, speedEffectManager_, r, nullptr, nullptr);
+        tryProcAndAddToManager(r->RealID, speedRole_, speedEffectManager_, r, nullptr, nullptr);
         // 自己武功的效果，每次集气这么算一遍 累趴了
         for (int i = 0; i < r->getLearnedMagicCount(); i++) {
             tryProcAndAddToManager(r->MagicID[i], speedMagic_, speedEffectManager_, r, nullptr, Save::getInstance()->getMagic(r->MagicID[i]));

@@ -78,7 +78,11 @@ int BattleMod::Variable::getVal(const Role * attacker, const Role * defender, co
 {
     switch (target_) {
     case VarTarget::Other: return func_(defender, wg);
-    default: return func_(attacker, wg);
+    default: {
+        // for debugging
+        auto result = func_(attacker, wg);
+        return result;
+    }
     }
     return 0;
 }
@@ -269,7 +273,7 @@ std::vector<EffectIntsPair> BattleMod::EffectCounter::proc(const Role * attacker
 {
     if (attacker == nullptr) return {};
     if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
-    int id = attacker->ID;
+    int id = attacker->RealID;
     auto& count = counter_[id];
     count += add_.getVal(attacker, defender, wg);
     if (count > total_.getVal(attacker, defender, wg)) {
