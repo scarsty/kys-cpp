@@ -47,7 +47,7 @@ EffectIntsPair & BattleMod::EffectIntsPair::operator+=(const EffectIntsPair & rh
             statusStrMap[rhs.params_[i]] = rhs.params_[i + 1];
         }
         for (std::size_t i = 0; i < params_.size() / 2; i += 2) {
-            statusStrMap[params_[i]] = params_[i + 1];
+            statusStrMap[params_[i]] += params_[i + 1];
         }
         params_.clear();
         for (const auto& p : statusStrMap) {
@@ -116,8 +116,19 @@ int BattleMod::LinearAdder::getVal(const Role * attacker, const Role * defender,
     return int(k_ * v_.getVal(attacker, defender, wg));
 }
 
-BattleMod::VariableParam::VariableParam(int base) : base_(base)
+BattleMod::VariableParam::VariableParam(int base, int min, int max) : 
+    base_(base), min_(min), max_(max)
 {
+}
+
+void BattleMod::VariableParam::setMin(int min)
+{
+    min_ = min;
+}
+
+void BattleMod::VariableParam::setMax(int max)
+{
+    max_ = max;
 }
 
 int BattleMod::VariableParam::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
@@ -127,6 +138,8 @@ int BattleMod::VariableParam::getVal(const Role * attacker, const Role * defende
     for (const auto& adder : adders_) {
         sum += adder->getVal(attacker, defender, wg);
     }
+    if (sum < min_) sum = min_;
+    if (sum > max_) sum = max_;
     // 是不是就看attacker就够了呢？防御者特效的时候是否防御者变成了attacker？
     // 这个命名方式一定要改
     return sum;

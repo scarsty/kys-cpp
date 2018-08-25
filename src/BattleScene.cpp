@@ -1494,12 +1494,13 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
             total_frames = (std::max)(total_frames, effect_count);
             // efts[r->ID] = { path, effect_count };
         }
+        printf("hurtting %d\n", r->BattleHurt);
     }
     if (!need_show)
     {
         return;
     }
-
+    int actual_total = delay * total_frames;
     for (int i_frame = 0; i_frame < total_frames; i_frame++)
     {
         if (exit_)
@@ -1528,13 +1529,15 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
                         if (!floating)
                         {
                             // 调整一下
-                            y = p.y - total_frames + y_pos;
+                            y = p.y - actual_total + y_pos;
                         }
-                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 255 / total_frames * i_frame);
+                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 255 / actual_total * i_frame);
                         y_pos += show_string.Size + 2;
                     }
                 }
-                r->Progress += r->ProgressChange / total_frames;
+                r->HP -= r->BattleHurt / actual_total;
+                // printf("hp %d\n", r->HP);
+                r->Progress += r->ProgressChange / actual_total;
             }
         };
         drawAndPresent(delay, drawNumber);
@@ -1544,7 +1547,11 @@ void BattleScene::showNumberAnimation(int delay, bool floating)
     {
         r->Effect = -1;
         r->clearShowStrings();
-        r->Progress += r->ProgressChange - total_frames * (r->ProgressChange / total_frames);
+        r->Progress += r->ProgressChange - actual_total * (r->ProgressChange / actual_total);
+        r->HP += (r->BattleHurt / actual_total) * actual_total;
+        r->HP -= r->BattleHurt;
+        // printf("final hp %d\n", r->HP);
+        r->BattleHurt = 0;
         r->ProgressChange = 0;
     }
 }

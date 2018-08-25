@@ -9,7 +9,7 @@
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
 #include "BattleMod.h"
-//#include "NewSave.h"
+
 
 #include <string>
 #include <vector>
@@ -245,12 +245,10 @@ Console::Console()
     }
     else if (splits[0] == u8"host" && splits.size() >= 1) {
         Save::getInstance()->save(11);
-        
+
         auto host = BattleNetworkFactory::MakeHost(splits[1]);
-        if (host->hasErr()) {
-            printf("连接出错了，可能是ID重复\n");
-            return;
-        }
+        if (!host) return;
+
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(host));
         battle.run();
@@ -259,14 +257,14 @@ Console::Console()
     }
     else if (splits[0] == u8"client" && splits.size() >= 1) {
         Save::getInstance()->save(11);
+
         auto client = BattleNetworkFactory::MakeClient(splits[1]);
-        if (client->hasErr()) {
-            printf("连接出错了，可能是ID不存在\n");
-            return;
-        }
+        if (!client) return;
+
         BattleMod::BattleModifier battle;
         battle.setupNetwork(std::move(client));
         battle.run();
+
         Save::getInstance()->load(11);
     }
     

@@ -122,13 +122,20 @@ namespace BattleMod {
 
     class VariableParam {
     public:
-        VariableParam(int base);
+        // 用int最大值其实反而不好，最大最小判断很麻烦
+        static const int DEFAULTMIN = -999999;
+        static const int DEFAULTMAX = 999999;
+        VariableParam(int base, int min = VariableParam::DEFAULTMIN, int max = VariableParam::DEFAULTMAX);
+        void setMin(int min);
+        void setMax(int max);
         int getVal(const Role* attacker, const Role* defender, const Magic* wg) const;
         void addAdder(std::unique_ptr<Adder> adder);
         VariableParam(const VariableParam&) = delete;
-        VariableParam(VariableParam&& o) noexcept : base_(o.base_), adders_(std::move(o.adders_)) { }
+        VariableParam(VariableParam&& o) noexcept : base_(o.base_), min_(o.min_), max_(o.max_), adders_(std::move(o.adders_)) { }
     private:
         int base_;
+        int min_;
+        int max_;
         std::vector<std::unique_ptr<Adder>> adders_;
     };
 

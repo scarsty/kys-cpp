@@ -365,8 +365,10 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
                 // 或者靠id走 Save:: 也可以
                 int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(cc, mm);
                 level_index = mm->calMaxLevelIndexByMP(cc->MP, level_index);
+                if (mm->HurtType == 1) return mm->HurtMP[level_index];
                 return mm->Attack[level_index];
             };
+            break;
         }
         default: {
             printf("%d variable id not found\n", varID);
@@ -411,6 +413,12 @@ VariableParam BattleMod::BattleModifier::readVariableParam(const YAML::Node & no
     }
     const auto& pNode = node[u8"可变参数"];
     VariableParam vp(pNode[u8"基础"].as<int>());
+    if (const auto& minNode = pNode[u8"最小"]) {
+        vp.setMin(minNode.as<int>());
+    }
+    if (const auto& maxNode = pNode[u8"最大"]) {
+        vp.setMax(maxNode.as<int>());
+    }
     if (const auto& adders = pNode[u8"加成"]) {
         for (const auto& adder : adders) {
             vp.addAdder(readAdder(adder));
@@ -731,10 +739,19 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
             }
         }
         */
+        // 这里很蠢，先这样吧
+        std::vector<int> savedHurt;
+        for (auto r2 : battle_roles_) {
+            savedHurt.push_back(r2->BattleHurt);
+            r2->BattleHurt = 0;
+        }
 
         // 应该先护体，不显示伤害
         showNumberAnimation(2, false);
 
+        for (int i = 0; i < battle_roles_.size(); i++) {
+            battle_roles_[i]->BattleHurt = savedHurt[i];
+        }
         // 然后显示伤害
         for (auto r2 : battle_roles_) {
             if (r2->BattleHurt != 0) {
@@ -745,13 +762,9 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
                 else if (magic->HurtType == 1)
                 {
                     r2->addShowString(convert::formatString("-%d", r2->BattleHurt), { 160, 32, 240, 255 });
+                    r2->BattleHurt = 0;
                 }
             }
-            r2->BattleHurt = 0;
-        }
-
-        // 再来搞一波状态
-        for (auto r2 : battle_roles_) {
             // 这里先都扔进去，伤害结算完了算状态，憋算了
             auto result = battleStatusManager_[r2->ID].materialize();
             for (auto const& p : result) {
@@ -759,6 +772,7 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
                     r2->addShowString(convert::formatString("%s %d", p.first.display.c_str(), p.second), p.first.color);
             }
         }
+
         showNumberAnimation(3);
 
         //武学等级增加
@@ -973,7 +987,8 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             {
                 // r2->addShowString(convert::formatString("-%d", hurt), { 255, 20, 20, 255 }, 30);
                 int prevHP = r2->HP;
-                r2->HP = GameUtil::limit(r2->HP - r2->BattleHurt, 0, r2->MaxHP);
+                r2->BattleHurt = GameUtil::limit(r2->BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
+                // r2->HP = GameUtil::limit(r2->HP - r2->BattleHurt, 0, r2->MaxHP);
                 int hurt1 = prevHP - r2->HP;
                 r->ExpGot += hurt1;
                 if (r2->HP <= 0)
@@ -1128,60 +1143,10 @@ void BattleModifier::readBattleInfo()
         return;
     }
     
-    auto f = [](DrawableOnCall* d) {
-        Font::getInstance()->draw("等待对方玩家连接...", 40, 30, 30, { 200, 200, 50, 255 });
-    };
-    DrawableOnCall waitThis(f);
-
-    int go = 0;
-    // 连接会调用此函数关闭显示
-    std::function<void(std::error_code err, std::size_t bytes)> exit = 
-        [&waitThis, &go, &exit, this](std::error_code err, std::size_t bytes) {
-            printf("recv %s\n", err.message().c_str());
-            if (err) {
-                this->setExit(true);
-                waitThis.setExit(true);
-                return;
-            }
-            if (go == BattleClient::GO) {
-                waitThis.setExit(true);
-            }
-            else {
-                // keep on waiting until GO
-                network_->waitConnection(go, exit);
-            }
-        };
-    // 打开后既开始获取数据
-    waitThis.setEntrance([this, exit, &go]() {
-        network_->waitConnection(go, exit);
-    });
-    waitThis.run();
-
-    // 选择队友
-    TeamMenu team;
-    team.setMode(1);
-    team.run();
-    friends_ = team.getRoles();
-
-    std::vector<RoleSave> serializableRoles;
-    for (auto r : friends_) {
-        RoleSave me;
-        std::memcpy(&me, r, sizeof(me));
-        serializableRoles.push_back(me);
-    }
-
     unsigned int seed;
+    int friends;
     std::vector<RoleSave> sandBoxRoles;
-    try {
-        // 传输己方，并获取对方参战人物id
-        // 这个是同步
-        network_->getRandSeed(seed);
-        network_->rDataHandshake(serializableRoles, sandBoxRoles);
-    }
-    catch (...) {
-        setExit(true);
-    }
-
+    network_->getResults(seed, friends, sandBoxRoles);
     // 因为一些愚蠢的原因，我需要两个
     rand_.set_seed(seed);
     rng.set_seed(seed + 1);
@@ -1195,31 +1160,34 @@ void BattleModifier::readBattleInfo()
         r->Auto = 1;
     }
 
+    // 这里代码写的很差，不过先这样吧
     if (network_->isHost()) {
         // friends_占据前几个
-        for (int i = 0; i < friends_.size(); i++) {
+        for (int i = 0; i < friends; i++) {
             auto r = Save::getInstance()->getRole(i);
             setupRolePosition(r, 0, info_->TeamMateX[i], info_->TeamMateY[i]);
+            friends_.push_back(r);
         }
         // 因为知道friends_大小，可得知几个敌人
-        for (int i = 0; i < sandBoxRoles.size() - friends_.size(); i++) {
-            auto r = Save::getInstance()->getRole(i + friends_.size());
+        for (int i = 0; i < sandBoxRoles.size() - friends; i++) {
+            auto r = Save::getInstance()->getRole(i + friends);
             setupRolePosition(r, 1, info_->EnemyX[i], info_->EnemyY[i]);
         }
     }
     else {
         // friends_占据后几个
         // 先对方
-        for (int i = 0; i < sandBoxRoles.size() - friends_.size(); i++) {
+        for (int i = 0; i < sandBoxRoles.size() - friends; i++) {
             auto r = Save::getInstance()->getRole(i);
             // TeamMateX实际是对面的
             setupRolePosition(r, 1, info_->TeamMateX[i], info_->TeamMateY[i]);
         }
         // 然后是自己
-        for (int i = 0; i < friends_.size(); i++) {
-            int friend_idx = sandBoxRoles.size() - friends_.size() + i;
+        for (int i = 0; i < friends; i++) {
+            int friend_idx = sandBoxRoles.size() - friends + i;
             auto r = Save::getInstance()->getRole(friend_idx);
             setupRolePosition(r, 0, info_->EnemyX[i], info_->EnemyY[i]);
+            friends_.push_back(r);
         }
     }
 
@@ -1351,7 +1319,9 @@ void BattleMod::BattleModifier::renderExtraInfo(Role * r, int x, int y)
     int hp_y = y - 63;
     int hp_max_w = 40;
     int hp_h = 3;
-    Engine::getInstance()->fillColor(background_color, hp_x, hp_y, ((double)r->HP / r->MaxHP) * hp_max_w, hp_h);
+    double perc = ((double)r->HP / r->MaxHP);
+    if (perc < 0) perc = 0;
+    Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, hp_max_w, 1);
     Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
     Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
@@ -1361,7 +1331,7 @@ void BattleMod::BattleModifier::renderExtraInfo(Role * r, int x, int y)
         if (!s.hide) {
             int val = battleStatusManager_[r->ID].getBattleStatusVal(s.id);
             if (val == 0) continue;
-            int actual_w = ((double)val / 100.0) * hp_max_w;
+            int actual_w = ((double)val / s.max) * hp_max_w;
             Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + i, hp_max_w, 1);
             Engine::getInstance()->fillColor(s.color, hp_x + 1, hp_y + i, actual_w, 1);
             i += 1;
