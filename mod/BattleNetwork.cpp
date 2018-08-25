@@ -113,14 +113,14 @@ void BattleHost::rDataHandshake()
     // 先传输人数
     printf("rDataHandshake\n");
     int_buf_ = friends_.size();
-    socket_.async_send(asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) {
+    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) {
         CALLBACK_ON_ERROR(err);
         const_bufs_.clear();
         for (int i = 0; i < int_buf_; i++) {
             const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(RoleSave)));
             role_result_.push_back(friends_[i]);
         }
-        socket_.async_send(const_bufs_, [this](const std::error_code& err, std::size_t bytes) {
+        asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes) {
             CALLBACK_ON_ERROR(err);
             // 获取对面人数
             asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) {
@@ -226,7 +226,7 @@ void BattleClient::rDataHandshake()
         asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes) {
             CALLBACK_ON_ERROR(err);
             int_buf_ = friends_.size();
-            socket_.async_send(asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) {
+            asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) {
                 CALLBACK_ON_ERROR(err);
                 // 送人
                 const_bufs_.clear();
@@ -234,7 +234,7 @@ void BattleClient::rDataHandshake()
                     const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(RoleSave)));
                     role_result_.push_back(friends_[i]);
                 }
-                socket_.async_send(const_bufs_, [this](const std::error_code& err, std::size_t bytes) {
+                asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes) {
                     CALLBACK_ON_ERROR(err);
                     concileMagicData();
                 });
