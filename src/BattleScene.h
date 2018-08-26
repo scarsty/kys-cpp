@@ -127,7 +127,7 @@ public:
     virtual void actDetoxification(Role* r);     //½â¶¾
     virtual void actMedicine(Role* r);           //Ò½ÁÆ
     virtual void actUseHiddenWeapon(Role* r);    //°µÆ÷
-    virtual void actUseDrag(Role* r);            //³ÔÒ©
+    virtual void actUseDrug(Role* r);            //³ÔÒ©
     virtual void actWait(Role* r);               //µÈ´ý
     virtual void actStatus(Role* r);             //×´Ì¬
     virtual void actAuto(Role* r);               //×Ô¶¯

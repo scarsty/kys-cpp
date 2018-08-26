@@ -896,7 +896,7 @@ void BattleScene::action(Role* r)
     }
     else if (str == "ËŽÆ·")
     {
-        actUseDrag(r);
+        actUseDrug(r);
     }
     else if (str == "µÈ´ý")
     {
@@ -1100,7 +1100,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
     delete item_menu;
 }
 
-void BattleScene::actUseDrag(Role* r)
+void BattleScene::actUseDrug(Role* r)
 {
     auto item_menu = new BattleItemMenu();
     item_menu->setForceItemType(2);
