@@ -54,6 +54,12 @@ void BattleActionMenu::setRole(Role* r)
         childs_text_["暗器"]->setVisible(false);
     }
 
+    if (role_->Competing)
+    {
+        childs_text_["藥品"]->setVisible(false);
+        childs_text_["暗器"]->setVisible(false);
+    }
+
     childs_text_["等待"]->setVisible(false);  //禁用等待
 
     setFontSize(20);

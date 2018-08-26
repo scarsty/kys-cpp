@@ -8,7 +8,9 @@
 #include "Font.h"
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
-//#include "NewSave.h"
+#include "BattleMod.h"
+#include "BattleNetwork.h"
+
 
 #include <string>
 #include <vector>
@@ -74,8 +76,10 @@ Console::Console()
                 auto pys = convert::splitString(pinyin, " ");
                 std::vector<std::string> acceptables;
 
-                std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx) {
-                    if (idx == pys.size()) {
+                std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx) 
+                {
+                    if (idx == pys.size()) 
+                    {
                         acceptables.push_back(curStr);
                         return;
                     }
@@ -84,20 +88,24 @@ Console::Console()
                 };
                 comboGenerator("", 0);
 
-                for (auto& acc : acceptables) {
-                    for (int i = 0; i < acc.size(); i++) {
+                for (auto& acc : acceptables) 
+                {
+                    for (int i = 0; i < acc.size(); i++) 
+                    {
                         matches[acc.substr(0, i + 1)].insert(name);
                     }
                 }
 
                 // 直接对字，可以两个跳，但是不管了
-                for (int i = 0; i < name.size(); i++) {
+                for (int i = 0; i < name.size(); i++) 
+                {
                     matches[name.substr(0, i + 1)].insert(name);
                 }
 
                 // 对id
                 std::string strID = std::to_string(info->ID);
-                for (int i = 0; i < strID.size(); i++) {
+                for (int i = 0; i < strID.size(); i++) 
+                {
                     matches[strID.substr(0, i + 1)].insert(name);
                 }
             }
@@ -199,12 +207,15 @@ Console::Console()
             printf("傳送到%d\n", id);
         }
     }
-    else if (splits[0] == u8"newsave" && splits.size() >= 2) {
+    else if (splits[0] == u8"newsave" && splits.size() >= 2) 
+    {
         int rec;
-        try {
+        try 
+        {
             rec = std::stoi(splits[1]);
         }
-        catch (...) {
+        catch (...) 
+        {
             return;
         }
         auto save = Save::getInstance();
@@ -214,12 +225,15 @@ Console::Console()
         Save::getInstance()->saveRToCSV(rec);
         Save::getInstance()->saveSD(rec);
     }
-    else if (splits[0] == u8"newload" && splits.size() >= 2) {
+    else if (splits[0] == u8"newload" && splits.size() >= 2) 
+    {
         int rec;
-        try {
+        try 
+        {
             rec = std::stoi(splits[1]);
         }
-        catch (...) {
+        catch (...) 
+        {
             return;
         }
         auto save = Save::getInstance();
@@ -234,13 +248,41 @@ Console::Console()
     }
     else if (splits[0] == u8"rinsert" && splits.size() >= 3) {
         int idx;
-        try {
+        try 
+        {
             idx = std::stoi(splits[2]);
         }
-        catch (...) {
+        catch (...) 
+        {
             return;
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
+    else if (splits[0] == u8"host" && splits.size() >= 1) 
+    {
+        Save::getInstance()->save(11);
 
+        auto host = BattleNetworkFactory::MakeHost(splits[1]);
+        if (!host) return;
+
+        BattleScene battle;
+        battle.setupNetwork(std::move(host));
+        battle.run();
+
+        Save::getInstance()->load(11);
+    }
+    else if (splits[0] == u8"client" && splits.size() >= 1) 
+    {
+        Save::getInstance()->save(11);
+
+        auto client = BattleNetworkFactory::MakeClient(splits[1]);
+        if (!client) return;
+
+        BattleScene battle;
+        battle.setupNetwork(std::move(client));
+        battle.run();
+
+        Save::getInstance()->load(11);
+    }
+    
 }

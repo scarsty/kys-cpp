@@ -13,7 +13,6 @@
 #include <utility>
 #include <memory>
 #include <functional>
-#include <optional>
 
 // 先偷懒放一起
 namespace BattleMod {

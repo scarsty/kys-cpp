@@ -182,6 +182,19 @@ void Save::saveSD(int num)
     delete[] ddata;
 }
 
+void Save::resetRData(const std::vector<RoleSave>& newData)
+{
+    roles_mem_.clear();
+    for (int i = 0; i < newData.size(); i++) {
+        roles_mem_.emplace_back();
+        auto& r = roles_mem_.back();
+        memcpy(&r, &newData[i], sizeof(RoleSave));
+        r.RealID = r.ID;
+        r.ID = i;
+    }
+    updateAllPtrVector();
+}
+
 Role* Save::getTeamMate(int i)
 {
     if (i < 0 || i >= TEAMMATE_COUNT)

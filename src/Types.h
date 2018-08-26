@@ -135,24 +135,34 @@ public:
     int Moved, Acted;
     int ActTeam;    //选择行动阵营 0-我方，1-非我方，画效果层时有效
 
+    int SelectedMagic;
+
+    int Progress;
+
     struct ShowString
     {
         std::string Text;
         BP_Color Color;
         int Size;
     };
-    std::vector<ShowString> ShowStrings;
-
-    int SelectedMagic;
-
-    int Progress;
-
-    int HPChange;
-    int MPChange;
-    int ProgressChange;
-
-    int BattleHurt;
-    int Effect;
+    // 用来showNumberAnimation
+    struct ActionShowInfo
+    {
+        std::vector<ShowString> ShowStrings;
+        int BattleHurt;
+        int ProgressChange;
+        int Effect;
+        ActionShowInfo() {
+            clear();
+        }
+        void clear() {
+            ShowStrings.clear();
+            BattleHurt = 0;
+            ProgressChange = 0;
+            Effect = -1;
+        }
+    };
+    ActionShowInfo Show;
 
 private:
     int X_, Y_;
@@ -192,8 +202,8 @@ public:
 
     bool isAuto() { return Auto != 0 || Team != 0; }
 
-    void addShowString(std::string text, BP_Color color = { 255,255,255,255 }, int size = 28) { ShowStrings.push_back({ text,color, size }); }
-    void clearShowStrings() { ShowStrings.clear(); }
+    void addShowString(std::string text, BP_Color color = { 255,255,255,255 }, int size = 28) { Show.ShowStrings.push_back({ text,color, size }); }
+    void clearShowStrings() { Show.ShowStrings.clear(); }
 
 public:
     int AI_Action = 0;
@@ -201,6 +211,20 @@ public:
     int AI_ActionX, AI_ActionY;
     Magic* AI_Magic = nullptr;
     Item* AI_Item = nullptr;
+
+public:
+    int Network_Action;
+    int Network_MoveX;
+    int Network_MoveY;
+    int Network_ActionX;
+    int Network_ActionY;
+    Magic* Network_Magic = nullptr;
+    Item* Network_Item = nullptr;
+
+public:
+    int RealID = -1;
+    bool Networked = false;
+    bool Competing = false;
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }

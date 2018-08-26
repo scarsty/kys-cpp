@@ -6,9 +6,17 @@
 #include "Random.h"
 #include "Scene.h"
 
+// WinSock.h(Event.cpp, SubScene.cpp, TitleScene.cpp) 和asio有冲突
+// 仅在BattleScene.cpp中include BattleNetwork
+// 所有调用网络连接的地方需自行include BattleNetwork (先BattleNetwork后windows.h)
+class BattleNetwork;
+
 class BattleScene : public Scene
 {
 public:
+
+    static RandomDouble rng;
+
     BattleScene();
     BattleScene(int id);
     virtual ~BattleScene();
@@ -27,7 +35,6 @@ protected:
     BattleInfo* info_;
 
     Save* save_;
-    RandomDouble rand_;
 
     std::vector<Role*> battle_roles_;    //所有参战角色
     std::vector<Role*> friends_;         //开始就参战的我方角色，用来计算失败经验
@@ -57,9 +64,14 @@ protected:
     uint8_t dead_alpha_ = 255;
     static const int animation_delay_ = 2;
 
+    // 动画，或者需要多写一坨if else等
+    std::function<void()> actionAnimation_;
+
     bool fail_exp_ = false;    //输后是否有经验
 
     int semi_real_ = 0;    //是否半即时
+
+    std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
 public:
     void setSelectPosition(int x, int y)    //设置选择的坐标
@@ -123,11 +135,12 @@ public:
 
     virtual void actMove(Role* r);               //移动
     virtual void actUseMagic(Role* r);           //武学
+    virtual void actUseMagicSub(Role * r, Magic * magic);     // 选择武功后，使用
     virtual void actUsePoison(Role* r);          //用毒
     virtual void actDetoxification(Role* r);     //解毒
     virtual void actMedicine(Role* r);           //医疗
     virtual void actUseHiddenWeapon(Role* r);    //暗器
-    virtual void actUseDrag(Role* r);            //吃药
+    virtual void actUseDrug(Role* r);            //吃药
     virtual void actWait(Role* r);               //等待
     virtual void actStatus(Role* r);             //状态
     virtual void actAuto(Role* r);               //自动
@@ -143,11 +156,24 @@ public:
     virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //计算暗器伤害
 
     virtual void showMagicName(std::string name);                                            //显示武学名
-    virtual void showNumberAnimation(int delay = animation_delay_, bool floating = true);    //显示数字
+
+    //显示数字
+    virtual void showNumberAnimation(
+        int delay = animation_delay_,                               // 跑几次
+        bool floating = true,                                       // 文字是否悬浮
+        const std::vector<std::pair<int&, int>>& animated_changes = {});  // 是否渐变某些变量
+    virtual void renderExtraRoleInfo(Role * r, int x, int y);       // 在人物上，显示血条等
+
     virtual void clearDead();                                                                //清除被击退的角色
     virtual void poisonEffect(Role* r);                                                      //中毒效果
 
     virtual int getTeamMateCount(int team);    //获取队员数目
     virtual int checkResult();                 //检查结果
     virtual void calExpGot();                  //计算经验
+
+    // 设置网络连接
+    virtual void setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id = 67);
+    virtual void setupRolePosition(Role * r, int team, int x, int y);
+    virtual void receiveAction(Role * r);
+    virtual void sendAction(Role * r);
 };

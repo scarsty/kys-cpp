@@ -8,7 +8,6 @@
 #include <utility>
 #include <memory>
 #include <functional>
-#include <optional>
 
 // 大致触发流程
 // 先把所有东西读入 EffectsTable，战斗中就查询他
