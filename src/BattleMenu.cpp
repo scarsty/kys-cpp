@@ -320,14 +320,8 @@ int BattleActionMenu::autoSelect(Role* role)
         for (auto aa : ai_action)
         {
             printf("AI %s: %s ", PotConv::to_read(role->Name).c_str(), PotConv::to_read(getStringFromResult(aa.Action)).c_str());
-            if (aa.item)
-            {
-                printf("%s ", PotConv::to_read(aa.item->Name).c_str());
-            }
-            if (aa.magic)
-            {
-                printf("%s ", PotConv::to_read(aa.magic->Name).c_str());
-            }
+            if (aa.item) { printf("%s ", PotConv::to_read(aa.item->Name).c_str()); }
+            if (aa.magic) { printf("%s ", PotConv::to_read(aa.magic->Name).c_str()); }
             double r = rand.rand() * 10;    //用于同分的情况，可以随机选择
             printf("score %.2f(%.2f)\n", aa.point, r);
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
@@ -389,10 +383,7 @@ void BattleActionMenu::calDistanceLayer(int x, int y, int max_step /*=64*/)
                 break;
             }    //最多计算次数，避免死掉
         }
-        if (cal_stack_next.size() == 0)
-        {
-            break;
-        }    //无新的点，结束
+        if (cal_stack_next.size() == 0) { break; }    //无新的点，结束
         cal_stack = cal_stack_next;
         step++;
     }

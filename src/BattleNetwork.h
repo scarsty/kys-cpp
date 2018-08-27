@@ -8,8 +8,6 @@
 #include <memory>
 #include <thread>
 
-
-
 // 使用方法
 // 1. 选择人物
 // 2. 创建BattleNetwork

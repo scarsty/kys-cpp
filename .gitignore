@@ -16,3 +16,4 @@ Win32/
 x64/
 common/*
 common
+include/*

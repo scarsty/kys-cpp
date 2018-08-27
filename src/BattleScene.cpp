@@ -1,5 +1,5 @@
 #include "BattleScene.h"
-#include "BattleNetwork.h"
+#include "BattleNetwork.h"    //必须在Audio之前
 
 #include "Audio.h"
 #include "DrawableOnCall.h"
@@ -411,6 +411,9 @@ void BattleScene::setupRolePosition(Role* r, int team, int x, int y)
 //读取战斗信息，确定是选人物还是自动人物
 void BattleScene::readBattleInfo()
 {
+    man_x_ = COORD_COUNT / 2;
+    man_y_ = COORD_COUNT / 2;
+
     if (network_)
     {
         // 网络处理
@@ -487,6 +490,8 @@ void BattleScene::readBattleInfo()
                 r->Team = 1;
                 readFightFrame(r);
                 r->FaceTowards = rng_.rand_int(4);
+                man_x_ = r->X();
+                man_y_ = r->Y();
             }
         }
 
@@ -529,11 +534,6 @@ void BattleScene::readBattleInfo()
     {
         man_x_ = battle_roles_[0]->X();
         man_y_ = battle_roles_[0]->Y();
-    }
-    else
-    {
-        man_x_ = COORD_COUNT / 2;
-        man_y_ = COORD_COUNT / 2;
     }
 }
 
@@ -1289,21 +1289,23 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             if (r2)
             {
                 v = calHiddenWeaponHurt(r, r2, item);
+                r2->Show.BattleHurt = v;
                 r2->addShowString(convert::formatString("-%d", v), { 255, 20, 20, 255 });
             }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
-            if (r2)
-            {
-                r2->HP = GameUtil::limit(r2->HP - v, 0, r2->MaxHP);
-            }
             item_menu.addItem(item, -1);
             r->ExpGot += v;
             r->Acted = 1;
-            actionAnimation_ = [this, item, r]()
+            actionAnimation_ = [this, item, r, r2]()
             {
                 showMagicName(item->Name);
                 actionAnimation(r, 0, item->HiddenWeaponEffectID);
-                showNumberAnimation();
+                std::vector<std::pair<int&, int>> animated_changes;
+                if (r2)
+                {
+                    animated_changes.emplace_back(r2->HP, -r2->Show.BattleHurt);
+                }
+                showNumberAnimation(2, true, animated_changes);
             };
         }
     }
@@ -1748,6 +1750,10 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
 
 void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
 {
+    if (r == nullptr || r->HP <= 0)
+    {
+        return;
+    }
     // 画个血条
     BP_Color outline_color = { 0, 0, 0, 128 };
     BP_Color background_color = { 0, 255, 0, 128 };    // 我方绿色
@@ -1765,12 +1771,15 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     {
         perc = 0;
     }
-    Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
+    BP_Rect r1 = { hp_x, hp_y, perc * hp_max_w, hp_h };
+    Engine::getInstance()->renderSquareTexture(&r1, background_color, 192);
+
+    //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     // 严禁吐槽，画框框
-    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, hp_max_w, 1);
-    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
-    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
-    Engine::getInstance()->fillColor(outline_color, hp_x + hp_max_w, hp_y, 1, hp_h);
+    //Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, hp_max_w, 1);
+    //Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
+    //Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
+    //Engine::getInstance()->fillColor(outline_color, hp_x + hp_max_w, hp_y, 1, hp_h);
 }
 
 void BattleScene::clearDead()
