@@ -151,14 +151,8 @@
     <ClCompile Include="src\OpenCCConverter.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="mod\BattleConfig.cpp">
-      <Filter>battle-mod</Filter>
-    </ClCompile>
-    <ClCompile Include="mod\BattleMod.cpp">
-      <Filter>battle-mod</Filter>
-    </ClCompile>
-    <ClCompile Include="mod\BattleNetwork.cpp">
-      <Filter>battle-mod</Filter>
+    <ClCompile Include="src\BattleNetwork.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -321,14 +315,8 @@
     <ClInclude Include="src\OpenCCConverter.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="mod\BattleConfig.h">
-      <Filter>battle-mod</Filter>
-    </ClInclude>
-    <ClInclude Include="mod\BattleMod.h">
-      <Filter>battle-mod</Filter>
-    </ClInclude>
-    <ClInclude Include="mod\BattleNetwork.h">
-      <Filter>battle-mod</Filter>
+    <ClInclude Include="src\BattleNetwork.h">
+      <Filter>battle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

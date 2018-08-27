@@ -101,6 +101,7 @@
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
     <ClCompile Include="src\BattleCursor.cpp" />
+    <ClCompile Include="src\BattleNetwork.cpp" />
     <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
@@ -157,6 +158,7 @@
     <ClInclude Include="src\Audio.h" />
     <ClInclude Include="src\BattleMap.h" />
     <ClInclude Include="src\BattleCursor.h" />
+    <ClInclude Include="src\BattleNetwork.h" />
     <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />

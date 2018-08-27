@@ -26,7 +26,10 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
 
 void BattleCursor::dealEvent(BP_Event& e)
 {
-    if (battle_scene_ == nullptr) { return; }
+    if (battle_scene_ == nullptr)
+    {
+        return;
+    }
     if (!role_->isAuto())
     {
         int x = -1, y = -1;
@@ -100,23 +103,39 @@ void BattleCursor::onEntrance()
     head_selected_->setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
 
-    if (role_->isAuto())
+    if (role_->isAuto() || role_->Networked)
     {
         int x = -1, y = -1;
+
         if (mode_ == Move)
         {
-            x = role_->AI_MoveX;
-            y = role_->AI_MoveY;
-            setResult(0);
-            setExit(true);
+            if (role_->Networked)
+            {
+                x = role_->Network_MoveX;
+                y = role_->Network_MoveY;
+            }
+            else
+            {
+                x = role_->AI_MoveX;
+                y = role_->AI_MoveY;
+            }
         }
         else if (mode_ == Action)
         {
-            x = role_->AI_ActionX;
-            y = role_->AI_ActionY;
-            setResult(0);
-            setExit(true);
+            if (role_->Networked)
+            {
+                x = role_->Network_ActionX;
+                y = role_->Network_ActionY;
+            }
+            else
+            {
+                x = role_->AI_ActionX;
+                y = role_->AI_ActionY;
+            }
         }
+
+        setResult(0);
+        setExit(true);
         setVisible(!exit_);
         setCursor(x, y);
     }

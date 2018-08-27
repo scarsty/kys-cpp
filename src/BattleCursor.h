@@ -1,7 +1,7 @@
 #pragma once
 #include "Element.h"
-#include "Types.h"
 #include "Head.h"
+#include "Types.h"
 #include "UIStatus.h"
 
 class BattleScene;
@@ -14,8 +14,8 @@ public:
     BattleCursor();
     ~BattleCursor();
 
-    int* select_x_ = nullptr, *select_y_ = nullptr;
-    MapSquareInt* select_layer_ = nullptr, *effect_layer_ = nullptr;
+    int *select_x_ = nullptr, *select_y_ = nullptr;
+    MapSquareInt *select_layer_ = nullptr, *effect_layer_ = nullptr;
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
@@ -51,6 +51,4 @@ public:
 
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }
-
 };
-
