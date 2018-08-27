@@ -30,6 +30,9 @@ public:
     void saveR(int num);
     void saveSD(int num);
 
+    // °ïÖúÍøÂç½»Á÷
+    void resetRData(const std::vector<RoleSave>& newData);
+
     static Save* getInstance()
     {
         static Save s;
@@ -190,5 +193,3 @@ public:
     void loadRFromCSV(int num);
     bool insertAt(const std::string& type, int idx);
 };
-
-
