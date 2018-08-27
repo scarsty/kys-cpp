@@ -8,9 +8,8 @@
 #include "Font.h"
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
-#include "BattleMod.h"
 #include "BattleNetwork.h"
-
+#include "BattleScene.h"
 
 #include <string>
 #include <vector>

@@ -145,17 +145,19 @@ public:
         BP_Color Color;
         int Size;
     };
-    // 用来showNumberAnimation
+    //显示文字效果使用
     struct ActionShowInfo
     {
         std::vector<ShowString> ShowStrings;
         int BattleHurt;
         int ProgressChange;
         int Effect;
-        ActionShowInfo() {
+        ActionShowInfo()
+        {
             clear();
         }
-        void clear() {
+        void clear()
+        {
             ShowStrings.clear();
             BattleHurt = 0;
             ProgressChange = 0;
@@ -202,7 +204,7 @@ public:
 
     bool isAuto() { return Auto != 0 || Team != 0; }
 
-    void addShowString(std::string text, BP_Color color = { 255,255,255,255 }, int size = 28) { Show.ShowStrings.push_back({ text,color, size }); }
+    void addShowString(std::string text, BP_Color color = { 255, 255, 255, 255 }, int size = 28) { Show.ShowStrings.push_back({ text, color, size }); }
     void clearShowStrings() { Show.ShowStrings.clear(); }
 
 public:

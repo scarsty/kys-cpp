@@ -1,13 +1,14 @@
 #pragma once
 
-#include "asio.hpp"
+#include "asio/asio.hpp"
+
 #include "BattleMenu.h"
 #include "GameUtil.h"
-#include <thread>
+
 #include <memory>
+#include <thread>
 
 
-// #define _WIN32_WINNT 0x0A00
 
 // 使用方法
 // 1. 选择人物
@@ -16,20 +17,31 @@
 // 4. 在某非阻塞ui中调用handshake
 // 5. handshake结束后回调，关闭ui组件
 
-class BattleNetwork {
+class BattleNetwork
+{
 public:
-    // , strand_(io_context_) 
-    BattleNetwork(const std::string& strID, const std::string& port) : 
-        socket_(io_context_), resolver_(io_context_), work_(io_context_), strID_(strID), port_(port),
-        query_(GameUtil::getInstance()->getString("network", "server", "138.197.200.52"), port_) {};
+    // , strand_(io_context_)
+    BattleNetwork(const std::string& strID, const std::string& port)
+        : socket_(io_context_)
+        , resolver_(io_context_)
+        , work_(io_context_)
+        , strID_(strID)
+        , port_(port)
+        , query_(GameUtil::getInstance()->getString("network", "server", "138.197.200.52"), port_) {};
 
-    virtual ~BattleNetwork() {
+    virtual ~BattleNetwork()
+    {
         io_context_.stop();
-        if (worker_.joinable()) worker_.join();
+        if (worker_.joinable())
+        {
+            worker_.join();
+        }
     }
 
-    void asyncRun() {
-        worker_ = std::thread([this] {
+    void asyncRun()
+    {
+        worker_ = std::thread([this]
+        {
             printf("spawning thread\n");
             io_context_.run();
             printf("threading is done\n");
@@ -43,7 +55,8 @@ public:
         int ActionX, ActionY;
         int magicID = 0;
         int itemID = -1;
-        void print() {
+        void print()
+        {
             printf("action %d, movex %d, movey %d, actionx %d, actiony %d magic %d, item %d\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
         }
     };
@@ -61,7 +74,6 @@ public:
     virtual void getResults(unsigned int& seed, int& friends, std::vector<RoleSave>& final_roles);
 
 protected:
-    
     virtual void getRandSeed() = 0;
     virtual void concileMagicData() = 0;
     // 己方参战id，最终roles结果
@@ -73,7 +85,7 @@ protected:
     asio::io_context io_context_;
     asio::ip::tcp::resolver resolver_;
     asio::ip::tcp::socket socket_;
-    asio::io_service::work  work_;
+    asio::io_service::work work_;
     // asio::io_context::strand strand_;
 
     bool is_host_;
@@ -98,11 +110,10 @@ protected:
     unsigned int seed_;
 };
 
-
-class BattleHost : public BattleNetwork {
+class BattleHost : public BattleNetwork
+{
 public:
     BattleHost(const std::string& strID, const std::string& port);
-    
 
 protected:
     void waitConnection() override;
@@ -111,7 +122,8 @@ protected:
     void rDataHandshake() override;
 };
 
-class BattleClient : public BattleNetwork {
+class BattleClient : public BattleNetwork
+{
 public:
     static const int GO = 42;
     BattleClient(const std::string& strID, const std::string& port);
@@ -125,11 +137,13 @@ protected:
     int go_ = GO;
 };
 
-class BattleNetworkFactory {
+class BattleNetworkFactory
+{
 public:
     // 等待连接
     static std::unique_ptr<BattleNetwork> MakeHost(const std::string& id);
     static std::unique_ptr<BattleNetwork> MakeClient(const std::string& id);
+
 private:
     static bool UI(BattleNetwork* net);
 };

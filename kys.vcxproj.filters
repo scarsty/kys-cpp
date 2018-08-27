@@ -151,6 +151,9 @@
     <ClCompile Include="src\OpenCCConverter.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="src\BattleNetwork.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -311,6 +314,9 @@
     </ClInclude>
     <ClInclude Include="src\OpenCCConverter.h">
       <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BattleNetwork.h">
+      <Filter>battle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

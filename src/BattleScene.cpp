@@ -1,5 +1,6 @@
 #include "BattleScene.h"
 #include "BattleNetwork.h"
+
 #include "Audio.h"
 #include "DrawableOnCall.h"
 #include "Event.h"
@@ -21,7 +22,7 @@
 #include <math.h>
 #include <string>
 
-RandomDouble BattleScene::rng;
+RandomDouble BattleScene::rng_;
 
 BattleScene::BattleScene()
 {
@@ -201,7 +202,7 @@ void BattleScene::draw()
                 {
                     std::string path = convert::formatString("eft/eft%03d", effect_id_);
                     int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
-                    num = effect_frame_ - dis + rng.rand_int(3) - rng.rand_int(3);
+                    num = effect_frame_ - dis + rng_.rand_int(3) - rng_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
             }
@@ -394,26 +395,30 @@ void BattleScene::backRun()
 {
 }
 
-void BattleScene::setupRolePosition(Role * r, int team, int x, int y)
+void BattleScene::setupRolePosition(Role* r, int team, int x, int y)
 {
-    if (r == nullptr) return;
+    if (r == nullptr)
+    {
+        return;
+    }
     r->setPosition(x, y);
     r->Team = team;
     readFightFrame(r);
-    r->FaceTowards = rng.rand_int(4);
+    r->FaceTowards = rng_.rand_int(4);
     battle_roles_.push_back(r);
 }
 
 //读取战斗信息，确定是选人物还是自动人物
 void BattleScene::readBattleInfo()
 {
-    if (network_) {
+    if (network_)
+    {
         // 网络处理
         unsigned int seed;
         int friends;
         std::vector<RoleSave> sandBoxRoles;
         network_->getResults(seed, friends, sandBoxRoles);
-        rng.set_seed(seed + 1);
+        rng_.set_seed(seed + 1);
         Save::getInstance()->resetRData(sandBoxRoles);
         //设置全部角色的位置层，避免今后出错
         for (auto r : Save::getInstance()->getRoles())
@@ -423,36 +428,44 @@ void BattleScene::readBattleInfo()
             r->Auto = 1;
         }
         // 这里代码写的很差，不过先这样吧
-        if (network_->isHost()) {
+        if (network_->isHost())
+        {
             // friends_占据前几个
-            for (int i = 0; i < friends; i++) {
+            for (int i = 0; i < friends; i++)
+            {
                 auto r = Save::getInstance()->getRole(i);
                 setupRolePosition(r, 0, info_->TeamMateX[i], info_->TeamMateY[i]);
                 friends_.push_back(r);
             }
             // 因为知道friends_大小，可得知几个敌人
-            for (int i = 0; i < sandBoxRoles.size() - friends; i++) {
+            for (int i = 0; i < sandBoxRoles.size() - friends; i++)
+            {
                 auto r = Save::getInstance()->getRole(i + friends);
                 setupRolePosition(r, 1, info_->EnemyX[i], info_->EnemyY[i]);
             }
         }
-        else {
+        else
+        {
             // friends_占据后几个
             // 先对方
-            for (int i = 0; i < sandBoxRoles.size() - friends; i++) {
+            for (int i = 0; i < sandBoxRoles.size() - friends; i++)
+            {
                 auto r = Save::getInstance()->getRole(i);
                 // TeamMateX实际是对面的
                 setupRolePosition(r, 1, info_->TeamMateX[i], info_->TeamMateY[i]);
             }
             // 然后是自己
-            for (int i = 0; i < friends; i++) {
+            for (int i = 0; i < friends; i++)
+            {
                 int friend_idx = sandBoxRoles.size() - friends + i;
                 auto r = Save::getInstance()->getRole(friend_idx);
                 setupRolePosition(r, 0, info_->EnemyX[i], info_->EnemyY[i]);
                 friends_.push_back(r);
             }
         }
-    } else {
+    }
+    else
+    {
         // 正常战斗
         //设置全部角色的位置层，避免今后出错
         for (auto r : Save::getInstance()->getRoles())
@@ -473,7 +486,7 @@ void BattleScene::readBattleInfo()
                 r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
                 r->Team = 1;
                 readFightFrame(r);
-                r->FaceTowards = rng.rand_int(4);
+                r->FaceTowards = rng_.rand_int(4);
             }
         }
 
@@ -522,7 +535,6 @@ void BattleScene::readBattleInfo()
         man_x_ = COORD_COUNT / 2;
         man_y_ = COORD_COUNT / 2;
     }
-
 }
 
 void BattleScene::setRoleInitState(Role* r)
@@ -544,17 +556,17 @@ void BattleScene::setRoleInitState(Role* r)
     // 对方==1 则 自动
     r->Auto = r->Team;
 
-    if (network_) 
+    if (network_)
     {
         r->Competing = true;
         r->Networked = r->Team == 1;
         r->Auto = 0;
     }
 
-    if (network_ || r->Team == 1) 
+    if (network_ || r->Team == 1)
     {
         // 联网，或者敌方都有回复状态的优待
-        r->PhysicalPower = std::max(r->PhysicalPower, 90);
+        r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
         r->HP = r->MaxHP;
         r->MP = r->MaxMP;
         r->Poison = 0;
@@ -619,13 +631,15 @@ void BattleScene::sortRoles()
 {
     if (semi_real_ == 0)
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) {
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
+        {
             return std::tie(r1->Speed, r1->ID) > std::tie(r2->Speed, r2->ID);
         });
     }
     else
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2) {
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
+        {
             return std::tie(r1->Progress, r1->ID) > std::tie(r2->Progress, r2->ID);
         });
     }
@@ -944,14 +958,15 @@ void BattleScene::action(Role* r)
 {
     actionAnimation_ = nullptr;
 
-    if (network_ && r->Team == 1) 
+    if (network_ && r->Team == 1)
     {
         // 网络连接，并且是对方行动
         // 获取对方行动
         receiveAction(r);
         battle_menu_->setResult(r->Network_Action);
     }
-    else {
+    else
+    {
         // 己方行动
         battle_menu_->runAsRole(r);
     }
@@ -1014,18 +1029,21 @@ void BattleScene::action(Role* r)
     }
 
     // 己方行动，传输
-    if (network_ && r->Team == 0) {
+    if (network_ && r->Team == 0)
+    {
         sendAction(r);
     }
 
     // 跑动画
-    if (actionAnimation_) {
+    if (actionAnimation_)
+    {
         actionAnimation_();
     }
 
     // 播放完动画，清空显示
     // 需要手动清理一下其他人的显示效果
-    for (auto r : battle_roles_) {
+    for (auto r : battle_roles_)
+    {
         r->Show.clear();
     }
 }
@@ -1044,7 +1062,8 @@ void BattleScene::actMove(Role* r)
         r->Network_MoveY = select_y_;
         r->ExpGot += 1;
         r->Moved = 1;
-        actionAnimation_ = [this, r]() {
+        actionAnimation_ = [this, r]()
+        {
             moveAnimation(r, select_x_, select_y_);
         };
     }
@@ -1055,11 +1074,13 @@ void BattleScene::actUseMagic(Role* r)
     BattleMagicMenu magic_menu;
     while (true)
     {
-        Magic * magic = nullptr;
-        if (r->Networked) {
+        Magic* magic = nullptr;
+        if (r->Networked)
+        {
             magic = r->Network_Magic;
         }
-        else {
+        else
+        {
             magic_menu.setStartItem(r->SelectedMagic);
             magic_menu.runAsRole(r);
             magic = magic_menu.getMagic();
@@ -1093,7 +1114,7 @@ void BattleScene::actUseMagic(Role* r)
     }
 }
 
-void BattleScene::actUseMagicSub(Role * r, Magic * magic)
+void BattleScene::actUseMagicSub(Role* r, Magic* magic)
 {
     // 每次攻击，每个人的文字动画数据
     std::vector<std::vector<Role::ActionShowInfo>> multi_shows;
@@ -1108,8 +1129,10 @@ void BattleScene::actUseMagicSub(Role * r, Magic * magic)
 
         // 做显示部分，由于多次攻击，并且数据动画分离，需要分开保存显示信息
         multi_shows.emplace_back();
-        for (auto r : battle_roles_) {
-            if (r->Show.BattleHurt != 0) {
+        for (auto r : battle_roles_)
+        {
+            if (r->Show.BattleHurt != 0)
+            {
                 if (magic->HurtType == 0)
                 {
                     r->addShowString(convert::formatString("-%d", r->Show.BattleHurt), { 255, 20, 20, 255 });
@@ -1129,7 +1152,7 @@ void BattleScene::actUseMagicSub(Role * r, Magic * magic)
         auto index = r->getMagicOfRoleIndex(magic);
         if (index >= 0)
         {
-            r->MagicLevel[index] += 1 + rng.rand_int(2);
+            r->MagicLevel[index] += 1 + rng_.rand_int(2);
             GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
         }
         printf("%s %s level is %d\n", PotConv::to_read(r->Name).c_str(), PotConv::to_read(magic->Name).c_str(), r->MagicLevel[index]);
@@ -1137,7 +1160,8 @@ void BattleScene::actUseMagicSub(Role * r, Magic * magic)
     r->Acted = 1;
 
     // multi_shows需要复制，因为已经离开此栈
-    actionAnimation_ = [this, r, magic, multi_shows]() mutable {
+    actionAnimation_ = [this, r, magic, multi_shows]() mutable
+    {
         for (int i = 0; i < multi_shows.size(); i++)
         {
             // 播放攻击画面
@@ -1146,7 +1170,8 @@ void BattleScene::actUseMagicSub(Role * r, Magic * magic)
 
             // 渐变效果
             std::vector<std::pair<int&, int>> animated_changes;
-            for (int j = 0; j < multi_shows[i].size(); j++) {
+            for (int j = 0; j < multi_shows[i].size(); j++)
+            {
                 // 读取保存的文字动画数据
                 battle_roles_[j]->Show = multi_shows[i][j];
                 // 绑定，生命值和伤害值
@@ -1178,7 +1203,8 @@ void BattleScene::actUsePoison(Role* r)
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
         r->Acted = 1;
-        actionAnimation_ = [this, r]() {
+        actionAnimation_ = [this, r]()
+        {
             actionAnimation(r, 0, 30);
             showNumberAnimation();
         };
@@ -1205,7 +1231,8 @@ void BattleScene::actDetoxification(Role* r)
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         r->Acted = 1;
-        actionAnimation_ = [this, r]() {
+        actionAnimation_ = [this, r]()
+        {
             actionAnimation(r, 0, 36);
             showNumberAnimation();
         };
@@ -1232,7 +1259,8 @@ void BattleScene::actMedicine(Role* r)
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         r->Acted = 1;
-        actionAnimation_ = [this, r]() {
+        actionAnimation_ = [this, r]()
+        {
             actionAnimation(r, 0, 0);
             showNumberAnimation();
         };
@@ -1271,7 +1299,8 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             item_menu.addItem(item, -1);
             r->ExpGot += v;
             r->Acted = 1;
-            actionAnimation_ = [this, item, r]() {
+            actionAnimation_ = [this, item, r]()
+            {
                 showMagicName(item->Name);
                 actionAnimation(r, 0, item->HiddenWeaponEffectID);
                 showNumberAnimation();
@@ -1295,7 +1324,8 @@ void BattleScene::actUseDrug(Role* r)
         GameUtil::useItem(r, item);
         item_menu.addItem(item, -1);
         r->Acted = 1;
-        actionAnimation_ = [this, r, r0, item]() mutable {
+        actionAnimation_ = [this, r, r0, item]() mutable
+        {
             ShowRoleDifference df(&r0, r);
             df.setText(convert::formatString("%s服用%s", r->Name, item->Name));
             df.setShowHead(false);
@@ -1479,8 +1509,8 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         }
         if (shake > 0)
         {
-            x_ = rng.rand_int(shake) - rng.rand_int(shake);
-            y_ = rng.rand_int(shake) - rng.rand_int(shake);
+            x_ = rng_.rand_int(shake) - rng_.rand_int(shake);
+            y_ = rng_.rand_int(shake) - rng_.rand_int(shake);
         }
         drawAndPresent(animation_delay_);
     }
@@ -1501,7 +1531,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     {
         if (r1->MP <= 10)
         {
-            return 1 + rng.rand_int(10);
+            return 1 + rng_.rand_int(10);
         }
         int attack = r1->Attack + magic->Attack[level_index] / 3;
         int defence = r2->Defence;
@@ -1533,10 +1563,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         int dis = calRoleDistance(r1, r2);
         v = v / exp((dis - 1) / 10);
 
-        v += rng.rand_int(10) - rng.rand_int(10);
+        v += rng_.rand_int(10) - rng_.rand_int(10);
         if (v < 10)
         {
-            v = 1 + rng.rand_int(10);
+            v = 1 + rng_.rand_int(10);
         }
         //v = 999;  //测试用
         return v;
@@ -1544,10 +1574,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     else if (magic->HurtType == 1)
     {
         int v = magic->HurtMP[level_index];
-        v += rng.rand_int(10) - rng.rand_int(10);
+        v += rng_.rand_int(10) - rng_.rand_int(10);
         if (v < 10)
         {
-            v = 1 + rng.rand_int(10);
+            v = 1 + rng_.rand_int(10);
         }
         return v;
     }
@@ -1617,7 +1647,7 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
     int v = r1->HiddenWeapon - item->AddHP;
     int dis = calRoleDistance(r1, r2);
     v = v / exp((dis - 1) / 10);
-    v += rng.rand_int(10) - rng.rand_int(10);
+    v += rng_.rand_int(10) - rng_.rand_int(10);
     if (v < 1)
     {
         v = 1;
@@ -1701,7 +1731,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                 }
             }
             // 渐变
-            for (auto& change : animated_changes) 
+            for (auto& change : animated_changes)
             {
                 change.first += change.second / total_frames;
             }
@@ -1710,17 +1740,17 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
     }
 
     // 渐变不能被整除，所以加回来，再重新算
-    for (auto& change : animated_changes) 
+    for (auto& change : animated_changes)
     {
         change.first += change.second - total_frames * (change.second / total_frames);
     }
 }
 
-void BattleScene::renderExtraRoleInfo(Role * r, int x, int y)
+void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
 {
     // 画个血条
     BP_Color outline_color = { 0, 0, 0, 128 };
-    BP_Color background_color = { 0, 255, 0, 128 };     // 我方绿色
+    BP_Color background_color = { 0, 255, 0, 128 };    // 我方绿色
     if (r->Team == 1)
     {
         // 敌方红色
@@ -1731,7 +1761,10 @@ void BattleScene::renderExtraRoleInfo(Role * r, int x, int y)
     int hp_max_w = 40;
     int hp_h = 3;
     double perc = ((double)r->HP / r->MaxHP);
-    if (perc < 0) perc = 0;
+    if (perc < 0)
+    {
+        perc = 0;
+    }
     Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     // 严禁吐槽，画框框
     Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, hp_max_w, 1);
@@ -1948,7 +1981,7 @@ void BattleScene::calExpGot()
                         make_item.push_back({ item->MakeItem[i], item->MakeItemCount[i] });
                     }
                 }
-                int index = rng.rand_int(make_item.size());
+                int index = rng_.rand_int(make_item.size());
                 Event::getInstance()->addItem(make_item[index].item_id, make_item[index].count);
                 Event::getInstance()->addItemWithoutHint(item->NeedMaterial, -1);
                 r->ExpForMakeItem = 0;
@@ -1964,25 +1997,29 @@ void BattleScene::setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id
     setID(battle_id);
 }
 
-void BattleScene::receiveAction(Role * r)
+void BattleScene::receiveAction(Role* r)
 {
     // 如果是敌人，则获取敌人行动，假装敌人是个AI
     // 己方行动的时候也要同时记录AI
     BattleNetwork::SerializableBattleAction action;
-    auto f = [](DrawableOnCall* d) {
+    auto f = [](DrawableOnCall* d)
+    {
         Font::getInstance()->draw("等待对方玩家行动...", 40, 30, 30, { 200, 200, 50, 255 });
     };
     DrawableOnCall waitThis(f);
     // getOpponentAction读取完毕会调用此函数关闭显示
-    auto exit = [&waitThis, this](std::error_code err, std::size_t bytes) {
+    auto exit = [&waitThis, this](std::error_code err, std::size_t bytes)
+    {
         printf("recv %s\n", err.message().c_str());
         waitThis.setExit(true);
-        if (err) {
+        if (err)
+        {
             this->setExit(true);
         }
     };
     // 打开后既开始获取数据
-    waitThis.setEntrance([this, &action, exit]() {
+    waitThis.setEntrance([this, &action, exit]()
+    {
         network_->getOpponentAction(action, exit);
     });
     waitThis.run();
@@ -1998,22 +2035,32 @@ void BattleScene::receiveAction(Role * r)
     r->Networked = true;
 }
 
-
-void BattleScene::sendAction(Role * r)
+void BattleScene::sendAction(Role* r)
 {
-    if (r->Network_Action == -1) return;
+    if (r->Network_Action == -1)
+    {
+        return;
+    }
     BattleNetwork::SerializableBattleAction action;
     action.Action = r->Network_Action;
     action.ActionX = r->Network_ActionX;
     action.ActionY = r->Network_ActionY;
     if (r->Network_Item)
+    {
         action.itemID = r->Network_Item->ID;
+    }
     else
+    {
         action.itemID = -1;
+    }
     if (r->Network_Magic)
+    {
         action.magicID = r->Network_Magic->ID;
+    }
     else
+    {
         action.magicID = 0;
+    }
     action.MoveX = r->Network_MoveX;
     action.MoveY = r->Network_MoveY;
     action.print();
