@@ -33,6 +33,8 @@
 
 namespace BattleMod {
 
+    const std::string CONFIGPATH = "../game/config/battle.yaml";
+
     // 单个特效，描述特效功能
     class SpecialEffect {
     public:

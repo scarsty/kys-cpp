@@ -4,6 +4,9 @@
 #include "GameUtil.h"
 #include "Save.h"
 #include "TeamMenu.h"
+#include "picosha2.h"
+#include "File.h"
+#include "BattleConfig.h"
 
 #include <random>
 
@@ -63,11 +66,15 @@ bool BattleNetwork::isHost()
     return is_host_;
 }
 
-void BattleNetwork::handshake(std::vector<RoleSave>&& my_roles, std::vector<MagicSave>&& magic, std::function<void(std::error_code err)> f)
+void BattleNetwork::addValidation(std::array<unsigned char, 32>&& bytes)
+{
+    validations_.push_back(std::move(bytes));
+}
+
+void BattleNetwork::handshake(std::vector<RoleSave>&& my_roles, std::function<void(std::error_code err)> f)
 {
     final_callback_ = f;
     friends_ = std::move(my_roles);
-    magics_ = std::move(magic);
     resolver_.async_resolve(query_, [this](std::error_code err, asio::ip::tcp::resolver::iterator iter)
     {
         CALLBACK_ON_ERROR(err);
@@ -84,6 +91,51 @@ void BattleNetwork::getResults(unsigned int& seed, int& friends, std::vector<Rol
     seed = seed_;
     friends = friends_.size();
     final_roles = std::move(role_result_);
+}
+
+void BattleNetwork::validate()
+{
+    int_buf_ = validations_.size();
+    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
+    {
+        CALLBACK_ON_ERROR(err);
+        asio::async_read(socket_, asio::buffer(&int_buf2_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
+        {
+            CALLBACK_ON_ERROR(err);
+            if (int_buf_ != int_buf2_) {
+                std::error_code err = std::make_error_code(std::errc::protocol_error);
+                CALLBACK_ON_ERROR(err);
+            }
+            const_bufs_.clear();
+            for (auto& v : validations_) {
+                const_bufs_.push_back(asio::buffer(v));
+            }
+            asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
+            {
+                CALLBACK_ON_ERROR(err);
+                mut_bufs_.clear();
+                op_validations_.resize(validations_.size());
+                for (int i = 0; i < int_buf_; i++)
+                {
+                    mut_bufs_.push_back(asio::buffer(op_validations_[i]));
+                }
+                asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
+                {
+                    CALLBACK_ON_ERROR(err);
+                    for (int i = 0; i < validations_.size(); i++)
+                    {
+                        if (validations_[i] != op_validations_[i])
+                        {
+                            std::error_code err = std::make_error_code(std::errc::protocol_error);
+                            CALLBACK_ON_ERROR(err);
+                        }
+                    }
+                    // ok
+                    final_callback_(err);
+                });
+            });
+        });
+    });
 }
 
 BattleHost::BattleHost(const std::string& strID, const std::string& port)
@@ -152,61 +204,8 @@ void BattleHost::rDataHandshake()
                 asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
                 {
                     CALLBACK_ON_ERROR(err);
-                    // 数据收集完毕
-                    concileMagicData();
-                });
-            });
-        });
-    });
-}
-
-void BattleHost::concileMagicData()
-{
-    // 先送，再读
-    printf("concileMagicData\n");
-    int_buf_ = magics_.size();
-    printf("host magic length %d\n", int_buf_);
-    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
-        CALLBACK_ON_ERROR(err);
-        const_bufs2_.clear();
-        for (int i = 0; i < magics_.size(); i++)
-        {
-            const_bufs2_.push_back(asio::buffer(&magics_[i], sizeof(MagicSave)));
-        }
-        asio::async_write(socket_, const_bufs2_, [this](const std::error_code& err, std::size_t bytes)
-        {
-            CALLBACK_ON_ERROR(err);
-            printf("sent my magic %d\n", bytes);
-            // 获取对面的武功
-            asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-            {
-                CALLBACK_ON_ERROR(err);
-                printf("read magic length %d\n", int_buf_);
-                opponent_magics_.resize(int_buf_);
-                mut_bufs2_.clear();
-                for (int i = 0; i < int_buf_; i++)
-                {
-                    mut_bufs2_.push_back(asio::buffer(&opponent_magics_[i], sizeof(MagicSave)));
-                }
-                asio::async_read(socket_, mut_bufs2_, [this](const std::error_code& err, std::size_t bytes)
-                {
-                    CALLBACK_ON_ERROR(err);
-                    printf("all done %d\n", bytes);
-                    // 数据收集完毕
-                    bool match = magics_.size() == opponent_magics_.size();
-                    match = match && 0 == std::memcmp(&magics_[0], &opponent_magics_[0], magics_.size() * sizeof(MagicSave));
-                    if (!match)
-                    {
-                        // 随便选一个
-                        std::error_code err = std::make_error_code(std::errc::protocol_error);
-                        CALLBACK_ON_ERROR(err);
-                    }
-                    else
-                    {
-                        // 全部搞完了，可以开战
-                        final_callback_(err);
-                    }
+                    // 数据收集完毕，开始验证（或许我应该先验证，不管了）
+                    validate();
                 });
             });
         });
@@ -271,60 +270,7 @@ void BattleClient::rDataHandshake()
                 asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
                 {
                     CALLBACK_ON_ERROR(err);
-                    concileMagicData();
-                });
-            });
-        });
-    });
-}
-
-void BattleClient::concileMagicData()
-{
-    // 先读对面的
-    printf("concileMagicData\n");
-    asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
-        CALLBACK_ON_ERROR(err);
-        printf("client read magic length %d\n", int_buf_);
-        mut_bufs2_.clear();
-        opponent_magics_.resize(int_buf_);
-        // 对面
-        for (int i = 0; i < opponent_magics_.size(); i++)
-        {
-            mut_bufs2_.push_back(asio::buffer(&opponent_magics_[i], sizeof(MagicSave)));
-        }
-        asio::async_read(socket_, mut_bufs2_, [this](const std::error_code& err, std::size_t bytes)
-        {
-            CALLBACK_ON_ERROR(err);
-            printf("got magic %d\n", bytes);
-            int_buf_ = magics_.size();
-            asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-            {
-                CALLBACK_ON_ERROR(err);
-                // 送人
-                const_bufs2_.clear();
-                for (int i = 0; i < int_buf_; i++)
-                {
-                    const_bufs2_.push_back(asio::buffer(&magics_[i], sizeof(MagicSave)));
-                }
-                asio::async_write(socket_, const_bufs2_, [this](const std::error_code& err, std::size_t bytes)
-                {
-                    CALLBACK_ON_ERROR(err);
-                    printf("all done\n");
-                    // 数据收集完毕
-                    bool match = magics_.size() == opponent_magics_.size();
-                    match = match && 0 == std::memcmp(&magics_[0], &opponent_magics_[0], magics_.size() * sizeof(MagicSave));
-                    if (!match)
-                    {
-                        // 随便选一个
-                        std::error_code err = std::make_error_code(std::errc::protocol_error);
-                        CALLBACK_ON_ERROR(err);
-                    }
-                    else
-                    {
-                        // 全部搞完了，可以开战
-                        final_callback_(err);
-                    }
+                    validate();
                 });
             });
         });
@@ -369,13 +315,29 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
         serializableRoles.push_back(me);
     }
 
-    std::vector<MagicSave> serializableMagics;
+    // 版本验证，最后b代表战斗MOD
+    std::array<unsigned char, BattleNetwork::VALSIZE> version = {'1','8','0','8','2','7','b'};
+    net->addValidation(std::move(version));
+
+    const auto MagicSize = sizeof(MagicSave);
+    std::vector<unsigned char> magicByteArr(Save::getInstance()->getMagics().size() * MagicSize);
+    int idx = 0;
     for (auto magic : Save::getInstance()->getMagics())
     {
-        MagicSave ms;
-        std::memcpy(&ms, magic, sizeof(ms));
-        serializableMagics.push_back(ms);
+        std::memcpy(&magicByteArr[idx * MagicSize], magic, MagicSize);
+        idx += 1;
     }
+    std::array<unsigned char, BattleNetwork::VALSIZE> magicHash;
+    picosha2::hash256(magicByteArr, magicHash);
+    net->addValidation(std::move(magicHash));
+
+    // 实际上，这样并不能完全验证，但是无所谓了
+    // 比如，在玩家连接之前替换文件即可，但是从我的角度，我做一个基础验证就够了
+    std::vector<char> configData;
+    configData = File::readFileToVectorChar(BattleMod::CONFIGPATH);
+    std::array<unsigned char, BattleNetwork::VALSIZE> configHash;
+    picosha2::hash256(configData, configHash);
+    net->addValidation(std::move(configHash));
 
     auto f = [](DrawableOnCall* d)
     {
@@ -390,9 +352,9 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
         ok = !err;
         waitThis.setExit(true);
     };
-    waitThis.setEntrance([&net, &serializableRoles, &serializableMagics, exit]()
+    waitThis.setEntrance([&net, &serializableRoles, exit]()
     {
-        net->handshake(std::move(serializableRoles), std::move(serializableMagics), exit);
+        net->handshake(std::move(serializableRoles), exit);
     });
 
     waitThis.run();

@@ -102,9 +102,9 @@ int BattleMod::RandomAdder::getVal(const Role * attacker, const Role * defender,
     if (items_.empty()) {
         // 机器猫老师，这个很不好用啊
         // 4, 10: 10-4 = 6 -> 7 -> 0~6
-        return BattleModifier::rng.rand_int(max_ - min_ + 1) + min_;
+        return BattleScene::rng_.rand_int(max_ - min_ + 1) + min_;
     }
-    return items_[BattleModifier::rng.rand_int(items_.size())];
+    return items_[BattleScene::rng_.rand_int(items_.size())];
 }
 
 BattleMod::LinearAdder::LinearAdder(double k, Variable&& v) : k_(k), v_(std::move(v))
@@ -223,7 +223,7 @@ std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(const Role * attacker,
     // if (prob != 100)
     //     printf("触发概率 %d\n", prob);
     std::vector<EffectIntsPair> procs;
-    if (BattleModifier::rng.rand_int(100) + 1 <= prob) {
+    if (BattleScene::rng_.rand_int(100) + 1 <= prob) {
         for (auto& effectPair : effectPairs_) {
             procs.push_back(std::move(effectPair.materialize(attacker, defender, wg)));
         }
@@ -236,7 +236,7 @@ std::vector<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(const Role * at
     if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
     // printf("尝试触发\n");
     // [0 total)
-    int t = BattleModifier::rng.rand_int(total_.getVal(attacker, defender, wg));
+    int t = BattleScene::rng_.rand_int(total_.getVal(attacker, defender, wg));
     int c = 0;
     for (auto& p : group_) {
         c += p.first.getVal(attacker, defender, wg);
@@ -265,7 +265,7 @@ std::vector<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(const Role *
 {
     if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
     for (auto& p : group_) {
-        if (BattleModifier::rng.rand_int(100) < p.first.getVal(attacker, defender, wg)) {
+        if (BattleScene::rng_.rand_int(100) < p.first.getVal(attacker, defender, wg)) {
             return { std::move(p.second.materialize(attacker, defender, wg)) };
         }
     }
@@ -378,6 +378,10 @@ int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max
 
 int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
 {
+    if (r_ == nullptr)
+    {
+        return 0;
+    }
     switch (statusID) {
         // 这几个凭什么不一样，应该全部统一？
     case 0: return r_->Hurt;

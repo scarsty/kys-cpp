@@ -421,7 +421,7 @@ void BattleScene::readBattleInfo()
         int friends;
         std::vector<RoleSave> sandBoxRoles;
         network_->getResults(seed, friends, sandBoxRoles);
-        rng_.set_seed(seed + 1);
+        rng_.set_seed(seed);
         Save::getInstance()->resetRData(sandBoxRoles);
         //设置全部角色的位置层，避免今后出错
         for (auto r : Save::getInstance()->getRoles())
@@ -1714,21 +1714,24 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                     auto path = convert::formatString("eft/eft%03d", r->Show.Effect);
                     TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
+				// 需要做到居中，不要无脑加y_pos
                 if (!r->Show.ShowStrings.empty())
                 {
-                    int y_pos = -75;
+                    int middle = -40;
+                    int init_pos = r->Show.ShowStrings.size() * r->Show.ShowStrings[0].Size / -2.0 + middle;
+                    int offset = 0;
+                    int floating_adjustment = total_frames / 4;
                     for (int i_show = 0; i_show < r->Show.ShowStrings.size(); i_show++)
                     {
                         auto& show_string = r->Show.ShowStrings[i_show];
                         int x = p.x - show_string.Size * show_string.Text.size() / 4;
-                        int y = p.y - i_frame * 2 + y_pos;
-                        if (!floating)
+                        int y = p.y + init_pos + offset;
+                        if (floating)
                         {
-                            // 调整一下
-                            y = p.y - total_frames + y_pos;
+                            y = y + floating_adjustment - i_frame;
                         }
                         Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 255 / total_frames * i_frame);
-                        y_pos += show_string.Size + 2;
+                        offset += show_string.Size + 2;
                     }
                 }
             }

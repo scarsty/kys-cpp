@@ -21,7 +21,6 @@ namespace BattleMod {
 class BattleModifier : public BattleScene {
     
 private:
-    const std::string PATH = "../game/config/battle.yaml";
 
     // 严禁复制string
     std::vector<std::string> strPool_;
@@ -70,13 +69,8 @@ private:
     bool simulation_ = false;
     // 多重攻击（别称 连击 左右互搏）
     int multiAtk_ = 0;
-
-    // 预先定义战斗场景
-    // 
-
-    // 是否为联网
-    std::unique_ptr<BattleNetwork> network_;
-    BattleInfo overrideInfo_;                   // 暂时没用
+    // 攻击者，跨函数所需要的攻击特效名字...复制字符串吧
+    std::vector<std::string> atkNames_;
 
     void init();
     Variable readVariable(const YAML::Node& node);
@@ -99,29 +93,16 @@ private:
 
 public:
 
-    // rng 就应该是个全局变量
-    static RandomDouble rng;
-
     // 我决定这不是一个singleton，不用重开游戏就可以测试
     BattleModifier();
     BattleModifier(int id);
 
     void dealEvent(BP_Event & e) override;
 
-
-    // 重写，在等待敌人的情况下重置战斗场景
-    // 对抗前自动储存，然后r数据清空，填入新的id，(加入, real_id做战斗特效判断）对抗结束读档
-    virtual void readBattleInfo() override;
-
-
     // 暂且考虑修改这些函数
     virtual void setRoleInitState(Role* r) override;
-    virtual void sortRoles() override;
 
-    virtual void action(Role* r) override;
-    virtual void actUseMagic(Role* r);           //武学
-
-    virtual void useMagic(Role* r, Magic* m);
+    virtual void actUseMagicSub(Role* r, Magic* magic) override;
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
@@ -130,13 +111,9 @@ public:
     virtual Role* semiRealPickOrTick();
     void setupRolePosition(Role* r, int team, int x, int y);
 
-    void showMagicNames(const std::vector<std::reference_wrapper<const std::string>>& names);
+    void showMagicNames(const std::vector<std::string>& names);
 
-    // 先在外面用BattleNetworkFactory，然后传递进来
-    // 同时可能还需要一个battleinfo, 以后再说！
-    void setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id = 67);
-
-    void renderExtraInfo(Role* r, int x, int y) override;
+    virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
 };
 
 }

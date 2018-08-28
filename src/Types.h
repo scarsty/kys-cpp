@@ -163,6 +163,11 @@ public:
             ProgressChange = 0;
             Effect = -1;
         }
+        void clearDisplayOnly ()
+        {
+            ShowStrings.clear();
+            Effect = -1;
+        }
     };
     ActionShowInfo Show;
 
