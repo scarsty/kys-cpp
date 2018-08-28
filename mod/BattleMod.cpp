@@ -897,6 +897,7 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
     multiAtk_ += atkEffectManager_.getEffectParam0(11);
 
     int total = 0;
+	int targets = 0;
     for (auto r2 : battle_roles_)
     {
         //非我方且被击中（即所在位置的效果层非负）
@@ -926,8 +927,17 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                 int hurt1 = prevMP - r2->MP;
                 r->ExpGot += hurt1 / 2;
             }
+			if (r2->HP > 0)
+			{
+				targets += 1;
+			}
         }
     }
+	// 没打到人，终止攻击
+	if (targets == 0)
+	{
+		multiAtk_ = 0;
+	}
     
     // 我需要好好想一想显示效果怎么做
     // 特效12 加集气

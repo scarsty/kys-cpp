@@ -1,12 +1,12 @@
 #include "BattleNetwork.h"
+#include "BattleConfig.h"
 #include "DrawableOnCall.h"
+#include "File.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"
 #include "TeamMenu.h"
 #include "picosha2.h"
-#include "File.h"
-#include "BattleConfig.h"
 
 #include <random>
 
@@ -21,8 +21,8 @@ bool BattleNetwork::sendMyAction(const BattleNetwork::SerializableBattleAction& 
 {
     // 错误不管
     printf("sendMyAction\n");
-    asio::async_write(socket_, asio::buffer(&action, sizeof(action)), [](std::error_code err, std::size_t bytes)
-    {
+    asio::async_write(socket_, asio::buffer(&action, sizeof(action)), [](std::error_code err, std::size_t bytes) 
+	{
         printf("send %s\n", err.message().c_str());
     });
     return true;
@@ -41,11 +41,11 @@ void BattleNetwork::nameSetup()
     int_buf_ = strID_.size();
     const_bufs_.push_back(asio::buffer(&int_buf_, sizeof(int_buf_)));
     const_bufs_.push_back(asio::buffer(strID_.data(), int_buf_));
-    asio::async_write(socket_, const_bufs_, [this](std::error_code err, std::size_t bytes)
-    {
+    asio::async_write(socket_, const_bufs_, [this](std::error_code err, std::size_t bytes) 
+	{
         CALLBACK_ON_ERROR(err);
-        asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](std::error_code err, std::size_t bytes)
-        {
+        asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](std::error_code err, std::size_t bytes) 
+		{
             // 读取结果，0失败
             CALLBACK_ON_ERROR(err);
             if (int_buf_ == 0)
@@ -75,11 +75,11 @@ void BattleNetwork::handshake(std::vector<RoleSave>&& my_roles, std::function<vo
 {
     final_callback_ = f;
     friends_ = std::move(my_roles);
-    resolver_.async_resolve(query_, [this](std::error_code err, asio::ip::tcp::resolver::iterator iter)
-    {
+    resolver_.async_resolve(query_, [this](std::error_code err, asio::ip::tcp::resolver::iterator iter) 
+	{
         CALLBACK_ON_ERROR(err);
-        asio::async_connect(socket_, iter, [this](const std::error_code err, asio::ip::tcp::resolver::iterator iter)
-        {
+        asio::async_connect(socket_, iter, [this](const std::error_code err, asio::ip::tcp::resolver::iterator iter) 
+		{
             CALLBACK_ON_ERROR(err);
             nameSetup();
         });
@@ -96,22 +96,24 @@ void BattleNetwork::getResults(unsigned int& seed, int& friends, std::vector<Rol
 void BattleNetwork::validate()
 {
     int_buf_ = validations_.size();
-    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) 
+	{
         CALLBACK_ON_ERROR(err);
-        asio::async_read(socket_, asio::buffer(&int_buf2_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-        {
+        asio::async_read(socket_, asio::buffer(&int_buf2_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) 
+		{
             CALLBACK_ON_ERROR(err);
-            if (int_buf_ != int_buf2_) {
+            if (int_buf_ != int_buf2_)
+            {
                 std::error_code err = std::make_error_code(std::errc::protocol_error);
                 CALLBACK_ON_ERROR(err);
             }
             const_bufs_.clear();
-            for (auto& v : validations_) {
+            for (auto& v : validations_)
+            {
                 const_bufs_.push_back(asio::buffer(v));
             }
-            asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
-            {
+            asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes) 
+			{
                 CALLBACK_ON_ERROR(err);
                 mut_bufs_.clear();
                 op_validations_.resize(validations_.size());
@@ -119,8 +121,8 @@ void BattleNetwork::validate()
                 {
                     mut_bufs_.push_back(asio::buffer(op_validations_[i]));
                 }
-                asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
-                {
+                asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes) 
+				{
                     CALLBACK_ON_ERROR(err);
                     for (int i = 0; i < validations_.size(); i++)
                     {
@@ -138,16 +140,16 @@ void BattleNetwork::validate()
     });
 }
 
-BattleHost::BattleHost(const std::string& strID, const std::string& port)
-    : BattleNetwork(strID, port)
+BattleHost::BattleHost(const std::string& strID, const std::string& port) :
+    BattleNetwork(strID, port)
 {
     is_host_ = true;
 }
 
 void BattleHost::waitConnection()
 {
-    asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+    asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) 
+	{
         CALLBACK_ON_ERROR(err);
         printf("got %d\n", int_buf_);
         if (int_buf_ == BattleClient::GO)
@@ -166,8 +168,8 @@ void BattleHost::getRandSeed()
     printf("exchange protocol started\n");
     std::random_device device;
     seed_ = device();
-    asio::async_write(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+    asio::async_write(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes) 
+	{
         CALLBACK_ON_ERROR(err);
         rDataHandshake();
     });
@@ -178,8 +180,8 @@ void BattleHost::rDataHandshake()
     // 先传输人数
     printf("rDataHandshake\n");
     int_buf_ = friends_.size();
-    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+    asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes) 
+	{
         CALLBACK_ON_ERROR(err);
         const_bufs_.clear();
         for (int i = 0; i < int_buf_; i++)
@@ -187,12 +189,12 @@ void BattleHost::rDataHandshake()
             const_bufs_.push_back(asio::buffer(&friends_[i], sizeof(RoleSave)));
             role_result_.push_back(friends_[i]);
         }
-        asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
-        {
+        asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes) 
+		{
             CALLBACK_ON_ERROR(err);
             // 获取对面人数
             asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-            {
+			{
                 CALLBACK_ON_ERROR(err);
                 mut_bufs_.clear();
                 role_result_.reserve(friends_.size() + int_buf_);
@@ -202,7 +204,7 @@ void BattleHost::rDataHandshake()
                     mut_bufs_.push_back(asio::buffer(&role_result_.back(), sizeof(RoleSave)));
                 }
                 asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
-                {
+				{
                     CALLBACK_ON_ERROR(err);
                     // 数据收集完毕，开始验证（或许我应该先验证，不管了）
                     validate();
@@ -212,8 +214,8 @@ void BattleHost::rDataHandshake()
     });
 }
 
-BattleClient::BattleClient(const std::string& strID, const std::string& port)
-    : BattleNetwork(strID, port)
+BattleClient::BattleClient(const std::string& strID, const std::string& port) :
+    BattleNetwork(strID, port)
 {
     is_host_ = false;
 }
@@ -222,7 +224,7 @@ void BattleClient::waitConnection()
 {
     int_buf_ = BattleClient::GO;
     asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+	{
         CALLBACK_ON_ERROR(err);
         getRandSeed();
     });
@@ -232,7 +234,7 @@ void BattleClient::getRandSeed()
 {
     printf("exchange protocol started\n");
     asio::async_read(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+	{
         CALLBACK_ON_ERROR(err);
         rDataHandshake();
     });
@@ -243,7 +245,7 @@ void BattleClient::rDataHandshake()
     printf("rDataHandshake\n");
     // 读取人数
     asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-    {
+	{
         CALLBACK_ON_ERROR(err);
         mut_bufs_.clear();
         role_result_.reserve(friends_.size() + int_buf_);
@@ -254,11 +256,11 @@ void BattleClient::rDataHandshake()
             mut_bufs_.push_back(asio::buffer(&role_result_.back(), sizeof(RoleSave)));
         }
         asio::async_read(socket_, mut_bufs_, [this](const std::error_code& err, std::size_t bytes)
-        {
+		{
             CALLBACK_ON_ERROR(err);
             int_buf_ = friends_.size();
             asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
-            {
+			{
                 CALLBACK_ON_ERROR(err);
                 // 送人
                 const_bufs_.clear();
@@ -268,7 +270,7 @@ void BattleClient::rDataHandshake()
                     role_result_.push_back(friends_[i]);
                 }
                 asio::async_write(socket_, const_bufs_, [this](const std::error_code& err, std::size_t bytes)
-                {
+				{
                     CALLBACK_ON_ERROR(err);
                     validate();
                 });
@@ -315,8 +317,15 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
         serializableRoles.push_back(me);
     }
 
+    static_assert(BattleNetwork::VALSIZE == picosha2::k_digest_size, "validation size mismatch");
     // 版本验证，最后b代表战斗MOD
-    std::array<unsigned char, BattleNetwork::VALSIZE> version = {'1','8','0','8','2','7','b'};
+	std::array<unsigned char, BattleNetwork::VALSIZE> version = { 0 };
+    std::string verStr(GameUtil::VERSION());
+    if (verStr.size() > BattleNetwork::VALSIZE)
+    {
+        return nullptr;
+    }
+    std::memcpy(&version[0], &verStr[0], verStr.size());
     net->addValidation(std::move(version));
 
     const auto MagicSize = sizeof(MagicSave);
@@ -340,20 +349,20 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     net->addValidation(std::move(configHash));
 
     auto f = [](DrawableOnCall* d)
-    {
+	{
         Font::getInstance()->draw("等待对方玩家连接...", 40, 30, 30, { 200, 200, 50, 255 });
     };
 
     bool ok = false;
     DrawableOnCall waitThis(f);
     auto exit = [&waitThis, &ok](std::error_code err)
-    {
+	{
         printf("recv %s\n", err.message().c_str());
         ok = !err;
         waitThis.setExit(true);
     };
     waitThis.setEntrance([&net, &serializableRoles, exit]()
-    {
+	{
         net->handshake(std::move(serializableRoles), exit);
     });
 

@@ -1088,6 +1088,7 @@ void BattleScene::actUseMagic(Role* r)
         }
         if (magic == nullptr)
         {
+			r->Network_Action = -1;
             break;
         }    //可能是退出游戏，或者是没有选武功
         r->ActTeam = 1;
