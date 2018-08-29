@@ -2,9 +2,12 @@
 #include "PotConv.h"
 #include <cmath>
 #include <algorithm>
+#include <utility>
+#include "libconvert.h"
+#include "hanzi2pinyin.h"
 #include "OpenCCConverter.h"
 
-SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::string>& allItems, int itemsPerPage) :
+SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
     InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
     previous_ = new Button();
@@ -18,6 +21,51 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     addChild(selections_);
     setAllChildState(Normal);
     defaultPage();
+
+    for (const auto& pairName : items_) 
+    {
+        // 拼音
+        auto u8Name = PotConv::cp936toutf8(pairName.second);
+        std::string pinyin;
+        pinyin.resize(1024);
+        int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
+        pinyin.resize(size);
+        auto pys = convert::splitString(pinyin, " ");
+        std::vector<std::string> acceptables;
+
+        std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx)
+        {
+            if (idx == pys.size())
+            {
+                acceptables.push_back(curStr);
+                return;
+            }
+            comboGenerator(curStr + pys[idx][0], idx + 1);
+            comboGenerator(curStr + pys[idx], idx + 1);
+        };
+        comboGenerator("", 0);
+
+        for (auto& acc : acceptables)
+        {
+            for (int i = 0; i < acc.size(); i++)
+            {
+                matches_[acc.substr(0, i + 1)].insert(pairName.second);
+            }
+        }
+
+        // 直接对字，可以两个跳，但是不管了
+        for (int i = 0; i < pairName.second.size(); i++)
+        {
+            matches_[pairName.second.substr(0, i + 1)].insert(pairName.second);
+        }
+
+        // 对id
+        std::string strID = std::to_string(pairName.first);
+        for (int i = 0; i < strID.size(); i++)
+        {
+            matches_[strID.substr(0, i + 1)].insert(pairName.second);
+        }
+    }
 }
 
 void SuperMenuText::setInputPosition(int x, int y)
@@ -49,7 +97,7 @@ void SuperMenuText::defaultPage()
         if (i < std::min((std::size_t)itemsPerPage_, items_.size()))
         {
             activeIndices_.push_back(i);
-            displays.push_back(items_[i]);
+            displays.push_back(items_[i].second);
         }
         searchResultIndices_.push_back(i);
     }
@@ -73,11 +121,22 @@ void SuperMenuText::flipPage(int pInc)
         for (std::size_t i = startIdx; i < std::min(searchResultIndices_.size(), (std::size_t)startIdx + itemsPerPage_); i++)
         {
             activeIndices_.push_back(searchResultIndices_[i]);
-            displays.push_back(items_[searchResultIndices_[i]]);
+            displays.push_back(items_[searchResultIndices_[i]].second);
         }
         selections_->setStrings(displays);
     }
     // curDefault_ = false;
+}
+
+bool SuperMenuText::defaultMatch(const std::string& input, const std::string& name)
+{
+    auto iterInput = matches_.find(input);
+    if (iterInput != matches_.end()) 
+    {
+        auto iterName = iterInput->second.find(name);
+        if (iterName != iterInput->second.end()) return true;
+    }
+    return false;
 }
 
 void SuperMenuText::search(const std::string& text) 
@@ -91,26 +150,19 @@ void SuperMenuText::search(const std::string& text)
     {
         bool matched = false;
         auto& opt = items_[i];
-        if (matchFunc_ && matchFunc_(text, opt))
+        if (matchFunc_ && matchFunc_(text, opt.second))
         {
             matched = true;
         } 
         else
         {
-            if (opt.size() < text.size())
-            {
-                continue;
-            }
-            if (memcmp(text.c_str(), opt.c_str(), text.size()) == 0)
-            {
-                matched = true;
-            }
+            matched = defaultMatch(text, opt.second);
         }
         if (matched)
         {
             if (results.size() < itemsPerPage_)
             {
-                results.emplace_back(opt);
+                results.emplace_back(opt.second);
                 activeIndices_.push_back(i);
             }
             searchResultIndices_.push_back(i);
@@ -119,6 +171,7 @@ void SuperMenuText::search(const std::string& text)
     updateMaxPages();
     curPage_ = 0;
     selections_->setStrings(results);
+    selections_->forceActiveChild(0);
     curDefault_ = false;
 }
 
@@ -223,7 +276,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
         int idx = activeIndices_[selectionIdx];
         for (auto& doc : docs_)
         {
-            doc->updateScreenWithID(idx);
+            doc->updateScreenWithID(items_[idx].first);
         }
     }
 
@@ -231,6 +284,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
     {
         auto selected = selections_->getResultString();
         result_ = activeIndices_[selections_->getResult()];
+        if (result_ >= 0) result_ = items_[result_].first;
         setExit(true);
     }
 }

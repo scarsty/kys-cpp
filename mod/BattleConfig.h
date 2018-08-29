@@ -36,12 +36,22 @@
 
 namespace BattleMod {
 
+    // nb
+    // https://stackoverflow.com/questions/476272/how-to-properly-overload-the-operator-for-an-ostream
+    template<class T>
+    auto operator<<(std::ostream& os, const T& t) -> decltype(t.print(os), os)
+    {
+        t.print(os);
+        return os;
+    }
+
     const std::string CONFIGPATH = "../game/config/battle.yaml";
 
     // 单个特效，描述特效功能
     class SpecialEffect {
     public:
         SpecialEffect(int id, const std::string& desc);
+        void print(std::ostream& os) const;
         const std::string& description;
         const int id;
     };
@@ -50,6 +60,7 @@ namespace BattleMod {
 	public:
 		// 不一定要显示，可以做别的处理
 		BattleStatus(int id, int max, const std::string& display, bool hide, BP_Color color);
+        void print(std::ostream& os) const;
 		const int id;
 		const int max;
 		const std::string& display;
@@ -69,6 +80,8 @@ namespace BattleMod {
 
 		// 伤害结算的时候才会把战斗中的状态实效，并且返还各种值的效果
 		std::vector<std::pair<const BattleStatus&, int>> materialize();
+        // void print(std::ostream& os) const;
+
 	private:
 		Role * r_;
 		const std::vector<BattleStatus>* status_;
@@ -88,6 +101,7 @@ namespace BattleMod {
         void addParam(int p);
         // 叠加方式可不同，现在就都一样吧
         virtual EffectIntsPair & operator+=(const EffectIntsPair & rhs);
+        void print(std::ostream& os) const;
 
         const SpecialEffect& effect;
         // 特效解说(显示文字?)
@@ -108,12 +122,14 @@ namespace BattleMod {
 	public:
 		virtual ~Variable() = default;
 		virtual int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const = 0;
+        virtual void print(std::ostream& os) const = 0;
 	};
 
 	class FlatValue : public Variable {
 	public:
 		FlatValue(int val);
 		int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+        void print(std::ostream& os) const;
 	private:
 		int val_;
 	};
@@ -169,6 +185,7 @@ namespace BattleMod {
 		DynamicVariable(DynamicVarEnum dynamicCode, VarTarget target);
 		int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
 		void addParam(int p);
+        void print(std::ostream& os) const;
 	private:
 		DynamicVarEnum dynamicCode_;
 		VarTarget target_;
@@ -179,6 +196,7 @@ namespace BattleMod {
 	public:
 		StatusVariable(const BattleStatus& status, VarTarget target);
 		int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+        void print(std::ostream& os) const;
 	private:
 		const BattleStatus& status_;
 		VarTarget target_;
@@ -188,14 +206,19 @@ namespace BattleMod {
     class Adder {
     public:
         virtual int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const = 0;
+        Adder(const std::string& description);
         virtual ~Adder() = default;
+        virtual void print(std::ostream& os) const;
+    protected:
+        const std::string& description_;
     };
 
     class RandomAdder : public Adder {
     public:
-        RandomAdder(int min, int max);
-        RandomAdder(std::vector<int>&& items);
+        RandomAdder(const std::string & description, int min, int max);
+        RandomAdder(const std::string & description, std::vector<int>&& items);
         int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+        void print(std::ostream& os) const;
     private:
         int min_;
         int max_;
@@ -205,9 +228,9 @@ namespace BattleMod {
     class LinearAdder : public Adder {
     public:
         // 这里解释一下，&&进来后的全部会被move掉
-        LinearAdder(double k, std::unique_ptr<Variable> v);
+        LinearAdder(const std::string & description, double k, std::unique_ptr<Variable> v);
         int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
-
+        void print(std::ostream& os) const;
     private:
         double k_;
         std::unique_ptr<Variable> v_;
@@ -221,10 +244,12 @@ namespace BattleMod {
         VariableParam(int base, int min = VariableParam::DEFAULTMIN, int max = VariableParam::DEFAULTMAX);
         void setMin(int min);
         void setMax(int max);
+        int getBase() const;
         int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const;
         void addAdder(std::unique_ptr<Adder> adder);
         VariableParam(const VariableParam&) = delete;
         VariableParam(VariableParam&& o) noexcept : base_(o.base_), min_(o.min_), max_(o.max_), adders_(std::move(o.adders_)) { }
+        void print(std::ostream& os) const;
     private:
         int base_;
         int min_;
@@ -239,14 +264,15 @@ namespace BattleMod {
     };
     class Condition {
     public:
-        Condition(std::unique_ptr<Variable> left, std::unique_ptr<Variable> right, std::function<bool(int, int)> binOp);
+        Condition(std::unique_ptr<Variable> left, std::unique_ptr<Variable> right, ConditionOp op);
 		Condition(const Condition&) = delete;
-        Condition(Condition&& o) noexcept : left_(std::move(o.left_)), right_(std::move(o.right_)), binOp_(std::move(o.binOp_)) {}
+        Condition(Condition&& o) noexcept : left_(std::move(o.left_)), right_(std::move(o.right_)), op_(std::move(o.op_)) {}
         bool check(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const;
+        void print(std::ostream& os) const;
     private:
 		std::unique_ptr<Variable> left_;
 		std::unique_ptr<Variable> right_;
-        std::function<bool(int, int)> binOp_;
+        ConditionOp op_;
     };
 
     class EffectParamPair {
@@ -256,6 +282,7 @@ namespace BattleMod {
         void addParam(VariableParam&& vp);
         EffectParamPair(EffectParamPair&& o) noexcept : params_(std::move(o.params_)), eip_(o.eip_) { }
         EffectParamPair(const EffectParamPair&) = delete;
+        void print(std::ostream& os) const;
     private:
         std::vector<VariableParam> params_;
         EffectIntsPair eip_;
@@ -275,6 +302,8 @@ namespace BattleMod {
         ProccableEffect() {}
         ProccableEffect(ProccableEffect&& o)  noexcept : conditionz_(std::move(o.conditionz_)) {}
         ProccableEffect(const ProccableEffect&) = delete;
+        // 僅打印需求
+        virtual void print(std::ostream& os) const;
 
     protected:
         bool checkConditions(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg);
@@ -297,6 +326,7 @@ namespace BattleMod {
         std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
         EffectSingle(EffectSingle&& o) noexcept : ProccableEffect(std::move(o)), percentProb_(std::move(o.percentProb_)), effectPairs_(std::move(o.effectPairs_)) { }
         EffectSingle(const EffectSingle&) = delete;
+        void print(std::ostream& os) const;
     private:
         VariableParam percentProb_;
         std::vector<EffectParamPair> effectPairs_;
@@ -310,6 +340,7 @@ namespace BattleMod {
         EffectWeightedGroup(EffectWeightedGroup&& o) noexcept : ProccableEffect(std::move(o)), group_(std::move(o.group_)), total_(std::move(o.total_)) { }
         void addProbEPP(VariableParam&& weight, EffectParamPair&& epp);
         EffectWeightedGroup(const EffectWeightedGroup&) = delete;
+        void print(std::ostream& os) const;
     private:
         // 发动参数，和特效
         std::vector<std::pair<VariableParam, EffectParamPair>> group_;
@@ -323,6 +354,7 @@ namespace BattleMod {
         std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
         void addProbEPP(VariableParam&& prob, EffectParamPair&& epp);
         EffectPrioritizedGroup(const EffectPrioritizedGroup&) = delete;
+        void print(std::ostream& os) const;
     private:
         std::vector<std::pair<VariableParam, EffectParamPair>> group_;
     };
@@ -334,8 +366,9 @@ namespace BattleMod {
         std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
         EffectCounter(EffectCounter&& o) noexcept : ProccableEffect(std::move(o)), total_(std::move(o.total_)),
                                                     add_(std::move(o.add_)), 
-                                                    effectPairs_(std::move(o.effectPairs_)), counter_(counter_){ }
+                                                    effectPairs_(std::move(o.effectPairs_)), counter_(std::move(counter_)){ }
         EffectCounter(const EffectCounter&) = delete;
+        void print(std::ostream& os) const;
     private:
         VariableParam total_;
         VariableParam add_;
@@ -376,8 +409,8 @@ namespace BattleMod {
         void setStatusFromParams(const std::vector<int>& params, Role* target);
 
 		// 还需要一个重置函数
-		std::vector<SpecialEffect> effects;
-		std::vector<BattleStatus> battleStatus;
+		static std::vector<SpecialEffect> effects;
+		static std::vector<BattleStatus> battleStatus;
 
 		// 武功效果，不想碰Magic这个类，修改的东西太多
 		// 主动武功效果，必须使用这个武功才行
@@ -403,6 +436,10 @@ namespace BattleMod {
 		Effects speedAll;
 		Effects turnAll;
 
+        // 特效说明
+        std::unordered_map<int, std::vector<std::unique_ptr<Adder>>> magicAdder;
+        std::unordered_map<int, std::vector<std::unique_ptr<Adder>>> roleAdder;
+
 		// 管理特效
 		// 攻击特效管理器只有一个，在攻击结束后清空
 		EffectManager atkEffectManager;
@@ -420,7 +457,8 @@ namespace BattleMod {
 
 		void init();
 		std::unique_ptr<Variable> readVariable(const YAML::Node& node);
-		std::unique_ptr<Adder> readAdder(const YAML::Node& node);
+		std::unique_ptr<Adder> readAdder(const YAML::Node& node, bool copy = true);
+        const std::string& adderDescription(const YAML::Node & adderNode, const YAML::Node & subNode, bool copy);
 		VariableParam readVariableParam(const YAML::Node& node);
 		Conditions readConditions(const YAML::Node& node);
 		Condition readCondition(const YAML::Node& node);
@@ -428,5 +466,7 @@ namespace BattleMod {
 		EffectParamPair readEffectParamPair(const YAML::Node& node);
 		std::vector<EffectParamPair> readEffectParamPairs(const YAML::Node& node);
 		void readIntoMapping(const YAML::Node& node, BattleMod::Effects& effects);
+
+        void printEffects(const Effects& t);
 	};
 }

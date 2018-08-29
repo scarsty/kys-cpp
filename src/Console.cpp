@@ -9,7 +9,7 @@
 #include "libconvert.h"
 #include "hanzi2pinyin.h"
 #include "BattleMod.h"
-
+#include "BattleConfig.h"
 
 #include <string>
 #include <vector>
@@ -19,6 +19,7 @@
 #include <functional>
 #include <algorithm>
 #include <sstream>
+#include <iostream>
 
 
 Console::Console()
@@ -39,10 +40,10 @@ Console::Console()
     if (splits.empty()) return;
     if (code == u8"menutest")
     {
-        std::vector<std::string> generated;
+        std::vector<std::pair<int, std::string>> generated;
         for (int i = 0; i < 450; i++)
         {
-            generated.push_back("a" + std::to_string(i));
+            generated.emplace_back(i, "a" + std::to_string(i));
         }
         SuperMenuText smt("少废话", 28, generated, 10);
         smt.setInputPosition(180, 80);
@@ -52,69 +53,23 @@ Console::Console()
     }
     else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache") 
     {
-        // 返回的idx需要再映射一遍
-        std::vector<std::string> locs;
-        std::unordered_map<int, int> realIdxMapping;
-        std::unordered_map<std::string, std::unordered_set<std::string>> matches;
+        std::vector<std::pair<int, std::string>> locs;
         for (const auto& info : Save::getInstance()->getSubMapInfos()) 
         {
             // 还有其他要求 这里作为一个demo就意思意思
             if (info->MainEntranceX1 != 0 && info->MainEntranceY1 != 0)
             {
-                realIdxMapping[locs.size()] = info->ID;
                 std::string name(info->Name);
                 // 有空格方便完成双击确认
-                locs.push_back(name);
-
-                // 拼音
-                auto u8Name = PotConv::cp936toutf8(name);
-                std::string pinyin;
-                pinyin.resize(1024);
-                int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
-                pinyin.resize(size);
-                auto pys = convert::splitString(pinyin, " ");
-                std::vector<std::string> acceptables;
-
-                std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx) 
-                {
-                    if (idx == pys.size()) 
-                    {
-                        acceptables.push_back(curStr);
-                        return;
-                    }
-                    comboGenerator(curStr + pys[idx][0], idx + 1);
-                    comboGenerator(curStr + pys[idx], idx + 1);
-                };
-                comboGenerator("", 0);
-
-                for (auto& acc : acceptables) 
-                {
-                    for (int i = 0; i < acc.size(); i++) 
-                    {
-                        matches[acc.substr(0, i + 1)].insert(name);
-                    }
-                }
-
-                // 直接对字，可以两个跳，但是不管了
-                for (int i = 0; i < name.size(); i++) 
-                {
-                    matches[name.substr(0, i + 1)].insert(name);
-                }
-
-                // 对id
-                std::string strID = std::to_string(info->ID);
-                for (int i = 0; i < strID.size(); i++) 
-                {
-                    matches[strID.substr(0, i + 1)].insert(name);
-                }
+                locs.emplace_back(info->ID, name);
             }
         }
         int dx = 180;
         int dy = 80;
-        auto drawScene = [dx, dy, &realIdxMapping](DrawableOnCall* d)
+        auto drawScene = [dx, dy](DrawableOnCall* d)
         {
             if (d->getID() == -1) return;
-            int id = realIdxMapping[d->getID()];
+            int id = d->getID();
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             int nx = dx + 350;
             int ny = dy + 100;
@@ -185,22 +140,10 @@ Console::Console()
         smt.setInputPosition(dx, dy);
         smt.addDrawableOnCall(doc);
 
-        auto f = [&matches](const std::string& input, const std::string& name) 
-        {
-            auto iterInput = matches.find(input);
-            if (iterInput != matches.end()) {
-                auto iterName = iterInput->second.find(name);
-                if (iterName != iterInput->second.end()) return true;
-            }
-            return false;
-        };
-        smt.setMatchFunction(f);
-
         smt.run();
         int id = smt.getResult();
         if (id != -1)
         {
-            id = realIdxMapping[id];
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             MainScene::getInstance()->forceEnterSubScene(id, scene->EntranceX, scene->EntranceY);
             printf("傳送到%d\n", id);
@@ -245,7 +188,8 @@ Console::Console()
             main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
         }
     }
-    else if (splits[0] == u8"rinsert" && splits.size() >= 3) {
+    else if (splits[0] == u8"rinsert" && splits.size() >= 3) 
+    {
         int idx;
         try 
         {
@@ -257,7 +201,8 @@ Console::Console()
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
-    else if (splits[0] == u8"host" && splits.size() >= 1) {
+    else if (splits[0] == u8"host" && splits.size() >= 1) 
+    {
         Save::getInstance()->save(11);
 
         auto host = BattleNetworkFactory::MakeHost(splits[1]);
@@ -269,7 +214,8 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == u8"client" && splits.size() >= 1) {
+    else if (splits[0] == u8"client" && splits.size() >= 1) 
+    {
         Save::getInstance()->save(11);
 
         auto client = BattleNetworkFactory::MakeClient(splits[1]);
@@ -280,6 +226,45 @@ Console::Console()
         battle.run();
 
         Save::getInstance()->load(11);
+    }
+    else if (splits[0] == u8"renwu")
+    {
+        BattleMod::BattleConfManager mang;
+        std::vector<std::pair<int, std::string>> person;
+        for (const auto& info : Save::getInstance()->getRoles())
+        {
+            std::string name(info->Name);
+            // 有空格方便完成双击确认
+            person.emplace_back(info->ID, name);
+        }
+        SuperMenuText smt("可輸入人名，編號或拼音搜索：", 28, person, 15);
+        smt.setInputPosition(180, 80);
+        smt.run();
+        int id = smt.getResult();
+        if (id != -1)
+        {
+            // 这会mutate mang但是不重要
+            for (auto& adder : mang.roleAdder[id]) 
+            {
+                std::cout << *(adder) << "\n";
+            }
+            for (auto& proc : mang.atkRole[id])
+            {
+                std::cout << *(proc) << "\n";
+            }
+            for (auto& proc : mang.defRole[id])
+            {
+                std::cout << *(proc) << "\n";
+            }
+            for (auto& proc : mang.speedRole[id])
+            {
+                std::cout << *(proc) << "\n";
+            }
+            for (auto& proc : mang.turnRole[id])
+            {
+                std::cout << *(proc) << "\n";
+            }
+        }
     }
     
 }
