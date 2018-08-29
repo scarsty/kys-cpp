@@ -1,6 +1,9 @@
 #include "BattleConfig.h"
 #include "BattleMod.h"
+
 #include "GameUtil.h"
+#include "PotConv.h"
+#include <unordered_set>
 
 using namespace BattleMod;
 
@@ -68,23 +71,189 @@ EffectIntsPair & BattleMod::EffectIntsPair::operator+=(const EffectIntsPair & rh
     return *this;
 }
 
-BattleMod::Variable::Variable(BattleInfoFunc func, VarTarget target) : func_(func), target_(target)
+BattleMod::FlatValue::FlatValue(int val) : val_(val)
 {
 }
 
-// 其实这个attacker defender并不一定是这样
-// TODO rename attacker/defender
-int BattleMod::Variable::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::FlatValue::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
 {
-    switch (target_) {
-    case VarTarget::Other: return func_(defender, wg);
-    default: {
-        // for debugging
-        auto result = func_(attacker, wg);
-        return result;
-    }
-    }
-    return 0;
+	return val_;
+}
+
+BattleMod::DynamicVariable::DynamicVariable(DynamicVarEnum dynamicCode, VarTarget target) : dynamicCode_(dynamicCode), target_(target)
+{
+}
+
+int BattleMod::DynamicVariable::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+{
+	const Role * c = attacker;
+	if (target_ == VarTarget::Other) {
+		c = defender;
+	}
+#define ATTR( attribute ) { if (c == nullptr) return 0; return c->attribute; }
+	switch (dynamicCode_) {
+	case DynamicVarEnum::var_char_sex: ATTR(Sexual);
+	case DynamicVarEnum::var_char_level: ATTR(Level);
+	case DynamicVarEnum::var_char_exp: ATTR(Exp);
+	case DynamicVarEnum::var_char_hp: ATTR(HP);
+	case DynamicVarEnum::var_char_maxhp: ATTR(MaxHP);
+	case DynamicVarEnum::var_char_equip0: ATTR(Equip0);
+	case DynamicVarEnum::var_char_equip1: ATTR(Equip1);
+	case DynamicVarEnum::var_char_mptype: ATTR(MPType);
+	case DynamicVarEnum::var_char_mp: ATTR(MP);
+	case DynamicVarEnum::var_char_maxmp: ATTR(MaxMP);
+	case DynamicVarEnum::var_char_attack: ATTR(Attack);
+	case DynamicVarEnum::var_char_speed: ATTR(Speed);
+	case DynamicVarEnum::var_char_defence: ATTR(Defence);
+	case DynamicVarEnum::var_char_medicine: ATTR(Medicine);
+	case DynamicVarEnum::var_char_usepoison: ATTR(UsePoison);
+	case DynamicVarEnum::var_char_detoxification: ATTR(Detoxification);
+	case DynamicVarEnum::var_char_antipoison: ATTR(AntiPoison);
+	case DynamicVarEnum::var_char_fist: ATTR(Fist);
+	case DynamicVarEnum::var_char_sword: ATTR(Sword);
+	case DynamicVarEnum::var_char_blade: ATTR(Knife);
+	case DynamicVarEnum::var_char_unusual: ATTR(Unusual);
+	case DynamicVarEnum::var_char_hiddenweapon: ATTR(HiddenWeapon);
+	case DynamicVarEnum::var_char_knowledge: ATTR(Knowledge);
+	case DynamicVarEnum::var_char_morality: ATTR(Morality);
+	case DynamicVarEnum::var_char_attackwithpoison: ATTR(AttackWithPoison);
+	case DynamicVarEnum::var_char_attacktwice: ATTR(AttackTwice);
+	case DynamicVarEnum::var_char_fame: ATTR(Fame);
+	case DynamicVarEnum::var_char_iq: ATTR(IQ);
+	case DynamicVarEnum::var_using_char: ATTR(ID);
+	case DynamicVarEnum::var_books: {
+		// 硬代码，写书本id
+		int books = 0;
+		for (int i = 144; i < 144 + 14; i++)
+			books += Save::getInstance()->getItemCountInBag(i);
+
+		if (c->Team != 0) return 0;
+		return books;
+	}
+	case DynamicVarEnum::var_cur_wg_level: {
+		// getMagicOfRoleIndex 不是个const，我很烦
+		if (c == nullptr || wg == nullptr) return 0;
+		for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+		{
+			if (c->MagicID[i] == wg->ID)
+			{
+				return c->MagicLevel[i];
+			}
+		}
+		return 0;
+	}
+	case DynamicVarEnum::var_wg_level: {
+		if (params_.size() < 1)
+		{
+			printf("var_wg_level incorrect params\n");
+			return 0;
+		}
+		// 读取额外参数
+		int wgID = params_[0];
+		if (c == nullptr) return 0;
+		for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+		{
+			if (c->MagicID[i] == wgID)
+			{
+				return c->MagicLevel[i];
+			}
+		}
+		return 0;
+	}
+	case DynamicVarEnum::var_count_item: {
+		if (params_.size() < 1)
+		{
+			printf("var_count_item incorrect params\n");
+			return 0;
+		}
+		// 读取额外参数
+		int itemID = params_[0];
+		int num = Save::getInstance()->getItemCountInBag(itemID);
+		if (c->Team != 0) return 0;
+		return num;
+	}
+	case DynamicVarEnum::var_has_wg: {
+		std::unordered_set<int> ids;
+		for (int id : params_) {
+			ids.insert(id);
+		}
+		if (c == nullptr) return 0;
+		int count = 0;
+		for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+		{
+			if (ids.find(c->MagicID[i]) != ids.end())
+				count++;
+		}
+		if (count == ids.size())
+			return 1;
+		return 0;
+	}
+	case DynamicVarEnum::var_wg_type: {
+		if (wg == nullptr) return 0;
+		return wg->MagicType;
+	}
+	case DynamicVarEnum::var_is_person: {
+		if (params_.size() < 1)
+		{
+			printf("var_is_person incorrect params\n");
+			return 0;
+		}
+		int pid = params_[0];
+		if (c == nullptr) return 0;
+		if (c->RealID == pid) return 1;
+		return 0;
+	}
+	case DynamicVarEnum::var_has_status: {
+		if (params_.size() < 2)
+		{
+			printf("var_has_status incorrect params\n");
+			return 0;
+		}
+		int statusID = params_[0];
+		int val = params_[1];
+		if (c == nullptr) return 0;
+		auto mangerPtr = conf.getStatusManager(c->ID);
+		if (mangerPtr) {
+			if (mangerPtr->getBattleStatusVal(statusID) >= val) {
+				return 1;
+			}
+		}
+		return 0;
+	}
+	case DynamicVarEnum::var_wg_power: {
+		if (c == nullptr || wg == nullptr) return 0;
+		// 问世间，我用了const 他没有
+		Role* cc = const_cast<Role*>(c);
+		Magic* mm = const_cast<Magic*>(wg);
+		// 或者靠id走 Save:: 也可以
+		int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(cc, mm);
+		level_index = mm->calMaxLevelIndexByMP(cc->MP, level_index);
+		if (mm->HurtType == 1) return mm->HurtMP[level_index];
+		return mm->Attack[level_index];
+	}
+	default: {
+		printf("%d variable id not found\n", dynamicCode_);
+		break;
+	}
+	}
+	return 0;
+}
+
+void BattleMod::DynamicVariable::addParam(int p)
+{
+	params_.push_back(p);
+}
+
+BattleMod::StatusVariable::StatusVariable(const BattleStatus & status, VarTarget target) : status_(status), target_(target)
+{
+}
+
+int BattleMod::StatusVariable::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+{
+	const Role * c = attacker;
+	if (target_ == VarTarget::Other) c = defender;
+	auto managerPtr = conf.getStatusManager(c->ID);
+	return managerPtr->getBattleStatusVal(status_.id);
 }
 
 BattleMod::RandomAdder::RandomAdder(int min, int max) : Adder(), min_(min), max_(max)
@@ -97,7 +266,7 @@ BattleMod::RandomAdder::RandomAdder(std::vector<int>&& items) : items_(std::move
 {
 }
 
-int BattleMod::RandomAdder::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::RandomAdder::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
 {
     if (items_.empty()) {
         // 机器猫老师，这个很不好用啊
@@ -107,13 +276,13 @@ int BattleMod::RandomAdder::getVal(const Role * attacker, const Role * defender,
     return items_[BattleScene::rng_.rand_int(items_.size())];
 }
 
-BattleMod::LinearAdder::LinearAdder(double k, Variable&& v) : k_(k), v_(std::move(v))
+BattleMod::LinearAdder::LinearAdder(double k, std::unique_ptr<Variable> v) : k_(k), v_(std::move(v))
 {
 }
 
-int BattleMod::LinearAdder::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::LinearAdder::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
 {
-    return int(k_ * v_.getVal(attacker, defender, wg));
+    return int(k_ * v_->getVal(conf, attacker, defender, wg));
 }
 
 BattleMod::VariableParam::VariableParam(int base, int min, int max) : 
@@ -131,12 +300,12 @@ void BattleMod::VariableParam::setMax(int max)
     max_ = max;
 }
 
-int BattleMod::VariableParam::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::VariableParam::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
 {
     int sum = base_;
     // Adder 之间 嗯，暂且加起来，以后有心情加入 max/min等
     for (const auto& adder : adders_) {
-        sum += adder->getVal(attacker, defender, wg);
+        sum += adder->getVal(conf, attacker, defender, wg);
     }
     if (sum < min_) sum = min_;
     if (sum > max_) sum = max_;
@@ -150,27 +319,26 @@ void BattleMod::VariableParam::addAdder(std::unique_ptr<Adder> adder)
     adders_.push_back(std::move(adder));
 }
 
-
-BattleMod::Condition::Condition(Variable left, Variable right, std::function<bool(int, int)> binOp) :
-    left_(left), right_(right), binOp_(binOp)
+BattleMod::Condition::Condition(std::unique_ptr<Variable> left, std::unique_ptr<Variable> right, std::function<bool(int, int)> binOp) :
+	left_(std::move(left)), right_(std::move(right)), binOp_(binOp)
 {
 }
 
-bool BattleMod::Condition::check(const Role * attacker, const Role * defender, const Magic * wg) const
+bool BattleMod::Condition::check(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
 {
-    return binOp_(left_.getVal(attacker, defender, wg), right_.getVal(attacker, defender, wg));
+    return binOp_(left_->getVal(conf, attacker, defender, wg), right_->getVal(conf, attacker, defender, wg));
 }
 
 BattleMod::EffectParamPair::EffectParamPair(const SpecialEffect & effect, const std::string & desc) : eip_(effect, desc)
 {
 }
 
-EffectIntsPair BattleMod::EffectParamPair::materialize(const Role * attacker, const Role * defender, const Magic * wg) const
+EffectIntsPair BattleMod::EffectParamPair::materialize(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
 {
     // 需要一个copy
     EffectIntsPair eip = eip_;
     for (const auto& param : params_) {
-        eip.addParam(param.getVal(attacker, defender, wg));
+        eip.addParam(param.getVal(conf, attacker, defender, wg));
     }
     //if (!eip.description.empty())
     //    printf("成功触发%d %s\n", eip.effect.id, eip.description.c_str());
@@ -187,14 +355,14 @@ void BattleMod::ProccableEffect::addConditions(Conditions&& c)
     conditionz_.push_back(std::move(c));
 }
 
-bool BattleMod::ProccableEffect::checkConditions(const Role * attacker, const Role * defender, const Magic * wg)
+bool BattleMod::ProccableEffect::checkConditions(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
 {
     if (conditionz_.empty()) return true;
     // 在"需求"内，每一项之间的关系是"或"（既OR）
     // 在"条件"内，每一项之间的关系是"和"（既AND）
     for (auto const& conds : conditionz_) {             // 需求
         for (auto const& cond : conds) {                // 条件
-            if (!cond.check(attacker, defender, wg)) {
+            if (!cond.check(conf, attacker, defender, wg)) {
                 // goto的最后一片净土
                 goto nextConds;
             }
@@ -213,35 +381,35 @@ BattleMod::EffectSingle::EffectSingle(VariableParam && p, std::vector<EffectPara
 }
 
 // 现在EffectIntsPair是个copy，不能直接返回ptr了，反正我瞎搞直接上最符合要求的std::optional(C++17)，另外就是heap allocated std::unique_ptr我不喜欢
-std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
 {
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
+    if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     // rand [0 1)
     // 乘以100，取整，就是说实际范围是0-99，也就是说必须加1
-    int prob = percentProb_.getVal(attacker, defender, wg);
+    int prob = percentProb_.getVal(conf, attacker, defender, wg);
     if (prob <= 0) return {};
     // if (prob != 100)
     //     printf("触发概率 %d\n", prob);
     std::vector<EffectIntsPair> procs;
     if (BattleScene::rng_.rand_int(100) + 1 <= prob) {
         for (auto& effectPair : effectPairs_) {
-            procs.push_back(std::move(effectPair.materialize(attacker, defender, wg)));
+            procs.push_back(std::move(effectPair.materialize(conf, attacker, defender, wg)));
         }
     }
     return procs;
 }
 
-std::vector<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
 {
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
+    if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     // printf("尝试触发\n");
     // [0 total)
-    int t = BattleScene::rng_.rand_int(total_.getVal(attacker, defender, wg));
+    int t = BattleScene::rng_.rand_int(total_.getVal(conf, attacker, defender, wg));
     int c = 0;
     for (auto& p : group_) {
-        c += p.first.getVal(attacker, defender, wg);
+        c += p.first.getVal(conf, attacker, defender, wg);
         if (t < c) {
-            return { std::move(p.second.materialize(attacker, defender, wg)) };
+            return { std::move(p.second.materialize(conf, attacker, defender, wg)) };
         }
     }
     return {};
@@ -261,12 +429,12 @@ BattleMod::EffectPrioritizedGroup::EffectPrioritizedGroup()
 }
 
 // 这里考虑重构一下
-std::vector<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
 {
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
+    if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     for (auto& p : group_) {
-        if (BattleScene::rng_.rand_int(100) < p.first.getVal(attacker, defender, wg)) {
-            return { std::move(p.second.materialize(attacker, defender, wg)) };
+        if (BattleScene::rng_.rand_int(100) < p.first.getVal(conf, attacker, defender, wg)) {
+            return { std::move(p.second.materialize(conf, attacker, defender, wg)) };
         }
     }
     return {};
@@ -282,18 +450,18 @@ BattleMod::EffectCounter::EffectCounter(VariableParam && total, VariableParam &&
 {
 }
 
-std::vector<EffectIntsPair> BattleMod::EffectCounter::proc(const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectCounter::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
 {
     if (attacker == nullptr) return {};
-    if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
+    if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     int id = attacker->RealID;
     auto& count = counter_[id];
-    count += add_.getVal(attacker, defender, wg);
-    if (count > total_.getVal(attacker, defender, wg)) {
+    count += add_.getVal(conf, attacker, defender, wg);
+    if (count > total_.getVal(conf, attacker, defender, wg)) {
         count = 0;
         std::vector<EffectIntsPair> procs;
         for (auto& effectPair : effectPairs_) {
-            procs.push_back(std::move(effectPair.materialize(attacker, defender, wg)));
+            procs.push_back(std::move(effectPair.materialize(conf, attacker, defender, wg)));
         } 
         return procs;
     }
@@ -376,7 +544,7 @@ int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max
     return cur - curTemp;
 }
 
-int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
+int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID) const
 {
     if (r_ == nullptr)
     {
@@ -389,7 +557,9 @@ int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
     case 2: return r_->PhysicalPower;
     default: break;
     }
-    return actualStatusVal_[statusID];
+	auto iter = actualStatusVal_.find(statusID);
+	if (iter == actualStatusVal_.end()) return 0;
+    return iter->second;
 }
 
 void BattleMod::BattleStatusManager::incrementBattleStatusVal(int statusID, int val)
@@ -429,4 +599,385 @@ std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager:
         p.second = 0;
     }
     return changes;
+}
+
+BattleMod::BattleConfManager::BattleConfManager()
+{
+	init();
+}
+
+const BattleStatusManager * BattleMod::BattleConfManager::getStatusManager(int id) const
+{
+	auto iter = battleStatusManager.find(id);
+	if (iter == battleStatusManager.end()) return nullptr;
+	return &(iter->second);
+}
+
+void BattleMod::BattleConfManager::init()
+{
+
+	// 测试
+	/*
+	Event::getInstance()->setRoleMagic(0, 1, 2, 999);
+	Save::getInstance()->getRole(0)->MaxHP = 999;
+	Save::getInstance()->getRole(0)->HP = 999;
+	Save::getInstance()->getRole(0)->Defence = 80;
+	*/
+
+	// 联网的话，还要验证这个 待搞之
+	YAML::Node baseNode;
+	// 可以整个都套try，出了问题就特效全清空
+	try {
+		baseNode = YAML::LoadFile(BattleMod::CONFIGPATH);
+	}
+	catch (...) {
+		printf("yaml config missing\n");
+		return;
+	}
+
+	strPool_.reserve(baseNode[u8"字符串数组大小"].as<int>());
+	strPool_.push_back("");
+
+	printf("特效数量 %d\n", baseNode[u8"特效"].size());
+	for (const auto& spNode : baseNode[u8"特效"]) {
+		// 必须按顺序来，因为我懒，TODO 改一改？还是不改呢，有空再改！
+		assert(effects_.size() == spNode[u8"编号"].as<int>());
+		auto desc = PotConv::conv(spNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
+		std::reference_wrapper<std::string> descRef(strPool_.front());
+		if (!desc.empty()) {
+			strPool_.push_back(desc);
+			descRef = strPool_.back();
+		}
+		printf("%d %s\n", spNode[u8"编号"].as<int>(), descRef.get().c_str());
+		effects.emplace_back(spNode[u8"编号"].as<int>(), descRef);
+	}
+
+	for (const auto& bNode : baseNode[u8"战场状态"]) {
+		int id = bNode[u8"编号"].as<int>();
+		assert(battleStatus_.size() == id);
+		auto desc = PotConv::conv(bNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
+
+		int max = 100;
+		if (const auto& maxNode = bNode[u8"满值"]) {
+			max = maxNode.as<int>();
+		}
+
+		bool hide = false;
+		if (const auto& hideNode = bNode[u8"隐藏"]) {
+			hide = hideNode.as<bool>();
+		}
+
+		// 默认白色
+		BP_Color c = { 255, 255, 255, 255 };
+		if (const auto& cNode = bNode[u8"颜色"]) {
+			c = { (Uint8)cNode[0].as<int>(), (Uint8)cNode[1].as<int>(), (Uint8)cNode[2].as<int>(), 255 };
+			if (cNode.size() >= 4) {
+				c.a = (Uint8)cNode[3].as<int>();
+			}
+		}
+
+		std::reference_wrapper<std::string> descRef(strPool_.front());
+		if (!desc.empty()) {
+			strPool_.push_back(desc);
+			descRef = strPool_.back();
+		}
+		printf("%d %s\n", id, descRef.get().c_str());
+		battleStatus.emplace_back(id, max, descRef, hide, c);
+	}
+
+	// 以下可以refactor，TODO 改！！！
+	if (baseNode[u8"武功"]) {
+		printf("number of wg %d\n", baseNode[u8"武功"].size());
+		for (const auto& magicNode : baseNode[u8"武功"]) {
+			int wid = magicNode[u8"武功编号"].as<int>();
+			if (magicNode[u8"攻击"]) {
+				printf("number of atk %d\n", magicNode[u8"攻击"].size());
+				readIntoMapping(magicNode[u8"攻击"], atkMagic[wid]);
+			}
+			if (magicNode[u8"防守"]) {
+				readIntoMapping(magicNode[u8"防守"], defMagic[wid]);
+			}
+			if (magicNode[u8"集气"]) {
+				readIntoMapping(magicNode[u8"集气"], speedMagic[wid]);
+			}
+			if (magicNode[u8"回合"]) {
+				readIntoMapping(magicNode[u8"回合"], turnMagic[wid]);
+			}
+		}
+	}
+
+	if (auto const& allNode = baseNode[u8"全人物"]) {
+		printf("size %d\n", allNode.size());
+		if (allNode[u8"攻击"]) {
+			readIntoMapping(allNode[u8"攻击"], atkAll);
+		}
+		if (allNode[u8"防守"]) {
+			readIntoMapping(allNode[u8"防守"], defAll);
+		}
+		if (allNode[u8"集气"]) {
+			readIntoMapping(allNode[u8"集气"], speedAll);
+		}
+		if (allNode[u8"回合"]) {
+			readIntoMapping(allNode[u8"回合"], turnAll);
+		}
+	}
+
+	if (baseNode[u8"人物"]) {
+		for (const auto& personNode : baseNode[u8"人物"]) {
+			int pid = personNode[u8"人物编号"].as<int>();
+			if (personNode[u8"攻击"]) {
+				readIntoMapping(personNode[u8"攻击"], atkRole[pid]);
+			}
+			if (personNode[u8"防守"]) {
+				readIntoMapping(personNode[u8"防守"], defRole[pid]);
+			}
+			if (personNode[u8"集气"]) {
+				readIntoMapping(personNode[u8"集气"], speedRole[pid]);
+			}
+			if (personNode[u8"回合"]) {
+				readIntoMapping(personNode[u8"回合"], turnRole[pid]);
+			}
+		}
+	}
+	printf("load yaml config complete\n");
+}
+
+std::unique_ptr<Variable> BattleMod::BattleConfManager::readVariable(const YAML::Node & node)
+{
+	VarTarget target = VarTarget::Self;
+	if (node.IsScalar()) {
+		int v = node.as<int>();
+		return std::make_unique<FlatValue>(v);
+	}
+	else if (node[u8"状态"]) {
+		int statusID = node[u8"状态"].as<int>();
+		// 暂时不支持对方状态
+		return std::make_unique<StatusVariable>(battleStatus[statusID], target);
+	}
+	else if (const auto& varNode = node[u8"变量"]) {
+		if (const auto& targetNode = varNode[u8"对象"]) {
+			target = static_cast<VarTarget>(targetNode.as<int>());
+		}
+		int varID = varNode[u8"编号"].as<int>();
+		DynamicVarEnum var = static_cast<DynamicVarEnum>(varID);
+		auto dv = std::make_unique<DynamicVariable>(var, target);
+		const auto& paramsNode = varNode[u8"参数"];
+		if (paramsNode) {
+			for (const auto& paramNode : paramsNode) {
+				dv->addParam(paramNode.as<int>());
+			}
+		}
+		return std::move(dv);
+	}
+	return std::make_unique<FlatValue>(0);
+}
+
+std::unique_ptr<Adder> BattleMod::BattleConfManager::readAdder(const YAML::Node & node)
+{
+	std::unique_ptr<Adder> adder;
+	if (const auto& randNode = node[u8"随机"]) {
+		const auto& rangeNode = randNode[u8"范围"];
+		if (rangeNode.IsSequence()) {
+			std::vector<int> range;
+			for (const auto& n : rangeNode) {
+				range.push_back(n.as<int>());
+			}
+			adder = std::make_unique<RandomAdder>(std::move(range));
+		}
+		else {
+			// 我突然反应过来这个也可以是variable TODO 改成读variable
+			int min = rangeNode[u8"最小"].as<int>();
+			int max = rangeNode[u8"最大"].as<int>();
+			adder = std::make_unique<RandomAdder>(min, max);
+		}
+	}
+	else if (const auto& linearNode = node[u8"线性"]) {
+		adder = std::make_unique<LinearAdder>(linearNode[u8"系数"].as<double>(), readVariable(linearNode));
+	}
+	return adder;
+}
+
+VariableParam BattleMod::BattleConfManager::readVariableParam(const YAML::Node & node)
+{
+	if (node.IsScalar()) {
+		return VariableParam(node.as<int>());
+	}
+	const auto& pNode = node[u8"可变参数"];
+	VariableParam vp(pNode[u8"基础"].as<int>());
+	if (const auto& minNode = pNode[u8"最小"]) {
+		vp.setMin(minNode.as<int>());
+	}
+	if (const auto& maxNode = pNode[u8"最大"]) {
+		vp.setMax(maxNode.as<int>());
+	}
+	if (const auto& adders = pNode[u8"加成"]) {
+		for (const auto& adder : adders) {
+			vp.addAdder(readAdder(adder));
+		}
+	}
+	return vp;
+}
+
+Conditions BattleMod::BattleConfManager::readConditions(const YAML::Node & node)
+{
+	Conditions conditions;
+	const auto& condNode = node[u8"条件"];
+	for (const auto& cond : condNode) {
+		conditions.push_back(std::move(readCondition(cond)));
+	}
+	return conditions;
+}
+
+Condition BattleMod::BattleConfManager::readCondition(const YAML::Node & node)
+{
+	const auto& condNode = node[u8"条件"];
+	printf("%d\n", node.size());
+	auto lhs = readVariable(node[u8"左边"]);
+	auto rhs = readVariable(node[u8"右边"]);
+	ConditionOp opID = static_cast<ConditionOp>(node[u8"对比"].as<int>());
+	std::function<bool(int, int)> op;
+	switch (opID) {
+	case ConditionOp::equal: op = std::equal_to<int>(); break;
+	case ConditionOp::greater_than: op = std::greater<int>(); break;
+	case ConditionOp::greater_than_equal: op = std::greater_equal<int>(); break;
+	}
+	return Condition(std::move(lhs), std::move(rhs), op);
+}
+
+EffectParamPair BattleConfManager::readEffectParamPair(const YAML::Node& node) {
+	int id = node[u8"编号"].as<int>();
+	auto display = PotConv::conv(node[u8"显示"].as<std::string>(), "utf-8", "cp936");
+	std::reference_wrapper<std::string> displayRef(strPool_.front());
+	if (!display.empty()) {
+		strPool_.push_back(display);
+		displayRef = strPool_.back();
+	}
+	printf("读入 %d %s\n", id, displayRef.get().c_str());
+	// 这里效果参数以后要可配置
+	EffectParamPair epp(effects[id], displayRef);
+	if (node[u8"效果参数"].IsScalar() || node[u8"效果参数"].IsMap()) {
+		epp.addParam(readVariableParam(node[u8"效果参数"]));
+	}
+	else {
+		for (const auto& param : node[u8"效果参数"]) {
+			epp.addParam(readVariableParam(param));
+		}
+	}
+	return epp;
+}
+
+std::vector<EffectParamPair> BattleConfManager::readEffectParamPairs(const YAML::Node& node) {
+	std::vector<EffectParamPair> pairs;
+	if (node.IsMap()) {
+		pairs.push_back(std::move(readEffectParamPair(node)));
+	}
+	else {
+		for (const auto& enode : node) {
+			pairs.push_back(std::move(readEffectParamPair(enode)));
+		}
+	}
+	return pairs;
+}
+
+
+
+std::unique_ptr<ProccableEffect> BattleConfManager::readProccableEffect(const YAML::Node& node) {
+	int probType = node[u8"发动方式"].as<int>();
+	ProcProbability prob = static_cast<ProcProbability>(probType);
+	std::unique_ptr<ProccableEffect> pe;
+	switch (prob) {
+	case ProcProbability::random: {
+		pe = std::make_unique<EffectSingle>(readVariableParam(node[u8"发动参数"]), readEffectParamPairs(node[u8"特效"]));
+		break;
+	}
+	case ProcProbability::distributed: {
+		auto group = std::make_unique<EffectWeightedGroup>(readVariableParam(node[u8"总比重"]));
+		for (const auto& eNode : node[u8"特效"]) {
+			group->addProbEPP(readVariableParam(eNode[u8"发动参数"]), readEffectParamPair(eNode));
+		}
+		pe = std::move(group);
+		break;
+	}
+	case ProcProbability::prioritized: {
+		auto group = std::make_unique<EffectPrioritizedGroup>();
+		for (const auto& eNode : node[u8"特效"]) {
+			group->addProbEPP(readVariableParam(eNode[u8"发动参数"]), readEffectParamPair(eNode));
+		}
+		pe = std::move(group);
+		break;
+	}
+	case ProcProbability::counter: {
+		pe = std::make_unique<EffectCounter>(readVariableParam(node[u8"计数"]),
+			readVariableParam(node[u8"发动参数"]),
+			readEffectParamPairs(node[u8"特效"]));
+		break;
+	}
+	}
+	if (pe) {
+		if (const auto& reqNode = node[u8"需求"]) {
+			for (const auto& condNode : reqNode) {
+				pe->addConditions(readConditions(condNode));
+			}
+		}
+	}
+	return pe;
+}
+
+void BattleConfManager::readIntoMapping(const YAML::Node& node, BattleMod::Effects& effects) {
+	for (auto& spNode : node) {
+		effects.push_back(std::move(readProccableEffect(spNode)));
+	}
+}
+
+
+std::vector<EffectIntsPair> BattleMod::BattleConfManager::tryProcAndAddToManager(const Effects & list, EffectManager & manager, 
+	const Role * attacker, const Role * defender, const Magic * wg)
+{
+	std::vector<EffectIntsPair> procd;
+	for (const auto& effect : list) {
+		auto epps = effect->proc(*this, attacker, defender, wg);
+		for (const auto& epp : epps) {
+			manager.addEPP(epp);
+			procd.push_back(epp);
+		}
+	}
+	return procd;
+}
+
+// 再复制EffectIntsPair，不过我觉得复制这玩意儿不贵
+std::vector<EffectIntsPair> BattleMod::BattleConfManager::tryProcAndAddToManager(int id, const EffectsTable & table, EffectManager & manager,
+	const Role * attacker, const Role * defender, const Magic * wg)
+{
+	std::vector<EffectIntsPair> procd;
+	auto iter = table.find(id);
+	if (iter != table.end()) {
+		// TODO 用上面那个
+		for (const auto& effect : iter->second) {
+			auto epps = effect->proc(*this, attacker, defender, wg);
+			for (const auto& epp : epps) {
+				manager.addEPP(epp);
+				procd.push_back(epp);
+			}
+		}
+	}
+	return procd;
+}
+
+void BattleMod::BattleConfManager::applyStatusFromParams(const std::vector<int>& params, Role * target)
+{
+	if (params.empty()) return;
+	// [状态id, 状态强度, 状态id, 状态强度...]
+	for (std::size_t i = 0; i < params.size() / 2; i += 2) {
+		battleStatusManager[target->ID].incrementBattleStatusVal(params[i], params[i + 1]);
+	}
+}
+
+
+void BattleMod::BattleConfManager::setStatusFromParams(const std::vector<int>& params, Role * target)
+{
+	if (params.empty()) return;
+	// [状态id, 状态强度, 状态id, 状态强度...]
+	for (std::size_t i = 0; i < params.size() / 2; i += 2) {
+		battleStatusManager[target->ID].setBattleStatusVal(params[i], params[i + 1]);
+	}
 }
