@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="src\Application.cpp">
@@ -153,6 +153,12 @@
     </ClCompile>
     <ClCompile Include="src\BattleNetwork.cpp">
       <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="mod\BattleConfig.cpp">
+      <Filter>battle-mod</Filter>
+    </ClCompile>
+    <ClCompile Include="mod\BattleMod.cpp">
+      <Filter>battle-mod</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -317,6 +323,12 @@
     </ClInclude>
     <ClInclude Include="src\BattleNetwork.h">
       <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="mod\BattleConfig.h">
+      <Filter>battle-mod</Filter>
+    </ClInclude>
+    <ClInclude Include="mod\BattleMod.h">
+      <Filter>battle-mod</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

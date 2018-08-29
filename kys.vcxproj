@@ -96,7 +96,6 @@
   <ItemGroup>
     <ClCompile Include="mod\BattleConfig.cpp" />
     <ClCompile Include="mod\BattleMod.cpp" />
-    <ClCompile Include="mod\BattleNetwork.cpp" />
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
@@ -152,7 +151,6 @@
   <ItemGroup>
     <ClInclude Include="mod\BattleConfig.h" />
     <ClInclude Include="mod\BattleMod.h" />
-    <ClInclude Include="mod\BattleNetwork.h" />
     <ClInclude Include="resource\resource.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />

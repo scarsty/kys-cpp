@@ -1,0 +1,29 @@
+
+BasedOnStyle: Webkit
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+AlignTrailingComments: true
+BreakBeforeBraces: Allman
+BraceWrapping: 
+  AfterEnum: true
+  AfterStruct: true
+  SplitEmptyFunction: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterUnion: true
+  BeforeElse: true
+  SplitEmptyFunction: true
+  AfterControlStatement: true
+  AfterClass: true 
+  #AfterExternBlock: true
+
+SpacesInContainerLiterals: false
+UseTab: Never
+IndentWidth: 4
+SpacesBeforeTrailingComments: 4
+AlignEscapedNewlines: Left 
+BreakBeforeBinaryOperators: All
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
