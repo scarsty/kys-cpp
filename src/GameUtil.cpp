@@ -20,7 +20,7 @@ GameUtil::~GameUtil()
 {
 }
 
-const std::string & GameUtil::VERSION()
+const std::string& GameUtil::VERSION()
 {
     static std::string v("20180830");
     return v;
