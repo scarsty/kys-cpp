@@ -5,6 +5,7 @@
 #include "BattleMenu.h"
 #include "GameUtil.h"
 
+#include <array>
 #include <memory>
 #include <thread>
 
@@ -18,6 +19,8 @@
 class BattleNetwork
 {
 public:
+    static const std::size_t VALSIZE = 32;
+
     // , strand_(io_context_)
     BattleNetwork(const std::string& strID, const std::string& port)
         : socket_(io_context_)
@@ -68,17 +71,18 @@ public:
 
     bool isHost();
 
-    void handshake(std::vector<RoleSave>&& my_roles, std::vector<MagicSave>&& magic, std::function<void(std::error_code err)> f);
+    void addValidation(std::array<unsigned char, VALSIZE>&& bytes);
+    void handshake(std::vector<RoleSave>&& my_roles, std::function<void(std::error_code err)> f);
     virtual void getResults(unsigned int& seed, int& friends, std::vector<RoleSave>& final_roles);
 
 protected:
+    void nameSetup();
     virtual void getRandSeed() = 0;
-    virtual void concileMagicData() = 0;
+    virtual void waitConnection() = 0;
+
     // 己方参战id，最终roles结果
     virtual void rDataHandshake() = 0;
-    virtual void waitConnection() = 0;
-    // const asio::error_code& ec
-    void nameSetup();
+    virtual void validate(); 
 
     asio::io_context io_context_;
     asio::ip::tcp::resolver resolver_;
@@ -95,17 +99,16 @@ protected:
 
     std::vector<asio::const_buffer> const_bufs_;
     std::vector<asio::mutable_buffer> mut_bufs_;
-    // ?
-    std::vector<asio::const_buffer> const_bufs2_;
-    std::vector<asio::mutable_buffer> mut_bufs2_;
     int int_buf_;
+    int int_buf2_;
 
     std::vector<RoleSave> friends_;
-    std::vector<MagicSave> magics_;
-    std::vector<MagicSave> opponent_magics_;
     std::vector<RoleSave> role_result_;
     std::function<void(std::error_code err)> final_callback_;
     unsigned int seed_;
+
+    std::vector<std::array<unsigned char, VALSIZE>> validations_;
+    std::vector<std::array<unsigned char, VALSIZE>> op_validations_;
 };
 
 class BattleHost : public BattleNetwork
@@ -115,7 +118,6 @@ public:
 
 protected:
     void waitConnection() override;
-    void concileMagicData() override;
     void getRandSeed() override;
     void rDataHandshake() override;
 };
@@ -128,7 +130,6 @@ public:
 
 protected:
     void waitConnection() override;
-    void concileMagicData() override;
     void getRandSeed() override;
     void rDataHandshake() override;
 

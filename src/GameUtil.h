@@ -19,6 +19,9 @@ public:
         static GameUtil gu;
         return &gu;
     }
+
+    static const std::string& VERSION();
+
     static int sign(int v)
     {
         if (v > 0)

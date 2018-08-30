@@ -3,6 +3,7 @@
 #include "BattleScene.h"
 #include "Button.h"
 #include "Event.h"
+#include "Font.h"
 #include "GameUtil.h"
 #include "INIReader.h"
 #include "InputBox.h"
@@ -52,6 +53,7 @@ void TitleScene::draw()
         head_y_ = r.rand_int(640 - 150);
     }
     TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
+    Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
 }
 
 void TitleScene::dealEvent(BP_Event& e)

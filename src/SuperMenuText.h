@@ -7,11 +7,13 @@
 #include <string>
 #include <utility>
 #include <functional>
+#include <unordered_map>
+#include <unordered_set>
 
 class SuperMenuText : public InputBox
 {
 public:
-    SuperMenuText(const std::string& title, int font_size, const std::vector<std::string>& allItems, int itemsPerPage);
+    SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage);
     virtual ~SuperMenuText() = default;
     void dealEvent(BP_Event& e) override;
     virtual void setInputPosition(int x, int y) override;
@@ -23,6 +25,7 @@ private:
     void flipPage(int pInc);
     void search(const std::string& text);
     void updateMaxPages();
+    bool defaultMatch(const std::string& input, const std::string& name);
 
     Button * previous_;
     Button * next_;
@@ -33,7 +36,7 @@ private:
     MenuText * selections_;
 
     // 所有的
-    std::vector<std::string> items_;
+    std::vector<std::pair<int, std::string>> items_;
 
     // 这是当前给显示的，返回result -> items_[activeIndices[result]] 既是实际选项
     // 只显示一页的activeIndices
@@ -43,5 +46,6 @@ private:
     std::vector<DrawableOnCall*> docs_;
 	std::function<bool(const std::string&, const std::string&)> matchFunc_;
 	
-
+    // 预处理
+    std::unordered_map<std::string, std::unordered_set<std::string>> matches_;
 };
