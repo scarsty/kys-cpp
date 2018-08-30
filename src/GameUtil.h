@@ -2,7 +2,6 @@
 #include "Types.h"
 #include <climits>
 #include <cmath>
-#include <string>
 #include "INIReader.h"
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
@@ -15,18 +14,13 @@ private:
     std::vector<int> level_up_list_;
     //std::vector<int> level_up_list_;
 public:
-
-    static GameUtil * getInstance()
+    static GameUtil* getInstance()
     {
         static GameUtil gu;
         return &gu;
     }
 
-	static const std::string& VERSION()
-	{
-		static std::string v("20180828b");
-        return v;
-	}
+    static const std::string& VERSION();
 
     static int sign(int v)
     {

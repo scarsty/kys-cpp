@@ -74,6 +74,7 @@ void Menu::onPressedOK()
 {
     if (checkAllNormal())
     {
+        result_ = -1;
         return;
     }
     checkActiveToResult();
