@@ -4,16 +4,16 @@
 class TextBox : public Element
 {
 public:
-    TextBox() {}
+    TextBox();
     virtual ~TextBox() {}
 
 protected:
     std::string text_ = "";
     int font_size_ = 20;
     int text_x_ = 0, text_y_ = 0;
-    BP_Color color_normal_ = { 32, 32, 32, 255 };
-    BP_Color color_pass_ = { 255, 255, 255, 255 };
-    BP_Color color_press_ = { 255, 255, 255, 255 };
+    BP_Color color_normal_ = { 255, 255, 255, 255 };
+    BP_Color color_pass_ = { 0, 255, 255, 255 };
+    BP_Color color_press_ = { 0, 255, 255, 255 };
     bool have_box_ = true;
     bool have_alpha_box_ = false;
     BP_Color outline_color_;

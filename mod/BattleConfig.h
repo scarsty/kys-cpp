@@ -93,11 +93,11 @@ namespace BattleMod {
     // 特效绑定 整数参数
     class EffectIntsPair {
     public:
-        EffectIntsPair(const SpecialEffect& effect, const std::string& desc);
+        EffectIntsPair(const SpecialEffect& effect, const std::string& desc, int animationEffect = -1);
 
         int getParam0();
         const std::vector<int>& getParams();
-
+        int getAnimation();
         void addParam(int p);
         // 叠加方式可不同，现在就都一样吧
         virtual EffectIntsPair & operator+=(const EffectIntsPair & rhs);
@@ -113,6 +113,7 @@ namespace BattleMod {
         // 比如根据武功/人物等级增加等
         // 到时候改上面的typedef
         std::vector<int> params_;
+        int animationEffect_;
     };
 
 
@@ -121,14 +122,14 @@ namespace BattleMod {
 	class Variable {
 	public:
 		virtual ~Variable() = default;
-		virtual int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const = 0;
+		virtual int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const = 0;
         virtual void print(std::ostream& os) const = 0;
 	};
 
 	class FlatValue : public Variable {
 	public:
 		FlatValue(int val);
-		int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+		int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const override;
         void print(std::ostream& os) const;
 	private:
 		int val_;
@@ -183,7 +184,7 @@ namespace BattleMod {
 	class DynamicVariable : public Variable {
 	public:
 		DynamicVariable(DynamicVarEnum dynamicCode, VarTarget target);
-		int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+		int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const override;
 		void addParam(int p);
         void print(std::ostream& os) const;
 	private:
@@ -195,7 +196,7 @@ namespace BattleMod {
 	class StatusVariable : public Variable {
 	public:
 		StatusVariable(const BattleStatus& status, VarTarget target);
-		int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+		int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const override;
         void print(std::ostream& os) const;
 	private:
 		const BattleStatus& status_;
@@ -205,7 +206,7 @@ namespace BattleMod {
     // 从现在起，所有move constructor我亲手写 copy constructor全删除
     class Adder {
     public:
-        virtual int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const = 0;
+        virtual int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const = 0;
         Adder(const std::string& description);
         virtual ~Adder() = default;
         virtual void print(std::ostream& os) const;
@@ -217,7 +218,7 @@ namespace BattleMod {
     public:
         RandomAdder(const std::string & description, int min, int max);
         RandomAdder(const std::string & description, std::vector<int>&& items);
-        int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+        int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const override;
         void print(std::ostream& os) const;
     private:
         int min_;
@@ -229,7 +230,7 @@ namespace BattleMod {
     public:
         // 这里解释一下，&&进来后的全部会被move掉
         LinearAdder(const std::string & description, double k, std::unique_ptr<Variable> v);
-        int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const override;
+        int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const override;
         void print(std::ostream& os) const;
     private:
         double k_;
@@ -245,7 +246,7 @@ namespace BattleMod {
         void setMin(int min);
         void setMax(int max);
         int getBase() const;
-        int getVal(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const;
+        int getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const;
         void addAdder(std::unique_ptr<Adder> adder);
         VariableParam(const VariableParam&) = delete;
         VariableParam(VariableParam&& o) noexcept : base_(o.base_), min_(o.min_), max_(o.max_), adders_(std::move(o.adders_)) { }
@@ -267,7 +268,7 @@ namespace BattleMod {
         Condition(std::unique_ptr<Variable> left, std::unique_ptr<Variable> right, ConditionOp op);
 		Condition(const Condition&) = delete;
         Condition(Condition&& o) noexcept : left_(std::move(o.left_)), right_(std::move(o.right_)), op_(std::move(o.op_)) {}
-        bool check(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const;
+        bool check(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const;
         void print(std::ostream& os) const;
     private:
 		std::unique_ptr<Variable> left_;
@@ -278,7 +279,7 @@ namespace BattleMod {
     class EffectParamPair {
     public:
         EffectParamPair(const SpecialEffect& effect, const std::string& desc);
-        EffectIntsPair materialize(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) const;
+        EffectIntsPair materialize(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const;
         void addParam(VariableParam&& vp);
         EffectParamPair(EffectParamPair&& o) noexcept : params_(std::move(o.params_)), eip_(o.eip_) { }
         EffectParamPair(const EffectParamPair&) = delete;
@@ -296,7 +297,7 @@ namespace BattleMod {
         // 比如武功组合 是否修炼其他武功
         // 是否拥有物品，天书数量，内力属性等等等等
         // proc返回触发的效果，nullptr为触发失败
-        virtual std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) = 0;
+        virtual std::vector<EffectIntsPair> proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) = 0;
         // Condition传递进去之后就是垃圾了
         void addConditions(Conditions&& c);
         ProccableEffect() {}
@@ -306,7 +307,7 @@ namespace BattleMod {
         virtual void print(std::ostream& os) const;
 
     protected:
-        bool checkConditions(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg);
+        bool checkConditions(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg);
         std::vector<Conditions> conditionz_;
     };
 
@@ -323,7 +324,7 @@ namespace BattleMod {
     class EffectSingle : public ProccableEffect {
     public:
         EffectSingle(VariableParam&& p, std::vector<EffectParamPair>&& epps);
-        std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
+        std::vector<EffectIntsPair> proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) override;
         EffectSingle(EffectSingle&& o) noexcept : ProccableEffect(std::move(o)), percentProb_(std::move(o.percentProb_)), effectPairs_(std::move(o.effectPairs_)) { }
         EffectSingle(const EffectSingle&) = delete;
         void print(std::ostream& os) const;
@@ -335,7 +336,7 @@ namespace BattleMod {
     // 一组特效，可以再继承，其他group类
     class EffectWeightedGroup : public ProccableEffect {
     public:
-        std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
+        std::vector<EffectIntsPair> proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) override;
         EffectWeightedGroup(VariableParam&& total);
         EffectWeightedGroup(EffectWeightedGroup&& o) noexcept : ProccableEffect(std::move(o)), group_(std::move(o.group_)), total_(std::move(o.total_)) { }
         void addProbEPP(VariableParam&& weight, EffectParamPair&& epp);
@@ -351,7 +352,7 @@ namespace BattleMod {
     public:
         EffectPrioritizedGroup();
         EffectPrioritizedGroup(EffectPrioritizedGroup&& o) noexcept :ProccableEffect(std::move(o)), group_(std::move(o.group_)) { }
-        std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
+        std::vector<EffectIntsPair> proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) override;
         void addProbEPP(VariableParam&& prob, EffectParamPair&& epp);
         EffectPrioritizedGroup(const EffectPrioritizedGroup&) = delete;
         void print(std::ostream& os) const;
@@ -363,7 +364,7 @@ namespace BattleMod {
     class EffectCounter : public ProccableEffect {
     public:
         EffectCounter(VariableParam&& total, VariableParam&& add, std::vector<EffectParamPair>&& epps);
-        std::vector<EffectIntsPair> proc(const BattleConfManager& conf, const Role* attacker, const Role* defender, const Magic* wg) override;
+        std::vector<EffectIntsPair> proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) override;
         EffectCounter(EffectCounter&& o) noexcept : ProccableEffect(std::move(o)), total_(std::move(o.total_)),
                                                     add_(std::move(o.add_)), 
                                                     effectPairs_(std::move(o.effectPairs_)), counter_(std::move(counter_)){ }
@@ -401,9 +402,9 @@ namespace BattleMod {
 		BattleConfManager();
 		const BattleStatusManager * getStatusManager(int id) const;
         std::vector<EffectIntsPair> tryProcAndAddToManager(const Effects& list, EffectManager& manager,
-            const Role* attacker, const Role* defender, const Magic* wg);
+            Role * attacker, Role * defender, const Magic* wg);
         std::vector<EffectIntsPair> tryProcAndAddToManager(int id, const EffectsTable& table, EffectManager& manager,
-            const Role* attacker, const Role* defender, const Magic* wg);
+            Role * attacker, Role * defender, const Magic* wg);
 
         void applyStatusFromParams(const std::vector<int>& params, Role* target);
         void setStatusFromParams(const std::vector<int>& params, Role* target);

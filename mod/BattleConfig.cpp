@@ -18,8 +18,8 @@ void BattleMod::SpecialEffect::print(std::ostream & os) const
     os << description;
 }
 
-BattleMod::EffectIntsPair::EffectIntsPair(const SpecialEffect & effect, const std::string & desc) :
-    effect(effect), description(desc)
+BattleMod::EffectIntsPair::EffectIntsPair(const SpecialEffect & effect, const std::string & desc, int animationEffect) :
+    effect(effect), description(desc), animationEffect_(animationEffect)
 {
 }
 
@@ -31,6 +31,11 @@ int BattleMod::EffectIntsPair::getParam0()
 const std::vector<int> & BattleMod::EffectIntsPair::getParams()
 {
     return params_;
+}
+
+int BattleMod::EffectIntsPair::getAnimation()
+{
+    return animationEffect_;
 }
 
 void BattleMod::EffectIntsPair::addParam(int p)
@@ -86,7 +91,7 @@ BattleMod::FlatValue::FlatValue(int val) : val_(val)
 {
 }
 
-int BattleMod::FlatValue::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::FlatValue::getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
 	return val_;
 }
@@ -100,9 +105,9 @@ BattleMod::DynamicVariable::DynamicVariable(DynamicVarEnum dynamicCode, VarTarge
 {
 }
 
-int BattleMod::DynamicVariable::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::DynamicVariable::getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
-	const Role * c = attacker;
+	Role * c = attacker;
 	if (target_ == VarTarget::Other) {
 		c = defender;
 	}
@@ -363,9 +368,9 @@ BattleMod::StatusVariable::StatusVariable(const BattleStatus & status, VarTarget
 {
 }
 
-int BattleMod::StatusVariable::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::StatusVariable::getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
-	const Role * c = attacker;
+	Role * c = attacker;
 	if (target_ == VarTarget::Other) c = defender;
 	auto managerPtr = conf.getStatusManager(c->ID);
 	return managerPtr->getBattleStatusVal(status_.id);
@@ -398,7 +403,7 @@ BattleMod::RandomAdder::RandomAdder(const std::string & description, std::vector
 {
 }
 
-int BattleMod::RandomAdder::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::RandomAdder::getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
     if (items_.empty()) {
         // 机器猫老师，这个很不好用啊
@@ -428,7 +433,7 @@ BattleMod::LinearAdder::LinearAdder(const std::string & description, double k, s
 {
 }
 
-int BattleMod::LinearAdder::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::LinearAdder::getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
     return int(k_ * v_->getVal(conf, attacker, defender, wg));
 }
@@ -459,7 +464,7 @@ int BattleMod::VariableParam::getBase() const
     return base_;
 }
 
-int BattleMod::VariableParam::getVal(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+int BattleMod::VariableParam::getVal(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
     int sum = base_;
     // Adder 之间 嗯，暂且加起来，以后有心情加入 max/min等
@@ -502,7 +507,7 @@ BattleMod::Condition::Condition(std::unique_ptr<Variable> left, std::unique_ptr<
 {
 }
 
-bool BattleMod::Condition::check(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+bool BattleMod::Condition::check(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
     int leftVal = left_->getVal(conf, attacker, defender, wg);
     int rightVal = right_->getVal(conf, attacker, defender, wg);
@@ -528,12 +533,21 @@ BattleMod::EffectParamPair::EffectParamPair(const SpecialEffect & effect, const 
 {
 }
 
-EffectIntsPair BattleMod::EffectParamPair::materialize(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg) const
+EffectIntsPair BattleMod::EffectParamPair::materialize(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg) const
 {
     // 需要一个copy
     EffectIntsPair eip = eip_;
     for (const auto& param : params_) {
         eip.addParam(param.getVal(conf, attacker, defender, wg));
+    }
+    // 强制特效 直接生效
+    if (eip.effect.id == 9)
+    {
+        conf.applyStatusFromParams(eip.getParams(), attacker);
+    }
+    else if (eip.effect.id == 8)
+    {
+        conf.applyStatusFromParams(eip.getParams(), defender);
     }
     //if (!eip.description.empty())
     //    printf("成功触发%d %s\n", eip.effect.id, eip.description.c_str());
@@ -570,7 +584,7 @@ void BattleMod::ProccableEffect::addConditions(Conditions&& c)
     conditionz_.push_back(std::move(c));
 }
 
-bool BattleMod::ProccableEffect::checkConditions(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
+bool BattleMod::ProccableEffect::checkConditions(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg)
 {
     if (conditionz_.empty()) return true;
     // 在"需求"内，每一项之间的关系是"或"（既OR）
@@ -614,7 +628,7 @@ BattleMod::EffectSingle::EffectSingle(VariableParam && p, std::vector<EffectPara
 }
 
 // 现在EffectIntsPair是个copy，不能直接返回ptr了，反正我瞎搞直接上最符合要求的std::optional(C++17)，另外就是heap allocated std::unique_ptr我不喜欢
-std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg)
 {
     if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     // rand [0 1)
@@ -641,7 +655,7 @@ void BattleMod::EffectSingle::print(std::ostream & os) const
     }
 }
 
-std::vector<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg)
 {
     if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     // printf("尝试触发\n");
@@ -679,8 +693,8 @@ BattleMod::EffectPrioritizedGroup::EffectPrioritizedGroup()
 {
 }
 
-// 这里考虑重构一下
-std::vector<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
+// 这里考虑重构一下，必須重構，
+std::vector<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg)
 {
     if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
     for (auto& p : group_) {
@@ -710,7 +724,7 @@ BattleMod::EffectCounter::EffectCounter(VariableParam && total, VariableParam &&
 {
 }
 
-std::vector<EffectIntsPair> BattleMod::EffectCounter::proc(const BattleConfManager& conf, const Role * attacker, const Role * defender, const Magic * wg)
+std::vector<EffectIntsPair> BattleMod::EffectCounter::proc(BattleConfManager& conf, Role * attacker, Role * defender, const Magic * wg)
 {
     if (attacker == nullptr) return {};
     if (!ProccableEffect::checkConditions(conf, attacker, defender, wg)) return {};
@@ -1254,7 +1268,7 @@ void BattleMod::BattleConfManager::printEffects(const Effects & t)
 
 
 std::vector<EffectIntsPair> BattleMod::BattleConfManager::tryProcAndAddToManager(const Effects & list, EffectManager & manager, 
-	const Role * attacker, const Role * defender, const Magic * wg)
+	Role * attacker, Role * defender, const Magic * wg)
 {
 	std::vector<EffectIntsPair> procd;
 	for (const auto& effect : list) {
@@ -1269,7 +1283,7 @@ std::vector<EffectIntsPair> BattleMod::BattleConfManager::tryProcAndAddToManager
 
 // 再复制EffectIntsPair，不过我觉得复制这玩意儿不贵
 std::vector<EffectIntsPair> BattleMod::BattleConfManager::tryProcAndAddToManager(int id, const EffectsTable & table, EffectManager & manager,
-	const Role * attacker, const Role * defender, const Magic * wg)
+	Role * attacker, Role * defender, const Magic * wg)
 {
 	std::vector<EffectIntsPair> procd;
 	auto iter = table.find(id);

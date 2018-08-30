@@ -172,8 +172,8 @@ public:
     ActionShowInfo Show;
 
 private:
-    int X_, Y_;
-    int prevX_, prevY_;
+    int X_ = 0, Y_ = 0;
+    int prevX_ = 0, prevY_ = 0;
 
 public:
     MapSquare<Role*>* position_layer_ = nullptr;

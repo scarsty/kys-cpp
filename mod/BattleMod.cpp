@@ -120,7 +120,8 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
         printf("%s %s level is %d\n", PotConv::to_read(r->Name).c_str(), PotConv::to_read(magic->Name).c_str(), r->MagicLevel[index]);
     }
     r->Acted = 1;
-
+    // 动画需求，不要在意
+    r->Progress -= 1000;
     // 需要复制，因为已经离开此栈
     actionAnimation_ = [this, r, magic, atk_namess, atk_shows, defence_shows, number_shows]() mutable
     {
@@ -139,7 +140,7 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
                 battle_roles_[j]->Show = defence_shows[i][j];
                 progress_changes.emplace_back(battle_roles_[j]->Progress, battle_roles_[j]->Show.ProgressChange);
             }
-            showNumberAnimation(2, false);
+            showNumberAnimation(2, false, progress_changes);
 
             // 渐变效果，生命值
             std::vector<std::pair<int&, int>> animated_changes;
@@ -157,6 +158,8 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
                 r2->clearShowStrings();
             }
         }
+        // 加回来
+        r->Progress += 1000;
     };
 }
 
@@ -183,13 +186,13 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     // 强制特效直接判断
     // 特效8 9
     // 8 攻击方的敌人的
-    conf.setStatusFromParams(conf.atkEffectManager.getAllEffectParams(8), r2);
+    // conf.setStatusFromParams(conf.atkEffectManager.getAllEffectParams(8), r2);
     // 9 攻击方自己
-    conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(9), r1);
+    // conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(9), r1);
     // 然后倒过来 8 防御方的敌人
-    conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(8), r1);
+    // conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(8), r1);
     // 9 防御方自己
-    conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(9), r2);
+    // conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(9), r2);
 
     // 集气伤害，正数代表集气条后退
     int progressHurt = 0;
@@ -329,7 +332,7 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
             atkNames_.push_back(std::cref(effect.description));
     }
 
-    // 再添加人物自身的攻击特效
+    // 再添加人物自身的攻击特效，强制特效要立即生效..
     effects = conf.tryProcAndAddToManager(r->RealID, conf.atkRole, conf.atkEffectManager, r, nullptr, m);
     for (const auto& effect : effects) {
         if (!effect.description.empty())
@@ -450,7 +453,7 @@ void BattleModifier::dealEvent(BP_Event& e)
         conf.tryProcAndAddToManager(conf.turnAll, conf.turnEffectManager, role, nullptr, nullptr);
 
         // 特效9 强制
-        conf.setStatusFromParams(conf.turnEffectManager.getAllEffectParams(9), role);
+        // conf.setStatusFromParams(conf.turnEffectManager.getAllEffectParams(9), role);
 
         // 特效7 上状态
         conf.applyStatusFromParams(conf.turnEffectManager.getAllEffectParams(7), role);
@@ -543,8 +546,8 @@ Role* BattleModifier::semiRealPickOrTick() {
             conf.tryProcAndAddToManager(r->MagicID[i], conf.speedMagic, conf.speedEffectManager, r, nullptr, Save::getInstance()->getMagic(r->MagicID[i]));
         }
         // 强制状态 特效9
-        auto forceStat = conf.speedEffectManager.getAllEffectParams(9);
-        conf.setStatusFromParams(forceStat, r);
+        // auto forceStat = conf.speedEffectManager.getAllEffectParams(9);
+        // conf.setStatusFromParams(forceStat, r);
 
         int progress = 0;
         

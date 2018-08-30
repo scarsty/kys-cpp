@@ -12,7 +12,7 @@ UISave::UISave()
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
-        auto str = File::getFileTime(Save::getFilename(i, 'r'));
+        auto str = File::getFileTime(Save::getFilename(i, 's'));
         if (str.empty())
         {
             str = "--------------------";

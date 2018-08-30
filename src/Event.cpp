@@ -1,3 +1,4 @@
+#include "BattleMod.h"
 #include "Event.h"
 #include "MainScene.h"
 #include "SubScene.h"
@@ -382,7 +383,7 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    auto battle = new BattleScene();
+    auto battle = new BattleMod::BattleModifier();
     battle->setID(battle_id);
     battle->setHaveFailExp(get_exp);
     int result = battle->run();

@@ -48,8 +48,7 @@ std::string Save::getFilename(int i, char c)
 
 bool Save::checkSaveFileExist(int num)
 {
-    return File::fileExist(getFilename(num, 'r'))
-        && File::fileExist(getFilename(num, 's'))
+    return File::fileExist(getFilename(num, 's'))
         && File::fileExist(getFilename(num, 'd'));
 }
 
@@ -62,6 +61,18 @@ void Save::updateAllPtrVector()
     toPtrVector(shops_mem_, shops_);
 }
 
+
+void replace(char * str, int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        if (str[i] == '\n' || str[i] == '\r')
+        {
+            str[i] = ' ';
+        }
+    }
+}
+
 bool Save::load(int num)
 {
     if (!checkSaveFileExist(num))
@@ -69,7 +80,8 @@ bool Save::load(int num)
         return false;
     }
 
-    loadR(num);
+    // loadR(num);
+    loadRFromCSV(num);
     loadSD(num);
 
     //ÄÚ²¿±àÂëÎªcp936
@@ -95,6 +107,27 @@ bool Save::load(int num)
             PotConv::fromCP950ToCP936(i->Name);
         }
     }
+
+    /*
+    for (auto i : roles_)
+    {
+        replace(i->Name, 20);
+        replace(i->Nick, 20);
+    }
+    for (auto i : items_)
+    {
+        replace(i->Name, 40);
+        replace(i->Introduction, 40);
+    }
+    for (auto i : magics_)
+    {
+        replace(i->Name, 20);
+    }
+    for (auto i : submap_infos_)
+    {
+        replace(i->Name, 20);
+    }
+    */
 
     makeMaps();
 
@@ -142,7 +175,8 @@ void Save::loadSD(int num)
 
 bool Save::save(int num)
 {
-    saveR(num);
+    // saveR(num);
+    saveRToCSV(num);
     saveSD(num);
     return true;
 }

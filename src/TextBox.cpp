@@ -1,6 +1,15 @@
 #include "TextBox.h"
 #include "Font.h"
 
+
+TextBox::TextBox()
+{
+    // ±ÜÃâµ÷ÑÕÉ«·è¿ñ±àÒë
+    color_normal_ = { 240, 255, 255, 255 };
+    color_pass_ = { 255, 160, 122, 255 };
+    color_press_ = color_pass_;
+}
+
 void TextBox::setFontSize(int size)
 {
     for (auto c : childs_)
