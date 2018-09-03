@@ -27,5 +27,5 @@ public:
 protected:
     std::string title_;
     int text_x_ = 0, text_y_ = 0;
-    BP_Color color_ = { 32, 32, 32, 255 };
+    BP_Color color_ = { 240, 255, 255, 255 };
 };

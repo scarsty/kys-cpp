@@ -11,15 +11,6 @@ enum
     BATTLE_ENEMY_COUNT = 20,
 };
 
-struct BattleInfo
-{
-    MAP_INT ID;
-    char Name[10];
-    MAP_INT BattleFieldID, Exp, Music;
-    MAP_INT TeamMate[TEAMMATE_COUNT], AutoTeamMate[TEAMMATE_COUNT], TeamMateX[TEAMMATE_COUNT], TeamMateY[TEAMMATE_COUNT];
-    MAP_INT Enemy[BATTLE_ENEMY_COUNT], EnemyX[BATTLE_ENEMY_COUNT], EnemyY[BATTLE_ENEMY_COUNT];
-};
-
 //这个仅保存战场前两层
 struct BattleFieldData2
 {
@@ -41,7 +32,7 @@ public:
         static BattleMap bm;
         return &bm;
     }
-    BattleInfo* getBattleInfo(int i) { if (i < 0 || i >= battle_infos_.size()) { return nullptr; } return &battle_infos_[i]; }
+    BattleInfo* getBattleInfo(int i);
     void copyLayerData(int battle_field_id, int layer, MapSquareInt* out);
 
 };

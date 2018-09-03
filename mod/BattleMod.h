@@ -32,6 +32,9 @@ public:
     // 我决定这不是一个singleton，不用重开游戏就可以测试
     BattleModifier();
 
+	// 此非virtual，不过不重要
+	void setID(int id);
+
     void dealEvent(BP_Event & e) override;
 
     // 暂且考虑修改这些函数
@@ -49,6 +52,10 @@ public:
     void showMagicNames(const std::vector<std::string>& names);
 
     virtual void renderExtraRoleInfo(Role* r, int x, int y);    // 在人物上，显示血条等
+
+private:
+    void addAtkAnim(Role * r, BP_Color color, const std::vector<EffectIntsPair> & eips);
+	void addDefAnim(Role * r, BP_Color color, const std::vector<EffectIntsPair> & eips);
 };
 
 }

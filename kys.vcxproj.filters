@@ -330,6 +330,9 @@
     <ClInclude Include="mod\BattleMod.h">
       <Filter>battle-mod</Filter>
     </ClInclude>
+    <ClInclude Include="src\SaveFieldTranslate.h">
+      <Filter>save</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">

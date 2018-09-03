@@ -173,6 +173,7 @@
     <ClInclude Include="src\GrpIdxFile.h" />
     <ClInclude Include="common\Random.h" />
     <ClInclude Include="src\RandomRole.h" />
+    <ClInclude Include="src\SaveFieldTranslate.h" />
     <ClInclude Include="src\Script.h" />
     <ClInclude Include="src\ShowExp.h" />
     <ClInclude Include="src\ShowRoleDifference.h" />

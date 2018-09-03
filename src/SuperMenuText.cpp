@@ -10,17 +10,21 @@
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
     InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
-    previous_ = new Button();
-    previous_->setText("上一頁PgUp");
-    next_ = new Button();
-    next_->setText("下一頁PgDown");
 
-    addChild(previous_);
-    addChild(next_);
-    selections_ = new MenuText();
-    addChild(selections_);
-    setAllChildState(Normal);
-    defaultPage();
+	// 添加padding
+	int maxSize = 1;
+	for (auto& pairName : items_)
+	{
+		maxSize = std::max((int)pairName.second.size(), maxSize);
+	}
+	for (auto& pairName : items_)
+	{
+		int spaces = maxSize - pairName.second.size();
+		for (int i = 0; i < spaces; i++)
+		{
+			pairName.second += ' ';
+		}
+	}
 
     for (const auto& pairName : items_) 
     {
@@ -66,6 +70,18 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
             matches_[strID.substr(0, i + 1)].insert(pairName.second);
         }
     }
+
+	previous_ = new Button();
+	previous_->setText("上一頁PgUp");
+	next_ = new Button();
+	next_->setText("下一頁PgDown");
+
+	addChild(previous_);
+	addChild(next_);
+	selections_ = new MenuText();
+	addChild(selections_);
+	setAllChildState(Normal);
+	defaultPage();
 }
 
 void SuperMenuText::setInputPosition(int x, int y)

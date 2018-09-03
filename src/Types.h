@@ -395,3 +395,26 @@ struct ShopSave
 struct Shop : ShopSave
 {
 };
+
+// 战斗信息
+struct BattleInfoSave 
+{
+    int ID; // 编号
+    char Name[10]; // 名称
+    int BattleFieldID; // 地图号
+    int Exp; // 经验
+    int Music; // 音乐
+    int TeamMate[6]; // 队友
+    int AutoTeamMate[6]; // 自动队友
+    int TeamMateX[6]; // 队友X
+    int TeamMateY[6]; // 队友Y
+    int Enemy[20]; // 敌人
+    int EnemyX[20]; // 敌人X
+    int EnemyY[20]; // 敌人Y
+
+};
+
+struct BattleInfo : BattleInfoSave
+{
+
+};

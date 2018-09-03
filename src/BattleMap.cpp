@@ -3,10 +3,11 @@
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "PotConv.h"
+#include "Save.h"
 
 BattleMap::BattleMap()
 {
-    File::readFileToVector("../game/resource/war.sta", battle_infos_);
+    // File::readFileToVector("../game/resource/war.sta", battle_infos_);
 
     //地图的长度不一致，故换方法读取
     std::vector<int> offset, length;
@@ -23,6 +24,10 @@ BattleMap::BattleMap()
         PotConv::fromCP950ToCP936(i.Name);
         std::string s = i.Name;
     }
+}
+
+BattleInfo* BattleMap::getBattleInfo(int i) { 
+    return Save::getInstance()->getBattleInfo(i);
 }
 
 BattleMap::~BattleMap()

@@ -72,7 +72,7 @@ Console::Console()
             int id = d->getID();
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             int nx = dx + 350;
-            int ny = dy + 100;
+            int ny = dy;
             int fontSize = 28;
             Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, nx, ny, 400, 400);
             Font::getInstance()->draw(convert::formatString("%s£¬%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
@@ -266,5 +266,23 @@ Console::Console()
             }
         }
     }
+	else if (splits[0] == "dumpmagic")
+	{
+		for (auto p : Save::getInstance()->getMagics())
+		{
+			auto u8Name = PotConv::cp936toutf8(p->Name);
+			std::string pinyin;
+			pinyin.resize(1024);
+			int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
+			pinyin.resize(size);
+			auto pys = convert::splitString(pinyin, " ");
+			std::cout << "zzz[" << p->ID << "] = (\"wg_";
+			for (auto& py : pys) {
+				std::cout << py;
+			}
+			std::cout << "\", " << p->MagicType << ")";
+			std::cout << std::endl;
+		}
+	}
     
 }

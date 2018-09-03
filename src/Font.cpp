@@ -39,10 +39,11 @@ BP_Texture* Font::indexTex(int size, uint16_t c)
 BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
 {
     BP_Rect r;
-    r.x = x - 10;
-    r.y = y - 3;
-    r.w = size * textLen / 2 + 20;
-    r.h = size + 6;
+	int pixLen = (size * textLen / 2);
+    r.x = x - (pixLen * 0.15);
+    r.y = y - 6;
+    r.w =   pixLen * 1.5;
+    r.h = size + 12;
     return r;
 }
 

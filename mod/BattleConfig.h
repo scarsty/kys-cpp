@@ -90,19 +90,27 @@ namespace BattleMod {
 		int myLimit(int& cur, int add, int min, int max);
 	};
 
+    enum class EffectDisplayPosition {
+        no,
+        on_person,
+        on_top,
+    };
+
     // 特效绑定 整数参数
     class EffectIntsPair {
     public:
-        EffectIntsPair(const SpecialEffect& effect, const std::string& desc, int animationEffect = -1);
+        EffectIntsPair(const SpecialEffect& effect, const std::string& desc, 
+            EffectDisplayPosition displayOnPerson = EffectDisplayPosition::no, int animationEffect = -1);
 
         int getParam0();
         const std::vector<int>& getParams();
-        int getAnimation();
+        int getAnimation() const;
         void addParam(int p);
         // 叠加方式可不同，现在就都一样吧
         virtual EffectIntsPair & operator+=(const EffectIntsPair & rhs);
         void print(std::ostream& os) const;
 
+        const EffectDisplayPosition position;
         const SpecialEffect& effect;
         // 特效解说(显示文字?)
         const std::string& description;
@@ -278,7 +286,7 @@ namespace BattleMod {
 
     class EffectParamPair {
     public:
-        EffectParamPair(const SpecialEffect& effect, const std::string& desc);
+        EffectParamPair(const SpecialEffect& effect, const std::string& desc, EffectDisplayPosition displayOnPerson, int animationEffect);
         EffectIntsPair materialize(BattleConfManager& conf, Role * attacker, Role * defender, const Magic* wg) const;
         void addParam(VariableParam&& vp);
         EffectParamPair(EffectParamPair&& o) noexcept : params_(std::move(o.params_)), eip_(o.eip_) { }

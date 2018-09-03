@@ -9,7 +9,7 @@ class Save
 {
 public:
     //此处为全局数据，载入和保存使用，必须放在类开头，按照顺序，否则自己看着办
-    int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+    int Seed, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
     int Team[TEAMMATE_COUNT];
     ItemList Items[ITEM_IN_BAG_COUNT];
 private:
@@ -51,6 +51,7 @@ private:
     std::vector<Item> items_mem_;
     std::vector<SubMapInfo> submap_infos_mem_;
     std::vector<Shop> shops_mem_;
+    std::vector<BattleInfo> battles_mem_;
 
     //下面保存的是指针，大部分时候使用
     std::vector<Role*> roles_;
@@ -58,6 +59,7 @@ private:
     std::vector<Item*> items_;
     std::vector<SubMapInfo*> submap_infos_;
     std::vector<Shop*> shops_;
+    std::vector<BattleInfo*> battles_;
 
     std::map<std::string, Role*> roles_by_name_;
     std::map<std::string, Item*> items_by_name_;
@@ -89,6 +91,7 @@ public:
     Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return items_[i]; }
     SubMapInfo* getSubMapInfo(int i) { if (i < 0 || i >= submap_infos_.size()) { return nullptr; } return submap_infos_[i]; }
     Shop* getShop(int i) { if (i < 0 || i >= shops_.size()) { return nullptr; } return shops_[i]; }
+    BattleInfo* getBattleInfo(int i) { if (i < 0 || i >= battles_.size()) { return nullptr; } return battles_[i]; }
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }
@@ -99,13 +102,6 @@ public:
 
     int getItemCountInBag(int item_id);
     int getMoneyCountInBag();
-
-    void makeMaps();
-
-    Role* getRoleByName(std::string name) { return roles_by_name_[name]; }
-    Magic* getMagicByName(std::string name) { return magics_by_name_[name]; }
-    Item* getItemByName(std::string name) { return items_by_name_[name]; }
-    SubMapInfo* getSubMapRecordByName(std::string name) { return submap_infos_by_name_[name]; }
 
     Magic* getRoleLearnedMagic(Role* r, int i);
     int getRoleLearnedMagicLevelIndex(Role* r, Magic* m);
@@ -156,7 +152,7 @@ public:
 private:
     // 这个先这样，不然改一大坨代码很烦，先慢慢来
     struct BaseInfo {
-        int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+        int Seed, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
         int Team[TEAMMATE_COUNT];
     };
 
@@ -187,6 +183,10 @@ private:
         static void Save::NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record);
         static void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record);
         static void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx);
+        // 战斗信息
+        static void Save::NewSave::SaveToCSVBattleInfoSave(const std::vector<BattleInfo>& data, int record);
+        static void Save::NewSave::LoadFromCSVBattleInfoSave(std::vector<BattleInfo>& data, int record);
+        static void Save::NewSave::InsertBattleInfoAt(std::vector<BattleInfo>& data, int idx);
     };
 public:
     void saveRToCSV(int num);

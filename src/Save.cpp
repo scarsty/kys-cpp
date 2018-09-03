@@ -59,6 +59,7 @@ void Save::updateAllPtrVector()
     toPtrVector(submap_infos_mem_, submap_infos_);
     toPtrVector(magics_mem_, magics_);
     toPtrVector(shops_mem_, shops_);
+    toPtrVector(battles_mem_, battles_);
 }
 
 
@@ -129,8 +130,6 @@ bool Save::load(int num)
     }
     */
 
-    makeMaps();
-
     return true;
 }
 
@@ -140,7 +139,7 @@ void Save::loadR(int num)
     std::string filename_idx = "../game/save/ranger.idx32";
     auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
 
-    memcpy(&InShip, rgrp + offset_[0], length_[0]);
+    memcpy(&Seed, rgrp + offset_[0], length_[0]);
     File::readDataToVector(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
     File::readDataToVector(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
     File::readDataToVector(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
@@ -186,7 +185,7 @@ void Save::saveR(int num)
     std::string filenamer = getFilename(num, 'r');
 
     char* rgrp = new char[offset_.back()];
-    memcpy(rgrp + offset_[0], &InShip, length_[0]);
+    memcpy(rgrp + offset_[0], &Seed, length_[0]);
     File::writeVectorToData(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
     File::writeVectorToData(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
     File::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
@@ -289,32 +288,6 @@ int Save::getMoneyCountInBag()
     return getItemCountInBag(Item::MoneyItemID);
 }
 
-void Save::makeMaps()
-{
-    roles_by_name_.clear();
-    magics_by_name_.clear();
-    items_by_name_.clear();
-    submap_infos_by_name_.clear();
-
-    //有重名的，斟酌使用
-    for (auto& i : roles_)
-    {
-        roles_by_name_[i->Name] = i;
-    }
-    for (auto& i : magics_)
-    {
-        magics_by_name_[i->Name] = i;
-    }
-    for (auto& i : items_)
-    {
-        items_by_name_[i->Name] = i;
-    }
-    for (auto& i : submap_infos_)
-    {
-        submap_infos_by_name_[i->Name] = i;
-    }
-}
-
 Magic* Save::getRoleLearnedMagic(Role* r, int i)
 {
     if (i < 0 || i >= ROLE_MAGIC_COUNT)
@@ -351,6 +324,7 @@ void Save::saveRToCSV(int num)
     NewSave::SaveToCSVMagicSave(magics_mem_, num);
     // 商店
     NewSave::SaveToCSVShopSave(shops_mem_, num);
+    NewSave::SaveToCSVBattleInfoSave(battles_mem_, num);
 }
 
 void Save::loadRFromCSV(int num)
@@ -362,8 +336,8 @@ void Save::loadRFromCSV(int num)
     NewSave::LoadFromCSVSubMapInfoSave(submap_infos_mem_, num);
     NewSave::LoadFromCSVMagicSave(magics_mem_, num);
     NewSave::LoadFromCSVShopSave(shops_mem_, num);
+    NewSave::LoadFromCSVBattleInfoSave(battles_mem_, num);
     updateAllPtrVector();
-    makeMaps();
 }
 
 bool Save::insertAt(const std::string& type, int idx)
@@ -400,7 +374,7 @@ bool Save::insertAt(const std::string& type, int idx)
 void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_基本.csv");
-    fout << "乘船";
+    fout << "随机种子";
     fout << ",";
     fout << "子场景内";
     fout << ",";
@@ -438,7 +412,7 @@ void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record)
     fout << std::endl;
     for (int i = 0; i < length; i++)
     {
-        fout << data[i].InShip;
+        fout << data[i].Seed;
         fout << ",";
         fout << data[i].InSubMap;
         fout << ",";
@@ -1411,12 +1385,157 @@ void Save::NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record)
         fout << std::endl;
     }
 }
+
+// 战斗信息
+void Save::NewSave::SaveToCSVBattleInfoSave(const std::vector<BattleInfo>& data, int record) {
+    std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_战斗信息.csv");
+    fout << "编号";
+    fout << ",";    fout << "名称";
+    fout << ",";    fout << "地图号";
+    fout << ",";    fout << "经验";
+    fout << ",";    fout << "音乐";
+    fout << ",";    fout << "队友1";
+    fout << ",";    fout << "队友2";
+    fout << ",";    fout << "队友3";
+    fout << ",";    fout << "队友4";
+    fout << ",";    fout << "队友5";
+    fout << ",";    fout << "队友6";
+    fout << ",";    fout << "自动队友1";
+    fout << ",";    fout << "自动队友2";
+    fout << ",";    fout << "自动队友3";
+    fout << ",";    fout << "自动队友4";
+    fout << ",";    fout << "自动队友5";
+    fout << ",";    fout << "自动队友6";
+    fout << ",";    fout << "队友X1";
+    fout << ",";    fout << "队友X2";
+    fout << ",";    fout << "队友X3";
+    fout << ",";    fout << "队友X4";
+    fout << ",";    fout << "队友X5";
+    fout << ",";    fout << "队友X6";
+    fout << ",";    fout << "队友Y1";
+    fout << ",";    fout << "队友Y2";
+    fout << ",";    fout << "队友Y3";
+    fout << ",";    fout << "队友Y4";
+    fout << ",";    fout << "队友Y5";
+    fout << ",";    fout << "队友Y6";
+    fout << ",";    fout << "敌人1";
+    fout << ",";    fout << "敌人2";
+    fout << ",";    fout << "敌人3";
+    fout << ",";    fout << "敌人4";
+    fout << ",";    fout << "敌人5";
+    fout << ",";    fout << "敌人6";
+    fout << ",";    fout << "敌人7";
+    fout << ",";    fout << "敌人8";
+    fout << ",";    fout << "敌人9";
+    fout << ",";    fout << "敌人10";
+    fout << ",";    fout << "敌人11";
+    fout << ",";    fout << "敌人12";
+    fout << ",";    fout << "敌人13";
+    fout << ",";    fout << "敌人14";
+    fout << ",";    fout << "敌人15";
+    fout << ",";    fout << "敌人16";
+    fout << ",";    fout << "敌人17";
+    fout << ",";    fout << "敌人18";
+    fout << ",";    fout << "敌人19";
+    fout << ",";    fout << "敌人20";
+    fout << ",";    fout << "敌人X1";
+    fout << ",";    fout << "敌人X2";
+    fout << ",";    fout << "敌人X3";
+    fout << ",";    fout << "敌人X4";
+    fout << ",";    fout << "敌人X5";
+    fout << ",";    fout << "敌人X6";
+    fout << ",";    fout << "敌人X7";
+    fout << ",";    fout << "敌人X8";
+    fout << ",";    fout << "敌人X9";
+    fout << ",";    fout << "敌人X10";
+    fout << ",";    fout << "敌人X11";
+    fout << ",";    fout << "敌人X12";
+    fout << ",";    fout << "敌人X13";
+    fout << ",";    fout << "敌人X14";
+    fout << ",";    fout << "敌人X15";
+    fout << ",";    fout << "敌人X16";
+    fout << ",";    fout << "敌人X17";
+    fout << ",";    fout << "敌人X18";
+    fout << ",";    fout << "敌人X19";
+    fout << ",";    fout << "敌人X20";
+    fout << ",";    fout << "敌人Y1";
+    fout << ",";    fout << "敌人Y2";
+    fout << ",";    fout << "敌人Y3";
+    fout << ",";    fout << "敌人Y4";
+    fout << ",";    fout << "敌人Y5";
+    fout << ",";    fout << "敌人Y6";
+    fout << ",";    fout << "敌人Y7";
+    fout << ",";    fout << "敌人Y8";
+    fout << ",";    fout << "敌人Y9";
+    fout << ",";    fout << "敌人Y10";
+    fout << ",";    fout << "敌人Y11";
+    fout << ",";    fout << "敌人Y12";
+    fout << ",";    fout << "敌人Y13";
+    fout << ",";    fout << "敌人Y14";
+    fout << ",";    fout << "敌人Y15";
+    fout << ",";    fout << "敌人Y16";
+    fout << ",";    fout << "敌人Y17";
+    fout << ",";    fout << "敌人Y18";
+    fout << ",";    fout << "敌人Y19";
+    fout << ",";    fout << "敌人Y20";
+    fout << std::endl;
+    int length = data.size();
+    for (int i = 0; i < length; i++) {
+        fout << data[i].ID;
+        fout << ",";
+        fout << '"' << data[i].Name << '"';
+        fout << ",";
+        fout << data[i].BattleFieldID;
+        fout << ",";
+        fout << data[i].Exp;
+        fout << ",";
+        fout << data[i].Music;
+        fout << ",";
+        for (int j = 0; j < 6; j++) {
+            fout << data[i].TeamMate[j];
+            if (j != 6 - 1) fout << ",";
+        }
+        fout << ",";
+        for (int j = 0; j < 6; j++) {
+            fout << data[i].AutoTeamMate[j];
+            if (j != 6 - 1) fout << ",";
+        }
+        fout << ",";
+        for (int j = 0; j < 6; j++) {
+            fout << data[i].TeamMateX[j];
+            if (j != 6 - 1) fout << ",";
+        }
+        fout << ",";
+        for (int j = 0; j < 6; j++) {
+            fout << data[i].TeamMateY[j];
+            if (j != 6 - 1) fout << ",";
+        }
+        fout << ",";
+        for (int j = 0; j < 20; j++) {
+            fout << data[i].Enemy[j];
+            if (j != 20 - 1) fout << ",";
+        }
+        fout << ",";
+        for (int j = 0; j < 20; j++) {
+            fout << data[i].EnemyX[j];
+            if (j != 20 - 1) fout << ",";
+        }
+        fout << ",";
+        for (int j = 0; j < 20; j++) {
+            fout << data[i].EnemyY[j];
+            if (j != 20 - 1) fout << ",";
+        }
+        fout << std::endl;
+    }
+}
+
+
 // 基本
 void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record)
 {
     io::CSVReader<18, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_基本.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-        "乘船",
+        "随机种子",
         "子场景内",
         "主地图X",
         "主地图Y",
@@ -1437,7 +1556,7 @@ void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record)
     auto getDefault = []()
     {
         BaseInfo nextLineData;
-        nextLineData.InShip = 0;
+        nextLineData.Seed = 0;
         nextLineData.InSubMap = 0;
         nextLineData.MainMapX = 0;
         nextLineData.MainMapY = 0;
@@ -1458,7 +1577,7 @@ void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record)
     int lines = 0;
     auto nextLineData = getDefault();
     while (in.read_row(
-        nextLineData.InShip,
+        nextLineData.Seed,
         nextLineData.InSubMap,
         nextLineData.MainMapX,
         nextLineData.MainMapY,
@@ -2328,6 +2447,233 @@ void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record)
         nextLineData = getDefault();
     }
 }
+
+// 战斗信息
+void Save::NewSave::LoadFromCSVBattleInfoSave(std::vector<BattleInfo>& data, int record) {
+    data.clear();
+    io::CSVReader<89, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_战斗信息.csv");
+    in.read_header(io::ignore_missing_column | io::ignore_extra_column,
+        "编号",
+        "名称",
+        "地图号",
+        "经验",
+        "音乐",
+        "队友1",
+        "队友2",
+        "队友3",
+        "队友4",
+        "队友5",
+        "队友6",
+        "自动队友1",
+        "自动队友2",
+        "自动队友3",
+        "自动队友4",
+        "自动队友5",
+        "自动队友6",
+        "队友X1",
+        "队友X2",
+        "队友X3",
+        "队友X4",
+        "队友X5",
+        "队友X6",
+        "队友Y1",
+        "队友Y2",
+        "队友Y3",
+        "队友Y4",
+        "队友Y5",
+        "队友Y6",
+        "敌人1",
+        "敌人2",
+        "敌人3",
+        "敌人4",
+        "敌人5",
+        "敌人6",
+        "敌人7",
+        "敌人8",
+        "敌人9",
+        "敌人10",
+        "敌人11",
+        "敌人12",
+        "敌人13",
+        "敌人14",
+        "敌人15",
+        "敌人16",
+        "敌人17",
+        "敌人18",
+        "敌人19",
+        "敌人20",
+        "敌人X1",
+        "敌人X2",
+        "敌人X3",
+        "敌人X4",
+        "敌人X5",
+        "敌人X6",
+        "敌人X7",
+        "敌人X8",
+        "敌人X9",
+        "敌人X10",
+        "敌人X11",
+        "敌人X12",
+        "敌人X13",
+        "敌人X14",
+        "敌人X15",
+        "敌人X16",
+        "敌人X17",
+        "敌人X18",
+        "敌人X19",
+        "敌人X20",
+        "敌人Y1",
+        "敌人Y2",
+        "敌人Y3",
+        "敌人Y4",
+        "敌人Y5",
+        "敌人Y6",
+        "敌人Y7",
+        "敌人Y8",
+        "敌人Y9",
+        "敌人Y10",
+        "敌人Y11",
+        "敌人Y12",
+        "敌人Y13",
+        "敌人Y14",
+        "敌人Y15",
+        "敌人Y16",
+        "敌人Y17",
+        "敌人Y18",
+        "敌人Y19",
+        "敌人Y20"
+    );
+    auto getDefault = []() {
+        BattleInfo nextLineData;
+        nextLineData.ID = 0;
+        memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
+        nextLineData.BattleFieldID = 0;
+        nextLineData.Exp = 0;
+        nextLineData.Music = 0;
+        for (int j = 0; j < 6; j++) {
+            nextLineData.TeamMate[j] = -1;
+        }
+        for (int j = 0; j < 6; j++) {
+            nextLineData.AutoTeamMate[j] = -1;
+        }
+        for (int j = 0; j < 6; j++) {
+            nextLineData.TeamMateX[j] = 0;
+        }
+        for (int j = 0; j < 6; j++) {
+            nextLineData.TeamMateY[j] = 0;
+        }
+        for (int j = 0; j < 20; j++) {
+            nextLineData.Enemy[j] = -1;
+        }
+        for (int j = 0; j < 20; j++) {
+            nextLineData.EnemyX[j] = 0;
+        }
+        for (int j = 0; j < 20; j++) {
+            nextLineData.EnemyY[j] = 0;
+        }
+        return nextLineData;
+    };
+    char * Name__;
+    int lines = 0;
+    auto nextLineData = getDefault();
+    while (in.read_row(
+        nextLineData.ID,
+        Name__,
+        nextLineData.BattleFieldID,
+        nextLineData.Exp,
+        nextLineData.Music,
+        nextLineData.TeamMate[0],
+        nextLineData.TeamMate[1],
+        nextLineData.TeamMate[2],
+        nextLineData.TeamMate[3],
+        nextLineData.TeamMate[4],
+        nextLineData.TeamMate[5],
+        nextLineData.AutoTeamMate[0],
+        nextLineData.AutoTeamMate[1],
+        nextLineData.AutoTeamMate[2],
+        nextLineData.AutoTeamMate[3],
+        nextLineData.AutoTeamMate[4],
+        nextLineData.AutoTeamMate[5],
+        nextLineData.TeamMateX[0],
+        nextLineData.TeamMateX[1],
+        nextLineData.TeamMateX[2],
+        nextLineData.TeamMateX[3],
+        nextLineData.TeamMateX[4],
+        nextLineData.TeamMateX[5],
+        nextLineData.TeamMateY[0],
+        nextLineData.TeamMateY[1],
+        nextLineData.TeamMateY[2],
+        nextLineData.TeamMateY[3],
+        nextLineData.TeamMateY[4],
+        nextLineData.TeamMateY[5],
+        nextLineData.Enemy[0],
+        nextLineData.Enemy[1],
+        nextLineData.Enemy[2],
+        nextLineData.Enemy[3],
+        nextLineData.Enemy[4],
+        nextLineData.Enemy[5],
+        nextLineData.Enemy[6],
+        nextLineData.Enemy[7],
+        nextLineData.Enemy[8],
+        nextLineData.Enemy[9],
+        nextLineData.Enemy[10],
+        nextLineData.Enemy[11],
+        nextLineData.Enemy[12],
+        nextLineData.Enemy[13],
+        nextLineData.Enemy[14],
+        nextLineData.Enemy[15],
+        nextLineData.Enemy[16],
+        nextLineData.Enemy[17],
+        nextLineData.Enemy[18],
+        nextLineData.Enemy[19],
+        nextLineData.EnemyX[0],
+        nextLineData.EnemyX[1],
+        nextLineData.EnemyX[2],
+        nextLineData.EnemyX[3],
+        nextLineData.EnemyX[4],
+        nextLineData.EnemyX[5],
+        nextLineData.EnemyX[6],
+        nextLineData.EnemyX[7],
+        nextLineData.EnemyX[8],
+        nextLineData.EnemyX[9],
+        nextLineData.EnemyX[10],
+        nextLineData.EnemyX[11],
+        nextLineData.EnemyX[12],
+        nextLineData.EnemyX[13],
+        nextLineData.EnemyX[14],
+        nextLineData.EnemyX[15],
+        nextLineData.EnemyX[16],
+        nextLineData.EnemyX[17],
+        nextLineData.EnemyX[18],
+        nextLineData.EnemyX[19],
+        nextLineData.EnemyY[0],
+        nextLineData.EnemyY[1],
+        nextLineData.EnemyY[2],
+        nextLineData.EnemyY[3],
+        nextLineData.EnemyY[4],
+        nextLineData.EnemyY[5],
+        nextLineData.EnemyY[6],
+        nextLineData.EnemyY[7],
+        nextLineData.EnemyY[8],
+        nextLineData.EnemyY[9],
+        nextLineData.EnemyY[10],
+        nextLineData.EnemyY[11],
+        nextLineData.EnemyY[12],
+        nextLineData.EnemyY[13],
+        nextLineData.EnemyY[14],
+        nextLineData.EnemyY[15],
+        nextLineData.EnemyY[16],
+        nextLineData.EnemyY[17],
+        nextLineData.EnemyY[18],
+        nextLineData.EnemyY[19]
+    )) {
+        strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
+        data.push_back(nextLineData);
+        lines++;
+        nextLineData = getDefault();
+    }
+}
+
 void Save::NewSave::InsertRoleAt(std::vector<Role>& data, int idx)
 {
     auto newCopy = data[idx];

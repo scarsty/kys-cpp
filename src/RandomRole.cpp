@@ -25,24 +25,23 @@ void RandomRole::onPressedOK()
         return;
     }
     RandomDouble r;
-    role_->MaxHP = 25 + r.rand_int(26);
+    role_->MaxHP = 500 - 2 * role_->IQ;
     role_->HP = role_->MaxHP;
-    role_->MaxMP = 25 + r.rand_int(26);
+    role_->MaxMP = 250 + role_->IQ * 5;
     role_->MP = role_->MaxMP;
     role_->MPType = r.rand_int(2);
     role_->IncLife = 1 + r.rand_int(10);
-    role_->Attack = 25 + r.rand_int(6);
-    role_->Speed = 25 + r.rand_int(6);
-    role_->Defence = 25 + r.rand_int(6);
-    role_->Medicine = 25 + r.rand_int(6);
-    role_->UsePoison = 25 + r.rand_int(6);
-    role_->Detoxification = 25 + r.rand_int(6);
-    role_->Fist = 25 + r.rand_int(6);
-    role_->Sword = 25 + r.rand_int(6);
-    role_->Knife = 25 + r.rand_int(6);
-    role_->Unusual = 25 + r.rand_int(6);
-    role_->HiddenWeapon = 25 + r.rand_int(6);
-    role_->IQ = 1 + r.rand_int(100);
+    role_->Attack = 20 + std::ceil(role_->IQ / 2.0);
+    role_->Speed = 30;
+    role_->Defence = 20 + std::floor(role_->IQ / 2.0);
+    role_->Medicine = 40;
+    role_->UsePoison = 40;
+    role_->Detoxification = 30;
+    role_->Fist = 30;
+    role_->Sword = 30;
+    role_->Knife = 30;
+    role_->Unusual = 30;
+    role_->HiddenWeapon = 30;
     printf("IQ is %d\n", role_->IQ);
 }
 

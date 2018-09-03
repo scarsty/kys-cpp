@@ -5,6 +5,7 @@
 #include "PotConv.h"
 #include <unordered_set>
 #include <iostream>
+#include <cassert>
 
 using namespace BattleMod;
 
@@ -18,8 +19,8 @@ void BattleMod::SpecialEffect::print(std::ostream & os) const
     os << description;
 }
 
-BattleMod::EffectIntsPair::EffectIntsPair(const SpecialEffect & effect, const std::string & desc, int animationEffect) :
-    effect(effect), description(desc), animationEffect_(animationEffect)
+BattleMod::EffectIntsPair::EffectIntsPair(const SpecialEffect & effect, const std::string & desc, EffectDisplayPosition displayOnPerson, int animationEffect) :
+    effect(effect), description(desc), position(displayOnPerson), animationEffect_(animationEffect)
 {
 }
 
@@ -33,7 +34,7 @@ const std::vector<int> & BattleMod::EffectIntsPair::getParams()
     return params_;
 }
 
-int BattleMod::EffectIntsPair::getAnimation()
+int BattleMod::EffectIntsPair::getAnimation() const
 {
     return animationEffect_;
 }
@@ -324,11 +325,14 @@ void BattleMod::DynamicVariable::print(std::ostream & os) const
         break;
     }
     case DynamicVarEnum::var_has_wg: {
-        os << "擁有武功：";
+        os << "擁有武功<";
+        int idx = 0;
         for (int id : params_) {
-            os << Save::getInstance()->getMagic(id)->Name << " ";
+            os << Save::getInstance()->getMagic(id)->Name;
+            if (idx != params_.size() - 1) os << ",";
+            idx++;
         }
-        os << "時=1否則=0";
+        os << ">時=1否則=0";
         break;
     }
     case DynamicVarEnum::var_wg_type: {
@@ -529,7 +533,8 @@ void BattleMod::Condition::print(std::ostream & os) const
     }
 }
 
-BattleMod::EffectParamPair::EffectParamPair(const SpecialEffect & effect, const std::string & desc) : eip_(effect, desc)
+BattleMod::EffectParamPair::EffectParamPair(const SpecialEffect & effect, const std::string & desc, 
+    EffectDisplayPosition displayOnPerson, int animationEffect) : eip_(effect, desc, displayOnPerson, animationEffect)
 {
 }
 
@@ -922,7 +927,8 @@ void BattleMod::BattleConfManager::init()
 	try {
 		baseNode = YAML::LoadFile(BattleMod::CONFIGPATH);
 	}
-	catch (...) {
+	catch (std::exception e) {
+		printf(e.what());
 		printf("yaml config missing\n");
 		return;
 	}
@@ -932,7 +938,7 @@ void BattleMod::BattleConfManager::init()
 
 	for (const auto& spNode : baseNode[u8"特效"]) {
 		// 必须按顺序来，因为我懒，TODO 改一改？还是不改呢，有空再改！
-		assert(effects_.size() == spNode[u8"编号"].as<int>());
+		assert(effects.size() == spNode[u8"编号"].as<int>());
 		auto desc = PotConv::conv(spNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
 		std::reference_wrapper<std::string> descRef(strPool_.front());
 		if (!desc.empty()) {
@@ -944,7 +950,7 @@ void BattleMod::BattleConfManager::init()
 
 	for (const auto& bNode : baseNode[u8"战场状态"]) {
 		int id = bNode[u8"编号"].as<int>();
-		assert(battleStatus_.size() == id);
+		assert(battleStatus.size() == id);
 		auto desc = PotConv::conv(bNode[u8"描述"].as<std::string>(), "utf-8", "cp936");
 
 		int max = 100;
@@ -1180,13 +1186,22 @@ Condition BattleMod::BattleConfManager::readCondition(const YAML::Node & node)
 EffectParamPair BattleConfManager::readEffectParamPair(const YAML::Node& node) {
 	int id = node[u8"编号"].as<int>();
 	auto display = PotConv::conv(node[u8"显示"].as<std::string>(), "utf-8", "cp936");
+    EffectDisplayPosition pos = EffectDisplayPosition::no;
+    if (const auto& posNode = node[u8"位置"]) {
+        auto posInt = posNode.as<int>();
+        pos = static_cast<EffectDisplayPosition>(posInt);
+    }
+    int eft = -1;
+    if (const auto& animNode = node[u8"动画"]) {
+        eft = animNode.as<int>();
+    }
 	std::reference_wrapper<std::string> displayRef(strPool_.front());
 	if (!display.empty()) {
 		strPool_.push_back(display);
 		displayRef = strPool_.back();
 	}
 	// 这里效果参数以后要可配置
-	EffectParamPair epp(effects[id], displayRef);
+	EffectParamPair epp(effects[id], displayRef, pos, eft);
 	if (node[u8"效果参数"].IsScalar() || node[u8"效果参数"].IsMap()) {
 		epp.addParam(readVariableParam(node[u8"效果参数"]));
 	}
