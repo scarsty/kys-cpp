@@ -124,6 +124,7 @@
     <ClCompile Include="src\Head.cpp" />
     <ClCompile Include="src\TeamMenu.cpp" />
     <ClCompile Include="src\TextBox.cpp" />
+    <ClCompile Include="src\TextBoxRoll.cpp" />
     <ClCompile Include="src\UI.cpp" />
     <ClCompile Include="common\libconvert.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
@@ -181,6 +182,7 @@
     <ClInclude Include="src\Head.h" />
     <ClInclude Include="src\TeamMenu.h" />
     <ClInclude Include="src\TextBox.h" />
+    <ClInclude Include="src\TextBoxRoll.h" />
     <ClInclude Include="src\UI.h" />
     <ClInclude Include="common\libconvert.h" />
     <ClInclude Include="src\PotConv.h" />

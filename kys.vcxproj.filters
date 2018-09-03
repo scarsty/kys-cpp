@@ -154,6 +154,9 @@
     <ClCompile Include="src\BattleNetwork.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="src\TextBoxRoll.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -317,6 +320,9 @@
     </ClInclude>
     <ClInclude Include="src\BattleNetwork.h">
       <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextBoxRoll.h">
+      <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
