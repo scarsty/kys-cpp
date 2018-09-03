@@ -160,6 +160,9 @@
     <ClCompile Include="mod\BattleMod.cpp">
       <Filter>battle-mod</Filter>
     </ClCompile>
+    <ClCompile Include="src\TextBoxRoll.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -332,6 +335,9 @@
     </ClInclude>
     <ClInclude Include="src\SaveFieldTranslate.h">
       <Filter>save</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TextBoxRoll.h">
+      <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

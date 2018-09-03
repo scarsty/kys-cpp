@@ -20,6 +20,8 @@
 #include "OpenCCConverter.h"
 #include "SaveFieldTranslate.h"
 
+#include "TextBoxRoll.h"
+
 TitleScene::TitleScene()
 {
     full_window_ = 1;
@@ -170,6 +172,7 @@ void TitleScene::dealEvent(BP_Event& e)
                 MainScene::getInstance()->forceEnterSubScene(GameUtil::getInstance()->getInt("constant", "begin_scene", 70), 19, 20, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
                 MainScene::getInstance()->run();
             }
+            delete random_role;
         }
     }
     if (r == 1)
@@ -191,4 +194,14 @@ void TitleScene::onEntrance()
 {
     Engine::getInstance()->playVideo("../game/movie/1.mp4");
     Audio::getInstance()->playMusic(16);
+    auto tbr = new TextBoxRoll();
+
+    TextBoxRoll::TextColorLines texts;
+    for (int i = 0; i <= 10; i++)
+    {
+        texts.push_back({ { { 0, 0, 0, 255 },"sb" + std::to_string(250 + i) } });
+    }
+    tbr->setTexts(texts);
+    tbr->setRollLine(5);
+    menu_->addChild(tbr, -100, -100);
 }
