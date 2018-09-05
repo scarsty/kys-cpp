@@ -147,46 +147,45 @@ public:
 
     int MaxExp = 99999;
 
-
-
     void loadSaveValues();
-
 
     // 新保存系列
 private:
     // 这个先这样，不然改一大坨代码很烦，先慢慢来
-    struct BaseInfo {
+    struct BaseInfo
+    {
         int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
         int Team[TEAMMATE_COUNT];
     };
 
-    class NewSave {
+    class NewSave
+    {
     public:
-        static void Save::NewSave::SaveToCSVBaseInfo(BaseInfo* data, int length, int record);
-        static void Save::NewSave::LoadFromCSVBaseInfo(BaseInfo* data, int length, int record);
+        static void SaveToCSVBaseInfo(BaseInfo* data, int length, int record);
+        static void LoadFromCSVBaseInfo(BaseInfo* data, int length, int record);
         // 背包
-        static void Save::NewSave::SaveToCSVItemList(ItemList* data, int length, int record);
-        static void Save::NewSave::LoadFromCSVItemList(ItemList* data, int length, int record);
+        static void SaveToCSVItemList(ItemList* data, int length, int record);
+        static void LoadFromCSVItemList(ItemList* data, int length, int record);
         // 人物
-        static void Save::NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record);
-        static void Save::NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record);
-        static void Save::NewSave::InsertRoleAt(std::vector<Role>& data, int idx);
+        static void SaveToCSVRoleSave(const std::vector<Role>& data, int record);
+        static void LoadFromCSVRoleSave(std::vector<Role>& data, int record);
+        static void InsertRoleAt(std::vector<Role>& data, int idx);
         // 物品
-        static void Save::NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record);
-        static void Save::NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record);
-        static void Save::NewSave::InsertItemAt(std::vector<Item>& data, int idx);
+        static void SaveToCSVItemSave(const std::vector<Item>& data, int record);
+        static void LoadFromCSVItemSave(std::vector<Item>& data, int record);
+        static void InsertItemAt(std::vector<Item>& data, int idx);
         // 场景
-        static void Save::NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record);
-        static void Save::NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record);
-        static void Save::NewSave::InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx);
+        static void SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record);
+        static void LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record);
+        static void InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx);
         // 武功
-        static void Save::NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record);
-        static void Save::NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record);
-        static void Save::NewSave::InsertMagicAt(std::vector<Magic>& data, int idx);
+        static void SaveToCSVMagicSave(const std::vector<Magic>& data, int record);
+        static void LoadFromCSVMagicSave(std::vector<Magic>& data, int record);
+        static void InsertMagicAt(std::vector<Magic>& data, int idx);
         // 商店
-        static void Save::NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record);
-        static void Save::NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record);
-        static void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx);
+        static void SaveToCSVShopSave(const std::vector<Shop>& data, int record);
+        static void LoadFromCSVShopSave(std::vector<Shop>& data, int record);
+        static void InsertShopAt(std::vector<Shop>& data, int idx);
     };
 public:
     void saveRToCSV(int num);
