@@ -2,10 +2,19 @@
 *.db
 Debug/*
 Release/*
+
+# 加入设置和保存文件
 work/*
+!work/game
+work/game/*
+!work/game/config
 !work/game/script
-!work/config/battle.yaml
+!work/game/save
+work/game/save/*
+!work/game/save/csv
+work/game/save/csv/*
 !work/game/save/csv/0_*
+
 *.tlog
 *.idb
 *.iobj

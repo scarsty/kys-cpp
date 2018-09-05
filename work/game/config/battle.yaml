@@ -1,0 +1,4632 @@
+---
+# 这里有个视角的问题
+# 在攻击的时候，获取变量人物属性默认是攻击者/行动者
+# 防守特效，获取的默认变量人物是挨打者
+# 集气特效，是集气者 -》集气特效只能作用于自己！
+# 这是第一个概念 
+# 第二个是，特效在攻击和防御者同时有时怎么相加
+# 比如暴击（最终伤害放大）
+# 这个作用于全局和攻击时，是增加攻击者的最终输出
+# 作用于防守时，也是增加攻击者的输出！！
+# 一般来说，公式是这样的
+# 特效威力 = 攻击方特效参数+ 防守方特效参数
+# 所以防御方要写负数参数，才能减伤
+# 第三个，在给敌方上负面状态/时序特效时，敌方是谁
+# 1. 攻击/敌方特效: 敌方就是你打的人
+# 2. 防守特效: 敌方就是打你的人
+# 那我想给自己上状态（比如说负数）呢？
+# 请使用 给自己上状态
+
+特效:
+  - 编号: &tx_weili 0 
+    描述: 武功威力加成
+    #有效: 攻击，防守
+    #效果参数: 
+    #  - 加成数值
+
+  - 编号: &tx_qigong 1
+    描述: 增加集气伤害
+    #有效: 攻击，防守
+    #效果参数: 
+    #  - 增加数值
+
+  - 编号: &tx_qifang 2
+    描述: 集气伤害护体
+    #有效: 攻击，防守
+    #效果参数: 
+    #  - 护体数值
+
+  - 编号: &tx_jiqisudu 3
+    描述: 集气速度增加
+    #有效: 集气
+    #备注: 只对自己有效
+    #效果参数: 
+    #  - 加快数值
+      
+  - 编号: &tx_baoji 4
+    描述: 伤害百分比放大
+    #有效: 攻击
+    #备注：这是攻击方视角，负数会减少攻击者造成的伤害
+    #效果参数:
+    #  - 伤害增强百分比
+    
+  - 编号: &tx_shanghai 5
+    描述: 最终伤害增加
+    #有效: 攻击
+    #备注：先暴击后加伤害，建议选择特效1武功威力
+    #效果参数:
+    #  - 伤害值增加数量
+    
+  - 编号: &tx_diren_status 6
+    描述: 给敌方上状态
+    #有效: 攻击
+    #备注: 在伤害计算结束后生效, 状态 += 强度
+    #效果参数:
+    #  - 状态编号
+    #  - 强度(0~100)
+    
+  - 编号: &tx_ziji_status 7
+    描述: 给自己上状态
+    #有效: 集气，攻击
+    #备注: 攻击时在行动结束时结算, 状态 += 强度
+    #效果参数:
+    #  - 状态编号
+    #  - 强度(0~100)
+    
+  - 编号: &tx_diren_qiangzhi_status 8
+    描述: 对敌人强制设置状态
+    #有效: 攻击，防守
+    #备注: 强制状态，立即结算, 状态 = 强度
+    # 立即结算的意思是指，
+    # 攻击：在攻击特效判断完之后立马结算
+    # 防守：在防御特效判断完之后立马结算
+    # 集气: 在“给自己上状态”之前
+    # 并且清空暂时状态
+    #效果参数:
+    #  - 状态编号
+    #  - 强度(0~100)
+
+  - 编号: &tx_ziji_qiangzhi_status 9
+    描述: 对自己强制设置状态
+    #有效: 所有
+    #备注: 强制状态，仅限自己，立即结算, 状态 = 强度
+    #效果参数:
+    #  - 状态编号
+    #  - 强度(0~100)
+
+  - 编号: &tx_jiqisudu_percentage 10
+    描述: 集气速度百分比增加
+    #有效: 集气，攻击
+    #备注: 不想写
+
+  - 编号: &tx_lianji 11
+    描述: 连击
+    #有效: 攻击
+    #备注: 攻击次数+1，注意如果不控制的话就是无限连击
+    #传统双手互博，既学了就打两下，可用proc_counter控制触发
+    #这里我给的是学了互博增加连击率，且看我是怎么操作不让他无限连击的
+
+  - 编号: &tx_jiqizhi 12
+    描述: 集气值增加
+    #有效: 攻击，防御，回合
+    #备注: 集气阶段就算了
+  
+发动方式:
+  - 编号: &proc_random 0
+    #描述: 单独随机发动，判断一次，发动一到多个特效
+    #发动参数:
+    #  - 百分比发动几率
+  - 编号: &proc_distributed 1
+    #描述: 池分布式随机发动
+    #总比重: 总体比重
+    #发动参数:
+    #  - 每项的单体比重
+  - 编号: &proc_prioritized 2
+    #描述: 优先发动，第一个成功后便停止判断
+    #发动参数:
+    #  - 百分比发动几率
+
+  # 等我实验一下再说
+  - 编号: &proc_counter 3
+    #描述: 计数发动，这里有个记谁头上的问题，这里统一按照人物id来
+    #既，这个特效，这个人物，尝试了3次，那么发动，如果发动的时候没人物id?(为啥)，那么作废
+    #计数: 计数器到达这个值就发动
+    #发动参数:
+    #  - 每次判断增加计数器几次
+    #  下面这个还没做
+    #  - 1: 第一次既触发(默认否), 0: 第一次不算
+    # 问题是 问题是啥？
+      
+# 本人设计问题，所有字符串都是存在一个vector里，避免复制
+# 但是vector更新容量就会使引用失效，优雅的解决方案暂时没想到
+# 所以先确保vector大小，既总共没有超过这么多个字符串
+字符串数组大小: 5000      
+
+对比:
+  - &op_greater 0         # 大于
+  - &op_greater_equal 1   # 大于等于
+  - &op_equal 2           # 等于
+
+对象:
+  - &target_self 0
+  - &target_other 1
+
+变量: 
+  # 变量: {编号: *var_char_mptype, 对象: *target_self}
+  # 对象默认当前角色
+  - &var_char_sex 0               # 性别  0 男 1 女 2 其他
+  - &var_char_level 1             # 等级
+  - &var_char_exp 2               # 经验
+  - &var_char_hp 3                # 生命值
+  - &var_char_maxhp 4             # 最大生命值
+  - &var_char_equip0 5            # 武器
+  - &var_char_equip1 6            # 防具
+  - &var_char_mptype 7            # 内力属性
+  - &var_char_mp 8                # 内力值
+  - &var_char_maxmp 9             # 内力最大值
+  - &var_char_attack 10           # 攻击
+  - &var_char_speed 11            # 轻功
+  - &var_char_defence 12          # 防御
+  - &var_char_medicine 13         # 医疗
+  - &var_char_usepoison 14        # 用毒
+  - &var_char_detoxification 15   # 解毒, 机器猫老师英文NB
+  - &var_char_antipoison 16       # 抗毒
+  - &var_char_fist 17             # 拳
+  - &var_char_sword 18            # 剑
+  - &var_char_blade 19            # 刀，我拒绝用knife
+  - &var_char_unusual 20          # 奇门
+  - &var_char_hiddenweapon 21     # 暗器
+  - &var_char_knowledge 22        # 武学常识
+  - &var_char_morality 23         # 道德
+  - &var_char_attackwithpoison 24 # 攻击带毒
+  - &var_char_attacktwice 25      # 双手互博
+  - &var_char_fame 26             # 声望
+  - &var_char_iq 27               # 资质
+  
+  
+  # 触发特效的选手
+  - &var_using_char 28
+
+  # 天书数量，仅友方有效，敌方算0
+  - &var_books 29
+  
+  # 武功等级，仅适用于当前使用武功，否则为0
+  - &var_cur_wg_level 30
+  
+  # 变量: {编号: *var_wg_level, 参数: *wg_yeqiuquan}
+  # 返回武功等级，给武功编号
+  - &var_wg_level 31
+  
+  # 变量: {编号: *var_count_item, 参数: *item_tulongdao}
+  # 数有几个物品，需要给物品ID
+  - &var_count_item 32
+
+  # 变量: {编号: *var_has_wg, 参数: [*wg_yeqiuquan..]}
+  # 也可以单个
+  # 1: 拥有武功, 0: 没有
+  - &var_has_wg 33
+
+  # 武功类型
+  - &var_wg_type 34
+
+  # 变量: {编号: *var_is_person, 参数: *char_zhujue}
+  # 1: 是指定角色 0: 不是
+  - &var_is_person 35
+
+  # 变量: {编号: *var_has_status, 参数: [*status_nuqi, 100]}
+  # 指定状态是否达到指定值，达到返回1 否则0
+  - &var_has_status 36
+
+  # 武功威力
+  - &var_wg_power 37
+
+
+#####################################################################  
+  
+# 根据MOD，自行定义
+人物编号锚点:
+  # 主角
+  - &char_zhujue 0
+  - &char_zhoubotong 64 #我的测试对象
+  
+武功编号锚点:
+  - &wg_putonggongji 0
+  - &wg_luohanquan 1
+  - &wg_xiaoyaoyou 2
+  - &wg_wudushenzhang 3
+  - &wg_yingzhuagong 4
+  - &wg_hanbingmianzhang 5
+  - &wg_tianluodiwangzhang 6
+  - &wg_mianzhang 7
+  - &wg_tianshanliuyangzhang 8
+  - &wg_baituoxueshanzhang 9
+  - &wg_baihuacuoquan 10
+  - &wg_jiuyinbaiguzhua 11
+  - &wg_luoyingshenjianzhang 12
+  - &wg_tiezhang 13
+  - &wg_tianshanzhemeishou 14
+  - &wg_kongmingquan 15
+  - &wg_taijiquan 16
+  - &wg_yiyangzhi 17
+  - &wg_danzhishentong 18
+  - &wg_huanyinzhi 19
+  - &wg_longzhuashou 20
+  - &wg_xuanmingshenzhang 21
+  - &wg_dajingangzhang 22
+  - &wg_qishangquan 23
+  - &wg_xumishanshenzhang 24
+  - &wg_anranxiaohunzhang 25
+  - &wg_xianglongshibazhang 26
+  - &wg_songfengjianfa 27
+  - &wg_leizhenjianfa 28
+  - &wg_sanfenjianshu 29
+  - &wg_wanhuajianfa 30
+  - &wg_taishanshibapan 31
+  - &wg_yunwushisanshi 32
+  - &wg_wanyuezhaozong 33
+  - &wg_taiyuesanqingfeng 34
+  - &wg_xueshanjianfa 35
+  - &wg_rouyunjianshu 36
+  - &wg_liangyijianfa 37
+  - &wg_yuxiaojianfa 38
+  - &wg_qixingjianfa 39
+  - &wg_jinshejianfa 40
+  - &wg_miejianjuejian 41
+  - &wg_yunvsuxinjian 42
+  - &wg_douzhuanxingyi 43
+  - &wg_miaojiajianfa 44
+  - &wg_xuantiejianfa 45
+  - &wg_taijijianfa 46
+  - &wg_dugujiujian 47
+  - &wg_pixiejianfa 48
+  - &wg_liumaishenjian 49
+  - &wg_chaidaoshibalu 50
+  - &wg_wanjiedaofa 51
+  - &wg_guitoudaofa 52
+  - &wg_nanshandaofa 53
+  - &wg_yuanyangdaofa 54
+  - &wg_kuangfengdaofa 55
+  - &wg_qimensancaidao 56
+  - &wg_cibeidaofa 57
+  - &wg_xiuluodao 58
+  - &wg_wuhuduanmendao 59
+  - &wg_fanliangyidaofa 60
+  - &wg_jinwudaofa 61
+  - &wg_fuqidaofa 62
+  - &wg_xiedaodafa 63
+  - &wg_xuanxudaofa 64
+  - &wg_ranmudaofa 65
+  - &wg_huoyandaofa 66
+  - &wg_hujiadaofa 67
+  - &wg_yangjiaqiangfa 68
+  - &wg_dulongbianfa 69
+  - &wg_zhongpingqiangfa 70
+  - &wg_peijiangjuntie 71
+  - &wg_qipanzhaoshi 72
+  - &wg_chiyaoqin 73
+  - &wg_heshebada 74
+  - &wg_dajiandao 75
+  - &wg_haisoudiaofa 76
+  - &wg_yinyangdaoluanren 77
+  - &wg_huangshawanlibian 78
+  - &wg_yinsuojinling 79
+  - &wg_dagoubangfa 80
+  - &wg_yiyangzhishu 81
+  - &wg_jingangfumoquan 82
+  - &wg_wushangdalichu 83
+  - &wg_yitiantulonggong 84
+  - &wg_yeqiuquan 109
+  - &wg_shenshanjianfa 110
+  - &wg_xiguadaofa 111
+  - &wg_yayueliukong 112
+
+  - &wg_beiming 85
+  - &wg_xixing 88
+  - &wg_huagong 87
+  - &wg_zixia 89
+  - &wg_hunyuan 90
+  - &wg_tuna 91
+  - &wg_shihou 92
+  - &wg_shenhuo 93
+  - &wg_shenzhao 94
+  - &wg_shiba 96
+  - &wg_hama 95
+  - &wg_qiankun 97
+  - &wg_xiaowu 98
+  - &wg_chunyang 99
+  - &wg_xiantian 100
+  - &wg_bahuang 101
+  - &wg_taixuan 102
+  - &wg_longxiang 103
+  - &wg_niyun 104
+  - &wg_jiuyang 106
+  - &wg_jiuyin 107
+  - &wg_yjj 108
+
+动画位置锚点:
+  - &pos_no 0
+  - &pos_on_person 1
+  - &pos_on_top 2
+
+动画锚点:
+  - &dh_huoyan 7
+
+# 所有敌人的状态结算是在伤害之后
+# 攻击者的状态结算则是在行动之后（包括行动特效）
+# 所以在回合开始前大家有一个状态，然后在结算之前这个状态不会被更新
+# 所有特效加加减减全是临时的，此时用变量访问状态是不包含这些临时状态的
+战场状态:
+  # 0,1,2 是写死的 不能动
+  - 编号: &status_neishang 0
+    描述: 内伤
+    颜色: [255, 140, 0, 255]      # 橙色
+  - 编号: &status_zhongdu 1
+    描述: 中毒
+    颜色: [47, 79, 47, 255]       # 保护色
+  - 编号: &status_tili 2
+    描述: 体力
+    颜色: [255, 218, 185, 255]    # ??体力的颜色
+    隐藏: true                    # 暂且不显示
+  - 编号: &status_nuqi 3
+    描述: 怒气
+    满值: 100
+    颜色: [160, 32, 240, 255]     # 紫色
+  - 编号: &status_fengxue 4
+    描述: 封穴
+    满值: 100
+    颜色: [50, 153, 204, 255]     # 天蓝
+  - 编号: &status_hubo 5
+    描述: 互搏计数器
+    隐藏: true
+    满值: 1
+  - 编号: &status_waishang 6
+    描述: 外伤
+    满值: 100
+    颜色: [255, 105, 180, 255]    # 粉
+  - 编号: &status_jiali 7
+    描述: 加力
+    满值: 0
+  - 编号: &status_huti 8
+    描述: 护体
+    满值: 0
+
+#主动运功: 这个要写好多好多UI，在此之前不碰
+    
+# 每个武功可以有 主动攻击 被动攻击/防守(程序会判断是否拥有武功)
+# 武功:
+
+# 所有人都一样
+全人物:
+  攻击:
+    # 暴击
+    - 发动方式: *proc_random
+      # 发动概率 = 15% + 内力*0.5% + 资质*0.2%
+      发动参数:
+        可变参数:
+          基础: 15
+          加成:
+            # 可以有多个线性加成
+            # 200内力 = 5%几率
+            - 线性: {系数: 0.025, 变量: {编号: *var_char_mp}}
+            # 1资质 = 0.2%
+            - 线性: {系数: 0.2, 变量: {编号: *var_char_iq}}
+            # 怒气爆发 必暴击
+            - 线性: {系数: 100, 变量: {编号: *var_has_status, 参数: [*status_nuqi, 100]}}
+      特效:
+        编号: *tx_baoji
+        位置: *pos_on_top
+        显示: 暴击
+        # 25%伤害提升
+        效果参数:  25
+
+    # 连击
+    # 发动概率是 60 - 资质
+    - 发动方式: *proc_random
+      需求:
+        - 条件: 
+          - 左边:
+              状态: *status_hubo
+            对比: *op_equal
+            右边: 0
+      发动参数:
+        可变参数:
+          基础: 0
+          加成:
+            - 线性: {系数: 60, 变量: {编号: *var_char_attacktwice}}
+            - 线性: {系数: -1, 变量: {编号: *var_char_iq}}
+            # 周伯通+30%触发率，这是个人物天赋但是没办法被安排在这里
+            # 加入额外说明，
+            # 武功: 仅在武功说明时显示, 人物: 仅在人物说明时显示
+            - 线性: 
+                说明: 
+                  人物: *char_zhoubotong
+                  文字: "额外连击率"
+                系数: 30
+                变量: {编号: *var_is_person, 参数: *char_zhoubotong}
+      特效:
+        - 编号: *tx_lianji
+          显示: '连击'
+          效果参数: 1
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_hubo, 1]
+
+
+    # 拳增加封穴值，发动率为兵器值，武功威力/200 + 1~3
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_wg_type}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 0
+          加成:
+            - 线性: {系数: 1, 变量: {编号: *var_char_fist}}
+      特效:
+        - 编号: *tx_diren_status
+          显示: '拳掌封穴'
+          位置: *pos_on_top
+          效果参数:
+            - *status_fengxue
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: {系数: 0.005, 变量: {编号: *var_wg_power}}
+                  - 随机: {范围: {最小: 1, 最大: 3}}
+
+    # 剑增加集气值，发动率为兵器值，武功威力/5
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_wg_type}
+            对比: *op_equal
+            右边: 2
+      发动参数: 
+        可变参数:
+          基础: 0
+          加成:
+            - 线性: {系数: 1, 变量: {编号: *var_char_sword}}
+      特效:
+        - 编号: *tx_jiqizhi
+          显示: '御剑加速'
+          位置: *pos_on_top
+          效果参数:
+            可变参数:
+              基础: 50
+              加成:
+                - 线性: {系数: 0.2, 变量: {编号: *var_wg_power}}
+
+    # 刀增加外伤值，发动率为兵器值，武功威力/20
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_wg_type}
+            对比: *op_equal
+            右边: 3
+      发动参数: 
+        可变参数:
+          基础: 0
+          加成:
+            - 线性: {系数: 1, 变量: {编号: *var_char_blade}}
+      特效:
+        - 编号: *tx_diren_status
+          显示: '耍刀外伤'
+          位置: *pos_on_top
+          效果参数:
+            - *status_waishang
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: {系数: 0.05, 变量: {编号: *var_wg_power}}
+
+    # 特殊减少怒气，发动率为兵器值，武功威力/15
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_wg_type}
+            对比: *op_equal
+            右边: 4
+      发动参数: 
+        可变参数:
+          基础: 0
+          加成:
+            - 线性: {系数: 1, 变量: {编号: *var_char_unusual}}
+      特效:
+        - 编号: *tx_diren_status
+          显示: '特殊降怒'
+          位置: *pos_on_top
+          效果参数:
+            - *status_nuqi
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: {系数: -0.067, 变量: {编号: *var_wg_power}}
+
+    # 这里有个先后顺序，加力效果最好的放前面，发动后还有一个强行状态
+    # 这个状态在内功加力一系列判断后重置（或者proc_prioritized重写，每单项检测需求）
+    - 
+      发动方式: *proc_random
+      需求:
+        - 条件: 
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_yjj]}
+            对比: *op_equal
+            右边: 1
+          - &ng_jiali_req
+            左边:
+              状态: *status_jiali
+            对比: *op_equal
+            右边: 0
+      发动参数: &ng_jiali_prob
+        #内功加力检测
+        可变参数:
+          基础: 20
+          加成:
+            - 线性: {系数: 0.01, 变量: {编号: *var_char_mp}}
+            - 线性: {系数: -0.067, 变量: {编号: *var_char_iq}}
+            - 线性: {系数: 0.1, 变量: {编号: *var_char_attack}}
+            - 线性: 
+                说明: 
+                  武功: *wg_taixuan
+                  文字: "额外加力概率"
+                系数: 15
+                变量: {编号: *var_has_wg, 参数: *wg_taixuan}
+      特效:
+        - 编号: *tx_qigong
+          位置: *pos_on_person
+          动画: 85
+          显示: '易经神功加力'
+          效果参数: 200
+        - &ng_jiali_ok
+          编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_jiali, 1]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_longxiang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 89
+          位置: *pos_on_person
+          显示: '龙象般若功加力'
+          效果参数: 200
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_jiuyang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 89
+          位置: *pos_on_person
+          显示: '九阳神功加力'
+          效果参数: 180
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_jiuyin]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '九阴神功加力'
+          效果参数: 171
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_niyun]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '逆运神功加力'
+          效果参数: 170
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_bahuang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '八荒六合功加力'
+          效果参数: 140
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_taixuan]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '太玄神功加力'
+          效果参数: 121
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_xiantian]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 89
+          位置: *pos_on_person
+          显示: '先天功加力'
+          效果参数: 120
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_xiaowu]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '小无相功加力'
+          效果参数: 105
+        - *ng_jiali_ok 
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_chunyang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 89
+          位置: *pos_on_person
+          显示: '纯阳无极功加力'
+          效果参数: 101
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_hama]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '蛤蟆功加力'
+          效果参数: 100
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenzhao]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '神照功加力'
+          效果参数: 96
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_zixia]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '紫霞功加力'
+          效果参数: 95
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenhuo]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '圣火神功加力'
+          效果参数: 86
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shiba]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 89
+          位置: *pos_on_person
+          显示: '罗汉伏魔功加力'
+          效果参数: 85
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shihou]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '狮吼功加力'
+          效果参数: 84
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_hunyuan]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '混元功加力'
+          效果参数: 75
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_qiankun]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '乾坤大挪移加力'
+          效果参数: 70
+        - *ng_jiali_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_tuna]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 85
+          位置: *pos_on_person
+          显示: '三流心法加力'
+          效果参数: 75
+        - *ng_jiali_ok        
+
+  防守:
+    - 
+      发动方式: *proc_random
+      需求:
+        - 条件: 
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_yjj]}
+            对比: *op_equal
+            右边: 1
+          - &ng_huti_req
+            左边:
+              状态: *status_huti
+            对比: *op_equal
+            右边: 0
+      发动参数: &ng_huti_prob
+        #内功加力检测
+        可变参数:
+          基础: 20
+          加成:
+            - 线性: {系数: 0.01, 变量: {编号: *var_char_mp}}
+            - 线性: {系数: -0.067, 变量: {编号: *var_char_iq}}
+            - 线性: {系数: 0.1, 变量: {编号: *var_char_defence}}
+            - 线性: 
+                说明: 
+                  武功: *wg_taixuan
+                  文字: "额外护体概率"
+                系数: 15
+                变量: {编号: *var_has_wg, 参数: *wg_taixuan}
+      特效:
+        - 编号: *tx_qifang
+          位置: *pos_on_person
+          动画: 85
+          显示: '易经神功护体'
+          效果参数: 150
+        - &ng_huti_ok
+          编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_huti, 1]
+
+    # 
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_qiankun]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '乾坤大挪移护体'
+          效果参数: 140
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_jiuyang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 89
+          位置: *pos_on_person
+          显示: '九阳神功护体'
+          效果参数: 135
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_jiuyin]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '九阴神功护体'
+          效果参数: 115
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_bahuang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '八荒六合功护体'
+          效果参数: 110
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_xiantian]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 89
+          位置: *pos_on_person
+          显示: '先天功护体'
+          效果参数: 100
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_hama]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '蛤蟆功护体'
+          效果参数: 95
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_taixuan]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '太玄神功护体'
+          效果参数: 91
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_chunyang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 89
+          位置: *pos_on_person
+          显示: '纯阳无极功护体'
+          效果参数: 90
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_niyun]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '逆运神功护体'
+          效果参数: 89
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenzhao]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 89
+          位置: *pos_on_person
+          显示: '神照功护体'
+          效果参数: 85
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shiba]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 89
+          位置: *pos_on_person
+          显示: '罗汉伏魔功护体'
+          效果参数: 80
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenhuo]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '圣火神功护体'
+          效果参数: 75
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_xiaowu]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '小无相功护体'
+          效果参数: 70
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_zixia]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '紫霞功护体'
+          效果参数: 65
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_hunyuan]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '混元功护体'
+          效果参数: 60
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_tuna]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '三流心法护体'
+          效果参数: 60
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shihou]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 85
+          位置: *pos_on_person
+          显示: '狮吼功护体'
+          效果参数: 50
+        - *ng_huti_ok
+
+    # 攻击有概率内伤敌人
+    - 发动方式: *proc_random
+      发动参数:
+        可变参数:
+          基础: 100
+          加成:
+            # 内力差, (己方内力 - 对方) * 0.1
+            - 线性: {系数: -0.05, 变量: {编号: *var_char_mp, 对象: *target_other}}
+            - 线性: {系数: 0.05, 变量: {编号: *var_char_mp, 对象: *target_self}}
+            # 若内功护体，则概率减少
+            - 线性: {系数: -75, 变量: {编号: *var_has_status, 参数: [*status_huti, 1]}}
+      特效:
+        - 编号: *tx_ziji_status
+          显示: ''
+          效果参数:
+            - *status_neishang
+            - 可变参数:
+                基础: 5
+                最小: 0
+                最大: 30
+                加成: 
+                  # 攻击防御差 *0.3
+                  - 线性: {系数: 0.3, 变量: {编号: *var_char_attack, 对象: *target_other}}
+                  - 线性: {系数: -0.3, 变量: {编号: *var_char_defence, 对象: *target_self}}
+
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        -
+          # 根据外伤值决定受到增加的伤害
+          编号: *tx_shanghai
+          显示: '外伤伤害'
+          位置: *pos_no
+          效果参数:
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: {系数: 1, 状态: *status_waishang}
+        - 
+          # 挨打受到怒气，随机25到35点
+          编号: *tx_ziji_status
+          显示: '伤害怒气'
+          位置: *pos_no
+          效果参数:
+            - *status_nuqi
+            - 可变参数:
+                基础: 0
+                加成: 
+                  - 随机:
+                      范围: {最小: 25, 最大: 35}
+
+    # 重置护体
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        编号: *tx_ziji_qiangzhi_status
+        显示: ''
+        效果参数: [*status_huti, 0]
+          
+  集气:
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        编号: *tx_jiqisudu
+        显示: ''
+        效果参数:
+          - 可变参数:
+              最小: 1
+              基础: 10
+              加成:
+                - 线性: {系数: 0.005, 变量: {编号: *var_char_mp}}
+                - 线性: {系数: 0.03, 变量: {编号: *var_char_speed}}
+                - 线性: {系数: -0.2, 状态: *status_neishang}
+
+    # 暴怒+150%集气速度
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件: 
+          - 左边: 
+              状态: *status_nuqi
+            对比: *op_greater_equal
+            右边: 100
+      特效:
+        编号: *tx_jiqisudu_percentage
+        显示: '暴怒加速'
+        效果参数: 150
+        
+    # 封穴降低100%的速度，可以被暴怒解开，以后可以加入特效直接停止集气
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件: 
+          - 左边: 
+              状态: *status_fengxue
+            对比: *op_greater_equal
+            右边: 1
+      特效:
+        编号: *tx_jiqisudu_percentage
+        显示: '封穴减速'
+        效果参数: -100        
+
+    # 每时序解开一点封穴
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件: 
+          - 左边: 
+              状态: *status_fengxue
+            对比: *op_greater_equal
+            右边: 1
+      特效:
+        编号: *tx_ziji_status
+        显示: '时解封穴'
+        效果参数: [*status_fengxue, -1]  
+
+  回合:
+    # 行动结束怒气-100
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件: 
+          - 左边: 
+              状态: *status_nuqi
+            对比: *op_greater_equal
+            右边: 100
+      特效:
+        编号: *tx_ziji_status
+        显示: '结束去怒'
+        效果参数: [*status_nuqi, -100]
+
+    # 重置互博计数
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_hubo, 0]
+
+人物:
+  - 人物编号: *char_zhujue
+    集气:
+      - 发动方式: *proc_random
+        发动参数: 100
+        特效:
+          编号: *tx_jiqisudu
+          显示: '主角加成集气'
+          效果参数: 0
+          
+招式发动公式:
+  -
+    发动参数: &zhaoshi_fist_prob
+      可变参数:
+        基础: 0
+        加成:
+          - 线性: {系数: 0.2, 变量: {编号: *var_char_fist}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_sword}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_blade}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_unusual}}
+  -
+    发动参数: &zhaoshi_sword_prob
+      可变参数:
+        基础: 0
+        加成:
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_fist}}
+          - 线性: {系数: 0.2, 变量: {编号: *var_char_sword}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_blade}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_unusual}}
+
+  -
+    发动参数: &zhaoshi_blade_prob
+      可变参数:
+        基础: 0
+        加成:
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_fist}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_sword}}
+          - 线性: {系数: 0.2, 变量: {编号: *var_char_blade}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_unusual}}
+
+  -
+    发动参数: &zhaoshi_unusual_prob
+      可变参数:
+        基础: 0
+        加成:
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_fist}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_sword}}
+          - 线性: {系数: 0.1, 变量: {编号: *var_char_blade}}
+          - 线性: {系数: 0.2, 变量: {编号: *var_char_unusual}}
+
+武功:
+  - 武功编号: *wg_xianglongshibazhang
+    攻击:
+      - 发动方式: *proc_distributed
+        总比重:
+          可变参数:
+            基础: 120
+            加成:
+              - 线性: {系数: -0.5, 变量: {编号: *var_char_morality}}
+        特效:
+          - 编号: *tx_qigong
+            显示: '潜龙勿用'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '神龙摆尾'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '双龙出水'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '飞龙在天'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '见龙在田'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '亢龙有悔'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+
+  - 武功编号: *wg_liumaishenjian
+    攻击:
+      - 发动方式: *proc_distributed
+        总比重:
+          可变参数:
+            基础: 120
+            加成:
+              - 线性: {系数: -0.01, 变量: {编号: *var_char_mp}}
+        特效:
+          - 编号: *tx_qigong
+            显示: '少商剑'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '商阳剑'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '中冲剑'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '关冲剑'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '少冲剑'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+          - 编号: *tx_qigong
+            显示: '少泽剑'
+            位置: *pos_on_person
+            效果参数: 228
+            发动参数: 10
+
+  - 武功编号: *wg_luohanquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '黑虎偷心'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '拗步拉弓'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '单凤朝阳'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '二郎担山'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '双圈手'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_xiaoyaoyou
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '天地任逍遥'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '饭来张口'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '沿门托钵'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '见人伸手'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '四海遨游'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_wudushenzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '情是何物，直教生死相许'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '五毒摧心'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '以毒攻毒'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '饮鸩止渴'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '辣手摧花'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_yingzhuagong
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '分筋错骨'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '锁喉'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '探目'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '点穴闭气'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '沾衣号脉'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_hanbingmianzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '冰清水冷'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '寒冰封体'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '冷若冰霜'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '霜寒刺骨'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '春寒料峭'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_tianluodiwangzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '天罗地网势'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '捕雀势'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '辰为天罗'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '戌为地网'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '柔网势'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_mianzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '法尊八荒'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '三阳开泰'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '五气呈祥'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '逆流捧沙'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '金顶佛光'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_tianshanliuyangzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '白日参辰现'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '阳歌天钧'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '阳春白雪'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '阳关三叠'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '落日熔金'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_baituoxueshanzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '神驼西来'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '雪山白驼'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '神驼冲霄'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '蛇磐青竹'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '飘雪穿云'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_baihuacuoquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '漫天花语'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '桃花春雨'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '移花嫁木'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '花开遇佛'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '锦笔生花'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_jiuyinbaiguzhua
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '旋'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '钻'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '无坚不破'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '摧敌首脑'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '摧坚神抓'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_luoyingshenjianzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '落英神剑'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '珞樱缤纷'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '雨急风狂'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '江城飞花'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '散花势'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_tiezhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '铁掌歼衡山'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '折戟沉砂'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '铁砂掌'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '黑砂掌'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '飞砂转石'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_tianshanzhemeishou
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '何逊而今渐老'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '唤起玉人'
+          位置: *pos_on_person
+          效果参数: 178
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '梅边吹笛'
+          位置: *pos_on_person
+          效果参数: 164
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '踏雪寻梅'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '天山灵鹫'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_kongmingquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '妙手空空'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '空碗盛饭'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '深藏若虚'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '空屋住人'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '空朦洞松'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_taijiquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '以柔克刚'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '揽雀尾'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '白鹤晾翅'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '十字手'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '搂膝拗步'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '如封似闭'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '弯弓射虎'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '左右玉女穿梭'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '提步高探马'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '上步野马分鬃'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_yiyangzhi
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '一阳定乾坤'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '春之一阳'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '万物生发'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '生生不息'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '初生如春'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_danzhishentong
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '碧海潮生按玉箫'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '桃花影落飞神剑'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '白驹过隙'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '弹指一瞬'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '掷石点穴'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_huanyinzhi
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '风幻寒威夜扑人，晓看云脚四垂阴'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '魔幻天阴'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '寒蝉凄切'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '阴凝坚冰'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '亦真亦幻'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_longzhuashou
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '鼓瑟式'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '拿云式'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '捕风式'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '捉影式'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '抚琴式'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_xuanmingshenzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '玄冥侵体'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '冰毒缭绕'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '翻云覆雨'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '乌云蔽日'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '燮云无定'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '高峰入云'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '愁云惨淡'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '腾云驾雾'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '日薄西山'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '引天吸玉'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_dajingangzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '金刚大手印'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '双劈双撞'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '迎风打'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '金钩挂玉'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '没遮拦'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_qishangquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '七伤总诀'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '七者皆伤'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '魄飞扬'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '一练七伤'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '精失'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '意惚恍'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '裂肺'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '断肝肠'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '藏离'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '损心'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_xumishanshenzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '佛法无边'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '色空四显'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '无色无相'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '慑伏外道'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '万物皆空'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_anranxiaohunzhang
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '路上行人欲断魂'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '拖泥带水'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '倒行逆施'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '行尸走肉'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '魂不守舍'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '心惊肉跳'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '六神不安'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '若有所失'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '杞人忧天'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '无中生有'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_songfengjianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '平沙落雁式'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '鸿飞冥冥'
+          位置: *pos_on_person
+          效果参数: 57
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '如松之劲'
+          位置: *pos_on_person
+          效果参数: 57
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '碧渊腾蛟'
+          位置: *pos_on_person
+          效果参数: 57
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '如风之迅'
+          位置: *pos_on_person
+          效果参数: 57
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_leizhenjianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '电闪雷鸣'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '雷霆万钧'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '驱雷掣电'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '雷惊电绕'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_sanfenjianshu
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '穆王八骏饮瑶池'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '朔风狂啸'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '冰河倒泻'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '千里流沙'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '风卷长草'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '举火燎天'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '雪中奇莲'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '冰河开冻'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '夜半烽烟'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '海市蜃楼'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_wanhuajianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '绵里藏针诀'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '万花齐放'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '万卉争艳'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '清澈梅花'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '金针渡劫'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_taishanshibapan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '七星落长空'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '五大夫剑'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '岱宗如何'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '快活三'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '来鹤清泉'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_yunwushisanshi
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '天柱云气'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '泉鸣芙蓉'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '鹤翔紫盖'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '雁回祝融'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '石廪书声'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_wanyuezhaozong
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '千古人龙'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '天外玉龙'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '开门见山'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '玉进天池'
+          位置: *pos_on_person
+          效果参数: 150
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '叠翠浮青'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_taiyuesanqingfeng
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '金玉满堂截剑式'
+          位置: *pos_on_person
+          效果参数: 192
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '天坤倒悬'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '苍松迎客'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '金雁横空'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '清风送爽'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_xueshanjianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '暗香疏影'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '风沙莽莽'
+          位置: *pos_on_person
+          效果参数: 178
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '梅雪争春'
+          位置: *pos_on_person
+          效果参数: 164
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '老枝横斜'
+          位置: *pos_on_person
+          效果参数: 150
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '明月羌笛'
+          位置: *pos_on_person
+          效果参数: 135
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_rouyunjianshu
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '三环套月'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '白虹贯日'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '玉带围腰'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '满天花雨'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '杏花春雨'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_liangyijianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '无声无色'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '木叶萧萧'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '峭壁断云'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '雪拥蓝桥'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '玉碎昆冈'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_yuxiaojianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '棹歌中流'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '响隔楼台'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '金声玉振'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '凤曲长鸣'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '山外清音'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_qixingjianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '天玑诀'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '定阳针'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '天枢诀'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '七星聚会'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '一剑化三清'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_miejianjuejian
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '灭'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '绝'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '金顶佛光'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '顺水推舟'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '推窗望月'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_yunvsuxinjian
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '柳荫联句'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '西窗夜话'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '小园艺菊'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '清饮小酌'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '浪迹天涯'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '举案齐眉'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '皓腕玉镯'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '冷月窥人'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_douzhuanxingyi
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '以彼之道还施彼身'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '物换星移'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_miaojiajianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '提撩剑白鹤舒翅'
+          位置: *pos_on_person
+          效果参数: 250
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '上步云边摘月'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '返腕翼德闯帐'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '上步摘星式'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '迎门腿反劈华山'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '洗剑怀中抱月'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '冲天掌苏秦背剑'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '黄龙转身吐须势'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破碑脚'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '丹凤朝阳'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_xuantiejianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '重剑无锋'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '大巧不工'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '快捷飘忽'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '劲雄凝重'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '刚中有柔'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_taijijianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '云麾三舞'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '持剑归原'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '仙人指路'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '金针倒挂'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '金针指南'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '犀牛望月'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '野马跳涧'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '魁星势'
+          位置: *pos_on_person
+          效果参数: 221
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '摘星换斗'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '三环套月'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_dugujiujian
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '总决式'
+          位置: *pos_on_person
+          效果参数: 314
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破气式'
+          位置: *pos_on_person
+          效果参数: 300
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破剑式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破枪式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破刀式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破鞭式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破索式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破掌式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '破箭式'
+          位置: *pos_on_person
+          效果参数: 235
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_pixiejianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '飞燕穿柳'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '甲鱼翻身'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '扫荡群魔'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '紫气东来'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '锺馗抉目'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '花开见佛'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '直捣黄龙'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '指打奸邪'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '江上弄笛'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '流星赶月'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '流星飞堕'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_chaidaoshibalu
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '划'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '切'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '剁'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '劈'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '砍'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_wanjiedaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '浮生六劫'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '趁火打劫'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '劫数难逃'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '劫后余生'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '坐以待毙'
+          位置: *pos_on_person
+          效果参数: 100
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_guitoudaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '鬼见愁'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '神工鬼斧'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '鬼哭神嚎'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '五鬼闹判'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '连环三刀'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_nanshandaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '单刀破枪'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '长者折枝'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '铁牛耕地'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '铁锁横江'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '燕子入巢'
+          位置: *pos_on_person
+          效果参数: 114
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_yuanyangdaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '愿作鸳鸯不羡仙'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '大青'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '小青'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '抽撤连环'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '鸳鸯戏水'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_kuangfengdaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '狂风大作'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '飞沙走石'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '狂风骤雨'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '乘风破浪'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '太乙生风'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_qimensancaidao
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '天生我材必有用'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '带醉脱靴'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '奇刀单鞭式'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '下截刀'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '单刀赴会'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_cibeidaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '回头是岸'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '放下屠刀'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '立地成佛'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '苦海无边'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '万佛敬天尊'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_xiuluodao
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '阎罗炼狱劫'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '修罗初现'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '三幽转阴'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '血海阎罗'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '罗恸罗障月'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_wuhuduanmendao
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '伏象胜狮'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '白虎跳涧'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '剪扑自如'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '一啸风生'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '雄霸群山'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_fanliangyidaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '混沌一破'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '联刀攻敌'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '万夫莫当'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '重节守义'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '万劫不复'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_jinwudaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '梅雪逢夏'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '赤日炎炎'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '千钧压驼'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '大海沉沙'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '开门揖盗'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_fuqidaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '女貌郎才珠万斛'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '天教丽质为眷属'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '清风引佩下瑶台'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '明月照妆成金屋'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '刀光掩映孔雀屏'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '喜结丝萝在乔木'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '英雄无双风流婿'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '却扇洞房燃花烛'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '千金一刻庆良宵'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '占断人间天上福'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_xiedaodafa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '碧血洗春秋'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '呕心沥血'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '批纸削腐'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '流星经天'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '血电穿心'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_xuanxudaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '玄虚御风云'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '金书玉清'
+          位置: *pos_on_person
+          效果参数: 178
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '神栖事外'
+          位置: *pos_on_person
+          效果参数: 177
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '玄虚摇影'
+          位置: *pos_on_person
+          效果参数: 175
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '玄虚化杀'
+          位置: *pos_on_person
+          效果参数: 174
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_ranmudaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '钻木取火'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '无名孽火'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '九九归一'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '火上浇油'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '水火不容'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_huoyandaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '烈火燎原'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '举火烧天'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '长虹贯日'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '水深火热'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '玩火自焚'
+          位置: *pos_on_person
+          效果参数: 207
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_hujiadaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '云龙三现'
+          位置: *pos_on_person
+          效果参数: 228
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '闭门铁扇'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '穿手藏刀式'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '八方藏刀式'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '怀中抱月'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '鹞子翻身刀'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_yangjiaqiangfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '回马枪'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '春雷震怒'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '凤点头'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '丹凤穿花'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '长枪贯八荒'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_dulongbianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '毒龙出洞'
+          位置: *pos_on_person
+          效果参数: 107
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '龙跳天门'
+          位置: *pos_on_person
+          效果参数: 107
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '龙起苍天'
+          位置: *pos_on_person
+          效果参数: 107
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '盘龙朝阳'
+          位置: *pos_on_person
+          效果参数: 107
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '翔龙灵霄破'
+          位置: *pos_on_person
+          效果参数: 107
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_zhongpingqiangfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '银枪幻影疾'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '中正锁喉'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '枪平九洲'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '弓步推枪'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '四夷宾服'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_peijiangjuntie
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '大君制六合'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '猛将清九垓'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '战马若龙虎'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '腾陵何壮哉'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '将军临北荒'
+          位置: *pos_on_person
+          效果参数: 128
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_chiyaoqin
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '沧海一声笑'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '清心普普咒'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '碧海潮生曲'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '笑傲江湖曲'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '一梦红颜曲'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '缓气劫'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '连环劫'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '天下劫'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '万年劫'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '无忧劫'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_heshebada
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '灵蛇出洞'
+          位置: *pos_on_person
+          效果参数: 200
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '灵蛇吐信'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '冲天一鹤'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '拨草寻蛇'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '鹤唳风声'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_dajiandao
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '剪石断金'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '剪发杜门'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '剪草除根'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '金蛟剪月'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '鳄嘴剪'
+          位置: *pos_on_person
+          效果参数: 185
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_haisoudiaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '闲来垂钓碧溪上'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '寒江独钓'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '愿者上钩'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '大海捞针'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '缘木求鱼'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_yinyangdaoluanren
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '乱环诀'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '阴阳诀'
+          位置: *pos_on_person
+          效果参数: 171
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '假刀非刀'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '假剑非剑'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '金刀黑剑'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_huangshawanlibian
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '旋风卷黄沙'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '血染黄沙'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '飞沙万里'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '披沙拣金'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '大漠飞沙'
+          位置: *pos_on_person
+          效果参数: 142
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_yinsuojinling
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '醉倚芳姿睡'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '银索缠身'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '锁穴金铃'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '玉树琼葩'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '蛾眉淡扫'
+          位置: *pos_on_person
+          效果参数: 157
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_dagoubangfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '棒打狗头'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '反截狗臀'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '拨狗朝天'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '棒打双犬'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '压肩狗背'
+          位置: *pos_on_person
+          效果参数: 257
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_yiyangzhishu
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '书化丹心'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '尔乃蛮夷'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '房玄龄碑'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '自言帖'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '斜阳一抹'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_jingangfumoquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '祗园精舍'
+          位置: *pos_on_person
+          效果参数: 285
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '诸行无常'
+          位置: *pos_on_person
+          效果参数: 285
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '娑罗双树'
+          位置: *pos_on_person
+          效果参数: 285
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '幻梦一场'
+          位置: *pos_on_person
+          效果参数: 285
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '无众生相'
+          位置: *pos_on_person
+          效果参数: 285
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_wushangdalichu
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '力战千钧'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '拔山填海'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '横扫千军'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '拔山填海'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '金玉瓦砾'
+          位置: *pos_on_person
+          效果参数: 271
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_yitiantulonggong
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '武林至尊'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '宝刀屠龙'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '号令天下'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '莫敢不从'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '倚天不出'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '谁与争锋'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+  - 武功编号: *wg_yeqiuquan
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '石头'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '剪子'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+        - 编号: *tx_qigong
+          显示: '布'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_fist_prob
+
+  - 武功编号: *wg_shenshanjianfa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '神洲移山剑'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '神洲镇山剑'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+        - 编号: *tx_qigong
+          显示: '神洲擎山剑'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_sword_prob
+
+  - 武功编号: *wg_xiguadaofa
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '切瓜'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '剁瓜'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+        - 编号: *tx_qigong
+          显示: '砍瓜'
+          位置: *pos_on_person
+          效果参数: 214
+          发动参数: *zhaoshi_blade_prob
+
+  - 武功编号: *wg_yayueliukong
+    攻击:
+      - 发动方式: *proc_prioritized
+        特效:
+        - 编号: *tx_qigong
+          显示: '月犽流'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
+
+        - 编号: *tx_qigong
+          显示: '月骁流'
+          位置: *pos_on_person
+          效果参数: 242
+          发动参数: *zhaoshi_unusual_prob
