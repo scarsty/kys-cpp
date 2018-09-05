@@ -26,6 +26,32 @@ const std::string& GameUtil::VERSION()
     return v;
 }
 
+bool GameUtil::mpTypeTest(int myType, int required)
+{
+	if ((myType == 0 || myType == 1) && (required == 0 || required == 1))
+	{
+		if (myType != required)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+//判断某个属性是否适合
+bool GameUtil::attributeTest(int v, int v_need)
+{
+	if (v_need > 0 && v < v_need)
+	{
+		return false;
+	}
+	if (v_need < 0 && v > -v_need)
+	{
+		return false;
+	}
+	return true;
+}
+
 //某人是否可以使用某物品
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
 bool GameUtil::canUseItem(Role* r, Item* i)
@@ -47,14 +73,9 @@ bool GameUtil::canUseItem(Role* r, Item* i)
     {
         if (i->ItemType == 2)
         {
-            //内力属性判断
-            if ((r->MPType == 0 || r->MPType == 1) && (i->NeedMPType == 0 || i->NeedMPType == 1))
-            {
-                if (r->MPType != i->NeedMPType)
-                {
-                    return false;
-                }
-            }
+			if (!mpTypeTest(r->MPType, i->NeedMPType)) {
+				return false;
+			}
             //有仅适合人物，直接判断
             if (i->OnlySuitableRole >= 0)
             {
@@ -82,33 +103,19 @@ bool GameUtil::canUseItem(Role* r, Item* i)
             }
         }
 
-        //判断某个属性是否适合
-        auto test = [](int v, int v_need) -> bool
-        {
-            if (v_need > 0 && v < v_need)
-            {
-                return false;
-            }
-            if (v_need < 0 && v > -v_need)
-            {
-                return false;
-            }
-            return true;
-        };
-
         //上面的判断未确定则进入下面的判断链
-        return test(r->Attack, i->NeedAttack)
-            && test(r->Speed, i->NeedSpeed)
-            && test(r->Medicine, i->NeedMedicine)
-            && test(r->UsePoison, i->NeedUsePoison)
-            && test(r->Detoxification, i->NeedDetoxification)
-            && test(r->Fist, i->NeedFist)
-            && test(r->Sword, i->NeedSword)
-            && test(r->Knife, i->NeedKnife)
-            && test(r->Unusual, i->NeedUnusual)
-            && test(r->HiddenWeapon, i->NeedHiddenWeapon)
-            && test(r->MP, i->NeedMP)
-            && test(r->IQ, i->NeedIQ);
+        return attributeTest(r->Attack, i->NeedAttack)
+            && attributeTest(r->Speed, i->NeedSpeed)
+            && attributeTest(r->Medicine, i->NeedMedicine)
+            && attributeTest(r->UsePoison, i->NeedUsePoison)
+            && attributeTest(r->Detoxification, i->NeedDetoxification)
+            && attributeTest(r->Fist, i->NeedFist)
+            && attributeTest(r->Sword, i->NeedSword)
+            && attributeTest(r->Knife, i->NeedKnife)
+            && attributeTest(r->Unusual, i->NeedUnusual)
+            && attributeTest(r->HiddenWeapon, i->NeedHiddenWeapon)
+            && attributeTest(r->MP, i->NeedMP)
+            && attributeTest(r->IQ, i->NeedIQ);
     }
     else if (i->ItemType == 3)
     {
@@ -170,12 +177,15 @@ void GameUtil::useItem(Role* r, Item* i)
         r->AttackTwice = 1;
     }
 
+    // r->learnMagic(i->MagicID);
+    /*
     int need_item_exp = getFinishedExpForItem(r, i);
     if (r->ExpForItem >= need_item_exp)
     {
         r->learnMagic(i->MagicID);
         r->ExpForItem -= need_item_exp;
     }
+    */
 
     r->limit();
 }
@@ -288,6 +298,16 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
         }
     }
     return i->NeedExp * multiple;
+}
+
+int GameUtil::getMagicNeededExp(int itemExp, int magicLevel)
+{
+    return ceil((itemExp / 100.0) * magicLevel);
+}
+
+int GameUtil::getMagicLevelFromExp(int itemExp, int spendExp)
+{
+    return (spendExp / (double)itemExp) * 100;
 }
 
 void GameUtil::equip(Role* r, Item* i)

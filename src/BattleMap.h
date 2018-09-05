@@ -2,15 +2,6 @@
 #include <vector>
 #include "Types.h"
 
-enum
-{
-    BATTLE_ROLE_COUNT = 4096,                       //战场最大人数
-    BATTLEMAP_SAVE_LAYER_COUNT = 2,                 //数据文件存储地图数据层数
-    BATTLEMAP_LAYER_COUNT = 8,                      //战场需要地图层数
-    BATTLEMAP_COORD_COUNT = 64,                     //战场最大坐标
-    BATTLE_ENEMY_COUNT = 20,
-};
-
 //这个仅保存战场前两层
 struct BattleFieldData2
 {

@@ -51,13 +51,13 @@ Console::Console()
         int id = smt.getResult();
         printf("result %d\n", id);
     }
-    else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache") 
+    else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache")
     {
         std::vector<std::pair<int, std::string>> locs;
-        for (const auto& info : Save::getInstance()->getSubMapInfos()) 
+        for (const auto& info : Save::getInstance()->getSubMapInfos())
         {
             // 还有其他要求 这里作为一个demo就意思意思
-            if (info->MainEntranceX1 != 0 && info->MainEntranceY1 != 0)
+            if (info->MainEntranceX1 != 0 && info->MainEntranceY1 != 0 && info->EntranceCondition == 0)
             {
                 std::string name(info->Name);
                 // 有空格方便完成双击确认
@@ -76,8 +76,8 @@ Console::Console()
             int fontSize = 28;
             Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, nx, ny, 400, 400);
             Font::getInstance()->draw(convert::formatString("%s，%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
-            Font::getInstance()->draw(convert::formatString("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1), 
-                                      fontSize, nx + 20, ny + 20 + fontSize*1.5);
+            Font::getInstance()->draw(convert::formatString("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1),
+                fontSize, nx + 20, ny + 20 + fontSize * 1.5);
 
             int man_x_ = scene->MainEntranceX1;
             int man_y_ = scene->MainEntranceY1;
@@ -92,7 +92,7 @@ Console::Console()
                 int i;
                 Point p;
             };
-            
+
             std::vector<DrawInfo> building_vec(1000);
             int building_count = 0;
 
@@ -149,14 +149,14 @@ Console::Console()
             printf("傳送到%d\n", id);
         }
     }
-    else if (splits[0] == u8"newsave" && splits.size() >= 2) 
+    else if (splits[0] == u8"newsave" && splits.size() >= 2)
     {
         int rec;
-        try 
+        try
         {
             rec = std::stoi(splits[1]);
         }
-        catch (...) 
+        catch (...)
         {
             return;
         }
@@ -167,14 +167,14 @@ Console::Console()
         Save::getInstance()->saveRToCSV(rec);
         Save::getInstance()->saveSD(rec);
     }
-    else if (splits[0] == u8"newload" && splits.size() >= 2) 
+    else if (splits[0] == u8"newload" && splits.size() >= 2)
     {
         int rec;
-        try 
+        try
         {
             rec = std::stoi(splits[1]);
         }
-        catch (...) 
+        catch (...)
         {
             return;
         }
@@ -188,20 +188,20 @@ Console::Console()
             main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
         }
     }
-    else if (splits[0] == u8"rinsert" && splits.size() >= 3) 
+    else if (splits[0] == u8"rinsert" && splits.size() >= 3)
     {
         int idx;
-        try 
+        try
         {
             idx = std::stoi(splits[2]);
         }
-        catch (...) 
+        catch (...)
         {
             return;
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
-    else if (splits[0] == u8"host" && splits.size() >= 1) 
+    else if (splits[0] == u8"host" && splits.size() >= 1)
     {
         Save::getInstance()->save(11);
 
@@ -214,7 +214,7 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == u8"client" && splits.size() >= 1) 
+    else if (splits[0] == u8"client" && splits.size() >= 1)
     {
         Save::getInstance()->save(11);
 
@@ -244,7 +244,7 @@ Console::Console()
         if (id != -1)
         {
             // 这会mutate mang但是不重要
-            for (auto& adder : mang.roleAdder[id]) 
+            for (auto& adder : mang.roleAdder[id])
             {
                 std::cout << *(adder) << "\n";
             }
@@ -266,23 +266,23 @@ Console::Console()
             }
         }
     }
-	else if (splits[0] == "dumpmagic")
-	{
-		for (auto p : Save::getInstance()->getMagics())
-		{
-			auto u8Name = PotConv::cp936toutf8(p->Name);
-			std::string pinyin;
-			pinyin.resize(1024);
-			int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
-			pinyin.resize(size);
-			auto pys = convert::splitString(pinyin, " ");
-			std::cout << "zzz[" << p->ID << "] = (\"wg_";
-			for (auto& py : pys) {
-				std::cout << py;
-			}
-			std::cout << "\", " << p->MagicType << ")";
-			std::cout << std::endl;
-		}
-	}
-    
+    else if (splits[0] == "dumpmagic")
+    {
+        for (auto p : Save::getInstance()->getMagics())
+        {
+            auto u8Name = PotConv::cp936toutf8(p->Name);
+            std::string pinyin;
+            pinyin.resize(1024);
+            int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
+            pinyin.resize(size);
+            auto pys = convert::splitString(pinyin, " ");
+            std::cout << "zzz[" << p->ID << "] = (\"wg_";
+            for (auto& py : pys) {
+                std::cout << py;
+            }
+            std::cout << "\", " << p->MagicType << ")";
+            std::cout << std::endl;
+        }
+    }
+
 }

@@ -75,6 +75,15 @@ class Save;
 
 enum
 {
+    BATTLE_ROLE_COUNT = 4096,                       //战场最大人数
+    BATTLEMAP_SAVE_LAYER_COUNT = 2,                 //数据文件存储地图数据层数
+    BATTLEMAP_LAYER_COUNT = 8,                      //战场需要地图层数
+    BATTLEMAP_COORD_COUNT = 64,                     //战场最大坐标
+    BATTLE_ENEMY_COUNT = 20,
+};
+
+enum
+{
     SUBMAP_COORD_COUNT = 64,
     SUBMAP_LAYER_COUNT = 6,
     MAINMAP_COORD_COUNT = 480,
@@ -204,8 +213,8 @@ public:
 
     void limit();
 
-    int learnMagic(Magic* magic);
-    int learnMagic(int magic_id);
+    int learnMagic(Magic* magic, int rate);
+    int learnMagic(int magic_id, int rate);
 
     bool isAuto() { return Auto != 0 || Team != 0; }
 

@@ -7,6 +7,8 @@
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
 #include "libconvert.h"
+#include "SuperMenuText.h"
+#include "TextBoxRoll.h"
 
 UIItem::UIItem()
 {
@@ -468,7 +470,7 @@ void UIItem::onPressedOK()
                 Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
             }
         }
-        else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
+        else if (current_item_->ItemType == 1)
         {
             auto team_menu = new TeamMenu();
             team_menu->setItem(current_item_);
@@ -484,6 +486,168 @@ void UIItem::onPressedOK()
             if (role)
             {
                 GameUtil::equip(role, current_item_);
+            }
+        }
+        else if (current_item_->ItemType == 2)
+        {
+            // 修煉秘籍
+            // 非常之複雜
+            // 第一次修煉，修煉成功直接升到 (100 + 資質*3)的等級
+            TeamMenu team;
+            team.setItem(current_item_);
+            auto format_str = "誰要修煉%s";
+            team.setText(convert::formatString(format_str, current_item_->Name));
+            team.run();
+            auto role = team.getRole();
+            if (!role) return;
+            if (!GameUtil::canUseItem(role, current_item_)) return;
+
+            if (current_item_->MagicID == -1)
+            {
+                GameUtil::useItem(role, current_item_);
+                // 直接修煉成功吧
+                return;
+            }
+
+            // 檢測是否屬於直接拉滿
+            Magic * magic = Save::getInstance()->getMagic(current_item_->MagicID);
+            int idx = role->getMagicOfRoleIndex(magic);
+            
+            // 人物自帶此武功
+            if (idx != -1 && idx < role->UnUse)
+            {
+                ShowRoleDifference diff;
+                // 直接升到滿級，0經驗
+                bool uped = false;
+                auto r0 = *role;
+                while (role->getMagicLevelIndex(magic->ID) != MAX_MAGIC_LEVEL_INDEX)
+                {
+                    // useItem不吃經驗
+                    GameUtil::useItem(role, current_item_);
+                    // 100是1級，每級提升一次屬性
+                    role->learnMagic(magic, 100);
+                    uped = true;
+                }
+                if (uped) {
+                    diff.setTwinRole(&r0, role);
+                    diff.setText(convert::formatString("修煉%s成功", current_item_->Name));
+                    diff.run(); 
+                }
+                return;
+            }
+            
+            std::vector<std::pair<int, std::string>> levelList;
+            // 詢問要消耗多少經驗
+            if (idx == -1) 
+            {
+                // 第一次修煉武功
+                if (current_item_->NeedExp == 0)
+                {
+                    levelList.emplace_back(0, "修煉至滿級");
+                }
+                else {
+                    levelList.emplace_back(current_item_->NeedExp, std::to_string(current_item_->NeedExp));
+                }
+            }
+            else 
+            {
+                // 計算最多需要多少經驗值
+                int maxLevel = 900 - role->MagicLevel[idx];
+                if (maxLevel <= 0) return;
+                int expNeeded = GameUtil::getMagicNeededExp(current_item_->NeedExp, maxLevel);
+                int needed = std::min(expNeeded, role->Exp);
+                for (int i = needed; i >= 0; i--)
+                {
+                    levelList.emplace_back(i, std::to_string(i));
+                }
+            }
+
+            int initX = 250;
+            int initY = 190;
+            auto levelStatus = [idx, initX, initY, role, magic, this](DrawableOnCall * d) {
+                int exp = d->getID();
+                if (exp == -1) return;
+                int x = initX + 270;
+                int y = initY + 20;
+                BP_Rect rect{ x - 25, y - 25, 500, 200 };
+                TextureManager::getInstance()->renderTexture("title", 17, rect, { 255, 255, 255, 255 }, 255);
+                // 説明
+                // 第一次修煉
+                // 消耗經驗值
+                // 計算修煉等級
+                // 每提升100點等級需要經驗xx
+                // 然後搞一波武功效果 <- 再説
+                std::vector<std::vector<std::pair<BP_Color, std::string>>> texts;
+                BP_Color c1{ 0, 0, 0, 255 };
+                BP_Color c2{ 220, 20, 60, 255 };
+                texts.push_back({ { c1, magic->Name} });
+                if (idx == -1)
+                {
+                    int levels = 100 + 3 * role->IQ;
+                    if (current_item_->NeedExp == 0)
+                    {
+                        levels = 900;
+                    }
+                    texts.push_back({ { c1, "第一次修煉，提升至 "}, { c2, std::to_string(levels) } });
+                    int disLevel = levels / 100 + 1;
+                    texts.push_back({ { c1, "等級"}, { c2, std::to_string(disLevel) } });
+                }
+                else {
+                    int levels = GameUtil::getMagicLevelFromExp(current_item_->NeedExp, exp);
+                    int cur = role->MagicLevel[idx];
+                    texts.push_back({ { c1, "消耗經驗 "} ,  {c2, std::to_string(exp)} });
+                    texts.push_back({ { c1, "修煉 " + std::to_string(cur)}, { c2, { "+" + std::to_string(levels) } } });
+                }
+                TextBoxRoll tbr;
+                tbr.setTexts(texts);
+                tbr.setPosition(x, y);
+                tbr.draw();
+            };
+
+            SuperMenuText smt("選擇使用經驗值", 28, levelList, 10);
+            auto draw = new DrawableOnCall(levelStatus);
+            smt.setInputPosition(initX, initY);
+            smt.addDrawableOnCall(draw);
+            smt.run();
+            int result = smt.getResult();
+            if (result != -1)
+            {
+                if (role->Exp < result)
+                {
+                    TextBox tb;
+                    tb.setText("經驗不足!");
+                    tb.setPosition(400, 200);
+                    tb.run();
+                    return;
+                }
+                role->Exp -= result;
+                int levels = 0;
+                int times = 0;
+                if (idx == -1) {
+                    levels = (100 + 3 * role->IQ);
+                    if (current_item_->NeedExp == 0)
+                    {
+                        levels = 900;
+                    }
+                    times = (levels / 100) + 1;
+                }
+                else {
+                    levels = GameUtil::getMagicLevelFromExp(current_item_->NeedExp, result);
+                    int cur = role->MagicLevel[idx];
+                    times = (levels + cur) / 100 - (cur) / 100;
+                }
+                ShowRoleDifference diff;
+                // 直接升到滿級，0經驗
+                auto r0 = *role;
+                role->learnMagic(magic, levels);
+                for (int i = 0; i < times; i++)
+                {
+                    // useItem不吃經驗
+                    GameUtil::useItem(role, current_item_);
+                }
+                diff.setTwinRole(&r0, role);
+                diff.setText(convert::formatString("修煉%s成功", current_item_->Name));
+                diff.run();
             }
         }
         else if (current_item_->ItemType == 4)

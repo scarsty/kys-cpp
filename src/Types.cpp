@@ -142,16 +142,16 @@ void Role::limit()
     }
 }
 
-int Role::learnMagic(Magic* magic)
+int Role::learnMagic(Magic* magic, int rate)
 {
     if (magic == nullptr || magic->ID <= 0)
     {
         return -1;
     }    //武学id错误
-    return learnMagic(magic->ID);
+    return learnMagic(magic->ID, rate);
 }
 
-int Role::learnMagic(int magic_id)
+int Role::learnMagic(int magic_id, int rate)
 {
     if (magic_id <= 0)
     {
@@ -165,7 +165,11 @@ int Role::learnMagic(int magic_id)
         {
             if (MagicLevel[i] / 100 < MAX_MAGIC_LEVEL_INDEX)
             {
-                MagicLevel[i] += 100;
+                MagicLevel[i] += rate;
+                if (MagicLevel[i] > 900)
+                {
+                    MagicLevel[i] = 900;
+                }
                 return 0;
             }
             else
@@ -188,7 +192,7 @@ int Role::learnMagic(int magic_id)
     {
         //增加武学
         MagicID[index] = magic_id;
-        MagicLevel[index] = 0;
+        MagicLevel[index] = rate;
         return 0;
     }
 }

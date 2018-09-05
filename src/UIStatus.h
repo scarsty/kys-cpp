@@ -11,8 +11,8 @@ public:
     ~UIStatus();
 
 protected:
-    Button* button_medicine_;
-    Button* button_detoxification_;
+    // Button* button_medicine_;
+    // Button* button_detoxification_;
     Button* button_leave_;
 
     Menu* menu_ = nullptr;

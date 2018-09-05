@@ -142,6 +142,8 @@ public:
     void clearTalkBox();
     void blank() {}
 
+    bool checkD(int scene_id, int event_index);
+
 private:
     int x50[0x10000];
 

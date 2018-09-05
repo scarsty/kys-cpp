@@ -12,6 +12,7 @@ public:
     virtual ~DrawableOnCall() = default;
     virtual void onEntrance() { if (entrance_) entrance_(); }
     void setEntrance(std::function<void()> en) { entrance_ = en; }
+	void setPostUpdate(std::function<void(DrawableOnCall * d)> update) { update_ = update; }
     void updateScreenWithID(int id);
     int getID();
     virtual void draw();
@@ -19,4 +20,5 @@ private:
     int id_;
     std::function<void(DrawableOnCall*)> draw_;
     std::function<void()> entrance_;
+	std::function<void(DrawableOnCall * d)> update_;
 };

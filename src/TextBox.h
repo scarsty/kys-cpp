@@ -44,6 +44,7 @@ public:
     void setTextColor(BP_Color c1) { color_normal_ = c1; }
 
     virtual void draw() override;
+    virtual void dealEvent(BP_Event& e) override;
     void setHaveBox(bool h) { have_box_ = h; }
 
     virtual void onPressedOK() override { exitWithResult(0); }

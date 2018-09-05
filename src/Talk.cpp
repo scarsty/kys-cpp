@@ -30,6 +30,20 @@ void Talk::draw()
     }
 }
 
+void Talk::dealEvent(BP_Event & e)
+{
+    switch (e.type)
+    {
+    case BP_KEYDOWN:
+    {
+        // ·ÇokæI£¬LÖ®
+        if (e.key.keysym.sym != BPK_RETURN && e.key.keysym.sym != BPK_SPACE) {
+            onPressedOK();
+        }
+    }
+    }
+}
+
 void Talk::onPressedOK()
 {
     if (current_line_ + height_ >= content_lines_.size())

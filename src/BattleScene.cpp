@@ -1727,11 +1727,13 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                         auto& show_string = r->Show.ShowStrings[i_show];
                         int x = p.x - show_string.Size * show_string.Text.size() / 4;
                         int y = p.y + init_pos + offset;
+                        Uint8 alpha = 0;
                         if (floating)
                         {
                             y = y + floating_adjustment - i_frame;
+                            alpha = 255 / total_frames * i_frame;
                         }
-                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - 255 / total_frames * i_frame);
+                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, show_string.Color, 255 - alpha);
                         offset += show_string.Size + 2;
                     }
                 }

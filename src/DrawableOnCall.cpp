@@ -7,6 +7,10 @@ DrawableOnCall::DrawableOnCall(std::function<void(DrawableOnCall*)> draw) : draw
 void DrawableOnCall::updateScreenWithID(int id)
 {
     id_ = id;
+	if (update_)
+	{
+		update_(this);
+	}
 }
 
 int DrawableOnCall::getID()

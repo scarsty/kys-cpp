@@ -9,10 +9,10 @@ public:
     RandomRole();
     virtual ~RandomRole();
 
-    virtual void onPressedOK() override;
+    virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }
     virtual void draw() override;
 
-    Button* button_ok_;
+    // Button* button_ok_;
     Head* head_;
 };

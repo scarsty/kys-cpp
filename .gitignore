@@ -3,6 +3,9 @@
 Debug/*
 Release/*
 work/*
+!work/game/script
+!work/config/battle.yaml
+!work/game/save/csv/0_*
 *.tlog
 *.idb
 *.iobj

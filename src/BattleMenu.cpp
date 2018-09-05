@@ -310,6 +310,11 @@ int BattleActionMenu::autoSelect(Role* role)
                         }
                     }
                     aa.point = max_hurt;
+                    // 優先考慮首個武功, Unknown[0] 代表是否内功
+                    if (i == 0 || magic->Unknown[0] == 0)
+                    {
+                        aa.point *= 1.5;
+                    }
                     //if (role->AttackTwice) { aa.point *= 2; }
                     ai_action.push_back(aa);
                 }

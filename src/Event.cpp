@@ -340,7 +340,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(convert::formatString("获得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setText(convert::formatString("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
     text_box_->setTexture("item", -1);
@@ -666,6 +666,15 @@ void Event::addItemWithoutHint(int item_id, int count)
     if (item_id < 0 || count == 0) { return; }
     int pos = -1;
     auto save = Save::getInstance();
+    
+    if (count > 0 && (item_id >= 144 && item_id <= 157))
+    {
+        for (auto r : save->getRoles()) 
+        {
+            r->Exp += (1000 - r->IQ * 5);
+        }
+    }
+
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
     {
         if (save->Items[i].item_id == item_id)
@@ -705,7 +714,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto m = Save::getInstance()->getMagic(magic_id);
-    r->learnMagic(m);
+    r->learnMagic(m, 1);
     if (no_display) { return; }
     text_box_->setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
     text_box_->run();
@@ -1120,6 +1129,11 @@ void Event::clearTalkBox()
 {
     talk_box_up_->setContent("");
     talk_box_down_->setContent("");
+}
+
+bool Event::checkD(int scene_id, int event_index)
+{
+    return Save::getInstance()->getSubMapInfo(scene_id)->Event(event_index)->Event1 > 0;
 }
 
 //50扩展指令

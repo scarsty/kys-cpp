@@ -11,7 +11,7 @@ public:
     virtual ~Talk() {}
 
     virtual void draw() override;
-    //virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(BP_Event& e) override;
     virtual void onPressedOK() override;
 private:
     std::string content_;

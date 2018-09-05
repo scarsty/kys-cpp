@@ -79,6 +79,8 @@ public:
         }
     }
 
+	static bool mpTypeTest(int myType, int required);
+	static bool attributeTest(int v, int v_need);
     static bool canUseItem(Role* r, Item* i);
     static void useItem(Role* r, Item* i);
     static void levelUp(Role* r);
@@ -86,6 +88,9 @@ public:
     static int getLevelUpExp(int level);
     static bool canFinishedItem(Role* r);
     static int getFinishedExpForItem(Role* r, Item* i);
+
+    static int getMagicNeededExp(int itemExp, int magicLevel);
+    static int getMagicLevelFromExp(int itemExp, int spendExp);
 
     static void equip(Role* r, Item* i);
 

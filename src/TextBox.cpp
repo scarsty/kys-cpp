@@ -6,7 +6,7 @@ TextBox::TextBox()
 {
     // 避免调颜色疯狂编译
     color_normal_ = { 240, 255, 255, 255 };
-    color_pass_ = { 255, 160, 122, 255 };
+    color_pass_ = { 255, 215, 0, 255 };
     color_press_ = color_pass_;
 }
 
@@ -60,6 +60,20 @@ void TextBox::setTextColor(BP_Color c1, BP_Color c2, BP_Color c3)
     color_normal_ = c1;
     color_pass_ = c2;
     color_press_ = c3;
+}
+
+void TextBox::dealEvent(BP_Event & e)
+{
+    switch (e.type)
+    {
+    case BP_KEYDOWN:
+    {
+        // 非ok鍵，滾之
+        if (e.key.keysym.sym != BPK_RETURN && e.key.keysym.sym != BPK_SPACE) {
+            onPressedOK();
+        }
+    }
+    }
 }
 
 void TextBox::draw()

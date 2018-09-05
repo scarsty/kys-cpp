@@ -9,7 +9,9 @@
 
 UIStatus::UIStatus()
 {
+	
     menu_ = new Menu();
+	/*
     button_medicine_ = new Button();
     button_medicine_->setText("醫療");
     menu_->addChild(button_medicine_, 350, 55);
@@ -17,7 +19,7 @@ UIStatus::UIStatus()
     button_detoxification_ = new Button();
     button_detoxification_->setText("解毒");
     menu_->addChild(button_detoxification_, 400, 55);
-
+	*/
     button_leave_ = new Button();
     button_leave_->setText("離隊");
     menu_->addChild(button_leave_, 450, 55);
@@ -33,8 +35,8 @@ void UIStatus::draw()
 {
     if (role_ == nullptr || !show_button_)
     {
-        button_medicine_->setVisible(false);
-        button_detoxification_->setVisible(false);
+        // button_medicine_->setVisible(false);
+        // button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
     }
 
@@ -42,8 +44,8 @@ void UIStatus::draw()
     {
         if (show_button_)
         {
-            button_medicine_->setVisible(role_->Medicine > 0);
-            button_detoxification_->setVisible(role_->Detoxification > 0);
+            // button_medicine_->setVisible(role_->Medicine > 0);
+            // button_detoxification_->setVisible(role_->Detoxification > 0);
             button_leave_->setVisible(role_->ID != 0);
         }
     }
@@ -106,13 +108,16 @@ void UIStatus::draw()
     x = x_ + 200;
     y = y_ + 50;
     font->draw(convert::formatString("%s", role_->Name), 30, x - 10, y, color_name);
-    font->draw("等級", font_size, x, y + 50, color_ability1);
-    font->draw(convert::formatString("%5d", role_->Level), font_size, x + 66, y + 50, color_white);
+    // font->draw("等級", font_size, x, y + 50, color_ability1);
+    // font->draw(convert::formatString("%5d", role_->Level), font_size, x + 66, y + 50, color_white);
+    font->draw("道德", font_size, x, y + 50, color_ability1);
+    font->draw(convert::formatString("%5d", role_->Morality), font_size, x + 66, y + 50, color_white);
     font->draw("經驗", font_size, x, y + 75, color_ability1);
     font->draw(convert::formatString("%5d", role_->Exp), font_size, x + 66, y + 75, color_white);
 
     std::string str = "";
-    font->draw("升級", font_size, x, y + 100, color_ability1);
+    /*
+	font->draw("升級", font_size, x, y + 100, color_ability1);
 
     int exp_up = GameUtil::getLevelUpExp(role_->Level);
     if (exp_up != INT_MAX)
@@ -123,6 +128,7 @@ void UIStatus::draw()
     {
         str = "------";
     }
+	*/
     font->draw(str, font_size, x + 55, y + 100, color_white);
     font->draw("生命", font_size, x + 175, y + 50, color_ability1);
     font->draw(convert::formatString("%5d/", role_->HP), font_size, x + 219, y + 50, color_white);

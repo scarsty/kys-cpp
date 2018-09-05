@@ -27,7 +27,11 @@ int Script::runScript(std::string filename)
     printf("%s\n", PotConv::to_read(content).c_str());
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
-    return lua_pcall(lua_state_, 0, 0, 0);
+    int result =  lua_pcall(lua_state_, 0, 0, 0);
+    if (result) {
+        printf("%s\n", lua_tostring(lua_state_, -1));
+    }
+    return result;
 }
 
 int Script::registerEventFunctions()
@@ -149,6 +153,7 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(shop, VOID_0);
     REGISTER_INSTRUCT(playMusic, VOID_1);
     REGISTER_INSTRUCT(playWave, VOID_1);
+    REGISTER_INSTRUCT(checkD, BOOL_2);
 
     REGISTER_INSTRUCT(instruct_0, VOID_0);
     REGISTER_INSTRUCT(instruct_1, VOID_3);
