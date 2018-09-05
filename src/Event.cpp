@@ -339,7 +339,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(convert::formatString("»ñµÃ%s%d", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setText(convert::formatString("«@µÃ%s%d", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
     text_box_->setTexture("item", -1);

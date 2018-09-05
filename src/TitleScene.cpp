@@ -117,7 +117,7 @@ void TitleScene::onEntrance()
     TextBoxRoll::TextColorLines texts;
     for (int i = 0; i <= 10; i++)
     {
-        texts.push_back({ { { 0, 0, 0, 255 },"sb" + std::to_string(250 + i) } });
+        texts.push_back({ { { 0, 0, 0, 255 }, "sb" + std::to_string(250 + i) } });
     }
     tbr->setTexts(texts);
     tbr->setRollLine(5);

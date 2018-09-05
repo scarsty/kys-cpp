@@ -56,17 +56,17 @@ int UISystem::askExit(int mode)
     if (!asking)
     {
         asking = true;
-        auto menu = new MenuText();
-        menu->setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
-        menu->setFontSize(24);
-        menu->arrange(0, 0, 0, 40);
+        MenuText menu;
+        menu.setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
+        menu.setFontSize(24);
+        menu.arrange(0, 0, 0, 40);
         int x = 760, y = 100;
         if (mode == 1)
         {
             x = Engine::getInstance()->getWindowWidth() - 150;
             y = 20;
         }
-        int r = menu->runAtPosition(x, y);
+        int r = menu.runAtPosition(x, y);
         if (r == 0)
         {
             exitAll();
