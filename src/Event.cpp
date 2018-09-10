@@ -895,8 +895,8 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
-    text_box_->run();
+    // text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
+    // text_box_->run();
 }
 
 void Event::addMaxMP(int role_id, int value)
@@ -904,8 +904,8 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
-    text_box_->run();
+    // text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
+    // text_box_->run();
 }
 
 void Event::addAttack(int role_id, int value)
@@ -913,8 +913,8 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
-    text_box_->run();
+    // text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
+    // text_box_->run();
 }
 
 void Event::addMaxHP(int role_id, int value)
@@ -922,8 +922,8 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
-    text_box_->run();
+    // text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
+    // text_box_->run();
 }
 
 void Event::setMPType(int role_id, int value)
@@ -1134,6 +1134,18 @@ void Event::clearTalkBox()
 bool Event::checkD(int scene_id, int event_index)
 {
     return Save::getInstance()->getSubMapInfo(scene_id)->Event(event_index)->Event1 > 0;
+}
+
+void Event::addDefence(int role_id, int value)
+{
+    auto r = Save::getInstance()->getRole(role_id);
+    auto v0 = r->Defence;
+    r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Defence);
+}
+
+void Event::setRoleMagicLevel(int role_id, int magic_index, int level)
+{
+    Save::getInstance()->getRole(role_id)->MagicLevel[magic_index] = level;
 }
 
 //50扩展指令

@@ -10,6 +10,7 @@
 #include "hanzi2pinyin.h"
 #include "BattleMod.h"
 #include "BattleConfig.h"
+#include "MagicEffectDrawable.h"
 
 #include <string>
 #include <vector>
@@ -227,62 +228,24 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == u8"renwu")
+    else if (splits[0] == u8"wugong")
     {
         BattleMod::BattleConfManager mang;
-        std::vector<std::pair<int, std::string>> person;
-        for (const auto& info : Save::getInstance()->getRoles())
+        std::vector<std::pair<int, std::string>> magics;
+        for (const auto& info : Save::getInstance()->getMagics())
         {
             std::string name(info->Name);
             // 有空格方便完成双击确认
-            person.emplace_back(info->ID, name);
+            magics.emplace_back(info->ID, name);
         }
-        SuperMenuText smt("可輸入人名，編號或拼音搜索：", 28, person, 15);
+        BattleMod::BattleConfManager conf;
+        MagicEffectDrawable * draw = new MagicEffectDrawable(conf, Save::getInstance()->getRole(0),
+            Save::getInstance()->getRole(0), 450, 120);
+        SuperMenuText smt("可輸入人名，編號或拼音搜索：", 28, magics, 15);
         smt.setInputPosition(180, 80);
+        smt.addDrawableOnCall(draw);
         smt.run();
         int id = smt.getResult();
-        if (id != -1)
-        {
-            // 这会mutate mang但是不重要
-            for (auto& adder : mang.roleAdder[id])
-            {
-                std::cout << *(adder) << "\n";
-            }
-            for (auto& proc : mang.atkRole[id])
-            {
-                std::cout << *(proc) << "\n";
-            }
-            for (auto& proc : mang.defRole[id])
-            {
-                std::cout << *(proc) << "\n";
-            }
-            for (auto& proc : mang.speedRole[id])
-            {
-                std::cout << *(proc) << "\n";
-            }
-            for (auto& proc : mang.turnRole[id])
-            {
-                std::cout << *(proc) << "\n";
-            }
-        }
-    }
-    else if (splits[0] == "dumpmagic")
-    {
-        for (auto p : Save::getInstance()->getMagics())
-        {
-            auto u8Name = PotConv::cp936toutf8(p->Name);
-            std::string pinyin;
-            pinyin.resize(1024);
-            int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
-            pinyin.resize(size);
-            auto pys = convert::splitString(pinyin, " ");
-            std::cout << "zzz[" << p->ID << "] = (\"wg_";
-            for (auto& py : pys) {
-                std::cout << py;
-            }
-            std::cout << "\", " << p->MagicType << ")";
-            std::cout << std::endl;
-        }
     }
 
 }

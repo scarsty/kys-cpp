@@ -1,6 +1,8 @@
 #include "Element.h"
 #include "Font.h"
 #include "UISystem.h"
+#include "MainScene.h"
+#include "SubScene.h"
 
 std::vector<Element*> Element::root_;
 int Element::prev_present_ticks_ = 0;
@@ -455,6 +457,22 @@ int Element::run(bool in_root /*= true*/)
         removeFromRoot(this);
     }
     return result_;
+}
+
+int Element::runAndHideOthers()
+{
+    for (auto& ele : root_) {
+        ele->prev_visible_ = ele->visible_;
+        if (!(dynamic_cast<SubScene*>(ele) || dynamic_cast<MainScene*>(ele))) {
+            ele->visible_ = false;
+        }
+        
+    }
+    auto r = run();
+    for (auto& ele : root_) {
+        ele->visible_ = ele->prev_visible_;
+    }
+    return r;
 }
 
 void Element::exitAll(int begin)

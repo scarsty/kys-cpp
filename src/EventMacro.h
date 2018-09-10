@@ -76,4 +76,5 @@
 #define instruct_66 playMusic
 #define instruct_67 playWave
 
-
+// ÆäËû
+#define addDefense addDefence

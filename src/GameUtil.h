@@ -92,6 +92,12 @@ public:
     static int getMagicNeededExp(int itemExp, int magicLevel);
     static int getMagicLevelFromExp(int itemExp, int spendExp);
 
+    static int getAtk(Role * r);
+    static int getDef(Role * r);
+    static int getSpeed(Role * r);
+
+    static bool inTeam(Role * r);
+
     static void equip(Role* r, Item* i);
 
     //以下3个函数的返回值为需要显示的数值

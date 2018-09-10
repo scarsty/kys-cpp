@@ -63,6 +63,11 @@
         instruct_0();   --  0(0)::空语句(清屏)
         instruct_1(196,245,1);   --  1(1):[???]说: 哼，小子，不给我，我不会*硬抢吗？凡是书，我都不会*放过！
         instruct_0();   --  0(0)::空语句(清屏)
+        addAttack(37,70);   --  狄云增加攻击力70
+        addMaxHP(37,150);   --  狄云增加hp 150
+        addSpeed(37,30);     -- 轻功 + 30
+        addMaxMP(37,1000);   -- 内力 + 1200
+        setRoleMagicLevel(37, 0, 900)
 
         if instruct_6(16,4,0,0) ==false then    --  6(6):战斗[16]是则跳转到:Label4
             instruct_15(0);   --  15(F):战斗失败，死亡

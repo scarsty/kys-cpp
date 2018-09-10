@@ -13,10 +13,10 @@ public:
     virtual void onEntrance() { if (entrance_) entrance_(); }
     void setEntrance(std::function<void()> en) { entrance_ = en; }
 	void setPostUpdate(std::function<void(DrawableOnCall * d)> update) { update_ = update; }
-    void updateScreenWithID(int id);
     int getID();
+    virtual void updateScreenWithID(int id);
     virtual void draw();
-private:
+protected:
     int id_;
     std::function<void(DrawableOnCall*)> draw_;
     std::function<void()> entrance_;

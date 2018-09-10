@@ -310,6 +310,69 @@ int GameUtil::getMagicLevelFromExp(int itemExp, int spendExp)
     return (spendExp / (double)itemExp) * 100;
 }
 
+int GameUtil::getAtk(Role * r)
+{
+    int attack = r->Attack;
+    //装备的效果
+    if (r->Equip0 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip0);
+        attack += i->AddAttack;
+    }
+    if (r->Equip1 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip1);
+        attack += i->AddAttack;
+    }
+    return attack;
+}
+
+int GameUtil::getDef(Role * r)
+{
+    int def = r->Defence;
+    //装备的效果
+    if (r->Equip0 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip0);
+        def += i->AddDefence;
+    }
+    if (r->Equip1 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip1);
+        def += i->AddDefence;
+    }
+    return def;
+}
+
+int GameUtil::getSpeed(Role * r)
+{
+    int spd = r->Speed;
+    //装备的效果
+    if (r->Equip0 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip0);
+        spd += i->AddSpeed;
+    }
+    if (r->Equip1 >= 0)
+    {
+        auto i = Save::getInstance()->getItem(r->Equip1);
+        spd += i->AddSpeed;
+    }
+    return spd;
+}
+
+bool GameUtil::inTeam(Role * r)
+{
+    for (int i = 0; i < TEAMMATE_COUNT; i++)
+    {
+        if (r->ID == Save::getInstance()->Team[i])
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void GameUtil::equip(Role* r, Item* i)
 {
     if (r == nullptr)

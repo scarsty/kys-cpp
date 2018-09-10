@@ -40,6 +40,12 @@
     if instruct_5(0,35) ==true then    --  5(5):是否选择战斗？否则跳转到:Label2
         instruct_37(-3);   --  37(25):增加道德-3
 
+        -- 作为敌人加强
+        addAttack(54, 70)   
+        addMaxHP(54, 150)
+        addMaxMP(54, 700)
+        addSpeed(54, 60)
+
         if instruct_6(101,4,0,0) ==false then    --  6(6):战斗[101]是则跳转到:Label3
             instruct_15(0);   --  15(F):战斗失败，死亡
             do return; end

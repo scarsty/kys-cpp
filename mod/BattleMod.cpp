@@ -9,6 +9,7 @@
 #include "TeamMenu.h"
 #include "BattleConfig.h"
 #include "ShowExp.h"
+#include "MagicEffectDrawable.h"
 
 #include <numeric>
 #include <cassert>
@@ -36,7 +37,11 @@ void BattleModifier::setRoleInitState(Role* r)
         r->RealID = r->ID;
     printf("ID %d realID %d Team %d\n", r->ID, r->RealID, r->Team);
     // TODO 修复这个愚蠢的问题
-    conf.battleStatusManager[r->ID].initStatus(r, &conf.battleStatus);
+    conf.battleStatusManager[r->ID].initStatus(r);
+
+    // 暫時起始僅僅允許修改狀態（强制)
+    EffectManager startMang;
+    conf.tryProcAndAddToManager(conf.startAll, startMang, r, nullptr, nullptr);
 }
 
 void BattleMod::BattleModifier::addAtkAnim(Role * r, BP_Color color, const std::vector<EffectIntsPair> & eips)
@@ -95,11 +100,67 @@ void BattleMod::BattleModifier::actRest(Role * r)
     r->Acted = 1;
 }
 
+void BattleMod::BattleModifier::actUseMagic(Role * r)
+{
+    BattleMagicMenu magic_menu;
+    Role * enemy = r;
+    for (auto role : battle_roles_) {
+        if (role->Team != r->Team) {
+            enemy = role;
+            break;
+        }
+    }
+    MagicEffectDrawable med(conf, r, enemy, 420, 120);
+    magic_menu.drawable = &med;
+    while (true)
+    {
+        Magic* magic = nullptr;
+        if (r->Networked)
+        {
+            magic = r->Network_Magic;
+        }
+        else
+        {
+            magic_menu.setStartItem(r->SelectedMagic);
+            magic_menu.runAsRole(r);
+            magic = magic_menu.getMagic();
+            r->SelectedMagic = magic_menu.getResult();
+        }
+        if (magic == nullptr)
+        {
+            r->Network_Action = -1;
+            break;
+        }    //可能是退出游戏，或者是没有选武功
+        r->ActTeam = 1;
+        //level_index表示从0到9，而level从0到999
+        int level_index = r->getMagicLevelIndex(magic->ID);
+        calSelectLayerByMagic(r->X(), r->Y(), r->Team, magic, level_index);
+        //选择目标
+        battle_cursor_->setMode(BattleCursor::Action);
+        battle_cursor_->setRoleAndMagic(r, magic, level_index);
+        int selected = battle_cursor_->run();
+        //取消选择目标则重新进入选武功
+        if (selected < 0)
+        {
+            continue;
+        }
+        else
+        {
+            r->Network_ActionX = select_x_;
+            r->Network_ActionY = select_y_;
+            r->Network_Magic = magic;
+            actUseMagicSub(r, magic);
+            break;
+        }
+    }
+}
+
 void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
 {
     // 每次攻击，攻击者的攻击抬手..吃屎
     std::vector<decltype(atkNames_)> atk_namess;
     std::vector<Role::ActionShowInfo> atk_shows;
+    std::vector<Role::ActionShowInfo> atk_post_shows;
     // 每次攻击，每个人的防御动画数据
     std::vector<std::vector<Role::ActionShowInfo>> defence_shows;
     // 每次攻击，每个人的文字动画数据
@@ -109,17 +170,22 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
     multiAtk_ = 0;
     for (int i = 0; i <= multiAtk_; i++)
     {
+        r->Show.BattleHurt = 0;
         int magic_index = r->getMagicOfRoleIndex(magic);
         int level_index = r->getMagicLevelIndex(magic->ID);
-        //计算伤害
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+
+        // 體力 默認-3 TODO 用status
+        // r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+        // 體力是2，可以在配置裏面寫
+        conf.applyStatusFromParams({0, -3}, r);
+        
         // 首個武功消耗内力減半（主角無效）
         int mpNeeded = magic->calNeedMP(level_index);
         if (magic_index == 0 && r->RealID != 0)
         {
             mpNeeded /= 2;
         }
-        r->MP = GameUtil::limit(r->MP - mpNeeded, 0, r->MaxMP);
+        r->Show.MPHurt = mpNeeded;
         calMagiclHurtAllEnemies(r, magic);
 
         // 这里动画非常复杂
@@ -130,9 +196,7 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
         atk_namess.push_back(atkNames_);
         atkNames_.clear();
 
-        // 攻击者也可以集气后退，伤血，所以这里仅清除Effect和文字
-        // TODO 消耗内力，殺集氣數量 ?
-
+        // atk_shows 显示什么，加力等，状态不显示
         atk_shows.push_back(r->Show);
         r->Show.clearDisplayOnly();
 
@@ -144,20 +208,20 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
         }
 
         number_shows.emplace_back();
+        // 攻击者的还是留到最后吧...
         for (auto r2 : battle_roles_)
         {
             if (r2->Show.BattleHurt != 0)
             {
-                if (magic->HurtType == 0)
-                {
-                    r2->addShowString(convert::formatString("-%d", r2->Show.BattleHurt), { 255, 20, 20, 255 });
-                }
-                else if (magic->HurtType == 1)
-                {
-                    r2->addShowString(convert::formatString("-%d", r2->Show.BattleHurt), { 160, 32, 240, 255 });
-                    // 吸内力不做渐变显示，麻烦
-                    r2->Show.BattleHurt = 0;
-                }
+                char sign = '-';
+                if (r2->Show.BattleHurt < 0) sign = '+';
+                r2->addShowString(convert::formatString("%c%d", sign, r2->Show.BattleHurt), { 255, 20, 20, 255 });
+            }
+            if (r2->Show.MPHurt != 0)
+            {
+                char sign = '-';
+                if (r2->Show.MPHurt < 0) sign = '+';
+                r2->addShowString(convert::formatString("%c%d", sign, r2->Show.MPHurt), { 72,209,204, 255 });
             }
             // 其他显示的特效
             auto result = conf.battleStatusManager[r2->ID].materialize();
@@ -168,15 +232,22 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
                     r2->addShowString(convert::formatString("%s %d", p.first.display.c_str(), p.second), p.first.color);
                 }
             }
-            number_shows.back().push_back(r2->Show);
+            if (r2 != r) {
+                number_shows.back().push_back(r2->Show);
+            }
+            else {
+                atk_post_shows.push_back(r->Show);
+                number_shows.back().emplace_back();     // 留空
+            }
             r2->Show.clear();
         }
+
     }
     r->Acted = 1;
     // 动画需求，不要在意
     r->Progress -= 1000;
     // 需要复制，因为已经离开此栈
-    actionAnimation_ = [this, r, magic, atk_namess, atk_shows, defence_shows, number_shows]() mutable
+    actionAnimation_ = [this, r, magic, atk_namess, atk_shows, defence_shows, number_shows, atk_post_shows]() mutable
     {
         for (int i = 0; i < atk_shows.size(); i++)
         {
@@ -193,7 +264,7 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
                 battle_roles_[j]->Show = defence_shows[i][j];
                 progress_changes.emplace_back(battle_roles_[j]->Progress, battle_roles_[j]->Show.ProgressChange);
             }
-            showNumberAnimation(2, false, progress_changes);
+            showNumberAnimation(3, false, progress_changes);
 
             // 渐变效果，生命值
             std::vector<std::pair<int&, int>> animated_changes;
@@ -203,13 +274,22 @@ void BattleMod::BattleModifier::actUseMagicSub(Role * r, Magic * magic)
                 battle_roles_[j]->Show = number_shows[i][j];
                 // 绑定，生命值和伤害值
                 animated_changes.emplace_back(battle_roles_[j]->HP, -battle_roles_[j]->Show.BattleHurt);
+                animated_changes.emplace_back(battle_roles_[j]->MP, -battle_roles_[j]->Show.MPHurt);
                 // 可绑定其他玩意儿，不过麻烦
             }
-            showNumberAnimation(2, true, animated_changes);
+            showNumberAnimation(3, true, animated_changes);
             for (auto r2 : battle_roles_)
             {
                 r2->clearShowStrings();
             }
+
+            // 攻击后的
+            std::vector<std::pair<int&, int>> post_changes;
+            r->Show = atk_post_shows[i];
+            post_changes.emplace_back(r->HP, -r->Show.BattleHurt);
+            post_changes.emplace_back(r->MP, -r->Show.MPHurt);
+            showNumberAnimation(2, true, post_changes);
+            r->Show.clear();
         }
         // 加回来
         r->Progress += 1000;
@@ -238,6 +318,7 @@ void BattleMod::BattleModifier::calExpGot()
 
     ShowExp showExp;
     showExp.setRoles(friends_);
+    showExp.run();
 
     for (auto r : friends_) {
         r->ExpGot = 0;
@@ -255,8 +336,11 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 
     assert(defEffectManager_.size() == 0);
 
-    // 加入防守方特效，注意r2先来，其实这里传递magic也行，效果不明就是的
-    auto effects = conf.tryProcAndAddToManager(r2->RealID, conf.defRole, conf.defEffectManager, r2, r1, nullptr);
+    // 强制，這個必須這裏判斷
+    conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(8), r2);
+
+    // 加入防守方特效，注意r2先来
+    auto effects = conf.tryProcAndAddToManager(r2->RealID, conf.defRole, conf.defEffectManager, r2, r1, magic);
     addDefAnim(r2, { 255,0,0 }, effects);
 
     // 加入挨打者的武功被动特效
@@ -269,25 +353,41 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     effects = conf.tryProcAndAddToManager(conf.defAll, conf.defEffectManager, r2, r1, magic);
     addDefAnim(r2, { 238, 232, 170 }, effects);
 
-    // 强制特效直接判断
-    // 特效8 9
-    // 8 攻击方的敌人的
-    // conf.setStatusFromParams(conf.atkEffectManager.getAllEffectParams(8), r2);
-    // 9 攻击方自己
-    // conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(9), r1);
-    // 然后倒过来 8 防御方的敌人
-    // conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(8), r1);
-    // 9 防御方自己
-    // conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(9), r2);
+    // 特效6，特效7 上状态
+    // 己方视角
+    conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(6), r2);
+    conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(7), r1);
+    // 然后倒过来
+    conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(7), r2);
+    conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(6), r1);
 
     // 集气伤害，正数代表集气条后退
     int progressHurt = 0;
 
     // 特效1 气攻
     progressHurt += conf.atkEffectManager.getEffectParam0(1);
-    // 特效2 护体
-    progressHurt -= conf.defEffectManager.getEffectParam0(2);
 
+    // 特效16, 氣攻百分比增加
+    double progressScale = 100;
+    progressScale += conf.atkEffectManager.getEffectParam0(16);
+    progressScale += conf.defEffectManager.getEffectParam0(16);
+    progressHurt *= (progressScale / 100.0);
+
+    // 特效2 护体
+    double defProgress = conf.defEffectManager.getEffectParam0(2);
+    double defScale = 100;
+    // 特效17，氣防百分比增加
+    defScale += conf.atkEffectManager.getEffectParam0(17);
+    defScale += conf.defEffectManager.getEffectParam0(17);
+    defProgress *= (defScale / 100.0);
+
+    progressHurt -= defProgress;
+
+    // 特效18 最終後退
+    double finalScale = 100;
+    finalScale += conf.atkEffectManager.getEffectParam0(18);
+    finalScale += conf.defEffectManager.getEffectParam0(18);
+    progressHurt *= (finalScale / 100.0);
 
     int hurt = 0;
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
@@ -300,42 +400,16 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         }
 
         // 特效0 武功威力增加，其实防御方也可以
-        int attack = r1->Attack + (magic->Attack[level_index] + conf.atkEffectManager.getEffectParam0(0)) / 4;
-
-        int defence = r2->Defence;
-
-        //装备的效果
-        if (r1->Equip0 >= 0)
-        {
-            auto i = Save::getInstance()->getItem(r1->Equip0);
-            attack += i->AddAttack;
-        }
-        if (r1->Equip1 >= 0)
-        {
-            auto i = Save::getInstance()->getItem(r1->Equip1);
-            attack += i->AddAttack;
-        }
-        if (r2->Equip0 >= 0)
-        {
-            auto i = Save::getInstance()->getItem(r2->Equip0);
-            defence += i->AddDefence;
-        }
-        if (r2->Equip1 >= 0)
-        {
-            auto i = Save::getInstance()->getItem(r2->Equip1);
-            defence += i->AddDefence;
-        }
+        int attack = GameUtil::getAtk(r1) + (magic->Attack[level_index] + conf.atkEffectManager.getEffectParam0(0)) / 4;
+        int defence = GameUtil::getDef(r2);
 
         // 伤害太高，减少一点
         int v = attack - defence * 1.5;
-        if (v < 0)
-        {
-            v = attack / 7;
-        }
+        v = std::max(v, attack / 7);
 
         //距离衰减
         //这个我应该也接手了..
-        //思考，怎么改，怎么把calRoleDistance搞成一个变量，修改变量函数指针签名了只有
+        //思考，怎么改，怎么把calRoleDistance搞成一个变量
         int dis = calRoleDistance(r1, r2);
         v = v / exp((dis - 1) / 10);
 
@@ -349,6 +423,16 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 
         // 特效5 直接加伤害
         v += conf.atkEffectManager.getEffectParam0(5) + conf.defEffectManager.getEffectParam0(5);
+
+        // 特效15 百分比反弹
+        int reflectPerc = conf.defEffectManager.getEffectParam0(15);
+        // 自己反彈，如果負數即吸血（自動抵消反彈）
+        reflectPerc += conf.atkEffectManager.getEffectParam0(15);
+        r1->Show.BattleHurt += (reflectPerc / 100.0) * hurt;
+        
+        // 特效19
+        int reflect = conf.defEffectManager.getEffectParam0(19);
+        reflect += conf.atkEffectManager.getEffectParam0(19);
 
         // 这个不管
         if (v < 10)
@@ -365,19 +449,30 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         {
             v = 1 + rng_.rand_int(10);
         }
-        hurt = v;
+        r2->Show.MPHurt += v;
     }
+
+    // 特效13 生命直接变化，实际上加到BattleHurt
+    r2->Show.BattleHurt -= conf.defEffectManager.getEffectParam0(13);
+
+
+    // 特效14 内力变化
+    r2->Show.MPHurt -= conf.defEffectManager.getEffectParam0(14);
 
     // 特效12 防御方加减集气（无视气防 气攻）
     r2->Show.ProgressChange += conf.defEffectManager.getEffectParam0(12);
 
-    // 特效6，特效7 上状态
-    // 己方视角
-    conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(6), r2);
-    conf.applyStatusFromParams(conf.atkEffectManager.getAllEffectParams(7), r1);
-    // 然后倒过来
-    conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(7), r2);
-    conf.applyStatusFromParams(conf.defEffectManager.getAllEffectParams(6), r1);
+
+    // 狀態10 保命不死
+    if (conf.battleStatusManager[r2->ID].getBattleStatusVal(10) > 0)
+    {
+        if (r2->Show.BattleHurt >= r2->HP) {
+            r2->Show.BattleHurt = r2->HP - 1;
+            conf.battleStatusManager[r2->ID].incrementBattleStatusVal(10, -1);
+        }
+        // progressHurt = 0;
+        r2->Show.ProgressChange += 500;
+    }
 
     // 不增加，只护体
     if (progressHurt > 0) {
@@ -386,6 +481,7 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         r2->Show.ProgressChange = std::max(-r2->Progress, r2->Show.ProgressChange);
         printf("集气变化%d\n", r2->Show.ProgressChange);
     }
+
     conf.defEffectManager.clear();
     return hurt;
 }
@@ -425,7 +521,6 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 
     // 抬手时，触发攻击特效
     effects = conf.tryProcAndAddToManager(m->ID, conf.atkMagic, conf.atkEffectManager, r, nullptr, m);
-    // 简单的做个显示~ TODO 修好它
     // 武功，黄色吧
     addAtkAnim(r, { 255,215,0 }, effects);
 
@@ -443,30 +538,7 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
         //非我方且被击中（即所在位置的效果层非负）
         if (r2->Team != r->Team && haveEffect(r2->X(), r2->Y()))
         {
-            r2->Show.BattleHurt = calMagicHurt(r, r2, m);
-            if (m->HurtType == 0)
-            {
-                // r2->addShowString(convert::formatString("-%d", hurt), { 255, 20, 20, 255 }, 30);
-                int prevHP = r2->HP;
-                r2->Show.BattleHurt = GameUtil::limit(r2->Show.BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
-                // r2->HP = GameUtil::limit(r2->HP - r2->BattleHurt, 0, r2->MaxHP);
-                int hurt1 = prevHP - r2->HP;
-                r->ExpGot += hurt1;
-                if (r2->HP <= 0)
-                {
-                    r->ExpGot += hurt1 / 2;
-                }
-                // r2->ProgressChange -= -hurt / 5;
-            }
-            else if (m->HurtType == 1)
-            {
-                // r2->addShowString(convert::formatString("-%d", hurt), { 160, 32, 240, 255 }, 30);
-                int prevMP = r2->MP;
-                r2->MP = GameUtil::limit(r2->MP - r2->Show.BattleHurt, 0, r2->MaxMP);
-                r->MP = GameUtil::limit(r->MP + r2->Show.BattleHurt, 0, r->MaxMP);
-                int hurt1 = prevMP - r2->MP;
-                r->ExpGot += hurt1 / 2;
-            }
+            r2->Show.BattleHurt += calMagicHurt(r, r2, m);
             if (r2->HP > 0)
             {
                 targets += 1;
@@ -477,6 +549,21 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
     if (targets == 0)
     {
         multiAtk_ = 0;
+    }
+
+    if (targets > 0) {
+        // 特效13 生命直接变化，实际上加到BattleHurt
+        // 貌似存在一個吸空還可以吸的情況，不管了
+        r->Show.BattleHurt -= conf.atkEffectManager.getEffectParam0(13);
+        // 特效14 内力变化
+        r->Show.MPHurt -= conf.atkEffectManager.getEffectParam0(14);
+    }
+
+    // 限制生命内力
+    for (auto r2 : battle_roles_)
+    {
+        r2->Show.BattleHurt = GameUtil::limit(r2->Show.BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
+        r2->Show.MPHurt = GameUtil::limit(r2->Show.MPHurt, -(r2->MaxMP - r2->MP), r2->MP);
     }
 
     // 我需要好好想一想显示效果怎么做
@@ -539,14 +626,30 @@ void BattleModifier::dealEvent(BP_Event& e)
         conf.tryProcAndAddToManager(role->RealID, conf.turnRole, conf.turnEffectManager, role, nullptr, nullptr);
         conf.tryProcAndAddToManager(conf.turnAll, conf.turnEffectManager, role, nullptr, nullptr);
 
-        // 特效9 强制
-        // conf.setStatusFromParams(conf.turnEffectManager.getAllEffectParams(9), role);
-
         // 特效7 上状态
         conf.applyStatusFromParams(conf.turnEffectManager.getAllEffectParams(7), role);
 
         // 特效12 加集气
         role->Show.ProgressChange += conf.turnEffectManager.getEffectParam0(12);
+
+        std::vector<std::pair<int &, int>> animated_changes;
+
+        // 特效13 生命直接变化
+        int hp = conf.turnEffectManager.getEffectParam0(13);
+        hp = GameUtil::limit(role->HP + hp, 0, role->MaxHP) - role->HP;
+        if (hp != 0) {
+            role->addShowString(convert::formatString("生命 %d", hp), { 255, 20, 20, 255 });
+            animated_changes.emplace_back(role->HP, hp);
+        }
+            
+        // 特效14 内力变化
+        int mp = conf.turnEffectManager.getEffectParam0(14);
+        mp = GameUtil::limit(role->MP + mp, 0, role->MaxMP) - role->MP;
+        if (mp != 0) {
+            role->addShowString(convert::formatString("内力 %d", mp), { 255, 20, 20, 255 });
+            animated_changes.emplace_back(role->MP, mp);
+        }
+            
 
         if (semi_real_ == 0)
         {
@@ -570,10 +673,8 @@ void BattleModifier::dealEvent(BP_Event& e)
             if (!p.first.hide)
                 role->addShowString(convert::formatString("%s %d", p.first.display.c_str(), p.second), p.first.color);
         }
-        showNumberAnimation();
-        role->clearShowStrings();
-        // 结算回合结束后的一些特效，比如说回血内力 等一系列
-        // 等我有心情再做
+        showNumberAnimation(2, true, animated_changes);
+        role->Show.clear();
 
         conf.turnEffectManager.clear();
     }
@@ -588,7 +689,7 @@ void BattleModifier::dealEvent(BP_Event& e)
     if (battle_result >= 0)
     {
         result_ = battle_result;
-        if (result_ == 0 || result_ == 1 && fail_exp_)
+        if (result_ == 0)
         {
             calExpGot();
         }
@@ -632,15 +733,22 @@ Role* BattleModifier::semiRealPickOrTick() {
         for (int i = 0; i < r->getLearnedMagicCount(); i++) {
             conf.tryProcAndAddToManager(r->MagicID[i], conf.speedMagic, conf.speedEffectManager, r, nullptr, Save::getInstance()->getMagic(r->MagicID[i]));
         }
-        // 强制状态 特效9
-        // auto forceStat = conf.speedEffectManager.getAllEffectParams(9);
-        // conf.setStatusFromParams(forceStat, r);
 
         int progress = 0;
 
         // 先上/下状态，给自己，给别人也不是不行，再搞个循环，判断不在一个队伍的
         // 特效7
         conf.applyStatusFromParams(conf.speedEffectManager.getAllEffectParams(7), r);
+
+        // 特效13 生命直接变化
+        int hp = conf.speedEffectManager.getEffectParam0(13);
+        hp = GameUtil::limit(r->HP + hp, 0, r->MaxHP) - r->HP;
+        r->HP += hp;
+
+        // 特效14 内力变化
+        int mp = conf.speedEffectManager.getEffectParam0(14);
+        mp = GameUtil::limit(r->MP + mp, 0, r->MaxMP) - r->MP;
+        r->MP += mp;
 
         // 特效3 集气速度
         progress = conf.speedEffectManager.getEffectParam0(3);
@@ -678,24 +786,6 @@ void BattleMod::BattleModifier::showMagicNames(const std::vector<std::string>& n
     tb.setFontSize(fontSize);
     tb.setStayFrame(40);
     tb.run();
-
-    /*
-    int fontSize = 25;
-    int stayFrame = 40;
-    std::unique_ptr<TextBox> boxRoot = std::make_unique<TextBox>();
-    int w, h;
-    Engine::getInstance()->getWindowSize(w, h);
-    boxRoot->setHaveBox(false);
-    // 丑的我不能直视
-    boxRoot->setText(hugeStr);
-    boxRoot->setPosition(w/2.0 - (hugeStr.size()/4.0) * fontSize, 50);
-    boxRoot->setFontSize(fontSize);
-    boxRoot->setStayFrame(stayFrame);
-    boxRoot->setAlphaBox({ 255, 165, 79, 255 }, { 0, 0, 0, 128 });
-    // 允许设定颜色吧。。。
-    boxRoot->setTextColor({ 255, 165, 79, 255 });
-    boxRoot->run();
-    */
 }
 
 void BattleMod::BattleModifier::renderExtraRoleInfo(Role * r, int x, int y)
@@ -713,7 +803,7 @@ void BattleMod::BattleModifier::renderExtraRoleInfo(Role * r, int x, int y)
         background_color = { 255, 0, 0, 128 };
     }
     int hp_x = x - 20;
-    int hp_y = y - 63;
+    int hp_y = y - 70;
     int hp_max_w = 40;
     int hp_h = 3;
     double perc = ((double)r->HP / r->MaxHP);
@@ -729,15 +819,27 @@ void BattleMod::BattleModifier::renderExtraRoleInfo(Role * r, int x, int y)
     Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
     Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
     Engine::getInstance()->fillColor(outline_color, hp_x + hp_max_w, hp_y, 1, hp_h);
-    int i = 4;
+
+    perc = ((double)r->MP / r->MaxMP);
+    hp_y += 4;
+    Engine::getInstance()->fillColor({ 72,209,204, 255 }, hp_x, hp_y, perc * hp_max_w, 2);
+    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, hp_max_w, 1);
+    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + hp_h, hp_max_w, 1);
+    Engine::getInstance()->fillColor(outline_color, hp_x, hp_y, 1, hp_h);
+    Engine::getInstance()->fillColor(outline_color, hp_x + hp_max_w, hp_y, 1, hp_h);
+
+    hp_y += 4;
+    int i = 0;
     for (auto& s : conf.battleStatus) {
-        if (!s.hide) {
+        // 再加入一个，状态显示，强行不显示体力...
+        if (!s.hide && s.id!=0) {
             int val = conf.battleStatusManager[r->ID].getBattleStatusVal(s.id);
             if (val == 0) continue;
             int actual_w = ((double)val / s.max) * hp_max_w;
-            Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + i, hp_max_w, 1);
-            Engine::getInstance()->fillColor(s.color, hp_x + 1, hp_y + i, actual_w, 1);
-            i += 1;
+            Engine::getInstance()->fillColor(outline_color, hp_x, hp_y + i, hp_max_w, 2);
+            Engine::getInstance()->fillColor(s.color, hp_x + 1, hp_y + i, actual_w, 2);
+            Engine::getInstance()->fillColor(outline_color, hp_x + 1, hp_y + i + 2, hp_max_w, 1);
+            i += 3;
         }
     }
 }

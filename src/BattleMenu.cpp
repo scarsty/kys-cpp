@@ -480,6 +480,25 @@ int BattleActionMenu::calNeedActionDistance(AIAction& aa)
     return battle_scene_->calDistance(aa.MoveX, aa.MoveY, aa.ActionX, aa.ActionY);
 }
 
+void BattleMagicMenu::draw()
+{
+    MenuText::draw();
+    if (drawable) {
+        drawable->draw();
+    }
+}
+
+void BattleMagicMenu::dealEvent(BP_Event & e)
+{
+    MenuText::dealEvent(e);
+    if (active_child_ != -1) {
+        auto m = Save::getInstance()->getRoleLearnedMagic(role_, active_child_);
+        if (drawable) {
+            drawable->updateScreenWithID(m->ID);
+        }
+    }
+}
+
 void BattleMagicMenu::onEntrance()
 {
     if (role_ == nullptr)
@@ -579,8 +598,8 @@ void BattleItemMenu::addItem(Item* item, int count)
 
 std::vector<Item*> BattleItemMenu::getAvaliableItems()
 {
-    //选出物品列表
-    if (role_->Team == 0)
+    //选出物品列表, Auto == 2为自动队友
+    if (role_->Team == 0 && role_->Auto != 2)
     {
         geItemsByType(force_item_type_);
     }

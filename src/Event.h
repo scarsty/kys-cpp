@@ -143,6 +143,8 @@ public:
     void blank() {}
 
     bool checkD(int scene_id, int event_index);
+    void addDefence(int role_id, int value);
+    void setRoleMagicLevel(int role_id, int magic_index, int level);
 
 private:
     int x50[0x10000];

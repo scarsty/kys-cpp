@@ -2,6 +2,7 @@
 #include "Button.h"
 #include "Menu.h"
 #include "Types.h"
+#include "BattleConfig.h"
 
 class UIItem : public Menu
 {
@@ -26,6 +27,8 @@ public:
     bool select_user_ = true;
 
     int focus_ = 0;    //焦点位置：0分类栏，1物品栏
+
+    BattleMod::BattleConfManager conf;
 
     MenuText* getTitle() { return title_; }
 

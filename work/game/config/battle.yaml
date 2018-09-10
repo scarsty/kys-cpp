@@ -75,12 +75,13 @@
     
   - 编号: &tx_diren_qiangzhi_status 8
     描述: 对敌人强制设置状态
-    #有效: 攻击，防守
+    #有效: 防守
     #备注: 强制状态，立即结算, 状态 = 强度
     # 立即结算的意思是指，
-    # 攻击：在攻击特效判断完之后立马结算
-    # 防守：在防御特效判断完之后立马结算
-    # 集气: 在“给自己上状态”之前
+    # 攻击：在攻击特效判断完之后立马结算 
+    # <- 轮到防御者开始计算伤害时结算 
+    # 防守：发动则立马结算
+    # 集气: 在“给自己上状态”之前？？？
     # 并且清空暂时状态
     #效果参数:
     #  - 状态编号
@@ -89,7 +90,7 @@
   - 编号: &tx_ziji_qiangzhi_status 9
     描述: 对自己强制设置状态
     #有效: 所有
-    #备注: 强制状态，仅限自己，立即结算, 状态 = 强度
+    #备注: 强制状态，仅限自己，触发立即结算, 状态 = 强度
     #效果参数:
     #  - 状态编号
     #  - 强度(0~100)
@@ -110,6 +111,38 @@
     描述: 集气值增加
     #有效: 攻击，防御，回合
     #备注: 集气阶段就算了
+
+  - 编号: &tx_shenming 13
+    描述: 生命值增加
+    #有效: 攻击 防御 回合 集气
+    #备注: 攻击，防御时自动BattleHurt
+
+  - 编号: &tx_neili 14
+    描述: 内力值增加
+    # 同上
+
+  - 编号: &tx_fantan_percentage 15
+    描述: 百分比反弹伤害
+    # 有效: 攻击，防御
+    # 备注: 百分比，并不减伤
+
+  - 编号: &tx_qigong_percentage 16
+    描述: 百分比增加气攻
+    #有效: 攻击，防御
+
+  - 编号: &tx_qifang_percentage 17
+    描述: 百分比增加气防
+    #有效: 攻击，防御
+
+  - 编号: &tx_qishang_percentage 18
+    描述: 百分比最终集气后退
+    #有效: 攻击，防御
+
+  # 固定反弹
+  - 编号: &tx_fantan 19
+    描述: 反弹固定伤害
+    # 有效: 攻击，防御
+    # 备注: 并不减伤
   
 发动方式:
   - 编号: &proc_random 0
@@ -136,6 +169,9 @@
     #  下面这个还没做
     #  - 1: 第一次既触发(默认否), 0: 第一次不算
     # 问题是 问题是啥？
+
+  - 编号: &proc_zhaoshi_template 4
+    #描述: 招式的模板，待编程。目的是压缩招式4000行-》100行
       
 # 本人设计问题，所有字符串都是存在一个vector里，避免复制
 # 但是vector更新容量就会使引用失效，优雅的解决方案暂时没想到
@@ -219,6 +255,9 @@
 
   # 武功威力
   - &var_wg_power 37
+
+  # 当前使用武功，仅作用于全人物攻击特效
+   - &var_using_wg 38
 
 
 #####################################################################  
@@ -339,6 +378,7 @@
   - &wg_taixuan 102
   - &wg_longxiang 103
   - &wg_niyun 104
+  - &wg_kuihua 105
   - &wg_jiuyang 106
   - &wg_jiuyin 107
   - &wg_yjj 108
@@ -357,20 +397,19 @@
 # 所有特效加加减减全是临时的，此时用变量访问状态是不包含这些临时状态的
 战场状态:
   # 0,1,2 是写死的 不能动
-  - 编号: &status_neishang 0
-    描述: 内伤
-    颜色: [255, 140, 0, 255]      # 橙色
-  - 编号: &status_zhongdu 1
-    描述: 中毒
-    颜色: [47, 79, 47, 255]       # 保护色
-  - 编号: &status_tili 2
+  - 编号: &status_tili 0
     描述: 体力
     颜色: [255, 218, 185, 255]    # ??体力的颜色
-    隐藏: true                    # 暂且不显示
+  - 编号: &status_neishang 1
+    描述: 内伤
+    颜色: [255, 140, 0, 255]      # 橙色
+  - 编号: &status_zhongdu 2
+    描述: 中毒
+    颜色: [47, 79, 47, 255]       # 保护色
   - 编号: &status_nuqi 3
     描述: 怒气
     满值: 100
-    颜色: [160, 32, 240, 255]     # 紫色
+    颜色: [0, 0, 0, 255]
   - 编号: &status_fengxue 4
     描述: 封穴
     满值: 100
@@ -385,39 +424,102 @@
     颜色: [255, 105, 180, 255]    # 粉
   - 编号: &status_jiali 7
     描述: 加力
-    满值: 0
+    满值: 999
+    隐藏: true
   - 编号: &status_huti 8
     描述: 护体
-    满值: 0
+    满值: 999
+    隐藏: true
+  - 编号: &status_bj 9
+    描述: 暴击
+    满值: 1
+    隐藏: true
+
+  # 这个很麻烦，因为触发成功没有办法反应给外面
+  # 1.判断是否触发
+  # 2.出发成功怎么办
+  # 3.这里直接写死算了，miansi + 1 = 免死一次
+  - 编号: &status_miansi 10
+    描述: 保命不死
+    隐藏: true
+
+  # 北冥 内力变化，由于必须要强制，但是强制又不叠加
+  # 所以很烦
+  - 编号: &status_beiming_neili 11
+    描述: 内力变化
+    隐藏: true
+
+  - 编号: &status_xixing_neili 12
+    描述: 内力变化
+    隐藏: true
+
+  - 编号: &status_huagong_neili 13
+    描述: 内力变化
+    隐藏: true
 
 #主动运功: 这个要写好多好多UI，在此之前不碰
-    
-# 每个武功可以有 主动攻击 被动攻击/防守(程序会判断是否拥有武功)
-# 武功:
 
 # 所有人都一样
 全人物:
+  初始:
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenzhao]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_miansi, 1]
+
   攻击:
     # 暴击
     - 发动方式: *proc_random
-      # 发动概率 = 15% + 内力*0.5% + 资质*0.2%
       发动参数:
         可变参数:
-          基础: 15
+          基础: 10
           加成:
-            # 可以有多个线性加成
-            # 200内力 = 5%几率
-            - 线性: {系数: 0.025, 变量: {编号: *var_char_mp}}
-            # 1资质 = 0.2%
-            - 线性: {系数: 0.2, 变量: {编号: *var_char_iq}}
+            - 线性: [系数: 0.005, 变量: {编号: *var_char_mp}]
+            - 线性: [系数: 0.1, 变量: {编号: *var_char_iq}]
+            - 线性: [系数: 0.05, 变量: {编号: *var_char_attack}]
             # 怒气爆发 必暴击
-            - 线性: {系数: 100, 变量: {编号: *var_has_status, 参数: [*status_nuqi, 100]}}
+            - 线性: [系数: 100, 变量: {编号: *var_has_status, 参数: [*status_nuqi, 100]}]
+            # 龙象增加暴击率
+            - 
+              说明: 
+                武功: *wg_longxiang
+                文字: 额外暴击率
+              线性: [系数: 0.0278, 变量: {编号: *var_wg_level, 参数: [*wg_longxiang]}]
       特效:
-        编号: *tx_baoji
-        位置: *pos_on_top
-        显示: 暴击
-        # 25%伤害提升
-        效果参数:  25
+        -
+          编号: *tx_baoji
+          位置: *pos_on_top
+          显示: 暴击
+          # 25%伤害提升
+          效果参数:
+            可变参数:
+              基础: 25
+              加成:
+                # 葵花神功 免疫普通暴击伤害
+                - 
+                  说明: 
+                    武功: *wg_kuihua
+                    文字: 免疫暴击伤害 
+                  线性: [系数: -0.0223, 变量: {编号: *var_wg_level, 参数: [*wg_kuihua]}]
+                - 
+                  说明: 
+                    武功: *wg_kuihua
+                    文字: 免疫暴击伤害   
+                  线性: [系数: -5, 变量: {编号: *var_has_wg, 参数: [*wg_kuihua]}]
+                # 九阴额外暴击伤害
+                - 
+                  说明: 
+                    武功: *wg_jiuyin
+                    文字: 额外暴击伤害                   
+                  线性: [系数: 0.0278, 变量: {编号: *var_wg_level, 参数: [*wg_jiuyin]}]
 
     # 连击
     # 发动概率是 60 - 资质
@@ -432,17 +534,9 @@
         可变参数:
           基础: 0
           加成:
-            - 线性: {系数: 60, 变量: {编号: *var_char_attacktwice}}
-            - 线性: {系数: -1, 变量: {编号: *var_char_iq}}
-            # 周伯通+30%触发率，这是个人物天赋但是没办法被安排在这里
-            # 加入额外说明，
-            # 武功: 仅在武功说明时显示, 人物: 仅在人物说明时显示
-            - 线性: 
-                说明: 
-                  人物: *char_zhoubotong
-                  文字: "额外连击率"
-                系数: 30
-                变量: {编号: *var_is_person, 参数: *char_zhoubotong}
+            - 线性: [系数: 60, 变量: {编号: *var_char_attacktwice}]
+            - 线性: [系数: -1, 变量: {编号: *var_char_iq}]
+
       特效:
         - 编号: *tx_lianji
           显示: '连击'
@@ -464,7 +558,7 @@
         可变参数:
           基础: 0
           加成:
-            - 线性: {系数: 1, 变量: {编号: *var_char_fist}}
+            - 线性: [系数: 1, 变量: {编号: *var_char_fist}]
       特效:
         - 编号: *tx_diren_status
           显示: '拳掌封穴'
@@ -474,7 +568,7 @@
             - 可变参数:
                 基础: 0
                 加成:
-                  - 线性: {系数: 0.005, 变量: {编号: *var_wg_power}}
+                  - 线性: [系数: 0.005, 变量: {编号: *var_wg_power}]
                   - 随机: {范围: {最小: 1, 最大: 3}}
 
     # 剑增加集气值，发动率为兵器值，武功威力/5
@@ -485,11 +579,27 @@
               变量: {编号: *var_wg_type}
             对比: *op_equal
             右边: 2
+        - 条件:
+          - 左边: 
+              变量: {编号: *var_cur_using_wg}
+            对比: *op_equal
+            右边: *wg_luoyingshenjianzhang
       发动参数: 
         可变参数:
           基础: 0
           加成:
-            - 线性: {系数: 1, 变量: {编号: *var_char_sword}}
+            - 线性: [系数: 1, 变量: {编号: *var_char_sword}]
+            # 落英可发动御剑加速
+            - 
+              说明:
+                武功: *wg_luoyingshenjianzhang
+                文字: 可发动御剑加速，并增加概率
+              线性: [变量: {编号: *var_char_fist}, 变量: {编号: *var_cur_using_wg, 参数: [*wg_luoyingshenjianzhang]}]
+            -
+              说明:
+                武功: *wg_pixiejianfa
+                文字: 发动御剑加速概率
+              线性: [系数: 100, 变量: {编号: *var_cur_using_wg, 参数: [*wg_pixiejianfa]}]
       特效:
         - 编号: *tx_jiqizhi
           显示: '御剑加速'
@@ -498,7 +608,7 @@
             可变参数:
               基础: 50
               加成:
-                - 线性: {系数: 0.2, 变量: {编号: *var_wg_power}}
+                - 线性: [系数: 0.2, 变量: {编号: *var_wg_power}]
 
     # 刀增加外伤值，发动率为兵器值，武功威力/20
     - 发动方式: *proc_random
@@ -512,7 +622,7 @@
         可变参数:
           基础: 0
           加成:
-            - 线性: {系数: 1, 变量: {编号: *var_char_blade}}
+            - 线性: [系数: 1, 变量: {编号: *var_char_blade}]
       特效:
         - 编号: *tx_diren_status
           显示: '耍刀外伤'
@@ -522,7 +632,7 @@
             - 可变参数:
                 基础: 0
                 加成:
-                  - 线性: {系数: 0.05, 变量: {编号: *var_wg_power}}
+                  - 线性: [系数: 0.05, 变量: {编号: *var_wg_power}]
 
     # 特殊减少怒气，发动率为兵器值，武功威力/15
     - 发动方式: *proc_random
@@ -536,7 +646,7 @@
         可变参数:
           基础: 0
           加成:
-            - 线性: {系数: 1, 变量: {编号: *var_char_unusual}}
+            - 线性: [系数: 1, 变量: {编号: *var_char_unusual}]
       特效:
         - 编号: *tx_diren_status
           显示: '特殊降怒'
@@ -546,7 +656,131 @@
             - 可变参数:
                 基础: 0
                 加成:
-                  - 线性: {系数: -0.067, 变量: {编号: *var_wg_power}}
+                  - 线性: [系数: -0.067, 变量: {编号: *var_wg_power}]
+
+    # 狮子吼 +杀气, TODO升级特效全体杀气
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shihou]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        - 编号: *tx_qigong
+          显示: '狮吼杀气'
+          效果参数: 
+            可变参数:
+              基础: 15
+              加成:
+                # 15+30
+                - 线性: [系数: 0.033, 变量: {编号: *var_wg_level, 参数: [*wg_shihou]}]
+
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_beiming]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 15
+          加成:
+            # 15+20
+            - 线性: [系数: 0.02223, 变量: {编号: *var_wg_level, 参数: [*wg_beiming]}]
+      特效:
+        # 内力自己只增加一次，并且给对方上掉内力状态，防守时自动掉
+        - 编号: *tx_neili
+          显示: '北冥神功'
+          位置: *pos_on_person
+          效果参数: 
+            可变参数:
+              基础: 100
+              加成:
+                - 线性: [系数: 0.05556, 变量: {编号: *var_wg_level, 参数: [*wg_beiming]}]
+        
+        # 扣内力
+        - 编号: *tx_diren_qiangzhi_status
+          显示: ''
+          效果参数:
+            - *status_beiming_neili
+            - 可变参数:
+                基础: -100
+                加成:
+                - 线性: [系数: -0.11112, 变量: {编号: *var_wg_level, 参数: [*wg_beiming]}]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_xixing]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 30
+          加成:
+            - 线性: [系数: 70, 变量: {编号: *var_has_status, 参数: [*status_nuqi, 100]}]
+      特效:
+        # 内力自己只增加一次，并且给对方上掉内力状态，防守时自动掉
+        - 编号: *tx_neili
+          显示: '吸星大法'
+          位置: *pos_on_person
+          效果参数: 
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: [系数: 0.1112, 变量: {编号: *var_wg_level, 参数: [*wg_xixing]}]
+        
+        # 扣内力
+        - 编号: *tx_diren_qiangzhi_status
+          显示: ''
+          效果参数:
+            - *status_xixing_neili
+            - 可变参数:
+                基础: 0
+                加成:
+                - 线性: [系数: -0.33334, 变量: {编号: *var_wg_level, 参数: [*wg_xixing]}]
+        # 反向反弹-吸血
+        - 编号: *tx_fantan
+          显示: ''
+          效果参数: 
+            - 可变参数:
+                基础: -5
+                加成:
+                - 线性: [系数: -0.03334, 变量: {编号: *var_wg_level, 参数: [*wg_xixing]}]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_huagong]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 25
+          加成:
+            - 线性: [系数: 0.03334, 变量: {编号: *var_wg_level, 参数: [*wg_huagong]}]
+      特效:
+        # 扣内力
+        - 编号: *tx_diren_qiangzhi_status
+          显示: '化工大法'
+          效果参数:
+            - *status_huagong_neili
+            - -150
+        - 编号: *tx_diren_status
+          显示: ''
+          效果参数:
+            - *status_zhongdu
+            - 可变参数:
+                基础: 10
+                加成:
+                  - 线性: [系数: 0.02223, 变量: {编号: *var_wg_level, 参数: [*wg_huagong]}]
+
 
     # 这里有个先后顺序，加力效果最好的放前面，发动后还有一个强行状态
     # 这个状态在内功加力一系列判断后重置（或者proc_prioritized重写，每单项检测需求）
@@ -568,25 +802,31 @@
         可变参数:
           基础: 20
           加成:
-            - 线性: {系数: 0.01, 变量: {编号: *var_char_mp}}
-            - 线性: {系数: -0.067, 变量: {编号: *var_char_iq}}
-            - 线性: {系数: 0.1, 变量: {编号: *var_char_attack}}
-            - 线性: 
-                说明: 
-                  武功: *wg_taixuan
-                  文字: "额外加力概率"
-                系数: 15
-                变量: {编号: *var_has_wg, 参数: *wg_taixuan}
+            - 线性: [系数: 0.01, 变量: {编号: *var_char_mp}]
+            - 线性: [系数: -0.067, 变量: {编号: *var_char_iq}]
+            - 线性: [系数: 0.1, 变量: {编号: *var_char_attack}]
+            - 
+              说明: 
+                武功: *wg_taixuan
+                文字: 额外加力概率           
+              线性: [系数: 15, 变量: {编号: *var_has_wg, 参数: *wg_taixuan}]
       特效:
         - 编号: *tx_qigong
           位置: *pos_on_person
           动画: 85
-          显示: '易经神功加力'
+          显示: 易经神功加力
           效果参数: 200
-        - &ng_jiali_ok
-          编号: *tx_ziji_qiangzhi_status
+        - 编号: *tx_shanghai
           显示: ''
-          效果参数: [*status_jiali, 1]
+          效果参数:
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: [系数: 0.05, 变量: {编号: *var_wg_level, 参数: [*wg_yjj]}]
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_yjj]
 
     - 发动方式: *proc_random
       需求:
@@ -601,9 +841,38 @@
         - 编号: *tx_qigong
           动画: 89
           位置: *pos_on_person
-          显示: '龙象般若功加力'
-          效果参数: 200
-        - *ng_jiali_ok
+          显示: 龙象般若功加力
+          效果参数: 190
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_longxiang]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              状态: *status_jiali
+            对比: *op_equal
+            右边: *wg_longxiang
+          - 左边:
+              状态: *status_bj
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        - 编号: *tx_baoji
+          显示: 龙象暴击
+          位置: *pos_on_person
+          效果参数: 
+            可变参数:
+              基础: 0
+              加成:
+                - 
+                  说明: 
+                    武功: *wg_longxiang
+                    文字: 加力暴击时增加伤害
+                  线性: [系数: 0.223, 变量: {编号: *var_wg_level, 参数: [*wg_longxiang]}]
 
     - 发动方式: *proc_random
       需求:
@@ -618,9 +887,18 @@
         - 编号: *tx_qigong
           动画: 89
           位置: *pos_on_person
-          显示: '九阳神功加力'
+          显示: 九阳神功加力
           效果参数: 180
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_status
+          显示: ''
+          效果参数: [*status_neishang, -30]
+        - 编号: *tx_ziji_status
+          显示: ''
+          效果参数: [*status_zhongdu, -30]          
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          隐藏: true
+          效果参数: [*status_jiali, *wg_jiuyang]
 
     - 发动方式: *proc_random
       需求:
@@ -637,7 +915,32 @@
           位置: *pos_on_person
           显示: '九阴神功加力'
           效果参数: 171
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_jiuyin]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              状态: *status_jiali
+            对比: *op_equal
+            右边: *wg_jiuyin
+          - 左边:
+              状态: *status_bj
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        - 编号: *tx_shanghai
+          显示: '九阴暴击'
+          位置: *pos_on_person
+          效果参数: 
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: [系数: 0.1, 变量: {编号: *var_wg_level, 参数: [*wg_jiuyin]}]
 
     - 发动方式: *proc_random
       需求:
@@ -654,7 +957,30 @@
           位置: *pos_on_person
           显示: '逆运神功加力'
           效果参数: 170
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_niyun]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_kuihua]}
+            对比: *op_equal
+            右边: 1
+          - *ng_jiali_req
+      发动参数: *ng_jiali_prob
+      特效:
+        - 编号: *tx_qigong
+          动画: 90
+          位置: *pos_on_person
+          显示: '葵花神功加力'
+          效果参数: 145
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_kuihua]
 
     - 发动方式: *proc_random
       需求:
@@ -671,7 +997,27 @@
           位置: *pos_on_person
           显示: '八荒六合功加力'
           效果参数: 140
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_bahuang]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_bahuang]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        - 编号: *tx_baoji
+          显示: ''
+          效果参数:
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: [系数: 0.1667, 变量: {编号: *var_wg_level, 参数: [*wg_bahuang]}]
 
     - 发动方式: *proc_random
       需求:
@@ -688,7 +1034,10 @@
           位置: *pos_on_person
           显示: '太玄神功加力'
           效果参数: 121
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_taixuan]
 
     - 发动方式: *proc_random
       需求:
@@ -705,7 +1054,10 @@
           位置: *pos_on_person
           显示: '先天功加力'
           效果参数: 120
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_xiantian]
 
     - 发动方式: *proc_random
       需求:
@@ -722,7 +1074,10 @@
           位置: *pos_on_person
           显示: '小无相功加力'
           效果参数: 105
-        - *ng_jiali_ok 
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_xiaowu]
 
     - 发动方式: *proc_random
       需求:
@@ -739,7 +1094,10 @@
           位置: *pos_on_person
           显示: '纯阳无极功加力'
           效果参数: 101
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_chunyang]
 
     - 发动方式: *proc_random
       需求:
@@ -756,7 +1114,10 @@
           位置: *pos_on_person
           显示: '蛤蟆功加力'
           效果参数: 100
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_hama]
 
     - 发动方式: *proc_random
       需求:
@@ -773,7 +1134,27 @@
           位置: *pos_on_person
           显示: '神照功加力'
           效果参数: 96
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_shenzhao]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenzhao]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        - 编号: *tx_qigong_percentage
+          显示: ''
+          效果参数:
+            可变参数:
+              基础: 1
+              加成:
+                - 线性: [系数: 0.015556, 变量: {编号: *var_wg_level, 参数: [*wg_shenzhao]}]   
 
     - 发动方式: *proc_random
       需求:
@@ -790,7 +1171,10 @@
           位置: *pos_on_person
           显示: '紫霞功加力'
           效果参数: 95
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_zixia]
 
     - 发动方式: *proc_random
       需求:
@@ -807,7 +1191,10 @@
           位置: *pos_on_person
           显示: '圣火神功加力'
           效果参数: 86
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_shenhuo]
 
     - 发动方式: *proc_random
       需求:
@@ -824,7 +1211,10 @@
           位置: *pos_on_person
           显示: '罗汉伏魔功加力'
           效果参数: 85
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_shiba]
 
     - 发动方式: *proc_random
       需求:
@@ -841,7 +1231,10 @@
           位置: *pos_on_person
           显示: '狮吼功加力'
           效果参数: 84
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_shihou]
 
     - 发动方式: *proc_random
       需求:
@@ -858,7 +1251,10 @@
           位置: *pos_on_person
           显示: '混元功加力'
           效果参数: 75
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_hunyuan]
 
     - 发动方式: *proc_random
       需求:
@@ -875,7 +1271,10 @@
           位置: *pos_on_person
           显示: '乾坤大挪移加力'
           效果参数: 70
-        - *ng_jiali_ok
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_qiankun]
 
     - 发动方式: *proc_random
       需求:
@@ -892,7 +1291,24 @@
           位置: *pos_on_person
           显示: '三流心法加力'
           效果参数: 75
-        - *ng_jiali_ok        
+        - 编号: *tx_ziji_qiangzhi_status
+          隐藏: true
+          显示: ''
+          效果参数: [*status_jiali, *wg_tuna]
+
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        - 编号: *tx_ziji_qiangzhi_status
+          效果参数: [*status_jiali, 0]
+          显示: ''
+
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        - 编号: *tx_ziji_qiangzhi_status
+          效果参数: [*status_bj, 0]
+          显示: ''
 
   防守:
     - 
@@ -913,27 +1329,35 @@
         可变参数:
           基础: 20
           加成:
-            - 线性: {系数: 0.01, 变量: {编号: *var_char_mp}}
-            - 线性: {系数: -0.067, 变量: {编号: *var_char_iq}}
-            - 线性: {系数: 0.1, 变量: {编号: *var_char_defence}}
-            - 线性: 
-                说明: 
-                  武功: *wg_taixuan
-                  文字: "额外护体概率"
-                系数: 15
-                变量: {编号: *var_has_wg, 参数: *wg_taixuan}
+            - 线性: [系数: 0.01, 变量: {编号: *var_char_mp}]
+            - 线性: [系数: -0.067, 变量: {编号: *var_char_iq}]
+            - 线性: [系数: 0.1, 变量: {编号: *var_char_defence}]
+            - 
+              说明: 
+                武功: *wg_taixuan
+                文字: "额外护体概率"     
+              线性: 
+                - 系数: 15
+                - 变量: {编号: *var_has_wg, 参数: *wg_taixuan}
       特效:
         - 编号: *tx_qifang
           位置: *pos_on_person
           动画: 85
           显示: '易经神功护体'
           效果参数: 150
+        - 编号: *tx_shanghai
+          显示: ''
+          效果参数:
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: [系数: -0.05, 变量: {编号: *var_wg_level, 参数: [*wg_yjj]}]
         - &ng_huti_ok
           编号: *tx_ziji_qiangzhi_status
           显示: ''
+          隐藏: true
           效果参数: [*status_huti, 1]
-
-    # 
+  
     - 发动方式: *proc_random
       需求:
         - 条件:
@@ -949,7 +1373,27 @@
           位置: *pos_on_person
           显示: '乾坤大挪移护体'
           效果参数: 140
+        - 编号: *tx_fantan_percentage
+          显示: ''
+          效果参数:
+            可变参数:
+              基础: 2
+              加成:
+                - 线性: [系数: 0.02, 变量: {编号: *var_wg_level, 参数: [*wg_qiankun]}]            
         - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_qiankun]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 50
+      特效:
+        - 编号: *tx_fantan_percentage
+          显示: ''
+          效果参数: 15         
 
     - 发动方式: *proc_random
       需求:
@@ -966,23 +1410,13 @@
           位置: *pos_on_person
           显示: '九阳神功护体'
           效果参数: 135
-        - *ng_huti_ok
-
-    - 发动方式: *proc_random
-      需求:
-        - 条件:
-          - 左边:
-              变量: {编号: *var_has_wg, 参数: [*wg_jiuyin]}
-            对比: *op_equal
-            右边: 1
-          - *ng_huti_req
-      发动参数: *ng_huti_prob
-      特效:
-        - 编号: *tx_qifang
-          动画: 90
-          位置: *pos_on_person
-          显示: '九阴神功护体'
-          效果参数: 115
+        - 编号: *tx_baoji
+          显示: '九阳减伤'
+          效果参数:
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: [系数: -0.02223, 变量: {编号: *var_wg_level, 参数: [*wg_jiuyang]}]    
         - *ng_huti_ok
 
     - 发动方式: *proc_random
@@ -999,7 +1433,54 @@
           动画: 90
           位置: *pos_on_person
           显示: '八荒六合功护体'
+          效果参数: 115
+        - 编号: *tx_neili
+          显示: ''
+          效果参数: 
+            可变参数:
+              基础: 0
+              加成:
+                - 线性: 
+                    - 系数: 0.0002778
+                    - 变量: {编号: *var_wg_power}
+                    - 变量: {编号: *var_wg_level, 参数: [*wg_bahuang]}
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_jiuyin]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '九阴神功护体'
           效果参数: 110
+        - 编号: *tx_ziji_status
+          显示: '九阴清内伤'
+          效果参数: [*status_neishang, -100]          
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_kuihua]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 90
+          位置: *pos_on_person
+          显示: '葵花神功护体'
+          效果参数: 105
         - *ng_huti_ok
 
     - 发动方式: *proc_random
@@ -1016,6 +1497,23 @@
           动画: 89
           位置: *pos_on_person
           显示: '先天功护体'
+          效果参数: 101
+        - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_longxiang]}
+            对比: *op_equal
+            右边: 1
+          - *ng_huti_req
+      发动参数: *ng_huti_prob
+      特效:
+        - 编号: *tx_qifang
+          动画: 89
+          位置: *pos_on_person
+          显示: '龙象般若功护体'
           效果参数: 100
         - *ng_huti_ok
 
@@ -1086,6 +1584,23 @@
           显示: '逆运神功护体'
           效果参数: 89
         - *ng_huti_ok
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_niyun]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        - 编号: *tx_baoji
+          显示: '额外受伤百分之'
+          效果参数: 
+            可变参数:
+              基础: 25
+              加成:
+                - 线性: [系数: -0.01112, 变量: {编号: *var_wg_level, 参数: [*wg_niyun]}]
 
     - 发动方式: *proc_random
       需求:
@@ -1227,13 +1742,21 @@
     - 发动方式: *proc_random
       发动参数:
         可变参数:
-          基础: 100
+          基础: 60
           加成:
-            # 内力差, (己方内力 - 对方) * 0.1
-            - 线性: {系数: -0.05, 变量: {编号: *var_char_mp, 对象: *target_other}}
-            - 线性: {系数: 0.05, 变量: {编号: *var_char_mp, 对象: *target_self}}
+            # 内力差
+            - 线性: [系数: -0.05, 变量: {编号: *var_char_mp, 对象: *target_other}]
+            - 线性: [系数: 0.05, 变量: {编号: *var_char_mp, 对象: *target_self}]
             # 若内功护体，则概率减少
-            - 线性: {系数: -75, 变量: {编号: *var_has_status, 参数: [*status_huti, 1]}}
+            - 线性: [系数: -30, 变量: {编号: *var_has_status, 参数: [*status_huti, 1]}]
+            - 
+              说明: 
+                武功: *wg_chunyang
+                文字: 减少受到内伤概率
+              线性: 
+              - 系数: -0.0556
+              - 变量: {编号: *var_wg_level, 参数: [*wg_chunyang]}
+
       特效:
         - 编号: *tx_ziji_status
           显示: ''
@@ -1241,12 +1764,30 @@
             - *status_neishang
             - 可变参数:
                 基础: 5
-                最小: 0
+                最小: 5
                 最大: 30
                 加成: 
                   # 攻击防御差 *0.3
-                  - 线性: {系数: 0.3, 变量: {编号: *var_char_attack, 对象: *target_other}}
-                  - 线性: {系数: -0.3, 变量: {编号: *var_char_defence, 对象: *target_self}}
+                  - 线性: [系数: 0.3, 变量: {编号: *var_char_attack, 对象: *target_other}]
+                  - 线性: [系数: -0.3, 变量: {编号: *var_char_defence, 对象: *target_self}]
+
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_beiming]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        -
+          编号: *tx_qishang_percentage
+          显示: ''
+          效果参数:
+            - 可变参数:
+                基础: -10
+                加成:
+                  - 线性: [系数: -0.03334, 变量: {编号: *var_wg_level, 参数: [*wg_beiming]}]                  
 
     - 发动方式: *proc_random
       发动参数: 100
@@ -1260,9 +1801,9 @@
             - 可变参数:
                 基础: 0
                 加成:
-                  - 线性: {系数: 1, 状态: *status_waishang}
+                  - 线性: [系数: 1, 状态: *status_waishang]
         - 
-          # 挨打受到怒气，随机25到35点
+          # 挨打受到怒气
           编号: *tx_ziji_status
           显示: '伤害怒气'
           位置: *pos_no
@@ -1272,7 +1813,7 @@
                 基础: 0
                 加成: 
                   - 随机:
-                      范围: {最小: 25, 最大: 35}
+                      范围: {最小: 20, 最大: 30}
 
     # 重置护体
     - 发动方式: *proc_random
@@ -1281,6 +1822,49 @@
         编号: *tx_ziji_qiangzhi_status
         显示: ''
         效果参数: [*status_huti, 0]
+
+    # 北冥掉内力
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        # 这里掉的内力数量会先放入管理器，于是状态就可以清空了
+        - 编号: *tx_neili
+          显示: ''
+          效果参数:
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: [状态: *status_beiming_neili]
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_beiming_neili, 0]
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        - 编号: *tx_neili
+          显示: ''
+          效果参数:
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: [状态: *status_xixing_neili]
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_xixing_neili, 0]
+    - 发动方式: *proc_random
+      发动参数: 100
+      特效:
+        # 这里掉的内力数量会先放入管理器，于是状态就可以清空了
+        - 编号: *tx_neili
+          显示: ''
+          效果参数:
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 线性: [状态: *status_huagong_neili]
+        - 编号: *tx_ziji_qiangzhi_status
+          显示: ''
+          效果参数: [*status_huagong_neili, 0]
           
   集气:
     - 发动方式: *proc_random
@@ -1293,9 +1877,83 @@
               最小: 1
               基础: 10
               加成:
-                - 线性: {系数: 0.005, 变量: {编号: *var_char_mp}}
-                - 线性: {系数: 0.03, 变量: {编号: *var_char_speed}}
-                - 线性: {系数: -0.2, 状态: *status_neishang}
+                - 线性: [系数: 0.005, 变量: {编号: *var_char_mp}]
+                - 线性: [系数: 0.03, 变量: {编号: *var_char_speed}]
+                - 线性: [系数: -0.2, 状态: *status_neishang]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_kuihua]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+      特效:
+        编号: *tx_jiqisudu
+        显示: '葵花神功急速'
+        效果参数: 
+          可变参数:
+            基础: 0
+            加成:
+              - 线性: [系数: 0.01112, 变量: {编号: *var_wg_level, 参数: [*wg_kuihua]}]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_zixia]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 25
+          加成:
+            # 紫霞，25+30%恢复内伤
+            - 线性: [系数: 0.0334, 变量: {编号: *var_wg_level, 参数: [*wg_zixia]}]
+      特效:
+        编号: *tx_ziji_status
+        显示: '紫霞回内伤'
+        效果参数: [*status_neishang, -1]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_chunyang]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 100
+
+      特效:
+        编号: *tx_neili
+        显示: '纯阳回内力'
+        效果参数: 
+          可变参数:
+            基础: 1
+            加成:
+              - 线性: [系数: 0.006667, 变量: {编号: *var_wg_level, 参数: [*wg_chunyang]}]
+
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_xiantian]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 25
+          加成:
+            - 线性: [系数: 0.0556, 变量: {编号: *var_wg_level, 参数: [*wg_xiantian]}]
+      特效:
+        编号: *tx_neili
+        显示: '先天回生命'
+        效果参数: 
+          可变参数:
+            基础: 1
+            加成:
+              - 线性: [系数: 0.006667, 变量: {编号: *var_wg_level, 参数: [*wg_xiantian]}]
 
     # 暴怒+150%集气速度
     - 发动方式: *proc_random
@@ -1310,6 +1968,25 @@
         编号: *tx_jiqisudu_percentage
         显示: '暴怒加速'
         效果参数: 150
+
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shenhuo]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        编号: *tx_jiqisudu_percentage
+        显示: '集气速度百分比增加'
+        效果参数:
+          可变参数:
+            基础: 0
+            加成:
+              # 圣火，提升集气速度1~15%
+              - 线性: [系数: 0.01667, 变量: {编号: *var_wg_level, 参数: [*wg_shenhuo]}]
+
         
     # 封穴降低100%的速度，可以被暴怒解开，以后可以加入特效直接停止集气
     - 发动方式: *proc_random
@@ -1323,7 +2000,15 @@
       特效:
         编号: *tx_jiqisudu_percentage
         显示: '封穴减速'
-        效果参数: -100        
+        效果参数:
+          可变参数:
+            基础: -100
+            加成:
+              - 
+                说明: 
+                  武功: *wg_xiantian
+                  文字: 降低封穴作用
+                线性: [系数: 0.006667, 变量: {编号: *var_wg_level, 参数: [*wg_xiantian]}]
 
     # 每时序解开一点封穴
     - 发动方式: *proc_random
@@ -1337,9 +2022,156 @@
       特效:
         编号: *tx_ziji_status
         显示: '时解封穴'
-        效果参数: [*status_fengxue, -1]  
+        效果参数: [*status_fengxue, -1]
+
+    # 逆运时序受到内伤，解封穴
+    - 发动方式: *proc_random
+      发动参数: 100
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_niyun]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        -
+          编号: *tx_ziji_status
+          显示: '逆运时序内伤'
+          效果参数: [*status_neishang, 1]
+        -
+          编号: *tx_ziji_status
+          显示: '时解封穴'
+          效果参数: [*status_fengxue, -1]
+
+    # 逆运时序加怒气值
+    - 发动方式: *proc_random
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_niyun]}
+            对比: *op_equal
+            右边: 1
+      发动参数: 
+        可变参数:
+          基础: 10
+          加成:
+            - 线性: [系数: 0.1, 变量: {编号: *var_wg_level, 参数: [*wg_niyun]}]
+      特效:
+        -
+          编号: *tx_ziji_status
+          显示: '逆运怒气值'
+          效果参数: 
+            - *status_nuqi
+            - 可变参数:
+                基础: 0
+                加成:
+                  - 随机: {范围: {最小: 1, 最大: 3}}
 
   回合:
+    - 发动方式: *proc_random
+      发动参数: 
+        可变参数:
+          基础: 30
+          加成:
+            # 混元，+30%恢复体力
+            - 线性: [系数: 0.0334, 变量: {编号: *var_wg_level, 参数: [*wg_hunyuan]}]        
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_hunyuan]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        编号: *tx_ziji_status
+        显示: '混元恢复体力'
+        效果参数: [*status_tili, 3]
+
+    - 发动方式: *proc_random
+      发动参数: 100  
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_hunyuan]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        编号: *tx_neili
+        显示: '混元恢复内力'
+        效果参数:
+          可变参数:
+            基础: 30
+            加成:
+              # 混元，30 + 90点恢复
+              - 线性: [系数: 0.1, 变量: {编号: *var_wg_level, 参数: [*wg_hunyuan]}]
+
+    - 发动方式: *proc_random
+      发动参数: 100  
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_shihou]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        编号: *tx_ziji_status
+        显示: '狮吼恢复内伤'
+        效果参数:
+          - *status_neishang
+          - 可变参数:
+              基础: -5
+              加成:
+                - 线性: [系数: -0.02223, 变量: {编号: *var_wg_level, 参数: [*wg_shihou]}]
+
+    - 发动方式: *proc_random
+      发动参数: 100  
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_yjj]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        编号: *tx_shenming
+        显示: '易筋经恢复生命'
+        效果参数:
+          可变参数:
+            基础: 15
+            加成:
+              # 希望精度够
+              - 线性: 
+                - 系数: 0.000112
+                - 变量: {编号: *var_char_maxhp}
+                - 变量: {编号: *var_wg_level, 参数: [*wg_yjj]}
+              - 线性: 
+                - 系数: -0.000112
+                - 变量: {编号: *var_char_hp}
+                - 变量: {编号: *var_wg_level, 参数: [*wg_yjj]}
+
+    - 发动方式: *proc_random
+      发动参数: 100  
+      需求:
+        - 条件:
+          - 左边:
+              变量: {编号: *var_has_wg, 参数: [*wg_jiuyang]}
+            对比: *op_equal
+            右边: 1
+      特效:
+        编号: *tx_shenming
+        显示: '九阳恢复内力'
+        效果参数:
+          可变参数:
+            基础: 0
+            加成:
+              # 希望精度够
+              - 线性: 
+                - 系数: 0.0002223
+                - 变量: {编号: *var_char_maxmp}
+                - 变量: {编号: *var_wg_level, 参数: [*wg_jiuyang]}
+              - 线性: 
+                - 系数: -0.0002223
+                - 变量: {编号: *var_char_mp}
+                - 变量: {编号: *var_wg_level, 参数: [*wg_jiuyang]}
+
     # 行动结束怒气-100
     - 发动方式: *proc_random
       发动参数: 100
@@ -1352,7 +2184,16 @@
       特效:
         编号: *tx_ziji_status
         显示: '结束去怒'
-        效果参数: [*status_nuqi, -100]
+        效果参数: 
+          - *status_nuqi
+          - 可变参数:
+              基础: -100
+              加成:
+                - 
+                  说明: 
+                    武功: *wg_shiba
+                    文字: 暴怒恢复怒气      
+                  线性: [系数: 0.05556, 变量: {编号: *var_wg_level, 参数: [*wg_shiba]}]
 
     # 重置互博计数
     - 发动方式: *proc_random
@@ -1378,39 +2219,47 @@
       可变参数:
         基础: 0
         加成:
-          - 线性: {系数: 0.2, 变量: {编号: *var_char_fist}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_sword}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_blade}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_unusual}}
+          - 线性: [系数: 0.2, 变量: {编号: *var_char_fist}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_sword}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_blade}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_unusual}]
+          - &zhaoshi_xiaowu
+            说明: 
+              武功: *wg_xiaowu
+              文字: "额外招式"  
+            线性: [系数: 0.03334, 变量: {编号: *var_wg_level, 参数: [*wg_xiaowu]}]
   -
     发动参数: &zhaoshi_sword_prob
       可变参数:
         基础: 0
         加成:
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_fist}}
-          - 线性: {系数: 0.2, 变量: {编号: *var_char_sword}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_blade}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_unusual}}
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_fist}]
+          - 线性: [系数: 0.2, 变量: {编号: *var_char_sword}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_blade}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_unusual}]
+          - *zhaoshi_xiaowu
 
   -
     发动参数: &zhaoshi_blade_prob
       可变参数:
         基础: 0
         加成:
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_fist}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_sword}}
-          - 线性: {系数: 0.2, 变量: {编号: *var_char_blade}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_unusual}}
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_fist}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_sword}]
+          - 线性: [系数: 0.2, 变量: {编号: *var_char_blade}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_unusual}]
+          - *zhaoshi_xiaowu
 
   -
     发动参数: &zhaoshi_unusual_prob
       可变参数:
         基础: 0
         加成:
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_fist}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_sword}}
-          - 线性: {系数: 0.1, 变量: {编号: *var_char_blade}}
-          - 线性: {系数: 0.2, 变量: {编号: *var_char_unusual}}
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_fist}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_sword}]
+          - 线性: [系数: 0.1, 变量: {编号: *var_char_blade}]
+          - 线性: [系数: 0.2, 变量: {编号: *var_char_unusual}]
+          - *zhaoshi_xiaowu
 
 武功:
   - 武功编号: *wg_xianglongshibazhang
@@ -1420,7 +2269,7 @@
           可变参数:
             基础: 120
             加成:
-              - 线性: {系数: -0.5, 变量: {编号: *var_char_morality}}
+              - 线性: [系数: -0.5, 变量: {编号: *var_char_morality}]
         特效:
           - 编号: *tx_qigong
             显示: '潜龙勿用'
@@ -1460,7 +2309,7 @@
           可变参数:
             基础: 120
             加成:
-              - 线性: {系数: -0.01, 变量: {编号: *var_char_mp}}
+              - 线性: [系数: -0.01, 变量: {编号: *var_char_mp}]
         特效:
           - 编号: *tx_qigong
             显示: '少商剑'
@@ -3328,31 +4177,31 @@
         - 编号: *tx_qigong
           显示: '划'
           位置: *pos_on_person
-          效果参数: 271
+          效果参数: 180
           发动参数: *zhaoshi_blade_prob
 
         - 编号: *tx_qigong
           显示: '切'
           位置: *pos_on_person
-          效果参数: 257
+          效果参数: 170
           发动参数: *zhaoshi_blade_prob
 
         - 编号: *tx_qigong
           显示: '剁'
           位置: *pos_on_person
-          效果参数: 242
+          效果参数: 160
           发动参数: *zhaoshi_blade_prob
 
         - 编号: *tx_qigong
           显示: '劈'
           位置: *pos_on_person
-          效果参数: 228
+          效果参数: 150
           发动参数: *zhaoshi_blade_prob
 
         - 编号: *tx_qigong
           显示: '砍'
           位置: *pos_on_person
-          效果参数: 214
+          效果参数: 140
           发动参数: *zhaoshi_blade_prob
 
   - 武功编号: *wg_wanjiedaofa

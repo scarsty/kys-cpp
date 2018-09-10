@@ -127,10 +127,10 @@ void TitleScene::dealEvent(BP_Event& e)
             role->Medicine = 40;
             role->UsePoison = 40;
             role->Detoxification = 30;
-            role->Fist = 30;
-            role->Sword = 30;
-            role->Knife = 30;
-            role->Unusual = 30;
+            role->Fist = 20;
+            role->Sword = 20;
+            role->Knife = 20;
+            role->Unusual = 20;
             role->HiddenWeapon = 30;
 
             std::vector<std::vector<std::pair<BP_Color, std::string>>> texts;
@@ -141,7 +141,7 @@ void TitleScene::dealEvent(BP_Event& e)
             texts.push_back(createIntText(role, "攻擊力", c1, c2));
             texts.push_back(createIntText(role, "防禦力", c1, c2));
             texts.push_back(createIntText(role, "輕功", c1, c2));
-            texts.push_back({ { c1, "兵器值     " }, {c2, "30" } });
+            // texts.push_back({ { c1, "兵器值     " }, {c2, "30" } });
             texts.push_back({});
             texts.push_back({ {c1, "不可修煉秘籍" } });
             for (auto item : Save::getInstance()->getItems()) {

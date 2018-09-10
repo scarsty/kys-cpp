@@ -1,5 +1,6 @@
 {
     "files.encoding" : "gb2312",
+    "editor.autoClosingBrackets": false,
     "C_Cpp.clang_format_path": "E:\\LLVM\\bin\\clang-format.exe",
     "files.associations": {
         "algorithm": "cpp",

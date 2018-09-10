@@ -159,6 +159,7 @@ public:
     {
         std::vector<ShowString> ShowStrings;
         int BattleHurt;
+        int MPHurt;
         int ProgressChange;
         int Effect;
         ActionShowInfo()
@@ -169,6 +170,7 @@ public:
         {
             ShowStrings.clear();
             BattleHurt = 0;
+            MPHurt = 0;
             ProgressChange = 0;
             Effect = -1;
         }
@@ -218,7 +220,7 @@ public:
 
     bool isAuto() { return Auto != 0 || Team != 0; }
 
-    void addShowString(std::string text, BP_Color color = { 255, 255, 255, 255 }, int size = 28) { Show.ShowStrings.push_back({ text, color, size }); }
+    void addShowString(std::string text, BP_Color color = { 255, 255, 255, 255 }, int size = 24) { Show.ShowStrings.push_back({ text, color, size }); }
     void clearShowStrings() { Show.ShowStrings.clear(); }
 
 public:

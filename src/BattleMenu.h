@@ -2,6 +2,7 @@
 #include "Head.h"
 #include "Menu.h"
 #include "UIItem.h"
+#include "MagicEffectDrawable.h"
 
 class BattleScene;
 
@@ -68,7 +69,7 @@ public:
     virtual ~BattleMagicMenu() {}
 
     //virtual void onEntrance() override;
-
+    MagicEffectDrawable * drawable = nullptr;
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
     void setRole(Role* r);
@@ -78,6 +79,8 @@ public:
         return run();
     }
 
+    void draw() override;
+    void dealEvent(BP_Event& e) override;
     Magic* getMagic() { return magic_; }
     void onEntrance() override;
 

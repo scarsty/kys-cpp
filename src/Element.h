@@ -15,6 +15,7 @@ private:
     static int refresh_interval_;
 protected:
     std::vector<Element*> childs_;
+    bool prev_visible_ = true;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;               //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
@@ -158,6 +159,7 @@ private:
 
 public:
     int run(bool in_root = true);                       //执行本层
+    int runAndHideOthers();
     int runAtPosition(int x = 0, int y = 0, bool in_root = true) { setPosition(x, y); return run(in_root); }
     static void exitAll(int begin = 0);                 //设置从begin开始的全部节点状态为退出
     int drawAndPresent(int times = 1, std::function<void(void*)> func = nullptr, void* data = nullptr);

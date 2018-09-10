@@ -107,6 +107,7 @@
     <ClCompile Include="src\Console.cpp" />
     <ClCompile Include="src\DrawableOnCall.cpp" />
     <ClCompile Include="src\InputBox.cpp" />
+    <ClCompile Include="src\MagicEffectDrawable.cpp" />
     <ClCompile Include="src\OpenCCConverter.cpp" />
     <ClCompile Include="src\ParticleExample.cpp" />
     <ClCompile Include="src\ParticleSystem.cpp" />
@@ -164,6 +165,7 @@
     <ClInclude Include="src\Console.h" />
     <ClInclude Include="src\DrawableOnCall.h" />
     <ClInclude Include="src\InputBox.h" />
+    <ClInclude Include="src\MagicEffectDrawable.h" />
     <ClInclude Include="src\OpenCCConverter.h" />
     <ClInclude Include="src\ParticleExample.h" />
     <ClInclude Include="src\ParticleSystem.h" />

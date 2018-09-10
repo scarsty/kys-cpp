@@ -40,7 +40,8 @@ public:
     // 暂且考虑修改这些函数
     virtual void setRoleInitState(Role* r) override;
 
-    virtual void actRest(Role* r);
+    virtual void actRest(Role* r) override;
+    virtual void actUseMagic(Role* r) override;
     virtual void actUseMagicSub(Role* r, Magic* magic) override;
     virtual void calExpGot() override;
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);

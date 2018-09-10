@@ -163,6 +163,9 @@
     <ClCompile Include="src\TextBoxRoll.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="src\MagicEffectDrawable.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -337,6 +340,9 @@
       <Filter>save</Filter>
     </ClInclude>
     <ClInclude Include="src\TextBoxRoll.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MagicEffectDrawable.h">
       <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>

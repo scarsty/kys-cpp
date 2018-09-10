@@ -54,6 +54,21 @@
     instruct_0();   --  0(0)::空语句(清屏)
 
     if instruct_5(0,318) ==true then    --  5(5):是否选择战斗？否则跳转到:Label0
+        -- 加强杨过小龙女
+        addMaxHP(58, 150)
+        addAttack(58, 60)
+        addDefense(58, 60)
+        addSpeed(58, 30)
+        setRoleMagicLevel(58, 0, 900)
+        setRoleMagicLevel(58, 1, 900)
+        setRoleMagicLevel(58, 2, 900)
+
+        addMaxHP(59, 100)
+        addAttack(59, 50)
+        addDefense(59, 50)
+        addSpeed(59, 30)
+        setRoleMagicLevel(59, 0, 900)
+
         instruct_37(-10);   --  37(25):增加道德-10
         instruct_1(549,0,1);   --  1(1):[AAA]说: 杨兄，咱们也算是老朋友了*，能否将此书让给我？
         instruct_0();   --  0(0)::空语句(清屏)

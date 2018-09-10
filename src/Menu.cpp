@@ -36,7 +36,7 @@ void Menu::dealEvent(BP_Event& e)
             break;
         }
 
-        if (direct != None)
+        if (direct != None && active_child_ != -1)
         {
             //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
             bool all_normal = checkAllNormal();

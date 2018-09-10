@@ -118,7 +118,7 @@ void BattleScene::draw()
                 {
                     if (select_layer_->data(ix, iy) < 0)
                     {
-                        color = { 64, 64, 64, 255 };
+                        color = { 32, 32, 32, 255 };
                         need_draw = earth_texture_ == nullptr;
                     }
                     else
@@ -131,11 +131,11 @@ void BattleScene::draw()
                         {
                             if (!canSelect(ix, iy))
                             {
-                                color = { 160, 160, 160, 255 };
+                                color = { 192, 192, 192, 255 };
                             }
                             else
                             {
-                                color = { 192, 192, 192, 255 };
+                                color = { 224, 224, 224, 255 };
                             }
                         }
                     }
@@ -176,7 +176,7 @@ void BattleScene::draw()
                     uint8_t alpha = 255;
                     if (battle_cursor_->isRunning() && !acting_role_->isAuto())
                     {
-                        color = { 128, 128, 128, 255 };
+                        color = { 96, 96, 96, 255 };
                         if (inEffect(acting_role_, r))
                         {
                             color = { 255, 255, 255, 255 };
@@ -504,7 +504,10 @@ void BattleScene::readBattleInfo()
                 if (r)
                 {
                     friends_.push_back(r);
-                    r->Auto = 2;    //由AI控制
+                    if (!GameUtil::inTeam(r))
+                    {
+                        r->Auto = 2;    //由AI控制
+                    }
                 }
             }
         }
@@ -523,6 +526,10 @@ void BattleScene::readBattleInfo()
             if (r)
             {
                 battle_roles_.push_back(r);
+                if (r->Auto != 2)
+                {
+                    r->Auto = 0;
+                }
                 r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
                 r->Team = 0;
             }
@@ -554,7 +561,7 @@ void BattleScene::setRoleInitState(Role* r)
     GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);
 
     // 对方==1 则 自动
-    r->Auto = r->Team;
+    // r->Auto = r->Team;
 
     if (network_)
     {

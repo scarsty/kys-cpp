@@ -153,7 +153,11 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(shop, VOID_0);
     REGISTER_INSTRUCT(playMusic, VOID_1);
     REGISTER_INSTRUCT(playWave, VOID_1);
+
     REGISTER_INSTRUCT(checkD, BOOL_2);
+    REGISTER_INSTRUCT(addDefence, VOID_2);
+    REGISTER_INSTRUCT(addDefense, VOID_2);
+    REGISTER_INSTRUCT(setRoleMagicLevel, VOID_3);
 
     REGISTER_INSTRUCT(instruct_0, VOID_0);
     REGISTER_INSTRUCT(instruct_1, VOID_3);

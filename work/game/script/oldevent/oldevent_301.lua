@@ -221,6 +221,13 @@
         instruct_1(2423,48,0);   --  1(1):[游坦之]说: 降龙十八掌？……这个……*这个……
         instruct_0();   --  0(0)::空语句(清屏)
 
+        -- 游坦之变强
+        addAttack(48, 50)
+        addMaxHP(48, 300)
+        addMaxMP(48, 500)
+        addSpeed(48, 40)
+        addDefense(48, 60)
+
         if instruct_6(197,4,0,0) ==false then    --  6(6):战斗[197]是则跳转到:Label5
             instruct_15(0);   --  15(F):战斗失败，死亡
             do return; end
@@ -261,6 +268,13 @@
         instruct_1(2434,245,1);   --  1(1):[???]说: 住口！你与萧大哥素无恩怨*，为何一再苦苦相逼！你处*心积虑，收买人心，就为了*你那虚无缥缈的皇帝梦！要*碰我大哥，先过我这一关！
         instruct_0();   --  0(0)::空语句(清屏)
 
+        -- 慕容复变强
+        addAttack(51, 30)
+        addMaxHP(51, 150)
+        addMaxMP(51, 700)
+        addSpeed(51, 30)
+        addDefense(51, 30)
+
         if instruct_6(198,4,0,0) ==false then    --  6(6):战斗[198]是则跳转到:Label6
             instruct_15(0);   --  15(F):战斗失败，死亡
             do return; end
@@ -284,6 +298,12 @@
         instruct_13();   --  13(D):重新显示场景
         instruct_1(2437,103,0);   --  1(1):[???]说: 久闻降龙十八掌天下无双，*贫僧也要领教一二。
         instruct_0();   --  0(0)::空语句(清屏)
+
+        -- 鸠摩智变强
+        addAttack(103, 30)
+        addMaxMP(103, 500)
+        addSpeed(103, 30)
+        addDefense(103, 30)
 
         if instruct_6(200,4,0,0) ==false then    --  6(6):战斗[200]是则跳转到:Label8
             instruct_15(0);   --  15(F):战斗失败，死亡
