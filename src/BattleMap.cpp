@@ -1,4 +1,3 @@
-#pragma once
 #include "BattleMap.h"
 #include "File.h"
 #include "GrpIdxFile.h"
