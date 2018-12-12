@@ -88,9 +88,20 @@ common <https://github.com/scarsty/common>
 
 部分库和对应的头文件可以从<https://github.com/scarsty/local-lib>取得。
 
-### common
+### common和local
 
-common目录包含了一些常用的公共功能，被多个工程使用。代码请从<https://github.com/scarsty/common>下载并置于适合的位置，或者使用脚本get-common.sh获取。
+common目录包含了一些常用的公共功能，被多个工程使用。
+
+local目录收集了一些Windows下常用的库。
+
+可以用以下命令
+
+```shell
+git submodule init
+git submodule update
+```
+
+或者get-submodule.sh来获取和更新这两个库。
 
 ### tinypot
 
