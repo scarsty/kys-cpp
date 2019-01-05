@@ -28,7 +28,7 @@ Save中对所有数据进行了封装，可以较为方便地调用。
 
 TextureManger是一个纹理管理器，因为《金庸群侠传》的贴图是含偏移设置的，故有些特殊的地方。
 
-Audio是音频类，基于Bass，可以播放mid，mp3，wav等。
+Audio是音频类，基于Bass，可以播放mid、mp3、wav等格式。
 
 ### Element
 
@@ -49,6 +49,10 @@ run过程会返回一个函数值，可以利用进行一些判断，例如菜�
 部分节点使用了单例，这些节点请留给程序运行结束自动销毁。
 
 请不要让子节点出现递归包含，这样会迅速消耗掉所有资源。
+
+### 注意事项
+
+本工程刻意避免了一些特性的使用，例如智能指针、回调函数等。
 
 ## 使用到的其他开发库
 
@@ -80,36 +84,38 @@ fribidi <https://www.fribidi.org/>
 
 ini Reader <https://github.com/benhoyt/inih>
 
-tinypot <https://github.com/scarsty/tinypot>
-
-common <https://github.com/scarsty/common>
+OpenCC <https://github.com/BYVoid/OpenCC>
 
 hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
 
-OpenCC <https://github.com/BYVoid/OpenCC>
-
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
-部分库和对应的头文件可以从<https://github.com/scarsty/lib-collection>取得。
+汉字转拼音库直接将源码集成进了工程。
 
 ### common和local
 
-common目录包含了一些常用的公共功能，被多个工程使用。
+common <https://github.com/scarsty/common>
 
-local目录收集了一些Windows下常用的库。
+common包含了一些常用的公共功能，是作者所写的一个通用功能集合，被多个工程使用。
+
+前面提到的开源库大部分可以从<https://github.com/scarsty/lib-collection>取得头文件和导入库。此工程收集了一些Linux下常见，但是Windows下经常不能直接使用的库，在Windows下编译时通常需要将其保存在local目录中，有些库也可以用vcpkg或者msys2来安装，请自行选择处理。在Linux下编译时则应优先考虑使用系统自带的库。
 
 可以用以下命令
 
 ```shell
 git submodule init
-git submodule update
+git submodule update --remote
 ```
 
 或者get-submodule.sh来获取和更新这两个库。
 
 ### tinypot
 
-游戏中使用这个库进行视频的播放，如果难以处理，可以将预处理定义宏中的\_TINYPOT删除。
+tinypot <https://github.com/scarsty/tinypot>
+
+这是作者编写的一个视频播放器，游戏中将其编译为动态库并用于进行视频的播放。
+
+如果难以处理，可以将预处理定义宏中的\_TINYPOT删除。
 
 ## 授权
 
@@ -132,6 +138,8 @@ If the codes are used in KYS related games, the game is strictly prohibited for 
 A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome screen.
 
 ## 运行截图
+
+第一张图中武器的属性显示有错误，已修正。
 
 <img src='https://pic2.zhimg.com/80/v2-fcac09adf861ee474477bbe91bf0fbab_hd.jpg' />
 
