@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <utility>
 #include "libconvert.h"
-#include "hanzi2pinyin.h"
 #include "OpenCCConverter.h"
+#include "../hanzi2pinyin/Hanz2Piny.h"
 
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
     InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
@@ -28,7 +28,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
         auto u8Name = PotConv::cp936toutf8(pairName.second);
         std::string pinyin;
         pinyin.resize(1024);
-        int size = hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
+        int size = Hanz2Piny::hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
         pinyin.resize(size);
         auto pys = convert::splitString(pinyin, " ");
         std::vector<std::string> acceptables;

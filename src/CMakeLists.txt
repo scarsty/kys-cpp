@@ -11,7 +11,8 @@ link_directories(. ../lib)
 file(GLOB SRC_LIST
     ./*.cpp
     ../common/libconvert.cpp
-    ../common/File.cpp)
+    ../common/File.cpp
+    ../hanzi2pinyin/Hanz2Piny.cpp)
 
 set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2main lua5.3 bass bassmidi minizip)
 if (APPLE)

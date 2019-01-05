@@ -7,7 +7,6 @@
 #include "SuperMenuText.h"
 #include "Font.h"
 #include "libconvert.h"
-#include "hanzi2pinyin.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
 

@@ -157,6 +157,9 @@
     <ClCompile Include="src\TextBoxRoll.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="hanzi2pinyin\Hanz2Piny.cpp">
+      <Filter>hanzi2pinyin</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -324,6 +327,9 @@
     <ClInclude Include="src\TextBoxRoll.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="hanzi2pinyin\Hanz2Piny.h">
+      <Filter>hanzi2pinyin</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -366,6 +372,9 @@
     </Filter>
     <Filter Include="battle-mod">
       <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hanzi2pinyin">
+      <UniqueIdentifier>{36f35be4-3d2e-449c-a190-2d755a70d4bb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

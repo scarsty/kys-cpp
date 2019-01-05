@@ -66,7 +66,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;opencc.lib;hanzi2pinyin.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;opencc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86;local/lib/x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -88,11 +88,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;opencc.lib;hanzi2pinyin.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;tinypot.lib;minizip.lib;lua.lib;opencc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86;local/lib/x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="hanzi2pinyin\Hanz2Piny.cpp" />
     <ClCompile Include="src\Application.cpp" />
     <ClCompile Include="src\Audio.cpp" />
     <ClCompile Include="src\BattleMap.cpp" />
@@ -147,6 +148,7 @@
     <ClCompile Include="src\Zip.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="hanzi2pinyin\Hanz2Piny.h" />
     <ClInclude Include="resource\resource.h" />
     <ClInclude Include="src\Application.h" />
     <ClInclude Include="src\Audio.h" />

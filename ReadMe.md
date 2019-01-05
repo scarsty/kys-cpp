@@ -84,9 +84,13 @@ tinypot <https://github.com/scarsty/tinypot>
 
 common <https://github.com/scarsty/common>
 
+hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
+
+OpenCC <https://github.com/BYVoid/OpenCC>
+
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
-部分库和对应的头文件可以从<https://github.com/scarsty/local-lib>取得。
+部分库和对应的头文件可以从<https://github.com/scarsty/lib-collection>取得。
 
 ### common和local
 
