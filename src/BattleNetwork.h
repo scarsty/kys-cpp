@@ -10,6 +10,7 @@
 #include <array>
 #include <memory>
 #include <thread>
+#include <system_error>
 
 // 使用方法
 // 1. 选择人物
