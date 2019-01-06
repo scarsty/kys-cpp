@@ -1,4 +1,6 @@
 #include "BattleNetwork.h"
+
+#ifdef _NETWORK
 #include "DrawableOnCall.h"
 #include "File.h"
 #include "Font.h"
@@ -360,3 +362,4 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     waitThis.run();
     return ok;
 }
+#endif
