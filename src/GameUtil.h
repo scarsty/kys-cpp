@@ -20,8 +20,12 @@ public:
         return &gu;
     }
 
-    static const std::string& VERSION();
-
+    static const std::string& VERSION()
+    {
+        static std::string v = "";
+        return v;
+    }
+    
     static int sign(int v)
     {
         if (v > 0)

@@ -1,14 +1,16 @@
 #include "SuperMenuText.h"
-#include "PotConv.h"
-#include <cmath>
-#include <algorithm>
-#include <utility>
-#include "libconvert.h"
-#include "OpenCCConverter.h"
 #include "../hanzi2pinyin/Hanz2Piny.h"
+#include "OpenCCConverter.h"
+#include "PotConv.h"
+#include "libconvert.h"
+#include <algorithm>
+#include <cmath>
+#include <utility>
 
-SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
-    InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
+SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
+    : InputBox(title, font_size)
+    , items_(allItems)
+    , itemsPerPage_(itemsPerPage)
 {
     previous_ = new Button();
     previous_->setText("上一頁PgUp");
@@ -22,42 +24,55 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     setAllChildState(Normal);
     defaultPage();
 
-    for (const auto& pairName : items_) 
+    std::function<bool(const std::string&, const std::string&)> match = [&](const std::string & text, const std::string & name) -> bool
     {
-        // 拼音
-        auto u8Name = PotConv::cp936toutf8(pairName.second);
-        std::string pinyin;
-        pinyin.resize(1024);
-        int size = Hanz2Piny::hanz2pinyin(u8Name.c_str(), u8Name.size(), &pinyin[0]);
-        pinyin.resize(size);
-        auto pys = convert::splitString(pinyin, " ");
-        std::vector<std::string> acceptables;
-
-        std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx)
+        std::string pinyin = Hanz2Piny::hanz2pinyin(PotConv::cp936toutf8(name));
+        int p = 0;
+        for (int i = 0; i < text.size(); i++)
         {
-            if (idx == pys.size())
+            int p1 = pinyin.find_first_of(text[i], p);
+            if (p1 < 0)
             {
-                acceptables.push_back(curStr);
-                return;
+                return false;
             }
-            comboGenerator(curStr + pys[idx][0], idx + 1);
-            comboGenerator(curStr + pys[idx], idx + 1);
-        };
-        comboGenerator("", 0);
-
-        for (auto& acc : acceptables)
-        {
-            for (int i = 0; i < acc.size(); i++)
-            {
-                matches_[acc.substr(0, i + 1)].insert(pairName.second);
-            }
+            p = p1 + 1;
         }
+        return true;
+    };
+    setMatchFunction(match);
+    for (const auto& pairName : items_)
+    {
+        //// 拼音
+        //auto u8Name = PotConv::cp936toutf8(pairName.second);
+        //std::string pinyin = Hanz2Piny::hanz2pinyin(u8Name);
+        //auto pys = convert::splitString(pinyin, " ");
+        //std::vector<std::string> acceptables;
 
-        // 直接对字，可以两个跳，但是不管了
-        for (int i = 0; i < pairName.second.size(); i++)
-        {
-            matches_[pairName.second.substr(0, i + 1)].insert(pairName.second);
-        }
+        //std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx)
+        //{
+        //    if (idx == pys.size())
+        //    {
+        //        acceptables.push_back(curStr);
+        //        return;
+        //    }
+        //    comboGenerator(curStr + pys[idx][0], idx + 1);
+        //    comboGenerator(curStr + pys[idx], idx + 1);
+        //};
+        //comboGenerator("", 0);
+
+        //for (auto& acc : acceptables)
+        //{
+        //    for (int i = 0; i < acc.size(); i++)
+        //    {
+        //        matches_[acc.substr(0, i + 1)].insert(pairName.second);
+        //    }
+        //}
+
+        //// 直接对字，可以两个跳，但是不管了
+        //for (int i = 0; i < pairName.second.size(); i++)
+        //{
+        //    matches_[pairName.second.substr(0, i + 1)].insert(pairName.second);
+        //}
 
         // 对id
         std::string strID = std::to_string(pairName.first);
@@ -76,7 +91,7 @@ void SuperMenuText::setInputPosition(int x, int y)
     next_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
 }
 
-void SuperMenuText::addDrawableOnCall(DrawableOnCall * doc)
+void SuperMenuText::addDrawableOnCall(DrawableOnCall* doc)
 {
     docs_.push_back(doc);
     addChild(doc);
@@ -89,7 +104,8 @@ void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, cons
 
 void SuperMenuText::defaultPage()
 {
-    if (curDefault_) return;
+    if (curDefault_)
+    { return; }
     std::vector<std::string> displays;
     searchResultIndices_.clear();
     for (int i = 0; i < items_.size(); i++)
@@ -105,7 +121,7 @@ void SuperMenuText::defaultPage()
     updateMaxPages();
     selections_->setStrings(displays);
     if (displays.size() != 0)
-        selections_->forceActiveChild(0);
+    { selections_->forceActiveChild(0); }
     curDefault_ = true;
 }
 
@@ -131,15 +147,16 @@ void SuperMenuText::flipPage(int pInc)
 bool SuperMenuText::defaultMatch(const std::string& input, const std::string& name)
 {
     auto iterInput = matches_.find(input);
-    if (iterInput != matches_.end()) 
+    if (iterInput != matches_.end())
     {
         auto iterName = iterInput->second.find(name);
-        if (iterName != iterInput->second.end()) return true;
+        if (iterName != iterInput->second.end())
+        { return true; }
     }
     return false;
 }
 
-void SuperMenuText::search(const std::string& text) 
+void SuperMenuText::search(const std::string& text)
 {
     std::vector<std::string> results;
     activeIndices_.clear();
@@ -153,7 +170,7 @@ void SuperMenuText::search(const std::string& text)
         if (matchFunc_ && matchFunc_(text, opt.second))
         {
             matched = true;
-        } 
+        }
         else
         {
             matched = defaultMatch(text, opt.second);
@@ -180,8 +197,8 @@ void SuperMenuText::updateMaxPages()
     maxPages_ = std::ceil((searchResultIndices_.size() / (double)itemsPerPage_));
 }
 
-void SuperMenuText::dealEvent(BP_Event & e)
-{   
+void SuperMenuText::dealEvent(BP_Event& e)
+{
     // get不到result 为何
     // 不知道这玩意儿在干嘛，瞎搞即可
     if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
@@ -248,7 +265,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
     }
     case BP_MOUSEWHEEL:
     {
-        if (e.wheel.y > 0) 
+        if (e.wheel.y > 0)
         {
             flipPage(-1);
         }
@@ -271,7 +288,7 @@ void SuperMenuText::dealEvent(BP_Event & e)
     }
 
     int selectionIdx = selections_->getActiveChildIndex();
-    if (selectionIdx != -1)
+    if (selectionIdx >= 0 && selectionIdx < activeIndices_.size())
     {
         int idx = activeIndices_[selectionIdx];
         for (auto& doc : docs_)
@@ -279,12 +296,20 @@ void SuperMenuText::dealEvent(BP_Event & e)
             doc->updateScreenWithID(items_[idx].first);
         }
     }
+    else
+    {
+        for (auto& doc : docs_)
+        {
+            doc->updateScreenWithID(-1);
+        }
+    }
 
     if (selections_->getResult() >= 0)
     {
         auto selected = selections_->getResultString();
         result_ = activeIndices_[selections_->getResult()];
-        if (result_ >= 0) result_ = items_[result_].first;
+        if (result_ >= 0)
+        { result_ = items_[result_].first; }
         setExit(true);
     }
 }

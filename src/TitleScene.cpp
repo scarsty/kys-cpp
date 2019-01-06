@@ -18,6 +18,8 @@
 #include "UIShop.h"
 
 #include "TextBoxRoll.h"
+#include "../hanzi2pinyin/Hanz2Piny.h"
+#include "PotConv.h"
 
 TitleScene::TitleScene()
 {

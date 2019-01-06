@@ -20,12 +20,6 @@ GameUtil::~GameUtil()
 {
 }
 
-const std::string& GameUtil::VERSION()
-{
-    static std::string v("20180830");
-    return v;
-}
-
 //某人是否可以使用某物品
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
 bool GameUtil::canUseItem(Role* r, Item* i)

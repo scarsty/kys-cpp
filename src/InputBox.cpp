@@ -56,11 +56,11 @@ void InputBox::dealEvent(BP_Event& e)
     case BP_KEYUP:
         if (e.key.keysym.sym == BPK_RETURN)
         {
-            if (!text_.empty())
-            {
-                result_ = 0;
-                exit_ = true;
-            }
+            //if (!text_.empty())
+            //{
+            result_ = 0;
+            exit_ = true;
+            //}
         }
         break;
     }

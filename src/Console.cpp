@@ -1,25 +1,24 @@
 #include "Console.h"
-#include "DrawableOnCall.h"
-#include "PotConv.h"
-#include "InputBox.h"
-#include "Save.h"
-#include "MainScene.h"
-#include "SuperMenuText.h"
-#include "Font.h"
-#include "libconvert.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
+#include "DrawableOnCall.h"
+#include "Font.h"
+#include "InputBox.h"
+#include "MainScene.h"
+#include "PotConv.h"
+#include "Save.h"
+#include "SuperMenuText.h"
+#include "libconvert.h"
 
+#include <algorithm>
+#include <functional>
+#include <iostream>
+#include <sstream>
 #include <string>
-#include <vector>
-#include <utility>
 #include <unordered_map>
 #include <unordered_set>
-#include <functional>
-#include <algorithm>
-#include <sstream>
-#include <iostream>
-
+#include <utility>
+#include <vector>
 
 Console::Console()
 {
@@ -36,7 +35,7 @@ Console::Console()
     // 捂脸
     code = PotConv::conv(code, "cp936", "utf-8");
     auto splits = convert::splitString(code, " ");
-    if (splits.empty()) return;
+    //if (splits.empty()) return;
     if (code == u8"menutest")
     {
         std::vector<std::pair<int, std::string>> generated;
@@ -50,10 +49,10 @@ Console::Console()
         int id = smt.getResult();
         printf("result %d\n", id);
     }
-    else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache") 
+    else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache" || code == "")
     {
         std::vector<std::pair<int, std::string>> locs;
-        for (const auto& info : Save::getInstance()->getSubMapInfos()) 
+        for (const auto& info : Save::getInstance()->getSubMapInfos())
         {
             // 还有其他要求 这里作为一个demo就意思意思
             if (info->MainEntranceX1 != 0 && info->MainEntranceY1 != 0)
@@ -65,24 +64,30 @@ Console::Console()
         }
         int dx = 180;
         int dy = 80;
-        auto drawScene = [dx, dy](DrawableOnCall* d)
+        auto drawScene = [dx, dy](DrawableOnCall * d)
         {
-            if (d->getID() == -1) return;
+            if (d->getID() == -1)
+            {
+                return;
+            }
             int id = d->getID();
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             int nx = dx + 350;
             int ny = dy + 100;
             int fontSize = 28;
-            Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, nx, ny, 400, 400);
+            Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
             Font::getInstance()->draw(convert::formatString("%s，%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
-            Font::getInstance()->draw(convert::formatString("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1), 
-                                      fontSize, nx + 20, ny + 20 + fontSize*1.5);
+            Font::getInstance()->draw(convert::formatString("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1),
+                fontSize, nx + 20, ny + 20 + fontSize * 1.5);
 
             int man_x_ = scene->MainEntranceX1;
             int man_y_ = scene->MainEntranceY1;
             auto mainScene = MainScene::getInstance();
 
-            if (man_x_ == 0 && man_y_ == 0) return;
+            if (man_x_ == 0 && man_y_ == 0)
+            {
+                return;
+            }
             // 不会画场景，需要慢慢学习，不行我复制个代码 强行搞
 
             struct DrawInfo
@@ -91,7 +96,7 @@ Console::Console()
                 int i;
                 Point p;
             };
-            
+
             std::vector<DrawInfo> building_vec(1000);
             int building_count = 0;
 
@@ -112,7 +117,10 @@ Console::Console()
                         //次要排序依据是y坐标
                         //直接设置z轴
                         auto tex = TextureManager::getInstance()->loadTexture("mmap", t);
-                        if (tex == nullptr) continue;
+                        if (tex == nullptr)
+                        {
+                            continue;
+                        }
                         auto w = tex->w;
                         auto h = tex->h;
                         auto dy = tex->dy;
@@ -121,7 +129,7 @@ Console::Console()
                         building_vec[building_count++] = { 2 * c + 1, t, p };
                     }
 
-                    auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
+                    auto sort_building = [](DrawInfo & d1, DrawInfo & d2)
                     {
                         return d1.index < d2.index;
                     };
@@ -145,17 +153,18 @@ Console::Console()
         {
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             MainScene::getInstance()->forceEnterSubScene(id, scene->EntranceX, scene->EntranceY);
+            MainScene::getInstance()->setManPosition(scene->MainEntranceX1, scene->MainEntranceY1);
             printf("傳送到%d\n", id);
         }
     }
-    else if (splits[0] == u8"newsave" && splits.size() >= 2) 
+    else if (splits[0] == u8"newsave" && splits.size() >= 2)
     {
         int rec;
-        try 
+        try
         {
             rec = std::stoi(splits[1]);
         }
-        catch (...) 
+        catch (...)
         {
             return;
         }
@@ -166,14 +175,14 @@ Console::Console()
         Save::getInstance()->saveRToCSV(rec);
         Save::getInstance()->saveSD(rec);
     }
-    else if (splits[0] == u8"newload" && splits.size() >= 2) 
+    else if (splits[0] == u8"newload" && splits.size() >= 2)
     {
         int rec;
-        try 
+        try
         {
             rec = std::stoi(splits[1]);
         }
-        catch (...) 
+        catch (...)
         {
             return;
         }
@@ -187,25 +196,28 @@ Console::Console()
             main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
         }
     }
-    else if (splits[0] == u8"rinsert" && splits.size() >= 3) 
+    else if (splits[0] == u8"rinsert" && splits.size() >= 3)
     {
         int idx;
-        try 
+        try
         {
             idx = std::stoi(splits[2]);
         }
-        catch (...) 
+        catch (...)
         {
             return;
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
-    else if (splits[0] == u8"host" && splits.size() >= 1) 
+    else if (splits[0] == u8"host" && splits.size() >= 1)
     {
         Save::getInstance()->save(11);
 
         auto host = BattleNetworkFactory::MakeHost(splits[1]);
-        if (!host) return;
+        if (!host)
+        {
+            return;
+        }
 
         BattleScene battle;
         battle.setupNetwork(std::move(host));
@@ -213,12 +225,15 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == u8"client" && splits.size() >= 1) 
+    else if (splits[0] == u8"client" && splits.size() >= 1)
     {
         Save::getInstance()->save(11);
 
         auto client = BattleNetworkFactory::MakeClient(splits[1]);
-        if (!client) return;
+        if (!client)
+        {
+            return;
+        }
 
         BattleScene battle;
         battle.setupNetwork(std::move(client));

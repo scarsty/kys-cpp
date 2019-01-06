@@ -43,7 +43,8 @@ void Menu::dealEvent(BP_Event& e)
             setAllChildState(Normal);
             if (all_normal)
             {
-                if (!childs_[active_child_]->getVisible())    //当前的如果不显示，则找第一个
+                //当前的如果不显示，则找第一个
+                if (active_child_ < childs_.size() && !childs_[active_child_]->getVisible())
                 {
                     active_child_ = findFristVisibleChild();
                 }

@@ -38,19 +38,16 @@ private:
     static const char* pinyin_list_with_tone_[];
 
 public:
-    static int hanz2pinyin(const char* in, int size, char* out)
+    static std::string hanz2pinyin(const std::string& in)
     {
         Hanz2Piny h2p;
         auto r = h2p.toPinyinFromUtf8(in, false);
-        int len = 0;
+        std::string out;
         for (auto& s : r)
         {
-            memcpy(out + len, s.second[0].c_str(), s.second[0].size());
-            len += s.second[0].size();
-            *(out + len) = ' ';
-            len++;
+            out += s.second[0] + " ";
         }
-        return len;
+        return out;
     }
 };
 
