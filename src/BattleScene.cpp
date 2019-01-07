@@ -1750,7 +1750,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
 
 void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
 {
-    if (r == nullptr || r->HP <= 0)
+    if (r == nullptr)
     {
         return;
     }
@@ -1762,17 +1762,26 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
         // µÐ·½ºìÉ«
         background_color = { 255, 0, 0, 128 };
     }
-    int hp_x = x - 20;
-    int hp_y = y - 63;
-    int hp_max_w = 40;
+    int hp_max_w = 24;
+    int hp_x = x - hp_max_w/2;
+    int hp_y = y - 60;
     int hp_h = 3;
     double perc = ((double)r->HP / r->MaxHP);
     if (perc < 0)
     {
         perc = 0;
     }
+
+    double alpha = 1;
+    if (r->HP <= 0)
+    {
+        alpha = dead_alpha_ / 255.0;
+    }
+    BP_Rect r0 = { hp_x, hp_y, hp_max_w, hp_h };
+    Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
-    Engine::getInstance()->renderSquareTexture(&r1, background_color, 192);
+    Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+
 
     //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     // ÑÏ½ûÍÂ²Û£¬»­¿ò¿ò
