@@ -1,7 +1,7 @@
 #!/bin/bash
 
-git submodule init
-git submodule update --remote
+git clone https://github.com/scarsty/common common
+git clone https://github.com/scarsty/lib-collection local
 
 mkdir include
 cp ./local/include/picosha2.h ./include

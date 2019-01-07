@@ -1,6 +1,0 @@
-[submodule "common"]
-	path = common
-	url = https://github.com/scarsty/common
-[submodule "local"]
-	path = local
-	url=https://github.com/scarsty/lib-collection

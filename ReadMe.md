@@ -104,6 +104,12 @@ ini Reader <https://github.com/benhoyt/inih>
 
 OpenCC <https://github.com/BYVoid/OpenCC>
 
+Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
+
+asio (from boost)
+
+PicoSHA2: <https://github.com/okdshin/PicoSHA2>
+
 hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
@@ -118,14 +124,21 @@ common包含了一些常用的公共功能，是作者所写的一个通用功�
 
 前面提到的开源库大部分可以从<https://github.com/scarsty/lib-collection>取得头文件和导入库。此工程收集了一些Linux下常见，但是Windows下经常不能直接使用的库，在Windows下编译时通常需要将其保存在local目录中，有些库也可以用vcpkg或者msys2来安装，请自行选择处理。在Linux下编译时则应优先考虑使用系统自带的库。
 
+PicoSHA2和CSV库仅需要头文件，请注意将它们复制到适合的位置。
+
 可以用以下命令
 
 ```shell
-git submodule init
-git submodule update --remote
+git clone https://github.com/scarsty/common common
+git clone https://github.com/scarsty/lib-collection local
+
+
+mkdir include
+cp ./local/include/picosha2.h ./include
+cp ./local/include/csv.h ./include
 ```
 
-或者get-submodule.sh来获取和更新这两个库。
+或者get-submodule.sh。
 
 ### tinypot
 
