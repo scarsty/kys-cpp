@@ -45,7 +45,10 @@ public:
         std::string out;
         for (auto& s : r)
         {
-            out += s.second[0] + " ";
+            for (auto& s1 : s.second)
+            {
+                out += s1;
+            }
         }
         return out;
     }
