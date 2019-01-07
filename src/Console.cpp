@@ -8,6 +8,7 @@
 #include "PotConv.h"
 #include "Save.h"
 #include "SuperMenuText.h"
+#include "TextureManager.h"
 #include "libconvert.h"
 
 #include <algorithm>
@@ -64,7 +65,7 @@ Console::Console()
         }
         int dx = 180;
         int dy = 80;
-        auto drawScene = [dx, dy](DrawableOnCall * d)
+        auto drawScene = [dx, dy](DrawableOnCall* d)
         {
             if (d->getID() == -1)
             {
@@ -75,7 +76,8 @@ Console::Console()
             int nx = dx + 350;
             int ny = dy + 100;
             int fontSize = 28;
-            Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
+            TextureManager::getInstance()->renderTexture("title", 126, { nx, ny, 400, 400 }, { 192, 192, 192, 255 }, 255);
+            //Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
             Font::getInstance()->draw(convert::formatString("%s£¬%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
             Font::getInstance()->draw(convert::formatString("£¨%d£¬%d£©", scene->MainEntranceX1, scene->MainEntranceY1),
                 fontSize, nx + 20, ny + 20 + fontSize * 1.5);
@@ -101,7 +103,7 @@ Console::Console()
             int building_count = 0;
 
             int hw = 2;
-            for (int sum = -hw; sum <= hw + 15; sum++)
+            for (int sum = -hw; sum <= hw + 10; sum++)
             {
                 for (int i = -hw; i <= hw; i++)
                 {
@@ -129,7 +131,7 @@ Console::Console()
                         building_vec[building_count++] = { 2 * c + 1, t, p };
                     }
 
-                    auto sort_building = [](DrawInfo & d1, DrawInfo & d2)
+                    auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
                     {
                         return d1.index < d2.index;
                     };

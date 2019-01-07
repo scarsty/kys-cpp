@@ -1771,7 +1771,7 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     {
         perc = 0;
     }
-    BP_Rect r1 = { hp_x, hp_y, perc * hp_max_w, hp_h };
+    BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192);
 
     //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
