@@ -124,9 +124,6 @@
     <ClCompile Include="src\Talk.cpp">
       <Filter>event</Filter>
     </ClCompile>
-    <ClCompile Include="src\Zip.cpp">
-      <Filter>save</Filter>
-    </ClCompile>
     <ClCompile Include="src\ParticleSystem.cpp">
       <Filter>particle</Filter>
     </ClCompile>
@@ -157,8 +154,14 @@
     <ClCompile Include="src\TextBoxRoll.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="hanzi2pinyin\Hanz2Piny.cpp">
+    <ClCompile Include="others\Hanz2Piny.cpp">
       <Filter>hanzi2pinyin</Filter>
+    </ClCompile>
+    <ClCompile Include="others\zip.c">
+      <Filter>zip</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ZipFile.cpp">
+      <Filter>save</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -291,9 +294,6 @@
     <ClInclude Include="src\TextBox.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Zip.h">
-      <Filter>save</Filter>
-    </ClInclude>
     <ClInclude Include="src\ParticleSystem.h">
       <Filter>particle</Filter>
     </ClInclude>
@@ -327,8 +327,17 @@
     <ClInclude Include="src\TextBoxRoll.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="hanzi2pinyin\Hanz2Piny.h">
+    <ClInclude Include="others\Hanz2Piny.h">
       <Filter>hanzi2pinyin</Filter>
+    </ClInclude>
+    <ClInclude Include="others\zip.h">
+      <Filter>zip</Filter>
+    </ClInclude>
+    <ClInclude Include="others\miniz.h">
+      <Filter>zip</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ZipFile.h">
+      <Filter>save</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -375,6 +384,9 @@
     </Filter>
     <Filter Include="hanzi2pinyin">
       <UniqueIdentifier>{36f35be4-3d2e-449c-a190-2d755a70d4bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="zip">
+      <UniqueIdentifier>{6d628cf8-dd04-4c2b-ab7f-7ac40cd54b8f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -92,8 +92,6 @@ libiconv <https://www.gnu.org/software/libiconv/>
 
 lua <https://www.lua.org/>
 
-minizip <https://github.com/madler/zlib/tree/master/contrib/minizip>
-
 zlib <https://zlib.net/>
 
 libass <https://github.com/libass/libass>
@@ -108,13 +106,15 @@ Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
 
 asio (from boost)
 
-PicoSHA2: <https://github.com/okdshin/PicoSHA2>
+PicoSHA2 <https://github.com/okdshin/PicoSHA2>
 
 hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
 
+zip <https://github.com/kuba--/zip>
+
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
-汉字转拼音库直接将源码集成进了工程。
+汉字转拼音和压缩直接将源码集成进了工程。
 
 ### common和local
 

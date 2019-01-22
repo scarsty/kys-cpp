@@ -5,14 +5,15 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O3 -std=c++11 -pthread -DNDEBUG")
 
-include_directories(../include . ../common)
+include_directories(../include . ../common ../others)
 link_directories(. ../lib)
 
 file(GLOB SRC_LIST
     ./*.cpp
     ../common/libconvert.cpp
     ../common/File.cpp
-    ../hanzi2pinyin/Hanz2Piny.cpp)
+    ../others/Hanz2Piny.cpp
+    ../others/zip.c)
 
 set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2main lua5.3 bass bassmidi minizip opencc)
 if (APPLE)

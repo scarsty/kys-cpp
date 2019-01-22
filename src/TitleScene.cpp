@@ -18,8 +18,9 @@
 #include "UIShop.h"
 
 #include "TextBoxRoll.h"
-#include "../hanzi2pinyin/Hanz2Piny.h"
+#include "../others/Hanz2Piny.h"
 #include "PotConv.h"
+#include "ZipFile.h"
 
 TitleScene::TitleScene()
 {
@@ -124,4 +125,5 @@ void TitleScene::onEntrance()
     //tbr->setTexts(texts);
     //tbr->setRollLine(5);
     //menu_->addChild(tbr, -100, -100);
+    //ZipFile::unzip("../game/save/1.zip", { "r1.grp32","s1.grp","d1.grp" });
 }

@@ -2,11 +2,11 @@
 #include <string>
 #include <vector>
 
-class Zip
+class ZipFile
 {
 public:
-    Zip();
-    ~Zip();
+    ZipFile();
+    ~ZipFile();
 
     static int zip(std::string zip_file, std::vector<std::string> files);
     static int unzip(std::string zip_file, std::vector<std::string> files);

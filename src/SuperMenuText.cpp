@@ -1,5 +1,5 @@
 #include "SuperMenuText.h"
-#include "../hanzi2pinyin/Hanz2Piny.h"
+#include "../others/Hanz2Piny.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
 #include "libconvert.h"
