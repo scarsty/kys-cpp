@@ -15,7 +15,7 @@ file(GLOB SRC_LIST
     ../others/Hanz2Piny.cpp
     ../others/zip.c)
 
-set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2main lua5.3 bass bassmidi minizip opencc)
+set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2main lua5.3 bass bassmidi opencc)
 if (APPLE)
     set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
 endif ()
