@@ -1,5 +1,6 @@
 
 //一些辅助的功能
+//一些常数的设置比较不合理，建议以调试模式手动执行
 
 #include "File.h"
 #include "GrpIdxFile.h"

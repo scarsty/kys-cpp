@@ -74,57 +74,66 @@ abc工程用来转换之前的数据。
 
 ## 使用到的其他开发库
 
-SDL <https://www.libsdl.org/>
+大部分可以从<https://github.com/scarsty/lib-collection>取得头文件和导入库。此工程收集了一些Linux下常见，但是Windows下经常不能直接使用的库，在Windows下编译时通常需要将其保存在local目录中，有些库也可以用vcpkg或者msys2来安装，请自行选择处理。在Linux下编译时则应优先考虑使用系统的包管理器自动安装的库，在Mac下可以使用homebrew来安装。
 
-SDL_image <https://www.libsdl.org/projects/SDL_image/>
+SDL及相关的扩展均是2.0版本。播放音乐和音效使用的是BASS，因为SDL_mixer存在易造成崩溃的bug。
 
-libpng <http://www.libpng.org/pub/png/libpng.html>
+PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注意将它们复制到适合的位置。
 
-SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
+- SDL <https://www.libsdl.org/>
 
-freetype <https://www.freetype.org/>
+- SDL_image <https://www.libsdl.org/projects/SDL_image/>
 
-BASS, BASSMIDI <http://www.un4seen.com/>
+- SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
 
-FFmpeg <https://www.ffmpeg.org/>
+- libiconv <https://www.gnu.org/software/libiconv/>
 
-libiconv <https://www.gnu.org/software/libiconv/>
+- ini Reader <https://github.com/benhoyt/inih>
 
-lua <https://www.lua.org/>
+- zip <https://github.com/kuba--/zip>
 
-zlib <https://zlib.net/>
+- lua <https://www.lua.org/>
 
-libass <https://github.com/libass/libass>
+- BASS, BASSMIDI <http://www.un4seen.com/>
 
-fribidi <https://www.fribidi.org/>
+- OpenCC <https://github.com/BYVoid/OpenCC>
 
-ini Reader <https://github.com/benhoyt/inih>
+- Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
 
-OpenCC <https://github.com/BYVoid/OpenCC>
+- PicoSHA2 <https://github.com/okdshin/PicoSHA2>
 
-Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
+- hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
 
-asio (from boost)
+- asio boost的一部分，需在预处理中打开网络功能
 
-PicoSHA2 <https://github.com/okdshin/PicoSHA2>
+以下为间接使用，通常无需直接处理。
 
-hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
+- freetype <https://www.freetype.org/>
 
-zip <https://github.com/kuba--/zip>
+- FFmpeg <https://www.ffmpeg.org/>
+
+- zlib <https://zlib.net/>
+
+- libass <https://github.com/libass/libass>
+
+- fribidi <https://www.fribidi.org/>
+
+- libpng <http://www.libpng.org/pub/png/libpng.html>
+
+- harfbuzz <https://github.com/harfbuzz/harfbuzz>
+
+- fontconfig <https://www.freedesktop.org/wiki/Software/fontconfig/>
+
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
-汉字转拼音和压缩直接将源码集成进了工程。
+汉字转拼音和压缩文件并非各大Linux发行版的常见库，故直接将源码集成进了工程。
 
-### common和local
+### common
 
 common <https://github.com/scarsty/common>
 
 common包含了一些常用的公共功能，是作者所写的一个通用功能集合，被多个工程使用。
-
-前面提到的开源库大部分可以从<https://github.com/scarsty/lib-collection>取得头文件和导入库。此工程收集了一些Linux下常见，但是Windows下经常不能直接使用的库，在Windows下编译时通常需要将其保存在local目录中，有些库也可以用vcpkg或者msys2来安装，请自行选择处理。在Linux下编译时则应优先考虑使用系统自带的库。
-
-PicoSHA2和CSV库仅需要头文件，请注意将它们复制到适合的位置。
 
 可以用以下命令
 
@@ -138,7 +147,7 @@ cp ./local/include/picosha2.h ./include
 cp ./local/include/csv.h ./include
 ```
 
-或者get-submodule.sh。
+或者get-submodule.sh来获取common和上面提到的库。
 
 ### tinypot
 
@@ -158,7 +167,7 @@ tinypot <https://github.com/scarsty/tinypot>
 
 Created by SB500@www.dawuxia.net.
 
-Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SB250 and ICE.
+Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SB250 and SB750.
 
 The source codes are distributed under zlib license, with two additional clauses.
 
