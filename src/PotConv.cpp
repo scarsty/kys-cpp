@@ -6,11 +6,21 @@ PotConv::PotConv()
 
 PotConv::~PotConv()
 {
+    for (auto& cd : cds_)
+    {
+        iconv_close(cd.second);
+    }
 }
 
 std::string PotConv::conv(const std::string& src, const char* from, const char* to)
 {
     //const char *from_charset, const char *to_charset, const char *inbuf, size_t inlen, char *outbuf;
+    iconv_t cd = createcd(from, to);
+    if (cd == nullptr)
+    {
+        return "";
+    }
+
     size_t inlen = std::min((int)src.length(), CONV_BUFFER_SIZE);
     size_t outlen = CONV_BUFFER_SIZE;
 
@@ -19,19 +29,13 @@ std::string PotConv::conv(const std::string& src, const char* from, const char* 
 
     char *pin = in, *pout = out;
     memcpy(in, src.c_str(), inlen);
-    iconv_t cd;
-    cd = iconv_open(to, from);
-    if (cd == nullptr)
-    {
-        return "";
-    }
+
     if (iconv(cd, &pin, &inlen, &pout, &outlen) == -1)
     {
         out[0] = '\0';
     }
-    iconv_close(cd);
+
     return out;
-    return src;
 }
 
 std::string PotConv::conv(const std::string& src, const std::string& from, const std::string& to)
@@ -46,4 +50,22 @@ std::string PotConv::to_read(const std::string& src)
 #else
     return conv(src, "cp936", "utf-8");
 #endif
+}
+
+PotConv PotConv::potconv_;
+
+iconv_t PotConv::createcd(const char* from, const char* to)
+{
+    std::string cds = std::string(from) + std::string(to);
+    if (potconv_.cds_.count(cds) == 0)
+    {
+        iconv_t cd;
+        cd = iconv_open(to, from);
+        potconv_.cds_[cds] = cd;
+        return cd;
+    }
+    else
+    {
+        return potconv_.cds_[cds];
+    }
 }

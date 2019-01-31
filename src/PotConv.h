@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <map>
 #include <string>
 
 #define CONV_BUFFER_SIZE 2048
@@ -26,4 +27,9 @@ public:
         memcpy(s, str.data(), str.length());
     }
     static std::string to_read(const std::string& src);
+
+private:
+    std::map<std::string, iconv_t> cds_;
+    static PotConv potconv_;
+    static iconv_t createcd(const char* from, const char* to);
 };
