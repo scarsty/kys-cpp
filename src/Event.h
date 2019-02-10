@@ -55,7 +55,7 @@ private:
     int item_id_;
     Item* item_;
     //Save* save_;
-    bool loop_;
+    bool exit_ = false;
     int use_script_ = 0;
 
 private:
@@ -66,7 +66,7 @@ public:
     void callLeaveEvent(Role* role);
     void forceExit();
     void setUseScript(int u);
-    bool isLooping() { return loop_; }
+    bool isExiting() { return exit_; }
 
 public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能

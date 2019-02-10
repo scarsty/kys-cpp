@@ -2446,3 +2446,10 @@ void Save::NewSave::InsertShopAt(std::vector<Shop>& data, int idx)
     }
     Save::getInstance()->updateAllPtrVector();
 }
+
+void Save::sqlite()
+{
+    sqlite3* db;
+    sqlite3_open("../game/save/test.db", &db);
+    sqlite3_close(db);
+}

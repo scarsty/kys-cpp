@@ -81,29 +81,18 @@ SDL及相关的扩展均是2.0版本。播放音乐和音效使用的是BASS，�
 PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注意将它们复制到适合的位置。
 
 - SDL <https://www.libsdl.org/>
-
 - SDL_image <https://www.libsdl.org/projects/SDL_image/>
-
 - SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
-
 - libiconv <https://www.gnu.org/software/libiconv/>
-
 - ini Reader <https://github.com/benhoyt/inih>
-
 - zip <https://github.com/kuba--/zip>
-
 - lua <https://www.lua.org/>
-
 - BASS, BASSMIDI <http://www.un4seen.com/>
-
 - OpenCC <https://github.com/BYVoid/OpenCC>
-
 - Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
-
 - PicoSHA2 <https://github.com/okdshin/PicoSHA2>
-
 - hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
-
+- sqlite <https://www.sqlite.org/>
 - asio boost的一部分，需在预处理中打开网络功能
 
 以下为间接使用，通常无需直接处理。

@@ -101,7 +101,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     talk_box_->setVisible(true);
     Element::addOnRootTop(talk_box_);
     int p = 0;
-    loop_ = true;
+    exit_ = false;
     int i = 0;
     auto e = kdef_[event_id];
 
@@ -148,7 +148,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     }
     else
     {
-        while (i < e.size() && loop_)
+        while (i < e.size() && !exit_)
         {
             //printf("instruct %d\n", e[i]);
             switch (e[i])
@@ -284,7 +284,7 @@ void Event::callLeaveEvent(Role* role)
 
 void Event::forceExit()
 {
-    loop_ = false;
+    exit_ = true;
     talk_box_up_->setExit(true);
     talk_box_down_->setExit(true);
 }

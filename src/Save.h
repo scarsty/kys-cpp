@@ -1,9 +1,14 @@
 #pragma once
-#include <vector>
-#include "Types.h"
+#include "sqlite3.h"
 #include <map>
+#include <vector>
 
-struct ItemList { int item_id, count; };
+#include "Types.h"
+
+struct ItemList
+{
+    int item_id, count;
+};
 
 class Save
 {
@@ -12,6 +17,7 @@ public:
     int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
     int Team[TEAMMATE_COUNT];
     ItemList Items[ITEM_IN_BAG_COUNT];
+
 private:
     //缓冲区，无他用
     int buffer_[100];
@@ -41,6 +47,7 @@ public:
 
     static std::string getFilename(int i, char c);
     static bool checkSaveFileExist(int num);
+
 private:
     //注意在读取之后，offset比length尾部会多一个元素，该值即总长度
     std::vector<int> offset_, length_;
@@ -64,7 +71,8 @@ private:
     std::map<std::string, Magic*> magics_by_name_;
     std::map<std::string, SubMapInfo*> submap_infos_by_name_;
 
-    template <class T> void setSavePointer(std::vector<T>& v, int size)
+    template <class T>
+    void setSavePointer(std::vector<T>& v, int size)
     {
         for (auto& i : v)
         {
@@ -72,7 +80,8 @@ private:
         }
     }
 
-    template <class T> void toPtrVector(std::vector<T>& v, std::vector<T*>& v_ptr)
+    template <class T>
+    void toPtrVector(std::vector<T>& v, std::vector<T*>& v_ptr)
     {
         v_ptr.clear();
         for (auto& i : v)
@@ -84,11 +93,46 @@ private:
     void updateAllPtrVector();
 
 public:
-    Role* getRole(int i) { if (i < 0 || i >= roles_.size()) { return nullptr; } return roles_[i]; }
-    Magic* getMagic(int i) { if (i <= 0 || i >= magics_.size()) { return nullptr; } return magics_[i]; }  //0号武功无效
-    Item* getItem(int i) { if (i < 0 || i >= items_.size()) { return nullptr; } return items_[i]; }
-    SubMapInfo* getSubMapInfo(int i) { if (i < 0 || i >= submap_infos_.size()) { return nullptr; } return submap_infos_[i]; }
-    Shop* getShop(int i) { if (i < 0 || i >= shops_.size()) { return nullptr; } return shops_[i]; }
+    Role* getRole(int i)
+    {
+        if (i < 0 || i >= roles_.size())
+        {
+            return nullptr;
+        }
+        return roles_[i];
+    }
+    Magic* getMagic(int i)
+    {
+        if (i <= 0 || i >= magics_.size())
+        {
+            return nullptr;
+        }
+        return magics_[i];
+    }    //0号武功无效
+    Item* getItem(int i)
+    {
+        if (i < 0 || i >= items_.size())
+        {
+            return nullptr;
+        }
+        return items_[i];
+    }
+    SubMapInfo* getSubMapInfo(int i)
+    {
+        if (i < 0 || i >= submap_infos_.size())
+        {
+            return nullptr;
+        }
+        return submap_infos_[i];
+    }
+    Shop* getShop(int i)
+    {
+        if (i < 0 || i >= shops_.size())
+        {
+            return nullptr;
+        }
+        return shops_[i];
+    }
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }
@@ -187,8 +231,12 @@ private:
         static void LoadFromCSVShopSave(std::vector<Shop>& data, int record);
         static void InsertShopAt(std::vector<Shop>& data, int idx);
     };
+
 public:
     void saveRToCSV(int num);
     void loadRFromCSV(int num);
     bool insertAt(const std::string& type, int idx);
+
+public:
+    void sqlite();
 };

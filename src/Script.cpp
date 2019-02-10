@@ -24,18 +24,23 @@ Script::~Script()
 int Script::runScript(std::string filename)
 {
     std::string content = convert::readStringFromFile(filename);
-    printf("%s\n", PotConv::to_read(content).c_str());
+    printf("%s\n", content.c_str());
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
-    return lua_pcall(lua_state_, 0, 0, 0);
+    int r = lua_pcall(lua_state_, 0, 0, 0);
+    if (r)
+    {
+        printf("\nError: %s\n", lua_tostring(lua_state_, -1));
+    }
+    return r;
 }
 
 int Script::registerEventFunctions()
 {
 #define _I(i) (lua_tonumber(L, i))
 
-#define EVENT_VOID(function, ...) { if (Event::getInstance()->isLooping()) { Event::getInstance()->function(__VA_ARGS__); } return 0; }
-#define EVENT_BOOL(function, ...) { if (Event::getInstance()->isLooping()) { lua_pushboolean(L,Event::getInstance()->function(__VA_ARGS__)); return 1; } return 0; }
+#define EVENT_VOID(function, ...) { if (!Event::getInstance()->isExiting()) { Event::getInstance()->function(__VA_ARGS__); } return 0; }
+#define EVENT_BOOL(function, ...) { if (!Event::getInstance()->isExiting()) { lua_pushboolean(L,Event::getInstance()->function(__VA_ARGS__)); return 1; } return 0; }
 
 #define VOID_0(function) { EVENT_VOID(function); }
 #define VOID_1(function) { EVENT_VOID(function,_I(1)); }
