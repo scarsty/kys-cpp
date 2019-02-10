@@ -98,21 +98,13 @@ PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注
 以下为间接使用，通常无需直接处理。
 
 - freetype <https://www.freetype.org/>
-
 - FFmpeg <https://www.ffmpeg.org/>
-
 - zlib <https://zlib.net/>
-
 - libass <https://github.com/libass/libass>
-
 - fribidi <https://www.fribidi.org/>
-
 - libpng <http://www.libpng.org/pub/png/libpng.html>
-
 - harfbuzz <https://github.com/harfbuzz/harfbuzz>
-
 - fontconfig <https://www.freedesktop.org/wiki/Software/fontconfig/>
-
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
