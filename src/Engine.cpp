@@ -73,6 +73,11 @@ void Engine::destroy()
 {
     //SDL_DestroyTexture(tex_);
     destroyAssistTexture();
+    for (auto& f : font_buffer_)
+    {
+        destroyTexture(f.second);
+    }
+    font_buffer_.clear();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
 #if defined(_WIN32) && defined(_TINYPOT)
@@ -129,6 +134,16 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     SDL_FreeSurface(text_s);
     TTF_CloseFont(font);
     return text_t;
+}
+
+BP_Texture* Engine::createTextTexture2(const std::string& fontname, const std::string& s, int size)
+{
+    auto index = fontname + "-" + s + "-" + std::to_string(size);
+    if (font_buffer_.count(index) == 0)
+    {
+        font_buffer_[index] = createTextTexture(fontname, s, size, { 255, 255, 255, 255 });
+    }
+    return font_buffer_[index];
 }
 
 //此处仅接受utf8

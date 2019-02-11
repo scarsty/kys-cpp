@@ -8,15 +8,13 @@ class Font
 private:
     Font() {}
     ~Font();
-    std::map<int, BP_Texture*> buffer_; //缓存所有已经画过的字体
 
     std::string fontnamec_ = "../game/font/chinese.ttf";
     std::string fontnamee_ = "../game/font/english.ttf";
 
     int stat_message_ = 0;
 
-    BP_Texture* indexTex(int size, uint16_t c);
-    
+    std::map<uint16_t, BP_Texture*> buffer_;    //缓存画过的字体，注意纹理会在Engine销毁
 
 public:
     static Font* getInstance()

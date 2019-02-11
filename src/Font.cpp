@@ -4,36 +4,6 @@
 
 Font::~Font()
 {
-    for (auto buffer : buffer_)
-    {
-        Engine::destroyTexture(buffer.second);
-    }
-}
-
-BP_Texture* Font::indexTex(int size, uint16_t c)
-{
-    auto index = size * 0x1000000 + c;
-    if (buffer_.count(index) == 0)
-    {
-        uint16_t c2[2] = { 0 };
-        c2[0] = c;
-        auto s = PotConv::cp936toutf8((char*)(c2));
-        BP_Texture* tex;
-        if (c > 128)
-        {
-            tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
-        }
-        else
-        {
-            tex = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
-        }
-        buffer_[index] = tex;
-        if (stat_message_)
-        {
-            printf("%s", (char*)(c2));
-        }
-    }
-    return buffer_[index];
 }
 
 BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
@@ -54,7 +24,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     color.a = alpha;
     if (stat_message_)
     {
-        s1 = buffer_.size();
+        s1 = Engine::getInstance()->getFontBufferSize();
     }
     while (p < text.size())
     {
@@ -66,7 +36,14 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
             c += (uint8_t)text[p] * 256;
             p++;
         }
-        auto tex = indexTex(size, c);
+        if (buffer_.count(c) == 0)
+        {
+            uint16_t c2[2] = { 0 };
+            c2[0] = c;
+            auto s = PotConv::cp936toutf8((char*)(c2));
+            buffer_[c] = Engine::getInstance()->createTextTexture2(fontnamec_, s, size);;
+        }
+        auto tex = buffer_[c];
         char_count++;
         int w1 = w;
         int x1 = x;
@@ -89,10 +66,10 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     }
     if (stat_message_)
     {
-        int s = buffer_.size() - s1;
+        int s = Engine::getInstance()->getFontBufferSize() - s1;
         if (s > 0)
         {
-            printf(" %d/%d, %d, total = %d\n", s, char_count, size, buffer_.size());
+            printf(" %d/%d, %d, total = %d\n", s, char_count, size, Engine::getInstance()->getFontBufferSize());
         }
     }
 }
@@ -108,3 +85,4 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
     TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
 }
+
