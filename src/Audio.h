@@ -1,7 +1,19 @@
 #pragma once
+#include <vector>
+
+#ifndef _SDL_MIXER_AUDIO
 #include "bass.h"
 #include "bassmidi.h"
-#include <vector>
+typedef HSTREAM MUSIC;
+typedef HSAMPLE WAV;
+typedef BASS_MIDI_FONT MIDI_FONT;
+#else
+#include "SDL2/SDL_mixer.h"
+typedef Mix_Music* MUSIC;
+typedef Mix_Chunk* WAV;
+typedef void* MIDI_FONT;
+#endif
+
 
 class Audio
 {
@@ -9,11 +21,11 @@ private:
     Audio();
     virtual ~Audio();
 
-    std::vector<HSTREAM> music_;
-    std::vector<HSAMPLE> asound_, esound_;
-    BASS_MIDI_FONT mid_sound_font_;
-    HSTREAM current_music_;
-    HSTREAM current_sound_;
+    std::vector<MUSIC> music_;
+    std::vector<WAV> asound_, esound_;
+    MIDI_FONT mid_sound_font_;
+    MUSIC current_music_;
+    WAV current_sound_;
 
     int volume_ = 50;
 

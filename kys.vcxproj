@@ -58,7 +58,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_TINYPOT;WIN32;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_TINYPOT;_SDL_MIXER_AUDIO;WIN32;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>include;mod;src;$(USR_LOCAL)\include;common;src;local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -66,7 +66,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;libiconv.lib;tinypot.lib;lua.lib;opencc.lib;sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_mixer.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;libiconv.lib;tinypot.lib;lua.lib;opencc.lib;sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86;local/lib/x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -88,7 +88,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;libiconv.lib;tinypot.lib;lua.lib;opencc.lib;sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;sdl2_mixer.lib;bass.lib;bassmidi.lib;libiconv.lib;tinypot.lib;lua.lib;opencc.lib;sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>lib\x86;$(USR_LOCAL)\lib\x86;local/lib/x86</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

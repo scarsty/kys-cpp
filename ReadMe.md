@@ -18,13 +18,11 @@ Windows下可以使用Visual Studio编译，其他系统下可以在src目录使
 
 Engine封装了一套SDL2的主要实现，主要取自TinyPot。
 
-File是一些读取，写入函数。包含几个简化程序的模板函数。
-
 Save中对所有数据进行了封装，可以较为方便地调用。
 
 TextureManger是一个纹理管理器，因为《金庸群侠传》的贴图是含偏移设置的，故有些特殊的地方。
 
-Audio是音频类，基于Bass，可以播放mid、mp3、wav等格式。
+Audio是音频类，基于BASS和SDL_mixer，可以播放mid、mp3、wav等格式。
 
 ### Element
 
@@ -76,13 +74,10 @@ abc工程用来转换之前的数据。
 
 大部分可以从<https://github.com/scarsty/lib-collection>取得头文件和导入库。此工程收集了一些Linux下常见，但是Windows下经常不能直接使用的库，在Windows下编译时通常需要将其保存在local目录中，有些库也可以用vcpkg或者msys2来安装，请自行选择处理。在Linux下编译时则应优先考虑使用系统的包管理器自动安装的库，在Mac下可以使用homebrew来安装。
 
-SDL及相关的扩展均是2.0版本。播放音乐和音效使用的是BASS，因为SDL_mixer存在易造成崩溃的bug。
-
-PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注意将它们复制到适合的位置。
-
 - SDL <https://www.libsdl.org/>
-- SDL_image <https://www.libsdl.org/projects/SDL_image/>
-- SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
+  - SDL_image <https://www.libsdl.org/projects/SDL_image/>
+  - SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
+  - SDL_mixer <https://www.libsdl.org/projects/SDL_mixer/>
 - libiconv <https://www.gnu.org/software/libiconv/>
 - ini Reader <https://github.com/benhoyt/inih>
 - zip <https://github.com/kuba--/zip>
@@ -106,9 +101,13 @@ PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注
 - harfbuzz <https://github.com/harfbuzz/harfbuzz>
 - fontconfig <https://www.freedesktop.org/wiki/Software/fontconfig/>
 
-除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
+SDL及相关的扩展均是2.0版本。
 
-汉字转拼音和压缩文件并非各大Linux发行版的常见库，故直接将源码集成进了工程。
+汉字转拼音和压缩文件并非各大Linux发行版的常见库，故直接使用了源码。
+
+PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注意将它们复制到适合的位置。
+
+除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
 ### common
 
@@ -130,13 +129,21 @@ cp ./local/include/csv.h ./include
 
 或者get-submodule.sh来获取common和上面提到的库。
 
-### tinypot
+### 视频
 
-tinypot <https://github.com/scarsty/tinypot>
+参见：<https://github.com/scarsty/tinypot>
 
-这是作者编写的一个视频播放器，游戏中将其编译为动态库并用于进行视频的播放。
+这是作者编写的一个视频播放器，可以将其编译为动态库，作为SDL2的插件，用于进行视频过场的播放。
 
-如果难以处理，可以将预处理定义宏中的\_TINYPOT删除。
+如果难以处理，可以将预处理定义宏中的\_TINYPOT删除。Mac和Linux下默认不会打开。
+
+### 音频
+
+音频播放可从BASS或者SDL_mixer中二选一，其中BASS的音质较好。
+
+之前SDL_mixer有严重的跳出问题，目前版本是否已经解决暂时不清楚。因BASS为商业库，故使用SDL_mixer作为备选，编译时增加宏_SDL_MIXER_AUDIO即可。
+
+链接选项并未分别处理。VS或GCC中，如果某个库的功能并未被用到，即使其包含在链接选项中，也不会参与实质的链接。
 
 ## 授权
 
