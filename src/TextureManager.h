@@ -18,7 +18,6 @@ struct Texture
     int w = 0, h = 0, dx = 0, dy = 0;
     bool loaded = false;
     int count = 1;
-    ~Texture() { destory(); }
     void setTex(BP_Texture* t)
     {
         destory();

@@ -50,14 +50,13 @@ typedef SDL_Event BP_Event;
 class Engine
 {
 private:
+    static Engine engine_;    //此处的单例必须保证在最前
     Engine();
     virtual ~Engine();
-
 public:
     static Engine* getInstance()
     {
-        static Engine e;
-        return &e;
+        return &engine_;
     }
     //图形相关
 private:
@@ -177,14 +176,10 @@ public:
     //UI相关
 private:
     BP_Texture* square_;
-    std::map<std::string, BP_Texture*> font_buffer_;    //缓存所有已经画过的字体
 
 public:
     BP_Texture* createSquareTexture(int size);
     BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c);
-    BP_Texture* createTextTexture2(const std::string& fontname, const std::string& s, int size);
-    void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c);
-    int getFontBufferSize() { return font_buffer_.size(); }
     int showMessage(const std::string& content);
     void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);
 

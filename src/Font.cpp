@@ -2,6 +2,10 @@
 #include "PotConv.h"
 #include "TextureManager.h"
 
+Font::Font()
+{
+}
+
 Font::~Font()
 {
 }
@@ -24,7 +28,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     color.a = alpha;
     if (stat_message_)
     {
-        s1 = Engine::getInstance()->getFontBufferSize();
+        s1 = getFontBufferSize();
     }
     while (p < text.size())
     {
@@ -41,7 +45,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
             uint16_t c2[2] = { 0 };
             c2[0] = c;
             auto s = PotConv::cp936toutf8((char*)(c2));
-            buffer_[c] = Engine::getInstance()->createTextTexture2(fontnamec_, s, size);;
+            buffer_[c] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c];
         char_count++;
@@ -66,10 +70,10 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     }
     if (stat_message_)
     {
-        int s = Engine::getInstance()->getFontBufferSize() - s1;
+        int s = getFontBufferSize() - s1;
         if (s > 0)
         {
-            printf(" %d/%d, %d, total = %d\n", s, char_count, size, Engine::getInstance()->getFontBufferSize());
+            printf(" %d/%d, %d, total = %d\n", s, char_count, size, getFontBufferSize());
         }
     }
 }
@@ -86,3 +90,43 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
     draw(text, size, x, y, color, alpha);
 }
 
+void Font::clearFontBuffer()
+{
+    for (auto& f : buffer_)
+    {
+        Engine::getInstance()->destroyTexture(f.second);
+    }
+    buffer_.clear();
+}
+
+//此处仅接受utf8
+void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c)
+{
+    if (alpha == 0)
+    {
+        return;
+    }
+    auto text_t = Engine::getInstance()->createTextTexture(fontname, text, size, c);
+    if (!text_t)
+    {
+        return;
+    }
+    Engine::getInstance()->setTextureAlphaMod(text_t, alpha);
+    BP_Rect rect;
+    Engine::getInstance()->queryTexture(text_t, &rect.w, &rect.h);
+    rect.y = y;
+    switch (align)
+    {
+    case BP_ALIGN_LEFT:
+        rect.x = x;
+        break;
+    case BP_ALIGN_RIGHT:
+        rect.x = x - rect.w;
+        break;
+    case BP_ALIGN_MIDDLE:
+        rect.x = x - rect.w / 2;
+        break;
+    }
+    Engine::getInstance()->renderCopy(text_t, nullptr, &rect);
+    Engine::getInstance()->destroyTexture(text_t);
+}
