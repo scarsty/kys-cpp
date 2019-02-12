@@ -28,7 +28,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     color.a = alpha;
     if (stat_message_)
     {
-        s1 = getFontBufferSize();
+        s1 = getBufferSize();
     }
     while (p < text.size())
     {
@@ -70,10 +70,10 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     }
     if (stat_message_)
     {
-        int s = getFontBufferSize() - s1;
+        int s = getBufferSize() - s1;
         if (s > 0)
         {
-            printf(" %d/%d, %d, total = %d\n", s, char_count, size, getFontBufferSize());
+            printf(" %d/%d, %d, total = %d\n", s, char_count, size, getBufferSize());
         }
     }
 }
@@ -88,15 +88,6 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
     auto r = getBoxSize(text.size(), size, x, y);
     TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
-}
-
-void Font::clearFontBuffer()
-{
-    for (auto& f : buffer_)
-    {
-        Engine::getInstance()->destroyTexture(f.second);
-    }
-    buffer_.clear();
 }
 
 //此处仅接受utf8
@@ -129,4 +120,13 @@ void Font::drawText(const std::string& fontname, std::string& text, int size, in
     }
     Engine::getInstance()->renderCopy(text_t, nullptr, &rect);
     Engine::getInstance()->destroyTexture(text_t);
+}
+
+void Font::clearBuffer()
+{
+    for (auto& f : buffer_)
+    {
+        Engine::getInstance()->destroyTexture(f.second);
+    }
+    buffer_.clear();
 }
