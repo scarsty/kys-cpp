@@ -50,13 +50,13 @@ typedef SDL_Event BP_Event;
 class Engine
 {
 private:
-    static Engine engine_;    //此处的单例必须保证在最前
     Engine();
     virtual ~Engine();
 public:
     static Engine* getInstance()
     {
-        return &engine_;
+        static Engine e;
+        return &e;
     }
     //图形相关
 private:

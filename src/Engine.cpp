@@ -6,8 +6,6 @@
 #endif
 #include <cmath>
 
-Engine Engine::engine_;
-
 Engine::Engine()
 {
 }
