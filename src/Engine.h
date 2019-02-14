@@ -84,6 +84,7 @@ public:
     int getWindowHeight();
     int getMaxWindowWidth() { return max_x_ - min_x_; }
     int getMaxWindowHeight() { return max_y_ - min_y_; }
+    void getWindowPosition(int& x, int& y) { SDL_GetWindowPosition(window_, &x, &y); }
     void setWindowSize(int w, int h);
     void setStartWindowSize(int w, int h)
     {
@@ -133,7 +134,7 @@ public:
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return rotation_ = r; }
-    void resetWindowsPosition();
+    void resetWindowPosition();
     void setRatio(double x, double y)
     {
         ratio_x_ = x;

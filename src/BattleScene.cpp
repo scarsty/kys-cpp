@@ -1503,6 +1503,8 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         }
     }
 
+    //int x0, y0;
+    //Engine::getInstance()->getWindowPosition(x0, y0);
     for (effect_frame_ = -min_dis; effect_frame_ < effect_count + max_dis + 1; effect_frame_++)
     {
         if (exit_)
@@ -1513,9 +1515,11 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         {
             x_ = rng_.rand_int(shake) - rng_.rand_int(shake);
             y_ = rng_.rand_int(shake) - rng_.rand_int(shake);
+            //Engine::getInstance()->setWindowPosition(x0 + x_ * 10, y0 + y_ * 10);
         }
         drawAndPresent(animation_delay_);
     }
+    //Engine::getInstance()->setWindowPosition(x0, y0);
     action_frame_ = 0;
     action_type_ = -1;
     effect_frame_ = 0;
@@ -1763,7 +1767,7 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
         background_color = { 255, 0, 0, 128 };
     }
     int hp_max_w = 24;
-    int hp_x = x - hp_max_w/2;
+    int hp_x = x - hp_max_w / 2;
     int hp_y = y - 60;
     int hp_h = 3;
     double perc = ((double)r->HP / r->MaxHP);
@@ -1781,7 +1785,6 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
-
 
     //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     // ÑÏ½ûÍÂ²Û£¬»­¿ò¿ò
