@@ -67,6 +67,7 @@ void TitleScene::dealEvent(BP_Event& e)
     if (r == 0)
     {
         Save::getInstance()->load(0);
+        Save::getInstance()->saveRToCSV(2);
         //Script::getInstance()->runScript("../game/script/0.lua");
         std::string name = "";
 #ifdef _MSC_VER
