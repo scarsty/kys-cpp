@@ -66,7 +66,7 @@ bool Save::load(int num)
     }
 
     loadR(num);
-    //loadRFromDB(num);
+    loadRFromDB(num);
     loadSD(num);
 
     //内部编码为cp936
@@ -362,10 +362,15 @@ bool Save::insertAt(const std::string& type, int idx)
 
 void Save::saveRToDB(int num)
 {
+    std::string filename0 = "../game/save/0.db";
+    if (!File::fileExist(filename0))
+    {
+        return;
+    }
     sqlite3* db;
     //此处最好复制一个，先搞搞再说
     std::string filename = "../game/save/" + std::to_string(num) + ".db";
-    convert::writeStringToFile(convert::readStringFromFile("../game/save/0.db"), filename);
+    convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
     sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
@@ -381,8 +386,14 @@ void Save::saveRToDB(int num)
 
 void Save::loadRFromDB(int num)
 {
+    NewSave::initDBFieldInfo();
+    auto filename = "../game/save/" + std::to_string(num) + ".db";
+    if (!File::fileExist(filename))
+    {
+        return;
+    }
     sqlite3* db;
-    sqlite3_open(("../game/save/" + std::to_string(num) + ".db").c_str(), &db);
+    sqlite3_open(filename.c_str(), &db);
     NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
     NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);
     NewSave::LoadDBRoleSave(db, roles_mem_);

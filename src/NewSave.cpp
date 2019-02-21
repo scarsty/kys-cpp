@@ -2212,8 +2212,8 @@ void NewSave::InsertShopAt(std::vector<Shop>& data, int idx)
 NewSave NewSave::new_save_;
 
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))
-#define BIND_FIELD_INT(a1, a3) (FieldInfo{ a1, 0, GET_OFFSET(a3), 4 })
-#define BIND_FIELD_CHAR(a1, a3, a4) (FieldInfo{ a1, 1, GET_OFFSET(a3), a4 })
+#define BIND_FIELD_INT(key, field) (FieldInfo{ key, 0, GET_OFFSET(field), sizeof(a.field) })
+#define BIND_FIELD_TEXT(key, field) (FieldInfo{ key, 1, GET_OFFSET(field), sizeof(a.field) })
 
 void NewSave::initDBFieldInfo()
 {
@@ -2260,8 +2260,8 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("头像", HeadID),
             BIND_FIELD_INT("生命成长", IncLife),
             BIND_FIELD_INT("无用", UnUse),
-            BIND_FIELD_CHAR("名字", Name, 20),
-            BIND_FIELD_CHAR("外号", Nick, 20),
+            BIND_FIELD_TEXT("名字", Name),
+            BIND_FIELD_TEXT("外号", Nick),
             BIND_FIELD_INT("性别", Sexual),
             BIND_FIELD_INT("等级", Level),
             BIND_FIELD_INT("经验", Exp),
@@ -2347,7 +2347,7 @@ void NewSave::initDBFieldInfo()
         new_save_.item_ =
         {
             BIND_FIELD_INT("编号", ID),
-            BIND_FIELD_CHAR("物品名", Name, 40),
+            BIND_FIELD_TEXT("物品名", Name),
             BIND_FIELD_INT("物品名无用1", Name1[0]),
             BIND_FIELD_INT("物品名无用2", Name1[1]),
             BIND_FIELD_INT("物品名无用3", Name1[2]),
@@ -2358,7 +2358,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("物品名无用8", Name1[7]),
             BIND_FIELD_INT("物品名无用9", Name1[8]),
             BIND_FIELD_INT("物品名无用10", Name1[9]),
-            BIND_FIELD_CHAR("物品说明", Introduction, 60),
+            BIND_FIELD_TEXT("物品说明", Introduction),
             BIND_FIELD_INT("练出武功", MagicID),
             BIND_FIELD_INT("暗器动画编号", HiddenWeaponEffectID),
             BIND_FIELD_INT("使用人", User),
@@ -2426,7 +2426,7 @@ void NewSave::initDBFieldInfo()
         new_save_.submap_ =
         {
             BIND_FIELD_INT("编号", ID),
-            BIND_FIELD_CHAR("名称", Name, 20),
+            BIND_FIELD_TEXT("名称", Name),
             BIND_FIELD_INT("出门音乐", ExitMusic),
             BIND_FIELD_INT("进门音乐", EntranceMusic),
             BIND_FIELD_INT("跳转场景", JumpSubMap),
@@ -2455,7 +2455,7 @@ void NewSave::initDBFieldInfo()
         new_save_.magic_ =
         {
             BIND_FIELD_INT("编号", ID),
-            BIND_FIELD_CHAR("名称", Name, 20),
+            BIND_FIELD_TEXT("名称", Name),
             BIND_FIELD_INT("未知1", Unknown[0]),
             BIND_FIELD_INT("未知2", Unknown[1]),
             BIND_FIELD_INT("未知3", Unknown[2]),
@@ -2546,9 +2546,7 @@ void NewSave::initDBFieldInfo()
 
 void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
 {
-    initDBFieldInfo();
     sqlite3_exec(db, "delete from base", nullptr, nullptr, nullptr);
-
     std::string cmd = "insert into base values(";
     for (auto& info : new_save_.base_)
     {
@@ -2561,7 +2559,6 @@ void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
 
 void NewSave::LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
 {
-    initDBFieldInfo();
     std::vector<Save::BaseInfo> datas;
     readValues(db, "base", new_save_.base_, datas);
     *data = datas[0];

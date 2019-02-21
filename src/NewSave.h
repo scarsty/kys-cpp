@@ -1,6 +1,7 @@
 #pragma once
 #include "PotConv.h"
 #include "Save.h"
+#include <algorithm>
 
 class NewSave
 {
@@ -38,7 +39,7 @@ private:
         int type;    //0-int, 1-char
         int offset;
         size_t length;
-        int col;
+        int col = -1;
     };
     std::vector<FieldInfo> base_, item_list_, role_, item_, submap_, magic_, shop_;
     //std::map<std::string, FieldInfo> base_map_;
@@ -100,16 +101,22 @@ private:
         sqlite3_prepare(db, strSql.c_str(), -1, &statement, NULL);
 
         //重整列序
-        for (int i = 0; i < sqlite3_column_count(statement); i++)
+        //在游戏最初必须运行一次读取
+        if (infos[0].col == -1)
         {
-            auto name = PotConv::utf8tocp936(sqlite3_column_name(statement, i));
-            for (auto& info : infos)
+            for (int i = 0; i < sqlite3_column_count(statement); i++)
             {
-                if (name == info.name)
+                auto name = PotConv::utf8tocp936(sqlite3_column_name(statement, i));
+                for (auto& info : infos)
                 {
-                    info.col = i;
+                    if (name == info.name)
+                    {
+                        info.col = i;
+                        break;
+                    }
                 }
             }
+            //std::sort(infos.begin(), infos.end(), [](FieldInfo & f1, FieldInfo & f2) { return f1.col < f2.col; });
         }
         //读取
         while (sqlite3_step(statement) == SQLITE_ROW)
