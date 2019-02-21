@@ -1,10 +1,11 @@
 #include "NewSave.h"
+#include "PotConv.h"
 #include "csv.h"
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 // 基本
-void NewSave::SaveToCSVBaseInfo(Save::BaseInfo* data, int length, int record)
+void NewSave::SaveCSVBaseInfo(Save::BaseInfo* data, int length, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_基本.csv");
     fout << "乘船";
@@ -73,13 +74,15 @@ void NewSave::SaveToCSVBaseInfo(Save::BaseInfo* data, int length, int record)
         {
             fout << data[i].Team[j];
             if (j != 6 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << std::endl;
     }
 }
 // 背包
-void NewSave::SaveToCSVItemList(ItemList* data, int length, int record)
+void NewSave::SaveCSVItemList(ItemList* data, int length, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_背包.csv");
     fout << "物品编号";
@@ -95,7 +98,7 @@ void NewSave::SaveToCSVItemList(ItemList* data, int length, int record)
     }
 }
 // 人物
-void NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record)
+void NewSave::SaveCSVRoleSave(const std::vector<Role>& data, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_人物.csv");
     fout << "编号";
@@ -305,7 +308,9 @@ void NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record)
         {
             fout << data[i].Frame[j];
             if (j != 15 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         fout << data[i].MPType;
@@ -358,34 +363,42 @@ void NewSave::SaveToCSVRoleSave(const std::vector<Role>& data, int record)
         {
             fout << data[i].MagicID[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 10; j++)
         {
             fout << data[i].MagicLevel[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 4; j++)
         {
             fout << data[i].TakingItem[j];
             if (j != 4 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 4; j++)
         {
             fout << data[i].TakingItemCount[j];
             if (j != 4 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << std::endl;
     }
 }
 // 物品
-void NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record)
+void NewSave::SaveCSVItemSave(const std::vector<Item>& data, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_物品.csv");
     fout << "编号";
@@ -543,7 +556,9 @@ void NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record)
         {
             fout << data[i].Name1[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         fout << '"' << data[i].Introduction << '"';
@@ -650,20 +665,24 @@ void NewSave::SaveToCSVItemSave(const std::vector<Item>& data, int record)
         {
             fout << data[i].MakeItem[j];
             if (j != 5 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 5; j++)
         {
             fout << data[i].MakeItemCount[j];
             if (j != 5 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << std::endl;
     }
 }
 // 场景
-void NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record)
+void NewSave::SaveCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_场景.csv");
     fout << "编号";
@@ -741,14 +760,18 @@ void NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int r
         {
             fout << data[i].ExitX[j];
             if (j != 3 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 3; j++)
         {
             fout << data[i].ExitY[j];
             if (j != 3 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         fout << data[i].JumpX;
@@ -762,7 +785,7 @@ void NewSave::SaveToCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int r
     }
 }
 // 武功
-void NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record)
+void NewSave::SaveCSVMagicSave(const std::vector<Magic>& data, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_武功.csv");
     fout << "编号";
@@ -904,7 +927,9 @@ void NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record)
         {
             fout << data[i].Unknown[j];
             if (j != 5 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         fout << data[i].SoundID;
@@ -925,41 +950,51 @@ void NewSave::SaveToCSVMagicSave(const std::vector<Magic>& data, int record)
         {
             fout << data[i].Attack[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 10; j++)
         {
             fout << data[i].SelectDistance[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 10; j++)
         {
             fout << data[i].AttackDistance[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 10; j++)
         {
             fout << data[i].AddMP[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 10; j++)
         {
             fout << data[i].HurtMP[j];
             if (j != 10 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << std::endl;
     }
 }
 // 商店
-void NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record)
+void NewSave::SaveCSVShopSave(const std::vector<Shop>& data, int record)
 {
     std::ofstream fout("../game/save/csv/" + std::to_string(record) + "_商店.csv");
     fout << "物品编号1";
@@ -999,27 +1034,33 @@ void NewSave::SaveToCSVShopSave(const std::vector<Shop>& data, int record)
         {
             fout << data[i].ItemID[j];
             if (j != 5 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 5; j++)
         {
             fout << data[i].Total[j];
             if (j != 5 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << ",";
         for (int j = 0; j < 5; j++)
         {
             fout << data[i].Price[j];
             if (j != 5 - 1)
-            { fout << ","; }
+            {
+                fout << ",";
+            }
         }
         fout << std::endl;
     }
 }
 // 基本
-void NewSave::LoadFromCSVBaseInfo(Save::BaseInfo* data, int length, int record)
+void NewSave::LoadCSVBaseInfo(Save::BaseInfo* data, int length, int record)
 {
     io::CSVReader<18, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_基本.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1086,13 +1127,15 @@ void NewSave::LoadFromCSVBaseInfo(Save::BaseInfo* data, int length, int record)
     {
         data[lines] = nextLineData;
         if (lines + 1 == length)
-        { break; }
+        {
+            break;
+        }
         lines++;
         nextLineData = getDefault();
     }
 }
 // 背包
-void NewSave::LoadFromCSVItemList(ItemList* data, int length, int record)
+void NewSave::LoadCSVItemList(ItemList* data, int length, int record)
 {
     io::CSVReader<2, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_背包.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
@@ -1113,13 +1156,15 @@ void NewSave::LoadFromCSVItemList(ItemList* data, int length, int record)
     {
         data[lines] = nextLineData;
         if (lines + 1 == length)
-        { break; }
+        {
+            break;
+        }
         lines++;
         nextLineData = getDefault();
     }
 }
 // 人物
-void NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record)
+void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
 {
     data.clear();
     io::CSVReader<83, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_人物.csv");
@@ -1369,7 +1414,7 @@ void NewSave::LoadFromCSVRoleSave(std::vector<Role>& data, int record)
     }
 }
 // 物品
-void NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record)
+void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
 {
     data.clear();
     io::CSVReader<72, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_物品.csv");
@@ -1601,7 +1646,7 @@ void NewSave::LoadFromCSVItemSave(std::vector<Item>& data, int record)
     }
 }
 // 场景
-void NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
+void NewSave::LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
 {
     data.clear();
     io::CSVReader<22, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_场景.csv");
@@ -1691,7 +1736,7 @@ void NewSave::LoadFromCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int recor
     }
 }
 // 武功
-void NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record)
+void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
 {
     data.clear();
     io::CSVReader<64, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_武功.csv");
@@ -1874,7 +1919,7 @@ void NewSave::LoadFromCSVMagicSave(std::vector<Magic>& data, int record)
     }
 }
 // 商店
-void NewSave::LoadFromCSVShopSave(std::vector<Shop>& data, int record)
+void NewSave::LoadCSVShopSave(std::vector<Shop>& data, int record)
 {
     data.clear();
     io::CSVReader<15, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_商店.csv");
@@ -1948,24 +1993,40 @@ void NewSave::InsertRoleAt(std::vector<Role>& data, int idx)
     {
         auto p = Save::getInstance();
         if (p->Team[0] >= idx)
-        { p->Team[0] += 1; }
+        {
+            p->Team[0] += 1;
+        }
         if (p->Team[1] >= idx)
-        { p->Team[1] += 1; }
+        {
+            p->Team[1] += 1;
+        }
         if (p->Team[2] >= idx)
-        { p->Team[2] += 1; }
+        {
+            p->Team[2] += 1;
+        }
         if (p->Team[3] >= idx)
-        { p->Team[3] += 1; }
+        {
+            p->Team[3] += 1;
+        }
         if (p->Team[4] >= idx)
-        { p->Team[4] += 1; }
+        {
+            p->Team[4] += 1;
+        }
         if (p->Team[5] >= idx)
-        { p->Team[5] += 1; }
+        {
+            p->Team[5] += 1;
+        }
     }
     for (auto& p : Save::getInstance()->getItems())
     {
         if (p->User >= idx)
-        { p->User += 1; }
+        {
+            p->User += 1;
+        }
         if (p->OnlySuitableRole >= idx)
-        { p->OnlySuitableRole += 1; }
+        {
+            p->OnlySuitableRole += 1;
+        }
     }
 }
 void NewSave::InsertItemAt(std::vector<Item>& data, int idx)
@@ -1981,52 +2042,90 @@ void NewSave::InsertItemAt(std::vector<Item>& data, int idx)
     {
         auto* p = &(Save::getInstance()->Items[i]);
         if (p->item_id >= idx)
-        { p->item_id += 1; }
+        {
+            p->item_id += 1;
+        }
     }
     for (auto& p : Save::getInstance()->getRoles())
     {
         if (p->Equip0 >= idx)
-        { p->Equip0 += 1; }
+        {
+            p->Equip0 += 1;
+        }
         if (p->Equip1 >= idx)
-        { p->Equip1 += 1; }
+        {
+            p->Equip1 += 1;
+        }
         if (p->PracticeItem >= idx)
-        { p->PracticeItem += 1; }
+        {
+            p->PracticeItem += 1;
+        }
         if (p->TakingItem[0] >= idx)
-        { p->TakingItem[0] += 1; }
+        {
+            p->TakingItem[0] += 1;
+        }
         if (p->TakingItem[1] >= idx)
-        { p->TakingItem[1] += 1; }
+        {
+            p->TakingItem[1] += 1;
+        }
         if (p->TakingItem[2] >= idx)
-        { p->TakingItem[2] += 1; }
+        {
+            p->TakingItem[2] += 1;
+        }
         if (p->TakingItem[3] >= idx)
-        { p->TakingItem[3] += 1; }
+        {
+            p->TakingItem[3] += 1;
+        }
     }
     for (auto& p : Save::getInstance()->getItems())
     {
         if (p->NeedMaterial >= idx)
-        { p->NeedMaterial += 1; }
+        {
+            p->NeedMaterial += 1;
+        }
         if (p->MakeItem[0] >= idx)
-        { p->MakeItem[0] += 1; }
+        {
+            p->MakeItem[0] += 1;
+        }
         if (p->MakeItem[1] >= idx)
-        { p->MakeItem[1] += 1; }
+        {
+            p->MakeItem[1] += 1;
+        }
         if (p->MakeItem[2] >= idx)
-        { p->MakeItem[2] += 1; }
+        {
+            p->MakeItem[2] += 1;
+        }
         if (p->MakeItem[3] >= idx)
-        { p->MakeItem[3] += 1; }
+        {
+            p->MakeItem[3] += 1;
+        }
         if (p->MakeItem[4] >= idx)
-        { p->MakeItem[4] += 1; }
+        {
+            p->MakeItem[4] += 1;
+        }
     }
     for (auto& p : Save::getInstance()->getShops())
     {
         if (p->ItemID[0] >= idx)
-        { p->ItemID[0] += 1; }
+        {
+            p->ItemID[0] += 1;
+        }
         if (p->ItemID[1] >= idx)
-        { p->ItemID[1] += 1; }
+        {
+            p->ItemID[1] += 1;
+        }
         if (p->ItemID[2] >= idx)
-        { p->ItemID[2] += 1; }
+        {
+            p->ItemID[2] += 1;
+        }
         if (p->ItemID[3] >= idx)
-        { p->ItemID[3] += 1; }
+        {
+            p->ItemID[3] += 1;
+        }
         if (p->ItemID[4] >= idx)
-        { p->ItemID[4] += 1; }
+        {
+            p->ItemID[4] += 1;
+        }
     }
 }
 void NewSave::InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx)
@@ -2051,30 +2150,52 @@ void NewSave::InsertMagicAt(std::vector<Magic>& data, int idx)
     for (auto& p : Save::getInstance()->getRoles())
     {
         if (p->MagicID[0] >= idx)
-        { p->MagicID[0] += 1; }
+        {
+            p->MagicID[0] += 1;
+        }
         if (p->MagicID[1] >= idx)
-        { p->MagicID[1] += 1; }
+        {
+            p->MagicID[1] += 1;
+        }
         if (p->MagicID[2] >= idx)
-        { p->MagicID[2] += 1; }
+        {
+            p->MagicID[2] += 1;
+        }
         if (p->MagicID[3] >= idx)
-        { p->MagicID[3] += 1; }
+        {
+            p->MagicID[3] += 1;
+        }
         if (p->MagicID[4] >= idx)
-        { p->MagicID[4] += 1; }
+        {
+            p->MagicID[4] += 1;
+        }
         if (p->MagicID[5] >= idx)
-        { p->MagicID[5] += 1; }
+        {
+            p->MagicID[5] += 1;
+        }
         if (p->MagicID[6] >= idx)
-        { p->MagicID[6] += 1; }
+        {
+            p->MagicID[6] += 1;
+        }
         if (p->MagicID[7] >= idx)
-        { p->MagicID[7] += 1; }
+        {
+            p->MagicID[7] += 1;
+        }
         if (p->MagicID[8] >= idx)
-        { p->MagicID[8] += 1; }
+        {
+            p->MagicID[8] += 1;
+        }
         if (p->MagicID[9] >= idx)
-        { p->MagicID[9] += 1; }
+        {
+            p->MagicID[9] += 1;
+        }
     }
     for (auto& p : Save::getInstance()->getItems())
     {
         if (p->MagicID >= idx)
-        { p->MagicID += 1; }
+        {
+            p->MagicID += 1;
+        }
     }
 }
 void NewSave::InsertShopAt(std::vector<Shop>& data, int idx)
@@ -2086,4 +2207,432 @@ void NewSave::InsertShopAt(std::vector<Shop>& data, int idx)
         // data[i].ID = i;
     }
     Save::getInstance()->updateAllPtrVector();
+}
+
+NewSave NewSave::new_save_;
+
+#define GET_OFFSET(field) (int((char*)(&(a.##field)) - (char*)(&a)))
+#define BIND_FIELD_INT(a1, a3) (FieldInfo{ a1, 0, GET_OFFSET(a3), 4 })
+#define BIND_FIELD_CHAR(a1, a3, a4) (FieldInfo{ a1, 1, GET_OFFSET(a3), a4 })
+
+void NewSave::initDBFieldInfo()
+{
+    if (new_save_.base_.size() == 0)
+    {
+        Save::BaseInfo a;
+        new_save_.base_ =
+        {
+            BIND_FIELD_INT("乘船", InShip),
+            BIND_FIELD_INT("子场景内", InSubMap),
+            BIND_FIELD_INT("主地图X", MainMapX),
+            BIND_FIELD_INT("主地图Y", MainMapY),
+            BIND_FIELD_INT("子场景X", SubMapX),
+            BIND_FIELD_INT("子场景Y", SubMapY),
+            BIND_FIELD_INT("面朝方向", FaceTowards),
+            BIND_FIELD_INT("船X", ShipX),
+            BIND_FIELD_INT("船Y", ShipY),
+            BIND_FIELD_INT("船X1", ShipX1),
+            BIND_FIELD_INT("船Y1", ShipY1),
+            BIND_FIELD_INT("内部编码", Encode),
+            BIND_FIELD_INT("队友1", Team[0]),
+            BIND_FIELD_INT("队友2", Team[1]),
+            BIND_FIELD_INT("队友3", Team[2]),
+            BIND_FIELD_INT("队友4", Team[3]),
+            BIND_FIELD_INT("队友5", Team[4]),
+            BIND_FIELD_INT("队友6", Team[5]),
+        };
+    }
+    if (new_save_.item_list_.size() == 0)
+    {
+        ItemList a;
+        new_save_.item_list_ =
+        {
+            BIND_FIELD_INT("物品编号", item_id),
+            BIND_FIELD_INT("物品数量", count),
+        };
+    }
+    if (new_save_.role_.size() == 0)
+    {
+        Role a;
+        new_save_.role_ =
+        {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_INT("头像", HeadID),
+            BIND_FIELD_INT("生命成长", IncLife),
+            BIND_FIELD_INT("无用", UnUse),
+            BIND_FIELD_CHAR("名字", Name, 20),
+            BIND_FIELD_CHAR("外号", Nick, 20),
+            BIND_FIELD_INT("性别", Sexual),
+            BIND_FIELD_INT("等级", Level),
+            BIND_FIELD_INT("经验", Exp),
+            BIND_FIELD_INT("生命", HP),
+            BIND_FIELD_INT("生命最大值", MaxHP),
+            BIND_FIELD_INT("内伤", Hurt),
+            BIND_FIELD_INT("中毒", Poison),
+            BIND_FIELD_INT("体力", PhysicalPower),
+            BIND_FIELD_INT("物品修炼点数", ExpForMakeItem),
+            BIND_FIELD_INT("武器", Equip0),
+            BIND_FIELD_INT("防具", Equip1),
+            BIND_FIELD_INT("动作帧数1", Frame[0]),
+            BIND_FIELD_INT("动作帧数2", Frame[1]),
+            BIND_FIELD_INT("动作帧数3", Frame[2]),
+            BIND_FIELD_INT("动作帧数4", Frame[3]),
+            BIND_FIELD_INT("动作帧数5", Frame[4]),
+            BIND_FIELD_INT("动作帧数6", Frame[5]),
+            BIND_FIELD_INT("动作帧数7", Frame[6]),
+            BIND_FIELD_INT("动作帧数8", Frame[7]),
+            BIND_FIELD_INT("动作帧数9", Frame[8]),
+            BIND_FIELD_INT("动作帧数10", Frame[9]),
+            BIND_FIELD_INT("动作帧数11", Frame[10]),
+            BIND_FIELD_INT("动作帧数12", Frame[11]),
+            BIND_FIELD_INT("动作帧数13", Frame[12]),
+            BIND_FIELD_INT("动作帧数14", Frame[13]),
+            BIND_FIELD_INT("动作帧数15", Frame[14]),
+            BIND_FIELD_INT("内力性质", MPType),
+            BIND_FIELD_INT("内力", MP),
+            BIND_FIELD_INT("内力最大值", MaxMP),
+            BIND_FIELD_INT("攻击力", Attack),
+            BIND_FIELD_INT("轻功", Speed),
+            BIND_FIELD_INT("防御力", Defence),
+            BIND_FIELD_INT("医疗", Medicine),
+            BIND_FIELD_INT("用毒", UsePoison),
+            BIND_FIELD_INT("解毒", Detoxification),
+            BIND_FIELD_INT("抗毒", AntiPoison),
+            BIND_FIELD_INT("拳掌", Fist),
+            BIND_FIELD_INT("御剑", Sword),
+            BIND_FIELD_INT("耍刀", Knife),
+            BIND_FIELD_INT("特殊", Unusual),
+            BIND_FIELD_INT("暗器", HiddenWeapon),
+            BIND_FIELD_INT("武学常识", Knowledge),
+            BIND_FIELD_INT("品德", Morality),
+            BIND_FIELD_INT("攻击带毒", AttackWithPoison),
+            BIND_FIELD_INT("左右互搏", AttackTwice),
+            BIND_FIELD_INT("声望", Fame),
+            BIND_FIELD_INT("资质", IQ),
+            BIND_FIELD_INT("修炼物品", PracticeItem),
+            BIND_FIELD_INT("修炼点数", ExpForItem),
+            BIND_FIELD_INT("所会武功1", MagicID[0]),
+            BIND_FIELD_INT("所会武功2", MagicID[1]),
+            BIND_FIELD_INT("所会武功3", MagicID[2]),
+            BIND_FIELD_INT("所会武功4", MagicID[3]),
+            BIND_FIELD_INT("所会武功5", MagicID[4]),
+            BIND_FIELD_INT("所会武功6", MagicID[5]),
+            BIND_FIELD_INT("所会武功7", MagicID[6]),
+            BIND_FIELD_INT("所会武功8", MagicID[7]),
+            BIND_FIELD_INT("所会武功9", MagicID[8]),
+            BIND_FIELD_INT("所会武功10", MagicID[9]),
+            BIND_FIELD_INT("武功等级1", MagicLevel[0]),
+            BIND_FIELD_INT("武功等级2", MagicLevel[1]),
+            BIND_FIELD_INT("武功等级3", MagicLevel[2]),
+            BIND_FIELD_INT("武功等级4", MagicLevel[3]),
+            BIND_FIELD_INT("武功等级5", MagicLevel[4]),
+            BIND_FIELD_INT("武功等级6", MagicLevel[5]),
+            BIND_FIELD_INT("武功等级7", MagicLevel[6]),
+            BIND_FIELD_INT("武功等级8", MagicLevel[7]),
+            BIND_FIELD_INT("武功等级9", MagicLevel[8]),
+            BIND_FIELD_INT("武功等级10", MagicLevel[9]),
+            BIND_FIELD_INT("携带物品1", TakingItem[0]),
+            BIND_FIELD_INT("携带物品2", TakingItem[1]),
+            BIND_FIELD_INT("携带物品3", TakingItem[2]),
+            BIND_FIELD_INT("携带物品4", TakingItem[3]),
+            BIND_FIELD_INT("携带物品数量1", TakingItemCount[0]),
+            BIND_FIELD_INT("携带物品数量2", TakingItemCount[1]),
+            BIND_FIELD_INT("携带物品数量3", TakingItemCount[2]),
+            BIND_FIELD_INT("携带物品数量4", TakingItemCount[3]),
+        };
+    }
+    if (new_save_.item_.size() == 0)
+    {
+        Item a;
+        new_save_.item_ =
+        {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_CHAR("物品名", Name, 40),
+            BIND_FIELD_INT("物品名无用1", Name1[0]),
+            BIND_FIELD_INT("物品名无用2", Name1[1]),
+            BIND_FIELD_INT("物品名无用3", Name1[2]),
+            BIND_FIELD_INT("物品名无用4", Name1[3]),
+            BIND_FIELD_INT("物品名无用5", Name1[4]),
+            BIND_FIELD_INT("物品名无用6", Name1[5]),
+            BIND_FIELD_INT("物品名无用7", Name1[6]),
+            BIND_FIELD_INT("物品名无用8", Name1[7]),
+            BIND_FIELD_INT("物品名无用9", Name1[8]),
+            BIND_FIELD_INT("物品名无用10", Name1[9]),
+            BIND_FIELD_CHAR("物品说明", Introduction, 60),
+            BIND_FIELD_INT("练出武功", MagicID),
+            BIND_FIELD_INT("暗器动画编号", HiddenWeaponEffectID),
+            BIND_FIELD_INT("使用人", User),
+            BIND_FIELD_INT("装备类型", EquipType),
+            BIND_FIELD_INT("显示物品说明", ShowIntroduction),
+            BIND_FIELD_INT("物品类型", ItemType),
+            BIND_FIELD_INT("未知5", UnKnown5),
+            BIND_FIELD_INT("未知6", UnKnown6),
+            BIND_FIELD_INT("未知7", UnKnown7),
+            BIND_FIELD_INT("加生命", AddHP),
+            BIND_FIELD_INT("加生命最大值", AddMaxHP),
+            BIND_FIELD_INT("加中毒解毒", AddPoison),
+            BIND_FIELD_INT("加体力", AddPhysicalPower),
+            BIND_FIELD_INT("改变内力性质", ChangeMPType),
+            BIND_FIELD_INT("加内力", AddMP),
+            BIND_FIELD_INT("加内力最大值", AddMaxMP),
+            BIND_FIELD_INT("加攻击力", AddAttack),
+            BIND_FIELD_INT("加轻功", AddSpeed),
+            BIND_FIELD_INT("加防御力", AddDefence),
+            BIND_FIELD_INT("加医疗", AddMedicine),
+            BIND_FIELD_INT("加使毒", AddUsePoison),
+            BIND_FIELD_INT("加解毒", AddDetoxification),
+            BIND_FIELD_INT("加抗毒", AddAntiPoison),
+            BIND_FIELD_INT("加拳掌", AddFist),
+            BIND_FIELD_INT("加御剑", AddSword),
+            BIND_FIELD_INT("加耍刀", AddKnife),
+            BIND_FIELD_INT("加特殊兵器", AddUnusual),
+            BIND_FIELD_INT("加暗器技巧", AddHiddenWeapon),
+            BIND_FIELD_INT("加武学常识", AddKnowledge),
+            BIND_FIELD_INT("加品德", AddMorality),
+            BIND_FIELD_INT("加左右互搏", AddAttackTwice),
+            BIND_FIELD_INT("加攻击带毒", AddAttackWithPoison),
+            BIND_FIELD_INT("仅修炼人物", OnlySuitableRole),
+            BIND_FIELD_INT("需内力性质", NeedMPType),
+            BIND_FIELD_INT("需内力", NeedMP),
+            BIND_FIELD_INT("需攻击力", NeedAttack),
+            BIND_FIELD_INT("需轻功", NeedSpeed),
+            BIND_FIELD_INT("需用毒", NeedUsePoison),
+            BIND_FIELD_INT("需医疗", NeedMedicine),
+            BIND_FIELD_INT("需解毒", NeedDetoxification),
+            BIND_FIELD_INT("需拳掌", NeedFist),
+            BIND_FIELD_INT("需御剑", NeedSword),
+            BIND_FIELD_INT("需耍刀", NeedKnife),
+            BIND_FIELD_INT("需特殊兵器", NeedUnusual),
+            BIND_FIELD_INT("需暗器", NeedHiddenWeapon),
+            BIND_FIELD_INT("需资质", NeedIQ),
+            BIND_FIELD_INT("需经验", NeedExp),
+            BIND_FIELD_INT("练出物品需经验", NeedExpForMakeItem),
+            BIND_FIELD_INT("需材料", NeedMaterial),
+            BIND_FIELD_INT("练出物品1", MakeItem[0]),
+            BIND_FIELD_INT("练出物品2", MakeItem[1]),
+            BIND_FIELD_INT("练出物品3", MakeItem[2]),
+            BIND_FIELD_INT("练出物品4", MakeItem[3]),
+            BIND_FIELD_INT("练出物品5", MakeItem[4]),
+            BIND_FIELD_INT("练出物品数量1", MakeItemCount[0]),
+            BIND_FIELD_INT("练出物品数量2", MakeItemCount[1]),
+            BIND_FIELD_INT("练出物品数量3", MakeItemCount[2]),
+            BIND_FIELD_INT("练出物品数量4", MakeItemCount[3]),
+            BIND_FIELD_INT("练出物品数量5", MakeItemCount[4]),
+        };
+    }
+    if (new_save_.submap_.size() == 0)
+    {
+        SubMapInfo a;
+        new_save_.submap_ =
+        {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_CHAR("名称", Name, 20),
+            BIND_FIELD_INT("出门音乐", ExitMusic),
+            BIND_FIELD_INT("进门音乐", EntranceMusic),
+            BIND_FIELD_INT("跳转场景", JumpSubMap),
+            BIND_FIELD_INT("进入条件", EntranceCondition),
+            BIND_FIELD_INT("外景入口X1", MainEntranceX1),
+            BIND_FIELD_INT("外景入口Y1", MainEntranceY1),
+            BIND_FIELD_INT("外景入口X2", MainEntranceX2),
+            BIND_FIELD_INT("外景入口Y2", MainEntranceY2),
+            BIND_FIELD_INT("入口X", EntranceX),
+            BIND_FIELD_INT("入口Y", EntranceY),
+            BIND_FIELD_INT("出口X1", ExitX[0]),
+            BIND_FIELD_INT("出口X2", ExitX[1]),
+            BIND_FIELD_INT("出口X3", ExitX[2]),
+            BIND_FIELD_INT("出口Y1", ExitY[0]),
+            BIND_FIELD_INT("出口Y2", ExitY[1]),
+            BIND_FIELD_INT("出口Y3", ExitY[2]),
+            BIND_FIELD_INT("跳转X", JumpX),
+            BIND_FIELD_INT("跳转Y", JumpY),
+            BIND_FIELD_INT("跳转返还X", JumpReturnX),
+            BIND_FIELD_INT("跳转返还Y", JumpReturnY),
+        };
+    }
+    if (new_save_.magic_.size() == 0)
+    {
+        Magic a;
+        new_save_.magic_ =
+        {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_CHAR("名称", Name, 20),
+            BIND_FIELD_INT("未知1", Unknown[0]),
+            BIND_FIELD_INT("未知2", Unknown[1]),
+            BIND_FIELD_INT("未知3", Unknown[2]),
+            BIND_FIELD_INT("未知4", Unknown[3]),
+            BIND_FIELD_INT("未知5", Unknown[4]),
+            BIND_FIELD_INT("出招音效", SoundID),
+            BIND_FIELD_INT("武功类型", MagicType),
+            BIND_FIELD_INT("武功动画", EffectID),
+            BIND_FIELD_INT("伤害类型", HurtType),
+            BIND_FIELD_INT("攻击范围类型", AttackAreaType),
+            BIND_FIELD_INT("消耗内力", NeedMP),
+            BIND_FIELD_INT("敌人中毒", WithPoison),
+            BIND_FIELD_INT("威力1", Attack[0]),
+            BIND_FIELD_INT("威力2", Attack[1]),
+            BIND_FIELD_INT("威力3", Attack[2]),
+            BIND_FIELD_INT("威力4", Attack[3]),
+            BIND_FIELD_INT("威力5", Attack[4]),
+            BIND_FIELD_INT("威力6", Attack[5]),
+            BIND_FIELD_INT("威力7", Attack[6]),
+            BIND_FIELD_INT("威力8", Attack[7]),
+            BIND_FIELD_INT("威力9", Attack[8]),
+            BIND_FIELD_INT("威力10", Attack[9]),
+            BIND_FIELD_INT("移动范围1", SelectDistance[0]),
+            BIND_FIELD_INT("移动范围2", SelectDistance[1]),
+            BIND_FIELD_INT("移动范围3", SelectDistance[2]),
+            BIND_FIELD_INT("移动范围4", SelectDistance[3]),
+            BIND_FIELD_INT("移动范围5", SelectDistance[4]),
+            BIND_FIELD_INT("移动范围6", SelectDistance[5]),
+            BIND_FIELD_INT("移动范围7", SelectDistance[6]),
+            BIND_FIELD_INT("移动范围8", SelectDistance[7]),
+            BIND_FIELD_INT("移动范围9", SelectDistance[8]),
+            BIND_FIELD_INT("移动范围10", SelectDistance[9]),
+            BIND_FIELD_INT("杀伤范围1", AttackDistance[0]),
+            BIND_FIELD_INT("杀伤范围2", AttackDistance[1]),
+            BIND_FIELD_INT("杀伤范围3", AttackDistance[2]),
+            BIND_FIELD_INT("杀伤范围4", AttackDistance[3]),
+            BIND_FIELD_INT("杀伤范围5", AttackDistance[4]),
+            BIND_FIELD_INT("杀伤范围6", AttackDistance[5]),
+            BIND_FIELD_INT("杀伤范围7", AttackDistance[6]),
+            BIND_FIELD_INT("杀伤范围8", AttackDistance[7]),
+            BIND_FIELD_INT("杀伤范围9", AttackDistance[8]),
+            BIND_FIELD_INT("杀伤范围10", AttackDistance[9]),
+            BIND_FIELD_INT("加内力1", AddMP[0]),
+            BIND_FIELD_INT("加内力2", AddMP[1]),
+            BIND_FIELD_INT("加内力3", AddMP[2]),
+            BIND_FIELD_INT("加内力4", AddMP[3]),
+            BIND_FIELD_INT("加内力5", AddMP[4]),
+            BIND_FIELD_INT("加内力6", AddMP[5]),
+            BIND_FIELD_INT("加内力7", AddMP[6]),
+            BIND_FIELD_INT("加内力8", AddMP[7]),
+            BIND_FIELD_INT("加内力9", AddMP[8]),
+            BIND_FIELD_INT("加内力10", AddMP[9]),
+            BIND_FIELD_INT("杀伤内力1", HurtMP[0]),
+            BIND_FIELD_INT("杀伤内力2", HurtMP[1]),
+            BIND_FIELD_INT("杀伤内力3", HurtMP[2]),
+            BIND_FIELD_INT("杀伤内力4", HurtMP[3]),
+            BIND_FIELD_INT("杀伤内力5", HurtMP[4]),
+            BIND_FIELD_INT("杀伤内力6", HurtMP[5]),
+            BIND_FIELD_INT("杀伤内力7", HurtMP[6]),
+            BIND_FIELD_INT("杀伤内力8", HurtMP[7]),
+            BIND_FIELD_INT("杀伤内力9", HurtMP[8]),
+            BIND_FIELD_INT("杀伤内力10", HurtMP[9]),
+        };
+    }
+    if (new_save_.shop_.size() == 0)
+    {
+        Shop a;
+        new_save_.shop_ =
+        {
+            BIND_FIELD_INT("物品编号1", ItemID[0]),
+            BIND_FIELD_INT("物品编号2", ItemID[1]),
+            BIND_FIELD_INT("物品编号3", ItemID[2]),
+            BIND_FIELD_INT("物品编号4", ItemID[3]),
+            BIND_FIELD_INT("物品编号5", ItemID[4]),
+            BIND_FIELD_INT("物品总量1", Total[0]),
+            BIND_FIELD_INT("物品总量2", Total[1]),
+            BIND_FIELD_INT("物品总量3", Total[2]),
+            BIND_FIELD_INT("物品总量4", Total[3]),
+            BIND_FIELD_INT("物品总量5", Total[4]),
+            BIND_FIELD_INT("物品价格1", Price[0]),
+            BIND_FIELD_INT("物品价格2", Price[1]),
+            BIND_FIELD_INT("物品价格3", Price[2]),
+            BIND_FIELD_INT("物品价格4", Price[3]),
+            BIND_FIELD_INT("物品价格5", Price[4]),
+        };
+    }
+}
+
+void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
+{
+    initDBFieldInfo();
+    sqlite3_exec(db, "delete from base", nullptr, nullptr, nullptr);
+
+    std::string cmd = "insert into base values(";
+    for (auto& info : new_save_.base_)
+    {
+        cmd += std::to_string(*(int*)((char*)data + info.offset)) + ",";
+    }
+    cmd.pop_back();
+    cmd += ")";
+    sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
+}
+
+void NewSave::LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
+{
+    initDBFieldInfo();
+    std::vector<Save::BaseInfo> datas;
+    readValues(db, "base", new_save_.base_, datas);
+    *data = datas[0];
+}
+
+void NewSave::SaveDBItemList(sqlite3* db, ItemList* data, int length)
+{
+    std::vector<ItemList> itemlist(length);
+    for (int i = 0; i < length; i++)
+    {
+        itemlist[i] = data[i];
+    }
+    writeValues(db, "bag", new_save_.item_list_, itemlist);
+}
+
+void NewSave::LoadDBItemList(sqlite3* db, ItemList* data, int length)
+{
+    std::vector<ItemList> itemlist;
+    readValues(db, "bag", new_save_.item_list_, itemlist);
+    for (int i = 0; i < length; i++)
+    {
+        data[i] = itemlist[i];
+    }
+}
+
+void NewSave::SaveDBRoleSave(sqlite3* db, const std::vector<Role>& data)
+{
+    writeValues(db, "role", new_save_.role_, data);
+}
+
+void NewSave::LoadDBRoleSave(sqlite3* db, std::vector<Role>& data)
+{
+    readValues(db, "role", new_save_.role_, data);
+}
+
+void NewSave::SaveDBItemSave(sqlite3* db, const std::vector<Item>& data)
+{
+    writeValues(db, "item", new_save_.item_, data);
+}
+
+void NewSave::LoadDBItemSave(sqlite3* db, std::vector<Item>& data)
+{
+    readValues(db, "item", new_save_.item_, data);
+}
+
+void NewSave::SaveDBSubMapInfoSave(sqlite3* db, const std::vector<SubMapInfo>& data)
+{
+    writeValues(db, "submap", new_save_.submap_, data);
+}
+
+void NewSave::LoadDBSubMapInfoSave(sqlite3* db, std::vector<SubMapInfo>& data)
+{
+    readValues(db, "submap", new_save_.submap_, data);
+}
+
+void NewSave::SaveDBMagicSave(sqlite3* db, const std::vector<Magic>& data)
+{
+    writeValues(db, "magic", new_save_.magic_, data);
+}
+
+void NewSave::LoadDBMagicSave(sqlite3* db, std::vector<Magic>& data)
+{
+    readValues(db, "magic", new_save_.magic_, data);
+}
+
+void NewSave::SaveDBShopSave(sqlite3* db, const std::vector<Shop>& data)
+{
+    writeValues(db, "shop", new_save_.shop_, data);
+}
+
+void NewSave::LoadDBShopSave(sqlite3* db, std::vector<Shop>& data)
+{
+    readValues(db, "shop", new_save_.shop_, data);
 }

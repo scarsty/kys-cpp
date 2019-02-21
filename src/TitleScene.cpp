@@ -67,7 +67,6 @@ void TitleScene::dealEvent(BP_Event& e)
     if (r == 0)
     {
         Save::getInstance()->load(0);
-        Save::getInstance()->saveRToCSV(2);
         //Script::getInstance()->runScript("../game/script/0.lua");
         std::string name = "";
 #ifdef _MSC_VER
@@ -127,4 +126,8 @@ void TitleScene::onEntrance()
     //tbr->setRollLine(5);
     //menu_->addChild(tbr, -100, -100);
     //ZipFile::unzip("../game/save/1.zip", { "r1.grp32","s1.grp","d1.grp" });
+
+    //Save::getInstance()->loadRFromDB(0);
+
+
 }

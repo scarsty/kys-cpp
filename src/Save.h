@@ -209,6 +209,4 @@ public:
 public:
     void saveRToDB(int num);
     void loadRFromDB(int num);
-
-    void sqlite();
 };

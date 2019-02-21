@@ -1,9 +1,9 @@
 #include "Save.h"
 #include "File.h"
 #include "GrpIdxFile.h"
+#include "NewSave.h"
 #include "PotConv.h"
 #include "libconvert.h"
-#include "NewSave.h"
 
 Save::Save()
 {
@@ -66,6 +66,7 @@ bool Save::load(int num)
     }
 
     loadR(num);
+    //loadRFromDB(num);
     loadSD(num);
 
     //内部编码为cp936
@@ -133,13 +134,13 @@ void Save::loadSD(int num)
     }
     delete[] sdata;
     delete[] ddata;
-
 }
 
 bool Save::save(int num)
 {
     saveR(num);
     saveSD(num);
+    saveRToDB(num);
     return true;
 }
 
@@ -181,7 +182,8 @@ void Save::saveSD(int num)
 void Save::resetRData(const std::vector<RoleSave>& newData)
 {
     roles_mem_.clear();
-    for (int i = 0; i < newData.size(); i++) {
+    for (int i = 0; i < newData.size(); i++)
+    {
         roles_mem_.emplace_back();
         auto& r = roles_mem_.back();
         memcpy(&r, &newData[i], sizeof(RoleSave));
@@ -300,30 +302,30 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
 
 void Save::saveRToCSV(int num)
 {
-    NewSave::SaveToCSVBaseInfo((BaseInfo*)this, 1, num);
+    NewSave::SaveCSVBaseInfo((BaseInfo*)this, 1, num);
     // 背包
-    NewSave::SaveToCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
+    NewSave::SaveCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
     // 人物
-    NewSave::SaveToCSVRoleSave(roles_mem_, num);
+    NewSave::SaveCSVRoleSave(roles_mem_, num);
     // 物品
-    NewSave::SaveToCSVItemSave(items_mem_, num);
+    NewSave::SaveCSVItemSave(items_mem_, num);
     // 场景
-    NewSave::SaveToCSVSubMapInfoSave(submap_infos_mem_, num);
+    NewSave::SaveCSVSubMapInfoSave(submap_infos_mem_, num);
     // 武功
-    NewSave::SaveToCSVMagicSave(magics_mem_, num);
+    NewSave::SaveCSVMagicSave(magics_mem_, num);
     // 商店
-    NewSave::SaveToCSVShopSave(shops_mem_, num);
+    NewSave::SaveCSVShopSave(shops_mem_, num);
 }
 
 void Save::loadRFromCSV(int num)
 {
-    NewSave::LoadFromCSVBaseInfo((BaseInfo*)this, 1, num);
-    NewSave::LoadFromCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
-    NewSave::LoadFromCSVRoleSave(roles_mem_, num);
-    NewSave::LoadFromCSVItemSave(items_mem_, num);
-    NewSave::LoadFromCSVSubMapInfoSave(submap_infos_mem_, num);
-    NewSave::LoadFromCSVMagicSave(magics_mem_, num);
-    NewSave::LoadFromCSVShopSave(shops_mem_, num);
+    NewSave::LoadCSVBaseInfo((BaseInfo*)this, 1, num);
+    NewSave::LoadCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
+    NewSave::LoadCSVRoleSave(roles_mem_, num);
+    NewSave::LoadCSVItemSave(items_mem_, num);
+    NewSave::LoadCSVSubMapInfoSave(submap_infos_mem_, num);
+    NewSave::LoadCSVMagicSave(magics_mem_, num);
+    NewSave::LoadCSVShopSave(shops_mem_, num);
     updateAllPtrVector();
     makeMaps();
 }
@@ -358,17 +360,37 @@ bool Save::insertAt(const std::string& type, int idx)
     return false;
 }
 
-void Save::sqlite()
-{
-    sqlite3* db;
-    sqlite3_open("../game/save/test.db", &db);
-    sqlite3_close(db);
-}
-
 void Save::saveRToDB(int num)
 {
+    sqlite3* db;
+    //此处最好复制一个，先搞搞再说
+    std::string filename = "../game/save/" + std::to_string(num) + ".db";
+    convert::writeStringToFile(convert::readStringFromFile("../game/save/0.db"), filename);
+    sqlite3_open(filename.c_str(), &db);
+    sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
+    NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
+    NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
+    NewSave::SaveDBRoleSave(db, roles_mem_);
+    NewSave::SaveDBItemSave(db, items_mem_);
+    NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
+    NewSave::SaveDBMagicSave(db, magics_mem_);
+    NewSave::SaveDBShopSave(db, shops_mem_);
+    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+    sqlite3_close(db);
 }
 
 void Save::loadRFromDB(int num)
 {
+    sqlite3* db;
+    sqlite3_open(("../game/save/" + std::to_string(num) + ".db").c_str(), &db);
+    NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
+    NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);
+    NewSave::LoadDBRoleSave(db, roles_mem_);
+    NewSave::LoadDBItemSave(db, items_mem_);
+    NewSave::LoadDBSubMapInfoSave(db, submap_infos_mem_);
+    NewSave::LoadDBMagicSave(db, magics_mem_);
+    NewSave::LoadDBShopSave(db, shops_mem_);
+    sqlite3_close(db);
+    updateAllPtrVector();
+    makeMaps();
 }
