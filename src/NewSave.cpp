@@ -2211,7 +2211,7 @@ void NewSave::InsertShopAt(std::vector<Shop>& data, int idx)
 
 NewSave NewSave::new_save_;
 
-#define GET_OFFSET(field) (int((char*)(&(a.##field)) - (char*)(&a)))
+#define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))
 #define BIND_FIELD_INT(a1, a3) (FieldInfo{ a1, 0, GET_OFFSET(a3), 4 })
 #define BIND_FIELD_CHAR(a1, a3, a4) (FieldInfo{ a1, 1, GET_OFFSET(a3), a4 })
 

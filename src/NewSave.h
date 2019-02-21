@@ -1,4 +1,5 @@
 #pragma once
+#include "PotConv.h"
 #include "Save.h"
 
 class NewSave
@@ -42,7 +43,6 @@ private:
     std::vector<FieldInfo> base_, item_list_, role_, item_, submap_, magic_, shop_;
     //std::map<std::string, FieldInfo> base_map_;
     static NewSave new_save_;
-
 
 public:
     static void initDBFieldInfo();
