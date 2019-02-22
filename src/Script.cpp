@@ -1,7 +1,7 @@
 #include "Script.h"
-#include "libconvert.h"
 #include "EventMacro.h"
 #include "PotConv.h"
+#include "libconvert.h"
 
 Script::Script()
 {
@@ -40,34 +40,33 @@ int Script::registerEventFunctions()
 #define _I(i) (lua_tonumber(L, i))
 
 #define EVENT_VOID(function, ...) { if (!Event::getInstance()->isExiting()) { Event::getInstance()->function(__VA_ARGS__); } return 0; }
-#define EVENT_BOOL(function, ...) { if (!Event::getInstance()->isExiting()) { lua_pushboolean(L,Event::getInstance()->function(__VA_ARGS__)); return 1; } return 0; }
+#define EVENT_BOOL(function, ...) { if (!Event::getInstance()->isExiting()) { lua_pushboolean(L, Event::getInstance()->function(__VA_ARGS__)); return 1; } return 0; }
 
 #define VOID_0(function) { EVENT_VOID(function); }
-#define VOID_1(function) { EVENT_VOID(function,_I(1)); }
-#define VOID_2(function) { EVENT_VOID(function,_I(1),_I(2)); }
-#define VOID_3(function) { EVENT_VOID(function,_I(1),_I(2),_I(3)); }
-#define VOID_4(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4)); }
-#define VOID_5(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5)); }
-#define VOID_6(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6)); }
-#define VOID_7(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7)); }
-#define VOID_8(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8)); }
-#define VOID_9(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9)); }
-#define VOID_10(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10)); }
-#define VOID_11(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11)); }
-#define VOID_12(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11),_I(12)); }
-#define VOID_13(function) { EVENT_VOID(function,_I(1),_I(2),_I(3),_I(4),_I(5),_I(6),_I(7),_I(8),_I(9),_I(10),_I(11),_I(12),_I(13)); }
+#define VOID_1(function) { EVENT_VOID(function, _I(1)); }
+#define VOID_2(function) { EVENT_VOID(function, _I(1), _I(2)); }
+#define VOID_3(function) { EVENT_VOID(function, _I(1), _I(2), _I(3)); }
+#define VOID_4(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4)); }
+#define VOID_5(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5)); }
+#define VOID_6(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6)); }
+#define VOID_7(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7)); }
+#define VOID_8(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7), _I(8)); }
+#define VOID_9(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7), _I(8), _I(9)); }
+#define VOID_10(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7), _I(8), _I(9), _I(10)); }
+#define VOID_11(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7), _I(8), _I(9), _I(10), _I(11)); }
+#define VOID_12(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7), _I(8), _I(9), _I(10), _I(11), _I(12)); }
+#define VOID_13(function) { EVENT_VOID(function, _I(1), _I(2), _I(3), _I(4), _I(5), _I(6), _I(7), _I(8), _I(9), _I(10), _I(11), _I(12), _I(13)); }
 
 #define BOOL_0(function) { EVENT_BOOL(function); }
-#define BOOL_1(function) { EVENT_BOOL(function,_I(1)); }
-#define BOOL_2(function) { EVENT_BOOL(function,_I(1),_I(2));}
-#define BOOL_3(function) { EVENT_BOOL(function,_I(1),_I(2),_I(3)); }
-#define BOOL_4(function) { EVENT_BOOL(function,_I(1),_I(2),_I(3), I(4));}
-#define BOOL_5(function) { EVENT_BOOL(function,_I(1),_I(2),_I(3),_I(4),_I(5)); }
+#define BOOL_1(function) { EVENT_BOOL(function, _I(1)); }
+#define BOOL_2(function) { EVENT_BOOL(function, _I(1), _I(2));}
+#define BOOL_3(function) { EVENT_BOOL(function, _I(1), _I(2), _I(3)); }
+#define BOOL_4(function) { EVENT_BOOL(function, _I(1), _I(2), _I(3), I(4));}
+#define BOOL_5(function) { EVENT_BOOL(function, _I(1), _I(2), _I(3), _I(4), _I(5)); }
 
 #define REGISTER_INSTRUCT(function, INSTRUCT_TYPE) \
     { \
-        auto function = [](lua_State* L)->int \
-        { \
+        auto function = [](lua_State* L) -> int { \
             INSTRUCT_TYPE(function); \
         }; \
         std::string name = #function; \
@@ -77,14 +76,13 @@ int Script::registerEventFunctions()
 
 #define REGISTER_INSTRUCT_ALIAS(name, function, INSTRUCT_TYPE) \
     { \
-        auto name = [](lua_State* L)->int \
-        { \
+        auto name = [](lua_State* L) -> int { \
             INSTRUCT_TYPE(function); \
         }; \
         lua_register(lua_state_, #name, name); \
     }
 
-    auto blank = [](lua_State * L)->int
+    auto blank = [](lua_State* L) -> int
     {
         return 0;
     };
@@ -228,4 +226,3 @@ int Script::registerEventFunctions()
 
     return 0;
 }
-

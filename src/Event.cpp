@@ -1,19 +1,19 @@
 #include "Event.h"
-#include "MainScene.h"
-#include "SubScene.h"
-#include "Menu.h"
-#include "Save.h"
-#include "PotConv.h"
-#include "Talk.h"
-#include "libconvert.h"
 #include "Audio.h"
-#include "GameUtil.h"
 #include "BattleScene.h"
-#include "UIShop.h"
-#include "Font.h"
 #include "File.h"
-#include "Script.h"
+#include "Font.h"
+#include "GameUtil.h"
 #include "GrpIdxFile.h"
+#include "MainScene.h"
+#include "Menu.h"
+#include "PotConv.h"
+#include "Save.h"
+#include "Script.h"
+#include "SubScene.h"
+#include "Talk.h"
+#include "UIShop.h"
+#include "libconvert.h"
 
 Event::Event()
 {
@@ -111,34 +111,34 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
         printf("%d ", c);
     }
     printf("\n");
-    e.resize(e.size() + 20, -1);  //后面的是缓冲区，避免出错
+    e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
-#define PRINT_E(n) do { for (int __i=1;__i<=n;__i++) { printf("%d, ", e[i+__i]); } printf("\b\b  \n"); } while (0)
-#define VOID_0(function) { PRINT_E(0); function(); i+=1; }
-#define VOID_1(function) { PRINT_E(1); function(e[i+1]); i+=2; }
-#define VOID_2(function) { PRINT_E(2); function(e[i+1],e[i+2]); i+=3; }
-#define VOID_3(function) { PRINT_E(3); function(e[i+1],e[i+2],e[i+3]); i+=4; }
-#define VOID_4(function) { PRINT_E(4); function(e[i+1],e[i+2],e[i+3],e[i+4]); i+=5; }
-#define VOID_5(function) { PRINT_E(5); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5]); i+=6; }
-#define VOID_6(function) { PRINT_E(6); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6]); i+=7; }
-#define VOID_7(function) { PRINT_E(7); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7]); i+=8; }
-#define VOID_8(function) { PRINT_E(8); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8]); i+=9; }
-#define VOID_9(function) { PRINT_E(9); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9]); i+=10; }
-#define VOID_10(function) { PRINT_E(10); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10]); i+=11; }
-#define VOID_11(function) { PRINT_E(11); function((e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11]); i+=12; }
-#define VOID_12(function) { PRINT_E(12); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12]); i+=13; }
-#define VOID_13(function) { PRINT_E(13); function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5],e[i+6],e[i+7],e[i+8],e[i+9],e[i+10],e[i+11],e[i+12],e[i+13]); i+=14; }
+#define PRINT_E(n) do { for (int __i = 1; __i <= n; __i++) { printf("%d, ", e[i + __i]); } printf("\b\b  \n"); } while (0)
+#define VOID_0(function) { PRINT_E(0); function(); i += 1; }
+#define VOID_1(function) { PRINT_E(1); function(e[i + 1]); i += 2; }
+#define VOID_2(function) { PRINT_E(2); function(e[i + 1], e[i + 2]); i += 3; }
+#define VOID_3(function) { PRINT_E(3); function(e[i + 1], e[i + 2], e[i + 3]); i += 4; }
+#define VOID_4(function) { PRINT_E(4); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4]); i += 5; }
+#define VOID_5(function) { PRINT_E(5); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]); i += 6; }
+#define VOID_6(function) { PRINT_E(6); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6]); i += 7; }
+#define VOID_7(function) { PRINT_E(7); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7]); i += 8; }
+#define VOID_8(function) { PRINT_E(8); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], e[i + 8]); i += 9; }
+#define VOID_9(function) { PRINT_E(9); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], e[i + 8], e[i + 9]); i += 10; }
+#define VOID_10(function) { PRINT_E(10); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], e[i + 8], e[i + 9], e[i + 10]); i += 11; }
+#define VOID_11(function) { PRINT_E(11); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], e[i + 8], e[i + 9], e[i + 10], e[i + 11]); i += 12; }
+#define VOID_12(function) { PRINT_E(12); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], e[i + 8], e[i + 9], e[i + 10], e[i + 11], e[i + 12]); i += 13; }
+#define VOID_13(function) { PRINT_E(13); function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5], e[i + 6], e[i + 7], e[i + 8], e[i + 9], e[i + 10], e[i + 11], e[i + 12], e[i + 13]); i += 14; }
 
-#define BOOL_0(function) { PRINT_E(0); if (function()) {i += e[i+1];} else { i+= e[i+2]; } i += 3; }
-#define BOOL_1(function) { PRINT_E(1); if (function(e[i+1])) {i += e[i+2];} else { i+= e[i+3]; } i += 4; }
-#define BOOL_2(function) { PRINT_E(2); if (function(e[i+1],e[i+2])) {i += e[i+3];} else { i+= e[i+4]; } i += 5; }
-#define BOOL_2_2(function) { PRINT_E(2); if (function(e[i+1],e[i+4])) {i += e[i+2];} else { i+= e[i+3]; } i += 5; }
-#define BOOL_3(function) { PRINT_E(3); if (function(e[i+1],e[i+2],e[i+3])) {i += e[i+4];} else { i+= e[i+5]; } i += 6; }
-#define BOOL_4(function) { PRINT_E(4); if (function(e[i+1],e[i+2],e[i+3],e[i+4]))) {i += e[i+5];} else { i+= e[i+6]; } i += 7; }
-#define BOOL_5(function) { PRINT_E(5); if (function(e[i+1],e[i+2],e[i+3],e[i+4],e[i+5])) {i += e[i+6];} else { i+= e[i+7]; } i += 8; }
+#define BOOL_0(function) { PRINT_E(0); if (function()) { i += e[i + 1]; } else { i += e[i + 2]; } i += 3; }
+#define BOOL_1(function) { PRINT_E(1); if (function(e[i + 1])) { i += e[i + 2]; } else { i += e[i + 3]; } i += 4; }
+#define BOOL_2(function) { PRINT_E(2); if (function(e[i + 1], e[i + 2])) { i += e[i + 3]; } else { i += e[i + 4]; } i += 5; }
+#define BOOL_2_2(function) { PRINT_E(2); if (function(e[i + 1], e[i + 4])) { i += e[i + 2]; } else { i += e[i + 3]; } i += 5; }
+#define BOOL_3(function) { PRINT_E(3); if (function(e[i + 1], e[i + 2], e[i + 3])) { i += e[i + 4]; } else { i += e[i + 5]; } i += 6; }
+#define BOOL_4(function) { PRINT_E(4); if (function(e[i + 1], e[i + 2], e[i + 3], e[i + 4]))) {i+=e[i+5];} else { i += e[i + 6]; } i += 7; }
+#define BOOL_5(function) { PRINT_E(5); if (function(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5])) { i += e[i + 6]; } else { i += e[i + 7]; } i += 8; }
 
-#define RUN_INSTRUCT(function, INSTRUCT_TYPE) do { printf("%s: ", #function); INSTRUCT_TYPE(function); } while(0)
+#define RUN_INSTRUCT(function, INSTRUCT_TYPE) do { printf("%s: ", #function); INSTRUCT_TYPE(function); } while (0)
 #define REGISTER_INSTRUCT(code, function, INSTRUCT_TYPE) { case (code): RUN_INSTRUCT(function, INSTRUCT_TYPE); break; }
 
     if (use_script_)
@@ -1126,7 +1126,7 @@ void Event::clearTalkBox()
 void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
 {
     int index = 0, len = 0, offset = 0;
-    char* char_ptr = nullptr, *char_ptr1 = nullptr;
+    char *char_ptr = nullptr, *char_ptr1 = nullptr;
     int* save_int_ptr = nullptr;
     int i1 = 0;
     int i2 = 0;
@@ -1138,20 +1138,20 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
 
     switch (code)
     {
-    case 0: //赋值
+    case 0:    //赋值
         x50[e1] = e2;
         break;
-    case 1: //数组赋值，e2不为0表示仅要一个字节
+    case 1:    //数组赋值，e2不为0表示仅要一个字节
         index = e3 + e_GetValue(0, e1, e4);
         x50[index] = e_GetValue(1, e1, e4);
         if (e2) { x50[index] = x50[index] & 0xff; }
         break;
-    case 2: //数组取值
+    case 2:    //数组取值
         index = e3 + e_GetValue(0, e1, e4);
         x50[e5] = x50[index];
         if (e2) { x50[index] = x50[index] & 0xff; }
         break;
-    case 3: //基本运算
+    case 3:    //基本运算
         index = e_GetValue(0, e1, e5);
         switch (e2)
         {
@@ -1175,7 +1175,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             break;
         }
         break;
-    case 4: //判断变量，改写跳转标记
+    case 4:    //判断变量，改写跳转标记
         x50[0x7000] = 0;
         index = e_GetValue(0, e1, e4);
         switch (e2)
@@ -1205,31 +1205,31 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             x50[0x7000] = 1;
         }
         break;
-    case 5: //全部清零
+    case 5:    //全部清零
         memset(x50, 0, sizeof(x50));
         break;
     case 6: break;
     case 7: break;
-    case 8: //读对话
+    case 8:    //读对话
         index = e_GetValue(0, e1, e2);
         char_ptr = (char*)&x50[e3];
         sprintf(char_ptr, "%s", talk_contents_[index].c_str());
         break;
-    case 9: //格式化字串
+    case 9:    //格式化字串
         e4 = e_GetValue(0, e1, e4);
         char_ptr = (char*)&x50[e2];
         char_ptr1 = (char*)&x50[e3];
         sprintf(char_ptr, char_ptr1, e4);
         break;
-    case 10: //字串长度
-        x50[e2] = strlen((char*)&x50[e1]);  //感觉这样有问题，不管了
+    case 10:                                  //字串长度
+        x50[e2] = strlen((char*)&x50[e1]);    //感觉这样有问题，不管了
         break;
-    case 11: //合并字串
+    case 11:    //合并字串
         char_ptr = (char*)&x50[e1];
         char_ptr1 = (char*)&x50[e2];
         sprintf(char_ptr, "%s%s", char_ptr, char_ptr1);
         break;
-    case 12:  //制造一个是空格的字串
+    case 12:    //制造一个是空格的字串
         //Note: here the width of one 'space' is the same as one Chinese character.
         e3 = e_GetValue(0, e1, e3);
         char_ptr = (char*)&x50[e2];
@@ -1243,7 +1243,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 13: break;
     case 14: break;
     case 15: break;
-    case 16: //写存档数据
+    case 16:    //写存档数据
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
@@ -1258,7 +1258,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         }
         if (save_int_ptr) { *save_int_ptr = e5; }
         break;
-    case 17: //读存档数据
+    case 17:    //读存档数据
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         switch (e2)
@@ -1270,27 +1270,27 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         case 4: x50[e5] = *(int*)((char*)(save->getShop(e3)) + e4); break;
         }
         break;
-    case 18: //写队伍数据
+    case 18:    //写队伍数据
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         save->Team[e2] = e3;
         break;
-    case 19: //读队伍数据
+    case 19:    //读队伍数据
         e2 = e_GetValue(0, e1, e2);
         x50[e3] = save->Team[e2];
         break;
-    case 20:  //获取物品个数
+    case 20:    //获取物品个数
         e2 = e_GetValue(0, e1, e2);
         x50[e3] = save->getItemCountInBag(e2);
         break;
-    case 21: //写场景事件数据
+    case 21:    //写场景事件数据
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
         e5 = e_GetValue(3, e1, e5);
         *(MAP_INT*)(save->getSubMapInfo(e2)->Event(e3) + e4) = e5;
         break;
-    case 22: //读场景事件数据
+    case 22:    //读场景事件数据
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
@@ -1311,14 +1311,14 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e5 = e_GetValue(3, e1, e5);
         x50[e6] = save->getSubMapInfo(e2)->LayerData(e3, e4, e5);
         break;
-    case 25: //强行写入内存地址，不要了，自己看着办
+    case 25:    //强行写入内存地址，不要了，自己看着办
         e5 = e_GetValue(0, e1, e5);
         e6 = e_GetValue(1, e1, e6);
         break;
-    case 26: //读内存地址，同上
+    case 26:    //读内存地址，同上
         e6 = e_GetValue(0, e1, e6);
         break;
-    case 27: //读名字到变量
+    case 27:    //读名字到变量
         e3 = e_GetValue(0, e1, e3);
         char_ptr = (char*)&x50[e4];
         switch (e2)
@@ -1329,30 +1329,30 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         case 3: sprintf(char_ptr, "%s", save->getMagic(e3)->Name); break;
         }
         break;
-    case 28: //28~31为战斗指令，不要了
+    case 28:    //28~31为战斗指令，不要了
         break;
     case 29: break;
     case 30: break;
     case 31: break;
-    case 32: //修改下一条指令
+    case 32:    //修改下一条指令
         e3 = e_GetValue(0, e1, e3);
         *(code_ptr + e3) = x50[e2];
         break;
-    case 33: //画一个字串
+    case 33:    //画一个字串
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
         char_ptr = (char*)&x50[e2];
-        Font::getInstance()->draw(char_ptr, 20, e3, e4/*BP_Color(e5)*/);
+        Font::getInstance()->draw(char_ptr, 20, e3, e4 /*BP_Color(e5)*/);
         break;
-    case 34: //画一个背景框
+    case 34:    //画一个背景框
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
         e5 = e_GetValue(3, e1, e5);
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
         break;
-    case 35: //暂停等待按键
+    case 35:    //暂停等待按键
         text_box_->setText("");
         text_box_->setTexture("", 0);
         x50[e1] = text_box_->run();
@@ -1364,7 +1364,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         case SDLK_DOWN: x50[e1] = 152; break;
         }
         break;
-    case 36: //画带背景框的字串等待按键，如果按下的是y设置跳转指示为0
+    case 36:    //画带背景框的字串等待按键，如果按下的是y设置跳转指示为0
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
@@ -1374,15 +1374,15 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         talk_box_up_->setHeadStyle(2);
         x50[0x7000] = talk_box_up_->run();
         break;
-    case 37: //延时
+    case 37:    //延时
         Engine::getInstance()->delay(e2 = e_GetValue(0, e1, e2));
         break;
-    case 38: //随机数
+    case 38:    //随机数
         e2 = e_GetValue(0, e1, e2);
         x50[e3] = rand_.rand_int(e2);
         break;
     case 39:
-    case 40: //菜单
+    case 40:    //菜单
         e2 = e_GetValue(0, e1, e2);
         e5 = e_GetValue(1, e1, e5);
         e6 = e_GetValue(2, e1, e6);
@@ -1395,7 +1395,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         x50[e4] = menu->run();
         delete menu;
         break;
-    case 41: //画一张图
+    case 41:    //画一张图
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
@@ -1405,12 +1405,12 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         case 1: TextureManager::getInstance()->renderTexture("head", e5, e3, e4); break;
         }
         break;
-    case 42: //改变主地图坐标
+    case 42:    //改变主地图坐标
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(0, e1, e3);
         MainScene::getInstance()->setManPosition(e2, e3);
         break;
-    case 43: //调用另外事件
+    case 43:    //调用另外事件
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
@@ -1422,7 +1422,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         x50[0x7103] = e6;
         callEvent(e2);
         break;
-    case 44: //44~47为战斗指令，不要了
+    case 44:    //44~47为战斗指令，不要了
         break;
     case 45: break;
     case 46:
@@ -1440,14 +1440,14 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         }
         break;
     case 47: break;
-    case 48: //自己调试吧，懒得管
+    case 48:    //自己调试吧，懒得管
         for (int i = e1; i < e1 + e2 - 1; i++)
         {
             printf("x50[%d]=%d\n", i, x50[i]);
         }
         break;
     case 49: break;
-    case 50: //输入名字，删除
+    case 50:    //输入名字，删除
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
@@ -1463,7 +1463,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         char_ptr1 = (char*)&str[1];
         break;
     case 51: break;
-    case 52: //判断某人是否已掌握某武学等级
+    case 52:    //判断某人是否已掌握某武学等级
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
@@ -1481,4 +1481,3 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     default: break;
     }
 }
-
