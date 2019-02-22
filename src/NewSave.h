@@ -40,6 +40,15 @@ private:
         int offset;
         size_t length;
         int col = -1;
+        FieldInfo() {}
+        FieldInfo(const std::string& n, int t, int o, size_t l, int c = -1)
+        {
+            name = n;
+            type = t;
+            offset = o;
+            length = l;
+            col = c;
+        }
     };
     std::vector<FieldInfo> base_, item_list_, role_, item_, submap_, magic_, shop_;
     //std::map<std::string, FieldInfo> base_map_;
