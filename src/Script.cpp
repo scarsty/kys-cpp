@@ -66,7 +66,8 @@ int Script::registerEventFunctions()
 
 #define REGISTER_INSTRUCT(function, INSTRUCT_TYPE) \
     { \
-        auto function = [](lua_State* L) -> int { \
+        auto function = [](lua_State* L) -> int \
+        { \
             INSTRUCT_TYPE(function); \
         }; \
         std::string name = #function; \
@@ -76,7 +77,8 @@ int Script::registerEventFunctions()
 
 #define REGISTER_INSTRUCT_ALIAS(name, function, INSTRUCT_TYPE) \
     { \
-        auto name = [](lua_State* L) -> int { \
+        auto name = [](lua_State* L) -> int \
+        { \
             INSTRUCT_TYPE(function); \
         }; \
         lua_register(lua_state_, #name, name); \
