@@ -1221,8 +1221,9 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         char_ptr1 = (char*)&x50[e3];
         sprintf(char_ptr, char_ptr1, e4);
         break;
-    case 10:                                  //字串长度
-        x50[e2] = strlen((char*)&x50[e1]);    //感觉这样有问题，不管了
+    case 10:    //字串长度
+        //感觉这样有问题，不管了
+        x50[e2] = strlen((char*)&x50[e1]);
         break;
     case 11:    //合并字串
         char_ptr = (char*)&x50[e1];
