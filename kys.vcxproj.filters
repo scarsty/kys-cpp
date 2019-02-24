@@ -7,9 +7,6 @@
     <ClCompile Include="src\kys.cpp">
       <Filter>application</Filter>
     </ClCompile>
-    <ClCompile Include="common\libconvert.cpp">
-      <Filter>common</Filter>
-    </ClCompile>
     <ClCompile Include="common\File.cpp">
       <Filter>common</Filter>
     </ClCompile>
@@ -166,15 +163,15 @@
     <ClCompile Include="src\NewSave.cpp">
       <Filter>save</Filter>
     </ClCompile>
+    <ClCompile Include="common\convert.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
       <Filter>_Resources</Filter>
     </ClInclude>
     <ClInclude Include="common\INIReader.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="common\libconvert.h">
       <Filter>common</Filter>
     </ClInclude>
     <ClInclude Include="common\Random.h">
@@ -344,6 +341,9 @@
     </ClInclude>
     <ClInclude Include="src\NewSave.h">
       <Filter>save</Filter>
+    </ClInclude>
+    <ClInclude Include="common\convert.h">
+      <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

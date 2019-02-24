@@ -1,7 +1,7 @@
 #include "Script.h"
 #include "EventMacro.h"
 #include "PotConv.h"
-#include "libconvert.h"
+#include "convert.h"
 
 Script::Script()
 {

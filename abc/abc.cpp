@@ -5,7 +5,7 @@
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "TypesABC.h"
-#include "libconvert.h"
+#include "convert.h"
 
 //转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)

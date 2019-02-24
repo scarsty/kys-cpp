@@ -13,13 +13,13 @@
   <ItemGroup>
     <ClCompile Include="abc\abc.cpp" />
     <ClCompile Include="common\File.cpp" />
-    <ClCompile Include="common\libconvert.cpp" />
+    <ClCompile Include="common\convert.cpp" />
     <ClCompile Include="src\GrpIdxFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="abc\TypesABC.h" />
     <ClInclude Include="common\File.h" />
-    <ClInclude Include="common\libconvert.h" />
+    <ClInclude Include="common\convert.h" />
     <ClInclude Include="src\GrpIdxFile.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

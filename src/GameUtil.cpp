@@ -1,7 +1,7 @@
 #include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
-#include "libconvert.h"
+#include "convert.h"
 
 GameUtil::GameUtil()
 {

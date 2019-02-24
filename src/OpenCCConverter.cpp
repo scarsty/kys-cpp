@@ -21,5 +21,5 @@ std::string OpenCCConverter::convertUTF8(const std::string& in)
 
 std::string OpenCCConverter::convertCP936(const std::string& in)
 {
-     return PotConv::utf8tocp936(convertUTF8(PotConv::cp936toutf8(in)));
+    return PotConv::utf8tocp936(convertUTF8(PotConv::cp936toutf8(in)));
 }

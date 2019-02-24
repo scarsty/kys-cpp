@@ -3,7 +3,7 @@
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
-#include "libconvert.h"
+#include "convert.h"
 
 Save::Save()
 {

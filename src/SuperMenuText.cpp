@@ -2,15 +2,13 @@
 #include "../others/Hanz2Piny.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
-#include "libconvert.h"
+#include "convert.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>
 
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
-    : InputBox(title, font_size)
-    , items_(allItems)
-    , itemsPerPage_(itemsPerPage)
+    : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
     previous_ = new Button();
     previous_->setText("ÉÏÒ»í“PgUp");
@@ -24,7 +22,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     setAllChildState(Normal);
     defaultPage();
 
-    std::function<bool(const std::string&, const std::string&)> match = [&](const std::string & text, const std::string & name) -> bool
+    std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
     {
         std::string pinyin = Hanz2Piny::hanz2pinyin(PotConv::cp936toutf8(name));
         int p = 0;

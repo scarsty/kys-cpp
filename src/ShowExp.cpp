@@ -1,7 +1,7 @@
 #include "ShowExp.h"
-#include "TextureManager.h"
 #include "Font.h"
-#include "libconvert.h"
+#include "TextureManager.h"
+#include "convert.h"
 
 ShowExp::ShowExp()
 {

@@ -1,7 +1,7 @@
 #include "Head.h"
 #include "Font.h"
-#include "libconvert.h"
 #include "GameUtil.h"
+#include "convert.h"
 
 Head::Head(Role* r)
 {
@@ -90,5 +90,3 @@ void Head::draw()
     font->draw(convert::formatString("%d", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });
 
 }
-
-

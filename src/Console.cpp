@@ -9,7 +9,7 @@
 #include "Save.h"
 #include "SuperMenuText.h"
 #include "TextureManager.h"
-#include "libconvert.h"
+#include "convert.h"
 
 #include <algorithm>
 #include <functional>

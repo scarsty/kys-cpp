@@ -1,7 +1,7 @@
 #include "ShowRoleDifference.h"
 #include "Font.h"
-#include "libconvert.h"
 #include "Save.h"
+#include "convert.h"
 
 ShowRoleDifference::ShowRoleDifference()
 {
@@ -110,4 +110,3 @@ void ShowRoleDifference::draw()
     //showOneDifference(role1_->Level, "Óù„¦ %7d   -> %7d", 20, color, x, y);
     TextBox::draw();
 }
-

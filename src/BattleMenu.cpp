@@ -4,7 +4,7 @@
 #include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
-#include "libconvert.h"
+#include "convert.h"
 
 BattleActionMenu::BattleActionMenu()
 {

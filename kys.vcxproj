@@ -129,7 +129,7 @@
     <ClCompile Include="src\TextBox.cpp" />
     <ClCompile Include="src\TextBoxRoll.cpp" />
     <ClCompile Include="src\UI.cpp" />
-    <ClCompile Include="common\libconvert.cpp" />
+    <ClCompile Include="common\convert.cpp" />
     <ClCompile Include="src\PotConv.cpp" />
     <ClCompile Include="src\SubScene.cpp" />
     <ClCompile Include="src\TitleScene.cpp" />
@@ -191,7 +191,7 @@
     <ClInclude Include="src\TextBox.h" />
     <ClInclude Include="src\TextBoxRoll.h" />
     <ClInclude Include="src\UI.h" />
-    <ClInclude Include="common\libconvert.h" />
+    <ClInclude Include="common\convert.h" />
     <ClInclude Include="src\PotConv.h" />
     <ClInclude Include="src\TitleScene.h" />
     <ClInclude Include="src\MainScene.h" />
