@@ -199,10 +199,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     struct PointAStar : public Point
     {
         PointAStar() {}
-        PointAStar(int _x, int _y)
-            : Point(_x, _y)
-        {
-        }
+        PointAStar(int _x, int _y) : Point(_x, _y) {}
         ~PointAStar() {}
 
     private:

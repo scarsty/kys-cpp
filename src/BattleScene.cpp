@@ -47,8 +47,7 @@ BattleScene::BattleScene()
     semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
 }
 
-BattleScene::BattleScene(int id)
-    : BattleScene()
+BattleScene::BattleScene(int id) : BattleScene()
 {
     setID(id);
 }
@@ -617,8 +616,8 @@ void BattleScene::readFightFrame(Role* r)
     {
         r->FightFrame[i] = 0;
     }
-    std::string file = convert::formatString("../game/resource/fight/fight%03d/fightframe.txt", r->HeadID);
-    std::string frame_txt = convert::readStringFromFile(file);
+    std::string text_group = convert::formatString("fight/fight%03d", r->HeadID);
+    std::string frame_txt = TextureManager::getInstance()->getTextureGroup(text_group)->getFileContent("fightframe.txt");
     std::vector<int> frames;
     convert::findNumbers(frame_txt, &frames);
     for (int i = 0; i < frames.size() / 2; i++)

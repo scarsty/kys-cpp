@@ -226,6 +226,12 @@ BP_Texture* Engine::loadImage(const std::string& filename)
     return IMG_LoadTexture(renderer_, filename.c_str());
 }
 
+BP_Texture* Engine::loadImageFromMemory(const std::string& content)
+{
+    auto rw = SDL_RWFromConstMem(content.data(), content.size());
+    return IMG_LoadTextureTyped_RW(renderer_, rw, 1, "png");
+}
+
 bool Engine::setKeepRatio(bool b)
 {
     return keep_ratio_ = b;

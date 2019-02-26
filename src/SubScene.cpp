@@ -15,8 +15,7 @@ SubScene::SubScene()
     COORD_COUNT = SUBMAP_COORD_COUNT;
 }
 
-SubScene::SubScene(int id)
-    : SubScene()
+SubScene::SubScene(int id) : SubScene()
 {
     setID(id);
 }

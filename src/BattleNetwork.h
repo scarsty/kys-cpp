@@ -9,8 +9,8 @@
 
 #include <array>
 #include <memory>
-#include <thread>
 #include <system_error>
+#include <thread>
 
 // 使用方法
 // 1. 选择人物
@@ -26,13 +26,7 @@ public:
     static const std::size_t VALSIZE = 32;
 
     // , strand_(io_context_)
-    BattleNetwork(const std::string& strID, const std::string& port)
-        : socket_(io_context_)
-        , resolver_(io_context_)
-        , work_(io_context_)
-        , strID_(strID)
-        , port_(port)
-        , query_(GameUtil::getInstance()->getString("network", "server", "138.197.200.52"), port_) {};
+    BattleNetwork(const std::string& strID, const std::string& port) : socket_(io_context_), resolver_(io_context_), work_(io_context_), strID_(strID), port_(port), query_(GameUtil::getInstance()->getString("network", "server", "138.197.200.52"), port_) {};
 
     virtual ~BattleNetwork()
     {
@@ -86,7 +80,7 @@ protected:
 
     // 己方参战id，最终roles结果
     virtual void rDataHandshake() = 0;
-    virtual void validate(); 
+    virtual void validate();
 
     asio::io_context io_context_;
     asio::ip::tcp::resolver resolver_;

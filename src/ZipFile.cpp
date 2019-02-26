@@ -1,5 +1,5 @@
 #include "ZipFile.h"
-#include "../others/zip.h"
+#include <string.h>
 
 ZipFile::ZipFile()
 {
@@ -7,6 +7,34 @@ ZipFile::ZipFile()
 
 ZipFile::~ZipFile()
 {
+    if (zip_)
+    {
+        zip_close(zip_);
+    }
+}
+
+void ZipFile::openFile(const std::string& filename)
+{
+    zip_ = zip_open(filename.c_str(), 0, 'r');
+}
+
+std::string ZipFile::readEntryName(const std::string& entry_name)
+{
+    std::string content;
+    if (zip_)
+    {
+        if (zip_entry_open(zip_, entry_name.c_str()) == 0)
+        {
+            void* buffer;
+            size_t size = 0;
+            zip_entry_read(zip_, &buffer, &size);
+            content.resize(size);
+            memcpy(content.data(), buffer, size);
+            free(buffer);
+            zip_entry_close(zip_);
+        }
+    }
+    return content;
 }
 
 int ZipFile::zip(std::string zip_file, std::vector<std::string> files)

@@ -131,6 +131,7 @@ public:
     bool isFullScreen();
     void toggleFullscreen();
     BP_Texture* loadImage(const std::string& filename);
+    BP_Texture* loadImageFromMemory(const std::string& content);
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return rotation_ = r; }

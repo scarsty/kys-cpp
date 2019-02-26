@@ -136,8 +136,7 @@ void BattleNetwork::validate()
     });
 }
 
-BattleHost::BattleHost(const std::string& strID, const std::string& port)
-    : BattleNetwork(strID, port)
+BattleHost::BattleHost(const std::string& strID, const std::string& port) : BattleNetwork(strID, port)
 {
     is_host_ = true;
 }
@@ -210,8 +209,7 @@ void BattleHost::rDataHandshake()
     });
 }
 
-BattleClient::BattleClient(const std::string& strID, const std::string& port)
-    : BattleNetwork(strID, port)
+BattleClient::BattleClient(const std::string& strID, const std::string& port) : BattleNetwork(strID, port)
 {
     is_host_ = false;
 }

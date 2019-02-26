@@ -127,8 +127,7 @@ bool Menu::checkAllNormal()
 //    }
 //}
 
-MenuText::MenuText(std::vector<std::string> items)
-    : MenuText()
+MenuText::MenuText(std::vector<std::string> items) : MenuText()
 {
     setStrings(items);
 }

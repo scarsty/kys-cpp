@@ -1,5 +1,6 @@
 #pragma once
 #include "Engine.h"
+#include "ZipFile.h"
 #include <map>
 #include <vector>
 
@@ -41,6 +42,23 @@ private:
     }
 };
 
+struct TextureGroup : public std::vector<Texture*>
+{
+    friend class TextureManager;
+
+public:
+    int inited_ = 0;
+    ZipFile zip_;
+    ZipFile* getZip() { return &zip_; }
+    std::string path_;
+    const std::string& getPath() { return path_; }
+    std::string getFileContent(const std::string& filename);
+
+protected:
+    void init(const std::string& path, bool load_all = false);
+    void loadTexture(int num, Texture* t);
+};
+
 class TextureManager
 {
 private:
@@ -58,7 +76,7 @@ public:
         MaxType
     };
 
-    std::map<const std::string, std::vector<Texture*>> map_;
+    std::map<const std::string, TextureGroup> map_;
 
     static TextureManager* getInstance()
     {
@@ -78,8 +96,5 @@ public:
 
     Texture* loadTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);
-private:
-    void initialTextureGroup(const std::string& path, bool load_all = false);
-    void loadTexture2(const std::string& path, int num, Texture* t);
+    TextureGroup* getTextureGroup(const std::string& path);
 };
-

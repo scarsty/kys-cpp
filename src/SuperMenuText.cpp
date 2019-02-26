@@ -7,8 +7,7 @@
 #include <cmath>
 #include <utility>
 
-SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
-    : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
+SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
     previous_ = new Button();
     previous_->setText("ÉÏÒ»í“PgUp");

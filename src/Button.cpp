@@ -2,8 +2,7 @@
 #include "Font.h"
 #include "PotConv.h"
 
-Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/)
-    : Button()
+Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/) : Button()
 {
     setTexture(path, normal_id, pass_id, press_id);
 }

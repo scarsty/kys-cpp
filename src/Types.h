@@ -9,11 +9,7 @@ template <typename T>
 struct MapSquare
 {
     MapSquare() {}
-    MapSquare(int size)
-        : MapSquare()
-    {
-        resize(size);
-    }
+    MapSquare(int size) : MapSquare() { resize(size); }
     ~MapSquare()
     {
         if (data_)

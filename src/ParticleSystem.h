@@ -3,16 +3,14 @@
 //移植自Cocos2dx，版权声明请查看licenses文件夹
 
 #include "SDL2/SDL.h"
-#include <vector>
 #include <string>
+#include <vector>
 
 struct Pointf
 {
 public:
     Pointf() {}
-    Pointf(float _x, float _y)
-        : x(_x)
-        , y(_y)
+    Pointf(float _x, float _y) : x(_x), y(_y)
     {
     }
     ~Pointf() {}
@@ -762,7 +760,12 @@ protected:
 
     SDL_Renderer* _renderer = nullptr;
     int x_ = 0, y_ = 0;
+
 public:
     void setRenderer(SDL_Renderer* ren) { _renderer = ren; }
-    void setPosition(int x, int y) { x_ = x; y_ = y; }
+    void setPosition(int x, int y)
+    {
+        x_ = x;
+        y_ = y;
+    }
 };

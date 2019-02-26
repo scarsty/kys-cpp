@@ -1,5 +1,109 @@
 ﻿#include "TextureManager.h"
 #include "File.h"
+#include "convert.h"
+
+std::string TextureGroup::getFileContent(const std::string& filename)
+{
+    if (!inited_)
+    {
+        return "";
+    }
+    if (zip_.opened())
+    {
+        return zip_.readEntryName(filename);
+    }
+    else
+    {
+        return convert::readStringFromFile(path_ + "/" + filename);
+    }
+}
+
+void TextureGroup::init(const std::string& path, bool load_all)
+{
+    //纹理组信息
+    if (!inited_)
+    {
+        path_ = path;
+        inited_ = 1;
+        zip_.openFile(path_ + ".zip");
+        std::vector<short> offset;
+        if (zip_.opened())
+        {
+            std::string index_ka = zip_.readEntryName("index.ka");
+            offset.resize(index_ka.size() / 2);
+            memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+        }
+        else
+        {
+            File::readFileToVector((path_ + "/index.ka").c_str(), offset);
+        }
+        resize(offset.size() / 2);
+        for (int i = 0; i < size(); i++)
+        {
+            (*this)[i] = new Texture();
+            (*this)[i]->dx = offset[i * 2];
+            (*this)[i]->dy = offset[i * 2 + 1];
+        }
+        if (zip_.opened())
+        {
+            printf("Load texture group from file: %s.zip, %d textures\n", path_.c_str(), size());
+        }
+        else
+        {
+            printf("Load texture group from path: %s, %d textures\n", path_.c_str(), size());
+        }
+    }
+    if (load_all)
+    {
+        auto engine = Engine::getInstance();
+        for (int i = 0; i < size(); i++)
+        {
+            loadTexture(i, (*this)[i]);
+        }
+    }
+}
+
+//这个内部使用
+void TextureGroup::loadTexture(int num, Texture* t)
+{
+    if (!t->loaded)
+    {
+        //printf("Load texture %s, %d\n", p.c_str(), num);
+        if (zip_.opened())
+        {
+            t->tex[0] = Engine::getInstance()->loadImageFromMemory(zip_.readEntryName(std::to_string(num) + ".png"));
+        }
+        else
+        {
+            t->tex[0] = Engine::getInstance()->loadImage(path_ + "/" + std::to_string(num) + ".png");
+        }
+        if (t->tex[0])
+        {
+            t->count = 1;
+        }
+        else
+        {
+            for (int i = 0; i < Texture::SUB_TEXTURE_COUNT; i++)
+            {
+                if (zip_.opened())
+                {
+                    t->tex[i] = Engine::getInstance()->loadImageFromMemory(zip_.readEntryName(std::to_string(num) + "_" + std::to_string(i) + ".png"));
+                }
+                else
+                {
+                    t->tex[i] = Engine::getInstance()->loadImage(path_ + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
+                }
+                if (t->tex[i] == nullptr)
+                {
+                    t->count = i;
+                    break;
+                }
+            }
+        }
+        Engine::getInstance()->queryTexture(t->tex[0], &t->w, &t->h);
+        t->loaded = true;
+    }
+}
 
 TextureManager::TextureManager()
 {
@@ -69,7 +173,7 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
     auto& t = v[num];
     if (!t->loaded)
     {
-        loadTexture2(path, num, t);
+        v.loadTexture(num, t);
         Engine::getInstance()->setTextureAlphaMod(t->getTexture(), SDL_BLENDMODE_BLEND);
     }
     return t;
@@ -78,82 +182,19 @@ Texture* TextureManager::loadTexture(const std::string& path, int num)
 int TextureManager::getTextureGroupCount(const std::string& path)
 {
     auto& v = getInstance()->map_[path];
-
-    if (v.empty())
+    if (!v.inited_)
     {
-        initialTextureGroup(path);
+        v.init(path_ + "/" + path);
     }
-
-    if (v.size() == 1 && v[0] == nullptr)
-    {
-        return 0;
-    }
-    else
-    {
-        return v.size();
-    }
+    return v.size();
 }
 
-void TextureManager::initialTextureGroup(const std::string& path, bool load_all)
+TextureGroup* TextureManager::getTextureGroup(const std::string& path)
 {
-    auto p = path_ + path;
     auto& v = getInstance()->map_[path];
-    //纹理组信息
-    //不存在的纹理组也会有一个vector存在，但是里面只有一个空指针，避免反复尝试初始化
-    if (v.empty())
+    if (!v.inited_)
     {
-        std::vector<short> offset;
-        File::readFileToVector((p + "/index.ka").c_str(), offset);
-        if (offset.size() == 0)
-        {
-            v.resize(1);
-            v[0] = nullptr;
-            return;
-        }
-        v.resize(offset.size() / 2);
-        for (int i = 0; i < v.size(); i++)
-        {
-            v[i] = new Texture();
-            v[i]->dx = offset[i * 2];
-            v[i]->dy = offset[i * 2 + 1];
-        }
-        printf("Load texture group from path: %s, find %d textures\n", p.c_str(), v.size());
+        v.init(path_ + "/" + path);
     }
-    if (load_all)
-    {
-        auto engine = Engine::getInstance();
-        for (int i = 0; i < v.size(); i++)
-        {
-            loadTexture2(path, i, v[i]);
-        }
-    }
-}
-
-//这个内部使用
-void TextureManager::loadTexture2(const std::string& path, int num, Texture* t)
-{
-    auto p = path_ + path;
-    if (!t->loaded)
-    {
-        //printf("Load texture %s, %d\n", p.c_str(), num);
-        t->tex[0] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + ".png");
-        if (t->tex[0])
-        {
-            t->count = 1;
-        }
-        else
-        {
-            for (int i = 0; i < Texture::SUB_TEXTURE_COUNT; i++)
-            {
-                t->tex[i] = Engine::getInstance()->loadImage(p + "/" + std::to_string(num) + "_" + std::to_string(i) + ".png");
-                if (t->tex[i] == nullptr)
-                {
-                    t->count = i;
-                    break;
-                }
-            }
-        }
-        Engine::getInstance()->queryTexture(t->tex[0], &t->w, &t->h);
-        t->loaded = true;
-    }
+    return &v;
 }

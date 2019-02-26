@@ -157,14 +157,14 @@
     <ClCompile Include="others\zip.c">
       <Filter>zip</Filter>
     </ClCompile>
-    <ClCompile Include="src\ZipFile.cpp">
-      <Filter>save</Filter>
-    </ClCompile>
     <ClCompile Include="src\NewSave.cpp">
       <Filter>save</Filter>
     </ClCompile>
     <ClCompile Include="common\convert.cpp">
       <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ZipFile.cpp">
+      <Filter>zip</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -336,14 +336,14 @@
     <ClInclude Include="others\miniz.h">
       <Filter>zip</Filter>
     </ClInclude>
-    <ClInclude Include="src\ZipFile.h">
-      <Filter>save</Filter>
-    </ClInclude>
     <ClInclude Include="src\NewSave.h">
       <Filter>save</Filter>
     </ClInclude>
     <ClInclude Include="common\convert.h">
       <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ZipFile.h">
+      <Filter>zip</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
