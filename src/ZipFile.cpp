@@ -29,7 +29,7 @@ std::string ZipFile::readEntryName(const std::string& entry_name)
             size_t size = 0;
             zip_entry_read(zip_, &buffer, &size);
             content.resize(size);
-            memcpy(content.data(), buffer, size);
+            memcpy((void*)content.data(), buffer, size);
             free(buffer);
             zip_entry_close(zip_);
         }
