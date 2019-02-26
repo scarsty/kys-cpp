@@ -16,6 +16,7 @@ private:
 
 protected:
     std::vector<Element*> childs_;
+    std::vector<Element*> childs_self_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;    //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
@@ -195,6 +196,24 @@ public:
             if (ptr) { return ptr; }
         }
         return nullptr;
+    }
+
+    template <class T>
+    T* addChild()
+    {
+        T* c = new T();
+        addChild(c);
+        childs_self_.push_back(c);
+        return c;
+    }
+
+    template <class T>
+    T* addChild(int x, int y)
+    {
+        T* c = new T();
+        addChild(c, x, y);
+        childs_self_.push_back(c);
+        return c;
     }
 
     //每个节点应自行定义返回值，

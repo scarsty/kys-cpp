@@ -17,21 +17,18 @@
 #include "UISave.h"
 #include "UIShop.h"
 
-#include "TextBoxRoll.h"
 #include "../others/Hanz2Piny.h"
 #include "PotConv.h"
+#include "TextBoxRoll.h"
 #include "ZipFile.h"
 
 TitleScene::TitleScene()
 {
     full_window_ = 1;
     menu_.setPosition(400, 250);
-    auto b = new Button("title", 3, 23, 23);
-    menu_.addChild(b, 20, 0);
-    b = new Button("title", 4, 24, 24);
-    menu_.addChild(b, 20, 50);
-    b = new Button("title", 6, 26, 26);
-    menu_.addChild(b, 20, 100);
+    menu_.addChild<Button>(20, 0)->setTexture("title", 3, 23, 23);
+    menu_.addChild<Button>(20, 50)->setTexture("title", 4, 24, 24);
+    menu_.addChild<Button>(20, 100)->setTexture("title", 6, 26, 26);
     menu_load_.setPosition(500, 300);
     render_message_ = 1;
 }

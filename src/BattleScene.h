@@ -80,7 +80,7 @@ public:
     }
 
     const std::vector<Role*>& getBattleRoles() { return battle_roles_; }
-    MapSquare<Role*>*& getRoleLayer() { return role_layer_; }
+    MapSquare<Role*>* getRoleLayer() { return &role_layer_; }
     int selectX() { return select_x_; }
     int selectY() { return select_y_; }
 
@@ -109,7 +109,7 @@ public:
     virtual void calEffectLayer(int x, int y, int select_x, int select_y, Magic* m = nullptr, int level_index = 0);
 
     //所在坐标是否有效果
-    virtual bool haveEffect(int x, int y) { return effect_layer_->data(x, y) >= 0; }
+    virtual bool haveEffect(int x, int y) { return effect_layer_.data(x, y) >= 0; }
 
     //r2是不是在效果层里面，且会被r1的效果打中
     virtual bool inEffect(Role* r1, Role* r2);

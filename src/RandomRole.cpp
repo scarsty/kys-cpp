@@ -4,12 +4,9 @@
 RandomRole::RandomRole()
 {
     setShowButton(false);
-
-    button_ok_ = new Button();
+    button_ok_ = addChild<Button>(350, 55);
     button_ok_->setText("´_¶¨");
-    addChild(button_ok_, 350, 55);
-    head_ = new Head();
-    addChild(head_, -290, 100);
+    head_ = addChild<Head>(-290, 100);
 }
 
 RandomRole::~RandomRole()

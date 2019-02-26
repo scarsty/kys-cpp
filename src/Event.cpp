@@ -18,10 +18,8 @@
 Event::Event()
 {
     loadEventData();
-    talk_box_up_ = new Talk();
-    talk_box_down_ = new Talk();
-    talk_box_.addChild(talk_box_up_);
-    talk_box_.addChild(talk_box_down_, 0, 400);
+    talk_box_up_ = talk_box_.addChild<Talk>();
+    talk_box_down_ = talk_box_.addChild<Talk>(0, 400);
     menu2_.setStrings({ "´_ÕJ£¨Y£©", "È¡Ïû£¨N£©" });
     menu2_.setPosition(400, 300);
     menu2_.setFontSize(24);

@@ -9,7 +9,7 @@ int Element::render_message_ = 0;
 
 Element::~Element()
 {
-    for (auto c : childs_)
+    for (auto c : childs_self_)
     {
         if (c)
         {

@@ -145,9 +145,7 @@ void MenuText::setStrings(std::vector<std::string> strings)
         {
             len = str.length();
         }
-        auto b = new Button();
-        b->setText(str);
-        addChild(b, 0, i * 25);
+        addChild<Button>(0, i * 25)->setText(str);
         i++;
     }
     w_ = 10 * len;
