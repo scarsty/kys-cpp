@@ -18,19 +18,19 @@ MainScene::MainScene()
 
     if (!data_readed_)
     {
-        earth_layer_ = new MapSquareInt(COORD_COUNT);
-        surface_layer_ = new MapSquareInt(COORD_COUNT);
-        building_layer_ = new MapSquareInt(COORD_COUNT);
-        build_x_layer_ = new MapSquareInt(COORD_COUNT);
-        build_y_layer_ = new MapSquareInt(COORD_COUNT);
+        earth_layer_.resize(COORD_COUNT);
+        surface_layer_.resize(COORD_COUNT);
+        building_layer_.resize(COORD_COUNT);
+        build_x_layer_.resize(COORD_COUNT);
+        build_y_layer_.resize(COORD_COUNT);
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        File::readFile("../game/resource/earth.002", &earth_layer_->data(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer_->data(0), length);
-        File::readFile("../game/resource/building.002", &building_layer_->data(0), length);
-        File::readFile("../game/resource/buildx.002", &build_x_layer_->data(0), length);
-        File::readFile("../game/resource/buildy.002", &build_y_layer_->data(0), length);
+        File::readFile("../game/resource/earth.002", &earth_layer_.data(0), length);
+        File::readFile("../game/resource/surface.002", &surface_layer_.data(0), length);
+        File::readFile("../game/resource/building.002", &building_layer_.data(0), length);
+        File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
+        File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
 
         divide2(earth_layer_);
         divide2(surface_layer_);
@@ -39,11 +39,10 @@ MainScene::MainScene()
     data_readed_ = true;
 
     //100个云
+    cloud_vector_.resize(100);
     for (int i = 0; i < 100; i++)
     {
-        auto c = new Cloud();
-        cloud_vector_.push_back(c);
-        c->initRand();
+        cloud_vector_[i].initRand();
     }
     //getEntrance();
     weather_ = new ParticleWeather();
@@ -55,18 +54,13 @@ MainScene::MainScene()
 
 MainScene::~MainScene()
 {
-    for (int i = 0; i < cloud_vector_.size(); i++)
-    {
-        delete cloud_vector_[i];
-    }
-    Util::safe_delete({ &earth_layer_, &surface_layer_, &building_layer_, &build_x_layer_, &build_y_layer_, &entrance_layer_ });
 }
 
-void MainScene::divide2(MapSquareInt* m)
+void MainScene::divide2(MapSquareInt& m)
 {
-    for (int i = 0; i < m->squareSize(); i++)
+    for (int i = 0; i < m.squareSize(); i++)
     {
-        m->data(i) /= 2;
+        m.data(i) /= 2;
     }
 }
 
@@ -103,18 +97,18 @@ void MainScene::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_->data(ix, iy) > 0)
+                if (earth_layer_.data(ix, iy) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_->data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(ix, iy), p.x, p.y);
                 }
 #endif
-                if (surface_layer_->data(ix, iy) > 0)
+                if (surface_layer_.data(ix, iy) > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_->data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_.data(ix, iy), p.x, p.y);
                 }
-                if (building_layer_->data(ix, iy) > 0)
+                if (building_layer_.data(ix, iy) > 0)
                 {
-                    auto t = building_layer_->data(ix, iy);
+                    auto t = building_layer_.data(ix, iy);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
@@ -168,7 +162,7 @@ void MainScene::draw()
 
     for (auto& c : cloud_vector_)
     {
-        c->draw();
+        c.draw();
     }
     //printf("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
@@ -182,10 +176,10 @@ void MainScene::backRun()
     view_cloud_ = 0;
     for (auto& c : cloud_vector_)
     {
-        c->flow();
-        c->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
+        c.flow();
+        c.setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
         int x, y;
-        c->getPosition(x, y);
+        c.getPosition(x, y);
         if (x > -render_center_x_ * 1 && x < render_center_x_ * 3 && y > -0 && y < render_center_y_ * 2)
         {
             view_cloud_++;
@@ -295,14 +289,14 @@ void MainScene::dealEvent(BP_Event& e)
         //如果是建筑，在此建筑的附近试图查找入口
         if (isBuilding(p.x, p.y))
         {
-            int buiding_x = build_x_layer_->data(p.x, p.y);
-            int buiding_y = build_y_layer_->data(p.x, p.y);
+            int buiding_x = build_x_layer_.data(p.x, p.y);
+            int buiding_y = build_y_layer_.data(p.x, p.y);
             bool found_entrance = false;
             for (int ix = buiding_x + 1; ix > buiding_x - 9; ix--)
             {
                 for (int iy = buiding_y + 1; iy > buiding_y - 9; iy--)
                 {
-                    if (build_x_layer_->data(ix, iy) == buiding_x && build_y_layer_->data(ix, iy) == buiding_y && checkEntrance(ix, iy, true))
+                    if (build_x_layer_.data(ix, iy) == buiding_x && build_y_layer_.data(ix, iy) == buiding_y && checkEntrance(ix, iy, true))
                     {
                         p.x = ix;
                         p.y = iy;    //p的值变化了
@@ -391,14 +385,14 @@ void MainScene::tryWalk(int x, int y)
 
 bool MainScene::isBuilding(int x, int y)
 {
-    return (building_layer_->data(build_x_layer_->data(x, y), build_y_layer_->data(x, y)) > 0);
+    return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0);
 }
 
 //1 - can walk
 //2 - cannot walk
 int MainScene::isWater(int x, int y)
 {
-    auto pic = earth_layer_->data(x, y);
+    auto pic = earth_layer_.data(x, y);
     if (pic == 419 || pic >= 306 && pic <= 335)
     {
         return 2;

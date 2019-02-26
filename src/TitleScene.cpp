@@ -25,23 +25,19 @@
 TitleScene::TitleScene()
 {
     full_window_ = 1;
-    menu_ = new Menu();
-    menu_->setPosition(400, 250);
+    menu_.setPosition(400, 250);
     auto b = new Button("title", 3, 23, 23);
-    menu_->addChild(b, 20, 0);
+    menu_.addChild(b, 20, 0);
     b = new Button("title", 4, 24, 24);
-    menu_->addChild(b, 20, 50);
+    menu_.addChild(b, 20, 50);
     b = new Button("title", 6, 26, 26);
-    menu_->addChild(b, 20, 100);
-    menu_load_ = new UISave();
-    menu_load_->setPosition(500, 300);
+    menu_.addChild(b, 20, 100);
+    menu_load_.setPosition(500, 300);
     render_message_ = 1;
 }
 
 TitleScene::~TitleScene()
 {
-    delete menu_;
-    delete menu_load_;
 }
 
 void TitleScene::draw()
@@ -63,42 +59,40 @@ void TitleScene::draw()
 
 void TitleScene::dealEvent(BP_Event& e)
 {
-    int r = menu_->run();
+    int r = menu_.run();
     if (r == 0)
     {
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript("../game/script/0.lua");
         std::string name = "";
 #ifdef _MSC_VER
-        auto input = new InputBox("請輸入姓名：", 30);
-        input->setInputPosition(350, 300);
-        input->run();
-        if (input->getResult() >= 0)
+        InputBox input("請輸入姓名：", 30);
+        input.setInputPosition(350, 300);
+        input.run();
+        if (input.getResult() >= 0)
         {
-            name = input->getText();
+            name = input.getText();
         }
-        delete input;
 #else
         name = GameUtil::getInstance()->getString("constant", "name");
 #endif
         if (!name.empty())
         {
-            auto random_role = new RandomRole();
-            random_role->setRole(Save::getInstance()->getRole(0));
-            random_role->setRoleName(name);
-            if (random_role->runAtPosition(300, 0) == 0)
+            RandomRole random_role;
+            random_role.setRole(Save::getInstance()->getRole(0));
+            random_role.setRoleName(name);
+            if (random_role.runAtPosition(300, 0) == 0)
             {
                 MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
                 MainScene::getInstance()->setTowards(1);
                 MainScene::getInstance()->forceEnterSubScene(GameUtil::getInstance()->getInt("constant", "begin_scene", 70), 19, 20, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
                 MainScene::getInstance()->run();
             }
-            delete random_role;
         }
     }
     if (r == 1)
     {
-        if (menu_load_->run() >= 0)
+        if (menu_load_.run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用
             //Script::getInstance()->runScript("../game/script/0.lua");
@@ -128,6 +122,4 @@ void TitleScene::onEntrance()
     //ZipFile::unzip("../game/save/1.zip", { "r1.grp32","s1.grp","d1.grp" });
 
     //Save::getInstance()->loadRFromDB(0);
-
-
 }

@@ -44,10 +44,10 @@ protected:
     Head* head_self_;                  //头像
 
     //地面层，建筑层，选择层（负值为不可选，0和正值为可选），效果层
-    MapSquareInt *earth_layer_, *building_layer_, *select_layer_, *effect_layer_;
+    MapSquareInt earth_layer_, building_layer_, select_layer_, effect_layer_;
 
     //角色层
-    MapSquare<Role*>* role_layer_;
+    MapSquare<Role*> role_layer_;
 
     int select_type_ = 0;    //0-其他，1-选移动目标，2-选行动目标（好像没被用到）
 

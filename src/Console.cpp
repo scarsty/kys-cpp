@@ -112,9 +112,9 @@ Console::Console()
                     auto p = mainScene->getPositionOnRender(ix, iy, man_x_, man_y_);
                     p.x += nx - 160;
                     p.y += ny;
-                    if (mainScene->building_layer_->data(ix, iy) > 0)
+                    if (mainScene->building_layer_.data(ix, iy) > 0)
                     {
-                        auto t = mainScene->building_layer_->data(ix, iy);
+                        auto t = mainScene->building_layer_.data(ix, iy);
                         //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                         //次要排序依据是y坐标
                         //直接设置z轴

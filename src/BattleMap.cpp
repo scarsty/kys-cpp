@@ -13,7 +13,7 @@ BattleMap::BattleMap()
     battle_field_data2_.resize(length.size());
     for (int i = 0; i < battle_field_data2_.size(); i++)
     {
-        memcpy(battle_field_data2_[i].data, battle_map + offset[i], sizeof(BattleFieldData2));
+        memcpy(battle_field_data2_[i].data, battle_map.data() + offset[i], sizeof(BattleFieldData2));
     }
     //File::readFileToVector("../game/resource/warfld.grp", battle_field_data2_);
 

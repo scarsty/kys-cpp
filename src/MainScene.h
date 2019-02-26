@@ -33,10 +33,10 @@ public:
         return &ms;
     }
 
-    MapSquareInt* earth_layer_, *surface_layer_, *building_layer_, *build_x_layer_, *build_y_layer_, *entrance_layer_ = nullptr;
+    MapSquareInt earth_layer_, surface_layer_, building_layer_, build_x_layer_, build_y_layer_, entrance_layer_;
     bool data_readed_ = false;
 
-    void divide2(MapSquareInt* m);
+    void divide2(MapSquareInt& m);
 
     int MAN_PIC_0 = 2501;                   //初始主角图偏移量
     int MAN_PIC_COUNT = 7;                  //单向主角图张数
@@ -55,7 +55,7 @@ public:
     //todo: 休息未完成
 
     Cloud::CloudTowards cloud_towards = Cloud::Left;
-    std::vector<Cloud*> cloud_vector_;
+    std::vector<Cloud> cloud_vector_;
 
     virtual void draw() override;
     virtual void backRun() override;
@@ -83,5 +83,5 @@ public:
 
     void setWeather();
     ParticleWeather* getWeather() { return weather_; }
-    ParticleWeather* weather_ = nullptr;
+    ParticleWeather* weather_;
 };

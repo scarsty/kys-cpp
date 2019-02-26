@@ -29,7 +29,7 @@ public:
 
     int autoSelect(Role* role);
 
-    MapSquareInt* distance_layer_;
+    MapSquareInt distance_layer_;
 
     void calDistanceLayer(int x, int y, int max_step = 64);
 

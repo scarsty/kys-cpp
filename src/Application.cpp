@@ -24,9 +24,8 @@ int Application::run()
 
     config();
 
-    auto s = new TitleScene();    //开始界面
-    s->run();
-    delete s;
+    TitleScene s;    //开始界面
+    s.run();
 
     return 0;
 }

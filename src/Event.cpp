@@ -18,19 +18,17 @@
 Event::Event()
 {
     loadEventData();
-    talk_box_ = new Element();
     talk_box_up_ = new Talk();
     talk_box_down_ = new Talk();
-    talk_box_->addChild(talk_box_up_);
-    talk_box_->addChild(talk_box_down_, 0, 400);
-    menu2_ = new MenuText({ "確認（Y）", "取消（N）" });
-    menu2_->setPosition(400, 300);
-    menu2_->setFontSize(24);
-    menu2_->setHaveBox(true);
-    menu2_->arrange(0, 50, 150, 0);
-    text_box_ = new TextBox();
-    text_box_->setPosition(400, 200);
-    text_box_->setTextPosition(-20, 100);
+    talk_box_.addChild(talk_box_up_);
+    talk_box_.addChild(talk_box_down_, 0, 400);
+    menu2_.setStrings({ "確認（Y）", "取消（N）" });
+    menu2_.setPosition(400, 300);
+    menu2_.setFontSize(24);
+    menu2_.setHaveBox(true);
+    menu2_.arrange(0, 50, 150, 0);
+    text_box_.setPosition(400, 200);
+    text_box_.setTextPosition(-20, 100);
 }
 
 Event::~Event()
@@ -50,11 +48,10 @@ bool Event::loadEventData()
     }
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = PotConv::cp950tocp936(talk + offset[i]);
+        std::string str = PotConv::cp950tocp936(talk.data() + offset[i]);
         convert::replaceAllString(str, "*", "");
         talk_contents_.push_back(str);
     }
-    delete talk;
     //读取事件，全部转为整型
     auto kdef = GrpIdxFile::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
     kdef_.resize(length.size());
@@ -63,10 +60,9 @@ bool Event::loadEventData()
         kdef_[i].resize(length[i] / sizeof(int16_t), -1);
         for (int k = 0; k < length[i] / sizeof(int16_t); k++)
         {
-            kdef_[i][k] = *(int16_t*)(kdef + offset[i] + k * 2);
+            kdef_[i][k] = *(int16_t*)(kdef.data() + offset[i] + k * 2);
         }
     }
-    delete kdef;
 
     //读取离队列表
     std::string leave_txt = convert::readStringFromFile("../game/list/leave.txt");
@@ -97,9 +93,9 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     y_ = y;
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
-    talk_box_->setExit(false);
-    talk_box_->setVisible(true);
-    Element::addOnRootTop(talk_box_);
+    talk_box_.setExit(false);
+    talk_box_.setVisible(true);
+    Element::addOnRootTop(&talk_box_);
     int p = 0;
     exit_ = false;
     int i = 0;
@@ -245,7 +241,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             }
         }
     }
-    Element::removeFromRoot(talk_box_);
+    Element::removeFromRoot(&talk_box_);
     clearTalkBox();
     if (subscene_)
     {
@@ -339,10 +335,10 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(convert::formatString("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
-    text_box_->setTexture("item", item_id);
-    text_box_->run();
-    text_box_->setTexture("item", -1);
+    text_box_.setText(convert::formatString("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_.setTexture("item", item_id);
+    text_box_.run();
+    text_box_.setTexture("item", -1);
 }
 
 //修改事件定义
@@ -376,8 +372,8 @@ bool Event::isUsingItem(int item_id)
 //询问战斗
 bool Event::askBattle()
 {
-    menu2_->setText("是否與之過招？");
-    return menu2_->run() == 0;
+    menu2_.setText("是否與之過招？");
+    return menu2_.run() == 0;
 }
 
 bool Event::tryBattle(int battle_id, int get_exp)
@@ -403,8 +399,8 @@ void Event::changeMainMapMusic(int music_id)
 
 bool Event::askJoin()
 {
-    menu2_->setText("是否要求加入？");
-    return menu2_->run() == 0;
+    menu2_.setText("是否要求加入？");
+    return menu2_.run() == 0;
 }
 
 //角色加入，同时获得对方身上的物品
@@ -433,8 +429,8 @@ void Event::join(int role_id)
 
 bool Event::askRest()
 {
-    menu2_->setText("請選擇是或否？");
-    return menu2_->run() == 0;
+    menu2_.setText("請選擇是或否？");
+    return menu2_.run() == 0;
 }
 
 void Event::rest()
@@ -706,8 +702,8 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_->setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
-    text_box_->run();
+    text_box_.setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
+    text_box_.run();
 }
 
 void Event::addIQ(int role_id, int value)
@@ -715,8 +711,8 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_->setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
-    text_box_->run();
+    text_box_.setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
+    text_box_.run();
 }
 
 void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int level)
@@ -885,8 +881,8 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
-    text_box_->run();
+    text_box_.setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
+    text_box_.run();
 }
 
 void Event::addMaxMP(int role_id, int value)
@@ -894,8 +890,8 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
-    text_box_->run();
+    text_box_.setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
+    text_box_.run();
 }
 
 void Event::addAttack(int role_id, int value)
@@ -903,8 +899,8 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
-    text_box_->run();
+    text_box_.setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
+    text_box_.run();
 }
 
 void Event::addMaxHP(int role_id, int value)
@@ -912,8 +908,8 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
-    text_box_->run();
+    text_box_.setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
+    text_box_.run();
 }
 
 void Event::setMPType(int role_id, int value)
@@ -934,14 +930,14 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setText(convert::formatString("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
-    text_box_->run();
+    text_box_.setText(convert::formatString("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
+    text_box_.run();
 }
 
 void Event::showFame()
 {
-    text_box_->setText(convert::formatString("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
-    text_box_->run();
+    text_box_.setText(convert::formatString("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
+    text_box_.run();
 }
 
 void Event::openAllSubMap()
@@ -1354,9 +1350,9 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
         break;
     case 35:    //暂停等待按键
-        text_box_->setText("");
-        text_box_->setTexture("", 0);
-        x50[e1] = text_box_->run();
+        text_box_.setText("");
+        text_box_.setTexture("", 0);
+        x50[e1] = text_box_.run();
         switch (x50[e1])
         {
         case SDLK_LEFT: x50[e1] = 154; break;
