@@ -48,6 +48,8 @@ public:
     static void setRefreshInterval(int i) { refresh_interval_ = i; }
     static int getRefreshInterval() { return refresh_interval_; }
 
+    static int getShowTimes() { return prev_present_ticks_ / refresh_interval_; }
+
     static void drawAll();
 
     static void addOnRootTop(Element* element) { root_.push_back(element); }

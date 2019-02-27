@@ -19,6 +19,7 @@ struct Texture
     int w = 0, h = 0, dx = 0, dy = 0;
     bool loaded = false;
     int count = 1;
+    int prev_show;
     void setTex(BP_Texture* t)
     {
         destory();
@@ -76,6 +77,7 @@ public:
         return &tm;
     }
 
+public:
     void renderTexture(Texture* tex, BP_Rect r,
         BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);
     void renderTexture(const std::string& path, int num, BP_Rect r,

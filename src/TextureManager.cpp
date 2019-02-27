@@ -1,4 +1,5 @@
 ﻿#include "TextureManager.h"
+#include "Element.h"
 #include "File.h"
 #include "convert.h"
 
@@ -128,7 +129,23 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
     if (tex && tex->tex[0])
     {
         auto engine = Engine::getInstance();
-        int i = rand() % tex->count;
+        int i = 0;
+        if (tex->count > 1)
+        {
+            int now = Element::getShowTimes();
+            //此处同时模拟随机的水面和大场景的瀑布
+            if (now == tex->prev_show)
+            {
+                //若本张图在一帧中再次出现则更换一个贴图
+                i = rand() % tex->count;
+            }
+            else
+            {
+                //若本张图在一帧中首次出现则顺序贴图
+                i = now % tex->count;
+            }
+            tex->prev_show = now;
+        }
         c.a = alpha;
         engine->setColor(tex->tex[i], c);
         engine->renderCopy(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
@@ -145,11 +162,7 @@ void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8
 {
     if (tex && tex->tex[0])
     {
-        auto engine = Engine::getInstance();
-        int i = rand() % tex->count;
-        c.a = alpha;
-        engine->setColor(tex->tex[i], c);
-        engine->renderCopy(tex->tex[i], x - tex->dx, y - tex->dy, tex->w * zoom_x, tex->h * zoom_y);
+        renderTexture(tex, { x, y, int(tex->w * zoom_x), int(tex->h * zoom_y) }, c, alpha);
     }
 }
 
