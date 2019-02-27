@@ -18,14 +18,17 @@ std::string TextureGroup::getFileContent(const std::string& filename)
     }
 }
 
-void TextureGroup::init(const std::string& path, bool load_all)
+void TextureGroup::init(const std::string& path, int load_from_path, int load_all)
 {
     //纹理组信息
     if (!inited_)
     {
         path_ = path;
         inited_ = 1;
-        zip_.openFile(path_ + ".zip");
+        if (!load_from_path)
+        {
+            zip_.openFile(path_ + ".zip");
+        }
         std::vector<short> offset;
         if (zip_.opened())
         {
@@ -184,7 +187,7 @@ int TextureManager::getTextureGroupCount(const std::string& path)
     auto& v = getInstance()->map_[path];
     if (!v.inited_)
     {
-        v.init(path_ + "/" + path);
+        v.init(path_ + "/" + path, load_from_path_, load_all_);
     }
     return v.size();
 }
@@ -194,7 +197,7 @@ TextureGroup* TextureManager::getTextureGroup(const std::string& path)
     auto& v = getInstance()->map_[path];
     if (!v.inited_)
     {
-        v.init(path_ + "/" + path);
+        v.init(path_ + "/" + path, load_from_path_, load_all_);
     }
     return &v;
 }

@@ -55,7 +55,7 @@ public:
     std::string getFileContent(const std::string& filename);
 
 protected:
-    void init(const std::string& path, bool load_all = false);
+    void init(const std::string& path, int load_from_path, int load_all);
     void loadTexture(int num, Texture* t);
 };
 
@@ -65,19 +65,11 @@ private:
     TextureManager();
     virtual ~TextureManager();
     std::string path_ = "../game/resource/";
-
-public:
-    enum Type
-    {
-        MainMap = 0,
-        Scene,
-        Battle,
-        Cloud,
-        MaxType
-    };
-
+    int load_from_path_ = 0;    //0 - 先尝试读取zip，如没有则读取目录；1 - 不尝试读取zip，直接读取目录
+    int load_all_ = 0;
     std::map<const std::string, TextureGroup> map_;
 
+public:
     static TextureManager* getInstance()
     {
         static TextureManager tm;
@@ -97,4 +89,6 @@ public:
     Texture* loadTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);
     TextureGroup* getTextureGroup(const std::string& path);
+    void setLoadFromPath(int l) { load_from_path_ = l; }
+    void setLoadAll(int l) { load_all_ = l; }
 };
