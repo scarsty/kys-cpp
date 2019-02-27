@@ -46,8 +46,7 @@ private:
             y += size + 5;
         }
     }
-    Head* head1_ = nullptr;
-    Head* head2_ = nullptr;
+    Head head1_, head2_;
 
     bool show_head_ = true;
     bool black_screen_ = true;

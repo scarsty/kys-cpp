@@ -376,12 +376,11 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    auto battle = new BattleScene();
-    battle->setID(battle_id);
-    battle->setHaveFailExp(get_exp);
-    int result = battle->run();
+    BattleScene battle;
+    battle.setID(battle_id);
+    battle.setHaveFailExp(get_exp);
+    int result = battle.run();
     //int result = 0;    //测试用
-    delete battle;
     clearTalkBox();
 
     return result == 0;
@@ -1065,9 +1064,9 @@ void Event::setSexual(int role_id, int value)
 void Event::shop()
 {
     oldTalk(0xB9E, 0x6F, 0);
-    auto shop = new UIShop();
-    shop->setShopID(rand_.rand_int(5));
-    int result = shop->run();
+    UIShop shop;
+    shop.setShopID(rand_.rand_int(5));
+    int result = shop.run();
     if (result < 0)
     {
     }
@@ -1126,7 +1125,6 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     int i2 = 0;
     std::string str;
     std::vector<std::string> strs;
-    MenuText* menu = nullptr;
 
     auto save = Save::getInstance();
 
@@ -1378,17 +1376,18 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         break;
     case 39:
     case 40:    //菜单
+    {
         e2 = e_GetValue(0, e1, e2);
         e5 = e_GetValue(1, e1, e5);
         e6 = e_GetValue(2, e1, e6);
-        menu = new MenuText();
         for (int i = 0; i < e2 - 1; i++)
         {
             strs.push_back((char*)x50[x50[e3 + i]]);
         }
-        menu->setStrings(strs);
-        x50[e4] = menu->run();
-        delete menu;
+        MenuText menu;
+        menu.setStrings(strs);
+        x50[e4] = menu.run();
+    }
         break;
     case 41:    //画一张图
         e3 = e_GetValue(0, e1, e3);

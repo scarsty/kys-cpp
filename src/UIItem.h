@@ -11,7 +11,7 @@ public:
 
     //这里注意，用来显示物品图片的按钮的纹理编号实际就是物品编号
     std::vector<Button*> item_buttons_;
-    TextBox* cursor_ = nullptr;
+    TextBox cursor_;
 
     int leftup_index_ = 0; //左上角第一个物品在当前种类列表中的索引
     int max_leftup_ = 0;
@@ -19,7 +19,7 @@ public:
     const int item_each_line_ = 7;
     const int line_count_ = 3;
 
-    MenuText* title_ = nullptr;
+    MenuText title_;
 
     int force_item_type_ = -1;
 
@@ -27,7 +27,7 @@ public:
 
     int focus_ = 0;    //焦点位置：0分类栏，1物品栏
 
-    MenuText* getTitle() { return title_; }
+    MenuText* getTitle() { return &title_; }
 
     void setForceItemType(int f);
 
@@ -47,7 +47,6 @@ public:
 
     Item* current_item_ = nullptr;
     std::vector<Item*> available_items_;
-    Button* current_button_ = nullptr;
 
     Item* getCurrentItem() { return current_item_; }
 

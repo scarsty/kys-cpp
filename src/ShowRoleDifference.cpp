@@ -5,10 +5,8 @@
 
 ShowRoleDifference::ShowRoleDifference()
 {
-    head1_ = new Head();
-    addChild(head1_);
-    head2_ = new Head();
-    addChild(head2_, 400, 0);
+    addChild(&head1_);
+    addChild(&head2_, 400, 0);
     //setText("ÐÞÁ•³É¹¦");
     setPosition(250, 180);
     setTextPosition(0, -30);
@@ -26,19 +24,19 @@ void ShowRoleDifference::draw()
     //{
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     //}
-    head1_->setRole(role1_);
-    head2_->setRole(role2_);
-    head1_->setState(Press);
-    head2_->setState(Press);
+    head1_.setRole(role1_);
+    head2_.setRole(role2_);
+    head1_.setState(Press);
+    head2_.setState(Press);
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
-        head1_->setRole(role2_);
-        head1_->setPosition(200, 50);
-        head2_->setRole(nullptr);
+        head1_.setRole(role2_);
+        head1_.setPosition(200, 50);
+        head2_.setRole(nullptr);
     }
 
-    head1_->setVisible(show_head_);
-    head2_->setVisible(show_head_);
+    head1_.setVisible(show_head_);
+    head2_.setVisible(show_head_);
 
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };

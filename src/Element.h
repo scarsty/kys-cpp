@@ -14,9 +14,10 @@ private:
     static int prev_present_ticks_;
     static int refresh_interval_;
 
+private:
+    bool is_private_ = false;
 protected:
     std::vector<Element*> childs_;
-    std::vector<Element*> childs_self_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;    //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
@@ -52,8 +53,26 @@ public:
     static void addOnRootTop(Element* element) { root_.push_back(element); }
     static Element* removeFromRoot(Element* element);
 
+    //约定子类中不再使用new创建子类，而是使用下面的模板
     void addChild(Element* element);
     void addChild(Element* element, int x, int y);
+    template <class T>
+    T* addChild()
+    {
+        T* c = new T();
+        c->is_private_ = true;
+        addChild(c);
+        return c;
+    }
+    template <class T>
+    T* addChild(int x, int y)
+    {
+        T* c = new T();
+        c->is_private_ = true;
+        addChild(c, x, y);
+        return c;
+    }
+
     Element* getChild(int i) { return childs_[i]; }
     int getChildCount() { return childs_.size(); }
     void removeChild(Element* element);
@@ -196,24 +215,6 @@ public:
             if (ptr) { return ptr; }
         }
         return nullptr;
-    }
-
-    template <class T>
-    T* addChild()
-    {
-        T* c = new T();
-        addChild(c);
-        childs_self_.push_back(c);
-        return c;
-    }
-
-    template <class T>
-    T* addChild(int x, int y)
-    {
-        T* c = new T();
-        addChild(c, x, y);
-        childs_self_.push_back(c);
-        return c;
     }
 
     //每个节点应自行定义返回值，

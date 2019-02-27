@@ -4,12 +4,10 @@
 
 BattleCursor::BattleCursor()
 {
-    head_selected_ = new Head();
-    addChild(head_selected_);
-    ui_status_ = new UIStatus();
-    ui_status_->setVisible(false);
-    ui_status_->setShowButton(false);
-    addChild(ui_status_, 300, 0);
+    addChild(&head_selected_);
+    ui_status_.setVisible(false);
+    ui_status_.setShowButton(false);
+    addChild(&ui_status_, 300, 0);
 }
 
 BattleCursor::~BattleCursor()
@@ -21,7 +19,7 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
     role_ = r;
     magic_ = m;
     level_index_ = l;
-    head_selected_->setRole(r);
+    head_selected_.setRole(r);
 }
 
 void BattleCursor::dealEvent(BP_Event& e)
@@ -70,14 +68,14 @@ void BattleCursor::setCursor(int x, int y)
     if (battle_scene_->canSelect(x, y))
     {
         battle_scene_->setSelectPosition(x, y);
-        if (head_selected_->getVisible())
+        if (head_selected_.getVisible())
         {
-            head_selected_->setRole(battle_scene_->getRoleLayer()->data(x, y));
+            head_selected_.setRole(battle_scene_->getRoleLayer()->data(x, y));
         }
         //uiµÄÉè¶¨
-        if (ui_status_->getVisible())
+        if (ui_status_.getVisible())
         {
-            ui_status_->setRole(battle_scene_->getRoleLayer()->data(x, y));
+            ui_status_.setRole(battle_scene_->getRoleLayer()->data(x, y));
         }
     }
     if (mode_ == Move)
@@ -100,7 +98,7 @@ void BattleCursor::onEntrance()
 
     int w, h;
     Engine::getInstance()->getWindowSize(w, h);
-    head_selected_->setPosition(w - 400, h - 150);
+    head_selected_.setPosition(w - 400, h - 150);
     battle_scene_->towards_ = role_->FaceTowards;
 
     if (role_->isAuto() || role_->Networked)

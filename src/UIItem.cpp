@@ -20,16 +20,14 @@ UIItem::UIItem()
         //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
         addChild(b);
     }
-    title_ = new MenuText();
-    title_->setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
-    title_->setFontSize(24);
-    title_->arrange(0, 50, 64, 0);
-    addChild(title_);
+    title_.setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
+    title_.setFontSize(24);
+    title_.arrange(0, 50, 64, 0);
+    addChild(&title_);
 
-    cursor_ = new TextBox();
-    cursor_->setTexture("title", 127);
-    cursor_->setVisible(false);
-    addChild(cursor_);
+    cursor_.setTexture("title", 127);
+    cursor_.setVisible(false);
+    addChild(&cursor_);
 
     active_child_ = 0;
     getChild(0)->setState(Pass);
@@ -44,12 +42,12 @@ void UIItem::setForceItemType(int f)
     force_item_type_ = f;
     if (f >= 0)
     {
-        title_->setAllChildVisible(false);
-        title_->getChild(f)->setVisible(true);
+        title_.setAllChildVisible(false);
+        title_.getChild(f)->setVisible(true);
     }
     else
     {
-        title_->setAllChildVisible(true);
+        title_.setAllChildVisible(true);
     }
 }
 
@@ -112,11 +110,11 @@ void UIItem::checkCurrentItem()
     //强制停留在某类物品
     if (force_item_type_ >= 0)
     {
-        //title_->setResult(force_item_type_);
-        title_->forceActiveChild(force_item_type_);
+        //title_.setResult(force_item_type_);
+        title_.forceActiveChild(force_item_type_);
     }
-    int active = title_->getActiveChildIndex();
-    title_->getChild(active)->setState(Pass);
+    int active = title_.getActiveChildIndex();
+    title_.getChild(active)->setState(Pass);
     geItemsByType(active);
     int type_item_count = available_items_.size();
     //从这里计算出左上角可以取的最大值
@@ -130,6 +128,7 @@ void UIItem::checkCurrentItem()
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup_);
 
     //计算被激活的按钮
+    Button* current_button = nullptr;
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
@@ -145,33 +144,33 @@ void UIItem::checkCurrentItem()
         }
         if (button->getState() == Pass || button->getState() == Press)
         {
-            current_button_ = button;
+            current_button = button;
             //result_ = current_item_->ID;
         }
     }
 
     //计算被激活的按钮对应的物品
     current_item_ = nullptr;
-    if (current_button_)
+    if (current_button)
     {
         int x, y;
-        current_button_->getPosition(x, y);
-        current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
+        current_button->getPosition(x, y);
+        current_item_ = Save::getInstance()->getItem(current_button->getTexutreID());
         //让光标显示出来
-        if (current_button_->getState() == Pass)
+        if (current_button->getState() == Pass)
         {
             x += 2;
         }
-        if (current_button_->getState() == Press)
+        if (current_button->getState() == Press)
         {
             y += 2;
         }
-        cursor_->setPosition(x, y);
-        cursor_->setVisible(true);
+        cursor_.setPosition(x, y);
+        cursor_.setVisible(true);
     }
     else
     {
-        cursor_->setVisible(false);
+        cursor_.setVisible(false);
     }
 }
 
@@ -261,12 +260,12 @@ void UIItem::dealEvent(BP_Event& e)
             }
             forceActiveChild();
         }
-        title_->setDealEvent(0);
-        title_->setAllChildState(Normal);
+        title_.setDealEvent(0);
+        title_.setAllChildState(Normal);
     }
     if (focus_ == 0)
     {
-        title_->setDealEvent(1);
+        title_.setDealEvent(1);
         if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_DOWN)
         {
             focus_ = 1;

@@ -15,19 +15,18 @@ public:
     ~BattleCursor();
 
     int *select_x_ = nullptr, *select_y_ = nullptr;
-    MapSquareInt *select_layer_ = nullptr, *effect_layer_ = nullptr;
 
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
     int level_index_ = 0;
     void setRoleAndMagic(Role* r, Magic* m = nullptr, int l = 0);
 
-    Head* head_selected_;
+    Head head_selected_;
     //void setHead(Head* h) { head_selected_ = h; }
-    Head* getHead() { return head_selected_; }
+    Head* getHead() { return &head_selected_; }
 
-    UIStatus* ui_status_;
-    UIStatus* getUIStatus() { return ui_status_; }
+    UIStatus ui_status_;
+    UIStatus* getUIStatus() { return &ui_status_; }
 
     int mode_ = Move;
     enum

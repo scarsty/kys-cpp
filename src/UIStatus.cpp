@@ -9,20 +9,16 @@
 
 UIStatus::UIStatus()
 {
-    menu_ = new Menu();
-    button_medicine_ = new Button();
-    button_medicine_->setText("醫療");
-    menu_->addChild(button_medicine_, 350, 55);
+    button_medicine_.setText("醫療");
+    menu_.addChild(&button_medicine_, 350, 55);
 
-    button_detoxification_ = new Button();
-    button_detoxification_->setText("解毒");
-    menu_->addChild(button_detoxification_, 400, 55);
+    button_detoxification_.setText("解毒");
+    menu_.addChild(&button_detoxification_, 400, 55);
 
-    button_leave_ = new Button();
-    button_leave_->setText("離隊");
-    menu_->addChild(button_leave_, 450, 55);
+    button_leave_.setText("離隊");
+    menu_.addChild(&button_leave_, 450, 55);
 
-    addChild(menu_);
+    addChild(&menu_);
 }
 
 UIStatus::~UIStatus()
@@ -33,18 +29,18 @@ void UIStatus::draw()
 {
     if (role_ == nullptr || !show_button_)
     {
-        button_medicine_->setVisible(false);
-        button_detoxification_->setVisible(false);
-        button_leave_->setVisible(false);
+        button_medicine_.setVisible(false);
+        button_detoxification_.setVisible(false);
+        button_leave_.setVisible(false);
     }
 
     if (role_)
     {
         if (show_button_)
         {
-            button_medicine_->setVisible(role_->Medicine > 0);
-            button_detoxification_->setVisible(role_->Detoxification > 0);
-            button_leave_->setVisible(role_->ID != 0);
+            button_medicine_.setVisible(role_->Medicine > 0);
+            button_detoxification_.setVisible(role_->Detoxification > 0);
+            button_leave_.setVisible(role_->ID != 0);
         }
     }
     else
@@ -264,7 +260,7 @@ void UIStatus::onPressedOK()
         return;
     }
 
-    if (menu_->getResult() == 0)
+    if (menu_.getResult() == 0)
     {
         auto team_menu = new TeamMenu();
         team_menu->setText(convert::formatString("%s要為誰醫療", role_->Name));
@@ -281,7 +277,7 @@ void UIStatus::onPressedOK()
             delete df;
         }
     }
-    else if (menu_->getResult() == 1)
+    else if (menu_.getResult() == 1)
     {
         auto team_menu = new TeamMenu();
         team_menu->setText(convert::formatString("%s要為誰解毒", role_->Name));
@@ -298,7 +294,7 @@ void UIStatus::onPressedOK()
             delete df;
         }
     }
-    else if (menu_->getResult() == 2)
+    else if (menu_.getResult() == 2)
     {
         Event::getInstance()->callLeaveEvent(role_);
         role_ = nullptr;

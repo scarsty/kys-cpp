@@ -82,6 +82,6 @@ public:
     int getViewCloud() { return view_cloud_; }
 
     void setWeather();
-    ParticleWeather* getWeather() { return weather_; }
-    ParticleWeather* weather_;
+    ParticleWeather* getWeather() { return &weather_; }
+    ParticleWeather weather_;
 };

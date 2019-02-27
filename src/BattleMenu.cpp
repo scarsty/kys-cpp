@@ -594,10 +594,8 @@ std::vector<Item*> BattleItemMenu::getAvaliableItems()
 
 std::vector<Item*> BattleItemMenu::getAvaliableItems(Role* role, int type)
 {
-    auto item_menu = new BattleItemMenu();
-    item_menu->setRole(role);
-    item_menu->setForceItemType(type);
-    auto items = item_menu->getAvaliableItems();
-    delete item_menu;
-    return items;
+    BattleItemMenu item_menu;
+    item_menu.setRole(role);
+    item_menu.setForceItemType(type);
+    return item_menu.getAvaliableItems();
 }

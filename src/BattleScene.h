@@ -39,9 +39,9 @@ protected:
     std::vector<Role*> friends_;         //开始就参战的我方角色，用来计算失败经验
     Role* acting_role_ = nullptr;        //当前正在行动中的角色
 
-    BattleActionMenu* battle_menu_;    //战斗行动菜单
-    BattleCursor* battle_cursor_;      //战斗时的光标
-    Head* head_self_;                  //头像
+    BattleActionMenu battle_menu_;    //战斗行动菜单
+    BattleCursor battle_cursor_;      //战斗时的光标
+    Head head_self_;                  //头像
 
     //地面层，建筑层，选择层（负值为不可选，0和正值为可选），效果层
     MapSquareInt earth_layer_, building_layer_, select_layer_, effect_layer_;

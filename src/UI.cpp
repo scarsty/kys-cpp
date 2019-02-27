@@ -148,16 +148,16 @@ void UI::onPressedOK()
     if (button_status_.getState() == Press)
     {
         childs_[0] = &ui_status_;
-        current_button_ = 1;
+        current_button_ = button_status_.getTag();
     }
     if (button_item_.getState() == Press)
     {
         childs_[0] = &ui_item_;
-        current_button_ = 2;
+        current_button_ = button_item_.getTag();
     }
     if (button_system_.getState() == Press)
     {
         childs_[0] = &ui_system_;
-        current_button_ = 3;
+        current_button_ = button_system_.getTag();
     }
 }

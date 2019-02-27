@@ -17,8 +17,8 @@ private:
     Item* item_ = nullptr;
     int mode_ = 0;   //为0是单选，为1是多选
 
-    Button* button_all_;
-    Button* button_ok_;
+    Button button_all_;
+    Button button_ok_;
 
 public:
     void setItem(Item* item) { item_ = item; }

@@ -9,9 +9,9 @@ int Element::render_message_ = 0;
 
 Element::~Element()
 {
-    for (auto c : childs_self_)
+    for (auto c : childs_)
     {
-        if (c)
+        if (c && c->is_private_)
         {
             delete c;
         }
