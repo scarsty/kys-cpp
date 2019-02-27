@@ -262,36 +262,32 @@ void UIStatus::onPressedOK()
 
     if (menu_.getResult() == 0)
     {
-        auto team_menu = new TeamMenu();
-        team_menu->setText(convert::formatString("%s要為誰醫療", role_->Name));
-        team_menu->run();
-        auto role = team_menu->getRole();
-        delete team_menu;
+        TeamMenu team_menu;
+        team_menu.setText(convert::formatString("%s要為誰醫療", role_->Name));
+        team_menu.run();
+        auto role = team_menu.getRole();
         if (role)
         {
             Role r = *role;
             GameUtil::medicine(role_, role);
-            auto df = new ShowRoleDifference(&r, role);
-            df->setText(convert::formatString("%s接受%s醫療", role->Name, role_->Name));
-            df->run();
-            delete df;
+            ShowRoleDifference df(&r, role);
+            df.setText(convert::formatString("%s接受%s醫療", role->Name, role_->Name));
+            df.run();
         }
     }
     else if (menu_.getResult() == 1)
     {
-        auto team_menu = new TeamMenu();
-        team_menu->setText(convert::formatString("%s要為誰解毒", role_->Name));
-        team_menu->run();
-        auto role = team_menu->getRole();
-        delete team_menu;
+        TeamMenu team_menu;
+        team_menu.setText(convert::formatString("%s要為誰解毒", role_->Name));
+        team_menu.run();
+        auto role = team_menu.getRole();
         if (role)
         {
             Role r = *role;
             GameUtil::detoxification(role_, role);
-            auto df = new ShowRoleDifference(&r, role);
-            df->setText(convert::formatString("%s接受%s解毒", role->Name, role_->Name));
-            df->run();
-            delete df;
+            ShowRoleDifference df(&r, role);
+            df.setText(convert::formatString("%s接受%s解毒", role->Name, role_->Name));
+            df.run();
         }
     }
     else if (menu_.getResult() == 2)

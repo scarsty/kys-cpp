@@ -9,15 +9,12 @@
 
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
-    previous_ = new Button();
-    previous_->setText("上一頁PgUp");
-    next_ = new Button();
-    next_->setText("下一頁PgDown");
+    previous_.setText("上一頁PgUp");
+    next_.setText("下一頁PgDown");
 
-    addChild(previous_);
-    addChild(next_);
-    selections_ = new MenuText();
-    addChild(selections_);
+    addChild(&previous_);
+    addChild(&next_);
+    addChild(&selections_);
     setAllChildState(Normal);
     defaultPage();
 
@@ -83,9 +80,9 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
 void SuperMenuText::setInputPosition(int x, int y)
 {
     InputBox::setInputPosition(x, y);
-    selections_->setPosition(x, y + font_size_ * 3);
-    previous_->setPosition(x, y - font_size_ * 1.5);
-    next_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
+    selections_.setPosition(x, y + font_size_ * 3);
+    previous_.setPosition(x, y - font_size_ * 1.5);
+    next_.setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
 }
 
 void SuperMenuText::addDrawableOnCall(DrawableOnCall* doc)
@@ -116,9 +113,9 @@ void SuperMenuText::defaultPage()
     }
     curPage_ = 0;
     updateMaxPages();
-    selections_->setStrings(displays);
+    selections_.setStrings(displays);
     if (displays.size() != 0)
-    { selections_->forceActiveChild(0); }
+    { selections_.forceActiveChild(0); }
     curDefault_ = true;
 }
 
@@ -136,7 +133,7 @@ void SuperMenuText::flipPage(int pInc)
             activeIndices_.push_back(searchResultIndices_[i]);
             displays.push_back(items_[searchResultIndices_[i]].second);
         }
-        selections_->setStrings(displays);
+        selections_.setStrings(displays);
     }
     // curDefault_ = false;
 }
@@ -184,8 +181,8 @@ void SuperMenuText::search(const std::string& text)
     }
     updateMaxPages();
     curPage_ = 0;
-    selections_->setStrings(results);
-    selections_->forceActiveChild(0);
+    selections_.setStrings(results);
+    selections_.forceActiveChild(0);
     curDefault_ = false;
 }
 
@@ -198,17 +195,17 @@ void SuperMenuText::dealEvent(BP_Event& e)
 {
     // get不到result 为何
     // 不知道这玩意儿在干嘛，瞎搞即可
-    if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    if (previous_.getState() == Press && e.type == BP_MOUSEBUTTONUP)
     {
         flipPage(-1);
-        previous_->setState(Normal);
-        previous_->setResult(-1);
+        previous_.setState(Normal);
+        previous_.setResult(-1);
     }
-    else if (next_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    else if (next_.getState() == Press && e.type == BP_MOUSEBUTTONUP)
     {
         flipPage(1);
-        next_->setState(Normal);
-        next_->setResult(-1);
+        next_.setState(Normal);
+        next_.setResult(-1);
     }
 
     bool research = false;
@@ -284,7 +281,7 @@ void SuperMenuText::dealEvent(BP_Event& e)
         search(text_);
     }
 
-    int selectionIdx = selections_->getActiveChildIndex();
+    int selectionIdx = selections_.getActiveChildIndex();
     if (selectionIdx >= 0 && selectionIdx < activeIndices_.size())
     {
         int idx = activeIndices_[selectionIdx];
@@ -301,10 +298,10 @@ void SuperMenuText::dealEvent(BP_Event& e)
         }
     }
 
-    if (selections_->getResult() >= 0)
+    if (selections_.getResult() >= 0)
     {
-        auto selected = selections_->getResultString();
-        result_ = activeIndices_[selections_->getResult()];
+        auto selected = selections_.getResultString();
+        result_ = activeIndices_[selections_.getResult()];
         if (result_ >= 0)
         { result_ = items_[result_].first; }
         setExit(true);

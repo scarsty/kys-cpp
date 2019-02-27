@@ -144,10 +144,10 @@ Console::Console()
                 }
             }
         };
-        auto doc = new DrawableOnCall(drawScene);
+        DrawableOnCall doc(drawScene);
         SuperMenuText smt("可輸入傳送地名，編號或拼音搜索：", 28, locs, 15);
         smt.setInputPosition(dx, dy);
-        smt.addDrawableOnCall(doc);
+        smt.addDrawableOnCall(&doc);
 
         smt.run();
         int id = smt.getResult();

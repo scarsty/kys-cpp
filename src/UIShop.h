@@ -17,7 +17,7 @@ public:
     std::vector<int> plan_buy_;
     std::vector<Button*> buttons_;
 
-    Button* button_ok_, *button_cancel_, *button_clear_;
+    Button button_ok_, button_cancel_, button_clear_;
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;

@@ -8,7 +8,7 @@ public:
     UISystem();
     ~UISystem();
 
-    MenuText* title_ = nullptr;
+    MenuText title_;
 
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override { exitWithResult(-1); }

@@ -502,11 +502,10 @@ void BattleScene::readBattleInfo()
         }
         else
         {
-            auto team_menu = new TeamMenu();
-            team_menu->setMode(1);
-            team_menu->run();
-            friends_ = team_menu->getRoles();
-            delete team_menu;
+            TeamMenu team_menu;
+            team_menu.setMode(1);
+            team_menu.run();
+            friends_ = team_menu.getRoles();
         }
         //╤сся
         for (int i = 0; i < friends_.size(); i++)

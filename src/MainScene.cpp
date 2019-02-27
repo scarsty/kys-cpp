@@ -479,32 +479,32 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
 
 void MainScene::setWeather()
 {
-    weather_->setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
+    weather_.setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
     if (inNorth())
     {
-        weather_->setStyle(ParticleExample::SNOW);
-        if (!weather_->isActive())
+        weather_.setStyle(ParticleExample::SNOW);
+        if (!weather_.isActive())
         {
-            weather_->resetSystem();
+            weather_.resetSystem();
         }
     }
     else
     {
         if (view_cloud_)
         {
-            weather_->setStyle(ParticleExample::RAIN);
-            weather_->setEmissionRate(50 * view_cloud_);
-            weather_->setGravity({ 10, 20 });
-            if (!weather_->isActive())
+            weather_.setStyle(ParticleExample::RAIN);
+            weather_.setEmissionRate(50 * view_cloud_);
+            weather_.setGravity({ 10, 20 });
+            if (!weather_.isActive())
             {
-                weather_->resetSystem();
+                weather_.resetSystem();
             }
         }
         else
         {
-            if (weather_->isActive())
+            if (weather_.isActive())
             {
-                weather_->stopSystem();
+                weather_.stopSystem();
             }
         }
     }

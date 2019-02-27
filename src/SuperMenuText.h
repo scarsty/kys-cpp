@@ -27,13 +27,13 @@ private:
     void updateMaxPages();
     bool defaultMatch(const std::string& input, const std::string& name);
 
-    Button * previous_;
-    Button * next_;
+    Button previous_;
+    Button next_;
     int curPage_ = 0;
     int maxPages_ = 1;
     int itemsPerPage_ = 10;
     bool curDefault_ = false;
-    MenuText * selections_;
+    MenuText selections_;
 
     // ËùÓÐµÄ
     std::vector<std::pair<int, std::string>> items_;

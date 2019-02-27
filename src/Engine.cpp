@@ -223,6 +223,7 @@ void Engine::toggleFullscreen()
 
 BP_Texture* Engine::loadImage(const std::string& filename)
 {
+    //printf("%s", filename.c_str());
     return IMG_LoadTexture(renderer_, filename.c_str());
 }
 
