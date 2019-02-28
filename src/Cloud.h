@@ -8,16 +8,8 @@ public:
     Cloud() { x_ = -1000; y_ = -1000; }
     virtual ~Cloud() {}
 
-    enum CloudTowards
-    {
-        Left = 0,
-        Right = 1,
-        Up = 2,
-        Down = 3,
-    };
-
     Point position_;
-    int speed_;
+    int speed_x_, speed_y_;
 
     const int max_X = 17280;
     const int max_Y = 8640;
@@ -27,7 +19,7 @@ public:
     BP_Color color_;
     uint8_t alpha_;
 
-    void initRand();
+    void initRand(bool init_pos = true);
     void setPositionOnScreen(int x, int y, int Center_X, int Center_Y);
     virtual void draw() override;
 

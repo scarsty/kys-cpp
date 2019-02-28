@@ -54,7 +54,6 @@ public:
 
     //todo: ÐÝÏ¢Î´Íê³É
 
-    Cloud::CloudTowards cloud_towards = Cloud::Left;
     std::vector<Cloud> cloud_vector_;
 
     virtual void draw() override;

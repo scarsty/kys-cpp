@@ -184,7 +184,6 @@ void UIStatus::draw()
         {
             int x1 = x + i % 2 * 200;
             int y1 = y + 30 + i / 2 * 25;
-
             str = convert::formatString("%s", magic->Name);
             font->draw(str, font_size, x1, y1, color_ability1);
             str = convert::formatString("%3d", role_->getRoleShowLearnedMagicLevel(i));
