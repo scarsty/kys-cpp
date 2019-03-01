@@ -15,6 +15,10 @@ ZipFile::~ZipFile()
 
 void ZipFile::openFile(const std::string& filename)
 {
+    if (zip_)
+    {
+        zip_close(zip_);
+    }
     zip_ = zip_open(filename.c_str(), 0, 'r');
 }
 
