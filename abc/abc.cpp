@@ -56,7 +56,8 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     }
 
     std::vector<int> offset1, length1, offset2, length2;
-    auto rgrp1 = GrpIdxFile::getIdxContent(idx, grp, &offset1, &length1);
+    auto rgrp1_str = GrpIdxFile::getIdxContent(idx, grp, &offset1, &length1);
+    auto rgrp1 = rgrp1_str.c_str();
     offset2 = offset1;
     length2 = length1;
     for (auto& i : offset2)

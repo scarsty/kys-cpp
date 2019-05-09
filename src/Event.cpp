@@ -46,8 +46,7 @@ bool Event::loadEventData()
     }
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = PotConv::cp950tocp936(talk.data() + offset[i]);
-        convert::replaceAllString(str, "*", "");
+        std::string str = convert::replaceAllSubString(PotConv::cp950tocp936(talk.data() + offset[i]), "*", "");
         talk_contents_.push_back(str);
     }
     //读取事件，全部转为整型
@@ -289,8 +288,8 @@ void Event::setUseScript(int u)
     if (u)
     {
         auto str = convert::readStringFromFile("../game/script/talk.txt");
-        convert::replaceAllString(str, "\r", "");
-        convert::replaceAllString(str, "*", "");
+        convert::replaceAllSubStringRef(str, "\r", "");
+        convert::replaceAllSubStringRef(str, "*", "");
         talk_contents_ = convert::splitString(str, "\n");
     }
 }
@@ -1388,7 +1387,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         menu.setStrings(strs);
         x50[e4] = menu.run();
     }
-        break;
+    break;
     case 41:    //画一张图
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
