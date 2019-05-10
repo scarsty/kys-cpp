@@ -89,25 +89,28 @@ abc工程用来转换之前的数据。建议自行调整代码后，使用调�
 
 ## 使用到的其他开发库
 
-大部分可以从<https://github.com/scarsty/lib-collection>取得头文件和导入库。此工程收集了一些Linux下常见，但是Windows下经常不能直接使用的库，在Windows下编译时通常需要将其保存在local目录中，有些库也可以用vcpkg或者msys2来安装，请自行选择处理。在Linux下编译时则应优先考虑使用系统的包管理器自动安装的库，在Mac下可以使用homebrew来安装。
+以下库在Windows下建议使用vcpkg或者msys2来安装，或者也可以去官网下载，请自行选择。在Linux下编译时则应优先考虑使用系统的包管理器（例如apt等）自动安装的库，在Mac下可以使用homebrew来安装。
 
 - SDL <https://www.libsdl.org/>
   - SDL_image <https://www.libsdl.org/projects/SDL_image/>
   - SDL_ttf <https://www.libsdl.org/projects/SDL_ttf/>
   - SDL_mixer <https://www.libsdl.org/projects/SDL_mixer/>
 - libiconv <https://www.gnu.org/software/libiconv/>
-- ini Reader <https://github.com/benhoyt/inih>
-- zip <https://github.com/kuba--/zip>
 - lua <https://www.lua.org/>
+- PicoSHA2 <https://github.com/okdshin/PicoSHA2>
+- sqlite3 <https://www.sqlite.org/>
+- asio boost的一部分，需在预处理中打开网络功能
+
+以下库已包含在本工程中：
+
+- hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
+- zip <https://github.com/kuba--/zip>
 - BASS, BASSMIDI <http://www.un4seen.com/>
 - OpenCC <https://github.com/BYVoid/OpenCC>
 - Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
-- PicoSHA2 <https://github.com/okdshin/PicoSHA2>
-- hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
-- sqlite <https://www.sqlite.org/>
-- asio boost的一部分，需在预处理中打开网络功能
+- tinypot（动态库版本）: <https://github.com/scarsty/tinypot>
 
-以下为间接使用，通常无需直接处理。
+以下为间接使用，通常包管理器会自动处理。
 
 - freetype <https://www.freetype.org/>
 - FFmpeg <https://www.ffmpeg.org/>
@@ -132,16 +135,14 @@ common <https://github.com/scarsty/common>
 
 common是作者所写的一个通用功能集合，被多个工程使用。
 
-可以用以下命令
+其中包含了ini文件读写库：
+
+- ini Reader <https://github.com/benhoyt/inih>
+
+可以用以下命令获取：
 
 ```shell
 git clone https://github.com/scarsty/common common
-git clone https://github.com/scarsty/lib-collection local
-
-
-mkdir include
-cp ./local/include/picosha2.h ./include
-cp ./local/include/csv.h ./include
 ```
 
 或者get-submodule.sh来获取common和上面提到的库。

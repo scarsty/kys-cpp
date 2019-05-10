@@ -4,7 +4,6 @@
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif
-#include <cmath>
 
 Engine::Engine()
 {
@@ -100,7 +99,7 @@ BP_Texture* Engine::createSquareTexture(int size)
     {
         for (y = 0; y < d; y++)
         {
-            a = 100 + 150 * cos(M_PI * (1.0 * y / d - 0.5));
+            a = 100 + 150 * cos(3.14159265358979323846 * (1.0 * y / d - 0.5));
             auto c = 0x00ffffff | (a << 24);
             SDL_FillRect(square_s, &r, c);
             /*if ((x - d / 2)*(x - d / 2) + (y - d / 2)*(y - d / 2) < (d / 2) * (d / 2))
