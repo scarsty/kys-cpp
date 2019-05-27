@@ -16,7 +16,6 @@
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
 #include "UIStatus.h"
-#include "Util.h"
 #include <algorithm>
 #include <iostream>
 #include <math.h>

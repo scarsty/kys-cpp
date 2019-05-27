@@ -88,9 +88,6 @@
     <ClCompile Include="src\GameUtil.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="src\Util.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="src\Types.cpp">
       <Filter>util</Filter>
     </ClCompile>
@@ -166,6 +163,9 @@
     <ClCompile Include="src\ZipFile.cpp">
       <Filter>zip</Filter>
     </ClCompile>
+    <ClCompile Include="src\ChemistryEngine.cpp">
+      <Filter>application</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource\resource.h">
@@ -235,9 +235,6 @@
       <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="src\Types.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Util.h">
       <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="src\Audio.h">
@@ -345,6 +342,9 @@
     <ClInclude Include="src\ZipFile.h">
       <Filter>zip</Filter>
     </ClInclude>
+    <ClInclude Include="src\ChemistryEngine.h">
+      <Filter>headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -393,6 +393,9 @@
     </Filter>
     <Filter Include="zip">
       <UniqueIdentifier>{6d628cf8-dd04-4c2b-ab7f-7ac40cd54b8f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="chemistry">
+      <UniqueIdentifier>{035dc8b6-d3ba-46b1-9302-e7cdbc2c3b18}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

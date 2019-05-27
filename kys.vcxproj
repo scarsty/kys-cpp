@@ -104,6 +104,7 @@
     <ClCompile Include="src\BattleScene.cpp" />
     <ClCompile Include="src\BattleMenu.cpp" />
     <ClCompile Include="src\Button.cpp" />
+    <ClCompile Include="src\ChemistryEngine.cpp" />
     <ClCompile Include="src\Console.cpp" />
     <ClCompile Include="src\DrawableOnCall.cpp" />
     <ClCompile Include="src\InputBox.cpp" />
@@ -147,7 +148,6 @@
     <ClCompile Include="src\UIShop.cpp" />
     <ClCompile Include="src\UIStatus.cpp" />
     <ClCompile Include="src\UISystem.cpp" />
-    <ClCompile Include="src\Util.cpp" />
     <ClCompile Include="src\ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -163,6 +163,7 @@
     <ClInclude Include="src\BattleScene.h" />
     <ClInclude Include="src\BattleMenu.h" />
     <ClInclude Include="src\Button.h" />
+    <ClInclude Include="src\ChemistryEngine.h" />
     <ClInclude Include="src\Console.h" />
     <ClInclude Include="src\DrawableOnCall.h" />
     <ClInclude Include="src\InputBox.h" />
@@ -208,7 +209,6 @@
     <ClInclude Include="src\UIShop.h" />
     <ClInclude Include="src\UIStatus.h" />
     <ClInclude Include="src\UISystem.h" />
-    <ClInclude Include="src\Util.h" />
     <ClInclude Include="src\ZipFile.h" />
   </ItemGroup>
   <ItemGroup>
