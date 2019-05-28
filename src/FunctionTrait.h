@@ -3,10 +3,7 @@
 #include <type_traits>
 
 template <class F, typename C, typename... Args>
-struct arg_counter
-{
-    static constexpr std::size_t value = sizeof...(Args);
-};
+struct arg_counter { };
 
 template <typename F, typename C, typename... Args>
 struct arg_counter<F(C::*)(Args...), C>
