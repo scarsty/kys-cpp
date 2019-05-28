@@ -161,4 +161,67 @@ public:
 
     //扩展的50指令，传入下一个指令的指针，某一条需要
     void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr);
+
+public:
+    void print_e(const std::vector<int>& e, int i, int size)
+    {
+        for (int __i = i; __i < i + size - 1; __i++)
+        {
+            printf("%d, ", e[__i]);
+        }
+        if (size > 1)
+        {
+            printf("%d", e[i - 1]);
+        }
+        printf("\n");
+    }
+
+    template <typename F, typename C, typename... Args>
+    constexpr auto arg_counter(F(C::*)(Args...))
+    {
+        return std::integral_constant<std::size_t, sizeof...(Args)> {};
+    }
+
+    template <class F, typename C, typename T, typename... Args>
+    struct check_return_type { };
+
+    template <typename F, typename C, typename T, typename... Args>
+    struct check_return_type<F(C::*)(Args...), C, T>
+    {
+        static constexpr bool value = std::is_same<F, T>::value;
+    };
+
+    template <typename F, typename C, int... I>
+    typename std::enable_if_t<check_return_type<F, C, void>::value, void>::type
+    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+    {
+        auto cur_i = i;
+        i += sizeof...(I) + 1;
+        print_e(e, cur_i + 1, sizeof...(I));
+        (c->*f)(e[I + cur_i + 1]...);
+    }
+
+    template <typename F, typename C, int... I>
+    typename std::enable_if<check_return_type<F, C, bool>::value, void>::type
+    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+    {
+        auto cur_i = i;
+        i += sizeof...(I) + 1;
+        print_e(e, cur_i + 1, sizeof...(I) + 2);
+        if ((c->*f)(e[I + cur_i + 1]...))
+        {
+            i += e[i];
+        }
+        else
+        {
+            i += e[i + 1];
+        }
+        i += 2;
+    }
+
+    template <typename F, typename C>
+    void runner(F f, C* c, const std::vector<int>& e, int& i)
+    {
+        runner_impl(f, c, e, i, std::make_index_sequence<decltype(arg_counter(f))::value> {});
+    }
 };
