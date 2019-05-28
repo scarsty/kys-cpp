@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
-set(CMAKE_CXX_FLAGS "-O3 -std=c++11 -pthread -DNDEBUG")
+set(CMAKE_CXX_FLAGS "-O3 -std=c++14 -pthread -DNDEBUG")
 
 include_directories(../include . ../common ../others)
 link_directories(. ../lib)

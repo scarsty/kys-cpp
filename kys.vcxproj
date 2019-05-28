@@ -166,6 +166,7 @@
     <ClInclude Include="src\ChemistryEngine.h" />
     <ClInclude Include="src\Console.h" />
     <ClInclude Include="src\DrawableOnCall.h" />
+    <ClInclude Include="src\FunctionTrait.h" />
     <ClInclude Include="src\InputBox.h" />
     <ClInclude Include="src\NewSave.h" />
     <ClInclude Include="src\OpenCCConverter.h" />

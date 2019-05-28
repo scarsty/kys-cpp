@@ -1,5 +1,6 @@
 #pragma once
 #include "Element.h"
+#include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"
 #include "SubScene.h"
@@ -176,23 +177,8 @@ public:
         printf("\n");
     }
 
-    template <typename F, typename C, typename... Args>
-    constexpr auto arg_counter(F(C::*)(Args...))
-    {
-        return std::integral_constant<std::size_t, sizeof...(Args)> {};
-    }
-
-    template <class F, typename C, typename T, typename... Args>
-    struct check_return_type { };
-
-    template <typename F, typename C, typename T, typename... Args>
-    struct check_return_type<F(C::*)(Args...), C, T>
-    {
-        static constexpr bool value = std::is_same<F, T>::value;
-    };
-
-    template <typename F, typename C, int... I>
-    typename std::enable_if_t<check_return_type<F, C, void>::value, void>::type
+    template <typename F, typename C, std::size_t... I>
+    typename std::enable_if<check_return_type<F, C, void>::value, void>::type
     runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
@@ -201,7 +187,7 @@ public:
         (c->*f)(e[I + cur_i + 1]...);
     }
 
-    template <typename F, typename C, int... I>
+    template <typename F, typename C, std::size_t... I>
     typename std::enable_if<check_return_type<F, C, bool>::value, void>::type
     runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
@@ -222,6 +208,6 @@ public:
     template <typename F, typename C>
     void runner(F f, C* c, const std::vector<int>& e, int& i)
     {
-        runner_impl(f, c, e, i, std::make_index_sequence<decltype(arg_counter(f))::value> {});
+        runner_impl(f, c, e, i, std::make_index_sequence<arg_counter<F, C>::value> {});
     }
 };

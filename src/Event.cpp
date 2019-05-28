@@ -118,7 +118,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     {
         while (i < e.size() && !exit_)
         {
-            //printf("instruct %d\n", e[i]);
+            printf("instruct %d\n", e[i]);
             switch (e[i])
             {
                 REGISTER_INSTRUCT(-1, forceExit);

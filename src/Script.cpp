@@ -1,4 +1,5 @@
 #include "Script.h"
+#include "Event.h"
 #include "EventMacro.h"
 #include "PotConv.h"
 #include "convert.h"
@@ -22,7 +23,7 @@ Script::~Script()
     lua_close(lua_state_);
 }
 
-int Script::runScript(std::string filename)
+int Script::runScript(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);
     printf("%s\n", content.c_str());
@@ -43,7 +44,7 @@ int Script::registerEventFunctions()
         auto function = [](lua_State* L) -> int \
         { \
             if (Event::getInstance()->isExiting()) { return 0; } \
-            constexpr size_t arg_count = decltype(arg_counter(&Event::function))::value; \
+            constexpr std::size_t arg_count = arg_counter<decltype(&Event::function), Event>::value; \
             std::array<int, arg_count> args; \
             for (int i = 0; i < arg_count; i++) \
             { \

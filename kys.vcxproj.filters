@@ -345,6 +345,9 @@
     <ClInclude Include="src\ChemistryEngine.h">
       <Filter>headers</Filter>
     </ClInclude>
+    <ClInclude Include="src\FunctionTrait.h">
+      <Filter>event</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
