@@ -4,16 +4,15 @@
 #ifndef _SDL_MIXER_AUDIO
 #include "bass.h"
 #include "bassmidi.h"
-typedef HSTREAM MUSIC;
-typedef HSAMPLE WAV;
-typedef BASS_MIDI_FONT MIDI_FONT;
+using MUSIC = HSTREAM;
+using WAV = HSAMPLE;
+using MIDI_FONT = BASS_MIDI_FONT;
 #else
 #include "SDL2/SDL_mixer.h"
-typedef Mix_Music* MUSIC;
-typedef Mix_Chunk* WAV;
-typedef void* MIDI_FONT;
+using MUSIC = Mix_Music*;
+using WAV = Mix_Chunk*;
+using MIDI_FONT = void*;
 #endif
-
 
 class Audio
 {
@@ -30,7 +29,7 @@ private:
     int volume_ = 50;
 
 public:
-    static Audio* getInstance() 
+    static Audio* getInstance()
     {
         static Audio a;
         return &a;

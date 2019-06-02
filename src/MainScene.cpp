@@ -7,7 +7,7 @@
 #include "TextureManager.h"
 #include "UI.h"
 #include "UISave.h"
-#include <time.h>
+#include <ctime>
 //#include "Timer.h"
 
 MainScene::MainScene()

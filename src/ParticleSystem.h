@@ -26,7 +26,7 @@ public:
     }
 };
 
-typedef Pointf Vec2;
+using Vec2 = Pointf;
 
 //class ParticleBatchNode;
 

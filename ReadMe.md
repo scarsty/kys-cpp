@@ -10,7 +10,7 @@ github：https://github.com/scarsty/kys-cpp
 
 这是一个以SDL2为基础实现的2D游戏框架，同时相当于提供了一个使用该框架制作DOS游戏《金庸群侠传》移植版的范例。
 
-Windows下可以使用Visual Studio编译，其他系统下可以在src目录使用CMake生成Makefile，使用Clang或者GCC编译。
+Windows下可以使用Visual Studio编译，其他系统下可以在src目录使用CMake生成Makefile，使用GCC或Clang编译，需至少支持C++14。
 
 ## 架构的简单说明
 

@@ -1,6 +1,6 @@
 #include "ParticleSystem.h"
 #include <algorithm>
-#include <assert.h>
+#include <cassert>
 #include <string>
 
 inline float Deg2Rad(float a)
@@ -434,7 +434,7 @@ int ParticleSystem::draw()
     for (int i = 0; i < _particleCount; i++)
     {
         auto& p = particle_data_[i];
-        if (p.size <=0 || p.colorA <= 0)
+        if (p.size <= 0 || p.colorA <= 0)
         {
             continue;
         }

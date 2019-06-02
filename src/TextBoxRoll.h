@@ -8,12 +8,13 @@ public:
     TextBoxRoll();
     virtual ~TextBoxRoll();
 
-    typedef std::vector<std::vector<std::pair<BP_Color, std::string>>> TextColorLines;
+    using TextColorLines = std::vector<std::vector<std::pair<BP_Color, std::string>>>;
 
 private:
     TextColorLines texts_;    //ÐÐ£¬ÑÕÉ«£¬ÎÄ×Ö
     int roll_line_ = -1;
     int begin_line_ = 0;
+
 public:
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;

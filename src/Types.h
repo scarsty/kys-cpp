@@ -3,7 +3,12 @@
 #include <cstdint>
 #include <string>
 
-typedef int16_t MAP_INT;
+using MAP_INT = int16_t;
+
+#ifdef _MSC_VER
+#define printf printf_s
+//#define fopen fopen_s
+#endif
 
 template <typename T>
 struct MapSquare
@@ -59,7 +64,7 @@ private:
     int line_ = 0;
 };
 
-typedef MapSquare<MAP_INT> MapSquareInt;
+using MapSquareInt = MapSquare<MAP_INT>;
 
 //Ç°ÖÃÉùÃ÷
 struct Role;

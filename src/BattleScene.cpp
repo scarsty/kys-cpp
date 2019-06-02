@@ -17,8 +17,8 @@
 #include "TeamMenu.h"
 #include "UIStatus.h"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
-#include <math.h>
 #include <string>
 
 RandomDouble BattleScene::rng_;
@@ -621,14 +621,14 @@ void BattleScene::sortRoles()
 {
     if (semi_real_ == 0)
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role * r1, Role * r2)
         {
             return std::tie(r1->Speed, r1->ID) > std::tie(r2->Speed, r2->ID);
         });
     }
     else
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role * r1, Role * r2)
         {
             return std::tie(r1->Progress, r1->ID) > std::tie(r2->Progress, r2->ID);
         });
@@ -2010,7 +2010,7 @@ void BattleScene::receiveAction(Role* r)
     // 如果是敌人，则获取敌人行动，假装敌人是个AI
     // 己方行动的时候也要同时记录AI
     BattleNetwork::SerializableBattleAction action;
-    auto f = [](DrawableOnCall* d)
+    auto f = [](DrawableOnCall * d)
     {
         Font::getInstance()->draw("等待对方玩家行动...", 40, 30, 30, { 200, 200, 50, 255 });
     };

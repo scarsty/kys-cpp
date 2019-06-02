@@ -19,14 +19,14 @@
 
 //每个SDL的函数和结构通常仅出现一次，其余的均用已封的功能完成
 
-typedef std::function<void(uint8_t*, int)> AudioCallback;
-typedef SDL_Renderer BP_Renderer;
-typedef SDL_Window BP_Window;
-typedef SDL_Texture BP_Texture;
-typedef SDL_Rect BP_Rect;
-typedef SDL_Color BP_Color;
-typedef SDL_Keycode BP_Keycode;
-typedef SDL_Surface BP_Surface;
+using AudioCallback = std::function<void(uint8_t*, int)>;
+using BP_Renderer = SDL_Renderer;
+using BP_Window = SDL_Window;
+using BP_Texture = SDL_Texture;
+using BP_Rect = SDL_Rect;
+using BP_Color = SDL_Color;
+using BP_Keycode = SDL_Keycode;
+using BP_Surface = SDL_Surface;
 
 enum BP_Align
 {
@@ -52,6 +52,7 @@ class Engine
 private:
     Engine();
     virtual ~Engine();
+
 public:
     static Engine* getInstance()
     {
