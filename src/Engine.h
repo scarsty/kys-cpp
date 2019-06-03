@@ -43,9 +43,9 @@ enum BP_Align
 #define AMASK (0xff000000)
 
 //声音类型在其他文件中未使用
-typedef SDL_AudioSpec BP_AudioSpec;
+using BP_AudioSpec = SDL_AudioSpec;
 //这里直接使用SDL的事件结构，如果更换底层需重新实现一套相同的
-typedef SDL_Event BP_Event;
+using BP_Event = SDL_Event;
 
 class Engine
 {
