@@ -17,6 +17,8 @@ MainScene::MainScene()
 
     if (!data_readed_)
     {
+        MapSquareInt earth_layer1(COORD_COUNT), surface_layer1(COORD_COUNT), building_layer1(COORD_COUNT);
+
         earth_layer_.resize(COORD_COUNT);
         surface_layer_.resize(COORD_COUNT);
         building_layer_.resize(COORD_COUNT);
@@ -25,15 +27,15 @@ MainScene::MainScene()
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        File::readFile("../game/resource/earth.002", &earth_layer_.data(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer_.data(0), length);
-        File::readFile("../game/resource/building.002", &building_layer_.data(0), length);
+        File::readFile("../game/resource/earth.002", &earth_layer1.data(0), length);
+        File::readFile("../game/resource/surface.002", &surface_layer1.data(0), length);
+        File::readFile("../game/resource/building.002", &building_layer1.data(0), length);
         File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
         File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
 
-        divide2(earth_layer_);
-        divide2(surface_layer_);
-        divide2(building_layer_);
+        divide2(earth_layer1, earth_layer_);
+        divide2(surface_layer1, surface_layer_);
+        divide2(building_layer1, building_layer_);
     }
     data_readed_ = true;
 
@@ -54,11 +56,12 @@ MainScene::~MainScene()
 {
 }
 
-void MainScene::divide2(MapSquareInt& m)
+void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 {
-    for (int i = 0; i < m.squareSize(); i++)
+    for (int i = 0; i < m1.squareSize(); i++)
     {
-        m.data(i) /= 2;
+        m1.data(i) /= 2;
+        m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
     }
 }
 
@@ -95,16 +98,16 @@ void MainScene::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_.data(ix, iy) > 0)
+                if (earth_layer_.data(ix, iy).getTexture())
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
                 }
 #endif
-                if (surface_layer_.data(ix, iy) > 0)
+                if (surface_layer_.data(ix, iy).getTexture())
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_.data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
                 }
-                if (building_layer_.data(ix, iy) > 0)
+                if (surface_layer_.data(ix, iy).getTexture())
                 {
                     auto t = building_layer_.data(ix, iy);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍

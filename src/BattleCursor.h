@@ -1,5 +1,5 @@
 #pragma once
-#include "Element.h"
+#include "RunElement.h"
 #include "Head.h"
 #include "Types.h"
 #include "UIStatus.h"
@@ -8,7 +8,7 @@ class BattleScene;
 
 //因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以操作光标
 //注意，AI选择目标的行为也在这里面
-class BattleCursor : public Element
+class BattleCursor : public RunElement
 {
 public:
     BattleCursor();

@@ -1,9 +1,9 @@
 #include "Talk.h"
-#include <string>
-#include <iostream>
 #include "Engine.h"
-#include "PotConv.h"
 #include "Font.h"
+#include "PotConv.h"
+#include <iostream>
+#include <string>
 
 void Talk::draw()
 {
@@ -79,4 +79,3 @@ void Talk::onEntrance()
         i += len;
     }
 }
-

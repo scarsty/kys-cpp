@@ -1,12 +1,12 @@
 #pragma once
-#include "Element.h"
+#include "RunElement.h"
 #include "Head.h"
 #include "Types.h"
 #include "UIItem.h"
 #include "UIStatus.h"
 #include "UISystem.h"
 
-class UI : public Element
+class UI : public RunElement
 {
 private:
     UI();

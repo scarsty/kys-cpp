@@ -1,10 +1,10 @@
 #pragma once
 #include "Button.h"
-#include "Element.h"
+#include "RunElement.h"
 #include "Menu.h"
 #include "Types.h"
 
-class UIStatus : public Element
+class UIStatus : public RunElement
 {
 public:
     UIStatus();

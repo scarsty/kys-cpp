@@ -330,7 +330,7 @@ void SubScene::onEntrance()
         Event::getInstance()->callEvent(force_begin_event_, this);
     }
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
-    Element::addOnRootTop(MainScene::getInstance()->getWeather());
+    RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
 
     //fillEarth();
 
@@ -360,7 +360,7 @@ void SubScene::onEntrance()
 void SubScene::onExit()
 {
     Audio::getInstance()->playMusic(exit_music_);
-    Element::removeFromRoot(MainScene::getInstance()->getWeather());
+    RunElement::removeFromRoot(MainScene::getInstance()->getWeather());
 
     if (earth_texture_)
     {

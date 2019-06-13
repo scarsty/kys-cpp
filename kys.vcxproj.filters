@@ -91,9 +91,6 @@
     <ClCompile Include="src\Types.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="src\Element.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="src\PotConv.cpp">
       <Filter>engine</Filter>
     </ClCompile>
@@ -164,7 +161,13 @@
       <Filter>zip</Filter>
     </ClCompile>
     <ClCompile Include="src\ChemistryEngine.cpp">
+      <Filter>chemistry</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Object.cpp">
       <Filter>application</Filter>
+    </ClCompile>
+    <ClCompile Include="src\RunElement.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -227,9 +230,6 @@
     </ClInclude>
     <ClInclude Include="src\GrpIdxFile.h">
       <Filter>save</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Element.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="src\GameUtil.h">
       <Filter>util</Filter>
@@ -342,11 +342,17 @@
     <ClInclude Include="src\ZipFile.h">
       <Filter>zip</Filter>
     </ClInclude>
-    <ClInclude Include="src\ChemistryEngine.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="src\FunctionTrait.h">
       <Filter>event</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ChemistryEngine.h">
+      <Filter>chemistry</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Object.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RunElement.h">
+      <Filter>util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
