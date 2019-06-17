@@ -1,6 +1,6 @@
 ﻿#include "TextureManager.h"
-#include "RunElement.h"
 #include "File.h"
+#include "RunElement.h"
 #include "convert.h"
 
 std::string TextureGroup::getFileContent(const std::string& filename)

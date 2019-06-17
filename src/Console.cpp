@@ -95,7 +95,7 @@ Console::Console()
             struct DrawInfo
             {
                 int index;
-                int i;
+                Texture* t;
                 Point p;
             };
 
@@ -112,13 +112,12 @@ Console::Console()
                     auto p = mainScene->getPositionOnRender(ix, iy, man_x_, man_y_);
                     p.x += nx - 160;
                     p.y += ny;
-                    if (mainScene->building_layer_.data(ix, iy) > 0)
+                    if (mainScene->building_layer_.data(ix, iy).getTexture())
                     {
-                        auto t = mainScene->building_layer_.data(ix, iy);
                         //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                         //次要排序依据是y坐标
                         //直接设置z轴
-                        auto tex = TextureManager::getInstance()->loadTexture("mmap", t);
+                        auto tex = mainScene->building_layer_.data(ix, iy).getTexture();
                         if (tex == nullptr)
                         {
                             continue;
@@ -128,7 +127,7 @@ Console::Console()
                         auto dy = tex->dy;
                         int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
                         //map[2 * c + 1] = { 2*c+1, t, p };
-                        building_vec[building_count++] = { 2 * c + 1, t, p };
+                        building_vec[building_count++] = { 2 * c + 1, tex, p };
                     }
 
                     auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
@@ -139,7 +138,7 @@ Console::Console()
                     for (int i = 0; i < building_count; i++)
                     {
                         auto& d = building_vec[i];
-                        TextureManager::getInstance()->renderTexture("mmap", d.i, d.p.x, d.p.y);
+                        TextureManager::getInstance()->renderTexture(d.t, d.p.x, d.p.y);
                     }
                 }
             }

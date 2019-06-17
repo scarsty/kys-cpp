@@ -10,6 +10,6 @@ public:
 
 public:
     Texture* getTexture() { return tex_; }
-    void calProtertyByTexture();
+    void calPropertyByTexture();
 };
 

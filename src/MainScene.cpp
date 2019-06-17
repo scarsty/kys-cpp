@@ -61,7 +61,14 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
     for (int i = 0; i < m1.squareSize(); i++)
     {
         m1.data(i) /= 2;
-        m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
+        if (m1.data(i) > 0)
+        {
+            m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
+        }
+        else
+        {
+            m.data(i).tex_ = nullptr;
+        }
     }
 }
 
@@ -72,7 +79,7 @@ void MainScene::draw()
     struct DrawInfo
     {
         int index;
-        int i;
+        Texture* tex;
         Point p;
     };
 
@@ -107,19 +114,18 @@ void MainScene::draw()
                 {
                     TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
                 }
-                if (surface_layer_.data(ix, iy).getTexture())
+                if (building_layer_.data(ix, iy).getTexture())
                 {
-                    auto t = building_layer_.data(ix, iy);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
-                    auto tex = TextureManager::getInstance()->loadTexture("mmap", t);
+                    auto tex = building_layer_.data(ix, iy).getTexture();
                     auto w = tex->w;
                     auto h = tex->h;
                     auto dy = tex->dy;
                     int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
                     //map[2 * c + 1] = { 2*c+1, t, p };
-                    building_vec[building_count++] = { 2 * c + 1, t, p };
+                    building_vec[building_count++] = { 2 * c + 1, tex, p };
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
@@ -137,7 +143,7 @@ void MainScene::draw()
                     }
                     int c = 1024 * (ix + iy) + ix;
                     //map[2 * c] = {2*c, man_pic_, p };
-                    building_vec[building_count++] = { 2 * c, man_pic_, p };
+                    building_vec[building_count++] = { 2 * c, TextureManager::getInstance()->loadTexture("mmap", man_pic_), p };
                 }
             }
         }
@@ -155,7 +161,7 @@ void MainScene::draw()
     for (int i = 0; i < building_count; i++)
     {
         auto& d = building_vec[i];
-        TextureManager::getInstance()->renderTexture("mmap", d.i, d.p.x, d.p.y);
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y);
     }
 
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
@@ -385,26 +391,27 @@ void MainScene::tryWalk(int x, int y)
 
 bool MainScene::isBuilding(int x, int y)
 {
-    return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0);
+    return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)).getTexture() != nullptr);
 }
 
 //1 - can walk
 //2 - cannot walk
 int MainScene::isWater(int x, int y)
 {
-    auto pic = earth_layer_.data(x, y);
-    if (pic == 419 || pic >= 306 && pic <= 335)
-    {
-        return 2;
-    }
-    else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
-    {
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
+    //auto pic = earth_layer_.data(x, y);
+    //if (pic == 419 || pic >= 306 && pic <= 335)
+    //{
+    //    return 2;
+    //}
+    //else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
+    //{
+    //    return 1;
+    //}
+    //else
+    //{
+    //    return 0;
+    //}
+    return 0;
 }
 
 bool MainScene::canWalk(int x, int y)

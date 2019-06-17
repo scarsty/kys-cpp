@@ -1,6 +1,6 @@
 #include "Object.h"
 
-void Object::calProtertyByTexture()
+void Object::calPropertyByTexture()
 {
 
 }
