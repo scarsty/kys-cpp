@@ -64,6 +64,22 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
         if (m1.data(i) > 0)
         {
             m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
+            auto pic = m1.data(i);
+            auto& a = m.data(i);
+            if (pic == 419 || pic >= 306 && pic <= 335)
+            {
+                a.material_ = ObjectMaterial::Water;
+                a.can_walk_ = 0;
+            }
+            else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
+            {
+                a.material_ = ObjectMaterial::Water;
+                a.can_walk_ = 1;
+            }
+            else if (pic >= 1008 && pic <= 1164 || pic >= 1214 && pic <= 1238)
+            {
+                a.material_ = ObjectMaterial::Wood;
+            }
         }
         else
         {
@@ -153,7 +169,7 @@ void MainScene::draw()
     //    TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     //}
 
-    auto sort_building = [](DrawInfo & d1, DrawInfo & d2)
+    auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
     {
         return d1.index < d2.index;
     };
@@ -394,30 +410,15 @@ bool MainScene::isBuilding(int x, int y)
     return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)).getTexture() != nullptr);
 }
 
-//1 - can walk
-//2 - cannot walk
 int MainScene::isWater(int x, int y)
 {
-    //auto pic = earth_layer_.data(x, y);
-    //if (pic == 419 || pic >= 306 && pic <= 335)
-    //{
-    //    return 2;
-    //}
-    //else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
-    //{
-    //    return 1;
-    //}
-    //else
-    //{
-    //    return 0;
-    //}
-    return 0;
+    return earth_layer_.data(x, y).material_ == ObjectMaterial::Water;
 }
 
 bool MainScene::canWalk(int x, int y)
 {
     //这里不需要加，实际上入口都是无法走到的
-    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) == 2)
+    if (isOutLine(x, y) || isBuilding(x, y))// || isWater(x, y))
     {
         return false;
     }
