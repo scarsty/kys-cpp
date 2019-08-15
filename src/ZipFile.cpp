@@ -41,6 +41,31 @@ std::string ZipFile::readEntryName(const std::string& entry_name)
     return content;
 }
 
+std::vector<std::string> ZipFile::getEntryNames()
+{
+    std::vector<std::string> files;
+    if (zip_)
+    {
+        int i, n = zip_total_entries(zip_);
+        for (i = 0; i < n; ++i)
+        {
+            zip_entry_openbyindex(zip_, i);
+            {
+                const char* name = zip_entry_name(zip_);
+                int isdir = zip_entry_isdir(zip_);
+                if (!isdir)
+                {
+                    files.push_back(name);
+                }
+                //unsigned long long size = zip_entry_size(zip_);
+                //unsigned int crc32 = zip_entry_crc32(zip_);
+            }
+            zip_entry_close(zip_);
+        }
+    }
+    return files;
+}
+
 int ZipFile::zip(std::string zip_file, std::vector<std::string> files)
 {
     struct zip_t* zip = zip_open(zip_file.c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
