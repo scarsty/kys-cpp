@@ -7,11 +7,11 @@
 
 #define CONNECT(a, b) a##b
 
-//ÓÎÏ·Ö´ĞĞºÍ»æÖÆµÄ»ù´¡Àà£¬·²ĞèÒªÏÔÊ¾»­Ãæ»òÕß´¦ÀíÊÂ¼şµÄ£¬¾ù¼Ì³Ğ×Ô´Ë
+//æ¸¸æˆæ‰§è¡Œå’Œç»˜åˆ¶çš„åŸºç¡€ç±»ï¼Œå‡¡éœ€è¦æ˜¾ç¤ºç”»é¢æˆ–è€…å¤„ç†äº‹ä»¶çš„ï¼Œå‡ç»§æ‰¿è‡ªæ­¤
 class RunElement
 {
 private:
-    static std::vector<RunElement*> root_;    //ËùÓĞĞèÒª»æÖÆµÄÄÚÈİ¶¼´æ´¢ÔÚÕâ¸ö¾²Ì¬ÏòÁ¿ÖĞ
+    static std::vector<RunElement*> root_;    //æ‰€æœ‰éœ€è¦ç»˜åˆ¶çš„å†…å®¹éƒ½å­˜å‚¨åœ¨è¿™ä¸ªé™æ€å‘é‡ä¸­
     static int prev_present_ticks_;
     static int refresh_interval_;
 
@@ -22,8 +22,8 @@ protected:
     std::vector<std::shared_ptr<RunElement>> childs_;
     bool visible_ = true;
     int result_ = -1;
-    int full_window_ = 0;    //²»Îª0Ê±±íÊ¾µ±Ç°»­ÃæÎªÆğÊ¼²ã£¬´ËÊ±µÍÓÚ±¾²ãµÄ½«²»ÓèÏÔÊ¾£¬½ÚÊ¡×ÊÔ´
-    bool exit_ = false;      //×ÓÀàµÄ¹ı³ÌÖĞÉè´ËÖµÎªtrue£¬¼´±íÊ¾ÏÂÒ»¸öÑ­»·½«ÍË³ö
+    int full_window_ = 0;    //ä¸ä¸º0æ—¶è¡¨ç¤ºå½“å‰ç”»é¢ä¸ºèµ·å§‹å±‚ï¼Œæ­¤æ—¶ä½äºæœ¬å±‚çš„å°†ä¸äºˆæ˜¾ç¤ºï¼ŒèŠ‚çœèµ„æº
+    bool exit_ = false;      //å­ç±»çš„è¿‡ç¨‹ä¸­è®¾æ­¤å€¼ä¸ºtrueï¼Œå³è¡¨ç¤ºä¸‹ä¸€ä¸ªå¾ªç¯å°†é€€å‡º
     bool running_ = false;
 
     int stay_frame_ = -1;
@@ -57,7 +57,7 @@ public:
     static void addOnRootTop(RunElement* element) { root_.push_back(element); }
     static RunElement* removeFromRoot(RunElement* element);
 
-    //Ô¼¶¨×ÓÀàÖĞ²»ÔÙÊ¹ÓÃnew´´½¨×ÓÀà£¬¶øÊÇÊ¹ÓÃÏÂÃæµÄÄ£°å
+    //çº¦å®šå­ç±»ä¸­ä¸å†ä½¿ç”¨newåˆ›å»ºå­ç±»ï¼Œè€Œæ˜¯ä½¿ç”¨ä¸‹é¢çš„æ¨¡æ¿
     void addChild(RunElement* element);
     void addChild(RunElement* element, int x, int y);
     template <class T>
@@ -112,7 +112,7 @@ public:
 
     void setDealEvent(int d) { deal_event_ = d; }
 
-    //×´Ì¬
+    //çŠ¶æ€
     enum State
     {
         Normal,
@@ -163,17 +163,17 @@ public:
     }
     void checkActiveToResult();
 
-    //Í¨³£À´Ëµ£¬²¿·ÖÓë²Ù×÷ÎŞ¹ØµÄÂß¼­·ÅÈëdrawºÍdealEvent¶¼ÎÊÌâ²»´ó£¬µ«ÊÇ½¨ÒédrawÖĞ½öÓĞ»æÍ¼Ïà¹ØµÄ²Ù×÷
+    //é€šå¸¸æ¥è¯´ï¼Œéƒ¨åˆ†ä¸æ“ä½œæ— å…³çš„é€»è¾‘æ”¾å…¥drawå’ŒdealEventéƒ½é—®é¢˜ä¸å¤§ï¼Œä½†æ˜¯å»ºè®®drawä¸­ä»…æœ‰ç»˜å›¾ç›¸å…³çš„æ“ä½œ
 
-    virtual void backRun() {}                  //½ÚµãÔÚrootÖĞ¾ÍÔËĞĞ£¬¿ÉÒÔ·ÅÈë×Ü¼ÆÊıÆ÷
-    virtual void draw() {}                     //ÈçºÎ»­±¾½Úµã
-    virtual void dealEvent(BP_Event& e) {}     //´¦ÀíÊÂ¼ş£¬»áÒ»Ö±Ö´ĞĞ£¬Ïàµ±ÓÚÖ÷Ñ­»·Ìå
-    virtual void dealEvent2(BP_Event& e) {}    //´¦ÀíÊÂ¼ş£¬Ö´ĞĞÄ£Ê½ºÍ¶¯»­Ä£Ê½¶¼»á±»Ö´ĞĞ£¬¿ÉÓÃÓÚÖÆ¶¯
-    virtual void onEntrance() {}               //½øÈë±¾½ÚµãµÄÊÂ¼ş£¬ÀıÈçÁÁÆÁµÈ
-    virtual void onExit() {}                   //Àë¿ª±¾½ÚµãµÄÊÂ¼ş£¬ÀıÈçºÚÆÁµÈ
+    virtual void backRun() {}                  //èŠ‚ç‚¹åœ¨rootä¸­å°±è¿è¡Œï¼Œå¯ä»¥æ”¾å…¥æ€»è®¡æ•°å™¨
+    virtual void draw() {}                     //å¦‚ä½•ç”»æœ¬èŠ‚ç‚¹
+    virtual void dealEvent(BP_Event& e) {}     //å¤„ç†äº‹ä»¶ï¼Œä¼šä¸€ç›´æ‰§è¡Œï¼Œç›¸å½“äºä¸»å¾ªç¯ä½“
+    virtual void dealEvent2(BP_Event& e) {}    //å¤„ç†äº‹ä»¶ï¼Œæ‰§è¡Œæ¨¡å¼å’ŒåŠ¨ç”»æ¨¡å¼éƒ½ä¼šè¢«æ‰§è¡Œï¼Œå¯ç”¨äºåˆ¶åŠ¨
+    virtual void onEntrance() {}               //è¿›å…¥æœ¬èŠ‚ç‚¹çš„äº‹ä»¶ï¼Œä¾‹å¦‚äº®å±ç­‰
+    virtual void onExit() {}                   //ç¦»å¼€æœ¬èŠ‚ç‚¹çš„äº‹ä»¶ï¼Œä¾‹å¦‚é»‘å±ç­‰
 
-    virtual void onPressedOK() {}        //°´ÏÂ»Ø³µ»òÊó±ê×ó¼üµÄÊÂ¼ş£¬×ÓÀàÊÓÇé¿ö¼Ì³Ğ»òÕßÁô¿Õ
-    virtual void onPressedCancel() {}    //°´ÏÂesc»òÊó±êÓÒ¼üµÄÊÂ¼ş£¬×ÓÀàÊÓÇé¿ö¼Ì³Ğ»òÕßÁô¿Õ
+    virtual void onPressedOK() {}        //æŒ‰ä¸‹å›è½¦æˆ–é¼ æ ‡å·¦é”®çš„äº‹ä»¶ï¼Œå­ç±»è§†æƒ…å†µç»§æ‰¿æˆ–è€…ç•™ç©º
+    virtual void onPressedCancel() {}    //æŒ‰ä¸‹escæˆ–é¼ æ ‡å³é”®çš„äº‹ä»¶ï¼Œå­ç±»è§†æƒ…å†µç»§æ‰¿æˆ–è€…ç•™ç©º
 
     void setStayFrame(int s) { stay_frame_ = s; }
     void checkFrame();
@@ -195,19 +195,19 @@ private:
     void backRunSelfChilds();
     void dealEventSelfChilds(bool check_event = false);
 
-    bool isSpecialEvent(BP_Event& e);    //ÊÇ·ñÎªÓÎÏ·ĞèÒª´¦ÀíµÄÀàĞÍ
+    bool isSpecialEvent(BP_Event& e);    //æ˜¯å¦ä¸ºæ¸¸æˆéœ€è¦å¤„ç†çš„ç±»å‹
     int checkChildState();
     void checkSelfState(BP_Event& e);
     static void present();
 
 public:
-    int run(bool in_root = true);    //Ö´ĞĞ±¾²ã
+    int run(bool in_root = true);    //æ‰§è¡Œæœ¬å±‚
     int runAtPosition(int x = 0, int y = 0, bool in_root = true)
     {
         setPosition(x, y);
         return run(in_root);
     }
-    static void exitAll(int begin = 0);    //ÉèÖÃ´Óbegin¿ªÊ¼µÄÈ«²¿½Úµã×´Ì¬ÎªÍË³ö
+    static void exitAll(int begin = 0);    //è®¾ç½®ä»beginå¼€å§‹çš„å…¨éƒ¨èŠ‚ç‚¹çŠ¶æ€ä¸ºé€€å‡º
     int drawAndPresent(int times = 1, std::function<void(void*)> func = nullptr, void* data = nullptr);
 
     template <class T>
@@ -221,9 +221,9 @@ public:
         return nullptr;
     }
 
-    //Ã¿¸ö½ÚµãÓ¦×ÔĞĞ¶¨Òå·µ»ØÖµ£¬
-    //ĞèÒªÆÕÍ¨ÍË³ö¹¦ÄÜµÄ×Ó½Úµã£¬ÇëÊ¹ÓÃÏÂÃæÁ½¸öºê£¬ÈçÍË³öµÄĞÎÊ½²»Í¬Çë×ÔĞĞÊµÏÖ
-    //×¢Òâ×ÓÀàµÄ×ÓÀà¿ÉÄÜ»á³öÏÖ¼Ì³Ğ¹ØÏµ£¬ĞèÊÓÇé¿ö´¦Àí
+    //æ¯ä¸ªèŠ‚ç‚¹åº”è‡ªè¡Œå®šä¹‰è¿”å›å€¼ï¼Œ
+    //éœ€è¦æ™®é€šé€€å‡ºåŠŸèƒ½çš„å­èŠ‚ç‚¹ï¼Œè¯·ä½¿ç”¨ä¸‹é¢ä¸¤ä¸ªå®ï¼Œå¦‚é€€å‡ºçš„å½¢å¼ä¸åŒè¯·è‡ªè¡Œå®ç°
+    //æ³¨æ„å­ç±»çš„å­ç±»å¯èƒ½ä¼šå‡ºç°ç»§æ‰¿å…³ç³»ï¼Œéœ€è§†æƒ…å†µå¤„ç†
 #define DEFAULT_OK_EXIT virtual void onPressedOK() override { exitWithResult(0); }
 #define DEFAULT_CANCEL_EXIT virtual void onPressedCancel() override { exitWithResult(-1); }
 };
