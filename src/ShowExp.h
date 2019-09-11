@@ -1,8 +1,8 @@
 #pragma once
-#include "Element.h"
+#include "RunElement.h"
 #include "Types.h"
 
-class ShowExp : public Element
+class ShowExp : public RunElement
 {
 public:
     ShowExp();

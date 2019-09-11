@@ -59,7 +59,7 @@ int Script::registerEventFunctions()
 
 #define REGISTER_INSTRUCT(function) REGISTER_INSTRUCT_ALIAS(#function, function)
 
-    auto blank = [](lua_State * L) -> int
+    auto blank = [](lua_State* L) -> int
     {
         return 0;
     };

@@ -1,8 +1,8 @@
 #pragma once
-#include "Element.h"
+#include "RunElement.h"
 #include "Menu.h"
 
-class UISystem : public Element
+class UISystem : public RunElement
 {
 public:
     UISystem();

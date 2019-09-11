@@ -34,7 +34,7 @@ int Application::run()
 void Application::config()
 {
     auto game = GameUtil::getInstance();
-    Element::setRefreshInterval(game->getInt("game", "refresh_interval", 16));
+    RunElement::setRefreshInterval(game->getInt("game", "refresh_interval", 16));
     Audio::getInstance()->setVolume(game->getInt("music", "volume", 50));
     Event::getInstance()->setUseScript(game->getInt("game", "use_script", 0));
     Font::getInstance()->setStatMessage(game->getInt("game", "stat_font", 0));

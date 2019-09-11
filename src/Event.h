@@ -1,5 +1,5 @@
 #pragma once
-#include "Element.h"
+#include "RunElement.h"
 #include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"
@@ -31,7 +31,7 @@ private:
 
     //两个对话，用于上面和下面，两个可以同时显示
     //视需要可增加更多
-    Element talk_box_;
+    RunElement talk_box_;
     Talk* talk_box_up_ = nullptr;
     Talk* talk_box_down_ = nullptr;
 
@@ -46,7 +46,7 @@ private:
 public:
     bool loadEventData();    //加载事件数据
     //这里再设计
-    bool callEvent(int event_id, Element* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //调用指令的内容写这里
+    bool callEvent(int event_id, RunElement* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //调用指令的内容写这里
 
 private:
     SubScene* subscene_;
@@ -166,9 +166,9 @@ public:
 public:
     void print_e(const std::vector<int>& e, int i, int size)
     {
-        for (int __i = i; __i < i + size - 1; __i++)
+        for (int i1 = i; i1 < i + size - 1; i1++)
         {
-            printf("%d, ", e[__i]);
+            printf("%d, ", e[i1]);
         }
         if (size > 1)
         {

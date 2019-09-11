@@ -17,6 +17,8 @@ MainScene::MainScene()
 
     if (!data_readed_)
     {
+        MapSquareInt earth_layer1(COORD_COUNT), surface_layer1(COORD_COUNT), building_layer1(COORD_COUNT);
+
         earth_layer_.resize(COORD_COUNT);
         surface_layer_.resize(COORD_COUNT);
         building_layer_.resize(COORD_COUNT);
@@ -25,15 +27,15 @@ MainScene::MainScene()
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        File::readFile("../game/resource/earth.002", &earth_layer_.data(0), length);
-        File::readFile("../game/resource/surface.002", &surface_layer_.data(0), length);
-        File::readFile("../game/resource/building.002", &building_layer_.data(0), length);
+        File::readFile("../game/resource/earth.002", &earth_layer1.data(0), length);
+        File::readFile("../game/resource/surface.002", &surface_layer1.data(0), length);
+        File::readFile("../game/resource/building.002", &building_layer1.data(0), length);
         File::readFile("../game/resource/buildx.002", &build_x_layer_.data(0), length);
         File::readFile("../game/resource/buildy.002", &build_y_layer_.data(0), length);
 
-        divide2(earth_layer_);
-        divide2(surface_layer_);
-        divide2(building_layer_);
+        divide2(earth_layer1, earth_layer_);
+        divide2(surface_layer1, surface_layer_);
+        divide2(building_layer1, building_layer_);
     }
     data_readed_ = true;
 
@@ -54,11 +56,35 @@ MainScene::~MainScene()
 {
 }
 
-void MainScene::divide2(MapSquareInt& m)
+void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 {
-    for (int i = 0; i < m.squareSize(); i++)
+    for (int i = 0; i < m1.squareSize(); i++)
     {
-        m.data(i) /= 2;
+        m1.data(i) /= 2;
+        if (m1.data(i) > 0)
+        {
+            m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
+            auto pic = m1.data(i);
+            auto& a = m.data(i);
+            if (pic == 419 || pic >= 306 && pic <= 335)
+            {
+                a.material_ = ObjectMaterial::Water;
+                a.can_walk_ = 0;
+            }
+            else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
+            {
+                a.material_ = ObjectMaterial::Water;
+                a.can_walk_ = 1;
+            }
+            else if (pic >= 1008 && pic <= 1164 || pic >= 1214 && pic <= 1238)
+            {
+                a.material_ = ObjectMaterial::Wood;
+            }
+        }
+        else
+        {
+            m.data(i).tex_ = nullptr;
+        }
     }
 }
 
@@ -69,7 +95,7 @@ void MainScene::draw()
     struct DrawInfo
     {
         int index;
-        int i;
+        Texture* tex;
         Point p;
     };
 
@@ -95,28 +121,27 @@ void MainScene::draw()
                 //共分3层，地面，表面，建筑，主角包括在建筑中
 #ifndef _DEBUG
                 //调试模式下不画出地面，图的数量太多占用CPU很大
-                if (earth_layer_.data(ix, iy) > 0)
+                if (earth_layer_.data(ix, iy).getTexture())
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", earth_layer_.data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
                 }
 #endif
-                if (surface_layer_.data(ix, iy) > 0)
+                if (surface_layer_.data(ix, iy).getTexture())
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", surface_layer_.data(ix, iy), p.x, p.y);
+                    TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
                 }
-                if (building_layer_.data(ix, iy) > 0)
+                if (building_layer_.data(ix, iy).getTexture())
                 {
-                    auto t = building_layer_.data(ix, iy);
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
                     //次要排序依据是y坐标
                     //直接设置z轴
-                    auto tex = TextureManager::getInstance()->loadTexture("mmap", t);
+                    auto tex = building_layer_.data(ix, iy).getTexture();
                     auto w = tex->w;
                     auto h = tex->h;
                     auto dy = tex->dy;
                     int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
                     //map[2 * c + 1] = { 2*c+1, t, p };
-                    building_vec[building_count++] = { 2 * c + 1, t, p };
+                    building_vec[building_count++] = { 2 * c + 1, tex, p };
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
@@ -134,7 +159,7 @@ void MainScene::draw()
                     }
                     int c = 1024 * (ix + iy) + ix;
                     //map[2 * c] = {2*c, man_pic_, p };
-                    building_vec[building_count++] = { 2 * c, man_pic_, p };
+                    building_vec[building_count++] = { 2 * c, TextureManager::getInstance()->loadTexture("mmap", man_pic_), p };
                 }
             }
         }
@@ -144,7 +169,7 @@ void MainScene::draw()
     //    TextureManager::getInstance()->renderTexture("mmap", i->second.i, i->second.p.x, i->second.p.y);
     //}
 
-    auto sort_building = [](DrawInfo & d1, DrawInfo & d2)
+    auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
     {
         return d1.index < d2.index;
     };
@@ -152,7 +177,7 @@ void MainScene::draw()
     for (int i = 0; i < building_count; i++)
     {
         auto& d = building_vec[i];
-        TextureManager::getInstance()->renderTexture("mmap", d.i, d.p.x, d.p.y);
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y);
     }
 
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
@@ -382,32 +407,18 @@ void MainScene::tryWalk(int x, int y)
 
 bool MainScene::isBuilding(int x, int y)
 {
-    return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)) > 0);
+    return (building_layer_.data(build_x_layer_.data(x, y), build_y_layer_.data(x, y)).getTexture() != nullptr);
 }
 
-//1 - can walk
-//2 - cannot walk
 int MainScene::isWater(int x, int y)
 {
-    auto pic = earth_layer_.data(x, y);
-    if (pic == 419 || pic >= 306 && pic <= 335)
-    {
-        return 2;
-    }
-    else if (pic >= 179 && pic <= 181 || pic >= 253 && pic <= 335 || pic >= 508 && pic <= 511)
-    {
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
+    return earth_layer_.data(x, y).material_ == ObjectMaterial::Water;
 }
 
 bool MainScene::canWalk(int x, int y)
 {
     //这里不需要加，实际上入口都是无法走到的
-    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) == 2)
+    if (isOutLine(x, y) || isBuilding(x, y))// || isWater(x, y))
     {
         return false;
     }

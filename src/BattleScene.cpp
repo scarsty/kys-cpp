@@ -276,7 +276,7 @@ void BattleScene::dealEvent(BP_Event& e)
     select_x_ = role->X();
     select_y_ = role->Y();
     head_self_.setRole(role);
-    head_self_.setState(Element::Pass);
+    head_self_.setState(RunElement::Pass);
 
     //行动
     action(role);
@@ -336,7 +336,7 @@ void BattleScene::onEntrance()
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_.setPosition(80, 100);
 
-    Element::addOnRootTop(MainScene::getInstance()->getWeather());
+    RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
 
     //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
@@ -375,7 +375,7 @@ void BattleScene::onExit()
     {
         r->setRolePositionLayer(nullptr);
     }
-    Element::removeFromRoot(MainScene::getInstance()->getWeather());
+    RunElement::removeFromRoot(MainScene::getInstance()->getWeather());
     if (earth_texture_)
     {
         Engine::destroyTexture(earth_texture_);

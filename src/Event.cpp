@@ -73,7 +73,7 @@ bool Event::loadEventData()
 }
 
 //返回值为是否成功执行事件
-bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_id, int event_index, int x, int y)
+bool Event::callEvent(int event_id, RunElement* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     bool ret = true;
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
@@ -92,7 +92,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
     talk_box_.setExit(false);
     talk_box_.setVisible(true);
-    Element::addOnRootTop(&talk_box_);
+    RunElement::addOnRootTop(&talk_box_);
     int p = 0;
     exit_ = false;
     int i = 0;
@@ -233,7 +233,7 @@ bool Event::callEvent(int event_id, Element* subscene, int supmap_id, int item_i
             }
         }
     }
-    Element::removeFromRoot(&talk_box_);
+    RunElement::removeFromRoot(&talk_box_);
     clearTalkBox();
     if (subscene_)
     {
@@ -459,7 +459,7 @@ void Event::darkScence()
 
 void Event::dead()
 {
-    Element::exitAll(1);
+    RunElement::exitAll(1);
     forceExit();
 }
 
@@ -1046,7 +1046,7 @@ void Event::backHome(int event_index1, int begin_pic1, int end_pic1, int event_i
 {
     subscene_->forceManPic(-2);
     play2Amination(event_index1, begin_pic1, end_pic1, event_index2, begin_pic2, end_pic2);
-    Element::exitAll(1);
+    RunElement::exitAll(1);
     forceExit();
 }
 

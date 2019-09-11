@@ -7,17 +7,18 @@
 #define CONNECT(a, b) a##b
 
 //游戏执行和绘制的基础类，凡需要显示画面或者处理事件的，均继承自此
-class Element
+class RunElement
 {
 private:
-    static std::vector<Element*> root_;    //所有需要绘制的内容都存储在这个静态向量中
+    static std::vector<RunElement*> root_;    //所有需要绘制的内容都存储在这个静态向量中
     static int prev_present_ticks_;
     static int refresh_interval_;
 
 private:
     bool is_private_ = false;
+
 protected:
-    std::vector<Element*> childs_;
+    std::vector<RunElement*> childs_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;    //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
@@ -42,8 +43,8 @@ protected:
     int deal_event_ = 1;
 
 public:
-    Element() {}
-    virtual ~Element();
+    RunElement() {}
+    virtual ~RunElement();
 
     static void setRefreshInterval(int i) { refresh_interval_ = i; }
     static int getRefreshInterval() { return refresh_interval_; }
@@ -52,12 +53,12 @@ public:
 
     static void drawAll();
 
-    static void addOnRootTop(Element* element) { root_.push_back(element); }
-    static Element* removeFromRoot(Element* element);
+    static void addOnRootTop(RunElement* element) { root_.push_back(element); }
+    static RunElement* removeFromRoot(RunElement* element);
 
     //约定子类中不再使用new创建子类，而是使用下面的模板
-    void addChild(Element* element);
-    void addChild(Element* element, int x, int y);
+    void addChild(RunElement* element);
+    void addChild(RunElement* element, int x, int y);
     template <class T>
     T* addChild()
     {
@@ -75,9 +76,9 @@ public:
         return c;
     }
 
-    Element* getChild(int i) { return childs_[i]; }
+    RunElement* getChild(int i) { return childs_[i]; }
     int getChildCount() { return childs_.size(); }
-    void removeChild(Element* element);
+    void removeChild(RunElement* element);
     void clearChilds();
 
     void setPosition(int x, int y);
@@ -135,7 +136,7 @@ public:
     void setTag(int t) { tag_ = t; }
 
     //static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
-    static Element* getCurrentTopDraw() { return root_.back(); }
+    static RunElement* getCurrentTopDraw() { return root_.back(); }
 
     void setAllChildState(int s);
     void setAllChildVisible(bool v);
