@@ -2,6 +2,7 @@
 #include "Engine.h"
 #include "TextureManager.h"
 #include <functional>
+#include <memory>
 #include <vector>
 
 #define CONNECT(a, b) a##b
@@ -18,7 +19,7 @@ private:
     bool is_private_ = false;
 
 protected:
-    std::vector<RunElement*> childs_;
+    std::vector<std::shared_ptr<RunElement>> childs_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;    //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
@@ -76,7 +77,7 @@ public:
         return c;
     }
 
-    RunElement* getChild(int i) { return childs_[i]; }
+    std::shared_ptr<RunElement> getChild(int i) { return childs_[i]; }
     int getChildCount() { return childs_.size(); }
     void removeChild(RunElement* element);
     void clearChilds();

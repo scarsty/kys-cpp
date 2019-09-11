@@ -16,7 +16,7 @@ void trans_bin_list(std::string in, std::string out)
     std::string s;
     for (auto a : leave_list)
     {
-        convert::formatAppendString(s, "%d, ", a);
+        s += convert::formatString("%d, ", a);
     }
     convert::writeStringToFile(s, out);
 }
@@ -39,7 +39,7 @@ void trans_fight_frame()
                 if (frame[j] > 0)
                 {
                     printf("%d, %d\n", j, frame[j]);
-                    convert::formatAppendString(content, "%d, %d\r\n", j, frame[j]);
+                    content += convert::formatString(content.c_str(), "%d, %d\r\n", j, frame[j]);
                 }
             }
             convert::writeStringToFile(content, path + "/fightframe.txt");
