@@ -12,6 +12,8 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下可以使用Visual Studio编译，其他系统下可以在src目录使用CMake生成Makefile，使用GCC或Clang编译，需至少支持C++14。
 
+目前仅发布x64版本，如需要x86版请自行修改。
+
 ## 架构的简单说明
 
 ### 公共部分
@@ -108,7 +110,7 @@ abc工程用来转换之前的数据。建议自行调整代码后，使用调�
 - BASS, BASSMIDI <http://www.un4seen.com/>
 - OpenCC <https://github.com/BYVoid/OpenCC>
 - Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
-- tinypot（动态库版本）: <https://github.com/scarsty/tinypot>
+- smallpot（动态库版本）: <https://github.com/scarsty/smallpot>
 
 以下为间接使用，通常包管理器会自动处理。
 
