@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#if defined(_WIN32) && defined(_TINYPOT)
-#include "tinypot/PotDll.h"
+#if defined(_WIN32) && defined(WITH_SMALLPOT)
+#include "PotDll.h"
 #endif
 
 //这里是底层部分，将SDL的函数均封装了一次

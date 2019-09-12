@@ -1,6 +1,6 @@
 #include "BattleNetwork.h"
 
-#ifdef _NETWORK
+#ifdef WITH_NETWORK
 #include "DrawableOnCall.h"
 #include "File.h"
 #include "Font.h"

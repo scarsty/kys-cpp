@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef _NETWORK
+#ifdef WITH_NETWORK
 #include "asio.hpp"
 #endif
 
@@ -19,7 +19,7 @@
 // 4. 在某非阻塞ui中调用handshake
 // 5. handshake结束后回调，关闭ui组件
 
-#ifdef _NETWORK
+#ifdef WITH_NETWORK
 class BattleNetwork
 {
 public:

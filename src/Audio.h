@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-#ifndef _SDL_MIXER_AUDIO
+#ifndef USE_SDL_MIXER_AUDIO
 #include "bass.h"
 #include "bassmidi.h"
 using MUSIC = HSTREAM;
