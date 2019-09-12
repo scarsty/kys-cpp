@@ -121,6 +121,7 @@ private:
             //std::sort(infos.begin(), infos.end(), [](FieldInfo & f1, FieldInfo & f2) { return f1.col < f2.col; });
         }
         //¶ÁÈ¡
+        data.clear();
         while (sqlite3_step(statement) == SQLITE_ROW)
         {
             T data1;
