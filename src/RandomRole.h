@@ -13,6 +13,6 @@ public:
     virtual void onPressedCancel() override { exitWithResult(-1); }
     virtual void draw() override;
 
-    Button* button_ok_;
-    Head* head_;
+    std::shared_ptr<Button> button_ok_;
+    std::shared_ptr<Head> head_;
 };

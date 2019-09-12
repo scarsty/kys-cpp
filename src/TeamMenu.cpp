@@ -7,16 +7,19 @@ TeamMenu::TeamMenu()
 {
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
-        auto h = addChild<Head>(i % 2 * 250, i / 2 * 100);
+        auto h = std::make_shared<Head>();
+        addChild(h, i % 2 * 250, i / 2 * 100);
         h->setHaveBox(false);
         //h->setOnlyHead(true);
         heads_.push_back(h);
         //selected_.push_back(0);
     }
-    button_all_.setText("全選");
-    button_ok_.setText("確定");
-    addChild(&button_all_, 0, 300);
-    addChild(&button_ok_, 100, 300);
+    button_all_ = std::make_shared<Button>();
+    button_all_->setText("全選");
+    button_ok_ = std::make_shared<Button>();
+    button_ok_->setText("確定");
+    addChild(button_all_, 0, 300);
+    addChild(button_ok_, 100, 300);
     setPosition(200, 150);
     setTextPosition(20, -30);
 }
@@ -48,8 +51,8 @@ void TeamMenu::onEntrance()
     }
     if (mode_ == 0)
     {
-        button_all_.setVisible(false);
-        button_ok_.setVisible(false);
+        button_all_->setVisible(false);
+        button_ok_->setVisible(false);
     }
     for (auto h : heads_)
     {
@@ -115,7 +118,7 @@ void TeamMenu::onPressedOK()
                 }
             }
         }
-        if (button_all_.getState() == Press)
+        if (button_all_->getState() == Press)
         {
             //如果已经全选，则是清除
             int all = -1;
@@ -132,7 +135,7 @@ void TeamMenu::onPressedOK()
                 h->setResult(all);
             }
         }
-        if (button_ok_.getState() == Press)
+        if (button_ok_->getState() == Press)
         {
             //没有人被选中，不能确定
             for (auto h : heads_)

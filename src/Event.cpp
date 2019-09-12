@@ -18,15 +18,20 @@
 Event::Event()
 {
     loadEventData();
-    talk_box_up_ = talk_box_.addChild<Talk>();
-    talk_box_down_ = talk_box_.addChild<Talk>(0, 400);
-    menu2_.setStrings({ "確認（Y）", "取消（N）" });
-    menu2_.setPosition(400, 300);
-    menu2_.setFontSize(24);
-    menu2_.setHaveBox(true);
-    menu2_.arrange(0, 50, 150, 0);
-    text_box_.setPosition(400, 200);
-    text_box_.setTextPosition(-20, 100);
+    talk_box_up_ = std::make_shared<Talk>();
+    talk_box_down_ = std::make_shared<Talk>();
+    talk_box_ = std::make_shared<RunNode>();
+    talk_box_->addChild(talk_box_up_);
+    talk_box_->addChild(talk_box_down_, 0, 400);
+    menu2_ = std::make_shared<MenuText>();
+    menu2_->setStrings({ "確認（Y）", "取消（N）" });
+    menu2_->setPosition(400, 300);
+    menu2_->setFontSize(24);
+    menu2_->setHaveBox(true);
+    menu2_->arrange(0, 50, 150, 0);
+    text_box_ = std::make_shared<TextBox>();
+    text_box_->setPosition(400, 200);
+    text_box_->setTextPosition(-20, 100);
 }
 
 Event::~Event()
@@ -73,7 +78,7 @@ bool Event::loadEventData()
 }
 
 //返回值为是否成功执行事件
-bool Event::callEvent(int event_id, RunElement* subscene, int supmap_id, int item_id, int event_index, int x, int y)
+bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     bool ret = true;
     if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
@@ -90,9 +95,9 @@ bool Event::callEvent(int event_id, RunElement* subscene, int supmap_id, int ite
     y_ = y;
 
     //将节点加载到绘图栈的最上，这样两个对话可以画出来
-    talk_box_.setExit(false);
-    talk_box_.setVisible(true);
-    RunElement::addOnRootTop(&talk_box_);
+    talk_box_->setExit(false);
+    talk_box_->setVisible(true);
+    RunNode::addIntoDrawTop(talk_box_);
     int p = 0;
     exit_ = false;
     int i = 0;
@@ -233,7 +238,7 @@ bool Event::callEvent(int event_id, RunElement* subscene, int supmap_id, int ite
             }
         }
     }
-    RunElement::removeFromRoot(&talk_box_);
+    RunNode::removeFromDraw(talk_box_);
     clearTalkBox();
     if (subscene_)
     {
@@ -296,12 +301,8 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     {
         return;
     }
-    Talk* talk;
-    if (style % 2 == 0)
-    {
-        talk = talk_box_up_;
-    }
-    else
+    auto talk = talk_box_up_;
+    if (style % 2 != 0)
     {
         talk = talk_box_down_;
     }
@@ -327,10 +328,10 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_.setText(convert::formatString("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
-    text_box_.setTexture("item", item_id);
-    text_box_.run();
-    text_box_.setTexture("item", -1);
+    text_box_->setText(convert::formatString("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setTexture("item", item_id);
+    text_box_->run();
+    text_box_->setTexture("item", -1);
 }
 
 //修改事件定义
@@ -364,16 +365,16 @@ bool Event::isUsingItem(int item_id)
 //询问战斗
 bool Event::askBattle()
 {
-    menu2_.setText("是否與之過招？");
-    return menu2_.run() == 0;
+    menu2_->setText("是否與之過招？");
+    return menu2_->run() == 0;
 }
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    BattleScene battle;
-    battle.setID(battle_id);
-    battle.setHaveFailExp(get_exp);
-    int result = battle.run();
+    auto battle = std::make_shared<BattleScene>();
+    battle->setID(battle_id);
+    battle->setHaveFailExp(get_exp);
+    int result = battle->run();
     //int result = 0;    //测试用
     clearTalkBox();
 
@@ -390,8 +391,8 @@ void Event::changeMainMapMusic(int music_id)
 
 bool Event::askJoin()
 {
-    menu2_.setText("是否要求加入？");
-    return menu2_.run() == 0;
+    menu2_->setText("是否要求加入？");
+    return menu2_->run() == 0;
 }
 
 //角色加入，同时获得对方身上的物品
@@ -420,8 +421,8 @@ void Event::join(int role_id)
 
 bool Event::askRest()
 {
-    menu2_.setText("請選擇是或否？");
-    return menu2_.run() == 0;
+    menu2_->setText("請選擇是或否？");
+    return menu2_->run() == 0;
 }
 
 void Event::rest()
@@ -459,7 +460,7 @@ void Event::darkScence()
 
 void Event::dead()
 {
-    RunElement::exitAll(1);
+    RunNode::exitAll(1);
     forceExit();
 }
 
@@ -693,8 +694,8 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_.setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
-    text_box_.run();
+    text_box_->setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
+    text_box_->run();
 }
 
 void Event::addIQ(int role_id, int value)
@@ -702,8 +703,8 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_.setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
-    text_box_.run();
+    text_box_->setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
+    text_box_->run();
 }
 
 void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int level)
@@ -872,8 +873,8 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_.setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
-    text_box_.run();
+    text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
+    text_box_->run();
 }
 
 void Event::addMaxMP(int role_id, int value)
@@ -881,8 +882,8 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    text_box_.setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
-    text_box_.run();
+    text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
+    text_box_->run();
 }
 
 void Event::addAttack(int role_id, int value)
@@ -890,8 +891,8 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_.setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
-    text_box_.run();
+    text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
+    text_box_->run();
 }
 
 void Event::addMaxHP(int role_id, int value)
@@ -899,8 +900,8 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    text_box_.setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
-    text_box_.run();
+    text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
+    text_box_->run();
 }
 
 void Event::setMPType(int role_id, int value)
@@ -921,14 +922,14 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_.setText(convert::formatString("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
-    text_box_.run();
+    text_box_->setText(convert::formatString("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
+    text_box_->run();
 }
 
 void Event::showFame()
 {
-    text_box_.setText(convert::formatString("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
-    text_box_.run();
+    text_box_->setText(convert::formatString("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
+    text_box_->run();
 }
 
 void Event::openAllSubMap()
@@ -1046,7 +1047,7 @@ void Event::backHome(int event_index1, int begin_pic1, int end_pic1, int event_i
 {
     subscene_->forceManPic(-2);
     play2Amination(event_index1, begin_pic1, end_pic1, event_index2, begin_pic2, end_pic2);
-    RunElement::exitAll(1);
+    RunNode::exitAll(1);
     forceExit();
 }
 
@@ -1058,9 +1059,9 @@ void Event::setSexual(int role_id, int value)
 void Event::shop()
 {
     oldTalk(0xB9E, 0x6F, 0);
-    UIShop shop;
-    shop.setShopID(rand_.rand_int(5));
-    int result = shop.run();
+    auto shop = std::make_shared<UIShop>();
+    shop->setShopID(rand_.rand_int(5));
+    int result = shop->run();
     if (result < 0)
     {
     }
@@ -1340,9 +1341,9 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
         break;
     case 35:    //暂停等待按键
-        text_box_.setText("");
-        text_box_.setTexture("", 0);
-        x50[e1] = text_box_.run();
+        text_box_->setText("");
+        text_box_->setTexture("", 0);
+        x50[e1] = text_box_->run();
         switch (x50[e1])
         {
         case SDLK_LEFT: x50[e1] = 154; break;
@@ -1378,9 +1379,9 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         {
             strs.push_back((char*)x50[x50[e3 + i]]);
         }
-        MenuText menu;
-        menu.setStrings(strs);
-        x50[e4] = menu.run();
+        auto menu = std::make_shared<MenuText>();
+        menu->setStrings(strs);
+        x50[e4] = menu->run();
     }
     break;
     case 41:    //画一张图

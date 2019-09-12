@@ -163,11 +163,11 @@
     <ClCompile Include="src\ChemistryEngine.cpp">
       <Filter>chemistry</Filter>
     </ClCompile>
-    <ClCompile Include="src\RunElement.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="src\Object.cpp">
       <Filter>chemistry</Filter>
+    </ClCompile>
+    <ClCompile Include="src\RunNode.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -348,11 +348,11 @@
     <ClInclude Include="src\ChemistryEngine.h">
       <Filter>chemistry</Filter>
     </ClInclude>
-    <ClInclude Include="src\RunElement.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="src\Object.h">
       <Filter>chemistry</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RunNode.h">
+      <Filter>util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1,7 +1,7 @@
 #pragma once
-#include "Menu.h"
-#include "Head.h"
 #include "Button.h"
+#include "Head.h"
+#include "Menu.h"
 
 //用于选择队伍中的角色，可以传入一个item作为过滤，为空会显示所有人
 class TeamMenu : public Menu
@@ -11,14 +11,13 @@ public:
     ~TeamMenu();
 
 private:
-    std::vector<Head*> heads_;
+    std::vector<std::shared_ptr<Head>> heads_;
     //std::set<int> selected_;
     Role* role_ = nullptr;
     Item* item_ = nullptr;
-    int mode_ = 0;   //为0是单选，为1是多选
+    int mode_ = 0;    //为0是单选，为1是多选
 
-    Button button_all_;
-    Button button_ok_;
+    std::shared_ptr<Button> button_all_, button_ok_;
 
 public:
     void setItem(Item* item) { item_ = item; }
@@ -33,4 +32,3 @@ public:
     Role* getRole();
     std::vector<Role*> getRoles();
 };
-

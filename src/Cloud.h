@@ -1,8 +1,8 @@
 #pragma once
-#include "RunElement.h"
+#include "RunNode.h"
 #include "Point.h"
 
-class Cloud : public RunElement
+class Cloud : public RunNode
 {
 public:
     Cloud() { x_ = -1000; y_ = -1000; }

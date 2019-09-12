@@ -8,10 +8,11 @@
 #define CONNECT(a, b) a##b
 
 //游戏执行和绘制的基础类，凡需要显示画面或者处理事件的，均继承自此
-class RunElement
+//为了避免纠结，子类全部使用共享指针
+class RunNode : public std::enable_shared_from_this<RunNode>
 {
 private:
-    static std::vector<RunElement*> root_;    //所有需要绘制的内容都存储在这个静态向量中
+    static std::vector<std::shared_ptr<RunNode>> root_;    //所有需要绘制的内容都存储在这个静态向量中
     static int prev_present_ticks_;
     static int refresh_interval_;
 
@@ -19,7 +20,7 @@ private:
     bool is_private_ = false;
 
 protected:
-    std::vector<std::shared_ptr<RunElement>> childs_;
+    std::vector<std::shared_ptr<RunNode>> childs_;
     bool visible_ = true;
     int result_ = -1;
     int full_window_ = 0;    //不为0时表示当前画面为起始层，此时低于本层的将不予显示，节省资源
@@ -44,8 +45,8 @@ protected:
     int deal_event_ = 1;
 
 public:
-    RunElement() {}
-    virtual ~RunElement();
+    RunNode() {}
+    virtual ~RunNode();
 
     static void setRefreshInterval(int i) { refresh_interval_ = i; }
     static int getRefreshInterval() { return refresh_interval_; }
@@ -54,32 +55,29 @@ public:
 
     static void drawAll();
 
-    static void addOnRootTop(RunElement* element) { root_.push_back(element); }
-    static RunElement* removeFromRoot(RunElement* element);
+    static void addIntoDrawTop(std::shared_ptr<RunNode> element) { root_.push_back(element); }
+    static std::shared_ptr<RunNode> removeFromDraw(std::shared_ptr<RunNode> element);
 
-    //约定子类中不再使用new创建子类，而是使用下面的模板
-    void addChild(RunElement* element);
-    void addChild(RunElement* element, int x, int y);
-    template <class T>
-    T* addChild()
+    void addChild(std::shared_ptr<RunNode> element);
+    void addChild(std::shared_ptr<RunNode> element, int x, int y);
+    template <typename T>
+    std::shared_ptr<T> addChild()
     {
-        T* c = new T();
-        c->is_private_ = true;
-        addChild(c);
-        return c;
+        auto p = std::make_shared<T>();
+        addChild(p);
+        return p;
     }
-    template <class T>
-    T* addChild(int x, int y)
+    template <typename T>
+    std::shared_ptr<T> addChild(int x, int y)
     {
-        T* c = new T();
-        c->is_private_ = true;
-        addChild(c, x, y);
-        return c;
+        auto p = std::make_shared<T>();
+        addChild(p, x, y);
+        return p;
     }
 
-    std::shared_ptr<RunElement> getChild(int i) { return childs_[i]; }
+    std::shared_ptr<RunNode> getChild(int i) { return childs_[i]; }
     int getChildCount() { return childs_.size(); }
-    void removeChild(RunElement* element);
+    void removeChild(std::shared_ptr<RunNode> element);
     void clearChilds();
 
     void setPosition(int x, int y);
@@ -137,7 +135,7 @@ public:
     void setTag(int t) { tag_ = t; }
 
     //static void clearEvent(BP_Event& e) { e.type = BP_FIRSTEVENT; }
-    static RunElement* getCurrentTopDraw() { return root_.back(); }
+    static std::shared_ptr<RunNode> getCurrentTopDraw() { return root_.back(); }
 
     void setAllChildState(int s);
     void setAllChildVisible(bool v);
@@ -211,11 +209,11 @@ public:
     int drawAndPresent(int times = 1, std::function<void(void*)> func = nullptr, void* data = nullptr);
 
     template <class T>
-    static T* getPointerFromRoot()
+    static std::shared_ptr<T> getPointerFromRoot()
     {
         for (int i = root_.size() - 1; i >= 0; i--)
         {
-            T* ptr = dynamic_cast<T*>(root_[i]);
+            std::shared_ptr<T> ptr = std::dynamic_pointer_cast<T>(root_[i]);
             if (ptr) { return ptr; }
         }
         return nullptr;

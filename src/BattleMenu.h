@@ -9,7 +9,7 @@ class BattleScene;
 class BattleActionMenu : public MenuText
 {
 public:
-    BattleActionMenu();
+    BattleActionMenu(BattleScene* b);
     virtual ~BattleActionMenu();
 
     //virtual void onEntrance() override;
@@ -25,7 +25,6 @@ public:
     void dealEvent(BP_Event& e) override;
 
     BattleScene* battle_scene_ = nullptr;
-    void setBattleScene(BattleScene* b) { battle_scene_ = b; }
 
     int autoSelect(Role* role);
 

@@ -5,8 +5,10 @@
 
 ShowRoleDifference::ShowRoleDifference()
 {
-    addChild(&head1_);
-    addChild(&head2_, 400, 0);
+    head1_ = std::make_shared<Head>();
+    head2_ = std::make_shared<Head>();
+    addChild(head1_);
+    addChild(head2_, 400, 0);
     //setText("修習成功");
     setPosition(250, 180);
     setTextPosition(0, -30);
@@ -24,19 +26,19 @@ void ShowRoleDifference::draw()
     //{
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     //}
-    head1_.setRole(role1_);
-    head2_.setRole(role2_);
-    head1_.setState(Press);
-    head2_.setState(Press);
+    head1_->setRole(role1_);
+    head2_->setRole(role2_);
+    head1_->setState(Press);
+    head2_->setState(Press);
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
-        head1_.setRole(role2_);
-        head1_.setPosition(200, 50);
-        head2_.setRole(nullptr);
+        head1_->setRole(role2_);
+        head1_->setPosition(200, 50);
+        head2_->setRole(nullptr);
     }
 
-    head1_.setVisible(show_head_);
-    head2_.setVisible(show_head_);
+    head1_->setVisible(show_head_);
+    head2_->setVisible(show_head_);
 
     auto font = Font::getInstance();
     BP_Color color = { 255, 255, 255, 255 };
@@ -53,12 +55,12 @@ void ShowRoleDifference::draw()
 
     if (role1_->HP != role2_->HP || role1_->MaxHP != role2_->MaxHP)
     {
-        str = convert::formatString("生命 %3d/%3d   -> %3d/%3d", role1_->HP, role1_->MaxHP, role2_->HP, role2_->MaxHP);
+        str = convert::formatString("生命 %%3d/%3d   -> %%3d/%3d", role1_->MaxHP, role2_->MaxHP);
         showOneDifference(role1_->HP, str, 20, color, x, y, 1);
     }
     if (role1_->MP != role2_->MP || role1_->MaxMP != role2_->MaxMP)
     {
-        str = convert::formatString("內力 %3d/%3d   -> %3d/%3d", role1_->MP, role1_->MaxMP, role2_->MP, role2_->MaxMP);
+        str = convert::formatString("內力 %%3d/%3d   -> %%3d/%3d", role1_->MaxMP, role2_->MaxMP);
         showOneDifference(role1_->MP, str, 20, color, x, y, 1);
     }
 

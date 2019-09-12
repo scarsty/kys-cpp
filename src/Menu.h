@@ -29,7 +29,7 @@ public:
     //void draw() override;
 
     std::vector<std::string> strings_;
-    std::map<std::string, RunElement*> childs_text_;
+    std::map<std::string, std::shared_ptr<RunNode>> childs_text_;
     std::string getStringFromResult(int i);
     std::string getResultString() { return getStringFromResult(result_); }
     int getResultFromString(std::string str);

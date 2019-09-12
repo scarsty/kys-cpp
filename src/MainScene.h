@@ -5,7 +5,7 @@
 #include "Scene.h"
 #include "Types.h"
 
-class ParticleWeather : public RunElement, public ParticleExample
+class ParticleWeather : public RunNode, public ParticleExample
 {
 public:
     //注意这个继承方法比较扯淡，其他时候尽量不要这样用
@@ -16,22 +16,22 @@ public:
     }
     virtual void setPosition(int x, int y)
     {
-        RunElement::setPosition(x, y);
+        RunNode::setPosition(x, y);
         ParticleSystem::setPosition(x, y);
     }
 };
 
 class MainScene : public Scene
 {
-private:
+public:
     MainScene();
     ~MainScene();
 
 public:
-    static MainScene* getInstance()
+    static std::shared_ptr<MainScene> getInstance()
     {
-        static MainScene ms;
-        return &ms;
+        static std::shared_ptr<MainScene> ms = std::make_shared<MainScene>();
+        return ms;
     }
 
     MapSquare<Object> earth_layer_, surface_layer_, building_layer_;
@@ -83,6 +83,6 @@ public:
     int getViewCloud() { return view_cloud_; }
 
     void setWeather();
-    ParticleWeather* getWeather() { return &weather_; }
-    ParticleWeather weather_;
+    std::shared_ptr<ParticleWeather> getWeather() { return weather_; }
+    std::shared_ptr<ParticleWeather> weather_;
 };

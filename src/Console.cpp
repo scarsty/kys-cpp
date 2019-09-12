@@ -25,12 +25,12 @@ Console::Console()
 {
     std::string code;
     {
-        InputBox input("神秘代碼：", 30);
-        input.setInputPosition(350, 300);
-        input.run();
-        if (input.getResult() >= 0)
+        auto input = std::make_shared<InputBox>("神秘代碼：", 30);
+        input->setInputPosition(350, 300);
+        input->run();
+        if (input->getResult() >= 0)
         {
-            code = input.getText();
+            code = input->getText();
         }
     }
     // 捂脸
@@ -44,10 +44,10 @@ Console::Console()
         {
             generated.emplace_back(i, "a" + std::to_string(i));
         }
-        SuperMenuText smt("少废话", 28, generated, 10);
-        smt.setInputPosition(180, 80);
-        smt.run();
-        int id = smt.getResult();
+        auto smt = std::make_shared<SuperMenuText>("少废话", 28, generated, 10);
+        smt->setInputPosition(180, 80);
+        smt->run();
+        int id = smt->getResult();
         printf("result %d\n", id);
     }
     else if (code == u8"chuansong" || code == u8"teleport" || code == u8"mache" || code == "")
@@ -143,13 +143,13 @@ Console::Console()
                 }
             }
         };
-        DrawableOnCall doc(drawScene);
-        SuperMenuText smt("可輸入傳送地名，編號或拼音搜索：", 28, locs, 15);
-        smt.setInputPosition(dx, dy);
-        smt.addDrawableOnCall(&doc);
+        std::shared_ptr<DrawableOnCall> doc = std::make_shared<DrawableOnCall>(drawScene);
+        auto smt = std::make_shared<SuperMenuText>("可輸入傳送地名，編號或拼音搜索：", 28, locs, 15);
+        smt->setInputPosition(dx, dy);
+        smt->addDrawableOnCall(doc);
 
-        smt.run();
-        int id = smt.getResult();
+        smt->run();
+        int id = smt->getResult();
         if (id != -1)
         {
             auto scene = Save::getInstance()->getSubMapInfos()[id];
@@ -220,9 +220,9 @@ Console::Console()
             return;
         }
 
-        BattleScene battle;
-        battle.setupNetwork(std::move(host));
-        battle.run();
+        auto battle = std::make_shared<BattleScene>();
+        battle->setupNetwork(std::move(host));
+        battle->run();
 
         Save::getInstance()->load(11);
     }
@@ -236,9 +236,9 @@ Console::Console()
             return;
         }
 
-        BattleScene battle;
-        battle.setupNetwork(std::move(client));
-        battle.run();
+        auto battle = std::make_shared<BattleScene>();
+        battle->setupNetwork(std::move(client));
+        battle->run();
 
         Save::getInstance()->load(11);
     }

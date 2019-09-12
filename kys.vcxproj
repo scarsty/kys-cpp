@@ -59,7 +59,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_TINYPOT;_SDL_MIXER_AUDIO1;WIN32;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_TINYPOT;_SDL_MIXER_AUDIO1;WIN32;_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>include;mod;src;$(VCPKG_LIB_PATH)\x64-windows\include;common;local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -114,7 +114,7 @@
     <ClCompile Include="src\ParticleExample.cpp" />
     <ClCompile Include="src\ParticleSystem.cpp" />
     <ClCompile Include="src\Cloud.cpp" />
-    <ClCompile Include="src\RunElement.cpp" />
+    <ClCompile Include="src\RunNode.cpp" />
     <ClCompile Include="src\GameUtil.cpp" />
     <ClCompile Include="src\GrpIdxFile.cpp" />
     <ClCompile Include="src\RandomRole.cpp" />
@@ -175,7 +175,7 @@
     <ClInclude Include="src\ParticleExample.h" />
     <ClInclude Include="src\ParticleSystem.h" />
     <ClInclude Include="src\Cloud.h" />
-    <ClInclude Include="src\RunElement.h" />
+    <ClInclude Include="src\RunNode.h" />
     <ClInclude Include="src\GameUtil.h" />
     <ClInclude Include="common\INIReader.h" />
     <ClInclude Include="src\GrpIdxFile.h" />

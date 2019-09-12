@@ -46,7 +46,7 @@ private:
             y += size + 5;
         }
     }
-    Head head1_, head2_;
+    std::shared_ptr<Head> head1_, head2_;
 
     bool show_head_ = true;
     bool black_screen_ = true;

@@ -14,19 +14,22 @@ UIItem::UIItem()
 
     for (int i = 0; i < item_buttons_.size(); i++)
     {
-        auto b = addChild<Button>();
+        auto b = std::make_shared<Button>();
+        addChild(b);
         item_buttons_[i] = b;
         b->setPosition(i % item_each_line_ * 85 + 40, i / item_each_line_ * 85 + 100);
         //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
     }
-    title_.setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
-    title_.setFontSize(24);
-    title_.arrange(0, 50, 64, 0);
-    addChild(&title_);
+    title_ = std::make_shared<MenuText>();
+    title_->setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
+    title_->setFontSize(24);
+    title_->arrange(0, 50, 64, 0);
+    addChild(title_);
 
-    cursor_.setTexture("title", 127);
-    cursor_.setVisible(false);
-    addChild(&cursor_);
+    cursor_ = std::make_shared<TextBox>();
+    cursor_->setTexture("title", 127);
+    cursor_->setVisible(false);
+    addChild(cursor_);
 
     active_child_ = 0;
     getChild(0)->setState(Pass);
@@ -41,12 +44,12 @@ void UIItem::setForceItemType(int f)
     force_item_type_ = f;
     if (f >= 0)
     {
-        title_.setAllChildVisible(false);
-        title_.getChild(f)->setVisible(true);
+        title_->setAllChildVisible(false);
+        title_->getChild(f)->setVisible(true);
     }
     else
     {
-        title_.setAllChildVisible(true);
+        title_->setAllChildVisible(true);
     }
 }
 
@@ -110,10 +113,10 @@ void UIItem::checkCurrentItem()
     if (force_item_type_ >= 0)
     {
         //title_.setResult(force_item_type_);
-        title_.forceActiveChild(force_item_type_);
+        title_->forceActiveChild(force_item_type_);
     }
-    int active = title_.getActiveChildIndex();
-    title_.getChild(active)->setState(Pass);
+    int active = title_->getActiveChildIndex();
+    title_->getChild(active)->setState(Pass);
     geItemsByType(active);
     int type_item_count = available_items_.size();
     //从这里计算出左上角可以取的最大值
@@ -127,7 +130,7 @@ void UIItem::checkCurrentItem()
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup_);
 
     //计算被激活的按钮
-    Button* current_button = nullptr;
+    std::shared_ptr<Button> current_button{ nullptr };
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
@@ -164,12 +167,12 @@ void UIItem::checkCurrentItem()
         {
             y += 2;
         }
-        cursor_.setPosition(x, y);
-        cursor_.setVisible(true);
+        cursor_->setPosition(x, y);
+        cursor_->setVisible(true);
     }
     else
     {
-        cursor_.setVisible(false);
+        cursor_->setVisible(false);
     }
 }
 
@@ -259,12 +262,12 @@ void UIItem::dealEvent(BP_Event& e)
             }
             forceActiveChild();
         }
-        title_.setDealEvent(0);
-        title_.setAllChildState(Normal);
+        title_->setDealEvent(0);
+        title_->setAllChildState(Normal);
     }
     if (focus_ == 0)
     {
-        title_.setDealEvent(1);
+        title_->setDealEvent(1);
         if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_DOWN)
         {
             focus_ = 1;
@@ -407,7 +410,16 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
 {
     if (v != 0)
     {
-        auto str = convert::formatString(format_str.c_str(), v);
+        std::string str;
+        int parameter_count = convert::extractFormatString(format_str).size();
+        if (parameter_count == 1)
+        {
+            str = convert::formatString(format_str.c_str(), v);
+        }
+        else if (parameter_count==0)
+        {
+            str = format_str;
+        }
         //测试是不是出界了
         int draw_length = size * str.size() / 2 + size;
         int x1 = x + draw_length;
@@ -449,33 +461,33 @@ void UIItem::onPressedOK()
     {
         if (current_item_->ItemType == 3)
         {
-            TeamMenu team_menu;
-            team_menu.setItem(current_item_);
-            team_menu.setText(convert::formatString("誰要使用%s", current_item_->Name));
-            team_menu.run();
-            auto role = team_menu.getRole();
+            auto team_menu=std::make_shared<TeamMenu>();
+            team_menu->setItem(current_item_);
+            team_menu->setText(convert::formatString("誰要使用%s", current_item_->Name));
+            team_menu->run();
+            auto role = team_menu->getRole();
             if (role)
             {
                 Role r = *role;
                 GameUtil::useItem(role, current_item_);
-                ShowRoleDifference df(&r, role);
-                df.setText(convert::formatString("%s服用%s", role->Name, current_item_->Name));
-                df.run();
+                auto df=std::make_shared<ShowRoleDifference>(&r, role);
+                df->setText(convert::formatString("%s服用%s", role->Name, current_item_->Name));
+                df->run();
                 Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
             }
         }
         else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
         {
-            TeamMenu team_menu;
-            team_menu.setItem(current_item_);
+            auto team_menu = std::make_shared<TeamMenu>();
+            team_menu->setItem(current_item_);
             auto format_str = "誰要修煉%s";
             if (current_item_->ItemType == 1)
             {
                 format_str = "誰要裝備%s";
             }
-            team_menu.setText(convert::formatString(format_str, current_item_->Name));
-            team_menu.run();
-            auto role = team_menu.getRole();
+            team_menu->setText(convert::formatString(format_str, current_item_->Name));
+            team_menu->run();
+            auto role = team_menu->getRole();
             if (role)
             {
                 GameUtil::equip(role, current_item_);

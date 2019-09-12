@@ -298,10 +298,10 @@ std::unique_ptr<BattleNetwork> BattleNetworkFactory::MakeClient(const std::strin
 bool BattleNetworkFactory::UI(BattleNetwork* net)
 {
     // —°‘Ò∂””—
-    TeamMenu team;
-    team.setMode(1);
-    team.run();
-    auto friends = team.getRoles();
+    auto team = std::make_shared<TeamMenu>();
+    team->setMode(1);
+    team->run();
+    auto friends = team->getRoles();
 
     std::vector<RoleSave> serializableRoles;
     for (auto r : friends)
@@ -340,19 +340,19 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     };
 
     bool ok = false;
-    DrawableOnCall waitThis(f);
+    auto waitThis = std::make_shared<DrawableOnCall>(f);
     auto exit = [&waitThis, &ok](std::error_code err)
     {
         printf("recv %s\n", err.message().c_str());
         ok = !err;
-        waitThis.setExit(true);
+        waitThis->setExit(true);
     };
-    waitThis.setEntrance([&net, &serializableRoles, exit]()
+    waitThis->setEntrance([&net, &serializableRoles, exit]()
     {
         net->handshake(std::move(serializableRoles), exit);
     });
 
-    waitThis.run();
+    waitThis->run();
     return ok;
 }
 #endif

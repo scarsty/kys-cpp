@@ -14,9 +14,9 @@ public:
     Shop* shop_ = nullptr;
 
     std::vector<int> plan_buy_;
-    std::vector<Button*> buttons_;
+    std::vector<std::shared_ptr<Button>> buttons_;
 
-    Button button_ok_, button_cancel_, button_clear_;
+    std::shared_ptr<Button> button_ok_, button_cancel_, button_clear_;
 
     virtual void draw() override;
     virtual void dealEvent(BP_Event& e) override;

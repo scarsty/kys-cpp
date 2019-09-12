@@ -25,11 +25,13 @@
 TitleScene::TitleScene()
 {
     full_window_ = 1;
-    menu_.setPosition(400, 250);
-    menu_.addChild<Button>(20, 0)->setTexture("title", 3, 23, 23);
-    menu_.addChild<Button>(20, 50)->setTexture("title", 4, 24, 24);
-    menu_.addChild<Button>(20, 100)->setTexture("title", 6, 26, 26);
-    menu_load_.setPosition(500, 300);
+    menu_ = std::make_shared<Menu>();
+    menu_->setPosition(400, 250);
+    menu_->addChild<Button>(20, 0)->setTexture("title", 3, 23, 23);
+    menu_->addChild<Button>(20, 50)->setTexture("title", 4, 24, 24);
+    menu_->addChild<Button>(20, 100)->setTexture("title", 6, 26, 26);
+    menu_load_ = std::make_shared<UISave>();
+    menu_load_->setPosition(500, 300);
     render_message_ = 1;
 }
 
@@ -56,29 +58,29 @@ void TitleScene::draw()
 
 void TitleScene::dealEvent(BP_Event& e)
 {
-    int r = menu_.run();
+    int r = menu_->run();
     if (r == 0)
     {
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript("../game/script/0.lua");
         std::string name = "";
 #ifdef _MSC_VER
-        InputBox input("請輸入姓名：", 30);
-        input.setInputPosition(350, 300);
-        input.run();
-        if (input.getResult() >= 0)
+        auto input = std::make_shared<InputBox>("請輸入姓名：", 30);
+        input->setInputPosition(350, 300);
+        input->run();
+        if (input->getResult() >= 0)
         {
-            name = input.getText();
+            name = input->getText();
         }
 #else
         name = GameUtil::getInstance()->getString("constant", "name");
 #endif
         if (!name.empty())
         {
-            RandomRole random_role;
-            random_role.setRole(Save::getInstance()->getRole(0));
-            random_role.setRoleName(name);
-            if (random_role.runAtPosition(300, 0) == 0)
+            auto random_role = std::make_shared<RandomRole>();
+            random_role->setRole(Save::getInstance()->getRole(0));
+            random_role->setRoleName(name);
+            if (random_role->runAtPosition(300, 0) == 0)
             {
                 MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
                 MainScene::getInstance()->setTowards(1);
@@ -89,7 +91,7 @@ void TitleScene::dealEvent(BP_Event& e)
     }
     if (r == 1)
     {
-        if (menu_load_.run() >= 0)
+        if (menu_load_->run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用
             //Script::getInstance()->runScript("../game/script/0.lua");

@@ -9,24 +9,29 @@ UIShop::UIShop()
     plan_buy_.resize(SHOP_ITEM_COUNT, 0);
     for (int i = 0; i < SHOP_ITEM_COUNT; i++)
     {
-        auto text = addChild<Button>(0, 30 + 25 * i);
+        auto text = std::make_shared<Button>();
         text->setFontSize(24);
+        addChild(text, 0, 30 + 25 * i);
 
-        auto button_left = text->addChild<Button>(36 * 12 + 36, 5);
+        auto button_left = std::make_shared<Button>();
+        text->addChild(button_left, 36 * 12 + 36, 5);
         button_left->setTexture("title", 104);
         buttons_.push_back(button_left);
 
-        auto button_right = text->addChild<Button>(36 * 12 + 108, 5);
+        auto button_right = std::make_shared<Button>(); 
+        text->addChild(button_right, 36 * 12 + 108, 5);
         button_right->setTexture("title", 105);
         buttons_.push_back(button_right);
     }
-
-    button_ok_.setText("確認");
-    addChild(&button_ok_, 0, 190);
-    button_cancel_.setText("取消");
-    addChild(&button_cancel_, 100, 190);
-    button_clear_.setText("清除");
-    addChild(&button_clear_, 200, 190);
+    button_ok_ = std::make_shared<Button>();
+    button_ok_->setText("確認");
+    addChild(button_ok_, 0, 190);
+    button_cancel_ = std::make_shared<Button>();
+    button_cancel_->setText("取消");
+    addChild(button_cancel_, 100, 190);
+    button_clear_ = std::make_shared<Button>();
+    button_clear_->setText("清除");
+    addChild(button_clear_, 200, 190);
 
     setPosition(200, 230);
 
@@ -58,7 +63,7 @@ void UIShop::draw()
         auto item = Save::getInstance()->getItem(shop_->ItemID[i]);
         int count = Save::getInstance()->getItemCountInBag(item->ID);
         str = convert::formatString("%-12s%8d%8d%8d%8d", item->Name, shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
-        ((Button*)(getChild(i)))->setText(str);
+        ((Button*)(getChild(i).get()))->setText(str);
     }
 
     int need_money = calNeedMoney();
@@ -135,7 +140,7 @@ void UIShop::onPressedOK()
             }
         }
     }
-    if (button_ok_.getState() == Press)
+    if (button_ok_->getState() == Press)
     {
         if (calNeedMoney() <= Save::getInstance()->getMoneyCountInBag())
         {
@@ -148,11 +153,11 @@ void UIShop::onPressedOK()
             exitWithResult(0);
         }
     }
-    if (button_cancel_.getState() == Press)
+    if (button_cancel_->getState() == Press)
     {
         exitWithResult(-1);
     }
-    if (button_clear_.getState() == Press)
+    if (button_clear_->getState() == Press)
     {
         for (int i = 0; i < SHOP_ITEM_COUNT; i++)
         {

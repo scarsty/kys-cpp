@@ -35,10 +35,11 @@ BattleScene::BattleScene()
 
     role_layer_.resize(COORD_COUNT);
 
-    battle_menu_.setBattleScene(this);
-    battle_menu_.setPosition(160, 200);
-    addChild(&head_self_);
-    battle_cursor_.setBattleScene(this);
+    battle_menu_ = std::make_shared<BattleActionMenu>(this);
+    battle_menu_->setPosition(160, 200);
+    head_self_ = std::make_shared<Head>();
+    addChild(head_self_);
+    battle_cursor_ = std::make_shared<BattleCursor>(this);
     save_ = Save::getInstance();
     semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
 }
@@ -71,7 +72,7 @@ void BattleScene::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //地面是否需要亮度的变化，自动人物或者选择位置部分没有运行
-    bool need_change_earth_color_ = battle_cursor_.isRunning() && !acting_role_->isAuto();
+    bool need_change_earth_color_ = battle_cursor_->isRunning() && !acting_role_->isAuto();
 
     //一整块地面
     if (earth_texture_)
@@ -116,7 +117,7 @@ void BattleScene::draw()
                     {
                         color = { 128, 128, 128, 255 };
                     }
-                    if (battle_cursor_.getMode() == BattleCursor::Action)
+                    if (battle_cursor_->getMode() == BattleCursor::Action)
                     {
                         if (haveEffect(ix, iy))
                         {
@@ -165,7 +166,7 @@ void BattleScene::draw()
                     std::string path = convert::formatString("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
-                    if (battle_cursor_.isRunning() && !acting_role_->isAuto())
+                    if (battle_cursor_->isRunning() && !acting_role_->isAuto())
                     {
                         color = { 128, 128, 128, 255 };
                         if (inEffect(acting_role_, r))
@@ -275,8 +276,8 @@ void BattleScene::dealEvent(BP_Event& e)
     man_y_ = role->Y();
     select_x_ = role->X();
     select_y_ = role->Y();
-    head_self_.setRole(role);
-    head_self_.setState(RunElement::Pass);
+    head_self_->setRole(role);
+    head_self_->setState(RunNode::Pass);
 
     //行动
     action(role);
@@ -334,9 +335,10 @@ void BattleScene::onEntrance()
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
-    head_self_.setPosition(80, 100);
+    head_self_->setPosition(80, 100);
 
-    RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
+    //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
+    addChild(MainScene::getInstance()->getWeather());
 
     //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
@@ -375,7 +377,7 @@ void BattleScene::onExit()
     {
         r->setRolePositionLayer(nullptr);
     }
-    RunElement::removeFromRoot(MainScene::getInstance()->getWeather());
+    //RunElement::removeFromRoot(MainScene::getInstance()->getWeather());
     if (earth_texture_)
     {
         Engine::destroyTexture(earth_texture_);
@@ -501,10 +503,10 @@ void BattleScene::readBattleInfo()
         }
         else
         {
-            TeamMenu team_menu;
-            team_menu.setMode(1);
-            team_menu.run();
-            friends_ = team_menu.getRoles();
+            auto team_menu = std::make_shared<TeamMenu>();
+            team_menu->setMode(1);
+            team_menu->run();
+            friends_ = team_menu->getRoles();
         }
         //队友
         for (int i = 0; i < friends_.size(); i++)
@@ -621,14 +623,14 @@ void BattleScene::sortRoles()
 {
     if (semi_real_ == 0)
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role * r1, Role * r2)
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
         {
             return std::tie(r1->Speed, r1->ID) > std::tie(r2->Speed, r2->ID);
         });
     }
     else
     {
-        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role * r1, Role * r2)
+        std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
         {
             return std::tie(r1->Progress, r1->ID) > std::tie(r2->Progress, r2->ID);
         });
@@ -953,16 +955,16 @@ void BattleScene::action(Role* r)
         // 网络连接，并且是对方行动
         // 获取对方行动
         receiveAction(r);
-        battle_menu_.setResult(r->Network_Action);
+        battle_menu_->setResult(r->Network_Action);
     }
     else
     {
         // 己方行动
-        battle_menu_.runAsRole(r);
+        battle_menu_->runAsRole(r);
     }
 
-    r->Network_Action = battle_menu_.getResult();
-    std::string str = battle_menu_.getResultString();
+    r->Network_Action = battle_menu_->getResult();
+    std::string str = battle_menu_->getResultString();
 
     //这里如果用整型表示返回，添加新项就太复杂了
     if (str == "移動")
@@ -1015,7 +1017,7 @@ void BattleScene::action(Role* r)
     //下一个行动的，菜单项从第一个开始
     if (r->Acted)
     {
-        battle_menu_.setStartItem(0);
+        battle_menu_->setStartItem(0);
     }
 
     // 己方行动，传输
@@ -1042,9 +1044,9 @@ void BattleScene::actMove(Role* r)
 {
     int step = calMoveStep(r);
     calSelectLayer(r, 0, step);
-    battle_cursor_.setRoleAndMagic(r);
-    battle_cursor_.setMode(BattleCursor::Move);
-    if (battle_cursor_.run() == 0)
+    battle_cursor_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Move);
+    if (battle_cursor_->run() == 0)
     {
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, Role::getMaxValue()->PhysicalPower);
         r->setPrevPosition(r->X(), r->Y());
@@ -1061,7 +1063,7 @@ void BattleScene::actMove(Role* r)
 
 void BattleScene::actUseMagic(Role* r)
 {
-    BattleMagicMenu magic_menu;
+    auto magic_menu = std::make_shared<BattleMagicMenu>();
     while (true)
     {
         Magic* magic = nullptr;
@@ -1071,10 +1073,10 @@ void BattleScene::actUseMagic(Role* r)
         }
         else
         {
-            magic_menu.setStartItem(r->SelectedMagic);
-            magic_menu.runAsRole(r);
-            magic = magic_menu.getMagic();
-            r->SelectedMagic = magic_menu.getResult();
+            magic_menu->setStartItem(r->SelectedMagic);
+            magic_menu->runAsRole(r);
+            magic = magic_menu->getMagic();
+            r->SelectedMagic = magic_menu->getResult();
         }
         if (magic == nullptr)
         {
@@ -1085,9 +1087,9 @@ void BattleScene::actUseMagic(Role* r)
         int level_index = r->getMagicLevelIndex(magic->ID);
         calSelectLayerByMagic(r->X(), r->Y(), r->Team, magic, level_index);
         //选择目标
-        battle_cursor_.setMode(BattleCursor::Action);
-        battle_cursor_.setRoleAndMagic(r, magic, level_index);
-        int selected = battle_cursor_.run();
+        battle_cursor_->setMode(BattleCursor::Action);
+        battle_cursor_->setRoleAndMagic(r, magic, level_index);
+        int selected = battle_cursor_->run();
         //取消选择目标则重新进入选武功
         if (selected < 0)
         {
@@ -1176,10 +1178,10 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
 void BattleScene::actUsePoison(Role* r)
 {
     calSelectLayer(r, 1, calActionStep(r->UsePoison));
-    battle_cursor_.setMode(BattleCursor::Action);
-    battle_cursor_.setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Action);
+    battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 1;
-    int selected = battle_cursor_.run();
+    int selected = battle_cursor_->run();
     if (selected >= 0)
     {
         r->Network_ActionX = select_x_;
@@ -1204,10 +1206,10 @@ void BattleScene::actUsePoison(Role* r)
 void BattleScene::actDetoxification(Role* r)
 {
     calSelectLayer(r, 1, calActionStep(r->Detoxification));
-    battle_cursor_.setMode(BattleCursor::Action);
-    battle_cursor_.setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Action);
+    battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;
-    int selected = battle_cursor_.run();
+    int selected = battle_cursor_->run();
     if (selected >= 0)
     {
         r->Network_ActionX = select_x_;
@@ -1232,10 +1234,10 @@ void BattleScene::actDetoxification(Role* r)
 void BattleScene::actMedicine(Role* r)
 {
     calSelectLayer(r, 1, calActionStep(r->Medicine));
-    battle_cursor_.setMode(BattleCursor::Action);
-    battle_cursor_.setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Action);
+    battle_cursor_->setRoleAndMagic(r);
     r->ActTeam = 0;
-    int selected = battle_cursor_.run();
+    int selected = battle_cursor_->run();
     if (selected >= 0)
     {
         r->Network_ActionX = select_x_;
@@ -1260,18 +1262,18 @@ void BattleScene::actMedicine(Role* r)
 void BattleScene::actUseHiddenWeapon(Role* r)
 {
     // 网络交流，不管物品
-    BattleItemMenu item_menu;
-    item_menu.setRole(r);
-    item_menu.setForceItemType(3);
-    item_menu.runAtPosition(300, 0);
-    auto item = item_menu.getCurrentItem();
+    auto item_menu = std::make_shared<BattleItemMenu>();
+    item_menu->setRole(r);
+    item_menu->setForceItemType(3);
+    item_menu->runAtPosition(300, 0);
+    auto item = item_menu->getCurrentItem();
     if (item)
     {
         calSelectLayer(r, 1, calActionStep(r->HiddenWeapon));
-        battle_cursor_.setMode(BattleCursor::Action);
-        battle_cursor_.setRoleAndMagic(r);
+        battle_cursor_->setMode(BattleCursor::Action);
+        battle_cursor_->setRoleAndMagic(r);
         r->ActTeam = 1;
-        int selected = battle_cursor_.run();
+        int selected = battle_cursor_->run();
         if (selected >= 0)
         {
             auto r2 = getSelectedRole();
@@ -1283,7 +1285,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
                 r2->addShowString(convert::formatString("-%d", v), { 255, 20, 20, 255 });
             }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
-            item_menu.addItem(item, -1);
+            item_menu->addItem(item, -1);
             r->ExpGot += v;
             r->Acted = 1;
             actionAnimation_ = [this, item, r, r2]()
@@ -1304,26 +1306,25 @@ void BattleScene::actUseHiddenWeapon(Role* r)
 void BattleScene::actUseDrug(Role* r)
 {
     // 网络交流，不管物品
-    BattleItemMenu item_menu;
-    item_menu.setForceItemType(2);
-    item_menu.setRole(r);
-    item_menu.runAtPosition(300, 0);
-
-    auto item = item_menu.getCurrentItem();
+    auto item_menu = std::make_shared<BattleItemMenu>();
+    item_menu->setForceItemType(2);
+    item_menu->setRole(r);
+    item_menu->runAtPosition(300, 0);
+    auto item = item_menu->getCurrentItem();
     if (item)
     {
         Role r0 = *r;
         GameUtil::useItem(r, item);
-        item_menu.addItem(item, -1);
+        item_menu->addItem(item, -1);
         r->Acted = 1;
         actionAnimation_ = [this, r, r0, item]() mutable
         {
-            ShowRoleDifference df(&r0, r);
-            df.setText(convert::formatString("%s服用%s", r->Name, item->Name));
-            df.setShowHead(false);
-            df.setPosition(250, 220);
-            df.setStayFrame(40);
-            df.run();
+            auto df = std::make_shared<ShowRoleDifference>(&r0, r);
+            df->setText(convert::formatString("%s服用%s", r->Name, item->Name));
+            df->setShowHead(false);
+            df->setPosition(250, 220);
+            df->setStayFrame(40);
+            df->run();
         };
     }
 }
@@ -1343,18 +1344,18 @@ void BattleScene::actWait(Role* r)
 
 void BattleScene::actStatus(Role* r)
 {
-    head_self_.setVisible(false);
-    battle_cursor_.getHead()->setVisible(false);
-    battle_cursor_.getUIStatus()->setVisible(true);
+    head_self_->setVisible(false);
+    battle_cursor_->getHead()->setVisible(false);
+    battle_cursor_->getUIStatus()->setVisible(true);
 
     calSelectLayer(r, 2, 0);
-    battle_cursor_.setRoleAndMagic(r);
-    battle_cursor_.setMode(BattleCursor::Check);
-    battle_cursor_.run();
+    battle_cursor_->setRoleAndMagic(r);
+    battle_cursor_->setMode(BattleCursor::Check);
+    battle_cursor_->run();
 
-    head_self_.setVisible(true);
-    battle_cursor_.getHead()->setVisible(true);
-    battle_cursor_.getUIStatus()->setVisible(false);
+    head_self_->setVisible(true);
+    battle_cursor_->getHead()->setVisible(true);
+    battle_cursor_->getUIStatus()->setVisible(false);
 }
 
 void BattleScene::actAuto(Role* r)
@@ -1653,12 +1654,12 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
 
 void BattleScene::showMagicName(std::string name)
 {
-    TextBox magic_name;
-    magic_name.setText(name);
-    magic_name.setPosition(450, 150);
-    magic_name.setFontSize(20);
-    magic_name.setStayFrame(40);
-    magic_name.run();
+    auto magic_name = std::make_shared<TextBox>();
+    magic_name->setText(name);
+    magic_name->setPosition(450, 150);
+    magic_name->setFontSize(20);
+    magic_name->setStayFrame(40);
+    magic_name->run();
 }
 
 //显示数字，同时显示打退进度条
@@ -1878,7 +1879,7 @@ int BattleScene::checkResult()
 
 void BattleScene::calExpGot()
 {
-    head_self_.setVisible(false);
+    head_self_->setVisible(false);
 
     std::vector<Role*> alive_teammate;
     if (result_ == 0)
@@ -1905,12 +1906,12 @@ void BattleScene::calExpGot()
         r->ExpGot += info_->Exp / alive_teammate.size();
     }
 
-    ShowExp show_exp;
-    show_exp.setRoles(alive_teammate);
-    show_exp.run();
+    auto show_exp = std::make_shared<ShowExp>();
+    show_exp->setRoles(alive_teammate);
+    show_exp->run();
 
     //升级，修炼物品
-    ShowRoleDifference diff;
+    auto diff = std::make_shared<ShowRoleDifference>();
     for (auto r : alive_teammate)
     {
         if (exit_)
@@ -1959,9 +1960,9 @@ void BattleScene::calExpGot()
         }
         if (change)
         {
-            diff.setTwinRole(&r0, r);
-            diff.setText("升級");
-            diff.run();
+            diff->setTwinRole(&r0, r);
+            diff->setText("升級");
+            diff->run();
         }
 
         //修炼秘笈
@@ -1976,9 +1977,9 @@ void BattleScene::calExpGot()
             }
             if (change)
             {
-                diff.setTwinRole(&r0, r);
-                diff.setText(convert::formatString("修煉%s成功", item->Name));
-                diff.run();
+                diff->setTwinRole(&r0, r);
+                diff->setText(convert::formatString("修煉%s成功", item->Name));
+                diff->run();
             }
             if (item->MakeItem[0] >= 0 && r->ExpForMakeItem >= item->NeedExpForMakeItem && Event::getInstance()->haveItemBool(item->NeedMaterial))
             {
@@ -2010,27 +2011,27 @@ void BattleScene::receiveAction(Role* r)
     // 如果是敌人，则获取敌人行动，假装敌人是个AI
     // 己方行动的时候也要同时记录AI
     BattleNetwork::SerializableBattleAction action;
-    auto f = [](DrawableOnCall * d)
+    auto f = [](DrawableOnCall* d)
     {
         Font::getInstance()->draw("等待对方玩家行动...", 40, 30, 30, { 200, 200, 50, 255 });
     };
-    DrawableOnCall waitThis(f);
+    auto waitThis = std::make_shared<DrawableOnCall>(f);
     // getOpponentAction读取完毕会调用此函数关闭显示
     auto exit = [&waitThis, this](std::error_code err, std::size_t bytes)
     {
         printf("recv %s\n", err.message().c_str());
-        waitThis.setExit(true);
+        waitThis->setExit(true);
         if (err)
         {
             this->setExit(true);
         }
     };
     // 打开后既开始获取数据
-    waitThis.setEntrance([this, &action, exit]()
+    waitThis->setEntrance([this, &action, exit]()
     {
         network_->getOpponentAction(action, exit);
     });
-    waitThis.run();
+    waitThis->run();
     // 这里返回后，就已经获得action
     action.print();
     r->Network_Action = action.Action;

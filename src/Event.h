@@ -1,8 +1,8 @@
 #pragma once
-#include "RunElement.h"
 #include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"
+#include "RunNode.h"
 #include "SubScene.h"
 #include "Talk.h"
 
@@ -31,14 +31,13 @@ private:
 
     //两个对话，用于上面和下面，两个可以同时显示
     //视需要可增加更多
-    RunElement talk_box_;
-    Talk* talk_box_up_ = nullptr;
-    Talk* talk_box_down_ = nullptr;
+    std::shared_ptr<RunNode> talk_box_;
+    std::shared_ptr<Talk> talk_box_up_, talk_box_down_;
 
     //专用于显示确认和取消选项
-    MenuText menu2_;
+    std::shared_ptr<MenuText> menu2_;
     //专用于显示一个文本框
-    TextBox text_box_;
+    std::shared_ptr<TextBox> text_box_;
     int event_id_ = -1;
 
     RandomDouble rand_;
@@ -46,7 +45,7 @@ private:
 public:
     bool loadEventData();    //加载事件数据
     //这里再设计
-    bool callEvent(int event_id, RunElement* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //调用指令的内容写这里
+    bool callEvent(int event_id, RunNode* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //调用指令的内容写这里
 
 private:
     SubScene* subscene_;
@@ -208,6 +207,6 @@ public:
     template <typename F, typename C>
     void runner(F f, C* c, const std::vector<int>& e, int& i)
     {
-        runner_impl(f, c, e, i, std::make_index_sequence<arg_counter<F, C>::value> {});
+        runner_impl(f, c, e, i, std::make_index_sequence<arg_counter<F, C>::value>{});
     }
 };

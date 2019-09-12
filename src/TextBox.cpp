@@ -5,7 +5,7 @@ void TextBox::setFontSize(int size)
 {
     for (auto c : childs_)
     {
-        auto t = dynamic_cast<TextBox*>(c);
+        auto t = std::dynamic_pointer_cast<TextBox>(c);
         if (t)
         {
             t->setFontSize(size);

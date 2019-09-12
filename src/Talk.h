@@ -1,9 +1,9 @@
 #pragma once
-#include "RunElement.h"
+#include "RunNode.h"
 #include <vector>
 #include <string>
 
-class Talk : public RunElement
+class Talk : public RunNode
 {
 public:
     Talk() {}

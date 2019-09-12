@@ -3,18 +3,15 @@
 #include "Menu.h"
 #include "Types.h"
 
-class UIStatus : public RunElement
+class UIStatus : public RunNode
 {
 public:
     UIStatus();
     ~UIStatus();
 
 protected:
-    Button button_medicine_;
-    Button button_detoxification_;
-    Button button_leave_;
-
-    Menu menu_;
+    std::shared_ptr<Button> button_medicine_, button_detoxification_, button_leave_;
+    std::shared_ptr<Menu> menu_;
 
     bool show_button_ = true;
     Role* role_ = nullptr;

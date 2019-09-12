@@ -1,14 +1,14 @@
 #pragma once
-#include "RunElement.h"
+#include "RunNode.h"
 #include "Menu.h"
 
-class UISystem : public RunElement
+class UISystem : public RunNode
 {
 public:
     UISystem();
     ~UISystem();
 
-    MenuText title_;
+    std::shared_ptr<MenuText> title_;
 
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override { exitWithResult(-1); }

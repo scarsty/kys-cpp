@@ -15,8 +15,8 @@ public:
 
     virtual void onEntrance() override;
 
-    Menu menu_;
-    UISave menu_load_;
+    std::shared_ptr<Menu> menu_;
+    std::shared_ptr<UISave> menu_load_;
 
     int count_ = 0;
     int head_id_ = 0;

@@ -1,6 +1,6 @@
 ﻿#include "TextureManager.h"
 #include "File.h"
-#include "RunElement.h"
+#include "RunNode.h"
 #include "convert.h"
 
 std::string TextureGroup::getFileContent(const std::string& filename)
@@ -132,7 +132,7 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
         int i = 0;
         if (tex->count > 1)
         {
-            int now = RunElement::getShowTimes();
+            int now = RunNode::getShowTimes();
             //此处同时模拟随机的水面和大场景的瀑布
             if (now == tex->prev_show)
             {
