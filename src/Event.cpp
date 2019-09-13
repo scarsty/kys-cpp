@@ -18,9 +18,9 @@
 Event::Event()
 {
     loadEventData();
+    talk_box_ = std::make_shared<RunNode>();
     talk_box_up_ = std::make_shared<Talk>();
     talk_box_down_ = std::make_shared<Talk>();
-    talk_box_ = std::make_shared<RunNode>();
     talk_box_->addChild(talk_box_up_);
     talk_box_->addChild(talk_box_down_, 0, 400);
     menu2_ = std::make_shared<MenuText>();
@@ -443,11 +443,11 @@ void Event::rest()
 
 void Event::lightScence()
 {
+    clearTalkBox();
     if (subscene_)
     {
         subscene_->lightScene();
     }
-    clearTalkBox();
 }
 
 void Event::darkScence()
