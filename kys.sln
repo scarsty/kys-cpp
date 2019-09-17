@@ -2,9 +2,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29306.81
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys", "kys.vcxproj", "{0B2302D7-3C55-442F-8F3E-764B54328B45}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kys", "src\kys.vcxproj", "{0B2302D7-3C55-442F-8F3E-764B54328B45}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "abc", "abc.vcxproj", "{01D029DB-C543-4A8A-B3ED-2AA443DA44D7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "abc", "abc\abc.vcxproj", "{01D029DB-C543-4A8A-B3ED-2AA443DA44D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

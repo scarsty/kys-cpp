@@ -1,358 +1,358 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\Application.cpp">
+    <ClCompile Include="Application.cpp">
       <Filter>application</Filter>
     </ClCompile>
-    <ClCompile Include="src\kys.cpp">
+    <ClCompile Include="kys.cpp">
       <Filter>application</Filter>
     </ClCompile>
-    <ClCompile Include="common\File.cpp">
+    <ClCompile Include="BattleCursor.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleMap.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleMenu.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleScene.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="Audio.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="UI.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UIItem.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UISave.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UIShop.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UIStatus.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="UISystem.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="TeamMenu.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Head.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Menu.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Button.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureManager.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="Cloud.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Font.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="MainScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SubScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="TitleScene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="TextBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ShowRoleDifference.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ShowExp.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="GameUtil.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="Types.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="PotConv.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="RandomRole.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Event.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
+    <ClCompile Include="Script.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
+    <ClCompile Include="GrpIdxFile.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="Save.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="Scene.cpp">
+      <Filter>scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Talk.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
+    <ClCompile Include="ParticleSystem.cpp">
+      <Filter>particle</Filter>
+    </ClCompile>
+    <ClCompile Include="ParticleExample.cpp">
+      <Filter>particle</Filter>
+    </ClCompile>
+    <ClCompile Include="Point.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="InputBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="SuperMenuText.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="Console.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="DrawableOnCall.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenCCConverter.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="BattleNetwork.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="TextBoxRoll.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="NewSave.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
+    <ClCompile Include="ZipFile.cpp">
+      <Filter>zip</Filter>
+    </ClCompile>
+    <ClCompile Include="ChemistryEngine.cpp">
+      <Filter>chemistry</Filter>
+    </ClCompile>
+    <ClCompile Include="Object.cpp">
+      <Filter>chemistry</Filter>
+    </ClCompile>
+    <ClCompile Include="RunNode.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common\convert.cpp">
       <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleCursor.cpp">
-      <Filter>battle</Filter>
+    <ClCompile Include="..\common\File.cpp">
+      <Filter>common</Filter>
     </ClCompile>
-    <ClCompile Include="src\BattleMap.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleMenu.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleScene.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Audio.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Engine.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UIItem.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UISave.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UIShop.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UIStatus.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UISystem.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TeamMenu.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Head.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Menu.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Button.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TextureManager.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Cloud.cpp">
-      <Filter>scene</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Font.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\MainScene.cpp">
-      <Filter>scene</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SubScene.cpp">
-      <Filter>scene</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TitleScene.cpp">
-      <Filter>scene</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TextBox.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ShowRoleDifference.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ShowExp.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\GameUtil.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Types.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="src\PotConv.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="src\RandomRole.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Event.cpp">
-      <Filter>event</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Script.cpp">
-      <Filter>event</Filter>
-    </ClCompile>
-    <ClCompile Include="src\GrpIdxFile.cpp">
-      <Filter>save</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Save.cpp">
-      <Filter>save</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Scene.cpp">
-      <Filter>scene</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Talk.cpp">
-      <Filter>event</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ParticleSystem.cpp">
-      <Filter>particle</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ParticleExample.cpp">
-      <Filter>particle</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Point.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="src\InputBox.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\SuperMenuText.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Console.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\DrawableOnCall.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\OpenCCConverter.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BattleNetwork.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
-    <ClCompile Include="src\TextBoxRoll.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="others\Hanz2Piny.cpp">
+    <ClCompile Include="..\others\Hanz2Piny.cpp">
       <Filter>hanzi2pinyin</Filter>
     </ClCompile>
-    <ClCompile Include="others\zip.c">
+    <ClCompile Include="..\others\zip.c">
       <Filter>zip</Filter>
-    </ClCompile>
-    <ClCompile Include="src\NewSave.cpp">
-      <Filter>save</Filter>
-    </ClCompile>
-    <ClCompile Include="common\convert.cpp">
-      <Filter>common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ZipFile.cpp">
-      <Filter>zip</Filter>
-    </ClCompile>
-    <ClCompile Include="src\ChemistryEngine.cpp">
-      <Filter>chemistry</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Object.cpp">
-      <Filter>chemistry</Filter>
-    </ClCompile>
-    <ClCompile Include="src\RunNode.cpp">
-      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource\resource.h">
-      <Filter>_Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="common\INIReader.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="common\Random.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="common\File.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BattleCursor.h">
+    <ClInclude Include="BattleCursor.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleMap.h">
+    <ClInclude Include="BattleMap.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleMenu.h">
+    <ClInclude Include="BattleMenu.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleScene.h">
+    <ClInclude Include="BattleScene.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="src\UISystem.h">
+    <ClInclude Include="UISystem.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\UI.h">
+    <ClInclude Include="UI.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\UIItem.h">
+    <ClInclude Include="UIItem.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\UISave.h">
+    <ClInclude Include="UISave.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\UIShop.h">
+    <ClInclude Include="UIShop.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\UIStatus.h">
+    <ClInclude Include="UIStatus.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Button.h">
+    <ClInclude Include="Button.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Font.h">
+    <ClInclude Include="Font.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Head.h">
+    <ClInclude Include="Head.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Menu.h">
+    <ClInclude Include="Menu.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Save.h">
+    <ClInclude Include="Save.h">
       <Filter>save</Filter>
     </ClInclude>
-    <ClInclude Include="src\GrpIdxFile.h">
+    <ClInclude Include="GrpIdxFile.h">
       <Filter>save</Filter>
     </ClInclude>
-    <ClInclude Include="src\GameUtil.h">
+    <ClInclude Include="GameUtil.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="src\Types.h">
+    <ClInclude Include="Types.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="src\Audio.h">
+    <ClInclude Include="Audio.h">
       <Filter>engine</Filter>
     </ClInclude>
-    <ClInclude Include="src\Engine.h">
+    <ClInclude Include="Engine.h">
       <Filter>engine</Filter>
     </ClInclude>
-    <ClInclude Include="src\MainScene.h">
+    <ClInclude Include="MainScene.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\Scene.h">
+    <ClInclude Include="Scene.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\SubScene.h">
+    <ClInclude Include="SubScene.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\TitleScene.h">
+    <ClInclude Include="TitleScene.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\Cloud.h">
+    <ClInclude Include="Cloud.h">
       <Filter>scene</Filter>
     </ClInclude>
-    <ClInclude Include="src\Event.h">
+    <ClInclude Include="Event.h">
       <Filter>event</Filter>
     </ClInclude>
-    <ClInclude Include="src\EventMacro.h">
+    <ClInclude Include="EventMacro.h">
       <Filter>event</Filter>
     </ClInclude>
-    <ClInclude Include="src\Script.h">
+    <ClInclude Include="Script.h">
       <Filter>event</Filter>
     </ClInclude>
-    <ClInclude Include="src\ShowExp.h">
+    <ClInclude Include="ShowExp.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\ShowRoleDifference.h">
+    <ClInclude Include="ShowRoleDifference.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\RandomRole.h">
+    <ClInclude Include="RandomRole.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\TeamMenu.h">
+    <ClInclude Include="TeamMenu.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\TextureManager.h">
+    <ClInclude Include="TextureManager.h">
       <Filter>engine</Filter>
     </ClInclude>
-    <ClInclude Include="src\PotConv.h">
+    <ClInclude Include="PotConv.h">
       <Filter>engine</Filter>
     </ClInclude>
-    <ClInclude Include="src\Talk.h">
+    <ClInclude Include="Talk.h">
       <Filter>event</Filter>
     </ClInclude>
-    <ClInclude Include="src\TextBox.h">
+    <ClInclude Include="TextBox.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleSystem.h">
+    <ClInclude Include="ParticleSystem.h">
       <Filter>particle</Filter>
     </ClInclude>
-    <ClInclude Include="src\ParticleExample.h">
+    <ClInclude Include="ParticleExample.h">
       <Filter>particle</Filter>
     </ClInclude>
-    <ClInclude Include="src\Point.h">
+    <ClInclude Include="Point.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="src\Application.h">
+    <ClInclude Include="Application.h">
       <Filter>application</Filter>
     </ClInclude>
-    <ClInclude Include="src\InputBox.h">
+    <ClInclude Include="InputBox.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\SuperMenuText.h">
+    <ClInclude Include="SuperMenuText.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\Console.h">
+    <ClInclude Include="Console.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\DrawableOnCall.h">
+    <ClInclude Include="DrawableOnCall.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="src\OpenCCConverter.h">
+    <ClInclude Include="OpenCCConverter.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="src\BattleNetwork.h">
+    <ClInclude Include="BattleNetwork.h">
       <Filter>battle</Filter>
     </ClInclude>
-    <ClInclude Include="src\TextBoxRoll.h">
+    <ClInclude Include="TextBoxRoll.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="others\Hanz2Piny.h">
-      <Filter>hanzi2pinyin</Filter>
-    </ClInclude>
-    <ClInclude Include="others\zip.h">
-      <Filter>zip</Filter>
-    </ClInclude>
-    <ClInclude Include="others\miniz.h">
-      <Filter>zip</Filter>
-    </ClInclude>
-    <ClInclude Include="src\NewSave.h">
+    <ClInclude Include="NewSave.h">
       <Filter>save</Filter>
     </ClInclude>
-    <ClInclude Include="common\convert.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ZipFile.h">
+    <ClInclude Include="ZipFile.h">
       <Filter>zip</Filter>
     </ClInclude>
-    <ClInclude Include="src\FunctionTrait.h">
+    <ClInclude Include="FunctionTrait.h">
       <Filter>event</Filter>
     </ClInclude>
-    <ClInclude Include="src\ChemistryEngine.h">
+    <ClInclude Include="ChemistryEngine.h">
       <Filter>chemistry</Filter>
     </ClInclude>
-    <ClInclude Include="src\Object.h">
+    <ClInclude Include="Object.h">
       <Filter>chemistry</Filter>
     </ClInclude>
-    <ClInclude Include="src\RunNode.h">
+    <ClInclude Include="RunNode.h">
       <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\convert.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\File.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\INIReader.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\Random.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\others\Hanz2Piny.h">
+      <Filter>hanzi2pinyin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\others\zip.h">
+      <Filter>zip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\others\miniz.h">
+      <Filter>zip</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>_Resources</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -408,16 +408,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="resource\kys.ico">
+    <Text Include="CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="kys.ico">
       <Filter>_Resources</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="resource\kys.rc">
+    <ResourceCompile Include="kys.rc">
       <Filter>_Resources</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="src\CMakeLists.txt" />
   </ItemGroup>
 </Project>
