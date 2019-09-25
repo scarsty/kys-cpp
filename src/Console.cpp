@@ -210,7 +210,7 @@ Console::Console()
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }
-    else if (splits[0] == u8"host" && splits.size() >= 1)
+    else if (splits[0] == u8"host" && splits.size() > 1)
     {
         Save::getInstance()->save(11);
 
@@ -226,7 +226,7 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == u8"client" && splits.size() >= 1)
+    else if (splits[0] == u8"client" && splits.size() > 1)
     {
         Save::getInstance()->save(11);
 
