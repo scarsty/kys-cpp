@@ -625,14 +625,14 @@ void BattleScene::sortRoles()
     {
         std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
         {
-            return std::tie(r1->Speed, r1->ID) > std::tie(r2->Speed, r2->ID);
+            return std::tie(r1->Speed, r1->ID, r1->Team) > std::tie(r2->Speed, r2->ID, r2->Team);
         });
     }
     else
     {
         std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
         {
-            return std::tie(r1->Progress, r1->ID) > std::tie(r2->Progress, r2->ID);
+            return std::tie(r1->Progress, r1->ID, r1->Team) > std::tie(r2->Progress, r2->ID, r2->Team);
         });
     }
 }
