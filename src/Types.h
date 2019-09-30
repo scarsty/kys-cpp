@@ -19,7 +19,7 @@ struct MapSquare
     {
         if (data_)
         {
-            delete data_;
+            delete[] data_;
         }
     }
     //不会保留原始数据
@@ -27,7 +27,7 @@ struct MapSquare
     {
         if (data_)
         {
-            delete data_;
+            delete[] data_;
         }
         data_ = new T[x * x];
         line_ = x;
