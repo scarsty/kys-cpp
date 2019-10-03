@@ -5,7 +5,7 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O3 -std=c++14 -pthread -DNDEBUG")
 
-include_directories(../include . ../common ../others)
+include_directories(../include . ../common ../others ../local/include)
 link_directories(. ../lib)
 
 file(GLOB SRC_LIST
