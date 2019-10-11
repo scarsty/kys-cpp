@@ -32,7 +32,7 @@ std::string PotConv::conv(const std::string& src, const char* from, const char* 
     {
         out[0] = '\0';
     }
-    std::string result(out);
+    std::string result(out, src.length() * 2 - outlen);
     delete[] in;
     delete[] out;
     return result;
