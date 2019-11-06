@@ -12,7 +12,7 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下可以使用Visual Studio编译，其他系统下可以在src目录使用CMake生成Makefile，使用GCC或Clang编译，需至少支持C++14。
 
-目前仅发布x64版本，如需要x86版请自行修改。
+VS工程为x64版本，如需要x86版请自行修改。
 
 ## 架构的简单说明
 
