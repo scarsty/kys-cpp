@@ -28,8 +28,6 @@ Audio是音频类，基于BASS或者SDL_mixer，可以播放mid、mp3、wav等�
 
 PotConv封装了iconv的实现。
 
-本工程刻意避免了一些C++新特性的使用，例如智能指针、内存管理等，而采用自己管理内存的方式。
-
 ### RunNode
 
 RunNode是游戏中的基本执行类，包含5个重要的虚函数：backRun，draw，dealEvent，onEnter，onExit。对应在背景中执行，如何画自身，如何处理事件，进入时的处理，退出时的处理。一般来说，衍生类应重写这些函数。
@@ -134,7 +132,7 @@ common <https://github.com/scarsty/common>
 
 common是作者所写的一个通用功能集合，被多个工程使用。
 
-其中包含了ini文件读写库：
+其中包含了ini文件读写库，修改自以下工程：
 
 - ini Reader <https://github.com/benhoyt/inih>
 
