@@ -40,14 +40,14 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
             c += (uint8_t)text[p] * 256;
             p++;
         }
-        if (buffer_.count(c) == 0)
+        if (buffer_[c].count(size) == 0)
         {
             uint16_t c2[2] = { 0 };
             c2[0] = c;
             auto s = PotConv::cp936toutf8((char*)(c2));
-            buffer_[c] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
+            buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
-        auto tex = buffer_[c];
+        auto tex = buffer_[c][size];
         char_count++;
         int w1 = w;
         int x1 = x;
@@ -126,7 +126,20 @@ void Font::clearBuffer()
 {
     for (auto& f : buffer_)
     {
-        Engine::getInstance()->destroyTexture(f.second);
+        for (auto& s : f.second)
+        {
+            Engine::getInstance()->destroyTexture(s.second);
+        }
     }
     buffer_.clear();
+}
+
+int Font::getBufferSize()
+{
+    int sum = 0;
+    for (auto& f : buffer_)
+    {
+        sum += f.second.size();
+    }
+    return sum;
 }
