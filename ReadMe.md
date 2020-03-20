@@ -166,8 +166,6 @@ A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome s
 
 ## 运行截图
 
-第一张图中武器的属性显示有错误，代码中已修正。
-
 <img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/1.png' />
 
 <img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/2.png' />
