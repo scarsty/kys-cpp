@@ -168,8 +168,8 @@ A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome s
 
 第一张图中武器的属性显示有错误，代码中已修正。
 
-<img src='https://pic2.zhimg.com/80/v2-fcac09adf861ee474477bbe91bf0fbab_hd.jpg' />
+<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/1.png' />
 
-<img src='https://pic1.zhimg.com/80/v2-e62f9410ab6188ce8bb54cf9b7f745a3_hd.jpg' />
+<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/2.png' />
 
-<img src='https://pic2.zhimg.com/80/v2-37bc164bdcaa175c65bce841d134f981_hd.jpg' />
+<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/3.png' />
