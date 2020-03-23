@@ -87,6 +87,9 @@ public:
         BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1);
     void renderTexture(const std::string& path, int num, int x, int y,
         BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1);
+	void renderTexture(const std::string& path, int num, int x, int y, int w_x, int w_y, 
+		BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);
+	
 
     Texture* loadTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);

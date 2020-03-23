@@ -166,11 +166,23 @@ void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8
     }
 }
 
+
+
 void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y)
 {
     auto tex = loadTexture(path, num);
     renderTexture(tex, x, y, c, alpha, zoom_x, zoom_y);
 }
+
+void TextureManager::renderTexture(const std::string& path, int num, int x, int y, int w_x, int w_y, BP_Color c, uint8_t alpha)
+{
+	auto tex = loadTexture(path, num);
+	if (tex && tex->tex[0])
+	{
+		renderTexture(tex, { x, y,  w_x, w_y }, c, alpha);
+	}
+}
+
 
 Texture* TextureManager::loadTexture(const std::string& path, int num)
 {

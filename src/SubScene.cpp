@@ -515,7 +515,7 @@ bool SubScene::isExit(int x, int y)
 
 bool SubScene::isJumpSubScene(int x, int y)
 {
-    if (submap_info_->JumpSubMap >= 0 && man_x_ == submap_info_->JumpX && man_y_ == submap_info_->JumpY)
+    if (submap_info_->JumpSubMap >= 0 && man_x_ == submap_info_->unused[0] && man_y_ == submap_info_->unused[1])
     {
         int x, y;
         auto new_submap = Save::getInstance()->getSubMapInfo(submap_info_->JumpSubMap);
@@ -528,8 +528,8 @@ bool SubScene::isJumpSubScene(int x, int y)
         else
         {
             //若原场景无法从大地图上进入，则设置人物在跳转返回位置
-            x = new_submap->JumpReturnX;
-            y = new_submap->JumpReturnY;
+            x = new_submap->unused[2];
+            y = new_submap->unused[3];
         }
         forceJumpSubScene(submap_info_->JumpSubMap, x, y);
         return true;

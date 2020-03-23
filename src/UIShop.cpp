@@ -62,7 +62,7 @@ void UIShop::draw()
     {
         auto item = Save::getInstance()->getItem(shop_->ItemID[i]);
         int count = Save::getInstance()->getItemCountInBag(item->ID);
-        str = convert::formatString("%-12s%8d%8d%8d%8d", item->Name, shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
+        str = convert::formatString("%-12s%8d%8d%8d%8d", item->Name, Save::getInstance()->getItem(shop_->ItemID[i])->Price, shop_->ItermCount[i], count, plan_buy_[i]);
         ((Button*)(getChild(i).get()))->setText(str);
     }
 
@@ -97,7 +97,7 @@ void UIShop::dealEvent(BP_Event& e)
             }
             else
             {
-                if (plan_buy_[index] < shop_->Total[index])
+                if (plan_buy_[index] < shop_->ItermCount[index])
                 {
                     plan_buy_[index]++;
                 }
@@ -133,7 +133,7 @@ void UIShop::onPressedOK()
             }
             else
             {
-                if (plan_buy_[index] < shop_->Total[index])
+                if (plan_buy_[index] < shop_->ItermCount[index])
                 {
                     plan_buy_[index]++;
                 }
@@ -147,7 +147,7 @@ void UIShop::onPressedOK()
             for (int i = 0; i < SHOP_ITEM_COUNT; i++)
             {
                 Event::getInstance()->addItemWithoutHint(shop_->ItemID[i], plan_buy_[i]);
-                shop_->Total[i] -= plan_buy_[i];
+                shop_->ItermCount[i] -= plan_buy_[i];
             }
             Event::getInstance()->addItemWithoutHint(Item::MoneyItemID, -calNeedMoney());
             exitWithResult(0);
@@ -171,7 +171,7 @@ int UIShop::calNeedMoney()
     int need_money = 0;
     for (int i = 0; i < SHOP_ITEM_COUNT; i++)
     {
-        need_money += plan_buy_[i] * shop_->Price[i];
+        need_money += plan_buy_[i] * Save::getInstance()->getItem(shop_->ItemID[i])->Price;
     }
     return need_money;
 }

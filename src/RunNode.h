@@ -60,6 +60,7 @@ public:
 
     void addChild(std::shared_ptr<RunNode> element);
     void addChild(std::shared_ptr<RunNode> element, int x, int y);
+	void addChild(std::shared_ptr<RunNode> element, int x, int y, int w, int h);
     template <typename T>
     std::shared_ptr<T> addChild()
     {
@@ -75,17 +76,24 @@ public:
         return p;
     }
 
+	template <typename T>
+	std::shared_ptr<T> addChild(int x, int y, int w, int h)
+	{
+		auto p = std::make_shared<T>();
+		addChild(p, x, y, w, h);
+		return p;
+	}
+
     std::shared_ptr<RunNode> getChild(int i) { return childs_[i]; }
     int getChildCount() { return childs_.size(); }
     void removeChild(std::shared_ptr<RunNode> element);
     void clearChilds();
 
     void setPosition(int x, int y);
-    void setSize(int w, int h)
-    {
-        w_ = w;
-        h_ = h;
-    }
+	void setPositionRate(double x = 1.0, double y = 1.0);
+	void setSize(int w, int h);
+	void setSizeRate(double w_rate, double h_rate);
+
 
     void getPosition(int& x, int& y)
     {

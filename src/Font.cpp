@@ -86,7 +86,7 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
     //TextureManager::getInstance()->renderTexture("title", 20, x + 10 * i, y - 3);
     //}
     auto r = getBoxSize(text.size(), size, x, y);
-    TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+    TextureManager::getInstance()->renderTexture("menu", 67, r, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
 }
 

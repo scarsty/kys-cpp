@@ -64,11 +64,11 @@ void NewSave::SaveCSVBaseInfo(Save::BaseInfo* data, int length, int record)
         fout << ",";
         fout << data[i].ShipY;
         fout << ",";
-        fout << data[i].ShipX1;
+        fout << data[i].TimeCount;
         fout << ",";
-        fout << data[i].ShipY1;
+        fout << data[i].TimeEvent;
         fout << ",";
-        fout << data[i].Encode;
+        fout << data[i].RandomEvent;
         fout << ",";
         for (int j = 0; j < 6; j++)
         {
@@ -134,36 +134,11 @@ void NewSave::SaveCSVRoleSave(const std::vector<Role>& data, int record)
     fout << "武器";
     fout << ",";
     fout << "防具";
-    fout << ",";
-    fout << "动作帧数1";
-    fout << ",";
-    fout << "动作帧数2";
-    fout << ",";
-    fout << "动作帧数3";
-    fout << ",";
-    fout << "动作帧数4";
-    fout << ",";
-    fout << "动作帧数5";
-    fout << ",";
-    fout << "动作帧数6";
-    fout << ",";
-    fout << "动作帧数7";
-    fout << ",";
-    fout << "动作帧数8";
-    fout << ",";
-    fout << "动作帧数9";
-    fout << ",";
-    fout << "动作帧数10";
-    fout << ",";
-    fout << "动作帧数11";
-    fout << ",";
-    fout << "动作帧数12";
-    fout << ",";
-    fout << "动作帧数13";
-    fout << ",";
-    fout << "动作帧数14";
-    fout << ",";
-    fout << "动作帧数15";
+	fout << ",";
+	fout << "鞋子";
+	fout << ",";
+	fout << "饰品";
+
     fout << ",";
     fout << "内力性质";
     fout << ",";
@@ -276,7 +251,7 @@ void NewSave::SaveCSVRoleSave(const std::vector<Role>& data, int record)
         fout << ",";
         fout << data[i].IncLife;
         fout << ",";
-        fout << data[i].UnUse;
+        fout << data[i].Fuyuan;
         fout << ",";
         fout << '"' << data[i].Name << '"';
         fout << ",";
@@ -300,19 +275,15 @@ void NewSave::SaveCSVRoleSave(const std::vector<Role>& data, int record)
         fout << ",";
         fout << data[i].ExpForMakeItem;
         fout << ",";
-        fout << data[i].Equip0;
+        fout << data[i].Equip[0];
         fout << ",";
-        fout << data[i].Equip1;
+        fout << data[i].Equip[1];
         fout << ",";
-        for (int j = 0; j < 15; j++)
-        {
-            fout << data[i].Frame[j];
-            if (j != 15 - 1)
-            {
-                fout << ",";
-            }
-        }
-        fout << ",";
+		fout << data[i].Equip[2];
+		fout << ",";
+		fout << data[i].Equip[3];
+		fout << ",";
+
         fout << data[i].MPType;
         fout << ",";
         fout << data[i].MP;
@@ -552,15 +523,26 @@ void NewSave::SaveCSVItemSave(const std::vector<Item>& data, int record)
         fout << ",";
         fout << '"' << data[i].Name << '"';
         fout << ",";
-        for (int j = 0; j < 10; j++)
-        {
-            fout << data[i].Name1[j];
-            if (j != 10 - 1)
-            {
-                fout << ",";
-            }
-        }
-        fout << ",";
+		fout << '"' << data[i].ExpofMagic << '"';
+		fout << ",";
+		fout << '"' << data[i].SetNum << '"';
+		fout << ",";
+		fout << '"' << data[i].BattleBattleEffect << '"';
+		fout << ",";
+		fout << '"' << data[i].AddSign << '"';
+		fout << ",";
+		fout << '"' << data[i].needSex << '"';
+		fout << ",";
+		fout << '"' << data[i].rehurt << '"';
+		fout << ",";
+		fout << '"' << data[i].NeedEthics << '"';
+		fout << ",";
+		fout << '"' << data[i].NeedRepute << '"';
+		fout << ",";
+		fout << '"' << data[i].AddQianli << '"';
+		fout << ",";
+		fout << '"' << data[i].BattleNum << '"';
+		fout << ",";
         fout << '"' << data[i].Introduction << '"';
         fout << ",";
         fout << data[i].MagicID;
@@ -575,11 +557,11 @@ void NewSave::SaveCSVItemSave(const std::vector<Item>& data, int record)
         fout << ",";
         fout << data[i].ItemType;
         fout << ",";
-        fout << data[i].UnKnown5;
+        fout << data[i].Inventory;
         fout << ",";
-        fout << data[i].UnKnown6;
+        fout << data[i].Price;
         fout << ",";
-        fout << data[i].UnKnown7;
+        fout << data[i].EventNum;
         fout << ",";
         fout << data[i].AddHP;
         fout << ",";
@@ -773,14 +755,8 @@ void NewSave::SaveCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int rec
                 fout << ",";
             }
         }
-        fout << ",";
-        fout << data[i].JumpX;
-        fout << ",";
-        fout << data[i].JumpY;
-        fout << ",";
-        fout << data[i].JumpReturnX;
-        fout << ",";
-        fout << data[i].JumpReturnY;
+
+
         fout << std::endl;
     }
 }
@@ -923,14 +899,7 @@ void NewSave::SaveCSVMagicSave(const std::vector<Magic>& data, int record)
         fout << ",";
         fout << '"' << data[i].Name << '"';
         fout << ",";
-        for (int j = 0; j < 5; j++)
-        {
-            fout << data[i].Unknown[j];
-            if (j != 5 - 1)
-            {
-                fout << ",";
-            }
-        }
+
         fout << ",";
         fout << data[i].SoundID;
         fout << ",";
@@ -946,14 +915,7 @@ void NewSave::SaveCSVMagicSave(const std::vector<Magic>& data, int record)
         fout << ",";
         fout << data[i].WithPoison;
         fout << ",";
-        for (int j = 0; j < 10; j++)
-        {
-            fout << data[i].Attack[j];
-            if (j != 10 - 1)
-            {
-                fout << ",";
-            }
-        }
+
         fout << ",";
         for (int j = 0; j < 10; j++)
         {
@@ -982,14 +944,7 @@ void NewSave::SaveCSVMagicSave(const std::vector<Magic>& data, int record)
             }
         }
         fout << ",";
-        for (int j = 0; j < 10; j++)
-        {
-            fout << data[i].HurtMP[j];
-            if (j != 10 - 1)
-            {
-                fout << ",";
-            }
-        }
+
         fout << std::endl;
     }
 }
@@ -1041,47 +996,42 @@ void NewSave::SaveCSVShopSave(const std::vector<Shop>& data, int record)
         fout << ",";
         for (int j = 0; j < 5; j++)
         {
-            fout << data[i].Total[j];
+            fout << data[i].ItermCount[j];
             if (j != 5 - 1)
             {
                 fout << ",";
             }
         }
-        fout << ",";
-        for (int j = 0; j < 5; j++)
-        {
-            fout << data[i].Price[j];
-            if (j != 5 - 1)
-            {
-                fout << ",";
-            }
-        }
+
         fout << std::endl;
     }
 }
 // 基本
 void NewSave::LoadCSVBaseInfo(Save::BaseInfo* data, int length, int record)
 {
-    io::CSVReader<18, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_基本.csv");
+    io::CSVReader<21, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_基本.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
         "乘船",
-        "子场景内",
-        "主地图X",
-        "主地图Y",
-        "子场景X",
-        "子场景Y",
-        "面朝方向",
-        "船X",
-        "船Y",
-        "船X1",
-        "船Y1",
-        "内部编码",
-        "队友1",
-        "队友2",
-        "队友3",
-        "队友4",
-        "队友5",
-        "队友6");
+		"場景",
+		"人X",
+		"人Y",
+		"內場景坐標X",
+		"內場景坐標Y",
+		"人面對方向",
+		"船X",
+		"船Y",
+		"計時",
+		"定時事件",
+		"隨機事件",
+		"內場景方向",
+		"船面對方向",
+		"隊伍人數",
+		"隊友",
+		"隊友1",
+		"隊友2",
+		"隊友3",
+		"隊友4",
+		"隊友5");
     auto getDefault = []()
     {
         Save::BaseInfo nextLineData;
@@ -1094,9 +1044,12 @@ void NewSave::LoadCSVBaseInfo(Save::BaseInfo* data, int length, int record)
         nextLineData.FaceTowards = 0;
         nextLineData.ShipX = 0;
         nextLineData.ShipY = 0;
-        nextLineData.ShipX1 = 0;
-        nextLineData.ShipY1 = 0;
-        nextLineData.Encode = 0;
+        nextLineData.TimeCount = 0; 
+        nextLineData.TimeEvent = 0;
+        nextLineData.RandomEvent = 0;
+		nextLineData.SubmapTowards = 0;
+		nextLineData.ShipTowards = 0;
+		nextLineData.TeamCount = 0;
         for (int j = 0; j < 6; j++)
         {
             nextLineData.Team[j] = -1;
@@ -1105,19 +1058,22 @@ void NewSave::LoadCSVBaseInfo(Save::BaseInfo* data, int length, int record)
     };
     int lines = 0;
     auto nextLineData = getDefault();
-    while (in.read_row(
-        nextLineData.InShip,
-        nextLineData.InSubMap,
-        nextLineData.MainMapX,
-        nextLineData.MainMapY,
-        nextLineData.SubMapX,
-        nextLineData.SubMapY,
-        nextLineData.FaceTowards,
-        nextLineData.ShipX,
-        nextLineData.ShipY,
-        nextLineData.ShipX1,
-        nextLineData.ShipY1,
-        nextLineData.Encode,
+	while (in.read_row(
+		nextLineData.InShip,
+		nextLineData.InSubMap,
+		nextLineData.MainMapX,
+		nextLineData.MainMapY,
+		nextLineData.SubMapX,
+		nextLineData.SubMapY,
+		nextLineData.FaceTowards,
+		nextLineData.ShipX,
+		nextLineData.ShipY,
+		nextLineData.TimeCount,
+		nextLineData.TimeEvent,
+		nextLineData.RandomEvent,
+		nextLineData.SubmapTowards,
+		nextLineData.ShipTowards,
+		nextLineData.TeamCount,
         nextLineData.Team[0],
         nextLineData.Team[1],
         nextLineData.Team[2],
@@ -1166,99 +1122,322 @@ void NewSave::LoadCSVItemList(ItemList* data, int length, int record)
 // 人物
 void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
 {
+	
     data.clear();
-    io::CSVReader<83, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_人物.csv");
+    io::CSVReader<305, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_人物.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-        "编号",
-        "头像",
-        "生命成长",
-        "无用",
-        "名字",
-        "外号",
-        "性别",
-        "等级",
-        "经验",
-        "生命",
-        "生命最大值",
-        "内伤",
-        "中毒",
-        "体力",
-        "物品修炼点数",
-        "武器",
-        "防具",
-        "动作帧数1",
-        "动作帧数2",
-        "动作帧数3",
-        "动作帧数4",
-        "动作帧数5",
-        "动作帧数6",
-        "动作帧数7",
-        "动作帧数8",
-        "动作帧数9",
-        "动作帧数10",
-        "动作帧数11",
-        "动作帧数12",
-        "动作帧数13",
-        "动作帧数14",
-        "动作帧数15",
-        "内力性质",
-        "内力",
-        "内力最大值",
-        "攻击力",
-        "轻功",
-        "防御力",
-        "医疗",
-        "用毒",
-        "解毒",
-        "抗毒",
-        "拳掌",
-        "御剑",
-        "耍刀",
-        "特殊",
-        "暗器",
-        "武学常识",
-        "品德",
-        "攻击带毒",
-        "左右互搏",
-        "声望",
-        "资质",
-        "修炼物品",
-        "修炼点数",
-        "所会武功1",
-        "所会武功2",
-        "所会武功3",
-        "所会武功4",
-        "所会武功5",
-        "所会武功6",
-        "所会武功7",
-        "所会武功8",
-        "所会武功9",
-        "所会武功10",
-        "武功等级1",
-        "武功等级2",
-        "武功等级3",
-        "武功等级4",
-        "武功等级5",
-        "武功等级6",
-        "武功等级7",
-        "武功等级8",
-        "武功等级9",
-        "武功等级10",
-        "携带物品1",
-        "携带物品2",
-        "携带物品3",
-        "携带物品4",
-        "携带物品数量1",
-        "携带物品数量2",
-        "携带物品数量3",
-        "携带物品数量4");
+		"编号",
+		"頭像 / 戰斗代號",
+		"生命增長",
+		"福緣",
+		"姓名",
+		"外號",
+		"性別",
+		"等級",
+		"經驗值",
+		"生命",
+		"生命最大值",
+		"受傷程度",
+		"中毒程度",
+		"體力",
+		"戰斗圖編號",
+		"武器",
+		"防具",
+		"頭戴",
+		"腳穿",
+		"飾品",
+		"功體",
+		"隊伍狀態",
+		"憤怒值",
+		"查找標記",
+		"行動能力",
+		"技能點",
+		"戰略AI狀態",
+		"外觀",
+		"行動時間",
+		"難度",
+		"忠誠度",
+		"藥物",
+		"內力性質",
+		"內力",
+		"內力最大值",
+		"攻擊力",
+		"輕功",
+		"防御力",
+		"醫療",
+		"暫缺",
+		"技藝",
+		"抗毒",
+		"拳法",
+		"御劍",
+		"耍刀",
+		"特殊兵器",
+		"暗器技巧",
+		"武學常識",
+		"品德",
+		"毒術",
+		"左右互搏",
+		"聲望",
+		"資質",
+		"修練物品",
+		"修煉點數",
+		"相性",
+		"交情",
+		"人物類別",
+		"聲望傾向",
+		"品德傾向",
+		"相性傾向",
+		"交情傾向",
+		"所屬門派",
+		"師父",
+		"師承序位",
+		"拜師順序",
+		"仇視門派",
+		"仇視門派1",
+		"當前位置",
+		"內部位置",
+		"內部方向",
+		"人物狀態",
+		"練武傾向",
+		"冥思傾向",
+		"勞動傾向",
+		"其他傾向",
+		"臨時位置",
+		"內部臨時位置",
+		"內部方向",
+		"場景X坐標",
+		"場景Y坐標",
+		"送書標記",
+		"官府貢獻",
+		"夫妻",
+		"年齡",
+		"未用",
+		"未用",
+		"未用",
+		"戰場ID",
+		"所會武功",
+		"所會武功1",
+		"所會武功2",
+		"所會武功3",
+		"所會武功4",
+		"所會武功5",
+		"所會武功6",
+		"所會武功7",
+		"所會武功8",
+		"所會武功9",
+		"所會武功10",
+		"所會武功11",
+		"所會武功12",
+		"所會武功13",
+		"所會武功14",
+		"所會武功15",
+		"所會武功16",
+		"所會武功17",
+		"所會武功18",
+		"所會武功19",
+		"所會武功20",
+		"所會武功21",
+		"所會武功22",
+		"所會武功23",
+		"所會武功24",
+		"所會武功25",
+		"所會武功26",
+		"所會武功27",
+		"所會武功28",
+		"所會武功29",
+		"所會武功30",
+		"所會武功31",
+		"所會武功32",
+		"所會武功33",
+		"所會武功34",
+		"所會武功35",
+		"所會武功36",
+		"所會武功37",
+		"所會武功38",
+		"所會武功39",
+		"所會武功等級",
+		"所會武功等級1",
+		"所會武功等級2",
+		"所會武功等級3",
+		"所會武功等級4",
+		"所會武功等級5",
+		"所會武功等級6",
+		"所會武功等級7",
+		"所會武功等級8",
+		"所會武功等級9",
+		"所會武功等級10",
+		"所會武功等級11",
+		"所會武功等級12",
+		"所會武功等級13",
+		"所會武功等級14",
+		"所會武功等級15",
+		"所會武功等級16",
+		"所會武功等級17",
+		"所會武功等級18",
+		"所會武功等級19",
+		"所會武功等級20",
+		"所會武功等級21",
+		"所會武功等級22",
+		"所會武功等級23",
+		"所會武功等級24",
+		"所會武功等級25",
+		"所會武功等級26",
+		"所會武功等級27",
+		"所會武功等級28",
+		"所會武功等級29",
+		"所會武功等級30",
+		"所會武功等級31",
+		"所會武功等級32",
+		"所會武功等級33",
+		"所會武功等級34",
+		"所會武功等級35",
+		"所會武功等級36",
+		"所會武功等級37",
+		"所會武功等級38",
+		"所會武功等級39",
+		"攜帶物品1",
+		"攜帶物品2",
+		"攜帶物品3",
+		"攜帶物品4",
+		"攜帶物品1數量",
+		"攜帶物品2數量",
+		"攜帶物品3數量",
+		"攜帶物品4數量",
+		"激活武功",
+		"激活武功1",
+		"激活武功2",
+		"激活武功3",
+		"激活武功4",
+		"激活武功5",
+		"激活武功6",
+		"激活武功7",
+		"激活武功8",
+		"激活武功9",
+		"所會招式",
+		"所會招式1",
+		"所會招式2",
+		"所會招式3",
+		"所會招式4",
+		"所會招式5",
+		"所會招式6",
+		"所會招式7",
+		"所會招式8",
+		"所會招式9",
+		"所會招式10",
+		"所會招式11",
+		"所會招式12",
+		"所會招式13",
+		"所會招式14",
+		"所會招式15",
+		"所會招式16",
+		"所會招式17",
+		"所會招式18",
+		"所會招式19",
+		"所會招式20",
+		"所會招式21",
+		"所會招式22",
+		"所會招式23",
+		"所會招式24",
+		"所會招式25",
+		"所會招式26",
+		"所會招式27",
+		"所會招式28",
+		"所會招式29",
+		"所會招式30",
+		"所會招式31",
+		"所會招式32",
+		"所會招式33",
+		"所會招式34",
+		"所會招式35",
+		"所會招式36",
+		"所會招式37",
+		"所會招式38",
+		"所會招式39",
+		"對話菜單開關",
+		"對話事件",
+		"狀態事件",
+		"入隊事件",
+		"切磋事件",
+		"學習事件",
+		"事件池",
+		"事件池",
+		"事件池",
+		"離隊期限",
+		"離隊事件",
+		"隨機值",
+		"隨機值",
+		"攜帶物品5",
+		"攜帶物品6",
+		"攜帶物品7",
+		"攜帶物品8",
+		"攜帶物品5數量",
+		"攜帶物品6數量",
+		"攜帶物品7數量",
+		"攜帶物品8數量",
+		"暗箭",
+		"醫師",
+		"裝備特技",
+		"回血",
+		"回內",
+		"回體",
+		"暴躁",
+		"配合",
+		"武學",
+		"突破",
+		"冷靜",
+		"百變",
+		"破氣",
+		"罩門",
+		"變幻",
+		"反攻",
+		"氣功",
+		"硬功",
+		"靈活",
+		"行氣",
+		"身法",
+		"攻擊潛力",
+		"防禦潛力",
+		"輕功潛力",
+		"拳掌潛力",
+		"御劍潛力",
+		"耍刀潛力",
+		"奇門潛力",
+		"暗器潛力",
+		"固守",
+		"天命",
+		"星宿",
+		"專長",
+		"專長1",
+		"專長2",
+		"專長3",
+		"專長4",
+		"特性",
+		"特性1",
+		"特性2",
+		"特性3",
+		"特性4",
+		"特性5",
+		"特性6",
+		"特性7",
+		"特性8",
+		"特性9",
+		"門派貢獻",
+		"未使用",
+		"未使用1",
+		"未使用2",
+		"未使用3",
+		"未使用4",
+		"未使用5",
+		"未使用6",
+		"未使用7",
+		"未使用8");
     auto getDefault = []()
     {
         Role nextLineData;
         nextLineData.ID = 0;
         nextLineData.HeadID = 0;
         nextLineData.IncLife = 0;
-        nextLineData.UnUse = 0;
+        nextLineData.Fuyuan = 0;
         memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
         memset(nextLineData.Nick, '\0', sizeof(nextLineData.Nick));
         nextLineData.Sexual = 0;
@@ -1269,52 +1448,166 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
         nextLineData.Hurt = 0;
         nextLineData.Poison = 0;
         nextLineData.PhysicalPower = 0;
+		nextLineData.FightNum = 0;
         nextLineData.ExpForMakeItem = 0;
-        nextLineData.Equip0 = -1;
-        nextLineData.Equip1 = -1;
-        for (int j = 0; j < 15; j++)
-        {
-            nextLineData.Frame[j] = 0;
-        }
-        nextLineData.MPType = 0;
-        nextLineData.MP = 0;
-        nextLineData.MaxMP = 0;
-        nextLineData.Attack = 0;
-        nextLineData.Speed = 0;
-        nextLineData.Defence = 0;
-        nextLineData.Medicine = 0;
-        nextLineData.UsePoison = 0;
-        nextLineData.Detoxification = 0;
-        nextLineData.AntiPoison = 0;
-        nextLineData.Fist = 0;
-        nextLineData.Sword = 0;
-        nextLineData.Knife = 0;
-        nextLineData.Unusual = 0;
-        nextLineData.HiddenWeapon = 0;
-        nextLineData.Knowledge = 0;
-        nextLineData.Morality = 0;
-        nextLineData.AttackWithPoison = 0;
-        nextLineData.AttackTwice = 0;
-        nextLineData.Fame = 0;
-        nextLineData.IQ = 0;
-        nextLineData.PracticeItem = -1;
-        nextLineData.ExpForItem = 0;
-        for (int j = 0; j < 10; j++)
-        {
-            nextLineData.MagicID[j] = 0;
-        }
-        for (int j = 0; j < 10; j++)
-        {
-            nextLineData.MagicLevel[j] = 0;
-        }
-        for (int j = 0; j < 4; j++)
-        {
-            nextLineData.TakingItem[j] = -1;
-        }
-        for (int j = 0; j < 4; j++)
-        {
-            nextLineData.TakingItemCount[j] = 0;
-        }
+		for (int j = 0; j < 4; j++)
+		{
+			nextLineData.Equip[j] = 0;
+		}
+		nextLineData.Gongti = 0;
+		nextLineData.TeamState = 0;
+		nextLineData.Angry = 0;
+		nextLineData.isRandomed = 0;
+		nextLineData.Moveable = 0;
+		nextLineData.In_HeadNum = 0;
+		nextLineData.ZhanLueAI = 0;
+		nextLineData.Impression = 0; 
+		nextLineData.dtime = 0; 
+		nextLineData.difficulty = 0;
+		nextLineData.Zhongcheng = 0;
+		nextLineData.reHurt = 0;
+		nextLineData.MPType = 0;
+		nextLineData.MP = 0;
+		nextLineData.MaxMP = 0;
+		nextLineData.Attack = 0;
+		nextLineData.Speed = 0;
+		nextLineData.Defence = 0;
+		nextLineData.Medicine = 0;
+		nextLineData.UsePoison = 0;
+		nextLineData.Detoxification = 0;
+		nextLineData.AntiPoison = 0; 
+		nextLineData.Fist = 0; 
+		nextLineData.Sword = 0;
+		nextLineData.Knife = 0;
+		nextLineData.Unusual = 0;
+		nextLineData.HiddenWeapon = 0;
+		nextLineData.Knowledge = 0; 
+		nextLineData.Morality = 0;
+		nextLineData.AttackWithPoison = 0;
+		nextLineData.AttackTwice = 0;
+		nextLineData.Fame = 0;
+		nextLineData.IQ = 0;
+		nextLineData.PracticeItem = 0;
+		nextLineData.ExpForItem = 0;
+		nextLineData.xiangxing = 0;
+		nextLineData.jiaoqing = 0;
+		nextLineData.Rtype = 0;
+		nextLineData.swq = 0;
+		nextLineData.pdq = 0;
+		nextLineData.xxq = 0;
+		nextLineData.jqq = 0;
+		nextLineData.MenPai = 0;
+		nextLineData.shifu = 0;
+		nextLineData.scsx = 0;
+		nextLineData.bssx = 0;
+		nextLineData.Choushi[0] = 0;
+		nextLineData.Choushi[1] = 0;
+		nextLineData.weizhi = 0;
+		nextLineData.nweizhi = 0;
+		nextLineData.nfangxiang = 0;
+		nextLineData.OnStatus = 0;
+		nextLineData.lwq = 0;
+		nextLineData.msq = 0;
+		nextLineData.ldq = 0;
+		nextLineData.qtq = 0; 
+		nextLineData.lsweizhi = 0;
+		nextLineData.lsnweizhi = 0;
+		nextLineData.lsfangxiang = 0;
+		nextLineData.Sx = 0;
+		nextLineData.Sy = 0;
+		nextLineData.songshu = 0;
+		nextLineData.gongxian = 0;
+		nextLineData.unuse5 = 0;
+		nextLineData.unuse6 = 0;
+		nextLineData.unuse7 = 0;
+		nextLineData.unuse8 = 0;
+		nextLineData.unuse9 = 0;
+		nextLineData.btnum = 0; //记录年龄,备份年龄 //98
+		for (int j = 0; j < ROLE_MAGIC_COUNT; j++)
+		{
+			nextLineData.MagicID[j] = 0;
+		}
+		for (int j = 0; j < ROLE_MAGIC_COUNT; j++)
+		{
+			nextLineData.MagicLevel[j] = 0;
+		}
+		for (int j = 0; j < ROLE_TAKING_ITEM_COUNT; j++)
+		{
+			nextLineData.TakingItem[j] = 0;
+		}
+		for (int j = 0; j < ROLE_TAKING_ITEM_COUNT; j++)
+		{
+			nextLineData.TakingItemCount[j] = 0;
+		}
+		for (int j = 0; j < 10; j++)
+		{
+			nextLineData.JhMagic[j] = 0;
+		}
+		for (int j = 0; j < ROLE_MAGIC_COUNT; j++)
+		{
+			nextLineData.LZhaoshi[j] = 0;
+		}
+		nextLineData.MRevent = 0;
+		for (int j = 0; j < 8; j++)
+		{
+			nextLineData.AllEvent[j] = 0;
+		}
+		nextLineData.LeaveTime = 0;
+		nextLineData.LeaveEvent = 0;
+		nextLineData.LaoLian = 0;
+		nextLineData.QiangZhuang = 0;
+		nextLineData.NeiJia = 0;
+		nextLineData.QiangGong = 0;
+		nextLineData.JianGU = 0;
+		nextLineData.QingLing = 0;
+		nextLineData.QuanShi = 0;
+		nextLineData.JianKe = 0;
+		nextLineData.Daoke = 0;
+		nextLineData.YiBing = 0;
+		nextLineData.AnJian = 0;
+		nextLineData.YIShi = 0;
+		nextLineData.DuRen = 0;
+		nextLineData.HuiXue = 0;
+		nextLineData.HuiNei = 0;
+		nextLineData.HuiTI = 0;
+		nextLineData.BaoZao = 0;
+		nextLineData.PeiHe = 0;
+		nextLineData.WuXue = 0;
+		nextLineData.TuPo = 0;
+		nextLineData.LengJing = 0;
+		nextLineData.BaiBian = 0;
+		nextLineData.PoQi = 0;
+		nextLineData.ZhaoMen = 0;
+		nextLineData.BianHuan = 0;
+		nextLineData.FanGong = 0;
+		nextLineData.QiGong = 0;
+		nextLineData.YingGong = 0;
+		nextLineData.LingHuo = 0;
+		nextLineData.XingQi = 0;
+		nextLineData.ShenFa = 0;
+		nextLineData.FenFa = 0;
+		nextLineData.ZhanYi = 0;
+		nextLineData.JingZhun = 0;
+		nextLineData.JiSu = 0;
+		nextLineData.KuangBao = 0;
+		nextLineData.ShouFa = 0; 
+		nextLineData.LianHuan = 0;
+		nextLineData.WaJie = 0;
+		nextLineData.GuShou = 0; 
+		nextLineData.TianMing = 0;
+		nextLineData.XingXiu = 0;
+		for (int j = 0; j < 5; j++)
+		{
+			nextLineData.ZhuanChang[j] = 0;
+		}
+		for (int j = 0; j < 10; j++)
+		{
+			nextLineData.TeXing[j] = 0;
+		}
+		for (int j = 0; j < 10; j++)
+		{
+			nextLineData.unused[j] = 0;
+		}
         return nextLineData;
     };
     char* Name__;
@@ -1325,7 +1618,7 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
         nextLineData.ID,
         nextLineData.HeadID,
         nextLineData.IncLife,
-        nextLineData.UnUse,
+        nextLineData.Fuyuan,
         Name__,
         Nick__,
         nextLineData.Sexual,
@@ -1336,75 +1629,297 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
         nextLineData.Hurt,
         nextLineData.Poison,
         nextLineData.PhysicalPower,
+		nextLineData.FightNum,
         nextLineData.ExpForMakeItem,
-        nextLineData.Equip0,
-        nextLineData.Equip1,
-        nextLineData.Frame[0],
-        nextLineData.Frame[1],
-        nextLineData.Frame[2],
-        nextLineData.Frame[3],
-        nextLineData.Frame[4],
-        nextLineData.Frame[5],
-        nextLineData.Frame[6],
-        nextLineData.Frame[7],
-        nextLineData.Frame[8],
-        nextLineData.Frame[9],
-        nextLineData.Frame[10],
-        nextLineData.Frame[11],
-        nextLineData.Frame[12],
-        nextLineData.Frame[13],
-        nextLineData.Frame[14],
-        nextLineData.MPType,
-        nextLineData.MP,
-        nextLineData.MaxMP,
-        nextLineData.Attack,
-        nextLineData.Speed,
-        nextLineData.Defence,
-        nextLineData.Medicine,
-        nextLineData.UsePoison,
-        nextLineData.Detoxification,
-        nextLineData.AntiPoison,
-        nextLineData.Fist,
-        nextLineData.Sword,
-        nextLineData.Knife,
-        nextLineData.Unusual,
-        nextLineData.HiddenWeapon,
-        nextLineData.Knowledge,
-        nextLineData.Morality,
-        nextLineData.AttackWithPoison,
-        nextLineData.AttackTwice,
-        nextLineData.Fame,
-        nextLineData.IQ,
-        nextLineData.PracticeItem,
-        nextLineData.ExpForItem,
-        nextLineData.MagicID[0],
-        nextLineData.MagicID[1],
-        nextLineData.MagicID[2],
-        nextLineData.MagicID[3],
-        nextLineData.MagicID[4],
-        nextLineData.MagicID[5],
-        nextLineData.MagicID[6],
-        nextLineData.MagicID[7],
-        nextLineData.MagicID[8],
-        nextLineData.MagicID[9],
-        nextLineData.MagicLevel[0],
-        nextLineData.MagicLevel[1],
-        nextLineData.MagicLevel[2],
-        nextLineData.MagicLevel[3],
-        nextLineData.MagicLevel[4],
-        nextLineData.MagicLevel[5],
-        nextLineData.MagicLevel[6],
-        nextLineData.MagicLevel[7],
-        nextLineData.MagicLevel[8],
-        nextLineData.MagicLevel[9],
-        nextLineData.TakingItem[0],
-        nextLineData.TakingItem[1],
-        nextLineData.TakingItem[2],
-        nextLineData.TakingItem[3],
-        nextLineData.TakingItemCount[0],
-        nextLineData.TakingItemCount[1],
-        nextLineData.TakingItemCount[2],
-        nextLineData.TakingItemCount[3]))
+        nextLineData.Equip[0],
+        nextLineData.Equip[1],
+		nextLineData.Equip[2],
+		nextLineData.Equip[3],
+		nextLineData.Gongti,
+		nextLineData.TeamState,
+		nextLineData.Angry,
+		nextLineData.isRandomed,
+		nextLineData.Moveable,
+		nextLineData.In_HeadNum,
+		nextLineData.ZhanLueAI,
+		nextLineData.Impression,
+		nextLineData.dtime,
+		nextLineData.difficulty,
+		nextLineData.Zhongcheng,
+		nextLineData.reHurt,
+		nextLineData.MPType,
+		nextLineData.MP,
+		nextLineData.MaxMP,
+		nextLineData.Attack,
+		nextLineData.Speed,
+		nextLineData.Defence,
+		nextLineData.Medicine,
+		nextLineData.UsePoison,
+		nextLineData.Detoxification,
+		nextLineData.AntiPoison,
+		nextLineData.Fist,
+		nextLineData.Sword,
+		nextLineData.Knife,
+		nextLineData.Unusual,
+		nextLineData.HiddenWeapon,
+		nextLineData.Knowledge,
+		nextLineData.Morality,
+		nextLineData.AttackWithPoison,
+		nextLineData.AttackTwice,
+		nextLineData.Fame,
+		nextLineData.IQ,
+		nextLineData.PracticeItem,
+		nextLineData.ExpForItem,
+		nextLineData.xiangxing,
+		nextLineData.jiaoqing,
+		nextLineData.Rtype,
+		nextLineData.swq,
+		nextLineData.pdq,
+		nextLineData.xxq,
+		nextLineData.jqq,
+		nextLineData.MenPai,
+		nextLineData.shifu,
+		nextLineData.scsx,
+		nextLineData.bssx,
+		nextLineData.Choushi[0],
+		nextLineData.Choushi[1],
+		nextLineData.weizhi,
+		nextLineData.nweizhi,
+		nextLineData.nfangxiang,
+		nextLineData.OnStatus,
+		nextLineData.lwq,
+		nextLineData.msq,
+		nextLineData.ldq,
+		nextLineData.qtq,
+		nextLineData.lsweizhi,
+		nextLineData.lsnweizhi,
+		nextLineData.lsfangxiang,
+		nextLineData.Sx,
+		nextLineData.Sy,
+		nextLineData.songshu,
+		nextLineData.gongxian,
+		nextLineData.unuse5,
+		nextLineData.unuse6,
+		nextLineData.unuse7,
+		nextLineData.unuse8,
+		nextLineData.unuse9,
+		nextLineData.btnum, //记录年龄,备份年龄 //98
+		nextLineData.MagicID[0],
+		nextLineData.MagicID[1],
+		nextLineData.MagicID[2],
+		nextLineData.MagicID[3],
+		nextLineData.MagicID[4],
+		nextLineData.MagicID[5],
+		nextLineData.MagicID[6],
+		nextLineData.MagicID[7],
+		nextLineData.MagicID[8],
+		nextLineData.MagicID[9],
+		nextLineData.MagicID[10],
+		nextLineData.MagicID[11],
+			nextLineData.MagicID[12],
+			nextLineData.MagicID[13],
+			nextLineData.MagicID[14],
+			nextLineData.MagicID[15],
+			nextLineData.MagicID[16],
+			nextLineData.MagicID[17],
+			nextLineData.MagicID[18],
+			nextLineData.MagicID[19],
+			nextLineData.MagicID[20],
+			nextLineData.MagicID[21],
+			nextLineData.MagicID[22],
+			nextLineData.MagicID[23],
+			nextLineData.MagicID[24],
+			nextLineData.MagicID[25],
+			nextLineData.MagicID[26],
+			nextLineData.MagicID[27],
+			nextLineData.MagicID[28],
+			nextLineData.MagicID[29],
+			nextLineData.MagicID[30],
+			nextLineData.MagicID[31],
+			nextLineData.MagicID[32],
+			nextLineData.MagicID[33],
+			nextLineData.MagicID[34],
+			nextLineData.MagicID[35],
+			nextLineData.MagicID[36],
+			nextLineData.MagicID[37],
+			nextLineData.MagicID[38],
+			nextLineData.MagicID[39],
+			nextLineData.MagicLevel[0],
+			nextLineData.MagicLevel[1],
+			nextLineData.MagicLevel[2],
+			nextLineData.MagicLevel[3],
+			nextLineData.MagicLevel[4],
+			nextLineData.MagicLevel[5],
+			nextLineData.MagicLevel[6],
+			nextLineData.MagicLevel[7],
+			nextLineData.MagicLevel[8],
+			nextLineData.MagicLevel[9],
+			nextLineData.MagicLevel[10],
+			nextLineData.MagicLevel[11],
+			nextLineData.MagicLevel[12],
+			nextLineData.MagicLevel[13],
+			nextLineData.MagicLevel[14],
+			nextLineData.MagicLevel[15],
+			nextLineData.MagicLevel[16],
+			nextLineData.MagicLevel[17],
+			nextLineData.MagicLevel[18],
+			nextLineData.MagicLevel[19],
+			nextLineData.MagicLevel[20],
+			nextLineData.MagicLevel[21],
+			nextLineData.MagicLevel[22],
+			nextLineData.MagicLevel[23],
+			nextLineData.MagicLevel[24],
+			nextLineData.MagicLevel[25],
+			nextLineData.MagicLevel[26],
+			nextLineData.MagicLevel[27],
+			nextLineData.MagicLevel[28],
+			nextLineData.MagicLevel[29],
+			nextLineData.MagicLevel[30],
+			nextLineData.MagicLevel[31],
+			nextLineData.MagicLevel[32],
+			nextLineData.MagicLevel[33],
+			nextLineData.MagicLevel[34],
+			nextLineData.MagicLevel[35],
+			nextLineData.MagicLevel[36],
+			nextLineData.MagicLevel[37],
+			nextLineData.MagicLevel[38],
+			nextLineData.MagicLevel[39],
+			nextLineData.TakingItem[0],
+			nextLineData.TakingItem[1],
+			nextLineData.TakingItem[2],
+			nextLineData.TakingItem[3],
+			nextLineData.TakingItemCount[0],
+			nextLineData.TakingItemCount[1],
+			nextLineData.TakingItemCount[2],
+			nextLineData.TakingItemCount[3],
+			nextLineData.JhMagic[0],
+			nextLineData.JhMagic[1],
+			nextLineData.JhMagic[2],
+			nextLineData.JhMagic[3],
+			nextLineData.JhMagic[4],
+			nextLineData.JhMagic[5],
+			nextLineData.JhMagic[6],
+			nextLineData.JhMagic[7],
+			nextLineData.JhMagic[8],
+			nextLineData.JhMagic[9],
+			nextLineData.LZhaoshi[0],
+			nextLineData.LZhaoshi[1],
+			nextLineData.LZhaoshi[2],
+			nextLineData.LZhaoshi[3],
+			nextLineData.LZhaoshi[4],
+			nextLineData.LZhaoshi[5],
+			nextLineData.LZhaoshi[6],
+			nextLineData.LZhaoshi[7],
+			nextLineData.LZhaoshi[8],
+			nextLineData.LZhaoshi[9],
+			nextLineData.LZhaoshi[10],
+			nextLineData.LZhaoshi[11],
+			nextLineData.LZhaoshi[12],
+			nextLineData.LZhaoshi[13],
+			nextLineData.LZhaoshi[14],
+			nextLineData.LZhaoshi[15],
+			nextLineData.LZhaoshi[16],
+			nextLineData.LZhaoshi[17],
+			nextLineData.LZhaoshi[18],
+			nextLineData.LZhaoshi[19],
+			nextLineData.LZhaoshi[20],
+			nextLineData.LZhaoshi[21],
+			nextLineData.LZhaoshi[22],
+			nextLineData.LZhaoshi[23],
+			nextLineData.LZhaoshi[24],
+			nextLineData.LZhaoshi[25],
+			nextLineData.LZhaoshi[26],
+			nextLineData.LZhaoshi[27],
+			nextLineData.LZhaoshi[28],
+			nextLineData.LZhaoshi[29],
+			nextLineData.LZhaoshi[30],
+			nextLineData.LZhaoshi[31],
+			nextLineData.LZhaoshi[32],
+			nextLineData.LZhaoshi[33],
+			nextLineData.LZhaoshi[34],
+			nextLineData.LZhaoshi[35],
+			nextLineData.LZhaoshi[36],
+			nextLineData.LZhaoshi[37],
+			nextLineData.LZhaoshi[38],
+			nextLineData.LZhaoshi[39],
+			nextLineData.MRevent,
+			nextLineData.AllEvent[0],
+			nextLineData.AllEvent[1],
+			nextLineData.AllEvent[2],
+			nextLineData.AllEvent[3],
+			nextLineData.AllEvent[4],
+			nextLineData.AllEvent[5],
+			nextLineData.AllEvent[6],
+			nextLineData.AllEvent[7],
+		nextLineData.LeaveTime,
+		nextLineData.LeaveEvent,
+		nextLineData.LaoLian,
+		nextLineData.QiangZhuang,
+		nextLineData.NeiJia,
+		nextLineData.QiangGong,
+		nextLineData.JianGU,
+		nextLineData.QingLing,
+		nextLineData.QuanShi,
+		nextLineData.JianKe,
+		nextLineData.Daoke,
+		nextLineData.YiBing,
+		nextLineData.AnJian,
+		nextLineData.YIShi,
+		nextLineData.DuRen,
+		nextLineData.HuiXue,
+		nextLineData.HuiNei,
+		nextLineData.HuiTI,
+		nextLineData.BaoZao,
+		nextLineData.PeiHe,
+		nextLineData.WuXue,
+		nextLineData.TuPo,
+		nextLineData.LengJing,
+		nextLineData.BaiBian,
+		nextLineData.PoQi,
+		nextLineData.ZhaoMen,
+		nextLineData.BianHuan,
+		nextLineData.FanGong,
+		nextLineData.QiGong,
+		nextLineData.YingGong,
+		nextLineData.LingHuo,
+		nextLineData.XingQi,
+		nextLineData.ShenFa,
+		nextLineData.FenFa,
+		nextLineData.ZhanYi,
+		nextLineData.JingZhun,
+		nextLineData.JiSu,
+		nextLineData.KuangBao,
+		nextLineData.ShouFa,
+		nextLineData.LianHuan,
+		nextLineData.WaJie,
+		nextLineData.GuShou,
+		nextLineData.TianMing,
+		nextLineData.XingXiu,
+		nextLineData.ZhuanChang[0],
+			nextLineData.ZhuanChang[1],
+			nextLineData.ZhuanChang[2],
+			nextLineData.ZhuanChang[3],
+			nextLineData.ZhuanChang[4],
+				nextLineData.TeXing[0],
+				nextLineData.TeXing[1],
+				nextLineData.TeXing[2],
+				nextLineData.TeXing[3],
+				nextLineData.TeXing[4],
+				nextLineData.TeXing[5],
+				nextLineData.TeXing[6],
+				nextLineData.TeXing[7],
+				nextLineData.TeXing[8],
+				nextLineData.TeXing[9],
+				nextLineData.unused[0],
+				nextLineData.unused[1],
+				nextLineData.unused[2],
+				nextLineData.unused[3],
+				nextLineData.unused[4],
+				nextLineData.unused[5],
+				nextLineData.unused[6],
+				nextLineData.unused[7],
+				nextLineData.unused[8],
+				nextLineData.unused[9]))
     {
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         strncpy(nextLineData.Nick, Nick__, sizeof(nextLineData.Nick) - 1);
@@ -1412,94 +1927,111 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
         lines++;
         nextLineData = getDefault();
     }
+	
 }
 // 物品
 void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
 {
     data.clear();
-    io::CSVReader<72, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_物品.csv");
+    io::CSVReader<82, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_物品.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-        "编号",
-        "物品名",
-        "物品名无用1",
-        "物品名无用2",
-        "物品名无用3",
-        "物品名无用4",
-        "物品名无用5",
-        "物品名无用6",
-        "物品名无用7",
-        "物品名无用8",
-        "物品名无用9",
-        "物品名无用10",
-        "物品说明",
-        "练出武功",
-        "暗器动画编号",
-        "使用人",
-        "装备类型",
-        "显示物品说明",
-        "物品类型",
-        "未知5",
-        "未知6",
-        "未知7",
-        "加生命",
-        "加生命最大值",
-        "加中毒解毒",
-        "加体力",
-        "改变内力性质",
-        "加内力",
-        "加内力最大值",
-        "加攻击力",
-        "加轻功",
-        "加防御力",
-        "加医疗",
-        "加使毒",
-        "加解毒",
-        "加抗毒",
-        "加拳掌",
-        "加御剑",
-        "加耍刀",
-        "加特殊兵器",
-        "加暗器技巧",
-        "加武学常识",
-        "加品德",
-        "加左右互搏",
-        "加攻击带毒",
-        "仅修炼人物",
-        "需内力性质",
-        "需内力",
-        "需攻击力",
-        "需轻功",
-        "需用毒",
-        "需医疗",
-        "需解毒",
-        "需拳掌",
-        "需御剑",
-        "需耍刀",
-        "需特殊兵器",
-        "需暗器",
-        "需资质",
-        "需经验",
-        "练出物品需经验",
-        "需材料",
-        "练出物品1",
-        "练出物品2",
-        "练出物品3",
-        "练出物品4",
-        "练出物品5",
-        "练出物品数量1",
-        "练出物品数量2",
-        "练出物品数量3",
-        "练出物品数量4",
-        "练出物品数量5");
+		"编号",
+		"物品名",
+		"物品武功經驗",
+		"套裝號",
+		"戰斗特效",
+		"增加標簽",
+		"要求性別",
+		"恢復傷勢",
+		"需品德",
+		"需聲望",
+		"增加潛力值",
+		"戰場號",
+		"物品說明",
+		"練出武功",
+		"暗器動畫編號",
+		"使用人",
+		"裝備類型",
+		"顯示物品說明",
+		"類型",
+		"商店庫存",
+		"售價",
+		"調用事件",
+		"加生命",
+		"加生命最大值",
+		"加中毒解毒",
+		"加體力",
+		"改變內力性質",
+		"加內力",
+		"加內力最大值",
+		"加攻擊力",
+		"加輕功",
+		"加防御力",
+		"加醫療",
+		"加使毒",
+		"加技藝",
+		"加抗毒",
+		"加拳掌",
+		"加御劍",
+		"加耍刀",
+		"加特殊兵器",
+		"加暗器技巧",
+		"加武學常識",
+		"加品德",
+		"需生命",
+		"加功夫帶毒",
+		"僅修煉人物",
+		"需內力性質",
+		"需內力",
+		"需攻擊力",
+		"需輕功",
+		"需毒術",
+		"需醫療",
+		"需技藝",
+		"需拳掌",
+		"需御劍",
+		"需耍刀",
+		"需特殊兵器",
+		"需暗器",
+		"需資質",
+		"需經驗",
+		"數量",
+		"稀有度",
+		"所需物品1",
+		"所需物品2",
+		"所需物品3",
+		"所需物品4",
+		"所需物品5",
+		"需要物品1數量",
+		"需要物品2數量",
+		"需要物品3數量",
+		"需要物品4數量",
+		"需要物品5數量",
+		"加資質",
+		"加富源",
+		"未使用",
+		"未使用1",
+		"未使用2",
+		"未使用3",
+		"未使用4",
+		"未使用5",
+		"未使用6",
+		"未使用7");
     auto getDefault = []()
     {
         Item nextLineData;
         nextLineData.ID = 0;
         memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
-        for (int j = 0; j < 10; j++)
-        {
-            nextLineData.Name1[j] = 0;
-        }
+		nextLineData.ExpofMagic = 0;
+		nextLineData.SetNum = 0;
+		nextLineData.BattleBattleEffect = 0;
+		nextLineData.AddSign = 0;
+		nextLineData.needSex = 0;
+		nextLineData.rehurt = 0;
+		nextLineData.NeedEthics = 0;
+		nextLineData.NeedRepute = 0;
+		nextLineData.AddQianli = 0;
+		nextLineData.BattleNum = 0;
         memset(nextLineData.Introduction, '\0', sizeof(nextLineData.Introduction));
         nextLineData.MagicID = -1;
         nextLineData.HiddenWeaponEffectID = -1;
@@ -1507,9 +2039,9 @@ void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
         nextLineData.EquipType = -1;
         nextLineData.ShowIntroduction = 0;
         nextLineData.ItemType = 0;
-        nextLineData.UnKnown5 = 0;
-        nextLineData.UnKnown6 = 0;
-        nextLineData.UnKnown7 = 0;
+        nextLineData.Inventory = 0; 
+        nextLineData.Price = 0;
+        nextLineData.EventNum = 0;
         nextLineData.AddHP = 0;
         nextLineData.AddMaxHP = 0;
         nextLineData.AddPoison = 0;
@@ -1558,6 +2090,12 @@ void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
         {
             nextLineData.MakeItemCount[j] = 0;
         }
+		nextLineData.AddIQ = 0;
+		nextLineData.AddFuyuan = 0;
+		for (int j = 0; j < 8; j++)
+		{
+			nextLineData.Unused[j] = 0;
+		}
         return nextLineData;
     };
     char* Name__;
@@ -1567,16 +2105,16 @@ void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
     while (in.read_row(
         nextLineData.ID,
         Name__,
-        nextLineData.Name1[0],
-        nextLineData.Name1[1],
-        nextLineData.Name1[2],
-        nextLineData.Name1[3],
-        nextLineData.Name1[4],
-        nextLineData.Name1[5],
-        nextLineData.Name1[6],
-        nextLineData.Name1[7],
-        nextLineData.Name1[8],
-        nextLineData.Name1[9],
+		nextLineData.ExpofMagic ,
+	nextLineData.SetNum ,
+	nextLineData.BattleBattleEffect ,
+	nextLineData.AddSign ,
+	nextLineData.needSex ,
+	nextLineData.rehurt ,
+	nextLineData.NeedEthics ,
+	nextLineData.NeedRepute ,
+	nextLineData.AddQianli ,
+	nextLineData.BattleNum ,
         Introduction__,
         nextLineData.MagicID,
         nextLineData.HiddenWeaponEffectID,
@@ -1584,9 +2122,9 @@ void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
         nextLineData.EquipType,
         nextLineData.ShowIntroduction,
         nextLineData.ItemType,
-        nextLineData.UnKnown5,
-        nextLineData.UnKnown6,
-        nextLineData.UnKnown7,
+		nextLineData.Inventory,
+	nextLineData.Price,
+	nextLineData.EventNum,
         nextLineData.AddHP,
         nextLineData.AddMaxHP,
         nextLineData.AddPoison,
@@ -1636,7 +2174,17 @@ void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
         nextLineData.MakeItemCount[1],
         nextLineData.MakeItemCount[2],
         nextLineData.MakeItemCount[3],
-        nextLineData.MakeItemCount[4]))
+        nextLineData.MakeItemCount[4],
+		nextLineData.AddIQ,
+		nextLineData.AddFuyuan,
+		nextLineData.Unused[0],
+		nextLineData.Unused[1],
+		nextLineData.Unused[2],
+		nextLineData.Unused[3],
+		nextLineData.Unused[4],
+		nextLineData.Unused[5],
+		nextLineData.Unused[6],
+		nextLineData.Unused[7]))
     {
         strncpy(nextLineData.Introduction, Introduction__, sizeof(nextLineData.Introduction) - 1);
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
@@ -1644,35 +2192,105 @@ void NewSave::LoadCSVItemSave(std::vector<Item>& data, int record)
         lines++;
         nextLineData = getDefault();
     }
+	
 }
 // 场景
 void NewSave::LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
 {
     data.clear();
-    io::CSVReader<22, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_场景.csv");
+    io::CSVReader<91, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_场景.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-        "编号",
-        "名称",
-        "出门音乐",
-        "进门音乐",
-        "跳转场景",
-        "进入条件",
-        "外景入口X1",
-        "外景入口Y1",
-        "外景入口X2",
-        "外景入口Y2",
-        "入口X",
-        "入口Y",
-        "出口X1",
-        "出口X2",
-        "出口X3",
-        "出口Y1",
-        "出口Y2",
-        "出口Y3",
-        "跳转X",
-        "跳转Y",
-        "跳转返还X",
-        "跳转返还Y");
+		"编号",
+		"名稱",
+		"出門音樂",
+		"進門音樂",
+		"場景調色板",
+		"進入條件",
+		"外景入口X1",
+		"外景入口Y1",
+		"外景入口X2",
+		"外景入口Y2",
+		"入口X",
+		"入口Y",
+		"出口X1",
+		"出口X2",
+		"出口X3",
+		"出口Y1",
+		"出口Y2",
+		"出口Y3",
+		"環境",
+		"未用",
+		"所屬門派",
+		"戰斗中",
+		"總練武場數",
+		"練武場數",
+		"總藏經閣數",
+		"藏經閣數",
+		"練武場X",
+		"練武場X1",
+		"練武場X2",
+		"練武場X3",
+		"練武場X4",
+		"練武場Y",
+		"練武場Y1",
+		"練武場Y2",
+		"練武場Y3",
+		"練武場Y4",
+		"藏經閣X",
+		"藏經閣X1",
+		"藏經閣X2",
+		"藏經閣X3",
+		"藏經閣X4",
+		"藏經閣Y",
+		"藏經閣Y1",
+		"藏經閣Y2",
+		"藏經閣Y3",
+		"藏經閣Y4",
+		"閉關室開關",
+		"閉關室X",
+		"閉關室Y",
+		"煉丹爐開關",
+		"煉丹爐X",
+		"煉丹爐Y",
+		"兵器場開關",
+		"兵器場X",
+		"兵器場Y",
+		"旗幟X",
+		"旗幟Y",
+		"煉丹進度",
+		"鍛造進度",
+		"防御加成",
+		"防御設施",
+		"鐵礦",
+		"石料",
+		"木材",
+		"食物",
+		"焦炭",
+		"草藥",
+		"烏木",
+		"異草",
+		"稀金",
+		"玄鐵",
+		"連接",
+		"連接1",
+		"連接2",
+		"連接3",
+		"連接4",
+		"連接5",
+		"連接6",
+		"連接7",
+		"連接8",
+		"連接9",
+		"未使用",
+		"未使用1",
+		"未使用2",
+		"未使用3",
+		"未使用4",
+		"未使用5",
+		"未使用6",
+		"未使用7",
+		"未使用8",
+		"未使用9");
     auto getDefault = []()
     {
         SubMapInfo nextLineData;
@@ -1696,10 +2314,79 @@ void NewSave::LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
         {
             nextLineData.ExitY[j] = -1;
         }
-        nextLineData.JumpX = 0;
-        nextLineData.JumpY = 0;
-        nextLineData.JumpReturnX = 0;
-        nextLineData.JumpReturnY = 0;
+		nextLineData.Mapmode = 0;
+			nextLineData.unuse = 0; 
+			nextLineData.menpai = 0;
+			nextLineData.inbattle = 0;
+			nextLineData.zlwc = 0; 
+			nextLineData.lwc = 0; 
+			nextLineData.zcjg = 0; 
+			nextLineData.cjg = 0;
+			nextLineData.lwcx[0] = 0;
+			nextLineData.lwcx[1] = 0;
+			nextLineData.lwcx[2] = 0;
+			nextLineData.lwcx[3] = 0;
+			nextLineData.lwcx[4] = 0;
+			nextLineData.lwcy[0] = 0;
+			nextLineData.lwcy[1] = 0;
+			nextLineData.lwcy[2] = 0;
+			nextLineData.lwcy[3] = 0;
+			nextLineData.lwcy[4] = 0;
+			nextLineData.cjgx[0] = 0;
+			nextLineData.cjgx[1] = 0;
+			nextLineData.cjgx[2] = 0;
+			nextLineData.cjgx[3] = 0;
+			nextLineData.cjgx[4] = 0;
+			nextLineData.cjgy[0] = 0;
+			nextLineData.cjgy[1] = 0;
+			nextLineData.cjgy[2] = 0;
+			nextLineData.cjgy[3] = 0;
+			nextLineData.cjgy[4] = 0;
+			nextLineData.bgskg = 0;
+			nextLineData.bgsx = 0;
+			nextLineData.bgsy = 0;
+			nextLineData.ldlkg = 0;
+			nextLineData.ldlx = 0; 
+			nextLineData.ldly = 0;
+			nextLineData.bqckg = 0;
+			nextLineData.bqcx = 0;
+			nextLineData.bqcy = 0;
+			nextLineData.qizhix = 0;
+			nextLineData.qizhiy = 0;
+			nextLineData.ldjd = 0;
+			nextLineData.dzjd = 0;
+			nextLineData.fyjc = 0;
+			nextLineData.fyss = 0;
+			nextLineData.addziyuan[0] = 0;
+			nextLineData.addziyuan[1] = 0;
+			nextLineData.addziyuan[2] = 0;
+			nextLineData.addziyuan[3] = 0;
+			nextLineData.addziyuan[4] = 0;
+			nextLineData.addziyuan[5] = 0;
+			nextLineData.addziyuan[6] = 0;
+			nextLineData.addziyuan[7] = 0;
+			nextLineData.addziyuan[8] = 0;
+			nextLineData.addziyuan[9] = 0;
+			nextLineData.lianjie[0] = 0;
+			nextLineData.lianjie[1] = 0;
+			nextLineData.lianjie[2] = 0;
+			nextLineData.lianjie[3] = 0;
+			nextLineData.lianjie[4] = 0;
+			nextLineData.lianjie[5] = 0;
+			nextLineData.lianjie[6] = 0;
+			nextLineData.lianjie[7] = 0;
+			nextLineData.lianjie[8] = 0;
+			nextLineData.lianjie[9] = 0;
+			nextLineData.unused[0] = 0;
+			nextLineData.unused[1] = 0;
+			nextLineData.unused[2] = 0;
+			nextLineData.unused[3] = 0;
+			nextLineData.unused[4] = 0;
+			nextLineData.unused[5] = 0;
+			nextLineData.unused[6] = 0;
+			nextLineData.unused[7] = 0;
+			nextLineData.unused[8] = 0;
+			nextLineData.unused[9] = 0;
         return nextLineData;
     };
     char* Name__;
@@ -1724,10 +2411,79 @@ void NewSave::LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
         nextLineData.ExitY[0],
         nextLineData.ExitY[1],
         nextLineData.ExitY[2],
-        nextLineData.JumpX,
-        nextLineData.JumpY,
-        nextLineData.JumpReturnX,
-        nextLineData.JumpReturnY))
+		nextLineData.Mapmode,
+		nextLineData.unuse,
+		nextLineData.menpai,
+		nextLineData.inbattle,
+		nextLineData.zlwc,
+		nextLineData.lwc,
+		nextLineData.zcjg,
+		nextLineData.cjg,
+		nextLineData.lwcx[0],
+		nextLineData.lwcx[1],
+		nextLineData.lwcx[2],
+		nextLineData.lwcx[3],
+		nextLineData.lwcx[4],
+		nextLineData.lwcy[0],
+		nextLineData.lwcy[1],
+		nextLineData.lwcy[2],
+		nextLineData.lwcy[3],
+		nextLineData.lwcy[4],
+		nextLineData.cjgx[0],
+		nextLineData.cjgx[1],
+		nextLineData.cjgx[2],
+		nextLineData.cjgx[3],
+		nextLineData.cjgx[4],
+		nextLineData.cjgy[0],
+		nextLineData.cjgy[1],
+		nextLineData.cjgy[2],
+		nextLineData.cjgy[3],
+		nextLineData.cjgy[4],
+		nextLineData.bgskg,
+		nextLineData.bgsx,
+		nextLineData.bgsy,
+		nextLineData.ldlkg,
+		nextLineData.ldlx,
+		nextLineData.ldly,
+		nextLineData.bqckg,
+		nextLineData.bqcx,
+		nextLineData.bqcy,
+		nextLineData.qizhix,
+		nextLineData.qizhiy,
+		nextLineData.ldjd,
+		nextLineData.dzjd,
+		nextLineData.fyjc,
+		nextLineData.fyss,
+		nextLineData.addziyuan[0],
+		nextLineData.addziyuan[1],
+		nextLineData.addziyuan[2],
+		nextLineData.addziyuan[3],
+		nextLineData.addziyuan[4],
+		nextLineData.addziyuan[5],
+		nextLineData.addziyuan[6],
+		nextLineData.addziyuan[7],
+		nextLineData.addziyuan[8],
+		nextLineData.addziyuan[9],
+		nextLineData.lianjie[0],
+		nextLineData.lianjie[1],
+		nextLineData.lianjie[2],
+		nextLineData.lianjie[3],
+		nextLineData.lianjie[4],
+		nextLineData.lianjie[5],
+		nextLineData.lianjie[6],
+		nextLineData.lianjie[7],
+		nextLineData.lianjie[8],
+		nextLineData.lianjie[9],
+		nextLineData.unused[0],
+		nextLineData.unused[1],
+		nextLineData.unused[2],
+		nextLineData.unused[3],
+		nextLineData.unused[4],
+		nextLineData.unused[5],
+		nextLineData.unused[6],
+		nextLineData.unused[7],
+		nextLineData.unused[8],
+		nextLineData.unused[9]))
     {
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         data.push_back(nextLineData);
@@ -1739,81 +2495,133 @@ void NewSave::LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record)
 void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
 {
     data.clear();
-    io::CSVReader<64, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_武功.csv");
+    io::CSVReader<114, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_武功.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-        "编号",
-        "名称",
-        "未知1",
-        "未知2",
-        "未知3",
-        "未知4",
-        "未知5",
-        "出招音效",
-        "武功类型",
-        "武功动画",
-        "伤害类型",
-        "攻击范围类型",
-        "消耗内力",
-        "敌人中毒",
-        "威力1",
-        "威力2",
-        "威力3",
-        "威力4",
-        "威力5",
-        "威力6",
-        "威力7",
-        "威力8",
-        "威力9",
-        "威力10",
-        "移动范围1",
-        "移动范围2",
-        "移动范围3",
-        "移动范围4",
-        "移动范围5",
-        "移动范围6",
-        "移动范围7",
-        "移动范围8",
-        "移动范围9",
-        "移动范围10",
-        "杀伤范围1",
-        "杀伤范围2",
-        "杀伤范围3",
-        "杀伤范围4",
-        "杀伤范围5",
-        "杀伤范围6",
-        "杀伤范围7",
-        "杀伤范围8",
-        "杀伤范围9",
-        "杀伤范围10",
-        "加内力1",
-        "加内力2",
-        "加内力3",
-        "加内力4",
-        "加内力5",
-        "加内力6",
-        "加内力7",
-        "加内力8",
-        "加内力9",
-        "加内力10",
-        "杀伤内力1",
-        "杀伤内力2",
-        "杀伤内力3",
-        "杀伤内力4",
-        "杀伤内力5",
-        "杀伤内力6",
-        "杀伤内力7",
-        "杀伤内力8",
-        "杀伤内力9",
-        "杀伤内力10");
+		"编号",
+		"名稱",
+		"無用",
+		"秘笈",
+		"需要生命",
+		"最小距離",
+		"是否單圖特效",
+		"事件",
+		"出招音效",
+		"武功類型",
+		"武功動畫&音效",
+		"內力類型",
+		"攻擊范圍",
+		"消耗內力點數",
+		"敵人中毒點數",
+		"最小攻擊力",
+		"最大攻擊力",
+		"威力系數",
+		"攻擊力比重",
+		"內力比重",
+		"輕功比重",
+		"兵器值比重",
+		"是否秘傳",
+		"加內力比例",
+		"加生命比例",
+		"1級移動范圍",
+		"2級移動范圍",
+		"3級移動范圍",
+		"4級移動范圍",
+		"5級移動范圍",
+		"6級移動范圍",
+		"7級移動范圍",
+		"8級移動范圍",
+		"9級移動范圍",
+		"10級移動范圍",
+		"1級殺傷范圍",
+		"2級殺傷范圍",
+		"3級殺傷范圍",
+		"4級殺傷范圍",
+		"5級殺傷范圍",
+		"6級殺傷范圍",
+		"7級殺傷范圍",
+		"8級殺傷范圍",
+		"9級殺傷范圍",
+		"10級殺傷范圍",
+		"1級加生命",
+		"2級加生命",
+		"3級加生命",
+		"1級加內力",
+		"2級加內力",
+		"3級加內力",
+		"1級加攻擊",
+		"2級加攻擊",
+		"3級加攻擊",
+		"1級加防御",
+		"2級加防御",
+		"3級加防御",
+		"1級加輕功",
+		"2級加輕功",
+		"3級加輕功",
+		"最小封穴幾率",
+		"最大封穴幾率",
+		"最小內傷幾率",
+		"最大內傷幾率",
+		"增加醫療",
+		"增加毒術",
+		"增加技藝",
+		"增加抗毒",
+		"增加拳掌",
+		"增加御劍",
+		"增加耍刀",
+		"增加特殊",
+		"增加暗器",
+		"狀態",
+		"1級需經驗",
+		"2級需經驗",
+		"3級需經驗",
+		"最高等級",
+		"說明",
+		"招式",
+		"招式1",
+		"招式2",
+		"招式3",
+		"招式4",
+		"特殊",
+		"特殊1",
+		"特殊2",
+		"特殊3",
+		"特殊4",
+		"特殊5",
+		"特殊6",
+		"特殊7",
+		"特殊8",
+		"特殊9",
+		"特殊類型",
+		"特殊類型1",
+		"特殊類型2",
+		"特殊類型3",
+		"特殊類型4",
+		"特殊類型5",
+		"特殊類型6",
+		"特殊類型7",
+		"特殊類型8",
+		"特殊類型9",
+		"需要貢獻",
+		"未使用",
+		"未使用1",
+		"未使用2",
+		"未使用3",
+		"未使用4",
+		"未使用5",
+		"未使用6",
+		"未使用7",
+		"未使用8");
     auto getDefault = []()
     {
         Magic nextLineData;
         nextLineData.ID = 0;
         memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
-        for (int j = 0; j < 5; j++)
-        {
-            nextLineData.Unknown[j] = 0;
-        }
+		nextLineData.useness = 0;
+			nextLineData.miji = 0;
+			nextLineData.NeedHP = 0;
+			nextLineData.MinStep = 0;
+			nextLineData.bigami = 0;
+			nextLineData.EventNum = 0;
         nextLineData.SoundID = 0;
         nextLineData.MagicType = 0;
         nextLineData.EffectID = 0;
@@ -1821,10 +2629,17 @@ void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
         nextLineData.AttackAreaType = 0;
         nextLineData.NeedMP = 0;
         nextLineData.WithPoison = 0;
-        for (int j = 0; j < 10; j++)
-        {
-            nextLineData.Attack[j] = 0;
-        }
+		nextLineData.MinHurt = 0;
+			nextLineData.MaxHurt = 0;
+			nextLineData.HurtModulus = 0;
+			nextLineData.AttackModulus = 0;
+			nextLineData.MPModulus = 0;
+			nextLineData.SpeedModulus = 0;
+			nextLineData.WeaponModulus = 0;
+		nextLineData.Ismichuan = 0;
+			nextLineData.AddMpScale = 0;
+			nextLineData.AddHpScale = 0;
+
         for (int j = 0; j < 10; j++)
         {
             nextLineData.SelectDistance[j] = 0;
@@ -1833,27 +2648,75 @@ void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
         {
             nextLineData.AttackDistance[j] = 0;
         }
-        for (int j = 0; j < 10; j++)
+        for (int j = 0; j < 3; j++)
+        {
+            nextLineData.AddHP[j] = 0;
+        }
+        for (int j = 0; j < 3; j++)
         {
             nextLineData.AddMP[j] = 0;
         }
-        for (int j = 0; j < 10; j++)
-        {
-            nextLineData.HurtMP[j] = 0;
-        }
+		for (int j = 0; j < 3; j++)
+		{
+			nextLineData.AddAtt[j] = 0;
+		}
+		for (int j = 0; j < 3; j++)
+		{
+			nextLineData.AddDef[j] = 0;
+		}
+		for (int j = 0; j < 3; j++)
+		{
+			nextLineData.AddSpd[j] = 0;
+		}
+		nextLineData.MinPeg = 0; 
+			nextLineData.MaxPeg = 0; 
+			nextLineData.MinInjury = 0; 
+			nextLineData.MaxInjury = 0; 
+			nextLineData.AddMedcine = 0; 
+			nextLineData.AddUsePoi = 0; 
+			nextLineData.AddMedPoi = 0; 
+			nextLineData.AddDefPoi = 0;
+		nextLineData.AddFist = 0; 
+			nextLineData.AddSword = 0; 
+			nextLineData.AddKnife = 0; 
+			nextLineData.AddUnusual = 0; 
+			nextLineData.AddHidWeapon = 0; 
+			nextLineData.BattleState = 0;
+			for (int j = 0; j < 3; j++)
+			{
+				nextLineData.NeedExp[j] = 0;
+			}
+		nextLineData.MaxLevel = 0;
+		memset(nextLineData.Introduction, '\0', sizeof(nextLineData.Introduction));
+		nextLineData.Zhaoshi[5] = 0;
+		for (int j = 0; j < 10; j++)
+		{
+			nextLineData.Teshu[j] = 0;
+		}
+		for (int j = 0; j < 10; j++)
+		{
+			nextLineData.Teshumod[j] = 0;
+		}
+		for (int j = 0; j < 10; j++)
+		{
+			nextLineData.unused[j] = 0;
+		}
+
         return nextLineData;
     };
     char* Name__;
+	char* Introduction__;
     int lines = 0;
     auto nextLineData = getDefault();
     while (in.read_row(
         nextLineData.ID,
         Name__,
-        nextLineData.Unknown[0],
-        nextLineData.Unknown[1],
-        nextLineData.Unknown[2],
-        nextLineData.Unknown[3],
-        nextLineData.Unknown[4],
+		nextLineData.useness,
+		nextLineData.miji,
+		nextLineData.NeedHP,
+		nextLineData.MinStep,
+		nextLineData.bigami,
+		nextLineData.EventNum,
         nextLineData.SoundID,
         nextLineData.MagicType,
         nextLineData.EffectID,
@@ -1861,16 +2724,16 @@ void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
         nextLineData.AttackAreaType,
         nextLineData.NeedMP,
         nextLineData.WithPoison,
-        nextLineData.Attack[0],
-        nextLineData.Attack[1],
-        nextLineData.Attack[2],
-        nextLineData.Attack[3],
-        nextLineData.Attack[4],
-        nextLineData.Attack[5],
-        nextLineData.Attack[6],
-        nextLineData.Attack[7],
-        nextLineData.Attack[8],
-        nextLineData.Attack[9],
+		nextLineData.MinHurt, 
+		nextLineData.MaxHurt,
+		nextLineData.HurtModulus,
+		nextLineData.AttackModulus,
+		nextLineData.MPModulus,
+		nextLineData.SpeedModulus,
+		nextLineData.WeaponModulus,
+		nextLineData.Ismichuan,
+		nextLineData.AddMpScale,
+		nextLineData.AddHpScale,
         nextLineData.SelectDistance[0],
         nextLineData.SelectDistance[1],
         nextLineData.SelectDistance[2],
@@ -1891,27 +2754,77 @@ void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
         nextLineData.AttackDistance[7],
         nextLineData.AttackDistance[8],
         nextLineData.AttackDistance[9],
+        nextLineData.AddHP[0],
+        nextLineData.AddHP[1],
+        nextLineData.AddHP[2],
         nextLineData.AddMP[0],
         nextLineData.AddMP[1],
         nextLineData.AddMP[2],
-        nextLineData.AddMP[3],
-        nextLineData.AddMP[4],
-        nextLineData.AddMP[5],
-        nextLineData.AddMP[6],
-        nextLineData.AddMP[7],
-        nextLineData.AddMP[8],
-        nextLineData.AddMP[9],
-        nextLineData.HurtMP[0],
-        nextLineData.HurtMP[1],
-        nextLineData.HurtMP[2],
-        nextLineData.HurtMP[3],
-        nextLineData.HurtMP[4],
-        nextLineData.HurtMP[5],
-        nextLineData.HurtMP[6],
-        nextLineData.HurtMP[7],
-        nextLineData.HurtMP[8],
-        nextLineData.HurtMP[9]))
+		nextLineData.AddAtt[0],
+		nextLineData.AddAtt[1],
+		nextLineData.AddAtt[2],
+		nextLineData.AddDef[0],
+		nextLineData.AddDef[1],
+		nextLineData.AddDef[2],
+		nextLineData.AddSpd[0],
+		nextLineData.AddSpd[1],
+		nextLineData.AddSpd[2],
+		nextLineData.MinPeg,
+		nextLineData.MaxPeg,
+		nextLineData.MinInjury,
+		nextLineData.MaxInjury,
+		nextLineData.AddMedcine,
+		nextLineData.AddUsePoi,
+		nextLineData.AddMedPoi,
+		nextLineData.AddDefPoi,
+		nextLineData.AddFist,
+		nextLineData.AddSword,
+		nextLineData.AddKnife,
+		nextLineData.AddUnusual,
+		nextLineData.AddHidWeapon,
+		nextLineData.BattleState,
+		nextLineData.NeedExp[0],
+		nextLineData.NeedExp[1],
+		nextLineData.NeedExp[2],
+		nextLineData.MaxLevel,
+		Introduction__,
+		nextLineData.Zhaoshi[0],
+		nextLineData.Zhaoshi[1],
+		nextLineData.Zhaoshi[2],
+		nextLineData.Zhaoshi[3],
+		nextLineData.Zhaoshi[4],
+		nextLineData.Teshu[0],
+		nextLineData.Teshu[1],
+		nextLineData.Teshu[2],
+		nextLineData.Teshu[3],
+		nextLineData.Teshu[4],
+		nextLineData.Teshu[5],
+		nextLineData.Teshu[6],
+		nextLineData.Teshu[7],
+		nextLineData.Teshu[8],
+		nextLineData.Teshu[9],
+		nextLineData.Teshumod[0],
+		nextLineData.Teshumod[1],
+		nextLineData.Teshumod[2],
+		nextLineData.Teshumod[3],
+		nextLineData.Teshumod[4],
+		nextLineData.Teshumod[5],
+		nextLineData.Teshumod[6],
+		nextLineData.Teshumod[7],
+		nextLineData.Teshumod[8],
+		nextLineData.Teshumod[9],
+		nextLineData.unused[0],
+		nextLineData.unused[1],
+		nextLineData.unused[2],
+		nextLineData.unused[3],
+		nextLineData.unused[4],
+		nextLineData.unused[5],
+		nextLineData.unused[6],
+		nextLineData.unused[7],
+		nextLineData.unused[8],
+		nextLineData.unused[9]))
     {
+		strncpy(nextLineData.Introduction, Introduction__, sizeof(nextLineData.Introduction) - 1);
         strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
         data.push_back(nextLineData);
         lines++;
@@ -1922,37 +2835,87 @@ void NewSave::LoadCSVMagicSave(std::vector<Magic>& data, int record)
 void NewSave::LoadCSVShopSave(std::vector<Shop>& data, int record)
 {
     data.clear();
-    io::CSVReader<15, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_商店.csv");
+    io::CSVReader<72, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_商店.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-        "物品编号1",
-        "物品编号2",
-        "物品编号3",
-        "物品编号4",
-        "物品编号5",
-        "物品总量1",
-        "物品总量2",
-        "物品总量3",
-        "物品总量4",
-        "物品总量5",
-        "物品价格1",
-        "物品价格2",
-        "物品价格3",
-        "物品价格4",
-        "物品价格5");
+		"物品",
+		"物品個數",
+		"物品1",
+		"物品個數1",
+		"物品2",
+		"物品個數2",
+		"物品3",
+		"物品個數3",
+		"物品4",
+		"物品個數4",
+		"物品5",
+		"物品個數5",
+		"物品6",
+		"物品個數6",
+		"物品7",
+		"物品個數7",
+		"物品8",
+		"物品個數8",
+		"物品9",
+		"物品個數9",
+		"物品10",
+		"物品個數10",
+		"物品11",
+		"物品個數11",
+		"物品12",
+		"物品個數12",
+		"物品13",
+		"物品個數13",
+		"物品14",
+		"物品個數14",
+		"物品15",
+		"物品個數15",
+		"物品16",
+		"物品個數16",
+		"物品17",
+		"物品個數17",
+		"物品18",
+		"物品個數18",
+		"物品19",
+		"物品個數19",
+		"物品20",
+		"物品個數20",
+		"物品21",
+		"物品個數21",
+		"物品22",
+		"物品個數22",
+		"物品23",
+		"物品個數23",
+		"物品24",
+		"物品個數24",
+		"物品25",
+		"物品個數25",
+		"物品26",
+		"物品個數26",
+		"物品27",
+		"物品個數27",
+		"物品28",
+		"物品個數28",
+		"物品29",
+		"物品個數29",
+		"物品30",
+		"物品個數30",
+		"物品31",
+		"物品個數31",
+		"物品32",
+		"物品個數32",
+		"物品33",
+		"物品個數33",
+		"物品34",
+		"物品個數34",
+		"物品35",
+		"物品個數35");
     auto getDefault = []()
     {
         Shop nextLineData;
-        for (int j = 0; j < 5; j++)
+        for (int j = 0; j < 36; j++)
         {
             nextLineData.ItemID[j] = -1;
-        }
-        for (int j = 0; j < 5; j++)
-        {
-            nextLineData.Total[j] = 0;
-        }
-        for (int j = 0; j < 5; j++)
-        {
-            nextLineData.Price[j] = 0;
+			nextLineData.ItermCount[j] = -1;
         }
         return nextLineData;
     };
@@ -1960,26 +2923,271 @@ void NewSave::LoadCSVShopSave(std::vector<Shop>& data, int record)
     auto nextLineData = getDefault();
     while (in.read_row(
         nextLineData.ItemID[0],
-        nextLineData.ItemID[1],
-        nextLineData.ItemID[2],
-        nextLineData.ItemID[3],
-        nextLineData.ItemID[4],
-        nextLineData.Total[0],
-        nextLineData.Total[1],
-        nextLineData.Total[2],
-        nextLineData.Total[3],
-        nextLineData.Total[4],
-        nextLineData.Price[0],
-        nextLineData.Price[1],
-        nextLineData.Price[2],
-        nextLineData.Price[3],
-        nextLineData.Price[4]))
+		nextLineData.ItermCount[0],
+		nextLineData.ItemID[1],
+		nextLineData.ItermCount[1],
+		nextLineData.ItemID[2],
+		nextLineData.ItermCount[2],
+		nextLineData.ItemID[3],
+		nextLineData.ItermCount[3],
+		nextLineData.ItemID[4],
+		nextLineData.ItermCount[4],
+		nextLineData.ItemID[5],
+		nextLineData.ItermCount[5],
+		nextLineData.ItemID[6],
+		nextLineData.ItermCount[6],
+		nextLineData.ItemID[7],
+		nextLineData.ItermCount[7],
+		nextLineData.ItemID[8],
+		nextLineData.ItermCount[8],
+		nextLineData.ItemID[9],
+		nextLineData.ItermCount[9],
+		nextLineData.ItemID[10],
+		nextLineData.ItermCount[10],
+		nextLineData.ItemID[11],
+		nextLineData.ItermCount[11],
+		nextLineData.ItemID[12],
+		nextLineData.ItermCount[12],
+		nextLineData.ItemID[13],
+		nextLineData.ItermCount[13],
+		nextLineData.ItemID[14],
+		nextLineData.ItermCount[14],
+		nextLineData.ItemID[15],
+		nextLineData.ItermCount[15],
+		nextLineData.ItemID[16],
+		nextLineData.ItermCount[16],
+		nextLineData.ItemID[17],
+		nextLineData.ItermCount[17],
+		nextLineData.ItemID[18],
+		nextLineData.ItermCount[18],
+		nextLineData.ItemID[19],
+		nextLineData.ItermCount[19],
+		nextLineData.ItemID[20],
+		nextLineData.ItermCount[20],
+		nextLineData.ItemID[21],
+		nextLineData.ItermCount[21],
+		nextLineData.ItemID[22],
+		nextLineData.ItermCount[22],
+		nextLineData.ItemID[23],
+		nextLineData.ItermCount[23],
+		nextLineData.ItemID[24],
+		nextLineData.ItermCount[24],
+		nextLineData.ItemID[25],
+		nextLineData.ItermCount[25],
+		nextLineData.ItemID[26],
+		nextLineData.ItermCount[26],
+		nextLineData.ItemID[27],
+		nextLineData.ItermCount[27],
+		nextLineData.ItemID[28],
+		nextLineData.ItermCount[28],
+		nextLineData.ItemID[29],
+		nextLineData.ItermCount[29],
+		nextLineData.ItemID[30],
+		nextLineData.ItermCount[30],
+		nextLineData.ItemID[31],
+		nextLineData.ItermCount[31],
+		nextLineData.ItemID[32],
+		nextLineData.ItermCount[32],
+		nextLineData.ItemID[33],
+		nextLineData.ItermCount[33],
+		nextLineData.ItemID[34],
+		nextLineData.ItermCount[34],
+		nextLineData.ItemID[35],
+		nextLineData.ItermCount[35]))
     {
         data.push_back(nextLineData);
         lines++;
         nextLineData = getDefault();
     }
 }
+
+void NewSave::LoadCSVTimeSave(std::vector<TimeInfoSave>& data, int record)
+{
+	data.clear();
+	io::CSVReader<5, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_日期.csv");
+	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
+		"甲子",
+		"年",
+		"月",
+		"日",
+		"时");
+	auto getDefault = []()
+	{
+		TimeInfoSave nextLineData;
+		nextLineData.Jiazi = -1;
+		nextLineData.Year = -1;
+		nextLineData.Month = -1;
+		nextLineData.Day = -1;
+		nextLineData.Hour = -1;
+		return nextLineData;
+	};
+	int lines = 0;
+	auto nextLineData = getDefault();
+	while (in.read_row(
+		nextLineData.Jiazi,
+		nextLineData.Year,
+		nextLineData.Month,
+		nextLineData.Day,
+		nextLineData.Hour))
+	{
+		data.push_back(nextLineData);
+		lines++;
+		nextLineData = getDefault();
+	}
+}
+
+void NewSave::LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record)
+{
+	data.clear();
+	io::CSVReader<5, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_招式.csv");
+	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
+		"代號",
+		"從屬",
+		"順位",
+		"名稱",
+		"是否攻擊",
+		"攻擊加成",
+		"是否防御",
+		"防御加成",
+		"說明",
+		"特效類型",
+		"特效數據",
+		"特效類型1",
+		"特效數據1",
+		"特效類型2",
+		"特效數據2",
+		"特效類型3",
+		"特效數據3",
+		"特效類型4",
+		"特效數據4",
+		"特效類型5",
+		"特效數據5",
+		"特效類型6",
+		"特效數據6",
+		"特效類型7",
+		"特效數據7",
+		"特效類型8",
+		"特效數據8",
+		"特效類型9",
+		"特效數據9",
+		"特效類型10",
+		"特效數據10",
+		"特效類型11",
+		"特效數據11",
+		"特效類型12",
+		"特效數據12",
+		"特效類型13",
+		"特效數據13",
+		"特效類型14",
+		"特效數據14",
+		"特效類型15",
+		"特效數據15",
+		"特效類型16",
+		"特效數據16",
+		"特效類型17",
+		"特效數據17",
+		"特效類型18",
+		"特效數據18",
+		"特效類型19",
+		"特效數據19",
+		"特效類型20",
+		"特效數據20",
+		"特效類型21",
+		"特效數據21",
+		"特效類型22",
+		"特效數據22",
+		"特效類型23",
+		"特效數據23");
+	auto getDefault = []()
+	{
+		ZhaoshiInfoSave nextLineData;
+		nextLineData.daihao = -1;
+			nextLineData.congshu = -1;
+			nextLineData.shunwei = -1;
+		memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
+		nextLineData.ygongji = -1;
+		nextLineData.gongji = -1;
+		nextLineData.yfangyu = -1;
+			nextLineData.fangyu = -1;
+		memset(nextLineData.Introduction, '\0', sizeof(nextLineData.Introduction));
+		for (int j = 0; j < 24; j++) {
+			nextLineData.texiao[j].Type = -1;
+			nextLineData.texiao[j].Value = -1;
+		}
+
+		return nextLineData;
+	};
+	int lines = 0;
+	char* Name__;
+	char* Introduction__;
+	auto nextLineData = getDefault();
+	while (in.read_row(
+		nextLineData.daihao,
+		nextLineData.congshu,
+	nextLineData.shunwei,
+	Name__,
+	nextLineData.ygongji,
+	nextLineData.gongji,
+	nextLineData.yfangyu,
+	nextLineData.fangyu,
+		Introduction__,
+		nextLineData.texiao[0].Type,
+		nextLineData.texiao[0].Value,
+		nextLineData.texiao[1].Type,
+		nextLineData.texiao[1].Value,
+		nextLineData.texiao[2].Type,
+		nextLineData.texiao[2].Value,
+		nextLineData.texiao[3].Type,
+		nextLineData.texiao[3].Value,
+		nextLineData.texiao[4].Type,
+		nextLineData.texiao[4].Value,
+		nextLineData.texiao[5].Type,
+		nextLineData.texiao[5].Value,
+		nextLineData.texiao[6].Type,
+		nextLineData.texiao[6].Value,
+		nextLineData.texiao[7].Type,
+		nextLineData.texiao[7].Value,
+		nextLineData.texiao[8].Type,
+		nextLineData.texiao[8].Value,
+		nextLineData.texiao[9].Type,
+		nextLineData.texiao[9].Value,
+		nextLineData.texiao[10].Type,
+		nextLineData.texiao[10].Value,
+		nextLineData.texiao[11].Type,
+		nextLineData.texiao[11].Value,
+		nextLineData.texiao[12].Type,
+		nextLineData.texiao[12].Value,
+		nextLineData.texiao[13].Type,
+		nextLineData.texiao[13].Value,
+		nextLineData.texiao[14].Type,
+		nextLineData.texiao[14].Value,
+		nextLineData.texiao[15].Type,
+		nextLineData.texiao[15].Value,
+		nextLineData.texiao[16].Type,
+		nextLineData.texiao[16].Value,
+		nextLineData.texiao[17].Type,
+		nextLineData.texiao[17].Value,
+		nextLineData.texiao[18].Type,
+		nextLineData.texiao[18].Value,
+		nextLineData.texiao[19].Type,
+		nextLineData.texiao[19].Value,
+		nextLineData.texiao[20].Type,
+		nextLineData.texiao[20].Value,
+		nextLineData.texiao[21].Type,
+		nextLineData.texiao[21].Value,
+		nextLineData.texiao[22].Type,
+		nextLineData.texiao[22].Value,
+		nextLineData.texiao[23].Type,
+		nextLineData.texiao[23].Value))
+	{
+		strncpy(nextLineData.Introduction, Introduction__, sizeof(nextLineData.Introduction) - 1);
+		strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
+		data.push_back(nextLineData);
+		lines++;
+		nextLineData = getDefault();
+	}
+}
+
 void NewSave::InsertRoleAt(std::vector<Role>& data, int idx)
 {
     auto newCopy = data[idx];
@@ -2029,6 +3237,8 @@ void NewSave::InsertRoleAt(std::vector<Role>& data, int idx)
         }
     }
 }
+
+
 void NewSave::InsertItemAt(std::vector<Item>& data, int idx)
 {
     auto newCopy = data[idx];
@@ -2048,14 +3258,22 @@ void NewSave::InsertItemAt(std::vector<Item>& data, int idx)
     }
     for (auto& p : Save::getInstance()->getRoles())
     {
-        if (p->Equip0 >= idx)
+        if (p->Equip[0] >= idx)
         {
-            p->Equip0 += 1;
+            p->Equip[0] += 1;
         }
-        if (p->Equip1 >= idx)
+        if (p->Equip[1] >= idx)
         {
-            p->Equip1 += 1;
+            p->Equip[1] += 1;
         }
+		if (p->Equip[2] >= idx)
+		{
+			p->Equip[2] += 1;
+		}
+		if (p->Equip[3] >= idx)
+		{
+			p->Equip[3] += 1;
+		}
         if (p->PracticeItem >= idx)
         {
             p->PracticeItem += 1;
@@ -2231,9 +3449,9 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("面朝方向", FaceTowards),
             BIND_FIELD_INT("船X", ShipX),
             BIND_FIELD_INT("船Y", ShipY),
-            BIND_FIELD_INT("船X1", ShipX1),
-            BIND_FIELD_INT("船Y1", ShipY1),
-            BIND_FIELD_INT("内部编码", Encode),
+			BIND_FIELD_INT("船X1",TimeCount),       
+			BIND_FIELD_INT("船Y1", TimeEvent),
+            BIND_FIELD_INT("内部编码", RandomEvent),
             BIND_FIELD_INT("队友1", Team[0]),
             BIND_FIELD_INT("队友2", Team[1]),
             BIND_FIELD_INT("队友3", Team[2]),
@@ -2259,7 +3477,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_INT("头像", HeadID),
             BIND_FIELD_INT("生命成长", IncLife),
-            BIND_FIELD_INT("无用", UnUse),
+            BIND_FIELD_INT("富源", Fuyuan),
             BIND_FIELD_TEXT("名字", Name),
             BIND_FIELD_TEXT("外号", Nick),
             BIND_FIELD_INT("性别", Sexual),
@@ -2271,23 +3489,11 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("中毒", Poison),
             BIND_FIELD_INT("体力", PhysicalPower),
             BIND_FIELD_INT("物品修炼点数", ExpForMakeItem),
-            BIND_FIELD_INT("武器", Equip0),
-            BIND_FIELD_INT("防具", Equip1),
-            BIND_FIELD_INT("动作帧数1", Frame[0]),
-            BIND_FIELD_INT("动作帧数2", Frame[1]),
-            BIND_FIELD_INT("动作帧数3", Frame[2]),
-            BIND_FIELD_INT("动作帧数4", Frame[3]),
-            BIND_FIELD_INT("动作帧数5", Frame[4]),
-            BIND_FIELD_INT("动作帧数6", Frame[5]),
-            BIND_FIELD_INT("动作帧数7", Frame[6]),
-            BIND_FIELD_INT("动作帧数8", Frame[7]),
-            BIND_FIELD_INT("动作帧数9", Frame[8]),
-            BIND_FIELD_INT("动作帧数10", Frame[9]),
-            BIND_FIELD_INT("动作帧数11", Frame[10]),
-            BIND_FIELD_INT("动作帧数12", Frame[11]),
-            BIND_FIELD_INT("动作帧数13", Frame[12]),
-            BIND_FIELD_INT("动作帧数14", Frame[13]),
-            BIND_FIELD_INT("动作帧数15", Frame[14]),
+            BIND_FIELD_INT("武器", Equip[0]),
+            BIND_FIELD_INT("防具", Equip[1]),
+			BIND_FIELD_INT("鞋子", Equip[3]),
+			BIND_FIELD_INT("饰品", Equip[3]),
+
             BIND_FIELD_INT("内力性质", MPType),
             BIND_FIELD_INT("内力", MP),
             BIND_FIELD_INT("内力最大值", MaxMP),
@@ -2348,16 +3554,8 @@ void NewSave::initDBFieldInfo()
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("物品名", Name),
-            BIND_FIELD_INT("物品名无用1", Name1[0]),
-            BIND_FIELD_INT("物品名无用2", Name1[1]),
-            BIND_FIELD_INT("物品名无用3", Name1[2]),
-            BIND_FIELD_INT("物品名无用4", Name1[3]),
-            BIND_FIELD_INT("物品名无用5", Name1[4]),
-            BIND_FIELD_INT("物品名无用6", Name1[5]),
-            BIND_FIELD_INT("物品名无用7", Name1[6]),
-            BIND_FIELD_INT("物品名无用8", Name1[7]),
-            BIND_FIELD_INT("物品名无用9", Name1[8]),
-            BIND_FIELD_INT("物品名无用10", Name1[9]),
+
+
             BIND_FIELD_TEXT("物品说明", Introduction),
             BIND_FIELD_INT("练出武功", MagicID),
             BIND_FIELD_INT("暗器动画编号", HiddenWeaponEffectID),
@@ -2365,10 +3563,9 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("装备类型", EquipType),
             BIND_FIELD_INT("显示物品说明", ShowIntroduction),
             BIND_FIELD_INT("物品类型", ItemType),
-            BIND_FIELD_INT("未知5", UnKnown5),
-            BIND_FIELD_INT("未知6", UnKnown6),
-            BIND_FIELD_INT("未知7", UnKnown7),
-            BIND_FIELD_INT("加生命", AddHP),
+
+			
+			BIND_FIELD_INT("加生命", AddHP),
             BIND_FIELD_INT("加生命最大值", AddMaxHP),
             BIND_FIELD_INT("加中毒解毒", AddPoison),
             BIND_FIELD_INT("加体力", AddPhysicalPower),
@@ -2443,10 +3640,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("出口Y1", ExitY[0]),
             BIND_FIELD_INT("出口Y2", ExitY[1]),
             BIND_FIELD_INT("出口Y3", ExitY[2]),
-            BIND_FIELD_INT("跳转X", JumpX),
-            BIND_FIELD_INT("跳转Y", JumpY),
-            BIND_FIELD_INT("跳转返还X", JumpReturnX),
-            BIND_FIELD_INT("跳转返还Y", JumpReturnY),
+
         };
     }
     if (new_save_.magic_.size() == 0)
@@ -2456,11 +3650,7 @@ void NewSave::initDBFieldInfo()
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("名称", Name),
-            BIND_FIELD_INT("未知1", Unknown[0]),
-            BIND_FIELD_INT("未知2", Unknown[1]),
-            BIND_FIELD_INT("未知3", Unknown[2]),
-            BIND_FIELD_INT("未知4", Unknown[3]),
-            BIND_FIELD_INT("未知5", Unknown[4]),
+
             BIND_FIELD_INT("出招音效", SoundID),
             BIND_FIELD_INT("武功类型", MagicType),
             BIND_FIELD_INT("武功动画", EffectID),
@@ -2468,16 +3658,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("攻击范围类型", AttackAreaType),
             BIND_FIELD_INT("消耗内力", NeedMP),
             BIND_FIELD_INT("敌人中毒", WithPoison),
-            BIND_FIELD_INT("威力1", Attack[0]),
-            BIND_FIELD_INT("威力2", Attack[1]),
-            BIND_FIELD_INT("威力3", Attack[2]),
-            BIND_FIELD_INT("威力4", Attack[3]),
-            BIND_FIELD_INT("威力5", Attack[4]),
-            BIND_FIELD_INT("威力6", Attack[5]),
-            BIND_FIELD_INT("威力7", Attack[6]),
-            BIND_FIELD_INT("威力8", Attack[7]),
-            BIND_FIELD_INT("威力9", Attack[8]),
-            BIND_FIELD_INT("威力10", Attack[9]),
+
             BIND_FIELD_INT("移动范围1", SelectDistance[0]),
             BIND_FIELD_INT("移动范围2", SelectDistance[1]),
             BIND_FIELD_INT("移动范围3", SelectDistance[2]),
@@ -2508,16 +3689,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("加内力8", AddMP[7]),
             BIND_FIELD_INT("加内力9", AddMP[8]),
             BIND_FIELD_INT("加内力10", AddMP[9]),
-            BIND_FIELD_INT("杀伤内力1", HurtMP[0]),
-            BIND_FIELD_INT("杀伤内力2", HurtMP[1]),
-            BIND_FIELD_INT("杀伤内力3", HurtMP[2]),
-            BIND_FIELD_INT("杀伤内力4", HurtMP[3]),
-            BIND_FIELD_INT("杀伤内力5", HurtMP[4]),
-            BIND_FIELD_INT("杀伤内力6", HurtMP[5]),
-            BIND_FIELD_INT("杀伤内力7", HurtMP[6]),
-            BIND_FIELD_INT("杀伤内力8", HurtMP[7]),
-            BIND_FIELD_INT("杀伤内力9", HurtMP[8]),
-            BIND_FIELD_INT("杀伤内力10", HurtMP[9]),
+
         };
     }
     if (new_save_.shop_.size() == 0)
@@ -2530,16 +3702,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("物品编号3", ItemID[2]),
             BIND_FIELD_INT("物品编号4", ItemID[3]),
             BIND_FIELD_INT("物品编号5", ItemID[4]),
-            BIND_FIELD_INT("物品总量1", Total[0]),
-            BIND_FIELD_INT("物品总量2", Total[1]),
-            BIND_FIELD_INT("物品总量3", Total[2]),
-            BIND_FIELD_INT("物品总量4", Total[3]),
-            BIND_FIELD_INT("物品总量5", Total[4]),
-            BIND_FIELD_INT("物品价格1", Price[0]),
-            BIND_FIELD_INT("物品价格2", Price[1]),
-            BIND_FIELD_INT("物品价格3", Price[2]),
-            BIND_FIELD_INT("物品价格4", Price[3]),
-            BIND_FIELD_INT("物品价格5", Price[4]),
+
         };
     }
 }
@@ -2621,7 +3784,7 @@ void NewSave::SaveDBMagicSave(sqlite3* db, const std::vector<Magic>& data)
 
 void NewSave::LoadDBMagicSave(sqlite3* db, std::vector<Magic>& data)
 {
-    readValues(db, "magic", new_save_.magic_, data);
+	readValues(db, "magic", new_save_.magic_, data);
 }
 
 void NewSave::SaveDBShopSave(sqlite3* db, const std::vector<Shop>& data)

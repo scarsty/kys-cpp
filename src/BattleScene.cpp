@@ -655,14 +655,14 @@ int BattleScene::calMoveStep(Role* r)
         return 0;
     }
     int speed = r->Speed;
-    if (r->Equip0 >= 0)
+    if (r->Equip[0] >= 0)
     {
-        auto i = Save::getInstance()->getItem(r->Equip0);
+        auto i = Save::getInstance()->getItem(r->Equip[0]);
         speed += i->AddSpeed;
     }
-    if (r->Equip1 >= 0)
+    if (r->Equip[1] >= 0)
     {
-        auto i = Save::getInstance()->getItem(r->Equip1);
+        auto i = Save::getInstance()->getItem(r->Equip[1]);
         speed += i->AddSpeed;
     }
     return speed / 15 + 1;
@@ -1531,28 +1531,28 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         {
             return 1 + rng_.rand_int(10);
         }
-        int attack = r1->Attack + magic->Attack[level_index] / 3;
+        int attack = r1->Attack + magic->MaxInjury*(level_index/10) / 3;
         int defence = r2->Defence;
 
         //装备的效果
-        if (r1->Equip0 >= 0)
+        if (r1->Equip[0] >= 0)
         {
-            auto i = Save::getInstance()->getItem(r1->Equip0);
+            auto i = Save::getInstance()->getItem(r1->Equip[0]);
             attack += i->AddAttack;
         }
-        if (r1->Equip1 >= 0)
+        if (r1->Equip[1] >= 0)
         {
-            auto i = Save::getInstance()->getItem(r1->Equip1);
+            auto i = Save::getInstance()->getItem(r1->Equip[1]);
             attack += i->AddAttack;
         }
-        if (r2->Equip0 >= 0)
+        if (r2->Equip[0] >= 0)
         {
-            auto i = Save::getInstance()->getItem(r2->Equip0);
+            auto i = Save::getInstance()->getItem(r2->Equip[0]);
             defence += i->AddDefence;
         }
-        if (r2->Equip1 >= 0)
+        if (r2->Equip[1] >= 0)
         {
-            auto i = Save::getInstance()->getItem(r2->Equip1);
+            auto i = Save::getInstance()->getItem(r2->Equip[1]);
             defence += i->AddDefence;
         }
 
@@ -1571,7 +1571,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
     }
     else if (magic->HurtType == 1)
     {
-        int v = magic->HurtMP[level_index];
+        int v = magic->MaxInjury*(level_index / 10);
         v += rng_.rand_int(10) - rng_.rand_int(10);
         if (v < 10)
         {

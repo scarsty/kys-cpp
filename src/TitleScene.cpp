@@ -26,12 +26,12 @@ TitleScene::TitleScene()
 {
     full_window_ = 1;
     menu_ = std::make_shared<Menu>();
-    menu_->setPosition(400, 250);
-    menu_->addChild<Button>(20, 0)->setTexture("title", 3, 23, 23);
-    menu_->addChild<Button>(20, 50)->setTexture("title", 4, 24, 24);
-    menu_->addChild<Button>(20, 100)->setTexture("title", 6, 26, 26);
+    menu_->setPositionRate(0.22, 0.65);
+	menu_->addChild<Button>(0, 20, 180, 150)->setTexture("background", 107, 107, 131);
+	menu_->addChild<Button>(200, 20, 180, 150)->setTexture("background", 108, 108, 132);
+    menu_->addChild<Button>(400, 20, 180, 150)->setTexture("background", 109, 109, 133);
     menu_load_ = std::make_shared<UISave>();
-    menu_load_->setPosition(500, 300);
+    menu_load_->setPosition(0.25, 0.55);
     render_message_ = 1;
 }
 
@@ -42,15 +42,17 @@ TitleScene::~TitleScene()
 void TitleScene::draw()
 {
     int count = count_ / 20;
-    TextureManager::getInstance()->renderTexture("title", 0, 0, 0);
+	int w_width = Engine::getInstance()->getWindowWidth();
+	int w_hight = Engine::getInstance()->getWindowHeight();
+	TextureManager::getInstance()->renderTexture("background", 0, 0, 0, w_width, w_hight);
     int alpha = 255 - abs(255 - count_ % 510);
     count_++;
     if (alpha == 0)
     {
         RandomDouble r;
         head_id_ = r.rand_int(115);
-        head_x_ = r.rand_int(1024 - 150);
-        head_y_ = r.rand_int(640 - 150);
+        head_x_ = r.rand_int(w_width - 150);
+        head_y_ = r.rand_int(w_hight - 150);
     }
     TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);

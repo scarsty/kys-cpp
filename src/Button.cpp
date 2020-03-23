@@ -60,7 +60,7 @@ void Button::draw()
         x += 2;
         y += 2;
     }
-    TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, color, alpha);
+    TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, w_, h_, color, alpha);
 
     if (!text_.empty())
     {

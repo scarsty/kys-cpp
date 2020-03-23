@@ -42,7 +42,7 @@ void TeamMenu::onEntrance()
                 {
                     heads_[i]->setText("不適合");
                 }
-                if (r->PracticeItem == item_->ID || r->Equip0 == item_->ID || r->Equip1 == item_->ID)
+                if (r->PracticeItem == item_->ID || r->Equip[0] == item_->ID || r->Equip[1] == item_->ID)
                 {
                     heads_[i]->setText("使用中");
                 }

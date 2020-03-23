@@ -31,6 +31,10 @@ public:
     static void SaveCSVShopSave(const std::vector<Shop>& data, int record);
     static void LoadCSVShopSave(std::vector<Shop>& data, int record);
     static void InsertShopAt(std::vector<Shop>& data, int idx);
+	//Ê±¼ä
+	static void LoadCSVTimeSave(std::vector<TimeInfoSave>& data, int record);
+	//ÕÐÊ½
+	static void LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record)£»
 
 private:
     struct FieldInfo

@@ -14,9 +14,11 @@ class Save
 {
 public:
     //此处为全局数据，载入和保存使用，必须放在类开头，按照顺序，否则自己看着办
-    int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
+    int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, TimeCount, TimeEvent, RandomEvent, SubmapTowards, ShipTowards, TeamCount;
     int Team[TEAMMATE_COUNT];
     ItemList Items[ITEM_IN_BAG_COUNT];
+	int Encode;
+	int Unuse[5];
 
 private:
     //缓冲区，无他用
@@ -197,8 +199,8 @@ public:
 public:
     struct BaseInfo
     {
-        int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
-        int Team[TEAMMATE_COUNT];
+        int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, TimeCount, TimeEvent, RandomEvent, SubmapTowards, ShipTowards, TeamCount;
+        int Team[TEAMMATE_COUNT];		
     };
 
 public:

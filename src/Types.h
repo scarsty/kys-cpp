@@ -80,13 +80,13 @@ enum
     SUBMAP_LAYER_COUNT = 6,
     MAINMAP_COORD_COUNT = 480,
     SUBMAP_EVENT_COUNT = 200,    //单场景最大事件数
-    ITEM_IN_BAG_COUNT = 200,     //最大物品数
+    ITEM_IN_BAG_COUNT = 400,     //最大物品数
     TEAMMATE_COUNT = 6,          //最大队伍人员数
 };
 
 enum
 {
-    ROLE_MAGIC_COUNT = 10,
+    ROLE_MAGIC_COUNT = 40,
     ROLE_TAKING_ITEM_COUNT = 4,
 
     MAX_MAGIC_LEVEL = 999,
@@ -95,7 +95,7 @@ enum
 
 enum
 {
-    SHOP_ITEM_COUNT = 5,
+    SHOP_ITEM_COUNT = 36,
 };
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
@@ -105,22 +105,48 @@ struct RoleSave
 {
 public:
     int ID;
-    int HeadID, IncLife, UnUse;
+    int HeadID, IncLife, Fuyuan;
     char Name[20], Nick[20];
     int Sexual;    //性别 0-男 1 女 2 其他
     int Level;
     int Exp;
     int HP, MaxHP, Hurt, Poison, PhysicalPower;
-    int ExpForMakeItem;
-    int Equip0, Equip1;
-    int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
+	int FightNum;
+	int ExpForMakeItem;
+    int Equip[4];
+	int Gongti;
+	int TeamState;
+	int Angry;
+	int isRandomed;
+	int Moveable, In_HeadNum, ZhanLueAI;
+    int Impression, dtime, difficulty;  
+	int Zhongcheng;
+	int reHurt;
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
     int PracticeItem;
     int ExpForItem;
+	int xiangxing, jiaoqing, Rtype, swq, pdq, xxq, jqq, MenPai, shifu, scsx, bssx;
+	int Choushi[2];
+	int weizhi, nweizhi, nfangxiang, OnStatus, lwq, msq, ldq, qtq, lsweizhi, lsnweizhi, lsfangxiang;
+	int Sx, Sy, songshu, gongxian, unuse5;
+	int unuse6, unuse7, unuse8, unuse9, btnum; //记录年龄,备份年龄 //98
     int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
+	int JhMagic[10];
+	int LZhaoshi[ROLE_MAGIC_COUNT];
+	int MRevent;
+	int AllEvent[8];
+	int	LeaveTime, LeaveEvent;
+	int LaoLian, QiangZhuang, NeiJia, QiangGong, JianGU, QingLing, QuanShi, JianKe, Daoke, YiBing, AnJian, YIShi, DuRen, HuiXue, HuiNei,
+		HuiTI, BaoZao, PeiHe, WuXue, TuPo, LengJing, BaiBian, PoQi, ZhaoMen, BianHuan, FanGong, QiGong, YingGong, LingHuo, XingQi,
+		ShenFa, FenFa, ZhanYi, JingZhun, JiSu, KuangBao, ShouFa, LianHuan, WaJie, GuShou; // 287 // 从fenfa开始,对应攻击,防御,轻功,拳法,剑法,刀法,奇门,暗器的潜力
+	int TianMing, XingXiu;
+	int ZhuanChang[5];
+	int TeXing[10];
+	int unused[10];	//314
+
 };
 
 //实际的角色数据，基类之外的通常是战斗属性
@@ -241,11 +267,13 @@ struct ItemSave
 {
     int ID;
     char Name[40];
-    int Name1[10];
+	int ExpofMagic;
+	int SetNum, BattleBattleEffect, AddSign, needSex, rehurt, NeedEthics, NeedRepute;
+	int AddQianli, BattleNum;
     char Introduction[60];
     int MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
     int ItemType;    //0剧情，1装备，2秘笈，3药品，4暗器
-    int UnKnown5, UnKnown6, UnKnown7;
+    int Inventory, Price, EventNum;
     int AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
     int AddAttack, AddSpeed, AddDefence, AddMedicine, AddUsePoison, AddDetoxification, AddAntiPoison;
     int AddFist, AddSword, AddKnife, AddUnusual, AddHiddenWeapon, AddKnowledge, AddMorality, AddAttackTwice, AddAttackWithPoison;
@@ -253,6 +281,8 @@ struct ItemSave
     int NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
     int NeedExp, NeedExpForMakeItem, NeedMaterial;
     int MakeItem[5], MakeItemCount[5];
+	int AddIQ, AddFuyuan;
+	int Unused[8];
 };
 
 //实际的物品数据
@@ -271,14 +301,24 @@ struct MagicSave
 {
     int ID;
     char Name[20];
-    int Unknown[5];
+	int useness, miji, NeedHP, MinStep, bigami, EventNum;
     int SoundID;
     int MagicType;    //1-拳，2-剑，3-刀，4-特殊
     int EffectID;
     int HurtType;          //0-普通，1-吸取MP
     int AttackAreaType;    //0-点，1-线，2-十字，3-面
     int NeedMP, WithPoison;
-    int Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
+	int MinHurt, MaxHurt, HurtModulus, AttackModulus, MPModulus, SpeedModulus, WeaponModulus;
+	int Ismichuan, AddMpScale, AddHpScale;
+	int SelectDistance[10], AttackDistance[10];
+	int AddHP[3], AddMP[3], AddAtt[3], AddDef[3], AddSpd[3];
+	int MinPeg, MaxPeg, MinInjury, MaxInjury, AddMedcine, AddUsePoi, AddMedPoi, AddDefPoi;
+	int AddFist, AddSword, AddKnife, AddUnusual, AddHidWeapon, BattleState;
+	int NeedExp[3];
+	int MaxLevel;
+	char Introduction[120];
+	int Zhaoshi[5];
+	int Teshu[10], Teshumod[10], unused[10];
 };
 
 struct Magic : MagicSave
@@ -298,8 +338,46 @@ struct SubMapInfoSave
     int MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
     int EntranceX, EntranceY;
     int ExitX[3], ExitY[3];
-    int JumpX, JumpY, JumpReturnX, JumpReturnY;
+	int Mapmode, unuse, menpai, inbattle, zlwc, lwc, zcjg, cjg;
+	int lwcx[5], lwcy[5], cjgx[5], cjgy[5];
+	int bgskg, bgsx, bgsy, ldlkg, ldlx, ldly, bqckg, bqcx, bqcy, qizhix, qizhiy, ldjd, dzjd, fyjc, fyss;
+	int addziyuan[10];
+	int lianjie[10];
+	int unused[10];
+    //int JumpX, JumpY, JumpReturnX, JumpReturnY;
 };
+
+//存档中的时间数据
+struct TimeInfoSave
+{
+	int Jiazi;
+	int Year;
+	int Month;
+	int Day;
+	int Hour;
+
+
+};
+
+//存档中的招式数据
+struct ZhaoshiInfoSave
+{
+	int daihao, congshu, shunwei;
+	char Name[40];
+	int ygongji, gongji, yfangyu, fangyu;
+	char Introduction[90];
+	Ttexiao texiao[24]; //89
+};
+
+//特效数据
+struct Ttexiao
+{
+public:
+	int Type;
+	int Value;
+
+};
+
 
 //场景事件数据
 struct SubMapEvent
@@ -384,7 +462,7 @@ private:
 //存档中的商店数据
 struct ShopSave
 {
-    int ItemID[SHOP_ITEM_COUNT], Total[SHOP_ITEM_COUNT], Price[SHOP_ITEM_COUNT];
+    int ItemID[SHOP_ITEM_COUNT], ItermCount[SHOP_ITEM_COUNT];
 };
 
 //实际商店数据

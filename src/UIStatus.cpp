@@ -220,7 +220,7 @@ void UIStatus::draw()
     x = x_ + 20;
     y = y_ + 445;
     font->draw("ÎäÆ÷", 25, x - 10, y, color_name);
-    auto equip = Save::getInstance()->getItem(role_->Equip0);
+    auto equip = Save::getInstance()->getItem(role_->Equip[0]);
     if (equip)
     {
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
@@ -236,7 +236,7 @@ void UIStatus::draw()
     x = x_ + 220;
     y = y_ + 445;
     font->draw("·À¾ß", 25, x - 10, y, color_name);
-    equip = Save::getInstance()->getItem(role_->Equip1);
+    equip = Save::getInstance()->getItem(role_->Equip[1]);
     if (equip)
     {
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);

@@ -41,6 +41,38 @@ void RunNode::setPosition(int x, int y)
     y_ = y;
 }
 
+//设置大小，自动调节子节点的大小
+void RunNode::setSize(int w, int h)
+{
+	double w_rate = w_ / w;
+	double h_rate = h_ / h;
+	for (auto c : childs_)
+	{
+		c->setSize(c->w_ * w_rate, c->y_ * h_rate);
+	}
+	w_ = w;
+	h_ = h;
+}
+
+//设置大小，自动调节子节点的大小比例
+void RunNode::setSizeRate(double w_rate, double h_rate)
+{
+	for (auto c : childs_)
+	{
+		c->setSizeRate(w_rate, h_rate);
+	}
+	w_ = w_ * w_rate;
+	h_ = h_ * h_rate;
+}
+
+//按比例设置位置，会改变子节点的位置
+void RunNode::setPositionRate(double x, double y)
+{
+	int t_x = Engine::getInstance()->getWindowWidth()*x;
+	int t_y = Engine::getInstance()->getWindowHeight()*y;
+	setPosition(t_x, t_y);
+}
+
 //从绘制的根节点移除
 std::shared_ptr<RunNode> RunNode::removeFromDraw(std::shared_ptr<RunNode> element)
 {
@@ -80,6 +112,14 @@ void RunNode::addChild(std::shared_ptr<RunNode> element, int x, int y)
 {
     addChild(element);
     element->setPosition(x_ + x, y_ + y);
+}
+
+//添加节点并同时设置子节点的位置和大小
+void RunNode::addChild(std::shared_ptr<RunNode> element, int x, int y, int w, int h)
+{
+	addChild(element);
+	element->setPosition(x_ + x, y_ + y);
+	element->setSize(w, h);
 }
 
 //移除某个节点

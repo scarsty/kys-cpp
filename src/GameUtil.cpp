@@ -297,8 +297,8 @@ void GameUtil::equip(Role* r, Item* i)
 
     auto r0 = Save::getInstance()->getRole(i->User);
     auto book = Save::getInstance()->getItem(r->PracticeItem);
-    auto equip0 = Save::getInstance()->getItem(r->Equip0);
-    auto equip1 = Save::getInstance()->getItem(r->Equip1);
+    auto equip0 = Save::getInstance()->getItem(r->Equip[0]);
+    auto equip1 = Save::getInstance()->getItem(r->Equip[1]);
 
     i->User = r->ID;
 
@@ -323,10 +323,10 @@ void GameUtil::equip(Role* r, Item* i)
             {
                 equip0->User = -1;
             }
-            r->Equip0 = i->ID;
+            r->Equip[0] = i->ID;
             if (r0)
             {
-                r0->Equip0 = -1;
+                r0->Equip[0] = -1;
             }
         }
         if (i->EquipType == 1)
@@ -335,10 +335,10 @@ void GameUtil::equip(Role* r, Item* i)
             {
                 equip1->User = -1;
             }
-            r->Equip1 = i->ID;
+            r->Equip[1] = i->ID;
             if (r0)
             {
-                r0->Equip1 = -1;
+                r0->Equip[1] = -1;
             }
         }
     }

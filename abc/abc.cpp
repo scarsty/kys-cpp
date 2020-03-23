@@ -130,8 +130,8 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     s32[1]--;    //submap scene id
     File::writeFile(grp + "32", rgrp2, len * 2);
     File::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
-    delete rgrp1;
-    delete rgrp2;
+    //delete rgrp1;
+    //delete rgrp2;
     printf("trans %s end\n", grp.c_str());
     return 0;
 }
