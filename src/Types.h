@@ -359,6 +359,14 @@ struct TimeInfoSave
 
 };
 
+//特效数据
+struct Ttexiao
+{
+public:
+	int Type;
+	int Value;
+};
+
 //存档中的招式数据
 struct ZhaoshiInfoSave
 {
@@ -369,14 +377,42 @@ struct ZhaoshiInfoSave
 	Ttexiao texiao[24]; //89
 };
 
-//特效数据
-struct Ttexiao
-{
-public:
-	int Type;
-	int Value;
 
+
+//存档中的门派数据
+struct MenpaiInfoSave
+{
+	int num;
+	char Name[40];
+	int jvdian, zongduo, zmr, dizi, shengwang, shane;
+	int ziyuan[10];
+	int aziyuan[10];
+	int neigong[20]; //57
+	int guanxi[40]; //97
+	int zhiwu[10]; //107
+	int kzq, dzq, czsd, qizhi, mdizigrp, mdizipic, fdizigrp, fdizipic, sexy, identity, endevent;
+	int tongmeng, israndomed, unuse2, unuse3, unuse4;
 };
+
+struct SignType
+{
+	int num;
+	char name[40]; //10
+	char Introduction[120]; //41
+};
+
+struct RSign
+{
+	int num;
+	char Name[40]; //10
+	int effert;
+	int TypeNum;
+	char Introduction[120]; //42
+	int beiyong;
+	int isshow; //44
+	Ttexiao texiao[24]; //92
+};
+
 
 
 //场景事件数据

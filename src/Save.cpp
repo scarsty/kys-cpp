@@ -65,8 +65,9 @@ bool Save::load(int num)
         return false;
     }
 
-    loadR(num);
-    loadRFromDB(num);
+    //loadR(num);
+    //loadRFromDB(num);
+	loadRFromCSV(num);
     loadSD(num);
 
     //ÄÚ²¿±àÂëÎªcp936

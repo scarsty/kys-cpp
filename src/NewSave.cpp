@@ -1127,7 +1127,7 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
     io::CSVReader<305, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_人物.csv");
     in.read_header(io::ignore_missing_column | io::ignore_extra_column,
 		"编号",
-		"頭像 / 戰斗代號",
+		"頭像/戰斗代號",
 		"生命增長",
 		"福緣",
 		"姓名",
@@ -1196,7 +1196,7 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
 		"仇視門派1",
 		"當前位置",
 		"內部位置",
-		"內部方向",
+		"內部方向1",
 		"人物狀態",
 		"練武傾向",
 		"冥思傾向",
@@ -1204,16 +1204,16 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
 		"其他傾向",
 		"臨時位置",
 		"內部臨時位置",
-		"內部方向",
+		"內部方向2",
 		"場景X坐標",
 		"場景Y坐標",
 		"送書標記",
 		"官府貢獻",
 		"夫妻",
 		"年齡",
-		"未用",
-		"未用",
-		"未用",
+		"未用1",
+		"未用2",
+		"未用3",
 		"戰場ID",
 		"所會武功",
 		"所會武功1",
@@ -1359,13 +1359,13 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
 		"入隊事件",
 		"切磋事件",
 		"學習事件",
-		"事件池",
-		"事件池",
-		"事件池",
+		"事件池1",
+		"事件池2",
+		"事件池3",
 		"離隊期限",
 		"離隊事件",
-		"隨機值",
-		"隨機值",
+		"隨機值1",
+		"隨機值2",
 		"攜帶物品5",
 		"攜帶物品6",
 		"攜帶物品7",
@@ -3039,7 +3039,7 @@ void NewSave::LoadCSVTimeSave(std::vector<TimeInfoSave>& data, int record)
 void NewSave::LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record)
 {
 	data.clear();
-	io::CSVReader<5, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_招式.csv");
+	io::CSVReader<57, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_招式.csv");
 	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
 		"代號",
 		"從屬",
@@ -3187,6 +3187,444 @@ void NewSave::LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record)
 		nextLineData = getDefault();
 	}
 }
+
+
+void NewSave::LoadCSVMenpaiSave(std::vector<MenpaiInfoSave>& data, int record)
+{
+	data.clear();
+	io::CSVReader<114, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_门派.csv");
+	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
+		"代號",
+		"名稱",
+		"據點個數",
+		"總舵",
+		"掌門人",
+		"弟子個數",
+		"門派聲望",
+		"門派善惡",
+		"鐵礦",
+		"石料",
+		"木材",
+		"食物",
+		"焦炭",
+		"草藥",
+		"烏木",
+		"異草",
+		"稀金",
+		"玄鐵",
+		"鐵礦+",
+		"石料+",
+		"木材+",
+		"食物+",
+		"焦炭+",
+		"草藥+",
+		"烏木+",
+		"異草+",
+		"稀金+",
+		"玄鐵+",
+		"門派內功",
+		"門派內功1",
+		"門派內功2",
+		"門派內功3",
+		"門派內功4",
+		"門派內功5",
+		"門派內功6",
+		"門派內功7",
+		"門派內功8",
+		"門派內功9",
+		"門派內功10",
+		"門派內功11",
+		"門派內功12",
+		"門派內功13",
+		"門派內功14",
+		"門派內功15",
+		"門派內功16",
+		"門派內功17",
+		"門派內功18",
+		"門派內功19",
+		"無",
+		"蓬萊",
+		"青城",
+		"武當",
+		"少林",
+		"全真",
+		"峨眉",
+		"昆侖",
+		"崆峒",
+		"嵩山",
+		"華山",
+		"衡山",
+		"泰山",
+		"恒山",
+		"血刀",
+		"鐵掌",
+		"丐幫",
+		"五毒",
+		"明教",
+		"日月",
+		"雪山",
+		"暫無",
+		"暫無",
+		"暫無",
+		"暫無",
+		"暫無",
+		"逍遙",
+		"星宿",
+		"長樂",
+		"馬家",
+		"劍霞",
+		"八極",
+		"伏牛",
+		"無量",
+		"野狐",
+		"野馬",
+		"地躺",
+		"慧劍",
+		"惡豹",
+		"劍宗",
+		"門派職務",
+		"門派職務1",
+		"門派職務2",
+		"門派職務3",
+		"門派職務4",
+		"門派職務5",
+		"門派職務6",
+		"門派職務7",
+		"門派職務8",
+		"門派職務9",
+		"擴張傾向",
+		"招弟子傾向",
+		"弟子成長速度",
+		"旗幟",
+		"男弟子起圖",
+		"男弟子頭像",
+		"女弟子起圖",
+		"女弟子頭像",
+		"弟子性別",
+		"弟子身份",
+		"滅門事件",
+		"同盟",
+		"查找標記",
+		"未定義2",
+		"未定義3",
+		"未定義4");
+	auto getDefault = []()
+	{
+		MenpaiInfoSave nextLineData;
+		nextLineData.num = -1;
+		memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
+		nextLineData.jvdian = -1;
+			nextLineData.zongduo = -1;
+			nextLineData.zmr = -1;
+			nextLineData.dizi = -1;
+			nextLineData.shengwang = -1;
+			nextLineData.shane = -1;
+			for (int j = 0; j < 10; j++) {
+				nextLineData.ziyuan[j] = -1;
+			};
+		for (int j = 0; j < 10; j++) {
+			nextLineData.aziyuan[j] = -1;
+		};
+		for (int j = 0; j < 20; j++) {
+			nextLineData.neigong[j] = -1;
+		};
+		for (int j = 0; j < 40; j++) {
+			nextLineData.guanxi[j] = -1;
+		};
+		for (int j = 0; j < 10; j++) {
+			nextLineData.zhiwu[j] = -1;
+		};
+		nextLineData.kzq = -1; 
+			nextLineData.dzq = -1;
+			nextLineData.czsd = -1;
+			nextLineData.qizhi = -1;
+			nextLineData.mdizigrp = -1;
+			nextLineData.mdizipic = -1;
+			nextLineData.fdizigrp = -1;
+			nextLineData.fdizipic = -1;
+			nextLineData.sexy = -1;
+			nextLineData.identity = -1;
+			nextLineData.endevent = -1;
+			nextLineData.tongmeng = -1;
+			nextLineData.israndomed = -1;
+			nextLineData.unuse2 = -1;
+			nextLineData.unuse3 = -1;
+			nextLineData.unuse4 = -1;
+		return nextLineData;
+	};
+	int lines = 0;
+	char* Name__;
+	auto nextLineData = getDefault();
+	while (in.read_row(
+		nextLineData.num,
+		Name__,
+		nextLineData.jvdian,
+		nextLineData.zongduo,
+		nextLineData.zmr,
+		nextLineData.dizi,
+		nextLineData.shengwang,
+		nextLineData.shane,
+		nextLineData.ziyuan[0],
+		nextLineData.ziyuan[1],
+		nextLineData.ziyuan[2],
+		nextLineData.ziyuan[3],
+		nextLineData.ziyuan[4],
+		nextLineData.ziyuan[5],
+		nextLineData.ziyuan[6],
+		nextLineData.ziyuan[7],
+		nextLineData.ziyuan[8],
+		nextLineData.ziyuan[9],
+		nextLineData.aziyuan[0],
+		nextLineData.aziyuan[1],
+		nextLineData.aziyuan[2],
+		nextLineData.aziyuan[3],
+		nextLineData.aziyuan[4],
+		nextLineData.aziyuan[5],
+		nextLineData.aziyuan[6],
+		nextLineData.aziyuan[7],
+		nextLineData.aziyuan[8],
+		nextLineData.aziyuan[9],
+		nextLineData.neigong[0],
+		nextLineData.neigong[1],
+		nextLineData.neigong[2],
+		nextLineData.neigong[3],
+		nextLineData.neigong[4],
+		nextLineData.neigong[5],
+		nextLineData.neigong[6],
+		nextLineData.neigong[7],
+		nextLineData.neigong[8],
+		nextLineData.neigong[9],
+		nextLineData.neigong[10],
+		nextLineData.neigong[11],
+		nextLineData.neigong[12],
+		nextLineData.neigong[13],
+		nextLineData.neigong[14],
+		nextLineData.neigong[15],
+		nextLineData.neigong[16],
+		nextLineData.neigong[17],
+		nextLineData.neigong[18],
+		nextLineData.neigong[19],
+		nextLineData.guanxi[0],
+		nextLineData.guanxi[1],
+		nextLineData.guanxi[2],
+		nextLineData.guanxi[3],
+		nextLineData.guanxi[4],
+		nextLineData.guanxi[5],
+		nextLineData.guanxi[6],
+		nextLineData.guanxi[7],
+		nextLineData.guanxi[8],
+		nextLineData.guanxi[9],
+		nextLineData.guanxi[10],
+		nextLineData.guanxi[11],
+		nextLineData.guanxi[12],
+		nextLineData.guanxi[13],
+		nextLineData.guanxi[14],
+		nextLineData.guanxi[15],
+		nextLineData.guanxi[16],
+		nextLineData.guanxi[17],
+		nextLineData.guanxi[18],
+		nextLineData.guanxi[19],
+		nextLineData.guanxi[20],
+		nextLineData.guanxi[21],
+		nextLineData.guanxi[22],
+		nextLineData.guanxi[23],
+		nextLineData.guanxi[24],
+		nextLineData.guanxi[25],
+		nextLineData.guanxi[26],
+		nextLineData.guanxi[27],
+		nextLineData.guanxi[28],
+		nextLineData.guanxi[29],
+		nextLineData.guanxi[30],
+		nextLineData.guanxi[31],
+		nextLineData.guanxi[32],
+		nextLineData.guanxi[33],
+		nextLineData.guanxi[34],
+		nextLineData.guanxi[35],
+		nextLineData.guanxi[36],
+		nextLineData.guanxi[37],
+		nextLineData.guanxi[38],
+		nextLineData.guanxi[39],
+		nextLineData.zhiwu[0],
+		nextLineData.zhiwu[1],
+		nextLineData.zhiwu[2],
+		nextLineData.zhiwu[3],
+		nextLineData.zhiwu[4],
+		nextLineData.zhiwu[5],
+		nextLineData.zhiwu[6],
+		nextLineData.zhiwu[7],
+		nextLineData.zhiwu[8],
+		nextLineData.zhiwu[9],
+		nextLineData.kzq,
+		nextLineData.dzq,
+		nextLineData.czsd,
+		nextLineData.qizhi,
+		nextLineData.mdizigrp,
+		nextLineData.mdizipic,
+		nextLineData.fdizigrp,
+		nextLineData.fdizipic,
+		nextLineData.sexy,
+		nextLineData.identity,
+		nextLineData.endevent,
+		nextLineData.tongmeng,
+		nextLineData.israndomed,
+		nextLineData.unuse2,
+		nextLineData.unuse3,
+		nextLineData.unuse4))
+	{
+		strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
+		data.push_back(nextLineData);
+		lines++;
+		nextLineData = getDefault();
+	}
+}
+
+
+void NewSave::LoadCSVRSignSave(std::vector<RSign>& data, int record)
+{
+	data.clear();
+	io::CSVReader<55, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_招式.csv");
+	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
+		"代號",
+		"名稱",
+		"效果",
+		"類別",
+		"說明",
+		"說明",
+		"是否隱藏",
+		"特效類型",
+		"特效數據",
+		"特效類型1",
+		"特效數據1",
+		"特效類型2",
+		"特效數據2",
+		"特效類型3",
+		"特效數據3",
+		"特效類型4",
+		"特效數據4",
+		"特效類型5",
+		"特效數據5",
+		"特效類型6",
+		"特效數據6",
+		"特效類型7",
+		"特效數據7",
+		"特效類型8",
+		"特效數據8",
+		"特效類型9",
+		"特效數據9",
+		"特效類型10",
+		"特效數據10",
+		"特效類型11",
+		"特效數據11",
+		"特效類型12",
+		"特效數據12",
+		"特效類型13",
+		"特效數據13",
+		"特效類型14",
+		"特效數據14",
+		"特效類型15",
+		"特效數據15",
+		"特效類型16",
+		"特效數據16",
+		"特效類型17",
+		"特效數據17",
+		"特效類型18",
+		"特效數據18",
+		"特效類型19",
+		"特效數據19",
+		"特效類型20",
+		"特效數據20",
+		"特效類型21",
+		"特效數據21",
+		"特效類型22",
+		"特效數據22",
+		"特效類型23",
+		"特效數據23");
+	auto getDefault = []()
+	{
+		RSign nextLineData;
+		nextLineData.num = -1;
+		memset(nextLineData.Name, '\0', sizeof(nextLineData.Name));
+		nextLineData.effert = -1;
+		nextLineData.TypeNum = -1;
+		memset(nextLineData.Introduction, '\0', sizeof(nextLineData.Introduction));
+		nextLineData.beiyong = -1;
+		nextLineData.isshow = -1;
+		for (int j = 0; j < 24; j++) {
+			nextLineData.texiao[j].Type = -1;
+			nextLineData.texiao[j].Value = -1;
+		}
+
+		return nextLineData;
+	};
+	int lines = 0;
+	char* Name__;
+	char* Introduction__;
+	auto nextLineData = getDefault();
+	while (in.read_row(
+		nextLineData.num,
+		Name__,
+		nextLineData.effert,
+		nextLineData.TypeNum,
+		Introduction__,
+		nextLineData.beiyong,
+			nextLineData.isshow, //44
+		nextLineData.texiao[0].Type,
+		nextLineData.texiao[0].Value,
+		nextLineData.texiao[1].Type,
+		nextLineData.texiao[1].Value,
+		nextLineData.texiao[2].Type,
+		nextLineData.texiao[2].Value,
+		nextLineData.texiao[3].Type,
+		nextLineData.texiao[3].Value,
+		nextLineData.texiao[4].Type,
+		nextLineData.texiao[4].Value,
+		nextLineData.texiao[5].Type,
+		nextLineData.texiao[5].Value,
+		nextLineData.texiao[6].Type,
+		nextLineData.texiao[6].Value,
+		nextLineData.texiao[7].Type,
+		nextLineData.texiao[7].Value,
+		nextLineData.texiao[8].Type,
+		nextLineData.texiao[8].Value,
+		nextLineData.texiao[9].Type,
+		nextLineData.texiao[9].Value,
+		nextLineData.texiao[10].Type,
+		nextLineData.texiao[10].Value,
+		nextLineData.texiao[11].Type,
+		nextLineData.texiao[11].Value,
+		nextLineData.texiao[12].Type,
+		nextLineData.texiao[12].Value,
+		nextLineData.texiao[13].Type,
+		nextLineData.texiao[13].Value,
+		nextLineData.texiao[14].Type,
+		nextLineData.texiao[14].Value,
+		nextLineData.texiao[15].Type,
+		nextLineData.texiao[15].Value,
+		nextLineData.texiao[16].Type,
+		nextLineData.texiao[16].Value,
+		nextLineData.texiao[17].Type,
+		nextLineData.texiao[17].Value,
+		nextLineData.texiao[18].Type,
+		nextLineData.texiao[18].Value,
+		nextLineData.texiao[19].Type,
+		nextLineData.texiao[19].Value,
+		nextLineData.texiao[20].Type,
+		nextLineData.texiao[20].Value,
+		nextLineData.texiao[21].Type,
+		nextLineData.texiao[21].Value,
+		nextLineData.texiao[22].Type,
+		nextLineData.texiao[22].Value,
+		nextLineData.texiao[23].Type,
+		nextLineData.texiao[23].Value))
+	{
+		strncpy(nextLineData.Introduction, Introduction__, sizeof(nextLineData.Introduction) - 1);
+		strncpy(nextLineData.Name, Name__, sizeof(nextLineData.Name) - 1);
+		data.push_back(nextLineData);
+		lines++;
+		nextLineData = getDefault();
+	}
+}
+
 
 void NewSave::InsertRoleAt(std::vector<Role>& data, int idx)
 {

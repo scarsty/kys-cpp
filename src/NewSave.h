@@ -34,7 +34,11 @@ public:
 	//时间
 	static void LoadCSVTimeSave(std::vector<TimeInfoSave>& data, int record);
 	//招式
-	static void LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record)；
+	static void LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record);
+	//门派
+	static void LoadCSVMenpaiSave(std::vector<MenpaiInfoSave>& data, int record);
+	//标签
+	static void LoadCSVRSignSave(std::vector<RSign>& data, int record);
 
 private:
     struct FieldInfo
