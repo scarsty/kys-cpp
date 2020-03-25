@@ -105,7 +105,7 @@ void Role::limit()
 
     limit2(Exp, 0, r_max->Exp);
     limit2(ExpForItem, 0, r_max->Exp);
-    limit2(ExpForMakeItem, 0, r_max->Exp);
+
 
     limit2(Poison, 0, r_max->Poison);
 

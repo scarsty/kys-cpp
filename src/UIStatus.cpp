@@ -143,8 +143,16 @@ void UIStatus::draw()
     font->draw(convert::formatString("%5d/", role_->PhysicalPower), font_size, x + 219, y + 100, color_white);
     font->draw(convert::formatString("%5d", 100), font_size, x + 285, y + 100, color_white);
 
+	x = x_ + 20;
+	y = y_ + 180;
+
+	font->draw("×ÊÖÊ", font_size, x, y, color_ability1);
+	font->draw(convert::formatString("%5d", role_->IQ), font_size, x + 44, y, select_color1(role_->Attack, Role::getMaxValue()->Attack));
+	font->draw("¸»Ô´", font_size, x + 100, y, color_ability1);
+	font->draw(convert::formatString("%5d", role_->Fuyuan), font_size, x + 144, y, select_color1(role_->Defence, Role::getMaxValue()->Defence));
+
     x = x_ + 20;
-    y = y_ + 200;
+    y = y_ + 190;
 
     font->draw("¹¥“ô", font_size, x, y, color_ability1);
     font->draw(convert::formatString("%5d", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, Role::getMaxValue()->Attack));
@@ -155,10 +163,17 @@ void UIStatus::draw()
 
     font->draw("át¯Ÿ", font_size, x, y + 25, color_ability1);
     font->draw(convert::formatString("%5d", role_->Medicine), font_size, x + 44, y + 25, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
-    font->draw("½â¶¾", font_size, x + 200, y + 25, color_ability1);
+    font->draw("¿¹¶¾", font_size, x + 200, y + 25, color_ability1);
     font->draw(convert::formatString("%5d", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
     font->draw("ÓÃ¶¾", font_size, x + 400, y + 25, color_ability1);
     font->draw(convert::formatString("%5d", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, Role::getMaxValue()->UsePoison));
+
+	font->draw("ÃÅÅÉ", font_size, x, y + 50, color_ability1);
+	font->draw(convert::formatString("%s", Save::getInstance()->getMenpai(role_->MenPai)->Name), font_size, x + 44, y + 50, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
+	font->draw("µÈ¼¶", font_size, x + 200, y + 50, color_ability1);
+	font->draw(convert::formatString("%5d", role_->Level), font_size, x + 244, y + 50, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
+	font->draw("Ê¦¸µ", font_size, x + 400, y + 50, color_ability1);
+	font->draw(convert::formatString("%s", Save::getInstance()->getRole(role_->shifu)->Name), font_size, x + 444, y + 50, select_color1(role_->UsePoison, Role::getMaxValue()->UsePoison));
 
     x = x_ + 20;
     y = y_ + 270;
@@ -199,26 +214,9 @@ void UIStatus::draw()
         }
     }
 
-    x = x_ + 420;
-    y = y_ + 445;
-    font->draw("ÐÞŸ’", 25, x - 10, y, color_name);
-    auto book = Save::getInstance()->getItem(role_->PracticeItem);
-    if (book)
-    {
-        TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
-        font->draw(convert::formatString("%s", book->Name), font_size, x + 90, y + 30, color_name);
-        font->draw(convert::formatString("½›òž%5d", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
-        std::string str = "Éý¼‰ ----";
-        int exp_up = GameUtil::getFinishedExpForItem(role_, book);
-        if (exp_up != INT_MAX)
-        {
-            str = convert::formatString("Éý¼‰%5d", exp_up);
-        }
-        font->draw(str, 18, x + 90, y + 75, color_ability1);
-    }
 
     x = x_ + 20;
-    y = y_ + 445;
+    y = y_ + 405;
     font->draw("ÎäÆ÷", 25, x - 10, y, color_name);
     auto equip = Save::getInstance()->getItem(role_->Equip[0]);
     if (equip)
@@ -234,7 +232,7 @@ void UIStatus::draw()
     }
 
     x = x_ + 220;
-    y = y_ + 445;
+    y = y_ + 405;
     font->draw("·À¾ß", 25, x - 10, y, color_name);
     equip = Save::getInstance()->getItem(role_->Equip[1]);
     if (equip)
@@ -248,6 +246,75 @@ void UIStatus::draw()
         font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
         font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
+
+	x = x_ + 420;
+	y = y_ + 405;
+	font->draw("Í·´÷", 25, x - 10, y, color_name);
+	equip = Save::getInstance()->getItem(role_->Equip[2]);
+	if (equip)
+	{
+		TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+		font->draw(convert::formatString("%s", equip->Name), font_size, x + 90, y + 30, color_name);
+		font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
+		font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
+		font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
+	}
+
+	x = x_ + 20;
+	y = y_ + 525;
+	
+	font->draw("½Å´©", 25, x - 10, y, color_name);
+	equip = Save::getInstance()->getItem(role_->Equip[3]);
+	if (equip)
+	{
+		TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+		font->draw(convert::formatString("%s", equip->Name), font_size, x + 90, y + 30, color_name);
+		font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
+		font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
+		font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
+	}
+
+	x = x_ + 220;
+	y = y_ + 525;
+	font->draw("ÊÎÆ·", 25, x - 10, y, color_name);
+	equip = Save::getInstance()->getItem(role_->Equip[4]);
+	if (equip)
+	{
+		TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+		font->draw(convert::formatString("%s", equip->Name), font_size, x + 90, y + 30, color_name);
+		font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
+		font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
+		font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
+		font->draw(convert::formatString("%+d", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
+	}
+
+	x = x_ + 420;
+	y = y_ + 525;
+	font->draw("ÐÞŸ’", 25, x - 10, y, color_name);
+	auto book = Save::getInstance()->getItem(role_->PracticeItem);
+	if (book)
+	{
+		TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
+		font->draw(convert::formatString("%s", book->Name), font_size, x + 90, y + 30, color_name);
+		font->draw(convert::formatString("½›òž%5d", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
+		std::string str = "Éý¼‰ ----";
+		int exp_up = GameUtil::getFinishedExpForItem(role_, book);
+		if (exp_up != INT_MAX)
+		{
+			str = convert::formatString("Éý¼‰%5d", exp_up);
+		}
+		font->draw(str, 18, x + 90, y + 75, color_ability1);
+	}
+
+
 }
 
 void UIStatus::dealEvent(BP_Event& e)

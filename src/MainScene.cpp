@@ -215,7 +215,7 @@ void MainScene::backRun()
 void MainScene::dealEvent(BP_Event& e)
 {
     //强制进入，通常用于开始
-    if (force_submap_ >= 0)
+    if (force_submap_ >= 1)
     {
         setVisible(true);
         auto sub_map =  std::make_shared<SubScene>(force_submap_);

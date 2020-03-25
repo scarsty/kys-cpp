@@ -273,9 +273,8 @@ void NewSave::SaveCSVRoleSave(const std::vector<Role>& data, int record)
         fout << ",";
         fout << data[i].PhysicalPower;
         fout << ",";
-        fout << data[i].ExpForMakeItem;
-        fout << ",";
-        fout << data[i].Equip[0];
+
+		fout << data[i].Equip[0];
         fout << ",";
         fout << data[i].Equip[1];
         fout << ",";
@@ -1449,8 +1448,7 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
         nextLineData.Poison = 0;
         nextLineData.PhysicalPower = 0;
 		nextLineData.FightNum = 0;
-        nextLineData.ExpForMakeItem = 0;
-		for (int j = 0; j < 4; j++)
+		for (int j = 0; j < 5; j++)
 		{
 			nextLineData.Equip[j] = 0;
 		}
@@ -1630,11 +1628,11 @@ void NewSave::LoadCSVRoleSave(std::vector<Role>& data, int record)
         nextLineData.Poison,
         nextLineData.PhysicalPower,
 		nextLineData.FightNum,
-        nextLineData.ExpForMakeItem,
         nextLineData.Equip[0],
         nextLineData.Equip[1],
 		nextLineData.Equip[2],
 		nextLineData.Equip[3],
+		nextLineData.Equip[4],
 		nextLineData.Gongti,
 		nextLineData.TeamState,
 		nextLineData.Angry,
@@ -3041,7 +3039,7 @@ void NewSave::LoadCSVZhaoshiSave(std::vector<ZhaoshiInfoSave>& data, int record)
 	data.clear();
 	io::CSVReader<57, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_招式.csv");
 	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-		"代號",
+		"编号",
 		"從屬",
 		"順位",
 		"名稱",
@@ -3194,7 +3192,7 @@ void NewSave::LoadCSVMenpaiSave(std::vector<MenpaiInfoSave>& data, int record)
 	data.clear();
 	io::CSVReader<114, io::trim_chars<>, io::double_quote_escape<',', '\"'>> in("../game/save/csv/" + std::to_string(record) + "_门派.csv");
 	in.read_header(io::ignore_missing_column | io::ignore_extra_column,
-		"代號",
+		"编号",
 		"名稱",
 		"據點個數",
 		"總舵",
@@ -3264,10 +3262,10 @@ void NewSave::LoadCSVMenpaiSave(std::vector<MenpaiInfoSave>& data, int record)
 		"日月",
 		"雪山",
 		"暫無",
-		"暫無",
-		"暫無",
-		"暫無",
-		"暫無",
+		"暫無1",
+		"暫無2",
+		"暫無3",
+		"暫無4",
 		"逍遙",
 		"星宿",
 		"長樂",
@@ -3926,7 +3924,6 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("内伤", Hurt),
             BIND_FIELD_INT("中毒", Poison),
             BIND_FIELD_INT("体力", PhysicalPower),
-            BIND_FIELD_INT("物品修炼点数", ExpForMakeItem),
             BIND_FIELD_INT("武器", Equip[0]),
             BIND_FIELD_INT("防具", Equip[1]),
 			BIND_FIELD_INT("鞋子", Equip[3]),

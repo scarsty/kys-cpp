@@ -40,13 +40,13 @@ public:
 
     void divide2(MapSquareInt& m1, MapSquare<Object>& m);
 
-    int MAN_PIC_0 = 2501;         //初始主角图偏移量
+    int MAN_PIC_0 = 5113;         //初始主角图偏移量
     int MAN_PIC_COUNT = 7;        //单向主角图张数
     int REST_PIC_0 = 2529;        //主角休息图偏移量
     int REST_PIC_COUNT = 6;       //单向休息图张数
     int SHIP_PIC_0 = 3715;        //初始主角图偏移量
     int SHIP_PIC_COUNT = 4;       //单向主角图张数
-    int BEGIN_REST_TIME = 200;    //开始休息的时间
+    int BEGIN_REST_TIME = 9999999999;    //开始休息的时间
     int REST_INTERVAL = 15;       //休息图切换间隔
 
     int force_submap_ = -1;

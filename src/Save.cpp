@@ -56,6 +56,9 @@ void Save::updateAllPtrVector()
     toPtrVector(submap_infos_mem_, submap_infos_);
     toPtrVector(magics_mem_, magics_);
     toPtrVector(shops_mem_, shops_);
+	toPtrVector(zhaoshis_mem_, zhaoshis_);
+	toPtrVector(menpais_mem_, menpais_);
+	toPtrVector(rsigns_mem_, rsigns_);
 }
 
 bool Save::load(int num)
@@ -68,7 +71,9 @@ bool Save::load(int num)
     //loadR(num);
     //loadRFromDB(num);
 	loadRFromCSV(num);
+	Encode = 936; //CSV读取默认是cp936
     loadSD(num);
+	
 
     //内部编码为cp936
     if (Encode != 936)
@@ -257,6 +262,9 @@ void Save::makeMaps()
     magics_by_name_.clear();
     items_by_name_.clear();
     submap_infos_by_name_.clear();
+	zhaoshis_by_name_.clear();
+	menpais_by_name_.clear();
+	rsigns_by_name_.clear();
 
     //有重名的，斟酌使用
     for (auto& i : roles_)
@@ -275,6 +283,18 @@ void Save::makeMaps()
     {
         submap_infos_by_name_[i->Name] = i;
     }
+	for (auto& i : menpais_)
+	{
+		menpais_by_name_[i->Name] = i;
+	}
+	for (auto& i : zhaoshis_)
+	{
+		zhaoshis_by_name_[i->Name] = i;
+	}
+	for (auto& i : rsigns_)
+	{
+		rsigns_by_name_[i->Name] = i;
+	}
 }
 
 Magic* Save::getRoleLearnedMagic(Role* r, int i)
@@ -324,6 +344,10 @@ void Save::loadRFromCSV(int num)
     NewSave::LoadCSVSubMapInfoSave(submap_infos_mem_, num);
     NewSave::LoadCSVMagicSave(magics_mem_, num);
     NewSave::LoadCSVShopSave(shops_mem_, num);
+	NewSave::LoadCSVTimeSave(time_mem_,num);
+	NewSave::LoadCSVMenpaiSave(menpais_mem_,num);
+	NewSave::LoadCSVZhaoshiSave(zhaoshis_mem_,num);
+	NewSave::LoadCSVRSignSave(rsigns_mem_,num);
     updateAllPtrVector();
     makeMaps();
 }

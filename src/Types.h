@@ -112,8 +112,8 @@ public:
     int Exp;
     int HP, MaxHP, Hurt, Poison, PhysicalPower;
 	int FightNum;
-	int ExpForMakeItem;
-    int Equip[4];
+	//int ExpForMakeItem;
+    int Equip[5];
 	int Gongti;
 	int TeamState;
 	int Angry;
@@ -394,6 +394,7 @@ struct MenpaiInfoSave
 	int tongmeng, israndomed, unuse2, unuse3, unuse4;
 };
 
+//存档中的标签类别
 struct SignType
 {
 	int num;
@@ -401,6 +402,7 @@ struct SignType
 	char Introduction[120]; //41
 };
 
+//存档中的标签数据
 struct RSign
 {
 	int num;
@@ -423,6 +425,9 @@ struct SubMapEvent
 
 private:
     MAP_INT X_, Y_;
+
+public:
+	MAP_INT BeginTime, DuringTime, RecurrentTime, ActiveTime, IsActive, OverdueTime, OvderdueEvent;
 
 public:
     MAP_INT X() { return X_; }

@@ -60,6 +60,10 @@ private:
     std::vector<Item> items_mem_;
     std::vector<SubMapInfo> submap_infos_mem_;
     std::vector<Shop> shops_mem_;
+	std::vector<TimeInfoSave> time_mem_;
+	std::vector<ZhaoshiInfoSave> zhaoshis_mem_;
+	std::vector<MenpaiInfoSave> menpais_mem_;
+	std::vector<RSign> rsigns_mem_;
 
     //下面保存的是指针，大部分时候使用
     std::vector<Role*> roles_;
@@ -67,11 +71,18 @@ private:
     std::vector<Item*> items_;
     std::vector<SubMapInfo*> submap_infos_;
     std::vector<Shop*> shops_;
+	std::vector<TimeInfoSave*> time_;
+	std::vector<ZhaoshiInfoSave*> zhaoshis_;
+	std::vector<MenpaiInfoSave*> menpais_;
+	std::vector<RSign*> rsigns_;
 
     std::map<std::string, Role*> roles_by_name_;
     std::map<std::string, Item*> items_by_name_;
     std::map<std::string, Magic*> magics_by_name_;
     std::map<std::string, SubMapInfo*> submap_infos_by_name_;
+	std::map<std::string, ZhaoshiInfoSave*> zhaoshis_by_name_;
+	std::map<std::string, MenpaiInfoSave*> menpais_by_name_;
+	std::map<std::string, RSign*> rsigns_by_name_;
 
     template <class T>
     void setSavePointer(std::vector<T>& v, int size)
@@ -136,6 +147,15 @@ public:
         }
         return shops_[i];
     }
+
+	MenpaiInfoSave* getMenpai(int i)
+	{
+		if (i < 0 || i >= menpais_.size())
+		{
+			return menpais_[0];
+		}
+		return menpais_[i];
+	}
 
     Role* getTeamMate(int i);
     int getTeamMateID(int i) { return Team[i]; }
