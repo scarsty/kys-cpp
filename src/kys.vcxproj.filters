@@ -157,17 +157,17 @@
     <ClCompile Include="RunNode.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="..\common\convert.cpp">
-      <Filter>common</Filter>
-    </ClCompile>
-    <ClCompile Include="..\common\File.cpp">
-      <Filter>common</Filter>
-    </ClCompile>
     <ClCompile Include="..\others\Hanz2Piny.cpp">
       <Filter>hanzi2pinyin</Filter>
     </ClCompile>
     <ClCompile Include="..\others\zip.c">
       <Filter>zip</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\common\convert.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\common\File.cpp">
+      <Filter>common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -330,18 +330,6 @@
     <ClInclude Include="RunNode.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="..\common\convert.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\common\File.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\common\INIReader.h">
-      <Filter>common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\common\Random.h">
-      <Filter>common</Filter>
-    </ClInclude>
     <ClInclude Include="..\others\Hanz2Piny.h">
       <Filter>hanzi2pinyin</Filter>
     </ClInclude>
@@ -353,6 +341,18 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>_Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\common\convert.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\common\File.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\common\INIReader.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\common\Random.h">
+      <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

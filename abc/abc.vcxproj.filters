@@ -4,27 +4,27 @@
     <ClCompile Include="abc.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\common\convert.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="..\common\File.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\GrpIdxFile.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\common\convert.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\common\File.cpp">
       <Filter>sources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\common\convert.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="..\common\File.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\GrpIdxFile.h">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="TypesABC.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\common\File.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\common\convert.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>

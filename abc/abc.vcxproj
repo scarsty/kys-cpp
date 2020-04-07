@@ -12,14 +12,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="abc.cpp" />
-    <ClCompile Include="..\common\File.cpp" />
-    <ClCompile Include="..\common\convert.cpp" />
+    <ClCompile Include="..\..\common\File.cpp" />
+    <ClCompile Include="..\..\common\convert.cpp" />
     <ClCompile Include="..\src\GrpIdxFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TypesABC.h" />
-    <ClInclude Include="..\common\File.h" />
-    <ClInclude Include="..\common\convert.h" />
+    <ClInclude Include="..\..\common\File.h" />
+    <ClInclude Include="..\..\common\convert.h" />
     <ClInclude Include="..\src\GrpIdxFile.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -72,7 +72,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../src;../common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../src;../../common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -88,7 +88,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../src;../common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../src;../../common</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

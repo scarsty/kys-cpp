@@ -60,7 +60,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WITH_SMALLPOT;USE_SDL_MIXER_AUDIO;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../common;../local/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../../common;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -80,7 +80,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WITH_SMALLPOT;WITH_NETWORK;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../common;../local/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../../common;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -125,14 +125,14 @@
     <ClCompile Include="Talk.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Event.cpp" />
-    <ClCompile Include="..\common\File.cpp" />
+    <ClCompile Include="..\..\common\File.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
     <ClCompile Include="TeamMenu.cpp" />
     <ClCompile Include="TextBox.cpp" />
     <ClCompile Include="TextBoxRoll.cpp" />
     <ClCompile Include="UI.cpp" />
-    <ClCompile Include="..\common\convert.cpp" />
+    <ClCompile Include="..\..\common\convert.cpp" />
     <ClCompile Include="PotConv.cpp" />
     <ClCompile Include="SubScene.cpp" />
     <ClCompile Include="TitleScene.cpp" />
@@ -177,9 +177,9 @@
     <ClInclude Include="Cloud.h" />
     <ClInclude Include="RunNode.h" />
     <ClInclude Include="GameUtil.h" />
-    <ClInclude Include="..\common\INIReader.h" />
+    <ClInclude Include="..\..\common\INIReader.h" />
     <ClInclude Include="GrpIdxFile.h" />
-    <ClInclude Include="..\common\Random.h" />
+    <ClInclude Include="..\..\common\Random.h" />
     <ClInclude Include="RandomRole.h" />
     <ClInclude Include="Script.h" />
     <ClInclude Include="ShowExp.h" />
@@ -189,14 +189,14 @@
     <ClInclude Include="Engine.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="EventMacro.h" />
-    <ClInclude Include="..\common\File.h" />
+    <ClInclude Include="..\..\common\File.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="Head.h" />
     <ClInclude Include="TeamMenu.h" />
     <ClInclude Include="TextBox.h" />
     <ClInclude Include="TextBoxRoll.h" />
     <ClInclude Include="UI.h" />
-    <ClInclude Include="..\common\convert.h" />
+    <ClInclude Include="..\..\common\convert.h" />
     <ClInclude Include="PotConv.h" />
     <ClInclude Include="TitleScene.h" />
     <ClInclude Include="MainScene.h" />
