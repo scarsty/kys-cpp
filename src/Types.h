@@ -208,6 +208,8 @@ public:
     void addShowString(std::string text, BP_Color color = { 255, 255, 255, 255 }, int size = 28) { Show.ShowStrings.push_back({ text, color, size }); }
     void clearShowStrings() { Show.ShowStrings.clear(); }
 
+    int movedDistance() { return abs(X_ - prevX_) + abs(Y_ - prevY_); }
+
 public:
     int AI_Action = 0;
     int AI_MoveX, AI_MoveY;
