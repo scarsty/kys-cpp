@@ -3,12 +3,9 @@
 #include <cstdint>
 #include <string>
 
-using MAP_INT = int16_t;
+#include "fmt/format.h"
 
-#ifdef _MSC_VER
-#define printf printf_s
-//#define fopen fopen_s
-#endif
+using MAP_INT = int16_t;
 
 template <typename T>
 struct MapSquare

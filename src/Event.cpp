@@ -103,27 +103,27 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     int i = 0;
     auto e = kdef_[event_id];
 
-    printf("Event %d: ", event_id);
+    fmt::print("Event %d: ", event_id);
     for (auto c : e)
     {
-        printf("%d ", c);
+        fmt::print("%d ", c);
     }
-    printf("\n");
+    fmt::print("\n");
     e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
-#define REGISTER_INSTRUCT(code, function) { case (code): printf("%s ", #function); runner(&Event::function, this, e, i); break; }
+#define REGISTER_INSTRUCT(code, function) { case (code): fmt::print("%s ", #function); runner(&Event::function, this, e, i); break; }
 
     if (use_script_)
     {
-        auto script = convert::formatString("../game/script/oldevent/oldevent_%d.lua", event_id);
+        auto script = fmt::format("../game/script/oldevent/oldevent_%d.lua", event_id);
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else
     {
         while (i < e.size() && !exit_)
         {
-            printf("instruct %d\n", e[i]);
+            fmt::print("instruct %d\n", e[i]);
             switch (e[i])
             {
                 REGISTER_INSTRUCT(-1, forceExit);
@@ -134,7 +134,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
                 REGISTER_INSTRUCT(4, isUsingItem);
                 REGISTER_INSTRUCT(5, askBattle);
             case 6:
-                printf("%s: %d, %d, %d, %d\n", "tryBattle", e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+                fmt::print("%s: %d, %d, %d, %d\n", "tryBattle", e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
                 if (tryBattle(e[i + 1], e[i + 4]))
                 {
                     i += e[i + 2];
@@ -214,7 +214,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
             case 50:
                 if (e[i + 1] > 128)
                 {
-                    printf("%s: ", "checkHave5Item");
+                    fmt::print("%s: ", "checkHave5Item");
                     if (checkHave5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]))
                     {
                         i += e[i + 6];
@@ -307,7 +307,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
         talk = talk_box_down_;
     }
     talk->setContent(talk_contents_[talk_id]);
-    printf("%s\n", PotConv::to_read(talk_contents_[talk_id]).c_str());
+    fmt::print("%s\n", PotConv::to_read(talk_contents_[talk_id]).c_str());
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -328,7 +328,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(convert::formatString("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setText(fmt::format("獲得%s%d", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
     text_box_->setTexture("item", -1);
@@ -694,7 +694,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_->setText(convert::formatString("%s習得武學%s", r->Name, m->Name));
+    text_box_->setText(fmt::format("%s習得武學%s", r->Name, m->Name));
     text_box_->run();
 }
 
@@ -703,7 +703,7 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_->setText(convert::formatString("%s資質增加%d", r->Name, r->IQ - v0));
+    text_box_->setText(fmt::format("%s資質增加%d", r->Name, r->IQ - v0));
     text_box_->run();
 }
 
@@ -873,7 +873,7 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_->setText(convert::formatString("%s輕功增加%d", r->Name, r->Speed - v0));
+    text_box_->setText(fmt::format("%s輕功增加%d", r->Name, r->Speed - v0));
     text_box_->run();
 }
 
@@ -882,7 +882,7 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    text_box_->setText(convert::formatString("%s內力增加%d", r->Name, r->MaxMP - v0));
+    text_box_->setText(fmt::format("%s內力增加%d", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
 
@@ -891,7 +891,7 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_->setText(convert::formatString("%s武力增加%d", r->Name, r->Attack - v0));
+    text_box_->setText(fmt::format("%s武力增加%d", r->Name, r->Attack - v0));
     text_box_->run();
 }
 
@@ -900,7 +900,7 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    text_box_->setText(convert::formatString("%s生命增加%d", r->Name, r->MaxHP - v0));
+    text_box_->setText(fmt::format("%s生命增加%d", r->Name, r->MaxHP - v0));
     text_box_->run();
 }
 
@@ -922,13 +922,13 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setText(convert::formatString("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
+    text_box_->setText(fmt::format("你的道德指數為%d", Save::getInstance()->getRole(0)->Morality));
     text_box_->run();
 }
 
 void Event::showFame()
 {
-    text_box_->setText(convert::formatString("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
+    text_box_->setText(fmt::format("你的聲望指數為%d", Save::getInstance()->getRole(0)->Fame));
     text_box_->run();
 }
 
@@ -1432,7 +1432,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 48:    //自己调试吧，懒得管
         for (int i = e1; i < e1 + e2 - 1; i++)
         {
-            printf("x50[%d]=%d\n", i, x50[i]);
+            fmt::print("x50[%d]=%d\n", i, x50[i]);
         }
         break;
     case 49: break;

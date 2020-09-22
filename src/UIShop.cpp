@@ -55,24 +55,24 @@ void UIShop::draw()
     std::string str;
     auto font = Font::getInstance();
 
-    str = convert::formatString("%-12s%8s%8s%8s%8s", "品名", "價格", "存貨", "持有", "計劃");
+    str = fmt::format("%-12s%8s%8s%8s%8s", "品名", "價格", "存貨", "持有", "計劃");
     font->draw(str, 24, x, y, { 200, 150, 50, 255 });
 
     for (int i = 0; i < 5; i++)
     {
         auto item = Save::getInstance()->getItem(shop_->ItemID[i]);
         int count = Save::getInstance()->getItemCountInBag(item->ID);
-        str = convert::formatString("%-12s%8d%8d%8d%8d", item->Name, shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
+        str = fmt::format("%-12s%8d%8d%8d%8d", item->Name, shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
         ((Button*)(getChild(i).get()))->setText(str);
     }
 
     int need_money = calNeedMoney();
-    str = convert::formatString("總計銀兩%8d", need_money);
+    str = fmt::format("總計銀兩%8d", need_money);
     font->draw(str, 24, 300 + x, y + 25 + 6 * 25, { 255, 255, 255, 255 });
 
     BP_Color c = { 255, 255, 255, 255 };
     int money = Save::getInstance()->getMoneyCountInBag();
-    str = convert::formatString("持有銀兩%8d", money);
+    str = fmt::format("持有銀兩%8d", money);
     if (money < need_money)
     {
         c = { 250, 50, 50, 255 };
@@ -113,7 +113,7 @@ void UIShop::dealEvent(BP_Event& e)
     {
         first_press = 0;
     }
-    //printf("%d ", first_press);
+    //fmt::print("%d ", first_press);
 }
 
 void UIShop::onPressedOK()

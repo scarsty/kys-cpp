@@ -188,7 +188,7 @@ void MainScene::draw()
     {
         c.draw();
     }
-    //printf("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
+    //fmt::print("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
     Engine::getInstance()->renderAssistTextureToWindow();
 }

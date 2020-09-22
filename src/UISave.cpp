@@ -21,10 +21,10 @@ UISave::UISave()
     };
     for (int i = 0; i <= 10; i++)
     {
-        auto str = convert::formatString("進度%02d  %s", i, get_save_time(i).c_str());
+        auto str = fmt::format("進度{:02}  {}", i, get_save_time(i));
         strings.push_back(str);
     }
-    auto str = convert::formatString("自動檔  %s", get_save_time(AUTO_SAVE_ID).c_str());
+    auto str = fmt::format("自動檔  {}", get_save_time(AUTO_SAVE_ID));
     strings.push_back(str);
     setStrings(strings);
     childs_[0]->setVisible(false);    //屏蔽进度0

@@ -282,7 +282,7 @@ void UIItem::showItemProperty(Item* item)
         return;
     }
     //物品名和数量
-    auto str = convert::formatString("%-14s%5d", item->Name, Save::getInstance()->getItemCountInBag(current_item_->ID));
+    auto str = fmt::format("{:14}{}", item->Name, Save::getInstance()->getItemCountInBag(current_item_->ID));
     Font::getInstance()->draw(str, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
 
@@ -297,7 +297,7 @@ void UIItem::showItemProperty(Item* item)
     {
         int man_x, man_y;
         MainScene::getInstance()->getManPosition(man_x, man_y);
-        auto str = convert::formatString("當前坐標 %d, %d", man_x, man_y);
+        auto str = fmt::format("當前坐標 {}, {}", man_x, man_y);
         showOneProperty(1, str, size, c, x, y);
     }
 
@@ -310,39 +310,39 @@ void UIItem::showItemProperty(Item* item)
     //Font::getInstance()->draw("效果：", size, x_ + x, y_ + y, c);
     //y += size + 10;
 
-    showOneProperty(item->AddHP, "生命%+d", size, c, x, y);
-    showOneProperty(item->AddMaxHP, "生命上限%+d", size, c, x, y);
-    showOneProperty(item->AddMP, "內力%+d", size, c, x, y);
-    showOneProperty(item->AddMaxMP, "內力上限%+d", size, c, x, y);
-    showOneProperty(item->AddPhysicalPower, "體力%+d", size, c, x, y);
-    showOneProperty(item->AddPoison, "中毒%+d", size, c, x, y);
+    showOneProperty(item->AddHP, "生命{:+}", size, c, x, y);
+    showOneProperty(item->AddMaxHP, "生命上限{:+}", size, c, x, y);
+    showOneProperty(item->AddMP, "內力{:+}", size, c, x, y);
+    showOneProperty(item->AddMaxMP, "內力上限{:+}", size, c, x, y);
+    showOneProperty(item->AddPhysicalPower, "體力{:+}", size, c, x, y);
+    showOneProperty(item->AddPoison, "中毒{:+}", size, c, x, y);
 
-    showOneProperty(item->AddAttack, "攻擊%+d", size, c, x, y);
-    showOneProperty(item->AddSpeed, "輕功%+d", size, c, x, y);
-    showOneProperty(item->AddDefence, "防禦%+d", size, c, x, y);
+    showOneProperty(item->AddAttack, "攻擊{:+}", size, c, x, y);
+    showOneProperty(item->AddSpeed, "輕功{:+}", size, c, x, y);
+    showOneProperty(item->AddDefence, "防禦{:+}", size, c, x, y);
 
-    showOneProperty(item->AddMedicine, "醫療%+d", size, c, x, y);
-    showOneProperty(item->AddUsePoison, "用毒%+d", size, c, x, y);
-    showOneProperty(item->AddDetoxification, "解毒%+d", size, c, x, y);
-    showOneProperty(item->AddAntiPoison, "抗毒%+d", size, c, x, y);
+    showOneProperty(item->AddMedicine, "醫療{:+}", size, c, x, y);
+    showOneProperty(item->AddUsePoison, "用毒{:+}", size, c, x, y);
+    showOneProperty(item->AddDetoxification, "解毒{:+}", size, c, x, y);
+    showOneProperty(item->AddAntiPoison, "抗毒{:+}", size, c, x, y);
 
-    showOneProperty(item->AddFist, "拳掌%+d", size, c, x, y);
-    showOneProperty(item->AddSword, "御劍%+d", size, c, x, y);
-    showOneProperty(item->AddKnife, "耍刀%+d", size, c, x, y);
-    showOneProperty(item->AddUnusual, "特殊兵器%+d", size, c, x, y);
-    showOneProperty(item->AddHiddenWeapon, "暗器%+d", size, c, x, y);
+    showOneProperty(item->AddFist, "拳掌{:+}", size, c, x, y);
+    showOneProperty(item->AddSword, "御劍{:+}", size, c, x, y);
+    showOneProperty(item->AddKnife, "耍刀{:+}", size, c, x, y);
+    showOneProperty(item->AddUnusual, "特殊兵器{:+}", size, c, x, y);
+    showOneProperty(item->AddHiddenWeapon, "暗器{:+}", size, c, x, y);
 
-    showOneProperty(item->AddKnowledge, "作弊%+d", size, c, x, y);
-    showOneProperty(item->AddMorality, "道德%+d", size, c, x, y);
-    showOneProperty(item->AddAttackWithPoison, "攻擊帶毒%+d", size, c, x, y);
+    showOneProperty(item->AddKnowledge, "作弊{:+}", size, c, x, y);
+    showOneProperty(item->AddMorality, "道德{:+}", size, c, x, y);
+    showOneProperty(item->AddAttackWithPoison, "攻擊帶毒{:+}", size, c, x, y);
 
-    showOneProperty(item->ChangeMPType == 2, "內力調和", size, c, x, y);
-    showOneProperty(item->AddAttackTwice == 1, "雙擊", size, c, x, y);
+    showOneProperty(int(item->ChangeMPType == 2), "內力調和{}", size, c, x, y);
+    showOneProperty(int(item->AddAttackTwice == 1), "雙擊{}", size, c, x, y);
 
     auto magic = Save::getInstance()->getMagic(item->MagicID);
     if (magic)
     {
-        auto str = convert::formatString("習得武學%s", magic->Name);
+        auto str = fmt::format("習得武學{}", magic->Name);
         showOneProperty(1, str, size, c, x, y);
     }
 
@@ -362,28 +362,28 @@ void UIItem::showItemProperty(Item* item)
     auto role = Save::getInstance()->getRole(item->OnlySuitableRole);
     if (role)
     {
-        auto str = convert::formatString("僅適合%s", role->Name);
+        auto str = fmt::format("僅適合{}", role->Name);
         showOneProperty(1, str, size, c, x, y);
         return;
     }
 
-    showOneProperty(item->NeedMP, "內力%d", size, c, x, y);
-    showOneProperty(item->NeedAttack, "攻擊%d", size, c, x, y);
-    showOneProperty(item->NeedSpeed, "輕功%d", size, c, x, y);
+    showOneProperty(item->NeedMP, "內力{}", size, c, x, y);
+    showOneProperty(item->NeedAttack, "攻擊{}", size, c, x, y);
+    showOneProperty(item->NeedSpeed, "輕功{}", size, c, x, y);
 
-    showOneProperty(item->NeedMedicine, "醫療%d", size, c, x, y);
-    showOneProperty(item->NeedUsePoison, "用毒%d", size, c, x, y);
-    showOneProperty(item->NeedDetoxification, "解毒%d", size, c, x, y);
+    showOneProperty(item->NeedMedicine, "醫療{}", size, c, x, y);
+    showOneProperty(item->NeedUsePoison, "用毒{}", size, c, x, y);
+    showOneProperty(item->NeedDetoxification, "解毒{}", size, c, x, y);
 
-    showOneProperty(item->NeedFist, "拳掌%d", size, c, x, y);
-    showOneProperty(item->NeedSword, "御劍%d", size, c, x, y);
-    showOneProperty(item->NeedKnife, "耍刀%d", size, c, x, y);
-    showOneProperty(item->NeedUnusual, "特殊兵器%d", size, c, x, y);
-    showOneProperty(item->NeedHiddenWeapon, "暗器%d", size, c, x, y);
+    showOneProperty(item->NeedFist, "拳掌{}", size, c, x, y);
+    showOneProperty(item->NeedSword, "御劍{}", size, c, x, y);
+    showOneProperty(item->NeedKnife, "耍刀{}", size, c, x, y);
+    showOneProperty(item->NeedUnusual, "特殊兵器{}", size, c, x, y);
+    showOneProperty(item->NeedHiddenWeapon, "暗器{}", size, c, x, y);
 
-    showOneProperty(item->NeedIQ, "資質%d", size, c, x, y);
+    showOneProperty(item->NeedIQ, "資質{}", size, c, x, y);
 
-    showOneProperty(item->NeedExp, "基礎經驗%d", size, c, x, y);
+    showOneProperty(item->NeedExp, "基礎經驗{}", size, c, x, y);
 
     if (item->NeedMaterial >= 0)
     {
@@ -410,16 +410,17 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
 {
     if (v != 0)
     {
-        std::string str;
-        int parameter_count = convert::extractFormatString(format_str).size();
-        if (parameter_count == 1)
-        {
-            str = convert::formatString(format_str.c_str(), v);
-        }
-        else if (parameter_count==0)
-        {
-            str = format_str;
-        }
+        std::string str;        
+        //int parameter_count = convert::extractFormatString(format_str).size();
+        //if (parameter_count == 1)
+        //{
+        //    str = fmt::format(format_str.c_str(), v);
+        //}
+        //else if (parameter_count==0)
+        //{
+        //    str = format_str;
+        //}
+        str = fmt::format(format_str.c_str(), v);
         //测试是不是出界了
         int draw_length = size * str.size() / 2 + size;
         int x1 = x + draw_length;
@@ -463,7 +464,7 @@ void UIItem::onPressedOK()
         {
             auto team_menu=std::make_shared<TeamMenu>();
             team_menu->setItem(current_item_);
-            team_menu->setText(convert::formatString("誰要使用%s", current_item_->Name));
+            team_menu->setText(fmt::format("誰要使用{}", current_item_->Name));
             team_menu->run();
             auto role = team_menu->getRole();
             if (role)
@@ -471,7 +472,7 @@ void UIItem::onPressedOK()
                 Role r = *role;
                 GameUtil::useItem(role, current_item_);
                 auto df=std::make_shared<ShowRoleDifference>(&r, role);
-                df->setText(convert::formatString("%s服用%s", role->Name, current_item_->Name));
+                df->setText(fmt::format("{}服用{}", role->Name, current_item_->Name));
                 df->run();
                 Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
             }
@@ -480,12 +481,12 @@ void UIItem::onPressedOK()
         {
             auto team_menu = std::make_shared<TeamMenu>();
             team_menu->setItem(current_item_);
-            auto format_str = "誰要修煉%s";
+            auto format_str = "誰要修煉{}";
             if (current_item_->ItemType == 1)
             {
-                format_str = "誰要裝備%s";
+                format_str = "誰要裝備{}";
             }
-            team_menu->setText(convert::formatString(format_str, current_item_->Name));
+            team_menu->setText(fmt::format(format_str, current_item_->Name));
             team_menu->run();
             auto role = team_menu->getRole();
             if (role)

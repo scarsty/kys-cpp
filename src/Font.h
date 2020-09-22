@@ -7,7 +7,6 @@ class Font
 {
 private:
     Font();
-    ~Font();
 
     std::string fontnamec_ = "../game/font/chinese.ttf";
     std::string fontnamee_ = "../game/font/english.ttf";

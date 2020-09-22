@@ -29,7 +29,7 @@ public:
     SDL_Texture* getDefaultTexture()
     {
         static SDL_Texture* t = IMG_LoadTexture(_renderer, "fire.png");
-        //printf(SDL_GetError());
+        //fmt::print(SDL_GetError());
         return t;
     }
 };

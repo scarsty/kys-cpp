@@ -303,7 +303,7 @@ int BattleActionMenu::autoSelect(Role* role)
                                 }
                                 if (total_hurt > -1)
                                 {
-                                    //printf("AI %s %s (%d, %d): %d\n", PotConv::to_read(role->Name).c_str(), PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
+                                    //fmt::print("AI %s %s (%d, %d): %d\n", PotConv::to_read(role->Name).c_str(), PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
                                 }
                             }
                         }
@@ -318,11 +318,11 @@ int BattleActionMenu::autoSelect(Role* role)
         double max_point = -1;
         for (auto aa : ai_action)
         {
-            printf("AI %s: %s ", PotConv::to_read(role->Name).c_str(), PotConv::to_read(getStringFromResult(aa.Action)).c_str());
-            if (aa.item) { printf("%s ", PotConv::to_read(aa.item->Name).c_str()); }
-            if (aa.magic) { printf("%s ", PotConv::to_read(aa.magic->Name).c_str()); }
+            fmt::print("AI %s: %s ", PotConv::to_read(role->Name).c_str(), PotConv::to_read(getStringFromResult(aa.Action)).c_str());
+            if (aa.item) { fmt::print("%s ", PotConv::to_read(aa.item->Name).c_str()); }
+            if (aa.magic) { fmt::print("%s ", PotConv::to_read(aa.magic->Name).c_str()); }
             double r = rand.rand() * 10;    //用于同分的情况，可以随机选择
-            printf("score %.2f(%.2f)\n", aa.point, r);
+            fmt::print("score %.2f(%.2f)\n", aa.point, r);
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
             if (aa.point == 0)
             {
@@ -504,7 +504,7 @@ void BattleMagicMenu::setRole(Role* r)
         auto m = Save::getInstance()->getRoleLearnedMagic(role_, i);
         if (m)
         {
-            magic_names.push_back(convert::formatString("%-12s%4d  ", m->Name, role_->getRoleShowLearnedMagicLevel(i)));
+            magic_names.push_back(fmt::format("%-12s%4d  ", m->Name, role_->getRoleShowLearnedMagicLevel(i)));
         }
         else
         {

@@ -167,13 +167,13 @@ public:
     {
         for (int i1 = i; i1 < i + size - 1; i1++)
         {
-            printf("%d, ", e[i1]);
+            fmt::print("%d, ", e[i1]);
         }
         if (size > 1)
         {
-            printf("%d", e[i - 1]);
+            fmt::print("%d", e[i - 1]);
         }
-        printf("\n");
+        fmt::print("\n");
     }
 
     template <typename F, typename C, std::size_t... I>

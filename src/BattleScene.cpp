@@ -163,7 +163,7 @@ void BattleScene::draw()
                 auto r = role_layer_.data(ix, iy);
                 if (r)
                 {
-                    std::string path = convert::formatString("fight/fight%03d", r->HeadID);
+                    std::string path = fmt::format("fight/fight%03d", r->HeadID);
                     BP_Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
                     if (battle_cursor_->isRunning() && !acting_role_->isAuto())
@@ -192,7 +192,7 @@ void BattleScene::draw()
                 }
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
-                    std::string path = convert::formatString("eft/eft%03d", effect_id_);
+                    std::string path = fmt::format("eft/eft%03d", effect_id_);
                     int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
                     num = effect_frame_ - dis + rng_.rand_int(3) - rng_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
@@ -223,7 +223,7 @@ void BattleScene::draw()
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     }
 
-    //printf("Battle scene drawn\n");
+    //fmt::print("Battle scene drawn\n");
 }
 
 void BattleScene::dealEvent(BP_Event& e)
@@ -609,7 +609,7 @@ void BattleScene::readFightFrame(Role* r)
     {
         r->FightFrame[i] = 0;
     }
-    std::string text_group = convert::formatString("fight/fight%03d", r->HeadID);
+    std::string text_group = fmt::format("fight/fight%03d", r->HeadID);
     std::string frame_txt = TextureManager::getInstance()->getTextureGroup(text_group)->getFileContent("fightframe.txt");
     std::vector<int> frames;
     convert::findNumbers(frame_txt, &frames);
@@ -1127,11 +1127,11 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             {
                 if (magic->HurtType == 0)
                 {
-                    r->addShowString(convert::formatString("-%d", r->Show.BattleHurt), { 255, 20, 20, 255 });
+                    r->addShowString(fmt::format("-%d", r->Show.BattleHurt), { 255, 20, 20, 255 });
                 }
                 else if (magic->HurtType == 1)
                 {
-                    r->addShowString(convert::formatString("-%d", r->Show.BattleHurt), { 160, 32, 240, 255 });
+                    r->addShowString(fmt::format("-%d", r->Show.BattleHurt), { 160, 32, 240, 255 });
                     // 吸内力不做渐变显示，麻烦
                     r->Show.BattleHurt = 0;
                 }
@@ -1147,7 +1147,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             r->MagicLevel[index] += 1 + rng_.rand_int(2);
             GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
         }
-        printf("%s %s level is %d\n", PotConv::to_read(r->Name).c_str(), PotConv::to_read(magic->Name).c_str(), r->MagicLevel[index]);
+        fmt::print("%s %s level is %d\n", PotConv::to_read(r->Name).c_str(), PotConv::to_read(magic->Name).c_str(), r->MagicLevel[index]);
     }
     r->Acted = 1;
 
@@ -1190,7 +1190,7 @@ void BattleScene::actUsePoison(Role* r)
         if (r2)
         {
             int v = GameUtil::usePoison(r, r2);
-            r2->addShowString(convert::formatString("%+d", v), { 20, 255, 20, 255 });
+            r2->addShowString(fmt::format("%+d", v), { 20, 255, 20, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
@@ -1218,7 +1218,7 @@ void BattleScene::actDetoxification(Role* r)
         if (r2)
         {
             int v = GameUtil::detoxification(r, r2);
-            r2->addShowString(convert::formatString("-%d", -v), { 20, 200, 255, 255 });
+            r2->addShowString(fmt::format("-%d", -v), { 20, 200, 255, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1246,7 +1246,7 @@ void BattleScene::actMedicine(Role* r)
         if (r2)
         {
             int v = GameUtil::medicine(r, r2);
-            r2->addShowString(convert::formatString("-%d", abs(v)), { 255, 255, 200, 255 });
+            r2->addShowString(fmt::format("-%d", abs(v)), { 255, 255, 200, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1282,7 +1282,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             {
                 v = calHiddenWeaponHurt(r, r2, item);
                 r2->Show.BattleHurt = v;
-                r2->addShowString(convert::formatString("-%d", v), { 255, 20, 20, 255 });
+                r2->addShowString(fmt::format("-%d", v), { 255, 20, 20, 255 });
             }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
             item_menu->addItem(item, -1);
@@ -1320,7 +1320,7 @@ void BattleScene::actUseDrug(Role* r)
         actionAnimation_ = [this, r, r0, item]() mutable
         {
             auto df = std::make_shared<ShowRoleDifference>(&r0, r);
-            df->setText(convert::formatString("%s服用%s", r->Name, item->Name));
+            df->setText(fmt::format("%s服用%s", r->Name, item->Name));
             df->setShowHead(false);
             df->setPosition(250, 220);
             df->setStayFrame(40);
@@ -1471,7 +1471,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     }
     action_frame_ = frame_count - 1;
     effect_id_ = effect_id;
-    auto path = convert::formatString("eft/eft%03d", effect_id_);
+    auto path = fmt::format("eft/eft%03d", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     Audio::getInstance()->playESound(effect_id);
 
@@ -1678,7 +1678,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
         if (r->Show.Effect != -1)
         {
             need_show = true;
-            auto path = convert::formatString("eft/eft%03d", r->Show.Effect);
+            auto path = fmt::format("eft/eft%03d", r->Show.Effect);
             auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
             single_loop_frames = (std::max)(single_loop_frames, effect_count);
         }
@@ -1702,7 +1702,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                 // 有越界保护，直接显示就好了
                 if (r->Show.Effect != -1)
                 {
-                    auto path = convert::formatString("eft/eft%03d", r->Show.Effect);
+                    auto path = fmt::format("eft/eft%03d", r->Show.Effect);
                     TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
                 if (!r->Show.ShowStrings.empty())
@@ -1975,7 +1975,7 @@ void BattleScene::calExpGot()
             if (change)
             {
                 diff->setTwinRole(&r0, r);
-                diff->setText(convert::formatString("修煉%s成功", item->Name));
+                diff->setText(fmt::format("修煉%s成功", item->Name));
                 diff->run();
             }
             if (item->MakeItem[0] >= 0 && r->ExpForMakeItem >= item->NeedExpForMakeItem && Event::getInstance()->haveItemBool(item->NeedMaterial))
@@ -2016,7 +2016,7 @@ void BattleScene::receiveAction(Role* r)
     // getOpponentAction读取完毕会调用此函数关闭显示
     auto exit = [&waitThis, this](std::error_code err, std::size_t bytes)
     {
-        printf("recv %s\n", err.message().c_str());
+        fmt::print("recv %s\n", err.message().c_str());
         waitThis->setExit(true);
         if (err)
         {

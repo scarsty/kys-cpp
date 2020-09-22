@@ -41,7 +41,7 @@ private:
         auto p2 = *(T*)(diff + (char*)role2_);
         if (p1 != p2 || force)
         {
-            auto str = convert::formatString(format_str.c_str(), p1, p2);
+            auto str = fmt::format(format_str.c_str(), p1, p2);
             Font::getInstance()->draw(str, size, x, y, c);
             y += size + 5;
         }

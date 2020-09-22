@@ -50,11 +50,11 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         }
         if (zip_.opened())
         {
-            printf("Load texture group from file: %s.zip, %d textures\n", path_.c_str(), size());
+            fmt::print("Load texture group from file: {}.zip, {} textures\n", path_, size());
         }
         else
         {
-            printf("Load texture group from path: %s, %d textures\n", path_.c_str(), size());
+            fmt::print("Load texture group from path: {}, {} textures\n", path_, size());
         }
     }
     if (load_all)
@@ -72,7 +72,7 @@ void TextureGroup::loadTexture(int num, Texture* t)
 {
     if (!t->loaded)
     {
-        //printf("Load texture %s, %d\n", p.c_str(), num);
+        //fmt::print("Load texture %s, %d\n", p.c_str(), num);
         if (zip_.opened())
         {
             t->tex[0] = Engine::getInstance()->loadImageFromMemory(zip_.readEntryName(std::to_string(num) + ".png"));

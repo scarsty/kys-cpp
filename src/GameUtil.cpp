@@ -386,9 +386,9 @@ int GameUtil::usePoison(Role* r1, Role* r2)
 
 void GameUtil::setRoleMaxValue(Role* role)
 {
-#define GET_VALUE_INT(v, default_v) do { role->v = getInt("constant", #v, default_v); printf("%s = %d\n", #v, role->v); } while (0)
+#define GET_VALUE_INT(v, default_v) do { role->v = getInt("constant", #v, default_v); fmt::print("{} = {}\n", #v, role->v); } while (0)
 
-    printf("Max values of roles: \n");
+    fmt::print("Max values of roles: \n");
 
     GET_VALUE_INT(Level, 30);
     GET_VALUE_INT(HP, 999);
@@ -420,14 +420,14 @@ void GameUtil::setRoleMaxValue(Role* role)
 
     GET_VALUE_INT(Exp, 99999);
 
-    printf("\n");
+    fmt::print("\n");
 
 #undef GET_VALUE_INT
 }
 
 void GameUtil::setSpecialItems()
 {
-#define GET_VALUE_INT(v) do { Item::v = getInt("constant", #v, Item::v); printf("%s = %d\n", #v, Item::v); } while (0)
+#define GET_VALUE_INT(v) do { Item::v = getInt("constant", #v, Item::v); fmt::print("{} = {}\n", #v, Item::v); } while (0)
 
     GET_VALUE_INT(MoneyItemID);
     GET_VALUE_INT(CompassItemID);

@@ -41,9 +41,9 @@ public:
     {
         worker_ = std::thread([this]
         {
-            printf("spawning thread\n");
+            fmt::print("spawning thread\n");
             io_context_.run();
-            printf("threading is done\n");
+            fmt::print("threading is done\n");
         });
     }
 
@@ -56,7 +56,7 @@ public:
         int itemID = -1;
         void print()
         {
-            printf("action %d, movex %d, movey %d, actionx %d, actiony %d magic %d, item %d\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
+            fmt::print("action %d, movex %d, movey %d, actionx %d, actiony %d magic %d, item %d\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
         }
     };
     static_assert(sizeof(SerializableBattleAction) == 28, "introduced extra struct padding");

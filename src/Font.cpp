@@ -6,10 +6,6 @@ Font::Font()
 {
 }
 
-Font::~Font()
-{
-}
-
 BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
 {
     BP_Rect r;
@@ -73,7 +69,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         int s = getBufferSize() - s1;
         if (s > 0)
         {
-            printf(" %d/%d, %d, total = %d\n", s, char_count, size, getBufferSize());
+            fmt::print(" %d/%d, %d, total = %d\n", s, char_count, size, getBufferSize());
         }
     }
 }

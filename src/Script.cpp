@@ -26,13 +26,13 @@ Script::~Script()
 int Script::runScript(const std::string& filename)
 {
     std::string content = convert::readStringFromFile(filename);
-    printf("%s\n", content.c_str());
+    fmt::print("%s\n", content.c_str());
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
     int r = lua_pcall(lua_state_, 0, 0, 0);
     if (r)
     {
-        printf("\nError: %s\n", lua_tostring(lua_state_, -1));
+        fmt::print("\nError: %s\n", lua_tostring(lua_state_, -1));
     }
     return r;
 }
