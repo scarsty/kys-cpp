@@ -102,7 +102,7 @@ public:
     void setSpecialItems();
 
     template <typename... Args>
-    static void LOG(Args... args) 
+    static void LOG(Args&&... args) 
     {
         fmt::print(stdout, args...);
     }
