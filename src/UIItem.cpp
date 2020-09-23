@@ -281,9 +281,9 @@ void UIItem::showItemProperty(Item* item)
     {
         return;
     }
-    //物品名和数量
-    auto str = std::string(item->Name) + std::string(abs(14 - Font::getTextDrawSize(item->Name)), ' ') + std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID));
-    Font::getInstance()->draw(str, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
+    //物品名和数量    
+    Font::getInstance()->draw(item->Name, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
+    Font::getInstance()->draw(std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID)), 24, x_ + 200, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
 
     int x = 10, y = 430;
