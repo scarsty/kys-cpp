@@ -14,6 +14,9 @@
 #include "PotDll.h"
 #endif
 
+#define WIN32_LEAN_AND_MEAN
+
+#define FMT_HEADER_ONLY
 #include "fmt/format.h"
 
 //这里是底层部分，将SDL的函数均封装了一次

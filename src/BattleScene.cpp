@@ -1,7 +1,6 @@
 #include "BattleScene.h"
-#include "BattleNetwork.h"    //必须在Audio之前
-
 #include "Audio.h"
+#include "BattleNetwork.h"    //必须在Audio之前
 #include "DrawableOnCall.h"
 #include "Event.h"
 #include "File.h"
@@ -624,16 +623,12 @@ void BattleScene::sortRoles()
     if (semi_real_ == 0)
     {
         std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
-        {
-            return std::make_tuple(r1->Speed, r1->ID, r1->X(), r1->Y()) > std::make_tuple(r2->Speed, r2->ID, r2->X(), r2->Y());
-        });
+            { return std::make_tuple(r1->Speed, r1->ID, r1->X(), r1->Y()) > std::make_tuple(r2->Speed, r2->ID, r2->X(), r2->Y()); });
     }
     else
     {
         std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
-        {
-            return std::make_tuple(r1->Progress, r1->ID, r1->X(), r2->Y()) > std::make_tuple(r2->Progress, r2->ID, r2->X(), r2->Y());
-        });
+            { return std::make_tuple(r1->Progress, r1->ID, r1->X(), r2->Y()) > std::make_tuple(r2->Progress, r2->ID, r2->X(), r2->Y()); });
     }
 }
 
@@ -2025,9 +2020,7 @@ void BattleScene::receiveAction(Role* r)
     };
     // 打开后既开始获取数据
     waitThis->setEntrance([this, &action, exit]()
-    {
-        network_->getOpponentAction(action, exit);
-    });
+        { network_->getOpponentAction(action, exit); });
     waitThis->run();
     // 这里返回后，就已经获得action
     action.print();

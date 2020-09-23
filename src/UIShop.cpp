@@ -3,6 +3,7 @@
 #include "Font.h"
 #include "Save.h"
 #include "convert.h"
+#include "PotConv.h"
 
 UIShop::UIShop()
 {
@@ -64,6 +65,9 @@ void UIShop::draw()
         int count = Save::getInstance()->getItemCountInBag(item->ID);
         str = std::string(item->Name) + std::string(abs(12 - Font::getTextDrawSize(item->Name)), ' ');
         str += fmt::format("{:8}{:8}{:8}{:8}", shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
+        //std::u8string str1 = fmt::format(u8"{:12}{:8}{:8}{:8}{:8}", (char8_t*)item->Name, shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
+        //std::string m = PotConv::utf8tocp936((char*)str1.c_str());
+        //std::cout << m << "\n";
         ((Button*)(getChild(i).get()))->setText(str);
     }
 

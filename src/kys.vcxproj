@@ -62,13 +62,13 @@
       <PreprocessorDefinitions>WITH_SMALLPOT;USE_SDL_MIXER_AUDIO;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../../common;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_mixer.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;libiconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;fmtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_mixer.lib;sdl2_ttf.lib;bass.lib;bassmidi.lib;libiconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64;$(VCPKG_LIB_PATH)\x64-windows\debug\lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -91,7 +91,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;sdl2_mixer.lib;bass.lib;bassmidi.lib;libiconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;sdl2_mixer.lib;bass.lib;bassmidi.lib;libiconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
