@@ -21,7 +21,7 @@ void ShowExp::draw()
         auto r = roles_[i];
         int x = x_ + i % 3 * 300, y = y_ + i / 3 * 200;
         TextureManager::getInstance()->renderTexture("head", r->HeadID, x, y);
-        auto str = fmt::format("{}«@µÃ½›ò{}", r->Name, r->ExpGot);
+        auto str = fmt::format("{}ç²å¾—ç¶“é©—{}", r->Name, r->ExpGot);
         Font::getInstance()->draw(str, 20, x, y + 170, { 255, 255, 255, 255 });
     }
 }

@@ -33,7 +33,7 @@ void Head::draw()
     {
         color = { 160, 160, 160, 255 };
     }
-    //ÖÐ¶¾Ê±Í»³öÂÌÉ«
+    //ä¸­æ¯’æ—¶çªå‡ºç»¿è‰²
     color.r -= 2 * role_->Poison;
     color.b -= 2 * role_->Poison;
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, color, 255, 0.5, 0.5);
@@ -42,7 +42,7 @@ void Head::draw()
 
     if (only_head_) { return; }
 
-    //ÏÂÃæ¶¼ÊÇ»­ÑªÌõµÈ
+    //ä¸‹é¢éƒ½æ˜¯ç”»è¡€æ¡ç­‰
 
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
     BP_Rect r1 = { 0, 0, 0, 0 };

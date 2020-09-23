@@ -2,10 +2,10 @@
 #include "RunNode.h"
 #include <functional>
 
-// Õâ¸öÀà¾Í¸ÉÒ»¼şÊÂ
-// ÓÃ»§´«µİº¯ÊıÖ¸ÕëÏ¹»­£¬(Ö±½Ó°Ñ×Ô¼º×÷Îª²ÎÊı)
-// È»ºóÓĞÒ»¸öupdateScreenID(int id)½Ó¿Ú
-// ¾ÍÊÇ·½±ã²»ÓÃ¸ÉÊ²Ã´¶¼¸ã1W¸öÀà
+// è¿™ä¸ªç±»å°±å¹²ä¸€ä»¶äº‹
+// ç”¨æˆ·ä¼ é€’å‡½æ•°æŒ‡é’ˆçç”»ï¼Œ(ç›´æ¥æŠŠè‡ªå·±ä½œä¸ºå‚æ•°)
+// ç„¶åæœ‰ä¸€ä¸ªupdateScreenID(int id)æ¥å£
+// å°±æ˜¯æ–¹ä¾¿ä¸ç”¨å¹²ä»€ä¹ˆéƒ½æ1Wä¸ªç±»
 class DrawableOnCall : public RunNode {
 public:
     DrawableOnCall(std::function<void(DrawableOnCall*)> draw);

@@ -6,9 +6,9 @@
 #include "Random.h"
 #include "Scene.h"
 
-// WinSock.h(Event.cpp, SubScene.cpp, TitleScene.cpp) ºÍasioÓĞ³åÍ»
-// ½öÔÚBattleScene.cppÖĞinclude BattleNetwork
-// ËùÓĞµ÷ÓÃÍøÂçÁ¬½ÓµÄµØ·½Ğè×ÔĞĞinclude BattleNetwork (ÏÈBattleNetworkºówindows.h)
+// WinSock.h(Event.cpp, SubScene.cpp, TitleScene.cpp) å’Œasioæœ‰å†²çª
+// ä»…åœ¨BattleScene.cppä¸­include BattleNetwork
+// æ‰€æœ‰è°ƒç”¨ç½‘ç»œè¿æ¥çš„åœ°æ–¹éœ€è‡ªè¡Œinclude BattleNetwork (å…ˆBattleNetworkåwindows.h)
 class BattleNetwork;
 
 class BattleScene : public Scene
@@ -21,10 +21,10 @@ public:
     virtual ~BattleScene();
     void setID(int id);
 
-    //¼Ì³Ğ×Ô»ùÀàµÄº¯Êı
+    //ç»§æ‰¿è‡ªåŸºç±»çš„å‡½æ•°
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;     //Õ½³¡Ö÷Ñ­»·
-    virtual void dealEvent2(BP_Event& e) override;    //ÓÃÓÚÍ£Ö¹×Ô¶¯
+    virtual void dealEvent(BP_Event& e) override;     //æˆ˜åœºä¸»å¾ªç¯
+    virtual void dealEvent2(BP_Event& e) override;    //ç”¨äºåœæ­¢è‡ªåŠ¨
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void backRun() override;
@@ -35,26 +35,26 @@ protected:
 
     Save* save_;
 
-    std::vector<Role*> battle_roles_;    //ËùÓĞ²ÎÕ½½ÇÉ«
-    std::vector<Role*> friends_;         //¿ªÊ¼¾Í²ÎÕ½µÄÎÒ·½½ÇÉ«£¬ÓÃÀ´¼ÆËãÊ§°Ü¾­Ñé
-    Role* acting_role_ = nullptr;        //µ±Ç°ÕıÔÚĞĞ¶¯ÖĞµÄ½ÇÉ«
+    std::vector<Role*> battle_roles_;    //æ‰€æœ‰å‚æˆ˜è§’è‰²
+    std::vector<Role*> friends_;         //å¼€å§‹å°±å‚æˆ˜çš„æˆ‘æ–¹è§’è‰²ï¼Œç”¨æ¥è®¡ç®—å¤±è´¥ç»éªŒ
+    Role* acting_role_ = nullptr;        //å½“å‰æ­£åœ¨è¡ŒåŠ¨ä¸­çš„è§’è‰²
 
-    std::shared_ptr<BattleActionMenu> battle_menu_;    //Õ½¶·ĞĞ¶¯²Ëµ¥
-    std::shared_ptr<BattleCursor> battle_cursor_;      //Õ½¶·Ê±µÄ¹â±ê
-    std::shared_ptr<Head> head_self_;                  //Í·Ïñ
+    std::shared_ptr<BattleActionMenu> battle_menu_;    //æˆ˜æ–—è¡ŒåŠ¨èœå•
+    std::shared_ptr<BattleCursor> battle_cursor_;      //æˆ˜æ–—æ—¶çš„å…‰æ ‡
+    std::shared_ptr<Head> head_self_;                  //å¤´åƒ
 
-    //µØÃæ²ã£¬½¨Öş²ã£¬Ñ¡Ôñ²ã£¨¸ºÖµÎª²»¿ÉÑ¡£¬0ºÍÕıÖµÎª¿ÉÑ¡£©£¬Ğ§¹û²ã
+    //åœ°é¢å±‚ï¼Œå»ºç­‘å±‚ï¼Œé€‰æ‹©å±‚ï¼ˆè´Ÿå€¼ä¸ºä¸å¯é€‰ï¼Œ0å’Œæ­£å€¼ä¸ºå¯é€‰ï¼‰ï¼Œæ•ˆæœå±‚
     MapSquareInt earth_layer_, building_layer_, select_layer_, effect_layer_;
 
-    //½ÇÉ«²ã
+    //è§’è‰²å±‚
     MapSquare<Role*> role_layer_;
 
-    int select_type_ = 0;    //0-ÆäËû£¬1-Ñ¡ÒÆ¶¯Ä¿±ê£¬2-Ñ¡ĞĞ¶¯Ä¿±ê£¨ºÃÏñÃ»±»ÓÃµ½£©
+    int select_type_ = 0;    //0-å…¶ä»–ï¼Œ1-é€‰ç§»åŠ¨ç›®æ ‡ï¼Œ2-é€‰è¡ŒåŠ¨ç›®æ ‡ï¼ˆå¥½åƒæ²¡è¢«ç”¨åˆ°ï¼‰
 
-    //¹â±êÑ¡ÔñµÄÎ»ÖÃ
+    //å…‰æ ‡é€‰æ‹©çš„ä½ç½®
     int select_x_ = 0, select_y_ = 0;
 
-    //ÒÔÏÂ»­Í¼ÓÃ
+    //ä»¥ä¸‹ç”»å›¾ç”¨
     int action_frame_ = 0;
     int action_type_ = -1;
     int show_number_y_ = 0;
@@ -63,17 +63,17 @@ protected:
     uint8_t dead_alpha_ = 255;
     static const int animation_delay_ = 2;
 
-    // ¶¯»­£¬»òÕßĞèÒª¶àĞ´Ò»Ûçif elseµÈ
+    // åŠ¨ç”»ï¼Œæˆ–è€…éœ€è¦å¤šå†™ä¸€å¨if elseç­‰
     std::function<void()> actionAnimation_ = nullptr;
 
-    bool fail_exp_ = false;    //ÊäºóÊÇ·ñÓĞ¾­Ñé
+    bool fail_exp_ = false;    //è¾“åæ˜¯å¦æœ‰ç»éªŒ
 
-    int semi_real_ = 0;    //ÊÇ·ñ°ë¼´Ê±
+    int semi_real_ = 0;    //æ˜¯å¦åŠå³æ—¶
 
-    std::unique_ptr<BattleNetwork> network_;    // ÍøÂçÁ¬½Ó
+    std::unique_ptr<BattleNetwork> network_;    // ç½‘ç»œè¿æ¥
 
 public:
-    void setSelectPosition(int x, int y)    //ÉèÖÃÑ¡ÔñµÄ×ø±ê
+    void setSelectPosition(int x, int y)    //è®¾ç½®é€‰æ‹©çš„åæ ‡
     {
         select_x_ = x;
         select_y_ = y;
@@ -84,34 +84,34 @@ public:
     int selectX() { return select_x_; }
     int selectY() { return select_y_; }
 
-    virtual void setHaveFailExp(bool b) { fail_exp_ = b; }    //ÊÇ·ñÊäÁËÒ²ÓĞ¾­Ñé
+    virtual void setHaveFailExp(bool b) { fail_exp_ = b; }    //æ˜¯å¦è¾“äº†ä¹Ÿæœ‰ç»éªŒ
 
-    virtual void readBattleInfo();                                          //¶ÁÈ¡Õ½³¡ÈËÎïµÄÊı¾İ
-    virtual void setRoleInitState(Role* r);                                 //³õÊ¼»¯ÈËÎïµÄÊôĞÔ
-    virtual void setFaceTowardsNearest(Role* r, bool in_effect = false);    //ÒÔÀëµÃ×î½üµÄµĞÈËÉèÖÃÃæÏò£¬²ÎÊıÎªÊÇ·ñµĞÈËÔÚ×Ô¼ºĞĞ¶¯Ğ§¹ûÖĞ
-    virtual void readFightFrame(Role* r);                                   //¶ÁÈ¡ÈËÎïĞĞ¶¯Ö¡Êı
-    virtual void sortRoles();                                               //½ÇÉ«ÅÅĞò
-    virtual void resetRolesAct();                                           //ÉèÖÃËùÓĞÈËÎ´ĞĞ¶¯¹ı
-    virtual int calMoveStep(Role* r);                                       //¼ÆËã¿ÉÒÆ¶¯²½Êı(¿¼ÂÇ×°±¸)
-    virtual int calActionStep(int ability) { return ability / 15 + 1; }     //ÒÀ¾İÄÜÁ¦Öµ¼ÆËãĞĞ¶¯µÄ·¶Î§²½Êı
-    virtual int calRolePic(Role* r, int style = -1, int frame = 0);         //ÒÀ¾İ¶¯×÷Ö¡Êı¼ÆËã½ÇÉ«µÄÌùÍ¼±àºÅ
+    virtual void readBattleInfo();                                          //è¯»å–æˆ˜åœºäººç‰©çš„æ•°æ®
+    virtual void setRoleInitState(Role* r);                                 //åˆå§‹åŒ–äººç‰©çš„å±æ€§
+    virtual void setFaceTowardsNearest(Role* r, bool in_effect = false);    //ä»¥ç¦»å¾—æœ€è¿‘çš„æ•Œäººè®¾ç½®é¢å‘ï¼Œå‚æ•°ä¸ºæ˜¯å¦æ•Œäººåœ¨è‡ªå·±è¡ŒåŠ¨æ•ˆæœä¸­
+    virtual void readFightFrame(Role* r);                                   //è¯»å–äººç‰©è¡ŒåŠ¨å¸§æ•°
+    virtual void sortRoles();                                               //è§’è‰²æ’åº
+    virtual void resetRolesAct();                                           //è®¾ç½®æ‰€æœ‰äººæœªè¡ŒåŠ¨è¿‡
+    virtual int calMoveStep(Role* r);                                       //è®¡ç®—å¯ç§»åŠ¨æ­¥æ•°(è€ƒè™‘è£…å¤‡)
+    virtual int calActionStep(int ability) { return ability / 15 + 1; }     //ä¾æ®èƒ½åŠ›å€¼è®¡ç®—è¡ŒåŠ¨çš„èŒƒå›´æ­¥æ•°
+    virtual int calRolePic(Role* r, int style = -1, int frame = 0);         //ä¾æ®åŠ¨ä½œå¸§æ•°è®¡ç®—è§’è‰²çš„è´´å›¾ç¼–å·
 
-    //¼ÆËã¿ÉÒÔ±»Ñ¡ÔñµÄ·¶Î§£¬»á¸ÄĞ´Ñ¡Ôñ²ã
-    //modeº¬Òå£º0-ÒÆ¶¯£¬ÊÜ²½ÊıºÍÕÏ°­Ó°Ïì£»1¹¥»÷ÓÃ¶¾Ò½ÁÆµÈ½öÊÜ²½ÊıÓ°Ïì£»2²é¿´×´Ì¬£¬È«¶¼ÄÜÑ¡£»3½öÄÜÑ¡Ö±ÏßµÄ¸ñ×Ó£»4½öÄÜÑ¡×Ô¼º
+    //è®¡ç®—å¯ä»¥è¢«é€‰æ‹©çš„èŒƒå›´ï¼Œä¼šæ”¹å†™é€‰æ‹©å±‚
+    //modeå«ä¹‰ï¼š0-ç§»åŠ¨ï¼Œå—æ­¥æ•°å’Œéšœç¢å½±å“ï¼›1æ”»å‡»ç”¨æ¯’åŒ»ç–—ç­‰ä»…å—æ­¥æ•°å½±å“ï¼›2æŸ¥çœ‹çŠ¶æ€ï¼Œå…¨éƒ½èƒ½é€‰ï¼›3ä»…èƒ½é€‰ç›´çº¿çš„æ ¼å­ï¼›4ä»…èƒ½é€‰è‡ªå·±
     virtual void calSelectLayer(Role* r, int mode, int step = 0);
     virtual void calSelectLayer(int x, int y, int team, int mode, int step = 0);
 
-    //¼ÆËãÎäÑ§¿ÉÑ¡ÔñµÄ·¶Î§
+    //è®¡ç®—æ­¦å­¦å¯é€‰æ‹©çš„èŒƒå›´
     virtual void calSelectLayerByMagic(int x, int y, int team, Magic* magic, int level_index);
 
-    //¼ÆËãĞ§¹û²ã£¬x£¬y£¬»òÕßrÎªÑ¡ÔñµÄÖĞĞÄµã£¬¼´ÈËËùÔÚµÄÎ»ÖÃ
+    //è®¡ç®—æ•ˆæœå±‚ï¼Œxï¼Œyï¼Œæˆ–è€…rä¸ºé€‰æ‹©çš„ä¸­å¿ƒç‚¹ï¼Œå³äººæ‰€åœ¨çš„ä½ç½®
     virtual void calEffectLayer(Role* r, int select_x, int select_y, Magic* m = nullptr, int level_index = 0) { calEffectLayer(r->X(), r->Y(), select_x, select_y, m, level_index); }
     virtual void calEffectLayer(int x, int y, int select_x, int select_y, Magic* m = nullptr, int level_index = 0);
 
-    //ËùÔÚ×ø±êÊÇ·ñÓĞĞ§¹û
+    //æ‰€åœ¨åæ ‡æ˜¯å¦æœ‰æ•ˆæœ
     virtual bool haveEffect(int x, int y) { return effect_layer_.data(x, y) >= 0; }
 
-    //r2ÊÇ²»ÊÇÔÚĞ§¹û²ãÀïÃæ£¬ÇÒ»á±»r1µÄĞ§¹û´òÖĞ
+    //r2æ˜¯ä¸æ˜¯åœ¨æ•ˆæœå±‚é‡Œé¢ï¼Œä¸”ä¼šè¢«r1çš„æ•ˆæœæ‰“ä¸­
     virtual bool inEffect(Role* r1, Role* r2);
 
     virtual bool canSelect(int x, int y);
@@ -123,55 +123,55 @@ public:
     virtual bool isWater(int x, int y);
     virtual bool isRole(int x, int y);
     virtual bool isOutScreen(int x, int y) override;
-    virtual bool isNearEnemy(int team, int x, int y);    //ÊÇ·ñx£¬yÉÏµÄÈËÎïÓëteam²»Ò»ÖÂ
+    virtual bool isNearEnemy(int team, int x, int y);    //æ˜¯å¦xï¼Œyä¸Šçš„äººç‰©ä¸teamä¸ä¸€è‡´
 
-    virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }                     //¼ÆËã¾àÀë
-    virtual int calDistanceRound(int x1, int x2, int y1, int y2) { return sqrt((x1 - y1) * (x1 - y1) + (x2 - y2) * (x2 - y2)); }    //¼ÆËãÅ·ÊÏ¾àÀë
+    virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }                     //è®¡ç®—è·ç¦»
+    virtual int calDistanceRound(int x1, int x2, int y1, int y2) { return sqrt((x1 - y1) * (x1 - y1) + (x2 - y2) * (x2 - y2)); }    //è®¡ç®—æ¬§æ°è·ç¦»
 
-    virtual Role* getSelectedRole();    //»ñÈ¡Ç¡ºÃÔÚÑ¡ÔñµãµÄ½ÇÉ«
+    virtual Role* getSelectedRole();    //è·å–æ°å¥½åœ¨é€‰æ‹©ç‚¹çš„è§’è‰²
 
-    virtual void action(Role* r);    //ĞĞ¶¯Ö÷¿Ø
+    virtual void action(Role* r);    //è¡ŒåŠ¨ä¸»æ§
 
-    virtual void actMove(Role* r);                         //ÒÆ¶¯
-    virtual void actUseMagic(Role* r);                     //ÎäÑ§
-    virtual void actUseMagicSub(Role* r, Magic* magic);    //Ñ¡ÔñÎä¹¦ºó£¬Ê¹ÓÃ
-    virtual void actUsePoison(Role* r);                    //ÓÃ¶¾
-    virtual void actDetoxification(Role* r);               //½â¶¾
-    virtual void actMedicine(Role* r);                     //Ò½ÁÆ
-    virtual void actUseHiddenWeapon(Role* r);              //°µÆ÷
-    virtual void actUseDrug(Role* r);                      //³ÔÒ©
-    virtual void actWait(Role* r);                         //µÈ´ı
-    virtual void actStatus(Role* r);                       //×´Ì¬
-    virtual void actAuto(Role* r);                         //×Ô¶¯
-    virtual void actRest(Role* r);                         //ĞİÏ¢
+    virtual void actMove(Role* r);                         //ç§»åŠ¨
+    virtual void actUseMagic(Role* r);                     //æ­¦å­¦
+    virtual void actUseMagicSub(Role* r, Magic* magic);    //é€‰æ‹©æ­¦åŠŸåï¼Œä½¿ç”¨
+    virtual void actUsePoison(Role* r);                    //ç”¨æ¯’
+    virtual void actDetoxification(Role* r);               //è§£æ¯’
+    virtual void actMedicine(Role* r);                     //åŒ»ç–—
+    virtual void actUseHiddenWeapon(Role* r);              //æš—å™¨
+    virtual void actUseDrug(Role* r);                      //åƒè¯
+    virtual void actWait(Role* r);                         //ç­‰å¾…
+    virtual void actStatus(Role* r);                       //çŠ¶æ€
+    virtual void actAuto(Role* r);                         //è‡ªåŠ¨
+    virtual void actRest(Role* r);                         //ä¼‘æ¯
 
-    virtual void moveAnimation(Role* r, int x, int y);                                 //ÒÆ¶¯¶¯»­
-    virtual void useMagicAnimation(Role* r, Magic* m);                                 //Ê¹ÓÃÎäÑ§¶¯»­
-    virtual void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //ĞĞ¶¯¶¯»­
+    virtual void moveAnimation(Role* r, int x, int y);                                 //ç§»åŠ¨åŠ¨ç”»
+    virtual void useMagicAnimation(Role* r, Magic* m);                                 //ä½¿ç”¨æ­¦å­¦åŠ¨ç”»
+    virtual void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //è¡ŒåŠ¨åŠ¨ç”»
 
-    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);                         //¼ÆËãÎäÑ§¶Ôµ¥ÈËµÄÉËº¦
-    virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //¼ÆËãÈ«²¿ÈËÎïµÄÉËº¦
+    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);                         //è®¡ç®—æ­¦å­¦å¯¹å•äººçš„ä¼¤å®³
+    virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //è®¡ç®—å…¨éƒ¨äººç‰©çš„ä¼¤å®³
 
-    virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //¼ÆËã°µÆ÷ÉËº¦
+    virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //è®¡ç®—æš—å™¨ä¼¤å®³
 
-    virtual void showMagicName(std::string name);    //ÏÔÊ¾ÎäÑ§Ãû
+    virtual void showMagicName(std::string name);    //æ˜¾ç¤ºæ­¦å­¦å
 
-    //ÏÔÊ¾Êı×Ö
+    //æ˜¾ç¤ºæ•°å­—
     virtual void showNumberAnimation(
-        int delay = animation_delay_,                                       // ÅÜ¼¸´Î
-        bool floating = true,                                               // ÎÄ×ÖÊÇ·ñĞü¸¡
-        const std::vector<std::pair<int&, int>>& animated_changes = {});    // ÊÇ·ñ½¥±äÄ³Ğ©±äÁ¿
+        int delay = animation_delay_,                                       // è·‘å‡ æ¬¡
+        bool floating = true,                                               // æ–‡å­—æ˜¯å¦æ‚¬æµ®
+        const std::vector<std::pair<int&, int>>& animated_changes = {});    // æ˜¯å¦æ¸å˜æŸäº›å˜é‡
 
-    virtual void renderExtraRoleInfo(Role* r, int x, int y);    // ÔÚÈËÎïÉÏ£¬ÏÔÊ¾ÑªÌõµÈ
+    virtual void renderExtraRoleInfo(Role* r, int x, int y);    // åœ¨äººç‰©ä¸Šï¼Œæ˜¾ç¤ºè¡€æ¡ç­‰
 
-    virtual void clearDead();              //Çå³ı±»»÷ÍËµÄ½ÇÉ«
-    virtual void poisonEffect(Role* r);    //ÖĞ¶¾Ğ§¹û
+    virtual void clearDead();              //æ¸…é™¤è¢«å‡»é€€çš„è§’è‰²
+    virtual void poisonEffect(Role* r);    //ä¸­æ¯’æ•ˆæœ
 
-    virtual int getTeamMateCount(int team);    //»ñÈ¡¶ÓÔ±ÊıÄ¿
-    virtual int checkResult();                 //¼ì²é½á¹û
-    virtual void calExpGot();                  //¼ÆËã¾­Ñé
+    virtual int getTeamMateCount(int team);    //è·å–é˜Ÿå‘˜æ•°ç›®
+    virtual int checkResult();                 //æ£€æŸ¥ç»“æœ
+    virtual void calExpGot();                  //è®¡ç®—ç»éªŒ
 
-    //ÉèÖÃÍøÂçÁ¬½Ó
+    //è®¾ç½®ç½‘ç»œè¿æ¥
     virtual void setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id = 67);
     virtual void setupRolePosition(Role* r, int team, int x, int y);
     virtual void receiveAction(Role* r);

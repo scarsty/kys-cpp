@@ -1,6 +1,6 @@
 #include "Types.h"
 
-//ÉèÖÃÈËÎï×ø±ê£¬ÈôÊäÈëÖµÎª¸º£¬Ïàµ±ÓÚ´ÓÈËÎï²ãÇå³ı
+//è®¾ç½®äººç‰©åæ ‡ï¼Œè‹¥è¾“å…¥å€¼ä¸ºè´Ÿï¼Œç›¸å½“äºä»äººç‰©å±‚æ¸…é™¤
 void Role::setPosition(int x, int y)
 {
     if (position_layer_ == nullptr)
@@ -19,13 +19,13 @@ void Role::setPosition(int x, int y)
     Y_ = y;
 }
 
-//ÏÔÊ¾ÓÃµÄ£¬±ÈÄÚ²¿Êı×éÓÃµÄ¶à1
+//æ˜¾ç¤ºç”¨çš„ï¼Œæ¯”å†…éƒ¨æ•°ç»„ç”¨çš„å¤š1
 int Role::getRoleShowLearnedMagicLevel(int i)
 {
     return getRoleMagicLevelIndex(i) + 1;
 }
 
-//»ñÈ¡ÎäÑ§µÈ¼¶£¬·µ»ØÖµÊÇ0~9£¬¿ÉÒÔÖ±½ÓÓÃÓÚË÷ÒıÎä¹¦µÄÍşÁ¦µÈÊı¾İ
+//è·å–æ­¦å­¦ç­‰çº§ï¼Œè¿”å›å€¼æ˜¯0~9ï¼Œå¯ä»¥ç›´æ¥ç”¨äºç´¢å¼•æ­¦åŠŸçš„å¨åŠ›ç­‰æ•°æ®
 int Role::getRoleMagicLevelIndex(int i)
 {
     int l = MagicLevel[i] / 100;
@@ -40,7 +40,7 @@ int Role::getRoleMagicLevelIndex(int i)
     return l;
 }
 
-//ÒÑÑ§Ï°ÎäÑ§µÄÊıÁ¿
+//å·²å­¦ä¹ æ­¦å­¦çš„æ•°é‡
 int Role::getLearnedMagicCount()
 {
     int n = 0;
@@ -54,7 +54,7 @@ int Role::getLearnedMagicCount()
     return n;
 }
 
-//ÒÀ¾İÎäÑ§Ö¸Õë»ñÈ¡µÈ¼¶£¬-1±íÊ¾Î´Ñ§µÃ
+//ä¾æ®æ­¦å­¦æŒ‡é’ˆè·å–ç­‰çº§ï¼Œ-1è¡¨ç¤ºæœªå­¦å¾—
 int Role::getMagicLevelIndex(Magic* magic)
 {
     return getMagicLevelIndex(magic->ID);
@@ -72,7 +72,7 @@ int Role::getMagicLevelIndex(int magic_id)
     return -1;
 }
 
-//ÎäÑ§ÔÚ½ÇÉ«µÄÀ¸Î»±àºÅ
+//æ­¦å­¦åœ¨è§’è‰²çš„æ ä½ç¼–å·
 int Role::getMagicOfRoleIndex(Magic* magic)
 {
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
@@ -85,7 +85,7 @@ int Role::getMagicOfRoleIndex(Magic* magic)
     return -1;
 }
 
-//ÏŞÖÆÈËÎïµÄÊôĞÔ
+//é™åˆ¶äººç‰©çš„å±æ€§
 void Role::limit()
 {
     auto limit2 = [&](int& v, int v1, int v2)
@@ -147,7 +147,7 @@ int Role::learnMagic(Magic* magic)
     if (magic == nullptr || magic->ID <= 0)
     {
         return -1;
-    }    //ÎäÑ§id´íÎó
+    }    //æ­¦å­¦idé”™è¯¯
     return learnMagic(magic->ID);
 }
 
@@ -157,7 +157,7 @@ int Role::learnMagic(int magic_id)
     {
         return -1;
     }
-    //¼ì²éÊÇ·ñÒÑ¾­Ñ§µÃ
+    //æ£€æŸ¥æ˜¯å¦å·²ç»å­¦å¾—
     int index = -1;
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
@@ -170,10 +170,10 @@ int Role::learnMagic(int magic_id)
             }
             else
             {
-                return -2;    //Âú¼¶
+                return -2;    //æ»¡çº§
             }
         }
-        //¼ÇÂ¼×î¿¿Ç°µÄ¿ÕÎ»
+        //è®°å½•æœ€é å‰çš„ç©ºä½
         if (MagicID[i] <= 0 && index == -1)
         {
             index = i;
@@ -182,11 +182,11 @@ int Role::learnMagic(int magic_id)
 
     if (index < 0)
     {
-        return -3;    //Èô½øĞĞµ½´ËindexÎª¸º£¬±íÊ¾ÎäÑ§À¸ÒÑÂú
+        return -3;    //è‹¥è¿›è¡Œåˆ°æ­¤indexä¸ºè´Ÿï¼Œè¡¨ç¤ºæ­¦å­¦æ å·²æ»¡
     }
     else
     {
-        //Ôö¼ÓÎäÑ§
+        //å¢åŠ æ­¦å­¦
         MagicID[index] = magic_id;
         MagicLevel[index] = 0;
         return 0;
@@ -195,7 +195,7 @@ int Role::learnMagic(int magic_id)
 
 Role Role::max_role_value_;
 
-//ÉèÖÃÄ³¸öÊÂ¼şµÄ×ø±ê£¬ÔÚÒ»Ğ©MODÀïÃæ´ËÓï¾äÓĞ´íÎó
+//è®¾ç½®æŸä¸ªäº‹ä»¶çš„åæ ‡ï¼Œåœ¨ä¸€äº›MODé‡Œé¢æ­¤è¯­å¥æœ‰é”™è¯¯
 void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 {
     if (x < 0)

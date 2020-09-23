@@ -5,7 +5,7 @@ RandomRole::RandomRole()
 {
     setShowButton(false);
     button_ok_ = addChild<Button>(350, 55);
-    button_ok_->setText("´_¶¨");
+    button_ok_->setText("ç¢ºå®š");
     head_ = addChild<Head>(-290, 100);
 }
 

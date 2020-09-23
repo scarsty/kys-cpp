@@ -4,9 +4,9 @@
 #include <map>
 #include <vector>
 
-//ͼƬ�����࣬���ִ��ͱ��������
-//һ�����������԰���10�����������������������ģ�⶯̬Ч��
-//ÿ��ͼƬ��ƫ��������int16[n][2]�����棬��Ҫע����ǣ�UIԪ��ʹ�õ�ͼƬ�����ƫ�ƶ���Ϊ0�����������귶Χʱ����һЩ���⣬ʹ������Ҳ�Ƚ��鷳
+//图片纹理类，用字串和编号来索引
+//一个纹理最多可以包含10张子纹理，会随机被贴出，模拟动态效果
+//每组图片的偏移用两个int16[n][2]来保存，需要注意的是，UI元素使用的图片最好其偏移都设为0，否则计算鼠标范围时会有一些问题，使用起来也比较麻烦
 
 struct Texture
 {
@@ -66,7 +66,7 @@ private:
     TextureManager();
     virtual ~TextureManager();
     std::string path_ = "../game/resource/";
-    int load_from_path_ = 0;    //0 - �ȳ��Զ�ȡzip����û�����ȡĿ¼��1 - �����Զ�ȡzip��ֱ�Ӷ�ȡĿ¼
+    int load_from_path_ = 0;    //0 - 先尝试读取zip，如没有则读取目录；1 - 不尝试读取zip，直接读取目录
     int load_all_ = 0;
     std::map<const std::string, TextureGroup> map_;
 

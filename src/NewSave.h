@@ -8,26 +8,26 @@ class NewSave
 public:
     static void SaveCSVBaseInfo(Save::BaseInfo* data, int length, int record);
     static void LoadCSVBaseInfo(Save::BaseInfo* data, int length, int record);
-    // ±³°ü
+    // èƒŒåŒ…
     static void SaveCSVItemList(ItemList* data, int length, int record);
     static void LoadCSVItemList(ItemList* data, int length, int record);
-    // ÈËÎï
+    // äººç‰©
     static void SaveCSVRoleSave(const std::vector<Role>& data, int record);
     static void LoadCSVRoleSave(std::vector<Role>& data, int record);
     static void InsertRoleAt(std::vector<Role>& data, int idx);
-    // ÎïÆ·
+    // ç‰©å“
     static void SaveCSVItemSave(const std::vector<Item>& data, int record);
     static void LoadCSVItemSave(std::vector<Item>& data, int record);
     static void InsertItemAt(std::vector<Item>& data, int idx);
-    // ³¡¾°
+    // åœºæ™¯
     static void SaveCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record);
     static void LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record);
     static void InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx);
-    // Îä¹¦
+    // æ­¦åŠŸ
     static void SaveCSVMagicSave(const std::vector<Magic>& data, int record);
     static void LoadCSVMagicSave(std::vector<Magic>& data, int record);
     static void InsertMagicAt(std::vector<Magic>& data, int idx);
-    // ÉÌµê
+    // å•†åº—
     static void SaveCSVShopSave(const std::vector<Shop>& data, int record);
     static void LoadCSVShopSave(std::vector<Shop>& data, int record);
     static void InsertShopAt(std::vector<Shop>& data, int idx);
@@ -51,22 +51,22 @@ public:
     static void initDBFieldInfo();
     static void SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
     static void LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
-    // ±³°ü
+    // èƒŒåŒ…
     static void SaveDBItemList(sqlite3* db, ItemList* data, int length);
     static void LoadDBItemList(sqlite3* db, ItemList* data, int length);
-    // ÈËÎï
+    // äººç‰©
     static void SaveDBRoleSave(sqlite3* db, const std::vector<Role>& data);
     static void LoadDBRoleSave(sqlite3* db, std::vector<Role>& data);
-    // ÎïÆ·
+    // ç‰©å“
     static void SaveDBItemSave(sqlite3* db, const std::vector<Item>& data);
     static void LoadDBItemSave(sqlite3* db, std::vector<Item>& data);
-    // ³¡¾°
+    // åœºæ™¯
     static void SaveDBSubMapInfoSave(sqlite3* db, const std::vector<SubMapInfo>& data);
     static void LoadDBSubMapInfoSave(sqlite3* db, std::vector<SubMapInfo>& data);
-    // Îä¹¦
+    // æ­¦åŠŸ
     static void SaveDBMagicSave(sqlite3* db, const std::vector<Magic>& data);
     static void LoadDBMagicSave(sqlite3* db, std::vector<Magic>& data);
-    // ÉÌµê
+    // å•†åº—
     static void SaveDBShopSave(sqlite3* db, const std::vector<Shop>& data);
     static void LoadDBShopSave(sqlite3* db, std::vector<Shop>& data);
 
@@ -86,7 +86,7 @@ private:
                 }
                 else
                 {
-                    cmd += "'" + PotConv::cp936toutf8((char*)((char*)&data1 + info.offset)) + "',";
+                    cmd += "'" + std::string((char*)((char*)&data1 + info.offset)) + "',";
                 }
             }
             cmd.pop_back();
@@ -102,13 +102,13 @@ private:
         std::string strSql = "select * from " + table_name;
         sqlite3_prepare(db, strSql.c_str(), -1, &statement, NULL);
 
-        //ÖØÕûÁĞĞò
-        //ÔÚÓÎÏ·×î³õ±ØĞëÔËĞĞÒ»´Î¶ÁÈ¡
+        //é‡æ•´åˆ—åº
+        //åœ¨æ¸¸æˆæœ€åˆå¿…é¡»è¿è¡Œä¸€æ¬¡è¯»å–
         if (infos[0].col == -1)
         {
             for (int i = 0; i < sqlite3_column_count(statement); i++)
             {
-                auto name = PotConv::utf8tocp936(sqlite3_column_name(statement, i));
+                auto name = sqlite3_column_name(statement, i);
                 for (auto& info : infos)
                 {
                     if (name == info.name)
@@ -120,7 +120,7 @@ private:
             }
             //std::sort(infos.begin(), infos.end(), [](FieldInfo & f1, FieldInfo & f2) { return f1.col < f2.col; });
         }
-        //¶ÁÈ¡
+        //è¯»å–
         data.clear();
         while (sqlite3_step(statement) == SQLITE_ROW)
         {
@@ -136,7 +136,7 @@ private:
                 {
                     auto p = (char*)((char*)&data1 + info.offset);
                     std::string str((char*)sqlite3_column_text(statement, info.col));
-                    str = PotConv::utf8tocp936(str);
+                    //str = PotConv::utf8tocp936(str);
                     memset(p, 0, info.length);
                     memcpy(p, str.data(), std::min(info.length, str.length()));
                 }

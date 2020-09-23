@@ -9,11 +9,11 @@ public:
     UIItem();
     ~UIItem();
 
-    //ÕâÀï×¢Òâ£¬ÓÃÀ´ÏÔÊ¾ÎïÆ·Í¼Æ¬µÄ°´Å¥µÄÎÆÀí±àºÅÊµ¼Ê¾ÍÊÇÎïÆ·±àºÅ
+    //è¿™é‡Œæ³¨æ„ï¼Œç”¨æ¥æ˜¾ç¤ºç‰©å“å›¾ç‰‡çš„æŒ‰é’®çš„çº¹ç†ç¼–å·å®é™…å°±æ˜¯ç‰©å“ç¼–å·
     std::vector<std::shared_ptr<Button>> item_buttons_;
     std::shared_ptr<TextBox> cursor_;
 
-    int leftup_index_ = 0;    //×óÉÏ½ÇµÚÒ»¸öÎïÆ·ÔÚµ±Ç°ÖÖÀàÁĞ±íÖĞµÄË÷Òı
+    int leftup_index_ = 0;    //å·¦ä¸Šè§’ç¬¬ä¸€ä¸ªç‰©å“åœ¨å½“å‰ç§ç±»åˆ—è¡¨ä¸­çš„ç´¢å¼•
     int max_leftup_ = 0;
 
     const int item_each_line_ = 7;
@@ -25,7 +25,7 @@ public:
 
     bool select_user_ = true;
 
-    int focus_ = 0;    //½¹µãÎ»ÖÃ£º0·ÖÀàÀ¸£¬1ÎïÆ·À¸
+    int focus_ = 0;    //ç„¦ç‚¹ä½ç½®ï¼š0åˆ†ç±»æ ï¼Œ1ç‰©å“æ 
 
     std::shared_ptr<MenuText> getTitle() { return title_; }
 

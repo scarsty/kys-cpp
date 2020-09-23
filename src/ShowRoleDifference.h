@@ -4,8 +4,8 @@
 #include "TextBox.h"
 #include "convert.h"
 
-//уБ╦ЖюЮв╗сцсзотй╬а╫╦ЖRole╣д╡╩м╛ё╛╧╘иЩ╪╤ё╛Ётр╘╣хотй╬г╟╨С╠х╫о
-//©ирттзйТпт╠Д╩╞г╟ё╛ртр╩аый╠╤тоС╪гб╪ё╛ты╠х╫ог╟╨С╣д╠Д╩╞
+//Х©≥Д╦╙Г╠╩Д╦⌠Г■╗Д╨▌Ф≤╬Г╓╨Д╦╓Д╦╙RoleГ └Д╦█Е░▄О╪▄Д╬⌡Е█┤Г╨╖О╪▄Е░┐Х█╞Г╜┴Ф≤╬Г╓╨Е┴█Е░▌Ф╞■Х╬┐
+//Е▐╞Д╩╔Е°╗Е╠·Ф─╖Е▐≤Е▄√Е┴█О╪▄Д╩╔Д╦─Д╦╢Ф≈╤Е╞╧Х╠║Х╝╟Е╫∙О╪▄Е├█Ф╞■Х╬┐Е┴█Е░▌Г └Е▐≤Е▄√
 class ShowRoleDifference : public TextBox
 {
 public:
@@ -34,7 +34,7 @@ private:
     template <typename T>
     void showOneDifference(T& pro1, const std::string& format_str, int size, BP_Color c, int& x, int& y, int force = 0)
     {
-        //в╒рБё╛ртоб╡ывВ╡╒╡╩╟╡х╚ё╛гКвт╪╨©╢ве╟Л
+        //ФЁ╗Ф└▐О╪▄Д╩╔Д╦▀Ф⌠█Д╫°Е╧╤Д╦█Е╝┴Е┘╗О╪▄Х╞╥Х┤╙Е╥╠Г°▀Г²─Е┼·
         auto diff = (char*)&pro1 - (char*)role1_;
         if (diff > sizeof(Role) || diff < 0) { return; }
         auto p1 = pro1;

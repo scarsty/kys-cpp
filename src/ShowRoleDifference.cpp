@@ -9,7 +9,7 @@ ShowRoleDifference::ShowRoleDifference()
     head2_ = std::make_shared<Head>();
     addChild(head1_);
     addChild(head2_, 400, 0);
-    //setText("ÐÞÁ•³É¹¦");
+    //setText("ä¿®ç¿’æˆåŠŸ");
     setPosition(250, 180);
     setTextPosition(0, -30);
 }
@@ -47,57 +47,57 @@ void ShowRoleDifference::draw()
 
     std::string str;
 
-    //showOneDifference(role1_->Name, "ÐÕÃû %-7s  -> %-7s", 20, color, x, y);
-    showOneDifference(role1_->Level, "µÈ¼‰ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Exp, "½›òž {:7}   -> {:7}", 20, color, x, y);
+    //showOneDifference(role1_->Name, "å§“å %-7s  -> %-7s", 20, color, x, y);
+    showOneDifference(role1_->Level, "ç­‰ç´š {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Exp, "ç¶“é©— {:7}   -> {:7}", 20, color, x, y);
 
-    showOneDifference(role1_->PhysicalPower, "ówÁ¦ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->PhysicalPower, "é«”åŠ› {:7}   -> {:7}", 20, color, x, y);
 
     if (role1_->HP != role2_->HP || role1_->MaxHP != role2_->MaxHP)
     {
-        str = fmt::format("ÉúÃü {:3}/{:3}   -> {:3}/{:3}", role1_->HP, role1_->MaxHP, role2_->HP, role2_->MaxHP);
+        str = fmt::format("ç”Ÿå‘½ {:3}/{:3}   -> {:3}/{:3}", role1_->HP, role1_->MaxHP, role2_->HP, role2_->MaxHP);
         showOneDifference(role1_->HP, str, 20, color, x, y, 1);
     }
     if (role1_->MP != role2_->MP || role1_->MaxMP != role2_->MaxMP)
     {
-        str = fmt::format("ƒÈÁ¦ {:3}/{:3}   -> {:3}/{:3}", role1_->MP, role1_->MaxMP, role2_->MP, role2_->MaxMP);
+        str = fmt::format("å…§åŠ› {:3}/{:3}   -> {:3}/{:3}", role1_->MP, role1_->MaxMP, role2_->MP, role2_->MaxMP);
         showOneDifference(role1_->MP, str, 20, color, x, y, 1);
     }
 
-    showOneDifference(role1_->Attack, "¹¥“ô {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Defence, "·À¶R {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Speed, "Ýp¹¦ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Attack, "æ”»æ“Š {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Defence, "é˜²ç¦¦ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Speed, "è¼•åŠŸ {:7}   -> {:7}", 20, color, x, y);
 
-    showOneDifference(role1_->Medicine, "át¯Ÿ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->UsePoison, "ÓÃ¶¾ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Detoxification, "½â¶¾ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->AntiPoison, "¿¹¶¾ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->AttackWithPoison, "Ž§¶¾ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Medicine, "é†«ç™‚ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->UsePoison, "ç”¨æ¯’ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Detoxification, "è§£æ¯’ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->AntiPoison, "æŠ—æ¯’ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->AttackWithPoison, "å¸¶æ¯’ {:7}   -> {:7}", 20, color, x, y);
 
-    showOneDifference(role1_->Fist, "È­ÕÆ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Sword, "Óù„¦ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Knife, "Ë£µ¶ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Unusual, "ÌØÊâ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->HiddenWeapon, "°µÆ÷ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Fist, "æ‹³æŽŒ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Sword, "å¾¡åŠ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Knife, "è€åˆ€ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Unusual, "ç‰¹æ®Š {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->HiddenWeapon, "æš—å™¨ {:7}   -> {:7}", 20, color, x, y);
 
-    showOneDifference(role1_->Poison, "ÖÐ¶¾ {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Poison, "ä¸­æ¯’ {:7}   -> {:7}", 20, color, x, y);
 
-    showOneDifference(role1_->Morality, "µÀµÂ {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->Fame, "Â•Íû {:7}   -> {:7}", 20, color, x, y);
-    showOneDifference(role1_->IQ, "ÙYÙ| {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Morality, "é“å¾· {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->Fame, "è²æœ› {:7}   -> {:7}", 20, color, x, y);
+    showOneDifference(role1_->IQ, "è³‡è³ª {:7}   -> {:7}", 20, color, x, y);
 
-    str = "ƒÈÁ¦êŽê–Õ{ºÍ";
-    if (role2_->MPType == 0) { str = "ƒÈÁ¦êŽ"; }
-    if (role2_->MPType == 1) { str = "ƒÈÁ¦ê–"; }
+    str = "å…§åŠ›é™°é™½èª¿å’Œ";
+    if (role2_->MPType == 0) { str = "å…§åŠ›é™°"; }
+    if (role2_->MPType == 1) { str = "å…§åŠ›é™½"; }
     showOneDifference(role1_->MPType, str, 20, color, x, y);
-    showOneDifference(role1_->AttackTwice, "ëp“ô", 20, color, x, y);
+    showOneDifference(role1_->AttackTwice, "é›™æ“Š", 20, color, x, y);
 
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
         if (role2_->MagicID[i] > 0
             && (role1_->MagicID[i] <= 0 || role1_->getRoleShowLearnedMagicLevel(i) != role2_->getRoleShowLearnedMagicLevel(i)))
         {
-            str = fmt::format("ÎäŒW{}Ä¿Ç°ÐÞžé{}",
+            str = fmt::format("æ­¦å­¸{}ç›®å‰ä¿®ç‚º{}",
                 Save::getInstance()->getMagic(role2_->MagicID[i])->Name, role2_->getRoleShowLearnedMagicLevel(i));
             showOneDifference(role1_->MagicLevel[i], str, 20, color, x, y);
         }
@@ -105,8 +105,8 @@ void ShowRoleDifference::draw()
 
     if (y == y_)
     {
-        Font::getInstance()->draw("ŸoÃ÷ÏÔÐ§¹û", 20, x, y, color);
+        Font::getInstance()->draw("ç„¡æ˜Žæ˜¾æ•ˆæžœ", 20, x, y, color);
     }
-    //showOneDifference(role1_->Level, "Óù„¦ {:7}   -> {:7}", 20, color, x, y);
+    //showOneDifference(role1_->Level, "å¾¡åŠ {:7}   -> {:7}", 20, color, x, y);
     TextBox::draw();
 }

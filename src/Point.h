@@ -1,6 +1,6 @@
 #pragma once
 
-//这里如果用枚举类型会有一些麻烦，干脆改为整型
+//杩欓噷濡傛灉鐢ㄦ灇涓剧被鍨嬩細鏈変竴浜涢夯鐑︼紝骞茶剢鏀逛负鏁村瀷
 enum Towards
 {
     Towards_RightUp = 0,

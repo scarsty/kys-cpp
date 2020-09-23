@@ -50,32 +50,30 @@ void Talk::onEntrance()
     int i = 0;
     while (i < content_.size())
     {
-        int len = width_;
-        if (i + len >= content_.size()) { len = content_.size() - i; }
-
-        auto line = content_.substr(i, len);
-
-        //计算英文个数
+        int len = 0;
+        //璁＄畻鑻辨枃涓暟
         int eng_count = 0;
-        for (int j = 0; j < line.size();)
+        int j = i;
+        for (; j < content_.size();)
         {
-            if (uint8_t(line.at(j)) > 128)
+            if (uint8_t(content_.at(j)) > 128)
             {
-                j += 2;
+                j += 3;
+                len += 2;
             }
             else
             {
                 eng_count++;
                 j++;
+                len += 1;
+            }
+            if (len >= width_)
+            {
+                break;
             }
         }
-        //若英文字符为奇数个，且最后一个字为中文，则多算一个字符
-        if (eng_count % 2 == 1 && len == width_ && uint8_t(content_.at(i + len)) >= 128)
-        {
-            len++;
-            line = content_.substr(i, len);
-        }
+        auto line = content_.substr(i, j - i);
         content_lines_.push_back(line);
-        i += len;
+        i = j;
     }
 }

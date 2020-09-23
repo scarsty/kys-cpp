@@ -13,7 +13,7 @@ private:
 
     int stat_message_ = 0;
 
-    std::map<uint16_t, std::map<int, BP_Texture*>> buffer_;    //»º´æ»­¹ýµÄ×ÖÌå
+    std::map<uint32_t, std::map<int, BP_Texture*>> buffer_;    //ç¼“å­˜ç”»è¿‡çš„å­—ä½“
 
 public:
     static Font* getInstance()
@@ -28,4 +28,5 @@ public:
     void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c);
     void clearBuffer();
     int getBufferSize();
+    static int getTextDrawSize(const std::string& text);
 };

@@ -7,7 +7,7 @@ BattleMap::BattleMap()
 {
     File::readFileToVector("../game/resource/war.sta", battle_infos_);
 
-    //地图的长度不一致，故换方法读取
+    //鍦板浘鐨勯暱搴︿笉涓�鑷达紝鏁呮崲鏂规硶璇诲彇
     std::vector<int> offset, length;
     auto battle_map = GrpIdxFile::getIdxContent("../game/resource/warfld.idx", "../game/resource/warfld.grp", &offset, &length);
     battle_field_data2_.resize(length.size());

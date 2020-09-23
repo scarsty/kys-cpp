@@ -37,7 +37,7 @@ void BattleCursor::dealEvent(BP_Event& e)
         if (e.type == BP_KEYDOWN)
         {
             int tw = battle_scene_->getTowardsByKey(e.key.keysym.sym);
-            //ÏßĞÍµÄÌØÊâ´¦ÀíÒ»ÏÂ
+            //çº¿å‹çš„ç‰¹æ®Šå¤„ç†ä¸€ä¸‹
             if (magic_ && magic_->AttackAreaType == 1)
             {
                 Scene::getTowardsPosition(role_->X(), role_->Y(), tw, &x, &y);
@@ -49,7 +49,7 @@ void BattleCursor::dealEvent(BP_Event& e)
         }
         if (e.type == BP_MOUSEMOTION)
         {
-            //ÏßĞÍµÄÌØÊâ´¦ÀíÒ»ÏÂ
+            //çº¿å‹çš„ç‰¹æ®Šå¤„ç†ä¸€ä¸‹
             if (magic_ && magic_->AttackAreaType == 1)
             {
                 int tw = battle_scene_->getTowardsByMouse(e.motion.x, e.motion.y);
@@ -75,7 +75,7 @@ void BattleCursor::setCursor(int x, int y)
         {
             head_selected_->setRole(battle_scene_->getRoleLayer()->data(x, y));
         }
-        //uiµÄÉè¶¨
+        //uiçš„è®¾å®š
         if (ui_status_->getVisible())
         {
             ui_status_->setRole(battle_scene_->getRoleLayer()->data(x, y));

@@ -10,9 +10,9 @@
 SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
     previous_ = std::make_shared<Button>();
-    previous_->setText("ÉÏÒ»í“PgUp");
+    previous_->setText("ä¸Šä¸€é PgUp");
     next_ = std::make_shared<Button>();
-    next_->setText("ÏÂÒ»í“PgDown");
+    next_->setText("ä¸‹ä¸€é PgDown");
 
     addChild(previous_);
     addChild(next_);
@@ -39,7 +39,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     setMatchFunction(match);
     for (const auto& pairName : items_)
     {
-        //// Æ´Òô
+        //// æ‹¼éŸ³
         //auto u8Name = PotConv::cp936toutf8(pairName.second);
         //std::string pinyin = Hanz2Piny::hanz2pinyin(u8Name);
         //auto pys = convert::splitString(pinyin, " ");
@@ -65,13 +65,13 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
         //    }
         //}
 
-        //// Ö±½Ó¶Ô×Ö£¬¿ÉÒÔÁ½¸öÌø£¬µ«ÊÇ²»¹ÜÁË
+        //// ç›´æ¥å¯¹å­—ï¼Œå¯ä»¥ä¸¤ä¸ªè·³ï¼Œä½†æ˜¯ä¸ç®¡äº†
         //for (int i = 0; i < pairName.second.size(); i++)
         //{
         //    matches_[pairName.second.substr(0, i + 1)].insert(pairName.second);
         //}
 
-        // ¶Ôid
+        // å¯¹id
         std::string strID = std::to_string(pairName.first);
         for (int i = 0; i < strID.size(); i++)
         {
@@ -126,7 +126,7 @@ void SuperMenuText::flipPage(int pInc)
 {
     if (curPage_ + pInc >= 0 && curPage_ + pInc < maxPages_)
     {
-        // ÔÊĞíÄã·­Ò³£¡
+        // å…è®¸ä½ ç¿»é¡µï¼
         curPage_ += pInc;
         int startIdx = curPage_ * itemsPerPage_;
         std::vector<std::string> displays;
@@ -158,8 +158,8 @@ void SuperMenuText::search(const std::string& text)
     std::vector<std::string> results;
     activeIndices_.clear();
     searchResultIndices_.clear();
-    // Ö»·µ»ØitemsPerPage_ÊıÁ¿
-    // ¸ü¸ß¼¶µÄTrie£¬LCS±à¼­¾àÀëµÈµÈ ÓĞÔµÈËÀ´¸ã
+    // åªè¿”å›itemsPerPage_æ•°é‡
+    // æ›´é«˜çº§çš„Trieï¼ŒLCSç¼–è¾‘è·ç¦»ç­‰ç­‰ æœ‰ç¼˜äººæ¥æ
     for (int i = 0; i < items_.size(); i++)
     {
         bool matched = false;
@@ -196,8 +196,8 @@ void SuperMenuText::updateMaxPages()
 
 void SuperMenuText::dealEvent(BP_Event& e)
 {
-    // get²»µ½result ÎªºÎ
-    // ²»ÖªµÀÕâÍæÒâ¶ùÔÚ¸ÉÂï£¬Ï¹¸ã¼´¿É
+    // getä¸åˆ°result ä¸ºä½•
+    // ä¸çŸ¥é“è¿™ç©æ„å„¿åœ¨å¹²å˜›ï¼Œçæå³å¯
     if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
     {
         flipPage(-1);
@@ -212,7 +212,7 @@ void SuperMenuText::dealEvent(BP_Event& e)
     }
 
     bool research = false;
-    // ÎªÊ²Ã´switch×Ô¶¯Ëõ½øÊÇÕâÑù
+    // ä¸ºä»€ä¹ˆswitchè‡ªåŠ¨ç¼©è¿›æ˜¯è¿™æ ·
     switch (e.type)
     {
     case BP_TEXTINPUT:

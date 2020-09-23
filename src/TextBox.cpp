@@ -60,19 +60,19 @@ void TextBox::draw()
         TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
     }
     if (have_alpha_box_) {
-        auto rect = Font::getBoxSize(text_.size(), font_size_, x_ + text_x_, y_ + text_y_);
-        // ±³¾°
+        auto rect = Font::getBoxSize(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
+        // èƒŒæ™¯
         Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);
-        // ÉÏÃæµÄ
+        // ä¸Šé¢çš„
         Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, rect.w, 1);
-        // ÏÂ±ßµÄ
+        // ä¸‹è¾¹çš„
         Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y + rect.h, rect.w, 1);
-        // ×ó±ß
+        // å·¦è¾¹
         Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, 1, rect.h);
-        // ÓÒ±ß
+        // å³è¾¹
         Engine::getInstance()->fillColor(outline_color_, rect.x + rect.w, rect.y, 1, rect.h);
     }
-    //Êµ¼ÊÉÏ½öÓÃÁËÒ»¸öÑÕÉ«£¬ĞèÒªÓĞÑÕÉ«±ä»¯ÇëÓÃbutton
+    //å®é™…ä¸Šä»…ç”¨äº†ä¸€ä¸ªé¢œè‰²ï¼Œéœ€è¦æœ‰é¢œè‰²å˜åŒ–è¯·ç”¨button
     if (!text_.empty())
     {
         if (have_box_)

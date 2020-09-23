@@ -1,6 +1,6 @@
 #pragma once
 
-//Ö¸Áî¶ÔÓ¦£¬½ö²Î¿¼£¬²»Ê¹ÓÃ
+//æŒ‡ä»¤å¯¹åº”ï¼Œä»…å‚è€ƒï¼Œä¸ä½¿ç”¨
 #define instruct_0 blank
 #define instruct_1 oldTalk
 #define instruct_2 addItem

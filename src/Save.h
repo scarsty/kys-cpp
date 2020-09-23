@@ -13,13 +13,13 @@ struct ItemList
 class Save
 {
 public:
-    //´Ë´¦ÎªÈ«¾ÖÊı¾İ£¬ÔØÈëºÍ±£´æÊ¹ÓÃ£¬±ØĞë·ÅÔÚÀà¿ªÍ·£¬°´ÕÕË³Ğò£¬·ñÔò×Ô¼º¿´×Å°ì
+    //æ­¤å¤„ä¸ºå…¨å±€æ•°æ®ï¼Œè½½å…¥å’Œä¿å­˜ä½¿ç”¨ï¼Œå¿…é¡»æ”¾åœ¨ç±»å¼€å¤´ï¼ŒæŒ‰ç…§é¡ºåºï¼Œå¦åˆ™è‡ªå·±çœ‹ç€åŠ
     int InShip, InSubMap, MainMapX, MainMapY, SubMapX, SubMapY, FaceTowards, ShipX, ShipY, ShipX1, ShipY1, Encode;
     int Team[TEAMMATE_COUNT];
     ItemList Items[ITEM_IN_BAG_COUNT];
 
 private:
-    //»º³åÇø£¬ÎŞËûÓÃ
+    //ç¼“å†²åŒºï¼Œæ— ä»–ç”¨
     int buffer_[100];
 
     int sdata_length_ = sizeof(MAP_INT) * SUBMAP_LAYER_COUNT * SUBMAP_COORD_COUNT * SUBMAP_COORD_COUNT;
@@ -36,7 +36,7 @@ public:
     void saveR(int num);
     void saveSD(int num);
 
-    // °ïÖúÍøÂç½»Á÷
+    // å¸®åŠ©ç½‘ç»œäº¤æµ
     void resetRData(const std::vector<RoleSave>& newData);
 
     static Save* getInstance()
@@ -49,17 +49,17 @@ public:
     static bool checkSaveFileExist(int num);
 
 private:
-    //×¢ÒâÔÚ¶ÁÈ¡Ö®ºó£¬offset±ÈlengthÎ²²¿»á¶àÒ»¸öÔªËØ£¬¸ÃÖµ¼´×Ü³¤¶È
+    //æ³¨æ„åœ¨è¯»å–ä¹‹åï¼Œoffsetæ¯”lengthå°¾éƒ¨ä¼šå¤šä¸€ä¸ªå…ƒç´ ï¼Œè¯¥å€¼å³æ€»é•¿åº¦
     std::vector<int> offset_, length_;
 
-    //ÕâÀïÊµ¼Ê±£´æËùÓĞÊı¾İ
+    //è¿™é‡Œå®é™…ä¿å­˜æ‰€æœ‰æ•°æ®
     std::vector<Role> roles_mem_;
     std::vector<Magic> magics_mem_;
     std::vector<Item> items_mem_;
     std::vector<SubMapInfo> submap_infos_mem_;
     std::vector<Shop> shops_mem_;
 
-    //ÏÂÃæ±£´æµÄÊÇÖ¸Õë£¬´ó²¿·ÖÊ±ºòÊ¹ÓÃ
+    //ä¸‹é¢ä¿å­˜çš„æ˜¯æŒ‡é’ˆï¼Œå¤§éƒ¨åˆ†æ—¶å€™ä½¿ç”¨
     std::vector<Role*> roles_;
     std::vector<Magic*> magics_;
     std::vector<Item*> items_;
@@ -109,7 +109,7 @@ public:
             return nullptr;
         }
         return magics_[i];
-    }    //0ºÅÎä¹¦ÎŞĞ§
+    }    //0å·æ­¦åŠŸæ— æ•ˆ
     Item* getItem(int i)
     {
         if (i < 0 || i >= items_.size())

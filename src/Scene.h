@@ -2,7 +2,7 @@
 #include "RunNode.h"
 #include "Point.h"
 
-//Ö÷µØÍ¼£¬×Ó³¡¾°£¬Õ½¶·³¡¾°¾ù¼Ì³Ğ´ËÀà
+//ä¸»åœ°å›¾ï¼Œå­åœºæ™¯ï¼Œæˆ˜æ–—åœºæ™¯å‡ç»§æ‰¿æ­¤ç±»
 class Scene : public RunNode
 {
 public:
@@ -16,26 +16,26 @@ public:
     int render_center_x_ = 0;
     int render_center_y_ = 0;
 
-    const int TILE_W = 18;    //Ğ¡Í¼¿é´óĞ¡X
-    const int TILE_H = 9;     //Ğ¡Í¼¿é´óĞ¡Y
+    const int TILE_W = 18;    //å°å›¾å—å¤§å°X
+    const int TILE_H = 9;     //å°å›¾å—å¤§å°Y
 
-    //È·¶¨ÊÓÒ°Ê¹ÓÃ
+    //ç¡®å®šè§†é‡ä½¿ç”¨
     int view_width_region_ = 0;
     int view_sum_region_ = 0;
 
     void calViewRegion();
 
-    int total_step_ = 0;        //¼üÅÌ×ßÂ·µÄ¼ÆÊı
-    BP_Keycode pre_pressed_;    //¼üÅÌ×ßÂ·µÄÉÏ´Î°´¼ü
+    int total_step_ = 0;        //é”®ç›˜èµ°è·¯çš„è®¡æ•°
+    BP_Keycode pre_pressed_;    //é”®ç›˜èµ°è·¯çš„ä¸Šæ¬¡æŒ‰é”®
 
     int man_x_, man_y_;
-    int mouse_event_x_ = -1, mouse_event_y_ = -1;    //Êó±êĞĞÂ·Ê±µÄ×îÖÕÄ¿±ê£¬¿ÉÄÜÎªÊÂ¼ş»òÕßÈë¿Ú
+    int mouse_event_x_ = -1, mouse_event_y_ = -1;    //é¼ æ ‡è¡Œè·¯æ—¶çš„æœ€ç»ˆç›®æ ‡ï¼Œå¯èƒ½ä¸ºäº‹ä»¶æˆ–è€…å…¥å£
     int cursor_x_ = 0, cursor_y_ = 0;
-    int towards_ = 0;    //³¯Ïò£¬¹²ÓÃÒ»¸ö¼´¿É
+    int towards_ = 0;    //æœå‘ï¼Œå…±ç”¨ä¸€ä¸ªå³å¯
     int step_ = 0;
     int man_pic_ = 0;
 
-    int rest_time_ = 0;    //Í£Ö¹²Ù×÷µÄÊ±¼ä
+    int rest_time_ = 0;    //åœæ­¢æ“ä½œçš„æ—¶é—´
 
     int COORD_COUNT = 0;
 
@@ -55,7 +55,7 @@ public:
     }
     void setManPic(int pic) { man_pic_ = pic; }
 
-    void checkWalk(int x, int y, BP_Event& e);    //Ò»Ğ©¹«¹²²¿·Ö£¬Î´Íê³É
+    void checkWalk(int x, int y, BP_Event& e);    //ä¸€äº›å…¬å…±éƒ¨åˆ†ï¼Œæœªå®Œæˆ
 
     Point getPositionOnRender(int x, int y, int view_x, int view_y);
     Point getPositionOnWindow(int x, int y, int view_x, int view_y);
@@ -69,13 +69,13 @@ public:
     int getTowardsByKey(BP_Keycode key);
     int getTowardsByMouse(int mouse_x, int mouse_y);
 
-    //»ñÈ¡ÃæÏòÒ»¸ñµÄ×ø±ê
+    //è·å–é¢å‘ä¸€æ ¼çš„åæ ‡
     static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
 
     virtual bool canWalk(int x, int y) { return false; }
     virtual bool isOutScreen(int x, int y) { return false; }
 
-    std::vector<Point> way_que_;    //Õ»(Â·¾¶Õ»)
+    std::vector<Point> way_que_;    //æ ˆ(è·¯å¾„æ ˆ)
 
     Point getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y);
     Point getMousePosition(int view_x, int view_y);

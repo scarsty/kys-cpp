@@ -20,8 +20,8 @@ GameUtil::~GameUtil()
 {
 }
 
-//Ä³ÈËÊÇ·ñ¿ÉÒÔÊ¹ÓÃÄ³ÎïÆ·
-//Ô­·ÖÀà£º0¾çÇé£¬1×°±¸£¬2ÃØóÅ£¬3Ò©Æ·£¬4°µÆ÷
+//æŸäººæ˜¯å¦å¯ä»¥ä½¿ç”¨æŸç‰©å“
+//åŽŸåˆ†ç±»ï¼š0å‰§æƒ…ï¼Œ1è£…å¤‡ï¼Œ2ç§˜ç¬ˆï¼Œ3è¯å“ï¼Œ4æš—å™¨
 bool GameUtil::canUseItem(Role* r, Item* i)
 {
     if (r == nullptr)
@@ -34,14 +34,14 @@ bool GameUtil::canUseItem(Role* r, Item* i)
     }
     if (i->ItemType == 0)
     {
-        //¾çÇéÀàÎÞÈË¿ÉÒÔÊ¹ÓÃ
+        //å‰§æƒ…ç±»æ— äººå¯ä»¥ä½¿ç”¨
         return false;
     }
     else if (i->ItemType == 1 || i->ItemType == 2)
     {
         if (i->ItemType == 2)
         {
-            //ÄÚÁ¦ÊôÐÔÅÐ¶Ï
+            //å†…åŠ›å±žæ€§åˆ¤æ–­
             if ((r->MPType == 0 || r->MPType == 1) && (i->NeedMPType == 0 || i->NeedMPType == 1))
             {
                 if (r->MPType != i->NeedMPType)
@@ -49,16 +49,16 @@ bool GameUtil::canUseItem(Role* r, Item* i)
                     return false;
                 }
             }
-            //ÓÐ½öÊÊºÏÈËÎï£¬Ö±½ÓÅÐ¶Ï
+            //æœ‰ä»…é€‚åˆäººç‰©ï¼Œç›´æŽ¥åˆ¤æ–­
             if (i->OnlySuitableRole >= 0)
             {
                 return i->OnlySuitableRole == r->ID;
             }
         }
 
-        //ÈôÓÐÏà¹ØÎäÑ§£¬Âú¼¶ÔòÎª¼Ù£¬Î´Âú¼¶ÎªÕæ
-        //ÈôÒÑ¾­Ñ§ÂúÎäÑ§£¬ÔòÎª¼Ù
-        //´Ë´¦×¢Òâ£¬Èç¹ûÓÐ¿ÉÖÆ³ÉÎïÆ·µÄÃØ¼®£¬ÔòÎäÑ§Âú¼¶Ö®ºó²»»áÔÙÖÆÒ©ÁË£¬Çë¾¡Á¿±ÜÃâÕâÑùµÄÉèÖÃ
+        //è‹¥æœ‰ç›¸å…³æ­¦å­¦ï¼Œæ»¡çº§åˆ™ä¸ºå‡ï¼Œæœªæ»¡çº§ä¸ºçœŸ
+        //è‹¥å·²ç»å­¦æ»¡æ­¦å­¦ï¼Œåˆ™ä¸ºå‡
+        //æ­¤å¤„æ³¨æ„ï¼Œå¦‚æžœæœ‰å¯åˆ¶æˆç‰©å“çš„ç§˜ç±ï¼Œåˆ™æ­¦å­¦æ»¡çº§ä¹‹åŽä¸ä¼šå†åˆ¶è¯äº†ï¼Œè¯·å°½é‡é¿å…è¿™æ ·çš„è®¾ç½®
         if (i->MagicID > 0)
         {
             int level = r->getMagicLevelIndex(i->MagicID);
@@ -76,7 +76,7 @@ bool GameUtil::canUseItem(Role* r, Item* i)
             }
         }
 
-        //ÅÐ¶ÏÄ³¸öÊôÐÔÊÇ·ñÊÊºÏ
+        //åˆ¤æ–­æŸä¸ªå±žæ€§æ˜¯å¦é€‚åˆ
         auto test = [](int v, int v_need) -> bool
         {
             if (v_need > 0 && v < v_need)
@@ -90,7 +90,7 @@ bool GameUtil::canUseItem(Role* r, Item* i)
             return true;
         };
 
-        //ÉÏÃæµÄÅÐ¶ÏÎ´È·¶¨Ôò½øÈëÏÂÃæµÄÅÐ¶ÏÁ´
+        //ä¸Šé¢çš„åˆ¤æ–­æœªç¡®å®šåˆ™è¿›å…¥ä¸‹é¢çš„åˆ¤æ–­é“¾
         return test(r->Attack, i->NeedAttack)
             && test(r->Speed, i->NeedSpeed)
             && test(r->Medicine, i->NeedMedicine)
@@ -106,18 +106,18 @@ bool GameUtil::canUseItem(Role* r, Item* i)
     }
     else if (i->ItemType == 3)
     {
-        //Ò©Æ·ÀàËùÓÐÈË¿ÉÒÔÊ¹ÓÃ
+        //è¯å“ç±»æ‰€æœ‰äººå¯ä»¥ä½¿ç”¨
         return true;
     }
     else if (i->ItemType == 4)
     {
-        //°µÆ÷Àà²»¿ÉÒÔÊ¹ÓÃ
+        //æš—å™¨ç±»ä¸å¯ä»¥ä½¿ç”¨
         return false;
     }
     return false;
 }
 
-//Ê¹ÓÃÎïÆ·Ê±ÊôÐÔ±ä»¯
+//ä½¿ç”¨ç‰©å“æ—¶å±žæ€§å˜åŒ–
 void GameUtil::useItem(Role* r, Item* i)
 {
     if (r == nullptr)
@@ -174,7 +174,7 @@ void GameUtil::useItem(Role* r, Item* i)
     r->limit();
 }
 
-//Éý¼¶µÄÊôÐÔ±ä»¯
+//å‡çº§çš„å±žæ€§å˜åŒ–
 void GameUtil::levelUp(Role* r)
 {
     if (r == nullptr)
@@ -219,7 +219,7 @@ void GameUtil::levelUp(Role* r)
     r->limit();
 }
 
-//ÊÇ·ñ¿ÉÒÔÉý¼¶
+//æ˜¯å¦å¯ä»¥å‡çº§
 bool GameUtil::canLevelUp(Role* r)
 {
     if (r->Level >= 1 && r->Level <= Role::getMaxValue()->Level)
@@ -241,7 +241,7 @@ int GameUtil::getLevelUpExp(int level)
     return getInstance()->level_up_list_[level - 1];
 }
 
-//ÎïÆ·¾­ÑéÖµÊÇ·ñ×ã¹»
+//ç‰©å“ç»éªŒå€¼æ˜¯å¦è¶³å¤Ÿ
 bool GameUtil::canFinishedItem(Role* r)
 {
     auto item = Save::getInstance()->getItem(r->PracticeItem);
@@ -252,10 +252,10 @@ bool GameUtil::canFinishedItem(Role* r)
     return false;
 }
 
-//ÐÞÁ¶ÎïÆ·ËùÐè¾­Ñé
+//ä¿®ç‚¼ç‰©å“æ‰€éœ€ç»éªŒ
 int GameUtil::getFinishedExpForItem(Role* r, Item* i)
 {
-    //ÎÞ¾­ÑéÉè¶¨ÎïÆ·²»¿ÉÐÞÁ¶
+    //æ— ç»éªŒè®¾å®šç‰©å“ä¸å¯ä¿®ç‚¼
     if (i == nullptr || i->ItemType != 2 || i->NeedExp < 0)
     {
         return INT_MAX;
@@ -267,7 +267,7 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
         multiple = 1;
     }
 
-    //ÓÐ¹ØÁªÎäÑ§µÄ£¬ÈçÒÑÂú¼¶Ôò²»¿ÉÐÞÁ¶
+    //æœ‰å…³è”æ­¦å­¦çš„ï¼Œå¦‚å·²æ»¡çº§åˆ™ä¸å¯ä¿®ç‚¼
     if (i->MagicID > 0)
     {
         int magic_level_index = r->getMagicLevelIndex(i->MagicID);
@@ -275,7 +275,7 @@ int GameUtil::getFinishedExpForItem(Role* r, Item* i)
         {
             return INT_MAX;
         }
-        //³õ´ÎÐÞÁ¶ºÍ´Ó1¼¶Éýµ½2¼¶µÄÊÇÒ»ÑùµÄ
+        //åˆæ¬¡ä¿®ç‚¼å’Œä»Ž1çº§å‡åˆ°2çº§çš„æ˜¯ä¸€æ ·çš„
         if (magic_level_index > 0)
         {
             multiple *= magic_level_index;
@@ -304,7 +304,7 @@ void GameUtil::equip(Role* r, Item* i)
 
     if (i->ItemType == 2)
     {
-        //ÃØ¼®
+        //ç§˜ç±
         if (book)
         {
             book->User = -1;
@@ -344,7 +344,7 @@ void GameUtil::equip(Role* r, Item* i)
     }
 }
 
-//Ò½ÁÆµÄÐ§¹û
+//åŒ»ç–—çš„æ•ˆæžœ
 int GameUtil::medicine(Role* r1, Role* r2)
 {
     if (r1 == nullptr || r2 == nullptr)
@@ -357,8 +357,8 @@ int GameUtil::medicine(Role* r1, Role* r2)
     return r2->HP - temp;
 }
 
-//½â¶¾
-//×¢ÒâÕâ¸ö·µ»ØÖµÍ¨³£Ó¦Îª¸º
+//è§£æ¯’
+//æ³¨æ„è¿™ä¸ªè¿”å›žå€¼é€šå¸¸åº”ä¸ºè´Ÿ
 int GameUtil::detoxification(Role* r1, Role* r2)
 {
     if (r1 == nullptr || r2 == nullptr)
@@ -371,7 +371,7 @@ int GameUtil::detoxification(Role* r1, Role* r2)
     return r2->Poison - temp;
 }
 
-//ÓÃ¶¾
+//ç”¨æ¯’
 int GameUtil::usePoison(Role* r1, Role* r2)
 {
     if (r1 == nullptr || r2 == nullptr)

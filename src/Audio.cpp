@@ -28,7 +28,7 @@ Audio::~Audio()
     }
     BASS_Free();
 #else
-    //ÈçÊ¹ÓÃSDL_Mixer²¥·ÅÒôÆµ£¬ÔòÏú»ÙÓ¦¸ÃÔÚSDL_QuitÖ®Ç°£¬´Ë´¦µÄµ¥ÀýÉè¼ÆÎÞ·¨±£Ö¤£¬¹ÊÔÝÊ±²»´¦Àí
+    //å¦‚ä½¿ç”¨SDL_Mixeræ’­æ”¾éŸ³é¢‘ï¼Œåˆ™é”€æ¯åº”è¯¥åœ¨SDL_Quitä¹‹å‰ï¼Œæ­¤å¤„çš„å•ä¾‹è®¾è®¡æ— æ³•ä¿è¯ï¼Œæ•…æš‚æ—¶ä¸å¤„ç†
     /*
     for (auto m : music_)
     {

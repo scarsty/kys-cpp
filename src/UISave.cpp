@@ -21,13 +21,13 @@ UISave::UISave()
     };
     for (int i = 0; i <= 10; i++)
     {
-        auto str = fmt::format("ßM¶È{:02}  {}", i, get_save_time(i));
+        auto str = fmt::format("é€²åº¦{:02}  {}", i, get_save_time(i));
         strings.push_back(str);
     }
-    auto str = fmt::format("×Ô„Ó™n  {}", get_save_time(AUTO_SAVE_ID));
+    auto str = fmt::format("è‡ªå‹•æª”  {}", get_save_time(AUTO_SAVE_ID));
     strings.push_back(str);
     setStrings(strings);
-    childs_[0]->setVisible(false);    //ÆÁ±Î½ø¶È0
+    childs_[0]->setVisible(false);    //å±è”½è¿›åº¦0
     forceActiveChild(1);
     arrange(0, 0, 0, 28);
 }
@@ -38,7 +38,7 @@ UISave::~UISave()
 
 void UISave::onEntrance()
 {
-    //´æµµÊ±ÆÁ±Î×Ô¶¯µµ
+    //å­˜æ¡£æ—¶å±è”½è‡ªåŠ¨æ¡£
     if (mode_ == 1)
     {
         childs_.back()->setVisible(false);
@@ -57,7 +57,7 @@ void UISave::onPressedOK()
         }
         if (mode_ == 1)
         {
-            Event::getInstance()->arrangeBag();    //´æµµÊ±»áÕûÀíÎïÆ·±³°ü
+            Event::getInstance()->arrangeBag();    //å­˜æ¡£æ—¶ä¼šæ•´ç†ç‰©å“èƒŒåŒ…
             save(result_);
             setExit(true);
         }
@@ -66,7 +66,7 @@ void UISave::onPressedOK()
 
 void UISave::load(int r)
 {
-    auto sub_scene = getPointerFromRoot<SubScene>();    //¿ÉÒÔÖªµÀÔÚ²»ÔÚ×Ó³¡¾°ÖĞ
+    auto sub_scene = getPointerFromRoot<SubScene>();    //å¯ä»¥çŸ¥é“åœ¨ä¸åœ¨å­åœºæ™¯ä¸­
     auto save = Save::getInstance();
     auto main_scene = MainScene::getInstance();
     save->load(r);
@@ -94,7 +94,7 @@ void UISave::load(int r)
 
 void UISave::save(int r)
 {
-    auto sub_scene = getPointerFromRoot<SubScene>();    //¿ÉÒÔÖªµÀÔÚ²»ÔÚ×Ó³¡¾°ÖĞ
+    auto sub_scene = getPointerFromRoot<SubScene>();    //å¯ä»¥çŸ¥é“åœ¨ä¸åœ¨å­åœºæ™¯ä¸­
     auto save = Save::getInstance();
     auto main_scene = MainScene::getInstance();
     main_scene->getManPosition(save->MainMapX, save->MainMapY);

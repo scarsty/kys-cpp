@@ -3,7 +3,7 @@
 #include "Head.h"
 #include "Menu.h"
 
-//ÓÃÓÚÑ¡Ôñ¶ÓÎéÖĞµÄ½ÇÉ«£¬¿ÉÒÔ´«ÈëÒ»¸öitem×÷Îª¹ıÂË£¬Îª¿Õ»áÏÔÊ¾ËùÓĞÈË
+//ç”¨äºé€‰æ‹©é˜Ÿä¼ä¸­çš„è§’è‰²ï¼Œå¯ä»¥ä¼ å…¥ä¸€ä¸ªitemä½œä¸ºè¿‡æ»¤ï¼Œä¸ºç©ºä¼šæ˜¾ç¤ºæ‰€æœ‰äºº
 class TeamMenu : public Menu
 {
 public:
@@ -15,7 +15,7 @@ private:
     //std::set<int> selected_;
     Role* role_ = nullptr;
     Item* item_ = nullptr;
-    int mode_ = 0;    //Îª0ÊÇµ¥Ñ¡£¬Îª1ÊÇ¶àÑ¡
+    int mode_ = 0;    //ä¸º0æ˜¯å•é€‰ï¼Œä¸º1æ˜¯å¤šé€‰
 
     std::shared_ptr<Button> button_all_, button_ok_;
 

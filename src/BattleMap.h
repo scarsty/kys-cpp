@@ -4,10 +4,10 @@
 
 enum
 {
-    BATTLE_ROLE_COUNT = 4096,                       //Õ½³¡×î´óÈËÊý
-    BATTLEMAP_SAVE_LAYER_COUNT = 2,                 //Êý¾ÝÎÄ¼þ´æ´¢µØÍ¼Êý¾Ý²ãÊý
-    BATTLEMAP_LAYER_COUNT = 8,                      //Õ½³¡ÐèÒªµØÍ¼²ãÊý
-    BATTLEMAP_COORD_COUNT = 64,                     //Õ½³¡×î´ó×ø±ê
+    BATTLE_ROLE_COUNT = 4096,                       //æˆ˜åœºæœ€å¤§äººæ•°
+    BATTLEMAP_SAVE_LAYER_COUNT = 2,                 //æ•°æ®æ–‡ä»¶å­˜å‚¨åœ°å›¾æ•°æ®å±‚æ•°
+    BATTLEMAP_LAYER_COUNT = 8,                      //æˆ˜åœºéœ€è¦åœ°å›¾å±‚æ•°
+    BATTLEMAP_COORD_COUNT = 64,                     //æˆ˜åœºæœ€å¤§åæ ‡
     BATTLE_ENEMY_COUNT = 20,
 };
 
@@ -20,13 +20,13 @@ struct BattleInfo
     MAP_INT Enemy[BATTLE_ENEMY_COUNT], EnemyX[BATTLE_ENEMY_COUNT], EnemyY[BATTLE_ENEMY_COUNT];
 };
 
-//Õâ¸ö½ö±£´æÕ½³¡Ç°Á½²ã
+//è¿™ä¸ªä»…ä¿å­˜æˆ˜åœºå‰ä¸¤å±‚
 struct BattleFieldData2
 {
     MAP_INT data[BATTLEMAP_SAVE_LAYER_COUNT][BATTLEMAP_COORD_COUNT * BATTLEMAP_COORD_COUNT];
 };
 
-//Õâ¸öÀàÓÃÀ´³õÊ¼»¯¼ÇÂ¼£¬Ã»±ðµÄÓÃ
+//è¿™ä¸ªç±»ç”¨æ¥åˆå§‹åŒ–è®°å½•ï¼Œæ²¡åˆ«çš„ç”¨
 class BattleMap
 {
 private:

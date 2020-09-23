@@ -20,7 +20,7 @@ protected:
     BP_Color background_color_;
 
     std::string texture_path_ = "";
-    int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1;    //三种状态的按钮图片
+    int texture_normal_id_ = -1, texture_pass_id_ = -1, texture_press_id_ = -1;    //涓夌鐘舵�佺殑鎸夐挳鍥剧墖
 
     bool resize_with_text_ = false;
 
@@ -33,7 +33,7 @@ public:
     void setText(std::string text);
     std::string getText() { return text_; };
 
-    //注意：这个会导致焦点出现问题，通常是为了实现一些其他效果，请勿任意使用
+    //娉ㄦ剰锛氳繖涓細瀵艰嚧鐒︾偣鍑虹幇闂锛岄�氬父鏄负浜嗗疄鐜颁竴浜涘叾浠栨晥鏋滐紝璇峰嬁浠绘剰浣跨敤
     void setTextPosition(int x, int y)
     {
         text_x_ = x;

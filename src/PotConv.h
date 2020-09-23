@@ -24,6 +24,16 @@ public:
         auto str = PotConv::cp950tocp936(s);
         memcpy(s, str.data(), str.length());
     }
+    static void fromCP950ToUTF8(char* s)
+    {
+        auto str = PotConv::cp950toutf8(s);
+        memcpy(s, str.data(), str.length());
+    }
+    static void fromCP936ToUTF8(char* s)
+    {
+        auto str = PotConv::cp936toutf8(s);
+        memcpy(s, str.data(), str.length());
+    }
     static std::string to_read(const std::string& src);
 
 private:

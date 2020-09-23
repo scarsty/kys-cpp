@@ -12,12 +12,12 @@
 #include <system_error>
 #include <thread>
 
-// Ê¹ÓÃ·½·¨
-// 1. Ñ¡ÔñÈËÎï
-// 2. ´´½¨BattleNetwork
-// 3. ÉèÖÃ×îÖÕ»Øµ÷£¬ºÍseedµÈÊı¾İ
-// 4. ÔÚÄ³·Ç×èÈûuiÖĞµ÷ÓÃhandshake
-// 5. handshake½áÊøºó»Øµ÷£¬¹Ø±Õui×é¼ş
+// ä½¿ç”¨æ–¹æ³•
+// 1. é€‰æ‹©äººç‰©
+// 2. åˆ›å»ºBattleNetwork
+// 3. è®¾ç½®æœ€ç»ˆå›è°ƒï¼Œå’Œseedç­‰æ•°æ®
+// 4. åœ¨æŸéé˜»å¡uiä¸­è°ƒç”¨handshake
+// 5. handshakeç»“æŸåå›è°ƒï¼Œå…³é—­uiç»„ä»¶
 
 #ifdef WITH_NETWORK
 class BattleNetwork
@@ -61,10 +61,10 @@ public:
     };
     static_assert(sizeof(SerializableBattleAction) == 28, "introduced extra struct padding");
 
-    // Ã¿´ÎĞĞ¶¯½áÊø ´«ÊäAction³öÈ¥ ²¢ÇÒ½ÓÊÕ
+    // æ¯æ¬¡è¡ŒåŠ¨ç»“æŸ ä¼ è¾“Actionå‡ºå» å¹¶ä¸”æ¥æ”¶
     bool sendMyAction(const BattleNetwork::SerializableBattleAction& action);
 
-    // async£¬³É¹¦ºó
+    // asyncï¼ŒæˆåŠŸå
     bool getOpponentAction(BattleNetwork::SerializableBattleAction& action, std::function<void(std::error_code err, std::size_t bytes)> f);
 
     bool isHost();
@@ -78,7 +78,7 @@ protected:
     virtual void getRandSeed() = 0;
     virtual void waitConnection() = 0;
 
-    // ¼º·½²ÎÕ½id£¬×îÖÕroles½á¹û
+    // å·±æ–¹å‚æˆ˜idï¼Œæœ€ç»ˆrolesç»“æœ
     virtual void rDataHandshake() = 0;
     virtual void validate();
 
@@ -137,7 +137,7 @@ protected:
 class BattleNetworkFactory
 {
 public:
-    // µÈ´ıÁ¬½Ó
+    // ç­‰å¾…è¿æ¥
     static std::unique_ptr<BattleNetwork> MakeHost(const std::string& id);
     static std::unique_ptr<BattleNetwork> MakeClient(const std::string& id);
 
@@ -145,7 +145,7 @@ private:
     static bool UI(BattleNetwork* net);
 };
 #else
-//¼ÙµÄNetwork
+//å‡çš„Network
 class BattleNetwork
 {
 public:
@@ -169,7 +169,7 @@ public:
 class BattleNetworkFactory
 {
 public:
-    // µÈ´ıÁ¬½Ó
+    // ç­‰å¾…è¿æ¥
     static std::unique_ptr<BattleNetwork> MakeHost(const std::string& id) { return nullptr; }
     static std::unique_ptr<BattleNetwork> MakeClient(const std::string& id) { return nullptr; }
 };

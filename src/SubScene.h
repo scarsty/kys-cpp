@@ -12,9 +12,9 @@ public:
 
     int view_x_ = 0, view_y_ = 0;
 
-    int const MAN_PIC_0 = 2501;            //³õÊ¼³¡¾°Ö÷½ÇÍ¼Æ«ÒÆÁ¿
-    int const MAN_PIC_COUNT = 7;           //µ¥ÏòÖ÷½ÇÍ¼ÕÅÊı
-    int submap_id_;   //³¡¾°ºÅ
+    int const MAN_PIC_0 = 2501;            //åˆå§‹åœºæ™¯ä¸»è§’å›¾åç§»é‡
+    int const MAN_PIC_COUNT = 7;           //å•å‘ä¸»è§’å›¾å¼ æ•°
+    int submap_id_;   //åœºæ™¯å·
 
     SubMapInfo* submap_info_;
 
@@ -31,7 +31,7 @@ public:
 
     void setID(int id);
 
-    //×¢ÒâÊÓ½ÇºÍÖ÷½ÇµÄÎ»ÖÃ¿ÉÄÜ²»Ò»Ñù
+    //æ³¨æ„è§†è§’å’Œä¸»è§’çš„ä½ç½®å¯èƒ½ä¸ä¸€æ ·
     void setViewPosition(int x, int y) { view_x_ = x; view_y_ = y; }
     void setManViewPosition(int x, int y) { setManPosition(x, y); setViewPosition(x, y); }
 
@@ -44,14 +44,14 @@ public:
 
     void tryWalk(int x, int y);
 
-    //µÚÈı¸ö²ÎÊıÎª³¯Ïò
+    //ç¬¬ä¸‰ä¸ªå‚æ•°ä¸ºæœå‘
     bool checkEvent(int x, int y, int tw = Towards_None, int item_id = -1);
 
-    //µÚÒ»ÀàÊÂ¼ş£¬Ö÷¶¯´¥·¢
+    //ç¬¬ä¸€ç±»äº‹ä»¶ï¼Œä¸»åŠ¨è§¦å‘
     bool checkEvent1(int x, int y, int tw) { return checkEvent(x, y, tw, -1); }
-    //µÚ¶şÀàÊÂ¼ş£¬ÎïÆ·´¥·¢
+    //ç¬¬äºŒç±»äº‹ä»¶ï¼Œç‰©å“è§¦å‘
     bool checkEvent2(int x, int y, int tw, int item_id) { return checkEvent(x, y, tw, item_id); }
-    //µÚÈıÀàÊÂ¼ş£¬¾­¹ı´¥·¢
+    //ç¬¬ä¸‰ç±»äº‹ä»¶ï¼Œç»è¿‡è§¦å‘
     bool checkEvent3(int x, int y) { return checkEvent(x, y, Towards_None, -1); }
 
     virtual bool isBuilding(int x, int y);
@@ -65,7 +65,7 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool canWalk(int x, int y) override;
 
-    int calManPic() { return MAN_PIC_0 + towards_ * MAN_PIC_COUNT + step_; }  //Ã¿¸ö·½ÏòµÄµÚÒ»ÕÅÊÇ¾²Ö¹Í¼
+    int calManPic() { return MAN_PIC_0 + towards_ * MAN_PIC_COUNT + step_; }  //æ¯ä¸ªæ–¹å‘çš„ç¬¬ä¸€å¼ æ˜¯é™æ­¢å›¾
     void forceManPic(int pic) { force_man_pic_ = pic; }
 
     void forceExit();

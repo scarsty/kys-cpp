@@ -11,13 +11,13 @@ UIStatus::UIStatus()
 {
     menu_ = std::make_shared<Menu>();
     button_medicine_ = std::make_shared<Button>();
-    button_medicine_->setText("át¯Ÿ");
+    button_medicine_->setText("é†«ç™‚");
     menu_->addChild(button_medicine_, 350, 55);
     button_detoxification_ = std::make_shared<Button>();
-    button_detoxification_->setText("½â¶¾");
+    button_detoxification_->setText("è§£æ¯’");
     menu_->addChild(button_detoxification_, 400, 55);
     button_leave_ = std::make_shared<Button>();
-    button_leave_->setText("ëxê ");
+    button_leave_->setText("é›¢éšŠ");
     menu_->addChild(button_leave_, 450, 55);
 
     addChild(menu_);
@@ -104,13 +104,13 @@ void UIStatus::draw()
     x = x_ + 200;
     y = y_ + 50;
     font->draw(fmt::format("{}", role_->Name), 30, x - 10, y, color_name);
-    font->draw("µÈ¼‰", font_size, x, y + 50, color_ability1);
+    font->draw("ç­‰ç´š", font_size, x, y + 50, color_ability1);
     font->draw(fmt::format("{:5}", role_->Level), font_size, x + 66, y + 50, color_white);
-    font->draw("½›òž", font_size, x, y + 75, color_ability1);
+    font->draw("ç¶“é©—", font_size, x, y + 75, color_ability1);
     font->draw(fmt::format("{:5}", role_->Exp), font_size, x + 66, y + 75, color_white);
 
     std::string str = "";
-    font->draw("Éý¼‰", font_size, x, y + 100, color_ability1);
+    font->draw("å‡ç´š", font_size, x, y + 100, color_ability1);
 
     int exp_up = GameUtil::getLevelUpExp(role_->Level);
     if (exp_up != INT_MAX)
@@ -122,10 +122,10 @@ void UIStatus::draw()
         str = "------";
     }
     font->draw(str, font_size, x + 55, y + 100, color_white);
-    font->draw("ÉúÃü", font_size, x + 175, y + 50, color_ability1);
+    font->draw("ç”Ÿå‘½", font_size, x + 175, y + 50, color_ability1);
     font->draw(fmt::format("{:5}/", role_->HP), font_size, x + 219, y + 50, color_white);
     font->draw(fmt::format("{:5}", role_->MaxHP), font_size, x + 285, y + 50, color_white);
-    font->draw("ƒÈÁ¦", font_size, x + 175, y + 75, color_ability1);
+    font->draw("å…§åŠ›", font_size, x + 175, y + 75, color_ability1);
 
     BP_Color c = color_white;
     if (role_->MPType == 0)
@@ -139,45 +139,45 @@ void UIStatus::draw()
 
     font->draw(fmt::format("{:5}/", role_->MP), font_size, x + 219, y + 75, c);
     font->draw(fmt::format("{:5}", role_->MaxMP), font_size, x + 285, y + 75, c);
-    font->draw("ówÁ¦", font_size, x + 175, y + 100, color_ability1);
+    font->draw("é«”åŠ›", font_size, x + 175, y + 100, color_ability1);
     font->draw(fmt::format("{:5}/", role_->PhysicalPower), font_size, x + 219, y + 100, color_white);
     font->draw(fmt::format("{:5}", 100), font_size, x + 285, y + 100, color_white);
 
     x = x_ + 20;
     y = y_ + 200;
 
-    font->draw("¹¥“ô", font_size, x, y, color_ability1);
+    font->draw("æ”»æ“Š", font_size, x, y, color_ability1);
     font->draw(fmt::format("{:5}", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, Role::getMaxValue()->Attack));
-    font->draw("·À¶R", font_size, x + 200, y, color_ability1);
+    font->draw("é˜²ç¦¦", font_size, x + 200, y, color_ability1);
     font->draw(fmt::format("{:5}", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, Role::getMaxValue()->Defence));
-    font->draw("Ýp¹¦", font_size, x + 400, y, color_ability1);
+    font->draw("è¼•åŠŸ", font_size, x + 400, y, color_ability1);
     font->draw(fmt::format("{:5}", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Role::getMaxValue()->Speed));
 
-    font->draw("át¯Ÿ", font_size, x, y + 25, color_ability1);
+    font->draw("é†«ç™‚", font_size, x, y + 25, color_ability1);
     font->draw(fmt::format("{:5}", role_->Medicine), font_size, x + 44, y + 25, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
-    font->draw("½â¶¾", font_size, x + 200, y + 25, color_ability1);
+    font->draw("è§£æ¯’", font_size, x + 200, y + 25, color_ability1);
     font->draw(fmt::format("{:5}", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
-    font->draw("ÓÃ¶¾", font_size, x + 400, y + 25, color_ability1);
+    font->draw("ç”¨æ¯’", font_size, x + 400, y + 25, color_ability1);
     font->draw(fmt::format("{:5}", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, Role::getMaxValue()->UsePoison));
 
     x = x_ + 20;
     y = y_ + 270;
-    font->draw("¼¼ÄÜ", 25, x - 10, y, color_name);
+    font->draw("æŠ€èƒ½", 25, x - 10, y, color_name);
 
-    font->draw("È­ÕÆ", font_size, x, y + 30, color_ability1);
+    font->draw("æ‹³æŽŒ", font_size, x, y + 30, color_ability1);
     font->draw(fmt::format("{:5}", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, Role::getMaxValue()->Fist));
-    font->draw("Óù„¦", font_size, x, y + 55, color_ability1);
+    font->draw("å¾¡åŠ", font_size, x, y + 55, color_ability1);
     font->draw(fmt::format("{:5}", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, Role::getMaxValue()->Sword));
-    font->draw("Ë£µ¶", font_size, x, y + 80, color_ability1);
+    font->draw("è€åˆ€", font_size, x, y + 80, color_ability1);
     font->draw(fmt::format("{:5}", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, Role::getMaxValue()->Knife));
-    font->draw("ÌØÊâ", font_size, x, y + 105, color_ability1);
+    font->draw("ç‰¹æ®Š", font_size, x, y + 105, color_ability1);
     font->draw(fmt::format("{:5}", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, Role::getMaxValue()->Unusual));
-    font->draw("°µÆ÷", font_size, x, y + 130, color_ability1);
+    font->draw("æš—å™¨", font_size, x, y + 130, color_ability1);
     font->draw(fmt::format("{:5}", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, Role::getMaxValue()->HiddenWeapon));
 
     x = x_ + 220;
     y = y_ + 270;
-    font->draw("ÎäŒW", 25, x - 10, y, color_name);
+    font->draw("æ­¦å­¸", 25, x - 10, y, color_name);
     for (int i = 0; i < 10; i++)
     {
         auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
@@ -201,51 +201,51 @@ void UIStatus::draw()
 
     x = x_ + 420;
     y = y_ + 445;
-    font->draw("ÐÞŸ’", 25, x - 10, y, color_name);
+    font->draw("ä¿®ç…‰", 25, x - 10, y, color_name);
     auto book = Save::getInstance()->getItem(role_->PracticeItem);
     if (book)
     {
         TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
         font->draw(fmt::format("{}", book->Name), font_size, x + 90, y + 30, color_name);
-        font->draw(fmt::format("½›òž{:5}", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
-        std::string str = "Éý¼‰ ----";
+        font->draw(fmt::format("ç¶“é©—{:5}", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
+        std::string str = "å‡ç´š ----";
         int exp_up = GameUtil::getFinishedExpForItem(role_, book);
         if (exp_up != INT_MAX)
         {
-            str = fmt::format("Éý¼‰{:5}", exp_up);
+            str = fmt::format("å‡ç´š{:5}", exp_up);
         }
         font->draw(str, 18, x + 90, y + 75, color_ability1);
     }
 
     x = x_ + 20;
     y = y_ + 445;
-    font->draw("ÎäÆ÷", 25, x - 10, y, color_name);
+    font->draw("æ­¦å™¨", 25, x - 10, y, color_name);
     auto equip = Save::getInstance()->getItem(role_->Equip0);
     if (equip)
     {
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
         font->draw(fmt::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
-        font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
+        font->draw("æ”»æ“Š", 18, x + 90, y + 55, color_ability1);
         font->draw(fmt::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
-        font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
+        font->draw("é˜²ç¦¦", 18, x + 90, y + 75, color_ability1);
         font->draw(fmt::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
-        font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
+        font->draw("è¼•åŠŸ", 18, x + 90, y + 95, color_ability1);
         font->draw(fmt::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
 
     x = x_ + 220;
     y = y_ + 445;
-    font->draw("·À¾ß", 25, x - 10, y, color_name);
+    font->draw("é˜²å…·", 25, x - 10, y, color_name);
     equip = Save::getInstance()->getItem(role_->Equip1);
     if (equip)
     {
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
         font->draw(fmt::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
-        font->draw("¹¥“ô", 18, x + 90, y + 55, color_ability1);
+        font->draw("æ”»æ“Š", 18, x + 90, y + 55, color_ability1);
         font->draw(fmt::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
-        font->draw("·À¶R", 18, x + 90, y + 75, color_ability1);
+        font->draw("é˜²ç¦¦", 18, x + 90, y + 75, color_ability1);
         font->draw(fmt::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
-        font->draw("Ýp¹¦", 18, x + 90, y + 95, color_ability1);
+        font->draw("è¼•åŠŸ", 18, x + 90, y + 95, color_ability1);
         font->draw(fmt::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
 }
@@ -264,7 +264,7 @@ void UIStatus::onPressedOK()
     if (menu_->getResult() == 0)
     {
         auto team_menu = std::make_shared<TeamMenu>();
-        team_menu->setText(fmt::format("{}ÒªžéÕlát¯Ÿ", role_->Name));
+        team_menu->setText(fmt::format("{}è¦ç‚ºèª°é†«ç™‚", role_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         if (role)
@@ -272,14 +272,14 @@ void UIStatus::onPressedOK()
             Role r = *role;
             GameUtil::medicine(role_, role);
             auto df = std::make_shared<ShowRoleDifference>(&r, role);
-            df->setText(fmt::format("{}½ÓÊÜ{}át¯Ÿ", role->Name, role_->Name));
+            df->setText(fmt::format("{}æŽ¥å—{}é†«ç™‚", role->Name, role_->Name));
             df->run();
         }
     }
     else if (menu_->getResult() == 1)
     {
         auto team_menu = std::make_shared<TeamMenu>();
-        team_menu->setText(fmt::format("{}ÒªžéÕl½â¶¾", role_->Name));
+        team_menu->setText(fmt::format("{}è¦ç‚ºèª°è§£æ¯’", role_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         if (role)
@@ -287,7 +287,7 @@ void UIStatus::onPressedOK()
             Role r = *role;
             GameUtil::detoxification(role_, role);
             auto df = std::make_shared<ShowRoleDifference>(&r, role);
-            df->setText(fmt::format("{}½ÓÊÜ{}½â¶¾", role->Name, role_->Name));
+            df->setText(fmt::format("{}æŽ¥å—{}è§£æ¯’", role->Name, role_->Name));
             df->run();
         }
     }

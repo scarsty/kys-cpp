@@ -6,8 +6,8 @@
 
 class BattleScene;
 
-//��Ϊս�������Ĳ�����Ϊ���������д��ԭ���Ƚ��鷳���ʵ����г�һ�����Բ������
-//ע�⣬AIѡ��Ŀ�����ΪҲ��������
+//因为战斗场景的操作分为多种情况，写在原处比较麻烦，故单独列出一类用以操作光标
+//注意，AI选择目标的行为也在这里面
 class BattleCursor : public RunNode
 {
 public:

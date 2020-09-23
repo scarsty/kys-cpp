@@ -13,7 +13,7 @@ TextBoxRoll::~TextBoxRoll()
 void TextBoxRoll::draw()
 {
     int x = x_, y = y_;
-    int i = -1, line_count = 0;    //³õÖµ
+    int i = -1, line_count = 0;    //åˆå€¼
     for (auto& line : texts_)
     {
         i++;

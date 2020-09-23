@@ -25,7 +25,7 @@ void Button::dealEvent(BP_Event& e)
 
 void Button::draw()
 {
-    //ÊÓÇé¿öÖØÐÂ¼ÆËã³ß´ç
+    //è§†æƒ…å†µé‡æ–°è®¡ç®—å°ºå¯¸
     if (w_ * h_ == 0)
     {
         auto tex = TextureManager::getInstance()->loadTexture(texture_path_, texture_normal_id_);

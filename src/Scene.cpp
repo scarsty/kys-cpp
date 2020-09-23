@@ -24,7 +24,7 @@ void Scene::checkWalk(int x, int y, BP_Event& e)
 {
 }
 
-//ºóÃæÁ½¸ö²ÎÊıÊÇµ±Ç°ÆÁÄ»ÖĞĞÄÎ»ÖÃµÄÓÎÏ·×ø±ê£¬Í¨³£ÊÇÈËµÄ×ø±ê
+//åé¢ä¸¤ä¸ªå‚æ•°æ˜¯å½“å‰å±å¹•ä¸­å¿ƒä½ç½®çš„æ¸¸æˆåæ ‡ï¼Œé€šå¸¸æ˜¯äººçš„åæ ‡
 Point Scene::getPositionOnRender(int x, int y, int view_x, int view_y)
 {
     Point p;
@@ -35,7 +35,7 @@ Point Scene::getPositionOnRender(int x, int y, int view_x, int view_y)
     return p;
 }
 
-//ºóÃæÁ½¸ö²ÎÊıÍ¬ÉÏ£¬Ò»Ğ©Çé¿öÏÂ´°¿Ú³ß´çºÍäÖÈ¾³ß´ç²»Í¬
+//åé¢ä¸¤ä¸ªå‚æ•°åŒä¸Šï¼Œä¸€äº›æƒ…å†µä¸‹çª—å£å°ºå¯¸å’Œæ¸²æŸ“å°ºå¯¸ä¸åŒ
 Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
 {
     auto p = getPositionOnRender(x, y, view_x, view_y);
@@ -46,7 +46,7 @@ Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
     return p;
 }
 
-//½ÇÉ«´¦ÓÚx1£¬y1£¬³¯Ïòx2£¬y2Ê±£¬Á³µÄ·½Ïò
+//è§’è‰²å¤„äºx1ï¼Œy1ï¼Œæœå‘x2ï¼Œy2æ—¶ï¼Œè„¸çš„æ–¹å‘
 int Scene::calTowards(int x1, int y1, int x2, int y2)
 {
     int d1, d2, dm;
@@ -161,7 +161,7 @@ void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
     }
 }
 
-//´ÓÊó±êµÄÎ»ÖÃ·´ÍÆ³öÔÚÓÎÏ·µØÍ¼ÉÏµÄ×ø±ê
+//ä»é¼ æ ‡çš„ä½ç½®åæ¨å‡ºåœ¨æ¸¸æˆåœ°å›¾ä¸Šçš„åæ ‡
 Point Scene::getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
 {
     int w, h;
@@ -187,7 +187,7 @@ Point Scene::getMousePosition(int view_x, int view_y)
 
 void Scene::calCursorPosition(int x, int y)
 {
-    //¹â±êµÄÎ»ÖÃ
+    //å…‰æ ‡çš„ä½ç½®
     auto p = getMousePosition(x, y);
     cursor_x_ = p.x;
     cursor_y_ = p.y;
@@ -224,9 +224,9 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     };
 
     way_que_.clear();
-    std::map<std::pair<int, int>, PointAStar> point_map;                                    //ÒÑ¾­·ÃÎÊ¹ıµÄµãµÄÖ¸Õë(¹Ø±ÕÁĞ±í)
-    Point dirs[4] = { { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, 0 } };                           //ËÄ¸ö·½Ïò
-    std::priority_queue<PointAStar*, std::vector<PointAStar*>, PointAStar::Compare> que;    //×îĞ¡ÓÅÏÈ¼¶¶ÓÁĞ(¿ªÆôÁĞ±í)
+    std::map<std::pair<int, int>, PointAStar> point_map;                                    //å·²ç»è®¿é—®è¿‡çš„ç‚¹çš„æŒ‡é’ˆ(å…³é—­åˆ—è¡¨)
+    Point dirs[4] = { { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, 0 } };                           //å››ä¸ªæ–¹å‘
+    std::priority_queue<PointAStar*, std::vector<PointAStar*>, PointAStar::Compare> que;    //æœ€å°ä¼˜å…ˆçº§é˜Ÿåˆ—(å¼€å¯åˆ—è¡¨)
     //RandomDouble rand;
 
     PointAStar begin_point(Mx, My);
@@ -237,7 +237,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     int s_num = 0;
     while (!que.empty() && s_num <= 4096)
     {
-        auto t = que.top();    //Ñ¡ÔñÄ¿Ç°×îºÃµÄµã
+        auto t = que.top();    //é€‰æ‹©ç›®å‰æœ€å¥½çš„ç‚¹
         que.pop();
         s_num++;
         if (t->x == Fx && t->y == Fy)

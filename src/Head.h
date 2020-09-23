@@ -3,8 +3,8 @@
 #include "Types.h"
 #include <memory>
 
-//���ƴ�����ͷ��ļ���״̬
-//ע�⣬�������ͼ̳д��࣬��Ϊ��ʹ��roleָ��
+//绘制带人物头像的简明状态
+//注意，部分类型继承此类，是为了使用role指针
 class Head : public TextBox
 {
 protected:

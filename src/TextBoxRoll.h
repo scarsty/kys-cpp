@@ -11,7 +11,7 @@ public:
     using TextColorLines = std::vector<std::vector<std::pair<BP_Color, std::string>>>;
 
 private:
-    TextColorLines texts_;    //ÐÐ£¬ÑÕÉ«£¬ÎÄ×Ö
+    TextColorLines texts_;    //è¡Œï¼Œé¢œè‰²ï¼Œæ–‡å­—
     int roll_line_ = -1;
     int begin_line_ = 0;
 

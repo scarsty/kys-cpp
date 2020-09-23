@@ -32,7 +32,7 @@ void InputBox::dealEvent(BP_Event& e)
     }
     case BP_TEXTEDITING:
     {
-        //看起来不太正常，待查
+        //鐪嬭捣鏉ヤ笉澶甯革紝寰呮煡
         //auto composition = e.edit.text;
         //auto cursor = e.edit.start;
         //auto selection_len = e.edit.length;

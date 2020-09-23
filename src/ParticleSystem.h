@@ -1,6 +1,6 @@
 #pragma once
 
-//ÒÆÖ²×ÔCocos2dx£¬°æÈ¨ÉùÃ÷Çë²é¿´licensesÎÄ¼ş¼Ğ
+//ç§»æ¤è‡ªCocos2dxï¼Œç‰ˆæƒå£°æ˜è¯·æŸ¥çœ‹licensesæ–‡ä»¶å¤¹
 
 #include "SDL2/SDL.h"
 #include <string>

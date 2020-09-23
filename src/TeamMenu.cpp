@@ -15,9 +15,9 @@ TeamMenu::TeamMenu()
         //selected_.push_back(0);
     }
     button_all_ = std::make_shared<Button>();
-    button_all_->setText("È«ßx");
+    button_all_->setText("å…¨é¸");
     button_ok_ = std::make_shared<Button>();
-    button_ok_->setText("´_¶¨");
+    button_ok_->setText("ç¢ºå®š");
     addChild(button_all_, 0, 300);
     addChild(button_ok_, 100, 300);
     setPosition(200, 150);
@@ -40,11 +40,11 @@ void TeamMenu::onEntrance()
             {
                 if (!GameUtil::canUseItem(r, item_))
                 {
-                    heads_[i]->setText("²»ßmºÏ");
+                    heads_[i]->setText("ä¸é©åˆ");
                 }
                 if (r->PracticeItem == item_->ID || r->Equip0 == item_->ID || r->Equip1 == item_->ID)
                 {
-                    heads_[i]->setText("Ê¹ÓÃÖĞ");
+                    heads_[i]->setText("ä½¿ç”¨ä¸­");
                 }
             }
         }
@@ -120,7 +120,7 @@ void TeamMenu::onPressedOK()
         }
         if (button_all_->getState() == Press)
         {
-            //Èç¹ûÒÑ¾­È«Ñ¡£¬ÔòÊÇÇå³ı
+            //å¦‚æœå·²ç»å…¨é€‰ï¼Œåˆ™æ˜¯æ¸…é™¤
             int all = -1;
             for (auto h : heads_)
             {
@@ -137,7 +137,7 @@ void TeamMenu::onPressedOK()
         }
         if (button_ok_->getState() == Press)
         {
-            //Ã»ÓĞÈË±»Ñ¡ÖĞ£¬²»ÄÜÈ·¶¨
+            //æ²¡æœ‰äººè¢«é€‰ä¸­ï¼Œä¸èƒ½ç¡®å®š
             for (auto h : heads_)
             {
                 if (h->getResult() == 0)
@@ -181,7 +181,7 @@ void TeamMenu::dealEvent(BP_Event& e)
         {
             if (h->getResult() == 0)
             {
-                h->setText("ÒÑßxÖĞ");
+                h->setText("å·²é¸ä¸­");
             }
             else
             {

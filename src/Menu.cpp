@@ -13,7 +13,7 @@ Menu::~Menu()
 
 void Menu::dealEvent(BP_Event& e)
 {
-    //´Ë´¦´¦Àí¼üÅÌÏìÓ¦
+    //æ­¤å¤„å¤„ç†é”®ç›˜å“åº”
     if (e.type == BP_KEYDOWN)
     {
         Direct direct = None;
@@ -38,12 +38,12 @@ void Menu::dealEvent(BP_Event& e)
 
         if (direct != None)
         {
-            //Èç¹ûÈ«¶¼Ã»±»Ñ¡ÖĞ£¬Ò»°ãÊÇÊó±êÆ¯µ½Íâ±ß£¬ÔòÏÈÑ¡ÖĞÉÏ´ÎµÄ
+            //å¦‚æœå…¨éƒ½æ²¡è¢«é€‰ä¸­ï¼Œä¸€èˆ¬æ˜¯é¼ æ ‡æ¼‚åˆ°å¤–è¾¹ï¼Œåˆ™å…ˆé€‰ä¸­ä¸Šæ¬¡çš„
             bool all_normal = checkAllNormal();
             setAllChildState(Normal);
             if (all_normal)
             {
-                //µ±Ç°µÄÈç¹û²»ÏÔÊ¾£¬ÔòÕÒµÚÒ»¸ö
+                //å½“å‰çš„å¦‚æœä¸æ˜¾ç¤ºï¼Œåˆ™æ‰¾ç¬¬ä¸€ä¸ª
                 if (active_child_ < childs_.size() && !childs_[active_child_]->getVisible())
                 {
                     active_child_ = findFristVisibleChild();

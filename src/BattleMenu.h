@@ -5,7 +5,7 @@
 
 class BattleScene;
 
-//×¢Òâ£¬AIÑ¡ÔñĞĞ¶¯µÄĞĞÎªÒ²ÔÚÕâÀïÃæ
+//æ³¨æ„ï¼ŒAIé€‰æ‹©è¡ŒåŠ¨çš„è¡Œä¸ºä¹Ÿåœ¨è¿™é‡Œé¢
 class BattleActionMenu : public MenuText
 {
 public:
@@ -19,7 +19,7 @@ public:
     int runAsRole(Role* r)
     {
         setRole(r);
-        return run();
+        return run();    //æ®è¯´è¿™é‡Œæœ‰æ½œåœ¨é—®é¢˜
     }
 
     void dealEvent(BP_Event& e) override;

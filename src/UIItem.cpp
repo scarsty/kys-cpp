@@ -21,7 +21,7 @@ UIItem::UIItem()
         //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
     }
     title_ = std::make_shared<MenuText>();
-    title_->setStrings({ "„¡Çé", "±ø¼×", "µ¤Ë", "°µÆ÷", "È­½›", "„¦×V", "µ¶ä›", "ÆæéT", "ĞÄ·¨" });
+    title_->setStrings({ "åŠ‡æƒ…", "å…µç”²", "ä¸¹è—¥", "æš—å™¨", "æ‹³ç¶“", "åŠè­œ", "åˆ€éŒ„", "å¥‡é–€", "å¿ƒæ³•" });
     title_->setFontSize(24);
     title_->arrange(0, 50, 64, 0);
     addChild(title_);
@@ -53,8 +53,8 @@ void UIItem::setForceItemType(int f)
     }
 }
 
-//Ô­·ÖÀà£º0¾çÇé£¬1×°±¸£¬2ÃØóÅ£¬3Ò©Æ·£¬4°µÆ÷
-//ÏêÏ¸·ÖÀà£º"0„¡Çé", "1±ø¼×", "2µ¤Ë", "3°µÆ÷", "4È­½›", "5„¦×V", "6µ¶ä›", "7ÆæéT", "8ĞÄ·¨"
+//åŸåˆ†ç±»ï¼š0å‰§æƒ…ï¼Œ1è£…å¤‡ï¼Œ2ç§˜ç¬ˆï¼Œ3è¯å“ï¼Œ4æš—å™¨
+//è¯¦ç»†åˆ†ç±»ï¼š"0åŠ‡æƒ…", "1å…µç”²", "2ä¸¹è—¥", "3æš—å™¨", "4æ‹³ç¶“", "5åŠè­œ", "6åˆ€éŒ„", "7å¥‡é–€", "8å¿ƒæ³•"
 int UIItem::getItemDetailType(Item* item)
 {
     if (item == nullptr)
@@ -82,7 +82,7 @@ int UIItem::getItemDetailType(Item* item)
         auto m = Save::getInstance()->getMagic(item->MagicID);
         if (m)
         {
-            //ÎüÈ¡ÄÚÁ¦Àà¹éÎª8
+            //å¸å–å†…åŠ›ç±»å½’ä¸º8
             if (m->HurtType == 0)
             {
                 return m->MagicType + 3;
@@ -90,7 +90,7 @@ int UIItem::getItemDetailType(Item* item)
         }
         return 8;
     }
-    //Î´ÖªµÄÖÖÀàµ±³É¾çÇé
+    //æœªçŸ¥çš„ç§ç±»å½“æˆå‰§æƒ…
     return 0;
 }
 
@@ -109,7 +109,7 @@ void UIItem::geItemsByType(int item_type)
 
 void UIItem::checkCurrentItem()
 {
-    //Ç¿ÖÆÍ£ÁôÔÚÄ³ÀàÎïÆ·
+    //å¼ºåˆ¶åœç•™åœ¨æŸç±»ç‰©å“
     if (force_item_type_ >= 0)
     {
         //title_.setResult(force_item_type_);
@@ -119,8 +119,8 @@ void UIItem::checkCurrentItem()
     title_->getChild(active)->setState(Pass);
     geItemsByType(active);
     int type_item_count = available_items_.size();
-    //´ÓÕâÀï¼ÆËã³ö×óÉÏ½Ç¿ÉÒÔÈ¡µÄ×î´óÖµ
-    //¼ÆËã·½·¨£ºÏÈ¼ÆËã³ö×ÜĞĞÊı£¬¼õÈ¥¿É¼ûĞĞÊı£¬³ËÒÔÃ¿ĞĞ³ÉÔ±Êı
+    //ä»è¿™é‡Œè®¡ç®—å‡ºå·¦ä¸Šè§’å¯ä»¥å–çš„æœ€å¤§å€¼
+    //è®¡ç®—æ–¹æ³•ï¼šå…ˆè®¡ç®—å‡ºæ€»è¡Œæ•°ï¼Œå‡å»å¯è§è¡Œæ•°ï¼Œä¹˜ä»¥æ¯è¡Œæˆå‘˜æ•°
     max_leftup_ = ((type_item_count + item_each_line_ - 1) / item_each_line_ - line_count_) * item_each_line_;
     if (max_leftup_ < 0)
     {
@@ -129,7 +129,7 @@ void UIItem::checkCurrentItem()
 
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup_);
 
-    //¼ÆËã±»¼¤»îµÄ°´Å¥
+    //è®¡ç®—è¢«æ¿€æ´»çš„æŒ‰é’®
     std::shared_ptr<Button> current_button{ nullptr };
     for (int i = 0; i < item_buttons_.size(); i++)
     {
@@ -151,14 +151,14 @@ void UIItem::checkCurrentItem()
         }
     }
 
-    //¼ÆËã±»¼¤»îµÄ°´Å¥¶ÔÓ¦µÄÎïÆ·
+    //è®¡ç®—è¢«æ¿€æ´»çš„æŒ‰é’®å¯¹åº”çš„ç‰©å“
     current_item_ = nullptr;
     if (current_button)
     {
         int x, y;
         current_button->getPosition(x, y);
         current_item_ = Save::getInstance()->getItem(current_button->getTexutreID());
-        //ÈÃ¹â±êÏÔÊ¾³öÀ´
+        //è®©å…‰æ ‡æ˜¾ç¤ºå‡ºæ¥
         if (current_button->getState() == Pass)
         {
             x += 2;
@@ -200,7 +200,7 @@ void UIItem::dealEvent(BP_Event& e)
         }
     }
 
-    //´Ë´¦´¦Àí¼üÅÌÏìÓ¦  Î´Íê³É
+    //æ­¤å¤„å¤„ç†é”®ç›˜å“åº”  æœªå®Œæˆ
     if (focus_ == 1)
     {
         if (e.type == BP_KEYDOWN)
@@ -281,113 +281,113 @@ void UIItem::showItemProperty(Item* item)
     {
         return;
     }
-    //ÎïÆ·ÃûºÍÊıÁ¿
-    auto str = fmt::format("{:14}{}", item->Name, Save::getInstance()->getItemCountInBag(current_item_->ID));
+    //ç‰©å“åå’Œæ•°é‡
+    auto str = std::string(item->Name) + std::string(abs(14 - Font::getTextDrawSize(item->Name)), ' ') + std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID));
     Font::getInstance()->draw(str, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
 
     int x = 10, y = 430;
     int size = 20;
 
-    //ÒÔÏÂÏÔÊ¾ÎïÆ·µÄÊôĞÔ
+    //ä»¥ä¸‹æ˜¾ç¤ºç‰©å“çš„å±æ€§
     BP_Color c = { 255, 215, 0, 255 };
 
-    //ÌØ±ğÅĞ¶ÏÂŞÅÌ
+    //ç‰¹åˆ«åˆ¤æ–­ç½—ç›˜
     if (item->isCompass())
     {
         int man_x, man_y;
         MainScene::getInstance()->getManPosition(man_x, man_y);
-        auto str = fmt::format("®”Ç°×ø˜Ë {}, {}", man_x, man_y);
+        auto str = fmt::format("ç•¶å‰åæ¨™ {}, {}", man_x, man_y);
         showOneProperty(1, str, size, c, x, y);
     }
 
-    //¾çÇéÎïÆ·²»¼ÌĞøÏÔÊ¾ÁË
+    //å‰§æƒ…ç‰©å“ä¸ç»§ç»­æ˜¾ç¤ºäº†
     if (item->ItemType == 0)
     {
         return;
     }
 
-    //Font::getInstance()->draw("Ğ§¹û£º", size, x_ + x, y_ + y, c);
+    //Font::getInstance()->draw("æ•ˆæœï¼š", size, x_ + x, y_ + y, c);
     //y += size + 10;
 
-    showOneProperty(item->AddHP, "ÉúÃü{:+}", size, c, x, y);
-    showOneProperty(item->AddMaxHP, "ÉúÃüÉÏÏŞ{:+}", size, c, x, y);
-    showOneProperty(item->AddMP, "ƒÈÁ¦{:+}", size, c, x, y);
-    showOneProperty(item->AddMaxMP, "ƒÈÁ¦ÉÏÏŞ{:+}", size, c, x, y);
-    showOneProperty(item->AddPhysicalPower, "ówÁ¦{:+}", size, c, x, y);
-    showOneProperty(item->AddPoison, "ÖĞ¶¾{:+}", size, c, x, y);
+    showOneProperty(item->AddHP, "ç”Ÿå‘½{:+}", size, c, x, y);
+    showOneProperty(item->AddMaxHP, "ç”Ÿå‘½ä¸Šé™{:+}", size, c, x, y);
+    showOneProperty(item->AddMP, "å…§åŠ›{:+}", size, c, x, y);
+    showOneProperty(item->AddMaxMP, "å…§åŠ›ä¸Šé™{:+}", size, c, x, y);
+    showOneProperty(item->AddPhysicalPower, "é«”åŠ›{:+}", size, c, x, y);
+    showOneProperty(item->AddPoison, "ä¸­æ¯’{:+}", size, c, x, y);
 
-    showOneProperty(item->AddAttack, "¹¥“ô{:+}", size, c, x, y);
-    showOneProperty(item->AddSpeed, "İp¹¦{:+}", size, c, x, y);
-    showOneProperty(item->AddDefence, "·À¶R{:+}", size, c, x, y);
+    showOneProperty(item->AddAttack, "æ”»æ“Š{:+}", size, c, x, y);
+    showOneProperty(item->AddSpeed, "è¼•åŠŸ{:+}", size, c, x, y);
+    showOneProperty(item->AddDefence, "é˜²ç¦¦{:+}", size, c, x, y);
 
-    showOneProperty(item->AddMedicine, "át¯Ÿ{:+}", size, c, x, y);
-    showOneProperty(item->AddUsePoison, "ÓÃ¶¾{:+}", size, c, x, y);
-    showOneProperty(item->AddDetoxification, "½â¶¾{:+}", size, c, x, y);
-    showOneProperty(item->AddAntiPoison, "¿¹¶¾{:+}", size, c, x, y);
+    showOneProperty(item->AddMedicine, "é†«ç™‚{:+}", size, c, x, y);
+    showOneProperty(item->AddUsePoison, "ç”¨æ¯’{:+}", size, c, x, y);
+    showOneProperty(item->AddDetoxification, "è§£æ¯’{:+}", size, c, x, y);
+    showOneProperty(item->AddAntiPoison, "æŠ—æ¯’{:+}", size, c, x, y);
 
-    showOneProperty(item->AddFist, "È­ÕÆ{:+}", size, c, x, y);
-    showOneProperty(item->AddSword, "Óù„¦{:+}", size, c, x, y);
-    showOneProperty(item->AddKnife, "Ë£µ¶{:+}", size, c, x, y);
-    showOneProperty(item->AddUnusual, "ÌØÊâ±øÆ÷{:+}", size, c, x, y);
-    showOneProperty(item->AddHiddenWeapon, "°µÆ÷{:+}", size, c, x, y);
+    showOneProperty(item->AddFist, "æ‹³æŒ{:+}", size, c, x, y);
+    showOneProperty(item->AddSword, "å¾¡åŠ{:+}", size, c, x, y);
+    showOneProperty(item->AddKnife, "è€åˆ€{:+}", size, c, x, y);
+    showOneProperty(item->AddUnusual, "ç‰¹æ®Šå…µå™¨{:+}", size, c, x, y);
+    showOneProperty(item->AddHiddenWeapon, "æš—å™¨{:+}", size, c, x, y);
 
-    showOneProperty(item->AddKnowledge, "×÷±×{:+}", size, c, x, y);
-    showOneProperty(item->AddMorality, "µÀµÂ{:+}", size, c, x, y);
-    showOneProperty(item->AddAttackWithPoison, "¹¥“ô§¶¾{:+}", size, c, x, y);
+    showOneProperty(item->AddKnowledge, "ä½œå¼Š{:+}", size, c, x, y);
+    showOneProperty(item->AddMorality, "é“å¾·{:+}", size, c, x, y);
+    showOneProperty(item->AddAttackWithPoison, "æ”»æ“Šå¸¶æ¯’{:+}", size, c, x, y);
 
-    showOneProperty(int(item->ChangeMPType == 2), "ƒÈÁ¦Õ{ºÍ{}", size, c, x, y);
-    showOneProperty(int(item->AddAttackTwice == 1), "ëp“ô{}", size, c, x, y);
+    showOneProperty(int(item->ChangeMPType == 2), "å…§åŠ›èª¿å’Œ{}", size, c, x, y);
+    showOneProperty(int(item->AddAttackTwice == 1), "é›™æ“Š{}", size, c, x, y);
 
     auto magic = Save::getInstance()->getMagic(item->MagicID);
     if (magic)
     {
-        auto str = fmt::format("Á•µÃÎäŒW{}", magic->Name);
+        auto str = fmt::format("ç¿’å¾—æ­¦å­¸{}", magic->Name);
         showOneProperty(1, str, size, c, x, y);
     }
 
-    //ÒÔÏÂÏÔÊ¾ÎïÆ·ĞèÇó
+    //ä»¥ä¸‹æ˜¾ç¤ºç‰©å“éœ€æ±‚
 
-    //Ò©Æ·ºÍ°µÆ÷Àà²»¼ÌĞøÏÔÊ¾ÁË
+    //è¯å“å’Œæš—å™¨ç±»ä¸ç»§ç»­æ˜¾ç¤ºäº†
     if (item->ItemType == 3 || item->ItemType == 4)
     {
         return;
     }
 
     x = 10;
-    y += size + 10;    //»»ĞĞ
+    y += size + 10;    //æ¢è¡Œ
     c = { 224, 170, 255, 255 };
-    //Font::getInstance()->draw("ĞèÇó£º", size, x_ + x, y_ + y, c);
+    //Font::getInstance()->draw("éœ€æ±‚ï¼š", size, x_ + x, y_ + y, c);
     //y += size + 10;
     auto role = Save::getInstance()->getRole(item->OnlySuitableRole);
     if (role)
     {
-        auto str = fmt::format("ƒHßmºÏ{}", role->Name);
+        auto str = fmt::format("åƒ…é©åˆ{}", role->Name);
         showOneProperty(1, str, size, c, x, y);
         return;
     }
 
-    showOneProperty(item->NeedMP, "ƒÈÁ¦{}", size, c, x, y);
-    showOneProperty(item->NeedAttack, "¹¥“ô{}", size, c, x, y);
-    showOneProperty(item->NeedSpeed, "İp¹¦{}", size, c, x, y);
+    showOneProperty(item->NeedMP, "å…§åŠ›{}", size, c, x, y);
+    showOneProperty(item->NeedAttack, "æ”»æ“Š{}", size, c, x, y);
+    showOneProperty(item->NeedSpeed, "è¼•åŠŸ{}", size, c, x, y);
 
-    showOneProperty(item->NeedMedicine, "át¯Ÿ{}", size, c, x, y);
-    showOneProperty(item->NeedUsePoison, "ÓÃ¶¾{}", size, c, x, y);
-    showOneProperty(item->NeedDetoxification, "½â¶¾{}", size, c, x, y);
+    showOneProperty(item->NeedMedicine, "é†«ç™‚{}", size, c, x, y);
+    showOneProperty(item->NeedUsePoison, "ç”¨æ¯’{}", size, c, x, y);
+    showOneProperty(item->NeedDetoxification, "è§£æ¯’{}", size, c, x, y);
 
-    showOneProperty(item->NeedFist, "È­ÕÆ{}", size, c, x, y);
-    showOneProperty(item->NeedSword, "Óù„¦{}", size, c, x, y);
-    showOneProperty(item->NeedKnife, "Ë£µ¶{}", size, c, x, y);
-    showOneProperty(item->NeedUnusual, "ÌØÊâ±øÆ÷{}", size, c, x, y);
-    showOneProperty(item->NeedHiddenWeapon, "°µÆ÷{}", size, c, x, y);
+    showOneProperty(item->NeedFist, "æ‹³æŒ{}", size, c, x, y);
+    showOneProperty(item->NeedSword, "å¾¡åŠ{}", size, c, x, y);
+    showOneProperty(item->NeedKnife, "è€åˆ€{}", size, c, x, y);
+    showOneProperty(item->NeedUnusual, "ç‰¹æ®Šå…µå™¨{}", size, c, x, y);
+    showOneProperty(item->NeedHiddenWeapon, "æš—å™¨{}", size, c, x, y);
 
-    showOneProperty(item->NeedIQ, "ÙYÙ|{}", size, c, x, y);
+    showOneProperty(item->NeedIQ, "è³‡è³ª{}", size, c, x, y);
 
-    showOneProperty(item->NeedExp, "»ùµA½›ò{}", size, c, x, y);
+    showOneProperty(item->NeedExp, "åŸºç¤ç¶“é©—{}", size, c, x, y);
 
     if (item->NeedMaterial >= 0)
     {
-        std::string str = "ºÄÙM";
+        std::string str = "è€—è²»";
         str += Save::getInstance()->getItem(item->NeedMaterial)->Name;
         showOneProperty(1, str, size, c, x, y);
     }
@@ -410,7 +410,7 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
 {
     if (v != 0)
     {
-        std::string str;        
+        std::string str;
         //int parameter_count = convert::extractFormatString(format_str).size();
         //if (parameter_count == 1)
         //{
@@ -421,8 +421,8 @@ void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c
         //    str = format_str;
         //}
         str = fmt::format(format_str.c_str(), v);
-        //²âÊÔÊÇ²»ÊÇ³ö½çÁË
-        int draw_length = size * str.size() / 2 + size;
+        //æµ‹è¯•æ˜¯ä¸æ˜¯å‡ºç•Œäº†
+        int draw_length = size * Font::getTextDrawSize(str) / 2 + size;
         int x1 = x + draw_length;
         if (x1 > 700)
         {
@@ -452,7 +452,7 @@ void UIItem::onPressedOK()
         return;
     }
 
-    //ÔÚÊ¹ÓÃ¾çÇéÎïÆ·µÄÊ±ºò£¬·µ»ØÒ»¸ö½á¹û£¬Ö÷UIÅĞ¶Ï´ËÊ±¿ÉÒÔÍË³ö
+    //åœ¨ä½¿ç”¨å‰§æƒ…ç‰©å“çš„æ—¶å€™ï¼Œè¿”å›ä¸€ä¸ªç»“æœï¼Œä¸»UIåˆ¤æ–­æ­¤æ—¶å¯ä»¥é€€å‡º
     if (current_item_->ItemType == 0)
     {
         result_ = current_item_->ID;
@@ -462,17 +462,17 @@ void UIItem::onPressedOK()
     {
         if (current_item_->ItemType == 3)
         {
-            auto team_menu=std::make_shared<TeamMenu>();
+            auto team_menu = std::make_shared<TeamMenu>();
             team_menu->setItem(current_item_);
-            team_menu->setText(fmt::format("ÕlÒªÊ¹ÓÃ{}", current_item_->Name));
+            team_menu->setText(fmt::format("èª°è¦ä½¿ç”¨{}", current_item_->Name));
             team_menu->run();
             auto role = team_menu->getRole();
             if (role)
             {
                 Role r = *role;
                 GameUtil::useItem(role, current_item_);
-                auto df=std::make_shared<ShowRoleDifference>(&r, role);
-                df->setText(fmt::format("{}·şÓÃ{}", role->Name, current_item_->Name));
+                auto df = std::make_shared<ShowRoleDifference>(&r, role);
+                df->setText(fmt::format("{}æœç”¨{}", role->Name, current_item_->Name));
                 df->run();
                 Event::getInstance()->addItemWithoutHint(current_item_->ID, -1);
             }
@@ -481,10 +481,10 @@ void UIItem::onPressedOK()
         {
             auto team_menu = std::make_shared<TeamMenu>();
             team_menu->setItem(current_item_);
-            auto format_str = "ÕlÒªĞŞŸ’{}";
+            auto format_str = "èª°è¦ä¿®ç…‰{}";
             if (current_item_->ItemType == 1)
             {
-                format_str = "ÕlÒªÑb‚ä{}";
+                format_str = "èª°è¦è£å‚™{}";
             }
             team_menu->setText(fmt::format(format_str, current_item_->Name));
             team_menu->run();
@@ -496,10 +496,10 @@ void UIItem::onPressedOK()
         }
         else if (current_item_->ItemType == 4)
         {
-            //ËÆºõ²»ĞèÒªÌØÊâ´¦Àí
+            //ä¼¼ä¹ä¸éœ€è¦ç‰¹æ®Šå¤„ç†
         }
     }
-    setExit(true);    //ÓÃÓÚÕ½¶·Ê±¡£Æ½Ê±ÎïÆ·À¸²»ÊÇÒÔ¸ù½ÚµãÔËĞĞ£¬ÉèÖÃÕâ¸öÃ»ÓĞ×÷ÓÃ
+    setExit(true);    //ç”¨äºæˆ˜æ–—æ—¶ã€‚å¹³æ—¶ç‰©å“æ ä¸æ˜¯ä»¥æ ¹èŠ‚ç‚¹è¿è¡Œï¼Œè®¾ç½®è¿™ä¸ªæ²¡æœ‰ä½œç”¨
 }
 
 void UIItem::onPressedCancel()

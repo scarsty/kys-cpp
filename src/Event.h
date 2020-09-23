@@ -6,7 +6,7 @@
 #include "SubScene.h"
 #include "Talk.h"
 
-//event_id±íÊ¾ÔÚkdefÖĞµÄ±àºÅ£¬event_index±íÊ¾ÔÚ³¡¾°ÖĞµÄ±àºÅ
+//event_idè¡¨ç¤ºåœ¨kdefä¸­çš„ç¼–å·ï¼Œevent_indexè¡¨ç¤ºåœ¨åœºæ™¯ä¸­çš„ç¼–å·
 
 class Event
 {
@@ -29,23 +29,23 @@ private:
     int leave_event_0_;
     std::vector<int> leave_event_id_;
 
-    //Á½¸ö¶Ô»°£¬ÓÃÓÚÉÏÃæºÍÏÂÃæ£¬Á½¸ö¿ÉÒÔÍ¬Ê±ÏÔÊ¾
-    //ÊÓĞèÒª¿ÉÔö¼Ó¸ü¶à
+    //ä¸¤ä¸ªå¯¹è¯ï¼Œç”¨äºä¸Šé¢å’Œä¸‹é¢ï¼Œä¸¤ä¸ªå¯ä»¥åŒæ—¶æ˜¾ç¤º
+    //è§†éœ€è¦å¯å¢åŠ æ›´å¤š
     std::shared_ptr<RunNode> talk_box_;
     std::shared_ptr<Talk> talk_box_up_, talk_box_down_;
 
-    //×¨ÓÃÓÚÏÔÊ¾È·ÈÏºÍÈ¡ÏûÑ¡Ïî
+    //ä¸“ç”¨äºæ˜¾ç¤ºç¡®è®¤å’Œå–æ¶ˆé€‰é¡¹
     std::shared_ptr<MenuText> menu2_;
-    //×¨ÓÃÓÚÏÔÊ¾Ò»¸öÎÄ±¾¿ò
+    //ä¸“ç”¨äºæ˜¾ç¤ºä¸€ä¸ªæ–‡æœ¬æ¡†
     std::shared_ptr<TextBox> text_box_;
     int event_id_ = -1;
 
     RandomDouble rand_;
 
 public:
-    bool loadEventData();    //¼ÓÔØÊÂ¼şÊı¾İ
-    //ÕâÀïÔÙÉè¼Æ
-    bool callEvent(int event_id, RunNode* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //µ÷ÓÃÖ¸ÁîµÄÄÚÈİĞ´ÕâÀï
+    bool loadEventData();    //åŠ è½½äº‹ä»¶æ•°æ®
+    //è¿™é‡Œå†è®¾è®¡
+    bool callEvent(int event_id, RunNode* subscene = nullptr, int supmap_id = -1, int item_id = -1, int event_index = -1, int x = -1, int y = -1);    //è°ƒç”¨æŒ‡ä»¤çš„å†…å®¹å†™è¿™é‡Œ
 
 private:
     SubScene* subscene_;
@@ -69,7 +69,7 @@ public:
     bool isExiting() { return exit_; }
 
 public:
-    //ÒÔÏÂ´ó²¿·Ö²ÎÊıÎªint£¬Çë×¢ÒâÓÎÏ·Êı¾İÖĞÊ¹ÓÃµÄÊÇint16_t£¬ÓĞ½µµÍĞ§ÂÊµÄ¿ÉÄÜ
+    //ä»¥ä¸‹å¤§éƒ¨åˆ†å‚æ•°ä¸ºintï¼Œè¯·æ³¨æ„æ¸¸æˆæ•°æ®ä¸­ä½¿ç”¨çš„æ˜¯int16_tï¼Œæœ‰é™ä½æ•ˆç‡çš„å¯èƒ½
     //void clear() {}
     void oldTalk(int talk_id, int head_id, int style);
     void addItem(int item_id, int count);
@@ -159,7 +159,7 @@ public:
         }
     }
 
-    //À©Õ¹µÄ50Ö¸Áî£¬´«ÈëÏÂÒ»¸öÖ¸ÁîµÄÖ¸Õë£¬Ä³Ò»ÌõĞèÒª
+    //æ‰©å±•çš„50æŒ‡ä»¤ï¼Œä¼ å…¥ä¸‹ä¸€ä¸ªæŒ‡ä»¤çš„æŒ‡é’ˆï¼ŒæŸä¸€æ¡éœ€è¦
     void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr);
 
 public:
@@ -167,11 +167,11 @@ public:
     {
         for (int i1 = i; i1 < i + size - 1; i1++)
         {
-            fmt::print("%d, ", e[i1]);
+            fmt::print("{}, ", e[i1]);
         }
         if (size > 1)
         {
-            fmt::print("%d", e[i - 1]);
+            fmt::print("{}", e[i - 1]);
         }
         fmt::print("\n");
     }

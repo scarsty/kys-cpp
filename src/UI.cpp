@@ -5,7 +5,7 @@
 
 UI::UI()
 {
-    //×¢Òâ£¬´Ë´¦Ô¼¶¨childs_[0]Îª×ÓUI£¬´´½¨ºÃ¶ÔÓ¦µÄÖ¸Õë£¬ĞèÒªÏÔÊ¾ÄÄ¸ö¸³Öµµ½childs_[0]¼´¿É
+    //æ³¨æ„ï¼Œæ­¤å¤„çº¦å®šchilds_[0]ä¸ºå­UIï¼Œåˆ›å»ºå¥½å¯¹åº”çš„æŒ‡é’ˆï¼Œéœ€è¦æ˜¾ç¤ºå“ªä¸ªèµ‹å€¼åˆ°childs_[0]å³å¯
     ui_status_ = std::make_shared<UIStatus>();
     ui_item_ = std::make_shared<UIItem>();
     ui_system_ = std::make_shared<UISystem>();
@@ -14,7 +14,7 @@ UI::UI()
     ui_system_->setPosition(300, 0);
     addChild(ui_status_);
 
-    //Ã²ËÆÕâÀï²»ÄÜÖ±½Óµ÷ÓÃÆäËûµ¥Àı£¬¾²Ì¬Á¿µÄ´´½¨Ë³Ğò²»È·¶¨
+    //è²Œä¼¼è¿™é‡Œä¸èƒ½ç›´æ¥è°ƒç”¨å…¶ä»–å•ä¾‹ï¼Œé™æ€é‡çš„åˆ›å»ºé¡ºåºä¸ç¡®å®š
     button_status_ = std::make_shared<Button>();
     button_status_->setTexture("title", 122);
     button_item_ = std::make_shared<Button>();
@@ -32,7 +32,7 @@ UI::UI()
     }
     heads_->getChild(0)->setState(Pass);
     //addChild(heads_);
-    result_ = -1;    //·Ç¸º£ºÎïÆ·id£¬¸ºÊı£ºÆäËûÇé¿ö£¬ÔÙ¶¨
+    result_ = -1;    //éè´Ÿï¼šç‰©å“idï¼Œè´Ÿæ•°ï¼šå…¶ä»–æƒ…å†µï¼Œå†å®š
 }
 
 UI::~UI()
@@ -65,7 +65,7 @@ void UI::dealEvent(BP_Event& e)
             current_head_ = i;
         }
         head->setText("");
-        //ÈçÔÚÎïÆ·À¸ÔòÅĞ¶ÏÊÇ·ñÔÚÊ¹ÓÃ£¬»òÕß¿ÉÒÔÊ¹ÓÃ£¬ÉèÖÃ¶ÔÓ¦µÄÍ·Ïñ×´Ì¬
+        //å¦‚åœ¨ç‰©å“æ åˆ™åˆ¤æ–­æ˜¯å¦åœ¨ä½¿ç”¨ï¼Œæˆ–è€…å¯ä»¥ä½¿ç”¨ï¼Œè®¾ç½®å¯¹åº”çš„å¤´åƒçŠ¶æ€
         if (childs_[0] == ui_item_)
         {
             Item* item = ui_item_->getCurrentItem();
@@ -73,8 +73,8 @@ void UI::dealEvent(BP_Event& e)
             {
                 if (role->Equip0 == item->ID || role->Equip1 == item->ID || role->PracticeItem == item->ID)
                 {
-                    head->setText("Ê¹ÓÃÖĞ");
-                    //Font::getInstance()->draw("Ê¹ÓÃÖĞ", 25, x + 5, y + 60, { 255,255,255,255 });
+                    head->setText("ä½¿ç”¨ä¸­");
+                    //Font::getInstance()->draw("ä½¿ç”¨ä¸­", 25, x + 5, y + 60, { 255,255,255,255 });
                 }
                 if (GameUtil::canUseItem(role, item))
                 {
@@ -84,14 +84,14 @@ void UI::dealEvent(BP_Event& e)
         }
     }
 
-    //ÕâÀïÉè¶¨µ±Ç°Í·ÏñÎªPass£¬ÁîÆä²»±ä°µ£¬ÒòÎª¼ì²âÊÂ¼şÊÇÏÈ¼ì²â×Ó½Úµã£¬ËùÒÔÕâÀï¿ÉÒÔÉúĞ§
+    //è¿™é‡Œè®¾å®šå½“å‰å¤´åƒä¸ºPassï¼Œä»¤å…¶ä¸å˜æš—ï¼Œå› ä¸ºæ£€æµ‹äº‹ä»¶æ˜¯å…ˆæ£€æµ‹å­èŠ‚ç‚¹ï¼Œæ‰€ä»¥è¿™é‡Œå¯ä»¥ç”Ÿæ•ˆ
     if (childs_[0] == ui_status_)
     {
         heads_->getChild(current_head_)->setState(Pass);
     }
     childs_[current_button_]->setState(Pass);
 
-    //¿ì½İ¼üÇĞ»»
+    //å¿«æ·é”®åˆ‡æ¢
     if (e.type == BP_KEYUP)
     {
         switch (e.key.keysym.sym)
@@ -119,7 +119,7 @@ void UI::dealEvent(BP_Event& e)
         }
     }
 
-    //½öÔÚ×´Ì¬²¿·Ö£¬×ó²àÍ·Ïñ²Å½ÓÊÕÊÂ¼ş
+    //ä»…åœ¨çŠ¶æ€éƒ¨åˆ†ï¼Œå·¦ä¾§å¤´åƒæ‰æ¥æ”¶äº‹ä»¶
     if (childs_[0] == ui_status_)
     {
         heads_->setDealEvent(1);
@@ -132,7 +132,7 @@ void UI::dealEvent(BP_Event& e)
 
 void UI::onPressedOK()
 {
-    //ÕâÀï¼ì²âÊÇ·ñÊ¹ÓÃÁËÎïÆ·£¬·µ»ØÎïÆ·µÄid
+    //è¿™é‡Œæ£€æµ‹æ˜¯å¦ä½¿ç”¨äº†ç‰©å“ï¼Œè¿”å›ç‰©å“çš„id
     if (childs_[0] == ui_item_)
     {
         auto item = ui_item_->getCurrentItem();
@@ -150,7 +150,7 @@ void UI::onPressedOK()
         }
     }
 
-    //ËÄ¸ö°´Å¥µÄÏìÓ¦
+    //å››ä¸ªæŒ‰é’®çš„å“åº”
     if (button_status_->getState() == Press)
     {
         childs_[0] = ui_status_;

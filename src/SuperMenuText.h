@@ -34,17 +34,17 @@ private:
     bool curDefault_ = false;
     std::shared_ptr<MenuText> selections_;
 
-    // ËùÓĞµÄ
+    // æ‰€æœ‰çš„
     std::vector<std::pair<int, std::string>> items_;
 
-    // ÕâÊÇµ±Ç°¸øÏÔÊ¾µÄ£¬·µ»Øresult -> items_[activeIndices[result]] ¼ÈÊÇÊµ¼ÊÑ¡Ïî
-    // Ö»ÏÔÊ¾Ò»Ò³µÄactiveIndices
+    // è¿™æ˜¯å½“å‰ç»™æ˜¾ç¤ºçš„ï¼Œè¿”å›result -> items_[activeIndices[result]] æ—¢æ˜¯å®é™…é€‰é¡¹
+    // åªæ˜¾ç¤ºä¸€é¡µçš„activeIndices
     std::vector<int> activeIndices_;
-    // ËùÓĞËÑË÷½á¹û
+    // æ‰€æœ‰æœç´¢ç»“æœ
     std::vector<int> searchResultIndices_;
     std::vector<std::shared_ptr<DrawableOnCall>> docs_;
     std::function<bool(const std::string&, const std::string&)> matchFunc_;
 
-    // Ô¤´¦Àí
+    // é¢„å¤„ç†
     std::unordered_map<std::string, std::unordered_set<std::string>> matches_;
 };

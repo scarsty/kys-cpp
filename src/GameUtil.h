@@ -4,8 +4,8 @@
 #include <climits>
 #include <cmath>
 
-//´ËÀàÖĞÊÇÒ»Ğ©ÓÎÏ·ÖĞµÄ¹«Ê½£¬ÀıÈçÊ¹ÓÃÎïÆ·µÄĞ§¹û£¬ÉËº¦¹«Ê½µÈ
-//Í¨³£À´ËµÓ¦¸ÃÈ«²¿ÊÇ¾²Ì¬º¯Êı
+//æ­¤ç±»ä¸­æ˜¯ä¸€äº›æ¸¸æˆä¸­çš„å…¬å¼ï¼Œä¾‹å¦‚ä½¿ç”¨ç‰©å“çš„æ•ˆæœï¼Œä¼¤å®³å…¬å¼ç­‰
+//é€šå¸¸æ¥è¯´åº”è¯¥å…¨éƒ¨æ˜¯é™æ€å‡½æ•°
 class GameUtil : public INIReaderNormal
 {
 private:
@@ -39,7 +39,7 @@ public:
         return 0;
     }
 
-    //·µ»ØÏŞÖÆÖµ
+    //è¿”å›é™åˆ¶å€¼
     static int limit(int current, int min_value, int max_value)
     {
         if (current < min_value)
@@ -53,7 +53,7 @@ public:
         return current;
     }
 
-    //limit2ÊÇÖ±½ÓĞŞ¸ÄÒıÓÃÖµ£¬ÓĞÁ½¸öÖØÔØ
+    //limit2æ˜¯ç›´æ¥ä¿®æ”¹å¼•ç”¨å€¼ï¼Œæœ‰ä¸¤ä¸ªé‡è½½
     static void limit2(int& current, int min_value, int max_value)
     {
         current = limit(current, min_value, max_value);
@@ -69,7 +69,7 @@ public:
         current = limit(current, min_value, max_value);
     }
 
-    //¼ÆËãÄ³¸öÊıÖµµÄÎ»Êı
+    //è®¡ç®—æŸä¸ªæ•°å€¼çš„ä½æ•°
     static int digit(int x)
     {
         int n = floor(log10(0.5 + abs(x)));
@@ -93,11 +93,18 @@ public:
 
     static void equip(Role* r, Item* i);
 
-    //ÒÔÏÂ3¸öº¯ÊıµÄ·µ»ØÖµÎªĞèÒªÏÔÊ¾µÄÊıÖµ
+    //ä»¥ä¸‹3ä¸ªå‡½æ•°çš„è¿”å›å€¼ä¸ºéœ€è¦æ˜¾ç¤ºçš„æ•°å€¼
     static int medicine(Role* r1, Role* r2);
     static int detoxification(Role* r1, Role* r2);
     static int usePoison(Role* r1, Role* r2);
 
     void setRoleMaxValue(Role* role);
     void setSpecialItems();
+
+    template <typename... Args>
+    static void LOG(Args... args) 
+    {
+        fmt::print(stdout, args...);
+    }
+
 };

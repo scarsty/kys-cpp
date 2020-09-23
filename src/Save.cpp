@@ -69,28 +69,52 @@ bool Save::load(int num)
     loadRFromDB(num);
     loadSD(num);
 
-    //ÄÚ²¿±àÂëÎªcp936
-    if (Encode != 936)
+    //å†…éƒ¨ç¼–ç ä¸º65001
+    if (Encode != 65001)
     {
-        Encode = 936;
-        for (auto i : roles_)
+        if (Encode == 936)
         {
-            PotConv::fromCP950ToCP936(i->Name);
-            PotConv::fromCP950ToCP936(i->Nick);
+            for (auto i : roles_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name);
+                PotConv::fromCP936ToUTF8(i->Nick);
+            }
+            for (auto i : items_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name);
+                PotConv::fromCP936ToUTF8(i->Introduction);
+            }
+            for (auto i : magics_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name);
+            }
+            for (auto i : submap_infos_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name);
+            }
         }
-        for (auto i : items_)
+        else
         {
-            PotConv::fromCP950ToCP936(i->Name);
-            PotConv::fromCP950ToCP936(i->Introduction);
+            for (auto i : roles_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name);
+                PotConv::fromCP950ToUTF8(i->Nick);
+            }
+            for (auto i : items_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name);
+                PotConv::fromCP950ToUTF8(i->Introduction);
+            }
+            for (auto i : magics_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name);
+            }
+            for (auto i : submap_infos_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name);
+            }
         }
-        for (auto i : magics_)
-        {
-            PotConv::fromCP950ToCP936(i->Name);
-        }
-        for (auto i : submap_infos_)
-        {
-            PotConv::fromCP950ToCP936(i->Name);
-        }
+        Encode = 65001;
     }
 
     makeMaps();
@@ -257,7 +281,7 @@ void Save::makeMaps()
     items_by_name_.clear();
     submap_infos_by_name_.clear();
 
-    //ÓĞÖØÃûµÄ£¬Õå×ÃÊ¹ÓÃ
+    //æœ‰é‡åçš„ï¼Œæ–Ÿé…Œä½¿ç”¨
     for (auto& i : roles_)
     {
         roles_by_name_[i->Name] = i;
@@ -300,17 +324,17 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
 void Save::saveRToCSV(int num)
 {
     NewSave::SaveCSVBaseInfo((BaseInfo*)this, 1, num);
-    // ±³°ü
+    // èƒŒåŒ…
     NewSave::SaveCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
-    // ÈËÎï
+    // äººç‰©
     NewSave::SaveCSVRoleSave(roles_mem_, num);
-    // ÎïÆ·
+    // ç‰©å“
     NewSave::SaveCSVItemSave(items_mem_, num);
-    // ³¡¾°
+    // åœºæ™¯
     NewSave::SaveCSVSubMapInfoSave(submap_infos_mem_, num);
-    // Îä¹¦
+    // æ­¦åŠŸ
     NewSave::SaveCSVMagicSave(magics_mem_, num);
-    // ÉÌµê
+    // å•†åº—
     NewSave::SaveCSVShopSave(shops_mem_, num);
 }
 
@@ -329,27 +353,27 @@ void Save::loadRFromCSV(int num)
 
 bool Save::insertAt(const std::string& type, int idx)
 {
-    if (type == u8"Role")
+    if (type == "Role")
     {
         NewSave::InsertRoleAt(roles_mem_, idx);
         return true;
     }
-    else if (type == u8"Item")
+    else if (type == "Item")
     {
         NewSave::InsertItemAt(items_mem_, idx);
         return true;
     }
-    else if (type == u8"Magic")
+    else if (type == "Magic")
     {
         NewSave::InsertMagicAt(magics_mem_, idx);
         return true;
     }
-    else if (type == u8"SubMapInfo")
+    else if (type == "SubMapInfo")
     {
         NewSave::InsertSubMapInfoAt(submap_infos_mem_, idx);
         return true;
     }
-    else if (type == u8"Shop")
+    else if (type == "Shop")
     {
         NewSave::InsertShopAt(shops_mem_, idx);
         return true;
@@ -365,7 +389,7 @@ void Save::saveRToDB(int num)
         return;
     }
     sqlite3* db;
-    //´Ë´¦×îºÃ¸´ÖÆÒ»¸ö£¬ÏÈ¸ã¸ãÔÙËµ
+    //æ­¤å¤„æœ€å¥½å¤åˆ¶ä¸€ä¸ªï¼Œå…ˆææå†è¯´
     std::string filename = "../game/save/" + std::to_string(num) + ".db";
     convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
@@ -401,4 +425,5 @@ void Save::loadRFromDB(int num)
     sqlite3_close(db);
     updateAllPtrVector();
     makeMaps();
+    Encode = 65001;
 }

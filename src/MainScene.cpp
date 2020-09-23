@@ -39,7 +39,7 @@ MainScene::MainScene()
     }
     data_readed_ = true;
 
-    //100¸öÔÆ
+    //100ä¸ªäº‘
     cloud_vector_.resize(100);
     for (int i = 0; i < 100; i++)
     {
@@ -106,7 +106,7 @@ void MainScene::draw()
     int building_count = 0;
     //TextureManager::getInstance()->renderTexture("mmap", 0, 0, 0);
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
-    //ÏÂÃæµÄ15ÊÇÏÂ·½½Ï¸ßÌùÍ¼µÄÓàÁ¿£¬ÆäÓà³¡¾°Í¬
+    //ä¸‹é¢çš„15æ˜¯ä¸‹æ–¹è¾ƒé«˜è´´å›¾çš„ä½™é‡ï¼Œå…¶ä½™åœºæ™¯åŒ
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -119,9 +119,9 @@ void MainScene::draw()
             //auto p = getMapPoint(ix, iy, *_Mx, *_My);
             if (!isOutLine(ix, iy))
             {
-                //¹²·Ö3²ã£¬µØÃæ£¬±íÃæ£¬½¨Öş£¬Ö÷½Ç°üÀ¨ÔÚ½¨ÖşÖĞ
+                //å…±åˆ†3å±‚ï¼Œåœ°é¢ï¼Œè¡¨é¢ï¼Œå»ºç­‘ï¼Œä¸»è§’åŒ…æ‹¬åœ¨å»ºç­‘ä¸­
 #ifndef _DEBUG
-                //µ÷ÊÔÄ£Ê½ÏÂ²»»­³öµØÃæ£¬Í¼µÄÊıÁ¿Ì«¶àÕ¼ÓÃCPUºÜ´ó
+                //è°ƒè¯•æ¨¡å¼ä¸‹ä¸ç”»å‡ºåœ°é¢ï¼Œå›¾çš„æ•°é‡å¤ªå¤šå ç”¨CPUå¾ˆå¤§
                 if (earth_layer_.data(ix, iy).getTexture())
                 {
                     TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
@@ -133,9 +133,9 @@ void MainScene::draw()
                 }
                 if (building_layer_.data(ix, iy).getTexture())
                 {
-                    //¸ù¾İÍ¼Æ¬µÄ¿í¶È¼ÆËãÍ¼µÄÖĞµã, Îª±ÜÃâ³öÏÖĞ¡Êı, Êµ¼ÊÊÇÖĞµã×ø±êµÄ2±¶
-                    //´ÎÒªÅÅĞòÒÀ¾İÊÇy×ø±ê
-                    //Ö±½ÓÉèÖÃzÖá
+                    //æ ¹æ®å›¾ç‰‡çš„å®½åº¦è®¡ç®—å›¾çš„ä¸­ç‚¹, ä¸ºé¿å…å‡ºç°å°æ•°, å®é™…æ˜¯ä¸­ç‚¹åæ ‡çš„2å€
+                    //æ¬¡è¦æ’åºä¾æ®æ˜¯yåæ ‡
+                    //ç›´æ¥è®¾ç½®zè½´
                     auto tex = building_layer_.data(ix, iy).getTexture();
                     auto w = tex->w;
                     auto h = tex->h;
@@ -152,7 +152,7 @@ void MainScene::draw()
                     }
                     else
                     {
-                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;    //Ã¿¸ö·½ÏòµÄµÚÒ»ÕÅÊÇ¾²Ö¹Í¼
+                        man_pic_ = MAN_PIC_0 + Scene::towards_ * MAN_PIC_COUNT + step_;    //æ¯ä¸ªæ–¹å‘çš„ç¬¬ä¸€å¼ æ˜¯é™æ­¢å›¾
                         if (rest_time_ >= BEGIN_REST_TIME)
                         {
                             man_pic_ = REST_PIC_0 + Scene::towards_ * REST_PIC_COUNT + (rest_time_ - BEGIN_REST_TIME) / REST_INTERVAL % REST_PIC_COUNT;
@@ -195,8 +195,8 @@ void MainScene::draw()
 
 void MainScene::backRun()
 {
-    rest_time_++;    //Ö»Òª³öÏÖ×ß¶¯£¬rest_time¾Í»áÇåÁã
-    //ÔÆµÄÌùÍ¼
+    rest_time_++;    //åªè¦å‡ºç°èµ°åŠ¨ï¼Œrest_timeå°±ä¼šæ¸…é›¶
+    //äº‘çš„è´´å›¾
     view_cloud_ = 0;
     for (auto& c : cloud_vector_)
     {
@@ -214,7 +214,7 @@ void MainScene::backRun()
 
 void MainScene::dealEvent(BP_Event& e)
 {
-    //Ç¿ÖÆ½øÈë£¬Í¨³£ÓÃÓÚ¿ªÊ¼
+    //å¼ºåˆ¶è¿›å…¥ï¼Œé€šå¸¸ç”¨äºå¼€å§‹
     if (force_submap_ >= 0)
     {
         setVisible(true);
@@ -230,10 +230,10 @@ void MainScene::dealEvent(BP_Event& e)
 
     int x = man_x_, y = man_y_;
 
-    //¼üÅÌ×ßÂ·²¿·Ö£¬¼ì²â4¸ö·½Ïò¼ü
+    //é”®ç›˜èµ°è·¯éƒ¨åˆ†ï¼Œæ£€æµ‹4ä¸ªæ–¹å‘é”®
     int pressed = 0;
 
-    // Tab¼¤»î¿ØÖÆÌ¨
+    // Tabæ¿€æ´»æ§åˆ¶å°
     if (Engine::getInstance()->checkKeyPress(BPK_TAB))
     {
         Console c;
@@ -254,7 +254,7 @@ void MainScene::dealEvent(BP_Event& e)
 
     if (pressed)
     {
-        //×¢Òâ£¬ÖĞ¼ä¿Õ³ö¼¸¸ö²½ÊıÊÇÎªÁË¿ÉÒÔµ¥²½ĞĞ¶¯£¬×Ó³¡¾°Í¬
+        //æ³¨æ„ï¼Œä¸­é—´ç©ºå‡ºå‡ ä¸ªæ­¥æ•°æ˜¯ä¸ºäº†å¯ä»¥å•æ­¥è¡ŒåŠ¨ï¼Œå­åœºæ™¯åŒ
         if (total_step_ < 1 || total_step_ >= first_step_delay_)
         {
             changeTowardsByKey(pressed);
@@ -299,7 +299,7 @@ void MainScene::dealEvent(BP_Event& e)
 
     calCursorPosition(man_x_, man_y_);
 
-    //Êó±êÑ°Â·
+    //é¼ æ ‡å¯»è·¯
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
         setMouseEventPoint(-1, -1);
@@ -309,7 +309,7 @@ void MainScene::dealEvent(BP_Event& e)
         {
             FindWay(x, y, p.x, p.y);
         }
-        //Èç¹ûÊÇ½¨Öş£¬ÔÚ´Ë½¨ÖşµÄ¸½½üÊÔÍ¼²éÕÒÈë¿Ú
+        //å¦‚æœæ˜¯å»ºç­‘ï¼Œåœ¨æ­¤å»ºç­‘çš„é™„è¿‘è¯•å›¾æŸ¥æ‰¾å…¥å£
         if (isBuilding(p.x, p.y))
         {
             int buiding_x = build_x_layer_.data(p.x, p.y);
@@ -322,7 +322,7 @@ void MainScene::dealEvent(BP_Event& e)
                     if (build_x_layer_.data(ix, iy) == buiding_x && build_y_layer_.data(ix, iy) == buiding_y && checkEntrance(ix, iy, true))
                     {
                         p.x = ix;
-                        p.y = iy;    //pµÄÖµ±ä»¯ÁË
+                        p.y = iy;    //pçš„å€¼å˜åŒ–äº†
                         found_entrance = true;
                         break;
                     }
@@ -334,7 +334,7 @@ void MainScene::dealEvent(BP_Event& e)
             }
             if (found_entrance)
             {
-                //ÔÚÈë¿ÚËÄÖÜ²éÕÒÒ»¸ö¿ÉÒÔ×ßµ½µÄµØ·½
+                //åœ¨å…¥å£å››å‘¨æŸ¥æ‰¾ä¸€ä¸ªå¯ä»¥èµ°åˆ°çš„åœ°æ–¹
                 std::vector<Point> ps;
                 if (canWalk(p.x - 1, p.y))
                 {
@@ -371,7 +371,7 @@ void MainScene::onEntrance()
     //{
     //    forceEnterSubScene(force_submap_, force_submap_x_, force_submap_y_);
     //}
-    //Ò»´ó¿éµØÃæµÄÎÆÀí
+    //ä¸€å¤§å—åœ°é¢çš„çº¹ç†
     //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 }
 
@@ -418,7 +418,7 @@ int MainScene::isWater(int x, int y)
 
 bool MainScene::canWalk(int x, int y)
 {
-    //ÕâÀï²»ĞèÒª¼Ó£¬Êµ¼ÊÉÏÈë¿Ú¶¼ÊÇÎŞ·¨×ßµ½µÄ
+    //è¿™é‡Œä¸éœ€è¦åŠ ï¼Œå®é™…ä¸Šå…¥å£éƒ½æ˜¯æ— æ³•èµ°åˆ°çš„
     if (isOutLine(x, y) || isBuilding(x, y))// || isWater(x, y))
     {
         return false;
@@ -443,7 +443,7 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
             }
             else if (s->EntranceCondition == 2)
             {
-                //×¢Òâ½øÈëÌõ¼ş2µÄÉè¶¨
+                //æ³¨æ„è¿›å…¥æ¡ä»¶2çš„è®¾å®š
                 for (auto r : Save::getInstance()->Team)
                 {
                     if (Save::getInstance()->getRole(r)->Speed >= 70)
@@ -460,7 +460,7 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
             if (can_enter)
             {
                 UISave::autoSave();
-                //ÕâÀï¿´ÆğÀ´ÒªÖ÷¶¯¶à»­Ò»Ö¡£¬´ıĞŞ
+                //è¿™é‡Œçœ‹èµ·æ¥è¦ä¸»åŠ¨å¤šç”»ä¸€å¸§ï¼Œå¾…ä¿®
                 drawAndPresent();
                 auto sub_map =  std::make_shared<SubScene>(i);
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);

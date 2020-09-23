@@ -26,21 +26,20 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     {
         s1 = getBufferSize();
     }
+    auto ss = PotConv::utf8tocp936(text);
     while (p < text.size())
     {
         int w = size, h = size;
-        uint16_t c = (uint8_t)text[p];
+        uint32_t c = (uint8_t)text[p];
         p++;
-        if (c > 128)
+        if (c >= 128)
         {
-            c += (uint8_t)text[p] * 256;
-            p++;
+            c += (uint8_t)text[p] * 256 + (uint8_t)text[p + 1] * 256 * 256;
+            p += 2;
         }
         if (buffer_[c].count(size) == 0)
         {
-            uint16_t c2[2] = { 0 };
-            c2[0] = c;
-            auto s = PotConv::cp936toutf8((char*)(c2));
+            auto s = (char*)(&c);
             buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
@@ -81,12 +80,12 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
     //{
     //TextureManager::getInstance()->renderTexture("title", 20, x + 10 * i, y - 3);
     //}
-    auto r = getBoxSize(text.size(), size, x, y);
+    auto r = getBoxSize(getTextDrawSize(text), size, x, y);
     TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
 }
 
-//此处仅接受utf8
+//姝ゅ浠呮帴鍙梪tf8
 void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c)
 {
     if (alpha == 0)
@@ -138,4 +137,24 @@ int Font::getBufferSize()
         sum += f.second.size();
     }
     return sum;
+}
+
+int Font::getTextDrawSize(const std::string& text)
+{
+    int len = 0;
+    for (int i = 0; i < text.size();)
+    {
+        uint8_t v = text[i];
+        if (v < 128)
+        {
+            len++;
+            i++;
+        }
+        else
+        {
+            len += 2;
+            i += 3;
+        }
+    }
+    return len;
 }

@@ -12,7 +12,7 @@ private:
         AUTO_SAVE_ID = 11,
     };
 
-    int mode_ = 0;  //0Îª¶Áµµ£¬1Îª´æµµ
+    int mode_ = 0;  //0ä¸ºè¯»æ¡£ï¼Œ1ä¸ºå­˜æ¡£
 public:
     void setMode(int m) { mode_ = m; }
 

@@ -32,10 +32,10 @@ void SubScene::setID(int id)
     {
         setExit(true);
     }
-    //submap_info_->ID = submap_id_;    //Õâ¾äÊÇĞŞÕı´æµµÖĞ¿ÉÄÜ´æÔÚµÄ´íÎó
+    //submap_info_->ID = submap_id_;    //è¿™å¥æ˜¯ä¿®æ­£å­˜æ¡£ä¸­å¯èƒ½å­˜åœ¨çš„é”™è¯¯
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
-    fmt::print("Sub Scene %d, %s\n", submap_id_, PotConv::to_read(submap_info_->Name).c_str());
+    fmt::print("Sub Scene {}, {}\n", submap_id_, submap_info_->Name);
 }
 
 void SubScene::draw()
@@ -53,17 +53,17 @@ void SubScene::draw()
 
     //Timer t0;
 
-    //ÒÔÏÂ»­·¨´æÔÚÕùÒé
-    //Ò»Õû¿éµØÃæ
+    //ä»¥ä¸‹ç”»æ³•å­˜åœ¨äº‰è®®
+    //ä¸€æ•´å—åœ°é¢
     if (earth_texture_)
     {
         auto p = getPositionOnWholeEarth(view_x_, view_y_);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
-        //»ñÈ¡µÄÊÇÖĞĞÄÎ»ÖÃ£¬ÈçÌùÍ¼Ó¦¼õµôÆÁÄ»³ß´çµÄÒ»°ë
+        //è·å–çš„æ˜¯ä¸­å¿ƒä½ç½®ï¼Œå¦‚è´´å›¾åº”å‡æ‰å±å¹•å°ºå¯¸çš„ä¸€åŠ
         BP_Rect rect0 = { p.x - render_center_x_, p.y - render_center_y_, w, h }, rect1 = { 0, 0, w, h };
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
-        //ÔÚrect0µÄ×ø±êÔ½½çÊ±ËÆºõ²»Ì«Õı³££¬ÀÁµÃÅªÁË
+        //åœ¨rect0çš„åæ ‡è¶Šç•Œæ—¶ä¼¼ä¹ä¸å¤ªæ­£å¸¸ï¼Œæ‡’å¾—å¼„äº†
     }
 #ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
@@ -79,7 +79,7 @@ void SubScene::draw()
             {
                 int h = submap_info_->BuildingHeight(ix, iy);
                 int num = submap_info_->Earth(ix, iy) / 2;
-                //ÎŞ¸ß¶ÈµØÃæ
+                //æ— é«˜åº¦åœ°é¢
                 if (num > 0 && h == 0)
                 {
                     if (earth_texture_ == nullptr)
@@ -89,7 +89,7 @@ void SubScene::draw()
                     else
                     {
                         auto tex = TextureManager::getInstance()->loadTexture("smap", num);
-                        //ÓÃ´óÍ¼»­Ê±µÄÉÁË¸µØÃæ
+                        //ç”¨å¤§å›¾ç”»æ—¶çš„é—ªçƒåœ°é¢
                         if (tex->count > 1)
                         {
                             TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
@@ -111,7 +111,7 @@ void SubScene::draw()
             p.y += y_;
             if (!isOutLine(ix, iy))
             {
-                //ÓĞ¸ß¶ÈµØÃæ
+                //æœ‰é«˜åº¦åœ°é¢
                 int h = submap_info_->BuildingHeight(ix, iy);
                 int num = submap_info_->Earth(ix, iy) / 2;
 #ifndef _DEBUG
@@ -120,12 +120,12 @@ void SubScene::draw()
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
 #endif
-                //Êó±êÎ»ÖÃ
+                //é¼ æ ‡ä½ç½®
                 if (ix == cursor_x_ && iy == cursor_y_)
                 {
                     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
                 }
-                //½¨ÖşºÍÖ÷½Ç
+                //å»ºç­‘å’Œä¸»è§’
                 num = submap_info_->Building(ix, iy) / 2;
                 if (num > 0)
                 {
@@ -133,7 +133,7 @@ void SubScene::draw()
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
-                    //µ±Ö÷½ÇµÄÌùÍ¼Îª-1Ê±£¬±íÊ¾Ç¿ÖÆÉèÖÃÌùÍ¼ºÅ
+                    //å½“ä¸»è§’çš„è´´å›¾ä¸º-1æ—¶ï¼Œè¡¨ç¤ºå¼ºåˆ¶è®¾ç½®è´´å›¾å·
                     if (force_man_pic_ == -1)
                     {
                         man_pic_ = calManPic();
@@ -144,7 +144,7 @@ void SubScene::draw()
                     }
                     TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
                 }
-                //ÊÂ¼ş
+                //äº‹ä»¶
                 auto event = submap_info_->Event(ix, iy);
                 if (event)
                 {
@@ -155,7 +155,7 @@ void SubScene::draw()
                         TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
                     }
                 }
-                //×°ÊÎ
+                //è£…é¥°
                 num = submap_info_->Decoration(ix, iy) / 2;
                 if (num > 0)
                 {
@@ -171,7 +171,7 @@ void SubScene::draw()
 
 void SubScene::dealEvent(BP_Event& e)
 {
-    //Êµ¼ÊÉÏºÜ´ó²¿·ÖÓë´óµØÍ¼ÀàËÆ£¬ÕâÀïÔİÊ±²»ºÏ²¢ÁË£¬¾ÍÕâÑù
+    //å®é™…ä¸Šå¾ˆå¤§éƒ¨åˆ†ä¸å¤§åœ°å›¾ç±»ä¼¼ï¼Œè¿™é‡Œæš‚æ—¶ä¸åˆå¹¶äº†ï¼Œå°±è¿™æ ·
     int x = man_x_, y = man_y_;
 
     if (checkEvent3(x, y))
@@ -184,7 +184,7 @@ void SubScene::dealEvent(BP_Event& e)
         //clearEvent(e);
         total_step_ = 0;
     }
-    //¼üÅÌ×ßÂ·²¿·Ö£¬¼ì²â4¸ö·½Ïò¼ü
+    //é”®ç›˜èµ°è·¯éƒ¨åˆ†ï¼Œæ£€æµ‹4ä¸ªæ–¹å‘é”®
     int pressed = 0;
     for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
     {
@@ -246,7 +246,7 @@ void SubScene::dealEvent(BP_Event& e)
         //if (isExit(x, y)) { way_que_.clear(); }
     }
 
-    //¼ì²é´¥·¢¾çÇéÊÂ¼ş
+    //æ£€æŸ¥è§¦å‘å‰§æƒ…äº‹ä»¶
     if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
         if (checkEvent1(x, y, towards_))
@@ -258,13 +258,13 @@ void SubScene::dealEvent(BP_Event& e)
 
     calCursorPosition(view_x_, view_y_);
 
-    //Êó±êÑ°Â·
+    //é¼ æ ‡å¯»è·¯
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
         setMouseEventPoint(-1, -1);
         Point p = getMousePosition(e.button.x, e.button.y, x, y);
         way_que_.clear();
-        if (isCannotPassEvent(p.x, p.y))    //´æÔÚÊÂ¼şµãÔò½ö»á×ßµ½µ¹ÊıµÚ¶ş¸ñ
+        if (isCannotPassEvent(p.x, p.y))    //å­˜åœ¨äº‹ä»¶ç‚¹åˆ™ä»…ä¼šèµ°åˆ°å€’æ•°ç¬¬äºŒæ ¼
         {
             FindWay(x, y, p.x, p.y);
             if (way_que_.size() >= 1)
@@ -273,7 +273,7 @@ void SubScene::dealEvent(BP_Event& e)
                 setMouseEventPoint(p.x, p.y);
             }
         }
-        else if (isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)    //Éí±ßµÄÌØÊâÊÂ¼şµã£¬½öÓÃÓÚÏõÊ¯
+        else if (isCanPassEvent1(p.x, p.y) && calDistance(p.x, p.y, x, y) == 1)    //èº«è¾¹çš„ç‰¹æ®Šäº‹ä»¶ç‚¹ï¼Œä»…ç”¨äºç¡çŸ³
         {
             FindWay(x, y, x, y);
             setMouseEventPoint(p.x, p.y);
@@ -288,7 +288,7 @@ void SubScene::dealEvent(BP_Event& e)
 void SubScene::backRun()
 {
     rest_time_++;
-    //Í£Ö¹×ß¶¯Ò»¶ÎÊ±¼ä»Ö¸´Õ¾Á¢×ËÊÆ
+    //åœæ­¢èµ°åŠ¨ä¸€æ®µæ—¶é—´æ¢å¤ç«™ç«‹å§¿åŠ¿
     if (rest_time_ > 50)
     {
         step_ = 0;
@@ -334,11 +334,11 @@ void SubScene::onEntrance()
     addChild(MainScene::getInstance()->getWeather());
     //fillEarth();
 
-    //Ò»´ó¿éµØÃæµÄÎÆÀí
+    //ä¸€å¤§å—åœ°é¢çš„çº¹ç†
     //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 
-    ////¶şÕßÖ®²îÊÇÆÁÄ»ÖĞĞÄÓë´óÎÆÀíµÄÖĞĞÄµÄ¾àÀë
+    ////äºŒè€…ä¹‹å·®æ˜¯å±å¹•ä¸­å¿ƒä¸å¤§çº¹ç†çš„ä¸­å¿ƒçš„è·ç¦»
     //for (int i1 = 0; i1 < COORD_COUNT; i1++)
     //{
     //    for (int i2 = 0; i2 < COORD_COUNT; i2++)
@@ -346,7 +346,7 @@ void SubScene::onEntrance()
     //        auto p = getPositionOnWholeEarth(i1, i2);
     //        int h = submap_info_->BuildingHeight(i1, i2);
     //        int num = submap_info_->Earth(i1, i2) / 2;
-    //        //ÎŞ¸ß¶ÈµØÃæ
+    //        //æ— é«˜åº¦åœ°é¢
     //        if (num > 0 && h == 0)
     //        {
     //            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
@@ -381,7 +381,7 @@ void SubScene::onPressedCancel()
     }
 }
 
-//ÈßÓà¹ı¶à´ıÇåÀí
+//å†—ä½™è¿‡å¤šå¾…æ¸…ç†
 void SubScene::tryWalk(int x, int y)
 {
     if (canWalk(x, y))
@@ -470,7 +470,7 @@ bool SubScene::isWater(int x, int y)
     return false;
 }
 
-//ÊÇ·ñÊÇ¿ÉÍ¨¹ıµÄÊÂ¼ş£¬ºÃÏñÖ»ÓĞÏõÊ¯Ê¹ÓÃÁË
+//æ˜¯å¦æ˜¯å¯é€šè¿‡çš„äº‹ä»¶ï¼Œå¥½åƒåªæœ‰ç¡çŸ³ä½¿ç”¨äº†
 bool SubScene::isCanPassEvent1(int x, int y)
 {
     auto e = submap_info_->Event(x, y);
@@ -484,7 +484,7 @@ bool SubScene::isCanPassEvent1(int x, int y)
 bool SubScene::isCannotPassEvent(int x, int y)
 {
     auto e = submap_info_->Event(x, y);
-    if (e && (e->CannotWalk || isBuilding(x, y)))    //ÕâÀï¼ÓÉÏÅĞ¶Ï½¨Öş¿ÉÄÜÊÇ²»¶Ô
+    if (e && (e->CannotWalk || isBuilding(x, y)))    //è¿™é‡ŒåŠ ä¸Šåˆ¤æ–­å»ºç­‘å¯èƒ½æ˜¯ä¸å¯¹
     {
         return true;
     }
@@ -521,13 +521,13 @@ bool SubScene::isJumpSubScene(int x, int y)
         auto new_submap = Save::getInstance()->getSubMapInfo(submap_info_->JumpSubMap);
         if (submap_info_->MainEntranceX1 != 0)
         {
-            //ÈôÔ­³¡¾°ÔÚ´óµØÍ¼ÉÏÓĞÕı³£Èë¿Ú£¬ÔòÉèÖÃÈËÎïÎ»ÖÃÎªĞÂ³¡¾°Èë¿ÚÎ»ÖÃ
+            //è‹¥åŸåœºæ™¯åœ¨å¤§åœ°å›¾ä¸Šæœ‰æ­£å¸¸å…¥å£ï¼Œåˆ™è®¾ç½®äººç‰©ä½ç½®ä¸ºæ–°åœºæ™¯å…¥å£ä½ç½®
             x = new_submap->EntranceX;
             y = new_submap->EntranceY;
         }
         else
         {
-            //ÈôÔ­³¡¾°ÎŞ·¨´Ó´óµØÍ¼ÉÏ½øÈë£¬ÔòÉèÖÃÈËÎïÔÚÌø×ª·µ»ØÎ»ÖÃ
+            //è‹¥åŸåœºæ™¯æ— æ³•ä»å¤§åœ°å›¾ä¸Šè¿›å…¥ï¼Œåˆ™è®¾ç½®äººç‰©åœ¨è·³è½¬è¿”å›ä½ç½®
             x = new_submap->JumpReturnX;
             y = new_submap->JumpReturnY;
         }
