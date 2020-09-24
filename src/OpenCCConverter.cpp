@@ -3,7 +3,7 @@
 
 OpenCCConverter::OpenCCConverter()
 {
-    cc = opencc_open("s2t.json");
+    cc = opencc_open("../game/cc/s2t.json");
 }
 
 OpenCCConverter::~OpenCCConverter()

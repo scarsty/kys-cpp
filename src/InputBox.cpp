@@ -25,7 +25,7 @@ void InputBox::dealEvent(BP_Event& e)
     case BP_TEXTINPUT:
     {
         auto converted = OpenCCConverter::getInstance()->convertUTF8(e.text.text);
-        converted = PotConv::conv(converted, "utf-8", "cp936");
+        //converted = PotConv::conv(converted, "utf-8", "cp936");
         //fmt::print("input %s\n", converted.c_str());
         text_ += converted;
         break;

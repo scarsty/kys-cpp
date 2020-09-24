@@ -15,6 +15,7 @@
 #endif
 
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 
 #define FMT_HEADER_ONLY
 #include "fmt/format.h"
