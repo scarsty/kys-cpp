@@ -143,7 +143,7 @@ common是作者所写的一个通用功能集合，被多个工程使用。
 git clone https://github.com/scarsty/common common
 ```
 
-或者get-submodule.sh来获取common和上面提到的库。
+common需与kys-cpp目录同级。
 
 ## 授权
 
