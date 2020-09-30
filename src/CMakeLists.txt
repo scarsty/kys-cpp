@@ -1,5 +1,6 @@
 project(kys)
 cmake_minimum_required(VERSION 2.6)
+cmake_policy(SET CMP0015 OLD)
 
 set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
