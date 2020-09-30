@@ -24,7 +24,7 @@ void TextBox::setText(std::string text)
     text_ = text;
     if (resize_with_text_ && texture_normal_id_ < 0)
     {
-        w_ = font_size_ * text_.length() / 2;
+        w_ = font_size_ * Font::getTextDrawSize(text_) / 2;
         h_ = font_size_;
     }
 }

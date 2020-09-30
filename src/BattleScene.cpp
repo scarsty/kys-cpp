@@ -1815,6 +1815,7 @@ void BattleScene::clearDead()
         else
         {
             r->setPosition(-1, -1);
+            r->HP = 10;
         }
     }
     battle_roles_ = alive;

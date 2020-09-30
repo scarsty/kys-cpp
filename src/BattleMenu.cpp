@@ -1,6 +1,7 @@
 #include "BattleMenu.h"
 #include "BattleScene.h"
 #include "Event.h"
+#include "Font.h"
 #include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
@@ -504,7 +505,9 @@ void BattleMagicMenu::setRole(Role* r)
         auto m = Save::getInstance()->getRoleLearnedMagic(role_, i);
         if (m)
         {
-            magic_names.push_back(fmt::format("%-12s%4d  ", m->Name, role_->getRoleShowLearnedMagicLevel(i)));
+            std::string s = m->Name;
+            s += std::string(12 - Font::getTextDrawSize(s), ' ');
+            magic_names.push_back(fmt::format("{}{}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
         }
         else
         {
