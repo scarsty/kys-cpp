@@ -165,15 +165,8 @@ public:
 public:
     void print_e(const std::vector<int>& e, int i, int size)
     {
-        for (int i1 = i; i1 < i + size - 1; i1++)
-        {
-            fmt::print("{}, ", e[i1]);
-        }
-        if (size > 1)
-        {
-            fmt::print("{}", e[i - 1]);
-        }
-        fmt::print("\n");
+        auto v = std::vector<int>(e.begin() + i, e.begin() + i + size);
+        fmt::print("{}\n", v);
     }
 
     template <typename F, typename C, std::size_t... I>

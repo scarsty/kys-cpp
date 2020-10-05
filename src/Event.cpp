@@ -103,12 +103,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     int i = 0;
     auto e = kdef_[event_id];
 
-    fmt::print("Event {}: ", event_id);
-    for (auto c : e)
-    {
-        fmt::print("{} ", c);
-    }
-    fmt::print("\n");
+    fmt::print("Event {}: {}\n ", event_id, e);
     e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
@@ -220,7 +215,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
             case 50:
                 if (e[i + 1] > 128)
                 {
-                    fmt::print("{}: ", "checkHave5Item");
+                    fmt::print("{}\n", "checkHave5Item");
                     if (checkHave5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]))
                     {
                         i += e[i + 6];
@@ -229,7 +224,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
                     {
                         i += e[i + 7];
                     }
-                    i += 2;
+                    i += 8;
                 }
                 else
                 {
@@ -250,6 +245,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     {
         subscene_->forceManPic(-1);
     }
+    exit_ = false;
     return ret;
     //if (loop)
     //{ return 0; }
@@ -700,7 +696,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_->setText(fmt::format("%s習得武學%s", r->Name, m->Name));
+    text_box_->setText(fmt::format("{}習得武學{}", r->Name, m->Name));
     text_box_->run();
 }
 
@@ -709,7 +705,7 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_->setText(fmt::format("%s資質增加%d", r->Name, r->IQ - v0));
+    text_box_->setText(fmt::format("{}資質增加{}", r->Name, r->IQ - v0));
     text_box_->run();
 }
 

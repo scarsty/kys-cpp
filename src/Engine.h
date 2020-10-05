@@ -19,6 +19,7 @@
 
 #define FMT_HEADER_ONLY
 #include "fmt/format.h"
+#include "fmt/ranges.h"
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
