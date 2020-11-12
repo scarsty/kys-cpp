@@ -74,7 +74,7 @@ void TitleScene::dealEvent(BP_Event& e)
         if (!name.empty())
         {
             auto random_role = std::make_shared<RandomRole>();
-            random_role->setRole(Save::getInstance()->getRole(1));
+            random_role->setRole(Save::getInstance()->getRole(0));
             random_role->setRoleName(name);
             if (random_role->runAtPosition(300, 0) == 0)
             {
