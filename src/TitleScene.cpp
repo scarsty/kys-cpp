@@ -64,7 +64,6 @@ void TitleScene::dealEvent(BP_Event& e)
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript("../game/script/0.lua");
         std::string name = "";
-#ifdef _MSC_VER
         auto input = std::make_shared<InputBox>("請輸入姓名：", 30);
         input->setInputPosition(350, 300);
         input->run();
@@ -72,13 +71,10 @@ void TitleScene::dealEvent(BP_Event& e)
         {
             name = input->getText();
         }
-#else
-        name = GameUtil::getInstance()->getString("constant", "name");
-#endif
         if (!name.empty())
         {
             auto random_role = std::make_shared<RandomRole>();
-            random_role->setRole(Save::getInstance()->getRole(0));
+            random_role->setRole(Save::getInstance()->getRole(1));
             random_role->setRoleName(name);
             if (random_role->runAtPosition(300, 0) == 0)
             {
