@@ -32,11 +32,11 @@ std::string Save::getFilename(int i, char c)
         }
         else if (c == 's')
         {
-            filename = "../game/save/allsin.grp";
+            filename = "../game/save/ALLSIN.GRP";
         }
         else if (c == 'd')
         {
-            filename = "../game/save/alldef.grp";
+            filename = "../game/save/ALLDEF.GRP";
         }
     }
     return filename;
