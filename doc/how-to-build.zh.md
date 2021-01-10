@@ -3,7 +3,7 @@
 
 ### 编译环境
 本机 OS 是 x86 ubuntu18.04，菜鸡配置，不需要显卡。注意本作需要 c++14。
-```
+```shell
 $ uname -a
 Linux BJ-DZ0103437 5.4.0-47-generic #51~18.04.1-Ubuntu SMP Sat Sep 5 14:35:50 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
 
@@ -15,30 +15,32 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 ```
 ### 基础依赖
 这几个是 bass（播放语音用的） 运行依赖
-```
-sudo  apt-get install libgtkd-3-dev  libglade2-dev
+```shell
+sudo apt-get install libgtkd-3-dev libglade2-dev
 ```
 
 以下是游戏本身依赖
-```
-sudo  apt-get install libsdl2-image-dev  libsdl2-ttf-dev  liblua5.3-dev libminizip-dev libsdl2-dev
+```shell
+sudo apt-get install libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev liblua5.3-dev libminizip-dev libsdl2-dev 
 sudo apt-get install libopencc-dev
 sudo apt-get install libfmt-dev libsqlite3-dev
 ```
 
 ### 下载配置 bass/bassmini
 
+非必须，也可以使用sdl2-mixer代替。
+
 www.un4seen.com 选 linux 版本下载、解压。
 
 配置 bass so 和 .h 环境变量
-```
+```shell
 export BASS_HOME=${自己的bass解压路径}
 export BASS_MIDI_HOME=${自己的bassmini解压路径}
 export CPATH=${BASS_HOME}:${BASS_MIDI_HOME}:${CPATH}
 export LD_LIBRARY_PATH=${BASS_HOME}:${BASS_MIDI_HOME}:${LD_LIBRARY_PATH}
 ```
 注意 64bit 机器要链接的是 x64 目录下面的 so，这个压缩包下面先放的是 32bit 用的 so。看
-```
+```shell
 $ cd /home/tpoisonooo/GitProjects/bass/bass24-linux/x64
 $ file libbass.so 
 libbass.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, stripped
@@ -50,13 +52,13 @@ $ file ../libbass.so
 ### build 和小改动
 
 1. git clone 下来项目，要获取 common
-```
+```shell
 git clone https://github.com/scarsty/kys-cpp && cd kys-cpp
 chmod +x get-submodule.sh
 ./get-submodule.sh
 ```
 2. 如果 cmake 版本过高
-```
+```shell
 $ cmake --version
 cmake version 3.10.2
 
@@ -65,15 +67,15 @@ CMake suite maintained and supported by Kitware (kitware.com/cmake).
 需要修改 src/CMakeLists.txt，增加一行`cmake_policy(SET CMP0015 OLD)`
 
 3. 大概率因为 fmt 版本问题，需要打开 `src/Audio.cpp`, 注释掉这 2 行：
-```
+```c++
 10 fmt::print("Init Bass fault!\n");
 ```
-```
+```c++
 16 fmt::print("Mix_OpenAudio: {}\n", Mix_GetError());
 ```
 
 4. 然后 cmake 编译 
-```
+```shell
 cd src
 mkdir build && cd build
 cmake .. && make -j 4
@@ -87,14 +89,25 @@ cmake .. && make -j 4
 资源从这里下载：
 https://pan.baidu.com/s/1sl2X9wD
 
+源码中文件名均为小写，故有需要手动将资源文件名全部转为小写。例如执行以下脚本（未测试）：
+
+```shell
+for f in *
+do
+nf=`echo $f | tr 'A-Z' 'a-z'`
+echo $nf
+[ "$f" != "$nf" ] && mv ./"$f" ./"$nf"
+done
+```
+
 只需要下载里面的 `kys-c++.zip`，另一个 `clzr-c++.zip` 貌似是个半成品。
 下载完解压，得到 game 目录。软链到 `kys` 的上一级（和`build`同级）
-```
+```shell
 cd src
 ln -s /home/tpoisonooo/baidunetdiskdownload/kys-c++/game
 ```
 然后就可以运行了
-```
+```shell
 cd src/build
 ./kys
 ```
