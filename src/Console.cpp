@@ -78,8 +78,8 @@ Console::Console()
             int fontSize = 28;
             TextureManager::getInstance()->renderTexture("title", 126, { nx, ny, 400, 400 }, { 192, 192, 192, 255 }, 255);
             //Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
-            Font::getInstance()->draw(fmt::format("%s，%d", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
-            Font::getInstance()->draw(fmt::format("（%d，%d）", scene->MainEntranceX1, scene->MainEntranceY1),
+            Font::getInstance()->draw(fmt::format("{}，{}", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
+            Font::getInstance()->draw(fmt::format("（{}，{}）", scene->MainEntranceX1, scene->MainEntranceY1),
                 fontSize, nx + 20, ny + 20 + fontSize * 1.5);
 
             int man_x_ = scene->MainEntranceX1;

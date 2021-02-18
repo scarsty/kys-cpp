@@ -317,7 +317,7 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     std::string verStr(GameUtil::VERSION());
     if (verStr.size() > BattleNetwork::VALSIZE)
     {
-        return nullptr;
+        return false;
     }
     std::memcpy(&version[0], &verStr[0], verStr.size());
     net->addValidation(std::move(version));

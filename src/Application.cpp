@@ -19,9 +19,9 @@ Application::~Application()
 int Application::run()
 {
     auto engine = Engine::getInstance();
-    engine->setStartWindowSize(1024, 640);
+    engine->setStartWindowSize(1600, 900);
     engine->init();    //引擎初始化之后才能创建纹理
-    engine->createAssistTexture(768, 480);
+    engine->createAssistTexture(800, 450);
 
     config();
 
