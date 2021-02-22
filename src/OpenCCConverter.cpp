@@ -4,15 +4,26 @@
 OpenCCConverter::OpenCCConverter()
 {
     cc = opencc_open("../game/cc/s2t.json");
+    if (cc == (decltype(cc)) - 1)
+    {
+        cc = nullptr;
+    }
 }
 
 OpenCCConverter::~OpenCCConverter()
 {
-    opencc_close(cc);
+    if (cc)
+    {
+        opencc_close(cc);
+    }
 }
 
 std::string OpenCCConverter::convertUTF8(const std::string& in)
 {
+    if (cc == nullptr)
+    {
+        return in;
+    }
     std::string str;
     str.resize(in.size());
     opencc_convert_utf8_to_buffer(cc, in.c_str(), in.size(), &str[0]);

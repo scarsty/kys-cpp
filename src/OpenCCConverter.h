@@ -16,5 +16,5 @@ public:
     }
 
 private:
-    opencc_t cc;
+    opencc_t cc = nullptr;
 };
