@@ -132,7 +132,7 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
 
 int Engine::init(void* handle)
 {
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER))
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO))
     {
         return -1;
     }

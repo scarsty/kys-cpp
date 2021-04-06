@@ -3,7 +3,7 @@
 #include "UISystem.h"
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
-int RunNode::prev_present_ticks_ = 0;
+uint64_t RunNode::prev_present_ticks_ = 0;
 int RunNode::refresh_interval_ = 16;
 int RunNode::render_message_ = 0;
 
@@ -399,7 +399,7 @@ void RunNode::present()
     {
         t_delay = refresh_interval_;
     }
-    //fmt::print("%d/%d ", t_delay, prev_present_ticks_);
+    //fmt::print("{}/{}/{} ", t, t_delay, prev_present_ticks_);
     if (t_delay > 0)
     {
         Engine::delay(t_delay);

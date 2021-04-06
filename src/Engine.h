@@ -5,9 +5,11 @@
 #include "SDL2/SDL_ttf.h"
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 #if defined(_WIN32) && defined(WITH_SMALLPOT)
@@ -162,17 +164,17 @@ public:
 
     //事件相关
 private:
-    int time_;
+    uint64_t time_;
 
 public:
-    static void delay(const int t) { SDL_Delay(t); }
-    static uint32_t getTicks() { return SDL_GetTicks(); }
-    uint32_t tic() { return time_ = SDL_GetTicks(); }
+    static void delay(const int t) { std::this_thread::sleep_for(std::chrono::milliseconds(t)); }
+    static uint64_t getTicks() { return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()).time_since_epoch().count(); }
+    uint64_t tic() { return time_ = getTicks(); }
     void toc()
     {
-        if (SDL_GetTicks() != time_)
+        if (getTicks() != time_)
         {
-            fmt::print("%d\n", SDL_GetTicks() - time_);
+            fmt::print("{}\n", getTicks() - time_);
         }
     }
     static void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };

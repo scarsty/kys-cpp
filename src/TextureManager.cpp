@@ -146,6 +146,10 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
             }
             tex->prev_show = now;
         }
+        if (i < 0)
+        {
+            i = 0;
+        }
         c.a = alpha;
         engine->setColor(tex->tex[i], c);
         engine->renderCopy(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h);
