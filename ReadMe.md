@@ -2,7 +2,7 @@
 
 # kys-cpp
 
-<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/logo.png' />
+<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/logo.jpg' />
 
 github：https://github.com/scarsty/kys-cpp
 
