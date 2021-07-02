@@ -308,7 +308,11 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     {
         talk = talk_box_down_;
     }
-    talk->setContent(talk_contents_[talk_id]);
+    auto talk_content = talk_contents_[talk_id];
+#ifndef _WIN32 // 非Windows系统（例如Mac和Linux）默认字符集是UTF8，通常对GBK字符集支持不太好，这里转个码，不然显示乱码
+    talk_content = PotConv::cp936toutf8(talk_content);
+#endif
+    talk->setContent(talk_content);
     fmt::print(talk_contents_[talk_id] + "\n");
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
