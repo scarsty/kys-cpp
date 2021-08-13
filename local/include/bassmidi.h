@@ -1,4 +1,4 @@
-/*
+﻿/*
 	BASSMIDI 2.4 C/C++ header file
 	Copyright (c) 2006-2018 Un4seen Developments Ltd.
 

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "BattleCursor.h"
 #include "BattleMap.h"
 #include "BattleMenu.h"

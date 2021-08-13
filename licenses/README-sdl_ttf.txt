@@ -1,4 +1,4 @@
-This library is distributed under the terms of the zlib license:
+﻿This library is distributed under the terms of the zlib license:
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -16,7 +16,7 @@ This library is distributed under the terms of the zlib license:
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 
-Portions of this software are copyright © 2013 The FreeType Project (www.freetype.org).  All rights reserved.
+Portions of this software are copyright (c) 2013 The FreeType Project (www.freetype.org).  All rights reserved.
 
 The source is available from the SDL website:
 http://www.libsdl.org/projects/SDL_ttf

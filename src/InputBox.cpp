@@ -1,4 +1,4 @@
-#include "InputBox.h"
+﻿#include "InputBox.h"
 #include "Engine.h"
 #include "Font.h"
 #include "OpenCCConverter.h"

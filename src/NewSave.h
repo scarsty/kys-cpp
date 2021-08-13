@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "PotConv.h"
 #include "Save.h"
 #include <algorithm>

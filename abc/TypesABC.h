@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <cstdint>
 #include <string>
 
@@ -16,7 +16,7 @@ struct MapSquare
             delete data_;
         }
     }
-    //²»»á±£ÁôÔ­Ê¼Êı¾İ
+    //ä¸ä¼šä¿ç•™åŸå§‹æ•°æ®
     void resize(int x)
     {
         if (data_)
@@ -58,7 +58,7 @@ private:
     MAP_INT line_ = 0;
 };
 
-//Ç°ÖÃÉùÃ÷
+//å‰ç½®å£°æ˜
 struct Role;
 struct Item;
 struct Magic;
@@ -71,9 +71,9 @@ enum
     SUBMAP_COORD_COUNT = 64,
     SUBMAP_LAYER_COUNT = 6,
     MAINMAP_COORD_COUNT = 480,
-    SUBMAP_EVENT_COUNT = 200,    //µ¥³¡¾°×î´óÊÂ¼şÊı
-    ITEM_IN_BAG_COUNT = 200,     //×î´óÎïÆ·Êı
-    TEAMMATE_COUNT = 6,          //×î´ó¶ÓÎéÈËÔ±Êı
+    SUBMAP_EVENT_COUNT = 200,    //å•åœºæ™¯æœ€å¤§äº‹ä»¶æ•°
+    ITEM_IN_BAG_COUNT = 200,     //æœ€å¤§ç‰©å“æ•°
+    TEAMMATE_COUNT = 6,          //æœ€å¤§é˜Ÿä¼äººå‘˜æ•°
 };
 
 enum
@@ -126,22 +126,22 @@ enum
     SHOP_ITEM_COUNT = 5,
 };
 
-//³ÉÔ±º¯ÊıÈôÊÇ¿ªÍ·´óĞ´£¬²¢ÇÒÎŞÏÂ»®Ïß£¬Ôò¿ÉÒÔÖ±½Ó·ÃÎÊ²¢ĞŞ¸Ä
+//æˆå‘˜å‡½æ•°è‹¥æ˜¯å¼€å¤´å¤§å†™ï¼Œå¹¶ä¸”æ— ä¸‹åˆ’çº¿ï¼Œåˆ™å¯ä»¥ç›´æ¥è®¿é—®å¹¶ä¿®æ”¹
 
-//´æµµÖĞµÄ½ÇÉ«Êı¾İ
+//å­˜æ¡£ä¸­çš„è§’è‰²æ•°æ®
 struct RoleSave1
 {
 public:
     MAP_INT ID;
     MAP_INT HeadID, IncLife, UnUse;
     char Name[10], Nick[10];
-    MAP_INT Sexual;    //ĞÔ±ğ 0-ÄĞ 1 Å® 2 ÆäËû
+    MAP_INT Sexual;    //æ€§åˆ« 0-ç”· 1 å¥³ 2 å…¶ä»–
     MAP_INT Level;
     SAVE_UINT Exp;
     MAP_INT HP, MaxHP, Hurt, Poison, PhysicalPower;
     SAVE_UINT ExpForMakeItem;
     MAP_INT Equip0, Equip1;
-    MAP_INT Frame[15];    //¶¯×÷Ö¡Êı£¬¸ÄÎª²»ÔÚ´Ë´¦±£´æ£¬¹ÊÊµ¼ÊÎŞÓÃ£¬ÁíÍâÑÓ³ÙÖ¡Êı¶ÔĞ§¹û¼¸ºõÎŞÓ°Ïì£¬·ÏÆú
+    MAP_INT Frame[15];    //åŠ¨ä½œå¸§æ•°ï¼Œæ”¹ä¸ºä¸åœ¨æ­¤å¤„ä¿å­˜ï¼Œæ•…å®é™…æ— ç”¨ï¼Œå¦å¤–å»¶è¿Ÿå¸§æ•°å¯¹æ•ˆæœå‡ ä¹æ— å½±å“ï¼ŒåºŸå¼ƒ
     MAP_INT MPType, MP, MaxMP;
     MAP_INT Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     MAP_INT Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -151,7 +151,7 @@ public:
     MAP_INT TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
 };
 
-//´æµµÖĞµÄÎïÆ·Êı¾İ
+//å­˜æ¡£ä¸­çš„ç‰©å“æ•°æ®
 struct ItemSave1
 {
     MAP_INT ID;
@@ -159,7 +159,7 @@ struct ItemSave1
     MAP_INT Name1[10];
     char Introduction[30];
     MAP_INT MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
-    MAP_INT ItemType;    //0¾çÇé£¬1×°±¸£¬2ÃØóÅ£¬3Ò©Æ·£¬4°µÆ÷
+    MAP_INT ItemType;    //0å‰§æƒ…ï¼Œ1è£…å¤‡ï¼Œ2ç§˜ç¬ˆï¼Œ3è¯å“ï¼Œ4æš—å™¨
     MAP_INT UnKnown5, UnKnown6, UnKnown7;
     MAP_INT AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
     MAP_INT AddAttack, AddSpeed, AddDefence, AddMedicine, AddUsePoison, AddDetoxification, AddAntiPoison;
@@ -170,23 +170,23 @@ struct ItemSave1
     MAP_INT MakeItem[5], MakeItemCount[5];
 };
 
-//´æµµÖĞµÄÎäÑ§Êı¾İ£¨ÎŞÊÊºÏ¶ÔÓ¦·­Òë£¬¶øÇÒÎäÏÀĞ¡ËµÖĞµÄÎäÑ§½üÓÚÄ§·¨£¬ÔİÇÒÈç´Ë£©
+//å­˜æ¡£ä¸­çš„æ­¦å­¦æ•°æ®ï¼ˆæ— é€‚åˆå¯¹åº”ç¿»è¯‘ï¼Œè€Œä¸”æ­¦ä¾ å°è¯´ä¸­çš„æ­¦å­¦è¿‘äºé­”æ³•ï¼Œæš‚ä¸”å¦‚æ­¤ï¼‰
 struct MagicSave1
 {
     MAP_INT ID;
     char Name[10];
     MAP_INT Unknown[5];
     MAP_INT SoundID;
-    MAP_INT MagicType;    //1-È­£¬2-½££¬3-µ¶£¬4-ÌØÊâ
+    MAP_INT MagicType;    //1-æ‹³ï¼Œ2-å‰‘ï¼Œ3-åˆ€ï¼Œ4-ç‰¹æ®Š
     MAP_INT EffectID;
-    MAP_INT HurtType;          //0-ÆÕÍ¨£¬1-ÎüÈ¡MP
-    MAP_INT AttackAreaType;    //0-µã£¬1-Ïß£¬2-Ê®×Ö£¬3-Ãæ
+    MAP_INT HurtType;          //0-æ™®é€šï¼Œ1-å¸å–MP
+    MAP_INT AttackAreaType;    //0-ç‚¹ï¼Œ1-çº¿ï¼Œ2-åå­—ï¼Œ3-é¢
     MAP_INT NeedMP, WithPoison;
     MAP_INT Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
 };
 
-//´æµµÖĞµÄ×Ó³¡¾°Êı¾İ
-//Ô¼¶¨£ºScene±íÊ¾ÓÎÏ·ÖĞÔËĞĞµÄÄ³¸öElementÊµÀı£¬¶øMap±íÊ¾´æ´¢µÄÊı¾İ
+//å­˜æ¡£ä¸­çš„å­åœºæ™¯æ•°æ®
+//çº¦å®šï¼šSceneè¡¨ç¤ºæ¸¸æˆä¸­è¿è¡Œçš„æŸä¸ªElementå®ä¾‹ï¼Œè€ŒMapè¡¨ç¤ºå­˜å‚¨çš„æ•°æ®
 struct SubMapInfoSave1
 {
     MAP_INT ID;
@@ -199,14 +199,14 @@ struct SubMapInfoSave1
     MAP_INT JumpX, JumpY, JumpReturnX, JumpReturnY;
 };
 
-//³¡¾°ÊÂ¼şÊı¾İ
+//åœºæ™¯äº‹ä»¶æ•°æ®
 struct SubMapEvent1
 {
-    //event1ÎªÖ÷¶¯´¥·¢£¬event2ÎªÎïÆ·´¥·¢£¬event3Îª¾­¹ı´¥·¢
+    //event1ä¸ºä¸»åŠ¨è§¦å‘ï¼Œevent2ä¸ºç‰©å“è§¦å‘ï¼Œevent3ä¸ºç»è¿‡è§¦å‘
     MAP_INT CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
 };
 
-//Êµ¼ÊµÄ³¡¾°Êı¾İ
+//å®é™…çš„åœºæ™¯æ•°æ®
 struct SubMapInfo1 : public SubMapInfoSave1
 {
 private:
@@ -214,26 +214,26 @@ private:
     SubMapEvent1 events_[SUBMAP_EVENT_COUNT];
 };
 
-//´æµµÖĞµÄÉÌµêÊı¾İ
+//å­˜æ¡£ä¸­çš„å•†åº—æ•°æ®
 struct ShopSave1
 {
     MAP_INT ItemID[SHOP_ITEM_COUNT], Total[SHOP_ITEM_COUNT], Price[SHOP_ITEM_COUNT];
 };
 
-//´æµµÖĞµÄ½ÇÉ«Êı¾İ
+//å­˜æ¡£ä¸­çš„è§’è‰²æ•°æ®
 struct RoleSave
 {
 public:
     int ID;
     int HeadID, IncLife, UnUse;
     char Name[20], Nick[20];
-    int Sexual;    //ĞÔ±ğ 0-ÄĞ 1 Å® 2 ÆäËû
+    int Sexual;    //æ€§åˆ« 0-ç”· 1 å¥³ 2 å…¶ä»–
     int Level;
     int Exp;
     int HP, MaxHP, Hurt, Poison, PhysicalPower;
     int ExpForMakeItem;
     int Equip0, Equip1;
-    int Frame[15];    //¶¯×÷Ö¡Êı£¬¸ÄÎª²»ÔÚ´Ë´¦±£´æ£¬¹ÊÊµ¼ÊÎŞÓÃ£¬ÁíÍâÑÓ³ÙÖ¡Êı¶ÔĞ§¹û¼¸ºõÎŞÓ°Ïì£¬·ÏÆú
+    int Frame[15];    //åŠ¨ä½œå¸§æ•°ï¼Œæ”¹ä¸ºä¸åœ¨æ­¤å¤„ä¿å­˜ï¼Œæ•…å®é™…æ— ç”¨ï¼Œå¦å¤–å»¶è¿Ÿå¸§æ•°å¯¹æ•ˆæœå‡ ä¹æ— å½±å“ï¼ŒåºŸå¼ƒ
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -243,7 +243,7 @@ public:
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
 };
 
-//´æµµÖĞµÄÎïÆ·Êı¾İ
+//å­˜æ¡£ä¸­çš„ç‰©å“æ•°æ®
 struct ItemSave
 {
     int ID;
@@ -251,7 +251,7 @@ struct ItemSave
     int Name1[10];
     char Introduction[60];
     int MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
-    int ItemType;    //0¾çÇé£¬1×°±¸£¬2ÃØóÅ£¬3Ò©Æ·£¬4°µÆ÷
+    int ItemType;    //0å‰§æƒ…ï¼Œ1è£…å¤‡ï¼Œ2ç§˜ç¬ˆï¼Œ3è¯å“ï¼Œ4æš—å™¨
     int UnKnown5, UnKnown6, UnKnown7;
     int AddHP, AddMaxHP, AddPoison, AddPhysicalPower, ChangeMPType, AddMP, AddMaxMP;
     int AddAttack, AddSpeed, AddDefence, AddMedicine, AddUsePoison, AddDetoxification, AddAntiPoison;
@@ -262,23 +262,23 @@ struct ItemSave
     int MakeItem[5], MakeItemCount[5];
 };
 
-//´æµµÖĞµÄÎäÑ§Êı¾İ£¨ÎŞÊÊºÏ¶ÔÓ¦·­Òë£¬¶øÇÒÎäÏÀĞ¡ËµÖĞµÄÎäÑ§½üÓÚÄ§·¨£¬ÔİÇÒÈç´Ë£©
+//å­˜æ¡£ä¸­çš„æ­¦å­¦æ•°æ®ï¼ˆæ— é€‚åˆå¯¹åº”ç¿»è¯‘ï¼Œè€Œä¸”æ­¦ä¾ å°è¯´ä¸­çš„æ­¦å­¦è¿‘äºé­”æ³•ï¼Œæš‚ä¸”å¦‚æ­¤ï¼‰
 struct MagicSave
 {
     int ID;
     char Name[20];
     int Unknown[5];
     int SoundID;
-    int MagicType;    //1-È­£¬2-½££¬3-µ¶£¬4-ÌØÊâ
+    int MagicType;    //1-æ‹³ï¼Œ2-å‰‘ï¼Œ3-åˆ€ï¼Œ4-ç‰¹æ®Š
     int EffectID;
-    int HurtType;          //0-ÆÕÍ¨£¬1-ÎüÈ¡MP
-    int AttackAreaType;    //0-µã£¬1-Ïß£¬2-Ê®×Ö£¬3-Ãæ
+    int HurtType;          //0-æ™®é€šï¼Œ1-å¸å–MP
+    int AttackAreaType;    //0-ç‚¹ï¼Œ1-çº¿ï¼Œ2-åå­—ï¼Œ3-é¢
     int NeedMP, WithPoison;
     int Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
 };
 
-//´æµµÖĞµÄ×Ó³¡¾°Êı¾İ
-//Ô¼¶¨£ºScene±íÊ¾ÓÎÏ·ÖĞÔËĞĞµÄÄ³¸öElementÊµÀı£¬¶øMap±íÊ¾´æ´¢µÄÊı¾İ
+//å­˜æ¡£ä¸­çš„å­åœºæ™¯æ•°æ®
+//çº¦å®šï¼šSceneè¡¨ç¤ºæ¸¸æˆä¸­è¿è¡Œçš„æŸä¸ªElementå®ä¾‹ï¼Œè€ŒMapè¡¨ç¤ºå­˜å‚¨çš„æ•°æ®
 struct SubMapInfoSave
 {
     int ID;
@@ -291,14 +291,14 @@ struct SubMapInfoSave
     int JumpX, JumpY, JumpReturnX, JumpReturnY;
 };
 
-//³¡¾°ÊÂ¼şÊı¾İ
+//åœºæ™¯äº‹ä»¶æ•°æ®
 struct SubMapEvent
 {
-    //event1ÎªÖ÷¶¯´¥·¢£¬event2ÎªÎïÆ·´¥·¢£¬event3Îª¾­¹ı´¥·¢
+    //event1ä¸ºä¸»åŠ¨è§¦å‘ï¼Œevent2ä¸ºç‰©å“è§¦å‘ï¼Œevent3ä¸ºç»è¿‡è§¦å‘
     int CannotWalk, Index, Event1, Event2, Event3, CurrentPic, EndPic, BeginPic, PicDelay;
 };
 
-//Êµ¼ÊµÄ³¡¾°Êı¾İ
+//å®é™…çš„åœºæ™¯æ•°æ®
 struct SubMapInfo : public SubMapInfoSave
 {
 private:
@@ -306,7 +306,7 @@ private:
     SubMapEvent events_[SUBMAP_EVENT_COUNT];
 };
 
-//´æµµÖĞµÄÉÌµêÊı¾İ
+//å­˜æ¡£ä¸­çš„å•†åº—æ•°æ®
 struct ShopSave
 {
     int ItemID[SHOP_ITEM_COUNT], Total[SHOP_ITEM_COUNT], Price[SHOP_ITEM_COUNT];

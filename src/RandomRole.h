@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Head.h"
 #include "Types.h"
 #include "UIStatus.h"

@@ -1,4 +1,4 @@
-#include "TextBox.h"
+﻿#include "TextBox.h"
 #include "Font.h"
 
 void TextBox::setFontSize(int size)

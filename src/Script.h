@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "FunctionTrait.h"
 #ifdef _WIN32
 #include "lua.hpp"

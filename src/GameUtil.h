@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "INIReader.h"
 #include "Types.h"
 #include <climits>

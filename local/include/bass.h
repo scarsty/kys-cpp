@@ -1,4 +1,4 @@
-/*
+﻿/*
 	BASS 2.4 C/C++ header file
 	Copyright (c) 1999-2019 Un4seen Developments Ltd.
 

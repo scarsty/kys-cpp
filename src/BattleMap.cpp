@@ -1,4 +1,4 @@
-#include "BattleMap.h"
+﻿#include "BattleMap.h"
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "PotConv.h"

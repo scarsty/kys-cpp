@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifdef WITH_NETWORK
 #include "asio.hpp"

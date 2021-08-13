@@ -1,4 +1,4 @@
-#include "Object.h"
+﻿#include "Object.h"
 
 void Object::calPropertyByTexture()
 {

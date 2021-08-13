@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 //这里如果用枚举类型会有一些麻烦，干脆改为整型
 enum Towards

@@ -1,6 +1,6 @@
-
-//Ò»Ğ©¸¨ÖúµÄ¹¦ÄÜ
-//Ò»Ğ©³£ÊıµÄÉèÖÃ±È½Ï²»ºÏÀí£¬½¨ÒéÒÔµ÷ÊÔÄ£Ê½ÊÖ¶¯Ö´ĞĞ
+ï»¿
+//ä¸€äº›è¾…åŠ©çš„åŠŸèƒ½
+//ä¸€äº›å¸¸æ•°çš„è®¾ç½®æ¯”è¾ƒä¸åˆç†ï¼Œå»ºè®®ä»¥è°ƒè¯•æ¨¡å¼æ‰‹åŠ¨æ‰§è¡Œ
 
 #include "File.h"
 #include "GrpIdxFile.h"
@@ -10,7 +10,7 @@
 #define FMT_HEADER_ONLY
 #include "fmt/format.h"
 
-//×ª»»¶ş½øÖÆÎÄ¼şÎªÎÄ±¾
+//è½¬æ¢äºŒè¿›åˆ¶æ–‡ä»¶ä¸ºæ–‡æœ¬
 void trans_bin_list(std::string in, std::string out)
 {
     std::vector<int16_t> leave_list;
@@ -24,7 +24,7 @@ void trans_bin_list(std::string in, std::string out)
     convert::writeStringToFile(s, out);
 }
 
-//µ¼³öÕ½¶·Ö¡ÊıÎªÎÄ±¾
+//å¯¼å‡ºæˆ˜æ–—å¸§æ•°ä¸ºæ–‡æœ¬
 void trans_fight_frame()
 {
     for (int i = 0; i <= 300; i++)
@@ -50,7 +50,7 @@ void trans_fight_frame()
     }
 }
 
-//À©Õ¹´æµµ£¬½«¶ÌÕûÊıÀ©Õ¹Îªint32
+//æ‰©å±•å­˜æ¡£ï¼Œå°†çŸ­æ•´æ•°æ‰©å±•ä¸ºint32
 int expandR(std::string idx, std::string grp, bool ranger = true)
 {
     if (!File::fileExist(grp) || !File::fileExist(idx))

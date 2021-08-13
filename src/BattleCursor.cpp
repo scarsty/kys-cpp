@@ -1,4 +1,4 @@
-#include "BattleCursor.h"
+﻿#include "BattleCursor.h"
 #include "BattleScene.h"
 #include "Save.h"
 

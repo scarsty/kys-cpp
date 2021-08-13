@@ -1,4 +1,4 @@
-*.opendb
+﻿*.opendb
 *.db
 Debug/*
 Release/*

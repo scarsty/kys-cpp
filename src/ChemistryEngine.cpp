@@ -1,4 +1,4 @@
-#include "ChemistryEngine.h"
+﻿#include "ChemistryEngine.h"
 
 ChemistryEngine::ChemistryEngine()
 {

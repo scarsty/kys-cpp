@@ -1,4 +1,4 @@
-#include "BattleNetwork.h"
+﻿#include "BattleNetwork.h"
 
 #ifdef WITH_NETWORK
 #include "DrawableOnCall.h"

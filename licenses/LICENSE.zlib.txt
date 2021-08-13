@@ -1,4 +1,4 @@
-The source code to this library used with SDL_image can be found here:
+﻿The source code to this library used with SDL_image can be found here:
 http://www.libsdl.org/projects/SDL_image/libs/
 ---
 

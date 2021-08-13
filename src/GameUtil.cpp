@@ -1,4 +1,4 @@
-#include "GameUtil.h"
+﻿#include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
 #include "convert.h"

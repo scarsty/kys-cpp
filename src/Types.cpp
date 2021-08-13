@@ -1,4 +1,4 @@
-#include "Types.h"
+﻿#include "Types.h"
 
 //设置人物坐标，若输入值为负，相当于从人物层清除
 void Role::setPosition(int x, int y)

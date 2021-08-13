@@ -1,4 +1,4 @@
-#include "Cloud.h"
+﻿#include "Cloud.h"
 #include "Random.h"
 
 void Cloud::initRand()

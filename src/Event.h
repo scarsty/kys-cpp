@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"

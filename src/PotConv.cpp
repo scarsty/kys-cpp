@@ -1,4 +1,4 @@
-#include "PotConv.h"
+﻿#include "PotConv.h"
 
 PotConv::PotConv()
 {

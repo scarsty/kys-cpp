@@ -1,4 +1,4 @@
-// last modified 
+ï»¿// last modified 
 
 #include "Hanz2Piny.h"
 #include "utf8.h"
@@ -23,14 +23,14 @@ Hanz2Piny::Hanz2Piny ()
     ;
 }
 
-// Ö»´¦Àí unicode ÔÚ [0X4E00, 0X9FA5] ¼äµÄºº×Ö£¬¼ì²éÊÇ·ñÔÚ´ËÇø¼ä¡£
+// åªå¤„ç† unicode åœ¨ [0X4E00, 0X9FA5] é—´çš„æ±‰å­—ï¼Œæ£€æŸ¥æ˜¯å¦åœ¨æ­¤åŒºé—´ã€‚
 bool
 Hanz2Piny::isHanziUnicode (const Unicode unicode) const
 {
     return((begin_hanzi_unicode_ <= unicode) && (unicode <= end_hanzi_unicode_));
 }
 
-// »ùÓÚ unicode ²éÕÒ¶ÔÓ¦ºº×ÖµÄÆ´Òô£¬ÈôÎª¶àÒô×ÖÔò¿ÉÄÜ·µ»Ø¶à¸öÆ´Òô
+// åŸºäº unicode æŸ¥æ‰¾å¯¹åº”æ±‰å­—çš„æ‹¼éŸ³ï¼Œè‹¥ä¸ºå¤šéŸ³å­—åˆ™å¯èƒ½è¿”å›å¤šä¸ªæ‹¼éŸ³
 vector<string>
 Hanz2Piny::toPinyinFromUnicode (const Unicode hanzi_unicode, const bool with_tone) const
 {
@@ -40,7 +40,7 @@ Hanz2Piny::toPinyinFromUnicode (const Unicode hanzi_unicode, const bool with_ton
 
     const char* polyphone_with_tone = pinyin_list_with_tone_[hanzi_unicode - begin_hanzi_unicode_];
 
-    // ²éÕÒ¸Ã unicode ¶ÔÓ¦ºº×ÖµÄÆ´Òô£¨´øÉùµ÷£©£¬ÈôÎª¶àÒô×ÖÔò¶à¸öÆ´Òô
+    // æŸ¥æ‰¾è¯¥ unicode å¯¹åº”æ±‰å­—çš„æ‹¼éŸ³ï¼ˆå¸¦å£°è°ƒï¼‰ï¼Œè‹¥ä¸ºå¤šéŸ³å­—åˆ™å¤šä¸ªæ‹¼éŸ³
     vector<string> polyphone_list_with_tone;
     static const char split_c = ' ';
     const char* p = polyphone_with_tone;
@@ -57,7 +57,7 @@ Hanz2Piny::toPinyinFromUnicode (const Unicode hanzi_unicode, const bool with_ton
         return(polyphone_list_with_tone);
     }
 
-    // ²»´øÉùµ÷
+    // ä¸å¸¦å£°è°ƒ
     vector<string> polyphone_list_without_tone;
     for (const auto& polyphone : polyphone_list_with_tone) {
         const auto& iter = find_if(polyphone.cbegin(), polyphone.cend(), isdigit);
@@ -66,18 +66,18 @@ Hanz2Piny::toPinyinFromUnicode (const Unicode hanzi_unicode, const bool with_ton
     return(polyphone_list_without_tone);
 }
 
-// ¼ì²é×Ö·ûĞòÁĞÊÇ·ñÎª UTF-8 ±àÂë¸ñÊ½
+// æ£€æŸ¥å­—ç¬¦åºåˆ—æ˜¯å¦ä¸º UTF-8 ç¼–ç æ ¼å¼
 bool
 Hanz2Piny::isUtf8 (const string& s) const
 {
     return(utf8::is_valid(s.cbegin(), s.cend()));
 }
 
-// »ùÓÚ UTF-8 ²éÕÒ¶ÔÓ¦ºº×ÖµÄÆ´Òô¡£
-// s Îª UTF-8 ±àÂëµÄ×Ö·ûĞòÁĞ£¬¿ÉÒÔ°üº¬¶à¸öºº×Ö¡£´¦ÀíÍêÃ¿¸öºº×Öºó£¬·µ»Ø
-// pair<bool, vector<string>>£¬first ±íÊ¾¸Ãºº×ÖÊÇ·ñ³É¹¦×ª»»Æ´Òô£¬second
-// ¸Ãºº×Ö¾ßÌå×ª»»µÄÆ´ÒôÁĞ±í£¨¶àÒô×Ö£©¡£
-// ·Çºº×Ö²»×÷ÈÎºÎĞŞ¸Ä£¬Ô­Ñù·µ»Ø¡£
+// åŸºäº UTF-8 æŸ¥æ‰¾å¯¹åº”æ±‰å­—çš„æ‹¼éŸ³ã€‚
+// s ä¸º UTF-8 ç¼–ç çš„å­—ç¬¦åºåˆ—ï¼Œå¯ä»¥åŒ…å«å¤šä¸ªæ±‰å­—ã€‚å¤„ç†å®Œæ¯ä¸ªæ±‰å­—åï¼Œè¿”å›
+// pair<bool, vector<string>>ï¼Œfirst è¡¨ç¤ºè¯¥æ±‰å­—æ˜¯å¦æˆåŠŸè½¬æ¢æ‹¼éŸ³ï¼Œsecond
+// è¯¥æ±‰å­—å…·ä½“è½¬æ¢çš„æ‹¼éŸ³åˆ—è¡¨ï¼ˆå¤šéŸ³å­—ï¼‰ã€‚
+// éæ±‰å­—ä¸ä½œä»»ä½•ä¿®æ”¹ï¼ŒåŸæ ·è¿”å›ã€‚
 vector<pair<bool, vector<string>>>
 Hanz2Piny::toPinyinFromUtf8 ( const std::string& s,
                               const bool with_tone,
@@ -93,17 +93,17 @@ Hanz2Piny::toPinyinFromUtf8 ( const std::string& s,
     }
 
     for (auto iter = s.cbegin(); iter != s.cend(); NULL) {
-        // ½«µ¥¸ö×Ö·û£¨¿ÉÄÜÊÇºº×Ö£¬Ò²¿ÉÄÜ·Çºº×Ö£©µÄ UTF-8 ×ª»»Îª unicode
+        // å°†å•ä¸ªå­—ç¬¦ï¼ˆå¯èƒ½æ˜¯æ±‰å­—ï¼Œä¹Ÿå¯èƒ½éæ±‰å­—ï¼‰çš„ UTF-8 è½¬æ¢ä¸º unicode
         auto iter_old = iter;
         utf8::next(iter, s.cend());
         Unicode unicode;
         utf8::utf8to16(iter_old, iter, &unicode);
         
-        // »ñÈ¡×Ö·û¶ÔÓ¦Æ´Òô£¨Èç¹ûÓĞµÄ»°£©£¬´æÔÚ¶àÒô×ÖËùÒÔ¿ÉÄÜ·µ»Ø¶à¸öÆ´Òô
+        // è·å–å­—ç¬¦å¯¹åº”æ‹¼éŸ³ï¼ˆå¦‚æœæœ‰çš„è¯ï¼‰ï¼Œå­˜åœ¨å¤šéŸ³å­—æ‰€ä»¥å¯èƒ½è¿”å›å¤šä¸ªæ‹¼éŸ³
         vector<string> pinyin_list;
         pinyin_list = toPinyinFromUnicode(unicode, with_tone);
         
-        // ¶ÔÓÚÎŞ·¨×ª»»³ö¶ÔÓ¦Æ´ÒôµÄ×Ö·û£¬ÒªÃ´·µ»ØÖ¸¶¨×Ö·û´®£¬ÒªÃ´Ô­Ñù·µ»Ø
+        // å¯¹äºæ— æ³•è½¬æ¢å‡ºå¯¹åº”æ‹¼éŸ³çš„å­—ç¬¦ï¼Œè¦ä¹ˆè¿”å›æŒ‡å®šå­—ç¬¦ä¸²ï¼Œè¦ä¹ˆåŸæ ·è¿”å›
         bool ok = !pinyin_list.empty();
         if (!ok) {
             if (replace_unknown) {
@@ -119,7 +119,7 @@ Hanz2Piny::toPinyinFromUtf8 ( const std::string& s,
     return(pinyin_list_list);
 }
 
-// ¼ì²éÖ¸¶¨ÎÄ¼şÊÇ·ñÎª UTF-8 ±àÂë
+// æ£€æŸ¥æŒ‡å®šæ–‡ä»¶æ˜¯å¦ä¸º UTF-8 ç¼–ç 
 bool
 Hanz2Piny::isUtf8File(const string& file_path) const
 {
@@ -132,7 +132,7 @@ Hanz2Piny::isUtf8File(const string& file_path) const
     return(utf8::is_valid(istream_iterator<char>(ifs), istream_iterator<char>()));
 }
 
-// ¼ì²éÖ¸¶¨×Ö·ûĞòÁĞÊÇ·ñÒÔ BOMC ´òÍ·
+// æ£€æŸ¥æŒ‡å®šå­—ç¬¦åºåˆ—æ˜¯å¦ä»¥ BOMC æ‰“å¤´
 bool
 Hanz2Piny::isStartWithBom (const string& s) const
 {
@@ -141,10 +141,10 @@ Hanz2Piny::isStartWithBom (const string& s) const
 
 const Hanz2Piny::Unicode Hanz2Piny::begin_hanzi_unicode_ = 0X4E00, Hanz2Piny::end_hanzi_unicode_ = 0X9FA5;
 
-// 0£©»ùÓÚ unicode Ë³ĞòµÄÁĞ±í£»
-// 1£©¼´±ãÄ³¸ö unicode ÎŞ¶ÔÓ¦ºº×ÖÆ´Òô£¬Ò²ĞèÒª±£ÁôÆäÎ»ÖÃ£»
-// 2£©¶àÒô×ÖµÄ¶à¸öÆ´ÒôÓÃ¿Õ¸ñ·Ö¸î£¬²»ÄÜÓĞ¶àÓÚµÄÆäËû¿Õ¸ñ£»
-// 3£©ĞÕÊÏÒì¶ÁÎ»ÓÚµÚÒ»¸ö£»
+// 0ï¼‰åŸºäº unicode é¡ºåºçš„åˆ—è¡¨ï¼›
+// 1ï¼‰å³ä¾¿æŸä¸ª unicode æ— å¯¹åº”æ±‰å­—æ‹¼éŸ³ï¼Œä¹Ÿéœ€è¦ä¿ç•™å…¶ä½ç½®ï¼›
+// 2ï¼‰å¤šéŸ³å­—çš„å¤šä¸ªæ‹¼éŸ³ç”¨ç©ºæ ¼åˆ†å‰²ï¼Œä¸èƒ½æœ‰å¤šäºçš„å…¶ä»–ç©ºæ ¼ï¼›
+// 3ï¼‰å§“æ°å¼‚è¯»ä½äºç¬¬ä¸€ä¸ªï¼›
 const char* Hanz2Piny::pinyin_list_with_tone_[] {
     "yi1",
     "ding1", 

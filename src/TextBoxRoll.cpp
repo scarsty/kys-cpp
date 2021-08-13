@@ -1,4 +1,4 @@
-#include "TextBoxRoll.h"
+﻿#include "TextBoxRoll.h"
 #include "Font.h"
 #include "GameUtil.h"
 

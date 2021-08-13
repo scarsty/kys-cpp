@@ -1,4 +1,4 @@
-#include "BattleConfig.h"
+ï»¿#include "BattleConfig.h"
 #include "BattleMod.h"
 #include "GameUtil.h"
 
@@ -32,17 +32,17 @@ void BattleMod::EffectIntsPair::addParam(int p)
 
 EffectIntsPair & BattleMod::EffectIntsPair::operator+=(const EffectIntsPair & rhs)
 {
-    // id ±ØĞëÏàÍ¬
+    // id å¿…é¡»ç›¸åŒ
     if (effect.id != rhs.effect.id) {
         return *this;
     }
 
-    // ÉÏ×´Ì¬µÄÊ±ºò£¬²»ÕâÑù´¦Àí£¡
-    // ÔõÃ´´¦ÀíÄØ£¬ÎÒÒ²²»ÖªµÀ£¬ÔõÃ´¸ãºÃ
-    // ËµÊµ»°Ç¿ÖÆ×´Ì¬¿ÉÄÜ»»¸ö·½Ê½£¬min/maxÖ®ÀàµÄ ²»¹ı²»¹ÜÁË
+    // ä¸ŠçŠ¶æ€çš„æ—¶å€™ï¼Œä¸è¿™æ ·å¤„ç†ï¼
+    // æ€ä¹ˆå¤„ç†å‘¢ï¼Œæˆ‘ä¹Ÿä¸çŸ¥é“ï¼Œæ€ä¹ˆæå¥½
+    // è¯´å®è¯å¼ºåˆ¶çŠ¶æ€å¯èƒ½æ¢ä¸ªæ–¹å¼ï¼Œmin/maxä¹‹ç±»çš„ ä¸è¿‡ä¸ç®¡äº†
     if (effect.id == 6 || effect.id == 7 || effect.id == 8 || effect.id == 9) {
         std::unordered_map<int, int> statusStrMap;
-        // ²ÎÊıÃ¿µÚÒ»¸öÊÇ±àºÅ£¬µÚ¶ş¸öÇ¿¶È
+        // å‚æ•°æ¯ç¬¬ä¸€ä¸ªæ˜¯ç¼–å·ï¼Œç¬¬äºŒä¸ªå¼ºåº¦
         for (std::size_t i = 0; i < rhs.params_.size() / 2; i += 2) {
             statusStrMap[rhs.params_[i]] = rhs.params_[i + 1];
         }
@@ -61,7 +61,7 @@ EffectIntsPair & BattleMod::EffectIntsPair::operator+=(const EffectIntsPair & rh
         return *this;
     }
 
-    // Ò»°ãÖ±½Ó¼ÓÍêÊÂ
+    // ä¸€èˆ¬ç›´æ¥åŠ å®Œäº‹
     for (std::size_t i = 0; i < params_.size(); i++) {
         params_[i] += rhs.params_[i];
     }
@@ -72,7 +72,7 @@ BattleMod::Variable::Variable(BattleInfoFunc func, VarTarget target) : func_(fun
 {
 }
 
-// ÆäÊµÕâ¸öattacker defender²¢²»Ò»¶¨ÊÇÕâÑù
+// å…¶å®è¿™ä¸ªattacker defenderå¹¶ä¸ä¸€å®šæ˜¯è¿™æ ·
 // TODO rename attacker/defender
 int BattleMod::Variable::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
 {
@@ -96,7 +96,7 @@ BattleMod::RandomAdder::RandomAdder(std::vector<int>&& items) : items_(std::move
 int BattleMod::RandomAdder::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
 {
     if (items_.empty()) {
-        // »úÆ÷Ã¨ÀÏÊ¦£¬Õâ¸öºÜ²»ºÃÓÃ°¡
+        // æœºå™¨çŒ«è€å¸ˆï¼Œè¿™ä¸ªå¾ˆä¸å¥½ç”¨å•Š
         // 4, 10: 10-4 = 6 -> 7 -> 0~6
         return BattleModifier::rng.rand_int(max_ - min_ + 1) + min_;
     }
@@ -119,12 +119,12 @@ BattleMod::VariableParam::VariableParam(int base) : base_(base)
 int BattleMod::VariableParam::getVal(const Role * attacker, const Role * defender, const Magic * wg) const
 {
     int sum = base_;
-    // Adder Ö®¼ä àÅ£¬ÔİÇÒ¼ÓÆğÀ´£¬ÒÔºóÓĞĞÄÇé¼ÓÈë max/minµÈ
+    // Adder ä¹‹é—´ å—¯ï¼Œæš‚ä¸”åŠ èµ·æ¥ï¼Œä»¥åæœ‰å¿ƒæƒ…åŠ å…¥ max/minç­‰
     for (const auto& adder : adders_) {
         sum += adder->getVal(attacker, defender, wg);
     }
-    // ÊÇ²»ÊÇ¾Í¿´attacker¾Í¹»ÁËÄØ£¿·ÀÓùÕßÌØĞ§µÄÊ±ºòÊÇ·ñ·ÀÓùÕß±ä³ÉÁËattacker£¿
-    // Õâ¸öÃüÃû·½Ê½Ò»¶¨Òª¸Ä
+    // æ˜¯ä¸æ˜¯å°±çœ‹attackerå°±å¤Ÿäº†å‘¢ï¼Ÿé˜²å¾¡è€…ç‰¹æ•ˆçš„æ—¶å€™æ˜¯å¦é˜²å¾¡è€…å˜æˆäº†attackerï¼Ÿ
+    // è¿™ä¸ªå‘½åæ–¹å¼ä¸€å®šè¦æ”¹
     return sum;
 }
 
@@ -150,13 +150,13 @@ BattleMod::EffectParamPair::EffectParamPair(const SpecialEffect & effect, const 
 
 EffectIntsPair BattleMod::EffectParamPair::materialize(const Role * attacker, const Role * defender, const Magic * wg) const
 {
-    // ĞèÒªÒ»¸öcopy
+    // éœ€è¦ä¸€ä¸ªcopy
     EffectIntsPair eip = eip_;
     for (const auto& param : params_) {
         eip.addParam(param.getVal(attacker, defender, wg));
     }
     if (!eip.description.empty())
-        printf("³É¹¦´¥·¢%d %s\n", eip.effect.id, eip.description.c_str());
+        printf("æˆåŠŸè§¦å‘%d %s\n", eip.effect.id, eip.description.c_str());
     return eip;
 }
 
@@ -173,16 +173,16 @@ void BattleMod::ProccableEffect::addConditions(Conditions&& c)
 bool BattleMod::ProccableEffect::checkConditions(const Role * attacker, const Role * defender, const Magic * wg)
 {
     if (conditionz_.empty()) return true;
-    // ÔÚ"ĞèÇó"ÄÚ£¬Ã¿Ò»ÏîÖ®¼äµÄ¹ØÏµÊÇ"»ò"£¨¼ÈOR£©
-    // ÔÚ"Ìõ¼ş"ÄÚ£¬Ã¿Ò»ÏîÖ®¼äµÄ¹ØÏµÊÇ"ºÍ"£¨¼ÈAND£©
-    for (auto const& conds : conditionz_) {             // ĞèÇó
-        for (auto const& cond : conds) {                // Ìõ¼ş
+    // åœ¨"éœ€æ±‚"å†…ï¼Œæ¯ä¸€é¡¹ä¹‹é—´çš„å…³ç³»æ˜¯"æˆ–"ï¼ˆæ—¢ORï¼‰
+    // åœ¨"æ¡ä»¶"å†…ï¼Œæ¯ä¸€é¡¹ä¹‹é—´çš„å…³ç³»æ˜¯"å’Œ"ï¼ˆæ—¢ANDï¼‰
+    for (auto const& conds : conditionz_) {             // éœ€æ±‚
+        for (auto const& cond : conds) {                // æ¡ä»¶
             if (!cond.check(attacker, defender, wg)) {
-                // gotoµÄ×îºóÒ»Æ¬¾»ÍÁ
+                // gotoçš„æœ€åä¸€ç‰‡å‡€åœŸ
                 goto nextConds;
             }
         }
-        // µ¥¸ö¼ì²éÍ¨¹ı ok
+        // å•ä¸ªæ£€æŸ¥é€šè¿‡ ok
         return true;
     nextConds:;
     }
@@ -195,16 +195,16 @@ BattleMod::EffectSingle::EffectSingle(VariableParam && p, std::vector<EffectPara
 {
 }
 
-// ÏÖÔÚEffectIntsPairÊÇ¸öcopy£¬²»ÄÜÖ±½Ó·µ»ØptrÁË£¬·´ÕıÎÒÏ¹¸ãÖ±½ÓÉÏ×î·ûºÏÒªÇóµÄstd::optional(C++17)£¬ÁíÍâ¾ÍÊÇheap allocated std::unique_ptrÎÒ²»Ï²»¶
+// ç°åœ¨EffectIntsPairæ˜¯ä¸ªcopyï¼Œä¸èƒ½ç›´æ¥è¿”å›pträº†ï¼Œåæ­£æˆ‘çæç›´æ¥ä¸Šæœ€ç¬¦åˆè¦æ±‚çš„std::optional(C++17)ï¼Œå¦å¤–å°±æ˜¯heap allocated std::unique_ptræˆ‘ä¸å–œæ¬¢
 std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(const Role * attacker, const Role * defender, const Magic * wg)
 {
     if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
     // rand [0 1)
-    // ³ËÒÔ100£¬È¡Õû£¬¾ÍÊÇËµÊµ¼Ê·¶Î§ÊÇ0-99£¬Ò²¾ÍÊÇËµ±ØĞë¼Ó1
+    // ä¹˜ä»¥100ï¼Œå–æ•´ï¼Œå°±æ˜¯è¯´å®é™…èŒƒå›´æ˜¯0-99ï¼Œä¹Ÿå°±æ˜¯è¯´å¿…é¡»åŠ 1
     int prob = percentProb_.getVal(attacker, defender, wg);
     if (prob <= 0) return {};
     // if (prob != 100)
-    //     printf("´¥·¢¸ÅÂÊ %d\n", prob);
+    //     printf("è§¦å‘æ¦‚ç‡ %d\n", prob);
     std::vector<EffectIntsPair> procs;
     if (BattleModifier::rng.rand_int(100) + 1 <= prob) {
         for (auto& effectPair : effectPairs_) {
@@ -217,7 +217,7 @@ std::vector<EffectIntsPair> BattleMod::EffectSingle::proc(const Role * attacker,
 std::vector<EffectIntsPair> BattleMod::EffectWeightedGroup::proc(const Role * attacker, const Role * defender, const Magic * wg)
 {
     if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
-    // printf("³¢ÊÔ´¥·¢\n");
+    // printf("å°è¯•è§¦å‘\n");
     // [0 total)
     int t = BattleModifier::rng.rand_int(total_.getVal(attacker, defender, wg));
     int c = 0;
@@ -243,7 +243,7 @@ BattleMod::EffectPrioritizedGroup::EffectPrioritizedGroup()
 {
 }
 
-// ÕâÀï¿¼ÂÇÖØ¹¹Ò»ÏÂ
+// è¿™é‡Œè€ƒè™‘é‡æ„ä¸€ä¸‹
 std::vector<EffectIntsPair> BattleMod::EffectPrioritizedGroup::proc(const Role * attacker, const Role * defender, const Magic * wg)
 {
     if (!ProccableEffect::checkConditions(attacker, defender, wg)) return {};
@@ -291,7 +291,7 @@ bool BattleMod::EffectManager::hasEffect(int eid)
 int BattleMod::EffectManager::getEffectParam0(int eid)
 {
     auto iter = epps_.find(eid);
-    // ·µ»Ø0ÕâÑùÓ¦¸ÃÃ»ÎÊÌâ°É¡£¡£
+    // è¿”å›0è¿™æ ·åº”è¯¥æ²¡é—®é¢˜å§ã€‚ã€‚
     if (iter == epps_.end()) return 0;
     return iter->second.getParam0();
 }
@@ -353,7 +353,7 @@ BattleMod::BattleStatus::BattleStatus(int id, int max, const std::string & displ
 
 int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max)
 {
-    // »úÆ÷Ã¨Ğ´µÄ²»ºÃÓÃ
+    // æœºå™¨çŒ«å†™çš„ä¸å¥½ç”¨
     int curTemp = cur;
     cur = GameUtil::limit(cur + add, min, max);
     return cur - curTemp;
@@ -362,7 +362,7 @@ int BattleMod::BattleStatusManager::myLimit(int & cur, int add, int min, int max
 int BattleMod::BattleStatusManager::getBattleStatusVal(int statusID)
 {
     switch (statusID) {
-        // Õâ¼¸¸öÆ¾Ê²Ã´²»Ò»Ñù£¬Ó¦¸ÃÈ«²¿Í³Ò»£¿
+        // è¿™å‡ ä¸ªå‡­ä»€ä¹ˆä¸ä¸€æ ·ï¼Œåº”è¯¥å…¨éƒ¨ç»Ÿä¸€ï¼Ÿ
     case 0: return r_->Hurt;
     case 1: return r_->Poison;
     case 2: return r_->PhysicalPower;
@@ -404,7 +404,7 @@ std::vector<std::pair<const BattleStatus&, int>> BattleMod::BattleStatusManager:
         }
         if (add != 0)
             changes.emplace_back((*status_)[p.first], add);
-        printf("%d µ±Ç° %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
+        printf("%d å½“å‰ %s %d\n", r_->ID, (*status_)[p.first].display.c_str(), actualStatusVal_[p.first]);
         p.second = 0;
     }
     return changes;

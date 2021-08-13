@@ -1,4 +1,4 @@
-#include "Script.h"
+﻿#include "Script.h"
 #include "Event.h"
 #include "EventMacro.h"
 #include "PotConv.h"

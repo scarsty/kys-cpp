@@ -1,4 +1,4 @@
-#include "Talk.h"
+﻿#include "Talk.h"
 #include "Engine.h"
 #include "Font.h"
 #include "PotConv.h"

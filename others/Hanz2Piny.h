@@ -1,4 +1,4 @@
-// last modified
+﻿// last modified
 
 #ifndef HANZ2PINY_H
 #define HANZ2PINY_H

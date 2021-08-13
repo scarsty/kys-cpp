@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Engine.h"
 #include "TextureManager.h"
 #include <functional>

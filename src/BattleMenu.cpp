@@ -1,4 +1,4 @@
-#include "BattleMenu.h"
+﻿#include "BattleMenu.h"
 #include "BattleScene.h"
 #include "Event.h"
 #include "Font.h"

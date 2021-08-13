@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Button.h"
 #include "Menu.h"
 #include "Types.h"

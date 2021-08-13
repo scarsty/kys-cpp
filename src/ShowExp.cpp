@@ -1,4 +1,4 @@
-#include "ShowExp.h"
+﻿#include "ShowExp.h"
 #include "Font.h"
 #include "TextureManager.h"
 #include "convert.h"

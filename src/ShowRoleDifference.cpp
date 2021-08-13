@@ -1,4 +1,4 @@
-#include "ShowRoleDifference.h"
+﻿#include "ShowRoleDifference.h"
 #include "Font.h"
 #include "Save.h"
 #include "convert.h"

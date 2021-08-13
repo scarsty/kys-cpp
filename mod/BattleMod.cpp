@@ -1,4 +1,4 @@
-#include "BattleMod.h"
+ï»¿#include "BattleMod.h"
 #include "GameUtil.h"
 #include "Save.h"
 #include "Font.h"
@@ -22,14 +22,14 @@ BattleModifier::BattleModifier() {
 void BattleMod::BattleModifier::init()
 {
 
-    // ²âÊÔ
+    // æµ‹è¯•
     Event::getInstance()->setRoleMagic(0, 1, 2, 999);
     Save::getInstance()->getRole(0)->MaxHP = 999;
     Save::getInstance()->getRole(0)->HP = 999;
     Save::getInstance()->getRole(0)->Defence = 80;
 
     YAML::Node baseNode;
-    // ¿ÉÒÔÕû¸ö¶¼Ì×try£¬³öÁËÎÊÌâ¾ÍÌØĞ§È«Çå¿Õ
+    // å¯ä»¥æ•´ä¸ªéƒ½å¥—tryï¼Œå‡ºäº†é—®é¢˜å°±ç‰¹æ•ˆå…¨æ¸…ç©º
     try {
         baseNode = YAML::LoadFile(PATH);
     }
@@ -38,41 +38,41 @@ void BattleMod::BattleModifier::init()
         return;
     }
 
-    strPool_.reserve(baseNode[u8"×Ö·û´®Êı×é´óĞ¡"].as<int>());
+    strPool_.reserve(baseNode[u8"å­—ç¬¦ä¸²æ•°ç»„å¤§å°"].as<int>());
     strPool_.push_back("");
 
-    printf("ÌØĞ§ÊıÁ¿ %d\n", baseNode[u8"ÌØĞ§"].size());
-    for (const auto& spNode : baseNode[u8"ÌØĞ§"]) {
-        // ±ØĞë°´Ë³ĞòÀ´£¬ÒòÎªÎÒÀÁ£¬TODO ¸ÄÒ»¸Ä£¿»¹ÊÇ²»¸ÄÄØ£¬ÓĞ¿ÕÔÙ¸Ä£¡
-        assert(effects_.size() == spNode[u8"±àºÅ"].as<int>());
-        auto desc = PotConv::conv(spNode[u8"ÃèÊö"].as<std::string>(), "utf-8", "cp936");
+    printf("ç‰¹æ•ˆæ•°é‡ %d\n", baseNode[u8"ç‰¹æ•ˆ"].size());
+    for (const auto& spNode : baseNode[u8"ç‰¹æ•ˆ"]) {
+        // å¿…é¡»æŒ‰é¡ºåºæ¥ï¼Œå› ä¸ºæˆ‘æ‡’ï¼ŒTODO æ”¹ä¸€æ”¹ï¼Ÿè¿˜æ˜¯ä¸æ”¹å‘¢ï¼Œæœ‰ç©ºå†æ”¹ï¼
+        assert(effects_.size() == spNode[u8"ç¼–å·"].as<int>());
+        auto desc = PotConv::conv(spNode[u8"æè¿°"].as<std::string>(), "utf-8", "cp936");
         std::reference_wrapper<std::string> descRef(strPool_.front());
         if (!desc.empty()) {
             strPool_.push_back(desc);
             descRef = strPool_.back();
         }
-        printf("%d %s\n", spNode[u8"±àºÅ"].as<int>(), descRef.get().c_str());
-        effects_.emplace_back(spNode[u8"±àºÅ"].as<int>(), descRef);
+        printf("%d %s\n", spNode[u8"ç¼–å·"].as<int>(), descRef.get().c_str());
+        effects_.emplace_back(spNode[u8"ç¼–å·"].as<int>(), descRef);
     }
 
-    for (const auto& bNode : baseNode[u8"Õ½³¡×´Ì¬"]) {
-        int id = bNode[u8"±àºÅ"].as<int>();
+    for (const auto& bNode : baseNode[u8"æˆ˜åœºçŠ¶æ€"]) {
+        int id = bNode[u8"ç¼–å·"].as<int>();
         assert(battleStatus_.size() == id);
-        auto desc = PotConv::conv(bNode[u8"ÃèÊö"].as<std::string>(), "utf-8", "cp936");
+        auto desc = PotConv::conv(bNode[u8"æè¿°"].as<std::string>(), "utf-8", "cp936");
         
         int max = 100;
-        if (const auto& maxNode = bNode[u8"ÂúÖµ"]) {
+        if (const auto& maxNode = bNode[u8"æ»¡å€¼"]) {
             max = maxNode.as<int>();
         }
 
         int hide = false;
-        if (const auto& hideNode = bNode[u8"Òş²Ø"]) {
+        if (const auto& hideNode = bNode[u8"éšè—"]) {
             hide = hideNode.as<bool>();
         }
 
-        // Ä¬ÈÏ°×É«
+        // é»˜è®¤ç™½è‰²
         BP_Color c = { 255, 255, 255, 255 };
-        if (const auto& cNode = bNode[u8"ÑÕÉ«"]) {
+        if (const auto& cNode = bNode[u8"é¢œè‰²"]) {
             c = { (Uint8)cNode[0].as<int>(), (Uint8)cNode[1].as<int>(), (Uint8)cNode[2].as<int>(), 255 };
             if (cNode.size() >= 4) {
                 c.a = (Uint8)cNode[3].as<int>();
@@ -88,57 +88,57 @@ void BattleMod::BattleModifier::init()
         battleStatus_.emplace_back(id, max, descRef, hide, c);
     }
 
-    // ÒÔÏÂ¿ÉÒÔrefactor£¬TODO ¸Ä£¡£¡£¡
-    if (baseNode[u8"Îä¹¦"]) {
-        printf("number of wg %d\n", baseNode[u8"Îä¹¦"].size());
-        for (const auto& magicNode : baseNode[u8"Îä¹¦"]) {
-            int wid = magicNode[u8"Îä¹¦±àºÅ"].as<int>();
-            if (magicNode[u8"¹¥»÷"]) {
-                printf("number of atk %d\n", magicNode[u8"¹¥»÷"].size());
-                readIntoMapping(magicNode[u8"¹¥»÷"], atkMagic_[wid]);
+    // ä»¥ä¸‹å¯ä»¥refactorï¼ŒTODO æ”¹ï¼ï¼ï¼
+    if (baseNode[u8"æ­¦åŠŸ"]) {
+        printf("number of wg %d\n", baseNode[u8"æ­¦åŠŸ"].size());
+        for (const auto& magicNode : baseNode[u8"æ­¦åŠŸ"]) {
+            int wid = magicNode[u8"æ­¦åŠŸç¼–å·"].as<int>();
+            if (magicNode[u8"æ”»å‡»"]) {
+                printf("number of atk %d\n", magicNode[u8"æ”»å‡»"].size());
+                readIntoMapping(magicNode[u8"æ”»å‡»"], atkMagic_[wid]);
             }
-            if (magicNode[u8"·ÀÊØ"]) {
-                readIntoMapping(magicNode[u8"·ÀÊØ"], defMagic_[wid]);
+            if (magicNode[u8"é˜²å®ˆ"]) {
+                readIntoMapping(magicNode[u8"é˜²å®ˆ"], defMagic_[wid]);
             }
-            if (magicNode[u8"¼¯Æø"]) {
-                readIntoMapping(magicNode[u8"¼¯Æø"], speedMagic_[wid]);
+            if (magicNode[u8"é›†æ°”"]) {
+                readIntoMapping(magicNode[u8"é›†æ°”"], speedMagic_[wid]);
             }
-            if (magicNode[u8"»ØºÏ"]) {
-                readIntoMapping(magicNode[u8"»ØºÏ"], turnMagic_[wid]);
+            if (magicNode[u8"å›åˆ"]) {
+                readIntoMapping(magicNode[u8"å›åˆ"], turnMagic_[wid]);
             }
         }
     }
 
-    if (auto const& allNode = baseNode[u8"È«ÈËÎï"]) {
+    if (auto const& allNode = baseNode[u8"å…¨äººç‰©"]) {
         printf("size %d\n", allNode.size());
-        if (allNode[u8"¹¥»÷"]) {
-            readIntoMapping(allNode[u8"¹¥»÷"], atkAll_);
+        if (allNode[u8"æ”»å‡»"]) {
+            readIntoMapping(allNode[u8"æ”»å‡»"], atkAll_);
         }
-        if (allNode[u8"·ÀÊØ"]) {
-            readIntoMapping(allNode[u8"·ÀÊØ"], defAll_);
+        if (allNode[u8"é˜²å®ˆ"]) {
+            readIntoMapping(allNode[u8"é˜²å®ˆ"], defAll_);
         }
-        if (allNode[u8"¼¯Æø"]) {
-            readIntoMapping(allNode[u8"¼¯Æø"], speedAll_);
+        if (allNode[u8"é›†æ°”"]) {
+            readIntoMapping(allNode[u8"é›†æ°”"], speedAll_);
         }
-        if (allNode[u8"»ØºÏ"]) {
-            readIntoMapping(allNode[u8"»ØºÏ"], turnAll_);
+        if (allNode[u8"å›åˆ"]) {
+            readIntoMapping(allNode[u8"å›åˆ"], turnAll_);
         }
     }
 
-    if (baseNode[u8"ÈËÎï"]) {
-        for (const auto& personNode : baseNode[u8"ÈËÎï"]) {
-            int pid = personNode[u8"ÈËÎï±àºÅ"].as<int>();
-            if (personNode[u8"¹¥»÷"]) {
-                readIntoMapping(personNode[u8"¹¥»÷"], atkRole_[pid]);
+    if (baseNode[u8"äººç‰©"]) {
+        for (const auto& personNode : baseNode[u8"äººç‰©"]) {
+            int pid = personNode[u8"äººç‰©ç¼–å·"].as<int>();
+            if (personNode[u8"æ”»å‡»"]) {
+                readIntoMapping(personNode[u8"æ”»å‡»"], atkRole_[pid]);
             }
-            if (personNode[u8"·ÀÊØ"]) {
-                readIntoMapping(personNode[u8"·ÀÊØ"], defRole_[pid]);
+            if (personNode[u8"é˜²å®ˆ"]) {
+                readIntoMapping(personNode[u8"é˜²å®ˆ"], defRole_[pid]);
             }
-            if (personNode[u8"¼¯Æø"]) {
-                readIntoMapping(personNode[u8"¼¯Æø"], speedRole_[pid]);
+            if (personNode[u8"é›†æ°”"]) {
+                readIntoMapping(personNode[u8"é›†æ°”"], speedRole_[pid]);
             }
-            if (personNode[u8"»ØºÏ"]) {
-                readIntoMapping(personNode[u8"»ØºÏ"], turnRole_[pid]);
+            if (personNode[u8"å›åˆ"]) {
+                readIntoMapping(personNode[u8"å›åˆ"], turnRole_[pid]);
             }
         }
     }
@@ -155,20 +155,20 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             return v;
         };
     }
-    else if (node[u8"×´Ì¬"]) {
-        // Õâ¸ö¼òµ¥
-        int statusID = node[u8"×´Ì¬"].as<int>();
+    else if (node[u8"çŠ¶æ€"]) {
+        // è¿™ä¸ªç®€å•
+        int statusID = node[u8"çŠ¶æ€"].as<int>();
         f = [this, statusID](const Role* character, const Magic* wg) {
             if (character == nullptr) return 0;
             return battleStatusManager_[character->ID].getBattleStatusVal(statusID);
         };
     }
-    else if (const auto& varNode = node[u8"±äÁ¿"]) {
-        if (const auto& targetNode = varNode[u8"¶ÔÏó"]) {
+    else if (const auto& varNode = node[u8"å˜é‡"]) {
+        if (const auto& targetNode = varNode[u8"å¯¹è±¡"]) {
             target = static_cast<VarTarget>(targetNode.as<int>());
         }
-        int varID = varNode[u8"±àºÅ"].as<int>();
-        // °¦£¬Ìî¿Ó
+        int varID = varNode[u8"ç¼–å·"].as<int>();
+        // å”‰ï¼Œå¡«å‘
         enum class zzz {
             var_char_sex = 0,
             var_char_level = 1,
@@ -242,23 +242,23 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
         case zzz::var_char_iq: ATTR(IQ);
         case zzz::var_using_char: ATTR(ID);
         case zzz::var_books: {
-            // ÏÖÔÚMOD¶¼Ï²»¶ºÍÊé¹Ò¹³
-            // Ó²´úÂë£¬Ğ´Êé±¾id
-            // ´Ólua°æ±¾ÄÄÀï³­µÄ£¬id´Ó144¿ªÊ¼
-            // ºÜ¼¦ÔôµÄ¾ÍÊÇ ÎÒÕâÀïbooksÖ»ÓÃËãÒ»±é£¬ÒòÎªÕ½¶·ÆÚ¼ä²»¿ÉÄÜÌí¼ÓÌìÊé
+            // ç°åœ¨MODéƒ½å–œæ¬¢å’Œä¹¦æŒ‚é’©
+            // ç¡¬ä»£ç ï¼Œå†™ä¹¦æœ¬id
+            // ä»luaç‰ˆæœ¬å“ªé‡ŒæŠ„çš„ï¼Œidä»144å¼€å§‹
+            // å¾ˆé¸¡è´¼çš„å°±æ˜¯ æˆ‘è¿™é‡Œbooksåªç”¨ç®—ä¸€éï¼Œå› ä¸ºæˆ˜æ–—æœŸé—´ä¸å¯èƒ½æ·»åŠ å¤©ä¹¦
             int books = 0;
             for (int i = 144; i < 144 + 14; i++)
                 books += Save::getInstance()->getItemCountInBag(i);
             f = [books](const Role* c, const Magic* wg) {
-                // ½ö¶ÔÓÑ·½ÓĞĞ§£¡£¡
-                // Èç¹ûÒª¶ÔµĞ·½ÓĞĞ§£¬²»Èç¼Ó¸ö±äÁ¿id
+                // ä»…å¯¹å‹æ–¹æœ‰æ•ˆï¼ï¼
+                // å¦‚æœè¦å¯¹æ•Œæ–¹æœ‰æ•ˆï¼Œä¸å¦‚åŠ ä¸ªå˜é‡id
                 if (c->Team != 0) return 0;
                 return books;
             };
             break;
         }
         case zzz::var_cur_wg_level: {
-            // getMagicOfRoleIndex ²»ÊÇ¸öconst£¬ÎÒºÜ·³
+            // getMagicOfRoleIndex ä¸æ˜¯ä¸ªconstï¼Œæˆ‘å¾ˆçƒ¦
             f = [this](const Role* c, const Magic* wg) {
                 if (c == nullptr || wg == nullptr) return 0;
                 for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
@@ -273,8 +273,8 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             break;
         }
         case zzz::var_wg_level: {
-            // ¶ÁÈ¡¶îÍâ²ÎÊı
-            int wgID = varNode[u8"²ÎÊı"].as<int>();
+            // è¯»å–é¢å¤–å‚æ•°
+            int wgID = varNode[u8"å‚æ•°"].as<int>();
             f = [this, wgID](const Role* c, const Magic* wg) {
                 if (c == nullptr) return 0;
                 for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
@@ -289,18 +289,18 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             break;
         }
         case zzz::var_count_item: {
-            int itemID = varNode[u8"²ÎÊı"].as<int>();
+            int itemID = varNode[u8"å‚æ•°"].as<int>();
             int num = Save::getInstance()->getItemCountInBag(itemID);
             f = [num](const Role* c, const Magic* wg) {
-                // ½ö¶ÔÓÑ·½ÓĞĞ§£¡£¡
-                // Èç¹ûÒª¶ÔµĞ·½ÓĞĞ§£¬²»Èç¼Ó¸ö±äÁ¿id
+                // ä»…å¯¹å‹æ–¹æœ‰æ•ˆï¼ï¼
+                // å¦‚æœè¦å¯¹æ•Œæ–¹æœ‰æ•ˆï¼Œä¸å¦‚åŠ ä¸ªå˜é‡id
                 if (c->Team != 0) return 0;
                 return num;
             };
             break;
         }
         case zzz::var_has_wg: {
-            const auto& paramNode = varNode[u8"²ÎÊı"];
+            const auto& paramNode = varNode[u8"å‚æ•°"];
             std::unordered_set<int> ids;
             if (paramNode.IsScalar()) {
                 ids.insert(paramNode.as<int>());
@@ -332,7 +332,7 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             break;
         }
         case zzz::var_is_person: {
-            int pid = varNode[u8"²ÎÊı"].as<int>();
+            int pid = varNode[u8"å‚æ•°"].as<int>();
             f = [this, pid](const Role* c, const Magic* wg) {
                 if (c == nullptr) return 0;
                 if (c->ID == pid) return 1;
@@ -341,7 +341,7 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
             break;
         }
         case zzz::var_has_status: {
-            const auto& paramNode = varNode[u8"²ÎÊı"];
+            const auto& paramNode = varNode[u8"å‚æ•°"];
             int statusID = paramNode[0].as<int>();
             int val = paramNode[1].as<int>();
             f = [this, statusID, val](const Role* c, const Magic* wg) {
@@ -355,10 +355,10 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
         case zzz::var_wg_power: {
             f = [this](const Role* c, const Magic* wg) {
                 if (c == nullptr || wg == nullptr) return 0;
-                // ÎÊÊÀ¼ä£¬ÎÒÓÃÁËconst ËûÃ»ÓĞ
+                // é—®ä¸–é—´ï¼Œæˆ‘ç”¨äº†const ä»–æ²¡æœ‰
                 Role* cc = const_cast<Role*>(c);
                 Magic* mm = const_cast<Magic*>(wg);
-                // »òÕß¿¿id×ß Save:: Ò²¿ÉÒÔ
+                // æˆ–è€…é idèµ° Save:: ä¹Ÿå¯ä»¥
                 int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(cc, mm);
                 level_index = mm->calMaxLevelIndexByMP(cc->MP, level_index);
                 return mm->Attack[level_index];
@@ -378,8 +378,8 @@ Variable BattleMod::BattleModifier::readVariable(const YAML::Node & node)
 std::unique_ptr<Adder> BattleMod::BattleModifier::readAdder(const YAML::Node & node)
 {
     std::unique_ptr<Adder> adder;
-    if (const auto& randNode = node[u8"Ëæ»ú"]) {
-        const auto& rangeNode = randNode[u8"·¶Î§"];
+    if (const auto& randNode = node[u8"éšæœº"]) {
+        const auto& rangeNode = randNode[u8"èŒƒå›´"];
         if (rangeNode.IsSequence()) {
             std::vector<int> range;
             for (const auto& n : rangeNode) {
@@ -388,14 +388,14 @@ std::unique_ptr<Adder> BattleMod::BattleModifier::readAdder(const YAML::Node & n
             adder = std::make_unique<RandomAdder>(std::move(range));
         }
         else {
-            // ÎÒÍ»È»·´Ó¦¹ıÀ´Õâ¸öÒ²¿ÉÒÔÊÇvariable TODO ¸Ä³É¶Ávariable
-            int min = rangeNode[u8"×îĞ¡"].as<int>();
-            int max = rangeNode[u8"×î´ó"].as<int>();
+            // æˆ‘çªç„¶ååº”è¿‡æ¥è¿™ä¸ªä¹Ÿå¯ä»¥æ˜¯variable TODO æ”¹æˆè¯»variable
+            int min = rangeNode[u8"æœ€å°"].as<int>();
+            int max = rangeNode[u8"æœ€å¤§"].as<int>();
             adder = std::make_unique<RandomAdder>(min, max);
         }
     }
-    else if (const auto& linearNode = node[u8"ÏßĞÔ"]) {
-        adder = std::make_unique<LinearAdder>(linearNode[u8"ÏµÊı"].as<double>(), readVariable(linearNode));
+    else if (const auto& linearNode = node[u8"çº¿æ€§"]) {
+        adder = std::make_unique<LinearAdder>(linearNode[u8"ç³»æ•°"].as<double>(), readVariable(linearNode));
     }
     return adder;
 }
@@ -405,9 +405,9 @@ VariableParam BattleMod::BattleModifier::readVariableParam(const YAML::Node & no
     if (node.IsScalar()) {
         return VariableParam(node.as<int>());
     }
-    const auto& pNode = node[u8"¿É±ä²ÎÊı"];
-    VariableParam vp(pNode[u8"»ù´¡"].as<int>());
-    if (const auto& adders = pNode[u8"¼Ó³É"]) {
+    const auto& pNode = node[u8"å¯å˜å‚æ•°"];
+    VariableParam vp(pNode[u8"åŸºç¡€"].as<int>());
+    if (const auto& adders = pNode[u8"åŠ æˆ"]) {
         for (const auto& adder : adders) {
             vp.addAdder(readAdder(adder));
         }
@@ -418,7 +418,7 @@ VariableParam BattleMod::BattleModifier::readVariableParam(const YAML::Node & no
 Conditions BattleMod::BattleModifier::readConditions(const YAML::Node & node)
 {
     Conditions conditions;
-    const auto& condNode = node[u8"Ìõ¼ş"];
+    const auto& condNode = node[u8"æ¡ä»¶"];
     for (const auto& cond : condNode) {
         conditions.push_back(std::move(readCondition(cond)));
     }
@@ -427,11 +427,11 @@ Conditions BattleMod::BattleModifier::readConditions(const YAML::Node & node)
 
 Condition BattleMod::BattleModifier::readCondition(const YAML::Node & node)
 {
-    const auto& condNode = node[u8"Ìõ¼ş"];
+    const auto& condNode = node[u8"æ¡ä»¶"];
     printf("%d\n", node.size());
-    Variable lhs = readVariable(node[u8"×ó±ß"]);
-    Variable rhs = readVariable(node[u8"ÓÒ±ß"]);
-    ConditionOp opID = static_cast<ConditionOp>(node[u8"¶Ô±È"].as<int>());
+    Variable lhs = readVariable(node[u8"å·¦è¾¹"]);
+    Variable rhs = readVariable(node[u8"å³è¾¹"]);
+    ConditionOp opID = static_cast<ConditionOp>(node[u8"å¯¹æ¯”"].as<int>());
     std::function<bool(int, int)> op;
     switch (opID) {
     case ConditionOp::equal : op = std::equal_to<int>(); break;
@@ -442,21 +442,21 @@ Condition BattleMod::BattleModifier::readCondition(const YAML::Node & node)
 }
 
 EffectParamPair BattleModifier::readEffectParamPair(const YAML::Node& node) {
-    int id = node[u8"±àºÅ"].as<int>();
-    auto display = PotConv::conv(node[u8"ÏÔÊ¾"].as<std::string>(), "utf-8", "cp936");
+    int id = node[u8"ç¼–å·"].as<int>();
+    auto display = PotConv::conv(node[u8"æ˜¾ç¤º"].as<std::string>(), "utf-8", "cp936");
     std::reference_wrapper<std::string> displayRef(strPool_.front());
     if (!display.empty()) {
         strPool_.push_back(display);
         displayRef = strPool_.back();
     }
-    printf("¶ÁÈë %d %s\n", id, displayRef.get().c_str());
-    // ÕâÀïĞ§¹û²ÎÊıÒÔºóÒª¿ÉÅäÖÃ
+    printf("è¯»å…¥ %d %s\n", id, displayRef.get().c_str());
+    // è¿™é‡Œæ•ˆæœå‚æ•°ä»¥åè¦å¯é…ç½®
     EffectParamPair epp(effects_[id], displayRef);
-    if (node[u8"Ğ§¹û²ÎÊı"].IsScalar() || node[u8"Ğ§¹û²ÎÊı"].IsMap()) {
-        epp.addParam(readVariableParam(node[u8"Ğ§¹û²ÎÊı"]));
+    if (node[u8"æ•ˆæœå‚æ•°"].IsScalar() || node[u8"æ•ˆæœå‚æ•°"].IsMap()) {
+        epp.addParam(readVariableParam(node[u8"æ•ˆæœå‚æ•°"]));
     }
     else {
-        for (const auto& param : node[u8"Ğ§¹û²ÎÊı"]) {
+        for (const auto& param : node[u8"æ•ˆæœå‚æ•°"]) {
             epp.addParam(readVariableParam(param));
         }
     }
@@ -479,39 +479,39 @@ std::vector<EffectParamPair> BattleModifier::readEffectParamPairs(const YAML::No
 
 
 std::unique_ptr<ProccableEffect> BattleModifier::readProccableEffect(const YAML::Node& node) {
-    int probType = node[u8"·¢¶¯·½Ê½"].as<int>();
+    int probType = node[u8"å‘åŠ¨æ–¹å¼"].as<int>();
     ProcProbability prob = static_cast<ProcProbability>(probType);
     std::unique_ptr<ProccableEffect> pe;
     switch (prob) {
     case ProcProbability::random: {
-        pe = std::make_unique<EffectSingle>(readVariableParam(node[u8"·¢¶¯²ÎÊı"]), readEffectParamPairs(node[u8"ÌØĞ§"]));
+        pe = std::make_unique<EffectSingle>(readVariableParam(node[u8"å‘åŠ¨å‚æ•°"]), readEffectParamPairs(node[u8"ç‰¹æ•ˆ"]));
         break;
     }
     case ProcProbability::distributed: {
-        auto group = std::make_unique<EffectWeightedGroup>(readVariableParam(node[u8"×Ü±ÈÖØ"]));
-        for (const auto& eNode : node[u8"ÌØĞ§"]) {
-            group->addProbEPP(readVariableParam(eNode[u8"·¢¶¯²ÎÊı"]), readEffectParamPair(eNode));
+        auto group = std::make_unique<EffectWeightedGroup>(readVariableParam(node[u8"æ€»æ¯”é‡"]));
+        for (const auto& eNode : node[u8"ç‰¹æ•ˆ"]) {
+            group->addProbEPP(readVariableParam(eNode[u8"å‘åŠ¨å‚æ•°"]), readEffectParamPair(eNode));
         }
         pe = std::move(group);
         break;
     }
     case ProcProbability::prioritized: {
         auto group = std::make_unique<EffectPrioritizedGroup>();
-        for (const auto& eNode : node[u8"ÌØĞ§"]) {
-            group->addProbEPP(readVariableParam(eNode[u8"·¢¶¯²ÎÊı"]), readEffectParamPair(eNode));
+        for (const auto& eNode : node[u8"ç‰¹æ•ˆ"]) {
+            group->addProbEPP(readVariableParam(eNode[u8"å‘åŠ¨å‚æ•°"]), readEffectParamPair(eNode));
         }
         pe = std::move(group);
         break;
     }
     case ProcProbability::counter: {
-        pe = std::make_unique<EffectCounter>(readVariableParam(node[u8"¼ÆÊı"]), 
-                                             readVariableParam(node[u8"·¢¶¯²ÎÊı"]), 
-                                             readEffectParamPairs(node[u8"ÌØĞ§"]));
+        pe = std::make_unique<EffectCounter>(readVariableParam(node[u8"è®¡æ•°"]), 
+                                             readVariableParam(node[u8"å‘åŠ¨å‚æ•°"]), 
+                                             readEffectParamPairs(node[u8"ç‰¹æ•ˆ"]));
         break;
     }
     }
     if (pe) {
-        if (const auto& reqNode = node[u8"ĞèÇó"]) {
+        if (const auto& reqNode = node[u8"éœ€æ±‚"]) {
             for (const auto& condNode : reqNode) {
                 pe->addConditions(readConditions(condNode));
             }
@@ -540,14 +540,14 @@ std::vector<EffectIntsPair> BattleMod::BattleModifier::tryProcAndAddToManager(co
     return procd;
 }
 
-// ÔÙ¸´ÖÆEffectIntsPair£¬²»¹ıÎÒ¾õµÃ¸´ÖÆÕâÍæÒâ¶ù²»¹ó
+// å†å¤åˆ¶EffectIntsPairï¼Œä¸è¿‡æˆ‘è§‰å¾—å¤åˆ¶è¿™ç©æ„å„¿ä¸è´µ
 std::vector<EffectIntsPair> BattleMod::BattleModifier::tryProcAndAddToManager(int id, const EffectsTable & table, EffectManager & manager, 
                                                                               const Role * attacker, const Role * defender, const Magic * wg)
 {
     std::vector<EffectIntsPair> procd;
     auto iter = table.find(id);
     if (iter != table.end()) {
-        // TODO ÓÃÉÏÃæÄÇ¸ö
+        // TODO ç”¨ä¸Šé¢é‚£ä¸ª
         for (const auto& effect : iter->second) {
             auto epps = effect->proc(attacker, defender, wg);
             for (const auto& epp : epps) {
@@ -578,16 +578,16 @@ void BattleMod::BattleModifier::actUseMagic(Role * r)
         if (magic == nullptr)
         {
             break;
-        }    //¿ÉÄÜÊÇÍË³öÓÎÏ·£¬»òÕßÊÇÃ»ÓĞÑ¡Îä¹¦
+        }    //å¯èƒ½æ˜¯é€€å‡ºæ¸¸æˆï¼Œæˆ–è€…æ˜¯æ²¡æœ‰é€‰æ­¦åŠŸ
         r->ActTeam = 1;
-        //level_index±íÊ¾´Ó0µ½9£¬¶ølevel´Ó0µ½999
+        //level_indexè¡¨ç¤ºä»0åˆ°9ï¼Œè€Œlevelä»0åˆ°999
         int level_index = r->getMagicLevelIndex(magic->ID);
         calSelectLayerByMagic(r->X(), r->Y(), r->Team, magic, level_index);
-        //Ñ¡ÔñÄ¿±ê
+        //é€‰æ‹©ç›®æ ‡
         battle_cursor_->setMode(BattleCursor::Action);
         battle_cursor_->setRoleAndMagic(r, magic, level_index);
         int selected = battle_cursor_->run();
-        //È¡ÏûÑ¡ÔñÄ¿±êÔòÖØĞÂ½øÈëÑ¡Îä¹¦
+        //å–æ¶ˆé€‰æ‹©ç›®æ ‡åˆ™é‡æ–°è¿›å…¥é€‰æ­¦åŠŸ
         if (selected < 0)
         {
             continue;
@@ -604,7 +604,7 @@ void BattleMod::BattleModifier::actUseMagic(Role * r)
 void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
 {
     int level_index = r->getMagicLevelIndex(magic->ID);
-    // Á¬»÷µÄÅĞ¶ÏÎÒÒª¸ÄµÄ
+    // è¿å‡»çš„åˆ¤æ–­æˆ‘è¦æ”¹çš„
     multiAtk_ = 0;
     for (int i = 0; i <= multiAtk_; i++)
     {
@@ -618,16 +618,16 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
         for (auto r2 : battle_roles_) {
             if (r2 != r) {
                 r2->Effect = 6;
-                r2->addShowString("°¡»úÆ÷Ã¨¼¼ÊõµÛ", { 255, 20, 20, 255 });
-                r2->addShowString("ÀÍ×ÊÎŞµĞ", { 160, 32, 240, 255 });
-                r2->addShowString("·ÏÎï");
+                r2->addShowString("å•Šæœºå™¨çŒ«æŠ€æœ¯å¸", { 255, 20, 20, 255 });
+                r2->addShowString("åŠ³èµ„æ— æ•Œ", { 160, 32, 240, 255 });
+                r2->addShowString("åºŸç‰©");
             }
         }
 
-        // Ó¦¸ÃÏÈ»¤Ìå£¬²»ÏÔÊ¾ÉËº¦
+        // åº”è¯¥å…ˆæŠ¤ä½“ï¼Œä¸æ˜¾ç¤ºä¼¤å®³
         showNumberAnimation(2, false);
 
-        // È»ºóÏÔÊ¾ÉËº¦
+        // ç„¶åæ˜¾ç¤ºä¼¤å®³
         for (auto r2 : battle_roles_) {
             if (r2->BattleHurt != 0) {
                 if (magic->HurtType == 0)
@@ -642,9 +642,9 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
             r2->BattleHurt = 0;
         }
 
-        // ÔÙÀ´¸ãÒ»²¨×´Ì¬
+        // å†æ¥æä¸€æ³¢çŠ¶æ€
         for (auto r2 : battle_roles_) {
-            // ÕâÀïÏÈ¶¼ÈÓ½øÈ¥£¬ÉËº¦½áËãÍêÁËËã×´Ì¬£¬±ïËãÁË
+            // è¿™é‡Œå…ˆéƒ½æ‰”è¿›å»ï¼Œä¼¤å®³ç»“ç®—å®Œäº†ç®—çŠ¶æ€ï¼Œæ†‹ç®—äº†
             auto result = battleStatusManager_[r2->ID].materialize();
             for (auto const& p : result) {
                 if (!p.first.hide)
@@ -653,7 +653,7 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
         }
         showNumberAnimation(3);
 
-        //ÎäÑ§µÈ¼¶Ôö¼Ó
+        //æ­¦å­¦ç­‰çº§å¢åŠ 
         auto index = r->getMagicOfRoleIndex(magic);
         if (index >= 0)
         {
@@ -665,43 +665,43 @@ void BattleMod::BattleModifier::useMagic(Role * r, Magic * magic)
     r->Acted = 1;
 }
 
-//r1Ê¹ÓÃÎä¹¦magic¹¥»÷r2µÄÉËº¦£¬½á¹ûÎªÒ»ÕıÊı
+//r1ä½¿ç”¨æ­¦åŠŸmagicæ”»å‡»r2çš„ä¼¤å®³ï¼Œç»“æœä¸ºä¸€æ­£æ•°
 int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 {
-    // simulationµÄ»°ÈÆ¹ıÈ¥£¬²»ÓÃ
+    // simulationçš„è¯ç»•è¿‡å»ï¼Œä¸ç”¨
     if (simulation_)
         return BattleScene::calMagicHurt(r1, r2, magic);
 
     assert(defEffectManager_.size() == 0);
     
-    // ÕâÀï¿¼ÂÇÔõÃ´¼ÓÈëÏÔÊ¾Ğ§¹û
-    // ÏÈ¼ÓÈë·ÀÊØ·½ÌØĞ§£¬×¢Òâr2ÏÈÀ´£¬ÆäÊµÕâÀï´«µİmagicÒ²ĞĞ£¬Ğ§¹û²»Ã÷¾ÍÊÇµÄ
+    // è¿™é‡Œè€ƒè™‘æ€ä¹ˆåŠ å…¥æ˜¾ç¤ºæ•ˆæœ
+    // å…ˆåŠ å…¥é˜²å®ˆæ–¹ç‰¹æ•ˆï¼Œæ³¨æ„r2å…ˆæ¥ï¼Œå…¶å®è¿™é‡Œä¼ é€’magicä¹Ÿè¡Œï¼Œæ•ˆæœä¸æ˜å°±æ˜¯çš„
     tryProcAndAddToManager(r2->ID, defRole_, defEffectManager_, r2, r1, nullptr);
     
-    // ÔÙ¼ÓÈë°¤´òÕßµÄÎä¹¦±»¶¯ÌØĞ§
+    // å†åŠ å…¥æŒ¨æ‰“è€…çš„æ­¦åŠŸè¢«åŠ¨ç‰¹æ•ˆ
     for (int i = 0; i < r2->getLearnedMagicCount(); i++) {
         tryProcAndAddToManager(r2->MagicID[i], defMagic_, defEffectManager_, r2, r1, Save::getInstance()->getMagic(r2->MagicID[i]));
     }
 
     tryProcAndAddToManager(defAll_, defEffectManager_, r2, r1, magic);
 
-    // Ç¿ÖÆÌØĞ§Ö±½ÓÅĞ¶Ï
-    // ÌØĞ§8 9
-    // 8 ¹¥»÷·½µÄµĞÈËµÄ
+    // å¼ºåˆ¶ç‰¹æ•ˆç›´æ¥åˆ¤æ–­
+    // ç‰¹æ•ˆ8 9
+    // 8 æ”»å‡»æ–¹çš„æ•Œäººçš„
     setStatusFromParams(atkEffectManager_.getAllEffectParams(8), r2);
-    // 9 ¹¥»÷·½×Ô¼º
+    // 9 æ”»å‡»æ–¹è‡ªå·±
     applyStatusFromParams(atkEffectManager_.getAllEffectParams(9), r1);
-    // È»ºóµ¹¹ıÀ´ 8 ·ÀÓù·½µÄµĞÈË
+    // ç„¶åå€’è¿‡æ¥ 8 é˜²å¾¡æ–¹çš„æ•Œäºº
     applyStatusFromParams(defEffectManager_.getAllEffectParams(8), r1);
-    // 9 ·ÀÓù·½×Ô¼º
+    // 9 é˜²å¾¡æ–¹è‡ªå·±
     applyStatusFromParams(defEffectManager_.getAllEffectParams(9), r2);
 
-    // ¼¯ÆøÉËº¦£¬ÕıÊı´ú±í¼¯ÆøÌõºóÍË
+    // é›†æ°”ä¼¤å®³ï¼Œæ­£æ•°ä»£è¡¨é›†æ°”æ¡åé€€
     int progressHurt = 0;
 
-    // ÌØĞ§1 Æø¹¥
+    // ç‰¹æ•ˆ1 æ°”æ”»
     progressHurt += atkEffectManager_.getEffectParam0(1);
-    // ÌØĞ§2 »¤Ìå
+    // ç‰¹æ•ˆ2 æŠ¤ä½“
     progressHurt -= defEffectManager_.getEffectParam0(2);
 
 
@@ -715,12 +715,12 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
             return 1 + rand_.rand_int(10);
         }
 
-        // ÌØĞ§0 Îä¹¦ÍşÁ¦Ôö¼Ó£¬ÆäÊµ·ÀÓù·½Ò²¿ÉÒÔ
+        // ç‰¹æ•ˆ0 æ­¦åŠŸå¨åŠ›å¢åŠ ï¼Œå…¶å®é˜²å¾¡æ–¹ä¹Ÿå¯ä»¥
         int attack = r1->Attack + (magic->Attack[level_index]+ atkEffectManager_.getEffectParam0(0)) / 4;
 
         int defence = r2->Defence;
 
-        //×°±¸µÄĞ§¹û
+        //è£…å¤‡çš„æ•ˆæœ
         if (r1->Equip0 >= 0)
         {
             auto i = Save::getInstance()->getItem(r1->Equip0);
@@ -743,24 +743,24 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         }
 
         int v = attack - defence;
-        //¾àÀëË¥¼õ
-        //Õâ¸öÎÒÓ¦¸ÃÒ²½ÓÊÖÁË..
-        //Ë¼¿¼£¬ÔõÃ´¸Ä£¬ÔõÃ´°ÑcalRoleDistance¸ã³ÉÒ»¸ö±äÁ¿£¬ĞŞ¸Ä±äÁ¿º¯ÊıÖ¸ÕëÇ©ÃûÁËÖ»ÓĞ
+        //è·ç¦»è¡°å‡
+        //è¿™ä¸ªæˆ‘åº”è¯¥ä¹Ÿæ¥æ‰‹äº†..
+        //æ€è€ƒï¼Œæ€ä¹ˆæ”¹ï¼Œæ€ä¹ˆæŠŠcalRoleDistanceææˆä¸€ä¸ªå˜é‡ï¼Œä¿®æ”¹å˜é‡å‡½æ•°æŒ‡é’ˆç­¾åäº†åªæœ‰
         int dis = calRoleDistance(r1, r2);
         v = v / exp((dis - 1) / 10);
 
         v += rand_.rand_int(10) - rand_.rand_int(10);
 
-        // ÌØĞ§4 ±©»÷
+        // ç‰¹æ•ˆ4 æš´å‡»
         double amplify = 100;
         amplify += atkEffectManager_.getEffectParam0(4);
         amplify += defEffectManager_.getEffectParam0(4);
         v = int(v * (amplify / 100));
 
-        // ÌØĞ§5 Ö±½Ó¼ÓÉËº¦
+        // ç‰¹æ•ˆ5 ç›´æ¥åŠ ä¼¤å®³
         v += atkEffectManager_.getEffectParam0(5) + defEffectManager_.getEffectParam0(5);
 
-        // Õâ¸ö²»¹Ü
+        // è¿™ä¸ªä¸ç®¡
         if (v < 10)
         {
             v = 1 + rand_.rand_int(10);
@@ -778,21 +778,21 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
         hurt = v;
     }
 
-    // ÌØĞ§12 ·ÀÓù·½¼Ó¼õ¼¯Æø£¨ÎŞÊÓÆø·À Æø¹¥£©
+    // ç‰¹æ•ˆ12 é˜²å¾¡æ–¹åŠ å‡é›†æ°”ï¼ˆæ— è§†æ°”é˜² æ°”æ”»ï¼‰
     r2->ProgressChange += defEffectManager_.getEffectParam0(12);
 
-    // ÌØĞ§6£¬ÌØĞ§7 ÉÏ×´Ì¬
-    // ¼º·½ÊÓ½Ç
+    // ç‰¹æ•ˆ6ï¼Œç‰¹æ•ˆ7 ä¸ŠçŠ¶æ€
+    // å·±æ–¹è§†è§’
     applyStatusFromParams(atkEffectManager_.getAllEffectParams(6), r2);
     applyStatusFromParams(atkEffectManager_.getAllEffectParams(7), r1);
-    // È»ºóµ¹¹ıÀ´
+    // ç„¶åå€’è¿‡æ¥
     applyStatusFromParams(defEffectManager_.getAllEffectParams(7), r2);
     applyStatusFromParams(defEffectManager_.getAllEffectParams(6), r1);
 
-    // ²»Ôö¼Ó£¬Ö»»¤Ìå
+    // ä¸å¢åŠ ï¼ŒåªæŠ¤ä½“
     if (progressHurt > 0) {
         r2->ProgressChange -= progressHurt;
-        printf("¼¯Æø±ä»¯%d\n", r2->ProgressChange);
+        printf("é›†æ°”å˜åŒ–%d\n", r2->ProgressChange);
     }
     defEffectManager_.clear();
     return hurt;
@@ -800,10 +800,10 @@ int BattleModifier::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 
 int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 {
-    // simulationÎÒ¾Í¼Ù×°²»ÖªµÀ£¬ºÙºÙ
-    // ÕâÀïÔ­´úÂë²»ÖØ¹¹Ò»ÏÂ£¬ÄÑ¸ã
-    // ÎÒÍüÁËBattleSceneÊÇ»áÓÃË­µÄcalMagicHurt
-    // Ó¦¸Ã»¹ÊÇoverrideºóµÄ£¬¼Ó¸ösimulation_ÈÆ¹ıÈ¥¡£¡£
+    // simulationæˆ‘å°±å‡è£…ä¸çŸ¥é“ï¼Œå˜¿å˜¿
+    // è¿™é‡ŒåŸä»£ç ä¸é‡æ„ä¸€ä¸‹ï¼Œéš¾æ
+    // æˆ‘å¿˜äº†BattleSceneæ˜¯ä¼šç”¨è°çš„calMagicHurt
+    // åº”è¯¥è¿˜æ˜¯overrideåçš„ï¼ŒåŠ ä¸ªsimulation_ç»•è¿‡å»ã€‚ã€‚
     if (simulation) {
         simulation_ = true;
         return BattleScene::calMagiclHurtAllEnemies(r, m, true);
@@ -814,8 +814,8 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 
     assert(atkEffectManager_.size() == 0);
 
-    // ´¥·¢£¬±»¶¯¹¥»÷ÌØĞ§£¬ÕâÀï±»¶¯Ò²ÊÇÃ¿´Î¹¥»÷ÔÙÅĞ¶ÏÒ»´Î
-    // ÎÒÍüÁËÎªÊ²Ã´°Ñ±»¶¯¹¥»÷Ğ§¹û¸øÈ¡ÏûÁË¡£¡£¡£Å¶£¬ºÃÏñÊÇÌí¼Óµ½È«ÈËÎï¹¥»÷ÀïÃæ°´ĞèÇóÅĞ¶ÏÁË
+    // è§¦å‘ï¼Œè¢«åŠ¨æ”»å‡»ç‰¹æ•ˆï¼Œè¿™é‡Œè¢«åŠ¨ä¹Ÿæ˜¯æ¯æ¬¡æ”»å‡»å†åˆ¤æ–­ä¸€æ¬¡
+    // æˆ‘å¿˜äº†ä¸ºä»€ä¹ˆæŠŠè¢«åŠ¨æ”»å‡»æ•ˆæœç»™å–æ¶ˆäº†ã€‚ã€‚ã€‚å“¦ï¼Œå¥½åƒæ˜¯æ·»åŠ åˆ°å…¨äººç‰©æ”»å‡»é‡Œé¢æŒ‰éœ€æ±‚åˆ¤æ–­äº†
     /*
     for (int i = 0; i < r->getLearnedMagicCount(); i++) {
         tryProcAndAddToManager(r->MagicID[i], atkMagic_, atkEffectManager_);
@@ -825,22 +825,22 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
     std::vector<std::reference_wrapper<const std::string>> names;
     std::string mName(m->Name);
     names.push_back(mName);
-    // Ì§ÊÖÊ±£¬´¥·¢¹¥»÷ÌØĞ§
+    // æŠ¬æ‰‹æ—¶ï¼Œè§¦å‘æ”»å‡»ç‰¹æ•ˆ
     auto effects = tryProcAndAddToManager(m->ID, atkMagic_, atkEffectManager_, r, nullptr, m);
-    // ¼òµ¥µÄ×ö¸öÏÔÊ¾~ TODO ĞŞºÃËü
+    // ç®€å•çš„åšä¸ªæ˜¾ç¤º~ TODO ä¿®å¥½å®ƒ
     for (const auto& effect : effects) {
         if (!effect.description.empty())
             names.push_back(std::cref(effect.description));
     }
 
-    // ÔÙÌí¼ÓÈËÎï×ÔÉíµÄ¹¥»÷ÌØĞ§
+    // å†æ·»åŠ äººç‰©è‡ªèº«çš„æ”»å‡»ç‰¹æ•ˆ
     effects = tryProcAndAddToManager(r->ID, atkRole_, atkEffectManager_, r, nullptr, m);
     for (const auto& effect : effects) {
         if (!effect.description.empty())
             names.push_back(std::cref(effect.description));
     }
 
-    // ËùÓĞÈËÎïµÄ
+    // æ‰€æœ‰äººç‰©çš„
     effects = tryProcAndAddToManager(atkAll_, atkEffectManager_, r, nullptr, m);
     for (const auto& effect : effects) {
         if (!effect.description.empty())
@@ -849,13 +849,13 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 
     showMagicNames(names);
 
-    // ÌØĞ§11 Á¬»÷, ²»¿ØÖÆ¾ÍÊÇÎŞÏŞÁ¬
+    // ç‰¹æ•ˆ11 è¿å‡», ä¸æ§åˆ¶å°±æ˜¯æ— é™è¿
     multiAtk_ += atkEffectManager_.getEffectParam0(11);
 
     int total = 0;
     for (auto r2 : battle_roles_)
     {
-        //·ÇÎÒ·½ÇÒ±»»÷ÖĞ£¨¼´ËùÔÚÎ»ÖÃµÄĞ§¹û²ã·Ç¸º£©
+        //éæˆ‘æ–¹ä¸”è¢«å‡»ä¸­ï¼ˆå³æ‰€åœ¨ä½ç½®çš„æ•ˆæœå±‚éè´Ÿï¼‰
         if (r2->Team != r->Team && haveEffect(r2->X(), r2->Y()))
         {
             r2->BattleHurt = calMagicHurt(r, r2, m);
@@ -884,11 +884,11 @@ int BattleModifier::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
         }
     }
     
-    // ÎÒĞèÒªºÃºÃÏëÒ»ÏëÏÔÊ¾Ğ§¹ûÔõÃ´×ö
-    // ÌØĞ§12 ¼Ó¼¯Æø
+    // æˆ‘éœ€è¦å¥½å¥½æƒ³ä¸€æƒ³æ˜¾ç¤ºæ•ˆæœæ€ä¹ˆåš
+    // ç‰¹æ•ˆ12 åŠ é›†æ°”
     r->ProgressChange += atkEffectManager_.getEffectParam0(12);
 
-    // ´òÍêÁË£¬Çå¿Õ¹¥»÷Ğ§¹û
+    // æ‰“å®Œäº†ï¼Œæ¸…ç©ºæ”»å‡»æ•ˆæœ
     atkEffectManager_.clear();
     return total;
 }
@@ -903,10 +903,10 @@ void BattleModifier::dealEvent(BP_Event& e)
     Role* role = nullptr;
     if (semi_real_ == 0)
     {
-        //Ñ¡ÔñÎ»ÓÚÈËÎïÊı×éÖĞµÄµÚÒ»¸öÈË
+        //é€‰æ‹©ä½äºäººç‰©æ•°ç»„ä¸­çš„ç¬¬ä¸€ä¸ªäºº
         role = battle_roles_[0];
 
-        //ÈôµÚÒ»¸öÈËÒÑ¾­ĞĞ¶¯¹ı£¬ËµÃ÷ËùÓĞÈË¶¼ĞĞ¶¯ÁË£¬ÔòÇå³ıĞĞ¶¯×´Ì¬£¬ÖØÅÅÈËÎï
+        //è‹¥ç¬¬ä¸€ä¸ªäººå·²ç»è¡ŒåŠ¨è¿‡ï¼Œè¯´æ˜æ‰€æœ‰äººéƒ½è¡ŒåŠ¨äº†ï¼Œåˆ™æ¸…é™¤è¡ŒåŠ¨çŠ¶æ€ï¼Œé‡æ’äººç‰©
         if (role->Acted != 0)
         {
             resetRolesAct();
@@ -922,7 +922,7 @@ void BattleModifier::dealEvent(BP_Event& e)
 
     acting_role_ = role;
 
-    //¶¨Î»
+    //å®šä½
     man_x_ = role->X();
     man_y_ = role->Y();
     select_x_ = role->X();
@@ -930,27 +930,27 @@ void BattleModifier::dealEvent(BP_Event& e)
     head_self_->setRole(role);
     head_self_->setState(Element::Pass);
 
-    //ĞĞ¶¯
+    //è¡ŒåŠ¨
     action(role);
 
-    //Èç¹û´ËÈË³É¹¦ĞĞ¶¯¹ı£¬Ôò·Åµ½¶ÓÎ²
+    //å¦‚æœæ­¤äººæˆåŠŸè¡ŒåŠ¨è¿‡ï¼Œåˆ™æ”¾åˆ°é˜Ÿå°¾
     if (role->Acted)
     {
-        // ĞĞ¶¯ºóÔÚÕâÀï²Ù×÷
-        // Îä¹¦±»¶¯ĞĞ¶¯ÌØĞ§
+        // è¡ŒåŠ¨ååœ¨è¿™é‡Œæ“ä½œ
+        // æ­¦åŠŸè¢«åŠ¨è¡ŒåŠ¨ç‰¹æ•ˆ
         for (int i = 0; i < role->getLearnedMagicCount(); i++) {
             tryProcAndAddToManager(role->MagicID[i], turnMagic_, turnEffectManager_, role, nullptr, Save::getInstance()->getMagic(role->MagicID[i]));
         }
         tryProcAndAddToManager(role->ID, turnRole_, turnEffectManager_, role, nullptr, nullptr);
         tryProcAndAddToManager(turnAll_, turnEffectManager_, role, nullptr, nullptr);
 
-        // ÌØĞ§9 Ç¿ÖÆ
+        // ç‰¹æ•ˆ9 å¼ºåˆ¶
         setStatusFromParams(speedEffectManager_.getAllEffectParams(9), role);
 
-        // ÌØĞ§7 ÉÏ×´Ì¬
+        // ç‰¹æ•ˆ7 ä¸ŠçŠ¶æ€
         applyStatusFromParams(turnEffectManager_.getAllEffectParams(7), role);
 
-        // ÌØĞ§12 ¼Ó¼¯Æø
+        // ç‰¹æ•ˆ12 åŠ é›†æ°”
         role->ProgressChange += turnEffectManager_.getEffectParam0(12);
 
         if (semi_real_ == 0)
@@ -964,30 +964,30 @@ void BattleModifier::dealEvent(BP_Event& e)
             resetRolesAct();
         }
 
-        // ÖĞ¶¾£¿ ¿ªÍæĞ¦£¬ÎÒÕâÀïÀíÂÛÉÏÌØĞ§È«È¨½Ó¹ÜÁË£¬ÓĞÄãÊ²Ã´ÊÂ
-        // ËãÁË.. TODO ½Ó¹Ü
+        // ä¸­æ¯’ï¼Ÿ å¼€ç©ç¬‘ï¼Œæˆ‘è¿™é‡Œç†è®ºä¸Šç‰¹æ•ˆå…¨æƒæ¥ç®¡äº†ï¼Œæœ‰ä½ ä»€ä¹ˆäº‹
+        // ç®—äº†.. TODO æ¥ç®¡
         poisonEffect(role);
 
         auto const& result = battleStatusManager_[role->ID].materialize();
         for (auto const& p : result) {
-            printf("%d×Ô¼ºÉÏ×´Ì¬%d %d\n", role->ID, p.first.id, p.second);
+            printf("%dè‡ªå·±ä¸ŠçŠ¶æ€%d %d\n", role->ID, p.first.id, p.second);
             if (!p.first.hide)
                 role->addShowString(convert::formatString("%s %d", p.first.display.c_str(), p.second), p.first.color);
         }
         showNumberAnimation();
-        // ½áËã»ØºÏ½áÊøºóµÄÒ»Ğ©ÌØĞ§£¬±ÈÈçËµ»ØÑªÄÚÁ¦ µÈÒ»ÏµÁĞ
-        // µÈÎÒÓĞĞÄÇéÔÙ×ö
+        // ç»“ç®—å›åˆç»“æŸåçš„ä¸€äº›ç‰¹æ•ˆï¼Œæ¯”å¦‚è¯´å›è¡€å†…åŠ› ç­‰ä¸€ç³»åˆ—
+        // ç­‰æˆ‘æœ‰å¿ƒæƒ…å†åš
 
         turnEffectManager_.clear();
     }
 
-    //Çå³ı±»»÷ÍËµÄÈËÎï
+    //æ¸…é™¤è¢«å‡»é€€çš„äººç‰©
     clearDead();
 
-    //¼ì²âÕ½¶·½á¹û
+    //æ£€æµ‹æˆ˜æ–—ç»“æœ
     int battle_result = checkResult();
 
-    //ÎÒ·½Ê¤
+    //æˆ‘æ–¹èƒœ
     if (battle_result >= 0)
     {
         result_ = battle_result;
@@ -999,9 +999,9 @@ void BattleModifier::dealEvent(BP_Event& e)
     }
 }
 
-// ¼¯ÆøÔÚÕâÀï
+// é›†æ°”åœ¨è¿™é‡Œ
 Role* BattleModifier::semiRealPickOrTick() {
-    //Ê×ÏÈÊÔÍ¼Ñ¡³öÒ»ÈË
+    //é¦–å…ˆè¯•å›¾é€‰å‡ºä¸€äºº
     for (auto r : battle_roles_)
     {
         if (r->Progress > 1000)
@@ -1010,36 +1010,36 @@ Role* BattleModifier::semiRealPickOrTick() {
         }
     }
     
-    //ÎŞ·¨Ñ¡³öÈË£¬Ôö¼ÓËùÓĞÈË½ø¶ÈÌõ£¬¼ÌĞø
+    //æ— æ³•é€‰å‡ºäººï¼Œå¢åŠ æ‰€æœ‰äººè¿›åº¦æ¡ï¼Œç»§ç»­
     for (auto r : battle_roles_)
     {
-        // ÕâÀïÊÇ¸öÊ²Ã´ÅÅĞòÀ´×Å
+        // è¿™é‡Œæ˜¯ä¸ªä»€ä¹ˆæ’åºæ¥ç€
         
         assert(speedEffectManager_.size() == 0);
 
-        // ÏÈÊÇÈ«²¿Ğ§¹û
+        // å…ˆæ˜¯å…¨éƒ¨æ•ˆæœ
         tryProcAndAddToManager(speedAll_, speedEffectManager_, r, nullptr, nullptr);
-        // ×Ô¼ºµÄĞ§¹û
+        // è‡ªå·±çš„æ•ˆæœ
         tryProcAndAddToManager(r->ID, speedRole_, speedEffectManager_, r, nullptr, nullptr);
-        // ×Ô¼ºÎä¹¦µÄĞ§¹û£¬Ã¿´Î¼¯ÆøÕâÃ´ËãÒ»±é ÀÛÅ¿ÁË
+        // è‡ªå·±æ­¦åŠŸçš„æ•ˆæœï¼Œæ¯æ¬¡é›†æ°”è¿™ä¹ˆç®—ä¸€é ç´¯è¶´äº†
         for (int i = 0; i < r->getLearnedMagicCount(); i++) {
             tryProcAndAddToManager(r->MagicID[i], speedMagic_, speedEffectManager_, r, nullptr, Save::getInstance()->getMagic(r->MagicID[i]));
         }
-        // Ç¿ÖÆ×´Ì¬ ÌØĞ§9
+        // å¼ºåˆ¶çŠ¶æ€ ç‰¹æ•ˆ9
         auto forceStat = speedEffectManager_.getAllEffectParams(9);
         setStatusFromParams(forceStat, r);
 
         int progress = 0;
         
-        // ÏÈÉÏ/ÏÂ×´Ì¬£¬¸ø×Ô¼º£¬¸ø±ğÈËÒ²²»ÊÇ²»ĞĞ£¬ÔÙ¸ã¸öÑ­»·£¬ÅĞ¶Ï²»ÔÚÒ»¸ö¶ÓÎéµÄ
-        // ÌØĞ§7
+        // å…ˆä¸Š/ä¸‹çŠ¶æ€ï¼Œç»™è‡ªå·±ï¼Œç»™åˆ«äººä¹Ÿä¸æ˜¯ä¸è¡Œï¼Œå†æä¸ªå¾ªç¯ï¼Œåˆ¤æ–­ä¸åœ¨ä¸€ä¸ªé˜Ÿä¼çš„
+        // ç‰¹æ•ˆ7
         applyStatusFromParams(speedEffectManager_.getAllEffectParams(7), r);
 
-        // ÌØĞ§3 ¼¯ÆøËÙ¶È
+        // ç‰¹æ•ˆ3 é›†æ°”é€Ÿåº¦
         progress = speedEffectManager_.getEffectParam0(3);
-        // printf("»ù´¡¼¯ÆøËÙ¶È%d\n", progress);
-        printf("%d¼¯Æø¼Ó³É %d%%\n", r->ID, speedEffectManager_.getEffectParam0(10));
-        // ÌØĞ§10 ¼¯ÆøËÙ¶È°Ù·Ö±ÈÔö¼Ó
+        // printf("åŸºç¡€é›†æ°”é€Ÿåº¦%d\n", progress);
+        printf("%dé›†æ°”åŠ æˆ %d%%\n", r->ID, speedEffectManager_.getEffectParam0(10));
+        // ç‰¹æ•ˆ10 é›†æ°”é€Ÿåº¦ç™¾åˆ†æ¯”å¢åŠ 
         progress = int((speedEffectManager_.getEffectParam0(10) / 100.0) * progress) + progress;
 
         progress = progress < 0 ? 0 : progress;
@@ -1055,7 +1055,7 @@ Role* BattleModifier::semiRealPickOrTick() {
 void BattleMod::BattleModifier::applyStatusFromParams(const std::vector<int>& params, Role * target)
 {
     if (params.empty()) return;
-    // [×´Ì¬id, ×´Ì¬Ç¿¶È, ×´Ì¬id, ×´Ì¬Ç¿¶È...]
+    // [çŠ¶æ€id, çŠ¶æ€å¼ºåº¦, çŠ¶æ€id, çŠ¶æ€å¼ºåº¦...]
     for (std::size_t i = 0; i < params.size() / 2; i += 2) {
         battleStatusManager_[target->ID].incrementBattleStatusVal(params[i], params[i + 1]);
     }
@@ -1065,7 +1065,7 @@ void BattleMod::BattleModifier::applyStatusFromParams(const std::vector<int>& pa
 void BattleMod::BattleModifier::setStatusFromParams(const std::vector<int>& params, Role * target)
 {
     if (params.empty()) return;
-    // [×´Ì¬id, ×´Ì¬Ç¿¶È, ×´Ì¬id, ×´Ì¬Ç¿¶È...]
+    // [çŠ¶æ€id, çŠ¶æ€å¼ºåº¦, çŠ¶æ€id, çŠ¶æ€å¼ºåº¦...]
     for (std::size_t i = 0; i < params.size() / 2; i += 2) {
         battleStatusManager_[target->ID].setBattleStatusVal(params[i], params[i + 1]);
     }
@@ -1073,7 +1073,7 @@ void BattleMod::BattleModifier::setStatusFromParams(const std::vector<int>& para
 
 void BattleMod::BattleModifier::showMagicNames(const std::vector<std::reference_wrapper<const std::string>>& names)
 {
-    // UI²»ºÃĞ´°¡£¬¸ã²»³öÀ´£¬·ÅÆú
+    // UIä¸å¥½å†™å•Šï¼Œæä¸å‡ºæ¥ï¼Œæ”¾å¼ƒ
     if (names.empty()) return;
 
     std::string hugeStr = std::accumulate(std::next(names.begin()), names.end(), names[0].get(), 
@@ -1086,13 +1086,13 @@ void BattleMod::BattleModifier::showMagicNames(const std::vector<std::reference_
     int w, h;
     Engine::getInstance()->getWindowSize(w, h);
     boxRoot->setHaveBox(false);
-    // ³óµÄÎÒ²»ÄÜÖ±ÊÓ
+    // ä¸‘çš„æˆ‘ä¸èƒ½ç›´è§†
     boxRoot->setText(hugeStr);
     boxRoot->setPosition(w/2.0 - (hugeStr.size()/4.0) * fontSize, 50);
     boxRoot->setFontSize(fontSize);
     boxRoot->setStayFrame(stayFrame);
     boxRoot->setAlphaBox({ 255, 165, 79, 255 }, { 0, 0, 0, 128 });
-    // ÔÊĞíÉè¶¨ÑÕÉ«°É¡£¡£¡£
+    // å…è®¸è®¾å®šé¢œè‰²å§ã€‚ã€‚ã€‚
     boxRoot->setTextColor({ 255, 165, 79, 255 });
     boxRoot->run();
 }

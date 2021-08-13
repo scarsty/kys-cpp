@@ -1,4 +1,4 @@
-#include "RandomRole.h"
+﻿#include "RandomRole.h"
 #include "Random.h"
 
 RandomRole::RandomRole()

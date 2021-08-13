@@ -1,4 +1,4 @@
-#include "Console.h"
+﻿#include "Console.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
 #include "DrawableOnCall.h"

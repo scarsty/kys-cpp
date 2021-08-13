@@ -1,4 +1,4 @@
-#include "SuperMenuText.h"
+﻿#include "SuperMenuText.h"
 #include "../others/Hanz2Piny.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"

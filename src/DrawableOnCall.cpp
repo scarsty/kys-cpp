@@ -1,4 +1,4 @@
-#include "DrawableOnCall.h"
+﻿#include "DrawableOnCall.h"
 
 DrawableOnCall::DrawableOnCall(std::function<void(DrawableOnCall*)> draw) : draw_(draw), id_(-1)
 {

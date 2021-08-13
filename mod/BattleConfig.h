@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include "Types.h"
 #include "Save.h"
@@ -9,31 +9,31 @@
 #include <memory>
 #include <functional>
 
-// ´óÖÂ´¥·¢Á÷³Ì
-// ÏÈ°ÑËùÓĞ¶«Î÷¶ÁÈë EffectsTable£¬Õ½¶·ÖĞ¾Í²éÑ¯Ëû
-// EffectsTableÖĞ±£´æ ProccableEffect
-// ProccableEffect ÓĞ¸öprocº¯Êı£¬²ÎÊıÊÇÈËÎïÎä¹¦ĞÅÏ¢£¬Ã»ÓĞ¾Ínullptr
-// procÏÈÅĞ¶ÏÌØĞ§ĞèÇóÊÇ·ñ´ïµ½£¬Ò»¸övectorµÄConditions
-// Ö»ÒªÓĞÒ»ÏîConditions´ï±ê¼´¿É
-// ÆäÖĞConditionsÊÇÒ»¸övectorµÄCondition£¬ËùÓĞCondition±ØĞëÈ«²¿´ï±ê
-// Conditionº¬ÓĞVariable-ÊÇÒ»¸öº¯ÊıÖ¸ÕëÊµÏÖ»ñÈ¡ÏàÓ¦ÊıÖµ
-// ÅÜcheckÅĞ¶ÏConditionÊÇ·ñÍ¨¹ı
-// È»ºó¸ù¾İ·¢¶¯·½Ê½£¬ProccableEffect¿ÉÒÔÊÇSingleEffect»òÕßPooled
-// ÔÙÅĞ¶ÏEffectParamPairÊÇ·ñ´¥·¢£¬´óÖÂÉÏÊÇÒ»¸ö pair<Param, EffectParamPair> ¼È¸ÅÂÊÊÇ¸öParam...
-// EffectParamPair ±¾ÉíÓÉ EffectIntsPairºÍParams×é³É
-// ·¢¶¯ºó·µ»ØEffectIntsPair£¬²¢ÇÒ±£Ö¤ÆäÖĞµÄParamsÈ«²¿×ª»»³ÉÁËInts
-// ÏÖÔÚ½âÊÍParamÊÇÉ¶
-// ¿ÉÒÔÊÇµ¥¸öÕûÊı
-// »òÕßÊÇ¸öVariableParam - Ò»¸övectorµÄ<Adder> 
-// LinearAdder È¡ÏßĞÔ×éºÏ for k,var in varParam: sum += k*var.getVal()
-// RandomAdder Ëæ»ú
-// È»ºóVariableParamÊÇ¿ÉÒÔÓĞ±àºÅµÄ£¬ÕâÀï»áÔÙÓÃº¯ÊıÖ¸ÕëµÄ·½Ê½Í¸Â©BattleModË½ÈËĞÅÏ¢À´²é±í£¬ÓĞµÄÈËÎï»òÕßÎä¹¦¿ÉÒÔ¶ÔVariableParam¼Ó³É£¡
-// ×îºóEffectIntsPair»á±»Ìí¼Óµ½Ïà¶ÔÓ¦µÄEffectManager
-// ÔÙ¶à½âÊÍÒ»ÏÂVariable ¶ÁÈ¡²ÎÊıµÄÊ±ºò¾Í»á¸ù¾İ±àºÅµÈÕÒµ½ºÏÊÊµÄº¯ÊıÖ¸Õë£¬¾ÍµÈµ½Ê±ºò´«µİÈËÎïidºÍÎä¹¦id(º¯Êı²»Ò»¶¨ÓÃ)£¬ÔÙµ÷ÓÃ
+// å¤§è‡´è§¦å‘æµç¨‹
+// å…ˆæŠŠæ‰€æœ‰ä¸œè¥¿è¯»å…¥ EffectsTableï¼Œæˆ˜æ–—ä¸­å°±æŸ¥è¯¢ä»–
+// EffectsTableä¸­ä¿å­˜ ProccableEffect
+// ProccableEffect æœ‰ä¸ªprocå‡½æ•°ï¼Œå‚æ•°æ˜¯äººç‰©æ­¦åŠŸä¿¡æ¯ï¼Œæ²¡æœ‰å°±nullptr
+// procå…ˆåˆ¤æ–­ç‰¹æ•ˆéœ€æ±‚æ˜¯å¦è¾¾åˆ°ï¼Œä¸€ä¸ªvectorçš„Conditions
+// åªè¦æœ‰ä¸€é¡¹Conditionsè¾¾æ ‡å³å¯
+// å…¶ä¸­Conditionsæ˜¯ä¸€ä¸ªvectorçš„Conditionï¼Œæ‰€æœ‰Conditionå¿…é¡»å…¨éƒ¨è¾¾æ ‡
+// Conditionå«æœ‰Variable-æ˜¯ä¸€ä¸ªå‡½æ•°æŒ‡é’ˆå®ç°è·å–ç›¸åº”æ•°å€¼
+// è·‘checkåˆ¤æ–­Conditionæ˜¯å¦é€šè¿‡
+// ç„¶åæ ¹æ®å‘åŠ¨æ–¹å¼ï¼ŒProccableEffectå¯ä»¥æ˜¯SingleEffectæˆ–è€…Pooled
+// å†åˆ¤æ–­EffectParamPairæ˜¯å¦è§¦å‘ï¼Œå¤§è‡´ä¸Šæ˜¯ä¸€ä¸ª pair<Param, EffectParamPair> æ—¢æ¦‚ç‡æ˜¯ä¸ªParam...
+// EffectParamPair æœ¬èº«ç”± EffectIntsPairå’ŒParamsç»„æˆ
+// å‘åŠ¨åè¿”å›EffectIntsPairï¼Œå¹¶ä¸”ä¿è¯å…¶ä¸­çš„Paramså…¨éƒ¨è½¬æ¢æˆäº†Ints
+// ç°åœ¨è§£é‡ŠParamæ˜¯å•¥
+// å¯ä»¥æ˜¯å•ä¸ªæ•´æ•°
+// æˆ–è€…æ˜¯ä¸ªVariableParam - ä¸€ä¸ªvectorçš„<Adder> 
+// LinearAdder å–çº¿æ€§ç»„åˆ for k,var in varParam: sum += k*var.getVal()
+// RandomAdder éšæœº
+// ç„¶åVariableParamæ˜¯å¯ä»¥æœ‰ç¼–å·çš„ï¼Œè¿™é‡Œä¼šå†ç”¨å‡½æ•°æŒ‡é’ˆçš„æ–¹å¼é€æ¼BattleModç§äººä¿¡æ¯æ¥æŸ¥è¡¨ï¼Œæœ‰çš„äººç‰©æˆ–è€…æ­¦åŠŸå¯ä»¥å¯¹VariableParamåŠ æˆï¼
+// æœ€åEffectIntsPairä¼šè¢«æ·»åŠ åˆ°ç›¸å¯¹åº”çš„EffectManager
+// å†å¤šè§£é‡Šä¸€ä¸‹Variable è¯»å–å‚æ•°çš„æ—¶å€™å°±ä¼šæ ¹æ®ç¼–å·ç­‰æ‰¾åˆ°åˆé€‚çš„å‡½æ•°æŒ‡é’ˆï¼Œå°±ç­‰åˆ°æ—¶å€™ä¼ é€’äººç‰©idå’Œæ­¦åŠŸid(å‡½æ•°ä¸ä¸€å®šç”¨)ï¼Œå†è°ƒç”¨
 
 namespace BattleMod {
 
-    // µ¥¸öÌØĞ§£¬ÃèÊöÌØĞ§¹¦ÄÜ
+    // å•ä¸ªç‰¹æ•ˆï¼Œæè¿°ç‰¹æ•ˆåŠŸèƒ½
     class SpecialEffect {
     public:
         SpecialEffect(int id, const std::string& desc);
@@ -41,7 +41,7 @@ namespace BattleMod {
         const int id;
     };
 
-    // ÌØĞ§°ó¶¨ ÕûÊı²ÎÊı
+    // ç‰¹æ•ˆç»‘å®š æ•´æ•°å‚æ•°
     class EffectIntsPair {
     public:
         EffectIntsPair(const SpecialEffect& effect, const std::string& desc);
@@ -50,23 +50,23 @@ namespace BattleMod {
         const std::vector<int>& getParams();
 
         void addParam(int p);
-        // µş¼Ó·½Ê½¿É²»Í¬£¬ÏÖÔÚ¾Í¶¼Ò»Ñù°É
+        // å åŠ æ–¹å¼å¯ä¸åŒï¼Œç°åœ¨å°±éƒ½ä¸€æ ·å§
         virtual EffectIntsPair & operator+=(const EffectIntsPair & rhs);
 
         const SpecialEffect& effect;
-        // ÌØĞ§½âËµ(ÏÔÊ¾ÎÄ×Ö?)
-        // TODO Õâ¸öÒ²Òª¸´ÖÆ¾ÍÄÑÊÜÁË£¬ÏëÏëÔõÃ´¸ã£¬×Ö·û´®³Ø? Yes
+        // ç‰¹æ•ˆè§£è¯´(æ˜¾ç¤ºæ–‡å­—?)
+        // TODO è¿™ä¸ªä¹Ÿè¦å¤åˆ¶å°±éš¾å—äº†ï¼Œæƒ³æƒ³æ€ä¹ˆæï¼Œå­—ç¬¦ä¸²æ± ? Yes
         const std::string& description;
 
     protected:
-        // ¿ÉÒÔÓĞ¶à¸ö²ÎÊı
-        // ÏÖÔÚÃ¿¸ö²ÎÊıÊÇ¸öint£¬¿ÉÒÔ¼ÌĞøÅäÖÃ
-        // ±ÈÈç¸ù¾İÎä¹¦/ÈËÎïµÈ¼¶Ôö¼ÓµÈ
-        // µ½Ê±ºò¸ÄÉÏÃæµÄtypedef
+        // å¯ä»¥æœ‰å¤šä¸ªå‚æ•°
+        // ç°åœ¨æ¯ä¸ªå‚æ•°æ˜¯ä¸ªintï¼Œå¯ä»¥ç»§ç»­é…ç½®
+        // æ¯”å¦‚æ ¹æ®æ­¦åŠŸ/äººç‰©ç­‰çº§å¢åŠ ç­‰
+        // åˆ°æ—¶å€™æ”¹ä¸Šé¢çš„typedef
         std::vector<int> params_;
     };
 
-    // Õâ¸öµÄÊµÏÖÎÒÏëÏë
+    // è¿™ä¸ªçš„å®ç°æˆ‘æƒ³æƒ³
     enum class VarType {
         CharOrBase = 0,
         Battle = 1,
@@ -76,7 +76,7 @@ namespace BattleMod {
         Other = 1,
     };
 
-    // ÎÒÌıÎÅÓÃstd::function±È½ÏÂı£¬ÔÙÑĞ¾¿ÑĞ¾¿
+    // æˆ‘å¬é—»ç”¨std::functionæ¯”è¾ƒæ…¢ï¼Œå†ç ”ç©¶ç ”ç©¶
     using BattleInfoFunc = std::function<int(const Role* character, const Magic* wg)>;
 
     class Variable {
@@ -89,9 +89,9 @@ namespace BattleMod {
         BattleInfoFunc func_;
     };
 
-    // ÓĞ¸ö¶«Î÷ÔÚÄÄÀïmoveÊ§°Ü£¬ºÜÄÑÊÜ -> return { readXXX }; Õâ¸öreadXXX²»ÊÇmoveµ½vectorÀïµÄ 
-    // ´ÓÏÖÔÚÆğ£¬ËùÓĞmove constructorÎÒÇ×ÊÖĞ´ copy constructorÈ«É¾³ı
-    // ËäÈ»Ó¦¸Ã×Ô¼º¾Í´¦ÀíºÃÈ«²¿ÎÊÌâ
+    // æœ‰ä¸ªä¸œè¥¿åœ¨å“ªé‡Œmoveå¤±è´¥ï¼Œå¾ˆéš¾å— -> return { readXXX }; è¿™ä¸ªreadXXXä¸æ˜¯moveåˆ°vectoré‡Œçš„ 
+    // ä»ç°åœ¨èµ·ï¼Œæ‰€æœ‰move constructoræˆ‘äº²æ‰‹å†™ copy constructorå…¨åˆ é™¤
+    // è™½ç„¶åº”è¯¥è‡ªå·±å°±å¤„ç†å¥½å…¨éƒ¨é—®é¢˜
     class Adder {
     public:
         virtual int getVal(const Role* attacker, const Role* defender, const Magic* wg) const = 0;
@@ -111,7 +111,7 @@ namespace BattleMod {
 
     class LinearAdder : public Adder {
     public:
-        // ÕâÀï½âÊÍÒ»ÏÂ£¬&&½øÀ´ºóµÄÈ«²¿»á±»moveµô
+        // è¿™é‡Œè§£é‡Šä¸€ä¸‹ï¼Œ&&è¿›æ¥åçš„å…¨éƒ¨ä¼šè¢«moveæ‰
         LinearAdder(double k, Variable&& v);
         int getVal(const Role* attacker, const Role* defender, const Magic* wg) const override;
 
@@ -140,7 +140,7 @@ namespace BattleMod {
     };
     class Condition {
     public:
-        // ²»ÖªµÀstd::greaterÊÇ¸öÉ¶type
+        // ä¸çŸ¥é“std::greateræ˜¯ä¸ªå•¥type
         Condition(Variable left, Variable right, std::function<bool(int, int)> binOp);
         bool check(const Role* attacker, const Role* defender, const Magic* wg) const;
     private:
@@ -165,12 +165,12 @@ namespace BattleMod {
     class ProccableEffect {
     public:
         virtual ~ProccableEffect() = default;
-        // ÕâÀï¿ÉÒÔÌí¼ÓÆäËûÌõ¼ş¼ì²â
-        // ±ÈÈçÎä¹¦×éºÏ ÊÇ·ñĞŞÁ¶ÆäËûÎä¹¦
-        // ÊÇ·ñÓµÓĞÎïÆ·£¬ÌìÊéÊıÁ¿£¬ÄÚÁ¦ÊôĞÔµÈµÈµÈµÈ
-        // proc·µ»Ø´¥·¢µÄĞ§¹û£¬nullptrÎª´¥·¢Ê§°Ü
+        // è¿™é‡Œå¯ä»¥æ·»åŠ å…¶ä»–æ¡ä»¶æ£€æµ‹
+        // æ¯”å¦‚æ­¦åŠŸç»„åˆ æ˜¯å¦ä¿®ç‚¼å…¶ä»–æ­¦åŠŸ
+        // æ˜¯å¦æ‹¥æœ‰ç‰©å“ï¼Œå¤©ä¹¦æ•°é‡ï¼Œå†…åŠ›å±æ€§ç­‰ç­‰ç­‰ç­‰
+        // procè¿”å›è§¦å‘çš„æ•ˆæœï¼Œnullpträ¸ºè§¦å‘å¤±è´¥
         virtual std::vector<EffectIntsPair> proc(const Role* attacker, const Role* defender, const Magic* wg) = 0;
-        // Condition´«µİ½øÈ¥Ö®ºó¾ÍÊÇÀ¬»øÁË
+        // Conditionä¼ é€’è¿›å»ä¹‹åå°±æ˜¯åƒåœ¾äº†
         void addConditions(Conditions&& c);
         ProccableEffect() {}
         ProccableEffect(ProccableEffect&& o)  noexcept : conditionz_(std::move(o.conditionz_)) {}
@@ -188,9 +188,9 @@ namespace BattleMod {
         counter = 3,
     };
 
-    // µ¥¸ö¼ÆËã
-    // Éı¼¶ÁË£¬´Ó´Ëµ¥¸öÖ¸µ¥´ÎÅĞ¶Ï£¬¿ÉÒÔ¶à¸öÌØĞ§Í¬Ê±·¢¶¯!
-    // ÒÔºó¾Í²»ÓÃstd::optionalÁË
+    // å•ä¸ªè®¡ç®—
+    // å‡çº§äº†ï¼Œä»æ­¤å•ä¸ªæŒ‡å•æ¬¡åˆ¤æ–­ï¼Œå¯ä»¥å¤šä¸ªç‰¹æ•ˆåŒæ—¶å‘åŠ¨!
+    // ä»¥åå°±ä¸ç”¨std::optionaläº†
     class EffectSingle : public ProccableEffect {
     public:
         EffectSingle(VariableParam&& p, std::vector<EffectParamPair>&& epps);
@@ -202,7 +202,7 @@ namespace BattleMod {
         std::vector<EffectParamPair> effectPairs_;
     };
 
-    // Ò»×éÌØĞ§£¬¿ÉÒÔÔÙ¼Ì³Ğ£¬ÆäËûgroupÀà
+    // ä¸€ç»„ç‰¹æ•ˆï¼Œå¯ä»¥å†ç»§æ‰¿ï¼Œå…¶ä»–groupç±»
     class EffectWeightedGroup : public ProccableEffect {
     public:
         std::vector<EffectIntsPair> proc(const Role* attacker, const Role* defender, const Magic* wg) override;
@@ -211,7 +211,7 @@ namespace BattleMod {
         void addProbEPP(VariableParam&& weight, EffectParamPair&& epp);
         EffectWeightedGroup(const EffectWeightedGroup&) = delete;
     private:
-        // ·¢¶¯²ÎÊı£¬ºÍÌØĞ§
+        // å‘åŠ¨å‚æ•°ï¼Œå’Œç‰¹æ•ˆ
         std::vector<std::pair<VariableParam, EffectParamPair>> group_;
         VariableParam total_;
     };
@@ -227,7 +227,7 @@ namespace BattleMod {
         std::vector<std::pair<VariableParam, EffectParamPair>> group_;
     };
 
-    // ÊµÏÖ·½Ê½ÊÇ£¬ÔÙ¸ãÒ»¸östd::unordered_map
+    // å®ç°æ–¹å¼æ˜¯ï¼Œå†æä¸€ä¸ªstd::unordered_map
     class EffectCounter : public ProccableEffect {
     public:
         EffectCounter(VariableParam&& total, VariableParam&& add, std::vector<EffectParamPair>&& epps);
@@ -248,10 +248,10 @@ namespace BattleMod {
         bool hasEffect(int eid);
         int getEffectParam0(int eid);
         std::vector<int> getAllEffectParams(int eid);
-        EffectIntsPair* getEPP(int eid);    // TODO ÓÃstd::optional
-                                            // ºÏ²¢¹ÜÀíµÄÌØĞ§
+        EffectIntsPair* getEPP(int eid);    // TODO ç”¨std::optional
+                                            // åˆå¹¶ç®¡ç†çš„ç‰¹æ•ˆ
         void unionEffects(const EffectManager& other);
-        // ÏÖÔÚÈ«²¿²ÉÈ¡Ò»¸öÖ±½Ó¼ÓµÄĞ§¹û
+        // ç°åœ¨å…¨éƒ¨é‡‡å–ä¸€ä¸ªç›´æ¥åŠ çš„æ•ˆæœ
         void addEPP(const EffectIntsPair& ewp);
         std::size_t size();
         void clear();
@@ -262,7 +262,7 @@ namespace BattleMod {
 
     class BattleStatus {
     public:
-        // ²»Ò»¶¨ÒªÏÔÊ¾£¬¿ÉÒÔ×ö±ğµÄ´¦Àí
+        // ä¸ä¸€å®šè¦æ˜¾ç¤ºï¼Œå¯ä»¥åšåˆ«çš„å¤„ç†
         BattleStatus(int id, int max, const std::string& display, bool hide, BP_Color color);
         const int id;
         const int max;
@@ -278,14 +278,14 @@ namespace BattleMod {
         void incrementBattleStatusVal(int statusID, int val);
         void setBattleStatusVal(int statusID, int val);
 
-        // ³õÊ¼»¯Êı¾İÓÃµÄ
+        // åˆå§‹åŒ–æ•°æ®ç”¨çš„
         void initStatus(Role* r, const std::vector<BattleStatus>* status);
 
-        // ÉËº¦½áËãµÄÊ±ºò²Å»á°ÑÕ½¶·ÖĞµÄ×´Ì¬ÊµĞ§£¬²¢ÇÒ·µ»¹¸÷ÖÖÖµµÄĞ§¹û
+        // ä¼¤å®³ç»“ç®—çš„æ—¶å€™æ‰ä¼šæŠŠæˆ˜æ–—ä¸­çš„çŠ¶æ€å®æ•ˆï¼Œå¹¶ä¸”è¿”è¿˜å„ç§å€¼çš„æ•ˆæœ
         std::vector<std::pair<const BattleStatus&, int>> materialize();
     private:
         Role * r_;
-        // ÕâÀïºÜ·³±ØĞëÓÃptr, reference_wrapper ³ı·ÇÁíÍâÒ»±ßÓÃptr
+        // è¿™é‡Œå¾ˆçƒ¦å¿…é¡»ç”¨ptr, reference_wrapper é™¤éå¦å¤–ä¸€è¾¹ç”¨ptr
         const std::vector<BattleStatus>* status_;
         std::map<int, int> tempStatusVal_;
         std::map<int, int> actualStatusVal_;

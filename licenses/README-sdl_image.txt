@@ -1,4 +1,4 @@
-This library is distributed under the terms of the zlib license:
+﻿This library is distributed under the terms of the zlib license:
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages

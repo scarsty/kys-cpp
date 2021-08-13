@@ -1,4 +1,4 @@
-#include "OpenCCConverter.h"
+﻿#include "OpenCCConverter.h"
 #include "PotConv.h"
 
 OpenCCConverter::OpenCCConverter()

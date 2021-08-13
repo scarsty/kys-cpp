@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <vector>
 
 #ifndef USE_SDL_MIXER_AUDIO

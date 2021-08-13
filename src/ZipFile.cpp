@@ -1,4 +1,4 @@
-#include "ZipFile.h"
+﻿#include "ZipFile.h"
 #include <cstring>
 
 ZipFile::ZipFile()
