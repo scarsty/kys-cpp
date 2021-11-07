@@ -18,7 +18,7 @@ std::string Save::getFilename(int i, char c)
     std::string filename;
     if (i > 0)
     {
-        filename = fmt::format("../game/save/{}{}.grp", c, i);
+        filename = format1::format("../game/save/{}{}.grp", c, i);
         if (c == 'r')
         {
             filename += "32";

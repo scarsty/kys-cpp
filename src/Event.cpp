@@ -103,28 +103,28 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     int i = 0;
     auto e = kdef_[event_id];
 
-    fmt::print("Event {}: {}\n ", event_id, e);
+    format1::print("Event {}: {}\n ", event_id, e);
     e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
 #define REGISTER_INSTRUCT(code, function) \
     { \
     case (code): \
-        fmt::print("{} ", #function); \
+        format1::print("{} ", #function); \
         runner(&Event::function, this, e, i); \
         break; \
     }
 
     if (use_script_)
     {
-        auto script = fmt::format("../game/script/oldevent/oldevent_{}.lua", event_id);
+        auto script = format1::format("../game/script/oldevent/oldevent_{}.lua", event_id);
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else
     {
         while (i < e.size() && !exit_)
         {
-            fmt::print("instruct {}\n", e[i]);
+            format1::print("instruct {}\n", e[i]);
             switch (e[i])
             {
                 REGISTER_INSTRUCT(-1, forceExit);
@@ -135,7 +135,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
                 REGISTER_INSTRUCT(4, isUsingItem);
                 REGISTER_INSTRUCT(5, askBattle);
             case 6:
-                fmt::print("{}: {}, {}, {}, {}\n", "tryBattle", e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+                format1::print("{}: {}, {}, {}, {}\n", "tryBattle", e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
                 if (tryBattle(e[i + 1], e[i + 4]))
                 {
                     i += e[i + 2];
@@ -215,7 +215,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
             case 50:
                 if (e[i + 1] > 128)
                 {
-                    fmt::print("{}\n", "checkHave5Item");
+                    format1::print("{}\n", "checkHave5Item");
                     if (checkHave5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]))
                     {
                         i += e[i + 6];
@@ -313,7 +313,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     talk_content = PotConv::cp936toutf8(talk_content);
 #endif
     talk->setContent(talk_content);
-    fmt::print(talk_contents_[talk_id] + "\n");
+    format1::print(talk_contents_[talk_id] + "\n");
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -334,7 +334,7 @@ void Event::oldTalk(int talk_id, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(fmt::format("獲得{}{}", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setText(format1::format("獲得{}{}", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
     text_box_->setTexture("item", -1);
@@ -700,7 +700,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_->setText(fmt::format("{}習得武學{}", r->Name, m->Name));
+    text_box_->setText(format1::format("{}習得武學{}", r->Name, m->Name));
     text_box_->run();
 }
 
@@ -709,7 +709,7 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_->setText(fmt::format("{}資質增加{}", r->Name, r->IQ - v0));
+    text_box_->setText(format1::format("{}資質增加{}", r->Name, r->IQ - v0));
     text_box_->run();
 }
 
@@ -879,7 +879,7 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_->setText(fmt::format("{}輕功增加{}", r->Name, r->Speed - v0));
+    text_box_->setText(format1::format("{}輕功增加{}", r->Name, r->Speed - v0));
     text_box_->run();
 }
 
@@ -888,7 +888,7 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    text_box_->setText(fmt::format("{}內力增加{}", r->Name, r->MaxMP - v0));
+    text_box_->setText(format1::format("{}內力增加{}", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
 
@@ -897,7 +897,7 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_->setText(fmt::format("{}武力增加{}", r->Name, r->Attack - v0));
+    text_box_->setText(format1::format("{}武力增加{}", r->Name, r->Attack - v0));
     text_box_->run();
 }
 
@@ -906,7 +906,7 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    text_box_->setText(fmt::format("{}生命增加{}", r->Name, r->MaxHP - v0));
+    text_box_->setText(format1::format("{}生命增加{}", r->Name, r->MaxHP - v0));
     text_box_->run();
 }
 
@@ -928,13 +928,13 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setText(fmt::format("你的道德指數為{}", Save::getInstance()->getRole(0)->Morality));
+    text_box_->setText(format1::format("你的道德指數為{}", Save::getInstance()->getRole(0)->Morality));
     text_box_->run();
 }
 
 void Event::showFame()
 {
-    text_box_->setText(fmt::format("你的聲望指數為{}", Save::getInstance()->getRole(0)->Fame));
+    text_box_->setText(format1::format("你的聲望指數為{}", Save::getInstance()->getRole(0)->Fame));
     text_box_->run();
 }
 
@@ -1438,7 +1438,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 48:    //自己调试吧，懒得管
         for (int i = e1; i < e1 + e2 - 1; i++)
         {
-            fmt::print("x50[%d]=%d\n", i, x50[i]);
+            format1::print("x50[%d]=%d\n", i, x50[i]);
         }
         break;
     case 49: break;

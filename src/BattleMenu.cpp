@@ -304,7 +304,7 @@ int BattleActionMenu::autoSelect(Role* role)
                                 }
                                 if (total_hurt > -1)
                                 {
-                                    //fmt::print("AI %s %s (%d, %d): %d\n", PotConv::to_read(role->Name).c_str(), PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
+                                    //format1::print("AI {} {} ({}, {}): {}\n", role->Name, PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
                                 }
                             }
                         }
@@ -319,11 +319,11 @@ int BattleActionMenu::autoSelect(Role* role)
         double max_point = -1;
         for (auto aa : ai_action)
         {
-            fmt::print("AI {}: {} ", role->Name, getStringFromResult(aa.Action));
-            if (aa.item) { fmt::print("{} ", aa.item->Name); }
-            if (aa.magic) { fmt::print("{} ", aa.magic->Name); }
+            format1::print("AI {}: {} ", role->Name, getStringFromResult(aa.Action));
+            if (aa.item) { format1::print("{} ", aa.item->Name); }
+            if (aa.magic) { format1::print("{} ", aa.magic->Name); }
             double r = rand.rand() * 10;    //用于同分的情况，可以随机选择
-            fmt::print("score {:.2f}({:.2f})\n", aa.point, r);
+            format1::print("score {:.2f}({:.2f})\n", aa.point, r);
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
             if (aa.point == 0)
             {
@@ -507,7 +507,7 @@ void BattleMagicMenu::setRole(Role* r)
         {
             std::string s = m->Name;
             s += std::string(12 - Font::getTextDrawSize(s), ' ');
-            magic_names.push_back(fmt::format("{}{}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
+            magic_names.push_back(format1::format("{}{}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
         }
         else
         {

@@ -16,17 +16,17 @@
 bool BattleNetwork::sendMyAction(const BattleNetwork::SerializableBattleAction& action)
 {
     // 错误不管
-    fmt::print("sendMyAction\n");
+    format1::print("sendMyAction\n");
     asio::async_write(socket_, asio::buffer(&action, sizeof(action)), [](std::error_code err, std::size_t bytes)
     {
-        fmt::print("send {}\n", err.message());
+        format1::print("send {}\n", err.message());
     });
     return true;
 }
 
 bool BattleNetwork::getOpponentAction(BattleNetwork::SerializableBattleAction& action, std::function<void(std::error_code err, std::size_t bytes)> f)
 {
-    fmt::print("getOpponentAction\n");
+    format1::print("getOpponentAction\n");
     asio::async_read(socket_, asio::buffer(&action, sizeof(action)), f);
     return true;
 }
@@ -51,7 +51,7 @@ void BattleNetwork::nameSetup()
             }
             // 下一步， host等待GO，client发送GO
             int_buf_ = 1;
-            fmt::print("waiting loop\n");
+            format1::print("waiting loop\n");
             waitConnection();
         });
     });
@@ -146,7 +146,7 @@ void BattleHost::waitConnection()
     asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
     {
         CALLBACK_ON_ERROR(err);
-        fmt::print("got {}\n", int_buf_);
+        format1::print("got {}\n", int_buf_);
         if (int_buf_ == BattleClient::GO)
         {
             getRandSeed();
@@ -160,7 +160,7 @@ void BattleHost::waitConnection()
 
 void BattleHost::getRandSeed()
 {
-    fmt::print("exchange protocol started\n");
+    format1::print("exchange protocol started\n");
     std::random_device device;
     seed_ = device();
     asio::async_write(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes)
@@ -173,7 +173,7 @@ void BattleHost::getRandSeed()
 void BattleHost::rDataHandshake()
 {
     // 先传输人数
-    fmt::print("rDataHandshake\n");
+    format1::print("rDataHandshake\n");
     int_buf_ = friends_.size();
     asio::async_write(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
     {
@@ -226,7 +226,7 @@ void BattleClient::waitConnection()
 
 void BattleClient::getRandSeed()
 {
-    fmt::print("exchange protocol started\n");
+    format1::print("exchange protocol started\n");
     asio::async_read(socket_, asio::buffer(&seed_, sizeof(seed_)), [this](const std::error_code& err, std::size_t bytes)
     {
         CALLBACK_ON_ERROR(err);
@@ -236,7 +236,7 @@ void BattleClient::getRandSeed()
 
 void BattleClient::rDataHandshake()
 {
-    fmt::print("rDataHandshake\n");
+    format1::print("rDataHandshake\n");
     // 读取人数
     asio::async_read(socket_, asio::buffer(&int_buf_, sizeof(int_buf_)), [this](const std::error_code& err, std::size_t bytes)
     {
@@ -343,7 +343,7 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     auto waitThis = std::make_shared<DrawableOnCall>(f);
     auto exit = [&waitThis, &ok](std::error_code err)
     {
-        fmt::print("recv {}\n", err.message());
+        format1::print("recv {}\n", err.message());
         ok = !err;
         waitThis->setExit(true);
     };

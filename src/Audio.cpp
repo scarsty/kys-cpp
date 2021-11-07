@@ -1,19 +1,19 @@
 #include "Audio.h"
 #include "File.h"
-#include "fmt/format.h"
+#include "Format1.h"
 
 Audio::Audio()
 {
 #ifndef USE_SDL_MIXER_AUDIO
     if (!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, nullptr))
     {
-        fmt::print("Init Bass fault!\n");
+        format1::print("Init Bass fault!\n");
     }
 #else
     Mix_Init(MIX_INIT_MP3);
     if (Mix_OpenAudio(22500, MIX_DEFAULT_FORMAT, 2, 4096) == -1)
     {
-        fmt::print("Mix_OpenAudio: {}\n", Mix_GetError());
+        format1::print("Mix_OpenAudio: {}\n", Mix_GetError());
     }
 #endif
     init();
@@ -61,7 +61,7 @@ void Audio::init()
 #endif
     for (int i = 0; i < 100; i++)
     {
-        music_path = fmt::format("../game/music/{}.mid", i);
+        music_path = format1::format("../game/music/{}.mid", i);
         if (File::fileExist(music_path))
         {
 #ifndef USE_SDL_MIXER_AUDIO
@@ -74,7 +74,7 @@ void Audio::init()
         }
         else
         {
-            music_path = fmt::format("../game/music/{}.mp3", i);
+            music_path = format1::format("../game/music/{}.mp3", i);
 #ifndef USE_SDL_MIXER_AUDIO
             auto m = BASS_StreamCreateFile(false, music_path.c_str(), 0, 0, flag);
 #else
@@ -84,7 +84,7 @@ void Audio::init()
         }
         //int error_t = BASS_ErrorGetCode();
 
-        asound_path = fmt::format("../game/sound/atk{:02}.wav", i);
+        asound_path = format1::format("../game/sound/atk{:02}.wav", i);
 #ifndef USE_SDL_MIXER_AUDIO
         auto a = BASS_StreamCreateFile(false, asound_path.c_str(), 0, 0, flag);
 #else
@@ -92,7 +92,7 @@ void Audio::init()
 #endif
         asound_.push_back(a);
 
-        esound_path = fmt::format("../game/sound/e{:02}.wav", i);
+        esound_path = format1::format("../game/sound/e{:02}.wav", i);
 #ifndef USE_SDL_MIXER_AUDIO
         auto e = BASS_StreamCreateFile(false, esound_path.c_str(), 0, 0, flag);
 #else

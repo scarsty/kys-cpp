@@ -354,6 +354,9 @@
     <ClInclude Include="..\..\common\Random.h">
       <Filter>common</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\common\Format1.h">
+      <Filter>common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">

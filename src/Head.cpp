@@ -46,7 +46,7 @@ void Head::draw()
 
     font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
     BP_Rect r1 = { 0, 0, 0, 0 };
-    font->draw(fmt::format("{}", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 });
+    font->draw(format1::format("{}", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 });
 
     BP_Color c, c_text;
     if (role_->MaxHP > 0)
@@ -59,7 +59,7 @@ void Head::draw()
     }
     c = { 196, 25, 16, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-    font->draw(fmt::format("{:3}/{:3}", role_->HP, role_->MaxHP), 16, x_ + 138, y_ + 28, { 250, 200, 50, 255 });
+    font->draw(format1::format("{:3}/{:3}", role_->HP, role_->MaxHP), 16, x_ + 138, y_ + 28, { 250, 200, 50, 255 });
 
     if (role_->MaxMP > 0)
     {
@@ -82,11 +82,11 @@ void Head::draw()
         c_text = { 250, 200, 50, 255 };
     }
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-    font->draw(fmt::format("{:3}/{:3}", role_->MP, role_->MaxMP), 16, x_ + 138, y_ + 44, c_text);
+    font->draw(format1::format("{:3}/{:3}", role_->MP, role_->MaxMP), 16, x_ + 138, y_ + 44, c_text);
 
     r1 = { x_ + 115, y_ + 65, 83 * role_->PhysicalPower / 100, 9 };
     c = { 128, 128, 255, 255 };
     Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-    font->draw(fmt::format("{}", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });
+    font->draw(format1::format("{}", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 });
 
 }

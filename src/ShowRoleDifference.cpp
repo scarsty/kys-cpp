@@ -55,12 +55,12 @@ void ShowRoleDifference::draw()
 
     if (role1_->HP != role2_->HP || role1_->MaxHP != role2_->MaxHP)
     {
-        str = fmt::format("生命 {:3}/{:3}   -> {:3}/{:3}", role1_->HP, role1_->MaxHP, role2_->HP, role2_->MaxHP);
+        str = format1::format("生命 {:3}/{:3}   -> {:3}/{:3}", role1_->HP, role1_->MaxHP, role2_->HP, role2_->MaxHP);
         showOneDifference(role1_->HP, str, 20, color, x, y, 1);
     }
     if (role1_->MP != role2_->MP || role1_->MaxMP != role2_->MaxMP)
     {
-        str = fmt::format("內力 {:3}/{:3}   -> {:3}/{:3}", role1_->MP, role1_->MaxMP, role2_->MP, role2_->MaxMP);
+        str = format1::format("內力 {:3}/{:3}   -> {:3}/{:3}", role1_->MP, role1_->MaxMP, role2_->MP, role2_->MaxMP);
         showOneDifference(role1_->MP, str, 20, color, x, y, 1);
     }
 
@@ -97,7 +97,7 @@ void ShowRoleDifference::draw()
         if (role2_->MagicID[i] > 0
             && (role1_->MagicID[i] <= 0 || role1_->getRoleShowLearnedMagicLevel(i) != role2_->getRoleShowLearnedMagicLevel(i)))
         {
-            str = fmt::format("武學{}目前修為{}",
+            str = format1::format("武學{}目前修為{}",
                 Save::getInstance()->getMagic(role2_->MagicID[i])->Name, role2_->getRoleShowLearnedMagicLevel(i));
             showOneDifference(role1_->MagicLevel[i], str, 20, color, x, y);
         }

@@ -280,7 +280,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
         }
         //if (e.type == BP_MOUSEBUTTONUP)
         //{
-        //    fmt::print("BP_MOUSEBUTTONUP\n");
+        //    format1::print("BP_MOUSEBUTTONUP\n");
         //}
         checkStateSelfChilds(e, check_event);
         switch (e.type)
@@ -399,7 +399,7 @@ void RunNode::present()
     {
         t_delay = refresh_interval_;
     }
-    //fmt::print("{}/{}/{} ", t, t_delay, prev_present_ticks_);
+    //format1::print("{}/{}/{} ", t, t_delay, prev_present_ticks_);
     if (t_delay > 0)
     {
         Engine::delay(t_delay);

@@ -99,7 +99,6 @@ abc工程用来转换之前的数据。建议自行调整代码后，使用调�
 - PicoSHA2 <https://github.com/okdshin/PicoSHA2>
 - sqlite3 <https://www.sqlite.org/>
 - OpenCC <https://github.com/BYVoid/OpenCC>
-- {fmt} <https://github.com/fmtlib/fmt>
 - asio boost的一部分，需在预处理中打开网络功能，vcpkg可以只安装asio
 
 以下库通常不在包管理工具中，故已包含在工程里。
@@ -120,8 +119,6 @@ abc工程用来转换之前的数据。建议自行调整代码后，使用调�
 - libpng <http://www.libpng.org/pub/png/libpng.html>
 - harfbuzz <https://github.com/harfbuzz/harfbuzz>
 - fontconfig <https://www.freedesktop.org/wiki/Software/fontconfig/>
-
-{fmt}即将进入C++20成为std::format，届时可以简单修改后，不使用外部库。
 
 PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注意将它们复制到适合的位置。
 

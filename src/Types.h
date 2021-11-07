@@ -3,8 +3,6 @@
 #include <cstdint>
 #include <string>
 
-#include "fmt/format.h"
-
 using MAP_INT = int16_t;
 
 template <typename T>

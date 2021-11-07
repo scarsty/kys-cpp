@@ -178,7 +178,7 @@ int Engine::init(void* handle)
 
     square_ = createSquareTexture(100);
 
-    fmt::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
+    format1::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
 #if defined(_WIN32) && defined(WITH_SMALLPOT)
     tinypot_ = PotCreateFromWindow(window_);
 #endif
@@ -222,7 +222,7 @@ void Engine::toggleFullscreen()
 
 BP_Texture* Engine::loadImage(const std::string& filename)
 {
-    //fmt::print("%s", filename.c_str());
+    //format1::print("%s", filename.c_str());
     return IMG_LoadTexture(renderer_, filename.c_str());
 }
 

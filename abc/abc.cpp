@@ -6,9 +6,7 @@
 #include "GrpIdxFile.h"
 #include "TypesABC.h"
 #include "convert.h"
-
-#define FMT_HEADER_ONLY
-#include "fmt/format.h"
+#include "Format1.h"
 
 //转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)
@@ -19,7 +17,7 @@ void trans_bin_list(std::string in, std::string out)
     std::string s;
     for (auto a : leave_list)
     {
-        s += fmt::format("{}, ", a);
+        s += format1::format("{}, ", a);
     }
     convert::writeStringToFile(s, out);
 }
@@ -29,20 +27,20 @@ void trans_fight_frame()
 {
     for (int i = 0; i <= 300; i++)
     {
-        std::string path = fmt::format("../game/resource/fight/fight{:03}", i);
+        std::string path = format1::format("../game/resource/fight/fight{:03}", i);
         std::vector<int16_t> frame;
         std::string filename = path + "/fightframe.ka";
         if (File::fileExist(filename))
         {
             File::readFileToVector(path + "/fightframe.ka", frame);
             std::string content;
-            fmt::print("role {}\n", i);
+            format1::print("role {}\n", i);
             for (int j = 0; j < 5; j++)
             {
                 if (frame[j] > 0)
                 {
-                    fmt::print("{}, {}\n", j, frame[j]);
-                    content += fmt::format(content.c_str(), "{}, {}\r\n", j, frame[j]);
+                    format1::print("{}, {}\n", j, frame[j]);
+                    content += format1::format(content.c_str(), "{}, {}\r\n", j, frame[j]);
                 }
             }
             convert::writeStringToFile(content, path + "/fightframe.txt");
@@ -135,7 +133,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     File::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
     delete rgrp1;
     delete rgrp2;
-    fmt::print("trans {} end\n", grp.c_str());
+    format1::print("trans {} end\n", grp.c_str());
     return 0;
 }
 
