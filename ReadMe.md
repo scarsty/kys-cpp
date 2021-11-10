@@ -124,11 +124,11 @@ PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
-### common
+### nb
 
-common <https://github.com/scarsty/common>
+nb <https://github.com/scarsty/nb>
 
-common是作者所写的一个通用功能集合，被多个工程使用。
+nb是作者所写的一个通用功能集合，被多个工程使用。
 
 其中包含了ini文件读写库，修改自以下工程：
 
@@ -137,10 +137,10 @@ common是作者所写的一个通用功能集合，被多个工程使用。
 可以用以下命令获取：
 
 ```shell
-git clone https://github.com/scarsty/common common
+git clone https://github.com/scarsty/nb
 ```
 
-common需与kys-cpp目录同级。
+nb需与kys-cpp目录同级。
 
 ## 授权
 

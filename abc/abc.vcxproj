@@ -12,14 +12,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="abc.cpp" />
-    <ClCompile Include="..\..\common\File.cpp" />
-    <ClCompile Include="..\..\common\convert.cpp" />
+    <ClCompile Include="..\..\nb\File.cpp" />
+    <ClCompile Include="..\..\nb\convert.cpp" />
     <ClCompile Include="..\src\GrpIdxFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TypesABC.h" />
-    <ClInclude Include="..\..\common\File.h" />
-    <ClInclude Include="..\..\common\convert.h" />
     <ClInclude Include="..\src\GrpIdxFile.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -88,7 +86,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../src;../../common;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../src;../../nb;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>

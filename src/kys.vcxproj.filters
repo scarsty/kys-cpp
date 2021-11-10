@@ -163,11 +163,11 @@
     <ClCompile Include="..\others\zip.c">
       <Filter>zip</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\common\convert.cpp">
-      <Filter>common</Filter>
+    <ClCompile Include="..\..\nb\convert.cpp">
+      <Filter>nb</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\common\File.cpp">
-      <Filter>common</Filter>
+    <ClCompile Include="..\..\nb\File.cpp">
+      <Filter>nb</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -342,20 +342,20 @@
     <ClInclude Include="resource.h">
       <Filter>_Resources</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\convert.h">
-      <Filter>common</Filter>
+    <ClInclude Include="..\..\nb\convert.h">
+      <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\File.h">
-      <Filter>common</Filter>
+    <ClInclude Include="..\..\nb\File.h">
+      <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\INIReader.h">
-      <Filter>common</Filter>
+    <ClInclude Include="..\..\nb\INIReader.h">
+      <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\Random.h">
-      <Filter>common</Filter>
+    <ClInclude Include="..\..\nb\Random.h">
+      <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\common\Format1.h">
-      <Filter>common</Filter>
+    <ClInclude Include="..\..\nb\Format1.h">
+      <Filter>nb</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -365,9 +365,6 @@
     <Filter Include="headers">
       <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
-    <Filter Include="common">
-      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{3c678943-dbdf-4d4f-a01c-0c5b1e6321a6}</UniqueIdentifier>
@@ -408,6 +405,9 @@
     </Filter>
     <Filter Include="chemistry">
       <UniqueIdentifier>{035dc8b6-d3ba-46b1-9302-e7cdbc2c3b18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="nb">
+      <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
