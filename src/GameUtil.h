@@ -104,7 +104,7 @@ public:
     template <typename... Args>
     static void LOG(Args&&... args) 
     {
-        format1::print(stdout, args...);
+        fmt1::print(stdout, args...);
     }
 
 };

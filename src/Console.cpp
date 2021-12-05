@@ -48,7 +48,7 @@ Console::Console()
         smt->setInputPosition(180, 80);
         smt->run();
         int id = smt->getResult();
-        format1::print("result %d\n", id);
+        fmt1::print("result %d\n", id);
     }
     else if (code == "chuansong" || code == "teleport" || code == "mache" || code == "")
     {
@@ -78,8 +78,8 @@ Console::Console()
             int fontSize = 28;
             TextureManager::getInstance()->renderTexture("title", 126, { nx, ny, 400, 400 }, { 192, 192, 192, 255 }, 255);
             //Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
-            Font::getInstance()->draw(format1::format("{}，{}", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
-            Font::getInstance()->draw(format1::format("（{}，{}）", scene->MainEntranceX1, scene->MainEntranceY1),
+            Font::getInstance()->draw(fmt1::format("{}，{}", scene->Name, scene->ID), fontSize, nx + 20, ny + 20);
+            Font::getInstance()->draw(fmt1::format("（{}，{}）", scene->MainEntranceX1, scene->MainEntranceY1),
                 fontSize, nx + 20, ny + 20 + fontSize * 1.5);
 
             int man_x_ = scene->MainEntranceX1;
@@ -155,7 +155,7 @@ Console::Console()
             auto scene = Save::getInstance()->getSubMapInfos()[id];
             MainScene::getInstance()->forceEnterSubScene(id, scene->EntranceX, scene->EntranceY);
             MainScene::getInstance()->setManPosition(scene->MainEntranceX1, scene->MainEntranceY1);
-            format1::print("傳送到{}\n", id);
+            fmt1::print("傳送到{}\n", id);
         }
     }
     else if (splits[0] == "newsave" && splits.size() >= 2)
