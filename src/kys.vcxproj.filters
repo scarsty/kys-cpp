@@ -169,6 +169,9 @@
     <ClCompile Include="..\..\nb\PotConv.cpp">
       <Filter>nb</Filter>
     </ClCompile>
+    <ClCompile Include="BattleSceneHades.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -356,6 +359,9 @@
     </ClInclude>
     <ClInclude Include="..\..\nb\PotConv.h">
       <Filter>nb</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneHades.h">
+      <Filter>battle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

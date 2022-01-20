@@ -1,6 +1,7 @@
 #include "Event.h"
 #include "Audio.h"
 #include "BattleScene.h"
+#include "BattleSceneHades.h"
 #include "File.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -377,10 +378,21 @@ bool Event::askBattle()
 
 bool Event::tryBattle(int battle_id, int get_exp)
 {
-    auto battle = std::make_shared<BattleScene>();
-    battle->setID(battle_id);
-    battle->setHaveFailExp(get_exp);
-    int result = battle->run();
+    int result = 0;
+    if (GameUtil::getInstance()->getInt("constant", "semi_real") <= 1)
+    {
+        auto battle = std::make_shared<BattleScene>();
+        battle->setID(battle_id);
+        battle->setHaveFailExp(get_exp);
+        result = battle->run();
+    }
+    else
+    {
+        auto battle = std::make_shared<BattleSceneHades>();
+        battle->setID(battle_id);
+        battle->setHaveFailExp(get_exp);
+        result = battle->run();
+    }
     //int result = 0;    //测试用
     clearTalkBox();
 

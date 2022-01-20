@@ -106,6 +106,7 @@
     <ClCompile Include="BattleNetwork.cpp" />
     <ClCompile Include="BattleScene.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
+    <ClCompile Include="BattleSceneHades.cpp" />
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="ChemistryEngine.cpp" />
     <ClCompile Include="Console.cpp" />
@@ -159,6 +160,7 @@
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="..\others\miniz.h" />
     <ClInclude Include="..\others\zip.h" />
+    <ClInclude Include="BattleSceneHades.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />
