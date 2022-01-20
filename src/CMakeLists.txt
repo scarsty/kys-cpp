@@ -11,8 +11,9 @@ link_directories(. ../lib)
 
 file(GLOB SRC_LIST
     ./*.cpp
-    ../../common/convert.cpp
-    ../../common/File.cpp
+    ../../nb/convert.cpp
+    ../../nb/File.cpp
+    ../../nb/PotConv.cpp
     ../others/Hanz2Piny.cpp
     ../others/zip.c)
 

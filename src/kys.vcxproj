@@ -96,6 +96,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\nb\PotConv.cpp" />
     <ClCompile Include="..\others\Hanz2Piny.cpp" />
     <ClCompile Include="..\others\zip.c" />
     <ClCompile Include="Application.cpp" />
@@ -135,7 +136,6 @@
     <ClCompile Include="TextBoxRoll.cpp" />
     <ClCompile Include="UI.cpp" />
     <ClCompile Include="..\..\nb\convert.cpp" />
-    <ClCompile Include="PotConv.cpp" />
     <ClCompile Include="SubScene.cpp" />
     <ClCompile Include="TitleScene.cpp" />
     <ClCompile Include="kys.cpp" />
@@ -155,6 +155,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\nb\Format1.h" />
+    <ClInclude Include="..\..\nb\PotConv.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="..\others\miniz.h" />
     <ClInclude Include="..\others\zip.h" />
@@ -200,7 +201,6 @@
     <ClInclude Include="TextBoxRoll.h" />
     <ClInclude Include="UI.h" />
     <ClInclude Include="..\..\nb\convert.h" />
-    <ClInclude Include="PotConv.h" />
     <ClInclude Include="TitleScene.h" />
     <ClInclude Include="MainScene.h" />
     <ClInclude Include="Menu.h" />

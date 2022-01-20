@@ -88,9 +88,6 @@
     <ClCompile Include="Types.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="PotConv.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="RandomRole.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -167,6 +164,9 @@
       <Filter>nb</Filter>
     </ClCompile>
     <ClCompile Include="..\..\nb\File.cpp">
+      <Filter>nb</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\nb\PotConv.cpp">
       <Filter>nb</Filter>
     </ClCompile>
   </ItemGroup>
@@ -270,9 +270,6 @@
     <ClInclude Include="TextureManager.h">
       <Filter>engine</Filter>
     </ClInclude>
-    <ClInclude Include="PotConv.h">
-      <Filter>engine</Filter>
-    </ClInclude>
     <ClInclude Include="Talk.h">
       <Filter>event</Filter>
     </ClInclude>
@@ -355,6 +352,9 @@
       <Filter>nb</Filter>
     </ClInclude>
     <ClInclude Include="..\..\nb\Format1.h">
+      <Filter>nb</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\nb\PotConv.h">
       <Filter>nb</Filter>
     </ClInclude>
   </ItemGroup>
