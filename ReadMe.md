@@ -147,11 +147,11 @@ nb需与kys-cpp目录同级。
 以下文本，若中文和英文存在冲突，则以中文为准。
 
 ```
-以zlib授权发布，但是包含两个附加条款：
+以 BSD 3-Clause License 授权发布，但是包含两个附加条款：
 一般情况下，可以自由使用代码，也可自由用于商业情况。
 但若将其用于金庸武侠题材的游戏，则严禁任何形式的牟利行为。
 
-The source codes are distributed under zlib license, with two additional clauses.
+The source codes are distributed under BSD 3-Clause License license, with two additional clauses.
 Full right of the codes is granted.
 If the codes are used in Jin Yong's novels related games, the game is strictly prohibited for profit.
 ```
