@@ -1,9 +1,10 @@
 #pragma once
-#include "Scene.h"
+#include "BattleScene.h"
 #include "BattleMap.h"
+#include "Head.h"
 #include "Save.h"
 
-class BattleSceneHades : public Scene
+class BattleSceneHades : public BattleScene
 {
 public:
     BattleSceneHades();
@@ -20,14 +21,25 @@ public:
     virtual void backRun() override;
 
 protected:
-    int battle_id_ = 0;
-    BattleInfo* info_;
+    double man_x_ = 32, man_y_ = 32;
 
-    Save* save_;
+    Point getPositionOnWholeEarth(double x, double y)
+    {
+        auto p = getPositionOnRender(x, y, 0, 0);
+        p.x += COORD_COUNT * TILE_W - render_center_x_;
+        p.y += 2 * TILE_H - render_center_y_;
+        return p;
+    }
 
-    std::vector<Role*> battle_roles_;    //所有参战角色
+    Point getPositionOnRender(double x, double y, double view_x, double view_y)
+    {
+        Point p;
+        x = x - view_x;
+        y = y - view_y;
+        p.x = -y * TILE_W + x * TILE_W + render_center_x_;
+        p.y = y * TILE_H + x * TILE_H + render_center_y_;
+        return p;
+    }
 
-    //地面层，建筑层，选择层（负值为不可选，0和正值为可选），效果层
-    MapSquareInt earth_layer_, building_layer_, select_layer_, effect_layer_;
 };
 

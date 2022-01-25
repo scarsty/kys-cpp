@@ -74,7 +74,7 @@ void Engine::destroy()
     destroyAssistTexture();
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
+#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     PotDestory(tinypot_);
 #endif
     SDL_Quit();
@@ -132,7 +132,7 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
 
 int Engine::init(void* handle)
 {
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO))
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK))
     {
         return -1;
     }
@@ -151,6 +151,21 @@ int Engine::init(void* handle)
     SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
     SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
     SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
+
+    //手柄
+    if (SDL_NumJoysticks() < 1)
+    {
+        fmt1::print("Warning: No joysticks connected!\n");
+    }
+    else
+    {
+        //Load joystick
+        auto game_controller = SDL_GameControllerOpen(0);
+        if (!game_controller)
+        {
+            fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
+        }
+    }
 
     rect_ = { 0, 0, start_w_, start_h_ };
     logo_ = loadImage("logo.png");
@@ -179,7 +194,7 @@ int Engine::init(void* handle)
     square_ = createSquareTexture(100);
 
     fmt1::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
+#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     tinypot_ = PotCreateFromWindow(window_);
 #endif
     return 0;
@@ -424,7 +439,7 @@ int Engine::playVideo(std::string filename)
     {
         return 0;
     }
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
+#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     return PotInputVideo(tinypot_, (char*)filename.c_str());
 #endif
     return 0;

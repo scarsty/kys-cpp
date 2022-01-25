@@ -162,6 +162,8 @@ public:
     };
     ActionShowInfo Show;
 
+    double x1_, y1_;
+
 private:
     int X_, Y_;
     int prevX_, prevY_;

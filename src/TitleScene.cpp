@@ -33,6 +33,9 @@ TitleScene::TitleScene()
     menu_load_ = std::make_shared<UISave>();
     menu_load_->setPosition(500, 300);
     render_message_ = 1;
+
+    Save::getInstance()->load(10);
+    Event::getInstance()->tryBattle(100, 0);
 }
 
 TitleScene::~TitleScene()
