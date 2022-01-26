@@ -135,6 +135,8 @@ public:
 
     int Progress;
 
+    int X1, Y1;   //此为直角坐标系
+
     struct ShowString
     {
         std::string Text;
@@ -161,8 +163,6 @@ public:
         }
     };
     ActionShowInfo Show;
-
-    double x1_, y1_;
 
 private:
     int X_, Y_;

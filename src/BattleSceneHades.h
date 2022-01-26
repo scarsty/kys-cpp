@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include "BattleScene.h"
 #include "BattleMap.h"
 #include "Head.h"
@@ -12,22 +12,22 @@ public:
     virtual ~BattleSceneHades();
     void setID(int id);
 
-    //¼Ì³Ğ×Ô»ùÀàµÄº¯Êı
+    //ç»§æ‰¿è‡ªåŸºç±»çš„å‡½æ•°
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;     //Õ½³¡Ö÷Ñ­»·
-    virtual void dealEvent2(BP_Event& e) override;    //ÓÃÓÚÍ£Ö¹×Ô¶¯
+    virtual void dealEvent(BP_Event& e) override;     //æˆ˜åœºä¸»å¾ªç¯
+    virtual void dealEvent2(BP_Event& e) override;    //ç”¨äºåœæ­¢è‡ªåŠ¨
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void backRun() override;
 
 protected:
-    double man_x_ = 32, man_y_ = 32;
+    int man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_H;
 
-    Point getPositionOnWholeEarth(double x, double y)
+    Point getPositionOnWholeEarth(int x, int y)
     {
-        auto p = getPositionOnRender(x, y, 0, 0);
-        p.x += COORD_COUNT * TILE_W - render_center_x_;
-        p.y += 2 * TILE_H - render_center_y_;
+        Point p;
+        p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
+        p.y = y * TILE_H + x * TILE_H;
         return p;
     }
 
@@ -38,6 +38,15 @@ protected:
         y = y - view_y;
         p.x = -y * TILE_W + x * TILE_W + render_center_x_;
         p.y = y * TILE_H + x * TILE_H + render_center_y_;
+        return p;
+    }
+
+    Point toDitu(int mouse_x1, int mouse_y1)
+    {
+        mouse_x1 -= COORD_COUNT * TILE_W;
+        Point p;
+        p.x = ((mouse_x1) / TILE_W + (mouse_y1) / TILE_H) / 2;
+        p.y = ((-mouse_x1) / TILE_W + (mouse_y1) / TILE_H) / 2;
         return p;
     }
 

@@ -1,4 +1,4 @@
-#include "BattleSceneHades.h"
+ï»¿#include "BattleSceneHades.h"
 #include "Audio.h"
 #include "Head.h"
 #include "MainScene.h"
@@ -36,97 +36,101 @@ void BattleSceneHades::setID(int id)
 
 void BattleSceneHades::draw()
 {
+    //åœ¨è¿™ä¸ªæ¨¡å¼ä¸‹ï¼Œä½¿ç”¨çš„æ˜¯ç›´è§’åæ ‡
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
-    //µØÃæÊÇ·ñĞèÒªÁÁ¶ÈµÄ±ä»¯£¬×Ô¶¯ÈËÎï»òÕßÑ¡ÔñÎ»ÖÃ²¿·ÖÃ»ÓĞÔËĞĞ
 
-    //Ò»Õû¿éµØÃæ
+    //ä»¥ä¸‹æ˜¯è®¡ç®—å‡ºéœ€è¦ç”»çš„åŒºåŸŸï¼Œå…ˆç”»åˆ°ä¸€ä¸ªå¤§å›¾ä¸Šï¼Œå†è½¬è´´åˆ°çª—å£
+    {
+        auto p = toDitu(man_x1_, man_y1_);
+        man_x_ = p.x;
+        man_y_ = p.y;
+    }
+    //ä¸€æ•´å—åœ°é¢
     if (earth_texture_)
     {
+        Engine::getInstance()->setRenderTarget(earth_texture_);
+        for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+        {
+            for (int i = -view_width_region_; i <= view_width_region_; i++)
+            {
+                int ix = man_x_ + i + (sum / 2);
+                int iy = man_y_ - i + (sum - sum / 2);
+                auto p = getPositionOnWholeEarth(ix, iy);
+                if (!isOutLine(ix, iy))
+                {
+                    int num = earth_layer_.data(ix, iy) / 2;
+                    BP_Color color = { 255, 255, 255, 255 };
+                    bool need_draw = true;
+                    if (need_draw && num > 0)
+                    {
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
+                    }
+                }
+            }
+        }
+        for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+        {
+            for (int i = -view_width_region_; i <= view_width_region_; i++)
+            {
+
+                int ix = man_x_ + i + (sum / 2);
+                int iy = man_y_ - i + (sum - sum / 2);
+                auto p = getPositionOnWholeEarth(ix, iy);
+                if (!isOutLine(ix, iy))
+                {
+                    int num = building_layer_.data(ix, iy) / 2;
+                    if (num > 0)
+                    {
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                    }
+
+                }
+            }
+        }
+
+        for (auto r : battle_roles_)
+        {
+            std::string path = fmt1::format("fight/fight{:03}", r->HeadID);
+            BP_Color color = { 255, 255, 255, 255 };
+            uint8_t alpha = 255;
+            if (battle_cursor_->isRunning() && !acting_role_->isAuto())
+            {
+                color = { 128, 128, 128, 255 };
+                if (inEffect(acting_role_, r))
+                {
+                    color = { 255, 255, 255, 255 };
+                }
+            }
+            int pic;
+            if (r == acting_role_)
+            {
+                pic = calRolePic(r, action_type_, action_frame_);
+            }
+            else
+            {
+                pic = calRolePic(r);
+            }
+            if (r->HP <= 0)
+            {
+                alpha = dead_alpha_;
+            }
+            TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
+            //renderExtraRoleInfo(r, r->X1, r->Y1);
+        }
+
         BP_Color c = { 255, 255, 255, 255 };
         Engine::getInstance()->setColor(earth_texture_, c);
-        auto p = getPositionOnWholeEarth(man_x_, man_y_);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
-        //»ñÈ¡µÄÊÇÖĞĞÄÎ»ÖÃ£¬ÈçÌùÍ¼Ó¦¼õµôÆÁÄ»³ß´çµÄÒ»°ë
-        BP_Rect rect0 = { p.x - render_center_x_ - x_, p.y - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
+        //è·å–çš„æ˜¯ä¸­å¿ƒä½ç½®ï¼Œå¦‚è´´å›¾åº”å‡æ‰å±å¹•å°ºå¯¸çš„ä¸€åŠ
+        BP_Rect rect0 = { man_x1_ - render_center_x_ - x_, man_y1_ - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
+        Engine::getInstance()->setRenderAssistTexture();
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
     }
 
-#ifndef _DEBUG
-    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
-    {
-        for (int i = -view_width_region_; i <= view_width_region_; i++)
-        {
-            int ix = man_x_ + i + (sum / 2);
-            int iy = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
-            p.x += x_;
-            p.y += y_;
-            if (!isOutLine(ix, iy))
-            {
-                int num = earth_layer_.data(ix, iy) / 2;
-                BP_Color color = { 255, 255, 255, 255 };
-                bool need_draw = true;
-                if (need_draw && num > 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
-                }
-            }
-        }
-    }
-#endif
-    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
-    {
-        for (int i = -view_width_region_; i <= view_width_region_; i++)
-        {
-            int ix = man_x_ + i + (sum / 2);
-            int iy = man_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(ix, iy, man_x_, man_y_);
-            p.x += x_;
-            p.y += y_;
-            if (!isOutLine(ix, iy))
-            {
-                int num = building_layer_.data(ix, iy) / 2;
-                if (num > 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                }
-                //if (r)
-                //{
-                //    std::string path = fmt1::format("fight/fight{:03}", r->HeadID);
-                //    BP_Color color = { 255, 255, 255, 255 };
-                //    uint8_t alpha = 255;
-                //    if (battle_cursor_->isRunning() && !acting_role_->isAuto())
-                //    {
-                //        color = { 128, 128, 128, 255 };
-                //        if (inEffect(acting_role_, r))
-                //        {
-                //            color = { 255, 255, 255, 255 };
-                //        }
-                //    }
-                //    int pic;
-                //    if (r == acting_role_)
-                //    {
-                //        pic = calRolePic(r, action_type_, action_frame_);
-                //    }
-                //    else
-                //    {
-                //        pic = calRolePic(r);
-                //    }
-                //    if (r->HP <= 0)
-                //    {
-                //        alpha = dead_alpha_;
-                //    }
-                //    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color, alpha);
-                //    renderExtraRoleInfo(r, p.x, p.y);
-                //}
-            }
-        }
-    }
     Engine::getInstance()->renderAssistTextureToWindow();
-
 
     if (result_ >= 0)
     {
@@ -141,16 +145,16 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         switch (e.key.keysym.sym)
         {
         case BPK_a:
-            man_x_-=.3;
+            man_x1_ -= 5;
             break;
         case BPK_d:
-            man_x_ += .3;
+            man_x1_ += 5;
             break;
         case BPK_w:
-            man_y_ -= .3;
+            man_y1_ -= 5;
             break;
         case BPK_s:
-            man_y_ += .3;
+            man_y1_ += 5;
             break;
         }
     }
@@ -165,42 +169,34 @@ void BattleSceneHades::onEntrance()
 {
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
-    //×¢Òâ´ËÊ±²ÅÄÜµÃµ½´°¿ÚµÄ´óĞ¡£¬ÓÃÀ´ÉèÖÃÍ·ÏñµÄÎ»ÖÃ
-    head_self_->setPosition(80, 100);
+    //æ³¨æ„æ­¤æ—¶æ‰èƒ½å¾—åˆ°çª—å£çš„å¤§å°ï¼Œç”¨æ¥è®¾ç½®å¤´åƒçš„ä½ç½®
+    head_self_->setPosition(80, Engine::getInstance()->getWindowHeight() - 200);
 
-    //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
     addChild(MainScene::getInstance()->getWeather());
 
-    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    //Engine::getInstance()->setRenderTarget(earth_texture_);
-    ////¶şÕßÖ®²îÊÇÆÁÄ»ÖĞĞÄÓë´óÎÆÀíµÄÖĞĞÄµÄ¾àÀë
-    //for (int i1 = 0; i1 < COORD_COUNT; i1++)
-    //{
-    //    for (int i2 = 0; i2 < COORD_COUNT; i2++)
-    //    {
-    //        auto p = getPositionOnWholeEarth(i1, i2);
-    //        int num = earth_layer_.data(i1, i2) / 2;
-    //        //ÎŞ¸ß¶ÈµØÃæ
-    //        if (num > 0)
-    //        {
-    //            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-    //        }
-    //    }
-    //}
-    //Engine::getInstance()->resetRenderTarget();
+    earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     readBattleInfo();
-    //³õÊ¼×´Ì¬
+    //åˆå§‹çŠ¶æ€
     for (auto r : battle_roles_)
     {
         setRoleInitState(r);
+
+        auto p = getPositionOnWholeEarth(r->X(), r->Y());
+
+        r->X1 = p.x;
+        r->Y1 = p.y;
         r->Progress = 0;
+        if (r->HeadID == 0)
+        {
+            head_self_->setRole(r);
+        }
     }
 }
 
 void BattleSceneHades::onExit()
 {
-
+    Engine::getInstance()->destroyTexture(earth_texture_);
 }
 
 void BattleSceneHades::backRun()

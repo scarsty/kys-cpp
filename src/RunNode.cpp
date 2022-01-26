@@ -4,7 +4,7 @@
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
 uint64_t RunNode::prev_present_ticks_ = 0;
-int RunNode::refresh_interval_ = 16;
+double RunNode::refresh_interval_ = 16.667;
 int RunNode::render_message_ = 0;
 
 RunNode::~RunNode()

@@ -20,8 +20,6 @@
 #include <iostream>
 #include <string>
 
-RandomDouble BattleScene::rng_;
-
 BattleScene::BattleScene()
 {
     full_window_ = 1;
@@ -41,6 +39,7 @@ BattleScene::BattleScene()
     battle_cursor_ = std::make_shared<BattleCursor>(this);
     save_ = Save::getInstance();
     semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
+    rng_.set_seed();
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
