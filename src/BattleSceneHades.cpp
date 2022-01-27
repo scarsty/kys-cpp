@@ -40,10 +40,9 @@ void BattleSceneHades::draw()
     Engine::getInstance()->setRenderAssistTexture();
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
-
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
     {
-        auto p = toDitu(man_x1_, man_y1_);
+        auto p = posWholeEarthTo45(man_x1_, man_y1_);
         man_x_ = p.x;
         man_y_ = p.y;
     }
@@ -140,24 +139,26 @@ void BattleSceneHades::draw()
 
 void BattleSceneHades::dealEvent(BP_Event& e)
 {
-    if (e.type == BP_KEYDOWN)
+    //方向
+    if (Engine::getInstance()->checkKeyPress(BPK_a))
     {
-        switch (e.key.keysym.sym)
-        {
-        case BPK_a:
-            man_x1_ -= 5;
-            break;
-        case BPK_d:
-            man_x1_ += 5;
-            break;
-        case BPK_w:
-            man_y1_ -= 5;
-            break;
-        case BPK_s:
-            man_y1_ += 5;
-            break;
-        }
+        man_x1_ -= 2;
     }
+    if (Engine::getInstance()->checkKeyPress(BPK_d))
+    {
+        man_x1_ += 2;
+    }
+    if (Engine::getInstance()->checkKeyPress(BPK_w))
+    {
+        man_y1_ -= 1;
+    }
+    if (Engine::getInstance()->checkKeyPress(BPK_s))
+    {
+        man_y1_ += 1;
+    }
+
+    role_->X1 = man_x1_;
+    role_->Y1 = man_y1_;
 }
 
 void BattleSceneHades::dealEvent2(BP_Event& e)
@@ -189,7 +190,10 @@ void BattleSceneHades::onEntrance()
         r->Progress = 0;
         if (r->HeadID == 0)
         {
+            role_ = r;
             head_self_->setRole(r);
+            man_x1_ = r->X1;
+            man_y1_ = r->Y1;
         }
     }
 }

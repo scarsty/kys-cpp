@@ -4,6 +4,13 @@
 #include "Head.h"
 #include "Save.h"
 
+
+
+
+//j轻攻击，i重攻击，k闪身
+//每场战斗可以选择从4种武学中选择轻重
+//硬直，判定范围，威力，消耗体力，在不攻击的时候可以回复体力
+
 class BattleSceneHades : public BattleScene
 {
 public:
@@ -31,7 +38,7 @@ protected:
         return p;
     }
 
-    Point getPositionOnRender(double x, double y, double view_x, double view_y)
+    Point getPositionOnRender(int x, int y, int view_x, int view_y)
     {
         Point p;
         x = x - view_x;
@@ -41,7 +48,7 @@ protected:
         return p;
     }
 
-    Point toDitu(int mouse_x1, int mouse_y1)
+    Point posWholeEarthTo45(int mouse_x1, int mouse_y1)
     {
         mouse_x1 -= COORD_COUNT * TILE_W;
         Point p;
@@ -49,6 +56,9 @@ protected:
         p.y = ((-mouse_x1) / TILE_W + (mouse_y1) / TILE_H) / 2;
         return p;
     }
+
+    bool is_running_ = false;   //主角是否在跑动
+    Role* role_;    //主角
 
 };
 

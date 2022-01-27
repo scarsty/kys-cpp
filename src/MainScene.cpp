@@ -1,4 +1,7 @@
 #include "MainScene.h"
+
+#include <ctime>
+
 #include "Console.h"
 #include "File.h"
 #include "Random.h"
@@ -7,8 +10,7 @@
 #include "TextureManager.h"
 #include "UI.h"
 #include "UISave.h"
-#include <ctime>
-//#include "Timer.h"
+
 
 MainScene::MainScene()
 {
