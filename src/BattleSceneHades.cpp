@@ -291,7 +291,7 @@ void BattleSceneHades::onExit()
 void BattleSceneHades::backRun()
 {
     if (cool_down_ > 0) { cool_down_--; }
-    if (current_frame_ % 2 == 0)
+    if (current_frame_ % 3 == 0)
     {
         for (auto r : battle_roles_)
         {
@@ -311,7 +311,7 @@ void BattleSceneHades::backRun()
                     }
                     else
                     {
-                        if (current_frame_ % 8 == 0)
+                        if (current_frame_ % 12 == 0)
                         {
                             r->ActFrame++;
                             //x_ = rng_.rand_int(2) - rng_.rand_int(2);
