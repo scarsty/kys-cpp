@@ -1,8 +1,12 @@
-# 金庸老先生千古！
-
 # kys-cpp
 
+金庸群侠传复刻版，为区别于其他语言的复刻版，添加后缀cpp。
+
 <img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/logo.png' />
+
+目前的开发分支名为“黑帝斯”，即受2020~2021年大火游戏《黑帝斯》启发的即时战斗系统。
+
+在ini中设置semi_real=2即可以开启此战斗系统，但是并不正常。之前的回合制以及半即时战斗系统不受影响。
 
 github：https://github.com/scarsty/kys-cpp
 
@@ -48,8 +52,6 @@ run过程会返回一个函数值，可以利用进行一些判断，例如菜�
 
 通常来说，大部分游戏引擎都需要全局标记和回调来控制剧情的执行，本框架的设计在绘图无阻塞执行的同时，事件仍是以阻塞的模式顺序执行的，这样无需额外的事件标记。
 
-更多分析见<https://www.dawuxia.net/thread-1039649-1-1.html>。
-
 ### 视频
 
 参见：<https://github.com/scarsty/smallpot>
@@ -64,7 +66,7 @@ run过程会返回一个函数值，可以利用进行一些判断，例如菜�
 
 之前SDL_mixer有严重的跳出问题，目前版本是否已经解决暂时不清楚。因BASS为商业库，故使用SDL_mixer作为备选，编译时增加宏USE_SDL_MIXER_AUDIO即可。
 
-链接选项并未分别处理。VS和GCC中，如果某个库的功能并未被用到，即使其包含在链接选项中，也不会参与实质的链接。
+链接选项并未分别处理。MSVC和GCC中，如果某个库的功能并未被用到，即使其包含在链接选项中，也不会参与实质的链接。
 
 ## 资源的保存以及abc工程
 
@@ -167,8 +169,11 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 
 ## 其他
 
-Created by SB500@www.dawuxia.net.
+Special thanks to ReSharper C++ for its supporting to the opening source project.
+
+<img src='https://resources.jetbrains.com/storage/products/company/brand/logos/ReSharperCPP_icon.svg'>
 
 Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SanDaShan, SB250 and SB750.
 
-A title "Powered by www.dawuxia.net" is advised to be displayed on the welcome screen.
+纪念金庸先生对武侠文化的贡献！
+

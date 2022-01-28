@@ -1,5 +1,6 @@
 ﻿#include "BattleSceneHades.h"
 #include "Audio.h"
+#include "GameUtil.h"
 #include "Head.h"
 #include "MainScene.h"
 
@@ -42,7 +43,7 @@ void BattleSceneHades::draw()
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
     {
-        auto p = posWholeEarthTo45(man_x1_, man_y1_);
+        auto p = pos90To45(man_x1_, man_y1_);
         man_x_ = p.x;
         man_y_ = p.y;
     }
@@ -56,7 +57,7 @@ void BattleSceneHades::draw()
             {
                 int ix = man_x_ + i + (sum / 2);
                 int iy = man_y_ - i + (sum - sum / 2);
-                auto p = getPositionOnWholeEarth(ix, iy);
+                auto p = pos45To90(ix, iy);
                 if (!isOutLine(ix, iy))
                 {
                     int num = earth_layer_.data(ix, iy) / 2;
@@ -69,6 +70,16 @@ void BattleSceneHades::draw()
                 }
             }
         }
+
+        struct DrawInfo
+        {
+            std::string path;
+            int num;
+            Point p;
+        };
+        std::vector<DrawInfo> building_vec;
+        building_vec.reserve(10000);
+
         for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
         {
             for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -76,15 +87,15 @@ void BattleSceneHades::draw()
 
                 int ix = man_x_ + i + (sum / 2);
                 int iy = man_y_ - i + (sum - sum / 2);
-                auto p = getPositionOnWholeEarth(ix, iy);
+                auto p = pos45To90(ix, iy);
                 if (!isOutLine(ix, iy))
                 {
                     int num = building_layer_.data(ix, iy) / 2;
                     if (num > 0)
                     {
                         TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                        building_vec.emplace_back("smap", num, p);
                     }
-
                 }
             }
         }
@@ -115,8 +126,23 @@ void BattleSceneHades::draw()
             {
                 alpha = dead_alpha_;
             }
-            TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
+            pic = calRolePic(r, r->ActType, r->ActFrame);
+            //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
+            building_vec.emplace_back(path, pic, Point{ r->X1, r->Y1 });
             //renderExtraRoleInfo(r, r->X1, r->Y1);
+        }
+
+        auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
+        {
+            if (d1.p.y != d2.p.y)
+                return d1.p.y < d2.p.y;
+            else
+                return d1.p.x < d2.p.x;
+        };
+        std::sort(building_vec.begin(), building_vec.end(), sort_building);
+        for (auto& d : building_vec)
+        {
+            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y);
         }
 
         BP_Color c = { 255, 255, 255, 255 };
@@ -139,26 +165,85 @@ void BattleSceneHades::draw()
 
 void BattleSceneHades::dealEvent(BP_Event& e)
 {
+    auto engine = Engine::getInstance();
+
     //方向
-    if (Engine::getInstance()->checkKeyPress(BPK_a))
+    man_x1_ = role_->X1;
+    man_y1_ = role_->Y1;
+    if (cool_down_ == 0)
     {
-        man_x1_ -= 2;
+        if (engine->checkKeyPress(BPK_a))
+        {
+            man_x1_ -= 2;
+            role_->FaceTowards = Towards_LeftDown;
+        }
+        if (engine->checkKeyPress(BPK_d))
+        {
+            man_x1_ += 2;
+            role_->FaceTowards = Towards_RightUp;
+        }
+        if (engine->checkKeyPress(BPK_w))
+        {
+            man_y1_ -= 1;
+            role_->FaceTowards = Towards_LeftUp;
+        }
+        if (engine->checkKeyPress(BPK_s))
+        {
+            man_y1_ += 1;
+            role_->FaceTowards = Towards_RightDown;
+        }
+
+        if (engine->checkKeyPress(BPK_1))
+        {
+            weapon_ = 1;
+        }
+        if (engine->checkKeyPress(BPK_2))
+        {
+            weapon_ = 2;
+        }
+        if (engine->checkKeyPress(BPK_3))
+        {
+            weapon_ = 3;
+        }
+        if (engine->checkKeyPress(BPK_4))
+        {
+            weapon_ = 4;
+        }
     }
-    if (Engine::getInstance()->checkKeyPress(BPK_d))
+    if (engine->checkKeyPress(BPK_w) && engine->checkKeyPress(BPK_d))
     {
-        man_x1_ += 2;
+        role_->FaceTowards = Towards_RightUp;
     }
-    if (Engine::getInstance()->checkKeyPress(BPK_w))
+    if (engine->checkKeyPress(BPK_s) && engine->checkKeyPress(BPK_a))
     {
-        man_y1_ -= 1;
-    }
-    if (Engine::getInstance()->checkKeyPress(BPK_s))
-    {
-        man_y1_ += 1;
+        role_->FaceTowards = Towards_LeftDown;
     }
 
-    role_->X1 = man_x1_;
-    role_->Y1 = man_y1_;
+    if (canWalk90(man_x1_, man_y1_))
+    {
+        role_->X1 = man_x1_;
+        role_->Y1 = man_y1_;
+    }
+    if (cool_down_ == 0)
+    {
+        if (engine->checkKeyPress(BPK_j))    //轻攻击
+        {
+            cool_down_ = 30;
+            role_->ActType = weapon_;
+            role_->ActFrame = 0;
+            role_->PhysicalPower -= 5;
+            heavy_ = 0;
+        }
+        if (engine->checkKeyPress(BPK_k))    //重攻击
+        {
+            cool_down_ = 60;
+            role_->ActType = weapon_;
+            role_->ActFrame = 0;
+            role_->PhysicalPower -= 10;
+            heavy_ = 1;
+        }
+    }
+
 }
 
 void BattleSceneHades::dealEvent2(BP_Event& e)
@@ -183,7 +268,7 @@ void BattleSceneHades::onEntrance()
     {
         setRoleInitState(r);
 
-        auto p = getPositionOnWholeEarth(r->X(), r->Y());
+        auto p = pos45To90(r->X(), r->Y());
 
         r->X1 = p.x;
         r->Y1 = p.y;
@@ -205,5 +290,48 @@ void BattleSceneHades::onExit()
 
 void BattleSceneHades::backRun()
 {
-
+    if (cool_down_ > 0) { cool_down_--; }
+    if (current_frame_ % 2 == 0)
+    {
+        for (auto r : battle_roles_)
+        {
+            if (r->ActType >= 0)
+            {
+                if ((heavy_ == 0 && r->ActFrame >= r->FightFrame[r->ActType] / 2)
+                    || (heavy_ == 1 && r->ActFrame >= r->FightFrame[r->ActType]))
+                {
+                    r->ActType = -1;
+                    r->ActFrame = 0;
+                }
+                else
+                {
+                    if (heavy_ == 0)
+                    {
+                        r->ActFrame++;
+                    }
+                    else
+                    {
+                        if (current_frame_ % 8 == 0)
+                        {
+                            r->ActFrame++;
+                            //x_ = rng_.rand_int(2) - rng_.rand_int(2);
+                            //y_ = rng_.rand_int(2) - rng_.rand_int(2);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                r->ActFrame = 0;
+            }
+        }
+    }
+    if (cool_down_ == 0)
+    {
+        for (auto r : battle_roles_)
+        {
+            if (current_frame_ % 5 == 0) { r->PhysicalPower += 1; }
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+        }
+    }
 }

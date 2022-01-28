@@ -30,7 +30,7 @@ public:
 protected:
     int man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_H;
 
-    Point getPositionOnWholeEarth(int x, int y)
+    Point pos45To90(int x, int y)  //45度坐标转为直角
     {
         Point p;
         p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
@@ -38,17 +38,7 @@ protected:
         return p;
     }
 
-    Point getPositionOnRender(int x, int y, int view_x, int view_y)
-    {
-        Point p;
-        x = x - view_x;
-        y = y - view_y;
-        p.x = -y * TILE_W + x * TILE_W + render_center_x_;
-        p.y = y * TILE_H + x * TILE_H + render_center_y_;
-        return p;
-    }
-
-    Point posWholeEarthTo45(int mouse_x1, int mouse_y1)
+    Point pos90To45(int mouse_x1, int mouse_y1)//直角坐标转为45度
     {
         mouse_x1 -= COORD_COUNT * TILE_W;
         Point p;
@@ -57,8 +47,28 @@ protected:
         return p;
     }
 
+    bool canWalk45(int x, int y)
+    {
+        if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y))
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+    bool canWalk90(int x, int y)
+    {
+        auto p = pos90To45(x, y);
+        return canWalk45(p.x, p.y);
+    }
+
     bool is_running_ = false;   //主角是否在跑动
     Role* role_;    //主角
+    int cool_down_ = 0;
+    int heavy_ = 0;
+    int weapon_ = 1;
 
 };
 

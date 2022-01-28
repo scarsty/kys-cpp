@@ -136,6 +136,8 @@ public:
     int Progress;
 
     int X1, Y1;   //此为直角坐标系
+    int ActType;
+    int ActFrame;
 
     struct ShowString
     {

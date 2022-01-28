@@ -306,6 +306,7 @@ enum BP_KeyBoard
     BPK_1 = SDLK_1,
     BPK_2 = SDLK_2,
     BPK_3 = SDLK_3,
+    BPK_4 = SDLK_4,
     BPK_w = SDLK_w,
     BPK_s = SDLK_s,
     BPK_a = SDLK_a,
