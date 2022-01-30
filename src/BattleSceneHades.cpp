@@ -172,27 +172,29 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     man_y1_ = role_->Y1;
     if (cool_down_ == 0)
     {
-        if (engine->checkKeyPress(BPK_a))
+        if (current_frame_ % 3 == 0)
         {
-            man_x1_ -= 2;
-            role_->FaceTowards = Towards_LeftDown;
+            if (engine->checkKeyPress(BPK_a))
+            {
+                man_x1_ -= 2;
+                role_->FaceTowards = Towards_LeftDown;
+            }
+            if (engine->checkKeyPress(BPK_d))
+            {
+                man_x1_ += 2;
+                role_->FaceTowards = Towards_RightUp;
+            }
+            if (engine->checkKeyPress(BPK_w))
+            {
+                man_y1_ -= 1;
+                role_->FaceTowards = Towards_LeftUp;
+            }
+            if (engine->checkKeyPress(BPK_s))
+            {
+                man_y1_ += 1;
+                role_->FaceTowards = Towards_RightDown;
+            }
         }
-        if (engine->checkKeyPress(BPK_d))
-        {
-            man_x1_ += 2;
-            role_->FaceTowards = Towards_RightUp;
-        }
-        if (engine->checkKeyPress(BPK_w))
-        {
-            man_y1_ -= 1;
-            role_->FaceTowards = Towards_LeftUp;
-        }
-        if (engine->checkKeyPress(BPK_s))
-        {
-            man_y1_ += 1;
-            role_->FaceTowards = Towards_RightDown;
-        }
-
         if (engine->checkKeyPress(BPK_1))
         {
             weapon_ = 1;
@@ -226,17 +228,17 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     }
     if (cool_down_ == 0)
     {
-        if (engine->checkKeyPress(BPK_j))    //轻攻击
+        if (role_->PhysicalPower >= 20 && engine->checkKeyPress(BPK_j))    //轻攻击
         {
-            cool_down_ = 30;
+            cool_down_ = 60;
             role_->ActType = weapon_;
             role_->ActFrame = 0;
             role_->PhysicalPower -= 5;
             heavy_ = 0;
         }
-        if (engine->checkKeyPress(BPK_k))    //重攻击
+        if (role_->PhysicalPower >= 20 && engine->checkKeyPress(BPK_k))    //重攻击
         {
-            cool_down_ = 60;
+            cool_down_ = 120;
             role_->ActType = weapon_;
             role_->ActFrame = 0;
             role_->PhysicalPower -= 10;
@@ -256,7 +258,7 @@ void BattleSceneHades::onEntrance()
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
-    head_self_->setPosition(80, Engine::getInstance()->getWindowHeight() - 200);
+    head_self_->setPosition(80, 100);
 
     addChild(MainScene::getInstance()->getWeather());
 
@@ -297,7 +299,7 @@ void BattleSceneHades::backRun()
         {
             if (r->ActType >= 0)
             {
-                if ((heavy_ == 0 && r->ActFrame >= r->FightFrame[r->ActType] / 2)
+                if ((heavy_ == 0 && r->ActFrame >= r->FightFrame[r->ActType])
                     || (heavy_ == 1 && r->ActFrame >= r->FightFrame[r->ActType]))
                 {
                     r->ActType = -1;
@@ -314,8 +316,11 @@ void BattleSceneHades::backRun()
                         if (current_frame_ % 12 == 0)
                         {
                             r->ActFrame++;
-                            //x_ = rng_.rand_int(2) - rng_.rand_int(2);
-                            //y_ = rng_.rand_int(2) - rng_.rand_int(2);
+                            if (r->ActFrame >= 7)
+                            {
+                                x_ = rng_.rand_int(2) - rng_.rand_int(2);
+                                y_ = rng_.rand_int(2) - rng_.rand_int(2);
+                            }
                         }
                     }
                 }
@@ -330,7 +335,7 @@ void BattleSceneHades::backRun()
     {
         for (auto r : battle_roles_)
         {
-            if (current_frame_ % 5 == 0) { r->PhysicalPower += 1; }
+            if (current_frame_ % 10 == 0) { r->PhysicalPower += 1; }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
         }
     }
