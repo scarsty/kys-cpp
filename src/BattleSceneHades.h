@@ -3,13 +3,22 @@
 #include "BattleMap.h"
 #include "Head.h"
 #include "Save.h"
+#include <deque>
 
 
 
-
-//j轻攻击，i重攻击，k闪身
+//j轻攻击，i重攻击，m闪身
 //每场战斗可以选择从4种武学中选择轻重
 //硬直，判定范围，威力，消耗体力，在不攻击的时候可以回复体力
+
+struct AttackEffect
+{
+    double X, Y;
+    Role* Attacker = nullptr;
+    Role* Defender = nullptr;
+    int Frame;
+    int EffectNumber;
+};
 
 class BattleSceneHades : public BattleScene
 {
@@ -28,9 +37,11 @@ public:
     virtual void backRun() override;
 
 protected:
-    int man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_H;
+    double man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_H;
 
-    Point pos45To90(int x, int y)  //45度坐标转为直角
+    std::deque<AttackEffect> attack_effects_;
+
+    Point pos45To90(int x, int y)    //45度坐标转为直角
     {
         Point p;
         p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
@@ -38,12 +49,12 @@ protected:
         return p;
     }
 
-    Point pos90To45(int mouse_x1, int mouse_y1)//直角坐标转为45度
+    Point pos90To45(double x, double y)    //直角坐标转为45度
     {
-        mouse_x1 -= COORD_COUNT * TILE_W;
+        x -= COORD_COUNT * TILE_W;
         Point p;
-        p.x = ((mouse_x1) / TILE_W + (mouse_y1) / TILE_H) / 2;
-        p.y = ((-mouse_x1) / TILE_W + (mouse_y1) / TILE_H) / 2;
+        p.x = round(((x) / TILE_W + (y) / TILE_H) / 2);
+        p.y = round(((-x) / TILE_W + (y) / TILE_H) / 2);
         return p;
     }
 
@@ -64,10 +75,15 @@ protected:
         return canWalk45(p.x, p.y);
     }
 
+    double EuclidDis(double x, double y)
+    {
+        return sqrt(x * x + 4 * y * y);
+    }
+
     bool is_running_ = false;   //主角是否在跑动
     Role* role_;    //主角
     int cool_down_ = 0;
-    int heavy_ = 0;
+    int action_ = 0;    //0-轻攻击，1-重攻击，2-闪身
     int weapon_ = 1;
 
 };

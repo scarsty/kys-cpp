@@ -128,7 +128,7 @@ void BattleSceneHades::draw()
             }
             pic = calRolePic(r, r->ActType, r->ActFrame);
             //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
-            building_vec.emplace_back(path, pic, Point{ r->X1, r->Y1 });
+            building_vec.emplace_back(path, pic, Point{ int(round(r->X1)), int(round(r->Y1)) });
             //renderExtraRoleInfo(r, r->X1, r->Y1);
         }
 
@@ -150,7 +150,7 @@ void BattleSceneHades::draw()
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { man_x1_ - render_center_x_ - x_, man_y1_ - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
+        BP_Rect rect0 = { int(man_x1_ - render_center_x_ - x_), int(man_y1_ - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
         Engine::getInstance()->setRenderAssistTexture();
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
     }
@@ -168,6 +168,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     auto engine = Engine::getInstance();
 
     //方向
+    //需要注意计算欧氏距离时y方向需乘2计入，但主角的操作此时方向是离散的
     man_x1_ = role_->X1;
     man_y1_ = role_->Y1;
     if (cool_down_ == 0)
@@ -178,21 +179,25 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 man_x1_ -= 2;
                 role_->FaceTowards = Towards_LeftDown;
+                action_ = 0;
             }
             if (engine->checkKeyPress(BPK_d))
             {
                 man_x1_ += 2;
                 role_->FaceTowards = Towards_RightUp;
+                action_ = 0;
             }
             if (engine->checkKeyPress(BPK_w))
             {
                 man_y1_ -= 1;
                 role_->FaceTowards = Towards_LeftUp;
+                action_ = 0;
             }
             if (engine->checkKeyPress(BPK_s))
             {
                 man_y1_ += 1;
                 role_->FaceTowards = Towards_RightDown;
+                action_ = 0;
             }
         }
         if (engine->checkKeyPress(BPK_1))
@@ -220,12 +225,19 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     {
         role_->FaceTowards = Towards_LeftDown;
     }
+    //实际的朝向可以不能走到
+    if (man_x1_ != role_->X1 || man_y1_ != role_->Y1)
+    {
+        role_->TowardsX1 = man_x1_ - role_->X1;
+        role_->TowardsY1 = man_y1_ - role_->Y1;
+    }
 
     if (canWalk90(man_x1_, man_y1_))
     {
         role_->X1 = man_x1_;
         role_->Y1 = man_y1_;
     }
+
     if (cool_down_ == 0)
     {
         if (role_->PhysicalPower >= 20 && engine->checkKeyPress(BPK_j))    //轻攻击
@@ -234,15 +246,40 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             role_->ActType = weapon_;
             role_->ActFrame = 0;
             role_->PhysicalPower -= 5;
-            heavy_ = 0;
+            action_ = 0;
         }
-        if (role_->PhysicalPower >= 20 && engine->checkKeyPress(BPK_k))    //重攻击
+        if (role_->PhysicalPower >= 30 && engine->checkKeyPress(BPK_i))    //重攻击
         {
             cool_down_ = 120;
             role_->ActType = weapon_;
             role_->ActFrame = 0;
             role_->PhysicalPower -= 10;
-            heavy_ = 1;
+            action_ = 1;
+        }
+        if (role_->PhysicalPower >= 10 && engine->checkKeyPress(BPK_m))    //闪身
+        {
+            cool_down_ = 150;    //冷却更长，有收招硬直
+            role_->SpeedX1 = role_->TowardsX1;
+            role_->SpeedY1 = role_->TowardsY1;
+            double norm = EuclidDis(role_->SpeedX1, role_->SpeedY1);
+            if (norm > 0)
+            {
+                role_->SpeedX1 *= 5.0 / norm;
+                role_->SpeedY1 *= 5.0 / norm;
+            }
+            role_->SpeedFrame = 20;
+            role_->ActFrame = 0;
+            role_->ActType = 0;
+            role_->PhysicalPower -= 3;
+            action_ = 2;
+        }
+        if (role_->PhysicalPower >= 50 && engine->checkKeyPress(BPK_k))    //医疗
+        {
+            cool_down_ = 240;
+            role_->ActFrame = 0;
+            role_->ActType = 0;
+            role_->PhysicalPower -= 5;
+            action_ = 3;
         }
     }
 
@@ -292,6 +329,20 @@ void BattleSceneHades::onExit()
 
 void BattleSceneHades::backRun()
 {
+    for (auto r : battle_roles_)
+    {
+        if (r->SpeedFrame > 0)
+        {
+            auto x = r->X1 + r->SpeedX1;
+            auto y = r->Y1 + r->SpeedY1;
+            if (canWalk90(x, y))
+            {
+                r->X1 = x;
+                r->Y1 = y;
+            }
+            r->SpeedFrame--;
+        }
+    }
     if (cool_down_ > 0) { cool_down_--; }
     if (current_frame_ % 3 == 0)
     {
@@ -299,19 +350,19 @@ void BattleSceneHades::backRun()
         {
             if (r->ActType >= 0)
             {
-                if ((heavy_ == 0 && r->ActFrame >= r->FightFrame[r->ActType])
-                    || (heavy_ == 1 && r->ActFrame >= r->FightFrame[r->ActType]))
+                if ((action_ == 0 && r->ActFrame >= r->FightFrame[r->ActType])
+                    || (action_ == 1 && r->ActFrame >= r->FightFrame[r->ActType]))
                 {
                     r->ActType = -1;
                     r->ActFrame = 0;
                 }
                 else
                 {
-                    if (heavy_ == 0)
+                    if (action_ == 0)
                     {
                         r->ActFrame++;
                     }
-                    else
+                    else if (action_ == 1)
                     {
                         if (current_frame_ % 12 == 0)
                         {
