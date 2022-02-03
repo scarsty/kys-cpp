@@ -34,7 +34,7 @@ TitleScene::TitleScene()
     menu_load_->setPosition(500, 300);
     render_message_ = 1;
 
-    Save::getInstance()->load(10);
+    Save::getInstance()->load(1);
     Event::getInstance()->tryBattle(100, 0);
 }
 

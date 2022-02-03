@@ -151,8 +151,18 @@ void BattleSceneHades::draw()
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
         BP_Rect rect0 = { int(man_x1_ - render_center_x_ - x_), int(man_y1_ - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
+
+        //effects
+        for (auto& ae : attack_effects_)
+        {
+            TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame, ae.X1, ae.Y1, { 255, 255, 255, 255 }, 224);
+        }
+
+
         Engine::getInstance()->setRenderAssistTexture();
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
+
+
     }
 
     Engine::getInstance()->renderAssistTextureToWindow();
@@ -352,13 +362,43 @@ void BattleSceneHades::backRun()
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
         }
     }
-
+    //降低计算量,每3帧内计算的东西都不同
     if (current_frame_ % 3 == 0)
     {
+        int current_frame2 = current_frame_ / 3;
         for (auto r : battle_roles_)
         {
             if (r->ActType >= 0)
             {
+                //音效和动画
+                if (r->ActFrame == r->FightFrame[r->ActType] / 3 * 2)
+                {
+                    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+                    {
+                        if (r->MagicID[i] > 0)
+                        {
+                            auto m = Save::getInstance()->getMagic(r->MagicID[i]);
+                            if (m->MagicType == r->ActType)
+                            {
+                                Audio::getInstance()->playESound(m->SoundID);
+                                AttackEffect ae;
+                                ae.Attacker = r;
+                                norm(r->TowardsX1, r->TowardsY1);
+                                ae.X1 = r->X1 + TILE_W * 2 * r->TowardsX1;
+                                ae.Y1 = r->Y1 + TILE_H * 2 * r->TowardsY1;
+                                ae.Path = fmt1::format("eft/eft{:03}", m->EffectID);
+                                ae.Frame = 0;
+                                ae.Heavy = r->ActType2;
+                                attack_effects_.push_back(std::move(ae));
+                                //break;
+                            }
+                        }
+
+                    }
+
+                    //Audio::getInstance()->playESound(r->ActType);
+                }
+                //动作帧数计算
                 if (r->ActFrame >= r->FightFrame[r->ActType] - 2)
                 {
                     if (r->CoolDown == 0)
@@ -375,7 +415,7 @@ void BattleSceneHades::backRun()
                 {
                     if (r->ActType2 == 1)
                     {
-                        if (current_frame_ % 12 == 0)
+                        if (current_frame2 % 4 == 0)
                         {
                             r->ActFrame++;
                             if (r->ActFrame >= 7)
@@ -396,5 +436,31 @@ void BattleSceneHades::backRun()
                 r->ActFrame = 0;
             }
         }
+        //删除播放完毕的
+        if (!attack_effects_.empty() && attack_effects_[0].Frame >= TextureManager::getInstance()->getTextureGroupCount(attack_effects_[0].Path))
+        {
+            attack_effects_.pop_back();
+        }
+        if (current_frame2 % 2 == 0)
+        {
+            for (auto& ae : attack_effects_)
+            {
+                if (ae.Heavy)
+                {
+                    if (current_frame2 % 4 == 0)
+                    {
+                        ae.Frame++;
+                    }
+                }
+                else
+                {
+                    ae.Frame++;
+                }
+            }
+        }
+    }
+    else if (current_frame_ % 3 == 1)
+    {
+        
     }
 }

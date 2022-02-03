@@ -13,11 +13,13 @@
 
 struct AttackEffect
 {
-    double X, Y;
+    double X1, Y1;
     Role* Attacker = nullptr;
-    Role* Defender = nullptr;
+    std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     int Frame;
     int EffectNumber;
+    int Heavy;
+    std::string Path;
 };
 
 class BattleSceneHades : public BattleScene
@@ -79,7 +81,15 @@ protected:
     {
         return sqrt(x * x + 4 * y * y);
     }
-
+    void norm(double& x, double& y)
+    {
+        auto n = sqrt(x * x + y * y);
+        if (n > 0)
+        {
+            x /= n;
+            y /= n;
+        }
+    }
     bool is_running_ = false;   //主角是否在跑动
     Role* role_;    //主角
     int weapon_ = 1;
