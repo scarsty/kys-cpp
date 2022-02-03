@@ -166,38 +166,41 @@ void BattleSceneHades::draw()
 void BattleSceneHades::dealEvent(BP_Event& e)
 {
     auto engine = Engine::getInstance();
+    auto r = role_;
+
 
     //方向
     //需要注意计算欧氏距离时y方向需乘2计入，但主角的操作此时方向是离散的
-    man_x1_ = role_->X1;
-    man_y1_ = role_->Y1;
-    if (cool_down_ == 0)
+
+    man_x1_ = r->X1;
+    man_y1_ = r->Y1;
+    if (r->CoolDown == 0)
     {
         if (current_frame_ % 3 == 0)
         {
             if (engine->checkKeyPress(BPK_a))
             {
                 man_x1_ -= 2;
-                role_->FaceTowards = Towards_LeftDown;
-                action_ = 0;
+                r->FaceTowards = Towards_LeftDown;
+                r->ActType2 = 0;
             }
             if (engine->checkKeyPress(BPK_d))
             {
                 man_x1_ += 2;
-                role_->FaceTowards = Towards_RightUp;
-                action_ = 0;
+                r->FaceTowards = Towards_RightUp;
+                r->ActType2 = 0;
             }
             if (engine->checkKeyPress(BPK_w))
             {
                 man_y1_ -= 1;
-                role_->FaceTowards = Towards_LeftUp;
-                action_ = 0;
+                r->FaceTowards = Towards_LeftUp;
+                r->ActType2 = 0;
             }
             if (engine->checkKeyPress(BPK_s))
             {
                 man_y1_ += 1;
-                role_->FaceTowards = Towards_RightDown;
-                action_ = 0;
+                r->FaceTowards = Towards_RightDown;
+                r->ActType2 = 0;
             }
         }
         if (engine->checkKeyPress(BPK_1))
@@ -219,67 +222,67 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     }
     if (engine->checkKeyPress(BPK_w) && engine->checkKeyPress(BPK_d))
     {
-        role_->FaceTowards = Towards_RightUp;
+        r->FaceTowards = Towards_RightUp;
     }
     if (engine->checkKeyPress(BPK_s) && engine->checkKeyPress(BPK_a))
     {
-        role_->FaceTowards = Towards_LeftDown;
+        r->FaceTowards = Towards_LeftDown;
     }
     //实际的朝向可以不能走到
-    if (man_x1_ != role_->X1 || man_y1_ != role_->Y1)
+    if (man_x1_ != r->X1 || man_y1_ != r->Y1)
     {
-        role_->TowardsX1 = man_x1_ - role_->X1;
-        role_->TowardsY1 = man_y1_ - role_->Y1;
+        r->TowardsX1 = man_x1_ - r->X1;
+        r->TowardsY1 = man_y1_ - r->Y1;
     }
 
     if (canWalk90(man_x1_, man_y1_))
     {
-        role_->X1 = man_x1_;
-        role_->Y1 = man_y1_;
+        r->X1 = man_x1_;
+        r->Y1 = man_y1_;
     }
 
-    if (cool_down_ == 0)
+    if (r->CoolDown == 0)
     {
-        if (role_->PhysicalPower >= 20 && engine->checkKeyPress(BPK_j))    //轻攻击
+        if (r->PhysicalPower >= 20 && engine->checkKeyPress(BPK_j))    //轻攻击
         {
-            cool_down_ = 60;
-            role_->ActType = weapon_;
-            role_->ActFrame = 0;
-            role_->PhysicalPower -= 5;
-            action_ = 0;
+            r->CoolDown = 60;
+            r->ActType = weapon_;
+            r->ActFrame = 0;
+            r->PhysicalPower -= 5;
+            r->ActType2 = 0;
         }
-        if (role_->PhysicalPower >= 30 && engine->checkKeyPress(BPK_i))    //重攻击
+        if (r->PhysicalPower >= 30 && engine->checkKeyPress(BPK_i))    //重攻击
         {
-            cool_down_ = 120;
-            role_->ActType = weapon_;
-            role_->ActFrame = 0;
-            role_->PhysicalPower -= 10;
-            action_ = 1;
+            r->CoolDown = 120;
+            r->ActType = weapon_;
+            r->ActFrame = 0;
+            r->PhysicalPower -= 10;
+            r->ActType2 = 1;
         }
-        if (role_->PhysicalPower >= 10 && engine->checkKeyPress(BPK_m))    //闪身
+        if (r->PhysicalPower >= 10 && engine->checkKeyPress(BPK_m))    //闪身
         {
-            cool_down_ = 150;    //冷却更长，有收招硬直
-            role_->SpeedX1 = role_->TowardsX1;
-            role_->SpeedY1 = role_->TowardsY1;
-            double norm = EuclidDis(role_->SpeedX1, role_->SpeedY1);
+            r->CoolDown = 150;    //冷却更长，有收招硬直
+            r->SpeedX1 = r->TowardsX1;
+            r->SpeedY1 = r->TowardsY1;
+            double norm = EuclidDis(r->SpeedX1, r->SpeedY1);
             if (norm > 0)
             {
-                role_->SpeedX1 *= 5.0 / norm;
-                role_->SpeedY1 *= 5.0 / norm;
+                r->SpeedX1 *= 5.0 / norm;
+                r->SpeedY1 *= 5.0 / norm;
             }
-            role_->SpeedFrame = 20;
-            role_->ActFrame = 0;
-            role_->ActType = 0;
-            role_->PhysicalPower -= 3;
-            action_ = 2;
+            r->SpeedFrame = 20;
+            r->ActFrame = 0;
+            r->ActType = 0;
+            r->PhysicalPower -= 3;
+            r->ActType2 = 2;
         }
-        if (role_->PhysicalPower >= 50 && engine->checkKeyPress(BPK_k))    //医疗
+        if (r->PhysicalPower >= 50 && engine->checkKeyPress(BPK_k))    //医疗
         {
-            cool_down_ = 240;
-            role_->ActFrame = 0;
-            role_->ActType = 0;
-            role_->PhysicalPower -= 5;
-            action_ = 3;
+            r->CoolDown = 240;
+            r->ActFrame = 0;
+            r->ActType = 0;
+            r->PhysicalPower -= 5;
+            r->ActType2 = 3;
         }
     }
 
@@ -342,27 +345,35 @@ void BattleSceneHades::backRun()
             }
             r->SpeedFrame--;
         }
+        if (r->CoolDown > 0) { r->CoolDown--; }
+        if (r->CoolDown == 0)
+        {
+            if (current_frame_ % 10 == 0) { r->PhysicalPower += 1; }
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+        }
     }
-    if (cool_down_ > 0) { cool_down_--; }
+
     if (current_frame_ % 3 == 0)
     {
         for (auto r : battle_roles_)
         {
             if (r->ActType >= 0)
             {
-                if ((action_ == 0 && r->ActFrame >= r->FightFrame[r->ActType])
-                    || (action_ == 1 && r->ActFrame >= r->FightFrame[r->ActType]))
+                if (r->ActFrame >= r->FightFrame[r->ActType] - 2)
                 {
-                    r->ActType = -1;
-                    r->ActFrame = 0;
+                    if (r->CoolDown == 0)
+                    {
+                        r->ActType = -1;
+                        r->ActFrame = 0;
+                    }
+                    else
+                    {
+                        r->ActFrame = r->FightFrame[r->ActType] - 2;    //cooldown结束前停在最后行动帧，最后一帧一般是无行动的图
+                    }
                 }
                 else
                 {
-                    if (action_ == 0)
-                    {
-                        r->ActFrame++;
-                    }
-                    else if (action_ == 1)
+                    if (r->ActType2 == 1)
                     {
                         if (current_frame_ % 12 == 0)
                         {
@@ -374,20 +385,16 @@ void BattleSceneHades::backRun()
                             }
                         }
                     }
+                    else
+                    {
+                        r->ActFrame++;
+                    }
                 }
             }
             else
             {
                 r->ActFrame = 0;
             }
-        }
-    }
-    if (cool_down_ == 0)
-    {
-        for (auto r : battle_roles_)
-        {
-            if (current_frame_ % 10 == 0) { r->PhysicalPower += 1; }
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
         }
     }
 }

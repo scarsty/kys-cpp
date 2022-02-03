@@ -82,8 +82,6 @@ protected:
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_;    //主角
-    int cool_down_ = 0;
-    int action_ = 0;    //0-轻攻击，1-重攻击，2-闪身
     int weapon_ = 1;
 
 };

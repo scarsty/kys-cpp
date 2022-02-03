@@ -135,15 +135,6 @@ public:
 
     int Progress;
 
-    //以下是即时战斗使用
-    double X1, Y1;   //亚像素的直角坐标
-    double TowardsX1 = 0, TowardsY1 = 0;    //面对的方向，计算攻击位置，击退方向等
-    //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
-    double SpeedX1 = 0, SpeedY1 = 0;    //指该质点的速度，每帧据此计算坐标
-    int SpeedFrame = 0;    //大于0时质点速度才生效
-    int ActType = 0;
-    int ActFrame = 0;
-
     struct ShowString
     {
         std::string Text;
@@ -234,6 +225,18 @@ public:
     int RealID = -1;
     bool Networked = false;
     bool Competing = false;
+
+public:
+    double X1, Y1;   //亚像素的直角坐标
+    double TowardsX1 = 0, TowardsY1 = 0;    //面对的方向，计算攻击位置，击退方向等
+    //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
+    double SpeedX1 = 0, SpeedY1 = 0;    //指该质点的速度，每帧据此计算坐标
+    int SpeedFrame = 0;    //大于0时质点速度才生效
+
+    int ActType = 0;//医拳剑刀特
+    int ActFrame = 0;
+    int CoolDown;
+    int ActType2; //0-轻攻击，1-重攻击，2-闪身
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }
