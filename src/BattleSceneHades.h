@@ -5,8 +5,6 @@
 #include "Save.h"
 #include <deque>
 
-
-
 //j轻攻击，i重攻击，m闪身
 //每场战斗可以选择从4种武学中选择轻重
 //硬直，判定范围，威力，消耗体力，在不攻击的时候可以回复体力
@@ -16,6 +14,7 @@ struct AttackEffect
     double X1, Y1;
     Role* Attacker = nullptr;
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
+    Magic* UsingMagic;
     int Frame;
     int EffectNumber;
     int Heavy;
@@ -76,12 +75,13 @@ protected:
         auto p = pos90To45(x, y);
         return canWalk45(p.x, p.y);
     }
-    bool canWalk90(int x, int y, Role* r)
+    bool canWalk90(int x, int y, Role* r, int dis = -1)
     {
+        if (dis == -1) { dis = TILE_W; }
         for (auto r1 : battle_roles_)
         {
             if (r1 == r) { continue; }
-            if (EuclidDis(x - r1->X1, y - r1->Y1) < TILE_W)    //这里有问题，可能会被锁住
+            if (EuclidDis(x - r1->X1, y - r1->Y1) < dis)
             {
                 return false;
             }
@@ -103,6 +103,9 @@ protected:
             y *= n0 / n;
         }
     }
+
+    void renderExtraRoleInfo(Role* r, double x, double y);
+
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角
     int weapon_ = 1;

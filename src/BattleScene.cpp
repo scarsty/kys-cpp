@@ -1511,7 +1511,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
 }
 
 //r1使用武功magic攻击r2的伤害，结果为一正数
-int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
+int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
 {
     int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
     level_index = magic->calMaxLevelIndexByMP(r1->MP, level_index);
@@ -1548,9 +1548,11 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic)
 
         int v = attack - defence;
         //距离衰减
-        int dis = calRoleDistance(r1, r2);
-        v = v / exp((dis - 1) / 10);
-
+        if (dis == -1)
+        {
+            dis = calRoleDistance(r1, r2);
+            v = v / exp((dis - 1) / 10);
+        }
         v += rng_.rand_int(10) - rng_.rand_int(10);
         if (v < 10)
         {

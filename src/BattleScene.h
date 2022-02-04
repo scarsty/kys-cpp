@@ -149,7 +149,7 @@ public:
     virtual void useMagicAnimation(Role* r, Magic* m);                                 //使用武学动画
     virtual void actionAnimation(Role* r, int style, int effect_id, int shake = 0);    //行动动画
 
-    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic);                         //计算武学对单人的伤害
+    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
 
     virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //计算暗器伤害
