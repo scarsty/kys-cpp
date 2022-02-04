@@ -65,7 +65,7 @@ void BattleSceneHades::draw()
                     bool need_draw = true;
                     if (need_draw && num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
                     }
                 }
             }
@@ -93,7 +93,7 @@ void BattleSceneHades::draw()
                     int num = building_layer_.data(ix, iy) / 2;
                     if (num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                        //TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y/2);
                         building_vec.emplace_back("smap", num, p);
                     }
                 }
@@ -142,7 +142,7 @@ void BattleSceneHades::draw()
         std::sort(building_vec.begin(), building_vec.end(), sort_building);
         for (auto& d : building_vec)
         {
-            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y);
+            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2);
         }
 
         BP_Color c = { 255, 255, 255, 255 };
@@ -150,12 +150,12 @@ void BattleSceneHades::draw()
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { int(man_x1_ - render_center_x_ - x_), int(man_y1_ - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
+        BP_Rect rect0 = { int(man_x1_ - render_center_x_ - x_), int(man_y1_ / 2 - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
 
         //effects
         for (auto& ae : attack_effects_)
         {
-            TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame, ae.X1, ae.Y1, { 255, 255, 255, 255 }, 224);
+            TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame, ae.X1, ae.Y1 / 2, { 255, 255, 255, 255 }, 224);
         }
 
 
@@ -461,6 +461,6 @@ void BattleSceneHades::backRun()
     }
     else if (current_frame_ % 3 == 1)
     {
-        
+
     }
 }

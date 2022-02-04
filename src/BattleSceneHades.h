@@ -39,7 +39,7 @@ public:
     virtual void backRun() override;
 
 protected:
-    double man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_H;
+    double man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_W;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
 
     std::deque<AttackEffect> attack_effects_;
 
@@ -47,7 +47,7 @@ protected:
     {
         Point p;
         p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
-        p.y = y * TILE_H + x * TILE_H;
+        p.y = y * TILE_W + x * TILE_W;
         return p;
     }
 
@@ -55,8 +55,8 @@ protected:
     {
         x -= COORD_COUNT * TILE_W;
         Point p;
-        p.x = round(((x) / TILE_W + (y) / TILE_H) / 2);
-        p.y = round(((-x) / TILE_W + (y) / TILE_H) / 2);
+        p.x = round(((x) / TILE_W + (y) / TILE_W) / 2);
+        p.y = round(((-x) / TILE_W + (y) / TILE_W) / 2);
         return p;
     }
 
@@ -79,7 +79,7 @@ protected:
 
     double EuclidDis(double x, double y)
     {
-        return sqrt(x * x + 4 * y * y);
+        return sqrt(x * x + y * y);
     }
     void norm(double& x, double& y)
     {
