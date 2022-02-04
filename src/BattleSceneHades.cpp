@@ -202,13 +202,13 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             }
             if (engine->checkKeyPress(BPK_w))
             {
-                man_y1_ -= 1;
+                man_y1_ -= 2;
                 r->FaceTowards = Towards_LeftUp;
                 r->ActType2 = 0;
             }
             if (engine->checkKeyPress(BPK_s))
             {
-                man_y1_ += 1;
+                man_y1_ += 2;
                 r->FaceTowards = Towards_RightDown;
                 r->ActType2 = 0;
             }
@@ -348,7 +348,7 @@ void BattleSceneHades::backRun()
         {
             auto x = r->X1 + r->SpeedX1;
             auto y = r->Y1 + r->SpeedY1;
-            if (canWalk90(x, y))
+            if (canWalk90(x, y, r))
             {
                 r->X1 = x;
                 r->Y1 = y;
@@ -365,6 +365,7 @@ void BattleSceneHades::backRun()
     //降低计算量,每3帧内计算的东西都不同
     if (current_frame_ % 3 == 0)
     {
+        //帧数，动画，音效等
         int current_frame2 = current_frame_ / 3;
         for (auto r : battle_roles_)
         {
@@ -461,6 +462,56 @@ void BattleSceneHades::backRun()
     }
     else if (current_frame_ % 3 == 1)
     {
-
+        //计算有人被打中
+        for (auto r : battle_roles_)
+        {
+            for (auto& ae : attack_effects_)
+            {
+                if (r->Team != ae.Attacker->Team && ae.Defender.count(r) == 0 && EuclidDis(r->X1 - ae.X1, r->Y1 - ae.Y1) <= TILE_W * 2)
+                {
+                    ae.Defender[r]++;
+                    if (ae.Heavy)
+                    {
+                        r->SpeedX1 = r->X1 - ae.Attacker->X1;
+                        r->SpeedY1 = r->Y1 - ae.Attacker->Y1;
+                        norm(r->SpeedX1, r->SpeedY1, 3);
+                        r->SpeedFrame = 30;
+                        r->CoolDown = 30;
+                    }
+                }
+            }
+        }
+    }
+    else if (current_frame_ % 3 == 2)
+    {
+        //ai
+        for (auto r : battle_roles_)
+        {
+            if (role_ == nullptr) { break; }
+            if (r == role_) { continue; }
+            if (r->CoolDown == 0)
+            {
+                if (EuclidDis(r->X1 - role_->X1, r->Y1 - role_->Y1) > TILE_W * 2)
+                {
+                    r->SpeedX1 = r->X1 - role_->X1;
+                    r->SpeedY1 = r->Y1 - role_->Y1;
+                    norm(r->SpeedX1, r->SpeedY1, -1);
+                    r->SpeedFrame = 3;
+                    r->TowardsX1 = r->SpeedX1;
+                    r->TowardsY1 = r->SpeedY1;
+                    r->FaceTowards = Towards_RightDown;
+                    if (r->TowardsX1 > 0 && r->TowardsY1 < 0) { r->FaceTowards = Towards_RightUp; }
+                    if (r->TowardsX1 < 0 && r->TowardsY1 > 0) { r->FaceTowards = Towards_LeftDown; }
+                    if (r->TowardsX1 < 0 && r->TowardsY1 < 0) { r->FaceTowards = Towards_LeftUp; }
+                }
+                else
+                {
+                    r->ActType2 = 1;
+                    r->CoolDown = 30;
+                    r->ActFrame = 0;
+                    r->ActType = 4;
+                }
+            }
+        }
     }
 }

@@ -76,22 +76,35 @@ protected:
         auto p = pos90To45(x, y);
         return canWalk45(p.x, p.y);
     }
+    bool canWalk90(int x, int y, Role* r)
+    {
+        for (auto r1 : battle_roles_)
+        {
+            if (r1 == r) { continue; }
+            if (EuclidDis(x - r1->X1, y - r1->Y1) < TILE_W)    //这里有问题，可能会被锁住
+            {
+                return false;
+            }
+        }
+        auto p = pos90To45(x, y);
+        return canWalk45(p.x, p.y);
+    }
 
     double EuclidDis(double x, double y)
     {
         return sqrt(x * x + y * y);
     }
-    void norm(double& x, double& y)
+    void norm(double& x, double& y, double n0 = 1)
     {
         auto n = sqrt(x * x + y * y);
         if (n > 0)
         {
-            x /= n;
-            y /= n;
+            x *= n0 / n;
+            y *= n0 / n;
         }
     }
     bool is_running_ = false;   //主角是否在跑动
-    Role* role_;    //主角
+    Role* role_ = nullptr;    //主角
     int weapon_ = 1;
 
 };
