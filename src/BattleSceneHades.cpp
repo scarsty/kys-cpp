@@ -192,7 +192,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     man_y1_ = r->Y1;
     if (r->CoolDown == 0)
     {
-        if (current_frame_ % 3 == 0)
+        //if (current_frame_ % 3 == 0)
         {
             if (engine->checkKeyPress(BPK_a))
             {
@@ -334,10 +334,11 @@ void BattleSceneHades::backRun()
         {
             if (current_frame_ % 10 == 0) { r->PhysicalPower += 1; }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+            r->Acted = 0;
         }
     }
     //降低计算量,每3帧内计算的东西都不同
-    if (current_frame_ % 3 == 0)
+    //if (current_frame_ % 2 == 0)
     {
         //帧数，动画，音效等
         int current_frame2 = current_frame_ / 3;
@@ -346,8 +347,9 @@ void BattleSceneHades::backRun()
             if (r->ActType >= 0)
             {
                 //音效和动画
-                if (r->ActFrame == r->FightFrame[r->ActType] / 3 * 2)
+                if (r->Acted == 0 && r->ActFrame == r->FightFrame[r->ActType] / 3 * 2)
                 {
+                    r->Acted = 1;
                     Magic* magic = nullptr;
                     std::vector<Magic*> v;
                     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
@@ -445,9 +447,7 @@ void BattleSceneHades::backRun()
                 }
             }
         }
-    }
-    else if (current_frame_ % 3 == 1)
-    {
+
         //计算有人被打中
         for (auto r : battle_roles_)
         {
@@ -456,6 +456,7 @@ void BattleSceneHades::backRun()
                 if (r->Team != ae.Attacker->Team && ae.Defender.count(r) == 0 && EuclidDis(r->X1 - ae.X1, r->Y1 - ae.Y1) <= TILE_W * 3)
                 {
                     ae.Defender[r]++;
+                    int hurt = 0;
                     if (ae.Heavy)
                     {
                         //这个击退好像效果不太对
@@ -464,8 +465,12 @@ void BattleSceneHades::backRun()
                         norm(r->SpeedX1, r->SpeedY1, 3);
                         r->SpeedFrame = 10;
                         r->CoolDown = 30;
+                        hurt = calHurt(ae.Attacker, r);
                     }
-                    int hurt = calHurt(ae.Attacker, r);
+                    else
+                    {
+                        hurt = 1 + 3 * rand_.rand();
+                    }
                     r->HP -= hurt;
                     fmt1::print("{} attack {} with {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, hurt);
                     if (r->HP <= 0)
@@ -476,9 +481,7 @@ void BattleSceneHades::backRun()
                 }
             }
         }
-    }
-    else if (current_frame_ % 3 == 2)
-    {
+
         //ai
         for (auto r : battle_roles_)
         {
@@ -699,5 +702,5 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
 int BattleSceneHades::calHurt(Role* r0, Role* r1)
 {
-    return 1 + 10 * rand_.rand() + 5 * (pow(r0->Attack, 1.5) / r1->Defence);
+    return 1 + 5 * rand_.rand() + 2 * (pow(r0->Attack, 1.5) / r1->Defence);
 }

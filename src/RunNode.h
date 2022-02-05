@@ -13,11 +13,12 @@ class RunNode : public std::enable_shared_from_this<RunNode>
 {
 private:
     static std::vector<std::shared_ptr<RunNode>> root_;    //所有需要绘制的内容都存储在这个静态向量中
-    static uint64_t prev_present_ticks_;
+    static uint64_t global_prev_present_ticks_;
     static double refresh_interval_;
 
 private:
     bool is_private_ = false;
+    int64_t prev_present_ticks_ = 0;
 
 protected:
     std::vector<std::shared_ptr<RunNode>> childs_;
@@ -48,10 +49,10 @@ public:
     RunNode() {}
     virtual ~RunNode();
 
-    static void setRefreshInterval(int i) { refresh_interval_ = i; }
-    static int getRefreshInterval() { return refresh_interval_; }
+    static void setRefreshInterval(double i) { refresh_interval_ = i; }
+    static double getRefreshInterval() { return refresh_interval_; }
 
-    static int getShowTimes() { return prev_present_ticks_ / refresh_interval_; }
+    static int getShowTimes() { return global_prev_present_ticks_ / refresh_interval_; }
 
     static void drawAll();
 
@@ -217,6 +218,17 @@ public:
             if (ptr) { return ptr; }
         }
         return nullptr;
+    }
+
+    bool checkPrevTimeElapsed(int64_t ms)
+    {
+        auto t = Engine::getTicks();
+        if (t - prev_present_ticks_ >= ms)
+        {
+            prev_present_ticks_ = t;
+            return true;
+        }
+        return false;
     }
 
     //每个节点应自行定义返回值，

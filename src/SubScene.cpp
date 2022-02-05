@@ -172,6 +172,7 @@ void SubScene::draw()
 void SubScene::dealEvent(BP_Event& e)
 {
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
+
     int x = man_x_, y = man_y_;
 
     if (checkEvent3(x, y))
@@ -185,67 +186,69 @@ void SubScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
     //键盘走路部分，检测4个方向键
-    int pressed = 0;
-    for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
+    if (checkPrevTimeElapsed(33))
     {
-        if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
+        int pressed = 0;
+        for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
         {
-            pressed = i;
-        }
-    }
-    if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
-    {
-        pressed = pre_pressed_;
-    }
-    pre_pressed_ = pressed;
-
-    if (pressed)
-    {
-        if (total_step_ < 1 || total_step_ >= first_step_delay_)
-        {
-            changeTowardsByKey(pressed);
-            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-            tryWalk(x, y);
-        }
-        total_step_++;
-    }
-    else
-    {
-        total_step_ = 0;
-    }
-
-    if (!way_que_.empty())
-    {
-        Point p = way_que_.back();
-        x = p.x;
-        y = p.y;
-        if (calDistance(man_x_, man_y_, x, y) <= 1)
-        {
-            auto tw = calTowards(man_x_, man_y_, x, y);
-            if (tw != Towards_None)
+            if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
             {
-                towards_ = tw;
+                pressed = i;
             }
-            tryWalk(x, y);
-            way_que_.pop_back();
-            if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+        }
+        if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
+        {
+            pressed = pre_pressed_;
+        }
+        pre_pressed_ = pressed;
+
+        if (pressed)
+        {
+            if (total_step_ < 1 || total_step_ >= first_step_delay_)
             {
-                auto tw = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+                changeTowardsByKey(pressed);
+                getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+                tryWalk(x, y);
+            }
+            total_step_++;
+        }
+        else
+        {
+            total_step_ = 0;
+        }
+
+        if (!way_que_.empty())
+        {
+            Point p = way_que_.back();
+            x = p.x;
+            y = p.y;
+            if (calDistance(man_x_, man_y_, x, y) <= 1)
+            {
+                auto tw = calTowards(man_x_, man_y_, x, y);
                 if (tw != Towards_None)
                 {
                     towards_ = tw;
                 }
-                checkEvent1(man_x_, man_y_, towards_);
-                setMouseEventPoint(-1, -1);
+                tryWalk(x, y);
+                way_que_.pop_back();
+                if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+                {
+                    auto tw = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+                    if (tw != Towards_None)
+                    {
+                        towards_ = tw;
+                    }
+                    checkEvent1(man_x_, man_y_, towards_);
+                    setMouseEventPoint(-1, -1);
+                }
             }
+            else
+            {
+                way_que_.clear();
+            }
+            //if (isExit(x, y)) { way_que_.clear(); }
         }
-        else
-        {
-            way_que_.clear();
-        }
-        //if (isExit(x, y)) { way_que_.clear(); }
     }
-
     //检查触发剧情事件
     if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
@@ -293,7 +296,7 @@ void SubScene::backRun()
     {
         step_ = 0;
     }
-    if (current_frame_ % 2 == 0)
+    if (current_frame_ % int(200 / RunNode::getRefreshInterval()) == 0)
     {
         for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
         {

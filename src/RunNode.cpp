@@ -3,7 +3,7 @@
 #include "UISystem.h"
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
-uint64_t RunNode::prev_present_ticks_ = 0;
+uint64_t RunNode::global_prev_present_ticks_ = 0;
 double RunNode::refresh_interval_ = 16.667;
 int RunNode::render_message_ = 0;
 
@@ -384,7 +384,7 @@ void RunNode::checkSelfState(BP_Event& e)
 
 void RunNode::present()
 {
-    int t = Engine::getTicks() - prev_present_ticks_;
+    int t = Engine::getTicks() - global_prev_present_ticks_;
 
     if (render_message_)
     {
@@ -394,17 +394,17 @@ void RunNode::present()
         e->resetRenderTimes();
     }
     Engine::getInstance()->renderPresent();
-    int t_delay = refresh_interval_ - t;
+    auto t_delay = refresh_interval_ - t;
     if (t_delay > refresh_interval_)
     {
         t_delay = refresh_interval_;
     }
-    //fmt1::print("{}/{}/{} ", t, t_delay, prev_present_ticks_);
+    //fmt1::print("{}/{}/{} ", t, t_delay, global_prev_present_ticks_);
     if (t_delay > 0)
     {
         Engine::delay(t_delay);
     }
-    prev_present_ticks_ = Engine::getTicks();
+    global_prev_present_ticks_ = Engine::getTicks();
 }
 
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出

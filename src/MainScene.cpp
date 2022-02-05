@@ -1,6 +1,7 @@
 #include "MainScene.h"
 
 #include <ctime>
+#include <Timer.h>
 
 #include "Console.h"
 #include "File.h"
@@ -220,7 +221,7 @@ void MainScene::dealEvent(BP_Event& e)
     if (force_submap_ >= 0)
     {
         setVisible(true);
-        auto sub_map =  std::make_shared<SubScene>(force_submap_);
+        auto sub_map = std::make_shared<SubScene>(force_submap_);
         sub_map->setManViewPosition(force_submap_x_, force_submap_y_);
         sub_map->setTowards(towards_);
         sub_map->setForceBeginEvent(force_event_);
@@ -230,75 +231,76 @@ void MainScene::dealEvent(BP_Event& e)
         force_event_ = -1;
     }
 
-    int x = man_x_, y = man_y_;
-
-    //键盘走路部分，检测4个方向键
-    int pressed = 0;
-
     // Tab激活控制台
     if (Engine::getInstance()->checkKeyPress(BPK_TAB))
     {
         Console c;
     }
+    //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
+    int x = man_x_, y = man_y_;
+    if (checkPrevTimeElapsed(33))
+    {
+        //键盘走路部分，检测4个方向键
+        int pressed = 0;
 
-    for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
-    {
-        if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
+        for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
         {
-            pressed = i;
-        }
-    }
-    if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
-    {
-        pressed = pre_pressed_;
-    }
-    pre_pressed_ = pressed;
-
-    if (pressed)
-    {
-        //注意，中间空出几个步数是为了可以单步行动，子场景同
-        if (total_step_ < 1 || total_step_ >= first_step_delay_)
-        {
-            changeTowardsByKey(pressed);
-            getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
-            tryWalk(x, y);
-        }
-        total_step_++;
-    }
-    else
-    {
-        total_step_ = 0;
-    }
-
-    if (pressed && checkEntrance(x, y))
-    {
-        way_que_.clear();
-        total_step_ = 0;
-    }
-
-    if (!way_que_.empty())
-    {
-        Point p = way_que_.back();
-        x = p.x;
-        y = p.y;
-        auto tw = calTowards(man_x_, man_y_, x, y);
-        if (tw != Towards_None)
-        {
-            towards_ = tw;
-        }
-        tryWalk(x, y);
-        way_que_.pop_back();
-        if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
-        {
-            towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
-            if (checkEntrance(mouse_event_x_, mouse_event_y_))
+            if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
             {
-                way_que_.clear();
-                setMouseEventPoint(-1, -1);
+                pressed = i;
+            }
+        }
+        if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
+        {
+            pressed = pre_pressed_;
+        }
+        pre_pressed_ = pressed;
+
+        if (pressed)
+        {
+            //注意，中间空出几个步数是为了可以单步行动，子场景同
+            if (total_step_ < 1 || total_step_ >= first_step_delay_)
+            {
+                changeTowardsByKey(pressed);
+                getTowardsPosition(man_x_, man_y_, towards_, &x, &y);
+                tryWalk(x, y);
+            }
+            total_step_++;
+        }
+        else
+        {
+            total_step_ = 0;
+        }
+
+        if (pressed && checkEntrance(x, y))
+        {
+            way_que_.clear();
+            total_step_ = 0;
+        }
+
+        if (!way_que_.empty())
+        {
+            Point p = way_que_.back();
+            x = p.x;
+            y = p.y;
+            auto tw = calTowards(man_x_, man_y_, x, y);
+            if (tw != Towards_None)
+            {
+                towards_ = tw;
+            }
+            tryWalk(x, y);
+            way_que_.pop_back();
+            if (way_que_.empty() && mouse_event_x_ >= 0 && mouse_event_y_ >= 0)
+            {
+                towards_ = calTowards(man_x_, man_y_, mouse_event_x_, mouse_event_y_);
+                if (checkEntrance(mouse_event_x_, mouse_event_y_))
+                {
+                    way_que_.clear();
+                    setMouseEventPoint(-1, -1);
+                }
             }
         }
     }
-
     calCursorPosition(man_x_, man_y_);
 
     //鼠标寻路
@@ -468,7 +470,7 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
                 UISave::autoSave();
                 //这里看起来要主动多画一帧，待修
                 drawAndPresent();
-                auto sub_map =  std::make_shared<SubScene>(i);
+                auto sub_map = std::make_shared<SubScene>(i);
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
                 sub_map->run();
                 towards_ = sub_map->towards_;
