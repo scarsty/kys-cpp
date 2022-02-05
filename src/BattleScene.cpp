@@ -39,7 +39,7 @@ BattleScene::BattleScene()
     battle_cursor_ = std::make_shared<BattleCursor>(this);
     save_ = Save::getInstance();
     semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
-    rng_.set_seed();
+    rand_.set_seed();
 }
 
 BattleScene::BattleScene(int id) : BattleScene()
@@ -192,7 +192,7 @@ void BattleScene::draw()
                 {
                     std::string path = fmt1::format("eft/eft{:03}", effect_id_);
                     int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
-                    num = effect_frame_ - dis + rng_.rand_int(3) - rng_.rand_int(3);
+                    num = effect_frame_ - dis + rand_.rand_int(3) - rand_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
             }
@@ -395,7 +395,7 @@ void BattleScene::setupRolePosition(Role* r, int team, int x, int y)
     r->setPosition(x, y);
     r->Team = team;
     readFightFrame(r);
-    r->FaceTowards = rng_.rand_int(4);
+    r->FaceTowards = rand_.rand_int(4);
     battle_roles_.push_back(r);
 }
 
@@ -412,7 +412,7 @@ void BattleScene::readBattleInfo()
         int friends;
         std::vector<RoleSave> sandBoxRoles;
         network_->getResults(seed, friends, sandBoxRoles);
-        rng_.set_seed(seed + 1);
+        rand_.set_seed(seed + 1);
         Save::getInstance()->resetRData(sandBoxRoles);
         //设置全部角色的位置层，避免今后出错
         for (auto r : Save::getInstance()->getRoles())
@@ -467,6 +467,7 @@ void BattleScene::readBattleInfo()
             r->setRolePositionLayer(&role_layer_);
             r->Team = 2;    //先全部设置成不存在的阵营
             r->Auto = 1;
+            r->Dead = 0;
         }
 
         //首先设置位置和阵营，其他的后面统一处理
@@ -480,12 +481,12 @@ void BattleScene::readBattleInfo()
                 r->setPosition(info_->EnemyX[i], info_->EnemyY[i]);
                 r->Team = 1;
                 readFightFrame(r);
-                r->FaceTowards = rng_.rand_int(4);
+                r->FaceTowards = rand_.rand_int(4);
                 man_x_ = r->X();
                 man_y_ = r->Y();
             }
         }
-
+        fmt1::print("{}", battle_roles_.size());
         //判断是不是有自动战斗人物
         if (info_->AutoTeamMate[0] >= 0)
         {
@@ -1138,7 +1139,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
         auto index = r->getMagicOfRoleIndex(magic);
         if (index >= 0)
         {
-            r->MagicLevel[index] += 1 + rng_.rand_int(2);
+            r->MagicLevel[index] += 1 + rand_.rand_int(2);
             GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
         }
         fmt1::print("{} {} level is {}\n", r->Name, magic->Name, r->MagicLevel[index]);
@@ -1495,8 +1496,8 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         }
         if (shake > 0)
         {
-            x_ = rng_.rand_int(shake) - rng_.rand_int(shake);
-            y_ = rng_.rand_int(shake) - rng_.rand_int(shake);
+            x_ = rand_.rand_int(shake) - rand_.rand_int(shake);
+            y_ = rand_.rand_int(shake) - rand_.rand_int(shake);
             //Engine::getInstance()->setWindowPosition(x0 + x_ * 10, y0 + y_ * 10);
         }
         drawAndPresent(animation_delay_);
@@ -1519,7 +1520,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     {
         if (r1->MP <= 10)
         {
-            return 1 + rng_.rand_int(10);
+            return 1 + rand_.rand_int(10);
         }
         int attack = r1->Attack + magic->Attack[level_index] / 3;
         int defence = r2->Defence;
@@ -1553,10 +1554,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
             dis = calRoleDistance(r1, r2);
             v = v / exp((dis - 1) / 10);
         }
-        v += rng_.rand_int(10) - rng_.rand_int(10);
+        v += rand_.rand_int(10) - rand_.rand_int(10);
         if (v < 10)
         {
-            v = 1 + rng_.rand_int(10);
+            v = 1 + rand_.rand_int(10);
         }
         //v = 999;  //测试用
         return v;
@@ -1564,10 +1565,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     else if (magic->HurtType == 1)
     {
         int v = magic->HurtMP[level_index];
-        v += rng_.rand_int(10) - rng_.rand_int(10);
+        v += rand_.rand_int(10) - rand_.rand_int(10);
         if (v < 10)
         {
-            v = 1 + rng_.rand_int(10);
+            v = 1 + rand_.rand_int(10);
         }
         return v;
     }
@@ -1637,7 +1638,7 @@ int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
     int v = r1->HiddenWeapon - item->AddHP;
     int dis = calRoleDistance(r1, r2);
     v = v / exp((dis - 1) / 10);
-    v += rng_.rand_int(10) - rng_.rand_int(10);
+    v += rand_.rand_int(10) - rand_.rand_int(10);
     if (v < 1)
     {
         v = 1;
@@ -1844,7 +1845,7 @@ int BattleScene::getTeamMateCount(int team)
     int count = 0;
     for (auto r : battle_roles_)
     {
-        if (r->Team == team)
+        if (r->Team == team && !r->Dead)
         {
             count++;
         }
@@ -1860,11 +1861,11 @@ int BattleScene::getTeamMateCount(int team)
 int BattleScene::checkResult()
 {
     int team0 = getTeamMateCount(0);
-    if (team0 == battle_roles_.size())
+    if (team0 > 0 && team0 == battle_roles_.size())
     {
         return 0;
     }
-    if (team0 == 0)
+    if (team0 == 0 && battle_roles_.size() > 0)
     {
         return 1;
     }
@@ -1985,7 +1986,7 @@ void BattleScene::calExpGot()
                         make_item.push_back({ item->MakeItem[i], item->MakeItemCount[i] });
                     }
                 }
-                int index = rng_.rand_int(make_item.size());
+                int index = rand_.rand_int(make_item.size());
                 Event::getInstance()->addItem(make_item[index].item_id, make_item[index].count);
                 Event::getInstance()->addItemWithoutHint(item->NeedMaterial, -1);
                 r->ExpForMakeItem = 0;

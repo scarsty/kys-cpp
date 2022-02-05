@@ -14,7 +14,7 @@ struct AttackEffect
     double X1, Y1;
     Role* Attacker = nullptr;
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
-    Magic* UsingMagic;
+    Magic* UsingMagic = nullptr;
     int Frame;
     int EffectNumber;
     int Heavy;
@@ -105,6 +105,7 @@ protected:
     }
 
     void renderExtraRoleInfo(Role* r, double x, double y);
+    int calHurt(Role* r0, Role* r1);
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角

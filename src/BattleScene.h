@@ -14,7 +14,7 @@ class BattleNetwork;
 class BattleScene : public Scene
 {
 public:
-    RandomDouble rng_;
+    RandomDouble rand_;
 
     BattleScene();
     BattleScene(int id);
