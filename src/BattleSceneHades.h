@@ -107,7 +107,8 @@ protected:
     }
 
     void renderExtraRoleInfo(Role* r, double x, double y);
-    int calHurt(Role* r0, Role* r1);
+    //int calHurt(Role* r0, Role* r1);
+    virtual int checkResult() override;
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角

@@ -487,7 +487,7 @@ void BattleSceneHades::backRun()
                         r->CoolDown = 0;
                         r->ActType = -1;
                         r->ActType2 = -1;
-                        hurt = calHurt(ae.Attacker, r);
+                        hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->X1 - ae.Attacker->X1, r->Y1 - ae.Attacker->Y1) / TILE_W / 2);
                     }
                     else
                     {
@@ -656,7 +656,8 @@ void BattleSceneHades::onEntrance()
             man_y_ = r->Y();
         }
     }
-    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) {return l->Level < r->Level; });
+    //敌人按能力从低到高，每次出场2人
+    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->Level * 10000 + l->MaxHP < r->Level * 10000 + r->MaxHP; });
     for (int i = 0; i < 2; i++)
     {
         if (!enemies_.empty())
@@ -751,7 +752,16 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
 }
 
-int BattleSceneHades::calHurt(Role* r0, Role* r1)
+int BattleSceneHades::checkResult()
 {
-    return 1 + 5 * rand_.rand() + 2 * (pow(r0->Attack, 1.5) / r1->Defence);
+    if (enemies_.empty())
+    {
+        return BattleScene::checkResult();
+    }
+    return -1;
 }
+
+//int BattleSceneHades::calHurt(Role* r0, Role* r1)
+//{
+//    return 1 + 5 * rand_.rand() + 2 * (pow(r0->Attack, 1.5) / r1->Defence);
+//}
