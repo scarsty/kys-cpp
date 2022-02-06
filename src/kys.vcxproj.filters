@@ -61,9 +61,6 @@
     <ClCompile Include="Cloud.cpp">
       <Filter>scene</Filter>
     </ClCompile>
-    <ClCompile Include="Font.cpp">
-      <Filter>ui</Filter>
-    </ClCompile>
     <ClCompile Include="MainScene.cpp">
       <Filter>scene</Filter>
     </ClCompile>
@@ -83,9 +80,6 @@
       <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="GameUtil.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="Types.cpp">
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="RandomRole.cpp">
@@ -151,9 +145,6 @@
     <ClCompile Include="Object.cpp">
       <Filter>chemistry</Filter>
     </ClCompile>
-    <ClCompile Include="RunNode.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="..\others\Hanz2Piny.cpp">
       <Filter>hanzi2pinyin</Filter>
     </ClCompile>
@@ -171,6 +162,15 @@
     </ClCompile>
     <ClCompile Include="BattleSceneHades.cpp">
       <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="Font.cpp">
+      <Filter>font</Filter>
+    </ClCompile>
+    <ClCompile Include="Types.cpp">
+      <Filter>types</Filter>
+    </ClCompile>
+    <ClCompile Include="RunNode.cpp">
+      <Filter>runnode</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -207,9 +207,6 @@
     <ClInclude Include="Button.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
-      <Filter>ui</Filter>
-    </ClInclude>
     <ClInclude Include="Head.h">
       <Filter>ui</Filter>
     </ClInclude>
@@ -223,9 +220,6 @@
       <Filter>save</Filter>
     </ClInclude>
     <ClInclude Include="GameUtil.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="Types.h">
       <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="Audio.h">
@@ -327,9 +321,6 @@
     <ClInclude Include="Object.h">
       <Filter>chemistry</Filter>
     </ClInclude>
-    <ClInclude Include="RunNode.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="..\others\Hanz2Piny.h">
       <Filter>hanzi2pinyin</Filter>
     </ClInclude>
@@ -363,14 +354,19 @@
     <ClInclude Include="BattleSceneHades.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="Font.h">
+      <Filter>font</Filter>
+    </ClInclude>
+    <ClInclude Include="Types.h">
+      <Filter>types</Filter>
+    </ClInclude>
+    <ClInclude Include="RunNode.h">
+      <Filter>runnode</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
       <UniqueIdentifier>{7ab4a26b-b9ce-4c3e-84a0-221cbbc561bf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="headers">
-      <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{3c678943-dbdf-4d4f-a01c-0c5b1e6321a6}</UniqueIdentifier>
@@ -400,12 +396,6 @@
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="battle-mod">
-      <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="hanzi2pinyin">
-      <UniqueIdentifier>{36f35be4-3d2e-449c-a190-2d755a70d4bb}</UniqueIdentifier>
-    </Filter>
     <Filter Include="zip">
       <UniqueIdentifier>{6d628cf8-dd04-4c2b-ab7f-7ac40cd54b8f}</UniqueIdentifier>
     </Filter>
@@ -414,6 +404,19 @@
     </Filter>
     <Filter Include="nb">
       <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="font">
+      <UniqueIdentifier>{8aa821af-94ac-4543-89e2-43d37b3fa90c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hanzi2pinyin">
+      <UniqueIdentifier>{36f35be4-3d2e-449c-a190-2d755a70d4bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="types">
+      <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="runnode">
+      <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

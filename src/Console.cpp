@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "Event.h"
+
 Console::Console()
 {
     std::string code;
@@ -164,7 +166,8 @@ Console::Console()
         try
         {
             rec = std::stoi(splits[1]);
-        } catch (...)
+        }
+        catch (...)
         {
             return;
         }
@@ -181,7 +184,8 @@ Console::Console()
         try
         {
             rec = std::stoi(splits[1]);
-        } catch (...)
+        }
+        catch (...)
         {
             return;
         }
@@ -201,7 +205,8 @@ Console::Console()
         try
         {
             idx = std::stoi(splits[2]);
-        } catch (...)
+        }
+        catch (...)
         {
             return;
         }
@@ -237,6 +242,13 @@ Console::Console()
         battle->setupNetwork(std::move(client));
         battle->run();
 
+        Save::getInstance()->load(11);
+    }
+    else if (splits[0] == "battle" && splits.size() > 1)
+    {
+        Save::getInstance()->save(11);
+        int k = atoi(splits[1].c_str());
+        Event::getInstance()->tryBattle(k, 0);
         Save::getInstance()->load(11);
     }
 }

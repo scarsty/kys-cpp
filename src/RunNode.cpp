@@ -3,8 +3,8 @@
 #include "UISystem.h"
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
-uint64_t RunNode::global_prev_present_ticks_ = 0;
-double RunNode::refresh_interval_ = 16.667;
+double RunNode::global_prev_present_ticks_ = 0;
+double RunNode::refresh_interval_ = 16.666666;
 int RunNode::render_message_ = 0;
 
 RunNode::~RunNode()
@@ -349,10 +349,12 @@ int RunNode::checkChildState()
 void RunNode::checkSelfState(BP_Event& e)
 {
     //检测鼠标经过，按下等状态
-    //注意BP_MOUSEMOTION在mac下面有些问题，待查
-    if (e.type == BP_MOUSEMOTION)
+    //BP_MOUSEMOTION似乎有些问题，待查
+    //fmt1::print("{} ", e.type);
     {
-        if (inSide(e.motion.x, e.motion.y))
+        int x, y;
+        Engine::getMouseState(x, y);
+        if (inSide(x, y))
         {
             state_ = Pass;
         }
@@ -384,13 +386,13 @@ void RunNode::checkSelfState(BP_Event& e)
 
 void RunNode::present()
 {
-    int t = Engine::getTicks() - global_prev_present_ticks_;
+    auto t = Engine::getTicks() - global_prev_present_ticks_;
 
     if (render_message_)
     {
         auto e = Engine::getInstance();
-        Font::getInstance()->draw("Render one frame in " + std::to_string(t) + " ms", 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
-        Font::getInstance()->draw("RenderCopy time is " + std::to_string(Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
+        Font::getInstance()->draw(fmt1::format("Render one frame in {:.3f} ms", t), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
+        Font::getInstance()->draw(fmt1::format("RenderCopy time is {}", Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
         e->resetRenderTimes();
     }
     Engine::getInstance()->renderPresent();

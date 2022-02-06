@@ -26,7 +26,7 @@ TitleScene::TitleScene()
 {
     full_window_ = 1;
     menu_ = std::make_shared<Menu>();
-    menu_->setPosition(400, 250);
+    menu_->setPosition(560, 550);
     menu_->addChild<Button>(20, 0)->setTexture("title", 3, 23, 23);
     menu_->addChild<Button>(20, 50)->setTexture("title", 4, 24, 24);
     menu_->addChild<Button>(20, 100)->setTexture("title", 6, 26, 26);
@@ -35,7 +35,10 @@ TitleScene::TitleScene()
     render_message_ = 1;
 
     Save::getInstance()->load(5);
-    Event::getInstance()->tryBattle(100, 0);
+    RandomDouble rand;
+    int k = rand.rand() * 139;
+    k = 100;
+    Event::getInstance()->tryBattle(k, 0);
 }
 
 TitleScene::~TitleScene()

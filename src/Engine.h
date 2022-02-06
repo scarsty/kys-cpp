@@ -165,8 +165,8 @@ private:
     uint64_t time_;
 
 public:
-    static void delay(double t) { std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1000000))); }
-    static uint64_t getTicks() { return std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()).time_since_epoch().count(); }
+    static void delay(double t) { std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1e6))); }
+    static double getTicks() { return 1e-6 * std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()).time_since_epoch().count(); }
     uint64_t tic() { return time_ = getTicks(); }
     void toc()
     {

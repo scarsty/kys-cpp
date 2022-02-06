@@ -6,6 +6,7 @@
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
 #include "convert.h"
+#include "BattleMenu.h"
 
 UIStatus::UIStatus()
 {
@@ -19,6 +20,18 @@ UIStatus::UIStatus()
     button_leave_ = std::make_shared<Button>();
     button_leave_->setText("離隊");
     menu_->addChild(button_leave_, 450, 55);
+
+    equip_magics_.resize(3);
+    for (auto& em : equip_magics_)
+    {
+        em = std::make_shared<Button>();
+    }
+    equip_magics_[0]->setText("__________");
+    menu_->addChild(equip_magics_[0], 40, 610);
+    equip_magics_[1]->setText("__________");
+    menu_->addChild(equip_magics_[1], 160, 610);
+    equip_magics_[2]->setText("__________");
+    menu_->addChild(equip_magics_[2], 280, 610);
 
     addChild(menu_);
 }
@@ -44,9 +57,11 @@ void UIStatus::draw()
             button_detoxification_->setVisible(role_->Detoxification > 0);
             button_leave_->setVisible(role_->ID != 0);
         }
+        menu_->setVisible(true);
     }
     else
     {
+        menu_->setVisible(false);
         return;
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
@@ -248,6 +263,21 @@ void UIStatus::draw()
         font->draw("輕功", 18, x + 90, y + 95, color_ability1);
         font->draw(fmt1::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
+    x = x_ + 20;
+    y = y_ + 575;
+    equip = Save::getInstance()->getItem(role_->Equip1);
+
+    font->draw("常用武學", 25, x - 10, y, color_name);
+    for (int i = 0; i < 3; i++)
+    {
+        auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
+        if (m)
+        {
+            std::string text = m->Name;
+            text += std::string(10 - Font::getTextDrawSize(text), ' ');
+            equip_magics_[i]->setText(text);
+        }
+    }
 }
 
 void UIStatus::dealEvent(BP_Event& e)
@@ -295,6 +325,18 @@ void UIStatus::onPressedOK()
     {
         Event::getInstance()->callLeaveEvent(role_);
         role_ = nullptr;
+    }
+    else if (menu_->getResult() > 2)
+    {
+        auto menu = std::make_shared<BattleMagicMenu>();
+        menu->setRole(role_);
+        role_->Auto = 0;
+        role_->Team = 0;
+        menu->run();
+        if (menu->getMagic())
+        {
+            role_->EquipMagic[menu_->getResult() - 3] = menu->getMagic()->ID;
+        }
     }
 }
 

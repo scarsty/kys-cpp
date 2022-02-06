@@ -42,6 +42,8 @@ protected:
 
     std::deque<AttackEffect> attack_effects_;
 
+    std::deque<Role*> enemies_;
+
     Point pos45To90(int x, int y)    //45度坐标转为直角
     {
         Point p;
@@ -111,5 +113,12 @@ protected:
     Role* role_ = nullptr;    //主角
     int weapon_ = 1;
 
+    enum
+    {
+        HeavyCoolDown = 30,
+        LightCoolDown = 5,
+        SlashCoolDown = 20,
+        MedcineCoolDown = 120,
+    };
 };
 

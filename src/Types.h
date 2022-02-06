@@ -108,7 +108,9 @@ public:
     int HP, MaxHP, Hurt, Poison, PhysicalPower;
     int ExpForMakeItem;
     int Equip0, Equip1;
-    int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
+    //int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
+    int EquipMagic[3];
+    int Frame[12];
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -232,6 +234,7 @@ public:
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
     double SpeedX1 = 0, SpeedY1 = 0;    //指该质点的速度，每帧据此计算坐标
     int SpeedFrame = 0;    //大于0时质点速度才生效
+    int HurtFrame = 0;
 
     int ActType = 0;//医拳剑刀特
     int ActFrame = 0;

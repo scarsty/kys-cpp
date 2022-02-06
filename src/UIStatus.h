@@ -12,6 +12,7 @@ public:
 protected:
     std::shared_ptr<Button> button_medicine_, button_detoxification_, button_leave_;
     std::shared_ptr<Menu> menu_;
+    std::vector<std::shared_ptr<Button>> equip_magics_;
 
     bool show_button_ = true;
     Role* role_ = nullptr;
