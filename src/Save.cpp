@@ -321,6 +321,7 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
+/*
 void Save::saveRToCSV(int num)
 {
     NewSave::SaveCSVBaseInfo((BaseInfo*)this, 1, num);
@@ -380,18 +381,19 @@ bool Save::insertAt(const std::string& type, int idx)
     }
     return false;
 }
+*/
 
 void Save::saveRToDB(int num)
 {
     std::string filename0 = "../game/save/0.db";
     if (!File::fileExist(filename0))
     {
-        return;
+        //return;
     }
     sqlite3* db;
     //此处最好复制一个，先搞搞再说
     std::string filename = "../game/save/" + std::to_string(num) + ".db";
-    convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
+    //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
     sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
     NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);

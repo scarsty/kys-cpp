@@ -272,7 +272,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     }
     if (r->CoolDown == 0)
     {
-        if (r->PhysicalPower >= 20 && engine->checkKeyPress(BPK_j))    //轻攻击
+        if (r->PhysicalPower >= 20 && engine->checkKeyPress(BPK_j))
         {
             if (magic[0])
             {
@@ -281,9 +281,10 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->ActFrame = 0;
                 r->PhysicalPower -= 10;
                 r->ActType2 = 1;
+                r->UsingMagic = magic[0];
             }
         }
-        if (r->PhysicalPower >= 30 && engine->checkKeyPress(BPK_i))    //重攻击
+        if (r->PhysicalPower >= 30 && engine->checkKeyPress(BPK_i))
         {
             if (magic[1])
             {
@@ -292,6 +293,19 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->ActFrame = 0;
                 r->PhysicalPower -= 10;
                 r->ActType2 = 1;
+                r->UsingMagic = magic[1];
+            }
+        }
+        if (r->PhysicalPower >= 50 && engine->checkKeyPress(BPK_k))
+        {
+            if (magic[2])
+            {
+                r->CoolDown = HeavyCoolDown;
+                r->ActType = magic[2]->MagicType;
+                r->ActFrame = 0;
+                r->PhysicalPower -= 10;
+                r->ActType2 = 1;
+                r->UsingMagic = magic[2];
             }
         }
         if (r->PhysicalPower >= 10 && engine->checkKeyPress(BPK_m))    //闪身
@@ -310,17 +324,6 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             r->ActType = 0;
             r->PhysicalPower -= 3;
             r->ActType2 = 2;
-        }
-        if (r->PhysicalPower >= 50 && engine->checkKeyPress(BPK_k))    //医疗
-        {
-            if (magic[2])
-            {
-                r->CoolDown = HeavyCoolDown;
-                r->ActType = magic[2]->MagicType;
-                r->ActFrame = 0;
-                r->PhysicalPower -= 10;
-                r->ActType2 = 1;
-            }
         }
     }
 
@@ -345,11 +348,16 @@ void BattleSceneHades::backRun()
                 r->Y1 = y;
             }
             r->SpeedFrame--;
+            r->FaceTowards = rand_.rand() * 4;
         }
         else
         {
             r->SpeedX1 = 0;
             r->SpeedY1 = 0;
+            if (r->HP<=0)
+            {
+                r->Dead = 1;
+            }
         }
         if (r->CoolDown > 0) { r->CoolDown--; }
         if (r->CoolDown == 0)
@@ -383,9 +391,9 @@ void BattleSceneHades::backRun()
                     r->Acted = 1;
                     r->MP -= 50;
                     Magic* magic = nullptr;
-                    if (r->ActType2 == 0)
+                    if (r->UsingMagic)
                     {
-                        magic = Save::getInstance()->getMagic(1);
+                        magic = r->UsingMagic;
                     }
                     else
                     {
@@ -497,12 +505,15 @@ void BattleSceneHades::backRun()
                     fmt1::print("{} attack {} with {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, hurt);
                     if (r->HP <= 0)
                     {
-                        r->Dead = 1;
+                        //r->Dead = 1;
                         r->HP = 0;
+                        r->SpeedX1 = r->X1 - ae.Attacker->X1;
+                        r->SpeedY1 = r->Y1 - ae.Attacker->Y1;
+                        norm(r->SpeedX1, r->SpeedY1, 30);
+                        r->SpeedFrame = 10;
                     }
                 }
             }
-
             //ai
             if (r != role_)
             {
@@ -601,6 +612,14 @@ void BattleSceneHades::backRun()
             it++;
         }
     }
+    if (battle_roles_.size() - getTeamMateCount(0) <= 1)
+    {
+        if (!enemies_.empty())
+        {
+            battle_roles_.push_back(enemies_.front());
+            enemies_.pop_front();
+        }
+    }
     if (role_count != battle_roles_.size())
     {
         //检测战斗结果
@@ -656,6 +675,13 @@ void BattleSceneHades::onEntrance()
             man_y_ = r->Y();
         }
     }
+
+    //初始状态
+    for (auto r : enemies_)
+    {
+        setRoleInitState(r);
+    }
+
     //敌人按能力从低到高，每次出场2人
     std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->Level * 10000 + l->MaxHP < r->Level * 10000 + r->MaxHP; });
     for (int i = 0; i < 2; i++)
@@ -669,47 +695,12 @@ void BattleSceneHades::onEntrance()
 
     //单通
     role_ = Save::getInstance()->getRole(0);
-
-    battle_roles_.push_back(role_);
     role_->setPosition(info_->TeamMateX[0], info_->TeamMateY[0]);
     role_->Team = 0;
+    battle_roles_.push_back(role_);
 
     head_self_->setRole(role_);
-
-    //初始状态
-    for (auto r : battle_roles_)
-    {
-        setRoleInitState(r);
-        r->HP = r->MaxHP;
-        r->MP = r->MaxMP;
-
-        auto p = pos45To90(r->X(), r->Y());
-
-        r->X1 = p.x;
-        r->Y1 = p.y;
-        if (r->FaceTowards == Towards_RightDown)
-        {
-            r->TowardsX1 = 1;
-            r->TowardsY1 = 1;
-        }
-        if (r->FaceTowards == Towards_RightUp)
-        {
-            r->TowardsX1 = 1;
-            r->TowardsY1 = -1;
-        }
-        if (r->FaceTowards == Towards_LeftDown)
-        {
-            r->TowardsX1 = -1;
-            r->TowardsY1 = 1;
-        }
-        if (r->FaceTowards == Towards_LeftUp)
-        {
-            r->TowardsX1 = -1;
-            r->TowardsY1 = -1;
-        }
-        r->Progress = 0;
-        r->CoolDown = 0;
-    }
+    setRoleInitState(role_);
 }
 
 void BattleSceneHades::onExit()
@@ -754,11 +745,51 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
 int BattleSceneHades::checkResult()
 {
-    if (enemies_.empty())
+    int team0 = getTeamMateCount(0);
+    int team1 = enemies_.size() + battle_roles_.size() - team0;
+    if (team0 > 0 && team1 == 0)
     {
-        return BattleScene::checkResult();
+        return 0;
+    }
+    if (team0 == 0 && team1 > 0)
+    {
+        return 1;
     }
     return -1;
+}
+
+void BattleSceneHades::setRoleInitState(Role* r)
+{
+    BattleScene::setRoleInitState(r);
+    r->HP = r->MaxHP;
+    r->MP = r->MaxMP;
+
+    auto p = pos45To90(r->X(), r->Y());
+
+    r->X1 = p.x;
+    r->Y1 = p.y;
+    if (r->FaceTowards == Towards_RightDown)
+    {
+        r->TowardsX1 = 1;
+        r->TowardsY1 = 1;
+    }
+    if (r->FaceTowards == Towards_RightUp)
+    {
+        r->TowardsX1 = 1;
+        r->TowardsY1 = -1;
+    }
+    if (r->FaceTowards == Towards_LeftDown)
+    {
+        r->TowardsX1 = -1;
+        r->TowardsY1 = 1;
+    }
+    if (r->FaceTowards == Towards_LeftUp)
+    {
+        r->TowardsX1 = -1;
+        r->TowardsY1 = -1;
+    }
+    r->Progress = 0;
+    r->CoolDown = 0;
 }
 
 //int BattleSceneHades::calHurt(Role* r0, Role* r1)

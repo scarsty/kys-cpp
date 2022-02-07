@@ -202,9 +202,9 @@ public:
     };
 
 public:
-    void saveRToCSV(int num);
-    void loadRFromCSV(int num);
-    bool insertAt(const std::string& type, int idx);
+    //void saveRToCSV(int num);
+    //void loadRFromCSV(int num);
+    //bool insertAt(const std::string& type, int idx);
 
 public:
     void saveRToDB(int num);

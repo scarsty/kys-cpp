@@ -160,6 +160,7 @@ Console::Console()
             fmt1::print("傳送到{}\n", id);
         }
     }
+    /*
     else if (splits[0] == "newsave" && splits.size() >= 2)
     {
         int rec;
@@ -211,7 +212,7 @@ Console::Console()
             return;
         }
         Save::getInstance()->insertAt(splits[1], idx);
-    }
+    }*/
     else if (splits[0] == "host" && splits.size() > 1)
     {
         Save::getInstance()->save(11);

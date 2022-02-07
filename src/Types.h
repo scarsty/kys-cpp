@@ -240,6 +240,7 @@ public:
     int ActFrame = 0;
     int CoolDown;
     int ActType2; //0-轻攻击，1-重攻击，2-闪身
+    Magic* UsingMagic = nullptr;
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }

@@ -5,33 +5,6 @@
 
 class NewSave
 {
-public:
-    static void SaveCSVBaseInfo(Save::BaseInfo* data, int length, int record);
-    static void LoadCSVBaseInfo(Save::BaseInfo* data, int length, int record);
-    // 背包
-    static void SaveCSVItemList(ItemList* data, int length, int record);
-    static void LoadCSVItemList(ItemList* data, int length, int record);
-    // 人物
-    static void SaveCSVRoleSave(const std::vector<Role>& data, int record);
-    static void LoadCSVRoleSave(std::vector<Role>& data, int record);
-    static void InsertRoleAt(std::vector<Role>& data, int idx);
-    // 物品
-    static void SaveCSVItemSave(const std::vector<Item>& data, int record);
-    static void LoadCSVItemSave(std::vector<Item>& data, int record);
-    static void InsertItemAt(std::vector<Item>& data, int idx);
-    // 场景
-    static void SaveCSVSubMapInfoSave(const std::vector<SubMapInfo>& data, int record);
-    static void LoadCSVSubMapInfoSave(std::vector<SubMapInfo>& data, int record);
-    static void InsertSubMapInfoAt(std::vector<SubMapInfo>& data, int idx);
-    // 武功
-    static void SaveCSVMagicSave(const std::vector<Magic>& data, int record);
-    static void LoadCSVMagicSave(std::vector<Magic>& data, int record);
-    static void InsertMagicAt(std::vector<Magic>& data, int idx);
-    // 商店
-    static void SaveCSVShopSave(const std::vector<Shop>& data, int record);
-    static void LoadCSVShopSave(std::vector<Shop>& data, int record);
-    static void InsertShopAt(std::vector<Shop>& data, int idx);
-
 private:
     struct FieldInfo
     {
@@ -74,7 +47,24 @@ private:
     template <class T>
     static void writeValues(sqlite3* db, const std::string& table_name, std::vector<FieldInfo>& infos, const std::vector<T>& data)
     {
-        sqlite3_exec(db, ("delete from " + table_name).c_str(), nullptr, nullptr, nullptr);
+        sqlite3_exec(db, ("drop table " + table_name).c_str(), nullptr, nullptr, nullptr);
+        std::string cmd = "create table " + table_name + "(";
+        for (auto& info : infos)
+        {
+            cmd += info.name + " ";
+            if (info.type == 0)
+            {
+                cmd += "int,";
+            }
+            else if (info.type == 1)
+            {
+                cmd += "text,";
+            }
+        }
+        cmd.pop_back();
+        cmd += ")";
+        sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
+
         for (auto& data1 : data)
         {
             std::string cmd = "insert into " + table_name + " values(";
