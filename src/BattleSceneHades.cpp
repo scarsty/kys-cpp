@@ -167,9 +167,9 @@ void BattleSceneHades::draw()
         //effects
         for (auto& ae : attack_effects_)
         {
-            for (auto r : ae.Defender)
+            //for (auto r : ae.Defender)
             {
-                TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame, r.first->X1, r.first->Y1 / 2, { 255, 255, 255, 255 }, 224);
+                TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame, ae.X1, ae.Y1 / 2, { 255, 255, 255, 255 }, 224);
             }
         }
 
@@ -279,7 +279,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->CoolDown = HeavyCoolDown;
                 r->ActType = magic[0]->MagicType;
                 r->ActFrame = 0;
-                r->PhysicalPower -= 10;
+                //r->PhysicalPower -= 10;
                 r->ActType2 = 1;
                 r->UsingMagic = magic[0];
             }
@@ -291,7 +291,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->CoolDown = HeavyCoolDown;
                 r->ActType = magic[1]->MagicType;
                 r->ActFrame = 0;
-                r->PhysicalPower -= 10;
+                //r->PhysicalPower -= 10;
                 r->ActType2 = 1;
                 r->UsingMagic = magic[1];
             }
@@ -303,7 +303,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->CoolDown = HeavyCoolDown;
                 r->ActType = magic[2]->MagicType;
                 r->ActFrame = 0;
-                r->PhysicalPower -= 10;
+                //r->PhysicalPower -= 10;
                 r->ActType2 = 1;
                 r->UsingMagic = magic[2];
             }
@@ -326,7 +326,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             r->ActType2 = 2;
         }
     }
-
+    backRun1();
 }
 
 void BattleSceneHades::dealEvent2(BP_Event& e)
@@ -334,7 +334,7 @@ void BattleSceneHades::dealEvent2(BP_Event& e)
 
 }
 
-void BattleSceneHades::backRun()
+void BattleSceneHades::backRun1()
 {
     for (auto r : battle_roles_)
     {
@@ -348,13 +348,13 @@ void BattleSceneHades::backRun()
                 r->Y1 = y;
             }
             r->SpeedFrame--;
-            r->FaceTowards = rand_.rand() * 4;
+            //r->FaceTowards = rand_.rand() * 4;
         }
         else
         {
             r->SpeedX1 = 0;
             r->SpeedY1 = 0;
-            if (r->HP<=0)
+            if (r->HP <= 0)
             {
                 r->Dead = 1;
             }
@@ -376,7 +376,6 @@ void BattleSceneHades::backRun()
     //降低计算量,每3帧内计算的东西都不同
     //if (current_frame_ % 2 == 0)
     {
-
         int current_frame2 = current_frame_;
         for (auto r : battle_roles_)
         {
@@ -386,10 +385,9 @@ void BattleSceneHades::backRun()
                 //音效和动画
                 if (r->Acted == 0
                     && (r->ActType2 == 0 || r->ActType2 == 1)
-                    && r->ActFrame == r->FightFrame[r->ActType] / 3)
+                    && r->ActFrame == r->FightFrame[r->ActType] - 3)
                 {
                     r->Acted = 1;
-                    r->MP -= 50;
                     Magic* magic = nullptr;
                     if (r->UsingMagic)
                     {
@@ -427,10 +425,15 @@ void BattleSceneHades::backRun()
                         ae.Path = "eft/eft001";
                         ae.UsingMagic = Save::getInstance()->getMagic(1);
                     }
+                    r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+                    int level_index = r->getMagicLevelIndex(magic->ID);
+                    r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
+                    ae.TotalFrame = TextureManager::getInstance()->getTextureGroupCount(ae.Path);
+                    r->CoolDown += ae.TotalFrame;
                     ae.Attacker = r;
                     norm(r->TowardsX1, r->TowardsY1);
-                    ae.X1 = r->X1 + TILE_W * 1.5 * r->TowardsX1;
-                    ae.Y1 = r->Y1 + TILE_W * 1.5 * r->TowardsY1;
+                    ae.X1 = r->X1 + TILE_W * 2 * r->TowardsX1;
+                    ae.Y1 = r->Y1 + TILE_W * 2 * r->TowardsY1;
                     ae.Frame = 0;
                     ae.Heavy = r->ActType2;
                     attack_effects_.push_back(std::move(ae));
@@ -480,7 +483,8 @@ void BattleSceneHades::backRun()
                     && !r->HurtFrame
                     && r->Team != ae.Attacker->Team
                     && ae.Defender.count(r) == 0
-                    && EuclidDis(r->X1 - ae.X1, r->Y1 - ae.Y1) <= TILE_W * 3)
+                    && ae.Frame >= ae.TotalFrame / 2
+                    && EuclidDis(r->X1 - ae.X1, r->Y1 - ae.Y1) <= TILE_W * 2)
                 {
                     ae.Defender[r]++;
                     int hurt = 0;
@@ -492,10 +496,17 @@ void BattleSceneHades::backRun()
                         norm(r->SpeedX1, r->SpeedY1, 1);
                         r->SpeedFrame = 10;
                         r->HurtFrame = 20;
-                        r->CoolDown = 0;
-                        r->ActType = -1;
-                        r->ActType2 = -1;
                         hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->X1 - ae.Attacker->X1, r->Y1 - ae.Attacker->Y1) / TILE_W / 2);
+                        if (r->MP >= hurt)
+                        {
+                            r->MP -= hurt;
+                        }
+                        else
+                        {
+                            r->CoolDown = 0;
+                            r->ActType = -1;
+                            r->ActType2 = -1;
+                        }
                     }
                     else
                     {
@@ -535,7 +546,7 @@ void BattleSceneHades::backRun()
                     }
                     if (r0)
                     {
-                        if (EuclidDis(r->X1 - r0->X1, r->Y1 - r0->Y1) > TILE_W * 4)
+                        if (EuclidDis(r->X1 - r0->X1, r->Y1 - r0->Y1) > TILE_W * 2.5)
                         {
                             r->TowardsX1 = r0->X1 - r->X1;
                             r->TowardsY1 = r0->Y1 - r->Y1;

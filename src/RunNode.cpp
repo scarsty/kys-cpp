@@ -278,18 +278,11 @@ void RunNode::dealEventSelfChilds(bool check_event)
                 break;
             }
         }
-        //if (e.type == BP_MOUSEBUTTONUP)
-        //{
-        //    fmt1::print("BP_MOUSEBUTTONUP\n");
-        //}
         checkStateSelfChilds(e, check_event);
-        switch (e.type)
+        if (e.type == BP_QUIT
+            || (e.type == BP_WINDOWEVENT && e.window.event == BP_WINDOWEVENT_CLOSE))
         {
-        case BP_QUIT:
             UISystem::askExit(1);
-            break;
-        default:
-            break;
         }
     }
     else
@@ -306,7 +299,9 @@ bool RunNode::isSpecialEvent(BP_Event& e)
         || e.type == BP_KEYDOWN
         || e.type == BP_KEYUP
         || e.type == BP_TEXTINPUT
-        || e.type == BP_TEXTEDITING;
+        || e.type == BP_TEXTEDITING
+        || e.type == BP_QUIT
+        || e.type == BP_WINDOWEVENT;
 }
 
 void RunNode::forceActiveChild()

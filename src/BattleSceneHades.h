@@ -16,6 +16,7 @@ struct AttackEffect
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
     int Frame;
+    int TotalFrame;
     int EffectNumber;
     int Heavy;
     std::string Path;
@@ -35,7 +36,7 @@ public:
     virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
-    virtual void backRun() override;
+    virtual void backRun1();
 
 protected:
     double man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_W;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
@@ -117,7 +118,7 @@ protected:
 
     enum
     {
-        HeavyCoolDown = 30,
+        HeavyCoolDown = 80,
         LightCoolDown = 5,
         SlashCoolDown = 20,
         MedcineCoolDown = 120,

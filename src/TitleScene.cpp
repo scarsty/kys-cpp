@@ -26,19 +26,13 @@ TitleScene::TitleScene()
 {
     full_window_ = 1;
     menu_ = std::make_shared<Menu>();
-    menu_->setPosition(560, 550);
-    menu_->addChild<Button>(20, 0)->setTexture("title", 3, 23, 23);
-    menu_->addChild<Button>(20, 50)->setTexture("title", 4, 24, 24);
-    menu_->addChild<Button>(20, 100)->setTexture("title", 6, 26, 26);
+    menu_->setPosition(560, 600);
+    menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
+    menu_->addChild<Button>(20, 0)->setTexture("title", 4, 24, 24);
+    menu_->addChild<Button>(220, 0)->setTexture("title", 6, 26, 26);
     menu_load_ = std::make_shared<UISave>();
     menu_load_->setPosition(500, 300);
     render_message_ = 1;
-
-    Save::getInstance()->load(5);
-    RandomDouble rand;
-    int k = rand.rand() * 139;
-    k = 100;
-    Event::getInstance()->tryBattle(k, 0);
 }
 
 TitleScene::~TitleScene()
@@ -48,17 +42,18 @@ TitleScene::~TitleScene()
 void TitleScene::draw()
 {
     int count = count_ / 20;
-    TextureManager::getInstance()->renderTexture("title", 0, 0, 0);
+    TextureManager::getInstance()->renderTexture("title", 153, 0, 0);
     int alpha = 255 - abs(255 - count_ % 510);
     count_++;
     if (alpha == 0)
     {
         RandomDouble r;
         head_id_ = r.rand_int(115);
-        head_x_ = r.rand_int(1024 - 150);
-        head_y_ = r.rand_int(640 - 150);
+        head_x_ = r.rand_int(1280 - 150);
+        head_y_ = r.rand_int(800 - 150);
     }
     TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
+    //TextureManager::getInstance()->renderTexture("title", 150, 240, 150, { 255,255,255,255 }, 255, 0.3, 0.3);
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
 }
 
@@ -93,6 +88,11 @@ void TitleScene::dealEvent(BP_Event& e)
     }
     if (r == 1)
     {
+        Save::getInstance()->load(5);
+        RandomDouble rand;
+        int k = rand.rand() * 139;
+        k = 54;
+        Event::getInstance()->tryBattle(k, 0);
         if (menu_load_->run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用
