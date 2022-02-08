@@ -22,6 +22,14 @@ struct AttackEffect
     std::string Path;
 };
 
+struct TextEffect
+{
+    double X1, Y1;
+    std::string Text;
+    int Frame = 0;
+    BP_Color Color;
+};
+
 class BattleSceneHades : public BattleScene
 {
 public:
@@ -42,6 +50,7 @@ protected:
     double man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_W;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
 
     std::deque<AttackEffect> attack_effects_;
+    std::deque<TextEffect> text_effects_;
 
     std::deque<Role*> enemies_;
 
@@ -83,7 +92,7 @@ protected:
         if (dis == -1) { dis = TILE_W; }
         for (auto r1 : battle_roles_)
         {
-            if (r1 == r) { continue; }
+            if (r1 == r || r1->Dead) { continue; }
             if (EuclidDis(x - r1->X1, y - r1->Y1) < dis)
             {
                 return false;

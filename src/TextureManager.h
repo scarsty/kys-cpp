@@ -79,14 +79,14 @@ public:
 
 public:
     void renderTexture(Texture* tex, BP_Rect r,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0);
     void renderTexture(const std::string& path, int num, BP_Rect r,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0);
 
     void renderTexture(Texture* tex, int x, int y,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0);
     void renderTexture(const std::string& path, int num, int x, int y,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0);
 
     Texture* loadTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);

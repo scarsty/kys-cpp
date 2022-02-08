@@ -39,7 +39,7 @@ void Engine::updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch)
     SDL_UpdateTexture(testTexture(t), nullptr, buffer, pitch);
 }
 
-void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, int inPresent)
+void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, double angle, int inPresent)
 {
     if (inPresent == 1)
     {
@@ -47,24 +47,18 @@ void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, int inPresent
         y += rect_.y;
     }
     BP_Rect r = { x, y, w, h };
-    renderCopy(t, nullptr, &r);
+    renderCopy(t, nullptr, &r, angle);
 }
 
-void Engine::renderCopy(BP_Texture* t /*= nullptr*/)
+void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
 {
-    SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, rotation_, nullptr, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
 }
 
-void Engine::renderCopy(BP_Texture* t, BP_Rect* rect1, double angle)
+void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle, int inPresent /*= 0*/)
 {
-    SDL_RenderCopyEx(renderer_, t, nullptr, rect1, angle, nullptr, SDL_FLIP_NONE);
-    render_times_++;
-}
-
-void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent /*= 0*/)
-{
-    SDL_RenderCopy(renderer_, t, rect0, rect1);
+    SDL_RenderCopyEx(renderer_, t, rect0, rect1, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
 }
 

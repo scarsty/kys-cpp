@@ -122,8 +122,7 @@ public:
     BP_Texture* createARGBTexture(int w, int h);
     BP_Texture* createARGBRenderedTexture(int w, int h);
     void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
-    void renderCopy(BP_Texture* t = nullptr);
-    void renderCopy(BP_Texture* t, BP_Rect* rect1, double angle);
+    void renderCopy(BP_Texture* t = nullptr, double angle = 0);
     void showLogo() { renderCopy(logo_, nullptr, nullptr); }
     void renderPresent() { SDL_RenderPresent(renderer_); /*renderClear();*/ }
     void renderClear() { SDL_RenderClear(renderer_); }
@@ -133,8 +132,8 @@ public:
     void resetRenderTarget() { setRenderTarget(nullptr); }
     void createWindow() {}
     void createRenderer() {}
-    void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, int inPresent = 0);
-    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, int inPresent = 0);
+    void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
+    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle = 0, int inPresent = 0);
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();
