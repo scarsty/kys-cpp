@@ -270,14 +270,19 @@ void UIStatus::draw()
     equip = Save::getInstance()->getItem(role_->Equip1);
 
     font->draw("裝備武學", 25, x - 10, y, color_name);
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < equip_magics_.size(); i++)
     {
         auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
+        if (role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
         if (m)
         {
             std::string text = m->Name;
             text += std::string(10 - Font::getTextDrawSize(text), ' ');
             equip_magics_[i]->setText(text);
+        }
+        else
+        {
+            equip_magics_[i]->setText("__________");
         }
     }
 }

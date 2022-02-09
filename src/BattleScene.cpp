@@ -1877,6 +1877,7 @@ void BattleScene::calExpGot()
     head_self_->setVisible(false);
 
     std::vector<Role*> alive_teammate;
+
     if (result_ == 0)
     {
         for (auto r : battle_roles_)
@@ -1891,18 +1892,29 @@ void BattleScene::calExpGot()
     {
         alive_teammate = friends_;
     }
+
     if (alive_teammate.empty())
     {
-        return;
+        //return;
     }
     //还在场的人获得经验
     for (auto r : alive_teammate)
     {
         r->ExpGot += info_->Exp / alive_teammate.size();
     }
-
+    auto text = std::make_shared<TextBox>();
+    text->setFontSize(40);
+    if (result_ == 0)
+    {
+        text->setText("勝利");
+    }
+    else
+    {
+        text->setText("失敗");
+    }
     auto show_exp = std::make_shared<ShowExp>();
     show_exp->setRoles(alive_teammate);
+    show_exp->addChild(text, 30, 10);
     show_exp->run();
 
     //升级，修炼物品

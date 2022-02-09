@@ -11,8 +11,7 @@
 
 struct AttackEffect
 {
-    double X1, Y1;
-    double SpeedX1 = 0, SpeedY1 = 0;
+    Pointf Pos, Speed;
     Role* Attacker = nullptr;
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
@@ -26,7 +25,7 @@ struct AttackEffect
 
 struct TextEffect
 {
-    double X1, Y1;
+    Pointf Pos;
     std::string Text;
     int Frame = 0;
     BP_Color Color;
@@ -120,9 +119,19 @@ protected:
         return canWalk45(p.x, p.y);
     }
 
+    bool canWalk90(const Pointf& p, Role* r, int dis = -1)
+    {
+        return canWalk90(p.x, p.y, r, dis);
+    }
+
     double EuclidDis(double x, double y)
     {
         return sqrt(x * x + y * y);
+    }
+
+    double EuclidDis(Pointf& p1, Pointf p2)
+    {
+        return EuclidDis(p1.x - p2.x, p1.y - p2.y);
     }
     void norm(double& x, double& y, double n0 = 1)
     {
@@ -138,5 +147,7 @@ protected:
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
+    Role* findNearestEnemy(int team, double x, double y);
 };
+
 

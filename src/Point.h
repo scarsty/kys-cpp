@@ -1,6 +1,6 @@
 #pragma once
+#include <cmath>
 
-//这里如果用枚举类型会有一些麻烦，干脆改为整型
 enum Towards
 {
     Towards_RightUp = 0,
@@ -10,11 +10,70 @@ enum Towards
     Towards_None
 };
 
-struct Point
+template <typename T>
+struct Point_
 {
 public:
-    Point() {}
-    Point(int _x, int _y) : x(_x), y(_y) {}
-    ~Point() {}
-    int x = 0, y = 0;
+    Point_() {}
+    Point_(T x1, T y1) : x(x1), y(y1) {}
+    T x{ 0 }, y{ 0 };
+    Point_<T>& norm(T n)
+    {
+        T n1 = sqrt(x * x + y * y);
+        if (n1 != 0)
+        {
+            x *= n / n1;
+            y *= n / n1;
+        }
+        return *this;
+    }
+    Point_<T>& operator*=(double f)
+    {
+        x *= f;
+        y *= f;
+        return *this;
+    }
+    Point_<T>& operator+=(const Point_<T>& p)
+    {
+        x += p.x;
+        y += p.y;
+        return *this;
+    }
+    double getAngle()
+    {
+        return atan2f(y, x);
+    }
 };
+
+template <typename T>
+inline Point_<T> operator+(const Point_<T> l, const Point_<T> r)
+{
+    return Point_<T>(l.x + r.x, l.y + r.y);
+}
+
+template <typename T>
+inline Point_<T> operator-(const Point_<T> l, const Point_<T> r)
+{
+    return Point_<T>(l.x - r.x, l.y - r.y);
+}
+
+template <typename T>
+inline Point_<T> operator-(const Point_<T> l)
+{
+    return Point_<T>(-l.x, -l.y);
+}
+
+template <typename T>
+inline Point_<T> operator*(double f, const Point_<T> p)
+{
+    return Point_<T>(p.x * f, p.y * f);
+}
+
+template <typename T>
+inline Point_<T> operator*(const Point_<T> p, double f)
+{
+    return Point_<T>(p.x * f, p.y * f);
+}
+
+using Point = Point_<int>;
+using Pointf = Point_<double>;

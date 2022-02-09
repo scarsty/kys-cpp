@@ -6,18 +6,18 @@
 #include <string>
 #include <vector>
 
-struct Pointf
+struct Vec2
 {
 public:
-    Pointf() {}
-    Pointf(float _x, float _y) : x(_x), y(_y)
+    Vec2() {}
+    Vec2(float _x, float _y) : x(_x), y(_y)
     {
     }
-    ~Pointf() {}
+    ~Vec2() {}
     float x = 0, y = 0;
-    Pointf operator*(float f)
+    Vec2 operator*(float f)
     {
-        Pointf p{ x * f, y * f };
+        Vec2 p{ x * f, y * f };
         return p;
     }
     float getAngle()
@@ -25,8 +25,6 @@ public:
         return atan2f(y, x);
     }
 };
-
-using Vec2 = Pointf;
 
 //class ParticleBatchNode;
 

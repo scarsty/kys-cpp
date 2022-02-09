@@ -133,7 +133,7 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(instruct_0);
     REGISTER_INSTRUCT(instruct_1);
     REGISTER_INSTRUCT(instruct_2);
-    REGISTER_INSTRUCT(instruct_33);
+    REGISTER_INSTRUCT(instruct_3);
     REGISTER_INSTRUCT(instruct_4);
     REGISTER_INSTRUCT(instruct_5);
     REGISTER_INSTRUCT(instruct_6);
@@ -200,6 +200,35 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(instruct_67);
 
     //REGISTER_INSTRUCT(instruct_50e, VOID_7);
+
+    auto newTalk = [](lua_State* L) -> int
+    {
+        std::vector<int> args(3);
+        for (int i = 1; i < 3; i++)
+        {
+            args[i] = lua_tonumber(L, i + 1);
+        }
+        std::string str(lua_tostring(L, 1));
+        Event::getInstance()->newTalk(str, args[1], args[2]);
+        return 0;
+    };
+    lua_register(lua_state_, "newtalk", newTalk);
+
+    auto getItemCountInBag = [](lua_State* L) -> int
+    {
+        int i = lua_tonumber(L, 1);
+        i = Save::getInstance()->getItemCountInBag(i);
+        lua_pushnumber(L, i);
+        return 1;
+    };
+    lua_register(lua_state_, "getitemcountinbag", getItemCountInBag);
+    auto autoSave = [](lua_State* L) -> int
+    {
+        Save::getInstance()->save(11);
+        return 0;
+    };
+    lua_register(lua_state_, "autosave", autoSave);
+
 
     return 0;
 }

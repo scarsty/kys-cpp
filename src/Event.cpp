@@ -288,13 +288,13 @@ void Event::forceExit()
 void Event::setUseScript(int u)
 {
     use_script_ = u;
-    if (u)
-    {
-        auto str = convert::readStringFromFile("../game/script/talk.txt");
-        convert::replaceAllSubStringRef(str, "\r", "");
-        convert::replaceAllSubStringRef(str, "*", "");
-        talk_contents_ = convert::splitString(str, "\n");
-    }
+    //if (u)
+    //{
+    //    auto str = convert::readStringFromFile("../game/script/talk.txt");
+    //    convert::replaceAllSubStringRef(str, "\r", "");
+    //    convert::replaceAllSubStringRef(str, "*", "");
+    //    talk_contents_ = convert::splitString(str, "\n");
+    //}
 }
 
 //原对话指令
@@ -304,17 +304,22 @@ void Event::oldTalk(int talk_id, int head_id, int style)
     {
         return;
     }
+    auto talk_content = talk_contents_[talk_id];
+    newTalk(talk_content, head_id, style);
+}
+
+void Event::newTalk(const std::string& talk_content, int head_id, int style)
+{
     auto talk = talk_box_up_;
     if (style % 2 != 0)
     {
         talk = talk_box_down_;
     }
-    auto talk_content = talk_contents_[talk_id];
 #ifndef _WIN32 // 非Windows系统（例如Mac和Linux）默认字符集是UTF8，通常对GBK字符集支持不太好，这里转个码，不然显示乱码
     talk_content = PotConv::cp936toutf8(talk_content);
 #endif
     talk->setContent(talk_content);
-    fmt1::print(talk_contents_[talk_id] + "\n");
+    fmt1::print("head {} style {}: {}\n", head_id, style, talk_content);
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -1132,7 +1137,7 @@ void Event::clearTalkBox()
 void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
 {
     int index = 0, len = 0, offset = 0;
-    char *char_ptr = nullptr, *char_ptr1 = nullptr;
+    char* char_ptr = nullptr, * char_ptr1 = nullptr;
     int* save_int_ptr = nullptr;
     int i1 = 0;
     int i2 = 0;

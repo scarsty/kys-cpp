@@ -22,7 +22,7 @@ inline float clampf(float value, float min_inclusive, float max_inclusive)
     return value < min_inclusive ? min_inclusive : value < max_inclusive ? value : max_inclusive;
 }
 
-inline void normalize_point(float x, float y, Pointf* out)
+inline void normalize_point(float x, float y, Vec2* out)
 {
     float n = x * x + y * y;
     // Already normalized.
@@ -356,7 +356,7 @@ void ParticleSystem::update()
     {
         for (int i = 0; i < _particleCount; ++i)
         {
-            Pointf tmp, radial = { 0.0f, 0.0f }, tangential;
+            Vec2 tmp, radial = { 0.0f, 0.0f }, tangential;
 
             // radial acceleration
             if (particle_data_[i].posx || particle_data_[i].posy)

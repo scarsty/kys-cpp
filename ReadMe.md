@@ -40,7 +40,6 @@ VS工程为x64版本，如需要x86版请自行修改。
 - hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
 - zip <https://github.com/kuba--/zip>
 - BASS, BASSMIDI <http://www.un4seen.com/>
-- Fast C++ CSV Parser: <https://github.com/ben-strasser/fast-cpp-csv-parser>
 - smallpot（动态库版本）: <https://github.com/scarsty/smallpot>
 
 以下为间接使用，通常包管理器会自动处理。

@@ -1,5 +1,6 @@
 #pragma once
 #include "Engine.h"
+#include "Point.h"
 #include <cstdint>
 #include <string>
 
@@ -229,10 +230,10 @@ public:
     bool Competing = false;
 
 public:
-    double X1, Y1;   //亚像素的直角坐标
-    double TowardsX1 = 0, TowardsY1 = 0;    //面对的方向，计算攻击位置，击退方向等
+    Pointf Pos1;   //亚像素的直角坐标
+    Pointf Towards1;    //面对的方向，计算攻击位置，击退方向等
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
-    double SpeedX1 = 0, SpeedY1 = 0;    //指该质点的速度，每帧据此计算坐标
+    Pointf Speed1;    //指该质点的速度，每帧据此计算坐标
     int SpeedFrame = 0;    //大于0时质点速度才生效
     int HurtFrame = 0;
 
