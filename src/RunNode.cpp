@@ -294,8 +294,10 @@ void RunNode::dealEventSelfChilds(bool check_event)
 //是否为游戏需要处理的类型，避免丢失一些操作
 bool RunNode::isSpecialEvent(BP_Event& e)
 {
-    return e.type == BP_MOUSEBUTTONDOWN
+    return e.type == BP_MOUSEMOTION
+        || e.type == BP_MOUSEBUTTONDOWN
         || e.type == BP_MOUSEBUTTONUP
+        || e.type == BP_MOUSEWHEEL
         || e.type == BP_KEYDOWN
         || e.type == BP_KEYUP
         || e.type == BP_TEXTINPUT
@@ -346,10 +348,9 @@ void RunNode::checkSelfState(BP_Event& e)
     //检测鼠标经过，按下等状态
     //BP_MOUSEMOTION似乎有些问题，待查
     //fmt1::print("{} ", e.type);
+    if (e.type == BP_MOUSEMOTION)
     {
-        int x, y;
-        Engine::getMouseState(x, y);
-        if (inSide(x, y))
+        if (inSide(e.motion.x, e.motion.y))
         {
             state_ = Pass;
         }

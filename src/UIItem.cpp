@@ -336,8 +336,8 @@ void UIItem::showItemProperty(Item* item)
     showOneProperty(item->AddMorality, "道德{:+}", size, c, x, y);
     showOneProperty(item->AddAttackWithPoison, "攻擊帶毒{:+}", size, c, x, y);
 
-    showOneProperty(int(item->ChangeMPType == 2), "內力調和{}", size, c, x, y);
-    showOneProperty(int(item->AddAttackTwice == 1), "雙擊{}", size, c, x, y);
+    showOneProperty(int(item->ChangeMPType == 2), "內力調和", size, c, x, y);
+    showOneProperty(int(item->AddAttackTwice == 1), "雙擊", size, c, x, y);
 
     auto magic = Save::getInstance()->getMagic(item->MagicID);
     if (magic)
