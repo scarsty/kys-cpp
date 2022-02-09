@@ -515,7 +515,6 @@ void BattleMagicMenu::setRole(Role* r)
         }
     }
     setStrings(magic_names);
-    setPosition(160, 200);
 
     //如果宽度为0的项隐藏
     for (auto child : childs_)

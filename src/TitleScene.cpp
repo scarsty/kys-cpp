@@ -92,7 +92,7 @@ void TitleScene::dealEvent(BP_Event& e)
         RandomDouble rand;
         int k = rand.rand() * 139;
         k = 100;
-        Event::getInstance()->tryBattle(k, 0);
+        //Event::getInstance()->tryBattle(k, 0);
         if (menu_load_->run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用

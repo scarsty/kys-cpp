@@ -21,17 +21,19 @@ UIStatus::UIStatus()
     button_leave_->setText("離隊");
     menu_->addChild(button_leave_, 450, 55);
 
-    equip_magics_.resize(3);
+    equip_magics_.resize(4);
     for (auto& em : equip_magics_)
     {
         em = std::make_shared<Button>();
     }
     equip_magics_[0]->setText("__________");
-    menu_->addChild(equip_magics_[0], 40, 610);
+    menu_->addChild(equip_magics_[0], 40, 620);
     equip_magics_[1]->setText("__________");
     menu_->addChild(equip_magics_[1], 160, 610);
     equip_magics_[2]->setText("__________");
-    menu_->addChild(equip_magics_[2], 280, 610);
+    menu_->addChild(equip_magics_[2], 280, 620);
+    equip_magics_[3]->setText("__________");
+    menu_->addChild(equip_magics_[3], 160, 635);
 
     addChild(menu_);
 }
@@ -267,8 +269,8 @@ void UIStatus::draw()
     y = y_ + 575;
     equip = Save::getInstance()->getItem(role_->Equip1);
 
-    font->draw("常用武學", 25, x - 10, y, color_name);
-    for (int i = 0; i < 3; i++)
+    font->draw("裝備武學", 25, x - 10, y, color_name);
+    for (int i = 0; i < 4; i++)
     {
         auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
         if (m)
@@ -329,6 +331,7 @@ void UIStatus::onPressedOK()
     else if (menu_->getResult() > 2)
     {
         auto menu = std::make_shared<BattleMagicMenu>();
+        menu->setPosition(800, 350);
         menu->setRole(role_);
         role_->Auto = 0;
         role_->Team = 0;

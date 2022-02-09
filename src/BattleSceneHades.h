@@ -12,13 +12,15 @@
 struct AttackEffect
 {
     double X1, Y1;
+    double SpeedX1 = 0, SpeedY1 = 0;
     Role* Attacker = nullptr;
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
     int Frame;
     int TotalFrame;
+    int TotalEffectFrame;
     int EffectNumber;
-    int Heavy;
+    int ActType2;
     std::string Path;
 };
 
@@ -53,6 +55,22 @@ protected:
     std::deque<TextEffect> text_effects_;
 
     std::deque<Role*> enemies_;
+
+
+    bool is_running_ = false;   //主角是否在跑动
+    Role* role_ = nullptr;    //主角
+    int weapon_ = 1;
+
+    enum
+    {
+        HeavyCoolDown = 80,
+        LightCoolDown = 5,
+        SlashCoolDown = 20,
+        MedcineCoolDown = 120,
+    };
+
+    std::shared_ptr<Menu> menu_;
+    std::vector<std::shared_ptr<Button>> equip_magics_;
 
     Point pos45To90(int x, int y)    //45度坐标转为直角
     {
@@ -89,15 +107,15 @@ protected:
     }
     bool canWalk90(int x, int y, Role* r, int dis = -1)
     {
-        if (dis == -1) { dis = TILE_W; }
-        for (auto r1 : battle_roles_)
-        {
-            if (r1 == r || r1->Dead) { continue; }
-            if (EuclidDis(x - r1->X1, y - r1->Y1) < dis)
-            {
-                return false;
-            }
-        }
+        //if (dis == -1) { dis = TILE_W; }
+        //for (auto r1 : battle_roles_)
+        //{
+        //    if (r1 == r || r1->Dead) { continue; }
+        //    if (EuclidDis(x - r1->X1, y - r1->Y1) < dis)
+        //    {
+        //        return false;
+        //    }
+        //}
         auto p = pos90To45(x, y);
         return canWalk45(p.x, p.y);
     }
@@ -120,17 +138,5 @@ protected:
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
-
-    bool is_running_ = false;   //主角是否在跑动
-    Role* role_ = nullptr;    //主角
-    int weapon_ = 1;
-
-    enum
-    {
-        HeavyCoolDown = 80,
-        LightCoolDown = 5,
-        SlashCoolDown = 20,
-        MedcineCoolDown = 120,
-    };
 };
 

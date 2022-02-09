@@ -63,7 +63,7 @@ public:
 class BattleMagicMenu : public MenuText
 {
 public:
-    BattleMagicMenu() {}
+    BattleMagicMenu() { setPosition(160, 200); }
     virtual ~BattleMagicMenu() {}
 
     //virtual void onEntrance() override;

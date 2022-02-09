@@ -109,8 +109,8 @@ public:
     int ExpForMakeItem;
     int Equip0, Equip1;
     //int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
-    int EquipMagic[3];
-    int Frame[12];
+    int EquipMagic[4];
+    int Frame[11];
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -239,7 +239,7 @@ public:
     int ActType = 0;//医拳剑刀特
     int ActFrame = 0;
     int CoolDown;
-    int ActType2; //0-轻攻击，1-重攻击，2-闪身
+    int ActType2; //0-轻攻击，1-重攻击，2-远程，3-闪身
     Magic* UsingMagic = nullptr;
 
 public:
