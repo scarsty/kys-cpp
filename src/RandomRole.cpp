@@ -40,7 +40,11 @@ void RandomRole::onPressedOK()
     role_->Unusual = 25 + r.rand_int(6);
     role_->HiddenWeapon = 25 + r.rand_int(6);
     role_->IQ = 1 + r.rand_int(100);
-    fmt1::print("IQ is %d\n", role_->IQ);
+    for (auto& e:role_->EquipMagic)
+    {
+        e = role_->MagicID[0];
+    }
+    fmt1::print("IQ is {}\n", role_->IQ);
 }
 
 void RandomRole::draw()

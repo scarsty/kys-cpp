@@ -4,6 +4,7 @@
 #include "GameUtil.h"
 #include "Head.h"
 #include "MainScene.h"
+#include "TeamMenu.h"
 
 #define M_PI 3.1415926535897
 
@@ -15,11 +16,16 @@ BattleSceneHades::BattleSceneHades()
     earth_layer_.resize(COORD_COUNT);
     building_layer_.resize(COORD_COUNT);
 
-    head_self_ = std::make_shared<Head>();
-    addChild(head_self_);
+    heads_.resize(TEAMMATE_COUNT);
+    int i = 0;
+    for (auto& h : heads_)
+    {
+        h = std::make_shared<Head>();
+        addChild(h, 10, 10 + (i++) * 80);
+    }
 
     menu_ = std::make_shared<Menu>();
-    menu_->setPosition(50, 200);
+    menu_->setPosition(300, 30);
     equip_magics_.resize(4);
     for (auto& em : equip_magics_)
     {
@@ -34,7 +40,7 @@ BattleSceneHades::BattleSceneHades()
     equip_magics_[3]->setText("__________");
     menu_->addChild(equip_magics_[3], 120, 25);
     addChild(menu_);
-
+    menu_->setVisible(false);
 }
 
 BattleSceneHades::BattleSceneHades(int id) : BattleSceneHades()
@@ -63,7 +69,7 @@ void BattleSceneHades::draw()
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
     {
-        auto p = pos90To45(man_x1_, man_y1_);
+        auto p = pos90To45(pos_.x, pos_.y);
         man_x_ = p.x;
         man_y_ = p.y;
     }
@@ -100,6 +106,7 @@ void BattleSceneHades::draw()
             BP_Color color{ 255, 255, 255, 255 };
             uint8_t alpha = 255;
             int rot = 0;
+            int isbuild = 0;
         };
         std::vector<DrawInfo> building_vec;
         building_vec.reserve(10000);
@@ -122,6 +129,7 @@ void BattleSceneHades::draw()
                         info.num = num;
                         info.p.x = p.x;
                         info.p.y = p.y;
+                        info.isbuild = 1;
                         building_vec.emplace_back(std::move(info));
                     }
                 }
@@ -173,6 +181,10 @@ void BattleSceneHades::draw()
                     info.rot = 270;
                 }
             }
+            if (r->Attention)
+            {
+                info.alpha = 255 - r->Attention * 4;
+            }
             //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
             building_vec.emplace_back(std::move(info));
         }
@@ -207,12 +219,26 @@ void BattleSceneHades::draw()
         std::sort(building_vec.begin(), building_vec.end(), sort_building);
         for (auto& d : building_vec)
         {
+            if (d.isbuild) { continue; }
+            auto tex = TextureManager::getInstance()->loadTexture(d.path, d.num);
+            double scalex = 1, scaley = 0.3;
+            int yd = tex->dy * 0.7;
+            if (d.rot)
+            {
+                scalex = 0.3;
+                scaley = 1;
+                yd = tex->dy * 0.1;
+            }
+            TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 0,0,0,255 }, 128, scalex, scaley, d.rot);
+        }
+        for (auto& d : building_vec)
+        {
             double scaley = 1;
             if (d.rot)
             {
                 scaley = 0.5;
             }
-            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2, d.color, 255, scaley, 1, d.rot);
+            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot);
         }
 
         for (auto r : battle_roles_)
@@ -225,7 +251,7 @@ void BattleSceneHades::draw()
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { int(man_x1_ - render_center_x_ - x_), int(man_y1_ / 2 - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
+        BP_Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
 
         for (auto& te : text_effects_)
         {
@@ -233,140 +259,163 @@ void BattleSceneHades::draw()
         }
 
         Engine::getInstance()->setRenderAssistTexture();
-        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
-
-
+        if (frozen_ && result_ >= 0)
+        {
+            rect0.w /= 2;
+            rect0.h /= 2;
+            rect0.x += rect0.w / 2;
+            rect0.y += rect0.h / 2 - 20;
+        }
+        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 0);
     }
 
     Engine::getInstance()->renderAssistTextureToWindow();
 
-    if (result_ >= 0)
-    {
-        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
-    }
+    //if (result_ >= 0)
+    //{
+    //    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    //}
 }
 
 void BattleSceneHades::dealEvent(BP_Event& e)
 {
+    if (frozen_ > 0)
+    {
+        x_ = rand_.rand_int(3) - rand_.rand_int(3);
+        y_ = rand_.rand_int(3) - rand_.rand_int(3);
+        frozen_--;
+        return;
+    }
+
     auto engine = Engine::getInstance();
     auto r = role_;
 
-    //方向
+    pos_ = r->Pos1;
+    if (r->Dead)
+    {
+        for (auto r1 : battle_roles_)
+        {
+            if (r1->Dead == 0)
+            {
+                pos_ = r1->Pos1;
+            }
+        }
+    }
+    if (r->Dead == 0)
+    {
+        if (r->CoolDown == 0)
+        {
+            //if (current_frame_ % 3 == 0)
+            {
+                if (engine->checkKeyPress(BPK_a))
+                {
+                    pos_.x -= r->Speed / 30.0;
+                    r->FaceTowards = Towards_LeftDown;
+                    r->ActType2 = 0;
+                }
+                if (engine->checkKeyPress(BPK_d))
+                {
+                    pos_.x += r->Speed / 30.0;
+                    r->FaceTowards = Towards_RightUp;
+                    r->ActType2 = 0;
+                }
+                if (engine->checkKeyPress(BPK_w))
+                {
+                    pos_.y -= r->Speed / 30.0;
+                    r->FaceTowards = Towards_LeftUp;
+                    r->ActType2 = 0;
+                }
+                if (engine->checkKeyPress(BPK_s))
+                {
+                    pos_.y += r->Speed / 30.0;
+                    r->FaceTowards = Towards_RightDown;
+                    r->ActType2 = 0;
+                }
+            }
+            if (engine->checkKeyPress(BPK_1))
+            {
+                weapon_ = 1;
+            }
+            if (engine->checkKeyPress(BPK_2))
+            {
+                weapon_ = 2;
+            }
+            if (engine->checkKeyPress(BPK_3))
+            {
+                weapon_ = 3;
+            }
+            if (engine->checkKeyPress(BPK_4))
+            {
+                weapon_ = 4;
+            }
+        }
+        if (engine->checkKeyPress(BPK_w) && engine->checkKeyPress(BPK_d))
+        {
+            r->FaceTowards = Towards_RightUp;
+        }
+        if (engine->checkKeyPress(BPK_s) && engine->checkKeyPress(BPK_a))
+        {
+            r->FaceTowards = Towards_LeftDown;
+        }
+        //实际的朝向可以不能走到
+        if (pos_.x != r->Pos1.x || pos_.y != r->Pos1.y)
+        {
+            r->Towards1 = pos_ - r->Pos1;
+        }
 
-    man_x1_ = r->Pos1.x;
-    man_y1_ = r->Pos1.y;
-    if (r->CoolDown == 0)
-    {
-        //if (current_frame_ % 3 == 0)
+        if (canWalk90(pos_.x, pos_.y, r))
         {
-            if (engine->checkKeyPress(BPK_a))
-            {
-                man_x1_ -= r->Speed / 30.0;
-                r->FaceTowards = Towards_LeftDown;
-                r->ActType2 = 0;
-            }
-            if (engine->checkKeyPress(BPK_d))
-            {
-                man_x1_ += r->Speed / 30.0;
-                r->FaceTowards = Towards_RightUp;
-                r->ActType2 = 0;
-            }
-            if (engine->checkKeyPress(BPK_w))
-            {
-                man_y1_ -= r->Speed / 30.0;
-                r->FaceTowards = Towards_LeftUp;
-                r->ActType2 = 0;
-            }
-            if (engine->checkKeyPress(BPK_s))
-            {
-                man_y1_ += r->Speed / 30.0;
-                r->FaceTowards = Towards_RightDown;
-                r->ActType2 = 0;
-            }
+            r->Pos1 = pos_;
         }
-        if (engine->checkKeyPress(BPK_1))
-        {
-            weapon_ = 1;
-        }
-        if (engine->checkKeyPress(BPK_2))
-        {
-            weapon_ = 2;
-        }
-        if (engine->checkKeyPress(BPK_3))
-        {
-            weapon_ = 3;
-        }
-        if (engine->checkKeyPress(BPK_4))
-        {
-            weapon_ = 4;
-        }
-    }
-    if (engine->checkKeyPress(BPK_w) && engine->checkKeyPress(BPK_d))
-    {
-        r->FaceTowards = Towards_RightUp;
-    }
-    if (engine->checkKeyPress(BPK_s) && engine->checkKeyPress(BPK_a))
-    {
-        r->FaceTowards = Towards_LeftDown;
-    }
-    //实际的朝向可以不能走到
-    if (man_x1_ != r->Pos1.x || man_y1_ != r->Pos1.y)
-    {
-        r->Towards1 = Pointf(man_x1_, man_y1_) - r->Pos1;
-    }
 
-    if (canWalk90(man_x1_, man_y1_, r))
-    {
-        r->Pos1.x = man_x1_;
-        r->Pos1.y = man_y1_;
-    }
-
-    std::vector<Magic*> magic(4);
-    for (int i = 0; i < 4; i++)
-    {
-        magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
-        if (r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
-        equip_magics_[i]->setState(Normal);
-    }
-    if (r->CoolDown == 0)
-    {
-        int index = -1;
-        if (engine->checkKeyPress(BPK_j)) { index = 0; }
-        if (engine->checkKeyPress(BPK_i)) { index = 1; }
-        if (engine->checkKeyPress(BPK_k)) { index = 2; }
-        if (engine->checkKeyPress(BPK_m)) { index = 3; }
-        r->ActType2 = index;
-        if (index >= 0 && magic[index])
+        std::vector<Magic*> magic(4);
+        for (int i = 0; i < 4; i++)
         {
-            equip_magics_[index]->setState(Pass);
-            auto m = magic[index];
-            r->ActType = m->MagicType;
-            r->UsingMagic = m;
-            r->ActFrame = 0;
-            if (index == 0 && r->PhysicalPower >= 10)
+            magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
+            if (r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
+            equip_magics_[i]->setState(Normal);
+        }
+        if (r->CoolDown == 0)
+        {
+            int index = -1;
+            if (engine->checkKeyPress(BPK_j)) { index = 0; }
+            if (engine->checkKeyPress(BPK_i)) { index = 1; }
+            if (engine->checkKeyPress(BPK_k)) { index = 2; }
+            if (engine->checkKeyPress(BPK_m)) { index = 3; }
+            r->ActType2 = index;
+            if (index >= 0 && magic[index])
             {
-                //轻击
-                r->CoolDown = 10;
-            }
-            if (index == 1 && r->PhysicalPower >= 30)
-            {
-                //蓄力击
-                r->CoolDown = 60;
-            }
-            if (index == 2 && r->PhysicalPower >= 20)
-            {
-                //远程
-                r->CoolDown = 20;
-            }
-            if (index == 3 && r->PhysicalPower >= 10)
-            {
-                //闪身                    
-                r->CoolDown = 10;    //冷却更长，有收招硬直
-                r->Speed1 = r->Towards1;
-                r->Speed1.norm(10);
-                r->SpeedFrame = 10;
-                r->PhysicalPower -= 2;
-                r->ActType = 0;
+                equip_magics_[index]->setState(Pass);
+                auto m = magic[index];
+                r->ActType = m->MagicType;
+                r->UsingMagic = m;
+                r->ActFrame = 0;
+                if (index == 0 && r->PhysicalPower >= 10)
+                {
+                    //轻击
+                    //r->CoolDown = 10;
+                }
+                if (index == 1 && r->PhysicalPower >= 30)
+                {
+                    //蓄力击
+                    //r->CoolDown = 60;
+                }
+                if (index == 2 && r->PhysicalPower >= 20)
+                {
+                    //远程
+                    //r->CoolDown = 20;
+                }
+                if (index == 3 && r->PhysicalPower >= 10)
+                {
+                    //闪身                    
+                    //r->CoolDown = 10;    //冷却更长，有收招硬直
+                    r->Speed1 = r->Towards1;
+                    r->Speed1.norm(10);
+                    r->SpeedFrame = 10;
+                    r->PhysicalPower -= 2;
+                    r->ActType = 0;
+                }
+                r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
             }
         }
     }
@@ -380,17 +429,30 @@ void BattleSceneHades::dealEvent2(BP_Event& e)
 
 void BattleSceneHades::backRun1()
 {
+    if (slow_ > 0)
+    {
+        if (current_frame_ % 4) { return; }
+        //x_ = rand_.rand_int(2) - rand_.rand_int(2);
+        //y_ = rand_.rand_int(2) - rand_.rand_int(2);
+        slow_--;
+    }
     for (auto r : battle_roles_)
     {
         if (r->SpeedFrame > 0)
         {
+            if (r == role_ && r->Dead)
+            {
+                int i = 0;
+            }
             auto p = r->Pos1 + r->Speed1;
+            r->Speed1 += r->Acceleration1;
             if (canWalk90(p, r, TILE_W / 2))
             {
                 r->Pos1 = p;
             }
             r->SpeedFrame--;
             //r->FaceTowards = rand_.rand() * 4;
+            if (r->Pos1.z < 0) { r->Pos1.z = 0; }
         }
         else
         {
@@ -400,7 +462,7 @@ void BattleSceneHades::backRun1()
                 r->Dead = 1;
             }
         }
-        if (r->CoolDown > 0) { r->CoolDown--; }
+        decreaseToZero(r->CoolDown);
         if (r->CoolDown == 0)
         {
             if (current_frame_ % 3 == 0)
@@ -412,7 +474,9 @@ void BattleSceneHades::backRun1()
             r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
             r->Acted = 0;
         }
-        if (r->HurtFrame > 0) { r->HurtFrame--; }
+        decreaseToZero(r->HurtFrame);
+        decreaseToZero(r->Attention);
+        decreaseToZero(r->Invincible);
     }
 
     //if (current_frame_ % 2 == 0)
@@ -480,18 +544,18 @@ void BattleSceneHades::backRun1()
                     ae.Frame = 0;
                     if (r->Team == 0)
                     {
-                        ae.ActType2 = -1;
-                        if (r->ActType2 == 0 && ae.UsingMagic->AttackAreaType == 0)
+                        ae.ActType2 = r->ActType2;
+                        if (r->ActType2 == 0 && ae.UsingMagic->AttackAreaType != 0)
                         {
-                            ae.ActType2 = r->ActType2;
+                            ae.ActType2 = -1;
                         }
-                        else if (r->ActType2 == 2 && (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2))
+                        if (r->ActType2 == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
                         {
-                            ae.ActType2 = r->ActType2;
+                            ae.ActType2 = -1;
                         }
-                        else if (r->ActType2 == 1 && ae.UsingMagic->AttackAreaType == 3)
+                        if (r->ActType2 == 1 && ae.UsingMagic->AttackAreaType != 3)
                         {
-                            ae.ActType2 = r->ActType2;
+                            ae.ActType2 = -1;
                         }
                     }
                     else
@@ -533,6 +597,7 @@ void BattleSceneHades::backRun1()
                                 ae.Pos = p;
                                 ae.Speed = { cos(angle + i * 2 * M_PI / count), sin(angle + i * 2 * M_PI / count) };
                                 ae.Speed.norm(3);
+                                ae.Frame = rand_.rand() * 10;
                                 attack_effects_.push_back(ae);
                             }
                         }
@@ -625,6 +690,7 @@ void BattleSceneHades::backRun1()
             {
                 if (!(r->ActType2 == 2 && r->CoolDown)
                     && !r->HurtFrame
+                    && !r->Invincible
                     && r->Dead == 0
                     && r->Team != ae.Attacker->Team
                     && ae.Defender.count(r) == 0
@@ -683,6 +749,7 @@ void BattleSceneHades::backRun1()
                     }
                     te.Text = std::to_string(-hurt);
                     te.Pos = r->Pos1;
+                    te.Pos.x -= 7.5 * Font::getTextDrawSize(te.Text);
                     te.Pos.y -= 50;
                     text_effects_.push_back(std::move(te));
                     if (r->HP <= 0)
@@ -690,8 +757,14 @@ void BattleSceneHades::backRun1()
                         r->Dead = 1;
                         r->HP = 0;
                         r->Speed1 = r->Pos1 - ae.Attacker->Pos1;
-                        r->Speed1.norm(30);
-                        r->SpeedFrame = 10;
+                        r->Speed1.norm(15);
+                        r->Speed1.z = 15;
+                        r->Speed1.norm(std::min(hurt / 2.5, 30.0));
+                        r->SpeedFrame = 15;
+                        //x_ = rand_.rand_int(2) - rand_.rand_int(2);
+                        //y_ = rand_.rand_int(2) - rand_.rand_int(2);
+                        frozen_ = 2;
+                        slow_ = 5;
                     }
                 }
             }
@@ -740,18 +813,16 @@ void BattleSceneHades::backRun1()
                                         if (m->AttackAreaType == 0)
                                         {
                                             r->ActType2 = 0;
-                                            r->CoolDown = 10;
                                         }
                                         else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
                                         {
                                             r->ActType2 = 2;
-                                            r->CoolDown = 30;
                                         }
                                         else if (m->AttackAreaType == 3)
                                         {
                                             r->ActType2 = 1;
-                                            r->CoolDown = 60;
                                         }
+                                        r->CoolDown = calCoolDown(i, r->ActType2, r);
                                         r->ActFrame = 0;
                                         r->ActType = i;
                                         break;
@@ -825,12 +896,16 @@ void BattleSceneHades::backRun1()
     //        it++;
     //    }
     //}
+    //人物出场
     if (getTeamMateCount(1) < 5)
     {
         if (!enemies_.empty())
         {
             battle_roles_.push_back(enemies_.front());
             enemies_.pop_front();
+            battle_roles_.back()->Attention = 30;
+            battle_roles_.back()->CoolDown = 30;
+            battle_roles_.back()->Invincible = 30;
         }
     }
     //if (role_count != battle_roles_.size())
@@ -841,8 +916,13 @@ void BattleSceneHades::backRun1()
         //我方胜
         if (battle_result >= 0)
         {
-            result_ = battle_result;
-            if (result_ == 0 || result_ == 1)
+            if (frozen_ == 0 && result_ == -1)
+            {
+                frozen_ = 60;
+                slow_ = 20;
+                result_ = battle_result;
+            }
+            if (frozen_ == 0 && slow_ == 0 && (result_ == 0 || result_ == 1))
             {
                 menu_->setVisible(false);
                 calExpGot();
@@ -857,7 +937,7 @@ void BattleSceneHades::onEntrance()
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
-    head_self_->setPosition(80, 100);
+    head_self_->setPosition(10, 10);
 
     addChild(MainScene::getInstance()->getWeather());
 
@@ -895,10 +975,11 @@ void BattleSceneHades::onEntrance()
     {
         setRoleInitState(r);
     }
+    pos_ = enemies_[0]->Pos1;
 
-    //敌人按能力从低到高，每次出场2人
+    //敌人按能力从低到高，依次出场
     std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->Level * 10000 + l->MaxHP < r->Level * 10000 + r->MaxHP; });
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 6; i++)
     {
         if (!enemies_.empty())
         {
@@ -907,18 +988,58 @@ void BattleSceneHades::onEntrance()
         }
     }
 
-    //单通
+    //判断是不是有自动战斗人物
+    if (info_->AutoTeamMate[0] >= 0)
+    {
+        for (int i = 0; i < TEAMMATE_COUNT; i++)
+        {
+            auto r = Save::getInstance()->getRole(info_->AutoTeamMate[i]);
+            if (r)
+            {
+                friends_.push_back(r);
+                r->Auto = 2;    //由AI控制
+            }
+        }
+    }
+    else
+    {
+        auto team_menu = std::make_shared<TeamMenu>();
+        team_menu->setMode(1);
+        team_menu->setForceMainRole(true);
+        team_menu->run();
+        friends_ = team_menu->getRoles();
+    }
+    //队友
     role_ = Save::getInstance()->getRole(0);
-    role_->setPositionOnly(info_->TeamMateX[0], info_->TeamMateY[0]);
-    role_->Team = 0;
-    battle_roles_.push_back(role_);
-    friends_ = { role_ };
-    head_self_->setRole(role_);
-    setRoleInitState(role_);
+    bool have_main = false;
+    for (auto r : friends_)
+    {
+        if (r == role_) { have_main = true; }
+    }
+    if (!have_main)
+    {
+        friends_.insert(friends_.begin(), role_);
+    }
+    for (int i = 0; i < friends_.size(); i++)
+    {
+        auto r = friends_[i];
+        if (r)
+        {
+            if (r == role_) { have_main = true; }
+            battle_roles_.push_back(r);
+            r->setPositionOnly(info_->TeamMateX[i], info_->TeamMateY[i]);
+            r->Team = 0;
+            setRoleInitState(r);
+            heads_[i]->setRole(r);
+        }
+    }
+
+    //head_self_->setRole(role_);
+
     for (int i = 0; i < equip_magics_.size(); i++)
     {
         auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
-        if (role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
+        if (m && role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
         if (m)
         {
             std::string text = m->Name;
@@ -1024,10 +1145,13 @@ void BattleSceneHades::setRoleInitState(Role* r)
     }
     r->Progress = 0;
     r->CoolDown = 0;
+    r->Attention = 0;
     r->Speed1 = { 0,0 };
     r->ActType2 = -1;
     r->ActFrame = -1;
     r->ActType = -1;
+    r->Invincible = 0;
+    r->Acceleration1.z = -4;
 }
 
 Role* BattleSceneHades::findNearestEnemy(int team, double x, double y)
@@ -1047,4 +1171,27 @@ Role* BattleSceneHades::findNearestEnemy(int team, double x, double y)
         }
     }
     return r0;
+}
+
+int BattleSceneHades::calCoolDown(int act_type, int act_type2, Role* r)
+{
+    int v = 0;
+    if (act_type == 1)
+    {
+        v = r->Fist;
+    }
+    if (act_type == 2)
+    {
+        v = r->Sword;
+    }
+    if (act_type == 3)
+    {
+        v = r->Knife;
+    }
+    if (act_type == 4)
+    {
+        v = r->Unusual;
+    }
+    int ret[4] = { 60 - v / 2,160 - v,70 - v / 2,10 };
+    return ret[act_type2];
 }

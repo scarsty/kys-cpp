@@ -190,4 +190,8 @@ void TeamMenu::dealEvent(BP_Event& e)
         }
         getChild(active_child_)->setState(Press);
     }
+    if (force_main_ && !heads_.empty())
+    {
+        heads_[0]->setResult(0);
+    }
 }

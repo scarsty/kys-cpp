@@ -96,7 +96,7 @@ void TitleScene::dealEvent(BP_Event& e)
         //Save::getInstance()->load(5);
         //RandomDouble rand;
         //int k = rand.rand() * 139;
-        //k = 100;
+        //k = 54;
         //Event::getInstance()->tryBattle(k, 0);
         if (menu_load_->run() >= 0)
         {

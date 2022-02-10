@@ -16,12 +16,14 @@ private:
     Role* role_ = nullptr;
     Item* item_ = nullptr;
     int mode_ = 0;    //为0是单选，为1是多选
+    bool force_main_ = false;
 
     std::shared_ptr<Button> button_all_, button_ok_;
 
 public:
     void setItem(Item* item) { item_ = item; }
     void setMode(int m) { mode_ = m; }
+    void setForceMainRole(bool f) { force_main_ = f; }
 
     virtual void onEntrance() override;
     virtual void draw() override;

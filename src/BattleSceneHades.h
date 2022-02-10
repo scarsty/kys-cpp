@@ -45,20 +45,24 @@ public:
     virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void backRun() {}
     virtual void backRun1();
 
 protected:
-    double man_x1_ = 64 * TILE_W, man_y1_ = 64 * TILE_W;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
+    Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
 
     std::deque<AttackEffect> attack_effects_;
     std::deque<TextEffect> text_effects_;
 
     std::deque<Role*> enemies_;
 
+    std::vector<std::shared_ptr<Head>> heads_;
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角
     int weapon_ = 1;
+    int frozen_ = 0;
+    int slow_ = 0;
 
     enum
     {
@@ -115,6 +119,7 @@ protected:
         //        return false;
         //    }
         //}
+        if (r->Pos1.z > 20) { return true; }
         auto p = pos90To45(x, y);
         return canWalk45(p.x, p.y);
     }
@@ -148,6 +153,8 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     Role* findNearestEnemy(int team, double x, double y);
+    int calCoolDown(int act_type, int act_type2, Role* r);
+    void decreaseToZero(int& i) { if (i > 0) { i--; } }
 };
 
 

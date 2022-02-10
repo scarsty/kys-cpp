@@ -234,13 +234,17 @@ public:
     Pointf Towards1;    //面对的方向，计算攻击位置，击退方向等
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
     Pointf Speed1;    //指该质点的速度，每帧据此计算坐标
+    Pointf Acceleration1;    //加速度
     int SpeedFrame = 0;    //大于0时质点速度才生效
-    int HurtFrame = 0;
+    int HurtFrame = 0;    //正在受到伤害
+    int CoolDown;    //冷却
+    int Attention;    //出场
+    int Invincible;    //无敌时间
 
     int ActType = 0;//医拳剑刀特
-    int ActFrame = 0;
-    int CoolDown;
+    int ActFrame = 0;    
     int ActType2; //0-轻攻击，1-重攻击，2-远程，3-闪身
+    
     Magic* UsingMagic = nullptr;
 
 public:

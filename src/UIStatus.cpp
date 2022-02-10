@@ -21,21 +21,23 @@ UIStatus::UIStatus()
     button_leave_->setText("離隊");
     menu_->addChild(button_leave_, 450, 55);
 
+    menu_equip_magic_ = std::make_shared<Menu>();
     equip_magics_.resize(4);
     for (auto& em : equip_magics_)
     {
         em = std::make_shared<Button>();
     }
     equip_magics_[0]->setText("__________");
-    menu_->addChild(equip_magics_[0], 40, 620);
+    menu_equip_magic_->addChild(equip_magics_[0], 40, 620);
     equip_magics_[1]->setText("__________");
-    menu_->addChild(equip_magics_[1], 160, 610);
+    menu_equip_magic_->addChild(equip_magics_[1], 160, 610);
     equip_magics_[2]->setText("__________");
-    menu_->addChild(equip_magics_[2], 280, 620);
+    menu_equip_magic_->addChild(equip_magics_[2], 280, 620);
     equip_magics_[3]->setText("__________");
-    menu_->addChild(equip_magics_[3], 160, 635);
+    menu_equip_magic_->addChild(equip_magics_[3], 160, 635);
 
     addChild(menu_);
+    addChild(menu_equip_magic_);
 }
 
 UIStatus::~UIStatus()
@@ -49,8 +51,8 @@ void UIStatus::draw()
         button_medicine_->setVisible(false);
         button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
+        menu_equip_magic_->setVisible(false);
     }
-
     if (role_)
     {
         if (show_button_)
@@ -58,12 +60,17 @@ void UIStatus::draw()
             button_medicine_->setVisible(role_->Medicine > 0);
             button_detoxification_->setVisible(role_->Detoxification > 0);
             button_leave_->setVisible(role_->ID != 0);
+            if (role_->ID == 0)
+            {
+                menu_equip_magic_->setVisible(true);
+            }
         }
         menu_->setVisible(true);
     }
     else
     {
         menu_->setVisible(false);
+        menu_equip_magic_->setVisible(false);
         return;
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
@@ -269,20 +276,23 @@ void UIStatus::draw()
     y = y_ + 575;
     equip = Save::getInstance()->getItem(role_->Equip1);
 
-    font->draw("裝備武學", 25, x - 10, y, color_name);
-    for (int i = 0; i < equip_magics_.size(); i++)
+    if (role_->ID == 0)
     {
-        auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
-        if (role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
-        if (m)
+        font->draw("裝備武學", 25, x - 10, y, color_name);
+        for (int i = 0; i < equip_magics_.size(); i++)
         {
-            std::string text = m->Name;
-            text += std::string(10 - Font::getTextDrawSize(text), ' ');
-            equip_magics_[i]->setText(text);
-        }
-        else
-        {
-            equip_magics_[i]->setText("__________");
+            auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
+            if (m && role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
+            if (m)
+            {
+                std::string text = m->Name;
+                text += std::string(10 - Font::getTextDrawSize(text), ' ');
+                equip_magics_[i]->setText(text);
+            }
+            else
+            {
+                equip_magics_[i]->setText("__________");
+            }
         }
     }
 }
@@ -333,7 +343,7 @@ void UIStatus::onPressedOK()
         Event::getInstance()->callLeaveEvent(role_);
         role_ = nullptr;
     }
-    else if (menu_->getResult() > 2)
+    if (menu_equip_magic_->getResult() >= 0)
     {
         auto menu = std::make_shared<BattleMagicMenu>();
         menu->setPosition(800, 350);
@@ -343,7 +353,7 @@ void UIStatus::onPressedOK()
         menu->run();
         if (menu->getMagic())
         {
-            role_->EquipMagic[menu_->getResult() - 3] = menu->getMagic()->ID;
+            role_->EquipMagic[menu_equip_magic_->getResult()] = menu->getMagic()->ID;
         }
     }
 }
