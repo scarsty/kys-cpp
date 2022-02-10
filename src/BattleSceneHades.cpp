@@ -106,7 +106,7 @@ void BattleSceneHades::draw()
             BP_Color color{ 255, 255, 255, 255 };
             uint8_t alpha = 255;
             int rot = 0;
-            int isbuild = 0;
+            int shadow = 0;
         };
         std::vector<DrawInfo> building_vec;
         building_vec.reserve(10000);
@@ -129,7 +129,7 @@ void BattleSceneHades::draw()
                         info.num = num;
                         info.p.x = p.x;
                         info.p.y = p.y;
-                        info.isbuild = 1;
+                        info.shadow = 0;
                         building_vec.emplace_back(std::move(info));
                     }
                 }
@@ -185,6 +185,7 @@ void BattleSceneHades::draw()
             {
                 info.alpha = 255 - r->Attention * 4;
             }
+            info.shadow = 1;
             //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
             building_vec.emplace_back(std::move(info));
         }
@@ -217,19 +218,23 @@ void BattleSceneHades::draw()
             }
         };
         std::sort(building_vec.begin(), building_vec.end(), sort_building);
+
+        //影子
         for (auto& d : building_vec)
         {
-            if (d.isbuild) { continue; }
-            auto tex = TextureManager::getInstance()->loadTexture(d.path, d.num);
-            double scalex = 1, scaley = 0.3;
-            int yd = tex->dy * 0.7;
-            if (d.rot)
+            if (d.shadow)
             {
-                scalex = 0.3;
-                scaley = 1;
-                yd = tex->dy * 0.1;
+                auto tex = TextureManager::getInstance()->loadTexture(d.path, d.num);
+                double scalex = 1, scaley = 0.3;
+                int yd = tex->dy * 0.7;
+                if (d.rot)
+                {
+                    scalex = 0.3;
+                    scaley = 1;
+                    yd = tex->dy * 0.1;
+                }
+                TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 0,0,0,255 }, 128, scalex, scaley, d.rot);
             }
-            TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 0,0,0,255 }, 128, scalex, scaley, d.rot);
         }
         for (auto& d : building_vec)
         {
@@ -758,7 +763,7 @@ void BattleSceneHades::backRun1()
                         r->HP = 0;
                         r->Speed1 = r->Pos1 - ae.Attacker->Pos1;
                         r->Speed1.norm(15);
-                        r->Speed1.z = 15;
+                        r->Speed1.z = 12;
                         r->Speed1.norm(std::min(hurt / 2.5, 30.0));
                         r->SpeedFrame = 15;
                         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
@@ -1082,13 +1087,12 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     {
         perc = 0;
     }
-
     double alpha = 1;
     if (r->HP <= 0)
     {
         alpha = dead_alpha_ / 255.0;
     }
-    BP_Rect r0 = { hp_x, hp_y, hp_max_w, hp_h };
+    BP_Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
