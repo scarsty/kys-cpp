@@ -716,14 +716,14 @@ void BattleSceneHades::backRun1()
                     }
                     if (r0)
                     {
+                        r->Towards1 = r0->Pos1 - r->Pos1;
+                        r->FaceTowards = Towards_RightDown;
+                        if (r->Towards1.x > 0 && r->Towards1.y < 0) { r->FaceTowards = Towards_RightUp; }
+                        if (r->Towards1.x < 0 && r->Towards1.y > 0) { r->FaceTowards = Towards_LeftDown; }
+                        if (r->Towards1.x < 0 && r->Towards1.y < 0) { r->FaceTowards = Towards_LeftUp; }
+                        r->Towards1.norm(1);
                         if (EuclidDis(r->Pos1, r0->Pos1) > TILE_W * 3)
                         {
-                            r->Towards1 = r0->Pos1 - r->Pos1;
-                            r->FaceTowards = Towards_RightDown;
-                            if (r->Towards1.x > 0 && r->Towards1.y < 0) { r->FaceTowards = Towards_RightUp; }
-                            if (r->Towards1.x < 0 && r->Towards1.y > 0) { r->FaceTowards = Towards_LeftDown; }
-                            if (r->Towards1.x < 0 && r->Towards1.y < 0) { r->FaceTowards = Towards_LeftUp; }
-                            r->Towards1.norm(1);
                             r->Pos1 += r->Speed / 20.0 * r->Towards1;
                         }
                         else

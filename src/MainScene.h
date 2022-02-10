@@ -5,22 +5,6 @@
 #include "Scene.h"
 #include "Types.h"
 
-class ParticleWeather : public RunNode, public ParticleExample
-{
-public:
-    //注意这个继承方法比较扯淡，其他时候尽量不要这样用
-    virtual void draw() override
-    {
-        int c = ParticleSystem::draw();
-        Engine::getInstance()->resetRenderTimes(Engine::getInstance()->getRenderTimes() + c);
-    }
-    virtual void setPosition(int x, int y)
-    {
-        RunNode::setPosition(x, y);
-        ParticleSystem::setPosition(x, y);
-    }
-};
-
 class MainScene : public Scene
 {
 public:
@@ -83,6 +67,6 @@ public:
     int getViewCloud() { return view_cloud_; }
 
     void setWeather();
-    std::shared_ptr<ParticleWeather> getWeather() { return weather_; }
-    std::shared_ptr<ParticleWeather> weather_;
+    std::shared_ptr<ParticleExample> getWeather() { return weather_; }
+    std::shared_ptr<ParticleExample> weather_;
 };

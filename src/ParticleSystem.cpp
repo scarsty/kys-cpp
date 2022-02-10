@@ -60,6 +60,11 @@ inline static float RANDOM_M11(unsigned int* seed)
 
 ParticleSystem::ParticleSystem()
 {
+    //setRenderer(Engine::getInstance()->getRenderer());
+    //setTexture(TextureManager::getInstance()->loadTexture("title", 201)->getTexture());
+    path_ = "title";
+    num_ = 201;
+    stopSystem();
 }
 
 // implementation ParticleSystem
@@ -416,20 +421,14 @@ void ParticleSystem::update()
 }
 
 // ParticleSystem - Texture protocol
-void ParticleSystem::setTexture(SDL_Texture* var)
+void ParticleSystem::setTexture(const std::string& path, int num)
 {
-    if (_texture != var)
-    {
-        _texture = var;
-    }
+    path_ = path;
+    num_ = num;
 }
 
-int ParticleSystem::draw()
+void ParticleSystem::draw()
 {
-    if (_texture == nullptr)
-    {
-        return 0;
-    }
     int count = 0;
     for (int i = 0; i < _particleCount; i++)
     {
@@ -438,22 +437,20 @@ int ParticleSystem::draw()
         {
             continue;
         }
-        SDL_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
-        SDL_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
-        SDL_SetTextureColorMod(_texture, c.r, c.g, c.b);
-        SDL_SetTextureAlphaMod(_texture, c.a);
-        SDL_SetTextureBlendMode(_texture, SDL_BLENDMODE_BLEND);
-        SDL_RenderCopyEx(_renderer, _texture, nullptr, &r, p.rotation, nullptr, SDL_FLIP_NONE);
+        BP_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
+        BP_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
+        auto tex = TextureManager::getInstance()->loadTexture(path_, num_);
+        TextureManager::getInstance()->renderTexture(tex, r, c, c.a, p.rotation);
         count++;
     }
     update();
-    return count;
+    return;
 }
 
-SDL_Texture* ParticleSystem::getTexture()
-{
-    return _texture;
-}
+//SDL_Texture* ParticleSystem::getTexture()
+//{
+//    return _texture;
+//}
 
 // ParticleSystem - Properties of Gravity Mode
 void ParticleSystem::setTangentialAccel(float t)

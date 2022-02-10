@@ -3,6 +3,7 @@
 #include "Menu.h"
 #include "Event.h"
 #include "UISave.h"
+#include "ParticleExample.h"
 
 class TitleScene : public Scene
 {
@@ -17,6 +18,7 @@ public:
 
     std::shared_ptr<Menu> menu_;
     std::shared_ptr<UISave> menu_load_;
+    std::shared_ptr<ParticleExample> pe_;
 
     int count_ = 0;
     int head_id_ = 0;

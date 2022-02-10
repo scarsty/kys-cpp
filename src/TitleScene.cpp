@@ -33,6 +33,11 @@ TitleScene::TitleScene()
     menu_load_ = std::make_shared<UISave>();
     menu_load_->setPosition(500, 300);
     render_message_ = 1;
+    pe_ = std::make_shared<ParticleExample>();
+    pe_->setStyle(ParticleExample::FIRE);
+    pe_->setPosition(490, 80);
+    pe_->setSize(20, 20);
+    addChild(pe_);
 }
 
 TitleScene::~TitleScene()

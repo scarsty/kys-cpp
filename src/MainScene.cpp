@@ -49,10 +49,7 @@ MainScene::MainScene()
         cloud_vector_[i].initRand();
     }
     //getEntrance();
-    weather_ = std::make_shared<ParticleWeather>();
-    weather_->setRenderer(Engine::getInstance()->getRenderer());
-    weather_->setTexture(TextureManager::getInstance()->loadTexture("title", 201)->getTexture());
-    weather_->stopSystem();
+    weather_ = std::make_shared<ParticleExample>();
     addChild(weather_);
 }
 
@@ -238,10 +235,14 @@ void MainScene::dealEvent(BP_Event& e)
     }
     //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
-    if (checkPrevTimeElapsed(33))
+    //if (checkPrevTimeElapsed(33))
     {
         //键盘走路部分，检测4个方向键
         int pressed = 0;
+        if (Engine::getInstance()->checkKeyPress(BPK_a)) { pressed = BPK_LEFT; }
+        if (Engine::getInstance()->checkKeyPress(BPK_s)) { pressed = BPK_DOWN; }
+        if (Engine::getInstance()->checkKeyPress(BPK_d)) { pressed = BPK_RIGHT; }
+        if (Engine::getInstance()->checkKeyPress(BPK_w)) { pressed = BPK_UP; }
 
         for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
         {

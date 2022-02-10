@@ -186,9 +186,14 @@ void SubScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
     //键盘走路部分，检测4个方向键
-    if (checkPrevTimeElapsed(33))
+    //if (checkPrevTimeElapsed(33))
     {
         int pressed = 0;
+        if (Engine::getInstance()->checkKeyPress(BPK_a)) { pressed = BPK_LEFT; }
+        if (Engine::getInstance()->checkKeyPress(BPK_s)) { pressed = BPK_DOWN; }
+        if (Engine::getInstance()->checkKeyPress(BPK_d)) { pressed = BPK_RIGHT; }
+        if (Engine::getInstance()->checkKeyPress(BPK_w)) { pressed = BPK_UP; }
+
         for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
         {
             if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
