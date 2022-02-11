@@ -7,10 +7,10 @@
     <ClCompile Include="..\src\GrpIdxFile.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\nb\convert.cpp">
+    <ClCompile Include="..\nb\convert.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\nb\File.cpp">
+    <ClCompile Include="..\nb\File.cpp">
       <Filter>sources</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,5 +1,6 @@
 #!/bin/bash
 
-cd ..
-git clone https://github.com/scarsty/common common
+git submodule init
+git submodule update
+git submodule update --remote --rebase
 

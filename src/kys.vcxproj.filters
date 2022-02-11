@@ -151,13 +151,13 @@
     <ClCompile Include="..\others\zip.c">
       <Filter>zip</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\nb\convert.cpp">
+    <ClCompile Include="..\nb\convert.cpp">
       <Filter>nb</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\nb\File.cpp">
+    <ClCompile Include="..\nb\File.cpp">
       <Filter>nb</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\nb\PotConv.cpp">
+    <ClCompile Include="..\nb\PotConv.cpp">
       <Filter>nb</Filter>
     </ClCompile>
     <ClCompile Include="BattleSceneHades.cpp">
@@ -333,22 +333,19 @@
     <ClInclude Include="resource.h">
       <Filter>_Resources</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\nb\convert.h">
+    <ClInclude Include="..\nb\convert.h">
       <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\nb\File.h">
+    <ClInclude Include="..\nb\File.h">
       <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\nb\INIReader.h">
+    <ClInclude Include="..\nb\INIReader.h">
       <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\nb\Random.h">
+    <ClInclude Include="..\nb\Random.h">
       <Filter>nb</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\nb\Format1.h">
-      <Filter>nb</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\nb\PotConv.h">
+    <ClInclude Include="..\nb\PotConv.h">
       <Filter>nb</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneHades.h">
@@ -362,6 +359,9 @@
     </ClInclude>
     <ClInclude Include="RunNode.h">
       <Filter>runnode</Filter>
+    </ClInclude>
+    <ClInclude Include="..\nb\fmt1.h">
+      <Filter>nb</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

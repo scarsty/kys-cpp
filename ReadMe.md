@@ -20,7 +20,29 @@ Windows下可以使用Visual Studio编译，其他系统下可以在src目录使
 
 VS工程为x64版本，如需要x86版请自行修改。
 
-## 使用到的其他开发库
+## 如何编译
+
+Windows下建议先安装vcpkg，并在vcpkg目录中执行：
+```bat
+.\vcpkg install sdl2:x64-windows sdl2-image:x64-windows sdl2-ttf:x64-windows sdl2-mixer:x64-windows lua:x64-windows opencc:x64-windows sqlite3:x64-windows libiconv:x64-windows asio:x64-windows picosha2:x64-windows
+```
+建议执行：
+```bat
+.\vcpkg.exe integrate install
+```
+获取子模块nb：
+
+```shell
+git submodule init
+git submodule update
+# 可选
+git submodule update --remote --rebase
+```
+之后使用 Visual Studio 打开 kys.sln，应可以直接编译成功。
+
+Linux下编译参考doc目录中的文档。
+
+### 使用到的其他开发库
 
 以下库在Windows下建议使用vcpkg或者msys2来安装（强烈推荐前者，不推荐后者），或者也可以去官网下载，请自行选择。在Linux下编译时则应优先考虑使用系统的包管理器（例如apt等）自动安装的库，在Mac下可以使用homebrew来安装。
 
@@ -62,18 +84,6 @@ PicoSHA2和CSV库仅需要头文件，如果文件不在包含目录中，请注
 nb <https://github.com/scarsty/nb>
 
 nb是作者所写的一个通用功能集合，被多个工程使用。
-
-其中包含了ini文件读写库，修改自以下工程：
-
-- ini Reader <https://github.com/benhoyt/inih>
-
-可以用以下命令获取：
-
-```shell
-git clone https://github.com/scarsty/nb
-```
-
-nb需与kys-cpp目录同级。
 
 ### 视频
 

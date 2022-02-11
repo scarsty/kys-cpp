@@ -12,8 +12,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="abc.cpp" />
-    <ClCompile Include="..\..\nb\File.cpp" />
-    <ClCompile Include="..\..\nb\convert.cpp" />
+    <ClCompile Include="..\nb\File.cpp" />
+    <ClCompile Include="..\nb\convert.cpp" />
     <ClCompile Include="..\src\GrpIdxFile.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -70,7 +70,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../src;../../common;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../src;../nb;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -86,7 +86,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../src;../../nb;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../src;../nb;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>

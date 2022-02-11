@@ -1,0 +1,4 @@
+[submodule "nb"]
+	path = nb
+	url = https://github.com/scarsty/nb
+	branch = master
