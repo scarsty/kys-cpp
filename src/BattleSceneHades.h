@@ -64,14 +64,6 @@ protected:
     int frozen_ = 0;
     int slow_ = 0;
 
-    enum
-    {
-        HeavyCoolDown = 80,
-        LightCoolDown = 5,
-        SlashCoolDown = 20,
-        MedcineCoolDown = 120,
-    };
-
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
 

@@ -377,7 +377,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         for (int i = 0; i < 4; i++)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
-            if (r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
+            if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
             equip_magics_[i]->setState(Normal);
         }
         if (r->CoolDown == 0)
@@ -402,7 +402,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 }
                 if (index == 1 && r->PhysicalPower >= 30)
                 {
-                    //蓄力击
+                    //重击
                     //r->CoolDown = 60;
                 }
                 if (index == 2 && r->PhysicalPower >= 20)
@@ -412,7 +412,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 }
                 if (index == 3 && r->PhysicalPower >= 10)
                 {
-                    //闪身                    
+                    //闪身
                     //r->CoolDown = 10;    //冷却更长，有收招硬直
                     r->Speed1 = r->Towards1;
                     r->Speed1.norm(10);
