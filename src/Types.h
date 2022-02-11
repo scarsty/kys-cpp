@@ -240,6 +240,7 @@ public:
     int CoolDown;    //冷却
     int Attention;    //出场
     int Invincible;    //无敌时间
+    int Frozen;    //静止时间
 
     int ActType = 0;//医拳剑刀特
     int ActFrame = 0;    

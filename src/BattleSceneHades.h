@@ -67,6 +67,8 @@ protected:
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
 
+    std::unordered_map<std::string, std::function<int(AttackEffect&, Role* r)>> special_magic_effect_;
+
     Point pos45To90(int x, int y)    //45度坐标转为直角
     {
         Point p;
@@ -140,13 +142,15 @@ protected:
         }
     }
 
-    void renderExtraRoleInfo(Role* r, double x, double y);
+     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     Role* findNearestEnemy(int team, double x, double y);
     int calCoolDown(int act_type, int act_type2, Role* r);
     void decreaseToZero(int& i) { if (i > 0) { i--; } }
+    int defaultMagicEffect(AttackEffect& ae, Role* r);
+    void makeSpecialMagicEffect();    
 };
 
 

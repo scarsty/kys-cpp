@@ -41,6 +41,7 @@ BattleSceneHades::BattleSceneHades()
     menu_->addChild(equip_magics_[3], 120, 25);
     addChild(menu_);
     menu_->setVisible(false);
+    makeSpecialMagicEffect();
 }
 
 BattleSceneHades::BattleSceneHades(int id) : BattleSceneHades()
@@ -308,7 +309,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     }
     if (r->Dead == 0)
     {
-        if (r->CoolDown == 0)
+        if (r->Frozen == 0 && r->CoolDown == 0)
         {
             //if (current_frame_ % 3 == 0)
             {
@@ -380,7 +381,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
             equip_magics_[i]->setState(Normal);
         }
-        if (r->CoolDown == 0)
+        if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
             if (engine->checkKeyPress(BPK_j)) { index = 0; }
@@ -443,6 +444,11 @@ void BattleSceneHades::backRun1()
     }
     for (auto r : battle_roles_)
     {
+        decreaseToZero(r->Frozen);
+        if (r->Frozen > 0)
+        {
+            continue;
+        }
         if (r->SpeedFrame > 0)
         {
             if (r == role_ && r->Dead)
@@ -475,8 +481,6 @@ void BattleSceneHades::backRun1()
                 r->PhysicalPower += 1;
                 r->MP += 1;
             }
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
-            r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
             r->Acted = 0;
         }
         decreaseToZero(r->HurtFrame);
@@ -702,50 +706,27 @@ void BattleSceneHades::backRun1()
                     && EuclidDis(r->Pos1, ae.Pos) <= TILE_W * 2)
                 {
                     ae.Defender[r]++;
-                    int hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->Pos1, -ae.Attacker->Pos1) / TILE_W / 2);
-                    if (ae.ActType2 > 0)
+                    int hurt = 0;
+                    if (ae.ActType2 >= 0)
                     {
-                        //这个击退好像效果不太对
-                        r->Speed1 = r->Pos1 - ae.Attacker->Pos1;
-                        r->Speed1.norm(1);
-                        r->SpeedFrame = 10;
-                        r->HurtFrame = 20;
-                        if (ae.ActType2 == 1)
+                        if (special_magic_effect_.count(ae.UsingMagic->Name) == 0)
                         {
-                            hurt /= 5;
-                            ae.Frame = ae.TotalFrame + 1;
-                        }
-                        if (ae.ActType2 == 2)
-                        {
-                            hurt /= 3;
-                            ae.Frame = ae.TotalFrame + 1;
-                        }
-                        if (ae.ActType2 == 3)
-                        {
-                            hurt /= 5;
-                        }
-                        if (r->MP >= hurt)
-                        {
-                            r->MP -= hurt;
+                            hurt = defaultMagicEffect(ae, r);
                         }
                         else
                         {
-                            r->CoolDown = 0;
-                            r->ActType = -1;
-                            r->ActType2 = -1;
+                            hurt = special_magic_effect_[ae.UsingMagic->Name](ae, r);
                         }
                     }
-                    else
-                    {
-                        hurt /= 5;
-                    }
+
                     if (hurt <= 0)
                     {
                         hurt = 1 + rand_.rand() * 3;
                     }
                     ae.Attacker->ExpGot += hurt / 2;
                     r->HP -= hurt;
-                    fmt1::print("{} attack {} with {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, hurt);
+                    //std::vector<std::string> = {};
+                    fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.ActType2, hurt);
                     TextEffect te;
                     te.Color = { 255,255,255,255 };
                     if (r->Team == 0)
@@ -840,6 +821,13 @@ void BattleSceneHades::backRun1()
             }
         }
     }
+
+    for (auto r:battle_roles_)
+    {
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+        r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
+    }
+
     //删除播放完毕的
     for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
     {
@@ -1150,12 +1138,13 @@ void BattleSceneHades::setRoleInitState(Role* r)
     r->Progress = 0;
     r->CoolDown = 0;
     r->Attention = 0;
-    r->Speed1 = { 0,0 };
+    r->Speed1 = { 0,0, 0 };
     r->ActType2 = -1;
     r->ActFrame = -1;
     r->ActType = -1;
     r->Invincible = 0;
-    r->Acceleration1.z = -4;
+    r->Frozen = 0;
+    r->Acceleration1 = { 0,0,-4 };
 }
 
 Role* BattleSceneHades::findNearestEnemy(int team, double x, double y)
@@ -1198,4 +1187,73 @@ int BattleSceneHades::calCoolDown(int act_type, int act_type2, Role* r)
     }
     int ret[4] = { 60 - v / 2,160 - v,70 - v / 2,10 };
     return ret[act_type2];
+}
+
+int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
+{
+    int hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->Pos1, -ae.Attacker->Pos1) / TILE_W / 2);
+    //这个击退好像效果不太对
+    r->Speed1 = r->Pos1 - ae.Attacker->Pos1;
+    r->Speed1.norm(1);
+    r->SpeedFrame = 10;
+    r->HurtFrame = 20;
+    if (ae.ActType2 == 0)
+    {
+        hurt /= 10;
+    }
+    if (ae.ActType2 == 1)
+    {
+        hurt /= 5;
+        //ae.Frame = ae.TotalFrame + 1;
+    }
+    if (ae.ActType2 == 2)
+    {
+        hurt /= 5;
+        //ae.Frame = ae.TotalFrame + 1;
+    }
+    if (ae.ActType2 == 3)
+    {
+        hurt /= 20;
+        r->Frozen += 5;
+    }
+    if (r->MP >= hurt / 10)
+    {
+        r->MP -= hurt / 10;    //用内力抵消硬直
+    }
+    else
+    {
+        r->Frozen += 10;    //硬直
+        //r->ActType = -1;
+        //r->ActType2 = -1;
+    }
+    return hurt;
+}
+
+void BattleSceneHades::makeSpecialMagicEffect()
+{
+    special_magic_effect_["葵花神功"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Frozen += 20;    //定身
+        r->MP -= hurt;    //消耗敌人內力
+        return hurt;
+    };
+    special_magic_effect_["獨孤九劍"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Frozen += 10;    //定身
+        r->ActType = -1;    //行动打断
+        r->ActType2 = -1;
+        return hurt;
+    };
+    special_magic_effect_["降龍十八掌"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Speed1.norm(2);    //更强的击退
+        r->SpeedFrame = 20;
+        return hurt;
+    };
 }
