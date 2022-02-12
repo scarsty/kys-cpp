@@ -4,6 +4,7 @@
 #include "Head.h"
 #include "Save.h"
 #include <deque>
+#include <unordered_map>
 
 //j轻攻击，i重攻击，m闪身
 //每场战斗可以选择从4种武学中选择轻重
