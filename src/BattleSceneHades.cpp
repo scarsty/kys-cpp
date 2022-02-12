@@ -113,6 +113,7 @@ void BattleSceneHades::draw()
             uint8_t alpha = 255;
             int rot = 0;
             int shadow = 0;
+            uint8_t white = 0;
         };
         std::vector<DrawInfo> building_vec;
         building_vec.reserve(10000);
@@ -149,6 +150,7 @@ void BattleSceneHades::draw()
             info.path = fmt1::format("fight/fight{:03}", r->HeadID);
             info.color = { 255, 255, 255, 255 };
             info.alpha = 255;
+            info.white = 0;
             if (battle_cursor_->isRunning() && !acting_role_->isAuto())
             {
                 info.color = { 128, 128, 128, 255 };
@@ -174,7 +176,11 @@ void BattleSceneHades::draw()
             info.num = calRolePic(r, r->ActType, r->ActFrame);
             if (r->HurtFrame)
             {
-                info.color = { 255, 0, 0, 255 };
+                //info.color = { 255, 0, 0, 255 };
+                if (r->HurtFrame % 2 == 1)
+                {
+                    info.white = 128;
+                }
             }
             if (r->Dead)
             {
@@ -233,7 +239,7 @@ void BattleSceneHades::draw()
         {
             if (d.shadow)
             {
-                auto tex = TextureManager::getInstance()->loadTexture(d.path, d.num);
+                auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
                 double scalex = 1, scaley = 0.3;
                 int yd = tex->dy * 0.7;
                 if (d.rot)
@@ -252,7 +258,7 @@ void BattleSceneHades::draw()
             {
                 scaley = 0.5;
             }
-            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot);
+            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
         }
 
         for (auto r : battle_roles_)

@@ -119,7 +119,7 @@ void Head::draw()
         TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ - 85, y_ - 60, { 255,255,255,255 }, 255, 0.5, 0.5);
         BP_Rect r1 = { x_ + 0, y_ + 0, width_, 11 }, r2;
         BP_Color c, c_text;
-        Engine::getInstance()->fillColor({ 0,0,0,224 }, r1.x, r1.y, r1.w, r1.h);
+        Engine::getInstance()->fillColor({ 0,0,0,192 }, r1.x, r1.y, r1.w, r1.h);
         int w = (width_ - 2) * role_->HP / role_->MaxHP;
         if (role_->MaxHP > 0)
         {

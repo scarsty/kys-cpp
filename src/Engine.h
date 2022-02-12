@@ -129,6 +129,7 @@ public:
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
     void setRenderTarget(BP_Texture* t) { SDL_SetRenderTarget(renderer_, t); }
+    BP_Texture* getRenderTarget() { return SDL_GetRenderTarget(renderer_); }
     void resetRenderTarget() { setRenderTarget(nullptr); }
     void createWindow() {}
     void createRenderer() {}
@@ -137,8 +138,9 @@ public:
     void destroy();
     bool isFullScreen();
     void toggleFullscreen();
-    BP_Texture* loadImage(const std::string& filename);
-    BP_Texture* loadImageFromMemory(const std::string& content);
+    BP_Texture* loadImage(const std::string& filename, int as_white = 0);
+    BP_Texture* loadImageFromMemory(const std::string& content, int as_white = 0);
+    void toWhite(BP_Surface* sur);
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride);
     double setRotation(double r) { return rotation_ = r; }
@@ -187,7 +189,7 @@ private:
     BP_Texture* square_;
 
 public:
-    BP_Texture* createSquareTexture(int size);
+    BP_Texture* createRectTexture(int w, int h, int style);
     BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c);
     int showMessage(const std::string& content);
     void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);

@@ -28,7 +28,7 @@ void Button::draw()
     //视情况重新计算尺寸
     if (w_ * h_ == 0)
     {
-        auto tex = TextureManager::getInstance()->loadTexture(texture_path_, texture_normal_id_);
+        auto tex = TextureManager::getInstance()->getTexture(texture_path_, texture_normal_id_);
         if (tex)
         {
             w_ = tex->w;

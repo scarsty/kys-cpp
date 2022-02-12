@@ -88,7 +88,7 @@ void SubScene::draw()
                     }
                     else
                     {
-                        auto tex = TextureManager::getInstance()->loadTexture("smap", num);
+                        auto tex = TextureManager::getInstance()->getTexture("smap", num);
                         //用大图画时的闪烁地面
                         if (tex->count > 1)
                         {

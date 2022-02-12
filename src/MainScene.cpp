@@ -64,7 +64,7 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
         m1.data(i) /= 2;
         if (m1.data(i) > 0)
         {
-            m.data(i).tex_ = TextureManager::getInstance()->loadTexture("mmap", m1.data(i));
+            m.data(i).tex_ = TextureManager::getInstance()->getTexture("mmap", m1.data(i));
             auto pic = m1.data(i);
             auto& a = m.data(i);
             if (pic == 419 || pic >= 306 && pic <= 335)
@@ -160,7 +160,7 @@ void MainScene::draw()
                     }
                     int c = 1024 * (ix + iy) + ix;
                     //map[2 * c] = {2*c, man_pic_, p };
-                    building_vec[building_count++] = { 2 * c, TextureManager::getInstance()->loadTexture("mmap", man_pic_), p };
+                    building_vec[building_count++] = { 2 * c, TextureManager::getInstance()->getTexture("mmap", man_pic_), p };
                 }
             }
         }

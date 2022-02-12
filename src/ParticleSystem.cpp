@@ -439,7 +439,7 @@ void ParticleSystem::draw()
         }
         BP_Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
         BP_Color c = { Uint8(p.colorR * 255), Uint8(p.colorG * 255), Uint8(p.colorB * 255), Uint8(p.colorA * 255) };
-        auto tex = TextureManager::getInstance()->loadTexture(path_, num_);
+        auto tex = TextureManager::getInstance()->getTexture(path_, num_);
         TextureManager::getInstance()->renderTexture(tex, r, c, c.a, p.rotation);
         count++;
     }

@@ -8,6 +8,12 @@
 //一个纹理最多可以包含10张子纹理，会随机被贴出，模拟动态效果
 //每组图片的偏移用两个int16[n][2]来保存，需要注意的是，UI元素使用的图片最好其偏移都设为0，否则计算鼠标范围时会有一些问题，使用起来也比较麻烦
 
+struct GroupInfo
+{
+    ZipFile zip;
+    std::string path;
+};
+
 struct Texture
 {
     enum
@@ -16,48 +22,42 @@ struct Texture
     };
 
     BP_Texture* tex[SUB_TEXTURE_COUNT] = { nullptr };
+    BP_Texture* tex_white = nullptr;
     int w = 0, h = 0, dx = 0, dy = 0;
     bool loaded = false;
     int count = 1;
     int prev_show;
-    void setTex(BP_Texture* t)
-    {
-        destory();
-        tex[0] = t;
-        count = 1;
-        loaded = true;
-        Engine::getInstance()->queryTexture(t, &w, &h);
-    }
+    void setTex(BP_Texture* t);
     BP_Texture* getTexture(int i = 0) { return tex[i]; }
 
+    GroupInfo* group_info_ = nullptr;
+    int num_ = -1;
+
+    void load();
+    void createWhiteTexture();
+
 private:
-    void destory()
-    {
-        for (int i = 0; i < SUB_TEXTURE_COUNT; i++)
-        {
-            if (tex[i])
-            {
-                Engine::destroyTexture(tex[i]);
-            }
-        }
-    }
+    void destory();
 };
 
-struct TextureGroup : public std::vector<Texture*>
+struct TextureGroup 
 {
     friend class TextureManager;
 
 public:
+    std::vector<Texture*> group_;
     int inited_ = 0;
-    ZipFile zip_;
-    ZipFile* getZip() { return &zip_; }
-    std::string path_;
-    const std::string& getPath() { return path_; }
+    GroupInfo info_;
+    //ZipFile zip_;
+    //ZipFile* getZip() { return &zip_; }
+    //std::string path_;
+    //const std::string& getPath() { return path_; }
     std::string getFileContent(const std::string& filename);
 
 protected:
     void init(const std::string& path, int load_from_path, int load_all);
-    void loadTexture(int num, Texture* t);
+    //void loadTexture(int num, Texture* t);
+    //void loadTextureWhite(int num, Texture* t);
 };
 
 class TextureManager
@@ -79,16 +79,16 @@ public:
 
 public:
     void renderTexture(Texture* tex, BP_Rect r,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
     void renderTexture(const std::string& path, int num, BP_Rect r,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
 
     void renderTexture(Texture* tex, int x, int y,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
     void renderTexture(const std::string& path, int num, int x, int y,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0);
+        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
 
-    Texture* loadTexture(const std::string& path, int num);
+    Texture* getTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);
     TextureGroup* getTextureGroup(const std::string& path);
     void setLoadFromPath(int l) { load_from_path_ = l; }

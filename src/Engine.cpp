@@ -79,22 +79,29 @@ bool Engine::checkKeyPress(BP_Keycode key)
     return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
 }
 
-BP_Texture* Engine::createSquareTexture(int size)
+BP_Texture* Engine::createRectTexture(int w, int h, int style)
 {
-    int d = size;
-    auto square_s = SDL_CreateRGBSurface(0, d, d, 32, RMASK, GMASK, BMASK, AMASK);
+    auto square_s = SDL_CreateRGBSurface(0, w, h, 32, RMASK, GMASK, BMASK, AMASK);
 
     //SDL_FillRect(square_s, nullptr, 0xffffffff);
     BP_Rect r = { 0, 0, 1, 1 };
     auto& x = r.x;
     auto& y = r.y;
     uint8_t a = 0;
-    for (x = 0; x < d; x++)
+    for (x = 0; x < w; x++)
     {
-        for (y = 0; y < d; y++)
+        for (y = 0; y < h; y++)
         {
-            a = 100 + 150 * cos(3.14159265358979323846 * (1.0 * y / d - 0.5));
-            auto c = 0x00ffffff | (a << 24);
+            int c;
+            if (style == 0)
+            {
+                a = 100 + 150 * cos(3.14159265358979323846 * (1.0 * y / w - 0.5));
+                c = 0x00ffffff | (a << 24);
+            }
+            else if (style == 1)
+            {
+                c = 0xffffffff;
+            }
             SDL_FillRect(square_s, &r, c);
             /*if ((x - d / 2)*(x - d / 2) + (y - d / 2)*(y - d / 2) < (d / 2) * (d / 2))
             {
@@ -102,11 +109,11 @@ BP_Texture* Engine::createSquareTexture(int size)
             }*/
         }
     }
-    square_ = SDL_CreateTextureFromSurface(renderer_, square_s);
-    setTextureBlendMode(square_);
-    setTextureAlphaMod(square_, 128);
+    auto square = SDL_CreateTextureFromSurface(renderer_, square_s);
+    setTextureBlendMode(square);
+    //setTextureAlphaMod(square, 128);
     SDL_FreeSurface(square_s);
-    return square_;
+    return square;
 }
 
 BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c)
@@ -185,7 +192,7 @@ int Engine::init(void* handle)
     max_y_ = r.h + r.y;
 #endif
 
-    square_ = createSquareTexture(100);
+    square_ = createRectTexture(100, 100, 0);
 
     fmt1::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
 #if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
@@ -229,16 +236,42 @@ void Engine::toggleFullscreen()
     renderClear();
 }
 
-BP_Texture* Engine::loadImage(const std::string& filename)
+BP_Texture* Engine::loadImage(const std::string& filename, int as_white)
 {
     //fmt1::print("%s", filename.c_str());
-    return IMG_LoadTexture(renderer_, filename.c_str());
+    auto sur = IMG_Load(filename.c_str());
+    if (as_white) { toWhite(sur); }
+    auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
+    SDL_FreeSurface(sur);
+    return tex;
 }
 
-BP_Texture* Engine::loadImageFromMemory(const std::string& content)
+BP_Texture* Engine::loadImageFromMemory(const std::string& content, int as_white)
 {
     auto rw = SDL_RWFromConstMem(content.data(), content.size());
-    return IMG_LoadTextureTyped_RW(renderer_, rw, 1, "png");
+    auto sur = IMG_LoadTyped_RW(rw, 1, "png");
+    if (as_white) { toWhite(sur); }
+    auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
+    SDL_FreeSurface(sur);
+    return tex;
+}
+
+void Engine::toWhite(BP_Surface* sur)
+{
+    for (int i = 0; i < sur->w * sur->h; i++)
+    {
+        auto p = (uint32_t*)sur->pixels + i;
+        uint8_t r, g, b, a;
+        SDL_GetRGBA(*p, sur->format, &r, &g, &b, &a);
+        if (a == 0)
+        {
+            *p = SDL_MapRGBA(sur->format, 255, 255, 255, 0);
+        }
+        else
+        {
+            *p = SDL_MapRGBA(sur->format, 255, 255, 255, 255);
+        }
+    }
 }
 
 bool Engine::setKeepRatio(bool b)
