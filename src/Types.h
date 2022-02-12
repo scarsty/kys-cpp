@@ -110,8 +110,9 @@ public:
     int ExpForMakeItem;
     int Equip0, Equip1;
     //int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
-    int EquipMagic[4];
-    int Frame[11];
+    int EquipMagic[4];    //装备武学
+    int EquipMagic2[4];    //装备被动武学
+    int Frame[7];
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;

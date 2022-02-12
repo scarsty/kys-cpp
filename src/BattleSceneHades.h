@@ -57,6 +57,7 @@ protected:
     std::deque<Role*> enemies_;
 
     std::vector<std::shared_ptr<Head>> heads_;
+    std::shared_ptr<Head> head_boss_;
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角

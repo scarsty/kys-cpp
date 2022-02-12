@@ -28,8 +28,8 @@ void ShowRoleDifference::draw()
     //}
     head1_->setRole(role1_);
     head2_->setRole(role2_);
-    head1_->setState(Press);
-    head2_->setState(Press);
+    head1_->setAlwaysLight(1);
+    head2_->setAlwaysLight(1);
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
         head1_->setRole(role2_);

@@ -346,14 +346,20 @@ void UIStatus::onPressedOK()
     if (menu_equip_magic_->getResult() >= 0)
     {
         auto menu = std::make_shared<BattleMagicMenu>();
-        menu->setPosition(800, 350);
         menu->setRole(role_);
-        role_->Auto = 0;
+        //int count = menu->getChildCount();
+        role_->Auto = 0;    //.....
         role_->Team = 0;
+        menu->setPosition(730, 630 - 30 * role_->getLearnedMagicCount());
         menu->run();
         if (menu->getMagic())
         {
-            role_->EquipMagic[menu_equip_magic_->getResult()] = menu->getMagic()->ID;
+            int id = menu->getMagic()->ID;
+            for (auto& em : role_->EquipMagic)
+            {
+                if (em == id) { em = -1; }
+            }
+            role_->EquipMagic[menu_equip_magic_->getResult()] = id;
         }
     }
 }

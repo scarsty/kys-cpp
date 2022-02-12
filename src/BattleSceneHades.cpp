@@ -21,6 +21,7 @@ BattleSceneHades::BattleSceneHades()
     for (auto& h : heads_)
     {
         h = std::make_shared<Head>();
+        h->setAlwaysLight(1);
         addChild(h, 10, 10 + (i++) * 80);
     }
 
@@ -41,6 +42,10 @@ BattleSceneHades::BattleSceneHades()
     menu_->addChild(equip_magics_[3], 120, 25);
     addChild(menu_);
     menu_->setVisible(false);
+    head_boss_ = std::make_shared<Head>();
+    head_boss_->setStyle(1);
+    head_boss_->setVisible(false);
+    addChild(head_boss_);
     makeSpecialMagicEffect();
 }
 
@@ -173,7 +178,7 @@ void BattleSceneHades::draw()
             }
             if (r->Dead)
             {
-                if (frozen_ == 0)
+                if (r->Frozen == 0)
                 {
                     if (r->FaceTowards >= 2)
                     {
@@ -751,6 +756,7 @@ void BattleSceneHades::backRun1()
                         r->Velocity.z = 12;
                         r->Velocity.norm(std::min(hurt / 2.5, 30.0));
                         r->SpeedFrame = 15;
+                        r->Frozen = 2;
                         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
                         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
                         frozen_ = 2;
@@ -905,6 +911,11 @@ void BattleSceneHades::backRun1()
             battle_roles_.back()->Invincible = 30;
         }
     }
+    //最后一个人亮血条
+    if (enemies_.empty())
+    {
+        head_boss_->setVisible(true);
+    }
     //if (role_count != battle_roles_.size())
     {
         //检测战斗结果
@@ -935,7 +946,7 @@ void BattleSceneHades::onEntrance()
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(10, 10);
-
+    head_boss_->setPosition(Engine::getInstance()->getWindowWidth() / 2 - head_boss_->getWidth() / 2, Engine::getInstance()->getWindowHeight() - 100);
     addChild(MainScene::getInstance()->getWeather());
 
     earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
@@ -975,6 +986,7 @@ void BattleSceneHades::onEntrance()
 
     //敌人按能力从低到高，依次出场
     std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->Level * 10000 + l->MaxHP < r->Level * 10000 + r->MaxHP; });
+    if (!enemies_.empty()) { head_boss_->setRole(enemies_.back()); }
     for (int i = 0; i < 6; i++)
     {
         if (!enemies_.empty())
