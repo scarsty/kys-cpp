@@ -35,20 +35,29 @@ sudo apt-get install libopencc-dev
 sudo apt-get install libfmt-dev libsqlite3-dev
 ```
 
-### 下载配置 bass/bassmini
+查看 sdl 版本
+```
+$ sdl-config --verion
+2.0.8
+```
 
-非必须，也可以使用sdl2-mixer代替。
+### 下载配置 bass 和 bassmidi
+
+> 非必须，也可以使用sdl2-mixer代替。
 
 www.un4seen.com 选 linux 版本下载、解压。
+* [点击下载 bass24](http://www.un4seen.com/download.php?bass24-linux)
+* [点击下载 bassmidi24](http://www.un4seen.com/files/bassmidi24-linux.zip)
 
-配置 bass so 和 .h 环境变量
+配置 bass so 和 .h 环境变量和 fmt1.h 路径
 ```shell
 export BASS_HOME=${自己的bass解压路径}
-export BASS_MIDI_HOME=${自己的bassmini解压路径}
+export BASS_MIDI_HOME=${自己的bassmidi解压路径}
 export CPATH=${BASS_HOME}:${BASS_MIDI_HOME}:${CPATH}
 export LD_LIBRARY_PATH=${BASS_HOME}:${BASS_MIDI_HOME}:${LD_LIBRARY_PATH}
+export export CPLUS_INCLUDE_PATH=${自己的kys-cpp路径}/nb:${CPLUS_INCLUDE_PATH}
 ```
-注意 64bit 机器要链接的是 x64 目录下面的 so，这个压缩包下面先放的是 32bit 用的 so。
+注意 64bit 机器要链接的是 x64 目录下面的 so，这个压缩包下面先放的是 32bit 用的 so。`cp -rf x64/libbass.so libbass.so`覆盖掉即可。
 ```shell
 $ cd /home/tpoisonooo/GitProjects/bass/bass24-linux/x64
 $ file libbass.so 
@@ -59,6 +68,12 @@ $ file ../libbass.so
 ```
 
 ### build 和小改动
+```bash
+$ mkdir build
+$ cmake ../src && make
+```
+
+* 如果提示找不到 SDL 的几个变量，例如 SDL_CONTROLLER xxx 。作者想支持手柄用了 sdl2.0.20 版本，ubuntu 目前没有现成的源。删掉对应代码即可。
 
 * 如果 cmake 版本过高
 ```shell

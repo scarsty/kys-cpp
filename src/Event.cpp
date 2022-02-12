@@ -316,9 +316,11 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style)
         talk = talk_box_down_;
     }
 #ifndef _WIN32 // 非Windows系统（例如Mac和Linux）默认字符集是UTF8，通常对GBK字符集支持不太好，这里转个码，不然显示乱码
-    talk_content = PotConv::cp936toutf8(talk_content);
-#endif
+    std::string content = talk_content;
+    talk->setContent(PotConv::cp936toutf8(content));
+#else
     talk->setContent(talk_content);
+#endif
     fmt1::print("head {} style {}: {}\n", head_id, style, talk_content);
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
