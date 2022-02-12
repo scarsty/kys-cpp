@@ -125,32 +125,32 @@ public:
 struct Role : public RoleSave
 {
 public:
-    int Team;
-    int FaceTowards, Dead, Step;
-    int Pic, BattleSpeed;
-    int ExpGot, Auto;
+    int Team = 0;
+    int FaceTowards = 0, Dead = 0, Step = 0;
+    int Pic = 0, BattleSpeed = 0;
+    int ExpGot = 0, Auto;
     int FightFrame[5] = { -1 };
-    int FightingFrame;
-    int Moved, Acted;
-    int ActTeam;    //选择行动阵营 0-我方，1-非我方，画效果层时有效
+    int FightingFrame = 0;
+    int Moved = 0, Acted = 0;
+    int ActTeam = 0;    //选择行动阵营 0-我方，1-非我方，画效果层时有效
 
-    int SelectedMagic;
+    int SelectedMagic = -1;
 
-    int Progress;
+    int Progress = 0;
 
     struct ShowString
     {
         std::string Text;
         BP_Color Color;
-        int Size;
+        int Size = 0;
     };
     //显示文字效果使用
     struct ActionShowInfo
     {
         std::vector<ShowString> ShowStrings;
-        int BattleHurt;
-        int ProgressChange;
-        int Effect;
+        int BattleHurt = 0;
+        int ProgressChange = 0;
+        int Effect = -1;
         ActionShowInfo()
         {
             clear();
@@ -166,8 +166,8 @@ public:
     ActionShowInfo Show;
 
 private:
-    int X_, Y_;
-    int prevX_, prevY_;
+    int X_ = 0, Y_ = 0;
+    int prevX_ = 0, prevY_ = 0;
 
 public:
     MapSquare<Role*>* position_layer_ = nullptr;
@@ -210,17 +210,17 @@ public:
 
 public:
     int AI_Action = 0;
-    int AI_MoveX, AI_MoveY;
-    int AI_ActionX, AI_ActionY;
+    int AI_MoveX = 0, AI_MoveY = 0;
+    int AI_ActionX = 0, AI_ActionY = 0;
     Magic* AI_Magic = nullptr;
     Item* AI_Item = nullptr;
 
 public:
-    int Network_Action;
-    int Network_MoveX;
-    int Network_MoveY;
-    int Network_ActionX;
-    int Network_ActionY;
+    int Network_Action = 0;
+    int Network_MoveX = 0;
+    int Network_MoveY = 0;
+    int Network_ActionX = 0;
+    int Network_ActionY = 0;
     Magic* Network_Magic = nullptr;
     Item* Network_Item = nullptr;
 
@@ -230,26 +230,38 @@ public:
     bool Competing = false;
 
 public:
-    Pointf Pos1;   //亚像素的直角坐标
-    Pointf Towards1;    //面对的方向，计算攻击位置，击退方向等
+    Pointf Pos;   //亚像素的直角坐标
+    Pointf RealTowards;    //面对的方向，计算攻击位置，击退方向等
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
-    Pointf Speed1;    //指该质点的速度，每帧据此计算坐标
-    Pointf Acceleration1;    //加速度
+    Pointf Velocity;    //指该质点的速度，每帧据此计算坐标
+    Pointf Acceleration;    //加速度
     int SpeedFrame = 0;    //大于0时质点速度才生效
     int HurtFrame = 0;    //正在受到伤害
-    int CoolDown;    //冷却
-    int Attention;    //出场
-    int Invincible;    //无敌时间
-    int Frozen;    //静止时间
+    int CoolDown = 0;    //冷却
+    int Attention = 0;    //出场
+    int Invincible = 0;    //无敌时间
+    int Frozen = 0;    //静止时间
 
-    int ActType = 0;//医拳剑刀特
-    int ActFrame = 0;    
-    int ActType2; //0-轻攻击，1-重攻击，2-远程，3-闪身
-    
+    int ActType = -1;    //医拳剑刀特
+    int ActFrame = 0;
+    int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
+
     Magic* UsingMagic = nullptr;
 
 public:
     static Role* getMaxValue() { return &max_role_value_; }
+    int getActProperty(int type)
+    {
+        switch (type)
+        {
+        case 0: return Medicine; break;
+        case 1: return Fist; break;
+        case 2: return Sword; break;
+        case 3: return Knife; break;
+        case 4: return Unusual; break;
+        }
+    }
+    void resetBattleInfo();
 
 private:
     static Role max_role_value_;

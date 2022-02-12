@@ -19,7 +19,7 @@ struct AttackEffect
     int TotalFrame;
     int TotalEffectFrame;
     int EffectNumber;
-    int ActType2;
+    int OperationType;
     std::string Path;
 };
 
@@ -113,7 +113,7 @@ protected:
         //        return false;
         //    }
         //}
-        if (r->Pos1.z > 20) { return true; }
+        if (r->Pos.z > 20) { return true; }
         auto p = pos90To45(x, y);
         return canWalk45(p.x, p.y);
     }

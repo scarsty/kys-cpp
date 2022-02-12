@@ -5,6 +5,8 @@ void Role::setPosition(int x, int y)
 {
     if (position_layer_ == nullptr)
     {
+        X_ = x;
+        Y_ = y;
         return;
     }
     if (X_ >= 0 && Y_ >= 0)
@@ -237,6 +239,13 @@ int Magic::calMaxLevelIndexByMP(int mp, int max_level)
 
 int Item::MoneyItemID = 174;
 int Item::CompassItemID = 182;
+
+void Role::resetBattleInfo()
+{
+    Role r0;
+    *(RoleSave*)&r0 = *(RoleSave*)this;
+    *this = r0;
+}
 
 bool Item::isCompass()
 {
