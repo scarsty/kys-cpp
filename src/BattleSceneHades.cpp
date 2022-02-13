@@ -6,10 +6,6 @@
 #include "MainScene.h"
 #include "TeamMenu.h"
 
-#ifndef M_PI
-#define M_PI 3.1415926535897
-#endif
-
 BattleSceneHades::BattleSceneHades()
 {
     full_window_ = 1;
@@ -161,29 +157,15 @@ void BattleSceneHades::draw()
                     info.color = { 255, 255, 255, 255 };
                 }
             }
-            //int pic;
-            //if (r == acting_role_)
-            //{
-            //    pic = calRolePic(r, action_type_, action_frame_);
-            //}
-            //else
-            //{
-            //    pic = calRolePic(r);
-            //}
-            //if (r->HP <= 0)
-            //{
-            //    alpha = dead_alpha_;
-            //}
             info.p = r->Pos;
             info.num = calRolePic(r, r->ActType, r->ActFrame);
-            if (r->HurtFrame)
-            {
-                //info.color = { 255, 0, 0, 255 };
-                if (r->HurtFrame % 2 == 1)
-                {
-                    info.white = 128;
-                }
-            }
+            //if (r->HurtFrame)
+            //{
+            //    if (r->HurtFrame % 2 == 1)
+            //    {
+            //        info.white = 128;
+            //    }
+            //}
             if (r->Dead)
             {
                 if (r->Frozen == 0)
@@ -214,10 +196,21 @@ void BattleSceneHades::draw()
             {
                 DrawInfo info;
                 info.path = ae.Path;
-                info.num = ae.Frame % ae.TotalEffectFrame;
+                if (ae.TotalEffectFrame > 0)
+                {
+                    info.num = ae.Frame % ae.TotalEffectFrame;
+                }
+                else
+                {
+                    info.num = 0;
+                }
                 info.p = ae.Pos;
                 info.color = { 255, 255, 255, 255 };
                 info.alpha = 192;
+                if (ae.FollowRole)
+                {
+                    info.p = ae.FollowRole->Pos;
+                }
                 building_vec.emplace_back(std::move(info));
                 //TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame % ae.TotalEffectFrame, ae.X1, ae.Y1 / 2, { 255, 255, 255, 255 }, 192);
             }
@@ -323,6 +316,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             }
         }
     }
+    double speed = std::min(4.0, r->Speed / 30.0);
     if (r->Dead == 0)
     {
         if (r->Frozen == 0 && r->CoolDown == 0)
@@ -331,25 +325,25 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 if (engine->checkKeyPress(BPK_a))
                 {
-                    pos_.x -= r->Speed / 30.0;
+                    pos_.x -= speed;
                     r->FaceTowards = Towards_LeftDown;
                     r->OperationType = 0;
                 }
                 if (engine->checkKeyPress(BPK_d))
                 {
-                    pos_.x += r->Speed / 30.0;
+                    pos_.x += speed;
                     r->FaceTowards = Towards_RightUp;
                     r->OperationType = 0;
                 }
                 if (engine->checkKeyPress(BPK_w))
                 {
-                    pos_.y -= r->Speed / 30.0;
+                    pos_.y -= speed;
                     r->FaceTowards = Towards_LeftUp;
                     r->OperationType = 0;
                 }
                 if (engine->checkKeyPress(BPK_s))
                 {
-                    pos_.y += r->Speed / 30.0;
+                    pos_.y += speed;
                     r->FaceTowards = Towards_RightDown;
                     r->OperationType = 0;
                 }
@@ -432,7 +426,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     //闪身
                     //r->CoolDown = 10;    //冷却更长，有收招硬直
                     r->Velocity = r->RealTowards;
-                    r->Velocity.norm(r->Speed / 10);
+                    r->Velocity.norm(speed * 3);
                     r->SpeedFrame = 10;
                     r->PhysicalPower -= 2;
                     r->ActType = 0;
@@ -495,8 +489,8 @@ void BattleSceneHades::backRun1()
             if (current_frame_ % 3 == 0)
             {
                 r->PhysicalPower += 1;
-                r->MP += 1;
             }
+            r->MP += 1;
             r->Acted = 0;
         }
         decreaseToZero(r->HurtFrame);
@@ -547,20 +541,19 @@ void BattleSceneHades::backRun1()
                     if (magic)
                     {
                         Audio::getInstance()->playESound(magic->SoundID);
-                        ae.Path = fmt1::format("eft/eft{:03}", magic->EffectID);
+                        ae.setEft(magic->EffectID);
                         ae.UsingMagic = magic;
                     }
                     else
                     {
                         Audio::getInstance()->playESound(r->ActType);
-                        ae.Path = "eft/eft001";
+                        ae.setEft(11);
                         magic = Save::getInstance()->getMagic(1);
                         ae.UsingMagic = Save::getInstance()->getMagic(1);
                     }
                     r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
                     int level_index = r->getMagicLevelIndex(magic->ID);
                     int needMP = magic->calNeedMP(level_index);
-                    ae.TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(ae.Path);
                     ae.TotalFrame = 30;
                     //r->CoolDown += ae.TotalFrame;
                     ae.Attacker = r;
@@ -570,10 +563,10 @@ void BattleSceneHades::backRun1()
                     if (r->Team == 0)
                     {
                         ae.OperationType = r->OperationType;
-                        if (r->OperationType == 0 && ae.UsingMagic->AttackAreaType != 0)
-                        {
-                            ae.OperationType = -1;
-                        }
+                        //if (r->OperationType == 0 && ae.UsingMagic->AttackAreaType != 0)
+                        //{
+                        //    ae.OperationType = -1;
+                        //}
                         if (r->OperationType == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
                         {
                             ae.OperationType = -1;
@@ -608,7 +601,7 @@ void BattleSceneHades::backRun1()
                         {
                             ae.TotalFrame = 10;
                             attack_effects_.push_back(std::move(ae));
-                            needMP /= 5;
+                            needMP *= 0.1;
                         }
                         else if (ae.OperationType == 1)
                         {
@@ -625,6 +618,7 @@ void BattleSceneHades::backRun1()
                                 ae.Frame = rand_.rand() * 10;
                                 attack_effects_.push_back(ae);
                             }
+                            needMP *= 0.4;
                         }
                         else if (ae.OperationType == 2)
                         {
@@ -641,19 +635,19 @@ void BattleSceneHades::backRun1()
                             ae.Speed.norm(5);
                             ae.TotalFrame = 30;
                             attack_effects_.push_back(std::move(ae));
-                            needMP *= 2;
+                            needMP *= 0.2;
                         }
                         else if (ae.OperationType == 3)
                         {
                             auto p = ae.Pos;
-                            int count = (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60;
+                            int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
                             for (int i = 0; i < count; i++)
                             {
                                 ae.Pos = p + r->Velocity * (i - 1) * 2;
                                 ae.Frame += 3;
                                 attack_effects_.push_back(ae);
                             }
-                            needMP /= 2;
+                            needMP *= 0.05;
                         }
                     }
                     //else
@@ -718,9 +712,10 @@ void BattleSceneHades::backRun1()
                     && !r->HurtFrame
                     && !r->Invincible
                     && r->Dead == 0
+                    && ae.Attacker
                     && r->Team != ae.Attacker->Team
                     && ae.Defender.count(r) == 0
-                    && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2)
+                    && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2.5)
                 {
                     ae.Defender[r]++;
                     int hurt = 0;
@@ -740,6 +735,14 @@ void BattleSceneHades::backRun1()
                     {
                         hurt = 1 + rand_.rand() * 3;
                     }
+                    AttackEffect ae1;
+                    ae1.FollowRole = r;
+                    std::vector<int> eft = { 11, 12, 14,35,37 };
+                    //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
+                    ae1.setEft(eft[int(rand_.rand() * eft.size())]);
+                    ae1.TotalFrame = ae1.TotalEffectFrame;
+                    ae1.Frame = 0;
+                    attack_effects_.push_back(std::move(ae1));
                     ae.Attacker->ExpGot += hurt / 2;
                     r->HP -= hurt;
                     //std::vector<std::string> = {};
@@ -809,29 +812,30 @@ void BattleSceneHades::backRun1()
                             if (r->PhysicalPower >= 30)
                             {
                                 //r->PhysicalPower -= 5;
-                                for (int i = 1; i <= 4; i++)
+                                //for (int i = 1; i <= 4; i++)
+                                //{
+                                //    if (r->FightFrame[i] > 0)
+                                //    {
+                                int select_magic = rand_.rand() * r->getLearnedMagicCount();
+                                auto m = Save::getInstance()->getMagic(r->MagicID[select_magic]);
+                                if (m->AttackAreaType == 0)
                                 {
-                                    if (r->FightFrame[i] > 0)
-                                    {
-                                        auto m = Save::getInstance()->getMagic(r->MagicID[0]);
-                                        if (m->AttackAreaType == 0)
-                                        {
-                                            r->OperationType = 0;
-                                        }
-                                        else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
-                                        {
-                                            r->OperationType = 2;
-                                        }
-                                        else if (m->AttackAreaType == 3)
-                                        {
-                                            r->OperationType = 1;
-                                        }
-                                        r->CoolDown = calCoolDown(i, r->OperationType, r);
-                                        r->ActFrame = 0;
-                                        r->ActType = i;
-                                        break;
-                                    }
+                                    r->OperationType = 0;
                                 }
+                                else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                {
+                                    r->OperationType = 2;
+                                }
+                                else if (m->AttackAreaType == 3)
+                                {
+                                    r->OperationType = 1;
+                                }
+                                r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                                r->ActFrame = 0;
+                                r->ActType = m->MagicType;
+                                break;
+                                //}
+                           //}
                             }
                         }
                     }
@@ -1200,7 +1204,8 @@ int BattleSceneHades::calCoolDown(int act_type, int act_type2, Role* r)
         v = r->Unusual;
     }
     int ret[4] = { 60 - v / 2,160 - v,70 - v / 2,10 };
-    return ret[act_type2];
+    int m[4] = { 10, 45, 20, 10 };
+    return std::max(m[act_type2], ret[act_type2]);
 }
 
 int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
@@ -1210,7 +1215,7 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     r->Velocity = r->Pos - ae.Attacker->Pos;
     r->Velocity.norm(1);
     r->SpeedFrame = 10;
-    r->HurtFrame = 20;
+    r->HurtFrame = 10;
     if (ae.OperationType == 0)
     {
         hurt /= 10;

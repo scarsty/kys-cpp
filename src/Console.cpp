@@ -245,7 +245,7 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == "battle" && splits.size() > 1)
+    else if ((splits[0] == "battle" || splits[0] == "b") && splits.size() > 1)
     {
         Save::getInstance()->save(11);
         int k = atoi(splits[1].c_str());

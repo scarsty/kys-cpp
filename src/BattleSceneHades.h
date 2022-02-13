@@ -16,12 +16,18 @@ struct AttackEffect
     Role* Attacker = nullptr;
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
-    int Frame;
-    int TotalFrame;
-    int TotalEffectFrame;
-    int EffectNumber;
-    int OperationType;
+    int Frame = 0;
+    int TotalFrame = 1;
+    int TotalEffectFrame = 1;
+    //int EffectNumber;
+    int OperationType = -1;
     std::string Path;
+    Role* FollowRole = nullptr;
+    void setEft(int num)
+    {
+        Path = fmt1::format("eft/eft{:03}", num);
+        TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
+    }
 };
 
 struct TextEffect
@@ -144,7 +150,7 @@ protected:
         }
     }
 
-     void renderExtraRoleInfo(Role* r, double x, double y);
+    void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
@@ -152,7 +158,7 @@ protected:
     int calCoolDown(int act_type, int act_type2, Role* r);
     void decreaseToZero(int& i) { if (i > 0) { i--; } }
     int defaultMagicEffect(AttackEffect& ae, Role* r);
-    void makeSpecialMagicEffect();    
+    void makeSpecialMagicEffect();
 };
 
 

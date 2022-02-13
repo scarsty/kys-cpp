@@ -67,6 +67,7 @@ bool Save::load(int num)
 
     loadR(num);
     loadRFromDB(num);
+    //saveRToDB(num);    //临时转换
     loadSD(num);
 
     //内部编码为65001

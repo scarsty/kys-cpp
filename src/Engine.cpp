@@ -95,7 +95,7 @@ BP_Texture* Engine::createRectTexture(int w, int h, int style)
             int c;
             if (style == 0)
             {
-                a = 100 + 150 * cos(3.14159265358979323846 * (1.0 * y / w - 0.5));
+                a = 100 + 150 * cos(M_PI * (1.0 * y / w - 0.5));
                 c = 0x00ffffff | (a << 24);
             }
             else if (style == 1)

@@ -16,7 +16,8 @@ void Texture::load()
 {
     if (!loaded)
     {
-        //fmt1::print("Load texture %s, %d\n", p.c_str(), num);
+        loaded = true;
+        //fmt1::print("Load texture {}, {}\n", group_info_->path, num_);
         if (group_info_->zip.opened())
         {
             tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readEntryName(std::to_string(num_) + ".png"));
@@ -53,7 +54,6 @@ void Texture::load()
         {
             Engine::getInstance()->setTextureAlphaMod(t, SDL_BLENDMODE_BLEND);
         }
-        loaded = true;
     }
 }
 
@@ -104,8 +104,8 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
     //纹理组信息
     if (!inited_)
     {
-        info_.path = path;
         inited_ = 1;
+        info_.path = path;
         if (!load_from_path)
         {
             info_.zip.openFile(path + ".zip");
@@ -141,7 +141,6 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
     }
     if (load_all)
     {
-        auto engine = Engine::getInstance();
         for (int i = 0; i < group_.size(); i++)
         {
             group_[i]->load();
@@ -213,6 +212,7 @@ void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8
 {
     if (tex)
     {
+        tex->load();    //需要纹理尺寸
         renderTexture(tex, { x, y, int(tex->w * zoom_x), int(tex->h * zoom_y) }, c, alpha, angle, white);
     }
 }

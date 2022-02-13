@@ -64,6 +64,10 @@ void UIStatus::draw()
             {
                 menu_equip_magic_->setVisible(true);
             }
+            else
+            {
+                menu_equip_magic_->setVisible(false);
+            }
         }
         menu_->setVisible(true);
     }

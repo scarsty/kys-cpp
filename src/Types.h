@@ -129,7 +129,7 @@ public:
     int Team = 0;
     int FaceTowards = 0, Dead = 0, Step = 0;
     int Pic = 0, BattleSpeed = 0;
-    int ExpGot = 0, Auto;
+    int ExpGot = 0, Auto = 0;
     int FightFrame[5] = { -1 };
     int FightingFrame = 0;
     int Moved = 0, Acted = 0;
