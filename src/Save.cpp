@@ -67,7 +67,6 @@ bool Save::load(int num)
 
     loadR(num);
     loadRFromDB(num);
-    //saveRToDB(num);    //临时转换
     loadSD(num);
 
     //内部编码为65001
@@ -120,6 +119,7 @@ bool Save::load(int num)
 
     makeMaps();
 
+    //saveRToDB(num);    //临时转换
     return true;
 }
 

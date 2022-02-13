@@ -708,8 +708,7 @@ void BattleSceneHades::backRun1()
             //计算有人被打中
             for (auto& ae : attack_effects_)
             {
-                if (!(r->OperationType == 2 && r->CoolDown)
-                    && !r->HurtFrame
+                if (!r->HurtFrame
                     && !r->Invincible
                     && r->Dead == 0
                     && ae.Attacker
