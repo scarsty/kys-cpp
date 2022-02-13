@@ -23,7 +23,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
 
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
     {
-        std::string pinyin = Hanz2Piny::hanz2pinyin(PotConv::cp936toutf8(name));
+        std::string pinyin = Hanz2Piny::hanz2pinyin(name);
         int p = 0;
         for (int i = 0; i < text.size(); i++)
         {

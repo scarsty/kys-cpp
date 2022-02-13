@@ -305,16 +305,19 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     auto engine = Engine::getInstance();
     auto r = role_;
 
-    pos_ = r->Pos;
     if (r->Dead)
     {
         for (auto r1 : battle_roles_)
         {
-            if (r1->Dead == 0)
+            if (r1->Team == 0 && r1->Dead == 0)
             {
                 pos_ = r1->Pos;
             }
         }
+    }
+    else
+    {
+        pos_ = r->Pos;
     }
     double speed = std::min(4.0, r->Speed / 30.0);
     if (r->Dead == 0)

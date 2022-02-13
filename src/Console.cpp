@@ -34,6 +34,10 @@ Console::Console()
         {
             code = input->getText();
         }
+        else
+        {
+            return;
+        }
     }
     // 捂脸
     code = PotConv::conv(code, "cp936", "utf-8");
