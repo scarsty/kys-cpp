@@ -1,5 +1,7 @@
 #include "Types.h"
 
+#include "Save.h"
+
 //设置人物坐标，若输入值为负，相当于从人物层清除
 void Role::setPosition(int x, int y)
 {
@@ -85,6 +87,19 @@ int Role::getMagicOfRoleIndex(Magic* magic)
         }
     }
     return -1;
+}
+
+std::vector<Magic*> Role::getLearnedMagic()
+{
+    std::vector<Magic*> v;
+    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    {
+        if (MagicID[i] > 0)
+        {
+            v.push_back(Save::getInstance()->getMagic(MagicID[i]));
+        }
+    }
+    return v;
 }
 
 //限制人物的属性

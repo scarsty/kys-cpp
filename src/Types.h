@@ -197,6 +197,8 @@ public:
     int getMagicLevelIndex(int magic_id);
     int getMagicOfRoleIndex(Magic* magic);
 
+    std::vector<Magic*> getLearnedMagic();
+
     void limit();
 
     int learnMagic(Magic* magic);
@@ -246,6 +248,7 @@ public:
     int ActType = -1;    //医拳剑刀特
     int ActFrame = 0;
     int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
+    int Hurt = 0;    //一帧内受到伤害累积
 
     Magic* UsingMagic = nullptr;
 

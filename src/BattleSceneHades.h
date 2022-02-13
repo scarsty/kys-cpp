@@ -28,6 +28,11 @@ struct AttackEffect
         Path = fmt1::format("eft/eft{:03}", num);
         TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
     }
+    void setPath(const std::string& p)
+    {
+        Path = p;
+        TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
+    }
 };
 
 struct TextEffect
@@ -75,7 +80,9 @@ protected:
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
 
-    std::unordered_map<std::string, std::function<int(AttackEffect&, Role* r)>> special_magic_effect_;
+    std::unordered_map<std::string, std::function<int(Role* r)>> special_magic_effect_every_frame_;    //每帧
+    std::unordered_map<std::string, std::function<int(Role* r)>> special_magic_effect_attack_;    //发动攻击
+    std::unordered_map<std::string, std::function<int(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
 
     Point pos45To90(int x, int y)    //45度坐标转为直角
     {
