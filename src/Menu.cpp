@@ -16,31 +16,31 @@ void Menu::dealEvent(BP_Event& e)
     //此处处理键盘响应
     if (e.type == BP_KEYDOWN)
     {
-        Direct direct = None;
+        Direct direct = DIrectNone;
 
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
-            direct = Left;
+            direct = DirectLeft;
             break;
         case BPK_UP:
-            direct = Up;
+            direct = DirectUp;
             break;
         case BPK_RIGHT:
-            direct = Right;
+            direct = DirectRight;
             break;
         case BPK_DOWN:
-            direct = Down;
+            direct = DirectDown;
             break;
         default:
             break;
         }
 
-        if (direct != None)
+        if (direct != DIrectNone)
         {
             //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
             bool all_normal = checkAllNormal();
-            setAllChildState(Normal);
+            setAllChildState(NodeNormal);
             if (all_normal)
             {
                 //当前的如果不显示，则找第一个
@@ -109,7 +109,7 @@ bool Menu::checkAllNormal()
     bool all_normal = true;
     for (auto c : childs_)
     {
-        if (c->getVisible() && c->getState() != Normal)
+        if (c->getVisible() && c->getState() != NodeNormal)
         {
             all_normal = false;
             break;

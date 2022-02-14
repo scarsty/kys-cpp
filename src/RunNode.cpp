@@ -135,7 +135,7 @@ void RunNode::setAllChildVisible(bool v)
 
 int RunNode::findNextVisibleChild(int i0, Direct direct)
 {
-    if (direct == None || childs_.size() == 0)
+    if (direct == DIrectNone || childs_.size() == 0)
     {
         return i0;
     }
@@ -154,19 +154,19 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         int dis1, dis2;
         switch (direct)
         {
-        case Left:
+        case DirectLeft:
             dis1 = current->x_ - c->x_;
             dis2 = abs(c->y_ - current->y_);
             break;
-        case Up:
+        case DirectUp:
             dis1 = current->y_ - c->y_;
             dis2 = abs(c->x_ - current->x_);
             break;
-        case Right:
+        case DirectRight:
             dis1 = c->x_ - current->x_;
             dis2 = abs(c->y_ - current->y_);
             break;
-        case Down:
+        case DirectDown:
             dis1 = c->y_ - current->y_;
             dis2 = abs(c->x_ - current->x_);
             break;
@@ -250,7 +250,7 @@ void RunNode::checkStateSelfChilds(BP_Event& e, bool check_event)
     }
     else
     {
-        state_ = Normal;
+        state_ = NodeNormal;
     }
 }
 
@@ -310,10 +310,10 @@ void RunNode::forceActiveChild()
 {
     for (int i = 0; i < childs_.size(); i++)
     {
-        childs_[i]->setState(Normal);
+        childs_[i]->setState(NodeNormal);
         if (i == active_child_)
         {
-            childs_[i]->setState(Pass);
+            childs_[i]->setState(NodePass);
         }
     }
 }
@@ -335,7 +335,7 @@ int RunNode::checkChildState()
     int r = -1;
     for (int i = 0; i < getChildCount(); i++)
     {
-        if (getChild(i)->getState() != Normal)
+        if (getChild(i)->getState() != NodeNormal)
         {
             r = i;
         }
@@ -352,30 +352,30 @@ void RunNode::checkSelfState(BP_Event& e)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
-            state_ = Pass;
+            state_ = NodePass;
         }
         else
         {
-            state_ = Normal;
+            state_ = NodeNormal;
         }
     }
     if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP) && e.button.button == BP_BUTTON_LEFT)
     {
         if (inSide(e.button.x, e.button.y))
         {
-            state_ = Press;
+            state_ = NodePress;
         }
         else
         {
-            state_ = Normal;
+            state_ = NodeNormal;
         }
     }
     if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP) && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
         //按下键盘的空格或者回车时，将pass的按键改为press
-        if (state_ == Pass)
+        if (state_ == NodePass)
         {
-            state_ = Press;
+            state_ = NodePress;
         }
     }
 }

@@ -40,20 +40,20 @@ void Button::draw()
     auto id = texture_normal_id_;
     BP_Color color = { 255, 255, 255, 255 };
     uint8_t alpha = 225;
-    if (state_ == Normal)
+    if (state_ == NodeNormal)
     {
         if (texture_normal_id_ == texture_pass_id_)
         {
             color = { 224, 224, 224, 255 };
         }
     }
-    if (state_ == Pass)
+    if (state_ == NodePass)
     {
         id = texture_pass_id_;
         alpha = 240;
         x += 2;
     }
-    else if (state_ == Press)
+    else if (state_ == NodePress)
     {
         id = texture_press_id_;
         alpha = 255;
@@ -65,11 +65,11 @@ void Button::draw()
     if (!text_.empty())
     {
         BP_Color color_text = color_normal_;
-        if (state_ == Pass)
+        if (state_ == NodePass)
         {
             color_text = color_pass_;
         }
-        else if (state_ == Press)
+        else if (state_ == NodePress)
         {
             color_text = color_press_;
         }

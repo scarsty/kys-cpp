@@ -25,7 +25,7 @@ void BattleActionMenu::setRole(Role* r)
     for (auto c : childs_)
     {
         c->setVisible(true);
-        c->setState(Normal);
+        c->setState(NodeNormal);
     }
 
     //移动过则不可移动
@@ -86,8 +86,8 @@ void BattleActionMenu::dealEvent(BP_Event& e)
     {
         int act = autoSelect(role_);
         setResult(act);
-        setAllChildState(Normal);
-        childs_[act]->setState(Press);
+        setAllChildState(NodeNormal);
+        childs_[act]->setState(NodePress);
         setExit(true);
         setVisible(false);    //AI不画菜单了，太乱
         return;
@@ -484,7 +484,7 @@ void BattleMagicMenu::onEntrance()
     if (role_->isAuto())
     {
         magic_ = role_->AI_Magic;
-        setAllChildState(Normal);
+        setAllChildState(NodeNormal);
         setResult(0);
         setExit(true);
         setVisible(false);

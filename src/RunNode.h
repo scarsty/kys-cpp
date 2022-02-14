@@ -114,21 +114,21 @@ public:
     //状态
     enum State
     {
-        Normal,
-        Pass,
-        Press,
+        NodeNormal,
+        NodePass,
+        NodePress,
     };
 
     enum Direct
     {
-        None,
-        Left,
-        Up,
-        Right,
-        Down
+        DIrectNone,
+        DirectLeft,
+        DirectUp,
+        DirectRight,
+        DirectDown,
     };
 
-    int state_ = Normal;
+    int state_ = NodeNormal;
     int getState() { return state_; }
     void setState(int s) { state_ = s; }
 

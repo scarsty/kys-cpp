@@ -398,45 +398,45 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
-            equip_magics_[i]->setState(Normal);
+            equip_magics_[i]->setState(NodeNormal);
         }
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
-            if (engine->checkKeyPress(BPK_j)) { index = 0; }
-            if (engine->checkKeyPress(BPK_i)) { index = 1; }
-            if (engine->checkKeyPress(BPK_k)) { index = 2; }
-            if (engine->checkKeyPress(BPK_m)) { index = 3; }
+            if (engine->checkKeyPress(BPK_j) && r->PhysicalPower >= 10) { index = 0; }
+            if (engine->checkKeyPress(BPK_i) && r->PhysicalPower >= 30) { index = 1; }
+            if (engine->checkKeyPress(BPK_k) && r->PhysicalPower >= 20) { index = 2; }
+            if (engine->checkKeyPress(BPK_m) && r->PhysicalPower >= 10) { index = 3; }
             r->OperationType = index;
             if (index >= 0 && magic[index])
             {
-                equip_magics_[index]->setState(Pass);
+                equip_magics_[index]->setState(NodePass);
                 auto m = magic[index];
                 r->ActType = m->MagicType;
                 r->UsingMagic = m;
                 r->ActFrame = 0;
-                if (index == 0 && r->PhysicalPower >= 10)
+                if (index == 0)
                 {
                     //轻击
                     //r->CoolDown = 10;
                 }
-                if (index == 1 && r->PhysicalPower >= 30)
+                if (index == 1)
                 {
                     //重击
                     //r->CoolDown = 60;
                 }
-                if (index == 2 && r->PhysicalPower >= 20)
+                if (index == 2)
                 {
                     //远程
                     //r->CoolDown = 20;
                 }
-                if (index == 3 && r->PhysicalPower >= 10)
+                if (index == 3)
                 {
                     //闪身
                     //r->CoolDown = 10;    //冷却更长，有收招硬直
                     r->Velocity = r->RealTowards;
                     r->Velocity.norm(speed * 3);
-                    r->SpeedFrame = 10;
+                    r->VelocitytFrame = 10;
                     r->PhysicalPower -= 2;
                     r->ActType = 0;
                 }
@@ -463,7 +463,7 @@ void BattleSceneHades::backRun1()
     }
     for (auto r : battle_roles_)
     {
-        r->Hurt = 0;
+        r->HurtThisFrame = 0;
         for (auto m : r->getLearnedMagic())
         {
             if (special_magic_effect_every_frame_.count(m->Name))
@@ -476,7 +476,7 @@ void BattleSceneHades::backRun1()
         {
             continue;
         }
-        if (r->SpeedFrame > 0)
+        if (r->VelocitytFrame > 0)
         {
             if (r == role_ && r->Dead)
             {
@@ -488,7 +488,7 @@ void BattleSceneHades::backRun1()
             {
                 r->Pos = p;
             }
-            r->SpeedFrame--;
+            r->VelocitytFrame--;
             //r->FaceTowards = rand_.rand() * 4;
             if (r->Pos.z < 0) { r->Pos.z = 0; }
         }
@@ -760,7 +760,7 @@ void BattleSceneHades::backRun1()
                     }
 
                     ae.Attacker->ExpGot += hurt / 2;
-                    r->Hurt += hurt;
+                    r->HurtThisFrame += hurt;
                     //std::vector<std::string> = {};
                     fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
                 }
@@ -837,7 +837,7 @@ void BattleSceneHades::backRun1()
     for (auto r : battle_roles_)
     {
         //此处计算累积伤害
-        int hurt = r->Hurt;
+        int hurt = r->HurtThisFrame;
         if (hurt > 0)
         {
             TextEffect te;
@@ -867,7 +867,7 @@ void BattleSceneHades::backRun1()
                 r->Velocity.norm(15);    //因为已经有击退速度，可以直接利用
                 r->Velocity.z = 12;
                 r->Velocity.norm(std::min(hurt / 2.5, 30.0));
-                r->SpeedFrame = 15;
+                r->VelocitytFrame = 15;
                 r->Frozen = 2;
                 //x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 //y_ = rand_.rand_int(2) - rand_.rand_int(2);
@@ -1244,7 +1244,7 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     //这个击退好像效果不太对
     r->Velocity = r->Pos - ae.Attacker->Pos;
     r->Velocity.norm(1);
-    r->SpeedFrame = 10;
+    r->VelocitytFrame = 10;
     r->HurtFrame = 10;
     if (ae.OperationType == 0)
     {
@@ -1338,7 +1338,7 @@ void BattleSceneHades::makeSpecialMagicEffect()
     {
         int hurt = defaultMagicEffect(ae, r);
         r->Velocity.norm(2);    //更强的击退
-        r->SpeedFrame = 20;
+        r->VelocitytFrame = 20;
         return hurt;
     };
     special_magic_effect_beat_["小無相功"] =
@@ -1359,7 +1359,7 @@ void BattleSceneHades::makeSpecialMagicEffect()
         [this](AttackEffect& ae, Role* r)->int
     {
         int hurt = defaultMagicEffect(ae, r);
-        ae.Attacker->Hurt += hurt * 0.05;
+        ae.Attacker->HurtThisFrame += hurt * 0.05;
         return hurt;
     };
     special_magic_effect_beat_["太玄神功"] =

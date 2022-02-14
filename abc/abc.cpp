@@ -195,7 +195,7 @@ int main()
 {
 
     //combine_ka("index.ka0", "index.ka");
-    check_fight_frame("game/resource/fight", 1);
+    //check_fight_frame("game/resource/fight", 1);
     //trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
     //trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
     //trans_fight_frame();

@@ -32,7 +32,7 @@ UIItem::UIItem()
     addChild(cursor_);
 
     active_child_ = 0;
-    getChild(0)->setState(Pass);
+    getChild(0)->setState(NodePass);
 }
 
 UIItem::~UIItem()
@@ -116,7 +116,7 @@ void UIItem::checkCurrentItem()
         title_->forceActiveChild(force_item_type_);
     }
     int active = title_->getActiveChildIndex();
-    title_->getChild(active)->setState(Pass);
+    title_->getChild(active)->setState(NodePass);
     geItemsByType(active);
     int type_item_count = available_items_.size();
     //从这里计算出左上角可以取的最大值
@@ -144,7 +144,7 @@ void UIItem::checkCurrentItem()
         {
             button->setTexture("item", -1);
         }
-        if (button->getState() == Pass || button->getState() == Press)
+        if (button->getState() == NodePass || button->getState() == NodePress)
         {
             current_button = button;
             //result_ = current_item_->ID;
@@ -159,11 +159,11 @@ void UIItem::checkCurrentItem()
         current_button->getPosition(x, y);
         current_item_ = Save::getInstance()->getItem(current_button->getTexutreID());
         //让光标显示出来
-        if (current_button->getState() == Pass)
+        if (current_button->getState() == NodePass)
         {
             x += 2;
         }
-        if (current_button->getState() == Press)
+        if (current_button->getState() == NodePress)
         {
             y += 2;
         }
@@ -265,7 +265,7 @@ void UIItem::dealEvent(BP_Event& e)
             forceActiveChild();
         }
         title_->setDealEvent(0);
-        title_->setAllChildState(Normal);
+        title_->setAllChildState(NodeNormal);
     }
     if (focus_ == 0)
     {
@@ -386,14 +386,6 @@ void UIItem::showItemProperty(Item* item)
 
     addOneProperty("資質{}", item->NeedIQ);
 
-    addOneProperty("基礎經驗{}", item->NeedExp);
-
-    if (item->NeedMaterial >= 0)
-    {
-        std::string str = "耗費";
-        str += Save::getInstance()->getItem(item->NeedMaterial)->Name;
-        addOneProperty(str, 1);
-    }
     if (item->NeedMPType == 0)
     {
         addOneProperty("陰性內力");
@@ -402,6 +394,16 @@ void UIItem::showItemProperty(Item* item)
     {
         addOneProperty("陽性內力");
     }
+
+    addOneProperty("基礎經驗{}", item->NeedExp);
+
+    if (item->NeedMaterial >= 0)
+    {
+        std::string str = "耗費";
+        str += Save::getInstance()->getItem(item->NeedMaterial)->Name;
+        addOneProperty(str, 1);
+    }
+
     l = showAddedProperty(size, c, x, y);
 
     y += l * size + 10;
@@ -458,7 +460,7 @@ void UIItem::onPressedOK()
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
-        if (button->getState() == Press)
+        if (button->getState() == NodePress)
         {
             auto item = getAvailableItem(i + leftup_index_);
             current_item_ = item;

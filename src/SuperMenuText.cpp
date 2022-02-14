@@ -18,7 +18,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     addChild(next_);
     selections_ = std::make_shared<MenuText>();
     addChild(selections_);
-    setAllChildState(Normal);
+    setAllChildState(NodeNormal);
     defaultPage();
 
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
@@ -198,16 +198,16 @@ void SuperMenuText::dealEvent(BP_Event& e)
 {
     // get不到result 为何
     // 不知道这玩意儿在干嘛，瞎搞即可
-    if (previous_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    if (previous_->getState() == NodePress && e.type == BP_MOUSEBUTTONUP)
     {
         flipPage(-1);
-        previous_->setState(Normal);
+        previous_->setState(NodeNormal);
         previous_->setResult(-1);
     }
-    else if (next_->getState() == Press && e.type == BP_MOUSEBUTTONUP)
+    else if (next_->getState() == NodePress && e.type == BP_MOUSEBUTTONUP)
     {
         flipPage(1);
-        next_->setState(Normal);
+        next_->setState(NodeNormal);
         next_->setResult(-1);
     }
 

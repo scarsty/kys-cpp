@@ -275,7 +275,7 @@ void BattleScene::dealEvent(BP_Event& e)
     select_x_ = role->X();
     select_y_ = role->Y();
     head_self_->setRole(role);
-    head_self_->setState(RunNode::Pass);
+    head_self_->setState(RunNode::NodePass);
 
     //行动
     action(role);
@@ -561,7 +561,7 @@ void BattleScene::setRoleInitState(Role* r)
         r->HP = r->MaxHP;
         r->MP = r->MaxMP;
         r->Poison = 0;
-        r->Hurt = 0;
+        r->HurtThisFrame = 0;
     }
 
     //读取动作帧数

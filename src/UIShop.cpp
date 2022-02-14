@@ -125,7 +125,7 @@ void UIShop::onPressedOK()
 {
     for (int i = 0; i < SHOP_ITEM_COUNT * 2; i++)
     {
-        if (buttons_[i]->getState() == Press)
+        if (buttons_[i]->getState() == NodePress)
         {
             int index = i / 2;
             int lr = i % 2;
@@ -145,7 +145,7 @@ void UIShop::onPressedOK()
             }
         }
     }
-    if (button_ok_->getState() == Press)
+    if (button_ok_->getState() == NodePress)
     {
         if (calNeedMoney() <= Save::getInstance()->getMoneyCountInBag())
         {
@@ -158,11 +158,11 @@ void UIShop::onPressedOK()
             exitWithResult(0);
         }
     }
-    if (button_cancel_->getState() == Press)
+    if (button_cancel_->getState() == NodePress)
     {
         exitWithResult(-1);
     }
-    if (button_clear_->getState() == Press)
+    if (button_clear_->getState() == NodePress)
     {
         for (int i = 0; i < SHOP_ITEM_COUNT; i++)
         {

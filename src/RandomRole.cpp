@@ -15,7 +15,7 @@ RandomRole::~RandomRole()
 
 void RandomRole::onPressedOK()
 {
-    if (button_ok_->getState() == Press)
+    if (button_ok_->getState() == NodePress)
     {
         result_ = 0;
         setExit(true);

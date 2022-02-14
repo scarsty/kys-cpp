@@ -30,7 +30,7 @@ UI::UI()
     {
         heads_->addChild(std::make_shared<Head>(), 20, 60 + i * 90);
     }
-    heads_->getChild(0)->setState(Pass);
+    heads_->getChild(0)->setState(NodePass);
     //addChild(heads_);
     result_ = -1;    //非负：物品id，负数：其他情况，再定
 }
@@ -59,7 +59,7 @@ void UI::dealEvent(BP_Event& e)
         {
             continue;
         }
-        if (head->getState() == Pass)
+        if (head->getState() == NodePass)
         {
             ui_status_->setRole(role);
             current_head_ = i;
@@ -78,7 +78,7 @@ void UI::dealEvent(BP_Event& e)
                 }
                 if (GameUtil::canUseItem(role, item))
                 {
-                    head->setState(Pass);
+                    head->setState(NodePass);
                 }
             }
         }
@@ -87,9 +87,9 @@ void UI::dealEvent(BP_Event& e)
     //这里设定当前头像为Pass，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
     if (childs_[0] == ui_status_)
     {
-        heads_->getChild(current_head_)->setState(Pass);
+        heads_->getChild(current_head_)->setState(NodePass);
     }
-    childs_[current_button_]->setState(Pass);
+    childs_[current_button_]->setState(NodePass);
 
     //快捷键切换
     if (e.type == BP_KEYUP)
@@ -98,20 +98,20 @@ void UI::dealEvent(BP_Event& e)
         {
         case BPK_1:
             childs_[0] = ui_status_;
-            setAllChildState(Normal);
-            button_status_->setState(Press);
+            setAllChildState(NodeNormal);
+            button_status_->setState(NodePress);
             current_button_ = 0;
             break;
         case BPK_2:
             childs_[0] = ui_item_;
-            setAllChildState(Normal);
-            button_item_->setState(Press);
+            setAllChildState(NodeNormal);
+            button_item_->setState(NodePress);
             current_button_ = 1;
             break;
         case BPK_3:
             childs_[0] = ui_system_;
-            setAllChildState(Normal);
-            button_system_->setState(Press);
+            setAllChildState(NodeNormal);
+            button_system_->setState(NodePress);
             current_button_ = 2;
             break;
         default:
@@ -151,17 +151,17 @@ void UI::onPressedOK()
     }
 
     //四个按钮的响应
-    if (button_status_->getState() == Press)
+    if (button_status_->getState() == NodePress)
     {
         childs_[0] = ui_status_;
         current_button_ = button_status_->getTag();
     }
-    if (button_item_->getState() == Press)
+    if (button_item_->getState() == NodePress)
     {
         childs_[0] = ui_item_;
         current_button_ = button_item_->getTag();
     }
-    if (button_system_->getState() == Press)
+    if (button_system_->getState() == NodePress)
     {
         childs_[0] = ui_system_;
         current_button_ = button_system_->getTag();

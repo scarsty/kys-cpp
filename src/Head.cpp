@@ -51,7 +51,7 @@ void Head::draw()
     {
         TextureManager::getInstance()->renderTexture("title", 102, x_, y_);
     }
-    if (state_ == Normal)
+    if (state_ == NodeNormal)
     {
         color = { 160, 160, 160, 255 };
     }

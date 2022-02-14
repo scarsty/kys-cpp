@@ -94,6 +94,28 @@ enum
     SHOP_ITEM_COUNT = 5,
 };
 
+enum class ActType_t : int
+{
+    None = -1,
+    Medcine,
+    Fist,
+    Sword,
+    Knife,
+    Unusual,
+};
+
+enum class OperationType_t : int
+{
+    None = -1,
+    Light,
+    Heavy,
+    Long,
+    Slash,
+};
+
+using AT = ActType_t;
+using OT = OperationType_t;
+
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
 //存档中的角色数据
@@ -238,7 +260,7 @@ public:
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
     Pointf Velocity;    //指该质点的速度，每帧据此计算坐标
     Pointf Acceleration;    //加速度
-    int SpeedFrame = 0;    //大于0时质点速度才生效
+    int VelocitytFrame = 0;    //大于0时质点速度才生效
     int HurtFrame = 0;    //正在受到伤害
     int CoolDown = 0;    //冷却
     int Attention = 0;    //出场
@@ -248,7 +270,7 @@ public:
     int ActType = -1;    //医拳剑刀特
     int ActFrame = 0;
     int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
-    int Hurt = 0;    //一帧内受到伤害累积
+    int HurtThisFrame = 0;    //一帧内受到伤害累积
 
     Magic* UsingMagic = nullptr;
 
