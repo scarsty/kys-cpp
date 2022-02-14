@@ -233,6 +233,16 @@ public:
 
     int movedDistance() { return abs(X_ - prevX_) + abs(Y_ - prevY_); }
 
+    int getWeapon(int act_type)
+    {
+        if (act_type == 0) { return Medicine; }
+        if (act_type == 1) { return Fist; }
+        if (act_type == 2) { return Sword; }
+        if (act_type == 3) { return Knife; }
+        if (act_type == 4) { return Unusual; }
+        return 0;
+    }
+
 public:
     int AI_Action = 0;
     int AI_MoveX = 0, AI_MoveY = 0;

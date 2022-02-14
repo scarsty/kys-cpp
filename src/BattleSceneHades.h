@@ -12,7 +12,8 @@
 
 struct AttackEffect
 {
-    Pointf Pos, Speed;
+    Pointf Pos;
+    Pointf Velocity;
     Role* Attacker = nullptr;
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
@@ -25,8 +26,7 @@ struct AttackEffect
     Role* FollowRole = nullptr;
     void setEft(int num)
     {
-        Path = fmt1::format("eft/eft{:03}", num);
-        TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
+        setPath(fmt1::format("eft/eft{:03}", num));
     }
     void setPath(const std::string& p)
     {
@@ -161,8 +161,9 @@ protected:
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
-    Role* findNearestEnemy(int team, double x, double y);
-    int calCoolDown(int act_type, int act_type2, Role* r);
+    Role* findNearestEnemy(int team, Pointf p);
+    int calCast(int act_type, int operation_type, Role* r);
+    int calCoolDown(int act_type, int operation_type, Role* r);
     void decreaseToZero(int& i) { if (i > 0) { i--; } }
     int defaultMagicEffect(AttackEffect& ae, Role* r);
     void makeSpecialMagicEffect();
