@@ -616,64 +616,64 @@ void BattleSceneHades::backRun1()
                             ae.OperationType = 1;
                         }
                     }
+
+                    int index = r->getMagicOfRoleIndex(ae.UsingMagic);
+                    if (index >= 0)
                     {
-                        int index = r->getMagicOfRoleIndex(ae.UsingMagic);
-                        if (index >= 0)
-                        {
-                            r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
-                        }
-                        if (ae.OperationType == 0)
-                        {
-                            ae.TotalFrame = 10;
-                            attack_effects_.push_back(std::move(ae));
-                            needMP *= 0.1;
-                        }
-                        else if (ae.OperationType == 1)
-                        {
-                            int range = magic->AttackDistance[level_index] + magic->SelectDistance[level_index];
-                            int count = range;
-                            auto p = ae.Pos;
-                            ae.TotalFrame = 60;
-                            double angle = r->RealTowards.getAngle();
-                            for (int i = 0; i < count; i++)
-                            {
-                                ae.Pos = p;
-                                ae.Velocity = { cos(angle + i * 2 * M_PI / count), sin(angle + i * 2 * M_PI / count) };
-                                ae.Velocity.norm(3);
-                                ae.Frame = rand_.rand() * 10;
-                                attack_effects_.push_back(ae);
-                            }
-                            needMP *= 0.4;
-                        }
-                        else if (ae.OperationType == 2)
-                        {
-                            auto r0 = findNearestEnemy(r->Team, r->Pos);
-                            if (r0)
-                            {
-                                ae.Velocity = r0->Pos - r->Pos;
-                            }
-                            else
-                            {
-                                ae.Velocity = r->RealTowards;
-                            }
-                            ae.Velocity.norm(5);
-                            ae.TotalFrame = 30;
-                            attack_effects_.push_back(std::move(ae));
-                            needMP *= 0.2;
-                        }
-                        else if (ae.OperationType == 3)
-                        {
-                            auto p = ae.Pos;
-                            int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
-                            for (int i = 0; i < count; i++)
-                            {
-                                ae.Pos = p + r->Velocity * (i - 1) * 2;
-                                ae.Frame += 3;
-                                attack_effects_.push_back(ae);
-                            }
-                            needMP *= 0.05;
-                        }
+                        r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
                     }
+                    if (ae.OperationType == 0)
+                    {
+                        ae.TotalFrame = 5;
+                        attack_effects_.push_back(std::move(ae));
+                        needMP *= 0.1;
+                    }
+                    else if (ae.OperationType == 1)
+                    {
+                        int range = magic->AttackDistance[level_index] + magic->SelectDistance[level_index];
+                        int count = range;
+                        auto p = ae.Pos;
+                        ae.TotalFrame = 60;
+                        double angle = r->RealTowards.getAngle();
+                        for (int i = 0; i < count; i++)
+                        {
+                            ae.Pos = p;
+                            ae.Velocity = { cos(angle + i * 2 * M_PI / count), sin(angle + i * 2 * M_PI / count) };
+                            ae.Velocity.norm(3);
+                            ae.Frame = rand_.rand() * 10;
+                            attack_effects_.push_back(ae);
+                        }
+                        needMP *= 0.4;
+                    }
+                    else if (ae.OperationType == 2)
+                    {
+                        auto r0 = findNearestEnemy(r->Team, r->Pos);
+                        if (r0)
+                        {
+                            ae.Velocity = r0->Pos - r->Pos;
+                        }
+                        else
+                        {
+                            ae.Velocity = r->RealTowards;
+                        }
+                        ae.Velocity.norm(5);
+                        ae.TotalFrame = 30;
+                        attack_effects_.push_back(std::move(ae));
+                        needMP *= 0.2;
+                    }
+                    else if (ae.OperationType == 3)
+                    {
+                        auto p = ae.Pos;
+                        int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
+                        for (int i = 0; i < count; i++)
+                        {
+                            ae.Pos = p + r->Velocity * (i - 1) * 2;
+                            ae.Frame += 3;
+                            attack_effects_.push_back(ae);
+                        }
+                        needMP *= 0.05;
+                    }
+                    fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
                     //else
                     //{
                     //    attack_effects_.push_back(ae);
@@ -1216,7 +1216,8 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
     return 0;
 }
 
-//冷却减去行动加上就是后摇
+//冷却减去前摇就是后摇
+//需注意攻击判定可能仍然存在，严格来说攻击判定存在的时间加上前摇应小于冷却
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getWeapon(act_type);
