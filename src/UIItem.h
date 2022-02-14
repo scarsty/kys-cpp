@@ -43,7 +43,10 @@ public:
     virtual void dealEvent(BP_Event& e) override;
 
     void showItemProperty(Item* item);
-    void showOneProperty(int v, std::string format_str, int size, BP_Color c, int& x, int& y);
+    std::vector<std::string> properties_;
+    void addOneProperty(const std::string& format_str, int v);
+    void addOneProperty(const std::string& format_str);
+    int showAddedProperty(int size, BP_Color c, int x, int y);
 
     Item* current_item_ = nullptr;
     std::vector<Item*> available_items_;

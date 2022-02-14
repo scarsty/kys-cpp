@@ -21,7 +21,9 @@ BattleSceneHades::BattleSceneHades()
         h = std::make_shared<Head>();
         h->setAlwaysLight(1);
         addChild(h, 10, 10 + (i++) * 80);
+        h->setVisible(false);
     }
+    heads_[0]->setVisible(true);
 
     menu_ = std::make_shared<Menu>();
     menu_->setPosition(300, 30);
@@ -235,15 +237,19 @@ void BattleSceneHades::draw()
             if (d.shadow)
             {
                 auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
-                double scalex = 1, scaley = 0.3;
-                int yd = tex->dy * 0.7;
-                if (d.rot)
+                if (tex)
                 {
-                    scalex = 0.3;
-                    scaley = 1;
-                    yd = tex->dy * 0.1;
+                    double scalex = 1, scaley = 0.3;
+                    int yd = tex->dy * 0.7;
+                    if (d.rot)
+                    {
+                        scalex = 0.3;
+                        scaley = 1;
+                        yd = tex->dy * 0.1;
+                    }
+
+                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 0,0,0,255 }, 128, scalex, scaley, d.rot);
                 }
-                TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 0,0,0,255 }, 128, scalex, scaley, d.rot);
             }
         }
         for (auto& d : building_vec)
@@ -747,7 +753,7 @@ void BattleSceneHades::backRun1()
                             hurt = special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
                         }
                     }
-
+                    hurt += 5 * (rand_.rand() - rand_.rand());
                     if (hurt <= 0)
                     {
                         hurt = 1 + rand_.rand() * 3;
@@ -1021,7 +1027,7 @@ void BattleSceneHades::onEntrance()
     pos_ = enemies_[0]->Pos;
 
     //敌人按能力从低到高，依次出场
-    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->Level * 10000 + l->MaxHP < r->Level * 10000 + r->MaxHP; });
+    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->MaxHP + l->Attack < r->MaxHP + r->Attack; });
     if (!enemies_.empty()) { head_boss_->setRole(enemies_.back()); }
     for (int i = 0; i < 6; i++)
     {

@@ -17,11 +17,13 @@ BattleMap::BattleMap()
     }
     //File::readFileToVector("../game/resource/warfld.grp", battle_field_data2_);
 
+    //std::string str;
     for (auto& i : battle_infos_)
     {
-        PotConv::fromCP950ToCP936(i.Name);
-        std::string s = i.Name;
+        std::string s = PotConv::cp950toutf8(i.Name);
+        //str += s + "\n";
     }
+    //File::writeFile("1.txt", (void*)str.c_str(), str.size());
 }
 
 BattleMap::~BattleMap()

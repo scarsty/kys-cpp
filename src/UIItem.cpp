@@ -230,7 +230,9 @@ void UIItem::dealEvent(BP_Event& e)
                 {
                     leftup_index_ += item_each_line_;
                     if (leftup_index_ <= max_leftup_)
-                    { active_child_ = item_each_line_ * (line_count_ - 1); }
+                    {
+                        active_child_ = item_each_line_ * (line_count_ - 1);
+                    }
                 }
                 break;
             case BPK_UP:
@@ -288,6 +290,7 @@ void UIItem::showItemProperty(Item* item)
 
     int x = 10, y = 430;
     int size = 20;
+    int l;
 
     //以下显示物品的属性
     BP_Color c = { 255, 215, 0, 255 };
@@ -298,7 +301,8 @@ void UIItem::showItemProperty(Item* item)
         int man_x, man_y;
         MainScene::getInstance()->getManPosition(man_x, man_y);
         auto str = fmt1::format("當前坐標 {}, {}", man_x, man_y);
-        showOneProperty(1, str, size, c, x, y);
+        addOneProperty(str, 1);
+        y = showAddedProperty(size, c, x, y);
     }
 
     //剧情物品不继续显示了
@@ -310,42 +314,42 @@ void UIItem::showItemProperty(Item* item)
     //Font::getInstance()->draw("效果：", size, x_ + x, y_ + y, c);
     //y += size + 10;
 
-    showOneProperty(item->AddHP, "生命{:+}", size, c, x, y);
-    showOneProperty(item->AddMaxHP, "生命上限{:+}", size, c, x, y);
-    showOneProperty(item->AddMP, "內力{:+}", size, c, x, y);
-    showOneProperty(item->AddMaxMP, "內力上限{:+}", size, c, x, y);
-    showOneProperty(item->AddPhysicalPower, "體力{:+}", size, c, x, y);
-    showOneProperty(item->AddPoison, "中毒{:+}", size, c, x, y);
+    addOneProperty("生命{:+}", item->AddHP);
+    addOneProperty("生命上限{:+}", item->AddMaxHP);
+    addOneProperty("內力{:+}", item->AddMP);
+    addOneProperty("內力上限{:+}", item->AddMaxMP);
+    addOneProperty("體力{:+}", item->AddPhysicalPower);
+    addOneProperty("中毒{:+}", item->AddPoison);
 
-    showOneProperty(item->AddAttack, "攻擊{:+}", size, c, x, y);
-    showOneProperty(item->AddSpeed, "輕功{:+}", size, c, x, y);
-    showOneProperty(item->AddDefence, "防禦{:+}", size, c, x, y);
+    addOneProperty("攻擊{:+}", item->AddAttack);
+    addOneProperty("輕功{:+}", item->AddSpeed);
+    addOneProperty("防禦{:+}", item->AddDefence);
 
-    showOneProperty(item->AddMedicine, "醫療{:+}", size, c, x, y);
-    showOneProperty(item->AddUsePoison, "用毒{:+}", size, c, x, y);
-    showOneProperty(item->AddDetoxification, "解毒{:+}", size, c, x, y);
-    showOneProperty(item->AddAntiPoison, "抗毒{:+}", size, c, x, y);
+    addOneProperty("醫療{:+}", item->AddMedicine);
+    addOneProperty("用毒{:+}", item->AddUsePoison);
+    addOneProperty("解毒{:+}", item->AddDetoxification);
+    addOneProperty("抗毒{:+}", item->AddAntiPoison);
 
-    showOneProperty(item->AddFist, "拳掌{:+}", size, c, x, y);
-    showOneProperty(item->AddSword, "御劍{:+}", size, c, x, y);
-    showOneProperty(item->AddKnife, "耍刀{:+}", size, c, x, y);
-    showOneProperty(item->AddUnusual, "特殊兵器{:+}", size, c, x, y);
-    showOneProperty(item->AddHiddenWeapon, "暗器{:+}", size, c, x, y);
+    addOneProperty("拳掌{:+}", item->AddFist);
+    addOneProperty("御劍{:+}", item->AddSword);
+    addOneProperty("耍刀{:+}", item->AddKnife);
+    addOneProperty("特殊兵器{:+}", item->AddUnusual);
+    addOneProperty("暗器{:+}", item->AddHiddenWeapon);
 
-    showOneProperty(item->AddKnowledge, "作弊{:+}", size, c, x, y);
-    showOneProperty(item->AddMorality, "道德{:+}", size, c, x, y);
-    showOneProperty(item->AddAttackWithPoison, "攻擊帶毒{:+}", size, c, x, y);
+    addOneProperty("作弊{:+}", item->AddKnowledge);
+    addOneProperty("道德{:+}", item->AddMorality);
+    addOneProperty("攻擊帶毒{:+}", item->AddAttackWithPoison);
 
-    showOneProperty(int(item->ChangeMPType == 2), "內力調和", size, c, x, y);
-    showOneProperty(int(item->AddAttackTwice == 1), "雙擊", size, c, x, y);
+    addOneProperty("內力調和", int(item->ChangeMPType == 2));
+    addOneProperty("雙擊", int(item->AddAttackTwice == 1));
 
     auto magic = Save::getInstance()->getMagic(item->MagicID);
     if (magic)
     {
         auto str = fmt1::format("習得武學{}", magic->Name);
-        showOneProperty(1, str, size, c, x, y);
+        addOneProperty(str, 1);
     }
-
+    l = showAddedProperty(size, c, x, y);
     //以下显示物品需求
 
     //药品和暗器类不继续显示了
@@ -354,8 +358,7 @@ void UIItem::showItemProperty(Item* item)
         return;
     }
 
-    x = 10;
-    y += size + 10;    //换行
+    y += l * size + 10;    //换行
     c = { 224, 170, 255, 255 };
     //Font::getInstance()->draw("需求：", size, x_ + x, y_ + y, c);
     //y += size + 10;
@@ -363,37 +366,45 @@ void UIItem::showItemProperty(Item* item)
     if (role)
     {
         auto str = fmt1::format("僅適合{}", role->Name);
-        showOneProperty(1, str, size, c, x, y);
+        addOneProperty(str, 1);
         return;
     }
 
-    showOneProperty(item->NeedMP, "內力{}", size, c, x, y);
-    showOneProperty(item->NeedAttack, "攻擊{}", size, c, x, y);
-    showOneProperty(item->NeedSpeed, "輕功{}", size, c, x, y);
+    addOneProperty("內力{}", item->NeedMP);
+    addOneProperty("攻擊{}", item->NeedAttack);
+    addOneProperty("輕功{}", item->NeedSpeed);
 
-    showOneProperty(item->NeedMedicine, "醫療{}", size, c, x, y);
-    showOneProperty(item->NeedUsePoison, "用毒{}", size, c, x, y);
-    showOneProperty(item->NeedDetoxification, "解毒{}", size, c, x, y);
+    addOneProperty("醫療{}", item->NeedMedicine);
+    addOneProperty("用毒{}", item->NeedUsePoison);
+    addOneProperty("解毒{}", item->NeedDetoxification);
 
-    showOneProperty(item->NeedFist, "拳掌{}", size, c, x, y);
-    showOneProperty(item->NeedSword, "御劍{}", size, c, x, y);
-    showOneProperty(item->NeedKnife, "耍刀{}", size, c, x, y);
-    showOneProperty(item->NeedUnusual, "特殊兵器{}", size, c, x, y);
-    showOneProperty(item->NeedHiddenWeapon, "暗器{}", size, c, x, y);
+    addOneProperty("拳掌{}", item->NeedFist);
+    addOneProperty("御劍{}", item->NeedSword);
+    addOneProperty("耍刀{}", item->NeedKnife);
+    addOneProperty("特殊兵器{}", item->NeedUnusual);
+    addOneProperty("暗器{}", item->NeedHiddenWeapon);
 
-    showOneProperty(item->NeedIQ, "資質{}", size, c, x, y);
+    addOneProperty("資質{}", item->NeedIQ);
 
-    showOneProperty(item->NeedExp, "基礎經驗{}", size, c, x, y);
+    addOneProperty("基礎經驗{}", item->NeedExp);
 
     if (item->NeedMaterial >= 0)
     {
         std::string str = "耗費";
         str += Save::getInstance()->getItem(item->NeedMaterial)->Name;
-        showOneProperty(1, str, size, c, x, y);
+        addOneProperty(str, 1);
     }
+    if (item->NeedMPType == 0)
+    {
+        addOneProperty("陰性內力");
+    }
+    if (item->NeedMPType == 1)
+    {
+        addOneProperty("陽性內力");
+    }
+    l = showAddedProperty(size, c, x, y);
 
-    x = 10;
-    y += size + 10;
+    y += l * size + 10;
     for (int i = 0; i < 5; i++)
     {
         int make = item->MakeItem[i];
@@ -401,37 +412,44 @@ void UIItem::showItemProperty(Item* item)
         {
             std::string str = Save::getInstance()->getItem(make)->Name;
             //str += " %d";
-            showOneProperty(item->MakeItemCount[i], str, size, c, x, y);
+            addOneProperty(str, item->MakeItemCount[i]);
         }
     }
+    showAddedProperty(size, c, x, y);
 }
 
-void UIItem::showOneProperty(int v, std::string format_str, int size, BP_Color c, int& x, int& y)
+void UIItem::addOneProperty(const std::string& format_str, int v)
 {
     if (v != 0)
     {
-        std::string str;
-        //int parameter_count = convert::extractFormatString(format_str).size();
-        //if (parameter_count == 1)
-        //{
-        //    str = fmt1::format(format_str.c_str(), v);
-        //}
-        //else if (parameter_count==0)
-        //{
-        //    str = format_str;
-        //}
-        str = fmt1::format(format_str.c_str(), v);
-        //测试是不是出界了
+        properties_.push_back(fmt1::format(format_str.c_str(), v));
+    }
+}
+
+void UIItem::addOneProperty(const std::string& format_str)
+{
+    properties_.push_back(format_str);
+}
+
+//返回值为行数
+int UIItem::showAddedProperty(int size, BP_Color c, int x, int y)
+{
+    int line = 1;
+    for (auto& str : properties_)
+    {
         int draw_length = size * Font::getTextDrawSize(str) / 2 + size;
         int x1 = x + draw_length;
         if (x1 > 700)
         {
             x = 10;
             y += size + 5;
+            line++;
         }
         Font::getInstance()->draw(str, size, x_ + x, y_ + y, c);
         x += draw_length;
     }
+    properties_.clear();
+    return line;
 }
 
 void UIItem::onPressedOK()

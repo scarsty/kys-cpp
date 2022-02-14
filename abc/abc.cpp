@@ -137,25 +137,82 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     return 0;
 }
 
+//转换二进制文件为文本
+void combine_ka(std::string in, std::string out)
+{
+    std::vector<int16_t> in1, out1;
+    File::readFileToVector(in, in1);
+    File::readFileToVector(out, out1);
+    std::string s;
+    int i = 0;
+    for (int i = 0; i < out1.size(); i += 2)
+    {
+        if (i < in1.size() && out1[i] == 0 && out1[i + 1] == 0)
+        {
+            out1[i] = in1[i];
+            out1[i + 1] = in1[i + 1];
+            fmt1::print("{}, ", i / 2);
+        }
+
+    }
+    //File::writeFile("game/resource/smap/index.ka", out1.data(), out1.size() * 2);
+    //convert::writeStringToFile(s, out);
+}
+
+void check_fight_frame(std::string path, int repair = 0)
+{
+    for (int i = 0; i < 500; i++)
+    {
+        auto path1 = fmt1::format("{}/fight{:03}", path, i);
+        if (File::pathExist(path1))
+        {
+            auto files = File::getFilesInPath(path1, 0);
+            int count = files.size() - 3;
+            int sum = 0;
+            auto filename = path1 + "/fightframe.txt";
+            auto numbers = convert::findNumbers<int>(convert::readStringFromFile(filename));
+            for (int i = 0; i < numbers.size(); i += 2)
+            {
+                sum += numbers[i + 1];
+            }
+            if (sum * 4 != count)
+            {
+                fmt1::print("{}\n", path1);
+                if (repair)
+                {
+                    if (numbers.size() <= 2)
+                    {
+                        auto str = fmt1::format("{}, {}", numbers[0], count / 4);
+                        convert::writeStringToFile(str, filename);
+                    }
+                }
+            }
+        }
+    }
+}
+
 int main()
 {
-    trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
-    trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
-    trans_fight_frame();
 
-    expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
+    //combine_ka("index.ka0", "index.ka");
+    check_fight_frame("game/resource/fight", 1);
+    //trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
+    //trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
+    //trans_fight_frame();
 
-    for (int i = 1; i <= 20; i++)
-    {
-        std::string grp = "../game/save/r" + std::to_string(i) + ".grp";
-        expandR("../game/save/ranger.idx", grp);
-        grp = "../game/save/s" + std::to_string(i) + ".grp";
-        expandR("../game/save/allsin.idx", grp, false);
-        grp = "../game/save/d" + std::to_string(i) + ".grp";
-        expandR("../game/save/alldef.idx", grp, false);
-    }
-    expandR("../game/resource/kdef.idx", "../game/resource/kdef.grp", false);
-    expandR("../game/resource/warfld.idx", "../game/resource/warfld.grp", false);
+    //expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
+
+    //for (int i = 1; i <= 20; i++)
+    //{
+    //    std::string grp = "../game/save/r" + std::to_string(i) + ".grp";
+    //    expandR("../game/save/ranger.idx", grp);
+    //    grp = "../game/save/s" + std::to_string(i) + ".grp";
+    //    expandR("../game/save/allsin.idx", grp, false);
+    //    grp = "../game/save/d" + std::to_string(i) + ".grp";
+    //    expandR("../game/save/alldef.idx", grp, false);
+    //}
+    //expandR("../game/resource/kdef.idx", "../game/resource/kdef.grp", false);
+    //expandR("../game/resource/warfld.idx", "../game/resource/warfld.grp", false);
 
     return 0;
 }
