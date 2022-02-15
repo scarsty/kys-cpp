@@ -94,9 +94,10 @@ std::vector<Magic*> Role::getLearnedMagic()
     std::vector<Magic*> v;
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
     {
-        if (MagicID[i] > 0)
+        auto m = Save::getInstance()->getMagic(MagicID[i]);
+        if (m)
         {
-            v.push_back(Save::getInstance()->getMagic(MagicID[i]));
+            v.push_back(m);
         }
     }
     return v;

@@ -38,6 +38,12 @@ TitleScene::TitleScene()
     pe_->setPosition(490, 80);
     pe_->setSize(20, 20);
     addChild(pe_);
+
+    Save::getInstance()->load(5);
+RandomDouble rand;
+int k = rand.rand() * 139;
+k = 100;
+Event::getInstance()->tryBattle(k, 0);
 }
 
 TitleScene::~TitleScene()
@@ -93,11 +99,6 @@ void TitleScene::dealEvent(BP_Event& e)
     }
     if (r == 1)
     {
-        //Save::getInstance()->load(5);
-        //RandomDouble rand;
-        //int k = rand.rand() * 139;
-        //k = 54;
-        //Event::getInstance()->tryBattle(k, 0);
         if (menu_load_->run() >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用

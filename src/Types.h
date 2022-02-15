@@ -281,6 +281,7 @@ public:
     int ActFrame = 0;
     int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
     int HurtThisFrame = 0;    //一帧内受到伤害累积
+    int TurnTowards = -1;    //ai的转弯倾向
 
     Magic* UsingMagic = nullptr;
 

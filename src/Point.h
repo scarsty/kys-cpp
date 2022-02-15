@@ -28,6 +28,16 @@ public:
         }
         return *this;
     }
+    Point_<T>& normXY(T n)
+    {
+        T n1 = sqrt(x * x + y * y);
+        if (n1 != 0)
+        {
+            x *= n / n1;
+            y *= n / n1;
+        }
+        return *this;
+    }
     Point_<T>& operator*=(double f)
     {
         x *= f;
@@ -42,6 +52,16 @@ public:
         z += p.z;
         return *this;
     }
+    Point_<T>& rotate(double angle)
+    {
+        double angle0 = getAngle();
+        angle = angle0 + angle;
+        auto n = sqrt(x * x + y * y);
+        x = n * cos(angle);
+        y = n * sin(angle);
+        return *this;
+    }
+
     double getAngle()
     {
         return atan2f(y, x);

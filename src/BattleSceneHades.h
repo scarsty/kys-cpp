@@ -62,6 +62,7 @@ public:
 
 protected:
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
+    double gravity_ = -4;
 
     std::deque<AttackEffect> attack_effects_;
     std::deque<TextEffect> text_effects_;
@@ -117,25 +118,22 @@ protected:
         auto p = pos90To45(x, y);
         return canWalk45(p.x, p.y);
     }
-    bool canWalk90(int x, int y, Role* r, int dis = -1)
+    bool canWalk90(Pointf p, Role* r, int dis = -1)
     {
-        //if (dis == -1) { dis = TILE_W; }
-        //for (auto r1 : battle_roles_)
-        //{
-        //    if (r1 == r || r1->Dead) { continue; }
-        //    if (EuclidDis(x - r1->X1, y - r1->Y1) < dis)
-        //    {
-        //        return false;
-        //    }
-        //}
         if (r->Pos.z > 20) { return true; }
-        auto p = pos90To45(x, y);
-        return canWalk45(p.x, p.y);
-    }
-
-    bool canWalk90(const Pointf& p, Role* r, int dis = -1)
-    {
-        return canWalk90(p.x, p.y, r, dis);
+        if (dis == -1) { dis = TILE_W; }
+        for (auto r1 : battle_roles_)
+        {
+            if (r1 == r || r1->Dead) { continue; }
+            double dis1 = EuclidDis(p, r1->Pos);
+            if (dis1 < dis)
+            {
+                double dis0 = EuclidDis(r->Pos, r1->Pos);
+                if (dis0 >= dis1) { return false; }
+            }
+        }
+        auto p45 = pos90To45(p.x, p.y);
+        return canWalk45(p45.x, p45.y);
     }
 
     double EuclidDis(double x, double y)
@@ -166,6 +164,9 @@ protected:
     int calCoolDown(int act_type, int operation_type, Role* r);
     void decreaseToZero(int& i) { if (i > 0) { i--; } }
     int defaultMagicEffect(AttackEffect& ae, Role* r);
+    int calRolePic(Role* r, int style, int frame) override;
+
+
     void makeSpecialMagicEffect();
 };
 

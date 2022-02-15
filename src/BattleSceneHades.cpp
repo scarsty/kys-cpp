@@ -388,7 +388,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             r->RealTowards = pos_ - r->Pos;
         }
 
-        if (canWalk90(pos_.x, pos_.y, r))
+        if (canWalk90(pos_, r))
         {
             r->Pos = pos_;
         }
@@ -485,7 +485,9 @@ void BattleSceneHades::backRun1()
             }
             auto p = r->Pos + r->Velocity;
             r->Velocity += r->Acceleration;
-            if (canWalk90(p, r, TILE_W / 2))
+            int dis = -1;
+            if (r->OperationType == 3) { dis = TILE_W / 4; }
+            if (canWalk90(p, r, dis))
             {
                 r->Pos = p;
             }
@@ -510,6 +512,9 @@ void BattleSceneHades::backRun1()
             }
             r->MP += 1;
             r->Acted = 0;
+            r->ActFrame = 0;
+            r->OperationType = -1;
+            r->ActType = -1;
         }
         decreaseToZero(r->HurtFrame);
         decreaseToZero(r->Attention);
@@ -691,28 +696,6 @@ void BattleSceneHades::backRun1()
                     //}
                     r->MP = GameUtil::limit(r->MP - needMP, 0, r->MaxMP);
                 }
-                //动作帧数计算
-                int act_frame = r->FightFrame[r->ActType];
-                if (act_frame > 0)
-                {
-                    //如果有动作动画，则使用之
-                    if (r->ActFrame >= act_frame - 2)
-                    {
-                        if (r->CoolDown == 0)
-                        {
-                            r->ActType = -1;
-                            r->ActFrame = 0;
-                        }
-                        else
-                        {
-                            r->ActFrame = r->FightFrame[r->ActType] - 2;    //cooldown结束前停在最后行动帧，最后一帧一般是无行动的图
-                        }
-                    }
-                }
-                else
-                {
-                    //没有就发呆吧
-                }
                 if (r->OperationType == 1)
                 {
                     r->ActFrame++;
@@ -726,11 +709,6 @@ void BattleSceneHades::backRun1()
                 {
                     r->ActFrame++;
                 }
-            }
-            else
-            {
-                //无行动
-                r->ActFrame = 0;
             }
 
             //计算有人被打中
@@ -769,7 +747,7 @@ void BattleSceneHades::backRun1()
                     fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
                 }
             }
-            //ai
+            //ai行动
             if (r != role_ && r->Dead == 0)
             {
                 if (r->CoolDown == 0)
@@ -785,7 +763,30 @@ void BattleSceneHades::backRun1()
                         r->RealTowards.norm(1);
                         if (EuclidDis(r->Pos, r0->Pos) > TILE_W * 3)
                         {
-                            r->Pos += r->Speed / 20.0 * r->RealTowards;
+                            auto p = r->Pos + r->Speed / 20.0 * r->RealTowards;
+                            if (canWalk90(p, r))
+                            {
+                                r->Pos = p;
+                                r->TurnTowards = -1;
+                            }
+                            else
+                            {
+                                std::vector<double> angle[2] = { {M_PI / 3, -M_PI / 3, M_PI * 2 / 3, -M_PI * 2 / 3, M_PI}, {-M_PI / 3, M_PI / 3, -M_PI * 2 / 3, M_PI * 2 / 3, M_PI} };
+                                auto rt0 = r->RealTowards;
+                                if (r->TurnTowards < 0) { r->TurnTowards = int(rand_.rand() * 2); }
+                                auto& angle_v = angle[r->TurnTowards];
+                                for (auto a : angle_v)
+                                {
+                                    r->RealTowards = rt0;
+                                    r->RealTowards.rotate(a);
+                                    auto p = r->Pos + r->Speed / 20.0 * r->RealTowards;
+                                    if (canWalk90(p, r))
+                                    {
+                                        r->Pos = p;
+                                        break;
+                                    }
+                                }
+                            }
                         }
                         else
                         {
@@ -859,11 +860,11 @@ void BattleSceneHades::backRun1()
                 r->Velocity.z = 12;
                 r->Velocity.norm(std::min(hurt / 2.5, 30.0));
                 r->VelocitytFrame = 15;
-                r->Frozen = 2;
-                //x_ = rand_.rand_int(2) - rand_.rand_int(2);
-                //y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                frozen_ = 2;
-                slow_ = 5;
+                r->Frozen = 3;
+                x_ = rand_.rand_int(2) - rand_.rand_int(2);
+                y_ = rand_.rand_int(2) - rand_.rand_int(2);
+                //frozen_ = 2;
+                //slow_ = 5;
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
@@ -1183,7 +1184,7 @@ void BattleSceneHades::setRoleInitState(Role* r)
     {
         r->RealTowards = { -1, -1 };
     }
-    r->Acceleration = { 0,0,-4 };
+    r->Acceleration = { 0,0,gravity_ };
 }
 
 Role* BattleSceneHades::findNearestEnemy(int team, Pointf p)
@@ -1302,6 +1303,44 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         }
     }
     return hurt;
+}
+
+int BattleSceneHades::calRolePic(Role* r, int style, int frame)
+{
+    if (r->FightFrame[style] <= 0)
+    {
+        style = -1;
+    }
+    if (style == -1)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            if (r->FightFrame[i] > 0)
+            {
+                return r->FightFrame[i] * r->FaceTowards;
+            }
+        }
+    }
+    else
+    {
+        int total = 0;
+        for (int i = 0; i < 5; i++)
+        {
+            if (i == style)
+            {
+                if (frame < r->FightFrame[style] - 2)
+                {
+                    return total + r->FightFrame[style] * r->FaceTowards + frame;
+                }
+                else
+                {
+                    return total + r->FightFrame[style] * r->FaceTowards + r->FightFrame[style] - 2;
+                }
+            }
+            total += r->FightFrame[i] * 4;
+        }
+    }
+    return r->FaceTowards;
 }
 
 void BattleSceneHades::makeSpecialMagicEffect()
