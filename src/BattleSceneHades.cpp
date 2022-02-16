@@ -642,8 +642,9 @@ void BattleSceneHades::backRun1()
                         double angle = r->RealTowards.getAngle();
                         for (int i = 0; i < count; i++)
                         {
+                            double a = angle + i * 2 * M_PI / count;
                             ae.Pos = p;
-                            ae.Velocity = { cos(angle + i * 2 * M_PI / count), sin(angle + i * 2 * M_PI / count) };
+                            ae.Velocity = { cos(a) ,sin(a) };
                             ae.Velocity.norm(3);
                             ae.Frame = rand_.rand() * 10;
                             attack_effects_.push_back(ae);
@@ -853,6 +854,7 @@ void BattleSceneHades::backRun1()
             r->HP -= hurt;
             if (r->HP <= 0)
             {
+                fmt1::print("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
                 //r->Velocity = r->Pos - ae.Attacker->Pos;
@@ -883,6 +885,13 @@ void BattleSceneHades::backRun1()
             ae.Pos += ae.Velocity;
             if (ae.OperationType == 1)
             {
+                //auto r = ae.Attacker;
+                //if (r)
+                //{
+                //    auto p = (r->Pos - ae.Pos).norm(9.0 / TILE_W / 2);
+                //    ae.Velocity += p;
+                //    ae.Velocity.norm(3);
+                //}
                 //简单的追踪
                 auto r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
                 if (r)
@@ -894,26 +903,34 @@ void BattleSceneHades::backRun1()
             }
         }
         //效果间的互相抵消
-        for (int i = 0; i < attack_effects_.size() - 2; i++)
+        if (attack_effects_.size() >= 2)
         {
-            auto& ae1 = attack_effects_[i];
-            for (int j = i + 1; j < attack_effects_.size() - 1; j++)
+            for (int i = 0; i < attack_effects_.size() - 2; i++)
             {
-                auto& ae2 = attack_effects_[j];
-                if (ae1.Attacker && ae2.Attacker
-                    && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 2)
+                auto& ae1 = attack_effects_[i];
+                for (int j = i + 1; j < attack_effects_.size() - 1; j++)
                 {
-                    int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
-                    int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
-                    ae1.Weaken += hurt2;
-                    ae2.Weaken += hurt1;
-                    if (ae1.Weaken > hurt1)
+                    auto& ae2 = attack_effects_[j];
+                    if (ae1.Attacker && ae2.Attacker
+                        && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 2)
                     {
-                        //直接设置帧数为一个大值，下面就会直接删掉了
-                        ae1.Frame = ae1.TotalFrame;
-                    }if (ae2.Weaken > hurt2)
-                    {
-                        ae2.Frame = ae2.TotalFrame;
+                        fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
+                        int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
+                        int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
+                        ae1.Weaken += hurt2;
+                        ae2.Weaken += hurt1;
+                        if (ae1.Weaken > hurt1)
+                        {
+                            //直接设置帧数为一个大值，下面就会直接删掉了
+                            ae1.Frame = ae1.TotalFrame;
+                            fmt1::print("{} ", ae1.UsingMagic->Name);
+                        }
+                        if (ae2.Weaken > hurt2)
+                        {
+                            ae2.Frame = ae2.TotalFrame;
+                            fmt1::print("{} ", ae2.UsingMagic->Name);
+                        }
+                        fmt1::print("loss\n");
                     }
                 }
             }
