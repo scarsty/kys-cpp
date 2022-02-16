@@ -894,10 +894,12 @@ void BattleSceneHades::backRun1()
             }
         }
         //效果间的互相抵消
-        for (auto& ae1 : attack_effects_)
+        for (int i = 0; i < attack_effects_.size() - 2; i++)
         {
-            for (auto& ae2 : attack_effects_)
+            auto& ae1 = attack_effects_[i];
+            for (int j = i + 1; j < attack_effects_.size() - 1; j++)
             {
+                auto& ae2 = attack_effects_[j];
                 if (ae1.Attacker && ae2.Attacker
                     && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 2)
                 {
