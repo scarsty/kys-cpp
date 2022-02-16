@@ -860,11 +860,11 @@ void BattleSceneHades::backRun1()
                 r->Velocity.z = 12;
                 r->Velocity.norm(std::min(hurt / 2.5, 30.0));
                 r->VelocitytFrame = 15;
-                r->Frozen = 3;
+                r->Frozen = 2;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                //frozen_ = 2;
-                //slow_ = 5;
+                frozen_ = 2;
+                slow_ = 5;
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
@@ -872,27 +872,18 @@ void BattleSceneHades::backRun1()
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
     }
 
-    //删除播放完毕的
-    for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
-    {
-        if (it->Frame >= it->TotalFrame)
-        {
-            it = attack_effects_.erase(it);
-        }
-        else
-        {
-            it++;
-        }
-    }
+
     //效果
     //if (current_frame_ % 2 == 0)
     {
+        //帧数
         for (auto& ae : attack_effects_)
         {
             ae.Frame++;
             ae.Pos += ae.Velocity;
             if (ae.OperationType == 1)
             {
+                //简单的追踪
                 auto r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
                 if (r)
                 {
@@ -900,25 +891,63 @@ void BattleSceneHades::backRun1()
                     ae.Velocity += p;
                     ae.Velocity.norm(3);
                 }
-
+            }
+        }
+        //效果间的互相抵消
+        for (auto& ae1 : attack_effects_)
+        {
+            for (auto& ae2 : attack_effects_)
+            {
+                if (ae1.Attacker && ae2.Attacker
+                    && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 2)
+                {
+                    int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
+                    int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
+                    ae1.Weaken += hurt2;
+                    ae2.Weaken += hurt1;
+                    if (ae1.Weaken > hurt1)
+                    {
+                        //直接设置帧数为一个大值，下面就会直接删掉了
+                        ae1.Frame = ae1.TotalFrame;
+                    }if (ae2.Weaken > hurt2)
+                    {
+                        ae2.Frame = ae2.TotalFrame;
+                    }
+                }
+            }
+        }
+        //删除播放完毕的
+        for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
+        {
+            if (it->Frame >= it->TotalFrame)
+            {
+                it = attack_effects_.erase(it);
+            }
+            else
+            {
+                it++;
             }
         }
     }
-    for (auto it = text_effects_.begin(); it != text_effects_.end();)
+
+    //处理文字
     {
-        if (it->Frame >= 30)
+        for (auto& te : text_effects_)
         {
-            it = text_effects_.erase(it);
+            te.Pos.y -= 2;
+            text_effects_[0].Frame++;
         }
-        else
+        for (auto it = text_effects_.begin(); it != text_effects_.end();)
         {
-            it++;
+            if (it->Frame >= 30)
+            {
+                it = text_effects_.erase(it);
+            }
+            else
+            {
+                it++;
+            }
         }
-    }
-    for (auto& te : text_effects_)
-    {
-        te.Pos.y -= 2;
-        text_effects_[0].Frame++;
     }
     //清理,应增加效果
     auto role_count = battle_roles_.size();
@@ -1241,7 +1270,7 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 
 int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 {
-    int hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->Pos, -ae.Attacker->Pos) / TILE_W / 2);
+    int hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->Pos, -ae.Attacker->Pos) / TILE_W / 2) - ae.Weaken / 2;
     //这个击退好像效果不太对
     r->Velocity = r->Pos - ae.Attacker->Pos;
     r->Velocity.norm(1);

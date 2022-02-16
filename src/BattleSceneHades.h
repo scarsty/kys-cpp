@@ -24,6 +24,7 @@ struct AttackEffect
     int OperationType = -1;
     std::string Path;
     Role* FollowRole = nullptr;
+    int Weaken = 0;  
     void setEft(int num)
     {
         setPath(fmt1::format("eft/eft{:03}", num));

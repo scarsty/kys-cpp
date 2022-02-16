@@ -39,11 +39,11 @@ TitleScene::TitleScene()
     pe_->setSize(20, 20);
     addChild(pe_);
 
-    Save::getInstance()->load(5);
-RandomDouble rand;
-int k = rand.rand() * 139;
-k = 100;
-Event::getInstance()->tryBattle(k, 0);
+    //Save::getInstance()->load(5);
+    //RandomDouble rand;
+    //int k = rand.rand() * 139;
+    //k = 100;
+    //Event::getInstance()->tryBattle(k, 0);
 }
 
 TitleScene::~TitleScene()
