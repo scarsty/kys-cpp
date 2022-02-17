@@ -89,7 +89,7 @@ int Role::getMagicOfRoleIndex(Magic* magic)
     return -1;
 }
 
-std::vector<Magic*> Role::getLearnedMagic()
+std::vector<Magic*> Role::getLearnedMagics()
 {
     std::vector<Magic*> v;
     for (int i = 0; i < ROLE_MAGIC_COUNT; i++)

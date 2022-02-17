@@ -465,7 +465,7 @@ void BattleSceneHades::backRun1()
     for (auto r : battle_roles_)
     {
         r->HurtThisFrame = 0;
-        for (auto m : r->getLearnedMagic())
+        for (auto m : r->getLearnedMagics())
         {
             if (special_magic_effect_every_frame_.count(m->Name))
             {
@@ -536,7 +536,7 @@ void BattleSceneHades::backRun1()
                     && r->ActFrame == calCast(r->ActType, r->OperationType, r))
                 {
                     r->Acted = 1;
-                    for (auto m : r->getLearnedMagic())
+                    for (auto m : r->getLearnedMagics())
                     {
                         if (special_magic_effect_attack_.count(m->Name))
                         {
@@ -799,8 +799,8 @@ void BattleSceneHades::backRun1()
                                 //{
                                 //    if (r->FightFrame[i] > 0)
                                 //    {
-                                int select_magic = rand_.rand() * r->getLearnedMagicCount();
-                                auto m = Save::getInstance()->getMagic(r->MagicID[select_magic]);
+                                auto v = r->getLearnedMagics();
+                                auto m = v[rand_.rand()];
                                 if (m->AttackAreaType == 0)
                                 {
                                     r->OperationType = 0;
@@ -865,8 +865,8 @@ void BattleSceneHades::backRun1()
                 r->Frozen = 2;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                frozen_ = 2;
-                slow_ = 5;
+                //frozen_ = 2;
+                //slow_ = 5;
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);

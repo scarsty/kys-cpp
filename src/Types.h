@@ -219,7 +219,7 @@ public:
     int getMagicLevelIndex(int magic_id);
     int getMagicOfRoleIndex(Magic* magic);
 
-    std::vector<Magic*> getLearnedMagic();
+    std::vector<Magic*> getLearnedMagics();
 
     void limit();
 
