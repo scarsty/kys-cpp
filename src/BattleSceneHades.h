@@ -41,8 +41,10 @@ struct TextEffect
 {
     Pointf Pos;
     std::string Text;
+    int Size = 15;
     int Frame = 0;
     BP_Color Color;
+    int Type = 0;    //0-缓缓向上, 1-原地不动
 };
 
 class BattleSceneHades : public BattleScene
@@ -78,6 +80,7 @@ protected:
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角
+    Role* dying_ = nullptr;    //主角
     int weapon_ = 1;
     int frozen_ = 0;
     int slow_ = 0;

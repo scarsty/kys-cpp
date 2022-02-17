@@ -65,7 +65,7 @@ int UISystem::askExit(int mode)
         menu->setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
         menu->setFontSize(24);
         menu->arrange(0, 0, 0, 40);
-        int x = 760, y = 100;
+        int x = 880, y = 100;
         if (mode == 1)
         {
             x = Engine::getInstance()->getWindowWidth() - 150;

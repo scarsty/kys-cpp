@@ -214,7 +214,11 @@ void BattleSceneHades::draw()
                 {
                     info.p = ae.FollowRole->Pos;
                 }
-                info.shadow = 2;
+                info.shadow = 1;
+                if (ae.Attacker && ae.Attacker->Team == 0)
+                {
+                    info.shadow = 2;
+                }
                 building_vec.emplace_back(std::move(info));
                 //TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame % ae.TotalEffectFrame, ae.X1, ae.Y1 / 2, { 255, 255, 255, 255 }, 192);
             }
@@ -249,8 +253,14 @@ void BattleSceneHades::draw()
                         scaley = 1;
                         yd = tex->dy * 0.1;
                     }
-
-                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 0,0,0,255 }, 128, scalex, scaley, d.rot);
+                    if (d.shadow == 1)
+                    {
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32,32,32,255 }, 128, scalex, scaley, d.rot);
+                    }
+                    if (d.shadow == 2)
+                    {
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128,128,128,255 }, 128, scalex, scaley, d.rot, 128);
+                    }
                 }
             }
         }
@@ -278,7 +288,7 @@ void BattleSceneHades::draw()
 
         for (auto& te : text_effects_)
         {
-            Font::getInstance()->draw(te.Text, 15, te.Pos.x, te.Pos.y / 2, te.Color, 255);
+            Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.Color, 255);
         }
 
         Engine::getInstance()->setRenderAssistTexture();
@@ -649,7 +659,7 @@ void BattleSceneHades::backRun1()
                             double a = angle + i * 2 * M_PI / count;
                             ae.Pos = p;
                             ae.Velocity = { cos(a) ,sin(a) };
-                            ae.Velocity.norm(5);
+                            ae.Velocity.norm(3);
                             ae.Frame = rand_.rand() * 10;
                             attack_effects_.push_back(ae);
                         }
@@ -668,8 +678,14 @@ void BattleSceneHades::backRun1()
                         }
                         ae.Velocity.norm(5);
                         ae.TotalFrame = 90;
-                        attack_effects_.push_back(std::move(ae));
+                        attack_effects_.push_back(ae);
                         needMP *= 0.2;
+                        if (ae.UsingMagic->AttackAreaType == 2)
+                        {
+                            ae.Velocity.norm(3);
+                            ae.TotalFrame = 150;
+                            attack_effects_.push_back(ae);
+                        }
                     }
                     else if (ae.OperationType == 3)
                     {
@@ -778,8 +794,8 @@ void BattleSceneHades::backRun1()
                         int dis = TILE_W * 3;
                         if (r->UsingMagic)
                         {
-                            if (r->UsingMagic->AttackAreaType == 3) { dis = TILE_W * 10; }
-                            if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = TILE_W * 10; }
+                            if (r->UsingMagic->AttackAreaType == 3) { dis = 180; }
+                            if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = 300; }
                         }
                         if (EuclidDis(r->Pos, r0->Pos) > dis)
                         {
@@ -831,6 +847,15 @@ void BattleSceneHades::backRun1()
                                     r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
                                     r->ActFrame = 0;
                                     r->ActType = m->MagicType;
+                                    //TextEffect te;
+                                    //te.Text = m->Name;
+                                    //te.Size = 15;
+                                    //te.Type = 1;
+                                    //te.Pos.x = r->Pos.x - 15 * te.Text.size() / 3;
+                                    //te.Pos.y = r->Pos.y;
+                                    //te.Color = { 255, 0, 0, 255 };
+                                    //te.Frame = 15;
+                                    //text_effects_.push_back(te);
                                 }
                             }
                         }
@@ -878,6 +903,7 @@ void BattleSceneHades::backRun1()
                 r->Frozen = 2;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
+                dying_ = r;
                 //frozen_ = 2;
                 //slow_ = 5;
             }
@@ -909,9 +935,9 @@ void BattleSceneHades::backRun1()
                 auto r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
                 if (r)
                 {
-                    auto p = (r->Pos - ae.Pos).norm(0.5);
+                    auto p = (r->Pos - ae.Pos).norm(0.3);
                     ae.Velocity += p;
-                    ae.Velocity.norm(5);
+                    ae.Velocity.norm(3);
                 }
             }
         }
@@ -966,8 +992,8 @@ void BattleSceneHades::backRun1()
     {
         for (auto& te : text_effects_)
         {
-            te.Pos.y -= 2;
-            text_effects_[0].Frame++;
+            if (te.Type == 0) { te.Pos.y -= 2; }
+            te.Frame++;
         }
         for (auto it = text_effects_.begin(); it != text_effects_.end();)
         {
@@ -1016,11 +1042,11 @@ void BattleSceneHades::backRun1()
         //检测战斗结果
         int battle_result = checkResult();
 
-        //我方胜
         if (battle_result >= 0)
         {
             if (frozen_ == 0 && result_ == -1)
             {
+                pos_ = dying_->Pos;
                 frozen_ = 60;
                 slow_ = 20;
                 result_ = battle_result;
@@ -1270,7 +1296,7 @@ Role* BattleSceneHades::findNearestEnemy(int team, Pointf p)
 //前摇
 int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 {
-    int v[4] = { 2, 10, 5, 0 };
+    int v[4] = { 2, 20, 5, 3 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         return v[operation_type];
