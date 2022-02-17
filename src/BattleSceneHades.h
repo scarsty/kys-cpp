@@ -3,6 +3,7 @@
 #include "BattleMap.h"
 #include "Head.h"
 #include "Save.h"
+#include "UIKeyConfig.h"
 #include <deque>
 #include <unordered_map>
 
@@ -24,7 +25,7 @@ struct AttackEffect
     int OperationType = -1;
     std::string Path;
     Role* FollowRole = nullptr;
-    int Weaken = 0;  
+    int Weaken = 0;
     void setEft(int num)
     {
         setPath(fmt1::format("eft/eft{:03}", num));
@@ -64,6 +65,8 @@ public:
 protected:
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
     double gravity_ = -4;
+
+    UIKeyConfig::Keys keys_;
 
     std::deque<AttackEffect> attack_effects_;
     std::deque<TextEffect> text_effects_;

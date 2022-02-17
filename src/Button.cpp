@@ -76,3 +76,16 @@ void Button::draw()
         Font::getInstance()->drawWithBox(text_, font_size_, x + text_x_, y + text_y_, color_text, 255, alpha);
     }
 }
+
+ButtonGetKey::~ButtonGetKey()
+{
+}
+
+void ButtonGetKey::dealEvent(BP_Event& e)
+{
+    if (e.type == BP_KEYUP)
+    {
+        result_ = e.key.keysym.sym;
+        setExit(true);
+    }
+}

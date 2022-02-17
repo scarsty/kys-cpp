@@ -18,6 +18,7 @@ GameUtil::GameUtil()
 
 GameUtil::~GameUtil()
 {
+    saveFile("../game/config/kysmod.ini");
 }
 
 //某人是否可以使用某物品

@@ -3,11 +3,12 @@
 #include "Event.h"
 #include "Script.h"
 #include "Engine.h"
+#include "UIKeyConfig.h"
 
 UISystem::UISystem()
 {
     title_ = std::make_shared<MenuText>();
-    title_->setStrings({ "讀取進度", "保存進度", "我的代碼", "離開遊戲" });
+    title_->setStrings({ "讀取進度", "保存進度", "我的代碼","鍵位配置", "離開遊戲" });
     title_->setFontSize(24);
     title_->arrange(100, 50, 120, 0);
     addChild(title_);
@@ -39,6 +40,12 @@ void UISystem::onPressedOK()
     else if (title_->getResult() == 2)
     {
         Script::getInstance()->runScript("../game/script/1.lua");
+    }
+    else if (title_->getResult() == 3)
+    {
+        auto menu = std::make_shared<UIKeyConfig>();
+        menu->setPosition(200, 200);
+        menu->run();
     }
     else if (title_->getResult() == title_->getChildCount() - 1)
     {

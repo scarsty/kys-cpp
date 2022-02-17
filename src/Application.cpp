@@ -7,6 +7,7 @@
 #include "Random.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
+#include "UIKeyConfig.h"
 
 Application::Application()
 {
@@ -41,4 +42,5 @@ void Application::config()
     Engine::getInstance()->setWindowTitle(game->getString("game", "title", "All Heroes in Kam Yung Stories"));
     TextureManager::getInstance()->setLoadFromPath(game->getInt("game", "png_from_path", 0));
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));
+    UIKeyConfig::readFromString(game->getString("game", "key", ""));
 }

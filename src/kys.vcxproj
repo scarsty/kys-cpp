@@ -152,6 +152,7 @@
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Types.cpp" />
     <ClCompile Include="UIItem.cpp" />
+    <ClCompile Include="UIKeyConfig.cpp" />
     <ClCompile Include="UISave.cpp" />
     <ClCompile Include="UIShop.cpp" />
     <ClCompile Include="UIStatus.cpp" />
@@ -217,6 +218,7 @@
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="UIItem.h" />
+    <ClInclude Include="UIKeyConfig.h" />
     <ClInclude Include="UISave.h" />
     <ClInclude Include="UIShop.h" />
     <ClInclude Include="UIStatus.h" />

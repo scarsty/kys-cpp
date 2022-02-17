@@ -15,3 +15,10 @@ public:
     int getTexutreID() { return texture_normal_id_; }
 };
 
+class ButtonGetKey : public Button
+{
+public:
+    virtual ~ButtonGetKey();
+    void dealEvent(BP_Event& e) override;
+};
+

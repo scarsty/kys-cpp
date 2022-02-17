@@ -254,6 +254,6 @@ Console::Console()
         Save::getInstance()->save(11);
         int k = atoi(splits[1].c_str());
         Event::getInstance()->tryBattle(k, 0);
-        Save::getInstance()->load(11);
+        //Save::getInstance()->load(11);
     }
 }

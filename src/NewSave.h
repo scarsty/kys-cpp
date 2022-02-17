@@ -1,6 +1,7 @@
 #pragma once
 #include "PotConv.h"
 #include "Save.h"
+#include "convert.h"
 #include <algorithm>
 
 class NewSave
@@ -89,46 +90,48 @@ private:
     static void readValues(sqlite3* db, const std::string& table_name, std::vector<FieldInfo>& infos, std::vector<T>& data)
     {
         sqlite3_stmt* statement;
-        std::string strSql = "select * from " + table_name;
-        sqlite3_prepare(db, strSql.c_str(), -1, &statement, NULL);
-
-        //重整列序
-        //在游戏最初必须运行一次读取
-        if (infos[0].col == -1)
+        std::string cmd = "select * from " + table_name;
+        int a = sqlite3_prepare(db, cmd.c_str(), cmd.size(), &statement, nullptr);
+        if (a)
         {
-            for (int i = 0; i < sqlite3_column_count(statement); i++)
+            fmt1::print("{}\n", sqlite3_errmsg(db));
+        }
+
+        for (int i = 0; i < sqlite3_column_count(statement); i++)
+        {
+            auto name = sqlite3_column_name(statement, i);
+            for (auto& info : infos)
             {
-                auto name = sqlite3_column_name(statement, i);
-                for (auto& info : infos)
+                if (name == info.name)
                 {
-                    if (name == info.name)
-                    {
-                        info.col = i;
-                        break;
-                    }
+                    info.col = i;
+                    break;
                 }
             }
-            //std::sort(infos.begin(), infos.end(), [](FieldInfo & f1, FieldInfo & f2) { return f1.col < f2.col; });
         }
         //读取
         data.clear();
         while (sqlite3_step(statement) == SQLITE_ROW)
         {
             T data1;
-            for (auto& info : infos)
+            for (int i = 0; i < infos.size(); i++)
             {
-                if (info.type == 0)
+                auto& info = infos[i];
+                if (info.col >= 0)
                 {
-                    auto p = (int*)((char*)&data1 + info.offset);
-                    *p = sqlite3_column_int(statement, info.col);
-                }
-                else
-                {
-                    auto p = (char*)((char*)&data1 + info.offset);
-                    std::string str((char*)sqlite3_column_text(statement, info.col));
-                    //str = PotConv::utf8tocp936(str);
-                    memset(p, 0, info.length);
-                    memcpy(p, str.data(), std::min(info.length, str.length()));
+                    if (info.type == 0)
+                    {
+                        auto p = (int*)((char*)&data1 + info.offset);
+                        *p = sqlite3_column_int(statement, info.col);
+                    }
+                    else
+                    {
+                        auto p = (char*)((char*)&data1 + info.offset);
+                        std::string str((char*)sqlite3_column_text(statement, info.col));
+                        //str = PotConv::utf8tocp936(str);
+                        memset(p, 0, info.length);
+                        memcpy(p, str.data(), std::min(info.length, str.length()));
+                    }
                 }
             }
             data.push_back(data1);

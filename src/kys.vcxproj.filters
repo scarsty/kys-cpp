@@ -172,6 +172,9 @@
     <ClCompile Include="RunNode.cpp">
       <Filter>runnode</Filter>
     </ClCompile>
+    <ClCompile Include="UIKeyConfig.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -362,6 +365,9 @@
     </ClInclude>
     <ClInclude Include="..\nb\fmt1.h">
       <Filter>nb</Filter>
+    </ClInclude>
+    <ClInclude Include="UIKeyConfig.h">
+      <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

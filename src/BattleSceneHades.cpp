@@ -8,6 +8,7 @@
 
 BattleSceneHades::BattleSceneHades()
 {
+    keys_ = *UIKeyConfig::getKeyConfig();
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
 
@@ -213,6 +214,7 @@ void BattleSceneHades::draw()
                 {
                     info.p = ae.FollowRole->Pos;
                 }
+                info.shadow = 2;
                 building_vec.emplace_back(std::move(info));
                 //TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame % ae.TotalEffectFrame, ae.X1, ae.Y1 / 2, { 255, 255, 255, 255 }, 192);
             }
@@ -332,53 +334,55 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         {
             //if (current_frame_ % 3 == 0)
             {
-                if (engine->checkKeyPress(BPK_a))
+                if (engine->checkKeyPress(keys_.Left) && engine->checkKeyPress(BPK_LEFT))
                 {
                     pos_.x -= speed;
                     r->FaceTowards = Towards_LeftDown;
                     r->OperationType = 0;
                 }
-                if (engine->checkKeyPress(BPK_d))
+                if (engine->checkKeyPress(keys_.Right) && engine->checkKeyPress(BPK_RIGHT))
                 {
                     pos_.x += speed;
                     r->FaceTowards = Towards_RightUp;
                     r->OperationType = 0;
                 }
-                if (engine->checkKeyPress(BPK_w))
+                if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(BPK_UP))
                 {
                     pos_.y -= speed;
                     r->FaceTowards = Towards_LeftUp;
                     r->OperationType = 0;
                 }
-                if (engine->checkKeyPress(BPK_s))
+                if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(BPK_DOWN))
                 {
                     pos_.y += speed;
                     r->FaceTowards = Towards_RightDown;
                     r->OperationType = 0;
                 }
             }
-            if (engine->checkKeyPress(BPK_1))
-            {
-                weapon_ = 1;
-            }
-            if (engine->checkKeyPress(BPK_2))
-            {
-                weapon_ = 2;
-            }
-            if (engine->checkKeyPress(BPK_3))
-            {
-                weapon_ = 3;
-            }
-            if (engine->checkKeyPress(BPK_4))
-            {
-                weapon_ = 4;
-            }
+            //if (engine->checkKeyPress(BPK_1))
+            //{
+            //    weapon_ = 1;
+            //}
+            //if (engine->checkKeyPress(BPK_2))
+            //{
+            //    weapon_ = 2;
+            //}
+            //if (engine->checkKeyPress(BPK_3))
+            //{
+            //    weapon_ = 3;
+            //}
+            //if (engine->checkKeyPress(BPK_4))
+            //{
+            //    weapon_ = 4;
+            //}
         }
-        if (engine->checkKeyPress(BPK_w) && engine->checkKeyPress(BPK_d))
+        if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
+            && engine->checkKeyPress(BPK_UP) && engine->checkKeyPress(BPK_RIGHT))
         {
             r->FaceTowards = Towards_RightUp;
         }
-        if (engine->checkKeyPress(BPK_s) && engine->checkKeyPress(BPK_a))
+        if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
+            && engine->checkKeyPress(BPK_DOWN) && engine->checkKeyPress(BPK_LEFT))
         {
             r->FaceTowards = Towards_LeftDown;
         }
@@ -403,10 +407,10 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
-            if (engine->checkKeyPress(BPK_j) && r->PhysicalPower >= 10) { index = 0; }
-            if (engine->checkKeyPress(BPK_i) && r->PhysicalPower >= 30) { index = 1; }
-            if (engine->checkKeyPress(BPK_k) && r->PhysicalPower >= 20) { index = 2; }
-            if (engine->checkKeyPress(BPK_m) && r->PhysicalPower >= 10) { index = 3; }
+            if (engine->checkKeyPress(keys_.Light) && r->PhysicalPower >= 10) { index = 0; }
+            if (engine->checkKeyPress(keys_.Heavy) && r->PhysicalPower >= 30) { index = 1; }
+            if (engine->checkKeyPress(keys_.Long) && r->PhysicalPower >= 20) { index = 2; }
+            if (engine->checkKeyPress(keys_.Slash) && r->PhysicalPower >= 10) { index = 3; }
             r->OperationType = index;
             if (index >= 0 && magic[index])
             {
@@ -590,21 +594,21 @@ void BattleSceneHades::backRun1()
                     r->RealTowards.norm(1);
                     ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
                     ae.Frame = 0;
-                    if (r->Team == 0)
+                    if (r->Team == 0 && r == role_)
                     {
                         ae.OperationType = r->OperationType;
                         //if (r->OperationType == 0 && ae.UsingMagic->AttackAreaType != 0)
                         //{
                         //    ae.OperationType = -1;
                         //}
-                        if (r->OperationType == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
-                        {
-                            ae.OperationType = -1;
-                        }
-                        if (r->OperationType == 1 && ae.UsingMagic->AttackAreaType != 3)
-                        {
-                            ae.OperationType = -1;
-                        }
+                        //if (r->OperationType == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
+                        //{
+                        //    ae.OperationType = -1;
+                        //}
+                        //if (r->OperationType == 1 && ae.UsingMagic->AttackAreaType != 3)
+                        //{
+                        //    ae.OperationType = -1;
+                        //}
                     }
                     else
                     {
@@ -635,17 +639,17 @@ void BattleSceneHades::backRun1()
                     }
                     else if (ae.OperationType == 1)
                     {
-                        int range = magic->AttackDistance[level_index] + magic->SelectDistance[level_index];
+                        int range = level_index + 1; //= magic->AttackDistance[level_index] + magic->SelectDistance[level_index];
                         int count = range;
                         auto p = ae.Pos;
-                        ae.TotalFrame = 60;
+                        ae.TotalFrame = 120;
                         double angle = r->RealTowards.getAngle();
                         for (int i = 0; i < count; i++)
                         {
                             double a = angle + i * 2 * M_PI / count;
                             ae.Pos = p;
                             ae.Velocity = { cos(a) ,sin(a) };
-                            ae.Velocity.norm(3);
+                            ae.Velocity.norm(5);
                             ae.Frame = rand_.rand() * 10;
                             attack_effects_.push_back(ae);
                         }
@@ -663,7 +667,7 @@ void BattleSceneHades::backRun1()
                             ae.Velocity = r->RealTowards;
                         }
                         ae.Velocity.norm(5);
-                        ae.TotalFrame = 30;
+                        ae.TotalFrame = 90;
                         attack_effects_.push_back(std::move(ae));
                         needMP *= 0.2;
                     }
@@ -696,6 +700,7 @@ void BattleSceneHades::backRun1()
                     //    }
                     //}
                     r->MP = GameUtil::limit(r->MP - needMP, 0, r->MaxMP);
+                    r->UsingMagic = nullptr;
                 }
                 if (r->OperationType == 1)
                 {
@@ -753,6 +758,14 @@ void BattleSceneHades::backRun1()
             {
                 if (r->CoolDown == 0)
                 {
+                    if (r->UsingMagic == nullptr)
+                    {
+                        auto v = r->getLearnedMagics();
+                        if (!v.empty())
+                        {
+                            r->UsingMagic = v[rand_.rand()];
+                        }
+                    }
                     auto r0 = findNearestEnemy(r->Team, r->Pos);
                     if (r0)
                     {
@@ -762,7 +775,13 @@ void BattleSceneHades::backRun1()
                         if (r->RealTowards.x < 0 && r->RealTowards.y > 0) { r->FaceTowards = Towards_LeftDown; }
                         if (r->RealTowards.x < 0 && r->RealTowards.y < 0) { r->FaceTowards = Towards_LeftUp; }
                         r->RealTowards.norm(1);
-                        if (EuclidDis(r->Pos, r0->Pos) > TILE_W * 3)
+                        int dis = TILE_W * 3;
+                        if (r->UsingMagic)
+                        {
+                            if (r->UsingMagic->AttackAreaType == 3) { dis = TILE_W * 10; }
+                            if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = TILE_W * 10; }
+                        }
+                        if (EuclidDis(r->Pos, r0->Pos) > dis)
                         {
                             auto p = r->Pos + r->Speed / 20.0 * r->RealTowards;
                             if (canWalk90(p, r))
@@ -794,31 +813,25 @@ void BattleSceneHades::backRun1()
                             //attack
                             if (r->PhysicalPower >= 30)
                             {
-                                //r->PhysicalPower -= 5;
-                                //for (int i = 1; i <= 4; i++)
-                                //{
-                                //    if (r->FightFrame[i] > 0)
-                                //    {
-                                auto v = r->getLearnedMagics();
-                                auto m = v[rand_.rand()];
-                                if (m->AttackAreaType == 0)
+                                auto m = r->UsingMagic;
+                                if (m)
                                 {
-                                    r->OperationType = 0;
+                                    if (m->AttackAreaType == 0)
+                                    {
+                                        r->OperationType = 0;
+                                    }
+                                    else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                    {
+                                        r->OperationType = 2;
+                                    }
+                                    else if (m->AttackAreaType == 3)
+                                    {
+                                        r->OperationType = 1;
+                                    }
+                                    r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                                    r->ActFrame = 0;
+                                    r->ActType = m->MagicType;
                                 }
-                                else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
-                                {
-                                    r->OperationType = 2;
-                                }
-                                else if (m->AttackAreaType == 3)
-                                {
-                                    r->OperationType = 1;
-                                }
-                                r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
-                                r->ActFrame = 0;
-                                r->ActType = m->MagicType;
-                                break;
-                                //}
-                           //}
                             }
                         }
                     }
@@ -896,9 +909,9 @@ void BattleSceneHades::backRun1()
                 auto r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
                 if (r)
                 {
-                    auto p = (r->Pos - ae.Pos).norm(0.2);
+                    auto p = (r->Pos - ae.Pos).norm(0.5);
                     ae.Velocity += p;
-                    ae.Velocity.norm(3);
+                    ae.Velocity.norm(5);
                 }
             }
         }
@@ -912,7 +925,7 @@ void BattleSceneHades::backRun1()
                 {
                     auto& ae2 = attack_effects_[j];
                     if (ae1.Attacker && ae2.Attacker
-                        && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 2)
+                        && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
                     {
                         fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
                         int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
@@ -1191,7 +1204,7 @@ int BattleSceneHades::checkResult()
     {
         return 0;
     }
-    if (team0 == 0 && team1 > 0)
+    if (team0 == 0 && team1 >= 0)
     {
         return 1;
     }
