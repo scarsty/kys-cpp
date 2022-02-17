@@ -334,25 +334,25 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         {
             //if (current_frame_ % 3 == 0)
             {
-                if (engine->checkKeyPress(keys_.Left) && engine->checkKeyPress(BPK_LEFT))
+                if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
                 {
                     pos_.x -= speed;
                     r->FaceTowards = Towards_LeftDown;
                     r->OperationType = 0;
                 }
-                if (engine->checkKeyPress(keys_.Right) && engine->checkKeyPress(BPK_RIGHT))
+                if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(BPK_RIGHT))
                 {
                     pos_.x += speed;
                     r->FaceTowards = Towards_RightUp;
                     r->OperationType = 0;
                 }
-                if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(BPK_UP))
+                if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(BPK_UP))
                 {
                     pos_.y -= speed;
                     r->FaceTowards = Towards_LeftUp;
                     r->OperationType = 0;
                 }
-                if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(BPK_DOWN))
+                if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(BPK_DOWN))
                 {
                     pos_.y += speed;
                     r->FaceTowards = Towards_RightDown;
@@ -377,12 +377,12 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             //}
         }
         if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
-            && engine->checkKeyPress(BPK_UP) && engine->checkKeyPress(BPK_RIGHT))
+            || engine->checkKeyPress(BPK_UP) && engine->checkKeyPress(BPK_RIGHT))
         {
             r->FaceTowards = Towards_RightUp;
         }
         if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
-            && engine->checkKeyPress(BPK_DOWN) && engine->checkKeyPress(BPK_LEFT))
+            || engine->checkKeyPress(BPK_DOWN) && engine->checkKeyPress(BPK_LEFT))
         {
             r->FaceTowards = Towards_LeftDown;
         }
