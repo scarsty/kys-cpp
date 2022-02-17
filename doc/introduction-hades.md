@@ -72,3 +72,99 @@ public:
 绘图：
 - 绘制地面。
 - 绘制建筑、人物阴影、人物、效果，文字。
+
+## 武功特效
+
+以下暂时从源码移除：
+
+```c++
+    //每一帧的效果，返回值暂时无定义
+    special_magic_effect_every_frame_["紫霞神功"] =
+        [this](Role* r)->int
+    {
+        if (current_frame_ % 3 == 1)
+        {
+            r->PhysicalPower++;
+        }
+        return 0;
+    };
+    special_magic_effect_every_frame_["十八泥偶"] =
+        [this](Role* r)->int
+    {
+        if (current_frame_ % 600 == 0)
+        {
+            r->MP += r->MaxMP * 0.1;
+        }
+        return 0;
+    };
+    special_magic_effect_every_frame_["洗髓神功"] =
+        [this](Role* r)->int
+    {
+        if (current_frame_ % 600 == 0)
+        {
+            r->HP += r->MaxHP * 0.05;
+        }
+        return 0;
+    };
+    //攻击时的效果，指发动攻击的时候，此时并不考虑防御者，返回值为消耗内力
+    special_magic_effect_attack_["九陽神功"] =
+        [this](Role* r)->int
+    {
+        r->MP += 50;    //定身
+        return 0;
+    };
+    //打击时的效果，注意r是防御者，攻击者可以通过ae.Attacker取得，返回值为伤害
+    special_magic_effect_beat_["葵花神功"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Frozen += 20;    //定身
+        r->MP -= hurt;    //消耗敌人內力
+        return hurt;
+    };
+    special_magic_effect_beat_["獨孤九劍"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Frozen += 10;    //定身
+        r->ActType = -1;    //行动打断
+        r->OperationType = -1;
+        return hurt;
+    };
+    special_magic_effect_beat_["降龍十八掌"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Velocity.norm(2);    //更强的击退
+        r->VelocitytFrame = 20;
+        return hurt;
+    };
+    special_magic_effect_beat_["小無相功"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        r->Frozen += 10;
+        return hurt;
+    };
+    special_magic_effect_beat_["易筋神功"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        hurt *= 1.1;
+        return hurt;
+    };
+    special_magic_effect_beat_["乾坤大挪移"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        ae.Attacker->HurtThisFrame += hurt * 0.05;
+        return hurt;
+    };
+    special_magic_effect_beat_["太玄神功"] =
+        [this](AttackEffect& ae, Role* r)->int
+    {
+        int hurt = defaultMagicEffect(ae, r);
+        if (ae.OperationType == 3) { hurt *= 2; }
+        return hurt;
+    };
+```
