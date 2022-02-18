@@ -294,12 +294,18 @@ void RunNode::dealEventSelfChilds(bool check_event)
 //是否为游戏需要处理的类型，避免丢失一些操作
 bool RunNode::isSpecialEvent(BP_Event& e)
 {
+    //fmt1::print("type = {}\n", e.type);
+    //fmt1::print("jb = {}\n", e.cbutton.button);
     return e.type == BP_MOUSEMOTION
         || e.type == BP_MOUSEBUTTONDOWN
         || e.type == BP_MOUSEBUTTONUP
         || e.type == BP_MOUSEWHEEL
         || e.type == BP_KEYDOWN
         || e.type == BP_KEYUP
+        || e.type == BP_JOYBUTTONDOWN
+        || e.type == BP_JOYBUTTONUP
+        || e.type == BP_JOYAXISMOTION
+        || e.type == BP_JOYHATMOTION
         || e.type == BP_CONTROLLERBUTTONDOWN
         || e.type == BP_CONTROLLERBUTTONUP
         || e.type == BP_CONTROLLERAXISMOTION

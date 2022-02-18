@@ -189,6 +189,23 @@ void SubScene::dealEvent(BP_Event& e)
     {
         auto engine = Engine::getInstance();
         int pressed = 0;
+        auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
+        auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+        if (abs(axis_x) < 10000) { axis_x = 0; }
+        if (abs(axis_y) < 10000) { axis_y = 0; }
+        if (axis_x != 0 || axis_y != 0)
+        {
+            Pointf axis{ double(axis_x), double(axis_y) };
+            auto to = readTowardsToFaceTowards(axis);
+            if (to == Towards_LeftUp) { pressed = BPK_LEFT; }
+            if (to == Towards_LeftDown) { pressed = BPK_DOWN; }
+            if (to == Towards_RightDown) { pressed = BPK_RIGHT; }
+            if (to == Towards_RightUp) { pressed = BPK_UP; }
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT)) { pressed = BPK_LEFT; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN)) { pressed = BPK_DOWN; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT)) { pressed = BPK_RIGHT; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP)) { pressed = BPK_UP; }
         if (engine->checkKeyPress(BPK_a)) { pressed = BPK_LEFT; }
         if (engine->checkKeyPress(BPK_s)) { pressed = BPK_DOWN; }
         if (engine->checkKeyPress(BPK_d)) { pressed = BPK_RIGHT; }
@@ -255,7 +272,8 @@ void SubScene::dealEvent(BP_Event& e)
         }
     }
     //检查触发剧情事件
-    if (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+    if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+        || (e.type == BP_JOYBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A))
     {
         if (checkEvent1(x, y, towards_))
         {

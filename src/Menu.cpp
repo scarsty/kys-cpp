@@ -13,11 +13,10 @@ Menu::~Menu()
 
 void Menu::dealEvent(BP_Event& e)
 {
+    Direct direct = DIrectNone;
     //此处处理键盘响应
     if (e.type == BP_KEYDOWN)
     {
-        Direct direct = DIrectNone;
-
         switch (e.key.keysym.sym)
         {
         case BPK_LEFT:
@@ -35,26 +34,33 @@ void Menu::dealEvent(BP_Event& e)
         default:
             break;
         }
-
-        if (direct != DIrectNone)
+    }
+    if (e.type == BP_JOYHATMOTION)
+    {
+        auto engine = Engine::getInstance();
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT)) { direct = DirectLeft; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN)) { direct = DirectDown; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT)) { direct = DirectRight; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP)) { direct = DirectUp; }
+    }
+    if (direct != DIrectNone)
+    {
+        //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
+        bool all_normal = checkAllNormal();
+        setAllChildState(NodeNormal);
+        if (all_normal)
         {
-            //如果全都没被选中，一般是鼠标漂到外边，则先选中上次的
-            bool all_normal = checkAllNormal();
-            setAllChildState(NodeNormal);
-            if (all_normal)
+            //当前的如果不显示，则找第一个
+            if (active_child_ < childs_.size() && !childs_[active_child_]->getVisible())
             {
-                //当前的如果不显示，则找第一个
-                if (active_child_ < childs_.size() && !childs_[active_child_]->getVisible())
-                {
-                    active_child_ = findFristVisibleChild();
-                }
+                active_child_ = findFristVisibleChild();
             }
-            else
-            {
-                active_child_ = findNextVisibleChild(active_child_, direct);
-            }
-            forceActiveChild();
         }
+        else
+        {
+            active_child_ = findNextVisibleChild(active_child_, direct);
+        }
+        forceActiveChild();
     }
 }
 

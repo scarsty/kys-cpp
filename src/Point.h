@@ -100,3 +100,11 @@ inline Point_<T> operator*(const Point_<T> p, double f)
 
 using Point = Point_<int>;
 using Pointf = Point_<double>;
+
+inline int readTowardsToFaceTowards(const Pointf& t)
+{
+    if (t.x > 0 && t.y < 0) { return Towards_RightUp; }
+    if (t.x < 0 && t.y > 0) { return Towards_LeftDown; }
+    if (t.x < 0 && t.y < 0) { return Towards_LeftUp; }
+    return Towards_RightDown;
+}

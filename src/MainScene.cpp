@@ -239,19 +239,37 @@ void MainScene::dealEvent(BP_Event& e)
     {
         //键盘走路部分，检测4个方向键
         int pressed = 0;
-        if (Engine::getInstance()->checkKeyPress(BPK_a)) { pressed = BPK_LEFT; }
-        if (Engine::getInstance()->checkKeyPress(BPK_s)) { pressed = BPK_DOWN; }
-        if (Engine::getInstance()->checkKeyPress(BPK_d)) { pressed = BPK_RIGHT; }
-        if (Engine::getInstance()->checkKeyPress(BPK_w)) { pressed = BPK_UP; }
+        auto engine = Engine::getInstance();
+        auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
+        auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+        if (abs(axis_x) < 10000) { axis_x = 0; }
+        if (abs(axis_y) < 10000) { axis_y = 0; }
+        if (axis_x != 0 || axis_y != 0)
+        {
+            Pointf axis{ double(axis_x), double(axis_y) };
+            auto to = readTowardsToFaceTowards(axis);
+            if (to == Towards_LeftUp) { pressed = BPK_LEFT; }
+            if (to == Towards_LeftDown) { pressed = BPK_DOWN; }
+            if (to == Towards_RightDown) { pressed = BPK_RIGHT; }
+            if (to == Towards_RightUp) { pressed = BPK_UP; }
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT)) { pressed = BPK_LEFT; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN)) { pressed = BPK_DOWN; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT)) { pressed = BPK_RIGHT; }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP)) { pressed = BPK_UP; }
+        if (engine->checkKeyPress(BPK_a)) { pressed = BPK_LEFT; }
+        if (engine->checkKeyPress(BPK_s)) { pressed = BPK_DOWN; }
+        if (engine->checkKeyPress(BPK_d)) { pressed = BPK_RIGHT; }
+        if (engine->checkKeyPress(BPK_w)) { pressed = BPK_UP; }
 
         for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
         {
-            if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
+            if (i != pre_pressed_ && engine->checkKeyPress(i))
             {
                 pressed = i;
             }
         }
-        if (pressed == 0 && Engine::getInstance()->checkKeyPress(pre_pressed_))
+        if (pressed == 0 && engine->checkKeyPress(pre_pressed_))
         {
             pressed = pre_pressed_;
         }

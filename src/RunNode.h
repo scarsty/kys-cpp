@@ -180,12 +180,14 @@ public:
     bool isPressOK(BP_Event& e)
     {
         return (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT);
+            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+            || (e.type == BP_JOYBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A);
     }
     bool isPressCancel(BP_Event& e)
     {
         return (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT);
+            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
+            || (e.type == BP_JOYBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_B);
     }
 
 private:
