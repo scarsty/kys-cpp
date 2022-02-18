@@ -744,43 +744,7 @@ void BattleSceneHades::backRun1()
                 }
             }
 
-            //计算有人被打中
-            for (auto& ae : attack_effects_)
-            {
-                if (!r->HurtFrame
-                    && !r->Invincible
-                    && r->Dead == 0
-                    && ae.Attacker
-                    && r->Team != ae.Attacker->Team
-                    && ae.Defender.count(r) == 0
-                    && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2)
-                {
-                    ae.Defender[r]++;
-                    int hurt = 0;
-                    if (ae.OperationType >= 0)
-                    {
-                        if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
-                        {
-                            hurt = defaultMagicEffect(ae, r);
-                        }
-                        else
-                        {
-                            hurt = special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
-                        }
-                    }
-                    hurt += 5 * (rand_.rand() - rand_.rand());
-                    if (hurt <= 0)
-                    {
-                        hurt = 1 + rand_.rand() * 3;
-                    }
-
-                    ae.Attacker->ExpGot += hurt / 2;
-                    r->HurtThisFrame += hurt;
-                    //std::vector<std::string> = {};
-                    fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
-                }
-            }
-            //ai行动
+            //ai策略
             if (r != role_ && r->Dead == 0)
             {
                 if (r->CoolDown == 0)
@@ -873,55 +837,6 @@ void BattleSceneHades::backRun1()
         }
     }
 
-    for (auto r : battle_roles_)
-    {
-        //此处计算累积伤害
-        int hurt = r->HurtThisFrame;
-        if (hurt > 0)
-        {
-            TextEffect te;
-            te.Color = { 255,255,255,255 };
-            if (r->Team == 0)
-            {
-                te.Color = { 255,0,0,255 };
-            }
-            te.Text = std::to_string(-hurt);
-            te.Pos = r->Pos;
-            te.Pos.x -= 7.5 * Font::getTextDrawSize(te.Text);
-            te.Pos.y -= 50;
-            text_effects_.push_back(std::move(te));
-            AttackEffect ae1;
-            ae1.FollowRole = r;
-            //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
-            ae1.setPath(fmt1::format("eft/bld{:03}", int(rand_.rand() * 5)));
-            ae1.TotalFrame = ae1.TotalEffectFrame;
-            ae1.Frame = 0;
-            attack_effects_.push_back(std::move(ae1));
-            r->HP -= hurt;
-            if (r->HP <= 0)
-            {
-                fmt1::print("{} has been beat\n", r->Name);
-                r->Dead = 1;
-                r->HP = 0;
-                //r->Velocity = r->Pos - ae.Attacker->Pos;
-                r->Velocity.norm(15);    //因为已经有击退速度，可以直接利用
-                r->Velocity.z = 12;
-                r->Velocity.norm(std::min(hurt / 2.5, 30.0));
-                r->VelocitytFrame = 15;
-                r->Frozen = 2;
-                x_ = rand_.rand_int(2) - rand_.rand_int(2);
-                y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                dying_ = r;
-                //frozen_ = 2;
-                //slow_ = 5;
-            }
-        }
-        r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
-        r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
-    }
-
-
     //效果
     //if (current_frame_ % 2 == 0)
     {
@@ -930,6 +845,11 @@ void BattleSceneHades::backRun1()
         {
             ae.Frame++;
             ae.Pos += ae.Velocity;
+            Role* r = nullptr;
+            if (ae.Attacker)
+            {
+                r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
+            }
             if (ae.OperationType == 1)
             {
                 //auto r = ae.Attacker;
@@ -939,14 +859,46 @@ void BattleSceneHades::backRun1()
                 //    ae.Velocity += p;
                 //    ae.Velocity.norm(3);
                 //}
-                //简单的追踪
-                auto r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
+                //简单的追踪                
                 if (r)
                 {
                     auto p = (r->Pos - ae.Pos).norm(0.3);
                     ae.Velocity += p;
                     ae.Velocity.norm(3);
                 }
+            }
+            //是否打中了敌人
+            if (r && !r->HurtFrame
+                && !r->Invincible
+                && r->Dead == 0
+                && ae.Attacker
+                && r->Team != ae.Attacker->Team
+                && ae.Defender.count(r) == 0
+                && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2)
+            {
+                ae.Defender[r]++;
+                int hurt = 0;
+                if (ae.OperationType >= 0)
+                {
+                    if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
+                    {
+                        hurt = defaultMagicEffect(ae, r);
+                    }
+                    else
+                    {
+                        hurt = special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
+                    }
+                }
+                hurt += 5 * (rand_.rand() - rand_.rand());
+                if (hurt <= 0)
+                {
+                    hurt = 1 + rand_.rand() * 3;
+                }
+                ae.Frame = ae.TotalFrame;
+                ae.Attacker->ExpGot += hurt / 2;
+                r->HurtThisFrame += hurt;
+                //std::vector<std::string> = {};
+                fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
             }
         }
         //效果间的互相抵消
@@ -996,6 +948,54 @@ void BattleSceneHades::backRun1()
         }
     }
 
+    //此处计算累积伤害
+    for (auto r : battle_roles_)
+    {
+        int hurt = r->HurtThisFrame;
+        if (hurt > 0)
+        {
+            TextEffect te;
+            te.Color = { 255,255,255,255 };
+            if (r->Team == 0)
+            {
+                te.Color = { 255,0,0,255 };
+            }
+            te.Text = std::to_string(-hurt);
+            te.Pos = r->Pos;
+            te.Pos.x -= 7.5 * Font::getTextDrawSize(te.Text);
+            te.Pos.y -= 50;
+            text_effects_.push_back(std::move(te));
+            AttackEffect ae1;
+            ae1.FollowRole = r;
+            //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
+            ae1.setPath(fmt1::format("eft/bld{:03}", int(rand_.rand() * 5)));
+            ae1.TotalFrame = ae1.TotalEffectFrame;
+            ae1.Frame = 0;
+            attack_effects_.push_back(std::move(ae1));
+            r->HP -= hurt;
+            if (r->HP <= 0)
+            {
+                fmt1::print("{} has been beat\n", r->Name);
+                r->Dead = 1;
+                r->HP = 0;
+                //r->Velocity = r->Pos - ae.Attacker->Pos;
+                r->Velocity.norm(15);    //因为已经有击退速度，可以直接利用
+                r->Velocity.z = 12;
+                r->Velocity.norm(std::min(hurt / 2.5, 30.0));
+                r->VelocitytFrame = 15;
+                r->Frozen = 2;
+                x_ = rand_.rand_int(2) - rand_.rand_int(2);
+                y_ = rand_.rand_int(2) - rand_.rand_int(2);
+                dying_ = r;
+                //frozen_ = 2;
+                //slow_ = 5;
+            }
+        }
+        r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
+        r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+    }
+
     //处理文字
     {
         for (auto& te : text_effects_)
@@ -1015,38 +1015,25 @@ void BattleSceneHades::backRun1()
             }
         }
     }
-    //清理,应增加效果
-    auto role_count = battle_roles_.size();
-    //for (auto it = battle_roles_.begin(); it != battle_roles_.end();)
-    //{
-    //    if ((*it)->Dead)
-    //    {
-    //        it = battle_roles_.erase(it);
-    //    }
-    //    else
-    //    {
-    //        it++;
-    //    }
-    //}
-    //人物出场
-    if (getTeamMateCount(1) < 5)
+
     {
-        if (!enemies_.empty())
+        //人物出场
+        if (getTeamMateCount(1) < 5)
         {
-            battle_roles_.push_back(enemies_.front());
-            enemies_.pop_front();
-            battle_roles_.back()->Attention = 30;
-            battle_roles_.back()->CoolDown = 30;
-            battle_roles_.back()->Invincible = 30;
+            if (!enemies_.empty())
+            {
+                battle_roles_.push_back(enemies_.front());
+                enemies_.pop_front();
+                battle_roles_.back()->Attention = 30;
+                battle_roles_.back()->CoolDown = 30;
+                battle_roles_.back()->Invincible = 30;
+            }
         }
-    }
-    //最后一个人亮血条
-    if (enemies_.empty())
-    {
-        head_boss_->setVisible(true);
-    }
-    //if (role_count != battle_roles_.size())
-    {
+        //最后一个人亮血条
+        if (enemies_.empty())
+        {
+            head_boss_->setVisible(true);
+        }
         //检测战斗结果
         int battle_result = checkResult();
 
@@ -1079,14 +1066,6 @@ void BattleSceneHades::onEntrance()
     addChild(MainScene::getInstance()->getWeather());
 
     earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-
-    // 正常战斗
-    //设置全部角色的位置层，避免今后出错
-    //for (auto r : Save::getInstance()->getRoles())
-    //{
-    //    //r->setRolePositionLayer(&role_layer_);
-    //    r->resetBattleInfo();
-    //}
 
     //首先设置位置和阵营，其他的后面统一处理
     //敌方
