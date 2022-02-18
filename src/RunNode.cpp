@@ -271,11 +271,42 @@ void RunNode::dealEventSelfChilds(bool check_event)
         BP_Event e;
         e.type = BP_FIRSTEVENT;
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
-        while (Engine::pollEvent(e))
+        while (Engine::getInstance()->pollEvent(e))
         {
             if (isSpecialEvent(e))
             {
                 break;
+            }
+        }
+        if (e.type == BP_CONTROLLERAXISMOTION)
+        {
+            BP_Event e1;
+            while (Engine::getInstance()->pollEvent(e1));
+            if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX || e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY)
+            {
+                auto axis_x = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTX);
+                auto axis_y = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTY);
+
+                int x, y;
+                Engine::getInstance()->getMouseState(x, y);
+                //fmt1::print("{} {}  ", axis_x, axis_y);
+                if (abs(axis_x) < 5000) { axis_x = 0; }
+                if (abs(axis_y) < 5000) { axis_y = 0; }
+                if (axis_x != 0 || axis_y != 0)
+                {
+                    x += axis_x / 500;
+                    y += axis_y / 500;
+                    int w, h;
+                    Engine::getInstance()->getWindowSize(w, h);
+                    if (x >= w) { x = w - 1; }
+                    if (x < 0) { x = 0; }
+                    if (y >= h) { y = h - 1; }
+                    if (y < 0) { y = 0; }
+                    Engine::getInstance()->setMouseState(x, y);
+                    e.type = BP_MOUSEMOTION;
+                    e.motion.x = x;
+                    e.motion.y = y;
+                }
             }
         }
         checkStateSelfChilds(e, check_event);
@@ -295,24 +326,19 @@ void RunNode::dealEventSelfChilds(bool check_event)
 bool RunNode::isSpecialEvent(BP_Event& e)
 {
     //fmt1::print("type = {}\n", e.type);
-    //fmt1::print("jb = {}\n", e.cbutton.button);
-    return e.type == BP_MOUSEMOTION
+    return  e.type == BP_QUIT
+        || e.type == BP_WINDOWEVENT
+        || e.type == BP_KEYDOWN
+        || e.type == BP_KEYUP
+        || e.type == BP_TEXTEDITING
+        || e.type == BP_TEXTINPUT
+        || e.type == BP_MOUSEMOTION
         || e.type == BP_MOUSEBUTTONDOWN
         || e.type == BP_MOUSEBUTTONUP
         || e.type == BP_MOUSEWHEEL
-        || e.type == BP_KEYDOWN
-        || e.type == BP_KEYUP
-        || e.type == BP_JOYBUTTONDOWN
-        || e.type == BP_JOYBUTTONUP
-        || e.type == BP_JOYAXISMOTION
-        || e.type == BP_JOYHATMOTION
-        || e.type == BP_CONTROLLERBUTTONDOWN
-        || e.type == BP_CONTROLLERBUTTONUP
         || e.type == BP_CONTROLLERAXISMOTION
-        || e.type == BP_TEXTINPUT
-        || e.type == BP_TEXTEDITING
-        || e.type == BP_QUIT
-        || e.type == BP_WINDOWEVENT;
+        || e.type == BP_CONTROLLERBUTTONDOWN
+        || e.type == BP_CONTROLLERBUTTONUP;
 }
 
 void RunNode::forceActiveChild()
@@ -382,6 +408,15 @@ void RunNode::checkSelfState(BP_Event& e)
     if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP) && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
     {
         //按下键盘的空格或者回车时，将pass的按键改为press
+        if (state_ == NodePass)
+        {
+            state_ = NodePress;
+        }
+    }
+    if ((e.type == BP_CONTROLLERBUTTONDOWN || e.type == BP_CONTROLLERBUTTONUP) && e.cbutton.button == BP_CONTROLLER_BUTTON_A)
+    {
+        //int x, y;
+        //Engine::getInstance()->getMouseState(x, y);
         if (state_ == NodePass)
         {
             state_ = NodePress;

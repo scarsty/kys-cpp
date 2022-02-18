@@ -13,6 +13,7 @@ Menu::~Menu()
 
 void Menu::dealEvent(BP_Event& e)
 {
+    if (deal_event_ == 0) { return; }
     Direct direct = DIrectNone;
     //此处处理键盘响应
     if (e.type == BP_KEYDOWN)
@@ -35,13 +36,21 @@ void Menu::dealEvent(BP_Event& e)
             break;
         }
     }
-    if (e.type == BP_JOYHATMOTION)
+    if (e.type == BP_CONTROLLERBUTTONDOWN)
     {
         auto engine = Engine::getInstance();
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT)) { direct = DirectLeft; }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN)) { direct = DirectDown; }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT)) { direct = DirectRight; }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP)) { direct = DirectUp; }
+        if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_DOWN) { direct = DirectDown; }
+        if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_UP) { direct = DirectUp; }
+        if (lr_style_ == 0)
+        {
+            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_RIGHT) { direct = DirectRight; }
+            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_LEFT) { direct = DirectLeft; }
+        }
+        else
+        {
+            if (e.cbutton.button == BP_CONTROLLER_BUTTON_LEFTSHOULDER) { direct = DirectLeft; }
+            if (e.cbutton.button == BP_CONTROLLER_BUTTON_RIGHTSHOULDER) { direct = DirectRight; }
+        }
     }
     if (direct != DIrectNone)
     {

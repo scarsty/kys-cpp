@@ -24,6 +24,8 @@ UIItem::UIItem()
     title_->setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
     title_->setFontSize(24);
     title_->arrange(0, 50, 64, 0);
+    title_->setDealEvent(0);
+    title_->setLRStyle(1);
     addChild(title_);
 
     cursor_ = std::make_shared<TextBox>();
@@ -274,6 +276,67 @@ void UIItem::dealEvent(BP_Event& e)
         {
             focus_ = 1;
         }
+    }
+    if (e.type == BP_CONTROLLERBUTTONDOWN)
+    {
+        title_->setDealEvent(1);
+        switch (e.cbutton.button)
+        {
+        case BP_CONTROLLER_BUTTON_DPAD_LEFT:
+            if (active_child_ > 0)
+            {
+                active_child_--;
+            }
+            else
+            {
+                if (leftup_index_ > 0)
+                {
+                    leftup_index_ -= item_each_line_;
+                    active_child_ = item_each_line_ - 1;
+                }
+            }
+            break;
+        case BP_CONTROLLER_BUTTON_DPAD_RIGHT:
+            if (active_child_ < item_each_line_ * line_count_ - 1)
+            {
+                active_child_++;
+            }
+            else
+            {
+                leftup_index_ += item_each_line_;
+                if (leftup_index_ <= max_leftup_)
+                {
+                    active_child_ = item_each_line_ * (line_count_ - 1);
+                }
+            }
+            break;
+        case BP_CONTROLLER_BUTTON_DPAD_UP:
+            if (active_child_ < item_each_line_ && leftup_index_ == 0)
+            {
+            }
+            else if (active_child_ < item_each_line_)
+            {
+                leftup_index_ -= item_each_line_;
+            }
+            else
+            {
+                active_child_ -= item_each_line_;
+            }
+            break;
+        case BP_CONTROLLER_BUTTON_DPAD_DOWN:
+            if (active_child_ < item_each_line_ * (line_count_ - 1))
+            {
+                active_child_ += item_each_line_;
+            }
+            else
+            {
+                leftup_index_ += item_each_line_;
+            }
+            break;
+        default:
+            break;
+        }
+        forceActiveChild();
     }
 }
 

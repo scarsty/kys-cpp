@@ -346,10 +346,10 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
                 auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+                if (abs(axis_x) < 2000) { axis_x = 0; }
+                if (abs(axis_y) < 2000) { axis_y = 0; }
                 if (axis_x != 0 || axis_y != 0)
                 {
-                    if (abs(axis_x) < 2000) { axis_x = 0; }
-                    if (abs(axis_y) < 2000) { axis_y = 0; }
                     axis_x = GameUtil::limit(axis_x, -20000, 20000);
                     axis_y = GameUtil::limit(axis_y, -20000, 20000);
                     Pointf axis{ double(axis_x), double(axis_y) };
@@ -1317,8 +1317,8 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getWeapon(act_type);
-    int v[4] = { 60 - i / 2,160 - i,70 - i / 2,10 };
-    int min_v[4] = { 10, 45, 30, 10 };
+    int v[4] = { 60 - i / 2, 160 - i, 70 - i / 2, 10 };
+    int min_v[4] = { 10, 45, 15, 10 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         int c = std::max(min_v[operation_type], v[operation_type]);

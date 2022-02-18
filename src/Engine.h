@@ -39,6 +39,7 @@ using BP_Color = SDL_Color;
 using BP_Keycode = SDL_Keycode;
 using BP_Surface = SDL_Surface;
 using BP_GameController = SDL_GameController;
+using BP_Haptic = SDL_Haptic;
 
 enum BP_Align
 {
@@ -89,6 +90,9 @@ private:
     int render_times_ = 0;
 
     BP_GameController* game_controller_ = nullptr;
+    BP_Haptic* haptic_ = nullptr;
+
+    int switch_ = 0;
 
 public:
     int init(void* handle = 0);
@@ -184,7 +188,8 @@ public:
         }
     }
     static void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
-    static int pollEvent(BP_Event& e) { return SDL_PollEvent(&e); }
+    void setMouseState(int& x, int& y) { SDL_WarpMouseInWindow(window_, x, y); };
+    int pollEvent(BP_Event& e);
     static int pollEvent() { return SDL_PollEvent(nullptr); }
     static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
     static void flushEvent() { SDL_FlushEvent(0); }

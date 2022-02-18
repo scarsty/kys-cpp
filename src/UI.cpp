@@ -92,30 +92,60 @@ void UI::dealEvent(BP_Event& e)
     childs_[current_button_]->setState(NodePass);
 
     //快捷键切换
-    if (e.type == BP_KEYUP)
     {
-        switch (e.key.keysym.sym)
+        int cb = current_button_;
+        if (e.type == BP_KEYUP)
         {
-        case BPK_1:
-            childs_[0] = ui_status_;
-            setAllChildState(NodeNormal);
-            button_status_->setState(NodePress);
-            current_button_ = 0;
-            break;
-        case BPK_2:
-            childs_[0] = ui_item_;
-            setAllChildState(NodeNormal);
-            button_item_->setState(NodePress);
-            current_button_ = 1;
-            break;
-        case BPK_3:
-            childs_[0] = ui_system_;
-            setAllChildState(NodeNormal);
-            button_system_->setState(NodePress);
-            current_button_ = 2;
-            break;
-        default:
-            break;
+            switch (e.key.keysym.sym)
+            {
+            case BPK_1:
+                cb = 0;
+                break;
+            case BPK_2:
+                cb = 1;
+                break;
+            case BPK_3:
+                cb = 2;
+                break;
+            default:
+                break;
+            }
+        }
+
+        if (e.type == BP_CONTROLLERAXISMOTION)
+        {
+            if (e.caxis.axis == BP_CONTROLLER_AXIS_TRIGGERLEFT && e.caxis.value == 0)
+            {
+                cb = GameUtil::limit(cb - 1, 0, 3);
+            }
+            if (e.caxis.axis == BP_CONTROLLER_AXIS_TRIGGERRIGHT && e.caxis.value == 0)
+            {
+                cb = GameUtil::limit(cb + 1, 0, 3);
+            }
+        }
+        if (cb != current_button_)
+        {
+            current_button_ = cb;
+            switch (current_button_)
+            {
+            case 0:
+                childs_[0] = ui_status_;
+                setAllChildState(NodeNormal);
+                button_status_->setState(NodePress);
+                break;
+            case 1:
+                childs_[0] = ui_item_;
+                setAllChildState(NodeNormal);
+                button_item_->setState(NodePress);
+                break;
+            case 2:
+                childs_[0] = ui_system_;
+                setAllChildState(NodeNormal);
+                button_system_->setState(NodePress);
+                break;
+            default:
+                break;
+            }
         }
     }
 
@@ -139,6 +169,7 @@ void UI::onPressedOK()
         if (item && item->ItemType == 0)
         {
             setExit(true);
+            return;
         }
     }
 
@@ -147,10 +178,11 @@ void UI::onPressedOK()
         if (ui_system_->getResult() == 0)
         {
             setExit(true);
+            return;
         }
     }
 
-    //四个按钮的响应
+    //按钮的响应
     if (button_status_->getState() == NodePress)
     {
         childs_[0] = ui_status_;
@@ -166,4 +198,5 @@ void UI::onPressedOK()
         childs_[0] = ui_system_;
         current_button_ = button_system_->getTag();
     }
+    //current_button_ = childs_[0]->getTag();
 }

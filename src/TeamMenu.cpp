@@ -96,7 +96,7 @@ void TeamMenu::onPressedOK()
                 role_ = h->getRole();
             }
         }
-        if (role_)
+        if (role_ && (item_ == nullptr || GameUtil::canUseItem(role_, item_)))
         {
             result_ = 0;
             setExit(true);
@@ -168,10 +168,10 @@ void TeamMenu::dealEvent(BP_Event& e)
         {
             for (auto h : heads_)
             {
-                if (h->getState() != NodeNormal && !GameUtil::canUseItem(h->getRole(), item_))
-                {
-                    h->setState(NodeNormal);
-                }
+                //if (h->getState() != NodeNormal && !GameUtil::canUseItem(h->getRole(), item_))
+                //{
+                //    h->setState(NodeNormal);
+                //}
             }
         }
     }

@@ -15,8 +15,10 @@ public:
     virtual void onExit() override;
     void setStartItem(int s) { start_ = s; }
     bool checkAllNormal();
+    void setLRStyle(int i) { lr_style_ = i; }
 protected:
     int start_ = 0;
+    int lr_style_ = 0;    //左右切换的方式，十字键或肩键
 };
 
 class MenuText : public Menu

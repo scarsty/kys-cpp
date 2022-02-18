@@ -14,6 +14,97 @@ Engine::~Engine()
     destroy();
 }
 
+int Engine::init(void* handle)
+{
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC))
+    {
+        return -1;
+    }
+
+    window_ = SDL_CreateWindow(title_.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        start_w_, start_h_, SDL_WINDOW_RESIZABLE);
+
+    SDL_ShowWindow(window_);
+    SDL_RaiseWindow(window_);
+    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /*| SDL_RENDERER_PRESENTVSYNC*/);
+
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
+    //屏蔽触摸板
+    SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
+    SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
+    SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
+
+    //手柄
+    if (SDL_NumJoysticks() < 1)
+    {
+        fmt1::print("Warning: No joysticks connected!\n");
+    }
+    else
+    {
+        //按照游戏控制器打开
+        game_controller_ = SDL_GameControllerOpen(0);
+        if (game_controller_)
+        {
+            fmt1::print("Found {} game controller(s)\n", SDL_NumJoysticks());
+            std::string name = SDL_GameControllerName(game_controller_);
+            fmt1::print("{}\n", name);
+            if (name.find("Switch") != std::string::npos) { switch_ = 1; }
+            haptic_ = SDL_HapticOpenFromJoystick(SDL_GameControllerGetJoystick(game_controller_));
+            if (haptic_ == nullptr) { fmt1::print("{}\n", SDL_GetError()); }
+        }
+        else
+        {
+            fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
+        }
+    }
+
+    rect_ = { 0, 0, start_w_, start_h_ };
+    logo_ = loadImage("logo.png");
+    showLogo();
+    renderPresent();
+    TTF_Init();
+
+#ifdef _MSC_VER
+    RECT r;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&r, 0);
+    int w = GetSystemMetrics(SM_CXEDGE);
+    int h = GetSystemMetrics(SM_CYEDGE);
+    min_x_ = r.left + w;
+    min_y_ = r.top + h + GetSystemMetrics(SM_CYCAPTION);
+    max_x_ = r.right - w;
+    max_y_ = r.bottom - h;
+#else
+    BP_Rect r;
+    SDL_GetDisplayBounds(0, &r);
+    min_x_ = r.x;
+    min_y_ = r.y;
+    max_x_ = r.w + r.x;
+    max_y_ = r.h + r.y;
+#endif
+
+    square_ = createRectTexture(100, 100, 0);
+
+    fmt1::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
+#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
+    tinypot_ = PotCreateFromWindow(window_);
+#endif
+    return 0;
+}
+
+void Engine::destroy()
+{
+    //SDL_DestroyTexture(tex_);
+    destroyAssistTexture();
+    SDL_DestroyRenderer(renderer_);
+    SDL_DestroyWindow(window_);
+#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
+    PotDestory(tinypot_);
+#endif
+    SDL_Quit();
+}
+
 BP_Texture* Engine::createYUVTexture(int w, int h)
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, w, h);
@@ -62,16 +153,21 @@ void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double an
     render_times_++;
 }
 
-void Engine::destroy()
+int Engine::pollEvent(BP_Event& e)
 {
-    //SDL_DestroyTexture(tex_);
-    destroyAssistTexture();
-    SDL_DestroyRenderer(renderer_);
-    SDL_DestroyWindow(window_);
-#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
-    PotDestory(tinypot_);
-#endif
-    SDL_Quit();
+    int r = SDL_PollEvent(&e);
+    if (switch_)
+    {
+        if (e.type == BP_CONTROLLERBUTTONDOWN || e.type == BP_CONTROLLERBUTTONUP)
+        {
+            auto& key = e.cbutton.button;
+            if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
+            else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
+            else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
+            else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+        }
+    }
+    return r;
 }
 
 bool Engine::checkKeyPress(BP_Keycode key)
@@ -83,6 +179,13 @@ bool Engine::gameControllerGetButton(int key)
 {
     if (game_controller_)
     {
+        if (switch_)
+        {
+            if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
+            else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
+            else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
+            else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+        }
         return SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
     }
     return false;
@@ -147,80 +250,6 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     SDL_FreeSurface(text_s);
     TTF_CloseFont(font);
     return text_t;
-}
-
-int Engine::init(void* handle)
-{
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK))
-    {
-        return -1;
-    }
-
-    window_ = SDL_CreateWindow(title_.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        start_w_, start_h_, SDL_WINDOW_RESIZABLE);
-
-    SDL_ShowWindow(window_);
-    SDL_RaiseWindow(window_);
-    renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /*| SDL_RENDERER_PRESENTVSYNC*/);
-
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-
-    //屏蔽触摸板
-    SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
-    SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
-    SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
-
-    //手柄
-    if (SDL_NumJoysticks() < 1)
-    {
-        fmt1::print("Warning: No joysticks connected!\n");
-    }
-    else
-    {
-        //Load joystick
-        game_controller_ = SDL_GameControllerOpen(0);
-        if (game_controller_)
-        {
-            fmt1::print("Found {} game controller(s)\n", SDL_NumJoysticks());
-        }
-        else
-        {
-            fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
-        }
-    }
-
-    rect_ = { 0, 0, start_w_, start_h_ };
-    logo_ = loadImage("logo.png");
-    showLogo();
-    renderPresent();
-    TTF_Init();
-
-#ifdef _MSC_VER
-    RECT r;
-    SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&r, 0);
-    int w = GetSystemMetrics(SM_CXEDGE);
-    int h = GetSystemMetrics(SM_CYEDGE);
-    min_x_ = r.left + w;
-    min_y_ = r.top + h + GetSystemMetrics(SM_CYCAPTION);
-    max_x_ = r.right - w;
-    max_y_ = r.bottom - h;
-#else
-    BP_Rect r;
-    SDL_GetDisplayBounds(0, &r);
-    min_x_ = r.x;
-    min_y_ = r.y;
-    max_x_ = r.w + r.x;
-    max_y_ = r.h + r.y;
-#endif
-
-    square_ = createRectTexture(100, 100, 0);
-
-    fmt1::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
-#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
-    tinypot_ = PotCreateFromWindow(window_);
-#endif
-    return 0;
 }
 
 int Engine::getWindowWidth()

@@ -11,6 +11,7 @@ UISystem::UISystem()
     title_->setStrings({ "讀取進度", "保存進度", "我的代碼","鍵位配置", "離開遊戲" });
     title_->setFontSize(24);
     title_->arrange(100, 50, 120, 0);
+    title_->setLRStyle(1);
     addChild(title_);
 }
 

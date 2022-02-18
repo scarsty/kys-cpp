@@ -297,6 +297,7 @@ public:
         case 3: return Knife; break;
         case 4: return Unusual; break;
         }
+        return 0;
     }
     void resetBattleInfo();
 
