@@ -344,47 +344,42 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         {
             //if (current_frame_ % 3 == 0)
             {
+                auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
+                auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+                if (axis_x != 0 || axis_y != 0)
+                {
+                    if (abs(axis_x) < 2000) { axis_x = 0; }
+                    if (abs(axis_y) < 2000) { axis_y = 0; }
+                    axis_x = GameUtil::limit(axis_x, -20000, 20000);
+                    axis_y = GameUtil::limit(axis_y, -20000, 20000);
+                    Pointf axis{ double(axis_x), double(axis_y) };
+                    axis *= 1.0 / 20000 / sqrt(2.0);
+                    r->RealTowards = axis;
+                    r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                    pos_ += speed * r->RealTowards;
+                }
+                double speed1 = speed / sqrt(2.0);    //注意这里往后都是分两轴
                 if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
                 {
-                    pos_.x -= speed;
+                    pos_.x -= speed1;
                     r->FaceTowards = Towards_LeftDown;
-                    r->OperationType = 0;
                 }
                 if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(BPK_RIGHT))
                 {
-                    pos_.x += speed;
+                    pos_.x += speed1;
                     r->FaceTowards = Towards_RightUp;
-                    r->OperationType = 0;
                 }
                 if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(BPK_UP))
                 {
-                    pos_.y -= speed;
+                    pos_.y -= speed1;
                     r->FaceTowards = Towards_LeftUp;
-                    r->OperationType = 0;
                 }
                 if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(BPK_DOWN))
                 {
-                    pos_.y += speed;
+                    pos_.y += speed1;
                     r->FaceTowards = Towards_RightDown;
-                    r->OperationType = 0;
                 }
             }
-            //if (engine->checkKeyPress(BPK_1))
-            //{
-            //    weapon_ = 1;
-            //}
-            //if (engine->checkKeyPress(BPK_2))
-            //{
-            //    weapon_ = 2;
-            //}
-            //if (engine->checkKeyPress(BPK_3))
-            //{
-            //    weapon_ = 3;
-            //}
-            //if (engine->checkKeyPress(BPK_4))
-            //{
-            //    weapon_ = 4;
-            //}
         }
         if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
             || engine->checkKeyPress(BPK_UP) && engine->checkKeyPress(BPK_RIGHT))
@@ -417,10 +412,26 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
-            if (engine->checkKeyPress(keys_.Light) && r->PhysicalPower >= 10) { index = 0; }
-            if (engine->checkKeyPress(keys_.Heavy) && r->PhysicalPower >= 30) { index = 1; }
-            if (engine->checkKeyPress(keys_.Long) && r->PhysicalPower >= 20) { index = 2; }
-            if (engine->checkKeyPress(keys_.Slash) && r->PhysicalPower >= 10) { index = 3; }
+            if (r->PhysicalPower >= 10
+                && (engine->checkKeyPress(keys_.Light) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)))
+            {
+                index = 0;
+            }
+            if (r->PhysicalPower >= 30
+                && (engine->checkKeyPress(keys_.Heavy) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)))
+            {
+                index = 1;
+            }
+            if (r->PhysicalPower >= 20
+                && (engine->checkKeyPress(keys_.Long) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)))
+            {
+                index = 2;
+            }
+            if (r->PhysicalPower >= 10
+                && (engine->checkKeyPress(keys_.Slash) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)))
+            {
+                index = 3;
+            }
             r->OperationType = index;
             if (index >= 0 && magic[index])
             {
@@ -786,10 +797,7 @@ void BattleSceneHades::backRun1()
                     if (r0)
                     {
                         r->RealTowards = r0->Pos - r->Pos;
-                        r->FaceTowards = Towards_RightDown;
-                        if (r->RealTowards.x > 0 && r->RealTowards.y < 0) { r->FaceTowards = Towards_RightUp; }
-                        if (r->RealTowards.x < 0 && r->RealTowards.y > 0) { r->FaceTowards = Towards_LeftDown; }
-                        if (r->RealTowards.x < 0 && r->RealTowards.y < 0) { r->FaceTowards = Towards_LeftUp; }
+                        r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
                         r->RealTowards.norm(1);
                         int dis = TILE_W * 3;
                         if (r->UsingMagic)

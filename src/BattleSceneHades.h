@@ -162,6 +162,14 @@ protected:
         }
     }
 
+    int readTowardsToFaceTowards(const Pointf& t)
+    {
+        if (t.x > 0 && t.y < 0) { return Towards_RightUp; }
+        if (t.x < 0 && t.y > 0) { return Towards_LeftDown; }
+        if (t.x < 0 && t.y < 0) { return Towards_LeftUp; }
+        return Towards_RightDown;
+    }
+
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;

@@ -300,6 +300,9 @@ bool RunNode::isSpecialEvent(BP_Event& e)
         || e.type == BP_MOUSEWHEEL
         || e.type == BP_KEYDOWN
         || e.type == BP_KEYUP
+        || e.type == BP_CONTROLLERBUTTONDOWN
+        || e.type == BP_CONTROLLERBUTTONUP
+        || e.type == BP_CONTROLLERAXISMOTION
         || e.type == BP_TEXTINPUT
         || e.type == BP_TEXTEDITING
         || e.type == BP_QUIT

@@ -79,6 +79,24 @@ bool Engine::checkKeyPress(BP_Keycode key)
     return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
 }
 
+bool Engine::gameControllerGetButton(int key)
+{
+    if (game_controller_)
+    {
+        return SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
+    }
+    return false;
+}
+
+int16_t Engine::gameControllerGetAxis(int axis)
+{
+    if (game_controller_)
+    {
+        return SDL_GameControllerGetAxis(game_controller_, SDL_GameControllerAxis(axis));
+    }
+    return 0;
+}
+
 BP_Texture* Engine::createRectTexture(int w, int h, int style)
 {
     auto square_s = SDL_CreateRGBSurface(0, w, h, 32, RMASK, GMASK, BMASK, AMASK);
@@ -161,8 +179,12 @@ int Engine::init(void* handle)
     else
     {
         //Load joystick
-        auto game_controller = SDL_GameControllerOpen(0);
-        if (!game_controller)
+        game_controller_ = SDL_GameControllerOpen(0);
+        if (game_controller_)
+        {
+            fmt1::print("Found {} game controller(s)\n", SDL_NumJoysticks());
+        }
+        else
         {
             fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
         }
