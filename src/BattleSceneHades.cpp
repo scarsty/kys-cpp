@@ -358,27 +358,30 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
                     pos_ += speed * r->RealTowards;
                 }
-                double speed1 = speed / sqrt(2.0);    //注意这里往后都是分两轴
+                Pointf direct;
                 if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
                 {
-                    pos_.x -= speed1;
+                    direct.x = -1;
                     r->FaceTowards = Towards_LeftDown;
                 }
                 if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(BPK_RIGHT))
                 {
-                    pos_.x += speed1;
+                    direct.x = 1;
                     r->FaceTowards = Towards_RightUp;
                 }
                 if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(BPK_UP))
                 {
-                    pos_.y -= speed1;
+                    direct.y = -1;
                     r->FaceTowards = Towards_LeftUp;
                 }
                 if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(BPK_DOWN))
                 {
-                    pos_.y += speed1;
+                    direct.y = 1;
                     r->FaceTowards = Towards_RightDown;
                 }
+                direct.norm(speed);
+                pos_ += direct;
+                //这样来看同时用手柄和键盘会走得很快，就这样吧
             }
         }
         if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
