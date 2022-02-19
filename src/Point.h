@@ -17,7 +17,11 @@ public:
     Point_() {}
     Point_(T x1, T y1, T z1 = 0) : x(x1), y(y1), z(z1) {}
     T x{ 0 }, y{ 0 }, z{ 0 };
-    Point_<T>& norm(T n)
+    T norm()
+    {
+        return sqrt(x * x + y * y + z * z);
+    }
+    Point_<T>& normTo(T n)
     {
         T n1 = sqrt(x * x + y * y + z * z);
         if (n1 != 0)
@@ -28,7 +32,7 @@ public:
         }
         return *this;
     }
-    Point_<T>& normXY(T n)
+    Point_<T>& normXYTo(T n)
     {
         T n1 = sqrt(x * x + y * y);
         if (n1 != 0)
@@ -61,7 +65,6 @@ public:
         y = n * sin(angle);
         return *this;
     }
-
     double getAngle()
     {
         return atan2f(y, x);
@@ -103,8 +106,9 @@ using Pointf = Point_<double>;
 
 inline int readTowardsToFaceTowards(const Pointf& t)
 {
-    if (t.x > 0 && t.y < 0) { return Towards_RightUp; }
-    if (t.x < 0 && t.y > 0) { return Towards_LeftDown; }
-    if (t.x < 0 && t.y < 0) { return Towards_LeftUp; }
-    return Towards_RightDown;
+    if (t.x >= 0 && t.y > 0) { return Towards_RightDown; }
+    if (t.x > 0 && t.y <= 0) { return Towards_RightUp; }
+    if (t.x < 0 && t.y >= 0) { return Towards_LeftDown; }
+    if (t.x <= 0 && t.y < 0) { return Towards_LeftUp; }
+    return Towards_None;
 }

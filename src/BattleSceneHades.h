@@ -14,18 +14,20 @@
 struct AttackEffect
 {
     Pointf Pos;
-    Pointf Velocity;
-    Role* Attacker = nullptr;
+    Pointf Velocity, Acceleration;
+    Role* Attacker = nullptr;    //攻击者
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
-    int Frame = 0;
-    int TotalFrame = 1;
-    int TotalEffectFrame = 1;
+    int Frame = 0;    //当前帧数
+    int TotalFrame = 1;    //总帧数，当前帧数超过此值就移除此效果
+    int TotalEffectFrame = 1;    //效果总帧数
     //int EffectNumber;
-    int OperationType = -1;
-    std::string Path;
-    Role* FollowRole = nullptr;
-    int Weaken = 0;
+    int OperationType = -1;    //攻击类型
+    std::string Path;    //效果贴图路径
+    Role* FollowRole = nullptr;    //一直保持在角色身上
+    int Weaken = 0;    //弱化程度，减掉
+    double Strengthen = 1;    //强化程度，相乘
+    int Track = 0;
     void setEft(int num)
     {
         setPath(fmt1::format("eft/eft{:03}", num));
@@ -84,6 +86,7 @@ protected:
     int weapon_ = 1;
     int frozen_ = 0;
     int slow_ = 0;
+    int shake_ = 0;
 
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;

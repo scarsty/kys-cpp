@@ -277,9 +277,12 @@ public:
     int Invincible = 0;    //无敌时间
     int Frozen = 0;    //静止时间
 
+    int HaveAction = 0;    //开始行动
     int ActType = -1;    //医拳剑刀特
-    int ActFrame = 0;
+    int ActFrame = 0;    //行动帧数
+    int PreActTimer = 0;    //上次行动的时间
     int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
+    int OperationCount = 0;    //使用同一攻击的计数
     int HurtThisFrame = 0;    //一帧内受到伤害累积
     int TurnTowards = -1;    //ai的转弯倾向
 
