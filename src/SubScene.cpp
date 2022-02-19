@@ -65,7 +65,7 @@ void SubScene::draw()
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
         //在rect0的坐标越界时似乎不太正常，懒得弄了
     }
-#ifndef _DEBUG
+#ifndef _DEBUG1
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)

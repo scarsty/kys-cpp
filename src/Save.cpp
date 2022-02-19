@@ -396,15 +396,7 @@ void Save::saveRToDB(int num)
     std::string filename = "../game/save/" + std::to_string(num) + ".db";
     //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
-    sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
-    NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
-    NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
-    NewSave::SaveDBRoleSave(db, roles_mem_);
-    NewSave::SaveDBItemSave(db, items_mem_);
-    NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
-    NewSave::SaveDBMagicSave(db, magics_mem_);
-    NewSave::SaveDBShopSave(db, shops_mem_);
-    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+    saveRToDB(db);
     sqlite3_close(db);
 }
 
@@ -418,6 +410,28 @@ void Save::loadRFromDB(int num)
     }
     sqlite3* db;
     sqlite3_open(filename.c_str(), &db);
+    loadRFromDB(db);
+    sqlite3_close(db);
+    updateAllPtrVector();
+    makeMaps();
+    Encode = 65001;
+}
+
+void Save::saveRToDB(sqlite3* db)
+{
+    sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
+    NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
+    NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
+    NewSave::SaveDBRoleSave(db, roles_mem_);
+    NewSave::SaveDBItemSave(db, items_mem_);
+    NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
+    NewSave::SaveDBMagicSave(db, magics_mem_);
+    NewSave::SaveDBShopSave(db, shops_mem_);
+    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+}
+
+void Save::loadRFromDB(sqlite3* db)
+{
     NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
     NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);
     NewSave::LoadDBRoleSave(db, roles_mem_);
@@ -425,8 +439,57 @@ void Save::loadRFromDB(int num)
     NewSave::LoadDBSubMapInfoSave(db, submap_infos_mem_);
     NewSave::LoadDBMagicSave(db, magics_mem_);
     NewSave::LoadDBShopSave(db, shops_mem_);
-    sqlite3_close(db);
-    updateAllPtrVector();
-    makeMaps();
-    Encode = 65001;
+}
+
+void Save::runSql(const std::string& cmd)
+{
+    if (cmd.find("update ") != 0) { return; }
+    sqlite3* db = nullptr;
+    sqlite3_open(nullptr, &db);
+    if (db)
+    {
+        if (cmd.find("base ") != std::string::npos)
+        {
+            NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
+        }
+        else if (cmd.find("bag ") != std::string::npos)
+        {
+            NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);
+        }
+        else if (cmd.find("role ") != std::string::npos)
+        {
+            NewSave::SaveDBRoleSave(db, roles_mem_);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBRoleSave(db, roles_mem_);
+        }
+        else if (cmd.find("item ") != std::string::npos)
+        {
+            NewSave::SaveDBItemSave(db, items_mem_);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBItemSave(db, items_mem_);
+        }
+        else if (cmd.find("submap ") != std::string::npos)
+        {
+            NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBSubMapInfoSave(db, submap_infos_mem_);
+        }
+        else if (cmd.find("magic ") != std::string::npos)
+        {
+            NewSave::SaveDBMagicSave(db, magics_mem_);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBMagicSave(db, magics_mem_);
+        }
+        else if (cmd.find("shop ") != std::string::npos)
+        {
+            NewSave::SaveDBShopSave(db, shops_mem_);
+            NewSave::runSql(db, cmd);
+            NewSave::LoadDBShopSave(db, shops_mem_);
+        }
+        sqlite3_close(db);
+    }
 }

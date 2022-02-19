@@ -7,7 +7,7 @@
 
 struct ItemList
 {
-    int item_id, count;
+    int item_id = -1, count = 0;
 };
 
 class Save
@@ -209,4 +209,9 @@ public:
 public:
     void saveRToDB(int num);
     void loadRFromDB(int num);
+
+    void saveRToDB(sqlite3* db);
+    void loadRFromDB(sqlite3* db);
+
+    void runSql(const std::string& cmd);
 };

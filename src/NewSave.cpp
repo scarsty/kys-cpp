@@ -390,7 +390,7 @@ void NewSave::LoadDBItemList(sqlite3* db, ItemList* data, int length)
 {
     std::vector<ItemList> itemlist;
     readValues(db, "bag", new_save_.item_list_, itemlist);
-    for (int i = 0; i < length; i++)
+    for (int i = 0; i < std::min(length, int(itemlist.size())); i++)
     {
         data[i] = itemlist[i];
     }
@@ -445,3 +445,7 @@ void NewSave::LoadDBShopSave(sqlite3* db, std::vector<Shop>& data)
 {
     readValues(db, "shop", new_save_.shop_, data);
 }
+
+int NewSave::runSql(sqlite3* db, const std::string& cmd)
+{
+    return sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);}

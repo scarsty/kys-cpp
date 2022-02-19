@@ -346,7 +346,7 @@ void UIItem::showItemProperty(Item* item)
     {
         return;
     }
-    //物品名和数量    
+    //物品名和数量
     Font::getInstance()->draw(item->Name, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID)), 24, x_ + 260, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
@@ -430,7 +430,6 @@ void UIItem::showItemProperty(Item* item)
     {
         auto str = fmt1::format("僅適合{}", role->Name);
         addOneProperty(str, 1);
-        return;
     }
 
     addOneProperty("內力{}", item->NeedMP);
@@ -470,6 +469,7 @@ void UIItem::showItemProperty(Item* item)
     l = showAddedProperty(size, c, x, y);
 
     y += l * size + 10;
+    c = { 51, 250, 255, 255 };
     for (int i = 0; i < 5; i++)
     {
         int make = item->MakeItem[i];

@@ -76,7 +76,7 @@ enum
     SUBMAP_LAYER_COUNT = 6,
     MAINMAP_COORD_COUNT = 480,
     SUBMAP_EVENT_COUNT = 200,    //单场景最大事件数
-    ITEM_IN_BAG_COUNT = 200,     //最大物品数
+    ITEM_IN_BAG_COUNT = 1000,     //最大物品数
     TEAMMATE_COUNT = 6,          //最大队伍人员数
 };
 

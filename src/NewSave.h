@@ -17,11 +17,13 @@ private:
         FieldInfo() {}
         FieldInfo(const std::string& n, int t, int o, size_t l, int c = -1) : name(n), type(t), offset(o), length(l), col(c) {}
     };
-    std::vector<FieldInfo> base_, item_list_, role_, item_, submap_, magic_, shop_;
+
     //std::map<std::string, FieldInfo> base_map_;
     static NewSave new_save_;
 
 public:
+    std::vector<FieldInfo> base_, item_list_, role_, item_, submap_, magic_, shop_;
+
     static void initDBFieldInfo();
     static void SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
     static void LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
@@ -43,6 +45,13 @@ public:
     // 商店
     static void SaveDBShopSave(sqlite3* db, const std::vector<Shop>& data);
     static void LoadDBShopSave(sqlite3* db, std::vector<Shop>& data);
+
+public:
+    static int runSql(sqlite3* db, const std::string& cmd);
+    static const NewSave& getInstance()
+    {
+        return new_save_;
+    }
 
 private:
     template <class T>
@@ -110,10 +119,14 @@ private:
             }
         }
         //读取
-        data.clear();
+        int count = 0;
         while (sqlite3_step(statement) == SQLITE_ROW)
         {
-            T data1;
+            if (count + 1 >= data.size())
+            {
+                data.emplace_back();
+            }
+            T& data1 = data[count];
             for (int i = 0; i < infos.size(); i++)
             {
                 auto& info = infos[i];
@@ -134,7 +147,7 @@ private:
                     }
                 }
             }
-            data.push_back(data1);
+            count++;
         }
         sqlite3_finalize(statement);
     }
