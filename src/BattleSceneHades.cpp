@@ -532,7 +532,7 @@ void BattleSceneHades::backRun1()
         {
             continue;
         }
-        if (r->VelocitytFrame > 0)
+        if (r->VelocitytFrame > 0 || r->Pos.z > 0)
         {
             if (r == role_ && r->Dead)
             {
@@ -729,6 +729,7 @@ void BattleSceneHades::backRun1()
                         }
                         ae.Velocity.normTo(5);
                         ae.TotalFrame = 90;
+                        ae.Through = 1;
                         attack_effects_.push_back(ae);
                         needMP *= 0.2;
                         if (ae.UsingMagic->AttackAreaType == 2)
@@ -927,7 +928,10 @@ void BattleSceneHades::backRun1()
                 {
                     hurt = 1 + rand_.rand() * 3;
                 }
-                ae.Frame = ae.TotalFrame;
+                if (ae.Through)
+                {
+                    ae.Frame = ae.TotalFrame;
+                }
                 ae.Attacker->ExpGot += hurt / 2;
                 r->HurtThisFrame += hurt;
                 //std::vector<std::string> = {};

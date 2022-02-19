@@ -21,13 +21,13 @@ struct AttackEffect
     int Frame = 0;    //当前帧数
     int TotalFrame = 1;    //总帧数，当前帧数超过此值就移除此效果
     int TotalEffectFrame = 1;    //效果总帧数
-    //int EffectNumber;
     int OperationType = -1;    //攻击类型
     std::string Path;    //效果贴图路径
     Role* FollowRole = nullptr;    //一直保持在角色身上
     int Weaken = 0;    //弱化程度，减掉
     double Strengthen = 1;    //强化程度，相乘
-    int Track = 0;
+    int Track = 0;    //是否追踪
+    int Through = 0;    //是否贯穿，即击中敌人后可以不消失
     void setEft(int num)
     {
         setPath(fmt1::format("eft/eft{:03}", num));
