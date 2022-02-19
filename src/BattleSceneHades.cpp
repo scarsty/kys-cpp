@@ -412,26 +412,38 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
             equip_magics_[i]->setState(NodeNormal);
         }
+        auto checkMouseButton = [&e](int k)
+        {
+            return (e.type == BP_MOUSEBUTTONDOWN && e.button.button == k);
+        };
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
             if (r->PhysicalPower >= 10
-                && (engine->checkKeyPress(keys_.Light) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)))
+                && (engine->checkKeyPress(keys_.Light)
+                    || checkMouseButton(BP_BUTTON_LEFT)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)))
             {
                 index = 0;
             }
             if (r->PhysicalPower >= 30
-                && (engine->checkKeyPress(keys_.Heavy) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)))
+                && (engine->checkKeyPress(keys_.Heavy)
+                    || checkMouseButton(BP_BUTTON_MIDDLE)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)))
             {
                 index = 1;
             }
             if (r->PhysicalPower >= 20
-                && (engine->checkKeyPress(keys_.Long) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)))
+                && (engine->checkKeyPress(keys_.Long)
+                    || checkMouseButton(BP_BUTTON_RIGHT)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)))
             {
                 index = 2;
             }
             if (r->PhysicalPower >= 10
-                && (engine->checkKeyPress(keys_.Slash) || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)))
+                && (engine->checkKeyPress(keys_.Slash)
+                    || engine->checkKeyPress(BPK_SPACE)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)))
             {
                 index = 3;
             }
