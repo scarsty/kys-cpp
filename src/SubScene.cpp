@@ -273,7 +273,7 @@ void SubScene::dealEvent(BP_Event& e)
     }
     //检查触发剧情事件
     if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-        || (e.type == BP_JOYBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A))
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A))
     {
         if (checkEvent1(x, y, towards_))
         {
