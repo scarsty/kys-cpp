@@ -442,7 +442,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             }
             if (r->PhysicalPower >= 10
                 && (engine->checkKeyPress(keys_.Slash)
-                    || engine->checkKeyPress(BPK_SPACE)
+                    || e.type == BP_MOUSEWHEEL
                     || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)))
             {
                 index = 3;
