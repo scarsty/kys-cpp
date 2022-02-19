@@ -412,38 +412,35 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
             equip_magics_[i]->setState(NodeNormal);
         }
-        auto checkMouseButton = [&e](int k)
-        {
-            return (e.type == BP_MOUSEBUTTONDOWN && e.button.button == k);
-        };
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
             if (r->PhysicalPower >= 10
                 && (engine->checkKeyPress(keys_.Light)
-                    || checkMouseButton(BP_BUTTON_LEFT)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)))
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)
+                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_LEFT)))
             {
                 index = 0;
             }
             if (r->PhysicalPower >= 30
                 && (engine->checkKeyPress(keys_.Heavy)
-                    || checkMouseButton(BP_BUTTON_MIDDLE)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)))
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)
+                    || (e.type == BP_MOUSEWHEEL && e.wheel.y > 0)
+                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_MIDDLE)))
             {
                 index = 1;
             }
             if (r->PhysicalPower >= 20
                 && (engine->checkKeyPress(keys_.Long)
-                    || checkMouseButton(BP_BUTTON_RIGHT)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)))
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)
+                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_RIGHT)))
             {
                 index = 2;
             }
             if (r->PhysicalPower >= 10
                 && (engine->checkKeyPress(keys_.Slash)
-                    || e.type == BP_MOUSEWHEEL
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)))
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)
+                    || (e.type == BP_MOUSEWHEEL && e.wheel.y < 0)))
             {
                 index = 3;
             }

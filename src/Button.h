@@ -20,5 +20,7 @@ class ButtonGetKey : public Button
 public:
     virtual ~ButtonGetKey();
     void dealEvent(BP_Event& e) override;
+    virtual void onPressedOK() override {}
+    virtual void onPressedCancel() override {}
 };
 

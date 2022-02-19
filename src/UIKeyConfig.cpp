@@ -88,7 +88,7 @@ std::string UIKeyConfig::toString()
 
 std::string UIKeyConfig::keyToString(int k)
 {
-    std::string str(3, ' ');
-    str[2] = char(k);
+    std::string str=R"([ ])";
+    str[1] = char(k);
     return str;
 }
