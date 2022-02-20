@@ -382,23 +382,26 @@ bool Event::askBattle()
 bool Event::tryBattle(int battle_id, int get_exp)
 {
     int result = 0;
-    if (GameUtil::getInstance()->getInt("game", "semi_real") <= 1)
+    int style = GameUtil::getInstance()->getInt("game", "semi_real");
+    if (style == 0 || style == 1)
     {
         auto battle = std::make_shared<BattleScene>();
         battle->setID(battle_id);
         battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    else
+    else if (style == 2)
     {
         auto battle = std::make_shared<BattleSceneHades>();
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    //int result = 0;    //测试用
+    else if (style == 3)
+    {
+        result = 0;    //直接判断为胜利，用于调试
+    }
     clearTalkBox();
-
     return result == 0;
 }
 

@@ -6,6 +6,53 @@
 #include "convert.h"
 #include <array>
 
+int rModifier(auto data_name, auto getDataFromIndex, lua_State* L)
+{
+    int index = lua_tonumber(L, 1);
+    std::string name = lua_tostring(L, 2);
+    int n = lua_gettop(L);
+    for (auto& info : NewSave::getFieldInfo(data_name))
+    {
+        if (name == info.name)
+        {
+            char* p = (char*)(std::invoke(getDataFromIndex, Save::getInstance(), index)) + info.offset;
+            if (info.type == 0)
+            {
+                if (n == 2)
+                {
+                    lua_pushnumber(L, *(int*)p);
+                }
+                else
+                {
+                    *(int*)p = lua_tonumber(L, 3);
+                }
+            }
+            else
+            {
+                if (n == 2)
+                {
+                    lua_pushstring(L, p);
+                }
+                else
+                {
+                    std::string str = lua_tostring(L, 3);
+                    memset(p, 0, info.length);
+                    memcpy(p, str.c_str(), str.size());
+                }
+            }
+            break;
+        }
+    }
+    if (n == 2)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 Script::Script()
 {
     lua_state_ = luaL_newstate();
@@ -239,60 +286,20 @@ int Script::registerEventFunctions()
     };
     lua_register(lua_state_, "runsql", runSql);
 
-#define REGISTER_READ_RIGHT(Name, name_lowercase) \
-    auto get##Name = [](lua_State* L) -> int \
-    { \
-        int index = lua_tonumber(L, 1); \
-        std::string name = lua_tostring(L, 2); \
-        int n = lua_gettop(L); \
-        for (auto& info : NewSave::getFieldInfo(#Name)) \
-        { \
-            if (name == info.name) \
-            { \
-                char* p = (char*)(Save::getInstance()->get##Name(index)) + info.offset; \
-                if (info.type == 0) \
-                { \
-                    if (n == 2) \
-                    { \
-                        lua_pushnumber(L, *(int*)p); \
-                    } \
-                    else \
-                    { \
-                        *(int*)p = lua_tonumber(L, 3); \
-                    } \
-                } \
-                else \
-                { \
-                    if (n == 2) \
-                    { \
-                        lua_pushstring(L, p); \
-                    } \
-                    else \
-                    { \
-                        std::string str = lua_tostring(L, 3); \
-                        memcpy(p, str.c_str(), str.size()); \
-                    } \
-                } \
-                break; \
-            } \
-        } \
-        if (n == 2) \
-        { \
-            return 1; \
-        } \
-        else \
-        { \
-            return 0; \
-        } \
-    }; \
-    lua_register(lua_state_, "get"#name_lowercase, get##Name); \
-    lua_register(lua_state_, "set"#name_lowercase, get##Name);
+    lua_register(lua_state_, "getrole", [](lua_State* L) { return rModifier("Role", &Save::getRole, L); });
+    lua_register(lua_state_, "setrole", [](lua_State* L) { return rModifier("Role", &Save::getRole, L); });
 
-    REGISTER_READ_RIGHT(Role, role);
-    REGISTER_READ_RIGHT(Item, item);
-    REGISTER_READ_RIGHT(Magic, magic);
-    REGISTER_READ_RIGHT(SubMapInfo, submapinfo);
-    REGISTER_READ_RIGHT(Shop, shop);
+    lua_register(lua_state_, "getitem", [](lua_State* L) { return rModifier("Item", &Save::getItem, L); });
+    lua_register(lua_state_, "setitem", [](lua_State* L) { return rModifier("Item", &Save::getRole, L); });
+
+    lua_register(lua_state_, "getmagic", [](lua_State* L) { return rModifier("Magic", &Save::getRole, L); });
+    lua_register(lua_state_, "setmagic", [](lua_State* L) { return rModifier("Magic", &Save::getRole, L); });
+
+    lua_register(lua_state_, "getsubmapinfo", [](lua_State* L) { return rModifier("SubMapInfo", &Save::getRole, L); });
+    lua_register(lua_state_, "setsubmapinfo", [](lua_State* L) { return rModifier("SubMapInfo", &Save::getRole, L); });
+
+    lua_register(lua_state_, "getshop", [](lua_State* L) { return rModifier("Shop", &Save::getRole, L); });
+    lua_register(lua_state_, "setshop", [](lua_State* L) { return rModifier("Shop", &Save::getRole, L); });
 
     return 0;
 }

@@ -117,7 +117,7 @@ bool Save::load(int num)
         Encode = 65001;
     }
 
-    makeMaps();
+    makeMapsAndRepairID();
 
     //saveRToDB(num);    //临时转换
     return true;
@@ -275,7 +275,7 @@ int Save::getMoneyCountInBag()
     return getItemCountInBag(Item::MoneyItemID);
 }
 
-void Save::makeMaps()
+void Save::makeMapsAndRepairID()
 {
     roles_by_name_.clear();
     magics_by_name_.clear();
@@ -283,21 +283,29 @@ void Save::makeMaps()
     submap_infos_by_name_.clear();
 
     //有重名的，斟酌使用
+    int count = 0;
     for (auto& i : roles_)
     {
         roles_by_name_[i->Name] = i;
+        i->ID = count++;
     }
+    count = 0;
     for (auto& i : magics_)
     {
         magics_by_name_[i->Name] = i;
+        i->ID = count++;
     }
+    count = 0;
     for (auto& i : items_)
     {
         items_by_name_[i->Name] = i;
+        i->ID = count++;
     }
+    count = 0;
     for (auto& i : submap_infos_)
     {
         submap_infos_by_name_[i->Name] = i;
+        i->ID = count++;
     }
 }
 
@@ -413,7 +421,6 @@ void Save::loadRFromDB(int num)
     loadRFromDB(db);
     sqlite3_close(db);
     updateAllPtrVector();
-    makeMaps();
     Encode = 65001;
 }
 

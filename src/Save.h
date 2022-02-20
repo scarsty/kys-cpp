@@ -145,7 +145,7 @@ public:
     int getItemCountInBag(int item_id);
     int getMoneyCountInBag();
 
-    void makeMaps();
+    void makeMapsAndRepairID();
 
     Role* getRoleByName(std::string name) { return roles_by_name_[name]; }
     Magic* getMagicByName(std::string name) { return magics_by_name_[name]; }
