@@ -1,6 +1,7 @@
 #pragma once
 #include "INIReader.h"
 #include "Types.h"
+#include "fmt1.h"
 #include <climits>
 #include <cmath>
 
@@ -40,7 +41,8 @@ public:
     }
 
     //返回限制值
-    static int limit(int current, int min_value, int max_value)
+    template <typename T, typename T2>
+    static T limit(T current, T2 min_value, T2 max_value)
     {
         if (current < min_value)
         {

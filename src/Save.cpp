@@ -4,6 +4,7 @@
 #include "NewSave.h"
 #include "PotConv.h"
 #include "convert.h"
+#include "fmt1.h"
 
 Save::Save()
 {

@@ -3,6 +3,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "fmt1.h"
+
 NewSave NewSave::new_save_;
 
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))

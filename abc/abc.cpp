@@ -7,6 +7,7 @@
 #include "TypesABC.h"
 #include "convert.h"
 #include "fmt1.h"
+#include "Save.h"
 
 //转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)
@@ -201,7 +202,7 @@ void check_script(std::string path)
         for (auto& line : lines)
         {
             auto num = convert::findNumbers<int>(line);
-            if (num.size() >= 13)
+            if (num.size() >= 13 && line.find("--") != 0)
             {
                 if (num[0] == 3)
                 {

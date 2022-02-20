@@ -2,6 +2,7 @@
 #include "Random.h"
 #include "Save.h"
 #include "convert.h"
+#include "fmt1.h"
 
 GameUtil::GameUtil()
 {

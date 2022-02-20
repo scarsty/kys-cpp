@@ -1,8 +1,8 @@
 #pragma once
-#include "Engine.h"
 #include "Point.h"
 #include <cstdint>
 #include <string>
+#include <vector>
 
 using MAP_INT = int16_t;
 
@@ -163,8 +163,12 @@ public:
 
     struct ShowString
     {
+        struct Color_t
+        {
+            uint8_t r, g, b, a;
+        };
         std::string Text;
-        BP_Color Color;
+        Color_t Color;
         int Size = 0;
     };
     //显示文字效果使用
@@ -228,7 +232,7 @@ public:
 
     bool isAuto() { return Auto != 0 || Team != 0; }
 
-    void addShowString(std::string text, BP_Color color = { 255, 255, 255, 255 }, int size = 28) { Show.ShowStrings.push_back({ text, color, size }); }
+    void addShowString(std::string text, ShowString::Color_t color = { 255, 255, 255, 255 }, int size = 28) { Show.ShowStrings.push_back({ text, color, size }); }
     void clearShowStrings() { Show.ShowStrings.clear(); }
 
     int movedDistance() { return abs(X_ - prevX_) + abs(Y_ - prevY_); }
