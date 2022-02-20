@@ -18,11 +18,11 @@ private:
         FieldInfo(const std::string& n, int t, int o, size_t l, int c = -1) : name(n), type(t), offset(o), length(l), col(c) {}
     };
 
-    //std::map<std::string, FieldInfo> base_map_;
+    std::vector<FieldInfo> base_, item_list_, role_, item_, submapinfo_, magic_, shop_;
     static NewSave new_save_;
 
 public:
-    std::vector<FieldInfo> base_, item_list_, role_, item_, submap_, magic_, shop_;
+    static const std::vector<FieldInfo>& getFieldInfo(const std::string& name);    //这些索引其他地方可能用到
 
     static void initDBFieldInfo();
     static void SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
@@ -48,10 +48,6 @@ public:
 
 public:
     static int runSql(sqlite3* db, const std::string& cmd);
-    static const NewSave& getInstance()
-    {
-        return new_save_;
-    }
 
 private:
     template <class T>
@@ -100,8 +96,8 @@ private:
     {
         sqlite3_stmt* statement;
         std::string cmd = "select * from " + table_name;
-        int a = sqlite3_prepare(db, cmd.c_str(), cmd.size(), &statement, nullptr);
-        if (a)
+        int r = sqlite3_prepare(db, cmd.c_str(), cmd.size(), &statement, nullptr);
+        if (r)
         {
             fmt1::print("{}\n", sqlite3_errmsg(db));
         }

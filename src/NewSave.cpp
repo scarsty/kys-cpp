@@ -9,6 +9,17 @@ NewSave NewSave::new_save_;
 #define BIND_FIELD_INT(key, field) FieldInfo(key, 0, GET_OFFSET(field), sizeof(a.field))
 #define BIND_FIELD_TEXT(key, field) FieldInfo(key, 1, GET_OFFSET(field), sizeof(a.field))
 
+const std::vector<NewSave::FieldInfo>& NewSave::getFieldInfo(const std::string& name)
+{
+    if (name == "Base") { return new_save_.base_; }
+    if (name == "ItemList") { return new_save_.item_list_; }
+    if (name == "Role") { return new_save_.role_; }
+    if (name == "Item") { return new_save_.item_; }
+    if (name == "Magic") { return new_save_.magic_; }
+    if (name == "SubMapInfo") { return new_save_.submapinfo_; }
+    if (name == "Shop") { return new_save_.shop_; }
+}
+
 void NewSave::initDBFieldInfo()
 {
     if (new_save_.base_.size() == 0)
@@ -214,10 +225,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("练出物品数量5", MakeItemCount[4]),
         };
     }
-    if (new_save_.submap_.size() == 0)
+    if (new_save_.submapinfo_.size() == 0)
     {
         SubMapInfo a;
-        new_save_.submap_ =
+        new_save_.submapinfo_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("名称", Name),
@@ -418,12 +429,12 @@ void NewSave::LoadDBItemSave(sqlite3* db, std::vector<Item>& data)
 
 void NewSave::SaveDBSubMapInfoSave(sqlite3* db, const std::vector<SubMapInfo>& data)
 {
-    writeValues(db, "submap", new_save_.submap_, data);
+    writeValues(db, "submap", new_save_.submapinfo_, data);
 }
 
 void NewSave::LoadDBSubMapInfoSave(sqlite3* db, std::vector<SubMapInfo>& data)
 {
-    readValues(db, "submap", new_save_.submap_, data);
+    readValues(db, "submap", new_save_.submapinfo_, data);
 }
 
 void NewSave::SaveDBMagicSave(sqlite3* db, const std::vector<Magic>& data)
@@ -448,4 +459,10 @@ void NewSave::LoadDBShopSave(sqlite3* db, std::vector<Shop>& data)
 
 int NewSave::runSql(sqlite3* db, const std::string& cmd)
 {
-    return sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);}
+    int r = sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
+    if (r)
+    {
+        fmt1::print("{}\n", sqlite3_errmsg(db));
+    }
+    return r;
+}

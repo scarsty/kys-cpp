@@ -239,149 +239,60 @@ int Script::registerEventFunctions()
     };
     lua_register(lua_state_, "runsql", runSql);
 
-    auto getRole = [](lua_State* L) -> int
-    {
-        int index = lua_tonumber(L, 1);
-        std::string name = lua_tostring(L, 2);
-        for (auto& info : NewSave::getInstance().role_)
-        {
-            if (name == info.name)
-            {
-                char* p = (char*)(Save::getInstance()->getRole(index)) + info.offset;
-                if (info.type == 0)
-                {
-                    lua_pushnumber(L, *(int*)p);
-                }
-                else
-                {
-                    lua_pushstring(L, p);
-                }
-                break;
-            }
-        }
-        return 1;
-    };
-    lua_register(lua_state_, "getrole", getRole);
-    auto setRole = [](lua_State* L) -> int
-    {
-        int index = lua_tonumber(L, 1);
-        std::string name = lua_tostring(L, 2);
-        for (auto& info : NewSave::getInstance().role_)
-        {
-            if (name == info.name)
-            {
-                char* p = (char*)(Save::getInstance()->getRole(index)) + info.offset;
-                if (info.type == 0)
-                {
-                    *(int*)p = lua_tonumber(L, 3);
-                }
-                else
-                {
-                    std::string str = lua_tostring(L, 3);
-                    memcpy(p, str.c_str(), str.size());
-                }
-                break;
-            }
-        }
-        return 0;
-    };
-    lua_register(lua_state_, "setrole", setRole);
+#define REGISTER_READ_RIGHT(Name, name_lowercase) \
+    auto get##Name = [](lua_State* L) -> int \
+    { \
+        int index = lua_tonumber(L, 1); \
+        std::string name = lua_tostring(L, 2); \
+        int n = lua_gettop(L); \
+        for (auto& info : NewSave::getFieldInfo(#Name)) \
+        { \
+            if (name == info.name) \
+            { \
+                char* p = (char*)(Save::getInstance()->get##Name(index)) + info.offset; \
+                if (info.type == 0) \
+                { \
+                    if (n == 2) \
+                    { \
+                        lua_pushnumber(L, *(int*)p); \
+                    } \
+                    else \
+                    { \
+                        *(int*)p = lua_tonumber(L, 3); \
+                    } \
+                } \
+                else \
+                { \
+                    if (n == 2) \
+                    { \
+                        lua_pushstring(L, p); \
+                    } \
+                    else \
+                    { \
+                        std::string str = lua_tostring(L, 3); \
+                        memcpy(p, str.c_str(), str.size()); \
+                    } \
+                } \
+                break; \
+            } \
+        } \
+        if (n == 2) \
+        { \
+            return 1; \
+        } \
+        else \
+        { \
+            return 0; \
+        } \
+    }; \
+    lua_register(lua_state_, "get"#name_lowercase, get##Name); \
+    lua_register(lua_state_, "set"#name_lowercase, get##Name);
 
-    auto getItem = [](lua_State* L) -> int
-    {
-        int index = lua_tonumber(L, 1);
-        std::string name = lua_tostring(L, 2);
-        for (auto& info : NewSave::getInstance().item_)
-        {
-            if (name == info.name)
-            {
-                char* p = (char*)(Save::getInstance()->getItem(index)) + info.offset;
-                if (info.type == 0)
-                {
-                    lua_pushnumber(L, *(int*)p);
-                }
-                else
-                {
-                    lua_pushstring(L, p);
-                }
-                break;
-            }
-        }
-        return 1;
-    };
-    lua_register(lua_state_, "getitem", getItem);
-    auto setItem = [](lua_State* L) -> int
-    {
-        int index = lua_tonumber(L, 1);
-        std::string name = lua_tostring(L, 2);
-        for (auto& info : NewSave::getInstance().item_)
-        {
-            if (name == info.name)
-            {
-                char* p = (char*)(Save::getInstance()->getItem(index)) + info.offset;
-                if (info.type == 0)
-                {
-                    *(int*)p = lua_tonumber(L, 3);
-                }
-                else
-                {
-                    std::string str = lua_tostring(L, 3);
-                    memcpy(p, str.c_str(), str.size());
-                }
-                break;
-            }
-        }
-        return 0;
-    };
-    lua_register(lua_state_, "setitem", setItem);
-
-    auto getMagic = [](lua_State* L) -> int
-    {
-        int index = lua_tonumber(L, 1);
-        std::string name = lua_tostring(L, 2);
-        for (auto& info : NewSave::getInstance().magic_)
-        {
-            if (name == info.name)
-            {
-                char* p = (char*)(Save::getInstance()->getMagic(index)) + info.offset;
-                if (info.type == 0)
-                {
-                    lua_pushnumber(L, *(int*)p);
-                }
-                else
-                {
-                    lua_pushstring(L, p);
-                }
-                break;
-            }
-        }
-        return 1;
-    };
-    lua_register(lua_state_, "getMagic", getMagic);
-    auto setMagic = [](lua_State* L) -> int
-    {
-        int index = lua_tonumber(L, 1);
-        std::string name = lua_tostring(L, 2);
-        for (auto& info : NewSave::getInstance().magic_)
-        {
-            if (name == info.name)
-            {
-                char* p = (char*)(Save::getInstance()->getMagic(index)) + info.offset;
-                if (info.type == 0)
-                {
-                    *(int*)p = lua_tonumber(L, 3);
-                }
-                else
-                {
-                    std::string str = lua_tostring(L, 3);
-                    memcpy(p, str.c_str(), str.size());
-                }
-                break;
-            }
-        }
-        return 0;
-    };
-    lua_register(lua_state_, "setMagic", setMagic);
+    REGISTER_READ_RIGHT(Role, role);
+    REGISTER_READ_RIGHT(Item, item);
+    REGISTER_READ_RIGHT(Magic, magic);
+    REGISTER_READ_RIGHT(SubMapInfo, submapinfo);
+    REGISTER_READ_RIGHT(Shop, shop);
 
     return 0;
 }
