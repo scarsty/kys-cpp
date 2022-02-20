@@ -286,20 +286,25 @@ int Script::registerEventFunctions()
     };
     lua_register(lua_state_, "runsql", runSql);
 
-    lua_register(lua_state_, "getrole", [](lua_State* L) { return rModifier("Role", &Save::getRole, L); });
-    lua_register(lua_state_, "setrole", [](lua_State* L) { return rModifier("Role", &Save::getRole, L); });
+    auto getRole = [](lua_State* L) { return rModifier("Role", &Save::getRole, L); };
+    lua_register(lua_state_, "getrole", getRole);
+    lua_register(lua_state_, "setrole", getRole);
 
-    lua_register(lua_state_, "getitem", [](lua_State* L) { return rModifier("Item", &Save::getItem, L); });
-    lua_register(lua_state_, "setitem", [](lua_State* L) { return rModifier("Item", &Save::getRole, L); });
+    auto getItem = [](lua_State* L) { return rModifier("Item", &Save::getItem, L); };
+    lua_register(lua_state_, "getitem", getItem);
+    lua_register(lua_state_, "setitem", getItem);
 
-    lua_register(lua_state_, "getmagic", [](lua_State* L) { return rModifier("Magic", &Save::getRole, L); });
-    lua_register(lua_state_, "setmagic", [](lua_State* L) { return rModifier("Magic", &Save::getRole, L); });
+    auto getMagic = [](lua_State* L) { return rModifier("Magic", &Save::getMagic, L); };
+    lua_register(lua_state_, "getmagic", getMagic);
+    lua_register(lua_state_, "setmagic", getMagic);
 
-    lua_register(lua_state_, "getsubmapinfo", [](lua_State* L) { return rModifier("SubMapInfo", &Save::getRole, L); });
-    lua_register(lua_state_, "setsubmapinfo", [](lua_State* L) { return rModifier("SubMapInfo", &Save::getRole, L); });
+    auto getSubMapInfo = [](lua_State* L) { return rModifier("SubMapInfo", &Save::getSubMapInfo, L); };
+    lua_register(lua_state_, "getsubmapinfo", getSubMapInfo);
+    lua_register(lua_state_, "setsubmapinfo", getSubMapInfo);
 
-    lua_register(lua_state_, "getshop", [](lua_State* L) { return rModifier("Shop", &Save::getRole, L); });
-    lua_register(lua_state_, "setshop", [](lua_State* L) { return rModifier("Shop", &Save::getRole, L); });
+    auto getShop = [](lua_State* L) { return rModifier("Shop", &Save::getShop, L); };
+    lua_register(lua_state_, "getshop", getShop);
+    lua_register(lua_state_, "setshop", getShop);
 
     return 0;
 }

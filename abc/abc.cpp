@@ -191,9 +191,64 @@ void check_fight_frame(std::string path, int repair = 0)
     }
 }
 
+void check_script(std::string path)
+{
+    auto files = File::getFilesInPath(path, 0);
+    for (auto& f : files)
+    {
+        bool repair = false;
+        auto lines = convert::splitString(convert::readStringFromFile(path + "/" + f), "\n", false);
+        for (auto& line : lines)
+        {
+            auto num = convert::findNumbers<int>(line);
+            if (num.size() >= 13)
+            {
+                if (num[0] == 3)
+                {
+                    if (num[1] > 0 && num[12] >= 0 && num[13] >= 0)
+                    {
+                        fmt1::print("{}\n", line);
+                        auto strs = convert::splitString(line, ",", false);
+                        strs[10] = "-2";
+                        strs[11] = "-2";
+                        strs[12][0] = '2';
+                        strs[12] = "-" + strs[12];
+                        std::string new_str;
+                        for (auto& s : strs)
+                        {
+                            new_str += s + ",";
+                        }
+                        new_str.pop_back();
+                        fmt1::print("{}\n", new_str);
+                        line = "--repair" + line + "\n" + new_str;
+                        repair = true;
+                    }
+                    if (num[12] < 0 && num[13] < 0)
+                    {
+                        //fmt1::print("{}\n", line);
+                    }
+                }
+            }
+        }
+        if (repair)
+        {
+            std::string new_str;
+            for (auto& s : lines)
+            {
+                new_str += s + "\n";
+            }
+            convert::writeStringToFile(new_str, path + "/" + f);
+        }
+    }
+}
+
 int main()
 {
-
+#ifdef _WIN32
+    system("chcp 65001");
+#endif
+    //check_script("game/script/oldevent");
+    //check_script("game0/script/oldevent");
     //combine_ka("index.ka0", "index.ka");
     //check_fight_frame("game/resource/fight", 1);
     //trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
