@@ -5,6 +5,7 @@
 #include "PotConv.h"
 #include "convert.h"
 #include <array>
+#include <functional>
 
 int rModifier(auto data_name, auto getDataFromIndex, lua_State* L)
 {

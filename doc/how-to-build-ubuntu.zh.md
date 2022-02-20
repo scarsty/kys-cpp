@@ -2,7 +2,7 @@
 本作支持 linux 32/64 bit 环境，以本机示范如何编译。
 
 ### 编译环境
-本机 OS 是 x86 ubuntu18.04，菜鸡配置，不需要显卡。注意本作需要 c++14。
+本机 OS 是 x86 ubuntu18.04，菜鸡配置，不需要显卡。注意本作需要 c++17。
 ```shell
 $ uname -a
 Linux BJ-DZ0103437 5.4.0-47-generic #51~18.04.1-Ubuntu SMP Sat Sep 5 14:35:50 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
