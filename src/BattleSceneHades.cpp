@@ -788,9 +788,30 @@ void BattleSceneHades::backRun1()
                     if (r->UsingMagic == nullptr)
                     {
                         auto v = r->getLearnedMagics();
-                        if (!v.empty())
+                        if (v.size() == 1)
                         {
-                            r->UsingMagic = v[rand_.rand() * v.size()];
+                            r->UsingMagic = v[0];
+                        }
+                        else if (v.size() >= 0)
+                        {
+                            std::vector<double> hurt;
+                            double sum = 0;
+                            for (auto m : v)
+                            {
+                                double h = m->Attack[r->getMagicLevelIndex(m)];
+                                h = exp(h / 500);
+                                hurt.push_back(sum + h);
+                                sum += h;
+                            }
+                            double select = rand_.rand() * sum;
+                            for (int i = 0; i < hurt.size(); i++)
+                            {
+                                if (select < hurt[i])
+                                {
+                                    r->UsingMagic = v[i];
+                                    break;
+                                }
+                            }
                         }
                     }
                     auto r0 = findNearestEnemy(r->Team, r->Pos);
@@ -892,7 +913,7 @@ void BattleSceneHades::backRun1()
             {
                 //追踪
                 double n = ae.Velocity.norm();
-                auto p = (r->Pos - ae.Pos).normTo(n / 10.0);
+                auto p = (r->Pos - ae.Pos).normTo(n / 20.0);
                 ae.Velocity += p;
                 ae.Velocity.normTo(n);
             }
@@ -1074,7 +1095,13 @@ void BattleSceneHades::backRun1()
         //亮血条
         if (enemies_.size() < head_boss_.size())
         {
-            head_boss_[enemies_.size()]->setVisible(true);
+            for (int i = 0; i < head_boss_.size(); i++)
+            {
+                if (i >= enemies_.size())
+                {
+                    head_boss_[i]->setVisible(true);
+                }
+            }
         }
         //检测战斗结果
         int battle_result = checkResult();
@@ -1164,9 +1191,15 @@ void BattleSceneHades::onEntrance()
 
     for (int i = 0; i < head_boss_.size(); i++)
     {
+        bool is_boss = false;
         if (enemies_.size() >= i + 1)
         {
-            head_boss_[i]->setRole(enemies_[enemies_.size() - i - 1]);
+            auto r = enemies_[enemies_.size() - i - 1];
+            if (is_boss || r->MaxHP >= 300)
+            {
+                is_boss = true;
+                head_boss_[i]->setRole(r);
+            }
         }
     }
     for (int i = 0; i < 6; i++)
@@ -1175,10 +1208,6 @@ void BattleSceneHades::onEntrance()
         {
             battle_roles_.push_back(enemies_.front());
             enemies_.pop_front();
-            if (enemies_.size() < head_boss_.size())
-            {
-                head_boss_[enemies_.size()]->setVisible(true);
-            }
         }
     }
 
