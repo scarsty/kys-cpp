@@ -203,14 +203,12 @@ void TeamMenu::dealEvent(BP_Event& e)
                 h->setState(NodeNormal);
             }
             button_all_->setState(NodePress);
+            button_ok_->setState(NodeNormal);
             e.key.keysym.sym = BPK_RETURN;
         }
         if (e.key.keysym.sym == BPK_o)
         {
-            for (auto h : heads_)
-            {
-                h->setState(NodeNormal);
-            }
+            button_all_->setState(NodeNormal);
             button_ok_->setState(NodePress);
             e.key.keysym.sym = BPK_RETURN;
         }

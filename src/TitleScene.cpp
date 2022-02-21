@@ -32,7 +32,7 @@ TitleScene::TitleScene()
     menu_->addChild<Button>(220, 0)->setTexture("title", 6, 26, 26);
     menu_load_ = std::make_shared<UISave>();
     menu_load_->setPosition(500, 300);
-    render_message_ = 1;
+    //render_message_ = 1;
     pe_ = std::make_shared<ParticleExample>();
     pe_->setStyle(ParticleExample::FIRE);
     pe_->setPosition(490, 80);

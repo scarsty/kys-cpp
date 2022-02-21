@@ -43,10 +43,14 @@ BattleSceneHades::BattleSceneHades()
     menu_->addChild(equip_magics_[3], 120, 25);
     addChild(menu_);
     menu_->setVisible(false);
-    head_boss_ = std::make_shared<Head>();
-    head_boss_->setStyle(1);
-    head_boss_->setVisible(false);
-    addChild(head_boss_);
+    head_boss_.resize(5);
+    for (auto& h : head_boss_)
+    {
+        h = std::make_shared<Head>();
+        h->setStyle(1);
+        h->setVisible(false);
+        addChild(h);
+    }
     makeSpecialMagicEffect();
 }
 
@@ -685,13 +689,13 @@ void BattleSceneHades::backRun1()
                     if (ae.OperationType == 0)
                     {
                         ae.TotalFrame = 5;
-                        if (r->OperationCount == 3)
+                        if (r->OperationCount == 3 && magic->AttackAreaType == 0)
                         {
                             ae.TotalFrame = 15;
                             shake_ = 10;
                             ae.Strengthen = 2;
                             ae.Velocity = r->RealTowards;
-                            ae.Velocity.normTo(1.5);
+                            ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
                             ae.Track = 1;
                         }
                         attack_effects_.push_back(std::move(ae));
@@ -699,7 +703,11 @@ void BattleSceneHades::backRun1()
                     }
                     else if (ae.OperationType == 1)
                     {
-                        int range = level_index + 1; //= magic->AttackDistance[level_index] + magic->SelectDistance[level_index];
+                        int range = 2;
+                        if (magic->AttackAreaType == 3)
+                        {
+                            range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
+                        }
                         int count = range;
                         auto p = ae.Pos;
                         ae.TotalFrame = 120;
@@ -728,11 +736,14 @@ void BattleSceneHades::backRun1()
                             ae.Velocity = r->RealTowards;
                         }
                         ae.Velocity.normTo(5);
-                        ae.TotalFrame = 90;
-                        ae.Through = 1;
+                        ae.TotalFrame = 30 + magic->SelectDistance[level_index] * 10;
+                        if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+                        {
+                            ae.Through = 1;
+                        }
                         attack_effects_.push_back(ae);
                         needMP *= 0.2;
-                        if (ae.UsingMagic->AttackAreaType == 2)
+                        if (magic->AttackAreaType == 2)
                         {
                             ae.Velocity.normTo(3);
                             ae.TotalFrame = 150;
@@ -752,22 +763,7 @@ void BattleSceneHades::backRun1()
                         needMP *= 0.05;
                     }
                     fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
-                    //else
-                    //{
-                    //    attack_effects_.push_back(ae);
-                    //    int range = magic->AttackDistance[level_index] + magic->SelectDistance[level_index];
-                    //    int count = range;
-                    //    int x1 = ae.X1;
-                    //    int y1 = ae.Y1;
-                    //    for (int i = 0; i < count; i++)
-                    //    {
-                    //        ae.X1 = x1 + (rand_.rand() * 2 - 1) * range * TILE_W / 2;
-                    //        ae.Y1 = y1 + (rand_.rand() * 2 - 1) * range * TILE_W / 2;
-                    //        ae.Frame += rand_.rand() * 5;
-                    //        attack_effects_.push_back(ae);
-                    //    }
-                    //}
-                    r->MP = GameUtil::limit(r->MP - needMP, 0, r->MaxMP);
+                    r->MP -= needMP;
                     r->UsingMagic = nullptr;
                 }
                 if (r->OperationType == 1)
@@ -794,7 +790,7 @@ void BattleSceneHades::backRun1()
                         auto v = r->getLearnedMagics();
                         if (!v.empty())
                         {
-                            r->UsingMagic = v[rand_.rand()];
+                            r->UsingMagic = v[rand_.rand() * v.size()];
                         }
                     }
                     auto r0 = findNearestEnemy(r->Team, r->Pos);
@@ -928,12 +924,23 @@ void BattleSceneHades::backRun1()
                 {
                     hurt = 1 + rand_.rand() * 3;
                 }
-                if (ae.Through)
+                if (ae.Through == 0)
                 {
                     ae.Frame = ae.TotalFrame;
                 }
                 ae.Attacker->ExpGot += hurt / 2;
-                r->HurtThisFrame += hurt;
+                if (ae.UsingMagic->HurtType == 0)
+                {
+                    r->HurtThisFrame += hurt;
+                }
+                else
+                {
+                    r->MP -= hurt;
+                    ae.Attacker->MP += hurt * 0.8;
+                    TextEffect te;
+                    te.set(std::to_string(-hurt), { 160, 32, 240, 255 }, r);
+                    text_effects_.push_back(std::move(te));
+                }
                 //std::vector<std::string> = {};
                 fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
             }
@@ -992,15 +999,12 @@ void BattleSceneHades::backRun1()
         if (hurt > 0)
         {
             TextEffect te;
-            te.Color = { 255,255,255,255 };
+            BP_Color c = { 255, 255, 255, 255 };
             if (r->Team == 0)
             {
-                te.Color = { 255,0,0,255 };
+                c = { 255, 20, 20, 255 };
             }
-            te.Text = std::to_string(-hurt);
-            te.Pos = r->Pos;
-            te.Pos.x -= 7.5 * Font::getTextDrawSize(te.Text);
-            te.Pos.y -= 50;
+            te.set(std::to_string(-hurt), c, r);
             text_effects_.push_back(std::move(te));
             AttackEffect ae1;
             ae1.FollowRole = r;
@@ -1067,10 +1071,10 @@ void BattleSceneHades::backRun1()
                 battle_roles_.back()->Invincible = 30;
             }
         }
-        //最后一个人亮血条
-        if (enemies_.empty())
+        //亮血条
+        if (enemies_.size() < head_boss_.size())
         {
-            head_boss_->setVisible(true);
+            head_boss_[enemies_.size()]->setVisible(true);
         }
         //检测战斗结果
         int battle_result = checkResult();
@@ -1095,13 +1099,37 @@ void BattleSceneHades::backRun1()
     }
 }
 
+void BattleSceneHades::onPressedCancel()
+{
+    auto menu2 = std::make_shared<MenuText>();
+    menu2->setStrings({ "確認（Y）", "取消（N）" });
+    menu2->setPosition(400, 300);
+    menu2->setFontSize(24);
+    menu2->setHaveBox(true);
+    menu2->setText("認輸？");
+    menu2->arrange(0, 50, 150, 0);
+    if (menu2->run() == 0)
+    {
+        result_ = 1;
+        for (auto r : friends_)
+        {
+            r->ExpGot = 0;
+        }
+        setExit(true);
+    }
+}
+
 void BattleSceneHades::onEntrance()
 {
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(10, 10);
-    head_boss_->setPosition(Engine::getInstance()->getWindowWidth() / 2 - head_boss_->getWidth() / 2, Engine::getInstance()->getWindowHeight() - 100);
+    int count = 0;
+    for (auto& h : head_boss_)
+    {
+        h->setPosition(Engine::getInstance()->getWindowWidth() / 2 - h->getWidth() / 2, Engine::getInstance()->getWindowHeight() - 50 - (25 * count++));
+    }
     addChild(MainScene::getInstance()->getWeather());
 
     earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
@@ -1133,13 +1161,24 @@ void BattleSceneHades::onEntrance()
 
     //敌人按能力从低到高，依次出场
     std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->MaxHP + l->Attack < r->MaxHP + r->Attack; });
-    if (!enemies_.empty()) { head_boss_->setRole(enemies_.back()); }
+
+    for (int i = 0; i < head_boss_.size(); i++)
+    {
+        if (enemies_.size() >= i + 1)
+        {
+            head_boss_[i]->setRole(enemies_[enemies_.size() - i - 1]);
+        }
+    }
     for (int i = 0; i < 6; i++)
     {
         if (!enemies_.empty())
         {
             battle_roles_.push_back(enemies_.front());
             enemies_.pop_front();
+            if (enemies_.size() < head_boss_.size())
+            {
+                head_boss_[enemies_.size()]->setVisible(true);
+            }
         }
     }
 

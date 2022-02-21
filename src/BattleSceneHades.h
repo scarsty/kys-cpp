@@ -7,6 +7,8 @@
 #include <deque>
 #include <unordered_map>
 
+#include "Font.h"
+
 //j轻攻击，i重攻击，m闪身
 //每场战斗可以选择从4种武学中选择轻重
 //硬直，判定范围，威力，消耗体力，在不攻击的时候可以回复体力
@@ -47,6 +49,17 @@ struct TextEffect
     int Frame = 0;
     BP_Color Color;
     int Type = 0;    //0-缓缓向上, 1-原地不动
+    void set(const std::string& text, BP_Color c, Role* r)
+    {
+        Text = text;
+        Color = c;
+        if (r)
+        {
+            Pos = r->Pos;
+            Pos.x -= 7.5 * Font::getTextDrawSize(Text);
+            Pos.y -= 50;
+        }
+    }
 };
 
 class BattleSceneHades : public BattleScene
@@ -63,8 +76,9 @@ public:
     virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
-    virtual void backRun() {}
+    virtual void backRun() override {}
     virtual void backRun1();
+    virtual void onPressedCancel() override;
 
 protected:
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
@@ -78,7 +92,7 @@ protected:
     std::deque<Role*> enemies_;
 
     std::vector<std::shared_ptr<Head>> heads_;
-    std::shared_ptr<Head> head_boss_;
+    std::vector<std::shared_ptr<Head>> head_boss_;
 
     bool is_running_ = false;   //主角是否在跑动
     Role* role_ = nullptr;    //主角
