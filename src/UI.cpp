@@ -76,7 +76,7 @@ void UI::dealEvent(BP_Event& e)
                     head->setText("使用中");
                     //Font::getInstance()->draw("使用中", 25, x + 5, y + 60, { 255,255,255,255 });
                 }
-                if (GameUtil::canUseItem(role, item))
+                if (role->canUseItem(item))
                 {
                     head->setState(NodePass);
                 }

@@ -12,8 +12,6 @@ class GameUtil : public INIReaderNormal
 private:
     GameUtil();
     ~GameUtil();
-    std::vector<int> level_up_list_;
-    //std::vector<int> level_up_list_;
 public:
     static GameUtil* getInstance()
     {
@@ -25,6 +23,12 @@ public:
     {
         static std::string v = "";
         return v;
+    }
+
+    static std::string& PATH()
+    {
+        static std::string s = "../game/";
+        return s;
     }
 
     static int sign(int v)
@@ -85,26 +89,8 @@ public:
         }
     }
 
-    static bool canUseItem(Role* r, Item* i);
-    static void useItem(Role* r, Item* i);
-    static void levelUp(Role* r);
-    static bool canLevelUp(Role* r);
-    static int getLevelUpExp(int level);
-    static bool canFinishedItem(Role* r);
-    static int getFinishedExpForItem(Role* r, Item* i);
-
-    static void equip(Role* r, Item* i);
-
-    //以下3个函数的返回值为需要显示的数值
-    static int medicine(Role* r1, Role* r2);
-    static int detoxification(Role* r1, Role* r2);
-    static int usePoison(Role* r1, Role* r2);
-
-    void setRoleMaxValue(Role* role);
-    void setSpecialItems();
-
     template <typename... Args>
-    static void LOG(Args&&... args) 
+    static void LOG(Args&&... args)
     {
         fmt1::print(stdout, args...);
     }

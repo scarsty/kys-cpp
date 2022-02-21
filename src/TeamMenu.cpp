@@ -38,7 +38,7 @@ void TeamMenu::onEntrance()
             heads_[i]->setRole(r);
             if (mode_ == 0 && item_)
             {
-                if (!GameUtil::canUseItem(r, item_))
+                if (!r->canUseItem(item_))
                 {
                     heads_[i]->setText("不適合");
                 }
@@ -96,7 +96,7 @@ void TeamMenu::onPressedOK()
                 role_ = h->getRole();
             }
         }
-        if (role_ && (item_ == nullptr || GameUtil::canUseItem(role_, item_)))
+        if (role_ && (item_ == nullptr || role_->canUseItem(item_)))
         {
             result_ = 0;
             setExit(true);

@@ -237,15 +237,33 @@ public:
 
     int movedDistance() { return abs(X_ - prevX_) + abs(Y_ - prevY_); }
 
-    int getWeapon(int act_type)
+    int getActProperty(int type)
     {
-        if (act_type == 0) { return Medicine; }
-        if (act_type == 1) { return Fist; }
-        if (act_type == 2) { return Sword; }
-        if (act_type == 3) { return Knife; }
-        if (act_type == 4) { return Unusual; }
+        switch (type)
+        {
+        case 0: return Medicine; break;
+        case 1: return Fist; break;
+        case 2: return Sword; break;
+        case 3: return Knife; break;
+        case 4: return Unusual; break;
+        }
         return 0;
     }
+
+    bool canUseItem(Item* i);
+    void useItem(Item* i);
+    void levelUp();
+    bool canLevelUp();
+    int getLevelUpExp(int level);
+    bool canFinishedItem();
+    int getFinishedExpForItem(Item* i);
+
+    void equip(Item* i);
+
+    //以下3个函数的返回值为需要显示的数值
+    int medicine(Role* r2);
+    int detoxification(Role* r2);
+    int usePoison(Role* r2);
 
 public:
     int AI_Action = 0;
@@ -293,23 +311,21 @@ public:
     Magic* UsingMagic = nullptr;
 
 public:
-    static Role* getMaxValue() { return &max_role_value_; }
-    int getActProperty(int type)
+    static Role* getMaxValue()
     {
-        switch (type)
-        {
-        case 0: return Medicine; break;
-        case 1: return Fist; break;
-        case 2: return Sword; break;
-        case 3: return Knife; break;
-        case 4: return Unusual; break;
-        }
-        return 0;
+        static Role max_role_value;
+        return &max_role_value;
     }
-    void resetBattleInfo();
+    static std::vector<int>& level_up_list()
+    {
+        static std::vector<int> list;
+        return list;
 
-private:
-    static Role max_role_value_;
+    }
+
+    static void setMaxValue();
+    static void setLevelUpList();
+    void resetBattleInfo();
 };
 
 //存档中的物品数据
@@ -340,6 +356,7 @@ public:
 
 public:
     bool isCompass();
+    static void setSpecialItems();
 };
 
 //存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）

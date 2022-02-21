@@ -1402,7 +1402,7 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 //需注意攻击判定可能仍然存在，严格来说攻击判定存在的时间加上前摇应小于冷却
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
-    int i = r->getWeapon(act_type);
+    int i = r->getActProperty(act_type);
     int v[4] = { 60 - i / 2, 160 - i, 70 - i / 2, 10 };
     int min_v[4] = { 10, 45, 15, 10 };
     if (operation_type >= 0 && operation_type <= 3)
@@ -1461,7 +1461,7 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     if (ae.UsingMagic)
     {
         int act_type = ae.UsingMagic->MagicType;
-        if (rand_.rand() < r->getWeapon(act_type) / 200.0)
+        if (rand_.rand() < r->getActProperty(act_type) / 200.0)
         {
             if (act_type == 2)
             {

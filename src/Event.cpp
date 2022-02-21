@@ -42,7 +42,7 @@ Event::~Event()
 bool Event::loadEventData()
 {
     //读取talk
-    auto talk = GrpIdxFile::getIdxContent("../game/resource/talk.idx", "../game/resource/talk.grp", &offset, &length);
+    auto talk = GrpIdxFile::getIdxContent(GameUtil::PATH() + "resource/talk.idx", GameUtil::PATH() + "resource/talk.grp", &offset, &length);
     for (int i = 0; i < offset.back(); i++)
     {
         if (talk[i])
@@ -56,7 +56,7 @@ bool Event::loadEventData()
         talk_contents_.push_back(str);
     }
     //读取事件，全部转为整型
-    auto kdef = GrpIdxFile::getIdxContent("../game/resource/kdef.idx", "../game/resource/kdef.grp", &offset, &length);
+    auto kdef = GrpIdxFile::getIdxContent(GameUtil::PATH() + "resource/kdef.idx", GameUtil::PATH() + "resource/kdef.grp", &offset, &length);
     kdef_.resize(length.size());
     for (int i = 0; i < length.size(); i++)
     {
@@ -68,7 +68,7 @@ bool Event::loadEventData()
     }
 
     //读取离队列表
-    std::string leave_txt = convert::readStringFromFile("../game/list/leave.txt");
+    std::string leave_txt = convert::readStringFromFile(GameUtil::PATH() + "list/leave.txt");
     convert::findNumbers(leave_txt, &leave_event_id_);
     if (leave_event_id_.size() > 0)
     {
@@ -118,7 +118,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
 
     if (use_script_)
     {
-        auto script = fmt1::format("../game/script/oldevent/oldevent_{}.lua", event_id);
+        auto script = fmt1::format(GameUtil::PATH() + "script/oldevent/oldevent_{}.lua", event_id);
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else
@@ -290,7 +290,7 @@ void Event::setUseScript(int u)
     use_script_ = u;
     //if (u)
     //{
-    //    auto str = convert::readStringFromFile("../game/script/talk.txt");
+    //    auto str = convert::readStringFromFile(GameUtil::PATH()+"script/talk.txt");
     //    convert::replaceAllSubStringRef(str, "\r", "");
     //    convert::replaceAllSubStringRef(str, "*", "");
     //    talk_contents_ = convert::splitString(str, "\n");

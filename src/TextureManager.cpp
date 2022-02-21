@@ -2,6 +2,7 @@
 #include "File.h"
 #include "RunNode.h"
 #include "convert.h"
+#include "GameUtil.h"
 
 void Texture::setTex(BP_Texture* t)
 {
@@ -150,6 +151,7 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
 
 TextureManager::TextureManager()
 {
+    path_ = GameUtil::PATH() + "resource/";
 }
 
 TextureManager::~TextureManager()

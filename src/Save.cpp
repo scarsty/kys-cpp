@@ -5,6 +5,7 @@
 #include "PotConv.h"
 #include "convert.h"
 #include "fmt1.h"
+#include "GameUtil.h"
 
 Save::Save()
 {
@@ -19,7 +20,7 @@ std::string Save::getFilename(int i, char c)
     std::string filename;
     if (i > 0)
     {
-        filename = fmt1::format("../game/save/{}{}.grp", c, i);
+        filename = fmt1::format(GameUtil::PATH() + "save/{}{}.grp", c, i);
         if (c == 'r')
         {
             filename += "32";
@@ -29,15 +30,15 @@ std::string Save::getFilename(int i, char c)
     {
         if (c == 'r')
         {
-            filename = "../game/save/ranger.grp32";
+            filename = GameUtil::PATH() + "save/ranger.grp32";
         }
         else if (c == 's')
         {
-            filename = "../game/save/allsin.grp";
+            filename = GameUtil::PATH() + "save/allsin.grp";
         }
         else if (c == 'd')
         {
-            filename = "../game/save/alldef.grp";
+            filename = GameUtil::PATH() + "save/alldef.grp";
         }
     }
     return filename;
@@ -127,7 +128,7 @@ bool Save::load(int num)
 void Save::loadR(int num)
 {
     std::string filenamer = getFilename(num, 'r');
-    std::string filename_idx = "../game/save/ranger.idx32";
+    std::string filename_idx = GameUtil::PATH() + "save/ranger.idx32";
     auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
     memcpy((void*)this, rgrp.data() + offset_[0], length_[0]);
     File::readDataToVector(rgrp.data() + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
@@ -395,14 +396,14 @@ bool Save::insertAt(const std::string& type, int idx)
 
 void Save::saveRToDB(int num)
 {
-    std::string filename0 = "../game/save/0.db";
+    std::string filename0 = GameUtil::PATH() + "save/0.db";
     if (!File::fileExist(filename0))
     {
         //return;
     }
     sqlite3* db;
     //此处最好复制一个，先搞搞再说
-    std::string filename = "../game/save/" + std::to_string(num) + ".db";
+    std::string filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
     //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
     saveRToDB(db);
@@ -412,7 +413,7 @@ void Save::saveRToDB(int num)
 void Save::loadRFromDB(int num)
 {
     NewSave::initDBFieldInfo();
-    auto filename = "../game/save/" + std::to_string(num) + ".db";
+    auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
     if (!File::fileExist(filename))
     {
         return;

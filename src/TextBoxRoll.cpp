@@ -20,7 +20,7 @@ void TextBoxRoll::draw()
         if (i < begin_line_)
         {
             continue;
-        }        
+        }
         if (roll_line_ > 0 && line_count >= roll_line_)
         {
             break;

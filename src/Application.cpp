@@ -43,4 +43,8 @@ void Application::config()
     TextureManager::getInstance()->setLoadFromPath(game->getInt("game", "png_from_path", 0));
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
+
+    Role::setMaxValue();
+    Role::setLevelUpList();
+    Item::setSpecialItems();
 }

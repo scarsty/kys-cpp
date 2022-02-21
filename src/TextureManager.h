@@ -40,7 +40,7 @@ private:
     void destory();
 };
 
-struct TextureGroup 
+struct TextureGroup
 {
     friend class TextureManager;
 
@@ -65,7 +65,7 @@ class TextureManager
 private:
     TextureManager();
     virtual ~TextureManager();
-    std::string path_ = "../game/resource/";
+    std::string path_;
     int load_from_path_ = 0;    //0 - 先尝试读取zip，如没有则读取目录；1 - 不尝试读取zip，直接读取目录
     int load_all_ = 0;
     std::map<const std::string, TextureGroup> map_;

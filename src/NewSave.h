@@ -20,8 +20,11 @@ private:
     };
 
     std::vector<FieldInfo> base_, item_list_, role_, item_, submapinfo_, magic_, shop_;
-    static NewSave new_save_;
-
+    static NewSave* getInstance()
+    {
+        static NewSave ns;
+        return &ns;
+    }
 public:
     static const std::vector<FieldInfo>& getFieldInfo(const std::string& name);    //这些索引其他地方可能用到
 

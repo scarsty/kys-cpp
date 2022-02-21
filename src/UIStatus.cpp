@@ -140,7 +140,7 @@ void UIStatus::draw()
     std::string str = "";
     font->draw("升級", font_size, x, y + 100, color_ability1);
 
-    int exp_up = GameUtil::getLevelUpExp(role_->Level);
+    int exp_up = role_->getLevelUpExp(role_->Level);
     if (exp_up != INT_MAX)
     {
         str = fmt1::format("{:6}", exp_up);
@@ -237,7 +237,7 @@ void UIStatus::draw()
         font->draw(fmt1::format("{}", book->Name), font_size, x + 90, y + 30, color_name);
         font->draw(fmt1::format("經驗{:5}", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
         std::string str = "升級 ----";
-        int exp_up = GameUtil::getFinishedExpForItem(role_, book);
+        int exp_up = role_->getFinishedExpForItem(book);
         if (exp_up != INT_MAX)
         {
             str = fmt1::format("升級{:5}", exp_up);
@@ -321,7 +321,7 @@ void UIStatus::onPressedOK()
         if (role)
         {
             Role r = *role;
-            GameUtil::medicine(role_, role);
+            role_->medicine(role);
             auto df = std::make_shared<ShowRoleDifference>(&r, role);
             df->setText(fmt1::format("{}接受{}醫療", role->Name, role_->Name));
             df->run();
@@ -336,7 +336,7 @@ void UIStatus::onPressedOK()
         if (role)
         {
             Role r = *role;
-            GameUtil::detoxification(role_, role);
+            role_->detoxification(role);
             auto df = std::make_shared<ShowRoleDifference>(&r, role);
             df->setText(fmt1::format("{}接受{}解毒", role->Name, role_->Name));
             df->run();

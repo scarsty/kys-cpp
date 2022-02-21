@@ -5,29 +5,27 @@
 
 #include "fmt1.h"
 
-NewSave NewSave::new_save_;
-
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))
 #define BIND_FIELD_INT(key, field) FieldInfo(key, 0, GET_OFFSET(field), sizeof(a.field))
 #define BIND_FIELD_TEXT(key, field) FieldInfo(key, 1, GET_OFFSET(field), sizeof(a.field))
 
 const std::vector<NewSave::FieldInfo>& NewSave::getFieldInfo(const std::string& name)
 {
-    if (name == "Base") { return new_save_.base_; }
-    if (name == "ItemList") { return new_save_.item_list_; }
-    if (name == "Role") { return new_save_.role_; }
-    if (name == "Item") { return new_save_.item_; }
-    if (name == "Magic") { return new_save_.magic_; }
-    if (name == "SubMapInfo") { return new_save_.submapinfo_; }
-    if (name == "Shop") { return new_save_.shop_; }
+    if (name == "Base") { return getInstance()->base_; }
+    if (name == "ItemList") { return getInstance()->item_list_; }
+    if (name == "Role") { return getInstance()->role_; }
+    if (name == "Item") { return getInstance()->item_; }
+    if (name == "Magic") { return getInstance()->magic_; }
+    if (name == "SubMapInfo") { return getInstance()->submapinfo_; }
+    if (name == "Shop") { return getInstance()->shop_; }
 }
 
 void NewSave::initDBFieldInfo()
 {
-    if (new_save_.base_.size() == 0)
+    if (getInstance()->base_.size() == 0)
     {
         Save::BaseInfo a;
-        new_save_.base_ =
+        getInstance()->base_ =
         {
             BIND_FIELD_INT("乘船", InShip),
             BIND_FIELD_INT("子场景内", InSubMap),
@@ -49,19 +47,19 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("队友6", Team[5]),
         };
     }
-    if (new_save_.item_list_.size() == 0)
+    if (getInstance()->item_list_.size() == 0)
     {
         ItemList a;
-        new_save_.item_list_ =
+        getInstance()->item_list_ =
         {
             BIND_FIELD_INT("物品编号", item_id),
             BIND_FIELD_INT("物品数量", count),
         };
     }
-    if (new_save_.role_.size() == 0)
+    if (getInstance()->role_.size() == 0)
     {
         Role a;
-        new_save_.role_ =
+        getInstance()->role_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_INT("头像", HeadID),
@@ -148,10 +146,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("携带物品数量4", TakingItemCount[3]),
         };
     }
-    if (new_save_.item_.size() == 0)
+    if (getInstance()->item_.size() == 0)
     {
         Item a;
-        new_save_.item_ =
+        getInstance()->item_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("物品名", Name),
@@ -227,10 +225,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("练出物品数量5", MakeItemCount[4]),
         };
     }
-    if (new_save_.submapinfo_.size() == 0)
+    if (getInstance()->submapinfo_.size() == 0)
     {
         SubMapInfo a;
-        new_save_.submapinfo_ =
+        getInstance()->submapinfo_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("名称", Name),
@@ -256,10 +254,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("跳转返还Y", JumpReturnY),
         };
     }
-    if (new_save_.magic_.size() == 0)
+    if (getInstance()->magic_.size() == 0)
     {
         Magic a;
-        new_save_.magic_ =
+        getInstance()->magic_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("名称", Name),
@@ -327,10 +325,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("杀伤内力10", HurtMP[9]),
         };
     }
-    if (new_save_.shop_.size() == 0)
+    if (getInstance()->shop_.size() == 0)
     {
         Shop a;
-        new_save_.shop_ =
+        getInstance()->shop_ =
         {
             BIND_FIELD_INT("物品编号1", ItemID[0]),
             BIND_FIELD_INT("物品编号2", ItemID[1]),
@@ -356,7 +354,7 @@ void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
     sqlite3_exec(db, "drop table base", nullptr, nullptr, nullptr);
 
     std::string cmd = "create table base(";
-    for (auto& info : new_save_.base_)
+    for (auto& info : getInstance()->base_)
     {
         cmd += info.name + " ";
         if (info.type == 0)
@@ -373,7 +371,7 @@ void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
     sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
 
     cmd = "insert into base values(";
-    for (auto& info : new_save_.base_)
+    for (auto& info : getInstance()->base_)
     {
         cmd += std::to_string(*(int*)((char*)data + info.offset)) + ",";
     }
@@ -385,7 +383,7 @@ void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
 void NewSave::LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
 {
     std::vector<Save::BaseInfo> datas;
-    readValues(db, "base", new_save_.base_, datas);
+    readValues(db, "base", getInstance()->base_, datas);
     *data = datas[0];
 }
 
@@ -396,13 +394,13 @@ void NewSave::SaveDBItemList(sqlite3* db, ItemList* data, int length)
     {
         itemlist[i] = data[i];
     }
-    writeValues(db, "bag", new_save_.item_list_, itemlist);
+    writeValues(db, "bag", getInstance()->item_list_, itemlist);
 }
 
 void NewSave::LoadDBItemList(sqlite3* db, ItemList* data, int length)
 {
     std::vector<ItemList> itemlist;
-    readValues(db, "bag", new_save_.item_list_, itemlist);
+    readValues(db, "bag", getInstance()->item_list_, itemlist);
     for (int i = 0; i < std::min(length, int(itemlist.size())); i++)
     {
         data[i] = itemlist[i];
@@ -411,52 +409,52 @@ void NewSave::LoadDBItemList(sqlite3* db, ItemList* data, int length)
 
 void NewSave::SaveDBRoleSave(sqlite3* db, const std::vector<Role>& data)
 {
-    writeValues(db, "role", new_save_.role_, data);
+    writeValues(db, "role", getInstance()->role_, data);
 }
 
 void NewSave::LoadDBRoleSave(sqlite3* db, std::vector<Role>& data)
 {
-    readValues(db, "role", new_save_.role_, data);
+    readValues(db, "role", getInstance()->role_, data);
 }
 
 void NewSave::SaveDBItemSave(sqlite3* db, const std::vector<Item>& data)
 {
-    writeValues(db, "item", new_save_.item_, data);
+    writeValues(db, "item", getInstance()->item_, data);
 }
 
 void NewSave::LoadDBItemSave(sqlite3* db, std::vector<Item>& data)
 {
-    readValues(db, "item", new_save_.item_, data);
+    readValues(db, "item", getInstance()->item_, data);
 }
 
 void NewSave::SaveDBSubMapInfoSave(sqlite3* db, const std::vector<SubMapInfo>& data)
 {
-    writeValues(db, "submap", new_save_.submapinfo_, data);
+    writeValues(db, "submap", getInstance()->submapinfo_, data);
 }
 
 void NewSave::LoadDBSubMapInfoSave(sqlite3* db, std::vector<SubMapInfo>& data)
 {
-    readValues(db, "submap", new_save_.submapinfo_, data);
+    readValues(db, "submap", getInstance()->submapinfo_, data);
 }
 
 void NewSave::SaveDBMagicSave(sqlite3* db, const std::vector<Magic>& data)
 {
-    writeValues(db, "magic", new_save_.magic_, data);
+    writeValues(db, "magic", getInstance()->magic_, data);
 }
 
 void NewSave::LoadDBMagicSave(sqlite3* db, std::vector<Magic>& data)
 {
-    readValues(db, "magic", new_save_.magic_, data);
+    readValues(db, "magic", getInstance()->magic_, data);
 }
 
 void NewSave::SaveDBShopSave(sqlite3* db, const std::vector<Shop>& data)
 {
-    writeValues(db, "shop", new_save_.shop_, data);
+    writeValues(db, "shop", getInstance()->shop_, data);
 }
 
 void NewSave::LoadDBShopSave(sqlite3* db, std::vector<Shop>& data)
 {
-    readValues(db, "shop", new_save_.shop_, data);
+    readValues(db, "shop", getInstance()->shop_, data);
 }
 
 int NewSave::runSql(sqlite3* db, const std::string& cmd)

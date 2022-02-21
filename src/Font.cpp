@@ -4,6 +4,8 @@
 
 Font::Font()
 {
+    fontnamec_ = GameUtil::PATH() + "font/chinese.ttf";
+    fontnamee_ = GameUtil::PATH() + "font/english.ttf";
 }
 
 BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)

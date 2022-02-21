@@ -1,10 +1,12 @@
 #include "OpenCCConverter.h"
+
+#include "GameUtil.h"
 #include "PotConv.h"
 
 OpenCCConverter::OpenCCConverter()
 {
-    cc = opencc_open("../game/cc/s2t.json");
-    if (cc == (decltype(cc)) - 1)
+    cc = opencc_open((GameUtil::PATH() + "cc/s2t.json").c_str());
+    if (cc == (decltype(cc))-1)
     {
         cc = nullptr;
     }

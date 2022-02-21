@@ -1184,7 +1184,7 @@ void BattleScene::actUsePoison(Role* r)
         auto r2 = getSelectedRole();
         if (r2)
         {
-            int v = GameUtil::usePoison(r, r2);
+            int v = r->usePoison(r2);
             r2->addShowString(fmt1::format("{:+}", v), { 20, 255, 20, 255 });
             r->ExpGot += v;
         }
@@ -1212,7 +1212,7 @@ void BattleScene::actDetoxification(Role* r)
         auto r2 = getSelectedRole();
         if (r2)
         {
-            int v = GameUtil::detoxification(r, r2);
+            int v = r->detoxification(r2);
             r2->addShowString(fmt1::format("-{}", -v), { 20, 200, 255, 255 });
             r->ExpGot += v;
         }
@@ -1240,7 +1240,7 @@ void BattleScene::actMedicine(Role* r)
         auto r2 = getSelectedRole();
         if (r2)
         {
-            int v = GameUtil::medicine(r, r2);
+            int v = r->medicine(r2);
             r2->addShowString(fmt1::format("-{}", abs(v)), { 255, 255, 200, 255 });
             r->ExpGot += v;
         }
@@ -1309,7 +1309,7 @@ void BattleScene::actUseDrug(Role* r)
     if (item)
     {
         Role r0 = *r;
-        GameUtil::useItem(r, item);
+        r->useItem(item);
         item_menu->addItem(item, -1);
         r->Acted = 1;
         actionAnimation_ = [this, r, r0, item]() mutable
@@ -1960,9 +1960,9 @@ void BattleScene::calExpGot()
 
         //升级
         int change = 0;
-        while (GameUtil::canLevelUp(r))
+        while (r->canLevelUp())
         {
-            GameUtil::levelUp(r);
+            r->levelUp();
             change++;
         }
         if (change)
@@ -1977,9 +1977,9 @@ void BattleScene::calExpGot()
         {
             r0 = *r;
             change = 0;
-            while (GameUtil::canFinishedItem(r))
+            while (r->canFinishedItem())
             {
-                GameUtil::useItem(r, item);
+                r->useItem(item);
                 change++;
             }
             if (change)

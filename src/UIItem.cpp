@@ -553,7 +553,7 @@ void UIItem::onPressedOK()
             if (role)
             {
                 Role r = *role;
-                GameUtil::useItem(role, current_item_);
+                role->useItem(current_item_);
                 auto df = std::make_shared<ShowRoleDifference>(&r, role);
                 df->setText(fmt1::format("{}服用{}", role->Name, current_item_->Name));
                 df->run();
@@ -574,7 +574,7 @@ void UIItem::onPressedOK()
             auto role = team_menu->getRole();
             if (role)
             {
-                GameUtil::equip(role, current_item_);
+                role->equip(current_item_);
             }
         }
         else if (current_item_->ItemType == 4)
