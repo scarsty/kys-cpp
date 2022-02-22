@@ -490,11 +490,6 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 {
                     //闪身
                     //r->CoolDown = 10;    //冷却更长，有收招硬直
-                    r->Velocity = r->RealTowards;
-                    r->Velocity.normTo(speed * 3);
-                    r->VelocitytFrame = 10;
-                    r->PhysicalPower -= 2;
-                    r->ActType = 0;
                 }
                 r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
                 if (r->OperationCount >= 3)
@@ -667,17 +662,21 @@ void BattleSceneHades::backRun1()
                     }
                     else
                     {
-                        if (ae.UsingMagic->AttackAreaType == 0)
+                        ae.OperationType = r->OperationType;
+                        if (r->OperationType == -1)
                         {
-                            ae.OperationType = 0;
-                        }
-                        else if (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2)
-                        {
-                            ae.OperationType = 2;
-                        }
-                        else if (ae.UsingMagic->AttackAreaType == 3)
-                        {
-                            ae.OperationType = 1;
+                            if (ae.UsingMagic->AttackAreaType == 0)
+                            {
+                                ae.OperationType = 0;
+                            }
+                            else if (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2)
+                            {
+                                ae.OperationType = 2;
+                            }
+                            else if (ae.UsingMagic->AttackAreaType == 3)
+                            {
+                                ae.OperationType = 1;
+                            }
                         }
                     }
 
@@ -752,6 +751,10 @@ void BattleSceneHades::backRun1()
                     }
                     else if (ae.OperationType == 3)
                     {
+                        r->Velocity = r->RealTowards;
+                        r->Velocity.normTo(std::min(4.0, r->Speed / 30.0) * 3);
+                        r->VelocitytFrame = 10;
+                        r->ActType = 0;
                         auto p = ae.Pos;
                         int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
                         for (int i = 0; i < count; i++)
@@ -828,7 +831,7 @@ void BattleSceneHades::backRun1()
                         }
                         if (EuclidDis(r->Pos, r0->Pos) > dis)
                         {
-                            auto p = r->Pos + r->Speed / 20.0 * r->RealTowards;
+                            auto p = r->Pos + r->Speed / 30.0 * r->RealTowards;
                             if (canWalk90(p, r))
                             {
                                 r->Pos = p;
@@ -855,37 +858,63 @@ void BattleSceneHades::backRun1()
                         }
                         else
                         {
-                            //attack
                             if (r->PhysicalPower >= 30)
                             {
-                                auto m = r->UsingMagic;
-                                if (m)
+                                //点攻击疯狗咬即可
+                                if (r->UsingMagic->AttackAreaType == 0 || rand_.rand() < 0.75 && r->UsingMagic->AttackAreaType != 0)
                                 {
-                                    if (m->AttackAreaType == 0)
+                                    //attack
+                                    auto m = r->UsingMagic;
+                                    if (m)
                                     {
-                                        r->OperationType = 0;
+                                        if (m->AttackAreaType == 0)
+                                        {
+                                            r->OperationType = 0;
+                                        }
+                                        else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                        {
+                                            r->OperationType = 2;
+                                        }
+                                        else if (m->AttackAreaType == 3)
+                                        {
+                                            r->OperationType = 1;
+                                        }
+                                        r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                                        r->ActFrame = 0;
+                                        r->ActType = m->MagicType;
+                                        r->HaveAction = 1;
+                                        //TextEffect te;
+                                        //te.Text = m->Name;
+                                        //te.Size = 15;
+                                        //te.Type = 1;
+                                        //te.Pos.x = r->Pos.x - 15 * te.Text.size() / 3;
+                                        //te.Pos.y = r->Pos.y;
+                                        //te.Color = { 255, 0, 0, 255 };
+                                        //te.Frame = 15;
+                                        //text_effects_.push_back(te);
                                     }
-                                    else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                }
+                                else
+                                {
+                                    //随机移动一下，增加一些变数
+                                    r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
+                                    if (r->Speed >= 60)
                                     {
-                                        r->OperationType = 2;
+                                        r->OperationType = 3;
+                                        r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                                        r->ActFrame = 0;
+                                        r->HaveAction = 1;
+                                        //r->RealTowards *= 3;
                                     }
-                                    else if (m->AttackAreaType == 3)
-                                    {
-                                        r->OperationType = 1;
-                                    }
-                                    r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
-                                    r->ActFrame = 0;
-                                    r->ActType = m->MagicType;
-                                    r->HaveAction = 1;
-                                    //TextEffect te;
-                                    //te.Text = m->Name;
-                                    //te.Size = 15;
-                                    //te.Type = 1;
-                                    //te.Pos.x = r->Pos.x - 15 * te.Text.size() / 3;
-                                    //te.Pos.y = r->Pos.y;
-                                    //te.Color = { 255, 0, 0, 255 };
-                                    //te.Frame = 15;
-                                    //text_effects_.push_back(te);
+                                }
+                                if (!r->HaveAction)
+                                {
+                                    //走两步
+                                    r->RealTowards.rotate(M_PI * 0.5 * (2 * rand_.rand() - 1));
+                                    r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                                    r->Velocity = r->RealTowards;
+                                    r->Velocity.normTo(r->Speed / 30.0);
+                                    r->VelocitytFrame = 20;
                                 }
                             }
                         }

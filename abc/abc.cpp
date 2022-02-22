@@ -28,7 +28,7 @@ void trans_fight_frame()
 {
     for (int i = 0; i <= 300; i++)
     {
-        std::string path = fmt1::format("../game/resource/fight/fight{:03}", i);
+        std::string path = fmt1::format("C:/Users/sty/Desktop/ff/fight{:03}", i);
         std::vector<int16_t> frame;
         std::string filename = path + "/fightframe.ka";
         if (File::fileExist(filename))
@@ -41,7 +41,7 @@ void trans_fight_frame()
                 if (frame[j] > 0)
                 {
                     fmt1::print("{}, {}\n", j, frame[j]);
-                    content += fmt1::format(content.c_str(), "{}, {}\r\n", j, frame[j]);
+                    content += fmt1::format("{}, {}\n", j, frame[j]);
                 }
             }
             convert::writeStringToFile(content, path + "/fightframe.txt");
@@ -254,7 +254,7 @@ int main()
     //check_fight_frame("game/resource/fight", 1);
     //trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
     //trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
-    //trans_fight_frame();
+    trans_fight_frame();
 
     //expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
 
