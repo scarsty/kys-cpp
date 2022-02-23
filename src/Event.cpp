@@ -123,6 +123,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
         {
             script = fmt1::format(GameUtil::PATH() + "script/oldevent/oldevent_{}.lua", event_id);
         }
+        fmt1::print("Event {}: {}\n ", event_id, script);
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else
