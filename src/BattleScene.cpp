@@ -1999,8 +1999,13 @@ void BattleScene::calExpGot()
                     }
                 }
                 int index = rand_.rand_int(make_item.size());
+                auto text = std::make_shared<TextBox>();
+                text->setText(fmt1::format("{}修煉{}製藥成功", r->Name, item->Name));
+                text->setPosition(300, 160);
+                addChild(text);
                 Event::getInstance()->addItem(make_item[index].item_id, make_item[index].count);
                 Event::getInstance()->addItemWithoutHint(item->NeedMaterial, -1);
+                removeChild(text);
                 r->ExpForMakeItem = 0;
             }
         }

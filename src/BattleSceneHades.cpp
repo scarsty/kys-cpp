@@ -15,7 +15,7 @@ BattleSceneHades::BattleSceneHades()
     earth_layer_.resize(COORD_COUNT);
     building_layer_.resize(COORD_COUNT);
 
-    heads_.resize(TEAMMATE_COUNT);
+    heads_.resize(1);
     int i = 0;
     for (auto& h : heads_)
     {
@@ -25,6 +25,7 @@ BattleSceneHades::BattleSceneHades()
         h->setVisible(false);
     }
     heads_[0]->setVisible(true);
+    heads_[0]->setRole(Save::getInstance()->getRole(0));
 
     menu_ = std::make_shared<Menu>();
     menu_->setPosition(300, 30);
@@ -346,6 +347,10 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         pos_ = r->Pos;
     }
     double speed = std::min(4.0, r->Speed / 30.0);
+    if (engine->checkKeyPress(BPK_TAB))
+    {
+        r->Auto = 1;
+    }
     if (r->Dead == 0)
     {
         if (r->Frozen == 0 && r->CoolDown == 0)
@@ -453,6 +458,10 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 index = 3;
             }
+            if (index >= 0)
+            {
+                r->Auto = 0;
+            }
             if (r->OperationCount >= 3 || current_frame_ - r->PreActTimer > 60)
             {
                 r->OperationCount = 0;
@@ -492,7 +501,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     //r->CoolDown = 10;    //冷却更长，有收招硬直
                 }
                 r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
-                if (r->OperationCount >= 3)
+                if (r->OperationCount >= 3 && index == 0)
                 {
                     r->CoolDown *= 3;
                 }
@@ -765,7 +774,7 @@ void BattleSceneHades::backRun1()
                         }
                         needMP *= 0.05;
                     }
-                    fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+                    //fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
                     r->MP -= needMP;
                     r->UsingMagic = nullptr;
                 }
@@ -784,7 +793,8 @@ void BattleSceneHades::backRun1()
             }
 
             //ai策略
-            if (r != role_ && r->Dead == 0)
+            if ((r != role_ || r->Auto)
+                && r->Dead == 0)
             {
                 if (r->CoolDown == 0)
                 {
@@ -858,7 +868,7 @@ void BattleSceneHades::backRun1()
                         }
                         else
                         {
-                            if (r->PhysicalPower >= 30)
+                            if (r->PhysicalPower >= 30 && r->UsingMagic)
                             {
                                 //点攻击疯狗咬即可
                                 if (r->UsingMagic->AttackAreaType == 0 || rand_.rand() < 0.75 && r->UsingMagic->AttackAreaType != 0)
@@ -992,7 +1002,7 @@ void BattleSceneHades::backRun1()
                     text_effects_.push_back(std::move(te));
                 }
                 //std::vector<std::string> = {};
-                fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
+                //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
             }
         }
         //效果间的互相抵消
@@ -1007,7 +1017,7 @@ void BattleSceneHades::backRun1()
                     if (ae1.Attacker && ae2.Attacker
                         && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
                     {
-                        fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
+                        //fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
                         int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
                         int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
                         ae1.Weaken += hurt2;
@@ -1016,14 +1026,14 @@ void BattleSceneHades::backRun1()
                         {
                             //直接设置帧数为一个大值，下面就会直接删掉了
                             ae1.Frame = ae1.TotalFrame;
-                            fmt1::print("{} ", ae1.UsingMagic->Name);
+                            //fmt1::print("{} ", ae1.UsingMagic->Name);
                         }
                         if (ae2.Weaken > hurt2)
                         {
                             ae2.Frame = ae2.TotalFrame;
-                            fmt1::print("{} ", ae2.UsingMagic->Name);
+                            //fmt1::print("{} ", ae2.UsingMagic->Name);
                         }
-                        fmt1::print("loss\n");
+                        //fmt1::print("loss\n");
                     }
                 }
             }
@@ -1066,7 +1076,7 @@ void BattleSceneHades::backRun1()
             r->HP -= hurt;
             if (r->HP <= 0)
             {
-                fmt1::print("{} has been beat\n", r->Name);
+                //fmt1::print("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
                 //r->Velocity = r->Pos - ae.Attacker->Pos;
@@ -1282,7 +1292,7 @@ void BattleSceneHades::onEntrance()
             r->setPositionOnly(info_->TeamMateX[i], info_->TeamMateY[i]);
             r->Team = 0;
             setRoleInitState(r);
-            heads_[i]->setRole(r);
+            //heads_[i]->setRole(r);
         }
     }
 

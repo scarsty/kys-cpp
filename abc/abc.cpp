@@ -10,6 +10,7 @@
 #include "Save.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
+#include "GameUtil.h"
 
 //转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)
@@ -105,10 +106,12 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
                         content += fmt1::format("{}, {}\n", j, r.Frame[j]);
                     }
                 }
-                auto path = fmt1::format("../game/resource/fight/fight{:03}", r.HeadID);
+                auto p = File::getFilePath(idx);
+                p = File::getFilePath(p);
+                auto path = fmt1::format("{}/resource/fight/fight{:03}", p, r.HeadID);
                 convert::writeStringToFile(content, path + "/fightframe.txt");
             }
-            return 1;
+            if (!ranger) { return 1; }
         }
 
         File::readDataToVector(rgrp1 + offset1[2], length1[2], items_mem_);
@@ -162,7 +165,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
     return 0;
 }
 
-//转换二进制文件为文本
+//将in的非零数据转到out
 void combine_ka(std::string in, std::string out)
 {
     std::vector<int16_t> in1, out1;
@@ -180,7 +183,7 @@ void combine_ka(std::string in, std::string out)
         }
 
     }
-    //File::writeFile("game/resource/smap/index.ka", out1.data(), out1.size() * 2);
+    File::writeFile(out, out1.data(), out1.size() * 2);
     //convert::writeStringToFile(s, out);
 }
 
@@ -301,28 +304,29 @@ int main()
 #ifdef _WIN32
     //system("chcp 65001");
 #endif
-    //check_script("../game/script/oldevent");
-    //combine_ka("index.ka0", "index.ka");
-    //check_fight_frame("../game/resource/fight", 1);
-
-    //trans_bin_list("../game/list/levelup.bin", "../game/list/levelup.txt");
-    //trans_bin_list("../game/list/leave.bin", "../game/list/leave.txt");
+    std::string path = "../game31/";
+    //check_script(path +"script/oldevent");
+    //check_fight_frame(path +"resource/fight", 1);
     //trans_fight_frame();
 
-    //expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
-    //expandR("../game/save/ranger.idx", "../game/save/r1.grp");
-    //expandR("../game/save/ranger.idx", "../game/save/r2.grp");
-    //expandR("../game/save/ranger.idx", "../game/save/r3.grp");
-    //expandR("../game/save/ranger.idx", "../game/save/r4.grp");
-    //expandR("../game/save/ranger.idx", "../game/save/r5.grp");
-    //system("rm ../game/save/0.db");
+    //trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");
+    //trans_bin_list(path + "list/leave.bin", path + "list/leave.txt");
+
+    //expandR(path + "save/ranger.idx", path + "save/ranger.grp");
+    //expandR(path + "save/ranger.idx", path + "save/r1.grp");
+    //expandR(path + "save/ranger.idx", path + "save/r2.grp");
+    //expandR(path + "save/ranger.idx", path + "save/r3.grp");
+    //expandR(path + "save/ranger.idx", path + "save/r4.grp");
+    //expandR(path + "save/ranger.idx", path + "save/r5.grp");
+    ////system("rm ../game/save/0.db");
+    //GameUtil::PATH() = path;
     //Save::getInstance()->loadR(0);
     //Save::getInstance()->saveRToDB(0);
-    //expandR("../game/save/ranger.idx", "../game/save/ranger.grp", false, true);
-    //expandR("../game/resource/kdef.idx", "../game/resource/kdef.grp", false);
-    //expandR("../game/resource/warfld.idx", "../game/resource/warfld.grp", false);
+    expandR(path + "save/ranger.idx", path + "save/ranger.grp", false, true);
 
-    make_heads(R"(D:\game\kys-pascal\sfe-kdef2script\head)");
+    //make_heads(R"(D:\game\kys-pascal\sfe-kdef2script\head)");
+
+    //combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
 
     return 0;
 }

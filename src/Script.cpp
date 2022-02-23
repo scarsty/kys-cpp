@@ -248,7 +248,19 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(instruct_66);
     REGISTER_INSTRUCT(instruct_67);
 
-    //REGISTER_INSTRUCT(instruct_50e, VOID_7);
+    //REGISTER_INSTRUCT(instruct_50e);
+
+    auto instruct_50e = [](lua_State* L) -> int
+    {
+        std::vector<int> args(7);
+        for (int i = 0; i < 7; i++)
+        {
+            args[i] = lua_tonumber(L, i + 1);
+        }
+        Event::getInstance()->instruct_50e(args[0], args[1], args[2], args[3], args[4], args[5], args[6], nullptr);
+        return 0;
+    };
+    lua_register(lua_state_, "instruct_50e", instruct_50e);
 
     auto newTalk = [](lua_State* L) -> int
     {

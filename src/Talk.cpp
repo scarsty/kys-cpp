@@ -41,6 +41,7 @@ void Talk::onPressedOK()
         current_line_ += height_;
     }
     //e.type = BP_FIRSTEVENT;
+    result_ = 0;
 }
 
 void Talk::onEntrance()

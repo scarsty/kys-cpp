@@ -1271,6 +1271,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
+        e4 *= 2;
         save_int_ptr = nullptr;
         switch (e2)
         {
@@ -1285,6 +1286,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 17:    //读存档数据
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
+        e4 *= 2;
         switch (e2)
         {
         case 0: x50[e5] = *(int*)((char*)(save->getRole(e3)) + e4); break;
