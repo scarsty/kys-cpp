@@ -1,4 +1,5 @@
 #include "OpenCCConverter.h"
+#include "OpenCCConverter.h"
 
 #include "GameUtil.h"
 #include "PotConv.h"
@@ -35,4 +36,10 @@ std::string OpenCCConverter::convertUTF8(const std::string& in)
 std::string OpenCCConverter::convertCP936(const std::string& in)
 {
     return PotConv::utf8tocp936(convertUTF8(PotConv::cp936toutf8(in)));
+}
+
+void OpenCCConverter::set(const std::string& setfile)
+{
+    //有内存泄露，不管了
+    cc = opencc_open((GameUtil::PATH() + setfile).c_str());
 }

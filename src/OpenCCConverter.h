@@ -8,6 +8,7 @@ public:
     virtual ~OpenCCConverter();
     std::string convertUTF8(const std::string& in);
     std::string convertCP936(const std::string& in);
+    void set(const std::string& setfile);
 
     static OpenCCConverter* getInstance()
     {

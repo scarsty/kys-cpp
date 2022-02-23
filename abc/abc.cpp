@@ -8,6 +8,8 @@
 #include "convert.h"
 #include "fmt1.h"
 #include "Save.h"
+#include "OpenCCConverter.h"
+#include "PotConv.h"
 
 //转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)
@@ -50,7 +52,8 @@ void trans_fight_frame()
 }
 
 //扩展存档，将短整数扩展为int32
-int expandR(std::string idx, std::string grp, bool ranger = true)
+//最后一个参数：帧数需从之前存档格式获取
+int expandR(std::string idx, std::string grp, bool ranger = true, bool make_fightframe = false)
 {
     if (!File::fileExist(grp) || !File::fileExist(idx))
     {
@@ -81,13 +84,33 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
         s32[i] = s16[i];
     }
 
-    if (ranger)
+    if (ranger || make_fightframe)
     {
         std::vector<RoleSave1> roles_mem_;
         std::vector<MagicSave1> magics_mem_;
         std::vector<ItemSave1> items_mem_;
         std::vector<SubMapInfoSave1> submap_infos_mem_;
         File::readDataToVector(rgrp1 + offset1[1], length1[1], roles_mem_);
+        if (make_fightframe)
+        {
+            for (auto r : roles_mem_)
+            {
+                std::string content;
+                fmt1::print("role {}\n", r.HeadID);
+                for (int j = 0; j < 5; j++)
+                {
+                    if (r.Frame[j] > 0)
+                    {
+                        fmt1::print("{}, {}\n", j, r.Frame[j]);
+                        content += fmt1::format("{}, {}\n", j, r.Frame[j]);
+                    }
+                }
+                auto path = fmt1::format("../game/resource/fight/fight{:03}", r.HeadID);
+                convert::writeStringToFile(content, path + "/fightframe.txt");
+            }
+            return 1;
+        }
+
         File::readDataToVector(rgrp1 + offset1[2], length1[2], items_mem_);
         File::readDataToVector(rgrp1 + offset1[3], length1[3], submap_infos_mem_);
         File::readDataToVector(rgrp1 + offset1[4], length1[4], magics_mem_);
@@ -132,8 +155,9 @@ int expandR(std::string idx, std::string grp, bool ranger = true)
     s32[1]--;    //submap scene id
     File::writeFile(grp + "32", rgrp2, len * 2);
     File::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
-    delete rgrp1;
+    //delete rgrp1;
     delete rgrp2;
+
     fmt1::print("trans {} end\n", grp.c_str());
     return 0;
 }
@@ -160,6 +184,7 @@ void combine_ka(std::string in, std::string out)
     //convert::writeStringToFile(s, out);
 }
 
+//验证战斗帧数的正确性
 void check_fight_frame(std::string path, int repair = 0)
 {
     for (int i = 0; i < 500; i++)
@@ -192,6 +217,7 @@ void check_fight_frame(std::string path, int repair = 0)
     }
 }
 
+//检查3号指令的最后3个参数正确性
 void check_script(std::string path)
 {
     auto files = File::getFilesInPath(path, 0);
@@ -243,32 +269,60 @@ void check_script(std::string path)
     }
 }
 
+//重新产生头像
+void make_heads(std::string path)
+{
+    auto h_lib = File::getFilesInPath(path);
+    Save::getInstance()->loadR(0);
+    for (auto r : Save::getInstance()->getRoles())
+    {
+        std::string name = r->Name;
+        OpenCCConverter::getInstance()->set("cc/t2s.json");
+        name = OpenCCConverter::getInstance()->convertUTF8(name);
+        name = PotConv::utf8tocp936(name);
+        for (auto& h : h_lib)
+        {
+            if (h.find(name) == 0)
+            {
+                fmt1::print("{} {}\n", r->HeadID, h);
+                auto file_src = path + "\\" + h;
+                auto file_dst = fmt1::format("..\\game\\resource\\head1\\{}.png", r->HeadID);
+                auto cmd = "copy " + file_src + " " + file_dst;
+                system(cmd.c_str());
+                break;
+            }
+        }
+    }
+
+}
+
 int main()
 {
 #ifdef _WIN32
-    system("chcp 65001");
+    //system("chcp 65001");
 #endif
-    //check_script("game/script/oldevent");
-    //check_script("game0/script/oldevent");
+    //check_script("../game/script/oldevent");
     //combine_ka("index.ka0", "index.ka");
-    //check_fight_frame("game/resource/fight", 1);
-    //trans_bin_list("../game/binlist/levelup.bin", "../game/list/levelup.txt");
-    //trans_bin_list("../game/binlist/leave.bin", "../game/list/leave.txt");
-    trans_fight_frame();
+    //check_fight_frame("../game/resource/fight", 1);
+
+    //trans_bin_list("../game/list/levelup.bin", "../game/list/levelup.txt");
+    //trans_bin_list("../game/list/leave.bin", "../game/list/leave.txt");
+    //trans_fight_frame();
 
     //expandR("../game/save/ranger.idx", "../game/save/ranger.grp");
-
-    //for (int i = 1; i <= 20; i++)
-    //{
-    //    std::string grp = "../game/save/r" + std::to_string(i) + ".grp";
-    //    expandR("../game/save/ranger.idx", grp);
-    //    grp = "../game/save/s" + std::to_string(i) + ".grp";
-    //    expandR("../game/save/allsin.idx", grp, false);
-    //    grp = "../game/save/d" + std::to_string(i) + ".grp";
-    //    expandR("../game/save/alldef.idx", grp, false);
-    //}
+    //expandR("../game/save/ranger.idx", "../game/save/r1.grp");
+    //expandR("../game/save/ranger.idx", "../game/save/r2.grp");
+    //expandR("../game/save/ranger.idx", "../game/save/r3.grp");
+    //expandR("../game/save/ranger.idx", "../game/save/r4.grp");
+    //expandR("../game/save/ranger.idx", "../game/save/r5.grp");
+    //system("rm ../game/save/0.db");
+    //Save::getInstance()->loadR(0);
+    //Save::getInstance()->saveRToDB(0);
+    //expandR("../game/save/ranger.idx", "../game/save/ranger.grp", false, true);
     //expandR("../game/resource/kdef.idx", "../game/resource/kdef.grp", false);
     //expandR("../game/resource/warfld.idx", "../game/resource/warfld.grp", false);
+
+    make_heads(R"(D:\game\kys-pascal\sfe-kdef2script\head)");
 
     return 0;
 }

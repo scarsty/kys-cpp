@@ -22,10 +22,10 @@ const std::vector<NewSave::FieldInfo>& NewSave::getFieldInfo(const std::string& 
 
 void NewSave::initDBFieldInfo()
 {
-    if (getInstance()->base_.size() == 0)
+    if (base_.size() == 0)
     {
         Save::BaseInfo a;
-        getInstance()->base_ =
+        base_ =
         {
             BIND_FIELD_INT("乘船", InShip),
             BIND_FIELD_INT("子场景内", InSubMap),
@@ -47,19 +47,19 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("队友6", Team[5]),
         };
     }
-    if (getInstance()->item_list_.size() == 0)
+    if (item_list_.size() == 0)
     {
         ItemList a;
-        getInstance()->item_list_ =
+        item_list_ =
         {
             BIND_FIELD_INT("物品编号", item_id),
             BIND_FIELD_INT("物品数量", count),
         };
     }
-    if (getInstance()->role_.size() == 0)
+    if (role_.size() == 0)
     {
         Role a;
-        getInstance()->role_ =
+        role_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_INT("头像", HeadID),
@@ -146,10 +146,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("携带物品数量4", TakingItemCount[3]),
         };
     }
-    if (getInstance()->item_.size() == 0)
+    if (item_.size() == 0)
     {
         Item a;
-        getInstance()->item_ =
+        item_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("物品名", Name),
@@ -225,10 +225,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("练出物品数量5", MakeItemCount[4]),
         };
     }
-    if (getInstance()->submapinfo_.size() == 0)
+    if (submapinfo_.size() == 0)
     {
         SubMapInfo a;
-        getInstance()->submapinfo_ =
+        submapinfo_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("名称", Name),
@@ -254,10 +254,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("跳转返还Y", JumpReturnY),
         };
     }
-    if (getInstance()->magic_.size() == 0)
+    if (magic_.size() == 0)
     {
         Magic a;
-        getInstance()->magic_ =
+        magic_ =
         {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_TEXT("名称", Name),
@@ -325,10 +325,10 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("杀伤内力10", HurtMP[9]),
         };
     }
-    if (getInstance()->shop_.size() == 0)
+    if (shop_.size() == 0)
     {
         Shop a;
-        getInstance()->shop_ =
+        shop_ =
         {
             BIND_FIELD_INT("物品编号1", ItemID[0]),
             BIND_FIELD_INT("物品编号2", ItemID[1]),

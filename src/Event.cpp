@@ -82,7 +82,11 @@ bool Event::loadEventData()
 bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_id, int event_index, int x, int y)
 {
     bool ret = true;
-    if (event_id <= 0 || event_id >= kdef_.size()) { return false; }
+    if (use_script_ == 0
+        && (event_id <= 0 || event_id >= kdef_.size()))
+    {
+        return false;
+    }
     subscene_ = dynamic_cast<SubScene*>(subscene);
     submap_id_ = -1;
     if (subscene)
@@ -102,10 +106,6 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     int p = 0;
     exit_ = false;
     int i = 0;
-    auto e = kdef_[event_id];
-
-    fmt1::print("Event {}: {}\n ", event_id, e);
-    e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
 
     //这些宏仅为了在事件程序中简化代码，不要用在其他地方
 #define REGISTER_INSTRUCT(code, function) \
@@ -118,11 +118,18 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
 
     if (use_script_)
     {
-        auto script = fmt1::format(GameUtil::PATH() + "script/oldevent/oldevent_{}.lua", event_id);
+        auto script = fmt1::format(GameUtil::PATH() + "script/event/ka{}.lua", event_id);
+        if (!File::fileExist(script))
+        {
+            script = fmt1::format(GameUtil::PATH() + "script/oldevent/oldevent_{}.lua", event_id);
+        }
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else
     {
+        auto e = kdef_[event_id];
+        fmt1::print("Event {}: {}\n ", event_id, e);
+        e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
         while (i < e.size() && !exit_)
         {
             fmt1::print("instruct {}\n", e[i]);
@@ -317,7 +324,10 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style)
     }
 
     talk->setContent(talk_content);
-    fmt1::print("head {} style {}: {}\n", head_id, style, talk_content);
+    if (use_script_ == 0)
+    {
+        fmt1::print("head {} style {}: {}\n", head_id, style, talk_content);
+    }
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
     {
@@ -484,6 +494,7 @@ void Event::darkScence()
 
 void Event::dead()
 {
+    menu2_->setText("勝敗乃兵家常事");
     RunNode::exitAll(1);
     forceExit();
 }

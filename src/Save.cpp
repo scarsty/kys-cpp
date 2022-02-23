@@ -71,6 +71,26 @@ bool Save::load(int num)
     loadRFromDB(num);
     loadSD(num);
 
+    //saveRToDB(0);    //调试用
+    makeMapsAndRepairID();
+
+    //saveRToDB(num);    //临时转换
+    return true;
+}
+
+void Save::loadR(int num)
+{
+    std::string filenamer = getFilename(num, 'r');
+    std::string filename_idx = GameUtil::PATH() + "save/ranger.idx32";
+    auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
+    memcpy((void*)this, rgrp.data() + offset_[0], length_[0]);
+    File::readDataToVector(rgrp.data() + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    File::readDataToVector(rgrp.data() + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    File::readDataToVector(rgrp.data() + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    File::readDataToVector(rgrp.data() + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    File::readDataToVector(rgrp.data() + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+    updateAllPtrVector();
+
     //内部编码为65001
     if (Encode != 65001)
     {
@@ -118,26 +138,6 @@ bool Save::load(int num)
         }
         Encode = 65001;
     }
-
-    makeMapsAndRepairID();
-
-    //saveRToDB(num);    //临时转换
-    return true;
-}
-
-void Save::loadR(int num)
-{
-    std::string filenamer = getFilename(num, 'r');
-    std::string filename_idx = GameUtil::PATH() + "save/ranger.idx32";
-    auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
-    memcpy((void*)this, rgrp.data() + offset_[0], length_[0]);
-    File::readDataToVector(rgrp.data() + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
-    File::readDataToVector(rgrp.data() + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
-    File::readDataToVector(rgrp.data() + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
-    File::readDataToVector(rgrp.data() + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
-    File::readDataToVector(rgrp.data() + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
-
-    updateAllPtrVector();
 }
 
 void Save::loadSD(int num)
@@ -396,11 +396,6 @@ bool Save::insertAt(const std::string& type, int idx)
 
 void Save::saveRToDB(int num)
 {
-    std::string filename0 = GameUtil::PATH() + "save/0.db";
-    if (!File::fileExist(filename0))
-    {
-        //return;
-    }
     sqlite3* db;
     //此处最好复制一个，先搞搞再说
     std::string filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
@@ -412,7 +407,6 @@ void Save::saveRToDB(int num)
 
 void Save::loadRFromDB(int num)
 {
-    NewSave::initDBFieldInfo();
     auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
     if (!File::fileExist(filename))
     {

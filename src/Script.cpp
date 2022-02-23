@@ -262,6 +262,7 @@ int Script::registerEventFunctions()
         return 0;
     };
     lua_register(lua_state_, "newtalk", newTalk);
+    lua_register(lua_state_, "talk", newTalk);
 
     auto getItemCountInBag = [](lua_State* L) -> int
     {
@@ -306,6 +307,10 @@ int Script::registerEventFunctions()
     auto getShop = [](lua_State* L) { return rModifier("Shop", &Save::getShop, L); };
     lua_register(lua_state_, "getshop", getShop);
     lua_register(lua_state_, "setshop", getShop);
+
+    //std::string content = "";
+    //luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
+    //lua_pcall(lua_state_, 0, 0, 0);
 
     return 0;
 }

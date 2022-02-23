@@ -26,9 +26,11 @@ private:
         return &ns;
     }
 public:
+    NewSave() { initDBFieldInfo(); }
+
     static const std::vector<FieldInfo>& getFieldInfo(const std::string& name);    //这些索引其他地方可能用到
 
-    static void initDBFieldInfo();
+    void initDBFieldInfo();
     static void SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
     static void LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
     // 背包
