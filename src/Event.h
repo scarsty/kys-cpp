@@ -5,6 +5,7 @@
 #include "RunNode.h"
 #include "SubScene.h"
 #include "Talk.h"
+#include "Font.h"
 
 //event_id表示在kdef中的编号，event_index表示在场景中的编号
 
@@ -161,7 +162,7 @@ public:
     }
 
     //扩展的50指令，传入下一个指令的指针，某一条需要
-    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr);
+    void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr, int* code_value = nullptr);
 
 public:
     void print_e(const std::vector<int>& e, int i, int size)
@@ -203,4 +204,35 @@ public:
     {
         runner_impl(f, c, e, i, std::make_index_sequence<arg_counter<F, C>::value>{});
     }
+
+    //事件中辅助绘制的类
+    class EventNode : public RunNode
+    {
+    public:
+        virtual ~EventNode() {}
+        virtual void draw() override
+        {
+            for (auto& i : infos)
+            {
+                if (i.type == 0)
+                {
+                    Font::getInstance()->draw(i.text, 20, i.x, i.y /*BP_Color(e5)*/);
+                }
+            }
+        }
+        void clear()
+        {
+            infos.clear();
+        }
+        struct Info
+        {
+            int type = 0;
+            int x = 0, y = 0;
+            std::string text;
+            int num = 0;
+        };
+        std::vector<Info> infos;
+    };
+    std::shared_ptr<EventNode> event_node_;
+
 };

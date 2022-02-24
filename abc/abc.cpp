@@ -94,8 +94,9 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
         File::readDataToVector(rgrp1 + offset1[1], length1[1], roles_mem_);
         if (make_fightframe)
         {
-            for (auto r : roles_mem_)
+            for (auto it = roles_mem_.end() - 1; it >= roles_mem_.begin(); it--)
             {
+                auto r = *it;
                 std::string content;
                 fmt1::print("role {}\n", r.HeadID);
                 for (int j = 0; j < 5; j++)
@@ -106,10 +107,13 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
                         content += fmt1::format("{}, {}\n", j, r.Frame[j]);
                     }
                 }
-                auto p = File::getFilePath(idx);
-                p = File::getFilePath(p);
-                auto path = fmt1::format("{}/resource/fight/fight{:03}", p, r.HeadID);
-                convert::writeStringToFile(content, path + "/fightframe.txt");
+                if (!content.empty())
+                {
+                    auto p = File::getFilePath(idx);
+                    p = File::getFilePath(p);
+                    auto f = fmt1::format("{}/resource/fight/fight{:03}/fightframe.txt", p, r.HeadID);
+                    convert::writeStringToFile(content, f);
+                }
             }
             if (!ranger) { return 1; }
         }

@@ -33,6 +33,7 @@ Event::Event()
     text_box_ = std::make_shared<TextBox>();
     text_box_->setPosition(400, 200);
     text_box_->setTextPosition(-20, 100);
+    event_node_ = std::make_shared<EventNode>();
 }
 
 Event::~Event()
@@ -99,7 +100,9 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     x_ = x;
     y_ = y;
 
-    //将节点加载到绘图栈的最上，这样两个对话可以画出来
+    //将节点加载到绘图栈的最上
+    RunNode::addIntoDrawTop(event_node_);
+
     talk_box_->setExit(false);
     talk_box_->setVisible(true);
     RunNode::addIntoDrawTop(talk_box_);
@@ -250,6 +253,10 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     }
     RunNode::removeFromDraw(talk_box_);
     clearTalkBox();
+
+    RunNode::removeFromDraw(event_node_);
+    event_node_->clear();
+
     if (subscene_)
     {
         subscene_->forceManPic(-1);
@@ -1147,7 +1154,7 @@ void Event::clearTalkBox()
 
 //50扩展指令
 //虽然有一定程度的支持，但是这不表示推荐使用
-void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr)
+void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr, int* code_value)
 {
     int index = 0, len = 0, offset = 0;
     char* char_ptr = nullptr, * char_ptr1 = nullptr;
@@ -1166,13 +1173,13 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         break;
     case 1:    //数组赋值，e2不为0表示仅要一个字节
         index = e3 + e_GetValue(0, e1, e4);
-        x50[index] = e_GetValue(1, e1, e4);
-        if (e2) { x50[index] = x50[index] & 0xff; }
+        x50[index] = e_GetValue(1, e1, e5);
+        if (e2) { x50[index] = x50[index] & 0x000000ff; }
         break;
     case 2:    //数组取值
         index = e3 + e_GetValue(0, e1, e4);
         x50[e5] = x50[index];
-        if (e2) { x50[index] = x50[index] & 0xff; }
+        if (e2) { x50[index] = x50[index] & 0x000000ff; }
         break;
     case 3:    //基本运算
         index = e_GetValue(0, e1, e5);
@@ -1226,6 +1233,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
             break;
         case 7:
             x50[0x7000] = 1;
+            break;
         }
         break;
     case 5:    //全部清零
@@ -1245,8 +1253,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         sprintf(char_ptr, char_ptr1, e4);
         break;
     case 10:    //字串长度
-        //感觉这样有问题，不管了
-        x50[e2] = strlen((char*)&x50[e1]);
+        x50[e2] = Font::getTextDrawSize((char*)&x50[e1]);
         break;
     case 11:    //合并字串
         char_ptr = (char*)&x50[e1];
@@ -1362,26 +1369,36 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 31: break;
     case 32:    //修改下一条指令
         e3 = e_GetValue(0, e1, e3);
-        *(code_ptr + e3) = x50[e2];
+        if (use_script_ == 0)
+        {
+            *(code_ptr + e3) = x50[e2];
+        }
+        else
+        {
+            *code_ptr = e3;
+            *code_value = x50[e2];
+        }
         break;
     case 33:    //画一个字串
         e3 = e_GetValue(0, e1, e3);
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
         char_ptr = (char*)&x50[e2];
-        Font::getInstance()->draw(char_ptr, 20, e3, e4 /*BP_Color(e5)*/);
+        event_node_->infos.emplace_back(0, e3, e4, char_ptr);
+        //Font::getInstance()->draw(char_ptr, 20, e3, e4 /*BP_Color(e5)*/);
         break;
-    case 34:    //画一个背景框
+    case 34:    //画一个背景框，废弃
         e2 = e_GetValue(0, e1, e2);
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
         e5 = e_GetValue(3, e1, e5);
-        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
+        //Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
         break;
     case 35:    //暂停等待按键
         text_box_->setText("");
         text_box_->setTexture("", 0);
         x50[e1] = text_box_->run();
+        event_node_->clear();
         switch (x50[e1])
         {
         case SDLK_LEFT: x50[e1] = 154; break;
@@ -1413,13 +1430,15 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e2 = e_GetValue(0, e1, e2);
         e5 = e_GetValue(1, e1, e5);
         e6 = e_GetValue(2, e1, e6);
-        for (int i = 0; i < e2 - 1; i++)
+        for (int i = 0; i < e2; i++)
         {
-            strs.push_back((char*)x50[x50[e3 + i]]);
+            char_ptr = (char*)&x50[x50[e3 + i]];
+            strs.push_back(std::to_string(i) + char_ptr);
         }
         auto menu = std::make_shared<MenuText>();
         menu->setStrings(strs);
-        x50[e4] = menu->run();
+        menu->setPosition(e5, e6);
+        x50[e4] = menu->run() + 1;
     }
     break;
     case 41:    //画一张图

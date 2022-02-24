@@ -92,7 +92,10 @@ void TitleScene::dealEvent(BP_Event& e)
             {
                 MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
                 MainScene::getInstance()->setTowards(1);
-                MainScene::getInstance()->forceEnterSubScene(GameUtil::getInstance()->getInt("constant", "begin_scene", 70), 19, 20, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
+                int s = GameUtil::getInstance()->getInt("constant", "begin_scene", 70);
+                int x = GameUtil::getInstance()->getInt("constant", "begin_sx", 19);
+                int y = GameUtil::getInstance()->getInt("constant", "begin_sy", 20);
+                MainScene::getInstance()->forceEnterSubScene(s, x, y, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
                 MainScene::getInstance()->run();
             }
         }

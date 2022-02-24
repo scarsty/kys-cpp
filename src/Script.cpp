@@ -54,6 +54,21 @@ int rModifier(auto data_name, auto getDataFromIndex, lua_State* L)
     }
 }
 
+int p50_32_value = 0;
+int p50_32_pos = INT_MAX;
+
+int lua_tonumber1(lua_State* L, int idx)
+{
+    int n = lua_gettop(L);
+    int r = lua_tointeger(L, idx);
+    if (idx == p50_32_pos)
+    {
+        r = p50_32_value;
+        p50_32_pos = INT_MAX;
+    }
+    return r;
+}
+
 Script::Script()
 {
     lua_state_ = luaL_newstate();
@@ -97,7 +112,7 @@ int Script::registerEventFunctions()
             std::array<int, arg_count> args; \
             for (int i = 0; i < arg_count; i++) \
             { \
-                args[i] = lua_tonumber(L, i + 1); \
+                args[i] = lua_tonumber1(L, i + 1); \
             } \
             return runner(&Event::function, Event::getInstance(), args, L); \
         }; \
@@ -255,12 +270,14 @@ int Script::registerEventFunctions()
         std::vector<int> args(7);
         for (int i = 0; i < 7; i++)
         {
-            args[i] = lua_tonumber(L, i + 1);
+            args[i] = lua_tonumber1(L, i + 1);
         }
-        Event::getInstance()->instruct_50e(args[0], args[1], args[2], args[3], args[4], args[5], args[6], nullptr);
+        Event::getInstance()->instruct_50e(args[0], args[1], args[2], args[3], args[4], args[5], args[6], &p50_32_pos, &p50_32_value);
         return 0;
     };
     lua_register(lua_state_, "instruct_50e", instruct_50e);
+
+    //以下为新指令
 
     auto newTalk = [](lua_State* L) -> int
     {
