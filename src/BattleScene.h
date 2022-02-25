@@ -125,8 +125,9 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool isNearEnemy(int team, int x, int y);    //是否x，y上的人物与team不一致
 
-    virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }                     //计算距离
+    virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }               //计算距离
     virtual int calDistanceRound(int x1, int x2, int y1, int y2) { return sqrt((x1 - y1) * (x1 - y1) + (x2 - y2) * (x2 - y2)); }    //计算欧氏距离
+    void calDistanceLayer(int x, int y, MapSquareInt& distance_layer, int max_step);
 
     virtual Role* getSelectedRole();    //获取恰好在选择点的角色
 

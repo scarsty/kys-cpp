@@ -78,6 +78,8 @@ public:
     virtual void onExit() override;
     virtual void backRun() override {}
     virtual void backRun1();
+    void Action(Role* r);
+    void AI(Role* r);
     virtual void onPressedCancel() override;
 
 protected:
@@ -109,9 +111,9 @@ protected:
     std::unordered_map<std::string, std::function<int(Role* r)>> special_magic_effect_attack_;    //发动攻击
     std::unordered_map<std::string, std::function<int(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
 
-    Point pos45To90(int x, int y)    //45度坐标转为直角
+    Pointf pos45To90(int x, int y)    //45度坐标转为直角
     {
-        Point p;
+        Pointf p;
         p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
         p.y = y * TILE_W + x * TILE_W;
         return p;
@@ -137,6 +139,7 @@ protected:
             return true;
         }
     }
+    virtual bool canWalk(int x, int y) override { return canWalk45(x, y); }
     bool canWalk90(int x, int y)
     {
         auto p = pos90To45(x, y);
@@ -189,6 +192,8 @@ protected:
     void decreaseToZero(int& i) { if (i > 0) { i--; } }
     int defaultMagicEffect(AttackEffect& ae, Role* r);
     int calRolePic(Role* r, int style, int frame) override;
+
+
 
 
     void makeSpecialMagicEffect();

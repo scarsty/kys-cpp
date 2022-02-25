@@ -590,347 +590,9 @@ void BattleSceneHades::backRun1()
         for (auto r : battle_roles_)
         {
             //有行动
-            if (r->HaveAction)
-            {
-                //音效和动画
-                if (r->OperationType >= 0
-                    //&& r->ActFrame == r->FightFrame[r->ActType] - 3
-                    && r->ActFrame == calCast(r->ActType, r->OperationType, r))
-                {
-                    //r->HaveAction = 0;
-                    r->PreActTimer = current_frame_;
-                    for (auto m : r->getLearnedMagics())
-                    {
-                        if (special_magic_effect_attack_.count(m->Name))
-                        {
-                            special_magic_effect_attack_[m->Name](r);
-                        }
-                    }
-                    Magic* magic = nullptr;
-                    if (r->UsingMagic)
-                    {
-                        magic = r->UsingMagic;
-                    }
-                    else
-                    {
-                        std::vector<Magic*> v;
-                        for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
-                        {
-                            if (r->MagicID[i] > 0)
-                            {
-                                auto m = Save::getInstance()->getMagic(r->MagicID[i]);
-                                if (m->MagicType == r->ActType)
-                                {
-                                    v.push_back(m);
-                                }
-                            }
-                        }
-                        if (!v.empty())
-                        {
-                            magic = v[rand_.rand() * v.size()];
-                        }
-                    }
-                    AttackEffect ae;
-                    if (magic)
-                    {
-                        Audio::getInstance()->playESound(magic->SoundID);
-                        ae.setEft(magic->EffectID);
-                        ae.UsingMagic = magic;
-                    }
-                    else
-                    {
-                        Audio::getInstance()->playESound(r->ActType);
-                        ae.setEft(11);
-                        magic = Save::getInstance()->getMagic(1);
-                        ae.UsingMagic = Save::getInstance()->getMagic(1);
-                    }
-                    r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
-                    int level_index = r->getMagicLevelIndex(magic->ID);
-                    int needMP = magic->calNeedMP(level_index);
-                    ae.TotalFrame = 30;
-                    //r->CoolDown += ae.TotalFrame;
-                    ae.Attacker = r;
-                    r->RealTowards.normTo(1);
-                    ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
-                    ae.Frame = 0;
-                    if (r->Team == 0 && r == role_)
-                    {
-                        ae.OperationType = r->OperationType;
-                        //if (r->OperationType == 0 && ae.UsingMagic->AttackAreaType != 0)
-                        //{
-                        //    ae.OperationType = -1;
-                        //}
-                        //if (r->OperationType == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
-                        //{
-                        //    ae.OperationType = -1;
-                        //}
-                        //if (r->OperationType == 1 && ae.UsingMagic->AttackAreaType != 3)
-                        //{
-                        //    ae.OperationType = -1;
-                        //}
-                    }
-                    else
-                    {
-                        ae.OperationType = r->OperationType;
-                        if (r->OperationType == -1)
-                        {
-                            if (ae.UsingMagic->AttackAreaType == 0)
-                            {
-                                ae.OperationType = 0;
-                            }
-                            else if (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2)
-                            {
-                                ae.OperationType = 2;
-                            }
-                            else if (ae.UsingMagic->AttackAreaType == 3)
-                            {
-                                ae.OperationType = 1;
-                            }
-                        }
-                    }
-
-                    int index = r->getMagicOfRoleIndex(ae.UsingMagic);
-                    if (index >= 0)
-                    {
-                        r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
-                    }
-                    if (ae.OperationType == 0)
-                    {
-                        ae.TotalFrame = 5;
-                        if (r->OperationCount == 3 && magic->AttackAreaType == 0)
-                        {
-                            ae.TotalFrame = 15;
-                            shake_ = 10;
-                            ae.Strengthen = 2;
-                            ae.Velocity = r->RealTowards;
-                            ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
-                            ae.Track = 1;
-                        }
-                        attack_effects_.push_back(std::move(ae));
-                        needMP *= 0.1;
-                    }
-                    else if (ae.OperationType == 1)
-                    {
-                        int range = 2;
-                        if (magic->AttackAreaType == 3)
-                        {
-                            range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
-                        }
-                        int count = range;
-                        auto p = ae.Pos;
-                        ae.TotalFrame = 120;
-                        double angle = r->RealTowards.getAngle();
-                        for (int i = 0; i < count; i++)
-                        {
-                            double a = angle + i * 2 * M_PI / count;
-                            ae.Pos = p;
-                            ae.Velocity = { cos(a) ,sin(a) };
-                            ae.Velocity.normTo(3);
-                            ae.Frame = rand_.rand() * 10;
-                            ae.Track = 1;
-                            attack_effects_.push_back(ae);
-                        }
-                        needMP *= 0.4;
-                    }
-                    else if (ae.OperationType == 2)
-                    {
-                        auto r0 = findNearestEnemy(r->Team, r->Pos);
-                        if (r0)
-                        {
-                            ae.Velocity = r0->Pos - r->Pos;
-                        }
-                        else
-                        {
-                            ae.Velocity = r->RealTowards;
-                        }
-                        ae.Velocity.normTo(5);
-                        ae.TotalFrame = 30 + magic->SelectDistance[level_index] * 10;
-                        if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
-                        {
-                            ae.Through = 1;
-                        }
-                        attack_effects_.push_back(ae);
-                        needMP *= 0.2;
-                        if (magic->AttackAreaType == 2)
-                        {
-                            ae.Velocity.normTo(3);
-                            ae.TotalFrame = 150;
-                            attack_effects_.push_back(ae);
-                        }
-                    }
-                    else if (ae.OperationType == 3)
-                    {
-                        r->Velocity = r->RealTowards;
-                        r->Velocity.normTo(std::min(4.0, r->Speed / 30.0) * 3);
-                        r->VelocitytFrame = 10;
-                        r->ActType = 0;
-                        auto p = ae.Pos;
-                        int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
-                        for (int i = 0; i < count; i++)
-                        {
-                            ae.Pos = p + r->Velocity * (i - 1) * 2;
-                            ae.Frame += 3;
-                            attack_effects_.push_back(ae);
-                        }
-                        needMP *= 0.05;
-                    }
-                    //fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
-                    r->MP -= needMP;
-                    r->UsingMagic = nullptr;
-                }
-                if (r->OperationType == 1)
-                {
-                    r->ActFrame++;
-                    if (r->ActFrame >= 7)
-                    {
-                        shake_ = 1;
-                    }
-                }
-                else
-                {
-                    r->ActFrame++;
-                }
-            }
-
+            Action(r);
             //ai策略
-            if ((r != role_ || r->Auto)
-                && r->Dead == 0)
-            {
-                if (r->CoolDown == 0)
-                {
-                    if (r->UsingMagic == nullptr)
-                    {
-                        auto v = r->getLearnedMagics();
-                        if (v.size() == 1)
-                        {
-                            r->UsingMagic = v[0];
-                        }
-                        else if (v.size() >= 0)
-                        {
-                            std::vector<double> hurt;
-                            double sum = 0;
-                            for (auto m : v)
-                            {
-                                double h = m->Attack[r->getMagicLevelIndex(m)];
-                                h = exp(h / 500);
-                                hurt.push_back(sum + h);
-                                sum += h;
-                            }
-                            double select = rand_.rand() * sum;
-                            for (int i = 0; i < hurt.size(); i++)
-                            {
-                                if (select < hurt[i])
-                                {
-                                    r->UsingMagic = v[i];
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    auto r0 = findNearestEnemy(r->Team, r->Pos);
-                    if (r0)
-                    {
-                        r->RealTowards = r0->Pos - r->Pos;
-                        r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
-                        r->RealTowards.normTo(1);
-                        int dis = TILE_W * 3;
-                        if (r->UsingMagic)
-                        {
-                            if (r->UsingMagic->AttackAreaType == 3) { dis = 180; }
-                            if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = 300; }
-                        }
-                        if (EuclidDis(r->Pos, r0->Pos) > dis)
-                        {
-                            auto p = r->Pos + r->Speed / 30.0 * r->RealTowards;
-                            if (canWalk90(p, r))
-                            {
-                                r->Pos = p;
-                                r->TurnTowards = -1;
-                            }
-                            else
-                            {
-                                std::vector<double> angle[2] = { {M_PI / 3, -M_PI / 3, M_PI * 2 / 3, -M_PI * 2 / 3, M_PI}, {-M_PI / 3, M_PI / 3, -M_PI * 2 / 3, M_PI * 2 / 3, M_PI} };
-                                auto rt0 = r->RealTowards;
-                                if (r->TurnTowards < 0) { r->TurnTowards = int(rand_.rand() * 2); }
-                                auto& angle_v = angle[r->TurnTowards];
-                                for (auto a : angle_v)
-                                {
-                                    r->RealTowards = rt0;
-                                    r->RealTowards.rotate(a);
-                                    auto p = r->Pos + r->Speed / 20.0 * r->RealTowards;
-                                    if (canWalk90(p, r))
-                                    {
-                                        r->Pos = p;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            if (r->PhysicalPower >= 30 && r->UsingMagic)
-                            {
-                                //点攻击疯狗咬即可
-                                if (r->UsingMagic->AttackAreaType == 0 || rand_.rand() < 0.75 && r->UsingMagic->AttackAreaType != 0)
-                                {
-                                    //attack
-                                    auto m = r->UsingMagic;
-                                    if (m)
-                                    {
-                                        if (m->AttackAreaType == 0)
-                                        {
-                                            r->OperationType = 0;
-                                        }
-                                        else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
-                                        {
-                                            r->OperationType = 2;
-                                        }
-                                        else if (m->AttackAreaType == 3)
-                                        {
-                                            r->OperationType = 1;
-                                        }
-                                        r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
-                                        r->ActFrame = 0;
-                                        r->ActType = m->MagicType;
-                                        r->HaveAction = 1;
-                                        //TextEffect te;
-                                        //te.Text = m->Name;
-                                        //te.Size = 15;
-                                        //te.Type = 1;
-                                        //te.Pos.x = r->Pos.x - 15 * te.Text.size() / 3;
-                                        //te.Pos.y = r->Pos.y;
-                                        //te.Color = { 255, 0, 0, 255 };
-                                        //te.Frame = 15;
-                                        //text_effects_.push_back(te);
-                                    }
-                                }
-                                else
-                                {
-                                    //随机移动一下，增加一些变数
-                                    r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
-                                    if (r->Speed >= 60)
-                                    {
-                                        r->OperationType = 3;
-                                        r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
-                                        r->ActFrame = 0;
-                                        r->HaveAction = 1;
-                                        //r->RealTowards *= 3;
-                                    }
-                                }
-                                if (!r->HaveAction)
-                                {
-                                    //走两步
-                                    r->RealTowards.rotate(M_PI * 0.5 * (2 * rand_.rand() - 1));
-                                    r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
-                                    r->Velocity = r->RealTowards;
-                                    r->Velocity.normTo(r->Speed / 30.0);
-                                    r->VelocitytFrame = 20;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            AI(r);
         }
     }
 
@@ -1160,6 +822,393 @@ void BattleSceneHades::backRun1()
                 menu_->setVisible(false);
                 calExpGot();
                 setExit(true);
+            }
+        }
+    }
+}
+
+void BattleSceneHades::Action(Role* r)
+{
+    if (r->HaveAction)
+    {
+        //音效和动画
+        if (r->OperationType >= 0
+            //&& r->ActFrame == r->FightFrame[r->ActType] - 3
+            && r->ActFrame == calCast(r->ActType, r->OperationType, r))
+        {
+            //r->HaveAction = 0;
+            r->PreActTimer = current_frame_;
+            for (auto m : r->getLearnedMagics())
+            {
+                if (special_magic_effect_attack_.count(m->Name))
+                {
+                    special_magic_effect_attack_[m->Name](r);
+                }
+            }
+            Magic* magic = nullptr;
+            if (r->UsingMagic)
+            {
+                magic = r->UsingMagic;
+            }
+            else
+            {
+                std::vector<Magic*> v;
+                for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+                {
+                    if (r->MagicID[i] > 0)
+                    {
+                        auto m = Save::getInstance()->getMagic(r->MagicID[i]);
+                        if (m->MagicType == r->ActType)
+                        {
+                            v.push_back(m);
+                        }
+                    }
+                }
+                if (!v.empty())
+                {
+                    magic = v[rand_.rand() * v.size()];
+                }
+            }
+            AttackEffect ae;
+            if (magic)
+            {
+                Audio::getInstance()->playESound(magic->SoundID);
+                ae.setEft(magic->EffectID);
+                ae.UsingMagic = magic;
+            }
+            else
+            {
+                Audio::getInstance()->playESound(r->ActType);
+                ae.setEft(11);
+                magic = Save::getInstance()->getMagic(1);
+                ae.UsingMagic = Save::getInstance()->getMagic(1);
+            }
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+            int level_index = r->getMagicLevelIndex(magic->ID);
+            int needMP = magic->calNeedMP(level_index);
+            ae.TotalFrame = 30;
+            //r->CoolDown += ae.TotalFrame;
+            ae.Attacker = r;
+            r->RealTowards.normTo(1);
+            ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
+            ae.Frame = 0;
+            if (r->Team == 0 && r == role_)
+            {
+                ae.OperationType = r->OperationType;
+                //if (r->OperationType == 0 && ae.UsingMagic->AttackAreaType != 0)
+                //{
+                //    ae.OperationType = -1;
+                //}
+                //if (r->OperationType == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
+                //{
+                //    ae.OperationType = -1;
+                //}
+                //if (r->OperationType == 1 && ae.UsingMagic->AttackAreaType != 3)
+                //{
+                //    ae.OperationType = -1;
+                //}
+            }
+            else
+            {
+                ae.OperationType = r->OperationType;
+                if (r->OperationType == -1)
+                {
+                    if (ae.UsingMagic->AttackAreaType == 0)
+                    {
+                        ae.OperationType = 0;
+                    }
+                    else if (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2)
+                    {
+                        ae.OperationType = 2;
+                    }
+                    else if (ae.UsingMagic->AttackAreaType == 3)
+                    {
+                        ae.OperationType = 1;
+                    }
+                }
+            }
+
+            int index = r->getMagicOfRoleIndex(ae.UsingMagic);
+            if (index >= 0)
+            {
+                r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
+            }
+            if (ae.OperationType == 0)
+            {
+                ae.TotalFrame = 5;
+                if (r->OperationCount == 3 && magic->AttackAreaType == 0)
+                {
+                    ae.TotalFrame = 15;
+                    shake_ = 10;
+                    ae.Strengthen = 2;
+                    ae.Velocity = r->RealTowards;
+                    ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
+                    ae.Track = 1;
+                }
+                attack_effects_.push_back(std::move(ae));
+                needMP *= 0.1;
+            }
+            else if (ae.OperationType == 1)
+            {
+                int range = 2;
+                if (magic->AttackAreaType == 3)
+                {
+                    range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
+                }
+                int count = range;
+                auto p = ae.Pos;
+                ae.TotalFrame = 120;
+                double angle = r->RealTowards.getAngle();
+                for (int i = 0; i < count; i++)
+                {
+                    double a = angle + i * 2 * M_PI / count;
+                    ae.Pos = p;
+                    ae.Velocity = { cos(a) ,sin(a) };
+                    ae.Velocity.normTo(3);
+                    ae.Frame = rand_.rand() * 10;
+                    ae.Track = 1;
+                    attack_effects_.push_back(ae);
+                }
+                needMP *= 0.4;
+            }
+            else if (ae.OperationType == 2)
+            {
+                auto r0 = findNearestEnemy(r->Team, r->Pos);
+                if (r0)
+                {
+                    ae.Velocity = r0->Pos - r->Pos;
+                }
+                else
+                {
+                    ae.Velocity = r->RealTowards;
+                }
+                ae.Velocity.normTo(5);
+                ae.TotalFrame = 30 + magic->SelectDistance[level_index] * 10;
+                if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+                {
+                    ae.Through = 1;
+                }
+                attack_effects_.push_back(ae);
+                needMP *= 0.2;
+                if (magic->AttackAreaType == 2)
+                {
+                    ae.Velocity.normTo(3);
+                    ae.TotalFrame = 150;
+                    attack_effects_.push_back(ae);
+                }
+            }
+            else if (ae.OperationType == 3)
+            {
+                r->Velocity = r->RealTowards;
+                r->Velocity.normTo(std::min(4.0, r->Speed / 30.0) * 3);
+                r->VelocitytFrame = 10;
+                r->ActType = 0;
+                auto p = ae.Pos;
+                int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
+                for (int i = 0; i < count; i++)
+                {
+                    ae.Pos = p + r->Velocity * (i - 1) * 2;
+                    ae.Frame += 3;
+                    attack_effects_.push_back(ae);
+                }
+                needMP *= 0.05;
+            }
+            //fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+            r->MP -= needMP;
+            r->UsingMagic = nullptr;
+        }
+        if (r->OperationType == 1)
+        {
+            r->ActFrame++;
+            if (r->ActFrame >= 7)
+            {
+                shake_ = 1;
+            }
+        }
+        else
+        {
+            r->ActFrame++;
+        }
+    }
+}
+
+void BattleSceneHades::AI(Role* r)
+{
+    if ((r != role_ || r->Auto)
+        && r->Dead == 0)
+    {
+        if (r->CoolDown == 0)
+        {
+            if (r->UsingMagic == nullptr)
+            {
+                auto v = r->getLearnedMagics();
+                if (v.size() == 1)
+                {
+                    r->UsingMagic = v[0];
+                }
+                else if (v.size() >= 0)
+                {
+                    std::vector<double> hurt;
+                    double sum = 0;
+                    for (auto m : v)
+                    {
+                        double h = m->Attack[r->getMagicLevelIndex(m)];
+                        h = exp(h / 500);
+                        hurt.push_back(sum + h);
+                        sum += h;
+                    }
+                    double select = rand_.rand() * sum;
+                    for (int i = 0; i < hurt.size(); i++)
+                    {
+                        if (select < hurt[i])
+                        {
+                            r->UsingMagic = v[i];
+                            break;
+                        }
+                    }
+                }
+            }
+            auto r0 = findNearestEnemy(r->Team, r->Pos);
+            if (r0)
+            {
+                r->RealTowards = r0->Pos - r->Pos;
+                r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                r->RealTowards.normTo(1);
+                int dis = TILE_W * 3;
+                if (r->UsingMagic)
+                {
+                    if (r->UsingMagic->AttackAreaType == 3) { dis = 180; }
+                    if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = 300; }
+                }
+                double speed = r->Speed / 30.0;
+                if (EuclidDis(r->Pos, r0->Pos) > dis)
+                {
+                    auto p = r->Pos + speed * r->RealTowards;
+                    if (canWalk90(p, r) && r->FindingWay == 0)
+                    {
+                        if (r->Speed >= 60 && rand_.rand() < 0.5)
+                        {
+                            r->OperationType = 3;
+                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            r->ActFrame = 0;
+                            r->HaveAction = 1;
+                        }
+                        else
+                        {
+                            r->Pos = p;
+                        }
+                    }
+                    else if (r->VelocitytFrame == 0)
+                    {
+                        MapSquareInt dis_layer;
+                        dis_layer.resize(COORD_COUNT);
+                        auto p_enemy45 = pos90To45(r0->Pos.x, r0->Pos.y);
+                        calDistanceLayer(p_enemy45.x, p_enemy45.y, dis_layer, 64);
+                        auto p_self45 = pos90To45(r->Pos.x, r->Pos.y);
+                        int max_dis45 = 4096;
+                        Pointf p_target = r->Pos;
+                        for (int x = p_self45.x - 1; x <= p_self45.x + 1; x++)
+                        {
+                            for (int y = p_self45.y - 1; y <= p_self45.y + 1; y++)
+                            {
+                                if (calDistance(x, y, p_self45.x, p_self45.y) != 1)
+                                {
+                                    continue;
+                                }
+                                auto p1 = pos45To90(x, y);
+                                double dis1 = dis_layer.data(x, y) + 1 * (rand_.rand() - rand_.rand());
+                                if (canWalk90(p1, r) && dis1 < max_dis45)
+                                {
+                                    max_dis45 = dis1;
+                                    p_target = p1;
+                                }
+                            }
+                        }
+                        r->RealTowards = p_target - r->Pos;
+                        if (r->Speed >= 60 &&rand_.rand() < 0.5)
+                        {
+                            r->OperationType = 3;
+                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            r->ActFrame = 0;
+                            r->HaveAction = 1;                           
+                        }
+                        else
+                        {
+                            r->RealTowards = p_target - r->Pos;
+                            r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                            auto distance = r->RealTowards.norm();
+                            //r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                            r->RealTowards.normTo(1);
+                            //r->Pos = p2;
+                            r->Velocity = r->RealTowards * speed;
+                            r->FindingWay = 1;
+                            r->VelocitytFrame = 3;
+                        }
+                    }
+                }
+                else
+                {
+                    r->FindingWay = 0;
+                    if (r->PhysicalPower >= 30 && r->UsingMagic)
+                    {
+                        //点攻击疯狗咬即可
+                        if (r->UsingMagic->AttackAreaType == 0 || rand_.rand() < 0.75 && r->UsingMagic->AttackAreaType != 0)
+                        {
+                            //attack
+                            auto m = r->UsingMagic;
+                            if (m)
+                            {
+                                if (m->AttackAreaType == 0)
+                                {
+                                    r->OperationType = 0;
+                                }
+                                else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                {
+                                    r->OperationType = 2;
+                                }
+                                else if (m->AttackAreaType == 3)
+                                {
+                                    r->OperationType = 1;
+                                }
+                                r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                                r->ActFrame = 0;
+                                r->ActType = m->MagicType;
+                                r->HaveAction = 1;
+                                //TextEffect te;
+                                //te.Text = m->Name;
+                                //te.Size = 15;
+                                //te.Type = 1;
+                                //te.Pos.x = r->Pos.x - 15 * te.Text.size() / 3;
+                                //te.Pos.y = r->Pos.y;
+                                //te.Color = { 255, 0, 0, 255 };
+                                //te.Frame = 15;
+                                //text_effects_.push_back(te);
+                            }
+                        }
+                        else
+                        {
+                            //随机移动一下，增加一些变数
+                            r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
+                            if (r->Speed >= 60)
+                            {
+                                r->OperationType = 3;
+                                r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                                r->ActFrame = 0;
+                                r->HaveAction = 1;
+                                //r->RealTowards *= 3;
+                            }
+                        }
+                        if (!r->HaveAction)
+                        {
+                            //走两步
+                            r->RealTowards.rotate(M_PI * 0.5 * (2 * rand_.rand() - 1));
+                            r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                            r->Velocity = r->RealTowards;
+                            r->Velocity.normTo(speed);
+                            r->VelocitytFrame = 20;
+                        }
+                    }
+                }
             }
         }
     }

@@ -936,6 +936,45 @@ bool BattleScene::isNearEnemy(int team, int x, int y)
     return false;
 }
 
+void BattleScene::calDistanceLayer(int x, int y, MapSquareInt& distance_layer, int max_step)
+{
+    distance_layer.setAll(max_step + 1);
+    std::vector<Point> cal_stack;
+    distance_layer.data(x, y) = 0;
+    cal_stack.push_back({ x, y });
+    int count = 0;
+    int step = 0;
+    while (step <= 64)
+    {
+        std::vector<Point> cal_stack_next;
+        auto check_next = [&](Point p1) -> void
+        {
+            //未计算过且可以走的格子参与下一步的计算
+            if (distance_layer.data(p1.x, p1.y) == max_step + 1 && canWalk(p1.x, p1.y))
+            {
+                distance_layer.data(p1.x, p1.y) = step + 1;
+                cal_stack_next.push_back(p1);
+                count++;
+            }
+        };
+        for (auto p : cal_stack)
+        {
+            distance_layer.data(p.x, p.y) = step;
+            check_next({ p.x - 1, p.y });
+            check_next({ p.x + 1, p.y });
+            check_next({ p.x, p.y - 1 });
+            check_next({ p.x, p.y + 1 });
+            if (count >= distance_layer.squareSize())
+            {
+                break;
+            }    //最多计算次数，避免死掉
+        }
+        if (cal_stack_next.size() == 0) { break; }    //无新的点，结束
+        cal_stack = cal_stack_next;
+        step++;
+    }
+}
+
 Role* BattleScene::getSelectedRole()
 {
     return role_layer_.data(select_x_, select_y_);
