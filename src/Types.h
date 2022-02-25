@@ -222,6 +222,7 @@ public:
     int getMagicLevelIndex(Magic* magic);
     int getMagicLevelIndex(int magic_id);
     int getMagicOfRoleIndex(Magic* magic);
+    int getEquipMagicOfRoleIndex(Magic* magic);
 
     std::vector<Magic*> getLearnedMagics();
 
@@ -306,7 +307,7 @@ public:
     int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
     int OperationCount = 0;    //使用同一攻击的计数
     int HurtThisFrame = 0;    //一帧内受到伤害累积
-    int FindingWay = 0;    //ai的转弯倾向
+    int FindingWay = 0;    //ai正在找路
 
     Magic* UsingMagic = nullptr;
 

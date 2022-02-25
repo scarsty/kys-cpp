@@ -92,6 +92,7 @@ protected:
     std::deque<TextEffect> text_effects_;
 
     std::deque<Role*> enemies_;
+    std::deque<Role> enemies_obj_;
 
     std::vector<std::shared_ptr<Head>> heads_;
     std::vector<std::shared_ptr<Head>> head_boss_;

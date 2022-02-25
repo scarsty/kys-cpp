@@ -16,12 +16,13 @@ ShowExp::~ShowExp()
 void ShowExp::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    Font::getInstance()->draw(text_, 30, x_, y_, { 255, 255, 255, 255 });
     for (int i = 0; i < roles_.size(); i++)
     {
         auto r = roles_[i];
-        int x = x_ + i % 3 * 300, y = y_ + i / 3 * 200;
-        TextureManager::getInstance()->renderTexture("head", r->HeadID, x, y);
-        auto str = fmt1::format("{}獲得經驗{}", r->Name, r->ExpGot);
-        Font::getInstance()->draw(str, 20, x, y + 170, { 255, 255, 255, 255 });
+        int x = x_ + i % 5 * 180, y = y_ + 50 + i / 5 * 100;
+        TextureManager::getInstance()->renderTexture("head", r->HeadID, x, y, { 255,255,255,255 }, 255, 0.5, 0.5);
+        Font::getInstance()->draw(fmt1::format("{}", r->Name), 20, x + 90, y + 30, { 255, 255, 255, 255 });
+        Font::getInstance()->draw(fmt1::format("{}", r->ExpGot), 20, x + 90, y + 55, { 255, 255, 255, 255 });
     }
 }

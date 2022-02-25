@@ -93,6 +93,21 @@ int Role::getMagicOfRoleIndex(Magic* magic)
     return -1;
 }
 
+int Role::getEquipMagicOfRoleIndex(Magic* magic)
+{
+    if (magic)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            if (EquipMagic[i] == magic->ID)
+            {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
 std::vector<Magic*> Role::getLearnedMagics()
 {
     std::vector<Magic*> v;

@@ -308,29 +308,29 @@ int main()
 #ifdef _WIN32
     //system("chcp 65001");
 #endif
-    std::string path = "../game31/";
+    std::string path = "../game/";
     //check_script(path +"script/oldevent");
     //check_fight_frame(path +"resource/fight", 1);
     //trans_fight_frame();
 
-    //trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");
-    //trans_bin_list(path + "list/leave.bin", path + "list/leave.txt");
+    trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");
+    trans_bin_list(path + "list/leave.bin", path + "list/leave.txt");
 
-    //expandR(path + "save/ranger.idx", path + "save/ranger.grp");
-    //expandR(path + "save/ranger.idx", path + "save/r1.grp");
-    //expandR(path + "save/ranger.idx", path + "save/r2.grp");
-    //expandR(path + "save/ranger.idx", path + "save/r3.grp");
-    //expandR(path + "save/ranger.idx", path + "save/r4.grp");
-    //expandR(path + "save/ranger.idx", path + "save/r5.grp");
-    ////system("rm ../game/save/0.db");
-    //GameUtil::PATH() = path;
-    //Save::getInstance()->loadR(0);
-    //Save::getInstance()->saveRToDB(0);
+    expandR(path + "save/ranger.idx", path + "save/ranger.grp");
+    expandR(path + "save/ranger.idx", path + "save/r1.grp");
+    expandR(path + "save/ranger.idx", path + "save/r2.grp");
+    expandR(path + "save/ranger.idx", path + "save/r3.grp");
+    expandR(path + "save/ranger.idx", path + "save/r4.grp");
+    expandR(path + "save/ranger.idx", path + "save/r5.grp");
+
+    GameUtil::PATH() = path;
+    Save::getInstance()->loadR(0);
+    Save::getInstance()->saveRToDB(0);
     expandR(path + "save/ranger.idx", path + "save/ranger.grp", false, true);
 
     //make_heads(R"(D:\game\kys-pascal\sfe-kdef2script\head)");
 
-    //combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
+    combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
 
     return 0;
 }

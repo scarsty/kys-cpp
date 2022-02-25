@@ -131,7 +131,7 @@ void Head::draw()
         c = { 196, 25, 16, 255 };
         Engine::getInstance()->renderSquareTexture(&r1, c, 192);
         font->draw(role_->Name, 20, x_ - 10 - font->getTextDrawSize(role_->Name) * 10, y_ - 4, white);
-        font->draw(fmt1::format("{:3}/{:3}", role_->HP, role_->MaxHP), 16, x_ + width_ + 10, y_ - 2, white);
+        font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + width_ + 10, y_ - 2, white);
     }
     HP_ = std::max(HP_ - 1, role_->HP);
     MP_ = std::max(MP_ - 1, role_->MP);

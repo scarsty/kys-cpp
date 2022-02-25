@@ -1941,19 +1941,17 @@ void BattleScene::calExpGot()
     {
         r->ExpGot += info_->Exp / alive_teammate.size();
     }
-    auto text = std::make_shared<TextBox>();
-    text->setFontSize(40);
+
+    auto show_exp = std::make_shared<ShowExp>();
     if (result_ == 0)
     {
-        text->setText("勝利");
+        show_exp->setText("勝利獲得經驗");
     }
     else
     {
-        text->setText("失敗");
+        show_exp->setText("失敗也有經驗");
     }
-    auto show_exp = std::make_shared<ShowExp>();
     show_exp->setRoles(alive_teammate);
-    show_exp->addChild(text, 30, 10);
     show_exp->run();
 
     //升级，修炼物品

@@ -1041,29 +1041,50 @@ void BattleSceneHades::AI(Role* r)
         {
             if (r->UsingMagic == nullptr)
             {
-                auto v = r->getLearnedMagics();
-                if (v.size() == 1)
+                if (r == role_)    //主角只能使用已装备的武学，几率相同
                 {
-                    r->UsingMagic = v[0];
-                }
-                else if (v.size() >= 0)
-                {
-                    std::vector<double> hurt;
-                    double sum = 0;
-                    for (auto m : v)
+                    std::vector<Magic*> v;
+                    for (auto i : r->EquipMagic)
                     {
-                        double h = m->Attack[r->getMagicLevelIndex(m)];
-                        h = exp(h / 500);
-                        hurt.push_back(sum + h);
-                        sum += h;
-                    }
-                    double select = rand_.rand() * sum;
-                    for (int i = 0; i < hurt.size(); i++)
-                    {
-                        if (select < hurt[i])
+                        auto m = Save::getInstance()->getMagic(i);
+                        if (m && r->getMagicOfRoleIndex(m) >= 0)
                         {
-                            r->UsingMagic = v[i];
-                            break;
+                            v.push_back(m);
+                        }
+                    }
+                    if (!v.empty())
+                    {
+                        int index = rand_.rand() * v.size();
+                        r->UsingMagic = v[index];
+                    }
+                }
+                else
+                {
+                    //其他ai可以使用所有武学
+                    auto v = r->getLearnedMagics();
+                    if (v.size() == 1)
+                    {
+                        r->UsingMagic = v[0];
+                    }
+                    else if (v.size() >= 0)
+                    {
+                        std::vector<double> hurt;
+                        double sum = 0;
+                        for (auto m : v)
+                        {
+                            double h = m->Attack[r->getMagicLevelIndex(m)];
+                            //h = exp(h / 500);    //几率正比于武功威力
+                            hurt.push_back(sum + h);
+                            sum += h;
+                        }
+                        double select = rand_.rand() * sum;
+                        for (int i = 0; i < hurt.size(); i++)
+                        {
+                            if (select < hurt[i])
+                            {
+                                r->UsingMagic = v[i];
+                                break;
+                            }
                         }
                     }
                 }
@@ -1086,9 +1107,19 @@ void BattleSceneHades::AI(Role* r)
                     auto p = r->Pos + speed * r->RealTowards;
                     if (canWalk90(p, r) && r->FindingWay == 0)
                     {
-                        if (r->Speed >= 60 && rand_.rand() < 0.5)
+                        //能否闪身的条件，似乎比较复杂
+                        if (rand_.rand() < 0.25 && r->Speed >= 60
+                            && (r != role_ && r->UsingMagic
+                                || r == role_ && r->getEquipMagicOfRoleIndex(r->UsingMagic) == 3))
                         {
                             r->OperationType = 3;
+                        }
+                        else
+                        {
+                            r->OperationType = -1;
+                        }
+                        if (r->OperationType == 3)
+                        {
                             r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
                             r->ActFrame = 0;
                             r->HaveAction = 1;
@@ -1124,13 +1155,23 @@ void BattleSceneHades::AI(Role* r)
                                 }
                             }
                         }
+                        r->FindingWay = 1;
                         r->RealTowards = p_target - r->Pos;
-                        if (r->Speed >= 60 &&rand_.rand() < 0.5)
+                        if (rand_.rand() < 0.25 && r->Speed >= 60
+                            && (r != role_ && r->UsingMagic
+                                || r == role_ && r->getEquipMagicOfRoleIndex(r->UsingMagic) == 3))
                         {
                             r->OperationType = 3;
+                        }
+                        else
+                        {
+                            r->OperationType = -1;
+                        }
+                        if (r->OperationType == 3)
+                        {
                             r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
                             r->ActFrame = 0;
-                            r->HaveAction = 1;                           
+                            r->HaveAction = 1;
                         }
                         else
                         {
@@ -1141,7 +1182,7 @@ void BattleSceneHades::AI(Role* r)
                             r->RealTowards.normTo(1);
                             //r->Pos = p2;
                             r->Velocity = r->RealTowards * speed;
-                            r->FindingWay = 1;
+
                             r->VelocitytFrame = 3;
                         }
                     }
@@ -1158,17 +1199,24 @@ void BattleSceneHades::AI(Role* r)
                             auto m = r->UsingMagic;
                             if (m)
                             {
-                                if (m->AttackAreaType == 0)
+                                if (r == role_)
                                 {
-                                    r->OperationType = 0;
+                                    r->OperationType = r->getEquipMagicOfRoleIndex(m);
                                 }
-                                else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                else
                                 {
-                                    r->OperationType = 2;
-                                }
-                                else if (m->AttackAreaType == 3)
-                                {
-                                    r->OperationType = 1;
+                                    if (m->AttackAreaType == 0)
+                                    {
+                                        r->OperationType = 0;
+                                    }
+                                    else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                    {
+                                        r->OperationType = 2;
+                                    }
+                                    else if (m->AttackAreaType == 3)
+                                    {
+                                        r->OperationType = 1;
+                                    }
                                 }
                                 r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
                                 r->ActFrame = 0;
@@ -1187,10 +1235,14 @@ void BattleSceneHades::AI(Role* r)
                         }
                         else
                         {
-                            //随机移动一下，增加一些变数
-                            r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
-                            if (r->Speed >= 60)
+                            if (r != role_ && rand_.rand() < 0.25)
                             {
+                                r->OperationType = 3;
+                            }
+                            if (r->OperationType == 3)
+                            {
+                                //随机移动一下，增加一些变数
+                                r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
                                 r->OperationType = 3;
                                 r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
                                 r->ActFrame = 0;
@@ -1253,9 +1305,11 @@ void BattleSceneHades::onEntrance()
     //敌方
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
-        auto r = Save::getInstance()->getRole(info_->Enemy[i]);
-        if (r)
+        auto r_ptr = Save::getInstance()->getRole(info_->Enemy[i]);
+        if (r_ptr)
         {
+            enemies_obj_.push_back(*r_ptr);
+            auto r = &enemies_obj_.back();
             r->resetBattleInfo();
             enemies_.push_back(r);
             r->setPositionOnly(info_->EnemyX[i], info_->EnemyY[i]);
@@ -1312,13 +1366,21 @@ void BattleSceneHades::onEntrance()
             }
         }
     }
-    else
+
+    if (1)    //准许队友出场
     {
         auto team_menu = std::make_shared<TeamMenu>();
         team_menu->setMode(1);
         team_menu->setForceMainRole(true);
         team_menu->run();
-        friends_ = team_menu->getRoles();
+
+        for (auto r : team_menu->getRoles())
+        {
+            if (std::find(friends_.begin(), friends_.end(), r) == friends_.end())
+            {
+                friends_.push_back(r);
+            }
+        }
     }
     //队友
     role_ = Save::getInstance()->getRole(0);
