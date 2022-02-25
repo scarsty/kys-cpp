@@ -226,6 +226,14 @@ public:
         }
         struct Info
         {
+            Info() {}
+            Info(int _ty, int _x, int _y, char* _c) {
+                type = _ty;
+                x = _x;
+                y = _y;
+                text = std::string(_c);
+            }
+            
             int type = 0;
             int x = 0, y = 0;
             std::string text;
