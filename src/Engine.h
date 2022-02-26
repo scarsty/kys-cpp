@@ -76,9 +76,9 @@ public:
 private:
     BP_Window* window_ = nullptr;
     BP_Renderer* renderer_ = nullptr;
-    BP_Texture* tex_ = nullptr, * tex2_ = nullptr, * logo_ = nullptr;
+    BP_Texture* tex2_ = nullptr;
+    BP_Texture* logo_ = nullptr;
     BP_Rect rect_;
-    //BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; }
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
@@ -101,8 +101,6 @@ public:
     void getWindowMaxSize(int& w, int& h) { SDL_GetWindowMaximumSize(window_, &w, &h); }
     int getWindowWidth();
     int getWindowHeight();
-    int getStartWindowWidth() { return start_w_; }
-    int getStartWindowHeight() { return start_h_; }
     int getMaxWindowWidth() { return max_x_ - min_x_; }
     int getMaxWindowHeight() { return max_y_ - min_y_; }
     void getWindowPosition(int& x, int& y) { SDL_GetWindowPosition(window_, &x, &y); }
@@ -117,7 +115,7 @@ public:
     BP_Renderer* getRenderer() { return renderer_; }
 
     void createAssistTexture(int w, int h);
-    void setPresentPosition();    //设置贴图的位置
+    void setPresentPosition(BP_Texture* tex);    //设置贴图的位置
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() { return rect_.w; }
     int getPresentHeight() { return rect_.h; }
@@ -143,7 +141,7 @@ public:
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
     void setRenderTarget(BP_Texture* t) { SDL_SetRenderTarget(renderer_, t); }
     BP_Texture* getRenderTarget() { return SDL_GetRenderTarget(renderer_); }
-    void resetRenderTarget() { setRenderTarget(tex_); }
+    void resetRenderTarget() { setRenderTarget(nullptr); }
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);

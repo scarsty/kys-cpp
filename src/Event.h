@@ -164,6 +164,9 @@ public:
     //扩展的50指令，传入下一个指令的指针，某一条需要
     void instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr = nullptr, int* code_value = nullptr);
 
+    //某些指令需要绘图
+    std::shared_ptr<DrawNode> event_node_;
+
 public:
     void print_e(const std::vector<int>& e, int i, int size)
     {
@@ -204,8 +207,4 @@ public:
     {
         runner_impl(f, c, e, i, std::make_index_sequence<arg_counter<F, C>::value>{});
     }
-
-
-    std::shared_ptr<DrawNode> event_node_;
-
 };

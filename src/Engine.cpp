@@ -28,9 +28,6 @@ int Engine::init(void* handle)
     SDL_RaiseWindow(window_);
     renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /*| SDL_RENDERER_PRESENTVSYNC*/);
 
-    tex_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, start_w_, start_h_);
-    setRenderTarget(tex_);
-
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
@@ -152,10 +149,7 @@ void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
 
 void Engine::renderPresent()
 {
-    setRenderTarget(nullptr);
-    SDL_RenderCopy(renderer_, tex_, nullptr, nullptr);
     SDL_RenderPresent(renderer_);
-    resetRenderTarget();
 }
 
 void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle, int inPresent /*= 0*/)
@@ -167,18 +161,10 @@ void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double an
 void Engine::getMouseState(int& x, int& y)
 {
     SDL_GetMouseState(&x, &y);
-    int w, h;
-    SDL_GetWindowSize(window_, &w, &h);
-    x *= 1.0 * start_w_ / w;
-    y *= 1.0 * start_h_ / h;
 }
 
 void Engine::setMouseState(int x, int y)
 {
-    int w, h;
-    SDL_GetWindowSize(window_, &w, &h);
-    x /= 1.0 * start_w_ / w;
-    y /= 1.0 * start_h_ / h;
     SDL_WarpMouseInWindow(window_, x, y);
 }
 
@@ -195,14 +181,6 @@ int Engine::pollEvent(BP_Event& e)
             else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
             else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
         }
-    }
-    if (e.type == BP_MOUSEMOTION || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
-    {
-        int w, h;
-        SDL_GetWindowSize(window_, &w, &h);
-        e.motion.x *= 1.0 * start_w_ / w;
-        e.motion.y *= 1.0 * start_h_ / h;
-
     }
     return r;
 }
@@ -376,16 +354,16 @@ void Engine::createAssistTexture(int w, int h)
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
 
-void Engine::setPresentPosition()
+void Engine::setPresentPosition(BP_Texture* tex)
 {
-    if (!tex_)
+    if (!tex)
     {
         return;
     }
     int w_dst = 0, h_dst = 0;
     int w_src = 0, h_src = 0;
     getWindowSize(w_dst, h_dst);
-    queryTexture(tex_, &w_src, &h_src);
+    queryTexture(tex, &w_src, &h_src);
     w_src *= ratio_x_;
     h_src *= ratio_y_;
     if (keep_ratio_)
@@ -489,7 +467,7 @@ void Engine::setWindowSize(int w, int h)
     win_w_ = std::min(max_x_ - min_x_, w);
     win_h_ = std::min(max_y_ - min_y_, h);
     SDL_SetWindowSize(window_, win_w_, win_h_);
-    setPresentPosition();
+    //setPresentPosition();
     getWindowSize(win_w_, win_h_);
     //resetWindowsPosition();
     //renderPresent();

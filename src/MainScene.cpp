@@ -518,7 +518,7 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
 
 void MainScene::setWeather()
 {
-    weather_->setPosition(Engine::getInstance()->getStartWindowWidth() / 2, 0);
+    weather_->setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
     if (inNorth())
     {
         weather_->setStyle(ParticleExample::SNOW);
