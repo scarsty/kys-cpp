@@ -1,8 +1,8 @@
 #pragma once
+#include "DrawNode.h"
 #include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"
-#include "RunNode.h"
 #include "SubScene.h"
 #include "Talk.h"
 #include "Font.h"
@@ -205,34 +205,7 @@ public:
         runner_impl(f, c, e, i, std::make_index_sequence<arg_counter<F, C>::value>{});
     }
 
-    //事件中辅助绘制的类
-    class EventNode : public RunNode
-    {
-    public:
-        virtual ~EventNode() {}
-        virtual void draw() override
-        {
-            for (auto& i : infos)
-            {
-                if (i.type == 0)
-                {
-                    Font::getInstance()->draw(i.text, 20, i.x, i.y /*BP_Color(e5)*/);
-                }
-            }
-        }
-        void clear()
-        {
-            infos.clear();
-        }
-        struct Info
-        {
-            int type = 0;
-            int x = 0, y = 0;
-            std::string text;
-            int num = 0;
-        };
-        std::vector<Info> infos;
-    };
-    std::shared_ptr<EventNode> event_node_;
+
+    std::shared_ptr<DrawNode> event_node_;
 
 };

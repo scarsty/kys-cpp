@@ -28,6 +28,9 @@ int Engine::init(void* handle)
     SDL_RaiseWindow(window_);
     renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /*| SDL_RENDERER_PRESENTVSYNC*/);
 
+    tex_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, start_w_, start_h_);
+    setRenderTarget(tex_);
+
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
@@ -112,7 +115,7 @@ BP_Texture* Engine::createYUVTexture(int w, int h)
 
 void Engine::updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2)
 {
-    SDL_UpdateYUVTexture(testTexture(t), nullptr, data0, size0, data1, size1, data2, size2);
+    SDL_UpdateYUVTexture(t, nullptr, data0, size0, data1, size1, data2, size2);
 }
 
 BP_Texture* Engine::createARGBTexture(int w, int h)
@@ -127,7 +130,7 @@ BP_Texture* Engine::createARGBRenderedTexture(int w, int h)
 
 void Engine::updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch)
 {
-    SDL_UpdateTexture(testTexture(t), nullptr, buffer, pitch);
+    SDL_UpdateTexture(t, nullptr, buffer, pitch);
 }
 
 void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, double angle, int inPresent)
@@ -143,14 +146,40 @@ void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, double angle,
 
 void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
 {
-    SDL_RenderCopyEx(renderer_, testTexture(t), nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer_, t, nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
+}
+
+void Engine::renderPresent()
+{
+    setRenderTarget(nullptr);
+    SDL_RenderCopy(renderer_, tex_, nullptr, nullptr);
+    SDL_RenderPresent(renderer_);
+    resetRenderTarget();
 }
 
 void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle, int inPresent /*= 0*/)
 {
     SDL_RenderCopyEx(renderer_, t, rect0, rect1, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
+}
+
+void Engine::getMouseState(int& x, int& y)
+{
+    SDL_GetMouseState(&x, &y);
+    int w, h;
+    SDL_GetWindowSize(window_, &w, &h);
+    x *= 1.0 * start_w_ / w;
+    y *= 1.0 * start_h_ / h;
+}
+
+void Engine::setMouseState(int x, int y)
+{
+    int w, h;
+    SDL_GetWindowSize(window_, &w, &h);
+    x /= 1.0 * start_w_ / w;
+    y /= 1.0 * start_h_ / h;
+    SDL_WarpMouseInWindow(window_, x, y);
 }
 
 int Engine::pollEvent(BP_Event& e)
@@ -166,6 +195,14 @@ int Engine::pollEvent(BP_Event& e)
             else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
             else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
         }
+    }
+    if (e.type == BP_MOUSEMOTION || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP)
+    {
+        int w, h;
+        SDL_GetWindowSize(window_, &w, &h);
+        e.motion.x *= 1.0 * start_w_ / w;
+        e.motion.y *= 1.0 * start_h_ / h;
+
     }
     return r;
 }
@@ -336,7 +373,7 @@ void Engine::createAssistTexture(int w, int h)
     //tex_ = createYUVTexture(w, h);
     tex2_ = createARGBRenderedTexture(w, h);
     //tex_ = createARGBRenderedTexture(768, 480);
-    setPresentPosition();
+    //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
 
 void Engine::setPresentPosition()

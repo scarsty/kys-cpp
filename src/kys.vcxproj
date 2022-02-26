@@ -115,6 +115,7 @@
     <ClCompile Include="ChemistryEngine.cpp" />
     <ClCompile Include="Console.cpp" />
     <ClCompile Include="DrawableOnCall.cpp" />
+    <ClCompile Include="DrawNode.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
     <ClCompile Include="Object.cpp" />
@@ -166,6 +167,7 @@
     <ClInclude Include="..\others\miniz.h" />
     <ClInclude Include="..\others\zip.h" />
     <ClInclude Include="BattleSceneHades.h" />
+    <ClInclude Include="DrawNode.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />

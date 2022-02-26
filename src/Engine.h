@@ -78,7 +78,7 @@ private:
     BP_Renderer* renderer_ = nullptr;
     BP_Texture* tex_ = nullptr, * tex2_ = nullptr, * logo_ = nullptr;
     BP_Rect rect_;
-    BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; }
+    //BP_Texture* testTexture(BP_Texture* tex) { return tex ? tex : this->tex_; }
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
@@ -101,6 +101,8 @@ public:
     void getWindowMaxSize(int& w, int& h) { SDL_GetWindowMaximumSize(window_, &w, &h); }
     int getWindowWidth();
     int getWindowHeight();
+    int getStartWindowWidth() { return start_w_; }
+    int getStartWindowHeight() { return start_h_; }
     int getMaxWindowWidth() { return max_x_ - min_x_; }
     int getMaxWindowHeight() { return max_y_ - min_y_; }
     void getWindowPosition(int& x, int& y) { SDL_GetWindowPosition(window_, &x, &y); }
@@ -135,13 +137,13 @@ public:
     void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
     void renderCopy(BP_Texture* t = nullptr, double angle = 0);
     void showLogo() { renderCopy(logo_, nullptr, nullptr); }
-    void renderPresent() { SDL_RenderPresent(renderer_); /*renderClear();*/ }
+    void renderPresent();
     void renderClear() { SDL_RenderClear(renderer_); }
     void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
     void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
     void setRenderTarget(BP_Texture* t) { SDL_SetRenderTarget(renderer_, t); }
     BP_Texture* getRenderTarget() { return SDL_GetRenderTarget(renderer_); }
-    void resetRenderTarget() { setRenderTarget(nullptr); }
+    void resetRenderTarget() { setRenderTarget(tex_); }
     void createWindow() {}
     void createRenderer() {}
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
@@ -165,7 +167,7 @@ public:
     void fillColor(BP_Color color, int x, int y, int w, int h);
     void setRenderAssistTexture() { setRenderTarget(tex2_); }
     void renderAssistTextureToWindow();
-    void setTextureBlendMode(BP_Texture* t) { SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
+    int setTextureBlendMode(BP_Texture* t) { return SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
 
     void resetRenderTimes(int t = 0) { render_times_ = t; }
     int getRenderTimes() { return render_times_; }
@@ -187,8 +189,8 @@ public:
             fmt1::print("{}\n", getTicks() - time_);
         }
     }
-    static void getMouseState(int& x, int& y) { SDL_GetMouseState(&x, &y); };
-    void setMouseState(int& x, int& y) { SDL_WarpMouseInWindow(window_, x, y); };
+    void getMouseState(int& x, int& y);;
+    void setMouseState(int x, int y);;
     int pollEvent(BP_Event& e);
     static int pollEvent() { return SDL_PollEvent(nullptr); }
     static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }

@@ -1182,7 +1182,6 @@ void BattleSceneHades::AI(Role* r)
                             r->RealTowards.normTo(1);
                             //r->Pos = p2;
                             r->Velocity = r->RealTowards * speed;
-
                             r->VelocitytFrame = 3;
                         }
                     }

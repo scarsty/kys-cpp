@@ -33,7 +33,7 @@ Event::Event()
     text_box_ = std::make_shared<TextBox>();
     text_box_->setPosition(400, 200);
     text_box_->setTextPosition(-20, 100);
-    event_node_ = std::make_shared<EventNode>();
+    event_node_ = std::make_shared<DrawNode>();
 }
 
 Event::~Event()
@@ -1384,8 +1384,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
         char_ptr = (char*)&x50[e2];
-        event_node_->infos.emplace_back(EventNode::Info{0, e3, e4, char_ptr});
-        //Font::getInstance()->draw(char_ptr, 20, e3, e4 /*BP_Color(e5)*/);
+        event_node_->Infos.emplace_back(DrawNode::Info{ 0, e3, e4, char_ptr });
         break;
     case 34:    //画一个背景框，废弃
         e2 = e_GetValue(0, e1, e2);
@@ -1447,8 +1446,17 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e5 = e_GetValue(2, e1, e5);
         switch (e2)
         {
-        case 0: TextureManager::getInstance()->renderTexture("mmap", e5, e3, e4); break;
-        case 1: TextureManager::getInstance()->renderTexture("head", e5, e3, e4); break;
+        case 0:
+            if (submap_id_ < 0)
+            {
+                event_node_->Infos.emplace_back(DrawNode::Info{ 1, e3, e4, "mmap", e5 });
+            }
+            else
+            {
+                event_node_->Infos.emplace_back(DrawNode::Info{ 1, e3, e4, "smap", e5 });
+            }
+            break;
+        case 1: event_node_->Infos.emplace_back(DrawNode::Info{ 1, e3, e4, "head", e5 }); break;
         }
         break;
     case 42:    //改变主地图坐标

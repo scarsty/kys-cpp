@@ -175,6 +175,9 @@
     <ClCompile Include="UIKeyConfig.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="DrawNode.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -367,6 +370,9 @@
       <Filter>nb</Filter>
     </ClInclude>
     <ClInclude Include="UIKeyConfig.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="DrawNode.h">
       <Filter>ui</Filter>
     </ClInclude>
   </ItemGroup>
