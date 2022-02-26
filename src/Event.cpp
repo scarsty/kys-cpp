@@ -1384,7 +1384,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e4 = e_GetValue(1, e1, e4);
         e5 = e_GetValue(2, e1, e5);
         char_ptr = (char*)&x50[e2];
-        event_node_->infos.emplace_back(0, e3, e4, char_ptr);
+        event_node_->infos.emplace_back(EventNode::Info{0, e3, e4, char_ptr});
         //Font::getInstance()->draw(char_ptr, 20, e3, e4 /*BP_Color(e5)*/);
         break;
     case 34:    //画一个背景框，废弃
