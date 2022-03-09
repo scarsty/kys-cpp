@@ -17,3 +17,11 @@ x64/
 common/*
 common
 include/*
+bass24-linux
+bassmidi24-linux
+build
+game
+hades
+kys-c++
+.vscode
+

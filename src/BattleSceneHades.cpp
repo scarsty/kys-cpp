@@ -419,13 +419,20 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             r->Pos = pos_;
         }
 
-        std::vector<Magic*> magic(4);
+        // 初始化武功
+        std::vector<Magic*> magic(4, nullptr);
         for (int i = 0; i < 4; i++)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
             equip_magics_[i]->setState(NodeNormal);
         }
+        // 初始化 器
+        Item* item = Save::getInstance()->getItem(r->EquipHiddenWeapon);
+        if (not r->canUseItem(item)) {
+            item = nullptr;
+        }
+        
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
@@ -458,6 +465,11 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 index = 3;
             }
+            if (r->PhysicalPower >= 40 and (engine->checkKeyPress(keys_.Item)))
+            {   
+                index = 4;
+                // hidden weapon
+            }
             if (index >= 0)
             {
                 r->Auto = 0;
@@ -470,13 +482,15 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 r->OperationCount++;
             }
-            if (index >= 0 && magic[index])
+
+            if (index >= 0 && index < magic.size() && magic[index])
             {
                 r->OperationType = index;
                 equip_magics_[index]->setState(NodePass);
                 auto m = magic[index];
                 r->ActType = m->MagicType;
                 r->UsingMagic = m;
+                r->UsingItem = nullptr;
                 r->ActFrame = 0;
                 r->HaveAction = 1;
                 //r->Frozen = 5;
@@ -505,6 +519,17 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 {
                     r->CoolDown *= 3;
                 }
+            }
+            
+            if (4 == index && item) {
+                // 器
+                r->OperationType = index;
+                r->UsingMagic = nullptr;
+                r->UsingItem = item;
+                r->ActFrame = 0;
+                r->HaveAction = 1;
+                //r->Frozen = 5;
+                r->CoolDown = 0;
             }
         }
     }

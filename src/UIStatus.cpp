@@ -38,6 +38,14 @@ UIStatus::UIStatus()
 
     addChild(menu_);
     addChild(menu_equip_magic_);
+
+    equip_item_ = std::make_shared<Button>();
+    menu_equip_item_ = std::make_shared<Menu>();
+    
+    menu_equip_item_->setText("__________");
+    equip_item_->addChild(menu_equip_item_,  320, 635);
+
+    addChild(menu_equip_item_);
 }
 
 UIStatus::~UIStatus()
@@ -52,6 +60,7 @@ void UIStatus::draw()
         button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
         menu_equip_magic_->setVisible(false);
+        menu_equip_item_->setVisible(false);
     }
     if (role_)
     {
@@ -63,10 +72,12 @@ void UIStatus::draw()
             if (role_->ID == 0)
             {
                 menu_equip_magic_->setVisible(true);
+                menu_equip_item_->setVisible(true);
             }
             else
             {
                 menu_equip_magic_->setVisible(false);
+                menu_equip_item_->setVisible(false);
             }
         }
         menu_->setVisible(true);
@@ -75,6 +86,7 @@ void UIStatus::draw()
     {
         menu_->setVisible(false);
         menu_equip_magic_->setVisible(false);
+        menu_equip_item_->setVisible(false);
         return;
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
@@ -298,6 +310,16 @@ void UIStatus::draw()
                 equip_magics_[i]->setText("__________");
             }
         }
+
+        font->draw("裝備物品", 25, x - 10, y, color_name);
+        auto m = Save::getInstance()->getItem(role_->EquipHiddenWeapon);
+        if (m) {
+            std::string text = m->Name;
+            text += std::string(10 - Font::getTextDrawSize(text), ' ');
+            equip_item_->setText(text);
+        } else {
+            equip_item_->setText("__________");
+        }
     }
 }
 
@@ -366,6 +388,7 @@ void UIStatus::onPressedOK()
             role_->EquipMagic[menu_equip_magic_->getResult()] = id;
         }
     }
+
 }
 
 void UIStatus::setRoleName(std::string name)
