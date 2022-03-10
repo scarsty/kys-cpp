@@ -108,9 +108,9 @@ protected:
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
 
-    std::unordered_map<std::string, std::function<int(Role* r)>> special_magic_effect_every_frame_;    //每帧
-    std::unordered_map<std::string, std::function<int(Role* r)>> special_magic_effect_attack_;    //发动攻击
-    std::unordered_map<std::string, std::function<int(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;    //每帧
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;    //发动攻击
+    std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
 
     Pointf pos45To90(int x, int y)    //45度坐标转为直角
     {
@@ -191,10 +191,16 @@ protected:
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
     void decreaseToZero(int& i) { if (i > 0) { i--; } }
-    int defaultMagicEffect(AttackEffect& ae, Role* r);
+    void defaultMagicEffect(AttackEffect& ae, Role* r);
     int calRolePic(Role* r, int style, int frame) override;
 
-
+    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1)
+    {
+        //计算武学对单人的伤害
+        //注意原公式中距离为1是无衰减的
+        //即时战斗，降低每一次攻击的威力，否则打得太快了
+        return BattleScene::calMagicHurt(r1, r2, magic, 1) / 20.0;
+    }
 
 
     void makeSpecialMagicEffect();

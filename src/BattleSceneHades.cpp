@@ -629,42 +629,18 @@ void BattleSceneHades::backRun1()
             {
                 ae.Defender[r]++;
                 shake_ = 5;
-                int hurt = 0;
                 if (ae.OperationType >= 0)
                 {
                     if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
                     {
-                        hurt = defaultMagicEffect(ae, r);
+                        defaultMagicEffect(ae, r);
                     }
                     else
                     {
-                        hurt = special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
+                        special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
                     }
                 }
-                hurt += 5 * (rand_.rand() - rand_.rand());
-                if (hurt <= 0)
-                {
-                    hurt = 1 + rand_.rand() * 3;
-                }
-                if (ae.Through == 0)
-                {
-                    ae.Frame = ae.TotalFrame;
-                }
-                ae.Attacker->ExpGot += hurt / 2;
-                if (ae.UsingMagic->HurtType == 0)
-                {
-                    r->HurtThisFrame += hurt;
-                }
-                else
-                {
-                    r->MP -= hurt;
-                    ae.Attacker->MP += hurt * 0.8;
-                    TextEffect te;
-                    te.set(std::to_string(-hurt), { 160, 32, 240, 255 }, r);
-                    text_effects_.push_back(std::move(te));
-                }
                 //std::vector<std::string> = {};
-                //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, hurt);
             }
         }
         //效果间的互相抵消
@@ -1569,10 +1545,10 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
     }
 }
 
-int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
+void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 {
-    int hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, 1);    //注意原公式中距离为1是无衰减的
-    hurt -= -ae.Weaken;    //弱化
+    double hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic);
+    hurt -= ae.Weaken;    //弱化
     hurt *= ae.Strengthen;    //强化
     hurt *= 1 - 0.5 * ae.Frame / ae.TotalFrame;    //距离衰减
     //角度
@@ -1586,33 +1562,33 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     {
         hurt *= 2;
     }
+    //操作类型的伤害效果
+    if (ae.OperationType == 0)
+    {
+    }
+    if (ae.OperationType == 1)
+    {
+        //ae.Frame = ae.TotalFrame + 1;
+    }
+    if (ae.OperationType == 2)
+    {
+        //ae.Frame = ae.TotalFrame + 1;
+    }
+    if (ae.OperationType == 3)
+    {
+        hurt /= 1.5;
+        r->Frozen += 5;
+    }
     //击退
     r->Velocity = r->Pos - ae.Attacker->Pos;
     r->Velocity.normTo(1);
     r->VelocitytFrame = 10;
     r->HurtFrame = 10;
-    if (ae.OperationType == 0)
-    {
-        hurt /= 20;
-    }
-    if (ae.OperationType == 1)
-    {
-        hurt /= 20;
-        //ae.Frame = ae.TotalFrame + 1;
-    }
-    if (ae.OperationType == 2)
-    {
-        hurt /= 20;
-        //ae.Frame = ae.TotalFrame + 1;
-    }
-    if (ae.OperationType == 3)
-    {
-        hurt /= 30;
-        r->Frozen += 5;
-    }
+
+    //用内力抵消硬直
     if (r->MP >= hurt / 10)
     {
-        r->MP -= hurt / 10;    //用内力抵消硬直
+        r->MP -= hurt / 10;
     }
     else
     {
@@ -1620,12 +1596,14 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         //r->ActType = -1;
         //r->ActType2 = -1;
     }
+
+    //武功类型特殊效果
     if (ae.UsingMagic)
     {
         int act_type = ae.UsingMagic->MagicType;
         if (rand_.rand() < r->getActProperty(act_type) / 200.0)
         {
-            if (act_type == 2)
+            if (act_type == 1)
             {
                 r->Frozen += 10;    //拳法打硬直
             }
@@ -1646,7 +1624,33 @@ int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             }
         }
     }
-    return hurt;
+    //添加一点随机性
+    hurt += 5 * (rand_.rand() - rand_.rand());
+    //若无法破防，则随机一个小的数字
+    if (hurt <= 0)
+    {
+        hurt = 1 + rand_.rand() * 3;
+    }
+    //无贯穿则效果消失
+    if (ae.Through == 0)
+    {
+        ae.Frame = ae.TotalFrame;
+    }
+    ae.Attacker->ExpGot += hurt / 2;
+    //扣HP或MP
+    if (ae.UsingMagic->HurtType == 0)
+    {
+        r->HurtThisFrame += hurt;
+    }
+    else
+    {
+        r->MP -= hurt;
+        ae.Attacker->MP += hurt * 0.8;
+        TextEffect te;
+        te.set(std::to_string(-hurt), { 160, 32, 240, 255 }, r);
+        text_effects_.push_back(std::move(te));
+    }
+    //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
 
 int BattleSceneHades::calRolePic(Role* r, int style, int frame)
