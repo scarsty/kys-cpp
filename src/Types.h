@@ -143,7 +143,7 @@ public:
     int ExpForItem;
     int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
-    int EquipHiddenWeapon;
+    int EquipItem;
 };
 
 //实际的角色数据，基类之外的通常是战斗属性

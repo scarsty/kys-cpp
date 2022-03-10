@@ -255,6 +255,30 @@ int Save::getItemCountInBag(Item* item)
     return getItemCountInBag(item->ID);
 }
 
+std::vector<std::tuple<Item*, int>> Save::getAvailableEquipItems()
+{
+    std::vector<std::tuple<Item*, int>> ret = {};
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+    {
+        auto id = Items[i].item_id;
+        auto count = Items[i].count;
+        if (id < 0)
+        {
+            break;
+        }
+        if (count <= 0) 
+        {
+            continue;
+        }
+        auto item = getItemByBagIndex(id);
+        if (item->ItemType == 3 || item->ItemType == 4)
+        {
+            ret.emplace_back(item, count);
+        }
+    }
+    return ret;
+}
+
 int Save::getItemCountInBag(int item_id)
 {
     for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)

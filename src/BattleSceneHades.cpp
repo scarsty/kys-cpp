@@ -420,7 +420,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         }
 
         // 初始化武功
-        std::vector<Magic*> magic(4, nullptr);
+        std::vector<Magic*> magic(4);
         for (int i = 0; i < 4; i++)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
@@ -428,8 +428,8 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             equip_magics_[i]->setState(NodeNormal);
         }
         // 初始化 器
-        Item* item = Save::getInstance()->getItem(r->EquipHiddenWeapon);
-        if (not r->canUseItem(item)) {
+        Item* item = Save::getInstance()->getItem(r->EquipItem);
+        if (!r->canUseItem(item)) {
             item = nullptr;
         }
         
@@ -468,7 +468,6 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             if (r->PhysicalPower >= 40 and (engine->checkKeyPress(keys_.Item)))
             {
                 index = 4;
-                // hidden weapon
             }
             if (index >= 0)
             {

@@ -506,6 +506,70 @@ void BattleMagicMenu::onPressedOK()
     }
 }
 
+void BattleEquipItemMenu::onEntrance()
+{
+    if (role_ == nullptr)
+    {
+        return;
+    }
+    if (role_->isAuto())
+    {
+        setAllChildState(NodeNormal);
+        setResult(0);
+        setExit(true);
+        setVisible(false);
+        return;
+    }
+    forceActiveChild();
+}
+
+void BattleEquipItemMenu::setRole(Role* r)
+{
+    role_ = r;
+    result_ = -1;
+    item_ = nullptr;
+    setVisible(true);
+    
+    std::vector<std::string> item_names;
+    const auto items = Save::getInstance()->getAvailableEquipItems();
+    for (auto& pair: items) {
+        auto item = std::get<0>(pair);
+        const auto count = std::get<1>(pair);
+        if (!r->canUseItem(item)) {
+            continue;
+        }
+        
+        std::string s = item->Name;
+        s += std::string(12 - Font::getTextDrawSize(s), ' ');
+        item_names.push_back(fmt1::format("{}{}  ", s, count));
+    }
+    setStrings(item_names);
+
+    //如果宽度为0的项隐藏
+    for (auto child : childs_)
+    {
+        int w, h;
+        child->getSize(w, h);
+        if (w <= 0)
+        {
+            child->setVisible(false);
+        }
+    }
+    arrange(0, 0, 0, 30);
+}
+
+void BattleEquipItemMenu::onPressedOK()
+{
+    checkActiveToResult();
+    // TODO fixme!
+    item_ = Save::getInstance()->getItemByBagIndex(result_);
+    if (item_)
+    {
+        setExit(true);
+    }
+}
+
+
 BattleItemMenu::BattleItemMenu()
 {
     setSelectUser(false);

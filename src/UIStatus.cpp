@@ -312,7 +312,7 @@ void UIStatus::draw()
         }
 
         font->draw("裝備物品", 25, x - 10, y, color_name);
-        auto m = Save::getInstance()->getItem(role_->EquipHiddenWeapon);
+        auto m = Save::getInstance()->getItem(role_->EquipItem);
         if (m) {
             std::string text = m->Name;
             text += std::string(10 - Font::getTextDrawSize(text), ' ');
@@ -388,7 +388,20 @@ void UIStatus::onPressedOK()
             role_->EquipMagic[menu_equip_magic_->getResult()] = id;
         }
     }
-
+    if (menu_equip_item_->getResult() >= 0) {
+        auto menu = std::make_shared<BattleEquipItemMenu>();
+        menu->setRole(role_);
+        //int count = menu->getChildCount();
+        role_->Auto = 0;    //.....
+        role_->Team = 0;
+        menu->setPosition(730, std::max(0,330) );
+        menu->run();
+        if (menu->getItem())
+        {
+            int id = menu->getItem()->ID;
+            role_->EquipItem = id;
+        }
+    }
 }
 
 void UIStatus::setRoleName(std::string name)
