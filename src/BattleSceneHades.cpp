@@ -466,7 +466,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 index = 3;
             }
             if (r->PhysicalPower >= 40 and (engine->checkKeyPress(keys_.Item)))
-            {   
+            {
                 index = 4;
                 // hidden weapon
             }
@@ -628,6 +628,21 @@ void BattleSceneHades::backRun1()
         for (auto& ae : attack_effects_)
         {
             ae.Frame++;
+
+            if (ae.UsingHiddenWeapon != nullptr) {
+                Role* enemy = findFarthestEnemy(ae.Attacker->Team, ae.Pos);
+
+                auto hurt = calHiddenWeaponHurt(ae.Attacker, enemy, ae.UsingHiddenWeapon);
+                enemy->HP -= hurt;
+                enemy->HurtThisFrame += hurt;
+                ae.Attacker->ExpGot += hurt / 2;
+                
+                TextEffect te;
+                te.set(std::to_string(-hurt), { 160, 32, 240, 255 }, enemy);
+                text_effects_.push_back(std::move(te));
+                continue;
+            }
+
             ae.Velocity += ae.Acceleration;
             ae.Pos += ae.Velocity;
             Role* r = nullptr;
@@ -698,9 +713,15 @@ void BattleSceneHades::backRun1()
             for (int i = 0; i < attack_effects_.size() - 2; i++)
             {
                 auto& ae1 = attack_effects_[i];
+                if (!ae1.UsingMagic) {
+                    continue;
+                }
                 for (int j = i + 1; j < attack_effects_.size() - 1; j++)
                 {
                     auto& ae2 = attack_effects_[j];
+                    if (!ae2.UsingMagic) {
+                        continue;
+                    }
                     if (ae1.Attacker && ae2.Attacker
                         && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
                     {
@@ -1038,10 +1059,43 @@ void BattleSceneHades::Action(Role* r)
                 }
                 needMP *= 0.05;
             }
-            //fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+            fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
             r->MP -= needMP;
             r->UsingMagic = nullptr;
         }
+
+        if (r->UsingItem) {
+            Item* item = r->UsingItem;
+            if (3 == item->ItemType) {
+                // 药品直接服用
+                r->useItem(item);
+
+                TextEffect te;
+                BP_Color c = { 255, 255, 255, 255 };
+                if (r->Team == 0)
+                {
+                    c = { 255, 20, 20, 255 };
+                }
+                te.set(fmt1::format("服用{}", item->Name), c, r);
+                text_effects_.push_back(std::move(te));
+
+            } else if (4 == item->ItemType) {
+                // 暗器
+                AttackEffect ae1;
+                ae1.Attacker = r;
+                ae1.Pos = r->Pos;
+                ae1.UsingHiddenWeapon = item;
+                ae1.Through = 1;
+                ae1.setEft(item->HiddenWeaponEffectID);
+                ae1.TotalFrame = ae1.TotalEffectFrame;
+                ae1.Frame = 0;
+                attack_effects_.push_back(std::move(ae1));
+            }
+            // 减少数量
+            Event::getInstance()->roleAddItem(r->ID, item->ID, -1);
+            r->UsingItem =  nullptr;
+        }
+
         if (r->OperationType == 1)
         {
             r->ActFrame++;
@@ -1552,6 +1606,25 @@ Role* BattleSceneHades::findNearestEnemy(int team, Pointf p)
         {
             auto dis1 = EuclidDis(p, r1->Pos);
             if (dis1 < dis)
+            {
+                dis = dis1;
+                r0 = r1;
+            }
+        }
+    }
+    return r0;
+}
+
+Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
+{
+    double dis = 0;
+    Role* r0 = nullptr;
+    for (auto r1 : battle_roles_)
+    {
+        if (r1->Dead == 0 && team != r1->Team)
+        {
+            auto dis1 = EuclidDis(p, r1->Pos);
+            if (dis1 > dis)
             {
                 dis = dis1;
                 r0 = r1;
