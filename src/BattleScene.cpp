@@ -623,12 +623,16 @@ void BattleScene::sortRoles()
     if (semi_real_ == 0)
     {
         std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
-            { return std::make_tuple(r1->Speed, r1->ID, r1->X(), r1->Y()) > std::make_tuple(r2->Speed, r2->ID, r2->X(), r2->Y()); });
+        {
+            return std::make_tuple(r1->Speed, r1->ID, r1->X(), r1->Y()) > std::make_tuple(r2->Speed, r2->ID, r2->X(), r2->Y());
+        });
     }
     else
     {
         std::sort(battle_roles_.begin(), battle_roles_.end(), [](Role* r1, Role* r2)
-            { return std::make_tuple(r1->Progress, r1->ID, r1->X(), r2->Y()) > std::make_tuple(r2->Progress, r2->ID, r2->X(), r2->Y()); });
+        {
+            return std::make_tuple(r1->Progress, r1->ID, r1->X(), r2->Y()) > std::make_tuple(r2->Progress, r2->ID, r2->X(), r2->Y());
+        });
     }
 }
 
@@ -1591,7 +1595,10 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
         if (dis == -1)
         {
             dis = calRoleDistance(r1, r2);
-            v = v / exp((dis - 1) / 10);
+        }
+        if (dis > 1)
+        {
+            v /= exp((dis - 1) / 10.0);
         }
         v += rand_.rand_int(10) - rand_.rand_int(10);
         if (v < 10)
@@ -2077,7 +2084,9 @@ void BattleScene::receiveAction(Role* r)
     };
     // 打开后既开始获取数据
     waitThis->setEntrance([this, &action, exit]()
-        { network_->getOpponentAction(action, exit); });
+    {
+        network_->getOpponentAction(action, exit);
+    });
     waitThis->run();
     // 这里返回后，就已经获得action
     action.print();
