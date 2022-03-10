@@ -1572,8 +1572,19 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 int BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 {
     int hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic, EuclidDis(r->Pos, -ae.Attacker->Pos) / TILE_W / 2) - ae.Weaken;
-    //这个击退好像效果不太对
     hurt *= ae.Strengthen;
+    //角度
+    auto atk_dir = ae.Pos - r->Pos;
+    auto angle = acos((atk_dir.x * r->RealTowards.x + atk_dir.y * r->RealTowards.y) / atk_dir.norm() / r->RealTowards.norm());
+    if (angle >= M_PI * 0.25 && angle < M_PI * 0.75)
+    {
+        hurt *= 1.5;
+    }
+    else if (angle >= M_PI * 0.75)
+    {
+        hurt *= 2;
+    }
+    //击退
     r->Velocity = r->Pos - ae.Attacker->Pos;
     r->Velocity.normTo(1);
     r->VelocitytFrame = 10;
