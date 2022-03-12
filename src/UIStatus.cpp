@@ -36,15 +36,14 @@ UIStatus::UIStatus()
     equip_magics_[3]->setText("__________");
     menu_equip_magic_->addChild(equip_magics_[3], 160, 635);
 
-    addChild(menu_);
-    addChild(menu_equip_magic_);
-
     equip_item_ = std::make_shared<Button>();
     menu_equip_item_ = std::make_shared<Menu>();
     
     menu_equip_item_->setText("__________");
-    equip_item_->addChild(menu_equip_item_,  320, 635);
+    equip_item_->addChild(menu_equip_item_,  420, 620);
 
+    addChild(menu_);
+    addChild(menu_equip_magic_);
     addChild(menu_equip_item_);
 }
 
@@ -311,7 +310,7 @@ void UIStatus::draw()
             }
         }
 
-        font->draw("裝備物品", 25, x - 10, y, color_name);
+        font->draw("裝備物品", 25, x + 390, y, color_name);
         auto m = Save::getInstance()->getItem(role_->EquipItem);
         if (m) {
             std::string text = m->Name;
