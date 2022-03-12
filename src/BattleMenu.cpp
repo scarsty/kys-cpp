@@ -535,9 +535,6 @@ void BattleEquipItemMenu::setRole(Role* r)
     for (auto& pair: items) {
         auto item = std::get<0>(pair);
         const auto count = std::get<1>(pair);
-        if (!r->canUseItem(item)) {
-            continue;
-        }
         
         std::string s = item->Name;
         s += std::string(12 - Font::getTextDrawSize(s), ' ');
@@ -561,8 +558,13 @@ void BattleEquipItemMenu::setRole(Role* r)
 void BattleEquipItemMenu::onPressedOK()
 {
     checkActiveToResult();
-    // TODO fixme!
-    item_ = Save::getInstance()->getItemByBagIndex(result_);
+    if (result_ >= 0)
+    {
+        std::vector<int> ids;
+        const auto items = Save::getInstance()->getAvailableEquipItems();
+        item_ = std::get<0>(items[result_]);
+    }
+
     if (item_)
     {
         setExit(true);

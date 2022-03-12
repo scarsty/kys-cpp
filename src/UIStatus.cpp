@@ -39,8 +39,8 @@ UIStatus::UIStatus()
     equip_item_ = std::make_shared<Button>();
     menu_equip_item_ = std::make_shared<Menu>();
     
-    menu_equip_item_->setText("__________");
-    equip_item_->addChild(menu_equip_item_,  420, 620);
+    equip_item_->setText("__________");
+    menu_equip_item_->addChild(equip_item_,  420, 620);
 
     addChild(menu_);
     addChild(menu_equip_magic_);

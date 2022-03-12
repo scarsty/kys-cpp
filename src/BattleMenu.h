@@ -91,7 +91,7 @@ public:
 class BattleEquipItemMenu : public MenuText
 {
 public:
-    BattleEquipItemMenu() { setPosition(160, 200); }
+    BattleEquipItemMenu() { setPosition(20, 20); }
     virtual ~BattleEquipItemMenu() {}
 
     //virtual void onEntrance() override;

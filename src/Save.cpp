@@ -271,7 +271,7 @@ std::vector<std::tuple<Item*, int>> Save::getAvailableEquipItems()
             continue;
         }
         auto item = getItemByBagIndex(id);
-        if (item->ItemType == 3 || item->ItemType == 4)
+        if (item && (item->ItemType == 3 || item->ItemType == 4))
         {
             ret.emplace_back(item, count);
         }
