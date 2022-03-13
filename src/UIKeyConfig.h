@@ -8,6 +8,7 @@ public:
     {
         int Left = BPK_a, Up = BPK_w, Right = BPK_d, Down = BPK_s;
         int Light = BPK_j, Heavy = BPK_i, Long = BPK_k, Slash = BPK_m;
+        int Item = BPK_p;
     };
 
     UIKeyConfig();

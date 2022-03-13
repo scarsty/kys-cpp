@@ -1682,8 +1682,6 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
 {
     int v = r1->HiddenWeapon - item->AddHP;
-    int dis = calRoleDistance(r1, r2);
-    v = v / exp((dis - 1) / 10);
     v += rand_.rand_int(10) - rand_.rand_int(10);
     if (v < 1)
     {

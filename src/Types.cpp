@@ -321,8 +321,7 @@ bool Role::canUseItem(Item* i)
     }
     else if (i->ItemType == 4)
     {
-        //暗器类不可以使用
-        return false;
+        return true;
     }
     return false;
 }

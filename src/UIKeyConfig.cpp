@@ -9,7 +9,7 @@ UIKeyConfig::UIKeyConfig()
 {
     key_ = *getKeyConfig();
     setStrings({ "左" + keyToString(key_.Left), "上" + keyToString(key_.Up), "右" + keyToString(key_.Right), "下" + keyToString(key_.Down),
-        "轻" + keyToString(key_.Light), "重" + keyToString(key_.Heavy), "远" + keyToString(key_.Long), "闪" + keyToString(key_.Slash),
+        "轻" + keyToString(key_.Light), "重" + keyToString(key_.Heavy), "远" + keyToString(key_.Long), "闪" + keyToString(key_.Slash), "器" + keyToString(key_.Item), 
         "確定", "取消" });
     setFontSize(30);
     childs_[0]->setPosition(0, 50);
@@ -51,6 +51,7 @@ void UIKeyConfig::onPressedOK()
         case 5: key_.Heavy = r; break;
         case 6: key_.Long = r; break;
         case 7: key_.Slash = r; break;
+        case 8: key_.Item = r; break;
         }
     }
     if (result_ == 8)
@@ -83,7 +84,7 @@ void UIKeyConfig::readFromString(std::string str)
 std::string UIKeyConfig::toString()
 {
     auto k = getKeyConfig();
-    return fmt1::format("{},{},{},{},{},{},{},{}", k->Left, k->Up, k->Right, k->Down, k->Light, k->Heavy, k->Long, k->Slash);
+    return fmt1::format("{},{},{},{},{},{},{},{},{}", k->Left, k->Up, k->Right, k->Down, k->Light, k->Heavy, k->Long, k->Slash, k->Item);
 }
 
 std::string UIKeyConfig::keyToString(int k)

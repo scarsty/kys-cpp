@@ -88,6 +88,34 @@ public:
     }
 };
 
+class BattleEquipItemMenu : public MenuText
+{
+public:
+    BattleEquipItemMenu() { setPosition(20, 20); }
+    virtual ~BattleEquipItemMenu() {}
+
+    //virtual void onEntrance() override;
+
+    Role* role_ = nullptr;
+    Item* item_ = nullptr;
+    void setRole(Role* r);
+    int runAsRole(Role* r)
+    {
+        setRole(r);
+        return run();
+    }
+
+    Item* getItem() { return item_; }
+    void onEntrance() override;
+
+    virtual void onPressedOK() override;
+    virtual void onPressedCancel() override
+    {
+        item_ = nullptr;
+        exitWithResult(-1);
+    }
+};
+
 class BattleItemMenu : public UIItem
 {
 public:

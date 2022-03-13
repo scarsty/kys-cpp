@@ -141,8 +141,10 @@ public:
     Item* getItemByBagIndex(int i);
     int getItemCountByBagIndex(int i);
     int getItemCountInBag(Item* item);
+    std::vector<std::tuple<Item*, int>> getAvailableEquipItems();
 
     int getItemCountInBag(int item_id);
+    void addItem(int item_id, int cnt);
     int getMoneyCountInBag();
 
     void makeMapsAndRepairID();

@@ -20,6 +20,7 @@ struct AttackEffect
     Role* Attacker = nullptr;    //攻击者
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
+    Item* UsingHiddenWeapon = nullptr;
     int Frame = 0;    //当前帧数
     int TotalFrame = 1;    //总帧数，当前帧数超过此值就移除此效果
     int TotalEffectFrame = 1;    //效果总帧数
@@ -188,6 +189,7 @@ protected:
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
     Role* findNearestEnemy(int team, Pointf p);
+    Role* findFarthestEnemy(int team, Pointf p);
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
     void decreaseToZero(int& i) { if (i > 0) { i--; } }

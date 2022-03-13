@@ -36,8 +36,15 @@ UIStatus::UIStatus()
     equip_magics_[3]->setText("__________");
     menu_equip_magic_->addChild(equip_magics_[3], 160, 635);
 
+    equip_item_ = std::make_shared<Button>();
+    menu_equip_item_ = std::make_shared<Menu>();
+    
+    equip_item_->setText("__________");
+    menu_equip_item_->addChild(equip_item_,  420, 620);
+
     addChild(menu_);
     addChild(menu_equip_magic_);
+    addChild(menu_equip_item_);
 }
 
 UIStatus::~UIStatus()
@@ -52,6 +59,7 @@ void UIStatus::draw()
         button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
         menu_equip_magic_->setVisible(false);
+        menu_equip_item_->setVisible(false);
     }
     if (role_)
     {
@@ -63,10 +71,12 @@ void UIStatus::draw()
             if (role_->ID == 0)
             {
                 menu_equip_magic_->setVisible(true);
+                menu_equip_item_->setVisible(true);
             }
             else
             {
                 menu_equip_magic_->setVisible(false);
+                menu_equip_item_->setVisible(false);
             }
         }
         menu_->setVisible(true);
@@ -75,6 +85,7 @@ void UIStatus::draw()
     {
         menu_->setVisible(false);
         menu_equip_magic_->setVisible(false);
+        menu_equip_item_->setVisible(false);
         return;
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
@@ -298,6 +309,16 @@ void UIStatus::draw()
                 equip_magics_[i]->setText("__________");
             }
         }
+
+        font->draw("裝備物品", 25, x + 390, y, color_name);
+        auto m = Save::getInstance()->getItem(role_->EquipItem);
+        if (m) {
+            std::string text = m->Name;
+            text += std::string(10 - Font::getTextDrawSize(text), ' ');
+            equip_item_->setText(text);
+        } else {
+            equip_item_->setText("__________");
+        }
     }
 }
 
@@ -364,6 +385,20 @@ void UIStatus::onPressedOK()
                 if (em == id) { em = -1; }
             }
             role_->EquipMagic[menu_equip_magic_->getResult()] = id;
+        }
+    }
+    if (menu_equip_item_->getResult() >= 0) {
+        auto menu = std::make_shared<BattleEquipItemMenu>();
+        menu->setRole(role_);
+        //int count = menu->getChildCount();
+        role_->Auto = 0;    //.....
+        role_->Team = 0;
+        menu->setPosition(730, 20);
+        menu->run();
+        if (menu->getItem())
+        {
+            int id = menu->getItem()->ID;
+            role_->EquipItem = id;
         }
     }
 }

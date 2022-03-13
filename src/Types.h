@@ -111,6 +111,7 @@ enum class OperationType_t : int
     Heavy,
     Long,
     Slash,
+    Item,
 };
 
 using AT = ActType_t;
@@ -142,6 +143,7 @@ public:
     int ExpForItem;
     int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
+    int EquipItem;
 };
 
 //实际的角色数据，基类之外的通常是战斗属性
@@ -304,12 +306,13 @@ public:
     int ActType = -1;    //医拳剑刀特
     int ActFrame = 0;    //行动帧数
     int PreActTimer = 0;    //上次行动的时间
-    int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身
+    int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身， 4-器
     int OperationCount = 0;    //使用同一攻击的计数
     int HurtThisFrame = 0;    //一帧内受到伤害累积
     int FindingWay = 0;    //ai正在找路
 
     Magic* UsingMagic = nullptr;
+    Item* UsingItem = nullptr;
 
 public:
     static Role* getMaxValue()
