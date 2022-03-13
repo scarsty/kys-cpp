@@ -448,15 +448,15 @@ void BattleMagicMenu::onEntrance()
     {
         return;
     }
-    if (role_->isAuto())
-    {
-        magic_ = role_->AI_Magic;
-        setAllChildState(NodeNormal);
-        setResult(0);
-        setExit(true);
-        setVisible(false);
-        return;
-    }
+    //if (role_->isAuto())
+    //{
+    //    magic_ = role_->AI_Magic;
+    //    setAllChildState(NodeNormal);
+    //    setResult(0);
+    //    setExit(true);
+    //    setVisible(false);
+    //    return;
+    //}
     forceActiveChild();
 }
 
@@ -508,19 +508,6 @@ void BattleMagicMenu::onPressedOK()
 
 void BattleEquipItemMenu::onEntrance()
 {
-    if (role_ == nullptr)
-    {
-        return;
-    }
-    if (role_->isAuto())
-    {
-        setAllChildState(NodeNormal);
-        setResult(0);
-        setExit(true);
-        setVisible(false);
-        return;
-    }
-    forceActiveChild();
 }
 
 void BattleEquipItemMenu::setRole(Role* r)
@@ -529,13 +516,14 @@ void BattleEquipItemMenu::setRole(Role* r)
     result_ = -1;
     item_ = nullptr;
     setVisible(true);
-    
+
     std::vector<std::string> item_names;
     const auto items = Save::getInstance()->getAvailableEquipItems();
-    for (auto& pair: items) {
+    for (auto& pair : items)
+    {
         auto item = std::get<0>(pair);
         const auto count = std::get<1>(pair);
-        
+
         std::string s = item->Name;
         s += std::string(12 - Font::getTextDrawSize(s), ' ');
         item_names.push_back(fmt1::format("{}{}  ", s, count));

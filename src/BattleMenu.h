@@ -66,8 +66,6 @@ public:
     BattleMagicMenu() { setPosition(160, 200); }
     virtual ~BattleMagicMenu() {}
 
-    //virtual void onEntrance() override;
-
     Role* role_ = nullptr;
     Magic* magic_ = nullptr;
     void setRole(Role* r);
@@ -93,8 +91,6 @@ class BattleEquipItemMenu : public MenuText
 public:
     BattleEquipItemMenu() { setPosition(20, 20); }
     virtual ~BattleEquipItemMenu() {}
-
-    //virtual void onEntrance() override;
 
     Role* role_ = nullptr;
     Item* item_ = nullptr;

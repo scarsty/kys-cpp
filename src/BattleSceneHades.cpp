@@ -1,5 +1,6 @@
 ﻿#include "BattleSceneHades.h"
 #include "Audio.h"
+#include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Head.h"
@@ -42,6 +43,10 @@ BattleSceneHades::BattleSceneHades()
     menu_->addChild(equip_magics_[2], 240, 10);
     equip_magics_[3]->setText("__________");
     menu_->addChild(equip_magics_[3], 120, 25);
+
+    equip_item_ = std::make_shared<Button>();
+    equip_item_->setText("__________");
+    menu_->addChild(equip_item_, 400, 10);
     addChild(menu_);
     menu_->setVisible(false);
     head_boss_.resize(5);
@@ -121,8 +126,8 @@ void BattleSceneHades::draw()
             int shadow = 0;
             uint8_t white = 0;
         };
-        std::vector<DrawInfo> building_vec;
-        building_vec.reserve(10000);
+        std::vector<DrawInfo> draw_infos;
+        draw_infos.reserve(10000);
 
         for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
         {
@@ -143,7 +148,7 @@ void BattleSceneHades::draw()
                         info.p.x = p.x;
                         info.p.y = p.y;
                         info.shadow = 0;
-                        building_vec.emplace_back(std::move(info));
+                        draw_infos.emplace_back(std::move(info));
                     }
                 }
             }
@@ -194,7 +199,7 @@ void BattleSceneHades::draw()
             }
             info.shadow = 1;
             //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
-            building_vec.emplace_back(std::move(info));
+            draw_infos.emplace_back(std::move(info));
         }
 
         //effects
@@ -224,7 +229,8 @@ void BattleSceneHades::draw()
                 {
                     info.shadow = 2;
                 }
-                building_vec.emplace_back(std::move(info));
+                info.alpha = 255 * (ae.TotalFrame * 1.25 - ae.Frame) / (ae.TotalFrame * 1.25);    //越来越透明
+                draw_infos.emplace_back(std::move(info));
                 //TextureManager::getInstance()->renderTexture(ae.Path, ae.Frame % ae.TotalEffectFrame, ae.X1, ae.Y1 / 2, { 255, 255, 255, 255 }, 192);
             }
         }
@@ -240,10 +246,10 @@ void BattleSceneHades::draw()
                 return d1.p.x < d2.p.x;
             }
         };
-        std::sort(building_vec.begin(), building_vec.end(), sort_building);
+        std::sort(draw_infos.begin(), draw_infos.end(), sort_building);
 
         //影子
-        for (auto& d : building_vec)
+        for (auto& d : draw_infos)
         {
             if (d.shadow)
             {
@@ -260,16 +266,16 @@ void BattleSceneHades::draw()
                     }
                     if (d.shadow == 1)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32,32,32,255 }, 128, scalex, scaley, d.rot);
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32,32,32,255 }, d.alpha / 2, scalex, scaley, d.rot);
                     }
                     if (d.shadow == 2)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128,128,128,255 }, 128, scalex, scaley, d.rot, 128);
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128,128,128,255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
                     }
                 }
             }
         }
-        for (auto& d : building_vec)
+        for (auto& d : draw_infos)
         {
             double scaley = 1;
             if (d.rot)
@@ -429,13 +435,12 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         }
         // 初始化 器
         Item* item = Save::getInstance()->getItem(r->EquipItem);
-        if (item) {
-            const int cnt = Save::getInstance()->getItemCountInBag(item->ID);
-            if (cnt <= 0 || !r->canUseItem(item)) {
-                item = nullptr;
-            }
+        if (item)
+        {
+            const int count = Save::getInstance()->getItemCountInBag(item->ID);
+            equip_item_->setText(std::string(item->Name) + " " + std::to_string(count));
         }
-        
+
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
@@ -468,7 +473,9 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             {
                 index = 3;
             }
-            if (r->PhysicalPower >= 40 and (engine->checkKeyPress(keys_.Item)))
+            if (r->PhysicalPower >= 40 && item
+                && (engine->checkKeyPress(keys_.Item)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER)))
             {
                 index = 4;
             }
@@ -522,8 +529,8 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     r->CoolDown *= 3;
                 }
             }
-            
-            if (4 == index && item) {
+            if (index == 4 && item)
+            {
                 // 器
                 r->OperationType = index;
                 r->UsingMagic = nullptr;
@@ -626,29 +633,9 @@ void BattleSceneHades::backRun1()
     //效果
     //if (current_frame_ % 2 == 0)
     {
-        //帧数
         for (auto& ae : attack_effects_)
         {
             ae.Frame++;
-
-            if (ae.UsingHiddenWeapon != nullptr) {
-                Role* enemy = findFarthestEnemy(ae.Attacker->Team, ae.Pos);
-
-                if (!enemy) {
-                    continue;
-                }
-
-                auto hurt = calHiddenWeaponHurt(ae.Attacker, enemy, ae.UsingHiddenWeapon);
-                enemy->HP -= hurt;
-                enemy->HurtThisFrame += hurt;
-                ae.Attacker->ExpGot += hurt / 2;
-                
-                TextEffect te;
-                te.set(std::to_string(-hurt), { 160, 32, 240, 255 }, enemy);
-                text_effects_.push_back(std::move(te));
-                continue;
-            }
-
             ae.Velocity += ae.Acceleration;
             ae.Pos += ae.Velocity;
             Role* r = nullptr;
@@ -677,14 +664,14 @@ void BattleSceneHades::backRun1()
                 shake_ = 5;
                 if (ae.OperationType >= 0)
                 {
-                    if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
-                    {
-                        defaultMagicEffect(ae, r);
-                    }
-                    else
-                    {
-                        special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
-                    }
+                    //if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
+                    //{
+                    defaultMagicEffect(ae, r);
+                    //}
+                    //else
+                    //{
+                    //    special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
+                    //}
                 }
                 //std::vector<std::string> = {};
             }
@@ -695,13 +682,15 @@ void BattleSceneHades::backRun1()
             for (int i = 0; i < attack_effects_.size() - 2; i++)
             {
                 auto& ae1 = attack_effects_[i];
-                if (!ae1.UsingMagic) {
+                if (!ae1.UsingMagic)
+                {
                     continue;
                 }
                 for (int j = i + 1; j < attack_effects_.size() - 1; j++)
                 {
                     auto& ae2 = attack_effects_[j];
-                    if (!ae2.UsingMagic) {
+                    if (!ae2.UsingMagic)
+                    {
                         continue;
                     }
                     if (ae1.Attacker && ae2.Attacker
@@ -1046,37 +1035,50 @@ void BattleSceneHades::Action(Role* r)
             r->UsingMagic = nullptr;
         }
 
-        if (r->UsingItem) {
+        if (r->UsingItem)
+        {
             Item* item = r->UsingItem;
-            if (3 == item->ItemType) {
+            if (item->ItemType == 3)
+            {
                 // 药品直接服用
                 r->useItem(item);
-
-                TextEffect te;
-                BP_Color c = { 255, 255, 255, 255 };
-                if (r->Team == 0)
-                {
-                    c = { 255, 20, 220, 20 };
-                }
-                const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
-                te.set(fmt1::format("服用{}，剩余{}", item->Name, left), c, r);
-                text_effects_.push_back(std::move(te));
-
-            } else if (4 == item->ItemType) {
+                //TextEffect te;
+                //BP_Color c = { 255, 255, 255, 255 };
+                //if (r->Team == 0)
+                //{
+                //    c = { 255, 20, 220, 20 };
+                //}
+                //const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
+                //te.set(fmt1::format("服用{}，剩余{}", item->Name, left), c, r);
+                //text_effects_.push_back(std::move(te));
+            }
+            else if (item->ItemType == 4)
+            {
                 // 暗器
                 AttackEffect ae1;
+                auto r0 = findFarthestEnemy(r->Team, r->Pos);
+                if (r0)
+                {
+                    ae1.Velocity = r0->Pos - r->Pos;
+                }
+                else
+                {
+                    ae1.Velocity = r->RealTowards;
+                }
+                ae1.Velocity.normTo(10);
                 ae1.Attacker = r;
                 ae1.Pos = r->Pos;
                 ae1.UsingHiddenWeapon = item;
-                ae1.Through = 1;
+                ae1.Through = 0;
                 ae1.setEft(item->HiddenWeaponEffectID);
-                ae1.TotalFrame = ae1.TotalEffectFrame;
+                ae1.TotalFrame = 100;
                 ae1.Frame = 0;
+                ae1.OperationType = 4;
                 attack_effects_.push_back(std::move(ae1));
             }
             // 减少数量
-            Save::getInstance()->addItem(item->ID, -1);
-            r->UsingItem =  nullptr;
+            Event::getInstance()->addItemWithoutHint(item->ID, -1);
+            r->UsingItem = nullptr;
         }
 
         if (r->OperationType == 1)
@@ -1652,7 +1654,16 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 
 void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 {
-    double hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic);
+    double hurt;
+    //先特别处理暗器
+    if (ae.UsingHiddenWeapon != nullptr)
+    {
+        hurt = calHiddenWeaponHurt(ae.Attacker, r, ae.UsingHiddenWeapon) / 5;
+    }
+    else
+    {
+        hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic);
+    }
     hurt -= ae.Weaken;    //弱化
     hurt *= ae.Strengthen;    //强化
     hurt *= 1 - 0.5 * ae.Frame / ae.TotalFrame;    //距离衰减
@@ -1743,11 +1754,11 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     }
     ae.Attacker->ExpGot += hurt / 2;
     //扣HP或MP
-    if (ae.UsingMagic->HurtType == 0)
+    if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
     {
         r->HurtThisFrame += hurt;
     }
-    else
+    if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
     {
         r->MP -= hurt;
         ae.Attacker->MP += hurt * 0.8;
@@ -1760,11 +1771,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 
 int BattleSceneHades::calRolePic(Role* r, int style, int frame)
 {
-    if (r->FightFrame[style] <= 0)
-    {
-        style = -1;
-    }
-    if (style == -1)
+    if (style < 0 || style >= 5)
     {
         for (int i = 0; i < 5; i++)
         {
@@ -1774,24 +1781,32 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
             }
         }
     }
-    else
+    if (r->FightFrame[style] <= 0)
     {
-        int total = 0;
+        //改为选一个存在的动作，否则看不出是在攻击
         for (int i = 0; i < 5; i++)
         {
-            if (i == style)
+            if (r->FightFrame[i] > 0)
             {
-                if (frame < r->FightFrame[style] - 2)
-                {
-                    return total + r->FightFrame[style] * r->FaceTowards + frame;
-                }
-                else
-                {
-                    return total + r->FightFrame[style] * r->FaceTowards + r->FightFrame[style] - 2;
-                }
+                style = i;
             }
-            total += r->FightFrame[i] * 4;
         }
+    }
+    int total = 0;
+    for (int i = 0; i < 5; i++)
+    {
+        if (i == style)
+        {
+            if (frame < r->FightFrame[style] - 2)
+            {
+                return total + r->FightFrame[style] * r->FaceTowards + frame;
+            }
+            else
+            {
+                return total + r->FightFrame[style] * r->FaceTowards + r->FightFrame[style] - 2;
+            }
+        }
+        total += r->FightFrame[i] * 4;
     }
     return r->FaceTowards;
 }

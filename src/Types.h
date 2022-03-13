@@ -135,7 +135,8 @@ public:
     //int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
     int EquipMagic[4];    //装备武学
     int EquipMagic2[4];    //装备被动武学
-    int Frame[7];
+    int EquipItem;    //装备物品
+    int Frame[6];    //帧数，现仅用于占位
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -143,7 +144,6 @@ public:
     int ExpForItem;
     int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
-    int EquipItem;
 };
 
 //实际的角色数据，基类之外的通常是战斗属性

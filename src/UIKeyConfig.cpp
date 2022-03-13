@@ -21,16 +21,17 @@ UIKeyConfig::UIKeyConfig()
     childs_[5]->setPosition(520, 0);
     childs_[6]->setPosition(640, 50);
     childs_[7]->setPosition(520, 100);
+    childs_[8]->setPosition(760, 100);
 
-    childs_[8]->setPosition(500, 200);
-    childs_[9]->setPosition(600, 200);
+    childs_[9]->setPosition(500, 200);
+    childs_[10]->setPosition(600, 200);
 
 }
 
 void UIKeyConfig::onPressedOK()
 {
     checkActiveToResult();
-    if (result_ >= 0 && result_ < 8)
+    if (result_ >= 0 && result_ < 9)
     {
         auto button = std::make_shared<ButtonGetKey>();
         int x, y;
@@ -54,13 +55,13 @@ void UIKeyConfig::onPressedOK()
         case 8: key_.Item = r; break;
         }
     }
-    if (result_ == 8)
+    if (result_ == 9)
     {
         *getKeyConfig() = key_;
         GameUtil::getInstance()->setKey("game", "key", toString());
         setExit(true);
     }
-    if (result_ == 9)
+    if (result_ == 10)
     {
         setExit(true);
     }

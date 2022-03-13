@@ -153,7 +153,7 @@ public:
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1);           //计算武学对单人的伤害
     virtual int calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation = false);    //计算全部人物的伤害
 
-    virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item);    //计算暗器伤害
+    virtual int calHiddenWeaponHurt(Role* r1, Role* r2, Item* item, int dis = -1);    //计算暗器伤害
 
     virtual void showMagicName(std::string name);    //显示武学名
 

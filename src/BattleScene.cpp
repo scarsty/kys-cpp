@@ -1112,9 +1112,17 @@ void BattleScene::actUseMagic(Role* r)
         else
         {
             magic_menu->setStartItem(r->SelectedMagic);
-            magic_menu->runAsRole(r);
-            magic = magic_menu->getMagic();
-            r->SelectedMagic = magic_menu->getResult();
+            if (r->isAuto())
+            {
+                magic = r->AI_Magic;
+                r->SelectedMagic = r->getMagicOfRoleIndex(magic);
+            }
+            else
+            {
+                magic_menu->runAsRole(r);
+                magic = magic_menu->getMagic();
+                r->SelectedMagic = magic_menu->getResult();
+            }
         }
         if (magic == nullptr)
         {
@@ -1679,10 +1687,15 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
 }
 
 //返回值为一正数
-int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item)
+int BattleScene::calHiddenWeaponHurt(Role* r1, Role* r2, Item* item, int dis)
 {
     int v = r1->HiddenWeapon - item->AddHP;
     v += rand_.rand_int(10) - rand_.rand_int(10);
+    if (dis == -1)
+    {
+        dis = calRoleDistance(r1, r2);
+    }
+    v = v / exp((dis - 1) / 10);
     if (v < 1)
     {
         v = 1;
