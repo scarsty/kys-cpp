@@ -429,8 +429,11 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         }
         // 初始化 器
         Item* item = Save::getInstance()->getItem(r->EquipItem);
-        if (!r->canUseItem(item)) {
-            item = nullptr;
+        if (item) {
+            const int cnt = Save::getInstance()->getItemCountInBag(item->ID);
+            if (cnt <= 0 || !r->canUseItem(item)) {
+                item = nullptr;
+            }
         }
         
         if (r->Frozen == 0 && r->CoolDown == 0)
