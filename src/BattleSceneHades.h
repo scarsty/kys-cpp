@@ -3,7 +3,6 @@
 #include "BattleMap.h"
 #include "Head.h"
 #include "Save.h"
-#include "Event.h"
 #include "UIKeyConfig.h"
 #include <deque>
 #include <unordered_map>

@@ -271,12 +271,30 @@ std::vector<std::tuple<Item*, int>> Save::getAvailableEquipItems()
             continue;
         }
         auto item = getItemByBagIndex(id);
-        if (item && (item->ItemType == 3 || item->ItemType == 4))
+        if (item && (item->ItemType == 4))
+        // if (item && (item->ItemType == 3 || item->ItemType == 4))
         {
             ret.emplace_back(item, count);
         }
     }
     return ret;
+}
+
+void Save::addItem(int item_id, int cnt) {
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; i++)
+    {
+        auto id = Items[i].item_id;
+        if (id < 0)
+        {
+            break;
+        }
+        if (id == item_id)
+        {
+            Items[i].count = std::max(0, Items[i].count + cnt);
+            break;
+        }
+    }
+    return;
 }
 
 int Save::getItemCountInBag(int item_id)

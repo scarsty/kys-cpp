@@ -393,7 +393,7 @@ void UIStatus::onPressedOK()
         //int count = menu->getChildCount();
         role_->Auto = 0;    //.....
         role_->Team = 0;
-        menu->setPosition(730, std::max(0,330) );
+        menu->setPosition(730, 20);
         menu->run();
         if (menu->getItem())
         {

@@ -528,7 +528,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->ActFrame = 0;
                 r->HaveAction = 1;
                 //r->Frozen = 5;
-                r->CoolDown = 0;
+                r->CoolDown = 64;
             }
         }
     }
@@ -630,6 +630,10 @@ void BattleSceneHades::backRun1()
 
             if (ae.UsingHiddenWeapon != nullptr) {
                 Role* enemy = findFarthestEnemy(ae.Attacker->Team, ae.Pos);
+
+                if (!enemy) {
+                    continue;
+                }
 
                 auto hurt = calHiddenWeaponHurt(ae.Attacker, enemy, ae.UsingHiddenWeapon);
                 enemy->HP -= hurt;
@@ -1073,9 +1077,10 @@ void BattleSceneHades::Action(Role* r)
                 BP_Color c = { 255, 255, 255, 255 };
                 if (r->Team == 0)
                 {
-                    c = { 255, 20, 20, 255 };
+                    c = { 255, 20, 220, 20 };
                 }
-                te.set(fmt1::format("服用{}", item->Name), c, r);
+                const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
+                te.set(fmt1::format("服用{}，剩余{}", item->Name, left), c, r);
                 text_effects_.push_back(std::move(te));
 
             } else if (4 == item->ItemType) {
@@ -1091,7 +1096,7 @@ void BattleSceneHades::Action(Role* r)
                 attack_effects_.push_back(std::move(ae1));
             }
             // 减少数量
-            Event::getInstance()->roleAddItem(r->ID, item->ID, -1);
+            Save::getInstance()->addItem(item->ID, -1);
             r->UsingItem =  nullptr;
         }
 
