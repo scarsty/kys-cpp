@@ -295,8 +295,24 @@ void BattleSceneHades::draw()
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h }, rect1 = { 0, 0, w, h };
-
+        BP_Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
+        BP_Rect rect1 = { 0, 0, w, h };
+        if (rect0.x < 0)
+        {
+            rect1.x = -rect0.x;
+            rect0.x = 0;
+            rect0.w = w - rect1.x;
+        }
+        if (rect0.y < 0)
+        {
+            rect1.y = -rect0.y;
+            rect0.y = 0;
+            rect0.h = h - rect1.y;
+        }
+        rect0.w = std::min(rect0.w, COORD_COUNT * TILE_W * 2 - rect0.x);
+        rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
+        rect1.w = rect0.w;
+        rect1.h = rect0.h;
         for (auto& te : text_effects_)
         {
             Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.Color, 255);
