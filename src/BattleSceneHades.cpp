@@ -614,6 +614,7 @@ void BattleSceneHades::backRun1()
             if (r->HP <= 0)
             {
                 r->Dead = 1;
+                //此处只为严格化，但与击退部分可能冲突
             }
         }
         decreaseToZero(r->CoolDown);
