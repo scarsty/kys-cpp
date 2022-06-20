@@ -1,4 +1,3 @@
-[submodule "nb"]
-	path = nb
-	url = https://github.com/scarsty/nb
-	branch = master
+[submodule "mlcc"]
+	path = mlcc
+	url = https://github.com/scarsty/mlcc
