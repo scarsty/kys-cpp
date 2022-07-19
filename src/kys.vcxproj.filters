@@ -178,6 +178,9 @@
     <ClCompile Include="..\mlcc\File.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
+    <ClCompile Include="RunNodeFromJson.cpp">
+      <Filter>runnode</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -371,6 +374,9 @@
     </ClInclude>
     <ClInclude Include="..\mlcc\INIReader.h">
       <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="RunNodeFromJson.h">
+      <Filter>runnode</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

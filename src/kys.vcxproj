@@ -129,6 +129,7 @@
     <ClCompile Include="GameUtil.cpp" />
     <ClCompile Include="GrpIdxFile.cpp" />
     <ClCompile Include="RandomRole.cpp" />
+    <ClCompile Include="RunNodeFromJson.cpp" />
     <ClCompile Include="Script.cpp" />
     <ClCompile Include="ShowExp.cpp" />
     <ClCompile Include="ShowRoleDifference.cpp" />
@@ -195,6 +196,7 @@
     <ClInclude Include="GameUtil.h" />
     <ClInclude Include="GrpIdxFile.h" />
     <ClInclude Include="RandomRole.h" />
+    <ClInclude Include="RunNodeFromJson.h" />
     <ClInclude Include="Script.h" />
     <ClInclude Include="ShowExp.h" />
     <ClInclude Include="ShowRoleDifference.h" />

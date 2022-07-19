@@ -16,9 +16,11 @@
 #include "TeamMenu.h"
 #include "UISave.h"
 #include "UIShop.h"
+#include "RunNodeFromJson.h"
 
 #include "../others/Hanz2Piny.h"
 #include "PotConv.h"
+
 #include "TextBoxRoll.h"
 #include "ZipFile.h"
 
@@ -44,6 +46,9 @@ TitleScene::TitleScene()
     //int k = rand.rand() * 139;
     //k = 100;
     //Event::getInstance()->tryBattle(k, 0);
+
+    auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");
+    addChild(p);
 }
 
 TitleScene::~TitleScene()
