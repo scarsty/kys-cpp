@@ -6,14 +6,14 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O2 -std=c++17 -pthread -DNDEBUG -DUSE_SDL_MIXER_AUDIO")
 
-include_directories(../include . ../common ../others ../local/include)
+include_directories(../include . ../mlcc ../others ../local/include)
 link_directories(. ../lib)
 
 file(GLOB SRC_LIST
     ./*.cpp
-    ../nb/convert.cpp
-    ../nb/File.cpp
-    ../nb/PotConv.cpp
+    ../mlcc/convert.cpp
+    ../mlcc/File.cpp
+    ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp
     ../others/zip.c)
 
