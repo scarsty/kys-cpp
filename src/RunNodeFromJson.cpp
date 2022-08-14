@@ -27,7 +27,6 @@ void RunNodeFromJson::create(YAML::Node& n, RunNode* run_node)
     std::shared_ptr<RunNode> new_node;
 
     auto type = n["ctype"].as<std::string>();
-
     if (type == "TextObjectData")
     {
         auto t = std::make_shared<TextBox>();
