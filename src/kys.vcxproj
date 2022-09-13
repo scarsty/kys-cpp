@@ -104,7 +104,6 @@
     <ClCompile Include="..\mlcc\File.cpp" />
     <ClCompile Include="..\mlcc\PotConv.cpp" />
     <ClCompile Include="..\others\Hanz2Piny.cpp" />
-    <ClCompile Include="..\others\zip.c" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Audio.cpp" />
     <ClCompile Include="BattleMap.cpp" />

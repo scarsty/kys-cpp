@@ -1,4 +1,5 @@
 #include "ZipFile.h"
+#include <zip.h>
 #include <cstring>
 
 ZipFile::ZipFile()
@@ -19,23 +20,24 @@ void ZipFile::openFile(const std::string& filename)
     {
         zip_close(zip_);
     }
-    zip_ = zip_open(filename.c_str(), 0, 'r');
+    zip_ = zip_open(filename.c_str(), ZIP_RDONLY, NULL);
 }
 
 std::string ZipFile::readEntryName(const std::string& entry_name)
 {
     std::string content;
+    zip_file_t *zip_file;
+    struct zip_stat zs;
     if (zip_)
     {
-        if (zip_entry_open(zip_, entry_name.c_str()) == 0)
+        zip_file = zip_fopen(zip_, entry_name.c_str(), ZIP_FL_UNCHANGED);
+        if (zip_file != NULL)
         {
-            void* buffer;
-            size_t size = 0;
-            zip_entry_read(zip_, &buffer, &size);
-            content.resize(size);
-            memcpy((void*)content.data(), buffer, size);
-            free(buffer);
-            zip_entry_close(zip_);
+            zip_stat_init(&zs);
+            zip_stat(zip_, entry_name.c_str(), ZIP_FL_UNCHANGED, &zs);
+            content.resize(zs.size);
+            zip_fread(zip_file, content.data(), zs.size);
+            zip_fclose(zip_file);
         }
     }
     return content;
@@ -46,56 +48,12 @@ std::vector<std::string> ZipFile::getEntryNames()
     std::vector<std::string> files;
     if (zip_)
     {
-        int i, n = zip_total_entries(zip_);
+        int i, n = zip_get_num_entries(zip_, ZIP_FL_UNCHANGED);
         for (i = 0; i < n; ++i)
         {
-            zip_entry_openbyindex(zip_, i);
-            {
-                const char* name = zip_entry_name(zip_);
-                int isdir = zip_entry_isdir(zip_);
-                if (!isdir)
-                {
-                    files.push_back(name);
-                }
-                //unsigned long long size = zip_entry_size(zip_);
-                //unsigned int crc32 = zip_entry_crc32(zip_);
-            }
-            zip_entry_close(zip_);
+                const char* name = zip_get_name(zip_, i, ZIP_FL_UNCHANGED);
+                files.push_back(name);
         }
     }
     return files;
-}
-
-int ZipFile::zip(std::string zip_file, std::vector<std::string> files)
-{
-    struct zip_t* zip = zip_open(zip_file.c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
-    {
-        for (auto file : files)
-        {
-            zip_entry_open(zip, file.c_str());
-            {
-                zip_entry_fwrite(zip, file.c_str());
-            }
-            zip_entry_close(zip);
-        }
-    }
-    zip_close(zip);
-    return 0;
-}
-
-int ZipFile::unzip(std::string zip_file, std::vector<std::string> files)
-{
-    struct zip_t* zip = zip_open(zip_file.c_str(), 0, 'r');
-    {
-        for (auto file : files)
-        {
-            zip_entry_open(zip, file.c_str());
-            {
-                zip_entry_fread(zip, file.c_str());
-            }
-            zip_entry_close(zip);
-        }
-    }
-    zip_close(zip);
-    return 0;
 }

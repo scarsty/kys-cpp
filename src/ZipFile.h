@@ -1,5 +1,5 @@
 #pragma once
-#include "../others/zip.h"
+#include <zip.h>
 #include <string>
 #include <vector>
 
@@ -10,7 +10,7 @@ public:
     ~ZipFile();
 
 private:
-    struct zip_t* zip_ = nullptr;
+    zip_t* zip_ = nullptr;
 
 public:
     bool opened() { return zip_ != nullptr; }
@@ -18,6 +18,4 @@ public:
     std::string readEntryName(const std::string& entry_name);
     std::vector<std::string> getEntryNames();
 
-    static int zip(std::string zip_file, std::vector<std::string> files);
-    static int unzip(std::string zip_file, std::vector<std::string> files);
 };

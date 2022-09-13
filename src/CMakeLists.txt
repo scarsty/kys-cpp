@@ -6,7 +6,7 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O2 -std=c++17 -pthread -DNDEBUG -DUSE_SDL_MIXER_AUDIO")
 
-include_directories(../include . ../mlcc ../others ../local/include)
+include_directories(../include . ../mlcc ../others ../local/include /usr/include)
 link_directories(. ../lib)
 
 file(GLOB SRC_LIST
@@ -15,9 +15,9 @@ file(GLOB SRC_LIST
     ../mlcc/File.cpp
     ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp
-    ../others/zip.c)
+    )
 
-set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2_mixer SDL2main lua5.3 opencc sqlite3 fmt yaml-cpp)
+set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2_mixer SDL2main lua5.3 opencc sqlite3 fmt yaml-cpp zip)
 if (APPLE)
     set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
 endif ()
