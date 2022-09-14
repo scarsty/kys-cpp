@@ -11,14 +11,15 @@
 - PicoSHA2 <https://github.com/okdshin/PicoSHA2>
 - sqlite3 <https://www.sqlite.org/>
 - OpenCC <https://github.com/BYVoid/OpenCC>
+- libzip <https://github.com/nih-at/libzip/>
 - asio boost的一部分，需在预处理中打开网络功能，vcpkg可以只安装asio
 
 以下库通常不在包管理工具中，故已包含在工程里。
 
 - hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
-- zip <https://github.com/kuba--/zip>
 - BASS, BASSMIDI <http://www.un4seen.com/>
 - smallpot（动态库版本）: <https://github.com/scarsty/smallpot>
+- zip <https://github.com/kuba--/zip> (已不再使用)
 
 以下为间接使用，通常包管理器会自动处理。
 

@@ -1,1 +1,1 @@
-.\vcpkg install sdl2:x64-windows sdl2-image:x64-windows sdl2-ttf:x64-windows sdl2-mixer:x64-windows lua:x64-windows opencc:x64-windows sqlite3:x64-windows libiconv:x64-windows asio:x64-windows picosha2:x64-windows yaml-cpp:x64-windows
+.\vcpkg install sdl2:x64-windows sdl2-image:x64-windows sdl2-ttf:x64-windows sdl2-mixer:x64-windows lua:x64-windows opencc:x64-windows sqlite3:x64-windows libiconv:x64-windows asio:x64-windows picosha2:x64-windows yaml-cpp:x64-windows libzip:x64-windows
