@@ -17,7 +17,7 @@ file(GLOB SRC_LIST
     ../others/Hanz2Piny.cpp
     )
 
-set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2_mixer SDL2main lua5.3 opencc sqlite3 fmt yaml-cpp zip)
+set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2_mixer SDL2main lua5.3 opencc sqlite3 yaml-cpp zip)
 if (APPLE)
     set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
 endif ()

@@ -30,9 +30,7 @@ sudo apt-get install libgtkd-3-dev libglade2-dev
 
 以下是游戏本身依赖
 ```shell
-sudo apt-get install libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev liblua5.3-dev libminizip-dev libsdl2-dev libzip-dev
-sudo apt-get install libopencc-dev
-sudo apt-get install libfmt-dev libsqlite3-dev
+sudo apt-get install libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev liblua5.3-dev libsdl2-dev libopencc-dev libzip-dev libsqlite3-dev libyaml-cpp-dev
 ```
 
 查看 sdl 版本
