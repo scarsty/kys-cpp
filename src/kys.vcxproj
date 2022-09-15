@@ -167,8 +167,6 @@
     <ClInclude Include="..\mlcc\INIReader.h" />
     <ClInclude Include="..\mlcc\PotConv.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
-    <ClInclude Include="..\others\miniz.h" />
-    <ClInclude Include="..\others\zip.h" />
     <ClInclude Include="BattleSceneHades.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="resource.h" />

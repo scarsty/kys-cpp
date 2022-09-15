@@ -47,8 +47,8 @@ TitleScene::TitleScene()
     //k = 100;
     //Event::getInstance()->tryBattle(k, 0);
 
-    auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");
-    addChild(p);
+    //auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");
+    //addChild(p);
 }
 
 TitleScene::~TitleScene()
