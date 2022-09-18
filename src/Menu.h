@@ -27,7 +27,7 @@ public:
     MenuText() {}
     virtual ~MenuText() {}
     MenuText(std::vector<std::string> items);
-    void setStrings(std::vector<std::string> items);
+    void setStrings(std::vector<std::string> items, std::vector<BP_Color> colors = {});
     //void draw() override;
 
     std::vector<std::string> strings_;

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Button.h"
 #include "DrawableOnCall.h"
 #include "InputBox.h"
