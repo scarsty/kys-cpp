@@ -1,7 +1,7 @@
 #include "Head.h"
 #include "Font.h"
 #include "GameUtil.h"
-#include "convert.h"
+#include "strfunc.h"
 
 Head::Head(Role* r)
 {

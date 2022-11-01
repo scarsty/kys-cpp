@@ -5,7 +5,7 @@
 #include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
-#include "convert.h"
+#include "strfunc.h"
 
 BattleActionMenu::BattleActionMenu(BattleScene* b)
 {

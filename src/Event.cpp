@@ -14,7 +14,7 @@
 #include "SubScene.h"
 #include "Talk.h"
 #include "UIShop.h"
-#include "convert.h"
+#include "strfunc.h"
 
 Event::Event()
 {
@@ -53,7 +53,7 @@ bool Event::loadEventData()
     }
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = convert::replaceAllSubString(PotConv::cp950toutf8(talk.data() + offset[i]), "*", "");
+        std::string str = strfunc::replaceAllSubString(PotConv::cp950toutf8(talk.data() + offset[i]), "*", "");
         talk_contents_.push_back(str);
     }
     //读取事件，全部转为整型
@@ -69,8 +69,8 @@ bool Event::loadEventData()
     }
 
     //读取离队列表
-    std::string leave_txt = convert::readStringFromFile(GameUtil::PATH() + "list/leave.txt");
-    convert::findNumbers(leave_txt, &leave_event_id_);
+    std::string leave_txt = strfunc::readStringFromFile(GameUtil::PATH() + "list/leave.txt");
+    strfunc::findNumbers(leave_txt, &leave_event_id_);
     if (leave_event_id_.size() > 0)
     {
         leave_event_0_ = leave_event_id_[0];
@@ -305,10 +305,10 @@ void Event::setUseScript(int u)
     use_script_ = u;
     //if (u)
     //{
-    //    auto str = convert::readStringFromFile(GameUtil::PATH()+"script/talk.txt");
-    //    convert::replaceAllSubStringRef(str, "\r", "");
-    //    convert::replaceAllSubStringRef(str, "*", "");
-    //    talk_contents_ = convert::splitString(str, "\n");
+    //    auto str = strfunc::readStringFromFile(GameUtil::PATH()+"script/talk.txt");
+    //    strfunc::replaceAllSubStringRef(str, "\r", "");
+    //    strfunc::replaceAllSubStringRef(str, "*", "");
+    //    talk_contents_ = strfunc::splitString(str, "\n");
     //}
 }
 

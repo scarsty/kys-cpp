@@ -11,7 +11,7 @@ link_directories(. ../lib)
 
 file(GLOB SRC_LIST
     ./*.cpp
-    ../mlcc/convert.cpp
+    ../mlcc/strfunc.cpp
     ../mlcc/File.cpp
     ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp

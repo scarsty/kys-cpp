@@ -169,7 +169,7 @@
     <ClCompile Include="..\mlcc\PotConv.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\convert.cpp">
+    <ClCompile Include="..\mlcc\strfunc.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
     <ClCompile Include="..\mlcc\File.cpp">
@@ -354,7 +354,7 @@
     <ClInclude Include="..\mlcc\PotConv.h">
       <Filter>mlcc</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\convert.h">
+    <ClInclude Include="..\mlcc\strfunc.h">
       <Filter>mlcc</Filter>
     </ClInclude>
     <ClInclude Include="..\mlcc\File.h">

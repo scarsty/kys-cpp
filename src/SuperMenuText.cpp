@@ -2,7 +2,7 @@
 #include "../others/Hanz2Piny.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
-#include "convert.h"
+#include "strfunc.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -42,7 +42,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
         //// 拼音
         //auto u8Name = PotConv::cp936toutf8(pairName.second);
         //std::string pinyin = Hanz2Piny::hanz2pinyin(u8Name);
-        //auto pys = convert::splitString(pinyin, " ");
+        //auto pys = strfunc::splitString(pinyin, " ");
         //std::vector<std::string> acceptables;
 
         //std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx)

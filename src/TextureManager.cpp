@@ -1,7 +1,7 @@
 ﻿#include "TextureManager.h"
 #include "File.h"
 #include "RunNode.h"
-#include "convert.h"
+#include "strfunc.h"
 #include "GameUtil.h"
 
 void Texture::setTex(BP_Texture* t)
@@ -96,7 +96,7 @@ std::string TextureGroup::getFileContent(const std::string& filename)
     }
     else
     {
-        return convert::readStringFromFile(info_.path + "/" + filename);
+        return strfunc::readStringFromFile(info_.path + "/" + filename);
     }
 }
 

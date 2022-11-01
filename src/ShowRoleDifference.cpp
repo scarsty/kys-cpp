@@ -1,7 +1,7 @@
 #include "ShowRoleDifference.h"
 #include "Font.h"
 #include "Save.h"
-#include "convert.h"
+#include "strfunc.h"
 
 ShowRoleDifference::ShowRoleDifference()
 {

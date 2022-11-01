@@ -5,7 +5,7 @@
 #include "File.h"
 #include "GrpIdxFile.h"
 #include "TypesABC.h"
-#include "convert.h"
+#include "strfunc.h"
 #include "fmt1.h"
 #include "Save.h"
 #include "OpenCCConverter.h"
@@ -23,7 +23,7 @@ void trans_bin_list(std::string in, std::string out)
     {
         s += fmt1::format("{}, ", a);
     }
-    convert::writeStringToFile(s, out);
+    strfunc::writeStringToFile(s, out);
 }
 
 //导出战斗帧数为文本
@@ -47,7 +47,7 @@ void trans_fight_frame()
                     content += fmt1::format("{}, {}\n", j, frame[j]);
                 }
             }
-            convert::writeStringToFile(content, path + "/fightframe.txt");
+            strfunc::writeStringToFile(content, path + "/fightframe.txt");
         }
     }
 }
@@ -112,7 +112,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
                     auto p = File::getFilePath(idx);
                     p = File::getFilePath(p);
                     auto f = fmt1::format("{}/resource/fight/fight{:03}/fightframe.txt", p, r.HeadID);
-                    convert::writeStringToFile(content, f);
+                    strfunc::writeStringToFile(content, f);
                 }
             }
             if (!ranger) { return 1; }
@@ -203,7 +203,7 @@ void check_fight_frame(std::string path, int repair = 0)
             int count = files.size() - 3;
             int sum = 0;
             auto filename = path1 + "/fightframe.txt";
-            auto numbers = convert::findNumbers<int>(convert::readStringFromFile(filename));
+            auto numbers = strfunc::findNumbers<int>(strfunc::readStringFromFile(filename));
             for (int i = 0; i < numbers.size(); i += 2)
             {
                 sum += numbers[i + 1];
@@ -216,7 +216,7 @@ void check_fight_frame(std::string path, int repair = 0)
                     if (numbers.size() <= 2)
                     {
                         auto str = fmt1::format("{}, {}", numbers[0], count / 4);
-                        convert::writeStringToFile(str, filename);
+                        strfunc::writeStringToFile(str, filename);
                     }
                 }
             }
@@ -231,10 +231,10 @@ void check_script(std::string path)
     for (auto& f : files)
     {
         bool repair = false;
-        auto lines = convert::splitString(convert::readStringFromFile(path + "/" + f), "\n", false);
+        auto lines = strfunc::splitString(strfunc::readStringFromFile(path + "/" + f), "\n", false);
         for (auto& line : lines)
         {
-            auto num = convert::findNumbers<int>(line);
+            auto num = strfunc::findNumbers<int>(line);
             if (num.size() >= 13 && line.find("--") != 0)
             {
                 if (num[0] == 3)
@@ -242,7 +242,7 @@ void check_script(std::string path)
                     if (num[1] > 0 && num[12] >= 0 && num[13] >= 0)
                     {
                         fmt1::print("{}\n", line);
-                        auto strs = convert::splitString(line, ",", false);
+                        auto strs = strfunc::splitString(line, ",", false);
                         strs[10] = "-2";
                         strs[11] = "-2";
                         strs[12][0] = '2';
@@ -271,7 +271,7 @@ void check_script(std::string path)
             {
                 new_str += s + "\n";
             }
-            convert::writeStringToFile(new_str, path + "/" + f);
+            strfunc::writeStringToFile(new_str, path + "/" + f);
         }
     }
 }

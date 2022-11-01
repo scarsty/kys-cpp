@@ -5,7 +5,7 @@
 #include "Save.h"
 #include "SubScene.h"
 #include "UI.h"
-#include "convert.h"
+#include "strfunc.h"
 
 UISave::UISave()
 {

@@ -2,7 +2,7 @@
 #include "Event.h"
 #include "Font.h"
 #include "Save.h"
-#include "convert.h"
+#include "strfunc.h"
 #include "PotConv.h"
 
 UIShop::UIShop()

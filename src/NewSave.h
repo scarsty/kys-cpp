@@ -1,7 +1,7 @@
 #pragma once
 #include "PotConv.h"
 #include "Save.h"
-#include "convert.h"
+#include "strfunc.h"
 #include "fmt1.h"
 #include <algorithm>
 

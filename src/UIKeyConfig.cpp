@@ -2,7 +2,7 @@
 
 #include "Button.h"
 #include "INIReader.h"
-#include "convert.h"
+#include "strfunc.h"
 #include "GameUtil.h"
 
 UIKeyConfig::UIKeyConfig()
@@ -75,7 +75,7 @@ void UIKeyConfig::onPressedCancel()
 void UIKeyConfig::readFromString(std::string str)
 {
     auto& k = *getKeyConfig();
-    auto v = convert::findNumbers<int>(str);
+    auto v = strfunc::findNumbers<int>(str);
     if (v.size() >= 8)
     {
         k = Keys{ v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7] };

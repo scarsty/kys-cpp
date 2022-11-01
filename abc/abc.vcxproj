@@ -19,7 +19,7 @@
     <ClCompile Include="..\src\Types.cpp" />
     <ClCompile Include="abc.cpp" />
     <ClCompile Include="..\mlcc\File.cpp" />
-    <ClCompile Include="..\mlcc\convert.cpp" />
+    <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\src\GrpIdxFile.cpp" />
   </ItemGroup>
   <ItemGroup>

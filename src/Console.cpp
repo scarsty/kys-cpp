@@ -9,7 +9,7 @@
 #include "Save.h"
 #include "SuperMenuText.h"
 #include "TextureManager.h"
-#include "convert.h"
+#include "strfunc.h"
 
 #include <algorithm>
 #include <functional>
@@ -41,7 +41,7 @@ Console::Console()
     }
     // 捂脸
     code = PotConv::conv(code, "cp936", "utf-8");
-    auto splits = convert::splitString(code, " ");
+    auto splits = strfunc::splitString(code, " ");
     //if (splits.empty()) return;
     if (code == "menutest")
     {

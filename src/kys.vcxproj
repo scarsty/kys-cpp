@@ -100,7 +100,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\mlcc\convert.cpp" />
+    <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\mlcc\File.cpp" />
     <ClCompile Include="..\mlcc\PotConv.cpp" />
     <ClCompile Include="..\others\Hanz2Piny.cpp" />
@@ -161,7 +161,7 @@
     <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\mlcc\convert.h" />
+    <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\mlcc\File.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\mlcc\INIReader.h" />

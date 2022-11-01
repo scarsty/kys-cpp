@@ -611,7 +611,7 @@ void BattleScene::readFightFrame(Role* r)
     std::string text_group = fmt1::format("fight/fight{:03}", r->HeadID);
     std::string frame_txt = TextureManager::getInstance()->getTextureGroup(text_group)->getFileContent("fightframe.txt");
     std::vector<int> frames;
-    convert::findNumbers(frame_txt, &frames);
+    strfunc::findNumbers(frame_txt, &frames);
     for (int i = 0; i < frames.size() / 2; i++)
     {
         r->FightFrame[frames[i * 2]] = frames[i * 2 + 1];

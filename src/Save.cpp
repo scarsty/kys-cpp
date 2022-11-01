@@ -3,7 +3,7 @@
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
-#include "convert.h"
+#include "strfunc.h"
 #include "fmt1.h"
 #include "GameUtil.h"
 

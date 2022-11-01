@@ -1,6 +1,6 @@
 #include "Types.h"
 
-#include "convert.h"
+#include "strfunc.h"
 #include "fmt1.h"
 #include "GameUtil.h"
 #include "Random.h"
@@ -637,8 +637,8 @@ void Role::setMaxValue()
 
 void Role::setLevelUpList()
 {
-    auto str = convert::readStringFromFile(GameUtil::PATH() + "list/levelup.txt");
-    level_up_list() = convert::findNumbers<int>(str);
+    auto str = strfunc::readStringFromFile(GameUtil::PATH() + "list/levelup.txt");
+    level_up_list() = strfunc::findNumbers<int>(str);
     if (level_up_list().size() < Role::getMaxValue()->Level)
     {
         level_up_list().resize(Role::getMaxValue()->Level, 60000);

@@ -7,7 +7,7 @@
     <ClCompile Include="..\src\GrpIdxFile.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\convert.cpp">
+    <ClCompile Include="..\mlcc\strfunc.cpp">
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="..\mlcc\File.cpp">
