@@ -217,7 +217,7 @@ void SuperMenuText::dealEvent(BP_Event& e)
     {
     case BP_TEXTINPUT:
     {
-        auto converted = OpenCCConverter::getInstance()->convertUTF8(e.text.text);
+        auto converted = OpenCCConverter::getInstance()->UTF8s2t(e.text.text);
         converted = PotConv::conv(converted, "utf-8", "cp936");
         text_ += converted;
         research = true;

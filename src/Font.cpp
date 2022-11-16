@@ -1,4 +1,6 @@
 #include "Font.h"
+
+#include "OpenCCConverter.h"
 #include "PotConv.h"
 #include "TextureManager.h"
 
@@ -28,7 +30,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     {
         s1 = getBufferSize();
     }
-    auto ss = PotConv::utf8tocp936(text);
+    //auto ss = PotConv::utf8tocp936(text);
     while (p < text.size())
     {
         int w = size, h = size;
@@ -41,7 +43,11 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         }
         if (buffer_[c].count(size) == 0)
         {
-            auto s = (char*)(&c);
+            auto s = std::string((char*)(&c));
+            if (simplified_)
+            {
+                s = OpenCCConverter::getInstance()->UTF8t2s(s);
+            }
             buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];

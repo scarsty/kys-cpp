@@ -76,9 +76,10 @@ int UISystem::askExit(int mode)
         int r = menu->runAtPosition(x, y);
         if (r == 0)
         {
-            exitAll();
-            Event::getInstance()->forceExit();
-            ret = 0;
+            //exitAll();
+            //Event::getInstance()->forceExit();
+            //ret = 0;
+            exit(0);    //爱咋咋地
         }
         else if (r == 1)
         {

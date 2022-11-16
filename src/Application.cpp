@@ -39,6 +39,7 @@ void Application::config()
     Audio::getInstance()->setVolume(game->getInt("music", "volume", 50));
     Event::getInstance()->setUseScript(game->getInt("game", "use_script", 0));
     Font::getInstance()->setStatMessage(game->getInt("game", "stat_font", 0));
+    Font::getInstance()->setSimplified(game->getInt("game", "simplified chinese", 1));
     Engine::getInstance()->setWindowTitle(game->getString("game", "title", "All Heroes in Kam Yung Stories"));
     TextureManager::getInstance()->setLoadFromPath(game->getInt("game", "png_from_path", 0));
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));

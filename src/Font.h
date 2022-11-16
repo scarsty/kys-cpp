@@ -15,6 +15,8 @@ private:
 
     int stat_message_ = 0;
 
+    int simplified_ = 1;
+
     std::map<uint32_t, std::map<int, BP_Texture*>> buffer_;    //缓存画过的字体
 
 public:
@@ -31,4 +33,5 @@ public:
     void clearBuffer();
     int getBufferSize();
     static int getTextDrawSize(const std::string& text);
+    void setSimplified(int s) { simplified_ = s; }
 };

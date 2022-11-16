@@ -285,7 +285,7 @@ void make_heads(std::string path)
     {
         std::string name = r->Name;
         OpenCCConverter::getInstance()->set("cc/t2s.json");
-        name = OpenCCConverter::getInstance()->convertUTF8(name);
+        name = OpenCCConverter::getInstance()->UTF8s2t(name);
         name = PotConv::utf8tocp936(name);
         for (auto& h : h_lib)
         {
