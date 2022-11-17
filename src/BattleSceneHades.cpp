@@ -266,11 +266,11 @@ void BattleSceneHades::draw()
                     }
                     if (d.shadow == 1)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32,32,32,255 }, d.alpha / 2, scalex, scaley, d.rot);
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
                     }
                     if (d.shadow == 2)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128,128,128,255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
                     }
                 }
             }
@@ -339,6 +339,8 @@ void BattleSceneHades::draw()
 
 void BattleSceneHades::dealEvent(BP_Event& e)
 {
+    auto engine = Engine::getInstance();
+    auto r = role_;
     if (shake_ > 0)
     {
         x_ = rand_.rand_int(3) - rand_.rand_int(3);
@@ -348,11 +350,9 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     if (frozen_ > 0)
     {
         frozen_--;
+        engine->gameControllerRumble(100, 100, 1000);
         return;
     }
-
-    auto engine = Engine::getInstance();
-    auto r = role_;
 
     if (r->Dead)
     {
@@ -363,6 +363,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 pos_ = r1->Pos;
             }
         }
+        //engine->gameControllerRumble(65535, 65535, 1000);
     }
     else
     {
@@ -563,7 +564,6 @@ void BattleSceneHades::dealEvent(BP_Event& e)
 
 void BattleSceneHades::dealEvent2(BP_Event& e)
 {
-
 }
 
 void BattleSceneHades::backRun1()
@@ -610,7 +610,7 @@ void BattleSceneHades::backRun1()
         }
         else
         {
-            r->Velocity = { 0,0 };
+            r->Velocity = { 0, 0 };
             if (r->HP <= 0)
             {
                 r->Dead = 1;
@@ -681,6 +681,7 @@ void BattleSceneHades::backRun1()
                 shake_ = 5;
                 if (ae.OperationType >= 0)
                 {
+                    Engine::getInstance()->gameControllerRumble(100, 100, 500);
                     //if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
                     //{
                     defaultMagicEffect(ae, r);
@@ -997,7 +998,7 @@ void BattleSceneHades::Action(Role* r)
                 {
                     double a = angle + i * 2 * M_PI / count;
                     ae.Pos = p;
-                    ae.Velocity = { cos(a) ,sin(a) };
+                    ae.Velocity = { cos(a), sin(a) };
                     ae.Velocity.normTo(3);
                     ae.Frame = rand_.rand() * 10;
                     ae.Track = 1;
@@ -1348,22 +1349,22 @@ void BattleSceneHades::AI(Role* r)
 
 void BattleSceneHades::onPressedCancel()
 {
-    auto menu2 = std::make_shared<MenuText>();
-    menu2->setStrings({ "確認（Y）", "取消（N）" });
-    menu2->setPosition(400, 300);
-    menu2->setFontSize(24);
-    menu2->setHaveBox(true);
-    menu2->setText("認輸？");
-    menu2->arrange(0, 50, 150, 0);
-    if (menu2->run() == 0)
-    {
-        result_ = 1;
-        for (auto r : friends_)
-        {
-            r->ExpGot = 0;
-        }
-        setExit(true);
-    }
+    //auto menu2 = std::make_shared<MenuText>();
+    //menu2->setStrings({ "確認（Y）", "取消（N）" });
+    //menu2->setPosition(400, 300);
+    //menu2->setFontSize(24);
+    //menu2->setHaveBox(true);
+    //menu2->setText("認輸？");
+    //menu2->arrange(0, 50, 150, 0);
+    //if (menu2->run() == 0)
+    //{
+    //    result_ = 1;
+    //    for (auto r : friends_)
+    //    {
+    //        r->ExpGot = 0;
+    //    }
+    //    setExit(true);
+    //}
 }
 
 void BattleSceneHades::onEntrance()
@@ -1409,7 +1410,10 @@ void BattleSceneHades::onEntrance()
     pos_ = enemies_[0]->Pos;
 
     //敌人按能力从低到高，依次出场
-    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r) { return l->MaxHP + l->Attack < r->MaxHP + r->Attack; });
+    std::sort(enemies_.begin(), enemies_.end(), [](Role* l, Role* r)
+        {
+            return l->MaxHP + l->Attack < r->MaxHP + r->Attack;
+        });
 
     for (int i = 0; i < head_boss_.size(); i++)
     {
@@ -1595,7 +1599,7 @@ void BattleSceneHades::setRoleInitState(Role* r)
     {
         r->RealTowards = { -1, -1 };
     }
-    r->Acceleration = { 0,0,gravity_ };
+    r->Acceleration = { 0, 0, gravity_ };
 }
 
 Role* BattleSceneHades::findNearestEnemy(int team, Pointf p)
@@ -1681,8 +1685,8 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     {
         hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic);
     }
-    hurt -= ae.Weaken;    //弱化
-    hurt *= ae.Strengthen;    //强化
+    hurt -= ae.Weaken;                             //弱化
+    hurt *= ae.Strengthen;                         //强化
     hurt *= 1 - 0.5 * ae.Frame / ae.TotalFrame;    //距离衰减
     //角度
     auto atk_dir = ae.Pos - r->Pos;

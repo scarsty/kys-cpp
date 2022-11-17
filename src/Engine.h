@@ -198,6 +198,8 @@ public:
     bool gameControllerGetButton(int key);
     int16_t gameControllerGetAxis(int axis);
 
+    void gameControllerRumble(int l, int h, uint32_t time);
+
     //UI相关
 private:
     BP_Texture* square_;

@@ -51,8 +51,6 @@ int Engine::init(void* handle)
             std::string name = SDL_GameControllerName(game_controller_);
             fmt1::print("{}\n", name);
             if (name.find("Switch") != std::string::npos) { switch_ = 1; }
-            haptic_ = SDL_HapticOpenFromJoystick(SDL_GameControllerGetJoystick(game_controller_));
-            if (haptic_ == nullptr) { fmt1::print("{}\n", SDL_GetError()); }
         }
         else
         {
@@ -213,6 +211,14 @@ int16_t Engine::gameControllerGetAxis(int axis)
         return SDL_GameControllerGetAxis(game_controller_, SDL_GameControllerAxis(axis));
     }
     return 0;
+}
+
+void Engine::gameControllerRumble(int l, int h, uint32_t time)
+{
+    if (game_controller_)
+    {
+        auto s = SDL_GameControllerRumble(game_controller_, l * 65535 / 100, h * 65535 / 100, time);
+    }
 }
 
 BP_Texture* Engine::createRectTexture(int w, int h, int style)
@@ -422,14 +428,12 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
 
 int Engine::showMessage(const std::string& content)
 {
-    const SDL_MessageBoxButtonData buttons[] =
-    {
+    const SDL_MessageBoxButtonData buttons[] = {
         { /* .flags, .buttonid, .text */ 0, 0, "no" },
         { SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
         { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 2, "cancel" },
     };
-    const SDL_MessageBoxColorScheme colorScheme =
-    {
+    const SDL_MessageBoxColorScheme colorScheme = {
         { /* .colors (.r, .g, .b) */
             /* [SDL_MESSAGEBOX_COLOR_BACKGROUND] */
             { 255, 0, 0 },
@@ -440,11 +444,9 @@ int Engine::showMessage(const std::string& content)
             /* [SDL_MESSAGEBOX_COLOR_BUTTON_BACKGROUND] */
             { 0, 0, 255 },
             /* [SDL_MESSAGEBOX_COLOR_BUTTON_SELECTED] */
-            { 255, 0, 255 }
-        }
+            { 255, 0, 255 } }
     };
-    const SDL_MessageBoxData messageboxdata =
-    {
+    const SDL_MessageBoxData messageboxdata = {
         SDL_MESSAGEBOX_INFORMATION, /* .flags */
         NULL,                       /* .window */
         title_.c_str(),             /* .title */

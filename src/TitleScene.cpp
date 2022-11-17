@@ -78,6 +78,7 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
+        Engine::getInstance()->gameControllerRumble(50 , 50, 500);
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript(GameUtil::PATH()+"script/0.lua");
         std::string name = "";
