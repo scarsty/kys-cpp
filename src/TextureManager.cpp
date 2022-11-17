@@ -1,8 +1,8 @@
 ﻿#include "TextureManager.h"
-#include "File.h"
-#include "RunNode.h"
-#include "strfunc.h"
 #include "GameUtil.h"
+#include "RunNode.h"
+#include "filefunc.h"
+#include "strfunc.h"
 
 void Texture::setTex(BP_Texture* t)
 {
@@ -120,7 +120,7 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         }
         else
         {
-            File::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+            filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
         }
         group_.resize(offset.size() / 2);
         for (int i = 0; i < group_.size(); i++)
@@ -199,11 +199,10 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
     if (white)
     {
         tex->createWhiteTexture();
-        engine->setColor(tex->tex_white, { 255,255,255,white });
+        engine->setColor(tex->tex_white, { 255, 255, 255, white });
         engine->renderCopy(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
     }
 }
-
 
 void TextureManager::renderTexture(const std::string& path, int num, BP_Rect r, BP_Color c, uint8_t alpha, double angle, uint8_t white)
 {

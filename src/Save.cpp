@@ -1,11 +1,11 @@
 #include "Save.h"
-#include "File.h"
+#include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
-#include "strfunc.h"
+#include "filefunc.h"
 #include "fmt1.h"
-#include "GameUtil.h"
+#include "strfunc.h"
 
 Save::Save()
 {
@@ -46,9 +46,9 @@ std::string Save::getFilename(int i, char c)
 
 bool Save::checkSaveFileExist(int num)
 {
-    return File::fileExist(getFilename(num, 'r'))
-        && File::fileExist(getFilename(num, 's'))
-        && File::fileExist(getFilename(num, 'd'));
+    return filefunc::fileExist(getFilename(num, 'r'))
+        && filefunc::fileExist(getFilename(num, 's'))
+        && filefunc::fileExist(getFilename(num, 'd'));
 }
 
 void Save::updateAllPtrVector()
@@ -84,11 +84,11 @@ void Save::loadR(int num)
     std::string filename_idx = GameUtil::PATH() + "save/ranger.idx32";
     auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
     memcpy((void*)this, rgrp.data() + offset_[0], length_[0]);
-    File::readDataToVector(rgrp.data() + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
-    File::readDataToVector(rgrp.data() + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
-    File::readDataToVector(rgrp.data() + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
-    File::readDataToVector(rgrp.data() + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
-    File::readDataToVector(rgrp.data() + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
     updateAllPtrVector();
 
     //内部编码为65001
@@ -149,8 +149,8 @@ void Save::loadSD(int num)
 
     auto sdata = new char[submap_count * sdata_length_];
     auto ddata = new char[submap_count * ddata_length_];
-    File::readFile(filenames, sdata, submap_count * sdata_length_);
-    File::readFile(filenamed, ddata, submap_count * ddata_length_);
+    filefunc::readFile(filenames, sdata, submap_count * sdata_length_);
+    filefunc::readFile(filenamed, ddata, submap_count * ddata_length_);
     for (int i = 0; i < submap_count; i++)
     {
         memcpy(&(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
@@ -174,13 +174,13 @@ void Save::saveR(int num)
 
     char* rgrp = new char[offset_.back()];
     memcpy(rgrp + offset_[0], &InShip, length_[0]);
-    File::writeVectorToData(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
-    File::writeVectorToData(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
-    File::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
-    File::writeVectorToData(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
-    File::writeVectorToData(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+    filefunc::writeVectorToData(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    filefunc::writeVectorToData(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    filefunc::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    filefunc::writeVectorToData(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    filefunc::writeVectorToData(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
 
-    File::writeFile(filenamer, rgrp, offset_.back());
+    filefunc::writeFile(filenamer, rgrp, offset_.back());
     delete[] rgrp;
 }
 
@@ -197,8 +197,8 @@ void Save::saveSD(int num)
         memcpy(sdata + sdata_length_ * i, &(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata_length_);
         memcpy(ddata + ddata_length_ * i, submap_infos_mem_[i].Event(0), ddata_length_);
     }
-    File::writeFile(filenames, sdata, submap_count * sdata_length_);
-    File::writeFile(filenamed, ddata, submap_count * ddata_length_);
+    filefunc::writeFile(filenames, sdata, submap_count * sdata_length_);
+    filefunc::writeFile(filenamed, ddata, submap_count * ddata_length_);
     delete[] sdata;
     delete[] ddata;
 }
@@ -272,7 +272,7 @@ std::vector<std::tuple<Item*, int>> Save::getAvailableEquipItems()
         }
         auto item = getItem(id);
         if (item && (item->ItemType == 4))
-            // if (item && (item->ItemType == 3 || item->ItemType == 4))
+        // if (item && (item->ItemType == 3 || item->ItemType == 4))
         {
             ret.emplace_back(item, count);
         }
@@ -433,7 +433,7 @@ void Save::saveRToDB(int num)
 void Save::loadRFromDB(int num)
 {
     auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-    if (!File::fileExist(filename))
+    if (!filefunc::fileExist(filename))
     {
         return;
     }

@@ -1,6 +1,6 @@
 #include "RunNodeFromJson.h"
-#include "File.h"
 #include "TextBox.h"
+#include "filefunc.h"
 
 RunNodeFromJson::RunNodeFromJson(const std::string json_str)
 {
@@ -10,7 +10,7 @@ RunNodeFromJson::RunNodeFromJson(const std::string json_str)
 void RunNodeFromJson::init(const std::string json_str)
 {
     YAML::Node node;
-    if (File::fileExist(json_str))
+    if (filefunc::fileExist(json_str))
     {
         node = YAML::LoadFile(json_str);
     }
@@ -34,7 +34,7 @@ void RunNodeFromJson::create(YAML::Node& n, RunNode* run_node)
         t->setFontSize(n["FontSize"].as<int>());
         t->setTextPosition(n["Position"]["X"].as<double>(), n["Position"]["Y"].as<double>());
         t->setHaveBox(0);
-        BP_Color c{ 255,255,255,255 };
+        BP_Color c{ 255, 255, 255, 255 };
         t->setTextColor(c, c, c);
         new_node = t;
     }

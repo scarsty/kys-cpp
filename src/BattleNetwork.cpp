@@ -2,7 +2,7 @@
 
 #ifdef WITH_NETWORK
 #include "DrawableOnCall.h"
-#include "File.h"
+#include "filefunc.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"

@@ -1,10 +1,10 @@
 #include "UISave.h"
 #include "Event.h"
-#include "File.h"
 #include "MainScene.h"
 #include "Save.h"
 #include "SubScene.h"
 #include "UI.h"
+#include "filefunc.h"
 #include "strfunc.h"
 
 UISave::UISave()
@@ -12,7 +12,7 @@ UISave::UISave()
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
-        auto str = File::getFileTime(Save::getFilename(i, 'r'));
+        auto str = filefunc::getFileTime(Save::getFilename(i, 'r'));
         if (str.empty())
         {
             str = "--------------------";

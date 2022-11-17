@@ -1,8 +1,8 @@
 #include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
-#include "strfunc.h"
 #include "fmt1.h"
+#include "strfunc.h"
 
 GameUtil::GameUtil()
 {
@@ -13,5 +13,3 @@ GameUtil::~GameUtil()
 {
     saveFile(GameUtil::PATH() + "config/kysmod.ini");
 }
-
-

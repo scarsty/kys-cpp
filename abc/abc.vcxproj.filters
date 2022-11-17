@@ -10,7 +10,7 @@
     <ClCompile Include="..\mlcc\strfunc.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\File.cpp">
+    <ClCompile Include="..\mlcc\filefunc.cpp">
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="..\src\NewSave.cpp">

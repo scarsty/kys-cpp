@@ -1,12 +1,12 @@
 #include "BattleMap.h"
-#include "File.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "PotConv.h"
+#include "filefunc.h"
 
 BattleMap::BattleMap()
 {
-    File::readFileToVector(GameUtil::PATH() + "resource/war.sta", battle_infos_);
+    filefunc::readFileToVector(GameUtil::PATH() + "resource/war.sta", battle_infos_);
 
     //地图的长度不一致，故换方法读取
     std::vector<int> offset, length;

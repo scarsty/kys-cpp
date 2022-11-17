@@ -2,21 +2,21 @@
 //一些辅助的功能
 //一些常数的设置比较不合理，建议以调试模式手动执行
 
-#include "File.h"
+#include "GameUtil.h"
 #include "GrpIdxFile.h"
-#include "TypesABC.h"
-#include "strfunc.h"
-#include "fmt1.h"
-#include "Save.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
-#include "GameUtil.h"
+#include "Save.h"
+#include "TypesABC.h"
+#include "filefunc.h"
+#include "fmt1.h"
+#include "strfunc.h"
 
 //转换二进制文件为文本
 void trans_bin_list(std::string in, std::string out)
 {
     std::vector<int16_t> leave_list;
-    File::readFileToVector(in, leave_list);
+    filefunc::readFileToVector(in, leave_list);
 
     std::string s;
     for (auto a : leave_list)
@@ -34,9 +34,9 @@ void trans_fight_frame()
         std::string path = fmt1::format("C:/Users/sty/Desktop/ff/fight{:03}", i);
         std::vector<int16_t> frame;
         std::string filename = path + "/fightframe.ka";
-        if (File::fileExist(filename))
+        if (filefunc::fileExist(filename))
         {
-            File::readFileToVector(path + "/fightframe.ka", frame);
+            filefunc::readFileToVector(path + "/fightframe.ka", frame);
             std::string content;
             fmt1::print("role {}\n", i);
             for (int j = 0; j < 5; j++)
@@ -56,7 +56,7 @@ void trans_fight_frame()
 //最后一个参数：帧数需从之前存档格式获取
 int expandR(std::string idx, std::string grp, bool ranger = true, bool make_fightframe = false)
 {
-    if (!File::fileExist(grp) || !File::fileExist(idx))
+    if (!filefunc::fileExist(grp) || !filefunc::fileExist(idx))
     {
         return -1;
     }
@@ -91,7 +91,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
         std::vector<MagicSave1> magics_mem_;
         std::vector<ItemSave1> items_mem_;
         std::vector<SubMapInfoSave1> submap_infos_mem_;
-        File::readDataToVector(rgrp1 + offset1[1], length1[1], roles_mem_);
+        filefunc::readDataToVector(rgrp1 + offset1[1], length1[1], roles_mem_);
         if (make_fightframe)
         {
             for (auto it = roles_mem_.end() - 1; it >= roles_mem_.begin(); it--)
@@ -109,8 +109,8 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
                 }
                 if (!content.empty())
                 {
-                    auto p = File::getFilePath(idx);
-                    p = File::getFilePath(p);
+                    auto p = filefunc::getParentPath(idx);
+                    p = filefunc::getParentPath(p);
                     auto f = fmt1::format("{}/resource/fight/fight{:03}/fightframe.txt", p, r.HeadID);
                     strfunc::writeStringToFile(content, f);
                 }
@@ -118,18 +118,18 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
             if (!ranger) { return 1; }
         }
 
-        File::readDataToVector(rgrp1 + offset1[2], length1[2], items_mem_);
-        File::readDataToVector(rgrp1 + offset1[3], length1[3], submap_infos_mem_);
-        File::readDataToVector(rgrp1 + offset1[4], length1[4], magics_mem_);
+        filefunc::readDataToVector(rgrp1 + offset1[2], length1[2], items_mem_);
+        filefunc::readDataToVector(rgrp1 + offset1[3], length1[3], submap_infos_mem_);
+        filefunc::readDataToVector(rgrp1 + offset1[4], length1[4], magics_mem_);
 
         std::vector<RoleSave> roles;
         std::vector<MagicSave> magics;
         std::vector<ItemSave> items;
         std::vector<SubMapInfoSave> submap_infos;
-        File::readDataToVector(rgrp2 + offset2[1], length2[1], roles);
-        File::readDataToVector(rgrp2 + offset2[2], length2[2], items);
-        File::readDataToVector(rgrp2 + offset2[3], length2[3], submap_infos);
-        File::readDataToVector(rgrp2 + offset2[4], length2[4], magics);
+        filefunc::readDataToVector(rgrp2 + offset2[1], length2[1], roles);
+        filefunc::readDataToVector(rgrp2 + offset2[2], length2[2], items);
+        filefunc::readDataToVector(rgrp2 + offset2[3], length2[3], submap_infos);
+        filefunc::readDataToVector(rgrp2 + offset2[4], length2[4], magics);
         for (int i = 0; i < roles.size(); i++)
         {
             memset(roles[i].Name, 0, sizeof(roles[i].Name));
@@ -154,14 +154,14 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
             memset(submap_infos[i].Name, 0, sizeof(submap_infos[i].Name));
             memcpy(submap_infos[i].Name, submap_infos_mem_[i].Name, sizeof(submap_infos_mem_[i].Name));
         }
-        File::writeVectorToData(rgrp2 + offset2[1], length2[1], roles, sizeof(RoleSave));
-        File::writeVectorToData(rgrp2 + offset2[2], length2[2], items, sizeof(ItemSave));
-        File::writeVectorToData(rgrp2 + offset2[3], length2[3], submap_infos, sizeof(SubMapInfoSave));
-        File::writeVectorToData(rgrp2 + offset2[4], length2[4], magics, sizeof(MagicSave));
+        filefunc::writeVectorToData(rgrp2 + offset2[1], length2[1], roles, sizeof(RoleSave));
+        filefunc::writeVectorToData(rgrp2 + offset2[2], length2[2], items, sizeof(ItemSave));
+        filefunc::writeVectorToData(rgrp2 + offset2[3], length2[3], submap_infos, sizeof(SubMapInfoSave));
+        filefunc::writeVectorToData(rgrp2 + offset2[4], length2[4], magics, sizeof(MagicSave));
     }
     s32[1]--;    //submap scene id
-    File::writeFile(grp + "32", rgrp2, len * 2);
-    File::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
+    filefunc::writeFile(grp + "32", rgrp2, len * 2);
+    filefunc::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
     //delete rgrp1;
     delete rgrp2;
 
@@ -173,8 +173,8 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
 void combine_ka(std::string in, std::string out)
 {
     std::vector<int16_t> in1, out1;
-    File::readFileToVector(in, in1);
-    File::readFileToVector(out, out1);
+    filefunc::readFileToVector(in, in1);
+    filefunc::readFileToVector(out, out1);
     std::string s;
     int i = 0;
     for (int i = 0; i < out1.size(); i += 2)
@@ -185,9 +185,8 @@ void combine_ka(std::string in, std::string out)
             out1[i + 1] = in1[i + 1];
             fmt1::print("{}, ", i / 2);
         }
-
     }
-    File::writeFile(out, out1.data(), out1.size() * 2);
+    filefunc::writeFile(out, out1.data(), out1.size() * 2);
     //convert::writeStringToFile(s, out);
 }
 
@@ -197,9 +196,9 @@ void check_fight_frame(std::string path, int repair = 0)
     for (int i = 0; i < 500; i++)
     {
         auto path1 = fmt1::format("{}/fight{:03}", path, i);
-        if (File::pathExist(path1))
+        if (filefunc::pathExist(path1))
         {
-            auto files = File::getFilesInPath(path1, 0);
+            auto files = filefunc::getFilesInPath(path1, 0);
             int count = files.size() - 3;
             int sum = 0;
             auto filename = path1 + "/fightframe.txt";
@@ -227,7 +226,7 @@ void check_fight_frame(std::string path, int repair = 0)
 //检查3号指令的最后3个参数正确性
 void check_script(std::string path)
 {
-    auto files = File::getFilesInPath(path, 0);
+    auto files = filefunc::getFilesInPath(path, 0);
     for (auto& f : files)
     {
         bool repair = false;
@@ -279,7 +278,7 @@ void check_script(std::string path)
 //重新产生头像
 void make_heads(std::string path)
 {
-    auto h_lib = File::getFilesInPath(path);
+    auto h_lib = filefunc::getFilesInPath(path);
     Save::getInstance()->loadR(0);
     for (auto r : Save::getInstance()->getRoles())
     {
@@ -300,7 +299,6 @@ void make_heads(std::string path)
             }
         }
     }
-
 }
 
 int main()

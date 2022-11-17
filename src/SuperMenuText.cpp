@@ -102,7 +102,9 @@ void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, cons
 void SuperMenuText::defaultPage()
 {
     if (curDefault_)
-    { return; }
+    {
+        return;
+    }
     std::vector<std::string> displays;
     searchResultIndices_.clear();
     for (int i = 0; i < items_.size(); i++)
@@ -118,7 +120,9 @@ void SuperMenuText::defaultPage()
     updateMaxPages();
     selections_->setStrings(displays);
     if (displays.size() != 0)
-    { selections_->forceActiveChild(0); }
+    {
+        selections_->forceActiveChild(0);
+    }
     curDefault_ = true;
 }
 
@@ -148,7 +152,9 @@ bool SuperMenuText::defaultMatch(const std::string& input, const std::string& na
     {
         auto iterName = iterInput->second.find(name);
         if (iterName != iterInput->second.end())
-        { return true; }
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -306,7 +312,9 @@ void SuperMenuText::dealEvent(BP_Event& e)
         auto selected = selections_->getResultString();
         result_ = activeIndices_[selections_->getResult()];
         if (result_ >= 0)
-        { result_ = items_[result_].first; }
+        {
+            result_ = items_[result_].first;
+        }
         setExit(true);
     }
 }

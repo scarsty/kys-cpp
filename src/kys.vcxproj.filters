@@ -172,7 +172,7 @@
     <ClCompile Include="..\mlcc\strfunc.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\File.cpp">
+    <ClCompile Include="..\mlcc\filefunc.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
     <ClCompile Include="RunNodeFromJson.cpp">
@@ -351,19 +351,7 @@
     <ClInclude Include="DrawNode.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\PotConv.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\mlcc\strfunc.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\mlcc\File.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
     <ClInclude Include="..\mlcc\fmt1.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\mlcc\INIReader.h">
       <Filter>mlcc</Filter>
     </ClInclude>
     <ClInclude Include="RunNodeFromJson.h">

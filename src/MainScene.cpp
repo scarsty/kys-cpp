@@ -4,7 +4,7 @@
 #include <Timer.h>
 
 #include "Console.h"
-#include "File.h"
+#include "filefunc.h"
 #include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
@@ -31,11 +31,11 @@ MainScene::MainScene()
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        File::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
-        File::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
-        File::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
-        File::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
-        File::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
+        filefunc::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
+        filefunc::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
+        filefunc::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
+        filefunc::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
+        filefunc::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
 
         divide2(earth_layer1, earth_layer_);
         divide2(surface_layer1, surface_layer_);

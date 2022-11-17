@@ -11,12 +11,12 @@
 #include "Menu.h"
 #include "Random.h"
 #include "RandomRole.h"
+#include "RunNodeFromJson.h"
 #include "Script.h"
 #include "SubScene.h"
 #include "TeamMenu.h"
 #include "UISave.h"
 #include "UIShop.h"
-#include "RunNodeFromJson.h"
 
 #include "../others/Hanz2Piny.h"
 #include "PotConv.h"

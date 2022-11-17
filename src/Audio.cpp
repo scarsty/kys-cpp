@@ -1,7 +1,7 @@
 #include "Audio.h"
-#include "File.h"
-#include "fmt1.h"
 #include "GameUtil.h"
+#include "filefunc.h"
+#include "fmt1.h"
 
 Audio::Audio()
 {
@@ -63,7 +63,7 @@ void Audio::init()
     for (int i = 0; i < 100; i++)
     {
         music_path = fmt1::format(GameUtil::PATH() + "music/{}.mid", i);
-        if (File::fileExist(music_path))
+        if (filefunc::fileExist(music_path))
         {
 #ifndef USE_SDL_MIXER_AUDIO
             auto m = BASS_MIDI_StreamCreateFile(false, music_path.c_str(), 0, 0, 0, 0);

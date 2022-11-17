@@ -2,7 +2,6 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "BattleSceneHades.h"
-#include "File.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -14,6 +13,7 @@
 #include "SubScene.h"
 #include "Talk.h"
 #include "UIShop.h"
+#include "filefunc.h"
 #include "strfunc.h"
 
 Event::Event()
@@ -122,7 +122,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     if (use_script_)
     {
         auto script = fmt1::format(GameUtil::PATH() + "script/event/ka{}.lua", event_id);
-        if (!File::fileExist(script))
+        if (!filefunc::fileExist(script))
         {
             script = fmt1::format(GameUtil::PATH() + "script/oldevent/oldevent_{}.lua", event_id);
         }
@@ -1014,11 +1014,7 @@ void Event::breakStoneGate()
 //武林大会
 void Event::fightForTop()
 {
-    std::vector<int> heads =
-    {
-        8, 21, 23, 31, 32, 43, 7, 11, 14, 20, 33, 34, 10, 12, 19,
-        22, 56, 68, 13, 55, 62, 67, 70, 71, 26, 57, 60, 64, 3, 69
-    };
+    std::vector<int> heads{ 8, 21, 23, 31, 32, 43, 7, 11, 14, 20, 33, 34, 10, 12, 19, 22, 56, 68, 13, 55, 62, 67, 70, 71, 26, 57, 60, 64, 3, 69 };
 
     for (int i = 0; i < 15; i++)
     {
@@ -1157,7 +1153,7 @@ void Event::clearTalkBox()
 void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e6, int* code_ptr, int* code_value)
 {
     int index = 0, len = 0, offset = 0;
-    char* char_ptr = nullptr, * char_ptr1 = nullptr;
+    char *char_ptr = nullptr, *char_ptr1 = nullptr;
     int* save_int_ptr = nullptr;
     int i1 = 0;
     int i2 = 0;

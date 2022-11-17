@@ -1,10 +1,10 @@
 ﻿#include "GrpIdxFile.h"
-#include "File.h"
+#include "filefunc.h"
 
 std::string GrpIdxFile::getIdxContent(const std::string& filename_idx, const std::string& filename_grp, std::vector<int>* offset, std::vector<int>* length)
 {
     std::vector<int> Ridx;
-    File::readFileToVector(filename_idx, Ridx);
+    filefunc::readFileToVector(filename_idx, Ridx);
 
     offset->resize(Ridx.size() + 1);
     length->resize(Ridx.size());
@@ -18,6 +18,6 @@ std::string GrpIdxFile::getIdxContent(const std::string& filename_idx, const std
 
     std::string Rgrp;
     Rgrp.resize(total_length);
-    File::readFile(filename_grp, (void*)Rgrp.data(), total_length);
+    filefunc::readFile(filename_grp, (void*)Rgrp.data(), total_length);
     return Rgrp;
 }

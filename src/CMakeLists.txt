@@ -12,7 +12,7 @@ link_directories(. ../lib)
 file(GLOB SRC_LIST
     ./*.cpp
     ../mlcc/strfunc.cpp
-    ../mlcc/File.cpp
+    ../mlcc/filefunc.cpp
     ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp
     )
