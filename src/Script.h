@@ -1,10 +1,10 @@
 #pragma once
 #include "FunctionTrait.h"
-#ifdef _WIN32
-#include "lua.hpp"
-#else
-#include "lua5.3/lua.hpp"
-#endif
+extern "C" {
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+}
 #include <string>
 #include <array>
 #include <type_traits>

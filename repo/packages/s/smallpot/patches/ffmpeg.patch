@@ -1,0 +1,24 @@
+diff --git a/src/PotStream.cpp b/src/PotStream.cpp
+index e59667e..06955c5 100644
+--- a/src/PotStream.cpp
++++ b/src/PotStream.cpp
+@@ -37,10 +37,10 @@ int PotStream::openFile(const std::string& filename)
+     time_base_packet_ = 1e3 * av_q2d(stream_->time_base);
+     total_time_ = format_ctx_->duration * 1e3 / AV_TIME_BASE;
+     start_time_ = format_ctx_->start_time * 1e3 / AV_TIME_BASE;
+-    codec_ = avcodec_find_decoder(stream_->codecpar->codec_id);
++    codec_ = (AVCodec *)avcodec_find_decoder(stream_->codecpar->codec_id);
+     codec_ctx_ = avcodec_alloc_context3(codec_);
+     avcodec_parameters_to_context(codec_ctx_, stream_->codecpar);
+-    av_codec_set_pkt_timebase(codec_ctx_, stream_->time_base);
++    // av_codec_set_pkt_timebase(codec_ctx_, stream_->time_base);
+     //codec_ctx_ = stream_->codec;
+     avcodec_open2(codec_ctx_, codec_, nullptr);
+ 
+@@ -436,4 +436,4 @@ void PotStream::getRatio(int& x, int& y)
+ //            }
+ //        }
+ //    }
+-//}
+\ No newline at end of file
++//}
