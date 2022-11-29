@@ -16,7 +16,6 @@ Head::~Head()
 {
 }
 
-
 void Head::setRole(Role* r)
 {
     role_ = r;
@@ -38,7 +37,6 @@ void Head::backRun()
 {
 }
 
-
 void Head::draw()
 {
     w_ = 250;
@@ -59,10 +57,15 @@ void Head::draw()
     {
         color = { 255, 255, 255, 255 };
     }
+    if (role_->HP <= 0)
+    {
+        color.r /= 4;
+        color.g /= 4;
+        color.b /= 4;
+    }
     //中毒时突出绿色
     color.r -= 2 * role_->Poison;
     color.b -= 2 * role_->Poison;
-
 
     //下面都是画血条等
     if (style_ == 0)
@@ -123,7 +126,7 @@ void Head::draw()
         int w = (width_ - 2) * role_->HP / role_->MaxHP;
         if (role_->MaxHP > 0)
         {
-            r2 = { x_ + 1 + w, y_ + 1,(width_ - 2) * (HP_ - role_->HP) / role_->MaxHP,9 };
+            r2 = { x_ + 1 + w, y_ + 1, (width_ - 2) * (HP_ - role_->HP) / role_->MaxHP, 9 };
             r1 = { x_ + 1, y_ + 1, w, 9 };
         }
         c = { 0xff, 0xb7, 0x4d, 255 };
@@ -133,8 +136,7 @@ void Head::draw()
         font->draw(role_->Name, 20, x_ - 10 - font->getTextDrawSize(role_->Name) * 10, y_ - 4, white);
         font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + width_ + 10, y_ - 2, white);
     }
-    HP_ = std::max(HP_ - 1, role_->HP);
-    MP_ = std::max(MP_ - 1, role_->MP);
+    HP_ = std::max(HP_ - 1 - role_->MaxHP / 1000, role_->HP);
+    MP_ = std::max(MP_ - 1 - role_->MaxMP / 1000, role_->MP);
     PhysicalPower_ = std::max(PhysicalPower_ - 1, role_->PhysicalPower);
 }
-

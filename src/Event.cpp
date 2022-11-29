@@ -925,6 +925,7 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
+    r->MP = GameUtil::limit( r->MP + value, 0, Role::getMaxValue()->MaxMP);
     text_box_->setText(fmt1::format("{}內力增加{}", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -943,6 +944,7 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
+    r->HP = GameUtil::limit( r->HP + value, 0, Role::getMaxValue()->MaxHP);
     text_box_->setText(fmt1::format("{}生命增加{}", r->Name, r->MaxHP - v0));
     text_box_->run();
 }

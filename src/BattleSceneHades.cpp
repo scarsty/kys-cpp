@@ -57,6 +57,13 @@ BattleSceneHades::BattleSceneHades()
         h->setVisible(false);
         addChild(h);
     }
+    show_auto_ = std::make_shared<TextBox>();
+    //show_auto_->setHaveBox(false);
+    show_auto_->setText("自動戰鬥");
+    show_auto_->setFontSize(16);
+    addChild(show_auto_);
+    show_auto_->setPosition(20, 100);
+    show_auto_->setVisible(false);
     makeSpecialMagicEffect();
 }
 
@@ -341,6 +348,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
+    show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
     {
         x_ = rand_.rand_int(3) - rand_.rand_int(3);
@@ -350,7 +358,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     if (frozen_ > 0)
     {
         frozen_--;
-        engine->gameControllerRumble(100, 100, 1000);
+        engine->gameControllerRumble(100, 100, 10);
         return;
     }
 
@@ -370,9 +378,32 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         pos_ = r->Pos;
     }
     double speed = std::min(4.0, r->Speed / 30.0);
-    if (engine->checkKeyPress(BPK_TAB))
+    if (e.type == BP_KEYUP)
     {
-        r->Auto = 1;
+        if (e.key.keysym.sym == BPK_TAB)
+        {
+            if (r->Auto == 0) { r->Auto = 1; }
+            else { r->Auto = 0; }
+        }
+        if (e.key.keysym.sym == BPK_ESCAPE)
+        {
+            auto menu2 = std::make_shared<MenuText>();
+            menu2->setStrings({ "確認（Y）", "取消（N）" });
+            menu2->setPosition(400, 300);
+            menu2->setFontSize(24);
+            menu2->setHaveBox(true);
+            menu2->setText("認輸？");
+            menu2->arrange(0, 50, 150, 0);
+            if (menu2->run() == 0)
+            {
+                result_ = 1;
+                for (auto r : friends_)
+                {
+                    r->ExpGot = 0;
+                }
+                setExit(true);
+            }
+        }
     }
     if (r->Dead == 0)
     {
@@ -681,7 +712,7 @@ void BattleSceneHades::backRun1()
                 shake_ = 5;
                 if (ae.OperationType >= 0)
                 {
-                    Engine::getInstance()->gameControllerRumble(100, 100, 500);
+                    Engine::getInstance()->gameControllerRumble(100, 100, 10);
                     //if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
                     //{
                     defaultMagicEffect(ae, r);
@@ -1349,22 +1380,6 @@ void BattleSceneHades::AI(Role* r)
 
 void BattleSceneHades::onPressedCancel()
 {
-    //auto menu2 = std::make_shared<MenuText>();
-    //menu2->setStrings({ "確認（Y）", "取消（N）" });
-    //menu2->setPosition(400, 300);
-    //menu2->setFontSize(24);
-    //menu2->setHaveBox(true);
-    //menu2->setText("認輸？");
-    //menu2->arrange(0, 50, 150, 0);
-    //if (menu2->run() == 0)
-    //{
-    //    result_ = 1;
-    //    for (auto r : friends_)
-    //    {
-    //        r->ExpGot = 0;
-    //    }
-    //    setExit(true);
-    //}
 }
 
 void BattleSceneHades::onEntrance()
@@ -1487,7 +1502,17 @@ void BattleSceneHades::onEntrance()
             r->setPositionOnly(info_->TeamMateX[i], info_->TeamMateY[i]);
             r->Team = 0;
             setRoleInitState(r);
-            //heads_[i]->setRole(r);
+        }
+    }
+    int i = 0;
+    for (auto r : friends_)
+    {
+        if (r && r != heads_[0]->getRole())
+        {
+            auto head = std::make_shared<Head>();
+            head->setRole(r);
+            head->setAlwaysLight(true);
+            addChild(head, Engine::getInstance()->getWindowWidth() - 300, 10 + 80 * i++);
         }
     }
 

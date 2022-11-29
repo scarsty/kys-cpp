@@ -109,6 +109,7 @@ protected:
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
     std::shared_ptr<Button> equip_item_;
+    std::shared_ptr<TextBox> show_auto_;
 
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;    //每帧
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;    //发动攻击

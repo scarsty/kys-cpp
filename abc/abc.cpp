@@ -1,6 +1,6 @@
-
-//Ò»Ğ©¸¨ÖúµÄ¹¦ÄÜ
-//Ò»Ğ©³£ÊıµÄÉèÖÃ±È½Ï²»ºÏÀí£¬½¨ÒéÒÔµ÷ÊÔÄ£Ê½ÊÖ¶¯Ö´ĞĞ
+ï»¿
+//ä¸€äº›è¾…åŠ©çš„åŠŸèƒ½
+//ä¸€äº›å¸¸æ•°çš„è®¾ç½®æ¯”è¾ƒä¸åˆç†ï¼Œå»ºè®®ä»¥è°ƒè¯•æ¨¡å¼æ‰‹åŠ¨æ‰§è¡Œ
 
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -12,7 +12,7 @@
 #include "fmt1.h"
 #include "strfunc.h"
 
-//×ª»»¶ş½øÖÆÎÄ¼şÎªÎÄ±¾
+//è½¬æ¢äºŒè¿›åˆ¶æ–‡ä»¶ä¸ºæ–‡æœ¬
 void trans_bin_list(std::string in, std::string out)
 {
     std::vector<int16_t> leave_list;
@@ -26,12 +26,12 @@ void trans_bin_list(std::string in, std::string out)
     strfunc::writeStringToFile(s, out);
 }
 
-//µ¼³öÕ½¶·Ö¡ÊıÎªÎÄ±¾
-void trans_fight_frame()
+//å¯¼å‡ºæˆ˜æ–—å¸§æ•°ä¸ºæ–‡æœ¬
+void trans_fight_frame(std::string path0)
 {
     for (int i = 0; i <= 300; i++)
     {
-        std::string path = fmt1::format("C:/Users/sty/Desktop/ff/fight{:03}", i);
+        std::string path = fmt1::format("{}/fight{:03}", path0, i);
         std::vector<int16_t> frame;
         std::string filename = path + "/fightframe.ka";
         if (filefunc::fileExist(filename))
@@ -52,8 +52,8 @@ void trans_fight_frame()
     }
 }
 
-//À©Õ¹´æµµ£¬½«¶ÌÕûÊıÀ©Õ¹Îªint32
-//×îºóÒ»¸ö²ÎÊı£ºÖ¡ÊıĞè´ÓÖ®Ç°´æµµ¸ñÊ½»ñÈ¡
+//æ‰©å±•å­˜æ¡£ï¼Œå°†çŸ­æ•´æ•°æ‰©å±•ä¸ºint32
+//æœ€åä¸€ä¸ªå‚æ•°ï¼šå¸§æ•°éœ€ä»ä¹‹å‰å­˜æ¡£æ ¼å¼è·å–
 int expandR(std::string idx, std::string grp, bool ranger = true, bool make_fightframe = false)
 {
     if (!filefunc::fileExist(grp) || !filefunc::fileExist(idx))
@@ -94,7 +94,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
         filefunc::readDataToVector(rgrp1 + offset1[1], length1[1], roles_mem_);
         if (make_fightframe)
         {
-            for (auto it = roles_mem_.end() - 1; it >= roles_mem_.begin(); it--)
+            for (auto it = roles_mem_.rbegin(); it != roles_mem_.rend(); it++)
             {
                 auto r = *it;
                 std::string content;
@@ -169,7 +169,7 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
     return 0;
 }
 
-//½«inµÄ·ÇÁãÊı¾İ×ªµ½out
+//å°†inçš„éé›¶æ•°æ®è½¬åˆ°out
 void combine_ka(std::string in, std::string out)
 {
     std::vector<int16_t> in1, out1;
@@ -190,7 +190,7 @@ void combine_ka(std::string in, std::string out)
     //convert::writeStringToFile(s, out);
 }
 
-//ÑéÖ¤Õ½¶·Ö¡ÊıµÄÕıÈ·ĞÔ
+//éªŒè¯æˆ˜æ–—å¸§æ•°çš„æ­£ç¡®æ€§
 void check_fight_frame(std::string path, int repair = 0)
 {
     for (int i = 0; i < 500; i++)
@@ -223,7 +223,7 @@ void check_fight_frame(std::string path, int repair = 0)
     }
 }
 
-//¼ì²é3ºÅÖ¸ÁîµÄ×îºó3¸ö²ÎÊıÕıÈ·ĞÔ
+//æ£€æŸ¥3å·æŒ‡ä»¤çš„æœ€å3ä¸ªå‚æ•°æ­£ç¡®æ€§
 void check_script(std::string path)
 {
     auto files = filefunc::getFilesInPath(path, 0);
@@ -275,15 +275,15 @@ void check_script(std::string path)
     }
 }
 
-//ÖØĞÂ²úÉúÍ·Ïñ
+//é‡æ–°äº§ç”Ÿå¤´åƒ
 void make_heads(std::string path)
 {
     auto h_lib = filefunc::getFilesInPath(path);
     Save::getInstance()->loadR(0);
+    OpenCCConverter::getInstance()->set("cc/t2s.json");
     for (auto r : Save::getInstance()->getRoles())
     {
         std::string name = r->Name;
-        OpenCCConverter::getInstance()->set("cc/t2s.json");
         name = OpenCCConverter::getInstance()->UTF8s2t(name);
         name = PotConv::utf8tocp936(name);
         for (auto& h : h_lib)
@@ -326,7 +326,7 @@ int main()
     Save::getInstance()->saveRToDB(0);
     expandR(path + "save/ranger.idx", path + "save/ranger.grp", false, true);
 
-    //make_heads(R"(D:\game\kys-pascal\sfe-kdef2script\head)");
+    make_heads(R"(D:\_sty_bak\kys-all\è½¬æ¢è‡³kys-cppå·¥å…·\å¤´åƒ)");
 
     combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
 
