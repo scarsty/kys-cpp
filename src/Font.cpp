@@ -26,28 +26,36 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
     int char_count = 0;
     int s1;
     color.a = alpha;
+    std::string text1;
+    const std::string* textp = &text;
+    if (simplified_)
+    {
+        text1 = t2s_buffer_[text];
+        if (text1.empty())
+        {
+            text1 = OpenCCConverter::getInstance()->UTF8t2s(text);
+            t2s_buffer_[text] = text1;
+        }
+        textp = &text1;
+    }
     if (stat_message_)
     {
         s1 = getBufferSize();
     }
     //auto ss = PotConv::utf8tocp936(text);
-    while (p < text.size())
+    while (p < textp->size())
     {
         int w = size, h = size;
-        uint32_t c = (uint8_t)text[p];
+        uint32_t c = (uint8_t)textp->data()[p];
         p++;
         if (c >= 128)
         {
-            c += (uint8_t)text[p] * 256 + (uint8_t)text[p + 1] * 256 * 256;
+            c += (uint8_t)textp->data()[p] * 256 + (uint8_t)textp->data()[p + 1] * 256 * 256;
             p += 2;
         }
         if (buffer_[c].count(size) == 0)
         {
             auto s = std::string((char*)(&c));
-            if (simplified_)
-            {
-                s = OpenCCConverter::getInstance()->UTF8t2s(s);
-            }
             buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
@@ -76,7 +84,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         int s = getBufferSize() - s1;
         if (s > 0)
         {
-            fmt1::print(" %d/%d, %d, total = %d\n", s, char_count, size, getBufferSize());
+            fmt1::print(" {}/{}, {}, total = {}, t2s buffer = {}\n", s, char_count, size, getBufferSize(), t2s_buffer_.size());
         }
     }
 }

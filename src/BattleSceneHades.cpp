@@ -1455,7 +1455,7 @@ void BattleSceneHades::onEntrance()
         if (enemies_.size() >= i + 1)
         {
             auto r = enemies_[enemies_.size() - i - 1];
-            if (is_boss || r->MaxHP >= 300)
+            if (is_boss || r->MaxHP >= 300 || r == enemies_.back())
             {
                 is_boss = true;
                 head_boss_[i]->setRole(r);
