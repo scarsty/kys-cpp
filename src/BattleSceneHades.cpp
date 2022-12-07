@@ -188,7 +188,7 @@ void BattleSceneHades::draw()
             //}
             if (r->Dead)
             {
-                if (r->Frozen == 0)
+                //if (r->Frozen == 0)
                 {
                     if (r->FaceTowards >= 2)
                     {
@@ -358,7 +358,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
     if (frozen_ > 0)
     {
         frozen_--;
-        engine->gameControllerRumble(100, 100, 10);
+        engine->gameControllerRumble(100, 100, 50);
         return;
     }
 
@@ -378,31 +378,30 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         pos_ = r->Pos;
     }
     double speed = std::min(4.0, r->Speed / 30.0);
-    if (e.type == BP_KEYUP)
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
+        || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK)
     {
-        if (e.key.keysym.sym == BPK_TAB)
+        if (r->Auto == 0) { r->Auto = 1; }
+        else { r->Auto = 0; }
+    }
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
+        || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START)
+    {
+        auto menu2 = std::make_shared<MenuText>();
+        menu2->setStrings({ "確認（Y）", "取消（N）" });
+        menu2->setPosition(400, 300);
+        menu2->setFontSize(24);
+        menu2->setHaveBox(true);
+        menu2->setText("認輸？");
+        menu2->arrange(0, 50, 150, 0);
+        if (menu2->run() == 0)
         {
-            if (r->Auto == 0) { r->Auto = 1; }
-            else { r->Auto = 0; }
-        }
-        if (e.key.keysym.sym == BPK_ESCAPE)
-        {
-            auto menu2 = std::make_shared<MenuText>();
-            menu2->setStrings({ "確認（Y）", "取消（N）" });
-            menu2->setPosition(400, 300);
-            menu2->setFontSize(24);
-            menu2->setHaveBox(true);
-            menu2->setText("認輸？");
-            menu2->arrange(0, 50, 150, 0);
-            if (menu2->run() == 0)
+            result_ = 1;
+            for (auto r : friends_)
             {
-                result_ = 1;
-                for (auto r : friends_)
-                {
-                    r->ExpGot = 0;
-                }
-                setExit(true);
+                r->ExpGot = 0;
             }
+            setExit(true);
         }
     }
     if (r->Dead == 0)
@@ -553,12 +552,12 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 //r->Frozen = 5;
                 if (index == 0)
                 {
-                    //轻击
+                    //点攻
                     //r->CoolDown = 10;
                 }
                 if (index == 1)
                 {
-                    //重击
+                    //面攻
                     //r->CoolDown = 60;
                 }
                 if (index == 2)
@@ -574,7 +573,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                 r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
                 if (r->OperationCount >= 3 && index == 0)
                 {
-                    r->CoolDown *= 3;
+                    r->CoolDown *= 2;
                 }
             }
             if (index == 4 && item)
@@ -710,9 +709,11 @@ void BattleSceneHades::backRun1()
             {
                 ae.Defender[r]++;
                 shake_ = 5;
+                r->Frozen = 10;
+                slow_ = 1;
                 if (ae.OperationType >= 0)
                 {
-                    Engine::getInstance()->gameControllerRumble(100, 100, 10);
+                    Engine::getInstance()->gameControllerRumble(100, 100, 50);
                     //if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
                     //{
                     defaultMagicEffect(ae, r);
@@ -742,7 +743,7 @@ void BattleSceneHades::backRun1()
                     {
                         continue;
                     }
-                    if (ae1.Attacker && ae2.Attacker
+                    if (ae1.NoHurt == 0 && ae2.NoHurt == 0 && ae1.Attacker && ae2.Attacker
                         && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
                     {
                         //fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
@@ -752,13 +753,15 @@ void BattleSceneHades::backRun1()
                         ae2.Weaken += hurt1;
                         if (ae1.Weaken > hurt1)
                         {
-                            //直接设置帧数为一个大值，下面就会直接删掉了
-                            ae1.Frame = ae1.TotalFrame;
+                            //直接设置帧数，后面就会删掉了
+                            ae1.NoHurt = 1;
+                            ae1.Frame = std::max(ae1.TotalFrame - 5, ae1.Frame);
                             //fmt1::print("{} ", ae1.UsingMagic->Name);
                         }
                         if (ae2.Weaken > hurt2)
                         {
-                            ae2.Frame = ae2.TotalFrame;
+                            ae2.NoHurt = 1;
+                            ae2.Frame = std::max(ae2.TotalFrame - 5, ae2.Frame);
                             //fmt1::print("{} ", ae2.UsingMagic->Name);
                         }
                         //fmt1::print("loss\n");
@@ -807,18 +810,18 @@ void BattleSceneHades::backRun1()
                 //fmt1::print("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
-                //r->Velocity = r->Pos - ae.Attacker->Pos;
+                //r->Velocity = r->Pos - ae1.Attacker->Pos;
                 r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
                 r->Velocity.z = 12;
-                r->Velocity.normTo(std::min(hurt / 2.5, 30.0));
+                r->Velocity.normTo(std::min(hurt / 2.5, 15.0));
                 r->VelocitytFrame = 15;
-                r->Frozen = 2;
+                r->Frozen = 5;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
                 dying_ = r;
-                //frozen_ = 2;
-                //slow_ = 5;
+                frozen_ = 5;
                 shake_ = 10;
+                slow_ = 10;
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
@@ -875,15 +878,15 @@ void BattleSceneHades::backRun1()
 
         if (battle_result >= 0)
         {
-            if (frozen_ == 0 && result_ == -1)
+            if (result_ == -1)
             {
                 pos_ = dying_->Pos;
                 frozen_ = 60;
-                slow_ = 20;
+                slow_ = 40;
                 shake_ = 60;
                 result_ = battle_result;
             }
-            if (frozen_ == 0 && slow_ == 0 && (result_ == 0 || result_ == 1))
+            if (slow_ == 0 && (result_ == 0 || result_ == 1))
             {
                 menu_->setVisible(false);
                 calExpGot();
@@ -999,12 +1002,13 @@ void BattleSceneHades::Action(Role* r)
             {
                 r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
             }
+            //根据性质创造攻击效果
             if (ae.OperationType == 0)
             {
-                ae.TotalFrame = 5;
+                ae.TotalFrame = 10;
                 if (r->OperationCount == 3 && magic->AttackAreaType == 0)
                 {
-                    ae.TotalFrame = 15;
+                    ae.TotalFrame = 30;
                     shake_ = 10;
                     ae.Strengthen = 2;
                     ae.Velocity = r->RealTowards;
@@ -1049,22 +1053,37 @@ void BattleSceneHades::Action(Role* r)
                     ae.Velocity = r->RealTowards;
                 }
                 ae.Velocity.normTo(5);
-                ae.TotalFrame = 30 + magic->SelectDistance[level_index] * 10;
+                ae.TotalFrame = 15 + magic->SelectDistance[level_index] * 5;
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
                     ae.Through = 1;
                 }
                 attack_effects_.push_back(ae);
                 needMP *= 0.2;
-                if (magic->AttackAreaType == 2)
+                if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
-                    ae.Velocity.normTo(3);
-                    ae.TotalFrame = 150;
-                    attack_effects_.push_back(ae);
+                    double v = 5;
+                    double angle = ae.Velocity.getAngle();
+                    for (int i = 0; i < 3; i++)
+                    {
+                        v -= 0.5;
+                        double a = angle - 15 / 180 * M_PI + rand_.rand() * 30 / 180 * M_PI;
+                        ae.Velocity = { cos(a), sin(a) };
+                        ae.Velocity.normTo(v);
+                        //ae.TotalFrame = 150;
+                        ae.Through = 1;
+                        ae.Strengthen = 0.5;
+                        attack_effects_.push_back(ae);
+                        //ae.Pos = ae.Pos - ae.Velocity;
+                    }
                 }
             }
             else if (ae.OperationType == 3)
             {
+                if (r->HeadID == 0)
+                {
+                    int i = 0;
+                }
                 r->Velocity = r->RealTowards;
                 r->Velocity.normTo(std::min(4.0, r->Speed / 30.0) * 3);
                 r->VelocitytFrame = 10;
@@ -1668,7 +1687,7 @@ Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
 //前摇
 int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 {
-    int v[4] = { 2, 20, 5, 3 };
+    int v[4] = { 10, 20, 15, 5 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         return v[operation_type];
@@ -1682,13 +1701,14 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
     int v[4] = { 60 - i / 2, 160 - i, 70 - i / 2, 10 };
-    int min_v[4] = { 10, 45, 15, 10 };
+    int min_v[4] = { 20, 45, 30, 10 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         int c = std::max(min_v[operation_type], v[operation_type]);
         if (r->AttackTwice > 0)
         {
             c *= 0.666;
+            c = std::max(calCast(act_type, operation_type, r) + 2, c);
         }
         return c;
     }
@@ -1700,6 +1720,10 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 
 void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 {
+    if (ae.NoHurt)
+    {
+        return;
+    }
     double hurt;
     //先特别处理暗器
     if (ae.UsingHiddenWeapon != nullptr)
@@ -1734,6 +1758,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     }
     if (ae.OperationType == 2)
     {
+        hurt /= 3;
         //ae.Frame = ae.TotalFrame + 1;
     }
     if (ae.OperationType == 3)
@@ -1793,10 +1818,11 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     {
         hurt = 1 + rand_.rand() * 3;
     }
-    //无贯穿则效果消失
+    //无贯穿则后面不会再造成伤害，再播放一下
     if (ae.Through == 0)
     {
-        ae.Frame = ae.TotalFrame;
+        ae.NoHurt = 1;
+        ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
     }
     ae.Attacker->ExpGot += hurt / 2;
     //扣HP或MP

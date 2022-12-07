@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "BattleScene.h"
 #include "BattleMap.h"
+#include "BattleScene.h"
 #include "Head.h"
 #include "Save.h"
 #include "UIKeyConfig.h"
@@ -17,20 +17,21 @@ struct AttackEffect
 {
     Pointf Pos;
     Pointf Velocity, Acceleration;
-    Role* Attacker = nullptr;    //攻击者
+    Role* Attacker = nullptr;         //攻击者
     std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
     Magic* UsingMagic = nullptr;
     Item* UsingHiddenWeapon = nullptr;
-    int Frame = 0;    //当前帧数
-    int TotalFrame = 1;    //总帧数，当前帧数超过此值就移除此效果
-    int TotalEffectFrame = 1;    //效果总帧数
-    int OperationType = -1;    //攻击类型
-    std::string Path;    //效果贴图路径
+    int Frame = 0;                 //当前帧数
+    int TotalFrame = 1;            //总帧数，当前帧数超过此值就移除此效果
+    int TotalEffectFrame = 1;      //效果总帧数
+    int OperationType = -1;        //攻击类型
+    std::string Path;              //效果贴图路径
     Role* FollowRole = nullptr;    //一直保持在角色身上
-    int Weaken = 0;    //弱化程度，减掉
-    double Strengthen = 1;    //强化程度，相乘
-    int Track = 0;    //是否追踪
-    int Through = 0;    //是否贯穿，即击中敌人后可以不消失
+    int Weaken = 0;                //弱化程度，减掉
+    double Strengthen = 1;         //强化程度，相乘
+    int Track = 0;                 //是否追踪
+    int Through = 0;               //是否贯穿，即击中敌人后可以不消失
+    int NoHurt = 0;                //是否无伤害
     void setEft(int num)
     {
         setPath(fmt1::format("eft/eft{:03}", num));
@@ -98,9 +99,9 @@ protected:
     std::vector<std::shared_ptr<Head>> heads_;
     std::vector<std::shared_ptr<Head>> head_boss_;
 
-    bool is_running_ = false;   //主角是否在跑动
-    Role* role_ = nullptr;    //主角
-    Role* dying_ = nullptr;    //主角
+    bool is_running_ = false;    //主角是否在跑动
+    Role* role_ = nullptr;       //主角
+    Role* dying_ = nullptr;      //主角
     int weapon_ = 1;
     int frozen_ = 0;
     int slow_ = 0;
@@ -111,8 +112,8 @@ protected:
     std::shared_ptr<Button> equip_item_;
     std::shared_ptr<TextBox> show_auto_;
 
-    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;    //每帧
-    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;    //发动攻击
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
     std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
 
     Pointf pos45To90(int x, int y)    //45度坐标转为直角
@@ -194,7 +195,10 @@ protected:
     Role* findFarthestEnemy(int team, Pointf p);
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
-    void decreaseToZero(int& i) { if (i > 0) { i--; } }
+    void decreaseToZero(int& i)
+    {
+        if (i > 0) { i--; }
+    }
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     int calRolePic(Role* r, int style, int frame) override;
 
@@ -206,8 +210,5 @@ protected:
         return BattleScene::calMagicHurt(r1, r2, magic, 1) / 20.0;
     }
 
-
     void makeSpecialMagicEffect();
 };
-
-

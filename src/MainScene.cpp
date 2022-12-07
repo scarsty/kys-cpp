@@ -1,10 +1,9 @@
 #include "MainScene.h"
 
-#include <ctime>
 #include <Timer.h>
+#include <ctime>
 
 #include "Console.h"
-#include "filefunc.h"
 #include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
@@ -12,7 +11,7 @@
 #include "TextureManager.h"
 #include "UI.h"
 #include "UISave.h"
-
+#include "filefunc.h"
 
 MainScene::MainScene()
 {
@@ -234,6 +233,12 @@ void MainScene::dealEvent(BP_Event& e)
     {
         Console c;
     }
+    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START))
+    {
+        UI::getInstance()->run();
+    }
     //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
     //if (checkPrevTimeElapsed(33))
@@ -405,7 +410,6 @@ void MainScene::onExit()
 
 void MainScene::onPressedCancel()
 {
-    UI::getInstance()->run();
 }
 
 void MainScene::tryWalk(int x, int y)
@@ -447,7 +451,7 @@ int MainScene::isWater(int x, int y)
 bool MainScene::canWalk(int x, int y)
 {
     //这里不需要加，实际上入口都是无法走到的
-    if (isOutLine(x, y) || isBuilding(x, y))// || isWater(x, y))
+    if (isOutLine(x, y) || isBuilding(x, y))    // || isWater(x, y))
     {
         return false;
     }

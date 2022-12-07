@@ -185,6 +185,22 @@ void SubScene::dealEvent(BP_Event& e)
         //clearEvent(e);
         total_step_ = 0;
     }
+
+    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START))
+    {
+        UI::getInstance()->run();
+        auto item = UI::getInstance()->getUsedItem();
+        if (item && item->ItemType == 0)
+        {
+            if (checkEvent2(man_x_, man_y_, towards_, item->ID))
+            {
+                step_ = 0;
+            }
+        }
+    }
+
     //键盘走路部分，检测4个方向键
     {
         auto engine = Engine::getInstance();
@@ -396,15 +412,6 @@ void SubScene::onExit()
 
 void SubScene::onPressedCancel()
 {
-    UI::getInstance()->run();
-    auto item = UI::getInstance()->getUsedItem();
-    if (item && item->ItemType == 0)
-    {
-        if (checkEvent2(man_x_, man_y_, towards_, item->ID))
-        {
-            step_ = 0;
-        }
-    }
 }
 
 //冗余过多待清理

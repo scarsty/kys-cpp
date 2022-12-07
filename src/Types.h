@@ -76,7 +76,7 @@ enum
     SUBMAP_LAYER_COUNT = 6,
     MAINMAP_COORD_COUNT = 480,
     SUBMAP_EVENT_COUNT = 200,    //单场景最大事件数
-    ITEM_IN_BAG_COUNT = 1000,     //最大物品数
+    ITEM_IN_BAG_COUNT = 1000,    //最大物品数
     TEAMMATE_COUNT = 6,          //最大队伍人员数
 };
 
@@ -133,10 +133,10 @@ public:
     int ExpForMakeItem;
     int Equip0, Equip1;
     //int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
-    int EquipMagic[4];    //装备武学
+    int EquipMagic[4];     //装备武学
     int EquipMagic2[4];    //装备被动武学
-    int EquipItem;    //装备物品
-    int Frame[6];    //帧数，现仅用于占位
+    int EquipItem;         //装备物品
+    int Frame[6];          //帧数，现仅用于占位
     int MPType, MP, MaxMP;
     int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
     int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
@@ -290,26 +290,26 @@ public:
     bool Competing = false;
 
 public:
-    Pointf Pos;   //亚像素的直角坐标
+    Pointf Pos;            //亚像素的直角坐标
     Pointf RealTowards;    //面对的方向，计算攻击位置，击退方向等
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
-    Pointf Velocity;    //指该质点的速度，每帧据此计算坐标
-    Pointf Acceleration;    //加速度
+    Pointf Velocity;           //指该质点的速度，每帧据此计算坐标
+    Pointf Acceleration;       //加速度
     int VelocitytFrame = 0;    //大于0时质点速度才生效
-    int HurtFrame = 0;    //正在受到伤害
-    int CoolDown = 0;    //冷却
-    int Attention = 0;    //出场
-    int Invincible = 0;    //无敌时间
-    int Frozen = 0;    //静止时间
+    int HurtFrame = 0;         //正在受到伤害
+    int CoolDown = 0;          //冷却
+    int Attention = 0;         //出场
+    int Invincible = 0;        //无敌时间
+    int Frozen = 0;            //静止时间
 
-    int HaveAction = 0;    //开始行动
-    int ActType = -1;    //医拳剑刀特
-    int ActFrame = 0;    //行动帧数
-    int PreActTimer = 0;    //上次行动的时间
-    int OperationType = -1;    //0-轻攻击，1-重攻击，2-远程，3-闪身， 4-器
+    int HaveAction = 0;        //开始行动
+    int ActType = -1;          //医拳剑刀特
+    int ActFrame = 0;          //行动帧数
+    int PreActTimer = 0;       //上次行动的时间
+    int OperationType = -1;    //0-点攻击，1-面攻击，2-远程，3-闪身， 4-器
     int OperationCount = 0;    //使用同一攻击的计数
-    int HurtThisFrame = 0;    //一帧内受到伤害累积
-    int FindingWay = 0;    //ai正在找路
+    int HurtThisFrame = 0;     //一帧内受到伤害累积
+    int FindingWay = 0;        //ai正在找路
 
     Magic* UsingMagic = nullptr;
     Item* UsingItem = nullptr;
@@ -324,7 +324,6 @@ public:
     {
         static std::vector<int> list;
         return list;
-
     }
 
     static void setMaxValue();
