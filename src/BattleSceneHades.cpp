@@ -178,6 +178,10 @@ void BattleSceneHades::draw()
                 }
             }
             info.p = r->Pos;
+            if (result_ == -1 && r->Shake)
+            {
+                info.p.x += -2.5 + rand_.rand() * 5;
+            }
             info.num = calRolePic(r, r->ActType, r->ActFrame);
             //if (r->HurtFrame)
             //{
@@ -326,7 +330,7 @@ void BattleSceneHades::draw()
         }
 
         Engine::getInstance()->setRenderAssistTexture();
-        if (frozen_ && result_ >= 0)
+        if (close_up_)
         {
             rect0.w /= 2;
             rect0.h /= 2;
@@ -361,22 +365,27 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         engine->gameControllerRumble(100, 100, 50);
         return;
     }
-
-    if (r->Dead)
+    decreaseToZero(close_up_);
+    if (close_up_ == 0)
     {
-        for (auto r1 : battle_roles_)
+        if (r->Dead)
         {
-            if (r1->Team == 0 && r1->Dead == 0)
+            for (auto r1 : battle_roles_)
             {
-                pos_ = r1->Pos;
+                if (r1->Team == 0 && r1->Dead == 0)
+                {
+                    pos_ = r1->Pos;
+                }
             }
+            //engine->gameControllerRumble(65535, 65535, 1000);
         }
-        //engine->gameControllerRumble(65535, 65535, 1000);
+        else
+        {
+            pos_ = r->Pos;
+        }
     }
-    else
-    {
-        pos_ = r->Pos;
-    }
+
+    Pointf pos = r->Pos;
     double speed = std::min(4.0, r->Speed / 30.0);
     if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
         || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK)
@@ -423,7 +432,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     axis *= 1.0 / 30000 / sqrt(2.0);
                     r->RealTowards = axis;
                     r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
-                    pos_ += speed * axis;
+                    pos += speed * axis;
                 }
                 Pointf direct;
                 if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
@@ -447,7 +456,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     r->FaceTowards = Towards_RightDown;
                 }
                 direct.normTo(speed);
-                pos_ += direct;
+                pos += direct;
                 //这样来看同时用手柄和键盘会走得很快，就这样吧
             }
         }
@@ -462,14 +471,14 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             r->FaceTowards = Towards_LeftDown;
         }
         //实际的朝向可以不能走到
-        if (pos_.x != r->Pos.x || pos_.y != r->Pos.y)
+        if (pos.x != r->Pos.x || pos.y != r->Pos.y)
         {
-            r->RealTowards = pos_ - r->Pos;
+            r->RealTowards = pos - r->Pos;
         }
 
-        if (canWalk90(pos_, r))
+        if (canWalk90(pos, r))
         {
-            r->Pos = pos_;
+            r->Pos = pos;
         }
 
         // 初始化武功
@@ -616,6 +625,7 @@ void BattleSceneHades::backRun1()
             }
         }
         decreaseToZero(r->Frozen);
+        decreaseToZero(r->Shake);
         if (r->Frozen > 0)
         {
             continue;
@@ -707,10 +717,15 @@ void BattleSceneHades::backRun1()
                 && ae.Defender.count(r) == 0
                 && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2)
             {
+                if (ae.UsingMagic)
+                {
+                    Audio::getInstance()->playESound(ae.UsingMagic->EffectID);
+                }
                 ae.Defender[r]++;
                 shake_ = 5;
-                r->Frozen = 10;
-                slow_ = 1;
+                r->Frozen = 20;
+                r->Shake = 20;
+                //slow_ = 1;
                 if (ae.OperationType >= 0)
                 {
                     Engine::getInstance()->gameControllerRumble(100, 100, 50);
@@ -818,10 +833,12 @@ void BattleSceneHades::backRun1()
                 r->Frozen = 5;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                dying_ = r;
+                //dying_ = r;
+                pos_ = r->Pos;
                 frozen_ = 5;
                 shake_ = 10;
                 slow_ = 10;
+                close_up_ = 30;
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
@@ -880,7 +897,8 @@ void BattleSceneHades::backRun1()
         {
             if (result_ == -1)
             {
-                pos_ = dying_->Pos;
+                //pos_ = dying_->Pos;
+                close_up_ = 60;
                 frozen_ = 60;
                 slow_ = 40;
                 shake_ = 60;
@@ -941,7 +959,7 @@ void BattleSceneHades::Action(Role* r)
             AttackEffect ae;
             if (magic)
             {
-                Audio::getInstance()->playESound(magic->SoundID);
+                Audio::getInstance()->playASound(magic->SoundID);
                 ae.setEft(magic->EffectID);
                 ae.UsingMagic = magic;
             }

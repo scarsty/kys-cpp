@@ -301,6 +301,7 @@ public:
     int Attention = 0;         //出场
     int Invincible = 0;        //无敌时间
     int Frozen = 0;            //静止时间
+    int Shake = 0;             //震动时间
 
     int HaveAction = 0;        //开始行动
     int ActType = -1;          //医拳剑刀特

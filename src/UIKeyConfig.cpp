@@ -76,9 +76,9 @@ void UIKeyConfig::readFromString(std::string str)
 {
     auto& k = *getKeyConfig();
     auto v = strfunc::findNumbers<int>(str);
-    if (v.size() >= 8)
+    if (v.size() >= 9)
     {
-        k = Keys{ v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7] };
+        k = Keys{ v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8] };
     }
 }
 

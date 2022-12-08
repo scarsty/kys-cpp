@@ -101,11 +101,12 @@ protected:
 
     bool is_running_ = false;    //主角是否在跑动
     Role* role_ = nullptr;       //主角
-    Role* dying_ = nullptr;      //主角
+    Role* dying_ = nullptr;
     int weapon_ = 1;
     int frozen_ = 0;
     int slow_ = 0;
     int shake_ = 0;
+    int close_up_ = 0;
 
     std::shared_ptr<Menu> menu_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
