@@ -182,6 +182,7 @@ void BattleSceneHades::draw()
             {
                 info.p.x += -2.5 + rand_.rand() * 5;
             }
+            r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
             info.num = calRolePic(r, r->ActType, r->ActFrame);
             //if (r->HurtFrame)
             //{
@@ -352,9 +353,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
-
-    fmt1::print("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
-
+    //fmt1::print("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
     show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
     {
@@ -434,7 +433,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
                     Pointf axis{ double(axis_x), double(axis_y) };
                     axis *= 1.0 / 30000 / sqrt(2.0);
                     r->RealTowards = axis;
-                    r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
                     pos += speed * axis;
                 }
                 Pointf direct;
@@ -636,6 +635,22 @@ void BattleSceneHades::backRun1()
 
         //更新速度，加速度，力学位置
         {
+            auto p = r->Pos + r->Velocity;
+            int dis = -1;
+            if (r->OperationType == 3) { dis = TILE_W / 4; }
+            if (canWalk90(p, r, dis))
+            {
+                r->Pos = p;
+            }
+            else
+            {
+                r->Velocity = { 0, 0, 0 };
+            }
+            //r->FaceTowards = rand_.rand() * 4;
+            if (r->Pos.z < 0)
+            {
+                r->Pos.z = 0;
+            }
             if (r->Pos.z == 0 && r->Velocity.norm() != 0)
             {
                 auto f = -r->Velocity;
@@ -651,18 +666,6 @@ void BattleSceneHades::backRun1()
             {
                 r->Velocity.x = 0;
                 r->Velocity.y = 0;
-            }
-            auto p = r->Pos + r->Velocity;
-            int dis = -1;
-            if (r->OperationType == 3) { dis = TILE_W / 4; }
-            if (canWalk90(p, r, dis))
-            {
-                r->Pos = p;
-            }
-            //r->FaceTowards = rand_.rand() * 4;
-            if (r->Pos.z < 0)
-            {
-                r->Pos.z = 0;
             }
             if (r->Pos.z == 0)
             {
@@ -849,8 +852,8 @@ void BattleSceneHades::backRun1()
                 //r->Velocity = r->Pos - ae1.Attacker->Pos;
                 r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
                 r->Velocity.z = 12;
-                r->Velocity.normTo(std::min(hurt / 2.5, 15.0));
-                //todo: r->VelocitytFrame = 15;
+                //r->Velocity.normTo(std::min(hurt / 1.0, 15.0));
+                r->Velocity.normTo(hurt / 2.0);
                 r->Frozen = 5;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
@@ -1088,6 +1091,8 @@ void BattleSceneHades::Action(Role* r)
                 if (r0)
                 {
                     ae.Velocity = r0->Pos - r->Pos;
+                    r->RealTowards = ae.Velocity;
+                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
                 }
                 else
                 {
@@ -1125,9 +1130,8 @@ void BattleSceneHades::Action(Role* r)
                 {
                     int i = 0;
                 }
-
                 auto acc = r->RealTowards;
-                acc.normTo(std::min(4.0, r->Speed / 30.0));
+                acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
                 r->Velocity = acc;
                 //r->Acceleration += acc;
                 //r->VelocitytFrame = 10;
@@ -1269,7 +1273,7 @@ void BattleSceneHades::AI(Role* r)
             if (r0)
             {
                 r->RealTowards = r0->Pos - r->Pos;
-                r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
                 r->RealTowards.normTo(1);
                 int dis = TILE_W * 3;
                 if (r->UsingMagic)
@@ -1305,9 +1309,9 @@ void BattleSceneHades::AI(Role* r)
                             r->Pos = p;
                         }
                     }
-                    else if (r->Velocity.norm() == 0)
+                    else if (r->Velocity.norm() < 0.1)
                     {
-                        //查找一个目标并接近
+                        //用复杂路径法查找一个目标并接近
                         MapSquareInt dis_layer;
                         dis_layer.resize(COORD_COUNT);
                         auto p_enemy45 = pos90To45(r0->Pos.x, r0->Pos.y);
@@ -1353,7 +1357,7 @@ void BattleSceneHades::AI(Role* r)
                         else
                         {
                             r->RealTowards = p_target - r->Pos;
-                            r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                            //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
                             auto distance = r->RealTowards.norm();
                             //r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
                             r->RealTowards.normTo(1);
@@ -1430,7 +1434,7 @@ void BattleSceneHades::AI(Role* r)
                         {
                             //走两步
                             r->RealTowards.rotate(M_PI * 0.5 * (2 * rand_.rand() - 1));
-                            r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                            //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
                             r->Velocity = r->RealTowards;
                             r->Velocity.normTo(speed);
                             //todo:r->VelocitytFrame = 20;
@@ -1816,9 +1820,13 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     }
     //击退
     auto v = r->Pos - ae.Attacker->Pos;
-    v.normTo(0.5);
+    v.normTo(2);
     r->Velocity += v;
-    r->HurtFrame = 10;
+    if (r->Velocity.norm()>3)
+    {
+        r->Velocity.normTo(3);
+    }
+    r->HurtFrame = 1;    //相当于无敌时间
 
     //用内力抵消硬直
     if (r->MP >= hurt / 10)

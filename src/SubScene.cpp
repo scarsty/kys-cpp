@@ -217,7 +217,7 @@ void SubScene::dealEvent(BP_Event& e)
         if (axis_x != 0 || axis_y != 0)
         {
             Pointf axis{ double(axis_x), double(axis_y) };
-            auto to = readTowardsToFaceTowards(axis);
+            auto to = realTowardsToFaceTowards(axis);
             if (to == Towards_LeftUp) { pressed = BPK_LEFT; }
             if (to == Towards_LeftDown) { pressed = BPK_DOWN; }
             if (to == Towards_RightDown) { pressed = BPK_RIGHT; }
