@@ -295,7 +295,7 @@ public:
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
     Pointf Velocity;           //指该质点的速度，每帧据此计算坐标
     Pointf Acceleration;       //加速度
-    int VelocitytFrame = 0;    //大于0时质点速度才生效
+    //int VelocitytFrame = 0;    //大于0时质点速度才生效
     int HurtFrame = 0;         //正在受到伤害
     int CoolDown = 0;          //冷却
     int Attention = 0;         //出场

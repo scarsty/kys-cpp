@@ -229,7 +229,7 @@ void MainScene::dealEvent(BP_Event& e)
     }
 
     // Tab激活控制台
-    if (Engine::getInstance()->checkKeyPress(BPK_TAB))
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB)
     {
         Console c;
     }

@@ -49,7 +49,7 @@ BattleSceneHades::BattleSceneHades()
     menu_->addChild(equip_item_, 400, 10);
     addChild(menu_);
     menu_->setVisible(false);
-    head_boss_.resize(5);
+    head_boss_.resize(6);
     for (auto& h : head_boss_)
     {
         h = std::make_shared<Head>();
@@ -352,6 +352,9 @@ void BattleSceneHades::dealEvent(BP_Event& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
+
+    fmt1::print("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
+
     show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
     {
@@ -630,33 +633,51 @@ void BattleSceneHades::backRun1()
         {
             continue;
         }
-        if (r->VelocitytFrame > 0 || r->Pos.z > 0)
+
+        //更新速度，加速度，力学位置
         {
-            if (r == role_ && r->Dead)
+            if (r->Pos.z == 0 && r->Velocity.norm() != 0)
             {
-                int i = 0;
+                auto f = -r->Velocity;
+                f.normTo(friction_);
+                r->Acceleration = { f.x, f.y, gravity_ };
+            }
+            else
+            {
+                r->Acceleration = { 0, 0, gravity_ };
+            }
+            r->Velocity += r->Acceleration;
+            if (r->Velocity.norm() < 0.1)
+            {
+                r->Velocity.x = 0;
+                r->Velocity.y = 0;
             }
             auto p = r->Pos + r->Velocity;
-            r->Velocity += r->Acceleration;
             int dis = -1;
             if (r->OperationType == 3) { dis = TILE_W / 4; }
             if (canWalk90(p, r, dis))
             {
                 r->Pos = p;
             }
-            r->VelocitytFrame--;
             //r->FaceTowards = rand_.rand() * 4;
-            if (r->Pos.z < 0) { r->Pos.z = 0; }
-        }
-        else
-        {
-            r->Velocity = { 0, 0 };
-            if (r->HP <= 0)
+            if (r->Pos.z < 0)
             {
-                r->Dead = 1;
-                //此处只为严格化，但与击退部分可能冲突
+                r->Pos.z = 0;
+            }
+            if (r->Pos.z == 0)
+            {
+                r->Velocity.z = 0;
             }
         }
+        //else
+        //{
+        //    r->Velocity = { 0, 0 };
+        //    if (r->HP <= 0)
+        //    {
+        //        r->Dead = 1;
+        //        //此处只为严格化，但与击退部分可能冲突
+        //    }
+        //}
         decreaseToZero(r->CoolDown);
         if (r->CoolDown == 0)
         {
@@ -829,7 +850,7 @@ void BattleSceneHades::backRun1()
                 r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
                 r->Velocity.z = 12;
                 r->Velocity.normTo(std::min(hurt / 2.5, 15.0));
-                r->VelocitytFrame = 15;
+                //todo: r->VelocitytFrame = 15;
                 r->Frozen = 5;
                 x_ = rand_.rand_int(2) - rand_.rand_int(2);
                 y_ = rand_.rand_int(2) - rand_.rand_int(2);
@@ -1038,18 +1059,20 @@ void BattleSceneHades::Action(Role* r)
             }
             else if (ae.OperationType == 1)
             {
-                int range = 2;
+                int range = 0;
                 if (magic->AttackAreaType == 3)
                 {
-                    range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
+                    range = 1;
+                    //range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
                 }
-                int count = range;
+                int count = 1 + range;
+                //count = 2;
                 auto p = ae.Pos;
                 ae.TotalFrame = 120;
                 double angle = r->RealTowards.getAngle();
                 for (int i = 0; i < count; i++)
                 {
-                    double a = angle + i * 2 * M_PI / count;
+                    double a = angle - 5 / 180 * M_PI + rand_.rand() * 10 / 180 * M_PI;
                     ae.Pos = p;
                     ae.Velocity = { cos(a), sin(a) };
                     ae.Velocity.normTo(3);
@@ -1082,7 +1105,7 @@ void BattleSceneHades::Action(Role* r)
                 {
                     double v = 5;
                     double angle = ae.Velocity.getAngle();
-                    for (int i = 0; i < 3; i++)
+                    for (int i = 0; i < 2; i++)
                     {
                         v -= 0.5;
                         double a = angle - 15 / 180 * M_PI + rand_.rand() * 30 / 180 * M_PI;
@@ -1102,9 +1125,12 @@ void BattleSceneHades::Action(Role* r)
                 {
                     int i = 0;
                 }
-                r->Velocity = r->RealTowards;
-                r->Velocity.normTo(std::min(4.0, r->Speed / 30.0) * 3);
-                r->VelocitytFrame = 10;
+
+                auto acc = r->RealTowards;
+                acc.normTo(std::min(4.0, r->Speed / 30.0));
+                r->Velocity = acc;
+                //r->Acceleration += acc;
+                //r->VelocitytFrame = 10;
                 r->ActType = 0;
                 auto p = ae.Pos;
                 int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
@@ -1279,8 +1305,9 @@ void BattleSceneHades::AI(Role* r)
                             r->Pos = p;
                         }
                     }
-                    else if (r->VelocitytFrame == 0)
+                    else if (r->Velocity.norm() == 0)
                     {
+                        //查找一个目标并接近
                         MapSquareInt dis_layer;
                         dis_layer.resize(COORD_COUNT);
                         auto p_enemy45 = pos90To45(r0->Pos.x, r0->Pos.y);
@@ -1332,7 +1359,7 @@ void BattleSceneHades::AI(Role* r)
                             r->RealTowards.normTo(1);
                             //r->Pos = p2;
                             r->Velocity = r->RealTowards * speed;
-                            r->VelocitytFrame = 3;
+                            //todo:r->VelocitytFrame = 3;
                         }
                     }
                 }
@@ -1406,7 +1433,7 @@ void BattleSceneHades::AI(Role* r)
                             r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
                             r->Velocity = r->RealTowards;
                             r->Velocity.normTo(speed);
-                            r->VelocitytFrame = 20;
+                            //todo:r->VelocitytFrame = 20;
                         }
                     }
                 }
@@ -1549,7 +1576,7 @@ void BattleSceneHades::onEntrance()
             auto head = std::make_shared<Head>();
             head->setRole(r);
             head->setAlwaysLight(true);
-            addChild(head, Engine::getInstance()->getWindowWidth() - 300, 10 + 80 * i++);
+            addChild(head, Engine::getInstance()->getWindowWidth() - 280, 10 + 80 * i++);
         }
     }
 
@@ -1634,11 +1661,13 @@ void BattleSceneHades::setRoleInitState(Role* r)
     {
         r->HP = r->MaxHP;
         r->MP = r->MaxMP;
+        r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
     else
     {
-        r->HP = r->MaxHP = r->MaxHP * 1;
-        r->MP = r->MaxMP = r->MaxMP * 1;
+        r->HP = r->MaxHP;
+        r->MP = r->MaxMP;
+        r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
 
     auto p = pos45To90(r->X(), r->Y());
@@ -1772,11 +1801,12 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     }
     if (ae.OperationType == 1)
     {
+        hurt *= 1.5;
         //ae.Frame = ae.TotalFrame + 1;
     }
     if (ae.OperationType == 2)
     {
-        hurt /= 3;
+        //hurt /= 3;
         //ae.Frame = ae.TotalFrame + 1;
     }
     if (ae.OperationType == 3)
@@ -1785,9 +1815,9 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         r->Frozen += 5;
     }
     //击退
-    r->Velocity = r->Pos - ae.Attacker->Pos;
-    r->Velocity.normTo(1);
-    r->VelocitytFrame = 10;
+    auto v = r->Pos - ae.Attacker->Pos;
+    v.normTo(0.5);
+    r->Velocity += v;
     r->HurtFrame = 10;
 
     //用内力抵消硬直
@@ -1853,7 +1883,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         r->MP -= hurt;
         ae.Attacker->MP += hurt * 0.8;
         TextEffect te;
-        te.set(std::to_string(-hurt), { 160, 32, 240, 255 }, r);
+        te.set(std::to_string(int(-hurt)), { 160, 32, 240, 255 }, r);
         text_effects_.push_back(std::move(te));
     }
     //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
