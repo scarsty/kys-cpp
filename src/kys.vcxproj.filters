@@ -181,6 +181,15 @@
     <ClCompile Include="RunNodeFromJson.cpp">
       <Filter>runnode</Filter>
     </ClCompile>
+    <ClCompile Include="TempStore.cpp">
+      <Filter>chess</Filter>
+    </ClCompile>
+    <ClCompile Include="Randomnizer.cpp">
+      <Filter>chess</Filter>
+    </ClCompile>
+    <ClCompile Include="FindChess.cpp">
+      <Filter>chess</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -378,6 +387,15 @@
     <ClInclude Include="RunNodeFromJson.h">
       <Filter>runnode</Filter>
     </ClInclude>
+    <ClInclude Include="TempStore.h">
+      <Filter>chess</Filter>
+    </ClInclude>
+    <ClInclude Include="Randomnizer.h">
+      <Filter>chess</Filter>
+    </ClInclude>
+    <ClInclude Include="FindChess.h">
+      <Filter>chess</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -432,6 +450,9 @@
     </Filter>
     <Filter Include="mlcc">
       <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="chess">
+      <UniqueIdentifier>{e88221e6-0741-4ba6-b8fc-751903727db5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

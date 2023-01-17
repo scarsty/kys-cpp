@@ -193,6 +193,8 @@ public:
 
     int MaxExp = 99999;
 
+    static inline int MAX_MP = 100;
+
     void loadSaveValues() {}
 
 public:

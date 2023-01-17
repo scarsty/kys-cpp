@@ -118,6 +118,7 @@
     <ClCompile Include="Console.cpp" />
     <ClCompile Include="DrawableOnCall.cpp" />
     <ClCompile Include="DrawNode.cpp" />
+    <ClCompile Include="FindChess.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
     <ClCompile Include="Object.cpp" />
@@ -125,6 +126,7 @@
     <ClCompile Include="ParticleExample.cpp" />
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
+    <ClCompile Include="Randomnizer.cpp" />
     <ClCompile Include="RunNode.cpp" />
     <ClCompile Include="GameUtil.cpp" />
     <ClCompile Include="GrpIdxFile.cpp" />
@@ -140,6 +142,7 @@
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
     <ClCompile Include="TeamMenu.cpp" />
+    <ClCompile Include="TempStore.cpp" />
     <ClCompile Include="TextBox.cpp" />
     <ClCompile Include="TextBoxRoll.cpp" />
     <ClCompile Include="UI.cpp" />
@@ -172,6 +175,8 @@
     <ClInclude Include="..\others\zip.h" />
     <ClInclude Include="BattleSceneHades.h" />
     <ClInclude Include="DrawNode.h" />
+    <ClInclude Include="FindChess.h" />
+    <ClInclude Include="Randomnizer.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />
@@ -208,6 +213,7 @@
     <ClInclude Include="Font.h" />
     <ClInclude Include="Head.h" />
     <ClInclude Include="TeamMenu.h" />
+    <ClInclude Include="TempStore.h" />
     <ClInclude Include="TextBox.h" />
     <ClInclude Include="TextBoxRoll.h" />
     <ClInclude Include="UI.h" />

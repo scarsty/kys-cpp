@@ -207,6 +207,8 @@ protected:
 
 
     void makeSpecialMagicEffect();
+
+    void dealEventDoNothing(BP_Event& e); // 方便merge，只许see
 };
 
 

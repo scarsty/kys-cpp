@@ -95,4 +95,6 @@ public:
         fmt1::print(stdout, args...);
     }
 
+    static inline constexpr int MAX_MP = 100;
+
 };

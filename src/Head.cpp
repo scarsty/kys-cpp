@@ -88,7 +88,7 @@ void Head::draw()
 
         if (role_->MaxMP > 0)
         {
-            r1 = { x_ + 96, y_ + 48, 138 * role_->MP / role_->MaxMP, 9 };
+            r1 = { x_ + 96, y_ + 48, 138 * std::min(role_->MP, GameUtil::MAX_MP) / GameUtil::MAX_MP, 9 };
         }
         else
         {
@@ -107,7 +107,7 @@ void Head::draw()
             c_text = { 250, 200, 50, 255 };
         }
         Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-        font->draw(fmt1::format("{:3}/{:3}", role_->MP, role_->MaxMP), 16, x_ + 138, y_ + 44, c_text);
+        font->draw(fmt1::format("{:3}/{:3}", std::min(role_->MP, GameUtil::MAX_MP), GameUtil::MAX_MP), 16, x_ + 138, y_ + 44, c_text);
 
         r1 = { x_ + 115, y_ + 65, 83 * role_->PhysicalPower / 100, 9 };
         c = { 128, 128, 255, 255 };
