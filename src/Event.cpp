@@ -2,6 +2,7 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "BattleSceneHades.h"
+#include "BattleSceneWolang.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -400,7 +401,7 @@ bool Event::askBattle()
 bool Event::tryBattle(int battle_id, int get_exp)
 {
     int result = 0;
-    int style = GameUtil::getInstance()->getInt("game", "semi_real");
+    int style = GameUtil::getInstance()->getInt("game", "battle_mode");
     if (style == 0 || style == 1)
     {
         auto battle = std::make_shared<BattleScene>();
@@ -416,6 +417,13 @@ bool Event::tryBattle(int battle_id, int get_exp)
         result = battle->run();
     }
     else if (style == 3)
+    {
+        auto battle = std::make_shared<BattleSceneWolang>();
+        battle->setID(battle_id);
+        //battle->setHaveFailExp(get_exp);
+        result = battle->run();
+    }
+    else if (style == -1)
     {
         result = 0;    //直接判断为胜利，用于调试
     }
@@ -925,7 +933,7 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    r->MP = GameUtil::limit( r->MP + value, 0, Role::getMaxValue()->MaxMP);
+    r->MP = GameUtil::limit(r->MP + value, 0, Role::getMaxValue()->MaxMP);
     text_box_->setText(fmt1::format("{}內力增加{}", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -944,7 +952,7 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    r->HP = GameUtil::limit( r->HP + value, 0, Role::getMaxValue()->MaxHP);
+    r->HP = GameUtil::limit(r->HP + value, 0, Role::getMaxValue()->MaxHP);
     text_box_->setText(fmt1::format("{}生命增加{}", r->Name, r->MaxHP - v0));
     text_box_->run();
 }
