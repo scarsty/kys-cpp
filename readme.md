@@ -4,7 +4,7 @@
 
 <img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/logo.png' />
 
-目前的开发分支名为“卧狼”，即受From Software著名游戏《只狼·影逝二度》以及光荣出品的《卧龙·苍天陨落》启发以格挡、化解等为核心的战斗系统。
+目前的开发分支名为“卧狼·陨落二度”，即受From Software著名游戏《只狼·影逝二度》以及光荣出品的《卧龙·苍天陨落》启发以格挡、化解等为核心的战斗系统。
 
 github：https://github.com/scarsty/kys-cpp
 
