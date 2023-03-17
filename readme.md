@@ -4,9 +4,7 @@
 
 <img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/logo.png' />
 
-目前的开发分支名为“黑帝斯”，即受2020~2021年大火游戏《黑帝斯》启发的即时战斗系统。
-
-在ini中设置semi_real=2即可以开启此战斗系统，但是并不正常。之前的回合制以及半即时战斗系统不受影响。
+目前的开发分支名为“卧狼”，即受From Software著名游戏《只狼·影逝二度》以及光荣出品的《卧龙·苍天陨落》启发以格挡、化解等为核心的战斗系统。
 
 github：https://github.com/scarsty/kys-cpp
 
