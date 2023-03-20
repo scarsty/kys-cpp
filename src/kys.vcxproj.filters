@@ -178,8 +178,8 @@
     <ClCompile Include="RunNodeFromJson.cpp">
       <Filter>runnode</Filter>
     </ClCompile>
-    <ClCompile Include="BattleSceneWolang.cpp">
-      <Filter>application</Filter>
+    <ClCompile Include="BattleSceneZhiLong.cpp">
+      <Filter>battle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -360,8 +360,8 @@
     <ClInclude Include="RunNodeFromJson.h">
       <Filter>runnode</Filter>
     </ClInclude>
-    <ClInclude Include="BattleSceneWolang.h">
-      <Filter>types</Filter>
+    <ClInclude Include="BattleSceneZhiLong.h">
+      <Filter>battle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

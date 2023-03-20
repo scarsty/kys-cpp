@@ -112,7 +112,7 @@
     <ClCompile Include="BattleScene.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
     <ClCompile Include="BattleSceneHades.cpp" />
-    <ClCompile Include="BattleSceneWolang.cpp" />
+    <ClCompile Include="BattleSceneZhiLong.cpp" />
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="ChemistryEngine.cpp" />
     <ClCompile Include="Console.cpp" />
@@ -165,7 +165,7 @@
     <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
-    <ClInclude Include="BattleSceneWolang.h" />
+    <ClInclude Include="BattleSceneZhiLong.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />

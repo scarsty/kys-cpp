@@ -2,7 +2,7 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "BattleSceneHades.h"
-#include "BattleSceneWolang.h"
+#include "BattleSceneZhiLong.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -418,7 +418,7 @@ bool Event::tryBattle(int battle_id, int get_exp)
     }
     else if (style == 3)
     {
-        auto battle = std::make_shared<BattleSceneWolang>();
+        auto battle = std::make_shared<BattleSceneZhiLong>();
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
