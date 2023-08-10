@@ -35,7 +35,7 @@ sudo apt-get install libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev liblua5
 
 查看 sdl 版本
 ```
-$ sdl-config --verion
+$ sdl-config --version
 2.0.8
 ```
 
