@@ -1,4 +1,4 @@
-#include "Script.h"
+ï»¿#include "Script.h"
 #include "Event.h"
 #include "EventMacro.h"
 #include "NewSave.h"
@@ -277,7 +277,7 @@ int Script::registerEventFunctions()
     };
     lua_register(lua_state_, "instruct_50e", instruct_50e);
 
-    //ÒÔÏÂÎªĞÂÖ¸Áî
+    //ä»¥ä¸‹ä¸ºæ–°æŒ‡ä»¤
 
     auto newTalk = [](lua_State* L) -> int
     {

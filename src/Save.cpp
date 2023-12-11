@@ -98,42 +98,42 @@ void Save::loadR(int num)
         {
             for (auto i : roles_)
             {
-                PotConv::fromCP936ToUTF8(i->Name);
-                PotConv::fromCP936ToUTF8(i->Nick);
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
+                PotConv::fromCP936ToUTF8(i->Nick, i->Nick);
             }
             for (auto i : items_)
             {
-                PotConv::fromCP936ToUTF8(i->Name);
-                PotConv::fromCP936ToUTF8(i->Introduction);
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
+                PotConv::fromCP936ToUTF8(i->Introduction, i->Introduction);
             }
             for (auto i : magics_)
             {
-                PotConv::fromCP936ToUTF8(i->Name);
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
             }
             for (auto i : submap_infos_)
             {
-                PotConv::fromCP936ToUTF8(i->Name);
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
             }
         }
         else
         {
             for (auto i : roles_)
             {
-                PotConv::fromCP950ToUTF8(i->Name);
-                PotConv::fromCP950ToUTF8(i->Nick);
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
+                PotConv::fromCP950ToUTF8(i->Nick, i->Nick);
             }
             for (auto i : items_)
             {
-                PotConv::fromCP950ToUTF8(i->Name);
-                PotConv::fromCP950ToUTF8(i->Introduction);
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
+                PotConv::fromCP950ToUTF8(i->Introduction, i->Introduction);
             }
             for (auto i : magics_)
             {
-                PotConv::fromCP950ToUTF8(i->Name);
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
             }
             for (auto i : submap_infos_)
             {
-                PotConv::fromCP950ToUTF8(i->Name);
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
             }
         }
         Encode = 65001;

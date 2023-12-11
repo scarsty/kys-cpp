@@ -1,7 +1,7 @@
-#pragma once
+ï»¿#pragma once
 #include "RunNode.h"
 
-//¸¨Öú»æÖÆµÄÀà
+//è¾…åŠ©ç»˜åˆ¶çš„ç±»
 class DrawNode : public RunNode
 {    
     public:
