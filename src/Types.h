@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Point.h"
 #include <cstdint>
 #include <string>
@@ -293,15 +293,14 @@ public:
     Pointf Pos;            //亚像素的直角坐标
     Pointf RealTowards;    //面对的方向，计算攻击位置，击退方向等
     //以下用于一些被动移动的计算，例如闪身，击退等，主动移动可以直接修改坐标
-    Pointf Velocity;           //指该质点的速度，每帧据此计算坐标
-    Pointf Acceleration;       //加速度
-    //int VelocitytFrame = 0;    //大于0时质点速度才生效
-    int HurtFrame = 0;         //正在受到伤害
-    int CoolDown = 0;          //冷却
-    int Attention = 0;         //出场
-    int Invincible = 0;        //无敌时间
-    int Frozen = 0;            //静止时间
-    int Shake = 0;             //震动时间
+    Pointf Velocity;        //指该质点的速度，每帧据此计算坐标
+    Pointf Acceleration;    //加速度
+    int HurtFrame = 0;      //正在受到伤害
+    int CoolDown = 0;       //冷却
+    int Attention = 0;      //出场
+    int Invincible = 0;     //无敌时间
+    int Frozen = 0;         //静止时间
+    int Shake = 0;          //震动时间
 
     int HaveAction = 0;        //开始行动
     int ActType = -1;          //医拳剑刀特
@@ -311,6 +310,8 @@ public:
     int OperationCount = 0;    //使用同一攻击的计数
     int HurtThisFrame = 0;     //一帧内受到伤害累积
     int FindingWay = 0;        //ai正在找路
+
+    double Posture = 0;    //架势，用于格挡崩防等
 
     Magic* UsingMagic = nullptr;
     Item* UsingItem = nullptr;

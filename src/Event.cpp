@@ -2,7 +2,7 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "BattleSceneHades.h"
-#include "BattleSceneZhiLong.h"
+#include "BattleSceneSekiro.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -402,6 +402,7 @@ bool Event::tryBattle(int battle_id, int get_exp)
 {
     int result = 0;
     int style = GameUtil::getInstance()->getInt("game", "battle_mode");
+    fmt1::print("Battle mode: {}\n", style);
     if (style == 0 || style == 1)
     {
         auto battle = std::make_shared<BattleScene>();
@@ -418,7 +419,7 @@ bool Event::tryBattle(int battle_id, int get_exp)
     }
     else if (style == 3)
     {
-        auto battle = std::make_shared<BattleSceneZhiLong>();
+        auto battle = std::make_shared<BattleSceneSekiro>();
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();

@@ -1,13 +1,12 @@
 ﻿#pragma once
 #include "BattleMap.h"
 #include "BattleScene.h"
+#include "Font.h"
 #include "Head.h"
 #include "Save.h"
 #include "UIKeyConfig.h"
 #include <deque>
 #include <unordered_map>
-
-#include "Font.h"
 
 //j轻攻击，i重攻击，m闪身
 //每场战斗可以选择从4种武学中选择轻重
@@ -118,23 +117,6 @@ protected:
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
     std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
 
-    Pointf pos45To90(int x, int y)    //45度坐标转为直角
-    {
-        Pointf p;
-        p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
-        p.y = y * TILE_W + x * TILE_W;
-        return p;
-    }
-
-    Point pos90To45(double x, double y)    //直角坐标转为45度
-    {
-        x -= COORD_COUNT * TILE_W;
-        Point p;
-        p.x = round(((x) / TILE_W + (y) / TILE_W) / 2);
-        p.y = round(((-x) / TILE_W + (y) / TILE_W) / 2);
-        return p;
-    }
-
     bool canWalk45(int x, int y)
     {
         if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y))
@@ -146,7 +128,7 @@ protected:
             return true;
         }
     }
-    virtual bool canWalk(int x, int y) override { return canWalk45(x, y); }
+
     bool canWalk90(int x, int y)
     {
         auto p = pos90To45(x, y);
@@ -169,25 +151,7 @@ protected:
         auto p45 = pos90To45(p.x, p.y);
         return canWalk45(p45.x, p45.y);
     }
-
-    double EuclidDis(double x, double y)
-    {
-        return sqrt(x * x + y * y);
-    }
-
-    double EuclidDis(Pointf& p1, Pointf p2)
-    {
-        return EuclidDis(p1.x - p2.x, p1.y - p2.y);
-    }
-    void norm(double& x, double& y, double n0 = 1)
-    {
-        auto n = sqrt(x * x + y * y);
-        if (n > 0)
-        {
-            x *= n0 / n;
-            y *= n0 / n;
-        }
-    }
+    virtual bool canWalk(int x, int y) override { return canWalk45(x, y); }
 
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);

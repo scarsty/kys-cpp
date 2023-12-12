@@ -112,3 +112,23 @@ inline int realTowardsToFaceTowards(const Pointf& t)
     if (t.x <= 0 && t.y < 0) { return Towards_LeftUp; }
     return Towards_None;
 }
+
+inline double EuclidDis(double x, double y)
+{
+    return sqrt(x * x + y * y);
+}
+
+inline double EuclidDis(Pointf& p1, Pointf p2)
+{
+    return EuclidDis(p1.x - p2.x, p1.y - p2.y);
+}
+
+inline void norm(double& x, double& y, double n0 = 1)
+{
+    auto n = sqrt(x * x + y * y);
+    if (n > 0)
+    {
+        x *= n0 / n;
+        y *= n0 / n;
+    }
+}

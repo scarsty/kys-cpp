@@ -1,4 +1,4 @@
-#include "OpenCCConverter.h"
+ï»¿#include "OpenCCConverter.h"
 #include "OpenCCConverter.h"
 
 #include "GameUtil.h"
@@ -37,7 +37,7 @@ std::string OpenCCConverter::CP936s2t(const std::string& in)
 
 void OpenCCConverter::set(const std::string& setfile)
 {
-    //ÓĞÄÚ´æĞ¹Â¶£¬²»¹ÜÁË
+    //æœ‰å†…å­˜æ³„éœ²ï¼Œä¸ç®¡äº†
     cc_s2t = opencc_open((GameUtil::PATH() + setfile).c_str());
 }
 

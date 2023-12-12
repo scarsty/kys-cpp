@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "BattleCursor.h"
 #include "BattleMap.h"
 #include "BattleMenu.h"
@@ -125,7 +125,7 @@ public:
     virtual bool isOutScreen(int x, int y) override;
     virtual bool isNearEnemy(int team, int x, int y);    //是否x，y上的人物与team不一致
 
-    virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }               //计算距离
+    virtual int calRoleDistance(Role* r1, Role* r2) { return calDistance(r1->X(), r1->Y(), r2->X(), r2->Y()); }                     //计算距离
     virtual int calDistanceRound(int x1, int x2, int y1, int y2) { return sqrt((x1 - y1) * (x1 - y1) + (x2 - y2) * (x2 - y2)); }    //计算欧氏距离
     void calDistanceLayer(int x, int y, MapSquareInt& distance_layer, int max_step);
 
@@ -177,4 +177,22 @@ public:
     virtual void setupRolePosition(Role* r, int team, int x, int y);
     virtual void receiveAction(Role* r);
     virtual void sendAction(Role* r);
+
+    //以下是45度和90度坐标转换相关
+    Pointf pos45To90(int x, int y)    //45度坐标转为直角
+    {
+        Pointf p;
+        p.x = -y * TILE_W + x * TILE_W + COORD_COUNT * TILE_W;
+        p.y = y * TILE_W + x * TILE_W;
+        return p;
+    }
+
+    Point pos90To45(double x, double y)    //直角坐标转为45度
+    {
+        x -= COORD_COUNT * TILE_W;
+        Point p;
+        p.x = round(((x) / TILE_W + (y) / TILE_W) / 2);
+        p.y = round(((-x) / TILE_W + (y) / TILE_W) / 2);
+        return p;
+    }
 };
