@@ -11,7 +11,20 @@ class BattleSceneSekiro : public BattleScene
 {
 public:
     BattleSceneSekiro();
+    void setID(int id);
     virtual void draw() override;
+    virtual void dealEvent(BP_Event& e) override;     //战场主循环
+    virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
+    virtual void onEntrance() override;
+    virtual void onExit() override;
+    virtual void backRun() override {}
+    virtual void backRun1();
+    void Action(Role* r) {}
+    void AI(Role* r) {}
+    virtual void onPressedCancel() override {}
+
+        virtual int checkResult() override;
+    virtual void setRoleInitState(Role* r) override;
 
 protected:
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面

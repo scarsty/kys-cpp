@@ -136,6 +136,26 @@ void Head::draw()
         font->draw(role_->Name, 20, x_ - 10 - font->getTextDrawSize(role_->Name) * 10, y_ - 4, white);
         font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + width_ + 10, y_ - 2, white);
     }
+    else if (style_ == 2)
+    {
+        //TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ - 10, y_ - 10, { 255, 255, 255, 255 }, 255, 0.15, 0.15);
+        width_ = 300;
+        BP_Rect r1 = { x_ + 0, y_ + 0, width_, 11 }, r2;
+        BP_Color c, c_text;
+        Engine::getInstance()->fillColor({ 0, 0, 0, 168 }, r1.x, r1.y, r1.w, r1.h);
+        int w = (width_ - 2) * role_->HP / role_->MaxHP;
+        if (role_->MaxHP > 0)
+        {
+            r2 = { x_ + 1 + w, y_ + 1, (width_ - 2) * (HP_ - role_->HP) / role_->MaxHP, 9 };
+            r1 = { x_ + 1, y_ + 1, w, 9 };
+        }
+        c = { 0xff, 0xb7, 0x4d, 255 };
+        Engine::getInstance()->renderSquareTexture(&r2, c, 144);
+        c = { 196, 25, 16, 255 };
+        Engine::getInstance()->renderSquareTexture(&r1, c, 192);
+        font->draw(role_->Name, 20, x_ + 10, y_ + 20, white);
+        //font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + width_ + 10, y_ - 2, white);
+    }
     HP_ = std::max(HP_ - 1 - role_->MaxHP / 1000, role_->HP);
     MP_ = std::max(MP_ - 1 - role_->MaxMP / 1000, role_->MP);
     PhysicalPower_ = std::max(PhysicalPower_ - 1, role_->PhysicalPower);

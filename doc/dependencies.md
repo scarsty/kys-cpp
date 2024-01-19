@@ -39,9 +39,9 @@ PicoSHA2仅需要头文件，如果文件不在包含目录中，请注意将它
 
 除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
-### nb
+### mlcc
 
-nb <https://github.com/scarsty/nb>
+mlcc <https://github.com/scarsty/mlcc>
 
 nb是作者所写的一个通用功能集合，被多个工程使用。
 
