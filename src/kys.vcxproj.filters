@@ -22,9 +22,6 @@
     <ClCompile Include="Audio.cpp">
       <Filter>engine</Filter>
     </ClCompile>
-    <ClCompile Include="Engine.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="UI.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -181,6 +178,9 @@
     <ClCompile Include="BattleSceneSekiro.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="..\mlcc\Engine.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -232,9 +232,6 @@
       <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="Audio.h">
-      <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine.h">
       <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="MainScene.h">
@@ -362,6 +359,21 @@
     </ClInclude>
     <ClInclude Include="BattleSceneSekiro.h">
       <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\Engine.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\filefunc.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\INIReader.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\PotConv.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\strfunc.h">
+      <Filter>mlcc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

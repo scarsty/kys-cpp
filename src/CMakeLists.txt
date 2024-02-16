@@ -14,6 +14,7 @@ file(GLOB SRC_LIST
     ../mlcc/strfunc.cpp
     ../mlcc/filefunc.cpp
     ../mlcc/PotConv.cpp
+    ../mlcc/Engine.cpp
     ../others/Hanz2Piny.cpp
     )
 

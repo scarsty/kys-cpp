@@ -100,6 +100,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\mlcc\Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\mlcc\filefunc.cpp" />
     <ClCompile Include="..\mlcc\PotConv.cpp" />
@@ -135,7 +136,6 @@
     <ClCompile Include="ShowRoleDifference.cpp" />
     <ClCompile Include="SuperMenuText.cpp" />
     <ClCompile Include="Talk.cpp" />
-    <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Event.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
@@ -162,7 +162,12 @@
     <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\mlcc\Engine.h" />
+    <ClInclude Include="..\mlcc\filefunc.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
+    <ClInclude Include="..\mlcc\INIReader.h" />
+    <ClInclude Include="..\mlcc\PotConv.h" />
+    <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
     <ClInclude Include="BattleSceneSekiro.h" />
@@ -197,7 +202,6 @@
     <ClInclude Include="ShowRoleDifference.h" />
     <ClInclude Include="SuperMenuText.h" />
     <ClInclude Include="Talk.h" />
-    <ClInclude Include="Engine.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="EventMacro.h" />
     <ClInclude Include="Font.h" />
