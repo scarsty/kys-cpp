@@ -1,0 +1,13 @@
+diff --git a/libass/ass_shaper.h b/libass/ass_shaper.h
+index 66bfed0..c31e72a 100644
+--- a/libass/ass_shaper.h
++++ b/libass/ass_shaper.h
+@@ -21,7 +21,7 @@
+ 
+ typedef struct ass_shaper ASS_Shaper;
+ 
+-#include <fribidi.h>
++#include <fribidi/fribidi.h>
+ #include <stdbool.h>
+ #include "ass_render.h"
+ 
