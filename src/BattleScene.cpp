@@ -37,7 +37,7 @@ BattleScene::BattleScene()
     addChild(head_self_);
     battle_cursor_ = std::make_shared<BattleCursor>(this);
     save_ = Save::getInstance();
-    semi_real_ = GameUtil::getInstance()->getInt("game", "semi_real", 0);
+    semi_real_ = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
     rand_.set_seed();
 }
 
