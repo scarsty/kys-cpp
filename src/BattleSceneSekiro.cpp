@@ -5,6 +5,7 @@
 
 BattleSceneSekiro::BattleSceneSekiro()
 {
+    keys_ = *UIKeyConfig::getKeyConfig();
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
 
@@ -315,6 +316,195 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
 
     pos_ = r->Pos;
 
+    Pointf pos = r->Pos;
+    double speed = std::min(4.0, r->Speed / 30.0);
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
+        || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK)
+    {
+        if (r->Auto == 0) { r->Auto = 1; }
+        else { r->Auto = 0; }
+    }
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
+        || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START)
+    {
+        auto menu2 = std::make_shared<MenuText>();
+        menu2->setStrings({ "確認（Y）", "取消（N）" });
+        menu2->setPosition(400, 300);
+        menu2->setFontSize(24);
+        menu2->setHaveBox(true);
+        menu2->setText("認輸？");
+        menu2->arrange(0, 50, 150, 0);
+        if (menu2->run() == 0)
+        {
+            result_ = 1;
+            for (auto r : friends_)
+            {
+                r->ExpGot = 0;
+            }
+            setExit(true);
+        }
+    }
+    if (r->Dead == 0)
+    {
+        if (r->Frozen == 0 && r->CoolDown == 0)
+        {
+            //if (current_frame_ % 3 == 0)
+            {
+                auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
+                auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+                if (abs(axis_x) < 6000) { axis_x = 0; }
+                if (abs(axis_y) < 6000) { axis_y = 0; }
+                if (axis_x != 0 || axis_y != 0)
+                {
+                    //fmt1::print("{} {}, ", axis_x, axis_y);
+                    axis_x = GameUtil::limit(axis_x, -30000, 30000);
+                    axis_y = GameUtil::limit(axis_y, -30000, 30000);
+                    Pointf axis{ double(axis_x), double(axis_y) };
+                    axis *= 1.0 / 30000 / sqrt(2.0);
+                    r->RealTowards = axis;
+                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
+                    pos += speed * axis;
+                }
+                Pointf direct;
+                if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
+                {
+                    direct.x = -1;
+                    r->FaceTowards = Towards_LeftDown;
+                }
+                if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(BPK_RIGHT))
+                {
+                    direct.x = 1;
+                    r->FaceTowards = Towards_RightUp;
+                }
+                if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(BPK_UP))
+                {
+                    direct.y = -1;
+                    r->FaceTowards = Towards_LeftUp;
+                }
+                if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(BPK_DOWN))
+                {
+                    direct.y = 1;
+                    r->FaceTowards = Towards_RightDown;
+                }
+                direct.normTo(speed);
+                pos += direct;
+                //这样来看同时用手柄和键盘会走得很快，就这样吧
+            }
+        }
+        if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
+            || engine->checkKeyPress(BPK_UP) && engine->checkKeyPress(BPK_RIGHT))
+        {
+            r->FaceTowards = Towards_RightUp;
+        }
+        if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
+            || engine->checkKeyPress(BPK_DOWN) && engine->checkKeyPress(BPK_LEFT))
+        {
+            r->FaceTowards = Towards_LeftDown;
+        }
+        //实际的朝向可以不能走到
+        if (pos.x != r->Pos.x || pos.y != r->Pos.y)
+        {
+            r->RealTowards = pos - r->Pos;
+        }
+
+        if (canWalk90(pos, r))
+        {
+            r->Pos = pos;
+        }
+
+        // 初始化武功
+        std::vector<Magic*> magic(4);
+        for (int i = 0; i < 4; i++)
+        {
+            magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
+            if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
+            //equip_magics_[i]->setState(NodeNormal);
+        }
+
+        if (r->Frozen == 0 && r->CoolDown == 0)
+        {
+            int index = -1;
+            if (r->PhysicalPower >= 10
+                && (engine->checkKeyPress(keys_.Light)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)
+                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_LEFT)))
+            {
+                index = 0;
+            }
+            if (r->PhysicalPower >= 30
+                && (engine->checkKeyPress(keys_.Heavy)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)
+                    || (e.type == BP_MOUSEWHEEL && e.wheel.y > 0)
+                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_MIDDLE)))
+            {
+                index = 1;
+            }
+            if (r->PhysicalPower >= 20
+                && (engine->checkKeyPress(keys_.Long)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)
+                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_RIGHT)))
+            {
+                index = 2;
+            }
+            if (r->PhysicalPower >= 10
+                && (engine->checkKeyPress(keys_.Slash)
+                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)
+                    || (e.type == BP_MOUSEWHEEL && e.wheel.y < 0)))
+            {
+                index = 3;
+            }
+            if (index >= 0)
+            {
+                r->Auto = 0;
+            }
+            if (r->OperationCount >= 3 || current_frame_ - r->PreActTimer > 60)
+            {
+                r->OperationCount = 0;
+            }
+            if (index >= 0 && index == r->OperationType)
+            {
+                r->OperationCount++;
+            }
+
+            if (index >= 0 && index < magic.size() && magic[index])
+            {
+                r->OperationType = index;
+                //equip_magics_[index]->setState(NodePass);
+                auto m = magic[index];
+                r->ActType = m->MagicType;
+                r->UsingMagic = m;
+                r->UsingItem = nullptr;
+                r->ActFrame = 0;
+                r->HaveAction = 1;
+                //r->Frozen = 5;
+                if (index == 0)
+                {
+                    //点攻
+                    //r->CoolDown = 10;
+                }
+                if (index == 1)
+                {
+                    //面攻
+                    //r->CoolDown = 60;
+                }
+                if (index == 2)
+                {
+                    //远程
+                    //r->CoolDown = 20;
+                }
+                if (index == 3)
+                {
+                    //闪身
+                    //r->CoolDown = 10;    //冷却更长，有收招硬直
+                }
+                //r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
+                if (r->OperationCount >= 3 && index == 0)
+                {
+                    r->CoolDown *= 2;
+                }
+            }
+        }
+    }
     backRun1();
 }
 
@@ -483,6 +673,16 @@ void BattleSceneSekiro::onExit()
 void BattleSceneSekiro::backRun1()
 {
     {
+        int current_frame2 = current_frame_;
+        for (auto r : battle_roles_)
+        {
+            //有行动
+            Action(r);
+            //ai策略
+            AI(r);
+        }
+    }
+    {
         //人物出场
         if (getTeamMateCount(1) < 5)
         {
@@ -529,6 +729,12 @@ void BattleSceneSekiro::backRun1()
         //}
     }
 }
+
+void BattleSceneSekiro::Action(Role* r)
+{}
+
+void BattleSceneSekiro::AI(Role* r)
+{}
 
 int BattleSceneSekiro::checkResult()
 {
@@ -582,4 +788,118 @@ void BattleSceneSekiro::setRoleInitState(Role* r)
         r->RealTowards = { -1, -1 };
     }
     r->Acceleration = { 0, 0, gravity_ };
+}
+
+void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
+{
+    if (r == nullptr || r->Dead)
+    {
+        return;
+    }
+    // 画个血条
+    BP_Color outline_color = { 0, 0, 0, 128 };
+    BP_Color background_color = { 0, 255, 0, 128 };    // 我方绿色
+    if (r->Team == 1)
+    {
+        // 敌方红色
+        background_color = { 255, 0, 0, 128 };
+    }
+    int hp_max_w = 24;
+    int hp_x = x - hp_max_w / 2;
+    int hp_y = y - 60;
+    int hp_h = 3;
+    double perc = ((double)r->HP / r->MaxHP);
+    if (perc < 0)
+    {
+        perc = 0;
+    }
+    double alpha = 1;
+    if (r->HP <= 0)
+    {
+        alpha = dead_alpha_ / 255.0;
+    }
+    BP_Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
+    Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
+    BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
+    Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+}
+
+Role* BattleSceneSekiro::findNearestEnemy(int team, Pointf p)
+{
+    double dis = 4096;
+    Role* r0 = nullptr;
+    for (auto r1 : battle_roles_)
+    {
+        if (r1->Dead == 0 && team != r1->Team)
+        {
+            auto dis1 = EuclidDis(p, r1->Pos);
+            if (dis1 < dis)
+            {
+                dis = dis1;
+                r0 = r1;
+            }
+        }
+    }
+    return r0;
+}
+
+Role* BattleSceneSekiro::findFarthestEnemy(int team, Pointf p)
+{
+    double dis = 0;
+    Role* r0 = nullptr;
+    for (auto r1 : battle_roles_)
+    {
+        if (r1->Dead == 0 && team != r1->Team)
+        {
+            auto dis1 = EuclidDis(p, r1->Pos);
+            if (dis1 > dis)
+            {
+                dis = dis1;
+                r0 = r1;
+            }
+        }
+    }
+    return r0;
+}
+
+int BattleSceneSekiro::calRolePic(Role* r, int style, int frame)
+{
+    if (style < 0 || style >= 5)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            if (r->FightFrame[i] > 0)
+            {
+                return r->FightFrame[i] * r->FaceTowards;
+            }
+        }
+    }
+    if (r->FightFrame[style] <= 0)
+    {
+        //改为选一个存在的动作，否则看不出是在攻击
+        for (int i = 0; i < 5; i++)
+        {
+            if (r->FightFrame[i] > 0)
+            {
+                style = i;
+            }
+        }
+    }
+    int total = 0;
+    for (int i = 0; i < 5; i++)
+    {
+        if (i == style)
+        {
+            if (frame < r->FightFrame[style] - 2)
+            {
+                return total + r->FightFrame[style] * r->FaceTowards + frame;
+            }
+            else
+            {
+                return total + r->FightFrame[style] * r->FaceTowards + r->FightFrame[style] - 2;
+            }
+        }
+        total += r->FightFrame[i] * 4;
+    }
+    return r->FaceTowards;
 }

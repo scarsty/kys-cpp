@@ -109,8 +109,8 @@ protected:
     int close_up_ = 0;
 
     std::shared_ptr<Menu> menu_;
-    std::vector<std::shared_ptr<Button>> equip_magics_;
-    std::shared_ptr<Button> equip_item_;
+    std::vector<std::shared_ptr<Button>> button_magics_;
+    std::shared_ptr<Button> button_item_;
     std::shared_ptr<TextBox> show_auto_;
 
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
@@ -166,7 +166,7 @@ protected:
         if (i > 0) { i--; }
     }
     void defaultMagicEffect(AttackEffect& ae, Role* r);
-    int calRolePic(Role* r, int style, int frame) override;
+    virtual int calRolePic(Role* r, int style, int frame) override;
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1)
     {

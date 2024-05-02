@@ -41,11 +41,12 @@ TitleScene::TitleScene()
     pe_->setSize(20, 20);
     addChild(pe_);
 
-    //Save::getInstance()->load(5);
-    //RandomDouble rand;
-    //int k = rand.rand() * 139;
-    //k = 100;
-    //Event::getInstance()->tryBattle(k, 0);
+    //调试用代码
+    Save::getInstance()->load(5);
+    RandomDouble rand;
+    int k = rand.rand() * 139;
+    k = 0;
+    Event::getInstance()->tryBattle(k, 0);
 
     //auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");
     //addChild(p);
@@ -78,7 +79,7 @@ void TitleScene::dealEvent(BP_Event& e)
     int r = menu_->run();
     if (r == 0)
     {
-        Engine::getInstance()->gameControllerRumble(50 , 50, 500);
+        Engine::getInstance()->gameControllerRumble(50, 50, 500);
         Save::getInstance()->load(0);
         //Script::getInstance()->runScript(GameUtil::PATH()+"script/0.lua");
         std::string name = "";

@@ -30,23 +30,23 @@ BattleSceneHades::BattleSceneHades()
 
     menu_ = std::make_shared<Menu>();
     menu_->setPosition(300, 30);
-    equip_magics_.resize(4);
-    for (auto& em : equip_magics_)
+    button_magics_.resize(4);
+    for (auto& em : button_magics_)
     {
         em = std::make_shared<Button>();
     }
-    equip_magics_[0]->setText("__________");
-    menu_->addChild(equip_magics_[0], 0, 10);
-    equip_magics_[1]->setText("__________");
-    menu_->addChild(equip_magics_[1], 120, 0);
-    equip_magics_[2]->setText("__________");
-    menu_->addChild(equip_magics_[2], 240, 10);
-    equip_magics_[3]->setText("__________");
-    menu_->addChild(equip_magics_[3], 120, 25);
+    button_magics_[0]->setText("__________");
+    menu_->addChild(button_magics_[0], 0, 10);
+    button_magics_[1]->setText("__________");
+    menu_->addChild(button_magics_[1], 120, 0);
+    button_magics_[2]->setText("__________");
+    menu_->addChild(button_magics_[2], 240, 10);
+    button_magics_[3]->setText("__________");
+    menu_->addChild(button_magics_[3], 120, 25);
 
-    equip_item_ = std::make_shared<Button>();
-    equip_item_->setText("__________");
-    menu_->addChild(equip_item_, 400, 10);
+    button_item_ = std::make_shared<Button>();
+    button_item_->setText("__________");
+    menu_->addChild(button_item_, 400, 10);
     addChild(menu_);
     menu_->setVisible(false);
     head_boss_.resize(6);
@@ -489,14 +489,14 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
-            equip_magics_[i]->setState(NodeNormal);
+            button_magics_[i]->setState(NodeNormal);
         }
         // 初始化 器
         Item* item = Save::getInstance()->getItem(r->EquipItem);
         if (item)
         {
             const int count = Save::getInstance()->getItemCountInBag(item->ID);
-            equip_item_->setText(std::string(item->Name) + " " + std::to_string(count));
+            button_item_->setText(std::string(item->Name) + " " + std::to_string(count));
         }
 
         if (r->Frozen == 0 && r->CoolDown == 0)
@@ -553,7 +553,7 @@ void BattleSceneHades::dealEvent(BP_Event& e)
             if (index >= 0 && index < magic.size() && magic[index])
             {
                 r->OperationType = index;
-                equip_magics_[index]->setState(NodePass);
+                button_magics_[index]->setState(NodePass);
                 auto m = magic[index];
                 r->ActType = m->MagicType;
                 r->UsingMagic = m;
@@ -1586,7 +1586,7 @@ void BattleSceneHades::onEntrance()
 
     //head_self_->setRole(role_);
 
-    for (int i = 0; i < equip_magics_.size(); i++)
+    for (int i = 0; i < button_magics_.size(); i++)
     {
         auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
         if (m && role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
@@ -1594,11 +1594,11 @@ void BattleSceneHades::onEntrance()
         {
             std::string text = m->Name;
             text += std::string(10 - Font::getTextDrawSize(text), ' ');
-            equip_magics_[i]->setText(text);
+            button_magics_[i]->setText(text);
         }
         else
         {
-            equip_magics_[i]->setText("__________");
+            button_magics_[i]->setText("__________");
         }
     }
     menu_->setVisible(true);

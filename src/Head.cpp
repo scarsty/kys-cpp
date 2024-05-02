@@ -139,7 +139,7 @@ void Head::draw()
     else if (style_ == 2)
     {
         //TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ - 10, y_ - 10, { 255, 255, 255, 255 }, 255, 0.15, 0.15);
-        width_ = 300;
+        width_ = 200;
         BP_Rect r1 = { x_ + 0, y_ + 0, width_, 11 }, r2;
         BP_Color c, c_text;
         Engine::getInstance()->fillColor({ 0, 0, 0, 168 }, r1.x, r1.y, r1.w, r1.h);
