@@ -401,30 +401,30 @@ bool Event::askBattle()
 bool Event::tryBattle(int battle_id, int get_exp)
 {
     int result = 0;
-    int style = GameUtil::getInstance()->getInt("game", "battle_mode");
-    fmt1::print("Battle mode: {}\n", style);
-    if (style == 0 || style == 1)
+    int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode");
+    fmt1::print("Battle mode: {}\n", battle_mode);
+    if (battle_mode == 0 || battle_mode == 1)
     {
         auto battle = std::make_shared<BattleScene>();
         battle->setID(battle_id);
         battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    else if (style == 2)
+    else if (battle_mode == 2)
     {
         auto battle = std::make_shared<BattleSceneHades>();
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    else if (style == 3)
+    else if (battle_mode == 3)
     {
         auto battle = std::make_shared<BattleSceneSekiro>();
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
-    else if (style == -1)
+    else if (battle_mode == -1)
     {
         result = 0;    //直接判断为胜利，用于调试
     }

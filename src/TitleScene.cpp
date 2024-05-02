@@ -27,6 +27,7 @@
 TitleScene::TitleScene()
 {
     full_window_ = 1;
+    battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
     menu_ = std::make_shared<Menu>();
     menu_->setPosition(560, 600);
     menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
@@ -37,8 +38,17 @@ TitleScene::TitleScene()
     //render_message_ = 1;
     pe_ = std::make_shared<ParticleExample>();
     pe_->setStyle(ParticleExample::FIRE);
-    pe_->setPosition(490, 80);
-    pe_->setSize(20, 20);
+    if (battle_mode_ == 2)
+    {
+        pe_->setPosition(490, 80);
+        pe_->setSize(20, 20);
+    }
+    else if (battle_mode_ == 3)
+    {
+        pe_->setPosition(170, 500);
+        pe_->setSize(5, 50);
+    }
+
     addChild(pe_);
 
     //调试用代码
@@ -46,7 +56,7 @@ TitleScene::TitleScene()
     RandomDouble rand;
     int k = rand.rand() * 139;
     k = 0;
-    Event::getInstance()->tryBattle(k, 0);
+    //Event::getInstance()->tryBattle(k, 0);
 
     //auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");
     //addChild(p);
@@ -58,8 +68,11 @@ TitleScene::~TitleScene()
 
 void TitleScene::draw()
 {
+    TextureManager::getInstance()->renderTexture("title", 154, 0, 0);
+    Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
+    return;
+    //屏蔽随机头像
     int count = count_ / 20;
-    TextureManager::getInstance()->renderTexture("title", 153, 0, 0);
     int alpha = 255 - abs(255 - count_ % 510);
     count_++;
     if (alpha == 0)
@@ -71,7 +84,6 @@ void TitleScene::draw()
     }
     TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
     //TextureManager::getInstance()->renderTexture("title", 150, 240, 150, { 255,255,255,255 }, 255, 0.3, 0.3);
-    Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
 }
 
 void TitleScene::dealEvent(BP_Event& e)

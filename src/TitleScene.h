@@ -24,5 +24,7 @@ public:
     int head_id_ = 0;
 
     int head_x_, head_y_;
+
+    int battle_mode_ = 0;
 };
 
