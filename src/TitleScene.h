@@ -18,7 +18,6 @@ public:
 
     std::shared_ptr<Menu> menu_;
     std::shared_ptr<UISave> menu_load_;
-    std::shared_ptr<ParticleExample> pe_;
 
     int count_ = 0;
     int head_id_ = 0;

@@ -19,7 +19,8 @@ inline float clampf(float value, float min_inclusive, float max_inclusive)
     {
         std::swap(min_inclusive, max_inclusive);
     }
-    return value < min_inclusive ? min_inclusive : value < max_inclusive ? value : max_inclusive;
+    return value < min_inclusive ? min_inclusive : value < max_inclusive ? value :
+                                                                           max_inclusive;
 }
 
 inline void normalize_point(float x, float y, Vec2* out)
@@ -104,6 +105,10 @@ void ParticleSystem::addParticles(int count)
 
     int start = _particleCount;
     _particleCount += count;
+    if (_particleCount > _totalParticles)
+    {
+        _particleCount = _totalParticles;
+    }
 
     //life
     for (int i = start; i < _particleCount; ++i)
@@ -124,9 +129,9 @@ void ParticleSystem::addParticles(int count)
     }
 
     //color
-#define SET_COLOR(c, b, v)                                                 \
-    for (int i = start; i < _particleCount; ++i)                           \
-    {                                                                      \
+#define SET_COLOR(c, b, v) \
+    for (int i = start; i < _particleCount; ++i) \
+    { \
         particle_data_[i].c = clampf(b + v * RANDOM_M11(&RANDSEED), 0, 1); \
     }
 
@@ -140,9 +145,9 @@ void ParticleSystem::addParticles(int count)
     SET_COLOR(deltaColorB, _endColor.b, _endColorVar.b);
     SET_COLOR(deltaColorA, _endColor.a, _endColorVar.a);
 
-#define SET_DELTA_COLOR(c, dc)                                                                              \
-    for (int i = start; i < _particleCount; ++i)                                                            \
-    {                                                                                                       \
+#define SET_DELTA_COLOR(c, dc) \
+    for (int i = start; i < _particleCount; ++i) \
+    { \
         particle_data_[i].dc = (particle_data_[i].dc - particle_data_[i].c) / particle_data_[i].timeToLive; \
     }
 
@@ -610,6 +615,7 @@ int ParticleSystem::getTotalParticles() const
 void ParticleSystem::setTotalParticles(int var)
 {
     _totalParticles = var;
+    particle_data_.resize(var);
 }
 
 bool ParticleSystem::isAutoRemoveOnFinish() const

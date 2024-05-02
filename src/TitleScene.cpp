@@ -29,28 +29,34 @@ TitleScene::TitleScene()
     full_window_ = 1;
     battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
     menu_ = std::make_shared<Menu>();
-    menu_->setPosition(560, 600);
+    menu_->setPosition(560, 550);
     menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
     menu_->addChild<Button>(20, 0)->setTexture("title", 4, 24, 24);
     menu_->addChild<Button>(220, 0)->setTexture("title", 6, 26, 26);
     menu_load_ = std::make_shared<UISave>();
     menu_load_->setPosition(500, 300);
     //render_message_ = 1;
-    pe_ = std::make_shared<ParticleExample>();
-    pe_->setStyle(ParticleExample::FIRE);
+
     if (battle_mode_ == 2)
     {
-        pe_->setPosition(490, 80);
-        pe_->setSize(20, 20);
+        auto pe1 = std::make_shared<ParticleExample>();
+        pe1->setStyle(ParticleExample::FIRE);
+        addChild(pe1);
+        pe1->setPosition(490, 80);
+        pe1->setSize(20, 20);
     }
     else if (battle_mode_ == 3)
     {
-        pe_->setPosition(170, 500);
-        pe_->setSize(5, 50);
+        auto pe1 = std::make_shared<ParticleExample>();
+        pe1->setPosition(Engine::getInstance()->getWindowWidth() * 0.15, 0);
+        pe1->setStyle(ParticleExample::RAIN);    //先设置位置，再设置样式，有var的问题
+        pe1->setTotalParticles(2000);
+        pe1->setPosVar({ float(Engine::getInstance()->getWindowWidth() * 0.85), -50 });
+        pe1->resetSystem();
+        pe1->setEmissionRate(200);
+        pe1->setGravity({ 200, 50 });
+        addChild(pe1);
     }
-
-    addChild(pe_);
-
     //调试用代码
     Save::getInstance()->load(5);
     RandomDouble rand;
@@ -68,7 +74,7 @@ TitleScene::~TitleScene()
 
 void TitleScene::draw()
 {
-    TextureManager::getInstance()->renderTexture("title", 154, 0, 0);
+    TextureManager::getInstance()->renderTexture("title", 154, 0, 90);
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
     return;
     //屏蔽随机头像
