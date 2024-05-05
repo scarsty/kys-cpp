@@ -1822,7 +1822,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     auto v = r->Pos - ae.Attacker->Pos;
     v.normTo(2);
     r->Velocity += v;
-    if (r->Velocity.norm()>3)
+    if (r->Velocity.norm() > 3)
     {
         r->Velocity.normTo(3);
     }
@@ -1925,6 +1925,7 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
     {
         if (i == style)
         {
+            //停留在最后一帧
             if (frame < r->FightFrame[style] - 2)
             {
                 return total + r->FightFrame[style] * r->FaceTowards + frame;

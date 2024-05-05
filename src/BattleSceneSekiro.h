@@ -9,6 +9,36 @@
 
 class BattleSceneSekiro : public BattleScene
 {
+    struct AttackEffect
+    {
+        Pointf Pos;
+        Pointf Velocity, Acceleration;
+        Role* Attacker = nullptr;         //攻击者
+        std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
+        Magic* UsingMagic = nullptr;
+        Item* UsingHiddenWeapon = nullptr;
+        int Frame = 0;                 //当前帧数
+        int TotalFrame = 1;            //总帧数，当前帧数超过此值就移除此效果
+        int TotalEffectFrame = 1;      //效果总帧数
+        int OperationType = -1;        //攻击类型
+        std::string Path;              //效果贴图路径
+        Role* FollowRole = nullptr;    //一直保持在角色身上
+        int Weaken = 0;                //弱化程度，减掉
+        double Strengthen = 1;         //强化程度，相乘
+        int Track = 0;                 //是否追踪
+        int Through = 0;               //是否贯穿，即击中敌人后可以不消失
+        int NoHurt = 0;                //是否无伤害
+        void setEft(int num)
+        {
+            setPath(fmt1::format("eft/eft{:03}", num));
+        }
+        void setPath(const std::string& p)
+        {
+            Path = p;
+            TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
+        }
+    };
+
 public:
     BattleSceneSekiro();
     void setID(int id);
@@ -65,7 +95,8 @@ public:
     void renderExtraRoleInfo(Role* r, double x, double y);
     Role* findNearestEnemy(int team, Pointf p);
     Role* findFarthestEnemy(int team, Pointf p);
-
+    int calCast(int act_type, int operation_type, Role* r);
+    int calCoolDown(int act_type, int operation_type, Role* r);
     void decreaseToZero(int& i)
     {
         if (i > 0) { i--; }
@@ -84,12 +115,23 @@ protected:
     std::vector<std::shared_ptr<Head>> heads_;
     std::vector<std::shared_ptr<Head>> head_boss_;
 
+    std::deque<AttackEffect> attack_effects_;
+
     bool is_running_ = false;    //主角是否在跑动
     Role* role_ = nullptr;
 
     UIKeyConfig::Keys keys_;
-};
 
+    int weapon_ = 1;
+    int frozen_ = 0;
+    int slow_ = 0;
+    int shake_ = 0;
+    int close_up_ = 0;
+
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
+    std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
+};
 
 //暂时设计：
 //身上可以携带4个物品（或者干脆不要）

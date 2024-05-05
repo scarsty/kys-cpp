@@ -1,5 +1,6 @@
 ﻿#include "BattleSceneSekiro.h"
 #include "Audio.h"
+#include "Event.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
 
@@ -573,7 +574,7 @@ void BattleSceneSekiro::onEntrance()
             }
         }
     }
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 1; i++)
     {
         if (!enemies_.empty())
         {
@@ -596,7 +597,7 @@ void BattleSceneSekiro::onEntrance()
         }
     }
 
-    if (1)    //准许队友出场
+    if (01)    //无队友出场
     {
         auto team_menu = std::make_shared<TeamMenu>();
         team_menu->setMode(1);
@@ -684,7 +685,7 @@ void BattleSceneSekiro::backRun1()
     }
     {
         //人物出场
-        if (getTeamMateCount(1) < 5)
+        if (getTeamMateCount(1) < 2)
         {
             if (!enemies_.empty())
             {
@@ -731,10 +732,512 @@ void BattleSceneSekiro::backRun1()
 }
 
 void BattleSceneSekiro::Action(Role* r)
-{}
+{
+    if (r->HaveAction)
+    {
+        //音效和动画
+        if (r->OperationType >= 0
+            //&& r->ActFrame == r->FightFrame[r->ActType] - 3
+            && r->ActFrame == calCast(r->ActType, r->OperationType, r))
+        {
+            //r->HaveAction = 0;
+            r->PreActTimer = current_frame_;
+            for (auto m : r->getLearnedMagics())
+            {
+                if (special_magic_effect_attack_.count(m->Name))
+                {
+                    special_magic_effect_attack_[m->Name](r);
+                }
+            }
+            Magic* magic = nullptr;
+            if (r->UsingMagic)
+            {
+                magic = r->UsingMagic;
+            }
+            else
+            {
+                std::vector<Magic*> v;
+                for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+                {
+                    if (r->MagicID[i] > 0)
+                    {
+                        auto m = Save::getInstance()->getMagic(r->MagicID[i]);
+                        if (m->MagicType == r->ActType)
+                        {
+                            v.push_back(m);
+                        }
+                    }
+                }
+                if (!v.empty())
+                {
+                    magic = v[rand_.rand() * v.size()];
+                }
+            }
+            AttackEffect ae;
+            if (magic)
+            {
+                Audio::getInstance()->playASound(magic->SoundID);
+                ae.setEft(magic->EffectID);
+                ae.UsingMagic = magic;
+            }
+            else
+            {
+                Audio::getInstance()->playESound(r->ActType);
+                ae.setEft(11);
+                magic = Save::getInstance()->getMagic(1);
+                ae.UsingMagic = Save::getInstance()->getMagic(1);
+            }
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+            int level_index = r->getMagicLevelIndex(magic->ID);
+            int needMP = magic->calNeedMP(level_index);
+            ae.TotalFrame = 30;
+            //r->CoolDown += ae.TotalFrame;
+            ae.Attacker = r;
+            r->RealTowards.normTo(1);
+            ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
+            ae.Frame = 0;
+            if (r->Team == 0 && r == role_)
+            {
+                ae.OperationType = r->OperationType;
+                //if (r->OperationType == 0 && ae.UsingMagic->AttackAreaType != 0)
+                //{
+                //    ae.OperationType = -1;
+                //}
+                //if (r->OperationType == 2 && (ae.UsingMagic->AttackAreaType != 1 && ae.UsingMagic->AttackAreaType != 2))
+                //{
+                //    ae.OperationType = -1;
+                //}
+                //if (r->OperationType == 1 && ae.UsingMagic->AttackAreaType != 3)
+                //{
+                //    ae.OperationType = -1;
+                //}
+            }
+            else
+            {
+                ae.OperationType = r->OperationType;
+                if (r->OperationType == -1)
+                {
+                    if (ae.UsingMagic->AttackAreaType == 0)
+                    {
+                        ae.OperationType = 0;
+                    }
+                    else if (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2)
+                    {
+                        ae.OperationType = 2;
+                    }
+                    else if (ae.UsingMagic->AttackAreaType == 3)
+                    {
+                        ae.OperationType = 1;
+                    }
+                }
+            }
+
+            int index = r->getMagicOfRoleIndex(ae.UsingMagic);
+            if (index >= 0)
+            {
+                r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
+            }
+            //根据性质创造攻击效果
+            if (ae.OperationType == 0)
+            {
+                ae.TotalFrame = 10;
+                if (r->OperationCount == 3 && magic->AttackAreaType == 0)
+                {
+                    ae.TotalFrame = 30;
+                    shake_ = 10;
+                    ae.Strengthen = 2;
+                    ae.Velocity = r->RealTowards;
+                    ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
+                    ae.Track = 1;
+                }
+                attack_effects_.push_back(std::move(ae));
+                needMP *= 0.1;
+            }
+            else if (ae.OperationType == 1)
+            {
+                int range = 0;
+                if (magic->AttackAreaType == 3)
+                {
+                    range = 1;
+                    //range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
+                }
+                int count = 1 + range;
+                //count = 2;
+                auto p = ae.Pos;
+                ae.TotalFrame = 120;
+                double angle = r->RealTowards.getAngle();
+                for (int i = 0; i < count; i++)
+                {
+                    double a = angle - 5 / 180 * M_PI + rand_.rand() * 10 / 180 * M_PI;
+                    ae.Pos = p;
+                    ae.Velocity = { cos(a), sin(a) };
+                    ae.Velocity.normTo(3);
+                    ae.Frame = rand_.rand() * 10;
+                    ae.Track = 1;
+                    attack_effects_.push_back(ae);
+                }
+                needMP *= 0.4;
+            }
+            else if (ae.OperationType == 2)
+            {
+                auto r0 = findNearestEnemy(r->Team, r->Pos);
+                if (r0)
+                {
+                    ae.Velocity = r0->Pos - r->Pos;
+                    r->RealTowards = ae.Velocity;
+                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
+                }
+                else
+                {
+                    ae.Velocity = r->RealTowards;
+                }
+                ae.Velocity.normTo(5);
+                ae.TotalFrame = 15 + magic->SelectDistance[level_index] * 5;
+                if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+                {
+                    ae.Through = 1;
+                }
+                attack_effects_.push_back(ae);
+                needMP *= 0.2;
+                if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+                {
+                    double v = 5;
+                    double angle = ae.Velocity.getAngle();
+                    for (int i = 0; i < 2; i++)
+                    {
+                        v -= 0.5;
+                        double a = angle - 15 / 180 * M_PI + rand_.rand() * 30 / 180 * M_PI;
+                        ae.Velocity = { cos(a), sin(a) };
+                        ae.Velocity.normTo(v);
+                        //ae.TotalFrame = 150;
+                        ae.Through = 1;
+                        ae.Strengthen = 0.5;
+                        attack_effects_.push_back(ae);
+                        //ae.Pos = ae.Pos - ae.Velocity;
+                    }
+                }
+            }
+            else if (ae.OperationType == 3)
+            {
+                if (r->HeadID == 0)
+                {
+                    int i = 0;
+                }
+                auto acc = r->RealTowards;
+                acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
+                r->Velocity = acc;
+                //r->Acceleration += acc;
+                //r->VelocitytFrame = 10;
+                r->ActType = 0;
+                auto p = ae.Pos;
+                int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
+                for (int i = 0; i < count; i++)
+                {
+                    ae.Pos = p + r->Velocity * (i - 1) * 2;
+                    ae.Frame += 3;
+                    attack_effects_.push_back(ae);
+                }
+                needMP *= 0.05;
+            }
+            fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+            r->MP -= needMP;
+            r->UsingMagic = nullptr;
+        }
+
+        if (r->UsingItem)
+        {
+            Item* item = r->UsingItem;
+            if (item->ItemType == 3)
+            {
+                // 药品直接服用
+                r->useItem(item);
+                //TextEffect te;
+                //BP_Color c = { 255, 255, 255, 255 };
+                //if (r->Team == 0)
+                //{
+                //    c = { 255, 20, 220, 20 };
+                //}
+                //const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
+                //te.set(fmt1::format("服用{}，剩余{}", item->Name, left), c, r);
+                //text_effects_.push_back(std::move(te));
+            }
+            else if (item->ItemType == 4)
+            {
+                // 暗器
+                AttackEffect ae1;
+                auto r0 = findFarthestEnemy(r->Team, r->Pos);
+                if (r0)
+                {
+                    ae1.Velocity = r0->Pos - r->Pos;
+                }
+                else
+                {
+                    ae1.Velocity = r->RealTowards;
+                }
+                ae1.Velocity.normTo(10);
+                ae1.Attacker = r;
+                ae1.Pos = r->Pos;
+                ae1.UsingHiddenWeapon = item;
+                ae1.Through = 0;
+                ae1.setEft(item->HiddenWeaponEffectID);
+                ae1.TotalFrame = 100;
+                ae1.Frame = 0;
+                ae1.OperationType = 4;
+                attack_effects_.push_back(std::move(ae1));
+            }
+            // 减少数量
+            Event::getInstance()->addItemWithoutHint(item->ID, -1);
+            r->UsingItem = nullptr;
+        }
+
+        if (r->OperationType == 1)
+        {
+            r->ActFrame++;
+            if (r->ActFrame >= 7)
+            {
+                shake_ = 1;
+            }
+        }
+        else
+        {
+            r->ActFrame++;
+        }
+    }
+}
 
 void BattleSceneSekiro::AI(Role* r)
-{}
+{
+    if ((r != role_ || r->Auto)
+        && r->Dead == 0)
+    {
+        if (r->CoolDown == 0)
+        {
+            if (r->UsingMagic == nullptr)
+            {
+                if (r == role_)    //主角只能使用已装备的武学，几率相同
+                {
+                    std::vector<Magic*> v;
+                    for (auto i : r->EquipMagic)
+                    {
+                        auto m = Save::getInstance()->getMagic(i);
+                        if (m && r->getMagicOfRoleIndex(m) >= 0)
+                        {
+                            v.push_back(m);
+                        }
+                    }
+                    if (!v.empty())
+                    {
+                        int index = rand_.rand() * v.size();
+                        r->UsingMagic = v[index];
+                    }
+                }
+                else
+                {
+                    //其他ai可以使用所有武学
+                    auto v = r->getLearnedMagics();
+                    if (v.size() == 1)
+                    {
+                        r->UsingMagic = v[0];
+                    }
+                    else if (v.size() >= 0)
+                    {
+                        std::vector<double> hurt;
+                        double sum = 0;
+                        for (auto m : v)
+                        {
+                            double h = m->Attack[r->getMagicLevelIndex(m)];
+                            //h = exp(h / 500);    //几率正比于武功威力
+                            hurt.push_back(sum + h);
+                            sum += h;
+                        }
+                        double select = rand_.rand() * sum;
+                        for (int i = 0; i < hurt.size(); i++)
+                        {
+                            if (select < hurt[i])
+                            {
+                                r->UsingMagic = v[i];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            auto r0 = findNearestEnemy(r->Team, r->Pos);
+            if (r0)
+            {
+                r->RealTowards = r0->Pos - r->Pos;
+                //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
+                r->RealTowards.normTo(1);
+                int dis = TILE_W * 3;
+                if (r->UsingMagic)
+                {
+                    if (r->UsingMagic->AttackAreaType == 3) { dis = 180; }
+                    if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = 300; }
+                }
+                double speed = r->Speed / 30.0;
+                if (EuclidDis(r->Pos, r0->Pos) > dis)
+                {
+                    auto p = r->Pos + speed * r->RealTowards;
+                    if (canWalk90(p, r) && r->FindingWay == 0)
+                    {
+                        //能否闪身的条件，似乎比较复杂
+                        if (rand_.rand() < 0.25 && r->Speed >= 60
+                            && (r != role_ && r->UsingMagic
+                                || r == role_ && r->getEquipMagicOfRoleIndex(r->UsingMagic) == 3))
+                        {
+                            r->OperationType = 3;
+                        }
+                        else
+                        {
+                            r->OperationType = -1;
+                        }
+                        if (r->OperationType == 3)
+                        {
+                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            r->ActFrame = 0;
+                            r->HaveAction = 1;
+                        }
+                        else
+                        {
+                            r->Pos = p;
+                        }
+                    }
+                    else if (r->Velocity.norm() < 0.1)
+                    {
+                        //用复杂路径法查找一个目标并接近
+                        MapSquareInt dis_layer;
+                        dis_layer.resize(COORD_COUNT);
+                        auto p_enemy45 = pos90To45(r0->Pos.x, r0->Pos.y);
+                        calDistanceLayer(p_enemy45.x, p_enemy45.y, dis_layer, 64);
+                        auto p_self45 = pos90To45(r->Pos.x, r->Pos.y);
+                        int max_dis45 = 4096;
+                        Pointf p_target = r->Pos;
+                        for (int x = p_self45.x - 1; x <= p_self45.x + 1; x++)
+                        {
+                            for (int y = p_self45.y - 1; y <= p_self45.y + 1; y++)
+                            {
+                                if (calDistance(x, y, p_self45.x, p_self45.y) != 1)
+                                {
+                                    continue;
+                                }
+                                auto p1 = pos45To90(x, y);
+                                double dis1 = dis_layer.data(x, y) + 1 * (rand_.rand() - rand_.rand());
+                                if (canWalk90(p1, r) && dis1 < max_dis45)
+                                {
+                                    max_dis45 = dis1;
+                                    p_target = p1;
+                                }
+                            }
+                        }
+                        r->FindingWay = 1;
+                        r->RealTowards = p_target - r->Pos;
+                        if (rand_.rand() < 0.25 && r->Speed >= 60
+                            && (r != role_ && r->UsingMagic
+                                || r == role_ && r->getEquipMagicOfRoleIndex(r->UsingMagic) == 3))
+                        {
+                            r->OperationType = 3;
+                        }
+                        else
+                        {
+                            r->OperationType = -1;
+                        }
+                        if (r->OperationType == 3)
+                        {
+                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            r->ActFrame = 0;
+                            r->HaveAction = 1;
+                        }
+                        else
+                        {
+                            r->RealTowards = p_target - r->Pos;
+                            //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
+                            auto distance = r->RealTowards.norm();
+                            //r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
+                            r->RealTowards.normTo(1);
+                            //r->Pos = p2;
+                            r->Velocity = r->RealTowards * speed;
+                            //todo:r->VelocitytFrame = 3;
+                        }
+                    }
+                }
+                else
+                {
+                    r->FindingWay = 0;
+                    if (r->PhysicalPower >= 30 && r->UsingMagic)
+                    {
+                        //点攻击疯狗咬即可
+                        if (r->UsingMagic->AttackAreaType == 0 || rand_.rand() < 0.75 && r->UsingMagic->AttackAreaType != 0)
+                        {
+                            //attack
+                            auto m = r->UsingMagic;
+                            if (m)
+                            {
+                                if (r == role_)
+                                {
+                                    r->OperationType = r->getEquipMagicOfRoleIndex(m);
+                                }
+                                else
+                                {
+                                    if (m->AttackAreaType == 0)
+                                    {
+                                        r->OperationType = 0;
+                                    }
+                                    else if (m->AttackAreaType == 1 || m->AttackAreaType == 2)
+                                    {
+                                        r->OperationType = 2;
+                                    }
+                                    else if (m->AttackAreaType == 3)
+                                    {
+                                        r->OperationType = 1;
+                                    }
+                                }
+                                r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                                r->ActFrame = 0;
+                                r->ActType = m->MagicType;
+                                r->HaveAction = 1;
+                                //TextEffect te;
+                                //te.Text = m->Name;
+                                //te.Size = 15;
+                                //te.Type = 1;
+                                //te.Pos.x = r->Pos.x - 15 * te.Text.size() / 3;
+                                //te.Pos.y = r->Pos.y;
+                                //te.Color = { 255, 0, 0, 255 };
+                                //te.Frame = 15;
+                                //text_effects_.push_back(te);
+                            }
+                        }
+                        else
+                        {
+                            if (r != role_ && rand_.rand() < 0.25)
+                            {
+                                r->OperationType = 3;
+                            }
+                            if (r->OperationType == 3)
+                            {
+                                //随机移动一下，增加一些变数
+                                r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
+                                r->OperationType = 3;
+                                r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                                r->ActFrame = 0;
+                                r->HaveAction = 1;
+                                //r->RealTowards *= 3;
+                            }
+                        }
+                        if (!r->HaveAction)
+                        {
+                            //走两步
+                            r->RealTowards.rotate(M_PI * 0.5 * (2 * rand_.rand() - 1));
+                            //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
+                            r->Velocity = r->RealTowards;
+                            r->Velocity.normTo(speed);
+                            //todo:r->VelocitytFrame = 20;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 int BattleSceneSekiro::checkResult()
 {
@@ -862,6 +1365,41 @@ Role* BattleSceneSekiro::findFarthestEnemy(int team, Pointf p)
     return r0;
 }
 
+
+//前摇
+int BattleSceneSekiro::calCast(int act_type, int operation_type, Role* r)
+{
+    int v[4] = { 10, 20, 15, 5 };
+    if (operation_type >= 0 && operation_type <= 3)
+    {
+        return v[operation_type];
+    }
+    return 0;
+}
+
+//冷却减去前摇就是后摇
+//需注意攻击判定可能仍然存在，严格来说攻击判定存在的时间加上前摇应小于冷却
+int BattleSceneSekiro::calCoolDown(int act_type, int operation_type, Role* r)
+{
+    int i = r->getActProperty(act_type);
+    int v[4] = { 60 - i / 2, 160 - i, 70 - i / 2, 10 };
+    int min_v[4] = { 20, 45, 30, 10 };
+    if (operation_type >= 0 && operation_type <= 3)
+    {
+        int c = std::max(min_v[operation_type], v[operation_type]);
+        if (r->AttackTwice > 0)
+        {
+            c *= 0.666;
+            c = std::max(calCast(act_type, operation_type, r) + 2, c);
+        }
+        return c;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 int BattleSceneSekiro::calRolePic(Role* r, int style, int frame)
 {
     if (style < 0 || style >= 5)
@@ -890,6 +1428,7 @@ int BattleSceneSekiro::calRolePic(Role* r, int style, int frame)
     {
         if (i == style)
         {
+            //停留在最后一帧
             if (frame < r->FightFrame[style] - 2)
             {
                 return total + r->FightFrame[style] * r->FaceTowards + frame;
