@@ -293,12 +293,12 @@ void BattleSceneSekiro::draw()
 
         Engine::getInstance()->setRenderAssistTexture();
         //if (close_up_)
-        //{
-        //    rect0.w /= 2;
-        //    rect0.h /= 2;
-        //    rect0.x += rect0.w / 2;
-        //    rect0.y += rect0.h / 2 - 20;
-        //}
+        {
+            rect0.w /= 2;
+            rect0.h /= 2;
+            rect0.x += rect0.w / 2;
+            rect0.y += rect0.h / 2 - 20;
+        }
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 0);
     }
 
@@ -415,7 +415,7 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
 
         // 初始化武功
         std::vector<Magic*> magic(4);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 1; i++)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
@@ -425,32 +425,18 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
         if (r->Frozen == 0 && r->CoolDown == 0)
         {
             int index = -1;
-            if (r->PhysicalPower >= 10
-                && (engine->checkKeyPress(keys_.Light)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)
-                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_LEFT)))
+            //0攻击，5防御，3闪身，其他不处理
+            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER)
+                || engine->checkKeyPress(BPK_e))
             {
                 index = 0;
             }
-            if (r->PhysicalPower >= 30
-                && (engine->checkKeyPress(keys_.Heavy)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)
-                    || (e.type == BP_MOUSEWHEEL && e.wheel.y > 0)
-                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_MIDDLE)))
+            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSHOULDER)
+                || engine->checkKeyPress(BPK_q))
             {
-                index = 1;
+                index = 5;
             }
-            if (r->PhysicalPower >= 20
-                && (engine->checkKeyPress(keys_.Long)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_B)
-                    || (e.type == BP_MOUSEBUTTONDOWN && e.button.button == BP_BUTTON_RIGHT)))
-            {
-                index = 2;
-            }
-            if (r->PhysicalPower >= 10
-                && (engine->checkKeyPress(keys_.Slash)
-                    || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)
-                    || (e.type == BP_MOUSEWHEEL && e.wheel.y < 0)))
+            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A))
             {
                 index = 3;
             }
@@ -467,41 +453,24 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
                 r->OperationCount++;
             }
 
-            if (index >= 0 && index < magic.size() && magic[index])
+            if (index >= 0)
             {
                 r->OperationType = index;
                 //equip_magics_[index]->setState(NodePass);
-                auto m = magic[index];
+                auto m = magic[0];
                 r->ActType = m->MagicType;
                 r->UsingMagic = m;
                 r->UsingItem = nullptr;
                 r->ActFrame = 0;
                 r->HaveAction = 1;
-                //r->Frozen = 5;
-                if (index == 0)
-                {
-                    //点攻
-                    //r->CoolDown = 10;
-                }
-                if (index == 1)
-                {
-                    //面攻
-                    //r->CoolDown = 60;
-                }
-                if (index == 2)
-                {
-                    //远程
-                    //r->CoolDown = 20;
-                }
-                if (index == 3)
-                {
-                    //闪身
-                    //r->CoolDown = 10;    //冷却更长，有收招硬直
-                }
-                //r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
                 if (r->OperationCount >= 3 && index == 0)
                 {
                     r->CoolDown *= 2;
+                }
+                if (r->OperationType == 5)
+                {
+                    //防御动作只用第三帧
+                    r->ActFrame = 3;
                 }
             }
         }
@@ -597,7 +566,7 @@ void BattleSceneSekiro::onEntrance()
         }
     }
 
-    if (01)    //无队友出场
+    if (0)    //无队友出场
     {
         auto team_menu = std::make_shared<TeamMenu>();
         team_menu->setMode(1);
@@ -673,6 +642,95 @@ void BattleSceneSekiro::onExit()
 
 void BattleSceneSekiro::backRun1()
 {
+    if (slow_ > 0)
+    {
+        if (current_frame_ % 4) { return; }
+        //x_ = rand_.rand_int(2) - rand_.rand_int(2);
+        //y_ = rand_.rand_int(2) - rand_.rand_int(2);
+        slow_--;
+    }
+    for (auto r : battle_roles_)
+    {
+        r->HurtThisFrame = 0;
+        for (auto m : r->getLearnedMagics())
+        {
+            if (special_magic_effect_every_frame_.count(m->Name))
+            {
+                special_magic_effect_every_frame_[m->Name](r);
+            }
+        }
+        decreaseToZero(r->Frozen);
+        decreaseToZero(r->Shake);
+        if (r->Frozen > 0)
+        {
+            continue;
+        }
+
+        //更新速度，加速度，力学位置
+        {
+            auto p = r->Pos + r->Velocity;
+            int dis = -1;
+            if (r->OperationType == 3) { dis = TILE_W / 4; }
+            if (canWalk90(p, r, dis))
+            {
+                r->Pos = p;
+            }
+            else
+            {
+                r->Velocity = { 0, 0, 0 };
+            }
+            //r->FaceTowards = rand_.rand() * 4;
+            if (r->Pos.z < 0)
+            {
+                r->Pos.z = 0;
+            }
+            if (r->Pos.z == 0 && r->Velocity.norm() != 0)
+            {
+                auto f = -r->Velocity;
+                f.normTo(friction_);
+                r->Acceleration = { f.x, f.y, gravity_ };
+            }
+            else
+            {
+                r->Acceleration = { 0, 0, gravity_ };
+            }
+            r->Velocity += r->Acceleration;
+            if (r->Velocity.norm() < 0.1)
+            {
+                r->Velocity.x = 0;
+                r->Velocity.y = 0;
+            }
+            if (r->Pos.z == 0)
+            {
+                r->Velocity.z = 0;
+            }
+        }
+        //else
+        //{
+        //    r->Velocity = { 0, 0 };
+        //    if (r->HP <= 0)
+        //    {
+        //        r->Dead = 1;
+        //        //此处只为严格化，但与击退部分可能冲突
+        //    }
+        //}
+        decreaseToZero(r->CoolDown);
+        if (r->CoolDown == 0)
+        {
+            if (current_frame_ % 3 == 0)
+            {
+                r->PhysicalPower += 1;
+            }
+            r->MP += 1;
+            r->ActFrame = 0;
+            //r->OperationType = -1;
+            r->ActType = -1;
+            r->HaveAction = 0;
+        }
+        decreaseToZero(r->HurtFrame);
+        decreaseToZero(r->Attention);
+        decreaseToZero(r->Invincible);
+    }
     {
         int current_frame2 = current_frame_;
         for (auto r : battle_roles_)
@@ -683,9 +741,169 @@ void BattleSceneSekiro::backRun1()
             AI(r);
         }
     }
+
+    //效果
+    //if (current_frame_ % 2 == 0)
+    {
+        for (auto& ae : attack_effects_)
+        {
+            ae.Frame++;
+            ae.Velocity += ae.Acceleration;
+            ae.Pos += ae.Velocity;
+            Role* r = nullptr;
+            if (ae.Attacker)
+            {
+                r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
+            }
+            if (ae.Track && r)
+            {
+                //追踪
+                double n = ae.Velocity.norm();
+                auto p = (r->Pos - ae.Pos).normTo(n / 20.0);
+                ae.Velocity += p;
+                ae.Velocity.normTo(n);
+            }
+            //是否打中了敌人
+            if (r && !r->HurtFrame
+                && !r->Invincible
+                && r->Dead == 0
+                && ae.Attacker
+                && r->Team != ae.Attacker->Team
+                && ae.Defender.count(r) == 0
+                && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2)
+            {
+                if (ae.UsingMagic)
+                {
+                    Audio::getInstance()->playESound(ae.UsingMagic->EffectID);
+                }
+                ae.Defender[r]++;
+                shake_ = 5;
+                r->Frozen = 20;
+                r->Shake = 20;
+                //slow_ = 1;
+                if (ae.OperationType >= 0)
+                {
+                    Engine::getInstance()->gameControllerRumble(100, 100, 50);
+                    //if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
+                    //{
+                    defaultMagicEffect(ae, r);
+                    //}
+                    //else
+                    //{
+                    //    special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
+                    //}
+                }
+                //std::vector<std::string> = {};
+            }
+        }
+        //效果间的互相抵消
+        if (attack_effects_.size() >= 2)
+        {
+            for (int i = 0; i < attack_effects_.size() - 2; i++)
+            {
+                auto& ae1 = attack_effects_[i];
+                if (!ae1.UsingMagic)
+                {
+                    continue;
+                }
+                for (int j = i + 1; j < attack_effects_.size() - 1; j++)
+                {
+                    auto& ae2 = attack_effects_[j];
+                    if (!ae2.UsingMagic)
+                    {
+                        continue;
+                    }
+                    if (ae1.NoHurt == 0 && ae2.NoHurt == 0 && ae1.Attacker && ae2.Attacker
+                        && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
+                    {
+                        //fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
+                        int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
+                        int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
+                        ae1.Weaken += hurt2;
+                        ae2.Weaken += hurt1;
+                        if (ae1.Weaken > hurt1)
+                        {
+                            //直接设置帧数，后面就会删掉了
+                            ae1.NoHurt = 1;
+                            ae1.Frame = std::max(ae1.TotalFrame - 5, ae1.Frame);
+                            //fmt1::print("{} ", ae1.UsingMagic->Name);
+                        }
+                        if (ae2.Weaken > hurt2)
+                        {
+                            ae2.NoHurt = 1;
+                            ae2.Frame = std::max(ae2.TotalFrame - 5, ae2.Frame);
+                            //fmt1::print("{} ", ae2.UsingMagic->Name);
+                        }
+                        //fmt1::print("loss\n");
+                    }
+                }
+            }
+        }
+        //删除播放完毕的
+        for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
+        {
+            if (it->Frame >= it->TotalFrame)
+            {
+                it = attack_effects_.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+    }
+
+    //此处计算累积伤害
+    for (auto r : battle_roles_)
+    {
+        int hurt = r->HurtThisFrame;
+        if (hurt > 0)
+        {
+            //TextEffect te;
+            BP_Color c = { 255, 255, 255, 255 };
+            if (r->Team == 0)
+            {
+                c = { 255, 20, 20, 255 };
+            }
+            //te.set(std::to_string(-hurt), c, r);
+            //text_effects_.push_back(std::move(te));
+            AttackEffect ae1;
+            ae1.FollowRole = r;
+            //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
+            ae1.setPath(fmt1::format("eft/bld{:03}", int(rand_.rand() * 5)));
+            ae1.TotalFrame = ae1.TotalEffectFrame;
+            ae1.Frame = 0;
+            attack_effects_.push_back(std::move(ae1));
+            r->HP -= hurt;
+            if (r->HP <= 0)
+            {
+                //fmt1::print("{} has been beat\n", r->Name);
+                r->Dead = 1;
+                r->HP = 0;
+                //r->Velocity = r->Pos - ae1.Attacker->Pos;
+                r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
+                r->Velocity.z = 12;
+                //r->Velocity.normTo(std::min(hurt / 1.0, 15.0));
+                r->Velocity.normTo(hurt / 2.0);
+                r->Frozen = 5;
+                x_ = rand_.rand_int(2) - rand_.rand_int(2);
+                y_ = rand_.rand_int(2) - rand_.rand_int(2);
+                //dying_ = r;
+                pos_ = r->Pos;
+                frozen_ = 5;
+                shake_ = 10;
+                slow_ = 10;
+                close_up_ = 30;
+            }
+        }
+        r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
+        r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
+        r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+    }
+
     {
         //人物出场
-        if (getTeamMateCount(1) < 2)
+        if (getTeamMateCount(1) < 1)
         {
             if (!enemies_.empty())
             {
@@ -1365,7 +1583,6 @@ Role* BattleSceneSekiro::findFarthestEnemy(int team, Pointf p)
     return r0;
 }
 
-
 //前摇
 int BattleSceneSekiro::calCast(int act_type, int operation_type, Role* r)
 {
@@ -1398,6 +1615,134 @@ int BattleSceneSekiro::calCoolDown(int act_type, int operation_type, Role* r)
     {
         return 0;
     }
+}
+
+void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
+{
+    if (ae.NoHurt)
+    {
+        return;
+    }
+    double hurt;
+    //先特别处理暗器
+    if (ae.UsingHiddenWeapon != nullptr)
+    {
+        hurt = calHiddenWeaponHurt(ae.Attacker, r, ae.UsingHiddenWeapon) / 5;
+    }
+    else
+    {
+        hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic);
+    }
+    hurt -= ae.Weaken;                             //弱化
+    hurt *= ae.Strengthen;                         //强化
+    hurt *= 1 - 0.5 * ae.Frame / ae.TotalFrame;    //距离衰减
+    //角度
+    auto atk_dir = ae.Pos - r->Pos;
+    auto angle = acos((atk_dir.x * r->RealTowards.x + atk_dir.y * r->RealTowards.y) / atk_dir.norm() / r->RealTowards.norm());
+    if (angle >= M_PI * 0.25 && angle < M_PI * 0.75)
+    {
+        hurt *= 1.5;
+    }
+    else if (angle >= M_PI * 0.75)
+    {
+        hurt *= 2;
+    }
+    //操作类型的伤害效果
+    if (ae.OperationType == 0)
+    {
+    }
+    if (ae.OperationType == 1)
+    {
+        hurt *= 1.5;
+        //ae.Frame = ae.TotalFrame + 1;
+    }
+    if (ae.OperationType == 2)
+    {
+        //hurt /= 3;
+        //ae.Frame = ae.TotalFrame + 1;
+    }
+    if (ae.OperationType == 3)
+    {
+        hurt /= 1.5;
+        r->Frozen += 5;
+    }
+    //击退
+    auto v = r->Pos - ae.Attacker->Pos;
+    v.normTo(2);
+    r->Velocity += v;
+    if (r->Velocity.norm() > 3)
+    {
+        r->Velocity.normTo(3);
+    }
+    r->HurtFrame = 1;    //相当于无敌时间
+
+    //用内力抵消硬直
+    if (r->MP >= hurt / 10)
+    {
+        r->MP -= hurt / 10;
+    }
+    else
+    {
+        r->Frozen += 10;    //硬直
+        //r->ActType = -1;
+        //r->ActType2 = -1;
+    }
+
+    //武功类型特殊效果
+    if (ae.UsingMagic)
+    {
+        int act_type = ae.UsingMagic->MagicType;
+        if (rand_.rand() < r->getActProperty(act_type) / 200.0)
+        {
+            if (act_type == 1)
+            {
+                r->Frozen += 10;    //拳法打硬直
+            }
+            if (act_type == 2)
+            {
+                ae.Attacker->CoolDown *= 0.5;    //剑法冷却缩短
+            }
+            if (act_type == 3)
+            {
+                hurt *= 1.5;    //刀法暴击
+            }
+            if (act_type == 4)
+            {
+                //特殊会随机附加行动方向
+                Pointf p{ rand_.rand(), rand_.rand(), 0 };
+                p.normTo(1);
+                r->Velocity += p;
+            }
+        }
+    }
+    //添加一点随机性
+    hurt += 5 * (rand_.rand() - rand_.rand());
+    //若无法破防，则随机一个小的数字
+    if (hurt <= 0)
+    {
+        hurt = 1 + rand_.rand() * 3;
+    }
+    //无贯穿则后面不会再造成伤害，再播放一下
+    if (ae.Through == 0)
+    {
+        ae.NoHurt = 1;
+        ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
+    }
+    ae.Attacker->ExpGot += hurt / 2;
+    //扣HP或MP
+    if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
+    {
+        r->HurtThisFrame += hurt;
+    }
+    if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
+    {
+        r->MP -= hurt;
+        ae.Attacker->MP += hurt * 0.8;
+        //TextEffect te;
+        //te.set(std::to_string(int(-hurt)), { 160, 32, 240, 255 }, r);
+        //text_effects_.push_back(std::move(te));
+    }
+    //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
 
 int BattleSceneSekiro::calRolePic(Role* r, int style, int frame)

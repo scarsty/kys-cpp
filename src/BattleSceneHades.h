@@ -12,59 +12,59 @@
 //每场战斗可以选择从4种武学中选择轻重
 //硬直，判定范围，威力，消耗体力，在不攻击的时候可以回复体力
 
-struct AttackEffect
-{
-    Pointf Pos;
-    Pointf Velocity, Acceleration;
-    Role* Attacker = nullptr;         //攻击者
-    std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
-    Magic* UsingMagic = nullptr;
-    Item* UsingHiddenWeapon = nullptr;
-    int Frame = 0;                 //当前帧数
-    int TotalFrame = 1;            //总帧数，当前帧数超过此值就移除此效果
-    int TotalEffectFrame = 1;      //效果总帧数
-    int OperationType = -1;        //攻击类型
-    std::string Path;              //效果贴图路径
-    Role* FollowRole = nullptr;    //一直保持在角色身上
-    int Weaken = 0;                //弱化程度，减掉
-    double Strengthen = 1;         //强化程度，相乘
-    int Track = 0;                 //是否追踪
-    int Through = 0;               //是否贯穿，即击中敌人后可以不消失
-    int NoHurt = 0;                //是否无伤害
-    void setEft(int num)
-    {
-        setPath(fmt1::format("eft/eft{:03}", num));
-    }
-    void setPath(const std::string& p)
-    {
-        Path = p;
-        TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
-    }
-};
-
-struct TextEffect
-{
-    Pointf Pos;
-    std::string Text;
-    int Size = 15;
-    int Frame = 0;
-    BP_Color Color;
-    int Type = 0;    //0-缓缓向上, 1-原地不动
-    void set(const std::string& text, BP_Color c, Role* r)
-    {
-        Text = text;
-        Color = c;
-        if (r)
-        {
-            Pos = r->Pos;
-            Pos.x -= 7.5 * Font::getTextDrawSize(Text);
-            Pos.y -= 50;
-        }
-    }
-};
-
 class BattleSceneHades : public BattleScene
 {
+    struct AttackEffect
+    {
+        Pointf Pos;
+        Pointf Velocity, Acceleration;
+        Role* Attacker = nullptr;         //攻击者
+        std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
+        Magic* UsingMagic = nullptr;
+        Item* UsingHiddenWeapon = nullptr;
+        int Frame = 0;                 //当前帧数
+        int TotalFrame = 1;            //总帧数，当前帧数超过此值就移除此效果
+        int TotalEffectFrame = 1;      //效果总帧数
+        int OperationType = -1;        //攻击类型
+        std::string Path;              //效果贴图路径
+        Role* FollowRole = nullptr;    //一直保持在角色身上
+        int Weaken = 0;                //弱化程度，减掉
+        double Strengthen = 1;         //强化程度，相乘
+        int Track = 0;                 //是否追踪
+        int Through = 0;               //是否贯穿，即击中敌人后可以不消失
+        int NoHurt = 0;                //是否无伤害
+        void setEft(int num)
+        {
+            setPath(fmt1::format("eft/eft{:03}", num));
+        }
+        void setPath(const std::string& p)
+        {
+            Path = p;
+            TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
+        }
+    };
+
+    struct TextEffect
+    {
+        Pointf Pos;
+        std::string Text;
+        int Size = 15;
+        int Frame = 0;
+        BP_Color Color;
+        int Type = 0;    //0-缓缓向上, 1-原地不动
+        void set(const std::string& text, BP_Color c, Role* r)
+        {
+            Text = text;
+            Color = c;
+            if (r)
+            {
+                Pos = r->Pos;
+                Pos.x -= 7.5 * Font::getTextDrawSize(Text);
+                Pos.y -= 50;
+            }
+        }
+    };
+
 public:
     BattleSceneHades();
     BattleSceneHades(int id);

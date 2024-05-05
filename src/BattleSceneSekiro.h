@@ -101,7 +101,7 @@ public:
     {
         if (i > 0) { i--; }
     }
-    //void defaultMagicEffect(AttackEffect& ae, Role* r);
+    void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
 protected:

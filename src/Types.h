@@ -306,7 +306,7 @@ public:
     int ActType = -1;          //医拳剑刀特
     int ActFrame = 0;          //行动帧数
     int PreActTimer = 0;       //上次行动的时间
-    int OperationType = -1;    //0-点攻击，1-面攻击，2-远程，3-闪身， 4-器
+    int OperationType = -1;    //0-点攻击，1-面攻击，2-远程，3-闪身， 4-物品，5-防御
     int OperationCount = 0;    //使用同一攻击的计数
     int HurtThisFrame = 0;     //一帧内受到伤害累积
     int FindingWay = 0;        //ai正在找路
