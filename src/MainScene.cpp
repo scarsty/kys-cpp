@@ -332,7 +332,9 @@ void MainScene::dealEvent(BP_Event& e)
     if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
     {
         setMouseEventPoint(-1, -1);
-        Point p = getMousePosition(e.button.x, e.button.y, x, y);
+        int mx, my;
+        Engine::getInstance()->getMouseState(mx, my);
+        Point p = getMousePosition(mx, my, x, y);
         way_que_.clear();
         if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)
         {

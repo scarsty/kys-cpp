@@ -101,10 +101,16 @@ public:
     {
         if (i > 0) { i--; }
     }
+    template <typename T>
+    void decreaseToZero(T& i, T v)
+    {
+        if (i > 0) { i -= v; }
+    }
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
 protected:
+    const double MAX_POSTURE = 100;
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
     double gravity_ = -4;
     double friction_ = 0.1;
@@ -127,6 +133,7 @@ protected:
     int slow_ = 0;
     int shake_ = 0;
     int close_up_ = 0;
+    int sword_light_ = 0;
 
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击

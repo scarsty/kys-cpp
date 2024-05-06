@@ -101,6 +101,12 @@ public:
 
     bool inSide(int x, int y)
     {
+        int w, h;
+        int w1, h1;
+        Engine::getInstance()->getWindowSize(w, h);
+        Engine::getInstance()->getStartWindowSize(w1, h1);
+        x = x * w1 / w;
+        y = y * h1 / h;
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
     }
 
@@ -236,6 +242,8 @@ public:
     //每个节点应自行定义返回值，
     //需要普通退出功能的子节点，请使用下面两个宏，如退出的形式不同请自行实现
     //注意子类的子类可能会出现继承关系，需视情况处理
-#define DEFAULT_OK_EXIT virtual void onPressedOK() override { exitWithResult(0); }
-#define DEFAULT_CANCEL_EXIT virtual void onPressedCancel() override { exitWithResult(-1); }
+#define DEFAULT_OK_EXIT \
+    virtual void onPressedOK() override { exitWithResult(0); }
+#define DEFAULT_CANCEL_EXIT \
+    virtual void onPressedCancel() override { exitWithResult(-1); }
 };

@@ -61,7 +61,7 @@ TitleScene::TitleScene()
     Save::getInstance()->load(5);
     RandomDouble rand;
     int k = rand.rand() * 139;
-    k = 0;
+    k = 33;
     //Event::getInstance()->tryBattle(k, 0);
 
     //auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");
@@ -74,6 +74,7 @@ TitleScene::~TitleScene()
 
 void TitleScene::draw()
 {
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, Engine::getInstance()->getWindowWidth(), Engine::getInstance()->getWindowHeight());
     TextureManager::getInstance()->renderTexture("title", 154, 0, 90);
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
     return;

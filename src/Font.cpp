@@ -72,7 +72,8 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         }
         if (c != 32)
         {
-            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 2), uint8_t(color.g / 2), uint8_t(color.b / 2), color.a });
+            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
+            //Engine::getInstance()->setColor(tex, { 0,0,0, color.a });
             Engine::getInstance()->renderCopy(tex, x1 + 1, y, w1, h);
             Engine::getInstance()->setColor(tex, color);
             Engine::getInstance()->renderCopy(tex, x1, y, w1, h);

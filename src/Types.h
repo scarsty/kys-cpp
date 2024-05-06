@@ -312,7 +312,7 @@ public:
     int FindingWay = 0;        //ai正在找路
 
     double Posture = 0;    //架势，用于格挡崩防等
-
+    int Breathless = 0;    //气绝
     Magic* UsingMagic = nullptr;
     Item* UsingItem = nullptr;
 
