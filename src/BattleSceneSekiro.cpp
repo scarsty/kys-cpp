@@ -26,16 +26,17 @@ BattleSceneSekiro::BattleSceneSekiro()
     heads_[0]->setVisible(true);
     heads_[0]->setRole(Save::getInstance()->getRole(0));
 
-    heads_[0]->setPosition(10, Engine::getInstance()->getWindowHeight() - 100);
+    heads_[0]->setPosition(10, Engine::getInstance()->getStartWindowHeight() - 100);
 
     head_boss_.resize(1);
     for (auto& h : head_boss_)
     {
         h = std::make_shared<Head>();
         h->setStyle(2);
-        h->setVisible(false);
+        h->setVisible(true);
         addChild(h);
     }
+    easy_block_ = GameUtil::getInstance()->getInt("game", "easy_block", 0);
 }
 
 void BattleSceneSekiro::setID(int id)
@@ -294,16 +295,16 @@ void BattleSceneSekiro::draw()
             rect0.y = 0;
             rect0.h = h - rect1.y;
         }
-        //fmt1::print("{},{} / {},{}\n", pos_.x, pos_.y, rect0.x, rect0.y);
+
         rect0.w = std::min(rect0.w, COORD_COUNT * TILE_W * 2 - rect0.x);
         rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
         rect1.w = rect0.w;
         rect1.h = rect0.h;
         rect0.y -= 40;    //为了刀光在正中，往下调一点
-        //for (auto& te : text_effects_)
-        //{
-        //    Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.Color, 255);
-        //}
+        for (auto& te : text_effects_)
+        {
+            Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.Color, 255);
+        }
         Engine::getInstance()->setRenderAssistTexture();
         if (close_up_)
         {
@@ -470,6 +471,7 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
         {
             magic[i] = Save::getInstance()->getMagic(r->EquipMagic[i]);
             if (magic[i] && r->getMagicOfRoleIndex(magic[i]) < 0) { magic[i] = nullptr; }
+            if (magic[i] == nullptr) { magic[i] = r->getLearnedMagics()[0]; }
             //equip_magics_[i]->setState(NodeNormal);
         }
 
@@ -478,16 +480,17 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
             int index = -1;
             //0攻击，5防御，3闪身，其他不处理
             if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER)
-                || engine->checkKeyPress(BPK_e))
+                || engine->checkKeyPress(BPK_i))
             {
                 index = 0;
             }
             if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSHOULDER)
-                || engine->checkKeyPress(BPK_q))
+                || engine->checkKeyPress(BPK_e))
             {
                 index = 5;
             }
-            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A))
+            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)
+                || engine->checkKeyPress(BPK_l))
             {
                 index = 3;
             }
@@ -513,15 +516,15 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
                 r->OperationType = index;
                 //equip_magics_[index]->setState(NodePass);
                 auto m = magic[0];
-                r->ActType = m->MagicType;
-                r->UsingMagic = m;
                 r->UsingItem = nullptr;
                 r->ActFrame = 0;
                 r->HaveAction = 1;
-                if (index <= 3)
+                if (m)
                 {
                     //攻击动作有冷却
-                    r->CoolDown = calCoolDown(magic[index]->MagicType, index, r);
+                    r->ActType = m->MagicType;
+                    r->UsingMagic = m;
+                    r->CoolDown = calCoolDown(m->MagicType, index, r);
                 }
                 else
                 {
@@ -541,6 +544,7 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
         }
     }
     backRun1();
+    pos_ = r->Pos;
 }
 
 void BattleSceneSekiro::dealEvent2(BP_Event& e)
@@ -556,7 +560,7 @@ void BattleSceneSekiro::onEntrance()
     int count = 0;
     for (auto& h : head_boss_)
     {
-        h->setPosition(20, 20);
+        h->setPosition(30, 40);
     }
     addChild(MainScene::getInstance()->getWeather());
 
@@ -709,8 +713,8 @@ void BattleSceneSekiro::backRun1()
 {
     if (slow_ > 0)
     {
-        //if (current_frame_ % 4) { return; }
-        Engine::delay(100);    //此处不加延迟好像会有闪烁，目前原因不清楚
+        if (current_frame_ % 4) { return; }
+        //Engine::delay(100);    //此处不加延迟好像会有闪烁，目前原因不清楚
         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
@@ -729,11 +733,11 @@ void BattleSceneSekiro::backRun1()
         decreaseToZero(r->Shake);
         decreaseToZero(r->Posture, 0.05);
         decreaseToZero(r->Breathless);
-        if (r->Posture > MAX_POSTURE && r->Breathless == 0)
+        if (r->Posture >= MAX_POSTURE && r->Breathless == 0)
         {
             //气绝状态
             r->Breathless = 300;
-            r->CoolDown = 300;
+            r->Shake = 300;
         }
         if (r->Frozen == 0)
         {
@@ -759,6 +763,7 @@ void BattleSceneSekiro::backRun1()
                 if (r->Pos.z <= 0 && r->Velocity.norm() != 0)
                 {
                     auto f = -r->Velocity;
+                    f.z = 0;
                     f.normTo(friction_);    //摩擦力
                     r->Acceleration = { f.x, f.y, gravity_ };
                 }
@@ -767,14 +772,14 @@ void BattleSceneSekiro::backRun1()
                     r->Acceleration = { 0, 0, gravity_ };
                 }
                 r->Velocity += r->Acceleration;
+                if (r->Pos.z == 0)
+                {
+                    r->Velocity.z = 0;
+                }
                 if (r->Velocity.norm() < 0.1)
                 {
                     r->Velocity.x = 0;
                     r->Velocity.y = 0;
-                }
-                if (r->Pos.z == 0)
-                {
-                    r->Velocity.z = 0;
                 }
             }
         }
@@ -793,12 +798,15 @@ void BattleSceneSekiro::backRun1()
         }
         else if (r->CoolDown == 0)
         {
-            if (current_frame_ % 3 == 0)
+            if (!r->Dead)
             {
-                r->PhysicalPower += 1;
+                if (current_frame_ % 3 == 0)
+                {
+                    r->PhysicalPower += 1;
+                }
+                r->MP += 1;
+                r->ActFrame = 0;
             }
-            r->MP += 1;
-            r->ActFrame = 0;
             //r->OperationType = -1;
             r->ActType = -1;
             r->HaveAction = 0;
@@ -937,14 +945,14 @@ void BattleSceneSekiro::backRun1()
         int hurt = r->HurtThisFrame;
         if (hurt > 0)
         {
-            //TextEffect te;
+            TextEffect te;
             BP_Color c = { 255, 255, 255, 255 };
             if (r->Team == 0)
             {
                 c = { 255, 20, 20, 255 };
             }
-            //te.set(std::to_string(-hurt), c, r);
-            //text_effects_.push_back(std::move(te));
+            te.set(std::to_string(-hurt), c, r);
+            text_effects_.push_back(std::move(te));
             AttackEffect ae1;
             ae1.FollowRole = r;
             //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
@@ -978,7 +986,25 @@ void BattleSceneSekiro::backRun1()
         r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
     }
-
+    //处理文字
+    {
+        for (auto& te : text_effects_)
+        {
+            if (te.Type == 0) { te.Pos.y -= 2; }
+            te.Frame++;
+        }
+        for (auto it = text_effects_.begin(); it != text_effects_.end();)
+        {
+            if (it->Frame >= 30)
+            {
+                it = text_effects_.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+    }
     {
         //人物出场
         if (getTeamMateCount(1) < 1)
@@ -986,23 +1012,24 @@ void BattleSceneSekiro::backRun1()
             if (!enemies_.empty())
             {
                 battle_roles_.push_back(enemies_.front());
+                head_boss_[0]->setRole(enemies_.front());
                 enemies_.pop_front();
                 battle_roles_.back()->Attention = 30;
                 battle_roles_.back()->CoolDown = 30;
                 battle_roles_.back()->Invincible = 30;
             }
         }
-        //亮血条
-        if (enemies_.size() < head_boss_.size())
-        {
-            for (int i = 0; i < head_boss_.size(); i++)
-            {
-                if (i >= enemies_.size())
-                {
-                    head_boss_[i]->setVisible(true);
-                }
-            }
-        }
+        ////亮血条
+        //if (enemies_.size() < head_boss_.size())
+        //{
+        //    for (int i = 0; i < head_boss_.size(); i++)
+        //    {
+        //        if (i >= enemies_.size())
+        //        {
+        //            head_boss_[i]->setVisible(true);
+        //        }
+        //    }
+        //}
         //检测战斗结果
         int battle_result = checkResult();
 
@@ -1013,7 +1040,7 @@ void BattleSceneSekiro::backRun1()
                 //pos_ = dying_->Pos;
                 close_up_ = 60;
                 frozen_ = 60;
-                slow_ = 60;
+                slow_ = 30;
                 shake_ = 40;
                 result_ = battle_result;
             }
@@ -1029,10 +1056,13 @@ void BattleSceneSekiro::backRun1()
 
 void BattleSceneSekiro::Action(Role* r)
 {
-    auto r1 = findNearestEnemy(r->Team, r->Pos);
-    if (r1)
+    if (r->CoolDown == 0)
     {
-        r->RealTowards = r1->Pos - r->Pos;
+        auto r1 = findNearestEnemy(r->Team, r->Pos);
+        if (r1)
+        {
+            r->RealTowards = r1->Pos - r->Pos;
+        }
     }
     if (r->HaveAction)
     {
@@ -1142,15 +1172,27 @@ void BattleSceneSekiro::Action(Role* r)
             if (ae.OperationType == 0)
             {
                 ae.TotalFrame = 10;
-                if (r->OperationCount == 3 && magic->AttackAreaType == 0)
+                //if (r->OperationCount == 3 && magic->AttackAreaType == 0)
                 {
-                    ae.TotalFrame = 30;
+                    ae.TotalFrame = 10;
                     shake_ = 10;
-                    ae.Strengthen = 2;
+                    //ae.Strengthen = 2;
                     ae.Velocity = r->RealTowards;
                     ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
                     //ae.Velocity.normTo(5);
                     ae.Track = 1;
+                }
+                auto r1 = findNearestEnemy(r->Team, r->Pos);
+                if (r1 && r1->Breathless)
+                {
+                    //气绝突进
+                    ae.TotalFrame = 30;
+                    r->Velocity = r1->Pos - r->Pos;
+                    ae.Velocity = r1->Pos - ae.Pos;
+                    auto v = std::min(10.0, r->Speed / 15.0);
+                    ae.Velocity.normTo(v / 3);
+                    //ae.Pos = r1->Pos;
+                    r->Velocity.normTo(v / 3);
                 }
                 attack_effects_.push_back(std::move(ae));
                 needMP *= 0.1;
@@ -1162,7 +1204,7 @@ void BattleSceneSekiro::Action(Role* r)
                     int i = 0;
                 }
                 auto acc = r->RealTowards;
-                acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
+                acc.normTo(std::min(10.0, r->Speed / 15.0));
                 r->Velocity = acc;
                 //r->Acceleration += acc;
                 //r->VelocitytFrame = 10;
@@ -1253,7 +1295,7 @@ void BattleSceneSekiro::AI(Role* r)
     if ((r != role_ || r->Auto)
         && r->Dead == 0)
     {
-        if (r->CoolDown == 0)
+        if (r->CoolDown == 0 && r->Breathless == 0)
         {
             if (r->UsingMagic == nullptr)
             {
@@ -1569,7 +1611,7 @@ int BattleSceneSekiro::calCast(int act_type, int operation_type, Role* r)
 int BattleSceneSekiro::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
-    int v[] = { 100 - i / 2, 160 - i, 70 - i / 2, 10, 0 };
+    int v[] = { 60 - i / 2, 160 - i, 70 - i / 2, 10, 0 };
     int min_v[] = { 20, 45, 30, 10, 0 };
     if (operation_type >= 0 && operation_type <= 3)
     {
@@ -1689,14 +1731,29 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
     if (r->OperationType == 5)
     {
         //fmt1::print("{}, ", r->OperationCount);
-        if (r->OperationCount <= 300)
+        int block_frame = 2;
+        if (easy_block_)
+        {
+            block_frame = 500;
+        }
+        if (r->OperationCount <= block_frame)
         {
             //完美格挡
-            ae.Attacker->Posture += hurt * 0.5;
+            auto posture = hurt / 2;
+            if (posture < 75) { posture = 75; }
+            ae.Attacker->Posture += posture;
+            if (ae.Attacker->Posture > MAX_POSTURE + 1)
+            {
+                //这里加了1，气绝状态是300帧，故不会出现继续气绝的问题
+                ae.Attacker->Posture = MAX_POSTURE + 1;
+            }
             hurt = 0;
             sword_light_ = 30;
             ae.Attacker->Velocity = r->RealTowards - ae.Attacker->RealTowards;
-            ae.Attacker->Velocity.normTo(3);
+            ae.Attacker->Velocity.normTo(2);
+            ae.Attacker->Shake = 10;
+            ae.Attacker->CoolDown = 10;
+            r->Velocity.normTo(0);
         }
         else
         {

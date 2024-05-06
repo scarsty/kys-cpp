@@ -39,6 +39,27 @@ class BattleSceneSekiro : public BattleScene
         }
     };
 
+    struct TextEffect
+    {
+        Pointf Pos;
+        std::string Text;
+        int Size = 15;
+        int Frame = 0;
+        BP_Color Color;
+        int Type = 0;    //0-缓缓向上, 1-原地不动
+        void set(const std::string& text, BP_Color c, Role* r)
+        {
+            Text = text;
+            Color = c;
+            if (r)
+            {
+                Pos = r->Pos;
+                Pos.x -= 7.5 * Font::getTextDrawSize(Text);
+                Pos.y -= 50;
+            }
+        }
+    };
+
 public:
     BattleSceneSekiro();
     void setID(int id);
@@ -122,6 +143,7 @@ protected:
     std::vector<std::shared_ptr<Head>> head_boss_;
 
     std::deque<AttackEffect> attack_effects_;
+    std::deque<TextEffect> text_effects_;
 
     bool is_running_ = false;    //主角是否在跑动
     Role* role_ = nullptr;
@@ -138,6 +160,8 @@ protected:
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
     std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
+
+    int easy_block_ = 0;
 };
 
 //暂时设计：

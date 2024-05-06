@@ -601,6 +601,21 @@ void BattleSceneHades::dealEvent(BP_Event& e)
         }
     }
     backRun1();
+    if (r->Dead)
+    {
+        for (auto r1 : battle_roles_)
+        {
+            if (r1->Team == 0 && r1->Dead == 0)
+            {
+                pos_ = r1->Pos;
+            }
+        }
+        //engine->gameControllerRumble(65535, 65535, 1000);
+    }
+    else
+    {
+        pos_ = r->Pos;
+    }
 }
 
 void BattleSceneHades::dealEvent2(BP_Event& e)
@@ -662,14 +677,14 @@ void BattleSceneHades::backRun1()
                 r->Acceleration = { 0, 0, gravity_ };
             }
             r->Velocity += r->Acceleration;
+            if (r->Pos.z == 0)
+            {
+                r->Velocity.z = 0;
+            }
             if (r->Velocity.norm() < 0.1)
             {
                 r->Velocity.x = 0;
                 r->Velocity.y = 0;
-            }
-            if (r->Pos.z == 0)
-            {
-                r->Velocity.z = 0;
             }
         }
         //else
@@ -1126,10 +1141,6 @@ void BattleSceneHades::Action(Role* r)
             }
             else if (ae.OperationType == 3)
             {
-                if (r->HeadID == 0)
-                {
-                    int i = 0;
-                }
                 auto acc = r->RealTowards;
                 acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
                 r->Velocity = acc;
@@ -1459,7 +1470,7 @@ void BattleSceneHades::onEntrance()
     int count = 0;
     for (auto& h : head_boss_)
     {
-        h->setPosition(Engine::getInstance()->getWindowWidth() / 2 - h->getWidth() / 2, Engine::getInstance()->getWindowHeight() - 50 - (25 * count++));
+        h->setPosition(Engine::getInstance()->getStartWindowWidth() / 2 - h->getWidth() / 2, Engine::getInstance()->getStartWindowHeight() - 50 - (25 * count++));
     }
     addChild(MainScene::getInstance()->getWeather());
 

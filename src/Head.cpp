@@ -139,25 +139,31 @@ void Head::draw()
     else if (style_ == 2)
     {
         //TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ - 10, y_ - 10, { 255, 255, 255, 255 }, 255, 0.15, 0.15);
-        width_ = 200.0 / 999 * role_->MaxHP;
-        BP_Rect r1 = { x_ + 0, y_ + 0, width_, 11 }, r2;
+        width_ = 350.0 / 999 * role_->MaxHP;
+        BP_Rect r1 = { x_ + 0, y_ + 25, width_, 11 }, r2;
         BP_Color c, c_text;
         Engine::getInstance()->fillColor({ 0, 0, 0, 168 }, r1.x, r1.y, r1.w, r1.h);
         int w = (width_ - 2) * role_->HP / role_->MaxHP;
         if (role_->MaxHP > 0)
         {
-            r2 = { x_ + 1 + w, y_ + 1, (width_ - 2) * (HP_ - role_->HP) / role_->MaxHP, 9 };
-            r1 = { x_ + 1, y_ + 1, w, 9 };
+            r2 = { x_ + 1 + w, y_ + 26, (width_ - 2) * (HP_ - role_->HP) / role_->MaxHP, 9 };
+            r1 = { x_ + 1, y_ + 26, w, 9 };
         }
         c = { 0xff, 0xb7, 0x4d, 255 };
         Engine::getInstance()->renderSquareTexture(&r2, c, 144);
         c = { 196, 25, 16, 255 };
         Engine::getInstance()->renderSquareTexture(&r1, c, 192);
-        font->draw(role_->Name, 20, x_ + 10, y_ + 20, white);
-        //font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + width_ + 10, y_ - 2, white);
-        int length = std::max(10.0, role_->Posture * 3);
-        int length_tex = TextureManager::getInstance()->getTexture("title", 203)->w;
-        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getPresentWidth() / 2 - length / 2, y_, { 255, 255, 255, 255 }, 255, 1.0 * length / length_tex, 1.0 * length / length_tex);
+        font->draw(role_->Name, 20, x_ + 10, y_, white);
+        font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + Font::getTextDrawSize(role_->Name) * 10 + 30, y_ + 3, white);
+        int length = std::max(0.0, role_->Posture * 5);
+        int w_tex = TextureManager::getInstance()->getTexture("title", 203)->w;
+        int h_tex = TextureManager::getInstance()->getTexture("title", 203)->h;
+        double zoomb_x = 1.0 * 450 / w_tex;
+        double zoomb_y = 3.0 * 450 / w_tex;
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - 450 / 2 + 20, y_ - 10, { 255, 128, 128, 255 }, 255, zoomb_x, zoomb_y);
+        double zoom_x = 1.0 * length / w_tex;
+        double zoom_y = 3.0 * length / w_tex;
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex*(zoom_y / 2 - zoomb_y / 2), { 255, 255, 255, 255 }, 255, zoom_x, zoom_y);
     }
     HP_ = std::max(HP_ - 1 - role_->MaxHP / 1000, role_->HP);
     MP_ = std::max(MP_ - 1 - role_->MaxMP / 1000, role_->MP);
