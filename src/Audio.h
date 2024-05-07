@@ -26,7 +26,8 @@ private:
     MUSIC current_music_;
     WAV current_sound_;
 
-    int volume_ = 50;
+    int volume_ = 20;
+    int volume_wav_ = 50;
 
 public:
     static Audio* getInstance()
@@ -44,5 +45,6 @@ public:
     void stopMusic();
 
     void setVolume(int v) { volume_ = v; }
+    void setVolumeWav(int v) { volume_wav_ = v; }
 
 };

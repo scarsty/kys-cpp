@@ -1,6 +1,7 @@
 #include "Head.h"
 #include "Font.h"
 #include "GameUtil.h"
+#include "Save.h"
 #include "strfunc.h"
 
 Head::Head(Role* r)
@@ -154,7 +155,12 @@ void Head::draw()
         c = { 196, 25, 16, 255 };
         Engine::getInstance()->renderSquareTexture(&r1, c, 192);
         font->draw(role_->Name, 20, x_ + 10, y_, white);
-        font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 16, x_ + Font::getTextDrawSize(role_->Name) * 10 + 30, y_ + 3, white);
+        auto m = Save::getInstance()->getMagic(role_->EquipMagic[0]);
+        if (m)
+        {
+            font->draw(m->Name, 15, x_ + Font::getTextDrawSize(role_->Name) * 10 + 30, y_ + 5, white);
+        }
+        font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 12, x_ + 10, y_ + 25, white);
         int length = std::max(0.0, role_->Posture * 5);
         int w_tex = TextureManager::getInstance()->getTexture("title", 203)->w;
         int h_tex = TextureManager::getInstance()->getTexture("title", 203)->h;
@@ -163,7 +169,7 @@ void Head::draw()
         TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - 450 / 2 + 20, y_ - 10, { 255, 128, 128, 255 }, 255, zoomb_x, zoomb_y);
         double zoom_x = 1.0 * length / w_tex;
         double zoom_y = 3.0 * length / w_tex;
-        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex*(zoom_y / 2 - zoomb_y / 2), { 255, 255, 255, 255 }, 255, zoom_x, zoom_y);
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex * (zoom_y / 2 - zoomb_y / 2), { 255, 255, 255, 255 }, 255, zoom_x, zoom_y);
     }
     HP_ = std::max(HP_ - 1 - role_->MaxHP / 1000, role_->HP);
     MP_ = std::max(MP_ - 1 - role_->MaxMP / 1000, role_->MP);

@@ -58,10 +58,10 @@ TitleScene::TitleScene()
         addChild(pe1);
     }
     //调试用代码
-    Save::getInstance()->load(5);
+    //Save::getInstance()->load(5);
     RandomDouble rand;
     int k = rand.rand() * 139;
-    k = 33;
+    k = 1;
     //Event::getInstance()->tryBattle(k, 0);
 
     //auto  p=std::make_shared<RunNodeFromJson>("../game/Scene.json");

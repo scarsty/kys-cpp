@@ -38,6 +38,7 @@ void Application::config()
     auto game = GameUtil::getInstance();
     //RunNode::setRefreshInterval(game->getReal("game", "refresh_interval", 16));
     Audio::getInstance()->setVolume(game->getInt("music", "volume", 50));
+    Audio::getInstance()->setVolumeWav(game->getInt("music", "volumewav", 50));
     Event::getInstance()->setUseScript(game->getInt("game", "use_script", 0));
     Font::getInstance()->setStatMessage(game->getInt("game", "stat_font", 0));
     Font::getInstance()->setSimplified(game->getInt("game", "simplified chinese", 1));

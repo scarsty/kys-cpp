@@ -94,7 +94,7 @@ public:
     bool canWalk90(Pointf p, Role* r, int dis = -1)
     {
         if (r->Pos.z > 1) { return true; }
-        if (dis == -1) { dis = TILE_W; }
+        if (dis == -1) { dis = TILE_W * 1.5; }
         for (auto r1 : battle_roles_)
         {
             if (r1 == r || r1->Dead) { continue; }
@@ -126,6 +126,7 @@ public:
     void decreaseToZero(T& i, T v)
     {
         if (i > 0) { i -= v; }
+        if (i < 0) { i = 0; }
     }
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
@@ -134,7 +135,7 @@ protected:
     const double MAX_POSTURE = 100;
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
     double gravity_ = -4;
-    double friction_ = 0.1;
+    double friction_ = 0.3;
 
     std::deque<Role*> enemies_;
     std::deque<Role> enemies_obj_;
@@ -156,6 +157,8 @@ protected:
     int shake_ = 0;
     int close_up_ = 0;
     int sword_light_ = 0;
+    BP_Color sword_light_color_ = { 255, 255, 255, 255 };
+    int switch_magic_ = 0;
 
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击

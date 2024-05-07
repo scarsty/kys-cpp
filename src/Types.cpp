@@ -1,10 +1,10 @@
 #include "Types.h"
 
-#include "strfunc.h"
-#include "fmt1.h"
 #include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
+#include "fmt1.h"
+#include "strfunc.h"
 
 //设置人物坐标，若输入值为负，相当于从人物层清除
 void Role::setPosition(int x, int y)
@@ -83,11 +83,14 @@ int Role::getMagicLevelIndex(int magic_id)
 //武学在角色的栏位编号
 int Role::getMagicOfRoleIndex(Magic* magic)
 {
-    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    if (magic)
     {
-        if (MagicID[i] == magic->ID)
+        for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
         {
-            return i;
+            if (MagicID[i] == magic->ID)
+            {
+                return i;
+            }
         }
     }
     return -1;
@@ -596,7 +599,11 @@ int Role::usePoison(Role* r2)
 void Role::setMaxValue()
 {
     auto role = getMaxValue();
-#define GET_VALUE_INT(v, default_v) do { role->v = GameUtil::getInstance()->getInt("constant", #v, default_v); fmt1::print("{} = {}\n", #v, role->v); } while (0)
+#define GET_VALUE_INT(v, default_v) \
+    do { \
+        role->v = GameUtil::getInstance()->getInt("constant", #v, default_v); \
+        fmt1::print("{} = {}\n", #v, role->v); \
+    } while (0)
 
     fmt1::print("Max values of roles: \n");
 
@@ -665,7 +672,8 @@ void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 
 int Magic::calMaxLevelIndexByMP(int mp, int max_level)
 {
-    auto limit = [&](int v, int v1, int v2) {
+    auto limit = [&](int v, int v1, int v2)
+    {
         if (v < v1)
         {
             v = v1;
@@ -702,7 +710,11 @@ bool Item::isCompass()
 
 void Item::setSpecialItems()
 {
-#define GET_VALUE_INT(v) do { Item::v = GameUtil::getInstance()->getInt("constant", #v, Item::v); fmt1::print("{} = {}\n", #v, Item::v); } while (0)
+#define GET_VALUE_INT(v) \
+    do { \
+        Item::v = GameUtil::getInstance()->getInt("constant", #v, Item::v); \
+        fmt1::print("{} = {}\n", #v, Item::v); \
+    } while (0)
 
     GET_VALUE_INT(MoneyItemID);
     GET_VALUE_INT(CompassItemID);
