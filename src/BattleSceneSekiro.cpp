@@ -1159,16 +1159,16 @@ void BattleSceneSekiro::backRun1()
 
 void BattleSceneSekiro::Action(Role* r)
 {
-    if (r->CoolDown == 0)
-    {
-        auto r1 = findNearestEnemy(r->Team, r->Pos);
-        if (r1)
-        {
-            r->RealTowards = r1->Pos - r->Pos;
-        }
-    }
     if (r->HaveAction)
     {
+        if (r && !r->Dead && r->CoolDown == 0)
+        {
+            auto r1 = findNearestEnemy(r->Team, r->Pos);
+            if (r1)
+            {
+                r->RealTowards = r1->Pos - r->Pos;
+            }
+        }
         //音效和动画
         if (r->OperationType >= 0
             //&& r->ActFrame == r->FightFrame[r->ActType] - 3

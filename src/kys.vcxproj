@@ -100,7 +100,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\mlcc\Engine.cpp" />
+    <ClCompile Include="Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\mlcc\filefunc.cpp" />
     <ClCompile Include="..\mlcc\PotConv.cpp" />
@@ -162,7 +162,7 @@
     <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\mlcc\Engine.h" />
+    <ClInclude Include="Engine.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\mlcc\INIReader.h" />

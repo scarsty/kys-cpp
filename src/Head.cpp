@@ -160,7 +160,7 @@ void Head::draw()
         {
             font->draw(m->Name, 15, x_ + Font::getTextDrawSize(role_->Name) * 10 + 30, y_ + 5, white);
         }
-        font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 12, x_ + 10, y_ + 25, white);
+        font->draw(fmt1::format("{}/{}", role_->HP, role_->MaxHP), 12, x_ + width_ + 10, y_ + 25, white);
         int length = std::max(0.0, role_->Posture * 5);
         int w_tex = TextureManager::getInstance()->getTexture("title", 203)->w;
         int h_tex = TextureManager::getInstance()->getTexture("title", 203)->h;
