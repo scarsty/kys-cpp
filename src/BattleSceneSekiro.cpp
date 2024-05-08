@@ -96,6 +96,7 @@ void BattleSceneSekiro::draw()
             int shadow = 0;
             uint8_t white = 0;
             int breathless = 0;
+            int draw_turn = 1;    //主要为了被击倒的画到后面
         };
         std::vector<DrawInfo> draw_infos;
         draw_infos.reserve(10000);
@@ -168,6 +169,7 @@ void BattleSceneSekiro::draw()
                         info.rot = 270;
                     }
                 }
+                info.draw_turn = 0;
             }
             if (r->Attention)
             {
@@ -257,17 +259,21 @@ void BattleSceneSekiro::draw()
                 }
             }
         }
-        for (auto& d : draw_infos)
+        for (int turn = 0; turn < 2; turn++)
         {
-            double scaley = 1;
-            if (d.rot)
+            for (auto& d : draw_infos)
             {
-                scaley = 0.5;
-            }
-            TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
-            if (d.breathless)
-            {
-                TextureManager::getInstance()->renderTexture("title", 205, d.p.x - 5, d.p.y / 2 - d.p.z - 36, { 255, 255, 255, 255 }, 255, 0.1, 0.1, d.rot2, 0);
+                if (d.draw_turn != turn) { continue; }
+                double scaley = 1;
+                if (d.rot)
+                {
+                    scaley = 0.5;
+                }
+                TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+                if (d.breathless)
+                {
+                    TextureManager::getInstance()->renderTexture("title", 205, d.p.x - 5, d.p.y / 2 - d.p.z - 36, { 255, 255, 255, 255 }, 255, 0.1, 0.1, d.rot2, 0);
+                }
             }
         }
 
@@ -1792,6 +1798,14 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
     {
         return;
     }
+    if (r == role_)
+    {
+        head_boss_[0]->setRole(ae.Attacker);
+    }
+    if (r == ae.Attacker)
+    {
+        head_boss_[0]->setRole(r);
+    }
     double hurt;
     //先特别处理暗器
     if (ae.UsingHiddenWeapon != nullptr)
@@ -1931,6 +1945,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
             ae.Attacker->Posture += hurt * 0.01;
             hurt *= 0.33;
             sword_light_ = 10;
+            sword_light_color_ = { 255, 255, 255, 255 };
             r->Velocity.normTo(0);
         }
     }
