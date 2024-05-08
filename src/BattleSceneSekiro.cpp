@@ -991,48 +991,6 @@ void BattleSceneSekiro::backRun1()
                 //std::vector<std::string> = {};
             }
         }
-        //效果间的互相抵消
-        //if (attack_effects_.size() >= 2)
-        //{
-        //    for (int i = 0; i < attack_effects_.size() - 2; i++)
-        //    {
-        //        auto& ae1 = attack_effects_[i];
-        //        if (!ae1.UsingMagic)
-        //        {
-        //            continue;
-        //        }
-        //        for (int j = i + 1; j < attack_effects_.size() - 1; j++)
-        //        {
-        //            auto& ae2 = attack_effects_[j];
-        //            if (!ae2.UsingMagic)
-        //            {
-        //                continue;
-        //            }
-        //            if (ae1.NoHurt == 0 && ae2.NoHurt == 0 && ae1.Attacker && ae2.Attacker
-        //                && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
-        //            {
-        //                //fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
-        //                int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
-        //                int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
-        //                ae1.Weaken += hurt2;
-        //                ae2.Weaken += hurt1;
-        //                if (ae1.Weaken > hurt1)
-        //                {
-        //                    //直接设置帧数，后面就会删掉了
-        //                    ae1.NoHurt = 1;
-        //                    ae1.Frame = std::max(ae1.TotalFrame - 5, ae1.Frame);
-        //                    //fmt1::print("{} ", ae1.UsingMagic->Name);
-        //                }
-        //                if (ae2.Weaken > hurt2)
-        //                {
-        //                    ae2.NoHurt = 1;
-        //                    ae2.Frame = std::max(ae2.TotalFrame - 5, ae2.Frame);
-        //                    //fmt1::print("{} ", ae2.UsingMagic->Name);
-        //                }
-        //                //fmt1::print("loss\n");
-        //            }
-        //        }
-        //    }
         //}
         //删除播放完毕的
         for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
@@ -1091,9 +1049,11 @@ void BattleSceneSekiro::backRun1()
                 close_up_ = 30;
             }
         }
+        //限制属性
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
         r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+        r->Posture = GameUtil::limit(r->Posture, 0.0, MAX_POSTURE + 1);
     }
     //处理文字
     {
@@ -1901,6 +1861,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
 
     if (r->OperationType == 5)
     {
+        //有防御
         //fmt1::print("{}, ", r->OperationCount);
         int block_frame = 2;
         if (easy_block_)
@@ -1923,11 +1884,6 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
             auto posture = hurt / 2;
             if (posture < 75) { posture = 75; }
             ae.Attacker->Posture += posture;
-            if (ae.Attacker->Posture > MAX_POSTURE + 1)
-            {
-                //这里加了1，气绝状态是300帧，故不会出现继续气绝的问题
-                ae.Attacker->Posture = MAX_POSTURE + 1;
-            }
             decreaseToZero(r->Posture, posture / 2);
             hurt = 0;
             sword_light_ = 30;
@@ -1943,45 +1899,49 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
         else
         {
             ae.Attacker->Posture += hurt * 0.01;
-            hurt *= 0.33;
+            r->Posture += hurt * 0.1;
+            r->HurtThisFrame += hurt * 0.33;
             sword_light_ = 10;
             sword_light_color_ = { 255, 255, 255, 255 };
             r->Velocity.normTo(0);
+            ae.Attacker->ExpGot += hurt / 2;
         }
     }
-
-    ae.Attacker->ExpGot += hurt / 2;
-    //扣HP或MP
-    if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
+    else
     {
-        if (r->Breathless)
+        //无防御
+        ae.Attacker->ExpGot += hurt / 2;
+        //扣HP或MP
+        if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
         {
-            r->HurtThisFrame += hurt * 10;
-            if (r->HurtThisFrame < r->HP + 100)
+            if (r->Breathless)
             {
-                r->HurtThisFrame = r->HP + 100;
+                r->HurtThisFrame += hurt * 10;
+                if (r->HurtThisFrame < r->HP + 100)
+                {
+                    r->HurtThisFrame = r->HP + 100;
+                }
+                sword_light_ = 40;
+                sword_light_color_ = { 255, 0, 0, 255 };
+                if (ae.UsingMagic)
+                {
+                    Audio::getInstance()->playESound(ae.UsingMagic->EffectID);
+                }
             }
-            sword_light_ = 40;
-            sword_light_color_ = { 255, 0, 0, 255 };
-            if (ae.UsingMagic)
+            else
             {
-                Audio::getInstance()->playESound(ae.UsingMagic->EffectID);
+                r->HurtThisFrame += hurt;
+                r->Posture += hurt * 0.2;
             }
         }
-        else
+        if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
         {
-            r->HurtThisFrame += hurt;
-            r->Posture += hurt * 0.2;
-            r->Posture = (std::min)(r->Posture, MAX_POSTURE + 1);
+            r->MP -= hurt;
+            ae.Attacker->MP += hurt * 0.8;
+            //TextEffect te;
+            //te.set(std::to_string(int(-hurt)), { 160, 32, 240, 255 }, r);
+            //text_effects_.push_back(std::move(te));
         }
-    }
-    if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
-    {
-        r->MP -= hurt;
-        ae.Attacker->MP += hurt * 0.8;
-        //TextEffect te;
-        //te.set(std::to_string(int(-hurt)), { 160, 32, 240, 255 }, r);
-        //text_effects_.push_back(std::move(te));
     }
     //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }

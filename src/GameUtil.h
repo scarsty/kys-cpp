@@ -12,6 +12,7 @@ class GameUtil : public INIReaderNormal
 private:
     GameUtil();
     ~GameUtil();
+
 public:
     static GameUtil* getInstance()
     {
@@ -94,5 +95,4 @@ public:
     {
         fmt1::print(stdout, args...);
     }
-
 };
