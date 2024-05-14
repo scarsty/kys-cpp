@@ -1,6 +1,6 @@
 #pragma once
-#include "RunNode.h"
 #include "Point.h"
+#include "RunNode.h"
 
 //主地图，子场景，战斗场景均继承此类
 class Scene : public RunNode
@@ -25,8 +25,10 @@ public:
 
     void calViewRegion();
 
-    int total_step_ = 0;        //键盘走路的计数
-    BP_Keycode pre_pressed_;    //键盘走路的上次按键
+    int total_step_ = 0;                         //键盘走路的计数
+    BP_Keycode pre_pressed_;                     //键盘走路的上次按键
+    double pre_pressed_ticks_ = 0;               //键盘走路的上次按键时间
+    static inline double key_walk_delay = 20;    //键盘走路的延迟
 
     int man_x_, man_y_;
     int mouse_event_x_ = -1, mouse_event_y_ = -1;    //鼠标行路时的最终目标，可能为事件或者入口
@@ -95,4 +97,8 @@ public:
     }
 
     Point getPositionOnWholeEarth(int x, int y);
+    static void setKeyWalkDealy(double d)
+    {
+        key_walk_delay = d;
+    }
 };

@@ -241,11 +241,12 @@ void MainScene::dealEvent(BP_Event& e)
     }
     //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
-    //if (checkPrevTimeElapsed(33))
+    auto engine = Engine::getInstance();
+    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)    
     {
         //键盘走路部分，检测4个方向键
-        int pressed = 0;
-        auto engine = Engine::getInstance();
+        int pressed = 0;        
+        pre_pressed_ticks_ = engine->getTicks();
         auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
         auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
         if (abs(axis_x) < 10000) { axis_x = 0; }
