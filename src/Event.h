@@ -1,11 +1,11 @@
 #pragma once
 #include "DrawNode.h"
+#include "Font.h"
 #include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"
 #include "SubScene.h"
 #include "Talk.h"
-#include "Font.h"
 
 //event_id表示在kdef中的编号，event_index表示在场景中的编号
 
@@ -175,8 +175,8 @@ public:
     }
 
     template <typename F, typename C, std::size_t... I>
-    typename std::enable_if<check_return_type<F, C, void>::value, void>::type
-    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+        requires check_return_type<F, C, void>::value
+    void runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
         i += sizeof...(I) + 1;
@@ -185,8 +185,8 @@ public:
     }
 
     template <typename F, typename C, std::size_t... I>
-    typename std::enable_if<check_return_type<F, C, bool>::value, void>::type
-    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+        requires check_return_type<F, C, bool>::value
+    void runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
         i += sizeof...(I) + 1;
