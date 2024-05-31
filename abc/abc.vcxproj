@@ -78,6 +78,7 @@
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>../src;../mlcc;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

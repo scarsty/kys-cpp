@@ -1410,21 +1410,24 @@ void BattleSceneSekiro::AI(Role* r)
                     }
                 }
             }
-            r->EquipMagic[0] = r->UsingMagic->ID;
-            if (r == role_)
+            if (r->UsingMagic)
             {
-                r->HaveAction = 0;    //因防御是持续的，所以需要重置
-                for (auto& ae : attack_effects_)
+                r->EquipMagic[0] = r->UsingMagic->ID;
+                if (r == role_)
                 {
-                    if (ae.Attacker && ae.Attacker->Team != r->Team && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2.1)
+                    r->HaveAction = 0;    //因防御是持续的，所以需要重置
+                    for (auto& ae : attack_effects_)
                     {
-                        //fmt1::print("block\n");
-                        r->OperationType = 5;
-                        r->HaveAction = 1;
-                        r->ActFrame = 30;
-                        r->ActType = r->UsingMagic->MagicType;
-                        r->CoolDown = 0;
-                        break;
+                        if (ae.Attacker && ae.Attacker->Team != r->Team && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2.1)
+                        {
+                            //fmt1::print("block\n");
+                            r->OperationType = 5;
+                            r->HaveAction = 1;
+                            r->ActFrame = 30;
+                            r->ActType = r->UsingMagic->MagicType;
+                            r->CoolDown = 0;
+                            break;
+                        }
                     }
                 }
             }
