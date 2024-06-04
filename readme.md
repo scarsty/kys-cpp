@@ -4,7 +4,7 @@
 
 <img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/title.jpg' />
 
-目前的开发分支名为“Sekiro”，即受From Software著名游戏《只狼·影逝二度》（副标题也可译为“暗影双死”）以及光荣出品的《卧龙·苍天陨落》启发以格挡、化解等为核心的战斗系统。
+除了经典的回合制战斗外，还包含半即时战斗（含进度条），以及两种完全即时战斗模式。即模仿黑帝斯和只狼的战斗系统。可以通过修改ini文件中的battle_mode来切换。
 
 github：https://github.com/scarsty/kys-cpp
 
@@ -15,6 +15,8 @@ github：https://github.com/scarsty/kys-cpp
 这是一个以SDL2为基础实现的2D游戏框架，同时相当于提供了一个使用该框架制作DOS游戏《金庸群侠传》移植版的范例。
 
 ## 如何编译
+
+因使用了概念，需至少C++20。
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
