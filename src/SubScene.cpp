@@ -475,20 +475,6 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
     return false;
 }
 
-bool SubScene::canWalk(int x, int y)
-{
-    bool ret = true;
-    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) || isCannotPassEvent(x, y) || isFall(x, y))
-    {
-        ret = false;
-    }
-    //if (isCanPassEvent(x, y))
-    //{
-    //    ret = true;
-    //}
-    return ret;
-}
-
 bool SubScene::isBuilding(int x, int y)
 {
     return submap_info_->Building(x, y) > 0 && submap_info_->Building(x, y) < 9999;
@@ -582,6 +568,20 @@ bool SubScene::isJumpSubScene(int x, int y)
 bool SubScene::isOutScreen(int x, int y)
 {
     return (abs(view_x_ - x) >= 2 * view_width_region_ || abs(view_y_ - y) >= view_sum_region_);
+}
+
+bool SubScene::canWalk(int x, int y)
+{
+    bool ret = true;
+    if (isOutLine(x, y) || isBuilding(x, y) || isWater(x, y) || isCannotPassEvent(x, y) || isFall(x, y))
+    {
+        ret = false;
+    }
+    //if (isCanPassEvent(x, y))
+    //{
+    //    ret = true;
+    //}
+    return ret;
 }
 
 void SubScene::forceExit()

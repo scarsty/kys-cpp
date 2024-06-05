@@ -442,24 +442,6 @@ int BattleActionMenu::calNeedActionDistance(AIAction& aa)
     return battle_scene_->calDistance(aa.MoveX, aa.MoveY, aa.ActionX, aa.ActionY);
 }
 
-void BattleMagicMenu::onEntrance()
-{
-    if (role_ == nullptr)
-    {
-        return;
-    }
-    //if (role_->isAuto())
-    //{
-    //    magic_ = role_->AI_Magic;
-    //    setAllChildState(NodeNormal);
-    //    setResult(0);
-    //    setExit(true);
-    //    setVisible(false);
-    //    return;
-    //}
-    forceActiveChild();
-}
-
 void BattleMagicMenu::setRole(Role* r)
 {
     role_ = r;
@@ -496,6 +478,24 @@ void BattleMagicMenu::setRole(Role* r)
     arrange(0, 0, 0, 30);
 }
 
+void BattleMagicMenu::onEntrance()
+{
+    if (role_ == nullptr)
+    {
+        return;
+    }
+    //if (role_->isAuto())
+    //{
+    //    magic_ = role_->AI_Magic;
+    //    setAllChildState(NodeNormal);
+    //    setResult(0);
+    //    setExit(true);
+    //    setVisible(false);
+    //    return;
+    //}
+    forceActiveChild();
+}
+
 void BattleMagicMenu::onPressedOK()
 {
     checkActiveToResult();
@@ -504,10 +504,6 @@ void BattleMagicMenu::onPressedOK()
     {
         setExit(true);
     }
-}
-
-void BattleEquipItemMenu::onEntrance()
-{
 }
 
 void BattleEquipItemMenu::setRole(Role* r)
@@ -543,6 +539,10 @@ void BattleEquipItemMenu::setRole(Role* r)
     arrange(0, 0, 0, 30);
 }
 
+void BattleEquipItemMenu::onEntrance()
+{
+}
+
 void BattleEquipItemMenu::onPressedOK()
 {
     checkActiveToResult();
@@ -565,6 +565,18 @@ BattleItemMenu::BattleItemMenu()
     setSelectUser(false);
 }
 
+void BattleItemMenu::addItem(Item* item, int count)
+{
+    if (role_->Team == 0)
+    {
+        Event::getInstance()->addItemWithoutHint(item->ID, count);
+    }
+    else
+    {
+        Event::getInstance()->roleAddItem(role_->ID, item->ID, count);
+    }
+}
+
 void BattleItemMenu::onEntrance()
 {
     if (role_ == nullptr)
@@ -579,18 +591,6 @@ void BattleItemMenu::onEntrance()
             setExit(true);
             setVisible(false);
         }
-    }
-}
-
-void BattleItemMenu::addItem(Item* item, int count)
-{
-    if (role_->Team == 0)
-    {
-        Event::getInstance()->addItemWithoutHint(item->ID, count);
-    }
-    else
-    {
-        Event::getInstance()->roleAddItem(role_->ID, item->ID, count);
     }
 }
 

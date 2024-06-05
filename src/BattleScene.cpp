@@ -385,19 +385,6 @@ void BattleScene::backRun()
 {
 }
 
-void BattleScene::setupRolePosition(Role* r, int team, int x, int y)
-{
-    if (r == nullptr)
-    {
-        return;
-    }
-    r->setPosition(x, y);
-    r->Team = team;
-    readFightFrame(r);
-    r->FaceTowards = rand_.rand_int(4);
-    battle_roles_.push_back(r);
-}
-
 //读取战斗信息，确定是选人物还是自动人物
 void BattleScene::readBattleInfo()
 {
@@ -2070,6 +2057,19 @@ void BattleScene::setupNetwork(std::unique_ptr<BattleNetwork> net, int battle_id
 {
     network_ = std::move(net);
     setID(battle_id);
+}
+
+void BattleScene::setupRolePosition(Role* r, int team, int x, int y)
+{
+    if (r == nullptr)
+    {
+        return;
+    }
+    r->setPosition(x, y);
+    r->Team = team;
+    readFightFrame(r);
+    r->FaceTowards = rand_.rand_int(4);
+    battle_roles_.push_back(r);
 }
 
 void BattleScene::receiveAction(Role* r)

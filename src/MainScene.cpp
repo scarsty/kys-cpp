@@ -437,6 +437,10 @@ void MainScene::tryWalk(int x, int y)
     rest_time_ = 0;
 }
 
+void MainScene::setEntrance()
+{
+}
+
 bool MainScene::isBuilding(int x, int y)
 {
     if (isOutLine(x, y))
@@ -449,6 +453,11 @@ bool MainScene::isBuilding(int x, int y)
 int MainScene::isWater(int x, int y)
 {
     return earth_layer_.data(x, y).material_ == ObjectMaterial::Water;
+}
+
+bool MainScene::isOutScreen(int x, int y)
+{
+    return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }
 
 bool MainScene::canWalk(int x, int y)
@@ -554,13 +563,4 @@ void MainScene::setWeather()
             }
         }
     }
-}
-
-void MainScene::setEntrance()
-{
-}
-
-bool MainScene::isOutScreen(int x, int y)
-{
-    return (abs(man_x_ - x) >= 2 * view_width_region_ || abs(man_y_ - y) >= view_sum_region_);
 }

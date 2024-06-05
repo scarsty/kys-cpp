@@ -30,17 +30,6 @@ void RunNode::drawAll()
     }
 }
 
-//设置位置，会改变子节点的位置
-void RunNode::setPosition(int x, int y)
-{
-    for (auto c : childs_)
-    {
-        c->setPosition(c->x_ + x - x_, c->y_ + y - y_);
-    }
-    x_ = x;
-    y_ = y;
-}
-
 //从绘制的根节点移除
 std::shared_ptr<RunNode> RunNode::removeFromDraw(std::shared_ptr<RunNode> element)
 {
@@ -101,20 +90,15 @@ void RunNode::clearChilds()
     childs_.clear();
 }
 
-//画出自身和子节点
-void RunNode::drawSelfChilds()
+//设置位置，会改变子节点的位置
+void RunNode::setPosition(int x, int y)
 {
-    if (visible_)
+    for (auto c : childs_)
     {
-        draw();
-        for (auto c : childs_)
-        {
-            if (c->visible_)
-            {
-                c->drawSelfChilds();
-            }
-        }
+        c->setPosition(c->x_ + x - x_, c->y_ + y - y_);
     }
+    x_ = x;
+    y_ = y;
 }
 
 void RunNode::setAllChildState(int s)
@@ -200,11 +184,50 @@ int RunNode::findFristVisibleChild()
     return -1;
 }
 
+void RunNode::forceActiveChild()
+{
+    for (int i = 0; i < childs_.size(); i++)
+    {
+        childs_[i]->setState(NodeNormal);
+        if (i == active_child_)
+        {
+            childs_[i]->setState(NodePass);
+        }
+    }
+}
+
+//检测
+void RunNode::checkActiveToResult()
+{
+    result_ = -1;
+    int r = checkChildState();
+    if (r == active_child_)
+    {
+        result_ = active_child_;
+    }
+}
+
 void RunNode::checkFrame()
 {
     if (stay_frame_ > 0 && current_frame_ >= stay_frame_)
     {
         exit_ = true;
+    }
+}
+
+//画出自身和子节点
+void RunNode::drawSelfChilds()
+{
+    if (visible_)
+    {
+        draw();
+        for (auto c : childs_)
+        {
+            if (c->visible_)
+            {
+                c->drawSelfChilds();
+            }
+        }
     }
 }
 
@@ -339,29 +362,6 @@ bool RunNode::isSpecialEvent(BP_Event& e)
         || e.type == BP_CONTROLLERAXISMOTION
         || e.type == BP_CONTROLLERBUTTONDOWN
         || e.type == BP_CONTROLLERBUTTONUP;
-}
-
-void RunNode::forceActiveChild()
-{
-    for (int i = 0; i < childs_.size(); i++)
-    {
-        childs_[i]->setState(NodeNormal);
-        if (i == active_child_)
-        {
-            childs_[i]->setState(NodePass);
-        }
-    }
-}
-
-//检测
-void RunNode::checkActiveToResult()
-{
-    result_ = -1;
-    int r = checkChildState();
-    if (r == active_child_)
-    {
-        result_ = active_child_;
-    }
 }
 
 //获取子节点的状态
