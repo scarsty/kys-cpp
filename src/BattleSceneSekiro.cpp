@@ -322,7 +322,7 @@ void BattleSceneSekiro::draw()
         Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 0);
     }
 
-    Engine::getInstance()->renderAssistTextureToWindow();
+    Engine::getInstance()->renderAssistTextureToMain();
 
     if (sword_light_)
     {

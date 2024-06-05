@@ -166,7 +166,7 @@ void SubScene::draw()
             //k++;
         }
     }
-    Engine::getInstance()->renderAssistTextureToWindow();
+    Engine::getInstance()->renderAssistTextureToMain();
     //fmt1::print("%g\n", t0.getElapsedTime());
 }
 
@@ -312,7 +312,7 @@ void SubScene::dealEvent(BP_Event& e)
     {
         setMouseEventPoint(-1, -1);
         int mx, my;
-        Engine::getInstance()->getMouseState(mx, my);
+        Engine::getInstance()->getMouseStateInStartWindow(mx, my);
         Point p = getMousePosition(mx, my, x, y);
         way_que_.clear();
         if (isCannotPassEvent(p.x, p.y))    //存在事件点则仅会走到倒数第二格

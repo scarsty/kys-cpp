@@ -190,7 +190,7 @@ void MainScene::draw()
     }
     //fmt1::print("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
-    Engine::getInstance()->renderAssistTextureToWindow();
+    Engine::getInstance()->renderAssistTextureToMain();
 }
 
 void MainScene::backRun()
@@ -334,7 +334,7 @@ void MainScene::dealEvent(BP_Event& e)
     {
         setMouseEventPoint(-1, -1);
         int mx, my;
-        Engine::getInstance()->getMouseState(mx, my);
+        Engine::getInstance()->getMouseStateInStartWindow(mx, my);
         Point p = getMousePosition(mx, my, x, y);
         way_que_.clear();
         if (canWalk(p.x, p.y) /* && !isOutScreen(p.x, p.y)*/)

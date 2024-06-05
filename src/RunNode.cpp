@@ -288,7 +288,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
                 auto axis_y = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTY);
 
                 int x, y;
-                Engine::getInstance()->getMouseState(x, y);
+                Engine::getInstance()->getMouseStateInStartWindow(x, y);
                 //fmt1::print("{} {}  ", axis_x, axis_y);
                 if (abs(axis_x) < 5000) { axis_x = 0; }
                 if (abs(axis_y) < 5000) { axis_y = 0; }
@@ -427,15 +427,16 @@ void RunNode::checkSelfState(BP_Event& e)
 void RunNode::present()
 {
     auto t = Engine::getTicks() - global_prev_present_ticks_;
-
+    auto e = Engine::getInstance();
     if (render_message_)
-    {
-        auto e = Engine::getInstance();
+    {        
         Font::getInstance()->draw(fmt1::format("Render one frame in {:.3f} ms", t), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
         Font::getInstance()->draw(fmt1::format("RenderCopy time is {}", Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
         e->resetRenderTimes();
     }
-    Engine::getInstance()->renderPresent();
+    e->renderMainTextureToWindow();
+    e->renderPresent();
+    e->setRenderMainTexture();
     auto t_delay = refresh_interval_ - t;
     if (t_delay > refresh_interval_)
     {

@@ -125,11 +125,11 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     tinypot_ = PotCreateFromWindow(window_);
 #endif
-    createMainTexture(start_w_, start_h_);
+    createMainTexture(-1, BP_TEXTUREACCESS_TARGET, start_w_, start_h_);
     return 0;
 }
 
-void Engine::destroy()
+void Engine::destroy() const
 {
     destroyTexture(tex_);
     destroyAssistTexture();
@@ -150,16 +150,16 @@ void Engine::destroy()
 #endif
 }
 
-BP_Texture* Engine::createTexture(int pix_fmt, int w, int h)
+BP_Texture* Engine::createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const
 {
     if (pix_fmt == SDL_PIXELFORMAT_UNKNOWN)
     {
         pix_fmt = SDL_PIXELFORMAT_RGB24;
     }
-    return SDL_CreateTexture(renderer_, pix_fmt, SDL_TEXTUREACCESS_STREAMING, w, h);
+    return SDL_CreateTexture(renderer_, pix_fmt, a, w, h);
 }
 
-BP_Texture* Engine::createYUVTexture(int w, int h)
+BP_Texture* Engine::createYUVTexture(int w, int h) const
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
@@ -211,12 +211,12 @@ void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
     render_times_++;
 }
 
-void Engine::renderPresent()
+void Engine::renderPresent() const
 {
-    renderMainTextureToWindow();
+    //renderMainTextureToWindow();
     SDL_RenderPresent(renderer_);
     SDL_RenderClear(renderer_);
-    setRenderMainTexture();
+    //setRenderMainTexture();
 }
 
 void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle, int inPresent /*= 0*/)
@@ -228,18 +228,32 @@ void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double an
 void Engine::getMouseState(int& x, int& y)
 {
     SDL_GetMouseState(&x, &y);
+}
+
+void Engine::getMouseStateInStartWindow(int& x, int& y) const
+{
+    SDL_GetMouseState(&x, &y);
     int w, h;
     getWindowSize(w, h);
     x = x * start_w_ / w;
     y = y * start_h_ / h;
 }
 
-void Engine::setMouseState(int x, int y)
+void Engine::setMouseState(int x, int y) const
 {
     SDL_WarpMouseInWindow(window_, x, y);
 }
 
-int Engine::pollEvent(BP_Event& e)
+void Engine::setMouseStateInStartWindow(int x, int y) const
+{
+    int w, h;
+    getWindowSize(w, h);
+    x = x * w / start_w_;
+    y = y * h / start_h_;
+    SDL_WarpMouseInWindow(window_, x, y);
+}
+
+int Engine::pollEvent(BP_Event& e) const
 {
     int r = SDL_PollEvent(&e);
     if (switch_)
@@ -261,7 +275,7 @@ bool Engine::checkKeyPress(BP_Keycode key)
     return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
 }
 
-bool Engine::gameControllerGetButton(int key)
+bool Engine::gameControllerGetButton(int key) const
 {
     if (game_controller_)
     {
@@ -277,7 +291,7 @@ bool Engine::gameControllerGetButton(int key)
     return false;
 }
 
-int16_t Engine::gameControllerGetAxis(int axis)
+int16_t Engine::gameControllerGetAxis(int axis) const
 {
     if (game_controller_)
     {
@@ -286,7 +300,7 @@ int16_t Engine::gameControllerGetAxis(int axis)
     return 0;
 }
 
-void Engine::gameControllerRumble(int l, int h, uint32_t time)
+void Engine::gameControllerRumble(int l, int h, uint32_t time) const
 {
     if (game_controller_)
     {
@@ -294,7 +308,7 @@ void Engine::gameControllerRumble(int l, int h, uint32_t time)
     }
 }
 
-BP_Texture* Engine::createRectTexture(int w, int h, int style)
+BP_Texture* Engine::createRectTexture(int w, int h, int style) const
 {
     auto square_s = SDL_CreateRGBSurface(0, w, h, 32, RMASK, GMASK, BMASK, AMASK);
 
@@ -331,7 +345,7 @@ BP_Texture* Engine::createRectTexture(int w, int h, int style)
     return square;
 }
 
-BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c)
+BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c) const
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font)
@@ -346,14 +360,14 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     return text_t;
 }
 
-int Engine::getWindowWidth()
+int Engine::getWindowWidth() const
 {
     int w, h;
     getWindowSize(w, h);
     return w;
 }
 
-int Engine::getWindowHeight()
+int Engine::getWindowHeight() const
 {
     int w, h;
     getWindowSize(w, h);
@@ -391,7 +405,7 @@ BP_Texture* Engine::loadImage(const std::string& filename, int as_white)
     return tex;
 }
 
-BP_Texture* Engine::loadImageFromMemory(const std::string& content, int as_white)
+BP_Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) const
 {
     auto rw = SDL_RWFromConstMem(content.data(), content.size());
     auto sur = IMG_LoadTyped_RW(rw, 1, "png");
@@ -424,17 +438,24 @@ bool Engine::setKeepRatio(bool b)
     return keep_ratio_ = b;
 }
 
-void Engine::createMainTexture(int w, int h)
+void Engine::createMainTexture(int pixfmt, BP_TextureAccess a, int w, int h)
 {
     if (tex_)
     {
         SDL_DestroyTexture(tex_);
     }
-    tex_ = createARGBRenderedTexture(w, h);
+    if (pixfmt < 0)
+    {
+        tex_ = createARGBRenderedTexture(w, h);
+    }
+    else
+    {
+        tex_ = createTexture(pixfmt, a, w, h);
+    }
     setPresentPosition(tex_);
 }
 
-void Engine::resizeMainTexture(int w, int h)
+void Engine::resizeMainTexture(int w, int h) const
 {
     int w0, h0;
     uint32_t pix_fmt;
@@ -451,7 +472,10 @@ void Engine::resizeMainTexture(int w, int h)
 void Engine::createAssistTexture(int w, int h)
 {
     //tex_ = createYUVTexture(w, h);
-    tex2_ = createARGBRenderedTexture(w, h);
+    uint32_t pixfmt;
+    int a;
+    SDL_QueryTexture(tex_, &pixfmt, &a, nullptr, nullptr);
+    tex2_ = createTexture(pixfmt, BP_TEXTUREACCESS_TARGET, w, h);
     //tex_ = createARGBRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
@@ -501,7 +525,7 @@ void Engine::setPresentPosition(BP_Texture* tex)
     }
 }
 
-BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride)
+BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
 {
     auto s = SDL_CreateRGBSurface(0, w, h, 32, 0xff000000, 0xff0000, 0xff00, 0xff);
     SDL_FillRect(s, nullptr, color);
@@ -520,7 +544,7 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
     return t;
 }
 
-int Engine::showMessage(const std::string& content)
+int Engine::showMessage(const std::string& content) const
 {
     const SDL_MessageBoxButtonData buttons[] = {
         { /* .flags, .buttonid, .text */ 0, 0, "no" },
@@ -554,7 +578,7 @@ int Engine::showMessage(const std::string& content)
     return buttonid;
 }
 
-void Engine::setWindowIsMaximized(bool b)
+void Engine::setWindowIsMaximized(bool b) const
 {
     if (b)
     {
@@ -633,7 +657,7 @@ void Engine::setColor(BP_Texture* tex, BP_Color c)
     setTextureBlendMode(tex);
 }
 
-void Engine::fillColor(BP_Color color, int x, int y, int w, int h)
+void Engine::fillColor(BP_Color color, int x, int y, int w, int h) const
 {
     if (w < 0 || h < 0)
     {
@@ -651,7 +675,7 @@ void Engine::renderMainTextureToWindow()
     renderCopy(tex_, nullptr, nullptr);
 }
 
-void Engine::renderAssistTextureToWindow()
+void Engine::renderAssistTextureToMain()
 {
     setRenderTarget(tex_);
     renderCopy(tex2_, nullptr, nullptr);
@@ -664,7 +688,7 @@ void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
     renderCopy(square_, nullptr, rect);
 }
 
-void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume)
+void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const
 {
     SDL_MixAudioFormat(dst, src, audio_format_, len, volume);
 }
@@ -740,7 +764,7 @@ int Engine::playVideo(std::string filename)
     return 0;
 }
 
-int Engine::saveScreen(const char* filename)
+int Engine::saveScreen(const char* filename) const
 {
     BP_Rect rect;
     rect.x = 0;
@@ -753,7 +777,7 @@ int Engine::saveScreen(const char* filename)
     return 0;
 }
 
-int Engine::saveTexture(BP_Texture* tex, const char* filename)
+int Engine::saveTexture(BP_Texture* tex, const char* filename) const
 {
     BP_Rect rect;
     rect.x = 0;
@@ -768,7 +792,7 @@ int Engine::saveTexture(BP_Texture* tex, const char* filename)
     return 0;
 }
 
-void Engine::setWindowPosition(int x, int y)
+void Engine::setWindowPosition(int x, int y) const
 {
     int w, h;
     getWindowSize(w, h);

@@ -197,7 +197,7 @@ void BattleScene::draw()
             }
         }
     }
-    Engine::getInstance()->renderAssistTextureToWindow();
+    Engine::getInstance()->renderAssistTextureToMain();
 
     if (semi_real_)
     {

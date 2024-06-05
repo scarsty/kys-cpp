@@ -1,4 +1,7 @@
 #include "UIStatus.h"
+#include <assert.h>
+
+#include "BattleMenu.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -6,7 +9,6 @@
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
 #include "strfunc.h"
-#include "BattleMenu.h"
 
 UIStatus::UIStatus()
 {
@@ -38,9 +40,9 @@ UIStatus::UIStatus()
 
     equip_item_ = std::make_shared<Button>();
     menu_equip_item_ = std::make_shared<Menu>();
-    
+
     equip_item_->setText("__________");
-    menu_equip_item_->addChild(equip_item_,  420, 620);
+    menu_equip_item_->addChild(equip_item_, 420, 620);
 
     addChild(menu_);
     addChild(menu_equip_magic_);
@@ -312,11 +314,14 @@ void UIStatus::draw()
 
         font->draw("裝備物品", 25, x + 390, y, color_name);
         auto m = Save::getInstance()->getItem(role_->EquipItem);
-        if (m) {
+        if (m)
+        {
             std::string text = m->Name;
             text += std::string(10 - Font::getTextDrawSize(text), ' ');
             equip_item_->setText(text);
-        } else {
+        }
+        else
+        {
             equip_item_->setText("__________");
         }
     }
