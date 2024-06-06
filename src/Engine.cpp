@@ -340,6 +340,20 @@ void Engine::unlockTexture(BP_Texture* t)
     SDL_UnlockTexture(t);
 }
 
+void Engine::renderPresent() const
+{
+    //renderMainTextureToWindow();
+    SDL_RenderPresent(renderer_);
+    SDL_RenderClear(renderer_);
+    //setRenderMainTexture();
+}
+
+void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
+{
+    SDL_RenderCopyEx(renderer_, t, nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
+    render_times_++;
+}
+
 void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, double angle, int inPresent)
 {
     if (inPresent == 1)
@@ -351,24 +365,10 @@ void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, double angle,
     renderCopy(t, nullptr, &r, angle);
 }
 
-void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
-{
-    SDL_RenderCopyEx(renderer_, t, nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
-    render_times_++;
-}
-
 void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle, int inPresent /*= 0*/)
 {
     SDL_RenderCopyEx(renderer_, t, rect0, rect1, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
-}
-
-void Engine::renderPresent() const
-{
-    //renderMainTextureToWindow();
-    SDL_RenderPresent(renderer_);
-    SDL_RenderClear(renderer_);
-    //setRenderMainTexture();
 }
 
 void Engine::destroy() const

@@ -331,7 +331,6 @@ public:
     static void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
     static int lockTexture(BP_Texture* t, BP_Rect* r, void** pixel, int* pitch);
     static void unlockTexture(BP_Texture* t);
-    void renderCopy(BP_Texture* t = nullptr, double angle = 0);
     void showLogo() { renderCopy(logo_, nullptr, nullptr); }
     void renderPresent() const;
     void renderClear() const { SDL_RenderClear(renderer_); }
@@ -342,6 +341,7 @@ public:
     void resetRenderTarget() const { setRenderTarget(nullptr); }
     static void createWindow() {}
     static void createRenderer() {}
+    void renderCopy(BP_Texture* t = nullptr, double angle = 0);
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
     void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle = 0, int inPresent = 0);
     void destroy() const;
