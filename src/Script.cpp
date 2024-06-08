@@ -3,7 +3,7 @@
 #include "EventMacro.h"
 #include "NewSave.h"
 #include "PotConv.h"
-#include "strfunc.h"
+#include "filefunc.h"
 #include <array>
 #include <functional>
 
@@ -89,7 +89,7 @@ Script::~Script()
 
 int Script::runScript(const std::string& filename)
 {
-    std::string content = strfunc::readStringFromFile(filename);
+    std::string content = filefunc::readStringFromFile(filename);
     fmt1::print("{}\n", content.c_str());
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");

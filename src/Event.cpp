@@ -70,7 +70,7 @@ bool Event::loadEventData()
     }
 
     //读取离队列表
-    std::string leave_txt = strfunc::readStringFromFile(GameUtil::PATH() + "list/leave.txt");
+    std::string leave_txt = filefunc::readStringFromFile(GameUtil::PATH() + "list/leave.txt");
     strfunc::findNumbers(leave_txt, &leave_event_id_);
     if (leave_event_id_.size() > 0)
     {

@@ -96,7 +96,7 @@ std::string TextureGroup::getFileContent(const std::string& filename)
     }
     else
     {
-        return strfunc::readStringFromFile(info_.path + "/" + filename);
+        return filefunc::readStringFromFile(info_.path + "/" + filename);
     }
 }
 

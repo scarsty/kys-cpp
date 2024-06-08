@@ -425,7 +425,7 @@ public:
 
     //UI相关
 private:
-    BP_Texture* square_;
+    BP_Texture* square_ = nullptr;
 
 public:
     BP_Texture* createRectTexture(int w, int h, int style) const;
@@ -435,7 +435,7 @@ public:
 
 public:
     //标题;
-    std::string title_ = "All Heroes in Kam Yung Stories";
+    std::string title_;
 
 private:
     void* tinypot_ = nullptr;
