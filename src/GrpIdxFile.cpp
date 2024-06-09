@@ -18,6 +18,33 @@ std::string GrpIdxFile::getIdxContent(const std::string& filename_idx, const std
 
     std::string Rgrp;
     Rgrp.resize(total_length);
-    filefunc::readFile(filename_grp, (void*)Rgrp.data(), total_length);
+    readFile(filename_grp, (void*)Rgrp.data(), total_length);
     return Rgrp;
+}
+
+int GrpIdxFile::readFile(const std::string& filename, void* s, int length)
+{
+    FILE* fp = fopen(filename.c_str(), "rb");
+    if (!fp)
+    {
+        //fprintf(stderr, "Cannot open file %s\n", filename.c_str());
+        return 0;
+    }
+    int r = fread(s, 1, length, fp);
+    fclose(fp);
+    return r;
+}
+
+int GrpIdxFile::writeFile(const std::string& filename, void* s, int length)
+{
+    FILE* fp = fopen(filename.c_str(), "wb");
+    if (!fp)
+    {
+        //fprintf(stderr, "Cannot write file %s\n", filename.c_str());
+        return 0;
+    }
+    fseek(fp, 0, 0);
+    fwrite(s, 1, length, fp);
+    fclose(fp);
+    return length;
 }

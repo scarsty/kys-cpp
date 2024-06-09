@@ -1,17 +1,15 @@
 #include "MainScene.h"
-
 #include <Timer.h>
 #include <ctime>
-
 #include "Console.h"
 #include "GameUtil.h"
+#include "GrpIdxFile.h"
 #include "Random.h"
 #include "Save.h"
 #include "SubScene.h"
 #include "TextureManager.h"
 #include "UI.h"
 #include "UISave.h"
-#include "filefunc.h"
 
 MainScene::MainScene()
 {
@@ -30,11 +28,11 @@ MainScene::MainScene()
 
         int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
 
-        filefunc::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
-        filefunc::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
-        filefunc::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
-        filefunc::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
-        filefunc::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
+        GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
 
         divide2(earth_layer1, earth_layer_);
         divide2(surface_layer1, surface_layer_);
@@ -242,10 +240,10 @@ void MainScene::dealEvent(BP_Event& e)
     //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
     auto engine = Engine::getInstance();
-    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)    
+    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)
     {
         //键盘走路部分，检测4个方向键
-        int pressed = 0;        
+        int pressed = 0;
         pre_pressed_ticks_ = engine->getTicks();
         auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
         auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);

@@ -149,8 +149,8 @@ void Save::loadSD(int num)
 
     auto sdata = new char[submap_count * sdata_length_];
     auto ddata = new char[submap_count * ddata_length_];
-    filefunc::readFile(filenames, sdata, submap_count * sdata_length_);
-    filefunc::readFile(filenamed, ddata, submap_count * ddata_length_);
+    GrpIdxFile::readFile(filenames, sdata, submap_count * sdata_length_);
+    GrpIdxFile::readFile(filenamed, ddata, submap_count * ddata_length_);
     for (int i = 0; i < submap_count; i++)
     {
         memcpy(&(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
@@ -180,7 +180,7 @@ void Save::saveR(int num)
     filefunc::writeVectorToData(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
     filefunc::writeVectorToData(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
 
-    filefunc::writeFile(filenamer, rgrp, offset_.back());
+    GrpIdxFile::writeFile(filenamer, rgrp, offset_.back());
     delete[] rgrp;
 }
 
@@ -197,8 +197,8 @@ void Save::saveSD(int num)
         memcpy(sdata + sdata_length_ * i, &(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata_length_);
         memcpy(ddata + ddata_length_ * i, submap_infos_mem_[i].Event(0), ddata_length_);
     }
-    filefunc::writeFile(filenames, sdata, submap_count * sdata_length_);
-    filefunc::writeFile(filenamed, ddata, submap_count * ddata_length_);
+    GrpIdxFile::writeFile(filenames, sdata, submap_count * sdata_length_);
+    GrpIdxFile::writeFile(filenamed, ddata, submap_count * ddata_length_);
     delete[] sdata;
     delete[] ddata;
 }

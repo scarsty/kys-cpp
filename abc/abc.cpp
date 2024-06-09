@@ -160,8 +160,8 @@ int expandR(std::string idx, std::string grp, bool ranger = true, bool make_figh
         filefunc::writeVectorToData(rgrp2 + offset2[4], length2[4], magics, sizeof(MagicSave));
     }
     s32[1]--;    //submap scene id
-    filefunc::writeFile(grp + "32", rgrp2, len * 2);
-    filefunc::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
+    GrpIdxFile::writeFile(grp + "32", rgrp2, len * 2);
+    GrpIdxFile::writeFile(idx + "32", &offset2[1], 4 * offset2.size() - 4);
     //delete rgrp1;
     delete rgrp2;
 
@@ -186,8 +186,8 @@ void combine_ka(std::string in, std::string out)
             fmt1::print("{}, ", i / 2);
         }
     }
-    filefunc::writeFile(out, out1.data(), out1.size() * 2);
-    //convert::writeStringToFile(s, out);
+    GrpIdxFile::writeFile(out, out1.data(), out1.size() * 2);
+    //filefunc::writeStringToFile(s, out);
 }
 
 //验证战斗帧数的正确性
