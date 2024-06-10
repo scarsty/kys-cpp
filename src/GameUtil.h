@@ -1,8 +1,6 @@
 #pragma once
 #include "INIReader.h"
-#include "Types.h"
 #include "fmt1.h"
-#include <climits>
 #include <cmath>
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等

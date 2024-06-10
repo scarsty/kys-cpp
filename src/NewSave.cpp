@@ -1,8 +1,4 @@
 #include "NewSave.h"
-#include "PotConv.h"
-#include <fstream>
-#include <iostream>
-
 #include "fmt1.h"
 
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))

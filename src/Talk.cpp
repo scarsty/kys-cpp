@@ -1,8 +1,7 @@
 #include "Talk.h"
 #include "Engine.h"
 #include "Font.h"
-#include "PotConv.h"
-#include <iostream>
+#include "TextureManager.h"
 #include <string>
 
 void Talk::draw()

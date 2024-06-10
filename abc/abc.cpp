@@ -202,7 +202,7 @@ void check_fight_frame(std::string path, int repair = 0)
             int count = files.size() - 3;
             int sum = 0;
             auto filename = path1 + "/fightframe.txt";
-            auto numbers = strfunc::findNumbers<int>(filefunc::readStringFromFile(filename));
+            auto numbers = strfunc::findNumbers<int>(filefunc::readFileToString(filename));
             for (int i = 0; i < numbers.size(); i += 2)
             {
                 sum += numbers[i + 1];
@@ -230,7 +230,7 @@ void check_script(std::string path)
     for (auto& f : files)
     {
         bool repair = false;
-        auto lines = strfunc::splitString(filefunc::readStringFromFile(path + "/" + f), "\n", false);
+        auto lines = strfunc::splitString(filefunc::readFileToString(path + "/" + f), "\n", false);
         for (auto& line : lines)
         {
             auto num = strfunc::findNumbers<int>(line);

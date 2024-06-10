@@ -1,12 +1,13 @@
 ﻿#include "Application.h"
 #include "Audio.h"
 #include "Engine.h"
+#include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "INIReader.h"
-#include "Random.h"
 #include "TextureManager.h"
 #include "TitleScene.h"
+#include "Types.h"
 #include "UIKeyConfig.h"
 
 Application::Application()

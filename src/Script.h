@@ -3,7 +3,7 @@
 #ifdef _WIN32
 #include "lua.hpp"
 #else
-#include "lua5.3/lua.hpp"
+#include "lua5.4/lua.hpp"
 #endif
 #include <array>
 #include <string>

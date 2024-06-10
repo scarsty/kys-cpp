@@ -1,6 +1,5 @@
 #include "TeamMenu.h"
 #include "Button.h"
-#include "GameUtil.h"
 #include "Save.h"
 
 TeamMenu::TeamMenu()

@@ -1,7 +1,6 @@
 #include "Font.h"
-
+#include "GameUtil.h"
 #include "OpenCCConverter.h"
-#include "PotConv.h"
 #include "TextureManager.h"
 
 Font::Font()

@@ -1,5 +1,6 @@
 #include "Cloud.h"
 #include "Random.h"
+#include "TextureManager.h"
 
 void Cloud::initRand()
 {

@@ -1,9 +1,8 @@
 ﻿#pragma once
-#include "BattleMap.h"
 #include "BattleScene.h"
 #include "Font.h"
 #include "Head.h"
-#include "Save.h"
+#include "TextureManager.h"
 #include "UIKeyConfig.h"
 #include <deque>
 #include <unordered_map>

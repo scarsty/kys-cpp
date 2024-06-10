@@ -5,7 +5,6 @@
 #include "SubScene.h"
 #include "UI.h"
 #include "filefunc.h"
-#include "strfunc.h"
 
 UISave::UISave()
 {

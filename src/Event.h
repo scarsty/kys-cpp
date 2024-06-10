@@ -1,6 +1,5 @@
 #pragma once
 #include "DrawNode.h"
-#include "Font.h"
 #include "FunctionTrait.h"
 #include "Menu.h"
 #include "Random.h"

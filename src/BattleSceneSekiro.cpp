@@ -1,6 +1,7 @@
 ﻿#include "BattleSceneSekiro.h"
 #include "Audio.h"
 #include "Event.h"
+#include "GameUtil.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
 

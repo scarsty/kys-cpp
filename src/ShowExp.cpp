@@ -1,8 +1,6 @@
 #include "ShowExp.h"
 #include "Font.h"
 #include "TextureManager.h"
-#include "strfunc.h"
-
 ShowExp::ShowExp()
 {
     x_ = 100;

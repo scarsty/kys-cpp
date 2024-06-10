@@ -6,7 +6,6 @@
 
 #include "BattleMenu.h"
 #include "GameUtil.h"
-
 #include <array>
 #include <memory>
 #include <system_error>

@@ -7,16 +7,14 @@
 #include "GameUtil.h"
 #include "MainScene.h"
 #include "Menu.h"
-#include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
 #include "ShowExp.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
-#include "UIStatus.h"
+#include "strfunc.h"
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <string>
 
 BattleScene::BattleScene()

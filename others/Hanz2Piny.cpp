@@ -3,7 +3,6 @@
 #include "Hanz2Piny.h"
 #include "utf8.h"
 #include <iostream>
-#include <algorithm>
 #include <fstream>
 #include <iterator>
 

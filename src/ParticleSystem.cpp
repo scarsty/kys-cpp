@@ -1,6 +1,6 @@
 #include "ParticleSystem.h"
+#include "TextureManager.h"
 #include <algorithm>
-#include <cassert>
 #include <string>
 
 inline float Deg2Rad(float a)

@@ -1,5 +1,6 @@
 #include "TextBox.h"
 #include "Font.h"
+#include "TextureManager.h"
 
 void TextBox::setFontSize(int size)
 {
@@ -59,7 +60,8 @@ void TextBox::draw()
     {
         TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
     }
-    if (have_alpha_box_) {
+    if (have_alpha_box_)
+    {
         auto rect = Font::getBoxSize(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
         // 背景
         Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);

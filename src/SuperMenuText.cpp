@@ -2,7 +2,6 @@
 #include "../others/Hanz2Piny.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
-#include "strfunc.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>

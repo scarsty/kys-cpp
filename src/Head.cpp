@@ -2,7 +2,7 @@
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"
-#include "strfunc.h"
+#include "TextureManager.h"
 
 Head::Head(Role* r)
 {

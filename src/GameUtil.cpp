@@ -1,8 +1,4 @@
 #include "GameUtil.h"
-#include "Random.h"
-#include "Save.h"
-#include "fmt1.h"
-#include "strfunc.h"
 
 GameUtil::GameUtil()
 {

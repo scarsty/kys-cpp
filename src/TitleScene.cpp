@@ -2,7 +2,6 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Button.h"
-#include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "INIReader.h"
@@ -11,18 +10,8 @@
 #include "Menu.h"
 #include "Random.h"
 #include "RandomRole.h"
-#include "RunNodeFromJson.h"
-#include "Script.h"
 #include "SubScene.h"
-#include "TeamMenu.h"
 #include "UISave.h"
-#include "UIShop.h"
-
-#include "../others/Hanz2Piny.h"
-#include "PotConv.h"
-
-#include "TextBoxRoll.h"
-#include "ZipFile.h"
 
 TitleScene::TitleScene()
 {

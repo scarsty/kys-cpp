@@ -1,6 +1,5 @@
 #include "Scene.h"
 #include "GameUtil.h"
-#include "Random.h"
 #include <queue>
 
 Scene::Scene()

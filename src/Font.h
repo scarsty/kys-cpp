@@ -4,8 +4,6 @@
 #include <string>
 #include <unordered_map>
 
-#include "GameUtil.h"
-
 class Font
 {
 private:

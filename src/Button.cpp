@@ -1,6 +1,6 @@
 #include "Button.h"
 #include "Font.h"
-#include "PotConv.h"
+#include "TextureManager.h"
 
 Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/) : Button()
 {

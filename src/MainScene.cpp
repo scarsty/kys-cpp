@@ -1,6 +1,4 @@
 #include "MainScene.h"
-#include <Timer.h>
-#include <ctime>
 #include "Console.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"

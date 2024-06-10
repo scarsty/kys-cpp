@@ -2,7 +2,6 @@
 
 //移植自Cocos2dx，版权声明请查看licenses文件夹
 
-#include "SDL2/SDL.h"
 #include "RunNode.h"
 #include <string>
 #include <vector>

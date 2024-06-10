@@ -5,7 +5,6 @@
 #include "PotConv.h"
 #include "filefunc.h"
 #include "fmt1.h"
-#include "strfunc.h"
 
 Save::Save()
 {

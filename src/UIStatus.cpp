@@ -1,14 +1,12 @@
 #include "UIStatus.h"
-#include <assert.h>
-
 #include "BattleMenu.h"
 #include "Event.h"
 #include "Font.h"
-#include "GameUtil.h"
 #include "Save.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
-#include "strfunc.h"
+#include "TextureManager.h"
+#include <cassert>
 
 UIStatus::UIStatus()
 {

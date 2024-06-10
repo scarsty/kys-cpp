@@ -644,7 +644,7 @@ void Role::setMaxValue()
 
 void Role::setLevelUpList()
 {
-    auto str = filefunc::readStringFromFile(GameUtil::PATH() + "list/levelup.txt");
+    auto str = filefunc::readFileToString(GameUtil::PATH() + "list/levelup.txt");
     level_up_list() = strfunc::findNumbers<int>(str);
     if (level_up_list().size() < Role::getMaxValue()->Level)
     {

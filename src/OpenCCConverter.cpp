@@ -1,6 +1,4 @@
 ﻿#include "OpenCCConverter.h"
-#include "OpenCCConverter.h"
-
 #include "GameUtil.h"
 #include "PotConv.h"
 

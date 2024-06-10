@@ -1,6 +1,5 @@
 #pragma once
 #include "Head.h"
-#include "Types.h"
 #include "UIStatus.h"
 
 class RandomRole : public UIStatus

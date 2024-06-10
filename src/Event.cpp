@@ -70,7 +70,7 @@ bool Event::loadEventData()
     }
 
     //读取离队列表
-    std::string leave_txt = filefunc::readStringFromFile(GameUtil::PATH() + "list/leave.txt");
+    std::string leave_txt = filefunc::readFileToString(GameUtil::PATH() + "list/leave.txt");
     strfunc::findNumbers(leave_txt, &leave_event_id_);
     if (leave_event_id_.size() > 0)
     {
@@ -1515,10 +1515,10 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e5 = e_GetValue(3, e1, e5);
         switch (e2)
         {
-            //0: p: = @Rrole[e3].Name[0];
-            //1: p: = @Ritem[e3].Name[0];
-            //2: p: = @Rmagic[e3].Name[0];
-            //3: p: = @Rscence[e3].Name[0];
+        case 0: char_ptr1 = &save->getRole(e3)->Name[0]; break;
+        case 1: char_ptr1 = &save->getItem(e3)->Name[0]; break;
+        case 2: char_ptr1 = &save->getMagic(e3)->Name[0]; break;
+        case 3: char_ptr1 = &save->getSubMapInfo(e3)->Name[0]; break;
         }
         str = "請輸入名字：";
         char_ptr1 = (char*)&str[1];

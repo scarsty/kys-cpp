@@ -1,5 +1,6 @@
 #include "DrawNode.h"
 #include "Font.h"
+#include "TextureManager.h"
 
 void DrawNode::draw()
 {

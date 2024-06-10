@@ -6,7 +6,6 @@
 #include "Save.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
-#include "strfunc.h"
 
 UIItem::UIItem()
 {

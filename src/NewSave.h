@@ -1,9 +1,6 @@
 #pragma once
-#include "PotConv.h"
 #include "Save.h"
-#include "strfunc.h"
 #include "fmt1.h"
-#include <algorithm>
 
 class NewSave
 {
@@ -25,6 +22,7 @@ private:
         static NewSave ns;
         return &ns;
     }
+
 public:
     NewSave() { initDBFieldInfo(); }
 
