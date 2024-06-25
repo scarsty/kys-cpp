@@ -10,7 +10,10 @@ template <typename T>
 struct MapSquare
 {
     MapSquare() {}
-    MapSquare(int size) : MapSquare() { resize(size); }
+
+    MapSquare(int size) :
+        MapSquare() { resize(size); }
+
     ~MapSquare()
     {
         if (data_)
@@ -18,6 +21,7 @@ struct MapSquare
             delete[] data_;
         }
     }
+
     //不会保留原始数据
     void resize(int x)
     {
@@ -30,9 +34,13 @@ struct MapSquare
     }
 
     T& data(int x, int y) { return data_[x + line_ * y]; }
+
     T& data(int x) { return data_[x]; }
+
     int size() { return line_; }
+
     int squareSize() { return line_ * line_; }
+
     void setAll(T v)
     {
         for (int i = 0; i < squareSize(); i++)
@@ -40,6 +48,7 @@ struct MapSquare
             data_[i] = v;
         }
     }
+
     void copyTo(MapSquare* ms)
     {
         for (int i = 0; i < squareSize(); i++)
@@ -47,6 +56,7 @@ struct MapSquare
             ms->data_[i] = data_[i];
         }
     }
+
     void copyFrom(MapSquare* ms)
     {
         for (int i = 0; i < squareSize(); i++)
@@ -169,10 +179,12 @@ public:
         {
             uint8_t r, g, b, a;
         };
+
         std::string Text;
         Color_t Color;
         int Size = 0;
     };
+
     //显示文字效果使用
     struct ActionShowInfo
     {
@@ -180,10 +192,12 @@ public:
         int BattleHurt = 0;
         int ProgressChange = 0;
         int Effect = -1;
+
         ActionShowInfo()
         {
             clear();
         }
+
         void clear()
         {
             ShowStrings.clear();
@@ -192,6 +206,7 @@ public:
             Effect = -1;
         }
     };
+
     ActionShowInfo Show;
 
 private:
@@ -200,20 +215,27 @@ private:
 
 public:
     MapSquare<Role*>* position_layer_ = nullptr;
+
     void setRolePositionLayer(MapSquare<Role*>* l) { position_layer_ = l; }
+
     void setPosition(int x, int y);
+
     void setPositionOnly(int x, int y)
     {
         X_ = x;
         Y_ = y;
     }
+
     void setPrevPosition(int x, int y)
     {
         prevX_ = x;
         prevY_ = y;
     }
+
     void resetPosition() { setPosition(prevX_, prevY_); }
+
     int X() { return X_; }
+
     int Y() { return Y_; }
 
     //带role的，表示后面的参数是人物武功栏
@@ -236,6 +258,7 @@ public:
     bool isAuto() { return Auto != 0 || Team != 0; }
 
     void addShowString(std::string text, ShowString::Color_t color = { 255, 255, 255, 255 }, int size = 28) { Show.ShowStrings.push_back({ text, color, size }); }
+
     void clearShowStrings() { Show.ShowStrings.clear(); }
 
     int movedDistance() { return abs(X_ - prevX_) + abs(Y_ - prevY_); }
@@ -322,6 +345,7 @@ public:
         static Role max_role_value;
         return &max_role_value;
     }
+
     static std::vector<int>& level_up_list()
     {
         static std::vector<int> list;
@@ -382,6 +406,7 @@ struct MagicSave
 struct Magic : MagicSave
 {
     int calNeedMP(int level_index) { return NeedMP * ((level_index + 2) / 2); }
+
     int calMaxLevelIndexByMP(int mp, int max_level);
 };
 
@@ -410,8 +435,11 @@ private:
 
 public:
     MAP_INT X() { return X_; }
+
     MAP_INT Y() { return Y_; }
+
     void setPosition(int x, int y, SubMapInfo* submap_record);
+
     void setPic(int pic)
     {
         BeginPic = pic;

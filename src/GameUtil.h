@@ -2,6 +2,7 @@
 #include "INIReader.h"
 #include "fmt1.h"
 #include <cmath>
+#include <cstdint>
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
