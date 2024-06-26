@@ -174,8 +174,8 @@ public:
     }
 
     template <typename F, typename C, std::size_t... I>
-        requires check_return_type<F, C, void>::value
-    void runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+    typename std::enable_if<check_return_type<F, C, void>::value, void>::type
+    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
         i += sizeof...(I) + 1;
@@ -184,8 +184,8 @@ public:
     }
 
     template <typename F, typename C, std::size_t... I>
-        requires check_return_type<F, C, bool>::value
-    void runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
+    typename std::enable_if<check_return_type<F, C, bool>::value, void>::type
+    runner_impl(F f, C* c, const std::vector<int>& e, int& i, std::index_sequence<I...>)
     {
         auto cur_i = i;
         i += sizeof...(I) + 1;
