@@ -518,6 +518,7 @@ void Engine::fillColor(BP_Color color, int x, int y, int w, int h) const
 void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
+    //SDL_SetTextureBlendMode(tex_, SDL_BLENDMODE_BLEND);
     renderCopy(tex_, nullptr, nullptr);
 }
 
@@ -525,6 +526,10 @@ void Engine::renderAssistTextureToMain()
 {
     setRenderTarget(tex_);
     renderCopy(tex2_, nullptr, nullptr);
+    //setRenderTarget(tex_);
+    //SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
+    //SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
+    //SDL_RenderFillRect(renderer_, nullptr);
 }
 
 void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const
