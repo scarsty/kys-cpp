@@ -1,6 +1,6 @@
 ### 使用到的其他开发库
 
-以下库在Windows下建议使用vcpkg或者msys2来安装（强烈推荐前者，不推荐后者），或者也可以去官网下载，请自行选择。在Linux下编译时则应优先考虑使用系统的包管理器（例如apt等）自动安装的库，在Mac下可以使用homebrew来安装。
+以下库在Windows下建议使用vcpkg安装，最好不要自己处理。在Linux下编译时则应优先考虑使用系统的包管理器（例如apt等）自动安装的库，在Mac下可以使用homebrew来安装。
 
 - SDL2 <https://www.libsdl.org/>
   - SDL2_image <https://www.libsdl.org/projects/SDL_image/>
@@ -8,18 +8,18 @@
   - SDL2_mixer <https://www.libsdl.org/projects/SDL_mixer/>
 - libiconv <https://www.gnu.org/software/libiconv/>
 - lua <https://www.lua.org/>
-- PicoSHA2 <https://github.com/okdshin/PicoSHA2>
+- PicoSHA2 <https://github.com/okdshin/PicoSHA2> （仅需要头文件）
 - sqlite3 <https://www.sqlite.org/>
 - OpenCC <https://github.com/BYVoid/OpenCC>
-- libzip <https://github.com/nih-at/libzip/>
+- yaml-cpp <https://github.com/jbeder/yaml-cpp>
 - asio boost的一部分，需在预处理中打开网络功能，vcpkg可以只安装asio
 
-以下库通常不在包管理工具中，故已包含在工程里。
+以下库直接将源码或相关的头文件包含在了工程里。
 
 - hanz2piny <https://github.com/yangyangwithgnu/hanz2piny>
-- BASS, BASSMIDI <http://www.un4seen.com/>
+- BASS, BASSMIDI <http://www.un4seen.com/> （闭源，但可以免费用于非商业项目）
 - smallpot（动态库版本）: <https://github.com/scarsty/smallpot>
-- zip <https://github.com/kuba--/zip> (已不再使用)
+- zip <https://github.com/kuba--/zip>
 
 以下为间接使用，通常包管理器会自动处理。
 
@@ -31,19 +31,14 @@
 - FFmpeg <https://www.ffmpeg.org/>
 - libass <https://github.com/libass/libass>
 - fribidi <https://www.fribidi.org/>
-
 - harfbuzz <https://github.com/harfbuzz/harfbuzz>
 - fontconfig <https://www.freedesktop.org/wiki/Software/fontconfig/>
-
-PicoSHA2仅需要头文件，如果文件不在包含目录中，请注意将它们复制到适合的位置。
-
-除BASS和BASSMIDI为闭源，但可以免费用于非商业项目之外，其他均为开源工程。
 
 ### mlcc
 
 mlcc <https://github.com/scarsty/mlcc>
 
-nb是作者所写的一个通用功能集合，被多个工程使用。
+mlcc是作者所写的一个通用功能集合，被多个工程使用。kys使用了其中的filefunc和strfunc。
 
 ### 视频
 

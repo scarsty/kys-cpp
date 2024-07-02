@@ -15,6 +15,7 @@ file(GLOB SRC_LIST
     ../mlcc/filefunc.cpp
     ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp
+    ../others/zip.c
     )
 
 set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2_mixer SDL2main lua5.4 opencc sqlite3 yaml-cpp zip)

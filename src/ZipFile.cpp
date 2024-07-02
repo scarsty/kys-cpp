@@ -1,5 +1,5 @@
 #include "ZipFile.h"
-#include <zip.h>
+#include <cstring>
 
 ZipFile::ZipFile()
 {
@@ -19,40 +19,56 @@ void ZipFile::openFile(const std::string& filename)
     {
         zip_close(zip_);
     }
-    zip_ = zip_open(filename.c_str(), ZIP_RDONLY, NULL);
+    zip_ = zip_open(filename.c_str(), 0, 'r');
 }
 
-std::string ZipFile::readEntryName(const std::string& entry_name)
+std::string ZipFile::readEntryName(const std::string& entry_name) const
 {
     std::string content;
-    zip_file_t *zip_file;
-    struct zip_stat zs;
     if (zip_)
     {
-        zip_file = zip_fopen(zip_, entry_name.c_str(), ZIP_FL_UNCHANGED);
-        if (zip_file != NULL)
+        if (zip_entry_open(zip_, entry_name.c_str()) == 0)
         {
-            zip_stat_init(&zs);
-            zip_stat(zip_, entry_name.c_str(), ZIP_FL_UNCHANGED, &zs);
-            content.resize(zs.size);
-            zip_fread(zip_file, content.data(), zs.size);
-            zip_fclose(zip_file);
+            void* buffer;
+            size_t size = 0;
+            zip_entry_read(zip_, &buffer, &size);
+            content.resize(size);
+            memcpy((void*)content.data(), buffer, size);
+            free(buffer);
+            zip_entry_close(zip_);
         }
     }
     return content;
 }
 
-std::vector<std::string> ZipFile::getEntryNames()
+int ZipFile::zip(const std::string& zip_file, const std::vector<std::string>& files)
 {
-    std::vector<std::string> files;
-    if (zip_)
+    zip_t* zip = zip_open(zip_file.c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'w');
+    for (const auto& file : files)
     {
-        int i, n = zip_get_num_entries(zip_, ZIP_FL_UNCHANGED);
-        for (i = 0; i < n; ++i)
+        zip_entry_open(zip, file.c_str());
         {
-                const char* name = zip_get_name(zip_, i, ZIP_FL_UNCHANGED);
-                files.push_back(name);
+            zip_entry_fwrite(zip, file.c_str());
         }
+        zip_entry_close(zip);
     }
-    return files;
+
+    zip_close(zip);
+    return 0;
+}
+
+int ZipFile::unzip(const std::string& zip_file, const std::vector<std::string>& files)
+{
+    zip_t* zip = zip_open(zip_file.c_str(), 0, 'r');
+    for (const auto& file : files)
+    {
+        zip_entry_open(zip, file.c_str());
+        {
+            zip_entry_fread(zip, file.c_str());
+        }
+        zip_entry_close(zip);
+    }
+
+    zip_close(zip);
+    return 0;
 }

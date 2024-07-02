@@ -181,6 +181,9 @@
     <ClCompile Include="Engine.cpp">
       <Filter>engine</Filter>
     </ClCompile>
+    <ClCompile Include="..\others\zip.c">
+      <Filter>zip</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -374,6 +377,12 @@
     </ClInclude>
     <ClInclude Include="Engine.h">
       <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\others\zip.h">
+      <Filter>zip</Filter>
+    </ClInclude>
+    <ClInclude Include="..\others\miniz.h">
+      <Filter>zip</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
