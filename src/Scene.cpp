@@ -1,4 +1,4 @@
-#include "Scene.h"
+﻿#include "Scene.h"
 #include "GameUtil.h"
 #include <queue>
 
@@ -39,7 +39,7 @@ Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
 {
     auto p = getPositionOnRender(x, y, view_x, view_y);
     int w, h;
-    Engine::getInstance()->getWindowSize(w, h);
+    Engine::getInstance()->getStartWindowSize(w, h);
     p.x = p.x * w / render_center_x_ / 2;
     p.y = p.y * h / render_center_y_ / 2;
     return p;
