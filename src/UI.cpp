@@ -153,6 +153,7 @@ void UI::dealEvent(BP_Event& e)
     if (childs_[0] == ui_status_)
     {
         heads_->setDealEvent(1);
+        heads_->setUDStyle(1);
     }
     else
     {

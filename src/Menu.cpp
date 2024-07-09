@@ -14,41 +14,82 @@ void Menu::dealEvent(BP_Event& e)
 {
     if (deal_event_ == 0) { return; }
     Direct direct = DIrectNone;
-    //此处处理键盘响应
-    if (e.type == BP_KEYDOWN)
+    if (ud_style_ == 0)
     {
-        switch (e.key.keysym.sym)
+        //此处处理键盘响应
+        if (e.type == BP_KEYDOWN)
         {
-        case BPK_LEFT:
-            direct = DirectLeft;
-            break;
-        case BPK_UP:
-            direct = DirectUp;
-            break;
-        case BPK_RIGHT:
-            direct = DirectRight;
-            break;
-        case BPK_DOWN:
-            direct = DirectDown;
-            break;
-        default:
-            break;
+            switch (e.key.keysym.sym)
+            {
+            case BPK_LEFT:
+                direct = DirectLeft;
+                break;
+            case BPK_UP:
+                direct = DirectUp;
+                break;
+            case BPK_RIGHT:
+                direct = DirectRight;
+                break;
+            case BPK_DOWN:
+                direct = DirectDown;
+                break;
+            default:
+                break;
+            }
         }
     }
-    if (e.type == BP_CONTROLLERBUTTONDOWN)
+    else if (ud_style_ == 1)
     {
-        auto engine = Engine::getInstance();
-        if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_DOWN) { direct = DirectDown; }
-        if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_UP) { direct = DirectUp; }
-        if (lr_style_ == 0)
+        if (e.type == BP_KEYDOWN)
         {
-            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_RIGHT) { direct = DirectRight; }
-            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_LEFT) { direct = DirectLeft; }
+            switch (e.key.keysym.sym)
+            {
+            case BPK_PAGEUP:
+                direct = DirectUp;
+                break;
+            case BPK_PAGEDOWN:
+                direct = DirectDown;
+                break;
+            default:
+                break;
+            }
         }
-        else
+    }
+    if (ud_style_ == 0)
+    {
+        if (e.type == BP_CONTROLLERBUTTONDOWN)
         {
-            if (e.cbutton.button == BP_CONTROLLER_BUTTON_LEFTSHOULDER) { direct = DirectLeft; }
-            if (e.cbutton.button == BP_CONTROLLER_BUTTON_RIGHTSHOULDER) { direct = DirectRight; }
+            auto engine = Engine::getInstance();
+            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+            {
+                direct = DirectUp;
+            }
+            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+            {
+                direct = DirectDown;
+            }
+            if (lr_style_ == 0)
+            {
+                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
+                {
+                    direct = DirectLeft;
+                }
+                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
+                {
+                    direct = DirectRight;
+                }
+            }
+            if (lr_style_ == 1)
+            {
+                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER))
+                {
+                    direct = DirectRight;
+                }
+                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSTICK))
+                {
+                    direct = DirectLeft;
+                }
+            }
         }
     }
     if (direct != DIrectNone)
@@ -141,7 +182,8 @@ bool Menu::checkAllNormal()
 //    }
 //}
 
-MenuText::MenuText(std::vector<std::string> items) : MenuText()
+MenuText::MenuText(std::vector<std::string> items) :
+    MenuText()
 {
     setStrings(items);
 }

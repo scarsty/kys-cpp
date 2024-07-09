@@ -1,5 +1,6 @@
 #include "RunNode.h"
 #include "Font.h"
+#include "GameUtil.h"
 #include "UISystem.h"
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
@@ -127,7 +128,7 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
 
     int min1 = 9999, min2 = 9999 * 2;
     int i1 = i0;
-    //1表示按键方向上的距离，2表示垂直于按键方向上的距离
+    //1表示平行于按键方向上的距离，2表示垂直于按键方向上的距离
     for (int i = 0; i < childs_.size(); i++)
     {
         if (i == i0 || childs_[i]->visible_ == false)
@@ -161,10 +162,10 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         {
             dis1 += 10000;
         }
-        if (dis1 <= min1 && dis1 + dis2 < min2)
+        if (dis1 + dis2 * 10 < min2)
         {
             min1 = (std::min)(min1, dis1);
-            min2 = (std::min)(min2, dis1 + dis2);
+            min2 = (std::min)(min2, dis1 + dis2 * 10);
             i1 = i;
         }
         //以上数字的取法：如有坐标一致的点，不考虑第二距离（好像不太明显，以后再改吧）
@@ -305,32 +306,35 @@ void RunNode::dealEventSelfChilds(bool check_event)
         {
             BP_Event e1;
             while (Engine::getInstance()->pollEvent(e1));
-            if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX || e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY)
-            {
-                auto axis_x = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTX);
-                auto axis_y = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTY);
-
-                int x, y;
-                Engine::getInstance()->getMouseStateInStartWindow(x, y);
-                //fmt1::print("{} {}  ", axis_x, axis_y);
-                if (abs(axis_x) < 5000) { axis_x = 0; }
-                if (abs(axis_y) < 5000) { axis_y = 0; }
-                if (axis_x != 0 || axis_y != 0)
-                {
-                    x += axis_x / 500;
-                    y += axis_y / 500;
-                    int w, h;
-                    Engine::getInstance()->getWindowSize(w, h);
-                    if (x >= w) { x = w - 1; }
-                    if (x < 0) { x = 0; }
-                    if (y >= h) { y = h - 1; }
-                    if (y < 0) { y = 0; }
-                    Engine::getInstance()->setMouseState(x, y);
-                    e.type = BP_MOUSEMOTION;
-                    e.motion.x = x;
-                    e.motion.y = y;
-                }
-            }
+            //手感有问题，暂时不使用
+            //if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX || e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY)
+            //{
+            //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTX);
+            //    auto axis_y = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTY);
+            //
+            //    //fmt1::print("{} {}  ", axis_x, axis_y);
+            //    if (abs(axis_x) < 10000) { axis_x = 0; }
+            //    if (abs(axis_y) < 10000) { axis_y = 0; }
+            //    if (axis_x != 0 || axis_y != 0)
+            //    {
+            //        axis_x = GameUtil::limit(axis_x, -30000, 30000);
+            //        axis_y = GameUtil::limit(axis_y, -30000, 30000);
+            //        int x, y;
+            //        Engine::getInstance()->getMouseStateInStartWindow(x, y);
+            //        x += axis_x / 3000;
+            //        y += axis_y / 3000;
+            //        int w, h;
+            //        Engine::getInstance()->getStartWindowSize(w, h);
+            //        if (x >= w) { x = w - 1; }
+            //        if (x < 0) { x = 0; }
+            //        if (y >= h) { y = h - 1; }
+            //        if (y < 0) { y = 0; }
+            //        Engine::getInstance()->setMouseStateInStartWindow(x, y);
+            //        e.type = BP_MOUSEMOTION;
+            //        e.motion.x = x;
+            //        e.motion.y = y;
+            //    }
+            //}
         }
         checkStateSelfChilds(e, check_event);
         if (e.type == BP_QUIT
@@ -349,7 +353,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
 bool RunNode::isSpecialEvent(BP_Event& e)
 {
     //fmt1::print("type = {}\n", e.type);
-    return  e.type == BP_QUIT
+    return e.type == BP_QUIT
         || e.type == BP_WINDOWEVENT
         || e.type == BP_KEYDOWN
         || e.type == BP_KEYUP
@@ -429,7 +433,7 @@ void RunNode::present()
     auto t = Engine::getTicks() - global_prev_present_ticks_;
     auto e = Engine::getInstance();
     if (render_message_)
-    {        
+    {
         Font::getInstance()->draw(fmt1::format("Render one frame in {:.3f} ms", t), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
         Font::getInstance()->draw(fmt1::format("RenderCopy time is {}", Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
         e->resetRenderTimes();

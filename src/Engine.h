@@ -374,7 +374,7 @@ public:
 private:
     SDL_AudioDeviceID audio_device_;
     AudioCallback audio_callback_ = nullptr;
-    SDL_AudioFormat audio_format_ = AUDIO_S16;
+    SDL_AudioFormat audio_format_ = AUDIO_F32;
     BP_AudioSpec audio_spec_;
 
 public:

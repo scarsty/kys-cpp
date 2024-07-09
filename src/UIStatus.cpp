@@ -21,30 +21,30 @@ UIStatus::UIStatus()
     button_leave_->setText("離隊");
     menu_->addChild(button_leave_, 450, 55);
 
-    menu_equip_magic_ = std::make_shared<Menu>();
+    //menu_ = std::make_shared<Menu>();
     equip_magics_.resize(4);
     for (auto& em : equip_magics_)
     {
         em = std::make_shared<Button>();
     }
     equip_magics_[0]->setText("__________");
-    menu_equip_magic_->addChild(equip_magics_[0], 40, 620);
+    menu_->addChild(equip_magics_[0], 40, 620);
     equip_magics_[1]->setText("__________");
-    menu_equip_magic_->addChild(equip_magics_[1], 160, 610);
+    menu_->addChild(equip_magics_[1], 160, 610);
     equip_magics_[2]->setText("__________");
-    menu_equip_magic_->addChild(equip_magics_[2], 280, 620);
+    menu_->addChild(equip_magics_[2], 280, 620);
     equip_magics_[3]->setText("__________");
-    menu_equip_magic_->addChild(equip_magics_[3], 160, 635);
+    menu_->addChild(equip_magics_[3], 160, 635);
 
     equip_item_ = std::make_shared<Button>();
-    menu_equip_item_ = std::make_shared<Menu>();
+    //menu_ = std::make_shared<Menu>();
 
     equip_item_->setText("__________");
-    menu_equip_item_->addChild(equip_item_, 420, 620);
+    menu_->addChild(equip_item_, 420, 620);
 
     addChild(menu_);
-    addChild(menu_equip_magic_);
-    addChild(menu_equip_item_);
+    //addChild(menu_equip_magic_);
+    //addChild(menu_equip_item_);
 }
 
 UIStatus::~UIStatus()
@@ -58,8 +58,7 @@ void UIStatus::draw()
         button_medicine_->setVisible(false);
         button_detoxification_->setVisible(false);
         button_leave_->setVisible(false);
-        menu_equip_magic_->setVisible(false);
-        menu_equip_item_->setVisible(false);
+        setExtentionVisible(false);
     }
     if (role_)
     {
@@ -70,13 +69,11 @@ void UIStatus::draw()
             button_leave_->setVisible(role_->ID != 0);
             if (role_->ID == 0)
             {
-                menu_equip_magic_->setVisible(true);
-                menu_equip_item_->setVisible(true);
+                setExtentionVisible(true);
             }
             else
             {
-                menu_equip_magic_->setVisible(false);
-                menu_equip_item_->setVisible(false);
+                setExtentionVisible(false);
             }
         }
         menu_->setVisible(true);
@@ -84,8 +81,7 @@ void UIStatus::draw()
     else
     {
         menu_->setVisible(false);
-        menu_equip_magic_->setVisible(false);
-        menu_equip_item_->setVisible(false);
+        setExtentionVisible(false);
         return;
     }
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
@@ -371,7 +367,7 @@ void UIStatus::onPressedOK()
         Event::getInstance()->callLeaveEvent(role_);
         role_ = nullptr;
     }
-    if (menu_equip_magic_->getResult() >= 0)
+    if (menu_->getResult() >= 3 && menu_->getResult() < 7)
     {
         auto menu = std::make_shared<BattleMagicMenu>();
         menu->setRole(role_);
@@ -387,10 +383,10 @@ void UIStatus::onPressedOK()
             {
                 if (em == id) { em = -1; }
             }
-            role_->EquipMagic[menu_equip_magic_->getResult()] = id;
+            role_->EquipMagic[menu_->getResult() - 3] = id;
         }
     }
-    if (menu_equip_item_->getResult() >= 0)
+    if (menu_->getResult() == 7)
     {
         auto menu = std::make_shared<BattleEquipItemMenu>();
         menu->setRole(role_);
@@ -409,4 +405,13 @@ void UIStatus::setRoleName(std::string name)
     assert(role_ != nullptr);
     memset(role_->Name, '\0', sizeof(role_->Name));
     memcpy(role_->Name, name.c_str(), std::min(name.size(), sizeof(role_->Name)));
+}
+
+void UIStatus::setExtentionVisible(bool b)
+{
+    for (auto& em : equip_magics_)
+    {
+        em->setVisible(b);
+    }
+    equip_item_->setVisible(b);
 }

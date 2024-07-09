@@ -11,7 +11,7 @@ public:
 
 protected:
     std::shared_ptr<Button> button_medicine_, button_detoxification_, button_leave_;
-    std::shared_ptr<Menu> menu_, menu_equip_magic_, menu_equip_item_;
+    std::shared_ptr<Menu> menu_;//, menu_equip_magic_, menu_equip_item_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
     std::shared_ptr<Button> equip_item_;
 
@@ -27,4 +27,6 @@ public:
     void setRole(Role* r) { role_ = r; }
     void setRoleName(std::string name);
     Role* getRole() { return role_; }
+
+    void setExtentionVisible(bool b);
 };
