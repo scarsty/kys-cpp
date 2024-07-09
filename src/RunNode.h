@@ -13,7 +13,7 @@ class RunNode : public std::enable_shared_from_this<RunNode>
 private:
     static std::vector<std::shared_ptr<RunNode>> root_;    //所有需要绘制的内容都存储在这个静态向量中
     static double global_prev_present_ticks_;
-    static double refresh_interval_;
+    static double refresh_interval_; 
 
 private:
     bool is_private_ = false;
@@ -41,6 +41,7 @@ protected:
     int tag_;
 
     static int render_message_;
+    static int virtual_stick_;
 
     int deal_event_ = 1;
 

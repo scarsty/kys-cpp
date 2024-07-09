@@ -92,6 +92,16 @@ enum BP_EventType
     BP_CONTROLLERDEVICEREMOVED = SDL_CONTROLLERDEVICEREMOVED,
     BP_CONTROLLERDEVICEREMAPPED = SDL_CONTROLLERDEVICEREMAPPED,
 
+    //触摸
+    BP_FINGERDOWN = SDL_FINGERDOWN,
+    BP_FINGERUP = SDL_FINGERUP,
+    BP_FINGERMOTION = SDL_FINGERMOTION,
+
+    //手势
+    BP_DOLLARGESTURE = SDL_DOLLARGESTURE,
+    BP_DOLLARRECORD = SDL_DOLLARRECORD,
+    BP_MULTIGESTURE = SDL_MULTIGESTURE,
+
     //剪贴板
     BP_CLIPBOARDUPDATE = SDL_CLIPBOARDUPDATE,
     //拖放文件
@@ -248,6 +258,7 @@ public:
         static Engine e;
         return &e;
     }
+
     //图形相关
 private:
     bool inited_ = false;
@@ -279,40 +290,59 @@ public:
     int init(void* handle = nullptr, int handle_type = 0, int maximized = 0);
 
     void getWindowSize(int& w, int& h) const { SDL_GetWindowSize(window_, &w, &h); }
+
     void getWindowMaxSize(int& w, int& h) const { SDL_GetWindowMaximumSize(window_, &w, &h); }
+
     int getWindowWidth() const;
     int getWindowHeight() const;
+
     int getStartWindowWidth() const { return start_w_; }
+
     int getStartWindowHeight() const { return start_h_; }
+
     int getMaxWindowWidth() const { return max_x_ - min_x_; }
+
     int getMaxWindowHeight() const { return max_y_ - min_y_; }
+
     void getWindowPosition(int& x, int& y) const { SDL_GetWindowPosition(window_, &x, &y); }
+
     bool getWindowIsMaximized() const { return SDL_GetWindowFlags(window_) & SDL_WINDOW_MAXIMIZED; }
+
     void setWindowIsMaximized(bool b) const;
     void setWindowSize(int w, int h);
+
     void setStartWindowSize(int w, int h)
     {
         start_w_ = w;
         start_h_ = h;
     }
+
     void getStartWindowSize(int& w, int& h) const
     {
         w = start_w_;
         h = start_h_;
     }
+
     void setWindowPosition(int x, int y) const;
+
     void setWindowTitle(const std::string& str) const { SDL_SetWindowTitle(window_, str.c_str()); }
+
     BP_Renderer* getRenderer() const { return renderer_; }
 
     void createMainTexture(int pixfmt, BP_TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(int w, int h);
     void setPresentPosition(BP_Texture* tex);    //设置贴图的位置
+
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() const { return rect_.w; }
+
     int getPresentHeight() const { return rect_.h; }
+
     BP_Texture* getMainTexture() const { return tex_; }
+
     void getMainTextureSize(int& w, int& h) const { queryTexture(tex2_, &w, &h); }
+
     void destroyAssistTexture() const
     {
         if (tex2_)
@@ -320,8 +350,11 @@ public:
             destroyTexture(tex2_);
         }
     }
+
     BP_Texture* createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const;
+
     static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
+
     BP_Texture* createYUVTexture(int w, int h) const;
     static void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
     BP_Texture* createARGBTexture(int w, int h);
@@ -329,16 +362,27 @@ public:
     static void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
     static int lockTexture(BP_Texture* t, BP_Rect* r, void** pixel, int* pitch);
     static void unlockTexture(BP_Texture* t);
+
     void showLogo() { renderCopy(logo_, nullptr, nullptr); }
+
     void renderPresent() const;
+
     void renderClear() const { SDL_RenderClear(renderer_); }
+
     static void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
+
     static void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
+
     void setRenderTarget(BP_Texture* t) const { SDL_SetRenderTarget(renderer_, t); }
+
     BP_Texture* getRenderTarget() const { return SDL_GetRenderTarget(renderer_); }
+
     void resetRenderTarget() const { setRenderTarget(nullptr); }
+
     static void createWindow() {}
+
     static void createRenderer() {}
+
     void renderCopy(BP_Texture* t = nullptr, double angle = 0);
     void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
     void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle = 0, int inPresent = 0);
@@ -350,22 +394,32 @@ public:
     static void toWhite(BP_Surface* sur);
     bool setKeepRatio(bool b);
     BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;
+
     double setRotation(double r) { return rotation_ = r; }
+
     void resetWindowPosition();
+
     void setRatio(double x, double y)
     {
         ratio_x_ = x;
         ratio_y_ = y;
     }
+
     static void setColor(BP_Texture* tex, BP_Color c);
     void fillColor(BP_Color color, int x, int y, int w, int h) const;
+
     void setRenderMainTexture() const { setRenderTarget(tex_); }
+
     void renderMainTextureToWindow();
+
     void setRenderAssistTexture() const { setRenderTarget(tex2_); }
+
     void renderAssistTextureToMain();
+
     static int setTextureBlendMode(BP_Texture* t) { return SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
 
     void resetRenderTimes(int t = 0) { render_times_ = t; }
+
     int getRenderTimes() const { return render_times_; }
 
     BP_Texture* getRenderAssistTexture() const { return tex2_; }
@@ -379,12 +433,18 @@ private:
 
 public:
     void pauseAudio(int pause) const { SDL_PauseAudioDevice(audio_device_, pause); }
-    void closeAudio() const { SDL_CloseAudioDevice(audio_device_); };
-    static int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; };
+
+    void closeAudio() const { SDL_CloseAudioDevice(audio_device_); }
+
+    static int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; }
+
     void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const;
+
     SDL_AudioFormat getAudioFormat() const { return audio_format_; }
+
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
     static void mixAudioCallback(void* userdata, Uint8* stream, int len);
+
     void setAudioCallback(AudioCallback cb = nullptr) { audio_callback_ = cb; }
 
     //事件相关
@@ -393,12 +453,15 @@ private:
 
 public:
     static void delay(double t) { std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1e6))); }
+
     static double getTicks()
     {
         static auto start = std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()).time_since_epoch().count();
         return 1e-6 * (std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()).time_since_epoch().count() - start);
     }
+
     uint64_t tic() { return time_ = getTicks(); }
+
     void toc()
     {
         if (getTicks() != time_)
@@ -406,15 +469,21 @@ public:
             fmt1::print("{}\n", getTicks() - time_);
         }
     }
+
     static void getMouseState(int& x, int& y);
     void getMouseStateInStartWindow(int& x, int& y) const;
     void setMouseState(int x, int y) const;
     void setMouseStateInStartWindow(int x, int y) const;
     int pollEvent(BP_Event& e) const;
+
     static int pollEvent() { return SDL_PollEvent(nullptr); }
+
     static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
+
     static void flushEvent() { SDL_FlushEvent(0); }
+
     static void free(void* mem) { SDL_free(mem); }
+
     static bool checkKeyPress(BP_Keycode key);
     bool gameControllerGetButton(int key) const;
     int16_t gameControllerGetAxis(int axis) const;
@@ -445,7 +514,9 @@ public:
 
     //输入相关
     static void startTextInput() { SDL_StartTextInput(); }
+
     static void stopTextInput() { SDL_StopTextInput(); }
+
     static void setTextInputRect(int x, int y, int w = 0, int h = 0)
     {
         BP_Rect r = { x, y, w, h };

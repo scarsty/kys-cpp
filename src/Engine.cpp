@@ -26,7 +26,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     inited_ = true;
 #ifndef _WINDLL
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC))
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
     {
         return -1;
     }
@@ -66,12 +66,12 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    //SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
     //屏蔽触摸板
-    SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
-    SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
-    SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
+    //SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
+    //SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
+    //SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
 
     //手柄
     if (SDL_NumJoysticks() < 1)
@@ -93,6 +93,11 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         {
             fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
         }
+    }
+
+    if (SDL_GetNumTouchDevices()>0)
+    {
+        fmt1::print("Found {} touch\n", SDL_GetNumTouchDevices());
     }
 
     rect_ = { 0, 0, start_w_, start_h_ };

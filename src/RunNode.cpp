@@ -2,11 +2,13 @@
 #include "Font.h"
 #include "GameUtil.h"
 #include "UISystem.h"
+#include "VirtualStick.h"
 
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
 double RunNode::global_prev_present_ticks_ = 0;
 double RunNode::refresh_interval_ = 16.666666;
 int RunNode::render_message_ = 0;
+int RunNode::virtual_stick_ = 1;
 
 RunNode::~RunNode()
 {
@@ -304,9 +306,10 @@ void RunNode::dealEventSelfChilds(bool check_event)
         }
         if (e.type == BP_CONTROLLERAXISMOTION)
         {
+            //摇杆移动会产生大量事件，暂时不处理
             BP_Event e1;
-            while (Engine::getInstance()->pollEvent(e1));
-            //手感有问题，暂时不使用
+            while (Engine::getInstance()->pollEvent(e1)) {};
+            //右摇杆控制鼠标，手感有问题，待处理
             //if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX || e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY)
             //{
             //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTX);
@@ -336,6 +339,17 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    }
             //}
         }
+        //if (e.type == BP_MOUSEBUTTONDOWN)
+        //{
+        //    auto a = SDL_GetTouchDevice(0);
+        //    int b = SDL_GetNumTouchFingers(a);
+        //    fmt1::print("{} {}\n", a, b);
+        //    for (int i = 0; i < b; i++)
+        //    {
+        //        auto s = SDL_GetTouchFinger(a, i);
+        //        fmt1::print("{} {}  ", s->x, s->y);
+        //    }
+        //}
         checkStateSelfChilds(e, check_event);
         if (e.type == BP_QUIT
             || (e.type == BP_WINDOWEVENT && e.window.event == BP_WINDOWEVENT_CLOSE))
@@ -462,6 +476,8 @@ int RunNode::run(bool in_root /*= true*/)
     if (in_root)
     {
         addIntoDrawTop(shared_from_this());
+        auto virtual_stick = std::make_shared<VirtualStick>();
+        addChild(virtual_stick);
     }
     onEntrance();
     running_ = true;

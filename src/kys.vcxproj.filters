@@ -184,6 +184,9 @@
     <ClCompile Include="..\others\zip.c">
       <Filter>zip</Filter>
     </ClCompile>
+    <ClCompile Include="VirtualStick.cpp">
+      <Filter>VirtualStick</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -384,6 +387,9 @@
     <ClInclude Include="..\others\miniz.h">
       <Filter>zip</Filter>
     </ClInclude>
+    <ClInclude Include="VirtualStick.h">
+      <Filter>VirtualStick</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -438,6 +444,9 @@
     </Filter>
     <Filter Include="mlcc">
       <UniqueIdentifier>{52c8cf7c-440e-4bd0-ad8e-5f6f1a23576a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VirtualStick">
+      <UniqueIdentifier>{c64953ab-6bc5-432f-98db-3bc7d331e2a6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
