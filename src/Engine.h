@@ -95,7 +95,6 @@ enum BP_EventType
     BP_CONTROLLERDEVICEADDED = SDL_CONTROLLERDEVICEADDED,
     BP_CONTROLLERDEVICEREMOVED = SDL_CONTROLLERDEVICEREMOVED,
     BP_CONTROLLERDEVICEREMAPPED = SDL_CONTROLLERDEVICEREMAPPED,
-
     //触摸
     BP_FINGERDOWN = SDL_FINGERDOWN,
     BP_FINGERUP = SDL_FINGERUP,
@@ -281,11 +280,6 @@ private:
     double ratio_x_ = 1, ratio_y_ = 1;
 
     int render_times_ = 0;
-
-    BP_GameController* game_controller_ = nullptr;
-    BP_Haptic* haptic_ = nullptr;
-
-    int switch_ = 0;
 
     int window_mode_ = 0;    //0-窗口和渲染器自行创建，1-窗口和渲染器由外部创建
     bool renderer_self_ = false;
@@ -491,14 +485,21 @@ public:
     static bool checkKeyPress(BP_Keycode key);
 
 private:
+    std::vector<BP_GameController*> game_controllers_;
+    std::vector<int> nintendo_switch_;
+    BP_GameController* cur_game_controller_ = nullptr;
     double prev_controller_press_ = 0;
     double interval_controller_press_ = 0;
+    std::unordered_map<int, int> virtual_stick_button_;
 
 public:
     bool gameControllerGetButton(int key);
+    int16_t gameControllerGetAxis(int axis);
+    void gameControllerRumble(int l, int h, uint32_t time) const;
+
+    void setInterValControllerPress(double t) { interval_controller_press_ = t; }
 
     void setGameControllerButton(int key, int value) { virtual_stick_button_[key] = value; }
-
     void clearGameControllerButton()
     {
         for (auto& i : virtual_stick_button_)
@@ -507,13 +508,7 @@ public:
         }
     }
 
-    std::unordered_map<int, int> virtual_stick_button_;
-
-    int16_t gameControllerGetAxis(int axis);
-
-    void gameControllerRumble(int l, int h, uint32_t time) const;
-
-    void setInterValControllerPress(double t) { interval_controller_press_ = t; }
+    void checkGameControllers();
 
     //UI相关
 private:

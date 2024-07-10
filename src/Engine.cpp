@@ -74,26 +74,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     //SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
 
     //手柄
-    if (SDL_NumJoysticks() < 1)
-    {
-        fmt1::print("Warning: No joysticks connected!\n");
-    }
-    else
-    {
-        //按照游戏控制器打开
-        game_controller_ = SDL_GameControllerOpen(0);
-        if (game_controller_)
-        {
-            fmt1::print("Found {} game controller(s)\n", SDL_NumJoysticks());
-            std::string name = SDL_GameControllerName(game_controller_);
-            fmt1::print("{}\n", name);
-            if (name.find("Switch") != std::string::npos) { switch_ = 1; }
-        }
-        else
-        {
-            fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
-        }
-    }
+    checkGameControllers();
 
     if (SDL_GetNumTouchDevices() > 0)
     {
@@ -633,9 +614,9 @@ void Engine::setMouseStateInStartWindow(int x, int y) const
 int Engine::pollEvent(BP_Event& e) const
 {
     int r = SDL_PollEvent(&e);
-    if (switch_)
+    if (e.type == BP_CONTROLLERBUTTONDOWN || e.type == BP_CONTROLLERBUTTONUP)
     {
-        if (e.type == BP_CONTROLLERBUTTONDOWN || e.type == BP_CONTROLLERBUTTONUP)
+        if (nintendo_switch_[e.cbutton.which])
         {
             auto& key = e.cbutton.button;
             if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
@@ -657,23 +638,33 @@ bool Engine::gameControllerGetButton(int key)
     bool pressed = false;
     if (getTicks() > prev_controller_press_ + interval_controller_press_)
     {
-        if (game_controller_)
+        int i = 0;
+        for (auto gc : game_controllers_)
         {
-            if (switch_)
+            if (gc)
             {
-                if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
-                else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
-                else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
-                else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+                if (nintendo_switch_[i])
+                {
+                    if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
+                    else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
+                    else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
+                    else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+                }
+                pressed = SDL_GameControllerGetButton(gc, SDL_GameControllerButton(key));
+                if (pressed)
+                {
+                    cur_game_controller_ = gc;
+                    break;
+                }
             }
-            pressed = SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
+            i++;
         }
         if (!pressed) { pressed = virtual_stick_button_[key] != 0; }
         if (pressed)
         {
             prev_controller_press_ = getTicks();
         }
-        interval_controller_press_=0;
+        interval_controller_press_ = 0;
     }
     return pressed;
 }
@@ -682,27 +673,63 @@ int16_t Engine::gameControllerGetAxis(int axis)
 {
     if (getTicks() > prev_controller_press_ + interval_controller_press_)
     {
-        if (game_controller_)
-        {           
-            auto ret = SDL_GameControllerGetAxis(game_controller_, SDL_GameControllerAxis(axis));
+        int16_t ret = 0;
+        for (auto gc : game_controllers_)
+        {
+            if (gc)
+            {
+                ret = SDL_GameControllerGetAxis(gc, SDL_GameControllerAxis(axis));
+            }
             if (ret)
             {
-                prev_controller_press_ = getTicks();
+                cur_game_controller_ = gc;
+                break;
             }
-            interval_controller_press_ = 0;
-            return ret;
+        }
+        if (ret)
+        {
+            prev_controller_press_ = getTicks();
         }
         interval_controller_press_ = 0;
-        return 0;
+        return ret;
     }
     return 0;
 }
 
 void Engine::gameControllerRumble(int l, int h, uint32_t time) const
 {
-    if (game_controller_)
+    if (cur_game_controller_)
     {
-        auto s = SDL_GameControllerRumble(game_controller_, l * 65535 / 100, h * 65535 / 100, time);
+        auto s = SDL_GameControllerRumble(cur_game_controller_, l * 65535 / 100, h * 65535 / 100, time);
+    }
+}
+
+void Engine::checkGameControllers()
+{
+    if (SDL_NumJoysticks() <= 0)
+    {
+        fmt1::print("Warning: No joysticks connected!\n");
+    }
+    else
+    {
+        //按照游戏控制器打开
+        fmt1::print("Found {} game controller(s)\n", SDL_NumJoysticks());
+        game_controllers_.resize(SDL_NumJoysticks());
+        nintendo_switch_.resize(game_controllers_.size());
+        for (int i = 0; i < game_controllers_.size(); i++)
+        {
+            game_controllers_[i] = SDL_GameControllerOpen(i);
+            if (game_controllers_[i])
+            {
+                std::string name = SDL_GameControllerName(game_controllers_[i]);
+                fmt1::print("{}\n", name);
+                if (name.find("Switch") != std::string::npos) { nintendo_switch_[i] = 1; }
+            }
+            else
+            {
+                fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
+            }
+        }
     }
 }
 

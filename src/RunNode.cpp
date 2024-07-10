@@ -383,6 +383,11 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //恢复音频
             Audio::getInstance()->continueMusic();
         }
+        if (e.type == BP_CONTROLLERDEVICEADDED || e.type == BP_CONTROLLERDEVICEREMOVED)
+        {
+            fmt1::print("Controllers changed\n");
+            Engine::getInstance()->checkGameControllers();
+        }
         if (use_virtual_stick_)
         {
             virtual_stick()->dealEvent(e);
@@ -418,7 +423,9 @@ bool RunNode::isSpecialEvent(BP_Event& e)
         || e.type == BP_CONTROLLERBUTTONDOWN
         || e.type == BP_CONTROLLERBUTTONUP
         || e.type == BP_APP_DIDENTERBACKGROUND
-        || e.type == BP_APP_WILLENTERFOREGROUND;
+        || e.type == BP_APP_WILLENTERFOREGROUND
+        || e.type == BP_CONTROLLERDEVICEADDED
+        || e.type == BP_CONTROLLERDEVICEREMOVED;
 }
 
 //获取子节点的状态
