@@ -14,7 +14,6 @@ UI::UI()
     ui_system_->setPosition(300, 0);
     addChild(ui_status_);
 
-    //貌似这里不能直接调用其他单例，静态量的创建顺序不确定
     button_status_ = std::make_shared<Button>();
     button_status_->setTexture("title", 122);
     button_item_ = std::make_shared<Button>();
@@ -28,7 +27,9 @@ UI::UI()
     addChild(heads_);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
-        heads_->addChild(std::make_shared<Head>(), 20, 60 + i * 90);
+        auto h = std::make_shared<Head>();
+        heads_->addChild(h, 20, 60 + i * 90);
+        ui_status_->getMenu()->addChild(h);
     }
     heads_->getChild(0)->setState(NodePass);
     //addChild(heads_);
@@ -56,6 +57,7 @@ void UI::dealEvent(BP_Event& e)
         std::shared_ptr<Head> head = std::dynamic_pointer_cast<Head>(heads_->getChild(i));
         auto role = Save::getInstance()->getTeamMate(i);
         head->setRole(role);
+        head->setVisible(role != nullptr);
         if (role == nullptr)
         {
             continue;
@@ -88,7 +90,7 @@ void UI::dealEvent(BP_Event& e)
     //这里设定当前头像为Pass，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
     if (childs_[0] == ui_status_)
     {
-        heads_->getChild(current_head_)->setState(NodePass);
+        //heads_->getChild(current_head_)->setState(NodePass);
     }
     childs_[current_button_]->setState(NodePass);
 
@@ -154,10 +156,12 @@ void UI::dealEvent(BP_Event& e)
     {
         heads_->setDealEvent(1);
         heads_->setUDStyle(1);
+        heads_->setVisible(false);
     }
     else
     {
         heads_->setDealEvent(0);
+        heads_->setVisible(true);
     }
 }
 

@@ -139,8 +139,8 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
     }
     auto current = getChild(i0);
 
-    int min1 = 9999, min2 = 9999 * 2;
-    int i1 = i0;
+    double min1 = 9999, min2 = 9999 * 10;
+    int i1 = i0, i2 = i0;
     //1表示平行于按键方向上的距离，2表示垂直于按键方向上的距离
     for (int i = 0; i < childs_.size(); i++)
     {
@@ -150,6 +150,7 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         }
         auto c = childs_[i];
         int dis1, dis2;
+        double deg;
         switch (direct)
         {
         case DirectLeft:
@@ -173,17 +174,23 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
         }
         if (dis1 <= 0)
         {
-            dis1 += 10000;
+            continue;
         }
-        if (dis1 + dis2 * 10 < min2)
+        deg = atan2(dis2, dis1) * 180 / 3.14159265;
+        //fmt1::print("{} {} {} \n", dis1, dis2, deg);
+        if (dis1 < min1 && deg < 15)
         {
-            min1 = (std::min)(min1, dis1);
-            min2 = (std::min)(min2, dis1 + dis2 * 10);
+            min1 = dis1;
             i1 = i;
         }
-        //以上数字的取法：如有坐标一致的点，不考虑第二距离（好像不太明显，以后再改吧）
+        if (dis1 + deg * 20 < min2)
+        {
+            min2 = dis1 + deg * 20;
+            i1 = i;
+        }
     }
-    return i1;
+    if (i1 != i0) { return i1; }
+    return i2;
 }
 
 int RunNode::findFristVisibleChild()

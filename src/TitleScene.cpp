@@ -64,7 +64,8 @@ TitleScene::~TitleScene()
 void TitleScene::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, Engine::getInstance()->getWindowWidth(), Engine::getInstance()->getWindowHeight());
-    TextureManager::getInstance()->renderTexture("title", 154, 0, 90);
+    int pic[] = { 154, 154, 153, 154 };
+    TextureManager::getInstance()->renderTexture("title", pic[battle_mode_], 0, 90);
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
     return;
     //屏蔽随机头像

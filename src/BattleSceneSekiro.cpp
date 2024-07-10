@@ -556,11 +556,13 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
             int index = -1;
             //0攻击，5防御，3闪身，其他不处理
             if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER)
+                || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)
                 || engine->checkKeyPress(BPK_i))
             {
                 index = 0;
             }
             if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSHOULDER)
+                || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)
                 || engine->checkKeyPress(BPK_e))
             {
                 index = 5;
