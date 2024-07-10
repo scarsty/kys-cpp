@@ -8,7 +8,15 @@ std::vector<std::shared_ptr<RunNode>> RunNode::root_;
 double RunNode::global_prev_present_ticks_ = 0;
 double RunNode::refresh_interval_ = 16.666666;
 int RunNode::render_message_ = 0;
-int RunNode::virtual_stick_ = 1;
+int RunNode::use_virtual_stick_ = 1;
+
+//std::shared_ptr<RunNode> RunNode::virtual_stick_ = std::make_shared<VirtualStick>();
+
+static std::shared_ptr<VirtualStick>& virtual_stick()
+{
+    static std::shared_ptr<VirtualStick> v = std::make_shared<VirtualStick>();
+    return v;
+}
 
 RunNode::~RunNode()
 {
@@ -30,6 +38,10 @@ void RunNode::drawAll()
     for (int i = begin_base; i < root_.size(); i++)    //从最后一个全屏层开始画
     {
         root_[i]->drawSelfChilds();
+    }
+    if (use_virtual_stick_)
+    {
+        virtual_stick()->drawSelfChilds();
     }
 }
 
@@ -339,6 +351,10 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    }
             //}
         }
+        if (use_virtual_stick_)
+        {
+            virtual_stick()->dealEvent(e);
+        }
         checkStateSelfChilds(e, check_event);
         if (e.type == BP_QUIT
             || (e.type == BP_WINDOWEVENT && e.window.event == BP_WINDOWEVENT_CLOSE))
@@ -368,7 +384,10 @@ bool RunNode::isSpecialEvent(BP_Event& e)
         || e.type == BP_MOUSEWHEEL
         || e.type == BP_CONTROLLERAXISMOTION
         || e.type == BP_CONTROLLERBUTTONDOWN
-        || e.type == BP_CONTROLLERBUTTONUP;
+        || e.type == BP_CONTROLLERBUTTONUP
+        //|| e.type == BP_FINGERDOWN
+        //|| e.type == BP_FINGERUP
+        ;
 }
 
 //获取子节点的状态
@@ -465,11 +484,6 @@ int RunNode::run(bool in_root /*= true*/)
     if (in_root)
     {
         addIntoDrawTop(shared_from_this());
-        if (virtual_stick_)
-        {
-            auto virtual_stick = std::make_shared<VirtualStick>();
-            addChild(virtual_stick);
-        }
     }
     onEntrance();
     running_ = true;

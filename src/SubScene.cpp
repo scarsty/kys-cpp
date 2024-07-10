@@ -172,8 +172,8 @@ void SubScene::draw()
 
 void SubScene::dealEvent(BP_Event& e)
 {
+    auto engine = Engine::getInstance();
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
-
     int x = man_x_, y = man_y_;
 
     if (checkEvent3(x, y))
@@ -193,7 +193,8 @@ void SubScene::dealEvent(BP_Event& e)
     }
     if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
         || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START))
+        //|| (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START)
+        || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_START))
     {
         UI::getInstance()->run();
         auto item = UI::getInstance()->getUsedItem();
@@ -207,7 +208,6 @@ void SubScene::dealEvent(BP_Event& e)
     }
 
     //键盘走路部分，检测4个方向键
-    auto engine = Engine::getInstance();
     if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)
     {
         int pressed = 0;
@@ -296,7 +296,8 @@ void SubScene::dealEvent(BP_Event& e)
     }
     //检查触发剧情事件
     if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A))
+        //|| (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A)
+        || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A))
     {
         if (checkEvent1(x, y, towards_))
         {

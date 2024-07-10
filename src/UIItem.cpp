@@ -201,7 +201,7 @@ void UIItem::dealEvent(BP_Event& e)
         }
     }
 
-    //此处处理键盘响应  未完成
+    //此处处理键盘响应
     if (focus_ == 1)
     {
         if (e.type == BP_KEYDOWN)
@@ -276,7 +276,7 @@ void UIItem::dealEvent(BP_Event& e)
             focus_ = 1;
         }
     }
-    if (e.type == BP_CONTROLLERBUTTONDOWN)
+    if (false && e.type == BP_CONTROLLERBUTTONDOWN)
     {
         title_->setDealEvent(1);
         switch (e.cbutton.button)
@@ -336,6 +336,70 @@ void UIItem::dealEvent(BP_Event& e)
             break;
         }
         forceActiveChild();
+    }
+    {
+        auto engine = Engine::getInstance();
+        title_->setDealEvent(1);
+
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
+        {
+            if (active_child_ > 0)
+            {
+                active_child_--;
+            }
+            else
+            {
+                if (leftup_index_ > 0)
+                {
+                    leftup_index_ -= item_each_line_;
+                    active_child_ = item_each_line_ - 1;
+                }
+            }
+            forceActiveChild();
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
+        {
+            if (active_child_ < item_each_line_ * line_count_ - 1)
+            {
+                active_child_++;
+            }
+            else
+            {
+                leftup_index_ += item_each_line_;
+                if (leftup_index_ <= max_leftup_)
+                {
+                    active_child_ = item_each_line_ * (line_count_ - 1);
+                }
+            }
+            forceActiveChild();
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+        {
+            if (active_child_ < item_each_line_ && leftup_index_ == 0)
+            {
+            }
+            else if (active_child_ < item_each_line_)
+            {
+                leftup_index_ -= item_each_line_;
+            }
+            else
+            {
+                active_child_ -= item_each_line_;
+            }
+            forceActiveChild();
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+        {
+            if (active_child_ < item_each_line_ * (line_count_ - 1))
+            {
+                active_child_ += item_each_line_;
+            }
+            else
+            {
+                leftup_index_ += item_each_line_;
+            }
+            forceActiveChild();
+        }
     }
 }
 

@@ -210,6 +210,7 @@ void MainScene::backRun()
 
 void MainScene::dealEvent(BP_Event& e)
 {
+    auto engine = Engine::getInstance();
     //强制进入，通常用于开始
     if (force_submap_ >= 0)
     {
@@ -231,13 +232,13 @@ void MainScene::dealEvent(BP_Event& e)
     }
     if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
         || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START))
+        //|| (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START)
+        || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_START))
     {
         UI::getInstance()->run();
     }
     //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
-    auto engine = Engine::getInstance();
     if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)
     {
         //键盘走路部分，检测4个方向键

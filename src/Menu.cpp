@@ -60,16 +60,16 @@ void Menu::dealEvent(BP_Event& e)
         //if (e.type == BP_CONTROLLERBUTTONDOWN)
         {
             auto engine = Engine::getInstance();
-            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
-            {
-                direct = DirectUp;
-            }
-            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
-            {
-                direct = DirectDown;
-            }
             if (lr_style_ == 0)
             {
+                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+                {
+                    direct = DirectUp;
+                }
+                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+                {
+                    direct = DirectDown;
+                }
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
                 {
                     direct = DirectLeft;

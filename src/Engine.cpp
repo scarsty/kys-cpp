@@ -95,7 +95,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         }
     }
 
-    if (SDL_GetNumTouchDevices()>0)
+    if (SDL_GetNumTouchDevices() > 0)
     {
         fmt1::print("Found {} touch\n", SDL_GetNumTouchDevices());
     }
@@ -665,7 +665,7 @@ bool Engine::gameControllerGetButton(int key)
         }
         return SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
     }
-    return virtual_stick_button_[key]!=0;
+    return virtual_stick_button_[key] != 0;
 }
 
 int16_t Engine::gameControllerGetAxis(int axis) const

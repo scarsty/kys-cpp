@@ -27,6 +27,7 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
 
 void BattleCursor::dealEvent(BP_Event& e)
 {
+    auto engine = Engine::getInstance();
     if (battle_scene_ == nullptr)
     {
         return;
@@ -61,6 +62,22 @@ void BattleCursor::dealEvent(BP_Event& e)
                 x = p.x;
                 y = p.y;
             }
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+        {
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightUp, &x, &y);
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+        {
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_LeftDown, &x, &y);
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
+        {
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_LeftUp, &x, &y);
+        }
+        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
+        {
+            Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightDown, &x, &y);
         }
         setCursor(x, y);
     }

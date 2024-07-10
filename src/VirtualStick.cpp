@@ -9,7 +9,7 @@ VirtualStick::VirtualStick()
     auto addButton = [this](std::shared_ptr<Button>& b, int id, int x, int y, int buttonid)
     {
         b = std::make_shared<Button>("title", id);
-        b->setAlpha(64);
+        b->setAlpha(128);
         b->button_id_ = buttonid;
         addChild(b, x, y);
     };
@@ -39,22 +39,41 @@ void VirtualStick::dealEvent(SDL_Event& e)
     }
     int fingers = SDL_GetNumTouchFingers(SDL_GetTouchDevice(0));
     auto engine = Engine::getInstance();
-    engine->clearGameControllerButton();
-    //fmt1::print("{} {}\n", a, b);
-    for (int i = 0; i < fingers; i++)
+    if (fingers == 0)
     {
-        auto s = SDL_GetTouchFinger(touch, i);
-        //fmt1::print("{}: {} {} ", i, s->x, s->y);
-
+        engine->clearGameControllerButton();
+        //fmt1::print("{}", "clear button");
         for (auto c : childs_)
         {
             auto b = std::dynamic_pointer_cast<Button>(c);
-            if (b && b->inSide(s->x * w_, s->y * h_))
+            b->state_ = NodeNormal;
+        }
+    }
+    bool is_press = false;
+    for (int i = 0; i < fingers; i++)
+    {
+        auto s = SDL_GetTouchFinger(touch, i);
+        //fmt1::print("{}: {} {} ", i, s->x * w_, s->y * h_);
+        for (auto c : childs_)
+        {
+            auto b = std::dynamic_pointer_cast<Button>(c);
+            b->state_ = NodeNormal;
+            engine->setGameControllerButton(b->button_id_, 0);
+            if (b && b->inSideInStartWindow(s->x * w_, s->y * h_))
             {
-                b->state_ = NodePress;
-                engine->setGameControllerButton(b->button_id_, 1);
+                if (engine->getTicks() - prev_press_ > 100)
+                {
+                    b->state_ = NodePress;
+                    engine->setGameControllerButton(b->button_id_, 1);
+                    prev_press_ = engine->getTicks();
+                    is_press = true;
+                }
             }
         }
+    }
+    if (is_press || engine->getTicks() - prev_press_<1000)
+    {
+        e.type = BP_FIRSTEVENT;
     }
 }
 
