@@ -55,6 +55,43 @@ void Menu::dealEvent(BP_Event& e)
             }
         }
     }
+    //if (ud_style_ == 0)    //检查这个事件的反应比较慢
+    //{
+    //    if (e.type == BP_CONTROLLERBUTTONUP)
+    //    {
+    //        auto engine = Engine::getInstance();
+    //        if (lr_style_ == 0)
+    //        {
+    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_UP)
+    //            {
+    //                direct = DirectUp;
+    //            }
+    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_DOWN)
+    //            {
+    //                direct = DirectDown;
+    //            }
+    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_LEFT)
+    //            {
+    //                direct = DirectLeft;
+    //            }
+    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_RIGHT)
+    //            {
+    //                direct = DirectRight;
+    //            }
+    //        }
+    //        if (lr_style_ == 1)
+    //        {
+    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_RIGHTSHOULDER)
+    //            {
+    //                direct = DirectRight;
+    //            }
+    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_LEFTSHOULDER)
+    //            {
+    //                direct = DirectLeft;
+    //            }
+    //        }
+    //    }
+    //}
     if (ud_style_ == 0)
     {
         //if (e.type == BP_CONTROLLERBUTTONDOWN)
@@ -65,18 +102,22 @@ void Menu::dealEvent(BP_Event& e)
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
                 {
                     direct = DirectUp;
+                    engine->setInterValControllerPress(200);
                 }
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
                 {
                     direct = DirectDown;
+                    engine->setInterValControllerPress(200);
                 }
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
                 {
                     direct = DirectLeft;
+                    engine->setInterValControllerPress(200);
                 }
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
                 {
                     direct = DirectRight;
+                    engine->setInterValControllerPress(200);
                 }
             }
             if (lr_style_ == 1)
@@ -84,10 +125,12 @@ void Menu::dealEvent(BP_Event& e)
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER))
                 {
                     direct = DirectRight;
+                    engine->setInterValControllerPress(200);
                 }
                 if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSHOULDER))
                 {
                     direct = DirectLeft;
+                    engine->setInterValControllerPress(200);
                 }
             }
         }

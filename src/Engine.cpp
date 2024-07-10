@@ -654,25 +654,46 @@ bool Engine::checkKeyPress(BP_Keycode key)
 
 bool Engine::gameControllerGetButton(int key)
 {
-    if (game_controller_)
+    bool pressed = false;
+    if (getTicks() > prev_controller_press_ + interval_controller_press_)
     {
-        if (switch_)
+        if (game_controller_)
         {
-            if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
-            else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
-            else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
-            else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+            if (switch_)
+            {
+                if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
+                else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
+                else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
+                else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+            }
+            pressed = SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
         }
-        return SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
+        if (!pressed) { pressed = virtual_stick_button_[key] != 0; }
+        if (pressed)
+        {
+            prev_controller_press_ = getTicks();
+        }
+        interval_controller_press_=0;
     }
-    return virtual_stick_button_[key] != 0;
+    return pressed;
 }
 
-int16_t Engine::gameControllerGetAxis(int axis) const
+int16_t Engine::gameControllerGetAxis(int axis)
 {
-    if (game_controller_)
+    if (getTicks() > prev_controller_press_ + interval_controller_press_)
     {
-        return SDL_GameControllerGetAxis(game_controller_, SDL_GameControllerAxis(axis));
+        if (game_controller_)
+        {           
+            auto ret = SDL_GameControllerGetAxis(game_controller_, SDL_GameControllerAxis(axis));
+            if (ret)
+            {
+                prev_controller_press_ = getTicks();
+            }
+            interval_controller_press_ = 0;
+            return ret;
+        }
+        interval_controller_press_ = 0;
+        return 0;
     }
     return 0;
 }

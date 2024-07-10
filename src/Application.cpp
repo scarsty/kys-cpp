@@ -48,6 +48,7 @@ void Application::config()
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
     Scene::setKeyWalkDealy(game->getInt("game", "walk_speed", 20));
+    RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
 
     Role::setMaxValue();
     Role::setLevelUpList();

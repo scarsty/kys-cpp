@@ -276,8 +276,9 @@ void UIItem::dealEvent(BP_Event& e)
             focus_ = 1;
         }
     }
-    if (false && e.type == BP_CONTROLLERBUTTONDOWN)
+    if (false && e.type == BP_CONTROLLERBUTTONUP)
     {
+        //fmt1::print("button: {}\n", e.cbutton.button);
         title_->setDealEvent(1);
         switch (e.cbutton.button)
         {
@@ -337,6 +338,7 @@ void UIItem::dealEvent(BP_Event& e)
         }
         forceActiveChild();
     }
+    if (true)
     {
         auto engine = Engine::getInstance();
         title_->setDealEvent(1);
@@ -355,6 +357,7 @@ void UIItem::dealEvent(BP_Event& e)
                     active_child_ = item_each_line_ - 1;
                 }
             }
+            engine->setInterValControllerPress(100);
             forceActiveChild();
         }
         if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
@@ -371,6 +374,7 @@ void UIItem::dealEvent(BP_Event& e)
                     active_child_ = item_each_line_ * (line_count_ - 1);
                 }
             }
+            engine->setInterValControllerPress(100);
             forceActiveChild();
         }
         if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
@@ -386,6 +390,7 @@ void UIItem::dealEvent(BP_Event& e)
             {
                 active_child_ -= item_each_line_;
             }
+            engine->setInterValControllerPress(100);
             forceActiveChild();
         }
         if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
@@ -398,6 +403,7 @@ void UIItem::dealEvent(BP_Event& e)
             {
                 leftup_index_ += item_each_line_;
             }
+            engine->setInterValControllerPress(100);
             forceActiveChild();
         }
     }

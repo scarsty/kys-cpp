@@ -50,6 +50,7 @@ void UI::draw()
 
 void UI::dealEvent(BP_Event& e)
 {
+    auto engine = Engine::getInstance();
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         std::shared_ptr<Head> head = std::dynamic_pointer_cast<Head>(heads_->getChild(i));
@@ -112,16 +113,15 @@ void UI::dealEvent(BP_Event& e)
             }
         }
 
-        if (e.type == BP_CONTROLLERAXISMOTION)
+        if (engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_TRIGGERLEFT))
         {
-            if (e.caxis.axis == BP_CONTROLLER_AXIS_TRIGGERLEFT && e.caxis.value == 0)
-            {
-                cb = GameUtil::limit(cb - 1, 0, 3);
-            }
-            if (e.caxis.axis == BP_CONTROLLER_AXIS_TRIGGERRIGHT && e.caxis.value == 0)
-            {
-                cb = GameUtil::limit(cb + 1, 0, 3);
-            }
+            cb = GameUtil::limit(cb - 1, 0, 3);
+            engine->setInterValControllerPress(200);
+        }
+        if (engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_TRIGGERRIGHT))
+        {
+            cb = GameUtil::limit(cb + 1, 0, 3);
+            engine->setInterValControllerPress(200);
         }
         if (cb != current_button_)
         {

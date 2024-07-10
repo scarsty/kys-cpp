@@ -486,6 +486,12 @@ public:
     static void free(void* mem) { SDL_free(mem); }
 
     static bool checkKeyPress(BP_Keycode key);
+
+private:
+    double prev_controller_press_ = 0;
+    double interval_controller_press_ = 0;
+
+public:
     bool gameControllerGetButton(int key);
 
     void setGameControllerButton(int key, int value) { virtual_stick_button_[key] = value; }
@@ -500,9 +506,11 @@ public:
 
     std::unordered_map<int, int> virtual_stick_button_;
 
-    int16_t gameControllerGetAxis(int axis) const;
+    int16_t gameControllerGetAxis(int axis);
 
     void gameControllerRumble(int l, int h, uint32_t time) const;
+
+    void setInterValControllerPress(double t) { interval_controller_press_ = t; }
 
     //UI相关
 private:

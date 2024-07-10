@@ -31,6 +31,7 @@ void Talk::draw()
 
 void Talk::onPressedOK()
 {
+    Engine::getInstance()->setInterValControllerPress(200);
     if (current_line_ + height_ >= content_lines_.size())
     {
         setExit(true);

@@ -71,7 +71,7 @@ void VirtualStick::dealEvent(SDL_Event& e)
             }
         }
     }
-    if (is_press || engine->getTicks() - prev_press_<1000)
+    if (is_press || engine->getTicks() - prev_press_ < 1000)
     {
         e.type = BP_FIRSTEVENT;
     }

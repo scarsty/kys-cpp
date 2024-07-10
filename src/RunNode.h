@@ -42,7 +42,6 @@ protected:
 
     static int render_message_;
     static int use_virtual_stick_;
-    //static std::shared_ptr<RunNode> virtual_stick_;
 
     int deal_event_ = 1;
 
@@ -56,6 +55,8 @@ public:
     static double getRefreshInterval() { return refresh_interval_; }
 
     static int getShowTimes() { return global_prev_present_ticks_ / refresh_interval_; }
+
+    static void setUseVirtualStick(int u) { use_virtual_stick_ = u; }
 
     static void drawAll();
 
@@ -215,19 +216,9 @@ public:
 
     void checkFrame();
 
-    bool isPressOK(BP_Event& e)
-    {
-        return (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
-            || (Engine::getInstance()->gameControllerGetButton(BP_CONTROLLER_BUTTON_A));
-    }
+    bool isPressOK(BP_Event& e);
 
-    bool isPressCancel(BP_Event& e)
-    {
-        return (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-            || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-            || (Engine::getInstance()->gameControllerGetButton(BP_CONTROLLER_BUTTON_B));
-    }
+    bool isPressCancel(BP_Event& e);
 
 private:
     void drawSelfChilds();

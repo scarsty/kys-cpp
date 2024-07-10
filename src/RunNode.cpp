@@ -8,9 +8,7 @@ std::vector<std::shared_ptr<RunNode>> RunNode::root_;
 double RunNode::global_prev_present_ticks_ = 0;
 double RunNode::refresh_interval_ = 16.666666;
 int RunNode::render_message_ = 0;
-int RunNode::use_virtual_stick_ = 1;
-
-//std::shared_ptr<RunNode> RunNode::virtual_stick_ = std::make_shared<VirtualStick>();
+int RunNode::use_virtual_stick_ = 0;
 
 static std::shared_ptr<VirtualStick>& virtual_stick()
 {
@@ -228,6 +226,22 @@ void RunNode::checkFrame()
     {
         exit_ = true;
     }
+}
+
+bool RunNode::isPressOK(BP_Event& e)
+{
+    bool ret = (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A);
+    return ret;
+}
+
+bool RunNode::isPressCancel(BP_Event& e)
+{
+    bool ret = (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
+        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_B);
+    return ret;
 }
 
 //画出自身和子节点
