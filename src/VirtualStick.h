@@ -14,6 +14,6 @@ private:
 
 public:
     VirtualStick();
-    virtual void dealEvent(SDL_Event& e) override;
+    virtual void dealEvent(BP_Event& e) override;
     virtual void draw() override;
 };

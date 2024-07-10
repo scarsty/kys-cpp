@@ -30,7 +30,7 @@ VirtualStick::VirtualStick()
     addButton(button_menu_, 308, w_ * 0.5 - 20, h_ * 0.9, BP_CONTROLLER_BUTTON_START);
 }
 
-void VirtualStick::dealEvent(SDL_Event& e)
+void VirtualStick::dealEvent(BP_Event& e)
 {
     auto touch = SDL_GetTouchDevice(0);
     if (!touch)
@@ -71,7 +71,19 @@ void VirtualStick::dealEvent(SDL_Event& e)
             }
         }
     }
-    if (is_press || engine->getTicks() - prev_press_ < 1000)
+    if (is_press && button_a_->state_ == NodePress)
+    {
+        //fmt1::print("{}", "press a");
+        e.type = BP_KEYUP;
+        e.key.keysym.sym = BPK_RETURN;
+    }
+    if (is_press && button_b_->state_ == NodePress)
+    {
+        e.type = BP_KEYUP;
+        e.key.keysym.sym = BPK_ESCAPE;
+    }
+    if ((e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEMOTION)
+        && engine->getTicks() - prev_press_ < 1000)
     {
         e.type = BP_FIRSTEVENT;
     }
