@@ -1,4 +1,5 @@
 #include "RunNode.h"
+#include "Audio.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "UISystem.h"
@@ -365,6 +366,16 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    }
             //}
         }
+        if (e.type == BP_APP_DIDENTERBACKGROUND)
+        {
+            //暂停音频
+            Audio::getInstance()->pauseMusic();
+        }
+        if (e.type == BP_APP_WILLENTERFOREGROUND)
+        {
+            //恢复音频
+            Audio::getInstance()->continueMusic();
+        }
         if (use_virtual_stick_)
         {
             virtual_stick()->dealEvent(e);
@@ -399,9 +410,8 @@ bool RunNode::isSpecialEvent(BP_Event& e)
         || e.type == BP_CONTROLLERAXISMOTION
         || e.type == BP_CONTROLLERBUTTONDOWN
         || e.type == BP_CONTROLLERBUTTONUP
-        //|| e.type == BP_FINGERDOWN
-        //|| e.type == BP_FINGERUP
-        ;
+        || e.type == BP_APP_DIDENTERBACKGROUND
+        || e.type == BP_APP_WILLENTERFOREGROUND;
 }
 
 //获取子节点的状态
