@@ -365,7 +365,7 @@ void UIStatus::onPressedOK()
     else if (menu_->getResult() == 2)
     {
         Event::getInstance()->callLeaveEvent(role_);
-        role_ = nullptr;
+        //role_ = nullptr;
     }
     if (menu_->getResult() >= 3 && menu_->getResult() < 7)
     {
