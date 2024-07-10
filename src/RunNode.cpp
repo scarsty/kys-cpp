@@ -339,17 +339,6 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    }
             //}
         }
-        //if (e.type == BP_MOUSEBUTTONDOWN)
-        //{
-        //    auto a = SDL_GetTouchDevice(0);
-        //    int b = SDL_GetNumTouchFingers(a);
-        //    fmt1::print("{} {}\n", a, b);
-        //    for (int i = 0; i < b; i++)
-        //    {
-        //        auto s = SDL_GetTouchFinger(a, i);
-        //        fmt1::print("{} {}  ", s->x, s->y);
-        //    }
-        //}
         checkStateSelfChilds(e, check_event);
         if (e.type == BP_QUIT
             || (e.type == BP_WINDOWEVENT && e.window.event == BP_WINDOWEVENT_CLOSE))
@@ -476,8 +465,11 @@ int RunNode::run(bool in_root /*= true*/)
     if (in_root)
     {
         addIntoDrawTop(shared_from_this());
-        auto virtual_stick = std::make_shared<VirtualStick>();
-        addChild(virtual_stick);
+        if (virtual_stick_)
+        {
+            auto virtual_stick = std::make_shared<VirtualStick>();
+            addChild(virtual_stick);
+        }
     }
     onEntrance();
     running_ = true;

@@ -39,7 +39,7 @@ void Button::draw()
     int y = y_;
     auto id = texture_normal_id_;
     BP_Color color = { 255, 255, 255, 255 };
-    uint8_t alpha = 225;
+    uint8_t alpha = alpha_;
     if (state_ == NodeNormal)
     {
         if (texture_normal_id_ == texture_pass_id_)

@@ -652,7 +652,7 @@ bool Engine::checkKeyPress(BP_Keycode key)
     return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
 }
 
-bool Engine::gameControllerGetButton(int key) const
+bool Engine::gameControllerGetButton(int key)
 {
     if (game_controller_)
     {
@@ -665,7 +665,7 @@ bool Engine::gameControllerGetButton(int key) const
         }
         return SDL_GameControllerGetButton(game_controller_, SDL_GameControllerButton(key));
     }
-    return false;
+    return virtual_stick_button_[key]!=0;
 }
 
 int16_t Engine::gameControllerGetAxis(int axis) const

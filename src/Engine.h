@@ -9,6 +9,7 @@
 #include <functional>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -485,7 +486,20 @@ public:
     static void free(void* mem) { SDL_free(mem); }
 
     static bool checkKeyPress(BP_Keycode key);
-    bool gameControllerGetButton(int key) const;
+    bool gameControllerGetButton(int key);
+
+    void setGameControllerButton(int key, int value) { virtual_stick_button_[key] = value; }
+
+    void clearGameControllerButton()
+    {
+        for (auto& i : virtual_stick_button_)
+        {
+            i.second = 0;
+        }
+    }
+
+    std::unordered_map<int, int> virtual_stick_button_;
+
     int16_t gameControllerGetAxis(int axis) const;
 
     void gameControllerRumble(int l, int h, uint32_t time) const;
