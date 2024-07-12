@@ -1,6 +1,7 @@
 #pragma once
 #include "Button.h"
 #include "RunNode.h"
+#include <unordered_map>
 
 class VirtualStick : public RunNode
 {
@@ -12,12 +13,24 @@ private:
         button_menu_, button_left_axis_;
     int prev_press_ = 0;
 
+    struct Interval
+    {
+        int interval = 20;
+        int prev_press = 0;
+    };
+
     int axis_center_x_ = 0;
     int axis_center_y_ = 0;
+    int axis_x_ = 0;
+    int axis_y_ = 0;
     double axis_radius_ = 0;
+
+    std::unordered_map<std::shared_ptr<Button>, Interval> button_interval_;
 
 public:
     VirtualStick();
     virtual void dealEvent(BP_Event& e) override;
     virtual void draw() override;
+
+    //void setInteval(int interval) { interval_ = interval; }
 };

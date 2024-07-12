@@ -1,7 +1,9 @@
 #include "VirtualStick.h"
-
 #include "Button.h"
 #include "TextureManager.h"
+
+#include "BattleSceneHades.h"
+#include "BattleSceneSekiro.h"
 
 VirtualStick::VirtualStick()
 {
@@ -34,11 +36,15 @@ VirtualStick::VirtualStick()
 
 void VirtualStick::dealEvent(BP_Event& e)
 {
+    bool is_real = RunNode::getPointerFromRoot<BattleSceneHades>() != nullptr
+        || RunNode::getPointerFromRoot<BattleSceneSekiro>() != nullptr;
     int num = SDL_GetNumTouchDevices();
     //fmt1::print("{}", num);
     auto engine = Engine::getInstance();
     engine->clearGameControllerButton();
     engine->clearGameControllerAxis();
+    axis_x_ = 0;
+    axis_y_ = 0;
     if (axis_radius_ == 0)
     {
         auto t = TextureManager::getInstance()->getTexture("title", 320);
@@ -77,12 +83,18 @@ void VirtualStick::dealEvent(BP_Event& e)
                     engine->setGameControllerButton(b->button_id_, 0);
                     if (b->inSideInStartWindow(x, y))
                     {
-                        if (engine->getTicks() - prev_press_ > 100)
+                        auto& intval = button_interval_[b];
+                        if (engine->getTicks() - intval.prev_press > intval.interval)
                         {
                             b->state_ = NodePress;
                             engine->setGameControllerButton(b->button_id_, 1);
-                            prev_press_ = engine->getTicks();
+                            intval.prev_press = engine->getTicks();
                             is_press = true;
+                            intval.interval = 20;
+                            if (is_real)
+                            {
+                                intval.interval = 0;
+                            }
                         }
                     }
                 }
@@ -90,33 +102,53 @@ void VirtualStick::dealEvent(BP_Event& e)
                 {
                     if (b->inSideInStartWindow(x, y))
                     {
+                        axis_x_ = x;
+                        axis_y_ = y;
                         double r = sqrt((x - axis_center_x_) * (x - axis_center_x_) + (y - axis_center_y_) * (y - axis_center_y_));
                         //fmt1::print("{}", r);
+                        auto& intval = button_interval_[b];
                         if (r < axis_radius_)
                         {
                             engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
                             engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
-                            prev_press_ = engine->getTicks();
+                            button_interval_[b].prev_press = engine->getTicks();
                             is_press = true;
                             b->state_ = NodePress;
+                            intval.interval = 0;
+                            if (is_real)
+                            {
+                                intval.interval = 0;
+                            }
                         }
                     }
                 }
             }
+        }
+        if (is_press)
+        {
+            prev_press_ = engine->getTicks();
         }
         if (is_press && button_a_->state_ == NodePress)
         {
             //fmt1::print("{}", "press a");
             e.type = BP_KEYUP;
             e.key.keysym.sym = BPK_RETURN;
+            if (!is_real)
+            {
+                button_interval_[button_a_].interval = 100;
+            }
         }
-        if (is_press && button_b_->state_ == NodePress)
+        if (is_press && button_menu_->state_ == NodePress)
         {
             e.type = BP_KEYUP;
             e.key.keysym.sym = BPK_ESCAPE;
+            if (!is_real)
+            {
+                button_interval_[button_menu_].interval = 100;
+            }
         }
         if ((e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEMOTION)
-            && engine->getTicks() - prev_press_ < 1000)
+            && engine->getTicks() - prev_press_ < 500)
         {
             e.type = BP_FIRSTEVENT;
         }
@@ -130,4 +162,9 @@ void VirtualStick::dealEvent(BP_Event& e)
 void VirtualStick::draw()
 {
     RunNode::draw();
+    if (axis_x_ > 0 && axis_y_ > 0)
+    {
+        auto t = TextureManager::getInstance()->getTexture("title", 312);
+        TextureManager::getInstance()->renderTexture("title", 312, axis_x_ - t->w / 2, axis_y_ - t->h / 2, { 255, 255, 255, 255 }, 128);
+    }
 }
