@@ -693,7 +693,7 @@ int16_t Engine::gameControllerGetAxis(int axis)
         interval_controller_press_ = 0;
         return ret;
     }
-    return 0;
+    return virtual_stick_axis_[axis];
 }
 
 void Engine::gameControllerRumble(int l, int h, uint32_t time) const

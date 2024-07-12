@@ -491,6 +491,7 @@ private:
     double prev_controller_press_ = 0;
     double interval_controller_press_ = 0;
     std::unordered_map<int, int> virtual_stick_button_;
+    int16_t virtual_stick_axis_[6] = { 0 };
 
 public:
     bool gameControllerGetButton(int key);
@@ -500,11 +501,22 @@ public:
     void setInterValControllerPress(double t) { interval_controller_press_ = t; }
 
     void setGameControllerButton(int key, int value) { virtual_stick_button_[key] = value; }
+
+    void setGameControllerAxis(int axis, int16_t value) { virtual_stick_axis_[axis] = value; }
+
     void clearGameControllerButton()
     {
         for (auto& i : virtual_stick_button_)
         {
             i.second = 0;
+        }
+    }
+
+    void clearGameControllerAxis()
+    {
+        for (auto& i : virtual_stick_axis_)
+        {
+            i = 0;
         }
     }
 
