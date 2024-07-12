@@ -691,7 +691,10 @@ int16_t Engine::gameControllerGetAxis(int axis)
             prev_controller_press_ = getTicks();
         }
         interval_controller_press_ = 0;
-        return ret;
+        if (ret != 0)
+        {
+            return ret;
+        }
     }
     return virtual_stick_axis_[axis];
 }

@@ -28,10 +28,6 @@ VirtualStick::VirtualStick()
     //addButton(button_lb_, 300, w_ * 0.1, h_ * 0.5, BP_CONTROLLER_BUTTON_LEFTSHOULDER);
     //addButton(button_rb_, 302, w_ * 0.1, h_ * 0.8, BP_CONTROLLER_BUTTON_RIGHTSHOULDER);
     addButton(button_left_axis_, 320, w_ * 0.04, h_ * 0.5, BP_CONTROLLER_BUTTON_LEFTSTICK);
-    auto t = TextureManager::getInstance()->getTexture("title", 320);
-    axis_center_x_ = t->w / 2 + w_ * 0.04;
-    axis_center_y_ = t->h / 2 + h_ * 0.5;
-    axis_radius_ = t->w / 2;
 
     addButton(button_menu_, 308, w_ * 0.5 - 20, h_ * 0.9, BP_CONTROLLER_BUTTON_START);
 }
@@ -39,7 +35,23 @@ VirtualStick::VirtualStick()
 void VirtualStick::dealEvent(BP_Event& e)
 {
     int num = SDL_GetNumTouchDevices();
-    fmt1::print("{}", num);
+    //fmt1::print("{}", num);
+    auto engine = Engine::getInstance();
+    engine->clearGameControllerButton();
+    engine->clearGameControllerAxis();
+    if (axis_radius_ == 0)
+    {
+        auto t = TextureManager::getInstance()->getTexture("title", 320);
+        axis_center_x_ = t->w / 2 + w_ * 0.04;
+        axis_center_y_ = t->h / 2 + h_ * 0.5;
+        axis_radius_ = t->w / 2;
+    }
+    //fmt1::print("{}", "clear button");
+    for (auto c : childs_)
+    {
+        auto b = std::dynamic_pointer_cast<Button>(c);
+        b->state_ = NodeNormal;
+    }
 
     for (int i_device = 0; i_device < num; i_device++)
     {
@@ -49,79 +61,68 @@ void VirtualStick::dealEvent(BP_Event& e)
             continue;
         }
         int fingers = SDL_GetNumTouchFingers(touch);
-        auto engine = Engine::getInstance();
-        if (fingers == 0)
+        bool is_press = false;
+        for (int i = 0; i < fingers; i++)
         {
-            engine->clearGameControllerButton();
-            engine->clearGameControllerAxis();
-            //fmt1::print("{}", "clear button");
+            auto s = SDL_GetTouchFinger(touch, i);
+            //fmt1::print("{}: {} {} ", i, s->x * w_, s->y * h_);
+            int x = s->x * w_;
+            int y = s->y * h_;
             for (auto c : childs_)
             {
                 auto b = std::dynamic_pointer_cast<Button>(c);
-                b->state_ = NodeNormal;
-            }
-        }
-        else
-        {
-            bool is_press = false;
-            for (int i = 0; i < fingers; i++)
-            {
-                auto s = SDL_GetTouchFinger(touch, i);
-                //fmt1::print("{}: {} {} ", i, s->x * w_, s->y * h_);
-                int x = s->x * w_;
-                int y = s->y * h_;
-                for (auto c : childs_)
+                if (b != button_left_axis_)
                 {
-                    auto b = std::dynamic_pointer_cast<Button>(c);
-                    if (b != button_left_axis_)
+                    b->state_ = NodeNormal;
+                    engine->setGameControllerButton(b->button_id_, 0);
+                    if (b->inSideInStartWindow(x, y))
                     {
-                        b->state_ = NodeNormal;
-                        engine->setGameControllerButton(b->button_id_, 0);
-                        if (b->inSideInStartWindow(x, y))
+                        if (engine->getTicks() - prev_press_ > 100)
                         {
-                            if (engine->getTicks() - prev_press_ > 100)
-                            {
-                                b->state_ = NodePress;
-                                engine->setGameControllerButton(b->button_id_, 1);
-                                prev_press_ = engine->getTicks();
-                                is_press = true;
-                            }
+                            b->state_ = NodePress;
+                            engine->setGameControllerButton(b->button_id_, 1);
+                            prev_press_ = engine->getTicks();
+                            is_press = true;
                         }
                     }
-                    else
+                }
+                else
+                {
+                    if (b->inSideInStartWindow(x, y))
                     {
-                        if (b->inSideInStartWindow(x, y))
+                        double r = sqrt((x - axis_center_x_) * (x - axis_center_x_) + (y - axis_center_y_) * (y - axis_center_y_));
+                        //fmt1::print("{}", r);
+                        if (r < axis_radius_)
                         {
-                            double r = sqrt((x - axis_center_x_) * (x - axis_center_x_) + (y - axis_center_y_) * (y - axis_center_y_));
-                            if (r < axis_radius_)
-                            {
-                                engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
-                                engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
-                            }
+                            engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
+                            engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
+                            prev_press_ = engine->getTicks();
+                            is_press = true;
+                            b->state_ = NodePress;
                         }
                     }
                 }
             }
-            if (is_press && button_a_->state_ == NodePress)
-            {
-                //fmt1::print("{}", "press a");
-                e.type = BP_KEYUP;
-                e.key.keysym.sym = BPK_RETURN;
-            }
-            if (is_press && button_b_->state_ == NodePress)
-            {
-                e.type = BP_KEYUP;
-                e.key.keysym.sym = BPK_ESCAPE;
-            }
-            if ((e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEMOTION)
-                && engine->getTicks() - prev_press_ < 1000)
-            {
-                e.type = BP_FIRSTEVENT;
-            }
-            if (is_press)
-            {
-                return;
-            }
+        }
+        if (is_press && button_a_->state_ == NodePress)
+        {
+            //fmt1::print("{}", "press a");
+            e.type = BP_KEYUP;
+            e.key.keysym.sym = BPK_RETURN;
+        }
+        if (is_press && button_b_->state_ == NodePress)
+        {
+            e.type = BP_KEYUP;
+            e.key.keysym.sym = BPK_ESCAPE;
+        }
+        if ((e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEMOTION)
+            && engine->getTicks() - prev_press_ < 1000)
+        {
+            e.type = BP_FIRSTEVENT;
+        }
+        if (is_press)
+        {
+            return;
         }
     }
 }
