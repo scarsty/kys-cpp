@@ -8,7 +8,9 @@ class Scene : public RunNode
 public:
     Scene();
     virtual ~Scene();
+
     virtual void draw() override {}
+
     virtual void dealEvent(BP_Event& e) override {}
 
     //BP_Texture* earth_texture_ = nullptr;
@@ -25,10 +27,10 @@ public:
 
     void calViewRegion();
 
-    int total_step_ = 0;                         //键盘走路的计数
-    BP_Keycode pre_pressed_;                     //键盘走路的上次按键
-    double pre_pressed_ticks_ = 0;               //键盘走路的上次按键时间
-    static inline double key_walk_delay = 20;    //键盘走路的延迟
+    int total_step_ = 0;                          //键盘走路的计数
+    BP_Keycode pre_pressed_;                      //键盘走路的上次按键
+    double pre_pressed_ticks_ = 0;                //键盘走路的上次按键时间
+    static inline double key_walk_delay_ = 20;    //键盘走路的延迟
 
     int man_x_, man_y_;
     int mouse_event_x_ = -1, mouse_event_y_ = -1;    //鼠标行路时的最终目标，可能为事件或者入口
@@ -50,11 +52,13 @@ public:
         man_x_ = x;
         man_y_ = y;
     }
+
     void getManPosition(int& x, int& y)
     {
         x = man_x_;
         y = man_y_;
     }
+
     void setManPic(int pic) { man_pic_ = pic; }
 
     void checkWalk(int x, int y, BP_Event& e);    //一些公共部分，未完成
@@ -62,9 +66,11 @@ public:
     Point getPositionOnRender(int x, int y, int view_x, int view_y);
     Point getPositionOnWindow(int x, int y, int view_x, int view_y);
     int calTowards(int x1, int y1, int x2, int y2);
+
     void setTowards(int t) { towards_ = t; }
 
     int calDistance(int x1, int y1, int x2, int y2) { return abs(x1 - x2) + abs(y1 - y2); }
+
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
     void changeTowardsByKey(BP_Keycode key);
@@ -75,6 +81,7 @@ public:
     static void getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1);
 
     virtual bool canWalk(int x, int y) { return false; }
+
     virtual bool isOutScreen(int x, int y) { return false; }
 
     std::vector<Point> way_que_;    //栈(路径栈)
@@ -97,8 +104,9 @@ public:
     }
 
     Point getPositionOnWholeEarth(int x, int y);
+
     static void setKeyWalkDealy(double d)
     {
-        key_walk_delay = d;
+        key_walk_delay_ = d;
     }
 };

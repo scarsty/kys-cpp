@@ -16,7 +16,8 @@ SubScene::SubScene()
     COORD_COUNT = SUBMAP_COORD_COUNT;
 }
 
-SubScene::SubScene(int id) : SubScene()
+SubScene::SubScene(int id) :
+    SubScene()
 {
     setID(id);
 }
@@ -47,6 +48,7 @@ void SubScene::draw()
         int i;
         Point p;
     };
+
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderAssistTexture();
@@ -208,9 +210,9 @@ void SubScene::dealEvent(BP_Event& e)
     }
 
     //键盘走路部分，检测4个方向键
-    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)
+    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay_)
     {
-        int pressed = 0;
+        int64_t pressed = 0;
         pre_pressed_ticks_ = engine->getTicks();
         auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
         auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
@@ -259,9 +261,12 @@ void SubScene::dealEvent(BP_Event& e)
         }
         else
         {
-            total_step_ = 0;
+            if (rest_time_ > 2) { total_step_ = 0; }
         }
-
+        if (total_step_)
+        {
+            fmt1::print(" {}", total_step_);
+        }
         if (!way_que_.empty())
         {
             Point p = way_que_.back();

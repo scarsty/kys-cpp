@@ -239,7 +239,7 @@ void MainScene::dealEvent(BP_Event& e)
     }
     //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
-    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay)
+    if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay_)
     {
         //键盘走路部分，检测4个方向键
         int pressed = 0;
@@ -292,7 +292,7 @@ void MainScene::dealEvent(BP_Event& e)
         }
         else
         {
-            total_step_ = 0;
+            if (rest_time_ > 2) { total_step_ = 0; }  //虚拟按键中间可能出现空白帧，此处减少清空的情况，为了第一步可以不连续
         }
 
         if (pressed && checkEntrance(x, y))

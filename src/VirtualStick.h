@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Button.h"
 #include "RunNode.h"
 #include <unordered_map>
@@ -10,7 +10,7 @@ private:
     std::shared_ptr<Button> button_up_, button_down_, button_left_, button_right_,
         button_a_, button_b_, button_x_, button_y_,
         button_lb_, button_rb_,
-        button_menu_, button_left_axis_;
+        button_view_, button_menu_, button_left_axis_;
     int prev_press_ = 0;
 
     struct Interval
@@ -31,6 +31,5 @@ public:
     VirtualStick();
     virtual void dealEvent(BP_Event& e) override;
     virtual void draw() override;
-
-    //void setInteval(int interval) { interval_ = interval; }
+    void setStyle(int style);    //0-使用方向键 1-使用摇杆
 };

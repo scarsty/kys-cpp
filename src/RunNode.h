@@ -112,6 +112,7 @@ public:
 
     bool inSide(int x, int y)
     {
+        if (visible_ == false) { return false; }
         int w, h;
         int w1, h1;
         Engine::getInstance()->getWindowSize(w, h);
@@ -123,6 +124,7 @@ public:
 
     bool inSideInStartWindow(int x, int y)
     {
+        if (visible_ == false) { return false; }
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
     }
 
@@ -252,6 +254,14 @@ public:
             if (ptr) { return ptr; }
         }
         return nullptr;
+    }
+
+    template <class T>
+    static bool topIsType()
+    {
+        std::shared_ptr<T> ptr = std::dynamic_pointer_cast<T>(root_.back());
+        if (ptr) { return true; }
+        return false;
     }
 
     bool checkPrevTimeElapsed(int64_t ms)
