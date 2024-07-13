@@ -3,7 +3,11 @@
 #ifdef _WIN32
 #include "lua.hpp"
 #else
+#ifdef __ANDROID__
+#include "lua.hpp"
+#else
 #include "lua5.4/lua.hpp"
+#endif
 #endif
 #include <array>
 #include <string>

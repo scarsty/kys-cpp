@@ -52,9 +52,6 @@
     <ClCompile Include="Button.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="TextureManager.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="Cloud.cpp">
       <Filter>scene</Filter>
     </ClCompile>
@@ -106,9 +103,6 @@
     <ClCompile Include="ParticleExample.cpp">
       <Filter>particle</Filter>
     </ClCompile>
-    <ClCompile Include="Point.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
     <ClCompile Include="InputBox.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -120,9 +114,6 @@
     </ClCompile>
     <ClCompile Include="DrawableOnCall.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="OpenCCConverter.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="BattleNetwork.cpp">
       <Filter>battle</Filter>
@@ -186,6 +177,15 @@
     </ClCompile>
     <ClCompile Include="VirtualStick.cpp">
       <Filter>VirtualStick</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenCCConverter.cpp">
+      <Filter>opencc</Filter>
+    </ClCompile>
+    <ClCompile Include="Point.cpp">
+      <Filter>point</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureManager.cpp">
+      <Filter>texture</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -276,9 +276,6 @@
     <ClInclude Include="TeamMenu.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="TextureManager.h">
-      <Filter>engine</Filter>
-    </ClInclude>
     <ClInclude Include="Talk.h">
       <Filter>event</Filter>
     </ClInclude>
@@ -290,9 +287,6 @@
     </ClInclude>
     <ClInclude Include="ParticleExample.h">
       <Filter>particle</Filter>
-    </ClInclude>
-    <ClInclude Include="Point.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="Application.h">
       <Filter>application</Filter>
@@ -308,9 +302,6 @@
     </ClInclude>
     <ClInclude Include="DrawableOnCall.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="OpenCCConverter.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="BattleNetwork.h">
       <Filter>battle</Filter>
@@ -390,6 +381,15 @@
     <ClInclude Include="VirtualStick.h">
       <Filter>VirtualStick</Filter>
     </ClInclude>
+    <ClInclude Include="OpenCCConverter.h">
+      <Filter>opencc</Filter>
+    </ClInclude>
+    <ClInclude Include="Point.h">
+      <Filter>point</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureManager.h">
+      <Filter>texture</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -447,6 +447,15 @@
     </Filter>
     <Filter Include="VirtualStick">
       <UniqueIdentifier>{c64953ab-6bc5-432f-98db-3bc7d331e2a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="point">
+      <UniqueIdentifier>{b22155ca-ee9e-42e3-8eef-d2d74109b5c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="opencc">
+      <UniqueIdentifier>{60baaf93-f283-418c-a2f9-7f415e49ecf8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="texture">
+      <UniqueIdentifier>{3f5f1c37-008d-4f8b-ae4e-a958437e52cf}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

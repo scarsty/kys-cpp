@@ -27,7 +27,11 @@ public:
 
     static std::string& PATH()
     {
+#ifndef __ANDROID__
         static std::string s = "../game/";
+#else
+        static std::string s = "/sdcard/game/";
+#endif
         return s;
     }
 

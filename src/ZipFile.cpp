@@ -1,4 +1,5 @@
 #include "ZipFile.h"
+#include "../others/zip.h"
 #include <cstring>
 
 ZipFile::ZipFile()

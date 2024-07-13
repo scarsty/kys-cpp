@@ -1,5 +1,9 @@
 #pragma once
+#ifndef __ANDROID__
 #include "opencc/opencc.h"
+#else
+#include "opencc.h"
+#endif
 
 class OpenCCConverter
 {

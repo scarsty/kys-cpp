@@ -1,7 +1,8 @@
 #pragma once
-#include "../others/zip.h"
 #include <string>
 #include <vector>
+
+struct zip_t;
 
 class ZipFile
 {
