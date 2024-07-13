@@ -434,13 +434,14 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
                 if (axis_x != 0 || axis_y != 0)
                 {
                     //fmt1::print("{} {}, ", axis_x, axis_y);
-                    axis_x = GameUtil::limit(axis_x, -30000, 30000);
-                    axis_y = GameUtil::limit(axis_y, -30000, 30000);
+                    axis_x = GameUtil::limit(axis_x, -20000, 20000);
+                    axis_y = GameUtil::limit(axis_y, -20000, 20000);
                     Pointf axis{ double(axis_x), double(axis_y) };
-                    axis *= 1.0 / 30000 / sqrt(2.0);
+                    axis *= 1.0 / 20000;    // / sqrt(2.0);
                     r->RealTowards = axis;
                     //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-                    pos += speed * axis;
+                    axis.normTo(speed);
+                    pos += axis;
                 }
                 Pointf direct;
                 if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
@@ -841,7 +842,7 @@ void BattleSceneSekiro::backRun1()
                 double rate = 1.0;
                 auto p = r->Pos + r->Velocity;
                 int dis = -1;
-                if (r->OperationType == 3) { dis = TILE_W / 4; }
+                if (r->OperationType == 3) { dis = 1; }
                 if (canWalk90(p, r, dis))
                 {
                     r->Pos = p;

@@ -138,6 +138,15 @@ void VirtualStick::dealEvent(BP_Event& e)
                 button_interval_[button_a_].interval = 100;
             }
         }
+        if (is_press && button_b_->state_ == NodePress)
+        {
+            e.type = BP_KEYUP;
+            e.key.keysym.sym = BPK_ESCAPE;
+            if (!is_real)
+            {
+                button_interval_[button_b_].interval = 100;
+            }
+        }
         if (is_press && button_menu_->state_ == NodePress)
         {
             e.type = BP_KEYUP;

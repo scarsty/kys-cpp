@@ -22,15 +22,19 @@ void Menu::dealEvent(BP_Event& e)
             switch (e.key.keysym.sym)
             {
             case BPK_LEFT:
+            case BPK_a:
                 direct = DirectLeft;
                 break;
             case BPK_UP:
+            case BPK_w:
                 direct = DirectUp;
                 break;
             case BPK_RIGHT:
+            case BPK_d:
                 direct = DirectRight;
                 break;
             case BPK_DOWN:
+            case BPK_s:
                 direct = DirectDown;
                 break;
             default:

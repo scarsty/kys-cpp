@@ -209,6 +209,7 @@ void UIItem::dealEvent(BP_Event& e)
             switch (e.key.keysym.sym)
             {
             case BPK_LEFT:
+            case BPK_a:
                 if (active_child_ > 0)
                 {
                     active_child_--;
@@ -223,6 +224,7 @@ void UIItem::dealEvent(BP_Event& e)
                 }
                 break;
             case BPK_RIGHT:
+            case BPK_d:
                 if (active_child_ < item_each_line_ * line_count_ - 1)
                 {
                     active_child_++;
@@ -237,6 +239,7 @@ void UIItem::dealEvent(BP_Event& e)
                 }
                 break;
             case BPK_UP:
+            case BPK_w:
                 if (active_child_ < item_each_line_ && leftup_index_ == 0)
                 {
                     focus_ = 0;
@@ -251,6 +254,7 @@ void UIItem::dealEvent(BP_Event& e)
                 }
                 break;
             case BPK_DOWN:
+            case BPK_s:
                 if (active_child_ < item_each_line_ * (line_count_ - 1))
                 {
                     active_child_ += item_each_line_;
