@@ -263,10 +263,6 @@ void SubScene::dealEvent(BP_Event& e)
         {
             if (rest_time_ > 2) { total_step_ = 0; }
         }
-        if (total_step_)
-        {
-            fmt1::print(" {}", total_step_);
-        }
         if (!way_que_.empty())
         {
             Point p = way_que_.back();
