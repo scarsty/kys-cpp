@@ -128,25 +128,22 @@ void VirtualStick::dealEvent(BP_Event& e)
                 }
                 else
                 {
-                    if (b->inSideInStartWindow(x, y))
+                    axis_x_ = x;
+                    axis_y_ = y;
+                    double r = sqrt((x - axis_center_x_) * (x - axis_center_x_) + (y - axis_center_y_) * (y - axis_center_y_));
+                    //fmt1::print("{}", r);
+                    auto& intval = button_interval_[b];
+                    if (r < axis_radius_ * 1.5)
                     {
-                        axis_x_ = x;
-                        axis_y_ = y;
-                        double r = sqrt((x - axis_center_x_) * (x - axis_center_x_) + (y - axis_center_y_) * (y - axis_center_y_));
-                        //fmt1::print("{}", r);
-                        auto& intval = button_interval_[b];
-                        if (r < axis_radius_)
+                        engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
+                        engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
+                        button_interval_[b].prev_press = engine->getTicks();
+                        is_press = true;
+                        b->state_ = NodePress;
+                        intval.interval = 0;
+                        if (is_real)
                         {
-                            engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
-                            engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
-                            button_interval_[b].prev_press = engine->getTicks();
-                            is_press = true;
-                            b->state_ = NodePress;
                             intval.interval = 0;
-                            if (is_real)
-                            {
-                                intval.interval = 0;
-                            }
                         }
                     }
                 }
