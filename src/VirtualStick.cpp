@@ -41,7 +41,7 @@ VirtualStick::VirtualStick()
     addButton(button_left_axis_, 320, w_ * 0.04, h_ * 0.5, BP_CONTROLLER_BUTTON_LEFTSTICK);
     button_left_axis_->setVisible(false);
 
-    addButton(button_view_, 310, w_ * 0.4 - 25, h_ * 0.9, BP_CONTROLLER_BUTTON_START);
+    addButton(button_view_, 310, w_ * 0.4 - 25, h_ * 0.9, BP_CONTROLLER_BUTTON_BACK);
     addButton(button_menu_, 308, w_ * 0.6 - 25, h_ * 0.9, BP_CONTROLLER_BUTTON_START);
 }
 
