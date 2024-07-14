@@ -152,22 +152,19 @@ void VirtualStick::dealEvent(BP_Event& e)
                 }
             }
         }
-        if (is_press && button_a_->state_ == NodePress)
+        if (!is_real)
         {
-            //fmt1::print("{}", "press a");
-            e.type = BP_KEYUP;
-            e.key.keysym.sym = BPK_RETURN;
-            if (!is_real)
+            if (is_press && button_a_->state_ == NodePress)
             {
+                //fmt1::print("{}", "press a");
+                e.type = BP_KEYUP;
+                e.key.keysym.sym = BPK_RETURN;
                 button_interval_[button_a_].interval = 100;
             }
-        }
-        if (is_press && button_b_->state_ == NodePress)
-        {
-            e.type = BP_KEYUP;
-            e.key.keysym.sym = BPK_ESCAPE;
-            if (!is_real)
+            if (is_press && button_b_->state_ == NodePress)
             {
+                e.type = BP_KEYUP;
+                e.key.keysym.sym = BPK_ESCAPE;
                 button_interval_[button_b_].interval = 100;
             }
         }

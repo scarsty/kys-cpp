@@ -226,7 +226,8 @@ void MainScene::dealEvent(BP_Event& e)
     }
 
     // Tab激活控制台
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB)
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK))
     {
         Console c;
     }
@@ -292,7 +293,7 @@ void MainScene::dealEvent(BP_Event& e)
         }
         else
         {
-            if (rest_time_ > 2) { total_step_ = 0; }  //虚拟按键中间可能出现空白帧，此处减少清空的情况，为了第一步可以不连续
+            if (rest_time_ > 2) { total_step_ = 0; }    //虚拟按键中间可能出现空白帧，此处减少清空的情况，为了第一步可以不连续
         }
 
         if (pressed && checkEntrance(x, y))

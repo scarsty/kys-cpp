@@ -189,7 +189,8 @@ void SubScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
     // Tab激活控制台
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB)
+    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
+        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK))
     {
         Console c;
     }
