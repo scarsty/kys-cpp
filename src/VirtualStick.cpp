@@ -202,7 +202,6 @@ void VirtualStick::dealEvent(BP_Event& e)
 
 void VirtualStick::draw()
 {
-    RunNode::draw();
     if (axis_x_ > 0 && axis_y_ > 0)
     {
         auto t = TextureManager::getInstance()->getTexture("title", 312);
