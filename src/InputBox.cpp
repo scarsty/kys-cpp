@@ -7,7 +7,8 @@ InputBox::InputBox()
 {
 }
 
-InputBox::InputBox(const std::string& title, int font_size) : title_(title)
+InputBox::InputBox(const std::string& title, int font_size) :
+    title_(title)
 {
     font_size_ = font_size;
 }
@@ -42,9 +43,11 @@ void InputBox::dealEvent(BP_Event& e)
         {
             if (text_.size() >= 1)
             {
+                uint8_t c = text_.back();
                 text_.pop_back();
-                if (text_.size() >= 1 && uint8_t(text_.back()) >= 128)
+                if (c >= 128 && text_.size() >= 2 && uint8_t(text_.back()) >= 128)
                 {
+                    text_.pop_back();
                     text_.pop_back();
                 }
             }
