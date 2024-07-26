@@ -1,4 +1,7 @@
-#include "Font.h"
+﻿#include "Font.h"
+
+#include <iostream>
+
 #include "GameUtil.h"
 #include "OpenCCConverter.h"
 #include "TextureManager.h"
@@ -19,13 +22,17 @@ BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
     return r;
 }
 
-void Font::draw(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha)
+//此处仅接受utf8
+//返回值为实际画的行数
+int Font::draw(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha)
 {
+    int line = 1;
     int p = 0;
     int char_count = 0;
     int s1;
     color.a = alpha;
     std::string text1;
+    int x0 = x;
     const std::string* textp = &text;
     if (simplified_)
     {
@@ -47,6 +54,13 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         int w = size, h = size;
         uint32_t c = (uint8_t)textp->data()[p];
         p++;
+        if (c == '\n')
+        {
+            y += h;
+            x = x0;
+            line++;
+            continue;
+        }
         if (c >= 128)
         {
             c += (uint8_t)textp->data()[p] * 256 + (uint8_t)textp->data()[p + 1] * 256 * 256;
@@ -62,17 +76,17 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
         int w1 = w;
         int x1 = x;
         //Engine::getInstance()->queryTexture(tex, &w, &h);
-        if (c <= 128)
+        if (c < 128)
         {
             w = size / 2;
             Engine::getInstance()->queryTexture(tex, &w1, nullptr);
             w1 = (std::min)(w1, w);
             x1 += (w - w1) / 2;
         }
-        if (c != 32)
+        if (c > ' ')
         {
             Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
-            //Engine::getInstance()->setColor(tex, { 0,0,0, color.a });
+            Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
             Engine::getInstance()->renderCopy(tex, x1 + 1, y, w1, h);
             Engine::getInstance()->setColor(tex, color);
             Engine::getInstance()->renderCopy(tex, x1, y, w1, h);
@@ -87,6 +101,7 @@ void Font::draw(const std::string& text, int size, int x, int y, BP_Color color,
             fmt1::print(" {}/{}, {}, total = {}, t2s buffer = {}\n", s, char_count, size, getBufferSize(), t2s_buffer_.size());
         }
     }
+    return line;
 }
 
 void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha, uint8_t alpha_box)

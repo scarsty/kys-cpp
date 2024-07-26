@@ -152,8 +152,7 @@ private:
                     }
                     else
                     {
-                        auto& str = *(std::string*)((char*)&data1 + info.offset);
-                        str = (char*)sqlite3_column_text(statement, info.col);
+                        
                     }
                 }
             }

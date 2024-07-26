@@ -19,20 +19,17 @@ std::string Save::getFilename(int i, char c)
     std::string filename;
     if (i > 0)
     {
+        filename = fmt1::format(GameUtil::PATH() + "save/{}{}.grp", c, i);
         if (c == 'r')
         {
-            filename = fmt1::format(GameUtil::PATH() + "save/{}.db", i);
-        }
-        else
-        {
-            filename = fmt1::format(GameUtil::PATH() + "save/{}{}.grp", c, i);
+            filename += "32";
         }
     }
     else
     {
         if (c == 'r')
         {
-            filename = GameUtil::PATH() + "save/0.db";
+            filename = GameUtil::PATH() + "save/ranger.grp32";
         }
         else if (c == 's')
         {
@@ -69,7 +66,7 @@ bool Save::load(int num)
         return false;
     }
 
-    //loadR(num);
+    loadR(num);
     loadRFromDB(num);
     loadSD(num);
 
@@ -78,6 +75,68 @@ bool Save::load(int num)
 
     //saveRToDB(num);    //临时转换
     return true;
+}
+
+void Save::loadR(int num)
+{
+    std::string filenamer = getFilename(num, 'r');
+    std::string filename_idx = GameUtil::PATH() + "save/ranger.idx32";
+    auto rgrp = GrpIdxFile::getIdxContent(filename_idx, filenamer, &offset_, &length_);
+    memcpy((void*)this, rgrp.data() + offset_[0], length_[0]);
+    filefunc::readDataToVector(rgrp.data() + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    filefunc::readDataToVector(rgrp.data() + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+    updateAllPtrVector();
+
+    //内部编码为65001
+    if (Encode != 65001)
+    {
+        if (Encode == 936)
+        {
+            for (auto i : roles_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
+                PotConv::fromCP936ToUTF8(i->Nick, i->Nick);
+            }
+            for (auto i : items_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
+                PotConv::fromCP936ToUTF8(i->Introduction, i->Introduction);
+            }
+            for (auto i : magics_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
+            }
+            for (auto i : submap_infos_)
+            {
+                PotConv::fromCP936ToUTF8(i->Name, i->Name);
+            }
+        }
+        else
+        {
+            for (auto i : roles_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
+                PotConv::fromCP950ToUTF8(i->Nick, i->Nick);
+            }
+            for (auto i : items_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
+                PotConv::fromCP950ToUTF8(i->Introduction, i->Introduction);
+            }
+            for (auto i : magics_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
+            }
+            for (auto i : submap_infos_)
+            {
+                PotConv::fromCP950ToUTF8(i->Name, i->Name);
+            }
+        }
+        Encode = 65001;
+    }
 }
 
 void Save::loadSD(int num)
@@ -102,10 +161,26 @@ void Save::loadSD(int num)
 
 bool Save::save(int num)
 {
-    //saveR(num);
+    saveR(num);
     saveSD(num);
     saveRToDB(num);
     return true;
+}
+
+void Save::saveR(int num)
+{
+    std::string filenamer = getFilename(num, 'r');
+
+    char* rgrp = new char[offset_.back()];
+    memcpy(rgrp + offset_[0], &InShip, length_[0]);
+    filefunc::writeVectorToData(rgrp + offset_[1], length_[1], roles_mem_, sizeof(RoleSave));
+    filefunc::writeVectorToData(rgrp + offset_[2], length_[2], items_mem_, sizeof(ItemSave));
+    filefunc::writeVectorToData(rgrp + offset_[3], length_[3], submap_infos_mem_, sizeof(SubMapInfoSave));
+    filefunc::writeVectorToData(rgrp + offset_[4], length_[4], magics_mem_, sizeof(MagicSave));
+    filefunc::writeVectorToData(rgrp + offset_[5], length_[5], shops_mem_, sizeof(ShopSave));
+
+    GrpIdxFile::writeFile(filenamer, rgrp, offset_.back());
+    delete[] rgrp;
 }
 
 void Save::saveSD(int num)

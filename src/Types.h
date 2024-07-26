@@ -135,7 +135,7 @@ struct RoleSave
 public:
     int ID;
     int HeadID, IncLife, UnUse;
-    char Name[20], Nick[20];
+    std::string Name, Nick;
     int Sexual;    //性别 0-男 1 女 2 其他
     int Level;
     int Exp;
@@ -361,9 +361,9 @@ public:
 struct ItemSave
 {
     int ID;
-    char Name[40];
+    std::string Name;
     int Name1[10];
-    char Introduction[60];
+    std::string Introduction;
     int MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
     int ItemType;    //0剧情，1装备，2秘笈，3药品，4暗器
     int UnKnown5, UnKnown6, UnKnown7;
@@ -392,7 +392,7 @@ public:
 struct MagicSave
 {
     int ID;
-    char Name[20];
+    std::string Name;
     int Unknown[5];
     int SoundID;
     int MagicType;    //1-拳，2-剑，3-刀，4-特殊
@@ -415,7 +415,7 @@ struct Magic : MagicSave
 struct SubMapInfoSave
 {
     int ID;
-    char Name[20];
+    std::string Name;
     int ExitMusic, EntranceMusic;
     int JumpSubMap, EntranceCondition;
     int MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;

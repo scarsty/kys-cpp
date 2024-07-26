@@ -29,10 +29,10 @@ public:
     ~Save();
 
     bool load(int num);
-    //void loadR(int num);
+    void loadR(int num);
     void loadSD(int num);
     bool save(int num);
-    //void saveR(int num);
+    void saveR(int num);
     void saveSD(int num);
 
     // 帮助网络交流

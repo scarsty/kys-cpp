@@ -27,7 +27,7 @@ public:
 
     void setRole(Role* r) { role_ = r; }
 
-    void setRoleName(std::string name);
+    void setRoleName(const std::string& name);
 
     Role* getRole() { return role_; }
 

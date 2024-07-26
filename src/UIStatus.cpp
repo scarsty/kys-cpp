@@ -400,11 +400,12 @@ void UIStatus::onPressedOK()
     }
 }
 
-void UIStatus::setRoleName(std::string name)
+void UIStatus::setRoleName(const std::string& name)
 {
     assert(role_ != nullptr);
-    memset(role_->Name, '\0', sizeof(role_->Name));
-    memcpy(role_->Name, name.c_str(), std::min(name.size(), sizeof(role_->Name)));
+    //memset(role_->Name, '\0', sizeof(role_->Name));
+    //memcpy(role_->Name, name.c_str(), std::min(name.size(), sizeof(role_->Name)));
+    role_->Name = name;
 }
 
 void UIStatus::setExtentionVisible(bool b)

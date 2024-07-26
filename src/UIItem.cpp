@@ -422,9 +422,9 @@ void UIItem::showItemProperty(Item* item)
     //物品名和数量
     Font::getInstance()->draw(item->Name, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID)), 24, x_ + 260, y_ + 370, { 255, 255, 255, 255 });
-    Font::getInstance()->draw(item->Introduction, 20, x_ + 10, y_ + 400, { 255, 255, 255, 255 });
+    int l0 = Font::getInstance()->draw(item->Introduction, 20, x_ + 20, y_ + 400, { 255, 255, 255, 255 });
 
-    int x = 10, y = 430;
+    int x = 10, y = 410 + 20 * l0;
     int size = 20;
     int l;
 
