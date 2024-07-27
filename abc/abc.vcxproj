@@ -12,21 +12,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\mlcc\PotConv.cpp" />
-    <ClCompile Include="..\src\GameUtil.cpp" />
     <ClCompile Include="..\src\OpenCCConverter.cpp" />
-    <ClCompile Include="..\src\Types.cpp" />
     <ClCompile Include="abc.cpp" />
     <ClCompile Include="..\mlcc\filefunc.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\src\GrpIdxFile.cpp" />
-    <ClCompile Include="NewSave.cpp" />
-    <ClCompile Include="Save.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="NewSave.h" />
-    <ClInclude Include="Save.h" />
     <ClInclude Include="TypesABC.h" />
-    <ClInclude Include="..\src\GrpIdxFile.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -79,7 +72,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>../src;../mlcc;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
-      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>

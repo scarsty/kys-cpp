@@ -13,36 +13,15 @@
     <ClCompile Include="..\mlcc\filefunc.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\Types.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\GameUtil.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
     <ClCompile Include="..\mlcc\PotConv.cpp">
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="..\src\OpenCCConverter.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="NewSave.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
-    <ClCompile Include="Save.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\GrpIdxFile.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="TypesABC.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="NewSave.h">
-      <Filter>headers</Filter>
-    </ClInclude>
-    <ClInclude Include="Save.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>
