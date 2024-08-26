@@ -97,6 +97,8 @@ enum
 
     MAX_MAGIC_LEVEL = 999,
     MAX_MAGIC_LEVEL_INDEX = 9,
+
+    ROLE_INTERNAL_COUNT = 4,
 };
 
 enum
@@ -154,6 +156,7 @@ public:
     int ExpForItem;
     int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
+    int InternalID[ROLE_INTERNAL_COUNT], InternalLevel[ROLE_INTERNAL_COUNT];
 };
 
 //实际的角色数据，基类之外的通常是战斗属性
