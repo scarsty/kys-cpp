@@ -141,14 +141,14 @@ void NewSave::initDBFieldInfo()
                 BIND_FIELD_INT("携带物品数量2", TakingItemCount[1]),
                 BIND_FIELD_INT("携带物品数量3", TakingItemCount[2]),
                 BIND_FIELD_INT("携带物品数量4", TakingItemCount[3]),
-                BIND_FIELD_INT("所会内功1", InternalID[0]),
-                BIND_FIELD_INT("所会内功2", InternalID[1]),
-                BIND_FIELD_INT("所会内功3", InternalID[2]),
-                BIND_FIELD_INT("所会内功4", InternalID[3]),
-                BIND_FIELD_INT("内功等级1", InternalLevel[0]),
-                BIND_FIELD_INT("内功等级2", InternalLevel[1]),
-                BIND_FIELD_INT("内功等级3", InternalLevel[2]),
-                BIND_FIELD_INT("内功等级4", InternalLevel[3]),
+                //BIND_FIELD_INT("所会内功1", InternalID[0]),
+                //BIND_FIELD_INT("所会内功2", InternalID[1]),
+                //BIND_FIELD_INT("所会内功3", InternalID[2]),
+                //BIND_FIELD_INT("所会内功4", InternalID[3]),
+                //BIND_FIELD_INT("内功等级1", InternalLevel[0]),
+                //BIND_FIELD_INT("内功等级2", InternalLevel[1]),
+                //BIND_FIELD_INT("内功等级3", InternalLevel[2]),
+                //BIND_FIELD_INT("内功等级4", InternalLevel[3]),
             };
     }
     if (item_.size() == 0)

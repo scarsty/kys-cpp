@@ -75,28 +75,41 @@ private:
             {
                 cmd += "text,";
             }
+            else
+            {
+                cmd += "text,";
+            }
         }
         cmd.pop_back();
         cmd += ")";
-        sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
+        auto ret = sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
 
         for (auto& data1 : data)
         {
-            std::string cmd = "insert into " + table_name + " values(";
+            std::string cmd1 = "insert into " + table_name + " values(";
             for (auto& info : infos)
             {
                 if (info.type == 0)
                 {
-                    cmd += std::to_string(*(int*)((char*)&data1 + info.offset)) + ",";
+                    cmd1 += std::to_string(*(int*)((char*)&data1 + info.offset)) + ",";
+                }
+                else if (info.type == 1)
+                {
+                    cmd1 += "'" + std::string((char*)((char*)&data1 + info.offset)) + "',";
                 }
                 else
                 {
-                    cmd += "'" + std::string((char*)((char*)&data1 + info.offset)) + "',";
+                    auto& str = *(std::string*)((char*)&data1 + info.offset);
+                    cmd1 += "'" + str + "',";
                 }
             }
-            cmd.pop_back();
-            cmd += ")";
-            sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
+            cmd1.pop_back();
+            cmd1 += ")";
+            auto ret1 = sqlite3_exec(db, cmd1.c_str(), nullptr, nullptr, nullptr);
+            if (ret1)
+            {
+                fmt1::print("{}\n", sqlite3_errmsg(db));
+            }
         }
     }
 
