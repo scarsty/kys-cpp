@@ -282,12 +282,31 @@ int Script::registerEventFunctions()
 
     auto newTalk = [](lua_State* L) -> int
     {
-        std::vector<int> args(3);
-        for (int i = 1; i < 3; i++)
+        std::vector<int> args(7);
+        int i1 = 1;
+        std::string str, name;
+        for (int i = 0; i < 3; i++)
         {
-            args[i] = lua_tonumber(L, i + 1);
+            if (lua_isnumber(L, i + 1))
+            {
+                args[i1++] = lua_tonumber(L, i + 1);
+            }
+            else if (lua_isstring(L, i + 1))
+            {
+                if (str.empty())
+                {
+                    str = lua_tostring(L, i + 1);
+                }
+                else
+                {
+                    name = lua_tostring(L, i + 1);
+                }
+            }
         }
-        std::string str(lua_tostring(L, 1));
+        if (str.empty())
+        {
+            str = (lua_tostring(L, 1));
+        }
         Event::getInstance()->newTalk(str, args[1], args[2]);
         return 0;
     };

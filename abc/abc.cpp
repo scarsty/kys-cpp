@@ -402,7 +402,7 @@ void trans_bin_list(std::string in, std::string out)
 //导出战斗帧数为文本
 void trans_fight_frame(std::string path0)
 {
-    for (int i = 0; i <= 300; i++)
+    for (int i = 0; i <= 900; i++)
     {
         std::string path = fmt1::format("{}/fight{:03}", path0, i);
         std::vector<int16_t> frame;
@@ -663,7 +663,7 @@ void combine_ka(std::string in, std::string out)
 //验证战斗帧数的正确性
 void check_fight_frame(std::string path, int repair = 0)
 {
-    for (int i = 0; i < 500; i++)
+    for (int i = 0; i < 900; i++)
     {
         auto path1 = fmt1::format("{}/fight{:03}", path, i);
         if (filefunc::pathExist(path1))
@@ -791,18 +791,18 @@ int main()
 #endif
     std::string path = "./";
     //check_script(path +"script/oldevent");
-    //check_fight_frame(path +"resource/fight", 1);
-    //trans_fight_frame();
+    check_fight_frame(path +"resource/fight", 0);
+    //trans_fight_frame(path + "resource/fight");
 
     //trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");
     //trans_bin_list(path + "list/leave.bin", path + "list/leave.txt");
-    initDBFieldInfo();
+    //initDBFieldInfo();
     //expandR(path + "save/ranger.idx", path + "save/ranger.grp", 0);
-    expandR(path + "save/ranger.idx", path + "save/r1.grp", 1);
-    expandR(path + "save/ranger.idx", path + "save/r2.grp", 2);
-    expandR(path + "save/ranger.idx", path + "save/r3.grp", 3);
-    expandR(path + "save/ranger.idx", path + "save/r4.grp", 4);
-    expandR(path + "save/ranger.idx", path + "save/r5.grp", 5);
+    //expandR(path + "save/ranger.idx", path + "save/r1.grp", 1);
+    //expandR(path + "save/ranger.idx", path + "save/r2.grp", 2);
+    //expandR(path + "save/ranger.idx", path + "save/r3.grp", 3);
+    //expandR(path + "save/ranger.idx", path + "save/r4.grp", 4);
+    //expandR(path + "save/ranger.idx", path + "save/r5.grp", 5);
 
     //expandR(path + "save/ranger.idx", path + "save/ranger.grp", 0, false, true);
 
