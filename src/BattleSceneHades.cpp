@@ -76,15 +76,6 @@ BattleSceneHades::~BattleSceneHades()
 {
 }
 
-void BattleSceneHades::setID(int id)
-{
-    battle_id_ = id;
-    info_ = BattleMap::getInstance()->getBattleInfo(id);
-
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_);
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_);
-}
-
 void BattleSceneHades::draw()
 {
     //在这个模式下，使用的是直角坐标

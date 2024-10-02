@@ -40,15 +40,6 @@ BattleSceneSekiro::BattleSceneSekiro()
     easy_block_ = GameUtil::getInstance()->getInt("game", "easy_block", 0);
 }
 
-void BattleSceneSekiro::setID(int id)
-{
-    battle_id_ = id;
-    info_ = BattleMap::getInstance()->getBattleInfo(id);
-
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 0, &earth_layer_);
-    BattleMap::getInstance()->copyLayerData(info_->BattleFieldID, 1, &building_layer_);
-}
-
 void BattleSceneSekiro::draw()
 {
     //在这个模式下，使用的是直角坐标
@@ -99,6 +90,7 @@ void BattleSceneSekiro::draw()
             int breathless = 0;
             int draw_turn = 1;    //主要为了被击倒的画到后面
         };
+
         std::vector<DrawInfo> draw_infos;
         draw_infos.reserve(10000);
 

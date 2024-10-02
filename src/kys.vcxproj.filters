@@ -187,6 +187,9 @@
     <ClCompile Include="TextureManager.cpp">
       <Filter>texture</Filter>
     </ClCompile>
+    <ClCompile Include="BattleSceneAct.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -389,6 +392,9 @@
     </ClInclude>
     <ClInclude Include="TextureManager.h">
       <Filter>texture</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneAct.h">
+      <Filter>battle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
