@@ -534,7 +534,7 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
         channels = 2;
     }
     want.freq = freq;
-    want.format = AUDIO_S16;
+    want.format = AUDIO_F32;
     want.channels = channels;
     want.samples = size;
     want.callback = mixAudioCallback;

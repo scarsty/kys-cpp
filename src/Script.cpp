@@ -7,8 +7,7 @@
 #include <array>
 #include <functional>
 
-template <typename T>
-int rModifier(const std::string& data_name, T getDataFromIndex, lua_State* L)
+int rModifier(auto data_name, auto getDataFromIndex, lua_State* L)
 {
     int index = lua_tonumber(L, 1);
     std::string name = lua_tostring(L, 2);

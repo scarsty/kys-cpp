@@ -59,7 +59,7 @@ Hanz2Piny::toPinyinFromUnicode (const Unicode hanzi_unicode, const bool with_ton
     // 不带声调
     vector<string> polyphone_list_without_tone;
     for (const auto& polyphone : polyphone_list_with_tone) {
-        const auto& iter = std::find_if(polyphone.cbegin(), polyphone.cend(), isdigit);
+        const auto& iter = std::ranges::find_if(polyphone.cbegin(), polyphone.cend(), isdigit);
         polyphone_list_without_tone.emplace_back(polyphone.cbegin(), iter);
     }
     return(polyphone_list_without_tone);
