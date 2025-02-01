@@ -25,7 +25,7 @@ void BattleCursor::setRoleAndMagic(Role* r, Magic* m /*= nullptr*/, int l /*= 0*
     head_selected_->setRole(r);
 }
 
-void BattleCursor::dealEvent(BP_Event& e)
+void BattleCursor::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     if (battle_scene_ == nullptr)
@@ -35,9 +35,9 @@ void BattleCursor::dealEvent(BP_Event& e)
     if (!role_->isAuto())
     {
         int x = -1, y = -1;
-        if (e.type == BP_KEYDOWN)
+        if (e.type == EVENT_KEY_DOWN)
         {
-            int tw = battle_scene_->getTowardsByKey(e.key.keysym.sym);
+            int tw = battle_scene_->getTowardsByKey(e.key.key);
             //线型的特殊处理一下
             if (magic_ && magic_->AttackAreaType == 1)
             {
@@ -48,7 +48,7 @@ void BattleCursor::dealEvent(BP_Event& e)
                 Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), tw, &x, &y);
             }
         }
-        if (e.type == BP_MOUSEMOTION)
+        if (e.type == EVENT_MOUSE_MOTION)
         {
             //线型的特殊处理一下
             if (magic_ && magic_->AttackAreaType == 1)
@@ -63,19 +63,19 @@ void BattleCursor::dealEvent(BP_Event& e)
                 y = p.y;
             }
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
         {
             Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightUp, &x, &y);
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
         {
             Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_LeftDown, &x, &y);
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
         {
             Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_LeftUp, &x, &y);
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
         {
             Scene::getTowardsPosition(battle_scene_->selectX(), battle_scene_->selectY(), Towards_RightDown, &x, &y);
         }

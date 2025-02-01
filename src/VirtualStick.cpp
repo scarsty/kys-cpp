@@ -21,31 +21,31 @@ VirtualStick::VirtualStick()
         int x = w_ * 0.1;
         int y = h_ * 0.65;
         int r = h_ * 0.1;
-        addButton(button_up_, 312, x, y - r, SDL_CONTROLLER_BUTTON_DPAD_UP);
-        addButton(button_down_, 312, x, y + r, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-        addButton(button_left_, 312, x - r, y, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
-        addButton(button_right_, 312, x + r, y, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+        addButton(button_up_, 312, x, y - r, SDL_GAMEPAD_BUTTON_DPAD_UP);
+        addButton(button_down_, 312, x, y + r, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
+        addButton(button_left_, 312, x - r, y, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
+        addButton(button_right_, 312, x + r, y, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
     }
 
     {
         int x = w_ * 0.8;
         int y = h_ * 0.65;
         int r = h_ * 0.15;
-        addButton(button_a_, 300, x, y + r, BP_CONTROLLER_BUTTON_A);
-        addButton(button_b_, 302, x + r, y, BP_CONTROLLER_BUTTON_B);
-        addButton(button_x_, 304, x - r, y, BP_CONTROLLER_BUTTON_X);
-        addButton(button_y_, 306, x, y - r, BP_CONTROLLER_BUTTON_Y);
+        addButton(button_a_, 300, x, y + r, GAMEPAD_BUTTON_SOUTH);
+        addButton(button_b_, 302, x + r, y, GAMEPAD_BUTTON_EAST);
+        addButton(button_x_, 304, x - r, y, GAMEPAD_BUTTON_WEST);
+        addButton(button_y_, 306, x, y - r, GAMEPAD_BUTTON_NORTH);
     }
-    //addButton(button_lb_, 300, w_ * 0.1, h_ * 0.5, BP_CONTROLLER_BUTTON_LEFTSHOULDER);
-    //addButton(button_rb_, 302, w_ * 0.1, h_ * 0.8, BP_CONTROLLER_BUTTON_RIGHTSHOULDER);
-    addButton(button_left_axis_, 320, w_ * 0.04, h_ * 0.5, BP_CONTROLLER_BUTTON_LEFTSTICK);
+    //addButton(button_lb_, 300, w_ * 0.1, h_ * 0.5, GAMEPAD_BUTTON_LEFT_SHOULDER);
+    //addButton(button_rb_, 302, w_ * 0.1, h_ * 0.8, GAMEPAD_BUTTON_RIGHT_SHOULDER);
+    addButton(button_left_axis_, 320, w_ * 0.04, h_ * 0.5, GAMEPAD_BUTTON_LEFT_STICK);
     button_left_axis_->setVisible(false);
 
-    addButton(button_view_, 310, w_ * 0.4 - 25, h_ * 0.9, BP_CONTROLLER_BUTTON_BACK);
-    addButton(button_menu_, 308, w_ * 0.6 - 25, h_ * 0.9, BP_CONTROLLER_BUTTON_START);
+    addButton(button_view_, 310, w_ * 0.4 - 25, h_ * 0.9, GAMEPAD_BUTTON_BACK);
+    addButton(button_menu_, 308, w_ * 0.6 - 25, h_ * 0.9, GAMEPAD_BUTTON_START);
 }
 
-void VirtualStick::dealEvent(BP_Event& e)
+void VirtualStick::dealEvent(EngineEvent& e)
 {
     bool is_real = RunNode::topIsType<BattleSceneHades>() || RunNode::topIsType<BattleSceneSekiro>();
     if (is_real)
@@ -137,8 +137,8 @@ void VirtualStick::dealEvent(BP_Event& e)
                         auto& intval = button_interval_[b];
                         if (r < axis_radius_ * 1.5)
                         {
-                            engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
-                            engine->setGameControllerAxis(SDL_CONTROLLER_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
+                            engine->setGameControllerAxis(SDL_GAMEPAD_AXIS_LEFTX, (x - axis_center_x_) * 30000 / axis_radius_);
+                            engine->setGameControllerAxis(SDL_GAMEPAD_AXIS_LEFTY, (y - axis_center_y_) * 30000 / axis_radius_);
                             button_interval_[b].prev_press = engine->getTicks();
                             is_press = true;
                             b->state_ = NodePress;
@@ -157,21 +157,21 @@ void VirtualStick::dealEvent(BP_Event& e)
             if (is_press && button_a_->state_ == NodePress)
             {
                 //fmt1::print("{}", "press a");
-                e.type = BP_KEYUP;
-                e.key.keysym.sym = BPK_RETURN;
+                e.type = EVENT_KEY_UP;
+                e.key.key = K_RETURN;
                 button_interval_[button_a_].interval = 100;
             }
             if (is_press && button_b_->state_ == NodePress)
             {
-                e.type = BP_KEYUP;
-                e.key.keysym.sym = BPK_ESCAPE;
+                e.type = EVENT_KEY_UP;
+                e.key.key = K_ESCAPE;
                 button_interval_[button_b_].interval = 100;
             }
         }
         if (is_press && button_menu_->state_ == NodePress)
         {
-            e.type = BP_KEYUP;
-            e.key.keysym.sym = BPK_ESCAPE;
+            e.type = EVENT_KEY_UP;
+            e.key.key = K_ESCAPE;
             if (!is_real)
             {
                 button_interval_[button_menu_].interval = 100;
@@ -179,8 +179,8 @@ void VirtualStick::dealEvent(BP_Event& e)
         }
         if (is_press && button_view_->state_ == NodePress)
         {
-            e.type = BP_KEYUP;
-            e.key.keysym.sym = BPK_TAB;
+            e.type = EVENT_KEY_UP;
+            e.key.key = K_TAB;
             if (!is_real)
             {
                 button_interval_[button_view_].interval = 100;
@@ -191,10 +191,10 @@ void VirtualStick::dealEvent(BP_Event& e)
             prev_press_ = engine->getTicks();
         }
         //一定时间内忽略鼠标事件
-        if ((e.type == BP_MOUSEBUTTONUP || e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEMOTION)
+        if ((e.type == EVENT_MOUSE_BUTTON_UP || e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_MOTION)
             && engine->getTicks() - prev_press_ < 500)
         {
-            e.type = BP_FIRSTEVENT;
+            e.type = EVENT_FIRST;
         }
         if (is_press)
         {

@@ -79,9 +79,6 @@
     <ClCompile Include="RandomRole.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="Event.cpp">
-      <Filter>event</Filter>
-    </ClCompile>
     <ClCompile Include="Script.cpp">
       <Filter>event</Filter>
     </ClCompile>
@@ -190,6 +187,9 @@
     <ClCompile Include="BattleSceneAct.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="Event.cpp">
+      <Filter>event</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -257,9 +257,6 @@
     </ClInclude>
     <ClInclude Include="Cloud.h">
       <Filter>scene</Filter>
-    </ClInclude>
-    <ClInclude Include="Event.h">
-      <Filter>event</Filter>
     </ClInclude>
     <ClInclude Include="EventMacro.h">
       <Filter>event</Filter>
@@ -396,6 +393,9 @@
     <ClInclude Include="BattleSceneAct.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="Event.h">
+      <Filter>event</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -412,9 +412,6 @@
     </Filter>
     <Filter Include="engine">
       <UniqueIdentifier>{9a45ad9e-99a5-4c12-bcb1-061a80dcf7c1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="event">
-      <UniqueIdentifier>{30786fa7-72a0-4216-9bb9-7d45e9ee1975}</UniqueIdentifier>
     </Filter>
     <Filter Include="save">
       <UniqueIdentifier>{757d4cc3-0d27-4fe1-89f8-331989fe526b}</UniqueIdentifier>
@@ -462,6 +459,9 @@
     </Filter>
     <Filter Include="texture">
       <UniqueIdentifier>{3f5f1c37-008d-4f8b-ae4e-a958437e52cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="event">
+      <UniqueIdentifier>{30786fa7-72a0-4216-9bb9-7d45e9ee1975}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -10,8 +10,8 @@ class BattleSceneSekiro : public BattleSceneAct
 public:
     BattleSceneSekiro();
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;     //战场主循环
-    virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
+    virtual void dealEvent(EngineEvent& e) override;     //战场主循环
+    virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
 
@@ -39,7 +39,7 @@ protected:
     const double MAX_POSTURE = 100;
 
     int sword_light_ = 0;
-    BP_Color sword_light_color_ = { 255, 255, 255, 255 };
+    Color sword_light_color_ = { 255, 255, 255, 255 };
     int switch_magic_ = 0;
 
     int easy_block_ = 0;

@@ -16,7 +16,7 @@ public:
     const int num_style_ = 10;
     int num_;
 
-    BP_Color color_;
+    Color color_;
     uint8_t alpha_;
 
     void initRand();

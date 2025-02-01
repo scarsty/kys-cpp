@@ -34,7 +34,7 @@ void RunNodeFromJson::create(YAML::Node& n, RunNode* run_node)
         t->setFontSize(n["FontSize"].as<int>());
         t->setTextPosition(n["Position"]["X"].as<double>(), n["Position"]["Y"].as<double>());
         t->setHaveBox(0);
-        BP_Color c{ 255, 255, 255, 255 };
+        Color c{ 255, 255, 255, 255 };
         t->setTextColor(c, c, c);
         new_node = t;
     }

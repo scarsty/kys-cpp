@@ -11,10 +11,10 @@ Button::~Button()
 {
 }
 
-void Button::dealEvent(BP_Event& e)
+void Button::dealEvent(EngineEvent& e)
 {
     result_ = -1;
-    if (e.type == BP_MOUSEBUTTONUP)
+    if (e.type == EVENT_MOUSE_BUTTON_UP)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
@@ -38,7 +38,7 @@ void Button::draw()
     int x = x_;
     int y = y_;
     auto id = texture_normal_id_;
-    BP_Color color = { 255, 255, 255, 255 };
+    Color color = { 255, 255, 255, 255 };
     uint8_t alpha = alpha_;
     if (state_ == NodeNormal)
     {
@@ -64,7 +64,7 @@ void Button::draw()
 
     if (!text_.empty())
     {
-        BP_Color color_text = color_normal_;
+        Color color_text = color_normal_;
         if (state_ == NodePass)
         {
             color_text = color_pass_;
@@ -81,11 +81,11 @@ ButtonGetKey::~ButtonGetKey()
 {
 }
 
-void ButtonGetKey::dealEvent(BP_Event& e)
+void ButtonGetKey::dealEvent(EngineEvent& e)
 {
-    if (e.type == BP_KEYUP)
+    if (e.type == EVENT_KEY_UP)
     {
-        result_ = e.key.keysym.sym;
+        result_ = e.key.key;
         setExit(true);
     }
 }

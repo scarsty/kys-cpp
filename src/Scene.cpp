@@ -19,7 +19,7 @@ void Scene::calViewRegion()
     view_sum_region_ = render_center_y_ / TILE_H + 2;
 }
 
-void Scene::checkWalk(int x, int y, BP_Event& e)
+void Scene::checkWalk(int x, int y, EngineEvent& e)
 {
 }
 
@@ -80,7 +80,7 @@ int Scene::calTowards(int x1, int y1, int x2, int y2)
     return Towards_None;
 }
 
-void Scene::changeTowardsByKey(BP_Keycode key)
+void Scene::changeTowardsByKey(Keycode key)
 {
     int tw = getTowardsByKey(key);
     if (tw != Towards_None)
@@ -89,21 +89,21 @@ void Scene::changeTowardsByKey(BP_Keycode key)
     }
 }
 
-int Scene::getTowardsByKey(BP_Keycode key)
+int Scene::getTowardsByKey(Keycode key)
 {
     int tw = Towards_None;
     switch (key)
     {
-    case BPK_LEFT:
+    case K_LEFT:
         tw = Towards_LeftUp;
         break;
-    case BPK_RIGHT:
+    case K_RIGHT:
         tw = Towards_RightDown;
         break;
-    case BPK_UP:
+    case K_UP:
         tw = Towards_RightUp;
         break;
-    case BPK_DOWN:
+    case K_DOWN:
         tw = Towards_LeftDown;
         break;
     }

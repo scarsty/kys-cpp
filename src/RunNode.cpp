@@ -236,19 +236,19 @@ void RunNode::checkFrame()
     }
 }
 
-bool RunNode::isPressOK(BP_Event& e)
+bool RunNode::isPressOK(EngineEvent& e)
 {
-    bool ret = (e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A);
+    bool ret = (e.type == EVENT_KEY_UP && (e.key.key == K_RETURN || e.key.key == K_SPACE))
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_SOUTH);
     return ret;
 }
 
-bool RunNode::isPressCancel(BP_Event& e)
+bool RunNode::isPressCancel(EngineEvent& e)
 {
-    bool ret = (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_B);
+    bool ret = (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_EAST);
     return ret;
 }
 
@@ -271,7 +271,7 @@ void RunNode::drawSelfChilds()
 //处理自身的事件响应
 //只处理当前的节点和当前节点的子节点，检测鼠标是否在范围内
 //注意全屏类的节点要一直接受事件
-void RunNode::checkStateSelfChilds(BP_Event& e, bool check_event)
+void RunNode::checkStateSelfChilds(EngineEvent& e, bool check_event)
 {
     //if (exit_) { return; }
     if (visible_ || full_window_)
@@ -328,8 +328,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
 {
     if (check_event)
     {
-        BP_Event e;
-        e.type = BP_FIRSTEVENT;
+        EngineEvent e;
+        e.type = EVENT_FIRST;
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
         while (Engine::getInstance()->pollEvent(e))
         {
@@ -338,16 +338,16 @@ void RunNode::dealEventSelfChilds(bool check_event)
                 break;
             }
         }
-        if (e.type == BP_CONTROLLERAXISMOTION)
+        if (e.type == EVENT_GAMEPAD_AXIS_MOTION)
         {
             //摇杆移动会产生大量事件，暂时不处理
-            BP_Event e1;
+            EngineEvent e1;
             while (Engine::getInstance()->pollEvent(e1)) {};
             //右摇杆控制鼠标，手感有问题，待处理
-            //if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX || e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY)
+            //if (e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTX || e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
             //{
-            //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTX);
-            //    auto axis_y = Engine::getInstance()->gameControllerGetAxis(BP_CONTROLLER_AXIS_RIGHTY);
+            //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
+            //    auto axis_y = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
             //
             //    //fmt1::print("{} {}  ", axis_x, axis_y);
             //    if (abs(axis_x) < 10000) { axis_x = 0; }
@@ -367,23 +367,23 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //        if (y >= h) { y = h - 1; }
             //        if (y < 0) { y = 0; }
             //        Engine::getInstance()->setMouseStateInStartWindow(x, y);
-            //        e.type = BP_MOUSEMOTION;
+            //        e.type = EVENT_MOUSE_MOTION;
             //        e.motion.x = x;
             //        e.motion.y = y;
             //    }
             //}
         }
-        if (e.type == BP_APP_DIDENTERBACKGROUND)
+        if (e.type == EVENT_DID_ENTER_BACKGROUND)
         {
             //暂停音频
             Audio::getInstance()->pauseMusic();
         }
-        if (e.type == BP_APP_WILLENTERFOREGROUND)
+        if (e.type == EVENT_WILL_ENTER_FOREGROUND)
         {
             //恢复音频
             Audio::getInstance()->continueMusic();
         }
-        if (e.type == BP_CONTROLLERDEVICEADDED || e.type == BP_CONTROLLERDEVICEREMOVED)
+        if (e.type == EVENT_GAMEPAD_ADDED || e.type == EVENT_GAMEPAD_REMOVED)
         {
             fmt1::print("Controllers changed\n");
             Engine::getInstance()->checkGameControllers();
@@ -393,8 +393,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
             virtual_stick()->dealEvent(e);
         }
         checkStateSelfChilds(e, check_event);
-        if (e.type == BP_QUIT
-            || (e.type == BP_WINDOWEVENT && e.window.event == BP_WINDOWEVENT_CLOSE))
+        if (e.type == EVENT_QUIT
+            || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
         {
             UISystem::askExit(1);
         }
@@ -406,26 +406,26 @@ void RunNode::dealEventSelfChilds(bool check_event)
 }
 
 //是否为游戏需要处理的类型，避免丢失一些操作
-bool RunNode::isSpecialEvent(BP_Event& e)
+bool RunNode::isSpecialEvent(EngineEvent& e)
 {
     //fmt1::print("type = {}\n", e.type);
-    return e.type == BP_QUIT
+    return e.type == EVENT_QUIT
         || e.type == BP_WINDOWEVENT
-        || e.type == BP_KEYDOWN
-        || e.type == BP_KEYUP
-        || e.type == BP_TEXTEDITING
-        || e.type == BP_TEXTINPUT
-        || e.type == BP_MOUSEMOTION
-        || e.type == BP_MOUSEBUTTONDOWN
-        || e.type == BP_MOUSEBUTTONUP
-        || e.type == BP_MOUSEWHEEL
-        || e.type == BP_CONTROLLERAXISMOTION
-        || e.type == BP_CONTROLLERBUTTONDOWN
-        || e.type == BP_CONTROLLERBUTTONUP
-        || e.type == BP_APP_DIDENTERBACKGROUND
-        || e.type == BP_APP_WILLENTERFOREGROUND
-        || e.type == BP_CONTROLLERDEVICEADDED
-        || e.type == BP_CONTROLLERDEVICEREMOVED;
+        || e.type == EVENT_KEY_DOWN
+        || e.type == EVENT_KEY_UP
+        || e.type == EVENT_TEXT_EDITING
+        || e.type == EVENT_TEXT_INPUT
+        || e.type == EVENT_MOUSE_MOTION
+        || e.type == EVENT_MOUSE_BUTTON_DOWN
+        || e.type == EVENT_MOUSE_BUTTON_UP
+        || e.type == EVENT_MOUSE_WHEEL
+        || e.type == EVENT_GAMEPAD_AXIS_MOTION
+        || e.type == EVENT_GAMEPAD_BUTTON_DOWN
+        || e.type == EVENT_GAMEPAD_BUTTON_UP
+        || e.type == EVENT_DID_ENTER_BACKGROUND
+        || e.type == EVENT_WILL_ENTER_FOREGROUND
+        || e.type == EVENT_GAMEPAD_ADDED
+        || e.type == EVENT_GAMEPAD_REMOVED;
 }
 
 //获取子节点的状态
@@ -442,12 +442,12 @@ int RunNode::checkChildState()
     return r;
 }
 
-void RunNode::checkSelfState(BP_Event& e)
+void RunNode::checkSelfState(EngineEvent& e)
 {
     //检测鼠标经过，按下等状态
     //BP_MOUSEMOTION似乎有些问题，待查
     //fmt1::print("{} ", e.type);
-    if (e.type == BP_MOUSEMOTION)
+    if (e.type == EVENT_MOUSE_MOTION)
     {
         if (inSide(e.motion.x, e.motion.y))
         {
@@ -458,7 +458,7 @@ void RunNode::checkSelfState(BP_Event& e)
             state_ = NodeNormal;
         }
     }
-    if ((e.type == BP_MOUSEBUTTONDOWN || e.type == BP_MOUSEBUTTONUP) && e.button.button == BP_BUTTON_LEFT)
+    if ((e.type == EVENT_MOUSE_BUTTON_DOWN || e.type == EVENT_MOUSE_BUTTON_UP) && e.button.button == BUTTON_LEFT)
     {
         if (inSide(e.button.x, e.button.y))
         {
@@ -469,7 +469,7 @@ void RunNode::checkSelfState(BP_Event& e)
             state_ = NodeNormal;
         }
     }
-    if ((e.type == BP_KEYDOWN || e.type == BP_KEYUP) && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
+    if ((e.type == EVENT_KEY_DOWN || e.type == EVENT_KEY_UP) && (e.key.key == K_RETURN || e.key.key == K_SPACE))
     {
         //按下键盘的空格或者回车时，将pass的按键改为press
         if (state_ == NodePass)
@@ -477,7 +477,7 @@ void RunNode::checkSelfState(BP_Event& e)
             state_ = NodePress;
         }
     }
-    if ((e.type == BP_CONTROLLERBUTTONDOWN || e.type == BP_CONTROLLERBUTTONUP) && e.cbutton.button == BP_CONTROLLER_BUTTON_A)
+    if ((e.type == EVENT_GAMEPAD_BUTTON_DOWN || e.type == EVENT_GAMEPAD_BUTTON_UP) && e.gbutton.button == GAMEPAD_BUTTON_SOUTH)
     {
         //int x, y;
         //Engine::getInstance()->getMouseState(x, y);

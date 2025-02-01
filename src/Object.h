@@ -11,13 +11,13 @@ enum class ObjectMaterial
 class Object
 {
 public:
-    Texture* tex_ = nullptr;
+    TextureWarpper* tex_ = nullptr;
 
     int can_walk_ = 0;
     ObjectMaterial material_ = ObjectMaterial::Stone;
 
 public:
-    Texture* getTexture() { return tex_; }
+    TextureWarpper* getTexture() { return tex_; }
     void calPropertyByTexture();
 };
 

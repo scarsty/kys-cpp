@@ -22,7 +22,7 @@ public:
         return run();    //据说这里有潜在问题
     }
 
-    void dealEvent(BP_Event& e) override;
+    void dealEvent(EngineEvent& e) override;
 
     BattleScene* battle_scene_ = nullptr;
 

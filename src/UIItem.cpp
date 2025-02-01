@@ -186,10 +186,10 @@ Item* UIItem::getAvailableItem(int i)
     return nullptr;
 }
 
-void UIItem::dealEvent(BP_Event& e)
+void UIItem::dealEvent(EngineEvent& e)
 {
     checkCurrentItem();
-    if (e.type == BP_MOUSEWHEEL)
+    if (e.type == EVENT_MOUSE_WHEEL)
     {
         if (e.wheel.y > 0)
         {
@@ -204,12 +204,12 @@ void UIItem::dealEvent(BP_Event& e)
     //此处处理键盘响应
     if (focus_ == 1)
     {
-        if (e.type == BP_KEYDOWN)
+        if (e.type == EVENT_KEY_DOWN)
         {
-            switch (e.key.keysym.sym)
+            switch (e.key.key)
             {
-            case BPK_LEFT:
-            case BPK_a:
+            case K_LEFT:
+            case K_A:
                 if (active_child_ > 0)
                 {
                     active_child_--;
@@ -223,8 +223,8 @@ void UIItem::dealEvent(BP_Event& e)
                     }
                 }
                 break;
-            case BPK_RIGHT:
-            case BPK_d:
+            case K_RIGHT:
+            case K_D:
                 if (active_child_ < item_each_line_ * line_count_ - 1)
                 {
                     active_child_++;
@@ -238,8 +238,8 @@ void UIItem::dealEvent(BP_Event& e)
                     }
                 }
                 break;
-            case BPK_UP:
-            case BPK_w:
+            case K_UP:
+            case K_W:
                 if (active_child_ < item_each_line_ && leftup_index_ == 0)
                 {
                     focus_ = 0;
@@ -253,8 +253,8 @@ void UIItem::dealEvent(BP_Event& e)
                     active_child_ -= item_each_line_;
                 }
                 break;
-            case BPK_DOWN:
-            case BPK_s:
+            case K_DOWN:
+            case K_S:
                 if (active_child_ < item_each_line_ * (line_count_ - 1))
                 {
                     active_child_ += item_each_line_;
@@ -275,18 +275,18 @@ void UIItem::dealEvent(BP_Event& e)
     if (focus_ == 0)
     {
         title_->setDealEvent(1);
-        if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_DOWN)
+        if (e.type == EVENT_KEY_UP && e.key.key == K_DOWN)
         {
             focus_ = 1;
         }
     }
-    if (false && e.type == BP_CONTROLLERBUTTONUP)
+    if (false && e.type == EVENT_GAMEPAD_BUTTON_UP)
     {
-        //fmt1::print("button: {}\n", e.cbutton.button);
+        //fmt1::print("button: {}\n", e.gbutton.button);
         title_->setDealEvent(1);
-        switch (e.cbutton.button)
+        switch (e.gbutton.button)
         {
-        case BP_CONTROLLER_BUTTON_DPAD_LEFT:
+        case GAMEPAD_BUTTON_DPAD_LEFT:
             if (active_child_ > 0)
             {
                 active_child_--;
@@ -300,7 +300,7 @@ void UIItem::dealEvent(BP_Event& e)
                 }
             }
             break;
-        case BP_CONTROLLER_BUTTON_DPAD_RIGHT:
+        case GAMEPAD_BUTTON_DPAD_RIGHT:
             if (active_child_ < item_each_line_ * line_count_ - 1)
             {
                 active_child_++;
@@ -314,7 +314,7 @@ void UIItem::dealEvent(BP_Event& e)
                 }
             }
             break;
-        case BP_CONTROLLER_BUTTON_DPAD_UP:
+        case GAMEPAD_BUTTON_DPAD_UP:
             if (active_child_ < item_each_line_ && leftup_index_ == 0)
             {
             }
@@ -327,7 +327,7 @@ void UIItem::dealEvent(BP_Event& e)
                 active_child_ -= item_each_line_;
             }
             break;
-        case BP_CONTROLLER_BUTTON_DPAD_DOWN:
+        case GAMEPAD_BUTTON_DPAD_DOWN:
             if (active_child_ < item_each_line_ * (line_count_ - 1))
             {
                 active_child_ += item_each_line_;
@@ -347,7 +347,7 @@ void UIItem::dealEvent(BP_Event& e)
         auto engine = Engine::getInstance();
         title_->setDealEvent(1);
 
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
         {
             if (active_child_ > 0)
             {
@@ -364,7 +364,7 @@ void UIItem::dealEvent(BP_Event& e)
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
         {
             if (active_child_ < item_each_line_ * line_count_ - 1)
             {
@@ -381,7 +381,7 @@ void UIItem::dealEvent(BP_Event& e)
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
         {
             if (active_child_ < item_each_line_ && leftup_index_ == 0)
             {
@@ -397,7 +397,7 @@ void UIItem::dealEvent(BP_Event& e)
             engine->setInterValControllerPress(100);
             forceActiveChild();
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
         {
             if (active_child_ < item_each_line_ * (line_count_ - 1))
             {
@@ -429,7 +429,7 @@ void UIItem::showItemProperty(Item* item)
     int l;
 
     //以下显示物品的属性
-    BP_Color c = { 255, 215, 0, 255 };
+    Color c = { 255, 215, 0, 255 };
 
     //特别判断罗盘
     if (item->isCompass())
@@ -570,7 +570,7 @@ void UIItem::addOneProperty(const std::string& format_str)
 }
 
 //返回值为行数
-int UIItem::showAddedProperty(int size, BP_Color c, int x, int y)
+int UIItem::showAddedProperty(int size, Color c, int x, int y)
 {
     int line = 1;
     for (auto& str : properties_)

@@ -17,11 +17,11 @@ InputBox::~InputBox()
 {
 }
 
-void InputBox::dealEvent(BP_Event& e)
+void InputBox::dealEvent(EngineEvent& e)
 {
     switch (e.type)
     {
-    case BP_TEXTINPUT:
+    case EVENT_TEXT_INPUT:
     {
         auto converted = OpenCCConverter::getInstance()->UTF8s2t(e.text.text);
         //converted = PotConv::conv(converted, "utf-8", "cp936");
@@ -29,7 +29,7 @@ void InputBox::dealEvent(BP_Event& e)
         text_ += converted;
         break;
     }
-    case BP_TEXTEDITING:
+    case EVENT_TEXT_EDITING:
     {
         //看起来不太正常，待查
         //auto composition = e.edit.text;
@@ -38,8 +38,8 @@ void InputBox::dealEvent(BP_Event& e)
         //fmt1::print("editing %s\n", e.edit.text);
         break;
     }
-    case BP_KEYDOWN:
-        if (e.key.keysym.sym == BPK_BACKSPACE)
+    case EVENT_KEY_DOWN:
+        if (e.key.key == K_BACKSPACE)
         {
             if (text_.size() >= 1)
             {
@@ -53,8 +53,8 @@ void InputBox::dealEvent(BP_Event& e)
             }
         }
         break;
-    case BP_KEYUP:
-        if (e.key.keysym.sym == BPK_RETURN)
+    case EVENT_KEY_UP:
+        if (e.key.key == K_RETURN)
         {
             //if (!text_.empty())
             //{
@@ -70,7 +70,7 @@ void InputBox::draw()
 {
     Font::getInstance()->drawWithBox(title_, font_size_, x_, y_, color_, 255);
     Font::getInstance()->drawWithBox(text_ + "_", font_size_, text_x_, text_y_, color_, 255);
-    Engine::getInstance()->setTextInputRect(text_x_, text_y_, font_size_ * text_.size(), font_size_);
+    Engine::getInstance()->setTextInputArea(text_x_, text_y_, font_size_ * text_.size(), font_size_);
 }
 
 void InputBox::setInputPosition(int x, int y)

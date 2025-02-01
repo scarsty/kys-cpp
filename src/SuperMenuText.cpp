@@ -199,17 +199,17 @@ void SuperMenuText::updateMaxPages()
     maxPages_ = std::ceil((searchResultIndices_.size() / (double)itemsPerPage_));
 }
 
-void SuperMenuText::dealEvent(BP_Event& e)
+void SuperMenuText::dealEvent(EngineEvent& e)
 {
     // get不到result 为何
     // 不知道这玩意儿在干嘛，瞎搞即可
-    if (previous_->getState() == NodePress && e.type == BP_MOUSEBUTTONUP)
+    if (previous_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
         flipPage(-1);
         previous_->setState(NodeNormal);
         previous_->setResult(-1);
     }
-    else if (next_->getState() == NodePress && e.type == BP_MOUSEBUTTONUP)
+    else if (next_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
         flipPage(1);
         next_->setState(NodeNormal);
@@ -220,7 +220,7 @@ void SuperMenuText::dealEvent(BP_Event& e)
     // 为什么switch自动缩进是这样
     switch (e.type)
     {
-    case BP_TEXTINPUT:
+    case EVENT_TEXT_INPUT:
     {
         auto converted = OpenCCConverter::getInstance()->UTF8s2t(e.text.text);
         converted = PotConv::conv(converted, "utf-8", "cp936");
@@ -228,13 +228,13 @@ void SuperMenuText::dealEvent(BP_Event& e)
         research = true;
         break;
     }
-    case BP_TEXTEDITING:
+    case EVENT_TEXT_EDITING:
     {
         break;
     }
-    case BP_KEYDOWN:
+    case EVENT_KEY_DOWN:
     {
-        if (e.key.keysym.sym == BPK_BACKSPACE)
+        if (e.key.key == K_BACKSPACE)
         {
             if (text_.size() >= 1)
             {
@@ -248,16 +248,16 @@ void SuperMenuText::dealEvent(BP_Event& e)
         }
         break;
     }
-    case BP_KEYUP:
+    case EVENT_KEY_UP:
     {
-        switch (e.key.keysym.sym)
+        switch (e.key.key)
         {
-        case BPK_PAGEUP:
+        case K_PAGEUP:
         {
             flipPage(-1);
             break;
         }
-        case BPK_PAGEDOWN:
+        case K_PAGEDOWN:
         {
             flipPage(1);
             break;
@@ -265,7 +265,7 @@ void SuperMenuText::dealEvent(BP_Event& e)
         }
         break;
     }
-    case BP_MOUSEWHEEL:
+    case EVENT_MOUSE_WHEEL:
     {
         if (e.wheel.y > 0)
         {

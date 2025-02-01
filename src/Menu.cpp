@@ -10,31 +10,31 @@ Menu::~Menu()
 {
 }
 
-void Menu::dealEvent(BP_Event& e)
+void Menu::dealEvent(EngineEvent& e)
 {
     if (deal_event_ == 0) { return; }
     Direct direct = DIrectNone;
     if (ud_style_ == 0)
     {
         //此处处理键盘响应
-        if (e.type == BP_KEYDOWN)
+        if (e.type == EVENT_KEY_DOWN)
         {
-            switch (e.key.keysym.sym)
+            switch (e.key.key)
             {
-            case BPK_LEFT:
-            case BPK_a:
+            case K_LEFT:
+            case K_A:
                 direct = DirectLeft;
                 break;
-            case BPK_UP:
-            case BPK_w:
+            case K_UP:
+            case K_W:
                 direct = DirectUp;
                 break;
-            case BPK_RIGHT:
-            case BPK_d:
+            case K_RIGHT:
+            case K_D:
                 direct = DirectRight;
                 break;
-            case BPK_DOWN:
-            case BPK_s:
+            case K_DOWN:
+            case K_S:
                 direct = DirectDown;
                 break;
             default:
@@ -44,14 +44,14 @@ void Menu::dealEvent(BP_Event& e)
     }
     else if (ud_style_ == 1)
     {
-        if (e.type == BP_KEYDOWN)
+        if (e.type == EVENT_KEY_DOWN)
         {
-            switch (e.key.keysym.sym)
+            switch (e.key.key)
             {
-            case BPK_PAGEUP:
+            case K_PAGEUP:
                 direct = DirectUp;
                 break;
-            case BPK_PAGEDOWN:
+            case K_PAGEDOWN:
                 direct = DirectDown;
                 break;
             default:
@@ -61,35 +61,35 @@ void Menu::dealEvent(BP_Event& e)
     }
     //if (ud_style_ == 0)    //检查这个事件的反应比较慢
     //{
-    //    if (e.type == BP_CONTROLLERBUTTONUP)
+    //    if (e.type == EVENT_GAMEPAD_BUTTON_UP)
     //    {
     //        auto engine = Engine::getInstance();
     //        if (lr_style_ == 0)
     //        {
-    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_UP)
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_UP)
     //            {
     //                direct = DirectUp;
     //            }
-    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_DOWN)
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_DOWN)
     //            {
     //                direct = DirectDown;
     //            }
-    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_LEFT)
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_LEFT)
     //            {
     //                direct = DirectLeft;
     //            }
-    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_DPAD_RIGHT)
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_DPAD_RIGHT)
     //            {
     //                direct = DirectRight;
     //            }
     //        }
     //        if (lr_style_ == 1)
     //        {
-    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_RIGHTSHOULDER)
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_RIGHT_SHOULDER)
     //            {
     //                direct = DirectRight;
     //            }
-    //            if (e.cbutton.button == BP_CONTROLLER_BUTTON_LEFTSHOULDER)
+    //            if (e.gbutton.button == GAMEPAD_BUTTON_LEFT_SHOULDER)
     //            {
     //                direct = DirectLeft;
     //            }
@@ -98,27 +98,27 @@ void Menu::dealEvent(BP_Event& e)
     //}
     if (ud_style_ == 0)
     {
-        //if (e.type == BP_CONTROLLERBUTTONDOWN)
+        //if (e.type == EVENT_GAMEPAD_BUTTON_DOWN)
         {
             auto engine = Engine::getInstance();
             if (lr_style_ == 0)
             {
-                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP))
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP))
                 {
                     direct = DirectUp;
                     engine->setInterValControllerPress(200);
                 }
-                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN))
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN))
                 {
                     direct = DirectDown;
                     engine->setInterValControllerPress(200);
                 }
-                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT))
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
                 {
                     direct = DirectLeft;
                     engine->setInterValControllerPress(200);
                 }
-                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT))
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT))
                 {
                     direct = DirectRight;
                     engine->setInterValControllerPress(200);
@@ -126,12 +126,12 @@ void Menu::dealEvent(BP_Event& e)
             }
             if (lr_style_ == 1)
             {
-                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER))
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_RIGHT_SHOULDER))
                 {
                     direct = DirectRight;
                     engine->setInterValControllerPress(200);
                 }
-                if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSHOULDER))
+                if (engine->gameControllerGetButton(GAMEPAD_BUTTON_LEFT_SHOULDER))
                 {
                     direct = DirectLeft;
                     engine->setInterValControllerPress(200);

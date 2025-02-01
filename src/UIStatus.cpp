@@ -87,18 +87,18 @@ void UIStatus::draw()
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
 
     auto font = Font::getInstance();
-    BP_Color color_white = { 255, 255, 255, 255 };
-    BP_Color color_name = { 255, 215, 0, 255 };
-    BP_Color color_ability1 = { 255, 250, 205, 255 };
-    BP_Color color_ability2 = { 236, 200, 40, 255 };
-    BP_Color color_red = { 255, 90, 60, 255 };
-    BP_Color color_magic = { 236, 200, 40, 255 };
-    BP_Color color_magic_level1 = { 253, 101, 101, 255 };
-    BP_Color color_purple = { 208, 152, 208, 255 };
-    BP_Color color_magic_empty = { 236, 200, 40, 255 };
-    BP_Color color_equip = { 165, 28, 218, 255 };
+    Color color_white = { 255, 255, 255, 255 };
+    Color color_name = { 255, 215, 0, 255 };
+    Color color_ability1 = { 255, 250, 205, 255 };
+    Color color_ability2 = { 236, 200, 40, 255 };
+    Color color_red = { 255, 90, 60, 255 };
+    Color color_magic = { 236, 200, 40, 255 };
+    Color color_magic_level1 = { 253, 101, 101, 255 };
+    Color color_purple = { 208, 152, 208, 255 };
+    Color color_magic_empty = { 236, 200, 40, 255 };
+    Color color_equip = { 165, 28, 218, 255 };
 
-    auto select_color1 = [&](int v, int max_v) -> BP_Color
+    auto select_color1 = [&](int v, int max_v) -> Color
     {
         if (v >= max_v * 0.9)
         {
@@ -119,7 +119,7 @@ void UIStatus::draw()
         return color_white;
     };
 
-    auto select_color2 = [&](int v) -> BP_Color
+    auto select_color2 = [&](int v) -> Color
     {
         if (v > 0)
         {
@@ -162,7 +162,7 @@ void UIStatus::draw()
     font->draw(fmt1::format("{:5}", role_->MaxHP), font_size, x + 285, y + 50, color_white);
     font->draw("內力", font_size, x + 175, y + 75, color_ability1);
 
-    BP_Color c = color_white;
+    Color c = color_white;
     if (role_->MPType == 0)
     {
         c = color_purple;
@@ -321,7 +321,7 @@ void UIStatus::draw()
     }
 }
 
-void UIStatus::dealEvent(BP_Event& e)
+void UIStatus::dealEvent(EngineEvent& e)
 {
 }
 

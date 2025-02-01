@@ -6,9 +6,9 @@ class UIKeyConfig : public MenuText
 public:
     struct Keys
     {
-        int Left = BPK_a, Up = BPK_w, Right = BPK_d, Down = BPK_s;
-        int Light = BPK_j, Heavy = BPK_i, Long = BPK_k, Slash = BPK_m;
-        int Item = BPK_p;
+        int Left = K_A, Up = K_W, Right = K_D, Down = K_S;
+        int Light = K_J, Heavy = K_I, Long = K_K, Slash = K_M;
+        int Item = K_P;
     };
 
     UIKeyConfig();

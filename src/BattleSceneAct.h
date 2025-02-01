@@ -47,13 +47,13 @@ public:
         std::string Text;
         int Size = 15;
         int Frame = 0;
-        BP_Color Color;
+        Color color;
         int Type = 0;    //0-缓缓向上, 1-原地不动
 
-        void set(const std::string& text, BP_Color c, Role* r)
+        void set(const std::string& text, Color c, Role* r)
         {
             Text = text;
-            Color = c;
+            color = c;
             if (r)
             {
                 Pos = r->Pos;

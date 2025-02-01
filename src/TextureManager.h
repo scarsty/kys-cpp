@@ -14,21 +14,21 @@ struct GroupInfo
     std::string path;
 };
 
-struct Texture
+struct TextureWarpper
 {
     enum
     {
         SUB_TEXTURE_COUNT = 10,
     };
 
-    BP_Texture* tex[SUB_TEXTURE_COUNT] = { nullptr };
-    BP_Texture* tex_white = nullptr;
+    Texture* tex[SUB_TEXTURE_COUNT] = { nullptr };
+    Texture* tex_white = nullptr;
     int w = 0, h = 0, dx = 0, dy = 0;
     bool loaded = false;
     int count = 1;
     int prev_show;
-    void setTex(BP_Texture* t);
-    BP_Texture* getTexture(int i = 0) { return tex[i]; }
+    void setTex(Texture* t);
+    Texture* getTexture(int i = 0) { return tex[i]; }
 
     GroupInfo* group_info_ = nullptr;
     int num_ = -1;
@@ -45,7 +45,7 @@ struct TextureGroup
     friend class TextureManager;
 
 public:
-    std::vector<Texture*> group_;
+    std::vector<TextureWarpper*> group_;
     int inited_ = 0;
     GroupInfo info_;
     //ZipFile zip_;
@@ -78,17 +78,17 @@ public:
     }
 
 public:
-    void renderTexture(Texture* tex, BP_Rect r,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
-    void renderTexture(const std::string& path, int num, BP_Rect r,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
+    void renderTexture(TextureWarpper* tex, Rect r,
+        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
+    void renderTexture(const std::string& path, int num, Rect r,
+        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
 
-    void renderTexture(Texture* tex, int x, int y,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
+    void renderTexture(TextureWarpper* tex, int x, int y,
+        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
     void renderTexture(const std::string& path, int num, int x, int y,
-        BP_Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
+        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
 
-    Texture* getTexture(const std::string& path, int num);
+    TextureWarpper* getTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);
     TextureGroup* getTextureGroup(const std::string& path);
     void setLoadFromPath(int l) { load_from_path_ = l; }

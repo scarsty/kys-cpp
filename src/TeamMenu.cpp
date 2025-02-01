@@ -158,7 +158,7 @@ void TeamMenu::onPressedCancel()
     }
 }
 
-void TeamMenu::dealEvent(BP_Event& e)
+void TeamMenu::dealEvent(EngineEvent& e)
 {
     Menu::dealEvent(e);
     if (mode_ == 0)
@@ -193,9 +193,9 @@ void TeamMenu::dealEvent(BP_Event& e)
     {
         heads_[0]->setResult(0);
     }
-    if (e.type == BP_KEYUP)
+    if (e.type == EVENT_KEY_UP)
     {
-        if (e.key.keysym.sym == BPK_a)
+        if (e.key.key == K_A)
         {
             for (auto h : heads_)
             {
@@ -203,13 +203,13 @@ void TeamMenu::dealEvent(BP_Event& e)
             }
             button_all_->setState(NodePress);
             button_ok_->setState(NodeNormal);
-            e.key.keysym.sym = BPK_RETURN;
+            e.key.key = K_RETURN;
         }
-        if (e.key.keysym.sym == BPK_o)
+        if (e.key.key == K_O)
         {
             button_all_->setState(NodeNormal);
             button_ok_->setState(NodePress);
-            e.key.keysym.sym = BPK_RETURN;
+            e.key.key = K_RETURN;
         }
     }
 }

@@ -29,7 +29,7 @@ private:
 
 public:
     VirtualStick();
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
     virtual void draw() override;
     void setStyle(int style);    //0-使用方向键 1-使用摇杆
 };

@@ -44,7 +44,7 @@ public:
 
     virtual void draw() override;
     virtual void backRun() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void onPressedCancel() override;

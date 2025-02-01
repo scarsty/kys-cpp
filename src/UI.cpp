@@ -49,7 +49,7 @@ void UI::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
 }
 
-void UI::dealEvent(BP_Event& e)
+void UI::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     for (int i = 0; i < TEAMMATE_COUNT; i++)
@@ -97,17 +97,17 @@ void UI::dealEvent(BP_Event& e)
     //快捷键切换
     {
         int cb = current_button_;
-        if (e.type == BP_KEYUP)
+        if (e.type == EVENT_KEY_UP)
         {
-            switch (e.key.keysym.sym)
+            switch (e.key.key)
             {
-            case BPK_1:
+            case K_1:
                 cb = 0;
                 break;
-            case BPK_2:
+            case K_2:
                 cb = 1;
                 break;
-            case BPK_3:
+            case K_3:
                 cb = 2;
                 break;
             default:
@@ -115,12 +115,12 @@ void UI::dealEvent(BP_Event& e)
             }
         }
 
-        if (engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_TRIGGERLEFT))
+        if (engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER))
         {
             cb = GameUtil::limit(cb - 1, 0, 3);
             engine->setInterValControllerPress(200);
         }
-        if (engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_TRIGGERRIGHT))
+        if (engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER))
         {
             cb = GameUtil::limit(cb + 1, 0, 3);
             engine->setInterValControllerPress(200);

@@ -23,8 +23,8 @@ public:
 
     //继承自基类的函数
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;     //战场主循环
-    virtual void dealEvent2(BP_Event& e) override;    //用于停止自动
+    virtual void dealEvent(EngineEvent& e) override;     //战场主循环
+    virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
     virtual void backRun() override;

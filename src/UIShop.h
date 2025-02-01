@@ -19,7 +19,7 @@ public:
     std::shared_ptr<Button> button_ok_, button_cancel_, button_clear_;
 
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
     virtual void onPressedOK() override;
     int calNeedMoney();
 

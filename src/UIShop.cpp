@@ -75,7 +75,7 @@ void UIShop::draw()
     str = fmt1::format("總計銀兩{:8}", need_money);
     font->draw(str, 24, 300 + x, y + 25 + 6 * 25, { 255, 255, 255, 255 });
 
-    BP_Color c = { 255, 255, 255, 255 };
+    Color c = { 255, 255, 255, 255 };
     int money = Save::getInstance()->getMoneyCountInBag();
     str = fmt1::format("持有銀兩{:8}", money);
     if (money < need_money)
@@ -85,15 +85,15 @@ void UIShop::draw()
     font->draw(str, 24, 300 + x, y + 25 + 7 * 25, c);
 }
 
-void UIShop::dealEvent(BP_Event& e)
+void UIShop::dealEvent(EngineEvent& e)
 {
     static int first_press = 0;
-    if (e.type == BP_KEYDOWN && (e.key.keysym.sym == BPK_LEFT || e.key.keysym.sym == BPK_RIGHT) && active_child_ < SHOP_ITEM_COUNT)
+    if (e.type == EVENT_KEY_DOWN && (e.key.key == K_LEFT || e.key.key == K_RIGHT) && active_child_ < SHOP_ITEM_COUNT)
     {
         if (first_press == 0 || first_press > 5)    //按一下的时候只走一格
         {
             int index = active_child_;
-            if (e.key.keysym.sym == BPK_LEFT)
+            if (e.key.key == K_LEFT)
             {
                 if (plan_buy_[index] > 0)
                 {
@@ -114,7 +114,7 @@ void UIShop::dealEvent(BP_Event& e)
     {
         Menu::dealEvent(e);
     }
-    if (e.type == BP_KEYUP)
+    if (e.type == EVENT_KEY_UP)
     {
         first_press = 0;
     }

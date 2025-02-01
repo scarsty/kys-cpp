@@ -31,7 +31,7 @@ public:
 
 private:
     template <typename T>
-    void showOneDifference(T& pro1, const std::string& format_str, int size, BP_Color c, int& x, int& y, int force = 0)
+    void showOneDifference(T& pro1, const std::string& format_str, int size, Color c, int& x, int& y, int force = 0)
     {
         //注意，以下操作并不安全，请自己看着办
         auto diff = (char*)&pro1 - (char*)role1_;

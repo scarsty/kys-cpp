@@ -64,8 +64,8 @@ void SubScene::draw()
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { p.x - render_center_x_, p.y - render_center_y_, w, h }, rect1 = { 0, 0, w, h };
-        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
+        Rect rect0 = { p.x - render_center_x_, p.y - render_center_y_, w, h }, rect1 = { 0, 0, w, h };
+        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 1);
         //在rect0的坐标越界时似乎不太正常，懒得弄了
     }
 #ifndef _DEBUG
@@ -172,7 +172,7 @@ void SubScene::draw()
     //fmt1::print("%g\n", t0.getElapsedTime());
 }
 
-void SubScene::dealEvent(BP_Event& e)
+void SubScene::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     //实际上很大部分与大地图类似，这里暂时不合并了，就这样
@@ -189,15 +189,15 @@ void SubScene::dealEvent(BP_Event& e)
         total_step_ = 0;
     }
     // Tab激活控制台
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK))
+    if (e.type == EVENT_KEY_UP && e.key.key == K_TAB
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK))
     {
         Console c;
     }
-    if ((e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE)
-        || (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_RIGHT)
-        //|| (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START)
-        || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_START))
+    if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
+        || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
+        //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
+        || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
         UI::getInstance()->run();
         auto item = UI::getInstance()->getUsedItem();
@@ -215,29 +215,29 @@ void SubScene::dealEvent(BP_Event& e)
     {
         int64_t pressed = 0;
         pre_pressed_ticks_ = engine->getTicks();
-        auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
-        auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+        auto axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTX);
+        auto axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTY);
         if (abs(axis_x) < 10000) { axis_x = 0; }
         if (abs(axis_y) < 10000) { axis_y = 0; }
         if (axis_x != 0 || axis_y != 0)
         {
             Pointf axis{ double(axis_x), double(axis_y) };
             auto to = realTowardsToFaceTowards(axis);
-            if (to == Towards_LeftUp) { pressed = BPK_LEFT; }
-            if (to == Towards_LeftDown) { pressed = BPK_DOWN; }
-            if (to == Towards_RightDown) { pressed = BPK_RIGHT; }
-            if (to == Towards_RightUp) { pressed = BPK_UP; }
+            if (to == Towards_LeftUp) { pressed = K_LEFT; }
+            if (to == Towards_LeftDown) { pressed = K_DOWN; }
+            if (to == Towards_RightDown) { pressed = K_RIGHT; }
+            if (to == Towards_RightUp) { pressed = K_UP; }
         }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT)) { pressed = BPK_LEFT; }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_DOWN)) { pressed = BPK_DOWN; }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT)) { pressed = BPK_RIGHT; }
-        if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_UP)) { pressed = BPK_UP; }
-        if (engine->checkKeyPress(BPK_a)) { pressed = BPK_LEFT; }
-        if (engine->checkKeyPress(BPK_s)) { pressed = BPK_DOWN; }
-        if (engine->checkKeyPress(BPK_d)) { pressed = BPK_RIGHT; }
-        if (engine->checkKeyPress(BPK_w)) { pressed = BPK_UP; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT)) { pressed = K_LEFT; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_DOWN)) { pressed = K_DOWN; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT)) { pressed = K_RIGHT; }
+        if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_UP)) { pressed = K_UP; }
+        if (engine->checkKeyPress(K_A)) { pressed = K_LEFT; }
+        if (engine->checkKeyPress(K_S)) { pressed = K_DOWN; }
+        if (engine->checkKeyPress(K_D)) { pressed = K_RIGHT; }
+        if (engine->checkKeyPress(K_W)) { pressed = K_UP; }
 
-        for (auto i = int(BPK_RIGHT); i <= int(BPK_UP); i++)
+        for (auto i = int(K_RIGHT); i <= int(K_UP); i++)
         {
             if (i != pre_pressed_ && Engine::getInstance()->checkKeyPress(i))
             {
@@ -297,8 +297,8 @@ void SubScene::dealEvent(BP_Event& e)
         }
     }
     //检查触发剧情事件
-    if ((e.type == BP_KEYUP && (e.key.keysym.sym == BPK_RETURN || e.key.keysym.sym == BPK_SPACE))
-        || (e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_A))
+    if ((e.type == EVENT_KEY_UP && (e.key.key == K_RETURN || e.key.key == K_SPACE))
+        || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_SOUTH))
     {
         if (checkEvent1(x, y, towards_))
         {
@@ -310,7 +310,7 @@ void SubScene::dealEvent(BP_Event& e)
     calCursorPosition(view_x_, view_y_);
 
     //鼠标寻路
-    if (e.type == BP_MOUSEBUTTONUP && e.button.button == BP_BUTTON_LEFT)
+    if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
     {
         setMouseEventPoint(-1, -1);
         int mx, my;

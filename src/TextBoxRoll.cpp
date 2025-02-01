@@ -36,7 +36,7 @@ void TextBoxRoll::draw()
     }
 }
 
-void TextBoxRoll::dealEvent(BP_Event& e)
+void TextBoxRoll::dealEvent(EngineEvent& e)
 {
     if (roll_line_ <= 0)
     {
@@ -44,7 +44,7 @@ void TextBoxRoll::dealEvent(BP_Event& e)
     }
     switch (e.type)
     {
-    case BP_MOUSEWHEEL:
+    case EVENT_MOUSE_WHEEL:
         if (e.wheel.y < 0)
         {
             begin_line_++;

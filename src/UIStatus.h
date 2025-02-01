@@ -20,7 +20,7 @@ protected:
 
 public:
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
     virtual void onPressedOK() override;
 
     void setShowButton(bool b) { show_button_ = b; }

@@ -4,7 +4,7 @@
 #include "filefunc.h"
 #include "strfunc.h"
 
-void Texture::setTex(BP_Texture* t)
+void TextureWarpper::setTex(Texture* t)
 {
     destory();
     tex[0] = t;
@@ -13,7 +13,7 @@ void Texture::setTex(BP_Texture* t)
     Engine::getInstance()->queryTexture(t, &w, &h);
 }
 
-void Texture::load()
+void TextureWarpper::load()
 {
     if (!loaded)
     {
@@ -33,7 +33,7 @@ void Texture::load()
         }
         else
         {
-            for (int i = 0; i < Texture::SUB_TEXTURE_COUNT; i++)
+            for (int i = 0; i < TextureWarpper::SUB_TEXTURE_COUNT; i++)
             {
                 if (group_info_->zip.opened())
                 {
@@ -58,7 +58,7 @@ void Texture::load()
     }
 }
 
-void Texture::createWhiteTexture()
+void TextureWarpper::createWhiteTexture()
 {
     if (tex_white == nullptr)
     {
@@ -73,7 +73,7 @@ void Texture::createWhiteTexture()
     }
 }
 
-void Texture::destory()
+void TextureWarpper::destory()
 {
     for (int i = 0; i < SUB_TEXTURE_COUNT; i++)
     {
@@ -125,7 +125,7 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         group_.resize(offset.size() / 2);
         for (int i = 0; i < group_.size(); i++)
         {
-            group_[i] = new Texture();
+            group_[i] = new TextureWarpper();
             group_[i]->dx = offset[i * 2];
             group_[i]->dy = offset[i * 2 + 1];
             group_[i]->group_info_ = &info_;
@@ -165,7 +165,7 @@ TextureManager::~TextureManager()
     }
 }
 
-void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t alpha, double angle, uint8_t white)
+void TextureManager::renderTexture(TextureWarpper* tex, Rect r, Color c, uint8_t alpha, double angle, uint8_t white)
 {
     if (tex == nullptr) { return; }
     tex->load();
@@ -195,21 +195,21 @@ void TextureManager::renderTexture(Texture* tex, BP_Rect r, BP_Color c, uint8_t 
     }
     c.a = alpha;
     engine->setColor(tex->tex[i], c);
-    engine->renderCopy(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
+    engine->renderTexture(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
     if (white)
     {
         tex->createWhiteTexture();
         engine->setColor(tex->tex_white, { 255, 255, 255, white });
-        engine->renderCopy(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
+        engine->renderTexture(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
     }
 }
 
-void TextureManager::renderTexture(const std::string& path, int num, BP_Rect r, BP_Color c, uint8_t alpha, double angle, uint8_t white)
+void TextureManager::renderTexture(const std::string& path, int num, Rect r, Color c, uint8_t alpha, double angle, uint8_t white)
 {
     renderTexture(getTexture(path, num), r, c, alpha, angle, white);
 }
 
-void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y, double angle, uint8_t white)
+void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, Color c, uint8_t alpha, double zoom_x, double zoom_y, double angle, uint8_t white)
 {
     if (tex)
     {
@@ -218,12 +218,12 @@ void TextureManager::renderTexture(Texture* tex, int x, int y, BP_Color c, uint8
     }
 }
 
-void TextureManager::renderTexture(const std::string& path, int num, int x, int y, BP_Color c, uint8_t alpha, double zoom_x, double zoom_y, double angle, uint8_t white)
+void TextureManager::renderTexture(const std::string& path, int num, int x, int y, Color c, uint8_t alpha, double zoom_x, double zoom_y, double angle, uint8_t white)
 {
     renderTexture(getTexture(path, num), x, y, c, alpha, zoom_x, zoom_y, angle, white);
 }
 
-Texture* TextureManager::getTexture(const std::string& path, int num)
+TextureWarpper* TextureManager::getTexture(const std::string& path, int num)
 {
     auto p = path_ + path;
     auto& v = getInstance()->map_[path];

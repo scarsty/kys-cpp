@@ -2,6 +2,7 @@
 #include "BattleNetwork.h"
 #include "BattleScene.h"
 #include "DrawableOnCall.h"
+#include "Event.h"
 #include "Font.h"
 #include "InputBox.h"
 #include "MainScene.h"
@@ -10,7 +11,6 @@
 #include "SuperMenuText.h"
 #include "TextureManager.h"
 #include "strfunc.h"
-
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -20,8 +20,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#include "Event.h"
 
 Console::Console()
 {
@@ -101,7 +99,7 @@ Console::Console()
             struct DrawInfo
             {
                 int index;
-                Texture* t;
+                TextureWarpper* t;
                 Point p;
             };
 

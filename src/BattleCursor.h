@@ -41,7 +41,7 @@ public:
 
     BattleScene* battle_scene_ = nullptr;
 
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
 
     void setCursor(int x, int y);
 

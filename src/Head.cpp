@@ -43,7 +43,7 @@ void Head::draw()
     w_ = 250;
     h_ = 90;
     if (role_ == nullptr) { return; }
-    BP_Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
+    Color color = { 255, 255, 255, 255 }, white = { 255, 255, 255, 255 };
     auto font = Font::getInstance();
 
     if (style_ == 0)
@@ -74,10 +74,10 @@ void Head::draw()
         TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, color, 255, 0.5, 0.5);
         TextBox::draw();
         font->draw(role_->Name, 16, x_ + 117, y_ + 9, white);
-        BP_Rect r1 = { 0, 0, 0, 0 };
+        Rect r1 = { 0, 0, 0, 0 };
         font->draw(fmt1::format("{}", role_->Level), 16, x_ + 99 - 4 * GameUtil::digit(role_->Level), y_ + 5, { 250, 200, 50, 255 });
 
-        BP_Color c, c_text;
+        Color c, c_text;
         if (role_->MaxHP > 0)
         {
             r1 = { x_ + 96, y_ + 32, 138 * role_->HP / role_->MaxHP, 9 };
@@ -121,8 +121,8 @@ void Head::draw()
     else if (style_ == 1)
     {
         //TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ - 10, y_ - 10, { 255, 255, 255, 255 }, 255, 0.15, 0.15);
-        BP_Rect r1 = { x_ + 0, y_ + 0, width_, 11 }, r2;
-        BP_Color c, c_text;
+        Rect r1 = { x_ + 0, y_ + 0, width_, 11 }, r2;
+        Color c, c_text;
         Engine::getInstance()->fillColor({ 0, 0, 0, 168 }, r1.x, r1.y, r1.w, r1.h);
         int w = (width_ - 2) * role_->HP / role_->MaxHP;
         if (role_->MaxHP > 0)
@@ -141,8 +141,8 @@ void Head::draw()
     {
         //TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ - 10, y_ - 10, { 255, 255, 255, 255 }, 255, 0.15, 0.15);
         width_ = 350.0 / 999 * role_->MaxHP;
-        BP_Rect r1 = { x_ + 0, y_ + 25, width_, 11 }, r2;
-        BP_Color c, c_text;
+        Rect r1 = { x_ + 0, y_ + 25, width_, 11 }, r2;
+        Color c, c_text;
         Engine::getInstance()->fillColor({ 0, 0, 0, 168 }, r1.x, r1.y, r1.w, r1.h);
         int w = (width_ - 2) * role_->HP / role_->MaxHP;
         if (role_->MaxHP > 0)

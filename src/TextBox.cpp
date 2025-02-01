@@ -30,7 +30,7 @@ void TextBox::setText(std::string text)
     }
 }
 
-void TextBox::setAlphaBox(BP_Color outline_color, BP_Color background_color)
+void TextBox::setAlphaBox(Color outline_color, Color background_color)
 {
     outline_color_ = outline_color;
     background_color_ = background_color;
@@ -47,7 +47,7 @@ void TextBox::setTexture(const std::string& path, int normal_id, int pass_id /*=
     texture_press_id_ = press_id;
 }
 
-void TextBox::setTextColor(BP_Color c1, BP_Color c2, BP_Color c3)
+void TextBox::setTextColor(Color c1, Color c2, Color c3)
 {
     color_normal_ = c1;
     color_pass_ = c2;

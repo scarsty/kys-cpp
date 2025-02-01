@@ -12,9 +12,9 @@ Font::Font()
     fontnamee_ = GameUtil::PATH() + "font/english.ttf";
 }
 
-BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
+Rect Font::getBoxSize(int textLen, int size, int x, int y)
 {
-    BP_Rect r;
+    Rect r;
     r.x = x - 10;
     r.y = y - 3;
     r.w = size * textLen / 2 + 20;
@@ -24,7 +24,7 @@ BP_Rect Font::getBoxSize(int textLen, int size, int x, int y)
 
 //此处仅接受utf8
 //返回值为实际画的行数
-int Font::draw(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha)
+int Font::draw(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
 {
     int line = 1;
     int p = 0;
@@ -87,9 +87,9 @@ int Font::draw(const std::string& text, int size, int x, int y, BP_Color color, 
         {
             Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
             Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
-            Engine::getInstance()->renderCopy(tex, x1 + 1, y, w1, h);
+            Engine::getInstance()->renderTexture(tex, x1 + 1, y, w1, h);
             Engine::getInstance()->setColor(tex, color);
-            Engine::getInstance()->renderCopy(tex, x1, y, w1, h);
+            Engine::getInstance()->renderTexture(tex, x1, y, w1, h);
         }
         x += w;
     }
@@ -104,7 +104,7 @@ int Font::draw(const std::string& text, int size, int x, int y, BP_Color color, 
     return line;
 }
 
-void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color color, uint8_t alpha, uint8_t alpha_box)
+void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
 {
     //TextureManager::getInstance()->renderTexture("title", 19, x - 19, y - 3);
     //for (int i = 0; i < text.size(); i++)
@@ -117,7 +117,7 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, BP_Color
 }
 
 //此处仅接受utf8
-void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, BP_Color c)
+void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c)
 {
     if (alpha == 0)
     {
@@ -129,22 +129,22 @@ void Font::drawText(const std::string& fontname, std::string& text, int size, in
         return;
     }
     Engine::getInstance()->setTextureAlphaMod(text_t, alpha);
-    BP_Rect rect;
+    Rect rect;
     Engine::getInstance()->queryTexture(text_t, &rect.w, &rect.h);
     rect.y = y;
     switch (align)
     {
-    case BP_ALIGN_LEFT:
+    case ALIGN_LEFT:
         rect.x = x;
         break;
-    case BP_ALIGN_RIGHT:
+    case ALIGN_RIGHT:
         rect.x = x - rect.w;
         break;
-    case BP_ALIGN_MIDDLE:
+    case ALIGN_MIDDLE:
         rect.x = x - rect.w / 2;
         break;
     }
-    Engine::getInstance()->renderCopy(text_t, nullptr, &rect);
+    Engine::getInstance()->renderTexture(text_t, nullptr, &rect);
     Engine::getInstance()->destroyTexture(text_t);
 }
 

@@ -1,7 +1,7 @@
 #include "BattleMenu.h"
 #include "BattleScene.h"
-#include "Event.h"
 #include "Font.h"
+#include "PlotEvent.h"
 #include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
@@ -75,7 +75,7 @@ void BattleActionMenu::setRole(Role* r)
     }    //设置为未计算过ai的行动
 }
 
-void BattleActionMenu::dealEvent(BP_Event& e)
+void BattleActionMenu::dealEvent(EngineEvent& e)
 {
     if (battle_scene_ == nullptr)
     {
@@ -355,7 +355,6 @@ void BattleActionMenu::calDistanceLayer(int x, int y, int max_step)
     battle_scene_->calDistanceLayer(x, y, distance_layer_, max_step);
 }
 
-
 void BattleActionMenu::getFarthestToAll(Role* role, std::vector<Role*> roles, int& x, int& y)
 {
     Random<double> rand;    //梅森旋转法随机数
@@ -558,7 +557,6 @@ void BattleEquipItemMenu::onPressedOK()
         setExit(true);
     }
 }
-
 
 BattleItemMenu::BattleItemMenu()
 {

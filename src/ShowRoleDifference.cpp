@@ -40,7 +40,7 @@ void ShowRoleDifference::draw()
     head2_->setVisible(show_head_);
 
     auto font = Font::getInstance();
-    BP_Color color = { 255, 255, 255, 255 };
+    Color color = { 255, 255, 255, 255 };
     const int font_size = 25;
     int x = x_, y = y_;
 

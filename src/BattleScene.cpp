@@ -39,7 +39,8 @@ BattleScene::BattleScene()
     rand_.set_seed();
 }
 
-BattleScene::BattleScene(int id) : BattleScene()
+BattleScene::BattleScene(int id) :
+    BattleScene()
 {
     setID(id);
 }
@@ -72,7 +73,7 @@ void BattleScene::draw()
     //一整块地面
     if (earth_texture_)
     {
-        BP_Color c = { 255, 255, 255, 255 };
+        Color c = { 255, 255, 255, 255 };
         if (need_change_earth_color_)
         {
             c = { 64, 64, 64, 255 };    //如果地面需要亮度变化，则以画最暗的为主
@@ -82,8 +83,8 @@ void BattleScene::draw()
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { p.x - render_center_x_ - x_, p.y - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
-        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 1);
+        Rect rect0 = { p.x - render_center_x_ - x_, p.y - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
+        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 1);
     }
 
 #ifndef _DEBUG
@@ -99,7 +100,7 @@ void BattleScene::draw()
             if (!isOutLine(ix, iy))
             {
                 int num = earth_layer_.data(ix, iy) / 2;
-                BP_Color color = { 255, 255, 255, 255 };
+                Color color = { 255, 255, 255, 255 };
                 bool need_draw = true;
                 if (need_change_earth_color_)
                 {
@@ -159,7 +160,7 @@ void BattleScene::draw()
                 if (r)
                 {
                     std::string path = fmt1::format("fight/fight{:03}", r->HeadID);
-                    BP_Color color = { 255, 255, 255, 255 };
+                    Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
                     if (battle_cursor_->isRunning() && !acting_role_->isAuto())
                     {
@@ -221,7 +222,7 @@ void BattleScene::draw()
     //fmt1::print("Battle scene drawn\n");
 }
 
-void BattleScene::dealEvent(BP_Event& e)
+void BattleScene::dealEvent(EngineEvent& e)
 {
     if (battle_roles_.empty())
     {
@@ -311,7 +312,7 @@ void BattleScene::dealEvent(BP_Event& e)
     }
 }
 
-void BattleScene::dealEvent2(BP_Event& e)
+void BattleScene::dealEvent2(EngineEvent& e)
 {
     if (isPressCancel(e))
     {
@@ -1756,7 +1757,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                             // 调整一下
                             y = p.y - total_frames + y_pos;
                         }
-                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, *(BP_Color*)&show_string.Color, 255 - 255 / total_frames * i_frame);
+                        Font::getInstance()->draw(show_string.Text, show_string.Size, x, y, *(Color*)&show_string.Color, 255 - 255 / total_frames * i_frame);
                         y_pos += show_string.Size + 2;
                     }
                 }
@@ -1784,8 +1785,8 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
         return;
     }
     // 画个血条
-    BP_Color outline_color = { 0, 0, 0, 128 };
-    BP_Color background_color = { 0, 255, 0, 128 };    // 我方绿色
+    Color outline_color = { 0, 0, 0, 128 };
+    Color background_color = { 0, 255, 0, 128 };    // 我方绿色
     if (r->Team == 1)
     {
         // 敌方红色
@@ -1806,9 +1807,9 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     {
         alpha = dead_alpha_ / 255.0;
     }
-    BP_Rect r0 = { hp_x, hp_y, hp_max_w, hp_h };
+    Rect r0 = { hp_x, hp_y, hp_max_w, hp_h };
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
-    BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
+    Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
 
     //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);

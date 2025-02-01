@@ -10,7 +10,7 @@ public:
     ~TitleScene();
 
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
 
     virtual void onEntrance() override;
 

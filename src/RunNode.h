@@ -202,9 +202,9 @@ public:
 
     virtual void draw() {}    //如何画本节点
 
-    virtual void dealEvent(BP_Event& e) {}    //处理事件，会一直执行，相当于主循环体
+    virtual void dealEvent(EngineEvent& e) {}    //处理事件，会一直执行，相当于主循环体
 
-    virtual void dealEvent2(BP_Event& e) {}    //处理事件，执行模式和动画模式都会被执行，可用于制动
+    virtual void dealEvent2(EngineEvent& e) {}    //处理事件，执行模式和动画模式都会被执行，可用于制动
 
     virtual void onEntrance() {}    //进入本节点的事件，例如亮屏等
 
@@ -218,19 +218,19 @@ public:
 
     void checkFrame();
 
-    bool isPressOK(BP_Event& e);
+    bool isPressOK(EngineEvent& e);
 
-    bool isPressCancel(BP_Event& e);
+    bool isPressCancel(EngineEvent& e);
 
 private:
     void drawSelfChilds();
-    void checkStateSelfChilds(BP_Event& e, bool check_event = false);
+    void checkStateSelfChilds(EngineEvent& e, bool check_event = false);
     void backRunSelfChilds();
     void dealEventSelfChilds(bool check_event = false);
 
-    bool isSpecialEvent(BP_Event& e);    //是否为游戏需要处理的类型
+    bool isSpecialEvent(EngineEvent& e);    //是否为游戏需要处理的类型
     int checkChildState();
-    void checkSelfState(BP_Event& e);
+    void checkSelfState(EngineEvent& e);
     static void present();
 
 public:

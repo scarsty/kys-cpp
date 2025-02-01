@@ -26,7 +26,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     inited_ = true;
 #ifndef _WINDLL
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
+    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
     {
         return -1;
     }
@@ -40,7 +40,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         }
         else
         {
-            window_ = (BP_Window*)handle;
+            window_ = (Window*)handle;
         }
     }
     else
@@ -66,12 +66,12 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-    //SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    //SDL_EventState(SDL_EVENT_DROP_FILE, SDL_ENABLE);
 
     //屏蔽触摸板
-    //SDL_EventState(SDL_FINGERUP, SDL_DISABLE);
-    //SDL_EventState(SDL_FINGERDOWN, SDL_DISABLE);
-    //SDL_EventState(SDL_FINGERMOTION, SDL_DISABLE);
+    //SDL_EventState(SDL_EVENT_FINGER_UP, SDL_DISABLE);
+    //SDL_EventState(SDL_EVENT_FINGER_DOWN, SDL_DISABLE);
+    //SDL_EventState(SDL_EVENT_FINGER_MOTION, SDL_DISABLE);
 
     //手柄
     checkGameControllers();
@@ -111,7 +111,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     tinypot_ = PotCreateFromWindow(window_);
 #endif
-    createMainTexture(-1, BP_TEXTUREACCESS_TARGET, start_w_, start_h_);
+    createMainTexture(-1, TEXTUREACCESS_TARGET, start_w_, start_h_);
     return 0;
 }
 
@@ -214,11 +214,11 @@ void Engine::createMainTexture(int pixfmt, BP_TextureAccess a, int w, int h)
 
 void Engine::resizeMainTexture(int w, int h) const
 {
-    int w0, h0;
+    float w0, h0;
     uint32_t pix_fmt;
-    if (!SDL_QueryTexture(tex_, &pix_fmt, nullptr, &w0, &h0))
+    if (!SDL_GetTextureSize(tex_, &w0, &h0))
     {
-        if (w0 != w || h0 != h)
+        if (int(w0) != w || int(h0) != h)
         {
             //createMainTexture(pix_fmt, w, h);
         }
@@ -232,12 +232,12 @@ void Engine::createAssistTexture(int w, int h)
     uint32_t pixfmt;
     int a;
     SDL_QueryTexture(tex_, &pixfmt, &a, nullptr, nullptr);
-    tex2_ = createTexture(pixfmt, BP_TEXTUREACCESS_TARGET, w, h);
+    tex2_ = createTexture(pixfmt, TEXTUREACCESS_TARGET, w, h);
     //tex_ = createARGBRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
 
-void Engine::setPresentPosition(BP_Texture* tex)
+void Engine::setPresentPosition(Texture* tex)
 {
     if (!tex)
     {
@@ -282,7 +282,7 @@ void Engine::setPresentPosition(BP_Texture* tex)
     }
 }
 
-BP_Texture* Engine::createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const
+Texture* Engine::createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const
 {
     if (pix_fmt == SDL_PIXELFORMAT_UNKNOWN)
     {
@@ -291,37 +291,37 @@ BP_Texture* Engine::createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, i
     return SDL_CreateTexture(renderer_, pix_fmt, a, w, h);
 }
 
-BP_Texture* Engine::createYUVTexture(int w, int h) const
+Texture* Engine::createYUVTexture(int w, int h) const
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-void Engine::updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2)
+void Engine::updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2)
 {
     SDL_UpdateYUVTexture(t, nullptr, data0, size0, data1, size1, data2, size2);
 }
 
-BP_Texture* Engine::createARGBTexture(int w, int h)
+Texture* Engine::createARGBTexture(int w, int h)
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-BP_Texture* Engine::createARGBRenderedTexture(int w, int h)
+Texture* Engine::createARGBRenderedTexture(int w, int h)
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
 }
 
-void Engine::updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch)
+void Engine::updateARGBTexture(Texture* t, uint8_t* buffer, int pitch)
 {
     SDL_UpdateTexture(t, nullptr, buffer, pitch);
 }
 
-int Engine::lockTexture(BP_Texture* t, BP_Rect* r, void** pixel, int* pitch)
+int Engine::lockTexture(Texture* t, Rect* r, void** pixel, int* pitch)
 {
     return SDL_LockTexture(t, r, pixel, pitch);
 }
 
-void Engine::unlockTexture(BP_Texture* t)
+void Engine::unlockTexture(Texture* t)
 {
     SDL_UnlockTexture(t);
 }
@@ -334,26 +334,26 @@ void Engine::renderPresent() const
     //setRenderMainTexture();
 }
 
-void Engine::renderCopy(BP_Texture* t /*= nullptr*/, double angle)
+void Engine::renderTexture(Texture* t /*= nullptr*/, double angle)
 {
-    SDL_RenderCopyEx(renderer_, t, nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
+    SDL_RenderTextureRotated(renderer_, t, nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
 }
 
-void Engine::renderCopy(BP_Texture* t, int x, int y, int w, int h, double angle, int inPresent)
+void Engine::renderTexture(Texture* t, int x, int y, int w, int h, double angle, int inPresent)
 {
     if (inPresent == 1)
     {
         x += rect_.x;
         y += rect_.y;
     }
-    BP_Rect r = { x, y, w, h };
-    renderCopy(t, nullptr, &r, angle);
+    Rect r = { x, y, w, h };
+    renderTexture(t, nullptr, &r, angle);
 }
 
-void Engine::renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle, int inPresent /*= 0*/)
+void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, int inPresent /*= 0*/)
 {
-    SDL_RenderCopyEx(renderer_, t, rect0, rect1, angle, nullptr, SDL_FLIP_NONE);
+    SDL_RenderTextureRotated(renderer_, t, rect0, rect1, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
 }
 
@@ -399,27 +399,27 @@ void Engine::toggleFullscreen()
     renderClear();
 }
 
-BP_Texture* Engine::loadImage(const std::string& filename, int as_white)
+Texture* Engine::loadImage(const std::string& filename, int as_white)
 {
     //fmt1::print("%s", filename.c_str());
     auto sur = IMG_Load(filename.c_str());
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
-    SDL_FreeSurface(sur);
+    SDL_DestroySurface(sur);
     return tex;
 }
 
-BP_Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) const
+Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) const
 {
-    auto rw = SDL_RWFromConstMem(content.data(), content.size());
+    auto rw = SDL_IOFromConstMem(content.data(), content.size());
     auto sur = IMG_LoadTyped_RW(rw, 1, "png");
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
-    SDL_FreeSurface(sur);
+    SDL_DestroySurface(sur);
     return tex;
 }
 
-void Engine::toWhite(BP_Surface* sur)
+void Engine::toWhite(Surface* sur)
 {
     for (int i = 0; i < sur->w * sur->h; i++)
     {
@@ -442,10 +442,10 @@ bool Engine::setKeepRatio(bool b)
     return keep_ratio_ = b;
 }
 
-BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
+Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
 {
     auto s = SDL_CreateRGBSurface(0, w, h, 32, 0xff000000, 0xff0000, 0xff00, 0xff);
-    SDL_FillRect(s, nullptr, color);
+    SDL_FillSurfaceRect(s, nullptr, color);
     auto p = (uint8_t*)s->pixels;
     for (int x = 0; x < w; x++)
     {
@@ -455,7 +455,7 @@ BP_Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int
         }
     }
     auto t = SDL_CreateTextureFromSurface(renderer_, s);
-    SDL_FreeSurface(s);
+    SDL_DestroySurface(s);
     setTextureBlendMode(t);
     setTextureAlphaMod(t, 192);
     return t;
@@ -482,20 +482,20 @@ void Engine::resetWindowPosition()
     }
 }
 
-void Engine::setColor(BP_Texture* tex, BP_Color c)
+void Engine::setColor(Texture* tex, Color c)
 {
     SDL_SetTextureColorMod(tex, c.r, c.g, c.b);
     setTextureAlphaMod(tex, c.a);
     setTextureBlendMode(tex);
 }
 
-void Engine::fillColor(BP_Color color, int x, int y, int w, int h) const
+void Engine::fillColor(Color color, int x, int y, int w, int h) const
 {
     if (w < 0 || h < 0)
     {
         getWindowSize(w, h);
     }
-    BP_Rect r{ x, y, w, h };
+    Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
     SDL_RenderFillRect(renderer_, &r);
@@ -505,13 +505,13 @@ void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
     //SDL_SetTextureBlendMode(tex_, SDL_BLENDMODE_BLEND);
-    renderCopy(tex_, nullptr, nullptr);
+    renderTexture(tex_, nullptr, nullptr);
 }
 
 void Engine::renderAssistTextureToMain()
 {
     setRenderTarget(tex_);
-    renderCopy(tex2_, nullptr, nullptr);
+    renderTexture(tex2_, nullptr, nullptr);
     //setRenderTarget(tex_);
     //SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
     //SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
@@ -520,7 +520,7 @@ void Engine::renderAssistTextureToMain()
 
 void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const
 {
-    SDL_MixAudioFormat(dst, src, audio_format_, len, volume);
+    SDL_MixAudio(dst, src, audio_format_, len, volume);
 }
 
 int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f)
@@ -534,7 +534,7 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
         channels = 2;
     }
     want.freq = freq;
-    want.format = AUDIO_F32;
+    want.format = SDL_AUDIO_F32LE;
     want.channels = channels;
     want.samples = size;
     want.callback = mixAudioCallback;
@@ -611,24 +611,13 @@ void Engine::setMouseStateInStartWindow(int x, int y) const
     SDL_WarpMouseInWindow(window_, x, y);
 }
 
-int Engine::pollEvent(BP_Event& e) const
+int Engine::pollEvent(EngineEvent& e) const
 {
     int r = SDL_PollEvent(&e);
-    if (e.type == BP_CONTROLLERBUTTONDOWN || e.type == BP_CONTROLLERBUTTONUP)
-    {
-        if (nintendo_switch_[e.cbutton.which])
-        {
-            auto& key = e.cbutton.button;
-            if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
-            else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
-            else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
-            else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
-        }
-    }
     return r;
 }
 
-bool Engine::checkKeyPress(BP_Keycode key)
+bool Engine::checkKeyPress(Keycode key)
 {
     return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
 }
@@ -645,12 +634,12 @@ bool Engine::gameControllerGetButton(int key)
             {
                 if (nintendo_switch_[i])
                 {
-                    if (key == BP_CONTROLLER_BUTTON_A) { key = BP_CONTROLLER_BUTTON_B; }
-                    else if (key == BP_CONTROLLER_BUTTON_B) { key = BP_CONTROLLER_BUTTON_A; }
-                    else if (key == BP_CONTROLLER_BUTTON_X) { key = BP_CONTROLLER_BUTTON_Y; }
-                    else if (key == BP_CONTROLLER_BUTTON_Y) { key = BP_CONTROLLER_BUTTON_X; }
+                    if (key == GAMEPAD_BUTTON_SOUTH) { key = GAMEPAD_BUTTON_EAST; }
+                    else if (key == GAMEPAD_BUTTON_EAST) { key = GAMEPAD_BUTTON_SOUTH; }
+                    else if (key == GAMEPAD_BUTTON_WEST) { key = GAMEPAD_BUTTON_NORTH; }
+                    else if (key == GAMEPAD_BUTTON_NORTH) { key = GAMEPAD_BUTTON_WEST; }
                 }
-                pressed = SDL_GameControllerGetButton(gc, SDL_GameControllerButton(key));
+                pressed = SDL_GetGamepadButton(gc, SDL_GamepadButton(key));
                 if (pressed)
                 {
                     cur_game_controller_ = gc;
@@ -678,7 +667,7 @@ int16_t Engine::gameControllerGetAxis(int axis)
         {
             if (gc)
             {
-                ret = SDL_GameControllerGetAxis(gc, SDL_GameControllerAxis(axis));
+                ret = SDL_GetGamepadAxis(gc, SDL_GamepadAxis(axis));
             }
             if (ret)
             {
@@ -703,7 +692,7 @@ void Engine::gameControllerRumble(int l, int h, uint32_t time) const
 {
     if (cur_game_controller_)
     {
-        auto s = SDL_GameControllerRumble(cur_game_controller_, l * 65535 / 100, h * 65535 / 100, time);
+        auto s = SDL_RumbleGamepad(cur_game_controller_, l * 65535 / 100, h * 65535 / 100, time);
     }
 }
 
@@ -721,10 +710,10 @@ void Engine::checkGameControllers()
         nintendo_switch_.resize(game_controllers_.size());
         for (int i = 0; i < game_controllers_.size(); i++)
         {
-            game_controllers_[i] = SDL_GameControllerOpen(i);
+            game_controllers_[i] = SDL_OpenGamepad(i);
             if (game_controllers_[i])
             {
-                std::string name = SDL_GameControllerName(game_controllers_[i]);
+                std::string name = SDL_GetGamepadName(game_controllers_[i]);
                 fmt1::print("{}\n", name);
                 if (name.find("Switch") != std::string::npos) { nintendo_switch_[i] = 1; }
             }
@@ -736,12 +725,12 @@ void Engine::checkGameControllers()
     }
 }
 
-BP_Texture* Engine::createRectTexture(int w, int h, int style) const
+Texture* Engine::createRectTexture(int w, int h, int style) const
 {
     auto square_s = SDL_CreateRGBSurface(0, w, h, 32, RMASK, GMASK, BMASK, AMASK);
 
-    //SDL_FillRect(square_s, nullptr, 0xffffffff);
-    BP_Rect r = { 0, 0, 1, 1 };
+    //SDL_FillSurfaceRect(square_s, nullptr, 0xffffffff);
+    Rect r = { 0, 0, 1, 1 };
     auto& x = r.x;
     auto& y = r.y;
     uint8_t a = 0;
@@ -759,21 +748,21 @@ BP_Texture* Engine::createRectTexture(int w, int h, int style) const
             {
                 c = 0xffffffff;
             }
-            SDL_FillRect(square_s, &r, c);
+            SDL_FillSurfaceRect(square_s, &r, c);
             /*if ((x - d / 2)*(x - d / 2) + (y - d / 2)*(y - d / 2) < (d / 2) * (d / 2))
             {
-                SDL_FillRect(square_s, &r, 0x00ffffff | (a<<24));
+                SDL_FillSurfaceRect(square_s, &r, 0x00ffffff | (a<<24));
             }*/
         }
     }
     auto square = SDL_CreateTextureFromSurface(renderer_, square_s);
     setTextureBlendMode(square);
     //setTextureAlphaMod(square, 128);
-    SDL_FreeSurface(square_s);
+    SDL_DestroySurface(square_s);
     return square;
 }
 
-BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c) const
+Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
     if (!font)
@@ -783,7 +772,7 @@ BP_Texture* Engine::createTextTexture(const std::string& fontname, const std::st
     //SDL_Color c = { 255, 255, 255, 128 };
     auto text_s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
-    SDL_FreeSurface(text_s);
+    SDL_DestroySurface(text_s);
     TTF_CloseFont(font);
     return text_t;
 }
@@ -822,11 +811,11 @@ int Engine::showMessage(const std::string& content) const
     return buttonid;
 }
 
-void Engine::renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha)
+void Engine::renderSquareTexture(Rect* rect, Color color, uint8_t alpha)
 {
     color.a = alpha;
     setColor(square_, color);
-    renderCopy(square_, nullptr, rect);
+    renderTexture(square_, nullptr, rect);
 }
 
 int Engine::playVideo(std::string filename)
@@ -843,28 +832,28 @@ int Engine::playVideo(std::string filename)
 
 int Engine::saveScreen(const char* filename) const
 {
-    BP_Rect rect;
+    Rect rect;
     rect.x = 0;
     rect.y = 0;
     getWindowSize(rect.w, rect.h);
-    BP_Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
+    Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
     SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
     SDL_SaveBMP(sur, filename);
-    SDL_FreeSurface(sur);
+    SDL_DestroySurface(sur);
     return 0;
 }
 
-int Engine::saveTexture(BP_Texture* tex, const char* filename) const
+int Engine::saveTexture(Texture* tex, const char* filename) const
 {
-    BP_Rect rect;
+    Rect rect;
     rect.x = 0;
     rect.y = 0;
     queryTexture(tex, &rect.w, &rect.h);
     setRenderTarget(tex);
-    BP_Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
+    Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
     SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
     SDL_SaveBMP(sur, filename);
-    SDL_FreeSurface(sur);
+    SDL_DestroySurface(sur);
     resetRenderTarget();
     return 0;
 }

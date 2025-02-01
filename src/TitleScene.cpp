@@ -84,7 +84,7 @@ void TitleScene::draw()
     //TextureManager::getInstance()->renderTexture("title", 150, 240, 150, { 255,255,255,255 }, 255, 0.3, 0.3);
 }
 
-void TitleScene::dealEvent(BP_Event& e)
+void TitleScene::dealEvent(EngineEvent& e)
 {
     int r = menu_->run();
     if (r == 0)

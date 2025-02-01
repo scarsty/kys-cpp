@@ -18,7 +18,7 @@ private:
 public:
     virtual void onEntrance() override;
     virtual void draw() override;
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
 
     static std::shared_ptr<UI> getInstance()
     {

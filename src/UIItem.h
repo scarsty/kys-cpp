@@ -40,13 +40,13 @@ public:
 
     void checkCurrentItem();
     virtual void draw() override { showItemProperty(current_item_); }
-    virtual void dealEvent(BP_Event& e) override;
+    virtual void dealEvent(EngineEvent& e) override;
 
     void showItemProperty(Item* item);
     std::vector<std::string> properties_;
     void addOneProperty(const std::string& format_str, int v);
     void addOneProperty(const std::string& format_str);
-    int showAddedProperty(int size, BP_Color c, int x, int y);
+    int showAddedProperty(int size, Color c, int x, int y);
 
     Item* current_item_ = nullptr;
     std::vector<Item*> available_items_;

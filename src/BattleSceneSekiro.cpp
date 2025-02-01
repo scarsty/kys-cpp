@@ -67,7 +67,7 @@ void BattleSceneSekiro::draw()
                 if (!isOutLine(ix, iy))
                 {
                     int num = earth_layer_.data(ix, iy) / 2;
-                    BP_Color color = { 255, 255, 255, 255 };
+                    Color color = { 255, 255, 255, 255 };
                     bool need_draw = true;
                     if (need_draw && num > 0)
                     {
@@ -82,7 +82,7 @@ void BattleSceneSekiro::draw()
             std::string path;
             int num;
             Pointf p;
-            BP_Color color{ 255, 255, 255, 255 };
+            Color color{ 255, 255, 255, 255 };
             uint8_t alpha = 255;
             int rot = 0, rot2 = 0;
             int shadow = 0;
@@ -275,13 +275,13 @@ void BattleSceneSekiro::draw()
             renderExtraRoleInfo(r, r->Pos.x, r->Pos.y / 2);
         }
 
-        BP_Color c = { 255, 255, 255, 255 };
+        Color c = { 255, 255, 255, 255 };
         Engine::getInstance()->setColor(earth_texture_, c);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        BP_Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
-        BP_Rect rect1 = { 0, 0, w, h };
+        Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
+        Rect rect1 = { 0, 0, w, h };
         if (rect0.x < 0)
         {
             rect1.x = -rect0.x;
@@ -302,7 +302,7 @@ void BattleSceneSekiro::draw()
         rect0.y -= 40;    //为了刀光在正中，往下调一点
         for (auto& te : text_effects_)
         {
-            Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.Color, 255);
+            Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
         }
         Engine::getInstance()->setRenderAssistTexture();
         if (close_up_)
@@ -312,7 +312,7 @@ void BattleSceneSekiro::draw()
             rect0.x += rect0.w / 2;
             rect0.y += rect0.h / 2;
         }
-        Engine::getInstance()->renderCopy(earth_texture_, &rect0, &rect1, 0);
+        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 0);
     }
 
     Engine::getInstance()->renderAssistTextureToMain();
@@ -349,7 +349,7 @@ void BattleSceneSekiro::draw()
     //}
 }
 
-void BattleSceneSekiro::dealEvent(BP_Event& e)
+void BattleSceneSekiro::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
@@ -387,14 +387,14 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
 
     Pointf pos = r->Pos;
     double speed = std::min(4.0, r->Speed / 30.0);
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_TAB
-        || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_BACK)
+    if (e.type == EVENT_KEY_UP && e.key.key == K_TAB
+        || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK)
     {
         if (r->Auto == 0) { r->Auto = 1; }
         else { r->Auto = 0; }
     }
-    if (e.type == BP_KEYUP && e.key.keysym.sym == BPK_ESCAPE
-        || e.type == BP_CONTROLLERBUTTONUP && e.cbutton.button == BP_CONTROLLER_BUTTON_START)
+    if (e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE
+        || e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
     {
         auto menu2 = std::make_shared<MenuText>();
         menu2->setStrings({ "確認（Y）", "取消（N）" });
@@ -419,8 +419,8 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
         {
             //if (current_frame_ % 3 == 0)
             {
-                auto axis_x = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTX);
-                auto axis_y = engine->gameControllerGetAxis(BP_CONTROLLER_AXIS_LEFTY);
+                auto axis_x = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTX);
+                auto axis_y = engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFTY);
                 if (abs(axis_x) < 6000) { axis_x = 0; }
                 if (abs(axis_y) < 6000) { axis_y = 0; }
                 if (axis_x != 0 || axis_y != 0)
@@ -436,22 +436,22 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
                     pos += axis;
                 }
                 Pointf direct;
-                if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(BPK_LEFT))
+                if (engine->checkKeyPress(keys_.Left) || engine->checkKeyPress(K_LEFT))
                 {
                     direct.x = -1;
                     r->FaceTowards = Towards_LeftDown;
                 }
-                if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(BPK_RIGHT))
+                if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(K_RIGHT))
                 {
                     direct.x = 1;
                     r->FaceTowards = Towards_RightUp;
                 }
-                if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(BPK_UP))
+                if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(K_UP))
                 {
                     direct.y = -1;
                     r->FaceTowards = Towards_LeftUp;
                 }
-                if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(BPK_DOWN))
+                if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(K_DOWN))
                 {
                     direct.y = 1;
                     r->FaceTowards = Towards_RightDown;
@@ -462,12 +462,12 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
             }
         }
         if (engine->checkKeyPress(keys_.Up) && engine->checkKeyPress(keys_.Right)
-            || engine->checkKeyPress(BPK_UP) && engine->checkKeyPress(BPK_RIGHT))
+            || engine->checkKeyPress(K_UP) && engine->checkKeyPress(K_RIGHT))
         {
             r->FaceTowards = Towards_RightUp;
         }
         if (engine->checkKeyPress(keys_.Down) && engine->checkKeyPress(keys_.Left)
-            || engine->checkKeyPress(BPK_DOWN) && engine->checkKeyPress(BPK_LEFT))
+            || engine->checkKeyPress(K_DOWN) && engine->checkKeyPress(K_LEFT))
         {
             r->FaceTowards = Towards_LeftDown;
         }
@@ -498,8 +498,8 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
             //equip_magics_[i]->setState(NodeNormal);
         }
         if (switch_magic_ == 0
-            && (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_LEFT)
-                || engine->checkKeyPress(BPK_LEFT)))
+            && (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT)
+                || engine->checkKeyPress(K_LEFT)))
         {
             auto v = r->getLearnedMagics();
             auto& m = magic[0];
@@ -521,8 +521,8 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
             switch_magic_ = 20;
         }
         if (switch_magic_ == 0
-            && (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_DPAD_RIGHT)
-                || engine->checkKeyPress(BPK_RIGHT)))
+            && (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_RIGHT)
+                || engine->checkKeyPress(K_RIGHT)))
         {
             auto v = r->getLearnedMagics();
             auto& m = magic[0];
@@ -548,20 +548,20 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
         {
             int index = -1;
             //0攻击，5防御，3闪身，其他不处理
-            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_RIGHTSHOULDER)
-                || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_Y)
-                || engine->checkKeyPress(BPK_i))
+            if (engine->gameControllerGetButton(GAMEPAD_BUTTON_RIGHT_SHOULDER)
+                || engine->gameControllerGetButton(GAMEPAD_BUTTON_NORTH)
+                || engine->checkKeyPress(K_I))
             {
                 index = 0;
             }
-            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_LEFTSHOULDER)
-                || engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_X)
-                || engine->checkKeyPress(BPK_e))
+            if (engine->gameControllerGetButton(GAMEPAD_BUTTON_LEFT_SHOULDER)
+                || engine->gameControllerGetButton(GAMEPAD_BUTTON_WEST)
+                || engine->checkKeyPress(K_E))
             {
                 index = 5;
             }
-            if (engine->gameControllerGetButton(BP_CONTROLLER_BUTTON_A)
-                || engine->checkKeyPress(BPK_l))
+            if (engine->gameControllerGetButton(GAMEPAD_BUTTON_SOUTH)
+                || engine->checkKeyPress(K_L))
             {
                 index = 3;
             }
@@ -635,7 +635,7 @@ void BattleSceneSekiro::dealEvent(BP_Event& e)
     }
 }
 
-void BattleSceneSekiro::dealEvent2(BP_Event& e)
+void BattleSceneSekiro::dealEvent2(EngineEvent& e)
 {
 }
 
@@ -1009,7 +1009,7 @@ void BattleSceneSekiro::backRun1()
         if (hurt > 0)
         {
             TextEffect te;
-            BP_Color c = { 255, 255, 255, 255 };
+            Color c = { 255, 255, 255, 255 };
             if (r->Team == 0)
             {
                 c = { 255, 20, 20, 255 };
@@ -1646,8 +1646,8 @@ void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
         return;
     }
     // 血条
-    BP_Color outline_color = { 0, 0, 0, 128 };
-    BP_Color background_color = { 0, 255, 0, 128 };    // 我方绿色
+    Color outline_color = { 0, 0, 0, 128 };
+    Color background_color = { 0, 255, 0, 128 };    // 我方绿色
     if (r->Team == 1)
     {
         // 敌方红色
@@ -1667,15 +1667,15 @@ void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
     {
         alpha = dead_alpha_ / 255.0;
     }
-    BP_Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
+    Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
     Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
-    BP_Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
+    Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 128 * alpha);
     //架势条
     background_color = { 255, 165, 0, 128 };
     int posture = r->Posture * (hp_max_w + 2) / MAX_POSTURE;
     posture = posture / 2 * 2;
-    BP_Rect r2 = { hp_x + hp_max_w / 2 - posture / 2, hp_y + 5, posture, hp_h - 1 };
+    Rect r2 = { hp_x + hp_max_w / 2 - posture / 2, hp_y + 5, posture, hp_h - 1 };
     Engine::getInstance()->renderSquareTexture(&r2, background_color, 192 * alpha);
 }
 

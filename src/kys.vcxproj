@@ -69,9 +69,9 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WITH_SMALLPOT;USE_SDL_MIXER_AUDIO;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../mlcc;../local/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../mlcc;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
       <TranslateIncludes>false</TranslateIncludes>
@@ -79,7 +79,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2maind.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../local/lib/x64;$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\debug\lib\manual-link</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -92,7 +92,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WITH_SMALLPOT1;WITH_NETWORK;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../include;../mod;.;$(VCPKG_LIB_PATH)\x64-windows\include;../mlcc;../local/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VCPKG_LIB_PATH)\x64-windows\include;../mlcc;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -105,7 +105,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl2.lib;sdl2main.lib;sdl2_image.lib;sdl2_ttf.lib;sdl2_mixer.lib;bass.lib;bassmidi.lib;iconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl2.lib;sdl2_image.lib;sdl2_ttf.lib;sdl2_mixer.lib;bass.lib;bassmidi.lib;iconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
@@ -135,6 +135,7 @@
     <ClCompile Include="Console.cpp" />
     <ClCompile Include="DrawableOnCall.cpp" />
     <ClCompile Include="DrawNode.cpp" />
+    <ClCompile Include="Event.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
     <ClCompile Include="Object.cpp" />
@@ -152,7 +153,6 @@
     <ClCompile Include="ShowRoleDifference.cpp" />
     <ClCompile Include="SuperMenuText.cpp" />
     <ClCompile Include="Talk.cpp" />
-    <ClCompile Include="Event.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
     <ClCompile Include="TeamMenu.cpp" />
@@ -192,6 +192,7 @@
     <ClInclude Include="BattleSceneHades.h" />
     <ClInclude Include="BattleSceneSekiro.h" />
     <ClInclude Include="DrawNode.h" />
+    <ClInclude Include="Event.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />
@@ -222,7 +223,6 @@
     <ClInclude Include="ShowRoleDifference.h" />
     <ClInclude Include="SuperMenuText.h" />
     <ClInclude Include="Talk.h" />
-    <ClInclude Include="Event.h" />
     <ClInclude Include="EventMacro.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="Head.h" />

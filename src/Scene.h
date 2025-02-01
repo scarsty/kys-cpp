@@ -11,7 +11,7 @@ public:
 
     virtual void draw() override {}
 
-    virtual void dealEvent(BP_Event& e) override {}
+    virtual void dealEvent(EngineEvent& e) override {}
 
     //BP_Texture* earth_texture_ = nullptr;
 
@@ -28,7 +28,7 @@ public:
     void calViewRegion();
 
     int total_step_ = 0;                          //键盘走路的计数
-    BP_Keycode pre_pressed_;                      //键盘走路的上次按键
+    Keycode pre_pressed_;                      //键盘走路的上次按键
     double pre_pressed_ticks_ = 0;                //键盘走路的上次按键时间
     static inline double key_walk_delay_ = 20;    //键盘走路的延迟
 
@@ -45,7 +45,7 @@ public:
 
     int first_step_delay_ = 5;
 
-    BP_Texture* earth_texture_ = nullptr;
+    Texture* earth_texture_ = nullptr;
 
     void setManPosition(int x, int y)
     {
@@ -61,7 +61,7 @@ public:
 
     void setManPic(int pic) { man_pic_ = pic; }
 
-    void checkWalk(int x, int y, BP_Event& e);    //一些公共部分，未完成
+    void checkWalk(int x, int y, EngineEvent& e);    //一些公共部分，未完成
 
     Point getPositionOnRender(int x, int y, int view_x, int view_y);
     Point getPositionOnWindow(int x, int y, int view_x, int view_y);
@@ -73,8 +73,8 @@ public:
 
     int calBlockTurn(int x, int y, int layer) { return 4 * (128 * (x + y) + x) + layer; }
 
-    void changeTowardsByKey(BP_Keycode key);
-    int getTowardsByKey(BP_Keycode key);
+    void changeTowardsByKey(Keycode key);
+    int getTowardsByKey(Keycode key);
     int getTowardsByMouse(int mouse_x, int mouse_y);
 
     //获取面向一格的坐标

@@ -1,9 +1,9 @@
 ﻿#pragma once
 
 #ifndef __ANDROID__
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_image.h"
-#include "SDL2/SDL_ttf.h"
+#include "SDL3/SDL.h"
+#include "SDL3_image/SDL_image.h"
+#include "SDL3_ttf/SDL_ttf.h"
 #else
 #include "SDL.h"
 #include "SDL_image.h"
@@ -28,26 +28,25 @@
 
 //这里是底层部分，将SDL的函数均封装了一次
 //如需更换底层，则要重新实现下面的全部功能，并重新定义全部常数和类型
-#define BP_AUDIO_MIX_MAXVOLUME SDL_MIX_MAXVOLUME
 
-//每个SDL的函数和结构通常仅出现一次，其余的均用已封的功能完成
+//每个SDL的函数和结构通常仅出现一次，其余的均用别名
 
 using AudioCallback = std::function<void(uint8_t*, int)>;
-using BP_Renderer = SDL_Renderer;
-using BP_Window = SDL_Window;
-using BP_Texture = SDL_Texture;
-using BP_Rect = SDL_Rect;
-using BP_Color = SDL_Color;
-using BP_Keycode = SDL_Keycode;
-using BP_Surface = SDL_Surface;
-using BP_GameController = SDL_GameController;
-using BP_Haptic = SDL_Haptic;
+using Renderer = SDL_Renderer;
+using Window = SDL_Window;
+using Texture = SDL_Texture;
+using Rect = SDL_Rect;
+using Color = SDL_Color;
+using Keycode = SDL_Keycode;
+using Surface = SDL_Surface;
+using Gamepad = SDL_Gamepad;
+using Haptic = SDL_Haptic;
 
-enum BP_Align
+enum Align
 {
-    BP_ALIGN_LEFT,
-    BP_ALIGN_MIDDLE,
-    BP_ALIGN_RIGHT
+    ALIGN_LEFT,
+    ALIGN_MIDDLE,
+    ALIGN_RIGHT
 };
 
 #define BP_WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED
@@ -58,201 +57,195 @@ enum BP_Align
 #define AMASK (0xff000000)
 
 //声音类型在其他文件中未使用
-using BP_AudioSpec = SDL_AudioSpec;
-//这里直接使用SDL的事件结构，如果更换底层需重新实现一套相同的
-using BP_Event = SDL_Event;
+using AudioSpec = SDL_AudioSpec;
+//这里直接使用SDL的事件结构
+using EngineEvent = SDL_Event;
 
 //这里直接照搬SDL
 //更换底层需自己定义一套
 //好像是瞎折腾
-enum BP_EventType
+enum EventType
 {
-    BP_FIRSTEVENT = SDL_FIRSTEVENT,
+    EVENT_FIRST = SDL_EVENT_FIRST,
     //按关闭按钮
-    BP_QUIT = SDL_QUIT,
+    EVENT_QUIT = SDL_EVENT_QUIT,
     //app事件
-    BP_APP_DIDENTERBACKGROUND = SDL_APP_DIDENTERBACKGROUND,
-    BP_APP_WILLENTERFOREGROUND = SDL_APP_WILLENTERFOREGROUND,
+    EVENT_DID_ENTER_BACKGROUND = SDL_EVENT_DID_ENTER_BACKGROUND,
+    EVENT_WILL_ENTER_FOREGROUND = SDL_EVENT_WILL_ENTER_FOREGROUND,
     //window
-    BP_WINDOWEVENT = SDL_WINDOWEVENT,
-    BP_SYSWMEVENT = SDL_SYSWMEVENT,
+    //BP_WINDOWEVENT = SDL_WINDOWEVENT,
+    //BP_SYSWMEVENT = SDL_SYSWMEVENT,
     //键盘
-    BP_KEYDOWN = SDL_KEYDOWN,
-    BP_KEYUP = SDL_KEYUP,
-    BP_TEXTEDITING = SDL_TEXTEDITING,
-    BP_TEXTINPUT = SDL_TEXTINPUT,
+    EVENT_KEY_DOWN = SDL_EVENT_KEY_DOWN,
+    EVENT_KEY_UP = SDL_EVENT_KEY_UP,
+    EVENT_TEXT_EDITING = SDL_EVENT_TEXT_EDITING,
+    EVENT_TEXT_INPUT = SDL_EVENT_TEXT_INPUT,
     //鼠标
-    BP_MOUSEMOTION = SDL_MOUSEMOTION,
-    BP_MOUSEBUTTONDOWN = SDL_MOUSEBUTTONDOWN,
-    BP_MOUSEBUTTONUP = SDL_MOUSEBUTTONUP,
-    BP_MOUSEWHEEL = SDL_MOUSEWHEEL,
+    EVENT_MOUSE_MOTION = SDL_EVENT_MOUSE_MOTION,
+    EVENT_MOUSE_BUTTON_DOWN = SDL_EVENT_MOUSE_BUTTON_DOWN,
+    EVENT_MOUSE_BUTTON_UP = SDL_EVENT_MOUSE_BUTTON_UP,
+    EVENT_MOUSE_WHEEL = SDL_EVENT_MOUSE_WHEEL,
     //手柄
-    BP_JOYAXISMOTION = SDL_JOYAXISMOTION,
-    BP_JOYBALLMOTION = SDL_JOYBALLMOTION,
-    BP_JOYHATMOTION = SDL_JOYHATMOTION,
-    BP_JOYBUTTONDOWN = SDL_JOYBUTTONDOWN,
-    BP_JOYBUTTONUP = SDL_JOYBUTTONUP,
-    BP_JOYDEVICEADDED = SDL_JOYDEVICEADDED,
-    BP_JOYDEVICEREMOVED = SDL_JOYDEVICEREMOVED,
+    EVENT_JOYSTICK_AXIS_MOTION = SDL_EVENT_JOYSTICK_AXIS_MOTION,
+    EVENT_JOYSTICK_BALL_MOTION = SDL_EVENT_JOYSTICK_BALL_MOTION,
+    EVENT_JOYSTICK_HAT_MOTION = SDL_EVENT_JOYSTICK_HAT_MOTION,
+    EVENT_JOYSTICK_BUTTON_DOWN = SDL_EVENT_JOYSTICK_BUTTON_DOWN,
+    EVENT_JOYSTICK_BUTTON_UP = SDL_EVENT_JOYSTICK_BUTTON_UP,
+    EVENT_JOYSTICK_ADDED = SDL_EVENT_JOYSTICK_ADDED,
+    EVENT_JOYSTICK_REMOVED = SDL_EVENT_JOYSTICK_REMOVED,
     //游戏控制器
-    BP_CONTROLLERAXISMOTION = SDL_CONTROLLERAXISMOTION,
-    BP_CONTROLLERBUTTONDOWN = SDL_CONTROLLERBUTTONDOWN,
-    BP_CONTROLLERBUTTONUP = SDL_CONTROLLERBUTTONUP,
-    BP_CONTROLLERDEVICEADDED = SDL_CONTROLLERDEVICEADDED,
-    BP_CONTROLLERDEVICEREMOVED = SDL_CONTROLLERDEVICEREMOVED,
-    BP_CONTROLLERDEVICEREMAPPED = SDL_CONTROLLERDEVICEREMAPPED,
+    EVENT_GAMEPAD_AXIS_MOTION = SDL_EVENT_GAMEPAD_AXIS_MOTION,
+    EVENT_GAMEPAD_BUTTON_DOWN = SDL_EVENT_GAMEPAD_BUTTON_DOWN,
+    EVENT_GAMEPAD_BUTTON_UP = SDL_EVENT_GAMEPAD_BUTTON_UP,
+    EVENT_GAMEPAD_ADDED = SDL_EVENT_GAMEPAD_ADDED,
+    EVENT_GAMEPAD_REMOVED = SDL_EVENT_GAMEPAD_REMOVED,
+    EVENT_GAMEPAD_REMAPPED = SDL_EVENT_GAMEPAD_REMAPPED,
     //触摸
-    BP_FINGERDOWN = SDL_FINGERDOWN,
-    BP_FINGERUP = SDL_FINGERUP,
-    BP_FINGERMOTION = SDL_FINGERMOTION,
-
-    //手势
-    BP_DOLLARGESTURE = SDL_DOLLARGESTURE,
-    BP_DOLLARRECORD = SDL_DOLLARRECORD,
-    BP_MULTIGESTURE = SDL_MULTIGESTURE,
+    EVENT_FINGER_DOWN = SDL_EVENT_FINGER_DOWN,
+    EVENT_FINGER_UP = SDL_EVENT_FINGER_UP,
+    EVENT_FINGER_MOTION = SDL_EVENT_FINGER_MOTION,
 
     //剪贴板
-    BP_CLIPBOARDUPDATE = SDL_CLIPBOARDUPDATE,
+    EVENT_CLIPBOARD_UPDATE = SDL_EVENT_CLIPBOARD_UPDATE,
     //拖放文件
-    BP_DROPFILE = SDL_DROPFILE,
+    EVENT_DROP_FILE = SDL_EVENT_DROP_FILE,
     //渲染改变
-    BP_RENDER_TARGETS_RESET = SDL_RENDER_TARGETS_RESET,
+    EVENT_RENDER_TARGETS_RESET = SDL_EVENT_RENDER_TARGETS_RESET,
 
-    BP_LASTEVENT = SDL_LASTEVENT
+    EVENT_LAST = SDL_EVENT_LAST
 };
 
 enum BP_WindowEventID
 {
-    BP_WINDOWEVENT_NONE = SDL_WINDOWEVENT_NONE, /**< Never used */
-    BP_WINDOWEVENT_SHOWN = SDL_WINDOWEVENT_SHOWN,
-    BP_WINDOWEVENT_HIDDEN = SDL_WINDOWEVENT_HIDDEN,
-    BP_WINDOWEVENT_EXPOSED = SDL_WINDOWEVENT_EXPOSED,
+    EVENT_WINDOW_SHOWN = SDL_EVENT_WINDOW_SHOWN,
+    EVENT_WINDOW_HIDDEN = SDL_EVENT_WINDOW_HIDDEN,
+    EVENT_WINDOW_EXPOSED = SDL_EVENT_WINDOW_EXPOSED,
 
-    BP_WINDOWEVENT_MOVED = SDL_WINDOWEVENT_MOVED,
+    EVENT_WINDOW_MOVED = SDL_EVENT_WINDOW_MOVED,
 
-    BP_WINDOWEVENT_RESIZED = SDL_WINDOWEVENT_RESIZED,
-    BP_WINDOWEVENT_SIZE_CHANGED = SDL_WINDOWEVENT_SIZE_CHANGED,
-    BP_WINDOWEVENT_MINIMIZED = SDL_WINDOWEVENT_MINIMIZED,
-    BP_WINDOWEVENT_MAXIMIZED = SDL_WINDOWEVENT_MAXIMIZED,
-    BP_WINDOWEVENT_RESTORED = SDL_WINDOWEVENT_RESTORED,
+    EVENT_WINDOW_RESIZED = SDL_EVENT_WINDOW_RESIZED,
+    EVENT_WINDOW_PIXEL_SIZE_CHANGED = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED,
+    EVENT_WINDOW_MINIMIZED = SDL_EVENT_WINDOW_MINIMIZED,
+    EVENT_WINDOW_MAXIMIZED = SDL_EVENT_WINDOW_MAXIMIZED,
+    EVENT_WINDOW_RESTORED = SDL_EVENT_WINDOW_RESTORED,
 
-    BP_WINDOWEVENT_ENTER = SDL_WINDOWEVENT_ENTER,
-    BP_WINDOWEVENT_LEAVE = SDL_WINDOWEVENT_LEAVE,
-    BP_WINDOWEVENT_FOCUS_GAINED = SDL_WINDOWEVENT_FOCUS_GAINED,
-    BP_WINDOWEVENT_FOCUS_LOST = SDL_WINDOWEVENT_FOCUS_LOST,
-    BP_WINDOWEVENT_CLOSE = SDL_WINDOWEVENT_CLOSE
+    EVENT_WINDOW_MOUSE_ENTER = SDL_EVENT_WINDOW_MOUSE_ENTER,
+    EVENT_WINDOW_MOUSE_LEAVE = SDL_EVENT_WINDOW_MOUSE_LEAVE,
+    EVENT_WINDOW_FOCUS_GAINED = SDL_EVENT_WINDOW_FOCUS_GAINED,
+    EVENT_WINDOW_FOCUS_LOST = SDL_EVENT_WINDOW_FOCUS_LOST,
+    EVENT_WINDOW_CLOSE_REQUESTED = SDL_EVENT_WINDOW_CLOSE_REQUESTED
 };
 
-enum BP_KeyBoard
+enum KeyBoard
 {
-    BPK_LEFT = SDLK_LEFT,
-    BPK_RIGHT = SDLK_RIGHT,
-    BPK_UP = SDLK_UP,
-    BPK_DOWN = SDLK_DOWN,
-    BPK_SPACE = SDLK_SPACE,
-    BPK_ESCAPE = SDLK_ESCAPE,
-    BPK_RETURN = SDLK_RETURN,
-    BPK_DELETE = SDLK_DELETE,
-    BPK_BACKSPACE = SDLK_BACKSPACE,
-    BPK_TAB = SDLK_TAB,
-    BPK_0 = SDLK_0,
-    BPK_1 = SDLK_1,
-    BPK_2 = SDLK_2,
-    BPK_3 = SDLK_3,
-    BPK_4 = SDLK_4,
-    BPK_PLUS = SDLK_PLUS,
-    BPK_COMMA = SDLK_COMMA,
-    BPK_MINUS = SDLK_MINUS,
-    BPK_PERIOD = SDLK_PERIOD,
-    BPK_EQUALS = SDLK_EQUALS,
-    BPK_a = SDLK_a,
-    BPK_b = SDLK_b,
-    BPK_c = SDLK_c,
-    BPK_d = SDLK_d,
-    BPK_e = SDLK_e,
-    BPK_f = SDLK_f,
-    BPK_g = SDLK_g,
-    BPK_h = SDLK_h,
-    BPK_i = SDLK_i,
-    BPK_j = SDLK_j,
-    BPK_k = SDLK_k,
-    BPK_l = SDLK_l,
-    BPK_m = SDLK_m,
-    BPK_n = SDLK_n,
-    BPK_o = SDLK_o,
-    BPK_p = SDLK_p,
-    BPK_q = SDLK_q,
-    BPK_r = SDLK_r,
-    BPK_s = SDLK_s,
-    BPK_t = SDLK_t,
-    BPK_u = SDLK_u,
-    BPK_v = SDLK_v,
-    BPK_w = SDLK_w,
-    BPK_x = SDLK_x,
-    BPK_y = SDLK_y,
-    BPK_z = SDLK_z,
-    BPK_PAGEUP = SDLK_PAGEUP,
-    BPK_PAGEDOWN = SDLK_PAGEDOWN,
+    K_LEFT = SDLK_LEFT,
+    K_RIGHT = SDLK_RIGHT,
+    K_UP = SDLK_UP,
+    K_DOWN = SDLK_DOWN,
+    K_SPACE = SDLK_SPACE,
+    K_ESCAPE = SDLK_ESCAPE,
+    K_RETURN = SDLK_RETURN,
+    K_DELETE = SDLK_DELETE,
+    K_BACKSPACE = SDLK_BACKSPACE,
+    K_TAB = SDLK_TAB,
+    K_0 = SDLK_0,
+    K_1 = SDLK_1,
+    K_2 = SDLK_2,
+    K_3 = SDLK_3,
+    K_4 = SDLK_4,
+    K_PLUS = SDLK_PLUS,
+    K_COMMA = SDLK_COMMA,
+    K_MINUS = SDLK_MINUS,
+    K_PERIOD = SDLK_PERIOD,
+    K_EQUALS = SDLK_EQUALS,
+    K_A = SDLK_A,
+    K_B = SDLK_B,
+    K_C = SDLK_C,
+    K_D = SDLK_D,
+    K_E = SDLK_E,
+    K_F = SDLK_F,
+    K_G = SDLK_G,
+    K_H = SDLK_H,
+    K_I = SDLK_I,
+    K_J = SDLK_J,
+    K_K = SDLK_K,
+    K_L = SDLK_L,
+    K_M = SDLK_M,
+    K_N = SDLK_N,
+    K_O = SDLK_O,
+    K_P = SDLK_P,
+    K_Q = SDLK_Q,
+    K_R = SDLK_R,
+    K_S = SDLK_S,
+    K_T = SDLK_T,
+    K_U = SDLK_U,
+    K_V = SDLK_V,
+    K_W = SDLK_W,
+    K_X = SDLK_X,
+    K_Y = SDLK_Y,
+    K_Z = SDLK_Z,
+    K_PAGEUP = SDLK_PAGEUP,
+    K_PAGEDOWN = SDLK_PAGEDOWN,
 };
 
-enum BP_Button
+enum MouseButton
 {
-    BP_BUTTON_LEFT = SDL_BUTTON_LEFT,
-    BP_BUTTON_MIDDLE = SDL_BUTTON_MIDDLE,
-    BP_BUTTON_RIGHT = SDL_BUTTON_RIGHT
+    BUTTON_LEFT = SDL_BUTTON_LEFT,
+    BUTTON_MIDDLE = SDL_BUTTON_MIDDLE,
+    BUTTON_RIGHT = SDL_BUTTON_RIGHT
 };
 
-enum BP_State
-{
-    BP_PRESSED = SDL_PRESSED,
-    BP_RELEASED = SDL_RELEASED,
-};
+//enum State
+//{
+//    PRESSED = SDL_PRESSED,
+//    RELEASED = SDL_RELEASED,
+//};
 
 enum BP_GameControllerButton
 {
     //xbox
-    BP_CONTROLLER_BUTTON_INVALID = SDL_CONTROLLER_BUTTON_INVALID,
-    BP_CONTROLLER_BUTTON_A = SDL_CONTROLLER_BUTTON_A,
-    BP_CONTROLLER_BUTTON_B = SDL_CONTROLLER_BUTTON_B,
-    BP_CONTROLLER_BUTTON_X = SDL_CONTROLLER_BUTTON_X,
-    BP_CONTROLLER_BUTTON_Y = SDL_CONTROLLER_BUTTON_Y,
-    BP_CONTROLLER_BUTTON_BACK = SDL_CONTROLLER_BUTTON_BACK,
-    BP_CONTROLLER_BUTTON_GUIDE = SDL_CONTROLLER_BUTTON_GUIDE,
-    BP_CONTROLLER_BUTTON_START = SDL_CONTROLLER_BUTTON_START,
-    BP_CONTROLLER_BUTTON_LEFTSTICK = SDL_CONTROLLER_BUTTON_LEFTSTICK,
-    BP_CONTROLLER_BUTTON_RIGHTSTICK = SDL_CONTROLLER_BUTTON_RIGHTSTICK,
-    BP_CONTROLLER_BUTTON_LEFTSHOULDER = SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
-    BP_CONTROLLER_BUTTON_RIGHTSHOULDER = SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
-    BP_CONTROLLER_BUTTON_DPAD_UP = SDL_CONTROLLER_BUTTON_DPAD_UP,
-    BP_CONTROLLER_BUTTON_DPAD_DOWN = SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-    BP_CONTROLLER_BUTTON_DPAD_LEFT = SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-    BP_CONTROLLER_BUTTON_DPAD_RIGHT = SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
-    BP_CONTROLLER_BUTTON_MISC1 = SDL_CONTROLLER_BUTTON_MISC1,
-    BP_CONTROLLER_BUTTON_PADDLE1 = SDL_CONTROLLER_BUTTON_PADDLE1,
-    BP_CONTROLLER_BUTTON_PADDLE2 = SDL_CONTROLLER_BUTTON_PADDLE2,
-    BP_CONTROLLER_BUTTON_PADDLE3 = SDL_CONTROLLER_BUTTON_PADDLE3,
-    BP_CONTROLLER_BUTTON_PADDLE4 = SDL_CONTROLLER_BUTTON_PADDLE4,
-    BP_CONTROLLER_BUTTON_TOUCHPAD = SDL_CONTROLLER_BUTTON_TOUCHPAD,
-    BP_CONTROLLER_BUTTON_MAX = SDL_CONTROLLER_BUTTON_MAX,
+    GAMEPAD_BUTTON_INVALID = SDL_GAMEPAD_BUTTON_INVALID,
+    GAMEPAD_BUTTON_SOUTH = SDL_GAMEPAD_BUTTON_SOUTH,
+    GAMEPAD_BUTTON_EAST = SDL_GAMEPAD_BUTTON_EAST,
+    GAMEPAD_BUTTON_WEST = SDL_GAMEPAD_BUTTON_WEST,
+    GAMEPAD_BUTTON_NORTH = SDL_GAMEPAD_BUTTON_NORTH,
+    GAMEPAD_BUTTON_BACK = SDL_GAMEPAD_BUTTON_BACK,
+    GAMEPAD_BUTTON_GUIDE = SDL_GAMEPAD_BUTTON_GUIDE,
+    GAMEPAD_BUTTON_START = SDL_GAMEPAD_BUTTON_START,
+    GAMEPAD_BUTTON_LEFT_STICK = SDL_GAMEPAD_BUTTON_LEFT_STICK,
+    GAMEPAD_BUTTON_RIGHT_STICK = SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+    GAMEPAD_BUTTON_LEFT_SHOULDER = SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,
+    GAMEPAD_BUTTON_RIGHT_SHOULDER = SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
+    GAMEPAD_BUTTON_DPAD_UP = SDL_GAMEPAD_BUTTON_DPAD_UP,
+    GAMEPAD_BUTTON_DPAD_DOWN = SDL_GAMEPAD_BUTTON_DPAD_DOWN,
+    GAMEPAD_BUTTON_DPAD_LEFT = SDL_GAMEPAD_BUTTON_DPAD_LEFT,
+    GAMEPAD_BUTTON_DPAD_RIGHT = SDL_GAMEPAD_BUTTON_DPAD_RIGHT,
+    GAMEPAD_BUTTON_MISC1 = SDL_GAMEPAD_BUTTON_MISC1,
+    GAMEPAD_BUTTON_RIGHT_PADDLE1 = SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1,
+    GAMEPAD_BUTTON_LEFT_PADDLE1 = SDL_GAMEPAD_BUTTON_LEFT_PADDLE1,
+    GAMEPAD_BUTTON_RIGHT_PADDLE2 = SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2,
+    GAMEPAD_BUTTON_LEFT_PADDLE2 = SDL_GAMEPAD_BUTTON_LEFT_PADDLE2,
+    GAMEPAD_BUTTON_TOUCHPAD = SDL_GAMEPAD_BUTTON_TOUCHPAD,
+    GAMEPAD_BUTTON_COUNT = SDL_GAMEPAD_BUTTON_COUNT,
 };
 
 enum BP_GameControllerAxis
 {
-    BP_CONTROLLER_AXIS_INVALID = SDL_CONTROLLER_AXIS_INVALID,
-    BP_CONTROLLER_AXIS_LEFTX = SDL_CONTROLLER_AXIS_LEFTX,
-    BP_CONTROLLER_AXIS_LEFTY = SDL_CONTROLLER_AXIS_LEFTY,
-    BP_CONTROLLER_AXIS_RIGHTX = SDL_CONTROLLER_AXIS_RIGHTX,
-    BP_CONTROLLER_AXIS_RIGHTY = SDL_CONTROLLER_AXIS_RIGHTY,
-    BP_CONTROLLER_AXIS_TRIGGERLEFT = SDL_CONTROLLER_AXIS_TRIGGERLEFT,
-    BP_CONTROLLER_AXIS_TRIGGERRIGHT = SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
-    BP_CONTROLLER_AXIS_MAX = SDL_CONTROLLER_AXIS_MAX,
+    GAMEPAD_AXIS_INVALID = SDL_GAMEPAD_AXIS_INVALID,
+    GAMEPAD_AXIS_LEFTX = SDL_GAMEPAD_AXIS_LEFTX,
+    GAMEPAD_AXIS_LEFTY = SDL_GAMEPAD_AXIS_LEFTY,
+    GAMEPAD_AXIS_RIGHTX = SDL_GAMEPAD_AXIS_RIGHTX,
+    GAMEPAD_AXIS_RIGHTY = SDL_GAMEPAD_AXIS_RIGHTY,
+    GAMEPAD_AXIS_LEFT_TRIGGER = SDL_GAMEPAD_AXIS_LEFT_TRIGGER,
+    GAMEPAD_AXIS_RIGHT_TRIGGER = SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,
+    GAMEPAD_AXIS_COUNT = SDL_GAMEPAD_AXIS_COUNT,
 };
 
 enum BP_TextureAccess
 {
-    BP_TEXTUREACCESS_STATIC = SDL_TEXTUREACCESS_STATIC,       /**< Changes rarely, not lockable */
-    BP_TEXTUREACCESS_STREAMING = SDL_TEXTUREACCESS_STREAMING, /**< Changes frequently, lockable */
-    BP_TEXTUREACCESS_TARGET = SDL_TEXTUREACCESS_TARGET        /**< Texture can be used as a render target */
+    TEXTUREACCESS_STATIC = SDL_TEXTUREACCESS_STATIC,       /**< Changes rarely, not lockable */
+    TEXTUREACCESS_STREAMING = SDL_TEXTUREACCESS_STREAMING, /**< Changes frequently, lockable */
+    TEXTUREACCESS_TARGET = SDL_TEXTUREACCESS_TARGET        /**< Texture can be used as a render target */
 };
 
 class Engine
@@ -271,12 +264,12 @@ public:
     //图形相关
 private:
     bool inited_ = false;
-    BP_Window* window_ = nullptr;
-    BP_Renderer* renderer_ = nullptr;
-    BP_Texture* tex_ = nullptr;
-    BP_Texture* tex2_ = nullptr;
-    BP_Texture* logo_ = nullptr;
-    BP_Rect rect_;
+    Window* window_ = nullptr;
+    Renderer* renderer_ = nullptr;
+    Texture* tex_ = nullptr;
+    Texture* tex2_ = nullptr;
+    Texture* logo_ = nullptr;
+    Rect rect_;
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
@@ -331,19 +324,19 @@ public:
 
     void setWindowTitle(const std::string& str) const { SDL_SetWindowTitle(window_, str.c_str()); }
 
-    BP_Renderer* getRenderer() const { return renderer_; }
+    Renderer* getRenderer() const { return renderer_; }
 
     void createMainTexture(int pixfmt, BP_TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(int w, int h);
-    void setPresentPosition(BP_Texture* tex);    //设置贴图的位置
+    void setPresentPosition(Texture* tex);    //设置贴图的位置
 
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() const { return rect_.w; }
 
     int getPresentHeight() const { return rect_.h; }
 
-    BP_Texture* getMainTexture() const { return tex_; }
+    Texture* getMainTexture() const { return tex_; }
 
     void getMainTextureSize(int& w, int& h) const { queryTexture(tex2_, &w, &h); }
 
@@ -355,31 +348,37 @@ public:
         }
     }
 
-    BP_Texture* createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const;
+    Texture* createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const;
 
-    static void destroyTexture(BP_Texture* t) { SDL_DestroyTexture(t); }
+    static void destroyTexture(Texture* t) { SDL_DestroyTexture(t); }
 
-    BP_Texture* createYUVTexture(int w, int h) const;
-    static void updateYUVTexture(BP_Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
-    BP_Texture* createARGBTexture(int w, int h);
-    BP_Texture* createARGBRenderedTexture(int w, int h);
-    static void updateARGBTexture(BP_Texture* t, uint8_t* buffer, int pitch);
-    static int lockTexture(BP_Texture* t, BP_Rect* r, void** pixel, int* pitch);
-    static void unlockTexture(BP_Texture* t);
+    Texture* createYUVTexture(int w, int h) const;
+    static void updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
+    Texture* createARGBTexture(int w, int h);
+    Texture* createARGBRenderedTexture(int w, int h);
+    static void updateARGBTexture(Texture* t, uint8_t* buffer, int pitch);
+    static int lockTexture(Texture* t, Rect* r, void** pixel, int* pitch);
+    static void unlockTexture(Texture* t);
 
-    void showLogo() { renderCopy(logo_, nullptr, nullptr); }
+    void showLogo() { renderTexture(logo_, nullptr, nullptr); }
 
     void renderPresent() const;
 
     void renderClear() const { SDL_RenderClear(renderer_); }
 
-    static void setTextureAlphaMod(BP_Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
+    static void setTextureAlphaMod(Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
 
-    static void queryTexture(BP_Texture* t, int* w, int* h) { SDL_QueryTexture(t, nullptr, nullptr, w, h); }
+    static void queryTexture(Texture* t, int* w, int* h) 
+    {
+        float wf, hf;
+        SDL_GetTextureSize(t, &wf, &hf);
+        *w = wf;
+        *h = hf;
+    }
 
-    void setRenderTarget(BP_Texture* t) const { SDL_SetRenderTarget(renderer_, t); }
+    void setRenderTarget(Texture* t) const { SDL_SetRenderTarget(renderer_, t); }
 
-    BP_Texture* getRenderTarget() const { return SDL_GetRenderTarget(renderer_); }
+    Texture* getRenderTarget() const { return SDL_GetRenderTarget(renderer_); }
 
     void resetRenderTarget() const { setRenderTarget(nullptr); }
 
@@ -387,17 +386,17 @@ public:
 
     static void createRenderer() {}
 
-    void renderCopy(BP_Texture* t = nullptr, double angle = 0);
-    void renderCopy(BP_Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
-    void renderCopy(BP_Texture* t, BP_Rect* rect0, BP_Rect* rect1, double angle = 0, int inPresent = 0);
+    void renderTexture(Texture* t = nullptr, double angle = 0);
+    void renderTexture(Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
+    void renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle = 0, int inPresent = 0);
     void destroy() const;
     bool isFullScreen();
     void toggleFullscreen();
-    BP_Texture* loadImage(const std::string& filename, int as_white = 0);
-    BP_Texture* loadImageFromMemory(const std::string& content, int as_white = 0) const;
-    static void toWhite(BP_Surface* sur);
+    Texture* loadImage(const std::string& filename, int as_white = 0);
+    Texture* loadImageFromMemory(const std::string& content, int as_white = 0) const;
+    static void toWhite(Surface* sur);
     bool setKeepRatio(bool b);
-    BP_Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;
+    Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;
 
     double setRotation(double r) { return rotation_ = r; }
 
@@ -409,8 +408,8 @@ public:
         ratio_y_ = y;
     }
 
-    static void setColor(BP_Texture* tex, BP_Color c);
-    void fillColor(BP_Color color, int x, int y, int w, int h) const;
+    static void setColor(Texture* tex, Color c);
+    void fillColor(Color color, int x, int y, int w, int h) const;
 
     void setRenderMainTexture() const { setRenderTarget(tex_); }
 
@@ -420,27 +419,37 @@ public:
 
     void renderAssistTextureToMain();
 
-    static int setTextureBlendMode(BP_Texture* t) { return SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
+    static int setTextureBlendMode(Texture* t) { return SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
 
     void resetRenderTimes(int t = 0) { render_times_ = t; }
 
     int getRenderTimes() const { return render_times_; }
 
-    BP_Texture* getRenderAssistTexture() const { return tex2_; }
+    Texture* getRenderAssistTexture() const { return tex2_; }
 
     //声音相关
 private:
     SDL_AudioDeviceID audio_device_;
     AudioCallback audio_callback_ = nullptr;
-    SDL_AudioFormat audio_format_ = AUDIO_F32;
-    BP_AudioSpec audio_spec_;
+    SDL_AudioFormat audio_format_ = SDL_AUDIO_F32LE;
+    AudioSpec audio_spec_;
 
 public:
-    void pauseAudio(int pause) const { SDL_PauseAudioDevice(audio_device_, pause); }
+    void pauseAudio(int pause) const
+    {
+        if (pause)
+        {
+            SDL_PauseAudioDevice(audio_device_);
+        }
+        else
+        {
+            SDL_ResumeAudioDevice(audio_device_);
+        }
+    }
 
     void closeAudio() const { SDL_CloseAudioDevice(audio_device_); }
 
-    static int getMaxVolume() { return BP_AUDIO_MIX_MAXVOLUME; }
+    static float getMaxVolume() { return 1.0; }
 
     void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const;
 
@@ -478,22 +487,22 @@ public:
     void getMouseStateInStartWindow(int& x, int& y) const;
     void setMouseState(int x, int y) const;
     void setMouseStateInStartWindow(int x, int y) const;
-    int pollEvent(BP_Event& e) const;
+    int pollEvent(EngineEvent& e) const;
 
     static int pollEvent() { return SDL_PollEvent(nullptr); }
 
-    static int pushEvent(BP_Event& e) { return SDL_PushEvent(&e); }
+    static int pushEvent(EngineEvent& e) { return SDL_PushEvent(&e); }
 
     static void flushEvent() { SDL_FlushEvent(0); }
 
     static void free(void* mem) { SDL_free(mem); }
 
-    static bool checkKeyPress(BP_Keycode key);
+    static bool checkKeyPress(Keycode key);
 
 private:
-    std::vector<BP_GameController*> game_controllers_;
+    std::vector<Gamepad*> game_controllers_;
     std::vector<int> nintendo_switch_;
-    BP_GameController* cur_game_controller_ = nullptr;
+    Gamepad* cur_game_controller_ = nullptr;
     double prev_controller_press_ = 0;
     double interval_controller_press_ = 0;
     std::unordered_map<int, int> virtual_stick_button_;
@@ -530,13 +539,13 @@ public:
 
     //UI相关
 private:
-    BP_Texture* square_ = nullptr;
+    Texture* square_ = nullptr;
 
 public:
-    BP_Texture* createRectTexture(int w, int h, int style) const;
-    BP_Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, BP_Color c) const;
+    Texture* createRectTexture(int w, int h, int style) const;
+    Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const;
     int showMessage(const std::string& content) const;
-    void renderSquareTexture(BP_Rect* rect, BP_Color color, uint8_t alpha);
+    void renderSquareTexture(Rect* rect, Color color, uint8_t alpha);
 
 public:
     //标题;
@@ -548,16 +557,16 @@ private:
 public:
     static int playVideo(std::string filename);
     int saveScreen(const char* filename) const;
-    int saveTexture(BP_Texture* tex, const char* filename) const;
+    int saveTexture(Texture* tex, const char* filename) const;
 
     //输入相关
-    static void startTextInput() { SDL_StartTextInput(); }
+    void startTextInput() { SDL_StartTextInput(window_); }
 
-    static void stopTextInput() { SDL_StopTextInput(); }
+    void stopTextInput() { SDL_StopTextInput(window_); }
 
-    static void setTextInputRect(int x, int y, int w = 0, int h = 0)
+    void setTextInputArea(int x, int y, int w = 0, int h = 0)
     {
-        BP_Rect r = { x, y, w, h };
-        SDL_SetTextInputRect(&r);
+        Rect r = { x, y, w, h };
+        SDL_SetTextInputArea(window_, &r, 0);
     }
 };

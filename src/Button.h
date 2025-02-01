@@ -13,7 +13,7 @@ public:
     virtual ~Button();
 
     //void InitMumber();
-    void dealEvent(BP_Event& e) override;
+    void dealEvent(EngineEvent& e) override;
     void draw() override;
 
     int getTexutreID() { return texture_normal_id_; }
@@ -27,7 +27,7 @@ class ButtonGetKey : public Button
 {
 public:
     virtual ~ButtonGetKey();
-    void dealEvent(BP_Event& e) override;
+    void dealEvent(EngineEvent& e) override;
 
     virtual void onPressedOK() override {}
 

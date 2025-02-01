@@ -16,7 +16,7 @@ class SuperMenuText : public InputBox
 public:
     SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage);
     virtual ~SuperMenuText() = default;
-    void dealEvent(BP_Event& e) override;
+    void dealEvent(EngineEvent& e) override;
     virtual void setInputPosition(int x, int y) override;
     void addDrawableOnCall(std::shared_ptr<DrawableOnCall> doc);
     void setMatchFunction(std::function<bool(const std::string&, const std::string&)> match);
