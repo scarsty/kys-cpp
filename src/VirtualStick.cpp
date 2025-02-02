@@ -56,7 +56,8 @@ void VirtualStick::dealEvent(EngineEvent& e)
     {
         setStyle(0);
     }
-    int num = SDL_GetNumTouchDevices();
+    int num = 0;
+    SDL_GetTouchDevices(&num);
     //fmt1::print("{}", num);
     auto engine = Engine::getInstance();
     engine->clearGameControllerButton();
@@ -76,20 +77,21 @@ void VirtualStick::dealEvent(EngineEvent& e)
         auto b = std::dynamic_pointer_cast<Button>(c);
         b->state_ = NodeNormal;
     }
-
+    auto touch = SDL_GetTouchDevices(&num);
     for (int i_device = 0; i_device < num; i_device++)
-    {
-        auto touch = SDL_GetTouchDevice(i_device);
+    {        
         if (!touch)
         {
             continue;
         }
-        int fingers = SDL_GetNumTouchFingers(touch);
+        int fingers;
+        SDL_Finger** finger_pp;
+        finger_pp = SDL_GetTouchFingers(*touch, &fingers);
         bool is_press = false;
         bool is_press2 = false;    //将按键范围扩大一点，避免按到键中间被当成鼠标操作
         for (int i = 0; i < fingers; i++)
         {
-            auto s = SDL_GetTouchFinger(touch, i);
+            auto s = finger_pp[i];
             //fmt1::print("{}: {} {} ", i, s->x * w_, s->y * h_);
             int x = s->x * w_;
             int y = s->y * h_;
@@ -200,6 +202,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
         {
             return;
         }
+        touch++;
     }
 }
 

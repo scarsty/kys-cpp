@@ -75,11 +75,12 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         char_count++;
         int w1 = w;
         int x1 = x;
-        //Engine::getInstance()->queryTexture(tex, &w, &h);
+        //Engine::getInstance()->getTextureSize(tex, w, h);
         if (c < 128)
         {
             w = size / 2;
-            Engine::getInstance()->queryTexture(tex, &w1, nullptr);
+            int h1;
+            Engine::getInstance()->getTextureSize(tex, w1, h1);
             w1 = (std::min)(w1, w);
             x1 += (w - w1) / 2;
         }
@@ -130,7 +131,7 @@ void Font::drawText(const std::string& fontname, std::string& text, int size, in
     }
     Engine::getInstance()->setTextureAlphaMod(text_t, alpha);
     Rect rect;
-    Engine::getInstance()->queryTexture(text_t, &rect.w, &rect.h);
+    Engine::getInstance()->getTextureSize(text_t, rect.w, rect.h);
     rect.y = y;
     switch (align)
     {

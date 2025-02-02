@@ -12,7 +12,7 @@ github：https://github.com/scarsty/kys-cpp
 
 资源文件：<http://pan.baidu.com/s/1sl2X9wD>
 
-这是一个以SDL2为基础实现的2D游戏框架，同时相当于提供了一个使用该框架制作DOS游戏《金庸群侠传》移植版的范例。
+这是一个以SDL为基础实现的2D游戏框架，同时相当于提供了一个使用该框架制作DOS游戏《金庸群侠传》移植版的范例。
 
 ## 如何编译
 
@@ -20,7 +20,8 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
-.\vcpkg install sdl2:x64-windows sdl2-image:x64-windows sdl2-ttf:x64-windows sdl2-mixer:x64-windows lua:x64-windows opencc:x64-windows sqlite3:x64-windows libiconv:x64-windows asio:x64-windows picosha2:x64-windows yaml-cpp:x64-windows libzip:x64-windows
+.\vcpkg install sdl3 sdl3-image[png] lua opencc sqlite3 libiconv asio picosha2 yaml-cpp
+sdl3的ttf和mixer尚未完成，vcpkg暂时不支持，可以自己编译。
 ```
 建议执行：
 ```bat

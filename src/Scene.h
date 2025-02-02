@@ -28,7 +28,7 @@ public:
     void calViewRegion();
 
     int total_step_ = 0;                          //键盘走路的计数
-    Keycode pre_pressed_;                      //键盘走路的上次按键
+    Keycode pre_pressed_ = K_UNKNOWN;          //键盘走路的上次按键
     double pre_pressed_ticks_ = 0;                //键盘走路的上次按键时间
     static inline double key_walk_delay_ = 20;    //键盘走路的延迟
 

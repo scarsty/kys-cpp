@@ -410,7 +410,7 @@ bool RunNode::isSpecialEvent(EngineEvent& e)
 {
     //fmt1::print("type = {}\n", e.type);
     return e.type == EVENT_QUIT
-        || e.type == BP_WINDOWEVENT
+        || e.type == EVENT_WINDOW_CLOSE_REQUESTED
         || e.type == EVENT_KEY_DOWN
         || e.type == EVENT_KEY_UP
         || e.type == EVENT_TEXT_EDITING

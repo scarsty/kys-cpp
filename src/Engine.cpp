@@ -26,7 +26,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     inited_ = true;
 #ifndef _WINDLL
-    if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
+    if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
     {
         return -1;
     }
@@ -36,7 +36,10 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     {
         if (handle_type == 0)
         {
-            window_ = SDL_CreateWindowFrom(handle);
+            //window_ = SDL_CreateWindowFrom(handle);
+            Prop props;
+            props.set(SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, handle);    //未测试
+            SDL_CreateWindowWithProperties(props.id());
         }
         else
         {
@@ -45,12 +48,13 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     else
     {
-        uint32_t flags = SDL_WINDOW_RESIZABLE;
-        if (maximized)
-        {
-            flags |= SDL_WINDOW_MAXIMIZED;
-        }
-        window_ = SDL_CreateWindow(title_.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, start_w_, start_h_, flags);
+        Prop props;
+        props.set(SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+        props.set(SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, maximized);
+        props.set(SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, start_w_);
+        props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, start_h_);
+        props.set(SDL_PROP_WINDOW_CREATE_TITLE_STRING, title_.c_str());
+        window_ = SDL_CreateWindowWithProperties(props.id());
     }
     //SDL_CreateWindowFrom()
 #ifndef _WINDLL
@@ -61,11 +65,13 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     fmt1::print("{}\n", SDL_GetError());
     if (renderer_ == nullptr)
     {
-        renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /*| SDL_RENDERER_PRESENTVSYNC*/);
+        Prop props;
+        props.set(SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window_);
+        renderer_ = SDL_CreateRendererWithProperties(props.id());
         renderer_self_ = true;
     }
 
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     //SDL_EventState(SDL_EVENT_DROP_FILE, SDL_ENABLE);
 
     //屏蔽触摸板
@@ -76,10 +82,10 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     //手柄
     checkGameControllers();
 
-    if (SDL_GetNumTouchDevices() > 0)
-    {
-        fmt1::print("Found {} touch\n", SDL_GetNumTouchDevices());
-    }
+    int num_touch = 0;
+    SDL_GetTouchDevices(&num_touch);
+
+    fmt1::print("Found {} touch(es)\n", num_touch);
 
     rect_ = { 0, 0, start_w_, start_h_ };
     logo_ = loadImage("logo.png");
@@ -111,7 +117,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     tinypot_ = PotCreateFromWindow(window_);
 #endif
-    createMainTexture(-1, TEXTUREACCESS_TARGET, start_w_, start_h_);
+    createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, start_w_, start_h_);
     return 0;
 }
 
@@ -195,7 +201,7 @@ void Engine::setWindowPosition(int x, int y) const
     SDL_SetWindowPosition(window_, x, y);
 }
 
-void Engine::createMainTexture(int pixfmt, BP_TextureAccess a, int w, int h)
+void Engine::createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h)
 {
     if (tex_)
     {
@@ -229,10 +235,9 @@ void Engine::resizeMainTexture(int w, int h) const
 void Engine::createAssistTexture(int w, int h)
 {
     //tex_ = createYUVTexture(w, h);
-    uint32_t pixfmt;
-    int a;
-    SDL_QueryTexture(tex_, &pixfmt, &a, nullptr, nullptr);
-    tex2_ = createTexture(pixfmt, TEXTUREACCESS_TARGET, w, h);
+    Sint64 pixfmt = 0;
+    SDL_GetNumberProperty(SDL_GetTextureProperties(tex_), SDL_PROP_TEXTURE_FORMAT_NUMBER, pixfmt);
+    tex2_ = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
     //tex_ = createARGBRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
@@ -246,7 +251,7 @@ void Engine::setPresentPosition(Texture* tex)
     int w_dst = 0, h_dst = 0;
     int w_src = 0, h_src = 0;
     getWindowSize(w_dst, h_dst);
-    SDL_QueryTexture(tex, nullptr, nullptr, &w_src, &h_src);
+    getTextureSize(tex, w_src, h_src);
     w_src *= ratio_x_;
     h_src *= ratio_y_;
     if (keep_ratio_)
@@ -282,13 +287,13 @@ void Engine::setPresentPosition(Texture* tex)
     }
 }
 
-Texture* Engine::createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const
+Texture* Engine::createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const
 {
     if (pix_fmt == SDL_PIXELFORMAT_UNKNOWN)
     {
-        pix_fmt = SDL_PIXELFORMAT_RGB24;
+        pix_fmt = SDL_PIXELFORMAT_ARGB8888;
     }
-    return SDL_CreateTexture(renderer_, pix_fmt, a, w, h);
+    return SDL_CreateTexture(renderer_, pix_fmt, (SDL_TextureAccess)a, w, h);
 }
 
 Texture* Engine::createYUVTexture(int w, int h) const
@@ -336,7 +341,9 @@ void Engine::renderPresent() const
 
 void Engine::renderTexture(Texture* t /*= nullptr*/, double angle)
 {
-    SDL_RenderTextureRotated(renderer_, t, nullptr, &rect_, angle, nullptr, SDL_FLIP_NONE);
+    FRect rectf;
+    SDL_RectToFRect(&rect_, &rectf);
+    SDL_RenderTextureRotated(renderer_, t, nullptr, &rectf, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
 }
 
@@ -353,7 +360,19 @@ void Engine::renderTexture(Texture* t, int x, int y, int w, int h, double angle,
 
 void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, int inPresent /*= 0*/)
 {
-    SDL_RenderTextureRotated(renderer_, t, rect0, rect1, angle, nullptr, SDL_FLIP_NONE);
+    FRect rect0f, rect1f;
+    FRect *rect0f_ptr = nullptr, *rect1f_ptr = nullptr;
+    if (rect0)
+    {
+        SDL_RectToFRect(rect0, &rect0f);
+        rect0f_ptr = &rect0f;
+    }
+    if (rect1)
+    {
+        SDL_RectToFRect(rect1, &rect1f);
+        rect1f_ptr = &rect1f;
+    }
+    SDL_RenderTextureRotated(renderer_, t, rect0f_ptr, rect1f_ptr, angle, nullptr, SDL_FLIP_NONE);
     render_times_++;
 }
 
@@ -381,21 +400,14 @@ void Engine::destroy() const
 bool Engine::isFullScreen()
 {
     Uint32 state = SDL_GetWindowFlags(window_);
-    full_screen_ = (state & SDL_WINDOW_FULLSCREEN) || (state & SDL_WINDOW_FULLSCREEN_DESKTOP);
+    full_screen_ = (state & SDL_WINDOW_FULLSCREEN);
     return full_screen_;
 }
 
 void Engine::toggleFullscreen()
 {
     full_screen_ = !full_screen_;
-    if (full_screen_)
-    {
-        SDL_SetWindowFullscreen(window_, SDL_WINDOW_FULLSCREEN_DESKTOP);
-    }
-    else
-    {
-        SDL_SetWindowFullscreen(window_, 0);
-    }
+    SDL_SetWindowFullscreen(window_, full_screen_);
     renderClear();
 }
 
@@ -412,7 +424,7 @@ Texture* Engine::loadImage(const std::string& filename, int as_white)
 Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) const
 {
     auto rw = SDL_IOFromConstMem(content.data(), content.size());
-    auto sur = IMG_LoadTyped_RW(rw, 1, "png");
+    auto sur = IMG_LoadTyped_IO(rw, 1, "png");
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
     SDL_DestroySurface(sur);
@@ -425,14 +437,14 @@ void Engine::toWhite(Surface* sur)
     {
         auto p = (uint32_t*)sur->pixels + i;
         uint8_t r, g, b, a;
-        SDL_GetRGBA(*p, sur->format, &r, &g, &b, &a);
+        SDL_GetRGBA(*p, SDL_GetPixelFormatDetails(sur->format), SDL_GetSurfacePalette(sur), &r, &g, &b, &a);
         if (a == 0)
         {
-            *p = SDL_MapRGBA(sur->format, 255, 255, 255, 0);
+            *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 0);
         }
         else
         {
-            *p = SDL_MapRGBA(sur->format, 255, 255, 255, 255);
+            *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 255);
         }
     }
 }
@@ -444,7 +456,7 @@ bool Engine::setKeepRatio(bool b)
 
 Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
 {
-    auto s = SDL_CreateRGBSurface(0, w, h, 32, 0xff000000, 0xff0000, 0xff00, 0xff);
+    auto s = SDL_CreateSurface(w, h, SDL_GetPixelFormatForMasks(32, RMASK, GMASK, BMASK, AMASK));
     SDL_FillSurfaceRect(s, nullptr, color);
     auto p = (uint8_t*)s->pixels;
     for (int x = 0; x < w; x++)
@@ -498,7 +510,9 @@ void Engine::fillColor(Color color, int x, int y, int w, int h) const
     Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-    SDL_RenderFillRect(renderer_, &r);
+    FRect rf;
+    SDL_RectToFRect(&r, &rf);
+    SDL_RenderFillRect(renderer_, &rf);
 }
 
 void Engine::renderMainTextureToWindow()
@@ -536,22 +550,13 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     want.freq = freq;
     want.format = SDL_AUDIO_F32LE;
     want.channels = channels;
-    want.samples = size;
-    want.callback = mixAudioCallback;
-    //want.userdata = this;
-    want.silence = 0;
-
-    audio_callback_ = f;
-    //if (useMap())
-    {
-        want.samples = std::max(size, minsize);
-    }
 
     audio_device_ = 0;
     int i = 10;
     while (audio_device_ == 0 && i > 0)
     {
-        audio_device_ = SDL_OpenAudioDevice(NULL, 0, &want, &audio_spec_, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+        SDL_AudioStream* stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &want, &new_callback, nullptr);
+        audio_device_ = SDL_GetAudioStreamDevice(stream);
         want.channels--;
         i--;
     }
@@ -561,7 +566,7 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
 
     if (audio_device_)
     {
-        SDL_PauseAudioDevice(audio_device_, 0);
+        SDL_ResumeAudioDevice(audio_device_);
     }
     else
     {
@@ -574,23 +579,35 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     return 0;
 }
 
-void Engine::mixAudioCallback(void* userdata, Uint8* stream, int len)
+void Engine::new_callback(void* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount)
 {
-    SDL_memset(stream, 0, len);
-    if (getInstance()->audio_callback_)
+    if (additional_amount > 0)
     {
-        getInstance()->audio_callback_(stream, len);
+        Uint8* data = SDL_stack_alloc(Uint8, additional_amount);
+        if (data)
+        {
+            SDL_memset(stream, 0, additional_amount);
+            if (getInstance()->audio_callback_)
+            {
+                getInstance()->audio_callback_(data, additional_amount);
+            }
+            SDL_PutAudioStreamData(stream, data, additional_amount);
+            SDL_stack_free(data);
+        }
     }
 }
 
 void Engine::getMouseState(int& x, int& y)
 {
-    SDL_GetMouseState(&x, &y);
+    float xf, yf;
+    SDL_GetMouseState(&xf, &yf);
+    x = xf;
+    y = yf;
 }
 
 void Engine::getMouseStateInStartWindow(int& x, int& y) const
 {
-    SDL_GetMouseState(&x, &y);
+    getMouseState(x, y);
     int w, h;
     getWindowSize(w, h);
     x = x * start_w_ / w;
@@ -619,7 +636,10 @@ int Engine::pollEvent(EngineEvent& e) const
 
 bool Engine::checkKeyPress(Keycode key)
 {
-    return SDL_GetKeyboardState(NULL)[SDL_GetScancodeFromKey(key)];
+    int num=0;
+    SDL_GetKeyboardState(&num);
+    auto s = SDL_GetScancodeFromKey(key, nullptr);
+    return SDL_GetKeyboardState(&num)[SDL_GetScancodeFromKey(key, nullptr)];
 }
 
 bool Engine::gameControllerGetButton(int key)
@@ -698,15 +718,17 @@ void Engine::gameControllerRumble(int l, int h, uint32_t time) const
 
 void Engine::checkGameControllers()
 {
-    if (SDL_NumJoysticks() <= 0)
+    int num_joysticks = 0;
+    SDL_GetJoysticks(&num_joysticks);
+    if (num_joysticks <= 0)
     {
         fmt1::print("Warning: No joysticks connected!\n");
     }
     else
     {
         //按照游戏控制器打开
-        fmt1::print("Found {} game controller(s)\n", SDL_NumJoysticks());
-        game_controllers_.resize(SDL_NumJoysticks());
+        fmt1::print("Found {} game controller(s)\n", num_joysticks);
+        game_controllers_.resize(num_joysticks);
         nintendo_switch_.resize(game_controllers_.size());
         for (int i = 0; i < game_controllers_.size(); i++)
         {
@@ -727,7 +749,7 @@ void Engine::checkGameControllers()
 
 Texture* Engine::createRectTexture(int w, int h, int style) const
 {
-    auto square_s = SDL_CreateRGBSurface(0, w, h, 32, RMASK, GMASK, BMASK, AMASK);
+    auto square_s = SDL_CreateSurface(w, h, SDL_GetPixelFormatForMasks(32, RMASK, GMASK, BMASK, AMASK));
 
     //SDL_FillSurfaceRect(square_s, nullptr, 0xffffffff);
     Rect r = { 0, 0, 1, 1 };
@@ -770,7 +792,7 @@ Texture* Engine::createTextTexture(const std::string& fontname, const std::strin
         return nullptr;
     }
     //SDL_Color c = { 255, 255, 255, 128 };
-    auto text_s = TTF_RenderUTF8_Blended(font, text.c_str(), c);
+    auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, c);
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
     SDL_DestroySurface(text_s);
     TTF_CloseFont(font);
@@ -836,8 +858,7 @@ int Engine::saveScreen(const char* filename) const
     rect.x = 0;
     rect.y = 0;
     getWindowSize(rect.w, rect.h);
-    Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
-    SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
+    auto sur = SDL_RenderReadPixels(renderer_, &rect);
     SDL_SaveBMP(sur, filename);
     SDL_DestroySurface(sur);
     return 0;
@@ -848,10 +869,9 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
     Rect rect;
     rect.x = 0;
     rect.y = 0;
-    queryTexture(tex, &rect.w, &rect.h);
+    getTextureSize(tex, rect.w, rect.h);
     setRenderTarget(tex);
-    Surface* sur = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, RMASK, GMASK, BMASK, AMASK);
-    SDL_RenderReadPixels(renderer_, &rect, SDL_PIXELFORMAT_ARGB8888, sur->pixels, rect.w * 4);
+    auto sur = SDL_RenderReadPixels(renderer_, &rect);
     SDL_SaveBMP(sur, filename);
     SDL_DestroySurface(sur);
     resetRenderTarget();

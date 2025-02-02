@@ -12,9 +12,13 @@ Audio::Audio()
     }
 #else
     Mix_Init(MIX_INIT_MP3);
-    if (Mix_OpenAudio(22500, MIX_DEFAULT_FORMAT, 2, 4096) == -1)
+    SDL_AudioSpec spec;
+    spec.freq = 22500;
+    spec.format = MIX_DEFAULT_FORMAT;
+    spec.channels = 2;
+    if (!Mix_OpenAudio(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec))
     {
-        fmt1::print("Mix_OpenAudio: {}\n", Mix_GetError());
+        fmt1::print("Mix_OpenAudio error\n");
     }
 #endif
     init();

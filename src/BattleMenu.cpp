@@ -1,7 +1,7 @@
 #include "BattleMenu.h"
 #include "BattleScene.h"
+#include "Event.h"
 #include "Font.h"
-#include "PlotEvent.h"
 #include "PotConv.h"
 #include "Random.h"
 #include "Save.h"

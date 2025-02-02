@@ -10,7 +10,7 @@ void TextureWarpper::setTex(Texture* t)
     tex[0] = t;
     count = 1;
     loaded = true;
-    Engine::getInstance()->queryTexture(t, &w, &h);
+    Engine::getInstance()->getTextureSize(t, w, h);
 }
 
 void TextureWarpper::load()
@@ -50,7 +50,7 @@ void TextureWarpper::load()
                 }
             }
         }
-        Engine::getInstance()->queryTexture(tex[0], &w, &h);
+        Engine::getInstance()->getTextureSize(tex[0], w, h);
         for (auto t : tex)
         {
             Engine::getInstance()->setTextureAlphaMod(t, SDL_BLENDMODE_BLEND);

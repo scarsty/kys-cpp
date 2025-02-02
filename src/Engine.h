@@ -36,11 +36,13 @@ using Renderer = SDL_Renderer;
 using Window = SDL_Window;
 using Texture = SDL_Texture;
 using Rect = SDL_Rect;
+using FRect = SDL_FRect;
 using Color = SDL_Color;
 using Keycode = SDL_Keycode;
 using Surface = SDL_Surface;
 using Gamepad = SDL_Gamepad;
 using Haptic = SDL_Haptic;
+using PixelFormat = SDL_PixelFormat;
 
 enum Align
 {
@@ -64,7 +66,7 @@ using EngineEvent = SDL_Event;
 //这里直接照搬SDL
 //更换底层需自己定义一套
 //好像是瞎折腾
-enum EventType
+enum EngineEventType
 {
     EVENT_FIRST = SDL_EVENT_FIRST,
     //按关闭按钮
@@ -112,11 +114,7 @@ enum EventType
     //渲染改变
     EVENT_RENDER_TARGETS_RESET = SDL_EVENT_RENDER_TARGETS_RESET,
 
-    EVENT_LAST = SDL_EVENT_LAST
-};
-
-enum BP_WindowEventID
-{
+    //窗口事件
     EVENT_WINDOW_SHOWN = SDL_EVENT_WINDOW_SHOWN,
     EVENT_WINDOW_HIDDEN = SDL_EVENT_WINDOW_HIDDEN,
     EVENT_WINDOW_EXPOSED = SDL_EVENT_WINDOW_EXPOSED,
@@ -133,11 +131,14 @@ enum BP_WindowEventID
     EVENT_WINDOW_MOUSE_LEAVE = SDL_EVENT_WINDOW_MOUSE_LEAVE,
     EVENT_WINDOW_FOCUS_GAINED = SDL_EVENT_WINDOW_FOCUS_GAINED,
     EVENT_WINDOW_FOCUS_LOST = SDL_EVENT_WINDOW_FOCUS_LOST,
-    EVENT_WINDOW_CLOSE_REQUESTED = SDL_EVENT_WINDOW_CLOSE_REQUESTED
+    EVENT_WINDOW_CLOSE_REQUESTED = SDL_EVENT_WINDOW_CLOSE_REQUESTED,
+
+    EVENT_LAST = SDL_EVENT_LAST
 };
 
 enum KeyBoard
 {
+    K_UNKNOWN = SDLK_UNKNOWN,
     K_LEFT = SDLK_LEFT,
     K_RIGHT = SDLK_RIGHT,
     K_UP = SDLK_UP,
@@ -195,15 +196,8 @@ enum MouseButton
     BUTTON_RIGHT = SDL_BUTTON_RIGHT
 };
 
-//enum State
-//{
-//    PRESSED = SDL_PRESSED,
-//    RELEASED = SDL_RELEASED,
-//};
-
 enum BP_GameControllerButton
 {
-    //xbox
     GAMEPAD_BUTTON_INVALID = SDL_GAMEPAD_BUTTON_INVALID,
     GAMEPAD_BUTTON_SOUTH = SDL_GAMEPAD_BUTTON_SOUTH,
     GAMEPAD_BUTTON_EAST = SDL_GAMEPAD_BUTTON_EAST,
@@ -229,7 +223,7 @@ enum BP_GameControllerButton
     GAMEPAD_BUTTON_COUNT = SDL_GAMEPAD_BUTTON_COUNT,
 };
 
-enum BP_GameControllerAxis
+enum GameControllerAxis
 {
     GAMEPAD_AXIS_INVALID = SDL_GAMEPAD_AXIS_INVALID,
     GAMEPAD_AXIS_LEFTX = SDL_GAMEPAD_AXIS_LEFTX,
@@ -241,7 +235,7 @@ enum BP_GameControllerAxis
     GAMEPAD_AXIS_COUNT = SDL_GAMEPAD_AXIS_COUNT,
 };
 
-enum BP_TextureAccess
+enum TextureAccess
 {
     TEXTUREACCESS_STATIC = SDL_TEXTUREACCESS_STATIC,       /**< Changes rarely, not lockable */
     TEXTUREACCESS_STREAMING = SDL_TEXTUREACCESS_STREAMING, /**< Changes frequently, lockable */
@@ -326,7 +320,7 @@ public:
 
     Renderer* getRenderer() const { return renderer_; }
 
-    void createMainTexture(int pixfmt, BP_TextureAccess a, int w, int h);
+    void createMainTexture(SDL_PixelFormat pixfmt, TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(int w, int h);
     void setPresentPosition(Texture* tex);    //设置贴图的位置
@@ -338,7 +332,7 @@ public:
 
     Texture* getMainTexture() const { return tex_; }
 
-    void getMainTextureSize(int& w, int& h) const { queryTexture(tex2_, &w, &h); }
+    void getMainTextureSize(int& w, int& h) const { getTextureSize(tex2_, w, h); }
 
     void destroyAssistTexture() const
     {
@@ -348,7 +342,7 @@ public:
         }
     }
 
-    Texture* createTexture(uint32_t pix_fmt, BP_TextureAccess a, int w, int h) const;
+    Texture* createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const;
 
     static void destroyTexture(Texture* t) { SDL_DestroyTexture(t); }
 
@@ -368,12 +362,12 @@ public:
 
     static void setTextureAlphaMod(Texture* t, uint8_t alpha) { SDL_SetTextureAlphaMod(t, alpha); }
 
-    static void queryTexture(Texture* t, int* w, int* h) 
+    static void getTextureSize(Texture* t, int& w, int& h)
     {
         float wf, hf;
         SDL_GetTextureSize(t, &wf, &hf);
-        *w = wf;
-        *h = hf;
+        w = wf;
+        h = hf;
     }
 
     void setRenderTarget(Texture* t) const { SDL_SetRenderTarget(renderer_, t); }
@@ -456,9 +450,10 @@ public:
     SDL_AudioFormat getAudioFormat() const { return audio_format_; }
 
     int openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f);
-    static void mixAudioCallback(void* userdata, Uint8* stream, int len);
 
     void setAudioCallback(AudioCallback cb = nullptr) { audio_callback_ = cb; }
+
+    static void new_callback(void* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount);
 
     //事件相关
 private:
@@ -569,4 +564,27 @@ public:
         Rect r = { x, y, w, h };
         SDL_SetTextInputArea(window_, &r, 0);
     }
+};
+
+struct Prop
+{
+    SDL_PropertiesID id_;
+
+    Prop() { id_ = SDL_CreateProperties(); }
+
+    ~Prop() { SDL_DestroyProperties(id_); }
+
+    SDL_PropertiesID id() { return id_; }
+
+    bool set(const char* name, void* value) { return SDL_SetPointerProperty(id_, name, value); }
+
+    bool set(const char* name, const char* value) { return SDL_SetStringProperty(id_, name, value); }
+
+    bool set(const char* name, Sint64 value) { return SDL_SetNumberProperty(id_, name, value); }
+
+    bool set(const char* name, int value) { return SDL_SetNumberProperty(id_, name, value); }
+
+    bool set(const char* name, float value) { return SDL_SetFloatProperty(id_, name, value); }
+
+    bool set(const char* name, bool value) { return SDL_SetBooleanProperty(id_, name, value); }
 };

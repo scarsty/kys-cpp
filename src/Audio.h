@@ -8,7 +8,7 @@ using MUSIC = HSTREAM;
 using WAV = HSAMPLE;
 using MIDI_FONT = BASS_MIDI_FONT;
 #else
-#include "SDL2/SDL_mixer.h"
+#include "SDL3_mixer/SDL_mixer.h"
 using MUSIC = Mix_Music*;
 using WAV = Mix_Chunk*;
 using MIDI_FONT = void*;
