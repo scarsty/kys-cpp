@@ -336,7 +336,7 @@ void BattleScene::onEntrance()
     //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
     addChild(MainScene::getInstance()->getWeather());
 
-    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
     ////二者之差是屏幕中心与大纹理的中心的距离
     //for (int i1 = 0; i1 < COORD_COUNT; i1++)

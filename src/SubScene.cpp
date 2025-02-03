@@ -388,7 +388,7 @@ void SubScene::onEntrance()
     //fillEarth();
 
     //一大块地面的纹理
-    //earth_texture_ = Engine::getInstance()->createARGBRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);
 
     ////二者之差是屏幕中心与大纹理的中心的距离

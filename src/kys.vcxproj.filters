@@ -19,9 +19,6 @@
     <ClCompile Include="BattleScene.cpp">
       <Filter>battle</Filter>
     </ClCompile>
-    <ClCompile Include="Audio.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
     <ClCompile Include="UI.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -190,6 +187,9 @@
     <ClCompile Include="Event.cpp">
       <Filter>event</Filter>
     </ClCompile>
+    <ClCompile Include="Audio.cpp">
+      <Filter>audio</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -239,9 +239,6 @@
     </ClInclude>
     <ClInclude Include="GameUtil.h">
       <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="Audio.h">
-      <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="MainScene.h">
       <Filter>scene</Filter>
@@ -396,6 +393,9 @@
     <ClInclude Include="Event.h">
       <Filter>event</Filter>
     </ClInclude>
+    <ClInclude Include="Audio.h">
+      <Filter>audio</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -462,6 +462,9 @@
     </Filter>
     <Filter Include="event">
       <UniqueIdentifier>{30786fa7-72a0-4216-9bb9-7d45e9ee1975}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="audio">
+      <UniqueIdentifier>{061a7da8-1904-4d23-8520-3c67dd56906a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

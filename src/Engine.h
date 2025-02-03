@@ -51,12 +51,7 @@ enum Align
     ALIGN_RIGHT
 };
 
-#define BP_WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED
-
-#define RMASK (0xff0000)
-#define GMASK (0xff00)
-#define BMASK (0xff)
-#define AMASK (0xff000000)
+#define WINDOWPOS_CENTERED SDL_WINDOWPOS_CENTERED
 
 //声音类型在其他文件中未使用
 using AudioSpec = SDL_AudioSpec;
@@ -320,7 +315,7 @@ public:
 
     Renderer* getRenderer() const { return renderer_; }
 
-    void createMainTexture(SDL_PixelFormat pixfmt, TextureAccess a, int w, int h);
+    void createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(int w, int h);
     void setPresentPosition(Texture* tex);    //设置贴图的位置
@@ -348,9 +343,9 @@ public:
 
     Texture* createYUVTexture(int w, int h) const;
     static void updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
-    Texture* createARGBTexture(int w, int h);
-    Texture* createARGBRenderedTexture(int w, int h);
-    static void updateARGBTexture(Texture* t, uint8_t* buffer, int pitch);
+    Texture* createTexture(int w, int h);
+    Texture* createRenderedTexture(int w, int h);
+    static void updateTexture(Texture* t, uint8_t* buffer, int pitch);
     static int lockTexture(Texture* t, Rect* r, void** pixel, int* pitch);
     static void unlockTexture(Texture* t);
 
@@ -390,7 +385,7 @@ public:
     Texture* loadImageFromMemory(const std::string& content, int as_white = 0) const;
     static void toWhite(Surface* sur);
     bool setKeepRatio(bool b);
-    Texture* transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;
+    Texture* transRGBABitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const;
 
     double setRotation(double r) { return rotation_ = r; }
 
@@ -427,6 +422,7 @@ private:
     AudioCallback audio_callback_ = nullptr;
     SDL_AudioFormat audio_format_ = SDL_AUDIO_F32LE;
     AudioSpec audio_spec_;
+    SDL_AudioStream* stream_ = nullptr;
 
 public:
     void pauseAudio(int pause) const
@@ -445,7 +441,15 @@ public:
 
     static float getMaxVolume() { return 1.0; }
 
-    void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const;
+    void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, float volume) const;
+
+    void putAudioStreamData(const void* buf, int len) const { SDL_PutAudioStreamData(stream_, buf, len); }
+
+    void clearAudioStream() const { SDL_ClearAudioStream(stream_); }
+
+    void setAudioStreamGain(float g) const { SDL_SetAudioStreamGain(stream_, g); }
+
+    float getAudioStreamGain() const { return SDL_GetAudioStreamGain(stream_); }
 
     SDL_AudioFormat getAudioFormat() const { return audio_format_; }
 
@@ -453,7 +457,7 @@ public:
 
     void setAudioCallback(AudioCallback cb = nullptr) { audio_callback_ = cb; }
 
-    static void new_callback(void* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount);
+    static void putAudioStreamCallback(void* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount);
 
     //事件相关
 private:

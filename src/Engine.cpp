@@ -190,11 +190,11 @@ void Engine::setWindowPosition(int x, int y) const
 {
     int w, h;
     getWindowSize(w, h);
-    if (x == BP_WINDOWPOS_CENTERED)
+    if (x == WINDOWPOS_CENTERED)
     {
         x = min_x_ + (max_x_ - min_x_ - w) / 2;
     }
-    if (y == BP_WINDOWPOS_CENTERED)
+    if (y == WINDOWPOS_CENTERED)
     {
         y = min_y_ + (max_y_ - min_y_ - h) / 2;
     }
@@ -209,7 +209,7 @@ void Engine::createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h
     }
     if (pixfmt < 0)
     {
-        tex_ = createARGBRenderedTexture(w, h);
+        tex_ = createRenderedTexture(w, h);
     }
     else
     {
@@ -238,7 +238,7 @@ void Engine::createAssistTexture(int w, int h)
     Sint64 pixfmt = 0;
     SDL_GetNumberProperty(SDL_GetTextureProperties(tex_), SDL_PROP_TEXTURE_FORMAT_NUMBER, pixfmt);
     tex2_ = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
-    //tex_ = createARGBRenderedTexture(768, 480);
+    //tex_ = createRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
 
@@ -291,7 +291,7 @@ Texture* Engine::createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int 
 {
     if (pix_fmt == SDL_PIXELFORMAT_UNKNOWN)
     {
-        pix_fmt = SDL_PIXELFORMAT_ARGB8888;
+        pix_fmt = SDL_PIXELFORMAT_RGBA8888;
     }
     return SDL_CreateTexture(renderer_, pix_fmt, (SDL_TextureAccess)a, w, h);
 }
@@ -306,17 +306,17 @@ void Engine::updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* da
     SDL_UpdateYUVTexture(t, nullptr, data0, size0, data1, size1, data2, size2);
 }
 
-Texture* Engine::createARGBTexture(int w, int h)
+Texture* Engine::createTexture(int w, int h)
 {
-    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-Texture* Engine::createARGBRenderedTexture(int w, int h)
+Texture* Engine::createRenderedTexture(int w, int h)
 {
-    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+    return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
 }
 
-void Engine::updateARGBTexture(Texture* t, uint8_t* buffer, int pitch)
+void Engine::updateTexture(Texture* t, uint8_t* buffer, int pitch)
 {
     SDL_UpdateTexture(t, nullptr, buffer, pitch);
 }
@@ -454,9 +454,9 @@ bool Engine::setKeepRatio(bool b)
     return keep_ratio_ = b;
 }
 
-Texture* Engine::transBitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
+Texture* Engine::transRGBABitmapToTexture(const uint8_t* src, uint32_t color, int w, int h, int stride) const
 {
-    auto s = SDL_CreateSurface(w, h, SDL_GetPixelFormatForMasks(32, RMASK, GMASK, BMASK, AMASK));
+    auto s = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA8888);
     SDL_FillSurfaceRect(s, nullptr, color);
     auto p = (uint8_t*)s->pixels;
     for (int x = 0; x < w; x++)
@@ -532,9 +532,10 @@ void Engine::renderAssistTextureToMain()
     //SDL_RenderFillRect(renderer_, nullptr);
 }
 
-void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, int volume) const
+void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, float volume) const
 {
-    SDL_MixAudio(dst, src, audio_format_, len, volume);
+    SDL_MixAudio(dst, src, audio_format_, len, 1.0);
+    //SDL_PutAudioStreamData(stream_, src, len);
 }
 
 int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCallback f)
@@ -555,15 +556,27 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     int i = 10;
     while (audio_device_ == 0 && i > 0)
     {
-        SDL_AudioStream* stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &want, &new_callback, nullptr);
-        audio_device_ = SDL_GetAudioStreamDevice(stream);
+        auto p_callback = putAudioStreamCallback;
+        if (f == nullptr)
+        {
+            p_callback = nullptr;
+        }
+        stream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &want, p_callback, nullptr);
+        audio_device_ = SDL_GetAudioStreamDevice(stream_);
+        if (audio_device_)
+        {
+            break;
+        }
         want.channels--;
         i--;
     }
-    fmt1::print("device {}/{}\n", audio_spec_.freq, audio_spec_.channels);
-
+    audio_spec_ = want;
+    audio_callback_ = f;
+    freq = audio_spec_.freq;
+    channels = audio_spec_.channels;
     audio_format_ = audio_spec_.format;
 
+    fmt1::print("device {}/{}\n", audio_spec_.freq, audio_spec_.channels);
     if (audio_device_)
     {
         SDL_ResumeAudioDevice(audio_device_);
@@ -573,27 +586,19 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
         fmt1::print("failed to open audio: {}\n", SDL_GetError());
     }
 
-    freq = audio_spec_.freq;
-    channels = audio_spec_.channels;
-
     return 0;
 }
 
-void Engine::new_callback(void* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount)
+void Engine::putAudioStreamCallback(void* userdata, SDL_AudioStream* stream, int additional_amount, int total_amount)
 {
     if (additional_amount > 0)
     {
-        Uint8* data = SDL_stack_alloc(Uint8, additional_amount);
-        if (data)
+        std::vector<uint8_t> data(additional_amount);
+        if (getInstance()->audio_callback_)
         {
-            SDL_memset(stream, 0, additional_amount);
-            if (getInstance()->audio_callback_)
-            {
-                getInstance()->audio_callback_(data, additional_amount);
-            }
-            SDL_PutAudioStreamData(stream, data, additional_amount);
-            SDL_stack_free(data);
+            getInstance()->audio_callback_(data.data(), additional_amount);
         }
+        SDL_PutAudioStreamData(stream, data.data(), additional_amount);
     }
 }
 
@@ -636,7 +641,7 @@ int Engine::pollEvent(EngineEvent& e) const
 
 bool Engine::checkKeyPress(Keycode key)
 {
-    int num=0;
+    int num = 0;
     SDL_GetKeyboardState(&num);
     auto s = SDL_GetScancodeFromKey(key, nullptr);
     return SDL_GetKeyboardState(&num)[SDL_GetScancodeFromKey(key, nullptr)];
@@ -749,7 +754,7 @@ void Engine::checkGameControllers()
 
 Texture* Engine::createRectTexture(int w, int h, int style) const
 {
-    auto square_s = SDL_CreateSurface(w, h, SDL_GetPixelFormatForMasks(32, RMASK, GMASK, BMASK, AMASK));
+    auto square_s = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA8888);
 
     //SDL_FillSurfaceRect(square_s, nullptr, 0xffffffff);
     Rect r = { 0, 0, 1, 1 };
