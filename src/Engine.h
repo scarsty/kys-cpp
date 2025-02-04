@@ -441,7 +441,7 @@ public:
 
     static float getMaxVolume() { return 1.0; }
 
-    void mixAudio(Uint8* dst, const Uint8* src, Uint32 len, float volume) const;
+    void mixAudio(uint8_t* dst, const uint8_t* src, uint32_t len, float volume) const;
 
     void putAudioStreamData(const void* buf, int len) const { SDL_PutAudioStreamData(stream_, buf, len); }
 
@@ -584,7 +584,7 @@ struct Prop
 
     bool set(const char* name, const char* value) { return SDL_SetStringProperty(id_, name, value); }
 
-    bool set(const char* name, Sint64 value) { return SDL_SetNumberProperty(id_, name, value); }
+    bool set(const char* name, int64_t value) { return SDL_SetNumberProperty(id_, name, value); }
 
     bool set(const char* name, int value) { return SDL_SetNumberProperty(id_, name, value); }
 

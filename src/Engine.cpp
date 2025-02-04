@@ -235,7 +235,7 @@ void Engine::resizeMainTexture(int w, int h) const
 void Engine::createAssistTexture(int w, int h)
 {
     //tex_ = createYUVTexture(w, h);
-    Sint64 pixfmt = 0;
+    int64_t pixfmt = 0;
     SDL_GetNumberProperty(SDL_GetTextureProperties(tex_), SDL_PROP_TEXTURE_FORMAT_NUMBER, pixfmt);
     tex2_ = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
     //tex_ = createRenderedTexture(768, 480);
@@ -399,7 +399,7 @@ void Engine::destroy() const
 
 bool Engine::isFullScreen()
 {
-    Uint32 state = SDL_GetWindowFlags(window_);
+    uint32_t state = SDL_GetWindowFlags(window_);
     full_screen_ = (state & SDL_WINDOW_FULLSCREEN);
     return full_screen_;
 }
@@ -532,7 +532,7 @@ void Engine::renderAssistTextureToMain()
     //SDL_RenderFillRect(renderer_, nullptr);
 }
 
-void Engine::mixAudio(Uint8* dst, const Uint8* src, Uint32 len, float volume) const
+void Engine::mixAudio(uint8_t* dst, const uint8_t* src, uint32_t len, float volume) const
 {
     SDL_MixAudio(dst, src, audio_format_, len, 1.0);
     //SDL_PutAudioStreamData(stream_, src, len);
