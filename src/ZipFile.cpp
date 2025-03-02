@@ -1,4 +1,4 @@
-#include "ZipFile.h"
+﻿#include "ZipFile.h"
 #include "../others/zip.h"
 #include <cstring>
 
@@ -30,12 +30,9 @@ std::string ZipFile::readEntryName(const std::string& entry_name) const
     {
         if (zip_entry_open(zip_, entry_name.c_str()) == 0)
         {
-            void* buffer;
-            size_t size = 0;
-            zip_entry_read(zip_, &buffer, &size);
+            size_t size = zip_entry_size(zip_);
             content.resize(size);
-            memcpy((void*)content.data(), buffer, size);
-            free(buffer);
+            zip_entry_noallocread(zip_, content.data(), size);
             zip_entry_close(zip_);
         }
     }
