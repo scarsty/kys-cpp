@@ -176,6 +176,7 @@
     <ClCompile Include="UIStatus.cpp" />
     <ClCompile Include="UISystem.cpp" />
     <ClCompile Include="VirtualStick.cpp" />
+    <ClCompile Include="Weather.cpp" />
     <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -246,6 +247,7 @@
     <ClInclude Include="UIStatus.h" />
     <ClInclude Include="UISystem.h" />
     <ClInclude Include="VirtualStick.h" />
+    <ClInclude Include="Weather.h" />
     <ClInclude Include="ZipFile.h" />
   </ItemGroup>
   <ItemGroup>

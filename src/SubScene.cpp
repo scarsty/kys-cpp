@@ -1,4 +1,4 @@
-#include "SubScene.h"
+﻿#include "SubScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Console.h"
@@ -9,6 +9,7 @@
 #include "Random.h"
 #include "Timer.h"
 #include "UI.h"
+#include "Weather.h"
 
 SubScene::SubScene()
 {
@@ -384,7 +385,7 @@ void SubScene::onEntrance()
     }
     //setManViewPosition(submap_info_->EntranceX, submap_info_->EntranceY);
     //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
-    addChild(MainScene::getInstance()->getWeather());
+    addChild(Weather::getInstance());
     //fillEarth();
 
     //一大块地面的纹理

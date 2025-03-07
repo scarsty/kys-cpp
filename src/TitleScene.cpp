@@ -1,4 +1,4 @@
-#include "TitleScene.h"
+﻿#include "TitleScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
 #include "Button.h"
@@ -12,6 +12,7 @@
 #include "RandomRole.h"
 #include "SubScene.h"
 #include "UISave.h"
+#include "Weather.h"
 
 TitleScene::TitleScene()
 {

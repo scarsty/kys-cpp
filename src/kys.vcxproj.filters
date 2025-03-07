@@ -190,6 +190,9 @@
     <ClCompile Include="Audio.cpp">
       <Filter>audio</Filter>
     </ClCompile>
+    <ClCompile Include="Weather.cpp">
+      <Filter>weather</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -396,6 +399,9 @@
     <ClInclude Include="Audio.h">
       <Filter>audio</Filter>
     </ClInclude>
+    <ClInclude Include="Weather.h">
+      <Filter>weather</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -465,6 +471,9 @@
     </Filter>
     <Filter Include="audio">
       <UniqueIdentifier>{061a7da8-1904-4d23-8520-3c67dd56906a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="weather">
+      <UniqueIdentifier>{19d866e2-f3f5-4615-8b9d-b6f7a0c142d8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -12,6 +12,7 @@
 #include "ShowExp.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
+#include "Weather.h"
 #include "strfunc.h"
 #include <algorithm>
 #include <cmath>
@@ -334,7 +335,7 @@ void BattleScene::onEntrance()
     head_self_->setPosition(80, 100);
 
     //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
-    addChild(MainScene::getInstance()->getWeather());
+    addChild(Weather::getInstance());
 
     //earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     //Engine::getInstance()->setRenderTarget(earth_texture_);

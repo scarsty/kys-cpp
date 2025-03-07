@@ -1,4 +1,4 @@
-#include "MainScene.h"
+﻿#include "MainScene.h"
 #include "Console.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -8,6 +8,7 @@
 #include "TextureManager.h"
 #include "UI.h"
 #include "UISave.h"
+#include "Weather.h"
 
 MainScene::MainScene()
 {
@@ -44,9 +45,8 @@ MainScene::MainScene()
     {
         cloud_vector_[i].initRand();
     }
-    //getEntrance();
-    weather_ = std::make_shared<ParticleExample>();
-    addChild(weather_);
+    //getEntrance();   
+    addChild(Weather::getInstance());
 }
 
 MainScene::~MainScene()
@@ -205,7 +205,7 @@ void MainScene::backRun()
             view_cloud_++;
         }
     }
-    setWeather();
+    Weather::getInstance()->setWeather(inNorth(), view_cloud_);
 }
 
 void MainScene::dealEvent(EngineEvent& e)
@@ -530,35 +530,3 @@ void MainScene::forceEnterSubScene(int submap_id, int x, int y, int event)
     setVisible(false);
 }
 
-void MainScene::setWeather()
-{
-    weather_->setPosition(Engine::getInstance()->getWindowWidth() / 2, 0);
-    if (inNorth())
-    {
-        weather_->setStyle(ParticleExample::SNOW);
-        if (!weather_->isActive())
-        {
-            weather_->resetSystem();
-        }
-    }
-    else
-    {
-        if (view_cloud_)
-        {
-            weather_->setStyle(ParticleExample::RAIN);
-            weather_->setEmissionRate(50 * view_cloud_);
-            weather_->setGravity({ 10, 20 });
-            if (!weather_->isActive())
-            {
-                weather_->resetSystem();
-            }
-        }
-        else
-        {
-            if (weather_->isActive())
-            {
-                weather_->stopSystem();
-            }
-        }
-    }
-}

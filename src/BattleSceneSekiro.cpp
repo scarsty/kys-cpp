@@ -4,6 +4,7 @@
 #include "GameUtil.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
+#include "Weather.h"
 
 BattleSceneSekiro::BattleSceneSekiro()
 {
@@ -650,7 +651,7 @@ void BattleSceneSekiro::onEntrance()
     {
         h->setPosition(30, 40);
     }
-    addChild(MainScene::getInstance()->getWeather());
+    addChild(Weather::getInstance());
 
     earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 

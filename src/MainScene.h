@@ -1,7 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "Cloud.h"
 #include "Object.h"
-#include "ParticleExample.h"
 #include "Scene.h"
 #include "Types.h"
 
@@ -66,7 +65,4 @@ public:
     int view_cloud_ = 0;
     int getViewCloud() { return view_cloud_; }
 
-    void setWeather();
-    std::shared_ptr<ParticleExample> getWeather() { return weather_; }
-    std::shared_ptr<ParticleExample> weather_;
 };
