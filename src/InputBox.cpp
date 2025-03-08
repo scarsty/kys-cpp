@@ -1,4 +1,4 @@
-#include "InputBox.h"
+﻿#include "InputBox.h"
 #include "Engine.h"
 #include "Font.h"
 #include "OpenCCConverter.h"
@@ -70,7 +70,7 @@ void InputBox::draw()
 {
     Font::getInstance()->drawWithBox(title_, font_size_, x_, y_, color_, 255);
     Font::getInstance()->drawWithBox(text_ + "_", font_size_, text_x_, text_y_, color_, 255);
-    Engine::getInstance()->setTextInputArea(text_x_, text_y_, font_size_ * text_.size(), font_size_);
+    Engine::getInstance()->setTextInputArea(text_x_, text_y_, font_size_ * 15, font_size_);
 }
 
 void InputBox::setInputPosition(int x, int y)
