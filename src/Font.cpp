@@ -5,6 +5,7 @@
 #include "GameUtil.h"
 #include "OpenCCConverter.h"
 #include "TextureManager.h"
+#include "PotConv.h"
 
 Font::Font()
 {
@@ -69,6 +70,8 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         if (buffer_[c].count(size) == 0)
         {
             auto s = std::string((char*)(&c));
+            //auto ws = PotConv::ToWide(s, "utf-8");
+            //buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, ws[0], size, { 255, 255, 255, 255 });
             buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
@@ -88,9 +91,9 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         {
             Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
             Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
-            Engine::getInstance()->renderTexture(tex, x1 + 1, y, w1, h);
+            Engine::getInstance()->renderTexture(tex, x1 + 1, y, 0, 0);
             Engine::getInstance()->setColor(tex, color);
-            Engine::getInstance()->renderTexture(tex, x1, y, w1, h);
+            Engine::getInstance()->renderTexture(tex, x1, y, 0, 0);
         }
         x += w;
     }
@@ -118,6 +121,7 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, Color co
 }
 
 //此处仅接受utf8
+/*
 void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c)
 {
     if (alpha == 0)
@@ -147,7 +151,7 @@ void Font::drawText(const std::string& fontname, std::string& text, int size, in
     }
     Engine::getInstance()->renderTexture(text_t, nullptr, &rect);
     Engine::getInstance()->destroyTexture(text_t);
-}
+}*/
 
 void Font::clearBuffer()
 {

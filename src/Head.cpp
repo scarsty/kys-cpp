@@ -1,4 +1,4 @@
-#include "Head.h"
+﻿#include "Head.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Save.h"

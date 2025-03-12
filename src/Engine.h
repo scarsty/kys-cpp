@@ -543,6 +543,7 @@ private:
 public:
     Texture* createRectTexture(int w, int h, int style) const;
     Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const;
+    Texture* createTextTexture(const std::string& fontname, wchar_t text, int size, Color c) const;
     int showMessage(const std::string& content) const;
     void renderSquareTexture(Rect* rect, Color color, uint8_t alpha);
 
@@ -551,10 +552,10 @@ public:
     std::string title_;
 
 private:
-    void* tinypot_ = nullptr;
+    void* smallpot_ = nullptr;
 
 public:
-    static int playVideo(std::string filename);
+    int playVideo(std::string filename);
     int saveScreen(const char* filename) const;
     int saveTexture(Texture* tex, const char* filename) const;
 
