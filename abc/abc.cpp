@@ -459,6 +459,7 @@ static void writeValues(sqlite3* db, const std::string& table_name, std::vector<
     }
 }
 
+//转换存档为数据库
 void saveR0ToDB(int num)
 {
     sqlite3* db;
@@ -518,7 +519,11 @@ void saveR0ToDB(int num)
 }
 
 //扩展存档，将短整数扩展为int32
-//最后一个参数：帧数需从之前存档格式获取
+// idx: 即idx文件
+// grp：即grp文件
+// index：转为数据库的存档编号
+// ranger：若设置为否，则只转换战斗帧数（生成战斗帧数失败时，再次运行可设置为否）
+// make_fightframe：若设置为是，则生成战斗帧数文本
 int expandR(std::string idx, std::string grp, int index, bool ranger = true, bool make_fightframe = false)
 {
     if (!filefunc::fileExist(grp) || !filefunc::fileExist(idx))
