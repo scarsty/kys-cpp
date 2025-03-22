@@ -58,7 +58,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
     }
     int num = 0;
     SDL_GetTouchDevices(&num);
-    //fmt1::print("{}", num);
+    //LOG("{}", num);
     auto engine = Engine::getInstance();
     engine->clearGameControllerButton();
     engine->clearGameControllerAxis();
@@ -71,7 +71,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
         axis_center_y_ = t->h / 2 + h_ * 0.5;
         axis_radius_ = t->w / 2;
     }
-    //fmt1::print("{}", "clear button");
+    //LOG("{}", "clear button");
     for (auto c : childs_)
     {
         auto b = std::dynamic_pointer_cast<Button>(c);
@@ -92,7 +92,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
         for (int i = 0; i < fingers; i++)
         {
             auto s = finger_pp[i];
-            //fmt1::print("{}: {} {} ", i, s->x * w_, s->y * h_);
+            //LOG("{}: {} {} ", i, s->x * w_, s->y * h_);
             int x = s->x * w_;
             int y = s->y * h_;
             for (auto c : childs_)
@@ -135,7 +135,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
                         axis_x_ = x;
                         axis_y_ = y;
                         double r = sqrt((x - axis_center_x_) * (x - axis_center_x_) + (y - axis_center_y_) * (y - axis_center_y_));
-                        //fmt1::print("{}", r);
+                        //LOG("{}", r);
                         auto& intval = button_interval_[b];
                         if (r < axis_radius_ * 1.5)
                         {
@@ -158,7 +158,7 @@ void VirtualStick::dealEvent(EngineEvent& e)
         {
             if (is_press && button_a_->state_ == NodePress)
             {
-                //fmt1::print("{}", "press a");
+                //LOG("{}", "press a");
                 e.type = EVENT_KEY_UP;
                 e.key.key = K_RETURN;
                 button_interval_[button_a_].interval = 100;

@@ -1,4 +1,4 @@
-#include "ShowExp.h"
+﻿#include "ShowExp.h"
 #include "Font.h"
 #include "TextureManager.h"
 ShowExp::ShowExp()
@@ -20,7 +20,7 @@ void ShowExp::draw()
         auto r = roles_[i];
         int x = x_ + i % 5 * 180, y = y_ + 50 + i / 5 * 100;
         TextureManager::getInstance()->renderTexture("head", r->HeadID, x, y, { 255,255,255,255 }, 255, 0.5, 0.5);
-        Font::getInstance()->draw(fmt1::format("{}", r->Name), 20, x + 90, y + 30, { 255, 255, 255, 255 });
-        Font::getInstance()->draw(fmt1::format("{}", r->ExpGot), 20, x + 90, y + 55, { 255, 255, 255, 255 });
+        Font::getInstance()->draw(std::format("{}", r->Name), 20, x + 90, y + 30, { 255, 255, 255, 255 });
+        Font::getInstance()->draw(std::format("{}", r->ExpGot), 20, x + 90, y + 55, { 255, 255, 255, 255 });
     }
 }

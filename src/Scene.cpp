@@ -1,5 +1,6 @@
 ﻿#include "Scene.h"
 #include "GameUtil.h"
+#include <map>
 #include <queue>
 
 Scene::Scene()
@@ -198,7 +199,10 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
     struct PointAStar : public Point
     {
         PointAStar() {}
-        PointAStar(int _x, int _y) : Point(_x, _y) {}
+
+        PointAStar(int _x, int _y) :
+            Point(_x, _y) {}
+
         ~PointAStar() {}
 
     private:
@@ -209,12 +213,15 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
         //g: step, h: distance between current and final points
         //controlled by coefficients
         void calF(int Fx, int Fy) { f = step + 2 * (abs(x - Fx) + abs(y - Fy)); }
+
         PointAStar* getParent() { return parent; }
+
         void setParent(PointAStar* p)
         {
             parent = p;
             step = p->step + 1;
         }
+
         class Compare
         {
         public:
@@ -264,7 +271,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
             }
         }
     }
-    fmt1::print("Found a way in {} times, {} steps\n", s_num, way_que_.size());
+    LOG("Found a way in {} times, {} steps\n", s_num, way_que_.size());
 }
 
 void Scene::lightScene()

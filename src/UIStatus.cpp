@@ -1,4 +1,4 @@
-#include "UIStatus.h"
+﻿#include "UIStatus.h"
 #include "BattleMenu.h"
 #include "Event.h"
 #include "Font.h"
@@ -138,11 +138,11 @@ void UIStatus::draw()
 
     x = x_ + 200;
     y = y_ + 50;
-    font->draw(fmt1::format("{}", role_->Name), 30, x - 10, y, color_name);
+    font->draw(std::format("{}", role_->Name), 30, x - 10, y, color_name);
     font->draw("等級", font_size, x, y + 50, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Level), font_size, x + 66, y + 50, color_white);
+    font->draw(std::format("{:5}", role_->Level), font_size, x + 66, y + 50, color_white);
     font->draw("經驗", font_size, x, y + 75, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Exp), font_size, x + 66, y + 75, color_white);
+    font->draw(std::format("{:5}", role_->Exp), font_size, x + 66, y + 75, color_white);
 
     std::string str = "";
     font->draw("升級", font_size, x, y + 100, color_ability1);
@@ -150,7 +150,7 @@ void UIStatus::draw()
     int exp_up = role_->getLevelUpExp(role_->Level);
     if (exp_up != INT_MAX)
     {
-        str = fmt1::format("{:6}", exp_up);
+        str = std::format("{:6}", exp_up);
     }
     else
     {
@@ -158,8 +158,8 @@ void UIStatus::draw()
     }
     font->draw(str, font_size, x + 55, y + 100, color_white);
     font->draw("生命", font_size, x + 175, y + 50, color_ability1);
-    font->draw(fmt1::format("{:5}/", role_->HP), font_size, x + 219, y + 50, color_white);
-    font->draw(fmt1::format("{:5}", role_->MaxHP), font_size, x + 285, y + 50, color_white);
+    font->draw(std::format("{:5}/", role_->HP), font_size, x + 219, y + 50, color_white);
+    font->draw(std::format("{:5}", role_->MaxHP), font_size, x + 285, y + 50, color_white);
     font->draw("內力", font_size, x + 175, y + 75, color_ability1);
 
     Color c = color_white;
@@ -172,43 +172,43 @@ void UIStatus::draw()
         c = color_magic;
     }
 
-    font->draw(fmt1::format("{:5}/", role_->MP), font_size, x + 219, y + 75, c);
-    font->draw(fmt1::format("{:5}", role_->MaxMP), font_size, x + 285, y + 75, c);
+    font->draw(std::format("{:5}/", role_->MP), font_size, x + 219, y + 75, c);
+    font->draw(std::format("{:5}", role_->MaxMP), font_size, x + 285, y + 75, c);
     font->draw("體力", font_size, x + 175, y + 100, color_ability1);
-    font->draw(fmt1::format("{:5}/", role_->PhysicalPower), font_size, x + 219, y + 100, color_white);
-    font->draw(fmt1::format("{:5}", 100), font_size, x + 285, y + 100, color_white);
+    font->draw(std::format("{:5}/", role_->PhysicalPower), font_size, x + 219, y + 100, color_white);
+    font->draw(std::format("{:5}", 100), font_size, x + 285, y + 100, color_white);
 
     x = x_ + 20;
     y = y_ + 200;
 
     font->draw("攻擊", font_size, x, y, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, Role::getMaxValue()->Attack));
+    font->draw(std::format("{:5}", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, Role::getMaxValue()->Attack));
     font->draw("防禦", font_size, x + 200, y, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, Role::getMaxValue()->Defence));
+    font->draw(std::format("{:5}", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, Role::getMaxValue()->Defence));
     font->draw("輕功", font_size, x + 400, y, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Role::getMaxValue()->Speed));
+    font->draw(std::format("{:5}", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Role::getMaxValue()->Speed));
 
     font->draw("醫療", font_size, x, y + 25, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Medicine), font_size, x + 44, y + 25, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
+    font->draw(std::format("{:5}", role_->Medicine), font_size, x + 44, y + 25, select_color1(role_->Medicine, Role::getMaxValue()->Medicine));
     font->draw("解毒", font_size, x + 200, y + 25, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
+    font->draw(std::format("{:5}", role_->Detoxification), font_size, x + 244, y + 25, select_color1(role_->Detoxification, Role::getMaxValue()->Detoxification));
     font->draw("用毒", font_size, x + 400, y + 25, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, Role::getMaxValue()->UsePoison));
+    font->draw(std::format("{:5}", role_->UsePoison), font_size, x + 444, y + 25, select_color1(role_->UsePoison, Role::getMaxValue()->UsePoison));
 
     x = x_ + 20;
     y = y_ + 270;
     font->draw("技能", 25, x - 10, y, color_name);
 
     font->draw("拳掌", font_size, x, y + 30, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, Role::getMaxValue()->Fist));
+    font->draw(std::format("{:5}", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, Role::getMaxValue()->Fist));
     font->draw("御劍", font_size, x, y + 55, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, Role::getMaxValue()->Sword));
+    font->draw(std::format("{:5}", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, Role::getMaxValue()->Sword));
     font->draw("耍刀", font_size, x, y + 80, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, Role::getMaxValue()->Knife));
+    font->draw(std::format("{:5}", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, Role::getMaxValue()->Knife));
     font->draw("特殊", font_size, x, y + 105, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, Role::getMaxValue()->Unusual));
+    font->draw(std::format("{:5}", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, Role::getMaxValue()->Unusual));
     font->draw("暗器", font_size, x, y + 130, color_ability1);
-    font->draw(fmt1::format("{:5}", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, Role::getMaxValue()->HiddenWeapon));
+    font->draw(std::format("{:5}", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, Role::getMaxValue()->HiddenWeapon));
 
     x = x_ + 220;
     y = y_ + 270;
@@ -221,9 +221,9 @@ void UIStatus::draw()
         {
             int x1 = x + i % 2 * 200;
             int y1 = y + 30 + i / 2 * 25;
-            str = fmt1::format("{}", magic->Name);
+            str = std::format("{}", magic->Name);
             font->draw(str, font_size, x1, y1, color_ability1);
-            str = fmt1::format("{:3}", role_->getRoleShowLearnedMagicLevel(i));
+            str = std::format("{:3}", role_->getRoleShowLearnedMagicLevel(i));
             font->draw(str, font_size, x1 + 100, y1, role_->getRoleShowLearnedMagicLevel(i) > 9 ? color_red : color_purple);
         }
         else
@@ -241,13 +241,13 @@ void UIStatus::draw()
     if (book)
     {
         TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
-        font->draw(fmt1::format("{}", book->Name), font_size, x + 90, y + 30, color_name);
-        font->draw(fmt1::format("經驗{:5}", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
+        font->draw(std::format("{}", book->Name), font_size, x + 90, y + 30, color_name);
+        font->draw(std::format("經驗{:5}", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
         std::string str = "升級 ----";
         int exp_up = role_->getFinishedExpForItem(book);
         if (exp_up != INT_MAX)
         {
-            str = fmt1::format("升級{:5}", exp_up);
+            str = std::format("升級{:5}", exp_up);
         }
         font->draw(str, 18, x + 90, y + 75, color_ability1);
     }
@@ -259,13 +259,13 @@ void UIStatus::draw()
     if (equip)
     {
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
-        font->draw(fmt1::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
+        font->draw(std::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
         font->draw("攻擊", 18, x + 90, y + 55, color_ability1);
-        font->draw(fmt1::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
+        font->draw(std::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
         font->draw("防禦", 18, x + 90, y + 75, color_ability1);
-        font->draw(fmt1::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
+        font->draw(std::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
         font->draw("輕功", 18, x + 90, y + 95, color_ability1);
-        font->draw(fmt1::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
+        font->draw(std::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
 
     x = x_ + 220;
@@ -275,13 +275,13 @@ void UIStatus::draw()
     if (equip)
     {
         TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
-        font->draw(fmt1::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
+        font->draw(std::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
         font->draw("攻擊", 18, x + 90, y + 55, color_ability1);
-        font->draw(fmt1::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
+        font->draw(std::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
         font->draw("防禦", 18, x + 90, y + 75, color_ability1);
-        font->draw(fmt1::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
+        font->draw(std::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
         font->draw("輕功", 18, x + 90, y + 95, color_ability1);
-        font->draw(fmt1::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
+        font->draw(std::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
     x = x_ + 20;
     y = y_ + 575;
@@ -335,7 +335,7 @@ void UIStatus::onPressedOK()
     if (menu_->getResult() == 0)
     {
         auto team_menu = std::make_shared<TeamMenu>();
-        team_menu->setText(fmt1::format("{}要為誰醫療", role_->Name));
+        team_menu->setText(std::format("{}要為誰醫療", role_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         if (role)
@@ -343,14 +343,14 @@ void UIStatus::onPressedOK()
             Role r = *role;
             role_->medicine(role);
             auto df = std::make_shared<ShowRoleDifference>(&r, role);
-            df->setText(fmt1::format("{}接受{}醫療", role->Name, role_->Name));
+            df->setText(std::format("{}接受{}醫療", role->Name, role_->Name));
             df->run();
         }
     }
     else if (menu_->getResult() == 1)
     {
         auto team_menu = std::make_shared<TeamMenu>();
-        team_menu->setText(fmt1::format("{}要為誰解毒", role_->Name));
+        team_menu->setText(std::format("{}要為誰解毒", role_->Name));
         team_menu->run();
         auto role = team_menu->getRole();
         if (role)
@@ -358,7 +358,7 @@ void UIStatus::onPressedOK()
             Role r = *role;
             role_->detoxification(role);
             auto df = std::make_shared<ShowRoleDifference>(&r, role);
-            df->setText(fmt1::format("{}接受{}解毒", role->Name, role_->Name));
+            df->setText(std::format("{}接受{}解毒", role->Name, role_->Name));
             df->run();
         }
     }

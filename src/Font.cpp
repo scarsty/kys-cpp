@@ -102,7 +102,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         int s = getBufferSize() - s1;
         if (s > 0)
         {
-            fmt1::print(" {}/{}, {}, total = {}, t2s buffer = {}\n", s, char_count, size, getBufferSize(), t2s_buffer_.size());
+            LOG(" {}/{}, {}, total = {}, t2s buffer = {}\n", s, char_count, size, getBufferSize(), t2s_buffer_.size());
         }
     }
     return line;

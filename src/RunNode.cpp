@@ -1,4 +1,4 @@
-#include "RunNode.h"
+﻿#include "RunNode.h"
 #include "Audio.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -177,7 +177,7 @@ int RunNode::findNextVisibleChild(int i0, Direct direct)
             continue;
         }
         deg = atan2(dis2, dis1) * 180 / 3.14159265;
-        //fmt1::print("{} {} {} \n", dis1, dis2, deg);
+        //LOG("{} {} {} \n", dis1, dis2, deg);
         if (dis1 < min1 && deg < 15)
         {
             min1 = dis1;
@@ -349,7 +349,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
             //    auto axis_y = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
             //
-            //    //fmt1::print("{} {}  ", axis_x, axis_y);
+            //    //LOG("{} {}  ", axis_x, axis_y);
             //    if (abs(axis_x) < 10000) { axis_x = 0; }
             //    if (abs(axis_y) < 10000) { axis_y = 0; }
             //    if (axis_x != 0 || axis_y != 0)
@@ -385,7 +385,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
         }
         if (e.type == EVENT_GAMEPAD_ADDED || e.type == EVENT_GAMEPAD_REMOVED)
         {
-            fmt1::print("Controllers changed\n");
+            LOG("Controllers changed\n");
             Engine::getInstance()->checkGameControllers();
         }
         if (use_virtual_stick_)
@@ -408,7 +408,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
 //是否为游戏需要处理的类型，避免丢失一些操作
 bool RunNode::isSpecialEvent(EngineEvent& e)
 {
-    //fmt1::print("type = {}\n", e.type);
+    //LOG("type = {}\n", e.type);
     return e.type == EVENT_QUIT
         || e.type == EVENT_WINDOW_CLOSE_REQUESTED
         || e.type == EVENT_KEY_DOWN
@@ -446,7 +446,7 @@ void RunNode::checkSelfState(EngineEvent& e)
 {
     //检测鼠标经过，按下等状态
     //BP_MOUSEMOTION似乎有些问题，待查
-    //fmt1::print("{} ", e.type);
+    //LOG("{} ", e.type);
     if (e.type == EVENT_MOUSE_MOTION)
     {
         if (inSide(e.motion.x, e.motion.y))
@@ -494,8 +494,8 @@ void RunNode::present()
     auto e = Engine::getInstance();
     if (render_message_)
     {
-        Font::getInstance()->draw(fmt1::format("Render one frame in {:.3f} ms", t), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
-        Font::getInstance()->draw(fmt1::format("RenderCopy time is {}", Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
+        Font::getInstance()->draw(std::format("Render one frame in {:.3f} ms", t), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 60);
+        Font::getInstance()->draw(std::format("RenderCopy time is {}", Engine::getInstance()->getRenderTimes()), 20, e->getWindowWidth() - 300, e->getWindowHeight() - 35);
         e->resetRenderTimes();
     }
     e->renderMainTextureToWindow();
@@ -506,7 +506,7 @@ void RunNode::present()
     {
         t_delay = refresh_interval_;
     }
-    //fmt1::print("{}/{}/{} ", t, t_delay, global_prev_present_ticks_);
+    //LOG("{}/{}/{} ", t, t_delay, global_prev_present_ticks_);
     if (t_delay > 0)
     {
         Engine::delay(t_delay);

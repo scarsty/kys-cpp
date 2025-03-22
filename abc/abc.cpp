@@ -7,8 +7,8 @@
 #include "PotConv.h"
 #include "TypesABC.h"
 #include "filefunc.h"
-#include "fmt1.h"
 #include "strfunc.h"
+#include <print>
 #include <sqlite3.h>
 
 BaseInfo16 baseinfo16_;
@@ -53,335 +53,328 @@ void initDBFieldInfo()
     if (db_base_.size() == 0)
     {
         BaseInfo a;
-        db_base_ =
-            {
-                BIND_FIELD_INT("乘船", InShip),
-                BIND_FIELD_INT("子场景内", InSubMap),
-                BIND_FIELD_INT("主地图X", MainMapX),
-                BIND_FIELD_INT("主地图Y", MainMapY),
-                BIND_FIELD_INT("子场景X", SubMapX),
-                BIND_FIELD_INT("子场景Y", SubMapY),
-                BIND_FIELD_INT("面朝方向", FaceTowards),
-                BIND_FIELD_INT("船X", ShipX),
-                BIND_FIELD_INT("船Y", ShipY),
-                BIND_FIELD_INT("船X1", ShipX1),
-                BIND_FIELD_INT("船Y1", ShipY1),
-                BIND_FIELD_INT("内部编码", Encode),
-                BIND_FIELD_INT("队友1", Team[0]),
-                BIND_FIELD_INT("队友2", Team[1]),
-                BIND_FIELD_INT("队友3", Team[2]),
-                BIND_FIELD_INT("队友4", Team[3]),
-                BIND_FIELD_INT("队友5", Team[4]),
-                BIND_FIELD_INT("队友6", Team[5]),
-            };
+        db_base_ = {
+            BIND_FIELD_INT("乘船", InShip),
+            BIND_FIELD_INT("子场景内", InSubMap),
+            BIND_FIELD_INT("主地图X", MainMapX),
+            BIND_FIELD_INT("主地图Y", MainMapY),
+            BIND_FIELD_INT("子场景X", SubMapX),
+            BIND_FIELD_INT("子场景Y", SubMapY),
+            BIND_FIELD_INT("面朝方向", FaceTowards),
+            BIND_FIELD_INT("船X", ShipX),
+            BIND_FIELD_INT("船Y", ShipY),
+            BIND_FIELD_INT("船X1", ShipX1),
+            BIND_FIELD_INT("船Y1", ShipY1),
+            BIND_FIELD_INT("内部编码", Encode),
+            BIND_FIELD_INT("队友1", Team[0]),
+            BIND_FIELD_INT("队友2", Team[1]),
+            BIND_FIELD_INT("队友3", Team[2]),
+            BIND_FIELD_INT("队友4", Team[3]),
+            BIND_FIELD_INT("队友5", Team[4]),
+            BIND_FIELD_INT("队友6", Team[5]),
+        };
     }
     if (db_item_list_.size() == 0)
     {
         ItemList a;
-        db_item_list_ =
-            {
-                BIND_FIELD_INT("物品编号", item_id),
-                BIND_FIELD_INT("物品数量", count),
-            };
+        db_item_list_ = {
+            BIND_FIELD_INT("物品编号", item_id),
+            BIND_FIELD_INT("物品数量", count),
+        };
     }
     if (db_role_.size() == 0)
     {
         RoleSave a;
-        db_role_ =
-            {
-                BIND_FIELD_INT("编号", ID),
-                BIND_FIELD_INT("头像", HeadID),
-                BIND_FIELD_INT("生命成长", IncLife),
-                BIND_FIELD_INT("无用", UnUse),
-                BIND_FIELD_TEXT("名字", Name),
-                BIND_FIELD_TEXT("外号", Nick),
-                BIND_FIELD_INT("性别", Sexual),
-                BIND_FIELD_INT("等级", Level),
-                BIND_FIELD_INT("经验", Exp),
-                BIND_FIELD_INT("生命", HP),
-                BIND_FIELD_INT("生命最大值", MaxHP),
-                BIND_FIELD_INT("内伤", Hurt),
-                BIND_FIELD_INT("中毒", Poison),
-                BIND_FIELD_INT("体力", PhysicalPower),
-                BIND_FIELD_INT("物品修炼点数", ExpForMakeItem),
-                BIND_FIELD_INT("武器", Equip0),
-                BIND_FIELD_INT("防具", Equip1),
-                BIND_FIELD_INT("装备武功1", EquipMagic[0]),
-                BIND_FIELD_INT("装备武功2", EquipMagic[1]),
-                BIND_FIELD_INT("装备武功3", EquipMagic[2]),
-                BIND_FIELD_INT("装备武功4", EquipMagic[3]),
-                BIND_FIELD_INT("二组装备武功1", EquipMagic2[0]),
-                BIND_FIELD_INT("二组装备武功2", EquipMagic2[1]),
-                BIND_FIELD_INT("二组装备武功3", EquipMagic2[2]),
-                BIND_FIELD_INT("二组装备武功4", EquipMagic2[3]),
-                BIND_FIELD_INT("装备物品", EquipItem),
-                //BIND_FIELD_INT("动作帧数1", Frame[0]),
-                //BIND_FIELD_INT("动作帧数2", Frame[1]),
-                //BIND_FIELD_INT("动作帧数3", Frame[2]),
-                //BIND_FIELD_INT("动作帧数4", Frame[3]),
-                //BIND_FIELD_INT("动作帧数5", Frame[4]),
-                //BIND_FIELD_INT("动作帧数6", Frame[5]),
-                BIND_FIELD_INT("内力性质", MPType),
-                BIND_FIELD_INT("内力", MP),
-                BIND_FIELD_INT("内力最大值", MaxMP),
-                BIND_FIELD_INT("攻击力", Attack),
-                BIND_FIELD_INT("轻功", Speed),
-                BIND_FIELD_INT("防御力", Defence),
-                BIND_FIELD_INT("医疗", Medicine),
-                BIND_FIELD_INT("用毒", UsePoison),
-                BIND_FIELD_INT("解毒", Detoxification),
-                BIND_FIELD_INT("抗毒", AntiPoison),
-                BIND_FIELD_INT("拳掌", Fist),
-                BIND_FIELD_INT("御剑", Sword),
-                BIND_FIELD_INT("耍刀", Knife),
-                BIND_FIELD_INT("特殊", Unusual),
-                BIND_FIELD_INT("暗器", HiddenWeapon),
-                BIND_FIELD_INT("武学常识", Knowledge),
-                BIND_FIELD_INT("品德", Morality),
-                BIND_FIELD_INT("攻击带毒", AttackWithPoison),
-                BIND_FIELD_INT("左右互搏", AttackTwice),
-                BIND_FIELD_INT("声望", Fame),
-                BIND_FIELD_INT("资质", IQ),
-                BIND_FIELD_INT("修炼物品", PracticeItem),
-                BIND_FIELD_INT("修炼点数", ExpForItem),
-                BIND_FIELD_INT("所会武功1", MagicID[0]),
-                BIND_FIELD_INT("所会武功2", MagicID[1]),
-                BIND_FIELD_INT("所会武功3", MagicID[2]),
-                BIND_FIELD_INT("所会武功4", MagicID[3]),
-                BIND_FIELD_INT("所会武功5", MagicID[4]),
-                BIND_FIELD_INT("所会武功6", MagicID[5]),
-                BIND_FIELD_INT("所会武功7", MagicID[6]),
-                BIND_FIELD_INT("所会武功8", MagicID[7]),
-                BIND_FIELD_INT("所会武功9", MagicID[8]),
-                BIND_FIELD_INT("所会武功10", MagicID[9]),
-                BIND_FIELD_INT("武功等级1", MagicLevel[0]),
-                BIND_FIELD_INT("武功等级2", MagicLevel[1]),
-                BIND_FIELD_INT("武功等级3", MagicLevel[2]),
-                BIND_FIELD_INT("武功等级4", MagicLevel[3]),
-                BIND_FIELD_INT("武功等级5", MagicLevel[4]),
-                BIND_FIELD_INT("武功等级6", MagicLevel[5]),
-                BIND_FIELD_INT("武功等级7", MagicLevel[6]),
-                BIND_FIELD_INT("武功等级8", MagicLevel[7]),
-                BIND_FIELD_INT("武功等级9", MagicLevel[8]),
-                BIND_FIELD_INT("武功等级10", MagicLevel[9]),
-                BIND_FIELD_INT("携带物品1", TakingItem[0]),
-                BIND_FIELD_INT("携带物品2", TakingItem[1]),
-                BIND_FIELD_INT("携带物品3", TakingItem[2]),
-                BIND_FIELD_INT("携带物品4", TakingItem[3]),
-                BIND_FIELD_INT("携带物品数量1", TakingItemCount[0]),
-                BIND_FIELD_INT("携带物品数量2", TakingItemCount[1]),
-                BIND_FIELD_INT("携带物品数量3", TakingItemCount[2]),
-                BIND_FIELD_INT("携带物品数量4", TakingItemCount[3]),
-                BIND_FIELD_INT("所会内功1", InternalID[0]),
-                BIND_FIELD_INT("所会内功2", InternalID[1]),
-                BIND_FIELD_INT("所会内功3", InternalID[2]),
-                BIND_FIELD_INT("所会内功4", InternalID[3]),
-                BIND_FIELD_INT("内功等级1", InternalLevel[0]),
-                BIND_FIELD_INT("内功等级2", InternalLevel[1]),
-                BIND_FIELD_INT("内功等级3", InternalLevel[2]),
-                BIND_FIELD_INT("内功等级4", InternalLevel[3]),
-            };
+        db_role_ = {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_INT("头像", HeadID),
+            BIND_FIELD_INT("生命成长", IncLife),
+            BIND_FIELD_INT("无用", UnUse),
+            BIND_FIELD_TEXT("名字", Name),
+            BIND_FIELD_TEXT("外号", Nick),
+            BIND_FIELD_INT("性别", Sexual),
+            BIND_FIELD_INT("等级", Level),
+            BIND_FIELD_INT("经验", Exp),
+            BIND_FIELD_INT("生命", HP),
+            BIND_FIELD_INT("生命最大值", MaxHP),
+            BIND_FIELD_INT("内伤", Hurt),
+            BIND_FIELD_INT("中毒", Poison),
+            BIND_FIELD_INT("体力", PhysicalPower),
+            BIND_FIELD_INT("物品修炼点数", ExpForMakeItem),
+            BIND_FIELD_INT("武器", Equip0),
+            BIND_FIELD_INT("防具", Equip1),
+            BIND_FIELD_INT("装备武功1", EquipMagic[0]),
+            BIND_FIELD_INT("装备武功2", EquipMagic[1]),
+            BIND_FIELD_INT("装备武功3", EquipMagic[2]),
+            BIND_FIELD_INT("装备武功4", EquipMagic[3]),
+            BIND_FIELD_INT("二组装备武功1", EquipMagic2[0]),
+            BIND_FIELD_INT("二组装备武功2", EquipMagic2[1]),
+            BIND_FIELD_INT("二组装备武功3", EquipMagic2[2]),
+            BIND_FIELD_INT("二组装备武功4", EquipMagic2[3]),
+            BIND_FIELD_INT("装备物品", EquipItem),
+            //BIND_FIELD_INT("动作帧数1", Frame[0]),
+            //BIND_FIELD_INT("动作帧数2", Frame[1]),
+            //BIND_FIELD_INT("动作帧数3", Frame[2]),
+            //BIND_FIELD_INT("动作帧数4", Frame[3]),
+            //BIND_FIELD_INT("动作帧数5", Frame[4]),
+            //BIND_FIELD_INT("动作帧数6", Frame[5]),
+            BIND_FIELD_INT("内力性质", MPType),
+            BIND_FIELD_INT("内力", MP),
+            BIND_FIELD_INT("内力最大值", MaxMP),
+            BIND_FIELD_INT("攻击力", Attack),
+            BIND_FIELD_INT("轻功", Speed),
+            BIND_FIELD_INT("防御力", Defence),
+            BIND_FIELD_INT("医疗", Medicine),
+            BIND_FIELD_INT("用毒", UsePoison),
+            BIND_FIELD_INT("解毒", Detoxification),
+            BIND_FIELD_INT("抗毒", AntiPoison),
+            BIND_FIELD_INT("拳掌", Fist),
+            BIND_FIELD_INT("御剑", Sword),
+            BIND_FIELD_INT("耍刀", Knife),
+            BIND_FIELD_INT("特殊", Unusual),
+            BIND_FIELD_INT("暗器", HiddenWeapon),
+            BIND_FIELD_INT("武学常识", Knowledge),
+            BIND_FIELD_INT("品德", Morality),
+            BIND_FIELD_INT("攻击带毒", AttackWithPoison),
+            BIND_FIELD_INT("左右互搏", AttackTwice),
+            BIND_FIELD_INT("声望", Fame),
+            BIND_FIELD_INT("资质", IQ),
+            BIND_FIELD_INT("修炼物品", PracticeItem),
+            BIND_FIELD_INT("修炼点数", ExpForItem),
+            BIND_FIELD_INT("所会武功1", MagicID[0]),
+            BIND_FIELD_INT("所会武功2", MagicID[1]),
+            BIND_FIELD_INT("所会武功3", MagicID[2]),
+            BIND_FIELD_INT("所会武功4", MagicID[3]),
+            BIND_FIELD_INT("所会武功5", MagicID[4]),
+            BIND_FIELD_INT("所会武功6", MagicID[5]),
+            BIND_FIELD_INT("所会武功7", MagicID[6]),
+            BIND_FIELD_INT("所会武功8", MagicID[7]),
+            BIND_FIELD_INT("所会武功9", MagicID[8]),
+            BIND_FIELD_INT("所会武功10", MagicID[9]),
+            BIND_FIELD_INT("武功等级1", MagicLevel[0]),
+            BIND_FIELD_INT("武功等级2", MagicLevel[1]),
+            BIND_FIELD_INT("武功等级3", MagicLevel[2]),
+            BIND_FIELD_INT("武功等级4", MagicLevel[3]),
+            BIND_FIELD_INT("武功等级5", MagicLevel[4]),
+            BIND_FIELD_INT("武功等级6", MagicLevel[5]),
+            BIND_FIELD_INT("武功等级7", MagicLevel[6]),
+            BIND_FIELD_INT("武功等级8", MagicLevel[7]),
+            BIND_FIELD_INT("武功等级9", MagicLevel[8]),
+            BIND_FIELD_INT("武功等级10", MagicLevel[9]),
+            BIND_FIELD_INT("携带物品1", TakingItem[0]),
+            BIND_FIELD_INT("携带物品2", TakingItem[1]),
+            BIND_FIELD_INT("携带物品3", TakingItem[2]),
+            BIND_FIELD_INT("携带物品4", TakingItem[3]),
+            BIND_FIELD_INT("携带物品数量1", TakingItemCount[0]),
+            BIND_FIELD_INT("携带物品数量2", TakingItemCount[1]),
+            BIND_FIELD_INT("携带物品数量3", TakingItemCount[2]),
+            BIND_FIELD_INT("携带物品数量4", TakingItemCount[3]),
+            BIND_FIELD_INT("所会内功1", InternalID[0]),
+            BIND_FIELD_INT("所会内功2", InternalID[1]),
+            BIND_FIELD_INT("所会内功3", InternalID[2]),
+            BIND_FIELD_INT("所会内功4", InternalID[3]),
+            BIND_FIELD_INT("内功等级1", InternalLevel[0]),
+            BIND_FIELD_INT("内功等级2", InternalLevel[1]),
+            BIND_FIELD_INT("内功等级3", InternalLevel[2]),
+            BIND_FIELD_INT("内功等级4", InternalLevel[3]),
+        };
     }
     if (db_item_.size() == 0)
     {
         ItemSave a;
-        db_item_ =
-            {
-                BIND_FIELD_INT("编号", ID),
-                BIND_FIELD_TEXT("物品名", Name),
-                BIND_FIELD_INT("物品名无用1", Name1[0]),
-                BIND_FIELD_INT("物品名无用2", Name1[1]),
-                BIND_FIELD_INT("物品名无用3", Name1[2]),
-                BIND_FIELD_INT("物品名无用4", Name1[3]),
-                BIND_FIELD_INT("物品名无用5", Name1[4]),
-                BIND_FIELD_INT("物品名无用6", Name1[5]),
-                BIND_FIELD_INT("物品名无用7", Name1[6]),
-                BIND_FIELD_INT("物品名无用8", Name1[7]),
-                BIND_FIELD_INT("物品名无用9", Name1[8]),
-                BIND_FIELD_INT("物品名无用10", Name1[9]),
-                BIND_FIELD_TEXT("物品说明", Introduction),
-                BIND_FIELD_INT("练出武功", MagicID),
-                BIND_FIELD_INT("暗器动画编号", HiddenWeaponEffectID),
-                BIND_FIELD_INT("使用人", User),
-                BIND_FIELD_INT("装备类型", EquipType),
-                BIND_FIELD_INT("显示物品说明", ShowIntroduction),
-                BIND_FIELD_INT("物品类型", ItemType),
-                BIND_FIELD_INT("未知5", UnKnown5),
-                BIND_FIELD_INT("未知6", UnKnown6),
-                BIND_FIELD_INT("未知7", UnKnown7),
-                BIND_FIELD_INT("加生命", AddHP),
-                BIND_FIELD_INT("加生命最大值", AddMaxHP),
-                BIND_FIELD_INT("加中毒解毒", AddPoison),
-                BIND_FIELD_INT("加体力", AddPhysicalPower),
-                BIND_FIELD_INT("改变内力性质", ChangeMPType),
-                BIND_FIELD_INT("加内力", AddMP),
-                BIND_FIELD_INT("加内力最大值", AddMaxMP),
-                BIND_FIELD_INT("加攻击力", AddAttack),
-                BIND_FIELD_INT("加轻功", AddSpeed),
-                BIND_FIELD_INT("加防御力", AddDefence),
-                BIND_FIELD_INT("加医疗", AddMedicine),
-                BIND_FIELD_INT("加使毒", AddUsePoison),
-                BIND_FIELD_INT("加解毒", AddDetoxification),
-                BIND_FIELD_INT("加抗毒", AddAntiPoison),
-                BIND_FIELD_INT("加拳掌", AddFist),
-                BIND_FIELD_INT("加御剑", AddSword),
-                BIND_FIELD_INT("加耍刀", AddKnife),
-                BIND_FIELD_INT("加特殊兵器", AddUnusual),
-                BIND_FIELD_INT("加暗器技巧", AddHiddenWeapon),
-                BIND_FIELD_INT("加武学常识", AddKnowledge),
-                BIND_FIELD_INT("加品德", AddMorality),
-                BIND_FIELD_INT("加左右互搏", AddAttackTwice),
-                BIND_FIELD_INT("加攻击带毒", AddAttackWithPoison),
-                BIND_FIELD_INT("仅修炼人物", OnlySuitableRole),
-                BIND_FIELD_INT("需内力性质", NeedMPType),
-                BIND_FIELD_INT("需内力", NeedMP),
-                BIND_FIELD_INT("需攻击力", NeedAttack),
-                BIND_FIELD_INT("需轻功", NeedSpeed),
-                BIND_FIELD_INT("需用毒", NeedUsePoison),
-                BIND_FIELD_INT("需医疗", NeedMedicine),
-                BIND_FIELD_INT("需解毒", NeedDetoxification),
-                BIND_FIELD_INT("需拳掌", NeedFist),
-                BIND_FIELD_INT("需御剑", NeedSword),
-                BIND_FIELD_INT("需耍刀", NeedKnife),
-                BIND_FIELD_INT("需特殊兵器", NeedUnusual),
-                BIND_FIELD_INT("需暗器", NeedHiddenWeapon),
-                BIND_FIELD_INT("需资质", NeedIQ),
-                BIND_FIELD_INT("需经验", NeedExp),
-                BIND_FIELD_INT("练出物品需经验", NeedExpForMakeItem),
-                BIND_FIELD_INT("需材料", NeedMaterial),
-                BIND_FIELD_INT("练出物品1", MakeItem[0]),
-                BIND_FIELD_INT("练出物品2", MakeItem[1]),
-                BIND_FIELD_INT("练出物品3", MakeItem[2]),
-                BIND_FIELD_INT("练出物品4", MakeItem[3]),
-                BIND_FIELD_INT("练出物品5", MakeItem[4]),
-                BIND_FIELD_INT("练出物品数量1", MakeItemCount[0]),
-                BIND_FIELD_INT("练出物品数量2", MakeItemCount[1]),
-                BIND_FIELD_INT("练出物品数量3", MakeItemCount[2]),
-                BIND_FIELD_INT("练出物品数量4", MakeItemCount[3]),
-                BIND_FIELD_INT("练出物品数量5", MakeItemCount[4]),
-            };
+        db_item_ = {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_TEXT("物品名", Name),
+            BIND_FIELD_INT("物品名无用1", Name1[0]),
+            BIND_FIELD_INT("物品名无用2", Name1[1]),
+            BIND_FIELD_INT("物品名无用3", Name1[2]),
+            BIND_FIELD_INT("物品名无用4", Name1[3]),
+            BIND_FIELD_INT("物品名无用5", Name1[4]),
+            BIND_FIELD_INT("物品名无用6", Name1[5]),
+            BIND_FIELD_INT("物品名无用7", Name1[6]),
+            BIND_FIELD_INT("物品名无用8", Name1[7]),
+            BIND_FIELD_INT("物品名无用9", Name1[8]),
+            BIND_FIELD_INT("物品名无用10", Name1[9]),
+            BIND_FIELD_TEXT("物品说明", Introduction),
+            BIND_FIELD_INT("练出武功", MagicID),
+            BIND_FIELD_INT("暗器动画编号", HiddenWeaponEffectID),
+            BIND_FIELD_INT("使用人", User),
+            BIND_FIELD_INT("装备类型", EquipType),
+            BIND_FIELD_INT("显示物品说明", ShowIntroduction),
+            BIND_FIELD_INT("物品类型", ItemType),
+            BIND_FIELD_INT("未知5", UnKnown5),
+            BIND_FIELD_INT("未知6", UnKnown6),
+            BIND_FIELD_INT("未知7", UnKnown7),
+            BIND_FIELD_INT("加生命", AddHP),
+            BIND_FIELD_INT("加生命最大值", AddMaxHP),
+            BIND_FIELD_INT("加中毒解毒", AddPoison),
+            BIND_FIELD_INT("加体力", AddPhysicalPower),
+            BIND_FIELD_INT("改变内力性质", ChangeMPType),
+            BIND_FIELD_INT("加内力", AddMP),
+            BIND_FIELD_INT("加内力最大值", AddMaxMP),
+            BIND_FIELD_INT("加攻击力", AddAttack),
+            BIND_FIELD_INT("加轻功", AddSpeed),
+            BIND_FIELD_INT("加防御力", AddDefence),
+            BIND_FIELD_INT("加医疗", AddMedicine),
+            BIND_FIELD_INT("加使毒", AddUsePoison),
+            BIND_FIELD_INT("加解毒", AddDetoxification),
+            BIND_FIELD_INT("加抗毒", AddAntiPoison),
+            BIND_FIELD_INT("加拳掌", AddFist),
+            BIND_FIELD_INT("加御剑", AddSword),
+            BIND_FIELD_INT("加耍刀", AddKnife),
+            BIND_FIELD_INT("加特殊兵器", AddUnusual),
+            BIND_FIELD_INT("加暗器技巧", AddHiddenWeapon),
+            BIND_FIELD_INT("加武学常识", AddKnowledge),
+            BIND_FIELD_INT("加品德", AddMorality),
+            BIND_FIELD_INT("加左右互搏", AddAttackTwice),
+            BIND_FIELD_INT("加攻击带毒", AddAttackWithPoison),
+            BIND_FIELD_INT("仅修炼人物", OnlySuitableRole),
+            BIND_FIELD_INT("需内力性质", NeedMPType),
+            BIND_FIELD_INT("需内力", NeedMP),
+            BIND_FIELD_INT("需攻击力", NeedAttack),
+            BIND_FIELD_INT("需轻功", NeedSpeed),
+            BIND_FIELD_INT("需用毒", NeedUsePoison),
+            BIND_FIELD_INT("需医疗", NeedMedicine),
+            BIND_FIELD_INT("需解毒", NeedDetoxification),
+            BIND_FIELD_INT("需拳掌", NeedFist),
+            BIND_FIELD_INT("需御剑", NeedSword),
+            BIND_FIELD_INT("需耍刀", NeedKnife),
+            BIND_FIELD_INT("需特殊兵器", NeedUnusual),
+            BIND_FIELD_INT("需暗器", NeedHiddenWeapon),
+            BIND_FIELD_INT("需资质", NeedIQ),
+            BIND_FIELD_INT("需经验", NeedExp),
+            BIND_FIELD_INT("练出物品需经验", NeedExpForMakeItem),
+            BIND_FIELD_INT("需材料", NeedMaterial),
+            BIND_FIELD_INT("练出物品1", MakeItem[0]),
+            BIND_FIELD_INT("练出物品2", MakeItem[1]),
+            BIND_FIELD_INT("练出物品3", MakeItem[2]),
+            BIND_FIELD_INT("练出物品4", MakeItem[3]),
+            BIND_FIELD_INT("练出物品5", MakeItem[4]),
+            BIND_FIELD_INT("练出物品数量1", MakeItemCount[0]),
+            BIND_FIELD_INT("练出物品数量2", MakeItemCount[1]),
+            BIND_FIELD_INT("练出物品数量3", MakeItemCount[2]),
+            BIND_FIELD_INT("练出物品数量4", MakeItemCount[3]),
+            BIND_FIELD_INT("练出物品数量5", MakeItemCount[4]),
+        };
     }
     if (db_submapinfo_.size() == 0)
     {
         SubMapInfoSave a;
-        db_submapinfo_ =
-            {
-                BIND_FIELD_INT("编号", ID),
-                BIND_FIELD_TEXT("名称", Name),
-                BIND_FIELD_INT("出门音乐", ExitMusic),
-                BIND_FIELD_INT("进门音乐", EntranceMusic),
-                BIND_FIELD_INT("跳转场景", JumpSubMap),
-                BIND_FIELD_INT("进入条件", EntranceCondition),
-                BIND_FIELD_INT("外景入口X1", MainEntranceX1),
-                BIND_FIELD_INT("外景入口Y1", MainEntranceY1),
-                BIND_FIELD_INT("外景入口X2", MainEntranceX2),
-                BIND_FIELD_INT("外景入口Y2", MainEntranceY2),
-                BIND_FIELD_INT("入口X", EntranceX),
-                BIND_FIELD_INT("入口Y", EntranceY),
-                BIND_FIELD_INT("出口X1", ExitX[0]),
-                BIND_FIELD_INT("出口X2", ExitX[1]),
-                BIND_FIELD_INT("出口X3", ExitX[2]),
-                BIND_FIELD_INT("出口Y1", ExitY[0]),
-                BIND_FIELD_INT("出口Y2", ExitY[1]),
-                BIND_FIELD_INT("出口Y3", ExitY[2]),
-                BIND_FIELD_INT("跳转X", JumpX),
-                BIND_FIELD_INT("跳转Y", JumpY),
-                BIND_FIELD_INT("跳转返还X", JumpReturnX),
-                BIND_FIELD_INT("跳转返还Y", JumpReturnY),
-            };
+        db_submapinfo_ = {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_TEXT("名称", Name),
+            BIND_FIELD_INT("出门音乐", ExitMusic),
+            BIND_FIELD_INT("进门音乐", EntranceMusic),
+            BIND_FIELD_INT("跳转场景", JumpSubMap),
+            BIND_FIELD_INT("进入条件", EntranceCondition),
+            BIND_FIELD_INT("外景入口X1", MainEntranceX1),
+            BIND_FIELD_INT("外景入口Y1", MainEntranceY1),
+            BIND_FIELD_INT("外景入口X2", MainEntranceX2),
+            BIND_FIELD_INT("外景入口Y2", MainEntranceY2),
+            BIND_FIELD_INT("入口X", EntranceX),
+            BIND_FIELD_INT("入口Y", EntranceY),
+            BIND_FIELD_INT("出口X1", ExitX[0]),
+            BIND_FIELD_INT("出口X2", ExitX[1]),
+            BIND_FIELD_INT("出口X3", ExitX[2]),
+            BIND_FIELD_INT("出口Y1", ExitY[0]),
+            BIND_FIELD_INT("出口Y2", ExitY[1]),
+            BIND_FIELD_INT("出口Y3", ExitY[2]),
+            BIND_FIELD_INT("跳转X", JumpX),
+            BIND_FIELD_INT("跳转Y", JumpY),
+            BIND_FIELD_INT("跳转返还X", JumpReturnX),
+            BIND_FIELD_INT("跳转返还Y", JumpReturnY),
+        };
     }
     if (db_magic_.size() == 0)
     {
         MagicSave a;
-        db_magic_ =
-            {
-                BIND_FIELD_INT("编号", ID),
-                BIND_FIELD_TEXT("名称", Name),
-                BIND_FIELD_INT("未知1", Unknown[0]),
-                BIND_FIELD_INT("未知2", Unknown[1]),
-                BIND_FIELD_INT("未知3", Unknown[2]),
-                BIND_FIELD_INT("未知4", Unknown[3]),
-                BIND_FIELD_INT("未知5", Unknown[4]),
-                BIND_FIELD_INT("出招音效", SoundID),
-                BIND_FIELD_INT("武功类型", MagicType),
-                BIND_FIELD_INT("武功动画", EffectID),
-                BIND_FIELD_INT("伤害类型", HurtType),
-                BIND_FIELD_INT("攻击范围类型", AttackAreaType),
-                BIND_FIELD_INT("消耗内力", NeedMP),
-                BIND_FIELD_INT("敌人中毒", WithPoison),
-                BIND_FIELD_INT("威力1", Attack[0]),
-                BIND_FIELD_INT("威力2", Attack[1]),
-                BIND_FIELD_INT("威力3", Attack[2]),
-                BIND_FIELD_INT("威力4", Attack[3]),
-                BIND_FIELD_INT("威力5", Attack[4]),
-                BIND_FIELD_INT("威力6", Attack[5]),
-                BIND_FIELD_INT("威力7", Attack[6]),
-                BIND_FIELD_INT("威力8", Attack[7]),
-                BIND_FIELD_INT("威力9", Attack[8]),
-                BIND_FIELD_INT("威力10", Attack[9]),
-                BIND_FIELD_INT("移动范围1", SelectDistance[0]),
-                BIND_FIELD_INT("移动范围2", SelectDistance[1]),
-                BIND_FIELD_INT("移动范围3", SelectDistance[2]),
-                BIND_FIELD_INT("移动范围4", SelectDistance[3]),
-                BIND_FIELD_INT("移动范围5", SelectDistance[4]),
-                BIND_FIELD_INT("移动范围6", SelectDistance[5]),
-                BIND_FIELD_INT("移动范围7", SelectDistance[6]),
-                BIND_FIELD_INT("移动范围8", SelectDistance[7]),
-                BIND_FIELD_INT("移动范围9", SelectDistance[8]),
-                BIND_FIELD_INT("移动范围10", SelectDistance[9]),
-                BIND_FIELD_INT("杀伤范围1", AttackDistance[0]),
-                BIND_FIELD_INT("杀伤范围2", AttackDistance[1]),
-                BIND_FIELD_INT("杀伤范围3", AttackDistance[2]),
-                BIND_FIELD_INT("杀伤范围4", AttackDistance[3]),
-                BIND_FIELD_INT("杀伤范围5", AttackDistance[4]),
-                BIND_FIELD_INT("杀伤范围6", AttackDistance[5]),
-                BIND_FIELD_INT("杀伤范围7", AttackDistance[6]),
-                BIND_FIELD_INT("杀伤范围8", AttackDistance[7]),
-                BIND_FIELD_INT("杀伤范围9", AttackDistance[8]),
-                BIND_FIELD_INT("杀伤范围10", AttackDistance[9]),
-                BIND_FIELD_INT("加内力1", AddMP[0]),
-                BIND_FIELD_INT("加内力2", AddMP[1]),
-                BIND_FIELD_INT("加内力3", AddMP[2]),
-                BIND_FIELD_INT("加内力4", AddMP[3]),
-                BIND_FIELD_INT("加内力5", AddMP[4]),
-                BIND_FIELD_INT("加内力6", AddMP[5]),
-                BIND_FIELD_INT("加内力7", AddMP[6]),
-                BIND_FIELD_INT("加内力8", AddMP[7]),
-                BIND_FIELD_INT("加内力9", AddMP[8]),
-                BIND_FIELD_INT("加内力10", AddMP[9]),
-                BIND_FIELD_INT("杀伤内力1", HurtMP[0]),
-                BIND_FIELD_INT("杀伤内力2", HurtMP[1]),
-                BIND_FIELD_INT("杀伤内力3", HurtMP[2]),
-                BIND_FIELD_INT("杀伤内力4", HurtMP[3]),
-                BIND_FIELD_INT("杀伤内力5", HurtMP[4]),
-                BIND_FIELD_INT("杀伤内力6", HurtMP[5]),
-                BIND_FIELD_INT("杀伤内力7", HurtMP[6]),
-                BIND_FIELD_INT("杀伤内力8", HurtMP[7]),
-                BIND_FIELD_INT("杀伤内力9", HurtMP[8]),
-                BIND_FIELD_INT("杀伤内力10", HurtMP[9]),
-            };
+        db_magic_ = {
+            BIND_FIELD_INT("编号", ID),
+            BIND_FIELD_TEXT("名称", Name),
+            BIND_FIELD_INT("未知1", Unknown[0]),
+            BIND_FIELD_INT("未知2", Unknown[1]),
+            BIND_FIELD_INT("未知3", Unknown[2]),
+            BIND_FIELD_INT("未知4", Unknown[3]),
+            BIND_FIELD_INT("未知5", Unknown[4]),
+            BIND_FIELD_INT("出招音效", SoundID),
+            BIND_FIELD_INT("武功类型", MagicType),
+            BIND_FIELD_INT("武功动画", EffectID),
+            BIND_FIELD_INT("伤害类型", HurtType),
+            BIND_FIELD_INT("攻击范围类型", AttackAreaType),
+            BIND_FIELD_INT("消耗内力", NeedMP),
+            BIND_FIELD_INT("敌人中毒", WithPoison),
+            BIND_FIELD_INT("威力1", Attack[0]),
+            BIND_FIELD_INT("威力2", Attack[1]),
+            BIND_FIELD_INT("威力3", Attack[2]),
+            BIND_FIELD_INT("威力4", Attack[3]),
+            BIND_FIELD_INT("威力5", Attack[4]),
+            BIND_FIELD_INT("威力6", Attack[5]),
+            BIND_FIELD_INT("威力7", Attack[6]),
+            BIND_FIELD_INT("威力8", Attack[7]),
+            BIND_FIELD_INT("威力9", Attack[8]),
+            BIND_FIELD_INT("威力10", Attack[9]),
+            BIND_FIELD_INT("移动范围1", SelectDistance[0]),
+            BIND_FIELD_INT("移动范围2", SelectDistance[1]),
+            BIND_FIELD_INT("移动范围3", SelectDistance[2]),
+            BIND_FIELD_INT("移动范围4", SelectDistance[3]),
+            BIND_FIELD_INT("移动范围5", SelectDistance[4]),
+            BIND_FIELD_INT("移动范围6", SelectDistance[5]),
+            BIND_FIELD_INT("移动范围7", SelectDistance[6]),
+            BIND_FIELD_INT("移动范围8", SelectDistance[7]),
+            BIND_FIELD_INT("移动范围9", SelectDistance[8]),
+            BIND_FIELD_INT("移动范围10", SelectDistance[9]),
+            BIND_FIELD_INT("杀伤范围1", AttackDistance[0]),
+            BIND_FIELD_INT("杀伤范围2", AttackDistance[1]),
+            BIND_FIELD_INT("杀伤范围3", AttackDistance[2]),
+            BIND_FIELD_INT("杀伤范围4", AttackDistance[3]),
+            BIND_FIELD_INT("杀伤范围5", AttackDistance[4]),
+            BIND_FIELD_INT("杀伤范围6", AttackDistance[5]),
+            BIND_FIELD_INT("杀伤范围7", AttackDistance[6]),
+            BIND_FIELD_INT("杀伤范围8", AttackDistance[7]),
+            BIND_FIELD_INT("杀伤范围9", AttackDistance[8]),
+            BIND_FIELD_INT("杀伤范围10", AttackDistance[9]),
+            BIND_FIELD_INT("加内力1", AddMP[0]),
+            BIND_FIELD_INT("加内力2", AddMP[1]),
+            BIND_FIELD_INT("加内力3", AddMP[2]),
+            BIND_FIELD_INT("加内力4", AddMP[3]),
+            BIND_FIELD_INT("加内力5", AddMP[4]),
+            BIND_FIELD_INT("加内力6", AddMP[5]),
+            BIND_FIELD_INT("加内力7", AddMP[6]),
+            BIND_FIELD_INT("加内力8", AddMP[7]),
+            BIND_FIELD_INT("加内力9", AddMP[8]),
+            BIND_FIELD_INT("加内力10", AddMP[9]),
+            BIND_FIELD_INT("杀伤内力1", HurtMP[0]),
+            BIND_FIELD_INT("杀伤内力2", HurtMP[1]),
+            BIND_FIELD_INT("杀伤内力3", HurtMP[2]),
+            BIND_FIELD_INT("杀伤内力4", HurtMP[3]),
+            BIND_FIELD_INT("杀伤内力5", HurtMP[4]),
+            BIND_FIELD_INT("杀伤内力6", HurtMP[5]),
+            BIND_FIELD_INT("杀伤内力7", HurtMP[6]),
+            BIND_FIELD_INT("杀伤内力8", HurtMP[7]),
+            BIND_FIELD_INT("杀伤内力9", HurtMP[8]),
+            BIND_FIELD_INT("杀伤内力10", HurtMP[9]),
+        };
     }
     if (db_shop_.size() == 0)
     {
         ShopSave a;
-        db_shop_ =
-            {
-                BIND_FIELD_INT("物品编号1", ItemID[0]),
-                BIND_FIELD_INT("物品编号2", ItemID[1]),
-                BIND_FIELD_INT("物品编号3", ItemID[2]),
-                BIND_FIELD_INT("物品编号4", ItemID[3]),
-                BIND_FIELD_INT("物品编号5", ItemID[4]),
-                BIND_FIELD_INT("物品总量1", Total[0]),
-                BIND_FIELD_INT("物品总量2", Total[1]),
-                BIND_FIELD_INT("物品总量3", Total[2]),
-                BIND_FIELD_INT("物品总量4", Total[3]),
-                BIND_FIELD_INT("物品总量5", Total[4]),
-                BIND_FIELD_INT("物品价格1", Price[0]),
-                BIND_FIELD_INT("物品价格2", Price[1]),
-                BIND_FIELD_INT("物品价格3", Price[2]),
-                BIND_FIELD_INT("物品价格4", Price[3]),
-                BIND_FIELD_INT("物品价格5", Price[4]),
-            };
+        db_shop_ = {
+            BIND_FIELD_INT("物品编号1", ItemID[0]),
+            BIND_FIELD_INT("物品编号2", ItemID[1]),
+            BIND_FIELD_INT("物品编号3", ItemID[2]),
+            BIND_FIELD_INT("物品编号4", ItemID[3]),
+            BIND_FIELD_INT("物品编号5", ItemID[4]),
+            BIND_FIELD_INT("物品总量1", Total[0]),
+            BIND_FIELD_INT("物品总量2", Total[1]),
+            BIND_FIELD_INT("物品总量3", Total[2]),
+            BIND_FIELD_INT("物品总量4", Total[3]),
+            BIND_FIELD_INT("物品总量5", Total[4]),
+            BIND_FIELD_INT("物品价格1", Price[0]),
+            BIND_FIELD_INT("物品价格2", Price[1]),
+            BIND_FIELD_INT("物品价格3", Price[2]),
+            BIND_FIELD_INT("物品价格4", Price[3]),
+            BIND_FIELD_INT("物品价格5", Price[4]),
+        };
     }
 }
 
@@ -394,7 +387,7 @@ void trans_bin_list(std::string in, std::string out)
     std::string s;
     for (auto a : leave_list)
     {
-        s += fmt1::format("{}, ", a);
+        s += std::format("{}, ", a);
     }
     filefunc::writeStringToFile(s, out);
 }
@@ -404,20 +397,20 @@ void trans_fight_frame(std::string path0)
 {
     for (int i = 0; i <= 900; i++)
     {
-        std::string path = fmt1::format("{}/fight{:03}", path0, i);
+        std::string path = std::format("{}/fight{:03}", path0, i);
         std::vector<int16_t> frame;
         std::string filename = path + "/fightframe.ka";
         if (filefunc::fileExist(filename))
         {
             filefunc::readFileToVector(path + "/fightframe.ka", frame);
             std::string content;
-            fmt1::print("role {}\n", i);
+            std::print("role {}\n", i);
             for (int j = 0; j < 5; j++)
             {
                 if (frame[j] > 0)
                 {
-                    fmt1::print("{}, {}\n", j, frame[j]);
-                    content += fmt1::format("{}, {}\n", j, frame[j]);
+                    std::print("{}, {}\n", j, frame[j]);
+                    content += std::format("{}, {}\n", j, frame[j]);
                 }
             }
             filefunc::writeStringToFile(content, path + "/fightframe.txt");
@@ -570,20 +563,20 @@ int expandR(std::string idx, std::string grp, int index, bool ranger = true, boo
             {
                 auto r = *it;
                 std::string content;
-                fmt1::print("role {}\n", r.HeadID);
+                std::print("role {}\n", r.HeadID);
                 for (int j = 0; j < 5; j++)
                 {
                     if (r.Frame[j] > 0)
                     {
-                        fmt1::print("{}, {}\n", j, r.Frame[j]);
-                        content += fmt1::format("{}, {}\n", j, r.Frame[j]);
+                        std::print("{}, {}\n", j, r.Frame[j]);
+                        content += std::format("{}, {}\n", j, r.Frame[j]);
                     }
                 }
                 if (!content.empty())
                 {
                     auto p = filefunc::getParentPath(idx);
                     p = filefunc::getParentPath(p);
-                    auto f = fmt1::format("{}/resource/fight/fight{:03}/fightframe.txt", p, r.HeadID);
+                    auto f = std::format("{}/resource/fight/fight{:03}/fightframe.txt", p, r.HeadID);
                     filefunc::writeStringToFile(content, f);
                 }
             }
@@ -635,7 +628,7 @@ int expandR(std::string idx, std::string grp, int index, bool ranger = true, boo
     delete rgrp2;
 
     saveR0ToDB(index);
-    fmt1::print("trans {} end\n", grp.c_str());
+    std::print("trans {} end\n", grp.c_str());
     return 0;
 }
 
@@ -653,7 +646,7 @@ void combine_ka(std::string in, std::string out)
         {
             out1[i] = in1[i];
             out1[i + 1] = in1[i + 1];
-            fmt1::print("{}, ", i / 2);
+            std::print("{}, ", i / 2);
         }
     }
     GrpIdxFile::writeFile(out, out1.data(), out1.size() * 2);
@@ -665,7 +658,7 @@ void check_fight_frame(std::string path, int repair = 0)
 {
     for (int i = 0; i < 900; i++)
     {
-        auto path1 = fmt1::format("{}/fight{:03}", path, i);
+        auto path1 = std::format("{}/fight{:03}", path, i);
         if (filefunc::pathExist(path1))
         {
             auto files = filefunc::getFilesInPath(path1, 0);
@@ -679,12 +672,12 @@ void check_fight_frame(std::string path, int repair = 0)
             }
             if (sum * 4 != count)
             {
-                fmt1::print("{}\n", path1);
+                std::print("{}\n", path1);
                 if (repair)
                 {
                     if (numbers.size() <= 2)
                     {
-                        auto str = fmt1::format("{}, {}", numbers[0], count / 4);
+                        auto str = std::format("{}, {}", numbers[0], count / 4);
                         filefunc::writeStringToFile(str, filename);
                     }
                 }
@@ -710,7 +703,7 @@ void check_script(std::string path)
                 {
                     if (num[1] > 0 && num[12] >= 0 && num[13] >= 0)
                     {
-                        fmt1::print("{}\n", line);
+                        std::print("{}\n", line);
                         auto strs = strfunc::splitString(line, ",", false);
                         strs[10] = "-2";
                         strs[11] = "-2";
@@ -722,13 +715,13 @@ void check_script(std::string path)
                             new_str += s + ",";
                         }
                         new_str.pop_back();
-                        fmt1::print("{}\n", new_str);
+                        std::print("{}\n", new_str);
                         line = "--repair" + line + "\n" + new_str;
                         repair = true;
                     }
                     if (num[12] < 0 && num[13] < 0)
                     {
-                        //fmt1::print("{}\n", line);
+                        //std::print("{}\n", line);
                     }
                 }
             }
@@ -773,9 +766,9 @@ void make_heads(std::string path)
         {
             if (h.find(name) == 0)
             {
-                fmt1::print("{} {}\n", r.HeadID, h);
+                std::print("{} {}\n", r.HeadID, h);
                 auto file_src = path + "\\" + h;
-                auto file_dst = fmt1::format("..\\game\\resource\\head1\\{}.png", r.HeadID);
+                auto file_dst = std::format("..\\game\\resource\\head1\\{}.png", r.HeadID);
                 auto cmd = "copy " + file_src + " " + file_dst;
                 system(cmd.c_str());
                 break;
@@ -791,7 +784,7 @@ int main()
 #endif
     std::string path = "./";
     //check_script(path +"script/oldevent");
-    check_fight_frame(path +"resource/fight", 0);
+    check_fight_frame(path + "resource/fight", 0);
     //trans_fight_frame(path + "resource/fight");
 
     //trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");

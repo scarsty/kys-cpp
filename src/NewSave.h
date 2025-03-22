@@ -1,6 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "Save.h"
-#include "fmt1.h"
+#include "GameUtil.h"
 #include <cstring>
 
 class NewSave
@@ -108,7 +108,7 @@ private:
             auto ret1 = sqlite3_exec(db, cmd1.c_str(), nullptr, nullptr, nullptr);
             if (ret1)
             {
-                fmt1::print("{}\n", sqlite3_errmsg(db));
+                LOG("{}\n", sqlite3_errmsg(db));
             }
         }
     }
@@ -121,7 +121,7 @@ private:
         int r = sqlite3_prepare(db, cmd.c_str(), cmd.size(), &statement, nullptr);
         if (r)
         {
-            fmt1::print("{}\n", sqlite3_errmsg(db));
+            LOG("{}\n", sqlite3_errmsg(db));
         }
 
         for (int i = 0; i < sqlite3_column_count(statement); i++)

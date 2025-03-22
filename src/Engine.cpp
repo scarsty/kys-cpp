@@ -66,7 +66,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     SDL_RaiseWindow(window_);
 #endif
     renderer_ = SDL_GetRenderer(window_);
-    fmt1::print("{}\n", SDL_GetError());
+    std::print("{}\n", SDL_GetError());
     if (renderer_ == nullptr)
     {
         Prop props;
@@ -89,7 +89,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     int num_touch = 0;
     SDL_GetTouchDevices(&num_touch);
 
-    fmt1::print("Found {} touch(es)\n", num_touch);
+    std::print("Found {} touch(es)\n", num_touch);
 
     rect_ = { 0, 0, start_w_, start_h_ };
     //logo_ = loadImage("logo.png");
@@ -117,7 +117,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 
     square_ = createRectTexture(100, 100, 0);
 
-    fmt1::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
+    std::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
 #if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
     smallpot_ = PotCreateFromWindow(window_);
 #endif
@@ -173,7 +173,7 @@ void Engine::setWindowSize(int w, int h)
     ratio = std::min(1.0 * win_w_ / w, 1.0 * win_h_ / h);
     win_w_ = w * ratio;
     win_h_ = h * ratio;
-    //fmt1::print("{}, {}, {}, {}, {}\n", win_w_, win_h_, w, h, ratio);
+    //std::print("{}, {}, {}, {}, {}\n", win_w_, win_h_, w, h, ratio);
     if (!window_)
     {
         return;
@@ -185,7 +185,7 @@ void Engine::setWindowSize(int w, int h)
     SDL_ShowWindow(window_);
     SDL_RaiseWindow(window_);
     SDL_GetWindowSize(window_, &win_w_, &win_h_);
-    //fmt1::print("{}, {}, {}, {}, {}\n", win_w_, win_h_, w, h, ratio);
+    //std::print("{}, {}, {}, {}, {}\n", win_w_, win_h_, w, h, ratio);
     //resetWindowsPosition();
     //renderPresent();
 }
@@ -427,7 +427,7 @@ void Engine::toggleFullscreen()
 
 Texture* Engine::loadImage(const std::string& filename, int as_white)
 {
-    //fmt1::print("%s", filename.c_str());
+    //std::print("%s", filename.c_str());
     auto sur = IMG_Load(filename.c_str());
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
@@ -557,7 +557,7 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     SDL_AudioSpec want;
     SDL_zero(want);
 
-    fmt1::print("\naudio freq/channels: stream {}/{}, ", freq, channels);
+    std::print("\naudio freq/channels: stream {}/{}, ", freq, channels);
     if (channels <= 2)
     {
         channels = 2;
@@ -590,14 +590,14 @@ int Engine::openAudio(int& freq, int& channels, int& size, int minsize, AudioCal
     channels = audio_spec_.channels;
     audio_format_ = audio_spec_.format;
 
-    fmt1::print("device {}/{}\n", audio_spec_.freq, audio_spec_.channels);
+    std::print("device {}/{}\n", audio_spec_.freq, audio_spec_.channels);
     if (audio_device_)
     {
         SDL_ResumeAudioDevice(audio_device_);
     }
     else
     {
-        fmt1::print("failed to open audio: {}\n", SDL_GetError());
+        std::print("failed to open audio: {}\n", SDL_GetError());
     }
 
     return 0;
@@ -741,12 +741,12 @@ void Engine::checkGameControllers()
     SDL_GetJoysticks(&num_joysticks);
     if (num_joysticks <= 0)
     {
-        fmt1::print("Warning: No joysticks connected!\n");
+        std::print("Warning: No joysticks connected!\n");
     }
     else
     {
         //按照游戏控制器打开
-        fmt1::print("Found {} game controller(s)\n", num_joysticks);
+        std::print("Found {} game controller(s)\n", num_joysticks);
         game_controllers_.resize(num_joysticks);
         nintendo_switch_.resize(game_controllers_.size());
         for (int i = 0; i < game_controllers_.size(); i++)
@@ -755,12 +755,12 @@ void Engine::checkGameControllers()
             if (game_controllers_[i])
             {
                 std::string name = SDL_GetGamepadName(game_controllers_[i]);
-                fmt1::print("{}\n", name);
+                std::print("{}\n", name);
                 if (name.find("Switch") != std::string::npos) { nintendo_switch_[i] = 1; }
             }
             else
             {
-                fmt1::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
+                std::print("Warning: Unable to open game controller! SDL Error: {}\n", SDL_GetError());
             }
         }
     }

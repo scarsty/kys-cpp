@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "TextBox.h"
+#include <map>
 
 class Menu : public TextBox
 {

@@ -160,7 +160,7 @@ void BattleScene::draw()
                 auto r = role_layer_.data(ix, iy);
                 if (r)
                 {
-                    std::string path = fmt1::format("fight/fight{:03}", r->HeadID);
+                    std::string path = std::format("fight/fight{:03}", r->HeadID);
                     Color color = { 255, 255, 255, 255 };
                     uint8_t alpha = 255;
                     if (battle_cursor_->isRunning() && !acting_role_->isAuto())
@@ -189,7 +189,7 @@ void BattleScene::draw()
                 }
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
                 {
-                    std::string path = fmt1::format("eft/eft{:03}", effect_id_);
+                    std::string path = std::format("eft/eft{:03}", effect_id_);
                     int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
                     num = effect_frame_ - dis + rand_.rand_int(3) - rand_.rand_int(3);
                     TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
@@ -220,7 +220,7 @@ void BattleScene::draw()
         Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
     }
 
-    //fmt1::print("Battle scene drawn\n");
+    //LOG("Battle scene drawn\n");
 }
 
 void BattleScene::dealEvent(EngineEvent& e)
@@ -472,7 +472,7 @@ void BattleScene::readBattleInfo()
                 man_y_ = r->Y();
             }
         }
-        fmt1::print("{}", battle_roles_.size());
+        LOG("{}", battle_roles_.size());
         //判断是不是有自动战斗人物
         if (info_->AutoTeamMate[0] >= 0)
         {
@@ -594,7 +594,7 @@ void BattleScene::readFightFrame(Role* r)
     {
         r->FightFrame[i] = 0;
     }
-    std::string text_group = fmt1::format("fight/fight{:03}", r->HeadID);
+    std::string text_group = std::format("fight/fight{:03}", r->HeadID);
     std::string frame_txt = TextureManager::getInstance()->getTextureGroup(text_group)->getFileContent("fightframe.txt");
     std::vector<int> frames;
     strfunc::findNumbers(frame_txt, &frames);
@@ -1159,11 +1159,11 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             {
                 if (magic->HurtType == 0)
                 {
-                    r->addShowString(fmt1::format("-{}", r->Show.BattleHurt), { 255, 20, 20, 255 });
+                    r->addShowString(std::format("-{}", r->Show.BattleHurt), { 255, 20, 20, 255 });
                 }
                 else if (magic->HurtType == 1)
                 {
-                    r->addShowString(fmt1::format("-{}", r->Show.BattleHurt), { 160, 32, 240, 255 });
+                    r->addShowString(std::format("-{}", r->Show.BattleHurt), { 160, 32, 240, 255 });
                     // 吸内力不做渐变显示，麻烦
                     r->Show.BattleHurt = 0;
                 }
@@ -1179,7 +1179,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             r->MagicLevel[index] += 1 + rand_.rand_int(2);
             GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
         }
-        fmt1::print("{} {} level is {}\n", r->Name, magic->Name, r->MagicLevel[index]);
+        LOG("{} {} level is {}\n", r->Name, magic->Name, r->MagicLevel[index]);
     }
     r->Acted = 1;
 
@@ -1222,7 +1222,7 @@ void BattleScene::actUsePoison(Role* r)
         if (r2)
         {
             int v = r->usePoison(r2);
-            r2->addShowString(fmt1::format("{:+}", v), { 20, 255, 20, 255 });
+            r2->addShowString(std::format("{:+}", v), { 20, 255, 20, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
@@ -1250,7 +1250,7 @@ void BattleScene::actDetoxification(Role* r)
         if (r2)
         {
             int v = r->detoxification(r2);
-            r2->addShowString(fmt1::format("-{}", -v), { 20, 200, 255, 255 });
+            r2->addShowString(std::format("-{}", -v), { 20, 200, 255, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1278,7 +1278,7 @@ void BattleScene::actMedicine(Role* r)
         if (r2)
         {
             int v = r->medicine(r2);
-            r2->addShowString(fmt1::format("-{}", abs(v)), { 255, 255, 200, 255 });
+            r2->addShowString(std::format("-{}", abs(v)), { 255, 255, 200, 255 });
             r->ExpGot += v;
         }
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
@@ -1314,7 +1314,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
             {
                 v = calHiddenWeaponHurt(r, r2, item);
                 r2->Show.BattleHurt = v;
-                r2->addShowString(fmt1::format("-{}", v), { 255, 20, 20, 255 });
+                r2->addShowString(std::format("-{}", v), { 255, 20, 20, 255 });
             }
             r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
             item_menu->addItem(item, -1);
@@ -1352,7 +1352,7 @@ void BattleScene::actUseDrug(Role* r)
         actionAnimation_ = [this, r, r0, item]() mutable
         {
             auto df = std::make_shared<ShowRoleDifference>(&r0, r);
-            df->setText(fmt1::format("{}服用{}", r->Name, item->Name));
+            df->setText(std::format("{}服用{}", r->Name, item->Name));
             df->setShowHead(false);
             df->setPosition(250, 220);
             df->setStayFrame(40);
@@ -1503,7 +1503,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     }
     action_frame_ = frame_count - 1;
     effect_id_ = effect_id;
-    auto path = fmt1::format("eft/eft{:03}", effect_id_);
+    auto path = std::format("eft/eft{:03}", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
     Audio::getInstance()->playESound(effect_id);
 
@@ -1718,7 +1718,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
         if (r->Show.Effect != -1)
         {
             need_show = true;
-            auto path = fmt1::format("eft/eft{:03}", r->Show.Effect);
+            auto path = std::format("eft/eft{:03}", r->Show.Effect);
             auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
             single_loop_frames = (std::max)(single_loop_frames, effect_count);
         }
@@ -1742,7 +1742,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                 // 有越界保护，直接显示就好了
                 if (r->Show.Effect != -1)
                 {
-                    auto path = fmt1::format("eft/eft{:03}", r->Show.Effect);
+                    auto path = std::format("eft/eft{:03}", r->Show.Effect);
                     TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, { 255, 255, 255, 255 }, 224);
                 }
                 if (!r->Show.ShowStrings.empty())
@@ -2026,7 +2026,7 @@ void BattleScene::calExpGot()
             if (change)
             {
                 diff->setTwinRole(&r0, r);
-                diff->setText(fmt1::format("修煉{}成功", item->Name));
+                diff->setText(std::format("修煉{}成功", item->Name));
                 diff->run();
             }
             if (item->MakeItem[0] >= 0 && r->ExpForMakeItem >= item->NeedExpForMakeItem && Event::getInstance()->haveItemBool(item->NeedMaterial))
@@ -2041,7 +2041,7 @@ void BattleScene::calExpGot()
                 }
                 int index = rand_.rand_int(make_item.size());
                 auto text = std::make_shared<TextBox>();
-                text->setText(fmt1::format("{}修煉{}製藥成功", r->Name, item->Name));
+                text->setText(std::format("{}修煉{}製藥成功", r->Name, item->Name));
                 text->setPosition(300, 160);
                 addChild(text);
                 Event::getInstance()->addItem(make_item[index].item_id, make_item[index].count);
@@ -2085,7 +2085,7 @@ void BattleScene::receiveAction(Role* r)
     // getOpponentAction读取完毕会调用此函数关闭显示
     auto exit = [&waitThis, this](std::error_code err, std::size_t bytes)
     {
-        fmt1::print("recv {}\n", err.message());
+        LOG("recv {}\n", err.message());
         waitThis->setExit(true);
         if (err)
         {

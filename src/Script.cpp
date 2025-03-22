@@ -90,13 +90,13 @@ Script::~Script()
 int Script::runScript(const std::string& filename)
 {
     std::string content = filefunc::readFileToString(filename);
-    fmt1::print("{}\n", content.c_str());
+    LOG("{}\n", content.c_str());
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
     int r = lua_pcall(lua_state_, 0, 0, 0);
     if (r)
     {
-        fmt1::print("\nError: {}\n", lua_tostring(lua_state_, -1));
+        LOG("\nError: {}\n", lua_tostring(lua_state_, -1));
     }
     return r;
 }

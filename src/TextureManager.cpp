@@ -18,7 +18,7 @@ void TextureWarpper::load()
     if (!loaded)
     {
         loaded = true;
-        //fmt1::print("Load texture {}, {}\n", group_info_->path, num_);
+        //LOG("Load texture {}, {}\n", group_info_->path, num_);
         if (group_info_->zip.opened())
         {
             tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readEntryName(std::to_string(num_) + ".png"));
@@ -133,11 +133,11 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         }
         if (info_.zip.opened())
         {
-            fmt1::print("Load texture group from file: {}.zip, {} textures\n", info_.path, group_.size());
+            LOG("Load texture group from file: {}.zip, {} textures\n", info_.path, group_.size());
         }
         else
         {
-            fmt1::print("Load texture group from path: {}, {} textures\n", info_.path, group_.size());
+            LOG("Load texture group from path: {}, {} textures\n", info_.path, group_.size());
         }
     }
     if (load_all)

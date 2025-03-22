@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 #include "DrawNode.h"
 #include "FunctionTrait.h"
+#include "GameUtil.h"
 #include "Menu.h"
 #include "Random.h"
 #include "SubScene.h"
@@ -66,6 +67,7 @@ public:
     void callLeaveEvent(Role* role);
     void forceExit();
     void setUseScript(int u);
+
     bool isExiting() { return exit_; }
 
 public:
@@ -141,6 +143,7 @@ public:
 
     void arrangeBag();
     void clearTalkBox();
+
     void blank() {}
 
 private:
@@ -170,7 +173,7 @@ public:
     void print_e(const std::vector<int>& e, int i, int size)
     {
         auto v = std::vector<int>(e.begin() + i, e.begin() + i + size);
-        fmt1::print("{}\n", v);
+        LOG("{}\n", v);
     }
 
     template <typename F, typename C, std::size_t... I>

@@ -1,9 +1,8 @@
-#include "Types.h"
+﻿#include "Types.h"
 #include "GameUtil.h"
 #include "Random.h"
 #include "Save.h"
 #include "filefunc.h"
-#include "fmt1.h"
 #include "strfunc.h"
 #include <climits>
 
@@ -603,10 +602,10 @@ void Role::setMaxValue()
 #define GET_VALUE_INT(v, default_v) \
     do { \
         role->v = GameUtil::getInstance()->getInt("constant", #v, default_v); \
-        fmt1::print("{} = {}\n", #v, role->v); \
+        LOG("{} = {}\n", #v, role->v); \
     } while (0)
 
-    fmt1::print("Max values of roles: \n");
+    LOG("Max values of roles: \n");
 
     GET_VALUE_INT(Level, 30);
     GET_VALUE_INT(HP, 999);
@@ -638,7 +637,7 @@ void Role::setMaxValue()
 
     GET_VALUE_INT(Exp, 99999);
 
-    fmt1::print("\n");
+    LOG("\n");
 
 #undef GET_VALUE_INT
 }
@@ -714,7 +713,7 @@ void Item::setSpecialItems()
 #define GET_VALUE_INT(v) \
     do { \
         Item::v = GameUtil::getInstance()->getInt("constant", #v, Item::v); \
-        fmt1::print("{} = {}\n", #v, Item::v); \
+        LOG("{} = {}\n", #v, Item::v); \
     } while (0)
 
     GET_VALUE_INT(MoneyItemID);

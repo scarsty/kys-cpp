@@ -1,4 +1,4 @@
-#include "BattleMenu.h"
+﻿#include "BattleMenu.h"
 #include "BattleScene.h"
 #include "Event.h"
 #include "Font.h"
@@ -304,7 +304,7 @@ int BattleActionMenu::autoSelect(Role* role)
                                 }
                                 if (total_hurt > -1)
                                 {
-                                    //fmt1::print("AI {} {} ({}, {}): {}\n", role->Name, PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
+                                    //LOG("AI {} {} ({}, {}): {}\n", role->Name, PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
                                 }
                             }
                         }
@@ -319,11 +319,11 @@ int BattleActionMenu::autoSelect(Role* role)
         double max_point = -1;
         for (auto aa : ai_action)
         {
-            fmt1::print("AI {}: {} ", role->Name, getStringFromResult(aa.Action));
-            if (aa.item) { fmt1::print("{} ", aa.item->Name); }
-            if (aa.magic) { fmt1::print("{} ", aa.magic->Name); }
+            LOG("AI {}: {} ", role->Name, getStringFromResult(aa.Action));
+            if (aa.item) { LOG("{} ", aa.item->Name); }
+            if (aa.magic) { LOG("{} ", aa.magic->Name); }
             double r = rand.rand() * 10;    //用于同分的情况，可以随机选择
-            fmt1::print("score {:.2f}({:.2f})\n", aa.point, r);
+            LOG("score {:.2f}({:.2f})\n", aa.point, r);
             //若评分仅有一个随机数的值，说明不在范围内，仅移动并结束
             if (aa.point == 0)
             {
@@ -455,7 +455,7 @@ void BattleMagicMenu::setRole(Role* r)
         {
             std::string s = m->Name;
             s += std::string(12 - Font::getTextDrawSize(s), ' ');
-            magic_names.push_back(fmt1::format("{}{}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
+            magic_names.push_back(std::format("{}{}  ", s, role_->getRoleShowLearnedMagicLevel(i)));
         }
         else
         {
@@ -521,7 +521,7 @@ void BattleEquipItemMenu::setRole(Role* r)
 
         std::string s = item->Name;
         s += std::string(12 - Font::getTextDrawSize(s), ' ');
-        item_names.push_back(fmt1::format("{}{}  ", s, count));
+        item_names.push_back(std::format("{}{}  ", s, count));
     }
     setStrings(item_names);
 

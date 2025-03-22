@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifdef WITH_NETWORK
 #include "asio.hpp"
@@ -40,9 +40,9 @@ public:
     {
         worker_ = std::thread([this]
         {
-            fmt1::print("spawning thread\n");
+            LOG("spawning thread\n");
             io_context_.run();
-            fmt1::print("threading is done\n");
+            LOG("threading is done\n");
         });
     }
 
@@ -55,7 +55,7 @@ public:
         int itemID = -1;
         void print()
         {
-            fmt1::print("action {}, movex {}, movey {}, actionx {}, actiony {} magic {}, item {}\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
+            LOG("action {}, movex {}, movey {}, actionx {}, actiony {} magic {}, item {}\n", Action, MoveX, MoveY, ActionX, ActionY, magicID, itemID);
         }
     };
     static_assert(sizeof(SerializableBattleAction) == 28, "introduced extra struct padding");

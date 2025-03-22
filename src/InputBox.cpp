@@ -25,7 +25,7 @@ void InputBox::dealEvent(EngineEvent& e)
     {
         auto converted = OpenCCConverter::getInstance()->UTF8s2t(e.text.text);
         //converted = PotConv::conv(converted, "utf-8", "cp936");
-        //fmt1::print("input %s\n", converted.c_str());
+        //LOG("input %s\n", converted.c_str());
         text_ += converted;
         break;
     }
@@ -35,7 +35,7 @@ void InputBox::dealEvent(EngineEvent& e)
         //auto composition = e.edit.text;
         //auto cursor = e.edit.start;
         //auto selection_len = e.edit.length;
-        //fmt1::print("editing %s\n", e.edit.text);
+        //LOG("editing %s\n", e.edit.text);
         break;
     }
     case EVENT_KEY_DOWN:

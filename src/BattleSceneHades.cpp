@@ -159,7 +159,7 @@ void BattleSceneHades::draw()
         {
             //if (r->Dead) { continue; }
             DrawInfo info;
-            info.path = fmt1::format("fight/fight{:03}", r->HeadID);
+            info.path = std::format("fight/fight{:03}", r->HeadID);
             info.color = { 255, 255, 255, 255 };
             info.alpha = 255;
             info.white = 0;
@@ -347,7 +347,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
-    //fmt1::print("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
+    //LOG("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
     show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
     {
@@ -421,7 +421,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
                 if (abs(axis_y) < 6000) { axis_y = 0; }
                 if (axis_x != 0 || axis_y != 0)
                 {
-                    //fmt1::print("{} {}, ", axis_x, axis_y);
+                    //LOG("{} {}, ", axis_x, axis_y);
                     axis_x = GameUtil::limit(axis_x, -20000, 20000);
                     axis_y = GameUtil::limit(axis_y, -20000, 20000);
                     Pointf axis{ double(axis_x), double(axis_y) };
@@ -954,7 +954,7 @@ void BattleSceneHades::backRun1()
                     if (ae1.NoHurt == 0 && ae2.NoHurt == 0 && ae1.Attacker && ae2.Attacker
                         && ae1.Attacker->Team != ae2.Attacker->Team && EuclidDis(ae1.Pos, ae2.Pos) < TILE_W * 4)
                     {
-                        //fmt1::print("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
+                        //LOG("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
                         int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
                         int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
                         ae1.Weaken += hurt2;
@@ -964,15 +964,15 @@ void BattleSceneHades::backRun1()
                             //直接设置帧数，后面就会删掉了
                             ae1.NoHurt = 1;
                             ae1.Frame = std::max(ae1.TotalFrame - 5, ae1.Frame);
-                            //fmt1::print("{} ", ae1.UsingMagic->Name);
+                            //LOG("{} ", ae1.UsingMagic->Name);
                         }
                         if (ae2.Weaken > hurt2)
                         {
                             ae2.NoHurt = 1;
                             ae2.Frame = std::max(ae2.TotalFrame - 5, ae2.Frame);
-                            //fmt1::print("{} ", ae2.UsingMagic->Name);
+                            //LOG("{} ", ae2.UsingMagic->Name);
                         }
-                        //fmt1::print("loss\n");
+                        //LOG("loss\n");
                     }
                 }
             }
@@ -1008,14 +1008,14 @@ void BattleSceneHades::backRun1()
             AttackEffect ae1;
             ae1.FollowRole = r;
             //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
-            ae1.setPath(fmt1::format("eft/bld{:03}", int(rand_.rand() * 5)));
+            ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
             ae1.TotalFrame = ae1.TotalEffectFrame;
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
             r->HP -= hurt;
             if (r->HP <= 0)
             {
-                //fmt1::print("{} has been beat\n", r->Name);
+                //LOG("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
                 //r->Velocity = r->Pos - ae1.Attacker->Pos;
@@ -1311,7 +1311,7 @@ void BattleSceneHades::Action(Role* r)
                 }
                 needMP *= 0.05;
             }
-            fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+            LOG("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
             r->MP -= needMP;
             r->UsingMagic = nullptr;
         }
@@ -1330,7 +1330,7 @@ void BattleSceneHades::Action(Role* r)
                 //    c = { 255, 20, 220, 20 };
                 //}
                 //const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
-                //te.set(fmt1::format("服用{}，剩余{}", item->Name, left), c, r);
+                //te.set(std::format("服用{}，剩余{}", item->Name, left), c, r);
                 //text_effects_.push_back(std::move(te));
             }
             else if (item->ItemType == 4)
@@ -1900,7 +1900,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         te.set(std::to_string(int(-hurt)), { 160, 32, 240, 255 }, r);
         text_effects_.push_back(std::move(te));
     }
-    //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
+    //LOG("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
 
 int BattleSceneHades::calRolePic(Role* r, int style, int frame)

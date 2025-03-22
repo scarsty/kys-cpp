@@ -124,7 +124,7 @@ void BattleSceneSekiro::draw()
         {
             //if (r->Dead) { continue; }
             DrawInfo info;
-            info.path = fmt1::format("fight/fight{:03}", r->HeadID);
+            info.path = std::format("fight/fight{:03}", r->HeadID);
             info.color = { 255, 255, 255, 255 };
             info.alpha = 255;
             info.white = 0;
@@ -354,7 +354,7 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
-    //fmt1::print("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
+    //LOG("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
     //show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
     {
@@ -426,7 +426,7 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
                 if (abs(axis_y) < 6000) { axis_y = 0; }
                 if (axis_x != 0 || axis_y != 0)
                 {
-                    //fmt1::print("{} {}, ", axis_x, axis_y);
+                    //LOG("{} {}, ", axis_x, axis_y);
                     axis_x = GameUtil::limit(axis_x, -20000, 20000);
                     axis_y = GameUtil::limit(axis_y, -20000, 20000);
                     Pointf axis{ double(axis_x), double(axis_y) };
@@ -615,7 +615,7 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
             {
                 r->OperationType = 0;    //防御必须按住
             }
-            //fmt1::print("{},p\n", r->OperationCount);
+            //LOG("{},p\n", r->OperationCount);
         }
     }
     backRun1();
@@ -1020,14 +1020,14 @@ void BattleSceneSekiro::backRun1()
             AttackEffect ae1;
             ae1.FollowRole = r;
             //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
-            ae1.setPath(fmt1::format("eft/bld{:03}", int(rand_.rand() * 5)));
+            ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
             ae1.TotalFrame = ae1.TotalEffectFrame;
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
             r->HP -= hurt;
             if (r->HP <= 0)
             {
-                //fmt1::print("{} has been beat\n", r->Name);
+                //LOG("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
                 //r->Velocity = r->Pos - ae1.Attacker->Pos;
@@ -1299,7 +1299,7 @@ void BattleSceneSekiro::Action(Role* r)
                 }
                 needMP *= 0.05;
             }
-            //fmt1::print("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+            //LOG("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
             r->MP -= needMP;
             r->UsingMagic = nullptr;
         }
@@ -1318,7 +1318,7 @@ void BattleSceneSekiro::Action(Role* r)
                 //    c = { 255, 20, 220, 20 };
                 //}
                 //const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
-                //te.set(fmt1::format("服用{}，剩余{}", item->Name, left), c, r);
+                //te.set(std::format("服用{}，剩余{}", item->Name, left), c, r);
                 //text_effects_.push_back(std::move(te));
             }
             else if (item->ItemType == 4)
@@ -1417,7 +1417,7 @@ void BattleSceneSekiro::AI(Role* r)
                     {
                         if (ae.Attacker && ae.Attacker->Team != r->Team && EuclidDis(r->Pos, ae.Pos) <= TILE_W * 2.1)
                         {
-                            //fmt1::print("block\n");
+                            //LOG("block\n");
                             r->OperationType = 5;
                             r->HaveAction = 1;
                             r->ActFrame = 30;
@@ -1862,7 +1862,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
     if (r->OperationType == 5)
     {
         //有防御
-        //fmt1::print("{}, ", r->OperationCount);
+        //LOG("{}, ", r->OperationCount);
         int block_frame = 2;
         if (easy_block_)
         {
@@ -1879,7 +1879,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
         Audio::getInstance()->playASound(sound_id);
         if (r->OperationCount <= block_frame)
         {
-            //fmt1::print("block1\n");
+            //LOG("block1\n");
             //完美格挡
             auto posture = hurt / 2;
             if (posture < 75) { posture = 75; }
@@ -1943,7 +1943,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
             //text_effects_.push_back(std::move(te));
         }
     }
-    //fmt1::print("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
+    //LOG("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
 
 int BattleSceneSekiro::calRolePic(Role* r, int style, int frame)

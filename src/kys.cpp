@@ -1,4 +1,4 @@
-#include "Application.h"
+﻿#include "Application.h"
 #include "Engine.h"
 #include "GameUtil.h"
 
@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
     {
         GameUtil::PATH() = argv[1];
     }
-    fmt1::print("Game path is {}\n", GameUtil::PATH());
+    LOG("Game path is {}\n", GameUtil::PATH());
     Application app;
     return app.run();
 }

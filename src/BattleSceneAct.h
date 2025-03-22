@@ -31,7 +31,7 @@ public:
 
         void setEft(int num)
         {
-            setPath(fmt1::format("eft/eft{:03}", num));
+            setPath(std::format("eft/eft{:03}", num));
         }
 
         void setPath(const std::string& p)

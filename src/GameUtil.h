@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 #include "INIReader.h"
-#include "fmt1.h"
 #include <cmath>
 #include <cstdint>
+#include <print>
+#include "runtime_format.h"    //支持std::format的运行时格式化，c++26前暂时凑合用
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
@@ -92,10 +93,11 @@ public:
             return n + 1;
         }
     }
-
-    template <typename... Args>
-    static void LOG(Args&&... args)
-    {
-        fmt1::print(stdout, args...);
-    }
 };
+
+template <typename... Args>
+void LOG(std::format_string<Args...> fmt, Args... args)
+{
+    std::print(fmt, std::forward<Args>(args)...);
+}
+

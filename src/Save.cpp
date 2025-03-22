@@ -1,10 +1,9 @@
-#include "Save.h"
+﻿#include "Save.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
 #include "filefunc.h"
-#include "fmt1.h"
 
 Save::Save()
 {
@@ -21,11 +20,11 @@ std::string Save::getFilename(int i, char c)
     {
         if (c == 'r')
         {
-            filename = fmt1::format(GameUtil::PATH() + "save/{}.db", i);
+            filename = std::format("{}save/{}.db", GameUtil::PATH(), i);
         }
         else
         {
-            filename = fmt1::format(GameUtil::PATH() + "save/{}{}.grp", c, i);
+            filename = std::format("{}save/{}{}.grp", GameUtil::PATH(), c, i);
         }
     }
     else

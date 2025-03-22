@@ -1,5 +1,4 @@
-#include "NewSave.h"
-#include "fmt1.h"
+﻿#include "NewSave.h"
 
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))
 #define BIND_FIELD_INT(key, field) FieldInfo(key, 0, GET_OFFSET(field), sizeof(a.field))
@@ -467,7 +466,7 @@ int NewSave::runSql(sqlite3* db, const std::string& cmd)
     int r = sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
     if (r)
     {
-        fmt1::print("{}\n", sqlite3_errmsg(db));
+        LOG("{}\n", sqlite3_errmsg(db));
     }
     return r;
 }

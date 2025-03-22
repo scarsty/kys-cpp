@@ -1,4 +1,5 @@
-#include "RunNodeFromJson.h"
+﻿#include "RunNodeFromJson.h"
+#include "GameUtil.h"
 #include "TextBox.h"
 #include "filefunc.h"
 
@@ -48,7 +49,7 @@ void RunNodeFromJson::create(YAML::Node& n, RunNode* run_node)
     }
     run_node->addChild(new_node);
 
-    fmt1::print("{}\n", n["ctype"].as<std::string>());
+    LOG("{}\n", n["ctype"].as<std::string>());
     if (n["Children"].IsDefined())
     {
         for (auto& n1 : n["Children"].as<std::vector<YAML::Node>>())

@@ -85,7 +85,7 @@ void UIKeyConfig::readFromString(std::string str)
 std::string UIKeyConfig::toString()
 {
     auto k = getKeyConfig();
-    return fmt1::format("{},{},{},{},{},{},{},{},{}", k->Left, k->Up, k->Right, k->Down, k->Light, k->Heavy, k->Long, k->Slash, k->Item);
+    return std::format("{},{},{},{},{},{},{},{},{}", k->Left, k->Up, k->Right, k->Down, k->Light, k->Heavy, k->Long, k->Slash, k->Item);
 }
 
 std::string UIKeyConfig::keyToString(int k)

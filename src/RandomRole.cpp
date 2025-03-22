@@ -1,5 +1,6 @@
-#include "RandomRole.h"
+﻿#include "RandomRole.h"
 #include "Random.h"
+#include "GameUtil.h"
 
 RandomRole::RandomRole()
 {
@@ -44,7 +45,7 @@ void RandomRole::onPressedOK()
     {
         e = role_->MagicID[0];
     }
-    fmt1::print("IQ is {}\n", role_->IQ);
+    LOG("IQ is {}\n", role_->IQ);
 }
 
 void RandomRole::draw()

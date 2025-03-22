@@ -115,29 +115,29 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
 #define REGISTER_INSTRUCT(code, function) \
     { \
     case (code): \
-        fmt1::print("{} ", #function); \
+        LOG("{} ", #function); \
         runner(&Event::function, this, e, i); \
         break; \
     }
 
     if (use_script_)
     {
-        auto script = fmt1::format(GameUtil::PATH() + "script/event/ka{}.lua", event_id);
+        auto script = std::format("{}script/event/ka{}.lua", GameUtil::PATH(), event_id);
         if (!filefunc::fileExist(script))
         {
-            script = fmt1::format(GameUtil::PATH() + "script/oldevent/oldevent_{}.lua", event_id);
+            script = std::format("{}script/oldevent/oldevent_{}.lua", GameUtil::PATH(), event_id);
         }
-        fmt1::print("Event {}: {}\n ", event_id, script);
+        LOG("Event {}: {}\n ", event_id, script);
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else
     {
         auto e = kdef_[event_id];
-        fmt1::print("Event {}: {}\n ", event_id, e);
+        LOG("Event {}: {}\n ", event_id, e);
         e.resize(e.size() + 20, -1);    //后面的是缓冲区，避免出错
         while (i < e.size() && !exit_)
         {
-            fmt1::print("instruct {}\n", e[i]);
+            LOG("instruct {}\n", e[i]);
             switch (e[i])
             {
                 REGISTER_INSTRUCT(-1, forceExit);
@@ -148,7 +148,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
                 REGISTER_INSTRUCT(4, isUsingItem);
                 REGISTER_INSTRUCT(5, askBattle);
             case 6:
-                fmt1::print("{}: {}, {}, {}, {}\n", "tryBattle", e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
+                LOG("{}: {}, {}, {}, {}\n", "tryBattle", e[i + 1], e[i + 2], e[i + 3], e[i + 4]);
                 if (tryBattle(e[i + 1], e[i + 4]))
                 {
                     i += e[i + 2];
@@ -228,7 +228,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
             case 50:
                 if (e[i + 1] > 128)
                 {
-                    fmt1::print("{}\n", "checkHave5Item");
+                    LOG("{}\n", "checkHave5Item");
                     if (checkHave5Item(e[i + 1], e[i + 2], e[i + 3], e[i + 4], e[i + 5]))
                     {
                         i += e[i + 6];
@@ -335,7 +335,7 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style)
     talk->setContent(talk_content);
     if (use_script_ == 0)
     {
-        fmt1::print("head {} style {}: {}\n", head_id, style, talk_content);
+        LOG("head {} style {}: {}\n", head_id, style, talk_content);
     }
     talk->setHeadID(head_id);
     if (style == 2 || style == 3)
@@ -357,7 +357,7 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(fmt1::format("獲得{}{}", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setText(std::format("獲得{}{}", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
     text_box_->setTexture("item", -1);
@@ -402,7 +402,7 @@ bool Event::tryBattle(int battle_id, int get_exp)
 {
     int result = 0;
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode");
-    fmt1::print("Battle mode: {}\n", battle_mode);
+    LOG("Battle mode: {}\n", battle_mode);
     if (battle_mode == 0 || battle_mode == 1)
     {
         auto battle = std::make_shared<BattleScene>();
@@ -746,7 +746,7 @@ void Event::oldLearnMagic(int role_id, int magic_id, int no_display)
     auto m = Save::getInstance()->getMagic(magic_id);
     r->learnMagic(m);
     if (no_display) { return; }
-    text_box_->setText(fmt1::format("{}習得武學{}", r->Name, m->Name));
+    text_box_->setText(std::format("{}習得武學{}", r->Name, m->Name));
     text_box_->run();
 }
 
@@ -755,7 +755,7 @@ void Event::addIQ(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
     r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
-    text_box_->setText(fmt1::format("{}資質增加{}", r->Name, r->IQ - v0));
+    text_box_->setText(std::format("{}資質增加{}", r->Name, r->IQ - v0));
     text_box_->run();
 }
 
@@ -925,7 +925,7 @@ void Event::addSpeed(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
     r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
-    text_box_->setText(fmt1::format("{}輕功增加{}", r->Name, r->Speed - v0));
+    text_box_->setText(std::format("{}輕功增加{}", r->Name, r->Speed - v0));
     text_box_->run();
 }
 
@@ -935,7 +935,7 @@ void Event::addMaxMP(int role_id, int value)
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
     r->MP = GameUtil::limit(r->MP + value, 0, Role::getMaxValue()->MaxMP);
-    text_box_->setText(fmt1::format("{}內力增加{}", r->Name, r->MaxMP - v0));
+    text_box_->setText(std::format("{}內力增加{}", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
 
@@ -944,7 +944,7 @@ void Event::addAttack(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
     r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
-    text_box_->setText(fmt1::format("{}武力增加{}", r->Name, r->Attack - v0));
+    text_box_->setText(std::format("{}武力增加{}", r->Name, r->Attack - v0));
     text_box_->run();
 }
 
@@ -954,7 +954,7 @@ void Event::addMaxHP(int role_id, int value)
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
     r->HP = GameUtil::limit(r->HP + value, 0, Role::getMaxValue()->MaxHP);
-    text_box_->setText(fmt1::format("{}生命增加{}", r->Name, r->MaxHP - v0));
+    text_box_->setText(std::format("{}生命增加{}", r->Name, r->MaxHP - v0));
     text_box_->run();
 }
 
@@ -976,13 +976,13 @@ void Event::askSoftStar()
 
 void Event::showMorality()
 {
-    text_box_->setText(fmt1::format("你的道德指數為{}", Save::getInstance()->getRole(0)->Morality));
+    text_box_->setText(std::format("你的道德指數為{}", Save::getInstance()->getRole(0)->Morality));
     text_box_->run();
 }
 
 void Event::showFame()
 {
-    text_box_->setText(fmt1::format("你的聲望指數為{}", Save::getInstance()->getRole(0)->Fame));
+    text_box_->setText(std::format("你的聲望指數為{}", Save::getInstance()->getRole(0)->Fame));
     text_box_->run();
 }
 
@@ -1504,7 +1504,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
     case 48:    //自己调试吧，懒得管
         for (int i = e1; i < e1 + e2 - 1; i++)
         {
-            fmt1::print("x50[%d]=%d\n", i, x50[i]);
+            LOG("x50[%d]=%d\n", i, x50[i]);
         }
         break;
     case 49: break;

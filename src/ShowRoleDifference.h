@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "Font.h"
+#include "GameUtil.h"
 #include "Head.h"
 #include "TextBox.h"
 
@@ -10,7 +11,9 @@ class ShowRoleDifference : public TextBox
 public:
     ShowRoleDifference();
     ~ShowRoleDifference();
-    ShowRoleDifference(Role* r1, Role* r2) : ShowRoleDifference() { setTwinRole(r1, r2); }
+
+    ShowRoleDifference(Role* r1, Role* r2) :
+        ShowRoleDifference() { setTwinRole(r1, r2); }
 
     Role *role1_ = nullptr, *role2_ = nullptr;
 
@@ -21,6 +24,7 @@ public:
     }
 
     virtual void onPressedOK() override { exitWithResult(0); }
+
     virtual void onPressedCancel() override { exitWithResult(-1); }
 
     virtual void draw() override;
@@ -40,11 +44,12 @@ private:
         auto p2 = *(T*)(diff + (char*)role2_);
         if (p1 != p2 || force)
         {
-            auto str = fmt1::format(format_str.c_str(), p1, p2);
+            auto str = std::format(std::runtime_format(format_str), p1, p2);
             Font::getInstance()->draw(str, size, x, y, c);
             y += size + 5;
         }
     }
+
     std::shared_ptr<Head> head1_, head2_;
 
     bool show_head_ = true;

@@ -16,11 +16,12 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <print>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 
-#include "fmt1.h"
+
 
 #ifndef M_PI
 #define M_PI 3.1415926535897
@@ -478,7 +479,7 @@ public:
     {
         if (getTicks() != time_)
         {
-            fmt1::print("{}\n", getTicks() - time_);
+            std::print("{}\n", getTicks() - time_);
         }
     }
 

@@ -38,7 +38,7 @@ void SubScene::setID(int id)
     //submap_info_->ID = submap_id_;    //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;
     Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
-    fmt1::print("Sub Scene {}, {}\n", submap_id_, submap_info_->Name);
+    LOG("Sub Scene {}, {}\n", submap_id_, submap_info_->Name);
 }
 
 void SubScene::draw()
@@ -170,7 +170,7 @@ void SubScene::draw()
         }
     }
     Engine::getInstance()->renderAssistTextureToMain();
-    //fmt1::print("%g\n", t0.getElapsedTime());
+    //LOG("%g\n", t0.getElapsedTime());
 }
 
 void SubScene::dealEvent(EngineEvent& e)
@@ -362,7 +362,7 @@ void SubScene::backRun()
             }
         }
     }
-    //fmt1::print("sub scene %d,", current_frame_);
+    //LOG("sub scene %d,", current_frame_);
 }
 
 void SubScene::onEntrance()

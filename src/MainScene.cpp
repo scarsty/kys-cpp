@@ -184,7 +184,7 @@ void MainScene::draw()
     {
         c.draw();
     }
-    //fmt1::print("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
+    //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
     Engine::getInstance()->renderAssistTextureToMain();
 }
@@ -238,7 +238,7 @@ void MainScene::dealEvent(EngineEvent& e)
     {
         UI::getInstance()->run();
     }
-    //fmt1::print("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
+    //LOG("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;
     if (engine->getTicks() - pre_pressed_ticks_ > key_walk_delay_)
     {

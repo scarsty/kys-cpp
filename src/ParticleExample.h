@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "ParticleSystem.h"
 
 class ParticleExample : public ParticleSystem
@@ -28,7 +28,7 @@ public:
     //SDL_Texture* getDefaultTexture()
     //{
     //    static SDL_Texture* t = IMG_LoadTexture(_renderer, "fire.png");
-    //    //fmt1::print(SDL_GetError());
+    //    //LOG(SDL_GetError());
     //    return t;
     //}
 };
