@@ -428,6 +428,8 @@ void Engine::toggleFullscreen()
 Texture* Engine::loadImage(const std::string& filename, int as_white)
 {
     //std::print("%s", filename.c_str());
+    //屏蔽libpng的错误输出
+    DisableStream d(stderr);
     auto sur = IMG_Load(filename.c_str());
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);

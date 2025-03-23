@@ -1,6 +1,6 @@
-# 转换DOS版资源到kys的一般流程
+## 转换DOS版资源到kys的一般流程
 
-## 图片资源
+### 图片资源
 
 将“贴图”目录下的两个文件放到DOS游戏目录，执行批处理即可。
 
@@ -12,9 +12,9 @@
 
 不会特别处理物品图像，建议自己重新选图。
 
-## 事件和对话转为lua脚本
+### 事件和对话转为lua脚本
 
-查看“脚本”目录下的“data”目录，将其中的talk.grp、talk.idx、kdef.grp、kdef.idx替换为你所需要的dos版文件。
+查看“脚本”目录下的“data”目录，将其中的talk.grp、talk.idx、kdef.grp、kdef.idx替换为你要转换的dos版文件。
 
 执行TalkMaker.exe，将对话导出为talkutf8.txt。
 
@@ -22,13 +22,13 @@
 
 也可以修改ini文件的内容进行一些自定义，但是建议不要作修改。
 
-## abc工程的一些功能
+### abc工程的一些功能
 
 因为转换基本是一次性的工作，对效率要求不高，但是需避免出错。故abc工程建议使用VS打开，在其中用Debug模式运行，
 
 该工程最好用C++23或更新标准编译。
 
-### 转换存档为32位，生成数据库，以及战斗帧数
+#### 转换存档为32位，生成数据库，以及战斗帧数
 
 使用expandR函数，用法为：
 ```c++
@@ -44,7 +44,7 @@ int expandR(std::string idx, std::string grp, int index, bool ranger = true, boo
 
 战斗帧数生成一次就够了。
 
-### 转换二进制列表
+#### 转换二进制列表
 
 将离队列表，升级经验转为文本文件。
 
@@ -60,7 +60,7 @@ int expandR(std::string idx, std::string grp, int index, bool ranger = true, boo
 
 kys并没有处理武功武器配合。
 
-### 验证战斗帧数
+#### 验证战斗帧数
 
 ```c++
 //验证战斗帧数的正确性
@@ -70,7 +70,7 @@ void check_fight_frame(std::string path, int repair = 0)
 
 需在生成帧数列表后执行。
 
-### 转换战斗帧数格式
+#### 转换战斗帧数格式
 
 ```c++
 //导出战斗帧数为文本
@@ -78,14 +78,14 @@ void trans_fight_frame(std::string path0)
 ```
 仅用于转换金庸水浒传及相关MOD的战斗帧数格式。
 
-### 合并index.ka
+#### 合并index.ka
 
 ```c++
 void combine_ka(std::string in, std::string out)
 ```
 用于将smp和wmp的index.ka合并。
 
-### 编号人物头像
+#### 编号人物头像
 
 ```c++
 //重新产生头像
@@ -98,7 +98,7 @@ void make_heads(std::string path)
 
 更建议自行重配头像。
 
-### 检查脚本文件正确性
+#### 检查脚本文件正确性
 
 ```c++
 //检查3号指令的最后3个参数正确性

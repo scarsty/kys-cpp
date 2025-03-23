@@ -13,15 +13,13 @@
 #include <algorithm>
 #include <chrono>
 #include <functional>
+#include <print>
 #include <string>
 #include <thread>
 #include <unordered_map>
-#include <print>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-
-
 
 #ifndef M_PI
 #define M_PI 3.1415926535897
@@ -593,4 +591,25 @@ struct Prop
     bool set(const char* name, float value) { return SDL_SetFloatProperty(id_, name, value); }
 
     bool set(const char* name, bool value) { return SDL_SetBooleanProperty(id_, name, value); }
+};
+
+struct DisableStream
+{
+    DisableStream(FILE* f)
+    {
+        f_ = f;
+        setvbuf(f, buf_, _IOFBF, BUFSIZ);
+    }
+
+    ~DisableStream()
+    {
+        memset(buf_, 0, BUFSIZ);
+        setvbuf(f_, nullptr, _IONBF, 0);
+    }
+
+    void clear() { memset(buf_, 0, BUFSIZ); }
+
+private:
+    char buf_[BUFSIZ] = { 0 };
+    FILE* f_;
 };

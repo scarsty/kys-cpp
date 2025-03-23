@@ -16,12 +16,12 @@ github：https://github.com/scarsty/kys-cpp
 
 ## 如何编译
 
-因使用了概念，需至少C++20。
+建议使用C++23。
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
-.\vcpkg install sdl3 sdl3-image[png] lua opencc sqlite3 libiconv asio picosha2 yaml-cpp
-sdl3的ttf和mixer尚未完成，vcpkg暂时不支持，可以自己编译。
+.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua opencc sqlite3 libiconv asio picosha2 yaml-cpp
+SDL3的Mixer似乎还没有完成，目前使用bass播放音效。
 ```
 建议执行：
 ```bat
@@ -41,7 +41,7 @@ git submodule update --remote --rebase
 
 Linux下编译参考doc目录中的文档。需注意没有联机对战部分。
 
-对依赖的详细解释见doc目录中的dependencies.md。
+对依赖的详细解释见doc目录中的“依赖库.md”。
 
 ## 授权
 
@@ -49,7 +49,7 @@ Linux下编译参考doc目录中的文档。需注意没有联机对战部分。
 
 ```
 以 BSD 3-Clause License 授权发布，但是包含两个附加条款：
-一般情况下，可以自由使用代码，也可自由用于商业情况。
+一般情况下，可以自由使用代码，也可自由用于商业。
 但若将其用于金庸武侠题材的游戏，则严禁任何形式的牟利行为。
 
 The source codes are distributed under BSD 3-Clause License license, with two additional clauses.
