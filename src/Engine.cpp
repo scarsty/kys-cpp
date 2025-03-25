@@ -120,7 +120,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     square_ = createRectTexture(100, 100, 0);
 
     std::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
-#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
+#if defined(_WIN32) && defined(WITH_SMALLPOT)
     smallpot_ = PotCreateFromWindow(window_);
 #endif
     createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, start_w_, start_h_);
@@ -1028,7 +1028,7 @@ int Engine::playVideo(std::string filename)
     {
         return 0;
     }
-#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
+#if defined(_WIN32) && defined(WITH_SMALLPOT)
     return PotInputVideo(smallpot_, (char*)filename.c_str());
 #endif
     return 0;
