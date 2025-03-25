@@ -78,6 +78,9 @@ void BattleSceneSekiro::draw()
             }
         }
 
+        Engine::getInstance()->setRenderTarget(earth_texture2_); 
+        Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
         struct DrawInfo
         {
             std::string path;
@@ -114,7 +117,7 @@ void BattleSceneSekiro::draw()
                         info.p.x = p.x;
                         info.p.y = p.y;
                         info.shadow = 0;
-                        draw_infos.emplace_back(std::move(info));
+                        //draw_infos.emplace_back(std::move(info));
                     }
                 }
             }
@@ -313,7 +316,13 @@ void BattleSceneSekiro::draw()
             rect0.x += rect0.w / 2;
             rect0.y += rect0.h / 2;
         }
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 0);
+        std::vector<FPoint> v;
+        v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+        v.push_back({ 1.0f * rect1.x + 0.75f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+        v.push_back({ 1.0f * (rect1.x + rect1.w), 1.0f * (rect1.y + 0.75f * rect1.h) });
+        v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });
+        Engine::getInstance()->renderTexture(earth_texture_, &rect0, v);
+        Engine::getInstance()->renderTexture(earth_texture2_, &rect0, &rect1, 0);
     }
 
     Engine::getInstance()->renderAssistTextureToMain();
@@ -654,6 +663,9 @@ void BattleSceneSekiro::onEntrance()
     addChild(Weather::getInstance());
 
     earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    earth_texture2_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->setRenderTarget(earth_texture2_);
+    Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //首先设置位置和阵营，其他的后面统一处理
     //敌方

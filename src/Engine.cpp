@@ -9,6 +9,8 @@
 #include "freetype/freetype.h"
 #include "freetype/ftglyph.h"
 
+#include "opencv4/opencv2/opencv.hpp"
+
 #if defined(_WIN32) && defined(WITH_SMALLPOT)
 #include "PotDll.h"
 #endif
@@ -390,6 +392,93 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
     render_times_++;
 }
 
+void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v)
+{
+    float a11, a12, a13, a21, a22, a23, a31, a32, a33 = 1;
+
+    int w, h;
+    getTextureSize(t, w, h);
+
+    std::vector<cv::Point2f> v0;
+
+    if (rect0 == nullptr)
+    {
+        v0 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 0 } };
+    }
+    else
+    {
+        v0 = { { 1.0f * rect0->x / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * (rect0->y + rect0->h) / h }, { 1.0f * rect0->x / w, 1.0f * (rect0->y + rect0->h) / h } };
+    }
+    std::vector<cv::Point2f> v1 = { { v[0].x, v[0].y }, { v[1].x, v[1].y }, { v[2].x, v[2].y }, { v[3].x, v[3].y } };
+
+    if (v.size() != 4)
+    {
+        return;
+    }
+
+    cv::Mat m = cv::getPerspectiveTransform(v0, v1);
+
+    a11 = m.at<double>(0, 0);
+    a12 = m.at<double>(0, 1);
+    a13 = m.at<double>(0, 2);
+    a21 = m.at<double>(1, 0);
+    a22 = m.at<double>(1, 1);
+    a23 = m.at<double>(1, 2);
+    a31 = m.at<double>(2, 0);
+    a32 = m.at<double>(2, 1);
+    a33 = m.at<double>(2, 2);
+
+    float step_i = 1.0f / 10;
+    float step_j = 1.0f / 10;
+    float i0 = 0, j0 = 0, i1 = 1, j1 = 1;
+
+    if (rect0)
+    {
+        step_i = 1.0f * rect0->w / 10 / w;
+        step_j = 1.0f * rect0->h / 10 / h;
+        i0 = 1.0f * rect0->x / w;
+        j0 = 1.0f * rect0->y / h;
+        i1 = 1.0f * (rect0->x + rect0->w) / w;
+        j1 = 1.0f * (rect0->y + rect0->h) / h;
+    }
+
+    std::vector<SDL_Vertex> vv;
+    std::vector<int> indexList;
+    int index = 0;
+    auto get_vertex = [&](float x, float y) -> SDL_Vertex
+    {
+        SDL_Vertex v;
+        v.color = { 1, 1, 1, 1 };
+        v.tex_coord = { x, y };
+        v.position = { a11 * x + a12 * y + a13, a21 * x + a22 * y + a23 };
+        auto zoom = a31 * x + a32 * y + a33;
+        v.position.x /= zoom;
+        v.position.y /= zoom;
+        return v;
+    };
+    for (float i = i0; i < i1; i += step_i)
+    {
+        for (float j = j0; j < j1; j += step_j)
+        {
+            vv.push_back(get_vertex(i, j));
+            vv.push_back(get_vertex(i + step_i, j));
+            vv.push_back(get_vertex(i + step_i, j + step_j));
+            vv.push_back(get_vertex(i, j + step_j));
+            indexList.push_back(index);
+            indexList.push_back(index + 1);
+            indexList.push_back(index + 2);
+            indexList.push_back(index + 2);
+            indexList.push_back(index);
+            indexList.push_back(index + 3);
+            index += 4;
+        }
+    }
+    if (!SDL_RenderGeometry(renderer_, t, vv.data(), vv.size(), indexList.data(), indexList.size()))
+    {
+        std::print("render geometry failed {}\n", SDL_GetError());
+    }
+}
+
 void Engine::destroy() const
 {
     destroyTexture(tex_);
@@ -525,10 +614,11 @@ void Engine::fillColor(Color color, int x, int y, int w, int h) const
     }
     Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
     FRect rf;
     SDL_RectToFRect(&r, &rf);
     SDL_RenderFillRect(renderer_, &rf);
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
 }
 
 void Engine::renderMainTextureToWindow()
@@ -536,6 +626,15 @@ void Engine::renderMainTextureToWindow()
     resetRenderTarget();
     //SDL_SetTextureBlendMode(tex_, SDL_BLENDMODE_BLEND);
     renderTexture(tex_, nullptr, nullptr);
+    //std::vector<FPoint> v;
+    //int w, h;
+    //getWindowSize(w, h);
+    //float wf = w, hf = h;
+    //v.push_back({ wf * 0.25f, 0 });
+    //v.push_back({ wf * 0.75f, 0 });
+    //v.push_back({ wf, hf });
+    //v.push_back({ 0, hf });
+    //renderTexture(tex_, v);
 }
 
 void Engine::renderAssistTextureToMain()

@@ -46,6 +46,7 @@ public:
     int first_step_delay_ = 5;
 
     Texture* earth_texture_ = nullptr;
+    Texture* earth_texture2_ = nullptr;
 
     void setManPosition(int x, int y)
     {

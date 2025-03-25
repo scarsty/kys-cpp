@@ -42,6 +42,7 @@ using Surface = SDL_Surface;
 using Gamepad = SDL_Gamepad;
 using Haptic = SDL_Haptic;
 using PixelFormat = SDL_PixelFormat;
+using FPoint = SDL_FPoint;
 
 enum Align
 {
@@ -236,6 +237,18 @@ enum TextureAccess
     TEXTUREACCESS_TARGET = SDL_TEXTUREACCESS_TARGET        /**< Texture can be used as a render target */
 };
 
+enum BlendMode
+{
+    BLENDMODE_NONE = SDL_BLENDMODE_NONE,
+    BLENDMODE_BLEND = SDL_BLENDMODE_BLEND,
+    BLENDMODE_BLEND_PREMULTIPLIED = SDL_BLENDMODE_BLEND_PREMULTIPLIED,
+    BLENDMODE_ADD = SDL_BLENDMODE_ADD,
+    BLENDMODE_ADD_PREMULTIPLIED = SDL_BLENDMODE_ADD_PREMULTIPLIED,
+    BLENDMODE_MOD = SDL_BLENDMODE_MOD,
+    BLENDMODE_MUL = SDL_BLENDMODE_MUL,
+    BLENDMODE_INVALID = SDL_BLENDMODE_INVALID
+};
+
 class Engine
 {
 private:
@@ -377,6 +390,7 @@ public:
     void renderTexture(Texture* t = nullptr, double angle = 0);
     void renderTexture(Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
     void renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle = 0, int inPresent = 0);
+    void renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v);
     void destroy() const;
     bool isFullScreen();
     void toggleFullscreen();

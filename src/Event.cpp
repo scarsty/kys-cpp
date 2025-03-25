@@ -141,7 +141,6 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
             switch (e[i])
             {
                 REGISTER_INSTRUCT(-1, forceExit);
-
                 REGISTER_INSTRUCT(1, oldTalk);
                 REGISTER_INSTRUCT(2, addItem);
                 REGISTER_INSTRUCT(3, modifyEvent);
