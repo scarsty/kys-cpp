@@ -556,7 +556,6 @@ private:
 public:
     Texture* createRectTexture(int w, int h, int style) const;
     Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const;
-    Texture* createTextTexture(const std::string& fontname, wchar_t text, int size, Color c) const;
     int showMessage(const std::string& content) const;
     void renderSquareTexture(Rect* rect, Color color, uint8_t alpha);
 

@@ -21,7 +21,7 @@ void TextureWarpper::load()
         //LOG("Load texture {}, {}\n", group_info_->path, num_);
         if (group_info_->zip.opened())
         {
-            tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readEntryName(std::to_string(num_) + ".png"));
+            tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + ".png"));
         }
         else
         {
@@ -37,7 +37,7 @@ void TextureWarpper::load()
             {
                 if (group_info_->zip.opened())
                 {
-                    tex[i] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readEntryName(std::to_string(num_) + "_" + std::to_string(i) + ".png"));
+                    tex[i] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + "_" + std::to_string(i) + ".png"));
                 }
                 else
                 {
@@ -64,7 +64,7 @@ void TextureWarpper::createWhiteTexture()
     {
         if (group_info_->zip.opened())
         {
-            tex_white = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readEntryName(std::to_string(num_) + ".png"), 1);
+            tex_white = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + ".png"), 1);
         }
         else
         {
@@ -92,7 +92,7 @@ std::string TextureGroup::getFileContent(const std::string& filename)
     }
     if (info_.zip.opened())
     {
-        return info_.zip.readEntryName(filename);
+        return info_.zip.readFile(filename);
     }
     else
     {
@@ -109,12 +109,12 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         info_.path = path;
         if (!load_from_path)
         {
-            info_.zip.openFile(path + ".zip");
+            info_.zip.open(path + ".zip");
         }
         std::vector<short> offset;
         if (info_.zip.opened())
         {
-            std::string index_ka = info_.zip.readEntryName("index.ka");
+            std::string index_ka = info_.zip.readFile("index.ka");
             offset.resize(index_ka.size() / 2);
             memcpy(offset.data(), index_ka.data(), offset.size() * 2);
         }

@@ -1,8 +1,11 @@
-#pragma once
+﻿#pragma once
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
-struct zip_t;
+struct zip;
+typedef struct zip zip_t;
 
 class ZipFile
 {
@@ -12,14 +15,13 @@ public:
 
 private:
     zip_t* zip_ = nullptr;
+    std::shared_ptr<std::mutex> mutex_ = std::make_shared<std::mutex>();
 
 public:
     bool opened() const { return zip_ != nullptr; }
 
-    void openFile(const std::string& filename);
-    std::string readEntryName(const std::string& entry_name) const;
-    std::vector<std::string> getEntryNames() const;
-
-    static int zip(const std::string& zip_file, const std::vector<std::string>& files);
-    static int unzip(const std::string& zip_file, const std::vector<std::string>& files);
+    void open(const std::string& zip_filename);
+    void setPassword(const std::string& password) const;
+    std::string readFile(const std::string& filename) const;
+    std::vector<std::string> getFileNames() const;
 };

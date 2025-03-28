@@ -4,10 +4,6 @@
 #include <windows.h>
 #pragma comment(lib, "user32.lib")
 #endif
-#include "ft2build.h"
-
-#include "freetype/freetype.h"
-#include "freetype/ftglyph.h"
 
 #include "opencv4/opencv2/opencv.hpp"
 
@@ -495,7 +491,7 @@ void Engine::destroy() const
 #ifndef _WINDLL
     SDL_Quit();
 #endif
-#if defined(_WIN32) && defined(WITH_SMALLPOT) && !defined(_DEBUG)
+#if defined(_WIN32) && defined(WITH_SMALLPOT)
     PotDestory(smallpot_);
 #endif
 }
@@ -915,69 +911,6 @@ Texture* Engine::createTextTexture(const std::string& fontname, const std::strin
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
     SDL_DestroySurface(text_s);
     TTF_CloseFont(font);
-    return text_t;
-}
-
-Texture* Engine::createTextTexture(const std::string& fontname, wchar_t text, int size, Color c) const
-{
-    FT_Library library{ nullptr };
-    FT_Face face{ nullptr };
-    FT_GlyphSlot slot{ nullptr };
-    //FT_Matrix matrix{nullptr};
-    FT_Vector pen{ 0, 0 };
-
-    FT_Init_FreeType(&library);
-    FT_New_Face(library, fontname.c_str(), 0, &face);
-    FT_Select_Charmap(face, FT_ENCODING_UNICODE);
-    FT_Set_Pixel_Sizes(face, size, 0);
-
-    FT_Set_Transform(face, nullptr, &pen);
-    FT_Load_Char(face, text, FT_LOAD_RENDER);
-
-    slot = face->glyph;
-    FT_Glyph glyph;
-    FT_Get_Glyph(slot, &glyph);
-    FT_BBox bbox;
-    FT_Glyph_Get_CBox(glyph, FT_GLYPH_BBOX_TRUNCATE, &bbox);
-
-    int w = size + 5;
-    int h = size + 5;
-    if (uint16_t(text) < 128)
-    {
-        //w = size / 2;
-    }
-
-    auto text_s = SDL_CreateSurface(w, size, SDL_PIXELFORMAT_RGBA8888);
-
-    //SDL_FillSurfaceRect(text_t, nullptr, 0xffffffff);
-
-    for (int i = 0; i < slot->bitmap.width; i++)
-    {
-        for (int j = 0; j < slot->bitmap.rows; j++)
-        {
-            auto i1 = i + bbox.xMin;
-            auto j1 = j + bbox.yMin + 3;
-            if (i1 >= 0 && i1 < w && j1 >= 0 && j1 < h)
-            {
-                auto p = (uint32_t*)text_s->pixels + j1 * text_s->w + i1;
-                *p = 0xffffff00 | (slot->bitmap.buffer[j * slot->bitmap.width + i]);
-            }
-        }
-    }
-
-    FT_Done_Face(face);
-    FT_Done_FreeType(library);
-
-    //auto font = TTF_OpenFont(fontname.c_str(), size);
-    //if (!font)
-    //{
-    //    return nullptr;
-    //}
-    //SDL_Color c = { 255, 255, 255, 128 };
-    //auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, c);
-    auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
-    SDL_DestroySurface(text_s);
-    //TTF_CloseFont(font);
     return text_t;
 }
 
