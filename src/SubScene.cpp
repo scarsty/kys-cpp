@@ -222,7 +222,7 @@ void SubScene::dealEvent(EngineEvent& e)
         if (abs(axis_y) < 10000) { axis_y = 0; }
         if (axis_x != 0 || axis_y != 0)
         {
-            Pointf axis{ double(axis_x), double(axis_y) };
+            Pointf axis{ float(axis_x), float(axis_y) };
             auto to = realTowardsToFaceTowards(axis);
             if (to == Towards_LeftUp) { pressed = K_LEFT; }
             if (to == Towards_LeftDown) { pressed = K_DOWN; }

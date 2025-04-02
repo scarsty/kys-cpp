@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Camera.h"
 #include "Point.h"
 #include "RunNode.h"
 
@@ -118,4 +119,6 @@ public:
     {
         key_walk_delay_ = d;
     }
+
+    Camera camera_;    //镜头位置
 };

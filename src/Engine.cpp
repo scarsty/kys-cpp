@@ -398,7 +398,7 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
 
     if (rect0 == nullptr)
     {
-        v0 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 0 } };
+        v0 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
     }
     else
     {

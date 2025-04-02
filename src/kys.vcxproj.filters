@@ -191,6 +191,9 @@
       <Filter>video</Filter>
     </ClCompile>
     <ClCompile Include="kys.cpp" />
+    <ClCompile Include="Camera.cpp">
+      <Filter>camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -397,6 +400,9 @@
     <ClInclude Include="Video.h">
       <Filter>video</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>camera</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -474,6 +480,9 @@
     </Filter>
     <Filter Include="video">
       <UniqueIdentifier>{47f493b4-9857-4cb6-acce-58e8ce93b3bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="camera">
+      <UniqueIdentifier>{8200e8bb-eb5a-4cfd-b91c-7bb4e5ae3402}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

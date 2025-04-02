@@ -64,8 +64,8 @@ public:
     };
 
     Pointf pos_;    //坐标为俯视，而非在画面的位置，其中y需除以2画在上面
-    double gravity_ = -4;
-    double friction_ = 0.1;
+    float gravity_ = -4;
+    float friction_ = 0.1;
 
     UIKeyConfig::Keys keys_;
 

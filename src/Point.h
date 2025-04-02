@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cmath>
 
 enum Towards
@@ -102,7 +102,7 @@ inline Point_<T> operator*(const Point_<T> p, double f)
 }
 
 using Point = Point_<int>;
-using Pointf = Point_<double>;
+using Pointf = Point_<float>;
 
 inline int realTowardsToFaceTowards(const Pointf& t)
 {

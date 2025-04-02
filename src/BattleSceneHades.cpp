@@ -424,7 +424,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
                     //LOG("{} {}, ", axis_x, axis_y);
                     axis_x = GameUtil::limit(axis_x, -20000, 20000);
                     axis_y = GameUtil::limit(axis_y, -20000, 20000);
-                    Pointf axis{ double(axis_x), double(axis_y) };
+                    Pointf axis{ float(axis_x), float(axis_y) };
                     axis *= 1.0 / 20000;    // / sqrt(2.0);
                     r->RealTowards = axis;
                     //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
@@ -1244,7 +1244,7 @@ void BattleSceneHades::Action(Role* r)
                 double angle = r->RealTowards.getAngle();
                 for (int i = 0; i < count; i++)
                 {
-                    double a = angle - 5 / 180 * M_PI + rand_.rand() * 10 / 180 * M_PI;
+                    float a = angle - 5 / 180 * M_PI + rand_.rand() * 10 / 180 * M_PI;
                     ae.Pos = p;
                     ae.Velocity = { cos(a), sin(a) };
                     ae.Velocity.normTo(3);
@@ -1282,7 +1282,7 @@ void BattleSceneHades::Action(Role* r)
                     for (int i = 0; i < 2; i++)
                     {
                         v -= 0.5;
-                        double a = angle - 15 / 180 * M_PI + rand_.rand() * 30 / 180 * M_PI;
+                        float a = angle - 15 / 180 * M_PI + rand_.rand() * 30 / 180 * M_PI;
                         ae.Velocity = { cos(a), sin(a) };
                         ae.Velocity.normTo(v);
                         //ae.TotalFrame = 150;
@@ -1867,7 +1867,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (act_type == 4)
             {
                 //特殊会随机附加行动方向
-                Pointf p{ rand_.rand(), rand_.rand(), 0 };
+                Pointf p{ float(rand_.rand()), float(rand_.rand()), 0 };
                 p.normTo(1);
                 r->Velocity += p;
             }

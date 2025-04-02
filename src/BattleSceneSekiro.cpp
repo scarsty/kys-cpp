@@ -56,29 +56,29 @@ void BattleSceneSekiro::draw()
     //一整块地面
     if (earth_texture_)
     {
-        Engine::getInstance()->setRenderTarget(earth_texture_);
-        Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-        for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
-        {
-            for (int i = -view_width_region_; i <= view_width_region_; i++)
-            {
-                int ix = man_x_ + i + (sum / 2);
-                int iy = man_y_ - i + (sum - sum / 2);
-                auto p = pos45To90(ix, iy);
-                if (!isOutLine(ix, iy))
-                {
-                    int num = earth_layer_.data(ix, iy) / 2;
-                    Color color = { 255, 255, 255, 255 };
-                    bool need_draw = true;
-                    if (need_draw && num > 0)
-                    {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
-                    }
-                }
-            }
-        }
+        //Engine::getInstance()->setRenderTarget(earth_texture_);
+        //Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+        //for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
+        //{
+        //    for (int i = -view_width_region_; i <= view_width_region_; i++)
+        //    {
+        //        int ix = man_x_ + i + (sum / 2);
+        //        int iy = man_y_ - i + (sum - sum / 2);
+        //        auto p = pos45To90(ix, iy);
+        //        if (!isOutLine(ix, iy))
+        //        {
+        //            int num = earth_layer_.data(ix, iy) / 2;
+        //            Color color = { 255, 255, 255, 255 };
+        //            bool need_draw = true;
+        //            if (need_draw && num > 0)
+        //            {
+        //                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
+        //            }
+        //        }
+        //    }
+        //}
 
-        Engine::getInstance()->setRenderTarget(earth_texture2_); 
+        Engine::getInstance()->setRenderTarget(earth_texture2_);
         Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2, BLENDMODE_NONE);
 
         struct DrawInfo
@@ -316,12 +316,41 @@ void BattleSceneSekiro::draw()
             rect0.x += rect0.w / 2;
             rect0.y += rect0.h / 2;
         }
-        std::vector<FPoint> v;
-        v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+
+        //地面的z轴为0
+
+        camera_.pos = pos_;
+
+        camera_.pos.z = 100;
+
+    float wf,hf;
+        std::vector<Pointf> v;
+        {
+            int w, h;
+            Engine::getInstance()->getTextureSize(earth_texture_, w, h);
+            wf = w;
+            hf = h;
+
+            v.push_back({ 0, 0, 0 });
+            v.push_back({ wf, 0, 0 });
+            v.push_back({ wf, hf, 0 });
+            v.push_back({ 0, hf, 0 });
+        }
+
+        auto v2 = camera_.getProj({wf/2,hf/2,0}, v);
+
+        /*v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
         v.push_back({ 1.0f * rect1.x + 0.75f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
         v.push_back({ 1.0f * (rect1.x + rect1.w), 1.0f * (rect1.y + 0.75f * rect1.h) });
-        v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, v);
+        v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });*/
+
+        std::vector<FPoint> vf;
+        for (auto& p : v2)
+        {
+            vf.push_back({ float(p.x), float(p.y) });
+        }
+
+        Engine::getInstance()->renderTexture(earth_texture_, nullptr, vf);
         Engine::getInstance()->renderTexture(earth_texture2_, &rect0, &rect1, 0);
     }
 
@@ -438,7 +467,7 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
                     //LOG("{} {}, ", axis_x, axis_y);
                     axis_x = GameUtil::limit(axis_x, -20000, 20000);
                     axis_y = GameUtil::limit(axis_y, -20000, 20000);
-                    Pointf axis{ double(axis_x), double(axis_y) };
+                    Pointf axis{ float(axis_x), float(axis_y) };
                     axis *= 1.0 / 20000;    // / sqrt(2.0);
                     r->RealTowards = axis;
                     //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
@@ -664,6 +693,36 @@ void BattleSceneSekiro::onEntrance()
 
     earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     earth_texture2_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
+
+    if (earth_texture_)
+    {
+        Engine::getInstance()->setRenderTarget(earth_texture_);
+        Engine::getInstance()->fillColor({ 128, 128, 128, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+        for (int ix=0;ix<64; ix++)
+        {
+            for (int iy=0;iy<64;iy++)
+            {
+                /*int ix = man_x_ + i + (sum / 2);
+                int iy = man_y_ - i + (sum - sum / 2);*/
+                auto p = pos45To90(ix, iy);
+                if (!isOutLine(ix, iy))
+                {
+                    int num = earth_layer_.data(ix, iy) / 2;
+                    Color color = { 255, 255, 255, 255 };
+                    bool need_draw = true;
+                    if (need_draw && num > 0)
+                    {
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
     Engine::getInstance()->setRenderTarget(earth_texture2_);
     Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
@@ -1849,7 +1908,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (act_type == 4)
             {
                 //特殊会随机附加行动方向
-                Pointf p{ rand_.rand(), rand_.rand(), 0 };
+                Pointf p{ float(rand_.rand()), float(rand_.rand()), 0 };
                 p.normTo(1);
                 r->Velocity += p;
             }
