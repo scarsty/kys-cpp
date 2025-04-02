@@ -1,14 +1,8 @@
 ﻿#pragma once
 
-#ifndef __ANDROID__
 #include "SDL3/SDL.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
-#else
-#include "SDL.h"
-#include "SDL_image.h"
-#include "SDL_ttf.h"
-#endif
 
 #include <algorithm>
 #include <chrono>
@@ -268,8 +262,8 @@ private:
     Window* window_ = nullptr;
     Renderer* renderer_ = nullptr;
     Texture* tex_ = nullptr;
-    Texture* tex2_ = nullptr;
-    Texture* logo_ = nullptr;
+    //Texture* tex2_ = nullptr;
+    //Texture* logo_ = nullptr;
     Rect rect_;
     bool full_screen_ = false;
     bool keep_ratio_ = true;
@@ -284,8 +278,12 @@ private:
     int window_mode_ = 0;    //0-窗口和渲染器自行创建，1-窗口和渲染器由外部创建
     bool renderer_self_ = false;
 
+    std::unordered_map<std::string, Texture*> tex_map_;
+
 public:
     int init(void* handle = nullptr, int handle_type = 0, int maximized = 0);
+
+    Window* getWindow() const { return window_; }
 
     void getWindowSize(int& w, int& h) const { SDL_GetWindowSize(window_, &w, &h); }
 
@@ -329,7 +327,7 @@ public:
 
     void createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
-    void createAssistTexture(int w, int h);
+    void createAssistTexture(const std::string& name, int w, int h);
     void setPresentPosition(Texture* tex);    //设置贴图的位置
 
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
@@ -339,15 +337,7 @@ public:
 
     Texture* getMainTexture() const { return tex_; }
 
-    void getMainTextureSize(int& w, int& h) const { getTextureSize(tex2_, w, h); }
-
-    void destroyAssistTexture() const
-    {
-        if (tex2_)
-        {
-            destroyTexture(tex2_);
-        }
-    }
+    void getAssistTextureSize(const std::string& name, int& w, int& h) { getTextureSize(tex_map_[name], w, h); }
 
     Texture* createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const;
 
@@ -361,7 +351,7 @@ public:
     static int lockTexture(Texture* t, Rect* r, void** pixel, int* pitch);
     static void unlockTexture(Texture* t);
 
-    void showLogo() { renderTexture(logo_, nullptr, nullptr); }
+    //void showLogo() { renderTexture(logo_, nullptr, nullptr); }
 
     void renderPresent() const;
 
@@ -411,15 +401,15 @@ public:
     }
 
     static void setColor(Texture* tex, Color c);
-    void fillColor(Color color, int x, int y, int w, int h) const;
+    void fillColor(Color color, int x, int y, int w, int h, BlendMode blend = BLENDMODE_BLEND) const;
 
     void setRenderMainTexture() const { setRenderTarget(tex_); }
 
     void renderMainTextureToWindow();
 
-    void setRenderAssistTexture() const { setRenderTarget(tex2_); }
+    void setRenderAssistTexture(const std::string& name) { setRenderTarget(tex_map_[name]); }
 
-    void renderAssistTextureToMain();
+    void renderAssistTextureToMain(const std::string& name);
 
     static int setTextureBlendMode(Texture* t) { return SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
 
@@ -427,7 +417,12 @@ public:
 
     int getRenderTimes() const { return render_times_; }
 
-    Texture* getRenderAssistTexture() const { return tex2_; }
+    Texture* getRenderAssistTexture(const std::string& name) { return tex_map_[name]; }
+
+    Texture* generateTexture(const std::string& name)
+    {
+            return tex_map_[name];
+    }
 
     //声音相关
 private:
@@ -563,11 +558,7 @@ public:
     //标题;
     std::string title_;
 
-private:
-    void* smallpot_ = nullptr;
-
 public:
-    int playVideo(std::string filename);
     int saveScreen(const char* filename) const;
     int saveTexture(Texture* tex, const char* filename) const;
 

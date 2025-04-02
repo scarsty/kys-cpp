@@ -87,7 +87,7 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 
 void MainScene::draw()
 {
-    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->setRenderAssistTexture("scene");
 
     struct DrawInfo
     {
@@ -186,7 +186,7 @@ void MainScene::draw()
     }
     //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
-    Engine::getInstance()->renderAssistTextureToMain();
+    Engine::getInstance()->renderAssistTextureToMain("scene");
 }
 
 void MainScene::backRun()

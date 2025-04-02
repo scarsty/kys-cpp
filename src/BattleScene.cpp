@@ -65,7 +65,7 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
-    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->setRenderAssistTexture("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //地面是否需要亮度的变化，自动人物或者选择位置部分没有运行
@@ -197,7 +197,7 @@ void BattleScene::draw()
             }
         }
     }
-    Engine::getInstance()->renderAssistTextureToMain();
+    Engine::getInstance()->renderAssistTextureToMain("scene");
 
     if (semi_real_)
     {

@@ -28,7 +28,7 @@ public:
     void calViewRegion();
 
     int total_step_ = 0;                          //键盘走路的计数
-    Keycode pre_pressed_ = K_UNKNOWN;          //键盘走路的上次按键
+    Keycode pre_pressed_ = K_UNKNOWN;             //键盘走路的上次按键
     double pre_pressed_ticks_ = 0;                //键盘走路的上次按键时间
     static inline double key_walk_delay_ = 20;    //键盘走路的延迟
 
@@ -47,6 +47,14 @@ public:
 
     Texture* earth_texture_ = nullptr;
     Texture* earth_texture2_ = nullptr;
+
+    void beginDrawScene() const { Engine::getInstance()->setRenderAssistTexture("scene"); }
+
+    void endDrawScene() const
+    {
+        Engine::getInstance()->renderAssistTextureToMain("scene");
+        Engine::getInstance()->setRenderMainTexture();
+    }
 
     void setManPosition(int x, int y)
     {

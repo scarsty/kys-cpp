@@ -7,10 +7,6 @@
 
 #include "opencv4/opencv2/opencv.hpp"
 
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
-#include "PotDll.h"
-#endif
-
 Engine::Engine()
 {
 }
@@ -90,8 +86,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     std::print("Found {} touch(es)\n", num_touch);
 
     rect_ = { 0, 0, start_w_, start_h_ };
-    //logo_ = loadImage("logo.png");
-    showLogo();
+
     renderPresent();
     TTF_Init();
 
@@ -105,7 +100,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     max_x_ = r.right - w;
     max_y_ = r.bottom - h;
 #else
-    BP_Rect r;
+    Rect r;
     SDL_GetDisplayBounds(0, &r);
     min_x_ = r.x;
     min_y_ = r.y;
@@ -116,9 +111,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     square_ = createRectTexture(100, 100, 0);
 
     std::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
-    smallpot_ = PotCreateFromWindow(window_);
-#endif
+
     createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, start_w_, start_h_);
     return 0;
 }
@@ -234,12 +227,18 @@ void Engine::resizeMainTexture(int w, int h) const
 }
 
 //创建一个专用于画场景的，后期放大
-void Engine::createAssistTexture(int w, int h)
+void Engine::createAssistTexture(const std::string& name, int w, int h)
 {
     //tex_ = createYUVTexture(w, h);
+
+    auto& tex = tex_map_[name];
+    if (tex)
+    {
+        SDL_DestroyTexture(tex);
+    }
     int64_t pixfmt = 0;
     SDL_GetNumberProperty(SDL_GetTextureProperties(tex_), SDL_PROP_TEXTURE_FORMAT_NUMBER, pixfmt);
-    tex2_ = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
+    tex = createTexture((SDL_PixelFormat)pixfmt, TEXTUREACCESS_TARGET, w, h);
     //tex_ = createRenderedTexture(768, 480);
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
@@ -358,11 +357,11 @@ void Engine::renderTexture(Texture* t, int x, int y, int w, int h, double angle,
     }
     int w0, h0;
     getTextureSize(t, w0, h0);
-    if (w == 0)
+    if (w < 0)
     {
         w = w0;
     }
-    if (h == 0)
+    if (h < 0)
     {
         h = h0;
     }
@@ -478,7 +477,10 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
 void Engine::destroy() const
 {
     destroyTexture(tex_);
-    destroyAssistTexture();
+    for (auto& [k, tex] : tex_map_)
+    {
+        destroyTexture(tex);
+    }
     if (renderer_self_)
     {
         SDL_DestroyRenderer(renderer_);
@@ -490,9 +492,6 @@ void Engine::destroy() const
 
 #ifndef _WINDLL
     SDL_Quit();
-#endif
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
-    PotDestory(smallpot_);
 #endif
 }
 
@@ -602,7 +601,7 @@ void Engine::setColor(Texture* tex, Color c)
     setTextureBlendMode(tex);
 }
 
-void Engine::fillColor(Color color, int x, int y, int w, int h) const
+void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend) const
 {
     if (w < 0 || h < 0)
     {
@@ -610,7 +609,7 @@ void Engine::fillColor(Color color, int x, int y, int w, int h) const
     }
     Rect r{ x, y, w, h };
     SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawBlendMode(renderer_, blend);
     FRect rf;
     SDL_RectToFRect(&r, &rf);
     SDL_RenderFillRect(renderer_, &rf);
@@ -633,10 +632,10 @@ void Engine::renderMainTextureToWindow()
     //renderTexture(tex_, v);
 }
 
-void Engine::renderAssistTextureToMain()
+void Engine::renderAssistTextureToMain(const std::string& name)
 {
     setRenderTarget(tex_);
-    renderTexture(tex2_, nullptr, nullptr);
+    renderTexture(tex_map_[name], nullptr, nullptr);
     //setRenderTarget(tex_);
     //SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
     //SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
@@ -953,18 +952,6 @@ void Engine::renderSquareTexture(Rect* rect, Color color, uint8_t alpha)
     color.a = alpha;
     setColor(square_, color);
     renderTexture(square_, nullptr, rect);
-}
-
-int Engine::playVideo(std::string filename)
-{
-    if (filename == "")
-    {
-        return 0;
-    }
-#if defined(_WIN32) && defined(WITH_SMALLPOT)
-    return PotInputVideo(smallpot_, (char*)filename.c_str());
-#endif
-    return 0;
 }
 
 int Engine::saveScreen(const char* filename) const

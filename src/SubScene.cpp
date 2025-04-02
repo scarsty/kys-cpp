@@ -52,7 +52,7 @@ void SubScene::draw()
 
     //std::map<int, DrawInfo> map;
 
-    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->setRenderAssistTexture("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //Timer t0;
@@ -169,7 +169,7 @@ void SubScene::draw()
             //k++;
         }
     }
-    Engine::getInstance()->renderAssistTextureToMain();
+    Engine::getInstance()->renderAssistTextureToMain("scene");
     //LOG("%g\n", t0.getElapsedTime());
 }
 

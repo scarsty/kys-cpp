@@ -13,7 +13,7 @@ Scene::~Scene()
 
 void Scene::calViewRegion()
 {
-    Engine::getInstance()->getMainTextureSize(render_center_x_, render_center_y_);
+    Engine::getInstance()->getAssistTextureSize("scene", render_center_x_, render_center_y_);
     render_center_x_ /= 2;
     render_center_y_ /= 2;
     view_width_region_ = render_center_x_ / TILE_W / 2 + 3;

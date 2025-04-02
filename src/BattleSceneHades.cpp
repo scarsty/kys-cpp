@@ -81,7 +81,7 @@ BattleSceneHades::~BattleSceneHades()
 void BattleSceneHades::draw()
 {
     //在这个模式下，使用的是直角坐标
-    Engine::getInstance()->setRenderAssistTexture();
+    Engine::getInstance()->setRenderAssistTexture("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
@@ -324,7 +324,7 @@ void BattleSceneHades::draw()
             Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
         }
 
-        Engine::getInstance()->setRenderAssistTexture();
+        Engine::getInstance()->setRenderAssistTexture("scene");
         if (close_up_)
         {
             rect0.w /= 2;
@@ -335,7 +335,7 @@ void BattleSceneHades::draw()
         Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 0);
     }
 
-    Engine::getInstance()->renderAssistTextureToMain();
+    Engine::getInstance()->renderAssistTextureToMain("scene");
 
     //if (result_ >= 0)
     //{

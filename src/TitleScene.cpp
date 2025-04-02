@@ -13,6 +13,7 @@
 #include "SubScene.h"
 #include "UISave.h"
 #include "Weather.h"
+#include "Video.h"
 
 TitleScene::TitleScene()
 {
@@ -135,6 +136,7 @@ void TitleScene::dealEvent(EngineEvent& e)
 
 void TitleScene::onEntrance()
 {
-    Engine::getInstance()->playVideo(GameUtil::PATH() + "movie/1.mp4");
+    Video v(Engine::getInstance()->getWindow());
+    v.playVideo(GameUtil::PATH() + "movie/1.mp4");
     Audio::getInstance()->playMusic(16);
 }

@@ -4,9 +4,6 @@
     <ClCompile Include="Application.cpp">
       <Filter>application</Filter>
     </ClCompile>
-    <ClCompile Include="kys.cpp">
-      <Filter>application</Filter>
-    </ClCompile>
     <ClCompile Include="BattleCursor.cpp">
       <Filter>battle</Filter>
     </ClCompile>
@@ -190,6 +187,10 @@
     <ClCompile Include="Weather.cpp">
       <Filter>weather</Filter>
     </ClCompile>
+    <ClCompile Include="Video.cpp">
+      <Filter>video</Filter>
+    </ClCompile>
+    <ClCompile Include="kys.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -393,6 +394,9 @@
     <ClInclude Include="Weather.h">
       <Filter>weather</Filter>
     </ClInclude>
+    <ClInclude Include="Video.h">
+      <Filter>video</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">
@@ -421,7 +425,8 @@
     </Filter>
     <Filter Include="application">
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <Extensions>
+      </Extensions>
     </Filter>
     <Filter Include="zip">
       <UniqueIdentifier>{6d628cf8-dd04-4c2b-ab7f-7ac40cd54b8f}</UniqueIdentifier>
@@ -437,7 +442,8 @@
     </Filter>
     <Filter Include="types">
       <UniqueIdentifier>{b73723e8-c4d0-44c3-98c8-bbbe7cf111ca}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+      <Extensions>
+      </Extensions>
     </Filter>
     <Filter Include="runnode">
       <UniqueIdentifier>{766ecc17-3c46-4d31-9b42-c4deb6299f25}</UniqueIdentifier>
@@ -465,6 +471,9 @@
     </Filter>
     <Filter Include="weather">
       <UniqueIdentifier>{19d866e2-f3f5-4615-8b9d-b6f7a0c142d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="video">
+      <UniqueIdentifier>{47f493b4-9857-4cb6-acce-58e8ce93b3bb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
