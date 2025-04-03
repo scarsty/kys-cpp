@@ -193,7 +193,8 @@ void SubScene::dealEvent(EngineEvent& e)
     if (e.type == EVENT_KEY_UP && e.key.key == K_TAB
         || (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_BACK))
     {
-        Console c;
+        Event::getInstance()->tryBattle(1, 0);
+        //Console c;
     }
     if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
         || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)

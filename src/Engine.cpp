@@ -23,6 +23,9 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         return 0;
     }
     inited_ = true;
+#ifdef _WIN32
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d,vulkan,direct3d12,direct3d11,opengl");
+#endif
 #ifndef _WINDLL
     if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
     {
@@ -53,6 +56,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, start_h_);
         props.set(SDL_PROP_WINDOW_CREATE_TITLE_STRING, title_.c_str());
         window_ = SDL_CreateWindowWithProperties(props.id());
+        //window_ = SDL_CreateWindow("Lightning Generator", start_w_, start_w_, SDL_WINDOW_RESIZABLE);
     }
     //SDL_CreateWindowFrom()
 #ifndef _WINDLL
@@ -65,7 +69,8 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     {
         Prop props;
         props.set(SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window_);
-        renderer_ = SDL_CreateRendererWithProperties(props.id());
+        //renderer_ = SDL_CreateRendererWithProperties(props.id());
+        renderer_ = SDL_CreateRenderer(window_, "Direct3D12");
         renderer_self_ = true;
     }
 
@@ -387,7 +392,7 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
     render_times_++;
 }
 
-void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v)
+void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2)
 {
     float a11, a12, a13, a21, a22, a23, a31, a32, a33 = 1;
 
@@ -423,10 +428,22 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
     a32 = m.at<double>(2, 1);
     a33 = m.at<double>(2, 2);
 
-    float step_i = 1.0f / 10;
-    float step_j = 1.0f / 10;
+    float step_i = 1.0f / 100;
+    float step_j = 1.0f / 100;
     float i0 = 0, j0 = 0, i1 = 1, j1 = 1;
 
+    for (auto p : v2)
+    {
+        auto x = p.x / w;
+        auto y = p.y / h;
+        auto x1 = a11 * x + a12 * y + a13;
+        auto y1 = a21 * x + a22 * y + a23;
+        auto zoom = a31 * x + a32 * y + a33;
+        x1 /= zoom;
+        y1 /= zoom;
+        //std::print("{}, {} {}, {}\n", p.x,p.y,x1, y1);
+    }
+    //std::print("\n");
     if (rect0)
     {
         step_i = 1.0f * rect0->w / 10 / w;
@@ -451,10 +468,20 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
         v.position.y /= zoom;
         return v;
     };
+
     for (float i = i0; i < i1; i += step_i)
     {
         for (float j = j0; j < j1; j += step_j)
         {
+            auto v1 = get_vertex(i, j);
+            auto v2 = get_vertex(i + step_i, j);
+            auto v3 = get_vertex(i + step_i, j + step_j);
+            auto v4 = get_vertex(i, j + step_j);
+            float w = 800, h = 600;
+            if (v1.position.x <= 0 || v1.position.x >= w || v1.position.y <= 0 || v1.position.y >= h || v2.position.x <= 0 || v2.position.x >= w || v2.position.y <= 0 || v2.position.y >= h || v3.position.x <= 0 || v3.position.x >= w || v3.position.y <= 0 || v3.position.y >= h || v4.position.x <= 0 || v4.position.x >= w || v4.position.y <= 0 || v4.position.y >= h)
+            {
+                continue;
+            }
             vv.push_back(get_vertex(i, j));
             vv.push_back(get_vertex(i + step_i, j));
             vv.push_back(get_vertex(i + step_i, j + step_j));
@@ -470,7 +497,7 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
     }
     if (!SDL_RenderGeometry(renderer_, t, vv.data(), vv.size(), indexList.data(), indexList.size()))
     {
-        std::print("render geometry failed {}\n", SDL_GetError());
+        //std::print("render geometry failed {}\n", SDL_GetError());
     }
 }
 
@@ -619,7 +646,7 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
 void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
-    //SDL_SetTextureBlendMode(tex_, SDL_BLENDMODE_BLEND);
+    SDL_Rect r;
     renderTexture(tex_, nullptr, nullptr);
     //std::vector<FPoint> v;
     //int w, h;

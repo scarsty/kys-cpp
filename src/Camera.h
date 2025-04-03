@@ -4,7 +4,7 @@
 
 class Camera
 {public:
-    Pointf pos;
+    Pointf pos, center;
 
-    std::vector<Pointf> getProj(Pointf center, const std::vector<Pointf>& v);
+    std::vector<Pointf> getProj(const std::vector<Pointf>& v);
 };

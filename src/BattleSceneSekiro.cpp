@@ -56,6 +56,7 @@ void BattleSceneSekiro::draw()
     //一整块地面
     if (earth_texture_)
     {
+        std::vector<FPoint> vf;
         //Engine::getInstance()->setRenderTarget(earth_texture_);
         //Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
         //for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
@@ -78,8 +79,73 @@ void BattleSceneSekiro::draw()
         //    }
         //}
 
+        //地面的z轴为0
+
         Engine::getInstance()->setRenderTarget(earth_texture2_);
         Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2, BLENDMODE_NONE);
+        if (role_)
+        {
+            auto r1 = findNearestEnemy(role_->Team, role_->Pos);
+            auto towards = r1->Pos - role_->Pos;
+            towards.normTo(10000);
+            camera_.pos.x = role_->Pos.x - towards.x;
+            camera_.pos.y = role_->Pos.y - towards.y;
+
+            camera_.pos.z = 3000;
+
+            float wf, hf;
+            std::vector<Pointf> v;
+            {
+                int w, h;
+                Engine::getInstance()->getTextureSize(earth_texture_, w, h);
+                wf = w;
+                hf = h;
+
+                v.push_back({ 0, 0, 0 });
+                v.push_back({ wf, 0, 0 });
+                v.push_back({ wf, hf * 2, 0 });
+                v.push_back({ 0, hf * 2, 0 });
+                //for (auto& p : v)
+                //{
+                //    p.x -= wf / 2;
+                //    p.y -= hf / 2;
+                //}
+            }
+            //camera_.pos = {wf/2,hf/2,100};
+            auto x1 = role_->Pos.x;
+            auto y1 = role_->Pos.y / 2;
+            x1 = wf / 2;
+            y1 = hf;
+            camera_.pos = { x1 + cos(camera_angle_) * camera_distance_ * cos(camera_height_angle_), y1 + sin(camera_angle_) * camera_distance_ * cos(camera_height_angle_), camera_distance_ * sin(camera_height_angle_) };
+            camera_.center = { x1, y1, 0 };
+            auto v2 = camera_.getProj(v);
+            //std::print("{},{}\n", v2[4].x, v2[4].y);
+            //v2.pop_back();
+            //for (auto& p : v2)
+            //{
+            //    p.x += 400;
+            //    p.y += 300;
+            //}
+
+            /*v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+            v.push_back({ 1.0f * rect1.x + 0.75f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+            v.push_back({ 1.0f * (rect1.x + rect1.w), 1.0f * (rect1.y + 0.75f * rect1.h) });
+            v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });*/
+
+            //std::vector<FPoint> vf;
+            for (auto& p : v2)
+            {
+                vf.push_back({ float(p.x), float(p.y) });
+            }
+            std::vector<FPoint> vr;
+            for (auto& p : v)
+            {
+                vr.push_back({ float(p.x), float(p.y) });
+            }
+            Engine::getInstance()->setRenderAssistTexture("scene");
+            Rect* rect0 = nullptr;
+            Engine::getInstance()->renderTexture(earth_texture_, rect0, vf, vr);
+        }
 
         struct DrawInfo
         {
@@ -256,6 +322,10 @@ void BattleSceneSekiro::draw()
                 }
             }
         }
+        if (!vf.empty())
+        {
+            Engine::getInstance()->renderTexture(earth_texture2_, nullptr, vf, {});
+        }
         for (int turn = 0; turn < 2; turn++)
         {
             for (auto& d : draw_infos)
@@ -266,7 +336,34 @@ void BattleSceneSekiro::draw()
                 {
                     scaley = 0.5;
                 }
+                Engine::getInstance()->setRenderTarget(earth_texture2_);
                 TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+
+                auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
+
+                FRect rect = { d.p.x, d.p.y / 2 - d.p.z, tex->w, tex->h };
+
+                std::vector<Pointf> v;
+                v.push_back({ d.p.x, d.p.y, float(tex->h) });
+                v.push_back({ d.p.x + tex->w, d.p.y, float(tex->h) });
+                v.push_back({ d.p.x + tex->w, d.p.y, 0 });
+                v.push_back({ d.p.x, d.p.y, 0 });
+                if (role_)
+                {
+                    //camera_.pos = { role_->Pos.x + cos(camera_angle_) * 2000, role_->Pos.y + sin(camera_angle_) * 2000, 1500.0f };
+                    auto v2 = camera_.getProj(v);
+
+                    std::vector<FPoint> vf;
+                    for (auto& p : v2)
+                    {
+                        vf.push_back({ float(p.x), float(p.y) });
+                    }
+                    std::vector<FPoint> vr;
+                    Engine::getInstance()->setRenderAssistTexture("scene");
+                    Engine::getInstance()->renderTexture(tex->getTexture(), nullptr, vf, vr);
+                    //Engine::getInstance()->setRenderTarget(earth_texture2_);
+                }
+
                 if (d.breathless)
                 {
                     TextureManager::getInstance()->renderTexture("title", 205, d.p.x - 5, d.p.y / 2 - d.p.z - 36, { 255, 255, 255, 255 }, 255, 0.1, 0.1, d.rot2, 0);
@@ -316,42 +413,6 @@ void BattleSceneSekiro::draw()
             rect0.x += rect0.w / 2;
             rect0.y += rect0.h / 2;
         }
-
-        //地面的z轴为0
-
-        camera_.pos = pos_;
-
-        camera_.pos.z = 100;
-
-    float wf,hf;
-        std::vector<Pointf> v;
-        {
-            int w, h;
-            Engine::getInstance()->getTextureSize(earth_texture_, w, h);
-            wf = w;
-            hf = h;
-
-            v.push_back({ 0, 0, 0 });
-            v.push_back({ wf, 0, 0 });
-            v.push_back({ wf, hf, 0 });
-            v.push_back({ 0, hf, 0 });
-        }
-
-        auto v2 = camera_.getProj({wf/2,hf/2,0}, v);
-
-        /*v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
-        v.push_back({ 1.0f * rect1.x + 0.75f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
-        v.push_back({ 1.0f * (rect1.x + rect1.w), 1.0f * (rect1.y + 0.75f * rect1.h) });
-        v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });*/
-
-        std::vector<FPoint> vf;
-        for (auto& p : v2)
-        {
-            vf.push_back({ float(p.x), float(p.y) });
-        }
-
-        Engine::getInstance()->renderTexture(earth_texture_, nullptr, vf);
-        Engine::getInstance()->renderTexture(earth_texture2_, &rect0, &rect1, 0);
     }
 
     Engine::getInstance()->renderAssistTextureToMain("scene");
@@ -479,21 +540,37 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
                 {
                     direct.x = -1;
                     r->FaceTowards = Towards_LeftDown;
+                    camera_angle_ += 0.01;
                 }
                 if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(K_RIGHT))
                 {
                     direct.x = 1;
                     r->FaceTowards = Towards_RightUp;
+                    camera_angle_ -= 0.01;
                 }
                 if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(K_UP))
                 {
                     direct.y = -1;
                     r->FaceTowards = Towards_LeftUp;
+                    camera_height_angle_ += 0.01;
+                    camera_height_angle_ = std::min(camera_height_angle_, float(M_PI / 2));
                 }
                 if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(K_DOWN))
                 {
                     direct.y = 1;
                     r->FaceTowards = Towards_RightDown;
+                    camera_height_angle_ -= 0.01;
+                    camera_height_angle_ = std::max(camera_height_angle_, 0.0f);
+                }
+                if (engine->checkKeyPress(K_Z))
+                {
+                    camera_distance_ += 50;
+                    camera_distance_ = std::min(camera_distance_, 100000.0f);
+                }
+                if (engine->checkKeyPress(K_X))
+                {
+                    camera_distance_ -= 50;
+                    camera_distance_ = std::max(camera_distance_, 0.0f);
                 }
                 direct.normTo(speed);
                 pos += direct;
@@ -694,14 +771,13 @@ void BattleSceneSekiro::onEntrance()
     earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     earth_texture2_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
-
     if (earth_texture_)
     {
         Engine::getInstance()->setRenderTarget(earth_texture_);
-        Engine::getInstance()->fillColor({ 128, 128, 128, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-        for (int ix=0;ix<64; ix++)
+        Engine::getInstance()->fillColor({ 128, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+        for (int ix = 0; ix < 64; ix++)
         {
-            for (int iy=0;iy<64;iy++)
+            for (int iy = 0; iy < 64; iy++)
             {
                 /*int ix = man_x_ + i + (sum / 2);
                 int iy = man_y_ - i + (sum - sum / 2);*/
@@ -719,9 +795,6 @@ void BattleSceneSekiro::onEntrance()
             }
         }
     }
-
-
-
 
     Engine::getInstance()->setRenderTarget(earth_texture2_);
     Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);

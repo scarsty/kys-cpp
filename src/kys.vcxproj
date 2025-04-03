@@ -68,7 +68,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_SMALLPOT;USE_SDL_MIXER_AUDIO1;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_SMALLPOT1;USE_SDL_MIXER_AUDIO1;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
@@ -81,6 +81,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>bass.lib;bassmidi.lib;smallpot.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../local/lib/x64;$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\debug\lib\manual-link</AdditionalLibraryDirectories>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

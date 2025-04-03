@@ -43,6 +43,10 @@ protected:
     int switch_magic_ = 0;
 
     int easy_block_ = 0;
+
+    float camera_angle_ = M_PI / 2;
+    float camera_distance_ = 1000;
+    float camera_height_angle_ = M_PI / 4;
 };
 
 //暂时设计：
