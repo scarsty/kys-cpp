@@ -116,6 +116,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BattleSceneAct.cpp" />
+    <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
@@ -183,6 +184,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleSceneAct.h" />
+    <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />

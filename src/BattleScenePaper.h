@@ -5,10 +5,10 @@
 #include <deque>
 #include <unordered_map>
 
-class BattleSceneSekiro : public BattleSceneAct
+class BattleScenePaper : public BattleSceneAct
 {
 public:
-    BattleSceneSekiro();
+    BattleScenePaper();
     virtual void draw() override;
     virtual void dealEvent(EngineEvent& e) override;     //战场主循环
     virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
@@ -43,6 +43,10 @@ protected:
     int switch_magic_ = 0;
 
     int easy_block_ = 0;
+
+    float camera_angle_ = M_PI / 2;
+    float camera_distance_ = 1000;
+    float camera_height_angle_ = M_PI / 4;
 };
 
 //暂时设计：

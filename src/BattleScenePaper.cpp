@@ -1,4 +1,4 @@
-﻿#include "BattleSceneSekiro.h"
+﻿#include "BattleScenePaper.h"
 #include "Audio.h"
 #include "Event.h"
 #include "GameUtil.h"
@@ -6,7 +6,7 @@
 #include "TeamMenu.h"
 #include "Weather.h"
 
-BattleSceneSekiro::BattleSceneSekiro()
+BattleScenePaper::BattleScenePaper()
 {
     keys_ = *UIKeyConfig::getKeyConfig();
     full_window_ = 1;
@@ -41,7 +41,7 @@ BattleSceneSekiro::BattleSceneSekiro()
     easy_block_ = GameUtil::getInstance()->getInt("game", "easy_block", 0);
 }
 
-void BattleSceneSekiro::draw()
+void BattleScenePaper::draw()
 {
     //在这个模式下，使用的是直角坐标
     Engine::getInstance()->setRenderAssistTexture("scene");
@@ -56,26 +56,95 @@ void BattleSceneSekiro::draw()
     //一整块地面
     if (earth_texture_)
     {
-        Engine::getInstance()->setRenderTarget(earth_texture_);
-        Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-        for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
+        std::vector<FPoint> vf;
+        //Engine::getInstance()->setRenderTarget(earth_texture_);
+        //Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+        //for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
+        //{
+        //    for (int i = -view_width_region_; i <= view_width_region_; i++)
+        //    {
+        //        int ix = man_x_ + i + (sum / 2);
+        //        int iy = man_y_ - i + (sum - sum / 2);
+        //        auto p = pos45To90(ix, iy);
+        //        if (!isOutLine(ix, iy))
+        //        {
+        //            int num = earth_layer_.data(ix, iy) / 2;
+        //            Color color = { 255, 255, 255, 255 };
+        //            bool need_draw = true;
+        //            if (need_draw && num > 0)
+        //            {
+        //                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
+        //            }
+        //        }
+        //    }
+        //}
+
+        //地面的z轴为0
+
+        Engine::getInstance()->setRenderTarget(earth_texture2_);
+        Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2, BLENDMODE_NONE);
+        if (role_)
         {
-            for (int i = -view_width_region_; i <= view_width_region_; i++)
+            auto r1 = findNearestEnemy(role_->Team, role_->Pos);
+            auto towards = r1->Pos - role_->Pos;
+            towards.normTo(10000);
+            camera_.pos.x = role_->Pos.x - towards.x;
+            camera_.pos.y = role_->Pos.y - towards.y;
+
+            camera_.pos.z = 3000;
+
+            float wf, hf;
+            std::vector<Pointf> v;
             {
-                int ix = man_x_ + i + (sum / 2);
-                int iy = man_y_ - i + (sum - sum / 2);
-                auto p = pos45To90(ix, iy);
-                if (!isOutLine(ix, iy))
-                {
-                    int num = earth_layer_.data(ix, iy) / 2;
-                    Color color = { 255, 255, 255, 255 };
-                    bool need_draw = true;
-                    if (need_draw && num > 0)
-                    {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
-                    }
-                }
+                int w, h;
+                Engine::getInstance()->getTextureSize(earth_texture_, w, h);
+                wf = w;
+                hf = h;
+
+                v.push_back({ 0, 0, 0 });
+                v.push_back({ wf, 0, 0 });
+                v.push_back({ wf, hf * 2, 0 });
+                v.push_back({ 0, hf * 2, 0 });
+                //for (auto& p : v)
+                //{
+                //    p.x -= wf / 2;
+                //    p.y -= hf / 2;
+                //}
             }
+            //camera_.pos = {wf/2,hf/2,100};
+            auto x1 = role_->Pos.x;
+            auto y1 = role_->Pos.y / 2;
+            x1 = wf / 2;
+            y1 = hf;
+            camera_.pos = { x1 + cos(camera_angle_) * camera_distance_ * cos(camera_height_angle_), y1 + sin(camera_angle_) * camera_distance_ * cos(camera_height_angle_), camera_distance_ * sin(camera_height_angle_) };
+            camera_.center = { x1, y1, 0 };
+            auto v2 = camera_.getProj(v);
+            //std::print("{},{}\n", v2[4].x, v2[4].y);
+            //v2.pop_back();
+            //for (auto& p : v2)
+            //{
+            //    p.x += 400;
+            //    p.y += 300;
+            //}
+
+            /*v.push_back({ 1.0f * rect1.x + 0.25f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+            v.push_back({ 1.0f * rect1.x + 0.75f * rect1.w, 1.0f * rect1.y + 0.25f * rect1.h });
+            v.push_back({ 1.0f * (rect1.x + rect1.w), 1.0f * (rect1.y + 0.75f * rect1.h) });
+            v.push_back({ 1.0f * rect1.x, 1.0f * (rect1.y + 0.75f * rect1.h) });*/
+
+            //std::vector<FPoint> vf;
+            for (auto& p : v2)
+            {
+                vf.push_back({ float(p.x), float(p.y) });
+            }
+            std::vector<FPoint> vr;
+            for (auto& p : v)
+            {
+                vr.push_back({ float(p.x), float(p.y) });
+            }
+            Engine::getInstance()->setRenderAssistTexture("scene");
+            Rect* rect0 = nullptr;
+            Engine::getInstance()->renderTexture(earth_texture_, rect0, vf, vr);
         }
 
         struct DrawInfo
@@ -114,7 +183,7 @@ void BattleSceneSekiro::draw()
                         info.p.x = p.x;
                         info.p.y = p.y;
                         info.shadow = 0;
-                        draw_infos.emplace_back(std::move(info));
+                        //draw_infos.emplace_back(std::move(info));
                     }
                 }
             }
@@ -253,6 +322,10 @@ void BattleSceneSekiro::draw()
                 }
             }
         }
+        if (!vf.empty())
+        {
+            Engine::getInstance()->renderTexture(earth_texture2_, nullptr, vf, {});
+        }
         for (int turn = 0; turn < 2; turn++)
         {
             for (auto& d : draw_infos)
@@ -263,7 +336,34 @@ void BattleSceneSekiro::draw()
                 {
                     scaley = 0.5;
                 }
+                Engine::getInstance()->setRenderTarget(earth_texture2_);
                 TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+
+                auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
+
+                FRect rect = { d.p.x, d.p.y / 2 - d.p.z, tex->w, tex->h };
+
+                std::vector<Pointf> v;
+                v.push_back({ d.p.x, d.p.y, float(tex->h) });
+                v.push_back({ d.p.x + tex->w, d.p.y, float(tex->h) });
+                v.push_back({ d.p.x + tex->w, d.p.y, 0 });
+                v.push_back({ d.p.x, d.p.y, 0 });
+                if (role_)
+                {
+                    //camera_.pos = { role_->Pos.x + cos(camera_angle_) * 2000, role_->Pos.y + sin(camera_angle_) * 2000, 1500.0f };
+                    auto v2 = camera_.getProj(v);
+
+                    std::vector<FPoint> vf;
+                    for (auto& p : v2)
+                    {
+                        vf.push_back({ float(p.x), float(p.y) });
+                    }
+                    std::vector<FPoint> vr;
+                    Engine::getInstance()->setRenderAssistTexture("scene");
+                    Engine::getInstance()->renderTexture(tex->getTexture(), nullptr, vf, vr);
+                    //Engine::getInstance()->setRenderTarget(earth_texture2_);
+                }
+
                 if (d.breathless)
                 {
                     TextureManager::getInstance()->renderTexture("title", 205, d.p.x - 5, d.p.y / 2 - d.p.z - 36, { 255, 255, 255, 255 }, 255, 0.1, 0.1, d.rot2, 0);
@@ -313,7 +413,6 @@ void BattleSceneSekiro::draw()
             rect0.x += rect0.w / 2;
             rect0.y += rect0.h / 2;
         }
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 0);
     }
 
     Engine::getInstance()->renderAssistTextureToMain("scene");
@@ -350,7 +449,7 @@ void BattleSceneSekiro::draw()
     //}
 }
 
-void BattleSceneSekiro::dealEvent(EngineEvent& e)
+void BattleScenePaper::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
     auto r = role_;
@@ -441,21 +540,37 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
                 {
                     direct.x = -1;
                     r->FaceTowards = Towards_LeftDown;
+                    camera_angle_ += 0.01;
                 }
                 if (engine->checkKeyPress(keys_.Right) || engine->checkKeyPress(K_RIGHT))
                 {
                     direct.x = 1;
                     r->FaceTowards = Towards_RightUp;
+                    camera_angle_ -= 0.01;
                 }
                 if (engine->checkKeyPress(keys_.Up) || engine->checkKeyPress(K_UP))
                 {
                     direct.y = -1;
                     r->FaceTowards = Towards_LeftUp;
+                    camera_height_angle_ += 0.01;
+                    camera_height_angle_ = std::min(camera_height_angle_, float(M_PI / 2));
                 }
                 if (engine->checkKeyPress(keys_.Down) || engine->checkKeyPress(K_DOWN))
                 {
                     direct.y = 1;
                     r->FaceTowards = Towards_RightDown;
+                    camera_height_angle_ -= 0.01;
+                    camera_height_angle_ = std::max(camera_height_angle_, 0.0f);
+                }
+                if (engine->checkKeyPress(K_Z))
+                {
+                    camera_distance_ += 50;
+                    camera_distance_ = std::min(camera_distance_, 100000.0f);
+                }
+                if (engine->checkKeyPress(K_X))
+                {
+                    camera_distance_ -= 50;
+                    camera_distance_ = std::max(camera_distance_, 0.0f);
                 }
                 direct.normTo(speed);
                 pos += direct;
@@ -636,11 +751,11 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
     }
 }
 
-void BattleSceneSekiro::dealEvent2(EngineEvent& e)
+void BattleScenePaper::dealEvent2(EngineEvent& e)
 {
 }
 
-void BattleSceneSekiro::onEntrance()
+void BattleScenePaper::onEntrance()
 {
     calViewRegion();
     Audio::getInstance()->playMusic(info_->Music);
@@ -654,6 +769,35 @@ void BattleSceneSekiro::onEntrance()
     addChild(Weather::getInstance());
 
     earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    earth_texture2_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
+    if (earth_texture_)
+    {
+        Engine::getInstance()->setRenderTarget(earth_texture_);
+        Engine::getInstance()->fillColor({ 128, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+        for (int ix = 0; ix < 64; ix++)
+        {
+            for (int iy = 0; iy < 64; iy++)
+            {
+                /*int ix = man_x_ + i + (sum / 2);
+                int iy = man_y_ - i + (sum - sum / 2);*/
+                auto p = pos45To90(ix, iy);
+                if (!isOutLine(ix, iy))
+                {
+                    int num = earth_layer_.data(ix, iy) / 2;
+                    Color color = { 255, 255, 255, 255 };
+                    bool need_draw = true;
+                    if (need_draw && num > 0)
+                    {
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
+                    }
+                }
+            }
+        }
+    }
+
+    Engine::getInstance()->setRenderTarget(earth_texture2_);
+    Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //首先设置位置和阵营，其他的后面统一处理
     //敌方
@@ -794,11 +938,11 @@ void BattleSceneSekiro::onEntrance()
     //menu_->setVisible(true);
 }
 
-void BattleSceneSekiro::onExit()
+void BattleScenePaper::onExit()
 {
 }
 
-void BattleSceneSekiro::backRun1()
+void BattleScenePaper::backRun1()
 {
     if (slow_ > 0)
     {
@@ -1120,7 +1264,7 @@ void BattleSceneSekiro::backRun1()
     }
 }
 
-void BattleSceneSekiro::Action(Role* r)
+void BattleScenePaper::Action(Role* r)
 {
     if (r->HaveAction)
     {
@@ -1370,7 +1514,7 @@ void BattleSceneSekiro::Action(Role* r)
     }
 }
 
-void BattleSceneSekiro::AI(Role* r)
+void BattleScenePaper::AI(Role* r)
 {
     if ((r != role_ || r->Auto)
         && r->Dead == 0)
@@ -1585,7 +1729,7 @@ void BattleSceneSekiro::AI(Role* r)
     }
 }
 
-int BattleSceneSekiro::checkResult()
+int BattleScenePaper::checkResult()
 {
     int team0 = getTeamMateCount(0);
     int team1 = enemies_.size() + getTeamMateCount(1);
@@ -1600,7 +1744,7 @@ int BattleSceneSekiro::checkResult()
     return -1;
 }
 
-void BattleSceneSekiro::setRoleInitState(Role* r)
+void BattleScenePaper::setRoleInitState(Role* r)
 {
     BattleScene::setRoleInitState(r);
     if (r->Team == 0)
@@ -1640,7 +1784,7 @@ void BattleSceneSekiro::setRoleInitState(Role* r)
     r->Posture = 25;
 }
 
-void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
+void BattleScenePaper::renderExtraRoleInfo(Role* r, double x, double y)
 {
     if (r == nullptr || r->Dead)
     {
@@ -1680,7 +1824,7 @@ void BattleSceneSekiro::renderExtraRoleInfo(Role* r, double x, double y)
     Engine::getInstance()->renderSquareTexture(&r2, background_color, 192 * alpha);
 }
 
-Role* BattleSceneSekiro::findNearestEnemy(int team, Pointf p)
+Role* BattleScenePaper::findNearestEnemy(int team, Pointf p)
 {
     double dis = 4096;
     Role* r0 = nullptr;
@@ -1699,7 +1843,7 @@ Role* BattleSceneSekiro::findNearestEnemy(int team, Pointf p)
     return r0;
 }
 
-Role* BattleSceneSekiro::findFarthestEnemy(int team, Pointf p)
+Role* BattleScenePaper::findFarthestEnemy(int team, Pointf p)
 {
     double dis = 0;
     Role* r0 = nullptr;
@@ -1719,7 +1863,7 @@ Role* BattleSceneSekiro::findFarthestEnemy(int team, Pointf p)
 }
 
 //前摇
-int BattleSceneSekiro::calCast(int act_type, int operation_type, Role* r)
+int BattleScenePaper::calCast(int act_type, int operation_type, Role* r)
 {
     int v[4] = { 10, 20, 15, 2 };
     if (operation_type >= 0 && operation_type <= 3)
@@ -1731,7 +1875,7 @@ int BattleSceneSekiro::calCast(int act_type, int operation_type, Role* r)
 
 //冷却减去前摇就是后摇
 //需注意攻击判定可能仍然存在，严格来说攻击判定存在的时间加上前摇应小于冷却
-int BattleSceneSekiro::calCoolDown(int act_type, int operation_type, Role* r)
+int BattleScenePaper::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
     int v[] = { 100 - i / 2, 160 - i, 70 - i / 2, 5, 0 };
@@ -1752,7 +1896,7 @@ int BattleSceneSekiro::calCoolDown(int act_type, int operation_type, Role* r)
     }
 }
 
-void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
+void BattleScenePaper::defaultMagicEffect(AttackEffect& ae, Role* r)
 {
     if (ae.NoHurt)
     {
@@ -1946,7 +2090,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
     //LOG("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
 
-int BattleSceneSekiro::calRolePic(Role* r, int style, int frame)
+int BattleScenePaper::calRolePic(Role* r, int style, int frame)
 {
     if (style < 0 || style >= 5)
     {

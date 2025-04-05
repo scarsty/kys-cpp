@@ -194,6 +194,9 @@
     <ClCompile Include="Camera.cpp">
       <Filter>camera</Filter>
     </ClCompile>
+    <ClCompile Include="BattleScenePaper.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -402,6 +405,9 @@
     </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>camera</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleScenePaper.h">
+      <Filter>battle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
