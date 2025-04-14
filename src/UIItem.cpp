@@ -20,7 +20,7 @@ UIItem::UIItem()
         //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
     }
     title_ = std::make_shared<MenuText>();
-    title_->setStrings({ "劇情", "兵甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
+    title_->setStrings({ "劇情", "兵器", "護甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
     title_->setFontSize(24);
     title_->arrange(0, 50, 64, 0);
     title_->setDealEvent(0);
@@ -40,13 +40,16 @@ UIItem::~UIItem()
 {
 }
 
-void UIItem::setForceItemType(int f)
+void UIItem::setForceItemType(std::set<int> f)
 {
     force_item_type_ = f;
-    if (f >= 0)
+    if (!f.empty())
     {
         title_->setAllChildVisible(false);
-        title_->getChild(f)->setVisible(true);
+        for (auto& i : f)
+        {
+            title_->getChild(i)->setVisible(true);
+        }        
     }
     else
     {
@@ -55,7 +58,7 @@ void UIItem::setForceItemType(int f)
 }
 
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
-//详细分类："0劇情", "1兵甲", "2丹藥", "3暗器", "4拳經", "5劍譜", "6刀錄", "7奇門", "8心法"
+//详细分类："0劇情", "1兵器", "2護甲", "3丹藥", "4暗器", "5拳經", "6劍譜", "7刀錄", "8奇門", "9心法"
 int UIItem::getItemDetailType(Item* item)
 {
     if (item == nullptr)
@@ -68,28 +71,32 @@ int UIItem::getItemDetailType(Item* item)
     }
     else if (item->ItemType == 1)
     {
-        return 1;
+        if (item->EquipType == 0)
+        {
+            return 1;
+        }
+        return 2;
     }
     else if (item->ItemType == 3)
     {
-        return 2;
+        return 3;
     }
     else if (item->ItemType == 4)
     {
-        return 3;
+        return 4;
     }
     else if (item->ItemType == 2)
     {
         auto m = Save::getInstance()->getMagic(item->MagicID);
         if (m)
         {
-            //吸取内力类归为8
+            //吸取内力类归为9
             if (m->HurtType == 0)
             {
-                return m->MagicType + 3;
+                return m->MagicType + 4;
             }
         }
-        return 8;
+        return 9;
     }
     //未知的种类当成剧情
     return 0;
@@ -103,7 +110,10 @@ void UIItem::geItemsByType(int item_type)
         auto item = Save::getInstance()->getItemByBagIndex(i);
         if (getItemDetailType(item) == item_type)
         {
-            available_items_.push_back(item);
+            if (role_ == nullptr || role_ && role_->canUseItem(item))
+            {
+                available_items_.push_back(item);
+            }
         }
     }
 }
@@ -111,10 +121,10 @@ void UIItem::geItemsByType(int item_type)
 void UIItem::checkCurrentItem()
 {
     //强制停留在某类物品
-    if (force_item_type_ >= 0)
+    if (force_item_type_.size()==1)
     {
         //title_.setResult(force_item_type_);
-        title_->forceActiveChild(force_item_type_);
+        title_->forceActiveChild(*force_item_type_.begin());
     }
     int active = title_->getActiveChildIndex();
     title_->getChild(active)->setState(NodePass);
@@ -613,7 +623,11 @@ void UIItem::onPressedOK()
     {
         result_ = current_item_->ID;
     }
-
+    //如果已经指定了使用者，则不再询问
+    if (role_)
+    {
+        select_user_ = false;
+    }
     if (select_user_)
     {
         if (current_item_->ItemType == 3)

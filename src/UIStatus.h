@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Button.h"
 #include "Menu.h"
 #include "Types.h"
@@ -11,6 +11,7 @@ public:
 
 protected:
     std::shared_ptr<Button> button_medicine_, button_detoxification_, button_leave_;
+    std::shared_ptr<Button> button_equip0_, button_equip1_, button_learning_book_;
     std::shared_ptr<Menu> menu_;    //, menu_equip_magic_, menu_equip_item_;
     std::vector<std::shared_ptr<Button>> equip_magics_;
     std::shared_ptr<Button> equip_item_;

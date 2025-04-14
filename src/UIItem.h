@@ -1,7 +1,8 @@
-#pragma once
+﻿#pragma once
 #include "Button.h"
 #include "Menu.h"
 #include "Types.h"
+#include <set>
 
 class UIItem : public Menu
 {
@@ -21,7 +22,7 @@ public:
 
     std::shared_ptr<MenuText> title_;
 
-    int force_item_type_ = -1;
+    std::set<int> force_item_type_{};
 
     bool select_user_ = true;
 
@@ -29,7 +30,7 @@ public:
 
     std::shared_ptr<MenuText> getTitle() { return title_; }
 
-    void setForceItemType(int f);
+    void setForceItemType(std::set<int> f);
 
     void setSelectUser(bool s) { select_user_ = s; }
 
@@ -55,4 +56,7 @@ public:
 
     virtual void onPressedOK() override;
     virtual void onPressedCancel() override;
+
+    Role* role_ = nullptr;
+    void setRole(Role* r) { role_ = r; }    //只处理适合的物品
 };

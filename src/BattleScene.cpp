@@ -1296,7 +1296,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
     // 网络交流，不管物品
     auto item_menu = std::make_shared<BattleItemMenu>();
     item_menu->setRole(r);
-    item_menu->setForceItemType(3);
+    item_menu->setForceItemType({4});
     item_menu->runAtPosition(300, 0);
     auto item = item_menu->getCurrentItem();
     if (item)
@@ -1339,7 +1339,7 @@ void BattleScene::actUseDrug(Role* r)
 {
     // 网络交流，不管物品
     auto item_menu = std::make_shared<BattleItemMenu>();
-    item_menu->setForceItemType(2);
+    item_menu->setForceItemType({3});
     item_menu->setRole(r);
     item_menu->runAtPosition(300, 0);
     auto item = item_menu->getCurrentItem();

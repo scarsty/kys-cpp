@@ -597,7 +597,7 @@ std::vector<Item*> BattleItemMenu::getAvaliableItems()
     //选出物品列表
     if (role_->Team == 0)
     {
-        geItemsByType(force_item_type_);
+        geItemsByType(*force_item_type_.begin());
     }
     else
     {
@@ -605,7 +605,7 @@ std::vector<Item*> BattleItemMenu::getAvaliableItems()
         for (int i = 0; i < ROLE_TAKING_ITEM_COUNT; i++)
         {
             auto item = Save::getInstance()->getItem(role_->TakingItem[i]);
-            if (getItemDetailType(item) == force_item_type_)
+            if (getItemDetailType(item) == *force_item_type_.begin())
             {
                 available_items_.push_back(item);
             }
@@ -618,6 +618,6 @@ std::vector<Item*> BattleItemMenu::getAvaliableItems(Role* role, int type)
 {
     BattleItemMenu item_menu;
     item_menu.setRole(role);
-    item_menu.setForceItemType(type);
+    item_menu.setForceItemType({type});
     return item_menu.getAvaliableItems();
 }

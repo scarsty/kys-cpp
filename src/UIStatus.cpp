@@ -42,6 +42,15 @@ UIStatus::UIStatus()
     equip_item_->setText("__________");
     menu_->addChild(equip_item_, 420, 620);
 
+
+    //unfinished
+    button_equip0_ = std::make_shared<Button>();
+    menu_->addChild(button_equip0_);
+    button_equip1_ = std::make_shared<Button>();
+    menu_->addChild(button_equip1_);
+    button_learning_book_ = std::make_shared<Button>();
+    menu_->addChild(button_learning_book_);
+
     addChild(menu_);
     //addChild(menu_equip_magic_);
     //addChild(menu_equip_item_);
@@ -240,7 +249,9 @@ void UIStatus::draw()
     auto book = Save::getInstance()->getItem(role_->PracticeItem);
     if (book)
     {
-        TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
+        //TextureManager::getInstance()->renderTexture("item", book->ID, x, y + 30);
+        button_learning_book_->setTexture("item", book->ID);
+        button_learning_book_->setPosition(x, y + 30);
         font->draw(std::format("{}", book->Name), font_size, x + 90, y + 30, color_name);
         font->draw(std::format("經驗{:5}", role_->ExpForItem), 18, x + 90, y + 55, color_ability1);
         std::string str = "升級 ----";
@@ -251,14 +262,20 @@ void UIStatus::draw()
         }
         font->draw(str, 18, x + 90, y + 75, color_ability1);
     }
-
+    else
+    {
+        button_learning_book_->setTexture("title", 127);
+        button_learning_book_->setPosition(x, y + 30);
+    }
     x = x_ + 20;
     y = y_ + 445;
     font->draw("武器", 25, x - 10, y, color_name);
     auto equip = Save::getInstance()->getItem(role_->Equip0);
     if (equip)
     {
-        TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+        //TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+        button_equip0_->setTexture("item", equip->ID);
+        button_equip0_->setPosition(x, y + 30);
         font->draw(std::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
         font->draw("攻擊", 18, x + 90, y + 55, color_ability1);
         font->draw(std::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
@@ -267,6 +284,11 @@ void UIStatus::draw()
         font->draw("輕功", 18, x + 90, y + 95, color_ability1);
         font->draw(std::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
     }
+    else
+    {
+        button_equip0_->setTexture("title", 127);
+        button_equip0_->setPosition(x, y + 30);
+    }
 
     x = x_ + 220;
     y = y_ + 445;
@@ -274,7 +296,9 @@ void UIStatus::draw()
     equip = Save::getInstance()->getItem(role_->Equip1);
     if (equip)
     {
-        TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+        //TextureManager::getInstance()->renderTexture("item", equip->ID, x, y + 30);
+        button_equip1_->setTexture("item", equip->ID);
+        button_equip1_->setPosition(x, y + 30);
         font->draw(std::format("{}", equip->Name), font_size, x + 90, y + 30, color_name);
         font->draw("攻擊", 18, x + 90, y + 55, color_ability1);
         font->draw(std::format("{:+}", equip->AddAttack), 18, x + 126, y + 55, select_color2(equip->AddAttack));
@@ -282,6 +306,11 @@ void UIStatus::draw()
         font->draw(std::format("{:+}", equip->AddDefence), 18, x + 126, y + 75, select_color2(equip->AddDefence));
         font->draw("輕功", 18, x + 90, y + 95, color_ability1);
         font->draw(std::format("{:+}", equip->AddSpeed), 18, x + 126, y + 95, select_color2(equip->AddSpeed));
+    }
+    else
+    {
+        button_equip1_->setTexture("title", 127);
+        button_equip1_->setPosition(x, y + 30);
     }
     x = x_ + 20;
     y = y_ + 575;
@@ -397,6 +426,27 @@ void UIStatus::onPressedOK()
             int id = menu->getItem()->ID;
             role_->EquipItem = id;
         }
+    }
+    if (menu_->getResult() == 8)
+    {
+        auto menu = std::make_shared<UIItem>();
+        menu->setForceItemType({1});
+        menu->setRole(role_);
+        menu->run(); 
+    }
+    if (menu_->getResult() == 9)
+    {
+        auto menu = std::make_shared<UIItem>();
+        menu->setForceItemType({2});
+        menu->setRole(role_);
+        menu->run();
+    }
+    if (menu_->getResult() == 10)
+    {
+        auto menu = std::make_shared<UIItem>();
+        menu->setForceItemType({5,6,7,8,9});
+        menu->setRole(role_);
+        menu->run();
     }
 }
 
