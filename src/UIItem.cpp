@@ -55,6 +55,7 @@ void UIItem::setForceItemType(std::set<int> f)
     {
         title_->setAllChildVisible(true);
     }
+    title_->arrange(0, 50, 64, 0);
 }
 
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器

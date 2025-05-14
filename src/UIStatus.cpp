@@ -42,7 +42,6 @@ UIStatus::UIStatus()
     equip_item_->setText("__________");
     menu_->addChild(equip_item_, 420, 620);
 
-
     //unfinished
     button_equip0_ = std::make_shared<Button>();
     menu_->addChild(button_equip0_);
@@ -430,23 +429,44 @@ void UIStatus::onPressedOK()
     if (menu_->getResult() == 8)
     {
         auto menu = std::make_shared<UIItem>();
-        menu->setForceItemType({1});
+        menu->setForceItemType({ 1 });
         menu->setRole(role_);
-        menu->run(); 
+        setVisible(false);
+        menu->runAtPosition(300, 0);
+        setVisible(true);
+        if (menu->getCurrentItem())
+        {
+            int id = menu->getCurrentItem()->ID;
+            role_->Equip0 = id;
+        }
     }
     if (menu_->getResult() == 9)
     {
         auto menu = std::make_shared<UIItem>();
-        menu->setForceItemType({2});
+        menu->setForceItemType({ 2 });
         menu->setRole(role_);
-        menu->run();
+        setVisible(false);
+        menu->runAtPosition(300, 0);
+        setVisible(true);
+        if (menu->getCurrentItem())
+        {
+            int id = menu->getCurrentItem()->ID;
+            role_->Equip1 = id;
+        }
     }
     if (menu_->getResult() == 10)
     {
         auto menu = std::make_shared<UIItem>();
-        menu->setForceItemType({5,6,7,8,9});
+        menu->setForceItemType({ 5, 6, 7, 8, 9 });
         menu->setRole(role_);
-        menu->run();
+        setVisible(false);
+        menu->runAtPosition(300,0);
+        setVisible(true);
+        if (menu->getCurrentItem())
+        {
+            int id = menu->getCurrentItem()->ID;
+            role_->PracticeItem = id;
+        }
     }
 }
 
