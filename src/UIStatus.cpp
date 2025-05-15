@@ -426,47 +426,36 @@ void UIStatus::onPressedOK()
             role_->EquipItem = id;
         }
     }
-    if (menu_->getResult() == 8)
+
+    auto uiitem_for_role = [this](const std::set<int>& f)
     {
         auto menu = std::make_shared<UIItem>();
-        menu->setForceItemType({ 1 });
         menu->setRole(role_);
+        menu->setForceItemType(f);
+        auto head = std::make_shared<Head>();
+        head->setRole(role_);
+        head->setPosition(-280, 60);
+        menu->addChild(head);
+        menu->setPosition(300, 0);
         setVisible(false);
         menu->runAtPosition(300, 0);
         setVisible(true);
         if (menu->getCurrentItem())
         {
-            int id = menu->getCurrentItem()->ID;
-            role_->Equip0 = id;
+            role_->equip(menu->getCurrentItem());
         }
+    };
+    if (menu_->getResult() == 8)
+    {
+        uiitem_for_role({ 1 });
     }
     if (menu_->getResult() == 9)
     {
-        auto menu = std::make_shared<UIItem>();
-        menu->setForceItemType({ 2 });
-        menu->setRole(role_);
-        setVisible(false);
-        menu->runAtPosition(300, 0);
-        setVisible(true);
-        if (menu->getCurrentItem())
-        {
-            int id = menu->getCurrentItem()->ID;
-            role_->Equip1 = id;
-        }
+        uiitem_for_role({ 2 });
     }
     if (menu_->getResult() == 10)
     {
-        auto menu = std::make_shared<UIItem>();
-        menu->setForceItemType({ 5, 6, 7, 8, 9 });
-        menu->setRole(role_);
-        setVisible(false);
-        menu->runAtPosition(300,0);
-        setVisible(true);
-        if (menu->getCurrentItem())
-        {
-            int id = menu->getCurrentItem()->ID;
-            role_->PracticeItem = id;
-        }
+        uiitem_for_role({ 5, 6, 7, 8, 9 });
     }
 }
 

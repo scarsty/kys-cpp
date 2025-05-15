@@ -69,8 +69,8 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     {
         Prop props;
         props.set(SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window_);
-        //renderer_ = SDL_CreateRendererWithProperties(props.id());
-        renderer_ = SDL_CreateRenderer(window_, "Direct3D12");
+        renderer_ = SDL_CreateRendererWithProperties(props.id());
+        //renderer_ = SDL_CreateRenderer(window_, "Direct3D12");
         renderer_self_ = true;
     }
 

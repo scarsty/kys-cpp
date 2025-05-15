@@ -22,7 +22,7 @@ UIItem::UIItem()
     title_ = std::make_shared<MenuText>();
     title_->setStrings({ "劇情", "兵器", "護甲", "丹藥", "暗器", "拳經", "劍譜", "刀錄", "奇門", "心法" });
     title_->setFontSize(24);
-    title_->arrange(0, 50, 64, 0);
+    title_->arrange(40, 50, 64, 0);
     title_->setDealEvent(0);
     title_->setLRStyle(1);
     addChild(title_);
@@ -49,13 +49,13 @@ void UIItem::setForceItemType(std::set<int> f)
         for (auto& i : f)
         {
             title_->getChild(i)->setVisible(true);
-        }        
+        }
     }
     else
     {
         title_->setAllChildVisible(true);
     }
-    title_->arrange(0, 50, 64, 0);
+    title_->arrange(40, 50, 64, 0);
 }
 
 //原分类：0剧情，1装备，2秘笈，3药品，4暗器
@@ -122,7 +122,7 @@ void UIItem::geItemsByType(int item_type)
 void UIItem::checkCurrentItem()
 {
     //强制停留在某类物品
-    if (force_item_type_.size()==1)
+    if (force_item_type_.size() == 1)
     {
         //title_.setResult(force_item_type_);
         title_->forceActiveChild(*force_item_type_.begin());
@@ -433,7 +433,19 @@ void UIItem::showItemProperty(Item* item)
     //物品名和数量
     Font::getInstance()->draw(item->Name, 24, x_ + 10, y_ + 370, { 255, 255, 255, 255 });
     Font::getInstance()->draw(std::to_string(Save::getInstance()->getItemCountInBag(current_item_->ID)), 24, x_ + 260, y_ + 370, { 255, 255, 255, 255 });
-    int l0 = Font::getInstance()->draw(item->Introduction, 20, x_ + 20, y_ + 400, { 255, 255, 255, 255 });
+
+    //使用者
+    std::string str;
+    if (item->User >= 0)
+    {
+        auto role = Save::getInstance()->getRole(item->User);
+        if (role)
+        {
+            str = std::format("[使用者：{}]", role->Name);
+        }
+    }
+
+    int l0 = Font::getInstance()->draw(item->Introduction + str, 20, x_ + 20, y_ + 400, { 255, 255, 255, 255 });
 
     int x = 10, y = 410 + 20 * l0;
     int size = 20;
