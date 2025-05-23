@@ -74,7 +74,7 @@ Special thanks to ReSharper C++ for its support to the open source community.
 
 <img src='https://resources.jetbrains.com/storage/products/company/brand/logos/ReSharperCPP_icon.svg'>
 
-Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SanDaShan, SB250 and SB750.
+Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SanDaShan, YangYubiao SB250 and SB750.
 
 纪念金庸先生对武侠文化的贡献。
 

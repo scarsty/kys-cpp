@@ -5,7 +5,7 @@
 #pragma comment(lib, "user32.lib")
 #endif
 
-#include "opencv4/opencv2/opencv.hpp"
+//#include "opencv4/opencv2/opencv.hpp"
 
 Engine::Engine()
 {
@@ -394,111 +394,111 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
 
 void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2)
 {
-    float a11, a12, a13, a21, a22, a23, a31, a32, a33 = 1;
+    //float a11, a12, a13, a21, a22, a23, a31, a32, a33 = 1;
 
-    int w, h;
-    getTextureSize(t, w, h);
+    //int w, h;
+    //getTextureSize(t, w, h);
 
-    std::vector<cv::Point2f> v0;
+    //std::vector<cv::Point2f> v0;
 
-    if (rect0 == nullptr)
-    {
-        v0 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
-    }
-    else
-    {
-        v0 = { { 1.0f * rect0->x / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * (rect0->y + rect0->h) / h }, { 1.0f * rect0->x / w, 1.0f * (rect0->y + rect0->h) / h } };
-    }
-    std::vector<cv::Point2f> v1 = { { v[0].x, v[0].y }, { v[1].x, v[1].y }, { v[2].x, v[2].y }, { v[3].x, v[3].y } };
+    //if (rect0 == nullptr)
+    //{
+    //    v0 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
+    //}
+    //else
+    //{
+    //    v0 = { { 1.0f * rect0->x / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * (rect0->y + rect0->h) / h }, { 1.0f * rect0->x / w, 1.0f * (rect0->y + rect0->h) / h } };
+    //}
+    //std::vector<cv::Point2f> v1 = { { v[0].x, v[0].y }, { v[1].x, v[1].y }, { v[2].x, v[2].y }, { v[3].x, v[3].y } };
 
-    if (v.size() != 4)
-    {
-        return;
-    }
+    //if (v.size() != 4)
+    //{
+    //    return;
+    //}
 
-    cv::Mat m = cv::getPerspectiveTransform(v0, v1);
+    //cv::Mat m = cv::getPerspectiveTransform(v0, v1);
 
-    a11 = m.at<double>(0, 0);
-    a12 = m.at<double>(0, 1);
-    a13 = m.at<double>(0, 2);
-    a21 = m.at<double>(1, 0);
-    a22 = m.at<double>(1, 1);
-    a23 = m.at<double>(1, 2);
-    a31 = m.at<double>(2, 0);
-    a32 = m.at<double>(2, 1);
-    a33 = m.at<double>(2, 2);
+    //a11 = m.at<double>(0, 0);
+    //a12 = m.at<double>(0, 1);
+    //a13 = m.at<double>(0, 2);
+    //a21 = m.at<double>(1, 0);
+    //a22 = m.at<double>(1, 1);
+    //a23 = m.at<double>(1, 2);
+    //a31 = m.at<double>(2, 0);
+    //a32 = m.at<double>(2, 1);
+    //a33 = m.at<double>(2, 2);
 
-    float step_i = 1.0f / 100;
-    float step_j = 1.0f / 100;
-    float i0 = 0, j0 = 0, i1 = 1, j1 = 1;
+    //float step_i = 1.0f / 100;
+    //float step_j = 1.0f / 100;
+    //float i0 = 0, j0 = 0, i1 = 1, j1 = 1;
 
-    for (auto p : v2)
-    {
-        auto x = p.x / w;
-        auto y = p.y / h;
-        auto x1 = a11 * x + a12 * y + a13;
-        auto y1 = a21 * x + a22 * y + a23;
-        auto zoom = a31 * x + a32 * y + a33;
-        x1 /= zoom;
-        y1 /= zoom;
-        //std::print("{}, {} {}, {}\n", p.x,p.y,x1, y1);
-    }
-    //std::print("\n");
-    if (rect0)
-    {
-        step_i = 1.0f * rect0->w / 10 / w;
-        step_j = 1.0f * rect0->h / 10 / h;
-        i0 = 1.0f * rect0->x / w;
-        j0 = 1.0f * rect0->y / h;
-        i1 = 1.0f * (rect0->x + rect0->w) / w;
-        j1 = 1.0f * (rect0->y + rect0->h) / h;
-    }
+    //for (auto p : v2)
+    //{
+    //    auto x = p.x / w;
+    //    auto y = p.y / h;
+    //    auto x1 = a11 * x + a12 * y + a13;
+    //    auto y1 = a21 * x + a22 * y + a23;
+    //    auto zoom = a31 * x + a32 * y + a33;
+    //    x1 /= zoom;
+    //    y1 /= zoom;
+    //    //std::print("{}, {} {}, {}\n", p.x,p.y,x1, y1);
+    //}
+    ////std::print("\n");
+    //if (rect0)
+    //{
+    //    step_i = 1.0f * rect0->w / 10 / w;
+    //    step_j = 1.0f * rect0->h / 10 / h;
+    //    i0 = 1.0f * rect0->x / w;
+    //    j0 = 1.0f * rect0->y / h;
+    //    i1 = 1.0f * (rect0->x + rect0->w) / w;
+    //    j1 = 1.0f * (rect0->y + rect0->h) / h;
+    //}
 
-    std::vector<SDL_Vertex> vv;
-    std::vector<int> indexList;
-    int index = 0;
-    auto get_vertex = [&](float x, float y) -> SDL_Vertex
-    {
-        SDL_Vertex v;
-        v.color = { 1, 1, 1, 1 };
-        v.tex_coord = { x, y };
-        v.position = { a11 * x + a12 * y + a13, a21 * x + a22 * y + a23 };
-        auto zoom = a31 * x + a32 * y + a33;
-        v.position.x /= zoom;
-        v.position.y /= zoom;
-        return v;
-    };
+    //std::vector<SDL_Vertex> vv;
+    //std::vector<int> indexList;
+    //int index = 0;
+    //auto get_vertex = [&](float x, float y) -> SDL_Vertex
+    //{
+    //    SDL_Vertex v;
+    //    v.color = { 1, 1, 1, 1 };
+    //    v.tex_coord = { x, y };
+    //    v.position = { a11 * x + a12 * y + a13, a21 * x + a22 * y + a23 };
+    //    auto zoom = a31 * x + a32 * y + a33;
+    //    v.position.x /= zoom;
+    //    v.position.y /= zoom;
+    //    return v;
+    //};
 
-    for (float i = i0; i < i1; i += step_i)
-    {
-        for (float j = j0; j < j1; j += step_j)
-        {
-            auto v1 = get_vertex(i, j);
-            auto v2 = get_vertex(i + step_i, j);
-            auto v3 = get_vertex(i + step_i, j + step_j);
-            auto v4 = get_vertex(i, j + step_j);
-            float w = 800, h = 600;
-            if (v1.position.x <= 0 || v1.position.x >= w || v1.position.y <= 0 || v1.position.y >= h || v2.position.x <= 0 || v2.position.x >= w || v2.position.y <= 0 || v2.position.y >= h || v3.position.x <= 0 || v3.position.x >= w || v3.position.y <= 0 || v3.position.y >= h || v4.position.x <= 0 || v4.position.x >= w || v4.position.y <= 0 || v4.position.y >= h)
-            {
-                continue;
-            }
-            vv.push_back(get_vertex(i, j));
-            vv.push_back(get_vertex(i + step_i, j));
-            vv.push_back(get_vertex(i + step_i, j + step_j));
-            vv.push_back(get_vertex(i, j + step_j));
-            indexList.push_back(index);
-            indexList.push_back(index + 1);
-            indexList.push_back(index + 2);
-            indexList.push_back(index + 2);
-            indexList.push_back(index);
-            indexList.push_back(index + 3);
-            index += 4;
-        }
-    }
-    if (!SDL_RenderGeometry(renderer_, t, vv.data(), vv.size(), indexList.data(), indexList.size()))
-    {
-        //std::print("render geometry failed {}\n", SDL_GetError());
-    }
+    //for (float i = i0; i < i1; i += step_i)
+    //{
+    //    for (float j = j0; j < j1; j += step_j)
+    //    {
+    //        auto v1 = get_vertex(i, j);
+    //        auto v2 = get_vertex(i + step_i, j);
+    //        auto v3 = get_vertex(i + step_i, j + step_j);
+    //        auto v4 = get_vertex(i, j + step_j);
+    //        float w = 800, h = 600;
+    //        if (v1.position.x <= 0 || v1.position.x >= w || v1.position.y <= 0 || v1.position.y >= h || v2.position.x <= 0 || v2.position.x >= w || v2.position.y <= 0 || v2.position.y >= h || v3.position.x <= 0 || v3.position.x >= w || v3.position.y <= 0 || v3.position.y >= h || v4.position.x <= 0 || v4.position.x >= w || v4.position.y <= 0 || v4.position.y >= h)
+    //        {
+    //            continue;
+    //        }
+    //        vv.push_back(get_vertex(i, j));
+    //        vv.push_back(get_vertex(i + step_i, j));
+    //        vv.push_back(get_vertex(i + step_i, j + step_j));
+    //        vv.push_back(get_vertex(i, j + step_j));
+    //        indexList.push_back(index);
+    //        indexList.push_back(index + 1);
+    //        indexList.push_back(index + 2);
+    //        indexList.push_back(index + 2);
+    //        indexList.push_back(index);
+    //        indexList.push_back(index + 3);
+    //        index += 4;
+    //    }
+    //}
+    //if (!SDL_RenderGeometry(renderer_, t, vv.data(), vv.size(), indexList.data(), indexList.size()))
+    //{
+    //    //std::print("render geometry failed {}\n", SDL_GetError());
+    //}
 }
 
 void Engine::destroy() const

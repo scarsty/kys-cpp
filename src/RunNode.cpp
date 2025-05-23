@@ -8,7 +8,7 @@
 std::vector<std::shared_ptr<RunNode>> RunNode::root_;
 double RunNode::global_prev_present_ticks_ = 0;
 double RunNode::refresh_interval_ = 16.666666;
-int RunNode::render_message_ = 0;
+int RunNode::render_message_ = 1;
 int RunNode::use_virtual_stick_ = 0;
 
 static std::shared_ptr<VirtualStick>& virtual_stick()

@@ -72,7 +72,8 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
             auto s = std::string((char*)(&c));
             //auto ws = PotConv::ToWide(s, "utf-8");
             //buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, ws[0], size, { 255, 255, 255, 255 });
-            buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, s, size, { 255, 255, 255, 255 });
+            auto fontname = (c < 128) ? fontnamee_ : fontnamec_;
+            buffer_[c][size] = Engine::getInstance()->createTextTexture(fontname, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
         char_count++;
