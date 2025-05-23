@@ -70,41 +70,45 @@ void SubScene::draw()
         Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
         //在rect0的坐标越界时似乎不太正常，懒得弄了
     }
-#ifndef _DEBUG
-    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
+    else
     {
-        for (int i = -view_width_region_; i <= view_width_region_; i++)
+        //#ifndef _DEBUG
+        for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
         {
-            int ix = view_x_ + i + (sum / 2);
-            int iy = view_y_ - i + (sum - sum / 2);
-            auto p = getPositionOnRender(ix, iy, view_x_, view_y_);
-            p.x += x_;
-            p.y += y_;
-            if (!isOutLine(ix, iy))
+            for (int i = -view_width_region_; i <= view_width_region_; i++)
             {
-                int h = submap_info_->BuildingHeight(ix, iy);
-                int num = submap_info_->Earth(ix, iy) / 2;
-                //无高度地面
-                if (num > 0 && h == 0)
+                int ix = view_x_ + i + (sum / 2);
+                int iy = view_y_ - i + (sum - sum / 2);
+                auto p = getPositionOnRender(ix, iy, view_x_, view_y_);
+                p.x += x_;
+                p.y += y_;
+                if (!isOutLine(ix, iy))
                 {
-                    if (earth_texture_ == nullptr)
+                    int h = submap_info_->BuildingHeight(ix, iy);
+                    int num = submap_info_->Earth(ix, iy) / 2;
+                    //低高度地面
+                    if (num > 0 && h <= 2)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                    }
-                    else
-                    {
-                        auto tex = TextureManager::getInstance()->getTexture("smap", num);
-                        //用大图画时的闪烁地面
-                        if (tex->count > 1)
+                        if (earth_texture_ == nullptr)
                         {
-                            TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
+                            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                        }
+                        else
+                        {
+                            auto tex = TextureManager::getInstance()->getTexture("smap", num);
+                            //用大图画时的闪烁地面
+                            if (tex->count > 1)
+                            {
+                                TextureManager::getInstance()->renderTexture(tex, p.x, p.y);
+                            }
                         }
                     }
                 }
             }
         }
+        //#endif
     }
-#endif
+
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 20; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -119,12 +123,10 @@ void SubScene::draw()
                 //有高度地面
                 int h = submap_info_->BuildingHeight(ix, iy);
                 int num = submap_info_->Earth(ix, iy) / 2;
-#ifndef _DEBUG
-                if (num > 0 && h > 0)
+                if (num > 0 && h > 2)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
-#endif
                 //鼠标位置
                 if (ix == cursor_x_ && iy == cursor_y_)
                 {
@@ -404,7 +406,7 @@ void SubScene::onEntrance()
             int h = submap_info_->BuildingHeight(i1, i2);
             int num = submap_info_->Earth(i1, i2) / 2;
             //无高度地面
-            if (num > 0 && h == 0)
+            if (num > 0 && h <= 2)
             {
                 TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
             }

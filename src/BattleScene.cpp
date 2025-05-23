@@ -85,7 +85,7 @@ void BattleScene::draw()
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
         Rect rect0 = { p.x - render_center_x_ - x_, p.y - render_center_y_ - y_, w, h }, rect1 = { 0, 0, w, h };
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 1);
+        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
     }
 
 #ifndef _DEBUG
@@ -102,13 +102,13 @@ void BattleScene::draw()
             {
                 int num = earth_layer_.data(ix, iy) / 2;
                 Color color = { 255, 255, 255, 255 };
-                bool need_draw = true;
+                bool need_draw = earth_texture_ == nullptr;
                 if (need_change_earth_color_)
                 {
                     if (select_layer_.data(ix, iy) < 0)
                     {
                         color = { 64, 64, 64, 255 };
-                        need_draw = earth_texture_ == nullptr;
+                        need_draw = true;
                     }
                     else
                     {
@@ -337,23 +337,7 @@ void BattleScene::onEntrance()
     //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
     addChild(Weather::getInstance());
 
-    //earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    //Engine::getInstance()->setRenderTarget(earth_texture_);
-    ////二者之差是屏幕中心与大纹理的中心的距离
-    //for (int i1 = 0; i1 < COORD_COUNT; i1++)
-    //{
-    //    for (int i2 = 0; i2 < COORD_COUNT; i2++)
-    //    {
-    //        auto p = getPositionOnWholeEarth(i1, i2);
-    //        int num = earth_layer_.data(i1, i2) / 2;
-    //        //无高度地面
-    //        if (num > 0)
-    //        {
-    //            TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-    //        }
-    //    }
-    //}
-    //Engine::getInstance()->resetRenderTarget();
+    makeEarthTexture();    //先生成地面，可以减少一些画图次数
 
     readBattleInfo();
     //初始状态
@@ -2140,4 +2124,25 @@ void BattleScene::sendAction(Role* r)
     action.MoveY = r->Network_MoveY;
     action.print();
     network_->sendMyAction(action);
+}
+
+void BattleScene::makeEarthTexture()
+{
+    earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->setRenderTarget(earth_texture_);
+    //二者之差是屏幕中心与大纹理的中心的距离
+    for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    {
+        for (int i2 = 0; i2 < COORD_COUNT; i2++)
+        {
+            auto p = getPositionOnWholeEarth(i1, i2);
+            int num = earth_layer_.data(i1, i2) / 2;
+            //无高度地面
+            if (num > 0)
+            {
+                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+            }
+        }
+    }
+    Engine::getInstance()->resetRenderTarget();
 }

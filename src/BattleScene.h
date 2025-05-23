@@ -195,4 +195,5 @@ public:
         p.y = round(((-x) / TILE_W + (y) / TILE_W) / 2);
         return p;
     }
+    void makeEarthTexture();
 };
