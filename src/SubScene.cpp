@@ -67,8 +67,17 @@ void SubScene::draw()
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
         Rect rect0 = { p.x - render_center_x_, p.y - render_center_y_, w, h }, rect1 = { 0, 0, w, h };
+        if (rect0.x < 0)
+        {
+            rect1.x = -rect0.x;
+            rect0.x = 0;
+        }
+        if (rect0.y < 0)
+        {
+            rect1.y = -rect0.y;
+            rect0.y = 0;
+        }
         Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
-        //在rect0的坐标越界时似乎不太正常，懒得弄了
     }
     else
     {

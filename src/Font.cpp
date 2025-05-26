@@ -4,8 +4,8 @@
 
 #include "GameUtil.h"
 #include "OpenCCConverter.h"
-#include "TextureManager.h"
 #include "PotConv.h"
+#include "TextureManager.h"
 
 Font::Font()
 {
@@ -79,6 +79,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         char_count++;
         int w1 = w;
         int x1 = x;
+        int y1 = y;
         //Engine::getInstance()->getTextureSize(tex, w, h);
         if (c < 128)
         {
@@ -87,14 +88,15 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
             Engine::getInstance()->getTextureSize(tex, w1, h1);
             w1 = (std::min)(w1, w);
             x1 += (w - w1) / 2;
+            y1 = y + 1;
         }
         if (c > ' ')
         {
             Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
             Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
-            Engine::getInstance()->renderTexture(tex, x1 + 1, y, -1, -1);
+            Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
             Engine::getInstance()->setColor(tex, color);
-            Engine::getInstance()->renderTexture(tex, x1, y, -1, -1);
+            Engine::getInstance()->renderTexture(tex, x1, y1, -1, -1);
         }
         x += w;
     }

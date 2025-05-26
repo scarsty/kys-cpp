@@ -53,6 +53,7 @@ public:
     //std::string path_;
     //const std::string& getPath() { return path_; }
     std::string getFileContent(const std::string& filename);
+    int getTextureCount() const { return group_.size(); }
 
 protected:
     void init(const std::string& path, int load_from_path, int load_all);

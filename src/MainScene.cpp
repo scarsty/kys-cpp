@@ -104,26 +104,29 @@ void MainScene::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, -1, -1);
 
     //新的画地面方法
-    const int earth_size = 17280;
-    auto pe = getPositionOnRender(0, 0, man_x_, man_y_);
-    int earth_x = pe.x - earth_size / 2;
-    int earth_y = pe.y - 17;
-    int view_w, view_h;
-    Engine::getInstance()->getAssistTextureSize("scene", view_w, view_h);
-    for (int i = 0; i < 8; i++)
+    if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() > 0)
     {
-        for (int j = 0; j < 8; j++)
+        const int earth_size = 17280;
+        auto pe = getPositionOnRender(0, 0, man_x_, man_y_);
+        int earth_x = pe.x - earth_size / 2;
+        int earth_y = pe.y - 17;
+        int view_w, view_h;
+        Engine::getInstance()->getAssistTextureSize("scene", view_w, view_h);
+        for (int i = 0; i < 8; i++)
         {
-            int x = i * earth_size / 8 + earth_x;
-            int y = j * earth_size / 8 / 2 + earth_y;
-            int w = earth_size / 8;
-            int h = earth_size / 8 / 2;
-
-            if (x > view_w || y > view_h || x + w < 0 || y + h < 0)
+            for (int j = 0; j < 8; j++)
             {
-                continue;
+                int x = i * earth_size / 8 + earth_x;
+                int y = j * earth_size / 8 / 2 + earth_y;
+                int w = earth_size / 8;
+                int h = earth_size / 8 / 2;
+
+                if (x > view_w || y > view_h || x + w < 0 || y + h < 0)
+                {
+                    continue;
+                }
+                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);
             }
-            TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);
         }
     }
 
@@ -141,17 +144,18 @@ void MainScene::draw()
             if (!isOutLine(ix, iy))
             {
                 //共分3层，地面，表面，建筑，主角包括在建筑中
-#ifndef _DEBUG
-                //调试模式下不画出地面，图的数量太多占用CPU很大
-                //if (earth_layer_.data(ix, iy).getTexture())
-                //{
-                //    TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
-                //}
-#endif
-                //if (surface_layer_.data(ix, iy).getTexture())
-                //{
-                //    TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
-                //}
+                if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() == 0)
+                {
+                    //调试模式下不画出地面，图的数量太多占用CPU很大--取消
+                    if (earth_layer_.data(ix, iy).getTexture())
+                    {
+                        TextureManager::getInstance()->renderTexture(earth_layer_.data(ix, iy).getTexture(), p.x, p.y);
+                    }
+                    if (surface_layer_.data(ix, iy).getTexture())
+                    {
+                        TextureManager::getInstance()->renderTexture(surface_layer_.data(ix, iy).getTexture(), p.x, p.y);
+                    }
+                }
                 if (building_layer_.data(ix, iy).getTexture())
                 {
                     //根据图片的宽度计算图的中点, 为避免出现小数, 实际是中点坐标的2倍
