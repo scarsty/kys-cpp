@@ -317,6 +317,7 @@ Point Scene::getPositionOnWholeEarth(int x, int y)
 {
     auto p = getPositionOnRender(x, y, 0, 0);
     p.x += COORD_COUNT * TILE_W - render_center_x_;
-    p.y += 2 * TILE_H - render_center_y_;
+    p.y += 2 * TILE_H - render_center_y_;    //这里多加了2个TILE_H，使坐标0也画完整
+    //p.y -= render_center_y_;
     return p;
 }

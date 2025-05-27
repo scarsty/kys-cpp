@@ -103,10 +103,30 @@ void BattleSceneHades::draw()
         auto p = getPositionOnWholeEarth(man_x_, man_y_);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
-        //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-        Rect rect0 = { p.x - render_center_x_ - x_, p.y - render_center_y_ - y_, w, h };
+        Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
         Rect rect1 = rect0;
-        rect1.y -= 18;    //即时制时画的位置稍有区别
+        //注意这种画法，地面最上面会缺一块
+        rect0.y += TILE_H * 2;
+        if (rect0.x < 0)
+        {
+            rect1.x -= rect0.x;
+            rect0.x = 0;
+        }
+        if (rect0.y < 0)
+        {
+            rect1.y -= rect0.y;
+            rect0.y = 0;
+        }
+        if (rect0.x + rect0.w > COORD_COUNT * TILE_W * 2)
+        {
+            rect1.w -= (rect0.x + rect0.w - COORD_COUNT * TILE_W * 2);
+            rect0.w = COORD_COUNT * TILE_W * 2 - rect0.x;
+        }
+        if (rect0.y + rect0.h > COORD_COUNT * TILE_H * 2)
+        {
+            rect1.h -= (rect0.y + rect0.h - COORD_COUNT * TILE_H * 2);
+            rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
+        }
         Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
     }
     else
@@ -489,7 +509,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             r->RealTowards = pos - r->Pos;
         }
 
-        if (canWalk90(pos, r))
+        //if (canWalk90(pos, r))
         {
             r->Pos = pos;
         }
@@ -647,6 +667,7 @@ void BattleSceneHades::onEntrance()
     addChild(Weather::getInstance());
 
     makeEarthTexture();
+    //注意高度稍微多了一点
     earth_texture2_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //首先设置位置和阵营，其他的后面统一处理

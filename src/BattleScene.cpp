@@ -95,10 +95,18 @@ void BattleScene::draw()
             rect1.y = -rect0.y;
             rect0.y = 0;
         }
+        if (rect0.w + rect0.x > COORD_COUNT * TILE_W * 2)
+        {
+            rect0.w = COORD_COUNT * TILE_W * 2 - rect0.x;
+            rect1.w = rect0.w;
+        }
+        if (rect0.h + rect0.y > COORD_COUNT * TILE_H * 2)
+        {
+            rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
+            rect1.h = rect0.h;
+        }
         Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
     }
-
-#ifndef _DEBUG
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -112,17 +120,18 @@ void BattleScene::draw()
             {
                 int num = earth_layer_.data(ix, iy) / 2;
                 Color color = { 255, 255, 255, 255 };
-                bool need_draw = earth_texture_ == nullptr;
+                bool need_draw = (earth_texture_ == nullptr);
                 if (need_change_earth_color_)
                 {
                     if (select_layer_.data(ix, iy) < 0)
                     {
                         color = { 64, 64, 64, 255 };
-                        need_draw = true;
+                        need_draw = (earth_texture_ == nullptr);
                     }
                     else
                     {
                         color = { 128, 128, 128, 255 };
+                        need_draw = true;
                     }
                     if (battle_cursor_->getMode() == BattleCursor::Action)
                     {
@@ -150,7 +159,6 @@ void BattleScene::draw()
             }
         }
     }
-#endif
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -1290,7 +1298,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
     // 网络交流，不管物品
     auto item_menu = std::make_shared<BattleItemMenu>();
     item_menu->setRole(r);
-    item_menu->setForceItemType({4});
+    item_menu->setForceItemType({ 4 });
     item_menu->runAtPosition(300, 0);
     auto item = item_menu->getCurrentItem();
     if (item)
@@ -1333,7 +1341,7 @@ void BattleScene::actUseDrug(Role* r)
 {
     // 网络交流，不管物品
     auto item_menu = std::make_shared<BattleItemMenu>();
-    item_menu->setForceItemType({3});
+    item_menu->setForceItemType({ 3 });
     item_menu->setRole(r);
     item_menu->runAtPosition(300, 0);
     auto item = item_menu->getCurrentItem();
