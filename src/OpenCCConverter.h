@@ -1,8 +1,13 @@
-#pragma once
+﻿#pragma once
+#ifdef USE_OPENCC
 #ifndef __ANDROID__
 #include "opencc/opencc.h"
 #else
 #include "opencc.h"
+#endif
+#else
+#include <string>
+using opencc_t = void*;
 #endif
 
 class OpenCCConverter

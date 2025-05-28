@@ -341,7 +341,7 @@ void BattleScenePaper::draw()
 
                 auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
 
-                FRect rect = { d.p.x, d.p.y / 2 - d.p.z, tex->w, tex->h };
+                FRect rect = { d.p.x, d.p.y / 2 - d.p.z, float(tex->w), float(tex->h) };
 
                 std::vector<Pointf> v;
                 v.push_back({ d.p.x, d.p.y, float(tex->h) });

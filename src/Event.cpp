@@ -1370,10 +1370,10 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         char_ptr = (char*)&x50[e4];
         switch (e2)
         {
-        case 0: sprintf(char_ptr, "%s", save->getRole(e3)->Name); break;
-        case 1: sprintf(char_ptr, "%s", save->getItem(e3)->Name); break;
-        case 2: sprintf(char_ptr, "%s", save->getSubMapInfo(e3)->Name); break;
-        case 3: sprintf(char_ptr, "%s", save->getMagic(e3)->Name); break;
+        case 0: sprintf(char_ptr, "%s", save->getRole(e3)->Name.c_str()); break;
+        case 1: sprintf(char_ptr, "%s", save->getItem(e3)->Name.c_str()); break;
+        case 2: sprintf(char_ptr, "%s", save->getSubMapInfo(e3)->Name.c_str()); break;
+        case 3: sprintf(char_ptr, "%s", save->getMagic(e3)->Name.c_str()); break;
         }
         break;
     case 28:    //28~31为战斗指令，不要了

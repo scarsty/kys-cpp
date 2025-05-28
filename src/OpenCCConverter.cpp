@@ -4,6 +4,7 @@
 
 OpenCCConverter::OpenCCConverter()
 {
+#ifdef USE_OPENCC
     cc_s2t = opencc_open((GameUtil::PATH() + "cc/s2t.json").c_str());
     if (cc_s2t == (decltype(cc_s2t))-1)
     {
@@ -14,10 +15,12 @@ OpenCCConverter::OpenCCConverter()
     {
         cc_t2s = nullptr;
     }
+#endif
 }
 
 OpenCCConverter::~OpenCCConverter()
 {
+#ifdef USE_OPENCC
     if (cc_s2t)
     {
         opencc_close(cc_s2t);
@@ -26,6 +29,7 @@ OpenCCConverter::~OpenCCConverter()
     {
         opencc_close(cc_t2s);
     }
+#endif
 }
 
 std::string OpenCCConverter::CP936s2t(const std::string& in)
@@ -35,12 +39,15 @@ std::string OpenCCConverter::CP936s2t(const std::string& in)
 
 void OpenCCConverter::set(const std::string& setfile)
 {
+#ifdef USE_OPENCC
     //有内存泄露，不管了
     cc_s2t = opencc_open((GameUtil::PATH() + setfile).c_str());
+#endif
 }
 
 std::string OpenCCConverter::utf8(const std::string& in, opencc_t cc)
 {
+#ifdef USE_OPENCC
     if (cc == nullptr)
     {
         return in;
@@ -49,4 +56,7 @@ std::string OpenCCConverter::utf8(const std::string& in, opencc_t cc)
     str.resize(in.size());
     opencc_convert_utf8_to_buffer(cc, in.c_str(), in.size(), &str[0]);
     return str;
+#else
+    return in;
+#endif
 }
