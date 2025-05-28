@@ -5,6 +5,10 @@
 #include <print>
 #include "runtime_format.h"    //支持std::format的运行时格式化，c++26前暂时凑合用
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
 //通常来说应该全部是静态函数
 class GameUtil : public INIReaderNormal
@@ -99,5 +103,9 @@ template <typename... Args>
 void LOG(std::format_string<Args...> fmt, Args... args)
 {
     std::print(fmt, std::forward<Args>(args)...);
+#ifdef __ANDROID__
+    auto str = std::format(fmt, std::forward<Args>(args)...);
+    __android_log_print(ANDROID_LOG_INFO,"KYS", "%s", str.c_str());
+#endif
 }
 

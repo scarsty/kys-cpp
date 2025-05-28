@@ -2,6 +2,8 @@
 #include "Engine.h"
 #include "GameUtil.h"
 
+#include "SDL3/SDL_main.h"
+
 int main(int argc, char* argv[])
 {
 #ifdef _WIN32
