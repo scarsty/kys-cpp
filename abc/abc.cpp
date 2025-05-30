@@ -667,13 +667,24 @@ void check_fight_frame(std::string path, int repair = 0)
         if (filefunc::pathExist(path1))
         {
             auto files = filefunc::getFilesInPath(path1, 0);
-            int count = files.size() - 3;
+            //int count = files.size() - 3;
+            int count = 0;
+            for (auto& f : files)
+            {
+                if (f.contains(".png"))
+                {
+                    count++;
+                }
+            }
             int sum = 0;
             auto filename = path1 + "/fightframe.txt";
             auto numbers = strfunc::findNumbers<int>(filefunc::readFileToString(filename));
             for (int i = 0; i < numbers.size(); i += 2)
             {
-                sum += numbers[i + 1];
+                if (numbers[i] >= 0 && numbers[i] <= 4)
+                {
+                    sum += numbers[i + 1];
+                }
             }
             if (sum * 4 != count)
             {

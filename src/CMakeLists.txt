@@ -1,4 +1,4 @@
-project(kys)
+﻿project(kys)
 cmake_minimum_required(VERSION 2.6)
 cmake_policy(SET CMP0015 OLD)
 
@@ -14,11 +14,10 @@ file(GLOB SRC_LIST
     ../mlcc/strfunc.cpp
     ../mlcc/filefunc.cpp
     ../mlcc/PotConv.cpp
-    ../others/Hanz2Piny.cpp
-    ../others/zip.c
+    ../others/Hanz2Piny.cpp    
     )
 
-set(LINK_LIBRARIES SDL2 SDL2_ttf SDL2_image SDL2_mixer SDL2main lua5.4 opencc sqlite3 yaml-cpp zip)
+set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yaml-cpp zip)
 if (APPLE)
     set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
 endif ()

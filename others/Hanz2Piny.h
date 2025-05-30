@@ -1,4 +1,4 @@
-// last modified
+﻿// last modified
 
 #ifndef HANZ2PINY_H
 #define HANZ2PINY_H
@@ -9,7 +9,7 @@
 class Hanz2Piny
 {
 public:
-    typedef unsigned short Unicode;
+    using Unicode = uint16_t;
     enum Polyphone
     {
         all,
@@ -24,14 +24,10 @@ public:
     std::vector<std::string> toPinyinFromUnicode(const Unicode hanzi_unicode, const bool with_tone = true) const;
 
     bool isUtf8(const std::string& s) const;
-    std::vector<std::pair<bool, std::vector<std::string>>> toPinyinFromUtf8(const std::string& s,
-        const bool with_tone = true,
-        const bool replace_unknown = false,
-        const std::string& replace_unknown_with = "") const;
+    int guess_utf8_char_length(const std::string& s, const int pos) const;
+    Unicode utf8_to_unicode(const std::string& s, const int pos) const;
 
-    bool isUtf8File(const std::string& file_path) const;
-
-    bool isStartWithBom(const std::string& s) const;
+    std::vector<std::pair<bool, std::vector<std::string>>> toPinyinFromUtf8(const std::string& s, const bool with_tone = true, const bool replace_unknown = false, const std::string& replace_unknown_with = "") const;
 
 private:
     static const Unicode begin_hanzi_unicode_, end_hanzi_unicode_;
