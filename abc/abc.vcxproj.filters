@@ -19,9 +19,21 @@
     <ClCompile Include="..\src\OpenCCConverter.cpp">
       <Filter>sources</Filter>
     </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="png_offset.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TypesABC.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="abc.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="png_offset.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>

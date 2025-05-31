@@ -421,7 +421,7 @@ public:
 
     Texture* generateTexture(const std::string& name)
     {
-            return tex_map_[name];
+        return tex_map_[name];
     }
 
     //声音相关

@@ -17,8 +17,12 @@
     <ClCompile Include="..\mlcc\filefunc.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\src\GrpIdxFile.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="png_offset.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="abc.h" />
+    <ClInclude Include="png_offset.h" />
     <ClInclude Include="TypesABC.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
