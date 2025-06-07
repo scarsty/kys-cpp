@@ -140,13 +140,13 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(join);
     REGISTER_INSTRUCT(askRest);
     REGISTER_INSTRUCT(rest);
-    REGISTER_INSTRUCT(lightScence);
-    REGISTER_INSTRUCT(darkScence);
+    REGISTER_INSTRUCT(lightScene);
+    REGISTER_INSTRUCT(darkScene);
     REGISTER_INSTRUCT(dead);
     REGISTER_INSTRUCT(inTeam);
     REGISTER_INSTRUCT(setSubMapLayerData);
     REGISTER_INSTRUCT(haveItemBool);
-    REGISTER_INSTRUCT(oldSetScencePosition);
+    REGISTER_INSTRUCT(oldSetScenePosition);
     REGISTER_INSTRUCT(teamIsFull);
     REGISTER_INSTRUCT(leaveTeam);
     REGISTER_INSTRUCT(zeroAllMP);

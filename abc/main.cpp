@@ -30,7 +30,7 @@ int main()
 #endif
     std::string path = "./";
     //check_script(path +"script/oldevent");
-    //check_fight_frame(path + "resource/fight", 0);
+    check_fight_frame(path + "resource/fight", 0);
     //trans_fight_frame(path + "resource/fight");
 
     //trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");
@@ -50,7 +50,7 @@ int main()
     //combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
 
     
-    test_png_offset();
+    //test_png_offset();
 
     return 0;
 }

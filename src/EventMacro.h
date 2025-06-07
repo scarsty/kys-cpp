@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 //指令对应，仅参考，不使用
 #define instruct_0 blank
@@ -15,13 +15,13 @@
 #define instruct_10 join
 #define instruct_11 askRest
 #define instruct_12 rest
-#define instruct_13 lightScence
-#define instruct_14 darkScence
+#define instruct_13 lightScene
+#define instruct_14 darkScene
 #define instruct_15 dead
 #define instruct_16 inTeam
 #define instruct_17 setSubMapLayerData
 #define instruct_18 haveItemBool
-#define instruct_19 oldSetScencePosition
+#define instruct_19 oldSetScenePosition
 
 #define instruct_20 teamIsFull
 #define instruct_21 leaveTeam

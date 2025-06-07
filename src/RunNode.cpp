@@ -497,7 +497,7 @@ void RunNode::present()
         int w = e->getPresentWidth();
         int h = e->getPresentHeight();
         Font::getInstance()->draw(std::format("Render one frame in {:.3f} ms", t), 20, w - 300, h - 60);
-        Font::getInstance()->draw(std::format("RenderCopy time is {}", Engine::getInstance()->getRenderTimes()), 20, w - 300, h - 35);
+        Font::getInstance()->draw(std::format("Render texture time is {}", Engine::getInstance()->getRenderTimes()), 20, w - 300, h - 35);
         e->resetRenderTimes();
     }
     e->renderMainTextureToWindow();

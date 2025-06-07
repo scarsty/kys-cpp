@@ -86,13 +86,13 @@ public:
     void join(int role_id);
     bool askRest();
     void rest();
-    void lightScence();
-    void darkScence();
+    void lightScene();
+    void darkScene();
     void dead();
     bool inTeam(int role_id);
     void setSubMapLayerData(int submap_id, int layer, int x, int y, int v);
     bool haveItemBool(int item_id);
-    void oldSetScencePosition(int x, int y);
+    void oldSetScenePosition(int x, int y);
     bool teamIsFull();
     void leaveTeam(int role_id);
     void zeroAllMP();

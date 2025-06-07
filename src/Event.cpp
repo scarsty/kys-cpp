@@ -166,13 +166,13 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
                 REGISTER_INSTRUCT(10, join);
                 REGISTER_INSTRUCT(11, askRest);
                 REGISTER_INSTRUCT(12, rest);
-                REGISTER_INSTRUCT(13, lightScence);
-                REGISTER_INSTRUCT(14, darkScence);
+                REGISTER_INSTRUCT(13, lightScene);
+                REGISTER_INSTRUCT(14, darkScene);
                 REGISTER_INSTRUCT(15, dead);
                 REGISTER_INSTRUCT(16, inTeam);
                 REGISTER_INSTRUCT(17, setSubMapLayerData);
                 REGISTER_INSTRUCT(18, haveItemBool);
-                REGISTER_INSTRUCT(19, oldSetScencePosition);
+                REGISTER_INSTRUCT(19, oldSetScenePosition);
 
                 REGISTER_INSTRUCT(20, teamIsFull);
                 REGISTER_INSTRUCT(21, leaveTeam);
@@ -499,7 +499,7 @@ void Event::rest()
     }
 }
 
-void Event::lightScence()
+void Event::lightScene()
 {
     clearTalkBox();
     if (subscene_)
@@ -508,7 +508,7 @@ void Event::lightScence()
     }
 }
 
-void Event::darkScence()
+void Event::darkScene()
 {
     if (subscene_)
     {
@@ -546,7 +546,7 @@ bool Event::haveItemBool(int item_id)
     return Save::getInstance()->getItemCountInBag(item_id) > 0;
 }
 
-void Event::oldSetScencePosition(int x, int y)
+void Event::oldSetScenePosition(int x, int y)
 {
     if (subscene_)
     {
@@ -1043,14 +1043,14 @@ void Event::fightForTop()
             dead();
             return;
         }
-        darkScence();
-        lightScence();
+        darkScene();
+        lightScene();
         if (i % 3 == 2)
         {
             oldTalk(2891, 70, 4);
             rest();
-            darkScence();
-            lightScence();
+            darkScene();
+            lightScene();
         }
     }
 
