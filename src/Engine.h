@@ -506,6 +506,11 @@ public:
 
     static bool checkKeyPress(Keycode key);
 
+    static bool checkMouseButtonPress(MouseButton button)
+    {
+        return SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(button);
+    }
+
 private:
     std::vector<Gamepad*> game_controllers_;
     std::vector<int> nintendo_switch_;
