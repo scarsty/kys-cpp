@@ -4,6 +4,7 @@
 #include "NewSave.h"
 #include "PotConv.h"
 #include "filefunc.h"
+#include "strfunc.h"
 #include <array>
 #include <functional>
 
@@ -90,7 +91,7 @@ Script::~Script()
 int Script::runScript(const std::string& filename)
 {
     std::string content = filefunc::readFileToString(filename);
-    LOG("{}\n", content.c_str());
+    LOG("{}\n", content);
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
     luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
     int r = lua_pcall(lua_state_, 0, 0, 0);

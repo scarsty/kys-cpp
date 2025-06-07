@@ -128,7 +128,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
         {
             script = std::format("{}script/oldevent/oldevent_{}.lua", GameUtil::PATH(), event_id);
         }
-        LOG("Event {}: {}\n ", event_id, script);
+        LOG("Event {}: {}\n", event_id, script);
         ret = Script::getInstance()->runScript(script) == 0;
     }
     else

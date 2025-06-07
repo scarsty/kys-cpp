@@ -102,9 +102,9 @@ public:
 template <typename... Args>
 void LOG(std::format_string<Args...> fmt, Args... args)
 {
-    std::print(fmt, std::forward<Args>(args)...);
-#ifdef __ANDROID__
     auto str = std::format(fmt, std::forward<Args>(args)...);
+    fprintf(stdout, "%s", str.c_str());
+#ifdef __ANDROID__
     __android_log_print(ANDROID_LOG_INFO,"KYS", "%s", str.c_str());
 #endif
 }

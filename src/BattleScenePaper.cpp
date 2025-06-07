@@ -119,7 +119,7 @@ void BattleScenePaper::draw()
             camera_.pos = { x1 + cos(camera_angle_) * camera_distance_ * cos(camera_height_angle_), y1 + sin(camera_angle_) * camera_distance_ * cos(camera_height_angle_), camera_distance_ * sin(camera_height_angle_) };
             camera_.center = { x1, y1, 0 };
             auto v2 = camera_.getProj(v);
-            //std::print("{},{}\n", v2[4].x, v2[4].y);
+            //LOG("{},{}\n", v2[4].x, v2[4].y);
             //v2.pop_back();
             //for (auto& p : v2)
             //{
