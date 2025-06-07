@@ -16,7 +16,9 @@
 
 查看“脚本”目录下的“data”目录，将其中的talk.grp、talk.idx、kdef.grp、kdef.idx替换为你要转换的dos版文件。
 
-执行TalkMaker.exe，将对话导出为talkutf8.txt。
+sfeKdef要求的对话文件是Unicode，故使用辅助工具TalkMaker。
+
+执行TalkMaker.exe，用导出功能将对话导出为talkutf8.txt，进行一些必要的修改，例如处理掉英文双引号等。再用制作功能生成talk1的两个文件。
 
 回到“脚本”目录，执行sfeKdef.exe，将事件导出为lua脚本。
 
@@ -83,7 +85,7 @@ void trans_fight_frame(std::string path0)
 ```c++
 void combine_ka(std::string in, std::string out)
 ```
-用于将smp和wmp的index.ka合并。
+用于将smp和wmp的index.ka合并。如需合并图片，应手动合并。
 
 #### 编号人物头像
 
@@ -106,6 +108,10 @@ void check_script(std::string path)
 ```
 
 只检查3号指令的最后两个参数是否合理。因修改器默认值问题，部分MOD对此参数处理有误，但DOS版的bug会使结果正确。复刻版均修正了此问题。
+
+#### 分拆战斗效果图
+
+eft图片在导出时为一个目录，分拆后可以更方便地替换和添加。但是这一步需要pascal复刻版的effect.bin文件。如果没有，请从z.dat文件中将这个列表复制出来。
 
 
 以上功能在abc工程的main函数中均有调用范例，注意可能因为多次执行会被注释掉。

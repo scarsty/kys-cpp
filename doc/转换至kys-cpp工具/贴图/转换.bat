@@ -2,6 +2,7 @@
 .\ConsoleImz.exe -rlew sdx smp smap
 .\ConsoleImz.exe -rlew hdgrp.idx hdgrp.grp head
 .\ConsoleImz.exe -rlew wdx wmp wmap
+.\ConsoleImz.exe -rlew eft.idx eft.grp eft
 del *_1.png
 del *_2.png
 del *_3.png

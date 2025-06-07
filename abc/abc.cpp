@@ -2,6 +2,7 @@
 //一些辅助的功能
 //一些常数的设置比较不合理，建议以调试模式手动执行
 
+#include "abc.h"
 #include "GrpIdxFile.h"
 #include "OpenCCConverter.h"
 #include "PotConv.h"
@@ -39,6 +40,11 @@ struct FieldInfo
 
     FieldInfo(const std::string& n, int t, int o, size_t l, int c = -1) :
         name(n), type(t), offset(o), length(l), col(c) {}
+};
+
+struct index_ka
+{
+    int16_t x, y;    //偏移
 };
 
 std::vector<FieldInfo> db_base_, db_item_list_, db_role_, db_item_, db_submapinfo_, db_magic_, db_shop_;
@@ -524,7 +530,7 @@ void saveR0ToDB(int num)
 // index：转为数据库的存档编号
 // ranger：若设置为否，则只转换战斗帧数（生成战斗帧数失败时，再次运行可设置为否）
 // make_fightframe：若设置为是，则生成战斗帧数文本
-int expandR(std::string idx, std::string grp, int index, bool ranger = true, bool make_fightframe = false)
+int expandR(std::string idx, std::string grp, int index, bool ranger, bool make_fightframe)
 {
     if (!filefunc::fileExist(grp) || !filefunc::fileExist(idx))
     {
@@ -659,7 +665,7 @@ void combine_ka(std::string in, std::string out)
 }
 
 //验证战斗帧数的正确性
-void check_fight_frame(std::string path, int repair = 0)
+void check_fight_frame(std::string path, int repair)
 {
     for (int i = 0; i < 900; i++)
     {
@@ -793,4 +799,35 @@ void make_heads(std::string path)
     }
 }
 
+//分拆效果图
+void split_eft_file(std::string path, std::string eftlist_bin)
+{
+    std::vector<int16_t> eftlist;
+    filefunc::readFileToVector(eftlist_bin, eftlist);
+    std::vector<index_ka> indexes;
+    filefunc::readFileToVector(path + "/index.ka", indexes);
+    int i_total = 0;
+    auto files = filefunc::getFilesInPath(path, 0);
+    for (int i = 0; i < eftlist.size(); i++)
+    {
+        int i_group = 0;
+        std::string path_group = std::format("eft{:03}", i);
+        filefunc::makePath(path + "/" + path_group);
+        std::vector<index_ka> indexes_group(indexes.begin() + i_total, indexes.begin() + i_total + eftlist[i]);
+        filefunc::writeVectorToFile(indexes_group, path + "/" + path_group + "/index.ka");
+        for (int j = 0; j < eftlist[i]; j++)
+        {
+            for (auto& f : files)
+            {
+                if (f.find(std::to_string(i_total) + ".") == 0 || f.find(std::to_string(i_total) + "_") == 0)
+                {
+                    std::string f1 = strfunc::replaceOneSubString(f, std::to_string(i_total), std::to_string(i_group));
+                    filefunc::copyFile(path + "/" + f, path + "/" + path_group + "/" + f1);
+                }
+            }
 
+            i_group++;
+            i_total++;
+        }
+    }
+}

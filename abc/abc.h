@@ -11,3 +11,4 @@ void combine_ka(std::string in, std::string out);
 void check_fight_frame(std::string path, int repair = 0);
 void check_script(std::string path);
 void make_heads(std::string path);
+void split_eft_file(std::string path, std::string eftlist_bin);

@@ -30,7 +30,7 @@ int main()
 #endif
     std::string path = "./";
     //check_script(path +"script/oldevent");
-    check_fight_frame(path + "resource/fight", 0);
+    //check_fight_frame(path + "resource/fight", 0);
     //trans_fight_frame(path + "resource/fight");
 
     //trans_bin_list(path + "list/levelup.bin", path + "list/levelup.txt");
@@ -48,7 +48,7 @@ int main()
     //make_heads(R"(D:\_sty_bak\kys-all\转换至kys-cpp工具\头像)");
 
     //combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
-
+    split_eft_file(path + "resource/eft", path + "list/effect.bin");
     
     //test_png_offset();
 
