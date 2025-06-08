@@ -144,7 +144,7 @@ int BattleActionMenu::autoSelect(Role* role)
             {
                 AIAction aa;
                 aa.Action = getResultFromString(action_text);
-                auto items = BattleItemMenu::getAvaliableItems(role, 2);
+                auto items = BattleItemMenu::getAvaliableItems(role, 3);
                 for (auto item : items)
                 {
                     //分数计算，后面的差是尽量吃刚刚好的药
@@ -250,7 +250,7 @@ int BattleActionMenu::autoSelect(Role* role)
                 if (action_dis >= calNeedActionDistance(aa))
                 {
                     aa.Action = getResultFromString(action_text);
-                    auto items = BattleItemMenu::getAvaliableItems(role, 3);
+                    auto items = BattleItemMenu::getAvaliableItems(role, 4);
                     for (auto item : items)
                     {
                         aa.point = battle_scene_->calHiddenWeaponHurt(role_temp, r2, item);

@@ -29,7 +29,7 @@ int main()
     //system("chcp 65001");
 #endif
     std::string path = "./";
-    //check_script(path +"script/oldevent");
+    check_script(path +"script/event");
     //check_fight_frame(path + "resource/fight", 0);
     //trans_fight_frame(path + "resource/fight");
 
@@ -48,7 +48,7 @@ int main()
     //make_heads(R"(D:\_sty_bak\kys-all\转换至kys-cpp工具\头像)");
 
     //combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
-    split_eft_file(path + "resource/eft", path + "list/effect.bin");
+    //split_eft_file(path + "resource/eft", path + "list/effect.bin");
     
     //test_png_offset();
 

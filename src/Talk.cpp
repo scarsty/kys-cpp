@@ -1,4 +1,4 @@
-#include "Talk.h"
+﻿#include "Talk.h"
 #include "Engine.h"
 #include "Font.h"
 #include "TextureManager.h"
@@ -24,7 +24,7 @@ void Talk::draw()
         if (end_line > content_lines_.size()) { end_line = content_lines_.size(); }
         for (int i = current_line_; i < end_line; i++)
         {
-            Font::getInstance()->draw(content_lines_[i], 24, x_ + 250, y_ + 75 + 25 * (i - current_line_), { 255, 255, 255, 255 });
+            Font::getInstance()->draw(content_lines_[i], 24, x_ + 250, y_ + 75 + 34 * (i - current_line_), { 255, 255, 255, 255 });
         }
     }
 }

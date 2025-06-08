@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Engine.h"
 #include <functional>
 #include <memory>
@@ -55,6 +55,8 @@ public:
     static double getRefreshInterval() { return refresh_interval_; }
 
     static int getShowTimes() { return global_prev_present_ticks_ / refresh_interval_; }
+
+    static void setRenderMessage(int m) { render_message_ = m; }
 
     static void setUseVirtualStick(int u) { use_virtual_stick_ = u; }
 

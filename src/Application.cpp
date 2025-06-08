@@ -24,7 +24,7 @@ int Application::run()
     engine->setStartWindowSize(1280, 720);
     engine->init();
     //引擎初始化之后才能创建纹理
-    engine->createAssistTexture("scene" , 800, 450);
+    engine->createAssistTexture("scene", 800, 450);
 
     config();
 
@@ -49,6 +49,7 @@ void Application::config()
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
     Scene::setKeyWalkDealy(game->getInt("game", "walk_speed", 20));
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
+    RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
 
     Role::setMaxValue();
     Role::setLevelUpList();

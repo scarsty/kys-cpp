@@ -469,20 +469,24 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
     }
     decreaseToZero(close_up_);
     decreaseToZero(sword_light_);
-    if (r->Dead)
+    if (close_up_ == 0)
     {
-        for (auto r1 : battle_roles_)
+        if (r->Dead)
         {
-            if (r1->Team == 0 && r1->Dead == 0)
+            for (auto r1 : battle_roles_)
             {
-                pos_ = r1->Pos;
+                if (r1->Team == 0 && r1->Dead == 0)
+                {
+                    pos_ = r1->Pos;
+                }
             }
+            //engine->gameControllerRumble(65535, 65535, 1000);
         }
-        //engine->gameControllerRumble(65535, 65535, 1000);
-    }
-    else
-    {
-        pos_ = r->Pos;
+        else
+        {
+            //如果没有特写，主角位置就是当前的pos
+            pos_ = r->Pos;
+        }
     }
 
     Pointf pos = r->Pos;
@@ -734,21 +738,6 @@ void BattleScenePaper::dealEvent(EngineEvent& e)
         }
     }
     backRun1();
-    if (r->Dead)
-    {
-        for (auto r1 : battle_roles_)
-        {
-            if (r1->Team == 0 && r1->Dead == 0)
-            {
-                pos_ = r1->Pos;
-            }
-        }
-        //engine->gameControllerRumble(65535, 65535, 1000);
-    }
-    else
-    {
-        pos_ = r->Pos;
-    }
 }
 
 void BattleScenePaper::dealEvent2(EngineEvent& e)

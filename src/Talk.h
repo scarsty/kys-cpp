@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RunNode.h"
 #include <vector>
 #include <string>
@@ -19,7 +19,7 @@ private:
     int head_style_ = 0;
     int current_line_ = 0;
     const int width_ = 40;
-    const int height_ = 5;
+    const int height_ = 4;    //每页行数
     std::vector<std::string> content_lines_;
 public:
     void setContent(std::string c) { content_ = c; }

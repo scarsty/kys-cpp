@@ -632,21 +632,6 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         }
     }
     backRun1();
-    if (r->Dead)
-    {
-        for (auto r1 : battle_roles_)
-        {
-            if (r1->Team == 0 && r1->Dead == 0)
-            {
-                pos_ = r1->Pos;
-            }
-        }
-        //engine->gameControllerRumble(65535, 65535, 1000);
-    }
-    else
-    {
-        pos_ = r->Pos;
-    }
 }
 
 void BattleSceneHades::dealEvent2(EngineEvent& e)

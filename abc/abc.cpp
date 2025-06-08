@@ -719,25 +719,30 @@ void check_script(std::string path)
         for (auto& line : lines)
         {
             auto num = strfunc::findNumbers<int>(line);
-            if (num.size() >= 13 && line.find("--") != 0)
+            if (num.size() >= 13 && (line.contains("instruct_3") || line.contains("ModifyEvent")))
             {
+                if (line.contains("ModifyEvent"))
+                {
+                    num.insert(num.begin(), 3);    //适应下面的instruct_3
+                }
                 if (num[0] == 3)
                 {
                     if (num[1] > 0 && num[12] >= 0 && num[13] >= 0)
                     {
-                        std::print("{}\n", line);
-                        auto strs = strfunc::splitString(line, ",", false);
+                        std::print("{}\nOld：{}\n", f, line);
+                        auto strs = strfunc::splitString(line, ",", true);
                         strs[10] = "-2";
                         strs[11] = "-2";
                         strs[12][0] = '2';
                         strs[12] = "-" + strs[12];
-                        std::string new_str;
+                        std::string new_str = std::string(line.find_first_not_of(" "), ' ');
                         for (auto& s : strs)
                         {
-                            new_str += s + ",";
+                            new_str += s + ", ";
                         }
                         new_str.pop_back();
-                        std::print("{}\n", new_str);
+                        new_str.pop_back();
+                        std::print("New：{}\n", new_str);
                         line = "--repair" + line + "\n" + new_str;
                         repair = true;
                     }
