@@ -44,7 +44,7 @@ BattleSceneSekiro::BattleSceneSekiro()
 void BattleSceneSekiro::draw()
 {
     //在这个模式下，使用的是直角坐标
-    Engine::getInstance()->setRenderAssistTexture("scene");
+    Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
@@ -54,9 +54,10 @@ void BattleSceneSekiro::draw()
         man_y_ = p.y;
     }
     //一整块地面
-    if (earth_texture_)
+    auto whole_scene = Engine::getInstance()->getTexture("whole_scene");
+    if (whole_scene)
     {
-        Engine::getInstance()->setRenderTarget(earth_texture_);
+        Engine::getInstance()->setRenderTarget(whole_scene);
         Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
         for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
         {
@@ -277,7 +278,7 @@ void BattleSceneSekiro::draw()
         }
 
         Color c = { 255, 255, 255, 255 };
-        Engine::getInstance()->setColor(earth_texture_, c);
+        Engine::getInstance()->setColor(whole_scene, c);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
@@ -305,7 +306,7 @@ void BattleSceneSekiro::draw()
         {
             Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
         }
-        Engine::getInstance()->setRenderAssistTexture("scene");
+        Engine::getInstance()->setRenderTarget("scene");
         if (close_up_)
         {
             rect0.w /= 2;
@@ -313,10 +314,10 @@ void BattleSceneSekiro::draw()
             rect0.x += rect0.w / 2;
             rect0.y += rect0.h / 2;
         }
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1, 0);
+        Engine::getInstance()->renderTexture(whole_scene, &rect0, &rect1, 0);
     }
 
-    Engine::getInstance()->renderAssistTextureToMain("scene");
+    Engine::getInstance()->renderTextureToMain("scene");
 
     if (sword_light_)
     {
@@ -642,7 +643,8 @@ void BattleSceneSekiro::onEntrance()
     }
     addChild(Weather::getInstance());
 
-    earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //此处创建了一个大的纹理，用于渲染整个场景
+    Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //首先设置位置和阵营，其他的后面统一处理
     //敌方

@@ -87,7 +87,7 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 
 void MainScene::draw()
 {
-    Engine::getInstance()->setRenderAssistTexture("scene");
+    Engine::getInstance()->setRenderTarget("scene");
 
     struct DrawInfo
     {
@@ -214,8 +214,8 @@ void MainScene::draw()
         c.draw();
     }
     //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
-    //Engine::getInstance()->setColor(Engine::getInstance()->getRenderAssistTexture(), { 227, 207, 87, 255 });
-    Engine::getInstance()->renderAssistTextureToMain("scene");
+    //Engine::getInstance()->setColor(Engine::getInstance()->getTexture(), { 227, 207, 87, 255 });
+    Engine::getInstance()->renderTextureToMain("scene");
 }
 
 void MainScene::backRun()
@@ -431,7 +431,7 @@ void MainScene::onEntrance()
     //    forceEnterSubScene(force_submap_, force_submap_x_, force_submap_y_);
     //}
     //一大块地面的纹理
-    //earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //earth_texture = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 }
 
 void MainScene::onExit()

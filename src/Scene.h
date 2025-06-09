@@ -14,7 +14,7 @@ public:
 
     virtual void dealEvent(EngineEvent& e) override {}
 
-    //BP_Texture* earth_texture_ = nullptr;
+    //BP_Texture* earth_texture = nullptr;
 
     int render_center_x_ = 0;
     int render_center_y_ = 0;
@@ -46,14 +46,11 @@ public:
 
     int first_step_delay_ = 5;
 
-    Texture* earth_texture_ = nullptr;
-    Texture* earth_texture2_ = nullptr;
-
-    void beginDrawScene() const { Engine::getInstance()->setRenderAssistTexture("scene"); }
+    void beginDrawScene() const { Engine::getInstance()->setRenderTarget("scene"); }
 
     void endDrawScene() const
     {
-        Engine::getInstance()->renderAssistTextureToMain("scene");
+        Engine::getInstance()->renderTextureToMain("scene");
         Engine::getInstance()->setRenderMainTexture();
     }
 

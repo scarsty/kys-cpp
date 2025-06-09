@@ -53,14 +53,15 @@ void SubScene::draw()
 
     //std::map<int, DrawInfo> map;
 
-    Engine::getInstance()->setRenderAssistTexture("scene");
+    Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //Timer t0;
 
-    //以下画法存在争议
     //一整块地面
-    if (earth_texture_)
+    //如果没有创建地面，那么这个值是空，即使用之前的画法
+    auto earth_texture = Engine::getInstance()->getTexture("searth");
+    if (earth_texture)
     {
         auto p = getPositionOnWholeEarth(view_x_, view_y_);
         int w = render_center_x_ * 2;
@@ -77,7 +78,7 @@ void SubScene::draw()
             rect1.y = -rect0.y;
             rect0.y = 0;
         }
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
+        Engine::getInstance()->renderTexture(earth_texture, &rect0, &rect1);
     }
     else
     {
@@ -98,7 +99,7 @@ void SubScene::draw()
                     //低高度地面
                     if (num > 0 && h <= 2)
                     {
-                        if (earth_texture_ == nullptr)
+                        if (earth_texture == nullptr)
                         {
                             TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                         }
@@ -181,7 +182,7 @@ void SubScene::draw()
             //k++;
         }
     }
-    Engine::getInstance()->renderAssistTextureToMain("scene");
+    Engine::getInstance()->renderTextureToMain("scene");
     //LOG("%g\n", t0.getElapsedTime());
 }
 
@@ -401,21 +402,16 @@ void SubScene::onEntrance()
     addChild(Weather::getInstance());
     //fillEarth();
 
-    //一大块地面的纹理
-    earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    //一大块地面的纹理，预先拼好地面，可以减少绘制的次数
+    //暂时不使用这种方法，地面的动态效果会消失
+    //Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     reDrawEarthTexture();
-    //Engine::getInstance()->saveTexture(earth_texture_, std::format("{}.bmp", submap_id_).c_str());
+    //Engine::getInstance()->saveTexture(earth_texture, std::format("{}.bmp", submap_id_).c_str());
 }
 
 void SubScene::onExit()
 {
     Audio::getInstance()->playMusic(exit_music_);
-    //RunElement::removeFromRoot(MainScene::getInstance()->getWeather());
-
-    if (earth_texture_)
-    {
-        Engine::destroyTexture(earth_texture_);
-    }
 }
 
 void SubScene::onPressedCancel()
@@ -612,11 +608,12 @@ void SubScene::fillEarth()
 
 void SubScene::reDrawEarthTexture()
 {
-    if (earth_texture_ == nullptr)
+    auto earth_texture = Engine::getInstance()->getTexture("searth");
+    if (earth_texture == nullptr)
     {
         return;
     }
-    Engine::getInstance()->setRenderTarget(earth_texture_);
+    Engine::getInstance()->setRenderTarget(earth_texture);
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //二者之差是屏幕中心与大纹理的中心的距离

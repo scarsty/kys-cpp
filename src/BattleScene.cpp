@@ -65,21 +65,22 @@ void BattleScene::setID(int id)
 
 void BattleScene::draw()
 {
-    Engine::getInstance()->setRenderAssistTexture("scene");
+    Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //地面是否需要亮度的变化，自动人物或者选择位置部分没有运行
     bool need_change_earth_color_ = battle_cursor_->isRunning() && !acting_role_->isAuto();
 
     //一整块地面
-    if (earth_texture_)
+    auto earth_texture = Engine::getInstance()->getTexture("earth");
+    if (earth_texture)
     {
         Color c = { 255, 255, 255, 255 };
         if (need_change_earth_color_)
         {
             c = { 64, 64, 64, 255 };    //如果地面需要亮度变化，则以画最暗的为主
         }
-        Engine::getInstance()->setColor(earth_texture_, c);
+        Engine::getInstance()->setColor(earth_texture, c);
         auto p = getPositionOnWholeEarth(man_x_, man_y_);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
@@ -105,7 +106,7 @@ void BattleScene::draw()
             rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
             rect1.h = rect0.h;
         }
-        Engine::getInstance()->renderTexture(earth_texture_, &rect0, &rect1);
+        Engine::getInstance()->renderTexture(earth_texture, &rect0, &rect1);
     }
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
@@ -120,13 +121,13 @@ void BattleScene::draw()
             {
                 int num = earth_layer_.data(ix, iy) / 2;
                 Color color = { 255, 255, 255, 255 };
-                bool need_draw = (earth_texture_ == nullptr);
+                bool need_draw = (earth_texture == nullptr);
                 if (need_change_earth_color_)
                 {
                     if (select_layer_.data(ix, iy) < 0)
                     {
                         color = { 64, 64, 64, 255 };
-                        need_draw = (earth_texture_ == nullptr);
+                        need_draw = (earth_texture == nullptr);
                     }
                     else
                     {
@@ -215,7 +216,7 @@ void BattleScene::draw()
             }
         }
     }
-    Engine::getInstance()->renderAssistTextureToMain("scene");
+    Engine::getInstance()->renderTextureToMain("scene");
 
     if (semi_real_)
     {
@@ -355,7 +356,7 @@ void BattleScene::onEntrance()
     //RunElement::addOnRootTop(MainScene::getInstance()->getWeather());
     addChild(Weather::getInstance());
 
-    makeEarthTexture();    //先生成地面，可以减少一些画图次数
+    //makeEarthTexture();    //先生成地面，可以减少一些画图次数，不使用
 
     readBattleInfo();
     //初始状态
@@ -377,10 +378,6 @@ void BattleScene::onExit()
         r->setRolePositionLayer(nullptr);
     }
     //RunElement::removeFromRoot(MainScene::getInstance()->getWeather());
-    if (earth_texture_)
-    {
-        Engine::destroyTexture(earth_texture_);
-    }
 }
 
 void BattleScene::backRun()
@@ -1841,9 +1838,9 @@ void BattleScene::clearDead()
     }
 
     //退场动画，清理人物
-    for (int i = 0; i <= 25; i++)
+    while (dead_alpha_ > 0)
     {
-        dead_alpha_ = 255 - i * 10;
+        dead_alpha_ -= 25;
         if (dead_alpha_ < 0)
         {
             dead_alpha_ = 0;
@@ -2146,8 +2143,8 @@ void BattleScene::sendAction(Role* r)
 
 void BattleScene::makeEarthTexture()
 {
-    earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    Engine::getInstance()->setRenderTarget(earth_texture_);
+    Engine::getInstance()->createRenderedTexture("earth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->setRenderTarget("earth");
     //二者之差是屏幕中心与大纹理的中心的距离
     for (int i1 = 0; i1 < COORD_COUNT; i1++)
     {

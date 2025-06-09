@@ -339,10 +339,8 @@ public:
 
     void getAssistTextureSize(const std::string& name, int& w, int& h) { getTextureSize(tex_map_[name], w, h); }
 
+private:
     Texture* createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int h) const;
-
-    static void destroyTexture(Texture* t) { SDL_DestroyTexture(t); }
-
     Texture* createYUVTexture(int w, int h) const;
     static void updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
     Texture* createTexture(int w, int h);
@@ -351,6 +349,10 @@ public:
     static int lockTexture(Texture* t, Rect* r, void** pixel, int* pitch);
     static void unlockTexture(Texture* t);
 
+public:
+    static void destroyTexture(Texture* t) { SDL_DestroyTexture(t); }
+
+public:
     //void showLogo() { renderTexture(logo_, nullptr, nullptr); }
 
     void renderPresent() const;
@@ -407,22 +409,17 @@ public:
 
     void renderMainTextureToWindow();
 
-    void setRenderAssistTexture(const std::string& name) { setRenderTarget(tex_map_[name]); }
-
-    void renderAssistTextureToMain(const std::string& name);
-
     static int setTextureBlendMode(Texture* t) { return SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND); }
 
     void resetRenderTimes(int t = 0) { render_times_ = t; }
 
     int getRenderTimes() const { return render_times_; }
 
-    Texture* getRenderAssistTexture(const std::string& name) { return tex_map_[name]; }
-
-    Texture* generateTexture(const std::string& name)
-    {
-        return tex_map_[name];
-    }
+    //除了纹理管理器和字体管理器，其余的类都只能使用string来标识纹理，避免泄露
+    void createRenderedTexture(const std::string& name, int w, int h);
+    void renderTextureToMain(const std::string& name);
+    Texture* getTexture(const std::string& name) { return tex_map_[name]; }
+    void setRenderTarget(const std::string& name) { setRenderTarget(tex_map_[name]); }
 
     //声音相关
 private:
@@ -553,8 +550,9 @@ public:
 private:
     Texture* square_ = nullptr;
 
-public:
     Texture* createRectTexture(int w, int h, int style) const;
+
+public:
     Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const;
     int showMessage(const std::string& content) const;
     void renderSquareTexture(Rect* rect, Color color, uint8_t alpha);

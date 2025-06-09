@@ -659,7 +659,20 @@ void Engine::renderMainTextureToWindow()
     //renderTexture(tex_, v);
 }
 
-void Engine::renderAssistTextureToMain(const std::string& name)
+void Engine::createRenderedTexture(const std::string& name, int w, int h)
+{
+    auto tex = tex_map_[name];
+    int w0, h0;
+    getTextureSize(tex, w0, h0);
+    if (w0 == w && h0 == h)
+    {
+        return;
+    }
+    destroyTexture(tex_map_[name]);
+    tex_map_[name] = createRenderedTexture(w, h);
+}
+
+void Engine::renderTextureToMain(const std::string& name)
 {
     setRenderTarget(tex_);
     renderTexture(tex_map_[name], nullptr, nullptr);

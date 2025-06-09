@@ -6,6 +6,11 @@
 #include "TextureManager.h"
 #include "UIKeyConfig.h"
 
+//在即时战斗场景中，使用的是物理坐标，在画面上显示时y方向需要除以2
+//x和y方向的最大值都是地面的宽度，即TILE_W * 64 * 2
+//物理坐标到像素坐标的转换：x_pix = x_phy, y_pix = y_phy /2 - z_phy
+//之后再根据主角所在的位置，计算出应该将整个像素纹理的哪个部分贴到屏幕上
+
 class BattleSceneAct : public BattleScene
 {
 public:

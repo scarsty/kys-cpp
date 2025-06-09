@@ -3,7 +3,7 @@
 
 void Weather::draw()
 {
-    auto tex = Engine::getInstance()->getRenderAssistTexture("scene");
+    auto tex = Engine::getInstance()->getTexture("scene");
     uint8_t v = 255;
     if (slash_)
     {

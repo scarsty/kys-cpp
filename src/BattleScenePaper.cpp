@@ -44,7 +44,7 @@ BattleScenePaper::BattleScenePaper()
 void BattleScenePaper::draw()
 {
     //在这个模式下，使用的是直角坐标
-    Engine::getInstance()->setRenderAssistTexture("scene");
+    Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
@@ -54,10 +54,12 @@ void BattleScenePaper::draw()
         man_y_ = p.y;
     }
     //一整块地面
-    if (earth_texture_)
+    auto earth_texture = Engine::getInstance()->getTexture("earth");
+    auto earth_texture2 = Engine::getInstance()->getTexture("earth2");
+    if (earth_texture)
     {
         std::vector<FPoint> vf;
-        //Engine::getInstance()->setRenderTarget(earth_texture_);
+        //Engine::getInstance()->setRenderTarget(earth_texture);
         //Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
         //for (int sum = -view_sum_region_ - 3; sum <= view_sum_region_ + 13; sum++)
         //{
@@ -81,7 +83,7 @@ void BattleScenePaper::draw()
 
         //地面的z轴为0
 
-        Engine::getInstance()->setRenderTarget(earth_texture2_);
+        Engine::getInstance()->setRenderTarget(earth_texture2);
         Engine::getInstance()->fillColor({ 0, 0, 0, 0 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2, BLENDMODE_NONE);
         if (role_)
         {
@@ -97,7 +99,7 @@ void BattleScenePaper::draw()
             std::vector<Pointf> v;
             {
                 int w, h;
-                Engine::getInstance()->getTextureSize(earth_texture_, w, h);
+                Engine::getInstance()->getTextureSize(earth_texture, w, h);
                 wf = w;
                 hf = h;
 
@@ -142,9 +144,9 @@ void BattleScenePaper::draw()
             {
                 vr.push_back({ float(p.x), float(p.y) });
             }
-            Engine::getInstance()->setRenderAssistTexture("scene");
+            Engine::getInstance()->setRenderTarget("scene");
             Rect* rect0 = nullptr;
-            Engine::getInstance()->renderTexture(earth_texture_, rect0, vf, vr);
+            Engine::getInstance()->renderTexture(earth_texture, rect0, vf, vr);
         }
 
         struct DrawInfo
@@ -324,7 +326,7 @@ void BattleScenePaper::draw()
         }
         if (!vf.empty())
         {
-            Engine::getInstance()->renderTexture(earth_texture2_, nullptr, vf, {});
+            Engine::getInstance()->renderTexture(earth_texture2, nullptr, vf, {});
         }
         for (int turn = 0; turn < 2; turn++)
         {
@@ -336,7 +338,7 @@ void BattleScenePaper::draw()
                 {
                     scaley = 0.5;
                 }
-                Engine::getInstance()->setRenderTarget(earth_texture2_);
+                Engine::getInstance()->setRenderTarget(earth_texture2);
                 TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
 
                 auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
@@ -359,9 +361,9 @@ void BattleScenePaper::draw()
                         vf.push_back({ float(p.x), float(p.y) });
                     }
                     std::vector<FPoint> vr;
-                    Engine::getInstance()->setRenderAssistTexture("scene");
+                    Engine::getInstance()->setRenderTarget("scene");
                     Engine::getInstance()->renderTexture(tex->getTexture(), nullptr, vf, vr);
-                    //Engine::getInstance()->setRenderTarget(earth_texture2_);
+                    //Engine::getInstance()->setRenderTarget(earth_texture2);
                 }
 
                 if (d.breathless)
@@ -377,7 +379,7 @@ void BattleScenePaper::draw()
         }
 
         Color c = { 255, 255, 255, 255 };
-        Engine::getInstance()->setColor(earth_texture_, c);
+        Engine::getInstance()->setColor(earth_texture, c);
         int w = render_center_x_ * 2;
         int h = render_center_y_ * 2;
         //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
@@ -405,7 +407,7 @@ void BattleScenePaper::draw()
         {
             Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
         }
-        Engine::getInstance()->setRenderAssistTexture("scene");
+        Engine::getInstance()->setRenderTarget("scene");
         if (close_up_)
         {
             rect0.w /= 2;
@@ -415,7 +417,7 @@ void BattleScenePaper::draw()
         }
     }
 
-    Engine::getInstance()->renderAssistTextureToMain("scene");
+    Engine::getInstance()->renderTextureToMain("scene");
 
     if (sword_light_)
     {
@@ -757,12 +759,12 @@ void BattleScenePaper::onEntrance()
     }
     addChild(Weather::getInstance());
 
-    earth_texture_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    earth_texture2_ = Engine::getInstance()->createRenderedTexture(COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->createRenderedTexture("earth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->createRenderedTexture("earth2", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
-    if (earth_texture_)
+    if (Engine::getInstance()->getTexture("earth"))
     {
-        Engine::getInstance()->setRenderTarget(earth_texture_);
+        Engine::getInstance()->setRenderTarget("earth");
         Engine::getInstance()->fillColor({ 128, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
         for (int ix = 0; ix < 64; ix++)
         {
@@ -785,7 +787,7 @@ void BattleScenePaper::onEntrance()
         }
     }
 
-    Engine::getInstance()->setRenderTarget(earth_texture2_);
+    Engine::getInstance()->setRenderTarget("earth2");
     Engine::getInstance()->fillColor(Color(0, 0, 0, 0), 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //首先设置位置和阵营，其他的后面统一处理

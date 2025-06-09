@@ -60,7 +60,7 @@ protected:
     int show_number_y_ = 0;
     int effect_id_ = -1;
     int effect_frame_ = 0;
-    uint8_t dead_alpha_ = 255;
+    int dead_alpha_ = 255;
     static const int animation_delay_ = 2;
 
     // 动画，或者需要多写一坨if else等
