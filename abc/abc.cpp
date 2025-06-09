@@ -719,7 +719,7 @@ void check_script(std::string path)
         for (auto& line : lines)
         {
             auto num = strfunc::findNumbers<int>(line);
-            if (num.size() >= 13 && (line.contains("instruct_3") || line.contains("ModifyEvent")))
+            if (num.size() >= 13 && (line.contains("instruct_3") || line.contains("ModifyEvent")) && !line.contains("--repair"))
             {
                 if (line.contains("ModifyEvent"))
                 {

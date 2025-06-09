@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Scene.h"
 #include "Save.h"
 
@@ -74,5 +74,7 @@ public:
     void setForceBeginEvent(int e) { force_begin_event_ = e; }
 
     void fillEarth();
+
+    void reDrawEarthTexture();
 };
 
