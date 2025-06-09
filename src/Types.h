@@ -342,6 +342,8 @@ public:
     Magic* UsingMagic = nullptr;
     Item* UsingItem = nullptr;
 
+    int WalkingStep = 0;    //行走步数，在不行动时会增加
+
 public:
     static Role* getMaxValue()
     {

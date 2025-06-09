@@ -53,7 +53,7 @@ void BattleSceneSekiro::draw()
         man_x_ = p.x;
         man_y_ = p.y;
     }
-    //一整块地面
+    //整个场景
     auto whole_scene = Engine::getInstance()->getTexture("whole_scene");
     if (whole_scene)
     {
@@ -144,6 +144,17 @@ void BattleSceneSekiro::draw()
             }
             r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
             info.num = calRolePic(r, r->ActType, r->ActFrame);
+            if (r->ActType < 0 || r->ActType > 4)
+            {
+                //没有行动判断为在行走
+                auto path = std::format("walk/walk{:03}", r->HeadID);
+                int count_for_one = TextureManager::getInstance()->getTextureGroupCount(path) / 4;
+                if (count_for_one > 0)
+                {
+                    info.path = path;
+                    info.num = r->FaceTowards * count_for_one + (r->WalkingStep / 5) % count_for_one;
+                }
+            }
             //if (r->HurtFrame)
             //{
             //    if (r->HurtFrame % 2 == 1)
@@ -481,8 +492,8 @@ void BattleSceneSekiro::dealEvent(EngineEvent& e)
         if (pos.x != r->Pos.x || pos.y != r->Pos.y)
         {
             r->RealTowards = pos - r->Pos;
+            r->WalkingStep++;
         }
-
         if (canWalk90(pos, r))
         {
             r->Pos = pos;
@@ -821,6 +832,11 @@ void BattleSceneSekiro::backRun1()
         }
         if (r->Frozen == 0)
         {
+            //主角的行走不在此控制
+            if (r != role_ && !r->Dead && r->Velocity.norm() > 0 && r->Pos.z <= 0)
+            {
+                r->WalkingStep++;
+            }
             //更新速度，加速度，力学位置
             {
                 double rate = 1.0;

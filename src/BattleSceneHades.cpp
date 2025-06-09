@@ -655,7 +655,7 @@ void BattleSceneHades::onEntrance()
 
     //makeEarthTexture(); //注意高度稍微多了一点
     
-    //此处创建了一个大的场景，作为计算的基础
+    //此处创建了一个大的纹理，用于渲染整个场景
     Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     //首先设置位置和阵营，其他的后面统一处理
