@@ -190,15 +190,7 @@ void BattleScene::draw()
                             color = { 255, 255, 255, 255 };
                         }
                     }
-                    int pic;
-                    if (r == acting_role_)
-                    {
-                        pic = calRolePic(r, action_type_, action_frame_);
-                    }
-                    else
-                    {
-                        pic = calRolePic(r);
-                    }
+                    int pic = calRolePic(r, r->ActType, r->ActFrame);
                     if (r->HP <= 0)
                     {
                         alpha = dead_alpha_;
@@ -525,6 +517,8 @@ void BattleScene::setRoleInitState(Role* r)
     r->Show.BattleHurt = 0;
     r->Show.ProgressChange = 0;
     r->Progress = 0;
+    r->ActType = -1;
+    r->ActFrame = 0;
 
     GameUtil::limit2(r->HP, r->MaxHP / 10, r->MaxHP);
     GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);
@@ -627,6 +621,7 @@ void BattleScene::resetRolesAct()
     {
         r->Acted = 0;
         r->Moved = 0;
+        r->ActType = -1;
         r->setPosition(r->X(), r->Y());
     }
 }
@@ -1479,33 +1474,12 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         setFaceTowardsNearest(r, true);
     }
     auto frame_count = r->FightFrame[style];
-    action_type_ = style;
+    r->ActType = style;
     //Audio::getInstance()->playASound(style);
-    for (action_frame_ = 0; action_frame_ < frame_count; action_frame_++)
-    {
-        // 如果有特效动画，抬手1帧后运行
-        if (action_frame_ == 1)
-        {
-            if (r->Show.Effect != -1 || !r->Show.ShowStrings.empty())
-            {
-                showNumberAnimation(2, false);
-                r->Show.clear();
-                action_frame_ = 0;
-                continue;
-            }
-        }
-        if (exit_)
-        {
-            break;
-        }
-        drawAndPresent(animation_delay_);
-    }
-    action_frame_ = frame_count - 1;
+
     effect_id_ = effect_id;
     auto path = std::format("eft/eft{:03}", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
-    Audio::getInstance()->playESound(effect_id);
-
     //由近到远的动画效果
     int min_dis = 9999;
     int max_dis = 0;
@@ -1522,25 +1496,53 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         }
     }
 
-    //int x0, y0;
-    //Engine::getInstance()->getWindowPosition(x0, y0);
-    for (effect_frame_ = -min_dis; effect_frame_ < effect_count + max_dis + 1; effect_frame_++)
+    // 动作做到一半时，显示特效
+    int cycles = frame_count / 2 + effect_count + max_dis - min_dis + 1;
+    r->ActFrame = 0;
+    for (int i = 0; i < cycles; i++)
     {
+        r->ActFrame++;
+        if (r->ActFrame >= frame_count)
+        {
+            r->ActFrame = frame_count - 1;
+        }
+        // 如果有特效动画，抬手1帧后运行
+        if (r->ActFrame == 1)
+        {
+            if (r->Show.Effect != -1 || !r->Show.ShowStrings.empty())
+            {
+                showNumberAnimation(2, false);
+                r->Show.clear();
+                //r->ActFrame = 0;
+                continue;
+            }
+        }
+        if (i >= frame_count / 2)
+        {
+            if (i == frame_count / 2)
+            {
+                Audio::getInstance()->playESound(effect_id);
+            }
+
+            effect_frame_ = i - frame_count / 2 - min_dis;
+            if (shake > 0)
+            {
+                x_ = rand_.rand_int(shake) - rand_.rand_int(shake);
+                y_ = rand_.rand_int(shake) - rand_.rand_int(shake);
+                //Engine::getInstance()->setWindowPosition(x0 + x_ * 10, y0 + y_ * 10);
+            }
+            effect_frame_++;
+        }
         if (exit_)
         {
             break;
         }
-        if (shake > 0)
-        {
-            x_ = rand_.rand_int(shake) - rand_.rand_int(shake);
-            y_ = rand_.rand_int(shake) - rand_.rand_int(shake);
-            //Engine::getInstance()->setWindowPosition(x0 + x_ * 10, y0 + y_ * 10);
-        }
         drawAndPresent(animation_delay_);
     }
-    //Engine::getInstance()->setWindowPosition(x0, y0);
-    action_frame_ = 0;
-    action_type_ = -1;
+
+    //r->ActFrame = 0;
+    //r->ActType = -1;
+    //人物停留在最后一帧
     effect_frame_ = 0;
     effect_id_ = -1;
     x_ = 0;

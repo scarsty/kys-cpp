@@ -1450,7 +1450,7 @@ void BattleSceneSekiro::AI(Role* r)
                 double speed = r->Speed / 30.0;
                 if (EuclidDis(r->Pos, r0->Pos) > dis)
                 {
-                    auto p = r->Pos + speed * r->RealTowards;
+                    auto p = r->Pos + speed * r->RealTowards;    //试图接近
                     if (canWalk90(p, r) && r->FindingWay == 0)
                     {
                         //能否闪身的条件，似乎比较复杂
@@ -1472,7 +1472,8 @@ void BattleSceneSekiro::AI(Role* r)
                         }
                         else
                         {
-                            r->Pos = p;
+                            r->Pos = p;    //成功接近（此处为匀速，不改变速度）
+                            r->WalkingStep++;
                         }
                     }
                     else if (r->Velocity.norm() < 0.1)

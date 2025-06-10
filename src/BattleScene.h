@@ -55,8 +55,8 @@ protected:
     int select_x_ = 0, select_y_ = 0;
 
     //以下画图用
-    int action_frame_ = 0;
-    int action_type_ = -1;
+    //int action_frame_ = 0;
+    //int action_type_ = -1;
     int show_number_y_ = 0;
     int effect_id_ = -1;
     int effect_frame_ = 0;
