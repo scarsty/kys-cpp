@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <vector>
 
 #ifndef USE_SDL_MIXER_AUDIO
@@ -38,8 +38,8 @@ public:
 
     void init();
     void playMusic(int num);
-    void playASound(int num);
-    void playESound(int num);
+    void playASound(int num, int volume = -1);
+    void playESound(int num, int volume = -1);
     void pauseMusic();
     void continueMusic();
     void stopMusic();

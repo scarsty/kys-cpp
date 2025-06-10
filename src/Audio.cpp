@@ -125,36 +125,44 @@ void Audio::playMusic(int num)
     current_music_ = music_[num];
 }
 
-void Audio::playASound(int num)
+void Audio::playASound(int num, int volume)
 {
     if (num < 0 || num >= asound_.size() || asound_[num] == 0)
     {
         return;
     }
     //BASS_ChannelStop(current_sound_);
+    if (volume < 0 || volume > 100)
+    {
+        volume = volume_wav_;
+    }
 #ifndef USE_SDL_MIXER_AUDIO
     auto ch = BASS_SampleGetChannel(asound_[num], 1);
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_wav_ / 100.0);
     BASS_ChannelPlay(asound_[num], false);
 #else
-    Mix_Volume(-1, volume_wav_);
+    Mix_Volume(-1, volume);
     Mix_PlayChannel(-1, asound_[num], 0);
 #endif
     current_sound_ = asound_[num];
 }
 
-void Audio::playESound(int num)
+void Audio::playESound(int num, int volume)
 {
     if (num < 0 || num >= esound_.size() || esound_[num] == 0)
     {
         return;
+    }
+    if (volume < 0 || volume > 100)
+    {
+        volume = volume_wav_;
     }
 #ifndef USE_SDL_MIXER_AUDIO
     auto ch = BASS_SampleGetChannel(esound_[num], 1);
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_wav_ / 100.0);
     BASS_ChannelPlay(esound_[num], false);
 #else
-    Mix_Volume(-1, volume_wav_);
+    Mix_Volume(-1, volume);
     Mix_PlayChannel(-1, esound_[num], 0);
 #endif
     current_sound_ = esound_[num];

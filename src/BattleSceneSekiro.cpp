@@ -1902,7 +1902,7 @@ void BattleSceneSekiro::defaultMagicEffect(AttackEffect& ae, Role* r)
             ae.Attacker->CoolDown = 30;
             shake_ = 30;
             r->Velocity.normTo(0);
-            Audio::getInstance()->playASound(sound_id);
+            Audio::getInstance()->playASound(10);    //完美格挡的音效
         }
         else
         {
