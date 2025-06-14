@@ -1,7 +1,7 @@
 ﻿
 #include "png_offset.h"
+#include "filefunc.h"
 #include "png.h"
-
 #include <cstring>
 #include <stdexcept>
 #include <vector>
@@ -179,4 +179,22 @@ void write_png_offset(const std::string& filename, int x_offset, int y_offset)
     pc.init_file(filename);
     pc.write_offset(x_offset, y_offset);
     pc.save_to_file(filename);
+}
+
+void test_png_offset()
+{
+    //试验将PNG图片的偏移量写入到文件中
+
+    write_png_offset(R"(D:\~temp\data\1.png)", 100, 200);
+
+    int x = 0, y = 0;
+    std::string content = filefunc::readFileToString(R"(D:\~temp\data\1.png)");
+    if (read_png_offset(R"(D:\~temp\data\1.png)", x, y))
+    {
+        printf("offset: %d, %d\n", x, y);
+    }
+    else
+    {
+        printf("Failed to get PNG offset.\n");
+    }
 }

@@ -1,26 +1,8 @@
 ﻿
 #include "abc.h"
-#include "png_offset.h"
 #include "filefunc.h"
+#include "png_offset.h"
 
-
-void test_png_offset()
-{
-    //试验将PNG图片的偏移量写入到文件中
-
-    write_png_offset(R"(D:\~temp\data\1.png)", 100, 200);
-
-    int x = 0, y = 0;
-    std::string content = filefunc::readFileToString(R"(D:\~temp\data\1.png)");
-    if (read_png_offset(R"(D:\~temp\data\1.png)", x, y))
-    {
-        printf("offset: %d, %d\n", x, y);
-    }
-    else
-    {
-        printf("Failed to get PNG offset.\n");
-    }
-}
 
 
 int main()
@@ -29,7 +11,7 @@ int main()
     //system("chcp 65001");
 #endif
     std::string path = "./";
-    check_script(path +"script/event");
+    //check_script(path +"script/event");
     //check_fight_frame(path + "resource/fight", 0);
     //trans_fight_frame(path + "resource/fight");
 
@@ -49,7 +31,7 @@ int main()
 
     //combine_ka(path + "resource/wmap/index.ka", path + "resource/smap/index.ka");
     //split_eft_file(path + "resource/eft", path + "list/effect.bin");
-    
+
     //test_png_offset();
 
     return 0;
