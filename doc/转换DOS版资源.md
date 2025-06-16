@@ -14,15 +14,20 @@
 
 ### 事件和对话转为lua脚本
 
-查看“脚本”目录下的“data”目录，将其中的talk.grp、talk.idx、kdef.grp、kdef.idx替换为你要转换的dos版文件。
+使用此命令行工具进行转换：
 
-sfeKdef要求的对话文件是Unicode，故使用辅助工具TalkMaker。
+https://github.com/scarsty/kys-tools/tree/main/%E4%BF%AE%E6%94%B9%E5%99%A8/abcd
 
-执行TalkMaker.exe，用导出功能将对话导出为talkutf8.txt，进行一些必要的修改，例如处理掉英文双引号等。再用制作功能生成talk1的两个文件。
+可以直接调用此处的批处理，即：
 
-回到“脚本”目录，执行sfeKdef.exe，将事件导出为lua脚本。
+```
+maketalk.bat path
+make.bat path 
+```
+其中path即kdef和talk（包含idx和grp）所在的目录。
 
-也可以修改ini文件的内容进行一些自定义，但是建议不要作修改。
+50指令及转译目前不能保证正确执行。
+
 
 ### abc工程的一些功能
 
