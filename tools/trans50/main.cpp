@@ -14,7 +14,7 @@
 void init_ins(std::string ini_file, std::string path);
 std::string transk(const std::vector<int> e);
 std::string trans50(std::string str);
-void trans_talks(std::string talk_path);
+void trans_talks(std::string talk_path, std::string coding);
 
 int main(int argc, char* argv[])
 {
@@ -27,6 +27,7 @@ int main(int argc, char* argv[])
     cmd.add<std::string>("out", 'o', "output path or file", false, ".");
 
     cmd.add<std::string>("talkpath", 't', "talk file for 50", false, "talkutf8.txt");
+    cmd.add<std::string>("talkcoding", 'c', "talkcoding of grp", false, "cp950");
 
 #ifdef _MSC_VER
     cmd.parse_check(GetCommandLineA());
@@ -37,7 +38,7 @@ int main(int argc, char* argv[])
     if (cmd.exist("talk"))
     {
         std::string talk_path = cmd.get<std::string>("in");
-        trans_talks(talk_path);
+        trans_talks(talk_path, cmd.get<std::string>("talkcoding"));
     }
 
     if (cmd.exist("kdef"))

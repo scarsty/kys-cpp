@@ -10,7 +10,7 @@
 
 #include "INIReader.h"
 
-std::vector<std::string> get_talks(std::string path)
+std::vector<std::string> get_talks(std::string path, std::string coding)
 {
     std::vector<int> offset, length;
     auto talk = GrpIdxFile::getIdxContent(path + "/talk.idx", path + "/talk.grp", &offset, &length);
@@ -24,7 +24,7 @@ std::vector<std::string> get_talks(std::string path)
     std::vector<std::string> talk_contents;
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = strfunc::replaceAllSubString(PotConv::cp950toutf8(talk.data() + offset[i]), "*", "");
+        std::string str = strfunc::replaceAllSubString(PotConv::conv(talk.data() + offset[i], coding, "utf-8"), "*", "");
         strfunc::replaceAllSubStringRef(str, "\r", "");
         strfunc::replaceAllSubStringRef(str, "\n", "");
         talk_contents.push_back(str);
@@ -53,9 +53,9 @@ struct Instruct
 std::map<int, Instruct> ins_;
 std::vector<std::string> talks_;
 
-void trans_talks(std::string talk_path)
+void trans_talks(std::string talk_path, std::string coding)
 {
-    auto talk_utf8 = get_talks(talk_path);
+    auto talk_utf8 = get_talks(talk_path, coding);
 
     std::string str;
     for (const auto& talk : talk_utf8)
@@ -95,7 +95,8 @@ void init_ins(std::string ini_file, std::string path)
     }
     else
     {
-        talks_ = get_talks(path);
+        printf("Please make talkutf8.txt first!\n");
+        exit(1);
     }
     if (ins_.empty())
     {
@@ -132,7 +133,7 @@ std::string transk(const std::vector<int> e)
             else
             {
                 strfunc::replaceAllSubStringRef(str, " == bool", "");
-                strfunc::replaceAllSubStringRef(str, "end", "else goto label#y end");
+                strfunc::replaceAllSubStringRef(str, "end", "else goto label$y end");
                 jump = e[i + ins.jump1];
                 jump1 = e[i + ins.jump2];
             }
@@ -147,7 +148,7 @@ std::string transk(const std::vector<int> e)
             {
                 label = std::format("label{}", i);
             }
-            strfunc::replaceAllSubStringRef(str, "label#x", label);
+            strfunc::replaceAllSubStringRef(str, "label$x", label);
             lines[index] = "::" + label + "::";
             if (jump1 != 0)
             {
@@ -161,18 +162,18 @@ std::string transk(const std::vector<int> e)
                 {
                     label1 = std::format("label{}_1", i);
                 }
-                strfunc::replaceAllSubStringRef(str, "label#y", label1);
+                strfunc::replaceAllSubStringRef(str, "label$y", label1);
                 lines[index1] = "::" + label1 + "::";
             }
         }
 
         while (1)
         {
-            if (str.contains("talk(#"))
+            if (str.contains("talk($"))
             {
-                auto pos = str.find("talk(#");
+                auto pos = str.find("talk($");
                 int num = std::stoi(str.substr(pos + 6, str.find(")", pos) - pos - 6));
-                strfunc::replaceAllSubStringRef(str, std::format("talk(#{})", num), talks_[e[i + num + 1]]);
+                strfunc::replaceAllSubStringRef(str, std::format("talk(${})", num), talks_[e[i + num + 1]]);
             }
             else
             {
@@ -182,7 +183,7 @@ std::string transk(const std::vector<int> e)
 
         for (int k = 1; k < ins.length; k++)
         {
-            strfunc::replaceAllSubStringRef(str, std::format("#{:x}", k - 1), std::to_string(e[i + k]));
+            strfunc::replaceAllSubStringRef(str, std::format("${:x}", k - 1), std::to_string(e[i + k]));
         }
 
         lines[i] = str;

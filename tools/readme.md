@@ -32,7 +32,11 @@ trans50 --talk --in path
 
 需注意如果用编辑器查看的话，行号为对话的编号加一。
 
-该功能会去掉*，改为游戏中自动计算换行。如果有特殊需求建议自己修改代码处理。
+该功能会去掉*，改为游戏中自动计算换行。
+
+默认的编码为cp950，可以通过--talkcoding传入其他编码。
+
+如果有其他需求请自己修改代码处理。
 
 
 ## 将原版指令转为lua脚本
@@ -40,7 +44,7 @@ trans50 --talk --in path
 ```
 trans50 --kdef --in path --out path_out
 ```
-其中path为kdef.idx、kdef.grp所在的文件夹，如果该文件夹中含有talkutf8.txt，会优先读取，否则读取talk.idx和talk.grp。
+其中path为kdef.idx、kdef.grp所在的文件夹，对话文件读取talkutf8.txt，应预先生成。
 
 执行之后会在输出目录中的event文件夹得到所有剧情事件的lua脚本。这些脚本可以被kys-pascal和kys-cpp直接支持。需注意kys-cpp的50指令部分支持不完整。
 
@@ -51,7 +55,7 @@ trans50 --kdef --in path --out path_out
 ```
 trans50 --50 --in path --talkpath talkpath --out path_out
 ```
-path为上一步转换脚本的文件夹，talkpath为查找对话文件的位置，实际上可以认为是上一个功能输入文件夹。
+path为上一步转换脚本的文件夹，talkpath为talkutf8.txt的位置。
 
 执行之后会在输出目录的event50文件夹下面得到50指令翻译后的脚本，如果原脚本不含50指令则不会有输出。
 
