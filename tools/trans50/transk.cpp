@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 
-#include "filefunc.h"
 #include "GrpIdxFile.h"
+#include "filefunc.h"
 #include "potconv.h"
 #include "strfunc.h"
 
@@ -191,6 +191,13 @@ std::string transk(const std::vector<int> e)
     }
     std::string content;
 
+    //多余的尾部处理掉
+    auto it = lines.end();
+    it--;
+    if (it->second == "goto exit;")
+    {
+        lines.erase(it);
+    }
     for (const auto& [id, line] : lines)
     {
         if (line.empty() || line == ";")
@@ -202,7 +209,10 @@ std::string transk(const std::vector<int> e)
             //printf("%s;\n", line.c_str());
         }
     }
-    content += "::exit::";
+    if (!content.empty())
+    {
+        content += "::exit::";
+    }
 
     return content;
 }

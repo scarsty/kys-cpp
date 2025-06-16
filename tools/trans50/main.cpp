@@ -13,7 +13,7 @@
 
 void init_ins(std::string ini_file, std::string path);
 std::string transk(const std::vector<int> e);
-std::string trans50(std::string str);
+std::string trans50(std::string str, int refine);
 void trans_talks(std::string talk_path, std::string coding);
 
 int main(int argc, char* argv[])
@@ -28,6 +28,7 @@ int main(int argc, char* argv[])
 
     cmd.add<std::string>("talkpath", 't', "talk file for 50", false, "talkutf8.txt");
     cmd.add<std::string>("talkcoding", 'c', "talkcoding of grp", false, "cp950");
+    cmd.add("refine", '\0', "simple refine when trans 50"); 
 
 #ifdef _MSC_VER
     cmd.parse_check(GetCommandLineA());
@@ -65,10 +66,10 @@ int main(int argc, char* argv[])
         for (int i = 0; i < kdef_.size(); i++)
         {
             auto str = transk(kdef_[i]);
-            if (cmd.exist("50"))
-            {
-                str = trans50(str);
-            }
+            //if (cmd.exist("50"))
+            //{
+            //    str = trans50(str);
+            //}
             filefunc::writeStringToFile(str, path_out + "/ka" + std::to_string(i) + ".lua");
             printf("ka%d.lua\r", i);
         }
@@ -76,11 +77,16 @@ int main(int argc, char* argv[])
 
     if (cmd.exist("50") && !cmd.exist("kdef"))
     {
+        int refine = cmd.exist("refine") ? 1 : 0;
         init_ins("transk.ini", cmd.get<std::string>("talkpath"));
         if (cmd.exist("in"))
         {
             auto path = cmd.get<std::string>("in");
             std::string path_out = cmd.get<std::string>("out") + "/event50/";
+            if (refine)
+            {
+                path_out = cmd.get<std::string>("out") + "/event50r/";
+            }            
             filefunc::makePath(path_out);
             if (filefunc::pathExist(path))
             {
@@ -89,7 +95,7 @@ int main(int argc, char* argv[])
                     if (filefunc::getFileExt(file) == "lua")
                     {
                         auto str = filefunc::readFileToString(path + "/" + file);
-                        auto str1 = trans50(str);
+                        auto str1 = trans50(str, refine);
                         if (str1 != str)
                         {
                             filefunc::writeStringToFile(str1, path_out + file);
@@ -100,10 +106,10 @@ int main(int argc, char* argv[])
             else if (filefunc::fileExist(path) && filefunc::getFileExt(path) == "lua")
             {
                 auto str = filefunc::readFileToString(path);
-                auto str1 = trans50(str);
+                auto str1 = trans50(str, refine);
                 if (str1 != str)
                 {
-                    filefunc::writeStringToFile(str, cmd.get<std::string>("out") + "/" + filefunc::getFilenameWithoutPath(path));
+                    filefunc::writeStringToFile(str1, cmd.get<std::string>("out") + "/" + filefunc::getFilenameWithoutPath(path));
                 }
                 else
                 {

@@ -63,6 +63,15 @@ path为上一步转换脚本的文件夹，talkpath为talkutf8.txt的位置。
 
 但是需注意50指令变量所在的位置与原来不同，故不能混用转换前后的脚本。
 
+## 更进一步的转换
+
+```
+trans50 --50 --in path --talkpath talkpath --out path_out --refine
+```
+执行之后会在输出目录的event50r文件夹下面得到50指令翻译后并进一步优化的脚本。
+
+此处得到的脚本将goto转成了if和repeat..until，进一步增加可读性。但是因为原来的跳转可能比较随意，故可能出现repeat和if的错误交错。
+
 ## 批处理范例
 
 ```bat
