@@ -18,7 +18,7 @@ private:
     int head_id_ = -1;
     int head_style_ = 0;
     int current_line_ = 0;
-    const int width_ = 40;
+    int width_ = 40;
     const int height_ = 4;    //每页行数
     std::vector<std::string> content_lines_;
 public:

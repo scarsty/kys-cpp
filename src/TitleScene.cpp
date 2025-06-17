@@ -97,6 +97,7 @@ void TitleScene::dealEvent(EngineEvent& e)
         std::string name = "";
         auto input = std::make_shared<InputBox>("請輸入姓名：", 30);
         input->setInputPosition(350, 300);
+        input->setText(Save::getInstance()->getRole(0)->Name);
         input->run();
         if (input->getResult() >= 0)
         {

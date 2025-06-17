@@ -12,7 +12,7 @@
 #endif
 
 void init_ins(std::string ini_file, std::string path);
-std::string transk(const std::vector<int> e);
+std::string transk(std::vector<int> e);
 std::string trans50(std::string str, int refine);
 void trans_talks(std::string talk_path, std::string coding);
 
@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
 
     cmd.add<std::string>("talkpath", 't', "talk file for 50", false, "talkutf8.txt");
     cmd.add<std::string>("talkcoding", 'c', "talkcoding of grp", false, "cp950");
-    cmd.add("refine", '\0', "simple refine when trans 50"); 
+    cmd.add("refine", '\0', "simple refine when trans 50");
 
 #ifdef _MSC_VER
     cmd.parse_check(GetCommandLineA());
@@ -70,7 +70,10 @@ int main(int argc, char* argv[])
             //{
             //    str = trans50(str);
             //}
-            filefunc::writeStringToFile(str, path_out + "/ka" + std::to_string(i) + ".lua");
+            if (!str.empty())
+            {
+                filefunc::writeStringToFile(str, path_out + "/ka" + std::to_string(i) + ".lua");
+            }
             printf("ka%d.lua\r", i);
         }
     }
@@ -86,7 +89,7 @@ int main(int argc, char* argv[])
             if (refine)
             {
                 path_out = cmd.get<std::string>("out") + "/event50r/";
-            }            
+            }
             filefunc::makePath(path_out);
             if (filefunc::pathExist(path))
             {
@@ -101,6 +104,7 @@ int main(int argc, char* argv[])
                             filefunc::writeStringToFile(str1, path_out + file);
                         }
                     }
+                    printf("%s\r", file.c_str());
                 }
             }
             else if (filefunc::fileExist(path) && filefunc::getFileExt(path) == "lua")

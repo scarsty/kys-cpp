@@ -1509,6 +1509,7 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         // 如果有特效动画，抬手1帧后运行
         if (r->ActFrame == 1)
         {
+            Audio::getInstance()->playASound(r->ActType);
             if (r->Show.Effect != -1 || !r->Show.ShowStrings.empty())
             {
                 showNumberAnimation(2, false);
@@ -1694,7 +1695,8 @@ void BattleScene::showMagicName(std::string name)
 {
     auto magic_name = std::make_shared<TextBox>();
     magic_name->setText(name);
-    magic_name->setPosition(450, 150);
+    int x = Engine::getInstance()->getPresentWidth() / 2 - Font::getTextDrawSize(name) * 10 / 2 - 10;
+    magic_name->setPosition(x, 150);
     magic_name->setFontSize(20);
     magic_name->setStayFrame(40);
     magic_name->run();

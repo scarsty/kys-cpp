@@ -2,6 +2,10 @@
 #include "GameUtil.h"
 #include "PotConv.h"
 
+#ifdef _WIN32
+#include "windows.h"
+#endif
+
 OpenCCConverter::OpenCCConverter()
 {
 #ifdef USE_OPENCC
@@ -30,6 +34,21 @@ OpenCCConverter::~OpenCCConverter()
         opencc_close(cc_t2s);
     }
 #endif
+}
+
+std::string OpenCCConverter::UTF8t2s(const std::string& in)
+{
+#ifdef USE_OPENCC
+    return utf8(in, cc_t2s);
+#else
+#ifdef _WIN32
+    std::string str = PotConv::utf8tocp936(in), str2;
+    str2.resize(str.size() + 1);
+    LCMapStringA(LOCALE_SYSTEM_DEFAULT, LCMAP_SIMPLIFIED_CHINESE, str.c_str(), str.size(), &str2[0], str2.size() + 1);
+    return PotConv::cp936toutf8(str2);
+#endif
+#endif
+    return in;
 }
 
 std::string OpenCCConverter::CP936s2t(const std::string& in)

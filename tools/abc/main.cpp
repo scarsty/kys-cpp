@@ -11,7 +11,7 @@ int main()
     //system("chcp 65001");
 #endif
     std::string path = "./";
-    //check_script(path +"script/event");
+    check_script(R"(D:\kys-all\trans50/event)");
     //check_fight_frame(path + "resource/fight", 0);
     //trans_fight_frame(path + "resource/fight");
 

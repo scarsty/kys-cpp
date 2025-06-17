@@ -6,25 +6,34 @@
 
 void Talk::draw()
 {
+    int w = Engine::getInstance()->getPresentWidth();
+    int h = Engine::getInstance()->getPresentHeight();
+
     if (!content_.empty())
     {
-        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, x_ + 225, y_ + 65, 530, 150);
+        x_ = 250;
+        int x_text = x_ + 25;
         if (head_id_ >= 0)
         {
             if (head_style_ == 0)
             {
-                TextureManager::getInstance()->renderTexture("head", head_id_, x_ + 50, y_ + 50);
+                x_ = 250;    // Adjust x_ for left-aligned head
+                TextureManager::getInstance()->renderTexture("head", head_id_, x_ - 200, y_ + 50);
+                x_text = x_ + 25;
             }
             else
             {
-                TextureManager::getInstance()->renderTexture("head", head_id_, x_ + 770, y_ + 50);
+                x_ = w - 530 - 250;    // Adjust x_ for right-aligned head
+                x_text = x_ + 25;
+                TextureManager::getInstance()->renderTexture("head", head_id_, x_ + 530 + 50, y_ + 50);
             }
         }
+        Engine::getInstance()->fillColor({ 0, 0, 0, 160 }, x_, y_ + 65, 530, 150);
         int end_line = current_line_ + height_;
         if (end_line > content_lines_.size()) { end_line = content_lines_.size(); }
         for (int i = current_line_; i < end_line; i++)
         {
-            Font::getInstance()->draw(content_lines_[i], 24, x_ + 250, y_ + 75 + 34 * (i - current_line_), { 255, 255, 255, 255 });
+            Font::getInstance()->draw(content_lines_[i], 24, x_text, y_ + 75 + 34 * (i - current_line_), { 255, 255, 255, 255 });
         }
     }
 }
@@ -46,6 +55,8 @@ void Talk::onPressedOK()
 
 void Talk::onEntrance()
 {
+    int w = Engine::getInstance()->getPresentWidth();
+    //width_ = (w - 400) / 12;    // 每行宽度
     content_lines_.clear();
     current_line_ = 0;
     int i = 0;

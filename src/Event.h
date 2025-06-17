@@ -57,7 +57,7 @@ private:
     Item* item_;
     //Save* save_;
     bool exit_ = false;
-    int use_script_ = 0;
+    int use_script_ = 1;
 
 private:
     SubMapInfo* getSubMapRecordFromID(int submap_id);

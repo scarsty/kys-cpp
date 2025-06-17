@@ -40,7 +40,7 @@ void Application::config()
     //RunNode::setRefreshInterval(game->getReal("game", "refresh_interval", 16));
     Audio::getInstance()->setVolume(game->getInt("music", "volume", 50));
     Audio::getInstance()->setVolumeWav(game->getInt("music", "volumewav", 50));
-    Event::getInstance()->setUseScript(game->getInt("game", "use_script", 0));
+    Event::getInstance()->setUseScript(game->getInt("game", "use_script", 1));
     Font::getInstance()->setStatMessage(game->getInt("game", "stat_font", 0));
     Font::getInstance()->setSimplified(game->getInt("game", "simplified_chinese", 1));
     Engine::getInstance()->setWindowTitle(game->getString("game", "title", "All Heroes in Kam Yung Stories"));

@@ -11,12 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\mlcc\PotConv.cpp" />
-    <ClCompile Include="..\src\OpenCCConverter.cpp" />
+    <ClCompile Include="..\..\mlcc\PotConv.cpp" />
+    <ClCompile Include="..\..\src\OpenCCConverter.cpp" />
     <ClCompile Include="abc.cpp" />
-    <ClCompile Include="..\mlcc\filefunc.cpp" />
-    <ClCompile Include="..\mlcc\strfunc.cpp" />
-    <ClCompile Include="..\src\GrpIdxFile.cpp" />
+    <ClCompile Include="..\..\mlcc\filefunc.cpp" />
+    <ClCompile Include="..\..\mlcc\strfunc.cpp" />
+    <ClCompile Include="..\..\src\GrpIdxFile.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="png_offset.cpp" />
   </ItemGroup>
@@ -75,7 +75,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../src;../mlcc;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../src;../../mlcc;$(VCPKG_LIB_PATH)\x64-windows\include</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>

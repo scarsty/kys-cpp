@@ -27,6 +27,10 @@ Rect Font::getBoxSize(int textLen, int size, int x, int y)
 //返回值为实际画的行数
 int Font::draw(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
 {
+    if (text.empty() || size <= 0 || alpha == 0)
+    {
+        return 0;
+    }
     int line = 1;
     int p = 0;
     int char_count = 0;
@@ -62,10 +66,15 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
             line++;
             continue;
         }
-        if (c >= 128)
+        if (c >= 0xe0)
         {
             c += (uint8_t)textp->data()[p] * 256 + (uint8_t)textp->data()[p + 1] * 256 * 256;
             p += 2;
+        }
+        else if (c >= 0xc0) 
+        {
+            c += (uint8_t)textp->data()[p] * 256;
+            p++;
         }
         if (buffer_[c].count(size) == 0)
         {
@@ -184,7 +193,7 @@ int Font::getTextDrawSize(const std::string& text)
     for (int i = 0; i < text.size();)
     {
         uint8_t v = text[i];
-        if (v < 128)
+        if (v < 0xe0)
         {
             len++;
             i++;

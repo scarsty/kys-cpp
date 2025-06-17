@@ -33,7 +33,7 @@ Event::Event()
     menu2_->setHaveBox(true);
     menu2_->arrange(0, 50, 150, 0);
     text_box_ = std::make_shared<TextBox>();
-    text_box_->setPosition(400, 200);
+    text_box_->setPosition(Engine::getInstance()->getPresentWidth()/ 2-100, 200);
     text_box_->setTextPosition(-20, 100);
     event_node_ = std::make_shared<DrawNode>();
 }
@@ -357,7 +357,7 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style)
 void Event::addItem(int item_id, int count)
 {
     addItemWithoutHint(item_id, count);
-    text_box_->setText(std::format("獲得{}{}", Save::getInstance()->getItem(item_id)->Name, count));
+    text_box_->setText(std::format("獲得{}  {}", Save::getInstance()->getItem(item_id)->Name, count));
     text_box_->setTexture("item", item_id);
     text_box_->run();
     text_box_->setTexture("item", -1);
@@ -941,7 +941,7 @@ void Event::addMaxMP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
     r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    r->MP = GameUtil::limit(r->MP + value, 0, Role::getMaxValue()->MaxMP);
+    r->MP = GameUtil::limit(r->MP + value, 0, r->MaxMP);
     text_box_->setText(std::format("{}內力增加{}", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -960,7 +960,7 @@ void Event::addMaxHP(int role_id, int value)
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
     r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    r->HP = GameUtil::limit(r->HP + value, 0, Role::getMaxValue()->MaxHP);
+    r->HP = GameUtil::limit(r->HP + value, 0, r->MaxHP);
     text_box_->setText(std::format("{}生命增加{}", r->Name, r->MaxHP - v0));
     text_box_->run();
 }

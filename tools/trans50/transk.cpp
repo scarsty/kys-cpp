@@ -27,6 +27,7 @@ std::vector<std::string> get_talks(std::string path, std::string coding)
         std::string str = strfunc::replaceAllSubString(PotConv::conv(talk.data() + offset[i], coding, "utf-8"), "*", "");
         strfunc::replaceAllSubStringRef(str, "\r", "");
         strfunc::replaceAllSubStringRef(str, "\n", "");
+        strfunc::replaceAllSubStringRef(str, "\"", (char*)u8"”");
         talk_contents.push_back(str);
     }
     return talk_contents;
@@ -105,7 +106,7 @@ void init_ins(std::string ini_file, std::string path)
     }
 }
 
-std::string transk(const std::vector<int> e)
+std::string transk(std::vector<int> e)
 {
     int i = 0, i_line = 0;
     std::map<double, std::string> lines;    //索引为指令的位置，方便处理偏移
@@ -116,6 +117,16 @@ std::string transk(const std::vector<int> e)
         auto& ins = ins_[ins_id];
 
         std::string str = ins.name;
+
+        if (ins.id == 3)
+        {
+            //修正3号指令的错误
+            if (e[i + 1] >= 0)
+            {
+                if (e[i + 12] == 0) { e[i + 12] = -2; }
+                if (e[i + 13] == 0) { e[i + 13] = -2; }
+            }
+        }
 
         if (ins.is_bool)
         {
@@ -194,7 +205,7 @@ std::string transk(const std::vector<int> e)
     //多余的尾部处理掉
     auto it = lines.end();
     it--;
-    if (it->second == "goto exit;")
+    if (it->second == "exit();")
     {
         lines.erase(it);
     }
@@ -209,10 +220,9 @@ std::string transk(const std::vector<int> e)
             //printf("%s;\n", line.c_str());
         }
     }
-    if (!content.empty())
+    if (!content.empty() && content.back() == '\n')
     {
-        content += "::exit::";
+        content.pop_back();    //去掉最后一个换行符
     }
-
     return content;
 }

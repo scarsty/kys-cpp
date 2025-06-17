@@ -16,7 +16,7 @@ public:
     OpenCCConverter();
     virtual ~OpenCCConverter();
     std::string UTF8s2t(const std::string& in) { return utf8(in, cc_s2t); }
-    std::string UTF8t2s(const std::string& in) { return utf8(in, cc_t2s); }
+    std::string UTF8t2s(const std::string& in);
 
     std::string CP936s2t(const std::string& in);
     void set(const std::string& setfile);

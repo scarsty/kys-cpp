@@ -341,11 +341,12 @@ std::string trans50(std::string str, int refine)
         {
             s.erase(pos + 1);
         }
+        return s;
     };
 
-    auto make_reverse = [](std::string& s)
+    auto make_reverse = [&](std::string& s)
     {
-        std::vector<std::pair<std::string, std::string>> opr = { { "== false", "== true" }, { "== true", "== false" }, { "<=", ">" }, { "==", "~=" }, { "~=", "==" }, { ">=", "<" }, { "<", ">=" }, { ">", "<=" } };
+        std::vector<std::pair<std::string, std::string>> opr = { { "== false", "" }, { "== true", "== false" }, { "<=", ">" }, { "==", "~=" }, { "~=", "==" }, { ">=", "<" }, { "<", ">=" }, { ">", "<=" } };
         bool dealed = false;
         for (auto& [k, v] : opr)
         {
@@ -358,9 +359,9 @@ std::string trans50(std::string str, int refine)
         }
         if (!dealed)
         {
-            s = "not (" + s + ")";    //如果没有处理过，则加上not
+            s = trim(s) + " == false";    //如果没有处理过，则加上not
         }
-        return s;
+        return trim(s);
     };
 
     if (refine)
@@ -369,7 +370,7 @@ std::string trans50(std::string str, int refine)
         for (int i = 1; i < lines.size(); i++)
         {
             auto& line = lines[i];
-            if (line.contains("jump_flag") && line.contains("if") && line.contains("then") && line.contains("goto"))
+            if (line.contains("jump_flag") && line.contains("if") && line.contains("then") && line.contains("goto") && !line.contains("else"))
             {
                 auto& line0 = lines[i - 1];
                 if (line0.contains("if") && line0.contains("then"))
@@ -397,7 +398,7 @@ std::string trans50(std::string str, int refine)
         for (int i = 0; i < lines.size(); i++)
         {
             auto& line = lines[i];
-            if (line.contains("if") && line.contains("goto"))
+            if (line.contains("if") && line.contains("goto") && !line.contains("else"))
             {
                 auto pos_goto = line.find("goto");
                 auto pos_end = line.find("end", pos_goto);
@@ -415,7 +416,7 @@ std::string trans50(std::string str, int refine)
                     if (line2.find("::" + label + "::") != std::string::npos)
                     {
                         //找到跳转标签
-                        line2 += "\nend";
+                        line2 += "\nend;";
                         line = "if " + make_reverse(condition) + " then";
                         break;
                     }
@@ -446,7 +447,7 @@ std::string trans50(std::string str, int refine)
                     {
                         //找到跳转标签
                         line0 += "\nrepeat";
-                        line = "until " + make_reverse(condition) + "";
+                        line = "until " + make_reverse(condition) + ";";
                         break;
                     }
                 }
@@ -513,7 +514,7 @@ std::string trans50(std::string str, int refine)
             }
             i = pos_end + 2;
         }
-
+        label_map.erase("exit");    //不处理结束标签
         for (const auto& [label, pos] : label_map)
         {
             //没有使用的跳转，删除

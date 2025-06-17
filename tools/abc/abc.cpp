@@ -731,7 +731,7 @@ void check_script(std::string path)
                     {
                         std::print("{}\nOld：{}\n", f, line);
                         auto strs = strfunc::splitString(line, ",", true);
-                        strs[10] = "-2";
+                        //strs[10] = "-2";
                         strs[11] = "-2";
                         strs[12][0] = '2';
                         strs[12] = "-" + strs[12];
@@ -760,7 +760,7 @@ void check_script(std::string path)
             {
                 new_str += s + "\n";
             }
-            filefunc::writeStringToFile(new_str, path + "/" + f);
+            //filefunc::writeStringToFile(new_str, path + "/" + f);
         }
     }
 }
