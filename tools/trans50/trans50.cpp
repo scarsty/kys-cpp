@@ -21,7 +21,7 @@ std::string trans50(std::string str, int refine)
     std::vector<std::string> lines = strfunc::splitString(str, "\n", false);
 
     int next_parameter = -1;
-    auto e_get = [&next_parameter](int bit, int t, int x) -> std::string
+    auto e_GetValue = [&next_parameter](int bit, int t, int x) -> std::string
     {
         int i = t & (1 << bit);
         if (i == 0)
@@ -37,7 +37,6 @@ std::string trans50(std::string str, int refine)
     {
         return (t & (1 << bit)) == 0;
     };
-    auto e_GetValue = e_get;
     //读对话
     std::vector<std::string>& talk_contents = talks_;
 
@@ -69,21 +68,21 @@ std::string trans50(std::string str, int refine)
                     str = std::format("x[{}] = {};", e1, e2);
                     break;
                 case 1:
-                    str = std::format("x[{} + {}] = {};", e3, e_get(0, e1, e4), e_get(1, e1, e5));
+                    str = std::format("x[{} + {}] = {};", e3, e_GetValue(0, e1, e4), e_GetValue(1, e1, e5));
                     break;
                 case 2:
-                    str = std::format("x[{}] = x[{}+ {}];", e5, e3, e_get(0, e1, e4));
+                    str = std::format("x[{}] = x[{}+ {}];", e5, e3, e_GetValue(0, e1, e4));
                     break;
                 case 3:
                 {
                     std::string op = "+-*/%";
                     if (e2 >= 0 && e2 <= 4)
                     {
-                        str = std::format("x[{}] = x[{}] {} {};", e3, e4, op[e2], e_get(0, e1, e5));
+                        str = std::format("x[{}] = x[{}] {} {};", e3, e4, op[e2], e_GetValue(0, e1, e5));
                     }
                     else if (e2 == 5)
                     {
-                        str = std::format("x[{}] = uint(x[{}]) / {};", e3, e4, op[e2 - 4], e_get(0, e1, e5));
+                        str = std::format("x[{}] = uint(x[{}]) / {};", e3, e4, op[e2 - 4], e_GetValue(0, e1, e5));
                     }
                     break;
                 }
@@ -92,7 +91,7 @@ std::string trans50(std::string str, int refine)
                     std::vector<std::string> op = { "<", "<=", "==", "~=", ">=", ">" };
                     if (e2 >= 0 && e2 <= 5)
                     {
-                        str = std::format("if x[{}] {} {} then jump_flag = true; else jump_flag = false; end;", e3, op[e2], e_get(0, e1, e4));
+                        str = std::format("if x[{}] {} {} then jump_flag = true; else jump_flag = false; end;", e3, op[e2], e_GetValue(0, e1, e4));
                     }
                     else if (e2 == 6)
                     {
@@ -119,13 +118,13 @@ std::string trans50(std::string str, int refine)
                     }
                     else
                     {
-                        str = std::format("x[{}] = GetTalk({});", e3, e_get(0, e1, e2));
+                        str = std::format("x[{}] = GetTalk({});", e3, e_GetValue(0, e1, e2));
                     }
                     break;
                 }
                 case 9:
                 {
-                    str = std::format("x[{}] = string.format({}, {});", e2, e3, e_get(0, e1, e4));
+                    str = std::format("x[{}] = string.format({}, {});", e2, e3, e_GetValue(0, e1, e4));
                     break;
                 }
                 case 10:

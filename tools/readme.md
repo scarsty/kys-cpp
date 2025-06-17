@@ -1,4 +1,6 @@
-# abc
+# kys-tools
+
+## abc
 
 将旧版的存档，列表等转为cpp版。
 
@@ -6,7 +8,7 @@
 
 具体用法参见doc中的“转换DOS版资源”。
 
-# makeRanger
+## makeRanger
 
 从xlsx文件生成存档。
 
@@ -17,13 +19,13 @@ makeRanger.exe ranger.xlsx
 会生成ranger.idx和ranger.grp两个文件。
 
 
-# trans50
+## trans50
 
 包含3个功能，覆盖了原sfe2kdefscript，talkmaker的功能。
 
 需注意该工具转换出的脚本尚未被完整支持。
 
-## 将原版对话转为txt文件
+### 将原版对话转为txt文件
 
 ```
 trans50 --talk --in path
@@ -39,7 +41,7 @@ trans50 --talk --in path
 如果有其他需求请自己修改代码处理。
 
 
-## 将原版指令转为lua脚本
+### 将原版指令转为lua脚本
 
 ```
 trans50 --kdef --in path --out path_out
@@ -50,7 +52,7 @@ trans50 --kdef --in path --out path_out
 
 也可以自己修改ini文件，得到适合自己版本的脚本。
 
-## 将50指令转成可读性稍好的程序段
+### 将50指令转成可读性稍好的程序段
 
 ```
 trans50 --50 --in path --talkpath talkpath --out path_out
@@ -59,11 +61,11 @@ path为上一步转换脚本的文件夹，talkpath为talkutf8.txt的位置。
 
 执行之后会在输出目录的event50文件夹下面得到50指令翻译后的脚本，如果原脚本不含50指令则不会有输出。
 
-此处得到的脚本更容易阅读，且大部分能被kys-pascal执行，但因一些关键字不同，不保证能正常执行。如有进一步需求建议自行修改相关代码。
+此处得到的脚本更容易阅读，且大部分能被kys-pascal执行，但因一些关键字不同，不保证能完全正常执行。如有进一步需求建议自行修改相关代码。
 
 但是需注意50指令变量所在的位置与原来不同，故不能混用转换前后的脚本。
 
-## 更进一步的转换
+### 更进一步的转换
 
 ```
 trans50 --50 --in path --talkpath talkpath --out path_out --refine
@@ -72,7 +74,7 @@ trans50 --50 --in path --talkpath talkpath --out path_out --refine
 
 此处得到的脚本将goto转成了if和repeat..until，进一步增加可读性。但是因为原来的跳转可能比较随意，故可能出现repeat和if的错误交错。
 
-## 批处理范例
+### 批处理范例
 
 ```bat
 trans50 --talk --in %1
