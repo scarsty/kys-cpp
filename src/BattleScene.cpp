@@ -1632,11 +1632,11 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                 r2->Show.BattleHurt = hurt;
                 if (m->HurtType == 0)
                 {
-                    r2->Show.BattleHurt = GameUtil::limit(r2->Show.BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
-                    r->ExpGot += r2->Show.BattleHurt;
-                    if (r2->HP == r2->Show.BattleHurt)
+                    auto temp = GameUtil::limit(r2->Show.BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
+                    r->ExpGot += temp;
+                    if (r2->HP == temp)
                     {
-                        r->ExpGot += r2->Show.BattleHurt / 2;
+                        r->ExpGot += temp / 2;
                     }
                     r2->Show.ProgressChange = -hurt / 5;
                 }

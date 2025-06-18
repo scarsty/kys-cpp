@@ -1,4 +1,4 @@
-#include "UISystem.h"
+﻿#include "UISystem.h"
 #include "Engine.h"
 #include "Event.h"
 #include "GameUtil.h"
@@ -83,14 +83,15 @@ int UISystem::askExit(int mode)
         asking = true;
         auto menu = std::make_shared<MenuText>();
         menu->setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
-        menu->setFontSize(24);
-        menu->arrange(0, 0, 0, 40);
+        menu->setFontSize(24);        
         int x = 880, y = 100;
         if (mode == 1)
         {
+            menu->getChild(1)->setVisible(false);
             x = Engine::getInstance()->getStartWindowWidth() - 150;
             y = 20;
         }
+        menu->arrange(0, 0, 0, 40);
         int r = menu->runAtPosition(x, y);
         if (r == 0)
         {

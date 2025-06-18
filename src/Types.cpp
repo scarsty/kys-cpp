@@ -655,16 +655,22 @@ void Role::setLevelUpList()
 //设置某个事件的坐标，在一些MOD里面此语句有错误
 void SubMapEvent::setPosition(int x, int y, SubMapInfo* submap_record)
 {
-    if (x < 0)
+    if (x < -1)
     {
         x = X_;
     }
-    if (y < 0)
+    if (y < -1)
     {
         y = Y_;
     }
     auto index = submap_record->EventIndex(X_, Y_);
     submap_record->EventIndex(X_, Y_) = -1;
+    if (x < 0 || y < 0)
+    {
+        X_ = -1;
+        Y_ = -1;
+        return;    //从地图上清除
+    }
     X_ = x;
     Y_ = y;
     submap_record->EventIndex(X_, Y_) = index;
