@@ -466,11 +466,11 @@ static void writeValues(sqlite3* db, const std::string& table_name, std::vector<
 }
 
 //转换存档为数据库
-void saveR0ToDB(int num)
+void saveR0ToDB(int num, std::string path)
 {
     sqlite3* db;
     //此处最好复制一个，先搞搞再说
-    std::string filename = "save/" + std::to_string(num) + ".db";
+    std::string filename = path +"/" + std::to_string(num) + ".db";
     //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
     sqlite3_open(filename.c_str(), &db);
 
@@ -530,7 +530,7 @@ void saveR0ToDB(int num)
 // index：转为数据库的存档编号
 // ranger：若设置为否，则只转换战斗帧数（生成战斗帧数失败时，再次运行可设置为否）
 // make_fightframe：若设置为是，则生成战斗帧数文本
-int expandR(std::string idx, std::string grp, int index, bool ranger, bool make_fightframe)
+int expandR(std::string idx, std::string grp, int index, std::string path, bool ranger, bool make_fightframe)
 {
     if (!filefunc::fileExist(grp) || !filefunc::fileExist(idx))
     {
@@ -574,23 +574,22 @@ int expandR(std::string idx, std::string grp, int index, bool ranger, bool make_
             {
                 auto r = *it;
                 std::string content;
-                std::print("role {}\n", r.HeadID);
+                //std::print("role {}\n", r.HeadID);
                 for (int j = 0; j < 5; j++)
                 {
                     if (r.Frame[j] > 0)
                     {
-                        std::print("{}, {}\n", j, r.Frame[j]);
+                        //std::print("{}, {}\n", j, r.Frame[j]);
                         content += std::format("{}, {}\n", j, r.Frame[j]);
                     }
                 }
                 if (!content.empty())
-                {
-                    auto p = filefunc::getParentPath(idx);
-                    p = filefunc::getParentPath(p);
-                    auto f = std::format("{}/resource/fight/fight{:03}/fightframe.txt", p, r.HeadID);
+                {                    
+                    auto f = std::format("{}/fight{:03}/fightframe.txt", path, r.HeadID);
                     filefunc::writeStringToFile(content, f);
                 }
             }
+            std::print("Make fight frame end\n");
             if (!ranger) { return 1; }
         }
 
@@ -638,9 +637,30 @@ int expandR(std::string idx, std::string grp, int index, bool ranger, bool make_
     //delete rgrp1;
     delete rgrp2;
 
-    saveR0ToDB(index);
+    saveR0ToDB(index, path);
     std::print("trans {} end\n", grp.c_str());
     return 0;
+}
+
+void combine_image_path(std::string in, std::string out)
+{
+    auto files_in = filefunc::getFilesInPath(in, 0);
+    auto files_out = filefunc::getFilesInPath(out, 0);
+
+    std::map<std::string, int> files_out_map;
+    for (auto& f : files_out)
+    {
+        files_out_map[f] = 1;
+    }
+
+    for (auto& f : files_in)
+    {
+        if (!files_out_map.contains(f))
+        {
+            std::print("copy {} to {}\n", in + "/" + f, out + "/" + f);
+            filefunc::copyFile(in + "/" + f, out + "/" + f);
+        }
+    }
 }
 
 //将in的非零数据转到out
@@ -657,7 +677,7 @@ void combine_ka(std::string in, std::string out)
         {
             out1[i] = in1[i];
             out1[i + 1] = in1[i + 1];
-            std::print("{}, ", i / 2);
+            //std::print("{}, ", i / 2);
         }
     }
     GrpIdxFile::writeFile(out, out1.data(), out1.size() * 2);
@@ -694,7 +714,7 @@ void check_fight_frame(std::string path, int repair)
             }
             if (sum * 4 != count)
             {
-                std::print("{}\n", path1);
+                std::print("{} seems not right\n", path1);
                 if (repair)
                 {
                     if (numbers.size() <= 2)
