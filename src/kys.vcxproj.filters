@@ -166,9 +166,6 @@
     <ClCompile Include="VirtualStick.cpp">
       <Filter>VirtualStick</Filter>
     </ClCompile>
-    <ClCompile Include="OpenCCConverter.cpp">
-      <Filter>opencc</Filter>
-    </ClCompile>
     <ClCompile Include="Point.cpp">
       <Filter>point</Filter>
     </ClCompile>
@@ -196,6 +193,9 @@
     </ClCompile>
     <ClCompile Include="BattleScenePaper.cpp">
       <Filter>battle</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\SimpleCC.cpp">
+      <Filter>mlcc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -379,9 +379,6 @@
     <ClInclude Include="VirtualStick.h">
       <Filter>VirtualStick</Filter>
     </ClInclude>
-    <ClInclude Include="OpenCCConverter.h">
-      <Filter>opencc</Filter>
-    </ClInclude>
     <ClInclude Include="Point.h">
       <Filter>point</Filter>
     </ClInclude>
@@ -408,6 +405,9 @@
     </ClInclude>
     <ClInclude Include="BattleScenePaper.h">
       <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\SimpleCC.h">
+      <Filter>mlcc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -468,9 +468,6 @@
     </Filter>
     <Filter Include="point">
       <UniqueIdentifier>{b22155ca-ee9e-42e3-8eef-d2d74109b5c4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="opencc">
-      <UniqueIdentifier>{60baaf93-f283-418c-a2f9-7f415e49ecf8}</UniqueIdentifier>
     </Filter>
     <Filter Include="texture">
       <UniqueIdentifier>{3f5f1c37-008d-4f8b-ae4e-a958437e52cf}</UniqueIdentifier>

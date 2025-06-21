@@ -55,7 +55,7 @@
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgAutoLink>true</VcpkgAutoLink>
-    <VcpkgXUseBuiltInApplocalDeps>true</VcpkgXUseBuiltInApplocalDeps>
+    <VcpkgXUseBuiltInApplocalDeps>false</VcpkgXUseBuiltInApplocalDeps>
     <VcpkgApplocalDeps>true</VcpkgApplocalDeps>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -115,6 +115,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="BattleSceneAct.cpp" />
     <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
@@ -141,7 +142,6 @@
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
     <ClCompile Include="Object.cpp" />
-    <ClCompile Include="OpenCCConverter.cpp" />
     <ClCompile Include="ParticleExample.cpp" />
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
@@ -183,6 +183,7 @@
     <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\mlcc\SimpleCC.h" />
     <ClInclude Include="BattleSceneAct.h" />
     <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
@@ -213,7 +214,6 @@
     <ClInclude Include="InputBox.h" />
     <ClInclude Include="NewSave.h" />
     <ClInclude Include="Object.h" />
-    <ClInclude Include="OpenCCConverter.h" />
     <ClInclude Include="ParticleExample.h" />
     <ClInclude Include="ParticleSystem.h" />
     <ClInclude Include="Cloud.h" />

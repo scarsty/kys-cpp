@@ -1,12 +1,13 @@
-#include "SuperMenuText.h"
+﻿#include "SuperMenuText.h"
 #include "../others/Hanz2Piny.h"
-#include "OpenCCConverter.h"
+#include "Font.h"
 #include "PotConv.h"
 #include <algorithm>
 #include <cmath>
 #include <utility>
 
-SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
+SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
+    InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
 {
     previous_ = std::make_shared<Button>();
     previous_->setText("上一頁PgUp");
@@ -222,7 +223,7 @@ void SuperMenuText::dealEvent(EngineEvent& e)
     {
     case EVENT_TEXT_INPUT:
     {
-        auto converted = OpenCCConverter::getInstance()->UTF8s2t(e.text.text);
+        auto converted = Font::getInstance()->T2S(e.text.text);
         converted = PotConv::conv(converted, "utf-8", "cp936");
         text_ += converted;
         research = true;

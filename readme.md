@@ -22,7 +22,7 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
-.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua opencc sqlite3 libiconv asio picosha2 yaml-cpp opencv
+.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua sqlite3 libiconv asio picosha2 yaml-cpp opencv
 SDL3的Mixer似乎还没有完成，目前使用bass播放音效。
 ```
 建议执行：
@@ -44,6 +44,8 @@ git submodule update --remote --rebase
 Linux下编译参考doc目录中的文档。需注意没有联机对战部分。
 
 对依赖的详细解释见doc目录中的“依赖库.md”。
+
+简繁转换的词汇表取自OpenCC，但因为这个库的依赖太复杂，没有直接使用，而是自编了一个SimpleCC代替。
 
 ## 授权
 

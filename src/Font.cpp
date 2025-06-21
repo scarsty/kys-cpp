@@ -1,16 +1,14 @@
 ﻿#include "Font.h"
-
-#include <iostream>
-
 #include "GameUtil.h"
-#include "OpenCCConverter.h"
 #include "PotConv.h"
 #include "TextureManager.h"
+#include <iostream>
 
 Font::Font()
 {
     fontnamec_ = GameUtil::PATH() + "font/chinese.ttf";
     fontnamee_ = GameUtil::PATH() + "font/english.ttf";
+    cct2s_.init({ GameUtil::PATH() + "cc/TSPhrases.txt", GameUtil::PATH() + "cc/TSCharacters.txt" });
 }
 
 Rect Font::getBoxSize(int textLen, int size, int x, int y)
@@ -44,7 +42,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         text1 = t2s_buffer_[text];
         if (text1.empty())
         {
-            text1 = OpenCCConverter::getInstance()->UTF8t2s(text);
+            text1 = cct2s_.conv(text);
             t2s_buffer_[text] = text1;
         }
         textp = &text1;
@@ -71,7 +69,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
             c += (uint8_t)textp->data()[p] * 256 + (uint8_t)textp->data()[p + 1] * 256 * 256;
             p += 2;
         }
-        else if (c >= 0xc0) 
+        else if (c >= 0xc0)
         {
             c += (uint8_t)textp->data()[p] * 256;
             p++;

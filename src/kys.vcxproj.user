@@ -6,9 +6,9 @@
     <LocalDebuggerCommandArguments>../game-awaken/</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>..\work\bin</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>..\work</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>../game/</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>./game-dev/</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

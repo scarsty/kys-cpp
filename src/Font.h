@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Engine.h"
+#include "SimpleCC.h"
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -20,6 +21,8 @@ private:
 
     std::unordered_map<std::string, std::string> t2s_buffer_;    //缓存繁体转简体的结果
 
+    SimpleCC cct2s_;
+
 public:
     static Font* getInstance()
     {
@@ -35,4 +38,5 @@ public:
     int getBufferSize();
     static int getTextDrawSize(const std::string& text);
     void setSimplified(int s) { simplified_ = s; }
+    std::string T2S(const std::string& str) { return cct2s_.conv(str); }
 };
