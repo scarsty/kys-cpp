@@ -434,7 +434,7 @@ static void writeValues(sqlite3* db, const std::string& table_name, std::vector<
         cmd += info.name + " ";
         if (info.type == 0)
         {
-            cmd += "int,";
+            cmd += "integer,";
         }
         else if (info.type == 1)
         {

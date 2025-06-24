@@ -363,7 +363,7 @@ void NewSave::SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length)
         cmd += info.name + " ";
         if (info.type == 0)
         {
-            cmd += "int,";
+            cmd += "integer,";
         }
         else if (info.type == 1)
         {

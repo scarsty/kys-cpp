@@ -80,7 +80,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>bass.lib;bassmidi.lib;smallpot.lib;sdl3_mixer.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../local/lib/x64;$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\debug\lib\manual-link</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>../local/lib/x64</AdditionalLibraryDirectories>
       <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
@@ -106,7 +106,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;sdl3_mixer.lib;bass.lib;bassmidi.lib;iconv.lib;smallpot.lib;lua.lib;opencc.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;sdl3_mixer.lib;bass.lib;bassmidi.lib;iconv.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
