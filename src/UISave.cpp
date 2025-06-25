@@ -11,7 +11,7 @@ UISave::UISave()
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
-        auto str = filefunc::getFileTime(Save::getFilename(i, 'r'));
+        auto str = filefunc::getFileTime(Save::getInstance()->getFilename(i, '\0'));
         if (str.empty())
         {
             str = "--------------------";
@@ -49,10 +49,9 @@ void UISave::onPressedOK()
     checkActiveToResult();
     if (result_ >= 0)
     {
-        if (mode_ == 0 && Save::checkSaveFileExist(result_))
+        if (mode_ == 0)
         {
-            load(result_);
-            setExit(true);
+            setExit(load(result_));
         }
         if (mode_ == 1)
         {
@@ -63,32 +62,36 @@ void UISave::onPressedOK()
     }
 }
 
-void UISave::load(int r)
+bool UISave::load(int r)
 {
     auto sub_scene = getPointerFromRoot<SubScene>();    //可以知道在不在子场景中
     auto save = Save::getInstance();
     auto main_scene = MainScene::getInstance();
-    save->load(r);
-    main_scene->setManPosition(save->MainMapX, save->MainMapY);
-    if (save->InSubMap >= 0)
+    if (save->load(r))
     {
-        if (sub_scene)
+        main_scene->setManPosition(save->MainMapX, save->MainMapY);
+        if (save->InSubMap >= 0)
         {
-            sub_scene->forceJumpSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            if (sub_scene)
+            {
+                sub_scene->forceJumpSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            }
+            else
+            {
+                main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            }
         }
         else
         {
-            main_scene->forceEnterSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+            if (sub_scene)
+            {
+                sub_scene->forceExit();
+            }
         }
+        UI::getInstance()->setExit(true);
+        return true;
     }
-    else
-    {
-        if (sub_scene)
-        {
-            sub_scene->forceExit();
-        }
-    }
-    UI::getInstance()->setExit(true);
+    return false;
 }
 
 void UISave::save(int r)

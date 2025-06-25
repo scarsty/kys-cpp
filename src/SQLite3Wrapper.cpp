@@ -211,6 +211,16 @@ SQLite3Stmt SQLite3Wrapper::prepare(const std::string& sql)
     return stmt;
 }
 
+void SQLite3Wrapper::close()    //一般不用特别调用，析构函数会自动关闭，但是可能需要释放文件
+{
+    if (db_)
+    {
+        sqlite3_close(db_);
+        db_ = nullptr;
+        is_open_ = false;
+    }
+}
+
 SQLite3Blob::SQLite3Blob(SQLite3Wrapper& db, const char* tbl_name, const char* col_name, int row)
 {
     sqlite3_blob_open(db.getDB(), "main", tbl_name, col_name, row, 1, &blob_);

@@ -3,8 +3,8 @@
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
+#include "ZipFile.h"
 #include "filefunc.h"
-#include "lz4.h"
 
 Save::Save()
 {
@@ -17,6 +17,13 @@ Save::~Save()
 std::string Save::getFilename(int i, char c)
 {
     std::string filename;
+
+    //自动决定
+    if (c == 0)
+    {
+        c = ZIP_SAVE ? 'z' : 'r';
+    }
+
     if (i > 0)
     {
         if (c == 'r')
@@ -43,14 +50,17 @@ std::string Save::getFilename(int i, char c)
             filename = GameUtil::PATH() + "save/alldef.grp";
         }
     }
+    if (c == 'z')
+    {
+        filename = std::format("{}save/{}.zip", GameUtil::PATH(), i);
+    }
     return filename;
 }
 
 bool Save::checkSaveFileExist(int num)
 {
-    return filefunc::fileExist(getFilename(num, 'r'))
-        && filefunc::fileExist(getFilename(num, 's'))
-        && filefunc::fileExist(getFilename(num, 'd'));
+    return (ZIP_SAVE == 1 && filefunc::fileExist(getFilename(num, 'z')))
+        || filefunc::fileExist(getFilename(num, 'r')) && filefunc::fileExist(getFilename(num, 's')) && filefunc::fileExist(getFilename(num, 'd'));
 }
 
 void Save::updateAllPtrVector()
@@ -69,37 +79,32 @@ bool Save::load(int num)
         return false;
     }
 
-    //loadR(num);
-    loadRFromDB(num);
-    loadSD(num);
+    ZipFile zip;
+    if (ZIP_SAVE)
+    {
+        zip.openRead(getFilename(num, 'z'));
+    }
 
-    //saveRToDB(0);    //调试用
-    makeMapsAndRepairID();
+    auto filenamedb = getFilename(num, 'r');
+    if (zip.opened())
+    {
+        //临时使用99号文件名，避免覆盖原来的文件
+        filenamedb = getFilename(99, 'r');
+        filefunc::writeStringToFile(zip.readFile("1.db"), filenamedb);
+    }
 
-    //saveRToDB(num);    //临时转换
-    return true;
-}
+    SQLite3Wrapper db(filenamedb);
+    loadRFromDB(db);
+    updateAllPtrVector();
 
-bool Save::save(int num)
-{
-    //saveR(num);
-    auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-    filefunc::removeFile(filename);
-    saveRToDB(num);
-    saveSD(num);
-    return true;
-}
-
-void Save::loadSD(int num)
-{
+    //读取SD数据
+    //注意比较多的回退情况，即找不到zip时，又单独找其他文件
     auto submap_count = submap_infos_.size();
 
     bool db_failed = false;
 
     if (DB_SD)
     {
-        auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-        SQLite3Wrapper db(filename);
         for (int i = 0; i < submap_count; i++)
         {
             auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
@@ -115,31 +120,24 @@ void Save::loadSD(int num)
             }
             int size_lz4s = sblob.getSize();
             int size_lz4d = dblob.getSize();
-            std::string sdata_str(size_lz4s, 0);
-            std::string ddata_str(size_lz4d, 0);
-            sblob.read(sdata_str.data(), size_lz4s);
-            dblob.read(ddata_str.data(), size_lz4d);
-
-            int size_s = LZ4_decompress_safe(sdata_str.data(), (char*)ps, size_lz4s, sdata_length_);
-            int size_d = LZ4_decompress_safe(ddata_str.data(), (char*)pd, size_lz4d, ddata_length_);
-
-            if (size_s != sdata_length_ || size_d != ddata_length_)
-            {
-                LOG("LZ4 decompression failed for submap {}: expected sizes {}, {}, got {}, {}\n",
-                    i, sdata_length_, ddata_length_, size_s, size_d);
-                //db_failed = true;
-                //break;
-            }
+            sblob.read(ps, size_lz4s);
+            dblob.read(pd, size_lz4d);
         }
     }
     if (!DB_SD || db_failed)
     {
         std::vector<char> sdata(submap_count * sdata_length_);
         std::vector<char> ddata(submap_count * ddata_length_);
-        std::string filenames = getFilename(num, 's');
-        std::string filenamed = getFilename(num, 'd');
-        GrpIdxFile::readFile(filenames, sdata.data(), submap_count * sdata_length_);
-        GrpIdxFile::readFile(filenamed, ddata.data(), submap_count * ddata_length_);
+        if (zip.opened())
+        {
+            GrpIdxFile::readFile(getFilename(num, 's'), sdata.data(), submap_count * sdata_length_);
+            GrpIdxFile::readFile(getFilename(num, 'd'), ddata.data(), submap_count * ddata_length_);
+        }
+        else
+        {
+            zip.readFileToBuffer("s1.grp", sdata);
+            zip.readFileToBuffer("d1.grp", ddata);
+        }
         for (int i = 0; i < submap_count; i++)
         {
             auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
@@ -149,22 +147,37 @@ void Save::loadSD(int num)
             memcpy(pd, ddata.data() + ddata_length_ * i, ddata_length_);
         }
     }
+    //saveRToDB(0);    //调试用
+    makeMapsAndRepairID();
+    //saveRToDB(num);    //临时转换
+    db.close();
+    filefunc::removeFile(getFilename(99, 'r'));    //删除临时文件
+    return true;
 }
 
-void Save::saveSD(int num)
+bool Save::save(int num)
 {
-    auto submap_count = submap_infos_mem_.size();
+    ZipFile zip;
+    if (ZIP_SAVE)
+    {
+        zip.openWrite(getFilename(num, 'z'));
+    }
 
-    std::vector<char> sdata(submap_count * sdata_length_);
-    std::vector<char> ddata(submap_count * ddata_length_);
+    auto filenamedb = getFilename(num, 'r');
+
+    if (ZIP_SAVE)
+    {
+        filenamedb = getFilename(99, 'r');
+    }
+
+    SQLite3Wrapper db(filenamedb);
+    saveRToDB(db);
+
+    //保存SD数据
+    auto submap_count = submap_infos_mem_.size();
 
     if (DB_SD)
     {
-        std::vector<char> sdata1(sdata.size());
-        std::vector<char> ddata1(ddata.size());
-
-        auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-        SQLite3Wrapper db(filename);
         db.execute("drop table bindata");
         std::string cmd = "create table bindata (id integer, sdata blob, ddata blob)";
         db.execute(cmd);
@@ -177,16 +190,16 @@ void Save::saveSD(int num)
 
             auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
             auto pd = submap_infos_mem_[i].Event(0);
-            int size_lz4s = LZ4_compress_default((const char*)ps, sdata1.data(), sdata_length_, sdata1.size());
-            int size_lz4d = LZ4_compress_default((const char*)pd, ddata1.data(), ddata_length_, ddata1.size());
-            stmt.bind(2, sdata1.data(), size_lz4s);
-            stmt.bind(3, ddata1.data(), size_lz4d);
+            stmt.bind(2, ps, sdata_length_);
+            stmt.bind(3, pd, ddata_length_);
             stmt.step();
         }
         db.CommitTransaction();
     }
     else
     {
+        std::vector<char> sdata(submap_count * sdata_length_);
+        std::vector<char> ddata(submap_count * ddata_length_);
         for (int i = 0; i < submap_count; i++)
         {
             auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
@@ -194,12 +207,28 @@ void Save::saveSD(int num)
             memcpy(sdata.data() + sdata_length_ * i, ps, sdata_length_);
             memcpy(ddata.data() + ddata_length_ * i, pd, ddata_length_);
         }
-        //保存s和d数据到文件中
-        std::string filenames = getFilename(num, 's');
-        std::string filenamed = getFilename(num, 'd');
-        GrpIdxFile::writeFile(filenames, sdata.data(), submap_count * sdata_length_);
-        GrpIdxFile::writeFile(filenamed, ddata.data(), submap_count * ddata_length_);
+
+        if (ZIP_SAVE)
+        {
+            zip.addData("s1.grp", sdata.data(), sdata.size());
+            zip.addData("d1.grp", ddata.data(), ddata.size());
+        }
+        else
+        {
+            //保存到文件中
+            GrpIdxFile::writeFile(getFilename(num, 's'), sdata.data(), sdata.size());
+            GrpIdxFile::writeFile(getFilename(num, 'd'), ddata.data(), ddata.size());
+        }
     }
+    //最后处理db文件
+    if (ZIP_SAVE)
+    {
+        db.close();
+        zip.addFile(filenamedb, "1.db");
+        filefunc::removeFile(filenamedb);    //删除临时文件
+    }
+
+    return true;
 }
 
 void Save::resetRData(const std::vector<RoleSave>& newData)
@@ -356,28 +385,6 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
-void Save::saveRToDB(int num)
-{
-    //此处最好复制一个，先搞搞再说
-    std::string filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-    //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
-    SQLite3Wrapper db(filename);
-    saveRToDB(db);
-}
-
-void Save::loadRFromDB(int num)
-{
-    auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-    if (!filefunc::fileExist(filename))
-    {
-        return;
-    }
-    SQLite3Wrapper db(filename);
-    loadRFromDB(db);
-    updateAllPtrVector();
-    Encode = 65001;
-}
-
 void Save::saveRToDB(SQLite3Wrapper& db)
 {
     db.BeginTransaction();
@@ -400,20 +407,6 @@ void Save::loadRFromDB(SQLite3Wrapper& db)
     NewSave::LoadDBSubMapInfoSave(db, submap_infos_mem_);
     NewSave::LoadDBMagicSave(db, magics_mem_);
     NewSave::LoadDBShopSave(db, shops_mem_);
-}
-
-void Save::saveSDToDB(int num)
-{
-    //    auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
-    //    SQLite3Wrapper db(filename);
-    //    db.execute("drop table ddata");
-    ////    std::string cmd = R"(
-    ////create table ddata (场景编号 integer, 场景事件编号 integer, 不可行走 integer,
-    ////事件编号 integer, 普通触发 integer, 对话触发 integer, 路过触发 integer,
-    ////贴图 integer, 开始贴图 integer, 结束贴图 integer, 延迟 integer)";
-    //    std::string cmd = R"(create table bindata (sdata blob, data blob)";
-    //    db.execute(cmd);
-    //    SQLite3Blob data_blob(db, "bindata", "ddata", 0);
 }
 
 void Save::runSql(const std::string& cmd)

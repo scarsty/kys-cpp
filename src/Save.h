@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "Types.h"
 #include "SQLite3Wrapper.h"
+#include "Types.h"
 #include <map>
 #include <vector>
 
@@ -29,11 +29,7 @@ public:
     ~Save();
 
     bool load(int num);
-    //void loadR(int num);
     bool save(int num);
-    //void saveR(int num);
-    void loadSD(int num);
-    void saveSD(int num);
 
     // 帮助网络交流
     void resetRData(const std::vector<RoleSave>& newData);
@@ -44,8 +40,8 @@ public:
         return &s;
     }
 
-    static std::string getFilename(int i, char c);
-    static bool checkSaveFileExist(int num);
+    std::string getFilename(int i, char c);
+    bool checkSaveFileExist(int num);
 
 private:
     //注意在读取之后，offset比length尾部会多一个元素，该值即总长度
@@ -194,7 +190,9 @@ public:
 
     void loadSaveValues() {}
 
-    int DB_SD = 0;    //使用数据库保存SD数据，0-不使用，1-使用
+    int DB_SD = 0;    //使用数据库保存SD数据，0-不使用，1-使用，这个功能看起来不是很有必要
+
+    int ZIP_SAVE = 0;    //使用压缩保存数据，0-不使用，1-使用
 
 public:
     struct BaseInfo
@@ -204,13 +202,13 @@ public:
     };
 
 public:
-    void saveRToDB(int num);
-    void loadRFromDB(int num);
-
     void saveRToDB(SQLite3Wrapper& db);
     void loadRFromDB(SQLite3Wrapper& db);
 
-    void saveSDToDB(int num);
-
     void runSql(const std::string& cmd);
+
+    void setZipSave(int v)
+    {
+        ZIP_SAVE = v;
+    }
 };

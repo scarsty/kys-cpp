@@ -67,6 +67,7 @@ public:
     }
 
     SQLite3Stmt prepare(const std::string& sql);
+    void close();
 
 private:
     sqlite3* db_ = nullptr;

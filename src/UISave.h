@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Menu.h"
 
 class UISave : public MenuText
@@ -19,7 +19,7 @@ public:
     void onEntrance() override;
     virtual void onPressedOK() override;
 
-    static void load(int r);
+    static bool load(int r);
     static void save(int r);
     static void autoSave() { save(AUTO_SAVE_ID); }
 };

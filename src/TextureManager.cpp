@@ -109,7 +109,7 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         info_.path = path;
         if (!load_from_path)
         {
-            info_.zip.open(path + ".zip");
+            info_.zip.openRead(path + ".zip");
         }
         std::vector<short> offset;
         if (info_.zip.opened())
