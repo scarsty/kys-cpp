@@ -4,6 +4,7 @@
 #include "NewSave.h"
 #include "PotConv.h"
 #include "filefunc.h"
+#include "lz4.h"
 
 Save::Save()
 {
@@ -79,51 +80,126 @@ bool Save::load(int num)
     return true;
 }
 
-void Save::loadSD(int num)
-{
-    std::string filenames = getFilename(num, 's');
-    std::string filenamed = getFilename(num, 'd');
-
-    auto submap_count = submap_infos_.size();
-
-    auto sdata = new char[submap_count * sdata_length_];
-    auto ddata = new char[submap_count * ddata_length_];
-    GrpIdxFile::readFile(filenames, sdata, submap_count * sdata_length_);
-    GrpIdxFile::readFile(filenamed, ddata, submap_count * ddata_length_);
-    for (int i = 0; i < submap_count; i++)
-    {
-        memcpy(&(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata + sdata_length_ * i, sdata_length_);
-        memcpy(submap_infos_mem_[i].Event(0), ddata + ddata_length_ * i, ddata_length_);
-    }
-    delete[] sdata;
-    delete[] ddata;
-}
-
 bool Save::save(int num)
 {
     //saveR(num);
-    saveSD(num);
+    auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
+    filefunc::removeFile(filename);
     saveRToDB(num);
+    saveSD(num);
     return true;
+}
+
+void Save::loadSD(int num)
+{
+    auto submap_count = submap_infos_.size();
+
+    bool db_failed = false;
+
+    if (DB_SD)
+    {
+        auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
+        SQLite3Wrapper db(filename);
+        for (int i = 0; i < submap_count; i++)
+        {
+            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
+            auto pd = submap_infos_mem_[i].Event(0);
+
+            SQLite3Blob sblob(db, "bindata", "sdata", i + 1);
+            SQLite3Blob dblob(db, "bindata", "ddata", i + 1);
+            if (!sblob.isValid() || !dblob.isValid())
+            {
+                db_failed = true;
+                LOG("Failed to read SD data for submap {} from database: {}\n", i, db.getErrorMessage());
+                break;
+            }
+            int size_lz4s = sblob.getSize();
+            int size_lz4d = dblob.getSize();
+            std::string sdata_str(size_lz4s, 0);
+            std::string ddata_str(size_lz4d, 0);
+            sblob.read(sdata_str.data(), size_lz4s);
+            dblob.read(ddata_str.data(), size_lz4d);
+
+            int size_s = LZ4_decompress_safe(sdata_str.data(), (char*)ps, size_lz4s, sdata_length_);
+            int size_d = LZ4_decompress_safe(ddata_str.data(), (char*)pd, size_lz4d, ddata_length_);
+
+            if (size_s != sdata_length_ || size_d != ddata_length_)
+            {
+                LOG("LZ4 decompression failed for submap {}: expected sizes {}, {}, got {}, {}\n",
+                    i, sdata_length_, ddata_length_, size_s, size_d);
+                //db_failed = true;
+                //break;
+            }
+        }
+    }
+    if (!DB_SD || db_failed)
+    {
+        std::vector<char> sdata(submap_count * sdata_length_);
+        std::vector<char> ddata(submap_count * ddata_length_);
+        std::string filenames = getFilename(num, 's');
+        std::string filenamed = getFilename(num, 'd');
+        GrpIdxFile::readFile(filenames, sdata.data(), submap_count * sdata_length_);
+        GrpIdxFile::readFile(filenamed, ddata.data(), submap_count * ddata_length_);
+        for (int i = 0; i < submap_count; i++)
+        {
+            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
+            auto pd = submap_infos_mem_[i].Event(0);
+
+            memcpy(ps, sdata.data() + sdata_length_ * i, sdata_length_);
+            memcpy(pd, ddata.data() + ddata_length_ * i, ddata_length_);
+        }
+    }
 }
 
 void Save::saveSD(int num)
 {
-    std::string filenames = getFilename(num, 's');
-    std::string filenamed = getFilename(num, 'd');
     auto submap_count = submap_infos_mem_.size();
 
-    auto sdata = new char[submap_count * sdata_length_];
-    auto ddata = new char[submap_count * ddata_length_];
-    for (int i = 0; i < submap_count; i++)
+    std::vector<char> sdata(submap_count * sdata_length_);
+    std::vector<char> ddata(submap_count * ddata_length_);
+
+    if (DB_SD)
     {
-        memcpy(sdata + sdata_length_ * i, &(submap_infos_mem_[i].LayerData(0, 0, 0)), sdata_length_);
-        memcpy(ddata + ddata_length_ * i, submap_infos_mem_[i].Event(0), ddata_length_);
+        std::vector<char> sdata1(sdata.size());
+        std::vector<char> ddata1(ddata.size());
+
+        auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
+        SQLite3Wrapper db(filename);
+        db.execute("drop table bindata");
+        std::string cmd = "create table bindata (id integer, sdata blob, ddata blob)";
+        db.execute(cmd);
+        db.BeginTransaction();
+        for (int i = 0; i < submap_count; i++)
+        {
+            cmd = std::format("insert into bindata values(?, ?, ?)");
+            auto stmt = db.prepare(cmd);
+            stmt.bind(1, i);
+
+            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
+            auto pd = submap_infos_mem_[i].Event(0);
+            int size_lz4s = LZ4_compress_default((const char*)ps, sdata1.data(), sdata_length_, sdata1.size());
+            int size_lz4d = LZ4_compress_default((const char*)pd, ddata1.data(), ddata_length_, ddata1.size());
+            stmt.bind(2, sdata1.data(), size_lz4s);
+            stmt.bind(3, ddata1.data(), size_lz4d);
+            stmt.step();
+        }
+        db.CommitTransaction();
     }
-    GrpIdxFile::writeFile(filenames, sdata, submap_count * sdata_length_);
-    GrpIdxFile::writeFile(filenamed, ddata, submap_count * ddata_length_);
-    delete[] sdata;
-    delete[] ddata;
+    else
+    {
+        for (int i = 0; i < submap_count; i++)
+        {
+            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
+            auto pd = submap_infos_mem_[i].Event(0);
+            memcpy(sdata.data() + sdata_length_ * i, ps, sdata_length_);
+            memcpy(ddata.data() + ddata_length_ * i, pd, ddata_length_);
+        }
+        //保存s和d数据到文件中
+        std::string filenames = getFilename(num, 's');
+        std::string filenamed = getFilename(num, 'd');
+        GrpIdxFile::writeFile(filenames, sdata.data(), submap_count * sdata_length_);
+        GrpIdxFile::writeFile(filenamed, ddata.data(), submap_count * ddata_length_);
+    }
 }
 
 void Save::resetRData(const std::vector<RoleSave>& newData)
@@ -280,77 +356,13 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
-/*
-void Save::saveRToCSV(int num)
-{
-    NewSave::SaveCSVBaseInfo((BaseInfo*)this, 1, num);
-    // 背包
-    NewSave::SaveCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
-    // 人物
-    NewSave::SaveCSVRoleSave(roles_mem_, num);
-    // 物品
-    NewSave::SaveCSVItemSave(items_mem_, num);
-    // 场景
-    NewSave::SaveCSVSubMapInfoSave(submap_infos_mem_, num);
-    // 武功
-    NewSave::SaveCSVMagicSave(magics_mem_, num);
-    // 商店
-    NewSave::SaveCSVShopSave(shops_mem_, num);
-}
-
-void Save::loadRFromCSV(int num)
-{
-    NewSave::LoadCSVBaseInfo((BaseInfo*)this, 1, num);
-    NewSave::LoadCSVItemList(Items, ITEM_IN_BAG_COUNT, num);
-    NewSave::LoadCSVRoleSave(roles_mem_, num);
-    NewSave::LoadCSVItemSave(items_mem_, num);
-    NewSave::LoadCSVSubMapInfoSave(submap_infos_mem_, num);
-    NewSave::LoadCSVMagicSave(magics_mem_, num);
-    NewSave::LoadCSVShopSave(shops_mem_, num);
-    updateAllPtrVector();
-    makeMaps();
-}
-
-bool Save::insertAt(const std::string& type, int idx)
-{
-    if (type == "Role")
-    {
-        NewSave::InsertRoleAt(roles_mem_, idx);
-        return true;
-    }
-    else if (type == "Item")
-    {
-        NewSave::InsertItemAt(items_mem_, idx);
-        return true;
-    }
-    else if (type == "Magic")
-    {
-        NewSave::InsertMagicAt(magics_mem_, idx);
-        return true;
-    }
-    else if (type == "SubMapInfo")
-    {
-        NewSave::InsertSubMapInfoAt(submap_infos_mem_, idx);
-        return true;
-    }
-    else if (type == "Shop")
-    {
-        NewSave::InsertShopAt(shops_mem_, idx);
-        return true;
-    }
-    return false;
-}
-*/
-
 void Save::saveRToDB(int num)
 {
-    sqlite3* db;
     //此处最好复制一个，先搞搞再说
     std::string filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
     //convert::writeStringToFile(convert::readStringFromFile(filename0), filename);
-    sqlite3_open(filename.c_str(), &db);
+    SQLite3Wrapper db(filename);
     saveRToDB(db);
-    sqlite3_close(db);
 }
 
 void Save::loadRFromDB(int num)
@@ -360,17 +372,15 @@ void Save::loadRFromDB(int num)
     {
         return;
     }
-    sqlite3* db;
-    sqlite3_open(filename.c_str(), &db);
+    SQLite3Wrapper db(filename);
     loadRFromDB(db);
-    sqlite3_close(db);
     updateAllPtrVector();
     Encode = 65001;
 }
 
-void Save::saveRToDB(sqlite3* db)
+void Save::saveRToDB(SQLite3Wrapper& db)
 {
-    sqlite3_exec(db, "BEGIN;", nullptr, nullptr, nullptr);
+    db.BeginTransaction();
     NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
     NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
     NewSave::SaveDBRoleSave(db, roles_mem_);
@@ -378,10 +388,10 @@ void Save::saveRToDB(sqlite3* db)
     NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
     NewSave::SaveDBMagicSave(db, magics_mem_);
     NewSave::SaveDBShopSave(db, shops_mem_);
-    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+    db.CommitTransaction();
 }
 
-void Save::loadRFromDB(sqlite3* db)
+void Save::loadRFromDB(SQLite3Wrapper& db)
 {
     NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
     NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);
@@ -392,12 +402,25 @@ void Save::loadRFromDB(sqlite3* db)
     NewSave::LoadDBShopSave(db, shops_mem_);
 }
 
+void Save::saveSDToDB(int num)
+{
+    //    auto filename = GameUtil::PATH() + "save/" + std::to_string(num) + ".db";
+    //    SQLite3Wrapper db(filename);
+    //    db.execute("drop table ddata");
+    ////    std::string cmd = R"(
+    ////create table ddata (场景编号 integer, 场景事件编号 integer, 不可行走 integer,
+    ////事件编号 integer, 普通触发 integer, 对话触发 integer, 路过触发 integer,
+    ////贴图 integer, 开始贴图 integer, 结束贴图 integer, 延迟 integer)";
+    //    std::string cmd = R"(create table bindata (sdata blob, data blob)";
+    //    db.execute(cmd);
+    //    SQLite3Blob data_blob(db, "bindata", "ddata", 0);
+}
+
 void Save::runSql(const std::string& cmd)
 {
     if (cmd.find("update ") != 0) { return; }
-    sqlite3* db = nullptr;
-    sqlite3_open(nullptr, &db);
-    if (db)
+    SQLite3Wrapper db("");
+    //if (db.)
     {
         if (cmd.find("base ") != std::string::npos)
         {
@@ -441,6 +464,5 @@ void Save::runSql(const std::string& cmd)
             NewSave::runSql(db, cmd);
             NewSave::LoadDBShopSave(db, shops_mem_);
         }
-        sqlite3_close(db);
     }
 }

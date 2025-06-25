@@ -1,6 +1,6 @@
-#pragma once
+﻿#pragma once
 #include "Types.h"
-#include "sqlite3.h"
+#include "SQLite3Wrapper.h"
 #include <map>
 #include <vector>
 
@@ -30,9 +30,9 @@ public:
 
     bool load(int num);
     //void loadR(int num);
-    void loadSD(int num);
     bool save(int num);
     //void saveR(int num);
+    void loadSD(int num);
     void saveSD(int num);
 
     // 帮助网络交流
@@ -194,6 +194,8 @@ public:
 
     void loadSaveValues() {}
 
+    int DB_SD = 0;    //使用数据库保存SD数据，0-不使用，1-使用
+
 public:
     struct BaseInfo
     {
@@ -202,16 +204,13 @@ public:
     };
 
 public:
-    //void saveRToCSV(int num);
-    //void loadRFromCSV(int num);
-    //bool insertAt(const std::string& type, int idx);
-
-public:
     void saveRToDB(int num);
     void loadRFromDB(int num);
 
-    void saveRToDB(sqlite3* db);
-    void loadRFromDB(sqlite3* db);
+    void saveRToDB(SQLite3Wrapper& db);
+    void loadRFromDB(SQLite3Wrapper& db);
+
+    void saveSDToDB(int num);
 
     void runSql(const std::string& cmd);
 };

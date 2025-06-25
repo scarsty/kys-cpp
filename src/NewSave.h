@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "Save.h"
 #include "GameUtil.h"
+#include "Save.h"
 #include <cstring>
 
 class NewSave
@@ -34,35 +34,35 @@ public:
     static const std::vector<FieldInfo>& getFieldInfo(const std::string& name);    //这些索引其他地方可能用到
 
     void initDBFieldInfo();
-    static void SaveDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
-    static void LoadDBBaseInfo(sqlite3* db, Save::BaseInfo* data, int length);
+    static void SaveDBBaseInfo(SQLite3Wrapper& db, Save::BaseInfo* data, int length);
+    static void LoadDBBaseInfo(SQLite3Wrapper& db, Save::BaseInfo* data, int length);
     // 背包
-    static void SaveDBItemList(sqlite3* db, ItemList* data, int length);
-    static void LoadDBItemList(sqlite3* db, ItemList* data, int length);
+    static void SaveDBItemList(SQLite3Wrapper& db, ItemList* data, int length);
+    static void LoadDBItemList(SQLite3Wrapper& db, ItemList* data, int length);
     // 人物
-    static void SaveDBRoleSave(sqlite3* db, const std::vector<Role>& data);
-    static void LoadDBRoleSave(sqlite3* db, std::vector<Role>& data);
+    static void SaveDBRoleSave(SQLite3Wrapper& db, const std::vector<Role>& data);
+    static void LoadDBRoleSave(SQLite3Wrapper& db, std::vector<Role>& data);
     // 物品
-    static void SaveDBItemSave(sqlite3* db, const std::vector<Item>& data);
-    static void LoadDBItemSave(sqlite3* db, std::vector<Item>& data);
+    static void SaveDBItemSave(SQLite3Wrapper& db, const std::vector<Item>& data);
+    static void LoadDBItemSave(SQLite3Wrapper& db, std::vector<Item>& data);
     // 场景
-    static void SaveDBSubMapInfoSave(sqlite3* db, const std::vector<SubMapInfo>& data);
-    static void LoadDBSubMapInfoSave(sqlite3* db, std::vector<SubMapInfo>& data);
+    static void SaveDBSubMapInfoSave(SQLite3Wrapper& db, const std::vector<SubMapInfo>& data);
+    static void LoadDBSubMapInfoSave(SQLite3Wrapper& db, std::vector<SubMapInfo>& data);
     // 武功
-    static void SaveDBMagicSave(sqlite3* db, const std::vector<Magic>& data);
-    static void LoadDBMagicSave(sqlite3* db, std::vector<Magic>& data);
+    static void SaveDBMagicSave(SQLite3Wrapper& db, const std::vector<Magic>& data);
+    static void LoadDBMagicSave(SQLite3Wrapper& db, std::vector<Magic>& data);
     // 商店
-    static void SaveDBShopSave(sqlite3* db, const std::vector<Shop>& data);
-    static void LoadDBShopSave(sqlite3* db, std::vector<Shop>& data);
+    static void SaveDBShopSave(SQLite3Wrapper& db, const std::vector<Shop>& data);
+    static void LoadDBShopSave(SQLite3Wrapper& db, std::vector<Shop>& data);
 
 public:
-    static int runSql(sqlite3* db, const std::string& cmd);
+    static int runSql(SQLite3Wrapper& db, const std::string& cmd);
 
 private:
     template <class T>
-    static void writeValues(sqlite3* db, const std::string& table_name, std::vector<FieldInfo>& infos, const std::vector<T>& data)
+    static void writeValues(SQLite3Wrapper& db, const std::string& table_name, std::vector<FieldInfo>& infos, const std::vector<T>& data)
     {
-        sqlite3_exec(db, ("drop table " + table_name).c_str(), nullptr, nullptr, nullptr);
+        db.execute("drop table " + table_name);
         std::string cmd = "create table " + table_name + "(";
         for (auto& info : infos)
         {
@@ -82,7 +82,7 @@ private:
         }
         cmd.pop_back();
         cmd += ")";
-        auto ret = sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
+        auto ret = db.execute(cmd);
 
         for (auto& data1 : data)
         {
@@ -105,28 +105,27 @@ private:
             }
             cmd1.pop_back();
             cmd1 += ")";
-            auto ret1 = sqlite3_exec(db, cmd1.c_str(), nullptr, nullptr, nullptr);
-            if (ret1)
+            auto ret1 = db.execute(cmd1);
+            if (!ret1)
             {
-                LOG("{}\n", sqlite3_errmsg(db));
+                LOG("{}\n", db.getErrorMessage());
             }
         }
     }
 
     template <class T>
-    static void readValues(sqlite3* db, const std::string& table_name, std::vector<FieldInfo>& infos, std::vector<T>& data)
+    static void readValues(SQLite3Wrapper& db, const std::string& table_name, std::vector<FieldInfo>& infos, std::vector<T>& data)
     {
-        sqlite3_stmt* statement;
         std::string cmd = "select * from " + table_name;
-        int r = sqlite3_prepare(db, cmd.c_str(), cmd.size(), &statement, nullptr);
-        if (r)
+        auto stmt = db.query(cmd);
+        if (!stmt.isValid())
         {
-            LOG("{}\n", sqlite3_errmsg(db));
+            LOG("{}\n", db.getErrorMessage());
         }
 
-        for (int i = 0; i < sqlite3_column_count(statement); i++)
+        for (int i = 0; i < stmt.getColumnCount(); i++)
         {
-            auto name = sqlite3_column_name(statement, i);
+            auto name = stmt.getColumnName(i);
             for (auto& info : infos)
             {
                 if (name == info.name)
@@ -138,7 +137,7 @@ private:
         }
         //读取
         int count = 0;
-        while (sqlite3_step(statement) == SQLITE_ROW)
+        while (stmt.step())
         {
             if (count + 1 >= data.size())
             {
@@ -153,12 +152,12 @@ private:
                     if (info.type == 0)
                     {
                         auto p = (int*)((char*)&data1 + info.offset);
-                        *p = sqlite3_column_int(statement, info.col);
+                        *p = stmt.getColumnInt(info.col);
                     }
                     else if (info.type == 1)
                     {
                         auto p = (char*)((char*)&data1 + info.offset);
-                        std::string str((char*)sqlite3_column_text(statement, info.col));
+                        std::string str((char*)stmt.getColumnText(info.col));
                         //str = PotConv::utf8tocp936(str);
                         memset(p, 0, info.length);
                         memcpy(p, str.data(), std::min(info.length, str.length()));
@@ -166,12 +165,11 @@ private:
                     else
                     {
                         auto& str = *(std::string*)((char*)&data1 + info.offset);
-                        str = (char*)sqlite3_column_text(statement, info.col);
+                        str = (char*)stmt.getColumnText(info.col);
                     }
                 }
             }
             count++;
         }
-        sqlite3_finalize(statement);
     }
 };

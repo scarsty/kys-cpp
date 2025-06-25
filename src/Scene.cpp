@@ -271,7 +271,7 @@ void Scene::FindWay(int Mx, int My, int Fx, int Fy)
             }
         }
     }
-    LOG("Found a way in {} times, {} steps\n", s_num, way_que_.size());
+    //LOG("Found a way in {} times, {} steps\n", s_num, way_que_.size());
 }
 
 void Scene::lightScene()

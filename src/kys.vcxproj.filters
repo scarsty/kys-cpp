@@ -197,6 +197,9 @@
     <ClCompile Include="..\mlcc\SimpleCC.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
+    <ClCompile Include="SQLite3Wrapper.cpp">
+      <Filter>save</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -408,6 +411,9 @@
     </ClInclude>
     <ClInclude Include="..\mlcc\SimpleCC.h">
       <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="SQLite3Wrapper.h">
+      <Filter>save</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

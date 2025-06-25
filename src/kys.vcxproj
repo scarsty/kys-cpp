@@ -68,7 +68,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_SMALLPOT1;USE_SDL_MIXER_AUDIO;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_SMALLPOT1;USE_SDL_MIXER_AUDIO1;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
@@ -153,6 +153,7 @@
     <ClCompile Include="Script.cpp" />
     <ClCompile Include="ShowExp.cpp" />
     <ClCompile Include="ShowRoleDifference.cpp" />
+    <ClCompile Include="SQLite3Wrapper.cpp" />
     <ClCompile Include="SuperMenuText.cpp" />
     <ClCompile Include="Talk.cpp" />
     <ClCompile Include="Font.cpp" />
@@ -225,6 +226,7 @@
     <ClInclude Include="Script.h" />
     <ClInclude Include="ShowExp.h" />
     <ClInclude Include="ShowRoleDifference.h" />
+    <ClInclude Include="SQLite3Wrapper.h" />
     <ClInclude Include="SuperMenuText.h" />
     <ClInclude Include="Talk.h" />
     <ClInclude Include="EventMacro.h" />
