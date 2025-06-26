@@ -115,9 +115,6 @@
     <ClCompile Include="NewSave.cpp">
       <Filter>save</Filter>
     </ClCompile>
-    <ClCompile Include="ZipFile.cpp">
-      <Filter>zip</Filter>
-    </ClCompile>
     <ClCompile Include="ChemistryEngine.cpp">
       <Filter>chemistry</Filter>
     </ClCompile>
@@ -197,8 +194,11 @@
     <ClCompile Include="..\mlcc\SimpleCC.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
-    <ClCompile Include="SQLite3Wrapper.cpp">
-      <Filter>save</Filter>
+    <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp">
+      <Filter>mlcc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mlcc\ZipFile.cpp">
+      <Filter>mlcc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -319,9 +319,6 @@
     <ClInclude Include="NewSave.h">
       <Filter>save</Filter>
     </ClInclude>
-    <ClInclude Include="ZipFile.h">
-      <Filter>zip</Filter>
-    </ClInclude>
     <ClInclude Include="FunctionTrait.h">
       <Filter>event</Filter>
     </ClInclude>
@@ -412,8 +409,11 @@
     <ClInclude Include="..\mlcc\SimpleCC.h">
       <Filter>mlcc</Filter>
     </ClInclude>
-    <ClInclude Include="SQLite3Wrapper.h">
-      <Filter>save</Filter>
+    <ClInclude Include="..\mlcc\ZipFile.h">
+      <Filter>mlcc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
+      <Filter>mlcc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -445,9 +445,6 @@
       <UniqueIdentifier>{793a596f-160e-4c8e-8736-a848783c7a88}</UniqueIdentifier>
       <Extensions>
       </Extensions>
-    </Filter>
-    <Filter Include="zip">
-      <UniqueIdentifier>{6d628cf8-dd04-4c2b-ab7f-7ac40cd54b8f}</UniqueIdentifier>
     </Filter>
     <Filter Include="chemistry">
       <UniqueIdentifier>{035dc8b6-d3ba-46b1-9302-e7cdbc2c3b18}</UniqueIdentifier>

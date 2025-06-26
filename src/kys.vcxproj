@@ -116,6 +116,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
+    <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp" />
+    <ClCompile Include="..\mlcc\ZipFile.cpp" />
     <ClCompile Include="BattleSceneAct.cpp" />
     <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
@@ -153,7 +155,6 @@
     <ClCompile Include="Script.cpp" />
     <ClCompile Include="ShowExp.cpp" />
     <ClCompile Include="ShowRoleDifference.cpp" />
-    <ClCompile Include="SQLite3Wrapper.cpp" />
     <ClCompile Include="SuperMenuText.cpp" />
     <ClCompile Include="Talk.cpp" />
     <ClCompile Include="Font.cpp" />
@@ -181,10 +182,11 @@
     <ClCompile Include="Video.cpp" />
     <ClCompile Include="VirtualStick.cpp" />
     <ClCompile Include="Weather.cpp" />
-    <ClCompile Include="ZipFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\mlcc\SimpleCC.h" />
+    <ClInclude Include="..\mlcc\SQLite3Wrapper.h" />
+    <ClInclude Include="..\mlcc\ZipFile.h" />
     <ClInclude Include="BattleSceneAct.h" />
     <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
@@ -226,7 +228,6 @@
     <ClInclude Include="Script.h" />
     <ClInclude Include="ShowExp.h" />
     <ClInclude Include="ShowRoleDifference.h" />
-    <ClInclude Include="SQLite3Wrapper.h" />
     <ClInclude Include="SuperMenuText.h" />
     <ClInclude Include="Talk.h" />
     <ClInclude Include="EventMacro.h" />
@@ -254,7 +255,6 @@
     <ClInclude Include="Video.h" />
     <ClInclude Include="VirtualStick.h" />
     <ClInclude Include="Weather.h" />
-    <ClInclude Include="ZipFile.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="kys.ico" />

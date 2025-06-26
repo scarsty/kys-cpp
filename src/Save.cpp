@@ -224,7 +224,7 @@ bool Save::save(int num)
     if (ZIP_SAVE)
     {
         db.close();
-        zip.addFile(filenamedb, "1.db");
+        zip.addFile("1.db", filenamedb);
         filefunc::removeFile(filenamedb);    //删除临时文件
     }
 
