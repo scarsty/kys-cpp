@@ -191,15 +191,30 @@ int Font::getTextDrawSize(const std::string& text)
     for (int i = 0; i < text.size();)
     {
         uint8_t v = text[i];
-        if (v < 0xe0)
+        if (v < 0x80)
         {
             len++;
             i++;
         }
-        else
+        else if (v >= 0xc0 && v < 0xe0)
+        {
+            len++;
+            i += 2;
+        }
+        else if (v >= 0xe0 && v < 0xf0)
         {
             len += 2;
             i += 3;
+        }
+        else if (v >= 0xf0 && v < 0xf8)
+        {
+            len += 2;
+            i += 4;
+        }
+        else
+        {
+            //不应出现在这里的字符，跳过避免死循环
+            i++;
         }
     }
     return len;
