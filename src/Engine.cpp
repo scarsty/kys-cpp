@@ -26,6 +26,10 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #ifdef _WIN32
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d,vulkan,direct3d12,direct3d11,opengl");
 #endif
+#ifdef __ANDROID__
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
+
 #ifndef _WINDLL
     if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
     {
