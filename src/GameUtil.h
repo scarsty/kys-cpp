@@ -35,7 +35,7 @@ public:
 #ifndef __ANDROID__
         static std::string s = "../game/";
 #else
-        static std::string s = "/sdcard/game/kys-cpp";
+        static std::string s = "/sdcard/kys-cpp/game/";
 #endif
         return s;
     }
