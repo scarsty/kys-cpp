@@ -1,4 +1,4 @@
-#include "GameUtil.h"
+﻿#include "GameUtil.h"
 
 GameUtil::GameUtil()
 {

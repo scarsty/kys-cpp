@@ -1,9 +1,10 @@
 ﻿#pragma once
 #include "INIReader.h"
+#include "runtime_format.h"    //支持std::format的运行时格式化，c++26前暂时凑合用
 #include <cmath>
 #include <cstdint>
 #include <print>
-#include "runtime_format.h"    //支持std::format的运行时格式化，c++26前暂时凑合用
+#include "filefunc.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -32,10 +33,21 @@ public:
 
     static std::string& PATH()
     {
+        static std::string s = autoGamePath();
+        return s;
+    }
+
+    static std::string autoGamePath()
+    {
+        std::string s;
 #ifndef __ANDROID__
-        static std::string s = "../game/";
+        s = "../game/";
 #else
-        static std::string s = "/sdcard/kys-cpp/game/";
+        path_ = "/sdcard/kys-cpp/game/";
+        if (!filefunc::fileexist(path_ + "config/kysmod.ini"))
+        {
+            path_ = std::string(SDL_AndroidGetExternalStoragePath()) + "/game/";
+        }
 #endif
         return s;
     }
@@ -105,7 +117,6 @@ void LOG(std::format_string<Args...> fmt, Args... args)
     auto str = std::format(fmt, std::forward<Args>(args)...);
     fprintf(stdout, "%s", str.c_str());
 #ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO,"KYS", "%s", str.c_str());
+    __android_log_print(ANDROID_LOG_INFO, "KYS", "%s", str.c_str());
 #endif
 }
-
