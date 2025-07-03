@@ -130,13 +130,13 @@ bool Save::load(int num)
         std::vector<char> ddata(submap_count * ddata_length_);
         if (zip.opened())
         {
-            GrpIdxFile::readFile(getFilename(num, 's'), sdata.data(), submap_count * sdata_length_);
-            GrpIdxFile::readFile(getFilename(num, 'd'), ddata.data(), submap_count * ddata_length_);
+            zip.readFileToBuffer("s1.grp", sdata);
+            zip.readFileToBuffer("d1.grp", ddata);
         }
         else
         {
-            zip.readFileToBuffer("s1.grp", sdata);
-            zip.readFileToBuffer("d1.grp", ddata);
+            GrpIdxFile::readFile(getFilename(num, 's'), sdata.data(), submap_count * sdata_length_);
+            GrpIdxFile::readFile(getFilename(num, 'd'), ddata.data(), submap_count * ddata_length_);
         }
         for (int i = 0; i < submap_count; i++)
         {

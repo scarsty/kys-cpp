@@ -11,7 +11,12 @@ int main(int argc, char* argv[])
 #endif
     if (argc >= 2)
     {
-        GameUtil::PATH() = argv[1];
+        std::string path = argv[1];
+        if (path.back() != '/' && path.back() != '\\')
+        {
+            path += '/';
+        }
+        GameUtil::PATH() = path;
     }
     LOG("Game path is {}\n", GameUtil::PATH());
     Application app;
