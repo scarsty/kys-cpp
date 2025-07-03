@@ -8,6 +8,7 @@
 
 #ifdef __ANDROID__
 #include <android/log.h>
+#include <SDL3/SDL_system.h>
 #endif
 
 //此类中是一些游戏中的公式，例如使用物品的效果，伤害公式等
@@ -43,10 +44,10 @@ public:
 #ifndef __ANDROID__
         s = "../game/";
 #else
-        path_ = "/sdcard/kys-cpp/game/";
-        if (!filefunc::fileexist(path_ + "config/kysmod.ini"))
+        s = "/sdcard/kys-cpp/game/";
+        if (!filefunc::fileExist(s + "config/kysmod.ini"))
         {
-            path_ = std::string(SDL_AndroidGetExternalStoragePath()) + "/game/";
+            s = std::string(SDL_GetAndroidExternalStoragePath()) + "/game/";
         }
 #endif
         return s;
