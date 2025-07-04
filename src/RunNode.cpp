@@ -258,6 +258,11 @@ void RunNode::drawSelfChilds()
     if (visible_)
     {
         draw();
+        if (dark_)
+        {
+            //画上一层半透明黑，用于某些UI
+            Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+        }
         for (auto c : childs_)
         {
             if (c->visible_)

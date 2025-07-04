@@ -1,4 +1,4 @@
-#include "UI.h"
+﻿#include "UI.h"
 #include "GameUtil.h"
 #include "Head.h"
 #include "Save.h"
@@ -16,10 +16,13 @@ UI::UI()
 
     button_status_ = std::make_shared<Button>();
     button_status_->setTexture("title", 122);
+    button_status_->setAlpha(192);
     button_item_ = std::make_shared<Button>();
     button_item_->setTexture("title", 124);
+    button_item_->setAlpha(192);
     button_system_ = std::make_shared<Button>();
     button_system_->setTexture("title", 125);
+    button_system_->setAlpha(192);
     addChild(button_status_, 10, 10);
     addChild(button_item_, 90, 10);
     addChild(button_system_, 170, 10);
@@ -33,6 +36,7 @@ UI::UI()
     }
     heads_->getChild(0)->setState(NodePass);
     //addChild(heads_);
+    setIsDark(1);
     result_ = -1;    //非负：物品id，负数：其他情况，再定
 }
 
@@ -46,7 +50,7 @@ void UI::onEntrance()
 
 void UI::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
+    //Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
 }
 
 void UI::dealEvent(EngineEvent& e)

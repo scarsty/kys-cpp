@@ -82,25 +82,26 @@ int UISystem::askExit(int mode)
     {
         asking = true;
         auto menu = std::make_shared<MenuText>();
-        menu->setStrings({ "離開遊戲", "返回開頭", "我點錯了" });
-        menu->setFontSize(24);        
+        menu->setStrings({ "我點錯了", "離開遊戲", "返回開頭" });
+        menu->setFontSize(24);
         int x = 880, y = 100;
         if (mode == 1)
         {
-            menu->getChild(1)->setVisible(false);
+            //menu->getChild(1)->setVisible(false);
             x = Engine::getInstance()->getStartWindowWidth() - 150;
             y = 20;
+            menu->setIsDark(1);
         }
         menu->arrange(0, 0, 0, 40);
         int r = menu->runAtPosition(x, y);
-        if (r == 0)
+        if (r == 1)
         {
             //exitAll();
             //Event::getInstance()->forceExit();
             //ret = 0;
             exit(0);    //爱咋咋地
         }
-        else if (r == 1)
+        else if (r == 2)
         {
             exitAll(1);
             Event::getInstance()->forceExit();

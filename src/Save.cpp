@@ -152,6 +152,13 @@ bool Save::load(int num)
     //saveRToDB(num);    //临时转换
     db.close();
     filefunc::removeFile(getFilename(99, 'r'));    //删除临时文件
+
+    if (ZIP_SAVE && !zip.opened())
+    {
+        //转换未压缩存档格式
+        save(num);
+    }
+
     return true;
 }
 
@@ -160,7 +167,7 @@ bool Save::save(int num)
     ZipFile zip;
     if (ZIP_SAVE)
     {
-        zip.openWrite(getFilename(num, 'z'));
+        zip.create(getFilename(num, 'z'));
     }
 
     auto filenamedb = getFilename(num, 'r');

@@ -17,6 +17,7 @@ UIItem::UIItem()
         addChild(b);
         item_buttons_[i] = b;
         b->setPosition(i % item_each_line_ * 85 + 40, i / item_each_line_ * 85 + 100);
+        b->setAlpha(192);
         //b->setTexture("item", Save::getInstance()->getItemByBagIndex(i)->ID);
     }
     title_ = std::make_shared<MenuText>();

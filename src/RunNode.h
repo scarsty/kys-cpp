@@ -30,6 +30,8 @@ protected:
     int stay_frame_ = -1;
     int current_frame_ = 0;
 
+    int dark_ = 0;    //不为0时表示画上一层半透明黑
+
 protected:
     int x_ = 0;
     int y_ = 0;
@@ -139,6 +141,8 @@ public:
     void setVisible(bool v) { visible_ = v; }
 
     void setDealEvent(int d) { deal_event_ = d; }
+
+    void setIsDark(int d) { dark_ = d; }
 
     //状态
     enum State

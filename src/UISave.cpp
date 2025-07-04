@@ -11,7 +11,13 @@ UISave::UISave()
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
-        auto str = filefunc::getFileTime(Save::getInstance()->getFilename(i, '\0'));
+        //获取存档文件名，如果zip文件不存在，则获取r文件名
+        auto filename = Save::getInstance()->getFilename(i, '\0');
+        if (!filefunc::fileExist(filename))
+        {
+            filename = Save::getInstance()->getFilename(i, 'r');
+        }
+        auto str = filefunc::getFileTime(filename);
         if (str.empty())
         {
             str = "--------------------";
@@ -90,6 +96,14 @@ bool UISave::load(int r)
         }
         UI::getInstance()->setExit(true);
         return true;
+    }
+    else
+    {
+        auto text = std::make_shared<TextBox>();
+        text->setText("存檔讀取失敗!");
+        text->setFontSize(24);
+        text->setTextColor({255, 0, 0});
+        text->runAtPosition(Engine::getInstance()->getStartWindowWidth() / 2 - 100, 620);
     }
     return false;
 }
