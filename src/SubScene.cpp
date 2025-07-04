@@ -411,7 +411,7 @@ void SubScene::onEntrance()
     auto scene_name = std::make_shared<TextBox>();
     scene_name->setFontSize(24);
     scene_name->setText(submap_info_->Name);
-    scene_name->setPosition(Engine::getInstance()->getWindowWidth() / 2 - Font::getTextDrawSize(submap_info_->Name) * 12, 100);
+    scene_name->setPosition(Engine::getInstance()->getStartWindowWidth() / 2 - Font::getTextDrawSize(submap_info_->Name) / 2 * 12, 100);
     scene_name->setStayFrame(40);
     addChild(scene_name);
 }
