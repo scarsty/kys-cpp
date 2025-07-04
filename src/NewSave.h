@@ -13,11 +13,14 @@ private:
         int offset;
         size_t length;
         int col = -1;
-
+        std::string name0;
         FieldInfo() {}
 
-        FieldInfo(const std::string& n, int t, int o, size_t l, int c = -1) :
-            name(n), type(t), offset(o), length(l), col(c) {}
+        FieldInfo(const std::string& n, int t, int o, size_t l, int c = -1, const std::string& n0 = "") :
+            name(n), type(t), offset(o), length(l), col(c), name0(n0)
+        {
+            std::transform(name0.begin(), name0.end(), name0.begin(), ::tolower);
+        }
     };
 
     std::vector<FieldInfo> base_, item_list_, role_, item_, submapinfo_, magic_, shop_;

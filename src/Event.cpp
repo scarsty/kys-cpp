@@ -1405,7 +1405,7 @@ void Event::instruct_50e(int code, int e1, int e2, int e3, int e4, int e5, int e
         e3 = e_GetValue(1, e1, e3);
         e4 = e_GetValue(2, e1, e4);
         e5 = e_GetValue(3, e1, e5);
-        //Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
+        Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, e2, e3, e4, e5);
         break;
     case 35:    //暂停等待按键
         text_box_->setText("");

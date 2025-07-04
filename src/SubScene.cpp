@@ -3,6 +3,7 @@
 #include "BattleScene.h"
 #include "Console.h"
 #include "Event.h"
+#include "Font.h"
 #include "MainScene.h"
 #include "ParticleExample.h"
 #include "PotConv.h"
@@ -57,7 +58,6 @@ void SubScene::draw()
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
 
     //Timer t0;
-
     //一整块地面
     //如果没有创建地面，那么这个值是空，即使用之前的画法
     auto earth_texture = Engine::getInstance()->getTexture("searth");
@@ -407,6 +407,13 @@ void SubScene::onEntrance()
     //Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     reDrawEarthTexture();
     //Engine::getInstance()->saveTexture(earth_texture, std::format("{}.bmp", submap_id_).c_str());
+
+    auto scene_name = std::make_shared<TextBox>();
+    scene_name->setFontSize(24);
+    scene_name->setText(submap_info_->Name);
+    scene_name->setPosition(Engine::getInstance()->getWindowWidth() / 2 - Font::getTextDrawSize(submap_info_->Name) * 12, 100);
+    scene_name->setStayFrame(40);
+    addChild(scene_name);
 }
 
 void SubScene::onExit()

@@ -137,8 +137,8 @@ struct RoleSave
 public:
     int ID;
     int HeadID, IncLife, UnUse;
-    std::string Name, Nick;
-    int Sexual;    //性别 0-男 1 女 2 其他
+    char Name_hold[20], Nick_hold[20];    //占位
+    int Sexual;                   //性别 0-男 1 女 2 其他
     int Level;
     int Exp;
     int HP, MaxHP, Hurt, Poison, PhysicalPower;
@@ -157,6 +157,7 @@ public:
     int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
     int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
     int InternalID[ROLE_INTERNAL_COUNT], InternalLevel[ROLE_INTERNAL_COUNT];
+    std::string Name, Nick;
 };
 
 //实际的角色数据，基类之外的通常是战斗属性
@@ -365,10 +366,9 @@ public:
 //存档中的物品数据
 struct ItemSave
 {
-    int ID;
-    std::string Name;
-    int Name1[10];
-    std::string Introduction;
+    int ID;    
+    char Name_hold[80];
+    char Introduction_hold[60];
     int MagicID, HiddenWeaponEffectID, User, EquipType, ShowIntroduction;
     int ItemType;    //0剧情，1装备，2秘笈，3药品，4暗器
     int UnKnown5, UnKnown6, UnKnown7;
@@ -379,6 +379,8 @@ struct ItemSave
     int NeedFist, NeedSword, NeedKnife, NeedUnusual, NeedHiddenWeapon, NeedIQ;
     int NeedExp, NeedExpForMakeItem, NeedMaterial;
     int MakeItem[5], MakeItemCount[5];
+    std::string Name;
+    std::string Introduction;
 };
 
 //实际的物品数据
@@ -397,7 +399,7 @@ public:
 struct MagicSave
 {
     int ID;
-    std::string Name;
+    char Name_hold[20];
     int Unknown[5];
     int SoundID;
     int MagicType;    //1-拳，2-剑，3-刀，4-特殊
@@ -406,6 +408,7 @@ struct MagicSave
     int AttackAreaType;    //0-点，1-线，2-十字，3-面
     int NeedMP, WithPoison;
     int Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
+    std::string Name;
 };
 
 struct Magic : MagicSave
@@ -420,13 +423,14 @@ struct Magic : MagicSave
 struct SubMapInfoSave
 {
     int ID;
-    std::string Name;
+    char Name_hold[20];
     int ExitMusic, EntranceMusic;
     int JumpSubMap, EntranceCondition;
     int MainEntranceX1, MainEntranceY1, MainEntranceX2, MainEntranceY2;
     int EntranceX, EntranceY;
     int ExitX[3], ExitY[3];
     int JumpX, JumpY, JumpReturnX, JumpReturnY;
+    std::string Name;
 };
 
 //场景事件数据

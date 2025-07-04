@@ -1,9 +1,11 @@
 ﻿#include "NewSave.h"
 
+#define _name(a) #a
+
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))
-#define BIND_FIELD_INT(key, field) FieldInfo(key, 0, GET_OFFSET(field), sizeof(a.field))
+#define BIND_FIELD_INT(key, field) FieldInfo(key, 0, GET_OFFSET(field), sizeof(a.field), -1, _name(field))
 //#define BIND_FIELD_TEXT(key, field) FieldInfo(key, 1, GET_OFFSET(field), sizeof(a.field))
-#define BIND_FIELD_STRING(key, field) FieldInfo(key, 2, GET_OFFSET(field), sizeof(a.field))
+#define BIND_FIELD_STRING(key, field) FieldInfo(key, 2, GET_OFFSET(field), sizeof(a.field), -1, _name(field))
 
 const std::vector<NewSave::FieldInfo>& NewSave::getFieldInfo(const std::string& name)
 {
@@ -153,16 +155,16 @@ void NewSave::initDBFieldInfo()
         item_ = {
             BIND_FIELD_INT("编号", ID),
             BIND_FIELD_STRING("物品名", Name),
-            BIND_FIELD_INT("物品名无用1", Name1[0]),
-            BIND_FIELD_INT("物品名无用2", Name1[1]),
-            BIND_FIELD_INT("物品名无用3", Name1[2]),
-            BIND_FIELD_INT("物品名无用4", Name1[3]),
-            BIND_FIELD_INT("物品名无用5", Name1[4]),
-            BIND_FIELD_INT("物品名无用6", Name1[5]),
-            BIND_FIELD_INT("物品名无用7", Name1[6]),
-            BIND_FIELD_INT("物品名无用8", Name1[7]),
-            BIND_FIELD_INT("物品名无用9", Name1[8]),
-            BIND_FIELD_INT("物品名无用10", Name1[9]),
+            //BIND_FIELD_INT("物品名无用1", Name1[0]),
+            //BIND_FIELD_INT("物品名无用2", Name1[1]),
+            //BIND_FIELD_INT("物品名无用3", Name1[2]),
+            //BIND_FIELD_INT("物品名无用4", Name1[3]),
+            //BIND_FIELD_INT("物品名无用5", Name1[4]),
+            //BIND_FIELD_INT("物品名无用6", Name1[5]),
+            //BIND_FIELD_INT("物品名无用7", Name1[6]),
+            //BIND_FIELD_INT("物品名无用8", Name1[7]),
+            //BIND_FIELD_INT("物品名无用9", Name1[8]),
+            //BIND_FIELD_INT("物品名无用10", Name1[9]),
             BIND_FIELD_STRING("物品说明", Introduction),
             BIND_FIELD_INT("练出武功", MagicID),
             BIND_FIELD_INT("暗器动画编号", HiddenWeaponEffectID),

@@ -27,8 +27,7 @@ void RunNode::drawAll()
     int begin_base = 0;
     for (int i = 0; i < root_.size(); i++)    //记录最后一个全屏的层
     {
-        root_[i]->backRun();
-        root_[i]->current_frame_++;
+        root_[i]->backRunSelfChilds();
         if (root_[i]->full_window_)
         {
             begin_base = i;
@@ -324,8 +323,13 @@ void RunNode::backRunSelfChilds()
     for (auto c : childs_)
     {
         c->backRunSelfChilds();
+        if (c->stay_frame_> 0 &&c->current_frame_ > c->stay_frame_)
+        {
+            removeChild(c);
+        }
     }
     backRun();
+    current_frame_++;    //此处统计帧数
 }
 
 //检测事件

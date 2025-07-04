@@ -1,6 +1,7 @@
 ﻿#include "Script.h"
 #include "Event.h"
 #include "EventMacro.h"
+#include "Font.h"
 #include "NewSave.h"
 #include "PotConv.h"
 #include "filefunc.h"
@@ -12,10 +13,15 @@ int rModifier(auto data_name, auto getDataFromIndex, lua_State* L)
 {
     int index = lua_tonumber(L, 1);
     std::string name = lua_tostring(L, 2);
+    int offset = -1;
+    if (lua_isnumber(L, 2))
+    {
+        offset = lua_tonumber(L, 2);
+    }
     int n = lua_gettop(L);
     for (auto& info : NewSave::getFieldInfo(data_name))
     {
-        if (name == info.name)
+        if (name == info.name || name == info.name0 || offset == info.offset / sizeof(int))    //偏移的方法是向下兼容，不推荐使用
         {
             char* p = (char*)(std::invoke(getDataFromIndex, Save::getInstance(), index)) + info.offset;
             if (info.type == 0)
@@ -93,6 +99,11 @@ int Script::runScript(const std::string& filename)
     std::string content = filefunc::readFileToString(filename);
     LOG("{}\n", content);
     std::transform(content.begin(), content.end(), content.begin(), ::tolower);
+    return runScriptString(content);
+}
+
+int Script::runScriptString(const std::string& content)
+{
     int r = 0;
     r = luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
     if (r == 0)
@@ -376,9 +387,62 @@ int Script::registerEventFunctions()
     lua_register(lua_state_, "getshop", getShop);
     lua_register(lua_state_, "setshop", getShop);
 
-    //std::string content = "";
-    //luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
-    //lua_pcall(lua_state_, 0, 0, 0);
+    auto drawRect = [](lua_State* L)
+    {
+        int x = lua_tonumber(L, 1);
+        int y = lua_tonumber(L, 2);
+        int width = lua_tonumber(L, 3);
+        int height = lua_tonumber(L, 4);
+        Engine::getInstance()->fillColor({ 0, 0, 128 }, x, y, width, height);
+        return 0;
+    };
+    lua_register(lua_state_, "drawrect", drawRect);
+
+    auto drawString = [](lua_State* L)
+    {
+        std::string str = lua_tostring(L, 1);
+        int x = lua_tonumber(L, 2);
+        int y = lua_tonumber(L, 3);
+        Font::getInstance()->draw(str, 20, x, y, { 255, 255, 255, 255 });
+        return 0;
+    };
+    lua_register(lua_state_, "drawstring", drawRect);
+
+    auto getTalk = [](lua_State* L)
+    {
+        int index = lua_tonumber(L, 1);
+        std::string str = Event::getInstance()->getTalkContent(index);
+        lua_pushstring(L, str.c_str());
+        return 1;
+    };
+    lua_register(lua_state_, "gettalk", getTalk);
+
+    auto menu = [](lua_State* L) -> int
+    {
+        std::vector<std::string> items;
+        int x = lua_tonumber(L, 1);
+        int y = lua_tonumber(L, 2);
+        int n = lua_tonumber(L, 4);
+        for (int i = 0; i <= n; i++)
+        {
+            lua_pushnumber(L, i);
+            lua_gettable(L, 3);    //获取table中的第i个元素
+            if (lua_isstring(L, -1))
+            {
+                items.push_back(lua_tostring(L, -1));
+            }
+            lua_pop(L, 1);    //弹出table中的元素
+        }
+        auto m = std::make_shared<MenuText>();
+        m->setStrings(items);
+        m->setPosition(x, y);
+        int r = m->run() + 1;
+        lua_pushnumber(L, r);
+        return 1;
+    };
+    lua_register(lua_state_, "menu", menu);
+
+    runScriptString("x = {}; for i = 0,32767 do x[i] = 0; end;");
 
     return 0;
 }
