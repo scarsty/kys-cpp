@@ -297,10 +297,11 @@ int Script::registerEventFunctions()
 
     auto newTalk = [](lua_State* L) -> int
     {
-        std::vector<int> args(7);
+        std::vector<int> args(7, -1);
         int i1 = 1;
         std::string str, name;
-        for (int i = 0; i < 3; i++)
+        int n = lua_gettop(L);
+        for (int i = 0; i < n; i++)
         {
             if (lua_isnumber(L, i + 1))
             {
@@ -322,7 +323,7 @@ int Script::registerEventFunctions()
         {
             str = (lua_tostring(L, 1));
         }
-        Event::getInstance()->newTalk(str, args[1], args[2]);
+        Event::getInstance()->newTalk(str, args[1], args[2], args[3]);
         return 0;
     };
     lua_register(lua_state_, "newtalk", newTalk);

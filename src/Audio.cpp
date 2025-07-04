@@ -68,41 +68,20 @@ void Audio::init()
         music_path = std::format("{}music/{}.mid", GameUtil::PATH(), i);
         if (filefunc::fileExist(music_path))
         {
-#ifndef USE_SDL_MIXER_AUDIO
-            auto m = BASS_MIDI_StreamCreateFile(false, music_path.c_str(), 0, 0, 0, 0);
-            BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
-#else
-            auto m = Mix_LoadMUS(music_path.c_str());
-#endif
-            music_.push_back(m);
+            music_.push_back(loadMusic(music_path));
         }
         else
         {
             music_path = std::format("{}music/{}.mp3", GameUtil::PATH(), i);
-#ifndef USE_SDL_MIXER_AUDIO
-            auto m = BASS_StreamCreateFile(false, music_path.c_str(), 0, 0, flag);
-#else
-            auto m = Mix_LoadMUS(music_path.c_str());
-#endif
-            music_.push_back(m);
+            music_.push_back(loadMusic(music_path));
         }
         //int error_t = BASS_ErrorGetCode();
 
         asound_path = std::format("{}sound/atk{:02}.wav", GameUtil::PATH(), i);
-#ifndef USE_SDL_MIXER_AUDIO
-        auto a = BASS_StreamCreateFile(false, asound_path.c_str(), 0, 0, flag);
-#else
-        auto a = Mix_LoadWAV(asound_path.c_str());
-#endif
-        asound_.push_back(a);
+        asound_.push_back(loadWav(asound_path));
 
         esound_path = std::format("{}sound/e{:02}.wav", GameUtil::PATH(), i);
-#ifndef USE_SDL_MIXER_AUDIO
-        auto e = BASS_StreamCreateFile(false, esound_path.c_str(), 0, 0, flag);
-#else
-        auto e = Mix_LoadWAV(esound_path.c_str());
-#endif
-        esound_.push_back(e);
+        esound_.push_back(loadWav(esound_path));
     }
 }
 
@@ -113,15 +92,7 @@ void Audio::playMusic(int num)
         return;
     }
     stopMusic();
-#ifndef USE_SDL_MIXER_AUDIO
-    BASS_ChannelSetAttribute(music_[num], BASS_ATTRIB_VOL, volume_ / 100.0);
-    BASS_Apply3D();
-    BASS_ChannelFlags(music_[num], BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
-    BASS_ChannelPlay(music_[num], false);
-#else
-    Mix_VolumeMusic(volume_);
-    Mix_FadeInMusic(music_[num], -1, 500);
-#endif
+    playMUSIC(music_[num]);
     current_music_ = music_[num];
 }
 
@@ -136,14 +107,7 @@ void Audio::playASound(int num, int volume)
     {
         volume = volume_wav_;
     }
-#ifndef USE_SDL_MIXER_AUDIO
-    auto ch = BASS_SampleGetChannel(asound_[num], 1);
-    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_wav_ / 100.0);
-    BASS_ChannelPlay(asound_[num], false);
-#else
-    Mix_Volume(-1, volume);
-    Mix_PlayChannel(-1, asound_[num], 0);
-#endif
+    playWAV(asound_[num], volume);
     current_sound_ = asound_[num];
 }
 
@@ -157,14 +121,7 @@ void Audio::playESound(int num, int volume)
     {
         volume = volume_wav_;
     }
-#ifndef USE_SDL_MIXER_AUDIO
-    auto ch = BASS_SampleGetChannel(esound_[num], 1);
-    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume_wav_ / 100.0);
-    BASS_ChannelPlay(esound_[num], false);
-#else
-    Mix_Volume(-1, volume);
-    Mix_PlayChannel(-1, esound_[num], 0);
-#endif
+    playWAV(esound_[num], volume);
     current_sound_ = esound_[num];
 }
 
@@ -192,5 +149,84 @@ void Audio::stopMusic()
     BASS_ChannelStop(current_music_);
 #else
     Mix_HaltMusic();
+#endif
+}
+
+void Audio::stopWav()
+{
+#ifndef USE_SDL_MIXER_AUDIO
+    BASS_ChannelStop(current_sound_);
+#else
+    Mix_HaltChannel(-1);
+#endif
+}
+
+void Audio::playVoice(int voice_id, int volume)
+{
+    stopWav();
+    if (voice_.find(voice_id) == voice_.end())
+    {
+        voice_[voice_id] = loadWav(std::format("{}voice/{}.wav", GameUtil::PATH(), voice_id));
+    }
+    playWAV(voice_[voice_id], volume);
+    current_sound_ = voice_[voice_id];
+}
+
+MUSIC Audio::loadMusic(const std::string& file)
+{
+#ifndef USE_SDL_MIXER_AUDIO
+    auto m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+    if (file.contains(".mid"))
+    {
+        BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
+    }
+    return m;
+#else
+    return Mix_LoadMUS(file.c_str());
+#endif
+}
+
+WAV Audio::loadWav(const std::string& file)
+{
+#ifndef USE_SDL_MIXER_AUDIO
+    auto s = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+    if (s == 0)
+    {
+        s = BASS_SampleLoad(false, file.c_str(), 0, 0, 1, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+    }
+    return s;
+#else
+    return Mix_LoadWAV(file.c_str());
+#endif
+}
+
+void Audio::playMUSIC(MUSIC m)
+{
+#ifndef USE_SDL_MIXER_AUDIO
+    BASS_ChannelSetAttribute(m, BASS_ATTRIB_VOL, volume_ / 100.0);
+    BASS_Apply3D();
+    BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
+    BASS_ChannelPlay(m, false);
+#else
+    Mix_VolumeMusic(volume_ * 128 / 100);
+    //Mix_PlayMusic(m, -1);
+    Mix_FadeInMusic(m, -1, 500);
+#endif
+}
+
+void Audio::playWAV(WAV w, int volume)
+{
+    if (volume < 0 || volume > 100)
+    {
+        volume = volume_wav_;
+    }
+#ifndef USE_SDL_MIXER_AUDIO
+    auto ch = BASS_SampleGetChannel(w, 1);
+    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume / 100.0);
+    BASS_ChannelPlay(w, false);
+#else
+    //Mix_Volume(-1, 128);
+    Mix_VolumeChunk(w, volume * 128 / 100);
+    Mix_PlayChannel(-1, w, 0);
 #endif
 }

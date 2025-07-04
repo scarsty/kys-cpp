@@ -3,12 +3,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerWorkingDirectory>D:\kys-all\_cpp\cpp版资源\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>game-RiverLake/</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>game/</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>..\work</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>D:\kys-all\_cpp\cpp版资源\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>./game-dev/</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>./game/</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

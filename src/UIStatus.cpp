@@ -238,7 +238,7 @@ void UIStatus::draw()
         {
             int x1 = x + i % 2 * 200;
             int y1 = y + 30 + i / 2 * 25;
-            font->draw("__________", font_size, x1, y1, color_ability1);
+            font->draw("", font_size, x1, y1, color_ability1);
         }
     }
 

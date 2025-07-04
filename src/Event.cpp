@@ -45,7 +45,7 @@ Event::~Event()
 bool Event::loadEventData()
 {
     //读取talk
-    auto talk = GrpIdxFile::getIdxContent(GameUtil::PATH() + "resource/talk.idx", GameUtil::PATH() + "resource/talk.grp", &offset, &length);
+    /*auto talk = GrpIdxFile::getIdxContent(GameUtil::PATH() + "resource/talk.idx", GameUtil::PATH() + "resource/talk.grp", &offset, &length);
     for (int i = 0; i < offset.back(); i++)
     {
         if (talk[i])
@@ -57,7 +57,18 @@ bool Event::loadEventData()
     {
         std::string str = strfunc::replaceAllSubString(PotConv::cp950toutf8(talk.data() + offset[i]), "*", "");
         talk_contents_.push_back(str);
+    }*/
+
+    auto talk_all = filefunc::readFileToString(GameUtil::PATH() + "resource/talkutf8.txt");
+    int index = 0;
+    for (auto& line : strfunc::splitString(talk_all, "\n"))
+    {
+        strfunc::replaceAllSubStringRef(line, "\r", "");
+        talk_contents_.push_back(line);
+        talk_to_num_[line] = index;
+        index++;
     }
+
     //读取事件，全部转为整型
     auto kdef = GrpIdxFile::getIdxContent(GameUtil::PATH() + "resource/kdef.idx", GameUtil::PATH() + "resource/kdef.grp", &offset, &length);
     kdef_.resize(length.size());
@@ -321,10 +332,10 @@ void Event::oldTalk(int talk_id, int head_id, int style)
         return;
     }
     auto talk_content = talk_contents_[talk_id];
-    newTalk(talk_content, head_id, style);
+    newTalk(talk_content, head_id, style, -1);
 }
 
-void Event::newTalk(const std::string& talk_content, int head_id, int style)
+void Event::newTalk(const std::string& talk_content, int head_id, int style, int voice)
 {
     auto talk = talk_box_up_;
     if (style % 2 != 0)
@@ -349,6 +360,18 @@ void Event::newTalk(const std::string& talk_content, int head_id, int style)
     if (style == 4 || style == 1)
     {
         talk->setHeadStyle(1);
+    }
+    if (voice >= 0)
+    {
+        Audio::getInstance()->playVoice(voice);
+    }
+    else
+    {
+        if (talk_to_num_.contains(talk_content))
+        {
+            voice = talk_to_num_[talk_content];
+            Audio::getInstance()->playVoice(voice);
+        }
     }
     talk->run(false);
 }

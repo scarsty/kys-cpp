@@ -27,6 +27,8 @@ private:
     std::vector<std::string> talk_contents_;
     std::vector<std::vector<int>> kdef_;
 
+    std::unordered_map<std::string, int> talk_to_num_;
+
     int leave_event_0_;
     std::vector<int> leave_event_id_;
 
@@ -74,7 +76,7 @@ public:
     //以下大部分参数为int，请注意游戏数据中使用的是int16_t，有降低效率的可能
     //void clear() {}
     void oldTalk(int talk_id, int head_id, int style);
-    void newTalk(const std::string& talk_content, int head_id, int style);
+    void newTalk(const std::string& talk_content, int head_id, int style, int voice);
     void addItem(int item_id, int count);
     void modifyEvent(int submap_id, int event_index, int cannotWalk, int Num, int Event1, int Event2, int Event3,
         int BeginPic1, int EndPic, int BeginPic2, int PicDelay, int x, int y);

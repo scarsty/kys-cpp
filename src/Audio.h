@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #ifndef USE_SDL_MIXER_AUDIO
@@ -22,6 +24,7 @@ private:
 
     std::vector<MUSIC> music_;
     std::vector<WAV> asound_, esound_;
+    std::unordered_map<int, WAV> voice_;
     MIDI_FONT mid_sound_font_;
     MUSIC current_music_;
     WAV current_sound_;
@@ -44,7 +47,16 @@ public:
     void continueMusic();
     void stopMusic();
 
+    void stopWav();
+
     void setVolume(int v) { volume_ = v; }
     void setVolumeWav(int v) { volume_wav_ = v; }
 
+    void playVoice(int voice_id, int volume = -1);
+
+    MUSIC loadMusic(const std::string& file);
+    static WAV loadWav(const std::string& file);
+
+    void playMUSIC(MUSIC m);
+    void playWAV(WAV w, int volume);
 };
