@@ -166,7 +166,12 @@ void Audio::playVoice(int voice_id, int volume)
     stopWav();
     if (voice_.find(voice_id) == voice_.end())
     {
-        voice_[voice_id] = loadWav(std::format("{}voice/{}.wav", GameUtil::PATH(), voice_id));
+        auto filename = std::format("{}voice/{}.mp3", GameUtil::PATH(), voice_id);
+        if (!filefunc::fileExist(filename))
+        {
+            filename = std::format("{}voice/{}.wav", GameUtil::PATH(), voice_id);
+        }
+        voice_[voice_id] = loadWav(filename);
     }
     playWAV(voice_[voice_id], volume);
     current_sound_ = voice_[voice_id];
@@ -175,10 +180,15 @@ void Audio::playVoice(int voice_id, int volume)
 MUSIC Audio::loadMusic(const std::string& file)
 {
 #ifndef USE_SDL_MIXER_AUDIO
-    auto m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+    MUSIC m{};
     if (file.contains(".mid"))
     {
+        m = BASS_MIDI_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO, 0);
         BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
+    }
+    else
+    {
+        m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
     }
     return m;
 #else
