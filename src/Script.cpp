@@ -185,8 +185,8 @@ int Script::registerEventFunctions()
     REGISTER_INSTRUCT(setTowards);
     REGISTER_INSTRUCT(roleAddItem);
     REGISTER_INSTRUCT(checkFemaleInTeam);
-    REGISTER_INSTRUCT(haveItemBool);
     REGISTER_INSTRUCT(play2Amination);
+    REGISTER_INSTRUCT(play3Amination);
     REGISTER_INSTRUCT(addSpeed);
     REGISTER_INSTRUCT(addMaxMP);
     REGISTER_INSTRUCT(addAttack);
@@ -442,6 +442,15 @@ int Script::registerEventFunctions()
         return 1;
     };
     lua_register(lua_state_, "menu", menu);
+
+    auto getItemAmount = [](lua_State* L) -> int
+    {
+        int item_id = lua_tonumber(L, 1);
+        int amount = Save::getInstance()->getItemCountInBag(item_id);
+        lua_pushnumber(L, amount);
+        return 1;
+    };
+    lua_register(lua_state_, "getitemamount", getItemAmount);
 
     runScriptString("x = {}; for i = 0,32767 do x[i] = 0; end;");
 
