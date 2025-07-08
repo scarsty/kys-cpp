@@ -32,7 +32,6 @@ UI::UI()
     {
         auto h = std::make_shared<Head>();
         heads_->addChild(h, 20, 60 + i * 90);
-        ui_status_->getMenu()->addChild(h);
     }
     heads_->getChild(0)->setState(NodePass);
     //addChild(heads_);
@@ -160,12 +159,12 @@ void UI::dealEvent(EngineEvent& e)
     {
         heads_->setDealEvent(1);
         heads_->setUDStyle(1);
-        heads_->setVisible(false);
+        //heads_->setVisible(true);
     }
     else
     {
         heads_->setDealEvent(0);
-        heads_->setVisible(true);
+        //heads_->setVisible(true);
     }
 }
 
