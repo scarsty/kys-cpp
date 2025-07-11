@@ -38,9 +38,11 @@ Console::Console()
         }
     }
     // 捂脸
-    code = PotConv::conv(code, "cp936", "utf-8");
     auto splits = strfunc::splitString(code, " ");
-    //if (splits.empty()) return;
+    if (splits.empty())
+    {
+        splits.push_back("");
+    }
     if (code == "menutest")
     {
         std::vector<std::pair<int, std::string>> generated;
@@ -54,7 +56,8 @@ Console::Console()
         int id = smt->getResult();
         LOG("result %d\n", id);
     }
-    else if (code == "chuansong" || code == "teleport" || code == "mache" || code == "")
+    else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
+        && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))
     {
         std::vector<std::pair<int, std::string>> locs;
         for (const auto& info : Save::getInstance()->getSubMapInfos())
@@ -64,7 +67,7 @@ Console::Console()
             {
                 std::string name(info->Name);
                 // 有空格方便完成双击确认
-                locs.emplace_back(info->ID, name);
+                locs.emplace_back(info->ID, name + std::to_string(info->ID));
             }
         }
         int dx = 180;
@@ -215,7 +218,7 @@ Console::Console()
         }
         Save::getInstance()->insertAt(splits[1], idx);
     }*/
-    else if (splits[0] == "host" && splits.size() > 1)
+    else if (splits.size() > 1 && splits[0] == "host")
     {
         Save::getInstance()->save(11);
 
@@ -231,7 +234,7 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if (splits[0] == "client" && splits.size() > 1)
+    else if (splits.size() > 1 && splits[0] == "client")
     {
         Save::getInstance()->save(11);
 
@@ -247,7 +250,7 @@ Console::Console()
 
         Save::getInstance()->load(11);
     }
-    else if ((splits[0] == "battle" || splits[0] == "b") && splits.size() > 1)
+    else if (splits.size() > 1 && (splits[0] == "battle" || splits[0] == "b"))
     {
         Save::getInstance()->save(11);
         int k = atoi(splits[1].c_str());
