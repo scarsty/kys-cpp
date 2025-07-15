@@ -44,7 +44,7 @@ public:
     void playASound(int num, int volume = -1);
     void playESound(int num, int volume = -1);
     void pauseMusic();
-    void continueMusic();
+    void resumeMusic();
     void stopMusic();
 
     void stopWav();

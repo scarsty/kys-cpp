@@ -23,6 +23,27 @@ int Application::run()
     auto engine = Engine::getInstance();
     engine->setStartWindowSize(1280, 720);
     engine->init();
+    engine->addEventWatch([](void*, EngineEvent* e) -> bool
+        {
+            if (e->type == EVENT_QUIT)
+            {
+                //退出游戏
+                return false;
+            }
+            if (e->type == EVENT_DID_ENTER_BACKGROUND)
+            {
+                //暂停音频
+                Audio::getInstance()->pauseMusic();
+            }
+            if (e->type == EVENT_DID_ENTER_FOREGROUND)
+            {
+                //恢复音频
+                Audio::getInstance()->resumeMusic();
+            }
+            return true;
+        },
+        nullptr);
+
     //引擎初始化之后才能创建纹理
     engine->createAssistTexture("scene", 800, 450);
 

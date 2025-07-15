@@ -134,7 +134,7 @@ void Audio::pauseMusic()
 #endif
 }
 
-void Audio::continueMusic()
+void Audio::resumeMusic()
 {
 #ifndef USE_SDL_MIXER_AUDIO
     BASS_ChannelPlay(current_music_, false);

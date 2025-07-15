@@ -37,6 +37,7 @@ using Gamepad = SDL_Gamepad;
 using Haptic = SDL_Haptic;
 using PixelFormat = SDL_PixelFormat;
 using FPoint = SDL_FPoint;
+using EventFilter = SDL_EventFilter;
 
 enum Align
 {
@@ -61,8 +62,10 @@ enum EngineEventType
     //按关闭按钮
     EVENT_QUIT = SDL_EVENT_QUIT,
     //app事件
+    EVENT_WILL_ENTER_BACKGROUND = SDL_EVENT_WILL_ENTER_BACKGROUND,
     EVENT_DID_ENTER_BACKGROUND = SDL_EVENT_DID_ENTER_BACKGROUND,
     EVENT_WILL_ENTER_FOREGROUND = SDL_EVENT_WILL_ENTER_FOREGROUND,
+    EVENT_DID_ENTER_FOREGROUND = SDL_EVENT_DID_ENTER_FOREGROUND,
     //window
     //BP_WINDOWEVENT = SDL_WINDOWEVENT,
     //BP_SYSWMEVENT = SDL_SYSWMEVENT,
@@ -506,6 +509,11 @@ public:
     static bool checkMouseButtonPress(MouseButton button)
     {
         return SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(button);
+    }
+
+    static void addEventWatch(SDL_EventFilter filter, void* userdata)
+    {
+        SDL_AddEventWatch(filter, userdata);
     }
 
 private:

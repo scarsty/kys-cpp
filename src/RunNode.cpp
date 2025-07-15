@@ -382,15 +382,16 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    }
             //}
         }
+        //SDL3中，这两个事件需要在AddEventWatch处理
         if (e.type == EVENT_DID_ENTER_BACKGROUND)
         {
             //暂停音频
             Audio::getInstance()->pauseMusic();
         }
-        if (e.type == EVENT_WILL_ENTER_FOREGROUND)
+        if (e.type == EVENT_DID_ENTER_FOREGROUND)
         {
             //恢复音频
-            Audio::getInstance()->continueMusic();
+            Audio::getInstance()->resumeMusic();
         }
         if (e.type == EVENT_GAMEPAD_ADDED || e.type == EVENT_GAMEPAD_REMOVED)
         {
