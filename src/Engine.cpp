@@ -24,7 +24,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     inited_ = true;
 #ifdef _WIN32
-    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d,vulkan,direct3d12,direct3d11,opengl");
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d12, vulkan, direct3d11, direct3d, opengl");
 #endif
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
