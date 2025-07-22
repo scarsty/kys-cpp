@@ -128,7 +128,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     { \
     case (code): \
         LOG("{} ", #function); \
-        if (!Event::getInstance()->isExiting()) { runner(&Event::function, this, e, i); } \
+        runner(&Event::function, this, e, i); \
         break; \
     }
 

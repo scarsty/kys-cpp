@@ -123,7 +123,6 @@ int Script::registerEventFunctions()
     { \
         auto function = [](lua_State* L) -> int \
         { \
-            if (Event::getInstance()->isExiting()) { return 0; } \
             constexpr std::size_t arg_count = arg_counter<decltype(&Event::function), Event>::value; \
             std::array<int, arg_count> args; \
             for (int i = 0; i < arg_count; i++) \
@@ -300,7 +299,6 @@ int Script::registerEventFunctions()
 
     auto newTalk = [](lua_State* L) -> int
     {
-        //if (Event::getInstance()->isExiting()) { return 0; }
         std::vector<int> args(7, -1);
         int i1 = 1;
         std::string str, name;

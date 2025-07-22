@@ -323,7 +323,7 @@ void RunNode::backRunSelfChilds()
     for (auto c : childs_)
     {
         c->backRunSelfChilds();
-        if (c->stay_frame_> 0 &&c->current_frame_ > c->stay_frame_)
+        if (c->stay_frame_ > 0 && c->current_frame_ > c->stay_frame_)
         {
             removeChild(c);
         }
@@ -529,6 +529,7 @@ void RunNode::present()
 //运行本节点，参数为是否在root中运行，为真则参与绘制，为假则不会被画出
 int RunNode::run(bool in_root /*= true*/)
 {
+    if (!root_.empty() && root_.back()->exit_) { return 1; }    //若当前根节点已经退出，则不再运行
     exit_ = false;
     visible_ = true;
     if (in_root)
