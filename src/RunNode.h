@@ -89,6 +89,8 @@ public:
 
     std::shared_ptr<RunNode> getChild(int i) { return childs_[i]; }
 
+    std::vector<std::shared_ptr<RunNode>>& getChilds() { return childs_; }
+
     int getChildCount() { return childs_.size(); }
 
     void removeChild(std::shared_ptr<RunNode> element);
@@ -124,6 +126,13 @@ public:
         x = x * w1 / w;
         y = y * h1 / h;
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
+    }
+
+    bool mouseIn()
+    {
+        int x, y;
+        Engine::getInstance()->getMouseState(x, y);
+        return inSide(x, y);
     }
 
     bool inSideInStartWindow(int x, int y)

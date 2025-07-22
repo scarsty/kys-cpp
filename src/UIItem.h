@@ -50,6 +50,8 @@ public:
     int showAddedProperty(int size, Color c, int x, int y);
 
     Item* current_item_ = nullptr;
+    std::shared_ptr<Button> current_button_{ nullptr };
+    std::shared_ptr<Button> drag_item_{ nullptr };
     std::vector<Item*> available_items_;
 
     Item* getCurrentItem() { return current_item_; }
@@ -59,4 +61,6 @@ public:
 
     Role* role_ = nullptr;
     void setRole(Role* r) { role_ = r; }    //只处理适合的物品
+    Role* try_role_ = nullptr;
+    void setTryRole(Role* r) { try_role_ = r; }    //只处理适合的物品
 };

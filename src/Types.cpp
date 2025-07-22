@@ -512,6 +512,11 @@ void Role::equip(Item* i)
     auto equip0 = Save::getInstance()->getItem(Equip0);
     auto equip1 = Save::getInstance()->getItem(Equip1);
 
+    if (this == r0)
+    {
+        return;
+    }
+
     i->User = ID;
 
     if (i->ItemType == 2)

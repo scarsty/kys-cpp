@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "RunNode.h"
 #include "Types.h"
 #include "UIItem.h"
@@ -14,6 +14,8 @@ public:
 private:
     int current_head_ = 0;
     int current_button_ = 0;
+
+    int ui_index_=0;
 
 public:
     virtual void onEntrance() override;

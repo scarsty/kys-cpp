@@ -5,15 +5,6 @@
 
 UI::UI()
 {
-    //注意，此处约定childs_[0]为子UI，创建好对应的指针，需要显示哪个赋值到childs_[0]即可
-    ui_status_ = std::make_shared<UIStatus>();
-    ui_item_ = std::make_shared<UIItem>();
-    ui_system_ = std::make_shared<UISystem>();
-    ui_status_->setPosition(300, 0);
-    ui_item_->setPosition(300, 0);
-    ui_system_->setPosition(300, 0);
-    addChild(ui_status_);
-
     button_status_ = std::make_shared<Button>();
     button_status_->setTexture("title", 122);
     button_status_->setAlpha(192);
@@ -34,6 +25,18 @@ UI::UI()
         heads_->addChild(h, 20, 60 + i * 90);
     }
     heads_->getChild(0)->setState(NodePass);
+
+    ui_index_ = getChildCount();    //UI的索引，方便在其他地方使用
+    //内容最后画，拖拽时显示在头像上方
+    //注意，此处约定childs_[ui_index_]为子UI，创建好对应的指针，需要显示哪个赋值到childs_[ui_index_]即可
+    ui_status_ = std::make_shared<UIStatus>();
+    ui_item_ = std::make_shared<UIItem>();
+    ui_system_ = std::make_shared<UISystem>();
+    ui_status_->setPosition(300, 0);
+    ui_item_->setPosition(300, 0);
+    ui_system_->setPosition(300, 0);
+    addChild(ui_status_);
+
     //addChild(heads_);
     setIsDark(1);
     result_ = -1;    //非负：物品id，负数：其他情况，再定
@@ -72,7 +75,7 @@ void UI::dealEvent(EngineEvent& e)
         }
         head->setText("");
         //如在物品栏则判断是否在使用，或者可以使用，设置对应的头像状态
-        if (childs_[0] == ui_item_)
+        if (childs_[ui_index_] == ui_item_)
         {
             Item* item = ui_item_->getCurrentItem();
             if (item)
@@ -91,7 +94,7 @@ void UI::dealEvent(EngineEvent& e)
     }
 
     //这里设定当前头像为Pass，令其不变暗，因为检测事件是先检测子节点，所以这里可以生效
-    if (childs_[0] == ui_status_)
+    if (childs_[ui_index_] == ui_status_)
     {
         //heads_->getChild(current_head_)->setState(NodePass);
     }
@@ -134,17 +137,17 @@ void UI::dealEvent(EngineEvent& e)
             switch (current_button_)
             {
             case 0:
-                childs_[0] = ui_status_;
+                childs_[ui_index_] = ui_status_;
                 setAllChildState(NodeNormal);
                 button_status_->setState(NodePress);
                 break;
             case 1:
-                childs_[0] = ui_item_;
+                childs_[ui_index_] = ui_item_;
                 setAllChildState(NodeNormal);
                 button_item_->setState(NodePress);
                 break;
             case 2:
-                childs_[0] = ui_system_;
+                childs_[ui_index_] = ui_system_;
                 setAllChildState(NodeNormal);
                 button_system_->setState(NodePress);
                 break;
@@ -154,24 +157,32 @@ void UI::dealEvent(EngineEvent& e)
         }
     }
 
+    heads_->setDealEvent(0);
     //仅在状态部分，左侧头像才接收事件
-    if (childs_[0] == ui_status_)
+    if (childs_[ui_index_] == ui_status_)
     {
         heads_->setDealEvent(1);
         heads_->setUDStyle(1);
-        //heads_->setVisible(true);
     }
-    else
+    else if (childs_[ui_index_] == ui_item_)
     {
-        heads_->setDealEvent(0);
-        //heads_->setVisible(true);
+        Role* r = nullptr;
+        for (auto& h : heads_->getChilds())
+        {
+            if (h->mouseIn())
+            {
+                r = std::dynamic_pointer_cast<Head>(h)->getRole();
+                break;
+            }
+        }
+        ui_item_->setTryRole(r);
     }
 }
 
 void UI::onPressedOK()
 {
     //这里检测是否使用了物品，返回物品的id
-    if (childs_[0] == ui_item_)
+    if (childs_[ui_index_] == ui_item_)
     {
         auto item = ui_item_->getCurrentItem();
         if (item && item->ItemType == 0)
@@ -181,7 +192,7 @@ void UI::onPressedOK()
         }
     }
 
-    if (childs_[0] == ui_system_)
+    if (childs_[ui_index_] == ui_system_)
     {
         if (ui_system_->getResult() == 0)
         {
@@ -193,17 +204,17 @@ void UI::onPressedOK()
     //按钮的响应
     if (button_status_->getState() == NodePress)
     {
-        childs_[0] = ui_status_;
+        childs_[ui_index_] = ui_status_;
         current_button_ = button_status_->getTag();
     }
     if (button_item_->getState() == NodePress)
     {
-        childs_[0] = ui_item_;
+        childs_[ui_index_] = ui_item_;
         current_button_ = button_item_->getTag();
     }
     if (button_system_->getState() == NodePress)
     {
-        childs_[0] = ui_system_;
+        childs_[ui_index_] = ui_system_;
         current_button_ = button_system_->getTag();
     }
     //current_button_ = childs_[0]->getTag();

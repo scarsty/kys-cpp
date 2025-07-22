@@ -6,6 +6,7 @@
 #include "Save.h"
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
+#include "UI.h"
 
 UIItem::UIItem()
 {
@@ -35,6 +36,11 @@ UIItem::UIItem()
 
     active_child_ = 0;
     getChild(0)->setState(NodePass);
+
+    drag_item_ = std::make_shared<Button>();
+    drag_item_->setTexture("item", -1);
+    drag_item_->setAlpha(128);
+    addChild(drag_item_);
 }
 
 UIItem::~UIItem()
@@ -143,7 +149,7 @@ void UIItem::checkCurrentItem()
     leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup_);
 
     //计算被激活的按钮
-    std::shared_ptr<Button> current_button{ nullptr };
+    current_button_ = nullptr;
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
@@ -159,24 +165,24 @@ void UIItem::checkCurrentItem()
         }
         if (button->getState() == NodePass || button->getState() == NodePress)
         {
-            current_button = button;
+            current_button_ = button;
             //result_ = current_item_->ID;
         }
     }
 
     //计算被激活的按钮对应的物品
     current_item_ = nullptr;
-    if (current_button)
+    if (current_button_)
     {
         int x, y;
-        current_button->getPosition(x, y);
-        current_item_ = Save::getInstance()->getItem(current_button->getTexutreID());
+        current_button_->getPosition(x, y);
+        current_item_ = Save::getInstance()->getItem(current_button_->getTexutreID());
         //让光标显示出来
-        if (current_button->getState() == NodePass)
+        if (current_button_->getState() == NodePass)
         {
             x += 2;
         }
-        if (current_button->getState() == NodePress)
+        if (current_button_->getState() == NodePress)
         {
             y += 2;
         }
@@ -200,6 +206,7 @@ Item* UIItem::getAvailableItem(int i)
 
 void UIItem::dealEvent(EngineEvent& e)
 {
+    auto engine = Engine::getInstance();
     checkCurrentItem();
     if (e.type == EVENT_MOUSE_WHEEL)
     {
@@ -210,6 +217,31 @@ void UIItem::dealEvent(EngineEvent& e)
         else if (e.wheel.y < 0)
         {
             leftup_index_ += item_each_line_;
+        }
+    }
+
+    //拖拽物品
+    {
+        if (e.type == EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT && drag_item_->getTexutreID() < 0)
+        {
+            if (current_button_)
+            {
+                drag_item_->setTexture("item", current_button_->getTexutreID());
+            }
+        }
+        if (drag_item_->getTexutreID() >= 0)
+        {
+            int x, y;
+            engine->getMouseStateInStartWindow(x, y);
+            current_item_ = Save::getInstance()->getItem(drag_item_->getTexutreID());
+            int w, h;
+            drag_item_->getSize(w, h);
+            drag_item_->setPosition(x - w / 2, y - h / 2);
+        }
+        //放在获取物品指针后面
+        if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT && drag_item_->getTexutreID() >= 0)
+        {
+            drag_item_->setTexture("item", -1);
         }
     }
 
@@ -356,7 +388,6 @@ void UIItem::dealEvent(EngineEvent& e)
     }
     if (true)
     {
-        auto engine = Engine::getInstance();
         title_->setDealEvent(1);
 
         if (engine->gameControllerGetButton(GAMEPAD_BUTTON_DPAD_LEFT))
@@ -616,7 +647,7 @@ int UIItem::showAddedProperty(int size, Color c, int x, int y)
 
 void UIItem::onPressedOK()
 {
-    current_item_ = nullptr;
+    /*current_item_ = nullptr;
     for (int i = 0; i < item_buttons_.size(); i++)
     {
         auto button = item_buttons_[i];
@@ -625,7 +656,7 @@ void UIItem::onPressedOK()
             auto item = getAvailableItem(i + leftup_index_);
             current_item_ = item;
         }
-    }
+    }*/
 
     if (current_item_ == nullptr)
     {
@@ -644,14 +675,19 @@ void UIItem::onPressedOK()
     }
     if (select_user_)
     {
+        UI::getInstance()->setVisible(false);
+        Role* role = try_role_;
         if (current_item_->ItemType == 3)
         {
-            auto team_menu = std::make_shared<TeamMenu>();
-            team_menu->setItem(current_item_);
-            team_menu->setText(std::format("誰要使用{}", current_item_->Name));
-            team_menu->run();
-            auto role = team_menu->getRole();
-            if (role)
+            if (!role)
+            {
+                auto team_menu = std::make_shared<TeamMenu>();
+                team_menu->setItem(current_item_);
+                team_menu->setText(std::format("誰要使用{}", current_item_->Name));
+                team_menu->run();
+                role = team_menu->getRole();
+            }
+            if (role && role->canUseItem(current_item_))
             {
                 Role r = *role;
                 role->useItem(current_item_);
@@ -663,17 +699,20 @@ void UIItem::onPressedOK()
         }
         else if (current_item_->ItemType == 1 || current_item_->ItemType == 2)
         {
-            auto team_menu = std::make_shared<TeamMenu>();
-            team_menu->setItem(current_item_);
-            auto format_str = "誰要修煉{}";
-            if (current_item_->ItemType == 1)
+            if (!role)
             {
-                format_str = "誰要裝備{}";
+                auto team_menu = std::make_shared<TeamMenu>();
+                team_menu->setItem(current_item_);
+                auto format_str = "誰要修煉{}";
+                if (current_item_->ItemType == 1)
+                {
+                    format_str = "誰要裝備{}";
+                }
+                team_menu->setText(std::format(std::runtime_format(format_str), current_item_->Name));
+                team_menu->run();
+                role = team_menu->getRole();
             }
-            team_menu->setText(std::format(std::runtime_format(format_str), current_item_->Name));
-            team_menu->run();
-            auto role = team_menu->getRole();
-            if (role)
+            if (role && role->canUseItem(current_item_))
             {
                 role->equip(current_item_);
             }
@@ -682,6 +721,7 @@ void UIItem::onPressedOK()
         {
             //似乎不需要特殊处理
         }
+        UI::getInstance()->setVisible(true);
     }
     setExit(true);    //用于战斗时。平时物品栏不是以根节点运行，设置这个没有作用
 }

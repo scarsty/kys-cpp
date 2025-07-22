@@ -6,6 +6,8 @@
 #include "ShowRoleDifference.h"
 #include "TeamMenu.h"
 #include "TextureManager.h"
+#include "UI.h"
+
 #include <cassert>
 
 UIStatus::UIStatus()
@@ -429,7 +431,9 @@ void UIStatus::onPressedOK()
 
     auto uiitem_for_role = [this](const std::set<int>& f)
     {
+        UI::getInstance()->setVisible(false);
         auto menu = std::make_shared<UIItem>();
+        menu->setIsDark(1);
         menu->setRole(role_);
         menu->setForceItemType(f);
         auto head = std::make_shared<Head>();
@@ -444,6 +448,7 @@ void UIStatus::onPressedOK()
         {
             role_->equip(menu->getCurrentItem());
         }
+        UI::getInstance()->setVisible(true);
     };
     if (menu_->getResult() == 8)
     {

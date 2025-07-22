@@ -2,7 +2,8 @@
 #include "Font.h"
 #include "TextureManager.h"
 
-Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/) : Button()
+Button::Button(const std::string& path, int normal_id, int pass_id /*= -1*/, int press_id /*= -1*/) :
+    Button()
 {
     setTexture(path, normal_id, pass_id, press_id);
 }
@@ -39,7 +40,7 @@ void Button::draw()
     int y = y_;
     auto id = texture_normal_id_;
     Color color = { 255, 255, 255, 255 };
-    uint8_t alpha = alpha_;
+    uint8_t alpha = 255;
     if (state_ == NodeNormal)
     {
         if (texture_normal_id_ == texture_pass_id_)
@@ -60,6 +61,7 @@ void Button::draw()
         x += 2;
         y += 2;
     }
+    if (alpha_ != 255) { alpha = alpha_; }
     TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, color, alpha);
 
     if (!text_.empty())

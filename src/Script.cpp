@@ -144,6 +144,9 @@ int Script::registerEventFunctions()
         return 0;
     };
 
+#define FOR_EXIT_TO_TITLE \
+    if (Event::getInstance()->isExiting()) { return 0; }
+
     REGISTER_INSTRUCT(oldTalk);
     REGISTER_INSTRUCT(addItem);
     REGISTER_INSTRUCT(modifyEvent);
@@ -297,6 +300,7 @@ int Script::registerEventFunctions()
 
     auto newTalk = [](lua_State* L) -> int
     {
+        //if (Event::getInstance()->isExiting()) { return 0; }
         std::vector<int> args(7, -1);
         int i1 = 1;
         std::string str, name;
