@@ -1,9 +1,11 @@
-#include "TeamMenu.h"
+﻿#include "TeamMenu.h"
 #include "Button.h"
 #include "Save.h"
 
 TeamMenu::TeamMenu()
 {
+    int w,h;
+    Engine::getInstance()->getStartWindowSize(w, h);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = std::make_shared<Head>();
@@ -17,9 +19,9 @@ TeamMenu::TeamMenu()
     button_all_->setText("全選");
     button_ok_ = std::make_shared<Button>();
     button_ok_->setText("確定");
-    addChild(button_all_, 0, 300);
-    addChild(button_ok_, 100, 300);
-    setPosition(200, 150);
+    addChild(button_all_, 200, 300);
+    addChild(button_ok_, 300, 300);
+    setPosition(w/2 - 250, 150);
     setTextPosition(20, -30);
 }
 

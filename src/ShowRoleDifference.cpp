@@ -6,10 +6,10 @@ ShowRoleDifference::ShowRoleDifference()
 {
     head1_ = std::make_shared<Head>();
     head2_ = std::make_shared<Head>();
-    addChild(head1_);
-    addChild(head2_, 400, 0);
-    //setText("修習成功");
-    setPosition(250, 180);
+    addChild(head1_, 0, 0);
+    addChild(head2_, 150, 0);
+    //setText("修習成功");    
+    setPosition(Engine::getInstance()->getWindowWidth() / 2 - 150, 180);
     setTextPosition(0, -30);
 }
 
@@ -32,7 +32,7 @@ void ShowRoleDifference::draw()
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
         head1_->setRole(role2_);
-        head1_->setPosition(200, 50);
+        head1_->setPosition(Engine::getInstance()->getWindowWidth() / 2 - 150, 50);
         head2_->setRole(nullptr);
     }
 
