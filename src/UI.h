@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Head.h"
 #include "RunNode.h"
 #include "Types.h"
 #include "UIItem.h"
@@ -15,12 +16,13 @@ private:
     int current_head_ = 0;
     int current_button_ = 0;
 
-    int ui_index_=0;
+    int ui_index_ = 0;
 
 public:
-    virtual void onEntrance() override;
-    virtual void draw() override;
-    virtual void dealEvent(EngineEvent& e) override;
+    void onEntrance() override;
+    void draw() override;
+    void dealEvent(EngineEvent& e) override;
+    void backRun() override;
 
     static std::shared_ptr<UI> getInstance()
     {
@@ -36,7 +38,9 @@ public:
     std::shared_ptr<UISystem> ui_system_;
     int item_id_ = -1;
 
-    virtual void onPressedOK() override;
+    void onPressedOK() override;
     DEFAULT_CANCEL_EXIT;
     Item* getUsedItem() { return ui_item_->getCurrentItem(); }
+
+    std::vector<std::shared_ptr<Head>> heads_ptrs_;    //方便一些操作
 };

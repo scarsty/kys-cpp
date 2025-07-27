@@ -183,10 +183,12 @@ void TeamMenu::dealEvent(EngineEvent& e)
             if (h->getResult() == 0)
             {
                 h->setText("已選中");
+                h->setAlwaysLight(1);
             }
             else
             {
                 h->setText("");
+                h->setAlwaysLight(0);
             }
         }
         getChild(active_child_)->setState(NodePress);

@@ -23,6 +23,7 @@ UI::UI()
     {
         auto h = std::make_shared<Head>();
         heads_->addChild(h, 20, 60 + i * 90);
+        heads_ptrs_.push_back(h);
     }
     heads_->getChild(0)->setState(NodePass);
 
@@ -176,6 +177,28 @@ void UI::dealEvent(EngineEvent& e)
             }
         }
         ui_item_->setTryRole(r);
+    }
+}
+
+void UI::backRun()
+{
+    if (childs_[ui_index_] == ui_status_)
+    {
+        for (auto& h : heads_ptrs_)
+        {
+            if (h->getRole() == ui_status_->getRole())
+            {
+                h->setState(NodePress);    //当前人物常亮
+            }
+        }
+    }
+
+    if (childs_[ui_index_] == ui_system_)
+    {
+        for (auto& h : heads_->getChilds())
+        {
+            h->setState(NodePress);    //系统菜单不需要头像变暗
+        }
     }
 }
 

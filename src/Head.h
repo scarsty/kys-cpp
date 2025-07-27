@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "TextBox.h"
 #include "Types.h"
 
@@ -8,7 +8,7 @@ class Head : public TextBox
 {
 protected:
     Role* role_ = nullptr;
-    int style_ = 0;
+    int style_ = 0;    //0-普通，1-血条
     int width_ = 800;
     int always_light_ = 0;
     int HP_;

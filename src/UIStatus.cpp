@@ -439,6 +439,7 @@ void UIStatus::onPressedOK()
         auto head = std::make_shared<Head>();
         head->setRole(role_);
         head->setPosition(-280, 60);
+        head->setAlwaysLight(1);
         menu->addChild(head);
         menu->setPosition(300, 0);
         setVisible(false);
