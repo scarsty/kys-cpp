@@ -30,6 +30,7 @@ Audio::~Audio()
     {
         BASS_MIDI_FontFree(mid_sound_font_.font);
     }
+    BASS_Stop();
     BASS_Free();
 #else
     //如使用SDL_Mixer播放音频，则销毁应该在SDL_Quit之前，此处的单例设计无法保证，故暂时不处理
@@ -94,6 +95,7 @@ void Audio::playMusic(int num)
     stopMusic();
     playMUSIC(music_[num]);
     current_music_ = music_[num];
+    current_music_index_ = num;
 }
 
 void Audio::playASound(int num, int volume)

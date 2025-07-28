@@ -370,7 +370,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //        x += axis_x / 3000;
             //        y += axis_y / 3000;
             //        int w, h;
-            //        Engine::getInstance()->getStartWindowSize(w, h);
+            //        Engine::getInstance()->getUISize(w, h);
             //        if (x >= w) { x = w - 1; }
             //        if (x < 0) { x = 0; }
             //        if (y >= h) { y = h - 1; }

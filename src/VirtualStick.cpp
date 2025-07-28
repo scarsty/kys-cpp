@@ -7,7 +7,7 @@
 
 VirtualStick::VirtualStick()
 {
-    Engine::getInstance()->getStartWindowSize(w_, h_);
+    Engine::getInstance()->getUISize(w_, h_);
 
     auto addButton = [this](std::shared_ptr<Button>& b, int id, int x, int y, int buttonid)
     {

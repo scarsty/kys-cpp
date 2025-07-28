@@ -88,7 +88,7 @@ int UISystem::askExit(int mode)
         if (mode == 1)
         {
             //menu->getChild(1)->setVisible(false);
-            x = Engine::getInstance()->getStartWindowWidth() - 150;
+            x = Engine::getInstance()->getUIWidth() - 150;
             y = 20;
             menu->setIsDark(1);
         }
@@ -96,10 +96,10 @@ int UISystem::askExit(int mode)
         int r = menu->runAtPosition(x, y);
         if (r == 1)
         {
-            exitAll();
-            Event::getInstance()->forceExit();
-            ret = 0;
-            Engine::getInstance()->destroy();
+            //exitAll();
+            //Event::getInstance()->forceExit();
+            //ret = 0;
+            //Engine::getInstance()->destroy();
             exit(0);    //爱咋咋地
         }
         else if (r == 2)

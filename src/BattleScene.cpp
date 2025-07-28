@@ -38,6 +38,7 @@ BattleScene::BattleScene()
     save_ = Save::getInstance();
     semi_real_ = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
     rand_.set_seed();
+    prev_music_ = Audio::getInstance()->getCurrentMusic();
 }
 
 BattleScene::BattleScene(int id) :
@@ -48,6 +49,7 @@ BattleScene::BattleScene(int id) :
 
 BattleScene::~BattleScene()
 {
+    Audio::getInstance()->playMusic(prev_music_);
 }
 
 void BattleScene::setID(int id)
@@ -341,6 +343,7 @@ void BattleScene::dealEvent2(EngineEvent& e)
 void BattleScene::onEntrance()
 {
     calViewRegion();
+
     Audio::getInstance()->playMusic(info_->Music);
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(80, 100);

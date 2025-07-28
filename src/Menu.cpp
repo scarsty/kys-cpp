@@ -1,4 +1,4 @@
-#include "Menu.h"
+﻿#include "Menu.h"
 #include "Button.h"
 
 Menu::Menu()
@@ -218,6 +218,20 @@ bool Menu::checkAllNormal()
         }
     }
     return all_normal;
+}
+
+bool Menu::checkAllMouseNotIn()
+{
+    bool all_not_in = true;
+    for (auto c : childs_)
+    {
+        if (c->getVisible() && c->mouseIn())
+        {
+            all_not_in = false;
+            break;
+        }
+    }
+    return all_not_in;
 }
 
 //void Menu::onPressedOK()

@@ -31,6 +31,7 @@ private:
 
     int volume_ = 20;
     int volume_wav_ = 50;
+    int current_music_index_ = -1;
 
 public:
     static Audio* getInstance()
@@ -59,4 +60,6 @@ public:
 
     void playMUSIC(MUSIC m);
     void playWAV(WAV w, int volume);
+
+    int getCurrentMusic() const { return current_music_index_; }
 };

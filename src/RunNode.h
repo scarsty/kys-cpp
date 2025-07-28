@@ -122,7 +122,7 @@ public:
         int w, h;
         int w1, h1;
         Engine::getInstance()->getWindowSize(w, h);
-        Engine::getInstance()->getStartWindowSize(w1, h1);
+        Engine::getInstance()->getUISize(w1, h1);
         x = x * w1 / w;
         y = y * h1 / h;
         return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;

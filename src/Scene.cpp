@@ -40,7 +40,7 @@ Point Scene::getPositionOnWindow(int x, int y, int view_x, int view_y)
 {
     auto p = getPositionOnRender(x, y, view_x, view_y);
     int w, h;
-    Engine::getInstance()->getStartWindowSize(w, h);
+    Engine::getInstance()->getUISize(w, h);
     p.x = p.x * w / render_center_x_ / 2;
     p.y = p.y * h / render_center_y_ / 2;
     return p;
@@ -165,7 +165,7 @@ void Scene::getTowardsPosition(int x0, int y0, int tw, int* x1, int* y1)
 Point Scene::getMousePosition(int mouse_x, int mouse_y, int view_x, int view_y)
 {
     int w, h;
-    Engine::getInstance()->getStartWindowSize(w, h);
+    Engine::getInstance()->getUISize(w, h);
     double mouse_x1 = mouse_x * render_center_x_ * 2.0 / w;
     double mouse_y1 = mouse_y * render_center_y_ * 2.0 / h;
 

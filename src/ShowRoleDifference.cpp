@@ -9,7 +9,7 @@ ShowRoleDifference::ShowRoleDifference()
     addChild(head1_, 0, 0);
     addChild(head2_, 150, 0);
     //setText("修習成功");    
-    setPosition(Engine::getInstance()->getWindowWidth() / 2 - 150, 180);
+    setPosition(Engine::getInstance()->getUIWidth() / 2 - 150, 180);
     setTextPosition(0, -30);
 }
 
@@ -32,7 +32,7 @@ void ShowRoleDifference::draw()
     if (role1_ && role2_ && role1_->ID == role2_->ID)
     {
         head1_->setRole(role2_);
-        head1_->setPosition(Engine::getInstance()->getWindowWidth() / 2 - 150, 50);
+        head1_->setPosition(Engine::getInstance()->getUIWidth() / 2 - 150, 50);
         head2_->setRole(nullptr);
     }
 

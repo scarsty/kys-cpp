@@ -103,7 +103,7 @@ bool UISave::load(int r)
         text->setText("存檔讀取失敗!");
         text->setFontSize(24);
         text->setTextColor({255, 0, 0});
-        text->runAtPosition(Engine::getInstance()->getStartWindowWidth() / 2 - 100, 620);
+        text->runAtPosition(Engine::getInstance()->getUIWidth() / 2 - 100, 620);
     }
     return false;
 }

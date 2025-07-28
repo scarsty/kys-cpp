@@ -56,11 +56,11 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         Prop props;
         props.set(SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         props.set(SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, maximized);
-        props.set(SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, start_w_);
-        props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, start_h_);
+        props.set(SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, ui_w_);
+        props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, ui_h_);
         props.set(SDL_PROP_WINDOW_CREATE_TITLE_STRING, title_.c_str());
         window_ = SDL_CreateWindowWithProperties(props.id());
-        //window_ = SDL_CreateWindow("Lightning Generator", start_w_, start_w_, SDL_WINDOW_RESIZABLE);
+        //window_ = SDL_CreateWindow("Lightning Generator", ui_w_, ui_w_, SDL_WINDOW_RESIZABLE);
     }
     //SDL_CreateWindowFrom()
 #ifndef _WINDLL
@@ -94,7 +94,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 
     std::print("Found {} touch(es)\n", num_touch);
 
-    rect_ = { 0, 0, start_w_, start_h_ };
+    rect_ = { 0, 0, ui_w_, ui_h_ };
 
     renderPresent();
     TTF_Init();
@@ -121,7 +121,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 
     std::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
 
-    createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, start_w_, start_h_);
+    createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, ui_w_, ui_h_);
     return 0;
 }
 
@@ -769,8 +769,8 @@ void Engine::getMouseStateInStartWindow(int& x, int& y) const
     getMouseState(x, y);
     int w, h;
     getWindowSize(w, h);
-    x = x * start_w_ / w;
-    y = y * start_h_ / h;
+    x = x * ui_w_ / w;
+    y = y * ui_h_ / h;
 }
 
 void Engine::setMouseState(int x, int y) const
@@ -782,8 +782,8 @@ void Engine::setMouseStateInStartWindow(int x, int y) const
 {
     int w, h;
     getWindowSize(w, h);
-    x = x * w / start_w_;
-    y = y * h / start_h_;
+    x = x * w / ui_w_;
+    y = y * h / ui_h_;
     SDL_WarpMouseInWindow(window_, x, y);
 }
 

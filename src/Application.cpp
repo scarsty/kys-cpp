@@ -21,7 +21,7 @@ Application::~Application()
 int Application::run()
 {
     auto engine = Engine::getInstance();
-    engine->setStartWindowSize(1280, 720);
+    engine->setUISize(1280, 720);
     engine->init();
     engine->addEventWatch([](void*, EngineEvent* e) -> bool
         {

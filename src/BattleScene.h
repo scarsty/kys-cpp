@@ -72,6 +72,8 @@ protected:
 
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
+    int prev_music_ = 0;
+
 public:
     void setSelectPosition(int x, int y)    //设置选择的坐标
     {

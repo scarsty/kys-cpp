@@ -172,10 +172,10 @@ void Head::draw()
         int h_tex = TextureManager::getInstance()->getTexture("title", 203)->h;
         double zoomb_x = 1.0 * 450 / w_tex;
         double zoomb_y = 3.0 * 450 / w_tex;
-        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - 450 / 2 + 20, y_ - 10, { 255, 128, 128, 255 }, 255, zoomb_x, zoomb_y);
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getUIWidth() / 2 - 450 / 2 + 20, y_ - 10, { 255, 128, 128, 255 }, 255, zoomb_x, zoomb_y);
         double zoom_x = 1.0 * length / w_tex;
         double zoom_y = 3.0 * length / w_tex;
-        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getStartWindowWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex * (zoom_y / 2 - zoomb_y / 2), { 255, 255, 255, 255 }, 255, zoom_x, zoom_y);
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getUIWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex * (zoom_y / 2 - zoomb_y / 2), { 255, 255, 255, 255 }, 255, zoom_x, zoom_y);
         if (role_->Team == 0 && role_->Auto)
         {
             font->draw("自動", 15, x_ + 10, y_ + 40, white);

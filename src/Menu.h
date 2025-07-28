@@ -24,6 +24,8 @@ public:
 
     void setUDStyle(int i) { ud_style_ = i; }
 
+    bool checkAllMouseNotIn();
+
 protected:
     int start_ = 0;
     int lr_style_ = 0;    //左右切换的方式，十字键或肩键

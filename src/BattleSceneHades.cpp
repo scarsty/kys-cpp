@@ -649,7 +649,7 @@ void BattleSceneHades::onEntrance()
     int count = 0;
     for (auto& h : head_boss_)
     {
-        h->setPosition(Engine::getInstance()->getStartWindowWidth() / 2 - h->getWidth() / 2, Engine::getInstance()->getStartWindowHeight() - 50 - (25 * count++));
+        h->setPosition(Engine::getInstance()->getUIWidth() / 2 - h->getWidth() / 2, Engine::getInstance()->getUIHeight() - 50 - (25 * count++));
     }
     addChild(Weather::getInstance());
 

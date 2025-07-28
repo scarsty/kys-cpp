@@ -28,7 +28,7 @@ BattleScenePaper::BattleScenePaper()
     heads_[0]->setVisible(true);
     heads_[0]->setRole(Save::getInstance()->getRole(0));
 
-    heads_[0]->setPosition(10, Engine::getInstance()->getStartWindowHeight() - 100);
+    heads_[0]->setPosition(10, Engine::getInstance()->getUIHeight() - 100);
 
     head_boss_.resize(1);
     for (auto& h : head_boss_)

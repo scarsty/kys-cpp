@@ -16,7 +16,7 @@ ShowExp::~ShowExp()
 void ShowExp::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 128 }, 0, 0, -1, -1);
-    Font::getInstance()->draw(text_, 30, Engine::getInstance()->getStartWindowWidth() / 2 - 15 * Font::getTextDrawSize(text_)/2, y_, { 255, 255, 255, 255 });
+    Font::getInstance()->draw(text_, 30, Engine::getInstance()->getUIWidth() / 2 - 15 * Font::getTextDrawSize(text_)/2, y_, { 255, 255, 255, 255 });
     for (int i = 0; i < roles_.size(); i++)
     {
         auto r = roles_[i];

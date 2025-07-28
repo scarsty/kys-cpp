@@ -271,7 +271,7 @@ private:
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
-    int start_w_ = 1024, start_h_ = 640;
+    int ui_w_ = 1024, ui_h_ = 640;
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
     double ratio_x_ = 1, ratio_y_ = 1;
@@ -295,9 +295,9 @@ public:
     int getWindowWidth() const;
     int getWindowHeight() const;
 
-    int getStartWindowWidth() const { return start_w_; }
+    int getUIWidth() const { return ui_w_; }
 
-    int getStartWindowHeight() const { return start_h_; }
+    int getUIHeight() const { return ui_h_; }
 
     int getMaxWindowWidth() const { return max_x_ - min_x_; }
 
@@ -310,16 +310,16 @@ public:
     void setWindowIsMaximized(bool b) const;
     void setWindowSize(int w, int h);
 
-    void setStartWindowSize(int w, int h)
+    void setUISize(int w, int h)
     {
-        start_w_ = w;
-        start_h_ = h;
+        ui_w_ = w;
+        ui_h_ = h;
     }
 
-    void getStartWindowSize(int& w, int& h) const
+    void getUISize(int& w, int& h) const
     {
-        w = start_w_;
-        h = start_h_;
+        w = ui_w_;
+        h = ui_h_;
     }
 
     void setWindowPosition(int x, int y) const;

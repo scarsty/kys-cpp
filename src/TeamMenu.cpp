@@ -4,8 +4,8 @@
 
 TeamMenu::TeamMenu()
 {
-    int w,h;
-    Engine::getInstance()->getStartWindowSize(w, h);
+    int w, h;
+    Engine::getInstance()->getUISize(w, h);
     for (int i = 0; i < TEAMMATE_COUNT; i++)
     {
         auto h = std::make_shared<Head>();
@@ -17,11 +17,13 @@ TeamMenu::TeamMenu()
     }
     button_all_ = std::make_shared<Button>();
     button_all_->setText("全選");
+    button_all_->setFontSize(30);
     button_ok_ = std::make_shared<Button>();
     button_ok_->setText("確定");
+    button_ok_->setFontSize(30);
     addChild(button_all_, 200, 300);
     addChild(button_ok_, 300, 300);
-    setPosition(w/2 - 250, 150);
+    setPosition(w / 2 - 250, 150);
     setTextPosition(20, -30);
 }
 
@@ -191,7 +193,7 @@ void TeamMenu::dealEvent(EngineEvent& e)
                 h->setAlwaysLight(0);
             }
         }
-        getChild(active_child_)->setState(NodePress);
+        //getChild(active_child_)->setState(NodePress);
     }
     if (force_main_ && !heads_.empty())
     {

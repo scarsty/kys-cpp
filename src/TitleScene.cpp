@@ -12,8 +12,9 @@
 #include "RandomRole.h"
 #include "SubScene.h"
 #include "UISave.h"
-#include "Weather.h"
 #include "Video.h"
+#include "Weather.h"
+#include <cstdlib>
 
 TitleScene::TitleScene()
 {
@@ -132,6 +133,7 @@ void TitleScene::dealEvent(EngineEvent& e)
     if (r == 2)
     {
         setExit(true);
+        exit(0);    //强制退出，否则在Android下可能退不完全
     }
 }
 

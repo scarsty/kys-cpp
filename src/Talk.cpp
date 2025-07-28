@@ -6,8 +6,8 @@
 
 void Talk::draw()
 {
-    int w = Engine::getInstance()->getPresentWidth();
-    int h = Engine::getInstance()->getPresentHeight();
+    int w = Engine::getInstance()->getUIWidth();
+    int h = Engine::getInstance()->getUIHeight();
 
     if (!content_.empty())
     {
