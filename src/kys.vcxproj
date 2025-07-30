@@ -56,7 +56,7 @@
   <PropertyGroup Label="Vcpkg">
     <VcpkgAutoLink>true</VcpkgAutoLink>
     <VcpkgXUseBuiltInApplocalDeps>false</VcpkgXUseBuiltInApplocalDeps>
-    <VcpkgApplocalDeps>true</VcpkgApplocalDeps>
+    <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <VcpkgTriplet>
@@ -68,7 +68,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_SMALLPOT1;USE_SDL_MIXER_AUDIO1;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_SMALLPOT1;USE_SDL_MIXER_AUDIO;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
@@ -92,7 +92,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WITH_SMALLPOT;USE_SDL_MIXER_AUDIO1;USE_OPENCC;WITH_NETWORK;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_SMALLPOT;USE_SDL_MIXER_AUDIO;USE_OPENCC;WITH_NETWORK;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../local/include</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>

@@ -11,8 +11,8 @@ using WAV = HSAMPLE;
 using MIDI_FONT = BASS_MIDI_FONT;
 #else
 #include "SDL3_mixer/SDL_mixer.h"
-using MUSIC = Mix_Music*;
-using WAV = Mix_Chunk*;
+using MUSIC = MIX_Audio*;
+using WAV = MIX_Audio*;
 using MIDI_FONT = void*;
 #endif
 
@@ -32,6 +32,12 @@ private:
     int volume_ = 20;
     int volume_wav_ = 50;
     int current_music_index_ = -1;
+#ifdef USE_SDL_MIXER_AUDIO
+    MIX_Track* track_music_{};
+    std::vector<MIX_Track*> track_wav_;
+    MIX_Mixer* mixer_{};
+    int current_track_num_ = 0;
+#endif
 
 public:
     static Audio* getInstance()
@@ -55,11 +61,11 @@ public:
 
     void playVoice(int voice_id, int volume = -1);
 
+    int getCurrentMusic() const { return current_music_index_; }
+
+private:
     MUSIC loadMusic(const std::string& file);
     static WAV loadWav(const std::string& file);
-
-    void playMUSIC(MUSIC m);
-    void playWAV(WAV w, int volume);
-
-    int getCurrentMusic() const { return current_music_index_; }
+    void playMusic(MUSIC m);
+    void playWav(WAV w, int volume, int track_num = -1);
 };

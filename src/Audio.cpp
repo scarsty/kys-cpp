@@ -1,4 +1,5 @@
 ﻿#include "Audio.h"
+#include "Engine.h"
 #include "GameUtil.h"
 #include "filefunc.h"
 
@@ -10,14 +11,21 @@ Audio::Audio()
         LOG("Init Bass fault!\n");
     }
 #else
-    Mix_Init(MIX_INIT_MP3);
+    MIX_Init();
     SDL_AudioSpec spec;
     spec.freq = 22500;
-    spec.format = MIX_DEFAULT_FORMAT;
+    spec.format = SDL_AUDIO_S16;
     spec.channels = 2;
-    if (!Mix_OpenAudio(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec))
+    mixer_ = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
+    if (mixer_ == nullptr)
     {
-        LOG("Mix_OpenAudio error\n");
+        LOG("MIX_CreateMixerDevice error: {}\n", SDL_GetError());
+    }
+    track_music_ = MIX_CreateTrack(mixer_);
+    track_wav_.resize(20);
+    for (auto& t : track_wav_)
+    {
+        t = MIX_CreateTrack(mixer_);
     }
 #endif
     init();
@@ -37,17 +45,17 @@ Audio::~Audio()
     /*
     for (auto m : music_)
     {
-        Mix_FreeMusic(m);
+        MIX_DestroyAudio(m);
     }
     for (auto a : asound_)
     {
-        Mix_FreeChunk(a);
+        MIX_DestroyAudio(a);
     }
     for (auto e : esound_)
     {
-        Mix_FreeChunk(e);
+        MIX_DestroyAudio(e);
     }
-    Mix_Quit();
+    MIX_Quit();
     */
 #endif
 }
@@ -63,6 +71,10 @@ void Audio::init()
     mid_sound_font_.preset = -1;
     mid_sound_font_.bank = 0;
     BASS_MIDI_StreamSetFonts(0, &mid_sound_font_, 1);
+#else
+    auto timi_path = std::format("{}music/timidity.cfg", GameUtil::PATH());
+    //SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "TIMIDITY_CFG", timi_path.c_str(), true);
+    //SDL_setenv_unsafe("TIMIDITY_CFG", timi_path.c_str(), true);
 #endif
     for (int i = 0; i < 100; i++)
     {
@@ -76,7 +88,6 @@ void Audio::init()
             music_path = std::format("{}music/{}.mp3", GameUtil::PATH(), i);
             music_.push_back(loadMusic(music_path));
         }
-        //int error_t = BASS_ErrorGetCode();
 
         asound_path = std::format("{}sound/atk{:02}.wav", GameUtil::PATH(), i);
         asound_.push_back(loadWav(asound_path));
@@ -93,7 +104,7 @@ void Audio::playMusic(int num)
         return;
     }
     stopMusic();
-    playMUSIC(music_[num]);
+    playMusic(music_[num]);
     current_music_ = music_[num];
     current_music_index_ = num;
 }
@@ -109,7 +120,7 @@ void Audio::playASound(int num, int volume)
     {
         volume = volume_wav_;
     }
-    playWAV(asound_[num], volume);
+    playWav(asound_[num], volume);
     current_sound_ = asound_[num];
 }
 
@@ -123,7 +134,7 @@ void Audio::playESound(int num, int volume)
     {
         volume = volume_wav_;
     }
-    playWAV(esound_[num], volume);
+    playWav(esound_[num], volume);
     current_sound_ = esound_[num];
 }
 
@@ -132,7 +143,7 @@ void Audio::pauseMusic()
 #ifndef USE_SDL_MIXER_AUDIO
     BASS_ChannelPause(current_music_);
 #else
-    Mix_PausedMusic();
+    MIX_PauseTrack(track_music_);
 #endif
 }
 
@@ -141,7 +152,7 @@ void Audio::resumeMusic()
 #ifndef USE_SDL_MIXER_AUDIO
     BASS_ChannelPlay(current_music_, false);
 #else
-    Mix_ResumeMusic();
+    MIX_ResumeTrack(track_music_);
 #endif
 }
 
@@ -150,7 +161,7 @@ void Audio::stopMusic()
 #ifndef USE_SDL_MIXER_AUDIO
     BASS_ChannelStop(current_music_);
 #else
-    Mix_HaltMusic();
+    MIX_StopTrack(track_music_, 1000);
 #endif
 }
 
@@ -159,7 +170,7 @@ void Audio::stopWav()
 #ifndef USE_SDL_MIXER_AUDIO
     BASS_ChannelStop(current_sound_);
 #else
-    Mix_HaltChannel(-1);
+    MIX_StopTrack(track_wav_[0], 0);
 #endif
 }
 
@@ -175,7 +186,7 @@ void Audio::playVoice(int voice_id, int volume)
         }
         voice_[voice_id] = loadWav(filename);
     }
-    playWAV(voice_[voice_id], volume);
+    playWav(voice_[voice_id], volume, 0);
     current_sound_ = voice_[voice_id];
 }
 
@@ -194,7 +205,18 @@ MUSIC Audio::loadMusic(const std::string& file)
     }
     return m;
 #else
-    return Mix_LoadMUS(file.c_str());
+    if (file.contains(".mid"))
+    {
+        Prop pro;
+        auto io = SDL_IOFromFile(file.c_str(), "rb");
+        pro.set(MIX_PROP_AUDIO_LOAD_IOSTREAM_POINTER, io);
+        pro.set(MIX_PROP_AUDIO_DECODER_STRING, "fluidsynth");
+        pro.set("SDL_mixer.decoder.fluidsynth.soundfont_path", (GameUtil::PATH() + "music/mid.sf2").c_str());
+        auto m = MIX_LoadAudioWithProperties(pro.id());
+        SDL_CloseIO(io);
+        return m;
+    }
+    return MIX_LoadAudio(nullptr, file.c_str(), false);
 #endif
 }
 
@@ -208,11 +230,11 @@ WAV Audio::loadWav(const std::string& file)
     }
     return s;
 #else
-    return Mix_LoadWAV(file.c_str());
+    return MIX_LoadAudio(nullptr, file.c_str(), false);
 #endif
 }
 
-void Audio::playMUSIC(MUSIC m)
+void Audio::playMusic(MUSIC m)
 {
 #ifndef USE_SDL_MIXER_AUDIO
     BASS_ChannelSetAttribute(m, BASS_ATTRIB_VOL, volume_ / 100.0);
@@ -220,13 +242,16 @@ void Audio::playMUSIC(MUSIC m)
     BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
     BASS_ChannelPlay(m, false);
 #else
-    Mix_VolumeMusic(volume_ * 128 / 100);
-    //Mix_PlayMusic(m, -1);
-    Mix_FadeInMusic(m, -1, 500);
+    MIX_SetTrackGain(track_music_, volume_ / 100.0);
+    MIX_SetTrackAudio(track_music_, m);
+    Prop pro;
+    pro.set(MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, 500);
+    pro.set(MIX_PROP_PLAY_LOOPS_NUMBER, 100);
+    MIX_PlayTrack(track_music_, pro.id());
 #endif
 }
 
-void Audio::playWAV(WAV w, int volume)
+void Audio::playWav(WAV w, int volume, int track_num)
 {
     if (volume < 0 || volume > 100)
     {
@@ -237,8 +262,18 @@ void Audio::playWAV(WAV w, int volume)
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume / 100.0);
     BASS_ChannelPlay(w, false);
 #else
-    //Mix_Volume(-1, 128);
-    Mix_VolumeChunk(w, volume * 128 / 100);
-    Mix_PlayChannel(-1, w, 0);
+    int tnum = track_num;
+    if (tnum < 0)
+    {
+        tnum = current_track_num_;
+    }
+    MIX_SetTrackGain(track_wav_[tnum], volume_wav_ / 100.0);
+    MIX_SetTrackAudio(track_wav_[tnum], w);
+    MIX_PlayTrack(track_wav_[tnum], 0);
+    current_track_num_++;
+    if (current_track_num_ >= track_wav_.size())
+    {
+        current_track_num_ = 0;
+    }
 #endif
 }
