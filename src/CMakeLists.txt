@@ -4,7 +4,7 @@ cmake_policy(SET CMP0015 OLD)
 
 set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
-set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG -DUSE_SDL_MIXER_AUDIO")
+set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG")
 
 include_directories(../include . ../mlcc ../others ../local/include /usr/include)
 link_directories(. ../lib)

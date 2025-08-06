@@ -5,7 +5,7 @@
 
 Audio::Audio()
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     if (!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, nullptr))
     {
         LOG("Init Bass fault!\n");
@@ -33,7 +33,7 @@ Audio::Audio()
 
 Audio::~Audio()
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     if (mid_sound_font_.font)
     {
         BASS_MIDI_FontFree(mid_sound_font_.font);
@@ -65,7 +65,7 @@ void Audio::init()
     std::string music_path;
     std::string asound_path;
     std::string esound_path;
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     auto flag = BASS_SAMPLE_3D | BASS_SAMPLE_MONO;
     mid_sound_font_.font = BASS_MIDI_FontInit((GameUtil::PATH() + "music/mid.sf2").c_str(), 0);
     mid_sound_font_.preset = -1;
@@ -140,7 +140,7 @@ void Audio::playESound(int num, int volume)
 
 void Audio::pauseMusic()
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     BASS_ChannelPause(current_music_);
 #else
     MIX_PauseTrack(track_music_);
@@ -149,7 +149,7 @@ void Audio::pauseMusic()
 
 void Audio::resumeMusic()
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     BASS_ChannelPlay(current_music_, false);
 #else
     MIX_ResumeTrack(track_music_);
@@ -158,7 +158,7 @@ void Audio::resumeMusic()
 
 void Audio::stopMusic()
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     BASS_ChannelStop(current_music_);
 #else
     MIX_StopTrack(track_music_, 1000);
@@ -167,7 +167,7 @@ void Audio::stopMusic()
 
 void Audio::stopWav()
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     BASS_ChannelStop(current_sound_);
 #else
     MIX_StopTrack(track_wav_[0], 0);
@@ -192,7 +192,7 @@ void Audio::playVoice(int voice_id, int volume)
 
 MUSIC Audio::loadMusic(const std::string& file)
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     MUSIC m{};
     if (file.contains(".mid"))
     {
@@ -222,7 +222,7 @@ MUSIC Audio::loadMusic(const std::string& file)
 
 WAV Audio::loadWav(const std::string& file)
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     auto s = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
     if (s == 0)
     {
@@ -236,7 +236,7 @@ WAV Audio::loadWav(const std::string& file)
 
 void Audio::playMusic(MUSIC m)
 {
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     BASS_ChannelSetAttribute(m, BASS_ATTRIB_VOL, volume_ / 100.0);
     BASS_Apply3D();
     BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
@@ -257,7 +257,7 @@ void Audio::playWav(WAV w, int volume, int track_num)
     {
         volume = volume_wav_;
     }
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
     auto ch = BASS_SampleGetChannel(w, 1);
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume / 100.0);
     BASS_ChannelPlay(w, false);

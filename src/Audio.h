@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <vector>
 
-#ifndef USE_SDL_MIXER_AUDIO
+#ifdef USE_BASS
 #include "bass.h"
 #include "bassmidi.h"
 using MUSIC = HSTREAM;
@@ -32,7 +32,7 @@ private:
     int volume_ = 20;
     int volume_wav_ = 50;
     int current_music_index_ = -1;
-#ifdef USE_SDL_MIXER_AUDIO
+#ifndef USE_BASS
     MIX_Track* track_music_{};
     std::vector<MIX_Track*> track_wav_;
     MIX_Mixer* mixer_{};
