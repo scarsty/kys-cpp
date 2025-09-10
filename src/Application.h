@@ -1,4 +1,5 @@
-#pragma once
+﻿#pragma once
+#include <string>
 
 class Application
 {
@@ -7,4 +8,6 @@ public:
     virtual ~Application();
     int run();
     void config();
+
+    std::string renderer_, title_;
 };

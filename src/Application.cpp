@@ -20,9 +20,12 @@ Application::~Application()
 
 int Application::run()
 {
+    config();
+
     auto engine = Engine::getInstance();
     engine->setUISize(1280, 720);
-    engine->init();
+    engine->init(nullptr, 0, 0, renderer_);
+    engine->setWindowTitle(title_);
     engine->addEventWatch([](void*, EngineEvent* e) -> bool
         {
             if (e->type == EVENT_QUIT)
@@ -47,8 +50,6 @@ int Application::run()
     //引擎初始化之后才能创建纹理
     engine->createAssistTexture("scene", 800, 450);
 
-    config();
-
     auto s = std::make_shared<TitleScene>();    //开始界面
     s->run();
 
@@ -64,7 +65,6 @@ void Application::config()
     Event::getInstance()->setUseScript(game->getInt("game", "use_script", 1));
     Font::getInstance()->setStatMessage(game->getInt("game", "stat_font", 0));
     Font::getInstance()->setSimplified(game->getInt("game", "simplified_chinese", 1));
-    Engine::getInstance()->setWindowTitle(game->getString("game", "title", "All Heroes in Kam Yung Stories"));
     TextureManager::getInstance()->setLoadFromPath(game->getInt("game", "png_from_path", 0));
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
@@ -72,6 +72,9 @@ void Application::config()
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
     Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 1));
+
+    renderer_ = game->getString("game", "renderer", "");
+    title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");
 
     Role::setMaxValue();
     Role::setLevelUpList();

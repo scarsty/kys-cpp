@@ -284,7 +284,7 @@ private:
     std::unordered_map<std::string, Texture*> tex_map_;
 
 public:
-    int init(void* handle = nullptr, int handle_type = 0, int maximized = 0);
+    int init(void* handle = nullptr, int handle_type = 0, int maximized = 0, const std::string& str = "");
 
     Window* getWindow() const { return window_; }
 

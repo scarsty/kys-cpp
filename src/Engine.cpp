@@ -16,7 +16,7 @@ Engine::~Engine()
     destroy();
 }
 
-int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximized)
+int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximized, const std::string& str)
 {
     if (inited_)
     {
@@ -24,7 +24,12 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     inited_ = true;
 #ifdef _WIN32
-    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "direct3d12, vulkan, direct3d11, direct3d, opengl");
+    std::string renderer_turn = "direct3d12, vulkan, direct3d11, direct3d, opengl";
+    if (!str.empty())
+    {
+        renderer_turn = str;
+    }
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, renderer_turn.c_str());
 #endif
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
@@ -77,6 +82,8 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         //renderer_ = SDL_CreateRenderer(window_, "Direct3D12");
         renderer_self_ = true;
     }
+
+    std::print("Renderer name: {}\n", SDL_GetRendererName(renderer_));
 
     //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     //SDL_EventState(SDL_EVENT_DROP_FILE, SDL_ENABLE);
