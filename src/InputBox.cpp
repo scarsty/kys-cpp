@@ -22,10 +22,10 @@ void InputBox::dealEvent(EngineEvent& e)
     {
     case EVENT_TEXT_INPUT:
     {
-        auto converted = Font::getInstance()->T2S(e.text.text);
+        //auto converted = Font::getInstance()->T2S(e.text.text);
         //converted = PotConv::conv(converted, "utf-8", "cp936");
         //LOG("input %s\n", converted.c_str());
-        text_ += converted;
+        text_ += e.text.text;
         break;
     }
     case EVENT_TEXT_EDITING:
