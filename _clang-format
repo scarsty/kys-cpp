@@ -1,0 +1,57 @@
+
+BraceWrapping: 
+  AfterEnum: true
+  AfterStruct: true
+  SplitEmptyFunction: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterUnion: true
+  BeforeElse: true
+  BeforeLambdaBody: true
+  AfterControlStatement: true
+  AfterClass: true
+  AfterCaseLabel: true
+  AfterExternBlock: true
+  IndentBraces: false
+
+SpacesInLineCommentPrefix:
+  Minimum: 0
+  Maximum: -1
+
+#AlignArrayOfStructures: None 
+#BracedInitializerIndentWidth: true
+#CommentPragmas:  '^[^ ]'
+AlignEscapedNewlines: DontAlign 
+AlignTrailingComments: true
+AllowAllConstructorInitializersOnNextLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLambdasOnASingleLine: None
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakBeforeMultilineStrings: true
+BasedOnStyle: Webkit
+BreakBeforeBinaryOperators: All
+BreakBeforeBraces: Custom
+BreakBeforeTernaryOperators: false
+BreakConstructorInitializers: AfterColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+Cpp11BracedListStyle: false
+DerivePointerAlignment: false
+EmptyLineBeforeAccessModifier: LogicalBlock
+FixNamespaceComments: true
+IndentExternBlock: NoIndent
+IndentWidth: 4
+InsertBraces: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+LambdaBodyIndentation: Signature
+NamespaceIndentation: None
+PointerAlignment: Left
+ReferenceAlignment: Left
+RemoveSemicolon: true
+SeparateDefinitionBlocks: Leave
+SpaceBeforeCpp11BracedList: false
+SpaceInEmptyBlock: false
+SpacesBeforeTrailingComments: 4
+SpacesInContainerLiterals: false
+UseTab: Never

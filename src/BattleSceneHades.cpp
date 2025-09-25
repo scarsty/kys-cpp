@@ -1251,7 +1251,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
                     ae.Track = 1;
                 }
-                attack_effects_.push_back(std::move(ae));
+                attack_effects_.push_back(ae);
                 needMP *= 0.1;
             }
             else if (ae.OperationType == 1)
