@@ -110,6 +110,8 @@ public:
             return n + 1;
         }
     }
+
+    static inline constexpr int MAX_MP = 100;
 };
 
 template <typename... Args>

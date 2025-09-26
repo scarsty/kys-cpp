@@ -14,7 +14,12 @@
 class SuperMenuText : public InputBox
 {
 public:
-    SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage);
+    // Backward-compatible constructor
+    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage);
+
+    // New constructor with color support
+    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage, const std::vector<Color>& itemColors);
+
     virtual ~SuperMenuText() = default;
     void dealEvent(EngineEvent& e) override;
     virtual void setInputPosition(int x, int y) override;
@@ -23,29 +28,25 @@ public:
 
 private:
     void defaultPage();
-    void flipPage(int pInc);
+    void flipPage(int pageIncrement);
     void search(const std::string& text);
     void updateMaxPages();
     bool defaultMatch(const std::string& input, const std::string& name);
 
-    std::shared_ptr<Button> previous_, next_;
-    int curPage_ = 0;
+    std::shared_ptr<Button> previousButton_, nextButton_;
+    int currentPage_ = 0;
     int maxPages_ = 1;
     int itemsPerPage_ = 10;
-    bool curDefault_ = false;
+    bool isDefaultPage_ = false;
     std::shared_ptr<MenuText> selections_;
 
-    // 所有的
     std::vector<std::pair<int, std::string>> items_;
+    std::vector<Color> itemColors_;
 
-    // 这是当前给显示的，返回result -> items_[activeIndices[result]] 既是实际选项
-    // 只显示一页的activeIndices
     std::vector<int> activeIndices_;
-    // 所有搜索结果
     std::vector<int> searchResultIndices_;
-    std::vector<std::shared_ptr<DrawableOnCall>> docs_;
-    std::function<bool(const std::string&, const std::string&)> matchFunc_;
+    std::vector<std::shared_ptr<DrawableOnCall>> drawableDocs_;
+    std::function<bool(const std::string&, const std::string&)> matchFunction_;
 
-    // 预处理
     std::unordered_map<std::string, std::unordered_set<std::string>> matches_;
 };

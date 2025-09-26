@@ -6,19 +6,29 @@
 #include <cmath>
 #include <utility>
 
-SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) :
-    InputBox(title, font_size), items_(allItems), itemsPerPage_(itemsPerPage)
-{
-    previous_ = std::make_shared<Button>();
-    previous_->setText("上一頁PgUp");
-    next_ = std::make_shared<Button>();
-    next_->setText("下一頁PgDown");
+// Backward-compatible constructor delegates to the new one
+SuperMenuText::SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
+    : SuperMenuText(title, fontSize, allItems, itemsPerPage, {}) {}
 
-    addChild(previous_);
-    addChild(next_);
+SuperMenuText::SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage, const std::vector<Color>& itemColors)
+    : InputBox(title, fontSize), items_(allItems), itemsPerPage_(itemsPerPage), itemColors_(itemColors)
+{
+    if (itemColors_.size() < items_.size()) {
+        itemColors_.resize(items_.size(), {255,255,255,255});
+    }
+    previousButton_ = std::make_shared<Button>();
+    previousButton_->setText("上一頁PgUp");
+    nextButton_ = std::make_shared<Button>();
+    nextButton_->setText("下一頁PgDown");
+
+    addChild(previousButton_);
+    addChild(nextButton_);
     selections_ = std::make_shared<MenuText>();
     addChild(selections_);
     setAllChildState(NodeNormal);
+    isDefaultPage_ = false;
+    currentPage_ = 0;
+    maxPages_ = 1;
     defaultPage();
 
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
@@ -39,39 +49,6 @@ SuperMenuText::SuperMenuText(const std::string& title, int font_size, const std:
     setMatchFunction(match);
     for (const auto& pairName : items_)
     {
-        //// 拼音
-        //auto u8Name = PotConv::cp936toutf8(pairName.second);
-        //std::string pinyin = Hanz2Piny::hanz2pinyin(u8Name);
-        //auto pys = strfunc::splitString(pinyin, " ");
-        //std::vector<std::string> acceptables;
-
-        //std::function<void(const std::string& curStr, int idx)> comboGenerator = [&](const std::string& curStr, int idx)
-        //{
-        //    if (idx == pys.size())
-        //    {
-        //        acceptables.push_back(curStr);
-        //        return;
-        //    }
-        //    comboGenerator(curStr + pys[idx][0], idx + 1);
-        //    comboGenerator(curStr + pys[idx], idx + 1);
-        //};
-        //comboGenerator("", 0);
-
-        //for (auto& acc : acceptables)
-        //{
-        //    for (int i = 0; i < acc.size(); i++)
-        //    {
-        //        matches_[acc.substr(0, i + 1)].insert(pairName.second);
-        //    }
-        //}
-
-        //// 直接对字，可以两个跳，但是不管了
-        //for (int i = 0; i < pairName.second.size(); i++)
-        //{
-        //    matches_[pairName.second.substr(0, i + 1)].insert(pairName.second);
-        //}
-
-        // 对id
         std::string strID = std::to_string(pairName.first);
         for (int i = 0; i < strID.size(); i++)
         {
@@ -84,65 +61,63 @@ void SuperMenuText::setInputPosition(int x, int y)
 {
     InputBox::setInputPosition(x, y);
     selections_->setPosition(x, y + font_size_ * 3);
-    previous_->setPosition(x, y - font_size_ * 1.5);
-    next_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
+    previousButton_->setPosition(x, y - font_size_ * 1.5);
+    nextButton_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
 }
 
 void SuperMenuText::addDrawableOnCall(std::shared_ptr<DrawableOnCall> doc)
 {
-    docs_.push_back(doc);
+    drawableDocs_.push_back(doc);
     addChild(doc);
 }
 
 void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, const std::string&)> match)
 {
-    matchFunc_ = match;
+    matchFunction_ = match;
 }
 
 void SuperMenuText::defaultPage()
 {
-    if (curDefault_)
-    {
-        return;
-    }
+    if (isDefaultPage_) return;
     std::vector<std::string> displays;
+    std::vector<Color> colors;
     searchResultIndices_.clear();
-    for (int i = 0; i < items_.size(); i++)
-    {
-        if (i < std::min((std::size_t)itemsPerPage_, items_.size()))
-        {
+    activeIndices_.clear();
+    for (int i = 0; i < items_.size(); i++) {
+        if (i < std::min((std::size_t)itemsPerPage_, items_.size())) {
             activeIndices_.push_back(i);
             displays.push_back(items_[i].second);
+            colors.push_back(itemColors_[i]);
         }
         searchResultIndices_.push_back(i);
     }
-    curPage_ = 0;
+    currentPage_ = 0;
     updateMaxPages();
-    selections_->setStrings(displays);
-    if (displays.size() != 0)
-    {
+    selections_->setStrings(displays, colors);
+    if (!displays.empty()) {
         selections_->forceActiveChild(0);
     }
-    curDefault_ = true;
+    isDefaultPage_ = true;
 }
 
-void SuperMenuText::flipPage(int pInc)
+void SuperMenuText::flipPage(int pageIncrement)
 {
-    if (curPage_ + pInc >= 0 && curPage_ + pInc < maxPages_)
+    if (currentPage_ + pageIncrement >= 0 && currentPage_ + pageIncrement < maxPages_)
     {
-        // 允许你翻页！
-        curPage_ += pInc;
-        int startIdx = curPage_ * itemsPerPage_;
+        currentPage_ += pageIncrement;
+        int startIdx = currentPage_ * itemsPerPage_;
         std::vector<std::string> displays;
+        std::vector<Color> colors;
         activeIndices_.clear();
         for (std::size_t i = startIdx; i < std::min(searchResultIndices_.size(), (std::size_t)startIdx + itemsPerPage_); i++)
         {
-            activeIndices_.push_back(searchResultIndices_[i]);
-            displays.push_back(items_[searchResultIndices_[i]].second);
+            int idx = searchResultIndices_[i];
+            activeIndices_.push_back(idx);
+            displays.push_back(items_[idx].second);
+            colors.push_back(itemColors_[idx]);
         }
-        selections_->setStrings(displays);
+        selections_->setStrings(displays, colors);
     }
-    // curDefault_ = false;
 }
 
 bool SuperMenuText::defaultMatch(const std::string& input, const std::string& name)
@@ -162,15 +137,14 @@ bool SuperMenuText::defaultMatch(const std::string& input, const std::string& na
 void SuperMenuText::search(const std::string& text)
 {
     std::vector<std::string> results;
+    std::vector<Color> colors;
     activeIndices_.clear();
     searchResultIndices_.clear();
-    // 只返回itemsPerPage_数量
-    // 更高级的Trie，LCS编辑距离等等 有缘人来搞
     for (int i = 0; i < items_.size(); i++)
     {
         bool matched = false;
         auto& opt = items_[i];
-        if (matchFunc_ && matchFunc_(text, opt.second))
+        if (matchFunction_ && matchFunction_(text, opt.second))
         {
             matched = true;
         }
@@ -183,16 +157,17 @@ void SuperMenuText::search(const std::string& text)
             if (results.size() < itemsPerPage_)
             {
                 results.emplace_back(opt.second);
+                colors.push_back(itemColors_[i]);
                 activeIndices_.push_back(i);
             }
             searchResultIndices_.push_back(i);
         }
     }
     updateMaxPages();
-    curPage_ = 0;
-    selections_->setStrings(results);
+    currentPage_ = 0;
+    selections_->setStrings(results, colors);
     selections_->forceActiveChild(0);
-    curDefault_ = false;
+    isDefaultPage_ = false;
 }
 
 void SuperMenuText::updateMaxPages()
@@ -202,23 +177,20 @@ void SuperMenuText::updateMaxPages()
 
 void SuperMenuText::dealEvent(EngineEvent& e)
 {
-    // get不到result 为何
-    // 不知道这玩意儿在干嘛，瞎搞即可
-    if (previous_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
+    if (previousButton_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
         flipPage(-1);
-        previous_->setState(NodeNormal);
-        previous_->setResult(-1);
+        previousButton_->setState(NodeNormal);
+        previousButton_->setResult(-1);
     }
-    else if (next_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
+    else if (nextButton_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
         flipPage(1);
-        next_->setState(NodeNormal);
-        next_->setResult(-1);
+        nextButton_->setState(NodeNormal);
+        nextButton_->setResult(-1);
     }
 
     bool research = false;
-    // 为什么switch自动缩进是这样
     switch (e.type)
     {
     case EVENT_TEXT_INPUT:
@@ -294,14 +266,14 @@ void SuperMenuText::dealEvent(EngineEvent& e)
     if (selectionIdx >= 0 && selectionIdx < activeIndices_.size())
     {
         int idx = activeIndices_[selectionIdx];
-        for (auto& doc : docs_)
+        for (auto& doc : drawableDocs_)
         {
             doc->updateScreenWithID(items_[idx].first);
         }
     }
     else
     {
-        for (auto& doc : docs_)
+        for (auto& doc : drawableDocs_)
         {
             doc->updateScreenWithID(-1);
         }

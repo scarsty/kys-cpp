@@ -8,12 +8,6 @@
 #include "TeamMenu.h"
 #include "Weather.h"
 
-namespace
-{
-
-constexpr int MAX_MP = 100;
-
-}
 
 BattleSceneHades::BattleSceneHades()
 {
@@ -1074,7 +1068,7 @@ void BattleSceneHades::backRun1()
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
-        r->MP = GameUtil::limit(r->MP, 0, MAX_MP);
+        r->MP = GameUtil::limit(r->MP, 0, GameUtil::MAX_MP);
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
     }
 
@@ -1351,7 +1345,7 @@ void BattleSceneHades::Action(Role* r)
                 needMP *= 0.05;
             }
             LOG("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
-            needMP = r->MP == MAX_MP ? MAX_MP : -10;    // 暂定平A + 10
+            needMP = r->MP == GameUtil::MAX_MP ? GameUtil::MAX_MP : -10;    // 暂定平A + 10
             r->MP -= needMP;
             r->UsingMagic = nullptr;
         }
@@ -1462,7 +1456,7 @@ void BattleSceneHades::AI(Role* r)
                         }
                         return chooseMagic;
                     };
-                    r->UsingMagic = r->MP >= MAX_MP ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
+                    r->UsingMagic = r->MP >= GameUtil::MAX_MP ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
                 }
             }
             auto r0 = findNearestEnemy(r->Team, r->Pos);
@@ -1677,7 +1671,7 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
     renderBar(y - 60, r->HP, r->MaxMP, background_color);
     Color mp_color = { 0, 0, 255, 128 };
-    renderBar(y - 56, r->MP, MAX_MP, mp_color);
+    renderBar(y - 56, r->MP, GameUtil::MAX_MP, mp_color);
 }
 
 int BattleSceneHades::checkResult()
@@ -1701,13 +1695,13 @@ void BattleSceneHades::setRoleInitState(Role* r)
     if (r->Team == 0)
     {
         r->HP = r->MaxHP;
-        r->MP = MAX_MP;
+        r->MP = GameUtil::MAX_MP;
         r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
     else
     {
         r->HP = r->MaxHP;
-        r->MP = MAX_MP;
+        r->MP = GameUtil::MAX_MP;
         r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
 
