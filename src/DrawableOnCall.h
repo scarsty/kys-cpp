@@ -12,7 +12,7 @@ public:
     virtual ~DrawableOnCall() = default;
     virtual void onEntrance() { if (entrance_) entrance_(); }
     void setEntrance(std::function<void()> en) { entrance_ = en; }
-    void updateScreenWithID(int id);
+    virtual void updateScreenWithID(int id);
     int getID();
     virtual void draw();
 private:

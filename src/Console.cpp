@@ -10,6 +10,7 @@
 #include "Save.h"
 #include "SuperMenuText.h"
 #include "TextureManager.h"
+#include "UIRoleStatusMenu.h"
 #include "strfunc.h"
 #include <algorithm>
 #include <functional>
@@ -55,6 +56,27 @@ Console::Console()
         smt->run();
         int id = smt->getResult();
         LOG("result %d\n", id);
+    }
+    else if (code == "SelectRole")
+    {
+        // Gather all roles and assign colors
+        std::vector<std::pair<int, std::string>> rolePairs;
+        std::vector<Color> roleColors;
+        auto& roles = Save::getInstance()->getRoles();
+        for (auto* role : roles)
+        {
+            rolePairs.emplace_back(role->ID, role->Name);
+            // Example: main character gold, others white
+            if (role->ID == 0)
+                roleColors.push_back({255, 215, 0, 255});
+            else
+                roleColors.push_back({255, 255, 255, 255});
+        }
+        auto menu = std::make_shared<UIRoleStatusMenu>(rolePairs, roleColors);
+        menu->setInputPosition(100, 60); // Reasonable for UIStatus panel
+        menu->run();
+        int id = menu->getResult();
+        LOG("Selected role id: %d\n", id);
     }
     else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
         && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))

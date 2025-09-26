@@ -175,9 +175,11 @@
     <ClCompile Include="Types.cpp" />
     <ClCompile Include="UIItem.cpp" />
     <ClCompile Include="UIKeyConfig.cpp" />
+    <ClCompile Include="UIRoleStatusMenu.cpp" />
     <ClCompile Include="UISave.cpp" />
     <ClCompile Include="UIShop.cpp" />
     <ClCompile Include="UIStatus.cpp" />
+    <ClCompile Include="UIStatusDrawable.cpp" />
     <ClCompile Include="UISystem.cpp" />
     <ClCompile Include="Video.cpp" />
     <ClCompile Include="VirtualStick.cpp" />
@@ -248,9 +250,11 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="UIItem.h" />
     <ClInclude Include="UIKeyConfig.h" />
+    <ClInclude Include="UIRoleStatusMenu.h" />
     <ClInclude Include="UISave.h" />
     <ClInclude Include="UIShop.h" />
     <ClInclude Include="UIStatus.h" />
+    <ClInclude Include="UIStatusDrawable.h" />
     <ClInclude Include="UISystem.h" />
     <ClInclude Include="Video.h" />
     <ClInclude Include="VirtualStick.h" />
