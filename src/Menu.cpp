@@ -249,15 +249,17 @@ MenuText::MenuText(std::vector<std::string> items) :
     setStrings(items);
 }
 
-void MenuText::setStrings(std::vector<std::string> strings)
+void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> colors)
 {
-    strings_ = strings;
+    strings_ = std::move(strings);
 
     clearChilds();
     int len = 0;
     int i = 0;
-    for (auto& str : strings)
+
+    for (int i = 0; i < strings_.size(); ++i) 
     {
+        auto& str = strings_[i];
         if (str.length() > len)
         {
             len = str.length();
@@ -265,10 +267,12 @@ void MenuText::setStrings(std::vector<std::string> strings)
         auto b = std::make_shared<Button>();
         addChild(b, 0, i * 25);
         b->setText(str);
-        i++;
+        if (i < colors.size()) {
+            b->setTextColor(colors[i]);
+        }
     }
     w_ = 10 * len;
-    h_ = 25 * strings.size();
+    h_ = 25 * strings_.size();
 
     childs_text_.clear();
     for (int i = 0; i < strings_.size(); i++)

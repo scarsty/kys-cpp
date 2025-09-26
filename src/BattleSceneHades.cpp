@@ -8,6 +8,13 @@
 #include "TeamMenu.h"
 #include "Weather.h"
 
+namespace
+{
+
+constexpr int MAX_MP = 100;
+
+}
+
 BattleSceneHades::BattleSceneHades()
 {
     keys_ = *UIKeyConfig::getKeyConfig();
@@ -419,6 +426,9 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         }
     }
 
+    // 不允许操作
+    return;
+
     Pointf pos = r->Pos;
     double speed = std::min(4.0, r->Speed / 30.0);
     if (e.type == EVENT_KEY_UP && e.key.key == K_TAB
@@ -654,7 +664,7 @@ void BattleSceneHades::onEntrance()
     addChild(Weather::getInstance());
 
     //makeEarthTexture(); //注意高度稍微多了一点
-    
+
     //此处创建了一个大的纹理，用于渲染整个场景
     Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
@@ -743,13 +753,15 @@ void BattleSceneHades::onEntrance()
         }
     }
     //队友
-    role_ = Save::getInstance()->getRole(0);
+    // role_ = Save::getInstance()->getRole(0);
+    // 没有主角
+    role_ = nullptr;
     bool have_main = false;
     for (auto r : friends_)
     {
         if (r == role_) { have_main = true; }
     }
-    if (!have_main)
+    if (!have_main && role_)
     {
         friends_.insert(friends_.begin(), role_);
     }
@@ -779,22 +791,23 @@ void BattleSceneHades::onEntrance()
 
     //head_self_->setRole(role_);
 
-    for (int i = 0; i < button_magics_.size(); i++)
-    {
-        auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
-        if (m && role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
-        if (m)
-        {
-            std::string text = m->Name;
-            text += std::string(10 - Font::getTextDrawSize(text), ' ');
-            button_magics_[i]->setText(text);
-        }
-        else
-        {
-            button_magics_[i]->setText("__________");
-        }
-    }
-    menu_->setVisible(true);
+    // 没有主角后也不显示任何按键
+    //for (int i = 0; i < button_magics_.size(); i++)
+    //{
+    //	auto m = Save::getInstance()->getMagic(role_->EquipMagic[i]);
+    //	if (m && role_->getMagicOfRoleIndex(m) < 0) { m = nullptr; }
+    //	if (m)
+    //	{
+    //		std::string text = m->Name;
+    //		text += std::string(10 - Font::getTextDrawSize(text), ' ');
+    //		button_magics_[i]->setText(text);
+    //	}
+    //	else
+    //	{
+    //		button_magics_[i]->setText("__________");
+    //	}
+    //}
+    //menu_->setVisible(true);
 }
 
 void BattleSceneHades::onExit()
@@ -1038,6 +1051,7 @@ void BattleSceneHades::backRun1()
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
             r->HP -= hurt;
+            r->MP += (hurt * 100.0 / r->MaxHP);    // 挨打根据比例回复
             if (r->HP <= 0)
             {
                 //LOG("{} has been beat\n", r->Name);
@@ -1060,7 +1074,7 @@ void BattleSceneHades::backRun1()
             }
         }
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
-        r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
+        r->MP = GameUtil::limit(r->MP, 0, MAX_MP);
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
     }
 
@@ -1188,7 +1202,7 @@ void BattleSceneHades::Action(Role* r)
                 magic = Save::getInstance()->getMagic(1);
                 ae.UsingMagic = Save::getInstance()->getMagic(1);
             }
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+            // r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
             int level_index = r->getMagicLevelIndex(magic->ID);
             int needMP = magic->calNeedMP(level_index);
             ae.TotalFrame = 30;
@@ -1337,6 +1351,7 @@ void BattleSceneHades::Action(Role* r)
                 needMP *= 0.05;
             }
             LOG("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
+            needMP = r->MP == MAX_MP ? MAX_MP : -10;    // 暂定平A + 10
             r->MP -= needMP;
             r->UsingMagic = nullptr;
         }
@@ -1430,33 +1445,24 @@ void BattleSceneHades::AI(Role* r)
                 }
                 else
                 {
-                    //其他ai可以使用所有武学
-                    auto v = r->getLearnedMagics();
-                    if (v.size() == 1)
+                    auto selectMagic = [r](auto cmp)
                     {
-                        r->UsingMagic = v[0];
-                    }
-                    else if (v.size() >= 0)
-                    {
-                        std::vector<double> hurt;
-                        double sum = 0;
-                        for (auto m : v)
+                        auto v = r->getLearnedMagics();
+                        auto hurt = v[0]->Attack[r->getMagicLevelIndex(0)];
+                        Magic* chooseMagic = v[0];
+                        for (size_t i = 1; i < v.size(); ++i)
                         {
+                            auto m = v[i];
                             double h = m->Attack[r->getMagicLevelIndex(m)];
-                            //h = exp(h / 500);    //几率正比于武功威力
-                            hurt.push_back(sum + h);
-                            sum += h;
-                        }
-                        double select = rand_.rand() * sum;
-                        for (int i = 0; i < hurt.size(); i++)
-                        {
-                            if (select < hurt[i])
+                            if (cmp(h, hurt))
                             {
-                                r->UsingMagic = v[i];
-                                break;
+                                hurt = h;
+                                chooseMagic = m;
                             }
                         }
-                    }
+                        return chooseMagic;
+                    };
+                    r->UsingMagic = r->MP >= MAX_MP ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
                 }
             }
             auto r0 = findNearestEnemy(r->Team, r->Pos);
@@ -1648,30 +1654,30 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     }
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
+
+    auto renderBar = [&](int bar_y, int cur, int max, Color background_color)
+    {
+        constexpr auto width = 24;
+        constexpr auto height = 3;
+        auto bar_x = x - width / 2;
+        double perc = static_cast<double>(cur) / max;
+        double alpha = 1;
+        Rect r0 = { bar_x - 1, bar_y - 1, width + 2, height + 2 };
+        Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
+        Rect r1 = { bar_x, bar_y, int(perc * width), height };
+        Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+    };
+
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
     if (r->Team == 1)
     {
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
-    int hp_max_w = 24;
-    int hp_x = x - hp_max_w / 2;
-    int hp_y = y - 60;
-    int hp_h = 3;
-    double perc = ((double)r->HP / r->MaxHP);
-    if (perc < 0)
-    {
-        perc = 0;
-    }
-    double alpha = 1;
-    if (r->HP <= 0)
-    {
-        alpha = dead_alpha_ / 255.0;
-    }
-    Rect r0 = { hp_x - 1, hp_y - 1, hp_max_w + 2, hp_h + 2 };
-    Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
-    Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
-    Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+
+    renderBar(y - 60, r->HP, r->MaxMP, background_color);
+    Color mp_color = { 0, 0, 255, 128 };
+    renderBar(y - 56, r->MP, MAX_MP, mp_color);
 }
 
 int BattleSceneHades::checkResult()
@@ -1695,13 +1701,13 @@ void BattleSceneHades::setRoleInitState(Role* r)
     if (r->Team == 0)
     {
         r->HP = r->MaxHP;
-        r->MP = r->MaxMP;
+        r->MP = MAX_MP;
         r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
     else
     {
         r->HP = r->MaxHP;
-        r->MP = r->MaxMP;
+        r->MP = MAX_MP;
         r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
 
@@ -1867,8 +1873,8 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     else
     {
         r->Frozen += 10;    //硬直
-        //r->ActType = -1;
-        //r->ActType2 = -1;
+                            //r->ActType = -1;
+                            //r->ActType2 = -1;
     }
 
     //武功类型特殊效果
