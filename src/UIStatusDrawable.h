@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "DrawableOnCall.h"
 #include "UIStatus.h"
 #include <memory>

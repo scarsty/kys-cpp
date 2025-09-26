@@ -1,9 +1,9 @@
-#include "UIStatusDrawable.h"
+ï»¿#include "UIStatusDrawable.h"
 #include "UIRoleStatusMenu.h"
 
 UIRoleStatusMenu::UIRoleStatusMenu(const std::vector<std::pair<int, std::string>>& rolePairs,
                                    const std::vector<Color>& roleColors)
-    : SuperMenuText("½ÇÉ«ÁÐ±í", 24, rolePairs, static_cast<int>(rolePairs.size()), roleColors)
+    : SuperMenuText("è§’è‰²åˆ—è¡¨", 24, rolePairs, static_cast<int>(rolePairs.size()), roleColors)
 {
     statusDrawable_ = std::make_shared<UIStatusDrawable>();
     addDrawableOnCall(statusDrawable_);

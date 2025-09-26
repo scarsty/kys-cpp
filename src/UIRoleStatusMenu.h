@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "SuperMenuText.h"
 #include "UIStatusDrawable.h"
 #include <vector>
