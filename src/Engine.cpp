@@ -1,4 +1,6 @@
 ﻿#include "Engine.h"
+
+#include "strfunc.h"
 #ifdef _MSC_VER
 #define NOMINMAX
 #include <windows.h>
@@ -24,10 +26,18 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
     inited_ = true;
 #ifdef _WIN32
-    std::string renderer_turn = "direct3d12, vulkan, direct3d11, direct3d, opengl";
+    std::string renderer_turn = "direct3d12, opengl, vulkan, direct3d11, direct3d, opengles2, opengles, metal, gpu, software";
     if (!str.empty())
     {
-        renderer_turn = str;
+        auto str1 = strfunc::toLowerCase(str);
+        for (auto s : strfunc::splitString(renderer_turn, ","))
+        {
+            if (str1 == strfunc::trim(s))
+            {
+                renderer_turn = str1;
+                break;
+            }
+        }
     }
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, renderer_turn.c_str());
 #endif

@@ -1,1 +1,1 @@
-.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf sdl3-mixer lua sqlite3 libiconv asio picosha2 yaml-cpp zip
+.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua sqlite3 libiconv asio picosha2 yaml-cpp libzip
