@@ -72,8 +72,10 @@ Console::Console()
             else
                 roleColors.push_back({255, 255, 255, 255});
         }
-        auto menu = std::make_shared<UIRoleStatusMenu>(rolePairs, roleColors);
+        auto menu = std::make_shared<UIRoleStatusMenu>(rolePairs, roleColors, 5);
         menu->setInputPosition(100, 60); // Reasonable for UIStatus panel
+        menu->getStatusDrawable().getUIStatus().setPosition(600, 60);
+        menu->setShowNavigationButtons(false);
         menu->run();
         int id = menu->getResult();
         LOG("Selected role id: %d\n", id);

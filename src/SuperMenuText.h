@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Button.h"
 #include "DrawableOnCall.h"
 #include "InputBox.h"
@@ -25,6 +25,12 @@ public:
     virtual void setInputPosition(int x, int y) override;
     void addDrawableOnCall(std::shared_ptr<DrawableOnCall> doc);
     void setMatchFunction(std::function<bool(const std::string&, const std::string&)> match);
+
+    void setShowNavigationButtons(bool v)
+    {
+        previousButton_->setVisible(v);
+        nextButton_->setVisible(v);
+    }
 
 private:
     void defaultPage();

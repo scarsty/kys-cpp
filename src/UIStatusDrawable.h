@@ -7,6 +7,9 @@ class UIStatusDrawable : public DrawableOnCall {
 public:
     UIStatusDrawable();
     void updateScreenWithID(int id) override;
+
+    UIStatus& getUIStatus() { return *uiStatus_; }
+
 private:
     std::shared_ptr<UIStatus> uiStatus_;
 };
