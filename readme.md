@@ -22,7 +22,7 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
-.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua sqlite3 libiconv asio picosha2 yaml-cpp opencv zip
+.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua sqlite3 libiconv asio picosha2 yaml-cpp opencv libzip
 SDL3的Mixer似乎还没有完成，目前使用bass播放音效。
 ```
 建议执行：
