@@ -224,7 +224,7 @@ void SuperMenuText::dealEvent(EngineEvent& e)
     case EVENT_TEXT_INPUT:
     {
         auto converted = Font::getInstance()->T2S(e.text.text);
-        converted = PotConv::conv(converted, "utf-8", "cp936");
+        //converted = PotConv::conv(converted, "utf-8", "cp936");
         text_ += converted;
         research = true;
         break;
@@ -240,8 +240,9 @@ void SuperMenuText::dealEvent(EngineEvent& e)
             if (text_.size() >= 1)
             {
                 text_.pop_back();
-                if (text_.size() >= 1 && uint8_t(text_.back()) >= 128)
+                if (text_.size() >= 2 && uint8_t(text_.back()) >= 128)
                 {
+                    text_.pop_back();
                     text_.pop_back();
                 }
             }
