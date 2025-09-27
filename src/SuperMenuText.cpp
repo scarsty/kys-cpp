@@ -6,31 +6,51 @@
 #include <cmath>
 #include <utility>
 
-// Backward-compatible constructor delegates to the new one
-SuperMenuText::SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
-    : SuperMenuText(title, fontSize, allItems, itemsPerPage, {}) {}
-
-SuperMenuText::SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage, const std::vector<Color>& itemColors)
-    : InputBox(title, fontSize), items_(allItems), itemsPerPage_(itemsPerPage), itemColors_(itemColors)
+// Backward-compatible constructor: always creates an InputBox
+SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
+    const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
+    : SuperMenuText(title, fontSize, allItems, itemsPerPage, {}, true)
 {
+}
+
+// New constructor: can control InputBox creation
+SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
+    const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage,
+    const std::vector<Color>& itemColors, bool needInputBox)
+    : items_(allItems), itemsPerPage_(itemsPerPage), itemColors_(itemColors), fontSize_(fontSize)
+{
+    if (needInputBox) {
+        inputBox_ = std::make_shared<InputBox>(title, fontSize);
+        addChild(inputBox_);
+    } else {
+        titleBox_ = std::make_shared<TextBox>();
+        titleBox_->setText(title);
+        titleBox_->setFontSize(fontSize_);
+        addChild(titleBox_);
+    }
+
     if (itemColors_.size() < items_.size()) {
         itemColors_.resize(items_.size(), {255,255,255,255});
     }
+
     previousButton_ = std::make_shared<Button>();
     previousButton_->setText("上一頁PgUp");
+    addChild(previousButton_);
+
     nextButton_ = std::make_shared<Button>();
     nextButton_->setText("下一頁PgDown");
-
-    addChild(previousButton_);
     addChild(nextButton_);
+
     selections_ = std::make_shared<MenuText>();
     addChild(selections_);
+
     setAllChildState(NodeNormal);
     isDefaultPage_ = false;
     currentPage_ = 0;
     maxPages_ = 1;
     defaultPage();
 
+    // Default match function (pinyin search)
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
     {
         std::string pinyin = Hanz2Piny::hanz2pinyin(name);
@@ -47,22 +67,20 @@ SuperMenuText::SuperMenuText(const std::string& title, int fontSize, const std::
         return true;
     };
     setMatchFunction(match);
-    for (const auto& pairName : items_)
-    {
-        std::string strID = std::to_string(pairName.first);
-        for (int i = 0; i < strID.size(); i++)
-        {
-            matches_[strID.substr(0, i + 1)].insert(pairName.second);
-        }
-    }
 }
 
 void SuperMenuText::setInputPosition(int x, int y)
 {
-    InputBox::setInputPosition(x, y);
-    selections_->setPosition(x, y + font_size_ * 3);
-    previousButton_->setPosition(x, y - font_size_ * 1.5);
-    nextButton_->setPosition(x + font_size_ * 5, y - font_size_ * 1.5);
+    if (inputBox_) {
+        inputBox_->setInputPosition(x, y);
+        selections_->setPosition(x, y + fontSize_ * 3);
+        previousButton_->setPosition(x, y - fontSize_ * 1.5);
+        nextButton_->setPosition(x + fontSize_ * 5, y - fontSize_ * 1.5);
+    } else {
+        selections_->setPosition(x, y);
+        previousButton_->setPosition(x, y - 30);
+        nextButton_->setPosition(x + 150, y - 30);
+    }
 }
 
 void SuperMenuText::addDrawableOnCall(std::shared_ptr<DrawableOnCall> doc)
@@ -120,20 +138,6 @@ void SuperMenuText::flipPage(int pageIncrement)
     }
 }
 
-bool SuperMenuText::defaultMatch(const std::string& input, const std::string& name)
-{
-    auto iterInput = matches_.find(input);
-    if (iterInput != matches_.end())
-    {
-        auto iterName = iterInput->second.find(name);
-        if (iterName != iterInput->second.end())
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 void SuperMenuText::search(const std::string& text)
 {
     std::vector<std::string> results;
@@ -144,13 +148,9 @@ void SuperMenuText::search(const std::string& text)
     {
         bool matched = false;
         auto& opt = items_[i];
-        if (matchFunction_ && matchFunction_(text, opt.second))
+        if (Font::getInstance()->T2S(opt.second).contains(text) || (matchFunction_ && matchFunction_(text, opt.second)))
         {
             matched = true;
-        }
-        else
-        {
-            matched = defaultMatch(text, opt.second);
         }
         if (matched)
         {
@@ -191,55 +191,39 @@ void SuperMenuText::dealEvent(EngineEvent& e)
     }
 
     bool research = false;
+    std::string searchText;
+    if (inputBox_)
+    {
+        searchText = Font::getInstance()->T2S(inputBox_->getText());
+    }
+
+    // Only handle search if inputBox_ is present
+    if (inputBox_) {
+        switch (e.type)
+        {
+        case EVENT_TEXT_INPUT:
+        case EVENT_KEY_DOWN:
+            research = true;
+            break;
+        default:
+            break;
+        }
+    }
+
     switch (e.type)
     {
-    case EVENT_TEXT_INPUT:
-    {
-        auto converted = Font::getInstance()->T2S(e.text.text);
-        converted = PotConv::conv(converted, "utf-8", "cp936");
-        text_ += converted;
-        research = true;
-        break;
-    }
-    case EVENT_TEXT_EDITING:
-    {
-        break;
-    }
-    case EVENT_KEY_DOWN:
-    {
-        if (e.key.key == K_BACKSPACE)
-        {
-            if (text_.size() >= 1)
-            {
-                text_.pop_back();
-                if (text_.size() >= 1 && uint8_t(text_.back()) >= 128)
-                {
-                    text_.pop_back();
-                }
-            }
-            research = true;
-        }
-        break;
-    }
     case EVENT_KEY_UP:
-    {
         switch (e.key.key)
         {
         case K_PAGEUP:
-        {
             flipPage(-1);
             break;
-        }
         case K_PAGEDOWN:
-        {
             flipPage(1);
             break;
         }
-        }
         break;
-    }
     case EVENT_MOUSE_WHEEL:
-    {
         if (e.wheel.y > 0)
         {
             flipPage(-1);
@@ -249,17 +233,18 @@ void SuperMenuText::dealEvent(EngineEvent& e)
             flipPage(1);
         }
         break;
-    }
+    default:
+        break;
     }
 
-    if (text_.empty())
+    if (inputBox_ && searchText.empty())
     {
         defaultPage();
     }
 
-    if (research)
+    if (research && inputBox_)
     {
-        search(text_);
+        search(searchText);
     }
 
     int selectionIdx = selections_->getActiveChildIndex();
@@ -289,4 +274,16 @@ void SuperMenuText::dealEvent(EngineEvent& e)
         }
         setExit(true);
     }
+}
+
+void SuperMenuText::onEntrance()
+{
+    if (inputBox_) inputBox_->onEntrance();
+    RunNode::onEntrance();
+}
+
+void SuperMenuText::onExit()
+{
+    if (inputBox_) inputBox_->onExit();
+    RunNode::onExit();
 }
