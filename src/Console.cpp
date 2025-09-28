@@ -63,15 +63,48 @@ Console::Console()
         std::vector<std::pair<int, std::string>> rolePairs;
         std::vector<Color> roleColors;
         auto& roles = Save::getInstance()->getRoles();
-        for (auto* role : roles)
+
+        // To be moved latter
+        auto starAnnotator = [&roles](int id, int star)
         {
-            rolePairs.emplace_back(role->ID, role->Name);
-            // Example: main character gold, others white
-            if (role->ID == 0)
-                roleColors.push_back({255, 215, 0, 255});
-            else
-                roleColors.push_back({255, 255, 255, 255});
-        }
+            std::string name = roles[id]->Name;
+            int size = name.size() / 3;
+            while (size <= 5) {
+                name += "  ";
+                size += 1;
+            }
+            for (int i = 0; i < star + 1; ++i) {
+                name += "★";
+                size += 1;
+            }
+            while (size < 12)
+            {
+                name += "  ";
+                size += 1;
+            }
+            Color colors[] = {
+                { 175, 238, 238 },
+                { 0, 255, 0 },
+                { 30, 144, 255 },
+                { 75, 0, 130 },
+                { 255, 165, 0 }
+            };
+            return std::pair{ name, colors[star] };
+        };
+
+        auto addRoleWithStar = [&](int id, int star)
+        {
+            auto [name, color] = starAnnotator(id, star);
+            rolePairs.emplace_back(id, name);
+            roleColors.push_back(color);
+        };
+
+        addRoleWithStar(0, 4);
+        addRoleWithStar(1, 2);
+        addRoleWithStar(2, 1);
+        addRoleWithStar(3, 3);
+        addRoleWithStar(4, 0);
+
         auto menu = std::make_shared<UIRoleStatusMenu>(rolePairs, roleColors, 5);
         menu->setInputPosition(100, 60); // Reasonable for UIStatus panel
         menu->getStatusDrawable().getUIStatus().setPosition(600, 60);

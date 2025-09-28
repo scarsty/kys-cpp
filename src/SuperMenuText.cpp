@@ -77,7 +77,8 @@ void SuperMenuText::setInputPosition(int x, int y)
         previousButton_->setPosition(x, y - fontSize_ * 1.5);
         nextButton_->setPosition(x + fontSize_ * 5, y - fontSize_ * 1.5);
     } else {
-        selections_->setPosition(x, y);
+        titleBox_->setPosition(x, y);
+        selections_->setPosition(x, y + fontSize_ * 2);
         previousButton_->setPosition(x, y - 30);
         nextButton_->setPosition(x + 150, y - 30);
     }

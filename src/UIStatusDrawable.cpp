@@ -3,8 +3,7 @@
 
 UIStatusDrawable::UIStatusDrawable()
     : DrawableOnCall([this](DrawableOnCall*) { if (uiStatus_) uiStatus_->draw(); }),
-      uiStatus_(std::make_shared<UIStatus>()) {
-    uiStatus_->setShowButton(false);
+      uiStatus_(std::make_shared<ChessUIStatus>()) {
 }
 
 void UIStatusDrawable::updateScreenWithID(int id) {

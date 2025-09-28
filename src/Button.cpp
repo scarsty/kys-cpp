@@ -67,14 +67,14 @@ void Button::draw()
     if (!text_.empty())
     {
         Color color_text = color_normal_;
-        if (state_ == NodePass)
-        {
-            color_text = color_pass_;
-        }
-        else if (state_ == NodePress)
-        {
-            color_text = color_press_;
-        }
+        //if (state_ == NodePass)
+        //{
+        //    color_text = color_pass_;
+        //}
+        //else if (state_ == NodePress)
+        //{
+        //    color_text = color_press_;
+        //}
         Font::getInstance()->drawWithBox(text_, font_size_, x + text_x_, y + text_y_, color_text, 255, alpha);
     }
 }

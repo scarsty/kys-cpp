@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "DrawableOnCall.h"
-#include "UIStatus.h"
+#include "ChessUIStatus.h"
 #include <memory>
 
 class UIStatusDrawable : public DrawableOnCall {
@@ -8,8 +8,8 @@ public:
     UIStatusDrawable();
     void updateScreenWithID(int id) override;
 
-    UIStatus& getUIStatus() { return *uiStatus_; }
+    ChessUIStatus& getUIStatus() { return *uiStatus_; }
 
 private:
-    std::shared_ptr<UIStatus> uiStatus_;
+    std::shared_ptr<ChessUIStatus> uiStatus_;
 };

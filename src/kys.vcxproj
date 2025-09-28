@@ -121,6 +121,7 @@
     <ClCompile Include="BattleSceneAct.cpp" />
     <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ChessUIStatus.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\mlcc\filefunc.cpp" />
@@ -192,6 +193,7 @@
     <ClInclude Include="BattleSceneAct.h" />
     <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
