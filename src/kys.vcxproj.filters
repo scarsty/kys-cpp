@@ -200,6 +200,13 @@
     <ClCompile Include="..\mlcc\ZipFile.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
+    <ClCompile Include="ChessUIStatus.cpp" />
+    <ClCompile Include="ChessPool.cpp" />
+    <ClCompile Include="UIRoleStatusMenu.cpp" />
+    <ClCompile Include="UIStatusDrawable.cpp" />
+    <ClCompile Include="TempStore.cpp" />
+    <ClCompile Include="ChessSelector.cpp" />
+    <ClCompile Include="Chess.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -415,6 +422,13 @@
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
       <Filter>mlcc</Filter>
     </ClInclude>
+    <ClInclude Include="ChessUIStatus.h" />
+    <ClInclude Include="ChessPool.h" />
+    <ClInclude Include="UIRoleStatusMenu.h" />
+    <ClInclude Include="UIStatusDrawable.h" />
+    <ClInclude Include="TempStore.h" />
+    <ClInclude Include="ChessSelector.h" />
+    <ClInclude Include="Chess.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">

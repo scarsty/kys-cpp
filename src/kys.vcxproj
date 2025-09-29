@@ -121,6 +121,8 @@
     <ClCompile Include="BattleSceneAct.cpp" />
     <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Chess.cpp" />
+    <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="ChessUIStatus.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
@@ -148,6 +150,7 @@
     <ClCompile Include="ParticleExample.cpp" />
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
+    <ClCompile Include="ChessPool.cpp" />
     <ClCompile Include="RunNode.cpp" />
     <ClCompile Include="GameUtil.cpp" />
     <ClCompile Include="GrpIdxFile.cpp" />
@@ -161,6 +164,7 @@
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
     <ClCompile Include="TeamMenu.cpp" />
+    <ClCompile Include="TempStore.cpp" />
     <ClCompile Include="TextBox.cpp" />
     <ClCompile Include="TextBoxRoll.cpp" />
     <ClCompile Include="UI.cpp" />
@@ -193,6 +197,8 @@
     <ClInclude Include="BattleSceneAct.h" />
     <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Chess.h" />
+    <ClInclude Include="ChessSelector.h" />
     <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="..\mlcc\filefunc.h" />
@@ -205,6 +211,7 @@
     <ClInclude Include="BattleSceneSekiro.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
+    <ClInclude Include="ChessPool.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />
@@ -238,6 +245,7 @@
     <ClInclude Include="Font.h" />
     <ClInclude Include="Head.h" />
     <ClInclude Include="TeamMenu.h" />
+    <ClInclude Include="TempStore.h" />
     <ClInclude Include="TextBox.h" />
     <ClInclude Include="TextBoxRoll.h" />
     <ClInclude Include="UI.h" />
