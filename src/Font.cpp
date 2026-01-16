@@ -99,9 +99,9 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         }
         if (c > ' ')
         {
-            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
-            Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
-            Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
+            //Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
+            //Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
+            //Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
             Engine::getInstance()->setColor(tex, color);
             Engine::getInstance()->renderTexture(tex, x1, y1, -1, -1);
         }

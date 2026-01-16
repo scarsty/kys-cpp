@@ -4,11 +4,13 @@
     <LocalDebuggerWorkingDirectory>..\work\game-dev</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArguments>.</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArgumentsHistory>.|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerWorkingDirectory>..\work</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommandArguments>game-dev</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArgumentsHistory>game-dev|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>
