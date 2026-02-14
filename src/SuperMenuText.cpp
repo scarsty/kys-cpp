@@ -8,29 +8,34 @@
 
 // Backward-compatible constructor: always creates an InputBox
 SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
-    const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage)
-    : SuperMenuText(title, fontSize, allItems, itemsPerPage, {}, true)
+    const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : SuperMenuText(title, fontSize, allItems, itemsPerPage, SuperMenuTextExtraOptions{})
 {
 }
 
 // New constructor: can control InputBox creation
 SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
     const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage,
-    const std::vector<Color>& itemColors, bool needInputBox)
-    : items_(allItems), itemsPerPage_(itemsPerPage), itemColors_(itemColors), fontSize_(fontSize)
+    SuperMenuTextExtraOptions extraOpts) : items_(allItems),
+                                           itemsPerPage_(itemsPerPage),
+                                           fontSize_(fontSize),
+                                           extraOpts_{ extraOpts }
 {
-    if (needInputBox) {
-        inputBox_ = std::make_shared<InputBox>(title, fontSize);
+    if (extraOpts_.needInputBox_)
+    {
+        inputBox_ = std::make_shared<InputBox>(title, fontSize_);
         addChild(inputBox_);
-    } else {
+    }
+    else
+    {
         titleBox_ = std::make_shared<TextBox>();
         titleBox_->setText(title);
         titleBox_->setFontSize(fontSize_);
         addChild(titleBox_);
     }
 
-    if (itemColors_.size() < items_.size()) {
-        itemColors_.resize(items_.size(), {255,255,255,255});
+    if (extraOpts_.itemColors_.size() < items_.size())
+    {
+        extraOpts_.itemColors_.resize(items_.size(), { 128, 128, 128, 255 });
     }
 
     previousButton_ = std::make_shared<Button>();
@@ -42,6 +47,7 @@ SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
     addChild(nextButton_);
 
     selections_ = std::make_shared<MenuText>();
+    selections_->setFontSize(fontSize_);
     addChild(selections_);
 
     setAllChildState(NodeNormal);
@@ -71,12 +77,15 @@ SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
 
 void SuperMenuText::setInputPosition(int x, int y)
 {
-    if (inputBox_) {
+    if (inputBox_)
+    {
         inputBox_->setInputPosition(x, y);
         selections_->setPosition(x, y + fontSize_ * 3);
         previousButton_->setPosition(x, y - fontSize_ * 1.5);
         nextButton_->setPosition(x + fontSize_ * 5, y - fontSize_ * 1.5);
-    } else {
+    }
+    else
+    {
         titleBox_->setPosition(x, y);
         selections_->setPosition(x, y + fontSize_ * 2);
         previousButton_->setPosition(x, y - 30);
@@ -97,23 +106,29 @@ void SuperMenuText::setMatchFunction(std::function<bool(const std::string&, cons
 
 void SuperMenuText::defaultPage()
 {
-    if (isDefaultPage_) return;
+    if (isDefaultPage_)
+    {
+        return;
+    }
     std::vector<std::string> displays;
     std::vector<Color> colors;
     searchResultIndices_.clear();
     activeIndices_.clear();
-    for (int i = 0; i < items_.size(); i++) {
-        if (i < std::min((std::size_t)itemsPerPage_, items_.size())) {
+    for (int i = 0; i < items_.size(); i++)
+    {
+        if (i < std::min((std::size_t)itemsPerPage_, items_.size()))
+        {
             activeIndices_.push_back(i);
             displays.push_back(items_[i].second);
-            colors.push_back(itemColors_[i]);
+            colors.push_back(extraOpts_.itemColors_[i]);
         }
         searchResultIndices_.push_back(i);
     }
     currentPage_ = 0;
     updateMaxPages();
     selections_->setStrings(displays, colors);
-    if (!displays.empty()) {
+    if (!displays.empty())
+    {
         selections_->forceActiveChild(0);
     }
     isDefaultPage_ = true;
@@ -133,7 +148,7 @@ void SuperMenuText::flipPage(int pageIncrement)
             int idx = searchResultIndices_[i];
             activeIndices_.push_back(idx);
             displays.push_back(items_[idx].second);
-            colors.push_back(itemColors_[idx]);
+            colors.push_back(extraOpts_.itemColors_[idx]);
         }
         selections_->setStrings(displays, colors);
     }
@@ -158,7 +173,7 @@ void SuperMenuText::search(const std::string& text)
             if (results.size() < itemsPerPage_)
             {
                 results.emplace_back(opt.second);
-                colors.push_back(itemColors_[i]);
+                colors.push_back(extraOpts_.itemColors_[i]);
                 activeIndices_.push_back(i);
             }
             searchResultIndices_.push_back(i);
@@ -199,7 +214,8 @@ void SuperMenuText::dealEvent(EngineEvent& e)
     }
 
     // Only handle search if inputBox_ is present
-    if (inputBox_) {
+    if (inputBox_)
+    {
         switch (e.type)
         {
         case EVENT_TEXT_INPUT:
@@ -208,6 +224,29 @@ void SuperMenuText::dealEvent(EngineEvent& e)
             break;
         default:
             break;
+        }
+    }
+
+    if (extraOpts_.exitable_)
+    {
+        switch (e.type)
+        {
+        case EVENT_MOUSE_BUTTON_UP:
+            if (e.button.button == BUTTON_RIGHT)
+            {
+                result_ = -1;
+                setExit(true);
+            }
+
+            break;
+        case EVENT_KEY_UP:
+        {
+            if (e.key.key == K_ESCAPE)
+            {
+                result_ = -1;
+                setExit(true);
+            }
+        }
         }
     }
 
@@ -267,11 +306,29 @@ void SuperMenuText::dealEvent(EngineEvent& e)
 
     if (selections_->getResult() >= 0)
     {
+        if (extraOpts_.confirmation_)
+        {
+            auto confirm = std::make_shared<MenuText>();
+            confirm->setStrings({ "確認", "取消" });
+            confirm->setFontSize(fontSize_);
+            confirm->setHaveBox(true);
+            confirm->arrange(150, 350, 150, 0);
+            confirm->run();
+            confirm->setExit(true);
+            if (confirm->getResult() != 0)    // 0 means "確認" was selected
+            {
+                selections_->forceActiveChild(selections_->getResult());
+                selections_->setResult(-1);
+                return;
+            }
+        }
         auto selected = selections_->getResultString();
         result_ = activeIndices_[selections_->getResult()];
         if (result_ >= 0)
         {
-            result_ = items_[result_].first;
+            if (!extraOpts_.returnIdxOnly) {
+                result_ = items_[result_].first;
+            }
         }
         setExit(true);
     }
@@ -279,12 +336,18 @@ void SuperMenuText::dealEvent(EngineEvent& e)
 
 void SuperMenuText::onEntrance()
 {
-    if (inputBox_) inputBox_->onEntrance();
+    if (inputBox_)
+    {
+        inputBox_->onEntrance();
+    }
     RunNode::onEntrance();
 }
 
 void SuperMenuText::onExit()
 {
-    if (inputBox_) inputBox_->onExit();
+    if (inputBox_)
+    {
+        inputBox_->onExit();
+    }
     RunNode::onExit();
 }

@@ -1,6 +1,7 @@
-﻿#include <unordered_map>
+﻿#include <map>
 
 #include "Chess.h"
+#include "ChessPool.h"
 
 namespace KysChess
 {
@@ -19,61 +20,62 @@ public:
     bool removeChess(Chess c);
 
     int getCount()
-
     {
         return countTotal_;
     }
 
     const std::map<Chess, int>& getChess() const
-
     {
         return countMap_;
     }
 };
 
 struct GameData
-
 {
     ChessCollection collection;
+    ChessPool chessPool;
 
-    int money = 0;
-    int exp = 0;
-    int level = 0;
+    static GameData& get() {
+        static GameData data;
+        return data;
+    }
 
     bool spend(int m)
-
     {
-        if (money < m)
+        if (money_ < m)
         {
             return false;
         }
 
-        money -= m;
+        money_ -= m;
 
         return true;
     }
 
     void make(int m)
-
     {
-        money += m;
+        money_ += m;
     }
 
     void increaseExp(int e)
-
     {
         static int expTable[] = { 0, 10, 30, 60, 100, 150, 210, 280, 360, 450, 550 };
-        exp += e;
-        if (exp >= expTable[level + 1] && level < 10)
+        exp_ += e;
+        if (exp_ >= expTable[level_ + 1] && level_ < 10)
         {
-            level += 1;
+            level_ += 1;
         }
     }
 
     int getLevel() const
     {
-        return level;
+        return level_;
     }
+
+private:
+    int money_ = 0;
+    int exp_ = 0;
+    int level_ = 0;
 };
 
 }    // namespace KysChess

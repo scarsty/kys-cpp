@@ -265,14 +265,15 @@ void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> c
             len = str.length();
         }
         auto b = std::make_shared<Button>();
-        addChild(b, 0, i * 25);
+        addChild(b, 0, i * (font_size_ + 1));
         b->setText(str);
+        b->setFontSize(font_size_);
         if (i < colors.size()) {
             b->setTextColor(colors[i]);
         }
     }
     w_ = 10 * len;
-    h_ = 25 * strings_.size();
+    h_ = (font_size_ + 1) * strings_.size();
 
     childs_text_.clear();
     for (int i = 0; i < strings_.size(); i++)

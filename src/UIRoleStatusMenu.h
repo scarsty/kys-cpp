@@ -6,8 +6,8 @@
 
 class UIRoleStatusMenu : public SuperMenuText {
 public:
-    UIRoleStatusMenu(const std::vector<std::pair<int, std::string>>& rolePairs,
-                     const std::vector<Color>& roleColors, int itemsPerPage);
+    UIRoleStatusMenu(const std::string& title, const std::vector<std::pair<int, std::string>>& rolePairs,
+                     const std::vector<Color>& roleColors, int itemsPerPage, int fontSize = 24);
     UIStatusDrawable& getStatusDrawable() { return *statusDrawable_; }
 
 private:

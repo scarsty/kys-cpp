@@ -7,7 +7,31 @@
 namespace KysChess
 {
 
-// Returns a list of pairs of Role* and its star (0-4)
-std::vector<std::pair<Role*, int>> getChessFromPool(int level, int pieces);
+class ChessPool {
+
+public:
+
+    static int GetChessTier(int roleId);
+
+    // Returns a list of pairs of Role* and its star (0-4)
+    std::vector<std::pair<Role*, int>> getChessFromPool(int level);
+
+    // Remove a chess from the current selection;
+    void removeChessAt(int idx);
+
+    void refresh();
+
+private:
+    Role* selectFromPool(int tier);
+
+
+    bool getNewChess_ = true;
+    std::vector<std::pair<Role*, int>> current_;
+    std::unordered_set<Role*> rejected_;
+
+};
+
+
+
 
 }    // namespace KysChess

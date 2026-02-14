@@ -7,6 +7,10 @@ UIStatusDrawable::UIStatusDrawable()
 }
 
 void UIStatusDrawable::updateScreenWithID(int id) {
+    if (id < 0) {
+        uiStatus_->setRole(nullptr);
+        return;
+    }
     DrawableOnCall::updateScreenWithID(id);
     Role* role = Save::getInstance()->getRole(id);
     uiStatus_->setRole(role);

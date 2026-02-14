@@ -1,6 +1,8 @@
 ﻿#include "Console.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
+#include "ChessSelector.h"
+#include "TempStore.h"
 #include "DrawableOnCall.h"
 #include "Event.h"
 #include "Font.h"
@@ -57,61 +59,17 @@ Console::Console()
         int id = smt->getResult();
         LOG("result %d\n", id);
     }
-    else if (code == "SelectRole")
+    else if (code == "exp") 
     {
-        // Gather all roles and assign colors
-        std::vector<std::pair<int, std::string>> rolePairs;
-        std::vector<Color> roleColors;
-        auto& roles = Save::getInstance()->getRoles();
-
-        // To be moved latter
-        auto starAnnotator = [&roles](int id, int star)
-        {
-            std::string name = roles[id]->Name;
-            int size = name.size() / 3;
-            while (size <= 5) {
-                name += "  ";
-                size += 1;
-            }
-            for (int i = 0; i < star + 1; ++i) {
-                name += "★";
-                size += 1;
-            }
-            while (size < 12)
-            {
-                name += "  ";
-                size += 1;
-            }
-            Color colors[] = {
-                { 175, 238, 238 },
-                { 0, 255, 0 },
-                { 30, 144, 255 },
-                { 75, 0, 130 },
-                { 255, 165, 0 }
-            };
-            return std::pair{ name, colors[star] };
-        };
-
-        auto addRoleWithStar = [&](int id, int star)
-        {
-            auto [name, color] = starAnnotator(id, star);
-            rolePairs.emplace_back(id, name);
-            roleColors.push_back(color);
-        };
-
-        addRoleWithStar(0, 4);
-        addRoleWithStar(1, 2);
-        addRoleWithStar(2, 1);
-        addRoleWithStar(3, 3);
-        addRoleWithStar(4, 0);
-
-        auto menu = std::make_shared<UIRoleStatusMenu>(rolePairs, roleColors, 5);
-        menu->setInputPosition(100, 60); // Reasonable for UIStatus panel
-        menu->getStatusDrawable().getUIStatus().setPosition(600, 60);
-        menu->setShowNavigationButtons(false);
-        menu->run();
-        int id = menu->getResult();
-        LOG("Selected role id: %d\n", id);
+        KysChess::GameData::get().increaseExp(100);
+    }
+    else if (code == "SR")
+    {
+        KysChess::ChessSelector::getChess();
+    }
+    else if (code == "VC")
+    {
+        KysChess::ChessSelector::viewMyChess();
     }
     else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
         && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))

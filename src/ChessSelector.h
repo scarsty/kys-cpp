@@ -5,6 +5,7 @@ namespace KysChess
 
 class ChessSelector
 {
+public:
     // Talk to TempStore to spend money and get chess
     // Responsible for the UI of chess selection by invoking SuperMenuText
 
@@ -13,6 +14,8 @@ class ChessSelector
 
     // View my chess collection
     static void viewMyChess();
+
+    static void enterBattle();
 };
 
 }    //namespace KysChess

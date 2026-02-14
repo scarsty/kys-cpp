@@ -10,21 +10,10 @@ namespace KysChess
 namespace
 {
 
-static std::unordered_set<Role*>& getRejected()
-{
-    // 每次随机时 上次没有被购买的不会再出现
-    static std::unordered_set<Role*> rejected;
-    return rejected;
-}
-
-void removeFromRejected(Role* r)
-{
-    auto& rejected = getRejected();
-    rejected.erase(r);
-}
-
 using ProbArray = std::array<int, 5>;
 
+// Level - leveled externally, the higher the level
+// the better the weights
 constexpr std::array<std::array<int, 5>, 10> weights = {
     ProbArray{ 100, 0, 0, 0, 0 },
     ProbArray{ 70, 30, 0, 0, 0 },
@@ -106,16 +95,25 @@ const std::array<std::vector<int>, 5> chessIdxOfPrice = {
 
 }    // namespace
 
-Role* selectFromPool(int price)
+
+int ChessPool::GetChessTier(int roleId) {
+    for (int i = 0; i < chessIdxOfPrice.size(); ++i) {
+        if (std::ranges::find(chessIdxOfPrice[i], roleId) != chessIdxOfPrice[i].end()) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+Role* ChessPool::selectFromPool(int tier)
 {
     static Random<> rand;
 
     for (;;)
     {
-        auto idx = chessIdxOfPrice[price][rand.rand_int(chessIdxOfPrice[price].size())];
+        auto idx = chessIdxOfPrice[tier][rand.rand_int(chessIdxOfPrice[tier].size())];
         auto role = Save::getInstance()->getRole(idx);
-        auto& rejected = getRejected();
-        if (price <= 3 && rejected.contains(role))
+        if (tier <= 3 && rejected_.contains(role))
         {
             continue;
         }
@@ -123,35 +121,51 @@ Role* selectFromPool(int price)
     }
 }
 
-std::vector<std::pair<Role*, int>> getChessFromPool(int level, int pieces)
+std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
 {
+    if (!getNewChess_) {
+        return current_;
+    }
+
+    getNewChess_ = false;
+
     std::vector<std::pair<Role*, int>> roles;
     static Random<> rand;
 
-    for (int i = 0; i < pieces; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         // 应该是 0~99
         auto val = rand.rand_int(100);
         auto cur = 0;
-        for (int star = 0; star < weights[level].size(); ++star)
+        for (int tier = 0; tier < weights[level].size(); ++tier)
         {
-            auto w = weights[level][star];
+            auto w = weights[level][tier];
             cur += w;
             if (val < cur)
             {
-                roles.emplace_back(selectFromPool(star), star);
+                roles.emplace_back(selectFromPool(tier), tier);
+                break;
             }
         }
     }
 
-    auto& rejected = getRejected();
-    rejected.clear();
+    rejected_.clear();
     for (auto [r, price] : roles)
     {
-        rejected.insert(r);
+        rejected_.insert(r);
     }
 
+    current_ = roles;
+
     return roles;
+}
+
+void ChessPool::removeChessAt(int idx) {
+    current_.erase(current_.begin() + idx);
+}
+
+void ChessPool::refresh() {
+    getNewChess_ = true;
 }
 
 }    // namespace KysChess

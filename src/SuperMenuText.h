@@ -13,6 +13,15 @@
 #include <utility>
 #include <vector>
 
+struct SuperMenuTextExtraOptions
+{
+    std::vector<Color> itemColors_;
+    bool needInputBox_ = true;
+    bool confirmation_ = false;
+    bool exitable_ = false;
+    bool returnIdxOnly = false;
+};
+
 class SuperMenuText : public RunNode
 {
 public:
@@ -20,7 +29,7 @@ public:
     SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage);
 
     // New constructor with color support and input box control
-    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage, const std::vector<Color>& itemColors, bool needInputBox);
+    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage, SuperMenuTextExtraOptions extraOpts);
 
     virtual ~SuperMenuText() = default;
     void dealEvent(EngineEvent& e) override;
@@ -28,14 +37,26 @@ public:
     void addDrawableOnCall(std::shared_ptr<DrawableOnCall> doc);
     void setMatchFunction(std::function<bool(const std::string&, const std::string&)> match);
 
-    void setSearchTextVisible(bool v) { if (inputBox_) inputBox_->setVisible(v); }
+    void setSearchTextVisible(bool v)
+    {
+        if (inputBox_)
+        {
+            inputBox_->setVisible(v);
+        }
+    }
     void setShowNavigationButtons(bool v)
     {
         previousButton_->setVisible(v);
         nextButton_->setVisible(v);
     }
 
-    void setInputText(const std::string& text) { if (inputBox_) inputBox_->setText(text); }
+    void setInputText(const std::string& text)
+    {
+        if (inputBox_)
+        {
+            inputBox_->setText(text);
+        }
+    }
     std::string getInputText() const { return inputBox_ ? inputBox_->getText() : std::string(); }
 
     void onEntrance() override;
@@ -47,7 +68,7 @@ private:
     void search(const std::string& text);
     void updateMaxPages();
 
-    std::shared_ptr<InputBox> inputBox_; // Only present if needed, always added as child if present
+    std::shared_ptr<InputBox> inputBox_;    // Only present if needed, always added as child if present
     std::shared_ptr<TextBox> titleBox_;
     std::shared_ptr<Button> previousButton_, nextButton_;
     int currentPage_ = 0;
@@ -58,11 +79,10 @@ private:
     std::shared_ptr<MenuText> selections_;
 
     std::vector<std::pair<int, std::string>> items_;
-    std::vector<Color> itemColors_;
+    SuperMenuTextExtraOptions extraOpts_;
 
     std::vector<int> activeIndices_;
     std::vector<int> searchResultIndices_;
     std::vector<std::shared_ptr<DrawableOnCall>> drawableDocs_;
     std::function<bool(const std::string&, const std::string&)> matchFunction_;
-    
 };
