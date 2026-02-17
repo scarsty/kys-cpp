@@ -6,7 +6,7 @@
 Audio::Audio()
 {
 #ifdef USE_BASS
-    if (!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, nullptr))
+    if (!BASS_Init(-1, 22050, 0, 0, nullptr))
     {
         LOG("Init Bass fault!\n");
     }
@@ -66,7 +66,6 @@ void Audio::init()
     std::string asound_path;
     std::string esound_path;
 #ifdef USE_BASS
-    auto flag = BASS_SAMPLE_3D | BASS_SAMPLE_MONO;
     mid_sound_font_.font = BASS_MIDI_FontInit((GameUtil::PATH() + "music/mid.sf2").c_str(), 0);
     mid_sound_font_.preset = -1;
     mid_sound_font_.bank = 0;
@@ -196,12 +195,12 @@ MUSIC Audio::loadMusic(const std::string& file)
     MUSIC m{};
     if (file.contains(".mid"))
     {
-        m = BASS_MIDI_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO, 0);
+        m = BASS_MIDI_StreamCreateFile(false, file.c_str(), 0, 0, 0, 0);
         BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
     }
     else
     {
-        m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+        m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, 0);
     }
     return m;
 #else
@@ -223,10 +222,10 @@ MUSIC Audio::loadMusic(const std::string& file)
 WAV Audio::loadWav(const std::string& file)
 {
 #ifdef USE_BASS
-    auto s = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+    auto s = BASS_StreamCreateFile(false, file.c_str(), 0, 0, 0);
     if (s == 0)
     {
-        s = BASS_SampleLoad(false, file.c_str(), 0, 0, 1, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
+        s = BASS_SampleLoad(false, file.c_str(), 0, 0, 1, 0);
     }
     return s;
 #else
@@ -237,8 +236,18 @@ WAV Audio::loadWav(const std::string& file)
 void Audio::playMusic(MUSIC m)
 {
 #ifdef USE_BASS
+    BASS_CHANNELINFO info;
+    if (BASS_ChannelGetInfo(m, &info))
+    {
+        // Check if this is a MIDI stream and set MIDI-specific volume
+        if (info.ctype == BASS_CTYPE_STREAM_MIDI)
+        {
+            LOG("This is a MIDI stream, setting MIDI volume attribute\n");
+            BASS_ChannelSetAttribute(m, BASS_ATTRIB_MIDI_VOL, volume_ / 100.0);
+        }
+    }
+
     BASS_ChannelSetAttribute(m, BASS_ATTRIB_VOL, volume_ / 100.0);
-    BASS_Apply3D();
     BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
     BASS_ChannelPlay(m, false);
 #else
@@ -259,8 +268,13 @@ void Audio::playWav(WAV w, int volume, int track_num)
     }
 #ifdef USE_BASS
     auto ch = BASS_SampleGetChannel(w, 1);
+    if (ch == 0)
+    {
+        // w is already a stream, not a sample
+        ch = w;
+    }
     BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume / 100.0);
-    BASS_ChannelPlay(w, false);
+    BASS_ChannelPlay(ch, false);
 #else
     int tnum = track_num;
     if (tnum < 0)

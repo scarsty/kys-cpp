@@ -387,7 +387,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     auto engine = Engine::getInstance();
     auto r = role_;
     //LOG("{},{}, {},{}\n", r->Velocity.x, r->Velocity.y, r->Acceleration.x, r->Acceleration.y);
-    show_auto_->setVisible(r->Auto);
+    // show_auto_->setVisible(r->Auto);
     if (shake_ > 0)
     {
         x_ = rand_.rand_int(3) - rand_.rand_int(3);
@@ -403,7 +403,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     decreaseToZero(close_up_);
     if (close_up_ == 0)
     {
-        if (r->Dead)
+        if (!r || r->Dead)
         {
             for (auto r1 : battle_roles_)
             {
@@ -420,6 +420,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
         }
     }
 
+    backRun1();
     // 不允许操作
     return;
 
@@ -637,7 +638,6 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
             }
         }
     }
-    backRun1();
 }
 
 void BattleSceneHades::dealEvent2(EngineEvent& e)
@@ -718,7 +718,20 @@ void BattleSceneHades::onEntrance()
     }
 
     //判断是不是有自动战斗人物
-    if (info_->AutoTeamMate[0] >= 0)
+    if (!extended_teammates_.empty())
+    {
+        // Use extended teammate info (supports up to 10 teammates)
+        for (const auto& teammate_info : extended_teammates_)
+        {
+            auto r = Save::getInstance()->getRole(teammate_info.ID);
+            if (r)
+            {
+                friends_.push_back(r);
+                r->Auto = 2;    //由AI控制
+            }
+        }
+    }
+    else if (info_->AutoTeamMate[0] >= 0)
     {
         for (int i = 0; i < TEAMMATE_COUNT; i++)
         {
@@ -731,7 +744,7 @@ void BattleSceneHades::onEntrance()
         }
     }
 
-    if (1)    //准许队友出场
+    if (extended_teammates_.empty() && 1)    //准许队友出场
     {
         auto team_menu = std::make_shared<TeamMenu>();
         team_menu->setMode(1);
@@ -764,9 +777,16 @@ void BattleSceneHades::onEntrance()
         auto r = friends_[i];
         if (r)
         {
-            r->resetBattleInfo();
             battle_roles_.push_back(r);
-            r->setPositionOnly(info_->TeamMateX[i], info_->TeamMateY[i]);
+            // Use extended teammate positions if available, otherwise use BattleInfo positions
+            if (!extended_teammates_.empty() && i < extended_teammates_.size())
+            {
+                r->setPositionOnly(extended_teammates_[i].X, extended_teammates_[i].Y);
+            }
+            else
+            {
+                r->setPositionOnly(info_->TeamMateX[i], info_->TeamMateY[i]);
+            }
             r->Team = 0;
             setRoleInitState(r);
         }
@@ -781,6 +801,12 @@ void BattleSceneHades::onEntrance()
             head->setAlwaysLight(true);
             addChild(head, Engine::getInstance()->getWindowWidth() - 280, 10 + 80 * i++);
         }
+    }
+
+    // Hide main character head if using extended teammates (no main character)
+    if (!extended_teammates_.empty())
+    {
+        heads_[0]->setVisible(false);
     }
 
     //head_self_->setRole(role_);
@@ -1101,8 +1127,12 @@ void BattleSceneHades::backRun1()
                 battle_roles_.push_back(enemies_.front());
                 enemies_.pop_front();
                 battle_roles_.back()->Attention = 30;
-                battle_roles_.back()->CoolDown = 30;
-                battle_roles_.back()->Invincible = 30;
+                // When using extended teammates, enemies join immediately without delay
+                if (extended_teammates_.empty())
+                {
+                    battle_roles_.back()->CoolDown = 30;
+                    battle_roles_.back()->Invincible = 30;
+                }
             }
         }
         //亮血条
@@ -1649,29 +1679,39 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
 
-    auto renderBar = [&](int bar_y, int cur, int max, Color background_color)
+    auto renderBar = [&](int bar_y, int cur, int max, Color background_color, Color shadow_color)
     {
         constexpr auto width = 24;
         constexpr auto height = 3;
         auto bar_x = x - width / 2;
         double perc = static_cast<double>(cur) / max;
         double alpha = 1;
-        Rect r0 = { bar_x - 1, bar_y - 1, width + 2, height + 2 };
-        Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
+
+        // Draw full background bar (max HP/MP) - shadow
+        Rect r_bg = { bar_x, bar_y, width, height };
+        Engine::getInstance()->renderSquareTexture(&r_bg, shadow_color, 128 * alpha);
+
+        // Draw current HP/MP bar on top (percentage of max)
         Rect r1 = { bar_x, bar_y, int(perc * width), height };
         Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+
+        // Draw outline
+        Rect r0 = { bar_x - 1, bar_y - 1, width + 2, height + 2 };
+        Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
     };
 
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
+    Color shadow_color = { 64, 64, 64, 128 };       // 背景阴影
     if (r->Team == 1)
     {
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
 
-    renderBar(y - 60, r->HP, r->MaxMP, background_color);
+    renderBar(y - 60, r->HP, r->MaxHP, background_color, shadow_color);
     Color mp_color = { 0, 0, 255, 128 };
-    renderBar(y - 56, r->MP, GameUtil::MAX_MP, mp_color);
+    Color mp_shadow_color = { 64, 64, 64, 128 };
+    renderBar(y - 56, r->MP, GameUtil::MAX_MP, mp_color, mp_shadow_color);
 }
 
 int BattleSceneHades::checkResult()
@@ -1973,4 +2013,15 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
 
 void BattleSceneHades::makeSpecialMagicEffect()
 {
+}
+
+int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
+{
+    // Use MaxMP instead of current MP for damage calculation
+    // This removes the MP cap limitation on damage while keeping the MP bar capped at 100
+    int original_mp = r1->MP;
+    r1->MP = r1->MaxMP;
+    int hurt = BattleScene::calMagicHurt(r1, r2, magic, 1) / 20.0;
+    r1->MP = original_mp;
+    return hurt;
 }

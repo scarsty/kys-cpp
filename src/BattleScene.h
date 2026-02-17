@@ -11,6 +11,13 @@
 // 所有调用网络连接的地方需自行include BattleNetwork (先BattleNetwork后windows.h)
 class BattleNetwork;
 
+struct ExtendedTeammateInfo
+{
+    int ID;
+    int X;
+    int Y;
+};
+
 class BattleScene : public Scene
 {
 public:
@@ -67,6 +74,7 @@ protected:
     std::function<void()> actionAnimation_ = nullptr;
 
     bool fail_exp_ = false;    //输后是否有经验
+    bool no_exp_ = false;      // 完全无经验
 
     int semi_real_ = 0;    //是否半即时
 
@@ -74,7 +82,12 @@ protected:
 
     int prev_music_ = 0;
 
+    std::vector<ExtendedTeammateInfo> extended_teammates_;  // Extended teammate info for up to 10 teammates
+
 public:
+    BattleInfo& modifiableInfo();           // 动态敌人设置, setID之后调用
+    void setExtendedBattleInfo(const std::vector<ExtendedTeammateInfo>& teammates);  // Set extended teammate info before run()
+
     void setSelectPosition(int x, int y)    //设置选择的坐标
     {
         select_x_ = x;
@@ -87,6 +100,7 @@ public:
     int selectY() { return select_y_; }
 
     virtual void setHaveFailExp(bool b) { fail_exp_ = b; }    //是否输了也有经验
+    virtual void setNoExp() { no_exp_ = true; }
 
     virtual void readBattleInfo();                                          //读取战场人物的数据
     virtual void setRoleInitState(Role* r);                                 //初始化人物的属性

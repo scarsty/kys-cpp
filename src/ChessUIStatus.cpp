@@ -3,10 +3,10 @@
 
 void ChessUIStatus::draw()
 {
+    if (!role_) return;
+
     // Draw translucent black background
     Engine::getInstance()->fillColor({0, 0, 0, 128}, x_, y_, 600, 500);
-
-    if (!role_) return;
 
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
 

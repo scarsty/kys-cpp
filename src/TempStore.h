@@ -7,7 +7,6 @@ namespace KysChess
 {
 
 class ChessCollection
-
 {
 private:
     std::map<Chess, int> countMap_;
@@ -30,10 +29,41 @@ public:
     }
 };
 
+class BattleProgress {
+
+public:
+    BattleProgress() : stage_(0), subStage_(0) {}
+
+    void advance() {
+        subStage_++;
+        if (subStage_ >= 5) {
+            subStage_ = 0;
+            stage_++;
+        }
+    }
+
+    int getStage() const { return stage_; }
+    int getSubStage() const { return subStage_; }
+
+    // Returns true if this is the last substage of a stage (boss fight)
+    bool isBossFight() const { return subStage_ == 4; }
+
+    // Max stage is 3 (0, 1, 2)
+    bool isGameComplete() const { return stage_ >= 3; }
+
+private:
+
+    // Every 5 sub stage we move to the next stage
+    int stage_;
+    int subStage_;
+};
+
+
 struct GameData
 {
     ChessCollection collection;
     ChessPool chessPool;
+    BattleProgress battleProgress;
 
     static GameData& get() {
         static GameData data;
@@ -72,10 +102,18 @@ struct GameData
         return level_;
     }
 
+    // Selected chess pieces for battle (persisted)
+    const std::vector<Chess>& getSelectedForBattle() const { return selectedForBattle_; }
+
+    void setSelectedForBattle(const std::vector<Chess>& selected) { selectedForBattle_ = selected; }
+
+    void clearSelectedForBattle() { selectedForBattle_.clear(); }
+
 private:
     int money_ = 0;
     int exp_ = 0;
     int level_ = 0;
+    std::vector<Chess> selectedForBattle_;
 };
 
 }    // namespace KysChess

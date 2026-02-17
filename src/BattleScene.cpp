@@ -65,6 +65,15 @@ void BattleScene::setID(int id)
     effect_layer_.setAll(-1);
 }
 
+BattleInfo& BattleScene::modifiableInfo() {
+    return *info_;
+}
+
+void BattleScene::setExtendedBattleInfo(const std::vector<ExtendedTeammateInfo>& teammates)
+{
+    extended_teammates_ = teammates;
+}
+
 void BattleScene::draw()
 {
     Engine::getInstance()->setRenderTarget("scene");
@@ -468,7 +477,20 @@ void BattleScene::readBattleInfo()
         }
         LOG("{}", battle_roles_.size());
         //判断是不是有自动战斗人物
-        if (info_->AutoTeamMate[0] >= 0)
+        if (!extended_teammates_.empty())
+        {
+            // Use extended teammate info (supports up to 10 teammates)
+            for (const auto& teammate_info : extended_teammates_)
+            {
+                auto r = Save::getInstance()->getRole(teammate_info.ID);
+                if (r)
+                {
+                    friends_.push_back(r);
+                    r->Auto = 2;    //由AI控制
+                }
+            }
+        }
+        else if (info_->AutoTeamMate[0] >= 0)
         {
             for (int i = 0; i < TEAMMATE_COUNT; i++)
             {
@@ -494,7 +516,15 @@ void BattleScene::readBattleInfo()
             if (r)
             {
                 battle_roles_.push_back(r);
-                r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
+                // Use extended teammate positions if available, otherwise use BattleInfo positions
+                if (!extended_teammates_.empty() && i < extended_teammates_.size())
+                {
+                    r->setPosition(extended_teammates_[i].X, extended_teammates_[i].Y);
+                }
+                else
+                {
+                    r->setPosition(info_->TeamMateX[i], info_->TeamMateY[i]);
+                }
                 r->Team = 0;
             }
         }
@@ -527,13 +557,21 @@ void BattleScene::setRoleInitState(Role* r)
     GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);
 
     // 对方==1 则 自动
-    r->Auto = r->Team;
+    // Don't override Auto if it's already set to 2 (AI-controlled teammate)
+    if (r->Auto != 2)
+    {
+        r->Auto = r->Team;
+    }
 
     if (network_)
     {
         r->Competing = true;
         r->Networked = r->Team == 1;
-        r->Auto = 0;
+        // Don't override Auto if it's already set to 2 (AI-controlled teammate)
+        if (r->Auto != 2)
+        {
+            r->Auto = 0;
+        }
     }
 
     if (network_ || r->Team == 1)
@@ -1794,11 +1832,14 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
+    Color shadow_color = { 64, 64, 64, 128 };       // 背景阴影 (max HP bar)
     if (r->Team == 1)
     {
         // 敌方红色
         background_color = { 255, 0, 0, 128 };
     }
+
+    // Fixed HP bar width - always 24 pixels
     int hp_max_w = 24;
     int hp_x = x - hp_max_w / 2;
     int hp_y = y - 60;
@@ -1814,10 +1855,18 @@ void BattleScene::renderExtraRoleInfo(Role* r, int x, int y)
     {
         alpha = dead_alpha_ / 255.0;
     }
-    Rect r0 = { hp_x, hp_y, hp_max_w, hp_h };
-    Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
+
+    // Draw full background bar (max HP) - always full width
+    Rect r_bg = { hp_x, hp_y, hp_max_w, hp_h };
+    Engine::getInstance()->renderSquareTexture(&r_bg, shadow_color, 128 * alpha);
+
+    // Draw current HP bar on top (percentage of max)
     Rect r1 = { hp_x, hp_y, int(perc * hp_max_w), hp_h };
     Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
+
+    // Draw outline
+    Rect r0 = { hp_x, hp_y, hp_max_w, hp_h };
+    Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
 
     //Engine::getInstance()->fillColor(background_color, hp_x, hp_y, perc * hp_max_w, hp_h);
     // 严禁吐槽，画框框
@@ -1923,6 +1972,10 @@ int BattleScene::checkResult()
 
 void BattleScene::calExpGot()
 {
+    if (no_exp_) {
+        return;
+    }
+
     head_self_->setVisible(false);
 
     std::vector<Role*> alive_teammate;

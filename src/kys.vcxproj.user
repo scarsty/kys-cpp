@@ -6,9 +6,9 @@
     <LocalDebuggerCommandArguments>.</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>..\work</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>..\work\game-dev</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>game-dev</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>.</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

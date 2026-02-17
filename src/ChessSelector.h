@@ -15,7 +15,13 @@ public:
     // View my chess collection
     static void viewMyChess();
 
+    // Select chess pieces for battle (up to level_ pieces)
+    static void selectForBattle();
+
     static void enterBattle();
+
+    // Calculate the cost/strength of a chess piece
+    static int calculateCost(int tier, int star, int count = 1);
 };
 
 }    //namespace KysChess

@@ -21,6 +21,9 @@ public:
 
     void refresh();
 
+    // Select a random enemy role from a specific tier (no rejection logic)
+    static Role* selectEnemyFromPool(int tier);
+
 private:
     Role* selectFromPool(int tier);
 

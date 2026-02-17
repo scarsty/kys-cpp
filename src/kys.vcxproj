@@ -134,6 +134,7 @@
     <ClCompile Include="BattleMap.cpp" />
     <ClCompile Include="BattleCursor.cpp" />
     <ClCompile Include="BattleNetwork.cpp" />
+    <ClCompile Include="BattleRoleManager.cpp" />
     <ClCompile Include="BattleScene.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
     <ClCompile Include="BattleSceneHades.cpp" />
@@ -143,6 +144,7 @@
     <ClCompile Include="Console.cpp" />
     <ClCompile Include="DrawableOnCall.cpp" />
     <ClCompile Include="DrawNode.cpp" />
+    <ClCompile Include="DynamicChessMap.cpp" />
     <ClCompile Include="Event.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="NewSave.cpp" />
@@ -218,12 +220,14 @@
     <ClInclude Include="BattleMap.h" />
     <ClInclude Include="BattleCursor.h" />
     <ClInclude Include="BattleNetwork.h" />
+    <ClInclude Include="BattleRoleManager.h" />
     <ClInclude Include="BattleScene.h" />
     <ClInclude Include="BattleMenu.h" />
     <ClInclude Include="Button.h" />
     <ClInclude Include="ChemistryEngine.h" />
     <ClInclude Include="Console.h" />
     <ClInclude Include="DrawableOnCall.h" />
+    <ClInclude Include="DynamicChessMap.h" />
     <ClInclude Include="FunctionTrait.h" />
     <ClInclude Include="InputBox.h" />
     <ClInclude Include="NewSave.h" />

@@ -1,6 +1,7 @@
 ﻿#include "Console.h"
 #include "BattleNetwork.h"
 #include "BattleScene.h"
+#include "ChessPool.h"
 #include "ChessSelector.h"
 #include "TempStore.h"
 #include "DrawableOnCall.h"
@@ -11,6 +12,7 @@
 #include "PotConv.h"
 #include "Save.h"
 #include "SuperMenuText.h"
+#include "TextBox.h"
 #include "TextureManager.h"
 #include "UIRoleStatusMenu.h"
 #include "strfunc.h"
@@ -70,6 +72,66 @@ Console::Console()
     else if (code == "VC")
     {
         KysChess::ChessSelector::viewMyChess();
+    }
+    else if (code == "BT")
+    {
+        KysChess::ChessSelector::enterBattle();
+    }
+    else if (code == "SB")
+    {
+        KysChess::ChessSelector::selectForBattle();
+    }
+    else if (code == "TEST")
+    {
+        // Generate test chess pieces for battle testing
+        auto& gameData = KysChess::GameData::get();
+
+        // Generate 10 random chess pieces with varying tiers and stars
+        std::vector<KysChess::Chess> allChess;
+        for (int i = 0; i < 10; i++)
+        {
+            // Cycle through tiers 0-3
+            int tier = i % 4;
+            // Add some stars (0-2)
+            int stars = (i / 4) % 3;
+
+            auto role = KysChess::ChessPool::selectEnemyFromPool(tier);
+            if (role)
+            {
+                KysChess::Chess chess;
+                chess.role = role;
+                chess.star = stars;
+
+                // Add to collection
+                gameData.collection.addChess(chess);
+                allChess.push_back(chess);
+            }
+        }
+
+        // Sort by strength (price) in descending order
+        std::sort(allChess.begin(), allChess.end(), [](const KysChess::Chess& a, const KysChess::Chess& b) {
+            int tierA = KysChess::ChessPool::GetChessTier(a.role->ID);
+            int tierB = KysChess::ChessPool::GetChessTier(b.role->ID);
+            int priceA = KysChess::ChessSelector::calculateCost(tierA, a.star, 1);
+            int priceB = KysChess::ChessSelector::calculateCost(tierB, b.star, 1);
+            return priceA > priceB;
+        });
+
+        // Select the strongest chess pieces (up to level)
+        int maxSelection = std::max(gameData.getLevel(), 2);
+        std::vector<KysChess::Chess> testChess;
+        for (int i = 0; i < std::min(maxSelection, (int)allChess.size()); i++)
+        {
+            testChess.push_back(allChess[i]);
+        }
+
+        // Auto-select the strongest chess for battle
+        gameData.setSelectedForBattle(testChess);
+
+        auto text = std::make_shared<TextBox>();
+        text->setText(std::format("已生成{}個測試棋子並選擇{}個用於戰鬥", 10, testChess.size()));
+        text->setFontSize(32);
+        text->runAtPosition(Engine::getInstance()->getUIWidth() / 2 - 200, Engine::getInstance()->getUIHeight() / 2);
     }
     else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
         && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))

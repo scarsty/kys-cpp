@@ -62,6 +62,9 @@ public:
     void onEntrance() override;
     void onExit() override;
 
+protected:
+    void setConfirmation(bool confirmation) { extraOpts_.confirmation_ = confirmation; }
+
 private:
     void defaultPage();
     void flipPage(int pageIncrement);

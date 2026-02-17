@@ -168,4 +168,11 @@ void ChessPool::refresh() {
     getNewChess_ = true;
 }
 
+Role* ChessPool::selectEnemyFromPool(int tier)
+{
+    static Random<> rand;
+    auto idx = chessIdxOfPrice[tier][rand.rand_int(chessIdxOfPrice[tier].size())];
+    return Save::getInstance()->getRole(idx);
+}
+
 }    // namespace KysChess

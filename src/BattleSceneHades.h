@@ -48,13 +48,8 @@ protected:
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
-    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1)
-    {
-        //计算武学对单人的伤害
-        //注意原公式中距离为1是无衰减的
-        //即时战斗，降低每一次攻击的威力，否则打得太快了
-        return BattleScene::calMagicHurt(r1, r2, magic, 1) / 20.0;
-    }
+    virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1) override;
+
 
     void makeSpecialMagicEffect();
 };
