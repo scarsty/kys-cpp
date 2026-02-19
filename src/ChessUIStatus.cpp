@@ -124,9 +124,10 @@ void ChessUIStatus::draw()
         {
             int x1 = mx;
             int y1 = y + 30 + i * 25;
+            int lvl = role_->getMagicLevelIndex(magic);
+            int skillAtk = magic->Attack[lvl];
             font->draw(std::format("{}", magic->Name), font_size, x1, y1, color_ability1);
-            font->draw(std::format("{:3}", role_->getRoleShowLearnedMagicLevel(i)), font_size, x1 + 100, y1,
-                role_->getRoleShowLearnedMagicLevel(i) > 9 ? color_red : color_purple);
+            font->draw(std::format("{:4}", skillAtk), font_size, x1 + 120, y1, color_white);
         }
     }
 
@@ -152,7 +153,7 @@ void ChessUIStatus::draw()
         font->draw("羈絆", font_size, x, y, color_name);
         y += 24;
         std::set<int> ownedIds;
-        for (auto& [ch, cnt] : gd.collection.getChess())
+        for (auto& ch : gd.getSelectedForBattle())
             if (ch.role) ownedIds.insert(ch.role->ID);
         auto& allCombos = KysChess::ChessCombo::getAllCombos();
         for (auto cid : roleCombos)

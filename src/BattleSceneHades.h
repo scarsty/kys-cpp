@@ -2,14 +2,9 @@
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
 #include "Head.h"
-#include "UIKeyConfig.h"
 #include <deque>
 #include <set>
 #include <unordered_map>
-
-//j轻攻击，i重攻击，m闪身
-//每场战斗可以选择从4种武学中选择轻重
-//硬直，判定范围，威力，消耗体力，在不攻击的时候可以回复体力
 
 class BattleSceneHades : public BattleSceneAct
 {
@@ -33,11 +28,6 @@ public:
     virtual void onPressedCancel() override;
 
 protected:
-    std::shared_ptr<Menu> menu_;
-    std::vector<std::shared_ptr<Button>> button_magics_;
-    std::shared_ptr<Button> button_item_;
-    std::shared_ptr<TextBox> show_auto_;
-
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
@@ -57,9 +47,13 @@ protected:
 
 public:
     BattleTracker& getTracker() { return tracker_; }
+    const std::deque<Role>& getFriendsObj() const { return friends_obj_; }
+    const std::deque<Role>& getEnemiesObj() const { return enemies_obj_; }
+    void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
 
 protected:
     BattleTracker tracker_;
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
+    std::vector<int> enemy_stars_;
 };

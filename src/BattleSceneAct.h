@@ -80,6 +80,7 @@ public:
 
     std::deque<Role*> enemies_;
     std::deque<Role> enemies_obj_;
+    std::deque<Role> friends_obj_;
 
     std::vector<std::shared_ptr<Head>> heads_;
     std::vector<std::shared_ptr<Head>> head_boss_;

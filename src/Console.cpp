@@ -1,6 +1,5 @@
 ﻿#include "Console.h"
 #include "BattleNetwork.h"
-#include "BattleRoleManager.h"
 #include "DynamicChessMap.h"
 #include "BattleScene.h"
 #include "ChessPool.h"
@@ -141,21 +140,17 @@ Console::Console()
     }
     else if (code == "RANGED")
     {
-        // 1v1 ranged test: 段譽(53) vs 黃藥師(57)
-        auto ally = Save::getInstance()->getRole(53);
-        auto enemy = Save::getInstance()->getRole(57);
-        if (ally && enemy)
+        // Duplicate ID test: 3x 郭靖(55) vs 3x 郭靖(55)
+        auto r = Save::getInstance()->getRole(55);
+        if (r)
         {
-            ally->HP = ally->MaxHP;
-            enemy->HP = enemy->MaxHP;
-            KysChess::Chess c{ally, 0};
-            auto ids = KysChess::BattleRoleManager::applyEnhancements({c});
             DynamicBattleRoles roles;
-            roles.teammate_ids = ids;
-            roles.enemy_ids = {enemy->ID};
+            roles.teammate_ids = {55, 55, 55};
+            roles.teammate_stars = {1, 1, 1};
+            roles.enemy_ids = {55, 55, 55};
+            roles.enemy_stars = {0, 0, 0};
             auto battle = DynamicChessMap::createBattle(roles);
             battle->run();
-            KysChess::BattleRoleManager::restoreRoles();
         }
     }
     else if (RunNode::getPointerFromRoot<SubScene>() == nullptr

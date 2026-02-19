@@ -22,8 +22,8 @@ struct BalanceConfig
     int buyExpAmount = 5;
     int battleExp = 4;
     int bossBattleExp = 8;
-    int rewardBase = 3;
-    int rewardStageCoeff = 2;
+    int rewardBase = 2;
+    int rewardStageCoeff = 3;
 
     // Chess cost
     std::array<int, 5> tierPrices = {1, 2, 3, 4, 5};
@@ -55,28 +55,26 @@ struct BalanceConfig
     int lowerTierMixPct = 30;
     int starUpgradeStartSub = 2;
     int starUpgradePct = 20;
+    int star2UpgradeStartStage = 3;
+    int star2UpgradePct = 15;
     int bossTierUp = 1;
     int bossMaxTier = 4;
-    int bossStarStartStage = 4;
+    int bossStarStartStage = 3;
 
     // Stage progress
     int substagesPerStage = 5;
     int bossSubstage = 4;
-    int gameCompleteStage = 3;
+    int gameCompleteStage = 5;
 };
 
 class ChessBalance
 {
 public:
-    static void apply();
-    static bool isApplied() { return applied_; }
-
     static bool loadConfig(const std::string& path);
     static const BalanceConfig& config();
 
 private:
-    static bool applied_;
-    static BalanceConfig config_;
+    static inline BalanceConfig config_;
 };
 
 }    // namespace KysChess

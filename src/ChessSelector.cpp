@@ -1,6 +1,5 @@
 ﻿#include "ChessSelector.h"
 
-#include "BattleRoleManager.h"
 #include "BattleStatsView.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
@@ -264,9 +263,9 @@ void ChessSelector::getChess()
                 auto& allCombos = ChessCombo::getAllCombos();
                 auto& gd = GameData::get();
 
-                // Count owned pieces per role
+                // Count selected pieces per role
                 std::set<int> ownedIds;
-                for (auto& [ch, cnt] : gd.collection.getChess())
+                for (auto& ch : gd.getSelectedForBattle())
                     if (ch.role) ownedIds.insert(ch.role->ID);
 
                 int px = 720, py = 475, fs = 20;
@@ -343,7 +342,7 @@ void ChessSelector::getChess()
                 }
                 if (!gameData.spend(cost)) continue;
                 gameData.chessPool.removeChessAt(actualIdx);
-                gameData.collection.addChess({ role, 0 });
+                gameData.addChessAndFixSelection({ role, 0 });
                 auto text = std::make_shared<TextBox>();
                 text->setText(std::format("消費{}，獲取{}", cost, role->Name));
                 text->setFontSize(32);
@@ -473,67 +472,59 @@ void ChessSelector::selectForBattle()
         std::string menuTitle = std::format("選擇出戰棋子 {}/{} 背包{}/{}", currentSelection.size(), maxSelection, gameData.getBenchCount(), ChessBalance::config().benchSize);
         auto menu = makeChessMenu(menuTitle, rolePairs, roleColors, 10, 32);
 
-        // Combo indicator panel — below menu list on left side
-        auto comboPanel = std::make_shared<DrawableOnCall>([&currentSelection, &chessList](DrawableOnCall* self) {
-            auto& combos = ChessCombo::getAllCombos();
+        // Combo info panel — same as shop
+        auto comboPanel = std::make_shared<DrawableOnCall>([](DrawableOnCall* self) {
+                int rawId = self->getID();
+                if (rawId < 0) return;
+                int roleId = rawId / 10;
 
-            auto activeCombos = ChessCombo::detectCombos(currentSelection);
-            std::map<ComboId, ActiveCombo> activeMap;
-            for (auto& ac : activeCombos)
-                activeMap[ac.id] = ac;
+                auto roleCombos = ChessCombo::getCombosForRole(roleId);
+                if (roleCombos.empty()) return;
 
-            int highlightedRoleId = -1;
-            int rawId = self->getID();
-            if (rawId >= 0) highlightedRoleId = rawId / 10;
+                auto& allCombos = ChessCombo::getAllCombos();
+                auto& gd = GameData::get();
 
-            int px = 720, py = 475, fs = 20;
-            Engine::getInstance()->fillColor({0, 0, 0, 160}, px, py, 460, 240);
-            Font::getInstance()->draw("羈絆狀態", fs + 4, px + 10, py + 5, {255, 255, 100, 255});
+                std::set<int> ownedIds;
+                for (auto& ch : gd.getSelectedForBattle())
+                    if (ch.role) ownedIds.insert(ch.role->ID);
 
-            // Collect visible combos
-            struct ComboInfo { std::string text; Color col; };
-            std::vector<ComboInfo> entries;
-            for (auto& c : combos)
-            {
-                auto it = activeMap.find(c.id);
-                int count = it != activeMap.end() ? it->second.memberCount : 0;
-                if (count == 0 && highlightedRoleId < 0) continue;
-                bool highlighted = false;
-                if (highlightedRoleId >= 0)
+                int px = 720, py = 475, fs = 20;
+                Engine::getInstance()->fillColor({0, 0, 0, 160}, px, py, 460, 240);
+                Font::getInstance()->draw("羈絆資訊", fs + 4, px + 10, py + 5, {255, 255, 100, 255});
+
+                int ry = py + 32;
+                for (auto cid : roleCombos)
+                {
+                    if (ry > py + 225) break;
+                    auto& c = allCombos[(int)cid];
+                    int owned = 0;
                     for (int rid : c.memberRoleIds)
-                        if (rid == highlightedRoleId) { highlighted = true; break; }
-                if (count == 0 && !highlighted) continue;
+                        if (ownedIds.count(rid)) owned++;
 
-                int nextThresh = 0;
-                std::string tierName;
-                bool active = false;
-                if (c.isAntiCombo)
-                {
-                    if (count > 0) { active = true; tierName = c.thresholds[std::min(count - 1, (int)c.thresholds.size() - 1)].name; }
-                }
-                else
-                {
+                    const ComboThreshold* nextThr = nullptr;
                     for (auto& t : c.thresholds)
                     {
-                        if (count >= t.count) { active = true; tierName = t.name; }
-                        else { nextThresh = t.count; break; }
+                        if (owned < t.count) { nextThr = &t; break; }
                     }
+                    if (!nextThr && !c.thresholds.empty())
+                        nextThr = &c.thresholds.back();
+
+                    Color col = owned >= (nextThr ? nextThr->count : 999) ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
+                    std::string header = std::format("{} ({}/{})", c.name, owned, nextThr ? nextThr->count : (int)c.memberRoleIds.size());
+                    Font::getInstance()->draw(header, fs, px + 10, ry, col);
+                    ry += fs + 4;
+
+                    if (nextThr)
+                    {
+                        for (auto& eff : nextThr->effects)
+                        {
+                            if (ry > py + 225) break;
+                            Font::getInstance()->draw("  " + comboEffectDesc(eff), fs - 2, px + 10, ry, {180, 220, 255, 255});
+                            ry += fs;
+                        }
+                    }
+                    ry += 4;
                 }
-                Color col = active ? Color{0, 255, 100, 255} : Color{150, 150, 150, 255};
-                if (highlighted) col = active ? Color{100, 255, 200, 255} : Color{255, 255, 0, 255};
-                std::string info = std::format("{} {}/{}", c.name, count, c.isAntiCombo ? count : (nextThresh > 0 ? nextThresh : c.thresholds.back().count));
-                if (active) info += " " + tierName;
-                entries.push_back({info, col});
-            }
-            // Draw in 2 columns
-            int colW = 225, y = py + 30;
-            for (int i = 0; i < (int)entries.size(); i++)
-            {
-                int cx = px + 10 + (i % 2) * colW;
-                int cy = y + (i / 2) * (fs + 2);
-                if (cy > py + 230) break;
-                Font::getInstance()->draw(entries[i].text, fs, cx, cy, entries[i].col);
-            }
         });
         menu->addDrawableOnCall(comboPanel);
 
@@ -601,15 +592,20 @@ void ChessSelector::enterBattle()
         return;
     }
 
+    // Save enemy random counter before generation for retry determinism
+    auto savedEnemyCallCount = gameData.enemyCallCount_;
+
     // Generate enemies based on progress
     std::vector<int> enemyIds;
+    std::vector<int> enemyStars;
     int stage = progress.getStage();
     int subStage = progress.getSubStage();
     bool isBoss = progress.isBossFight();
 
     // Determine enemy tier and count
     auto& ecfg = ChessBalance::config();
-    int baseTier = stage;
+    int baseTier = std::min(stage, ecfg.bossMaxTier);
+    int overflowStages = std::max(0, stage - ecfg.bossMaxTier);
     int enemyCount = std::min(ecfg.enemyCountMax, ecfg.enemyCountBase + stage + subStage);
 
     // Boss fight: use next tier or add stars
@@ -623,8 +619,7 @@ void ChessSelector::enterBattle()
         {
             auto role = ChessPool::selectEnemyFromPool(bossTier);
             enemyIds.push_back(role->ID);
-
-            BattleRoleManager::applyStarBonus(role, bossStars);
+            enemyStars.push_back(bossStars);
         }
     }
     else
@@ -642,15 +637,14 @@ void ChessSelector::enterBattle()
             auto role = ChessPool::selectEnemyFromPool(tier);
             enemyIds.push_back(role->ID);
 
+            int star = overflowStages;
             if (subStage >= ecfg.starUpgradeStartSub && GameData::get().enemyRandInt(100) < ecfg.starUpgradePct)
-            {
-                BattleRoleManager::applyStarBonus(role, 1);
-            }
+                star += 1;
+            if (star >= 1 && stage >= ecfg.star2UpgradeStartStage && GameData::get().enemyRandInt(100) < ecfg.star2UpgradePct)
+                star += 1;
+            enemyStars.push_back(std::min(star, 3));
         }
     }
-
-    // Save enemy random counter for retry determinism
-    auto savedEnemyCallCount = gameData.enemyCallCount_;
 
     // Detect combos for both teams before enhancements modify stats
     auto allyCombos = ChessCombo::detectCombos(selectedChess);
@@ -669,15 +663,21 @@ void ChessSelector::enterBattle()
         preBattle->run();
     }
 
-    // Apply enhancements to selected chess
-    auto teammateIds = BattleRoleManager::applyEnhancements(selectedChess);
-
-    // Create battle
+    // Create battle - pass raw IDs and stars, enhancements applied on copies
     DynamicBattleRoles roles;
-    roles.teammate_ids = teammateIds;
+    for (auto& c : selectedChess)
+    {
+        roles.teammate_ids.push_back(c.role->ID);
+        roles.teammate_stars.push_back(c.star);
+    }
     roles.enemy_ids = enemyIds;
+    roles.enemy_stars = enemyStars;
 
     auto battle = DynamicChessMap::createBattle(roles);
+
+    // Seed battle RNG deterministically so retries produce same combat
+    unsigned int battleSeed = static_cast<unsigned int>(gameData.enemyRandInt(INT_MAX));
+    battle->rand_.set_seed(battleSeed);
 
     // Run battle
     battle->run();
@@ -685,12 +685,9 @@ void ChessSelector::enterBattle()
     // Show post-battle summary
     {
         auto postBattle = std::make_shared<BattleStatsView>();
-        postBattle->setupPostBattle(selectedChess, enemyIds, battle->getTracker(), battle->getResult());
+        postBattle->setupPostBattle(battle->getFriendsObj(), battle->getEnemiesObj(), battle->getTracker(), battle->getResult());
         postBattle->run();
     }
-
-    // Restore roles after battle
-    BattleRoleManager::restoreRoles();
 
     // Recover all HP for selected chess
     for (const auto& chess : selectedChess)
@@ -744,44 +741,45 @@ void ChessSelector::buyExp()
 
     int curLvl = gd.getLevel();
     int nextLvl = curLvl + 1;
+    int curPieces = std::max(curLvl + 1, bcfg.minBattleSize);
+    int nextPieces = std::max(nextLvl + 1, bcfg.minBattleSize);
+    bool atNextMax = nextLvl >= bcfg.maxLevel;
 
-    // Build info lines
-    auto weightLine = [&](int lvl) -> std::string {
-        if (lvl >= 10) return "已滿級";
+    auto weightStr = [&](int lvl) -> std::string {
+        if (lvl >= (int)bcfg.shopWeights.size()) return "已滿級";
         auto& w = bcfg.shopWeights[lvl];
         return std::format("1費{}% 2費{}% 3費{}% 4費{}% 5費{}%", w[0], w[1], w[2], w[3], w[4]);
     };
 
-    std::string info = std::format(
-        "等級{} 經驗{}/{} 金幣${}\n"
-        "花費${} 獲得{}經驗\n\n"
-        "當前商店權重:\n  {}\n"
-        "下一級商店權重:\n  {}",
-        curLvl + 1, gd.getExp(), gd.getExpForNextLevel(), gd.getMoney(),
-        bcfg.buyExpCost, bcfg.buyExpAmount,
-        weightLine(curLvl),
-        nextLvl < bcfg.maxLevel ? weightLine(nextLvl) : std::string("已滿級"));
+    // Pre-compute strings so lambda only captures values
+    std::string hdr = std::format("等級 {}    經驗 {}/{}    金幣 ${}",
+        curLvl + 1, gd.getExp(), gd.getExpForNextLevel(), gd.getMoney());
+    std::string costLine = std::format("花費 ${}  獲得 {} 經驗", bcfg.buyExpCost, bcfg.buyExpAmount);
+    std::string pieceLine = std::format("出戰人數: {}", curPieces);
+    std::string pieceNext = (!atNextMax && nextPieces > curPieces) ? std::format("  → {}", nextPieces) : "";
+    std::string curW = "  " + weightStr(curLvl);
+    std::string nextW = "  " + (atNextMax ? std::string("已滿級") : weightStr(nextLvl));
 
     // Show confirmation menu with info panel
     auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認購買", "取消"});
     menu->setFontSize(24);
     menu->arrange(0, 0, 0, 32);
 
-    auto infoPanel = std::make_shared<DrawableOnCall>([info](DrawableOnCall*) {
-        int px = 350, py = 195, fs = 20;
-        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 500, 200);
-        // Draw multiline
-        int ly = py + 10;
-        size_t pos = 0;
-        auto& s = info;
-        while (pos < s.size())
-        {
-            auto nl = s.find('\n', pos);
-            auto line = (nl == std::string::npos) ? s.substr(pos) : s.substr(pos, nl - pos);
-            Font::getInstance()->draw(line, fs, px + 10, ly, {255, 255, 255, 255});
-            ly += fs + 4;
-            pos = (nl == std::string::npos) ? s.size() : nl + 1;
-        }
+    auto infoPanel = std::make_shared<DrawableOnCall>([=](DrawableOnCall*) {
+        int px = 350, py = 195, fs = 20, lh = fs + 6;
+        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 520, 280);
+        auto* font = Font::getInstance();
+        int ly = py + 10, x = px + 10;
+
+        font->draw(hdr, fs, x, ly, {255, 215, 0, 255}); ly += lh;
+        font->draw(costLine, fs, x, ly, {255, 255, 255, 255}); ly += lh + 6;
+        font->draw(pieceLine, fs, x, ly, {130, 220, 255, 255});
+        if (!pieceNext.empty()) font->draw(pieceNext, fs, x + fs * 8, ly, {100, 255, 100, 255});
+        ly += lh + 6;
+        font->draw("當前商店權重:", fs, x, ly, {160, 160, 160, 255}); ly += lh;
+        font->draw(curW, fs, x, ly, {255, 255, 255, 255}); ly += lh + 4;
+        font->draw("下一級商店權重:", fs, x, ly, {160, 160, 160, 255}); ly += lh;
+        font->draw(nextW, fs, x, ly, {100, 255, 100, 255});
     });
     menu->addChild(infoPanel);
     menu->runAtPosition(200, 200);
@@ -824,11 +822,10 @@ void ChessSelector::viewCombos()
 {
     auto& combos = ChessCombo::getAllCombos();
     auto& gameData = GameData::get();
-    auto& chessMap = gameData.collection.getChess();
 
-    // Build set of owned role IDs
+    // Build set of selected role IDs
     std::set<int> ownedIds;
-    for (auto& [chess, count] : chessMap)
+    for (auto& chess : gameData.getSelectedForBattle())
         if (chess.role) ownedIds.insert(chess.role->ID);
 
     // Build menu items: one per combo

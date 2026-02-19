@@ -3,6 +3,7 @@
 #include "Chess.h"
 #include "ChessCombo.h"
 #include "RunNode.h"
+#include <deque>
 #include <map>
 #include <string>
 #include <vector>
@@ -56,8 +57,8 @@ public:
         const std::vector<KysChess::ActiveCombo>& enemyCombos);
 
     void setupPostBattle(
-        const std::vector<KysChess::Chess>& allies,
-        const std::vector<int>& enemyIds,
+        const std::deque<Role>& allyBattleCopies,
+        const std::deque<Role>& enemyBattleCopies,
         const BattleTracker& tracker,
         int battleResult);
 

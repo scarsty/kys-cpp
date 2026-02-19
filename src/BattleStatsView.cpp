@@ -87,8 +87,8 @@ void BattleStatsView::setupPreBattle(
 }
 
 void BattleStatsView::setupPostBattle(
-    const std::vector<KysChess::Chess>& allies,
-    const std::vector<int>& enemyIds,
+    const std::deque<Role>& allyBattleCopies,
+    const std::deque<Role>& enemyBattleCopies,
     const BattleTracker& tracker,
     int battleResult)
 {
@@ -96,14 +96,13 @@ void BattleStatsView::setupPostBattle(
     battleResult_ = battleResult;
     allies_.clear(); enemies_.clear();
     auto& stats = tracker.getStats();
-    auto fillPost = [&](RoleEntry& e) {
-        auto it = stats.find(e.role->ID);
+    auto fillPost = [&](RoleEntry& e, int battleId) {
+        auto it = stats.find(battleId);
         if (it != stats.end())
         {
             e.damageDealt = it->second.damageDealt;
             e.damageTaken = it->second.damageTaken;
             e.kills = it->second.kills;
-            // Top 2 skills by damage
             for (auto& [name, dmg] : it->second.damagePerSkill)
             {
                 if (dmg > e.skill1Dmg)
@@ -118,19 +117,20 @@ void BattleStatsView::setupPostBattle(
             }
         }
     };
-    for (auto& c : allies)
+    for (auto& r : allyBattleCopies)
     {
-        if (!c.role) continue;
-        auto e = makeEntry(c.role, c.star, 0);
-        fillPost(e);
+        auto orig = Save::getInstance()->getRole(r.RealID);
+        if (!orig) continue;
+        auto e = makeEntry(orig, 0, 0);
+        fillPost(e, r.ID);
         allies_.push_back(e);
     }
-    for (int id : enemyIds)
+    for (auto& r : enemyBattleCopies)
     {
-        auto r = Save::getInstance()->getRole(id);
-        if (!r) continue;
-        auto e = makeEntry(r, 0, 1);
-        fillPost(e);
+        auto orig = Save::getInstance()->getRole(r.RealID);
+        if (!orig) continue;
+        auto e = makeEntry(orig, 0, 1);
+        fillPost(e, r.ID);
         enemies_.push_back(e);
     }
 }
@@ -185,7 +185,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 
         if (!showPost)
         {
-            std::string stars = e.star > 0 ? std::string(e.star, '*') : "-";
+            std::string stars = std::to_string(e.star + 1);
             font->draw(stars, fs, x + cStar, y, {255, 215, 0, 255});
             font->draw(std::to_string(e.hp), fs, x + cHP, y, cWhite);
             font->draw(std::to_string(e.atk), fs, x + cAtk, y, cWhite);

@@ -165,6 +165,24 @@ struct GameData
 
     void clearSelectedForBattle() { selectedForBattle_.clear(); }
 
+    // Add chess to collection; if merge occurs, auto-upgrade selected pieces
+    void addChessAndFixSelection(Chess c)
+    {
+        Chess original = c;
+        collection.addChess(c);
+        // Walk up the star chain to find what it merged into
+        Chess upgraded = original;
+        while (upgraded.star <= 2 && collection.getChess().find(upgraded) == collection.getChess().end())
+            upgraded.star++;
+        if (upgraded.star != original.star)
+        {
+            // Replace selected entries of old star with the upgraded one
+            for (auto& s : selectedForBattle_)
+                if (s.role == original.role && s.star == original.star)
+                    s.star = upgraded.star;
+        }
+    }
+
     bool isShopLocked() const { return shopLocked_; }
     void setShopLocked(bool v) { shopLocked_ = v; }
 

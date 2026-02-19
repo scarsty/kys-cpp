@@ -1,13 +1,12 @@
 #include "DynamicChessMap.h"
-#include "Random.h"
+#include "TempStore.h"
 #include <algorithm>
 
 std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBattleRoles& roles)
 {
-    // Randomly select one of the top maps
-    static RandomDouble rand;
+    // Select map using enemy RNG for retry determinism
     const auto& maps = getTopMaps();
-    int map_index = rand.rand() * maps.size();
+    int map_index = KysChess::GameData::get().enemyRandInt(maps.size());
     const auto& selected_map = maps[map_index];
 
     // Create battle scene
@@ -31,10 +30,12 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBat
         info.ID = roles.teammate_ids[i];
         info.X = all_positions[i].first;
         info.Y = all_positions[i].second;
+        info.star = (i < roles.teammate_stars.size()) ? roles.teammate_stars[i] : 0;
         teammates.push_back(info);
     }
 
     battle->setExtendedBattleInfo(teammates);
+    battle->setEnemyStars(roles.enemy_stars);
 
     // Override enemy IDs using modifiableInfo
     auto& info = battle->modifiableInfo();
