@@ -10,9 +10,10 @@ public:
     ChessUIStatus() = default;
     virtual ~ChessUIStatus() = default;
 
-    void setRole(Role* r) { role_ = r; }
+    void setRole(Role* r, int star = 0) { role_ = r; star_ = star; }
     virtual void draw() override;
 
 private:
     Role* role_ = nullptr;
+    int star_ = 0;
 };

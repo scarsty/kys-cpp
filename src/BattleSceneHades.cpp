@@ -1,5 +1,6 @@
 ﻿#include "BattleSceneHades.h"
 #include "Audio.h"
+#include "ChessCombo.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -708,12 +709,23 @@ void BattleSceneHades::onEntrance()
             }
         }
     }
-    for (int i = 0; i < 6; i++)
+    if (!extended_teammates_.empty())
     {
-        if (!enemies_.empty())
+        while (!enemies_.empty())
         {
             battle_roles_.push_back(enemies_.front());
             enemies_.pop_front();
+        }
+    }
+    else
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            if (!enemies_.empty())
+            {
+                battle_roles_.push_back(enemies_.front());
+                enemies_.pop_front();
+            }
         }
     }
 
@@ -843,6 +855,7 @@ void BattleSceneHades::backRun1()
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
     }
+    ultHitRoles_.clear();
     for (auto r : battle_roles_)
     {
         r->HurtThisFrame = 0;
@@ -855,6 +868,94 @@ void BattleSceneHades::backRun1()
         }
         decreaseToZero(r->Frozen);
         decreaseToZero(r->Shake);
+
+        // Combo: per-frame effects
+        {
+            auto& cs = KysChess::ChessCombo::getMutableStates();
+            auto it = cs.find(r->ID);
+            if (it != cs.end() && r->Dead == 0)
+            {
+                auto& s = it->second;
+
+                // Freeze reduction
+                if (s.freezeReductionPct > 0 && r->Frozen > 0)
+                    r->Frozen = std::max(0, (int)(r->Frozen * (1.0 - s.freezeReductionPct / 100.0)));
+
+                // Control immunity
+                if (s.controlImmunityFrames > 0 && r->Frozen > s.controlImmunityFrames)
+                    r->Frozen = s.controlImmunityFrames;
+
+                // Poison DOT tick (every 30 frames)
+                if (s.poisonTimer > 0)
+                {
+                    s.poisonTimer--;
+                    if (current_frame_ % 30 == 0)
+                    {
+                        int dmg = std::max(1, r->HP * s.poisonTickDmg / 100);
+                        r->HurtThisFrame += dmg;
+                        TextEffect te;
+                        te.set(std::to_string(-dmg), {0, 200, 0, 255}, r);
+                        text_effects_.push_back(std::move(te));
+                    }
+                }
+
+                // HP regen
+                if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && current_frame_ % s.hpRegenInterval == 0)
+                {
+                    int heal = r->MaxHP * s.hpRegenPct / 10000;  // hpRegenPct is in 0.01% units (50 = 0.5%)
+                    r->HP = std::min(r->MaxHP, r->HP + heal);
+                }
+
+                // Heal aura (heal nearby allies)
+                if (s.healAuraPct > 0 && s.healAuraInterval > 0 && current_frame_ % s.healAuraInterval == 0)
+                {
+                    for (auto ally : battle_roles_)
+                    {
+                        if (ally->Team == r->Team && ally->Dead == 0 && ally != r
+                            && EuclidDis(ally->Pos, r->Pos) <= TILE_W * 6)
+                        {
+                            int heal = ally->MaxHP * s.healAuraPct / 100;
+                            ally->HP = std::min(ally->MaxHP, ally->HP + heal);
+                            // HealedATKSPDBoost: reduce cooldown for healed allies
+                            if (s.healedATKSPDBoostPct > 0 && ally->CoolDown > 0)
+                                ally->CoolDown = static_cast<int>(ally->CoolDown * (1.0 - s.healedATKSPDBoostPct / 100.0));
+                        }
+                    }
+                }
+
+                // Low-HP conditional buffs (applied dynamically each frame)
+                if (s.lowHPThresholdPct > 0 && r->HP * 100 / std::max(1, r->MaxHP) < s.lowHPThresholdPct)
+                {
+                    // Berserk trigger (神雕侠侣: partner goes berserk)
+                    if (s.berserkATKPct > 0 && s.berserkTimer <= 0)
+                    {
+                        // Find partner in same combo
+                        for (auto ally : battle_roles_)
+                        {
+                            if (ally->Team == r->Team && ally != r && ally->Dead == 0)
+                            {
+                                auto ait2 = cs.find(ally->ID);
+                                if (ait2 != cs.end() && ait2->second.berserkATKPct > 0)
+                                    ait2->second.berserkTimer = s.berserkDuration;
+                            }
+                        }
+                    }
+                }
+
+                // Berserk timer countdown
+                if (s.berserkTimer > 0)
+                    s.berserkTimer--;
+
+                // CDR (reduce CoolDown each frame)
+                if (s.cdrPct > 0 && r->CoolDown > 0)
+                    r->CoolDown = static_cast<int>(r->CoolDown * (1.0 - s.cdrPct / 100.0));
+
+                // Shield CDR
+                if (s.shield > 0 && s.shieldCDRPct > 0 && r->CoolDown > 0)
+                    r->CoolDown = static_cast<int>(r->CoolDown * (1.0 - s.shieldCDRPct / 100.0));
+            }
+        }
+
         if (r->Frozen > 0)
         {
             continue;
@@ -908,7 +1009,18 @@ void BattleSceneHades::backRun1()
         //        //此处只为严格化，但与击退部分可能冲突
         //    }
         //}
-        decreaseToZero(r->CoolDown);
+        {
+            int prevCD = r->CoolDown;
+            decreaseToZero(r->CoolDown);
+            // Combo: post-skill invincibility (逍遥至尊)
+            if (prevCD > 0 && r->CoolDown == 0)
+            {
+                auto& cs = KysChess::ChessCombo::getActiveStates();
+                auto it = cs.find(r->ID);
+                if (it != cs.end() && it->second.postSkillInvincFrames > 0)
+                    r->Invincible = std::max(r->Invincible, it->second.postSkillInvincFrames);
+            }
+        }
         if (r->CoolDown == 0)
         {
             if (current_frame_ % 3 == 0)
@@ -972,22 +1084,31 @@ void BattleSceneHades::backRun1()
                 {
                     Audio::getInstance()->playESound(ae.UsingMagic->EffectID);
                 }
+                // Combo: dodge check
+                {
+                    auto& cs = KysChess::ChessCombo::getMutableStates();
+                    auto dit = cs.find(r->ID);
+                    if (dit != cs.end() && dit->second.dodgeChancePct > 0
+                        && rand_.rand() * 100 < dit->second.dodgeChancePct)
+                    {
+                        dit->second.dodgedLast = true;
+                        TextEffect te;
+                        te.set("闪避", {255, 255, 0, 255}, r);
+                        text_effects_.push_back(std::move(te));
+                        ae.Defender[r]++;
+                        continue;
+                    }
+                }
+
                 ae.Defender[r]++;
-                shake_ = 5;
-                r->Frozen = 20;
-                r->Shake = 20;
-                //slow_ = 1;
+                shake_ = ae.IsUltimate ? 10 : 2;
+                r->Frozen = ae.IsUltimate ? 20 : 8;
+                r->Shake = ae.IsUltimate ? 20 : 8;
+                if (ae.IsUltimate) { ultHitRoles_.insert(r); }
                 if (ae.OperationType >= 0)
                 {
                     Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                    //if (special_magic_effect_beat_.count(ae.UsingMagic->Name) == 0)
-                    //{
                     defaultMagicEffect(ae, r);
-                    //}
-                    //else
-                    //{
-                    //    special_magic_effect_beat_[ae.UsingMagic->Name](ae, r);
-                    //}
                 }
                 //std::vector<std::string> = {};
             }
@@ -1055,13 +1176,11 @@ void BattleSceneHades::backRun1()
         int hurt = r->HurtThisFrame;
         if (hurt > 0)
         {
+            bool isUlt = ultHitRoles_.count(r) > 0;
             TextEffect te;
-            Color c = { 255, 255, 255, 255 };
-            if (r->Team == 0)
-            {
-                c = { 255, 20, 20, 255 };
-            }
+            Color c = isUlt ? Color{255, 215, 0, 255} : (r->Team == 0 ? Color{255, 20, 20, 255} : Color{255, 255, 255, 255});
             te.set(std::to_string(-hurt), c, r);
+            if (isUlt) te.Size = 28;
             text_effects_.push_back(std::move(te));
             AttackEffect ae1;
             ae1.FollowRole = r;
@@ -1072,11 +1191,34 @@ void BattleSceneHades::backRun1()
             attack_effects_.push_back(std::move(ae1));
             r->HP -= hurt;
             r->MP += (hurt * 100.0 / r->MaxHP);    // 挨打根据比例回复
+            // Combo: MP recovery bonus
+            {
+                auto& cs = KysChess::ChessCombo::getActiveStates();
+                auto it = cs.find(r->ID);
+                if (it != cs.end() && it->second.mpRecoveryBonusPct > 0)
+                    r->MP += (hurt * 100.0 / r->MaxHP) * it->second.mpRecoveryBonusPct / 100.0;
+            }
             if (r->HP <= 0)
             {
                 //LOG("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
+                tracker_.recordKill(r->LastAttacker);
+
+                // Combo: kill-heal and kill-invincibility
+                if (r->LastAttacker)
+                {
+                    auto& cs = KysChess::ChessCombo::getActiveStates();
+                    auto kit = cs.find(r->LastAttacker->ID);
+                    if (kit != cs.end())
+                    {
+                        if (kit->second.killHealPct > 0)
+                            r->LastAttacker->HP = std::min(r->LastAttacker->MaxHP,
+                                r->LastAttacker->HP + r->LastAttacker->MaxHP * kit->second.killHealPct / 100);
+                        if (kit->second.killInvincFrames > 0)
+                            r->LastAttacker->Invincible = kit->second.killInvincFrames;
+                    }
+                }
                 //r->Velocity = r->Pos - ae1.Attacker->Pos;
                 r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
                 r->Velocity.z = 12;
@@ -1232,6 +1374,7 @@ void BattleSceneHades::Action(Role* r)
             ae.TotalFrame = 30;
             //r->CoolDown += ae.TotalFrame;
             ae.Attacker = r;
+            ae.IsUltimate = ultCasters_.count(r) ? 1 : 0;
             r->RealTowards.normTo(1);
             ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
             ae.Frame = 0;
@@ -1365,7 +1508,10 @@ void BattleSceneHades::Action(Role* r)
                 //r->VelocitytFrame = 10;
                 r->ActType = 0;
                 auto p = ae.Pos;
-                int count = std::min(3, (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 60);
+                int count = 1;
+                double multiHitScore = (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 180.0;
+                if (rand_.rand() < multiHitScore) count++;
+                if (rand_.rand() < multiHitScore * 0.5) count++;
                 for (int i = 0; i < count; i++)
                 {
                     ae.Pos = p + r->Velocity * (i - 1) * 2;
@@ -1375,8 +1521,9 @@ void BattleSceneHades::Action(Role* r)
                 needMP *= 0.05;
             }
             LOG("{} use {} as {}\n", ae.Attacker->Name, ae.UsingMagic->Name, ae.OperationType);
-            needMP = r->MP == GameUtil::MAX_MP ? GameUtil::MAX_MP : -10;    // 暂定平A + 10
+            needMP = ultCasters_.count(r) ? GameUtil::MAX_MP : -10;    // 暂定平A + 10
             r->MP -= needMP;
+            ultCasters_.erase(r);
             r->UsingMagic = nullptr;
         }
 
@@ -1486,7 +1633,16 @@ void BattleSceneHades::AI(Role* r)
                         }
                         return chooseMagic;
                     };
-                    r->UsingMagic = r->MP >= GameUtil::MAX_MP ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
+                    bool isUltimate = r->MP >= GameUtil::MAX_MP;
+                    r->UsingMagic = isUltimate ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
+                    if (isUltimate)
+                    {
+                        ultCasters_.insert(r);
+                        TextEffect te;
+                        te.set(std::string(r->UsingMagic->Name), {255, 215, 0, 255}, r);
+                        te.Size = 28;
+                        text_effects_.push_back(std::move(te));
+                    }
                 }
             }
             auto r0 = findNearestEnemy(r->Team, r->Pos);
@@ -1663,6 +1819,25 @@ void BattleSceneHades::AI(Role* r)
                 }
             }
         }
+        else
+        {
+            // During cooldown, ranged attackers advance toward nearest enemy
+            if (r->UsingMagic && (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2))
+            {
+                auto r0 = findNearestEnemy(r->Team, r->Pos);
+                if (r0)
+                {
+                    r->RealTowards = r0->Pos - r->Pos;
+                    r->RealTowards.normTo(1);
+                    double speed = r->Speed / 30.0;
+                    auto p = r->Pos + speed * 0.5 * r->RealTowards;
+                    if (canWalk90(p, r))
+                    {
+                        r->Pos = p;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1735,13 +1910,13 @@ void BattleSceneHades::setRoleInitState(Role* r)
     if (r->Team == 0)
     {
         r->HP = r->MaxHP;
-        r->MP = GameUtil::MAX_MP;
+        r->MP = 0;
         r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
     else
     {
         r->HP = r->MaxHP;
-        r->MP = GameUtil::MAX_MP;
+        r->MP = 0;
         r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
     }
 
@@ -1952,10 +2127,157 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
     }
     ae.Attacker->ExpGot += hurt / 2;
+
+    // === Combo trigger effects ===
+    {
+        auto& cs = KysChess::ChessCombo::getMutableStates();
+
+        // Attacker effects
+        auto ait = cs.find(ae.Attacker->ID);
+        if (ait != cs.end())
+        {
+            auto& as = ait->second;
+
+            // Skill damage bonus
+            if (ae.UsingMagic && as.skillDmgPct > 0)
+                hurt *= (1.0 + as.skillDmgPct / 100.0);
+
+            // Low-HP ATK boost (连城诀)
+            if (as.lowHPThresholdPct > 0 && as.lowHPAtkPct > 0
+                && ae.Attacker->HP * 100 / std::max(1, ae.Attacker->MaxHP) < as.lowHPThresholdPct)
+                hurt *= (1.0 + as.lowHPAtkPct / 100.0);
+
+            // Berserk ATK boost (神雕侠侣)
+            if (as.berserkTimer > 0 && as.berserkATKPct > 0)
+                hurt *= (1.0 + as.berserkATKPct / 100.0);
+
+            // Armor penetration: ignore % of target defence (boost hurt proportionally)
+            if (as.armorPenChancePct > 0 && rand_.rand() * 100 < as.armorPenChancePct)
+                hurt += r->Defence * as.armorPenPct / 100.0;
+
+            // Crit
+            bool critted = false;
+            if (as.dodgedLast && as.dodgeThenCrit)
+            {
+                critted = true;
+                as.dodgedLast = false;
+            }
+            if (!critted && as.critChancePct > 0 && rand_.rand() * 100 < as.critChancePct)
+                critted = true;
+            if (critted)
+            {
+                hurt *= as.critMultiplier / 100.0;
+                TextEffect te;
+                te.set("暴击", {255, 100, 0, 255}, ae.Attacker);
+                text_effects_.push_back(std::move(te));
+            }
+
+            // Every-Nth-hit double
+            if (as.everyNthDouble > 0)
+            {
+                as.hitCounter++;
+                if (as.hitCounter >= as.everyNthDouble)
+                {
+                    hurt *= 2.0;
+                    as.hitCounter = 0;
+                }
+            }
+
+            // MP on hit
+            if (as.mpOnHit > 0)
+                ae.Attacker->MP += as.mpOnHit;
+
+            // MP drain
+            if (as.mpDrain > 0)
+            {
+                int drain = std::min(as.mpDrain, (int)r->MP);
+                r->MP -= drain;
+                ae.Attacker->MP += drain;
+            }
+
+            // Poison application on target
+            if (as.poisonDOTPct > 0)
+            {
+                auto dit = cs.find(r->ID);
+                if (dit != cs.end())
+                {
+                    dit->second.poisonTimer = as.poisonDuration;
+                    dit->second.poisonTickDmg = as.poisonDOTPct;
+                }
+                else
+                {
+                    auto& ds = cs[r->ID];
+                    ds.poisonTimer = as.poisonDuration;
+                    ds.poisonTickDmg = as.poisonDOTPct;
+                }
+            }
+
+            // Stun
+            if (as.stunChancePct > 0 && rand_.rand() * 100 < as.stunChancePct)
+                r->Frozen += as.stunFrames;
+
+            // Knockback (extra)
+            if (as.knockbackChancePct > 0 && rand_.rand() * 100 < as.knockbackChancePct)
+            {
+                auto kb = r->Pos - ae.Attacker->Pos;
+                kb.normTo(5);
+                r->Velocity += kb;
+            }
+        }
+
+        // Defender effects
+        auto dit = cs.find(r->ID);
+        if (dit != cs.end())
+        {
+            auto& ds = dit->second;
+
+            // Flat damage reduction
+            hurt -= ds.flatDmgReduction;
+
+            // Percent damage reduction
+            if (ds.dmgReductionPct > 0)
+                hurt *= (1.0 - ds.dmgReductionPct / 100.0);
+
+            // Shield absorption
+            if (ds.shield > 0)
+            {
+                int absorbed = std::min(ds.shield, (int)hurt);
+                ds.shield -= absorbed;
+                hurt -= absorbed;
+            }
+
+            // Block chance
+            if (ds.blockChancePct > 0 && rand_.rand() * 100 < ds.blockChancePct)
+            {
+                hurt = 0;
+                TextEffect te;
+                te.set("格挡", {200, 200, 255, 255}, r);
+                text_effects_.push_back(std::move(te));
+            }
+
+            // Skill reflect
+            if (ae.UsingMagic && ds.skillReflectPct > 0)
+                ae.Attacker->HurtThisFrame += static_cast<int>(hurt * ds.skillReflectPct / 100.0);
+
+            // Control immunity
+            if (ds.controlImmunityFrames > 0 && r->Frozen > ds.controlImmunityFrames)
+                r->Frozen = ds.controlImmunityFrames;
+
+            // Poison damage amp (target is poisoned)
+            if (ds.poisonTimer > 0 && ait != cs.end() && ait->second.poisonDmgAmpPct > 0)
+                hurt *= (1.0 + ait->second.poisonDmgAmpPct / 100.0);
+        }
+
+        // Track last attacker for kill attribution
+        r->LastAttacker = ae.Attacker;
+    }
+
     //扣HP或MP
     if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
     {
         r->HurtThisFrame += hurt;
+        std::string skillName = ae.UsingMagic ? std::string(ae.UsingMagic->Name) : "";
+        tracker_.recordDamage(ae.Attacker, r, (int)hurt, skillName);
     }
     if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
     {
@@ -2021,7 +2343,7 @@ int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     // This removes the MP cap limitation on damage while keeping the MP bar capped at 100
     int original_mp = r1->MP;
     r1->MP = r1->MaxMP;
-    int hurt = BattleScene::calMagicHurt(r1, r2, magic, 1) / 20.0;
+    int hurt = BattleScene::calMagicHurt(r1, r2, magic, 1) / 5.0;
     r1->MP = original_mp;
     return hurt;
 }

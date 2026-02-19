@@ -33,6 +33,7 @@ public:
         int Track = 0;                 //是否追踪
         int Through = 0;               //是否贯穿，即击中敌人后可以不消失
         int NoHurt = 0;                //是否无伤害
+        int IsUltimate = 0;            //大招标记
 
         void setEft(int num)
         {

@@ -1,31 +1,15 @@
 ﻿#include "ChessPool.h"
 
 #include <array>
-#include "Random.h"
+#include "ChessBalance.h"
 #include "Save.h"
+#include "TempStore.h"
 
 namespace KysChess
 {
 
 namespace
 {
-
-using ProbArray = std::array<int, 5>;
-
-// Level - leveled externally, the higher the level
-// the better the weights
-constexpr std::array<std::array<int, 5>, 10> weights = {
-    ProbArray{ 100, 0, 0, 0, 0 },
-    ProbArray{ 70, 30, 0, 0, 0 },
-    ProbArray{ 60, 35, 5, 0, 0 },
-    ProbArray{ 50, 35, 15, 0, 0 },
-    ProbArray{ 40, 35, 23, 2, 0 },
-    ProbArray{ 33, 30, 30, 7, 0 },
-    ProbArray{ 30, 30, 30, 10, 0 },
-    ProbArray{ 24, 30, 30, 15, 1 },
-    ProbArray{ 22, 30, 25, 20, 3 },
-    ProbArray{ 19, 25, 25, 25, 6 }
-};
 
 // TODO: 改成从r数据读取?
 const std::array<std::vector<int>, 5> chessIdxOfPrice = {
@@ -87,7 +71,6 @@ const std::array<std::vector<int>, 5> chessIdxOfPrice = {
     },
     std::vector<int>{
         129,    // 王重阳
-        592,    // 独孤求败
         114,    // 扫地老僧
         116     // 无崖子
     },
@@ -107,11 +90,9 @@ int ChessPool::GetChessTier(int roleId) {
 
 Role* ChessPool::selectFromPool(int tier)
 {
-    static Random<> rand;
-
     for (;;)
     {
-        auto idx = chessIdxOfPrice[tier][rand.rand_int(chessIdxOfPrice[tier].size())];
+        auto idx = chessIdxOfPrice[tier][GameData::get().shopRandInt(chessIdxOfPrice[tier].size())];
         auto role = Save::getInstance()->getRole(idx);
         if (tier <= 3 && rejected_.contains(role))
         {
@@ -130,16 +111,15 @@ std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
     getNewChess_ = false;
 
     std::vector<std::pair<Role*, int>> roles;
-    static Random<> rand;
 
     for (int i = 0; i < 5; ++i)
     {
         // 应该是 0~99
-        auto val = rand.rand_int(100);
+        auto val = GameData::get().shopRandInt(100);
         auto cur = 0;
-        for (int tier = 0; tier < weights[level].size(); ++tier)
+        for (int tier = 0; tier < 5; ++tier)
         {
-            auto w = weights[level][tier];
+            auto w = ChessBalance::config().shopWeights[level][tier];
             cur += w;
             if (val < cur)
             {
@@ -170,8 +150,7 @@ void ChessPool::refresh() {
 
 Role* ChessPool::selectEnemyFromPool(int tier)
 {
-    static Random<> rand;
-    auto idx = chessIdxOfPrice[tier][rand.rand_int(chessIdxOfPrice[tier].size())];
+    auto idx = chessIdxOfPrice[tier][GameData::get().enemyRandInt(chessIdxOfPrice[tier].size())];
     return Save::getInstance()->getRole(idx);
 }
 

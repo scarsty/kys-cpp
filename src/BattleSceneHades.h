@@ -1,8 +1,10 @@
 ﻿#pragma once
 #include "BattleSceneAct.h"
+#include "BattleStatsView.h"
 #include "Head.h"
 #include "UIKeyConfig.h"
 #include <deque>
+#include <set>
 #include <unordered_map>
 
 //j轻攻击，i重攻击，m闪身
@@ -52,4 +54,12 @@ protected:
 
 
     void makeSpecialMagicEffect();
+
+public:
+    BattleTracker& getTracker() { return tracker_; }
+
+protected:
+    BattleTracker tracker_;
+    std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
+    std::set<Role*> ultCasters_;     // roles that chose ultimate skill
 };

@@ -14,6 +14,7 @@
 #include "UISave.h"
 #include "Video.h"
 #include "Weather.h"
+#include "ChessModHook.h"
 #include <cstdlib>
 
 TitleScene::TitleScene()
@@ -94,31 +95,13 @@ void TitleScene::dealEvent(EngineEvent& e)
     {
         Engine::getInstance()->gameControllerRumble(50, 50, 500);
         Save::getInstance()->load(0);
-        //Script::getInstance()->runScript(GameUtil::PATH()+"script/0.lua");
-        std::string name = "";
-        auto input = std::make_shared<InputBox>("請輸入姓名：", 30);
-        input->setInputPosition(350, 300);
-        input->setText(Save::getInstance()->getRole(0)->Name);
-        input->run();
-        if (input->getResult() >= 0)
         {
-            name = input->getText();
-        }
-        if (!name.empty())
-        {
-            auto random_role = std::make_shared<RandomRole>();
-            random_role->setRole(Save::getInstance()->getRole(0));
-            random_role->setRoleName(name);
-            if (random_role->runAtPosition(300, 0) == 0)
-            {
-                MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
-                MainScene::getInstance()->setTowards(1);
-                int s = GameUtil::getInstance()->getInt("constant", "begin_scene", 70);
-                int x = GameUtil::getInstance()->getInt("constant", "begin_sx", 19);
-                int y = GameUtil::getInstance()->getInt("constant", "begin_sy", 20);
-                MainScene::getInstance()->forceEnterSubScene(s, x, y, GameUtil::getInstance()->getInt("constant", "begin_event", -1));
-                MainScene::getInstance()->run();
-            }
+            MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
+            MainScene::getInstance()->setTowards(1);
+            int s = 0, x = 0, y = 0, ev = -1;
+            KysChess::ChessModHook::overrideNewGame(s, x, y, ev);
+            MainScene::getInstance()->forceEnterSubScene(s, x, y, ev);
+            MainScene::getInstance()->run();
         }
     }
     if (r == 1)

@@ -1,5 +1,7 @@
 ﻿#include "Console.h"
 #include "BattleNetwork.h"
+#include "BattleRoleManager.h"
+#include "DynamicChessMap.h"
 #include "BattleScene.h"
 #include "ChessPool.h"
 #include "ChessSelector.h"
@@ -61,6 +63,10 @@ Console::Console()
         int id = smt->getResult();
         LOG("result %d\n", id);
     }
+    else if (code == "showmethemoney")
+    {
+        KysChess::GameData::get().make(100);
+    }
     else if (code == "exp") 
     {
         KysChess::GameData::get().increaseExp(100);
@@ -71,7 +77,7 @@ Console::Console()
     }
     else if (code == "VC")
     {
-        KysChess::ChessSelector::viewMyChess();
+        KysChess::ChessSelector::sellChess();
     }
     else if (code == "BT")
     {
@@ -118,7 +124,7 @@ Console::Console()
         });
 
         // Select the strongest chess pieces (up to level)
-        int maxSelection = std::max(gameData.getLevel(), 2);
+        int maxSelection = std::max(gameData.getLevel() + 1, 2);
         std::vector<KysChess::Chess> testChess;
         for (int i = 0; i < std::min(maxSelection, (int)allChess.size()); i++)
         {
@@ -132,6 +138,25 @@ Console::Console()
         text->setText(std::format("已生成{}個測試棋子並選擇{}個用於戰鬥", 10, testChess.size()));
         text->setFontSize(32);
         text->runAtPosition(Engine::getInstance()->getUIWidth() / 2 - 200, Engine::getInstance()->getUIHeight() / 2);
+    }
+    else if (code == "RANGED")
+    {
+        // 1v1 ranged test: 段譽(53) vs 黃藥師(57)
+        auto ally = Save::getInstance()->getRole(53);
+        auto enemy = Save::getInstance()->getRole(57);
+        if (ally && enemy)
+        {
+            ally->HP = ally->MaxHP;
+            enemy->HP = enemy->MaxHP;
+            KysChess::Chess c{ally, 0};
+            auto ids = KysChess::BattleRoleManager::applyEnhancements({c});
+            DynamicBattleRoles roles;
+            roles.teammate_ids = ids;
+            roles.enemy_ids = {enemy->ID};
+            auto battle = DynamicChessMap::createBattle(roles);
+            battle->run();
+            KysChess::BattleRoleManager::restoreRoles();
+        }
     }
     else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
         && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))

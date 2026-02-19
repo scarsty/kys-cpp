@@ -1,7 +1,9 @@
 ﻿#include <map>
 
 #include "Chess.h"
+#include "ChessBalance.h"
 #include "ChessPool.h"
+#include "Random.h"
 
 namespace KysChess
 {
@@ -18,7 +20,14 @@ public:
 
     bool removeChess(Chess c);
 
-    int getCount()
+    bool wouldMerge(Chess c) const
+    {
+        if (c.star > 1) return false;
+        auto it = countMap_.find(c);
+        return it != countMap_.end() && it->second >= 2;
+    }
+
+    int getCount() const
     {
         return countTotal_;
     }
@@ -36,7 +45,7 @@ public:
 
     void advance() {
         subStage_++;
-        if (subStage_ >= 5) {
+        if (subStage_ >= ChessBalance::config().substagesPerStage) {
             subStage_ = 0;
             stage_++;
         }
@@ -44,16 +53,13 @@ public:
 
     int getStage() const { return stage_; }
     int getSubStage() const { return subStage_; }
+    void setStage(int s) { stage_ = s; }
+    void setSubStage(int s) { subStage_ = s; }
 
-    // Returns true if this is the last substage of a stage (boss fight)
-    bool isBossFight() const { return subStage_ == 4; }
-
-    // Max stage is 3 (0, 1, 2)
-    bool isGameComplete() const { return stage_ >= 3; }
+    bool isBossFight() const { return subStage_ == ChessBalance::config().bossSubstage; }
+    bool isGameComplete() const { return stage_ >= ChessBalance::config().gameCompleteStage; }
 
 private:
-
-    // Every 5 sub stage we move to the next stage
     int stage_;
     int subStage_;
 };
@@ -64,6 +70,42 @@ struct GameData
     ChessCollection collection;
     ChessPool chessPool;
     BattleProgress battleProgress;
+
+    // Two independent random streams for save/load determinism
+    // Shop: pool selection + shop rolls; Enemy: enemy selection + battle variation
+    unsigned int shopSeed_ = 0, enemySeed_ = 0;
+    unsigned int shopCallCount_ = 0, enemyCallCount_ = 0;
+    Random<> shopRand_, enemyRand_;
+
+    void initRand()
+    {
+        std::random_device rd;
+        shopSeed_ = rd();
+        enemySeed_ = rd();
+        shopCallCount_ = enemyCallCount_ = 0;
+        shopRand_.set_seed(shopSeed_);
+        enemyRand_.set_seed(enemySeed_);
+    }
+
+    void restoreRand()
+    {
+        shopRand_.set_seed(shopSeed_);
+        shopRand_.get_generator().discard(shopCallCount_);
+        enemyRand_.set_seed(enemySeed_);
+        enemyRand_.get_generator().discard(enemyCallCount_);
+    }
+
+    int shopRandInt(int n)
+    {
+        shopCallCount_++;
+        return shopRand_.rand_int(n);
+    }
+
+    int enemyRandInt(int n)
+    {
+        enemyCallCount_++;
+        return enemyRand_.rand_int(n);
+    }
 
     static GameData& get() {
         static GameData data;
@@ -89,30 +131,48 @@ struct GameData
 
     void increaseExp(int e)
     {
-        static int expTable[] = { 0, 10, 30, 60, 100, 150, 210, 280, 360, 450, 550 };
+        auto& cfg = ChessBalance::config();
         exp_ += e;
-        if (exp_ >= expTable[level_ + 1] && level_ < 10)
+        if (level_ < cfg.maxLevel && level_ < (int)cfg.expTable.size()
+            && exp_ >= cfg.expTable[level_])
         {
+            exp_ -= cfg.expTable[level_];
             level_ += 1;
         }
     }
 
-    int getLevel() const
+    int getExpForNextLevel() const
     {
-        return level_;
+        auto& cfg = ChessBalance::config();
+        if (level_ < cfg.maxLevel && level_ < (int)cfg.expTable.size())
+            return cfg.expTable[level_];
+        return exp_;
     }
 
-    // Selected chess pieces for battle (persisted)
+    int getLevel() const { return level_; }
+    int getMoney() const { return money_; }
+    int getExp() const { return exp_; }
+    void setLevel(int v) { level_ = v; }
+    void setMoney(int v) { money_ = v; }
+    void setExp(int v) { exp_ = v; }
+
+    int getBenchCount() const { return collection.getCount() - (int)selectedForBattle_.size(); }
+    bool isBenchFull() const { return getBenchCount() >= ChessBalance::config().benchSize; }
+
     const std::vector<Chess>& getSelectedForBattle() const { return selectedForBattle_; }
 
     void setSelectedForBattle(const std::vector<Chess>& selected) { selectedForBattle_ = selected; }
 
     void clearSelectedForBattle() { selectedForBattle_.clear(); }
 
+    bool isShopLocked() const { return shopLocked_; }
+    void setShopLocked(bool v) { shopLocked_ = v; }
+
 private:
     int money_ = 0;
     int exp_ = 0;
     int level_ = 0;
+    bool shopLocked_ = false;
     std::vector<Chess> selectedForBattle_;
 };
 

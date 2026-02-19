@@ -38,12 +38,12 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBat
 
     // Override enemy IDs using modifiableInfo
     auto& info = battle->modifiableInfo();
-    for (size_t i = 0; i < roles.enemy_ids.size() && i < 10; i++)
+    for (size_t i = 0; i < roles.enemy_ids.size() && i < BATTLE_ENEMY_COUNT; i++)
     {
         info.Enemy[i] = roles.enemy_ids[i];
     }
     // Set remaining enemy slots to -1
-    for (size_t i = roles.enemy_ids.size(); i < 10; i++)
+    for (size_t i = roles.enemy_ids.size(); i < BATTLE_ENEMY_COUNT; i++)
     {
         info.Enemy[i] = -1;
     }

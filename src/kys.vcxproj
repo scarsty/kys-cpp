@@ -83,6 +83,9 @@
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
       <Profile>true</Profile>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -113,6 +116,9 @@
       <Command>
       </Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
@@ -152,6 +158,10 @@
     <ClCompile Include="ParticleExample.cpp" />
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
+    <ClCompile Include="ChessBalance.cpp" />
+    <ClCompile Include="BattleStatsView.cpp" />
+    <ClCompile Include="ChessCombo.cpp" />
+    <ClCompile Include="ChessModHook.cpp" />
     <ClCompile Include="ChessPool.cpp" />
     <ClCompile Include="RunNode.cpp" />
     <ClCompile Include="GameUtil.cpp" />
@@ -213,6 +223,10 @@
     <ClInclude Include="BattleSceneSekiro.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
+    <ClInclude Include="ChessBalance.h" />
+    <ClInclude Include="BattleStatsView.h" />
+    <ClInclude Include="ChessCombo.h" />
+    <ClInclude Include="ChessModHook.h" />
     <ClInclude Include="ChessPool.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />

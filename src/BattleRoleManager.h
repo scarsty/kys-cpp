@@ -13,10 +13,10 @@ namespace KysChess
 class BattleRoleManager
 {
 public:
-    // Star enhancement constants
-    static constexpr int HP_PER_STAR = 100;
-    static constexpr int ATK_PER_STAR = 60;
-    static constexpr int DEF_PER_STAR = 10;
+    // Star scaling multipliers — loaded from chess_balance.yaml
+
+    // Apply star bonus to a single role (used by both player and enemy sides)
+    static void applyStarBonus(Role* role, int stars);
 
     // Applies star enhancements to selected chess roles
     // Returns role IDs that can be used in battle
@@ -32,6 +32,8 @@ private:
         int HP;
         int Attack;
         int Defence;
+        int Fist, Sword, Knife, Unusual, HiddenWeapon;
+        int Speed;
     };
 
     static std::map<int, RoleBackup> backups_;

@@ -1,18 +1,36 @@
 ﻿#include "ChessUIStatus.h"
+#include "BattleRoleManager.h"
+#include "ChessBalance.h"
+#include "ChessCombo.h"
+#include "ChessPool.h"
 #include "Engine.h"
+#include "GameUtil.h"
+#include "TempStore.h"
 
 void ChessUIStatus::draw()
 {
     if (!role_) return;
 
     // Draw translucent black background
-    Engine::getInstance()->fillColor({0, 0, 0, 128}, x_, y_, 600, 500);
+    Engine::getInstance()->fillColor({0, 0, 0, 128}, x_, y_, 460, 440);
 
-    TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 20);
-
+    auto& gd = KysChess::GameData::get();
     auto font = Font::getInstance();
     Color color_white = { 255, 255, 255, 255 };
     Color color_name = { 255, 215, 0, 255 };
+
+    // Compute boosted stats for display
+    auto& bcfg = KysChess::ChessBalance::config();
+    double hpAtkMult = 1.0 + bcfg.starHPAtkMult * star_;
+    double defMult = 1.0 + bcfg.starDefMult * star_;
+    double spdMult = 1.0 + bcfg.starSpdMult * star_;
+    int dispMaxHP = static_cast<int>(role_->MaxHP * hpAtkMult);
+    int dispAttack = static_cast<int>(role_->Attack * hpAtkMult);
+    int dispDefence = static_cast<int>(role_->Defence * defMult);
+    int dispSpeed = static_cast<int>(role_->Speed * spdMult);
+
+    TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 15);
+
     Color color_ability1 = { 255, 250, 205, 255 };
     Color color_ability2 = { 236, 200, 40, 255 };
     Color color_red = { 255, 90, 60, 255 };
@@ -58,73 +76,95 @@ void ChessUIStatus::draw()
 
     int font_size = 22;
 
-    int x = x_ + 200;
-    int y = y_ + 50;
-
-    font->draw("生命", font_size, x + 175, y + 50, color_ability1);
-    font->draw(std::format("{:5}/", role_->HP), font_size, x + 219, y + 50, color_white);
-    font->draw(std::format("{:5}", role_->MaxHP), font_size, x + 285, y + 50, color_white);
-    font->draw("內力", font_size, x + 175, y + 75, color_ability1);
-
+    // Stats right of avatar
+    int sx = x_ + 195, sy = y_ + 20;
+    font->draw("生命", font_size, sx, sy, color_ability1);
+    font->draw(std::format("{:5}/{:5}", dispMaxHP, dispMaxHP), font_size, sx + 44, sy, color_white);
     Color c = color_white;
-    if (role_->MPType == 0)
-    {
-        c = color_purple;
-    }
-    else if (role_->MPType == 1)
-    {
-        c = color_magic;
-    }
+    if (role_->MPType == 0) c = color_purple;
+    else if (role_->MPType == 1) c = color_magic;
+    font->draw("內力", font_size, sx, sy + 25, color_ability1);
+    font->draw(std::format("{:5}/{:5}", role_->MP, GameUtil::MAX_MP), font_size, sx + 44, sy + 25, c);
+    font->draw("攻擊", font_size, sx, sy + 55, color_ability1);
+    font->draw(std::format("{:5}", dispAttack), font_size, sx + 44, sy + 55, select_color1(dispAttack, Role::getMaxValue()->Attack));
+    font->draw("防禦", font_size, sx, sy + 80, color_ability1);
+    font->draw(std::format("{:5}", dispDefence), font_size, sx + 44, sy + 80, select_color1(dispDefence, Role::getMaxValue()->Defence));
+    font->draw("輕功", font_size, sx, sy + 105, color_ability1);
+    font->draw(std::format("{:5}", dispSpeed), font_size, sx + 44, sy + 105, select_color1(dispSpeed, Role::getMaxValue()->Speed));
 
-    font->draw(std::format("{:5}/", role_->MP), font_size, x + 219, y + 75, c);
-    font->draw(std::format("{:5}", role_->MaxMP), font_size, x + 285, y + 75, c);
-
-    x = x_ + 20;
-    y = y_ + 200;
-
-    font->draw("攻擊", font_size, x, y, color_ability1);
-    font->draw(std::format("{:5}", role_->Attack), font_size, x + 44, y, select_color1(role_->Attack, Role::getMaxValue()->Attack));
-    font->draw("防禦", font_size, x + 200, y, color_ability1);
-    font->draw(std::format("{:5}", role_->Defence), font_size, x + 244, y, select_color1(role_->Defence, Role::getMaxValue()->Defence));
-    font->draw("輕功", font_size, x + 400, y, color_ability1);
-    font->draw(std::format("{:5}", role_->Speed), font_size, x + 444, y, select_color1(role_->Speed, Role::getMaxValue()->Speed));
-
-    x = x_ + 20;
-    y = y_ + 270;
+    // 技能 section
+    int x = x_ + 20;
+    int y = y_ + 155;
     font->draw("技能", 25, x - 10, y, color_name);
 
-    font->draw("拳掌", font_size, x, y + 30, color_ability1);
-    font->draw(std::format("{:5}", role_->Fist), font_size, x + 44, y + 30, select_color1(role_->Fist, Role::getMaxValue()->Fist));
-    font->draw("御劍", font_size, x, y + 55, color_ability1);
-    font->draw(std::format("{:5}", role_->Sword), font_size, x + 44, y + 55, select_color1(role_->Sword, Role::getMaxValue()->Sword));
-    font->draw("耍刀", font_size, x, y + 80, color_ability1);
-    font->draw(std::format("{:5}", role_->Knife), font_size, x + 44, y + 80, select_color1(role_->Knife, Role::getMaxValue()->Knife));
-    font->draw("特殊", font_size, x, y + 105, color_ability1);
-    font->draw(std::format("{:5}", role_->Unusual), font_size, x + 44, y + 105, select_color1(role_->Unusual, Role::getMaxValue()->Unusual));
-    font->draw("暗器", font_size, x, y + 130, color_ability1);
-    font->draw(std::format("{:5}", role_->HiddenWeapon), font_size, x + 44, y + 130, select_color1(role_->HiddenWeapon, Role::getMaxValue()->HiddenWeapon));
+    int dispFist = static_cast<int>(role_->Fist * defMult);
+    int dispSword = static_cast<int>(role_->Sword * defMult);
+    int dispKnife = static_cast<int>(role_->Knife * defMult);
+    int dispUnusual = static_cast<int>(role_->Unusual * defMult);
+    int dispHidden = static_cast<int>(role_->HiddenWeapon * defMult);
 
-    x = x_ + 220;
-    y = y_ + 270;
-    font->draw("武學", 25, x - 10, y, color_name);
-    for (int i = 0; i < 10; i++)
+    font->draw("拳掌", font_size, x, y + 30, color_ability1);
+    font->draw(std::format("{:5}", dispFist), font_size, x + 44, y + 30, select_color1(dispFist, Role::getMaxValue()->Fist));
+    font->draw("御劍", font_size, x, y + 55, color_ability1);
+    font->draw(std::format("{:5}", dispSword), font_size, x + 44, y + 55, select_color1(dispSword, Role::getMaxValue()->Sword));
+    font->draw("耍刀", font_size, x, y + 80, color_ability1);
+    font->draw(std::format("{:5}", dispKnife), font_size, x + 44, y + 80, select_color1(dispKnife, Role::getMaxValue()->Knife));
+    font->draw("特殊", font_size, x, y + 105, color_ability1);
+    font->draw(std::format("{:5}", dispUnusual), font_size, x + 44, y + 105, select_color1(dispUnusual, Role::getMaxValue()->Unusual));
+    font->draw("暗器", font_size, x, y + 130, color_ability1);
+    font->draw(std::format("{:5}", dispHidden), font_size, x + 44, y + 130, select_color1(dispHidden, Role::getMaxValue()->HiddenWeapon));
+
+    // 武学 section - beside 技能, single column
+    int mx = x_ + 220;
+    font->draw("武學", 25, mx - 10, y, color_name);
+    for (int i = 0; i < 4; i++)
     {
         auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
-        std::string str = "__________";
         if (magic)
         {
-            int x1 = x + i % 2 * 200;
-            int y1 = y + 30 + i / 2 * 25;
-            str = std::format("{}", magic->Name);
-            font->draw(str, font_size, x1, y1, color_ability1);
-            str = std::format("{:3}", role_->getRoleShowLearnedMagicLevel(i));
-            font->draw(str, font_size, x1 + 100, y1, role_->getRoleShowLearnedMagicLevel(i) > 9 ? color_red : color_purple);
-        }
-        else
-        {
-            int x1 = x + i % 2 * 200;
-            int y1 = y + 30 + i / 2 * 25;
-            font->draw("", font_size, x1, y1, color_ability1);
+            int x1 = mx;
+            int y1 = y + 30 + i * 25;
+            font->draw(std::format("{}", magic->Name), font_size, x1, y1, color_ability1);
+            font->draw(std::format("{:3}", role_->getRoleShowLearnedMagicLevel(i)), font_size, x1 + 100, y1,
+                role_->getRoleShowLearnedMagicLevel(i) > 9 ? color_red : color_purple);
         }
     }
-}   
+
+    // Owned pieces
+    x = x_ + 10;
+    y = y_ + 310;
+    font->draw("擁有", font_size, x, y, color_name);
+    int ox = x + 50;
+    for (auto& [chess, count] : gd.collection.getChess())
+    {
+        if (chess.role->ID != role_->ID) continue;
+        std::string stars;
+        for (int i = 0; i <= chess.star; i++) stars += "★";
+        font->draw(std::format("{} x{}", stars, count), font_size, ox, y, color_white);
+        ox += 120;
+    }
+
+    // Combo affiliations
+    y += 28;
+    auto roleCombos = KysChess::ChessCombo::getCombosForRole(role_->ID);
+    if (!roleCombos.empty())
+    {
+        font->draw("羈絆", font_size, x, y, color_name);
+        y += 24;
+        std::set<int> ownedIds;
+        for (auto& [ch, cnt] : gd.collection.getChess())
+            if (ch.role) ownedIds.insert(ch.role->ID);
+        auto& allCombos = KysChess::ChessCombo::getAllCombos();
+        for (auto cid : roleCombos)
+        {
+            auto& combo = allCombos[(int)cid];
+            int owned = 0;
+            for (int rid : combo.memberRoleIds)
+                if (ownedIds.count(rid)) owned++;
+            Color col = owned >= 2 ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
+            font->draw(std::format("{} ({}/{})", combo.name, owned, combo.memberRoleIds.size()), font_size - 2, x + 10, y, col);
+            y += 20;
+            if (y > y_ + 440) break;
+        }
+    }
+}

@@ -1,4 +1,5 @@
 ﻿#include "Save.h"
+#include "ChessModHook.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "NewSave.h"
@@ -96,6 +97,7 @@ bool Save::load(int num)
     SQLite3Wrapper db(filenamedb);
     loadRFromDB(db);
     updateAllPtrVector();
+    KysChess::ChessModHook::loadGameData(db);
 
     //读取SD数据
     //注意比较多的回退情况，即找不到zip时，又单独找其他文件
@@ -402,6 +404,7 @@ void Save::saveRToDB(SQLite3Wrapper& db)
     NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
     NewSave::SaveDBMagicSave(db, magics_mem_);
     NewSave::SaveDBShopSave(db, shops_mem_);
+    KysChess::ChessModHook::saveGameData(db);
     db.CommitTransaction();
 }
 

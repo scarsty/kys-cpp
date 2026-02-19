@@ -116,11 +116,7 @@ void Head::draw()
             c_text = { 250, 200, 50, 255 };
         }
         Engine::getInstance()->renderSquareTexture(&r1, c, alpha_ribbon);
-        font->draw(std::format("{:3}/{:3}", role_->MP, std::min(role_->MP, GameUtil::MAX_MP), GameUtil::MAX_MP), 16, x_ + 138, y_ + 44, c_text, alpha_text);
-        r1 = { x_ + 115, y_ + 65, 83 * role_->PhysicalPower / 100, 9 };
-        c = { 128, 128, 255, 255 };
-        Engine::getInstance()->renderSquareTexture(&r1, c, alpha_ribbon);
-        font->draw(std::format("{}", role_->PhysicalPower), 16, x_ + 154 - 4 * GameUtil::digit(role_->PhysicalPower), y_ + 61, { 250, 200, 50, 255 }, alpha_text);
+        font->draw(std::format("{:3}/{:3}", role_->MP, GameUtil::MAX_MP), 16, x_ + 138, y_ + 44, c_text, alpha_text);
     }
     else if (style_ == 1)
     {

@@ -11,7 +11,9 @@ void UIStatusDrawable::updateScreenWithID(int id) {
         uiStatus_->setRole(nullptr);
         return;
     }
+    int star = id % 10;
+    int roleId = id / 10;
     DrawableOnCall::updateScreenWithID(id);
-    Role* role = Save::getInstance()->getRole(id);
-    uiStatus_->setRole(role);
+    Role* role = Save::getInstance()->getRole(roleId);
+    uiStatus_->setRole(role, star);
 }

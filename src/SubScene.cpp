@@ -1,6 +1,8 @@
 ﻿#include "SubScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
+#include "ChessModHook.h"
+#include "ChessSelector.h"
 #include "Console.h"
 #include "Event.h"
 #include "Font.h"
@@ -214,15 +216,7 @@ void SubScene::dealEvent(EngineEvent& e)
         //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
         || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
-        UI::getInstance()->run();
-        auto item = UI::getInstance()->getUsedItem();
-        if (item && item->ItemType == 0)
-        {
-            if (checkEvent2(man_x_, man_y_, towards_, item->ID))
-            {
-                step_ = 0;
-            }
-        }
+        KysChess::ChessModHook::showMenu();
     }
 
     //键盘走路部分，检测4个方向键
@@ -471,6 +465,7 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
         }
         if (id > 0)
         {
+            if (KysChess::ChessModHook::interceptEvent(submap_info_->ID, id)) { return true; }
             return Event::getInstance()->callEvent(id, this, submap_info_->ID, item_id, event_index_submap, x, y);
         }
     }
@@ -534,6 +529,7 @@ bool SubScene::isFall(int x, int y)
 
 bool SubScene::isExit(int x, int y)
 {
+    if (KysChess::ChessModHook::blockExit(submap_info_->ID)) { return false; }
     if (submap_info_->ExitX[0] == x && submap_info_->ExitY[0] == y || submap_info_->ExitX[1] == x && submap_info_->ExitY[1] == y || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
     {
         setExit(true);
