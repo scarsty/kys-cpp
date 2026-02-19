@@ -1,6 +1,5 @@
 #include "BattleStatsView.h"
 #include "BattleRoleManager.h"
-#include "ChessBalance.h"
 #include "Engine.h"
 #include "Font.h"
 #include "Save.h"
@@ -30,14 +29,11 @@ static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team)
     e.role = role;
     e.star = star;
     e.team = team;
-    auto& cfg = KysChess::ChessBalance::config();
-    double hpAtkM = 1.0 + cfg.starHPAtkMult * star;
-    double defM = 1.0 + cfg.starDefMult * star;
-    double spdM = 1.0 + cfg.starSpdMult * star;
-    e.hp = static_cast<int>(role->MaxHP * hpAtkM);
-    e.atk = static_cast<int>(role->Attack * hpAtkM);
-    e.def = static_cast<int>(role->Defence * defM);
-    e.spd = static_cast<int>(role->Speed * spdM);
+    auto s = KysChess::BattleRoleManager::computeStarStats(role, star);
+    e.hp = s.hp;
+    e.atk = s.atk;
+    e.def = s.def;
+    e.spd = s.spd;
     // Collect skill names
     for (int i = 0; i < 4; i++)
     {
@@ -67,6 +63,7 @@ static BattleStatsView::ComboEntry makeComboEntry(const KysChess::ActiveCombo& a
 void BattleStatsView::setupPreBattle(
     const std::vector<KysChess::Chess>& allies,
     const std::vector<int>& enemyIds,
+    const std::vector<int>& enemyStars,
     const std::vector<KysChess::ActiveCombo>& allyC,
     const std::vector<KysChess::ActiveCombo>& enemyC)
 {
@@ -74,10 +71,11 @@ void BattleStatsView::setupPreBattle(
     allies_.clear(); enemies_.clear();
     for (auto& c : allies)
         if (c.role) allies_.push_back(makeEntry(c.role, c.star, 0));
-    for (int id : enemyIds)
+    for (size_t i = 0; i < enemyIds.size(); ++i)
     {
-        auto r = Save::getInstance()->getRole(id);
-        if (r) enemies_.push_back(makeEntry(r, 0, 1));
+        auto r = Save::getInstance()->getRole(enemyIds[i]);
+        int star = (i < enemyStars.size()) ? enemyStars[i] : 0;
+        if (r) enemies_.push_back(makeEntry(r, star, 1));
     }
     allyCombos_.clear(); enemyCombos_.clear();
     for (auto& ac : allyC)

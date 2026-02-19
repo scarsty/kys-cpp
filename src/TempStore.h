@@ -41,27 +41,18 @@ public:
 class BattleProgress {
 
 public:
-    BattleProgress() : stage_(0), subStage_(0) {}
+    BattleProgress() : fight_(0) {}
 
-    void advance() {
-        subStage_++;
-        if (subStage_ >= ChessBalance::config().substagesPerStage) {
-            subStage_ = 0;
-            stage_++;
-        }
-    }
+    void advance() { fight_++; }
 
-    int getStage() const { return stage_; }
-    int getSubStage() const { return subStage_; }
-    void setStage(int s) { stage_ = s; }
-    void setSubStage(int s) { subStage_ = s; }
+    int getFight() const { return fight_; }
+    void setFight(int f) { fight_ = f; }
 
-    bool isBossFight() const { return subStage_ == ChessBalance::config().bossSubstage; }
-    bool isGameComplete() const { return stage_ >= ChessBalance::config().gameCompleteStage; }
+    bool isBossFight() const { return (fight_ + 1) % ChessBalance::config().bossInterval == 0; }
+    bool isGameComplete() const { return fight_ >= ChessBalance::config().totalFights; }
 
 private:
-    int stage_;
-    int subStage_;
+    int fight_;
 };
 
 
@@ -110,6 +101,18 @@ struct GameData
     static GameData& get() {
         static GameData data;
         return data;
+    }
+
+    void reset()
+    {
+        collection = ChessCollection{};
+        chessPool = ChessPool{};
+        battleProgress = BattleProgress{};
+        selectedForBattle_.clear();
+        money_ = 0;
+        exp_ = 0;
+        level_ = 0;
+        shopLocked_ = false;
     }
 
     bool spend(int m)

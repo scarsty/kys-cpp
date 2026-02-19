@@ -53,6 +53,7 @@ public:
     void setupPreBattle(
         const std::vector<KysChess::Chess>& allies,
         const std::vector<int>& enemyIds,
+        const std::vector<int>& enemyStars,
         const std::vector<KysChess::ActiveCombo>& allyCombos,
         const std::vector<KysChess::ActiveCombo>& enemyCombos);
 

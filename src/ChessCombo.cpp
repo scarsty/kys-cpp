@@ -1,5 +1,6 @@
 #include "ChessCombo.h"
 #include "Chess.h"
+#include "ChessPool.h"
 #include "Save.h"
 #include "GameUtil.h"
 #include "yaml-cpp/yaml.h"
@@ -163,8 +164,17 @@ std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& sele
 
         if (combo.isAntiCombo)
         {
-            // 独行: fewer = stronger. [0]=1member, [1]=2, [2]=3+
-            ac.activeThresholdIdx = (ac.memberCount == 1) ? 0 : (ac.memberCount == 2) ? 1 : 2;
+            // 独行: apply only to the single highest-tier member present
+            int bestId = -1, bestTier = -1;
+            for (int rid : ac.memberRoleIds)
+            {
+                int t = ChessPool::GetChessTier(rid);
+                if (t > bestTier) { bestTier = t; bestId = rid; }
+            }
+            ac.memberRoleIds.clear();
+            ac.memberRoleIds.insert(bestId);
+            ac.memberCount = 1;
+            ac.activeThresholdIdx = 0;
         }
         else
         {
@@ -189,19 +199,10 @@ std::map<int, RoleComboState> ChessCombo::buildComboStates(const std::vector<Act
             auto& s = states[rid];
             for (auto& e : thresh.effects)
             {
-                // Route triggered effects to dedicated RoleComboState fields
-                if (e.trigger == Trigger::WhileLowHP)
+                // Non-Always triggers: store generically
+                if (e.trigger != Trigger::Always)
                 {
-                    s.lowHPThresholdPct = std::max(s.lowHPThresholdPct, e.trigger_value);
-                    if (e.type == EffectType::PctATK) s.lowHPAtkPct += e.value;
-                    else if (e.type == EffectType::FlatSPD) s.lowHPSpdFlat += e.value;
-                    continue;
-                }
-                if (e.trigger == Trigger::AllyLowHPBurst)
-                {
-                    s.lowHPThresholdPct = std::max(s.lowHPThresholdPct, e.trigger_value);
-                    s.berserkATKPct += e.value;
-                    if (e.value2) s.berserkDuration = std::max(s.berserkDuration, e.value2);
+                    s.triggeredEffects.push_back(e);
                     continue;
                 }
 

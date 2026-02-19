@@ -357,55 +357,53 @@ void ChessSelector::sellChess()
 {
     auto& gameData = GameData::get();
 
-    auto& chessMap = gameData.collection.getChess();
-
-    if (chessMap.empty())
+    for (;;)
     {
-        // No chess in collection
-        return;
-    }
+        auto& chessMap = gameData.collection.getChess();
+        if (chessMap.empty()) return;
 
-    std::vector<std::pair<int, std::string>> rolePairs;
-    std::vector<Color> roleColors;
-    std::vector<Chess> chessList;    // Keep track of chess for removal
+        std::vector<std::pair<int, std::string>> rolePairs;
+        std::vector<Color> roleColors;
+        std::vector<Chess> chessList;
 
-    // Expand each chess by its count so each piece is listed individually
-    for (const auto& [chess, count] : chessMap)
-    {
-        for (int i = 0; i < count; ++i)
+        std::map<std::pair<int,int>, int> equippedCount;
+        for (auto& s : gameData.getSelectedForBattle())
+            equippedCount[{s.role->ID, s.star}]++;
+
+        for (const auto& [chess, count] : chessMap)
         {
-            auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {});
-            rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
-            roleColors.push_back(color);
-            chessList.push_back(chess);
+            for (int i = 0; i < count; ++i)
+            {
+                auto key = std::make_pair(chess.role->ID, chess.star);
+                std::string prefix;
+                if (equippedCount[key] > 0) { prefix = "【出戰】"; equippedCount[key]--; }
+                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, prefix);
+                rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
+                roleColors.push_back(color);
+                chessList.push_back(chess);
+            }
         }
-    }
 
-    auto menu = makeChessMenu(std::format("出售棋子 背包{}/{}", gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, 10, 32);
-    menu->run();
+        auto menu = makeChessMenu(std::format("出售棋子 背包{}/{}", gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, 10, 32);
+        menu->run();
 
-    int selectedId = menu->getResult();
-    if (selectedId >= 0)
-    {
+        int selectedId = menu->getResult();
+        if (selectedId < 0) break;
+
         auto chess = chessList[selectedId];
         int tier = ChessPool::GetChessTier(chess.role->ID);
         int sellPrice = calculateCost(tier, chess.star, 1);
         gameData.collection.removeChess(chess);
 
-        // Remove one instance from battle selection if it was selected
         auto& selected = gameData.getSelectedForBattle();
         std::vector<Chess> newSelection;
         bool removedOne = false;
         for (const auto& s : selected)
         {
             if (!removedOne && s.role == chess.role && s.star == chess.star)
-            {
-                removedOne = true;  // Skip this one
-            }
+                removedOne = true;
             else
-            {
                 newSelection.push_back(s);
-            }
         }
         gameData.setSelectedForBattle(newSelection);
         gameData.make(sellPrice);
@@ -598,52 +596,19 @@ void ChessSelector::enterBattle()
     // Generate enemies based on progress
     std::vector<int> enemyIds;
     std::vector<int> enemyStars;
-    int stage = progress.getStage();
-    int subStage = progress.getSubStage();
+    int fightNum = progress.getFight();
     bool isBoss = progress.isBossFight();
 
-    // Determine enemy tier and count
+    // Generate enemies from table
     auto& ecfg = ChessBalance::config();
-    int baseTier = std::min(stage, ecfg.bossMaxTier);
-    int overflowStages = std::max(0, stage - ecfg.bossMaxTier);
-    int enemyCount = std::min(ecfg.enemyCountMax, ecfg.enemyCountBase + stage + subStage);
+    int tableIdx = std::min(fightNum, (int)ecfg.enemyTable.size() - 1);
+    auto& slots = ecfg.enemyTable[tableIdx];
 
-    // Boss fight: use next tier or add stars
-    if (isBoss)
+    for (auto& slot : slots)
     {
-        int bossTier = std::min(ecfg.bossMaxTier, baseTier + ecfg.bossTierUp);
-        int bossStars = (baseTier >= ecfg.bossMaxTier) ? std::min(3, stage - (ecfg.bossStarStartStage - 1)) : 0;
-
-        // Generate boss enemies
-        for (int i = 0; i < enemyCount; ++i)
-        {
-            auto role = ChessPool::selectEnemyFromPool(bossTier);
-            enemyIds.push_back(role->ID);
-            enemyStars.push_back(bossStars);
-        }
-    }
-    else
-    {
-        // Regular fight: use current tier with some variation
-        for (int i = 0; i < enemyCount; ++i)
-        {
-            // 70% current tier, 30% previous tier (if available)
-            int tier = baseTier;
-            if (baseTier > 0 && GameData::get().enemyRandInt(100) < ecfg.lowerTierMixPct)
-            {
-                tier = baseTier - 1;
-            }
-
-            auto role = ChessPool::selectEnemyFromPool(tier);
-            enemyIds.push_back(role->ID);
-
-            int star = overflowStages;
-            if (subStage >= ecfg.starUpgradeStartSub && GameData::get().enemyRandInt(100) < ecfg.starUpgradePct)
-                star += 1;
-            if (star >= 1 && stage >= ecfg.star2UpgradeStartStage && GameData::get().enemyRandInt(100) < ecfg.star2UpgradePct)
-                star += 1;
-            enemyStars.push_back(std::min(star, 3));
-        }
+        auto role = ChessPool::selectEnemyFromPool(slot.tier);
+        enemyIds.push_back(role->ID);
+        enemyStars.push_back(std::min(slot.star, 2));
     }
 
     // Detect combos for both teams before enhancements modify stats
@@ -659,7 +624,7 @@ void ChessSelector::enterBattle()
     // Show pre-battle stats screen
     {
         auto preBattle = std::make_shared<BattleStatsView>();
-        preBattle->setupPreBattle(selectedChess, enemyIds, allyCombos, enemyCombos);
+        preBattle->setupPreBattle(selectedChess, enemyIds, enemyStars, allyCombos, enemyCombos);
         preBattle->run();
     }
 
@@ -698,7 +663,7 @@ void ChessSelector::enterBattle()
 
     if (battle->getResult() == 0)
     {
-        int reward = ecfg.rewardBase + stage * ecfg.rewardStageCoeff + subStage;
+        int reward = ecfg.rewardBase + fightNum * ecfg.rewardGrowth / (ecfg.totalFights - 1) + (isBoss ? ecfg.bossRewardBonus : 0);
         gameData.make(reward);
         int expGain = isBoss ? ecfg.bossBattleExp : ecfg.battleExp;
         int oldLvl = gameData.getLevel();
@@ -710,7 +675,10 @@ void ChessSelector::enterBattle()
         }
         auto text = std::make_shared<TextBox>();
         std::string lvlMsg = (gameData.getLevel() > oldLvl) ? std::format(" 升級！等級{}", gameData.getLevel() + 1) : "";
-        text->setText(std::format("勝利！獲得${} 經驗+{}{} 當前第{}章第{}關", reward, expGain, lvlMsg, progress.getStage() + 1, progress.getSubStage() + 1));
+        std::string nextInfo = progress.isGameComplete() ? " 通關！"
+            : progress.isBossFight() ? std::format(" 下一關：第{}關(Boss)", progress.getFight() + 1)
+            : std::format(" 下一關：第{}關", progress.getFight() + 1);
+        text->setText(std::format("勝利！獲得${} 經驗+{}{}{}", reward, expGain, lvlMsg, nextInfo));
         text->setFontSize(32);
         text->runAtPosition(Engine::getInstance()->getUIWidth() / 2 - 200, Engine::getInstance()->getUIHeight() / 2);
     }

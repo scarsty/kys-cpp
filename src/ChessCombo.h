@@ -154,11 +154,8 @@ struct RoleComboState
     int healedATKSPDBoostPct = 0;
     int hpRegenPct = 0;
     int hpRegenInterval = 0;
-    int lowHPThresholdPct = 0;
-    int lowHPAtkPct = 0;
-    int lowHPSpdFlat = 0;
-    int berserkATKPct = 0;
-    int berserkDuration = 0;
+    // Generic triggered effects (non-Always triggers stored here)
+    std::vector<ComboEffect> triggeredEffects;
     int freezeReductionPct = 0;
     int controlImmunityFrames = 0;
     int killHealPct = 0;
@@ -172,7 +169,7 @@ struct RoleComboState
     int shield = 0;
     int poisonTimer = 0;
     int poisonTickDmg = 0;
-    int berserkTimer = 0;
+    std::map<Trigger, int> triggerTimers;  // runtime timers for burst-type triggers
 };
 
 class ChessCombo

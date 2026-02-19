@@ -24,9 +24,13 @@ bool ChessBalance::loadConfig(const std::string& path)
 
     if (auto n = root["星级加成"])
     {
-        if (n["生命攻击倍率"]) c.starHPAtkMult = n["生命攻击倍率"].as<double>();
+        if (n["生命倍率"]) c.starHPMult = n["生命倍率"].as<double>();
+        if (n["攻击倍率"]) c.starAtkMult = n["攻击倍率"].as<double>();
         if (n["防御倍率"]) c.starDefMult = n["防御倍率"].as<double>();
         if (n["速度倍率"]) c.starSpdMult = n["速度倍率"].as<double>();
+        if (n["固定生命"]) c.starFlatHP = n["固定生命"].as<int>();
+        if (n["固定攻击"]) c.starFlatAtk = n["固定攻击"].as<int>();
+        if (n["固定防御"]) c.starFlatDef = n["固定防御"].as<int>();
     }
 
     if (auto n = root["经济"])
@@ -38,7 +42,8 @@ bool ChessBalance::loadConfig(const std::string& path)
         if (n["战斗经验"]) c.battleExp = n["战斗经验"].as<int>();
         if (n["Boss战斗经验"]) c.bossBattleExp = n["Boss战斗经验"].as<int>();
         if (n["战斗奖励基础"]) c.rewardBase = n["战斗奖励基础"].as<int>();
-        if (n["战斗奖励阶段系数"]) c.rewardStageCoeff = n["战斗奖励阶段系数"].as<int>();
+        if (n["战斗奖励增长"]) c.rewardGrowth = n["战斗奖励增长"].as<int>();
+        if (n["Boss奖励加成"]) c.bossRewardBonus = n["Boss奖励加成"].as<int>();
     }
 
     if (auto n = root["棋子费用"])
@@ -72,25 +77,22 @@ bool ChessBalance::loadConfig(const std::string& path)
         }
     }
 
-    if (auto n = root["敌人"])
+    if (root["敌人表"])
     {
-        if (n["数量基础"]) c.enemyCountBase = n["数量基础"].as<int>();
-        if (n["数量上限"]) c.enemyCountMax = n["数量上限"].as<int>();
-        if (n["低级混入概率"]) c.lowerTierMixPct = n["低级混入概率"].as<int>();
-        if (n["星级提升起始关卡"]) c.starUpgradeStartSub = n["星级提升起始关卡"].as<int>();
-        if (n["星级提升概率"]) c.starUpgradePct = n["星级提升概率"].as<int>();
-        if (n["二星提升起始阶段"]) c.star2UpgradeStartStage = n["二星提升起始阶段"].as<int>();
-        if (n["二星提升概率"]) c.star2UpgradePct = n["二星提升概率"].as<int>();
-        if (n["Boss升阶"]) c.bossTierUp = n["Boss升阶"].as<int>();
-        if (n["Boss最高费"]) c.bossMaxTier = n["Boss最高费"].as<int>();
-        if (n["Boss星级起始阶段"]) c.bossStarStartStage = n["Boss星级起始阶段"].as<int>();
+        c.enemyTable.clear();
+        for (const auto& round : root["敌人表"])
+        {
+            std::vector<BalanceConfig::EnemySlot> slots;
+            for (const auto& slot : round)
+                slots.push_back({slot[0].as<int>(), slot[1].as<int>()});
+            c.enemyTable.push_back(std::move(slots));
+        }
     }
 
     if (auto n = root["进度"])
     {
-        if (n["每阶段关卡数"]) c.substagesPerStage = n["每阶段关卡数"].as<int>();
-        if (n["Boss关卡序号"]) c.bossSubstage = n["Boss关卡序号"].as<int>();
-        if (n["通关阶段数"]) c.gameCompleteStage = n["通关阶段数"].as<int>();
+        if (n["总关卡数"]) c.totalFights = n["总关卡数"].as<int>();
+        if (n["Boss间隔"]) c.bossInterval = n["Boss间隔"].as<int>();
     }
 
     config_ = std::move(c);

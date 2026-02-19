@@ -1,4 +1,5 @@
 #include "ChessModHook.h"
+#include "ChessCombo.h"
 #include "ChessSelector.h"
 #include "Menu.h"
 #include "SQLite3Wrapper.h"
@@ -17,8 +18,10 @@ bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
     x = 21;
     y = 54;
     event = -1;
+    GameData::get().reset();
     GameData::get().initRand();
     GameData::get().setMoney(ChessBalance::config().initialMoney);
+    ChessCombo::clearActiveStates();
     return true;
 }
 
@@ -60,10 +63,10 @@ void ChessModHook::saveGameData(SQLite3Wrapper& db)
 
     // Save scalar state
     db.execute("drop table if exists chess_state");
-    db.execute("create table chess_state(money int,exp int,level int,stage int,substage int,shop_seed int,shop_calls int,enemy_seed int,enemy_calls int,shop_locked int)");
-    db.execute(std::format("insert into chess_state values({},{},{},{},{},{},{},{},{},{})",
+    db.execute("create table chess_state(money int,exp int,level int,fight int,shop_seed int,shop_calls int,enemy_seed int,enemy_calls int,shop_locked int)");
+    db.execute(std::format("insert into chess_state values({},{},{},{},{},{},{},{},{})",
         gd.getMoney(), gd.getExp(), gd.getLevel(),
-        gd.battleProgress.getStage(), gd.battleProgress.getSubStage(),
+        gd.battleProgress.getFight(),
         gd.shopSeed_, gd.shopCallCount_, gd.enemySeed_, gd.enemyCallCount_,
         gd.isShopLocked() ? 1 : 0));
 
@@ -97,14 +100,13 @@ void ChessModHook::loadGameData(SQLite3Wrapper& db)
         gd.setMoney(stmt.getColumnInt(0));
         gd.setExp(stmt.getColumnInt(1));
         gd.setLevel(stmt.getColumnInt(2));
-        gd.battleProgress.setStage(stmt.getColumnInt(3));
-        gd.battleProgress.setSubStage(stmt.getColumnInt(4));
-        gd.shopSeed_ = stmt.getColumnInt(5);
-        gd.shopCallCount_ = stmt.getColumnInt(6);
-        gd.enemySeed_ = stmt.getColumnInt(7);
-        gd.enemyCallCount_ = stmt.getColumnInt(8);
+        gd.battleProgress.setFight(stmt.getColumnInt(3));
+        gd.shopSeed_ = stmt.getColumnInt(4);
+        gd.shopCallCount_ = stmt.getColumnInt(5);
+        gd.enemySeed_ = stmt.getColumnInt(6);
+        gd.enemyCallCount_ = stmt.getColumnInt(7);
         gd.restoreRand();
-        gd.setShopLocked(stmt.getColumnInt(9) != 0);
+        gd.setShopLocked(stmt.getColumnInt(8) != 0);
     }
 
     // Load chess collection

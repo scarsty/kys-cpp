@@ -1,6 +1,5 @@
 ﻿#include "ChessUIStatus.h"
 #include "BattleRoleManager.h"
-#include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessPool.h"
 #include "Engine.h"
@@ -20,14 +19,11 @@ void ChessUIStatus::draw()
     Color color_name = { 255, 215, 0, 255 };
 
     // Compute boosted stats for display
-    auto& bcfg = KysChess::ChessBalance::config();
-    double hpAtkMult = 1.0 + bcfg.starHPAtkMult * star_;
-    double defMult = 1.0 + bcfg.starDefMult * star_;
-    double spdMult = 1.0 + bcfg.starSpdMult * star_;
-    int dispMaxHP = static_cast<int>(role_->MaxHP * hpAtkMult);
-    int dispAttack = static_cast<int>(role_->Attack * hpAtkMult);
-    int dispDefence = static_cast<int>(role_->Defence * defMult);
-    int dispSpeed = static_cast<int>(role_->Speed * spdMult);
+    auto bs = KysChess::BattleRoleManager::computeStarStats(role_, star_);
+    int dispMaxHP = bs.hp;
+    int dispAttack = bs.atk;
+    int dispDefence = bs.def;
+    int dispSpeed = bs.spd;
 
     TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 15);
 
@@ -97,11 +93,11 @@ void ChessUIStatus::draw()
     int y = y_ + 155;
     font->draw("技能", 25, x - 10, y, color_name);
 
-    int dispFist = static_cast<int>(role_->Fist * defMult);
-    int dispSword = static_cast<int>(role_->Sword * defMult);
-    int dispKnife = static_cast<int>(role_->Knife * defMult);
-    int dispUnusual = static_cast<int>(role_->Unusual * defMult);
-    int dispHidden = static_cast<int>(role_->HiddenWeapon * defMult);
+    int dispFist = bs.fist;
+    int dispSword = bs.sword;
+    int dispKnife = bs.knife;
+    int dispUnusual = bs.unusual;
+    int dispHidden = bs.hidden;
 
     font->draw("拳掌", font_size, x, y + 30, color_ability1);
     font->draw(std::format("{:5}", dispFist), font_size, x + 44, y + 30, select_color1(dispFist, Role::getMaxValue()->Fist));
@@ -163,7 +159,7 @@ void ChessUIStatus::draw()
             for (int rid : combo.memberRoleIds)
                 if (ownedIds.count(rid)) owned++;
             Color col = owned >= 2 ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
-            font->draw(std::format("{} ({}/{})", combo.name, owned, combo.memberRoleIds.size()), font_size - 2, x + 10, y, col);
+            font->draw(std::format("{}", combo.name), font_size - 2, x + 10, y, col);
             y += 20;
             if (y > y_ + 440) break;
         }

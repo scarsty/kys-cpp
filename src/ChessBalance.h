@@ -11,9 +11,13 @@ namespace KysChess
 struct BalanceConfig
 {
     // Star scaling
-    double starHPAtkMult = 0.80;
+    double starHPMult = 0.80;
+    double starAtkMult = 0.80;
     double starDefMult = 0.50;
     double starSpdMult = 0.25;
+    int starFlatHP = 200;
+    int starFlatAtk = 15;
+    int starFlatDef = 10;
 
     // Economy
     int initialMoney = 20;
@@ -22,8 +26,10 @@ struct BalanceConfig
     int buyExpAmount = 5;
     int battleExp = 4;
     int bossBattleExp = 8;
-    int rewardBase = 2;
-    int rewardStageCoeff = 3;
+    int rewardBase = 3;
+    int rewardGrowth = 12;
+    int bossRewardBonus = 3;
+
 
     // Chess cost
     std::array<int, 5> tierPrices = {1, 2, 3, 4, 5};
@@ -49,22 +55,13 @@ struct BalanceConfig
         {19, 25, 25, 25, 6},
     }};
 
-    // Enemy generation
-    int enemyCountBase = 2;
-    int enemyCountMax = 10;
-    int lowerTierMixPct = 30;
-    int starUpgradeStartSub = 2;
-    int starUpgradePct = 20;
-    int star2UpgradeStartStage = 3;
-    int star2UpgradePct = 15;
-    int bossTierUp = 1;
-    int bossMaxTier = 4;
-    int bossStarStartStage = 3;
+    // Enemy table: per-round list of {tier, star} pairs
+    struct EnemySlot { int tier = 0; int star = 0; };
+    std::vector<std::vector<EnemySlot>> enemyTable;
 
     // Stage progress
-    int substagesPerStage = 5;
-    int bossSubstage = 4;
-    int gameCompleteStage = 5;
+    int totalFights = 28;
+    int bossInterval = 4;
 };
 
 class ChessBalance

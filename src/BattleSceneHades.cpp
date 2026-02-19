@@ -688,28 +688,34 @@ void BattleSceneHades::backRun1()
                     }
                 }
 
-                // Low-HP conditional buffs (applied dynamically each frame)
-                if (s.lowHPThresholdPct > 0 && r->HP * 100 / std::max(1, r->MaxHP) < s.lowHPThresholdPct)
+                // Triggered effects: check conditions each frame
+                for (auto& te : s.triggeredEffects)
                 {
-                    // Berserk trigger (神雕侠侣: partner goes berserk)
-                    if (s.berserkATKPct > 0 && s.berserkTimer <= 0)
+                    if (te.trigger == KysChess::Trigger::WhileLowHP)
                     {
-                        // Find partner in same combo
-                        for (auto ally : battle_roles_)
+                        // Handled at damage time, not per-frame
+                    }
+                    else if (te.trigger == KysChess::Trigger::AllyLowHPBurst)
+                    {
+                        if (r->HP * 100 / std::max(1, r->MaxHP) < te.trigger_value
+                            && s.triggerTimers[te.trigger] <= 0)
                         {
-                            if (ally->Team == r->Team && ally != r && ally->Dead == 0)
+                            for (auto ally : battle_roles_)
                             {
-                                auto ait2 = cs.find(ally->ID);
-                                if (ait2 != cs.end() && ait2->second.berserkATKPct > 0)
-                                    ait2->second.berserkTimer = s.berserkDuration;
+                                if (ally->Team == r->Team && ally != r && ally->Dead == 0)
+                                {
+                                    auto ait2 = cs.find(ally->ID);
+                                    if (ait2 != cs.end())
+                                        ait2->second.triggerTimers[te.trigger] = te.value2;
+                                }
                             }
                         }
                     }
                 }
 
-                // Berserk timer countdown
-                if (s.berserkTimer > 0)
-                    s.berserkTimer--;
+                // Trigger timer countdowns
+                for (auto& [trig, timer] : s.triggerTimers)
+                    if (timer > 0) timer--;
 
                 // CDR (reduce CoolDown each frame)
                 if (s.cdrPct > 0 && r->CoolDown > 0)
@@ -792,11 +798,13 @@ void BattleSceneHades::backRun1()
             {
                 r->PhysicalPower += 1;
             }
-            if (current_frame_ % 3 == 0) { r->MP += 1; }
             r->ActFrame = 0;
             //r->OperationType = -1;
             r->ActType = -1;
             r->HaveAction = 0;
+        }
+        if (current_frame_ % 3 == 0) { 
+            r->MP += 1; 
         }
         decreaseToZero(r->HurtFrame);
         decreaseToZero(r->Attention);
@@ -955,7 +963,7 @@ void BattleSceneHades::backRun1()
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
             r->HP -= hurt;
-            double mpGain = hurt * 50.0 / r->MaxHP;
+            double mpGain = (hurt / r->MaxHP)  * 75.0;
             {
                 auto& cs = KysChess::ChessCombo::getActiveStates();
                 auto it = cs.find(r->ID);
@@ -1248,7 +1256,7 @@ void BattleSceneHades::Action(Role* r)
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
                     int sideCount = ae.IsUltimate ? 4 : 2;
-                    double sideStr = ae.IsUltimate ? 0.5 : 0.3;
+                    double sideStr = ae.IsUltimate ? 0.3 : 0.2;
                     double v = 5;
                     double angle = ae.Velocity.getAngle();
                     for (int i = 0; i < sideCount; i++)
@@ -1784,8 +1792,6 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     }
     if (ae.OperationType == 2)
     {
-        //hurt /= 3;
-        //ae.Frame = ae.TotalFrame + 1;
     }
     if (ae.OperationType == 3)
     {
@@ -1794,25 +1800,15 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     }
     //击退
     auto v = r->Pos - ae.Attacker->Pos;
-    v.normTo(2);
+    double pushStr = (ae.OperationType == 2) ? 0.5 : 2.0;
+    v.normTo(pushStr);
     r->Velocity += v;
-    if (r->Velocity.norm() > 3)
+    double pushCap = (ae.OperationType == 2) ? 1.5 : 3.0;
+    if (r->Velocity.norm() > pushCap)
     {
-        r->Velocity.normTo(3);
+        r->Velocity.normTo(pushCap);
     }
     r->HurtFrame = 1;    //相当于无敌时间
-
-    //用内力抵消硬直
-    if (r->MP >= hurt / 10)
-    {
-        r->MP -= hurt / 10;
-    }
-    else
-    {
-        r->Frozen += 10;    //硬直
-                            //r->ActType = -1;
-                            //r->ActType2 = -1;
-    }
 
     //武功类型特殊效果
     if (ae.UsingMagic)
@@ -1870,14 +1866,22 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (ae.UsingMagic && as.skillDmgPct > 0)
                 hurt *= (1.0 + as.skillDmgPct / 100.0);
 
-            // Low-HP ATK boost (连城诀)
-            if (as.lowHPThresholdPct > 0 && as.lowHPAtkPct > 0
-                && ae.Attacker->HP * 100 / std::max(1, ae.Attacker->MaxHP) < as.lowHPThresholdPct)
-                hurt *= (1.0 + as.lowHPAtkPct / 100.0);
-
-            // Berserk ATK boost (神雕侠侣)
-            if (as.berserkTimer > 0 && as.berserkATKPct > 0)
-                hurt *= (1.0 + as.berserkATKPct / 100.0);
+            // Triggered effect damage modifiers
+            for (auto& te : as.triggeredEffects)
+            {
+                if (te.trigger == KysChess::Trigger::WhileLowHP
+                    && ae.Attacker->HP * 100 / std::max(1, ae.Attacker->MaxHP) < te.trigger_value)
+                {
+                    if (te.type == KysChess::EffectType::PctATK)
+                        hurt *= (1.0 + te.value / 100.0);
+                }
+                else if (te.trigger == KysChess::Trigger::AllyLowHPBurst
+                    && as.triggerTimers.count(te.trigger) && as.triggerTimers.at(te.trigger) > 0)
+                {
+                    if (te.type == KysChess::EffectType::PctATK)
+                        hurt *= (1.0 + te.value / 100.0);
+                }
+            }
 
             // Armor penetration: ignore % of target defence (boost hurt proportionally)
             if (as.armorPenChancePct > 0 && rand_.rand() * 100 < as.armorPenChancePct)
