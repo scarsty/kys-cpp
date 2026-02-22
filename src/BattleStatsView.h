@@ -14,17 +14,23 @@ struct RoleBattleStats
     int damageTaken = 0;
     int kills = 0;
     std::map<std::string, int> damagePerSkill;
+    int firstDamageFrame = 0;
+    int lastActiveFrame = 0;
 };
 
 class BattleTracker
 {
 public:
-    void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName);
+    void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame);
     void recordKill(Role* killer);
+    void recordDeath(Role* role, int frame);
+    void recordBattleEnd(int frame);
     const std::map<int, RoleBattleStats>& getStats() const { return stats_; }
+    int getBattleEndFrame() const { return battleEndFrame_; }
 
 private:
     std::map<int, RoleBattleStats> stats_;
+    int battleEndFrame_ = 0;
 };
 
 class BattleStatsView : public RunNode
@@ -37,7 +43,7 @@ public:
         int team = 0;
         int hp = 0, atk = 0, def = 0, spd = 0;
         std::string skillNames;
-        int damageDealt = 0, damageTaken = 0, kills = 0;
+        int damageDealt = 0, damageTaken = 0, kills = 0, dps = 0;
         std::string skill1, skill2;
         int skill1Dmg = 0, skill2Dmg = 0;
     };

@@ -1,6 +1,7 @@
 ﻿#include "SubScene.h"
 #include "Audio.h"
 #include "BattleScene.h"
+#include "ChessBalance.h"
 #include "ChessModHook.h"
 #include "ChessSelector.h"
 #include "Console.h"
@@ -11,6 +12,8 @@
 #include "PotConv.h"
 #include "Random.h"
 #include "Timer.h"
+#include "TempStore.h"
+#include "TextureManager.h"
 #include "UI.h"
 #include "Weather.h"
 #include <format>
@@ -185,6 +188,45 @@ void SubScene::draw()
         }
     }
     Engine::getInstance()->renderTextureToMain("scene");
+
+    // Chess mod header bar
+    if (submap_id_ == 53)
+    {
+        using namespace KysChess;
+        auto& gd = GameData::get();
+        auto& cfg = ChessBalance::config();
+        auto* engine = Engine::getInstance();
+        auto* font = Font::getInstance();
+        int w = engine->getUIWidth(), fs = 18, x = 10, y = 6;
+
+        engine->fillColor({0, 0, 0, 180}, 0, 0, w, 32);
+
+        auto seg = [&](const std::string& s, Color c) {
+            font->draw(s, fs, x, y, c);
+            x += fs * Font::getTextDrawSize(s) / 2 + 12;
+        };
+
+        int fight = gd.battleProgress.getFight();
+        seg(std::format("第{}關{}", fight + 1, gd.battleProgress.isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
+        seg(std::format("${}", gd.getMoney()), {255, 215, 0, 255});
+        seg(std::format("Lv{} {}/{}", gd.getLevel() + 1, gd.getExp(), gd.getExpForNextLevel()), {100, 200, 255, 255});
+        seg(std::format("出戰{}/{}", gd.getSelectedForBattle().size(), gd.getMaxDeploy()), {100, 255, 100, 255});
+        seg(std::format("背包{}/{}", gd.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
+
+        // Obtained neigong icons (right-aligned)
+        auto& obtained = gd.getObtainedNeigong();
+        auto& pool = ChessBalance::getNeigongPool();
+        int iconX = w - 10;
+        for (int i = (int)obtained.size() - 1; i >= 0; --i)
+            for (auto& ng : pool)
+                if (ng.magicId == obtained[i])
+                {
+                    iconX -= 22;
+                    TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4, {255, 255, 255, 255}, 255, 0.35, 0.35);
+                    break;
+                }
+    }
+
     //LOG("%g\n", t0.getElapsedTime());
 }
 

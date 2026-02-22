@@ -123,7 +123,7 @@ Console::Console()
         });
 
         // Select the strongest chess pieces (up to level)
-        int maxSelection = std::max(gameData.getLevel() + 1, 2);
+        int maxSelection = gameData.getMaxDeploy();
         std::vector<KysChess::Chess> testChess;
         for (int i = 0; i < std::min(maxSelection, (int)allChess.size()); i++)
         {

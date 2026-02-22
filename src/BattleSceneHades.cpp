@@ -1,6 +1,7 @@
 ﻿#include "BattleSceneHades.h"
 #include "Audio.h"
 #include "BattleRoleManager.h"
+#include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "Event.h"
 #include "Font.h"
@@ -8,8 +9,25 @@
 #include "Head.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
+#include "TempStore.h"
 #include "Weather.h"
 
+namespace
+{
+constexpr int PROJECTILE_SPEED = 5;
+constexpr int PROJECTILE_BASE_FRAMES = 15;
+constexpr int PROJECTILE_FRAMES_PER_SD = 5;
+
+int calcProjectileFrames(int select_distance)
+{
+    return PROJECTILE_BASE_FRAMES + select_distance * PROJECTILE_FRAMES_PER_SD;
+}
+
+int calcProjectileReach(int select_distance, int spawn_offset)
+{
+    return spawn_offset + PROJECTILE_SPEED * calcProjectileFrames(select_distance);
+}
+}    // namespace
 
 BattleSceneHades::BattleSceneHades()
 {
@@ -501,19 +519,45 @@ void BattleSceneHades::onEntrance()
             KysChess::BattleRoleManager::applyStarBonus(&enemies_obj_[i], enemy_stars_[i]);
 
         // Detect combos using RealID (original Save IDs, deduped by set)
-        auto makeChessVec = [](const std::deque<Role>& objs) {
+        auto allyChessVec = [&]() {
             std::vector<KysChess::Chess> v;
-            for (auto& r : objs)
+            for (size_t i = 0; i < friends_obj_.size(); i++)
             {
-                auto orig = Save::getInstance()->getRole(r.RealID);
-                if (orig) v.push_back({orig, 0});
+                auto orig = Save::getInstance()->getRole(friends_obj_[i].RealID);
+                if (orig) v.push_back({orig, i < extended_teammates_.size() ? extended_teammates_[i].star : 0});
             }
             return v;
-        };
-        auto allyCombos = KysChess::ChessCombo::detectCombos(makeChessVec(friends_obj_));
-        auto enemyCombos = KysChess::ChessCombo::detectCombos(makeChessVec(enemies_obj_));
+        }();
+        auto enemyChessVec = [&]() {
+            std::vector<KysChess::Chess> v;
+            for (size_t i = 0; i < enemies_obj_.size(); i++)
+            {
+                auto orig = Save::getInstance()->getRole(enemies_obj_[i].RealID);
+                if (orig) v.push_back({orig, i < enemy_stars_.size() ? enemy_stars_[i] : 0});
+            }
+            return v;
+        }();
+        auto allyCombos = KysChess::ChessCombo::detectCombos(allyChessVec);
+        auto enemyCombos = KysChess::ChessCombo::detectCombos(enemyChessVec);
         auto allyStates = KysChess::ChessCombo::buildComboStates(allyCombos);
         auto enemyStates = KysChess::ChessCombo::buildComboStates(enemyCombos);
+
+        // Merge neigong global effects into ally states
+        {
+            auto& obtained = KysChess::GameData::get().getObtainedNeigong();
+            if (!obtained.empty())
+            {
+                auto& pool = KysChess::ChessBalance::getNeigongPool();
+                std::vector<KysChess::ComboEffect> globalEffects;
+                for (int mid : obtained)
+                    for (auto& ng : pool)
+                        if (ng.magicId == mid)
+                        { globalEffects.insert(globalEffects.end(), ng.effects.begin(), ng.effects.end()); break; }
+                std::vector<int> allyIds;
+                for (auto& c : allyChessVec) allyIds.push_back(c.role->ID);
+                KysChess::ChessBattleEffects::mergeEffects(allyStates, globalEffects, allyIds);
+            }
+        }
 
         // Apply combo stat buffs on copies and remap to battle IDs
         KysChess::ChessCombo::clearActiveStates();
@@ -642,9 +686,10 @@ void BattleSceneHades::backRun1()
             {
                 auto& s = it->second;
 
-                // Freeze reduction
-                if (s.freezeReductionPct > 0 && r->Frozen > 0)
-                    r->Frozen = std::max(0, (int)(r->Frozen * (1.0 - s.freezeReductionPct / 100.0)));
+                // Freeze reduction (base + shield bonus)
+                int totalFreezeRes = s.freezeReductionPct + (s.shield > 0 ? s.shieldFreezeResPct : 0);
+                if (totalFreezeRes > 0 && r->Frozen > 0)
+                    r->Frozen = std::max(0, (int)(r->Frozen * (1.0 - totalFreezeRes / 100.0)));
 
                 // Control immunity
                 if (s.controlImmunityFrames > 0 && r->Frozen > s.controlImmunityFrames)
@@ -667,19 +712,19 @@ void BattleSceneHades::backRun1()
                 // HP regen
                 if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && current_frame_ % s.hpRegenInterval == 0)
                 {
-                    int heal = r->MaxHP * s.hpRegenPct / 10000;  // hpRegenPct is in 0.01% units (50 = 0.5%)
+                    int heal = r->MaxHP * s.hpRegenPct / 100;
                     r->HP = std::min(r->MaxHP, r->HP + heal);
                 }
 
                 // Heal aura (heal nearby allies)
-                if (s.healAuraPct > 0 && s.healAuraInterval > 0 && current_frame_ % s.healAuraInterval == 0)
+                if ((s.healAuraPct > 0 || s.healAuraFlat > 0) && s.healAuraInterval > 0 && current_frame_ % s.healAuraInterval == 0)
                 {
                     for (auto ally : battle_roles_)
                     {
                         if (ally->Team == r->Team && ally->Dead == 0 && ally != r
                             && EuclidDis(ally->Pos, r->Pos) <= TILE_W * 6)
                         {
-                            int heal = ally->MaxHP * s.healAuraPct / 100;
+                            int heal = ally->MaxHP * s.healAuraPct / 100 + s.healAuraFlat;
                             ally->HP = std::min(ally->MaxHP, ally->HP + heal);
                             // HealedATKSPDBoost: reduce cooldown for healed allies
                             if (s.healedATKSPDBoostPct > 0 && ally->CoolDown > 0)
@@ -688,42 +733,63 @@ void BattleSceneHades::backRun1()
                     }
                 }
 
-                // Triggered effects: check conditions each frame
-                for (auto& te : s.triggeredEffects)
+                // Compute lastAliveFlag
                 {
+                    s.lastAliveFlag = true;
+                    for (auto ally : battle_roles_)
+                        if (ally->Team == r->Team && ally != r && ally->Dead == 0) { s.lastAliveFlag = false; break; }
+                }
+
+                // Triggered effects: check conditions each frame
+                for (int tei = 0; tei < (int)s.triggeredEffects.size(); ++tei)
+                {
+                    auto& te = s.triggeredEffects[tei];
+                    if (te.maxCount > 0 && s.effectActivationCounts[tei] >= te.maxCount) continue;
+
+                    bool active = false;
                     if (te.trigger == KysChess::Trigger::WhileLowHP)
-                    {
-                        // Handled at damage time, not per-frame
-                    }
+                        active = r->HP * 100 / std::max(1, r->MaxHP) < te.triggerValue;
+                    else if (te.trigger == KysChess::Trigger::LastAlive)
+                        active = s.lastAliveFlag;
                     else if (te.trigger == KysChess::Trigger::AllyLowHPBurst)
                     {
-                        if (r->HP * 100 / std::max(1, r->MaxHP) < te.trigger_value
+                        if (r->HP * 100 / std::max(1, r->MaxHP) < te.triggerValue
                             && s.triggerTimers[te.trigger] <= 0)
                         {
+                            s.effectActivationCounts[tei]++;
                             for (auto ally : battle_roles_)
                             {
                                 if (ally->Team == r->Team && ally != r && ally->Dead == 0)
                                 {
                                     auto ait2 = cs.find(ally->ID);
                                     if (ait2 != cs.end())
-                                        ait2->second.triggerTimers[te.trigger] = te.value2;
+                                        ait2->second.triggerTimers[te.trigger] = te.duration;
                                 }
                             }
                         }
+                        continue;
                     }
+
+                    if (active && te.type == KysChess::EffectType::HealBurst)
+                    {
+                        s.effectActivationCounts[tei]++;
+                        r->HP = std::min(r->MaxHP, r->HP + r->MaxHP * te.value / 100);
+                        TextEffect txe;
+                        txe.set(std::format("回血{}%", te.value), {100, 255, 100, 255}, r);
+                        text_effects_.push_back(std::move(txe));
+                    }
+                }
+
+                // Ramping damage idle decay
+                if (s.rampingDmgPct > 0)
+                {
+                    if (s.rampingIdleTimer > 0) s.rampingIdleTimer--;
+                    else s.rampingStacks = 0;
                 }
 
                 // Trigger timer countdowns
                 for (auto& [trig, timer] : s.triggerTimers)
                     if (timer > 0) timer--;
-
-                // CDR (reduce CoolDown each frame)
-                if (s.cdrPct > 0 && r->CoolDown > 0)
-                    r->CoolDown = static_cast<int>(r->CoolDown * (1.0 - s.cdrPct / 100.0));
-
-                // Shield CDR
-                if (s.shield > 0 && s.shieldCDRPct > 0 && r->CoolDown > 0)
-                    r->CoolDown = static_cast<int>(r->CoolDown * (1.0 - s.shieldCDRPct / 100.0));
             }
         }
 
@@ -977,6 +1043,7 @@ void BattleSceneHades::backRun1()
                 r->Dead = 1;
                 r->HP = 0;
                 tracker_.recordKill(r->LastAttacker);
+                tracker_.recordDeath(r, current_frame_);
 
                 // Combo: kill-heal and kill-invincibility
                 if (r->LastAttacker)
@@ -990,6 +1057,9 @@ void BattleSceneHades::backRun1()
                                 r->LastAttacker->HP + r->LastAttacker->MaxHP * kit->second.killHealPct / 100);
                         if (kit->second.killInvincFrames > 0)
                             r->LastAttacker->Invincible = kit->second.killInvincFrames;
+                        // Bloodlust: permanent ATK per kill
+                        if (kit->second.bloodlustATKPerKill > 0)
+                            r->LastAttacker->Attack += kit->second.bloodlustATKPerKill;
                     }
                 }
                 //r->Velocity = r->Pos - ae1.Attacker->Pos;
@@ -1074,6 +1144,7 @@ void BattleSceneHades::backRun1()
                 slow_ = 40;
                 shake_ = 60;
                 result_ = battle_result;
+                tracker_.recordBattleEnd(current_frame_);
             }
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
             {
@@ -1191,7 +1262,7 @@ void BattleSceneHades::Action(Role* r)
                     r->OperationCount = 0;
                 }
                 attack_effects_.push_back(ae);
-                // Ulti splash: spawn 2 extra homing projectiles
+                // Ulti splash: spawn 1 extra homing projectiles
                 if (ae.IsUltimate)
                 {
                     auto splash = ae;
@@ -1199,7 +1270,7 @@ void BattleSceneHades::Action(Role* r)
                     splash.Track = 1;
                     splash.TotalFrame = 60;
                     double angle = r->RealTowards.getAngle();
-                    for (int i = 0; i < 2; i++)
+                    for (int i = 0; i < 1; i++)
                     {
                         float a = angle - 30.0 / 180 * M_PI + i * 60.0 / 180 * M_PI;
                         splash.Velocity = { cos(a), sin(a) };
@@ -1211,13 +1282,7 @@ void BattleSceneHades::Action(Role* r)
             }
             else if (ae.OperationType == 1)
             {
-                int range = 0;
-                if (magic->AttackAreaType == 3)
-                {
-                    range = 1;
-                    //range += magic->AttackDistance[level_index] + magic->SelectDistance[level_index] / 2;
-                }
-                int count = 1 + range;
+                int count = 1;
                 if (ae.IsUltimate) count *= 2;
                 auto p = ae.Pos;
                 ae.TotalFrame = 120;
@@ -1246,8 +1311,8 @@ void BattleSceneHades::Action(Role* r)
                 {
                     ae.Velocity = r->RealTowards;
                 }
-                ae.Velocity.normTo(5);
-                ae.TotalFrame = 15 + magic->SelectDistance[level_index] * 5;
+                ae.Velocity.normTo(PROJECTILE_SPEED);
+                ae.TotalFrame = calcProjectileFrames(magic->SelectDistance[level_index]);
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
                     ae.Through = 1;
@@ -1255,8 +1320,8 @@ void BattleSceneHades::Action(Role* r)
                 attack_effects_.push_back(ae);
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
-                    int sideCount = ae.IsUltimate ? 4 : 2;
-                    double sideStr = ae.IsUltimate ? 0.3 : 0.2;
+                    int sideCount = ae.IsUltimate ? 3 : 2;
+                    double sideStr = ae.IsUltimate ? 0.35 : 0.2;
                     double v = 5;
                     double angle = ae.Velocity.getAngle();
                     for (int i = 0; i < sideCount; i++)
@@ -1402,7 +1467,12 @@ void BattleSceneHades::AI(Role* r)
                 if (r->UsingMagic)
                 {
                     if (r->UsingMagic->AttackAreaType == 3) { dis = 180; }
-                    if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2) { dis = 300; }
+                    if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2)
+                    {
+                        int li = r->getMagicLevelIndex(r->UsingMagic->ID);
+                        // 10 pixel to allow for some error
+                        dis = calcProjectileReach(r->UsingMagic->SelectDistance[li], TILE_W * 2) - 10;
+                    }
                 }
                 double speed = r->Speed / 30.0;
                 if (EuclidDis(r->Pos, r0->Pos) > dis)
@@ -1411,7 +1481,7 @@ void BattleSceneHades::AI(Role* r)
                     if (canWalk90(p, r) && r->FindingWay == 0)
                     {
                         //能否闪身的条件，似乎比较复杂
-                        if (rand_.rand() < 0.25 && r->Speed >= 60 && r->UsingMagic)
+                        if (rand_.rand() < 0.25 && r->UsingMagic)
                         {
                             r->OperationType = 3;
                         }
@@ -1459,7 +1529,7 @@ void BattleSceneHades::AI(Role* r)
                         }
                         r->FindingWay = 1;
                         r->RealTowards = p_target - r->Pos;
-                        if (rand_.rand() < 0.25 && r->Speed >= 60 && r->UsingMagic)
+                        if (rand_.rand() < 0.25 && r->UsingMagic)
                         {
                             r->OperationType = 3;
                         }
@@ -1551,25 +1621,6 @@ void BattleSceneHades::AI(Role* r)
                             r->Velocity.normTo(speed);
                             //todo:r->VelocitytFrame = 20;
                         }
-                    }
-                }
-            }
-        }
-        else
-        {
-            // During cooldown, ranged attackers advance toward nearest enemy
-            if (r->UsingMagic && (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2))
-            {
-                auto r0 = findNearestEnemy(r->Team, r->Pos);
-                if (r0)
-                {
-                    r->RealTowards = r0->Pos - r->Pos;
-                    r->RealTowards.normTo(1);
-                    double speed = r->Speed / 30.0;
-                    auto p = r->Pos + speed * 0.5 * r->RealTowards;
-                    if (canWalk90(p, r))
-                    {
-                        r->Pos = p;
                     }
                 }
             }
@@ -1720,7 +1771,7 @@ Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
 //前摇
 int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 {
-    int v[4] = { 15, 25, 20, 8 };
+    int v[4] = { 20, 25, 15, 8 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         return v[operation_type];
@@ -1738,11 +1789,14 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
     if (operation_type >= 0 && operation_type <= 3)
     {
         int c = std::max(min_v[operation_type], v[operation_type]);
-        if (r->AttackTwice > 0)
-        {
-            c *= 0.666;
-            c = std::max(calCast(act_type, operation_type, r) + 2, c);
-        }
+        int spd = std::min(100, r->Speed);
+        c = c * (1.0 - 0.334 * spd / 100.0);
+        c = std::max(calCast(act_type, operation_type, r) + 2, c);
+        // One-time CDR from combos/neigong
+        auto& cs = KysChess::ChessCombo::getMutableStates();
+        auto it = cs.find(r->ID);
+        if (it != cs.end() && it->second.cdrPct > 0)
+            c = static_cast<int>(c * (1.0 - it->second.cdrPct / 100.0));
         return c;
     }
     else
@@ -1869,14 +1923,15 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             // Triggered effect damage modifiers
             for (auto& te : as.triggeredEffects)
             {
-                if (te.trigger == KysChess::Trigger::WhileLowHP
-                    && ae.Attacker->HP * 100 / std::max(1, ae.Attacker->MaxHP) < te.trigger_value)
-                {
-                    if (te.type == KysChess::EffectType::PctATK)
-                        hurt *= (1.0 + te.value / 100.0);
-                }
-                else if (te.trigger == KysChess::Trigger::AllyLowHPBurst
-                    && as.triggerTimers.count(te.trigger) && as.triggerTimers.at(te.trigger) > 0)
+                bool trigActive = false;
+                if (te.trigger == KysChess::Trigger::WhileLowHP)
+                    trigActive = ae.Attacker->HP * 100 / std::max(1, ae.Attacker->MaxHP) < te.triggerValue;
+                else if (te.trigger == KysChess::Trigger::LastAlive)
+                    trigActive = as.lastAliveFlag;
+                else if (te.trigger == KysChess::Trigger::AllyLowHPBurst)
+                    trigActive = as.triggerTimers.count(te.trigger) && as.triggerTimers.at(te.trigger) > 0;
+
+                if (trigActive)
                 {
                     if (te.type == KysChess::EffectType::PctATK)
                         hurt *= (1.0 + te.value / 100.0);
@@ -1913,6 +1968,14 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     hurt *= 2.0;
                     as.hitCounter = 0;
                 }
+            }
+
+            // Ramping damage: each hit stacks bonus damage
+            if (as.rampingDmgPct > 0)
+            {
+                as.rampingStacks = std::min(as.rampingStacks + 1, as.rampingDmgMaxStacks);
+                as.rampingIdleTimer = 90;
+                hurt *= (1.0 + as.rampingStacks * as.rampingDmgPct / 100.0);
             }
 
             // MP on hit
@@ -1970,6 +2033,26 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (ds.dmgReductionPct > 0)
                 hurt *= (1.0 - ds.dmgReductionPct / 100.0);
 
+            // Triggered defender effects (DmgReductionPct with triggers)
+            for (auto& te : ds.triggeredEffects)
+            {
+                bool trigActive = false;
+                if (te.trigger == KysChess::Trigger::WhileLowHP)
+                    trigActive = r->HP * 100 / std::max(1, r->MaxHP) < te.triggerValue;
+                else if (te.trigger == KysChess::Trigger::LastAlive)
+                    trigActive = ds.lastAliveFlag;
+                if (trigActive && te.type == KysChess::EffectType::DmgReductionPct)
+                    hurt *= (1.0 - te.value / 100.0);
+            }
+
+            // Adaptation: reduce damage from repeated attacker
+            if (ds.adaptationPctPerStack > 0)
+            {
+                int& stacks = ds.adaptationStacks[ae.Attacker->ID];
+                stacks = std::min(stacks + 1, ds.adaptationMaxStacks);
+                hurt *= (1.0 - stacks * ds.adaptationPctPerStack / 100.0);
+            }
+
             // Shield absorption
             if (ds.shield > 0)
             {
@@ -2009,7 +2092,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     {
         r->HurtThisFrame += hurt;
         std::string skillName = ae.UsingMagic ? std::string(ae.UsingMagic->Name) : "";
-        tracker_.recordDamage(ae.Attacker, r, (int)hurt, skillName);
+        tracker_.recordDamage(ae.Attacker, r, (int)hurt, skillName, current_frame_);
     }
     if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
     {

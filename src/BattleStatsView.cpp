@@ -1,17 +1,21 @@
 #include "BattleStatsView.h"
 #include "BattleRoleManager.h"
+#include <algorithm>
 #include "Engine.h"
 #include "Font.h"
 #include "Save.h"
 #include "TextureManager.h"
 
-void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName)
+void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame)
 {
     if (damage <= 0) return;
     if (attacker) {
-        stats_[attacker->ID].damageDealt += damage;
+        auto& s = stats_[attacker->ID];
+        s.damageDealt += damage;
+        if (s.firstDamageFrame == 0) s.firstDamageFrame = frame;
+        s.lastActiveFrame = frame;
         if (!skillName.empty())
-            stats_[attacker->ID].damagePerSkill[skillName] += damage;
+            s.damagePerSkill[skillName] += damage;
     }
     if (defender)
         stats_[defender->ID].damageTaken += damage;
@@ -21,6 +25,17 @@ void BattleTracker::recordKill(Role* killer)
 {
     if (killer)
         stats_[killer->ID].kills++;
+}
+
+void BattleTracker::recordDeath(Role* role, int frame)
+{
+    if (role)
+        stats_[role->ID].lastActiveFrame = frame;
+}
+
+void BattleTracker::recordBattleEnd(int frame)
+{
+    battleEndFrame_ = frame;
 }
 
 static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team)
@@ -94,14 +109,20 @@ void BattleStatsView::setupPostBattle(
     battleResult_ = battleResult;
     allies_.clear(); enemies_.clear();
     auto& stats = tracker.getStats();
+    int endFrame = tracker.getBattleEndFrame();
     auto fillPost = [&](RoleEntry& e, int battleId) {
         auto it = stats.find(battleId);
         if (it != stats.end())
         {
-            e.damageDealt = it->second.damageDealt;
-            e.damageTaken = it->second.damageTaken;
-            e.kills = it->second.kills;
-            for (auto& [name, dmg] : it->second.damagePerSkill)
+            auto& s = it->second;
+            e.damageDealt = s.damageDealt;
+            e.damageTaken = s.damageTaken;
+            e.kills = s.kills;
+            int last = s.lastActiveFrame ? s.lastActiveFrame : endFrame;
+            int duration = last - s.firstDamageFrame;
+            if (s.damageDealt > 0 && duration > 0)
+                e.dps = s.damageDealt * 60 / duration;
+            for (auto& [name, dmg] : s.damagePerSkill)
             {
                 if (dmg > e.skill1Dmg)
                 {
@@ -131,6 +152,9 @@ void BattleStatsView::setupPostBattle(
         fillPost(e, r.ID);
         enemies_.push_back(e);
     }
+    auto byDmg = [](const RoleEntry& a, const RoleEntry& b) { return a.damageDealt > b.damageDealt; };
+    std::sort(allies_.begin(), allies_.end(), byDmg);
+    std::sort(enemies_.begin(), enemies_.end(), byDmg);
 }
 
 void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, int y, int w, const std::string& title, bool showPost)
@@ -148,7 +172,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 
     // Column offsets relative to x
     int cName = 46, cStar = 130, cHP = 160, cAtk = 220, cDef = 270, cSpd = 320, cSkill = 365;
-    int cDmg = 130, cTaken = 200, cKill = 270, cSk1 = 300;
+    int cDmg = 130, cDps = 200, cTaken = 250, cKill = 310, cSk1 = 340;
 
     if (!showPost)
     {
@@ -164,6 +188,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
     {
         font->draw("名稱", fs, x + cName, y, cGray);
         font->draw("輸出", fs, x + cDmg, y, cGray);
+        font->draw("DPS", fs, x + cDps, y, cGray);
         font->draw("承傷", fs, x + cTaken, y, cGray);
         font->draw("殺", fs, x + cKill, y, cGray);
         font->draw("技能", fs - 2, x + cSk1, y, cGray);
@@ -194,6 +219,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
         else
         {
             font->draw(std::to_string(e.damageDealt), fs, x + cDmg, y, cWhite);
+            font->draw(std::to_string(e.dps), fs, x + cDps, y, {255, 200, 50, 255});
             font->draw(std::to_string(e.damageTaken), fs, x + cTaken, y, cWhite);
             font->draw(std::to_string(e.kills), fs, x + cKill, y, cWhite);
             if (!e.skill1.empty())

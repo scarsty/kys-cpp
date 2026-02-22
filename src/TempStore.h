@@ -1,4 +1,5 @@
 ﻿#include <map>
+#include <set>
 
 #include "Chess.h"
 #include "ChessBalance.h"
@@ -109,6 +110,8 @@ struct GameData
         chessPool = ChessPool{};
         battleProgress = BattleProgress{};
         selectedForBattle_.clear();
+        obtainedNeigong_.clear();
+        completedChallenges_.clear();
         money_ = 0;
         exp_ = 0;
         level_ = 0;
@@ -152,6 +155,7 @@ struct GameData
         return exp_;
     }
 
+    int getMaxDeploy() const { return std::max(level_ + 1, ChessBalance::config().minBattleSize); }
     int getLevel() const { return level_; }
     int getMoney() const { return money_; }
     int getExp() const { return exp_; }
@@ -171,23 +175,36 @@ struct GameData
     // Add chess to collection; if merge occurs, auto-upgrade selected pieces
     void addChessAndFixSelection(Chess c)
     {
-        Chess original = c;
         collection.addChess(c);
         // Walk up the star chain to find what it merged into
-        Chess upgraded = original;
+        Chess upgraded = c;
         while (upgraded.star <= 2 && collection.getChess().find(upgraded) == collection.getChess().end())
             upgraded.star++;
-        if (upgraded.star != original.star)
+        if (upgraded.star == c.star) return;  // no merge
+        // Upgrade first matching selected piece; remove extras consumed by merge
+        bool kept = false;
+        for (auto it = selectedForBattle_.begin(); it != selectedForBattle_.end();)
         {
-            // Replace selected entries of old star with the upgraded one
-            for (auto& s : selectedForBattle_)
-                if (s.role == original.role && s.star == original.star)
-                    s.star = upgraded.star;
+            if (it->role == c.role && it->star < upgraded.star)
+            {
+                if (!kept) { it->star = upgraded.star; kept = true; ++it; }
+                else it = selectedForBattle_.erase(it);
+            }
+            else ++it;
         }
     }
 
     bool isShopLocked() const { return shopLocked_; }
     void setShopLocked(bool v) { shopLocked_ = v; }
+
+    const std::vector<int>& getObtainedNeigong() const { return obtainedNeigong_; }
+    void addNeigong(int magicId) { obtainedNeigong_.push_back(magicId); }
+    void setObtainedNeigong(std::vector<int> v) { obtainedNeigong_ = std::move(v); }
+
+    bool isChallengeCompleted(int idx) const { return completedChallenges_.count(idx); }
+    void completeChallenge(int idx) { completedChallenges_.insert(idx); }
+    const std::set<int>& getCompletedChallenges() const { return completedChallenges_; }
+    void setCompletedChallenges(std::set<int> v) { completedChallenges_ = std::move(v); }
 
 private:
     int money_ = 0;
@@ -195,6 +212,8 @@ private:
     int level_ = 0;
     bool shopLocked_ = false;
     std::vector<Chess> selectedForBattle_;
+    std::vector<int> obtainedNeigong_;
+    std::set<int> completedChallenges_;
 };
 
 }    // namespace KysChess

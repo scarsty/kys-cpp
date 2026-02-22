@@ -87,6 +87,18 @@ void ChessModHook::saveGameData(SQLite3Wrapper& db)
         db.execute(std::format("insert into chess_selected values({},{})",
             c.role->ID, c.star));
     }
+
+    // Save obtained neigong
+    db.execute("drop table if exists chess_neigong");
+    db.execute("create table chess_neigong(magic_id int)");
+    for (int mid : gd.getObtainedNeigong())
+        db.execute(std::format("insert into chess_neigong values({})", mid));
+
+    // Save completed challenges
+    db.execute("drop table if exists chess_challenges");
+    db.execute("create table chess_challenges(idx int)");
+    for (int idx : gd.getCompletedChallenges())
+        db.execute(std::format("insert into chess_challenges values({})", idx));
 }
 
 void ChessModHook::loadGameData(SQLite3Wrapper& db)
@@ -141,6 +153,22 @@ void ChessModHook::loadGameData(SQLite3Wrapper& db)
         }
     }
     gd.setSelectedForBattle(selected);
+
+    // Load obtained neigong
+    std::vector<int> neigong;
+    auto stmt4 = db.query("select magic_id from chess_neigong");
+    if (stmt4.isValid())
+        while (stmt4.step())
+            neigong.push_back(stmt4.getColumnInt(0));
+    gd.setObtainedNeigong(std::move(neigong));
+
+    // Load completed challenges
+    std::set<int> challenges;
+    auto stmt5 = db.query("select idx from chess_challenges");
+    if (stmt5.isValid())
+        while (stmt5.step())
+            challenges.insert(stmt5.getColumnInt(0));
+    gd.setCompletedChallenges(std::move(challenges));
 }
 
 }    // namespace KysChess

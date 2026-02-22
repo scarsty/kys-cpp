@@ -1,12 +1,23 @@
 #pragma once
 
+#include "ChessBattleEffects.h"
 #include "Save.h"
 #include <array>
+#include <map>
 #include <string>
 #include <vector>
 
 namespace KysChess
 {
+
+struct NeigongDef
+{
+    int magicId;
+    int itemId;
+    int tier;
+    std::string name;
+    std::vector<ComboEffect> effects;
+};
 
 struct BalanceConfig
 {
@@ -29,7 +40,8 @@ struct BalanceConfig
     int rewardBase = 3;
     int rewardGrowth = 12;
     int bossRewardBonus = 3;
-
+    int interestPercent = 10;
+    int interestMax = 3;
 
     // Chess cost
     std::array<int, 5> tierPrices = {1, 2, 3, 4, 5};
@@ -62,6 +74,24 @@ struct BalanceConfig
     // Stage progress
     int totalFights = 28;
     int bossInterval = 4;
+
+    // Neigong
+    int neigongRerollCost = 4;
+    int neigongChoiceCount = 3;
+    std::map<int, std::vector<int>> neigongTiersByBoss;
+
+    // Expedition challenges
+    enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp0to1, StarUp1to2 };
+    struct ChallengeReward { ChallengeRewardType type; int value = 0; };
+    struct ChallengeEnemy { int roleId; int star; };
+    struct ChallengeDef
+    {
+        std::string name;
+        std::string description;
+        std::vector<ChallengeEnemy> enemies;
+        std::vector<ChallengeReward> rewards;
+    };
+    std::vector<ChallengeDef> challenges;
 };
 
 class ChessBalance
@@ -69,9 +99,11 @@ class ChessBalance
 public:
     static bool loadConfig(const std::string& path);
     static const BalanceConfig& config();
+    static const std::vector<NeigongDef>& getNeigongPool();
 
 private:
     static inline BalanceConfig config_;
+    static inline std::vector<NeigongDef> neigongPool_;
 };
 
 }    // namespace KysChess

@@ -160,6 +160,7 @@
     <ClCompile Include="Cloud.cpp" />
     <ClCompile Include="ChessBalance.cpp" />
     <ClCompile Include="BattleStatsView.cpp" />
+    <ClCompile Include="ChessBattleEffects.cpp" />
     <ClCompile Include="ChessCombo.cpp" />
     <ClCompile Include="ChessModHook.cpp" />
     <ClCompile Include="ChessPool.cpp" />
@@ -225,6 +226,7 @@
     <ClInclude Include="Event.h" />
     <ClInclude Include="ChessBalance.h" />
     <ClInclude Include="BattleStatsView.h" />
+    <ClInclude Include="ChessBattleEffects.h" />
     <ClInclude Include="ChessCombo.h" />
     <ClInclude Include="ChessModHook.h" />
     <ClInclude Include="ChessPool.h" />

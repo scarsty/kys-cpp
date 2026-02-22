@@ -83,6 +83,9 @@ def allocate(budget, count, bosses_seen, fight, enemy_level):
     for _ in range(count - bad_count):
         ene.append([pick_tier(enemy_level, max_tier), 0])
 
+    # Star cap: no stars until boss 1, max *2 after boss 1, max *3 after boss 2
+    max_star = min(bosses_seen, 2)
+
     # Spend budget on star-ups
     base_cost = sum(TIER_PRICES[e[0]] for e in ene)
     remaining = budget - base_cost
@@ -96,7 +99,7 @@ def allocate(budget, count, bosses_seen, fight, enemy_level):
         random.shuffle(idx)
         for i in idx:
             t, s = ene[i]
-            if s < 2:
+            if s < max_star:
                 cost = piece_cost(t, s + 1) - piece_cost(t, s)
                 if cost <= remaining:
                     ene[i][1] += 1

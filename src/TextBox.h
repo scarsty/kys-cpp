@@ -1,4 +1,5 @@
 #pragma once
+#include "Font.h"
 #include "RunNode.h"
 
 class TextBox : public RunNode
@@ -45,6 +46,13 @@ public:
 
     virtual void draw() override;
     void setHaveBox(bool h) { have_box_ = h; }
+
+    int runCentered(int y)
+    {
+        int textW = font_size_ * Font::getTextDrawSize(text_) / 2;
+        int x = Engine::getInstance()->getUIWidth() / 2 - textW / 2;
+        return runAtPosition(x, y);
+    }
 
     virtual void onPressedOK() override { exitWithResult(0); }
     virtual void onPressedCancel() override { exitWithResult(-1); }

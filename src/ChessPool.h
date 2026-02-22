@@ -24,6 +24,8 @@ public:
     // Select a random enemy role from a specific tier (no rejection logic)
     static Role* selectEnemyFromPool(int tier);
 
+    static const std::vector<int>& getRolesOfTier(int tier);
+
 private:
     Role* selectFromPool(int tier);
 

@@ -71,7 +71,7 @@ void Application::config()
     Scene::setKeyWalkDealy(game->getInt("game", "walk_speed", 20));
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
-    Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 1));
+    Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 0));
 
     renderer_ = game->getString("game", "renderer", "");
     title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");

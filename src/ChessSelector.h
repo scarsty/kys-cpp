@@ -13,6 +13,9 @@ public:
     static void buyExp();
     static void showContextMenu();
     static void viewCombos();
+    static void showNeigongReward();
+    static void viewNeigong();
+    static void showExpeditionChallenge();
     static int calculateCost(int tier, int star, int count = 1);
 };
 

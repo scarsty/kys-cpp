@@ -154,4 +154,9 @@ Role* ChessPool::selectEnemyFromPool(int tier)
     return Save::getInstance()->getRole(idx);
 }
 
+const std::vector<int>& ChessPool::getRolesOfTier(int tier)
+{
+    return chessIdxOfPrice[tier];
+}
+
 }    // namespace KysChess
