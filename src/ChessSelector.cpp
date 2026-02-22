@@ -238,13 +238,27 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
         int rx = px + 10, ry = py + 32;
         for (auto cid : roleCombos)
         {
-            if (ry > maxY)
+            auto& c = allCombos[(int)cid];
+
+            // Pre-calculate height: header + effects + gap
+            const ComboThreshold* peekThr = nullptr;
+            for (auto& t : c.thresholds)
+            {
+                int ownedPeek = 0;
+                for (int rid : c.memberRoleIds)
+                    if (ownedIds.count(rid)) ownedPeek++;
+                if (ownedPeek < t.count) { peekThr = &t; break; }
+            }
+            if (!peekThr && !c.thresholds.empty())
+                peekThr = &c.thresholds.back();
+            int neededH = (fs + 4) + (peekThr ? (int)peekThr->effects.size() * fs : 0) + 4;
+
+            if (ry + neededH > maxY + fs && ry > py + 32)
             {
                 rx += colW;
                 ry = py + 32;
                 if (rx + colW > px + 460) break;
             }
-            auto& c = allCombos[(int)cid];
             int owned = 0;
             for (int rid : c.memberRoleIds)
                 if (ownedIds.count(rid)) owned++;

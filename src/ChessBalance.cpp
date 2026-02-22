@@ -92,6 +92,18 @@ bool ChessBalance::loadConfig(const std::string& path)
         }
     }
 
+    try {
+        auto pool = YAML::LoadFile(GameUtil::PATH() + "config/chess_pool.yaml");
+        for (const auto& entry : pool)
+        {
+            int tier = entry["费用"].as<int>();
+            if (tier < 1 || tier > 5) continue;
+            c.chessPool[tier - 1].clear();
+            for (const auto& v : entry["角色"])
+                c.chessPool[tier - 1].push_back(v.as<int>());
+        }
+    } catch (...) {}
+
     if (auto n = root["进度"])
     {
         if (n["总关卡数"]) c.totalFights = n["总关卡数"].as<int>();

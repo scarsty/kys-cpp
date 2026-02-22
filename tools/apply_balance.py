@@ -1,5 +1,5 @@
-"""Apply ChessBalance data directly to save DBs and zips"""
-import sqlite3, os, zipfile, tempfile, shutil
+"""Apply ChessBalance data directly to save DBs"""
+import sqlite3, os
 
 # Balance data: (roleId, level, maxHP, attack, speed, defence, maxMP, skill0Id, skill0Lvl, skill1Id, skill1Lvl, fist, sword, knife, unusual, hidden)
 BALANCE = [
@@ -117,21 +117,6 @@ def apply(db_path):
     print(f"Applied balance to {len(BALANCE)} roles in {db_path}")
     conn.close()
 
-def apply_zip(zip_path):
-    with zipfile.ZipFile(zip_path, 'r') as z:
-        if '1.db' not in z.namelist():
-            return
-        names = z.namelist()
-        with tempfile.TemporaryDirectory() as tmp:
-            z.extractall(tmp)
-            apply(os.path.join(tmp, '1.db'))
-            tmp_zip = zip_path + '.tmp'
-            with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
-                for name in names:
-                    zout.write(os.path.join(tmp, name), name)
-            shutil.move(tmp_zip, zip_path)
-    print(f"Updated zip: {zip_path}")
-
 if __name__ == "__main__":
     import sys, glob
     if len(sys.argv) > 1:
@@ -140,5 +125,3 @@ if __name__ == "__main__":
         save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "work", "game-dev", "save")
         for db in sorted(glob.glob(os.path.join(save_dir, "*.db"))):
             apply(db)
-        for zf in sorted(glob.glob(os.path.join(save_dir, "*.zip"))):
-            apply_zip(zf)

@@ -5,6 +5,7 @@
 #include "Font.h"
 #include "Save.h"
 #include "TextureManager.h"
+#include "GameUtil.h"
 
 void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame)
 {
@@ -85,18 +86,26 @@ void BattleStatsView::setupPreBattle(
     isPreBattle_ = true;
     allies_.clear(); enemies_.clear();
     for (auto& c : allies)
-        if (c.role) allies_.push_back(makeEntry(c.role, c.star, 0));
+        if (c.role) {
+            allies_.push_back(makeEntry(c.role, c.star, 0));
+        }
     for (size_t i = 0; i < enemyIds.size(); ++i)
     {
         auto r = Save::getInstance()->getRole(enemyIds[i]);
         int star = (i < enemyStars.size()) ? enemyStars[i] : 1;
-        if (r) enemies_.push_back(makeEntry(r, star, 1));
+        if (r) {
+            enemies_.push_back(makeEntry(r, star, 1));
+        }
     }
     allyCombos_.clear(); enemyCombos_.clear();
-    for (auto& ac : allyC)
+    for (auto& ac : allyC) {
         if (ac.activeThresholdIdx >= 0) allyCombos_.push_back(makeComboEntry(ac));
-    for (auto& ac : enemyC)
+    }
+        
+    for (auto& ac : enemyC) {
         if (ac.activeThresholdIdx >= 0) enemyCombos_.push_back(makeComboEntry(ac));
+    }
+        
 }
 
 void BattleStatsView::setupPostBattle(

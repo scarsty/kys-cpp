@@ -70,7 +70,6 @@ struct ActiveCombo
 class ChessCombo
 {
 public:
-    static bool loadFromYaml(const std::string& path);
     static const std::vector<ComboDef>& getAllCombos();
     static std::vector<ActiveCombo> detectCombos(const std::vector<Chess>& selected);
     static std::map<int, RoleComboState> buildComboStates(const std::vector<ActiveCombo>& active);
@@ -81,8 +80,7 @@ public:
     static std::vector<ComboId> getCombosForRole(int roleId);
 
 private:
-    static std::vector<ComboDef> allCombos_;
-    static std::map<int, RoleComboState> activeStates_;
+    static inline std::map<int, RoleComboState> activeStates_;
 };
 
 }  // namespace KysChess

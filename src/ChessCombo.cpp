@@ -11,23 +11,20 @@
 namespace KysChess
 {
 
-std::vector<ComboDef> ChessCombo::allCombos_;
-std::map<int, RoleComboState> ChessCombo::activeStates_;
-
-bool ChessCombo::loadFromYaml(const std::string& path)
+std::vector<ComboDef> loadFromYaml(const std::string& path)
 {
     YAML::Node root;
     try { root = YAML::LoadFile(path); }
     catch (const YAML::Exception& e)
     {
         std::print("【羁绊配置】无法读取文件 {}: {}\n", path, e.what());
-        return false;
+        return {};
     }
 
     if (!root["羁绊"])
     {
         std::print("【羁绊配置】文件缺少「羁绊」根节点\n");
-        return false;
+        return {};
     }
 
     auto save = Save::getInstance();
@@ -37,13 +34,13 @@ bool ChessCombo::loadFromYaml(const std::string& path)
     for (const auto& node : root["羁绊"])
     {
         ComboDef def;
-        if (!node["名称"]) { std::print("【羁绊配置】第{}个羁绊缺少「名称」\n", idx + 1); return false; }
+        if (!node["名称"]) { std::print("【羁绊配置】第{}个羁绊缺少「名称」\n", idx + 1); return {}; }
         def.name = node["名称"].as<std::string>();
         def.id = static_cast<ComboId>(idx);
         def.isAntiCombo = node["反向羁绊"] && node["反向羁绊"].as<bool>();
         def.starSynergyBonus = node["星级羁绊加成"] && node["星级羁绊加成"].as<bool>();
 
-        if (!node["成员"]) { std::print("【羁绊配置】「{}」缺少「成员」\n", def.name); return false; }
+        if (!node["成员"]) { std::print("【羁绊配置】「{}」缺少「成员」\n", def.name); return {}; }
         for (const auto& member : node["成员"])
         {
             auto name = member.as<std::string>();
@@ -51,29 +48,29 @@ bool ChessCombo::loadFromYaml(const std::string& path)
             if (!role)
             {
                 std::print("【羁绊配置】「{}」成员「{}」找不到对应角色\n", def.name, name);
-                return false;
+                return {};
             }
             def.memberRoleIds.push_back(role->ID);
         }
 
-        if (!node["阈值"]) { std::print("【羁绊配置】「{}」缺少「阈值」\n", def.name); return false; }
+        if (!node["阈值"]) { std::print("【羁绊配置】「{}」缺少「阈值」\n", def.name); return {}; }
         for (const auto& tNode : node["阈值"])
         {
             ComboThreshold thresh;
             if (!tNode["人数"] || !tNode["名称"])
             {
                 std::print("【羁绊配置】「{}」阈值缺少「人数」或「名称」\n", def.name);
-                return false;
+                return {};
             }
             thresh.count = tNode["人数"].as<int>();
             thresh.name = tNode["名称"].as<std::string>();
 
-            if (!tNode["效果"]) { std::print("【羁绊配置】「{}」阈值「{}」缺少「效果」\n", def.name, thresh.name); return false; }
+            if (!tNode["效果"]) { std::print("【羁绊配置】「{}」阈值「{}」缺少「效果」\n", def.name, thresh.name); return {}; }
             for (const auto& eNode : tNode["效果"])
             {
                 ComboEffect eff;
                 if (!ChessBattleEffects::parseEffect(eNode, eff, def.name))
-                    return false;
+                    return {};
                 thresh.effects.push_back(eff);
             }
             def.thresholds.push_back(thresh);
@@ -82,19 +79,14 @@ bool ChessCombo::loadFromYaml(const std::string& path)
         idx++;
     }
 
-    allCombos_ = std::move(combos);
-    std::print("【羁绊配置】成功加载{}个羁绊\n", allCombos_.size());
-    return true;
+    std::print("【羁绊配置】成功加载{}个羁绊\n", combos.size());
+    return combos;
 }
 
 const std::vector<ComboDef>& ChessCombo::getAllCombos()
 {
-    if (allCombos_.empty())
-    {
-        if (!loadFromYaml(GameUtil::PATH() + "config/chess_combos.yaml"))
-            std::print("【羁绊配置】加载失败，羁绊系统将不可用\n");
-    }
-    return allCombos_;
+    static std::vector<ComboDef> allCombos{loadFromYaml(GameUtil::PATH() + "config/chess_combos.yaml")};
+    return allCombos;
 }
 
 std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& selected)
@@ -104,7 +96,7 @@ std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& sele
         if (c.role) starByRole[c.role->ID] = c.star;
 
     std::vector<ActiveCombo> result;
-    for (auto& combo : allCombos_)
+    for (auto& combo : getAllCombos())
     {
         ActiveCombo ac;
         ac.id = combo.id;
@@ -145,7 +137,7 @@ std::map<int, RoleComboState> ChessCombo::buildComboStates(const std::vector<Act
     for (auto& ac : active)
     {
         if (ac.activeThresholdIdx < 0) continue;
-        auto& combo = allCombos_[(int)ac.id];
+        auto& combo = getAllCombos()[(int)ac.id];
         auto& thresh = combo.thresholds[ac.activeThresholdIdx];
         for (int rid : ac.memberRoleIds)
             for (auto& e : thresh.effects)
