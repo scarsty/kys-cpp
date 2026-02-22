@@ -9,6 +9,7 @@ class ChessModHook
 {
 public:
     static bool overrideNewGame(int& scene, int& x, int& y, int& event);
+    static void onSubSceneEntrance(int submap_id);
     static bool interceptEvent(int submap_id, int event_id);
     static bool blockExit(int submap_id);
     static void showMenu();

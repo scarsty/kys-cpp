@@ -22,7 +22,7 @@ TitleScene::TitleScene()
     full_window_ = 1;
     battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
     menu_ = std::make_shared<Menu>();
-    menu_->setPosition(560, 550);
+    menu_->setPosition(560, 150);
     menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
     menu_->addChild<Button>(20, 0)->setTexture("title", 4, 24, 24);
     menu_->addChild<Button>(220, 0)->setTexture("title", 6, 26, 26);
@@ -32,11 +32,11 @@ TitleScene::TitleScene()
 
     if (battle_mode_ == 2)
     {
-        auto pe1 = std::make_shared<ParticleExample>();
-        pe1->setStyle(ParticleExample::FIRE);
-        addChild(pe1);
-        pe1->setPosition(490, 80);
-        pe1->setSize(20, 20);
+        // auto pe1 = std::make_shared<ParticleExample>();
+        // pe1->setStyle(ParticleExample::FIRE);
+        // addChild(pe1);
+        // pe1->setPosition(490, 80);
+        // pe1->setSize(20, 20);
     }
     else if (battle_mode_ == 3)
     {

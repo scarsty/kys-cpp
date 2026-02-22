@@ -25,7 +25,7 @@ namespace KysChess
 int ChessSelector::calculateCost(int tier, int star, int count)
 {
     auto& cfg = ChessBalance::config();
-    return cfg.tierPrices[tier] * static_cast<int>(std::pow(cfg.starCostMult, star)) * count;
+    return cfg.tierPrices[tier - 1] * static_cast<int>(std::pow(cfg.starCostMult, star - 1)) * count;
 }
 
 namespace
@@ -162,7 +162,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     int starWidth = 0;
     if (auto star = starOpt)
     {
-        for (int i = 0; i < *star + 1; ++i)
+        for (int i = 0; i < *star; ++i)
         {
             result += "★";
             starWidth += 2;
@@ -190,7 +190,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     }
 
     // Add cost right-aligned in fixed width column (6 columns for $XXX)
-    int cost = ChessSelector::calculateCost(tier, starOpt.value_or(0), countOpt.value_or(1));
+    int cost = ChessSelector::calculateCost(tier, starOpt.value_or(1), countOpt.value_or(1));
     std::string costStr = "$" + std::to_string(cost);
     int costColumnWidth = 6;
     int costWidth = costStr.size();
@@ -210,7 +210,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
         { 75, 0, 130 },
         { 255, 0, 0 }  // Red for tier 5
     };
-    return { result, colors[tier] };
+    return { result, colors[tier - 1] };
 }
 
 static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
@@ -323,7 +323,7 @@ static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
     int ty = py + 10;
     font->draw(ng.name, fs + 4, px + 90, ty, {255, 255, 100, 255}); ty += fs + 10;
     std::string tierName[] = {"初階", "中階", "高階"};
-    font->draw(std::format("層級: {}", tierName[std::min(ng.tier, 2)]), fs, px + 90, ty, {200, 200, 200, 255}); ty += fs + 4;
+    font->draw(std::format("層級: {}", tierName[std::min(ng.tier - 1, 2)]), fs, px + 90, ty, {200, 200, 200, 255}); ty += fs + 4;
     if (ownedState >= 0)
     {
         bool owned = ownedState > 0;
@@ -345,10 +345,10 @@ static std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& r)
     switch (r.type)
     {
     case RT::Gold: return std::format("获取{}金币", r.value);
-    case RT::GetPiece: return std::format("获取棋子(最高{}费)", r.value + 1);
-    case RT::GetNeigong: return std::format("获取内功(最高{}阶)", r.value + 1);
-    case RT::StarUp0to1: return std::format("升星★→★★(最高{}费)", r.value + 1);
-    case RT::StarUp1to2: return std::format("升星★★→★★★(最高{}费)", r.value + 1);
+    case RT::GetPiece: return std::format("获取棋子(最高{}费)", r.value);
+    case RT::GetNeigong: return std::format("获取内功(最高{}阶)", r.value);
+    case RT::StarUp1to2: return std::format("升星★→★★(最高{}费)", r.value);
+    case RT::StarUp2to3: return std::format("升星★★→★★★(最高{}费)", r.value);
     }
     return "未知奖励";
 }
@@ -380,7 +380,7 @@ void ChessSelector::getChess()
             auto addRoleWithTier = [&](Role* role, int tier)
             {
                 auto [name, color] = formatChessName(role, tier, {}, {});
-                rolePairs.emplace_back(role->ID * 10, name);
+                rolePairs.emplace_back(role->ID * 10 + 1, name);
                 roleColors.push_back(color);
             };
 
@@ -416,8 +416,8 @@ void ChessSelector::getChess()
             {
                 auto actualIdx = selectedId - 2;
                 auto [role, tier] = rollOfChess[actualIdx];
-                int cost = ChessBalance::config().tierPrices[tier];
-                if (gameData.isBenchFull() && !gameData.collection.wouldMerge({ role, 0 }))
+                int cost = ChessBalance::config().tierPrices[tier - 1];
+                if (gameData.isBenchFull() && !gameData.collection.wouldMerge({ role, 1 }))
                 {
                     auto text = std::make_shared<TextBox>();
                     text->setText("背包已滿！請先出售棋子");
@@ -427,7 +427,7 @@ void ChessSelector::getChess()
                 }
                 if (!gameData.spend(cost)) continue;
                 gameData.chessPool.removeChessAt(actualIdx);
-                gameData.addChessAndFixSelection({ role, 0 });
+                gameData.addChessAndFixSelection({ role, 1 });
                 auto text = std::make_shared<TextBox>();
                 text->setText(std::format("消費{}，獲取{}", cost, role->Name));
                 text->setFontSize(32);
@@ -641,7 +641,7 @@ void ChessSelector::enterBattle()
     {
         auto role = ChessPool::selectEnemyFromPool(slot.tier);
         enemyIds.push_back(role->ID);
-        enemyStars.push_back(std::min(slot.star, 2));
+        enemyStars.push_back(std::min(slot.star, 3));
     }
 
     // Detect combos for both teams before enhancements modify stats
@@ -650,7 +650,7 @@ void ChessSelector::enterBattle()
     for (size_t i = 0; i < enemyIds.size(); i++)
     {
         auto r = Save::getInstance()->getRole(enemyIds[i]);
-        if (r) enemyChessVec.push_back({r, i < enemyStars.size() ? enemyStars[i] : 0});
+        if (r) enemyChessVec.push_back({r, i < enemyStars.size() ? enemyStars[i] : 1});
     }
     auto enemyCombos = ChessCombo::detectCombos(enemyChessVec);
 
@@ -805,7 +805,7 @@ void ChessSelector::buyExp()
 void ChessSelector::showContextMenu()
 {
     //ChessBalance::apply();
-    auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰" });
+    auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "遊戲說明" });
     menu->setFontSize(24);
     menu->arrange(0, 0, 0, 32);
     menu->runAtPosition(200, 200);
@@ -820,6 +820,7 @@ void ChessSelector::showContextMenu()
     case 5: viewCombos(); break;
     case 6: viewNeigong(); break;
     case 7: showExpeditionChallenge(); break;
+    case 8: showGameGuide(); break;
     default: break;
     }
 }
@@ -874,7 +875,7 @@ void ChessSelector::viewCombos()
             if (!role) continue;
             bool owned = ownedIds.count(rid) > 0;
             Color col = owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255};
-            font->draw(std::format("  {} ({}费){}", role->Name, ChessPool::GetChessTier(rid) + 1, owned ? " ✓" : ""), fs, px + 10, y, col);
+            font->draw(std::format("  {} ({}费){}", role->Name, ChessPool::GetChessTier(rid), owned ? " ✓" : ""), fs, px + 10, y, col);
             y += fs + 1;
         }
 
@@ -919,7 +920,7 @@ void ChessSelector::showNeigongReward()
     {
         if (it->first <= bossIdx) { availTiers = it->second; break; }
     }
-    if (availTiers.empty()) availTiers = {0};
+    if (availTiers.empty()) availTiers = {1};
 
     // Filter: matching tiers, not already obtained
     auto& obtained = gd.getObtainedNeigong();
@@ -959,10 +960,10 @@ void ChessSelector::showNeigongReward()
             auto* ng = choices[i];
             std::string padded = ng->name;
             while (padded.size() < 15) padded += "\xe3\x80\x80";
-            std::string label = std::format("[{}] {}", tierName[std::min(ng->tier, 2)], padded);
+            std::string label = std::format("[{}] {}", tierName[std::min(ng->tier - 1, 2)], padded);
             items.emplace_back(i, label);
             Color tierColors[] = {{175, 238, 238}, {100, 255, 100}, {255, 200, 100}};
-            colors.push_back(tierColors[std::min(ng->tier, 2)]);
+            colors.push_back(tierColors[std::min(ng->tier - 1, 2)]);
         }
 
         if (!rerolled)
@@ -1030,7 +1031,7 @@ void ChessSelector::viewNeigong()
         bool owned = obtainedSet.count(ng.magicId) > 0;
         std::string padded = ng.name;
         while (padded.size() < 15) padded += "\xe3\x80\x80";  // fullwidth space
-        std::string label = std::format("[{}] {}{}", tierName[std::min(ng.tier, 2)], padded, owned ? " ✓" : "　 ");
+        std::string label = std::format("[{}] {}{}", tierName[std::min(ng.tier - 1, 2)], padded, owned ? " ✓" : "　 ");
         items.emplace_back(i, label);
         colors.push_back(owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255});
     }
@@ -1098,8 +1099,8 @@ void ChessSelector::showExpeditionChallenge()
                 if (!role) continue;
                 int tier = ChessPool::GetChessTier(e.roleId);
                 std::string stars;
-                for (int s = 0; s <= e.star; ++s) stars += "★";
-                font->draw(std::format("  {} {} ({}费)", role->Name, stars, tier + 1), fs - 2, px + 10, ty, {220, 180, 180, 255});
+                for (int s = 0; s < e.star; ++s) stars += "★";
+                font->draw(std::format("  {} {} ({}费)", role->Name, stars, tier), fs - 2, px + 10, ty, {220, 180, 180, 255});
                 ty += fs;
             }
             ty += 8;
@@ -1245,13 +1246,13 @@ void ChessSelector::showExpeditionChallenge()
             // Show all roles up to max tier
             std::vector<std::pair<int, std::string>> pieceItems;
             std::vector<Color> pieceColors;
-            for (int t = 0; t <= reward.value && t < 5; ++t)
+            for (int t = 1; t <= reward.value && t <= 5; ++t)
             {
                 for (int rid : ChessPool::getRolesOfTier(t))
                 {
                     auto* role = save->getRole(rid);
                     if (!role) continue;
-                    auto [name, color] = formatChessName(role, t, 0, {});
+                    auto [name, color] = formatChessName(role, t, 1, {});
                     pieceItems.emplace_back(rid, name);
                     pieceColors.push_back(color);
                 }
@@ -1267,7 +1268,7 @@ void ChessSelector::showExpeditionChallenge()
             if (pSel >= 0)
             {
                 auto* role = save->getRole(pieceItems[pSel].first);
-                if (role) gd.addChessAndFixSelection({role, 0});
+                if (role) gd.addChessAndFixSelection({role, 1});
                 auto text = std::make_shared<TextBox>();
                 text->setText(std::format("獲得棋子：{}", role ? role->Name : ""));
                 text->setFontSize(32);
@@ -1323,9 +1324,9 @@ void ChessSelector::showExpeditionChallenge()
                 }
             }
         }
-        else if (reward.type == RT::StarUp0to1 || reward.type == RT::StarUp1to2)
+        else if (reward.type == RT::StarUp1to2 || reward.type == RT::StarUp2to3)
         {
-            int fromStar = (reward.type == RT::StarUp0to1) ? 0 : 1;
+            int fromStar = (reward.type == RT::StarUp1to2) ? 1 : 2;
             int toStar = fromStar + 1;
 
             std::vector<std::pair<int, std::string>> upItems;
@@ -1355,7 +1356,7 @@ void ChessSelector::showExpeditionChallenge()
                 uOpts.needInputBox_ = false;
                 uOpts.exitable_ = false;
                 auto uMenu = std::make_shared<SuperMenuText>(
-                    std::format("選擇升星 {}★→{}★", fromStar + 1, toStar + 1), 28, upItems, 16, uOpts);
+                    std::format("選擇升星 {}★→{}★", fromStar, toStar), 28, upItems, 16, uOpts);
                 uMenu->setInputPosition(80, 60);
                 uMenu->run();
                 int uSel = uMenu->getResult();
@@ -1377,7 +1378,7 @@ void ChessSelector::showExpeditionChallenge()
                     }
                     gd.setSelectedForBattle(sel);
                     auto text = std::make_shared<TextBox>();
-                    text->setText(std::format("{}升星至{}★！", picked.role->Name, toStar + 1));
+                    text->setText(std::format("{}升星至{}★！", picked.role->Name, toStar));
                     text->setFontSize(32);
                     text->runCentered(Engine::getInstance()->getUIHeight() / 2);
                 }
@@ -1386,6 +1387,60 @@ void ChessSelector::showExpeditionChallenge()
 
         gd.completeChallenge(chIdx);
     }
+}
+
+void ChessSelector::showGameGuide()
+{
+    auto box = std::make_shared<TextBox>();
+    box->setText("　");
+    box->setHaveBox(false);
+    box->setFontSize(1);
+
+    auto panel = std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
+        auto* font = Font::getInstance();
+        int px = 90, py = 50, fs = 20, lh = fs + 6;
+        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 1100, 620);
+
+        int y = py + 15, x = px + 30;
+        auto title = [&](const std::string& s) {
+            font->draw(s, fs + 2, x, y, {255, 255, 100, 255}); y += lh + 4;
+        };
+        auto line = [&](const std::string& s, Color c = {220, 220, 220, 255}) {
+            font->draw(s, fs, x, y, c); y += lh;
+        };
+
+        title("珍珑棋局 · 游戏说明");
+        y += 4;
+        line("这是一场自走棋对弈。招募武林中人，排兵布阵，棋子上场后将自动战斗。");
+        y += 6;
+
+        title("基本流程");
+        line("· 每回合在商店中花费金币招募棋子并部署上阵");
+        line("· 战斗自动进行，获胜后进入下一回合");
+        line("· 每四回合遭遇一位强敌(Boss)，击败可获内功");
+        line("· 共二十八回合，存活到最后即为通关");
+        y += 6;
+
+        title("棋子与升星");
+        line("· 棋子分为1至5费，费用越高越稀有");
+        line("· 集齐三个相同棋子自动合成二星，三个二星合成三星，升星后属性大幅提升");
+        y += 6;
+
+        title("经济系统");
+        line("· 每回合获得基础金币，存款产生利息(每10金币额外+1，上限3)");
+        line("· 金币用于：招募棋子、刷新商店($2)、购买经验($5)");
+        line("· 提升等级可增加上阵人数与高费棋子出现概率");
+        y += 6;
+
+        title("羁绊");
+        line("· 同门派棋子上阵达到一定数量可激活羁绊效果");
+        line("· 羁绊提供攻击、防御、生命等多种加成，合理搭配羁绊是制胜关键");
+        y += 12;
+
+        font->draw("点击任意处返回", fs - 2, px + 30, y, {150, 150, 150, 255});
+    });
+    box->addChild(panel);
+    box->runAtPosition(0, 0);
 }
 
 }    //namespace KysChess

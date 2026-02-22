@@ -95,10 +95,10 @@ Console::Console()
         std::vector<KysChess::Chess> allChess;
         for (int i = 0; i < 10; i++)
         {
-            // Cycle through tiers 0-3
-            int tier = i % 4;
-            // Add some stars (0-2)
-            int stars = (i / 4) % 3;
+            // Cycle through tiers 1-4
+            int tier = i % 4 + 1;
+            // Add some stars (1-3)
+            int stars = (i / 4) % 3 + 1;
 
             auto role = KysChess::ChessPool::selectEnemyFromPool(tier);
             if (role)
@@ -146,9 +146,9 @@ Console::Console()
         {
             DynamicBattleRoles roles;
             roles.teammate_ids = {55, 55, 55};
-            roles.teammate_stars = {1, 1, 1};
+            roles.teammate_stars = {2, 2, 2};
             roles.enemy_ids = {55, 55, 55};
-            roles.enemy_stars = {0, 0, 0};
+            roles.enemy_stars = {1, 1, 1};
             auto battle = DynamicChessMap::createBattle(roles);
             battle->run();
         }

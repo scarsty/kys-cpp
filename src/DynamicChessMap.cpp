@@ -30,7 +30,7 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBat
         info.ID = roles.teammate_ids[i];
         info.X = all_positions[i].first;
         info.Y = all_positions[i].second;
-        info.star = (i < roles.teammate_stars.size()) ? roles.teammate_stars[i] : 0;
+        info.star = (i < roles.teammate_stars.size()) ? roles.teammate_stars[i] : 1;
         teammates.push_back(info);
     }
 

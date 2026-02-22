@@ -3,6 +3,7 @@
 #include "ChessSelector.h"
 #include "Menu.h"
 #include "SQLite3Wrapper.h"
+#include "Talk.h"
 #include "TempStore.h"
 #include "UISave.h"
 #include <format>
@@ -11,6 +12,7 @@ namespace KysChess
 {
 
 static constexpr int MOD_SCENE_ID = 53;    // 擂鼓山
+static bool needIntro_ = false;
 
 bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
 {
@@ -22,6 +24,7 @@ bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
     GameData::get().initRand();
     GameData::get().setMoney(ChessBalance::config().initialMoney);
     ChessCombo::clearActiveStates();
+    needIntro_ = true;
     return true;
 }
 
@@ -33,6 +36,21 @@ bool ChessModHook::interceptEvent(int submap_id, int event_id)
         return true;
     }
     return false;
+}
+
+void ChessModHook::onSubSceneEntrance(int submap_id)
+{
+    if (submap_id == MOD_SCENE_ID && needIntro_)
+    {
+        needIntro_ = false;
+        auto talk = std::make_shared<Talk>(
+            "少侠，你来了。此处乃擂鼓山，天下英雄汇聚之地。"
+            "老夫苏星河，奉师命在此守护珍珑棋局。"
+            "这珍珑棋局，非寻常棋局。棋盘之上，江湖群侠化为棋子，各展所长，自行厮杀。"
+            "弈者不执棋，而在于选将、布阵、运筹帷幄。"
+            "你若有意一试，便来与老夫说话罢。", 115);
+        talk->run();
+    }
 }
 
 bool ChessModHook::blockExit(int submap_id)
@@ -148,8 +166,9 @@ void ChessModHook::loadGameData(SQLite3Wrapper& db)
         while (stmt3.step())
         {
             auto role = Save::getInstance()->getRole(stmt3.getColumnInt(0));
+            int star = stmt3.getColumnInt(1);
             if (role)
-                selected.push_back({ role, stmt3.getColumnInt(1) });
+                selected.push_back({ role, star });
         }
     }
     gd.setSelectedForBattle(selected);

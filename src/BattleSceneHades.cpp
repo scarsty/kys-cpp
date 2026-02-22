@@ -524,7 +524,7 @@ void BattleSceneHades::onEntrance()
             for (size_t i = 0; i < friends_obj_.size(); i++)
             {
                 auto orig = Save::getInstance()->getRole(friends_obj_[i].RealID);
-                if (orig) v.push_back({orig, i < extended_teammates_.size() ? extended_teammates_[i].star : 0});
+                if (orig) v.push_back({orig, i < extended_teammates_.size() ? extended_teammates_[i].star : 1});
             }
             return v;
         }();
@@ -941,8 +941,8 @@ void BattleSceneHades::backRun1()
 
                 ae.Defender[r]++;
                 shake_ = ae.IsUltimate ? 10 : 0;
-                r->Frozen = ae.IsUltimate ? 20 : 8;
-                r->Shake = ae.IsUltimate ? 20 : 8;
+                r->Frozen = ae.IsUltimate ? 10 : 5;
+                r->Shake = ae.IsUltimate ? 10 : 5;
                 if (ae.IsUltimate) { ultHitRoles_.insert(r); }
                 if (ae.OperationType >= 0)
                 {

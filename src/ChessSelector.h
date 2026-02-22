@@ -16,6 +16,7 @@ public:
     static void showNeigongReward();
     static void viewNeigong();
     static void showExpeditionChallenge();
+    static void showGameGuide();
     static int calculateCost(int tier, int star, int count = 1);
 };
 

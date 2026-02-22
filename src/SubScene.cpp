@@ -444,12 +444,14 @@ void SubScene::onEntrance()
     reDrawEarthTexture();
     //Engine::getInstance()->saveTexture(earth_texture, std::format("{}.bmp", submap_id_).c_str());
 
-    auto scene_name = std::make_shared<TextBox>();
-    scene_name->setFontSize(24);
-    scene_name->setText(submap_info_->Name);
-    scene_name->setPosition(Engine::getInstance()->getUIWidth() / 2 - Font::getTextDrawSize(submap_info_->Name) / 2 * 12, 100);
-    scene_name->setStayFrame(40);
-    addChild(scene_name);
+    // auto scene_name = std::make_shared<TextBox>();
+    // scene_name->setFontSize(24);
+    // scene_name->setText(submap_info_->Name);
+    // scene_name->setPosition(Engine::getInstance()->getUIWidth() / 2 - Font::getTextDrawSize(submap_info_->Name) / 2 * 12, 100);
+    // scene_name->setStayFrame(40);
+    // addChild(scene_name);
+
+    KysChess::ChessModHook::onSubSceneEntrance(submap_id_);
 }
 
 void SubScene::onExit()

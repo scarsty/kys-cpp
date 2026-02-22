@@ -9,7 +9,7 @@ struct Chess
 
 {
     Role* role = nullptr;
-    int star = 0;
+    int star = 1;
     friend auto operator<=>(const Chess&, const Chess&) = default;
 };
 

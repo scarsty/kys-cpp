@@ -89,7 +89,7 @@ void BattleStatsView::setupPreBattle(
     for (size_t i = 0; i < enemyIds.size(); ++i)
     {
         auto r = Save::getInstance()->getRole(enemyIds[i]);
-        int star = (i < enemyStars.size()) ? enemyStars[i] : 0;
+        int star = (i < enemyStars.size()) ? enemyStars[i] : 1;
         if (r) enemies_.push_back(makeEntry(r, star, 1));
     }
     allyCombos_.clear(); enemyCombos_.clear();
@@ -119,9 +119,8 @@ void BattleStatsView::setupPostBattle(
             e.damageTaken = s.damageTaken;
             e.kills = s.kills;
             int last = s.lastActiveFrame ? s.lastActiveFrame : endFrame;
-            int duration = last - s.firstDamageFrame;
-            if (s.damageDealt > 0 && duration > 0)
-                e.dps = s.damageDealt * 60 / duration;
+            if (s.damageDealt > 0 && last > 0)
+                e.dps = s.damageDealt * 60 / last;
             for (auto& [name, dmg] : s.damagePerSkill)
             {
                 if (dmg > e.skill1Dmg)
@@ -140,7 +139,7 @@ void BattleStatsView::setupPostBattle(
     {
         auto orig = Save::getInstance()->getRole(r.RealID);
         if (!orig) continue;
-        auto e = makeEntry(orig, 0, 0);
+        auto e = makeEntry(orig, 1, 0);
         fillPost(e, r.ID);
         allies_.push_back(e);
     }
@@ -148,7 +147,7 @@ void BattleStatsView::setupPostBattle(
     {
         auto orig = Save::getInstance()->getRole(r.RealID);
         if (!orig) continue;
-        auto e = makeEntry(orig, 0, 1);
+        auto e = makeEntry(orig, 1, 1);
         fillPost(e, r.ID);
         enemies_.push_back(e);
     }
@@ -208,7 +207,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 
         if (!showPost)
         {
-            std::string stars = std::to_string(e.star + 1);
+            std::string stars = std::to_string(e.star);
             font->draw(stars, fs, x + cStar, y, {255, 215, 0, 255});
             font->draw(std::to_string(e.hp), fs, x + cHP, y, cWhite);
             font->draw(std::to_string(e.atk), fs, x + cAtk, y, cWhite);

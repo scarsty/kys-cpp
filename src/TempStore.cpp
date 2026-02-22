@@ -20,7 +20,7 @@ void ChessCollection::addChess(Chess c)
         iter = it;
     }
 
-    if (c.star <= 1 && iter->second == 3)
+    if (c.star <= 2 && iter->second == 3)
     {
         countMap_.erase(iter);
         countTotal_ -= 3;

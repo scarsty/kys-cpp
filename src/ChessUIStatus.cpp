@@ -136,7 +136,7 @@ void ChessUIStatus::draw()
     {
         if (chess.role->ID != role_->ID) continue;
         std::string stars;
-        for (int i = 0; i <= chess.star; i++) stars += "★";
+        for (int i = 0; i < chess.star; i++) stars += "★";
         font->draw(std::format("{} x{}", stars, count), font_size, ox, y, color_white);
         ox += 120;
     }

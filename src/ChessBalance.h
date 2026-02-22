@@ -68,7 +68,7 @@ struct BalanceConfig
     }};
 
     // Enemy table: per-round list of {tier, star} pairs
-    struct EnemySlot { int tier = 0; int star = 0; };
+    struct EnemySlot { int tier = 1; int star = 1; };
     std::vector<std::vector<EnemySlot>> enemyTable;
 
     // Stage progress
@@ -81,7 +81,7 @@ struct BalanceConfig
     std::map<int, std::vector<int>> neigongTiersByBoss;
 
     // Expedition challenges
-    enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp0to1, StarUp1to2 };
+    enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3 };
     struct ChallengeReward { ChallengeRewardType type; int value = 0; };
     struct ChallengeEnemy { int roleId; int star; };
     struct ChallengeDef

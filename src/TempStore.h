@@ -23,7 +23,7 @@ public:
 
     bool wouldMerge(Chess c) const
     {
-        if (c.star > 1) return false;
+        if (c.star > 2) return false;
         auto it = countMap_.find(c);
         return it != countMap_.end() && it->second >= 2;
     }
@@ -178,7 +178,7 @@ struct GameData
         collection.addChess(c);
         // Walk up the star chain to find what it merged into
         Chess upgraded = c;
-        while (upgraded.star <= 2 && collection.getChess().find(upgraded) == collection.getChess().end())
+        while (upgraded.star <= 3 && collection.getChess().find(upgraded) == collection.getChess().end())
             upgraded.star++;
         if (upgraded.star == c.star) return;  // no merge
         // Upgrade first matching selected piece; remove extras consumed by merge

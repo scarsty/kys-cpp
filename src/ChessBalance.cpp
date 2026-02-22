@@ -131,8 +131,8 @@ bool ChessBalance::loadConfig(const std::string& path)
                         if (t == "获取金币") reward.type = BalanceConfig::ChallengeRewardType::Gold;
                         else if (t == "获取棋子") reward.type = BalanceConfig::ChallengeRewardType::GetPiece;
                         else if (t == "获取内功") reward.type = BalanceConfig::ChallengeRewardType::GetNeigong;
-                        else if (t == "升星0到1") reward.type = BalanceConfig::ChallengeRewardType::StarUp0to1;
                         else if (t == "升星1到2") reward.type = BalanceConfig::ChallengeRewardType::StarUp1to2;
+                        else if (t == "升星2到3") reward.type = BalanceConfig::ChallengeRewardType::StarUp2to3;
                         if (r["数值"]) reward.value = r["数值"].as<int>();
                         else if (r["最高费用"]) reward.value = r["最高费用"].as<int>();
                         else if (r["最高层级"]) reward.value = r["最高层级"].as<int>();

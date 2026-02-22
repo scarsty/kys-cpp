@@ -7,15 +7,16 @@ namespace KysChess
 StarBoostedStats BattleRoleManager::computeStarStats(const Role* role, int stars)
 {
     auto& cfg = ChessBalance::config();
-    double hpM = 1.0 + cfg.starHPMult * stars;
-    double atkM = 1.0 + cfg.starAtkMult * stars;
-    double defM = 1.0 + cfg.starDefMult * stars;
-    double spdM = 1.0 + cfg.starSpdMult * stars;
-    int actFlat = 15 * stars;
+    int s = stars - 1;  // 1-based: star 1 = no bonus
+    double hpM = 1.0 + cfg.starHPMult * s;
+    double atkM = 1.0 + cfg.starAtkMult * s;
+    double defM = 1.0 + cfg.starDefMult * s;
+    double spdM = 1.0 + cfg.starSpdMult * s;
+    int actFlat = 15 * s;
     return {
-        static_cast<int>(role->MaxHP * hpM) + cfg.starFlatHP * stars,
-        static_cast<int>(role->Attack * atkM) + cfg.starFlatAtk * stars,
-        static_cast<int>(role->Defence * defM) + cfg.starFlatDef * stars,
+        static_cast<int>(role->MaxHP * hpM) + cfg.starFlatHP * s,
+        static_cast<int>(role->Attack * atkM) + cfg.starFlatAtk * s,
+        static_cast<int>(role->Defence * defM) + cfg.starFlatDef * s,
         static_cast<int>(role->Speed * spdM),
         static_cast<int>(role->Fist * defM) + actFlat,
         static_cast<int>(role->Sword * defM) + actFlat,
@@ -27,7 +28,7 @@ StarBoostedStats BattleRoleManager::computeStarStats(const Role* role, int stars
 
 void BattleRoleManager::applyStarBonus(Role* role, int stars)
 {
-    if (stars <= 0) return;
+    if (stars <= 1) return;
     auto s = computeStarStats(role, stars);
     role->MaxHP = s.hp;
     role->HP = s.hp;
@@ -41,7 +42,7 @@ void BattleRoleManager::applyStarBonus(Role* role, int stars)
     role->HiddenWeapon = s.hidden;
 
     // 3-star pieces max out their ulti skill level
-    if (stars >= 2 && role->MagicID[1] > 0)
+    if (stars >= 3 && role->MagicID[1] > 0)
         role->MagicLevel[1] = 999;
 }
 

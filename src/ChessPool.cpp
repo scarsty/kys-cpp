@@ -82,7 +82,7 @@ const std::array<std::vector<int>, 5> chessIdxOfPrice = {
 int ChessPool::GetChessTier(int roleId) {
     for (int i = 0; i < chessIdxOfPrice.size(); ++i) {
         if (std::ranges::find(chessIdxOfPrice[i], roleId) != chessIdxOfPrice[i].end()) {
-            return i;
+            return i + 1;
         }
     }
     return -1;
@@ -92,9 +92,9 @@ Role* ChessPool::selectFromPool(int tier)
 {
     for (;;)
     {
-        auto idx = chessIdxOfPrice[tier][GameData::get().shopRandInt(chessIdxOfPrice[tier].size())];
+        auto idx = chessIdxOfPrice[tier - 1][GameData::get().shopRandInt(chessIdxOfPrice[tier - 1].size())];
         auto role = Save::getInstance()->getRole(idx);
-        if (tier <= 3 && rejected_.contains(role))
+        if (tier <= 4 && rejected_.contains(role))
         {
             continue;
         }
@@ -117,9 +117,9 @@ std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
         // 应该是 0~99
         auto val = GameData::get().shopRandInt(100);
         auto cur = 0;
-        for (int tier = 0; tier < 5; ++tier)
+        for (int tier = 1; tier <= 5; ++tier)
         {
-            auto w = ChessBalance::config().shopWeights[level][tier];
+            auto w = ChessBalance::config().shopWeights[level][tier - 1];
             cur += w;
             if (val < cur)
             {
@@ -150,13 +150,13 @@ void ChessPool::refresh() {
 
 Role* ChessPool::selectEnemyFromPool(int tier)
 {
-    auto idx = chessIdxOfPrice[tier][GameData::get().enemyRandInt(chessIdxOfPrice[tier].size())];
+    auto idx = chessIdxOfPrice[tier - 1][GameData::get().enemyRandInt(chessIdxOfPrice[tier - 1].size())];
     return Save::getInstance()->getRole(idx);
 }
 
 const std::vector<int>& ChessPool::getRolesOfTier(int tier)
 {
-    return chessIdxOfPrice[tier];
+    return chessIdxOfPrice[tier - 1];
 }
 
 }    // namespace KysChess
