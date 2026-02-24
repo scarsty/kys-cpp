@@ -1744,7 +1744,7 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     {
         constexpr auto width = 24;
         constexpr auto height = 3;
-        auto bar_x = x - width / 2;
+        int bar_x = int(x - width / 2);
         double perc = static_cast<double>(cur) / max;
         double alpha = 1;
 

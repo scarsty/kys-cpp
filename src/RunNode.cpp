@@ -340,6 +340,35 @@ void RunNode::dealEventSelfChilds(bool check_event)
         EngineEvent e;
         e.type = EVENT_FIRST;
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
+#ifdef __EMSCRIPTEN__
+        // On WASM, process ALL queued events per frame. The browser batches
+        // many mouse motion events between frames; processing only one per
+        // frame creates a backlog that manifests as mouse lag.
+        EngineEvent e_temp;
+        while (Engine::getInstance()->pollEvent(e_temp))
+        {
+            if (isSpecialEvent(e_temp))
+            {
+                e = e_temp;
+                if (use_virtual_stick_)
+                {
+                    virtual_stick()->dealEvent(e);
+                }
+                checkStateSelfChilds(e, check_event);
+                if (e.type == EVENT_QUIT
+                    || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
+                {
+                    UISystem::askExit(1);
+                }
+            }
+        }
+        // Always run at least once even with no events, so idle logic
+        // (animations, timers, AI) still ticks every frame.
+        if (e.type == EVENT_FIRST)
+        {
+            checkStateSelfChilds(e, check_event);
+        }
+#else
         while (Engine::getInstance()->pollEvent(e))
         {
             if (isSpecialEvent(e))
@@ -352,35 +381,6 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //摇杆移动会产生大量事件，暂时不处理
             EngineEvent e1;
             while (Engine::getInstance()->pollEvent(e1)) {};
-            //右摇杆控制鼠标，手感有问题，待处理
-            //if (e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTX || e.caxis.axis == SDL_GAMEPAD_AXIS_RIGHTY)
-            //{
-            //    auto axis_x = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTX);
-            //    auto axis_y = Engine::getInstance()->gameControllerGetAxis(GAMEPAD_AXIS_RIGHTY);
-            //
-            //    //LOG("{} {}  ", axis_x, axis_y);
-            //    if (abs(axis_x) < 10000) { axis_x = 0; }
-            //    if (abs(axis_y) < 10000) { axis_y = 0; }
-            //    if (axis_x != 0 || axis_y != 0)
-            //    {
-            //        axis_x = GameUtil::limit(axis_x, -30000, 30000);
-            //        axis_y = GameUtil::limit(axis_y, -30000, 30000);
-            //        int x, y;
-            //        Engine::getInstance()->getMouseStateInStartWindow(x, y);
-            //        x += axis_x / 3000;
-            //        y += axis_y / 3000;
-            //        int w, h;
-            //        Engine::getInstance()->getUISize(w, h);
-            //        if (x >= w) { x = w - 1; }
-            //        if (x < 0) { x = 0; }
-            //        if (y >= h) { y = h - 1; }
-            //        if (y < 0) { y = 0; }
-            //        Engine::getInstance()->setMouseStateInStartWindow(x, y);
-            //        e.type = EVENT_MOUSE_MOTION;
-            //        e.motion.x = x;
-            //        e.motion.y = y;
-            //    }
-            //}
         }
         //SDL3中，这两个事件需要在AddEventWatch处理
         if (e.type == EVENT_DID_ENTER_BACKGROUND)
@@ -408,6 +408,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
         {
             UISystem::askExit(1);
         }
+#endif
     }
     else
     {
@@ -548,14 +549,32 @@ int RunNode::run(bool in_root /*= true*/)
         {
             break;
         }
+#ifdef __EMSCRIPTEN__
+        auto t0 = Engine::getTicks();
+#endif
         dealEventSelfChilds(true);
         if (exit_)
         {
             break;
         }
+#ifdef __EMSCRIPTEN__
+        auto t1 = Engine::getTicks();
+#endif
         drawAll();
+#ifdef __EMSCRIPTEN__
+        auto t2 = Engine::getTicks();
+#endif
         checkFrame();
         present();
+#ifdef __EMSCRIPTEN__
+        auto t3 = Engine::getTicks();
+        static int frame_count = 0;
+        if (++frame_count % 60 == 0)
+        {
+            std::print("FRAME: total={:.1f}ms event={:.1f}ms draw={:.1f}ms present={:.1f}ms\n",
+                t3 - t0, t1 - t0, t2 - t1, t3 - t2);
+        }
+#endif
     }
     running_ = false;
     onExit();

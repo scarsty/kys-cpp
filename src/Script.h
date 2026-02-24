@@ -1,4 +1,25 @@
 ﻿#pragma once
+#ifdef __EMSCRIPTEN__
+// WASM stub: no Lua scripting
+#include <string>
+
+class Script
+{
+public:
+    Script() {}
+    ~Script() {}
+
+    static Script* getInstance()
+    {
+        static Script s;
+        return &s;
+    }
+
+    int runScript(const std::string& filename) { return 0; }
+    int runScriptString(const std::string& content) { return 0; }
+    int registerEventFunctions() { return 0; }
+};
+#else // !__EMSCRIPTEN__
 #include "FunctionTrait.h"
 #ifdef _WIN32
 #include "lua.hpp"
@@ -55,3 +76,4 @@ public:
         return 1;
     }
 };
+#endif // !__EMSCRIPTEN__

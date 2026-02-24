@@ -116,7 +116,14 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     renderPresent();
     TTF_Init();
 
-#ifdef _MSC_VER
+#ifdef __EMSCRIPTEN__
+    // On Emscripten, SDL_GetDisplayBounds returns the tiny CSS viewport
+    // (e.g. 320x676 on mobile). Don't let that clamp the game resolution.
+    min_x_ = 0;
+    min_y_ = 0;
+    max_x_ = std::max(ui_w_, 3840);
+    max_y_ = std::max(ui_h_, 2160);
+#elif defined(_MSC_VER)
     RECT r;
     SystemParametersInfo(SPI_GETWORKAREA, 0, (PVOID)&r, 0);
     int w = GetSystemMetrics(SM_CXEDGE);
@@ -362,7 +369,9 @@ void Engine::renderPresent() const
 {
     //renderMainTextureToWindow();
     SDL_RenderPresent(renderer_);
+#ifndef __EMSCRIPTEN__
     SDL_RenderClear(renderer_);
+#endif
     //setRenderMainTexture();
 }
 
@@ -667,6 +676,9 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
 void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
+#ifdef __EMSCRIPTEN__
+    SDL_RenderClear(renderer_);
+#endif
     SDL_Rect r;
     renderTexture(tex_, nullptr, nullptr);
     //std::vector<FPoint> v;
@@ -1040,3 +1052,36 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
     resetRenderTarget();
     return 0;
 }
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+extern "C" {
+EMSCRIPTEN_KEEPALIVE
+void inject_right_click()
+{
+    float mx, my;
+    SDL_GetMouseState(&mx, &my);
+    SDL_Event down = {};
+    down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+    down.button.button = SDL_BUTTON_RIGHT;
+    down.button.x = mx;
+    down.button.y = my;
+    down.button.down = true;
+    SDL_PushEvent(&down);
+    SDL_Event up = {};
+    up.type = SDL_EVENT_MOUSE_BUTTON_UP;
+    up.button.button = SDL_BUTTON_RIGHT;
+    up.button.x = mx;
+    up.button.y = my;
+    up.button.down = false;
+    SDL_PushEvent(&up);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void resize_to_viewport(int w, int h)
+{
+    auto* window = Engine::getInstance()->getWindow();
+    SDL_SetWindowSize(window, w, h);
+}
+}
+#endif

@@ -25,3 +25,7 @@ hades
 kys-c++
 .vscode
 .claude
+
+wasm/build
+wasm/deps_src
+wasm/wasm_deps

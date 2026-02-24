@@ -3,14 +3,32 @@
 #include "GameUtil.h"
 #include "filefunc.h"
 
+#ifdef __EMSCRIPTEN__
+// WASM stub implementations - no audio yet
+Audio::Audio() { init(); }
+Audio::~Audio() {}
+#elif defined(USE_BASS)
 Audio::Audio()
 {
-#ifdef USE_BASS
     if (!BASS_Init(-1, 22050, 0, 0, nullptr))
     {
         LOG("Init Bass fault!\n");
     }
+    init();
+}
+
+Audio::~Audio()
+{
+    if (mid_sound_font_.font)
+    {
+        BASS_MIDI_FontFree(mid_sound_font_.font);
+    }
+    BASS_Stop();
+    BASS_Free();
+}
 #else
+Audio::Audio()
+{
     MIX_Init();
     SDL_AudioSpec spec;
     spec.freq = 22500;
@@ -27,38 +45,27 @@ Audio::Audio()
     {
         t = MIX_CreateTrack(mixer_);
     }
-#endif
     init();
 }
 
 Audio::~Audio()
 {
-#ifdef USE_BASS
-    if (mid_sound_font_.font)
-    {
-        BASS_MIDI_FontFree(mid_sound_font_.font);
-    }
-    BASS_Stop();
-    BASS_Free();
-#else
     //如使用SDL_Mixer播放音频，则销毁应该在SDL_Quit之前，此处的单例设计无法保证，故暂时不处理
-    /*
-    for (auto m : music_)
-    {
-        MIX_DestroyAudio(m);
-    }
-    for (auto a : asound_)
-    {
-        MIX_DestroyAudio(a);
-    }
-    for (auto e : esound_)
-    {
-        MIX_DestroyAudio(e);
-    }
-    MIX_Quit();
-    */
-#endif
 }
+#endif
+
+#ifdef __EMSCRIPTEN__
+// WASM stubs - all audio operations are no-ops
+void Audio::init() {}
+void Audio::playMusic(int num) { current_music_index_ = num; }
+void Audio::playASound(int num, int volume) {}
+void Audio::playESound(int num, int volume) {}
+void Audio::pauseMusic() {}
+void Audio::resumeMusic() {}
+void Audio::stopMusic() {}
+void Audio::stopWav() {}
+void Audio::playVoice(int voice_id, int volume) {}
+#else // !__EMSCRIPTEN__
 
 void Audio::init()
 {
@@ -291,3 +298,5 @@ void Audio::playWav(WAV w, int volume, int track_num)
     }
 #endif
 }
+
+#endif // !__EMSCRIPTEN__

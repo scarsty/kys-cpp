@@ -21,7 +21,7 @@ const std::array<std::vector<int>, 5>& chessPool()
 
 int ChessPool::GetChessTier(int roleId) {
     for (int i = 0; i < chessPool().size(); ++i) {
-        if (std::ranges::find(chessPool()[i], roleId) != chessPool()[i].end()) {
+        if (std::find(chessPool()[i].begin(), chessPool()[i].end(), roleId) != chessPool()[i].end()) {
             return i + 1;
         }
     }

@@ -1,4 +1,7 @@
 ﻿#include "Script.h"
+#ifdef __EMSCRIPTEN__
+// WASM stub: Script is fully inlined in the header, nothing needed here
+#else
 #include "Event.h"
 #include "EventMacro.h"
 #include "Font.h"
@@ -458,3 +461,5 @@ int Script::registerEventFunctions()
 
     return 0;
 }
+
+#endif // !__EMSCRIPTEN__

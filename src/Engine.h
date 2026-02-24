@@ -4,6 +4,10 @@
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -271,7 +275,7 @@ private:
     bool full_screen_ = false;
     bool keep_ratio_ = true;
 
-    int ui_w_ = 1024, ui_h_ = 640;
+    int ui_w_ = 1280, ui_h_ = 720;
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
     double ratio_x_ = 1, ratio_y_ = 1;
@@ -472,7 +476,14 @@ private:
     uint64_t time_;
 
 public:
-    static void delay(double t) { std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1e6))); }
+    static void delay(double t)
+    {
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep((unsigned int)(t));
+#else
+        std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1e6)));
+#endif
+    }
 
     static double getTicks()
     {

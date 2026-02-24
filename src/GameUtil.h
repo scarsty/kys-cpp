@@ -41,7 +41,9 @@ public:
     static std::string autoGamePath()
     {
         std::string s;
-#ifndef __ANDROID__
+#ifdef __EMSCRIPTEN__
+        s = "/game/";
+#elif !defined(__ANDROID__)
         s = "../game/";
 #else
         s = "/sdcard/kys-cpp/game/";

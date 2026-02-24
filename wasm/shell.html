@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>KYS-CPP</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: #000;
+            touch-action: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+        }
+        #overlay {
+            position: fixed; inset: 0;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: #000;
+            color: #ccc;
+            font-family: system-ui, sans-serif;
+            z-index: 10;
+            transition: opacity 0.4s;
+        }
+        #overlay.hidden { opacity: 0; pointer-events: none; }
+        #title { font-size: 1.5rem; margin-bottom: 1.5rem; }
+        #progress-bar {
+            width: min(80vw, 400px); height: 6px;
+            background: #333; border-radius: 3px;
+            overflow: hidden;
+        }
+        #progress-fill {
+            width: 0%; height: 100%;
+            background: #4a9eff;
+            transition: width 0.2s;
+        }
+        #status { margin-top: 0.75rem; font-size: 0.85rem; color: #888; }
+        #rclick-btn, #fs-btn {
+            position: fixed;
+            width: 3.5rem; height: 3.5rem;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            font-size: 1.2rem;
+            z-index: 5;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        #rclick-btn { bottom: 2rem; right: 2rem; }
+        #fs-btn { bottom: 2rem; left: 2rem; }
+        #rclick-btn:active, #fs-btn:active { background: rgba(255,255,255,0.3); }
+        @media (pointer: coarse) { #rclick-btn, #fs-btn { display: flex; } }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <div id="title">金庸群侠传</div>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <div id="status">Downloading...</div>
+    </div>
+    <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <button id="rclick-btn" aria-label="Right click">✕</button>
+    <button id="fs-btn" aria-label="Fullscreen">⛶</button>
+    <script>
+        var progressFill = document.getElementById('progress-fill');
+        var statusEl = document.getElementById('status');
+        var overlay = document.getElementById('overlay');
+        var totalFiles = 0;
+
+        var Module = {
+            canvas: document.getElementById('canvas'),
+            setStatus: function(text) {
+                statusEl.innerText = text || '';
+                if (!text) {
+                    overlay.classList.add('hidden');
+                    setTimeout(function() { overlay.style.display = 'none'; }, 500);
+                }
+            },
+            monitorRunDependencies: function(left) {
+                if (!totalFiles) totalFiles = left;
+                if (left) {
+                    var pct = ((totalFiles - left) / totalFiles * 100).toFixed(0);
+                    progressFill.style.width = pct + '%';
+                    statusEl.innerText = 'Loading... (' + left + ' files remaining)';
+                } else {
+                    progressFill.style.width = '100%';
+                    Module.setStatus('');
+                }
+            }
+        };
+
+        document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('click', function() { Module.canvas.focus(); });
+        document.addEventListener('touchstart', function() { Module.canvas.focus(); });
+
+        // Right-click button for touch devices
+        var rclickBtn = document.getElementById('rclick-btn');
+        rclickBtn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (Module.ccall) {
+                Module.ccall('inject_right_click', null, [], []);
+            }
+        });
+
+        var lastTouchX = null, lastTouchY = null;
+        document.getElementById('canvas').addEventListener('touchstart', function(e) {
+            var rect = e.target.getBoundingClientRect();
+            lastTouchX = e.touches[0].clientX - rect.left;
+            lastTouchY = e.touches[0].clientY - rect.top;
+        });
+        document.getElementById('canvas').addEventListener('touchmove', function(e) {
+            var rect = e.target.getBoundingClientRect();
+            lastTouchX = e.touches[0].clientX - rect.left;
+            lastTouchY = e.touches[0].clientY - rect.top;
+        });
+
+        // Fullscreen button for touch devices
+        var fsBtn = document.getElementById('fs-btn');
+
+        fsBtn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                // Enter: fullscreen + landscape, then resize SDL3 window
+                var doc = document.documentElement;
+                var req = doc.requestFullscreen || doc.webkitRequestFullscreen;
+                if (!req) return;
+                req.call(doc).then(function() {
+                    if (screen.orientation && screen.orientation.lock) {
+                        return screen.orientation.lock('landscape');
+                    }
+                }).then(function() {
+                    setTimeout(function() {
+                        if (Module.ccall) {
+                            Module.ccall('resize_to_viewport', null,
+                                ['number', 'number'],
+                                [window.innerWidth, window.innerHeight]);
+                        }
+                    }, 300);
+                }).catch(function() {});
+            } else {
+                // Exit fullscreen
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+                var exit = document.exitFullscreen || document.webkitExitFullscreen;
+                if (exit) exit.call(document);
+            }
+        });
+
+        Module.setStatus('Downloading...');
+    </script>
+    {{{ SCRIPT }}}
+</body>
+</html>
