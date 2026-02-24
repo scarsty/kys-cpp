@@ -9,6 +9,7 @@ Font::Font()
     fontnamec_ = GameUtil::PATH() + "font/chinese.ttf";
     fontnamee_ = GameUtil::PATH() + "font/english.ttf";
     cct2s_.init({ GameUtil::PATH() + "cc/TSPhrases.txt", GameUtil::PATH() + "cc/TSCharacters.txt" });
+    ccs2t_.init({ GameUtil::PATH() + "cc/STPhrases.txt", GameUtil::PATH() + "cc/STCharacters.txt" });
 }
 
 Rect Font::getBoxSize(int textLen, int size, int x, int y)

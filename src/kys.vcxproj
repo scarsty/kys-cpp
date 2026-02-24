@@ -159,6 +159,7 @@
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
     <ClCompile Include="ChessBalance.cpp" />
+    <ClCompile Include="ChessNeigong.cpp" />
     <ClCompile Include="BattleStatsView.cpp" />
     <ClCompile Include="ChessBattleEffects.cpp" />
     <ClCompile Include="ChessCombo.cpp" />
@@ -225,6 +226,7 @@
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="ChessBalance.h" />
+    <ClInclude Include="ChessNeigong.h" />
     <ClInclude Include="BattleStatsView.h" />
     <ClInclude Include="ChessBattleEffects.h" />
     <ClInclude Include="ChessCombo.h" />

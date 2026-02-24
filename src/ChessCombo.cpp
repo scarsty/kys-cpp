@@ -1,6 +1,7 @@
 #include "ChessCombo.h"
 #include "Chess.h"
 #include "ChessPool.h"
+#include "Font.h"
 #include "Save.h"
 #include "GameUtil.h"
 #include "yaml-cpp/yaml.h"
@@ -27,7 +28,6 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
         return {};
     }
 
-    auto save = Save::getInstance();
     std::vector<ComboDef> combos;
     int idx = 0;
 
@@ -35,23 +35,14 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
     {
         ComboDef def;
         if (!node["名称"]) { std::print("【羁绊配置】第{}个羁绊缺少「名称」\n", idx + 1); return {}; }
-        def.name = node["名称"].as<std::string>();
+        def.name = Font::getInstance()->S2T(node["名称"].as<std::string>());
         def.id = static_cast<ComboId>(idx);
         def.isAntiCombo = node["反向羁绊"] && node["反向羁绊"].as<bool>();
         def.starSynergyBonus = node["星级羁绊加成"] && node["星级羁绊加成"].as<bool>();
 
         if (!node["成员"]) { std::print("【羁绊配置】「{}」缺少「成员」\n", def.name); return {}; }
         for (const auto& member : node["成员"])
-        {
-            auto name = member.as<std::string>();
-            auto* role = save->getRoleByName(name);
-            if (!role)
-            {
-                std::print("【羁绊配置】「{}」成员「{}」找不到对应角色\n", def.name, name);
-                return {};
-            }
-            def.memberRoleIds.push_back(role->ID);
-        }
+            def.memberRoleIds.push_back(member.as<int>());
 
         if (!node["阈值"]) { std::print("【羁绊配置】「{}」缺少「阈值」\n", def.name); return {}; }
         for (const auto& tNode : node["阈值"])
@@ -63,7 +54,7 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
                 return {};
             }
             thresh.count = tNode["人数"].as<int>();
-            thresh.name = tNode["名称"].as<std::string>();
+            thresh.name = Font::getInstance()->S2T(tNode["名称"].as<std::string>());
 
             if (!tNode["效果"]) { std::print("【羁绊配置】「{}」阈值「{}」缺少「效果」\n", def.name, thresh.name); return {}; }
             for (const auto& eNode : tNode["效果"])
@@ -106,7 +97,7 @@ std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& sele
 
         if (combo.starSynergyBonus)
             for (int rid : ac.memberRoleIds)
-                ac.memberCount += starByRole[rid];
+                ac.memberCount += starByRole[rid] - 1;
 
         if (combo.isAntiCombo)
         {

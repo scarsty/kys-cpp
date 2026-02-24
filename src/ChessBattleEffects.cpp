@@ -25,7 +25,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"护盾僵直抗性", EffectType::ShieldFreezeRes}, {"治疗光环", EffectType::HealAuraPct},
     {"固定治疗光环", EffectType::HealAuraFlat},
     {"受治疗加速", EffectType::HealedATKSPDBoost}, {"生命回复", EffectType::HPRegenPct},
-    {"僵直抗性", EffectType::FreezeReductionPct}, {"免控帧数", EffectType::ControlImmunityFrames},
+    {"僵直抗性", EffectType::FreezeReductionPct}, {"僵直护盾", EffectType::ControlImmunityFrames},
     {"击杀回血", EffectType::KillHealPct}, {"击杀无敌", EffectType::KillInvincFrames},
     {"技能后无敌", EffectType::PostSkillInvincFrames}, {"伤害减免", EffectType::DmgReductionPct},
     {"嗜血", EffectType::Bloodlust}, {"适应", EffectType::Adaptation},

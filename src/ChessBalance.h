@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ChessBattleEffects.h"
 #include "Save.h"
 #include <array>
 #include <map>
@@ -10,14 +9,7 @@
 namespace KysChess
 {
 
-struct NeigongDef
-{
-    int magicId;
-    int itemId;
-    int tier;
-    std::string name;
-    std::vector<ComboEffect> effects;
-};
+enum class Difficulty { Easy, Normal };
 
 struct BalanceConfig
 {
@@ -78,11 +70,6 @@ struct BalanceConfig
     int totalFights = 28;
     int bossInterval = 4;
 
-    // Neigong
-    int neigongRerollCost = 4;
-    int neigongChoiceCount = 3;
-    std::map<int, std::vector<int>> neigongTiersByBoss;
-
     // Expedition challenges
     enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3 };
     struct ChallengeReward { ChallengeRewardType type; int value = 0; };
@@ -101,12 +88,14 @@ class ChessBalance
 {
 public:
     static bool loadConfig(const std::string& path);
+    static void setDifficulty(Difficulty d);
+    static Difficulty getDifficulty();
     static const BalanceConfig& config();
-    static const std::vector<NeigongDef>& getNeigongPool();
 
 private:
     static inline BalanceConfig config_;
-    static inline std::vector<NeigongDef> neigongPool_;
+    static inline Difficulty difficulty_ = Difficulty::Easy;
+    static inline bool loaded_ = false;
 };
 
 }    // namespace KysChess

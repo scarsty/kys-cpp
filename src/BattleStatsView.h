@@ -43,7 +43,7 @@ public:
         int team = 0;
         int hp = 0, atk = 0, def = 0, spd = 0;
         std::string skillNames;
-        int damageDealt = 0, damageTaken = 0, kills = 0, dps = 0;
+        int damageDealt = 0, damageTaken = 0, kills = 0, dps = 0, cancelDmg = 0;
         std::string skill1, skill2;
         int skill1Dmg = 0, skill2Dmg = 0;
     };

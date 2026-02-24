@@ -168,7 +168,7 @@ public:
     Role* LastAttacker = nullptr;
     int FaceTowards = 0, Dead = 0, Step = 0;
     int Pic = 0, BattleSpeed = 0;
-    int ExpGot = 0, Auto = 0;
+    int ExpGot = 0, Auto = 0, CancelDmg = 0;
     int FightFrame[5] = { -1 };
     int FightingFrame = 0;
     int Moved = 0, Acted = 0;

@@ -150,6 +150,7 @@ void BattleStatsView::setupPostBattle(
         if (!orig) continue;
         auto e = makeEntry(orig, 1, 0);
         fillPost(e, r.ID);
+        e.cancelDmg = r.CancelDmg;
         allies_.push_back(e);
     }
     for (auto& r : enemyBattleCopies)
@@ -158,6 +159,7 @@ void BattleStatsView::setupPostBattle(
         if (!orig) continue;
         auto e = makeEntry(orig, 1, 1);
         fillPost(e, r.ID);
+        e.cancelDmg = r.CancelDmg;
         enemies_.push_back(e);
     }
     auto byDmg = [](const RoleEntry& a, const RoleEntry& b) { return a.damageDealt > b.damageDealt; };
@@ -180,7 +182,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 
     // Column offsets relative to x
     int cName = 46, cStar = 130, cHP = 160, cAtk = 220, cDef = 270, cSpd = 320, cSkill = 365;
-    int cDmg = 130, cDps = 200, cTaken = 250, cKill = 310, cSk1 = 340;
+    int cDmg = 130, cDps = 200, cTaken = 250, cKill = 310, cCancel = 340, cSk1 = 400;
 
     if (!showPost)
     {
@@ -199,6 +201,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
         font->draw("DPS", fs, x + cDps, y, cGray);
         font->draw("承傷", fs, x + cTaken, y, cGray);
         font->draw("殺", fs, x + cKill, y, cGray);
+        font->draw("抵消", fs, x + cCancel, y, cGray);
         font->draw("技能", fs - 2, x + cSk1, y, cGray);
     }
     y += 26;
@@ -230,6 +233,8 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             font->draw(std::to_string(e.dps), fs, x + cDps, y, {255, 200, 50, 255});
             font->draw(std::to_string(e.damageTaken), fs, x + cTaken, y, cWhite);
             font->draw(std::to_string(e.kills), fs, x + cKill, y, cWhite);
+            if (e.cancelDmg > 0)
+                font->draw(std::to_string(e.cancelDmg), fs, x + cCancel, y, {200, 200, 255, 255});
             if (!e.skill1.empty())
                 font->draw(std::format("{}({})", e.skill1, e.skill1Dmg), fs - 4, x + cSk1, y, cGray);
             if (!e.skill2.empty())

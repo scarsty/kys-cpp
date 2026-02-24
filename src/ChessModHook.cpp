@@ -22,7 +22,6 @@ bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
     event = -1;
     GameData::get().reset();
     GameData::get().initRand();
-    GameData::get().setMoney(ChessBalance::config().initialMoney);
     ChessCombo::clearActiveStates();
     needIntro_ = true;
     return true;
@@ -44,12 +43,23 @@ void ChessModHook::onSubSceneEntrance(int submap_id)
     {
         needIntro_ = false;
         auto talk = std::make_shared<Talk>(
-            "少侠，你来了。此处乃擂鼓山，天下英雄汇聚之地。"
-            "老夫苏星河，奉师命在此守护珍珑棋局。"
-            "这珍珑棋局，非寻常棋局。棋盘之上，江湖群侠化为棋子，各展所长，自行厮杀。"
-            "弈者不执棋，而在于选将、布阵、运筹帷幄。"
-            "你若有意一试，便来与老夫说话罢。", 115);
+            "少俠，你來了。此處乃擂鼓山，天下英雄匯聚之地。"
+            "老夫蘇星河，奉師命在此守護珍瓏棋局。"
+            "這珍瓏棋局，非尋常棋局。棋盤之上，江湖群俠化為棋子，各展所長，自行廝殺。"
+            "弈者不執棋，而在於選將、佈陣、運籌帷幄。"
+            "你若有意一試，便來與老夫說話罷。", 115);
         talk->run();
+
+        auto diffMenu = std::make_shared<MenuText>();
+        diffMenu->setStrings({ "正常難度", "挑战難度" });
+        diffMenu->setFontSize(24);
+        diffMenu->arrange(0, 0, 0, 32);
+        diffMenu->runAtPosition(500, 300);
+        int diff = diffMenu->getResult();
+        auto difficulty = (diff == 1) ? Difficulty::Normal : Difficulty::Easy;
+        ChessBalance::setDifficulty(difficulty);
+        GameData::get().difficulty = difficulty;
+        GameData::get().setMoney(ChessBalance::config().initialMoney);
     }
 }
 
@@ -81,12 +91,14 @@ void ChessModHook::saveGameData(SQLite3Wrapper& db)
 
     // Save scalar state
     db.execute("drop table if exists chess_state");
-    db.execute("create table chess_state(money int,exp int,level int,fight int,shop_seed int,shop_calls int,enemy_seed int,enemy_calls int,shop_locked int)");
-    db.execute(std::format("insert into chess_state values({},{},{},{},{},{},{},{},{})",
+    db.execute("create table chess_state(money int,exp int,level int,fight int,shop_seed int,shop_calls int,enemy_seed int,enemy_calls int,shop_locked int,difficulty int,position_swap int)");
+    db.execute(std::format("insert into chess_state values({},{},{},{},{},{},{},{},{},{},{})",
         gd.getMoney(), gd.getExp(), gd.getLevel(),
         gd.battleProgress.getFight(),
         gd.shopSeed_, gd.shopCallCount_, gd.enemySeed_, gd.enemyCallCount_,
-        gd.isShopLocked() ? 1 : 0));
+        gd.isShopLocked() ? 1 : 0,
+        static_cast<int>(gd.difficulty),
+        gd.isPositionSwapEnabled() ? 1 : 0));
 
     // Save chess collection
     db.execute("drop table if exists chess_collection");
@@ -137,6 +149,10 @@ void ChessModHook::loadGameData(SQLite3Wrapper& db)
         gd.enemyCallCount_ = stmt.getColumnInt(7);
         gd.restoreRand();
         gd.setShopLocked(stmt.getColumnInt(8) != 0);
+        gd.difficulty = static_cast<Difficulty>(stmt.getColumnInt(9));
+        ChessBalance::setDifficulty(gd.difficulty);
+        if (stmt.getColumnCount() > 10)
+            gd.setPositionSwapEnabled(stmt.getColumnInt(10) != 0);
     }
 
     // Load chess collection

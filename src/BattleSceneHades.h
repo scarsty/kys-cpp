@@ -6,8 +6,11 @@
 #include <set>
 #include <unordered_map>
 
+class PositionSwapNode;
+
 class BattleSceneHades : public BattleSceneAct
 {
+    friend class PositionSwapNode;
 public:
     BattleSceneHades();
     BattleSceneHades(int id);
@@ -44,6 +47,7 @@ protected:
 
 
     void makeSpecialMagicEffect();
+    void runPositionSwapLoop();
 
 public:
     BattleTracker& getTracker() { return tracker_; }
@@ -53,6 +57,7 @@ public:
 
 protected:
     BattleTracker tracker_;
+    Role* swapSelected_ = nullptr;
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;

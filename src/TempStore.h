@@ -104,6 +104,8 @@ struct GameData
         return data;
     }
 
+    Difficulty difficulty = Difficulty::Easy;
+
     void reset()
     {
         collection = ChessCollection{};
@@ -116,6 +118,7 @@ struct GameData
         exp_ = 0;
         level_ = 0;
         shopLocked_ = false;
+        positionSwapEnabled_ = false;
     }
 
     bool spend(int m)
@@ -197,6 +200,9 @@ struct GameData
     bool isShopLocked() const { return shopLocked_; }
     void setShopLocked(bool v) { shopLocked_ = v; }
 
+    bool isPositionSwapEnabled() const { return positionSwapEnabled_; }
+    void setPositionSwapEnabled(bool v) { positionSwapEnabled_ = v; }
+
     const std::vector<int>& getObtainedNeigong() const { return obtainedNeigong_; }
     void addNeigong(int magicId) { obtainedNeigong_.push_back(magicId); }
     void setObtainedNeigong(std::vector<int> v) { obtainedNeigong_ = std::move(v); }
@@ -211,6 +217,7 @@ private:
     int exp_ = 0;
     int level_ = 0;
     bool shopLocked_ = false;
+    bool positionSwapEnabled_ = false;
     std::vector<Chess> selectedForBattle_;
     std::vector<int> obtainedNeigong_;
     std::set<int> completedChallenges_;

@@ -1,6 +1,6 @@
 #include "ChessBalance.h"
 
-#include "ChessBattleEffects.h"
+#include "Font.h"
 #include "GameUtil.h"
 #include "yaml-cpp/yaml.h"
 
@@ -111,27 +111,14 @@ bool ChessBalance::loadConfig(const std::string& path)
     }
 
     try {
-        auto ng = YAML::LoadFile(GameUtil::PATH() + "config/chess_neigong.yaml");
-        if (ng["刷新费用"]) c.neigongRerollCost = ng["刷新费用"].as<int>();
-        if (ng["选择数量"]) c.neigongChoiceCount = ng["选择数量"].as<int>();
-        if (ng["Boss可选层级"])
-            for (const auto& kv : ng["Boss可选层级"])
-            {
-                int idx = kv.first.as<int>();
-                for (const auto& t : kv.second)
-                    c.neigongTiersByBoss[idx].push_back(t.as<int>());
-            }
-    } catch (...) {}
-
-    try {
         auto ch = YAML::LoadFile(GameUtil::PATH() + "config/chess_challenge.yaml");
         if (ch["远征挑战"])
         {
             for (const auto& entry : ch["远征挑战"])
             {
                 BalanceConfig::ChallengeDef def;
-                def.name = entry["名称"].as<std::string>();
-                if (entry["描述"]) def.description = entry["描述"].as<std::string>();
+                def.name = Font::getInstance()->S2T(entry["名称"].as<std::string>());
+                if (entry["描述"]) def.description = Font::getInstance()->S2T(entry["描述"].as<std::string>());
                 for (const auto& e : entry["敌人"])
                     def.enemies.push_back({e[0].as<int>(), e[1].as<int>()});
                 if (entry["奖励"])
@@ -161,77 +148,26 @@ bool ChessBalance::loadConfig(const std::string& path)
     return true;
 }
 
+void ChessBalance::setDifficulty(Difficulty d)
+{
+    difficulty_ = d;
+    loaded_ = false;
+}
+
+Difficulty ChessBalance::getDifficulty()
+{
+    return difficulty_;
+}
+
 const BalanceConfig& ChessBalance::config()
 {
-    static bool loaded = false;
-    if (!loaded)
+    if (!loaded_)
     {
-        loaded = true;
-        loadConfig(GameUtil::PATH() + "config/chess_balance.yaml");
+        loaded_ = true;
+        const char* suffix = (difficulty_ == Difficulty::Normal) ? "normal" : "easy";
+        loadConfig(GameUtil::PATH() + std::format("config/chess_balance_{}.yaml", suffix));
     }
     return config_;
 }
-
-const std::vector<NeigongDef>& ChessBalance::getNeigongPool()
-{
-    if (!neigongPool_.empty()) return neigongPool_;
-
-    // Build item lookup: magicId -> itemId for 秘籍 (ItemType==2)
-    std::map<int, int> magicToItem;
-    for (auto* item : Save::getInstance()->getItems())
-        if (item && item->ItemType == 2 && item->MagicID > 0)
-            magicToItem.try_emplace(item->MagicID, item->ID);
-
-    // Load YAML for tier assignments and effects
-    YAML::Node ng;
-    try { ng = YAML::LoadFile(GameUtil::PATH() + "config/chess_neigong.yaml"); }
-    catch (...) { return neigongPool_; }
-
-    // Parse tier assignments
-    std::map<int, int> magicTier;
-    if (ng["层级分配"])
-        for (const auto& entry : ng["层级分配"])
-        {
-            int tier = entry["层级"].as<int>();
-            for (const auto& mid : entry["武功"])
-                magicTier[mid.as<int>()] = tier;
-        }
-
-    // Build pool
-    auto save = Save::getInstance();
-    for (auto& [magicId, tier] : magicTier)
-    {
-        auto itItem = magicToItem.find(magicId);
-        if (itItem == magicToItem.end()) continue;  // no 秘籍, skip
-
-        auto* magic = save->getMagic(magicId);
-        NeigongDef def;
-        def.magicId = magicId;
-        def.itemId = itItem->second;
-        def.tier = tier;
-        def.name = magic ? magic->Name : std::format("内功{}", magicId);
-
-        // Parse effects
-        auto effNode = ng["效果"][std::to_string(magicId)];
-        if (effNode && effNode.IsSequence())
-        {
-            for (const auto& eNode : effNode)
-            {
-                ComboEffect eff;
-                if (ChessBattleEffects::parseEffect(eNode, eff, def.name))
-                    def.effects.push_back(eff);
-            }
-        }
-        neigongPool_.push_back(std::move(def));
-    }
-
-    // Sort by tier then magicId
-    std::sort(neigongPool_.begin(), neigongPool_.end(),
-        [](auto& a, auto& b) { return a.tier != b.tier ? a.tier < b.tier : a.magicId < b.magicId; });
-
-    std::print("【内功配置】加载{}个内功\n", neigongPool_.size());
-    return neigongPool_;
-}
-
 
 }    // namespace KysChess

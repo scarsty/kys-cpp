@@ -4,9 +4,27 @@
 
 std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBattleRoles& roles)
 {
-    // Select map using enemy RNG for retry determinism
+    // Select map that has enough enemy positions for the requested enemies
     const auto& maps = getTopMaps();
-    int map_index = KysChess::GameData::get().enemyRandInt(maps.size());
+    int needed = (int)roles.enemy_ids.size();
+    std::vector<int> candidates;
+    for (int i = 0; i < (int)maps.size(); i++)
+    {
+        if (maps[i].enemy_count >= needed)
+            candidates.push_back(i);
+    }
+    // Fallback: if no map has enough, pick the one with the most enemies
+    if (candidates.empty())
+    {
+        int best = 0;
+        for (int i = 1; i < (int)maps.size(); i++)
+        {
+            if (maps[i].enemy_count > maps[best].enemy_count)
+                best = i;
+        }
+        candidates.push_back(best);
+    }
+    int map_index = candidates[KysChess::GameData::get().enemyRandInt(candidates.size())];
     const auto& selected_map = maps[map_index];
 
     // Create battle scene

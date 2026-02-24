@@ -3,6 +3,7 @@
 #include "BattleScene.h"
 #include "ChessBalance.h"
 #include "ChessModHook.h"
+#include "ChessNeigong.h"
 #include "ChessSelector.h"
 #include "Console.h"
 #include "Event.h"
@@ -215,7 +216,7 @@ void SubScene::draw()
 
         // Obtained neigong icons (right-aligned)
         auto& obtained = gd.getObtainedNeigong();
-        auto& pool = ChessBalance::getNeigongPool();
+        auto& pool = ChessNeigong::getPool();
         int iconX = w - 10;
         for (int i = (int)obtained.size() - 1; i >= 0; --i)
             for (auto& ng : pool)

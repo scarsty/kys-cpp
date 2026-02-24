@@ -3,6 +3,7 @@
 #include "BattleStatsView.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
+#include "ChessNeigong.h"
 #include "ChessPool.h"
 #include "DynamicChessMap.h"
 #include "DrawableOnCall.h"
@@ -35,8 +36,8 @@ static std::string comboEffectDesc(const ComboEffect& eff)
 {
     auto triggerPrefix = [&]() -> std::string {
         if (eff.trigger == Trigger::WhileLowHP) return std::format("血量<{}%: ", eff.triggerValue);
-        if (eff.trigger == Trigger::AllyLowHPBurst) return std::format("血量<{}%狂暴({}帧): ", eff.triggerValue, eff.duration);
-        if (eff.trigger == Trigger::LastAlive) return "最后存活: ";
+        if (eff.trigger == Trigger::AllyLowHPBurst) return std::format("血量<{}%狂暴({}幀): ", eff.triggerValue, eff.duration);
+        if (eff.trigger == Trigger::LastAlive) return "最後存活: ";
         return "";
     };
     auto countSuffix = [&]() -> std::string {
@@ -47,47 +48,47 @@ static std::string comboEffectDesc(const ComboEffect& eff)
     switch (eff.type)
     {
     case EffectType::FlatHP: d = std::format("生命+{}", eff.value); break;
-    case EffectType::FlatATK: d = std::format("攻击+{}", eff.value); break;
-    case EffectType::FlatDEF: d = std::format("防御+{}", eff.value); break;
+    case EffectType::FlatATK: d = std::format("攻擊+{}", eff.value); break;
+    case EffectType::FlatDEF: d = std::format("防禦+{}", eff.value); break;
     case EffectType::FlatSPD: d = std::format("速度+{}", eff.value); break;
     case EffectType::PctHP: d = std::format("生命+{}%", eff.value); break;
-    case EffectType::PctATK: d = std::format("攻击+{}%", eff.value); break;
-    case EffectType::PctDEF: d = std::format("防御+{}%", eff.value); break;
-    case EffectType::NegPctDEF: d = std::format("防御-{}%", eff.value); break;
-    case EffectType::FlatDmgReduction: d = std::format("减伤{}", eff.value); break;
-    case EffectType::BlockChance: d = std::format("{}%格挡", eff.value); break;
-    case EffectType::DodgeChance: d = std::format("{}%闪避", eff.value); break;
-    case EffectType::DodgeThenCrit: d = "闪避后暴击"; break;
-    case EffectType::CritChance: d = std::format("{}%暴击", eff.value); break;
-    case EffectType::CritMultiplier: d = std::format("暴击{}%伤害", eff.value); break;
-    case EffectType::EveryNthDouble: d = std::format("每{}次双倍", eff.value); break;
+    case EffectType::PctATK: d = std::format("攻擊+{}%", eff.value); break;
+    case EffectType::PctDEF: d = std::format("防禦+{}%", eff.value); break;
+    case EffectType::NegPctDEF: d = std::format("防禦-{}%", eff.value); break;
+    case EffectType::FlatDmgReduction: d = std::format("減傷{}", eff.value); break;
+    case EffectType::BlockChance: d = std::format("{}%格擋", eff.value); break;
+    case EffectType::DodgeChance: d = std::format("{}%閃避", eff.value); break;
+    case EffectType::DodgeThenCrit: d = "閃避後暴擊"; break;
+    case EffectType::CritChance: d = std::format("{}%暴擊", eff.value); break;
+    case EffectType::CritMultiplier: d = std::format("暴擊{}%傷害", eff.value); break;
+    case EffectType::EveryNthDouble: d = std::format("每{}次雙倍", eff.value); break;
     case EffectType::ArmorPenChance: d = std::format("{}%穿甲", eff.value); break;
-    case EffectType::ArmorPenPct: d = std::format("无视{}%防御", eff.value); break;
-    case EffectType::StunChance: d = eff.value2 ? std::format("{}%眩晕({}帧)", eff.value, eff.value2) : std::format("{}%眩晕", eff.value); break;
-    case EffectType::KnockbackChance: d = std::format("{}%击退", eff.value); break;
-    case EffectType::PoisonDOT: d = eff.value2 ? std::format("中毒{}%/帧({}帧)", eff.value, eff.value2) : std::format("中毒{}%/帧", eff.value); break;
-    case EffectType::PoisonDmgAmp: d = std::format("中毒增伤{}%", eff.value); break;
+    case EffectType::ArmorPenPct: d = std::format("無視{}%防禦", eff.value); break;
+    case EffectType::StunChance: d = eff.value2 ? std::format("{}%眩暈({}幀)", eff.value, eff.value2) : std::format("{}%眩暈", eff.value); break;
+    case EffectType::KnockbackChance: d = std::format("{}%擊退", eff.value); break;
+    case EffectType::PoisonDOT: d = eff.value2 ? std::format("中毒{}%/幀({}幀)", eff.value, eff.value2) : std::format("中毒{}%/幀", eff.value); break;
+    case EffectType::PoisonDmgAmp: d = std::format("中毒增傷{}%", eff.value); break;
     case EffectType::MPOnHit: d = std::format("命中回{}MP", eff.value); break;
     case EffectType::MPDrain: d = std::format("吸取{}MP", eff.value); break;
-    case EffectType::MPRecoveryBonus: d = std::format("回蓝+{}%", eff.value); break;
-    case EffectType::SkillDmgPct: d = std::format("技能伤害+{}%", eff.value); break;
-    case EffectType::SkillReflectPct: d = std::format("反弹{}%", eff.value); break;
-    case EffectType::CDR: d = std::format("冷却-{}%", eff.value); break;
-    case EffectType::ShieldPctMaxHP: d = std::format("护盾{}%生命", eff.value); break;
-    case EffectType::ShieldFreezeRes: d = std::format("护盾僵直抗性{}%", eff.value); break;
-    case EffectType::HealAuraPct: d = eff.value2 ? std::format("治疗光环{}%(每{}帧)", eff.value, eff.value2) : std::format("治疗光环{}%", eff.value); break;
-    case EffectType::HealAuraFlat: d = eff.value2 ? std::format("治疗光环{}(每{}帧)", eff.value, eff.value2) : std::format("治疗光环{}", eff.value); break;
-    case EffectType::HealedATKSPDBoost: d = std::format("受治疗加速{}%", eff.value); break;
-    case EffectType::HPRegenPct: d = eff.value2 ? std::format("回血{}%(每{}帧)", eff.value, eff.value2) : std::format("回血{}%", eff.value); break;
+    case EffectType::MPRecoveryBonus: d = std::format("回藍+{}%", eff.value); break;
+    case EffectType::SkillDmgPct: d = std::format("技能傷害+{}%", eff.value); break;
+    case EffectType::SkillReflectPct: d = std::format("反彈{}%", eff.value); break;
+    case EffectType::CDR: d = std::format("冷卻-{}%", eff.value); break;
+    case EffectType::ShieldPctMaxHP: d = std::format("護盾{}%生命", eff.value); break;
+    case EffectType::ShieldFreezeRes: d = std::format("護盾僵直抗性{}%", eff.value); break;
+    case EffectType::HealAuraPct: d = eff.value2 ? std::format("治療光環{}%(每{}幀)", eff.value, eff.value2) : std::format("治療光環{}%", eff.value); break;
+    case EffectType::HealAuraFlat: d = eff.value2 ? std::format("治療光環{}(每{}幀)", eff.value, eff.value2) : std::format("治療光環{}", eff.value); break;
+    case EffectType::HealedATKSPDBoost: d = std::format("受治療加速{}%", eff.value); break;
+    case EffectType::HPRegenPct: d = eff.value2 ? std::format("回血{}%(每{}幀)", eff.value, eff.value2) : std::format("回血{}%", eff.value); break;
     case EffectType::FreezeReductionPct: d = std::format("僵直-{}%", eff.value); break;
-    case EffectType::ControlImmunityFrames: d = std::format("免控>{}帧", eff.value); break;
-    case EffectType::KillHealPct: d = std::format("击杀回{}%血", eff.value); break;
-    case EffectType::KillInvincFrames: d = std::format("击杀无敌{}帧", eff.value); break;
-    case EffectType::PostSkillInvincFrames: d = std::format("技能后无敌{}帧", eff.value); break;
-    case EffectType::DmgReductionPct: d = std::format("伤害减免{}%", eff.value); break;
+    case EffectType::ControlImmunityFrames: d = std::format("免控>{}幀", eff.value); break;
+    case EffectType::KillHealPct: d = std::format("擊殺回{}%血", eff.value); break;
+    case EffectType::KillInvincFrames: d = std::format("擊殺無敵{}幀", eff.value); break;
+    case EffectType::PostSkillInvincFrames: d = std::format("技能後無敵{}幀", eff.value); break;
+    case EffectType::DmgReductionPct: d = std::format("傷害減免{}%", eff.value); break;
     case EffectType::Bloodlust: d = std::format("嗜血+{}攻", eff.value); break;
-    case EffectType::Adaptation: d = std::format("适应{}%({}层)", eff.value, eff.value2); break;
-    case EffectType::RampingDmg: d = std::format("蓄力+{}%({}层)", eff.value, eff.value2); break;
+    case EffectType::Adaptation: d = std::format("適應{}%({}層)", eff.value, eff.value2); break;
+    case EffectType::RampingDmg: d = std::format("蓄力+{}%({}層)", eff.value, eff.value2); break;
     case EffectType::HealBurst: d = std::format("回血{}%", eff.value); break;
     default: d = std::format("效果({})", eff.value); break;
     }
@@ -240,50 +241,46 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
         {
             auto& c = allCombos[(int)cid];
 
-            // Pre-calculate height: header + effects + gap
-            const ComboThreshold* peekThr = nullptr;
+            int owned = 0;
+            for (int rid : c.memberRoleIds)
+                if (ownedIds.count(rid)) owned++;
+
+            // Find last active threshold and next inactive threshold
+            const ComboThreshold* lastActive = nullptr;
+            const ComboThreshold* nextThr = nullptr;
             for (auto& t : c.thresholds)
             {
-                int ownedPeek = 0;
-                for (int rid : c.memberRoleIds)
-                    if (ownedIds.count(rid)) ownedPeek++;
-                if (ownedPeek < t.count) { peekThr = &t; break; }
+                if (owned >= t.count) lastActive = &t;
+                else if (!nextThr) nextThr = &t;
             }
-            if (!peekThr && !c.thresholds.empty())
-                peekThr = &c.thresholds.back();
-            int neededH = (fs + 4) + (peekThr ? (int)peekThr->effects.size() * fs : 0) + 4;
 
+            // Display: last active if any, otherwise next (greyed out)
+            const ComboThreshold* showThr = lastActive ? lastActive : nextThr;
+            if (!showThr && !c.thresholds.empty())
+                showThr = &c.thresholds.back();
+
+            int neededH = (fs + 4) + (showThr ? (int)showThr->effects.size() * fs : 0) + 4;
             if (ry + neededH > maxY + fs && ry > py + 32)
             {
                 rx += colW;
                 ry = py + 32;
                 if (rx + colW > px + 460) break;
             }
-            int owned = 0;
-            for (int rid : c.memberRoleIds)
-                if (ownedIds.count(rid)) owned++;
 
-            const ComboThreshold* nextThr = nullptr;
-            for (auto& t : c.thresholds)
-            {
-                if (owned < t.count) { nextThr = &t; break; }
-            }
-            if (!nextThr && !c.thresholds.empty())
-                nextThr = &c.thresholds.back();
-
-            int denom = nextThr ? nextThr->count : (!c.thresholds.empty() ? c.thresholds.back().count : (int)c.memberRoleIds.size());
-            bool active = !c.thresholds.empty() && owned >= c.thresholds.front().count;
+            bool active = lastActive != nullptr;
+            int denom = (nextThr ? nextThr : (lastActive ? lastActive : &c.thresholds.back()))->count;
             Color col = active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
-            std::string header = std::format("{} ({}/{})", c.name, std::min(owned, denom), denom);
+            std::string header = std::format("{} ({}/{})", c.name, owned, denom);
             Font::getInstance()->draw(header, fs, rx, ry, col);
             ry += fs + 4;
 
-            if (nextThr)
+            if (showThr)
             {
-                for (auto& eff : nextThr->effects)
+                Color effCol = active ? Color{180, 220, 255, 255} : Color{120, 120, 120, 255};
+                for (auto& eff : showThr->effects)
                 {
                     if (ry > maxY) break;
-                    Font::getInstance()->draw("  " + comboEffectDesc(eff), fs - 2, rx, ry, {180, 220, 255, 255});
+                    Font::getInstance()->draw("  " + comboEffectDesc(eff), fs - 2, rx, ry, effCol);
                     ry += fs;
                 }
             }
@@ -358,13 +355,13 @@ static std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& r)
     using RT = BalanceConfig::ChallengeRewardType;
     switch (r.type)
     {
-    case RT::Gold: return std::format("获取{}金币", r.value);
-    case RT::GetPiece: return std::format("获取棋子(最高{}费)", r.value);
-    case RT::GetNeigong: return std::format("获取内功(最高{}阶)", r.value);
-    case RT::StarUp1to2: return std::format("升星★→★★(最高{}费)", r.value);
-    case RT::StarUp2to3: return std::format("升星★★→★★★(最高{}费)", r.value);
+    case RT::Gold: return std::format("獲取{}金幣", r.value);
+    case RT::GetPiece: return std::format("獲取棋子(最高{}費)", r.value);
+    case RT::GetNeigong: return std::format("獲取內功(最高{}階)", r.value);
+    case RT::StarUp1to2: return std::format("升星★→★★(最高{}費)", r.value);
+    case RT::StarUp2to3: return std::format("升星★★→★★★(最高{}費)", r.value);
     }
-    return "未知奖励";
+    return "未知獎勵";
 }
 
 }    //namespace
@@ -463,7 +460,7 @@ void ChessSelector::sellChess()
 
         std::vector<std::pair<int, std::string>> rolePairs;
         std::vector<Color> roleColors;
-        std::vector<Chess> chessList;
+        std::vector<std::pair<Chess, bool>> chessList;
 
         std::map<std::pair<int,int>, int> equippedCount;
         for (auto& s : gameData.getSelectedForBattle())
@@ -474,12 +471,12 @@ void ChessSelector::sellChess()
             for (int i = 0; i < count; ++i)
             {
                 auto key = std::make_pair(chess.role->ID, chess.star);
-                std::string prefix;
-                if (equippedCount[key] > 0) { prefix = "【出戰】"; equippedCount[key]--; }
-                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, prefix);
+                bool equipped = equippedCount[key] > 0;
+                if (equipped) equippedCount[key]--;
+                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, equipped ? "【出戰】" : "");
                 rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
                 roleColors.push_back(color);
-                chessList.push_back(chess);
+                chessList.push_back({chess, equipped});
             }
         }
 
@@ -489,22 +486,25 @@ void ChessSelector::sellChess()
         int selectedId = menu->getResult();
         if (selectedId < 0) break;
 
-        auto chess = chessList[selectedId];
+        auto [chess, wasEquipped] = chessList[selectedId];
         int tier = ChessPool::GetChessTier(chess.role->ID);
         int sellPrice = calculateCost(tier, chess.star, 1);
         gameData.collection.removeChess(chess);
 
-        auto& selected = gameData.getSelectedForBattle();
-        std::vector<Chess> newSelection;
-        bool removedOne = false;
-        for (const auto& s : selected)
+        if (wasEquipped)
         {
-            if (!removedOne && s.role == chess.role && s.star == chess.star)
-                removedOne = true;
-            else
-                newSelection.push_back(s);
+            auto& selected = gameData.getSelectedForBattle();
+            std::vector<Chess> newSelection;
+            bool removedOne = false;
+            for (const auto& s : selected)
+            {
+                if (!removedOne && s.role == chess.role && s.star == chess.star)
+                    removedOne = true;
+                else
+                    newSelection.push_back(s);
+            }
+            gameData.setSelectedForBattle(newSelection);
         }
-        gameData.setSelectedForBattle(newSelection);
         gameData.make(sellPrice);
 
         auto text = std::make_shared<TextBox>();
@@ -819,7 +819,8 @@ void ChessSelector::buyExp()
 void ChessSelector::showContextMenu()
 {
     //ChessBalance::apply();
-    auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "遊戲說明" });
+    auto& gd = GameData::get();
+    auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "遊戲說明" });
     menu->setFontSize(24);
     menu->arrange(0, 0, 0, 32);
     menu->runAtPosition(200, 200);
@@ -834,7 +835,8 @@ void ChessSelector::showContextMenu()
     case 5: viewCombos(); break;
     case 6: viewNeigong(); break;
     case 7: showExpeditionChallenge(); break;
-    case 8: showGameGuide(); break;
+    case 8: showPositionSwap(); break;
+    case 9: showGameGuide(); break;
     default: break;
     }
 }
@@ -881,7 +883,7 @@ void ChessSelector::viewCombos()
 
         // Left column: members
         int y = py + 45;
-        font->draw("成员:", fs, px + 10, y, {200, 200, 200, 255});
+        font->draw("成員:", fs, px + 10, y, {200, 200, 200, 255});
         y += fs + 4;
         for (int rid : c.memberRoleIds)
         {
@@ -889,13 +891,13 @@ void ChessSelector::viewCombos()
             if (!role) continue;
             bool owned = ownedIds.count(rid) > 0;
             Color col = owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255};
-            font->draw(std::format("  {} ({}费){}", role->Name, ChessPool::GetChessTier(rid), owned ? " ✓" : ""), fs, px + 10, y, col);
+            font->draw(std::format("  {} ({}費){}", role->Name, ChessPool::GetChessTier(rid), owned ? " ✓" : ""), fs, px + 10, y, col);
             y += fs + 1;
         }
 
         // Right column: thresholds
         int rx = px + 260, ry = py + 45;
-        font->draw(c.isAntiCombo ? "条件:" : "阈值:", fs, rx, ry, {200, 200, 200, 255});
+        font->draw(c.isAntiCombo ? "條件:" : "閾值:", fs, rx, ry, {200, 200, 200, 255});
         ry += fs + 4;
         for (auto& t : c.thresholds)
         {
@@ -924,13 +926,14 @@ void ChessSelector::showNeigongReward()
 {
     auto& gd = GameData::get();
     auto& cfg = ChessBalance::config();
-    auto& pool = ChessBalance::getNeigongPool();
+    auto& ngCfg = ChessNeigong::config();
+    auto& pool = ChessNeigong::getPool();
     if (pool.empty()) return;
 
     // Determine boss index and available tiers
     int bossIdx = gd.battleProgress.getFight() / cfg.bossInterval;
     std::vector<int> availTiers;
-    for (auto it = cfg.neigongTiersByBoss.rbegin(); it != cfg.neigongTiersByBoss.rend(); ++it)
+    for (auto it = ngCfg.tiersByBoss.rbegin(); it != ngCfg.tiersByBoss.rend(); ++it)
     {
         if (it->first <= bossIdx) { availTiers = it->second; break; }
     }
@@ -951,7 +954,7 @@ void ChessSelector::showNeigongReward()
     bool rerolled = false;
     auto pickChoices = [&]() {
         std::vector<const NeigongDef*> choices;
-        int n = std::min((int)candidates.size(), cfg.neigongChoiceCount);
+        int n = std::min((int)candidates.size(), ngCfg.choiceCount);
         // Shuffle candidates using shop rand
         auto tmp = candidates;
         for (int i = (int)tmp.size() - 1; i > 0; --i)
@@ -982,7 +985,7 @@ void ChessSelector::showNeigongReward()
 
         if (!rerolled)
         {
-            items.emplace_back(-2, std::format("刷新 ${}", cfg.neigongRerollCost));
+            items.emplace_back(-2, std::format("刷新 ${}", ngCfg.rerollCost));
             colors.push_back({128, 128, 128});
         }
 
@@ -1003,12 +1006,9 @@ void ChessSelector::showNeigongReward()
 
         menu->run();
         int sel = menu->getResult();
-        if (sel < 0) continue;  // don't allow escape — must pick
-
-        int itemIdx = items[sel].first;
-        if (itemIdx == -2)
+        if (sel == -2)
         {
-            if (gd.spend(cfg.neigongRerollCost))
+            if (gd.spend(ngCfg.rerollCost))
             {
                 rerolled = true;
                 choices = pickChoices();
@@ -1017,10 +1017,12 @@ void ChessSelector::showNeigongReward()
             continue;
         }
 
+        if (sel < 0) continue;  // don't allow escape — must pick
+
         // Pick this neigong
-        gd.addNeigong(choices[itemIdx]->magicId);
+        gd.addNeigong(choices[sel]->magicId);
         auto text = std::make_shared<TextBox>();
-        text->setText(std::format("獲得內功：{}", choices[itemIdx]->name));
+        text->setText(std::format("獲得內功：{}", choices[sel]->name));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
         return;
@@ -1029,7 +1031,7 @@ void ChessSelector::showNeigongReward()
 
 void ChessSelector::viewNeigong()
 {
-    auto& pool = ChessBalance::getNeigongPool();
+    auto& pool = ChessNeigong::getPool();
     if (pool.empty()) return;
 
     auto& obtained = GameData::get().getObtainedNeigong();
@@ -1083,7 +1085,7 @@ void ChessSelector::showExpeditionChallenge()
         {
             auto& ch = cfg.challenges[i];
             bool done = gd.isChallengeCompleted(i);
-            std::string label = std::format("{}{}", done ? "[已通关] " : "", ch.name);
+            std::string label = std::format("{}{}", done ? "[已通關] " : "", ch.name);
             items.emplace_back(i, label);
             colors.push_back(done ? Color{120, 120, 120, 255} : Color{255, 200, 100, 255});
         }
@@ -1102,11 +1104,11 @@ void ChessSelector::showExpeditionChallenge()
             font->draw(ch.description, fs, px + 10, ty, {200, 200, 200, 255}); ty += fs + 8;
             if (gd.isChallengeCompleted(idx))
             {
-                font->draw("[已通关]", fs, px + 10, ty, {0, 255, 0, 255}); ty += fs + 8;
+                font->draw("[已通關]", fs, px + 10, ty, {0, 255, 0, 255}); ty += fs + 8;
             }
 
             // Show enemies
-            font->draw("敌方阵容:", fs, px + 10, ty, {255, 150, 150, 255}); ty += fs + 4;
+            font->draw("敵方陣容:", fs, px + 10, ty, {255, 150, 150, 255}); ty += fs + 4;
             for (auto& e : ch.enemies)
             {
                 auto* role = save->getRole(e.roleId);
@@ -1114,13 +1116,13 @@ void ChessSelector::showExpeditionChallenge()
                 int tier = ChessPool::GetChessTier(e.roleId);
                 std::string stars;
                 for (int s = 0; s < e.star; ++s) stars += "★";
-                font->draw(std::format("  {} {} ({}费)", role->Name, stars, tier), fs - 2, px + 10, ty, {220, 180, 180, 255});
+                font->draw(std::format("  {} {} ({}費)", role->Name, stars, tier), fs - 2, px + 10, ty, {220, 180, 180, 255});
                 ty += fs;
             }
             ty += 8;
 
             // Show rewards
-            font->draw("通关奖励(择一):", fs, px + 10, ty, {100, 255, 100, 255}); ty += fs + 4;
+            font->draw("通關獎勵(擇一):", fs, px + 10, ty, {100, 255, 100, 255}); ty += fs + 4;
             for (auto& r : ch.rewards)
             {
                 font->draw("  " + challengeRewardDesc(r), fs - 2, px + 10, ty, {200, 255, 200, 255});
@@ -1152,6 +1154,9 @@ void ChessSelector::showExpeditionChallenge()
             text->runCentered(Engine::getInstance()->getUIHeight() / 2);
             continue;
         }
+
+        // Save enemy random counter so challenge doesn't corrupt regular battle state
+        auto savedEnemyCallCount = gd.enemyCallCount_;
 
         // Build enemy team from fixed role IDs
         std::vector<int> enemyIds;
@@ -1208,6 +1213,9 @@ void ChessSelector::showExpeditionChallenge()
 
         if (battle->getResult() != 0)
         {
+            // Restore enemy random counter so failed challenge doesn't corrupt regular battle state
+            gd.enemyCallCount_ = savedEnemyCallCount;
+            gd.restoreRand();
             auto text = std::make_shared<TextBox>();
             text->setText("挑戰失敗！請調整陣容後再試");
             text->setFontSize(32);
@@ -1281,7 +1289,7 @@ void ChessSelector::showExpeditionChallenge()
             int pSel = pMenu->getResult();
             if (pSel >= 0)
             {
-                auto* role = save->getRole(pieceItems[pSel].first);
+                auto* role = save->getRole(pSel);
                 if (role) gd.addChessAndFixSelection({role, 1});
                 auto text = std::make_shared<TextBox>();
                 text->setText(std::format("獲得棋子：{}", role ? role->Name : ""));
@@ -1291,7 +1299,7 @@ void ChessSelector::showExpeditionChallenge()
         }
         else if (reward.type == RT::GetNeigong)
         {
-            auto& pool = ChessBalance::getNeigongPool();
+            auto& pool = ChessNeigong::getPool();
             auto& obtained = gd.getObtainedNeigong();
             std::set<int> obtainedSet(obtained.begin(), obtained.end());
 
@@ -1403,6 +1411,34 @@ void ChessSelector::showExpeditionChallenge()
     }
 }
 
+void ChessSelector::showPositionSwap()
+{
+    auto& gd = GameData::get();
+    bool cur = gd.isPositionSwapEnabled();
+    std::vector<std::pair<int, std::string>> items = { {0, "關閉"}, {1, "開啟"} };
+    SuperMenuTextExtraOptions opts;
+    opts.needInputBox_ = false;
+    opts.exitable_ = true;
+    auto sub = std::make_shared<SuperMenuText>(cur ? "" : "", 24, items, 2, opts);
+    sub->setShowNavigationButtons(false);
+    auto panel = std::make_shared<DrawableOnCall>([cur](DrawableOnCall* self) {
+        int px = 280, py = 200, fs = 20, lh = fs + 6;
+        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 400, 130);
+        auto* font = Font::getInstance();
+        int id = self->getID();
+        bool willEnable = id >= 0 ? (id == 1) : cur;
+        font->draw(willEnable ? "狀態：開啟" : "狀態：關閉", fs, px + 10, py + 10, willEnable ? Color{0, 255, 0, 255} : Color{255, 80, 80, 255});
+        font->draw("戰鬥開始前可交換我方棋子位置", fs, px + 10, py + 10 + lh, {255, 215, 0, 255});
+        font->draw("點擊兩個我方棋子即可互換位置", fs, px + 10, py + 10 + lh * 2, {255, 255, 255, 255});
+        font->draw("右鍵確認完成佈陣", fs, px + 10, py + 10 + lh * 3, {255, 255, 255, 255});
+    });
+    sub->addDrawableOnCall(panel);
+    sub->runAtPosition(150, 200);
+    int sel = sub->getResult();
+    if (sel == 0 || sel == 1)
+        gd.setPositionSwapEnabled(sel == 1);
+}
+
 void ChessSelector::showGameGuide()
 {
     auto box = std::make_shared<TextBox>();
@@ -1423,35 +1459,35 @@ void ChessSelector::showGameGuide()
             font->draw(s, fs, x, y, c); y += lh;
         };
 
-        title("珍珑棋局 · 游戏说明");
+        title("珍瓏棋局 · 遊戲說明");
         y += 4;
-        line("这是一场自走棋对弈。招募武林中人，排兵布阵，棋子上场后将自动战斗。");
+        line("這是一場自走棋對弈。招募武林中人，排兵佈陣，棋子上場後將自動戰鬥。");
         y += 6;
 
         title("基本流程");
-        line("· 每回合在商店中花费金币招募棋子并部署上阵");
-        line("· 战斗自动进行，获胜后进入下一回合");
-        line("· 每四回合遭遇一位强敌(Boss)，击败可获内功");
-        line("· 共二十八回合，存活到最后即为通关");
+        line("· 每回合在商店中花費金幣招募棋子並部署上陣");
+        line("· 戰鬥自動進行，獲勝後進入下一回合");
+        line("· 每四回合遭遇一位強敵(Boss)，擊敗可獲內功");
+        line("· 共二十八回合，存活到最後即為通關");
         y += 6;
 
-        title("棋子与升星");
-        line("· 棋子分为1至5费，费用越高越稀有");
-        line("· 集齐三个相同棋子自动合成二星，三个二星合成三星，升星后属性大幅提升");
+        title("棋子與升星");
+        line("· 棋子分為1至5費，費用越高越稀有");
+        line("· 集齊三個相同棋子自動合成二星，三個二星合成三星，升星後屬性大幅提升");
         y += 6;
 
-        title("经济系统");
-        line("· 每回合获得基础金币，存款产生利息(每10金币额外+1，上限3)");
-        line("· 金币用于：招募棋子、刷新商店($2)、购买经验($5)");
-        line("· 提升等级可增加上阵人数与高费棋子出现概率");
+        title("經濟系統");
+        line("· 每回合獲得基礎金幣，存款產生利息(每10金幣額外+1，上限3)");
+        line("· 金幣用於：招募棋子、刷新商店($2)、購買經驗($5)");
+        line("· 提升等級可增加上陣人數與高費棋子出現概率");
         y += 6;
 
-        title("羁绊");
-        line("· 同门派棋子上阵达到一定数量可激活羁绊效果");
-        line("· 羁绊提供攻击、防御、生命等多种加成，合理搭配羁绊是制胜关键");
+        title("羈絆");
+        line("· 同門派棋子上陣達到一定數量可激活羈絆效果");
+        line("· 羈絆提供攻擊、防禦、生命等多種加成，合理搭配羈絆是制勝關鍵");
         y += 12;
 
-        font->draw("点击任意处返回", fs - 2, px + 30, y, {150, 150, 150, 255});
+        font->draw("點擊任意處返回", fs - 2, px + 30, y, {150, 150, 150, 255});
     });
     box->addChild(panel);
     box->runAtPosition(0, 0);
