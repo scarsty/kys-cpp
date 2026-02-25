@@ -38,9 +38,14 @@
             overflow: hidden;
         }
         #progress-fill {
-            width: 0%; height: 100%;
+            width: 30%; height: 100%;
             background: #4a9eff;
-            transition: width 0.2s;
+            animation: slide 1.5s ease-in-out infinite;
+        }
+        @keyframes slide {
+            0% { margin-left: 0%; }
+            50% { margin-left: 70%; }
+            100% { margin-left: 0%; }
         }
         #status { margin-top: 0.75rem; font-size: 0.85rem; color: #888; }
         #rclick-btn, #fs-btn {
@@ -66,7 +71,7 @@
 </head>
 <body>
     <div id="overlay">
-        <div id="title">金庸群侠传</div>
+        <div id="title">金群自走棋</div>
         <div id="progress-bar"><div id="progress-fill"></div></div>
         <div id="status">Downloading...</div>
     </div>
@@ -81,21 +86,31 @@
 
         var Module = {
             canvas: document.getElementById('canvas'),
+            preRun: [function() {
+                FS.mkdir('/persist');
+                FS.mount(IDBFS, {}, '/persist');
+                Module.addRunDependency('idbfs-load');
+                FS.syncfs(true, function(err) {
+                    if (err) console.warn('IDBFS load error:', err);
+                    Module.removeRunDependency('idbfs-load');
+                });
+            }],
             setStatus: function(text) {
-                statusEl.innerText = text || '';
                 if (!text) {
                     overlay.classList.add('hidden');
                     setTimeout(function() { overlay.style.display = 'none'; }, 500);
+                    return;
+                }
+                var m = text.match(/(\d+(?:\.\d+)?)\s*\//);
+                if (m) {
+                    var mb = (parseInt(m[1]) / 1048576).toFixed(1);
+                    statusEl.innerText = 'Downloading... (' + mb + ' MB)';
+                } else {
+                    statusEl.innerText = text;
                 }
             },
             monitorRunDependencies: function(left) {
-                if (!totalFiles) totalFiles = left;
-                if (left) {
-                    var pct = ((totalFiles - left) / totalFiles * 100).toFixed(0);
-                    progressFill.style.width = pct + '%';
-                    statusEl.innerText = 'Loading... (' + left + ' files remaining)';
-                } else {
-                    progressFill.style.width = '100%';
+                if (!left) {
                     Module.setStatus('');
                 }
             }

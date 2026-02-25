@@ -3,12 +3,7 @@
 #include <unordered_map>
 #include <vector>
 
-#ifdef __EMSCRIPTEN__
-// WASM stub: no audio backend yet
-using MUSIC = int;
-using WAV = int;
-using MIDI_FONT = void*;
-#elif defined(USE_BASS)
+#ifdef USE_BASS
 #include "bass.h"
 #include "bassmidi.h"
 using MUSIC = HSTREAM;
@@ -37,7 +32,7 @@ private:
     int volume_ = 20;
     int volume_wav_ = 50;
     int current_music_index_ = -1;
-#if !defined(USE_BASS) && !defined(__EMSCRIPTEN__)
+#if !defined(USE_BASS)
     MIX_Track* track_music_{};
     std::vector<MIX_Track*> track_wav_;
     MIX_Mixer* mixer_{};
@@ -69,10 +64,8 @@ public:
     int getCurrentMusic() const { return current_music_index_; }
 
 private:
-#ifndef __EMSCRIPTEN__
     MUSIC loadMusic(const std::string& file);
     static WAV loadWav(const std::string& file);
     void playMusic(MUSIC m);
     void playWav(WAV w, int volume, int track_num = -1);
-#endif
 };

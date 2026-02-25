@@ -1,6 +1,7 @@
 ﻿#include "ChessSelector.h"
 
 #include "BattleStatsView.h"
+#include "UISave.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessNeigong.h"
@@ -731,6 +732,7 @@ void ChessSelector::enterBattle()
         text->setText(std::format("勝利！獲得${}{} 經驗+{}{}{}", reward, interestMsg, expGain, lvlMsg, nextInfo));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        UISave::autoSave();
     }
     else
     {
@@ -1408,6 +1410,7 @@ void ChessSelector::showExpeditionChallenge()
         }
 
         gd.completeChallenge(chIdx);
+        UISave::autoSave();
     }
 }
 

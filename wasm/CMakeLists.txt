@@ -41,10 +41,12 @@ add_compile_options(
     ${EM_SDL_FLAGS}
 )
 
-add_executable(kys ${SRC_LIST})
+add_executable(kyschess ${SRC_LIST})
 
 # Link libraries: SDL3_image/SDL3_ttf built from source + vcpkg deps
-target_link_libraries(kys
+target_link_libraries(kyschess
+    SDL3_mixer
+    fluidsynth
     SDL3_image
     SDL3_ttf
     freetype
@@ -65,16 +67,17 @@ set(EM_LINK_FLAGS
     "-sALLOW_MEMORY_GROWTH=1"
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"
+    "-lidbfs.js"
+    "-sASSERTIONS=1"
+    "-fexceptions"
     "--preload-file ${CMAKE_SOURCE_DIR}/../work/game-dev@/game"
-    "--exclude-file */music/*"
-    "--exclude-file */sound/*"
     "--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
     "-sEXPORTED_RUNTIME_METHODS=['ccall']"
 )
 
 # Join list into a space-separated string for link flags
 list(JOIN EM_LINK_FLAGS " " EM_LINK_FLAGS_STR)
-set_target_properties(kys PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS_STR}")
+set_target_properties(kyschess PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS_STR}")
 
 # Output .html so emscripten generates the .js and .wasm alongside it
-set_target_properties(kys PROPERTIES SUFFIX ".html")
+set_target_properties(kyschess PROPERTIES SUFFIX ".html")

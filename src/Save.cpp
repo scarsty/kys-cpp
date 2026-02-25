@@ -7,6 +7,10 @@
 #include "ZipFile.h"
 #include "filefunc.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 Save::Save()
 {
 }
@@ -22,14 +26,22 @@ std::string Save::getFilename(int i, char c)
     //自动决定
     if (c == 0)
     {
+#ifdef __EMSCRIPTEN__
+        c = 'r';
+#else
         c = ZIP_SAVE ? 'z' : 'r';
+#endif
     }
 
     if (i > 0)
     {
         if (c == 'r')
         {
+#ifdef __EMSCRIPTEN__
+            filename = std::format("/persist/{}.db", i);
+#else
             filename = std::format("{}save/{}.db", GameUtil::PATH(), i);
+#endif
         }
         else
         {
@@ -51,17 +63,23 @@ std::string Save::getFilename(int i, char c)
             filename = GameUtil::PATH() + "save/alldef.grp";
         }
     }
+#ifndef __EMSCRIPTEN__
     if (c == 'z')
     {
         filename = std::format("{}save/{}.zip", GameUtil::PATH(), i);
     }
+#endif
     return filename;
 }
 
 bool Save::checkSaveFileExist(int num)
 {
+#ifdef __EMSCRIPTEN__
+    return filefunc::fileExist(getFilename(num, 'r'));
+#else
     return (ZIP_SAVE == 1 && filefunc::fileExist(getFilename(num, 'z')))
-        || filefunc::fileExist(getFilename(num, 'r')) && filefunc::fileExist(getFilename(num, 's')) && filefunc::fileExist(getFilename(num, 'd'));
+        || filefunc::fileExist(getFilename(num, 'r'));
+#endif
 }
 
 void Save::updateAllPtrVector()
@@ -80,66 +98,36 @@ bool Save::load(int num)
         return false;
     }
 
+#ifndef __EMSCRIPTEN__
     ZipFile zip;
     if (ZIP_SAVE)
     {
         zip.openRead(getFilename(num, 'z'));
     }
+#endif
 
     auto filenamedb = getFilename(num, 'r');
+#ifndef __EMSCRIPTEN__
     if (zip.opened())
     {
         //临时使用99号文件名，避免覆盖原来的文件
         filenamedb = getFilename(99, 'r');
         filefunc::writeStringToFile(zip.readFile("1.db"), filenamedb);
     }
+#endif
 
     SQLite3Wrapper db(filenamedb);
     loadRFromDB(db);
     updateAllPtrVector();
     KysChess::ChessModHook::loadGameData(db);
 
-    //读取SD数据
-    //注意比较多的回退情况，即找不到zip时，又单独找其他文件
+    //读取SD数据，始终从默认文件读取
     auto submap_count = submap_infos_.size();
-
-    bool db_failed = false;
-
-    if (DB_SD)
-    {
-        for (int i = 0; i < submap_count; i++)
-        {
-            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
-            auto pd = submap_infos_mem_[i].Event(0);
-
-            SQLite3Blob sblob(db, "bindata", "sdata", i + 1);
-            SQLite3Blob dblob(db, "bindata", "ddata", i + 1);
-            if (!sblob.isValid() || !dblob.isValid())
-            {
-                db_failed = true;
-                LOG("Failed to read SD data for submap {} from database: {}\n", i, db.getErrorMessage());
-                break;
-            }
-            int size_lz4s = sblob.getSize();
-            int size_lz4d = dblob.getSize();
-            sblob.read(ps, size_lz4s);
-            dblob.read(pd, size_lz4d);
-        }
-    }
-    if (!DB_SD || db_failed)
     {
         std::vector<char> sdata(submap_count * sdata_length_);
         std::vector<char> ddata(submap_count * ddata_length_);
-        if (zip.opened())
-        {
-            zip.readFileToBuffer("s1.grp", sdata);
-            zip.readFileToBuffer("d1.grp", ddata);
-        }
-        else
-        {
-            GrpIdxFile::readFile(getFilename(num, 's'), sdata.data(), submap_count * sdata_length_);
-            GrpIdxFile::readFile(getFilename(num, 'd'), ddata.data(), submap_count * ddata_length_);
-        }
+        GrpIdxFile::readFile(getFilename(0, 's'), sdata.data(), submap_count * sdata_length_);
+        GrpIdxFile::readFile(getFilename(0, 'd'), ddata.data(), submap_count * ddata_length_);
         for (int i = 0; i < submap_count; i++)
         {
             auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
@@ -155,80 +143,40 @@ bool Save::load(int num)
     db.close();
     filefunc::removeFile(getFilename(99, 'r'));    //删除临时文件
 
+#ifndef __EMSCRIPTEN__
     if (ZIP_SAVE && !zip.opened())
     {
         //转换未压缩存档格式
         save(num);
     }
+#endif
 
     return true;
 }
 
 bool Save::save(int num)
 {
+#ifndef __EMSCRIPTEN__
     ZipFile zip;
     if (ZIP_SAVE)
     {
         zip.create(getFilename(num, 'z'));
     }
+#endif
 
     auto filenamedb = getFilename(num, 'r');
 
+#ifndef __EMSCRIPTEN__
     if (ZIP_SAVE)
     {
         filenamedb = getFilename(99, 'r');
     }
+#endif
 
     SQLite3Wrapper db(filenamedb);
     saveRToDB(db);
 
-    //保存SD数据
-    auto submap_count = submap_infos_mem_.size();
-
-    if (DB_SD)
-    {
-        db.execute("drop table bindata");
-        std::string cmd = "create table bindata (id integer, sdata blob, ddata blob)";
-        db.execute(cmd);
-        db.BeginTransaction();
-        for (int i = 0; i < submap_count; i++)
-        {
-            cmd = std::format("insert into bindata values(?, ?, ?)");
-            auto stmt = db.prepare(cmd);
-            stmt.bind(1, i);
-
-            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
-            auto pd = submap_infos_mem_[i].Event(0);
-            stmt.bind(2, ps, sdata_length_);
-            stmt.bind(3, pd, ddata_length_);
-            stmt.step();
-        }
-        db.CommitTransaction();
-    }
-    else
-    {
-        std::vector<char> sdata(submap_count * sdata_length_);
-        std::vector<char> ddata(submap_count * ddata_length_);
-        for (int i = 0; i < submap_count; i++)
-        {
-            auto ps = &(submap_infos_mem_[i].LayerData(0, 0, 0));
-            auto pd = submap_infos_mem_[i].Event(0);
-            memcpy(sdata.data() + sdata_length_ * i, ps, sdata_length_);
-            memcpy(ddata.data() + ddata_length_ * i, pd, ddata_length_);
-        }
-
-        if (ZIP_SAVE)
-        {
-            zip.addData("s1.grp", sdata.data(), sdata.size());
-            zip.addData("d1.grp", ddata.data(), ddata.size());
-        }
-        else
-        {
-            //保存到文件中
-            GrpIdxFile::writeFile(getFilename(num, 's'), sdata.data(), sdata.size());
-            GrpIdxFile::writeFile(getFilename(num, 'd'), ddata.data(), ddata.size());
-        }
-    }
+#ifndef __EMSCRIPTEN__
     //最后处理db文件
     if (ZIP_SAVE)
     {
@@ -236,6 +184,16 @@ bool Save::save(int num)
         zip.addFile("1.db", filenamedb);
         filefunc::removeFile(filenamedb);    //删除临时文件
     }
+#endif
+
+#ifdef __EMSCRIPTEN__
+    // Flush the in-memory filesystem to IndexedDB so saves persist across reloads
+    EM_ASM(
+        FS.syncfs(false, function(err) {
+            if (err) console.warn('IDBFS save sync error:', err);
+        });
+    );
+#endif
 
     return true;
 }

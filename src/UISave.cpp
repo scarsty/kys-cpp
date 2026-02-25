@@ -24,7 +24,7 @@ UISave::UISave()
         }
         return str;
     };
-    for (int i = 0; i <= 10; i++)
+    for (int i = 0; i <= 3; i++)
     {
         auto str = std::format("進度{:02}  {}", i, get_save_time(i));
         strings.push_back(str);

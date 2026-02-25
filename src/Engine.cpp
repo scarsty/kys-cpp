@@ -95,7 +95,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 
     std::print("Renderer name: {}\n", SDL_GetRendererName(renderer_));
 
-    //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");    // SDL2 only; SDL3 uses SDL_SetTextureScaleMode per-texture
     //SDL_EventState(SDL_EVENT_DROP_FILE, SDL_ENABLE);
 
     //屏蔽触摸板
@@ -678,9 +678,11 @@ void Engine::renderMainTextureToWindow()
     resetRenderTarget();
 #ifdef __EMSCRIPTEN__
     SDL_RenderClear(renderer_);
-#endif
+    renderTexture(tex_);
+#else
     SDL_Rect r;
     renderTexture(tex_, nullptr, nullptr);
+#endif
     //std::vector<FPoint> v;
     //int w, h;
     //getWindowSize(w, h);
@@ -981,6 +983,7 @@ Texture* Engine::createTextTexture(const std::string& fontname, const std::strin
     }
     auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, c);
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
+    SDL_SetTextureScaleMode(text_t, SDL_SCALEMODE_LINEAR);
     SDL_DestroySurface(text_s);
     TTF_CloseFont(font);
     return text_t;
@@ -1080,8 +1083,9 @@ void inject_right_click()
 EMSCRIPTEN_KEEPALIVE
 void resize_to_viewport(int w, int h)
 {
-    auto* window = Engine::getInstance()->getWindow();
-    SDL_SetWindowSize(window, w, h);
+    auto* eng = Engine::getInstance();
+    SDL_SetWindowSize(eng->getWindow(), w, h);
+    eng->setPresentPosition(eng->getMainTexture());
 }
 }
 #endif

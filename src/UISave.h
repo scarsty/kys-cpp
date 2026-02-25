@@ -9,7 +9,7 @@ public:
 private:
     enum
     {
-        AUTO_SAVE_ID = 11,
+        AUTO_SAVE_ID = 4,
     };
 
     int mode_ = 0;  //0为读档，1为存档

@@ -8,6 +8,8 @@ export EM_CONFIG=/d/projects/emsdk/.emscripten
 WASM_DIR="/d/projects/kys-cpp/kys-cpp/wasm"
 BUILD_DIR="$WASM_DIR/build"
 
+# rm -f d:/projects/kys-cpp/kys-cpp/wasm/build/kys.html d:/projects/kys-cpp/kys-cpp/wasm/build/kys.js d:/projects/kys-cpp/kys-cpp/wasm/build/kys.wasm
+mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
 echo "=== Configuring ==="

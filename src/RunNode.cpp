@@ -549,32 +549,14 @@ int RunNode::run(bool in_root /*= true*/)
         {
             break;
         }
-#ifdef __EMSCRIPTEN__
-        auto t0 = Engine::getTicks();
-#endif
         dealEventSelfChilds(true);
         if (exit_)
         {
             break;
         }
-#ifdef __EMSCRIPTEN__
-        auto t1 = Engine::getTicks();
-#endif
         drawAll();
-#ifdef __EMSCRIPTEN__
-        auto t2 = Engine::getTicks();
-#endif
         checkFrame();
         present();
-#ifdef __EMSCRIPTEN__
-        auto t3 = Engine::getTicks();
-        static int frame_count = 0;
-        if (++frame_count % 60 == 0)
-        {
-            std::print("FRAME: total={:.1f}ms event={:.1f}ms draw={:.1f}ms present={:.1f}ms\n",
-                t3 - t0, t1 - t0, t2 - t1, t3 - t2);
-        }
-#endif
     }
     running_ = false;
     onExit();

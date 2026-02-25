@@ -3,11 +3,7 @@
 #include "GameUtil.h"
 #include "filefunc.h"
 
-#ifdef __EMSCRIPTEN__
-// WASM stub implementations - no audio yet
-Audio::Audio() { init(); }
-Audio::~Audio() {}
-#elif defined(USE_BASS)
+#ifdef USE_BASS
 Audio::Audio()
 {
     if (!BASS_Init(-1, 22050, 0, 0, nullptr))
@@ -31,7 +27,7 @@ Audio::Audio()
 {
     MIX_Init();
     SDL_AudioSpec spec;
-    spec.freq = 22500;
+    spec.freq = 22050;
     spec.format = SDL_AUDIO_S16;
     spec.channels = 2;
     mixer_ = MIX_CreateMixerDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec);
@@ -54,19 +50,6 @@ Audio::~Audio()
 }
 #endif
 
-#ifdef __EMSCRIPTEN__
-// WASM stubs - all audio operations are no-ops
-void Audio::init() {}
-void Audio::playMusic(int num) { current_music_index_ = num; }
-void Audio::playASound(int num, int volume) {}
-void Audio::playESound(int num, int volume) {}
-void Audio::pauseMusic() {}
-void Audio::resumeMusic() {}
-void Audio::stopMusic() {}
-void Audio::stopWav() {}
-void Audio::playVoice(int voice_id, int volume) {}
-#else // !__EMSCRIPTEN__
-
 void Audio::init()
 {
     std::string music_path;
@@ -78,9 +61,7 @@ void Audio::init()
     mid_sound_font_.bank = 0;
     BASS_MIDI_StreamSetFonts(0, &mid_sound_font_, 1);
 #else
-    auto timi_path = std::format("{}music/timidity.cfg", GameUtil::PATH());
-    //SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "TIMIDITY_CFG", timi_path.c_str(), true);
-    //SDL_setenv_unsafe("TIMIDITY_CFG", timi_path.c_str(), true);
+    // FluidSynth soundfont path is set per-file in loadMusic()
 #endif
     for (int i = 0; i < 100; i++)
     {
@@ -167,7 +148,7 @@ void Audio::stopMusic()
 #ifdef USE_BASS
     BASS_ChannelStop(current_music_);
 #else
-    MIX_StopTrack(track_music_, 1000);
+    MIX_StopTrack(track_music_, 22050);  // ~1 second fade at 22050 Hz (param is sample frames, not ms)
 #endif
 }
 
@@ -213,16 +194,31 @@ MUSIC Audio::loadMusic(const std::string& file)
 #else
     if (file.contains(".mid"))
     {
+        // Load MIDI with fluidsynth + soundfont
         Prop pro;
         auto io = SDL_IOFromFile(file.c_str(), "rb");
+        if (!io)
+        {
+            LOG("loadMusic: failed to open {}: {}\n", file, SDL_GetError());
+            return nullptr;
+        }
         pro.set(MIX_PROP_AUDIO_LOAD_IOSTREAM_POINTER, io);
         pro.set(MIX_PROP_AUDIO_DECODER_STRING, "fluidsynth");
         pro.set("SDL_mixer.decoder.fluidsynth.soundfont_path", (GameUtil::PATH() + "music/mid.sf2").c_str());
         auto m = MIX_LoadAudioWithProperties(pro.id());
         SDL_CloseIO(io);
+        if (!m)
+        {
+            LOG("loadMusic: fluidsynth failed for {}: {}\n", file, SDL_GetError());
+        }
         return m;
     }
-    return MIX_LoadAudio(nullptr, file.c_str(), false);
+    auto m = MIX_LoadAudio(nullptr, file.c_str(), false);
+    if (!m)
+    {
+        LOG("loadMusic: failed to load {}: {}\n", file, SDL_GetError());
+    }
+    return m;
 #endif
 }
 
@@ -258,12 +254,17 @@ void Audio::playMusic(MUSIC m)
     BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
     BASS_ChannelPlay(m, false);
 #else
-    MIX_SetTrackGain(track_music_, volume_ / 100.0);
+    LOG("playMusic: m={}, volume={}, track={}\n", (void*)m, volume_, (void*)track_music_);
+    MIX_SetTrackGain(track_music_, volume_ / 100.0f);
     MIX_SetTrackAudio(track_music_, m);
     Prop pro;
     pro.set(MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, 500);
-    pro.set(MIX_PROP_PLAY_LOOPS_NUMBER, 100);
-    MIX_PlayTrack(track_music_, pro.id());
+    pro.set(MIX_PROP_PLAY_LOOPS_NUMBER, -1);
+    bool ok = MIX_PlayTrack(track_music_, pro.id());
+    if (!ok)
+    {
+        LOG("playMusic: MIX_PlayTrack failed: {}\n", SDL_GetError());
+    }
 #endif
 }
 
@@ -288,7 +289,7 @@ void Audio::playWav(WAV w, int volume, int track_num)
     {
         tnum = current_track_num_;
     }
-    MIX_SetTrackGain(track_wav_[tnum], volume_wav_ / 100.0);
+    MIX_SetTrackGain(track_wav_[tnum], volume / 100.0f);
     MIX_SetTrackAudio(track_wav_[tnum], w);
     MIX_PlayTrack(track_wav_[tnum], 0);
     current_track_num_++;
@@ -298,5 +299,3 @@ void Audio::playWav(WAV w, int volume, int track_num)
     }
 #endif
 }
-
-#endif // !__EMSCRIPTEN__
