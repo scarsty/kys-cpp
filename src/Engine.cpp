@@ -1081,10 +1081,19 @@ void inject_right_click()
 }
 
 EMSCRIPTEN_KEEPALIVE
-void resize_to_viewport(int w, int h)
+void resize_to_viewport(int w, int h, int css_w, int css_h)
 {
     auto* eng = Engine::getInstance();
+    // Clamp backing buffer to at least the game's logical resolution
+    w = std::max(w, eng->getUIWidth());
+    h = std::max(h, eng->getUIHeight());
     SDL_SetWindowSize(eng->getWindow(), w, h);
+    // Restore CSS size so the canvas doesn't overflow the viewport
+    EM_ASM({
+        var c = Module['canvas'];
+        c.style.width = $0 + 'px';
+        c.style.height = $1 + 'px';
+    }, css_w, css_h);
     eng->setPresentPosition(eng->getMainTexture());
 }
 }

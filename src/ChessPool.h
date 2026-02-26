@@ -21,6 +21,11 @@ public:
 
     void refresh();
 
+    // Restore shop state from save data
+    void restoreShop(std::vector<std::pair<Role*, int>> shop);
+
+    const std::vector<std::pair<Role*, int>>& getCurrentShop() const { return current_; }
+
     // Select a random enemy role from a specific tier (no rejection logic)
     static Role* selectEnemyFromPool(int tier);
 

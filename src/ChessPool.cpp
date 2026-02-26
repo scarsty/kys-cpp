@@ -88,6 +88,14 @@ void ChessPool::refresh() {
     getNewChess_ = true;
 }
 
+void ChessPool::restoreShop(std::vector<std::pair<Role*, int>> shop) {
+    current_ = std::move(shop);
+    getNewChess_ = current_.empty();
+    // rejected_ is only used during getChessFromPool generation,
+    // which clears and rebuilds it each time, so no need to restore it.
+    rejected_.clear();
+}
+
 Role* ChessPool::selectEnemyFromPool(int tier)
 {
     auto idx = chessPool()[tier - 1][GameData::get().enemyRandInt(chessPool()[tier - 1].size())];

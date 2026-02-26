@@ -25,7 +25,6 @@ done
 
 echo ""
 echo "=== Uploading to $REMOTE ==="
-ssh "$REMOTE" "mkdir -p $REMOTE_TMP"
 scp "${FILES[@]/#/$BUILD_DIR/}" "$REMOTE:$REMOTE_TMP/"
 
 echo ""

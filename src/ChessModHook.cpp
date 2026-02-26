@@ -118,6 +118,15 @@ void ChessModHook::saveGameData(SQLite3Wrapper& db)
             c.role->ID, c.star));
     }
 
+    // Save current shop display
+    db.execute("drop table if exists chess_shop");
+    db.execute("create table chess_shop(role_id int,tier int)");
+    for (auto& [role, tier] : gd.chessPool.getCurrentShop())
+    {
+        db.execute(std::format("insert into chess_shop values({},{})",
+            role->ID, tier));
+    }
+
     // Save obtained neigong
     db.execute("drop table if exists chess_neigong");
     db.execute("create table chess_neigong(magic_id int)");
@@ -188,6 +197,21 @@ void ChessModHook::loadGameData(SQLite3Wrapper& db)
         }
     }
     gd.setSelectedForBattle(selected);
+
+    // Load current shop display
+    std::vector<std::pair<Role*, int>> shop;
+    auto stmt_shop = db.query("select role_id,tier from chess_shop");
+    if (stmt_shop.isValid())
+    {
+        while (stmt_shop.step())
+        {
+            auto role = Save::getInstance()->getRole(stmt_shop.getColumnInt(0));
+            int tier = stmt_shop.getColumnInt(1);
+            if (role)
+                shop.emplace_back(role, tier);
+        }
+    }
+    gd.chessPool.restoreShop(std::move(shop));
 
     // Load obtained neigong
     std::vector<int> neigong;
