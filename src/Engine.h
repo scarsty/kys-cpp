@@ -4,10 +4,6 @@
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -478,11 +474,7 @@ private:
 public:
     static void delay(double t)
     {
-#ifdef __EMSCRIPTEN__
-        emscripten_sleep((unsigned int)(t));
-#else
         std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1e6)));
-#endif
     }
 
     static double getTicks()

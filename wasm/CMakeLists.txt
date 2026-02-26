@@ -38,6 +38,7 @@ set(EM_SDL_FLAGS
 add_compile_options(
     -O2
     -DNDEBUG
+    -pthread
     ${EM_SDL_FLAGS}
 )
 
@@ -58,19 +59,18 @@ target_link_libraries(kyschess
     sqlite3
     marisa
 )
-# "-sJSPI"
 # Emscripten-specific link flags
 set(EM_LINK_FLAGS
     "${EM_SDL_FLAGS}"
-    "-sASYNCIFY"
-    "-sASYNCIFY_STACK_SIZE=65536"
+    "-pthread"
+    "-sPROXY_TO_PTHREAD"
+    "-sWASMFS"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"
-    "-lidbfs.js"
+    "-lfetchfs.js"
     "-sASSERTIONS=1"
     "-fexceptions"
-    "--preload-file ${CMAKE_SOURCE_DIR}/../work/game-dev@/game"
     "--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
     "-sEXPORTED_RUNTIME_METHODS=['ccall']"
 )

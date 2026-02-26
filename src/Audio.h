@@ -22,8 +22,8 @@ private:
     Audio();
     virtual ~Audio();
 
-    std::vector<MUSIC> music_;
-    std::vector<WAV> asound_, esound_;
+    std::unordered_map<int, MUSIC> music_;
+    std::unordered_map<int, WAV> asound_, esound_;
     std::unordered_map<int, WAV> voice_;
     MIDI_FONT mid_sound_font_;
     MUSIC current_music_;

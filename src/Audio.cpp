@@ -52,41 +52,33 @@ Audio::~Audio()
 
 void Audio::init()
 {
-    std::string music_path;
-    std::string asound_path;
-    std::string esound_path;
 #ifdef USE_BASS
     mid_sound_font_.font = BASS_MIDI_FontInit((GameUtil::PATH() + "music/mid.sf2").c_str(), 0);
     mid_sound_font_.preset = -1;
     mid_sound_font_.bank = 0;
     BASS_MIDI_StreamSetFonts(0, &mid_sound_font_, 1);
-#else
-    // FluidSynth soundfont path is set per-file in loadMusic()
 #endif
-    for (int i = 0; i < 100; i++)
-    {
-        music_path = std::format("{}music/{}.mid", GameUtil::PATH(), i);
-        if (filefunc::fileExist(music_path))
-        {
-            music_.push_back(loadMusic(music_path));
-        }
-        else
-        {
-            music_path = std::format("{}music/{}.mp3", GameUtil::PATH(), i);
-            music_.push_back(loadMusic(music_path));
-        }
-
-        asound_path = std::format("{}sound/atk{:02}.wav", GameUtil::PATH(), i);
-        asound_.push_back(loadWav(asound_path));
-
-        esound_path = std::format("{}sound/e{:02}.wav", GameUtil::PATH(), i);
-        esound_.push_back(loadWav(esound_path));
-    }
+    // Audio files are now loaded on demand in play*() methods
 }
 
 void Audio::playMusic(int num)
 {
-    if (num < 0 || num >= music_.size() || music_[num] == 0)
+    if (num < 0)
+    {
+        return;
+    }
+    // Lazy load on first access
+    if (music_.find(num) == music_.end())
+    {
+        auto path = std::format("{}music/{}.mid", GameUtil::PATH(), num);
+        music_[num] = loadMusic(path);
+        if (music_[num] == 0)
+        {
+            path = std::format("{}music/{}.mp3", GameUtil::PATH(), num);
+            music_[num] = loadMusic(path);
+        }
+    }
+    if (music_[num] == 0)
     {
         return;
     }
@@ -98,11 +90,20 @@ void Audio::playMusic(int num)
 
 void Audio::playASound(int num, int volume)
 {
-    if (num < 0 || num >= asound_.size() || asound_[num] == 0)
+    if (num < 0)
     {
         return;
     }
-    //BASS_ChannelStop(current_sound_);
+    // Lazy load on first access
+    if (asound_.find(num) == asound_.end())
+    {
+        auto path = std::format("{}sound/atk{:02}.wav", GameUtil::PATH(), num);
+        asound_[num] = loadWav(path);
+    }
+    if (asound_[num] == 0)
+    {
+        return;
+    }
     if (volume < 0 || volume > 100)
     {
         volume = volume_wav_;
@@ -113,7 +114,17 @@ void Audio::playASound(int num, int volume)
 
 void Audio::playESound(int num, int volume)
 {
-    if (num < 0 || num >= esound_.size() || esound_[num] == 0)
+    if (num < 0)
+    {
+        return;
+    }
+    // Lazy load on first access
+    if (esound_.find(num) == esound_.end())
+    {
+        auto path = std::format("{}sound/e{:02}.wav", GameUtil::PATH(), num);
+        esound_[num] = loadWav(path);
+    }
+    if (esound_[num] == 0)
     {
         return;
     }

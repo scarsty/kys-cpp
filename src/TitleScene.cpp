@@ -16,9 +16,7 @@
 #include "Video.h"
 #include "Weather.h"
 #include "ChessModHook.h"
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
+#include "filefunc.h"
 #include <cstdlib>
 
 TitleScene::TitleScene()
@@ -131,7 +129,7 @@ void TitleScene::onEntrance()
     Audio::getInstance()->playMusic(16);
 
 #ifdef __EMSCRIPTEN__
-    bool hasAutoSave = EM_ASM_INT({ return Module.hasAutoSave ? 1 : 0; });
+    bool hasAutoSave = filefunc::fileExist("/persist/4.db");
     if (hasAutoSave)
     {
         auto prompt = std::make_shared<MenuText>(std::vector<std::string>{"  是  ", "  否  "});

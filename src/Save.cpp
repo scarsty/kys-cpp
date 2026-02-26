@@ -7,10 +7,6 @@
 #include "ZipFile.h"
 #include "filefunc.h"
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
 Save::Save()
 {
 }
@@ -184,20 +180,6 @@ bool Save::save(int num)
         zip.addFile("1.db", filenamedb);
         filefunc::removeFile(filenamedb);    //删除临时文件
     }
-#endif
-
-#ifdef __EMSCRIPTEN__
-    // Flush the in-memory filesystem to IndexedDB so saves persist across reloads.
-    // Guard against overlapping async syncfs calls — Emscripten asserts if two are in flight.
-    EM_ASM(
-        if (!Module._idbfsSyncing) {
-            Module._idbfsSyncing = true;
-            FS.syncfs(false, function(err) {
-                Module._idbfsSyncing = false;
-                if (err) console.warn('IDBFS save sync error:', err);
-            });
-        }
-    );
 #endif
 
     return true;

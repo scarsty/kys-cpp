@@ -80,19 +80,6 @@
 
         var Module = {
             canvas: document.getElementById('canvas'),
-            preRun: [function() {
-                FS.mkdir('/persist');
-                FS.mount(IDBFS, {}, '/persist');
-                Module.addRunDependency('idbfs-load');
-                FS.syncfs(true, function(err) {
-                    if (err) console.warn('IDBFS load error:', err);
-                    try {
-                        var stat = FS.stat('/persist/4.db');
-                        if (stat && stat.size > 0) Module.hasAutoSave = true;
-                    } catch(e) {}
-                    Module.removeRunDependency('idbfs-load');
-                });
-            }],
             setStatus: function(text) {
                 var m = text.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
                 if (m) {
@@ -209,18 +196,7 @@
             }
         });
 
-        // Flush IDBFS when page goes to background (iOS kills WASM tabs).
-        // C++ auto-saves to in-memory FS at critical points; this ensures
-        // the data reaches IndexedDB before iOS suspends/kills the page.
-        function flushFS() {
-            try { FS.syncfs(false, function() {}); } catch(e) {}
-        }
-        document.addEventListener('visibilitychange', function() {
-            if (document.visibilityState === 'hidden') flushFS();
-        });
-        document.addEventListener('pagehide', flushFS);
-
-        Module.setStatus('Downloading...');
+        Module.setStatus('Loading...');
     </script>
     {{{ SCRIPT }}}
 </body>

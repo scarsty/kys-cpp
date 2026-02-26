@@ -12,6 +12,9 @@ BUILD_DIR="$WASM_DIR/build"
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
+echo "=== Generating manifest ==="
+python3 "$WASM_DIR/gen_manifest.py" "/d/projects/kys-cpp/kys-cpp/work/game-dev" "$WASM_DIR/wasm_manifest.inc"
+
 echo "=== Configuring ==="
 emcmake cmake "$WASM_DIR" \
     -DCMAKE_BUILD_TYPE=Release \

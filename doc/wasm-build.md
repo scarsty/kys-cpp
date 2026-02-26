@@ -9,8 +9,9 @@ The WASM build uses Emscripten to compile the C++ codebase to WebAssembly. Key d
 - **Audio**: Uses SDL3_mixer (prerelease-3.1.2) + FluidSynth 2.5.3 built from source. Supports WAV, MP3, and MIDI (FluidSynth with sf2 soundfont).
 - **Scripting**: Lua is stubbed (unused in the chess mod).
 - **Networking**: Disabled (`WITH_NETWORK=OFF` equivalent — no network code compiled).
-- **Frame loop**: Uses `emscripten_sleep()` with JSPI (JavaScript Promise Integration) instead of `std::this_thread::sleep_for`.
-- **Game assets**: Preloaded into Emscripten's virtual filesystem via `--preload-file`.
+- **Threading**: Uses `-pthread` with `PROXY_TO_PTHREAD` — `main()` runs on a real worker thread, enabling standard `std::this_thread::sleep_for`.
+- **Filesystem**: Uses WasmFS with fetch backend (on-demand asset loading from HTTP) and OPFS backend (persistent saves).
+- **Game assets**: Served as static files and fetched on demand via WasmFS fetch backend — no monolithic `.data` file.
 
 ## Prerequisites
 
@@ -104,6 +105,8 @@ emcmake cmake .. \
     -DSDL3IMAGE_JPG=OFF -DSDL3IMAGE_WEBP=OFF \
     -DSDL3IMAGE_AVIF=OFF -DSDL3IMAGE_JXL=OFF \
     -DSDL3IMAGE_TIF=OFF \
+    -DCMAKE_C_FLAGS="-pthread" \
+    -DCMAKE_CXX_FLAGS="-pthread" \
     -DCMAKE_INSTALL_PREFIX="$VCPKG_WASM" \
     -G Ninja
 
@@ -129,6 +132,8 @@ emcmake cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DSDL3TTF_VENDORED=ON \
     -DSDL3TTF_HARFBUZZ=OFF \
+    -DCMAKE_C_FLAGS="-pthread" \
+    -DCMAKE_CXX_FLAGS="-pthread" \
     -DCMAKE_INSTALL_PREFIX="$VCPKG_WASM" \
     -G Ninja
 
@@ -160,8 +165,8 @@ emcmake cmake .. \
     -DBUILD_SHARED_LIBS=OFF \
     -Dosal=cpp11 \
     -Denable-libinstpatch=0 \
-    -DCMAKE_C_FLAGS="-fexceptions" \
-    -DCMAKE_CXX_FLAGS="-fexceptions" \
+    -DCMAKE_C_FLAGS="-fexceptions -pthread" \
+    -DCMAKE_CXX_FLAGS="-fexceptions -pthread" \
     -G Ninja
 
 emmake ninja libfluidsynth
@@ -174,21 +179,6 @@ cp src/libfluidsynth.a "$VCPKG_WASM/lib/"
 cp -r ../include/fluidsynth "$VCPKG_WASM/include/"
 cp include/fluidsynth/version.h "$VCPKG_WASM/include/fluidsynth/"
 cp include/fluidsynth.h "$VCPKG_WASM/include/"
-```
-
-### Required patch: `pthread_setschedparam`
-
-FluidSynth's `src/utils/fluid_sys.c` calls `pthread_setschedparam` for thread priority, which Emscripten doesn't provide. Wrap the call in `#ifdef __EMSCRIPTEN__` to stub it out:
-
-```c
-// In fluid_thread_self_set_prio(), add at the top of the function body:
-#ifdef __EMSCRIPTEN__
-    (void)prio_level;
-    return;
-}
-#else
-    // ... original code ...
-#endif /* !__EMSCRIPTEN__ */
 ```
 
 ### Required: `-fexceptions` compile flag
@@ -230,6 +220,8 @@ emcmake cmake .. \
     -DSDLMIXER_MOD=OFF \
     -DSDLMIXER_GME=OFF \
     -DSDLMIXER_WAVPACK=OFF \
+    -DCMAKE_C_FLAGS="-pthread" \
+    -DCMAKE_CXX_FLAGS="-pthread" \
     -DCMAKE_FIND_ROOT_PATH="$VCPKG_WASM" \
     -G Ninja
 
@@ -288,13 +280,24 @@ static SDL_INLINE bool SDL_PutAudioStreamPlanarData(SDL_AudioStream *stream,
 #endif
 ```
 
-## Step 7: Build kys-cpp for WASM
+## Step 7: Generate asset manifest
+
+The WasmFS fetch backend requires all files to be pre-registered before they can be accessed. A Python script generates a C++ include file with `wasmfs_create_directory`/`wasmfs_create_file` calls for every game asset:
+
+```bash
+cd /d/projects/kys-cpp/kys-cpp
+python wasm/gen_manifest.py work/game-dev > wasm/wasm_manifest.inc
+```
+
+This must be re-run whenever game assets are added or removed.
+
+## Step 8: Build kys-cpp for WASM
 
 ```bash
 cd /d/projects/kys-cpp/kys-cpp/wasm
 mkdir -p build && cd build
 
-emcmake cmake ../wasm \
+emcmake cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_DEPS_DIR="/d/projects/vcpkg/installed/wasm32-emscripten" \
     -G Ninja
@@ -315,22 +318,30 @@ After a successful build, `wasm/build/` will contain:
 | File | Description |
 |------|-------------|
 | `kyschess.html` | HTML shell page |
-| `kyschess.js` | Emscripten runtime (~350KB) |
-| `kyschess.wasm` | Compiled binary (~6.5MB) |
-| `kyschess.data` | Preloaded game assets (including music/sound) |
+| `kyschess.js` | Emscripten runtime |
+| `kyschess.wasm` | Compiled binary |
+| `kyschess.worker.js` | Web Worker script (for pthreads) |
 
-## Step 8: Run in browser
+No `.data` file — game assets are fetched on demand from the server.
 
-The files must be served over HTTP (browsers block `file://` for WASM):
+## Step 9: Run in browser
+
+The files must be served over HTTP with COOP/COEP headers (required for `SharedArrayBuffer` which pthreads needs). A helper script is provided:
 
 ```bash
 cd /d/projects/kys-cpp/kys-cpp/wasm/build
-python -m http.server 8080
+python ../serve.py 8080
 ```
 
-Open `http://localhost:8080/kyschess.html` in Chrome 123+ or Edge 123+ (required for JSPI support).
+The `game/` directory must be accessible relative to the HTML file. Create a symlink if needed:
 
-## Step 9: Deploy to a server with nginx
+```bash
+ln -s /d/projects/kys-cpp/kys-cpp/work/game-dev /d/projects/kys-cpp/kys-cpp/wasm/build/game
+```
+
+Open `http://localhost:8080/kyschess.html` in Chrome 102+ or Edge 102+ (required for SharedArrayBuffer + OPFS).
+
+## Step 10: Deploy to a server with nginx
 
 This section covers deploying the WASM build to a server running nginx (e.g. inside a Docker container).
 
@@ -344,7 +355,7 @@ application/wasm                wasm;
 
 ### nginx location block
 
-Add a location block to your server config (e.g. `/etc/nginx/sites-enabled/default`):
+Add a location block to your server config (e.g. `/etc/nginx/sites-enabled/default`). The COOP/COEP headers are required for `SharedArrayBuffer` (pthreads):
 
 ```nginx
 location /kys/ {
@@ -352,6 +363,8 @@ location /kys/ {
     gzip_static on;
     expires 7d;
     add_header Cache-Control "public, immutable";
+    add_header Cross-Origin-Opener-Policy "same-origin";
+    add_header Cross-Origin-Embedder-Policy "require-corp";
 }
 ```
 
@@ -367,12 +380,12 @@ gzip_types text/plain text/css application/json application/javascript text/xml 
 
 ### Upload build files
 
-Copy the four build output files to the server, then into the nginx document root:
+Copy the build output files and game assets to the server:
 
 ```bash
-# From local machine — upload to server
+# From local machine — upload build files to server
 scp wasm/build/kyschess.html wasm/build/kyschess.js \
-    wasm/build/kyschess.wasm wasm/build/kyschess.data \
+    wasm/build/kyschess.wasm wasm/build/kyschess.worker.js \
     user@server:/tmp/
 
 # On the server — copy into nginx root (adjust container ID as needed)
@@ -380,15 +393,17 @@ docker exec $(docker ps -q) mkdir -p /var/www/html/kys
 docker cp /tmp/kyschess.html $(docker ps -q):/var/www/html/kys/
 docker cp /tmp/kyschess.js $(docker ps -q):/var/www/html/kys/
 docker cp /tmp/kyschess.wasm $(docker ps -q):/var/www/html/kys/
-docker cp /tmp/kyschess.data $(docker ps -q):/var/www/html/kys/
+docker cp /tmp/kyschess.worker.js $(docker ps -q):/var/www/html/kys/
+
+# Upload game assets — these are served on demand by the fetch backend
+docker cp work/game-dev $(docker ps -q):/var/www/html/kys/game
 ```
 
 ### Pre-compress for faster downloads
 
-The `.data` and `.wasm` files are large. Pre-compressing them avoids on-the-fly gzip overhead and pairs with `gzip_static on`:
+Pre-compressing the `.wasm` file avoids on-the-fly gzip overhead and pairs with `gzip_static on`:
 
 ```bash
-docker exec $(docker ps -q) bash -c "gzip -kf /var/www/html/kys/kyschess.data"
 docker exec $(docker ps -q) bash -c "gzip -kf /var/www/html/kys/kyschess.wasm"
 ```
 
@@ -413,13 +428,26 @@ All changes are guarded with `#ifdef __EMSCRIPTEN__` / `#ifndef __EMSCRIPTEN__` 
 ### `src/Script.h` / `src/Script.cpp`
 - Full stub class with all methods inlined as no-ops (no Lua dependency)
 
+### `src/kys.cpp`
+- `mount_wasmfs_backends()` called from `main()` (which runs on a worker thread via `PROXY_TO_PTHREAD`):
+  - Creates WasmFS fetch backend and mounts at `/game` for on-demand HTTP asset loading
+  - Pre-registers all game asset directories and files from `wasm/wasm_manifest.inc` (generated by `wasm/gen_manifest.py`) so the fetch backend knows they exist
+  - Creates WasmFS OPFS backend and mounts at `/persist` for persistent saves
+- Both backends must be created on a worker thread (not the main browser thread), which is why they are in `main()` rather than `wasmfs_before_preload()`
+
+### `src/Save.cpp`
+- Save files written to `/persist/` (OPFS-backed, persists automatically — no `FS.syncfs()` needed)
+
+### `src/TitleScene.cpp`
+- Auto-save detection uses direct `filefunc::fileExist("/persist/4.db")` instead of JS `Module.hasAutoSave`
+
 ### `src/Engine.h`
-- `#include <emscripten.h>` under WASM
-- `Engine::delay()` uses `emscripten_sleep()` instead of `std::this_thread::sleep_for`
+- `Engine::delay()` uses `std::this_thread::sleep_for` unconditionally (works because `PROXY_TO_PTHREAD` runs `main()` on a real thread)
 
 ### `src/Engine.cpp`
 - `renderPresent()`: skip `SDL_RenderClear` after present on WASM (prevents frame flashing)
 - `renderMainTextureToWindow()`: clear before draw instead on WASM
+- Sets `SDL_HINT_EMSCRIPTEN_ASYNCIFY` to `"0"` before `SDL_Init` — SDL3 defaults to calling `emscripten_sleep()` during `SDL_RenderPresent` for vsync, but we use pthreads instead of ASYNCIFY
 
 ### `src/GameUtil.h`
 - Game data path set to `/game/` (Emscripten virtual filesystem mount point)
@@ -436,9 +464,19 @@ All changes are guarded with `#ifdef __EMSCRIPTEN__` / `#ifndef __EMSCRIPTEN__` 
 ### `mlcc/ZipFile.cpp`
 - Wrapped `CvtStringToUTF8` (uses `MultiByteToWideChar`) in `#ifdef _WIN32`
 
+### `wasm/gen_manifest.py`
+- Script that walks the game asset directory and generates `wasm/wasm_manifest.inc` — a C++ include file with `wasmfs_create_directory`/`wasmfs_create_file` calls for every asset
+
+### `wasm/shell.html`
+- Custom HTML shell with loading overlay, right-click button for touch devices, and fullscreen support
+- Sets `Module.canvas` and COOP/COEP-compatible configuration
+
 ## Known limitations
 
+- **All dependencies must be built with `-pthread`** — the `-pthread` flag (which enables `atomics` and `bulk-memory` features) must be passed to all dependency builds. Without it, `wasm-ld` will error with `--shared-memory is disallowed because it was not compiled with 'atomics' or 'bulk-memory' features`.
+- **Asset manifest** — `wasm/wasm_manifest.inc` must be regenerated (via `wasm/gen_manifest.py`) whenever game assets are added or removed. The WasmFS fetch backend cannot auto-discover files from the server.
 - **Audio** — supported via SDL3_mixer (prerelease-3.1.2) with FluidSynth 2.5.3 for MIDI (using `mid.sf2` soundfont), plus WAV and MP3 (vendored drmp3) decoders. Music looping (`MIX_PROP_PLAY_LOOPS_NUMBER`) may not work correctly in this prerelease.
 - **No Lua scripting** — stubbed. Not needed for the chess mod.
-- **Large initial download** — `kys.data` includes music/sound assets. Consider lazy-loading or using a service worker cache.
-- **Browser requirement** — JSPI requires Chrome 123+ or Edge 123+. Firefox has JSPI behind a flag (`javascript.options.wasm_js_promise_integration`). Safari does not support it yet.
+- **WasmFS** — marked experimental in Emscripten. Core functionality is well-tested but edge cases may exist.
+- **Browser requirement** — `SharedArrayBuffer` (pthreads) requires COOP/COEP headers. OPFS requires Chrome 102+, Edge 102+, Firefox 111+. Safari has partial/no OPFS support.
+- **COOP/COEP headers** — all resources on the page must be same-origin or have CORS headers. Cross-origin iframes without proper headers will not work.
