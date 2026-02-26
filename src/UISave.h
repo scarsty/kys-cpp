@@ -6,12 +6,13 @@ class UISave : public MenuText
 public:
     UISave();
     ~UISave();
-private:
-    enum
+
+    enum class Slot
     {
-        AUTO_SAVE_ID = 4,
+        Auto = 4,
     };
 
+private:
     int mode_ = 0;  //0为读档，1为存档
 public:
     void setMode(int m) { mode_ = m; }
@@ -21,6 +22,7 @@ public:
 
     static bool load(int r);
     static void save(int r);
-    static void autoSave() { save(AUTO_SAVE_ID); }
+    static void autoSave() { save(static_cast<int>(Slot::Auto)); }
+    static bool loadAuto() { return load(static_cast<int>(Slot::Auto)); }
 };
 

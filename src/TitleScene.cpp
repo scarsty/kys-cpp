@@ -12,9 +12,13 @@
 #include "RandomRole.h"
 #include "SubScene.h"
 #include "UISave.h"
+#include "DrawableOnCall.h"
 #include "Video.h"
 #include "Weather.h"
 #include "ChessModHook.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include <cstdlib>
 
 TitleScene::TitleScene()
@@ -125,4 +129,35 @@ void TitleScene::onEntrance()
     Video v(Engine::getInstance()->getWindow());
     v.playVideo(GameUtil::PATH() + "movie/1.mp4");
     Audio::getInstance()->playMusic(16);
+
+#ifdef __EMSCRIPTEN__
+    bool hasAutoSave = EM_ASM_INT({ return Module.hasAutoSave ? 1 : 0; });
+    if (hasAutoSave)
+    {
+        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{"  是  ", "  否  "});
+        prompt->setFontSize(32);
+        prompt->arrange(0, 0, 200, 0);
+        prompt->setPosition(440, 400);
+        auto label = std::make_shared<TextBox>();
+        label->setText("檢測到自動存檔，是否繼續？");
+        label->setFontSize(32);
+        label->setHaveBox(false);
+        label->setTextColor({255, 220, 80});
+        prompt->addChild(label, -200, -60);
+        auto bg = std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
+            Engine::getInstance()->fillColor({0, 0, 0, 180}, 200, 300, 880, 180);
+        });
+        RunNode::addIntoDrawTop(bg);
+        int r = prompt->run();
+        RunNode::removeFromDraw(bg);
+        if (r == 0)
+        {
+            if (UISave::loadAuto())
+            {
+                MainScene::getInstance()->run();
+                return;
+            }
+        }
+    }
+#endif
 }

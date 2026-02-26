@@ -86,6 +86,10 @@
                 Module.addRunDependency('idbfs-load');
                 FS.syncfs(true, function(err) {
                     if (err) console.warn('IDBFS load error:', err);
+                    try {
+                        var stat = FS.stat('/persist/4.db');
+                        if (stat && stat.size > 0) Module.hasAutoSave = true;
+                    } catch(e) {}
                     Module.removeRunDependency('idbfs-load');
                 });
             }],
@@ -133,33 +137,70 @@
 
         // Fullscreen button for touch devices
         var fsBtn = document.getElementById('fs-btn');
+        var originalCanvasW = 1280, originalCanvasH = 720;
+
+        var _syncTimer = 0;
+        var _lastW = 0, _lastH = 0;
+
+        function applyCanvasSize() {
+            if (!Module.ccall) return;
+            var fs = document.fullscreenElement || document.webkitFullscreenElement;
+            if (fs) {
+                var dpr = window.devicePixelRatio || 1;
+                var cssW = window.innerWidth;
+                var cssH = window.innerHeight;
+                // Skip if dimensions haven't actually changed (avoids redundant resizes)
+                if (cssW === _lastW && cssH === _lastH) return;
+                _lastW = cssW; _lastH = cssH;
+                Module.ccall('resize_to_viewport', null,
+                    ['number', 'number', 'number', 'number'],
+                    [cssW * dpr, cssH * dpr, cssW, cssH]);
+            } else {
+                _lastW = 0; _lastH = 0;
+                Module.ccall('resize_to_viewport', null,
+                    ['number', 'number', 'number', 'number'],
+                    [originalCanvasW, originalCanvasH, originalCanvasW, originalCanvasH]);
+            }
+        }
+
+        // Debounced wrapper — fires immediately, then retries to catch
+        // browsers (Harmony, older Chrome) that report stale viewport
+        // dimensions during the fullscreenchange event.
+        function syncCanvasSize() {
+            applyCanvasSize();
+            clearTimeout(_syncTimer);
+            _syncTimer = setTimeout(applyCanvasSize, 150);
+            // Second retry for very slow viewport updates
+            setTimeout(applyCanvasSize, 500);
+        }
+
+        // Listen for fullscreen and viewport changes
+        document.addEventListener('fullscreenchange', syncCanvasSize);
+        document.addEventListener('webkitfullscreenchange', syncCanvasSize);
+        window.addEventListener('resize', function() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                syncCanvasSize();
+            }
+        });
+        screen.orientation && screen.orientation.addEventListener('change', function() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                syncCanvasSize();
+            }
+        });
 
         fsBtn.addEventListener('touchstart', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            if (!document.fullscreenElement) {
-                // Enter: fullscreen + landscape, then resize SDL3 window
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
                 var doc = document.documentElement;
                 var req = doc.requestFullscreen || doc.webkitRequestFullscreen;
                 if (!req) return;
                 req.call(doc).then(function() {
                     if (screen.orientation && screen.orientation.lock) {
-                        return screen.orientation.lock('landscape');
+                        return screen.orientation.lock('landscape').catch(function() {});
                     }
-                }).then(function() {
-                    setTimeout(function() {
-                        if (Module.ccall) {
-                            var dpr = window.devicePixelRatio || 1;
-                            var cssW = window.innerWidth;
-                            var cssH = window.innerHeight;
-                            Module.ccall('resize_to_viewport', null,
-                                ['number', 'number', 'number', 'number'],
-                                [cssW * dpr, cssH * dpr, cssW, cssH]);
-                        }
-                    }, 300);
                 }).catch(function() {});
             } else {
-                // Exit fullscreen
                 if (screen.orientation && screen.orientation.unlock) {
                     screen.orientation.unlock();
                 }
@@ -167,6 +208,17 @@
                 if (exit) exit.call(document);
             }
         });
+
+        // Flush IDBFS when page goes to background (iOS kills WASM tabs).
+        // C++ auto-saves to in-memory FS at critical points; this ensures
+        // the data reaches IndexedDB before iOS suspends/kills the page.
+        function flushFS() {
+            try { FS.syncfs(false, function() {}); } catch(e) {}
+        }
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') flushFS();
+        });
+        document.addEventListener('pagehide', flushFS);
 
         Module.setStatus('Downloading...');
     </script>

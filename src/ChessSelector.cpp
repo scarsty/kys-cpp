@@ -782,8 +782,8 @@ void ChessSelector::buyExp()
 
     // Show confirmation menu with info panel
     auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認購買", "取消"});
-    menu->setFontSize(24);
-    menu->arrange(0, 0, 0, 32);
+    menu->setFontSize(28);
+    menu->arrange(0, 0, 0, 36);
 
     auto infoPanel = std::make_shared<DrawableOnCall>([=](DrawableOnCall*) {
         int px = 350, py = 195, fs = 20, lh = fs + 6;
@@ -823,8 +823,8 @@ void ChessSelector::showContextMenu()
     //ChessBalance::apply();
     auto& gd = GameData::get();
     auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "遊戲說明" });
-    menu->setFontSize(24);
-    menu->arrange(0, 0, 0, 32);
+    menu->setFontSize(28);
+    menu->arrange(0, 0, 0, 36);
     menu->runAtPosition(200, 200);
 
     switch (menu->getResult())
@@ -841,6 +841,7 @@ void ChessSelector::showContextMenu()
     case 9: showGameGuide(); break;
     default: break;
     }
+    UISave::autoSave();
 }
 
 void ChessSelector::viewCombos()
@@ -918,7 +919,7 @@ void ChessSelector::viewCombos()
     opts.itemColors_ = colors;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto menu = std::make_shared<SuperMenuText>("羈絆一覽", 26, items, 12, opts);
+    auto menu = std::make_shared<SuperMenuText>("羈絆一覽", 28, items, 12, opts);
     menu->setInputPosition(80, 60);
     menu->addDrawableOnCall(detailDraw);
     menu->run();
@@ -995,7 +996,7 @@ void ChessSelector::showNeigongReward()
         opts.itemColors_ = colors;
         opts.needInputBox_ = false;
         opts.exitable_ = false;
-        auto menu = std::make_shared<SuperMenuText>("選擇內功", 28, items, (int)items.size(), opts);
+        auto menu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 28, items, (int)items.size(), opts);
         menu->setInputPosition(80, 60);
 
         // Detail panel
@@ -1065,7 +1066,7 @@ void ChessSelector::viewNeigong()
     opts.itemColors_ = colors;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto menu = std::make_shared<SuperMenuText>("內功一覽", 26, items, 22, opts);
+    auto menu = std::make_shared<SuperMenuText>("內功一覽", 28, items, 22, opts);
     menu->setInputPosition(80, 60);
     menu->addDrawableOnCall(detailDraw);
     menu->run();
@@ -1136,7 +1137,7 @@ void ChessSelector::showExpeditionChallenge()
         opts.itemColors_ = colors;
         opts.needInputBox_ = false;
         opts.exitable_ = true;
-        auto menu = std::make_shared<SuperMenuText>("遠征挑戰", 26, items, (int)items.size(), opts);
+        auto menu = std::make_shared<SuperMenuText>("遠征挑戰", 28, items, (int)items.size(), opts);
         menu->setInputPosition(80, 60);
         menu->addDrawableOnCall(detailDraw);
         menu->run();
@@ -1236,23 +1237,66 @@ void ChessSelector::showExpeditionChallenge()
         }
 
         // First win — reward selection
+        // Pre-check which rewards are actually available
+        auto isRewardAvailable = [&](const BalanceConfig::ChallengeReward& r) -> bool {
+            using RT = BalanceConfig::ChallengeRewardType;
+            if (r.type == RT::StarUp1to2 || r.type == RT::StarUp2to3)
+            {
+                int fromStar = (r.type == RT::StarUp1to2) ? 1 : 2;
+                for (auto& [chess, count] : gd.collection.getChess())
+                {
+                    if (chess.star != fromStar) continue;
+                    int tier = ChessPool::GetChessTier(chess.role->ID);
+                    if (tier >= 0 && tier <= r.value) return true;
+                }
+                return false;
+            }
+            if (r.type == RT::GetNeigong)
+            {
+                auto& pool = ChessNeigong::getPool();
+                auto& obtained = gd.getObtainedNeigong();
+                std::set<int> obtainedSet(obtained.begin(), obtained.end());
+                for (auto& ng : pool)
+                {
+                    if (ng.tier <= r.value && !obtainedSet.count(ng.magicId)) return true;
+                }
+                return false;
+            }
+            return true;
+        };
+
         std::vector<std::pair<int, std::string>> rewardItems;
         std::vector<Color> rewardColors;
+        std::vector<bool> rewardAvail;
         for (int i = 0; i < (int)ch.rewards.size(); ++i)
         {
-            rewardItems.emplace_back(i, challengeRewardDesc(ch.rewards[i]));
-            rewardColors.push_back({255, 255, 100, 255});
+            bool avail = isRewardAvailable(ch.rewards[i]);
+            rewardAvail.push_back(avail);
+            std::string desc = challengeRewardDesc(ch.rewards[i]);
+            if (!avail) desc += "（無可用）";
+            rewardItems.emplace_back(i, desc);
+            rewardColors.push_back(avail ? Color{255, 255, 100, 255} : Color{120, 120, 120, 255});
         }
 
-        SuperMenuTextExtraOptions rOpts;
-        rOpts.itemColors_ = rewardColors;
-        rOpts.needInputBox_ = false;
-        rOpts.exitable_ = false;
-        auto rMenu = std::make_shared<SuperMenuText>("選擇獎勵", 28, rewardItems, (int)rewardItems.size(), rOpts);
-        rMenu->setInputPosition(80, 60);
-        rMenu->run();
-        int rSel = rMenu->getResult();
-        if (rSel < 0) rSel = 0;
+        int rSel = 0;
+        for (;;)
+        {
+            SuperMenuTextExtraOptions rOpts;
+            rOpts.itemColors_ = rewardColors;
+            rOpts.needInputBox_ = false;
+            rOpts.exitable_ = false;
+            auto rMenu = std::make_shared<SuperMenuText>("選擇獎勵", 28, rewardItems, (int)rewardItems.size(), rOpts);
+            rMenu->setInputPosition(80, 60);
+            rMenu->run();
+            rSel = rMenu->getResult();
+            if (rSel < 0) rSel = 0;
+            if (rewardAvail[rSel]) break;
+            // Picked an unavailable reward — prompt and loop
+            auto text = std::make_shared<TextBox>();
+            text->setText("該獎勵無可用項目，請重新選擇");
+            text->setFontSize(32);
+            text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        }
 
         auto& reward = ch.rewards[rSel];
         using RT = BalanceConfig::ChallengeRewardType;
@@ -1333,7 +1377,7 @@ void ChessSelector::showExpeditionChallenge()
                 nOpts.itemColors_ = ngColors;
                 nOpts.needInputBox_ = false;
                 nOpts.exitable_ = false;
-                auto nMenu = std::make_shared<SuperMenuText>("選擇內功", 28, ngItems, 16, nOpts);
+                auto nMenu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 28, ngItems, 16, nOpts);
                 nMenu->setInputPosition(80, 60);
                 nMenu->addDrawableOnCall(ngDetail);
                 nMenu->run();
@@ -1418,11 +1462,11 @@ void ChessSelector::showPositionSwap()
 {
     auto& gd = GameData::get();
     bool cur = gd.isPositionSwapEnabled();
-    std::vector<std::pair<int, std::string>> items = { {0, "關閉"}, {1, "開啟"} };
+    std::vector<std::pair<int, std::string>> items = { {0, "  關閉  "}, {1, "  開啟  "} };
     SuperMenuTextExtraOptions opts;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto sub = std::make_shared<SuperMenuText>(cur ? "" : "", 24, items, 2, opts);
+    auto sub = std::make_shared<SuperMenuText>(cur ? "" : "", 28, items, 2, opts);
     sub->setShowNavigationButtons(false);
     auto panel = std::make_shared<DrawableOnCall>([cur](DrawableOnCall* self) {
         int px = 280, py = 200, fs = 20, lh = fs + 6;

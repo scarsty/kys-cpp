@@ -187,11 +187,16 @@ bool Save::save(int num)
 #endif
 
 #ifdef __EMSCRIPTEN__
-    // Flush the in-memory filesystem to IndexedDB so saves persist across reloads
+    // Flush the in-memory filesystem to IndexedDB so saves persist across reloads.
+    // Guard against overlapping async syncfs calls — Emscripten asserts if two are in flight.
     EM_ASM(
-        FS.syncfs(false, function(err) {
-            if (err) console.warn('IDBFS save sync error:', err);
-        });
+        if (!Module._idbfsSyncing) {
+            Module._idbfsSyncing = true;
+            FS.syncfs(false, function(err) {
+                Module._idbfsSyncing = false;
+                if (err) console.warn('IDBFS save sync error:', err);
+            });
+        }
     );
 #endif
 
