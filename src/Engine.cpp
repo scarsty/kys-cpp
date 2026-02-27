@@ -1,6 +1,11 @@
 ﻿#include "Engine.h"
 
 #include "strfunc.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten/html5_webgl.h>
+#endif
+
+std::unordered_map<Texture*, Color> Engine::color_cache_;
 #ifdef _MSC_VER
 #define NOMINMAX
 #include <windows.h>
@@ -238,6 +243,7 @@ void Engine::createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h
 {
     if (tex_)
     {
+        color_cache_.erase(tex_);
         SDL_DestroyTexture(tex_);
     }
     if (pixfmt < 0)
@@ -272,6 +278,7 @@ void Engine::createAssistTexture(const std::string& name, int w, int h)
     auto& tex = tex_map_[name];
     if (tex)
     {
+        color_cache_.erase(tex);
         SDL_DestroyTexture(tex);
     }
     int64_t pixfmt = 0;
@@ -374,7 +381,9 @@ void Engine::renderPresent() const
 {
     //renderMainTextureToWindow();
     SDL_RenderPresent(renderer_);
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+    emscripten_webgl_commit_frame();
+#else
     SDL_RenderClear(renderer_);
 #endif
     //setRenderMainTexture();
@@ -663,9 +672,21 @@ void Engine::resetWindowPosition()
 
 void Engine::setColor(Texture* tex, Color c)
 {
+    auto it = color_cache_.find(tex);
+    if (it != color_cache_.end() && it->second.r == c.r && it->second.g == c.g && it->second.b == c.b && it->second.a == c.a)
+    {
+        return;
+    }
+    color_cache_[tex] = c;
     SDL_SetTextureColorMod(tex, c.r, c.g, c.b);
     setTextureAlphaMod(tex, c.a);
     setTextureBlendMode(tex);
+}
+
+void Engine::destroyTexture(Texture* t)
+{
+    color_cache_.erase(t);
+    SDL_DestroyTexture(t);
 }
 
 void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend) const

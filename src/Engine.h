@@ -285,6 +285,8 @@ private:
     std::unordered_map<std::string, Texture*> tex_map_;
     std::map<std::pair<std::string, int>, TTF_Font*> font_cache_;
 
+    static std::unordered_map<Texture*, Color> color_cache_;
+
 public:
     int init(void* handle = nullptr, int handle_type = 0, int maximized = 0, const std::string& str = "");
 
@@ -355,7 +357,7 @@ private:
     static void unlockTexture(Texture* t);
 
 public:
-    static void destroyTexture(Texture* t) { SDL_DestroyTexture(t); }
+    static void destroyTexture(Texture* t);
 
 public:
     //void showLogo() { renderTexture(logo_, nullptr, nullptr); }
