@@ -16,30 +16,6 @@ MainScene::MainScene()
     full_window_ = 1;
     COORD_COUNT = MAINMAP_COORD_COUNT;
 
-    if (!data_readed_)
-    {
-        MapSquareInt earth_layer1(COORD_COUNT), surface_layer1(COORD_COUNT), building_layer1(COORD_COUNT);
-
-        earth_layer_.resize(COORD_COUNT);
-        surface_layer_.resize(COORD_COUNT);
-        building_layer_.resize(COORD_COUNT);
-        build_x_layer_.resize(COORD_COUNT);
-        build_y_layer_.resize(COORD_COUNT);
-
-        int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
-
-        GrpIdxFile::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
-        GrpIdxFile::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
-        GrpIdxFile::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
-        GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
-        GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
-
-        divide2(earth_layer1, earth_layer_);
-        divide2(surface_layer1, surface_layer_);
-        divide2(building_layer1, building_layer_);
-    }
-    data_readed_ = true;
-
     //100个云
     cloud_vector_.resize(100);
     for (int i = 0; i < 100; i++)
@@ -48,6 +24,35 @@ MainScene::MainScene()
     }
     //getEntrance();
     addChild(Weather::getInstance());
+}
+
+void MainScene::ensureDataLoaded()
+{
+    if (data_readed_)
+    {
+        return;
+    }
+    data_readed_ = true;
+
+    MapSquareInt earth_layer1(COORD_COUNT), surface_layer1(COORD_COUNT), building_layer1(COORD_COUNT);
+
+    earth_layer_.resize(COORD_COUNT);
+    surface_layer_.resize(COORD_COUNT);
+    building_layer_.resize(COORD_COUNT);
+    build_x_layer_.resize(COORD_COUNT);
+    build_y_layer_.resize(COORD_COUNT);
+
+    int length = COORD_COUNT * COORD_COUNT * sizeof(MAP_INT);
+
+    GrpIdxFile::readFile(GameUtil::PATH() + "resource/earth.002", &earth_layer1.data(0), length);
+    GrpIdxFile::readFile(GameUtil::PATH() + "resource/surface.002", &surface_layer1.data(0), length);
+    GrpIdxFile::readFile(GameUtil::PATH() + "resource/building.002", &building_layer1.data(0), length);
+    GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildx.002", &build_x_layer_.data(0), length);
+    GrpIdxFile::readFile(GameUtil::PATH() + "resource/buildy.002", &build_y_layer_.data(0), length);
+
+    divide2(earth_layer1, earth_layer_);
+    divide2(surface_layer1, surface_layer_);
+    divide2(building_layer1, building_layer_);
 }
 
 MainScene::~MainScene()
@@ -88,6 +93,7 @@ void MainScene::divide2(MapSquareInt& m1, MapSquare<Object>& m)
 
 void MainScene::draw()
 {
+    ensureDataLoaded();
     Engine::getInstance()->setRenderTarget("scene");
 
     struct DrawInfo
@@ -471,6 +477,7 @@ void MainScene::setEntrance()
 
 bool MainScene::isBuilding(int x, int y)
 {
+    ensureDataLoaded();
     if (isOutLine(x, y))
     {
         return false;
@@ -480,6 +487,7 @@ bool MainScene::isBuilding(int x, int y)
 
 int MainScene::isWater(int x, int y)
 {
+    ensureDataLoaded();
     return earth_layer_.data(x, y).material_ == ObjectMaterial::Water;
 }
 
@@ -490,6 +498,7 @@ bool MainScene::isOutScreen(int x, int y)
 
 bool MainScene::canWalk(int x, int y)
 {
+    ensureDataLoaded();
     //这里不需要加，实际上入口都是无法走到的
     if (isOutLine(x, y) || isBuilding(x, y))    // || isWater(x, y))
     {
@@ -503,6 +512,7 @@ bool MainScene::canWalk(int x, int y)
 
 bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
 {
+    ensureDataLoaded();
     for (int i = 0; i < Save::getInstance()->getSubMapInfos().size(); i++)
     {
         auto s = Save::getInstance()->getSubMapInfo(i);

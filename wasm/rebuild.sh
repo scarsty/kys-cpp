@@ -24,3 +24,5 @@ emcmake cmake "$WASM_DIR" \
 echo ""
 echo "=== Building ==="
 emmake ninja 2>&1
+
+cp serve.py build/serve.py

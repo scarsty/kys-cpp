@@ -78,8 +78,69 @@
         var statusEl = document.getElementById('status');
         var overlay = document.getElementById('overlay');
 
+        // Diagnostic: check prerequisites for pthreads
+        (function() {
+            var msgs = [];
+            if (typeof SharedArrayBuffer === 'undefined')
+                msgs.push('SharedArrayBuffer is NOT available');
+            if (!window.crossOriginIsolated)
+                msgs.push('Page is NOT cross-origin isolated');
+            if (typeof Worker === 'undefined')
+                msgs.push('Web Workers are NOT available');
+            if (msgs.length) {
+                statusEl.innerText = 'ERROR: ' + msgs.join('; ');
+                statusEl.style.color = '#f44';
+                console.error('[kys-diag]', msgs.join('; '));
+            } else {
+                console.log('[kys-diag] SharedArrayBuffer OK, crossOriginIsolated OK');
+            }
+        })();
+
+        // Gate overlay dismissal on both conditions
+        var fontsReady = false;
+        var runtimeReady = false;
+
+        function tryHideOverlay() {
+            if (fontsReady && runtimeReady) {
+                overlay.classList.add('hidden');
+                setTimeout(function() { overlay.style.display = 'none'; }, 500);
+            }
+        }
+
+        // Pre-fetch font files so they're in the browser HTTP cache
+        // before WASMFS fetch backend requests them.
+        (function prefetchFonts() {
+            var fonts = ['game/font/chinese.ttf', 'game/font/english.ttf'];
+            statusEl.innerText = 'Loading fonts...';
+            Promise.all(fonts.map(function(url) {
+                return fetch(url).then(function(r) {
+                    if (!r.ok) throw new Error(url + ': ' + r.status);
+                    return r.arrayBuffer();
+                });
+            })).then(function() {
+                console.log('[kys] fonts pre-fetched');
+                fontsReady = true;
+                tryHideOverlay();
+            }).catch(function(err) {
+                console.warn('[kys] font prefetch failed:', err);
+                // Don't block startup — fonts will just be fetched on demand
+                fontsReady = true;
+                tryHideOverlay();
+            });
+        })();
+
         var Module = {
             canvas: document.getElementById('canvas'),
+            onAbort: function(what) {
+                var msg = 'WASM aborted: ' + what;
+                statusEl.innerText = msg;
+                statusEl.style.color = '#f44';
+                console.error('[kys-diag]', msg);
+            },
+            printErr: function() {
+                var text = Array.prototype.slice.call(arguments).join(' ');
+                console.error('[kys-stderr]', text);
+            },
             setStatus: function(text) {
                 var m = text.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
                 if (m) {
@@ -91,8 +152,10 @@
                 }
             },
             onRuntimeInitialized: function() {
-                overlay.classList.add('hidden');
-                setTimeout(function() { overlay.style.display = 'none'; }, 500);
+                console.log('[kys] runtime initialized');
+                runtimeReady = true;
+                if (!fontsReady) statusEl.innerText = 'Loading fonts...';
+                tryHideOverlay();
             }
         };
 

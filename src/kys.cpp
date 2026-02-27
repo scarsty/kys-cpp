@@ -6,17 +6,61 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/wasmfs.h>
+#include <sstream>
+#include <string>
+#include <cerrno>
+#include <cstring>
 
-// Both fetch and OPFS backends require a worker thread (not the main browser
-// thread). With PROXY_TO_PTHREAD, main() runs on a worker, so mount here.
+#include "../wasm/wasm_manifest.inc"
+
 static void mount_wasmfs_backends()
 {
     backend_t fetch = wasmfs_create_fetch_backend("game", 0);
-    wasmfs_create_directory("/game", 0777, fetch);
+    int fd = wasmfs_create_directory("/game", 0777, fetch);
+    if (fd < 0)
+    {
+        LOG("FATAL: wasmfs_create_directory /game failed: {} ({})\n", std::strerror(errno), errno);
+        return;
+    }
 
-    // Pre-register all game asset directories and files so the fetch backend
-    // knows they exist and will lazily fetch them over HTTP when accessed.
-#include "../wasm/wasm_manifest.inc"
+    std::istringstream manifest(wasm_manifest_data);
+    int dirs_ok = 0, dirs_fail = 0, files_ok = 0, files_fail = 0;
+    std::string line;
+    while (std::getline(manifest, line))
+    {
+        if (line.size() < 3) { continue; }
+        char type = line[0];
+        std::string path = line.substr(2);
+
+        if (type == 'D')
+        {
+            fd = wasmfs_create_directory(path.c_str(), 0777, fetch);
+            if (fd < 0)
+            {
+                LOG("manifest: mkdir FAILED {}: {} ({})\n", path, std::strerror(errno), errno);
+                dirs_fail++;
+            }
+            else
+            {
+                dirs_ok++;
+            }
+        }
+        else if (type == 'F')
+        {
+            fd = wasmfs_create_file(path.c_str(), 0666, fetch);
+            if (fd < 0)
+            {
+                LOG("manifest: mkfile FAILED {}: {} ({})\n", path, std::strerror(errno), errno);
+                files_fail++;
+            }
+            else
+            {
+                files_ok++;
+            }
+        }
+    }
+    LOG("manifest: {} dirs ok, {} dirs failed, {} files ok, {} files failed\n",
+        dirs_ok, dirs_fail, files_ok, files_fail);
 
     backend_t opfs = wasmfs_create_opfs_backend();
     wasmfs_create_directory("/persist", 0777, opfs);

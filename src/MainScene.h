@@ -22,6 +22,7 @@ public:
     bool data_readed_ = false;
 
     void divide2(MapSquareInt& m1, MapSquare<Object>& m);
+    void ensureDataLoaded();
 
     int MAN_PIC_0 = 2501;         //初始主角图偏移量
     int MAN_PIC_COUNT = 7;        //单向主角图张数

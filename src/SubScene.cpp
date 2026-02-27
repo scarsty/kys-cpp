@@ -146,7 +146,7 @@ void SubScene::draw()
                 //鼠标位置
                 if (ix == cursor_x_ && iy == cursor_y_)
                 {
-                    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
+                    TextureManager::getInstance()->renderTexture("smap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
                 }
                 //建筑和主角
                 num = submap_info_->Building(ix, iy) / 2;
