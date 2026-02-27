@@ -10,6 +10,7 @@
 #include <print>
 #include <string>
 #include <thread>
+#include <map>
 #include <unordered_map>
 
 #define WIN32_LEAN_AND_MEAN
@@ -282,6 +283,7 @@ private:
     bool renderer_self_ = false;
 
     std::unordered_map<std::string, Texture*> tex_map_;
+    std::map<std::pair<std::string, int>, TTF_Font*> font_cache_;
 
 public:
     int init(void* handle = nullptr, int handle_type = 0, int maximized = 0, const std::string& str = "");
@@ -386,7 +388,7 @@ public:
     void renderTexture(Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
     void renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle = 0, int inPresent = 0);
     void renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2);
-    void destroy() const;
+    void destroy();
     bool isFullScreen();
     void toggleFullscreen();
     Texture* loadImage(const std::string& filename, int as_white = 0);
@@ -564,7 +566,7 @@ private:
     Texture* createRectTexture(int w, int h, int style) const;
 
 public:
-    Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const;
+    Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c);
     int showMessage(const std::string& content) const;
     void renderSquareTexture(Rect* rect, Color color, uint8_t alpha);
 

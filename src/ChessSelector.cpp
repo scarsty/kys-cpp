@@ -292,9 +292,9 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
 
 static std::shared_ptr<UIRoleStatusMenu> makeChessMenu(const std::string& title,
     std::vector<std::pair<int, std::string>>& items, std::vector<Color>& colors,
-    int perPage, int fontSize, bool showNav = true)
+    int perPage, int fontSize, bool showNav = true, bool exitable = true)
 {
-    auto menu = std::make_shared<UIRoleStatusMenu>(title, items, colors, perPage, fontSize, false);
+    auto menu = std::make_shared<UIRoleStatusMenu>(title, items, colors, perPage, fontSize, false, exitable);
     menu->setInputPosition(80, 60);
     menu->getStatusDrawable().getUIStatus().setPosition(720, 32);
     if (!showNav) menu->setShowNavigationButtons(false);
@@ -329,7 +329,7 @@ static std::shared_ptr<DrawableOnCall> makeHeaderBar()
 static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
 {
     auto* font = Font::getInstance();
-    int px = 460, py = 60, fs = 22;
+    int px = 480, py = 100, fs = 22;
     Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 500, 400);
     TextureManager::getInstance()->renderTexture("item", ng.itemId, px + 10, py + 10);
     int ty = py + 10;
@@ -996,7 +996,7 @@ void ChessSelector::showNeigongReward()
         opts.itemColors_ = colors;
         opts.needInputBox_ = false;
         opts.exitable_ = false;
-        auto menu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 28, items, (int)items.size(), opts);
+        auto menu = std::make_shared<SuperMenuText>("選擇内功，内功將對所有成員自動生效", 28, items, (int)items.size(), opts);
         menu->setInputPosition(80, 60);
 
         // Detail panel
@@ -1314,6 +1314,7 @@ void ChessSelector::showExpeditionChallenge()
             // Show all roles up to max tier
             std::vector<std::pair<int, std::string>> pieceItems;
             std::vector<Color> pieceColors;
+            std::vector<int> pieceRoleIds;
             for (int t = 1; t <= reward.value && t <= 5; ++t)
             {
                 for (int rid : ChessPool::getRolesOfTier(t))
@@ -1321,21 +1322,19 @@ void ChessSelector::showExpeditionChallenge()
                     auto* role = save->getRole(rid);
                     if (!role) continue;
                     auto [name, color] = formatChessName(role, t, 1, {});
-                    pieceItems.emplace_back(rid, name);
+                    pieceItems.emplace_back(rid * 10 + 1, name);
                     pieceColors.push_back(color);
+                    pieceRoleIds.push_back(rid);
                 }
             }
-            SuperMenuTextExtraOptions pOpts;
-            pOpts.itemColors_ = pieceColors;
-            pOpts.needInputBox_ = false;
-            pOpts.exitable_ = false;
-            auto pMenu = std::make_shared<SuperMenuText>("選擇棋子", 28, pieceItems, 16, pOpts);
-            pMenu->setInputPosition(80, 60);
+            auto pMenu = makeChessMenu("選擇棋子", pieceItems, pieceColors, 16, 28, true, false);
+            pMenu->addDrawableOnCall(makeComboInfoPanel());
             pMenu->run();
             int pSel = pMenu->getResult();
             if (pSel >= 0)
             {
-                auto* role = save->getRole(pSel);
+                int rid = pieceRoleIds[pSel];
+                auto* role = save->getRole(rid);
                 if (role) gd.addChessAndFixSelection({role, 1});
                 auto text = std::make_shared<TextBox>();
                 text->setText(std::format("獲得棋子：{}", role ? role->Name : ""));
@@ -1406,7 +1405,7 @@ void ChessSelector::showExpeditionChallenge()
                 int tier = ChessPool::GetChessTier(chess.role->ID);
                 if (tier < 0 || tier > reward.value) continue;
                 auto [name, color] = formatChessName(chess.role, tier, chess.star, count);
-                upItems.emplace_back((int)upChess.size(), name);
+                upItems.emplace_back(chess.role->ID * 10 + chess.star, name);
                 upColors.push_back(color);
                 upChess.push_back(chess);
             }
@@ -1419,13 +1418,8 @@ void ChessSelector::showExpeditionChallenge()
             }
             else
             {
-                SuperMenuTextExtraOptions uOpts;
-                uOpts.itemColors_ = upColors;
-                uOpts.needInputBox_ = false;
-                uOpts.exitable_ = false;
-                auto uMenu = std::make_shared<SuperMenuText>(
-                    std::format("選擇升星 {}★→{}★", fromStar, toStar), 28, upItems, 16, uOpts);
-                uMenu->setInputPosition(80, 60);
+                auto uMenu = makeChessMenu(
+                    std::format("選擇升星 {}★→{}★", fromStar, toStar), upItems, upColors, 16, 28, true, false);
                 uMenu->run();
                 int uSel = uMenu->getResult();
                 if (uSel >= 0)

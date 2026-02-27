@@ -1,6 +1,10 @@
 ﻿#pragma once
 #include "Engine.h"
+#ifdef __EMSCRIPTEN__
+#include "InMemZipReader.h"
+#else
 #include "ZipFile.h"
+#endif
 #include <map>
 #include <vector>
 
@@ -10,7 +14,11 @@
 
 struct GroupInfo
 {
+#ifdef __EMSCRIPTEN__
+    InMemZipReader zip;
+#else
     ZipFile zip;
+#endif
     std::string path;
 };
 

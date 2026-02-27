@@ -15,7 +15,7 @@
 
 static void mount_wasmfs_backends()
 {
-    backend_t fetch = wasmfs_create_fetch_backend("game", 0);
+    backend_t fetch = wasmfs_create_fetch_backend("kys/game", 0);
     int fd = wasmfs_create_directory("/game", 0777, fetch);
     if (fd < 0)
     {

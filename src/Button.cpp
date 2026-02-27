@@ -26,6 +26,32 @@ void Button::dealEvent(EngineEvent& e)
 
 void Button::draw()
 {
+    if (text_only_)
+    {
+        if (!text_.empty())
+        {
+            int x = x_ + text_x_;
+            int y = y_ + text_y_;
+            Color color = color_normal_;
+            if (state_ == NodePass)
+            {
+                // Glow effect: draw a dimmer copy offset behind, then bright text
+                Color glow = { color.r, color.g, color.b, 80 };
+                Font::getInstance()->draw(text_, font_size_, x - 1, y - 1, glow, 80);
+                Font::getInstance()->draw(text_, font_size_, x + 1, y + 1, glow, 80);
+                color = { 255, 255, 255, 255 };
+            }
+            else if (state_ == NodePress)
+            {
+                x += 2;
+                y += 2;
+                color = { 255, 255, 200, 255 };
+            }
+            Font::getInstance()->draw(text_, font_size_, x, y, color, 255);
+        }
+        return;
+    }
+
     //视情况重新计算尺寸
     if (w_ * h_ == 0)
     {

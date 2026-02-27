@@ -1,6 +1,7 @@
 #include "ChessModHook.h"
 #include "ChessCombo.h"
 #include "ChessSelector.h"
+#include "Event.h"
 #include "Menu.h"
 #include "SQLite3Wrapper.h"
 #include "Talk.h"
@@ -71,7 +72,7 @@ bool ChessModHook::blockExit(int submap_id)
 void ChessModHook::showMenu()
 {
     auto menu = std::make_shared<MenuText>();
-    menu->setStrings({ "讀取進度", "保存進度" });
+    menu->setStrings({ "讀取進度", "保存進度", "返回開頭" });
     menu->setFontSize(24);
     menu->arrange(0, 0, 0, 32);
     menu->runAtPosition(200, 200);
@@ -82,6 +83,19 @@ void ChessModHook::showMenu()
         ui_save->setMode(r);
         ui_save->setFontSize(22);
         ui_save->runAtPosition(200, 260);
+    }
+    else if (r == 2)
+    {
+        auto confirm = std::make_shared<MenuText>();
+        confirm->setStrings({ "確認返回開頭", "     否    " });
+        confirm->setFontSize(24);
+        confirm->arrange(0, 0, 0, 32);
+        confirm->runAtPosition(200, 200);
+        if (confirm->getResult() == 0)
+        {
+            RunNode::exitAll(1);
+            Event::getInstance()->forceExit();
+        }
     }
 }
 

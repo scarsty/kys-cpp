@@ -19,15 +19,33 @@
 #include "filefunc.h"
 #include <cstdlib>
 
+#ifdef __EMSCRIPTEN__
+extern "C" void notify_fonts_loaded();
+#endif
+
 TitleScene::TitleScene()
 {
     full_window_ = 1;
     battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
-    menu_ = std::make_shared<Menu>();
-    menu_->setPosition(560, 150);
-    menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
-    menu_->addChild<Button>(20, 0)->setTexture("title", 4, 24, 24);
-    menu_->addChild<Button>(220, 0)->setTexture("title", 6, 26, 26);
+    // Text-only menu: 3 items, each 4 CJK chars at size 28 = 112px wide
+    // Spacing 172px (112 + 60 gap), total span 456px, centered: x = (1280-456)/2 = 412
+    auto mt = std::make_shared<MenuText>();
+    mt->setFontSize(28);
+    mt->setHaveBox(true);
+    mt->setStrings({"重新開始", "載入進度", "離開遊戲"});
+    mt->setPosition(412, 500);
+    mt->arrange(0, 0, 172, 0);
+    for (auto& c : mt->getChilds())
+    {
+        auto* btn = dynamic_cast<Button*>(c.get());
+        if (btn)
+        {
+            btn->setTextOnly(true);
+            btn->setHaveBox(false);
+            btn->setTextColor({ 200, 50, 50, 255 });
+        }
+    }
+    menu_ = mt;
     menu_load_ = std::make_shared<UISave>();
     menu_load_->setPosition(500, 300);
     //render_message_ = 1;
@@ -69,25 +87,57 @@ TitleScene::~TitleScene()
 
 void TitleScene::draw()
 {
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, Engine::getInstance()->getWindowWidth(), Engine::getInstance()->getWindowHeight());
-    int pic[] = { 154, 154, 153, 154 };
-    int y[] = { 90, 90, 0, 90 };
-    // TextureManager::getInstance()->renderTexture("title", pic[battle_mode_], 0, y[battle_mode_]);
-    // Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
-    return;
-    //屏蔽随机头像
-    int count = count_ / 20;
-    int alpha = 255 - abs(255 - count_ % 510);
-    count_++;
-    if (alpha == 0)
+    auto engine = Engine::getInstance();
+    int w = engine->getUIWidth();
+    int h = engine->getUIHeight();
+    engine->fillColor({ 0, 0, 0, 255 }, 0, 0, w, h);
+
+    // Chess piece (king) in ASCII art — each char is 8px wide at size 16
+    const char* chess[] = {
+        "    +    ",
+        "   +++   ",
+        "    +    ",
+        "  +---+  ",
+        " | . . | ",
+        " |  .  | ",
+        " | . . | ",
+        "  +---+  ",
+        " /     \\ ",
+        "/       \\",
+        "+-------+",
+        "|       |",
+        "+-------+",
+        " \\_____/ ",
+        "/_______\\",
+    };
+
+    int chessSize = 16;
+    int chessW = 9 * (chessSize / 2);    // 9 chars wide, ASCII = half size
+    int chessX = (w - chessW) / 2;
+    int chessY = 120;
+    Color gold = { 200, 180, 100, 255 };
+    for (int i = 0; i < 15; i++)
     {
-        RandomDouble r;
-        head_id_ = r.rand_int(115);
-        head_x_ = r.rand_int(1280 - 150);
-        head_y_ = r.rand_int(800 - 150);
+        Font::getInstance()->draw(chess[i], chessSize, chessX, chessY + i * chessSize, gold, 255);
     }
-    TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
-    //TextureManager::getInstance()->renderTexture("title", 150, 240, 150, { 255,255,255,255 }, 255, 0.3, 0.3);
+
+    // Title: "金群自走棋" in red, centered
+    int titleSize = 48;
+    int titleW = 5 * titleSize;    // 5 CJK chars, each = titleSize width
+    int titleX = (w - titleW) / 2;
+    int titleY = chessY + 15 * chessSize + 30;
+    Font::getInstance()->draw("金群自走棋", titleSize, titleX, titleY, { 220, 40, 40, 255 }, 255);
+
+    // Version string below title
+    Font::getInstance()->draw(GameUtil::VERSION(), 20, titleX, titleY + titleSize + 16, { 150, 150, 150, 255 }, 255);
+
+#ifdef __EMSCRIPTEN__
+    if (!overlay_dismissed_)
+    {
+        overlay_dismissed_ = true;
+        notify_fonts_loaded();
+    }
+#endif
 }
 
 void TitleScene::dealEvent(EngineEvent& e)

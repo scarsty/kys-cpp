@@ -536,8 +536,13 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
     //}
 }
 
-void Engine::destroy() const
+void Engine::destroy()
 {
+    for (auto& [key, font] : font_cache_)
+    {
+        TTF_CloseFont(font);
+    }
+    font_cache_.clear();
     destroyTexture(tex_);
     for (auto& [k, tex] : tex_map_)
     {
@@ -979,18 +984,23 @@ Texture* Engine::createRectTexture(int w, int h, int style) const
     return square;
 }
 
-Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const
+Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, Color c)
 {
-    auto font = TTF_OpenFont(fontname.c_str(), size);
+    auto key = std::make_pair(fontname, size);
+    auto& font = font_cache_[key];
     if (!font)
     {
-        return nullptr;
+        font = TTF_OpenFont(fontname.c_str(), size);
+        if (!font)
+        {
+            font_cache_.erase(key);
+            return nullptr;
+        }
     }
     auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, c);
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
     SDL_SetTextureScaleMode(text_t, SDL_SCALEMODE_LINEAR);
     SDL_DestroySurface(text_s);
-    TTF_CloseFont(font);
     return text_t;
 }
 
@@ -1083,6 +1093,16 @@ void inject_right_click()
     up.button.y = my;
     up.button.down = false;
     SDL_PushEvent(&up);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void notify_fonts_loaded()
+{
+    MAIN_THREAD_EM_ASM({
+        if (typeof Module._onCppFontsLoaded === 'function') {
+            Module._onCppFontsLoaded();
+        }
+    });
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -23,5 +23,8 @@ public:
     int head_x_, head_y_;
 
     int battle_mode_ = 0;
+#ifdef __EMSCRIPTEN__
+    bool overlay_dismissed_ = false;
+#endif
 };
 

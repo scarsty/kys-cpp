@@ -10,6 +10,17 @@ BUILD_DIR="$WASM_DIR/build"
 
 # rm -f d:/projects/kys-cpp/kys-cpp/wasm/build/kys.html d:/projects/kys-cpp/kys-cpp/wasm/build/kys.js d:/projects/kys-cpp/kys-cpp/wasm/build/kys.wasm
 mkdir -p "$BUILD_DIR"
+
+# Create game directory junction if it doesn't exist
+GAME_LINK="$BUILD_DIR/kys/game"
+GAME_TARGET="D:\\projects\\kys-cpp\\kys-cpp\\work\\game-dev"
+if [ ! -e "$GAME_LINK" ]; then
+    echo "=== Creating game junction ==="
+    mkdir -p "$BUILD_DIR/kys"
+    GAME_LINK_WIN=$(cygpath -w "$GAME_LINK")
+    cmd.exe //c mklink //J "$GAME_LINK_WIN" "$GAME_TARGET"
+fi
+
 cd "$BUILD_DIR"
 
 echo "=== Generating manifest ==="
@@ -25,4 +36,4 @@ echo ""
 echo "=== Building ==="
 emmake ninja 2>&1
 
-cp serve.py build/serve.py
+cp "$WASM_DIR/serve.py" "$BUILD_DIR/serve.py"
