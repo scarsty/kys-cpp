@@ -168,6 +168,7 @@
     <ClCompile Include="RunNode.cpp" />
     <ClCompile Include="GameUtil.cpp" />
     <ClCompile Include="GrpIdxFile.cpp" />
+    <ClCompile Include="InMemZipReader.cpp" />
     <ClCompile Include="RandomRole.cpp" />
     <ClCompile Include="RunNodeFromJson.cpp" />
     <ClCompile Include="Script.cpp" />
@@ -256,6 +257,7 @@
     <ClInclude Include="RunNode.h" />
     <ClInclude Include="GameUtil.h" />
     <ClInclude Include="GrpIdxFile.h" />
+    <ClInclude Include="InMemZipReader.h" />
     <ClInclude Include="RandomRole.h" />
     <ClInclude Include="RunNodeFromJson.h" />
     <ClInclude Include="Script.h" />

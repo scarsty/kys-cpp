@@ -1,4 +1,5 @@
 ﻿#include "GrpIdxFile.h"
+#include "InMemZipReader.h"
 #include "filefunc.h"
 
 std::string GrpIdxFile::getIdxContent(const std::string& filename_idx, const std::string& filename_grp, std::vector<int>* offset, std::vector<int>* length)
@@ -24,10 +25,26 @@ std::string GrpIdxFile::getIdxContent(const std::string& filename_idx, const std
 
 int GrpIdxFile::readFile(const std::string& filename, void* s, int length)
 {
+    // Try reading from a .zip archive first (e.g. allsin.grp.zip containing allsin.grp)
+    std::string zipname = filename + ".zip";
+    InMemZipReader zip;
+    if (zip.openRead(zipname))
+    {
+        // Extract just the base filename as the entry name inside the zip
+        auto pos = filename.find_last_of("/\\");
+        std::string entry = (pos != std::string::npos) ? filename.substr(pos + 1) : filename;
+        auto content = zip.readFile(entry);
+        if (!content.empty())
+        {
+            int r = std::min(length, (int)content.size());
+            memcpy(s, content.data(), r);
+            return r;
+        }
+    }
+
     FILE* fp = fopen(filename.c_str(), "rb");
     if (!fp)
     {
-        //fprintf(stderr, "Cannot open file %s\n", filename.c_str());
         return 0;
     }
     int r = fread(s, 1, length, fp);

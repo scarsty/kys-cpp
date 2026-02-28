@@ -37,3 +37,19 @@ echo "=== Building ==="
 emmake ninja 2>&1
 
 cp "$WASM_DIR/serve.py" "$BUILD_DIR/serve.py"
+
+# Create index.html redirect
+cat > "$BUILD_DIR/index.html" << 'EOF'
+<!DOCTYPE html>
+<html>
+<head><meta http-equiv="refresh" content="0;url=kyschess.html"></head>
+<body><a href="kyschess.html">kyschess</a></body>
+</html>
+EOF
+
+# Cloudflare Pages headers for SharedArrayBuffer support
+cat > "$BUILD_DIR/_headers" << 'EOF'
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+EOF

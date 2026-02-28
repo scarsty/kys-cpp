@@ -27,6 +27,7 @@ kys-c++
 .claude
 
 wasm/build
+wasm/dist
 wasm/deps_src
 wasm/wasm_deps
 wasm/CMakeFiles

@@ -110,6 +110,14 @@
             }
         }
 
+        // Test OPFS before wasm loads — resolves as microtask before any pthread proxy message
+        var opfsReady = false;
+        if (navigator.storage && navigator.storage.getDirectory) {
+            navigator.storage.getDirectory()
+                .then(function() { opfsReady = true; console.log('[kys] OPFS available'); })
+                .catch(function(e) { console.warn('[kys] OPFS unavailable:', e.message); });
+        }
+
         var Module = {
             canvas: document.getElementById('canvas'),
             _onCppFontsLoaded: function() {
