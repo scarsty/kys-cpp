@@ -207,6 +207,14 @@
     <ClCompile Include="TempStore.cpp" />
     <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="Chess.cpp" />
+    <ClCompile Include="BattleRoleManager.cpp" />
+    <ClCompile Include="DynamicChessMap.cpp" />
+    <ClCompile Include="ChessBalance.cpp" />
+    <ClCompile Include="ChessNeigong.cpp" />
+    <ClCompile Include="BattleStatsView.cpp" />
+    <ClCompile Include="ChessBattleEffects.cpp" />
+    <ClCompile Include="ChessCombo.cpp" />
+    <ClCompile Include="ChessModHook.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -429,6 +437,14 @@
     <ClInclude Include="TempStore.h" />
     <ClInclude Include="ChessSelector.h" />
     <ClInclude Include="Chess.h" />
+    <ClInclude Include="ChessBalance.h" />
+    <ClInclude Include="ChessNeigong.h" />
+    <ClInclude Include="BattleStatsView.h" />
+    <ClInclude Include="ChessBattleEffects.h" />
+    <ClInclude Include="ChessCombo.h" />
+    <ClInclude Include="ChessModHook.h" />
+    <ClInclude Include="BattleRoleManager.h" />
+    <ClInclude Include="DynamicChessMap.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">

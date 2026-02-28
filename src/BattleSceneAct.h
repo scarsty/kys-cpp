@@ -34,6 +34,7 @@ public:
         int Through = 0;               //是否贯穿，即击中敌人后可以不消失
         int NoHurt = 0;                //是否无伤害
         int IsUltimate = 0;            //大招标记
+        std::deque<Pointf> trail;      //轨迹记录（用于可视化）
 
         void setEft(int num)
         {

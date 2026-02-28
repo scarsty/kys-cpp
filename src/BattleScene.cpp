@@ -1521,6 +1521,10 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
     effect_id_ = effect_id;
     auto path = std::format("eft/eft{:03}", effect_id_);
     auto effect_count = TextureManager::getInstance()->getTextureGroupCount(path);
+
+    // 诊断日志：动画开始
+    LOG("[ANIM_START] Role={} Speed={} MP={}/{} frame_count={} effect_count={}\n",
+        r->Name, r->Speed, r->MP, r->MaxMP, frame_count, effect_count);
     //由近到远的动画效果
     int min_dis = 9999;
     int max_dis = 0;
@@ -1539,6 +1543,11 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
 
     // 动作做到一半时，显示特效
     int cycles = frame_count / 2 + effect_count + max_dis - min_dis + 1;
+
+    // 诊断日志：计算的总循环次数
+    LOG("[ANIM_CYCLES] Role={} cycles={} (frame_count={} effect_count={} dist={})\n",
+        r->Name, cycles, frame_count, effect_count, max_dis - min_dis);
+
     r->ActFrame = 0;
     for (int i = 0; i < cycles; i++)
     {
@@ -1577,10 +1586,14 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         }
         if (exit_)
         {
+            LOG("[ANIM_INTERRUPT] Role={} interrupted at frame {}/{}\n", r->Name, i, cycles);
             break;
         }
         drawAndPresent(animation_delay_);
     }
+
+    // 诊断日志：动画结束
+    LOG("[ANIM_END] Role= completed {} cycles\n", r->Name, cycles);
 
     //r->ActFrame = 0;
     //r->ActType = -1;

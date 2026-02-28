@@ -80,11 +80,12 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;bass.lib;bassmidi.lib;iconv.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cppd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\debug\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
       <Profile>true</Profile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\"</Command>
+      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\"
+if exist "$(VcpkgInstalledDir)x64-windows\debug\bin\lua.dll" xcopy /Y "$(VcpkgInstalledDir)x64-windows\debug\bin\lua.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
