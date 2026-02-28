@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <title>KYS-CPP</title>
@@ -19,6 +19,9 @@
         }
         canvas {
             display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
         #overlay {
             position: fixed; inset: 0;
@@ -163,53 +166,72 @@
         var originalCanvasW = 1280, originalCanvasH = 720;
 
         var _syncTimer = 0;
-        var _lastW = 0, _lastH = 0;
+        var _generation = 0;
+        var _inFullscreen = false;
+
+        // iOS standalone PWA (Add to Home Screen) counts as "fullscreen"
+        function isEffectiveFullscreen() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) return true;
+            if (navigator.standalone) return true; // iOS PWA
+            if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+            return false;
+        }
 
         function applyCanvasSize() {
-            if (!Module.ccall) return;
-            var fs = document.fullscreenElement || document.webkitFullscreenElement;
+            if (!runtimeReady) return;
+            var canvas = Module.canvas;
+            var fs = isEffectiveFullscreen();
+
+            if (fs !== _inFullscreen) {
+                // State changed — bump generation to invalidate pending retries
+                _generation++;
+                _inFullscreen = fs;
+            }
+
             if (fs) {
                 var dpr = window.devicePixelRatio || 1;
-                var cssW = window.innerWidth;
-                var cssH = window.innerHeight;
-                // Skip if dimensions haven't actually changed (avoids redundant resizes)
-                if (cssW === _lastW && cssH === _lastH) return;
-                _lastW = cssW; _lastH = cssH;
+                var vv = window.visualViewport;
+                var cssW = vv ? vv.width : window.innerWidth;
+                var cssH = vv ? vv.height : window.innerHeight;
+                canvas.style.maxWidth = 'none';
+                canvas.style.maxHeight = 'none';
                 Module.ccall('resize_to_viewport', null,
                     ['number', 'number', 'number', 'number'],
                     [cssW * dpr, cssH * dpr, cssW, cssH]);
             } else {
-                _lastW = 0; _lastH = 0;
+                canvas.style.width = '';
+                canvas.style.height = '';
+                canvas.style.maxWidth = '';
+                canvas.style.maxHeight = '';
                 Module.ccall('resize_to_viewport', null,
                     ['number', 'number', 'number', 'number'],
                     [originalCanvasW, originalCanvasH, originalCanvasW, originalCanvasH]);
+                // C++ sets inline width/height — clear them so CSS takes over
+                canvas.style.width = '';
+                canvas.style.height = '';
             }
         }
 
-        // Debounced wrapper — fires immediately, then retries to catch
-        // browsers (Harmony, older Chrome) that report stale viewport
-        // dimensions during the fullscreenchange event.
         function syncCanvasSize() {
+            var gen = ++_generation;
             applyCanvasSize();
             clearTimeout(_syncTimer);
-            _syncTimer = setTimeout(applyCanvasSize, 150);
-            // Second retry for very slow viewport updates
-            setTimeout(applyCanvasSize, 500);
+            _syncTimer = setTimeout(function() {
+                if (_generation === gen) applyCanvasSize();
+            }, 200);
         }
 
         // Listen for fullscreen and viewport changes
         document.addEventListener('fullscreenchange', syncCanvasSize);
         document.addEventListener('webkitfullscreenchange', syncCanvasSize);
-        window.addEventListener('resize', function() {
-            if (document.fullscreenElement || document.webkitFullscreenElement) {
-                syncCanvasSize();
-            }
-        });
-        screen.orientation && screen.orientation.addEventListener('change', function() {
-            if (document.fullscreenElement || document.webkitFullscreenElement) {
-                syncCanvasSize();
-            }
-        });
+        window.addEventListener('resize', syncCanvasSize);
+        screen.orientation && screen.orientation.addEventListener('change', syncCanvasSize);
+        // visualViewport fires on iOS when safe-area or keyboard changes
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', syncCanvasSize);
+        }
+        // Apply correct size on load (handles small viewports + standalone PWA)
+        syncCanvasSize();
 
         fsBtn.addEventListener('touchstart', function(e) {
             e.preventDefault();

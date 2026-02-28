@@ -1,5 +1,10 @@
 ﻿#pragma once
 
+#include "Chess.h"
+#include <vector>
+
+struct DynamicBattleRoles;
+
 namespace KysChess
 {
 
@@ -10,6 +15,7 @@ public:
     static void sellChess();
     static void selectForBattle();
     static void enterBattle();
+    static int runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id = -1, int seed = -1);
     static void buyExp();
     static void showContextMenu();
     static void viewCombos();

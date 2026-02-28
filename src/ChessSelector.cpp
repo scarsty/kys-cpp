@@ -659,24 +659,7 @@ void ChessSelector::enterBattle()
         enemyStars.push_back(std::min(slot.star, 3));
     }
 
-    // Detect combos for both teams before enhancements modify stats
-    auto allyCombos = ChessCombo::detectCombos(selectedChess);
-    std::vector<Chess> enemyChessVec;
-    for (size_t i = 0; i < enemyIds.size(); i++)
-    {
-        auto r = Save::getInstance()->getRole(enemyIds[i]);
-        if (r) enemyChessVec.push_back({r, i < enemyStars.size() ? enemyStars[i] : 1});
-    }
-    auto enemyCombos = ChessCombo::detectCombos(enemyChessVec);
-
-    // Show pre-battle stats screen
-    {
-        auto preBattle = std::make_shared<BattleStatsView>();
-        preBattle->setupPreBattle(selectedChess, enemyIds, enemyStars, allyCombos, enemyCombos);
-        preBattle->run();
-    }
-
-    // Create battle - pass raw IDs and stars, enhancements applied on copies
+    // Build roles from selected chess + generated enemies
     DynamicBattleRoles roles;
     for (auto& c : selectedChess)
     {
@@ -686,21 +669,10 @@ void ChessSelector::enterBattle()
     roles.enemy_ids = enemyIds;
     roles.enemy_stars = enemyStars;
 
-    auto battle = DynamicChessMap::createBattle(roles);
-
     // Seed battle RNG deterministically so retries produce same combat
-    unsigned int battleSeed = static_cast<unsigned int>(gameData.enemyRandInt(INT_MAX));
-    battle->rand_.set_seed(battleSeed);
+    int battleSeed = static_cast<int>(gameData.enemyRandInt(INT_MAX));
 
-    // Run battle
-    battle->run();
-
-    // Show post-battle summary
-    {
-        auto postBattle = std::make_shared<BattleStatsView>();
-        postBattle->setupPostBattle(battle->getFriendsObj(), battle->getEnemiesObj(), battle->getTracker(), battle->getResult());
-        postBattle->run();
-    }
+    int result = runBattle(roles, selectedChess, -1, battleSeed);
 
     // Recover all HP for selected chess
     for (const auto& chess : selectedChess)
@@ -709,7 +681,7 @@ void ChessSelector::enterBattle()
         chess.role->MP = chess.role->MaxMP;
     }
 
-    if (battle->getResult() == 0)
+    if (result == 0)
     {
         int reward = ecfg.rewardBase + fightNum * ecfg.rewardGrowth / (ecfg.totalFights - 1) + (isBoss ? ecfg.bossRewardBonus : 0);
         int interest = std::min(gameData.getMoney() * ecfg.interestPercent / 100, ecfg.interestMax);
@@ -744,6 +716,43 @@ void ChessSelector::enterBattle()
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
     }
+}
+
+int ChessSelector::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed)
+{
+    // Build enemy Chess vector for combo detection
+    std::vector<Chess> enemyChessVec;
+    for (size_t i = 0; i < roles.enemy_ids.size(); i++)
+    {
+        auto r = Save::getInstance()->getRole(roles.enemy_ids[i]);
+        if (r) enemyChessVec.push_back({r, i < roles.enemy_stars.size() ? roles.enemy_stars[i] : 1});
+    }
+
+    // Detect combos for both teams
+    auto allyCombos = ChessCombo::detectCombos(allyChess);
+    auto enemyCombos = ChessCombo::detectCombos(enemyChessVec);
+
+    // Pre-battle stats
+    {
+        auto view = std::make_shared<BattleStatsView>();
+        view->setupPreBattle(allyChess, roles.enemy_ids, roles.enemy_stars, allyCombos, enemyCombos);
+        view->run();
+    }
+
+    // Create and run battle
+    auto battle = DynamicChessMap::createBattle(roles, battle_id);
+    if (seed >= 0)
+        battle->rand_.set_seed(static_cast<unsigned int>(seed));
+    battle->run();
+
+    // Post-battle stats
+    {
+        auto view = std::make_shared<BattleStatsView>();
+        view->setupPostBattle(battle->getFriendsObj(), battle->getEnemiesObj(), battle->getTracker(), battle->getResult());
+        view->run();
+    }
+
+    return battle->getResult();
 }
 
 void ChessSelector::buyExp()
@@ -1170,24 +1179,7 @@ void ChessSelector::showExpeditionChallenge()
             enemyStars.push_back(e.star);
         }
 
-        // Detect combos for pre-battle view
-        auto allyCombos = ChessCombo::detectCombos(selectedChess);
-        std::vector<Chess> enemyChessVec;
-        for (size_t i = 0; i < enemyIds.size(); i++)
-        {
-            auto r = save->getRole(enemyIds[i]);
-            if (r) enemyChessVec.push_back({r, enemyStars[i]});
-        }
-        auto enemyCombos = ChessCombo::detectCombos(enemyChessVec);
-
-        // Pre-battle stats
-        {
-            auto preBattle = std::make_shared<BattleStatsView>();
-            preBattle->setupPreBattle(selectedChess, enemyIds, enemyStars, allyCombos, enemyCombos);
-            preBattle->run();
-        }
-
-        // Create and run battle
+        // Build roles and run battle
         DynamicBattleRoles roles;
         for (auto& c : selectedChess)
         {
@@ -1197,15 +1189,7 @@ void ChessSelector::showExpeditionChallenge()
         roles.enemy_ids = enemyIds;
         roles.enemy_stars = enemyStars;
 
-        auto battle = DynamicChessMap::createBattle(roles);
-        battle->run();
-
-        // Post-battle stats
-        {
-            auto postBattle = std::make_shared<BattleStatsView>();
-            postBattle->setupPostBattle(battle->getFriendsObj(), battle->getEnemiesObj(), battle->getTracker(), battle->getResult());
-            postBattle->run();
-        }
+        int result = runBattle(roles, selectedChess);
 
         // Recover HP
         for (const auto& chess : selectedChess)
@@ -1214,7 +1198,7 @@ void ChessSelector::showExpeditionChallenge()
             chess.role->MP = chess.role->MaxMP;
         }
 
-        if (battle->getResult() != 0)
+        if (result != 0)
         {
             // Restore enemy random counter so failed challenge doesn't corrupt regular battle state
             gd.enemyCallCount_ = savedEnemyCallCount;

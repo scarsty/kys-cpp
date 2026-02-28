@@ -2,29 +2,41 @@
 #include "TempStore.h"
 #include <algorithm>
 
-std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBattleRoles& roles)
+std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBattleRoles& roles, int battle_id)
 {
-    // Select map that has enough enemy positions for the requested enemies
     const auto& maps = getTopMaps();
-    int needed = (int)roles.enemy_ids.size();
-    std::vector<int> candidates;
-    for (int i = 0; i < (int)maps.size(); i++)
+    int map_index = -1;
+
+    if (battle_id >= 0)
     {
-        if (maps[i].enemy_count >= needed)
-            candidates.push_back(i);
+        for (int i = 0; i < (int)maps.size(); i++)
+            if (maps[i].battle_id == battle_id) { map_index = i; break; }
     }
-    // Fallback: if no map has enough, pick the one with the most enemies
-    if (candidates.empty())
+
+    if (map_index < 0)
     {
-        int best = 0;
-        for (int i = 1; i < (int)maps.size(); i++)
+        // Select map that has enough enemy positions for the requested enemies
+        int needed = (int)roles.enemy_ids.size();
+        std::vector<int> candidates;
+        for (int i = 0; i < (int)maps.size(); i++)
         {
-            if (maps[i].enemy_count > maps[best].enemy_count)
-                best = i;
+            if (maps[i].enemy_count >= needed)
+                candidates.push_back(i);
         }
-        candidates.push_back(best);
+        // Fallback: if no map has enough, pick the one with the most enemies
+        if (candidates.empty())
+        {
+            int best = 0;
+            for (int i = 1; i < (int)maps.size(); i++)
+            {
+                if (maps[i].enemy_count > maps[best].enemy_count)
+                    best = i;
+            }
+            candidates.push_back(best);
+        }
+        map_index = candidates[KysChess::GameData::get().enemyRandInt(candidates.size())];
     }
-    int map_index = candidates[KysChess::GameData::get().enemyRandInt(candidates.size())];
+
     const auto& selected_map = maps[map_index];
 
     // Create battle scene

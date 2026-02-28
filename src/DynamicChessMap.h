@@ -17,7 +17,7 @@ public:
     // Creates a BattleSceneHades with randomly selected map and extended battle info
     // teammates: Role IDs for teammates (up to 10)
     // enemies: Role IDs for enemies (up to 20)
-    static std::shared_ptr<BattleSceneHades> createBattle(const DynamicBattleRoles& roles);
+    static std::shared_ptr<BattleSceneHades> createBattle(const DynamicBattleRoles& roles, int battle_id = -1);
 
 private:
     struct MapInfo
