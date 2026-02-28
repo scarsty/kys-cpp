@@ -22,6 +22,9 @@
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            border: none;
+            outline: none;
+            background: #000;
         }
         #overlay {
             position: fixed; inset: 0;
@@ -182,12 +185,6 @@
             var canvas = Module.canvas;
             var fs = isEffectiveFullscreen();
 
-            if (fs !== _inFullscreen) {
-                // State changed — bump generation to invalidate pending retries
-                _generation++;
-                _inFullscreen = fs;
-            }
-
             if (fs) {
                 var dpr = window.devicePixelRatio || 1;
                 var vv = window.visualViewport;
@@ -198,7 +195,8 @@
                 Module.ccall('resize_to_viewport', null,
                     ['number', 'number', 'number', 'number'],
                     [cssW * dpr, cssH * dpr, cssW, cssH]);
-            } else {
+            } else if (_inFullscreen) {
+                // Only reset when actually exiting fullscreen
                 canvas.style.width = '';
                 canvas.style.height = '';
                 canvas.style.maxWidth = '';
@@ -206,10 +204,10 @@
                 Module.ccall('resize_to_viewport', null,
                     ['number', 'number', 'number', 'number'],
                     [originalCanvasW, originalCanvasH, originalCanvasW, originalCanvasH]);
-                // C++ sets inline width/height — clear them so CSS takes over
                 canvas.style.width = '';
                 canvas.style.height = '';
             }
+            _inFullscreen = fs;
         }
 
         function syncCanvasSize() {
@@ -221,17 +219,9 @@
             }, 200);
         }
 
-        // Listen for fullscreen and viewport changes
+        // Only listen for fullscreen changes
         document.addEventListener('fullscreenchange', syncCanvasSize);
         document.addEventListener('webkitfullscreenchange', syncCanvasSize);
-        window.addEventListener('resize', syncCanvasSize);
-        screen.orientation && screen.orientation.addEventListener('change', syncCanvasSize);
-        // visualViewport fires on iOS when safe-area or keyboard changes
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', syncCanvasSize);
-        }
-        // Apply correct size on load (handles small viewports + standalone PWA)
-        syncCanvasSize();
 
         fsBtn.addEventListener('touchstart', function(e) {
             e.preventDefault();
