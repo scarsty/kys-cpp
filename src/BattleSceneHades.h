@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
 #include "Head.h"
@@ -31,6 +31,18 @@ public:
     virtual void onPressedCancel() override;
 
 protected:
+    struct DashSnapshot {
+        Pointf pos;
+        int pic;
+    };
+    std::unordered_map<int, std::deque<DashSnapshot>> dash_trails_;
+    std::unordered_map<int, int> hurt_flash_timers_;
+
+    bool isDashing(const Role* r) const;
+    void updateDashTrail(Role* r);
+    void clearDashTrail(const Role* r);
+    Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
+
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
@@ -61,4 +73,35 @@ protected:
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;
+    bool dash_text_shown_ = false;   // 轻功文字是否已显示
+
+    // DEBUG: 用于空格暂停
+    bool debug_paused_ = false;
+    std::map<Role*, int> debug_prev_cooldown_;  // 记录每个角色上一帧的 CoolDown
+
+    // DEBUG: 用于绘制攻击范围（辅助线，可简化为简洁显示）
+    struct AttackRangeDebug {
+        Role* attacker = nullptr;
+        Pointf target_pos;
+        int select_distance = 0;  // AI决策距离
+        Magic* magic = nullptr;   // 使用的武功
+        int operation_type = -1;  // 操作类型
+        int frame_count = 0;      // 显示帧数
+    };
+    std::vector<AttackRangeDebug> debug_attack_ranges_;
+
+    // 按攻击方式设计的通用范围特效（点/线/十字/面），与武功动画叠加显示
+    struct RangeIndicatorEffect {
+        Pointf center;           // 中心（施法者或目标）
+        Pointf direction;        // 朝向（线/十字时使用）
+        int attack_area_type = 0; // 0点 1线 2十字 3面
+        int frame = 0;
+        int total_frame = 12;    // 短时显示，避免画面杂乱
+        float radius = 0;         // 点/面：半径；线/十字：射程
+    };
+    std::deque<RangeIndicatorEffect> range_indicator_effects_;
+
+    void spawnRangeIndicatorEffect(Pointf center, Pointf direction, int attack_area_type, float radius_or_reach);
+    void drawRangeIndicatorEffects(void* renderer);  // SDL_Renderer*
+    void drawAttackRangeSimple(void* renderer, const AttackRangeDebug& ard);
 };
