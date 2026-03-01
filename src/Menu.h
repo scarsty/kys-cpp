@@ -40,7 +40,9 @@ public:
     virtual ~MenuText() {}
 
     MenuText(std::vector<std::string> items);
-    void setStrings(std::vector<std::string> items, std::vector<Color> colors = {});
+    void setStrings(std::vector<std::string> items, std::vector<Color> colors = {},
+        std::vector<Color> outlineColors = {}, std::vector<bool> animateOutlines = {},
+        std::vector<int> outlineThicknesses = {});
     //void draw() override;
 
     std::vector<std::string> strings_;

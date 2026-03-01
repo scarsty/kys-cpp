@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Engine.h"
 #include "Save.h"
 
 #include <unordered_set>
@@ -12,6 +13,7 @@ class ChessPool {
 public:
 
     static int GetChessTier(int roleId);
+    static Color GetTierColor(int tier);
 
     // Returns a list of pairs of Role* and its star (0-4)
     std::vector<std::pair<Role*, int>> getChessFromPool(int level);

@@ -249,13 +249,22 @@ MenuText::MenuText(std::vector<std::string> items) :
     setStrings(items);
 }
 
-void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> colors)
+void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> colors,
+    std::vector<Color> outlineColors, std::vector<bool> animateOutlines,
+    std::vector<int> outlineThicknesses)
 {
     strings_ = std::move(strings);
 
     clearChilds();
     int len = 0;
     int i = 0;
+
+    // In dark mode, add extra vertical spacing to prevent box overlap
+    int item_spacing = font_size_ + 1;
+    if (Engine::uiStyle() == 1)
+    {
+        item_spacing = font_size_ + 8;
+    }
 
     for (int i = 0; i < strings_.size(); ++i) 
     {
@@ -265,15 +274,24 @@ void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> c
             len = str.length();
         }
         auto b = std::make_shared<Button>();
-        addChild(b, 0, i * (font_size_ + 1));
+        addChild(b, 0, i * item_spacing);
         b->setText(str);
         b->setFontSize(font_size_);
         if (i < colors.size()) {
             b->setTextColor(colors[i]);
         }
+        if (i < outlineColors.size() && (outlineColors[i].r || outlineColors[i].g || outlineColors[i].b || outlineColors[i].a)) {
+            b->setCustomOutline(outlineColors[i]);
+        }
+        if (i < animateOutlines.size() && animateOutlines[i]) {
+            b->setAnimateOutline(true);
+        }
+        if (i < outlineThicknesses.size() && outlineThicknesses[i] > 1) {
+            b->setOutlineThickness(outlineThicknesses[i]);
+        }
     }
     w_ = 10 * len;
-    h_ = (font_size_ + 1) * strings_.size();
+    h_ = item_spacing * strings_.size();
 
     childs_text_.clear();
     for (int i = 0; i < strings_.size(); i++)

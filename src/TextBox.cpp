@@ -58,32 +58,60 @@ void TextBox::draw()
 {
     if (!texture_path_.empty())
     {
-        TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
+        if (Engine::uiStyle() == 1)
+        {
+            // Replace texture background with dark translucent rounded box
+            int radius = 8;
+            Color bg = { 0, 0, 0, 180 };
+            Color outline = { 180, 170, 140, 200 };
+            Engine::getInstance()->fillRoundedRect(bg, x_, y_, w_, h_, radius);
+            Engine::getInstance()->drawRoundedRect(outline, x_, y_, w_, h_, radius);
+        }
+        else
+        {
+            TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
+        }
     }
     if (have_alpha_box_)
     {
         auto rect = Font::getBoxSize(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
-        // 背景
-        Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);
-        // 上面的
-        Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, rect.w, 1);
-        // 下边的
-        Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y + rect.h, rect.w, 1);
-        // 左边
-        Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, 1, rect.h);
-        // 右边
-        Engine::getInstance()->fillColor(outline_color_, rect.x + rect.w, rect.y, 1, rect.h);
+        if (Engine::uiStyle() == 1)
+        {
+            int radius = 6;
+            Engine::getInstance()->fillRoundedRect(background_color_, rect.x, rect.y, rect.w, rect.h, radius);
+            Engine::getInstance()->drawRoundedRect(outline_color_, rect.x, rect.y, rect.w, rect.h, radius);
+        }
+        else
+        {
+            // 背景
+            Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);
+            // 上面的
+            Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, rect.w, 1);
+            // 下边的
+            Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y + rect.h, rect.w, 1);
+            // 左边
+            Engine::getInstance()->fillColor(outline_color_, rect.x, rect.y, 1, rect.h);
+            // 右边
+            Engine::getInstance()->fillColor(outline_color_, rect.x + rect.w, rect.y, 1, rect.h);
+        }
     }
     //实际上仅用了一个颜色，需要有颜色变化请用button
     if (!text_.empty())
     {
-        if (have_box_)
+        Color draw_color = color_normal_;
+        if (Engine::uiStyle() == 1 && draw_color.r < 64 && draw_color.g < 64 && draw_color.b < 64)
         {
-            Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+            draw_color = { 240, 230, 210, 255 };
+        }
+        // In dark mode, if we already drew a background (texture_path_ or alpha_box), skip drawWithBox to avoid double background
+        bool skip_box = (Engine::uiStyle() == 1) && (!texture_path_.empty() || have_alpha_box_);
+        if (have_box_ && !skip_box)
+        {
+            Font::getInstance()->drawWithBox(text_, font_size_, x_ + text_x_, y_ + text_y_, draw_color, 255);
         }
         else
         {
-            Font::getInstance()->draw(text_, font_size_, x_ + text_x_, y_ + text_y_, color_normal_, 255);
+            Font::getInstance()->draw(text_, font_size_, x_ + text_x_, y_ + text_y_, draw_color, 255);
         }
     }
 }

@@ -100,9 +100,12 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         }
         if (c > ' ')
         {
-            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
-            Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
-            Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
+            if (Engine::uiStyle() != 1)
+            {
+                // Dark shadow for readability on light backgrounds (classic style only)
+                Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
+                Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
+            }
             Engine::getInstance()->setColor(tex, color);
             Engine::getInstance()->renderTexture(tex, x1, y1, -1, -1);
         }
@@ -121,14 +124,20 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
 
 void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
 {
-    //TextureManager::getInstance()->renderTexture("title", 19, x - 19, y - 3);
-    //for (int i = 0; i < text.size(); i++)
-    //{
-    //TextureManager::getInstance()->renderTexture("title", 20, x + 10 * i, y - 3);
-    //}
     auto r = getBoxSize(getTextDrawSize(text), size, x, y);
-    // Engine::getInstance()->fillColor({ 255, 228, 181, 128 }, r.x, r.y, r.w, r.h);
-    TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+    if (Engine::uiStyle() == 1)
+    {
+        // Dark translucent rounded box
+        int radius = 6;
+        Color bg = { 0, 0, 0, (uint8_t)(alpha_box * 128 / 255) };
+        Color outline = { 180, 170, 140, (uint8_t)(alpha_box * 200 / 255) };
+        Engine::getInstance()->fillRoundedRect(bg, r.x, r.y, r.w, r.h, radius);
+        Engine::getInstance()->drawRoundedRect(outline, r.x, r.y, r.w, r.h, radius);
+    }
+    else
+    {
+        TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+    }
     draw(text, size, x, y, color, alpha);
 }
 

@@ -287,6 +287,8 @@ private:
 
     static std::unordered_map<Texture*, Color> color_cache_;
 
+    static inline int ui_style_ = 0;    // 0 = classic, 1 = dark translucent
+
 public:
     int init(void* handle = nullptr, int handle_type = 0, int maximized = 0, const std::string& str = "");
 
@@ -411,6 +413,13 @@ public:
 
     static void setColor(Texture* tex, Color c);
     void fillColor(Color color, int x, int y, int w, int h, BlendMode blend = BLENDMODE_BLEND) const;
+    void fillRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend = BLENDMODE_BLEND) const;
+    void drawRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend = BLENDMODE_BLEND) const;
+    void drawAnimatedRoundedRect(Color color, int x, int y, int w, int h, int radius, double phase, int dotCount = 2, double dotLength = 0.12, BlendMode blend = BLENDMODE_BLEND) const;
+
+    // UI style: 0 = classic texture boxes, 1 = dark translucent rounded boxes
+    static int uiStyle() { return ui_style_; }
+    static void initUIStyle();
 
     void setRenderMainTexture() const { setRenderTarget(tex_); }
 

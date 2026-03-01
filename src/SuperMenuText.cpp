@@ -112,6 +112,9 @@ void SuperMenuText::defaultPage()
     }
     std::vector<std::string> displays;
     std::vector<Color> colors;
+    std::vector<Color> outlines;
+    std::vector<bool> animates;
+    std::vector<int> thicknesses;
     searchResultIndices_.clear();
     activeIndices_.clear();
     for (int i = 0; i < items_.size(); i++)
@@ -121,12 +124,18 @@ void SuperMenuText::defaultPage()
             activeIndices_.push_back(i);
             displays.push_back(items_[i].second);
             colors.push_back(extraOpts_.itemColors_[i]);
+            if (i < extraOpts_.outlineColors_.size())
+                outlines.push_back(extraOpts_.outlineColors_[i]);
+            if (i < extraOpts_.animateOutlines_.size())
+                animates.push_back(extraOpts_.animateOutlines_[i]);
+            if (i < extraOpts_.outlineThicknesses_.size())
+                thicknesses.push_back(extraOpts_.outlineThicknesses_[i]);
         }
         searchResultIndices_.push_back(i);
     }
     currentPage_ = 0;
     updateMaxPages();
-    selections_->setStrings(displays, colors);
+    selections_->setStrings(displays, colors, outlines, animates, thicknesses);
     if (!displays.empty())
     {
         selections_->forceActiveChild(0);
@@ -142,6 +151,9 @@ void SuperMenuText::flipPage(int pageIncrement)
         int startIdx = currentPage_ * itemsPerPage_;
         std::vector<std::string> displays;
         std::vector<Color> colors;
+        std::vector<Color> outlines;
+        std::vector<bool> animates;
+        std::vector<int> thicknesses;
         activeIndices_.clear();
         for (std::size_t i = startIdx; i < std::min(searchResultIndices_.size(), (std::size_t)startIdx + itemsPerPage_); i++)
         {
@@ -149,8 +161,20 @@ void SuperMenuText::flipPage(int pageIncrement)
             activeIndices_.push_back(idx);
             displays.push_back(items_[idx].second);
             colors.push_back(extraOpts_.itemColors_[idx]);
+            if (idx < extraOpts_.outlineColors_.size())
+                outlines.push_back(extraOpts_.outlineColors_[idx]);
+            else
+                outlines.push_back({0, 0, 0, 0});
+            if (idx < extraOpts_.animateOutlines_.size())
+                animates.push_back(extraOpts_.animateOutlines_[idx]);
+            else
+                animates.push_back(false);
+            if (idx < extraOpts_.outlineThicknesses_.size())
+                thicknesses.push_back(extraOpts_.outlineThicknesses_[idx]);
+            else
+                thicknesses.push_back(1);
         }
-        selections_->setStrings(displays, colors);
+        selections_->setStrings(displays, colors, outlines, animates, thicknesses);
     }
 }
 
@@ -158,6 +182,9 @@ void SuperMenuText::search(const std::string& text)
 {
     std::vector<std::string> results;
     std::vector<Color> colors;
+    std::vector<Color> outlines;
+    std::vector<bool> animates;
+    std::vector<int> thicknesses;
     activeIndices_.clear();
     searchResultIndices_.clear();
     for (int i = 0; i < items_.size(); i++)
@@ -174,6 +201,18 @@ void SuperMenuText::search(const std::string& text)
             {
                 results.emplace_back(opt.second);
                 colors.push_back(extraOpts_.itemColors_[i]);
+                if (i < extraOpts_.outlineColors_.size())
+                    outlines.push_back(extraOpts_.outlineColors_[i]);
+                else
+                    outlines.push_back({0, 0, 0, 0});
+                if (i < extraOpts_.animateOutlines_.size())
+                    animates.push_back(extraOpts_.animateOutlines_[i]);
+                else
+                    animates.push_back(false);
+                if (i < extraOpts_.outlineThicknesses_.size())
+                    thicknesses.push_back(extraOpts_.outlineThicknesses_[i]);
+                else
+                    thicknesses.push_back(1);
                 activeIndices_.push_back(i);
             }
             searchResultIndices_.push_back(i);
@@ -181,7 +220,7 @@ void SuperMenuText::search(const std::string& text)
     }
     updateMaxPages();
     currentPage_ = 0;
-    selections_->setStrings(results, colors);
+    selections_->setStrings(results, colors, outlines, animates, thicknesses);
     selections_->forceActiveChild(0);
     isDefaultPage_ = false;
 }

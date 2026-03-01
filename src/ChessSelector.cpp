@@ -1,5 +1,9 @@
 ﻿#include "ChessSelector.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "Audio.h"
 #include "BattleStatsView.h"
 #include "UISave.h"
 #include "ChessBalance.h"
@@ -183,7 +187,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     {
         std::string countStr = "x" + std::to_string(*count);
         result += countStr;
-        quantityWidth += countStr.size();
+        quantityWidth += (int)countStr.size();
     }
     while (quantityWidth < quantityColumnWidth)
     {
@@ -195,7 +199,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     int cost = ChessSelector::calculateCost(tier, starOpt.value_or(1), countOpt.value_or(1));
     std::string costStr = "$" + std::to_string(cost);
     int costColumnWidth = 6;
-    int costWidth = costStr.size();
+    int costWidth = (int)costStr.size();
 
     // Add leading spaces for right alignment
     while (costWidth < costColumnWidth)
@@ -205,14 +209,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     }
     result += costStr;
 
-    Color colors[] = {
-        { 175, 238, 238 },
-        { 0, 255, 0 },
-        { 30, 144, 255 },
-        { 75, 0, 130 },
-        { 255, 0, 0 }  // Red for tier 5
-    };
-    return { result, colors[tier - 1] };
+    return { result, ChessPool::GetTierColor(tier) };
 }
 
 static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
@@ -228,13 +225,12 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
         auto& allCombos = ChessCombo::getAllCombos();
         auto& gd = GameData::get();
 
-        std::set<int> ownedIds;
-        for (auto& ch : gd.getSelectedForBattle())
-            if (ch.role) ownedIds.insert(ch.role->ID);
+        auto starByRole = ChessCombo::buildStarMap(gd.getSelectedForBattle());
 
         int px = 720, py = 475, fs = 20;
         int colW = 225, maxY = py + 225;
-        Engine::getInstance()->fillColor({0, 0, 0, 160}, px, py, 460, 240);
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 160}, px, py, 460, 240, 8);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 460, 240, 8);
         Font::getInstance()->draw("羈絆資訊", fs + 4, px + 10, py + 5, {255, 255, 100, 255});
 
         int rx = px + 10, ry = py + 32;
@@ -242,16 +238,14 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
         {
             auto& c = allCombos[(int)cid];
 
-            int owned = 0;
-            for (int rid : c.memberRoleIds)
-                if (ownedIds.count(rid)) owned++;
+            auto [owned, effective] = KysChess::computeOwnership(c, starByRole);
 
-            // Find last active threshold and next inactive threshold
+            // Find last active threshold and next inactive threshold (using effective count)
             const ComboThreshold* lastActive = nullptr;
             const ComboThreshold* nextThr = nullptr;
             for (auto& t : c.thresholds)
             {
-                if (owned >= t.count) lastActive = &t;
+                if (effective >= t.count) lastActive = &t;
                 else if (!nextThr) nextThr = &t;
             }
 
@@ -271,7 +265,8 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
             bool active = lastActive != nullptr;
             int denom = (nextThr ? nextThr : (lastActive ? lastActive : &c.thresholds.back()))->count;
             Color col = active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
-            std::string header = std::format("{} ({}/{})", c.name, owned, denom);
+            std::string countFmt = KysChess::formatComboCount(owned, effective, denom, c.starSynergyBonus, c.isAntiCombo);
+            std::string header = std::format("{} ({})", c.name, countFmt);
             Font::getInstance()->draw(header, fs, rx, ry, col);
             ry += fs + 4;
 
@@ -290,13 +285,74 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
     });
 }
 
+static std::shared_ptr<DrawableOnCall> makeOwnedPanel()
+{
+    return std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
+        auto& gd = GameData::get();
+        auto& chessMap = gd.collection.getChess();
+        if (chessMap.empty()) return;
+
+        auto* font = Font::getInstance();
+        int px = 70, py = 420, fs = 20, lh = fs + 4;
+        int pw = 600, ph = 290;
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 160}, px, py, pw, ph, 8);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, pw, ph, 8);
+        font->draw("我方棋子", fs + 4, px + 10, py + 5, {255, 255, 100, 255});
+
+        // Count how many of each chess type are deployed
+        std::map<std::pair<int,int>, int> deployedCount;
+        for (auto& s : gd.getSelectedForBattle())
+            deployedCount[{s.role->ID, s.star}]++;
+
+        // List each piece individually, deployed first (like sell/select menus)
+        struct Entry { std::string label; Color color; };
+        std::vector<Entry> deployed, bench;
+        for (auto& [chess, count] : chessMap)
+        {
+            auto key = std::make_pair(chess.role->ID, chess.star);
+            int dep = deployedCount[key];
+            Color col = ChessPool::GetTierColor(ChessPool::GetChessTier(chess.role->ID));
+            std::string stars;
+            for (int i = 0; i < chess.star; i++) stars += "★";
+            std::string baseName = std::format("{}{}", chess.role->Name, stars);
+
+            for (int i = 0; i < count; ++i)
+            {
+                if (dep > 0)
+                {
+                    deployed.push_back({"▶" + baseName, col});
+                    dep--;
+                }
+                else
+                {
+                    bench.push_back({" " + baseName, {(Uint8)(col.r/2+80), (Uint8)(col.g/2+80), (Uint8)(col.b/2+80), 200}});
+                }
+            }
+        }
+
+        int yTop = py + fs + 4 + 30;
+        int x = px + 10, y = yTop;
+        int colW = 200;
+        auto drawEntry = [&](const Entry& e) {
+            if (y + lh > py + ph) { x += colW; y = yTop; }
+            if (x + colW > px + pw) return;
+            font->draw(e.label, fs, x, y, e.color);
+            y += lh;
+        };
+        for (auto& e : deployed) drawEntry(e);
+        for (auto& e : bench) drawEntry(e);
+    });
+}
+
 static std::shared_ptr<UIRoleStatusMenu> makeChessMenu(const std::string& title,
     std::vector<std::pair<int, std::string>>& items, std::vector<Color>& colors,
-    int perPage, int fontSize, bool showNav = true, bool exitable = true)
+    int perPage, int fontSize, bool showNav = true, bool exitable = true,
+    std::vector<Color> outlineColors = {}, std::vector<bool> animateOutlines = {},
+    std::vector<int> outlineThicknesses = {})
 {
-    auto menu = std::make_shared<UIRoleStatusMenu>(title, items, colors, perPage, fontSize, false, exitable);
+    auto menu = std::make_shared<UIRoleStatusMenu>(title, items, colors, perPage, fontSize, false, exitable, outlineColors, animateOutlines, outlineThicknesses);
     menu->setInputPosition(80, 60);
-    menu->getStatusDrawable().getUIStatus().setPosition(720, 32);
+    menu->getStatusDrawable().getUIStatus().setPosition(720, 40);
     if (!showNav) menu->setShowNavigationButtons(false);
     return menu;
 }
@@ -330,7 +386,8 @@ static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
 {
     auto* font = Font::getInstance();
     int px = 480, py = 100, fs = 22;
-    Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 500, 400);
+    Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 500, 400, 8);
+    Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 500, 400, 8);
     TextureManager::getInstance()->renderTexture("item", ng.itemId, px + 10, py + 10);
     int ty = py + 10;
     font->draw(ng.name, fs + 4, px + 90, ty, {255, 255, 100, 255}); ty += fs + 10;
@@ -378,22 +435,76 @@ void ChessSelector::getChess()
         {
             std::vector<std::pair<int, std::string>> rolePairs;
             std::vector<Color> roleColors;
+            std::vector<Color> outlineColors;
+            std::vector<bool> animateOutlines;
+            std::vector<int> outlineThicknesses;
             auto& roles = Save::getInstance()->getRoles();
 
             rolePairs.emplace_back(-1, std::format("刷新 ${}", ChessBalance::config().refreshCost));
-            roleColors.push_back({ 128, 128, 128, 255 });
+            roleColors.push_back({ 255, 204, 229, 255 });
+            outlineColors.push_back({0, 0, 0, 0});
+            animateOutlines.push_back(false);
+            outlineThicknesses.push_back(1);
 
             rolePairs.emplace_back(-2, gameData.isShopLocked() ? "[已鎖定] 點擊解鎖" : "[未鎖定] 點擊鎖定");
             roleColors.push_back(gameData.isShopLocked() ? Color{ 255, 80, 80, 255 } : Color{ 128, 128, 128, 255 });
+            outlineColors.push_back({0, 0, 0, 0});
+            animateOutlines.push_back(false);
+            outlineThicknesses.push_back(1);
 
-            // To be moved later. Need to add color as well.
-            // The level may need to be changed as well.
-            // Need back and cancel button.
+            auto& chessMap = gameData.collection.getChess();
+
             auto addRoleWithTier = [&](Role* role, int tier)
             {
                 auto [name, color] = formatChessName(role, tier, {}, {});
                 rolePairs.emplace_back(role->ID * 10 + 1, name);
                 roleColors.push_back(color);
+
+                // Check ownership status across all star levels
+                Chess c1 = { role, 1 };
+                bool owned = false;
+                for (auto& [ch, cnt] : chessMap)
+                {
+                    if (ch.role == role && cnt > 0)
+                    {
+                        // A single 3-star piece can't be starred up further, so don't mark as owned
+                        if (ch.star == 3 && cnt == 1)
+                        {
+                            // Check if this is the ONLY entry for this role
+                            bool hasOtherEntries = false;
+                            for (auto& [ch2, cnt2] : chessMap)
+                            {
+                                if (ch2.role == role && ch2.star != 3 && cnt2 > 0) { hasOtherEntries = true; break; }
+                            }
+                            if (!hasOtherEntries) continue;
+                        }
+                        owned = true;
+                        break;
+                    }
+                }
+                bool wouldStarUp = gameData.collection.wouldMerge(c1);
+
+                if (wouldStarUp)
+                {
+                    // Thick animated golden outline — buying this triggers a star-up!
+                    outlineColors.push_back({255, 215, 0, 255});
+                    animateOutlines.push_back(true);
+                    outlineThicknesses.push_back(3);
+                }
+                else if (owned)
+                {
+                    // Animated blue outline — already owned (thinner, subtler)
+                    outlineColors.push_back({100, 200, 255, 220});
+                    animateOutlines.push_back(true);
+                    outlineThicknesses.push_back(1);
+                }
+                else
+                {
+                    // Default — no outline
+                    outlineColors.push_back({0, 0, 0, 0});
+                    animateOutlines.push_back(false);
+                    outlineThicknesses.push_back(1);
+                }
             };
 
             for (auto [role, star] : rollOfChess)
@@ -401,9 +512,10 @@ void ChessSelector::getChess()
                 addRoleWithTier(role, star);
             }
 
-            auto menu = makeChessMenu(std::format("購買棋子 等級{} ${} 背包{}/{}", gameData.getLevel() + 1, gameData.getMoney(), gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, rolePairs.size(), 32, false);
+            auto menu = makeChessMenu(std::format("購買棋子 等級{} ${} 背包{}/{}", gameData.getLevel() + 1, gameData.getMoney(), gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, (int)rolePairs.size(), 32, false, true, outlineColors, animateOutlines, outlineThicknesses);
 
             menu->addDrawableOnCall(makeComboInfoPanel());
+            menu->addDrawableOnCall(makeOwnedPanel());
 
             menu->run();
 
@@ -438,10 +550,19 @@ void ChessSelector::getChess()
                     continue;
                 }
                 if (!gameData.spend(cost)) continue;
+                bool willMerge = gameData.collection.wouldMerge({ role, 1 });
                 gameData.chessPool.removeChessAt(actualIdx);
                 gameData.addChessAndFixSelection({ role, 1 });
                 auto text = std::make_shared<TextBox>();
-                text->setText(std::format("消費{}，獲取{}", cost, role->Name));
+                if (willMerge)
+                {
+                    text->setText(std::format("消費{}，{}升星！", cost, role->Name));
+                    Audio::getInstance()->playESound(72);
+                }
+                else
+                {
+                    text->setText(std::format("消費{}，獲取{}", cost, role->Name));
+                }
                 text->setFontSize(32);
                 text->runCentered(Engine::getInstance()->getUIHeight() / 2);
                 break;
@@ -474,7 +595,7 @@ void ChessSelector::sellChess()
                 auto key = std::make_pair(chess.role->ID, chess.star);
                 bool equipped = equippedCount[key] > 0;
                 if (equipped) equippedCount[key]--;
-                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, equipped ? "【出戰】" : "");
+                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, equipped ? "[出戰]" : "");
                 rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
                 roleColors.push_back(color);
                 chessList.push_back({chess, equipped});
@@ -534,10 +655,9 @@ void ChessSelector::selectForBattle()
         std::vector<Color> roleColors;
         std::vector<Chess> chessList;
 
-        // Add currently selected chess with [已選] prefix
         for (const auto& chess : currentSelection)
         {
-            auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, "[已選]");
+            auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, "[出戰]");
             rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
             roleColors.push_back({ 255, 215, 0, 255 });  // Gold for selected
             chessList.push_back(chess);
@@ -796,7 +916,8 @@ void ChessSelector::buyExp()
 
     auto infoPanel = std::make_shared<DrawableOnCall>([=](DrawableOnCall*) {
         int px = 350, py = 195, fs = 20, lh = fs + 6;
-        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 520, 280);
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 520, 280, 8);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 520, 280, 8);
         auto* font = Font::getInstance();
         int ly = py + 10, x = px + 10;
 
@@ -858,10 +979,8 @@ void ChessSelector::viewCombos()
     auto& combos = ChessCombo::getAllCombos();
     auto& gameData = GameData::get();
 
-    // Build set of selected role IDs
-    std::set<int> ownedIds;
-    for (auto& chess : gameData.getSelectedForBattle())
-        if (chess.role) ownedIds.insert(chess.role->ID);
+    // Build star map (owned = present in map; value = star level)
+    auto starByRole = ChessCombo::buildStarMap(gameData.getSelectedForBattle());
 
     // Build menu items: one per combo
     std::vector<std::pair<int, std::string>> items;
@@ -869,19 +988,28 @@ void ChessSelector::viewCombos()
     for (int i = 0; i < (int)combos.size(); i++)
     {
         auto& c = combos[i];
-        int owned = 0;
-        for (int rid : c.memberRoleIds)
-            if (ownedIds.count(rid)) owned++;
-        // Pad name to 14 bytes (7 Chinese chars) for consistent menu width
+        auto [owned, effective] = KysChess::computeOwnership(c, starByRole);
+        // Pad name to 14 bytes (7 Chinese chars) for consistent menu width.
+        // PREFIX(3 bytes) + owned(2) + bonusPart(3) + "/" + denom(2) — all fixed width.
+        // PREFIX: ★ star-synergy | 独 anti-combo | 　 regular
+        // bonusPart: "+N " star bonus | "   " otherwise
         std::string padded = c.name;
         while (padded.size() < 14) padded += "　";  // fullwidth space
-        std::string label = std::format("{}({:2}/{:2})", padded, owned, c.memberRoleIds.size());
+        int extra = effective - owned;
+        // Anti-combo denominator is the threshold (1); regular is total pool size
+        int denom = c.isAntiCombo ? (c.thresholds.empty() ? 1 : c.thresholds[0].count)
+                                   : (int)c.memberRoleIds.size();
+        std::string countPrefix = c.isAntiCombo ? "独" : (c.starSynergyBonus ? "★" : "　");
+        std::string bonusPart   = (c.starSynergyBonus && extra > 0)
+            ? std::format("+{:<2}", extra) : "   ";
+        std::string countFmt = std::format("{}{:2}{}/{:2}", countPrefix, owned, bonusPart, denom);
+        std::string label = std::format("{}({})", padded, countFmt);
         items.emplace_back(i, label);
         colors.push_back(owned > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
     }
 
     // Detail panel drawable — two-column: members left, thresholds right
-    auto detailDraw = std::make_shared<DrawableOnCall>([&combos, &ownedIds](DrawableOnCall* self) {
+    auto detailDraw = std::make_shared<DrawableOnCall>([&combos, &starByRole](DrawableOnCall* self) {
         int idx = self->getID();
         if (idx < 0 || idx >= (int)combos.size()) return;
         auto& c = combos[idx];
@@ -889,35 +1017,62 @@ void ChessSelector::viewCombos()
         auto font = Font::getInstance();
 
         int px = 460, py = 60, fs = 24;
-        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 660, 560);
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 760, 560, 8);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 760, 560, 8);
 
         font->draw(c.name, fs + 4, px + 10, py + 10, {255, 255, 100, 255});
 
         // Left column: members
+        // Pre-compute effective count (star-augmented) for threshold coloring
+        auto [ownedCount, effective] = KysChess::computeOwnership(c, starByRole);
+
         int y = py + 45;
         font->draw("成員:", fs, px + 10, y, {200, 200, 200, 255});
         y += fs + 4;
+        int totalBonus = 0;
         for (int rid : c.memberRoleIds)
         {
             auto role = save->getRole(rid);
             if (!role) continue;
-            bool owned = ownedIds.count(rid) > 0;
+            bool owned = starByRole.count(rid) > 0;
             Color col = owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255};
-            font->draw(std::format("  {} ({}費){}", role->Name, ChessPool::GetChessTier(rid), owned ? " ✓" : ""), fs, px + 10, y, col);
+            std::string starSuffix;
+            if (owned && c.starSynergyBonus)
+            {
+                int s = starByRole.count(rid) ? starByRole.at(rid) : 1;
+                starSuffix = std::format(" ★{}", s);
+                totalBonus += (s - 1);
+            }
+            font->draw(std::format("  {} ({}費){}{}", role->Name, ChessPool::GetChessTier(rid), owned ? " ✓" : "", starSuffix), fs, px + 10, y, col);
             y += fs + 1;
         }
 
         // Right column: thresholds
-        int rx = px + 260, ry = py + 45;
+        int rx = px + 290, ry = py + 45;
         font->draw(c.isAntiCombo ? "條件:" : "閾值:", fs, rx, ry, {200, 200, 200, 255});
+        if (c.starSynergyBonus)
+        {
+            ry += fs + 2;
+            // One line: mechanic rule + current bonus contribution
+            std::string synergyLine = (totalBonus > 0)
+                ? std::format("★ 成員星級計人數，當前+{}人", totalBonus)
+                : "★ 成員星級計人數（2★=2人）";
+            font->draw(synergyLine, fs - 4, rx, ry, {255, 200, 50, 255});
+            ry += (fs - 4) + 2;
+            font->draw("  每額外★計入1羈絆人數", fs - 6, rx, ry, {180, 160, 80, 255});
+        }
         ry += fs + 4;
         for (auto& t : c.thresholds)
         {
-            font->draw(std::format("{}人: {}", t.count, t.name), fs, rx, ry, {255, 200, 100, 255});
+            bool tierActive = effective >= t.count;
+            Color tierCol  = tierActive ? Color{0, 255, 0, 255} : Color{255, 200, 100, 255};
+            Color effCol   = tierActive ? Color{180, 220, 255, 255} : Color{200, 200, 200, 255};
+            std::string tierMark = tierActive ? " ✓" : "";
+            font->draw(std::format("{}人: {}{}", t.count, t.name, tierMark), fs, rx, ry, tierCol);
             ry += fs + 1;
             for (auto& eff : t.effects)
             {
-                font->draw("  " + comboEffectDesc(eff), fs - 2, rx, ry, {220, 220, 220, 255});
+                font->draw("  " + comboEffectDesc(eff), fs - 2, rx, ry, effCol);
                 ry += fs - 2;
             }
             ry += 8;
@@ -1075,7 +1230,7 @@ void ChessSelector::viewNeigong()
     opts.itemColors_ = colors;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto menu = std::make_shared<SuperMenuText>("內功一覽", 28, items, 22, opts);
+    auto menu = std::make_shared<SuperMenuText>("內功一覽", 28, items, 14, opts);
     menu->setInputPosition(80, 60);
     menu->addDrawableOnCall(detailDraw);
     menu->run();
@@ -1109,7 +1264,8 @@ void ChessSelector::showExpeditionChallenge()
             auto& ch = cfg.challenges[idx];
             auto* font = Font::getInstance();
             int px = 460, py = 60, fs = 22;
-            Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 500, 500);
+            Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 500, 500, 8);
+            Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 500, 500, 8);
 
             int ty = py + 10;
             font->draw(ch.name, fs + 4, px + 10, ty, {255, 255, 100, 255}); ty += fs + 10;
@@ -1448,7 +1604,8 @@ void ChessSelector::showPositionSwap()
     sub->setShowNavigationButtons(false);
     auto panel = std::make_shared<DrawableOnCall>([cur](DrawableOnCall* self) {
         int px = 280, py = 200, fs = 20, lh = fs + 6;
-        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 400, 130);
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 400, 130, 6);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 400, 130, 6);
         auto* font = Font::getInstance();
         int id = self->getID();
         bool willEnable = id >= 0 ? (id == 1) : cur;
@@ -1474,7 +1631,8 @@ void ChessSelector::showGameGuide()
     auto panel = std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
         auto* font = Font::getInstance();
         int px = 90, py = 50, fs = 20, lh = fs + 6;
-        Engine::getInstance()->fillColor({0, 0, 0, 180}, px, py, 1100, 620);
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 1100, 620, 8);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 1100, 620, 8);
 
         int y = py + 15, x = px + 30;
         auto title = [&](const std::string& s) {

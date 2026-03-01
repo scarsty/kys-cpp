@@ -47,7 +47,7 @@ TitleScene::TitleScene()
     }
     menu_ = mt;
     menu_load_ = std::make_shared<UISave>();
-    menu_load_->setPosition(500, 300);
+    menu_load_->setPosition(500, 500);
     //render_message_ = 1;
 
     if (battle_mode_ == 2)

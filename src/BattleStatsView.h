@@ -52,8 +52,12 @@ public:
     {
         std::string name;
         std::string thresholdName;
-        int memberCount = 0;
+        int memberCount = 0;          // effective (star-augmented) count
+        int physicalMemberCount = 0;  // distinct heroes actually on field
         int totalMembers = 0;
+        int thresholdCount = 0;       // count requirement of the active threshold
+        bool starSynergyBonus = false;
+        bool isAntiCombo = false;
     };
 
     void setupPreBattle(

@@ -1,5 +1,6 @@
 ﻿#include "ChessPool.h"
 
+#include <algorithm>
 #include <array>
 #include "ChessBalance.h"
 #include "Save.h"
@@ -26,6 +27,11 @@ int ChessPool::GetChessTier(int roleId) {
         }
     }
     return -1;
+}
+
+Color ChessPool::GetTierColor(int tier) {
+    static Color colors[] = {{175,238,238},{0,255,0},{30,144,255},{75,0,130},{255,0,0}};
+    return colors[std::clamp(tier - 1, 0, 4)];
 }
 
 Role* ChessPool::selectFromPool(int tier)

@@ -1,6 +1,10 @@
 ﻿#include "Engine.h"
-
+#include "GameUtil.h"
 #include "strfunc.h"
+#define _USE_MATH_DEFINES
+#include <cmath>
+#include <algorithm>
+#include <vector>
 #ifdef __EMSCRIPTEN__
 #include <emscripten/html5_webgl.h>
 #endif
@@ -702,6 +706,358 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
     SDL_RectToFRect(&r, &rf);
     SDL_RenderFillRect(renderer_, &rf);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+}
+
+void Engine::fillRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend) const
+{
+    if (w <= 0 || h <= 0) { return; }
+    if (radius < 0) { radius = 0; }
+    if (radius > w / 2) { radius = w / 2; }
+    if (radius > h / 2) { radius = h / 2; }
+
+    SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
+    SDL_SetRenderDrawBlendMode(renderer_, blend);
+
+    // Scanline approach: draw each row exactly once to avoid alpha overlap artifacts
+    // Top cap (rows 0..radius-1): curved edges from corner arcs
+    for (int row = 0; row < radius; row++)
+    {
+        int dy = radius - row;
+        int dx = (int)std::sqrt((double)(radius * radius - dy * dy));
+        float left = (float)(x + radius - dx);
+        float right_end = (float)(x + w - radius + dx);
+        float row_y = (float)(y + row);
+        float row_w = right_end - left;
+        if (row_w > 0)
+        {
+            FRect rf = { left, row_y, row_w, 1.0f };
+            SDL_RenderFillRect(renderer_, &rf);
+        }
+    }
+    // Middle band (rows radius..h-radius-1): full width
+    if (h - 2 * radius > 0)
+    {
+        FRect rf = { (float)x, (float)(y + radius), (float)w, (float)(h - 2 * radius) };
+        SDL_RenderFillRect(renderer_, &rf);
+    }
+    // Bottom cap (rows h-radius..h-1): curved edges from corner arcs
+    for (int row = 0; row < radius; row++)
+    {
+        int dy = row + 1;
+        int dx = (int)std::sqrt((double)(radius * radius - dy * dy));
+        float left = (float)(x + radius - dx);
+        float right_end = (float)(x + w - radius + dx);
+        float row_y = (float)(y + h - radius + row);
+        float row_w = right_end - left;
+        if (row_w > 0)
+        {
+            FRect rf = { left, row_y, row_w, 1.0f };
+            SDL_RenderFillRect(renderer_, &rf);
+        }
+    }
+
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+}
+
+void Engine::drawRoundedRect(Color color, int x, int y, int w, int h, int radius, BlendMode blend) const
+{
+    if (w <= 0 || h <= 0) { return; }
+    if (radius < 0) { radius = 0; }
+    if (radius > w / 2) { radius = w / 2; }
+    if (radius > h / 2) { radius = h / 2; }
+
+    SDL_SetRenderDrawColor(renderer_, color.r, color.g, color.b, color.a);
+    SDL_SetRenderDrawBlendMode(renderer_, blend);
+
+    // Draw four straight edges
+    // Top edge
+    SDL_RenderLine(renderer_, (float)(x + radius), (float)y, (float)(x + w - radius - 1), (float)y);
+    // Bottom edge
+    SDL_RenderLine(renderer_, (float)(x + radius), (float)(y + h - 1), (float)(x + w - radius - 1), (float)(y + h - 1));
+    // Left edge
+    SDL_RenderLine(renderer_, (float)x, (float)(y + radius), (float)x, (float)(y + h - radius - 1));
+    // Right edge
+    SDL_RenderLine(renderer_, (float)(x + w - 1), (float)(y + radius), (float)(x + w - 1), (float)(y + h - radius - 1));
+
+    // Draw four corner arcs using Bresenham-like circle algorithm
+    auto drawCornerArc = [&](int cx, int cy, int quadrant)
+    {
+        int px = radius, py = 0;
+        int d = 1 - radius;
+        while (px >= py)
+        {
+            // Map octant points to the correct quadrant
+            switch (quadrant)
+            {
+            case 0:    // top-left
+                SDL_RenderPoint(renderer_, (float)(cx - px), (float)(cy - py));
+                SDL_RenderPoint(renderer_, (float)(cx - py), (float)(cy - px));
+                break;
+            case 1:    // top-right
+                SDL_RenderPoint(renderer_, (float)(cx + px), (float)(cy - py));
+                SDL_RenderPoint(renderer_, (float)(cx + py), (float)(cy - px));
+                break;
+            case 2:    // bottom-left
+                SDL_RenderPoint(renderer_, (float)(cx - px), (float)(cy + py));
+                SDL_RenderPoint(renderer_, (float)(cx - py), (float)(cy + px));
+                break;
+            case 3:    // bottom-right
+                SDL_RenderPoint(renderer_, (float)(cx + px), (float)(cy + py));
+                SDL_RenderPoint(renderer_, (float)(cx + py), (float)(cy + px));
+                break;
+            }
+            py++;
+            if (d < 0)
+            {
+                d += 2 * py + 1;
+            }
+            else
+            {
+                px--;
+                d += 2 * (py - px) + 1;
+            }
+        }
+    };
+    drawCornerArc(x + radius, y + radius, 0);                        // top-left
+    drawCornerArc(x + w - radius - 1, y + radius, 1);                // top-right
+    drawCornerArc(x + radius, y + h - radius - 1, 2);                // bottom-left
+    drawCornerArc(x + w - radius - 1, y + h - radius - 1, 3);        // bottom-right
+
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+}
+
+void Engine::drawAnimatedRoundedRect(Color color, int x, int y, int w, int h, int radius, double phase, int dotCount, double dotLength, BlendMode blend) const
+{
+    if (w <= 0 || h <= 0) { return; }
+    if (radius < 0) { radius = 0; }
+    if (radius > w / 2) { radius = w / 2; }
+    if (radius > h / 2) { radius = h / 2; }
+
+    // Calculate perimeter segments
+    double topLen = w - 2 * radius;
+    double rightLen = h - 2 * radius;
+    double bottomLen = w - 2 * radius;
+    double leftLen = h - 2 * radius;
+    double arcLen = 0.5 * M_PI * radius;  // quarter circle arc length
+    double totalPerimeter = topLen + rightLen + bottomLen + leftLen + 4 * arcLen;
+    if (totalPerimeter <= 0) { return; }
+
+    SDL_SetRenderDrawBlendMode(renderer_, blend);
+
+    // Helper: compute brightness at a given perimeter position
+    auto brightness = [&](double pos) -> double
+    {
+        double frac = pos / totalPerimeter;  // 0..1 position
+        double maxBright = 0.0;
+        for (int d = 0; d < dotCount; d++)
+        {
+            double dotPos = std::fmod(phase + (double)d / dotCount, 1.0);
+            // Circular distance
+            double dist = std::abs(frac - dotPos);
+            if (dist > 0.5) dist = 1.0 - dist;
+            // Smooth falloff within dotLength
+            if (dist < dotLength)
+            {
+                double t = 1.0 - (dist / dotLength);
+                double b = t * t * (3.0 - 2.0 * t);  // smoothstep
+                if (b > maxBright) maxBright = b;
+            }
+        }
+        return maxBright;
+    };
+
+    // Helper: draw a single pixel with brightness modulation
+    auto drawPixel = [&](int px, int py, double perimPos)
+    {
+        double b = brightness(perimPos);
+        uint8_t a = (uint8_t)(color.a * (0.15 + 0.85 * b));  // min 15% alpha
+        uint8_t r = (uint8_t)std::min(255.0, color.r * (0.4 + 0.6 * b));
+        uint8_t g = (uint8_t)std::min(255.0, color.g * (0.4 + 0.6 * b));
+        uint8_t bl = (uint8_t)std::min(255.0, color.b * (0.4 + 0.6 * b));
+        SDL_SetRenderDrawColor(renderer_, r, g, bl, a);
+        SDL_RenderPoint(renderer_, (float)px, (float)py);
+    };
+
+    double pos = 0.0;
+
+    // Segment 1: Top edge (left to right)
+    if (topLen > 0)
+    {
+        int x0 = x + radius, x1 = x + w - radius - 1;
+        for (int i = x0; i <= x1; i++)
+        {
+            double frac = (topLen > 1) ? (double)(i - x0) / (x1 - x0) : 0;
+            drawPixel(i, y, pos + frac * topLen);
+        }
+    }
+    pos += topLen;
+
+    // Segment 2: Top-right arc
+    {
+        int cx = x + w - radius - 1;
+        int cy = y + radius;
+        // Collect arc points sorted by angle
+        std::vector<std::pair<int, int>> arcPoints;
+        int px2 = radius, py2 = 0;
+        int d = 1 - radius;
+        while (px2 >= py2)
+        {
+            arcPoints.push_back({cx + py2, cy - px2});  // octant 1 → angle ~0 to 45° from top
+            arcPoints.push_back({cx + px2, cy - py2});  // octant 2 → angle ~45° to 90° from top
+            py2++;
+            if (d < 0) { d += 2 * py2 + 1; }
+            else { px2--; d += 2 * (py2 - px2) + 1; }
+        }
+        // Sort by angle (clockwise from top: right direction first)
+        std::sort(arcPoints.begin(), arcPoints.end(), [&](auto& a, auto& b) {
+            double aa = std::atan2(a.second - cy, a.first - cx);
+            double ab = std::atan2(b.second - cy, b.first - cx);
+            return aa < ab;
+        });
+        // Remove duplicates
+        arcPoints.erase(std::unique(arcPoints.begin(), arcPoints.end()), arcPoints.end());
+        for (int i = 0; i < arcPoints.size(); i++)
+        {
+            double frac = arcPoints.size() > 1 ? (double)i / (arcPoints.size() - 1) : 0;
+            drawPixel(arcPoints[i].first, arcPoints[i].second, pos + frac * arcLen);
+        }
+    }
+    pos += arcLen;
+
+    // Segment 3: Right edge (top to bottom)
+    if (rightLen > 0)
+    {
+        int y0 = y + radius, y1 = y + h - radius - 1;
+        for (int i = y0; i <= y1; i++)
+        {
+            double frac = (rightLen > 1) ? (double)(i - y0) / (y1 - y0) : 0;
+            drawPixel(x + w - 1, i, pos + frac * rightLen);
+        }
+    }
+    pos += rightLen;
+
+    // Segment 4: Bottom-right arc
+    {
+        int cx = x + w - radius - 1;
+        int cy = y + h - radius - 1;
+        std::vector<std::pair<int, int>> arcPoints;
+        int px2 = radius, py2 = 0;
+        int d = 1 - radius;
+        while (px2 >= py2)
+        {
+            arcPoints.push_back({cx + px2, cy + py2});
+            arcPoints.push_back({cx + py2, cy + px2});
+            py2++;
+            if (d < 0) { d += 2 * py2 + 1; }
+            else { px2--; d += 2 * (py2 - px2) + 1; }
+        }
+        std::sort(arcPoints.begin(), arcPoints.end(), [&](auto& a, auto& b) {
+            double aa = std::atan2(a.second - cy, a.first - cx);
+            double ab = std::atan2(b.second - cy, b.first - cx);
+            return aa < ab;
+        });
+        arcPoints.erase(std::unique(arcPoints.begin(), arcPoints.end()), arcPoints.end());
+        for (int i = 0; i < arcPoints.size(); i++)
+        {
+            double frac = arcPoints.size() > 1 ? (double)i / (arcPoints.size() - 1) : 0;
+            drawPixel(arcPoints[i].first, arcPoints[i].second, pos + frac * arcLen);
+        }
+    }
+    pos += arcLen;
+
+    // Segment 5: Bottom edge (right to left)
+    if (bottomLen > 0)
+    {
+        int x0 = x + w - radius - 1, x1 = x + radius;
+        for (int i = x0; i >= x1; i--)
+        {
+            double frac = (bottomLen > 1) ? (double)(x0 - i) / (x0 - x1) : 0;
+            drawPixel(i, y + h - 1, pos + frac * bottomLen);
+        }
+    }
+    pos += bottomLen;
+
+    // Segment 6: Bottom-left arc
+    {
+        int cx = x + radius;
+        int cy = y + h - radius - 1;
+        std::vector<std::pair<int, int>> arcPoints;
+        int px2 = radius, py2 = 0;
+        int d = 1 - radius;
+        while (px2 >= py2)
+        {
+            arcPoints.push_back({cx - py2, cy + px2});
+            arcPoints.push_back({cx - px2, cy + py2});
+            py2++;
+            if (d < 0) { d += 2 * py2 + 1; }
+            else { px2--; d += 2 * (py2 - px2) + 1; }
+        }
+        // Sort clockwise (for bottom-left: going from bottom to left, angle π/2 to π)
+        std::sort(arcPoints.begin(), arcPoints.end(), [&](auto& a, auto& b) {
+            double aa = std::atan2(a.second - cy, a.first - cx);
+            double ab = std::atan2(b.second - cy, b.first - cx);
+            // We need angles in range (0, π), atan2 gives (-π, π)
+            if (aa < 0) aa += 2 * M_PI;
+            if (ab < 0) ab += 2 * M_PI;
+            return aa < ab;
+        });
+        arcPoints.erase(std::unique(arcPoints.begin(), arcPoints.end()), arcPoints.end());
+        for (int i = 0; i < arcPoints.size(); i++)
+        {
+            double frac = arcPoints.size() > 1 ? (double)i / (arcPoints.size() - 1) : 0;
+            drawPixel(arcPoints[i].first, arcPoints[i].second, pos + frac * arcLen);
+        }
+    }
+    pos += arcLen;
+
+    // Segment 7: Left edge (bottom to top)
+    if (leftLen > 0)
+    {
+        int y0 = y + h - radius - 1, y1 = y + radius;
+        for (int i = y0; i >= y1; i--)
+        {
+            double frac = (leftLen > 1) ? (double)(y0 - i) / (y0 - y1) : 0;
+            drawPixel(x, i, pos + frac * leftLen);
+        }
+    }
+    pos += leftLen;
+
+    // Segment 8: Top-left arc
+    {
+        int cx = x + radius;
+        int cy = y + radius;
+        std::vector<std::pair<int, int>> arcPoints;
+        int px2 = radius, py2 = 0;
+        int d = 1 - radius;
+        while (px2 >= py2)
+        {
+            arcPoints.push_back({cx - px2, cy - py2});
+            arcPoints.push_back({cx - py2, cy - px2});
+            py2++;
+            if (d < 0) { d += 2 * py2 + 1; }
+            else { px2--; d += 2 * (py2 - px2) + 1; }
+        }
+        // Sort clockwise: angle π to 3π/2 (using atan2 in -π to π range)
+        std::sort(arcPoints.begin(), arcPoints.end(), [&](auto& a, auto& b) {
+            double aa = std::atan2(a.second - cy, a.first - cx);
+            double ab = std::atan2(b.second - cy, b.first - cx);
+            // angles in range (-π, -π/2), need descending for clockwise
+            return aa > ab;
+        });
+        arcPoints.erase(std::unique(arcPoints.begin(), arcPoints.end()), arcPoints.end());
+        for (int i = 0; i < arcPoints.size(); i++)
+        {
+            double frac = arcPoints.size() > 1 ? (double)i / (arcPoints.size() - 1) : 0;
+            drawPixel(arcPoints[i].first, arcPoints[i].second, pos + frac * arcLen);
+        }
+    }
+
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+}
+
+void Engine::initUIStyle()
+{
+    ui_style_ = GameUtil::getInstance()->getInt("game", "ui_style", 0);
 }
 
 void Engine::renderMainTextureToWindow()

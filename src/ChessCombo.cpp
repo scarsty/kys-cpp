@@ -74,6 +74,14 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
     return combos;
 }
 
+std::map<int, int> ChessCombo::buildStarMap(const std::vector<Chess>& selected)
+{
+    std::map<int, int> result;
+    for (auto& ch : selected)
+        if (ch.role) result[ch.role->ID] = ch.star;
+    return result;
+}
+
 const std::vector<ComboDef>& ChessCombo::getAllCombos()
 {
     static std::vector<ComboDef> allCombos{loadFromYaml(GameUtil::PATH() + "config/chess_combos.yaml")};
@@ -95,6 +103,7 @@ std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& sele
             if (starByRole.count(rid)) { ac.memberCount++; ac.memberRoleIds.insert(rid); }
         if (ac.memberCount == 0) continue;
 
+        ac.physicalMemberCount = ac.memberCount;
         if (combo.starSynergyBonus)
             for (int rid : ac.memberRoleIds)
                 ac.memberCount += starByRole[rid] - 1;
@@ -110,6 +119,8 @@ std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& sele
             ac.memberRoleIds.clear();
             ac.memberRoleIds.insert(bestId);
             ac.memberCount = 1;
+            ac.physicalMemberCount = 1;
+            ac.isAntiCombo = true;
             ac.activeThresholdIdx = 0;
         }
         else

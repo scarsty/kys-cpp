@@ -11,7 +11,8 @@ void ChessUIStatus::draw()
     if (!role_) return;
 
     // Draw translucent black background
-    Engine::getInstance()->fillColor({0, 0, 0, 128}, x_, y_, 460, 440);
+    Engine::getInstance()->fillRoundedRect({0, 0, 0, 128}, x_, y_, 460, 430, 8);
+    Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, x_, y_, 460, 430, 8);
 
     auto& gd = KysChess::GameData::get();
     auto font = Font::getInstance();
@@ -148,17 +149,17 @@ void ChessUIStatus::draw()
     {
         font->draw("羈絆", font_size, x, y, color_name);
         y += 24;
-        std::set<int> ownedIds;
-        for (auto& ch : gd.getSelectedForBattle())
-            if (ch.role) ownedIds.insert(ch.role->ID);
+        auto starByRole = KysChess::ChessCombo::buildStarMap(gd.getSelectedForBattle());
         auto& allCombos = KysChess::ChessCombo::getAllCombos();
         for (auto cid : roleCombos)
         {
             auto& combo = allCombos[(int)cid];
-            int owned = 0;
-            for (int rid : combo.memberRoleIds)
-                if (ownedIds.count(rid)) owned++;
-            Color col = owned >= 2 ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
+            auto [owned, effective] = KysChess::computeOwnership(combo, starByRole);
+            // Active if any threshold is satisfied
+            bool active = false;
+            for (auto& t : combo.thresholds)
+                if (effective >= t.count) { active = true; break; }
+            Color col = active ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
             font->draw(std::format("{}", combo.name), font_size - 2, x + 10, y, col);
             y += 20;
             if (y > y_ + 440) break;

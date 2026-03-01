@@ -72,6 +72,7 @@ void Application::config()
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
     Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 0));
+    Engine::initUIStyle();
 
     renderer_ = game->getString("game", "renderer", "");
     title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");

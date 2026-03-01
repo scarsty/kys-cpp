@@ -67,8 +67,13 @@ void InputBox::dealEvent(EngineEvent& e)
 
 void InputBox::draw()
 {
-    Font::getInstance()->drawWithBox(title_, font_size_, x_, y_, color_, 255);
-    Font::getInstance()->drawWithBox(text_ + "_", font_size_, text_x_, text_y_, color_, 255);
+    Color draw_color = color_;
+    if (Engine::uiStyle() == 1 && draw_color.r < 64 && draw_color.g < 64 && draw_color.b < 64)
+    {
+        draw_color = { 240, 230, 210, 255 };
+    }
+    Font::getInstance()->drawWithBox(title_, font_size_, x_, y_, draw_color, 255);
+    Font::getInstance()->drawWithBox(text_ + "_", font_size_, text_x_, text_y_, draw_color, 255);
     Engine::getInstance()->setTextInputArea(text_x_, text_y_, font_size_ * 15, font_size_);
 }
 

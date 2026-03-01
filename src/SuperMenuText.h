@@ -16,6 +16,9 @@
 struct SuperMenuTextExtraOptions
 {
     std::vector<Color> itemColors_;
+    std::vector<Color> outlineColors_;     // Per-item custom outline color (empty = default)
+    std::vector<bool> animateOutlines_;    // Per-item animated outline flag (empty = no animation)
+    std::vector<int> outlineThicknesses_;  // Per-item outline thickness (empty = default 1)
     bool needInputBox_ = true;
     bool confirmation_ = false;
     bool exitable_ = false;

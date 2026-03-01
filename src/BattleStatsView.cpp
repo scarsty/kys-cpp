@@ -70,9 +70,16 @@ static BattleStatsView::ComboEntry makeComboEntry(const KysChess::ActiveCombo& a
     auto& combo = allCombos[(int)ac.id];
     ce.name = combo.name;
     ce.memberCount = ac.memberCount;
-    ce.totalMembers = combo.memberRoleIds.size();
+    ce.physicalMemberCount = ac.physicalMemberCount;
+    ce.totalMembers = (int)combo.memberRoleIds.size();
+    ce.starSynergyBonus = combo.starSynergyBonus;
+    ce.isAntiCombo = combo.isAntiCombo;
     if (ac.activeThresholdIdx >= 0 && ac.activeThresholdIdx < (int)combo.thresholds.size())
-        ce.thresholdName = combo.thresholds[ac.activeThresholdIdx].name;
+    {
+        auto& thresh = combo.thresholds[ac.activeThresholdIdx];
+        ce.thresholdName = thresh.name;
+        ce.thresholdCount = thresh.count;
+    }
     return ce;
 }
 
@@ -247,11 +254,14 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 void BattleStatsView::drawComboList(const std::vector<ComboEntry>& combos, int x, int y, int w)
 {
     auto font = Font::getInstance();
-    Color cGold = {255, 215, 0, 255};
     Color cActive = {0, 255, 100, 255};
     for (auto& c : combos)
     {
-        font->draw(std::format("{} ({}/{}) {}", c.name, c.memberCount, c.totalMembers, c.thresholdName),
+        // For anti-combos use threshold count (1) as denominator; otherwise total pool size.
+        int denom = c.isAntiCombo ? c.thresholdCount : c.totalMembers;
+        std::string countStr = KysChess::formatComboCount(
+            c.physicalMemberCount, c.memberCount, denom, c.starSynergyBonus, c.isAntiCombo);
+        font->draw(std::format("{} ({}) {}", c.name, countStr, c.thresholdName),
             16, x, y, cActive);
         y += 20;
     }
