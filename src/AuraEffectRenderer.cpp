@@ -71,72 +71,75 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
     // 检查是否有攻击者
     if (!ae.Attacker) return;
 
-    // 起点：角色位置
-    Pointf start_pos = ae.Attacker->Pos;
-    // 终点：特效位置（头部）
-    Pointf end_pos = ae.Pos;
+    // 计算飘带方向（使用速度向量）
+    float dir_x = ae.Velocity.x;
+    float dir_y = ae.Velocity.y;
+    float magnitude = sqrt(dir_x * dir_x + dir_y * dir_y);
 
-    // 计算从起点到终点的向量
-    float dx = end_pos.x - start_pos.x;
-    float dy = end_pos.y - start_pos.y;
-    float distance = sqrt(dx * dx + dy * dy);
-
-    // 如果距离太小，不绘制
-    if (distance < 1.0f) return;
+    // 如果没有速度，使用从角色到特效的方向
+    if (magnitude < 0.1f) {
+        dir_x = ae.Pos.x - ae.Attacker->Pos.x;
+        dir_y = ae.Pos.y - ae.Attacker->Pos.y;
+        magnitude = sqrt(dir_x * dir_x + dir_y * dir_y);
+        if (magnitude < 0.1f) return;
+    }
 
     // 归一化方向
-    float dir_x = dx / distance;
-    float dir_y = dy / distance;
+    dir_x /= magnitude;
+    dir_y /= magnitude;
 
-    // 飘带参数（调整为更细的宽度）
-    const float WIDTH_MAX = 24.0f;  // 头部最大宽度（缩小到原来的1/3）
+    // 飘带参数（固定最大长度的拖尾）
+    const float WIDTH_MAX = 36.0f;  // 头部最大宽度（调宽，24→36）
     const float WIDTH_MIN = 3.0f;   // 尾部最小宽度
+    const int RIBBON_LENGTH = 50;   // 飘带固定长度（段数）
+    const float SEGMENT_SPACING = 1.5f;  // 每段间距（像素）
 
-    // 分段数量（根据距离动态调整）
-    int segments = (int)(distance / 2.0f);  // 每2像素一段
-    if (segments < 10) segments = 10;  // 最少10段
-    if (segments > 100) segments = 100;  // 最多100段
+    // 头部位置：特效位置
+    int head_x = ae.Pos.x;
+    int head_y = ae.Pos.y / 2;
 
-    // 时间参数（用于动画，加快飘动速度）
-    float time = ae.Frame * 0.18f;  // 从 0.08 提升到 0.18（2.25倍速）
+    // 时间参数（用于动画）
+    float time = ae.Frame * 0.18f;
 
-    // 逐段绘制飘带（从起点角色到终点特效）
-    for (int i = 0; i <= segments; ++i) {
-        // 进度：0=起点（角色），1=终点（特效头部）
-        float ratio = (float)i / segments;
+    // 逐段绘制飘带（从头部向后延伸）
+    for (int i = 0; i < RIBBON_LENGTH; ++i) {
+        // 进度：0=头部（特效），1=尾部（向后延伸）
+        float ratio = (float)i / RIBBON_LENGTH;
+
+        // 当前段向后的偏移距离
+        float offset_distance = i * SEGMENT_SPACING;
 
         // === 流体动力学：分段延迟跟随 ===
         // 后段追赶前段，产生柔软的延迟感
-        float delay_offset = (1.0f - ratio) * 0.12f;  // 减小延迟（0.15→0.12）
-        float delayed_ratio = ratio - delay_offset;
-        if (delayed_ratio < 0.0f) delayed_ratio = 0.0f;
+        float delay_offset = ratio * 0.12f;  // 越靠后延迟越大
+        float delayed_offset = offset_distance + delay_offset * 10.0f;
 
-        // 位置插值（使用延迟后的比例）
-        float x = start_pos.x + dx * delayed_ratio;
-        float y = start_pos.y + dy * delayed_ratio;
+        // 位置计算（从头部向后）
+        float x = head_x - dir_x * delayed_offset;
+        float y = head_y - dir_y * delayed_offset / 2;
 
-        // 宽度：从细到粗（角色→特效）
-        float width = WIDTH_MIN + (WIDTH_MAX - WIDTH_MIN) * ratio;
+        // 宽度：从粗到细（头部→尾部）
+        float width = WIDTH_MAX - (WIDTH_MAX - WIDTH_MIN) * ratio;
 
-        // 透明度：从暗到亮（角色→特效）
-        float alpha_ratio = 0.3f + 0.7f * ratio;  // 30%→100%
+        // 透明度：从亮到暗（头部→尾部）
+        float alpha_ratio = 1.0f - ratio * 0.7f;  // 100%→30%
         Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
         if (segment_alpha < 10) continue;
 
         // === 流体动力学：多层 Perlin 噪声湍流（减小抖动幅度）===
         float turbulence =
-            perlinNoise(i * 0.1f + time * 2.0f) * 3.5f +      // 大尺度波动（6.0→3.5）
-            perlinNoise(i * 0.3f + time * 5.0f) * 1.2f +      // 中等波动（2.5→1.2）
-            perlinNoise(i * 0.8f + time * 12.0f) * 0.4f;      // 细节抖动（0.8→0.4）
+            perlinNoise(i * 0.1f + time * 2.0f) * 3.5f +      // 大尺度波动
+            perlinNoise(i * 0.3f + time * 5.0f) * 1.2f +      // 中等波动
+            perlinNoise(i * 0.8f + time * 12.0f) * 0.4f;      // 细节抖动
 
         // 速度影响：速度越快，湍流影响越小（飘带越直）
         float speed = sqrt(ae.Velocity.x * ae.Velocity.x + ae.Velocity.y * ae.Velocity.y);
-        float turbulence_scale = 1.0f / (1.0f + speed * 0.02f);  // 速度快时衰减
+        float turbulence_scale = 1.0f / (1.0f + speed * 0.02f);
         turbulence *= turbulence_scale;
 
         // 添加湍流偏移（垂直于前进方向）
         int render_x = (int)(x + dir_y * turbulence);
-        int render_y = (int)(y / 2 - dir_x * turbulence / 2);
+        int render_y = (int)(y - dir_x * turbulence / 2);
 
         SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
 
