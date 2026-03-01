@@ -97,8 +97,8 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
     if (segments < 10) segments = 10;  // 最少10段
     if (segments > 100) segments = 100;  // 最多100段
 
-    // 时间参数（用于动画）
-    float time = ae.Frame * 0.08f;
+    // 时间参数（用于动画，加快飘动速度）
+    float time = ae.Frame * 0.18f;  // 从 0.08 提升到 0.18（2.25倍速）
 
     // 逐段绘制飘带（从起点角色到终点特效）
     for (int i = 0; i <= segments; ++i) {
@@ -107,7 +107,7 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
 
         // === 流体动力学：分段延迟跟随 ===
         // 后段追赶前段，产生柔软的延迟感
-        float delay_offset = (1.0f - ratio) * 0.15f;  // 越靠后延迟越大
+        float delay_offset = (1.0f - ratio) * 0.12f;  // 减小延迟（0.15→0.12）
         float delayed_ratio = ratio - delay_offset;
         if (delayed_ratio < 0.0f) delayed_ratio = 0.0f;
 
@@ -123,11 +123,11 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
         Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
         if (segment_alpha < 10) continue;
 
-        // === 流体动力学：多层 Perlin 噪声湍流 ===
+        // === 流体动力学：多层 Perlin 噪声湍流（减小抖动幅度）===
         float turbulence =
-            perlinNoise(i * 0.1f + time * 2.0f) * 6.0f +      // 大尺度波动
-            perlinNoise(i * 0.3f + time * 5.0f) * 2.5f +      // 中等波动
-            perlinNoise(i * 0.8f + time * 12.0f) * 0.8f;      // 细节抖动
+            perlinNoise(i * 0.1f + time * 2.0f) * 3.5f +      // 大尺度波动（6.0→3.5）
+            perlinNoise(i * 0.3f + time * 5.0f) * 1.2f +      // 中等波动（2.5→1.2）
+            perlinNoise(i * 0.8f + time * 12.0f) * 0.4f;      // 细节抖动（0.8→0.4）
 
         // 速度影响：速度越快，湍流影响越小（飘带越直）
         float speed = sqrt(ae.Velocity.x * ae.Velocity.x + ae.Velocity.y * ae.Velocity.y);
