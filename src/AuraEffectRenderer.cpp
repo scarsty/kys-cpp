@@ -88,35 +88,35 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
     dir_x /= magnitude;
     dir_y /= magnitude;
 
-    // 飘带参数（固定最大长度的拖尾）
-    const float WIDTH_MAX = 36.0f;  // 头部最大宽度（调宽，24→36）
+    // 飘带参数（固定长度的彗星拖尾）
+    const float WIDTH_MAX = 36.0f;  // 头部最大宽度
     const float WIDTH_MIN = 3.0f;   // 尾部最小宽度
     const int RIBBON_LENGTH = 50;   // 飘带固定长度（段数）
     const float SEGMENT_SPACING = 1.5f;  // 每段间距（像素）
 
-    // 头部位置：角色位置（真气从人物发出）
-    int head_x = ae.Attacker->Pos.x;
-    int head_y = ae.Attacker->Pos.y / 2;
+    // 头部位置：特效位置（跟随武功移动）
+    int head_x = ae.Pos.x;
+    int head_y = ae.Pos.y / 2;
 
     // 时间参数（用于动画）
     float time = ae.Frame * 0.18f;
 
-    // 逐段绘制飘带（从头部向前延伸）
+    // 逐段绘制飘带（从头部向后拖尾）
     for (int i = 0; i < RIBBON_LENGTH; ++i) {
-        // 进度：0=头部（角色），1=尾部（向前延伸）
+        // 进度：0=头部（特效），1=尾部（向后拖尾）
         float ratio = (float)i / RIBBON_LENGTH;
 
-        // 当前段向前的偏移距离
+        // 当前段向后的偏移距离
         float offset_distance = i * SEGMENT_SPACING;
 
         // === 流体动力学：分段延迟跟随 ===
         // 后段追赶前段，产生柔软的延迟感
-        float delay_offset = ratio * 0.12f;  // 越靠后延迟越大
-        float delayed_offset = offset_distance + delay_offset * 10.0f;
+        float delay_offset = ratio * 0.08f;  // 减小延迟系数（0.12→0.08）
+        float delayed_offset = offset_distance + delay_offset * 8.0f;
 
-        // 位置计算（从头部向前）
-        float x = head_x + dir_x * delayed_offset;
-        float y = head_y + dir_y * delayed_offset / 2;
+        // 位置计算（从头部向后拖尾）
+        float x = head_x - dir_x * delayed_offset;
+        float y = head_y - dir_y * delayed_offset / 2;
 
         // 宽度：从粗到细（头部→尾部）
         float width = WIDTH_MAX - (WIDTH_MAX - WIDTH_MIN) * ratio;
@@ -126,11 +126,11 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
         Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
         if (segment_alpha < 10) continue;
 
-        // === 流体动力学：多层 Perlin 噪声湍流（减小抖动幅度）===
+        // === 流体动力学：减小湍流摆动 ===
         float turbulence =
-            perlinNoise(i * 0.1f + time * 2.0f) * 3.5f +      // 大尺度波动
-            perlinNoise(i * 0.3f + time * 5.0f) * 1.2f +      // 中等波动
-            perlinNoise(i * 0.8f + time * 12.0f) * 0.4f;      // 细节抖动
+            perlinNoise(i * 0.1f + time * 2.0f) * 1.5f +      // 大尺度波动（3.5→1.5）
+            perlinNoise(i * 0.3f + time * 5.0f) * 0.6f +      // 中等波动（1.2→0.6）
+            perlinNoise(i * 0.8f + time * 12.0f) * 0.2f;      // 细节抖动（0.4→0.2）
 
         // 速度影响：速度越快，湍流影响越小（飘带越直）
         float speed = sqrt(ae.Velocity.x * ae.Velocity.x + ae.Velocity.y * ae.Velocity.y);
@@ -148,6 +148,40 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
         for (int w = 0; w < width_int; ++w) {
             int px = render_x - width_int / 2 + w;
             SDL_RenderPoint(renderer, px, render_y);
+        }
+    }
+
+    // === 绘制实际命中范围圆圈 ===
+    // TILE_W = 18px，命中半径 = TILE_W * 2 = 36px
+    const int HIT_RADIUS = 36;
+    SDL_SetRenderDrawColor(renderer, r, g, b, (Uint8)(alpha * 0.6f));  // 60% 透明度
+
+    // 绘制圆圈轮廓（Bresenham 圆算法）
+    int cx = head_x;
+    int cy = head_y;
+    int x_circle = 0;
+    int y_circle = HIT_RADIUS;
+    int d = 3 - 2 * HIT_RADIUS;
+
+    auto drawCirclePoints = [&](int x, int y) {
+        SDL_RenderPoint(renderer, cx + x, cy + y);
+        SDL_RenderPoint(renderer, cx - x, cy + y);
+        SDL_RenderPoint(renderer, cx + x, cy - y);
+        SDL_RenderPoint(renderer, cx - x, cy - y);
+        SDL_RenderPoint(renderer, cx + y, cy + x);
+        SDL_RenderPoint(renderer, cx - y, cy + x);
+        SDL_RenderPoint(renderer, cx + y, cy - x);
+        SDL_RenderPoint(renderer, cx - y, cy - x);
+    };
+
+    while (y_circle >= x_circle) {
+        drawCirclePoints(x_circle, y_circle);
+        x_circle++;
+        if (d > 0) {
+            y_circle--;
+            d = d + 4 * (x_circle - y_circle) + 10;
+        } else {
+            d = d + 4 * x_circle + 6;
         }
     }
 }
