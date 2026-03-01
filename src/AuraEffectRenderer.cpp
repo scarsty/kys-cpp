@@ -48,13 +48,13 @@ void AuraEffectRenderer::render(SDL_Renderer* renderer, const BattleSceneAct::At
     Uint8 base_alpha = (Uint8)(150 * (max_frame - ae.Frame) / max_frame);
     if (base_alpha <= 5) return;
 
-    // 2. 颜色设定（敌我识别，红绿色便于测试）
+    // 2. 颜色设定（敌我识别，降低饱和度）
     bool is_friendly = (ae.Attacker && ae.Attacker->Team == 0);
     Uint8 r, g, b;
     if (is_friendly) {
-        r = 50; g = 255; b = 100;  // 友军：鲜绿色
+        r = 80; g = 180; b = 120;  // 友军：淡青绿色（降低饱和度）
     } else {
-        r = 255; g = 50; b = 50;   // 敌军：鲜红色
+        r = 200; g = 100; b = 100;   // 敌军：淡红色（降低饱和度）
     }
 
     // 3. 分层渲染
@@ -94,19 +94,19 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
     const int RIBBON_LENGTH = 50;   // 飘带固定长度（段数）
     const float SEGMENT_SPACING = 1.5f;  // 每段间距（像素）
 
-    // 头部位置：特效位置
-    int head_x = ae.Pos.x;
-    int head_y = ae.Pos.y / 2;
+    // 头部位置：角色位置（真气从人物发出）
+    int head_x = ae.Attacker->Pos.x;
+    int head_y = ae.Attacker->Pos.y / 2;
 
     // 时间参数（用于动画）
     float time = ae.Frame * 0.18f;
 
-    // 逐段绘制飘带（从头部向后延伸）
+    // 逐段绘制飘带（从头部向前延伸）
     for (int i = 0; i < RIBBON_LENGTH; ++i) {
-        // 进度：0=头部（特效），1=尾部（向后延伸）
+        // 进度：0=头部（角色），1=尾部（向前延伸）
         float ratio = (float)i / RIBBON_LENGTH;
 
-        // 当前段向后的偏移距离
+        // 当前段向前的偏移距离
         float offset_distance = i * SEGMENT_SPACING;
 
         // === 流体动力学：分段延迟跟随 ===
@@ -114,9 +114,9 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
         float delay_offset = ratio * 0.12f;  // 越靠后延迟越大
         float delayed_offset = offset_distance + delay_offset * 10.0f;
 
-        // 位置计算（从头部向后）
-        float x = head_x - dir_x * delayed_offset;
-        float y = head_y - dir_y * delayed_offset / 2;
+        // 位置计算（从头部向前）
+        float x = head_x + dir_x * delayed_offset;
+        float y = head_y + dir_y * delayed_offset / 2;
 
         // 宽度：从粗到细（头部→尾部）
         float width = WIDTH_MAX - (WIDTH_MAX - WIDTH_MIN) * ratio;
