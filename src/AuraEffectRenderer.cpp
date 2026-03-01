@@ -38,92 +38,94 @@ void AuraEffectRenderer::render(SDL_Renderer* renderer, const BattleSceneAct::At
     renderRibbonParticles(renderer, ae, r, g, b, base_alpha);
 }
 
-// 绘制真气飘带（中心最宽，向两侧飘逸延伸）
+// 绘制真气飘带（从角色流向特效，头部最亮）
 void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
                                         Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
-    // 计算飘带方向（使用速度向量）
-    float dir_x = ae.Velocity.x;
-    float dir_y = ae.Velocity.y;
-    float magnitude = sqrt(dir_x * dir_x + dir_y * dir_y);
+    // 检查是否有攻击者
+    if (!ae.Attacker) return;
 
-    // 如果没有速度，使用默认向右方向
-    if (magnitude < 0.1f) {
-        dir_x = 1.0f;
-        dir_y = 0.0f;
-        magnitude = 1.0f;
-    }
+    // 起点：角色位置
+    Pointf start_pos = ae.Attacker->Pos;
+    // 终点：特效位置（头部）
+    Pointf end_pos = ae.Pos;
+
+    // 计算从起点到终点的向量
+    float dx = end_pos.x - start_pos.x;
+    float dy = end_pos.y - start_pos.y;
+    float distance = sqrt(dx * dx + dy * dy);
+
+    // 如果距离太小，不绘制
+    if (distance < 1.0f) return;
 
     // 归一化方向
-    dir_x /= magnitude;
-    dir_y /= magnitude;
+    float dir_x = dx / distance;
+    float dir_y = dy / distance;
 
-    // 飘带参数（中心最宽，两侧延伸）
-    const int RIBBON_BACK = 15;      // 向后延伸段数（拖尾）
-    const int RIBBON_FORWARD = 40;   // 向前延伸段数（攻击方向，更远）
-    const int RIBBON_TOTAL = RIBBON_BACK + RIBBON_FORWARD;
-    const float WIDTH_MAX = 72.0f;   // 中心最大宽度（匹配攻击范围）
-    const float WIDTH_MIN = 4.0f;    // 两端最小宽度
+    // 飘带参数
+    const float WIDTH_MAX = 72.0f;  // 头部最大宽度（特效位置）
+    const float WIDTH_MIN = 8.0f;   // 尾部最小宽度（角色位置）
 
-    int cx = ae.Pos.x;  // 特效位置（飘带最宽处）
-    int cy = ae.Pos.y / 2;
+    // 分段数量（根据距离动态调整）
+    int segments = (int)(distance / 2.0f);  // 每2像素一段
+    if (segments < 10) segments = 10;  // 最少10段
+    if (segments > 100) segments = 100;  // 最多100段
 
-    // 逐段绘制飘带（从后向前）
-    for (int i = 0; i < RIBBON_TOTAL; ++i) {
-        // 当前段相对于中心的偏移（负数=向后，正数=向前）
-        int offset_from_center = i - RIBBON_BACK;
-        float offset_distance = offset_from_center * 2.0f;  // 每段2像素
+    // 逐段绘制飘带（从起点角色到终点特效）
+    for (int i = 0; i <= segments; ++i) {
+        // 进度：0=起点（角色），1=终点（特效头部）
+        float ratio = (float)i / segments;
 
-        // 计算宽度：中心最宽，向两端渐细
-        float width_ratio;
-        if (offset_from_center <= 0) {
-            // 向后段：从细到粗
-            width_ratio = 1.0f + (float)offset_from_center / RIBBON_BACK;
-        } else {
-            // 向前段：从粗到细
-            width_ratio = 1.0f - (float)offset_from_center / RIBBON_FORWARD;
-        }
-        float width = WIDTH_MIN + (WIDTH_MAX - WIDTH_MIN) * width_ratio;
+        // 位置插值
+        float x = start_pos.x + dx * ratio;
+        float y = start_pos.y + dy * ratio;
+
+        // 宽度：从细到粗（角色→特效）
+        float width = WIDTH_MIN + (WIDTH_MAX - WIDTH_MIN) * ratio;
+
+        // 透明度：从暗到亮（角色→特效）
+        float alpha_ratio = 0.3f + 0.7f * ratio;  // 30%→100%
+        Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
+        if (segment_alpha < 10) continue;
 
         // 自然弯曲：正弦波扰动（飘逸效果）
         float curve_offset = sin(ae.Frame * 0.1f + i * 0.15f) * 3.0f;
 
-        // 计算当前段坐标
-        int x = cx + dir_x * offset_distance + dir_y * curve_offset;
-        int y = cy + dir_y * offset_distance / 2 - dir_x * curve_offset / 2;
-
-        // 透明度：中心满值，两端渐淡
-        Uint8 segment_alpha = (Uint8)(alpha * width_ratio);
-        if (segment_alpha < 10) continue;
+        // 添加弯曲偏移（垂直于前进方向）
+        int render_x = (int)(x + dir_y * curve_offset);
+        int render_y = (int)(y / 2 - dir_x * curve_offset / 2);
 
         SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
 
         // 绘制当前段（精确宽度）
         int width_int = (int)width;
         for (int w = 0; w < width_int; ++w) {
-            int px = x - width_int / 2 + w;
-            SDL_RenderPoint(renderer, px, y);
+            int px = render_x - width_int / 2 + w;
+            SDL_RenderPoint(renderer, px, render_y);
         }
     }
 }
 
-// 绘制飘带末端散点粒子
+// 绘制飘带起点散点粒子（从角色位置散发）
 void AuraEffectRenderer::renderRibbonParticles(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
                                                Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
+    // 检查是否有攻击者
+    if (!ae.Attacker) return;
+
+    // 粒子从角色位置散发
+    int origin_x = ae.Attacker->Pos.x;
+    int origin_y = ae.Attacker->Pos.y / 2;
+
     // 计算飘带方向
-    float dir_x = ae.Velocity.x;
-    float dir_y = ae.Velocity.y;
-    float magnitude = sqrt(dir_x * dir_x + dir_y * dir_y);
+    float dx = ae.Pos.x - ae.Attacker->Pos.x;
+    float dy = ae.Pos.y - ae.Attacker->Pos.y;
+    float magnitude = sqrt(dx * dx + dy * dy);
 
-    if (magnitude < 0.1f) {
-        dir_x = 1.0f;
-        dir_y = 0.0f;
-        magnitude = 1.0f;
-    }
+    if (magnitude < 0.1f) return;
 
-    dir_x /= magnitude;
-    dir_y /= magnitude;
+    float dir_x = dx / magnitude;
+    float dir_y = dy / magnitude;
 
     uint32_t local_seed = generateSeed(ae);
     auto rand_int = [&local_seed]() -> uint32_t {
@@ -131,22 +133,19 @@ void AuraEffectRenderer::renderRibbonParticles(SDL_Renderer* renderer, const Bat
         return (local_seed / 65536) % 32768;
     };
 
-    int cx = ae.Pos.x;
-    int cy = ae.Pos.y / 2;
-
-    // 飘带末端区域（40-60像素）
-    const int particle_count = 12;
+    // 角色周围散发的粒子（真气涌出效果）
+    const int particle_count = 15;
     for (int i = 0; i < particle_count; ++i) {
-        // 末端位置 + 随机偏移
-        float base_offset = 40.0f + (rand_int() % 20);
-        float side_offset = (rand_int() % 10) - 5.0f;
+        // 起点附近随机偏移（沿飘带方向小范围散布）
+        float forward_offset = (rand_int() % 15);  // 向前0-15像素
+        float side_offset = (rand_int() % 12) - 6.0f;  // 左右±6像素
 
-        int p_x = cx - dir_x * base_offset + dir_y * side_offset;
-        int p_y = cy - dir_y * base_offset / 2 - dir_x * side_offset / 2;
+        int p_x = origin_x + dir_x * forward_offset + dir_y * side_offset;
+        int p_y = origin_y + dir_y * forward_offset / 2 - dir_x * side_offset / 2;
 
-        // 淡透明度
-        Uint8 p_alpha = alpha / 3;
-        if (p_alpha < 15) continue;
+        // 淡透明度（起点粒子相对暗淡）
+        Uint8 p_alpha = alpha / 4;
+        if (p_alpha < 10) continue;
 
         SDL_SetRenderDrawColor(renderer, r, g, b, p_alpha);
 
