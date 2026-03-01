@@ -8,6 +8,32 @@ uint32_t AuraEffectRenderer::generateSeed(const BattleSceneAct::AttackEffect& ae
     return (uint32_t)(ae.Pos.x * 1337 + ae.Pos.y * 31337 + (ae.Attacker ? ae.Attacker->ID : 0));
 }
 
+// 平滑插值函数（3次 Hermite 插值）
+float AuraEffectRenderer::smoothstep(float t) const
+{
+    return t * t * (3.0f - 2.0f * t);
+}
+
+// 简化版 Perlin 噪声（1D）
+float AuraEffectRenderer::perlinNoise(float x) const
+{
+    int xi = (int)x;
+    float xf = x - xi;
+
+    // 伪随机梯度（基于整数坐标）
+    auto hash = [](int i) -> float {
+        i = (i << 13) ^ i;
+        return ((i * (i * i * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0f - 1.0f;
+    };
+
+    float g0 = hash(xi);
+    float g1 = hash(xi + 1);
+
+    // 平滑插值
+    float t = smoothstep(xf);
+    return g0 * (1.0f - t) + g1 * t;
+}
+
 // 渲染主函数
 void AuraEffectRenderer::render(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae, int current_frame)
 {
@@ -62,23 +88,32 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
     float dir_x = dx / distance;
     float dir_y = dy / distance;
 
-    // 飘带参数
-    const float WIDTH_MAX = 72.0f;  // 头部最大宽度（特效位置）
-    const float WIDTH_MIN = 8.0f;   // 尾部最小宽度（角色位置）
+    // 飘带参数（调整为更细的宽度）
+    const float WIDTH_MAX = 24.0f;  // 头部最大宽度（缩小到原来的1/3）
+    const float WIDTH_MIN = 3.0f;   // 尾部最小宽度
 
     // 分段数量（根据距离动态调整）
     int segments = (int)(distance / 2.0f);  // 每2像素一段
     if (segments < 10) segments = 10;  // 最少10段
     if (segments > 100) segments = 100;  // 最多100段
 
+    // 时间参数（用于动画）
+    float time = ae.Frame * 0.08f;
+
     // 逐段绘制飘带（从起点角色到终点特效）
     for (int i = 0; i <= segments; ++i) {
         // 进度：0=起点（角色），1=终点（特效头部）
         float ratio = (float)i / segments;
 
-        // 位置插值
-        float x = start_pos.x + dx * ratio;
-        float y = start_pos.y + dy * ratio;
+        // === 流体动力学：分段延迟跟随 ===
+        // 后段追赶前段，产生柔软的延迟感
+        float delay_offset = (1.0f - ratio) * 0.15f;  // 越靠后延迟越大
+        float delayed_ratio = ratio - delay_offset;
+        if (delayed_ratio < 0.0f) delayed_ratio = 0.0f;
+
+        // 位置插值（使用延迟后的比例）
+        float x = start_pos.x + dx * delayed_ratio;
+        float y = start_pos.y + dy * delayed_ratio;
 
         // 宽度：从细到粗（角色→特效）
         float width = WIDTH_MIN + (WIDTH_MAX - WIDTH_MIN) * ratio;
@@ -88,12 +123,20 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
         Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
         if (segment_alpha < 10) continue;
 
-        // 自然弯曲：正弦波扰动（飘逸效果）
-        float curve_offset = sin(ae.Frame * 0.1f + i * 0.15f) * 3.0f;
+        // === 流体动力学：多层 Perlin 噪声湍流 ===
+        float turbulence =
+            perlinNoise(i * 0.1f + time * 2.0f) * 6.0f +      // 大尺度波动
+            perlinNoise(i * 0.3f + time * 5.0f) * 2.5f +      // 中等波动
+            perlinNoise(i * 0.8f + time * 12.0f) * 0.8f;      // 细节抖动
 
-        // 添加弯曲偏移（垂直于前进方向）
-        int render_x = (int)(x + dir_y * curve_offset);
-        int render_y = (int)(y / 2 - dir_x * curve_offset / 2);
+        // 速度影响：速度越快，湍流影响越小（飘带越直）
+        float speed = sqrt(ae.Velocity.x * ae.Velocity.x + ae.Velocity.y * ae.Velocity.y);
+        float turbulence_scale = 1.0f / (1.0f + speed * 0.02f);  // 速度快时衰减
+        turbulence *= turbulence_scale;
+
+        // 添加湍流偏移（垂直于前进方向）
+        int render_x = (int)(x + dir_y * turbulence);
+        int render_y = (int)(y / 2 - dir_x * turbulence / 2);
 
         SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
 

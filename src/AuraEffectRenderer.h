@@ -24,4 +24,10 @@ private:
 
     // 生成确定性随机种子（基于位置和角色ID）
     uint32_t generateSeed(const BattleSceneAct::AttackEffect& ae) const;
+
+    // Perlin 噪声函数（1D，用于流体湍流模拟）
+    float perlinNoise(float x) const;
+
+    // 插值函数（平滑插值）
+    float smoothstep(float t) const;
 };
