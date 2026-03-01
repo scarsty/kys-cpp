@@ -2,7 +2,7 @@
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
 #include "Head.h"
-#include "AuraEffectRenderer.h"
+#include "QiEffectRenderer.h"
 #include <deque>
 #include <set>
 #include <unordered_map>
@@ -38,7 +38,7 @@ protected:
     };
     std::unordered_map<int, std::deque<DashSnapshot>> dash_trails_;
     std::unordered_map<int, int> hurt_flash_timers_;
-    AuraEffectRenderer aura_renderer_;  // 武功范围特效渲染器
+    QiEffect::Renderer qi_renderer_;  // 真气特效渲染器（合并版）
 
     bool isDashing(const Role* r) const;
     void updateDashTrail(Role* r);

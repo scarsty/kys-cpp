@@ -191,7 +191,7 @@ void BattleSceneHades::renderAttackAuras()
 
     for (auto& ae : attack_effects_)
     {
-        aura_renderer_.render(renderer, ae, current_frame_);
+        qi_renderer_.render(renderer, ae, current_frame_);
     }
 }
 
