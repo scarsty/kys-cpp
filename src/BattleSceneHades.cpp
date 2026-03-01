@@ -22,8 +22,8 @@ constexpr int PROJECTILE_SPEED = 7;
 constexpr int PROJECTILE_BASE_TRAVEL = 100;
 constexpr int PROJECTILE_TRAVEL_PER_SD = 25;
 
-constexpr int DASH_TRAIL_COUNT = 8;  // 显示过去8帧的位置（减少分身数）
-constexpr int DASH_TRAIL_SAMPLE_INTERVAL = 5;  // 每5帧采样一次（拉长帧数）
+constexpr int DASH_TRAIL_COUNT = 4;  // 显示过去8帧的位置（减少分身数）
+constexpr int DASH_TRAIL_SAMPLE_INTERVAL = 2;  // 每5帧采样一次（拉长帧数）
 constexpr int HURT_FLASH_DURATION = 15;
 constexpr int HURT_FLASH_PERIOD = 3;
 
@@ -916,7 +916,7 @@ void BattleSceneHades::runPositionSwapLoop()
 void BattleSceneHades::backRun1()
 {
     // === DEBUG: 慢动作模式（按'S'键切换，默认开启）===
-    static bool debug_slowmo_enabled = true;  // 默认开启慢5倍
+    static bool debug_slowmo_enabled = false;  // 默认开启慢5倍
     if (debug_slowmo_enabled)
     {
         if (current_frame_ % 5) { return; }  // 慢5倍
@@ -1098,40 +1098,6 @@ void BattleSceneHades::backRun1()
             if (canWalk90(p, r, dis))
             {
                 r->Pos = p;
-
-                // 冲刺撞击检测
-                if (r->OperationType == 3 && r->HaveAction && r->CoolDown > 0)
-                {
-                    for (auto r2 : battle_roles_)
-                    {
-                        if (r2->Dead || r2->Team == r->Team) continue;
-
-                        double distance = (r->Pos - r2->Pos).norm();
-                        if (distance <= 1.0 && r2->HurtFrame == 0)
-                        {
-                            // 计算冲刺撞击伤害（基于攻击力，不使用武功）
-                            int hurt = r->Attack / 2;  // 冲刺伤害为攻击力的一半
-
-                            r2->HP -= hurt;
-                            r2->HurtFrame = 10;  // 设置受击硬直
-                            hurt_flash_timers_[r2->ID] = HURT_FLASH_DURATION;
-
-                            // 显示伤害数字
-                            TextEffect te;
-                            te.set(std::to_string(-hurt), Color{255, 255, 255, 255}, r2);
-                            text_effects_.push_back(std::move(te));
-
-                            // 添加血液特效
-                            AttackEffect ae1;
-                            ae1.FollowRole = r2;
-                            ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
-                            ae1.TotalFrame = ae1.TotalEffectFrame;
-                            attack_effects_.push_back(ae1);
-
-                            LOG("[DASH HIT] {} dashes into {}, damage={}\n", r->Name, r2->Name, hurt);
-                        }
-                    }
-                }
             }
             else
             {
@@ -1208,7 +1174,9 @@ void BattleSceneHades::backRun1()
         int current_frame2 = current_frame_;
         for (auto r : battle_roles_)
         {
+            //有行动
             Action(r);
+            //ai策略
             AI(r);
             updateDashTrail(r);
         }
@@ -1533,7 +1501,9 @@ void BattleSceneHades::Action(Role* r)
                 }
             }
             AttackEffect ae;
-            if (magic)
+
+            // 闪身不播放音效
+            if (magic && r->OperationType != 3)
             {
                 Audio::getInstance()->playASound(magic->SoundID);
                 ae.setEft(magic->EffectID);
@@ -1596,13 +1566,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.Track = 1;
                     r->OperationCount = 0;
                 }
-                // 冲刺时不添加武功特效
-                if (r->OperationType != 3)
-                {
-                    attack_effects_.push_back(ae);
-                    spawnRangeIndicatorEffect(ae.Pos, r->RealTowards, 0,
-                        static_cast<float>(magic->AttackDistance[level_index]));
-                }
+                attack_effects_.push_back(ae);
                 // Ulti splash: spawn 1 extra homing projectiles
                 if (ae.IsUltimate)
                 {
@@ -1636,11 +1600,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.Velocity.normTo(3);
                     ae.Frame = rand_.rand() * 10;
                     ae.Track = 1;
-                    // 冲刺时不添加武功特效
-                    if (r->OperationType != 3)
-                    {
-                        attack_effects_.push_back(ae);
-                    }
+                    attack_effects_.push_back(ae);
                 }
                 spawnRangeIndicatorEffect(r->Pos, r->RealTowards, 3,
                     static_cast<float>(magic->AttackDistance[level_index]));
@@ -1664,14 +1624,7 @@ void BattleSceneHades::Action(Role* r)
                 {
                     ae.Through = 1;
                 }
-                // 冲刺时不添加武功特效
-                if (r->OperationType != 3)
-                {
-                    attack_effects_.push_back(ae);
-                    int reach = calcProjectileReach(magic->SelectDistance[level_index], TILE_W * 2);
-                    spawnRangeIndicatorEffect(r->Pos, ae.Velocity, magic->AttackAreaType,
-                        static_cast<float>(reach));
-                }
+                attack_effects_.push_back(ae);
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
                     int sideCount = ae.IsUltimate ? 3 : 2;
@@ -1686,11 +1639,7 @@ void BattleSceneHades::Action(Role* r)
                         ae.Velocity.normTo(v);
                         ae.Through = 1;
                         ae.Strengthen = sideStr;
-                        // 冲刺时不添加武功特效
-                        if (r->OperationType != 3)
-                        {
-                            attack_effects_.push_back(ae);
-                        }
+                        attack_effects_.push_back(ae);
                     }
                 }
             }
@@ -1701,10 +1650,10 @@ void BattleSceneHades::Action(Role* r)
                 r->Velocity = acc;
                 //r->Acceleration += acc;
                 //r->VelocitytFrame = 10;
-                r->ActType = 0;
-                // 冲刺时不创建武功特效，只设置速度
-                // 注释掉特效创建代码
+
+                // 闪身状态先不攻击
                 /*
+                r->ActType = 0;
                 auto p = ae.Pos;
                 int count = 1;
                 double multiHitScore = (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 180.0;
@@ -1724,8 +1673,6 @@ void BattleSceneHades::Action(Role* r)
             LOG("[ATTACK EFFECT] Created effects for {} (OperationType={})\n",
                 ae.Attacker->Name, ae.OperationType);
             // === END DEBUG ===
-
-            // 冲刺和非冲刺都要执行MP消耗和清除UsingMagic
             r->MP -= ultCasters_.count(r) ? GameUtil::MAX_MP : -5;
             ultCasters_.erase(r);
             r->UsingMagic = nullptr;
@@ -1866,7 +1813,7 @@ void BattleSceneHades::AI(Role* r)
                     if (canWalk90(p, r) && r->FindingWay == 0)
                     {
                         //能否闪身的条件，似乎比较复杂
-                        if (rand_.rand() < 0.25 && r->UsingMagic)
+                        if (r->UsingMagic)
                         {
                             r->OperationType = 3;
                         }
@@ -1879,16 +1826,6 @@ void BattleSceneHades::AI(Role* r)
                             r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
                             r->ActFrame = 0;
                             r->HaveAction = 1;
-
-                            // 显示轻功文字（整场战斗只显示一次）
-                            if (!dash_text_shown_)
-                            {
-                                TextEffect te;
-                                te.set("轻功", Color{255, 215, 0, 255}, r);
-                                te.Size = 24;
-                                text_effects_.push_back(std::move(te));
-                                dash_text_shown_ = true;
-                            }
 
                             // === DEBUG: 冲刺攻击（移动中） ===
                             LOG("[AI] {} set HaveAction=1 (dash while moving), OperationType=3, CoolDown={}\n",
@@ -1930,7 +1867,7 @@ void BattleSceneHades::AI(Role* r)
                         }
                         r->FindingWay = 1;
                         r->RealTowards = p_target - r->Pos;
-                        if (rand_.rand() < 0.25 && r->UsingMagic)
+                        if (r->UsingMagic)
                         {
                             r->OperationType = 3;
                         }
@@ -1943,16 +1880,6 @@ void BattleSceneHades::AI(Role* r)
                             r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
                             r->ActFrame = 0;
                             r->HaveAction = 1;
-
-                            // 显示轻功文字（整场战斗只显示一次）
-                            if (!dash_text_shown_)
-                            {
-                                TextEffect te;
-                                te.set("轻功", Color{255, 215, 0, 255}, r);
-                                te.Size = 24;
-                                text_effects_.push_back(std::move(te));
-                                dash_text_shown_ = true;
-                            }
 
                             // === DEBUG: 冲刺攻击（寻路中） ===
                             LOG("[AI] {} set HaveAction=1 (dash while pathfinding), OperationType=3, CoolDown={}\n",
@@ -2053,15 +1980,6 @@ void BattleSceneHades::AI(Role* r)
                                 r->ActFrame = 0;
                                 r->HaveAction = 1;
 
-                                // 显示轻功文字（整场战斗只显示一次）
-                                if (!dash_text_shown_)
-                                {
-                                    TextEffect te;
-                                    te.set("轻功", Color{255, 215, 0, 255}, r);
-                                    te.Size = 24;
-                                    text_effects_.push_back(std::move(te));
-                                    dash_text_shown_ = true;
-                                }
                                 //r->RealTowards *= 3;
                             }
                         }
