@@ -32,3 +32,4 @@ wasm/deps_src
 wasm/wasm_deps
 wasm/CMakeFiles
 wasm/node_modules
+wasm/.wrangler

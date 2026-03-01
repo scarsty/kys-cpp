@@ -10,9 +10,16 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
             width: 100%; height: 100%;
-            overflow: hidden;
             background: #000;
             touch-action: none;
+        }
+        /* Wrapper takes the overflow:hidden so that position:fixed children
+           (the overlay) are NOT clipped — a known Safari bug when overflow:hidden
+           is set directly on <html> or <body>. */
+        #wrap {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -27,7 +34,7 @@
             background: #000;
         }
         #overlay {
-            position: fixed; inset: 0;
+            position: fixed; top: 0; right: 0; bottom: 0; left: 0;
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             background: #000;
@@ -74,9 +81,11 @@
         <div id="spinner"></div>
         <div id="status">Loading...</div>
     </div>
-    <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
-    <button id="rclick-btn" aria-label="Right click">✕</button>
-    <button id="fs-btn" aria-label="Fullscreen">⛶</button>
+    <div id="wrap">
+        <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+        <button id="rclick-btn" aria-label="Right click">✕</button>
+        <button id="fs-btn" aria-label="Fullscreen">⛶</button>
+    </div>
     <script>
         var statusEl = document.getElementById('status');
         var overlay = document.getElementById('overlay');
@@ -99,7 +108,8 @@
             }
         })();
 
-        // Gate overlay dismissal on two conditions
+        // Gate overlay dismissal on two conditions:
+        // 1. WASM runtime initialized, 2. C++ fonts loaded (fired from TitleScene::draw)
         var runtimeReady = false;
         var cppFontsReady = false;
 
