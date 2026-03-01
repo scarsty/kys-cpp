@@ -2,6 +2,7 @@
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
 #include "Head.h"
+#include "AuraEffectRenderer.h"
 #include <deque>
 #include <set>
 #include <unordered_map>
@@ -37,11 +38,19 @@ protected:
     };
     std::unordered_map<int, std::deque<DashSnapshot>> dash_trails_;
     std::unordered_map<int, int> hurt_flash_timers_;
+    AuraEffectRenderer aura_renderer_;  // 武功范围特效渲染器
 
     bool isDashing(const Role* r) const;
     void updateDashTrail(Role* r);
     void clearDashTrail(const Role* r);
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
+
+    // 武功范围地板特效绘制辅助函数
+    void drawCircleOutline(SDL_Renderer* renderer, int cx, int cy, float radius,
+                          Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
+    void drawCircleFill(SDL_Renderer* renderer, int cx, int cy, float radius,
+                       Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
+    void renderAttackAuras();  // 渲染武功范围地板特效（混合方案）
 
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);

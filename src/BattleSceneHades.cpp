@@ -15,7 +15,6 @@
 #include "Weather.h"
 #include <algorithm>
 #include <cmath>
-#include <SDL_render.h>
 
 namespace
 {
@@ -23,8 +22,8 @@ constexpr int PROJECTILE_SPEED = 7;
 constexpr int PROJECTILE_BASE_TRAVEL = 100;
 constexpr int PROJECTILE_TRAVEL_PER_SD = 25;
 
-constexpr int DASH_TRAIL_COUNT = 20;  // 显示过去20帧的位置
-constexpr int DASH_TRAIL_SAMPLE_INTERVAL = 2;  // 每2帧采样一次
+constexpr int DASH_TRAIL_COUNT = 8;  // 显示过去8帧的位置（减少分身数）
+constexpr int DASH_TRAIL_SAMPLE_INTERVAL = 5;  // 每5帧采样一次（拉长帧数）
 constexpr int HURT_FLASH_DURATION = 15;
 constexpr int HURT_FLASH_PERIOD = 3;
 
@@ -98,6 +97,44 @@ BattleSceneHades::~BattleSceneHades()
 {
 }
 
+// 绘制圆环边界（使用36边形近似）
+void BattleSceneHades::drawCircleOutline(SDL_Renderer* renderer, int cx, int cy, float radius,
+                                         Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
+{
+    const int segments = 36;
+    SDL_SetRenderDrawColor(renderer, r, g, b, alpha);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    for (int i = 0; i < segments; i++)
+    {
+        float angle1 = 2.0f * M_PI * i / segments;
+        float angle2 = 2.0f * M_PI * (i + 1) / segments;
+
+        int x1 = cx + radius * cos(angle1);
+        int y1 = cy / 2 + radius * sin(angle1);
+        int x2 = cx + radius * cos(angle2);
+        int y2 = cy / 2 + radius * sin(angle2);
+
+        SDL_RenderLine(renderer, x1, y1, x2, y2);
+    }
+}
+
+// 绘制填充圆形（使用扫描线算法）
+void BattleSceneHades::drawCircleFill(SDL_Renderer* renderer, int cx, int cy, float radius,
+                                      Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
+{
+    SDL_SetRenderDrawColor(renderer, r, g, b, alpha);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    int r_int = (int)radius;
+    for (int y = -r_int; y <= r_int; y++)
+    {
+        int x_offset = (int)sqrt(radius * radius - y * y);
+        int y_screen = cy / 2 + y;
+        SDL_RenderLine(renderer, cx - x_offset, y_screen, cx + x_offset, y_screen);
+    }
+}
+
 bool BattleSceneHades::isDashing(const Role* r) const
 {
     if (!r || r->Dead) return false;
@@ -145,6 +182,17 @@ Color BattleSceneHades::calculateHurtFlashColor(const Role* r, const Color& base
         return {255, 100, 100, base_color.a};
     }
     return base_color;
+}
+
+// 渲染武功范围地板特效（使用 AuraEffectRenderer）
+void BattleSceneHades::renderAttackAuras()
+{
+    auto renderer = Engine::getInstance()->getRenderer();
+
+    for (auto& ae : attack_effects_)
+    {
+        aura_renderer_.render(renderer, ae, current_frame_);
+    }
 }
 
 void BattleSceneHades::draw()
@@ -434,13 +482,20 @@ void BattleSceneHades::draw()
         renderExtraRoleInfo(r, r->Pos.x, r->Pos.y / 2);
     }
 
+    // 武功范围地板特效（混合方案：普通攻击简洁 + 大招华丽）
+    renderAttackAuras();
+
+    // === DEBUG: 武功范围辅助线已禁用 ===
     // 武功范围显示：简洁样式（单一半透明轮廓，不画辅助线）
-    auto renderer = Engine::getInstance()->getRenderer();
-    for (const auto& ard : debug_attack_ranges_)
-        drawAttackRangeSimple(renderer, ard);
+    // auto renderer = Engine::getInstance()->getRenderer();
+    // for (const auto& ard : debug_attack_ranges_)
+    //     drawAttackRangeSimple(renderer, ard);
 
     // 按攻击方式设计的通用范围特效（点/线/十字/面），与武功动画叠加
-    drawRangeIndicatorEffects(renderer);
+    // drawRangeIndicatorEffects(renderer);
+    // === END DEBUG ===
+
+    auto renderer = Engine::getInstance()->getRenderer();  // 保留这个，后面可能需要
 
     if (swapSelected_)
     {
@@ -860,6 +915,14 @@ void BattleSceneHades::runPositionSwapLoop()
 
 void BattleSceneHades::backRun1()
 {
+    // === DEBUG: 慢动作模式（按'S'键切换，默认开启）===
+    static bool debug_slowmo_enabled = true;  // 默认开启慢5倍
+    if (debug_slowmo_enabled)
+    {
+        if (current_frame_ % 5) { return; }  // 慢5倍
+    }
+    // === END DEBUG ===
+
     // === DEBUG: 攻击范围显示帧数递减 ===
     for (auto& ard : debug_attack_ranges_)
     {
@@ -892,7 +955,7 @@ void BattleSceneHades::backRun1()
 
     if (slow_ > 0)
     {
-        if (current_frame_ % 4) { return; }
+        if (current_frame_ % 5) { return; }  // 慢5倍
         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;

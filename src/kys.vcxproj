@@ -125,6 +125,7 @@ if exist "$(VcpkgInstalledDir)x64-windows\debug\bin\lua.dll" xcopy /Y "$(VcpkgIn
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp" />
     <ClCompile Include="..\mlcc\ZipFile.cpp" />
+    <ClCompile Include="AuraEffectRenderer.cpp" />
     <ClCompile Include="BattleSceneAct.cpp" />
     <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
@@ -209,6 +210,7 @@ if exist "$(VcpkgInstalledDir)x64-windows\debug\bin\lua.dll" xcopy /Y "$(VcpkgIn
     <ClInclude Include="..\mlcc\SimpleCC.h" />
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h" />
     <ClInclude Include="..\mlcc\ZipFile.h" />
+    <ClInclude Include="AuraEffectRenderer.h" />
     <ClInclude Include="BattleSceneAct.h" />
     <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
