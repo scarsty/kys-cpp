@@ -38,7 +38,7 @@ void AuraEffectRenderer::render(SDL_Renderer* renderer, const BattleSceneAct::At
     renderRibbonParticles(renderer, ae, r, g, b, base_alpha);
 }
 
-// 绘制真气飘带（沿攻击方向/弹道）
+// 绘制真气飘带（中心最宽，向两侧飘逸延伸）
 void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
                                         Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
@@ -58,39 +58,50 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
     dir_x /= magnitude;
     dir_y /= magnitude;
 
-    // 飘带参数
-    const int RIBBON_LENGTH = 40;  // 飘带长度（像素段数）
-    const int RIBBON_WIDTH_START = 4;  // 起始宽度（细）
-    const int RIBBON_WIDTH_END = 72;   // 末端宽度（粗，匹配攻击范围72px）
+    // 飘带参数（中心最宽，两侧延伸）
+    const int RIBBON_BACK = 15;      // 向后延伸段数（拖尾）
+    const int RIBBON_FORWARD = 40;   // 向前延伸段数（攻击方向，更远）
+    const int RIBBON_TOTAL = RIBBON_BACK + RIBBON_FORWARD;
+    const float WIDTH_MAX = 72.0f;   // 中心最大宽度（匹配攻击范围）
+    const float WIDTH_MIN = 4.0f;    // 两端最小宽度
 
-    int cx = ae.Pos.x;
+    int cx = ae.Pos.x;  // 特效位置（飘带最宽处）
     int cy = ae.Pos.y / 2;
 
-    // 逐段绘制飘带（向后延伸，飘逸效果）
-    for (int i = 0; i < RIBBON_LENGTH; ++i) {
-        // 当前段的位置（沿方向反向延伸）
-        float segment_ratio = (float)i / RIBBON_LENGTH;
-        float offset = i * 2.0f;  // 每段间隔2像素
+    // 逐段绘制飘带（从后向前）
+    for (int i = 0; i < RIBBON_TOTAL; ++i) {
+        // 当前段相对于中心的偏移（负数=向后，正数=向前）
+        int offset_from_center = i - RIBBON_BACK;
+        float offset_distance = offset_from_center * 2.0f;  // 每段2像素
+
+        // 计算宽度：中心最宽，向两端渐细
+        float width_ratio;
+        if (offset_from_center <= 0) {
+            // 向后段：从细到粗
+            width_ratio = 1.0f + (float)offset_from_center / RIBBON_BACK;
+        } else {
+            // 向前段：从粗到细
+            width_ratio = 1.0f - (float)offset_from_center / RIBBON_FORWARD;
+        }
+        float width = WIDTH_MIN + (WIDTH_MAX - WIDTH_MIN) * width_ratio;
 
         // 自然弯曲：正弦波扰动（飘逸效果）
         float curve_offset = sin(ae.Frame * 0.1f + i * 0.15f) * 3.0f;
 
-        // 计算当前段坐标（向后延伸，垂直方向弯曲）
-        int x = cx - dir_x * offset + dir_y * curve_offset;
-        int y = cy - dir_y * offset / 2 - dir_x * curve_offset / 2;
+        // 计算当前段坐标
+        int x = cx + dir_x * offset_distance + dir_y * curve_offset;
+        int y = cy + dir_y * offset_distance / 2 - dir_x * curve_offset / 2;
 
-        // 宽度渐变：从4像素→72像素（细→粗）
-        int width = RIBBON_WIDTH_START + (i * (RIBBON_WIDTH_END - RIBBON_WIDTH_START) / RIBBON_LENGTH);
-
-        // 透明度渐变：从满值→20%（末端更透）
-        Uint8 segment_alpha = (Uint8)(alpha * (1.0f - segment_ratio * 0.8f));
+        // 透明度：中心满值，两端渐淡
+        Uint8 segment_alpha = (Uint8)(alpha * width_ratio);
         if (segment_alpha < 10) continue;
 
         SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
 
         // 绘制当前段（精确宽度）
-        for (int w = 0; w < width; ++w) {
-            int px = x - width / 2 + w;
+        int width_int = (int)width;
+        for (int w = 0; w < width_int; ++w) {
+            int px = x - width_int / 2 + w;
             SDL_RenderPoint(renderer, px, y);
         }
     }
