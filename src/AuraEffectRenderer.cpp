@@ -51,13 +51,35 @@ void AuraEffectRenderer::render(SDL_Renderer* renderer, const BattleSceneAct::At
     Uint8 base_alpha = (Uint8)(80 * (max_frame - ae.Frame) / max_frame);  // 150 → 80（降低47%）
     if (base_alpha <= 5) return;
 
-    // 2. 颜色设定（敌我识别，降低饱和度）
+    // 2. 颜色设定（根据武功类型 + 敌我识别）
     bool is_friendly = (ae.Attacker && ae.Attacker->Team == 0);
     Uint8 r, g, b;
-    if (is_friendly) {
-        r = 80; g = 180; b = 120;  // 友军：淡青绿色（降低饱和度）
-    } else {
-        r = 200; g = 100; b = 100;   // 敌军：淡红色（降低饱和度）
+
+    // 根据武功类型选择基础颜色
+    int magic_type = ae.UsingMagic ? ae.UsingMagic->MagicType : 0;
+    switch (magic_type) {
+        case 1:  // 拳：橙黄色（金刚之力）
+            r = 255; g = 180; b = 60;
+            break;
+        case 2:  // 剑：蓝白色（剑气凌厉）
+            r = 120; g = 200; b = 255;
+            break;
+        case 3:  // 刀：赤红色（刀势凶猛）
+            r = 255; g = 80; b = 60;
+            break;
+        case 4:  // 特殊：紫色（神秘莫测）
+            r = 200; g = 100; b = 255;
+            break;
+        default:  // 默认：白色
+            r = 220; g = 220; b = 220;
+            break;
+    }
+
+    // 敌我识别：敌军降低亮度
+    if (!is_friendly) {
+        r = (Uint8)(r * 0.7f);
+        g = (Uint8)(g * 0.7f);
+        b = (Uint8)(b * 0.7f);
     }
 
     // 3. 分层渲染
@@ -119,13 +141,27 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
 
         // 位置计算（从头部向后拖尾）
         float x = head_x - dir_x * delayed_offset;
-        float y = head_y - dir_y * delayed_offset / 2;
+        float y = head_y - dir_y * delayed_offset / 2;  // 保持2.5D压缩
 
-        // 宽度：从粗到细（头部→尾部）
-        float width = WIDTH_MAX - (WIDTH_MAX - WIDTH_MIN) * ratio;
+        // 宽度：从粗到细（头部→尾部），像素化离散
+        float width_raw = WIDTH_MAX - (WIDTH_MAX - WIDTH_MIN) * ratio;
+        // 像素风格：量化到6档宽度
+        int width;
+        if (width_raw > 30.0f) width = 36;
+        else if (width_raw > 24.0f) width = 28;
+        else if (width_raw > 18.0f) width = 20;
+        else if (width_raw > 12.0f) width = 14;
+        else if (width_raw > 6.0f) width = 8;
+        else width = 4;
 
-        // 透明度：从亮到暗（头部→尾部）
+        // 透明度：从亮到暗（头部→尾部），像素化量化
         float alpha_ratio = 1.0f - ratio * 0.7f;  // 100%→30%
+        // 像素风格：量化到4个透明度级别
+        if (alpha_ratio > 0.75f) alpha_ratio = 1.0f;
+        else if (alpha_ratio > 0.5f) alpha_ratio = 0.75f;
+        else if (alpha_ratio > 0.25f) alpha_ratio = 0.5f;
+        else alpha_ratio = 0.35f;
+
         Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
         if (segment_alpha < 10) continue;
 
@@ -142,14 +178,21 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
 
         // 添加湍流偏移（垂直于前进方向）
         int render_x = (int)(x + dir_y * turbulence);
-        int render_y = (int)(y - dir_x * turbulence / 2);
+        int render_y = (int)(y - dir_x * turbulence * 0.5f);  // 2.5D视角，Y方向减半
 
         SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
 
-        // 绘制当前段（精确宽度）
-        int width_int = (int)width;
-        for (int w = 0; w < width_int; ++w) {
-            int px = render_x - width_int / 2 + w;
+        // 像素风格：添加颜色抖动（沿飘带长度产生明暗变化）
+        int color_jitter = (int)(perlinNoise(i * 0.15f) * 30.0f);  // ±30亮度抖动
+        Uint8 r_pixel = (Uint8)std::clamp((int)r + color_jitter, 0, 255);
+        Uint8 g_pixel = (Uint8)std::clamp((int)g + color_jitter, 0, 255);
+        Uint8 b_pixel = (Uint8)std::clamp((int)b + color_jitter, 0, 255);
+
+        SDL_SetRenderDrawColor(renderer, r_pixel, g_pixel, b_pixel, segment_alpha);
+
+        // 绘制当前段（离散宽度）
+        for (int w = 0; w < width; ++w) {
+            int px = render_x - width / 2 + w;
             SDL_RenderPoint(renderer, px, render_y);
         }
     }
