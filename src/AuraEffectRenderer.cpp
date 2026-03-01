@@ -39,13 +39,16 @@ void AuraEffectRenderer::render(SDL_Renderer* renderer, const BattleSceneAct::At
 {
     if (ae.Frame >= ae.TotalFrame || !ae.UsingMagic) return;
 
+    // 命中检测：如果已经命中敌人，立即消失
+    if (!ae.Defender.empty()) return;
+
     // 1. 生命周期计算
     float max_frame = ae.TotalFrame * 1.25f;
     float progress = (float)ae.Frame / max_frame;
     if (progress > 1.0f) progress = 1.0f;
 
-    // 淡出透明度
-    Uint8 base_alpha = (Uint8)(150 * (max_frame - ae.Frame) / max_frame);
+    // 淡出透明度（降低基础透明度，避免画面混乱）
+    Uint8 base_alpha = (Uint8)(80 * (max_frame - ae.Frame) / max_frame);  // 150 → 80（降低47%）
     if (base_alpha <= 5) return;
 
     // 2. 颜色设定（敌我识别，降低饱和度）
@@ -151,10 +154,10 @@ void AuraEffectRenderer::renderQiRibbon(SDL_Renderer* renderer, const BattleScen
         }
     }
 
-    // === 绘制实际命中范围圆圈 ===
-    // TILE_W = 18px，命中半径 = TILE_W * 2 = 36px
+    // === 绘制实际命中范围圆圈（极淡，避免画面混乱） ===
+    // 如果还是太乱，可以注释掉这整块代码
     const int HIT_RADIUS = 36;
-    SDL_SetRenderDrawColor(renderer, r, g, b, (Uint8)(alpha * 0.6f));  // 60% 透明度
+    SDL_SetRenderDrawColor(renderer, r, g, b, (Uint8)(alpha * 0.12f));  // 12% 透明度（极淡）
 
     // 绘制圆圈轮廓（Bresenham 圆算法）
     int cx = head_x;
