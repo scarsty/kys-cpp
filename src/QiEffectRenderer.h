@@ -32,6 +32,7 @@ enum class Attribute
     Metal,         // 金（白金色）
     Wood,          // 木（绿色）
     Water,         // 水（蓝色）
+    Wind,          // 风（青绿）
     Fire,          // 火（红色）
     Earth,         // 土（黄色）
     Yang,          // 阳（金黄色）
@@ -86,6 +87,31 @@ struct Particle
 };
 
 // ============================================================================
+// DrawList：按 RGBA 分桶批处理点渲染
+// ============================================================================
+
+struct DrawList
+{
+    struct Bucket
+    {
+        Uint8 r = 0, g = 0, b = 0, a = 0;
+        std::vector<SDL_FPoint> points;
+    };
+
+    void addPoint(int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a);
+    void flush(SDL_Renderer* renderer);
+
+private:
+    static uint32_t makeKey(Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+    {
+        return (uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16) | ((uint32_t)a << 24);
+    }
+
+    std::unordered_map<uint32_t, size_t> bucket_index_;
+    std::vector<Bucket> buckets;
+};
+
+// ============================================================================
 // 四、真气特效渲染器
 // ============================================================================
 
@@ -98,44 +124,52 @@ public:
     // 渲染武功特效（主入口）
     void render(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae, int current_frame);
 
+    // 调试：可视化弹道轨迹
+    void renderDebugTrajectory(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae);
+
     // 设置全局参数
     void setGlobalBrightness(float brightness) { global_brightness_ = brightness; }
     void setEnableParticles(bool enable) { enable_particles_ = enable; }
+    void setShowDebugTrajectory(bool enable) { show_debug_trajectory_ = enable; }
 
 private:
     // 根据武功类型推断视觉参数
     VisualParams inferParams(const Magic* magic) const;
 
-    // 根据形状调用对应的渲染函数
-    void renderByShape(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
-                      const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
+    // 头部：具象化形状模板（新）
+    void renderHead(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
+                    const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
+
+    // 尾部：保留现有逻辑（输出到 DrawList）
+    void renderTrailByShape(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
+                            const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // === 形状渲染函数 ===
 
     // 1. 拳劲：圆形冲击波（3层扩散波纹）
-    void renderFistWave(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+    void renderFistWave(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                        const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // 2. 剑气：细长锋利的气刃拖尾
-    void renderSwordQi(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+    void renderSwordQi(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                       const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // 3. 刀气：宽厚霸道的气刃拖尾
-    void renderBladeQi(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+    void renderBladeQi(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                       const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // 4. 掌风：扇形气浪
-    void renderPalmWind(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+    void renderPalmWind(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                        const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // 5. 特殊飘带：通用拖尾效果
-    void renderSpecialAura(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+    void renderSpecialAura(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                           const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // === 辅助渲染函数 ===
 
     // 粒子特效（起点散发）
-    void renderParticles(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+    void renderParticles(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                         const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha);
 
     // 命中范围圆圈（调试用）
@@ -160,10 +194,17 @@ private:
     // 平滑插值
     float smoothstep(float t) const;
 
+    // 获取 8 方向
+    int getDirection8(const BattleSceneAct::AttackEffect& ae) const;
+
+    // 形状名称映射
+    const char* templateNameForShape(Shape shape) const;
+
 private:
     float global_brightness_ = 1.0f;
     bool enable_particles_ = true;
-    bool show_hit_range_ = false;  // 调试用
+    bool show_hit_range_ = true;  // 调试用：显示命中范围圆圈
+    bool show_debug_trajectory_ = true;  // 调试用：显示弹道轨迹
 };
 
 // ============================================================================

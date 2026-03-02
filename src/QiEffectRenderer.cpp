@@ -1,10 +1,48 @@
 #include "QiEffectRenderer.h"
+#include "QiEffectConfig.h"
+#include "QiShapeTemplates.h"
 #include "Head.h"
 #include <cmath>
+#include <cstdio>
 #include <algorithm>
+#include <numbers>
 
 namespace QiEffect
 {
+
+// ============================================================================
+// DrawList 实现
+// ============================================================================
+
+void DrawList::addPoint(int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+    const uint32_t key = makeKey(r, g, b, a);
+    size_t idx;
+    if (auto it = bucket_index_.find(key); it != bucket_index_.end())
+    {
+        idx = it->second;
+    }
+    else
+    {
+        idx = buckets.size();
+        bucket_index_[key] = idx;
+        Bucket bucket;
+        bucket.r = r; bucket.g = g; bucket.b = b; bucket.a = a;
+        buckets.push_back(std::move(bucket));
+    }
+
+    buckets[idx].points.push_back(SDL_FPoint{(float)x, (float)y});
+}
+
+void DrawList::flush(SDL_Renderer* renderer)
+{
+    for (auto& b : buckets)
+    {
+        if (b.points.empty()) continue;
+        SDL_SetRenderDrawColor(renderer, b.r, b.g, b.b, b.a);
+        SDL_RenderPoints(renderer, b.points.data(), (int)b.points.size());
+    }
+}
 
 // ============================================================================
 // Renderer 实现
@@ -14,15 +52,52 @@ Renderer::Renderer()
 {
 }
 
+int Renderer::getDirection8(const BattleSceneAct::AttackEffect& ae) const
+{
+    float dx = ae.Velocity.x;
+    float dy = ae.Velocity.y;
+
+    if ((std::fabs(dx) + std::fabs(dy)) < 0.1f && ae.Attacker)
+    {
+        dx = ae.Pos.x - ae.Attacker->Pos.x;
+        dy = ae.Pos.y - ae.Attacker->Pos.y;
+    }
+
+    // 2.5D：屏幕上 Y 压缩
+    dy *= 0.5f;
+
+    const float ang = std::atan2(dy, dx);
+    const float two_pi = std::numbers::pi_v<float> * 2.0f;
+    float t = (ang + std::numbers::pi_v<float>) / two_pi;
+    int dir = (int)std::lround(t * 8.0f) & 7;
+    return dir;
+}
+
+const char* Renderer::templateNameForShape(Shape shape) const
+{
+    switch (shape)
+    {
+        case Shape::FistWave: return "Fist";
+        case Shape::SwordQi: return "Sword";
+        case Shape::BladeQi: return "Blade";
+        case Shape::PalmWind: return "Palm";
+        case Shape::SpecialAura:
+        default: return "Ribbon";
+    }
+}
+
 void Renderer::render(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae, int current_frame)
 {
     if (ae.Frame >= ae.TotalFrame || !ae.UsingMagic) return;
-    if (!ae.Defender.empty()) return;  // 命中后消失
+    if (!ae.Defender.empty()) return;
 
-    // 推断视觉参数
-    VisualParams params = inferParams(ae.UsingMagic);
+    // 推断视觉参数（优先从配置加载）
+    QiEffectConfig::instance().ensureLoaded();
+    VisualParams params;
+    if (!QiEffectConfig::instance().tryGetParams(ae.UsingMagic, params))
+        params = inferParams(ae.UsingMagic);
 
-    // 计算基础透明度（随时间衰减）
+    // 计算基础透明度
     float max_frame = ae.TotalFrame * 1.25f;
     float progress = (float)ae.Frame / max_frame;
     if (progress > 1.0f) progress = 1.0f;
@@ -38,19 +113,33 @@ void Renderer::render(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect
     // 设置混合模式
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    // 根据形状渲染
-    renderByShape(renderer, ae, params, r, g, b, base_alpha);
+    DrawList draw_list;
 
-    // 粒子特效（可选）
+    // 头部：具象武器/印记轮廓（暂时禁用，仅用于弹道可视化调试）
+    // renderHead(draw_list, ae, params, r, g, b, base_alpha);
+
+    // 尾部：保留现有形状逻辑
+    renderTrailByShape(draw_list, ae, params, r, g, b, base_alpha);
+
+    // 粒子特效
     if (enable_particles_)
     {
-        renderParticles(renderer, ae, params, r, g, b, base_alpha);
+        renderParticles(draw_list, ae, params, r, g, b, base_alpha);
     }
+
+    // 批量提交
+    draw_list.flush(renderer);
 
     // 调试：命中范围圆圈
     if (show_hit_range_)
     {
         renderHitRangeCircle(renderer, ae, r, g, b, base_alpha);
+    }
+
+    // 调试：弹道轨迹可视化
+    if (show_debug_trajectory_)
+    {
+        renderDebugTrajectory(renderer, ae);
     }
 }
 
@@ -131,26 +220,79 @@ VisualParams Renderer::inferParams(const Magic* magic) const
     return params;
 }
 
-void Renderer::renderByShape(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
-                             const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
+void Renderer::renderHead(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
+                          const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
+{
+    const char* templ_name = templateNameForShape(params.shape);
+    const IShapeTemplate* templ = ShapeRegistry::instance().get(templ_name);
+    if (!templ)
+    {
+        // 调试：如果找不到模板，输出警告
+        static bool warned = false;
+        if (!warned) {
+            printf("【真气特效】警告：找不到形状模板 '%s'\n", templ_name);
+            warned = true;
+        }
+        return;
+    }
+
+    // 调试输出（仅输出一次）
+    static bool first_call = true;
+    if (first_call)
+    {
+        printf("【真气特效】渲染头部形状：%s（方向：%d，点数：%zu）\n",
+               templ_name, getDirection8(ae), templ->points(0).size());
+        first_call = false;
+    }
+
+    const int dir = getDirection8(ae);
+    const int ox = ae.Pos.x;
+    const int oy = ae.Pos.y / 2;
+
+    // 头部稍微提高亮度以便识别
+    const Uint8 head_alpha = (Uint8)std::min(255, (int)alpha + 80);
+
+    // 放大形状（3倍）使其更明显
+    const int scale = 3;
+
+    // 使用纯白色使形状更醒目（调试用）
+    const Uint8 head_r = 255;
+    const Uint8 head_g = 255;
+    const Uint8 head_b = 255;
+
+    for (const auto& p : templ->points(dir))
+    {
+        // 填充放大后的像素区域
+        for (int dy = 0; dy < scale; ++dy)
+        {
+            for (int dx = 0; dx < scale; ++dx)
+            {
+                draw_list.addPoint(ox + p.x * scale + dx, oy + p.y * scale + dy, head_r, head_g, head_b, head_alpha);
+            }
+        }
+    }
+}
+
+void Renderer::renderTrailByShape(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
+                                  const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     switch (params.shape)
     {
         case Shape::FistWave:
-            renderFistWave(renderer, ae, params, r, g, b, alpha);
+            renderFistWave(draw_list, ae, params, r, g, b, alpha);
             break;
         case Shape::SwordQi:
-            renderSwordQi(renderer, ae, params, r, g, b, alpha);
+            renderSwordQi(draw_list, ae, params, r, g, b, alpha);
             break;
         case Shape::BladeQi:
-            renderBladeQi(renderer, ae, params, r, g, b, alpha);
+            renderBladeQi(draw_list, ae, params, r, g, b, alpha);
             break;
         case Shape::PalmWind:
-            renderPalmWind(renderer, ae, params, r, g, b, alpha);
+            renderPalmWind(draw_list, ae, params, r, g, b, alpha);
             break;
         case Shape::SpecialAura:
         default:
-            renderSpecialAura(renderer, ae, params, r, g, b, alpha);
+            renderSpecialAura(draw_list, ae, params, r, g, b, alpha);
             break;
     }
 }
@@ -159,7 +301,7 @@ void Renderer::renderByShape(SDL_Renderer* renderer, const BattleSceneAct::Attac
 // 形状渲染实现
 // ============================================================================
 
-void Renderer::renderFistWave(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+void Renderer::renderFistWave(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                               const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     // 拳劲：圆形冲击波（3层扩散波纹）
@@ -183,22 +325,20 @@ void Renderer::renderFistWave(SDL_Renderer* renderer, const BattleSceneAct::Atta
         Uint8 wave_alpha = (Uint8)(alpha * alpha_ratio);
         if (wave_alpha < 10) continue;
 
-        SDL_SetRenderDrawColor(renderer, r, g, b, wave_alpha);
-
         // Bresenham 圆算法
         int x = 0, y = radius;
         int d = 3 - 2 * radius;
 
         auto drawPoints = [&](int px, int py)
         {
-            SDL_RenderPoint(renderer, cx + px, cy + py);
-            SDL_RenderPoint(renderer, cx - px, cy + py);
-            SDL_RenderPoint(renderer, cx + px, cy - py);
-            SDL_RenderPoint(renderer, cx - px, cy - py);
-            SDL_RenderPoint(renderer, cx + py, cy + px);
-            SDL_RenderPoint(renderer, cx - py, cy + px);
-            SDL_RenderPoint(renderer, cx + py, cy - px);
-            SDL_RenderPoint(renderer, cx - py, cy - px);
+            draw_list.addPoint(cx + px, cy + py, r, g, b, wave_alpha);
+            draw_list.addPoint(cx - px, cy + py, r, g, b, wave_alpha);
+            draw_list.addPoint(cx + px, cy - py, r, g, b, wave_alpha);
+            draw_list.addPoint(cx - px, cy - py, r, g, b, wave_alpha);
+            draw_list.addPoint(cx + py, cy + px, r, g, b, wave_alpha);
+            draw_list.addPoint(cx - py, cy + px, r, g, b, wave_alpha);
+            draw_list.addPoint(cx + py, cy - px, r, g, b, wave_alpha);
+            draw_list.addPoint(cx - py, cy - px, r, g, b, wave_alpha);
         };
 
         while (y >= x)
@@ -218,7 +358,7 @@ void Renderer::renderFistWave(SDL_Renderer* renderer, const BattleSceneAct::Atta
     }
 }
 
-void Renderer::renderSwordQi(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+void Renderer::renderSwordQi(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                              const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     // 剑气：细长锋利的气刃拖尾
@@ -269,17 +409,15 @@ void Renderer::renderSwordQi(SDL_Renderer* renderer, const BattleSceneAct::Attac
         int render_x = (int)(x + dir_y * turbulence);
         int render_y = (int)(y - dir_x * turbulence * 0.5f);
 
-        SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
-
         for (int w = 0; w < width; ++w)
         {
             int px = render_x - width / 2 + w;
-            SDL_RenderPoint(renderer, px, render_y);
+            draw_list.addPoint(px, render_y, r, g, b, segment_alpha);
         }
     }
 }
 
-void Renderer::renderBladeQi(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+void Renderer::renderBladeQi(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                              const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     // 刀气：宽厚霸道的气刃拖尾
@@ -330,17 +468,15 @@ void Renderer::renderBladeQi(SDL_Renderer* renderer, const BattleSceneAct::Attac
         int render_x = (int)(x + dir_y * turbulence);
         int render_y = (int)(y - dir_x * turbulence * 0.5f);
 
-        SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
-
         for (int w = 0; w < width; ++w)
         {
             int px = render_x - width / 2 + w;
-            SDL_RenderPoint(renderer, px, render_y);
+            draw_list.addPoint(px, render_y, r, g, b, segment_alpha);
         }
     }
 }
 
-void Renderer::renderPalmWind(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+void Renderer::renderPalmWind(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                               const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     // 掌风：扇形气浪
@@ -381,13 +517,12 @@ void Renderer::renderPalmWind(SDL_Renderer* renderer, const BattleSceneAct::Atta
             Uint8 segment_alpha = (Uint8)(alpha * alpha_ratio);
             if (segment_alpha < 10) continue;
 
-            SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
-            SDL_RenderPoint(renderer, px, py);
+            draw_list.addPoint(px, py, r, g, b, segment_alpha);
         }
     }
 }
 
-void Renderer::renderSpecialAura(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+void Renderer::renderSpecialAura(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                                  const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     // 特殊飘带：通用拖尾效果
@@ -444,12 +579,10 @@ void Renderer::renderSpecialAura(SDL_Renderer* renderer, const BattleSceneAct::A
         int render_x = (int)(x + dir_y * turbulence);
         int render_y = (int)(y - dir_x * turbulence * 0.5f);
 
-        SDL_SetRenderDrawColor(renderer, r, g, b, segment_alpha);
-
         for (int w = 0; w < width; ++w)
         {
             int px = render_x - width / 2 + w;
-            SDL_RenderPoint(renderer, px, render_y);
+            draw_list.addPoint(px, render_y, r, g, b, segment_alpha);
         }
     }
 }
@@ -458,7 +591,7 @@ void Renderer::renderSpecialAura(SDL_Renderer* renderer, const BattleSceneAct::A
 // 辅助渲染
 // ============================================================================
 
-void Renderer::renderParticles(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae,
+void Renderer::renderParticles(DrawList& draw_list, const BattleSceneAct::AttackEffect& ae,
                                const VisualParams& params, Uint8 r, Uint8 g, Uint8 b, Uint8 alpha)
 {
     if (!ae.Attacker) return;
@@ -482,14 +615,12 @@ void Renderer::renderParticles(SDL_Renderer* renderer, const BattleSceneAct::Att
         Uint8 p_alpha = alpha / 4;
         if (p_alpha < 10) continue;
 
-        SDL_SetRenderDrawColor(renderer, r, g, b, p_alpha);
-
         int size = (rand_int() % 2 == 0) ? 1 : 2;
         for (int dy = 0; dy < size; ++dy)
         {
             for (int dx = 0; dx < size; ++dx)
             {
-                SDL_RenderPoint(renderer, p_x + dx, p_y + dy);
+                draw_list.addPoint(p_x + dx, p_y + dy, r, g, b, p_alpha);
             }
         }
     }
@@ -553,6 +684,9 @@ void Renderer::getAttributeColor(Attribute attr, bool is_friendly, float tempera
             break;
         case Attribute::Water:  // 水（蓝色）
             r = 100; g = 180; b = 255;
+            break;
+        case Attribute::Wind:   // 风（青绿）
+            r = 120; g = 220; b = 180;
             break;
         case Attribute::Fire:   // 火（红色）
             r = 255; g = 120; b = 80;
@@ -625,6 +759,118 @@ float Renderer::perlinNoise(float x) const
 float Renderer::smoothstep(float t) const
 {
     return t * t * (3.0f - 2.0f * t);
+}
+
+void Renderer::renderDebugTrajectory(SDL_Renderer* renderer, const BattleSceneAct::AttackEffect& ae)
+{
+    int cx = ae.Pos.x;
+    int cy = ae.Pos.y / 2;
+
+    // 1. 当前位置：大圆圈（黄色）
+    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+    for (int r = 8; r <= 12; r += 2)
+    {
+        int x = 0, y = r;
+        int d = 3 - 2 * r;
+        auto drawCircle = [&](int px, int py)
+        {
+            SDL_RenderPoint(renderer, cx + px, cy + py);
+            SDL_RenderPoint(renderer, cx - px, cy + py);
+            SDL_RenderPoint(renderer, cx + px, cy - py);
+            SDL_RenderPoint(renderer, cx - px, cy - py);
+            SDL_RenderPoint(renderer, cx + py, cy + px);
+            SDL_RenderPoint(renderer, cx - py, cy + px);
+            SDL_RenderPoint(renderer, cx + py, cy - px);
+            SDL_RenderPoint(renderer, cx - py, cy - px);
+        };
+        while (y >= x)
+        {
+            drawCircle(x, y);
+            x++;
+            if (d > 0) { y--; d = d + 4 * (x - y) + 10; }
+            else { d = d + 4 * x + 6; }
+        }
+    }
+
+    // 2. 速度向量：箭头（青色）
+    float vx = ae.Velocity.x;
+    float vy = ae.Velocity.y * 0.5f;  // 2.5D 压缩
+    float mag = std::sqrt(vx * vx + vy * vy);
+    if (mag > 0.1f)
+    {
+        SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255);
+        int arrow_len = 30;
+        int tx = cx + (int)(vx / mag * arrow_len);
+        int ty = cy + (int)(vy / mag * arrow_len);
+
+        // 箭头主线
+        for (int i = 0; i <= arrow_len; i++)
+        {
+            float t = (float)i / arrow_len;
+            int px = cx + (int)(vx / mag * i);
+            int py = cy + (int)(vy / mag * i);
+            SDL_RenderPoint(renderer, px, py);
+        }
+
+        // 箭头头部
+        float angle = std::atan2(vy, vx);
+        for (int i = 0; i < 2; i++)
+        {
+            float side_angle = angle + (i == 0 ? 2.8f : -2.8f);
+            int hx = tx - (int)(std::cos(side_angle) * 8);
+            int hy = ty - (int)(std::sin(side_angle) * 8);
+            for (int j = 0; j <= 8; j++)
+            {
+                float t = (float)j / 8;
+                SDL_RenderPoint(renderer, tx + (int)((hx - tx) * t), ty + (int)((hy - ty) * t));
+            }
+        }
+    }
+
+    // 3. 轨迹历史：点串（绿色）
+    if (!ae.trail.empty())
+    {
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 180);
+        for (const auto& pt : ae.trail)
+        {
+            int px = (int)pt.x;
+            int py = (int)(pt.y / 2);
+            // 画小十字
+            for (int i = -2; i <= 2; i++)
+            {
+                SDL_RenderPoint(renderer, px + i, py);
+                SDL_RenderPoint(renderer, px, py + i);
+            }
+        }
+    }
+
+    // 4. 命中范围：红色大圆
+    const int HIT_RADIUS = 36;
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 120);
+    int x = 0, y = HIT_RADIUS;
+    int d = 3 - 2 * HIT_RADIUS;
+    auto drawHitCircle = [&](int px, int py)
+    {
+        SDL_RenderPoint(renderer, cx + px, cy + py);
+        SDL_RenderPoint(renderer, cx - px, cy + py);
+        SDL_RenderPoint(renderer, cx + px, cy - py);
+        SDL_RenderPoint(renderer, cx - px, cy - py);
+        SDL_RenderPoint(renderer, cx + py, cy + px);
+        SDL_RenderPoint(renderer, cx - py, cy + px);
+        SDL_RenderPoint(renderer, cx + py, cy - px);
+        SDL_RenderPoint(renderer, cx - py, cy - px);
+    };
+    while (y >= x)
+    {
+        drawHitCircle(x, y);
+        x++;
+        if (d > 0) { y--; d = d + 4 * (x - y) + 10; }
+        else { d = d + 4 * x + 6; }
+    }
+
+    // 5. 信息文本（白色）
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    // 可选：如果需要文字，这里可以用 Font 渲染
 }
 
 } // namespace QiEffect

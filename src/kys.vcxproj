@@ -130,6 +130,9 @@ if exist "$(VcpkgInstalledDir)x64-windows\debug\bin\lua.dll" xcopy /Y "$(VcpkgIn
     <ClCompile Include="BattleScenePaper.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Chess.cpp" />
+    <ClCompile Include="QiEffectConfig.cpp" />
+    <ClCompile Include="QiEffectRenderer.cpp" />
+    <ClCompile Include="QiShapeTemplates.cpp" />
     <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="ChessUIStatus.cpp" />
     <ClCompile Include="Engine.cpp" />
@@ -215,6 +218,9 @@ if exist "$(VcpkgInstalledDir)x64-windows\debug\bin\lua.dll" xcopy /Y "$(VcpkgIn
     <ClInclude Include="BattleScenePaper.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Chess.h" />
+    <ClInclude Include="QiEffectConfig.h" />
+    <ClInclude Include="QiEffectRenderer.h" />
+    <ClInclude Include="QiShapeTemplates.h" />
     <ClInclude Include="ChessSelector.h" />
     <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="Engine.h" />
