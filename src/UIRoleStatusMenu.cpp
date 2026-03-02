@@ -6,7 +6,9 @@ UIRoleStatusMenu::UIRoleStatusMenu(const std::string& title, const std::vector<s
     const std::vector<Color>& outlineColors, const std::vector<bool>& animateOutlines,
     const std::vector<int>& outlineThicknesses) :
     SuperMenuText(title, fontSize, rolePairs, itemsPerPage,
-        SuperMenuTextExtraOptions{ .itemColors_ = roleColors, .outlineColors_ = outlineColors, .animateOutlines_ = animateOutlines, .outlineThicknesses_ = outlineThicknesses, .needInputBox_ = false, .confirmation_ = needsConfirmation, .exitable_ = exitable, .returnIdxOnly = true })
+        SuperMenuTextExtraOptions{ .itemColors_ = roleColors, .outlineColors_ = outlineColors, 
+            .animateOutlines_ = animateOutlines, .outlineThicknesses_ = outlineThicknesses, .needInputBox_ = false, 
+            .confirmation_ = needsConfirmation, .exitable_ = exitable, .returnIdxOnly = true })
 {
     statusDrawable_ = std::make_shared<UIStatusDrawable>();
     addDrawableOnCall(statusDrawable_);

@@ -263,7 +263,7 @@ void MenuText::setStrings(std::vector<std::string> strings, std::vector<Color> c
     int item_spacing = font_size_ + 1;
     if (Engine::uiStyle() == 1)
     {
-        item_spacing = font_size_ + 8;
+        item_spacing = font_size_ + 9;
     }
 
     for (int i = 0; i < strings_.size(); ++i) 

@@ -39,11 +39,13 @@ SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
     }
 
     previousButton_ = std::make_shared<Button>();
-    previousButton_->setText("上一頁PgUp");
+    previousButton_->setText("上一頁");
+    previousButton_->setFontSize(fontSize_);
     addChild(previousButton_);
 
     nextButton_ = std::make_shared<Button>();
-    nextButton_->setText("下一頁PgDown");
+    nextButton_->setText("下一頁");
+    nextButton_->setFontSize(fontSize_);
     addChild(nextButton_);
 
     selections_ = std::make_shared<MenuText>();
@@ -77,19 +79,32 @@ SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
 
 void SuperMenuText::setInputPosition(int x, int y)
 {
+    inputX_ = x;
+    inputY_ = y;
+    inputPosSet_ = true;
+
+    int navHeight = showNavButtons_ ? (fontSize_ + 12) : 0;
+    int navBtnGap = Font::getTextDrawSize(previousButton_->getText()) * fontSize_ / 2 + 24;
+
     if (inputBox_)
     {
-        inputBox_->setInputPosition(x, y);
-        selections_->setPosition(x, y + fontSize_ * 3);
-        previousButton_->setPosition(x, y - fontSize_ * 1.5);
-        nextButton_->setPosition(x + fontSize_ * 5, y - fontSize_ * 1.5);
+        if (showNavButtons_)
+        {
+            previousButton_->setPosition(x, y);
+            nextButton_->setPosition(x + navBtnGap, y);
+        }
+        inputBox_->setInputPosition(x, y + navHeight);
+        selections_->setPosition(x, y + navHeight + fontSize_ * 3);
     }
     else
     {
-        titleBox_->setPosition(x, y);
-        selections_->setPosition(x, y + fontSize_ * 2);
-        previousButton_->setPosition(x, y - 30);
-        nextButton_->setPosition(x + 150, y - 30);
+        if (showNavButtons_)
+        {
+            previousButton_->setPosition(x, y);
+            nextButton_->setPosition(x + navBtnGap, y);
+        }
+        titleBox_->setPosition(x, y + navHeight);
+        selections_->setPosition(x, y + navHeight + fontSize_ + 16);
     }
 }
 
@@ -141,6 +156,7 @@ void SuperMenuText::defaultPage()
         selections_->forceActiveChild(0);
     }
     isDefaultPage_ = true;
+    updateNavigationButtons();
 }
 
 void SuperMenuText::flipPage(int pageIncrement)
@@ -175,6 +191,7 @@ void SuperMenuText::flipPage(int pageIncrement)
                 thicknesses.push_back(1);
         }
         selections_->setStrings(displays, colors, outlines, animates, thicknesses);
+        updateNavigationButtons();
     }
 }
 
@@ -223,11 +240,42 @@ void SuperMenuText::search(const std::string& text)
     selections_->setStrings(results, colors, outlines, animates, thicknesses);
     selections_->forceActiveChild(0);
     isDefaultPage_ = false;
+    updateNavigationButtons();
 }
 
 void SuperMenuText::updateMaxPages()
 {
     maxPages_ = std::ceil((searchResultIndices_.size() / (double)itemsPerPage_));
+}
+
+void SuperMenuText::updateNavigationButtons()
+{
+    bool canGoPrev = currentPage_ > 0;
+    bool canGoNext = currentPage_ < maxPages_ - 1;
+
+    if (canGoPrev)
+    {
+        previousButton_->setCustomOutline({100, 200, 255, 220});
+        previousButton_->setAnimateOutline(true);
+        previousButton_->setOutlineThickness(1);
+    }
+    else
+    {
+        previousButton_->clearCustomOutline();
+        previousButton_->setAnimateOutline(false);
+    }
+
+    if (canGoNext)
+    {
+        nextButton_->setCustomOutline({100, 200, 255, 220});
+        nextButton_->setAnimateOutline(true);
+        nextButton_->setOutlineThickness(1);
+    }
+    else
+    {
+        nextButton_->clearCustomOutline();
+        nextButton_->setAnimateOutline(false);
+    }
 }
 
 void SuperMenuText::dealEvent(EngineEvent& e)

@@ -214,6 +214,40 @@ void SubScene::draw()
         seg(std::format("出戰{}/{}", gd.getSelectedForBattle().size(), gd.getMaxDeploy()), {100, 255, 100, 255});
         seg(std::format("背包{}/{}", gd.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
 
+        // Quick-access chess button (bottom-right of screen)
+        if (!chess_menu_active_)
+        {
+            int btnFs = 40;
+            std::string label = "[Q] 棋局";
+            auto boxRect = Font::getBoxSize(Font::getTextDrawSize(label), btnFs, 0, 0);
+            int labelW = boxRect.w;
+            int labelH = boxRect.h;
+            int h = engine->getUIHeight();
+            int labelX = w - labelW - 20;
+            int labelY = h / 2 - labelH / 2;
+            // Store for click detection
+            chess_btn_x_ = labelX;
+            chess_btn_y_ = labelY;
+            chess_btn_w_ = labelW;
+            chess_btn_h_ = labelH;
+            // Check hover
+            int mx, my;
+            engine->getMouseStateInStartWindow(mx, my);
+            bool hovered = (mx >= labelX && mx < labelX + labelW
+                && my >= labelY && my < labelY + labelH);
+            if (hovered)
+            {
+                // Hover: brighter box + outline glow
+                font->drawWithBox(label, btnFs, labelX + 10, labelY + 3, {255, 255, 200, 255}, 255, 240);
+                Color outline = { 255, 225, 150, 200 };
+                engine->drawRoundedRect(outline, labelX, labelY, labelW, labelH, 6);
+            }
+            else
+            {
+                font->drawWithBox(label, btnFs, labelX + 10, labelY + 3, {255, 255, 255, 255}, 255, 220);
+            }
+        }
+
         // Obtained neigong icons (right-aligned)
         auto& obtained = gd.getObtainedNeigong();
         auto& pool = ChessNeigong::getPool();
@@ -253,6 +287,54 @@ void SubScene::dealEvent(EngineEvent& e)
     {
         //Event::getInstance()->tryBattle(1, 0);
         Console c;
+    }
+    // Quick-access chess shortcut (Q key or click on HUD button)
+    if (submap_id_ == 53)
+    {
+        bool chessTriggered = false;
+        if (e.type == EVENT_KEY_UP && e.key.key == K_Q)
+        {
+            chessTriggered = true;
+        }
+        if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
+        {
+            int mx, my;
+            Engine::getInstance()->getMouseStateInStartWindow(mx, my);
+            if (mx >= chess_btn_x_ && mx < chess_btn_x_ + chess_btn_w_
+                && my >= chess_btn_y_ && my < chess_btn_y_ + chess_btn_h_)
+            {
+                chessTriggered = true;
+            }
+        }
+        if (chessTriggered)
+        {
+            // Find the first NPC event and teleport beside it
+            for (int i = 0; i < SUBMAP_EVENT_COUNT; i++)
+            {
+                auto ev = submap_info_->Event(i);
+                if (ev && ev->Event1 > 0)
+                {
+                    int ex = ev->X(), ey = ev->Y();
+                    // Teleport player one tile away (try south/east/west/north)
+                    static const int dx[] = { 0, 1, -1, 0 };
+                    static const int dy[] = { 1, 0, 0, -1 };
+                    for (int d = 0; d < 4; d++)
+                    {
+                        int tx = ex + dx[d], ty = ey + dy[d];
+                        if (canWalk(tx, ty))
+                        {
+                            setManViewPosition(tx, ty);
+                            towards_ = calTowards(tx, ty, ex, ey);
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            chess_menu_active_ = true;
+            KysChess::ChessSelector::showContextMenu();
+            chess_menu_active_ = false;
+        }
     }
     if ((e.type == EVENT_KEY_UP && e.key.key == K_ESCAPE)
         || (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_RIGHT)
@@ -510,7 +592,10 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
         }
         if (id > 0)
         {
-            if (KysChess::ChessModHook::interceptEvent(submap_info_->ID, id)) { return true; }
+            chess_menu_active_ = true;
+            bool intercepted = KysChess::ChessModHook::interceptEvent(submap_info_->ID, id);
+            chess_menu_active_ = false;
+            if (intercepted) { return true; }
             return Event::getInstance()->callEvent(id, this, submap_info_->ID, item_id, event_index_submap, x, y);
         }
     }

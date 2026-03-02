@@ -32,10 +32,10 @@ UISave::UISave()
     auto str = std::format("自動檔  {}", get_save_time(static_cast<int>(Slot::Auto)));
     strings.push_back(str);
     setStrings(strings);
-    setFontSize(28);
+    setFontSize(32);
     childs_[0]->setVisible(false);    //屏蔽进度0
     forceActiveChild(1);
-    arrange(0, 0, 0, 36);
+    arrange(0, 0, 0, 41);
 }
 
 UISave::~UISave()

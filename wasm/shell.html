@@ -89,6 +89,7 @@
     <script>
         var statusEl = document.getElementById('status');
         var overlay = document.getElementById('overlay');
+        var prerequisiteFailed = false;
 
         // Diagnostic: check prerequisites for pthreads
         (function() {
@@ -100,8 +101,17 @@
             if (typeof Worker === 'undefined')
                 msgs.push('Web Workers are NOT available');
             if (msgs.length) {
-                statusEl.innerText = 'ERROR: ' + msgs.join('; ');
-                statusEl.style.color = '#f44';
+                prerequisiteFailed = true;
+                var spinner = document.getElementById('spinner');
+                if (spinner) spinner.style.display = 'none';
+                statusEl.innerHTML =
+                    '<span style="color:#f44;font-weight:bold">⚠ 无法启动游戏</span><br><br>' +
+                    '<span style="color:#f44">' + msgs.join('<br>') + '</span><br><br>' +
+                    '<span style="color:#aaa;font-size:0.9rem">' +
+                    '您的浏览器不支持本游戏所需的功能。<br>' +
+                    '请使用最新版本的 <b>Chrome</b>、<b>Edge</b> 或 <b>Firefox</b> 打开此页面。' +
+                    '</span>';
+                statusEl.style.color = '';
                 console.error('[kys-diag]', msgs.join('; '));
             } else {
                 console.log('[kys-diag] SharedArrayBuffer OK, crossOriginIsolated OK');
@@ -114,6 +124,7 @@
         var cppFontsReady = false;
 
         function tryHideOverlay() {
+            if (prerequisiteFailed) return; // keep error visible
             if (runtimeReady && cppFontsReady) {
                 overlay.classList.add('hidden');
                 setTimeout(function() { overlay.style.display = 'none'; }, 500);
@@ -137,8 +148,14 @@
             },
             onAbort: function(what) {
                 var msg = 'WASM aborted: ' + what;
-                statusEl.innerText = msg;
-                statusEl.style.color = '#f44';
+                var spinner = document.getElementById('spinner');
+                if (spinner) spinner.style.display = 'none';
+                overlay.classList.remove('hidden');
+                overlay.style.display = '';
+                statusEl.innerHTML =
+                    '<span style="color:#f44;font-weight:bold">⚠ 运行时错误</span><br><br>' +
+                    '<span style="color:#f44">' + msg + '</span>';
+                statusEl.style.color = '';
                 console.error('[kys-diag]', msg);
             },
             printErr: function() {
@@ -146,12 +163,13 @@
                 console.error('[kys-stderr]', text);
             },
             setStatus: function(text) {
+                if (prerequisiteFailed) return; // don't overwrite error
                 if (text) statusEl.innerText = text;
             },
             onRuntimeInitialized: function() {
                 console.log('[kys] runtime initialized');
                 runtimeReady = true;
-                if (!cppFontsReady) statusEl.innerText = 'Loading game fonts...';
+                if (!cppFontsReady && !prerequisiteFailed) statusEl.innerText = 'Loading game fonts...';
                 tryHideOverlay();
             }
         };
@@ -262,7 +280,7 @@
             }
         });
 
-        Module.setStatus('Loading...');
+        if (!prerequisiteFailed) Module.setStatus('Loading...');
     </script>
     {{{ SCRIPT }}}
 </body>

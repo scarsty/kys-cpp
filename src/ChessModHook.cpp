@@ -50,13 +50,16 @@ void ChessModHook::onSubSceneEntrance(int submap_id)
             "弈者不執棋，而在於選將、佈陣、運籌帷幄。"
             "你若有意一試，便來與老夫說話罷。", 115);
         talk->run();
-
-        auto diffMenu = std::make_shared<MenuText>();
-        diffMenu->setStrings({ "正常難度", "挑战難度" });
-        diffMenu->setFontSize(24);
-        diffMenu->arrange(0, 0, 0, 32);
-        diffMenu->runAtPosition(500, 300);
-        int diff = diffMenu->getResult();
+        
+        int diff = -1;
+        while (diff == -1) {
+            auto diffMenu = std::make_shared<MenuText>();
+            diffMenu->setStrings({ "正常難度", "挑戰難度" });
+            diffMenu->setFontSize(40);
+            diffMenu->arrange(0, 0, 0, 49);
+            diffMenu->runAtPosition(500, 300);
+            diff = diffMenu->getResult();
+        }
         auto difficulty = (diff == 1) ? Difficulty::Normal : Difficulty::Easy;
         ChessBalance::setDifficulty(difficulty);
         GameData::get().difficulty = difficulty;
@@ -73,15 +76,16 @@ void ChessModHook::showMenu()
 {
     auto menu = std::make_shared<MenuText>();
     menu->setStrings({ "讀取進度", "保存進度", "返回開頭" });
-    menu->setFontSize(24);
-    menu->arrange(0, 0, 0, 32);
+    menu->setFontSize(40);
+    menu->arrange(0, 0, 0, 49);
     menu->runAtPosition(200, 200);
     int r = menu->getResult();
     if (r == 0 || r == 1)
     {
         auto ui_save = std::make_shared<UISave>();
         ui_save->setMode(r);
-        ui_save->setFontSize(22);
+        ui_save->setFontSize(36);
+        ui_save->arrange(0, 0, 0, 45);
         ui_save->runAtPosition(200, 260);
     }
     else if (r == 2)

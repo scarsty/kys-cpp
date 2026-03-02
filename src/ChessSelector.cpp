@@ -351,7 +351,7 @@ static std::shared_ptr<UIRoleStatusMenu> makeChessMenu(const std::string& title,
     std::vector<int> outlineThicknesses = {})
 {
     auto menu = std::make_shared<UIRoleStatusMenu>(title, items, colors, perPage, fontSize, false, exitable, outlineColors, animateOutlines, outlineThicknesses);
-    menu->setInputPosition(80, 60);
+    menu->setInputPosition(80, 70);
     menu->getStatusDrawable().getUIStatus().setPosition(720, 40);
     if (!showNav) menu->setShowNavigationButtons(false);
     return menu;
@@ -385,21 +385,23 @@ static std::shared_ptr<DrawableOnCall> makeHeaderBar()
 static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
 {
     auto* font = Font::getInstance();
-    int px = 480, py = 100, fs = 22;
+    int px = 480, py = 130, fs = 24;
     Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 500, 400, 8);
     Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 500, 400, 8);
     TextureManager::getInstance()->renderTexture("item", ng.itemId, px + 10, py + 10);
     int ty = py + 10;
-    font->draw(ng.name, fs + 4, px + 90, ty, {255, 255, 100, 255}); ty += fs + 10;
+    int dx = px + 100;
+    font->draw(ng.name, fs + 4, dx, ty, {255, 255, 100, 255}); 
+    ty += fs + 10;
     std::string tierName[] = {"初階", "中階", "高階"};
-    font->draw(std::format("層級: {}", tierName[std::min(ng.tier - 1, 2)]), fs, px + 90, ty, {200, 200, 200, 255}); ty += fs + 4;
+    font->draw(std::format("層級: {}", tierName[std::min(ng.tier - 1, 2)]), fs, dx, ty, {200, 200, 200, 255}); ty += fs + 4;
     if (ownedState >= 0)
     {
         bool owned = ownedState > 0;
-        font->draw(owned ? "已獲得" : "未獲得", fs, px + 90, ty, owned ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
+        font->draw(owned ? "已獲得" : "未獲得", fs, dx, ty, owned ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
         ty += fs + 8;
     }
-    ty += 8;
+    ty = py + 100;
     font->draw("效果:", fs, px + 10, ty, {200, 200, 200, 255}); ty += fs + 4;
     for (auto& eff : ng.effects)
     {
@@ -911,11 +913,11 @@ void ChessSelector::buyExp()
 
     // Show confirmation menu with info panel
     auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認購買", "取消"});
-    menu->setFontSize(28);
-    menu->arrange(0, 0, 0, 36);
+    menu->setFontSize(36);
+    menu->arrange(0, 0, 0, 45);
 
     auto infoPanel = std::make_shared<DrawableOnCall>([=](DrawableOnCall*) {
-        int px = 350, py = 195, fs = 20, lh = fs + 6;
+        int px = 370, py = 195, fs = 20, lh = fs + 6;
         Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 520, 280, 8);
         Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 520, 280, 8);
         auto* font = Font::getInstance();
@@ -953,9 +955,9 @@ void ChessSelector::showContextMenu()
     //ChessBalance::apply();
     auto& gd = GameData::get();
     auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "遊戲說明" });
-    menu->setFontSize(28);
-    menu->arrange(0, 0, 0, 36);
-    menu->runAtPosition(200, 200);
+    menu->setFontSize(36);
+    menu->arrange(0, 0, 0, 45);
+    menu->runAtPosition(200, 120);
 
     switch (menu->getResult())
     {
@@ -1016,7 +1018,7 @@ void ChessSelector::viewCombos()
         auto save = Save::getInstance();
         auto font = Font::getInstance();
 
-        int px = 460, py = 60, fs = 24;
+        int px = 495, py = 60, fs = 24;
         Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 760, 560, 8);
         Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 760, 560, 8);
 
@@ -1083,7 +1085,7 @@ void ChessSelector::viewCombos()
     opts.itemColors_ = colors;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto menu = std::make_shared<SuperMenuText>("羈絆一覽", 28, items, 12, opts);
+    auto menu = std::make_shared<SuperMenuText>("羈絆一覽", 36, items, 10, opts);
     menu->setInputPosition(80, 60);
     menu->addDrawableOnCall(detailDraw);
     menu->run();
@@ -1160,8 +1162,8 @@ void ChessSelector::showNeigongReward()
         opts.itemColors_ = colors;
         opts.needInputBox_ = false;
         opts.exitable_ = false;
-        auto menu = std::make_shared<SuperMenuText>("選擇内功，内功將對所有成員自動生效", 28, items, (int)items.size(), opts);
-        menu->setInputPosition(80, 60);
+        auto menu = std::make_shared<SuperMenuText>("選擇内功，内功將對所有成員自動生效", 36, items, (int)items.size(), opts);
+        menu->setInputPosition(80, 70);
 
         // Detail panel
         auto iconPanel = std::make_shared<DrawableOnCall>([&choices](DrawableOnCall* self) {
@@ -1230,8 +1232,8 @@ void ChessSelector::viewNeigong()
     opts.itemColors_ = colors;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto menu = std::make_shared<SuperMenuText>("內功一覽", 28, items, 14, opts);
-    menu->setInputPosition(80, 60);
+    auto menu = std::make_shared<SuperMenuText>("内功一覽", 36, items, 10, opts);
+    menu->setInputPosition(80, 70);
     menu->addDrawableOnCall(detailDraw);
     menu->run();
 }
@@ -1302,8 +1304,8 @@ void ChessSelector::showExpeditionChallenge()
         opts.itemColors_ = colors;
         opts.needInputBox_ = false;
         opts.exitable_ = true;
-        auto menu = std::make_shared<SuperMenuText>("遠征挑戰", 28, items, (int)items.size(), opts);
-        menu->setInputPosition(80, 60);
+        auto menu = std::make_shared<SuperMenuText>("遠征挑戰", 36, items, (int)items.size(), opts);
+        menu->setInputPosition(80, 70);
         menu->addDrawableOnCall(detailDraw);
         menu->run();
 
@@ -1425,8 +1427,8 @@ void ChessSelector::showExpeditionChallenge()
             rOpts.itemColors_ = rewardColors;
             rOpts.needInputBox_ = false;
             rOpts.exitable_ = false;
-            auto rMenu = std::make_shared<SuperMenuText>("選擇獎勵", 28, rewardItems, (int)rewardItems.size(), rOpts);
-            rMenu->setInputPosition(80, 60);
+            auto rMenu = std::make_shared<SuperMenuText>("選擇獎勵", 36, rewardItems, (int)rewardItems.size(), rOpts);
+            rMenu->setInputPosition(80, 70);
             rMenu->run();
             rSel = rMenu->getResult();
             if (rSel < 0) rSel = 0;
@@ -1516,8 +1518,8 @@ void ChessSelector::showExpeditionChallenge()
                 nOpts.itemColors_ = ngColors;
                 nOpts.needInputBox_ = false;
                 nOpts.exitable_ = false;
-                auto nMenu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 28, ngItems, 16, nOpts);
-                nMenu->setInputPosition(80, 60);
+                auto nMenu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 36, ngItems, 16, nOpts);
+                nMenu->setInputPosition(80, 70);
                 nMenu->addDrawableOnCall(ngDetail);
                 nMenu->run();
                 int nSel = nMenu->getResult();
@@ -1600,12 +1602,12 @@ void ChessSelector::showPositionSwap()
     SuperMenuTextExtraOptions opts;
     opts.needInputBox_ = false;
     opts.exitable_ = true;
-    auto sub = std::make_shared<SuperMenuText>(cur ? "" : "", 28, items, 2, opts);
+    auto sub = std::make_shared<SuperMenuText>(cur ? "" : "", 36, items, 2, opts);
     sub->setShowNavigationButtons(false);
     auto panel = std::make_shared<DrawableOnCall>([cur](DrawableOnCall* self) {
-        int px = 280, py = 200, fs = 20, lh = fs + 6;
-        Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 400, 130, 6);
-        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 400, 130, 6);
+        int px = 320, py = 200, fs = 32, lh = fs + 6;
+        Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 600, 250, 6);
+        Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 600, 250, 6);
         auto* font = Font::getInstance();
         int id = self->getID();
         bool willEnable = id >= 0 ? (id == 1) : cur;

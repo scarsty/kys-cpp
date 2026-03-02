@@ -48,6 +48,7 @@ protected:
 
     void makeSpecialMagicEffect();
     void runPositionSwapLoop();
+    void runListBasedSwap();
 
 public:
     BattleTracker& getTracker() { return tracker_; }
@@ -58,6 +59,7 @@ public:
 protected:
     BattleTracker tracker_;
     Role* swapSelected_ = nullptr;
+    bool positionSwapActive_ = false;
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;

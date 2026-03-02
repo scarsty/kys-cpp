@@ -30,7 +30,7 @@ TitleScene::TitleScene()
     // Text-only menu: 3 items, each 4 CJK chars at size 28 = 112px wide
     // Spacing 172px (112 + 60 gap), total span 456px, centered: x = (1280-456)/2 = 412
     auto mt = std::make_shared<MenuText>();
-    mt->setFontSize(28);
+    mt->setFontSize(36);
     mt->setHaveBox(true);
     mt->setStrings({"重新開始", "載入進度", "離開遊戲"});
     mt->setPosition(412, 500);

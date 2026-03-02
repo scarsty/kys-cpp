@@ -49,8 +49,12 @@ public:
     }
     void setShowNavigationButtons(bool v)
     {
+        showNavButtons_ = v;
         previousButton_->setVisible(v);
         nextButton_->setVisible(v);
+        // Re-layout if position was already set
+        if (inputPosSet_)
+            setInputPosition(inputX_, inputY_);
     }
 
     void setInputText(const std::string& text)
@@ -73,6 +77,7 @@ private:
     void flipPage(int pageIncrement);
     void search(const std::string& text);
     void updateMaxPages();
+    void updateNavigationButtons();
 
     std::shared_ptr<InputBox> inputBox_;    // Only present if needed, always added as child if present
     std::shared_ptr<TextBox> titleBox_;
@@ -91,4 +96,7 @@ private:
     std::vector<int> searchResultIndices_;
     std::vector<std::shared_ptr<DrawableOnCall>> drawableDocs_;
     std::function<bool(const std::string&, const std::string&)> matchFunction_;
+    bool showNavButtons_ = true;
+    bool inputPosSet_ = false;
+    int inputX_ = 0, inputY_ = 0;
 };

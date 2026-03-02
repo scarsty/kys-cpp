@@ -118,6 +118,23 @@ void Button::draw()
         // Only draw outline if custom outline is set, animating, or in interactive state
         if (animate_outline_)
         {
+            // Draw a subtle fill tint using the outline color for immediate visibility
+            Color tint = outline;
+            tint.a = (uint8_t)(std::min(255, (int)outline.a) * 25 / 255);  // ~10% alpha tint
+            Engine::getInstance()->fillRoundedRect(tint, bx, by, bw, bh, radius);
+
+            // Draw a constant static outline underneath for persistent visibility
+            Color staticOutline = outline;
+            staticOutline.a = (uint8_t)(std::min(255, (int)outline.a) * 100 / 255);  // ~40% alpha
+            for (int t = 0; t < outline_thickness_; t++)
+            {
+                int off = t;
+                int r = std::max(0, radius - t);
+                Engine::getInstance()->drawRoundedRect(staticOutline,
+                    bx - off, by - off, bw + 2 * off, bh + 2 * off, r + off);
+            }
+
+            // Draw animated marching dots on top
             double phase = std::fmod(Engine::getTicks() * 0.0005, 1.0);  // one revolution per ~2 seconds
             for (int t = 0; t < outline_thickness_; t++)
             {

@@ -662,13 +662,18 @@ void BattleSceneHades::onEntrance()
     // Pre-battle position swap
     if (!extended_teammates_.empty() && KysChess::GameData::get().isPositionSwapEnabled())
     {
-        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "調整佈陣", "直接開戰" });
-        prompt->setFontSize(24);
-        prompt->arrange(0, 0, 0, 32);
-        prompt->runAtPosition(500, 320);
-        if (prompt->getResult() == 0)
+        auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
+        prompt->setFontSize(36);
+        prompt->arrange(0, 0, 0, 45);
+        prompt->runAtPosition(300, 220);
+        int choice = prompt->getResult();
+        if (choice == 0)
         {
             runPositionSwapLoop();
+        }
+        else if (choice == 1)
+        {
+            runListBasedSwap();
         }
     }
 
@@ -704,6 +709,7 @@ public:
 
     void dealEvent(EngineEvent& e) override
     {
+        // Tile-click swap
         if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
         {
             auto p = battle_->getMousePosition(battle_->man_x_, battle_->man_y_);
@@ -740,9 +746,9 @@ public:
 
     void onPressedCancel() override
     {
-        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "確認佈陣完成", "繼續調整" });
-        menu->setFontSize(24);
-        menu->arrange(0, 0, 0, 32);
+        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "佈陣完成", "繼續調整" });
+        menu->setFontSize(36);
+        menu->arrange(0, 0, 0, 45);
         menu->runAtPosition(400, 300);
         if (menu->getResult() == 0)
         {
@@ -757,6 +763,115 @@ void BattleSceneHades::runPositionSwapLoop()
     swapSelected_ = nullptr;
     auto node = std::make_shared<PositionSwapNode>(this);
     node->run();
+}
+
+void BattleSceneHades::runListBasedSwap()
+{
+    positionSwapActive_ = true;
+    // Collect friendly roles
+    std::vector<Role*> allies;
+    for (auto r : battle_roles_)
+    {
+        if (r && r->Team == 0)
+            allies.push_back(r);
+    }
+    if (allies.size() < 2) return;
+
+    // Build menu items with proper alignment using getTextDrawSize
+    // Name is left-aligned, coordinates are right-aligned
+    auto buildNames = [&](int highlight = -1) {
+        // First pass: find max name width and max coord width separately
+        int maxNameLen = 0;
+        int maxCoordLen = 0;
+        for (auto r : allies)
+        {
+            std::string name = r->Name;
+            std::string coord = std::format("({},{})", r->X(), r->Y());
+            int nameLen = Font::getTextDrawSize(name);
+            int coordLen = Font::getTextDrawSize(coord);
+            if (nameLen > maxNameLen) maxNameLen = nameLen;
+            if (coordLen > maxCoordLen) maxCoordLen = coordLen;
+        }
+        std::vector<std::string> names;
+        std::vector<Color> colors;
+        std::vector<Color> outlineColors;
+        std::vector<bool> animateOutlines;
+        for (int i = 0; i < (int)allies.size(); i++)
+        {
+            std::string name = allies[i]->Name;
+            std::string coord = std::format("({},{})", allies[i]->X(), allies[i]->Y());
+            int nameLen = Font::getTextDrawSize(name);
+            int coordLen = Font::getTextDrawSize(coord);
+            // Pad name to max, then pad coord prefix so coords right-align
+            std::string s = name;
+            int gap = (maxNameLen - nameLen) + (maxCoordLen - coordLen) + 2;
+            for (int g = 0; g < gap; g++) s += ' ';
+            s += coord;
+            names.push_back(s);
+            colors.push_back({255, 255, 255, 255});
+            if (i == highlight)
+            {
+                outlineColors.push_back({255, 255, 100, 255});
+                animateOutlines.push_back(true);
+            }
+            else
+            {
+                outlineColors.push_back({0, 0, 0, 0});
+                animateOutlines.push_back(false);
+            }
+        }
+        return std::make_tuple(names, colors, outlineColors, animateOutlines);
+    };
+
+    while (true)
+    {
+        // Pick first role
+        auto [names1, colors1, outlines1, anim1] = buildNames();
+        auto menu1 = std::make_shared<MenuText>();
+        menu1->setStrings(names1, colors1, outlines1, anim1);
+        menu1->setFontSize(28);
+        menu1->arrange(0, 0, 0, 36);
+        menu1->runAtPosition(100, 100);
+        int sel1 = menu1->getResult();
+        if (sel1 < 0 || sel1 >= (int)allies.size())
+        {
+            // Cancelled first pick — ask to confirm or continue
+            auto confirm = std::make_shared<MenuText>(std::vector<std::string>{ "佈陣完成", "繼續調整" });
+            confirm->setFontSize(36);
+            confirm->arrange(0, 0, 0, 45);
+            confirm->runAtPosition(400, 300);
+            if (confirm->getResult() == 0)
+                break;
+            continue;
+        }
+
+        // Pick second role — highlight the first selection
+        auto [names2, colors2, outlines2, anim2] = buildNames(sel1);
+        auto menu2 = std::make_shared<MenuText>();
+        menu2->setStrings(names2, colors2, outlines2, anim2);
+        menu2->setFontSize(28);
+        menu2->arrange(0, 0, 0, 36);
+        menu2->runAtPosition(100, 100);
+        int sel2 = menu2->getResult();
+        if (sel2 < 0 || sel2 >= (int)allies.size()) continue;    // cancelled second pick, retry
+        if (sel2 == sel1) continue;    // same role, retry
+
+        // Perform swap
+        auto* a = allies[sel1];
+        auto* b = allies[sel2];
+        int ax = a->X(), ay = a->Y();
+        int bx = b->X(), by = b->Y();
+        a->setPositionOnly(bx, by);
+        b->setPositionOnly(ax, ay);
+        auto pa = pos45To90(bx, by);
+        auto pb = pos45To90(ax, ay);
+        a->Pos.x = pa.x;
+        a->Pos.y = pa.y;
+        b->Pos.x = pb.x;
+        b->Pos.y = pb.y;
+    }
+    swapSelected_ = nullptr;
+    positionSwapActive_ = false;
 }
 
 void BattleSceneHades::backRun1()
@@ -1773,6 +1888,13 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
     renderBar(y - 56, r->MP, GameUtil::MAX_MP, mp_color, mp_shadow_color);
+
+
+    if (positionSwapActive_ && r->Team == 0) {
+        std::string coord = std::format("({},{})", r->X(), r->Y());
+        int tw = Font::getTextDrawSize(coord);
+        Font::getInstance()->draw(coord, 14, x - 5, y - 5, {255, 255, 100, 255});
+    }
 }
 
 int BattleSceneHades::checkResult()
