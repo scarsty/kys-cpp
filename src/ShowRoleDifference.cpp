@@ -98,7 +98,7 @@ void ShowRoleDifference::draw()
         {
             str = std::format("武學{}目前修為{}",
                 Save::getInstance()->getMagic(role2_->MagicID[i])->Name, role2_->getRoleShowLearnedMagicLevel(i));
-            showOneDifference(role1_->MagicLevel[i], str, 20, color, x, y);
+            showOneDifference(role1_->MagicPower[i], str, 20, color, x, y);
         }
     }
 

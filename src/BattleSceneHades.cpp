@@ -44,7 +44,10 @@ void applyFrozen(Role* r, int frames)
         frames -= absorbed;
     }
     if (frames > 0)
+    {
         r->Frozen += frames;
+        r->FrozenMax = r->Frozen;  // Reset max when frozen is applied
+    }
 }
 }    // namespace
 
@@ -1281,6 +1284,10 @@ void BattleSceneHades::backRun1()
                             r->LastAttacker->Attack += kit->second.bloodlustATKPerKill;
                     }
                 }
+
+                // Transfer 独行 to next strongest alive member
+                KysChess::ChessCombo::transferAntiCombo(r->ID, battle_roles_);
+
                 //r->Velocity = r->Pos - ae1.Attacker->Pos;
                 r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
                 r->Velocity.z = 12;
@@ -1423,7 +1430,6 @@ void BattleSceneHades::Action(Role* r)
                 ae.UsingMagic = Save::getInstance()->getMagic(1);
             }
             // r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
-            int level_index = r->getMagicLevelIndex(magic->ID);
             ae.TotalFrame = 30;
             //r->CoolDown += ae.TotalFrame;
             ae.Attacker = r;
@@ -1448,11 +1454,7 @@ void BattleSceneHades::Action(Role* r)
                 }
             }
 
-            int index = r->getMagicOfRoleIndex(ae.UsingMagic);
-            if (index >= 0)
-            {
-                r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
-            }
+            // Chess mod: no in-battle magic level-up
             //根据性质创造攻击效果
             //连击计数：超时或已触发终结技则重置
             if (current_frame_ - r->PreActTimer > 120 || r->OperationCount >= 3)
@@ -1468,7 +1470,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.TotalFrame = 30;
                     ae.Strengthen = 2;
                     ae.Velocity = r->RealTowards;
-                    ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
+                    ae.Velocity.normTo(magic->SelectDistance / 2.0);
                     ae.Track = 1;
                     r->OperationCount = 0;
                 }
@@ -1523,7 +1525,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.Velocity = r->RealTowards;
                 }
                 ae.Velocity.normTo(PROJECTILE_SPEED);
-                ae.TotalFrame = calcProjectileFrames(magic->SelectDistance[level_index], TILE_W * 2);
+                ae.TotalFrame = calcProjectileFrames(magic->SelectDistance, TILE_W * 2);
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
                     ae.Through = 1;
@@ -1568,7 +1570,7 @@ void BattleSceneHades::Action(Role* r)
                 }
             }
             LOG("{} team {} use {} as {}\n", ae.Attacker->Name, ae.Attacker->Team, ae.UsingMagic->Name, ae.OperationType);
-            r->MP -= ultCasters_.count(r) ? GameUtil::MAX_MP : -5;
+            r->MP -= ultCasters_.count(r) ? r->MaxMP : -5;
             ultCasters_.erase(r);
             r->UsingMagic = nullptr;
         }
@@ -1642,12 +1644,12 @@ void BattleSceneHades::AI(Role* r)
                     auto selectMagic = [r](auto cmp)
                     {
                         auto v = r->getLearnedMagics();
-                        auto hurt = v[0]->Attack[r->getMagicLevelIndex(0)];
+                        auto hurt = r->getMagicPower(v[0]);
                         Magic* chooseMagic = v[0];
                         for (size_t i = 1; i < v.size(); ++i)
                         {
                             auto m = v[i];
-                            double h = m->Attack[r->getMagicLevelIndex(m)];
+                            double h = r->getMagicPower(m);
                             if (cmp(h, hurt))
                             {
                                 hurt = h;
@@ -1656,7 +1658,7 @@ void BattleSceneHades::AI(Role* r)
                         }
                         return chooseMagic;
                     };
-                    bool isUltimate = r->MP >= GameUtil::MAX_MP;
+                    bool isUltimate = r->MP >= r->MaxMP;
                     r->UsingMagic = isUltimate ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
                     if (isUltimate)
                     {
@@ -1680,10 +1682,9 @@ void BattleSceneHades::AI(Role* r)
                     if (r->UsingMagic->AttackAreaType == 3) { dis = 180; }
                     if (r->UsingMagic->AttackAreaType == 1 || r->UsingMagic->AttackAreaType == 2)
                     {
-                        int li = r->getMagicLevelIndex(r->UsingMagic->ID);
                         // 10 pixel to allow for some error
                         dis = std::min(
-                            calcProjectileReach(r->UsingMagic->SelectDistance[li], TILE_W * 2) - 10, 240);
+                            calcProjectileReach(r->UsingMagic->SelectDistance, TILE_W * 2) - 10, 240);
                     }
                 }
                 double speed = r->Speed / 30.0;
@@ -1887,7 +1888,29 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     renderBar(y - 60, r->HP, r->MaxHP, background_color, shadow_color);
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
-    renderBar(y - 56, r->MP, GameUtil::MAX_MP, mp_color, mp_shadow_color);
+    renderBar(y - 56, r->MP, r->MaxMP, mp_color, mp_shadow_color);
+
+    // Frozen bar
+    if (r->Frozen > 0 && r->FrozenMax > 0)
+    {
+        constexpr auto width = 24;
+        constexpr auto height = 3;
+        Color frozen_color = { 200, 220, 255, 192 };
+        int bar_x = int(x - width / 2);
+        int bar_y = y - 52;
+        double perc = static_cast<double>(r->Frozen) / r->FrozenMax;
+
+        // Draw outline (same color as bar)
+        Rect r_outline = { bar_x - 1, bar_y - 1, width + 2, height + 2 };
+        Engine::getInstance()->renderSquareTexture(&r_outline, frozen_color, 128);
+
+        // Draw current frozen bar
+        Rect r_frozen = { bar_x, bar_y, int(perc * width), height };
+        Engine::getInstance()->renderSquareTexture(&r_frozen, frozen_color, 192);
+
+        std::string frames_text = std::to_string(r->Frozen);
+        Font::getInstance()->draw(frames_text, 10, x - 5, y - 52, {255, 255, 255, 255});
+    }
 
 
     if (positionSwapActive_ && r->Team == 0) {
@@ -2109,7 +2132,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         ae.NoHurt = 1;
         ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
     }
-    ae.Attacker->ExpGot += hurt / 2;
+    ae.Attacker->ExpGot += hurt / 2;    // deprecated: kept for compat but unused
 
     // === Combo trigger effects ===
     {
@@ -2208,9 +2231,25 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 }
             }
 
-            // Stun
+            // Stun (legacy)
             if (as.stunChancePct > 0 && rand_.rand() * 100 < as.stunChancePct)
                 applyFrozen(r, as.stunFrames);
+
+            // OnHit triggered effects
+            for (auto& eff : as.triggeredEffects)
+            {
+                if (eff.trigger == KysChess::Trigger::OnHit && rand_.rand() * 100 < eff.value)
+                {
+                    if (eff.type == KysChess::EffectType::ArmorPen)
+                    {
+                        // Applied in calMagicHurt, store flag
+                    }
+                    else if (eff.type == KysChess::EffectType::Stun)
+                    {
+                        applyFrozen(r, eff.value2);
+                    }
+                }
+            }
 
             // Knockback (extra)
             if (as.knockbackChancePct > 0 && rand_.rand() * 100 < as.knockbackChancePct)
@@ -2351,14 +2390,28 @@ void BattleSceneHades::makeSpecialMagicEffect()
 
 int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
 {
-    int level_index = Save::getInstance()->getRoleLearnedMagicLevelIndex(r1, magic);
-    double attack = r1->Attack + magic->Attack[level_index] / 3.0;
+    int power = r1->getMagicPower(magic);
+    double attack = r1->Attack + power / 3.0;
     double defence = r2->Defence;
     // Armor penetration: reduce effective defence
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto it = cs.find(r1->ID);
-    if (it != cs.end() && it->second.armorPenChancePct > 0 && rand_.rand() * 100 < it->second.armorPenChancePct)
-        defence *= (1.0 - it->second.armorPenPct / 100.0);
+    if (it != cs.end())
+    {
+        auto& as = it->second;
+        // Legacy armor pen
+        if (as.armorPenChancePct > 0 && rand_.rand() * 100 < as.armorPenChancePct)
+            defence *= (1.0 - as.armorPenPct / 100.0);
+        // New unified armor pen
+        for (auto& eff : as.triggeredEffects)
+        {
+            if (eff.trigger == KysChess::Trigger::OnHit && eff.type == KysChess::EffectType::ArmorPen)
+            {
+                if (rand_.rand() * 100 < eff.value)
+                    defence *= (1.0 - eff.value2 / 100.0);
+            }
+        }
+    }
     if (attack + defence <= 0) return 1;
     int v = static_cast<int>(attack * attack / (attack + defence) / 4.0);
     v += rand_.rand_int(10) - rand_.rand_int(10);

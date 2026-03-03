@@ -814,11 +814,11 @@ void BattleScene::calSelectLayerByMagic(int x, int y, int team, Magic* magic, in
 {
     if (magic->AttackAreaType == 0 || magic->AttackAreaType == 3)
     {
-        calSelectLayer(x, y, team, 1, magic->SelectDistance[level_index]);
+        calSelectLayer(x, y, team, 1, magic->SelectDistance);
     }
     else if (magic->AttackAreaType == 1)
     {
-        calSelectLayer(x, y, team, 3, magic->SelectDistance[level_index]);
+        calSelectLayer(x, y, team, 3, magic->SelectDistance);
     }
     else
     {
@@ -841,7 +841,7 @@ void BattleScene::calEffectLayer(int x, int y, int select_x, int select_y, Magic
     if (m->AttackAreaType == 1)
     {
         int tw = calTowards(x, y, select_x, select_y);
-        int dis = m->SelectDistance[level_index];
+        int dis = m->SelectDistance;
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
             for (int iy = y - dis; iy <= y + dis; iy++)
@@ -855,7 +855,7 @@ void BattleScene::calEffectLayer(int x, int y, int select_x, int select_y, Magic
     }
     else if (m->AttackAreaType == 2)
     {
-        int dis = m->SelectDistance[level_index];
+        int dis = m->SelectDistance;
         for (int ix = x - dis; ix <= x + dis; ix++)
         {
             for (int iy = y - dis; iy <= y + dis; iy++)
@@ -869,7 +869,7 @@ void BattleScene::calEffectLayer(int x, int y, int select_x, int select_y, Magic
     }
     else if (m->AttackAreaType == 3)
     {
-        int dis = m->AttackDistance[level_index];
+        int dis = m->AttackDistance;
         for (int ix = select_x - dis; ix <= select_x + dis; ix++)
         {
             for (int iy = select_y - dis; iy <= select_y + dis; iy++)
@@ -1207,14 +1207,9 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
             r->Show.clear();
         }
 
-        //武学等级增加
+        //武学等级增加 — deprecated in chess mod
         auto index = r->getMagicOfRoleIndex(magic);
-        if (index >= 0)
-        {
-            r->MagicLevel[index] += 1 + rand_.rand_int(2);
-            GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
-        }
-        LOG("{} {} level is {}\n", r->Name, magic->Name, r->MagicLevel[index]);
+        LOG("{} {} used\n", r->Name, magic->Name);
     }
     r->Acted = 1;
 
@@ -1602,7 +1597,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
         {
             return 1 + rand_.rand_int(10);
         }
-        int attack = r1->Attack + magic->Attack[level_index] / 3;
+        int attack = r1->Attack + r1->getMagicPower(magic) / 3;
         int defence = r2->Defence;
 
         //装备的效果
@@ -1647,7 +1642,7 @@ int BattleScene::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     }
     else if (magic->HurtType == 1)
     {
-        int v = magic->HurtMP[level_index];
+        int v = magic->HurtMP;
         v += rand_.rand_int(10) - rand_.rand_int(10);
         if (v < 10)
         {

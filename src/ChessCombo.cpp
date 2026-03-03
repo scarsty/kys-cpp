@@ -186,4 +186,40 @@ std::vector<ComboId> ChessCombo::getCombosForRole(int roleId)
     return result;
 }
 
+void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles)
+{
+    auto combos = getCombosForRole(deadRoleId);
+    for (auto cid : combos)
+    {
+        auto& combo = getAllCombos()[(int)cid];
+        if (!combo.isAntiCombo) continue;
+
+        int deadTeam = -1;
+        for (auto r : allRoles)
+            if (r->ID == deadRoleId) { deadTeam = r->Team; break; }
+        if (deadTeam == -1) continue;
+
+        int bestId = -1, bestTier = -1;
+        for (int mid : combo.memberRoleIds)
+        {
+            for (auto r : allRoles)
+            {
+                if (r->ID == mid && r->Team == deadTeam && r->Dead == 0)
+                {
+                    int tier = ChessPool::GetChessTier(mid);
+                    if (tier > bestTier) { bestTier = tier; bestId = mid; }
+                    break;
+                }
+            }
+        }
+
+        if (bestId != -1 && activeStates_.count(bestId) == 0)
+        {
+            auto& thresh = combo.thresholds[0];
+            for (auto& e : thresh.effects)
+                ChessBattleEffects::applyEffect(activeStates_[bestId], e);
+        }
+    }
+}
+
 }  // namespace KysChess

@@ -125,6 +125,8 @@ public:
     // Build { roleId -> starLevel } map from a selection of Chess pieces.
     // An entry in the returned map means the hero is on the field.
     static std::map<int, int> buildStarMap(const std::vector<Chess>& selected);
+    // Transfer anti-combo buff to next strongest alive member when current holder dies
+    static void transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles);
 
 private:
     static inline std::map<int, RoleComboState> activeStates_;

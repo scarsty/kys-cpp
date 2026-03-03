@@ -27,25 +27,16 @@ void Role::setPosition(int x, int y)
     Y_ = y;
 }
 
-//显示用的，比内部数组用的多1
+//显示用的，deprecated in chess mod
 int Role::getRoleShowLearnedMagicLevel(int i)
 {
-    return getRoleMagicLevelIndex(i) + 1;
+    return 0;
 }
 
-//获取武学等级，返回值是0~9，可以直接用于索引武功的威力等数据
+//deprecated: 获取武学等级索引，chess mod 不再使用等级系统
 int Role::getRoleMagicLevelIndex(int i)
 {
-    int l = MagicLevel[i] / 100;
-    if (l < 0)
-    {
-        l = 0;
-    }
-    if (l > 9)
-    {
-        l = 9;
-    }
-    return l;
+    return 0;
 }
 
 //已学习武学的数量
@@ -62,7 +53,7 @@ int Role::getLearnedMagicCount()
     return n;
 }
 
-//依据武学指针获取等级，-1表示未学得
+//依据武学指针获取威力值（chess mod: 直接返回MagicPower）
 int Role::getMagicLevelIndex(Magic* magic)
 {
     return getMagicLevelIndex(magic->ID);
@@ -70,14 +61,29 @@ int Role::getMagicLevelIndex(Magic* magic)
 
 int Role::getMagicLevelIndex(int magic_id)
 {
-    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    // Deprecated compat: returns 0 (callers should use getMagicPower instead)
+    return 0;
+}
+
+//新接口：获取角色对某武学的威力值（受Star限制）
+int Role::getMagicPower(Magic* magic, int star)
+{
+    if (!magic) return 0;
+    return getMagicPower(magic->ID, star);
+}
+
+int Role::getMagicPower(int magic_id, int star)
+{
+    int effective_star = (star > 0) ? star : Star;
+    int available = getAvailableMagicSlots(effective_star);
+    for (int i = 0; i < available; i++)
     {
         if (MagicID[i] == magic_id)
         {
-            return getRoleMagicLevelIndex(i);
+            return MagicPower[i];
         }
     }
-    return -1;
+    return 0;
 }
 
 //武学在角色的栏位编号
@@ -113,8 +119,14 @@ int Role::getEquipMagicOfRoleIndex(Magic* magic)
 
 std::vector<Magic*> Role::getLearnedMagics()
 {
+    return getLearnedMagics(Star);
+}
+
+std::vector<Magic*> Role::getLearnedMagics(int star)
+{
     std::vector<Magic*> v;
-    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
+    int slots = getAvailableMagicSlots(star);
+    for (int i = 0; i < slots; i++)
     {
         auto m = Save::getInstance()->getMagic(MagicID[i]);
         if (m)
@@ -141,19 +153,11 @@ void Role::limit()
     };
 
     auto r_max = Role::getMaxValue();
-    limit2(Level, 0, r_max->Level);
-
-    limit2(Exp, 0, r_max->Exp);
-    limit2(ExpForItem, 0, r_max->Exp);
-    limit2(ExpForMakeItem, 0, r_max->Exp);
-
-    limit2(Poison, 0, r_max->Poison);
 
     limit2(MaxHP, 0, r_max->HP);
     limit2(MaxMP, 0, r_max->MP);
     limit2(HP, 0, MaxHP);
     limit2(MP, 0, MaxMP);
-    limit2(PhysicalPower, 0, r_max->PhysicalPower);
 
     limit2(Attack, 0, r_max->Attack);
     limit2(Defence, 0, r_max->Defence);
@@ -170,16 +174,7 @@ void Role::limit()
     limit2(Unusual, 0, r_max->Unusual);
     limit2(HiddenWeapon, 0, r_max->HiddenWeapon);
 
-    limit2(Knowledge, 0, r_max->Knowledge);
-    limit2(Morality, 0, r_max->Morality);
-    limit2(AttackWithPoison, 0, r_max->AttackWithPoison);
-    limit2(Fame, 0, r_max->Fame);
-    limit2(IQ, 0, r_max->IQ);
-
-    for (int i = 0; i < ROLE_MAGIC_COUNT; i++)
-    {
-        limit2(MagicLevel[i], 0, MAX_MAGIC_LEVEL);
-    }
+    // MagicPower has no cap — it's directly authored per character
 }
 
 int Role::learnMagic(Magic* magic)
@@ -203,15 +198,7 @@ int Role::learnMagic(int magic_id)
     {
         if (MagicID[i] == magic_id)
         {
-            if (MagicLevel[i] / 100 < MAX_MAGIC_LEVEL_INDEX)
-            {
-                MagicLevel[i] += 100;
-                return 0;
-            }
-            else
-            {
-                return -2;    //满级
-            }
+            return 0;    // already known
         }
         //记录最靠前的空位
         if (MagicID[i] <= 0 && index == -1)
@@ -228,7 +215,7 @@ int Role::learnMagic(int magic_id)
     {
         //增加武学
         MagicID[index] = magic_id;
-        MagicLevel[index] = 0;
+        MagicPower[index] = 0;
         return 0;
     }
 }
@@ -386,49 +373,11 @@ void Role::useItem(Item* i)
     limit();
 }
 
-//升级的属性变化
+//升级的属性变化 — deprecated in chess mod
 void Role::levelUp()
 {
-    if (this == nullptr)
-    {
-        return;
-    }
-
-    Exp -= level_up_list()[Level - 1];
-    Level++;
-    RandomDouble rand;
-    PhysicalPower = Role::getMaxValue()->PhysicalPower;
-    MaxHP += IncLife * 3 + rand.rand_int(6);
-    HP = MaxHP;
-    MaxMP += 20 + rand.rand_int(6);
-    MP = MaxMP;
-
-    Hurt = 0;
-    Poison = 0;
-
-    Attack += rand.rand_int(7);
-    Speed += rand.rand_int(7);
-    Defence += rand.rand_int(7);
-
-    auto check_up = [&](int& value, int limit, int max_inc) -> void
-    {
-        if (value > limit)
-        {
-            value += 1 + rand.rand_int(max_inc);
-        }
-    };
-
-    check_up(Medicine, 0, 3);
-    check_up(Detoxification, 0, 3);
-    check_up(UsePoison, 0, 3);
-
-    check_up(Fist, 10, 3);
-    check_up(Sword, 10, 3);
-    check_up(Knife, 10, 3);
-    check_up(Unusual, 10, 3);
-    check_up(HiddenWeapon, 10, 3);
-
-    limit();
+    // No-op: chess mod does not use leveling
+    return;
 }
 
 //是否可以升级

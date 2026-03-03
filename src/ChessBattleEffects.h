@@ -15,6 +15,7 @@ enum class Trigger
     WhileLowHP,
     AllyLowHPBurst,
     LastAlive,
+    OnHit,  // Proc on attack hit
 };
 
 enum class EffectType
@@ -31,9 +32,11 @@ enum class EffectType
     CritChance,
     CritMultiplier,
     EveryNthDouble,
-    ArmorPenChance,
-    ArmorPenPct,
-    StunChance,
+    ArmorPenChance,  // DEPRECATED: use ArmorPen with OnHit trigger
+    ArmorPenPct,     // DEPRECATED: use ArmorPen with OnHit trigger
+    ArmorPen,        // Unified: trigger=OnHit, value=chance, value2=pen%
+    StunChance,      // DEPRECATED: use Stun with OnHit trigger
+    Stun,            // Unified: trigger=OnHit, value=chance, value2=duration
     KnockbackChance,
     PoisonDOT,
     PoisonDmgAmp,

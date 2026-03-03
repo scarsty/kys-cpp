@@ -28,6 +28,7 @@ StarBoostedStats BattleRoleManager::computeStarStats(const Role* role, int stars
 
 void BattleRoleManager::applyStarBonus(Role* role, int stars)
 {
+    role->Star = stars;  // gate magic slots by star level
     if (stars <= 1) return;
     auto s = computeStarStats(role, stars);
     role->MaxHP = s.hp;
@@ -40,10 +41,6 @@ void BattleRoleManager::applyStarBonus(Role* role, int stars)
     role->Knife = s.knife;
     role->Unusual = s.unusual;
     role->HiddenWeapon = s.hidden;
-
-    // 3-star pieces max out their ulti skill level
-    if (stars >= 3 && role->MagicID[1] > 0)
-        role->MagicLevel[1] = 999;
 }
 
 }  // namespace KysChess

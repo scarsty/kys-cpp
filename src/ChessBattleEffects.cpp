@@ -16,7 +16,8 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"闪避几率", EffectType::DodgeChance}, {"闪避后暴击", EffectType::DodgeThenCrit},
     {"暴击几率", EffectType::CritChance}, {"暴击伤害", EffectType::CritMultiplier},
     {"每N次双倍", EffectType::EveryNthDouble}, {"穿甲几率", EffectType::ArmorPenChance},
-    {"穿甲百分比", EffectType::ArmorPenPct}, {"眩晕几率", EffectType::StunChance},
+    {"穿甲百分比", EffectType::ArmorPenPct}, {"穿甲", EffectType::ArmorPen},
+    {"眩晕几率", EffectType::StunChance}, {"眩晕", EffectType::Stun},
     {"击退几率", EffectType::KnockbackChance}, {"中毒伤害", EffectType::PoisonDOT},
     {"中毒增伤", EffectType::PoisonDmgAmp}, {"命中回蓝", EffectType::MPOnHit},
     {"吸取内力", EffectType::MPDrain}, {"回蓝加成", EffectType::MPRecoveryBonus},
@@ -36,6 +37,7 @@ static const std::map<std::string, Trigger> triggerMap = {
     {"低血量", Trigger::WhileLowHP},
     {"友方低血狂暴", Trigger::AllyLowHPBurst},
     {"最后存活", Trigger::LastAlive},
+    {"攻击命中时概率", Trigger::OnHit},
 };
 
 const std::map<std::string, EffectType>& ChessBattleEffects::getEffectTypeMap()
@@ -98,7 +100,9 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::EveryNthDouble: s.everyNthDouble = e.value; break;
     case EffectType::ArmorPenChance: s.armorPenChancePct += e.value; break;
     case EffectType::ArmorPenPct: s.armorPenPct = std::max(s.armorPenPct, e.value); break;
+    case EffectType::ArmorPen: break;  // handled as triggered effect
     case EffectType::StunChance: s.stunChancePct += e.value; if (e.value2) s.stunFrames = std::max(s.stunFrames, e.value2); break;
+    case EffectType::Stun: break;  // handled as triggered effect
     case EffectType::KnockbackChance: s.knockbackChancePct += e.value; break;
     case EffectType::PoisonDOT: s.poisonDOTPct += e.value; if (e.value2) s.poisonDuration = std::max(s.poisonDuration, e.value2); break;
     case EffectType::PoisonDmgAmp: s.poisonDmgAmpPct += e.value; break;

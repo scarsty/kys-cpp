@@ -114,15 +114,15 @@ void ChessUIStatus::draw()
     // 武学 section - beside 技能, single column
     int mx = x_ + 220;
     font->draw("武學", 25, mx - 10, y, color_name);
-    for (int i = 0; i < 4; i++)
+    int magic_slots = Role::getAvailableMagicSlots(star_);
+    for (int i = 0; i < magic_slots; i++)
     {
         auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
         if (magic)
         {
             int x1 = mx;
             int y1 = y + 30 + i * 25;
-            int lvl = role_->getMagicLevelIndex(magic);
-            int skillAtk = magic->Attack[lvl];
+            int skillAtk = role_->getMagicPower(magic, star_);
             font->draw(std::format("{}", magic->Name), font_size, x1, y1, color_ability1);
             font->draw(std::format("{:4}", skillAtk), font_size, x1 + 120, y1, color_white);
         }

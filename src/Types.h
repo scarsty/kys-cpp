@@ -92,13 +92,11 @@ enum
 
 enum
 {
-    ROLE_MAGIC_COUNT = 10,
+    ROLE_MAGIC_COUNT = 6,           // 2 per star tier (1★: 0-1, 2★: 2-3, 3★: 4-5)
+    SLOTS_PER_STAR = 2,
     ROLE_TAKING_ITEM_COUNT = 4,
 
-    MAX_MAGIC_LEVEL = 999,
-    MAX_MAGIC_LEVEL_INDEX = 9,
-
-    ROLE_INTERNAL_COUNT = 4,
+    MAX_MAGIC_LEVEL_INDEX = 9,     // kept for legacy compat stubs
 };
 
 enum
@@ -131,39 +129,55 @@ using OT = OperationType_t;
 
 //成员函数若是开头大写，并且无下划线，则可以直接访问并修改
 
-//存档中的角色数据
+//存档中的角色数据 — Chess Mod: persisted base template (no leveling/equipment/inventory)
 struct RoleSave
 {
 public:
-    int ID;
-    int HeadID, IncLife, UnUse;
-    char Name_hold[20], Nick_hold[20];    //占位
-    int Sexual;                   //性别 0-男 1 女 2 其他
-    int Level;
-    int Exp;
-    int HP, MaxHP, Hurt, Poison, PhysicalPower;
-    int ExpForMakeItem;
-    int Equip0, Equip1;
-    //int Frame[15];    //动作帧数，改为不在此处保存，故实际无用，另外延迟帧数对效果几乎无影响，废弃
-    int EquipMagic[4];     //装备武学
-    int EquipMagic2[4];    //装备被动武学
-    int EquipItem;         //装备物品
-    int Frame[6];          //帧数，现仅用于占位
-    int MPType, MP, MaxMP;
-    int Attack, Speed, Defence, Medicine, UsePoison, Detoxification, AntiPoison, Fist, Sword, Knife, Unusual, HiddenWeapon;
-    int Knowledge, Morality, AttackWithPoison, AttackTwice, Fame, IQ;
-    int PracticeItem;
-    int ExpForItem;
-    int MagicID[ROLE_MAGIC_COUNT], MagicLevel[ROLE_MAGIC_COUNT];
-    int TakingItem[ROLE_TAKING_ITEM_COUNT], TakingItemCount[ROLE_TAKING_ITEM_COUNT];
-    int InternalID[ROLE_INTERNAL_COUNT], InternalLevel[ROLE_INTERNAL_COUNT];
+    int ID = 0;
+    int HeadID = 0;
+    int Sexual = 0;                //性别 0-男 1-女 2-其他
+    int MaxHP = 0;
+    int MPType = 0, MaxMP = 0;
+    int Attack = 0, Speed = 0, Defence = 0;
+    int Medicine = 0, UsePoison = 0, Detoxification = 0, AntiPoison = 0;
+    int Fist = 0, Sword = 0, Knife = 0, Unusual = 0, HiddenWeapon = 0;
+    int Knowledge = 0, Morality = 0;
+    int AttackWithPoison = 0, AttackTwice = 0;
+    int Fame = 0, IQ = 0;
+    // 6 magic slots, 2 per star tier: [0-1]=1★, [2-3]=2★, [4-5]=3★
+    int MagicID[ROLE_MAGIC_COUNT] = {};
+    int MagicPower[ROLE_MAGIC_COUNT] = {};     // direct power value per slot
     std::string Name, Nick;
+
+    // Helper: how many magic slots available at a given star level
+    static int getAvailableMagicSlots(int stars) { return (stars * 2 < ROLE_MAGIC_COUNT) ? stars * 2 : ROLE_MAGIC_COUNT; }
 };
 
 //实际的角色数据，基类之外的通常是战斗属性
 struct Role : public RoleSave
 {
 public:
+    // === Star level (set by applyStarBonus at battle init, default 3 = all slots open) ===
+    int Star = 3;
+
+    // === Transient battle-time fields (NOT persisted to DB) ===
+    int HP = 0, MP = 0;
+    int Hurt = 0, Poison = 0, PhysicalPower = 0;
+
+    // === Legacy game fields (NOT persisted, kept for compilation of old UI code) ===
+    int IncLife = 0, UnUse = 0;
+    int Level = 0, Exp = 0;
+    int ExpForMakeItem = 0;
+    int Equip0 = -1, Equip1 = -1;
+    int EquipMagic[4] = {};
+    int EquipMagic2[4] = {};
+    int EquipItem = -1;
+    int PracticeItem = -1;
+    int ExpForItem = 0;
+    int TakingItem[ROLE_TAKING_ITEM_COUNT] = {};
+    int TakingItemCount[ROLE_TAKING_ITEM_COUNT] = {};
+
+    // === Battle state ===
     int Team = 0;
     Role* LastAttacker = nullptr;
     int FaceTowards = 0, Dead = 0, Step = 0;
@@ -244,16 +258,19 @@ public:
     int Y() { return Y_; }
 
     //带role的，表示后面的参数是人物武功栏
-    int getRoleShowLearnedMagicLevel(int i);
-    int getRoleMagicLevelIndex(int i);
+    int getRoleShowLearnedMagicLevel(int i);   // deprecated, returns 0
+    int getRoleMagicLevelIndex(int i);         // deprecated, returns 0
 
     int getLearnedMagicCount();
-    int getMagicLevelIndex(Magic* magic);
-    int getMagicLevelIndex(int magic_id);
+    int getMagicLevelIndex(Magic* magic);       // deprecated compat: returns 0
+    int getMagicLevelIndex(int magic_id);       // deprecated compat: returns 0
+    int getMagicPower(Magic* magic, int star = 0);   // star=0 means use this->Star
+    int getMagicPower(int magic_id, int star = 0);
     int getMagicOfRoleIndex(Magic* magic);
     int getEquipMagicOfRoleIndex(Magic* magic);
 
     std::vector<Magic*> getLearnedMagics();
+    std::vector<Magic*> getLearnedMagics(int star);  // star-gated: only magic within star range
 
     void limit();
 
@@ -328,6 +345,7 @@ public:
     int Attention = 0;      //出场
     int Invincible = 0;     //无敌时间
     int Frozen = 0;         //静止时间
+    int FrozenMax = 0;      //最大静止时间（用于显示进度条）
     int Shake = 0;          //震动时间
 
     int HaveAction = 0;        //开始行动
@@ -396,27 +414,28 @@ public:
     static void setSpecialItems();
 };
 
-//存档中的武学数据（无适合对应翻译，而且武侠小说中的武学近于魔法，暂且如此）
+//存档中的武学数据 — Chess Mod: single values, no level arrays
 struct MagicSave
 {
-    int ID;
-    char Name_hold[20];
-    int Unknown[5];
-    int SoundID;
-    int MagicType;    //1-拳，2-剑，3-刀，4-特殊
-    int EffectID;
-    int HurtType;          //0-普通，1-吸取MP
-    int AttackAreaType;    //0-点，1-线，2-十字，3-面
-    int NeedMP, WithPoison;
-    int Attack[10], SelectDistance[10], AttackDistance[10], AddMP[10], HurtMP[10];
+    int ID = 0;
+    int SoundID = 0;
+    int MagicType = 0;    //1-拳，2-剑，3-刀，4-特殊
+    int EffectID = 0;
+    int HurtType = 0;          //0-普通，1-吸取MP
+    int AttackAreaType = 0;    //0-点，1-线，2-十字，3-面
+    int NeedMP = 0, WithPoison = 0;
+    int SelectDistance = 0;    // move range
+    int AttackDistance = 0;    // AoE size
+    int AddMP = 0;             // MP gain on use
+    int HurtMP = 0;            // MP damage (HurtType=1)
     std::string Name;
 };
 
 struct Magic : MagicSave
 {
-    int calNeedMP(int level_index) { return NeedMP * ((level_index + 2) / 2); }
+    int calNeedMP(int level_index) { return NeedMP; }    // simplified: no level scaling
 
-    int calMaxLevelIndexByMP(int mp, int max_level);
+    int calMaxLevelIndexByMP(int mp, int max_level);     // deprecated compat
 };
 
 //存档中的子场景数据

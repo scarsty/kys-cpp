@@ -793,7 +793,7 @@ void Event::setRoleMagic(int role_id, int magic_index_role, int magic_id, int le
 {
     auto r = Save::getInstance()->getRole(role_id);
     r->MagicID[magic_index_role] = magic_id;
-    r->MagicLevel[magic_index_role] = level;
+    r->MagicPower[magic_index_role] = level;  // 'level' repurposed as power value
 }
 
 bool Event::checkRoleSexual(int sexual)

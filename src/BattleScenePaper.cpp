@@ -1374,11 +1374,7 @@ void BattleScenePaper::Action(Role* r)
                 }
             }
 
-            int index = r->getMagicOfRoleIndex(ae.UsingMagic);
-            if (index >= 0)
-            {
-                r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
-            }
+            // Chess mod: no in-battle magic level-up
             //根据性质创造攻击效果
             if (ae.OperationType == 0)
             {
@@ -1389,7 +1385,7 @@ void BattleScenePaper::Action(Role* r)
                     shake_ = 10;
                     //ae.Strengthen = 2;
                     ae.Velocity = r->RealTowards;
-                    ae.Velocity.normTo(magic->SelectDistance[level_index] / 2.0);
+                    ae.Velocity.normTo(magic->SelectDistance / 2.0);
                     //ae.Velocity.normTo(5);
                     ae.Track = 1;
                 }
@@ -1526,7 +1522,7 @@ void BattleScenePaper::AI(Role* r)
                     double sum = 0;
                     for (auto m : v)
                     {
-                        double h = m->Attack[r->getMagicLevelIndex(m)];
+                        double h = r->getMagicPower(m);
                         h = exp(h / 500);    //几率正比于武功威力
                         hurt.push_back(sum + h);
                         sum += h;
