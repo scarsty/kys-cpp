@@ -514,15 +514,18 @@ void RunNode::present()
     e->renderMainTextureToWindow();
     e->renderPresent();
     e->setRenderMainTexture();
-    auto t_delay = refresh_interval_ - t;
-    if (t_delay > refresh_interval_)
-    {
-        t_delay = refresh_interval_;
-    }
-    //LOG("{}/{}/{} ", t, t_delay, global_prev_present_ticks_);
+
+    static double time_debt = 0.0;
+    auto t_delay = refresh_interval_ - t - time_debt;
     if (t_delay > 0)
     {
         Engine::delay(t_delay);
+        time_debt = 0.0;
+    }
+    else
+    {
+        // time_debt = -t_delay;
+        // if (time_debt > refresh_interval_) { time_debt = refresh_interval_; }
     }
     global_prev_present_ticks_ = Engine::getTicks();
 }

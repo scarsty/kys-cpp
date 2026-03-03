@@ -125,8 +125,9 @@ std::vector<Magic*> Role::getLearnedMagics()
 std::vector<Magic*> Role::getLearnedMagics(int star)
 {
     std::vector<Magic*> v;
-    int slots = getAvailableMagicSlots(star);
-    for (int i = 0; i < slots; i++)
+    int start = star * 2;
+    int end = start + 2;
+    for (int i = start; i < end && i < ROLE_MAGIC_COUNT; i++)
     {
         auto m = Save::getInstance()->getMagic(MagicID[i]);
         if (m)

@@ -310,3 +310,33 @@ void Audio::playWav(WAV w, int volume, int track_num)
     }
 #endif
 }
+
+void Audio::preloadBattleAudio(int music_id, const std::vector<int>& atk_ids, const std::vector<int>& eff_ids)
+{
+    if (music_id >= 0 && music_.find(music_id) == music_.end())
+    {
+        auto path = std::format("{}music/{}.mid", GameUtil::PATH(), music_id);
+        music_[music_id] = loadMusic(path);
+        if (music_[music_id] == 0)
+        {
+            path = std::format("{}music/{}.mp3", GameUtil::PATH(), music_id);
+            music_[music_id] = loadMusic(path);
+        }
+    }
+    for (int id : atk_ids)
+    {
+        if (id >= 0 && asound_.find(id) == asound_.end())
+        {
+            auto path = std::format("{}sound/atk{:02}.wav", GameUtil::PATH(), id);
+            asound_[id] = loadWav(path);
+        }
+    }
+    for (int id : eff_ids)
+    {
+        if (id >= 0 && esound_.find(id) == esound_.end())
+        {
+            auto path = std::format("{}sound/e{:02}.wav", GameUtil::PATH(), id);
+            esound_[id] = loadWav(path);
+        }
+    }
+}

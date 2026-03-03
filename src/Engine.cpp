@@ -1064,6 +1064,7 @@ void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
 #ifdef __EMSCRIPTEN__
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     renderTexture(tex_);
 #else

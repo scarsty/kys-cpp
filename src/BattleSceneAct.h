@@ -34,6 +34,7 @@ public:
         int Through = 0;               //是否贯穿，即击中敌人后可以不消失
         int NoHurt = 0;                //是否无伤害
         int IsUltimate = 0;            //大招标记
+        int IsMain = 1;                //是否主弹（非多重小弹）
 
         void setEft(int num)
         {

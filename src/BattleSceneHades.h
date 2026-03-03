@@ -56,6 +56,9 @@ public:
     const std::deque<Role>& getEnemiesObj() const { return enemies_obj_; }
     void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
 
+    static int getOperationType(int attackAreaType);
+    static const char* getOperationTypeName(int operationType);
+
 protected:
     BattleTracker tracker_;
     Role* swapSelected_ = nullptr;

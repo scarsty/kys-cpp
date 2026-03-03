@@ -1,5 +1,6 @@
 ﻿#include "ChessUIStatus.h"
 #include "BattleRoleManager.h"
+#include "BattleSceneHades.h"
 #include "ChessCombo.h"
 #include "ChessPool.h"
 #include "Engine.h"
@@ -92,7 +93,7 @@ void ChessUIStatus::draw()
     // 技能 section
     int x = x_ + 20;
     int y = y_ + 155;
-    font->draw("技能", 25, x - 10, y, color_name);
+    // font->draw("技能", 25, x - 10, y, color_name);
 
     int dispFist = bs.fist;
     int dispSword = bs.sword;
@@ -114,18 +115,17 @@ void ChessUIStatus::draw()
     // 武学 section - beside 技能, single column
     int mx = x_ + 220;
     font->draw("武學", 25, mx - 10, y, color_name);
-    int magic_slots = Role::getAvailableMagicSlots(star_);
-    for (int i = 0; i < magic_slots; i++)
+    auto magics = role_->getLearnedMagics(star_);
+    for (int i = 0; i < magics.size(); i++)
     {
-        auto magic = Save::getInstance()->getRoleLearnedMagic(role_, i);
-        if (magic)
-        {
-            int x1 = mx;
-            int y1 = y + 30 + i * 25;
-            int skillAtk = role_->getMagicPower(magic, star_);
-            font->draw(std::format("{}", magic->Name), font_size, x1, y1, color_ability1);
-            font->draw(std::format("{:4}", skillAtk), font_size, x1 + 120, y1, color_white);
-        }
+        auto magic = magics[i];
+        int x1 = mx;
+        int y1 = y + 30 + i * 25;
+        int skillAtk = role_->getMagicPower(magic, star_);
+        int opType = BattleSceneHades::getOperationType(magic->AttackAreaType);
+        const char* opName = BattleSceneHades::getOperationTypeName(opType);
+        font->draw(std::format("{}", magic->Name), font_size, x1, y1, color_ability1);
+        font->draw(std::format("{:4} {}", skillAtk, opName), font_size, x1 + 120, y1, color_white);
     }
 
     // Owned pieces

@@ -34,6 +34,7 @@ public:
     void setStatMessage(int s) { stat_message_ = s; }
     int draw(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255);
     void drawWithBox(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, uint8_t alpha_box = 255);
+    void drawWithBoxCentered(const std::string& text, int size, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, uint8_t alpha_box = 255);
     //void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c);
     void clearBuffer();
     int getBufferSize();

@@ -91,9 +91,9 @@ void ChessModHook::showMenu()
     else if (r == 2)
     {
         auto confirm = std::make_shared<MenuText>();
-        confirm->setStrings({ "確認返回開頭", "     否    " });
-        confirm->setFontSize(24);
-        confirm->arrange(0, 0, 0, 32);
+        confirm->setStrings({ "確認返回開頭", "     否     " });
+        confirm->setFontSize(40);
+        confirm->arrange(0, 0, 0, 49);
         confirm->runAtPosition(200, 200);
         if (confirm->getResult() == 0)
         {

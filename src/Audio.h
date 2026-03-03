@@ -63,6 +63,8 @@ public:
 
     int getCurrentMusic() const { return current_music_index_; }
 
+    void preloadBattleAudio(int music_id, const std::vector<int>& atk_ids, const std::vector<int>& eff_ids);
+
 private:
     MUSIC loadMusic(const std::string& file);
     static WAV loadWav(const std::string& file);

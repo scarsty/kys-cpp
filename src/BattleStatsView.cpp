@@ -51,14 +51,11 @@ static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team)
     e.def = s.def;
     e.spd = s.spd;
     // Collect skill names
-    for (int i = 0; i < 4; i++)
+    auto magics = role->getLearnedMagics(star);
+    for (auto m : magics)
     {
-        auto m = Save::getInstance()->getRoleLearnedMagic(role, i);
-        if (m)
-        {
-            if (!e.skillNames.empty()) e.skillNames += " ";
-            e.skillNames += m->Name;
-        }
+        if (!e.skillNames.empty()) e.skillNames += " ";
+        e.skillNames += m->Name;
     }
     return e;
 }

@@ -51,6 +51,22 @@ void applyFrozen(Role* r, int frames)
 }
 }    // namespace
 
+int BattleSceneHades::getOperationType(int attackAreaType)
+{
+    if (attackAreaType == 0) return 0;
+    if (attackAreaType == 1 || attackAreaType == 2) return 2;
+    if (attackAreaType == 3) return 1;
+    return -1;
+}
+
+const char* BattleSceneHades::getOperationTypeName(int operationType)
+{
+    if (operationType == 0) return "輕擊";
+    if (operationType == 1) return "重擊";
+    if (operationType == 2) return "遠程";
+    return "未知";
+}
+
 BattleSceneHades::BattleSceneHades()
 {
     full_window_ = 1;
@@ -662,6 +678,31 @@ void BattleSceneHades::onEntrance()
         pos_ = pos45To90(sx / friends_.size(), sy / friends_.size());
     }
 
+    // Preload battle resources
+    std::vector<int> atk_sounds, eff_sounds;
+    for (auto r : battle_roles_)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            auto m = Save::getInstance()->getMagic(r->MagicID[i]);
+            if (m)
+            {
+                if (m->SoundID >= 0) atk_sounds.push_back(m->SoundID);
+                if (m->EffectID >= 0)
+                {
+                    eff_sounds.push_back(m->EffectID);
+                    TextureManager::getInstance()->getTexture(std::format("eft/eft{:03}", m->EffectID), 0);
+                }
+            }
+        }
+    }
+    // Preload blood/hit effects
+    for (int i = 0; i < 5; i++)
+    {
+        TextureManager::getInstance()->getTexture(std::format("eft/bld{:03}", i), 0);
+    }
+    Audio::getInstance()->preloadBattleAudio(info_->Music, atk_sounds, eff_sounds);
+
     // Pre-battle position swap
     if (!extended_teammates_.empty() && KysChess::GameData::get().isPositionSwapEnabled())
     {
@@ -1160,7 +1201,7 @@ void BattleSceneHades::backRun1()
                 ae.Defender[r]++;
                 shake_ = ae.IsUltimate ? 10 : 0;
                 r->Frozen = 0;
-                applyFrozen(r, ae.IsUltimate ? 10 : 5);
+                if (ae.IsMain) applyFrozen(r, ae.IsUltimate ? 10 : 5);
                 r->Shake = ae.IsUltimate ? 10 : 5;
                 if (ae.IsUltimate) { ultHitRoles_.insert(r); }
                 if (ae.OperationType >= 0)
@@ -1440,18 +1481,7 @@ void BattleSceneHades::Action(Role* r)
             ae.OperationType = r->OperationType;
             if (r->OperationType == -1)
             {
-                if (ae.UsingMagic->AttackAreaType == 0)
-                {
-                    ae.OperationType = 0;
-                }
-                else if (ae.UsingMagic->AttackAreaType == 1 || ae.UsingMagic->AttackAreaType == 2)
-                {
-                    ae.OperationType = 2;
-                }
-                else if (ae.UsingMagic->AttackAreaType == 3)
-                {
-                    ae.OperationType = 1;
-                }
+                ae.OperationType = getOperationType(ae.UsingMagic->AttackAreaType);
             }
 
             // Chess mod: no in-battle magic level-up
@@ -1545,6 +1575,7 @@ void BattleSceneHades::Action(Role* r)
                         ae.Velocity.normTo(v);
                         ae.Through = 1;
                         ae.Strengthen = sideStr;
+                        ae.IsMain = 0;
                         attack_effects_.push_back(ae);
                     }
                 }
@@ -2242,7 +2273,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 {
                     if (eff.type == KysChess::EffectType::ArmorPen)
                     {
-                        // Applied in calMagicHurt, store flag
+                        // Applied in calMagicHurt
                     }
                     else if (eff.type == KysChess::EffectType::Stun)
                     {

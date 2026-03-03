@@ -61,7 +61,9 @@ void SubScene::draw()
     //std::map<int, DrawInfo> map;
 
     Engine::getInstance()->setRenderTarget("scene");
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
+    int w, h;
+    Engine::getInstance()->getAssistTextureSize("scene", w, h);
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, w, h);
 
     //Timer t0;
     //一整块地面

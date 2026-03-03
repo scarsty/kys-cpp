@@ -68,8 +68,10 @@ static std::string comboEffectDesc(const ComboEffect& eff)
     case EffectType::CritMultiplier: d = std::format("暴擊{}%傷害", eff.value); break;
     case EffectType::EveryNthDouble: d = std::format("每{}次雙倍", eff.value); break;
     case EffectType::ArmorPenChance: d = std::format("{}%穿甲", eff.value); break;
-    case EffectType::ArmorPenPct: d = std::format("無視{}%防禦", eff.value); break;
+    case EffectType::ArmorPenPct: d = std::format("無視%防禦", eff.value); break;
+    case EffectType::ArmorPen: d = std::format("{}%穿甲(無視{}%防禦)", eff.value, eff.value2); break;
     case EffectType::StunChance: d = eff.value2 ? std::format("{}%眩暈({}幀)", eff.value, eff.value2) : std::format("{}%眩暈", eff.value); break;
+    case EffectType::Stun: d = std::format("{}%眩暈({}幀)", eff.value, eff.value2); break;
     case EffectType::KnockbackChance: d = std::format("{}%擊退", eff.value); break;
     case EffectType::PoisonDOT: d = eff.value2 ? std::format("中毒{}%/幀({}幀)", eff.value, eff.value2) : std::format("中毒{}%/幀", eff.value); break;
     case EffectType::PoisonDmgAmp: d = std::format("中毒增傷{}%", eff.value); break;
@@ -385,7 +387,7 @@ static std::shared_ptr<DrawableOnCall> makeHeaderBar()
 static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
 {
     auto* font = Font::getInstance();
-    int px = 480, py = 130, fs = 24;
+    int px = 480, py = 180, fs = 24;
     Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 500, 400, 8);
     Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 500, 400, 8);
     TextureManager::getInstance()->renderTexture("item", ng.itemId, px + 10, py + 10);

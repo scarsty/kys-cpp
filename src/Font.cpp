@@ -141,6 +141,13 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, Color co
     draw(text, size, x, y, color, alpha);
 }
 
+void Font::drawWithBoxCentered(const std::string& text, int size, int y, Color color, uint8_t alpha, uint8_t alpha_box)
+{
+    int textW = size * getTextDrawSize(text) / 2;
+    int x = Engine::getInstance()->getUIWidth() / 2 - textW / 2;
+    drawWithBox(text, size, x, y, color, alpha, alpha_box);
+}
+
 //此处仅接受utf8
 /*
 void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c)
