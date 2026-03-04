@@ -63,4 +63,7 @@ protected:
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;
+    std::unordered_map<int, int> hurt_flash_timers_;
+
+    Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
 };

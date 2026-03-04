@@ -18,6 +18,8 @@ namespace
 constexpr int PROJECTILE_SPEED = 7;
 constexpr int PROJECTILE_BASE_TRAVEL = 100;  // travel distance at sd=1 (excluding spawn offset)
 constexpr int PROJECTILE_TRAVEL_PER_SD = 25; // extra travel per sd
+constexpr int HURT_FLASH_DURATION = 15;
+constexpr int HURT_FLASH_PERIOD = 3;
 
 int calcProjectileReach(int select_distance, int spawn_offset)
 {
@@ -87,6 +89,21 @@ BattleSceneHades::BattleSceneHades(int id) :
 
 BattleSceneHades::~BattleSceneHades()
 {
+}
+
+Color BattleSceneHades::calculateHurtFlashColor(const Role* r, const Color& base_color) const
+{
+    auto it = hurt_flash_timers_.find(r->ID);
+    if (it == hurt_flash_timers_.end()) return base_color;
+
+    int timer = it->second;
+    int phase = timer % HURT_FLASH_PERIOD;
+
+    if (phase < 2)
+    {
+        return {255, 100, 100, base_color.a};
+    }
+    return base_color;
 }
 
 void BattleSceneHades::draw()
@@ -252,6 +269,10 @@ void BattleSceneHades::draw()
         {
             info.alpha = 255 - r->Attention * 4;
         }
+
+        // 应用受击闪红
+        info.color = calculateHurtFlashColor(r, info.color);
+
         info.shadow = 1;
         //TextureManager::getInstance()->renderTexture(path, pic, r->X1, r->Y1, color, alpha);
         draw_infos.emplace_back(std::move(info));
@@ -699,6 +720,7 @@ void BattleSceneHades::onEntrance()
 
 void BattleSceneHades::onExit()
 {
+    hurt_flash_timers_.clear();
 }
 
 class PositionSwapNode : public RunNode
@@ -876,6 +898,20 @@ void BattleSceneHades::runListBasedSwap()
 
 void BattleSceneHades::backRun1()
 {
+    // 更新受击闪红计时器
+    for (auto it = hurt_flash_timers_.begin(); it != hurt_flash_timers_.end();)
+    {
+        it->second--;
+        if (it->second <= 0)
+        {
+            it = hurt_flash_timers_.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
     if (slow_ > 0)
     {
         if (current_frame_ % 4) { return; }
@@ -1248,6 +1284,7 @@ void BattleSceneHades::backRun1()
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
             r->HP -= hurt;
+            hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
             double mpGain = (hurt / r->MaxHP)  * 75.0;
             {
                 auto& cs = KysChess::ChessCombo::getActiveStates();
