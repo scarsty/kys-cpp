@@ -49,6 +49,8 @@ protected:
     void makeSpecialMagicEffect();
     void runPositionSwapLoop();
     void runListBasedSwap();
+    void computeFlowField(int team, MapSquare<Pointf>& field);
+    Role* assignFlankTarget(Role* r);
 
 public:
     BattleTracker& getTracker() { return tracker_; }
@@ -66,4 +68,12 @@ protected:
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;
+    MapSquare<Pointf> flow_field_team0_;
+    MapSquare<Pointf> flow_field_team1_;
+    bool flow_fields_dirty_ = true;
+    int flow_field_update_counter_ = 0;
+
+    // Per-agent stuck tracking: role pointer -> consecutive stuck frames
+    std::unordered_map<Role*, int> stuck_frames_;
+    std::unordered_map<Role*, Pointf> prev_positions_;
 };

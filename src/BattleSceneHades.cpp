@@ -1118,6 +1118,15 @@ void BattleSceneHades::backRun1()
 
     //if (current_frame_ % 2 == 0)
     {
+        // Update flow fields every 30 frames or when dirty
+        flow_field_update_counter_++;
+        if (flow_fields_dirty_ || flow_field_update_counter_ >= 30) {
+            computeFlowField(0, flow_field_team0_);
+            computeFlowField(1, flow_field_team1_);
+            flow_fields_dirty_ = false;
+            flow_field_update_counter_ = 0;
+        }
+
         int current_frame2 = current_frame_;
         for (auto r : battle_roles_)
         {
@@ -1285,6 +1294,9 @@ void BattleSceneHades::backRun1()
                 //LOG("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
+                flow_fields_dirty_ = true;
+                stuck_frames_.erase(r);
+                prev_positions_.erase(r);
                 tracker_.recordKill(r->LastAttacker);
                 tracker_.recordDeath(r, current_frame_);
 
@@ -1681,7 +1693,9 @@ void BattleSceneHades::AI(Role* r)
                     }
                 }
             }
-            auto r0 = findNearestEnemy(r->Team, r->Pos);
+            // Use per-agent target assignment: rear agents flank, front agents go nearest
+            auto r0 = assignFlankTarget(r);
+            if (!r0) r0 = findNearestEnemy(r->Team, r->Pos);
             if (r0)
             {
                 r->RealTowards = r0->Pos - r->Pos;
@@ -1701,8 +1715,20 @@ void BattleSceneHades::AI(Role* r)
                 double speed = r->Speed / 30.0;
                 if (EuclidDis(r->Pos, r0->Pos) > dis)
                 {
+                    // === Stuck detection ===
+                    // Track how long this agent has barely moved
+                    auto& prev_pos = prev_positions_[r];
+                    auto& stuck = stuck_frames_[r];
+                    double moved_dist = EuclidDis(r->Pos, prev_pos);
+                    if (moved_dist < speed * 0.5) {
+                        stuck++;
+                    } else {
+                        stuck = 0;
+                    }
+                    prev_pos = r->Pos;
+
                     auto p = r->Pos + speed * r->RealTowards;
-                    if (canWalk90(p, r) && r->FindingWay == 0)
+                    if (canWalk90(p, r) && r->FindingWay == 0 && stuck < 15)
                     {
                         //能否闪身的条件，似乎比较复杂
                         if (rand_.rand() < 0.25 && r->UsingMagic)
@@ -1726,59 +1752,91 @@ void BattleSceneHades::AI(Role* r)
                     }
                     else if (r->Velocity.norm() < 0.1)
                     {
-                        //用复杂路径法查找一个目标并接近
-                        MapSquareInt dis_layer;
-                        dis_layer.resize(COORD_COUNT);
-                        auto p_enemy45 = pos90To45(r0->Pos.x, r0->Pos.y);
-                        calDistanceLayer(p_enemy45.x, p_enemy45.y, dis_layer, 64);
+                        // Use flow field for pathfinding
                         auto p_self45 = pos90To45(r->Pos.x, r->Pos.y);
-                        int max_dis45 = 4096;
-                        Pointf p_target = r->Pos;
-                        constexpr int search_radius = 1;  // tune this: 1 = original, 3 = can route around crowds
-                        for (int x = p_self45.x - search_radius; x <= p_self45.x + search_radius; x++)
-                        {
-                            for (int y = p_self45.y - search_radius; y <= p_self45.y + search_radius; y++)
-                            {
-                                if (calDistance(x, y, p_self45.x, p_self45.y) < 1)
-                                {
-                                    continue;
+
+                        // Get flow direction from appropriate field
+                        Pointf flow_dir = (r->Team == 0) ? flow_field_team0_.data(p_self45.x, p_self45.y)
+                                                          : flow_field_team1_.data(p_self45.x, p_self45.y);
+
+                        if (flow_dir.norm() < 0.01) {
+                            // No flow direction, try direct approach to target
+                            flow_dir = r0->Pos - r->Pos;
+                            flow_dir.normTo(1);
+                        }
+
+                        // === Stuck lateral escape ===
+                        // If stuck for too long, rotate flow direction perpendicular
+                        // to break out of congestion. Alternates left/right.
+                        if (stuck > 30) {
+                            // Strong lateral: rotate 90 degrees
+                            double angle = (stuck % 60 < 30) ? M_PI * 0.5 : -M_PI * 0.5;
+                            flow_dir.rotate(angle);
+                            if (stuck > 90) {
+                                // Desperate: rotate even more + randomize
+                                flow_dir.rotate(M_PI * (rand_.rand() - 0.5));
+                            }
+                        } else if (stuck > 15) {
+                            // Mild lateral: 30-45 degree offset to try to slide around
+                            double angle = (stuck % 30 < 15) ? M_PI * 0.25 : -M_PI * 0.25;
+                            flow_dir.rotate(angle);
+                        }
+
+                        // Hybrid collision check: look ahead with larger radius
+                        constexpr int search_radius = 5;
+                        Pointf best_dir = flow_dir;
+                        double best_score = -1000;
+
+                        for (int dx = -search_radius; dx <= search_radius; dx++) {
+                            for (int dy = -search_radius; dy <= search_radius; dy++) {
+                                if (dx == 0 && dy == 0) continue;
+
+                                int nx = p_self45.x + dx;
+                                int ny = p_self45.y + dy;
+
+                                if (isOutLine(nx, ny)) continue;
+
+                                auto np = pos45To90(nx, ny);
+                                Pointf dir = np - r->Pos;
+                                double ddist = dir.norm();
+                                if (ddist < 0.1) continue;
+                                dir.normTo(1);
+
+                                // Score: alignment with flow + distance penalty
+                                double alignment = dir.x * flow_dir.x + dir.y * flow_dir.y;
+                                double score = alignment - ddist * 0.1;
+
+                                // Hybrid collision: use canWalk() for distant, canWalk90() for adjacent
+                                bool walkable;
+                                if (abs(dx) <= 1 && abs(dy) <= 1) {
+                                    // Adjacent tile: check character collision
+                                    walkable = canWalk90(np, r);
+                                } else {
+                                    // Distant tile: only check terrain
+                                    walkable = canWalk90(nx, ny);
                                 }
-                                auto p1 = pos45To90(x, y);
-                                double dis1 = dis_layer.data(x, y) + 1 * (rand_.rand() - rand_.rand());
-                                if (canWalk90(p1, r) && dis1 < max_dis45)
-                                {
-                                        max_dis45 = dis1;
-                                        p_target = p1;
+
+                                if (walkable && score > best_score) {
+                                    best_score = score;
+                                    best_dir = dir;
                                 }
                             }
                         }
+
                         r->FindingWay = 1;
-                        r->RealTowards = p_target - r->Pos;
-                        if (rand_.rand() < 0.25 && r->UsingMagic)
-                        {
+                        r->RealTowards = best_dir;
+                        r->Velocity = best_dir * speed * 1.2;
+
+                        if (rand_.rand() < 0.25 && r->UsingMagic) {
                             r->OperationType = 3;
-                        }
-                        else
-                        {
+                        } else {
                             r->OperationType = -1;
                         }
-                        if (r->OperationType == 3)
-                        {
+
+                        if (r->OperationType == 3) {
                             r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
                             r->ActFrame = 0;
                             r->HaveAction = 1;
-                        }
-                        else
-                        {
-                            r->RealTowards = p_target - r->Pos;
-                            //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-                            auto distance = r->RealTowards.norm();
-                            //r->FaceTowards = readTowardsToFaceTowards(r->RealTowards);
-                            r->RealTowards.normTo(1);
-                            //r->Pos = p2;
-                            // 稍微提速
-                            r->Velocity = r->RealTowards * speed * 1.2;
-                            //todo:r->VelocitytFrame = 3;
                         }
                     }
                 }
@@ -2429,3 +2487,172 @@ int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     if (v < 1) v = 1;
     return v;
 }
+
+void BattleSceneHades::computeFlowField(int team, MapSquare<Pointf>& field)
+{
+    field.resize(COORD_COUNT);
+    field.setAll({0, 0, 0});
+
+    // === Multi-source BFS from ALL enemy positions ===
+    // This ensures agents path to the nearest reachable enemy, not just the centroid.
+    // Agents naturally spread across multiple enemies instead of converging on one point.
+    std::vector<Point> enemy_positions;
+    for (auto r : battle_roles_) {
+        if (r->Team != team && !r->Dead) {
+            auto p45 = pos90To45(r->Pos.x, r->Pos.y);
+            enemy_positions.push_back(p45);
+        }
+    }
+    if (enemy_positions.empty()) return;
+
+    // === Build ally density map for congestion penalty ===
+    // Tiles near many allies become more expensive, causing agents to
+    // prefer less crowded paths and naturally flank around congested areas.
+    MapSquare<int> ally_density;
+    ally_density.resize(COORD_COUNT);
+    ally_density.setAll(0);
+    for (auto r : battle_roles_) {
+        if (r->Team == team && !r->Dead) {
+            auto p45 = pos90To45(r->Pos.x, r->Pos.y);
+            // Spread density in a 3x3 area around each ally
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    int ax = p45.x + dx;
+                    int ay = p45.y + dy;
+                    if (!isOutLine(ax, ay)) {
+                        ally_density.data(ax, ay) += (dx == 0 && dy == 0) ? 3 : 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // === Congestion-aware multi-source BFS ===
+    // Instead of uniform cost BFS, tiles with high ally density cost more steps,
+    // effectively routing agents around crowded areas.
+    constexpr int max_step = 64;
+    MapSquareInt dis_layer;
+    dis_layer.resize(COORD_COUNT);
+    dis_layer.setAll(max_step + 1);
+
+    // Use a priority approach: BFS with extra cost for congested tiles
+    // We use a modified BFS where congested tiles add +1..+3 extra cost
+    std::vector<Point> cal_stack;
+    for (auto& ep : enemy_positions) {
+        if (!isOutLine(ep.x, ep.y)) {
+            dis_layer.data(ep.x, ep.y) = 0;
+            cal_stack.push_back(ep);
+        }
+    }
+
+    int count = 0;
+    int step = 0;
+    while (step <= max_step) {
+        std::vector<Point> cal_stack_next;
+        auto check_next = [&](Point p1) -> void {
+            if (isOutLine(p1.x, p1.y)) return;
+            if (!canWalk(p1.x, p1.y)) return;
+            // Congestion penalty: each ally density unit adds 1 extra cost
+            int congestion_cost = std::min(ally_density.data(p1.x, p1.y), 4);
+            int new_cost = step + 1 + congestion_cost;
+            if (new_cost < dis_layer.data(p1.x, p1.y)) {
+                dis_layer.data(p1.x, p1.y) = new_cost;
+                cal_stack_next.push_back(p1);
+                count++;
+            }
+        };
+        for (auto p : cal_stack) {
+            check_next({ p.x - 1, p.y });
+            check_next({ p.x + 1, p.y });
+            check_next({ p.x, p.y - 1 });
+            check_next({ p.x, p.y + 1 });
+            if (count >= dis_layer.squareSize()) break;
+        }
+        if (cal_stack_next.empty()) break;
+        cal_stack = cal_stack_next;
+        step++;
+    }
+
+    // Compute gradient at each tile
+    for (int x = 0; x < COORD_COUNT; x++) {
+        for (int y = 0; y < COORD_COUNT; y++) {
+            if (!canWalk(x, y)) continue;
+
+            int current_dis = dis_layer.data(x, y);
+            if (current_dis > max_step) continue;
+            Pointf gradient = {0, 0};
+            int gcount = 0;
+
+            // Check 4 neighbors for steepest descent
+            int ddx[] = {-1, 1, 0, 0};
+            int ddy[] = {0, 0, -1, 1};
+            for (int i = 0; i < 4; i++) {
+                int nx = x + ddx[i];
+                int ny = y + ddy[i];
+                if (!isOutLine(nx, ny) && canWalk(nx, ny)) {
+                    int neighbor_dis = dis_layer.data(nx, ny);
+                    if (neighbor_dis < current_dis) {
+                        auto np = pos45To90(nx, ny);
+                        auto cp = pos45To90(x, y);
+                        gradient.x += (np.x - cp.x) * (current_dis - neighbor_dis);
+                        gradient.y += (np.y - cp.y) * (current_dis - neighbor_dis);
+                        gcount++;
+                    }
+                }
+            }
+
+            if (gcount > 0) {
+                double norm = sqrt(gradient.x * gradient.x + gradient.y * gradient.y);
+                if (norm > 0.01) {
+                    gradient.x /= norm;
+                    gradient.y /= norm;
+                }
+            }
+
+            field.data(x, y) = gradient;
+        }
+    }
+}
+
+Role* BattleSceneHades::assignFlankTarget(Role* r)
+{
+    // Instead of always targeting nearest enemy, rear-line agents
+    // target the least-targeted enemy to create flanking behavior.
+    // Count how many allies are already targeting each enemy.
+    struct EnemyInfo {
+        Role* enemy;
+        double dist;
+        int targeters;
+    };
+    std::vector<EnemyInfo> enemies;
+    for (auto e : battle_roles_) {
+        if (e->Team != r->Team && !e->Dead) {
+            enemies.push_back({e, EuclidDis(r->Pos, e->Pos), 0});
+        }
+    }
+    if (enemies.empty()) return nullptr;
+
+    // Count allies closer to each enemy than we are (they are "ahead" of us)
+    for (auto ally : battle_roles_) {
+        if (ally == r || ally->Team != r->Team || ally->Dead) continue;
+        for (auto& ei : enemies) {
+            if (EuclidDis(ally->Pos, ei.enemy->Pos) < ei.dist) {
+                ei.targeters++;
+            }
+        }
+    }
+
+    // Score: prefer enemies with fewer targeters, tie-break by distance
+    Role* best = enemies[0].enemy;
+    double best_score = 1e9;
+    for (auto& ei : enemies) {
+        // Each targeter adds 120 pixels of virtual distance
+        double score = ei.dist + ei.targeters * 120.0;
+        if (score < best_score) {
+            best_score = score;
+            best = ei.enemy;
+        }
+    }
+    return best;
+}
+
