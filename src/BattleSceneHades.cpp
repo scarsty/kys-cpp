@@ -1079,9 +1079,11 @@ void BattleSceneHades::backRun1()
             int dis = -1;
             if (r->OperationType == 3) { dis = 1; }
 
+            auto& path_info = paths_[r];
             if (canWalk90(p, r, dis))
             {
                 r->Pos = p;
+                path_info.frames_following++;
             }
             else
             {
@@ -1095,6 +1097,7 @@ void BattleSceneHades::backRun1()
                     r->Pos = px;
                     r->Velocity.y = 0;
                     can_slide = true;
+                    path_info.frames_sliding++;
                 }
                 // Try Y-only movement
                 else {
@@ -1104,11 +1107,13 @@ void BattleSceneHades::backRun1()
                         r->Pos = py;
                         r->Velocity.x = 0;
                         can_slide = true;
+                        path_info.frames_sliding++;
                     }
                 }
 
                 if (!can_slide) {
                     r->Velocity = { 0, 0, 0 };
+                    path_info.frames_stuck++;
                 }
             }
             //r->FaceTowards = rand_.rand() * 4;
@@ -1643,7 +1648,7 @@ void BattleSceneHades::Action(Role* r)
                     attack_effects_.push_back(ae);
                 }
             }
-            LOG("{} team {} use {} as {}\n", ae.Attacker->Name, ae.Attacker->Team, ae.UsingMagic->Name, ae.OperationType);
+            // LOG("{} team {} use {} as {}\n", ae.Attacker->Name, ae.Attacker->Team, ae.UsingMagic->Name, ae.OperationType);
             r->MP -= ultCasters_.count(r) ? r->MaxMP : -5;
             ultCasters_.erase(r);
             r->UsingMagic = nullptr;
@@ -1785,7 +1790,7 @@ void BattleSceneHades::AI(Role* r)
                         }
                         else
                         {
-                            r->Pos = p;
+                            r->Velocity = speed * r->RealTowards;
                         }
                     }
                     else if (r->Velocity.norm() < 0.1)
@@ -1824,7 +1829,7 @@ void BattleSceneHades::AI(Role* r)
 
                         r->FindingWay = 1;
                         r->RealTowards = best_dir;
-                        r->Velocity = best_dir * speed * 1.2;
+                        r->Velocity = best_dir * speed;
 
                         if (rand_.rand() < 0.25 && r->UsingMagic) {
                             r->OperationType = 3;
@@ -1906,6 +1911,22 @@ void BattleSceneHades::AI(Role* r)
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // Print pathfinding stats every 60 frames
+    static int print_counter = 0;
+    if (++print_counter >= 60) {
+        print_counter = 0;
+        for (auto& [role, info] : paths_) {
+            if (role->Team == 0 && !role->Dead) {
+                std::print("Role {} {}: following={} sliding={} stuck={} waypoints={}/{}\n",
+                    role->ID, role->Name.c_str(), info.frames_following, info.frames_sliding,
+                    info.frames_stuck, info.current_waypoint, (int)info.waypoints.size());
+                info.frames_following = 0;
+                info.frames_sliding = 0;
+                info.frames_stuck = 0;
             }
         }
     }

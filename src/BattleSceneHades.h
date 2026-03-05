@@ -78,6 +78,9 @@ protected:
         int current_waypoint = 0;
         int frames_since_update = 0;
         Role* target = nullptr;
+        int frames_following = 0;
+        int frames_sliding = 0;
+        int frames_stuck = 0;
     };
     std::unordered_map<Role*, PathInfo> paths_;
 };
