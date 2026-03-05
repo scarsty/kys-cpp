@@ -125,7 +125,7 @@ std::vector<Magic*> Role::getLearnedMagics()
 std::vector<Magic*> Role::getLearnedMagics(int star)
 {
     std::vector<Magic*> v;
-    int start = star * 2;
+    int start = (star - 1) * 2;
     int end = start + 2;
     for (int i = start; i < end && i < ROLE_MAGIC_COUNT; i++)
     {

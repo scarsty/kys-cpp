@@ -563,6 +563,7 @@ int RunNode::run(bool in_root /*= true*/)
     }
     running_ = false;
     onExit();
+    GameUtil::lastDialogDismissTime() = Engine::getTicks();
     if (in_root)
     {
         removeFromDraw(shared_from_this());

@@ -65,7 +65,8 @@ public:
         const std::vector<int>& enemyIds,
         const std::vector<int>& enemyStars,
         const std::vector<KysChess::ActiveCombo>& allyCombos,
-        const std::vector<KysChess::ActiveCombo>& enemyCombos);
+        const std::vector<KysChess::ActiveCombo>& enemyCombos,
+        int musicId);
 
     void setupPostBattle(
         const std::deque<Role>& allyBattleCopies,
@@ -79,6 +80,9 @@ public:
 private:
     bool isPreBattle_ = true;
     int battleResult_ = 0;
+    bool assetsPreloaded_ = false;
+    bool loadingTextRendered_ = false;
+    int musicId_ = -1;
 
     std::vector<RoleEntry> allies_, enemies_;
     std::vector<ComboEntry> allyCombos_, enemyCombos_;

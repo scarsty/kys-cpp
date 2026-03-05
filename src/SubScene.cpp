@@ -219,7 +219,7 @@ void SubScene::draw()
         // Quick-access chess button (bottom-right of screen)
         if (!chess_menu_active_)
         {
-            int btnFs = 40;
+            int btnFs = 70;
             std::string label = "[Q] 棋局";
             auto boxRect = Font::getBoxSize(Font::getTextDrawSize(label), btnFs, 0, 0);
             int labelW = boxRect.w;
@@ -448,6 +448,10 @@ void SubScene::dealEvent(EngineEvent& e)
     //鼠标寻路
     if (e.type == EVENT_MOUSE_BUTTON_UP && e.button.button == BUTTON_LEFT)
     {
+        if (GameUtil::isMobileDevice() && Engine::getTicks() - GameUtil::lastDialogDismissTime() < GameUtil::DIALOG_DISMISS_DELAY_MS)
+        {
+            return;
+        }
         setMouseEventPoint(-1, -1);
         int mx, my;
         Engine::getInstance()->getMouseStateInStartWindow(mx, my);

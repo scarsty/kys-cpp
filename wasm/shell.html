@@ -73,10 +73,22 @@
         #rclick-btn { bottom: 2rem; right: 2rem; }
         #fs-btn { bottom: 2rem; left: 2rem; }
         #rclick-btn:active, #fs-btn:active { background: rgba(255,255,255,0.3); }
-        @media (pointer: coarse) { #rclick-btn, #fs-btn { display: flex; } }
+        @media (pointer: coarse) { #rclick-btn, #fs-btn { display: flex !important; } }
+        /* #mobile-indicator {
+            position: fixed;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            z-index: 20;
+        } */
     </style>
 </head>
 <body>
+    <div id="mobile-indicator"></div>
     <div id="overlay">
         <div id="title">金群自走棋</div>
         <div id="spinner"></div>
@@ -140,8 +152,21 @@
                 .catch(function(e) { console.warn('[kys] OPFS unavailable:', e.message); });
         }
 
+        // Detect if running on mobile device
+        var isMobileDevice = (function() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+        })();
+
+        // Show mobile detection status
+        // document.getElementById('mobile-indicator').textContent =
+        //     isMobileDevice ? '📱 Mobile Mode' : '🖥️ Desktop Mode';
+
         var Module = {
             canvas: document.getElementById('canvas'),
+            _isMobileDevice: function() {
+                return isMobileDevice ? 1 : 0;
+            },
             _onCppFontsLoaded: function() {
                 console.log('[kys] C++ fonts loaded');
                 cppFontsReady = true;
@@ -250,15 +275,26 @@
         function syncCanvasSize() {
             var gen = ++_generation;
             applyCanvasSize();
-            clearTimeout(_syncTimer);
-            _syncTimer = setTimeout(function() {
-                if (_generation === gen) applyCanvasSize();
-            }, 200);
+            for (var i = 1; i <= 3; i++) {
+                setTimeout(function(g) {
+                    return function() {
+                        if (_generation === g) applyCanvasSize();
+                    };
+                }(gen), i * 200);
+            }
         }
 
-        // Only listen for fullscreen changes
-        document.addEventListener('fullscreenchange', syncCanvasSize);
-        document.addEventListener('webkitfullscreenchange', syncCanvasSize);
+        // Listen for fullscreen changes and ensure buttons remain visible
+        function onFullscreenChange() {
+            syncCanvasSize();
+            // Force button visibility check on mobile
+            if (isMobileDevice) {
+                rclickBtn.style.display = 'flex';
+                fsBtn.style.display = 'flex';
+            }
+        }
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
         fsBtn.addEventListener('touchstart', function(e) {
             e.preventDefault();
@@ -282,6 +318,22 @@
         });
 
         if (!prerequisiteFailed) Module.setStatus('Loading...');
+
+        // Mute audio when page goes to background
+        document.addEventListener('visibilitychange', function() {
+            if (Module.SDL3 && Module.SDL3.audioContext) {
+                if (document.hidden) {
+                    Module.SDL3.audioContext.suspend();
+                } else {
+                    Module.SDL3.audioContext.resume();
+                }
+            }
+            // Restore buttons when page becomes visible again
+            if (!document.hidden && isMobileDevice) {
+                rclickBtn.style.display = 'flex';
+                fsBtn.style.display = 'flex';
+            }
+        });
     </script>
     {{{ SCRIPT }}}
 </body>

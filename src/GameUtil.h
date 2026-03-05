@@ -6,6 +6,10 @@
 #include <print>
 #include "filefunc.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #ifdef __ANDROID__
 #include <android/log.h>
 #include <SDL3/SDL_system.h>
@@ -99,6 +103,23 @@ public:
         current = limit(current, min_value, max_value);
     }
 
+    static bool isMobileDevice()
+    {
+#ifdef __EMSCRIPTEN__
+        static int cached = -1;
+        if (cached == -1)
+        {
+            cached = MAIN_THREAD_EM_ASM_INT({
+                return isMobileDevice ? 1 : 0;
+            });
+            std::print("Mobile device is {}\n", cached);
+        }
+        return cached == 1;
+#else
+        return false;
+#endif
+    }
+
     //计算某个数值的位数
     static int digit(int x)
     {
@@ -114,6 +135,13 @@ public:
     }
 
     static inline constexpr int MAX_MP = 100;
+    static inline constexpr double DIALOG_DISMISS_DELAY_MS = 200.0;
+
+    static double& lastDialogDismissTime()
+    {
+        static double t = -1000.0;
+        return t;
+    }
 };
 
 template <typename... Args>

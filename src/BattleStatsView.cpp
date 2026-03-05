@@ -6,6 +6,9 @@
 #include "Save.h"
 #include "TextureManager.h"
 #include "GameUtil.h"
+#include "Audio.h"
+#include <format>
+#include <set>
 
 void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame)
 {
@@ -85,9 +88,11 @@ void BattleStatsView::setupPreBattle(
     const std::vector<int>& enemyIds,
     const std::vector<int>& enemyStars,
     const std::vector<KysChess::ActiveCombo>& allyC,
-    const std::vector<KysChess::ActiveCombo>& enemyC)
+    const std::vector<KysChess::ActiveCombo>& enemyC,
+    int musicId)
 {
     isPreBattle_ = true;
+    musicId_ = musicId;
     allies_.clear(); enemies_.clear();
     for (auto& c : allies)
         if (c.role) {
@@ -283,6 +288,12 @@ void BattleStatsView::draw()
 
     if (isPreBattle_)
     {
+        if (!assetsPreloaded_)
+        {
+            font->drawWithBoxCentered("載入戰鬥資源中...", 32, uiH / 2 - 16);
+            loadingTextRendered_ = true;
+        }
+
         std::string t = "戰前總覽";
         font->draw(t, 28, cx(t, 28), 10, {255, 215, 0, 255});
 
@@ -327,6 +338,43 @@ void BattleStatsView::draw()
 
 void BattleStatsView::dealEvent(EngineEvent& e)
 {
+    if (isPreBattle_ && !assetsPreloaded_ && loadingTextRendered_)
+    {
+        std::vector<int> atkSounds, effSounds;
+        auto loadForRoles = [&](const std::vector<RoleEntry>& roles)
+        {
+            for (auto& re : roles)
+            {
+                if (!re.role)
+                {
+                    return;
+                }
+                std::string text_group = std::format("fight/fight{:03}", re.role->HeadID);
+                TextureManager::getInstance()->getTextureGroup(text_group);
+                auto magics = re.role->getLearnedMagics(re.star);
+                for (auto m : magics) {
+                    if (m->SoundID >= 0) atkSounds.push_back(m->SoundID);
+                    if (m->EffectID >= 0)
+                    {
+                        effSounds.push_back(m->EffectID);
+                        TextureManager::getInstance()->getTexture(std::format("eft/eft{:03}", m->EffectID), 0);
+                    }
+                }
+            }
+        };
+
+        loadForRoles(allies_);
+        loadForRoles(enemies_);
+        for (int i = 0; i < 5; i++)
+        {
+            TextureManager::getInstance()->getTexture(std::format("eft/bld{:03}", i), 0);
+        }
+        Audio::getInstance()->preloadBattleAudio(musicId_, atkSounds, effSounds);
+
+        assetsPreloaded_ = true;
+        return;
+    }
+
     if (e.type == EVENT_KEY_UP || e.type == EVENT_GAMEPAD_BUTTON_UP
         || (e.type == EVENT_MOUSE_BUTTON_UP))
     {

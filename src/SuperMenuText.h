@@ -66,6 +66,8 @@ public:
     }
     std::string getInputText() const { return inputBox_ ? inputBox_->getText() : std::string(); }
 
+    void setDoubleTapMode(bool v) { doubleTapMode_ = v; }
+
     void onEntrance() override;
     void onExit() override;
 
@@ -99,4 +101,12 @@ private:
     bool showNavButtons_ = true;
     bool inputPosSet_ = false;
     int inputX_ = 0, inputY_ = 0;
+    bool doubleTapMode_ = false;
+    int lastTappedIdx_ = -1;
+    // Timestamp (ms) when lastTappedIdx_ was locked.  Used to enforce a
+    // minimum gap between lock and commit so burst events from a single
+    // browser gesture (WASM batches touchstart→touchend→synthetic mousedown
+    // →mouseup all in one rAF callback) cannot fire both actions at once.
+    double tapLockTime_ = -1.0;
+    static constexpr double kDoubleTapMinIntervalMs = 200.0;
 };

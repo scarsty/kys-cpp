@@ -163,6 +163,8 @@ void SuperMenuText::flipPage(int pageIncrement)
 {
     if (currentPage_ + pageIncrement >= 0 && currentPage_ + pageIncrement < maxPages_)
     {
+        lastTappedIdx_ = -1;       // Reset locked item when changing pages
+        tapLockTime_ = -1.0;       // Reset lock timestamp on page change
         currentPage_ += pageIncrement;
         int startIdx = currentPage_ * itemsPerPage_;
         std::vector<std::string> displays;
@@ -393,31 +395,106 @@ void SuperMenuText::dealEvent(EngineEvent& e)
 
     if (selections_->getResult() >= 0)
     {
-        if (extraOpts_.confirmation_)
+        int selectionIdx = selections_->getResult();
+        int itemIdx = activeIndices_[selectionIdx];
+
+        if (doubleTapMode_)
         {
-            auto confirm = std::make_shared<MenuText>();
-            confirm->setStrings({ "確認", "取消" });
-            confirm->setFontSize(fontSize_);
-            confirm->setHaveBox(true);
-            confirm->arrange(150, 350, 150, 0);
-            confirm->run();
-            confirm->setExit(true);
-            if (confirm->getResult() != 0)    // 0 means "確認" was selected
+            // Double-tap mode: first tap locks selection, second tap commits.
+            // Guard: require at least kDoubleTapMinIntervalMs between lock and
+            // commit so that a burst of events from a single browser gesture
+            // (WASM batches touch + synthetic mouse events in one rAF frame)
+            // cannot fire both lock and commit at once.
+            bool allowCommit = (lastTappedIdx_ == itemIdx)
+                && (tapLockTime_ >= 0.0)
+                && (Engine::getTicks() - tapLockTime_ >= kDoubleTapMinIntervalMs);
+
+            if (allowCommit)
             {
-                selections_->forceActiveChild(selections_->getResult());
+                // Second tap on same item - commit
+                tapLockTime_ = -1.0;
+                // Clear the green outline
+                auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
+                if (btn) btn->clearCustomOutline();
+
+                if (extraOpts_.confirmation_)
+                {
+                    auto confirm = std::make_shared<MenuText>();
+                    confirm->setStrings({ "確認", "取消" });
+                    confirm->setFontSize(fontSize_);
+                    confirm->setHaveBox(true);
+                    confirm->arrange(150, 350, 150, 0);
+                    confirm->run();
+                    confirm->setExit(true);
+                    if (confirm->getResult() != 0)
+                    {
+                        selections_->forceActiveChild(selectionIdx);
+                        selections_->setResult(-1);
+                        return;
+                    }
+                }
+                result_ = itemIdx;
+                if (result_ >= 0 && !extraOpts_.returnIdxOnly)
+                {
+                    result_ = items_[result_].first;
+                }
+                setExit(true);
+            }
+            else
+            {
+                // First tap - lock selection, show details
+                // Clear previous locked item outline
+                if (lastTappedIdx_ >= 0)
+                {
+                    for (int i = 0; i < activeIndices_.size(); i++)
+                    {
+                        if (activeIndices_[i] == lastTappedIdx_)
+                        {
+                            auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(i));
+                            if (btn) btn->clearCustomOutline();
+                            break;
+                        }
+                    }
+                }
+                lastTappedIdx_ = itemIdx;
+                tapLockTime_ = Engine::getTicks();  // record when lock happened
+                // Apply green outline to locked item
+                auto btn = std::dynamic_pointer_cast<Button>(selections_->getChild(selectionIdx));
+                if (btn)
+                {
+                    btn->setCustomOutline({100, 255, 100, 255});
+                    btn->setOutlineThickness(2);
+                }
+                selections_->forceActiveChild(selectionIdx);
                 selections_->setResult(-1);
-                return;
             }
         }
-        auto selected = selections_->getResultString();
-        result_ = activeIndices_[selections_->getResult()];
-        if (result_ >= 0)
+        else
         {
-            if (!extraOpts_.returnIdxOnly) {
+            // Normal mode: single tap commits
+            if (extraOpts_.confirmation_)
+            {
+                auto confirm = std::make_shared<MenuText>();
+                confirm->setStrings({ "確認", "取消" });
+                confirm->setFontSize(fontSize_);
+                confirm->setHaveBox(true);
+                confirm->arrange(150, 350, 150, 0);
+                confirm->run();
+                confirm->setExit(true);
+                if (confirm->getResult() != 0)
+                {
+                    selections_->forceActiveChild(selectionIdx);
+                    selections_->setResult(-1);
+                    return;
+                }
+            }
+            result_ = itemIdx;
+            if (result_ >= 0 && !extraOpts_.returnIdxOnly)
+            {
                 result_ = items_[result_].first;
             }
+            setExit(true);
         }
-        setExit(true);
     }
 }
 

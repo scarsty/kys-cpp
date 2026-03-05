@@ -4,6 +4,7 @@
 #define NOMINMAX
 #endif
 #include "Audio.h"
+#include "BattleMap.h"
 #include "BattleStatsView.h"
 #include "UISave.h"
 #include "ChessBalance.h"
@@ -13,10 +14,12 @@
 #include "DynamicChessMap.h"
 #include "DrawableOnCall.h"
 #include "Font.h"
+#include "GameUtil.h"
 #include "InputBox.h"
 #include "Menu.h"
 #include "Random.h"
 #include "Save.h"
+#include "Talk.h"
 #include "TempStore.h"
 #include <Engine.h>
 #include <SuperMenuText.h>
@@ -356,6 +359,8 @@ static std::shared_ptr<UIRoleStatusMenu> makeChessMenu(const std::string& title,
     menu->setInputPosition(80, 70);
     menu->getStatusDrawable().getUIStatus().setPosition(720, 40);
     if (!showNav) menu->setShowNavigationButtons(false);
+    menu->setDoubleTapMode(GameUtil::isMobileDevice());
+    // menu->setDoubleTapMode(true);
     return menu;
 }
 
@@ -444,7 +449,7 @@ void ChessSelector::getChess()
             std::vector<int> outlineThicknesses;
             auto& roles = Save::getInstance()->getRoles();
 
-            rolePairs.emplace_back(-1, std::format("刷新 ${}", ChessBalance::config().refreshCost));
+            rolePairs.emplace_back(-1, std::format("刷新               ${}", ChessBalance::config().refreshCost));
             roleColors.push_back({ 255, 204, 229, 255 });
             outlineColors.push_back({0, 0, 0, 0});
             animateOutlines.push_back(false);
@@ -606,7 +611,7 @@ void ChessSelector::sellChess()
             }
         }
 
-        auto menu = makeChessMenu(std::format("出售棋子 背包{}/{}", gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, 16, 32);
+        auto menu = makeChessMenu(std::format("出售棋子 背包{}/{}", gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, 12, 32);
         menu->run();
 
         int selectedId = menu->getResult();
@@ -692,7 +697,7 @@ void ChessSelector::selectForBattle()
         }
 
         std::string menuTitle = std::format("選擇出戰棋子 {}/{} 背包{}/{}", currentSelection.size(), maxSelection, gameData.getBenchCount(), ChessBalance::config().benchSize);
-        auto menu = makeChessMenu(menuTitle, rolePairs, roleColors, 16, 32);
+        auto menu = makeChessMenu(menuTitle, rolePairs, roleColors, 12, 32);
 
         menu->addDrawableOnCall(makeComboInfoPanel());
 
@@ -828,6 +833,16 @@ void ChessSelector::enterBattle()
         text->setText(std::format("勝利！獲得${}{} 經驗+{}{}{}", reward, interestMsg, expGain, lvlMsg, nextInfo));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+
+        if (progress.isGameComplete())
+        {
+            auto outro = std::make_shared<Talk>(
+                "少俠果然不凡！珍瓏棋局已破。"
+                "若有興趣，可嘗試「遠征挑戰」，那裡有更強的對手等著你。"
+                "當然，你也可以嘗試其他羈絆組合，探索更多可能。", 115);
+            outro->run();
+        }
+
         UISave::autoSave();
     }
     else
@@ -858,8 +873,10 @@ int ChessSelector::runBattle(const DynamicBattleRoles& roles, const std::vector<
 
     // Pre-battle stats
     {
+        auto info = BattleMap::getInstance()->getBattleInfo(battle_id);
+        int musicId = info ? info->Music : -1;
         auto view = std::make_shared<BattleStatsView>();
-        view->setupPreBattle(allyChess, roles.enemy_ids, roles.enemy_stars, allyCombos, enemyCombos);
+        view->setupPreBattle(allyChess, roles.enemy_ids, roles.enemy_stars, allyCombos, enemyCombos, musicId);
         view->run();
     }
 
@@ -955,27 +972,29 @@ void ChessSelector::buyExp()
 void ChessSelector::showContextMenu()
 {
     //ChessBalance::apply();
-    auto& gd = GameData::get();
-    auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "遊戲說明" });
-    menu->setFontSize(36);
-    menu->arrange(0, 0, 0, 45);
-    menu->runAtPosition(200, 120);
+    while (1) {
+        auto& gd = GameData::get();
+        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "遊戲說明" });
+        menu->setFontSize(36);
+        menu->arrange(0, 0, 0, 45);
+        menu->runAtPosition(200, 120);
 
-    switch (menu->getResult())
-    {
-    case 0: getChess(); break;
-    case 1: sellChess(); break;
-    case 2: selectForBattle(); break;
-    case 3: enterBattle(); break;
-    case 4: buyExp(); break;
-    case 5: viewCombos(); break;
-    case 6: viewNeigong(); break;
-    case 7: showExpeditionChallenge(); break;
-    case 8: showPositionSwap(); break;
-    case 9: showGameGuide(); break;
-    default: break;
+        switch (menu->getResult())
+        {
+        case 0: getChess(); break;
+        case 1: sellChess(); break;
+        case 2: selectForBattle(); break;
+        case 3: enterBattle(); break;
+        case 4: buyExp(); break;
+        case 5: viewCombos(); break;
+        case 6: viewNeigong(); break;
+        case 7: showExpeditionChallenge(); break;
+        case 8: showPositionSwap(); break;
+        case 9: showGameGuide(); break;
+        case -1: return;
+        }
+        UISave::autoSave();
     }
-    UISave::autoSave();
 }
 
 void ChessSelector::viewCombos()
@@ -1156,7 +1175,7 @@ void ChessSelector::showNeigongReward()
 
         if (!rerolled)
         {
-            items.emplace_back(-2, std::format("刷新 ${}", ngCfg.rerollCost));
+            items.emplace_back(-2, std::format("刷新               ${}", ngCfg.rerollCost));
             colors.push_back({128, 128, 128});
         }
 
@@ -1166,6 +1185,7 @@ void ChessSelector::showNeigongReward()
         opts.exitable_ = false;
         auto menu = std::make_shared<SuperMenuText>("選擇内功，内功將對所有成員自動生效", 36, items, (int)items.size(), opts);
         menu->setInputPosition(80, 70);
+        menu->setDoubleTapMode(GameUtil::isMobileDevice());
 
         // Detail panel
         auto iconPanel = std::make_shared<DrawableOnCall>([&choices](DrawableOnCall* self) {
@@ -1237,6 +1257,7 @@ void ChessSelector::viewNeigong()
     auto menu = std::make_shared<SuperMenuText>("内功一覽", 36, items, 10, opts);
     menu->setInputPosition(80, 70);
     menu->addDrawableOnCall(detailDraw);
+    menu->setDoubleTapMode(GameUtil::isMobileDevice());
     menu->run();
 }
 
@@ -1308,6 +1329,7 @@ void ChessSelector::showExpeditionChallenge()
         opts.exitable_ = true;
         auto menu = std::make_shared<SuperMenuText>("遠征挑戰", 36, items, (int)items.size(), opts);
         menu->setInputPosition(80, 70);
+        menu->setDoubleTapMode(GameUtil::isMobileDevice());
         menu->addDrawableOnCall(detailDraw);
         menu->run();
 
@@ -1431,6 +1453,7 @@ void ChessSelector::showExpeditionChallenge()
             rOpts.exitable_ = false;
             auto rMenu = std::make_shared<SuperMenuText>("選擇獎勵", 36, rewardItems, (int)rewardItems.size(), rOpts);
             rMenu->setInputPosition(80, 70);
+            rMenu->setDoubleTapMode(GameUtil::isMobileDevice());
             rMenu->run();
             rSel = rMenu->getResult();
             if (rSel < 0) rSel = 0;
@@ -1471,7 +1494,7 @@ void ChessSelector::showExpeditionChallenge()
                     pieceRoleIds.push_back(rid);
                 }
             }
-            auto pMenu = makeChessMenu("選擇棋子", pieceItems, pieceColors, 16, 28, true, false);
+            auto pMenu = makeChessMenu("選擇棋子", pieceItems, pieceColors, 12, 32, true, false);
             pMenu->addDrawableOnCall(makeComboInfoPanel());
             pMenu->run();
             int pSel = pMenu->getResult();
@@ -1523,6 +1546,7 @@ void ChessSelector::showExpeditionChallenge()
                 auto nMenu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 36, ngItems, 16, nOpts);
                 nMenu->setInputPosition(80, 70);
                 nMenu->addDrawableOnCall(ngDetail);
+                nMenu->setDoubleTapMode(GameUtil::isMobileDevice());
                 nMenu->run();
                 int nSel = nMenu->getResult();
                 if (nSel >= 0)
@@ -1563,7 +1587,7 @@ void ChessSelector::showExpeditionChallenge()
             else
             {
                 auto uMenu = makeChessMenu(
-                    std::format("選擇升星 {}★→{}★", fromStar, toStar), upItems, upColors, 16, 28, true, false);
+                    std::format("選擇升星 {}★→{}★", fromStar, toStar), upItems, upColors, 12, 32, true, false);
                 uMenu->run();
                 int uSel = uMenu->getResult();
                 if (uSel >= 0)

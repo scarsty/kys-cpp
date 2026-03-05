@@ -188,6 +188,7 @@ void BattleSceneHades::draw()
         std::string path;
         int num;
         Pointf p;
+        Pointf sort_p;
         Color color{ 255, 255, 255, 255 };
         uint8_t alpha = 255;
         int rot = 0;
@@ -292,6 +293,8 @@ void BattleSceneHades::draw()
                 info.num = 0;
             }
             info.p = ae.Pos;
+            info.sort_p = ae.Pos;
+            info.sort_p.y += 10000;  // force projectiles to render on top
             info.color = { 255, 255, 255, 255 };
             info.alpha = 192;
             if (ae.FollowRole)
@@ -311,13 +314,15 @@ void BattleSceneHades::draw()
 
     auto sort_building = [](DrawInfo& d1, DrawInfo& d2)
     {
-        if (d1.p.y != d2.p.y)
+        auto& p1 = d1.sort_p.y != 0 ? d1.sort_p : d1.p;
+        auto& p2 = d2.sort_p.y != 0 ? d2.sort_p : d2.p;
+        if (p1.y != p2.y)
         {
-            return d1.p.y < d2.p.y;
+            return p1.y < p2.y;
         }
         else
         {
-            return d1.p.x < d2.p.x;
+            return p1.x < p2.x;
         }
     };
     std::sort(draw_infos.begin(), draw_infos.end(), sort_building);
@@ -677,31 +682,6 @@ void BattleSceneHades::onEntrance()
         for (auto r : friends_) { sx += r->X(); sy += r->Y(); }
         pos_ = pos45To90(sx / friends_.size(), sy / friends_.size());
     }
-
-    // Preload battle resources
-    std::vector<int> atk_sounds, eff_sounds;
-    for (auto r : battle_roles_)
-    {
-        for (int i = 0; i < 5; i++)
-        {
-            auto m = Save::getInstance()->getMagic(r->MagicID[i]);
-            if (m)
-            {
-                if (m->SoundID >= 0) atk_sounds.push_back(m->SoundID);
-                if (m->EffectID >= 0)
-                {
-                    eff_sounds.push_back(m->EffectID);
-                    TextureManager::getInstance()->getTexture(std::format("eft/eft{:03}", m->EffectID), 0);
-                }
-            }
-        }
-    }
-    // Preload blood/hit effects
-    for (int i = 0; i < 5; i++)
-    {
-        TextureManager::getInstance()->getTexture(std::format("eft/bld{:03}", i), 0);
-    }
-    Audio::getInstance()->preloadBattleAudio(info_->Music, atk_sounds, eff_sounds);
 
     // Pre-battle position swap
     if (!extended_teammates_.empty() && KysChess::GameData::get().isPositionSwapEnabled())
@@ -1754,7 +1734,7 @@ void BattleSceneHades::AI(Role* r)
                         auto p_self45 = pos90To45(r->Pos.x, r->Pos.y);
                         int max_dis45 = 4096;
                         Pointf p_target = r->Pos;
-                        constexpr int search_radius = 3;  // tune this: 1 = original, 3 = can route around crowds
+                        constexpr int search_radius = 1;  // tune this: 1 = original, 3 = can route around crowds
                         for (int x = p_self45.x - search_radius; x <= p_self45.x + search_radius; x++)
                         {
                             for (int y = p_self45.y - search_radius; y <= p_self45.y + search_radius; y++)
@@ -1767,8 +1747,8 @@ void BattleSceneHades::AI(Role* r)
                                 double dis1 = dis_layer.data(x, y) + 1 * (rand_.rand() - rand_.rand());
                                 if (canWalk90(p1, r) && dis1 < max_dis45)
                                 {
-                                    max_dis45 = dis1;
-                                    p_target = p1;
+                                        max_dis45 = dis1;
+                                        p_target = p1;
                                 }
                             }
                         }
