@@ -51,6 +51,7 @@ protected:
     void runListBasedSwap();
     void computeFlowField(int team, MapSquare<Pointf>& field);
     Role* assignFlankTarget(Role* r);
+    Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
 
 public:
     BattleTracker& getTracker() { return tracker_; }
@@ -76,4 +77,5 @@ protected:
     // Per-agent stuck tracking: role pointer -> consecutive stuck frames
     std::unordered_map<Role*, int> stuck_frames_;
     std::unordered_map<Role*, Pointf> prev_positions_;
+    std::unordered_map<int, int> hurt_flash_timers_;
 };
