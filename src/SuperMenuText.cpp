@@ -284,13 +284,13 @@ void SuperMenuText::dealEvent(EngineEvent& e)
 {
     if (previousButton_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
-        flipPage(-1);
+        if (canFlipPage()) flipPage(-1);
         previousButton_->setState(NodeNormal);
         previousButton_->setResult(-1);
     }
     else if (nextButton_->getState() == NodePress && e.type == EVENT_MOUSE_BUTTON_UP)
     {
-        flipPage(1);
+        if (canFlipPage()) flipPage(1);
         nextButton_->setState(NodeNormal);
         nextButton_->setResult(-1);
     }
@@ -514,4 +514,12 @@ void SuperMenuText::onExit()
         inputBox_->onExit();
     }
     RunNode::onExit();
+}
+
+bool SuperMenuText::canFlipPage()
+{
+    if (!doubleTapMode_) return true;
+    bool allow = lastPageFlipTime_ < 0.0 || (Engine::getTicks() - lastPageFlipTime_ >= kDoubleTapMinIntervalMs);
+    if (allow) lastPageFlipTime_ = Engine::getTicks();
+    return allow;
 }

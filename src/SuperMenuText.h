@@ -80,6 +80,7 @@ private:
     void search(const std::string& text);
     void updateMaxPages();
     void updateNavigationButtons();
+    bool canFlipPage();
 
     std::shared_ptr<InputBox> inputBox_;    // Only present if needed, always added as child if present
     std::shared_ptr<TextBox> titleBox_;
@@ -108,5 +109,6 @@ private:
     // browser gesture (WASM batches touchstart→touchend→synthetic mousedown
     // →mouseup all in one rAF callback) cannot fire both actions at once.
     double tapLockTime_ = -1.0;
+    double lastPageFlipTime_ = -1.0;
     static constexpr double kDoubleTapMinIntervalMs = 200.0;
 };

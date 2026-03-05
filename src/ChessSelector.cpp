@@ -73,8 +73,7 @@ static std::string comboEffectDesc(const ComboEffect& eff)
     case EffectType::ArmorPenChance: d = std::format("{}%穿甲", eff.value); break;
     case EffectType::ArmorPenPct: d = std::format("無視%防禦", eff.value); break;
     case EffectType::ArmorPen: d = std::format("{}%穿甲(無視{}%防禦)", eff.value, eff.value2); break;
-    case EffectType::StunChance: d = eff.value2 ? std::format("{}%眩暈({}幀)", eff.value, eff.value2) : std::format("{}%眩暈", eff.value); break;
-    case EffectType::Stun: d = std::format("{}%眩暈({}幀)", eff.value, eff.value2); break;
+    case EffectType::Stun: d = std::format("{}%眩暈({}幀)", eff.triggerValue, eff.value); break;
     case EffectType::KnockbackChance: d = std::format("{}%擊退", eff.value); break;
     case EffectType::PoisonDOT: d = eff.value2 ? std::format("中毒{}%/幀({}幀)", eff.value, eff.value2) : std::format("中毒{}%/幀", eff.value); break;
     case EffectType::PoisonDmgAmp: d = std::format("中毒增傷{}%", eff.value); break;
@@ -91,14 +90,14 @@ static std::string comboEffectDesc(const ComboEffect& eff)
     case EffectType::HealedATKSPDBoost: d = std::format("受治療加速{}%", eff.value); break;
     case EffectType::HPRegenPct: d = eff.value2 ? std::format("回血{}%(每{}幀)", eff.value, eff.value2) : std::format("回血{}%", eff.value); break;
     case EffectType::FreezeReductionPct: d = std::format("僵直-{}%", eff.value); break;
-    case EffectType::ControlImmunityFrames: d = std::format("免控>{}幀", eff.value); break;
+    case EffectType::ControlImmunityFrames: d = std::format("僵直吸收{}幀", eff.value); break;
     case EffectType::KillHealPct: d = std::format("擊殺回{}%血", eff.value); break;
     case EffectType::KillInvincFrames: d = std::format("擊殺無敵{}幀", eff.value); break;
     case EffectType::PostSkillInvincFrames: d = std::format("技能後無敵{}幀", eff.value); break;
     case EffectType::DmgReductionPct: d = std::format("傷害減免{}%", eff.value); break;
-    case EffectType::Bloodlust: d = std::format("嗜血+{}攻", eff.value); break;
-    case EffectType::Adaptation: d = std::format("適應{}%({}層)", eff.value, eff.value2); break;
-    case EffectType::RampingDmg: d = std::format("蓄力+{}%({}層)", eff.value, eff.value2); break;
+    case EffectType::Bloodlust: d = std::format("击杀增攻+{}攻", eff.value); break;
+    case EffectType::Adaptation: d = std::format("同敌减伤{}%({}层)", eff.value, eff.value2); break;
+    case EffectType::RampingDmg: d = std::format("连击增伤+{}%({}层)", eff.value, eff.value2); break;
     case EffectType::HealBurst: d = std::format("回血{}%", eff.value); break;
     default: d = std::format("效果({})", eff.value); break;
     }
@@ -836,10 +835,11 @@ void ChessSelector::enterBattle()
 
         if (progress.isGameComplete())
         {
+            const char* diffName = (gameData.difficulty == KysChess::Difficulty::Normal) ? "正常" : "挑戰";
             auto outro = std::make_shared<Talk>(
-                "少俠果然不凡！珍瓏棋局已破。"
+                std::format("少俠果然不凡！珍瓏棋局已破({}難度)。"
                 "若有興趣，可嘗試「遠征挑戰」，那裡有更強的對手等著你。"
-                "當然，你也可以嘗試其他羈絆組合，探索更多可能。", 115);
+                "當然，你也可以嘗試其他羈絆組合，探索更多可能。", diffName), 115);
             outro->run();
         }
 
@@ -1109,6 +1109,7 @@ void ChessSelector::viewCombos()
     auto menu = std::make_shared<SuperMenuText>("羈絆一覽", 36, items, 10, opts);
     menu->setInputPosition(80, 60);
     menu->addDrawableOnCall(detailDraw);
+    menu->setDoubleTapMode(GameUtil::isMobileDevice());
     menu->run();
 }
 
@@ -1175,7 +1176,7 @@ void ChessSelector::showNeigongReward()
 
         if (!rerolled)
         {
-            items.emplace_back(-2, std::format("刷新               ${}", ngCfg.rerollCost));
+            items.emplace_back(-2, std::format("刷新             ${}", ngCfg.rerollCost));
             colors.push_back({128, 128, 128});
         }
 

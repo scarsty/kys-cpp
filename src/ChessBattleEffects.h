@@ -35,8 +35,7 @@ enum class EffectType
     ArmorPenChance,  // DEPRECATED: use ArmorPen with OnHit trigger
     ArmorPenPct,     // DEPRECATED: use ArmorPen with OnHit trigger
     ArmorPen,        // Unified: trigger=OnHit, value=chance, value2=pen%
-    StunChance,      // DEPRECATED: use Stun with OnHit trigger
-    Stun,            // Unified: trigger=OnHit, value=chance, value2=duration
+    Stun,            // Unified: trigger=OnHit, triggerValue=chance, value=duration
     KnockbackChance,
     PoisonDOT,
     PoisonDmgAmp,

@@ -1765,7 +1765,7 @@ void BattleSceneHades::AI(Role* r)
                     prev_pos = r->Pos;
 
                     auto p = r->Pos + speed * r->RealTowards;
-                    if (canWalk90(p, r) && r->FindingWay == 0 && stuck < 15)
+                    if (canWalk90(p, r) && r->FindingWay == 0 && stuck < 5)
                     {
                         //能否闪身的条件，似乎比较复杂
                         if (rand_.rand() < 0.25 && r->UsingMagic)
@@ -1850,7 +1850,7 @@ void BattleSceneHades::AI(Role* r)
                                     walkable = canWalk90(np, r);
                                 } else {
                                     // Distant tile: only check terrain
-                                    walkable = canWalk90(nx, ny);
+                                    walkable = canWalk(nx, ny);
                                 }
 
                                 if (walkable && score > best_score) {
@@ -2344,7 +2344,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             // OnHit triggered effects
             for (auto& eff : as.triggeredEffects)
             {
-                if (eff.trigger == KysChess::Trigger::OnHit && rand_.rand() * 100 < eff.value)
+                if (eff.trigger == KysChess::Trigger::OnHit && rand_.rand() * 100 < eff.triggerValue)
                 {
                     if (eff.type == KysChess::EffectType::ArmorPen)
                     {
@@ -2352,7 +2352,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     }
                     else if (eff.type == KysChess::EffectType::Stun)
                     {
-                        applyFrozen(r, eff.value2);
+                        applyFrozen(r, eff.value);
                     }
                 }
             }
@@ -2589,8 +2589,8 @@ void BattleSceneHades::computeFlowField(int team, MapSquare<Pointf>& field)
         auto check_next = [&](Point p1) -> void {
             if (isOutLine(p1.x, p1.y)) return;
             if (!canWalk(p1.x, p1.y)) return;
-            // Congestion penalty: each ally density unit adds 1 extra cost
-            int congestion_cost = std::min(ally_density.data(p1.x, p1.y), 4);
+            // Congestion penalty: each ally density unit adds extra cost
+            int congestion_cost = std::min(ally_density.data(p1.x, p1.y), 2);
             int new_cost = step + 1 + congestion_cost;
             if (new_cost < dis_layer.data(p1.x, p1.y)) {
                 dis_layer.data(p1.x, p1.y) = new_cost;
