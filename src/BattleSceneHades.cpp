@@ -1078,13 +1078,38 @@ void BattleSceneHades::backRun1()
             auto p = r->Pos + r->Velocity;
             int dis = -1;
             if (r->OperationType == 3) { dis = 1; }
+
             if (canWalk90(p, r, dis))
             {
                 r->Pos = p;
             }
             else
             {
-                r->Velocity = { 0, 0, 0 };
+                // Try sliding along obstacles
+                bool can_slide = false;
+
+                // Try X-only movement
+                auto px = r->Pos;
+                px.x = p.x;
+                if (canWalk90(px, r, dis)) {
+                    r->Pos = px;
+                    r->Velocity.y = 0;
+                    can_slide = true;
+                }
+                // Try Y-only movement
+                else {
+                    auto py = r->Pos;
+                    py.y = p.y;
+                    if (canWalk90(py, r, dis)) {
+                        r->Pos = py;
+                        r->Velocity.x = 0;
+                        can_slide = true;
+                    }
+                }
+
+                if (!can_slide) {
+                    r->Velocity = { 0, 0, 0 };
+                }
             }
             //r->FaceTowards = rand_.rand() * 4;
             if (r->Pos.z < 0)
@@ -1154,14 +1179,6 @@ void BattleSceneHades::backRun1()
 
     //if (current_frame_ % 2 == 0)
     {
-        // Update flow fields every 30 frames or when dirty
-        flow_field_update_counter_++;
-        if (flow_fields_dirty_ || flow_field_update_counter_ >= 30) {
-            computeFlowField(0, flow_field_team0_);
-            computeFlowField(1, flow_field_team1_);
-            flow_fields_dirty_ = false;
-            flow_field_update_counter_ = 0;
-        }
 
         int current_frame2 = current_frame_;
         for (auto r : battle_roles_)
@@ -1331,9 +1348,6 @@ void BattleSceneHades::backRun1()
                 //LOG("{} has been beat\n", r->Name);
                 r->Dead = 1;
                 r->HP = 0;
-                flow_fields_dirty_ = true;
-                stuck_frames_.erase(r);
-                prev_positions_.erase(r);
                 tracker_.recordKill(r->LastAttacker);
                 tracker_.recordDeath(r, current_frame_);
 
@@ -1752,22 +1766,9 @@ void BattleSceneHades::AI(Role* r)
                 double speed = r->Speed / 30.0;
                 if (EuclidDis(r->Pos, r0->Pos) > dis)
                 {
-                    // === Stuck detection ===
-                    // Track how long this agent has barely moved
-                    auto& prev_pos = prev_positions_[r];
-                    auto& stuck = stuck_frames_[r];
-                    double moved_dist = EuclidDis(r->Pos, prev_pos);
-                    if (moved_dist < speed * 0.5) {
-                        stuck++;
-                    } else {
-                        stuck = 0;
-                    }
-                    prev_pos = r->Pos;
-
                     auto p = r->Pos + speed * r->RealTowards;
-                    if (canWalk90(p, r) && r->FindingWay == 0 && stuck < 5)
+                    if (canWalk90(p, r) && r->FindingWay == 0)
                     {
-                        //能否闪身的条件，似乎比较复杂
                         if (rand_.rand() < 0.25 && r->UsingMagic)
                         {
                             r->OperationType = 3;
@@ -1789,76 +1790,37 @@ void BattleSceneHades::AI(Role* r)
                     }
                     else if (r->Velocity.norm() < 0.1)
                     {
-                        // Use flow field for pathfinding
-                        auto p_self45 = pos90To45(r->Pos.x, r->Pos.y);
+                        // A* pathfinding with caching
+                        auto& path_info = paths_[r];
+                        path_info.frames_since_update++;
 
-                        // Get flow direction from appropriate field
-                        Pointf flow_dir = (r->Team == 0) ? flow_field_team0_.data(p_self45.x, p_self45.y)
-                                                          : flow_field_team1_.data(p_self45.x, p_self45.y);
-
-                        if (flow_dir.norm() < 0.01) {
-                            // No flow direction, try direct approach to target
-                            flow_dir = r0->Pos - r->Pos;
-                            flow_dir.normTo(1);
-                        }
-
-                        // === Stuck lateral escape ===
-                        // If stuck for too long, rotate flow direction perpendicular
-                        // to break out of congestion. Alternates left/right.
-                        if (stuck > 30) {
-                            // Strong lateral: rotate 90 degrees
-                            double angle = (stuck % 60 < 30) ? M_PI * 0.5 : -M_PI * 0.5;
-                            flow_dir.rotate(angle);
-                            if (stuck > 90) {
-                                // Desperate: rotate even more + randomize
-                                flow_dir.rotate(M_PI * (rand_.rand() - 0.5));
+                        // Recompute path if needed
+                        if (path_info.target != r0 || path_info.frames_since_update > 30 || path_info.waypoints.empty()) {
+                            auto start45 = pos90To45(r->Pos.x, r->Pos.y);
+                            auto goal45 = pos90To45(r0->Pos.x, r0->Pos.y);
+                            auto path45 = findPath(start45, goal45);
+                            path_info.waypoints.clear();
+                            for (auto& p : path45) {
+                                path_info.waypoints.push_back(pos45To90(p.x, p.y));
                             }
-                        } else if (stuck > 15) {
-                            // Mild lateral: 30-45 degree offset to try to slide around
-                            double angle = (stuck % 30 < 15) ? M_PI * 0.25 : -M_PI * 0.25;
-                            flow_dir.rotate(angle);
+                            path_info.current_waypoint = 0;
+                            path_info.frames_since_update = 0;
+                            path_info.target = r0;
                         }
 
-                        // Hybrid collision check: look ahead with larger radius
-                        constexpr int search_radius = 5;
-                        Pointf best_dir = flow_dir;
-                        double best_score = -1000;
-
-                        for (int dx = -search_radius; dx <= search_radius; dx++) {
-                            for (int dy = -search_radius; dy <= search_radius; dy++) {
-                                if (dx == 0 && dy == 0) continue;
-
-                                int nx = p_self45.x + dx;
-                                int ny = p_self45.y + dy;
-
-                                if (isOutLine(nx, ny)) continue;
-
-                                auto np = pos45To90(nx, ny);
-                                Pointf dir = np - r->Pos;
-                                double ddist = dir.norm();
-                                if (ddist < 0.1) continue;
-                                dir.normTo(1);
-
-                                // Score: alignment with flow + distance penalty
-                                double alignment = dir.x * flow_dir.x + dir.y * flow_dir.y;
-                                double score = alignment - ddist * 0.1;
-
-                                // Hybrid collision: use canWalk() for distant, canWalk90() for adjacent
-                                bool walkable;
-                                if (abs(dx) <= 1 && abs(dy) <= 1) {
-                                    // Adjacent tile: check character collision
-                                    walkable = canWalk90(np, r);
-                                } else {
-                                    // Distant tile: only check terrain
-                                    walkable = canWalk(nx, ny);
-                                }
-
-                                if (walkable && score > best_score) {
-                                    best_score = score;
-                                    best_dir = dir;
-                                }
+                        // Follow path
+                        Pointf best_dir = r0->Pos - r->Pos;
+                        if (path_info.current_waypoint < path_info.waypoints.size()) {
+                            Pointf wp = path_info.waypoints[path_info.current_waypoint];
+                            if (EuclidDis(r->Pos, wp) < 40) {
+                                path_info.current_waypoint++;
+                            }
+                            if (path_info.current_waypoint < path_info.waypoints.size()) {
+                                wp = path_info.waypoints[path_info.current_waypoint];
+                                best_dir = wp - r->Pos;
                             }
                         }
+                        best_dir.normTo(1);
 
                         r->FindingWay = 1;
                         r->RealTowards = best_dir;
@@ -2525,130 +2487,82 @@ int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     return v;
 }
 
-void BattleSceneHades::computeFlowField(int team, MapSquare<Pointf>& field)
+std::vector<Point> BattleSceneHades::findPath(Point start45, Point goal45)
 {
-    field.resize(COORD_COUNT);
-    field.setAll({0, 0, 0});
-
-    // === Multi-source BFS from ALL enemy positions ===
-    // This ensures agents path to the nearest reachable enemy, not just the centroid.
-    // Agents naturally spread across multiple enemies instead of converging on one point.
-    std::vector<Point> enemy_positions;
-    for (auto r : battle_roles_) {
-        if (r->Team != team && !r->Dead) {
-            auto p45 = pos90To45(r->Pos.x, r->Pos.y);
-            enemy_positions.push_back(p45);
-        }
-    }
-    if (enemy_positions.empty()) return;
-
-    // === Build ally density map for congestion penalty ===
-    // Tiles near many allies become more expensive, causing agents to
-    // prefer less crowded paths and naturally flank around congested areas.
-    MapSquare<int> ally_density;
-    ally_density.resize(COORD_COUNT);
-    ally_density.setAll(0);
-    for (auto r : battle_roles_) {
-        if (r->Team == team && !r->Dead) {
-            auto p45 = pos90To45(r->Pos.x, r->Pos.y);
-            // Spread density in a 3x3 area around each ally
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    int ax = p45.x + dx;
-                    int ay = p45.y + dy;
-                    if (!isOutLine(ax, ay)) {
-                        ally_density.data(ax, ay) += (dx == 0 && dy == 0) ? 3 : 1;
-                    }
-                }
-            }
-        }
-    }
-
-    // === Congestion-aware multi-source BFS ===
-    // Instead of uniform cost BFS, tiles with high ally density cost more steps,
-    // effectively routing agents around crowded areas.
-    constexpr int max_step = 64;
     MapSquareInt dis_layer;
     dis_layer.resize(COORD_COUNT);
-    dis_layer.setAll(max_step + 1);
+    calDistanceLayer(goal45.x, goal45.y, dis_layer, 64);
 
-    // Use a priority approach: BFS with extra cost for congested tiles
-    // We use a modified BFS where congested tiles add +1..+3 extra cost
-    std::vector<Point> cal_stack;
-    for (auto& ep : enemy_positions) {
-        if (!isOutLine(ep.x, ep.y)) {
-            dis_layer.data(ep.x, ep.y) = 0;
-            cal_stack.push_back(ep);
-        }
-    }
+    std::vector<Point> path;
+    Point current = start45;
+    path.push_back(current);
 
-    int count = 0;
-    int step = 0;
-    while (step <= max_step) {
-        std::vector<Point> cal_stack_next;
-        auto check_next = [&](Point p1) -> void {
-            if (isOutLine(p1.x, p1.y)) return;
-            if (!canWalk(p1.x, p1.y)) return;
-            // Congestion penalty: each ally density unit adds extra cost
-            int congestion_cost = std::min(ally_density.data(p1.x, p1.y), 2);
-            int new_cost = step + 1 + congestion_cost;
-            if (new_cost < dis_layer.data(p1.x, p1.y)) {
-                dis_layer.data(p1.x, p1.y) = new_cost;
-                cal_stack_next.push_back(p1);
-                count++;
+    while (current.x != goal45.x || current.y != goal45.y) {
+        int current_dis = dis_layer.data(current.x, current.y);
+        if (current_dis > 64) break;
+
+        Point best = current;
+        int best_dis = current_dis;
+        int dx[] = {-1, 1, 0, 0};
+        int dy[] = {0, 0, -1, 1};
+
+        for (int i = 0; i < 4; i++) {
+            int nx = current.x + dx[i];
+            int ny = current.y + dy[i];
+            if (!isOutLine(nx, ny) && canWalk(nx, ny)) {
+                int nd = dis_layer.data(nx, ny);
+                if (nd < best_dis) {
+                    best = {nx, ny};
+                    best_dis = nd;
+                }
             }
-        };
-        for (auto p : cal_stack) {
-            check_next({ p.x - 1, p.y });
-            check_next({ p.x + 1, p.y });
-            check_next({ p.x, p.y - 1 });
-            check_next({ p.x, p.y + 1 });
-            if (count >= dis_layer.squareSize()) break;
         }
-        if (cal_stack_next.empty()) break;
-        cal_stack = cal_stack_next;
-        step++;
+
+        if (best.x == current.x && best.y == current.y) break;
+        current = best;
+        path.push_back(current);
     }
 
-    // Compute gradient at each tile
-    for (int x = 0; x < COORD_COUNT; x++) {
-        for (int y = 0; y < COORD_COUNT; y++) {
-            if (!canWalk(x, y)) continue;
+    return path;
+}
 
-            int current_dis = dis_layer.data(x, y);
-            if (current_dis > max_step) continue;
-            Pointf gradient = {0, 0};
-            int gcount = 0;
+std::vector<Pointf> BattleSceneHades::smoothPath(const std::vector<Point>& path45)
+{
+    if (path45.size() <= 2) {
+        std::vector<Pointf> result;
+        for (auto& p : path45) {
+            result.push_back(pos45To90(p.x, p.y));
+        }
+        return result;
+    }
 
-            // Check 4 neighbors for steepest descent
-            int ddx[] = {-1, 1, 0, 0};
-            int ddy[] = {0, 0, -1, 1};
-            for (int i = 0; i < 4; i++) {
-                int nx = x + ddx[i];
-                int ny = y + ddy[i];
-                if (!isOutLine(nx, ny) && canWalk(nx, ny)) {
-                    int neighbor_dis = dis_layer.data(nx, ny);
-                    if (neighbor_dis < current_dis) {
-                        auto np = pos45To90(nx, ny);
-                        auto cp = pos45To90(x, y);
-                        gradient.x += (np.x - cp.x) * (current_dis - neighbor_dis);
-                        gradient.y += (np.y - cp.y) * (current_dis - neighbor_dis);
-                        gcount++;
+    std::vector<Pointf> smoothed;
+    smoothed.push_back(pos45To90(path45[0].x, path45[0].y));
+
+    int i = 0;
+    while (i < path45.size() - 1) {
+        int j = path45.size() - 1;
+        while (j > i + 1) {
+            if (canWalk(path45[j].x, path45[j].y)) {
+                bool clear = true;
+                int steps = std::max(abs(path45[j].x - path45[i].x), abs(path45[j].y - path45[i].y));
+                for (int k = 1; k < steps; k++) {
+                    int mx = path45[i].x + (path45[j].x - path45[i].x) * k / steps;
+                    int my = path45[i].y + (path45[j].y - path45[i].y) * k / steps;
+                    if (!canWalk(mx, my)) {
+                        clear = false;
+                        break;
                     }
                 }
+                if (clear) break;
             }
-
-            if (gcount > 0) {
-                double norm = sqrt(gradient.x * gradient.x + gradient.y * gradient.y);
-                if (norm > 0.01) {
-                    gradient.x /= norm;
-                    gradient.y /= norm;
-                }
-            }
-
-            field.data(x, y) = gradient;
+            j--;
         }
+        i = j;
+        smoothed.push_back(pos45To90(path45[i].x, path45[i].y));
     }
+
+    return smoothed;
 }
 
 Role* BattleSceneHades::assignFlankTarget(Role* r)
