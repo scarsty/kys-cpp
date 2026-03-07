@@ -148,6 +148,7 @@
     <ClCompile Include="Button.cpp" />
     <ClCompile Include="ChemistryEngine.cpp" />
     <ClCompile Include="Console.cpp" />
+    <ClCompile Include="ChessDrawableOnCall.cpp" />
     <ClCompile Include="DrawableOnCall.cpp" />
     <ClCompile Include="DrawNode.cpp" />
     <ClCompile Include="DynamicChessMap.cpp" />
@@ -159,7 +160,9 @@
     <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Cloud.cpp" />
     <ClCompile Include="ChessBalance.cpp" />
+    <ClCompile Include="ChessManager.cpp" />
     <ClCompile Include="ChessNeigong.cpp" />
+    <ClCompile Include="ChessEquipment.cpp" />
     <ClCompile Include="BattleStatsView.cpp" />
     <ClCompile Include="ChessBattleEffects.cpp" />
     <ClCompile Include="ChessCombo.cpp" />
@@ -179,7 +182,8 @@
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
     <ClCompile Include="TeamMenu.cpp" />
-    <ClCompile Include="TempStore.cpp" />
+    <ClCompile Include="GameState.cpp" />
+    <ClCompile Include="GameDataStore.cpp" />
     <ClCompile Include="TextBox.cpp" />
     <ClCompile Include="TextBoxRoll.cpp" />
     <ClCompile Include="UI.cpp" />
@@ -195,7 +199,6 @@
     <ClCompile Include="Types.cpp" />
     <ClCompile Include="UIItem.cpp" />
     <ClCompile Include="UIKeyConfig.cpp" />
-    <ClCompile Include="UIRoleStatusMenu.cpp" />
     <ClCompile Include="UISave.cpp" />
     <ClCompile Include="UIShop.cpp" />
     <ClCompile Include="UIStatus.cpp" />
@@ -227,6 +230,7 @@
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="ChessBalance.h" />
+    <ClInclude Include="ChessManager.h" />
     <ClInclude Include="ChessNeigong.h" />
     <ClInclude Include="BattleStatsView.h" />
     <ClInclude Include="ChessBattleEffects.h" />
@@ -245,6 +249,7 @@
     <ClInclude Include="Button.h" />
     <ClInclude Include="ChemistryEngine.h" />
     <ClInclude Include="Console.h" />
+    <ClInclude Include="ChessDrawableOnCall.h" />
     <ClInclude Include="DrawableOnCall.h" />
     <ClInclude Include="DynamicChessMap.h" />
     <ClInclude Include="FunctionTrait.h" />
@@ -269,7 +274,8 @@
     <ClInclude Include="Font.h" />
     <ClInclude Include="Head.h" />
     <ClInclude Include="TeamMenu.h" />
-    <ClInclude Include="TempStore.h" />
+    <ClInclude Include="GameState.h" />
+    <ClInclude Include="GameDataStore.h" />
     <ClInclude Include="TextBox.h" />
     <ClInclude Include="TextBoxRoll.h" />
     <ClInclude Include="UI.h" />
@@ -284,7 +290,6 @@
     <ClInclude Include="Types.h" />
     <ClInclude Include="UIItem.h" />
     <ClInclude Include="UIKeyConfig.h" />
-    <ClInclude Include="UIRoleStatusMenu.h" />
     <ClInclude Include="UISave.h" />
     <ClInclude Include="UIShop.h" />
     <ClInclude Include="UIStatus.h" />

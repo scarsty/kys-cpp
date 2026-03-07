@@ -62,11 +62,11 @@ SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
     std::function<bool(const std::string&, const std::string&)> match = [&](const std::string& text, const std::string& name) -> bool
     {
         std::string pinyin = Hanz2Piny::hanz2pinyin(name);
-        int p = 0;
-        for (int i = 0; i < text.size(); i++)
+        std::size_t p = 0;
+        for (std::size_t i = 0; i < text.size(); i++)
         {
-            int p1 = pinyin.find_first_of(text[i], p);
-            if (p1 < 0)
+            std::size_t p1 = pinyin.find_first_of(text[i], p);
+            if (p1 == std::string::npos)
             {
                 return false;
             }
@@ -247,7 +247,7 @@ void SuperMenuText::search(const std::string& text)
 
 void SuperMenuText::updateMaxPages()
 {
-    maxPages_ = std::ceil((searchResultIndices_.size() / (double)itemsPerPage_));
+    maxPages_ = std::max(1, static_cast<int>(std::ceil(searchResultIndices_.size() / static_cast<double>(itemsPerPage_))));
 }
 
 void SuperMenuText::updateNavigationButtons()
@@ -382,14 +382,17 @@ void SuperMenuText::dealEvent(EngineEvent& e)
         int idx = activeIndices_[selectionIdx];
         for (auto& doc : drawableDocs_)
         {
-            doc->updateScreenWithID(items_[idx].first);
+            DrawableItemContext context;
+            context.itemId = items_[idx].first;
+            context.itemIndex = idx;
+            doc->updateScreenWithContext(context);
         }
     }
     else
     {
         for (auto& doc : drawableDocs_)
         {
-            doc->updateScreenWithID(-1);
+            doc->updateScreenWithContext({});
         }
     }
 

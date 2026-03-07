@@ -10,7 +10,7 @@
 #include "Head.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
-#include "TempStore.h"
+#include "GameState.h"
 #include "Weather.h"
 
 namespace
@@ -608,7 +608,7 @@ void BattleSceneHades::onEntrance()
 
         // Merge neigong global effects into ally states
         {
-            auto& obtained = KysChess::GameData::get().getObtainedNeigong();
+            auto& obtained = KysChess::GameState::get().getObtainedNeigong();
             if (!obtained.empty())
             {
                 auto& pool = KysChess::ChessNeigong::getPool();
@@ -626,25 +626,67 @@ void BattleSceneHades::onEntrance()
         // Apply combo stat buffs on copies and remap to battle IDs
         KysChess::ChessCombo::clearActiveStates();
         auto& cs = KysChess::ChessCombo::getMutableStates();
-        auto applyOnCopies = [&](std::deque<Role>& objs, std::map<int, KysChess::RoleComboState>& states) {
-            for (auto& r : objs)
+        auto applyStateToCopy = [&](Role& r, KysChess::RoleComboState& s) {
+            r.MaxHP += s.flatHP;
+            r.Attack += s.flatATK;
+            r.Defence += s.flatDEF;
+            r.Speed += s.flatSPD;
+            if (s.pctHP != 0) r.MaxHP = static_cast<int>(r.MaxHP * (1.0 + s.pctHP / 100.0));
+            if (s.pctATK != 0) r.Attack = static_cast<int>(r.Attack * (1.0 + s.pctATK / 100.0));
+            if (s.pctDEF != 0) r.Defence = static_cast<int>(r.Defence * (1.0 + s.pctDEF / 100.0));
+            r.HP = r.MaxHP;
+            if (s.shieldPctMaxHP > 0)
+                s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
+        };
+        auto applyEquipmentEffects = [&](KysChess::RoleComboState& state, int weaponId, int armorId) {
+            auto applyById = [&](int itemId) {
+                if (itemId < 0) return;
+                auto* eq = KysChess::ChessEquipment::getById(itemId);
+                if (!eq) return;
+                for (auto& effect : eq->effects)
+                    KysChess::ChessBattleEffects::applyEffect(state, effect);
+            };
+            applyById(weaponId);
+            applyById(armorId);
+        };
+        auto applyOnCopies = [&](std::deque<Role>& objs, std::map<int, KysChess::RoleComboState>& states, auto equipmentLookup) {
+            for (size_t index = 0; index < objs.size(); ++index)
             {
+                auto& r = objs[index];
+                KysChess::RoleComboState battleState;
                 auto it = states.find(r.RealID);
-                if (it == states.end()) continue;
-                auto& s = it->second;
-                r.MaxHP += s.flatHP;  r.Attack += s.flatATK;
-                r.Defence += s.flatDEF;  r.Speed += s.flatSPD;
-                if (s.pctHP != 0) r.MaxHP = static_cast<int>(r.MaxHP * (1.0 + s.pctHP / 100.0));
-                if (s.pctATK != 0) r.Attack = static_cast<int>(r.Attack * (1.0 + s.pctATK / 100.0));
-                if (s.pctDEF != 0) r.Defence = static_cast<int>(r.Defence * (1.0 + s.pctDEF / 100.0));
-                r.HP = r.MaxHP;
-                if (s.shieldPctMaxHP > 0)
-                    s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
-                cs[r.ID] = s;
+                if (it != states.end())
+                    battleState = it->second;
+
+                auto [weaponId, armorId] = equipmentLookup(index);
+                applyEquipmentEffects(battleState, weaponId, armorId);
+                applyStateToCopy(r, battleState);
+                cs[r.ID] = battleState;
             }
         };
-        applyOnCopies(friends_obj_, allyStates);
-        applyOnCopies(enemies_obj_, enemyStates);
+        applyOnCopies(friends_obj_, allyStates, [&](size_t index) {
+            if (index >= extended_teammates_.size()) return std::pair{-1, -1};
+
+            KysChess::ChessInstanceID chessInstanceId{extended_teammates_[index].chessInstanceId};
+            if (chessInstanceId == KysChess::k_nonExistentChess)
+                return std::pair{-1, -1};
+
+            auto& collection = KysChess::GameState::get().getCollection();
+            auto it = collection.find(chessInstanceId);
+            if (it == collection.end())
+                return std::pair{-1, -1};
+
+            auto& chess = it->second;
+            return std::pair{
+                chess.weaponInstance.itemId,
+                chess.armorInstance.itemId
+            };
+        });
+        applyOnCopies(enemies_obj_, enemyStates, [&](size_t index) {
+            int weaponId = index < enemy_weapons_.size() ? enemy_weapons_[index] : -1;
+            int armorId = index < enemy_armors_.size() ? enemy_armors_[index] : -1;
+            return std::pair{weaponId, armorId};
+        });
     }
     else if (info_->AutoTeamMate[0] >= 0)
     {
@@ -705,7 +747,7 @@ void BattleSceneHades::onEntrance()
     }
 
     // Pre-battle position swap
-    if (!extended_teammates_.empty() && KysChess::GameData::get().isPositionSwapEnabled())
+    if (!extended_teammates_.empty() && KysChess::GameState::get().isPositionSwapEnabled())
     {
         auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
         prompt->setFontSize(36);
@@ -1056,10 +1098,10 @@ void BattleSceneHades::backRun1()
                 }
 
                 // Ramping damage idle decay
-                if (s.rampingDmgPct > 0)
+                for (size_t i = 0; i < s.rampings.size(); i++)
                 {
-                    if (s.rampingIdleTimer > 0) s.rampingIdleTimer--;
-                    else s.rampingStacks = 0;
+                    if (s.rampingIdleTimers[i] > 0) s.rampingIdleTimers[i]--;
+                    else s.rampingStacks[i] = 0;
                 }
 
                 // Trigger timer countdowns
@@ -1915,9 +1957,9 @@ void BattleSceneHades::AI(Role* r)
         }
     }
 
-    // Print pathfinding stats every 60 frames
+    // Print pathfinding stats every 300 frames
     static int print_counter = 0;
-    if (++print_counter >= 60) {
+    if (++print_counter >= 300) {
         print_counter = 0;
         for (auto& [role, info] : paths_) {
             if (role->Team == 0 && !role->Dead) {
@@ -2273,22 +2315,24 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             }
 
             // Every-Nth-hit double
-            if (as.everyNthDouble > 0)
+            for (int n : as.everyNthDoubles)
             {
-                as.hitCounter++;
-                if (as.hitCounter >= as.everyNthDouble)
+                auto& counter = as.everyNthCounters[n];
+                counter++;
+                if (counter >= n)
                 {
                     hurt *= 2.0;
-                    as.hitCounter = 0;
+                    counter = 0;
                 }
             }
 
             // Ramping damage: each hit stacks bonus damage
-            if (as.rampingDmgPct > 0)
+            for (size_t i = 0; i < as.rampings.size(); i++)
             {
-                as.rampingStacks = std::min(as.rampingStacks + 1, as.rampingDmgMaxStacks);
-                as.rampingIdleTimer = 90;
-                hurt *= (1.0 + as.rampingStacks * as.rampingDmgPct / 100.0);
+                auto& ramp = as.rampings[i];
+                as.rampingStacks[i] = std::min(as.rampingStacks[i] + 1, ramp.maxStacks);
+                as.rampingIdleTimers[i] = 90;
+                hurt *= (1.0 + as.rampingStacks[i] * ramp.pctPerStack / 100.0);
             }
 
             // MP on hit
@@ -2309,8 +2353,13 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 auto dit = cs.find(r->ID);
                 if (dit != cs.end())
                 {
-                    dit->second.poisonTimer = as.poisonDuration;
-                    dit->second.poisonTickDmg = as.poisonDOTPct;
+                    int newDmg = r->HP * as.poisonDOTPct / 100;
+                    int oldDmg = r->HP * dit->second.poisonTickDmg / 100;
+                    if (newDmg > oldDmg)
+                    {
+                        dit->second.poisonTimer = as.poisonDuration;
+                        dit->second.poisonTickDmg = as.poisonDOTPct;
+                    }
                 }
                 else
                 {
@@ -2375,11 +2424,12 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             }
 
             // Adaptation: reduce damage from repeated attacker
-            if (ds.adaptationPctPerStack > 0)
+            for (size_t i = 0; i < ds.adaptations.size(); i++)
             {
-                int& stacks = ds.adaptationStacks[ae.Attacker->ID];
-                stacks = std::min(stacks + 1, ds.adaptationMaxStacks);
-                hurt *= (1.0 - stacks * ds.adaptationPctPerStack / 100.0);
+                auto& adapt = ds.adaptations[i];
+                int& stacks = ds.adaptationStacks[i][ae.Attacker->ID];
+                stacks = std::min(stacks + 1, adapt.maxStacks);
+                hurt *= (1.0 - stacks * adapt.pctPerStack / 100.0);
             }
 
             // Shield absorption

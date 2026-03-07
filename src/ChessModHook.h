@@ -14,7 +14,7 @@ public:
     static bool blockExit(int submap_id);
     static void showMenu();
 
-    // Persist/restore GameData to/from SQLite save DB
+    // Persist/restore GameState to/from SQLite save DB
     static void saveGameData(SQLite3Wrapper& db);
     static void loadGameData(SQLite3Wrapper& db);
 };

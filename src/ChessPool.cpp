@@ -4,7 +4,7 @@
 #include <array>
 #include "ChessBalance.h"
 #include "Save.h"
-#include "TempStore.h"
+#include "GameState.h"
 
 namespace KysChess
 {
@@ -38,7 +38,7 @@ Role* ChessPool::selectFromPool(int tier)
 {
     for (;;)
     {
-        auto idx = chessPool()[tier - 1][GameData::get().shopRandInt(chessPool()[tier - 1].size())];
+        auto idx = chessPool()[tier - 1][GameState::get().shopRandInt(chessPool()[tier - 1].size())];
         auto role = Save::getInstance()->getRole(idx);
         if (tier <= 4 && rejected_.contains(role))
         {
@@ -61,7 +61,7 @@ std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
     for (int i = 0; i < 5; ++i)
     {
         // 应该是 0~99
-        auto val = GameData::get().shopRandInt(100);
+        auto val = GameState::get().shopRandInt(100);
         auto cur = 0;
         for (int tier = 1; tier <= 5; ++tier)
         {
@@ -104,7 +104,7 @@ void ChessPool::restoreShop(std::vector<std::pair<Role*, int>> shop) {
 
 Role* ChessPool::selectEnemyFromPool(int tier)
 {
-    auto idx = chessPool()[tier - 1][GameData::get().enemyRandInt(chessPool()[tier - 1].size())];
+    auto idx = chessPool()[tier - 1][GameState::get().enemyRandInt(chessPool()[tier - 1].size())];
     return Save::getInstance()->getRole(idx);
 }
 

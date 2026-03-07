@@ -3,6 +3,9 @@
 #include "Save.h"
 #include "Font.h"
 #include "TextureManager.h"
+#include "Chess.h"
+
+namespace KysChess {
 
 class ChessUIStatus : public RunNode
 {
@@ -10,10 +13,11 @@ public:
     ChessUIStatus() = default;
     virtual ~ChessUIStatus() = default;
 
-    void setRole(Role* r, int star = 1) { role_ = r; star_ = star; }
+    void setChess(Chess chess) { chess_ = chess; }
     virtual void draw() override;
 
 private:
-    Role* role_ = nullptr;
-    int star_ = 1;
+    Chess chess_;
 };
+
+}

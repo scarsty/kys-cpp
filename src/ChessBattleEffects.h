@@ -89,7 +89,7 @@ struct RoleComboState
     bool dodgeThenCrit = false;
     int critChancePct = 0;
     int critMultiplier = 150;
-    int everyNthDouble = 0;
+    std::vector<int> everyNthDoubles;
     int armorPenChancePct = 0;
     int armorPenPct = 0;
     int stunChancePct = 0;
@@ -122,13 +122,13 @@ struct RoleComboState
     int dmgReductionPct = 0;
     // Comeback & Scaling
     int bloodlustATKPerKill = 0;
-    int adaptationPctPerStack = 0;
-    int adaptationMaxStacks = 0;
-    int rampingDmgPct = 0;
-    int rampingDmgMaxStacks = 0;
+    struct AdaptationInstance { int pctPerStack; int maxStacks; };
+    std::vector<AdaptationInstance> adaptations;
+    struct RampingInstance { int pctPerStack; int maxStacks; };
+    std::vector<RampingInstance> rampings;
 
     // Mutable runtime state
-    int hitCounter = 0;
+    std::map<int, int> everyNthCounters;  // N value → counter
     bool dodgedLast = false;
     int shield = 0;
     int poisonTimer = 0;
@@ -136,9 +136,9 @@ struct RoleComboState
     std::map<Trigger, int> triggerTimers;
     bool lastAliveFlag = false;
     std::map<int, int> effectActivationCounts;  // effect index → count
-    std::map<int, int> adaptationStacks;
-    int rampingStacks = 0;
-    int rampingIdleTimer = 0;
+    std::vector<std::map<int, int>> adaptationStacks;  // per instance: enemyID → stacks
+    std::vector<int> rampingStacks;  // per instance
+    std::vector<int> rampingIdleTimers;  // per instance
 };
 
 class ChessBattleEffects

@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Chess.h"
+#include "ChessBalance.h"
 #include <vector>
 
 struct DynamicBattleRoles;
@@ -21,10 +22,20 @@ public:
     static void viewCombos();
     static void showNeigongReward();
     static void viewNeigong();
+    static void manageEquipment();
     static void showExpeditionChallenge();
     static void showGameGuide();
     static void showPositionSwap();
-    static int calculateCost(int tier, int star, int count = 1);
+
+private:
+    static int selectChallengeReward(const std::vector<BalanceConfig::ChallengeReward>& rewards);
+    static bool applyReward(const BalanceConfig::ChallengeReward& reward);
+    static bool rewardGold(int amount);
+    static bool rewardPiece(int maxTier);
+    static bool rewardNeigong(int maxTier);
+    static bool rewardStarUp(int fromStar, int maxTier);
+    static bool rewardEquipment(int maxTier, int specificId = -1);
+    static bool addChessPiece(Role* role, bool showMessage = true);
 };
 
 }    //namespace KysChess

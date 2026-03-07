@@ -1,5 +1,7 @@
 #include "BattleRoleManager.h"
 #include "ChessBalance.h"
+#include "ChessEquipment.h"
+#include "GameState.h"
 
 namespace KysChess
 {

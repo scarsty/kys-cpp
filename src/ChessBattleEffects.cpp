@@ -99,13 +99,13 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::DodgeThenCrit: s.dodgeThenCrit = true; break;
     case EffectType::CritChance: s.critChancePct += e.value; break;
     case EffectType::CritMultiplier: s.critMultiplier = std::max(s.critMultiplier, e.value); break;
-    case EffectType::EveryNthDouble: s.everyNthDouble = e.value; break;
+    case EffectType::EveryNthDouble: if (e.value > 0) s.everyNthDoubles.push_back(e.value); break;
     case EffectType::ArmorPenChance: s.armorPenChancePct += e.value; break;
     case EffectType::ArmorPenPct: s.armorPenPct = std::max(s.armorPenPct, e.value); break;
     case EffectType::ArmorPen: break;  // handled as triggered effect
     case EffectType::Stun: break;  // handled as triggered effect
     case EffectType::KnockbackChance: s.knockbackChancePct += e.value; break;
-    case EffectType::PoisonDOT: s.poisonDOTPct += e.value; if (e.value2) s.poisonDuration = std::max(s.poisonDuration, e.value2); break;
+    case EffectType::PoisonDOT: s.poisonDOTPct += e.value; if (e.value2) s.poisonDuration = std::max(s.poisonDuration, e.value2 * 30); break;
     case EffectType::PoisonDmgAmp: s.poisonDmgAmpPct += e.value; break;
     case EffectType::MPOnHit: s.mpOnHit += e.value; break;
     case EffectType::MPDrain: s.mpDrain += e.value; break;
@@ -120,14 +120,21 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::HealedATKSPDBoost: s.healedATKSPDBoostPct += e.value; break;
     case EffectType::HPRegenPct: s.hpRegenPct += e.value; if (e.value2) s.hpRegenInterval = e.value2; break;
     case EffectType::FreezeReductionPct: s.freezeReductionPct += e.value; break;
-    case EffectType::ControlImmunityFrames: s.controlImmunityFrames = e.value; break;
+    case EffectType::ControlImmunityFrames: s.controlImmunityFrames += e.value; break;
     case EffectType::KillHealPct: s.killHealPct += e.value; break;
     case EffectType::KillInvincFrames: s.killInvincFrames = std::max(s.killInvincFrames, e.value); break;
     case EffectType::PostSkillInvincFrames: s.postSkillInvincFrames = std::max(s.postSkillInvincFrames, e.value); break;
     case EffectType::DmgReductionPct: s.dmgReductionPct += e.value; break;
     case EffectType::Bloodlust: s.bloodlustATKPerKill += e.value; break;
-    case EffectType::Adaptation: s.adaptationPctPerStack = e.value; s.adaptationMaxStacks = e.value2; break;
-    case EffectType::RampingDmg: s.rampingDmgPct = e.value; s.rampingDmgMaxStacks = e.value2; break;
+    case EffectType::Adaptation:
+        s.adaptations.push_back({e.value, e.value2});
+        s.adaptationStacks.push_back({});
+        break;
+    case EffectType::RampingDmg:
+        s.rampings.push_back({e.value, e.value2});
+        s.rampingStacks.push_back(0);
+        s.rampingIdleTimers.push_back(0);
+        break;
     case EffectType::HealBurst: break;  // only meaningful as triggered
     }
 }

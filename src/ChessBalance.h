@@ -70,10 +70,18 @@ struct BalanceConfig
     int totalFights = 28;
     int bossInterval = 4;
 
+    // Enemy equipment progression
+    struct EnemyEquipmentLevel { int fight; int maxTier; int count; };
+    std::vector<EnemyEquipmentLevel> enemyEquipmentLevels;
+
+    // Player equipment rewards
+    struct PlayerEquipmentReward { int fight; int maxTier; int choices; int refreshCost; };
+    std::vector<PlayerEquipmentReward> playerEquipmentRewards;
+
     // Expedition challenges
-    enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3 };
-    struct ChallengeReward { ChallengeRewardType type; int value = 0; };
-    struct ChallengeEnemy { int roleId; int star; };
+    enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3, GetEquipment, GetSpecificEquipment };
+    struct ChallengeReward { ChallengeRewardType type; int value = 0; int value2 = 0; };
+    struct ChallengeEnemy { int roleId; int star; int weaponId = -1; int armorId = -1; };
     struct ChallengeDef
     {
         std::string name;

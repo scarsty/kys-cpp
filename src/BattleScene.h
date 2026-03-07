@@ -17,6 +17,7 @@ struct ExtendedTeammateInfo
     int X;
     int Y;
     int star = 1;
+    int chessInstanceId = -1;
 };
 
 class BattleScene : public Scene

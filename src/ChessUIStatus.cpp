@@ -5,29 +5,31 @@
 #include "ChessPool.h"
 #include "Engine.h"
 #include "GameUtil.h"
-#include "TempStore.h"
+#include "GameState.h"
+
+namespace KysChess {
 
 void ChessUIStatus::draw()
 {
-    if (!role_) return;
+    if (!chess_.role) return;
 
     // Draw translucent black background
     Engine::getInstance()->fillRoundedRect({0, 0, 0, 128}, x_, y_, 460, 430, 8);
     Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, x_, y_, 460, 430, 8);
 
-    auto& gd = KysChess::GameData::get();
+    auto& gd = KysChess::GameState::get();
     auto font = Font::getInstance();
     Color color_white = { 255, 255, 255, 255 };
     Color color_name = { 255, 215, 0, 255 };
 
     // Compute boosted stats for display
-    auto bs = KysChess::BattleRoleManager::computeStarStats(role_, star_);
+    auto bs = KysChess::BattleRoleManager::computeStarStats(chess_.role, chess_.star);
     int dispMaxHP = bs.hp;
     int dispAttack = bs.atk;
     int dispDefence = bs.def;
     int dispSpeed = bs.spd;
 
-    TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_ + 15);
+    TextureManager::getInstance()->renderTexture("head", chess_.role->HeadID, x_ + 10, y_ + 15);
 
     Color color_ability1 = { 255, 250, 205, 255 };
     Color color_ability2 = { 236, 200, 40, 255 };
@@ -79,10 +81,10 @@ void ChessUIStatus::draw()
     font->draw("生命", font_size, sx, sy, color_ability1);
     font->draw(std::format("{:5}/{:5}", dispMaxHP, dispMaxHP), font_size, sx + 44, sy, color_white);
     Color c = color_white;
-    if (role_->MPType == 0) c = color_purple;
-    else if (role_->MPType == 1) c = color_magic;
+    if (chess_.role->MPType == 0) c = color_purple;
+    else if (chess_.role->MPType == 1) c = color_magic;
     font->draw("內力", font_size, sx, sy + 25, color_ability1);
-    font->draw(std::format("{:5}/{:5}", role_->MP, GameUtil::MAX_MP), font_size, sx + 44, sy + 25, c);
+    font->draw(std::format("{:5}/{:5}", chess_.role->MP, GameUtil::MAX_MP), font_size, sx + 44, sy + 25, c);
     font->draw("攻擊", font_size, sx, sy + 55, color_ability1);
     font->draw(std::format("{:5}", dispAttack), font_size, sx + 44, sy + 55, select_color1(dispAttack, Role::getMaxValue()->Attack));
     font->draw("防禦", font_size, sx, sy + 80, color_ability1);
@@ -115,13 +117,13 @@ void ChessUIStatus::draw()
     // 武学 section - beside 技能, single column
     int mx = x_ + 220;
     font->draw("武學", 25, mx - 10, y, color_name);
-    auto magics = role_->getLearnedMagics(star_);
+    auto magics = chess_.role->getLearnedMagics(chess_.star);
     for (int i = 0; i < magics.size(); i++)
     {
         auto magic = magics[i];
         int x1 = mx;
         int y1 = y + 30 + i * 25;
-        int skillAtk = role_->getMagicPower(magic, star_);
+        int skillAtk = chess_.role->getMagicPower(magic, chess_.star);
         int opType = BattleSceneHades::getOperationType(magic->AttackAreaType);
         const char* opName = BattleSceneHades::getOperationTypeName(opType);
         font->draw(std::format("{}", magic->Name), font_size, x1, y1, color_ability1);
@@ -133,18 +135,23 @@ void ChessUIStatus::draw()
     y = y_ + 310;
     font->draw("擁有", font_size, x, y, color_name);
     int ox = x + 50;
-    for (auto& [chess, count] : gd.collection.getChess())
+    std::map<int, int> starCounts;
+    for (auto& [instanceId, chess] : gd.getCollection())
     {
-        if (chess.role->ID != role_->ID) continue;
+        if (chess.role->ID == chess_.role->ID)
+            starCounts[chess.star]++;
+    }
+    for (auto& [star, count] : starCounts)
+    {
         std::string stars;
-        for (int i = 0; i < chess.star; i++) stars += "★";
+        for (int i = 0; i < star; i++) stars += "★";
         font->draw(std::format("{} x{}", stars, count), font_size, ox, y, color_white);
         ox += 120;
     }
 
     // Combo affiliations
     y += 28;
-    auto roleCombos = KysChess::ChessCombo::getCombosForRole(role_->ID);
+    auto roleCombos = KysChess::ChessCombo::getCombosForRole(chess_.role->ID);
     if (!roleCombos.empty())
     {
         font->draw("羈絆", font_size, x, y, color_name);
@@ -165,4 +172,38 @@ void ChessUIStatus::draw()
             if (y > y_ + 440) break;
         }
     }
+
+    // Equipment display (only if instanceId is provided)
+    if (chess_.id.value >= 0)
+    {
+        y += 8;
+        if (y < y_ + 400)
+        {
+            font->draw("裝備", font_size, x, y, color_name);
+            y += 24;
+            int weaponId = chess_.weaponInstance.itemId;
+            int armorId = chess_.armorInstance.itemId;
+            if (weaponId >= 0)
+            {
+                auto* eq = KysChess::ChessEquipment::getById(weaponId);
+                if (eq && eq->getItem())
+                {
+                    TextureManager::getInstance()->renderTexture("item", weaponId, x + 10, y, color_white, 255, 0.24, 0.24);
+                    font->draw(eq->getItem()->Name, font_size - 2, x + 34, y + 2, color_equip);
+                    y += 24;
+                }
+            }
+            if (armorId >= 0)
+            {
+                auto* eq = KysChess::ChessEquipment::getById(armorId);
+                if (eq && eq->getItem())
+                {
+                    TextureManager::getInstance()->renderTexture("item", armorId, x + 10, y, color_white, 255, 0.24, 0.24);
+                    font->draw(eq->getItem()->Name, font_size - 2, x + 34, y + 2, color_equip);
+                }
+            }
+        }
+    }
+}
+
 }

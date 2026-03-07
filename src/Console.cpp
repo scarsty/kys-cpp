@@ -13,10 +13,9 @@
 #include "PotConv.h"
 #include "Save.h"
 #include "SuperMenuText.h"
-#include "TempStore.h"
+#include "GameState.h"
 #include "TextBox.h"
 #include "TextureManager.h"
-#include "UIRoleStatusMenu.h"
 #include "UISave.h"
 #include "strfunc.h"
 #include "yaml-cpp/yaml.h"
@@ -55,7 +54,7 @@ Console::Console()
     }
     if (code == "showmethemoney")
     {
-        KysChess::GameData::get().make(100);
+        KysChess::GameState::get().make(100);
     }
     else if (code == "test")
     {
@@ -86,7 +85,7 @@ Console::Console()
         int seed = cfg["随机种子"].as<int>(-1);
 
         // Temporarily override neigong
-        auto& gd = KysChess::GameData::get();
+        auto& gd = KysChess::GameState::get();
         auto savedNeigong = gd.getObtainedNeigong();
         if (cfg["内功"])
         {
@@ -107,7 +106,21 @@ Console::Console()
         for (size_t i = 0; i < roles.teammate_ids.size(); i++)
         {
             auto r = Save::getInstance()->getRole(roles.teammate_ids[i]);
-            if (r) allyChess.push_back({ r, roles.teammate_stars[i] });
+            if (!r) continue;
+
+            KysChess::Chess chess{ r, roles.teammate_stars[i] };
+            if (i < roles.teammate_instances.size())
+            {
+                KysChess::ChessInstanceID chessInstanceId{roles.teammate_instances[i]};
+                auto& collection = KysChess::GameState::get().getCollection();
+                auto it = collection.find(chessInstanceId);
+                if (it != collection.end())
+                    chess = it->second;
+                else
+                    chess.id = chessInstanceId;
+            }
+
+            allyChess.push_back(chess);
         }
 
         int result = KysChess::ChessSelector::runBattle(roles, allyChess, battle_id, seed);

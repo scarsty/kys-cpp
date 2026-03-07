@@ -1,19 +1,30 @@
 ﻿#include "UIStatusDrawable.h"
-#include "Save.h"
+
+namespace KysChess {
 
 UIStatusDrawable::UIStatusDrawable()
-    : DrawableOnCall([this](DrawableOnCall*) { if (uiStatus_) uiStatus_->draw(); }),
+    : ChessDrawableOnCall([this](DrawableOnCall*) { if (uiStatus_) uiStatus_->draw(); }),
       uiStatus_(std::make_shared<ChessUIStatus>()) {
 }
 
-void UIStatusDrawable::updateScreenWithID(int id) {
-    if (id < 0) {
-        uiStatus_->setRole(nullptr);
-        return;
+UIStatusDrawable::UIStatusDrawable(const std::vector<Chess>& previewData)
+    : ChessDrawableOnCall([this](DrawableOnCall*) { if (uiStatus_) uiStatus_->draw(); }),
+      uiStatus_(std::make_shared<ChessUIStatus>()),
+      previewData_(previewData) {
+}
+
+void UIStatusDrawable::updateScreenWithContext(const DrawableItemContext& context) {
+    ChessDrawableItemContext chessContext{context};
+    chessContext.itemId = context.itemId;
+    chessContext.itemIndex = context.itemIndex;
+
+    if (chessContext.itemIndex >= 0 && chessContext.itemIndex < previewData_.size()) {
+        chessContext.previewData = previewData_[context.itemIndex];
     }
-    int star = id % 10;
-    int roleId = id / 10;
-    DrawableOnCall::updateScreenWithID(id);
-    Role* role = Save::getInstance()->getRole(roleId);
-    uiStatus_->setRole(role, star);
+
+    ChessDrawableOnCall::updateScreenWithChessContext(chessContext);
+
+    uiStatus_->setChess(chessContext.previewData);
+}
+
 }

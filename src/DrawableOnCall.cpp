@@ -1,17 +1,12 @@
 #include "DrawableOnCall.h"
 
-DrawableOnCall::DrawableOnCall(std::function<void(DrawableOnCall*)> draw) : draw_(draw), id_(-1)
+DrawableOnCall::DrawableOnCall(std::function<void(DrawableOnCall*)> draw) : draw_(draw)
 {
 }
 
-void DrawableOnCall::updateScreenWithID(int id)
+void DrawableOnCall::updateScreenWithContext(const DrawableItemContext& context)
 {
-    id_ = id;
-}
-
-int DrawableOnCall::getID()
-{
-    return id_;
+    context_ = context;
 }
 
 void DrawableOnCall::draw()

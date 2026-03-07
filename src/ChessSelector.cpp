@@ -3,6 +3,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include <assert.h>
 #include "Audio.h"
 #include "BattleMap.h"
 #include "BattleStatsView.h"
@@ -10,9 +11,13 @@
 #include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessNeigong.h"
+#include "ChessEquipment.h"
 #include "ChessPool.h"
+#include "ChessManager.h"
 #include "DynamicChessMap.h"
 #include "DrawableOnCall.h"
+#include "ChessDrawableOnCall.h"
+#include "UIStatusDrawable.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "InputBox.h"
@@ -20,22 +25,16 @@
 #include "Random.h"
 #include "Save.h"
 #include "Talk.h"
-#include "TempStore.h"
+#include "GameState.h"
 #include <Engine.h>
+#include <numeric>
 #include <SuperMenuText.h>
 #include <TextureManager.h>
-#include <UIRoleStatusMenu.h>
 #include <string>
 #include <vector>
 
 namespace KysChess
 {
-
-int ChessSelector::calculateCost(int tier, int star, int count)
-{
-    auto& cfg = ChessBalance::config();
-    return cfg.tierPrices[tier - 1] * static_cast<int>(std::pow(cfg.starCostMult, star - 1)) * count;
-}
 
 namespace
 {
@@ -72,10 +71,10 @@ static std::string comboEffectDesc(const ComboEffect& eff)
     case EffectType::EveryNthDouble: d = std::format("每{}次雙倍", eff.value); break;
     case EffectType::ArmorPenChance: d = std::format("{}%穿甲", eff.value); break;
     case EffectType::ArmorPenPct: d = std::format("無視%防禦", eff.value); break;
-    case EffectType::ArmorPen: d = std::format("{}%穿甲(無視{}%防禦)", eff.value, eff.value2); break;
+    case EffectType::ArmorPen: d = std::format("{}%穿甲", eff.triggerValue, eff.value); break;
     case EffectType::Stun: d = std::format("{}%眩暈({}幀)", eff.triggerValue, eff.value); break;
     case EffectType::KnockbackChance: d = std::format("{}%擊退", eff.value); break;
-    case EffectType::PoisonDOT: d = eff.value2 ? std::format("中毒{}%/幀({}幀)", eff.value, eff.value2) : std::format("中毒{}%/幀", eff.value); break;
+    case EffectType::PoisonDOT: d = eff.value2 ? std::format("中毒{}%×{}次(每30幀)", eff.value, eff.value2) : std::format("中毒{}%", eff.value); break;
     case EffectType::PoisonDmgAmp: d = std::format("中毒增傷{}%", eff.value); break;
     case EffectType::MPOnHit: d = std::format("命中回{}MP", eff.value); break;
     case EffectType::MPDrain: d = std::format("吸取{}MP", eff.value); break;
@@ -200,7 +199,7 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     }
 
     // Add cost right-aligned in fixed width column (6 columns for $XXX)
-    int cost = ChessSelector::calculateCost(tier, starOpt.value_or(1), countOpt.value_or(1));
+    int cost = ChessManager::calculateCost(tier, starOpt.value_or(1), countOpt.value_or(1));
     std::string costStr = "$" + std::to_string(cost);
     int costColumnWidth = 6;
     int costWidth = (int)costStr.size();
@@ -216,18 +215,56 @@ static std::pair<std::string, Color> formatChessName(Role* role, int tier, std::
     return { result, ChessPool::GetTierColor(tier) };
 }
 
-static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
+struct ChessMenuEntry {
+    Chess chess;
+    std::string prefix;
+};
+
+static void buildChessMenuItems(
+    const std::vector<ChessMenuEntry>& entries,
+    std::vector<std::pair<int, std::string>>& outItems,
+    std::vector<Color>& outColors,
+    std::vector<Chess>* outPreviewData = nullptr)
 {
-    return std::make_shared<DrawableOnCall>([](DrawableOnCall* self) {
-        int rawId = self->getID();
-        if (rawId < 0) return;
-        int roleId = rawId / 10;
+    for (auto& e : entries) {
+        int tier = ChessPool::GetChessTier(e.chess.role->ID);
+        auto [name, color] = formatChessName(e.chess.role, tier, e.chess.star, {}, e.prefix);
+        // The interface current requires a ID based look up
+        // so we need to go back to the instance id world later.
+        // Actually this id is generally unused.
+        outItems.emplace_back(e.chess.id.value, name);
+        outColors.push_back(color);
+        if (outPreviewData)
+            outPreviewData->push_back(e.chess);
+    }
+}
+
+static std::vector<ChessInstanceID> collectInstanceIds(const std::vector<Chess>& chesses)
+{
+    std::vector<ChessInstanceID> instanceIds;
+    instanceIds.reserve(chesses.size());
+    for (auto& chess : chesses)
+        instanceIds.push_back(chess.id);
+    return instanceIds;
+}
+
+static std::shared_ptr<ChessDrawableOnCall> makeComboInfoPanel()
+{
+    return std::make_shared<ChessDrawableOnCall>([](DrawableOnCall* self) {
+        int roleId = -1;
+        if (auto* chessDrawable = dynamic_cast<ChessDrawableOnCall*>(self)) {
+            auto role = chessDrawable->getPreviewData().role;
+            if (role) {
+                roleId = role->ID;
+            }
+        }
+        if (roleId < 0) return;
 
         auto roleCombos = ChessCombo::getCombosForRole(roleId);
         if (roleCombos.empty()) return;
 
         auto& allCombos = ChessCombo::getAllCombos();
-        auto& gd = GameData::get();
+        auto& gd = GameState::get();
 
         auto starByRole = ChessCombo::buildStarMap(gd.getSelectedForBattle());
 
@@ -292,8 +329,8 @@ static std::shared_ptr<DrawableOnCall> makeComboInfoPanel()
 static std::shared_ptr<DrawableOnCall> makeOwnedPanel()
 {
     return std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
-        auto& gd = GameData::get();
-        auto& chessMap = gd.collection.getChess();
+        auto& gd = GameState::get();
+        auto chessMap = gd.getChessCountMap();
         if (chessMap.empty()) return;
 
         auto* font = Font::getInstance();
@@ -311,14 +348,14 @@ static std::shared_ptr<DrawableOnCall> makeOwnedPanel()
         // List each piece individually, deployed first (like sell/select menus)
         struct Entry { std::string label; Color color; };
         std::vector<Entry> deployed, bench;
-        for (auto& [chess, count] : chessMap)
+        for (auto& [roleAndStar, count] : chessMap)
         {
-            auto key = std::make_pair(chess.role->ID, chess.star);
+            auto key = std::make_pair(roleAndStar.role->ID, roleAndStar.star);
             int dep = deployedCount[key];
-            Color col = ChessPool::GetTierColor(ChessPool::GetChessTier(chess.role->ID));
+            Color col = ChessPool::GetTierColor(ChessPool::GetChessTier(roleAndStar.role->ID));
             std::string stars;
-            for (int i = 0; i < chess.star; i++) stars += "★";
-            std::string baseName = std::format("{}{}", chess.role->Name, stars);
+            for (int i = 0; i < roleAndStar.star; i++) stars += "★";
+            std::string baseName = std::format("{}{}", roleAndStar.role->Name, stars);
 
             for (int i = 0; i < count; ++i)
             {
@@ -348,25 +385,49 @@ static std::shared_ptr<DrawableOnCall> makeOwnedPanel()
     });
 }
 
-static std::shared_ptr<UIRoleStatusMenu> makeChessMenu(const std::string& title,
-    std::vector<std::pair<int, std::string>>& items, std::vector<Color>& colors,
-    int perPage, int fontSize, bool showNav = true, bool exitable = true,
-    std::vector<Color> outlineColors = {}, std::vector<bool> animateOutlines = {},
-    std::vector<int> outlineThicknesses = {})
+static SuperMenuTextExtraOptions makeChessMenuOptions(
+    const std::vector<Color>& colors,
+    const std::vector<Color>& outlineColors = {},
+    const std::vector<bool>& animateOutlines = {},
+    const std::vector<int>& outlineThicknesses = {})
 {
-    auto menu = std::make_shared<UIRoleStatusMenu>(title, items, colors, perPage, fontSize, false, exitable, outlineColors, animateOutlines, outlineThicknesses);
+    SuperMenuTextExtraOptions opts;
+    opts.itemColors_ = colors;
+    opts.outlineColors_ = outlineColors;
+    opts.animateOutlines_ = animateOutlines;
+    opts.outlineThicknesses_ = outlineThicknesses;
+    opts.needInputBox_ = false;
+    opts.confirmation_ = false;
+    opts.exitable_ = true;
+    opts.returnIdxOnly = true;
+    return opts;
+}
+
+static std::shared_ptr<SuperMenuText> makeChessMenu(
+    const std::string& title,
+    std::vector<std::pair<int, std::string>>& items,
+    const SuperMenuTextExtraOptions& opts,
+    int perPage,
+    int fontSize,
+    bool showNav = true,
+    const std::vector<Chess>& itemPreviewData = {})
+{
+    auto menu = std::make_shared<SuperMenuText>(title, fontSize, items, perPage, opts);
     menu->setInputPosition(80, 70);
-    menu->getStatusDrawable().getUIStatus().setPosition(720, 40);
+
+    auto statusDrawable = std::make_shared<UIStatusDrawable>(itemPreviewData);
+    statusDrawable->getUIStatus().setPosition(720, 40);
+    menu->addDrawableOnCall(statusDrawable);
+
     if (!showNav) menu->setShowNavigationButtons(false);
     menu->setDoubleTapMode(GameUtil::isMobileDevice());
-    // menu->setDoubleTapMode(true);
     return menu;
 }
 
 static std::shared_ptr<DrawableOnCall> makeHeaderBar()
 {
     return std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
-        auto& gd = GameData::get();
+        auto& gd = GameState::get();
         auto& cfg = ChessBalance::config();
         auto* engine = Engine::getInstance();
         auto* font = Font::getInstance();
@@ -383,7 +444,7 @@ static std::shared_ptr<DrawableOnCall> makeHeaderBar()
         seg(std::format("第{}關{}", fight + 1, gd.battleProgress.isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
         seg(std::format("${}", gd.getMoney()), {255, 215, 0, 255});
         seg(std::format("Lv{} {}/{}", gd.getLevel() + 1, gd.getExp(), gd.getExpForNextLevel()), {100, 200, 255, 255});
-        seg(std::format("出戰{}/{}", gd.getSelectedForBattle().size(), gd.getMaxDeploy()), {100, 255, 100, 255});
+        seg(std::format("出戰{}/{}", gd.getSelectedCount(), gd.getMaxDeploy()), {100, 255, 100, 255});
         seg(std::format("背包{}/{}", gd.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
     });
 }
@@ -399,8 +460,8 @@ static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
     int dx = px + 100;
     font->draw(ng.name, fs + 4, dx, ty, {255, 255, 100, 255}); 
     ty += fs + 10;
-    std::string tierName[] = {"初階", "中階", "高階"};
-    font->draw(std::format("層級: {}", tierName[std::min(ng.tier - 1, 2)]), fs, dx, ty, {200, 200, 200, 255}); ty += fs + 4;
+    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
+    font->draw(std::format("層級: {}", tierName[std::min(ng.tier - 1, 3)]), fs, dx, ty, {200, 200, 200, 255}); ty += fs + 4;
     if (ownedState >= 0)
     {
         bool owned = ownedState > 0;
@@ -416,6 +477,38 @@ static void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
     }
 }
 
+static void drawEquipmentDetail(const EquipmentDef& eq, int count, const std::string& equippedBy)
+{
+    auto* font = Font::getInstance();
+    int px = 630, py = 170, fs = 28;
+    Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 500, 400, 8);
+    Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 500, 400, 8);
+    auto* item = eq.getItem();
+    if (item) TextureManager::getInstance()->renderTexture("item", eq.itemId, px + 10, py + 10);
+    int ty = py + 10;
+    int dx = px + 100;
+    font->draw(item ? item->Name : "???", fs + 4, dx, ty, {255, 255, 100, 255}); ty += fs + 10;
+    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
+    Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
+    font->draw(std::format("層級: {}", tierName[std::min(eq.tier - 1, 3)]), fs, dx, ty, tierColors[std::min(eq.tier - 1, 3)]); ty += fs + 4;
+    font->draw(std::format("擁有: x{}", count), fs, dx, ty, count > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255}); ty += fs + 4;
+    if (!equippedBy.empty())
+        { font->draw(std::format("裝備於: {}", equippedBy), fs, dx, ty, {100, 200, 255, 255}); ty += fs + 4; }
+
+    ty = py + 120;
+    int col1 = px + 10;
+
+    if (!eq.effects.empty())
+    {
+        font->draw("特殊效果:", fs, col1, ty, {255, 200, 100, 255}); ty += fs + 4;
+        for (auto& eff : eq.effects)
+        {
+            font->draw(comboEffectDesc(eff), fs - 2, col1, ty, {220, 220, 100, 255});
+            ty += fs;
+        }
+    }
+}
+
 static std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& r)
 {
     using RT = BalanceConfig::ChallengeRewardType;
@@ -426,6 +519,7 @@ static std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& r)
     case RT::GetNeigong: return std::format("獲取內功(最高{}階)", r.value);
     case RT::StarUp1to2: return std::format("升星★→★★(最高{}費)", r.value);
     case RT::StarUp2to3: return std::format("升星★★→★★★(最高{}費)", r.value);
+    case RT::GetEquipment: return std::format("獲取裝備(最高{}階)", r.value);
     }
     return "未知獎勵";
 }
@@ -434,7 +528,7 @@ static std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& r)
 
 void ChessSelector::getChess()
 {
-    auto& gameData = GameData::get();
+    auto& gameData = GameState::get();
     for (;;)
     {
         auto rollOfChess = gameData.chessPool.getChessFromPool(gameData.getLevel());
@@ -446,6 +540,7 @@ void ChessSelector::getChess()
             std::vector<Color> outlineColors;
             std::vector<bool> animateOutlines;
             std::vector<int> outlineThicknesses;
+            std::vector<Chess> previewData;
             auto& roles = Save::getInstance()->getRoles();
 
             rolePairs.emplace_back(-1, std::format("刷新               ${}", ChessBalance::config().refreshCost));
@@ -453,36 +548,39 @@ void ChessSelector::getChess()
             outlineColors.push_back({0, 0, 0, 0});
             animateOutlines.push_back(false);
             outlineThicknesses.push_back(1);
+            previewData.push_back({});
 
             rolePairs.emplace_back(-2, gameData.isShopLocked() ? "[已鎖定] 點擊解鎖" : "[未鎖定] 點擊鎖定");
             roleColors.push_back(gameData.isShopLocked() ? Color{ 255, 80, 80, 255 } : Color{ 128, 128, 128, 255 });
             outlineColors.push_back({0, 0, 0, 0});
             animateOutlines.push_back(false);
             outlineThicknesses.push_back(1);
+            previewData.push_back({});
 
-            auto& chessMap = gameData.collection.getChess();
+            auto chessMap = gameData.getChessCountMap();
 
             auto addRoleWithTier = [&](Role* role, int tier)
             {
                 auto [name, color] = formatChessName(role, tier, {}, {});
-                rolePairs.emplace_back(role->ID * 10 + 1, name);
+                rolePairs.emplace_back(role->ID, name);
                 roleColors.push_back(color);
+                previewData.push_back({ role, 1, -1 });
 
                 // Check ownership status across all star levels
                 Chess c1 = { role, 1 };
                 bool owned = false;
-                for (auto& [ch, cnt] : chessMap)
+                for (auto& [roleAndStar, cnt] : chessMap)
                 {
-                    if (ch.role == role && cnt > 0)
+                    if (roleAndStar.role == role && cnt > 0)
                     {
                         // A single 3-star piece can't be starred up further, so don't mark as owned
-                        if (ch.star == 3 && cnt == 1)
+                        if (roleAndStar.star == 3 && cnt == 1)
                         {
                             // Check if this is the ONLY entry for this role
                             bool hasOtherEntries = false;
-                            for (auto& [ch2, cnt2] : chessMap)
+                            for (auto& [roleAndStar, cnt2] : chessMap)
                             {
-                                if (ch2.role == role && ch2.star != 3 && cnt2 > 0) { hasOtherEntries = true; break; }
+                                if (roleAndStar.role == role && roleAndStar.star != 3 && cnt2 > 0) { hasOtherEntries = true; break; }
                             }
                             if (!hasOtherEntries) continue;
                         }
@@ -490,7 +588,7 @@ void ChessSelector::getChess()
                         break;
                     }
                 }
-                bool wouldStarUp = gameData.collection.wouldMerge(c1);
+                bool wouldStarUp = gameData.wouldMerge(c1.role, c1.star);
 
                 if (wouldStarUp)
                 {
@@ -520,7 +618,8 @@ void ChessSelector::getChess()
                 addRoleWithTier(role, star);
             }
 
-            auto menu = makeChessMenu(std::format("購買棋子 等級{} ${} 背包{}/{}", gameData.getLevel() + 1, gameData.getMoney(), gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, (int)rolePairs.size(), 32, false, true, outlineColors, animateOutlines, outlineThicknesses);
+            auto opts = makeChessMenuOptions(roleColors, outlineColors, animateOutlines, outlineThicknesses);
+            auto menu = makeChessMenu(std::format("購買棋子 等級{} ${} 背包{}/{}", gameData.getLevel() + 1, gameData.getMoney(), gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, opts, (int)rolePairs.size(), 32, false, previewData);
 
             menu->addDrawableOnCall(makeComboInfoPanel());
             menu->addDrawableOnCall(makeOwnedPanel());
@@ -548,8 +647,7 @@ void ChessSelector::getChess()
             {
                 auto actualIdx = selectedId - 2;
                 auto [role, tier] = rollOfChess[actualIdx];
-                int cost = ChessBalance::config().tierPrices[tier - 1];
-                if (gameData.isBenchFull() && !gameData.collection.wouldMerge({ role, 1 }))
+                if (gameData.isBenchFull() && !gameData.wouldMerge(role, 1))
                 {
                     auto text = std::make_shared<TextBox>();
                     text->setText("背包已滿！請先出售棋子");
@@ -557,23 +655,21 @@ void ChessSelector::getChess()
                     text->runCentered(Engine::getInstance()->getUIHeight() / 2);
                     continue;
                 }
-                if (!gameData.spend(cost)) continue;
-                bool willMerge = gameData.collection.wouldMerge({ role, 1 });
-                gameData.chessPool.removeChessAt(actualIdx);
-                gameData.addChessAndFixSelection({ role, 1 });
-                auto text = std::make_shared<TextBox>();
-                if (willMerge)
-                {
-                    text->setText(std::format("消費{}，{}升星！", cost, role->Name));
-                    Audio::getInstance()->playESound(72);
+                auto result = ChessManager::purchaseChess(role, tier);
+                if (result.success) {
+                    gameData.chessPool.removeChessAt(actualIdx);
+                    auto text = std::make_shared<TextBox>();
+                    if (result.merged) {
+                        text->setText(std::format("消費{}，{}升星！", result.cost, role->Name));
+                        Audio::getInstance()->playESound(72);
+                    } else {
+                        text->setText(std::format("消費{}，獲取{}", result.cost, role->Name));
+                    }
+                    text->setFontSize(32);
+                    text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+                    break;
                 }
-                else
-                {
-                    text->setText(std::format("消費{}，獲取{}", cost, role->Name));
-                }
-                text->setFontSize(32);
-                text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-                break;
+                continue;
             }
         }
     }
@@ -581,64 +677,38 @@ void ChessSelector::getChess()
 
 void ChessSelector::sellChess()
 {
-    auto& gameData = GameData::get();
+    auto& gameData = GameState::get();
 
     for (;;)
     {
-        auto& chessMap = gameData.collection.getChess();
-        if (chessMap.empty()) return;
+        auto chessList = gameData.getCollection();
+        if (chessList.empty()) return;
+
+        std::vector<ChessMenuEntry> entries;
+        for (const auto& [instanceId, chess] : chessList)
+        {
+            entries.push_back({chess, chess.selectedForBattle ? "[出戰]" : ""});
+        }
 
         std::vector<std::pair<int, std::string>> rolePairs;
         std::vector<Color> roleColors;
-        std::vector<std::pair<Chess, bool>> chessList;
+        std::vector<Chess> previewData;
+        buildChessMenuItems(entries, rolePairs, roleColors, &previewData);
 
-        std::map<std::pair<int,int>, int> equippedCount;
-        for (auto& s : gameData.getSelectedForBattle())
-            equippedCount[{s.role->ID, s.star}]++;
-
-        for (const auto& [chess, count] : chessMap)
-        {
-            for (int i = 0; i < count; ++i)
-            {
-                auto key = std::make_pair(chess.role->ID, chess.star);
-                bool equipped = equippedCount[key] > 0;
-                if (equipped) equippedCount[key]--;
-                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, equipped ? "[出戰]" : "");
-                rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
-                roleColors.push_back(color);
-                chessList.push_back({chess, equipped});
-            }
-        }
-
-        auto menu = makeChessMenu(std::format("出售棋子 背包{}/{}", gameData.getBenchCount(), ChessBalance::config().benchSize), rolePairs, roleColors, 12, 32);
+        auto opts = makeChessMenuOptions(roleColors);
+        auto menu = makeChessMenu(std::format("出售棋子 背包{}/{}", 
+                                                gameData.getBenchCount(), 
+                                                ChessBalance::config().benchSize), 
+                                rolePairs, opts, 12, 32, true, previewData);
         menu->run();
 
+        // Result returns index only, so will index into the inital list
         int selectedId = menu->getResult();
         if (selectedId < 0) break;
 
-        auto [chess, wasEquipped] = chessList[selectedId];
-        int tier = ChessPool::GetChessTier(chess.role->ID);
-        int sellPrice = calculateCost(tier, chess.star, 1);
-        gameData.collection.removeChess(chess);
-
-        if (wasEquipped)
-        {
-            auto& selected = gameData.getSelectedForBattle();
-            std::vector<Chess> newSelection;
-            bool removedOne = false;
-            for (const auto& s : selected)
-            {
-                if (!removedOne && s.role == chess.role && s.star == chess.star)
-                    removedOne = true;
-                else
-                    newSelection.push_back(s);
-            }
-            gameData.setSelectedForBattle(newSelection);
-        }
-        gameData.make(sellPrice);
-
+        auto result = ChessManager::sellChess(entries[selectedId].chess.id);
         auto text = std::make_shared<TextBox>();
-        text->setText(std::format("售出棋子{}，獲得${}", chess.role->Name, sellPrice));
+        text->setText(std::format("售出棋子{}，獲得${}", result.role->Name, result.price));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
     }
@@ -646,103 +716,78 @@ void ChessSelector::sellChess()
 
 void ChessSelector::selectForBattle()
 {
-    auto& gameData = GameData::get();
-    auto& chessMap = gameData.collection.getChess();
+    auto& gameData = GameState::get();
+    auto& pieces = gameData.getCollection();
 
-    if (chessMap.empty())
+    if (pieces.empty())
     {
         return;
     }
-
     int maxSelection = gameData.getMaxDeploy();
-    std::vector<Chess> currentSelection = gameData.getSelectedForBattle();
 
     for (;;)
     {
         std::vector<std::pair<int, std::string>> rolePairs;
         std::vector<Color> roleColors;
-        std::vector<Chess> chessList;
+        std::vector<ChessMenuEntry> entries;
+        // PreviewData needs rework but fine
+        // It is essentially redundant data here.
+        std::vector<Chess> previewData;
 
-        for (const auto& chess : currentSelection)
-        {
-            auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {}, "[出戰]");
-            rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
-            roleColors.push_back({ 255, 215, 0, 255 });  // Gold for selected
-            chessList.push_back(chess);
-        }
-
-        // Add available chess from collection - expand by count so each piece is listed individually
-        for (const auto& [chess, count] : chessMap)
-        {
-            // Count how many of this chess are already selected
-            int selectedCount = 0;
-            for (const auto& selected : currentSelection)
-            {
-                if (selected.role == chess.role && selected.star == chess.star)
-                {
-                    selectedCount++;
-                }
-            }
-
-            // Add remaining unselected pieces
-            int remainingCount = count - selectedCount;
-            for (int i = 0; i < remainingCount; ++i)
-            {
-                auto [name, color] = formatChessName(chess.role, ChessPool::GetChessTier(chess.role->ID), chess.star, {});
-                rolePairs.emplace_back(chess.role->ID * 10 + chess.star, name);
-                roleColors.push_back(color);
-                chessList.push_back(chess);
+        // Lets build entries, entries needs to be sorted such that the selected
+        // pieces are at the top where name is concated with right prefix.
+        int selectedCount{};
+        for (const auto& [id, chess] : gameData.getCollection()) {
+            entries.push_back({chess, chess.selectedForBattle ? "[出戰]" : ""});
+            if (chess.selectedForBattle) {
+                selectedCount += 1;
             }
         }
+        std::sort(entries.begin(), entries.end(), [](const ChessMenuEntry& left, const ChessMenuEntry& right){
+            // if selected for Battle then its prioritized
+            return std::make_pair(left.chess.selectedForBattle ? 0 : 1, left.chess.id) <
+                 std::make_pair(right.chess.selectedForBattle ? 0 : 1, right.chess.id);
+        });
 
-        std::string menuTitle = std::format("選擇出戰棋子 {}/{} 背包{}/{}", currentSelection.size(), maxSelection, gameData.getBenchCount(), ChessBalance::config().benchSize);
-        auto menu = makeChessMenu(menuTitle, rolePairs, roleColors, 12, 32);
+        buildChessMenuItems(entries, rolePairs, roleColors, &previewData);
+        for (size_t i = 0; i < selectedCount; ++i)
+            roleColors[i] = { 255, 215, 0, 255 };
 
+        std::string menuTitle = std::format("選擇出戰棋子 {}/{} 背包{}/{}", selectedCount, maxSelection, gameData.getBenchCount(), ChessBalance::config().benchSize);
+        auto opts = makeChessMenuOptions(roleColors);
+        auto menu = makeChessMenu(menuTitle, rolePairs, opts, 12, 32, true, previewData);
         menu->addDrawableOnCall(makeComboInfoPanel());
 
         menu->run();
 
-        int selectedId = menu->getResult();
-        if (selectedId < 0)
+        int selectedIdx = menu->getResult();
+        if (selectedIdx < 0)
         {
-            // Save and exit
-            gameData.setSelectedForBattle(currentSelection);
             return;
         }
         else
         {
-            auto chess = chessList[selectedId];
-
-            // Check if this is a selected chess (deselect one instance)
-            if (selectedId < currentSelection.size())
-            {
-                // This is a selected chess, remove it
-                currentSelection.erase(currentSelection.begin() + selectedId);
+            // Just toggle and done.
+            auto chess = entries[selectedIdx].chess;
+            if (chess.selectedForBattle) {
+                chess.selectedForBattle = false;
+                gameData.updateToCollection(chess);
+            } else if (selectedCount >= maxSelection) {
+                auto text = std::make_shared<TextBox>();
+                text->setText(std::format("最多只能選擇{}個棋子", maxSelection));
+                text->setFontSize(32);
+                text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+            } else {
+                chess.selectedForBattle = true;
+                gameData.updateToCollection(chess);
             }
-            else
-            {
-                // Add to selection if not at max
-                if (currentSelection.size() < maxSelection)
-                {
-                    currentSelection.push_back(chess);
-                }
-                else
-                {
-                    auto text = std::make_shared<TextBox>();
-                    text->setText(std::format("最多只能選擇{}個棋子", maxSelection));
-                    text->setFontSize(32);
-                    text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-                }
-            }
-            // Update game data immediately so status panel reflects changes
-            gameData.setSelectedForBattle(currentSelection);
         }
     }
 }
 
 void ChessSelector::enterBattle()
 {
-    auto& gameData = GameData::get();
+    auto& gameData = GameState::get();
     auto& progress = gameData.battleProgress;
 
     // Check if game is complete
@@ -756,7 +801,7 @@ void ChessSelector::enterBattle()
     }
 
     // Check if we have selected chess
-    auto& selectedChess = gameData.getSelectedForBattle();
+    auto selectedChess = gameData.getSelectedForBattle();
     if (selectedChess.empty())
     {
         auto text = std::make_shared<TextBox>();
@@ -767,7 +812,7 @@ void ChessSelector::enterBattle()
     }
 
     // Save enemy random counter before generation for retry determinism
-    auto savedEnemyCallCount = gameData.enemyCallCount_;
+    auto savedEnemyCallCount = gameData.getEnemyCallCount();
 
     // Generate enemies based on progress
     std::vector<int> enemyIds;
@@ -788,14 +833,40 @@ void ChessSelector::enterBattle()
     }
 
     // Build roles from selected chess + generated enemies
+    // This could be improved, but let it be for now since we
+    // allow test battles where "our side" can be config driven.
     DynamicBattleRoles roles;
     for (auto& c : selectedChess)
     {
         roles.teammate_ids.push_back(c.role->ID);
         roles.teammate_stars.push_back(c.star);
+        roles.teammate_instances.push_back(c.id.value);
     }
     roles.enemy_ids = enemyIds;
     roles.enemy_stars = enemyStars;
+
+    // Generate enemy equipment
+    roles.enemy_weapons.resize(enemyIds.size(), -1);
+    roles.enemy_armors.resize(enemyIds.size(), -1);
+    int maxTier = 0, equipCount = 0;
+    for (auto& level : ecfg.enemyEquipmentLevels)
+        if (fightNum >= level.fight) { maxTier = level.maxTier; equipCount = level.count; }
+    if (maxTier > 0 && equipCount > 0)
+    {
+        auto tierEquip = ChessEquipment::getByTier(maxTier);
+        if (!tierEquip.empty())
+        {
+            std::vector<int> indices(enemyStars.size());
+            std::iota(indices.begin(), indices.end(), 0);
+            std::sort(indices.begin(), indices.end(), [&](int a, int b) { return enemyStars[a] > enemyStars[b]; });
+            for (int i = 0; i < std::min(equipCount, (int)indices.size()); i++)
+            {
+                auto* equip = tierEquip[gameData.enemyRandInt(static_cast<int>(tierEquip.size()))];
+                if (equip->equipType == 0) roles.enemy_weapons[indices[i]] = equip->itemId;
+                else roles.enemy_armors[indices[i]] = equip->itemId;
+            }
+        }
+    }
 
     // Seed battle RNG deterministically so retries produce same combat
     int battleSeed = static_cast<int>(gameData.enemyRandInt(INT_MAX));
@@ -835,7 +906,7 @@ void ChessSelector::enterBattle()
 
         if (progress.isGameComplete())
         {
-            const char* diffName = (gameData.difficulty == KysChess::Difficulty::Normal) ? "正常" : "挑戰";
+            const char* diffName = (ChessBalance::getDifficulty() == KysChess::Difficulty::Normal) ? "正常" : "挑戰";
             auto outro = std::make_shared<Talk>(
                 std::format("少俠果然不凡！珍瓏棋局已破({}難度)。"
                 "若有興趣，可嘗試「遠征挑戰」，那裡有更強的對手等著你。"
@@ -848,7 +919,7 @@ void ChessSelector::enterBattle()
     else
     {
         // Reset enemy random counter so retry generates same enemies
-        gameData.enemyCallCount_ = savedEnemyCallCount;
+        gameData.setEnemyCallCount(savedEnemyCallCount);
         gameData.restoreRand();
         auto text = std::make_shared<TextBox>();
         text->setText("戰鬥失敗！請調整陣容後再試");
@@ -898,7 +969,7 @@ int ChessSelector::runBattle(const DynamicBattleRoles& roles, const std::vector<
 
 void ChessSelector::buyExp()
 {
-    auto& gd = GameData::get();
+    auto& gd = GameState::get();
     auto& bcfg = ChessBalance::config();
     if (gd.getLevel() >= bcfg.maxLevel)
     {
@@ -973,8 +1044,8 @@ void ChessSelector::showContextMenu()
 {
     //ChessBalance::apply();
     while (1) {
-        auto& gd = GameData::get();
-        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "遊戲說明" });
+        auto& gd = GameState::get();
+        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "裝備管理", "遊戲說明" });
         menu->setFontSize(36);
         menu->arrange(0, 0, 0, 45);
         menu->runAtPosition(200, 120);
@@ -990,7 +1061,8 @@ void ChessSelector::showContextMenu()
         case 6: viewNeigong(); break;
         case 7: showExpeditionChallenge(); break;
         case 8: showPositionSwap(); break;
-        case 9: showGameGuide(); break;
+        case 9: manageEquipment(); break;
+        case 10: showGameGuide(); break;
         case -1: return;
         }
         UISave::autoSave();
@@ -1000,7 +1072,7 @@ void ChessSelector::showContextMenu()
 void ChessSelector::viewCombos()
 {
     auto& combos = ChessCombo::getAllCombos();
-    auto& gameData = GameData::get();
+    auto& gameData = GameState::get();
 
     // Build star map (owned = present in map; value = star level)
     auto starByRole = ChessCombo::buildStarMap(gameData.getSelectedForBattle());
@@ -1033,7 +1105,7 @@ void ChessSelector::viewCombos()
 
     // Detail panel drawable — two-column: members left, thresholds right
     auto detailDraw = std::make_shared<DrawableOnCall>([&combos, &starByRole](DrawableOnCall* self) {
-        int idx = self->getID();
+        int idx = self->getItemIndex();
         if (idx < 0 || idx >= (int)combos.size()) return;
         auto& c = combos[idx];
         auto save = Save::getInstance();
@@ -1115,7 +1187,7 @@ void ChessSelector::viewCombos()
 
 void ChessSelector::showNeigongReward()
 {
-    auto& gd = GameData::get();
+    auto& gd = GameState::get();
     auto& cfg = ChessBalance::config();
     auto& ngCfg = ChessNeigong::config();
     auto& pool = ChessNeigong::getPool();
@@ -1161,7 +1233,7 @@ void ChessSelector::showNeigongReward()
         std::vector<std::pair<int, std::string>> items;
         std::vector<Color> colors;
 
-        std::string tierName[] = {"初階", "中階", "高階"};
+        std::string tierName[] = {"初階", "中階", "高階", "傳說"};
 
         for (int i = 0; i < (int)choices.size(); ++i)
         {
@@ -1190,7 +1262,7 @@ void ChessSelector::showNeigongReward()
 
         // Detail panel
         auto iconPanel = std::make_shared<DrawableOnCall>([&choices](DrawableOnCall* self) {
-            int idx = self->getID();
+            int idx = self->getItemIndex();
             if (idx < 0 || idx >= (int)choices.size()) return;
             drawNeigongDetail(*choices[idx]);
         });
@@ -1226,12 +1298,12 @@ void ChessSelector::viewNeigong()
     auto& pool = ChessNeigong::getPool();
     if (pool.empty()) return;
 
-    auto& obtained = GameData::get().getObtainedNeigong();
+    auto& obtained = GameState::get().getObtainedNeigong();
     std::set<int> obtainedSet(obtained.begin(), obtained.end());
 
     std::vector<std::pair<int, std::string>> items;
     std::vector<Color> colors;
-    std::string tierName[] = {"初階", "中階", "高階"};
+    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
 
     for (int i = 0; i < (int)pool.size(); ++i)
     {
@@ -1239,13 +1311,13 @@ void ChessSelector::viewNeigong()
         bool owned = obtainedSet.count(ng.magicId) > 0;
         std::string padded = ng.name;
         while (padded.size() < 15) padded += "\xe3\x80\x80";  // fullwidth space
-        std::string label = std::format("[{}] {}{}", tierName[std::min(ng.tier - 1, 2)], padded, owned ? " ✓" : "　 ");
+        std::string label = std::format("[{}] {}{}", tierName[std::min(ng.tier - 1, 3)], padded, owned ? " ✓" : "　 ");
         items.emplace_back(i, label);
         colors.push_back(owned ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255});
     }
 
     auto detailDraw = std::make_shared<DrawableOnCall>([&pool, &obtainedSet](DrawableOnCall* self) {
-        int idx = self->getID();
+        int idx = self->getItemIndex();
         if (idx < 0 || idx >= (int)pool.size()) return;
         auto& ng = pool[idx];
         drawNeigongDetail(ng, obtainedSet.count(ng.magicId) ? 1 : 0);
@@ -1262,11 +1334,453 @@ void ChessSelector::viewNeigong()
     menu->run();
 }
 
+void ChessSelector::manageEquipment()
+{
+    auto& gd = GameState::get();
+    auto& allEquip = ChessEquipment::getAll();
+    if (allEquip.empty()) return;
+
+    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
+
+    struct EquipmentListEntry {
+        int index;
+        std::string label;
+        Color color;
+        int inventoryCount;
+    };
+
+    while (true)
+    {
+        std::vector<EquipmentListEntry> entries;
+
+        for (size_t i = 0; i < allEquip.size(); ++i)
+        {
+            auto& eq = allEquip[i];
+            auto stats = gd.getStoredItemStats(eq.itemId);
+            auto* item = eq.getItem();
+            std::string name = item ? item->Name : "???";
+            while (name.size() < 15) name += "\xe3\x80\x80";
+            std::string label = std::format("[{}] {} x{} (已裝:{})", tierName[std::min(eq.tier - 1, 3)], name, stats.totalCount, stats.equippedCount);
+            entries.push_back({
+                static_cast<int>(i),
+                std::move(label),
+                stats.totalCount > 0 ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255},
+                stats.totalCount
+            });
+        }
+
+        std::sort(entries.begin(), entries.end(), [&](const auto& a, const auto& b) {
+            if ((a.inventoryCount > 0) != (b.inventoryCount > 0))
+                return a.inventoryCount > 0;
+            return a.index < b.index;
+        });
+
+        std::vector<std::pair<int, std::string>> items;
+        std::vector<Color> colors;
+        items.reserve(entries.size());
+        colors.reserve(entries.size());
+        for (auto& entry : entries)
+        {
+            items.emplace_back(entry.index, entry.label);
+            colors.push_back(entry.color);
+        }
+
+        auto detailDraw = std::make_shared<DrawableOnCall>([&allEquip, &gd](DrawableOnCall* self) {
+            int idx = self->getItemIndex();
+            if (idx < 0 || idx >= (int)allEquip.size()) return;
+            auto& eq = allEquip[idx];
+            auto stats = gd.getStoredItemStats(eq.itemId);
+            std::string equippedBy = "";
+            for (auto& [instanceId, c] : gd.getCollection())
+            {
+                // This concat is sloppy, needs to be changed.
+                if (c.weaponInstance.itemId == eq.itemId)
+                    equippedBy += (equippedBy.empty() ? "" : ",") + std::string(c.role->Name) + "(武)";
+                if (c.armorInstance.itemId == eq.itemId)
+                    equippedBy += (equippedBy.empty() ? "" : ",") + std::string(c.role->Name) + "(甲)";
+            }
+            drawEquipmentDetail(eq, stats.totalCount, equippedBy);
+        });
+
+        SuperMenuTextExtraOptions opts;
+        opts.itemColors_ = colors;
+        opts.exitable_ = true;
+        opts.needInputBox_ = false;
+        auto menu = std::make_shared<SuperMenuText>("裝備一覽", 36, items, 10, opts);
+        menu->setInputPosition(80, 70);
+        menu->addDrawableOnCall(detailDraw);
+        menu->setDoubleTapMode(GameUtil::isMobileDevice());
+        menu->run();
+        int sel = menu->getResult();
+        if (sel < 0) break;
+
+        auto& eq = allEquip[sel];
+
+        auto stats = gd.getStoredItemStats(eq.itemId);
+        if (stats.totalCount <= 0) continue;
+        assert(stats.availableInstanceId != k_nonExistentItem);
+        std::vector<ChessMenuEntry> chessEntries;
+
+        for (const auto& [instanceId, chess] : gd.getCollection())
+        {
+            chessEntries.push_back({chess, chess.selectedForBattle ? "[出戰] " : ""});
+        }
+
+        if (chessEntries.empty())
+        {
+            auto text = std::make_shared<TextBox>();
+            text->setText("沒有可裝備的棋子");
+            text->setFontSize(32);
+            text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+            continue;
+        }
+
+        std::vector<std::pair<int, std::string>> rolePairs;
+        std::vector<Color> roleColors;
+        std::vector<Chess> previewData;
+        buildChessMenuItems(chessEntries, rolePairs, roleColors, &previewData);
+
+        auto opts2 = makeChessMenuOptions(roleColors);
+        auto menu2 = makeChessMenu("選擇棋子", 
+                                rolePairs, opts2, 12, 32, true, previewData);
+    menu2->run();
+    int selectedIdx = menu2->getResult();
+        if (selectedIdx < 0) continue;
+        
+        auto chess = chessEntries[selectedIdx].chess;
+        // Weapon is 0
+        if (eq.equipType == 0) {
+            chess.weaponInstance.id = stats.availableInstanceId;
+            chess.weaponInstance.itemId = eq.itemId;
+        } else {
+            chess.armorInstance.id = stats.availableInstanceId;
+            chess.armorInstance.itemId = eq.itemId;
+        }
+        gd.updateToCollection(chess);
+    }
+}
+
+// Helper: Select reward from available options
+int ChessSelector::selectChallengeReward(const std::vector<BalanceConfig::ChallengeReward>& rewards)
+{
+    auto& gd = GameState::get();
+
+    auto isRewardAvailable = [&](const BalanceConfig::ChallengeReward& r) -> bool {
+        using RT = BalanceConfig::ChallengeRewardType;
+        if (r.type == RT::StarUp1to2 || r.type == RT::StarUp2to3)
+        {
+            int fromStar = (r.type == RT::StarUp1to2) ? 1 : 2;
+            for (auto& [instanceId, chess] : gd.getCollection())
+            {
+                if (chess.star != fromStar) continue;
+                int tier = ChessPool::GetChessTier(chess.role->ID);
+                if (tier >= 0 && tier <= r.value) return true;
+            }
+            return false;
+        }
+        if (r.type == RT::GetNeigong)
+        {
+            auto& pool = ChessNeigong::getPool();
+            auto& obtained = gd.getObtainedNeigong();
+            std::set<int> obtainedSet(obtained.begin(), obtained.end());
+            for (auto& ng : pool)
+            {
+                if (ng.tier <= r.value && !obtainedSet.count(ng.magicId)) return true;
+            }
+            return false;
+        }
+        return true;
+    };
+
+    std::vector<std::pair<int, std::string>> items;
+    std::vector<Color> colors;
+    std::vector<bool> avail;
+    for (int i = 0; i < (int)rewards.size(); ++i)
+    {
+        bool available = isRewardAvailable(rewards[i]);
+        avail.push_back(available);
+        std::string desc = challengeRewardDesc(rewards[i]);
+        if (!available) desc += "（無可用）";
+        items.emplace_back(i, desc);
+        colors.push_back(available ? Color{255, 255, 100, 255} : Color{120, 120, 120, 255});
+    }
+
+    for (;;)
+    {
+        SuperMenuTextExtraOptions opts;
+        opts.itemColors_ = colors;
+        opts.needInputBox_ = false;
+        opts.exitable_ = false;
+        auto menu = std::make_shared<SuperMenuText>("選擇獎勵", 36, items, (int)items.size(), opts);
+        menu->setInputPosition(80, 70);
+        menu->setDoubleTapMode(GameUtil::isMobileDevice());
+        menu->run();
+        int sel = menu->getResult();
+        if (sel < 0) sel = 0;
+        if (avail[sel]) return sel;
+
+        auto text = std::make_shared<TextBox>();
+        text->setText("該獎勵無可用項目，請重新選擇");
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+    }
+}
+
+bool ChessSelector::rewardGold(int amount)
+{
+    auto& gd = GameState::get();
+    gd.make(amount);
+    auto text = std::make_shared<TextBox>();
+    text->setText(std::format("獲得{}金幣！", amount));
+    text->setFontSize(32);
+    text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+    return true;
+}
+
+bool ChessSelector::addChessPiece(Role* role, bool showMessage)
+{
+    auto result = ChessManager::grantChess(role);
+    if (!result.success) {
+        if (showMessage) {
+            auto text = std::make_shared<TextBox>();
+            text->setText("背包已滿！請先出售棋子");
+            text->setFontSize(32);
+            text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        }
+        return false;
+    }
+
+    if (showMessage) {
+        auto text = std::make_shared<TextBox>();
+        if (result.merged) {
+            text->setText(std::format("{}升星！", role->Name));
+            Audio::getInstance()->playESound(72);
+        } else {
+            text->setText(std::format("獲得棋子：{}", role->Name));
+        }
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+    }
+    return true;
+}
+
+bool ChessSelector::rewardPiece(int maxTier)
+{
+    auto save = Save::getInstance();
+
+    std::vector<std::pair<int, std::string>> items;
+    std::vector<Color> colors;
+    std::vector<Chess> previewData;
+    std::vector<int> roleIds;
+    for (int t = 1; t <= maxTier && t <= 5; ++t)
+    {
+        for (int rid : ChessPool::getRolesOfTier(t))
+        {
+            auto* role = save->getRole(rid);
+            if (!role) continue;
+            auto [name, color] = formatChessName(role, t, 1, {});
+            items.emplace_back(rid, name);
+            colors.push_back(color);
+            previewData.push_back({ role, 1, -1 });
+            roleIds.push_back(rid);
+        }
+    }
+    auto opts = makeChessMenuOptions(colors);
+    auto menu = makeChessMenu("選擇棋子", items, opts, 12, 32, true, previewData);
+    menu->addDrawableOnCall(makeComboInfoPanel());
+    menu->run();
+    int sel = menu->getResult();
+    if (sel >= 0)
+    {
+        auto* role = save->getRole(roleIds[sel]);
+        if (role)
+            return addChessPiece(role, true);
+    }
+    return false;
+}
+
+bool ChessSelector::rewardNeigong(int maxTier)
+{
+    auto& gd = GameState::get();
+    auto& pool = ChessNeigong::getPool();
+    auto& obtained = gd.getObtainedNeigong();
+    std::set<int> obtainedSet(obtained.begin(), obtained.end());
+
+    std::vector<std::pair<int, std::string>> items;
+    std::vector<Color> colors;
+    std::vector<const NeigongDef*> ptrs;
+    for (auto& ng : pool)
+    {
+        if (ng.tier > maxTier || obtainedSet.count(ng.magicId)) continue;
+        items.emplace_back((int)ptrs.size(), ng.name);
+        colors.push_back({100, 255, 100, 255});
+        ptrs.push_back(&ng);
+    }
+    if (items.empty())
+    {
+        auto text = std::make_shared<TextBox>();
+        text->setText("沒有可選的內功");
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        return false;
+    }
+
+    auto detail = std::make_shared<DrawableOnCall>([&ptrs](DrawableOnCall* self) {
+        int idx = self->getItemIndex();
+        if (idx >= 0 && idx < (int)ptrs.size()) drawNeigongDetail(*ptrs[idx]);
+    });
+    SuperMenuTextExtraOptions opts;
+    opts.itemColors_ = colors;
+    opts.needInputBox_ = false;
+    opts.exitable_ = false;
+    auto menu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 36, items, 16, opts);
+    menu->setInputPosition(80, 70);
+    menu->addDrawableOnCall(detail);
+    menu->setDoubleTapMode(GameUtil::isMobileDevice());
+    menu->run();
+    int sel = menu->getResult();
+    if (sel >= 0)
+    {
+        gd.addNeigong(ptrs[sel]->magicId);
+        auto text = std::make_shared<TextBox>();
+        text->setText(std::format("獲得內功：{}", ptrs[sel]->name));
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        return true;
+    }
+    return false;
+}
+
+bool ChessSelector::rewardStarUp(int fromStar, int maxTier)
+{
+    auto& gd = GameState::get();
+    int toStar = fromStar + 1;
+
+    auto chesses = gd.getChessByStarAndTier(fromStar, maxTier);
+    if (chesses.empty())
+    {
+        auto text = std::make_shared<TextBox>();
+        text->setText("沒有可升星的棋子");
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        return false;
+    }
+
+    std::vector<std::pair<int, std::string>> items;
+    std::vector<Color> colors;
+    std::vector<Chess> previewData;
+    for (auto& chess : chesses)
+    {
+        int tier = ChessPool::GetChessTier(chess.role->ID);
+        auto [name, color] = formatChessName(chess.role, tier, chess.star, {});
+        items.emplace_back(chess.id.value, name);
+        colors.push_back(color);
+        previewData.push_back(chess);
+    }
+
+    auto opts = makeChessMenuOptions(colors);
+    auto menu = makeChessMenu(std::format("選擇升星 {}★→{}★", fromStar, toStar), items, opts, 12, 32, true, previewData);
+    menu->run();
+    int sel = menu->getResult();
+    if (sel >= 0)
+    {
+        auto& picked = chesses[sel];
+        gd.upgradeChessInstance(picked.id, toStar);
+        auto text = std::make_shared<TextBox>();
+        text->setText(std::format("{}升星至{}★！", picked.role->Name, toStar));
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+    }
+    return false;
+}
+
+bool ChessSelector::rewardEquipment(int maxTier, int specificId)
+{
+    auto& gd = GameState::get();
+
+    if (specificId >= 0)
+    {
+        auto* eq = ChessEquipment::getById(specificId);
+        if (eq)
+        {
+            gd.storeEquipmentItem(eq->itemId);
+            auto text = std::make_shared<TextBox>();
+            auto* item = eq->getItem();
+            text->setText(std::format("獲得裝備：{}", item ? item->Name : "???"));
+            text->setFontSize(32);
+            text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+            return true;
+        }
+        return false;
+    }
+
+    auto& allEquip = ChessEquipment::getAll();
+    std::vector<std::pair<int, std::string>> items;
+    std::vector<Color> colors;
+    std::vector<const EquipmentDef*> ptrs;
+    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
+
+    for (auto& eq : allEquip)
+    {
+        if (eq.tier > maxTier) continue;
+        auto* item = eq.getItem();
+        std::string name = item ? item->Name : "???";
+        while (name.size() < 15) name += "\xe3\x80\x80";
+        std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
+        items.emplace_back(ptrs.size(), label);
+        Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
+        colors.push_back(tierColors[std::min(eq.tier - 1, 3)]);
+        ptrs.push_back(&eq);
+    }
+
+    if (items.empty()) return false;
+
+    auto detail = std::make_shared<DrawableOnCall>([&ptrs](DrawableOnCall* self) {
+        int idx = self->getItemIndex();
+        if (idx >= 0 && idx < (int)ptrs.size()) drawEquipmentDetail(*ptrs[idx], 0, "");
+    });
+
+    SuperMenuTextExtraOptions opts;
+    opts.itemColors_ = colors;
+    opts.exitable_ = false;
+    auto menu = std::make_shared<SuperMenuText>("選擇裝備獎勵", 36, items, 10, opts);
+    menu->setInputPosition(80, 70);
+    menu->addDrawableOnCall(detail);
+    menu->setDoubleTapMode(GameUtil::isMobileDevice());
+    menu->run();
+    int sel = menu->getResult();
+    if (sel >= 0)
+    {
+        gd.storeEquipmentItem(ptrs[sel]->itemId);
+        auto text = std::make_shared<TextBox>();
+        auto* item = ptrs[sel]->getItem();
+        text->setText(std::format("獲得裝備：{}", item ? item->Name : "???"));
+        text->setFontSize(32);
+        text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+        return true;
+    }
+    return false;
+}
+
+bool ChessSelector::applyReward(const BalanceConfig::ChallengeReward& reward)
+{
+    using RT = BalanceConfig::ChallengeRewardType;
+
+    if (reward.type == RT::Gold) return rewardGold(reward.value);
+    if (reward.type == RT::GetPiece) return rewardPiece(reward.value);
+    if (reward.type == RT::GetNeigong) return rewardNeigong(reward.value);
+    if (reward.type == RT::StarUp1to2) return rewardStarUp(1, reward.value);
+    if (reward.type == RT::StarUp2to3) return rewardStarUp(2, reward.value);
+    if (reward.type == RT::GetSpecificEquipment) return rewardEquipment(99, reward.value);
+    if (reward.type == RT::GetEquipment) return rewardEquipment(reward.value);
+    return false;
+}
+
 void ChessSelector::showExpeditionChallenge()
 {
     auto& cfg = ChessBalance::config();
     if (cfg.challenges.empty()) return;
-    auto& gd = GameData::get();
+    auto& gd = GameState::get();
     auto save = Save::getInstance();
 
     for (;;)
@@ -1285,7 +1799,7 @@ void ChessSelector::showExpeditionChallenge()
 
         // Detail panel showing enemies + rewards
         auto detailDraw = std::make_shared<DrawableOnCall>([&cfg, &gd, save](DrawableOnCall* self) {
-            int idx = self->getID();
+            int idx = self->getItemIndex();
             if (idx < 0 || idx >= (int)cfg.challenges.size()) return;
             auto& ch = cfg.challenges[idx];
             auto* font = Font::getInstance();
@@ -1340,7 +1854,7 @@ void ChessSelector::showExpeditionChallenge()
         auto& ch = cfg.challenges[chIdx];
 
         // Check if player has pieces selected
-        auto& selectedChess = gd.getSelectedForBattle();
+        auto selectedChess = gd.getSelectedForBattle();
         if (selectedChess.empty())
         {
             auto text = std::make_shared<TextBox>();
@@ -1351,7 +1865,7 @@ void ChessSelector::showExpeditionChallenge()
         }
 
         // Save enemy random counter so challenge doesn't corrupt regular battle state
-        auto savedEnemyCallCount = gd.enemyCallCount_;
+        auto savedEnemyCallCount = gd.getEnemyCallCount();
 
         // Build enemy team from fixed role IDs
         std::vector<int> enemyIds;
@@ -1363,14 +1877,23 @@ void ChessSelector::showExpeditionChallenge()
         }
 
         // Build roles and run battle
+        // This needs to be simplified and refactored
         DynamicBattleRoles roles;
         for (auto& c : selectedChess)
         {
             roles.teammate_ids.push_back(c.role->ID);
             roles.teammate_stars.push_back(c.star);
+            roles.teammate_instances.push_back(c.id.value);
         }
         roles.enemy_ids = enemyIds;
         roles.enemy_stars = enemyStars;
+        roles.enemy_weapons.reserve(ch.enemies.size());
+        roles.enemy_armors.reserve(ch.enemies.size());
+        for (auto& e : ch.enemies)
+        {
+            roles.enemy_weapons.push_back(e.weaponId);
+            roles.enemy_armors.push_back(e.armorId);
+        }
 
         int result = runBattle(roles, selectedChess);
 
@@ -1384,7 +1907,7 @@ void ChessSelector::showExpeditionChallenge()
         if (result != 0)
         {
             // Restore enemy random counter so failed challenge doesn't corrupt regular battle state
-            gd.enemyCallCount_ = savedEnemyCallCount;
+            gd.setEnemyCallCount(savedEnemyCallCount);
             gd.restoreRand();
             auto text = std::make_shared<TextBox>();
             text->setText("挑戰失敗！請調整陣容後再試");
@@ -1403,218 +1926,9 @@ void ChessSelector::showExpeditionChallenge()
             continue;
         }
 
-        // First win — reward selection
-        // Pre-check which rewards are actually available
-        auto isRewardAvailable = [&](const BalanceConfig::ChallengeReward& r) -> bool {
-            using RT = BalanceConfig::ChallengeRewardType;
-            if (r.type == RT::StarUp1to2 || r.type == RT::StarUp2to3)
-            {
-                int fromStar = (r.type == RT::StarUp1to2) ? 1 : 2;
-                for (auto& [chess, count] : gd.collection.getChess())
-                {
-                    if (chess.star != fromStar) continue;
-                    int tier = ChessPool::GetChessTier(chess.role->ID);
-                    if (tier >= 0 && tier <= r.value) return true;
-                }
-                return false;
-            }
-            if (r.type == RT::GetNeigong)
-            {
-                auto& pool = ChessNeigong::getPool();
-                auto& obtained = gd.getObtainedNeigong();
-                std::set<int> obtainedSet(obtained.begin(), obtained.end());
-                for (auto& ng : pool)
-                {
-                    if (ng.tier <= r.value && !obtainedSet.count(ng.magicId)) return true;
-                }
-                return false;
-            }
-            return true;
-        };
-
-        std::vector<std::pair<int, std::string>> rewardItems;
-        std::vector<Color> rewardColors;
-        std::vector<bool> rewardAvail;
-        for (int i = 0; i < (int)ch.rewards.size(); ++i)
-        {
-            bool avail = isRewardAvailable(ch.rewards[i]);
-            rewardAvail.push_back(avail);
-            std::string desc = challengeRewardDesc(ch.rewards[i]);
-            if (!avail) desc += "（無可用）";
-            rewardItems.emplace_back(i, desc);
-            rewardColors.push_back(avail ? Color{255, 255, 100, 255} : Color{120, 120, 120, 255});
-        }
-
-        int rSel = 0;
-        for (;;)
-        {
-            SuperMenuTextExtraOptions rOpts;
-            rOpts.itemColors_ = rewardColors;
-            rOpts.needInputBox_ = false;
-            rOpts.exitable_ = false;
-            auto rMenu = std::make_shared<SuperMenuText>("選擇獎勵", 36, rewardItems, (int)rewardItems.size(), rOpts);
-            rMenu->setInputPosition(80, 70);
-            rMenu->setDoubleTapMode(GameUtil::isMobileDevice());
-            rMenu->run();
-            rSel = rMenu->getResult();
-            if (rSel < 0) rSel = 0;
-            if (rewardAvail[rSel]) break;
-            // Picked an unavailable reward — prompt and loop
-            auto text = std::make_shared<TextBox>();
-            text->setText("該獎勵無可用項目，請重新選擇");
-            text->setFontSize(32);
-            text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-        }
-
-        auto& reward = ch.rewards[rSel];
-        using RT = BalanceConfig::ChallengeRewardType;
-
-        if (reward.type == RT::Gold)
-        {
-            gd.make(reward.value);
-            auto text = std::make_shared<TextBox>();
-            text->setText(std::format("獲得{}金幣！", reward.value));
-            text->setFontSize(32);
-            text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-        }
-        else if (reward.type == RT::GetPiece)
-        {
-            // Show all roles up to max tier
-            std::vector<std::pair<int, std::string>> pieceItems;
-            std::vector<Color> pieceColors;
-            std::vector<int> pieceRoleIds;
-            for (int t = 1; t <= reward.value && t <= 5; ++t)
-            {
-                for (int rid : ChessPool::getRolesOfTier(t))
-                {
-                    auto* role = save->getRole(rid);
-                    if (!role) continue;
-                    auto [name, color] = formatChessName(role, t, 1, {});
-                    pieceItems.emplace_back(rid * 10 + 1, name);
-                    pieceColors.push_back(color);
-                    pieceRoleIds.push_back(rid);
-                }
-            }
-            auto pMenu = makeChessMenu("選擇棋子", pieceItems, pieceColors, 12, 32, true, false);
-            pMenu->addDrawableOnCall(makeComboInfoPanel());
-            pMenu->run();
-            int pSel = pMenu->getResult();
-            if (pSel >= 0)
-            {
-                int rid = pieceRoleIds[pSel];
-                auto* role = save->getRole(rid);
-                if (role) gd.addChessAndFixSelection({role, 1});
-                auto text = std::make_shared<TextBox>();
-                text->setText(std::format("獲得棋子：{}", role ? role->Name : ""));
-                text->setFontSize(32);
-                text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-            }
-        }
-        else if (reward.type == RT::GetNeigong)
-        {
-            auto& pool = ChessNeigong::getPool();
-            auto& obtained = gd.getObtainedNeigong();
-            std::set<int> obtainedSet(obtained.begin(), obtained.end());
-
-            std::vector<std::pair<int, std::string>> ngItems;
-            std::vector<Color> ngColors;
-            std::vector<const NeigongDef*> ngPtrs;
-            for (auto& ng : pool)
-            {
-                if (ng.tier > reward.value || obtainedSet.count(ng.magicId)) continue;
-                ngItems.emplace_back((int)ngPtrs.size(), ng.name);
-                ngColors.push_back({100, 255, 100, 255});
-                ngPtrs.push_back(&ng);
-            }
-            if (ngItems.empty())
-            {
-                auto text = std::make_shared<TextBox>();
-                text->setText("沒有可選的內功");
-                text->setFontSize(32);
-                text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-            }
-            else
-            {
-                auto ngDetail = std::make_shared<DrawableOnCall>([&ngPtrs](DrawableOnCall* self) {
-                    int idx = self->getID();
-                    if (idx >= 0 && idx < (int)ngPtrs.size())
-                        drawNeigongDetail(*ngPtrs[idx]);
-                });
-                SuperMenuTextExtraOptions nOpts;
-                nOpts.itemColors_ = ngColors;
-                nOpts.needInputBox_ = false;
-                nOpts.exitable_ = false;
-                auto nMenu = std::make_shared<SuperMenuText>("選擇內功，内功將對所有成員自動生效", 36, ngItems, 16, nOpts);
-                nMenu->setInputPosition(80, 70);
-                nMenu->addDrawableOnCall(ngDetail);
-                nMenu->setDoubleTapMode(GameUtil::isMobileDevice());
-                nMenu->run();
-                int nSel = nMenu->getResult();
-                if (nSel >= 0)
-                {
-                    gd.addNeigong(ngPtrs[nSel]->magicId);
-                    auto text = std::make_shared<TextBox>();
-                    text->setText(std::format("獲得內功：{}", ngPtrs[nSel]->name));
-                    text->setFontSize(32);
-                    text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-                }
-            }
-        }
-        else if (reward.type == RT::StarUp1to2 || reward.type == RT::StarUp2to3)
-        {
-            int fromStar = (reward.type == RT::StarUp1to2) ? 1 : 2;
-            int toStar = fromStar + 1;
-
-            std::vector<std::pair<int, std::string>> upItems;
-            std::vector<Color> upColors;
-            std::vector<Chess> upChess;
-            for (auto& [chess, count] : gd.collection.getChess())
-            {
-                if (chess.star != fromStar) continue;
-                int tier = ChessPool::GetChessTier(chess.role->ID);
-                if (tier < 0 || tier > reward.value) continue;
-                auto [name, color] = formatChessName(chess.role, tier, chess.star, count);
-                upItems.emplace_back(chess.role->ID * 10 + chess.star, name);
-                upColors.push_back(color);
-                upChess.push_back(chess);
-            }
-            if (upItems.empty())
-            {
-                auto text = std::make_shared<TextBox>();
-                text->setText("沒有可升星的棋子");
-                text->setFontSize(32);
-                text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-            }
-            else
-            {
-                auto uMenu = makeChessMenu(
-                    std::format("選擇升星 {}★→{}★", fromStar, toStar), upItems, upColors, 12, 32, true, false);
-                uMenu->run();
-                int uSel = uMenu->getResult();
-                if (uSel >= 0)
-                {
-                    auto& picked = upChess[uSel];
-                    gd.collection.removeChess(picked);
-                    Chess upgraded = {picked.role, toStar};
-                    gd.collection.addChess(upgraded);
-                    // Fix selection: upgrade one matching deployed piece
-                    auto sel = gd.getSelectedForBattle();
-                    for (auto& s : sel)
-                    {
-                        if (s.role == picked.role && s.star == fromStar)
-                        {
-                            s.star = toStar;
-                            break;
-                        }
-                    }
-                    gd.setSelectedForBattle(sel);
-                    auto text = std::make_shared<TextBox>();
-                    text->setText(std::format("{}升星至{}★！", picked.role->Name, toStar));
-                    text->setFontSize(32);
-                    text->runCentered(Engine::getInstance()->getUIHeight() / 2);
-                }
-            }
-        }
+        int rSel = selectChallengeReward(ch.rewards);
+        if (!applyReward(ch.rewards[rSel]))
+            continue;
 
         gd.completeChallenge(chIdx);
         UISave::autoSave();
@@ -1623,7 +1937,7 @@ void ChessSelector::showExpeditionChallenge()
 
 void ChessSelector::showPositionSwap()
 {
-    auto& gd = GameData::get();
+    auto& gd = GameState::get();
     bool cur = gd.isPositionSwapEnabled();
     std::vector<std::pair<int, std::string>> items = { {0, "  關閉  "}, {1, "  開啟  "} };
     SuperMenuTextExtraOptions opts;
@@ -1636,7 +1950,7 @@ void ChessSelector::showPositionSwap()
         Engine::getInstance()->fillRoundedRect({0, 0, 0, 180}, px, py, 600, 250, 6);
         Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, px, py, 600, 250, 6);
         auto* font = Font::getInstance();
-        int id = self->getID();
+        int id = self->getItemIndex();
         bool willEnable = id >= 0 ? (id == 1) : cur;
         font->draw(willEnable ? "狀態：開啟" : "狀態：關閉", fs, px + 10, py + 10, willEnable ? Color{0, 255, 0, 255} : Color{255, 80, 80, 255});
         font->draw("戰鬥開始前可交換我方棋子位置", fs, px + 10, py + 10 + lh, {255, 215, 0, 255});

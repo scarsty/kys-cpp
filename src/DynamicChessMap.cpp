@@ -1,5 +1,5 @@
 #include "DynamicChessMap.h"
-#include "TempStore.h"
+#include "GameState.h"
 #include <algorithm>
 
 std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBattleRoles& roles, int battle_id)
@@ -34,7 +34,7 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBat
             }
             candidates.push_back(best);
         }
-        map_index = candidates[KysChess::GameData::get().enemyRandInt(candidates.size())];
+        map_index = candidates[KysChess::GameState::get().enemyRandInt(candidates.size())];
     }
 
     const auto& selected_map = maps[map_index];
@@ -61,11 +61,14 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBat
         info.X = all_positions[i].first;
         info.Y = all_positions[i].second;
         info.star = (i < roles.teammate_stars.size()) ? roles.teammate_stars[i] : 1;
+        info.chessInstanceId = (i < roles.teammate_instances.size()) ? roles.teammate_instances[i] : -1;
         teammates.push_back(info);
     }
 
     battle->setExtendedBattleInfo(teammates);
     battle->setEnemyStars(roles.enemy_stars);
+    battle->setEnemyWeapons(roles.enemy_weapons);
+    battle->setEnemyArmors(roles.enemy_armors);
 
     // Override enemy IDs using modifiableInfo
     auto& info = battle->modifiableInfo();

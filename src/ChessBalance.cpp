@@ -120,7 +120,24 @@ bool ChessBalance::loadConfig(const std::string& path)
                 def.name = Font::getInstance()->S2T(entry["名称"].as<std::string>());
                 if (entry["描述"]) def.description = Font::getInstance()->S2T(entry["描述"].as<std::string>());
                 for (const auto& e : entry["敌人"])
-                    def.enemies.push_back({e[0].as<int>(), e[1].as<int>()});
+                {
+                    int roleId, star, weaponId = -1, armorId = -1;
+                    if (e.IsSequence())
+                    {
+                        roleId = e[0].as<int>();
+                        star = e[1].as<int>();
+                        if (e.size() > 2) weaponId = e[2].as<int>();
+                        if (e.size() > 3) armorId = e[3].as<int>();
+                    }
+                    else
+                    {
+                        roleId = e["角色ID"].as<int>();
+                        star = e["星级"].as<int>();
+                        if (e["武器"]) weaponId = e["武器"].as<int>();
+                        if (e["防具"]) armorId = e["防具"].as<int>();
+                    }
+                    def.enemies.push_back({roleId, star, weaponId, armorId});
+                }
                 if (entry["奖励"])
                 {
                     for (const auto& r : entry["奖励"])
@@ -132,6 +149,12 @@ bool ChessBalance::loadConfig(const std::string& path)
                         else if (t == "获取内功") reward.type = BalanceConfig::ChallengeRewardType::GetNeigong;
                         else if (t == "升星1到2") reward.type = BalanceConfig::ChallengeRewardType::StarUp1to2;
                         else if (t == "升星2到3") reward.type = BalanceConfig::ChallengeRewardType::StarUp2to3;
+                        else if (t == "获取装备") reward.type = BalanceConfig::ChallengeRewardType::GetEquipment;
+                        else if (t == "获取指定装备")
+                        {
+                            reward.type = BalanceConfig::ChallengeRewardType::GetSpecificEquipment;
+                            reward.value = r["装备ID"].as<int>();
+                        }
                         if (r["数值"]) reward.value = r["数值"].as<int>();
                         else if (r["最高费用"]) reward.value = r["最高费用"].as<int>();
                         else if (r["最高层级"]) reward.value = r["最高层级"].as<int>();
@@ -142,6 +165,31 @@ bool ChessBalance::loadConfig(const std::string& path)
             }
         }
     } catch (...) {}
+
+    if (root["敌人装备"])
+    {
+        for (const auto& entry : root["敌人装备"])
+        {
+            BalanceConfig::EnemyEquipmentLevel level;
+            level.fight = entry["关卡"].as<int>();
+            level.maxTier = entry["最高层级"].as<int>();
+            level.count = entry["装备数量"].as<int>();
+            c.enemyEquipmentLevels.push_back(level);
+        }
+    }
+
+    if (root["玩家装备奖励"])
+    {
+        for (const auto& entry : root["玩家装备奖励"])
+        {
+            BalanceConfig::PlayerEquipmentReward reward;
+            reward.fight = entry["关卡"].as<int>();
+            reward.maxTier = entry["最高层级"].as<int>();
+            reward.choices = entry["选项数量"].as<int>();
+            reward.refreshCost = entry["刷新费用"].as<int>();
+            c.playerEquipmentRewards.push_back(reward);
+        }
+    }
 
     config_ = std::move(c);
     std::print("【平衡配置】加载成功\n");

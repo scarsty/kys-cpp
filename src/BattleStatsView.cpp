@@ -7,6 +7,7 @@
 #include "TextureManager.h"
 #include "GameUtil.h"
 #include "Audio.h"
+#include "GameState.h"
 #include <format>
 #include <set>
 
@@ -42,12 +43,13 @@ void BattleTracker::recordBattleEnd(int frame)
     battleEndFrame_ = frame;
 }
 
-static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team)
+static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int chessInstanceId = -1)
 {
     BattleStatsView::RoleEntry e;
     e.role = role;
     e.star = star;
     e.team = team;
+    e.chessInstanceId = chessInstanceId;
     auto s = KysChess::BattleRoleManager::computeStarStats(role, star);
     e.hp = s.hp;
     e.atk = s.atk;
@@ -96,7 +98,7 @@ void BattleStatsView::setupPreBattle(
     allies_.clear(); enemies_.clear();
     for (auto& c : allies)
         if (c.role) {
-            allies_.push_back(makeEntry(c.role, c.star, 0));
+            allies_.push_back(makeEntry(c.role, c.star, 0, c.id.value));
         }
     for (size_t i = 0; i < enemyIds.size(); ++i)
     {
@@ -190,7 +192,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
     y += 30;
 
     // Column offsets relative to x
-    int cName = 46, cStar = 130, cHP = 160, cAtk = 220, cDef = 270, cSpd = 320, cSkill = 365;
+    int cName = 46, cStar = 130, cHP = 160, cAtk = 220, cDef = 270, cSpd = 320, cSkill = 365, cEquip = 450;
     int cDmg = 130, cDps = 200, cTaken = 250, cKill = 310, cCancel = 340, cSk1 = 400;
 
     if (!showPost)
@@ -202,6 +204,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
         font->draw("防", fs, x + cDef, y, cGray);
         font->draw("速", fs, x + cSpd, y, cGray);
         font->draw("武學", fs, x + cSkill, y, cGray);
+        font->draw("裝", fs, x + cEquip, y, cGray);
     }
     else
     {
@@ -235,6 +238,24 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             font->draw(std::to_string(e.def), fs, x + cDef, y, cWhite);
             font->draw(std::to_string(e.spd), fs, x + cSpd, y, cWhite);
             font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);
+
+            // Equipment icons
+            if (e.chessInstanceId >= 0)
+            {
+                auto& gd = KysChess::GameState::get();
+                auto& collection = gd.getCollection();
+                auto it = collection.find(KysChess::ChessInstanceID{e.chessInstanceId});
+                if (it == collection.end())
+                    continue;
+
+                auto& chess = it->second;
+                int weaponId = chess.weaponInstance.itemId;
+                int armorId = chess.armorInstance.itemId;
+                if (weaponId >= 0)
+                    TextureManager::getInstance()->renderTexture("item", weaponId, x + cEquip, y, cWhite, 255, 0.16, 0.16);
+                if (armorId >= 0)
+                    TextureManager::getInstance()->renderTexture("item", armorId, x + cEquip + 18, y, cWhite, 255, 0.16, 0.16);
+            }
         }
         else
         {

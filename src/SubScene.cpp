@@ -13,7 +13,7 @@
 #include "PotConv.h"
 #include "Random.h"
 #include "Timer.h"
-#include "TempStore.h"
+#include "GameState.h"
 #include "TextureManager.h"
 #include "UI.h"
 #include "Weather.h"
@@ -196,7 +196,7 @@ void SubScene::draw()
     if (submap_id_ == 53)
     {
         using namespace KysChess;
-        auto& gd = GameData::get();
+        auto& gd = GameState::get();
         auto& cfg = ChessBalance::config();
         auto* engine = Engine::getInstance();
         auto* font = Font::getInstance();
@@ -213,7 +213,7 @@ void SubScene::draw()
         seg(std::format("第{}關{}", fight + 1, gd.battleProgress.isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
         seg(std::format("${}", gd.getMoney()), {255, 215, 0, 255});
         seg(std::format("Lv{} {}/{}", gd.getLevel() + 1, gd.getExp(), gd.getExpForNextLevel()), {100, 200, 255, 255});
-        seg(std::format("出戰{}/{}", gd.getSelectedForBattle().size(), gd.getMaxDeploy()), {100, 255, 100, 255});
+        seg(std::format("出戰{}/{}", gd.getSelectedCount(), gd.getMaxDeploy()), {100, 255, 100, 255});
         seg(std::format("背包{}/{}", gd.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
 
         // Quick-access chess button (bottom-right of screen)

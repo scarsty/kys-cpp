@@ -40,6 +40,7 @@ public:
     {
         Role* role = nullptr;
         int star = 1;
+        int chessInstanceId = -1;
         int team = 0;
         int hp = 0, atk = 0, def = 0, spd = 0;
         std::string skillNames;
