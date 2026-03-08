@@ -3,7 +3,6 @@
 #include <functional>
 
 struct DrawableItemContext {
-    int itemId = -1;
     int itemIndex = -1;
 };
 
@@ -17,7 +16,6 @@ public:
     virtual void onEntrance() { if (entrance_) entrance_(); }
     void setEntrance(std::function<void()> en) { entrance_ = en; }
     virtual void updateScreenWithContext(const DrawableItemContext& context);
-    int getID() const { return context_.itemId; }
     int getItemIndex() const { return context_.itemIndex; }
     virtual void draw();
 protected:

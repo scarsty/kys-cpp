@@ -211,20 +211,6 @@ void GameState::setSelectedInstanceIds(const std::vector<ChessInstanceID>& selec
         collection_.at(id).selectedForBattle = true;
 }
 
-int GameState::getBenchCount() const
-{
-    return static_cast<int>(collection_.size()) - getSelectedCount();
-}
-
-int GameState::getSelectedCount() const
-{
-    int count = 0;
-    for (const auto& [id, chess] : collection_)
-        if (chess.selectedForBattle)
-            count++;
-    return count;
-}
-
 
 // ---------------- Collection Operation ---------------------------
 
@@ -280,12 +266,6 @@ std::map<RoleAndStar, int> GameState::getChessCountMap() const
     for (auto& [instance, chess] : collection_)
         result[RoleAndStar{chess.role, chess.star}]++;
     return result;
-}
-
-
-bool GameState::isBenchFull() const
-{
-    return getBenchCount() >= ChessBalance::config().benchSize;
 }
 
 void GameState::storeEquipmentItem(int itemId)
@@ -361,7 +341,6 @@ Chess GameState::findChessByInstanceId(ChessInstanceID instanceId) const
 {
     return collection_.at(instanceId);
 }
-
 
 bool GameState::hasAtLeastMatchingPieces(Role* role, int star, int count) const
 {

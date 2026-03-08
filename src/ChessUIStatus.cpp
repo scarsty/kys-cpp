@@ -2,6 +2,7 @@
 #include "BattleRoleManager.h"
 #include "BattleSceneHades.h"
 #include "ChessCombo.h"
+#include "ChessManager.h"
 #include "ChessPool.h"
 #include "Engine.h"
 #include "GameUtil.h"
@@ -156,7 +157,7 @@ void ChessUIStatus::draw()
     {
         font->draw("羈絆", font_size, x, y, color_name);
         y += 24;
-        auto starByRole = KysChess::ChessCombo::buildStarMap(gd.getSelectedForBattle());
+        auto starByRole = KysChess::ChessCombo::buildStarMap(KysChess::ChessManager::getSelectedForBattle());
         auto& allCombos = KysChess::ChessCombo::getAllCombos();
         for (auto cid : roleCombos)
         {

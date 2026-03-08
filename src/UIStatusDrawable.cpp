@@ -15,7 +15,6 @@ UIStatusDrawable::UIStatusDrawable(const std::vector<Chess>& previewData)
 
 void UIStatusDrawable::updateScreenWithContext(const DrawableItemContext& context) {
     ChessDrawableItemContext chessContext{context};
-    chessContext.itemId = context.itemId;
     chessContext.itemIndex = context.itemIndex;
 
     if (chessContext.itemIndex >= 0 && chessContext.itemIndex < previewData_.size()) {

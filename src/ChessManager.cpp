@@ -110,7 +110,7 @@ PurchaseResult ChessManager::purchaseChess(Role* role, int tier)
     auto& gd = GameState::get();
     int cost = calculateCost(tier, 1, 1);
 
-    if (gd.isBenchFull() && !gd.wouldMerge(role, 1))
+    if (isBenchFull() && !gd.wouldMerge(role, 1))
         return {false, false, cost};
 
     if (!gd.spend(cost))
@@ -140,10 +140,81 @@ GrantResult ChessManager::grantChess(Role* role)
 {
     auto& gd = GameState::get();
 
-    if (gd.isBenchFull() && !gd.wouldMerge(role, 1))
+    if (isBenchFull() && !gd.wouldMerge(role, 1))
         return {false, false};
 
     return {true, addChessWithAutoMerge(role)};
+}
+
+int ChessManager::getBenchCount()
+{
+    return static_cast<int>(GameState::get().getCollection().size()) - getSelectedCount();
+}
+
+int ChessManager::getSelectedCount()
+{
+    int count = 0;
+    for (const auto& [id, chess] : GameState::get().getCollection())
+        if (chess.selectedForBattle)
+            count++;
+    return count;
+}
+
+bool ChessManager::isBenchFull()
+{
+    return getBenchCount() >= ChessBalance::config().benchSize;
+}
+
+std::vector<Chess> ChessManager::getSelectedForBattle()
+{
+    std::vector<Chess> selected;
+    for (const auto& [id, chess] : GameState::get().getCollection())
+        if (chess.selectedForBattle)
+            selected.push_back(chess);
+    return selected;
+}
+
+std::optional<Chess> ChessManager::tryFindChessByInstanceId(ChessInstanceID id)
+{
+    if (id == k_nonExistentChess)
+        return std::nullopt;
+    auto& collection = GameState::get().getCollection();
+    auto it = collection.find(id);
+    return (it != collection.end()) ? std::optional{it->second} : std::nullopt;
+}
+
+bool ChessManager::applyGoldReward(int amount)
+{
+    GameState::get().make(amount);
+    return true;
+}
+
+GrantResult ChessManager::applyPieceReward(int maxTier)
+{
+    return {false, false};  // UI selection required, handled by ChessSelector
+}
+
+bool ChessManager::applyStarUpReward(int fromStar, int maxTier)
+{
+    auto& gd = GameState::get();
+    auto chesses = gd.getChessByStarAndTier(fromStar, maxTier);
+    return !chesses.empty();
+}
+
+bool ChessManager::applyEquipmentReward(int maxTier, int specificId)
+{
+    auto& gd = GameState::get();
+    if (specificId >= 0)
+    {
+        auto* eq = ChessEquipment::getById(specificId);
+        if (eq)
+        {
+            gd.storeEquipmentItem(eq->itemId);
+            return true;
+        }
+        return false;
+    }
+    return true;  // UI selection required, handled by ChessSelector
 }
 
 }

@@ -72,11 +72,6 @@ public:
     // if not a instance id we own
     void setSelectedInstanceIds(const std::vector<ChessInstanceID>& selected);
     void resetChess(Chess chess);
-    
-    // TODO: move these to ChessManager, maybe we don't need those?
-    int getBenchCount() const;
-    bool isBenchFull() const;
-    int getSelectedCount() const;
 
     // Collection operation
     

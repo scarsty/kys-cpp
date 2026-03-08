@@ -2,6 +2,7 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "ChessBalance.h"
+#include "ChessManager.h"
 #include "ChessModHook.h"
 #include "ChessNeigong.h"
 #include "ChessSelector.h"
@@ -213,8 +214,8 @@ void SubScene::draw()
         seg(std::format("第{}關{}", fight + 1, gd.battleProgress.isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
         seg(std::format("${}", gd.getMoney()), {255, 215, 0, 255});
         seg(std::format("Lv{} {}/{}", gd.getLevel() + 1, gd.getExp(), gd.getExpForNextLevel()), {100, 200, 255, 255});
-        seg(std::format("出戰{}/{}", gd.getSelectedCount(), gd.getMaxDeploy()), {100, 255, 100, 255});
-        seg(std::format("背包{}/{}", gd.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
+        seg(std::format("出戰{}/{}", KysChess::ChessManager::getSelectedCount(), gd.getMaxDeploy()), {100, 255, 100, 255});
+        seg(std::format("背包{}/{}", KysChess::ChessManager::getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
 
         // Quick-access chess button (bottom-right of screen)
         if (!chess_menu_active_)

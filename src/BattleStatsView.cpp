@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "Engine.h"
 #include "Font.h"
+#include "ChessManager.h"
 #include "Save.h"
 #include "TextureManager.h"
 #include "GameUtil.h"
@@ -240,17 +241,11 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);
 
             // Equipment icons
-            if (e.chessInstanceId >= 0)
+            auto chess = KysChess::ChessManager::tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
+            if (chess)
             {
-                auto& gd = KysChess::GameState::get();
-                auto& collection = gd.getCollection();
-                auto it = collection.find(KysChess::ChessInstanceID{e.chessInstanceId});
-                if (it == collection.end())
-                    continue;
-
-                auto& chess = it->second;
-                int weaponId = chess.weaponInstance.itemId;
-                int armorId = chess.armorInstance.itemId;
+                int weaponId = chess->weaponInstance.itemId;
+                int armorId = chess->armorInstance.itemId;
                 if (weaponId >= 0)
                     TextureManager::getInstance()->renderTexture("item", weaponId, x + cEquip, y, cWhite, 255, 0.16, 0.16);
                 if (armorId >= 0)

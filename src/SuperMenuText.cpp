@@ -4,17 +4,53 @@
 #include "PotConv.h"
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <utility>
 
-// Backward-compatible constructor: always creates an InputBox
+namespace
+{
+
+struct VisibleMenuItems
+{
+    std::vector<std::string> displays;
+    std::vector<Color> colors;
+    std::vector<Color> outlines;
+    std::vector<bool> animates;
+    std::vector<int> thicknesses;
+};
+
+VisibleMenuItems buildVisibleMenuItems(const std::vector<std::string>& items,
+    const SuperMenuTextExtraOptions& extraOpts,
+    const std::vector<int>& indices)
+{
+    VisibleMenuItems visible;
+    visible.displays.reserve(indices.size());
+    visible.colors.reserve(indices.size());
+    visible.outlines.reserve(indices.size());
+    visible.animates.reserve(indices.size());
+    visible.thicknesses.reserve(indices.size());
+
+    for (int idx : indices)
+    {
+        visible.displays.push_back(items[idx]);
+        visible.colors.push_back(extraOpts.itemColors_[idx]);
+        visible.outlines.push_back(idx < extraOpts.outlineColors_.size() ? extraOpts.outlineColors_[idx] : Color{0, 0, 0, 0});
+        visible.animates.push_back(idx < extraOpts.animateOutlines_.size() ? extraOpts.animateOutlines_[idx] : false);
+        visible.thicknesses.push_back(idx < extraOpts.outlineThicknesses_.size() ? extraOpts.outlineThicknesses_[idx] : 1);
+    }
+
+    return visible;
+}
+
+}    // namespace
+
 SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
-    const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage) : SuperMenuText(title, fontSize, allItems, itemsPerPage, SuperMenuTextExtraOptions{})
+    const std::vector<std::string>& allItems, int itemsPerPage) : SuperMenuText(title, fontSize, allItems, itemsPerPage, SuperMenuTextExtraOptions{})
 {
 }
 
-// New constructor: can control InputBox creation
 SuperMenuText::SuperMenuText(const std::string& title, int fontSize,
-    const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage,
+    const std::vector<std::string>& allItems, int itemsPerPage,
     SuperMenuTextExtraOptions extraOpts) : items_(allItems),
                                            itemsPerPage_(itemsPerPage),
                                            fontSize_(fontSize),
@@ -125,38 +161,12 @@ void SuperMenuText::defaultPage()
     {
         return;
     }
-    std::vector<std::string> displays;
-    std::vector<Color> colors;
-    std::vector<Color> outlines;
-    std::vector<bool> animates;
-    std::vector<int> thicknesses;
-    searchResultIndices_.clear();
-    activeIndices_.clear();
-    for (int i = 0; i < items_.size(); i++)
-    {
-        if (i < std::min((std::size_t)itemsPerPage_, items_.size()))
-        {
-            activeIndices_.push_back(i);
-            displays.push_back(items_[i].second);
-            colors.push_back(extraOpts_.itemColors_[i]);
-            if (i < extraOpts_.outlineColors_.size())
-                outlines.push_back(extraOpts_.outlineColors_[i]);
-            if (i < extraOpts_.animateOutlines_.size())
-                animates.push_back(extraOpts_.animateOutlines_[i]);
-            if (i < extraOpts_.outlineThicknesses_.size())
-                thicknesses.push_back(extraOpts_.outlineThicknesses_[i]);
-        }
-        searchResultIndices_.push_back(i);
-    }
+    searchResultIndices_.resize(items_.size());
+    std::iota(searchResultIndices_.begin(), searchResultIndices_.end(), 0);
     currentPage_ = 0;
     updateMaxPages();
-    selections_->setStrings(displays, colors, outlines, animates, thicknesses);
-    if (!displays.empty())
-    {
-        selections_->forceActiveChild(0);
-    }
+    applyCurrentPage(true);
     isDefaultPage_ = true;
-    updateNavigationButtons();
 }
 
 void SuperMenuText::flipPage(int pageIncrement)
@@ -166,83 +176,30 @@ void SuperMenuText::flipPage(int pageIncrement)
         lastTappedIdx_ = -1;       // Reset locked item when changing pages
         tapLockTime_ = -1.0;       // Reset lock timestamp on page change
         currentPage_ += pageIncrement;
-        int startIdx = currentPage_ * itemsPerPage_;
-        std::vector<std::string> displays;
-        std::vector<Color> colors;
-        std::vector<Color> outlines;
-        std::vector<bool> animates;
-        std::vector<int> thicknesses;
-        activeIndices_.clear();
-        for (std::size_t i = startIdx; i < std::min(searchResultIndices_.size(), (std::size_t)startIdx + itemsPerPage_); i++)
-        {
-            int idx = searchResultIndices_[i];
-            activeIndices_.push_back(idx);
-            displays.push_back(items_[idx].second);
-            colors.push_back(extraOpts_.itemColors_[idx]);
-            if (idx < extraOpts_.outlineColors_.size())
-                outlines.push_back(extraOpts_.outlineColors_[idx]);
-            else
-                outlines.push_back({0, 0, 0, 0});
-            if (idx < extraOpts_.animateOutlines_.size())
-                animates.push_back(extraOpts_.animateOutlines_[idx]);
-            else
-                animates.push_back(false);
-            if (idx < extraOpts_.outlineThicknesses_.size())
-                thicknesses.push_back(extraOpts_.outlineThicknesses_[idx]);
-            else
-                thicknesses.push_back(1);
-        }
-        selections_->setStrings(displays, colors, outlines, animates, thicknesses);
-        updateNavigationButtons();
+        applyCurrentPage(false);
     }
 }
 
 void SuperMenuText::search(const std::string& text)
 {
-    std::vector<std::string> results;
-    std::vector<Color> colors;
-    std::vector<Color> outlines;
-    std::vector<bool> animates;
-    std::vector<int> thicknesses;
-    activeIndices_.clear();
     searchResultIndices_.clear();
     for (int i = 0; i < items_.size(); i++)
     {
         bool matched = false;
         auto& opt = items_[i];
-        if (Font::getInstance()->T2S(opt.second).contains(text) || (matchFunction_ && matchFunction_(text, opt.second)))
+        if (Font::getInstance()->T2S(opt).contains(text) || (matchFunction_ && matchFunction_(text, opt)))
         {
             matched = true;
         }
         if (matched)
         {
-            if (results.size() < itemsPerPage_)
-            {
-                results.emplace_back(opt.second);
-                colors.push_back(extraOpts_.itemColors_[i]);
-                if (i < extraOpts_.outlineColors_.size())
-                    outlines.push_back(extraOpts_.outlineColors_[i]);
-                else
-                    outlines.push_back({0, 0, 0, 0});
-                if (i < extraOpts_.animateOutlines_.size())
-                    animates.push_back(extraOpts_.animateOutlines_[i]);
-                else
-                    animates.push_back(false);
-                if (i < extraOpts_.outlineThicknesses_.size())
-                    thicknesses.push_back(extraOpts_.outlineThicknesses_[i]);
-                else
-                    thicknesses.push_back(1);
-                activeIndices_.push_back(i);
-            }
             searchResultIndices_.push_back(i);
         }
     }
     updateMaxPages();
     currentPage_ = 0;
-    selections_->setStrings(results, colors, outlines, animates, thicknesses);
-    selections_->forceActiveChild(0);
+    applyCurrentPage(true);
     isDefaultPage_ = false;
-    updateNavigationButtons();
 }
 
 void SuperMenuText::updateMaxPages()
@@ -383,7 +340,6 @@ void SuperMenuText::dealEvent(EngineEvent& e)
         for (auto& doc : drawableDocs_)
         {
             DrawableItemContext context;
-            context.itemId = items_[idx].first;
             context.itemIndex = idx;
             doc->updateScreenWithContext(context);
         }
@@ -437,10 +393,6 @@ void SuperMenuText::dealEvent(EngineEvent& e)
                     }
                 }
                 result_ = itemIdx;
-                if (result_ >= 0 && !extraOpts_.returnIdxOnly)
-                {
-                    result_ = items_[result_].first;
-                }
                 setExit(true);
             }
             else
@@ -492,10 +444,6 @@ void SuperMenuText::dealEvent(EngineEvent& e)
                 }
             }
             result_ = itemIdx;
-            if (result_ >= 0 && !extraOpts_.returnIdxOnly)
-            {
-                result_ = items_[result_].first;
-            }
             setExit(true);
         }
     }
@@ -525,4 +473,29 @@ bool SuperMenuText::canFlipPage()
     bool allow = lastPageFlipTime_ < 0.0 || (Engine::getTicks() - lastPageFlipTime_ >= kDoubleTapMinIntervalMs);
     if (allow) lastPageFlipTime_ = Engine::getTicks();
     return allow;
+}
+
+void SuperMenuText::setActiveItems(const std::vector<int>& itemIndices, bool forceFirstActive)
+{
+    activeIndices_ = itemIndices;
+    auto visibleItems = buildVisibleMenuItems(items_, extraOpts_, activeIndices_);
+    selections_->setStrings(visibleItems.displays, visibleItems.colors, visibleItems.outlines, visibleItems.animates, visibleItems.thicknesses);
+    if (forceFirstActive && !visibleItems.displays.empty())
+    {
+        selections_->forceActiveChild(0);
+    }
+}
+
+void SuperMenuText::applyCurrentPage(bool forceFirstActive)
+{
+    const int startIdx = currentPage_ * itemsPerPage_;
+    const int endIdx = std::min(static_cast<int>(searchResultIndices_.size()), startIdx + itemsPerPage_);
+    std::vector<int> pageIndices;
+    pageIndices.reserve(std::max(0, endIdx - startIdx));
+    for (int i = startIdx; i < endIdx; ++i)
+    {
+        pageIndices.push_back(searchResultIndices_[i]);
+    }
+    setActiveItems(pageIndices, forceFirstActive);
+    updateNavigationButtons();
 }

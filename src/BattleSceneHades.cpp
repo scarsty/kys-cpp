@@ -11,6 +11,7 @@
 #include "MainScene.h"
 #include "TeamMenu.h"
 #include "GameState.h"
+#include "ChessManager.h"
 #include "Weather.h"
 
 namespace
@@ -668,18 +669,14 @@ void BattleSceneHades::onEntrance()
             if (index >= extended_teammates_.size()) return std::pair{-1, -1};
 
             KysChess::ChessInstanceID chessInstanceId{extended_teammates_[index].chessInstanceId};
-            if (chessInstanceId == KysChess::k_nonExistentChess)
+            auto chess = KysChess::ChessManager::tryFindChessByInstanceId(chessInstanceId);
+            if (!chess)
                 return std::pair{-1, -1};
 
-            auto& collection = KysChess::GameState::get().getCollection();
-            auto it = collection.find(chessInstanceId);
-            if (it == collection.end())
-                return std::pair{-1, -1};
-
-            auto& chess = it->second;
+            auto& c = *chess;
             return std::pair{
-                chess.weaponInstance.itemId,
-                chess.armorInstance.itemId
+                c.weaponInstance.itemId,
+                c.armorInstance.itemId
             };
         });
         applyOnCopies(enemies_obj_, enemyStates, [&](size_t index) {

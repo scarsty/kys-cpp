@@ -22,17 +22,13 @@ struct SuperMenuTextExtraOptions
     bool needInputBox_ = true;
     bool confirmation_ = false;
     bool exitable_ = false;
-    bool returnIdxOnly = false;
 };
 
 class SuperMenuText : public RunNode
 {
 public:
-    // Backward-compatible constructor (with input box)
-    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage);
-
-    // New constructor with color support and input box control
-    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::pair<int, std::string>>& allItems, int itemsPerPage, SuperMenuTextExtraOptions extraOpts);
+    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::string>& allItems, int itemsPerPage);
+    SuperMenuText(const std::string& title, int fontSize, const std::vector<std::string>& allItems, int itemsPerPage, SuperMenuTextExtraOptions extraOpts);
 
     virtual ~SuperMenuText() = default;
     void dealEvent(EngineEvent& e) override;
@@ -81,6 +77,8 @@ private:
     void updateMaxPages();
     void updateNavigationButtons();
     bool canFlipPage();
+    void setActiveItems(const std::vector<int>& itemIndices, bool forceFirstActive);
+    void applyCurrentPage(bool forceFirstActive);
 
     std::shared_ptr<InputBox> inputBox_;    // Only present if needed, always added as child if present
     std::shared_ptr<TextBox> titleBox_;
@@ -92,7 +90,7 @@ private:
     int fontSize_ = 20;
     std::shared_ptr<MenuText> selections_;
 
-    std::vector<std::pair<int, std::string>> items_;
+    std::vector<std::string> items_;
     SuperMenuTextExtraOptions extraOpts_;
 
     std::vector<int> activeIndices_;

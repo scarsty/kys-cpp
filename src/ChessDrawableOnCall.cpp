@@ -10,7 +10,6 @@ ChessDrawableOnCall::ChessDrawableOnCall(std::function<void(DrawableOnCall*)> dr
 void ChessDrawableOnCall::updateScreenWithContext(const DrawableItemContext& context)
 {
     DrawableOnCall::updateScreenWithContext(context);
-    chessContext_.itemId = context.itemId;
     chessContext_.itemIndex = context.itemIndex;
     chessContext_.previewData = {};
 }
