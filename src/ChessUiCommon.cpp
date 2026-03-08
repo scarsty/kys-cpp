@@ -44,6 +44,7 @@ std::string comboEffectDesc(const ComboEffect& eff)
         if (eff.trigger == Trigger::WhileLowHP) return std::format("血量<{}%: ", eff.triggerValue);
         if (eff.trigger == Trigger::AllyLowHPBurst) return std::format("血量<{}%狂暴({}幀): ", eff.triggerValue, eff.duration);
         if (eff.trigger == Trigger::LastAlive) return "最後存活: ";
+        if (eff.trigger == Trigger::OnHit && eff.triggerValue < 100) return std::format("{}%擊中觸發", eff.triggerValue);
         return "";
     };
     auto countSuffix = [&]() -> std::string {
@@ -70,8 +71,8 @@ std::string comboEffectDesc(const ComboEffect& eff)
     case EffectType::EveryNthDouble: desc = std::format("每{}次雙倍", eff.value); break;
     case EffectType::ArmorPenChance: desc = std::format("{}%穿甲", eff.value); break;
     case EffectType::ArmorPenPct: desc = std::format("無視%防禦", eff.value); break;
-    case EffectType::ArmorPen: desc = std::format("{}%穿甲", eff.triggerValue, eff.value); break;
-    case EffectType::Stun: desc = std::format("{}%眩暈({}幀)", eff.triggerValue, eff.value); break;
+    case EffectType::ArmorPen: desc = std::format("{}%穿甲", eff.value); break;
+    case EffectType::Stun: desc = std::format("眩暈({}幀)", eff.value); break;
     case EffectType::KnockbackChance: desc = std::format("{}%擊退", eff.value); break;
     case EffectType::PoisonDOT: desc = eff.value2 ? std::format("中毒{}%×{}次(每30幀)", eff.value, eff.value2) : std::format("中毒{}%", eff.value); break;
     case EffectType::PoisonDmgAmp: desc = std::format("中毒增傷{}%", eff.value); break;

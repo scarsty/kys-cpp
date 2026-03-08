@@ -40,11 +40,12 @@ void ChessInfoFlow::viewCombos()
         menuData.colors.push_back(owned > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
     }
 
-    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(combos, services_.roleSave, starByRole);
     IndexedMenuConfig menuConfig;
     auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
+    auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(combos, services_.roleSave, starByRole, detailFrame);
     auto menu = makeIndexedMenu("羈絆一覽", menuData, menuConfig, {detailPanel});
     menu->run();
 }
@@ -73,11 +74,12 @@ void ChessInfoFlow::viewNeigong()
         detailNeigongs.push_back(&ng);
     }
 
-    auto detailPanel = std::make_shared<NeigongDetailPanel>(detailNeigongs, obtainedSet);
     IndexedMenuConfig menuConfig;
     auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
+    auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+    auto detailPanel = std::make_shared<NeigongDetailPanel>(detailNeigongs, obtainedSet, detailFrame);
     auto menu = makeIndexedMenu("内功一覽", menuData, menuConfig, {detailPanel});
     menu->run();
 }

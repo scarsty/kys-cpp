@@ -64,12 +64,13 @@ void ChessEquipmentFlow::manageEquipment()
             menuData.colors.push_back(entry.color);
             detailEquipments.push_back(&allEquip[entry.index]);
         }
+        auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
+        auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, 36);
         auto detailPanel = std::make_shared<EquipmentDetailPanel>(detailEquipments, [this](const EquipmentDef& equipment) {
             auto stats = services_.equipmentInventory.getItemStats(equipment.itemId);
             return EquipmentDetailState{stats.totalCount, chessPresenter().buildEquippedBy(services_.roster.items(), equipment.itemId)};
-        });
+        }, detailFrame);
         IndexedMenuConfig menuConfig;
-        auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
         menuConfig.x = menuAnchor.x;
         menuConfig.y = menuAnchor.y;
         auto menu = makeIndexedMenu("裝備一覽", menuData, menuConfig, {detailPanel});

@@ -39,12 +39,13 @@ void ChessChallengeFlow::showExpeditionChallenge()
             menuData.colors.push_back(done ? Color{120, 120, 120, 255} : Color{255, 200, 100, 255});
         }
 
-        auto detailPanel = std::make_shared<ChallengeDetailPanel>(config.challenges, services_.progress, services_.roleSave);
         IndexedMenuConfig menuConfig;
         menuConfig.perPage = static_cast<int>(menuData.labels.size());
         auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
         menuConfig.x = menuAnchor.x;
         menuConfig.y = menuAnchor.y;
+        auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+        auto detailPanel = std::make_shared<ChallengeDetailPanel>(config.challenges, services_.progress, services_.roleSave, detailFrame);
         auto menu = makeIndexedMenu("遠征挑戰", menuData, menuConfig, {detailPanel});
         menu->run();
 

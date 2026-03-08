@@ -8,6 +8,7 @@
 #include "ChessProgress.h"
 #include "ChessRoleSave.h"
 #include "ChessRoster.h"
+#include "ChessScreenLayout.h"
 #include "DrawableOnCall.h"
 
 #include <functional>
@@ -55,6 +56,7 @@ class ComboCatalogDetailPanel : public DrawableOnCall
 {
 public:
     ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole);
+    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame);
 
 private:
     void drawPanel();
@@ -62,6 +64,7 @@ private:
     const std::vector<ComboDef>& combos_;
     ChessRoleSave& roleSave_;
     std::map<int, int> starByRole_;
+    PanelFrame frame_;
 };
 
 class NeigongDetailPanel : public DrawableOnCall
@@ -69,6 +72,8 @@ class NeigongDetailPanel : public DrawableOnCall
 public:
     explicit NeigongDetailPanel(std::vector<const NeigongDef*> neigongs);
     NeigongDetailPanel(std::vector<const NeigongDef*> neigongs, std::set<int> ownedMagicIds);
+    NeigongDetailPanel(std::vector<const NeigongDef*> neigongs, PanelFrame frame);
+    NeigongDetailPanel(std::vector<const NeigongDef*> neigongs, std::set<int> ownedMagicIds, PanelFrame frame);
 
 private:
     void drawPanel();
@@ -76,24 +81,28 @@ private:
     std::vector<const NeigongDef*> neigongs_;
     std::set<int> ownedMagicIds_;
     bool showOwnedState_ = false;
+    PanelFrame frame_;
 };
 
 class EquipmentDetailPanel : public DrawableOnCall
 {
 public:
     EquipmentDetailPanel(std::vector<const EquipmentDef*> equipments, EquipmentDetailProvider detailProvider);
+    EquipmentDetailPanel(std::vector<const EquipmentDef*> equipments, EquipmentDetailProvider detailProvider, PanelFrame frame);
 
 private:
     void drawPanel();
 
     std::vector<const EquipmentDef*> equipments_;
     EquipmentDetailProvider detailProvider_;
+    PanelFrame frame_;
 };
 
 class ChallengeDetailPanel : public DrawableOnCall
 {
 public:
     ChallengeDetailPanel(const std::vector<BalanceConfig::ChallengeDef>& challenges, ChessProgress& progress, ChessRoleSave& roleSave);
+    ChallengeDetailPanel(const std::vector<BalanceConfig::ChallengeDef>& challenges, ChessProgress& progress, ChessRoleSave& roleSave, PanelFrame frame);
 
 private:
     void drawPanel();
@@ -101,6 +110,7 @@ private:
     const std::vector<BalanceConfig::ChallengeDef>& challenges_;
     ChessProgress& progress_;
     ChessRoleSave& roleSave_;
+    PanelFrame frame_;
 };
 
 class BuyExpPreviewPanel : public DrawableOnCall

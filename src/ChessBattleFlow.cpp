@@ -135,7 +135,7 @@ void ChessBattleFlow::enterBattle()
     int equipCount = 0;
     for (auto& level : config.enemyEquipmentLevels)
     {
-        if (fightNum >= level.fight)
+        if (fightNum + 1 >= level.fight)
         {
             maxTier = level.maxTier;
             equipCount = level.count;
@@ -179,6 +179,7 @@ void ChessBattleFlow::enterBattle()
         {
             rewardFlow_.showNeigongReward();
         }
+        rewardFlow_.showEquipmentReward();
         battleProgress.advance();
         if (!services_.shop.isLocked())
         {

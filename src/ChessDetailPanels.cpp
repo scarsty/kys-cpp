@@ -77,9 +77,8 @@ struct PanelColumnFlow
     }
 };
 
-void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
+void drawNeigongDetail(const NeigongDef& ng, PanelFrame frame, int ownedState = -1)
 {
-    auto frame = ChessScreenLayout::neigongDetailPanel();
     ChessScreenLayout::drawPanel(frame);
     TextureManager::getInstance()->renderTexture("item", ng.itemId, frame.x + 10, frame.y + 10);
     int fs = 24;
@@ -100,9 +99,8 @@ void drawNeigongDetail(const NeigongDef& ng, int ownedState = -1)
     }
 }
 
-void drawEquipmentDetail(const EquipmentDef& eq, int count, const std::string& equippedBy)
+void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, const std::string& equippedBy)
 {
-    auto frame = ChessScreenLayout::equipmentDetailPanel();
     ChessScreenLayout::drawPanel(frame);
     auto* item = eq.getItem();
     if (item)
@@ -110,7 +108,7 @@ void drawEquipmentDetail(const EquipmentDef& eq, int count, const std::string& e
         TextureManager::getInstance()->renderTexture("item", eq.itemId, frame.x + 10, frame.y + 10);
     }
     int fs = 28;
-    PanelTextCursor header{Font::getInstance(), frame.x + 100, frame.y + 10};
+    PanelTextCursor header{Font::getInstance(), frame.x + 150, frame.y + 10};
     header.line(item ? item->Name : "???", fs + 4, {255, 255, 100, 255}, 6);
     std::string tierName[] = {"初階", "中階", "高階", "傳說"};
     Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
@@ -121,7 +119,7 @@ void drawEquipmentDetail(const EquipmentDef& eq, int count, const std::string& e
         header.line(std::format("裝備於: {}", equippedBy), fs, {100, 200, 255, 255});
     }
 
-    PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 120};
+    PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
     if (!eq.effects.empty())
     {
         body.line("特殊效果:", fs, {255, 200, 100, 255});
@@ -296,10 +294,16 @@ void OwnedRosterPanel::drawPanel()
 }
 
 ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole)
+    : ComboCatalogDetailPanel(combos, roleSave, std::move(starByRole), ChessScreenLayout::comboCatalogDetailPanel())
+{
+}
+
+ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , combos_(combos)
     , roleSave_(roleSave)
     , starByRole_(std::move(starByRole))
+    , frame_(frame)
 {
 }
 
@@ -312,7 +316,7 @@ void ComboCatalogDetailPanel::drawPanel()
     }
 
     auto& combo = combos_[idx];
-    auto frame = ChessScreenLayout::comboCatalogDetailPanel();
+    auto frame = frame_;
     ChessScreenLayout::drawPanel(frame);
     int fs = 24;
     auto* font = Font::getInstance();
@@ -371,16 +375,28 @@ void ComboCatalogDetailPanel::drawPanel()
 }
 
 NeigongDetailPanel::NeigongDetailPanel(std::vector<const NeigongDef*> neigongs)
+    : NeigongDetailPanel(std::move(neigongs), ChessScreenLayout::neigongDetailPanel())
+{
+}
+
+NeigongDetailPanel::NeigongDetailPanel(std::vector<const NeigongDef*> neigongs, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , neigongs_(std::move(neigongs))
+    , frame_(frame)
 {
 }
 
 NeigongDetailPanel::NeigongDetailPanel(std::vector<const NeigongDef*> neigongs, std::set<int> ownedMagicIds)
+    : NeigongDetailPanel(std::move(neigongs), std::move(ownedMagicIds), ChessScreenLayout::neigongDetailPanel())
+{
+}
+
+NeigongDetailPanel::NeigongDetailPanel(std::vector<const NeigongDef*> neigongs, std::set<int> ownedMagicIds, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , neigongs_(std::move(neigongs))
     , ownedMagicIds_(std::move(ownedMagicIds))
     , showOwnedState_(true)
+    , frame_(frame)
 {
 }
 
@@ -401,13 +417,19 @@ void NeigongDetailPanel::drawPanel()
     {
         ownedState = ownedMagicIds_.contains(ng->magicId) ? 1 : 0;
     }
-    drawNeigongDetail(*ng, ownedState);
+    drawNeigongDetail(*ng, frame_, ownedState);
 }
 
 EquipmentDetailPanel::EquipmentDetailPanel(std::vector<const EquipmentDef*> equipments, EquipmentDetailProvider detailProvider)
+    : EquipmentDetailPanel(std::move(equipments), std::move(detailProvider), ChessScreenLayout::equipmentDetailPanel())
+{
+}
+
+EquipmentDetailPanel::EquipmentDetailPanel(std::vector<const EquipmentDef*> equipments, EquipmentDetailProvider detailProvider, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , equipments_(std::move(equipments))
     , detailProvider_(std::move(detailProvider))
+    , frame_(frame)
 {
 }
 
@@ -424,14 +446,20 @@ void EquipmentDetailPanel::drawPanel()
         return;
     }
     auto detail = detailProvider_ ? detailProvider_(*equipment) : EquipmentDetailState{};
-    drawEquipmentDetail(*equipment, detail.count, detail.equippedBy);
+    drawEquipmentDetail(*equipment, frame_, detail.count, detail.equippedBy);
 }
 
 ChallengeDetailPanel::ChallengeDetailPanel(const std::vector<BalanceConfig::ChallengeDef>& challenges, ChessProgress& progress, ChessRoleSave& roleSave)
+    : ChallengeDetailPanel(challenges, progress, roleSave, ChessScreenLayout::challengeDetailPanel())
+{
+}
+
+ChallengeDetailPanel::ChallengeDetailPanel(const std::vector<BalanceConfig::ChallengeDef>& challenges, ChessProgress& progress, ChessRoleSave& roleSave, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , challenges_(challenges)
     , progress_(progress)
     , roleSave_(roleSave)
+    , frame_(frame)
 {
 }
 
@@ -444,7 +472,7 @@ void ChallengeDetailPanel::drawPanel()
     }
 
     auto& challenge = challenges_[idx];
-    auto frame = ChessScreenLayout::challengeDetailPanel();
+    auto frame = frame_;
     ChessScreenLayout::drawPanel(frame);
     int fs = 22;
     PanelTextCursor cursor{Font::getInstance(), frame.x + 10, frame.y + 10};

@@ -12,6 +12,7 @@ public:
     explicit ChessRewardFlow(const ChessSelectorServices& services);
 
     void showNeigongReward();
+    void showEquipmentReward();
     int selectChallengeReward(const std::vector<BalanceConfig::ChallengeReward>& rewards);
     bool applyReward(const BalanceConfig::ChallengeReward& reward);
 

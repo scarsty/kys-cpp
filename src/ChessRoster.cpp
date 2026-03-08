@@ -113,6 +113,7 @@ void ChessRoster::update(Chess chess)
         if (instance.id != k_nonExistentItem)
         {
             assert(equipmentInventory_.contains(instance.id));
+            equipmentInventory_.clearAssignment(instance.id);
             equipmentInventory_.assignToChess(instance.id, chess.id);
         }
     };

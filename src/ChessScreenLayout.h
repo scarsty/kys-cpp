@@ -1,6 +1,11 @@
 #pragma once
 
 #include "Engine.h"
+#include "Font.h"
+
+#include <algorithm>
+#include <string>
+#include <vector>
 
 namespace KysChess
 {
@@ -39,6 +44,31 @@ inline PanelFrame browseDetailRegion()
     return {region.x + 445, region.y + 10, 725, 610};
 }
 
+inline int estimateMenuWidth(const std::vector<std::string>& labels, int fontSize, int extraPadding = 48)
+{
+    int maxUnits = 0;
+    for (const auto& label : labels)
+    {
+        maxUnits = std::max(maxUnits, Font::getTextDrawSize(label));
+    }
+    return maxUnits * fontSize / 2 + extraPadding;
+}
+
+inline PanelFrame browseDetailRegionForMenu(const PanelAnchor& menuAnchor, const std::vector<std::string>& labels, int fontSize)
+{
+    auto region = fullContentRegion();
+    auto fallback = browseDetailRegion();
+    int menuRight = menuAnchor.x + estimateMenuWidth(labels, fontSize);
+    int left = std::max(fallback.x, menuRight + 40);
+    int right = region.x + region.w - 10;
+    int minWidth = 560;
+    if (right - left < minWidth)
+    {
+        left = std::max(fallback.x, right - minWidth);
+    }
+    return {left, fallback.y, right - left, fallback.h};
+}
+
 inline PanelAnchor shopMenuAnchor()
 {
     auto region = fullContentRegion();
@@ -59,12 +89,12 @@ inline PanelAnchor browseMenuAnchor()
 
 inline PanelAnchor buyExpMenuAnchor()
 {
-    return {210, 215};
+    return {170, 255};
 }
 
 inline PanelAnchor positionSwapMenuAnchor()
 {
-    return {170, 245};
+    return {170, 255};
 }
 
 inline PanelFrame shopOwnedPanel()
@@ -104,12 +134,12 @@ inline PanelFrame challengeDetailPanel()
 
 inline PanelFrame buyExpPreviewPanel()
 {
-    return {355, 165, 570, 300};
+    return {400, 180, 540, 300};
 }
 
 inline PanelFrame positionSwapPanel()
 {
-    return {300, 185, 680, 270};
+    return {420, 180, 540, 270};
 }
 
 inline PanelFrame guidePanel()
