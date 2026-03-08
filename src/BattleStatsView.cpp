@@ -1,4 +1,5 @@
 #include "BattleStatsView.h"
+#include "ChessLegacyAdapters.h"
 #include "BattleRoleManager.h"
 #include <algorithm>
 #include "Engine.h"
@@ -241,7 +242,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);
 
             // Equipment icons
-            auto chess = KysChess::ChessManager::tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
+            auto chess = KysChess::ChessManager(KysChess::legacyChessGameState()).tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
             if (chess)
             {
                 int weaponId = chess->weaponInstance.itemId;

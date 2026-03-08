@@ -1,4 +1,5 @@
 ﻿#include "BattleSceneHades.h"
+#include "ChessLegacyAdapters.h"
 #include "Audio.h"
 #include "BattleRoleManager.h"
 #include "ChessBalance.h"
@@ -669,7 +670,7 @@ void BattleSceneHades::onEntrance()
             if (index >= extended_teammates_.size()) return std::pair{-1, -1};
 
             KysChess::ChessInstanceID chessInstanceId{extended_teammates_[index].chessInstanceId};
-            auto chess = KysChess::ChessManager::tryFindChessByInstanceId(chessInstanceId);
+            auto chess = KysChess::ChessManager(KysChess::legacyChessGameState()).tryFindChessByInstanceId(chessInstanceId);
             if (!chess)
                 return std::pair{-1, -1};
 
