@@ -12,9 +12,9 @@ namespace
 bool addChessWithAutoMerge(ChessRoster& roster, ChessManager& manager, Role* role)
 {
     Chess newChess = roster.create(role, 1);
-    bool willMerge = roster.wouldMerge(role, 1);
     roster.update(newChess);
 
+    bool didMerge = false;
     for (int level = 0; level < 2 && newChess.star <= 2; level++)
     {
         if (!roster.canMerge(newChess.role, newChess.star)) break;
@@ -35,9 +35,10 @@ bool addChessWithAutoMerge(ChessRoster& roster, ChessManager& manager, Role* rol
             newChess.selectedForBattle = true;
         }
         roster.update(newChess);
+        didMerge = true;
     }
 
-    return willMerge;
+    return didMerge;
 }
 
 }  // namespace
