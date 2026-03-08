@@ -22,7 +22,7 @@ github：https://github.com/scarsty/kys-cpp
 
 Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
-.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua sqlite3 libiconv asio picosha2 yaml-cpp opencv libzip
+.\vcpkg install sdl3 sdl3-image[png] sdl3-ttf lua sqlite3 libiconv asio picosha2 yaml-cpp opencv libzip glaze
 SDL3的Mixer似乎还没有完成，目前使用bass播放音效。
 ```
 建议执行：
@@ -38,6 +38,8 @@ git submodule update
 git submodule update --remote --rebase
 ```
 之后使用Visual Studio（尽量用新版）打开kys.sln，编译即可。工程为x64版本，如需要x86版请自行修改。
+
+目前 GameDataStore 的棋局扩展存档使用 glaze 反射为 JSON 后写入 SQLite，旧版棋局扩展表结构不再兼容。
 
 上面的方法不含播放视频功能。如需要此功能，例如播放开场动画，则需先编译smallpot的动态库，比较复杂，请与作者联系。
 

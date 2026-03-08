@@ -1,5 +1,4 @@
 #pragma once
-#include <unordered_map>
 #include <set>
 #include <vector>
 #include "Chess.h"
@@ -12,17 +11,22 @@ namespace KysChess
 
 // Pure storage structures - no game logic
 struct StoredChess {
-    int roleId;
-    int star;
-    int chessInstanceId;
-    bool selectedForBattle;
-    int weaponInstanceId;
-    int armorInstanceId;
+    int roleId = 0;
+    int star = 0;
+    int chessInstanceId = 0;
+    bool selectedForBattle = false;
+    int weaponInstanceId = -1;
+    int armorInstanceId = -1;
 };
 
-struct StoredEquipment {
-    int weapon = -1;
-    int armor = -1;
+struct StoredShopEntry {
+    int roleId = 0;
+    int tier = 0;
+};
+
+struct StoredEquipmentInventoryEntry {
+    int equipInstanceId = -1;
+    int itemId = -1;
 };
 
 struct GameDataStore {
@@ -43,13 +47,10 @@ struct GameDataStore {
 
     // Collections
     std::vector<StoredChess> storedCollection;
-    std::vector<std::pair<int, int>> currentShop; // roleId, tier
+    std::vector<StoredShopEntry> currentShop;
     std::vector<int> obtainedNeigong;
     std::set<int> completedChallenges;
-
-    // from equipment instance id to item id
-    // equipment id here is unique, we can have multiple item id 
-    std::unordered_map<int, int> equipmentInventory;
+    std::vector<StoredEquipmentInventoryEntry> equipmentInventory;
 
     void save(SQLite3Wrapper& db) const;
     void load(SQLite3Wrapper& db);

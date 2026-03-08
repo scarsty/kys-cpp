@@ -76,7 +76,7 @@ GameDataStore GameState::exportStore() const
     exported.currentShop.clear();
     auto shop = chessPool.getCurrentShop();
     for (auto [role, star] : shop) {
-        exported.currentShop.emplace_back(role->ID, star);
+        exported.currentShop.push_back({role->ID, star});
     }
 
     exported.fight = battleProgress.getFight();
@@ -91,7 +91,7 @@ GameDataStore GameState::exportStore() const
 
     exported.equipmentInventory.clear();
     for (const auto& [id, attachableItem] : equipments_) {
-        exported.equipmentInventory[id.value] = attachableItem.instance.itemId;
+        exported.equipmentInventory.push_back({id.value, attachableItem.instance.itemId});
     }
     
     return exported;
@@ -106,8 +106,8 @@ void GameState::importStore(const GameDataStore& store)
     equipments_.clear();
 
     std::vector<std::pair<Role*, int>> shopRoles;
-    for (const auto& [roleID, star] : currentShop) {
-        shopRoles.emplace_back(Save::getInstance()->getRole(roleID), star);
+    for (const auto& shopEntry : currentShop) {
+        shopRoles.emplace_back(Save::getInstance()->getRole(shopEntry.roleId), shopEntry.tier);
     }
     chessPool.restoreShop(shopRoles);
 
@@ -115,9 +115,9 @@ void GameState::importStore(const GameDataStore& store)
 
     // Rebuild equipment instances first so collection entries can restore both
     // instance ids and item ids consistently.
-    for (auto [instId, itemId] : equipmentInventory) {
-        ItemInstanceID id{instId};
-        InstancedItem instance{.id=id, .itemId=itemId};
+    for (const auto& entry : equipmentInventory) {
+        ItemInstanceID id{entry.equipInstanceId};
+        InstancedItem instance{.id=id, .itemId=entry.itemId};
         equipments_[id] = {instance, k_nonExistentChess};
     }
 

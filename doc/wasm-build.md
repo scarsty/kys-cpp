@@ -61,6 +61,7 @@ git pull
 vcpkg install sqlite3:wasm32-emscripten
 vcpkg install yaml-cpp:wasm32-emscripten
 vcpkg install "libzip[core,bzip2]:wasm32-emscripten"
+vcpkg install glaze:wasm32-emscripten
 ```
 
 > **Note**: Install libzip with `[core,bzip2]` only — the default openssl feature fails to build for WASM.
