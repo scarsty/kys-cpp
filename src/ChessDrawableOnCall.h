@@ -16,10 +16,12 @@ public:
     ChessDrawableOnCall(std::function<void(DrawableOnCall*)> draw);
     void updateScreenWithContext(const DrawableItemContext& context) override;
     void updateScreenWithChessContext(const ChessDrawableItemContext& context);
+    void setPreviewData(std::vector<Chess> previewData);
     Chess getPreviewData() const { return chessContext_.previewData; }
 
 protected:
     ChessDrawableItemContext chessContext_;
+    std::vector<Chess> previewData_;
 };
 
 }

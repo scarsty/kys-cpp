@@ -11,6 +11,7 @@ namespace KysChess
 
 class ChessEconomy;
 class ChessEquipmentInventory;
+struct ChessSelectorServices;
 class ChessProgress;
 class ChessRandom;
 class ChessRoleSave;
@@ -45,16 +46,7 @@ public:
     void showPositionSwap();
 
 private:
-    int selectChallengeReward(const std::vector<BalanceConfig::ChallengeReward>& rewards);
-    bool applyReward(const BalanceConfig::ChallengeReward& reward);
-    bool rewardGold(int amount);
-    bool rewardPiece(int maxTier);
-    bool rewardNeigong(int maxTier);
-    bool rewardStarUp(int fromStar, int maxTier);
-    bool rewardEquipment(int maxTier, int specificId = -1);
-    bool addChessPiece(Role* role, bool showMessage = true);
-
-    Role* getRoleById(int roleId) const;
+    ChessSelectorServices services() const;
 
     ChessRoleSave& roleSave_;
     ChessEquipmentInventory& equipmentInventory_;

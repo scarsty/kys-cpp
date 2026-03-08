@@ -196,6 +196,15 @@
     </ClCompile>
     <ClCompile Include="ChessUIStatus.cpp" />
     <ClCompile Include="ChessPool.cpp" />
+    <ClCompile Include="ChessUiCommon.cpp" />
+    <ClCompile Include="ChessMenuHelpers.cpp" />
+    <ClCompile Include="ChessDetailPanels.cpp" />
+    <ClCompile Include="ChessShopFlow.cpp" />
+    <ClCompile Include="ChessInfoFlow.cpp" />
+    <ClCompile Include="ChessRewardFlow.cpp" />
+    <ClCompile Include="ChessBattleFlow.cpp" />
+    <ClCompile Include="ChessChallengeFlow.cpp" />
+    <ClCompile Include="ChessEquipmentFlow.cpp" />
     <ClCompile Include="UIRoleStatusMenu.cpp" />
     <ClCompile Include="UIStatusDrawable.cpp" />
     <ClCompile Include="TempStore.cpp" />
@@ -412,6 +421,16 @@
     </ClInclude>
     <ClInclude Include="ChessUIStatus.h" />
     <ClInclude Include="ChessPool.h" />
+    <ClInclude Include="ChessUiCommon.h" />
+    <ClInclude Include="ChessMenuHelpers.h" />
+    <ClInclude Include="ChessScreenLayout.h" />
+    <ClInclude Include="ChessDetailPanels.h" />
+    <ClInclude Include="ChessShopFlow.h" />
+    <ClInclude Include="ChessInfoFlow.h" />
+    <ClInclude Include="ChessRewardFlow.h" />
+    <ClInclude Include="ChessBattleFlow.h" />
+    <ClInclude Include="ChessChallengeFlow.h" />
+    <ClInclude Include="ChessEquipmentFlow.h" />
     <ClInclude Include="UIRoleStatusMenu.h" />
     <ClInclude Include="UIStatusDrawable.h" />
     <ClInclude Include="TempStore.h" />

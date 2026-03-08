@@ -4,6 +4,7 @@
 #include "ChessCombo.h"
 #include "ChessManager.h"
 #include "ChessPool.h"
+#include "ChessScreenLayout.h"
 #include "Engine.h"
 #include "GameUtil.h"
 #include "GameState.h"
@@ -14,9 +15,13 @@ void ChessUIStatus::draw()
 {
     if (!chess_.role) return;
 
+    auto frame = ChessScreenLayout::shopStatusPanel();
+    int panelW = frame.w;
+    int panelH = frame.h;
+
     // Draw translucent black background
-    Engine::getInstance()->fillRoundedRect({0, 0, 0, 128}, x_, y_, 460, 430, 8);
-    Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, x_, y_, 460, 430, 8);
+    Engine::getInstance()->fillRoundedRect({0, 0, 0, 128}, x_, y_, panelW, panelH, 8);
+    Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, x_, y_, panelW, panelH, 8);
 
     auto& gd = KysChess::GameState::get();
     auto font = Font::getInstance();
@@ -171,7 +176,7 @@ void ChessUIStatus::draw()
             Color col = active ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
             font->draw(std::format("{}", combo.name), font_size - 2, x + 10, y, col);
             y += 20;
-            if (y > y_ + 440) break;
+            if (y > y_ + panelH - 10) break;
         }
     }
 
@@ -179,7 +184,7 @@ void ChessUIStatus::draw()
     if (chess_.id.value >= 0)
     {
         y += 8;
-        if (y < y_ + 400)
+        if (y < y_ + panelH - 30)
         {
             font->draw("裝備", font_size, x, y, color_name);
             y += 24;
