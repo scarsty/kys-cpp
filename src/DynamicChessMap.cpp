@@ -1,8 +1,13 @@
 #include "DynamicChessMap.h"
-#include "GameState.h"
 #include <algorithm>
 
-std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBattleRoles& roles, int battle_id)
+std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(
+    const DynamicBattleRoles& roles,
+    KysChess::ChessRandom& random,
+    KysChess::ChessRoleSave& roleSave,
+    KysChess::ChessProgress& progress,
+    KysChess::ChessManager& chessManager,
+    int battle_id)
 {
     const auto& maps = getTopMaps();
     int map_index = -1;
@@ -34,13 +39,14 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(const DynamicBat
             }
             candidates.push_back(best);
         }
-        map_index = candidates[KysChess::GameState::get().enemyRandInt(candidates.size())];
+        size_t candidateIndex = static_cast<size_t>(random.enemyRandInt(static_cast<int>(candidates.size())));
+        map_index = candidates[candidateIndex];
     }
 
     const auto& selected_map = maps[map_index];
 
     // Create battle scene
-    auto battle = std::make_shared<BattleSceneHades>();
+    auto battle = std::make_shared<BattleSceneHades>(roleSave, progress, chessManager);
     battle->setID(selected_map.battle_id);
     battle->setNoExp();
 

@@ -1,0 +1,29 @@
+#include "ChessShop.h"
+
+#include "ChessRoleSave.h"
+
+namespace KysChess
+{
+
+ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave)
+    : pool_(random, roleSave)
+{
+}
+
+ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave, const GameDataStore& store)
+    : pool_(random, roleSave, store.currentShop)
+{
+    locked_ = store.shopLocked;
+}
+
+void ChessShop::exportTo(GameDataStore& store) const
+{
+    store.shopLocked = locked_;
+    store.currentShop.clear();
+    for (auto [role, star] : pool_.getCurrentShop())
+    {
+        store.currentShop.push_back({role->ID, star});
+    }
+}
+
+}

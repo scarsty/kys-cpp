@@ -1,6 +1,7 @@
 ﻿#include "MainScene.h"
 #include "ChessSelector.h"
 #include "Console.h"
+#include "GameState.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "Random.h"
@@ -272,7 +273,16 @@ void MainScene::dealEvent(EngineEvent& e)
         //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
         || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
-        KysChess::ChessSelector::showContextMenu();
+        auto& gameState = KysChess::GameState::get();
+        KysChess::ChessSelector selector(
+            gameState.roleSave(),
+            gameState.equipmentInventory(),
+            gameState.roster(),
+            gameState.shop(),
+            gameState.progress(),
+            gameState.economy(),
+            gameState.random());
+        selector.showContextMenu();
     }
     //LOG("{} {} {}\n",current_frame_, Engine::getTicks(), Timer::getNowAsString());
     int x = man_x_, y = man_y_;

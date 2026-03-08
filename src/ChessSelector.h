@@ -9,33 +9,60 @@ struct DynamicBattleRoles;
 namespace KysChess
 {
 
+class ChessEconomy;
+class ChessEquipmentInventory;
+class ChessProgress;
+class ChessRandom;
+class ChessRoleSave;
+class ChessRoster;
+class ChessShop;
+
 class ChessSelector
 {
 public:
-    static void getChess();
-    static void sellChess();
-    static void selectForBattle();
-    static void enterBattle();
-    static int runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id = -1, int seed = -1);
-    static void buyExp();
-    static void showContextMenu();
-    static void viewCombos();
-    static void showNeigongReward();
-    static void viewNeigong();
-    static void manageEquipment();
-    static void showExpeditionChallenge();
-    static void showGameGuide();
-    static void showPositionSwap();
+    ChessSelector(
+        ChessRoleSave& roleSave,
+        ChessEquipmentInventory& equipmentInventory,
+        ChessRoster& roster,
+        ChessShop& shop,
+        ChessProgress& progress,
+        ChessEconomy& economy,
+        ChessRandom& random);
+
+    void getChess();
+    void sellChess();
+    void selectForBattle();
+    void enterBattle();
+    int runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id = -1, int seed = -1);
+    void buyExp();
+    void showContextMenu();
+    void viewCombos();
+    void showNeigongReward();
+    void viewNeigong();
+    void manageEquipment();
+    void showExpeditionChallenge();
+    void showGameGuide();
+    void showPositionSwap();
 
 private:
-    static int selectChallengeReward(const std::vector<BalanceConfig::ChallengeReward>& rewards);
-    static bool applyReward(const BalanceConfig::ChallengeReward& reward);
-    static bool rewardGold(int amount);
-    static bool rewardPiece(int maxTier);
-    static bool rewardNeigong(int maxTier);
-    static bool rewardStarUp(int fromStar, int maxTier);
-    static bool rewardEquipment(int maxTier, int specificId = -1);
-    static bool addChessPiece(Role* role, bool showMessage = true);
+    int selectChallengeReward(const std::vector<BalanceConfig::ChallengeReward>& rewards);
+    bool applyReward(const BalanceConfig::ChallengeReward& reward);
+    bool rewardGold(int amount);
+    bool rewardPiece(int maxTier);
+    bool rewardNeigong(int maxTier);
+    bool rewardStarUp(int fromStar, int maxTier);
+    bool rewardEquipment(int maxTier, int specificId = -1);
+    bool addChessPiece(Role* role, bool showMessage = true);
+
+    Role* getRoleById(int roleId) const;
+
+    ChessRoleSave& roleSave_;
+    ChessEquipmentInventory& equipmentInventory_;
+    ChessRoster& roster_;
+    ChessShop& shop_;
+    ChessProgress& progress_;
+    ChessEconomy& economy_;
+    ChessRandom& random_;
 };
 
 }    //namespace KysChess

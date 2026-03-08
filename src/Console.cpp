@@ -54,7 +54,7 @@ Console::Console()
     }
     if (code == "showmethemoney")
     {
-        KysChess::GameState::get().make(100);
+        KysChess::GameState::get().economy().make(100);
     }
     else if (code == "test")
     {
@@ -86,7 +86,7 @@ Console::Console()
 
         // Temporarily override neigong
         auto& gd = KysChess::GameState::get();
-        auto savedNeigong = gd.getObtainedNeigong();
+        auto savedNeigong = gd.progress().getObtainedNeigong();
         if (cfg["内功"])
         {
             std::vector<int> testNg;
@@ -94,7 +94,7 @@ Console::Console()
             {
                 testNg.push_back(n.as<int>());
             }
-            gd.setObtainedNeigong(std::move(testNg));
+            gd.progress().setObtainedNeigong(std::move(testNg));
         }
 
         // Auto-save
@@ -105,14 +105,14 @@ Console::Console()
         std::vector<KysChess::Chess> allyChess;
         for (size_t i = 0; i < roles.teammate_ids.size(); i++)
         {
-            auto r = Save::getInstance()->getRole(roles.teammate_ids[i]);
+            auto r = KysChess::GameState::get().roleSave().getRole(roles.teammate_ids[i]);
             if (!r) continue;
 
             KysChess::Chess chess{ r, roles.teammate_stars[i] };
             if (i < roles.teammate_instances.size())
             {
                 KysChess::ChessInstanceID chessInstanceId{roles.teammate_instances[i]};
-                auto& collection = KysChess::GameState::get().getCollection();
+                auto& collection = KysChess::GameState::get().roster().items();
                 auto it = collection.find(chessInstanceId);
                 if (it != collection.end())
                     chess = it->second;
@@ -123,11 +123,19 @@ Console::Console()
             allyChess.push_back(chess);
         }
 
-        int result = KysChess::ChessSelector::runBattle(roles, allyChess, battle_id, seed);
+        KysChess::ChessSelector selector(
+            gd.roleSave(),
+            gd.equipmentInventory(),
+            gd.roster(),
+            gd.shop(),
+            gd.progress(),
+            gd.economy(),
+            gd.random());
+        int result = selector.runBattle(roles, allyChess, battle_id, seed);
         std::print("【测试】战斗结束，结果：{}\n", result == 0 ? "胜利" : "失败");
 
         // Restore neigong and reload auto-save
-        gd.setObtainedNeigong(std::move(savedNeigong));
+        gd.progress().setObtainedNeigong(std::move(savedNeigong));
         UISave::loadAuto();
         std::print("【测试】已恢复存档\n");
     }

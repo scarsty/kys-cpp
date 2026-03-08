@@ -2,7 +2,6 @@
 #include "BattleRoleManager.h"
 #include "BattleSceneHades.h"
 #include "ChessCombo.h"
-#include "ChessLegacyAdapters.h"
 #include "ChessManager.h"
 #include "ChessPool.h"
 #include "Engine.h"
@@ -19,7 +18,7 @@ void ChessUIStatus::draw()
     Engine::getInstance()->fillRoundedRect({0, 0, 0, 128}, x_, y_, 460, 430, 8);
     Engine::getInstance()->drawRoundedRect({180, 170, 140, 200}, x_, y_, 460, 430, 8);
 
-    auto& gd = KysChess::legacyChessGameState();
+    auto& gd = KysChess::GameState::get();
     auto font = Font::getInstance();
     Color color_white = { 255, 255, 255, 255 };
     Color color_name = { 255, 215, 0, 255 };
@@ -138,7 +137,7 @@ void ChessUIStatus::draw()
     font->draw("擁有", font_size, x, y, color_name);
     int ox = x + 50;
     std::map<int, int> starCounts;
-    for (auto& [instanceId, chess] : gd.getCollection())
+    for (auto& [instanceId, chess] : gd.roster().items())
     {
         if (chess.role->ID == chess_.role->ID)
             starCounts[chess.star]++;
@@ -158,7 +157,8 @@ void ChessUIStatus::draw()
     {
         font->draw("羈絆", font_size, x, y, color_name);
         y += 24;
-        auto starByRole = KysChess::ChessCombo::buildStarMap(KysChess::ChessManager(KysChess::legacyChessGameState()).getSelectedForBattle());
+        auto& gameState = KysChess::GameState::get();
+        auto starByRole = KysChess::ChessCombo::buildStarMap(KysChess::ChessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy()).getSelectedForBattle());
         auto& allCombos = KysChess::ChessCombo::getAllCombos();
         for (auto cid : roleCombos)
         {

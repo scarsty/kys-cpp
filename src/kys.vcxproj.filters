@@ -154,9 +154,6 @@
     <ClCompile Include="RunNodeFromJson.cpp">
       <Filter>runnode</Filter>
     </ClCompile>
-    <ClCompile Include="BattleSceneSekiro.cpp">
-      <Filter>battle</Filter>
-    </ClCompile>
     <ClCompile Include="Engine.cpp">
       <Filter>engine</Filter>
     </ClCompile>
@@ -187,9 +184,6 @@
     <ClCompile Include="kys.cpp" />
     <ClCompile Include="Camera.cpp">
       <Filter>camera</Filter>
-    </ClCompile>
-    <ClCompile Include="BattleScenePaper.cpp">
-      <Filter>battle</Filter>
     </ClCompile>
     <ClCompile Include="..\mlcc\SimpleCC.cpp">
       <Filter>mlcc</Filter>
@@ -365,9 +359,6 @@
     <ClInclude Include="RunNodeFromJson.h">
       <Filter>runnode</Filter>
     </ClInclude>
-    <ClInclude Include="BattleSceneSekiro.h">
-      <Filter>battle</Filter>
-    </ClInclude>
     <ClInclude Include="..\mlcc\filefunc.h">
       <Filter>mlcc</Filter>
     </ClInclude>
@@ -409,9 +400,6 @@
     </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>camera</Filter>
-    </ClInclude>
-    <ClInclude Include="BattleScenePaper.h">
-      <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="..\mlcc\SimpleCC.h">
       <Filter>mlcc</Filter>

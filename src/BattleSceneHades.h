@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
+#include "ChessManager.h"
+#include "ChessProgress.h"
+#include "ChessRoleSave.h"
 #include "Head.h"
 #include <deque>
 #include <set>
@@ -12,8 +15,8 @@ class BattleSceneHades : public BattleSceneAct
 {
     friend class PositionSwapNode;
 public:
-    BattleSceneHades();
-    BattleSceneHades(int id);
+    BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager);
+    BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager);
     virtual ~BattleSceneHades();
 
     //继承自基类的函数
@@ -67,6 +70,9 @@ public:
     static const char* getOperationTypeName(int operationType);
 
 protected:
+    KysChess::ChessRoleSave& roleSave_;
+    KysChess::ChessProgress& progress_;
+    KysChess::ChessManager& chessManager_;
     BattleTracker tracker_;
     Role* swapSelected_ = nullptr;
     bool positionSwapActive_ = false;

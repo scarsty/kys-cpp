@@ -1,5 +1,6 @@
 #pragma once
 #include "BattleSceneHades.h"
+#include "ChessRandom.h"
 #include <memory>
 #include <vector>
 #include <Chess.h>
@@ -22,7 +23,13 @@ public:
     // Creates a BattleSceneHades with randomly selected map and extended battle info
     // teammates: Role IDs for teammates (up to 10)
     // enemies: Role IDs for enemies (up to 20)
-    static std::shared_ptr<BattleSceneHades> createBattle(const DynamicBattleRoles& roles, int battle_id = -1);
+    static std::shared_ptr<BattleSceneHades> createBattle(
+        const DynamicBattleRoles& roles,
+        KysChess::ChessRandom& random,
+        KysChess::ChessRoleSave& roleSave,
+        KysChess::ChessProgress& progress,
+        KysChess::ChessManager& chessManager,
+        int battle_id = -1);
 
 private:
     struct MapInfo

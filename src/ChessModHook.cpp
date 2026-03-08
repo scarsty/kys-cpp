@@ -14,6 +14,21 @@ namespace KysChess
 static constexpr int MOD_SCENE_ID = 53;    // 擂鼓山
 static bool needIntro_ = false;
 
+ChessMod::ChessMod(GameState& gameState)
+    : gameState_(gameState)
+    , selector_(std::make_unique<ChessSelector>(
+        gameState.roleSave(),
+        gameState.equipmentInventory(),
+        gameState.roster(),
+        gameState.shop(),
+        gameState.progress(),
+        gameState.economy(),
+        gameState.random()))
+{
+}
+
+    ChessMod::~ChessMod() = default;
+
 bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
 {
     scene = MOD_SCENE_ID;
@@ -21,23 +36,22 @@ bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
     y = 54;
     event = -1;
     GameState::get().reset();
-    GameState::get().initRand();
     ChessCombo::clearActiveStates();
     needIntro_ = true;
     return true;
 }
 
-bool ChessModHook::interceptEvent(int submap_id, int event_id)
+bool ChessMod::interceptEvent(int submap_id, int event_id)
 {
     if (submap_id == MOD_SCENE_ID && event_id > 0)
     {
-        ChessSelector::showContextMenu();
+        showContextMenu();
         return true;
     }
     return false;
 }
 
-void ChessModHook::onSubSceneEntrance(int submap_id)
+void ChessMod::onSubSceneEntrance(int submap_id)
 {
     if (submap_id == MOD_SCENE_ID && needIntro_)
     {
@@ -61,16 +75,21 @@ void ChessModHook::onSubSceneEntrance(int submap_id)
         }
         auto difficulty = (diff == 1) ? Difficulty::Normal : Difficulty::Easy;
         ChessBalance::setDifficulty(difficulty);
-        GameState::get().setMoney(ChessBalance::config().initialMoney);
+        gameState_.economy().setMoney(ChessBalance::config().initialMoney);
     }
 }
 
-bool ChessModHook::blockExit(int submap_id)
+bool ChessMod::blockExit(int submap_id) const
 {
     return submap_id == MOD_SCENE_ID;
 }
 
-void ChessModHook::showMenu()
+void ChessMod::showContextMenu()
+{
+    selector_->showContextMenu();
+}
+
+void ChessMod::showMenu()
 {
     auto menu = std::make_shared<MenuText>();
     menu->setStrings({ "讀取進度", "保存進度", "返回開頭" });

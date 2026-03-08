@@ -1,16 +1,22 @@
 ﻿#pragma once
 
+#include "Chess.h"
 #include "Engine.h"
-#include "Save.h"
+#include "GameDataStore.h"
 
 #include <unordered_set>
 
 namespace KysChess
 {
 
+class ChessRandom;
+class ChessRoleSave;
+
 class ChessPool {
 
 public:
+    ChessPool(ChessRandom& random, ChessRoleSave& roleSave);
+    ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::vector<StoredShopEntry>& shop);
 
     static int GetChessTier(int roleId);
     static Color GetTierColor(int tier);
@@ -23,20 +29,18 @@ public:
 
     void refresh();
 
-    // Restore shop state from save data
-    void restoreShop(std::vector<std::pair<Role*, int>> shop);
-
     const std::vector<std::pair<Role*, int>>& getCurrentShop() const { return current_; }
 
     // Select a random enemy role from a specific tier (no rejection logic)
-    static Role* selectEnemyFromPool(int tier);
+    Role* selectEnemyFromPool(int tier);
 
     static const std::vector<int>& getRolesOfTier(int tier);
 
 private:
     Role* selectFromPool(int tier);
 
-
+    ChessRandom& random_;
+    ChessRoleSave& roleSave_;
     bool getNewChess_ = true;
     std::vector<std::pair<Role*, int>> current_;
     std::unordered_set<Role*> rejected_;

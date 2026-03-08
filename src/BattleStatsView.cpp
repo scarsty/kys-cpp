@@ -1,15 +1,12 @@
 #include "BattleStatsView.h"
-#include "ChessLegacyAdapters.h"
 #include "BattleRoleManager.h"
 #include <algorithm>
 #include "Engine.h"
 #include "Font.h"
-#include "ChessManager.h"
 #include "Save.h"
 #include "TextureManager.h"
 #include "GameUtil.h"
 #include "Audio.h"
-#include "GameState.h"
 #include <format>
 #include <set>
 
@@ -104,7 +101,7 @@ void BattleStatsView::setupPreBattle(
         }
     for (size_t i = 0; i < enemyIds.size(); ++i)
     {
-        auto r = Save::getInstance()->getRole(enemyIds[i]);
+        auto r = roleSave_.getRole(enemyIds[i]);
         int star = (i < enemyStars.size()) ? enemyStars[i] : 1;
         if (r) {
             enemies_.push_back(makeEntry(r, star, 1));
@@ -159,7 +156,7 @@ void BattleStatsView::setupPostBattle(
     };
     for (auto& r : allyBattleCopies)
     {
-        auto orig = Save::getInstance()->getRole(r.RealID);
+        auto orig = roleSave_.getRole(r.RealID);
         if (!orig) continue;
         auto e = makeEntry(orig, 1, 0);
         fillPost(e, r.ID);
@@ -168,7 +165,7 @@ void BattleStatsView::setupPostBattle(
     }
     for (auto& r : enemyBattleCopies)
     {
-        auto orig = Save::getInstance()->getRole(r.RealID);
+        auto orig = roleSave_.getRole(r.RealID);
         if (!orig) continue;
         auto e = makeEntry(orig, 1, 1);
         fillPost(e, r.ID);
@@ -242,7 +239,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);
 
             // Equipment icons
-            auto chess = KysChess::ChessManager(KysChess::legacyChessGameState()).tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
+            auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
             if (chess)
             {
                 int weaponId = chess->weaponInstance.itemId;

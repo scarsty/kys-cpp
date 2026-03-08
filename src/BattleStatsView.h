@@ -2,6 +2,8 @@
 
 #include "Chess.h"
 #include "ChessCombo.h"
+#include "ChessManager.h"
+#include "ChessRoleSave.h"
 #include "RunNode.h"
 #include <deque>
 #include <map>
@@ -36,6 +38,9 @@ private:
 class BattleStatsView : public RunNode
 {
 public:
+    BattleStatsView(KysChess::ChessRoleSave& roleSave, KysChess::ChessManager& chessManager)
+        : roleSave_(roleSave), chessManager_(chessManager) {}
+
     struct RoleEntry
     {
         Role* role = nullptr;
@@ -79,6 +84,8 @@ public:
     void dealEvent(EngineEvent& e) override;
 
 private:
+    KysChess::ChessRoleSave& roleSave_;
+    KysChess::ChessManager& chessManager_;
     bool isPreBattle_ = true;
     int battleResult_ = 0;
     bool assetsPreloaded_ = false;

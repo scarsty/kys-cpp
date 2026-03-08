@@ -1,5 +1,4 @@
 ﻿#include "SubScene.h"
-#include "ChessLegacyAdapters.h"
 #include "Audio.h"
 #include "BattleScene.h"
 #include "ChessBalance.h"
@@ -25,6 +24,7 @@ SubScene::SubScene()
 {
     full_window_ = 1;
     COORD_COUNT = SUBMAP_COORD_COUNT;
+    chess_mod_ = std::make_unique<KysChess::ChessMod>(KysChess::GameState::get());
 }
 
 SubScene::SubScene(int id) :
@@ -199,6 +199,8 @@ void SubScene::draw()
     {
         using namespace KysChess;
         auto& gd = GameState::get();
+        auto& economy = gd.economy();
+        auto& progress = gd.progress();
         auto& cfg = ChessBalance::config();
         auto* engine = Engine::getInstance();
         auto* font = Font::getInstance();
@@ -211,12 +213,12 @@ void SubScene::draw()
             x += fs * Font::getTextDrawSize(s) / 2 + 12;
         };
 
-        int fight = gd.battleProgress.getFight();
-        seg(std::format("第{}關{}", fight + 1, gd.battleProgress.isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
-        seg(std::format("${}", gd.getMoney()), {255, 215, 0, 255});
-        seg(std::format("Lv{} {}/{}", gd.getLevel() + 1, gd.getExp(), gd.getExpForNextLevel()), {100, 200, 255, 255});
-        auto chessManager = KysChess::ChessManager(KysChess::legacyChessGameState());
-        seg(std::format("出戰{}/{}", chessManager.getSelectedCount(), gd.getMaxDeploy()), {100, 255, 100, 255});
+        int fight = progress.battleProgress().getFight();
+        seg(std::format("第{}關{}", fight + 1, progress.battleProgress().isBossFight() ? "(Boss)" : ""), {255, 200, 100, 255});
+        seg(std::format("${}", economy.getMoney()), {255, 215, 0, 255});
+        seg(std::format("Lv{} {}/{}", economy.getLevel() + 1, economy.getExp(), economy.getExpForNextLevel()), {100, 200, 255, 255});
+        auto chessManager = KysChess::ChessManager(gd.roster(), gd.equipmentInventory(), gd.economy());
+        seg(std::format("出戰{}/{}", chessManager.getSelectedCount(), economy.getMaxDeploy()), {100, 255, 100, 255});
         seg(std::format("背包{}/{}", chessManager.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
 
         // Quick-access chess button (bottom-right of screen)
@@ -254,7 +256,7 @@ void SubScene::draw()
         }
 
         // Obtained neigong icons (right-aligned)
-        auto& obtained = gd.getObtainedNeigong();
+        auto& obtained = gd.progress().getObtainedNeigong();
         auto& pool = ChessNeigong::getPool();
         int iconX = w - 10;
         for (int i = (int)obtained.size() - 1; i >= 0; --i)
@@ -337,7 +339,7 @@ void SubScene::dealEvent(EngineEvent& e)
                 }
             }
             chess_menu_active_ = true;
-            KysChess::ChessSelector::showContextMenu();
+            chess_mod_->showContextMenu();
             chess_menu_active_ = false;
         }
     }
@@ -346,7 +348,7 @@ void SubScene::dealEvent(EngineEvent& e)
         //|| (e.type == EVENT_GAMEPAD_BUTTON_UP && e.gbutton.button == GAMEPAD_BUTTON_START)
         || engine->gameControllerGetButton(GAMEPAD_BUTTON_START))
     {
-        KysChess::ChessModHook::showMenu();
+        chess_mod_->showMenu();
     }
 
     //键盘走路部分，检测4个方向键
@@ -543,7 +545,7 @@ void SubScene::onEntrance()
     // scene_name->setStayFrame(40);
     // addChild(scene_name);
 
-    KysChess::ChessModHook::onSubSceneEntrance(submap_id_);
+    chess_mod_->onSubSceneEntrance(submap_id_);
 }
 
 void SubScene::onExit()
@@ -602,7 +604,7 @@ bool SubScene::checkEvent(int x, int y, int tw /*= None*/, int item_id /*= -1*/)
         if (id > 0)
         {
             chess_menu_active_ = true;
-            bool intercepted = KysChess::ChessModHook::interceptEvent(submap_info_->ID, id);
+            bool intercepted = chess_mod_->interceptEvent(submap_info_->ID, id);
             chess_menu_active_ = false;
             if (intercepted) { return true; }
             return Event::getInstance()->callEvent(id, this, submap_info_->ID, item_id, event_index_submap, x, y);
@@ -668,7 +670,7 @@ bool SubScene::isFall(int x, int y)
 
 bool SubScene::isExit(int x, int y)
 {
-    if (KysChess::ChessModHook::blockExit(submap_info_->ID)) { return false; }
+    if (chess_mod_->blockExit(submap_info_->ID)) { return false; }
     if (submap_info_->ExitX[0] == x && submap_info_->ExitY[0] == y || submap_info_->ExitX[1] == x && submap_info_->ExitY[1] == y || submap_info_->ExitX[2] == x && submap_info_->ExitY[2] == y)
     {
         setExit(true);

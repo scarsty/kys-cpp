@@ -3,7 +3,6 @@
 #include "TextureManager.h"
 
 #include "BattleSceneHades.h"
-#include "BattleSceneSekiro.h"
 
 VirtualStick::VirtualStick()
 {
@@ -47,7 +46,7 @@ VirtualStick::VirtualStick()
 
 void VirtualStick::dealEvent(EngineEvent& e)
 {
-    bool is_real = RunNode::topIsType<BattleSceneHades>() || RunNode::topIsType<BattleSceneSekiro>();
+    bool is_real = RunNode::topIsType<BattleSceneHades>();
     if (is_real)
     {
         setStyle(1);

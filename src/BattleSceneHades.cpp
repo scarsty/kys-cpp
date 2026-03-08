@@ -1,5 +1,4 @@
 ﻿#include "BattleSceneHades.h"
-#include "ChessLegacyAdapters.h"
 #include "Audio.h"
 #include "BattleRoleManager.h"
 #include "ChessBalance.h"
@@ -11,8 +10,6 @@
 #include "Head.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
-#include "GameState.h"
-#include "ChessManager.h"
 #include "Weather.h"
 
 namespace
@@ -71,7 +68,8 @@ const char* BattleSceneHades::getOperationTypeName(int operationType)
     return "未知";
 }
 
-BattleSceneHades::BattleSceneHades()
+BattleSceneHades::BattleSceneHades(KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager)
+    : roleSave_(roleSave), progress_(progress), chessManager_(chessManager)
 {
     full_window_ = 1;
     COORD_COUNT = BATTLEMAP_COORD_COUNT;
@@ -102,8 +100,8 @@ BattleSceneHades::BattleSceneHades()
     makeSpecialMagicEffect();
 }
 
-BattleSceneHades::BattleSceneHades(int id) :
-    BattleSceneHades()
+BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, KysChess::ChessProgress& progress, KysChess::ChessManager& chessManager) :
+    BattleSceneHades(roleSave, progress, chessManager)
 {
     setID(id);
 }
@@ -504,7 +502,7 @@ void BattleSceneHades::onEntrance()
     //敌方
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
-        auto r_ptr = Save::getInstance()->getRole(info_->Enemy[i]);
+        auto r_ptr = roleSave_.getRole(info_->Enemy[i]);
         if (r_ptr)
         {
             enemies_obj_.push_back(*r_ptr);
@@ -565,7 +563,7 @@ void BattleSceneHades::onEntrance()
     {
         for (const auto& teammate_info : extended_teammates_)
         {
-            auto r_ptr = Save::getInstance()->getRole(teammate_info.ID);
+            auto r_ptr = roleSave_.getRole(teammate_info.ID);
             if (r_ptr)
             {
                 friends_obj_.push_back(*r_ptr);
@@ -589,7 +587,7 @@ void BattleSceneHades::onEntrance()
             std::vector<KysChess::Chess> v;
             for (size_t i = 0; i < friends_obj_.size(); i++)
             {
-                auto orig = Save::getInstance()->getRole(friends_obj_[i].RealID);
+                auto orig = roleSave_.getRole(friends_obj_[i].RealID);
                 if (orig) v.push_back({orig, i < extended_teammates_.size() ? extended_teammates_[i].star : 1});
             }
             return v;
@@ -598,7 +596,7 @@ void BattleSceneHades::onEntrance()
             std::vector<KysChess::Chess> v;
             for (size_t i = 0; i < enemies_obj_.size(); i++)
             {
-                auto orig = Save::getInstance()->getRole(enemies_obj_[i].RealID);
+                auto orig = roleSave_.getRole(enemies_obj_[i].RealID);
                 if (orig) v.push_back({orig, i < enemy_stars_.size() ? enemy_stars_[i] : 0});
             }
             return v;
@@ -610,7 +608,7 @@ void BattleSceneHades::onEntrance()
 
         // Merge neigong global effects into ally states
         {
-            auto& obtained = KysChess::GameState::get().getObtainedNeigong();
+            auto& obtained = progress_.getObtainedNeigong();
             if (!obtained.empty())
             {
                 auto& pool = KysChess::ChessNeigong::getPool();
@@ -670,7 +668,7 @@ void BattleSceneHades::onEntrance()
             if (index >= extended_teammates_.size()) return std::pair{-1, -1};
 
             KysChess::ChessInstanceID chessInstanceId{extended_teammates_[index].chessInstanceId};
-            auto chess = KysChess::ChessManager(KysChess::legacyChessGameState()).tryFindChessByInstanceId(chessInstanceId);
+            auto chess = chessManager_.tryFindChessByInstanceId(chessInstanceId);
             if (!chess)
                 return std::pair{-1, -1};
 
@@ -690,7 +688,7 @@ void BattleSceneHades::onEntrance()
     {
         for (int i = 0; i < TEAMMATE_COUNT; i++)
         {
-            auto r = Save::getInstance()->getRole(info_->AutoTeamMate[i]);
+            auto r = roleSave_.getRole(info_->AutoTeamMate[i]);
             if (r)
             {
                 friends_.push_back(r);
@@ -745,7 +743,7 @@ void BattleSceneHades::onEntrance()
     }
 
     // Pre-battle position swap
-    if (!extended_teammates_.empty() && KysChess::GameState::get().isPositionSwapEnabled())
+    if (!extended_teammates_.empty() && progress_.isPositionSwapEnabled())
     {
         auto prompt = std::make_shared<MenuText>(std::vector<std::string>{ "地圖佈陣", "列表佈陣", "直接開戰" });
         prompt->setFontSize(36);

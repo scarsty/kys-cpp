@@ -1,7 +1,8 @@
 #pragma once
-#include "ChessContext.h"
+#include "ChessEconomy.h"
+#include "ChessEquipmentInventory.h"
+#include "ChessRoster.h"
 #include "Types.h"
-#include "Chess.h"
 #include "ChessEquipment.h"
 #include <optional>
 
@@ -34,7 +35,8 @@ struct UpgradeResult {
 class ChessManager
 {
 public:
-    explicit ChessManager(IChessGameState& gameState) : gameState_(gameState) {}
+    ChessManager(ChessRoster& roster, ChessEquipmentInventory& equipmentInventory, ChessEconomy& economy)
+        : roster_(roster), equipmentInventory_(equipmentInventory), economy_(economy) {}
 
     static int calculateCost(int tier, int star, int count = 1);
     PurchaseResult purchaseChess(Role* role, int tier);
@@ -65,7 +67,9 @@ public:
     void equipItem(ChessInstanceID chessInstanceId, const EquipmentDef& equipment, ItemInstanceID itemInstanceId);
 
 private:
-    IChessGameState& gameState_;
+    ChessRoster& roster_;
+    ChessEquipmentInventory& equipmentInventory_;
+    ChessEconomy& economy_;
 };
 
 }

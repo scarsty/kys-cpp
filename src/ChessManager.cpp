@@ -1,7 +1,6 @@
 #include "ChessManager.h"
 #include "ChessEquipment.h"
 #include "ChessPool.h"
-#include "GameState.h"
 
 
 namespace KysChess
@@ -10,19 +9,19 @@ namespace KysChess
 namespace
 {
 
-bool addChessWithAutoMerge(IChessGameState& gameState, ChessManager& manager, Role* role)
+bool addChessWithAutoMerge(ChessRoster& roster, ChessManager& manager, Role* role)
 {
-    Chess newChess = gameState.createChess(role, 1);
-    bool willMerge = gameState.wouldMerge(role, 1);
-    gameState.updateToCollection(newChess);
+    Chess newChess = roster.create(role, 1);
+    bool willMerge = roster.wouldMerge(role, 1);
+    roster.update(newChess);
 
     for (int level = 0; level < 2 && newChess.star <= 2; level++)
     {
-        if (!gameState.canMerge(newChess.role, newChess.star)) break;
+        if (!roster.canMerge(newChess.role, newChess.star)) break;
 
         bool keepSelected = false;
         int mergeCandidateCount = 0;
-        for (auto& [instanceId, piece] : gameState.getCollection())
+        for (auto& [instanceId, piece] : roster.items())
         {
             if (piece.role != newChess.role || piece.star != newChess.star) continue;
             if (piece.selectedForBattle)
@@ -35,7 +34,7 @@ bool addChessWithAutoMerge(IChessGameState& gameState, ChessManager& manager, Ro
         if (keepSelected) {
             newChess.selectedForBattle = true;
         }
-        gameState.updateToCollection(newChess);
+        roster.update(newChess);
     }
 
     return willMerge;
@@ -48,7 +47,7 @@ Chess ChessManager::handleMerge(Chess newChess)
     std::vector<Chess> mergedChess;
 
     // Explicitly consume exactly three pieces even if future bugs create more.
-    for (auto& [instanceId, p] : gameState_.getCollection())
+    for (auto& [instanceId, p] : roster_.items())
         if (p.role == newChess.role && p.star == newChess.star)
         {
             mergedChess.push_back(p);
@@ -82,10 +81,10 @@ Chess ChessManager::handleMerge(Chess newChess)
 
     // Delete old pieces (equipment returns to inventory)
     for (const auto& chess : mergedChess)
-        gameState_.removeChess(chess.id);
+        roster_.remove(chess.id);
 
     // Create upgraded piece
-    Chess upgraded = gameState_.createChess(newChess.role, newChess.star + 1);
+    Chess upgraded = roster_.create(newChess.role, newChess.star + 1);
 
     // Equip best items from inventory
     if (bestWeapon.id != k_nonExistentItem)
@@ -106,47 +105,47 @@ PurchaseResult ChessManager::purchaseChess(Role* role, int tier)
 {
     int cost = calculateCost(tier, 1, 1);
 
-    if (isBenchFull() && !gameState_.wouldMerge(role, 1))
+    if (isBenchFull() && !roster_.wouldMerge(role, 1))
         return {false, false, cost};
 
-    if (!gameState_.spend(cost))
+    if (!economy_.spend(cost))
         return {false, false, cost};
 
-    bool willMerge = addChessWithAutoMerge(gameState_, *this, role);
+    bool willMerge = addChessWithAutoMerge(roster_, *this, role);
 
     return {true, willMerge, cost};
 }
 
 SellResult ChessManager::sellChess(ChessInstanceID chessInstanceId)
 {
-    auto chess = gameState_.findChessByInstanceId(chessInstanceId);
+    auto chess = roster_.find(chessInstanceId);
 
     int tier = ChessPool::GetChessTier(chess.role->ID);
     int sellPrice = calculateCost(tier, chess.star, 1);
 
-    gameState_.removeChess(chessInstanceId);
-    gameState_.make(sellPrice);
+    roster_.remove(chessInstanceId);
+    economy_.make(sellPrice);
 
     return SellResult{sellPrice, chess.role, chess.star};
 }
 
 GrantResult ChessManager::grantChess(Role* role)
 {
-    if (isBenchFull() && !gameState_.wouldMerge(role, 1))
+    if (isBenchFull() && !roster_.wouldMerge(role, 1))
         return {false, false};
 
-    return {true, addChessWithAutoMerge(gameState_, *this, role)};
+    return {true, addChessWithAutoMerge(roster_, *this, role)};
 }
 
 int ChessManager::getBenchCount() const
 {
-    return static_cast<int>(gameState_.getCollection().size()) - getSelectedCount();
+    return static_cast<int>(roster_.items().size()) - getSelectedCount();
 }
 
 int ChessManager::getSelectedCount() const
 {
     int count = 0;
-    for (const auto& [id, chess] : gameState_.getCollection())
+    for (const auto& [id, chess] : roster_.items())
         if (chess.selectedForBattle)
             count++;
     return count;
@@ -159,21 +158,21 @@ bool ChessManager::isBenchFull() const
 
 std::vector<Chess> ChessManager::getSelectedForBattle() const
 {
-    return gameState_.getSelectedForBattle();
+    return roster_.getSelectedForBattle();
 }
 
 std::optional<Chess> ChessManager::tryFindChessByInstanceId(ChessInstanceID id) const
 {
     if (id == k_nonExistentChess)
         return std::nullopt;
-    auto& collection = gameState_.getCollection();
+    auto& collection = roster_.items();
     auto it = collection.find(id);
     return (it != collection.end()) ? std::optional{it->second} : std::nullopt;
 }
 
 bool ChessManager::applyGoldReward(int amount)
 {
-    gameState_.make(amount);
+    economy_.make(amount);
     return true;
 }
 
@@ -184,7 +183,7 @@ GrantResult ChessManager::applyPieceReward(int maxTier)
 
 bool ChessManager::applyStarUpReward(int fromStar, int maxTier) const
 {
-    auto chesses = gameState_.getChessByStarAndTier(fromStar, maxTier);
+    auto chesses = roster_.getByStarAndTier(fromStar, maxTier);
     return !chesses.empty();
 }
 
@@ -195,7 +194,7 @@ bool ChessManager::applyEquipmentReward(int maxTier, int specificId)
         auto* eq = ChessEquipment::getById(specificId);
         if (eq)
         {
-            gameState_.storeEquipmentItem(eq->itemId);
+            equipmentInventory_.storeItem(eq->itemId);
             return true;
         }
         return false;
@@ -205,19 +204,19 @@ bool ChessManager::applyEquipmentReward(int maxTier, int specificId)
 
 void ChessManager::setSelectedForBattle(ChessInstanceID chessInstanceId, bool selected)
 {
-    auto chess = gameState_.findChessByInstanceId(chessInstanceId);
+    auto chess = roster_.find(chessInstanceId);
     chess.selectedForBattle = selected;
-    gameState_.updateToCollection(chess);
+    roster_.update(chess);
 }
 
 void ChessManager::upgradeChess(ChessInstanceID chessInstanceId, int newStar)
 {
-    gameState_.upgradeChessInstance(chessInstanceId, newStar);
+    roster_.upgrade(chessInstanceId, newStar);
 }
 
 void ChessManager::equipItem(ChessInstanceID chessInstanceId, const EquipmentDef& equipment, ItemInstanceID itemInstanceId)
 {
-    auto chess = gameState_.findChessByInstanceId(chessInstanceId);
+    auto chess = roster_.find(chessInstanceId);
     if (equipment.equipType == 0)
     {
         chess.weaponInstance.id = itemInstanceId;
@@ -228,7 +227,7 @@ void ChessManager::equipItem(ChessInstanceID chessInstanceId, const EquipmentDef
         chess.armorInstance.id = itemInstanceId;
         chess.armorInstance.itemId = equipment.itemId;
     }
-    gameState_.updateToCollection(chess);
+    roster_.update(chess);
 }
 
 }

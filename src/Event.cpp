@@ -2,8 +2,8 @@
 #include "Audio.h"
 #include "BattleScene.h"
 #include "BattleSceneHades.h"
-#include "BattleScenePaper.h"
-#include "BattleSceneSekiro.h"
+#include "ChessManager.h"
+#include "GameState.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
@@ -435,21 +435,27 @@ bool Event::tryBattle(int battle_id, int get_exp)
     }
     else if (battle_mode == 2)
     {
-        auto battle = std::make_shared<BattleSceneHades>();
+        auto& gameState = KysChess::GameState::get();
+        KysChess::ChessManager chessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy());
+        auto battle = std::make_shared<BattleSceneHades>(gameState.roleSave(), gameState.progress(), chessManager);
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
     else if (battle_mode == 3)
     {
-        auto battle = std::make_shared<BattleSceneSekiro>();
+        auto& gameState = KysChess::GameState::get();
+        KysChess::ChessManager chessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy());
+        auto battle = std::make_shared<BattleSceneHades>(gameState.roleSave(), gameState.progress(), chessManager);
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
     }
     else if (battle_mode == 4)
     {
-        auto battle = std::make_shared<BattleScenePaper>();
+        auto& gameState = KysChess::GameState::get();
+        KysChess::ChessManager chessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy());
+        auto battle = std::make_shared<BattleSceneHades>(gameState.roleSave(), gameState.progress(), chessManager);
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
