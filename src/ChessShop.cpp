@@ -14,6 +14,7 @@ ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave, const GameDat
     : pool_(random, roleSave, store.currentShop)
 {
     locked_ = store.shopLocked;
+    pool_.setBannedRoleIds(store.bannedRoleIds);
 }
 
 void ChessShop::exportTo(GameDataStore& store) const

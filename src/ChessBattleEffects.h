@@ -63,6 +63,27 @@ enum class EffectType
     RampingDmg,
     // Triggered heal
     HealBurst,
+    // === New effects for expanded chess pool ===
+    BleedChance,
+    BleedPersist,
+    PostSkillDash,
+    EnemyTopDebuff,
+    BlinkAttack,
+    AllyDeathStatBoost,
+    CloneSummon,
+    ProjectileReflect,
+    IgnoreDefense,
+    OnSkillTeamHeal,
+    DeathPrevention,
+    ForcePullProtect,
+    ForcePullExecute,
+    Execute,
+    MPBlock,
+    CharmCDRDebuff,
+    OffensiveCharm,
+    DeathAOE,
+    ShieldExplosion,
+    ShieldOnAllyDeath,
 };
 
 struct ComboEffect
@@ -126,6 +147,29 @@ struct RoleComboState
     std::vector<AdaptationInstance> adaptations;
     struct RampingInstance { int pctPerStack; int maxStacks; };
     std::vector<RampingInstance> rampings;
+    // --- New effects (expanded pool) ---
+    int bleedChancePct = 0;
+    bool bleedPersist = false;
+    int bleedMaxStacks = 5;
+    bool postSkillDash = false;
+    bool blinkAttack = false;
+    int allyDeathStatBoost = 0;
+    int cloneSummonCount = 0;
+    int projectileReflectPct = 0;
+    bool ignoreDefense = false;
+    int onSkillTeamHeal = 0;
+    bool deathPrevention = false;
+    int charmCDRChancePct = 0;
+    int charmCDRAmountPct = 0;
+    bool offensiveCharm = false;
+    int deathAOEPct = 0;
+    int deathAOEStunFrames = 0;
+    int shieldExplosionPct = 0;
+    int shieldOnAllyDeathCount = 0;
+    int enemyTopDebuffCount = 0;
+    int enemyTopDebuffValue = 0;
+    bool forcePullProtect = false;
+    bool forcePullExecute = false;
 
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter
@@ -139,6 +183,18 @@ struct RoleComboState
     std::vector<std::map<int, int>> adaptationStacks;  // per instance: enemyID → stacks
     std::vector<int> rampingStacks;  // per instance
     std::vector<int> rampingIdleTimers;  // per instance
+    int bleedStacks = 0;
+    int bleedTimer = 0;
+    bool bleedPersistFlag = false;
+    int mpBlockTimer = 0;
+    bool deathPreventionUsed = false;
+    bool forcePullProtectUsed = false;
+    bool forcePullExecuteUsed = false;
+    int shieldOnAllyDeathTracker = 0;
+    bool onSkillTeamHealPending = false;
+    bool postSkillDashPending = false;
+    int postSkillDashTimer = 0;
+    bool isSummonedClone = false;
 };
 
 class ChessBattleEffects

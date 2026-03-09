@@ -40,6 +40,18 @@ enum class ComboId
     HongYan,            // 21. 红颜
     QinQiShuHua,        // 22. 琴棋书画
     DuXing,             // 23. 独行
+    TaXueWuHen,         // 24. 踏雪无痕
+    YinXian,            // 25. 阴险
+    ZongShi,            // 26. 宗师
+    SiDaFaWang,         // 27. 四大法王
+    ZhenWuQiJie,        // 28. 真武七截阵
+    XiaoYaoErXian,      // 29. 逍遥二仙
+    JiuYangChuanRen,    // 30. 九阳传人
+    YiTianTuLong,       // 31. 倚天屠龙
+    MiaoShouRenXin,     // 32. 妙手仁心
+    XianTianShenZhao,   // 33. 先天神照
+    QianKunNuoYi,       // 34. 乾坤挪移
+    LongTao,            // 35. 龙套
     COUNT
 };
 

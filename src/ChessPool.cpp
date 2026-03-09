@@ -52,9 +52,19 @@ Color ChessPool::GetTierColor(int tier) {
 
 Role* ChessPool::selectFromPool(int tier)
 {
-    for (;;)
+    const auto& roles = chessPool()[tier - 1];
+    if (roles.empty())
     {
-        auto idx = chessPool()[tier - 1][random_.shopRandInt(static_cast<int>(chessPool()[tier - 1].size()))];
+        return nullptr;
+    }
+
+    for (int attempts = 0; attempts < 100; ++attempts)
+    {
+        auto idx = roles[random_.shopRandInt(static_cast<int>(roles.size()))];
+        if (banned_.contains(idx))
+        {
+            continue;
+        }
         auto role = roleSave_.getRole(idx);
         if (tier <= 4 && rejected_.contains(role))
         {
@@ -62,6 +72,44 @@ Role* ChessPool::selectFromPool(int tier)
         }
         return role;
     }
+
+    Role* fallback = nullptr;
+    for (auto idx : roles)
+    {
+        if (banned_.contains(idx))
+        {
+            continue;
+        }
+
+        auto role = roleSave_.getRole(idx);
+        if (tier <= 4 && rejected_.contains(role))
+        {
+            if (!fallback)
+            {
+                fallback = role;
+            }
+            continue;
+        }
+        return role;
+    }
+
+    return fallback;
+}
+
+void ChessPool::setBannedRoleIds(const std::set<int>& banned)
+{
+    banned_ = banned;
+    const auto hasBannedCurrentRole = std::any_of(current_.begin(), current_.end(), [&](const auto& entry) {
+        return entry.first && banned_.contains(entry.first->ID);
+    });
+    if (!hasBannedCurrentRole)
+    {
+        return;
+    }
+
+    current_.clear();
+    rejected_.clear();
+    getNewChess_ = true;
 }
 
 std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
@@ -73,28 +121,54 @@ std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
     getNewChess_ = false;
 
     std::vector<std::pair<Role*, int>> roles;
+    roles.reserve(ChessBalance::config().shopSlotCount);
+    rejected_.clear();
 
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < ChessBalance::config().shopSlotCount; ++i)
     {
-        // 应该是 0~99
-        auto val = random_.shopRandInt(100);
-        auto cur = 0;
-        for (int tier = 1; tier <= 5; ++tier)
+        Role* selectedRole = nullptr;
+        int selectedTier = -1;
+
+        for (int attempt = 0; attempt < 100 && !selectedRole; ++attempt)
         {
-            auto w = ChessBalance::config().shopWeights[level][tier - 1];
-            cur += w;
-            if (val < cur)
+            auto val = random_.shopRandInt(100);
+            auto cur = 0;
+            for (int tier = 1; tier <= 5; ++tier)
             {
-                roles.emplace_back(selectFromPool(tier), tier);
-                break;
+                auto w = ChessBalance::config().shopWeights[level][tier - 1];
+                cur += w;
+                if (val < cur)
+                {
+                    selectedRole = selectFromPool(tier);
+                    if (selectedRole)
+                    {
+                        selectedTier = tier;
+                    }
+                    break;
+                }
             }
         }
-    }
 
-    rejected_.clear();
-    for (const auto& entry : roles)
-    {
-        rejected_.insert(entry.first);
+        if (!selectedRole)
+        {
+            for (int tier = 1; tier <= 5; ++tier)
+            {
+                selectedRole = selectFromPool(tier);
+                if (selectedRole)
+                {
+                    selectedTier = tier;
+                    break;
+                }
+            }
+        }
+
+        if (!selectedRole)
+        {
+            break;
+        }
+
+        roles.emplace_back(selectedRole, selectedTier);
+        rejected_.insert(selectedRole);
     }
 
     current_ = roles;

@@ -7,7 +7,7 @@
 
 struct DynamicBattleRoles
 {
-    std::vector<int> teammate_ids;  // Role IDs for teammates (up to 10)
+    std::vector<int> teammate_ids;  // Role IDs for real teammates (up to 10)
     std::vector<int> teammate_stars; // Star levels per teammate
     std::vector<int> teammate_instances; // Instance IDs per teammate
 
@@ -21,7 +21,7 @@ class DynamicChessMap
 {
 public:
     // Creates a BattleSceneHades with randomly selected map and extended battle info
-    // teammates: Role IDs for teammates (up to 10)
+    // teammates: Role IDs for real teammates (up to 10)
     // enemies: Role IDs for enemies (up to 20)
     static std::shared_ptr<BattleSceneHades> createBattle(
         const DynamicBattleRoles& roles,
@@ -39,6 +39,7 @@ private:
         int enemy_count;
         std::vector<std::pair<int, int>> existing_positions;  // (x, y) for 6 existing teammates
         std::vector<std::pair<int, int>> new_positions;       // (x, y) for 4 new teammates
+        std::vector<std::pair<int, int>> clone_positions;     // (x, y) for up to 3 summoned clones
         const char* name;
         const char* ascii_map;
         const char* description;

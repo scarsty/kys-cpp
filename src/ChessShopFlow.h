@@ -13,6 +13,7 @@ public:
     void getChess();
     void sellChess();
     void buyExp();
+    void showBanMenu();
 
 private:
     ChessSelectorServices services_;

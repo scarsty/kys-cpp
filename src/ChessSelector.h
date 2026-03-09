@@ -36,6 +36,7 @@ public:
     void enterBattle();
     int runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id = -1, int seed = -1);
     void buyExp();
+    void manageBans();
     void showContextMenu();
     void viewCombos();
     void showNeigongReward();

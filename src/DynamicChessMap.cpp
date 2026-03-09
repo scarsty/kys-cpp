@@ -50,7 +50,7 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(
     battle->setID(selected_map.battle_id);
     battle->setNoExp();
 
-    // Prepare extended teammate info (up to 10 teammates)
+    // Prepare extended teammate info (up to 10 real teammates)
     std::vector<ExtendedTeammateInfo> teammates;
 
     // Combine existing positions (6) and new positions (4)
@@ -72,6 +72,7 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(
     }
 
     battle->setExtendedBattleInfo(teammates);
+    battle->setCloneSpawnPositions(selected_map.clone_positions);
     battle->setEnemyStars(roles.enemy_stars);
     battle->setEnemyWeapons(roles.enemy_weapons);
     battle->setEnemyArmors(roles.enemy_armors);
@@ -102,6 +103,7 @@ const std::vector<DynamicChessMap::MapInfo>& DynamicChessMap::getTopMaps()
             6, 16, 10,
             {{30, 39}, {32, 37}, {32, 34}, {28, 32}, {22, 21}, {22, 18}},
             {{32, 36}, {32, 35}, {22, 20}, {22, 19}},
+            {{31, 39}, {31, 38}, {31, 37}},
             "闖王寶藏",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -151,6 +153,7 @@ Positions: Existing=[(30, 39), (32, 37), (32, 34), (28, 32), (22, 21), (22, 18)]
             13, 4, 20,
             {{25, 27}, {24, 27}, {25, 28}, {24, 28}, {25, 25}, {24, 25}},
             {{25, 26}, {24, 26}, {25, 29}, {24, 29}},
+            {{26, 25}, {26, 26}, {26, 27}},
             "弒殺成崑",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -200,6 +203,7 @@ Positions: Existing=[(25, 27), (24, 27), (25, 28), (24, 28), (25, 25), (24, 25)]
             17, 5, 13,
             {{29, 20}, {31, 23}, {33, 26}, {32, 20}, {34, 23}, {35, 20}},
             {{34, 20}, {33, 23}, {33, 20}, {32, 23}},
+            {{35, 21}, {34, 21}, {35, 22}},
             "鬧崆峒",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -249,6 +253,7 @@ Positions: Existing=[(29, 20), (31, 23), (33, 26), (32, 20), (34, 23), (35, 20)]
             21, 20, 10,
             {{33, 27}, {34, 25}, {34, 30}, {35, 27}, {35, 29}, {35, 24}},
             {{35, 25}, {34, 27}, {35, 30}, {35, 28}},
+            {{36, 26}, {36, 27}, {34, 28}},
             "峨嵋圍攻",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -298,6 +303,7 @@ Positions: Existing=[(33, 27), (34, 25), (34, 30), (35, 27), (35, 29), (35, 24)]
             24, 21, 11,
             {{35, 32}, {35, 28}, {35, 26}, {35, 34}, {35, 36}, {35, 24}},
             {{35, 35}, {35, 33}, {35, 27}, {35, 25}},
+            {{36, 32}, {36, 31}, {36, 28}},
             "斗定閑",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -347,6 +353,7 @@ Positions: Existing=[(35, 32), (35, 28), (35, 26), (35, 34), (35, 36), (35, 24)]
             26, 10, 11,
             {{30, 29}, {33, 28}, {32, 33}, {34, 31}, {36, 28}, {36, 35}},
             {{35, 28}, {34, 28}, {37, 35}, {37, 28}},
+            {{35, 29}, {35, 30}, {35, 31}},
             "斗天門",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -396,6 +403,7 @@ Positions: Existing=[(30, 29), (33, 28), (32, 33), (34, 31), (36, 28), (36, 35)]
             54, 23, 15,
             {{24, 27}, {24, 29}, {24, 25}, {24, 31}, {24, 23}, {24, 33}},
             {{24, 32}, {24, 30}, {24, 28}, {24, 26}},
+            {{25, 27}, {25, 29}, {25, 31}},
             "斗天門",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -445,6 +453,7 @@ Positions: Existing=[(24, 27), (24, 29), (24, 25), (24, 31), (24, 23), (24, 33)]
             56, 24, 20,
             {{17, 29}, {18, 29}, {19, 29}, {20, 29}, {21, 29}, {22, 29}},
             {{23, 29}, {16, 29}, {22, 30}, {22, 28}},
+            {{19, 30}, {20, 30}, {21, 30}},
             "斗天門",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -494,6 +503,7 @@ Positions: Existing=[(17, 29), (18, 29), (19, 29), (20, 29), (21, 29), (22, 29)]
             60, 0, 10,
             {{32, 20}, {36, 17}, {35, 20}, {36, 24}, {38, 20}, {41, 20}},
             {{40, 20}, {39, 20}, {37, 20}, {36, 20}},
+            {{33, 20}, {34, 20}, {36, 21}},
             "斗天門",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
@@ -543,6 +553,7 @@ Positions: Existing=[(32, 20), (36, 17), (35, 20), (36, 24), (38, 20), (41, 20)]
             80, 8, 14,
             {{32, 34}, {32, 31}, {32, 28}, {32, 25}, {32, 22}, {32, 19}},
             {{32, 33}, {32, 32}, {32, 30}, {32, 29}},
+            {{31, 32}, {31, 31}, {31, 30}},
             "斗定閑",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 

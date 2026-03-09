@@ -4,6 +4,7 @@
 #include "Engine.h"
 #include "GameDataStore.h"
 
+#include <set>
 #include <unordered_set>
 
 namespace KysChess
@@ -35,6 +36,7 @@ public:
     Role* selectEnemyFromPool(int tier);
 
     static const std::vector<int>& getRolesOfTier(int tier);
+    void setBannedRoleIds(const std::set<int>& banned);
 
 private:
     Role* selectFromPool(int tier);
@@ -44,6 +46,7 @@ private:
     bool getNewChess_ = true;
     std::vector<std::pair<Role*, int>> current_;
     std::unordered_set<Role*> rejected_;
+    std::set<int> banned_;
 
 };
 

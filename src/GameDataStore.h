@@ -50,6 +50,8 @@ struct GameDataStore {
     std::vector<StoredShopEntry> currentShop;
     std::vector<int> obtainedNeigong;
     std::set<int> completedChallenges;
+    std::set<int> seenRoleIds;
+    std::set<int> bannedRoleIds;
     std::vector<StoredEquipmentInventoryEntry> equipmentInventory;
 
     void save(SQLite3Wrapper& db) const;

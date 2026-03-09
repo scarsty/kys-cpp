@@ -84,7 +84,7 @@ protected:
 
     int prev_music_ = 0;
 
-    std::vector<ExtendedTeammateInfo> extended_teammates_;  // Extended teammate info for up to 10 teammates
+    std::vector<ExtendedTeammateInfo> extended_teammates_;  // Dynamic battle teammate info for real deployed pieces
 
 public:
     BattleInfo& modifiableInfo();           // 动态敌人设置, setID之后调用

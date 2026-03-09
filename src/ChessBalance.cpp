@@ -67,6 +67,8 @@ bool ChessBalance::loadConfig(const std::string& path)
     if (root["最高等级"]) c.maxLevel = root["最高等级"].as<int>();
     if (root["背包上限"]) c.benchSize = root["背包上限"].as<int>();
     if (root["最低出战人数"]) c.minBattleSize = root["最低出战人数"].as<int>();
+    if (root["商店数量"]) c.shopSlotCount = root["商店数量"].as<int>();
+    if (root["最大禁棋数"]) c.maxBanCount = root["最大禁棋数"].as<int>();
 
     if (root["商店权重"])
     {
@@ -92,8 +94,10 @@ bool ChessBalance::loadConfig(const std::string& path)
         }
     }
 
+    const std::string poolPath = GameUtil::PATH()
+        + ((difficulty_ == Difficulty::Easy) ? "config/chess_pool_easy.yaml" : "config/chess_pool.yaml");
     try {
-        auto pool = YAML::LoadFile(GameUtil::PATH() + "config/chess_pool.yaml");
+        auto pool = YAML::LoadFile(poolPath);
         for (const auto& entry : pool)
         {
             int tier = entry["费用"].as<int>();
@@ -102,7 +106,9 @@ bool ChessBalance::loadConfig(const std::string& path)
             for (const auto& v : entry["角色"])
                 c.chessPool[tier - 1].push_back(v.as<int>());
         }
-    } catch (...) {}
+    } catch (const YAML::Exception& e) {
+        std::print("【平衡配置】无法读取棋池文件 {}: {}\n", poolPath, e.what());
+    }
 
     if (auto n = root["进度"])
     {

@@ -44,6 +44,10 @@ public:
     const ChessRandom& random() const { return *random_; }
     Difficulty& difficulty() { return GameDataStore::difficulty; }
     const Difficulty& difficulty() const { return GameDataStore::difficulty; }
+    std::set<int>& seenRoleIds() { return GameDataStore::seenRoleIds; }
+    const std::set<int>& seenRoleIds() const { return GameDataStore::seenRoleIds; }
+    std::set<int>& bannedRoleIds() { return GameDataStore::bannedRoleIds; }
+    const std::set<int>& bannedRoleIds() const { return GameDataStore::bannedRoleIds; }
 
 private:
     GameState();

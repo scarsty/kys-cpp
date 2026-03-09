@@ -33,6 +33,16 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"适应", EffectType::Adaptation}, {"同敌减伤", EffectType::Adaptation},
     {"连击蓄力", EffectType::RampingDmg}, {"连击增伤", EffectType::RampingDmg},
     {"回血", EffectType::HealBurst},
+    {"流血", EffectType::BleedChance}, {"流血持续", EffectType::BleedPersist},
+    {"踏雪", EffectType::PostSkillDash}, {"敌方削弱", EffectType::EnemyTopDebuff},
+    {"闪击", EffectType::BlinkAttack}, {"同袍之死", EffectType::AllyDeathStatBoost},
+    {"七截分身", EffectType::CloneSummon}, {"弹反", EffectType::ProjectileReflect},
+    {"无视防御", EffectType::IgnoreDefense}, {"群体施治", EffectType::OnSkillTeamHeal},
+    {"死亡庇护", EffectType::DeathPrevention}, {"保护挪移", EffectType::ForcePullProtect},
+    {"处决挪移", EffectType::ForcePullExecute}, {"斩杀", EffectType::Execute},
+    {"破罡", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff},
+    {"攻击倾城", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
+    {"护盾爆炸", EffectType::ShieldExplosion}, {"护盾重获", EffectType::ShieldOnAllyDeath},
 };
 
 static const std::map<std::string, Trigger> triggerMap = {
@@ -136,6 +146,38 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.rampingIdleTimers.push_back(0);
         break;
     case EffectType::HealBurst: break;  // only meaningful as triggered
+    case EffectType::BleedChance:
+        s.bleedChancePct += e.value;
+        if (e.value2 > 0) s.bleedMaxStacks = e.value2;
+        break;
+    case EffectType::BleedPersist: s.bleedPersist = true; break;
+    case EffectType::PostSkillDash: s.postSkillDash = true; break;
+    case EffectType::EnemyTopDebuff:
+        s.enemyTopDebuffCount = e.value;
+        s.enemyTopDebuffValue = e.value2;
+        break;
+    case EffectType::BlinkAttack: s.blinkAttack = true; break;
+    case EffectType::AllyDeathStatBoost: s.allyDeathStatBoost += e.value; break;
+    case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
+    case EffectType::ProjectileReflect: s.projectileReflectPct += e.value; break;
+    case EffectType::IgnoreDefense: s.ignoreDefense = true; break;
+    case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
+    case EffectType::DeathPrevention: s.deathPrevention = true; break;
+    case EffectType::ForcePullProtect: s.forcePullProtect = true; break;
+    case EffectType::ForcePullExecute: s.forcePullExecute = true; break;
+    case EffectType::Execute: break;  // handled as triggered effect (OnHit)
+    case EffectType::MPBlock: break;  // handled as triggered effect (OnHit)
+    case EffectType::CharmCDRDebuff:
+        s.charmCDRChancePct = e.value;
+        s.charmCDRAmountPct = e.value2;
+        break;
+    case EffectType::OffensiveCharm: s.offensiveCharm = true; break;
+    case EffectType::DeathAOE:
+        s.deathAOEPct = std::max(s.deathAOEPct, e.value);
+        if (e.value2 > 0) s.deathAOEStunFrames = e.value2;
+        break;
+    case EffectType::ShieldExplosion: s.shieldExplosionPct = std::max(s.shieldExplosionPct, e.value); break;
+    case EffectType::ShieldOnAllyDeath: s.shieldOnAllyDeathCount = e.value; break;
     }
 }
 

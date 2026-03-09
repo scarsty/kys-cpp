@@ -65,6 +65,7 @@ public:
     void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
     void setEnemyWeapons(const std::vector<int>& weapons) { enemy_weapons_ = weapons; }
     void setEnemyArmors(const std::vector<int>& armors) { enemy_armors_ = armors; }
+    void setCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { clone_spawn_positions_ = positions; }
 
     static int getOperationType(int attackAreaType);
     static const char* getOperationTypeName(int operationType);
@@ -81,6 +82,7 @@ protected:
     std::vector<int> enemy_stars_;
     std::vector<int> enemy_weapons_;
     std::vector<int> enemy_armors_;
+    std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
 
     struct PathInfo {

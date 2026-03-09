@@ -69,16 +69,58 @@ void ChessSelector::buyExp()
     ChessShopFlow(services()).buyExp();
 }
 
+void ChessSelector::manageBans()
+{
+    ChessShopFlow(services()).showBanMenu();
+}
+
 void ChessSelector::showContextMenu()
 {
     while (true)
     {
-        auto menu = std::make_shared<MenuText>(std::vector<std::string>{ "購買棋子", "出售棋子", "選擇出戰", "進入戰鬥", "購買經驗", "查看羈絆", "查看內功", "遠征挑戰", "排兵佈陣", "裝備管理", "遊戲說明" });
+        const auto banEnabled = ChessBalance::config().maxBanCount > 0;
+        std::vector<std::string> menuItems{
+            "購買棋子",
+            "出售棋子",
+            "選擇出戰",
+            "進入戰鬥",
+            "購買經驗",
+            "查看羈絆",
+            "查看內功",
+            "遠征挑戰",
+            "排兵佈陣",
+            "裝備管理",
+        };
+        if (banEnabled)
+        {
+            menuItems.push_back("禁棋管理");
+        }
+        menuItems.push_back("遊戲說明");
+        auto menu = std::make_shared<MenuText>(menuItems);
         menu->setFontSize(36);
         menu->arrange(0, 0, 0, 45);
         menu->runAtPosition(200, 120);
 
-        switch (menu->getResult())
+        const auto result = menu->getResult();
+        const auto guideIndex = banEnabled ? 11 : 10;
+        if (result == -1)
+        {
+            return;
+        }
+        if (banEnabled && result == 10)
+        {
+            manageBans();
+            UISave::autoSave();
+            continue;
+        }
+        if (result == guideIndex)
+        {
+            showGameGuide();
+            UISave::autoSave();
+            continue;
+        }
+
+        switch (result)
         {
         case 0: getChess(); break;
         case 1: sellChess(); break;
@@ -90,8 +132,6 @@ void ChessSelector::showContextMenu()
         case 7: showExpeditionChallenge(); break;
         case 8: showPositionSwap(); break;
         case 9: manageEquipment(); break;
-        case 10: showGameGuide(); break;
-        case -1: return;
         }
         UISave::autoSave();
     }

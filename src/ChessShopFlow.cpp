@@ -4,6 +4,7 @@
 #include "ChessDetailPanels.h"
 #include "ChessMenuHelpers.h"
 #include "ChessScreenLayout.h"
+#include "GameState.h"
 
 #include <algorithm>
 #include <format>
@@ -25,6 +26,21 @@ std::string buildWeightString(int level)
     return std::format("1費{}% 2費{}% 3費{}% 4費{}% 5費{}%", weights[0], weights[1], weights[2], weights[3], weights[4]);
 }
 
+std::vector<int> getSortedSeenRoleIds(const std::set<int>& seenRoleIds)
+{
+    std::vector<int> sortedRoleIds(seenRoleIds.begin(), seenRoleIds.end());
+    std::sort(sortedRoleIds.begin(), sortedRoleIds.end(), [](int lhs, int rhs) {
+        const auto lhsTier = ChessPool::GetChessTier(lhs);
+        const auto rhsTier = ChessPool::GetChessTier(rhs);
+        if (lhsTier != rhsTier)
+        {
+            return lhsTier < rhsTier;
+        }
+        return lhs < rhs;
+    });
+    return sortedRoleIds;
+}
+
 }
 
 ChessShopFlow::ChessShopFlow(const ChessSelectorServices& services)
@@ -35,9 +51,15 @@ ChessShopFlow::ChessShopFlow(const ChessSelectorServices& services)
 void ChessShopFlow::getChess()
 {
     auto manager = makeChessManager(services_);
+    auto& gameState = GameState::get();
     for (;;)
     {
+        services_.shop.pool().setBannedRoleIds(gameState.bannedRoleIds());
         auto rollOfChess = services_.shop.pool().getChessFromPool(services_.economy.getLevel());
+        for (auto [role, tier] : rollOfChess)
+        {
+            gameState.seenRoleIds().insert(role->ID);
+        }
 
         for (;;)
         {
@@ -264,6 +286,89 @@ void ChessShopFlow::buyExp()
     else
     {
         showChessMessage(std::format("經驗{}/{}", services_.economy.getExp(), services_.economy.getExpForNextLevel()));
+    }
+}
+
+void ChessShopFlow::showBanMenu()
+{
+    const auto maxBanCount = ChessBalance::config().maxBanCount;
+    if (maxBanCount <= 0)
+    {
+        return;
+    }
+
+    auto& gameState = GameState::get();
+    auto& seenRoleIds = gameState.seenRoleIds();
+    auto& bannedRoleIds = gameState.bannedRoleIds();
+    if (seenRoleIds.empty())
+    {
+        showChessMessage("尚未遇到可禁棋子");
+        return;
+    }
+
+    for (;;)
+    {
+        auto sortedRoleIds = getSortedSeenRoleIds(seenRoleIds);
+        ChessMenuData menuData;
+        IndexedMenuConfig menuConfig;
+        menuConfig.perPage = 12;
+        menuConfig.fontSize = 32;
+        auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
+        menuConfig.x = menuAnchor.x;
+        menuConfig.y = menuAnchor.y;
+
+        for (auto roleId : sortedRoleIds)
+        {
+            auto role = services_.roleSave.getRole(roleId);
+            auto tier = std::max(1, ChessPool::GetChessTier(roleId));
+            const auto isBanned = bannedRoleIds.contains(roleId);
+            auto [name, color] = chessPresenter().formatChessName(role, tier, {}, {});
+            menuData.labels.push_back(std::format("{} {}", isBanned ? "[已禁]" : "[未禁]", name));
+            menuData.colors.push_back(color);
+            menuData.previewData.push_back({role, 1, -1});
+            menuConfig.outlineColors.push_back(isBanned ? Color{255, 80, 80, 255} : Color{0, 0, 0, 0});
+            menuConfig.animateOutlines.push_back(false);
+            menuConfig.outlineThicknesses.push_back(isBanned ? 2 : 1);
+        }
+
+        const auto bannedCount = static_cast<int>(bannedRoleIds.size());
+        auto menu = makeIndexedMenu(
+            std::format(
+                "禁棋管理 已禁{}/{} 剩餘{}",
+                bannedCount,
+                maxBanCount,
+                std::max(0, maxBanCount - bannedCount)),
+            menuData,
+            menuConfig,
+            {},
+            menuData.previewData);
+        menu->run();
+
+        const auto selectedId = menu->getResult();
+        if (selectedId < 0)
+        {
+            return;
+        }
+
+        const auto roleId = sortedRoleIds[selectedId];
+        auto role = services_.roleSave.getRole(roleId);
+        if (bannedRoleIds.contains(roleId))
+        {
+            bannedRoleIds.erase(roleId);
+            services_.shop.pool().setBannedRoleIds(bannedRoleIds);
+            showChessMessage(std::format("解除禁棋：{}", role->Name));
+            continue;
+        }
+
+        if (bannedCount >= maxBanCount)
+        {
+            showChessMessage(std::format("禁棋已滿 {}/{}", bannedCount, maxBanCount));
+            continue;
+        }
+
+        bannedRoleIds.insert(roleId);
+        services_.shop.pool().setBannedRoleIds(bannedRoleIds);
+        showChessMessage(std::format("禁棋：{}", role->Name));
     }
 }
 
