@@ -1,43 +1,17 @@
 #include "ChessSelectorPresenter.h"
 
+#include "ChessEquipment.h"
 #include "ChessManager.h"
 #include "ChessPool.h"
+#include "Font.h"
+#include "Save.h"
 
 namespace KysChess
 {
 
 int ChessSelectorPresenter::getDisplayWidth(const std::string& text) const
 {
-    int width = 0;
-    for (size_t index = 0; index < text.size();)
-    {
-        const unsigned char ch = text[index];
-        if (ch < 0x80)
-        {
-            width += 1;
-            index += 1;
-        }
-        else if ((ch & 0xE0) == 0xC0)
-        {
-            width += 2;
-            index += 2;
-        }
-        else if ((ch & 0xF0) == 0xE0)
-        {
-            width += 2;
-            index += 3;
-        }
-        else if ((ch & 0xF8) == 0xF0)
-        {
-            width += 2;
-            index += 4;
-        }
-        else
-        {
-            index += 1;
-        }
-    }
-    return width;
+    return Font::getTextDrawSize(text);
 }
 
 std::pair<std::string, Color> ChessSelectorPresenter::formatChessName(Role* role,
@@ -129,23 +103,36 @@ std::string ChessSelectorPresenter::challengeRewardDesc(const BalanceConfig::Cha
     case RT::StarUp1to2: return std::format("升星★→★★(最高{}費)", reward.value);
     case RT::StarUp2to3: return std::format("升星★★→★★★(最高{}費)", reward.value);
     case RT::GetEquipment: return std::format("獲取裝備(最高{}階)", reward.value);
-    case RT::GetSpecificEquipment: return "獲取指定裝備";
+    case RT::GetSpecificEquipment:
+        if (auto* item = Save::getInstance()->getItem(reward.value))
+            return std::format("獲取指定裝備: {}", item->Name);
+        return "獲取指定裝備";
     }
     return "未知獎勵";
 }
 
-std::string ChessSelectorPresenter::buildEquippedBy(const std::map<ChessInstanceID, Chess>& collection, int itemId) const
+std::string ChessSelectorPresenter::buildChessNameWithStar(const Chess& chess) const
 {
-    std::string equippedBy;
+    std::string name = chess.role ? std::string(chess.role->Name) : std::string("???");
+    for (int i = 0; i < chess.star; ++i)
+    {
+        name += "★";
+    }
+    return name;
+}
+
+std::vector<std::string> ChessSelectorPresenter::buildEquippedBy(const std::map<ChessInstanceID, Chess>& collection, int itemId) const
+{
+    std::vector<std::string> equippedBy;
     for (const auto& [instanceId, chess] : collection)
     {
         if (chess.weaponInstance.itemId == itemId)
         {
-            equippedBy += (equippedBy.empty() ? "" : ",") + std::string(chess.role->Name) + "(武)";
+            equippedBy.push_back(buildChessNameWithStar(chess));
         }
         if (chess.armorInstance.itemId == itemId)
         {
-            equippedBy += (equippedBy.empty() ? "" : ",") + std::string(chess.role->Name) + "(甲)";
+            equippedBy.push_back(buildChessNameWithStar(chess));
         }
     }
     return equippedBy;

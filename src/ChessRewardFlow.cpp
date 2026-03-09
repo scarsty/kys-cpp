@@ -103,7 +103,7 @@ void ChessRewardFlow::showNeigongReward()
         menuConfig.x = menuAnchor.x;
         menuConfig.y = menuAnchor.y;
         auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
-        auto menu = makeIndexedMenu("選擇内功，内功將對所有成員自動生效", menuData, menuConfig, {std::make_shared<NeigongDetailPanel>(detailChoices, detailFrame)});
+        auto menu = makeIndexedMenu("内功對所有成員自動生效", menuData, menuConfig, {std::make_shared<NeigongDetailPanel>(detailChoices, detailFrame)});
         menu->run();
 
         int sel = menu->getResult();
@@ -132,11 +132,11 @@ void ChessRewardFlow::showEquipmentReward()
     auto& cfg = ChessBalance::config();
     int fightNum = services_.progress.battleProgress().getFight();
     const BalanceConfig::PlayerEquipmentReward* rewardCfg = nullptr;
-    for (auto it = cfg.playerEquipmentRewards.rbegin(); it != cfg.playerEquipmentRewards.rend(); ++it)
+    for (auto& r : cfg.playerEquipmentRewards)
     {
-        if (it->fight <= fightNum + 1)
+        if (r.fight == fightNum + 1)
         {
-            rewardCfg = &(*it);
+            rewardCfg = &r;
             break;
         }
     }
@@ -391,7 +391,7 @@ bool ChessRewardFlow::rewardNeigong(int maxTier)
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
     auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
-    auto menu = makeIndexedMenu("選擇內功，内功將對所有成員自動生效", menuData, menuConfig, {std::make_shared<NeigongDetailPanel>(detailChoices, detailFrame)});
+    auto menu = makeIndexedMenu("内功對所有成員自動生效", menuData, menuConfig, {std::make_shared<NeigongDetailPanel>(detailChoices, detailFrame)});
     menu->run();
     int sel = menu->getResult();
     if (sel >= 0)

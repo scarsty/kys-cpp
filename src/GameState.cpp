@@ -39,7 +39,7 @@ void GameState::reset()
     GameDataStore::operator=(GameDataStore{});
 
     constructDefaultServices();
-    ChessBalance::setDifficulty(difficulty);
+    ChessBalance::setDifficulty(difficulty());
 }
 
 GameDataStore GameState::exportStore() const
@@ -57,7 +57,7 @@ GameDataStore GameState::exportStore() const
 void GameState::importStore(const GameDataStore& store)
 {
     GameDataStore::operator=(store);
-    ChessBalance::setDifficulty(difficulty);
+    ChessBalance::setDifficulty(difficulty());
     constructServicesFromStore(store);
 }
 

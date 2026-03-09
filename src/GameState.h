@@ -42,6 +42,8 @@ public:
     const ChessEconomy& economy() const { return *economy_; }
     ChessRandom& random() { return *random_; }
     const ChessRandom& random() const { return *random_; }
+    Difficulty& difficulty() { return GameDataStore::difficulty; }
+    const Difficulty& difficulty() const { return GameDataStore::difficulty; }
 
 private:
     GameState();

@@ -92,7 +92,7 @@ void ChessEquipmentFlow::manageEquipment()
         std::vector<ChessMenuEntry> chessEntries;
         for (const auto& [instanceId, chess] : services_.roster.items())
         {
-            chessEntries.push_back({chess, chess.selectedForBattle ? "[出戰] " : ""});
+            chessEntries.push_back({chess, chess.selectedForBattle ? "[戰]" : ""});
         }
         if (chessEntries.empty())
         {
@@ -103,7 +103,6 @@ void ChessEquipmentFlow::manageEquipment()
         auto chessMenuData = chessPresenter().buildChessMenuData(chessEntries);
         IndexedMenuConfig chessMenuConfig;
         chessMenuConfig.perPage = 12;
-        chessMenuConfig.fontSize = 32;
         chessMenuConfig.x = menuAnchor.x;
         chessMenuConfig.y = menuAnchor.y;
         auto menu2 = makeIndexedMenu("選擇棋子", chessMenuData, chessMenuConfig, {}, chessMenuData.previewData);

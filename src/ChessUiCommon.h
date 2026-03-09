@@ -12,6 +12,7 @@
 #include "ChessShop.h"
 
 #include <string>
+#include <vector>
 
 namespace KysChess
 {
@@ -33,5 +34,7 @@ void playChessUpgradeSound();
 ChessManager makeChessManager(ChessRoster& roster, ChessEquipmentInventory& equipmentInventory, ChessEconomy& economy);
 ChessManager makeChessManager(const ChessSelectorServices& services);
 std::string comboEffectDesc(const ComboEffect& eff);
+std::string comboEffectCompactDesc(const ComboEffect& eff);
+std::vector<std::string> wrapDisplayText(const std::string& text, int maxWidth);
 
 }    // namespace KysChess

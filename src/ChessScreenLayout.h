@@ -100,13 +100,15 @@ inline PanelAnchor positionSwapMenuAnchor()
 inline PanelFrame shopOwnedPanel()
 {
     auto region = fullContentRegion();
-    return {region.x, region.y + 385, 670, 235};
+    return {region.x, region.y + 385, 540, 235};
 }
 
 inline PanelFrame comboInfoPanel()
 {
-    auto status = shopStatusPanel();
-    return {status.x, status.y + status.h + 15, status.w, 185};
+    auto region = fullContentRegion();
+    auto owned = shopOwnedPanel();
+    int x = owned.x + owned.w + 20;
+    return {x, region.y + 455, region.x + region.w - x - 10, 175};
 }
 
 inline PanelFrame comboCatalogDetailPanel()

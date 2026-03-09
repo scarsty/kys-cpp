@@ -195,7 +195,7 @@ void ChessShopFlow::sellChess()
         std::vector<ChessMenuEntry> entries;
         for (const auto& [instanceId, chess] : chessList)
         {
-            entries.push_back({chess, chess.selectedForBattle ? "[出戰]" : ""});
+            entries.push_back({chess, chess.selectedForBattle ? "[戰]" : ""});
         }
 
         auto menuData = chessPresenter().buildChessMenuData(entries);

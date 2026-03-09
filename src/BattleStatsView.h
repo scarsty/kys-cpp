@@ -48,6 +48,7 @@ public:
         int chessInstanceId = -1;
         int team = 0;
         int hp = 0, atk = 0, def = 0, spd = 0;
+        int weaponId = -1, armorId = -1;
         std::string skillNames;
         int damageDealt = 0, damageTaken = 0, kills = 0, dps = 0, cancelDmg = 0;
         std::string skill1, skill2;
@@ -72,7 +73,9 @@ public:
         const std::vector<int>& enemyStars,
         const std::vector<KysChess::ActiveCombo>& allyCombos,
         const std::vector<KysChess::ActiveCombo>& enemyCombos,
-        int musicId);
+        int musicId,
+        const std::vector<int>& enemyWeapons = {},
+        const std::vector<int>& enemyArmors = {});
 
     void setupPostBattle(
         const std::deque<Role>& allyBattleCopies,

@@ -21,10 +21,28 @@
 namespace KysChess
 {
 
+struct PanelTextCursor
+{
+    Font* font;
+    int x;
+    int y;
+
+    void line(std::string text, int fontSize, Color color, int extraSpacing = 4, int indent = 0)
+    {
+        font->draw(text, fontSize, x + indent, y, color);
+        y += fontSize + extraSpacing;
+    }
+
+    void skip(int spacing)
+    {
+        y += spacing;
+    }
+};
+
 struct EquipmentDetailState
 {
     int count = 0;
-    std::string equippedBy;
+    std::vector<std::string> equippedBy;
 };
 
 using EquipmentDetailProvider = std::function<EquipmentDetailState(const EquipmentDef&)>;

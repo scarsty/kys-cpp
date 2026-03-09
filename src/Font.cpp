@@ -22,6 +22,45 @@ Rect Font::getBoxSize(int textLen, int size, int x, int y)
     return r;
 }
 
+int Font::utf8CharLength(unsigned char c)
+{
+    if (c < 0x80)
+    {
+        return 1;
+    }
+    if ((c & 0xE0) == 0xC0)
+    {
+        return 2;
+    }
+    if ((c & 0xF0) == 0xE0)
+    {
+        return 3;
+    }
+    if ((c & 0xF8) == 0xF0)
+    {
+        return 4;
+    }
+    return 1;
+}
+
+int Font::utf8DisplayWidth(unsigned char c)
+{
+    if (c < 0x80)
+    {
+        return 1;
+    }
+    int charLength = utf8CharLength(c);
+    if (charLength == 2)
+    {
+        return 1;
+    }
+    if (charLength >= 3)
+    {
+        return 2;
+    }
+    return 1;
+}
+
 //此处仅接受utf8
 //返回值为实际画的行数
 int Font::draw(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
@@ -198,7 +237,7 @@ int Font::getBufferSize()
     int sum = 0;
     for (auto& f : buffer_)
     {
-        sum += f.second.size();
+        sum += static_cast<int>(f.second.size());
     }
     return sum;
 }
@@ -209,30 +248,15 @@ int Font::getTextDrawSize(const std::string& text)
     for (int i = 0; i < text.size();)
     {
         uint8_t v = text[i];
-        if (v < 0x80)
+        int charLength = utf8CharLength(v);
+        if (v >= 0x80 && charLength == 1)
         {
-            len++;
             i++;
-        }
-        else if (v >= 0xc0 && v < 0xe0)
-        {
-            len++;
-            i += 2;
-        }
-        else if (v >= 0xe0 && v < 0xf0)
-        {
-            len += 2;
-            i += 3;
-        }
-        else if (v >= 0xf0 && v < 0xf8)
-        {
-            len += 2;
-            i += 4;
         }
         else
         {
-            //不应出现在这里的字符，跳过避免死循环
-            i++;
+            len += utf8DisplayWidth(v);
+            i += charLength;
         }
     }
     return len;

@@ -14,24 +14,23 @@ namespace KysChess
 
 namespace
 {
-
-struct PanelTextCursor
+void drawWrappedCursorText(
+    PanelTextCursor& cursor,
+    const std::string& text,
+    int fontSize,
+    Color color,
+    int maxPixelWidth,
+    int extraSpacing = 0,
+    int indentPixels = 0)
 {
-    Font* font;
-    int x;
-    int y;
-
-    void line(const std::string& text, int fontSize, Color color, int extraSpacing = 4, int indent = 0)
+    int availablePixels = std::max(0, maxPixelWidth - indentPixels);
+    int availableUnits = std::max(4, availablePixels * 2 / std::max(1, fontSize));
+    auto wrappedLines = wrapDisplayText(text, availableUnits);
+    for (const auto& line : wrappedLines)
     {
-        font->draw(text, fontSize, x + indent, y, color);
-        y += fontSize + extraSpacing;
+        cursor.line(line, fontSize, color, extraSpacing, indentPixels);
     }
-
-    void skip(int spacing)
-    {
-        y += spacing;
-    }
-};
+}
 
 struct PanelColumnFlow
 {
@@ -99,7 +98,7 @@ void drawNeigongDetail(const NeigongDef& ng, PanelFrame frame, int ownedState = 
     }
 }
 
-void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, const std::string& equippedBy)
+void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, const std::vector<std::string>& equippedBy)
 {
     ChessScreenLayout::drawPanel(frame);
     auto* item = eq.getItem();
@@ -114,10 +113,6 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
     Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
     header.line(std::format("層級: {}", tierName[std::min(eq.tier - 1, 3)]), fs, tierColors[std::min(eq.tier - 1, 3)]);
     header.line(std::format("擁有: x{}", count), fs, count > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
-    if (!equippedBy.empty())
-    {
-        header.line(std::format("裝備於: {}", equippedBy), fs, {100, 200, 255, 255});
-    }
 
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
     if (!eq.effects.empty())
@@ -126,6 +121,18 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
         for (auto& eff : eq.effects)
         {
             body.line(comboEffectDesc(eff), fs - 2, {220, 220, 100, 255}, 2);
+        }
+    }
+    if (!equippedBy.empty())
+    {
+        if (!eq.effects.empty())
+        {
+            body.skip(16);
+        }
+        body.line("裝備棋子:", fs, {140, 220, 255, 255}, 6);
+        for (const auto& name : equippedBy)
+        {
+            body.line(name, fs - 2, {210, 235, 255, 255}, 2, 12);
         }
     }
 }
@@ -160,54 +167,139 @@ void ComboInfoPanel::drawPanel()
     int fs = 20;
     auto* font = Font::getInstance();
     font->draw("羈絆資訊", fs + 4, frame.x + 10, frame.y + 5, {255, 255, 100, 255});
-    PanelColumnFlow flow{font, frame, frame.x + 10, frame.y + 32, frame.y + 32, frame.y + frame.h - 15, 225};
 
-    for (auto cid : roleCombos)
+    struct ComboBlock
     {
-        auto& combo = allCombos[static_cast<int>(cid)];
-        auto [owned, effective] = computeOwnership(combo, starByRole);
+        std::string header;
+        Color headerColor;
+        std::vector<std::string> effectLines;
+        Color effectColor;
+    };
 
-        const ComboThreshold* lastActive = nullptr;
-        const ComboThreshold* nextThreshold = nullptr;
-        for (auto& threshold : combo.thresholds)
+    auto buildBlocks = [&](int columnWidth) {
+        std::vector<ComboBlock> blocks;
+        int headerUnits = std::max(12, (columnWidth - 20) * 2 / fs);
+        int effectUnits = std::max(12, (columnWidth - 28) * 2 / (fs - 2));
+        for (auto cid : roleCombos)
         {
-            if (effective >= threshold.count)
-            {
-                lastActive = &threshold;
-            }
-            else if (!nextThreshold)
-            {
-                nextThreshold = &threshold;
-            }
-        }
+            auto& combo = allCombos[static_cast<int>(cid)];
+            auto [owned, effective] = computeOwnership(combo, starByRole);
 
-        const ComboThreshold* shownThreshold = lastActive ? lastActive : nextThreshold;
-        if (!shownThreshold && !combo.thresholds.empty())
+            const ComboThreshold* lastActive = nullptr;
+            const ComboThreshold* nextThreshold = nullptr;
+            for (auto& threshold : combo.thresholds)
+            {
+                if (effective >= threshold.count)
+                {
+                    lastActive = &threshold;
+                }
+                else if (!nextThreshold)
+                {
+                    nextThreshold = &threshold;
+                }
+            }
+
+            const ComboThreshold* shownThreshold = lastActive ? lastActive : nextThreshold;
+            if (!shownThreshold && !combo.thresholds.empty())
+            {
+                shownThreshold = &combo.thresholds.back();
+            }
+
+            bool active = lastActive != nullptr;
+            int denominator = (nextThreshold ? nextThreshold : (lastActive ? lastActive : &combo.thresholds.back()))->count;
+            std::string countText = formatComboCount(owned, effective, denominator, combo.starSynergyBonus, combo.isAntiCombo);
+
+            ComboBlock block;
+            block.header = std::format("{} ({})", combo.name, countText);
+            block.headerColor = active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
+            block.effectColor = active ? Color{180, 220, 255, 255} : Color{120, 120, 120, 255};
+
+            auto headerLines = wrapDisplayText(block.header, headerUnits);
+            if (!headerLines.empty())
+            {
+                block.header = headerLines.front();
+            }
+
+            if (shownThreshold)
+            {
+                for (auto& effect : shownThreshold->effects)
+                {
+                    auto wrapped = wrapDisplayText(comboEffectCompactDesc(effect), effectUnits);
+                    if (wrapped.empty())
+                    {
+                        continue;
+                    }
+                    for (size_t lineIndex = 0; lineIndex < wrapped.size(); ++lineIndex)
+                    {
+                        block.effectLines.push_back(lineIndex == 0 ? "  " + wrapped[lineIndex] : "    " + wrapped[lineIndex]);
+                    }
+                }
+            }
+            blocks.push_back(std::move(block));
+        }
+        return blocks;
+    };
+
+    auto blockHeight = [&](const ComboBlock& block) {
+        return (fs + 4) + static_cast<int>(block.effectLines.size()) * fs + 4;
+    };
+
+    auto canFit = [&](const std::vector<ComboBlock>& blocks, int columns) {
+        int availableHeight = frame.h - 47;
+        std::vector<int> heights(columns, 0);
+        int currentColumn = 0;
+        for (const auto& block : blocks)
         {
-            shownThreshold = &combo.thresholds.back();
+            int needed = blockHeight(block);
+            while (currentColumn < columns && heights[currentColumn] + needed > availableHeight)
+            {
+                ++currentColumn;
+            }
+            if (currentColumn >= columns)
+            {
+                return false;
+            }
+            heights[currentColumn] += needed;
         }
+        return true;
+    };
 
-        int neededHeight = (fs + 4) + (shownThreshold ? static_cast<int>(shownThreshold->effects.size()) * fs : 0) + 4;
+    int chosenColumns = 1;
+    std::vector<ComboBlock> blocks;
+    int maxColumns = std::min(3, std::max(1, static_cast<int>(roleCombos.size())));
+    for (int columns = 1; columns <= maxColumns; ++columns)
+    {
+        int columnWidth = std::max(160, (frame.w - 20) / columns);
+        auto candidateBlocks = buildBlocks(columnWidth);
+        if (canFit(candidateBlocks, columns))
+        {
+            chosenColumns = columns;
+            blocks = std::move(candidateBlocks);
+            break;
+        }
+        if (columns == maxColumns)
+        {
+            chosenColumns = columns;
+            blocks = std::move(candidateBlocks);
+        }
+    }
+
+    int columnWidth = std::max(160, (frame.w - 20) / chosenColumns);
+    PanelColumnFlow flow{font, frame, frame.x + 10, frame.y + 32, frame.y + 32, frame.y + frame.h - 15, columnWidth};
+    for (const auto& block : blocks)
+    {
+        int neededHeight = blockHeight(block);
         if (!flow.ensureSpace(neededHeight))
         {
             break;
         }
 
-        bool active = lastActive != nullptr;
-        int denominator = (nextThreshold ? nextThreshold : (lastActive ? lastActive : &combo.thresholds.back()))->count;
-        Color headerColor = active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
-        std::string countText = formatComboCount(owned, effective, denominator, combo.starSynergyBonus, combo.isAntiCombo);
-        flow.line(std::format("{} ({})", combo.name, countText), fs, headerColor);
-
-        if (shownThreshold)
+        flow.line(block.header, fs, block.headerColor);
+        for (const auto& line : block.effectLines)
         {
-            Color effectColor = active ? Color{180, 220, 255, 255} : Color{120, 120, 120, 255};
-            for (auto& effect : shownThreshold->effects)
+            if (!flow.line(line, fs - 2, block.effectColor, 2))
             {
-                if (!flow.line("  " + comboEffectDesc(effect), fs - 2, effectColor, 2))
-                {
-                    break;
-                }
+                break;
             }
         }
         if (!flow.skip(4))
@@ -278,7 +370,8 @@ void OwnedRosterPanel::drawPanel()
         }
     }
 
-    PanelColumnFlow flow{font, frame, frame.x + 10, frame.y + fs + 34, frame.y + fs + 34, frame.y + frame.h, 200};
+    int columnWidth = std::max(150, (frame.w - 30) / 3);
+    PanelColumnFlow flow{font, frame, frame.x + 10, frame.y + fs + 34, frame.y + fs + 34, frame.y + frame.h, columnWidth};
     auto drawEntry = [&](const Entry& entry) {
         flow.line(entry.label, fs, entry.color);
     };
@@ -355,10 +448,13 @@ void ComboCatalogDetailPanel::drawPanel()
             ? std::format("★ 成員星級計人數，當前+{}人", totalBonus)
             : "★ 成員星級計人數（2★=2人）";
         thresholdCursor.skip(fs + 2);
-        thresholdCursor.line(synergyLine, fs - 4, {255, 200, 50, 255}, 2);
+        thresholdCursor.line(std::move(synergyLine), fs - 4, {255, 200, 50, 255}, 2);
         thresholdCursor.line("  每額外★計入1羈絆人數", fs - 6, {180, 160, 80, 255}, 0);
     }
     thresholdCursor.skip(fs + 4);
+    int effectFontSize = fs - 2;
+    int effectIndent = effectFontSize;
+    int effectPixelWidth = frame.x + frame.w - thresholdCursor.x - 10;
     for (auto& threshold : combo.thresholds)
     {
         bool tierActive = effective >= threshold.count;
@@ -368,7 +464,14 @@ void ComboCatalogDetailPanel::drawPanel()
         thresholdCursor.line(std::format("{}人: {}{}", threshold.count, threshold.name, tierMark), fs, tierColor, 1);
         for (auto& effect : threshold.effects)
         {
-            thresholdCursor.line("  " + comboEffectDesc(effect), fs - 2, effectColor, 0);
+            drawWrappedCursorText(
+                thresholdCursor,
+                comboEffectDesc(effect),
+                effectFontSize,
+                effectColor,
+                effectPixelWidth,
+                0,
+                effectIndent);
         }
         thresholdCursor.skip(8);
     }

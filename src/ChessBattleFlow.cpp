@@ -41,7 +41,7 @@ void ChessBattleFlow::selectForBattle()
         int selectedCount = 0;
         for (const auto& [id, chess] : services_.roster.items())
         {
-            entries.push_back({chess, chess.selectedForBattle ? "[出戰]" : ""});
+            entries.push_back({chess, chess.selectedForBattle ? "[戰]" : ""});
             if (chess.selectedForBattle) ++selectedCount;
         }
         std::sort(entries.begin(), entries.end(), [](const ChessMenuEntry& left, const ChessMenuEntry& right) {
@@ -234,7 +234,7 @@ int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vecto
         auto info = BattleMap::getInstance()->getBattleInfo(battle_id);
         int musicId = info ? info->Music : -1;
         auto view = std::make_shared<BattleStatsView>(services_.roleSave, chessManager);
-        view->setupPreBattle(allyChess, roles.enemy_ids, roles.enemy_stars, allyCombos, enemyCombos, musicId);
+        view->setupPreBattle(allyChess, roles.enemy_ids, roles.enemy_stars, allyCombos, enemyCombos, musicId, roles.enemy_weapons, roles.enemy_armors);
         view->run();
     }
 

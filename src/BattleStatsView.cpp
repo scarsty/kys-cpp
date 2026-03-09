@@ -88,9 +88,11 @@ void BattleStatsView::setupPreBattle(
     const std::vector<KysChess::Chess>& allies,
     const std::vector<int>& enemyIds,
     const std::vector<int>& enemyStars,
-    const std::vector<KysChess::ActiveCombo>& allyC,
-    const std::vector<KysChess::ActiveCombo>& enemyC,
-    int musicId)
+    const std::vector<KysChess::ActiveCombo>& allyCombos,
+    const std::vector<KysChess::ActiveCombo>& enemyCombos,
+    int musicId,
+    const std::vector<int>& enemyWeapons,
+    const std::vector<int>& enemyArmors)
 {
     isPreBattle_ = true;
     musicId_ = musicId;
@@ -104,15 +106,18 @@ void BattleStatsView::setupPreBattle(
         auto r = roleSave_.getRole(enemyIds[i]);
         int star = (i < enemyStars.size()) ? enemyStars[i] : 1;
         if (r) {
-            enemies_.push_back(makeEntry(r, star, 1));
+            auto e = makeEntry(r, star, 1);
+            if (i < enemyWeapons.size()) e.weaponId = enemyWeapons[i];
+            if (i < enemyArmors.size()) e.armorId = enemyArmors[i];
+            enemies_.push_back(e);
         }
     }
     allyCombos_.clear(); enemyCombos_.clear();
-    for (auto& ac : allyC) {
+    for (auto& ac : allyCombos) {
         if (ac.activeThresholdIdx >= 0) allyCombos_.push_back(makeComboEntry(ac));
     }
-        
-    for (auto& ac : enemyC) {
+
+    for (auto& ac : enemyCombos) {
         if (ac.activeThresholdIdx >= 0) enemyCombos_.push_back(makeComboEntry(ac));
     }
         
@@ -191,7 +196,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
     y += 30;
 
     // Column offsets relative to x
-    int cName = 46, cStar = 130, cHP = 160, cAtk = 220, cDef = 270, cSpd = 320, cSkill = 365, cEquip = 450;
+    int cName = 46, cStar = 130, cHP = 160, cAtk = 220, cDef = 270, cSpd = 320, cEquip = 365, cSkill = 405;
     int cDmg = 130, cDps = 200, cTaken = 250, cKill = 310, cCancel = 340, cSk1 = 400;
 
     if (!showPost)
@@ -202,8 +207,8 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
         font->draw("攻", fs, x + cAtk, y, cGray);
         font->draw("防", fs, x + cDef, y, cGray);
         font->draw("速", fs, x + cSpd, y, cGray);
-        font->draw("武學", fs, x + cSkill, y, cGray);
         font->draw("裝", fs, x + cEquip, y, cGray);
+        font->draw("武學", fs, x + cSkill, y, cGray);
     }
     else
     {
@@ -236,7 +241,6 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             font->draw(std::to_string(e.atk), fs, x + cAtk, y, cWhite);
             font->draw(std::to_string(e.def), fs, x + cDef, y, cWhite);
             font->draw(std::to_string(e.spd), fs, x + cSpd, y, cWhite);
-            font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);
 
             // Equipment icons
             auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
@@ -249,6 +253,15 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
                 if (armorId >= 0)
                     TextureManager::getInstance()->renderTexture("item", armorId, x + cEquip + 18, y, cWhite, 255, 0.16, 0.16);
             }
+            else if (e.weaponId >= 0 || e.armorId >= 0)
+            {
+                if (e.weaponId >= 0)
+                    TextureManager::getInstance()->renderTexture("item", e.weaponId, x + cEquip, y, cWhite, 255, 0.16, 0.16);
+                if (e.armorId >= 0)
+                    TextureManager::getInstance()->renderTexture("item", e.armorId, x + cEquip + 18, y, cWhite, 255, 0.16, 0.16);
+            }
+
+            font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);
         }
         else
         {

@@ -74,6 +74,7 @@ void ChessMod::onSubSceneEntrance(int submap_id)
             diff = diffMenu->getResult();
         }
         auto difficulty = (diff == 1) ? Difficulty::Normal : Difficulty::Easy;
+        gameState_.difficulty() = difficulty;
         ChessBalance::setDifficulty(difficulty);
         gameState_.economy().setMoney(ChessBalance::config().initialMoney);
     }

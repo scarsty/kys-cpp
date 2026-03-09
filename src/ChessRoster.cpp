@@ -107,19 +107,32 @@ void ChessRoster::update(Chess chess)
         remove(chess.id);
     }
 
-    collection_.insert({chess.id, chess});
-
     auto assignItemInstance = [&](InstancedItem instance) {
         if (instance.id != k_nonExistentItem)
         {
             assert(equipmentInventory_.contains(instance.id));
-            equipmentInventory_.clearAssignment(instance.id);
+
+            // Clear item from any other chess piece that has it
+            for (auto& [id, otherChess] : collection_)
+            {
+                if (otherChess.weaponInstance.id == instance.id)
+                {
+                    otherChess.weaponInstance = {};
+                }
+                if (otherChess.armorInstance.id == instance.id)
+                {
+                    otherChess.armorInstance = {};
+                }
+            }
+
             equipmentInventory_.assignToChess(instance.id, chess.id);
         }
     };
 
     assignItemInstance(chess.weaponInstance);
     assignItemInstance(chess.armorInstance);
+
+    collection_.insert({chess.id, chess});
 }
 
 Chess ChessRoster::create(Role* role, int star)

@@ -37,7 +37,8 @@ public:
         const std::string& prefix = "") const;
     ChessMenuData buildChessMenuData(const std::vector<ChessMenuEntry>& entries) const;
     std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& reward) const;
-    std::string buildEquippedBy(const std::map<ChessInstanceID, Chess>& collection, int itemId) const;
+    std::string buildChessNameWithStar(const Chess& chess) const;
+    std::vector<std::string> buildEquippedBy(const std::map<ChessInstanceID, Chess>& collection, int itemId) const;
 };
 
 }

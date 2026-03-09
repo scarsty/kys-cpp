@@ -30,6 +30,8 @@ public:
         static Font f;
         return &f;
     }
+    static int utf8CharLength(unsigned char c);
+    static int utf8DisplayWidth(unsigned char c);
     static Rect getBoxSize(int textLen, int size, int x, int y);
     void setStatMessage(int s) { stat_message_ = s; }
     int draw(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255);
