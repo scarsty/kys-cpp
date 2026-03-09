@@ -1,44 +1,112 @@
-# -*- coding: utf-8 -*-
-import sqlite3, sys
+import argparse
+import re
+import sqlite3
+import sys
+from pathlib import Path
+
 sys.stdout.reconfigure(encoding='utf-8')
 
-conn = sqlite3.connect('d:/projects/kys-cpp/kys-cpp/work/game-dev/save/0.db')
-cur = conn.cursor()
+ROLE_LINE_RE = re.compile(r'^\s*-\s+(\d+)\s+#\s+(.+)$')
+TIER_LINE_RE = re.compile(r'^- 费用: (\d+)$')
 
-# Hardcoded from ChessPool.cpp
-pool = {
-    1: [(130, "柯镇恶"), (131, "朱聪"), (132, "韩宝驹"), (133, "南希仁"),
-        (134, "张阿生"), (135, "全金发"), (136, "韩小莹"), (63, "程英"),
-        (84, "霍都"), (160, "达尔巴"), (161, "李莫愁"), (45, "薛慕华"),
-        (47, "阿紫"), (104, "阿朱"), (105, "阿碧")],
-    2: [(54, "袁承志"), (37, "狄云"), (97, "血刀老祖"), (56, "黄蓉"),
-        (44, "岳老三"), (48, "游坦之"), (99, "叶二娘"), (100, "云中鹤"),
-        (102, "枯荣"), (115, "苏星河")],
-    3: [(55, "郭靖"), (67, "裘千仞"), (68, "丘处机"), (59, "小龙女"),
-        (46, "丁春秋"), (51, "慕容复"), (53, "段誉"), (70, "玄慈"),
-        (98, "段延庆"), (103, "鸠摩智"), (112, "萧远山"), (113, "慕容博")],
-    4: [(57, "黄药师"), (60, "欧阳锋"), (64, "周伯通"), (65, "一灯"),
-        (69, "洪七公"), (58, "杨过"), (62, "金轮法王"), (49, "虚竹"),
-        (50, "乔峰"), (117, "天山童姥"), (118, "李秋水")],
-    5: [(129, "王重阳"), (114, "扫地老僧"), (116, "无崖子")],
-}
 
-errors = 0
-for tier, entries in pool.items():
-    print(f"\n=== Tier {tier} ===")
-    for role_id, expected_name in entries:
-        cur.execute('SELECT 名字 FROM role WHERE 编号 = ?', (role_id,))
-        row = cur.fetchone()
-        if row is None:
-            print(f"  ERROR: ID {role_id} not found in DB (expected: {expected_name})")
-            errors += 1
-        else:
-            actual = row[0].strip()
-            if actual == expected_name:
-                print(f"  OK: {role_id} = {actual}")
-            else:
-                print(f"  MISMATCH: ID {role_id} expected '{expected_name}' but DB has '{actual}'")
+def parse_args() -> argparse.Namespace:
+    repo_root = Path(__file__).resolve().parents[1]
+    parser = argparse.ArgumentParser(description='Validate a chess pool YAML against the role DB.')
+    parser.add_argument(
+        '--pool',
+        type=Path,
+        default=repo_root / 'config' / 'chess_pool.yaml',
+        help='Pool YAML to validate.')
+    parser.add_argument(
+        '--db',
+        type=Path,
+        default=repo_root / 'work' / 'game-dev' / 'save' / '0.db',
+        help='SQLite database to validate against.')
+    parser.add_argument(
+        '--strict-names',
+        action='store_true',
+        help='Treat comment/DB name mismatches as errors instead of warnings.')
+    return parser.parse_args()
+
+
+def parse_pool(pool_path: Path) -> dict[int, list[tuple[int, str]]]:
+    pool: dict[int, list[tuple[int, str]]] = {}
+    current_tier: int | None = None
+
+    for raw_line in pool_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.rstrip()
+        tier_match = TIER_LINE_RE.match(line)
+        if tier_match:
+            current_tier = int(tier_match.group(1))
+            pool.setdefault(current_tier, [])
+            continue
+
+        role_match = ROLE_LINE_RE.match(line)
+        if role_match and current_tier is not None:
+            pool[current_tier].append((int(role_match.group(1)), role_match.group(2).strip()))
+
+    return pool
+
+
+def validate_pool(pool: dict[int, list[tuple[int, str]]], db_path: Path, strict_names: bool) -> int:
+    if not pool:
+        print('ERROR: No tier entries were parsed from the pool YAML.')
+        return 1
+
+    seen_ids: set[int] = set()
+    duplicate_ids: set[int] = set()
+    for entries in pool.values():
+        for role_id, _ in entries:
+            if role_id in seen_ids:
+                duplicate_ids.add(role_id)
+            seen_ids.add(role_id)
+
+    if duplicate_ids:
+        print('ERROR: Duplicate role IDs in pool:', ', '.join(str(role_id) for role_id in sorted(duplicate_ids)))
+        return len(duplicate_ids)
+
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+
+    errors = 0
+    for tier in sorted(pool):
+        print(f'\n=== Tier {tier} ({len(pool[tier])} roles) ===')
+        for role_id, expected_name in pool[tier]:
+            cur.execute('SELECT 名字 FROM role WHERE 编号 = ?', (role_id,))
+            row = cur.fetchone()
+            if row is None:
+                print(f"  ERROR: ID {role_id} not found in DB (expected: {expected_name})")
                 errors += 1
+                continue
 
-print(f"\n{'ALL GOOD' if errors == 0 else f'{errors} ERRORS FOUND'}!")
-conn.close()
+            actual_name = row[0].strip()
+            if actual_name == expected_name:
+                print(f'  OK: {role_id} = {actual_name}')
+            else:
+                level = 'MISMATCH' if strict_names else 'WARNING'
+                print(f'  {level}: ID {role_id} comment name differs from DB value')
+                if strict_names:
+                    errors += 1
+
+    conn.close()
+    return errors
+
+
+def main() -> int:
+    args = parse_args()
+    if not args.pool.exists():
+        print(f'ERROR: Pool YAML not found: {args.pool}')
+        return 1
+    if not args.db.exists():
+        print(f'ERROR: SQLite DB not found: {args.db}')
+        return 1
+
+    pool = parse_pool(args.pool)
+    errors = validate_pool(pool, args.db, args.strict_names)
+    print(f"\n{'ALL GOOD' if errors == 0 else f'{errors} ERRORS FOUND'}!")
+    return 0 if errors == 0 else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
