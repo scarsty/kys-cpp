@@ -11,7 +11,7 @@
 | 5 | Complex Battle Effects (4 spatial effects) | ✅ Done | Tasks 3, 4 |
 | 6 | Shop Size & Ban System | ✅ Done | Tasks 2, 3 |
 | 7 | Easy Mode Curated Pool | ✅ Done | Tasks 2, 6 |
-| 8 | Final Validation & Commit Message | 🔄 In Progress | All |
+| 8 | Final Validation & Commit Message | ⛔ Blocked (manual smoke pending) | All |
 
 ## Parallelization
 
@@ -24,5 +24,10 @@ Task 3 (Enum) ──→ Task 4 (Simple FX) ──→ Task 5 (Complex FX) ──�
 
 ## Notes
 - Update Status column to 🔄 when starting, ✅ when done
+- Automated validation, commit artifacts, and feature commits are complete; the only remaining
+  validation is manual in-game smoke testing outside the CLI.
 - Exact synergy-complete Easy pools cannot fit the requested 50-55 size under the current combo
   graph; the checked minimum valid subset is 76 roles.
+- Existing saves in `work/game-dev/save/1.db` and `work/game-dev/save/4.db` still carry
+  `schema_version = 1` payloads without `seenRoleIds` / `bannedRoleIds`, which matches the
+  intended backward-compatible defaulting path in `GameDataStore::load()`.
