@@ -38,52 +38,8 @@ ROLE_TYPE_BIAS = {
     "Ranged": {"hp": -0.05, "atk": 0.03, "def": -0.04, "spd": 0.06},
 }
 
-RESERVED_ROLE_ID_FLOOR = 2000
-# Stable IDs reserved for the add-more-chess-piece roster so config/YAML work can
-# reference them without reading the database first.
-TARGET_CHARACTER_ROLE_IDS: dict[str, int] = {
-    "胡一刀": 2000,
-    "田归农": 2001,
-    "阎基": 2002,
-    "王元霸": 2003,
-    "田伯光": 2004,
-    "东方不败": 2005,
-    "黄裳": 2006,
-    "张三丰": 2007,
-    "张无忌": 2008,
-    "韦一笑": 2009,
-    "谢逊": 2010,
-    "周芷若": 2011,
-    "杨逍": 2012,
-    "殷天正": 2013,
-    "灭绝师太": 2014,
-    "赵敏": 2015,
-    "宋青书": 2016,
-    "张翠山": 2017,
-    "黛绮丝": 2018,
-    "范瑶": 2019,
-    "宋远桥": 2020,
-    "张松溪": 2021,
-    "俞莲舟": 2022,
-    "俞岱岩": 2023,
-    "殷梨亭": 2024,
-    "莫声谷": 2025,
-    "无色禅师": 2026,
-    "郭襄": 2027,
-    "胡斐": 2028,
-    "程灵素": 2029,
-    "平一指": 2030,
-    "胡青牛": 2031,
-    "成昆": 2032,
-    "岳不群": 2033,
-    "马钰": 2034,
-    "王处一": 2035,
-    "谭处端": 2036,
-    "刘处玄": 2037,
-}
-RESERVED_ROLE_ID_CEILING = RESERVED_ROLE_ID_FLOOR + len(TARGET_CHARACTER_ROLE_IDS) - 1
-if set(TARGET_CHARACTER_ROLE_IDS.values()) != set(range(RESERVED_ROLE_ID_FLOOR, RESERVED_ROLE_ID_CEILING + 1)):
-    raise ValueError("Target character role IDs must remain a contiguous reserved block starting at 2000.")
+# Character names that already exist in the database will be updated in place.
+# New characters will be assigned IDs starting from the current max ID + 1.
 
 GENERIC_SKILLS = {
     "Melee": [(1, 250), (17, 250)],
@@ -94,7 +50,6 @@ GENERIC_SKILLS = {
 @dataclass(frozen=True)
 class CharacterSpec:
     name: str
-    role_id: int
     tier: int
     role_type: str
     fallback_name: str | None = None
@@ -110,7 +65,6 @@ def make_character_spec(
 ) -> CharacterSpec:
     return CharacterSpec(
         name=name,
-        role_id=TARGET_CHARACTER_ROLE_IDS[name],
         tier=tier,
         role_type=role_type,
         fallback_name=fallback_name,
@@ -120,46 +74,44 @@ def make_character_spec(
 
 TARGET_CHARACTERS: list[CharacterSpec] = [
     make_character_spec("胡一刀", 4, "Melee", fallback_name="胡斐"),
-    make_character_spec("田归农", 1, "Ranged"),
-    make_character_spec("阎基", 1, "Ranged"),
+    make_character_spec("田歸農", 1, "Ranged"),
+    make_character_spec("閻基", 1, "Ranged"),
     make_character_spec("王元霸", 1, "Melee"),
     make_character_spec("田伯光", 2, "Melee"),
-    make_character_spec("东方不败", 5, "Ranged"),
-    make_character_spec("黄裳", 5, "Melee"),
-    make_character_spec("张三丰", 5, "Melee"),
-    make_character_spec("张无忌", 4, "Melee"),
-    make_character_spec("韦一笑", 3, "Melee"),
-    make_character_spec("谢逊", 4, "Melee"),
+    make_character_spec("東方不敗", 5, "Ranged"),
+    make_character_spec("黃裳", 5, "Melee"),
+    make_character_spec("張三丰", 5, "Melee"),
+    make_character_spec("張無忌", 4, "Melee"),
+    make_character_spec("韋一笑", 3, "Melee"),
+    make_character_spec("謝遜", 4, "Melee"),
     make_character_spec("周芷若", 3, "Melee"),
-    make_character_spec("杨逍", 3, "Ranged"),
+    make_character_spec("楊逍", 3, "Ranged"),
     make_character_spec("殷天正", 4, "Melee"),
-    make_character_spec("灭绝师太", 3, "Ranged", aliases=("灭绝",)),
-    make_character_spec("赵敏", 1, "Ranged"),
-    make_character_spec("宋青书", 2, "Melee"),
-    make_character_spec("张翠山", 2, "Ranged"),
-    make_character_spec("黛绮丝", 2, "Ranged"),
-    make_character_spec("范瑶", 3, "Ranged"),
-    make_character_spec("宋远桥", 4, "Melee"),
-    make_character_spec("张松溪", 3, "Melee"),
-    make_character_spec("俞莲舟", 3, "Ranged"),
-    make_character_spec("俞岱岩", 1, "Melee"),
+    make_character_spec("滅絕", 3, "Ranged", aliases=("滅絕師太",)),
+    make_character_spec("趙敏", 1, "Ranged"),
+    make_character_spec("宋青書", 2, "Melee"),
+    make_character_spec("張翠山", 2, "Ranged"),
+    make_character_spec("黛綺絲", 2, "Ranged"),
+    make_character_spec("范遙", 3, "Ranged"),
+    make_character_spec("宋遠橋", 4, "Melee"),
+    make_character_spec("張松溪", 3, "Melee"),
+    make_character_spec("俞蓮舟", 3, "Ranged"),
+    make_character_spec("俞岱巖", 1, "Melee"),
     make_character_spec("殷梨亭", 2, "Melee"),
-    make_character_spec("莫声谷", 2, "Melee"),
-    make_character_spec("无色禅师", 4, "Melee", fallback_name="玄慈", aliases=("无色",)),
+    make_character_spec("莫聲谷", 2, "Melee"),
+    make_character_spec("無色禪師", 4, "Melee", fallback_name="玄慈", aliases=("無色",)),
     make_character_spec("郭襄", 4, "Ranged", fallback_name="程英"),
     make_character_spec("胡斐", 3, "Melee"),
-    make_character_spec("程灵素", 1, "Ranged"),
+    make_character_spec("程靈素", 1, "Ranged"),
     make_character_spec("平一指", 2, "Melee", fallback_name="胡青牛"),
     make_character_spec("胡青牛", 2, "Ranged"),
-    make_character_spec("成昆", 3, "Melee"),
+    make_character_spec("成崑", 3, "Melee"),
     make_character_spec("岳不群", 3, "Melee"),
-    make_character_spec("马钰", 1, "Melee"),
-    make_character_spec("王处一", 2, "Melee"),
-    make_character_spec("谭处端", 1, "Ranged"),
-    make_character_spec("刘处玄", 2, "Ranged"),
+    make_character_spec("馬鈺", 1, "Melee"),
+    make_character_spec("王處一", 2, "Melee"),
+    make_character_spec("譚處端", 1, "Ranged"),
+    make_character_spec("劉處玄", 2, "Ranged"),
 ]
-if {spec.name for spec in TARGET_CHARACTERS} != set(TARGET_CHARACTER_ROLE_IDS):
-    raise ValueError("Target character specs and stable role ID mapping must stay in sync.")
 
 
 @dataclass
@@ -292,12 +244,26 @@ def select_best_reference_row(rows: list[dict[str, str]]) -> dict[str, str]:
     )
 
 
+def to_simplified(text: str) -> str:
+    """Convert traditional Chinese to simplified for CSV lookup."""
+    t2s = str.maketrans({
+        '張': '张', '無': '无', '忌': '忌', '楊': '杨', '逍': '逍', '謝': '谢', '遜': '逊',
+        '韋': '韦', '東': '东', '敗': '败', '黃': '黄', '裳': '裳', '豐': '丰',
+        '滅': '灭', '絕': '绝', '師': '师', '趙': '赵', '敏': '敏', '書': '书',
+        '翠': '翠', '黛': '黛', '綺': '绮', '絲': '丝', '瑤': '瑶', '遠': '远',
+        '橋': '桥', '蓮': '莲', '舟': '舟', '岱': '岱', '巖': '岩', '聲': '声',
+        '無': '无', '禪': '禅', '靈': '灵', '馬': '马', '鈺': '钰', '處': '处',
+        '譚': '谭', '劉': '刘', '閻': '阎', '歸': '归', '農': '农',
+    })
+    return text.translate(t2s)
+
+
 def resolve_reference_role(
     spec: CharacterSpec,
     by_name: dict[str, list[dict[str, str]]],
     by_alias: dict[str, list[dict[str, str]]],
 ) -> tuple[dict[str, str], str]:
-    search_terms = [spec.name, *spec.aliases]
+    search_terms = [to_simplified(spec.name), *[to_simplified(a) for a in spec.aliases]]
     for term in search_terms:
         matches = by_name.get(term, [])
         if matches:
@@ -306,7 +272,7 @@ def resolve_reference_role(
         if alias_matches:
             return select_best_reference_row(alias_matches), f"alias:{term}"
     if spec.fallback_name:
-        fallback_terms = [spec.fallback_name]
+        fallback_terms = [to_simplified(spec.fallback_name)]
         for term in fallback_terms:
             matches = by_name.get(term, [])
             if matches:
@@ -582,50 +548,27 @@ def assign_role_ids(cur: sqlite3.Cursor, plans: list[CharacterPlan]) -> None:
 
     placeholders = ", ".join("?" for _ in plans)
     cur.execute(
-        f"""
-        SELECT 编号, 名字
-        FROM role
-        WHERE 名字 IN ({placeholders})
-           OR 编号 BETWEEN ? AND ?
-        """,
-        [plan.spec.name for plan in plans] + [RESERVED_ROLE_ID_FLOOR, RESERVED_ROLE_ID_CEILING],
+        f"SELECT 编号, 名字 FROM role WHERE 名字 IN ({placeholders})",
+        [plan.spec.name for plan in plans],
     )
 
-    existing_rows_by_name: dict[str, list[int]] = defaultdict(list)
-    existing_name_by_id: dict[int, str] = {}
+    existing_by_name: dict[str, int] = {}
     for role_id, name in cur.fetchall():
-        normalized_role_id = int_or_default(role_id)
         normalized_name = (name or "").strip()
         if normalized_name:
-            existing_rows_by_name[normalized_name].append(normalized_role_id)
-        existing_name_by_id[normalized_role_id] = normalized_name
+            existing_by_name[normalized_name] = int_or_default(role_id)
+
+    cur.execute("SELECT MAX(编号) FROM role")
+    next_id = (cur.fetchone()[0] or 0) + 1
 
     for plan in plans:
-        stable_role_id = plan.spec.role_id
-        occupant_name = existing_name_by_id.get(stable_role_id)
-        if occupant_name is not None and occupant_name != plan.spec.name:
-            raise RuntimeError(
-                f"Stable role ID {stable_role_id} is already used by {occupant_name or '<empty name>'}, "
-                f"cannot assign it to {plan.spec.name}."
-            )
-
-        legacy_generated_ids = sorted(
-            role_id
-            for role_id in existing_rows_by_name.get(plan.spec.name, [])
-            if role_id != stable_role_id and role_id >= RESERVED_ROLE_ID_FLOOR
-        )
-
-        if stable_role_id not in existing_name_by_id and legacy_generated_ids:
-            source_role_id = legacy_generated_ids.pop(0)
-            cur.execute("UPDATE role SET 编号 = ? WHERE 编号 = ?", (stable_role_id, source_role_id))
-            existing_name_by_id.pop(source_role_id, None)
-            existing_name_by_id[stable_role_id] = plan.spec.name
-
-        for legacy_role_id in legacy_generated_ids:
-            cur.execute("DELETE FROM role WHERE 编号 = ?", (legacy_role_id,))
-            existing_name_by_id.pop(legacy_role_id, None)
-
-        plan.role_id = stable_role_id
+        if plan.spec.name in existing_by_name:
+            plan.role_id = existing_by_name[plan.spec.name]
+            plan.role_action = "update"
+        else:
+            plan.role_id = next_id
+            plan.role_action = "insert"
+            next_id += 1
 
 
 def ensure_magic_rows(
@@ -842,7 +785,9 @@ def main() -> int:
         for plan in plans:
             copy_role_resources(plan, target_fight_dir, target_head_dir)
             role_values = build_role_values(plan, role_columns)
-            plan.role_action = update_or_insert_row(cur, "role", "编号", plan.role_id, role_values)
+            action = update_or_insert_row(cur, "role", "编号", plan.role_id, role_values)
+            if plan.role_action != "update":
+                plan.role_action = action
 
         conn.commit()
     finally:

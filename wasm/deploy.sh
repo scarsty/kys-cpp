@@ -7,8 +7,8 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/.."
-BUILD_DIR="$SCRIPT_DIR/build"
-GAME_DIR="$PROJECT_DIR/work/game-dev"
+BUILD_DIR="$SCRIPT_DIR/dist"
+GAME_DIR="$BUILD_DIR/game"
 REMOTE_USER="root"
 REMOTE_HOST="${1:-YOUR_SERVER_IP}"
 REMOTE="$REMOTE_USER@$REMOTE_HOST"

@@ -111,6 +111,26 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::Adaptation: desc = compact ? std::format("同敵減傷{}%({}層)", eff.value, eff.value2) : std::format("同敌减伤{}%({}层)", eff.value, eff.value2); break;
     case EffectType::RampingDmg: desc = compact ? std::format("連擊增傷+{}%({}層)", eff.value, eff.value2) : std::format("连击增伤+{}%({}层)", eff.value, eff.value2); break;
     case EffectType::HealBurst: desc = std::format("回血{}%", eff.value); break;
+    case EffectType::BleedChance: desc = compact ? std::format("{}%流血", eff.value) : std::format("{}%流血", eff.value); break;
+    case EffectType::BleedPersist: desc = "流血持續"; break;
+    case EffectType::PostSkillDash: desc = "絕招後突進"; break;
+    case EffectType::EnemyTopDebuff: desc = compact ? std::format("敵前{}削弱{}", eff.value2, eff.value) : std::format("敵前{}名削弱{}", eff.value2, eff.value); break;
+    case EffectType::BlinkAttack: desc = "閃現攻擊"; break;
+    case EffectType::AllyDeathStatBoost: desc = compact ? std::format("友死增{}", eff.value) : std::format("友死增屬性{}", eff.value); break;
+    case EffectType::CloneSummon: desc = compact ? std::format("召喚{}分身", eff.value) : std::format("召喚{}分身", eff.value); break;
+    case EffectType::ProjectileReflect: desc = compact ? std::format("{}%彈反", eff.value) : std::format("{}%彈反", eff.value); break;
+    case EffectType::IgnoreDefense: desc = "無視防禦"; break;
+    case EffectType::OnSkillTeamHeal: desc = compact ? std::format("絕招群療{}%", eff.value) : std::format("絕招後群療{}%", eff.value); break;
+    case EffectType::DeathPrevention: desc = "死亡庇護"; break;
+    case EffectType::ForcePullProtect: desc = "保護挪移"; break;
+    case EffectType::ForcePullExecute: desc = "處決挪移"; break;
+    case EffectType::Execute: desc = eff.value2 ? std::format("{}%斬殺<{}%", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.value2 > 0 ? eff.value2 : eff.value) : std::format("{}%斬殺", eff.value); break;
+    case EffectType::MPBlock: desc = compact ? std::format("{}%破罡{}幀", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.triggerValue > 0 ? eff.value : eff.value2) : std::format("{}%破罡{}幀", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.triggerValue > 0 ? eff.value : eff.value2); break;
+    case EffectType::CharmCDRDebuff: desc = compact ? std::format("{}%增敵CD{}%", eff.value, eff.value2) : std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
+    case EffectType::OffensiveCharm: desc = "攻擊倾城"; break;
+    case EffectType::DeathAOE: desc = eff.value2 ? std::format("殉爆{}%眩{}幀", eff.value, eff.value2) : std::format("殉爆{}%", eff.value); break;
+    case EffectType::ShieldExplosion: desc = compact ? std::format("盾爆{}%", eff.value) : std::format("護盾爆炸{}%", eff.value); break;
+    case EffectType::ShieldOnAllyDeath: desc = compact ? std::format("每{}友死獲盾", eff.value) : std::format("每{}友死獲盾", eff.value); break;
     default: desc = std::format("效果({})", eff.value); break;
     }
     return triggerPrefix() + desc + countSuffix();
