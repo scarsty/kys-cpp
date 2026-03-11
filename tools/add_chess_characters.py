@@ -288,6 +288,20 @@ def load_reference_magic(csv_path: Path) -> dict[int, dict[str, str]]:
     return {int_or_default(row.get("编号"), -1): row for row in rows if int_or_default(row.get("编号"), -1) >= 0}
 
 
+CANONICAL_CUSTOM_MAGIC_NAMES = {
+    "药王丹术": "藥王丹術",
+    "青囊奇术": "青囊奇術",
+    "药王毒手": "藥王毒手",
+    "宁式剑诀": "寧式劍訣",
+    "无极玄功拳": "無極玄功拳",
+}
+
+
+def canonicalize_magic_name(name: str) -> str:
+    stripped = name.strip()
+    return CANONICAL_CUSTOM_MAGIC_NAMES.get(stripped, stripped)
+
+
 def list_table_columns(cur: sqlite3.Cursor, table_name: str) -> list[str]:
     cur.execute(f"PRAGMA table_info([{table_name}])")
     return [row[1] for row in cur.fetchall()]
@@ -497,9 +511,10 @@ def build_magic_values(skill_id: int, reference_row: dict[str, str]) -> dict[str
     kill_values.extend(int_or_default(reference_row.get(f"杀伤范围{i}")) for i in range(1, 10))
     add_mp_values = [int_or_default(reference_row.get("加内力"))]
     add_mp_values.extend(int_or_default(reference_row.get(f"加内力{i}")) for i in range(1, 3))
+    magic_name = canonicalize_magic_name(reference_row.get("名称", f"引用武功{skill_id}"))
     return {
         "编号": skill_id,
-        "名称": reference_row.get("名称", f"引用武功{skill_id}"),
+        "名称": magic_name,
         "出招音效": int_or_default(reference_row.get("出招音效")),
         "武功类型": int_or_default(reference_row.get("武功类型")),
         "武功动画": int_or_default(reference_row.get("武功动画&音效")),

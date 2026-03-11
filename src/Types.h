@@ -293,7 +293,11 @@ public:
         case 1: return Fist; break;
         case 2: return Sword; break;
         case 3: return Knife; break;
-        case 4: return Unusual; break;
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            return Unusual; break;
         }
         return 0;
     }
