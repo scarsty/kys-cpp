@@ -423,6 +423,7 @@ void ComboCatalogDetailPanel::drawPanel()
     int totalBonus = 0;
     for (int roleId : combo.memberRoleIds)
     {
+        if (ChessPool::GetChessTier(roleId) < 0) continue;
         auto* role = roleSave_.getRole(roleId);
         if (!role)
         {

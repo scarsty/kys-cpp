@@ -60,7 +60,6 @@ struct ComboThreshold
     int count;
     std::string name;
     std::vector<ComboEffect> effects;
-    int goldCoefficient = 0;
 };
 
 struct ComboDef

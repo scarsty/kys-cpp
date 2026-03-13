@@ -87,6 +87,7 @@ enum class EffectType
     DamageImmunityAfterFrames,
     AutoUltimateAfterFrames,
     BlockFirstHits,
+    GoldCoefficient,
 };
 
 struct ComboEffect
@@ -155,6 +156,7 @@ struct RoleComboState
     bool bleedPersist = false;
     int bleedMaxStacks = 5;
     bool postSkillDash = false;
+    int postSkillDashFrames = 0;
     bool blinkAttack = false;
     int allyDeathStatBoost = 0;
     int cloneSummonCount = 0;
@@ -162,6 +164,7 @@ struct RoleComboState
     bool ignoreDefense = false;
     int onSkillTeamHeal = 0;
     bool deathPrevention = false;
+    int deathPreventionFrames = 0;
     int charmCDRChancePct = 0;
     int charmCDRAmountPct = 0;
     bool offensiveCharm = false;
@@ -205,6 +208,7 @@ struct RoleComboState
     int damageImmunityTimer = 0;
     int autoUltimateTimer = 0;
     int blockFirstHitsRemaining = 0;
+    int goldCoefficient = 0;
 };
 
 class ChessBattleEffects

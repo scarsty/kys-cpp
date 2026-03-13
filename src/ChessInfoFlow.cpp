@@ -20,14 +20,20 @@ ChessInfoFlow::ChessInfoFlow(const ChessSelectorServices& services)
 
 void ChessInfoFlow::viewCombos()
 {
-    auto& combos = ChessCombo::getAllCombos();
+    auto& allCombos = ChessCombo::getAllCombos();
     auto manager = makeChessManager(services_);
     auto starByRole = ChessCombo::buildStarMap(manager.getSelectedForBattle());
 
+    std::vector<ComboDef> filteredCombos;
     IndexedMenuData menuData;
-    for (int i = 0; i < static_cast<int>(combos.size()); ++i)
+    for (auto& combo : allCombos)
     {
-        auto& combo = combos[i];
+        int availableCount = 0;
+        for (int rid : combo.memberRoleIds)
+            if (ChessPool::GetChessTier(rid) > 0) availableCount++;
+        if (availableCount == 0) continue;
+
+        filteredCombos.push_back(combo);
         auto [owned, effective] = computeOwnership(combo, starByRole);
         std::string padded = combo.name;
         while (padded.size() < 14) padded += "　";
@@ -45,7 +51,7 @@ void ChessInfoFlow::viewCombos()
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
     auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
-    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(combos, services_.roleSave, starByRole, detailFrame);
+    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(filteredCombos, services_.roleSave, starByRole, detailFrame);
     auto menu = makeIndexedMenu("羈絆一覽", menuData, menuConfig, {detailPanel});
     menu->run();
 }

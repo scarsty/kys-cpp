@@ -45,6 +45,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"护盾爆炸", EffectType::ShieldExplosion}, {"护盾重获", EffectType::ShieldOnAllyDeath},
     {"周期免伤", EffectType::DamageImmunityAfterFrames}, {"周期绝招", EffectType::AutoUltimateAfterFrames},
     {"初次格挡", EffectType::BlockFirstHits},
+    {"金币加成", EffectType::GoldCoefficient},
 };
 
 static const std::map<std::string, Trigger> triggerMap = {
@@ -153,7 +154,10 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         if (e.value2 > 0) s.bleedMaxStacks = e.value2;
         break;
     case EffectType::BleedPersist: s.bleedPersist = true; break;
-    case EffectType::PostSkillDash: s.postSkillDash = true; break;
+    case EffectType::PostSkillDash:
+        s.postSkillDash = true;
+        s.postSkillDashFrames = std::max(s.postSkillDashFrames, e.value);
+        break;
     case EffectType::EnemyTopDebuff:
         s.enemyTopDebuffCount = e.value;
         s.enemyTopDebuffValue = e.value2;
@@ -164,7 +168,10 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::ProjectileReflect: s.projectileReflectPct += e.value; break;
     case EffectType::IgnoreDefense: s.ignoreDefense = true; break;
     case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
-    case EffectType::DeathPrevention: s.deathPrevention = true; break;
+    case EffectType::DeathPrevention:
+        s.deathPrevention = true;
+        s.deathPreventionFrames = std::max(s.deathPreventionFrames, e.value);
+        break;
     case EffectType::ForcePullProtect: s.forcePullProtect = true; break;
     case EffectType::ForcePullExecute: s.forcePullExecute = true; break;
     case EffectType::Execute: break;  // handled as triggered effect (OnHit)
@@ -186,6 +193,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         break;
     case EffectType::AutoUltimateAfterFrames: s.autoUltimateAfterFrames = e.value; break;
     case EffectType::BlockFirstHits: s.blockFirstHitsCount = e.value; break;
+    case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
     }
 }
 

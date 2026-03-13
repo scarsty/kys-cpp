@@ -55,7 +55,6 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
             }
             thresh.count = tNode["人数"].as<int>();
             thresh.name = Font::getInstance()->S2T(tNode["名称"].as<std::string>());
-            if (tNode["金币系数"]) thresh.goldCoefficient = tNode["金币系数"].as<int>();
 
             if (!tNode["效果"]) { std::print("【羁绊配置】「{}」阈值「{}」缺少「效果」\n", def.name, thresh.name); return {}; }
             for (const auto& eNode : tNode["效果"])
@@ -239,12 +238,17 @@ int ChessCombo::calculateGoldBonus(const std::vector<ActiveCombo>& active, const
         if (ac.activeThresholdIdx < 0) continue;
         auto& combo = combos[static_cast<int>(ac.id)];
         auto& thresh = combo.thresholds[ac.activeThresholdIdx];
-        if (thresh.goldCoefficient <= 0) continue;
 
-        for (int roleId : ac.memberRoleIds)
+        for (auto& effect : thresh.effects)
         {
-            if (survivorIds.count(roleId))
-                return maxStar * thresh.goldCoefficient;
+            if (effect.type == EffectType::GoldCoefficient)
+            {
+                for (int roleId : ac.memberRoleIds)
+                {
+                    if (survivorIds.count(roleId))
+                        return maxStar * effect.value;
+                }
+            }
         }
     }
     return 0;

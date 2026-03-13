@@ -61,6 +61,17 @@ bool isSummonedCloneRole(const Role* r)
     return it != cs.end() && it->second.isSummonedClone;
 }
 
+bool comboNameMatches(const std::string& comboName, std::initializer_list<const char*> candidates)
+{
+    auto* font = Font::getInstance();
+    for (const char* candidate : candidates)
+    {
+        if (comboName == font->S2T(candidate))
+            return true;
+    }
+    return false;
+}
+
 int getComboLookupId(const Role* r)
 {
     if (!r) return -1;
@@ -68,15 +79,28 @@ int getComboLookupId(const Role* r)
     return r->RealID >= 0 ? r->RealID : r->ID;
 }
 
-bool roleHasCombo(const Role* r, KysChess::ComboId comboId)
+bool roleHasCombo(const Role* r, std::initializer_list<const char*> comboNames)
 {
-    auto combos = KysChess::ChessCombo::getCombosForRole(getComboLookupId(r));
-    return std::find(combos.begin(), combos.end(), comboId) != combos.end();
+    int comboLookupId = getComboLookupId(r);
+    if (comboLookupId < 0)
+        return false;
+
+    auto combos = KysChess::ChessCombo::getCombosForRole(comboLookupId);
+    auto& allCombos = KysChess::ChessCombo::getAllCombos();
+    for (auto comboId : combos)
+    {
+        int comboIndex = static_cast<int>(comboId);
+        if (comboIndex < 0 || comboIndex >= static_cast<int>(allCombos.size()))
+            continue;
+        if (comboNameMatches(allCombos[comboIndex].name, comboNames))
+            return true;
+    }
+    return false;
 }
 
-bool rolesShareCombo(const Role* a, const Role* b, KysChess::ComboId comboId)
+bool rolesShareCombo(const Role* a, const Role* b, std::initializer_list<const char*> comboNames)
 {
-    return roleHasCombo(a, comboId) && roleHasCombo(b, comboId);
+    return roleHasCombo(a, comboNames) && roleHasCombo(b, comboNames);
 }
 
 double calcBlinkReach(const Magic* magic)
@@ -107,6 +131,15 @@ void changeRoleMP(Role* r, double delta)
 {
     if (!r) return;
     if (delta > 0 && hasMPBlock(r)) return;
+
+    if (delta > 0)
+    {
+        auto& cs = KysChess::ChessCombo::getActiveStates();
+        auto it = cs.find(r->ID);
+        if (it != cs.end() && it->second.mpRecoveryBonusPct > 0)
+            delta *= (1.0 + it->second.mpRecoveryBonusPct / 100.0);
+    }
+
     r->MP += delta;
 }
 
@@ -818,7 +851,7 @@ void BattleSceneHades::onEntrance()
             int bestPower = -1;
             for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); ++i)
             {
-                if (!roleHasCombo(&friends_obj_[i], KysChess::ComboId::ZhenWuQiJie))
+                if (!roleHasCombo(&friends_obj_[i], {"真武七截阵"}))
                     continue;
 
                 int star = extended_teammates_[i].star;
@@ -1522,7 +1555,8 @@ void BattleSceneHades::backRun1()
                         r->Invincible = std::max(r->Invincible, it->second.postSkillInvincFrames);
                     if (it->second.postSkillDash && it->second.postSkillDashPending)
                     {
-                        it->second.postSkillDashTimer = POST_SKILL_DASH_FRAMES;
+                        it->second.postSkillDashTimer = std::max(1,
+                            it->second.postSkillDashFrames > 0 ? it->second.postSkillDashFrames : POST_SKILL_DASH_FRAMES);
                         it->second.postSkillDashPending = false;
                     }
                     if (it->second.onSkillTeamHealPending && it->second.onSkillTeamHeal > 0)
@@ -1811,12 +1845,6 @@ void BattleSceneHades::backRun1()
             r->HP -= hurt;
             hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
             double mpGain = (hurt / r->MaxHP)  * 75.0;
-            {
-                auto& cs = KysChess::ChessCombo::getActiveStates();
-                auto it = cs.find(r->ID);
-                if (it != cs.end() && it->second.mpRecoveryBonusPct > 0)
-                    mpGain *= (1.0 + it->second.mpRecoveryBonusPct / 100.0);
-            }
             changeRoleMP(r, mpGain);
             if (r->HP <= 0 && r->Dead == 0)
             {
@@ -1826,7 +1854,8 @@ void BattleSceneHades::backRun1()
                 {
                     sit->second.deathPreventionUsed = true;
                     r->HP = 1;
-                    r->Invincible = std::max(r->Invincible, 100);
+                    r->Invincible = std::max(r->Invincible,
+                        sit->second.deathPreventionFrames > 0 ? sit->second.deathPreventionFrames : 100);
                 }
                 else
                 {
@@ -1880,7 +1909,7 @@ void BattleSceneHades::backRun1()
 
                         auto& as = ait->second;
                         if (as.allyDeathStatBoost > 0
-                            && rolesShareCombo(ally, r, KysChess::ComboId::SiDaFaWang))
+                            && rolesShareCombo(ally, r, {"明教", "四大法王"}))
                         {
                             ally->Attack += as.allyDeathStatBoost;
                             ally->Defence += as.allyDeathStatBoost;
@@ -1888,7 +1917,7 @@ void BattleSceneHades::backRun1()
                         }
 
                         if (as.shieldOnAllyDeathCount > 0
-                            && rolesShareCombo(ally, r, KysChess::ComboId::QuanZhenJiao))
+                            && rolesShareCombo(ally, r, {"全真教"}))
                         {
                             as.shieldOnAllyDeathTracker++;
                             if (as.shieldOnAllyDeathTracker >= as.shieldOnAllyDeathCount)
