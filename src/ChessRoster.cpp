@@ -183,13 +183,6 @@ void ChessRoster::remove(ChessInstanceID chessInstanceId)
     collection_.erase(chessInstanceId);
 }
 
-Chess ChessRoster::upgrade(ChessInstanceID instanceId, int newStar)
-{
-    Chess& chess = collection_[instanceId];
-    chess.star = newStar;
-    return chess;
-}
-
 std::vector<Chess> ChessRoster::getByStarAndTier(int star, int maxTier) const
 {
     std::vector<Chess> result;

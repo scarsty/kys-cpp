@@ -84,6 +84,9 @@ enum class EffectType
     DeathAOE,
     ShieldExplosion,
     ShieldOnAllyDeath,
+    DamageImmunityAfterFrames,
+    AutoUltimateAfterFrames,
+    BlockFirstHits,
 };
 
 struct ComboEffect
@@ -170,6 +173,10 @@ struct RoleComboState
     int enemyTopDebuffValue = 0;
     bool forcePullProtect = false;
     bool forcePullExecute = false;
+    int damageImmunityAfterFrames = 0;
+    int damageImmunityDuration = 0;
+    int autoUltimateAfterFrames = 0;
+    int blockFirstHitsCount = 0;
 
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter
@@ -195,6 +202,9 @@ struct RoleComboState
     bool postSkillDashPending = false;
     int postSkillDashTimer = 0;
     bool isSummonedClone = false;
+    int damageImmunityTimer = 0;
+    int autoUltimateTimer = 0;
+    int blockFirstHitsRemaining = 0;
 };
 
 class ChessBattleEffects

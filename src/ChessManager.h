@@ -58,11 +58,9 @@ public:
 
     // Reward application (pure logic, no UI)
     bool applyGoldReward(int amount);
-    GrantResult applyPieceReward(int maxTier);
     bool applyStarUpReward(int fromStar, int maxTier) const;
     bool applyEquipmentReward(int maxTier, int specificId = -1);
 
-    void setSelectedForBattle(ChessInstanceID chessInstanceId, bool selected);
     void upgradeChess(ChessInstanceID chessInstanceId, int newStar);
     void equipItem(ChessInstanceID chessInstanceId, const EquipmentDef& equipment, ItemInstanceID itemInstanceId);
 

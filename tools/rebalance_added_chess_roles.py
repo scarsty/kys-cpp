@@ -380,8 +380,8 @@ def build_after_snapshot(role_plan: RolePlan, tier: int, role_row: sqlite3.Row, 
     masteries = derive_masteries(role_plan, tier)
     normal_magic_id = resolve_magic_id(role_plan.normal_skill, magic_by_name)
     ultimate_magic_id = resolve_magic_id(role_plan.ultimate_skill, magic_by_name)
-    normal_powers = build_star_powers(role_plan.normal_power)
-    ultimate_powers = build_star_powers(role_plan.ultimate_power)
+    normal_powers = [role_plan.normal_power] * 3
+    ultimate_powers = [role_plan.ultimate_power] * 3
     update_values = {
         STAT_COLUMNS["hp"]: stats["hp"],
         STAT_COLUMNS["atk"]: stats["atk"],

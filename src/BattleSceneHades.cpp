@@ -781,6 +781,7 @@ void BattleSceneHades::onEntrance()
                 auto [weaponId, armorId] = equipmentLookup(index);
                 applyEquipmentEffects(battleState, weaponId, armorId);
                 applyStateToCopy(r, battleState);
+                battleState.blockFirstHitsRemaining = battleState.blockFirstHitsCount;
                 cs[r.ID] = battleState;
             }
         };
@@ -1265,6 +1266,38 @@ void BattleSceneHades::backRun1()
 
                 if (s.mpBlockTimer > 0)
                     s.mpBlockTimer--;
+
+                // Periodic damage immunity
+                if (s.damageImmunityAfterFrames > 0)
+                {
+                    if (s.damageImmunityTimer > 0)
+                        s.damageImmunityTimer--;
+                    if (s.damageImmunityTimer <= 0)
+                    {
+                        r->Invincible = std::max(r->Invincible, s.damageImmunityDuration);
+                        s.damageImmunityTimer = s.damageImmunityAfterFrames;
+                    }
+                }
+
+                // Periodic auto ultimate
+                if (s.autoUltimateAfterFrames > 0 && r->UsingMagic == nullptr && r->Dead == 0)
+                {
+                    if (s.autoUltimateTimer > 0)
+                        s.autoUltimateTimer--;
+                    if (s.autoUltimateTimer <= 0)
+                    {
+                        Magic* magic = selectMagic(r, std::greater<double>{});
+                        if (magic)
+                        {
+                            createSkillAttackEffect(r, magic, true);
+                            TextEffect te;
+                            te.set(std::string(magic->Name), {255, 215, 0, 255}, r);
+                            te.Size = 28;
+                            text_effects_.push_back(std::move(te));
+                        }
+                        s.autoUltimateTimer = s.autoUltimateAfterFrames;
+                    }
+                }
 
                 // HP regen
                 if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && current_frame_ % s.hpRegenInterval == 0)
@@ -2303,17 +2336,41 @@ void BattleSceneHades::Action(Role* r)
     }
 }
 
+void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate)
+{
+    AttackEffect ae;
+    Audio::getInstance()->playASound(magic->SoundID);
+    ae.setEft(magic->EffectID);
+    ae.UsingMagic = magic;
+    ae.TotalFrame = 30;
+    ae.Attacker = r;
+    ae.IsUltimate = isUltimate ? 1 : 0;
+
+    if (isUltimate)
+    {
+        ultCasters_.insert(r);
+        auto& cs = KysChess::ChessCombo::getMutableStates();
+        auto it = cs.find(r->ID);
+        if (it != cs.end())
+        {
+            if (it->second.onSkillTeamHeal > 0)
+                it->second.onSkillTeamHealPending = true;
+            if (it->second.postSkillDash)
+                it->second.postSkillDashPending = true;
+        }
+    }
+
+    r->RealTowards.normTo(1);
+    ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
+    ae.Frame = 0;
+    ae.OperationType = getOperationType(magic->AttackAreaType);
+    attack_effects_.push_back(ae);
+}
+
 void BattleSceneHades::AI(Role* r)
 {
     if (r->Dead == 0)
     {
-        {
-            auto& cs = KysChess::ChessCombo::getActiveStates();
-            auto it = cs.find(r->ID);
-            if (it != cs.end() && it->second.postSkillDashTimer > 0)
-                return;
-        }
-
         if (r->CoolDown == 0)
         {
             if (r->UsingMagic == nullptr)
@@ -3038,6 +3095,15 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 hurt = 0;
                 TextEffect te;
                 te.set("格挡", {200, 200, 255, 255}, r);
+                text_effects_.push_back(std::move(te));
+            }
+
+            if (!reflectToAttacker && ds.blockFirstHitsRemaining > 0)
+            {
+                hurt = 0;
+                ds.blockFirstHitsRemaining--;
+                TextEffect te;
+                te.set("真气护体", {100, 200, 255, 255}, r);
                 text_effects_.push_back(std::move(te));
             }
 

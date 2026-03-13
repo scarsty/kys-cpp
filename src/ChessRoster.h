@@ -31,8 +31,6 @@ public:
     std::map<RoleAndStar, int> getChessCountMap() const;
 
     void remove(ChessInstanceID chessInstanceId);
-    Chess upgrade(ChessInstanceID instanceId, int newStar);
-
     std::vector<Chess> getByStarAndTier(int star, int maxTier) const;
     Chess find(ChessInstanceID instanceId) const;
 

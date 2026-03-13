@@ -354,9 +354,6 @@ void ChessShopFlow::showBanMenu()
         auto role = services_.roleSave.getRole(roleId);
         if (bannedRoleIds.contains(roleId))
         {
-            bannedRoleIds.erase(roleId);
-            services_.shop.pool().setBannedRoleIds(bannedRoleIds);
-            showChessMessage(std::format("解除禁棋：{}", role->Name));
             continue;
         }
 

@@ -44,6 +44,8 @@ protected:
     int calCoolDown(int act_type, int operation_type, Role* r);
 
     void defaultMagicEffect(AttackEffect& ae, Role* r);
+    template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
+    void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1) override;
@@ -96,3 +98,22 @@ protected:
     };
     std::unordered_map<Role*, PathInfo> paths_;
 };
+
+template<typename Cmp>
+Magic* BattleSceneHades::selectMagic(Role* r, Cmp cmp)
+{
+    auto v = r->getLearnedMagics();
+    if (v.empty()) return nullptr;
+    Magic* chosen = v[0];
+    double power = r->getMagicPower(v[0]);
+    for (size_t i = 1; i < v.size(); ++i)
+    {
+        double p = r->getMagicPower(v[i]);
+        if (cmp(p, power))
+        {
+            power = p;
+            chosen = v[i];
+        }
+    }
+    return chosen;
+}

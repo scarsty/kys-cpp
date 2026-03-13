@@ -26,49 +26,74 @@ void ChessEquipmentFlow::manageEquipment()
     }
 
     std::string tierName[] = {"初階", "中階", "高階", "傳說"};
-    struct EquipmentListEntry
+    struct EquipmentInstanceEntry
     {
-        int index;
+        const EquipmentDef* equipment;
+        ItemInstanceID instanceId;
         std::string label;
         Color color;
-        int inventoryCount;
+        bool owned;
     };
 
     while (true)
     {
-        std::vector<EquipmentListEntry> entries;
-        for (size_t i = 0; i < allEquip.size(); ++i)
+        std::vector<EquipmentInstanceEntry> entries;
+        for (auto& eq : allEquip)
         {
-            auto& eq = allEquip[i];
-            auto stats = services_.equipmentInventory.getItemStats(eq.itemId);
-            auto* item = eq.getItem();
-            std::string name = item ? item->Name : "???";
-            while (name.size() < 15) name += "\xe3\x80\x80";
-            std::string label = std::format("[{}] {} x{} (已裝:{})", tierName[std::min(eq.tier - 1, 3)], name, stats.totalCount, stats.equippedCount);
-            entries.push_back({static_cast<int>(i), std::move(label), stats.totalCount > 0 ? Color{0, 255, 0, 255} : Color{120, 120, 120, 255}, stats.totalCount});
+            auto instances = services_.equipmentInventory.getInstancesForItem(eq.itemId);
+            if (instances.empty())
+            {
+                auto* item = eq.getItem();
+                std::string name = item ? item->Name : "???";
+                while (name.size() < 15) name += "\xe3\x80\x80";
+                std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
+                entries.push_back({&eq, k_nonExistentItem, std::move(label), {120, 120, 120, 255}, false});
+            }
+            else
+            {
+                for (auto [instId, chessId] : instances)
+                {
+                    auto* item = eq.getItem();
+                    std::string name = item ? item->Name : "???";
+                    while (name.size() < 15) name += "\xe3\x80\x80";
+                    std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
+                    if (chessId != k_nonExistentChess)
+                    {
+                        label += " [已裝]";
+                    }
+                    entries.push_back({&eq, instId, std::move(label), {0, 255, 0, 255}, true});
+                }
+            }
         }
 
-        std::sort(entries.begin(), entries.end(), [&](const auto& left, const auto& right) {
-            if ((left.inventoryCount > 0) != (right.inventoryCount > 0))
-            {
-                return left.inventoryCount > right.inventoryCount;
-            }
-            return left.index < right.index;
+        std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
+            if (left.owned != right.owned) return left.owned;
+            return left.equipment->itemId < right.equipment->itemId;
         });
 
         IndexedMenuData menuData;
-        std::vector<const EquipmentDef*> detailEquipments;
+        std::vector<std::pair<const EquipmentDef*, ItemInstanceID>> detailData;
         for (auto& entry : entries)
         {
             menuData.labels.push_back(entry.label);
             menuData.colors.push_back(entry.color);
-            detailEquipments.push_back(&allEquip[entry.index]);
+            detailData.push_back({entry.equipment, entry.instanceId});
         }
         auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
         auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, 36);
-        auto detailPanel = std::make_shared<EquipmentDetailPanel>(detailEquipments, [this](const EquipmentDef& equipment) {
-            auto stats = services_.equipmentInventory.getItemStats(equipment.itemId);
-            return EquipmentDetailState{stats.totalCount, chessPresenter().buildEquippedBy(services_.roster.items(), equipment.itemId)};
+        auto detailPanel = std::make_shared<EquipmentInstanceDetailPanel>(detailData, [this](const EquipmentDef& equipment, ItemInstanceID instanceId) {
+            if (instanceId == k_nonExistentItem)
+            {
+                return EquipmentInstanceDetailState{""};
+            }
+            for (const auto& [chessInstId, chess] : services_.roster.items())
+            {
+                if (chess.weaponInstance.id == instanceId || chess.armorInstance.id == instanceId)
+                {
+                    return EquipmentInstanceDetailState{chessPresenter().buildChessNameWithStar(chess)};
+                }
+            }
+            return EquipmentInstanceDetailState{""};
         }, detailFrame);
         IndexedMenuConfig menuConfig;
         menuConfig.x = menuAnchor.x;
@@ -81,13 +106,11 @@ void ChessEquipmentFlow::manageEquipment()
             break;
         }
 
-        auto& equipment = allEquip[entries[sel].index];
-        auto stats = services_.equipmentInventory.getItemStats(equipment.itemId);
-        if (stats.totalCount <= 0)
+        auto& entry = entries[sel];
+        if (!entry.owned)
         {
             continue;
         }
-        assert(stats.availableInstanceId != k_nonExistentItem);
 
         std::vector<ChessMenuEntry> chessEntries;
         for (const auto& [instanceId, chess] : services_.roster.items())
@@ -112,7 +135,7 @@ void ChessEquipmentFlow::manageEquipment()
         {
             continue;
         }
-        manager.equipItem(chessEntries[selectedIdx].chess.id, equipment, stats.availableInstanceId);
+        manager.equipItem(chessEntries[selectedIdx].chess.id, *entry.equipment, entry.instanceId);
     }
 }
 

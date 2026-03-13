@@ -45,7 +45,13 @@ struct EquipmentDetailState
     std::vector<std::string> equippedBy;
 };
 
+struct EquipmentInstanceDetailState
+{
+    std::string equippedBy;
+};
+
 using EquipmentDetailProvider = std::function<EquipmentDetailState(const EquipmentDef&)>;
+using EquipmentInstanceDetailProvider = std::function<EquipmentInstanceDetailState(const EquipmentDef&, ItemInstanceID)>;
 
 class ComboInfoPanel : public ChessDrawableOnCall
 {
@@ -113,6 +119,19 @@ private:
 
     std::vector<const EquipmentDef*> equipments_;
     EquipmentDetailProvider detailProvider_;
+    PanelFrame frame_;
+};
+
+class EquipmentInstanceDetailPanel : public DrawableOnCall
+{
+public:
+    EquipmentInstanceDetailPanel(std::vector<std::pair<const EquipmentDef*, ItemInstanceID>> equipmentInstances, EquipmentInstanceDetailProvider detailProvider, PanelFrame frame);
+
+private:
+    void drawPanel();
+
+    std::vector<std::pair<const EquipmentDef*, ItemInstanceID>> equipmentInstances_;
+    EquipmentInstanceDetailProvider detailProvider_;
     PanelFrame frame_;
 };
 

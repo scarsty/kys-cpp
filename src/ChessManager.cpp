@@ -9,32 +9,38 @@ namespace KysChess
 namespace
 {
 
+bool tryAutoMerge(ChessRoster& roster, ChessManager& manager, Chess& chess)
+{
+    if (chess.star > 2 || !roster.canMerge(chess.role, chess.star))
+        return false;
+
+    bool keepSelected = false;
+    for (auto& [instanceId, piece] : roster.items())
+    {
+        if (piece.role == chess.role && piece.star == chess.star && piece.selectedForBattle)
+        {
+            keepSelected = true;
+            break;
+        }
+    }
+
+    chess = manager.handleMerge(chess);
+    if (keepSelected)
+        chess.selectedForBattle = true;
+    roster.update(chess);
+    return true;
+}
+
 bool addChessWithAutoMerge(ChessRoster& roster, ChessManager& manager, Role* role)
 {
     Chess newChess = roster.create(role, 1);
     roster.update(newChess);
 
     bool didMerge = false;
-    for (int level = 0; level < 2 && newChess.star <= 2; level++)
+    for (int level = 0; level < 2; level++)
     {
-        if (!roster.canMerge(newChess.role, newChess.star)) break;
-
-        bool keepSelected = false;
-        int mergeCandidateCount = 0;
-        for (auto& [instanceId, piece] : roster.items())
-        {
-            if (piece.role != newChess.role || piece.star != newChess.star) continue;
-            if (piece.selectedForBattle)
-                keepSelected = true;
-            if (++mergeCandidateCount == 3)
-                break;
-        }
-
-        newChess = manager.handleMerge(newChess);
-        if (keepSelected) {
-            newChess.selectedForBattle = true;
-        }
-        roster.update(newChess);
+        if (!tryAutoMerge(roster, manager, newChess))
+            break;
         didMerge = true;
     }
 
@@ -177,11 +183,6 @@ bool ChessManager::applyGoldReward(int amount)
     return true;
 }
 
-GrantResult ChessManager::applyPieceReward(int maxTier)
-{
-    return {false, false};  // UI selection required, handled by ChessSelector
-}
-
 bool ChessManager::applyStarUpReward(int fromStar, int maxTier) const
 {
     auto chesses = roster_.getByStarAndTier(fromStar, maxTier);
@@ -203,16 +204,12 @@ bool ChessManager::applyEquipmentReward(int maxTier, int specificId)
     return true;  // UI selection required, handled by ChessSelector
 }
 
-void ChessManager::setSelectedForBattle(ChessInstanceID chessInstanceId, bool selected)
-{
-    auto chess = roster_.find(chessInstanceId);
-    chess.selectedForBattle = selected;
-    roster_.update(chess);
-}
-
 void ChessManager::upgradeChess(ChessInstanceID chessInstanceId, int newStar)
 {
-    roster_.upgrade(chessInstanceId, newStar);
+    auto chess = roster_.find(chessInstanceId);
+    chess.star = newStar;
+    roster_.update(chess);
+    tryAutoMerge(roster_, *this, chess);
 }
 
 void ChessManager::equipItem(ChessInstanceID chessInstanceId, const EquipmentDef& equipment, ItemInstanceID itemInstanceId)

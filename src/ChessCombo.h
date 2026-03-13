@@ -60,6 +60,7 @@ struct ComboThreshold
     int count;
     std::string name;
     std::vector<ComboEffect> effects;
+    int goldCoefficient = 0;
 };
 
 struct ComboDef
@@ -139,6 +140,8 @@ public:
     static std::map<int, int> buildStarMap(const std::vector<Chess>& selected);
     // Transfer anti-combo buff to next strongest alive member when current holder dies
     static void transferAntiCombo(int deadRoleId, const std::vector<Role*>& allRoles);
+    // Calculate gold bonus from active combos with goldCoefficient
+    static int calculateGoldBonus(const std::vector<ActiveCombo>& active, const std::vector<Chess>& survivors);
 
 private:
     static inline std::map<int, RoleComboState> activeStates_;

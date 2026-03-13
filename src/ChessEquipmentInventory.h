@@ -24,6 +24,7 @@ public:
 
     void storeItem(int itemId);
     ChessStoredItemStats getItemStats(int itemId) const;
+    std::vector<std::pair<ItemInstanceID, ChessInstanceID>> getInstancesForItem(int itemId) const;
 
     bool contains(ItemInstanceID id) const;
     InstancedItem getInstance(ItemInstanceID id) const;

@@ -74,7 +74,8 @@ void ChessBattleFlow::selectForBattle()
         auto chess = entries[selectedIdx].chess;
         if (chess.selectedForBattle)
         {
-            manager.setSelectedForBattle(chess.id, false);
+            chess.selectedForBattle = false;
+            services_.roster.update(chess);
         }
         else if (selectedCount >= maxSelection)
         {
@@ -82,7 +83,8 @@ void ChessBattleFlow::selectForBattle()
         }
         else
         {
-            manager.setSelectedForBattle(chess.id, true);
+            chess.selectedForBattle = true;
+            services_.roster.update(chess);
         }
     }
 }
@@ -169,9 +171,18 @@ void ChessBattleFlow::enterBattle()
 
     if (result == 0)
     {
+        std::vector<Chess> survivors;
+        for (auto& chess : selectedChess)
+        {
+            if (chess.role->HP > 0)
+                survivors.push_back(chess);
+        }
+        auto combos = ChessCombo::detectCombos(selectedChess);
+        int goldBonus = ChessCombo::calculateGoldBonus(combos, survivors);
+
         int reward = config.rewardBase + fightNum * config.rewardGrowth / (config.totalFights - 1) + (isBoss ? config.bossRewardBonus : 0);
         int interest = std::min(services_.economy.getMoney() * config.interestPercent / 100, config.interestMax);
-        services_.economy.make(reward + interest);
+        services_.economy.make(reward + interest + goldBonus);
         int expGain = isBoss ? config.bossBattleExp : config.battleExp;
         int oldLevel = services_.economy.getLevel();
         services_.economy.increaseExp(expGain);
@@ -192,14 +203,14 @@ void ChessBattleFlow::enterBattle()
             : battleProgress.isBossFight() ? std::format(" 下一關：第{}關(Boss)", battleProgress.getFight() + 1)
             : std::format(" 下一關：第{}關", battleProgress.getFight() + 1);
         std::string interestMsg = interest > 0 ? std::format("(利息+${})", interest) : "";
-        text->setText(std::format("勝利！獲得${}{} 經驗+{}{}{}", reward, interestMsg, expGain, levelMsg, nextInfo));
+        std::string bonusMsg = goldBonus > 0 ? std::format("(丐帮+${})", goldBonus) : "";
+        text->setText(std::format("勝利！獲得${}{}{} 經驗+{}{}{}", reward, interestMsg, bonusMsg, expGain, levelMsg, nextInfo));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
 
         if (battleProgress.isGameComplete())
         {
-            const char* diffName = (ChessBalance::getDifficulty() == Difficulty::Normal) ? "正常" : "挑戰";
-            auto outro = std::make_shared<Talk>(std::format("少俠果然不凡！珍瓏棋局已破({}難度)。若有興趣，可嘗試「遠征挑戰」，那裡有更強的對手等著你。當然，你也可以嘗試其他羈絆組合，探索更多可能。", diffName), 115);
+            auto outro = std::make_shared<Talk>(std::format("少俠果然不凡！珍瓏棋局已破。若有興趣，可嘗試「遠征挑戰」，那裡有更強的對手等著你。當然，你也可以嘗試其他羈絆組合，探索更多可能。"), 115);
             outro->run();
         }
         UISave::autoSave();

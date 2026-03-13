@@ -121,7 +121,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::ProjectileReflect: desc = compact ? std::format("{}%彈反", eff.value) : std::format("{}%彈反", eff.value); break;
     case EffectType::IgnoreDefense: desc = "無視防禦"; break;
     case EffectType::OnSkillTeamHeal: desc = compact ? std::format("絕招群療{}%", eff.value) : std::format("絕招後群療{}%", eff.value); break;
-    case EffectType::DeathPrevention: desc = "死亡庇護"; break;
+    case EffectType::DeathPrevention: desc = std::format("死亡庇護{}幀", eff.value); break;
     case EffectType::ForcePullProtect: desc = "保護挪移"; break;
     case EffectType::ForcePullExecute: desc = "處決挪移"; break;
     case EffectType::Execute: desc = eff.value2 ? std::format("{}%斬殺<{}%", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.value2 > 0 ? eff.value2 : eff.value) : std::format("{}%斬殺", eff.value); break;
@@ -129,8 +129,10 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::CharmCDRDebuff: desc = compact ? std::format("{}%增敵CD{}%", eff.value, eff.value2) : std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
     case EffectType::OffensiveCharm: desc = "攻擊倾城"; break;
     case EffectType::DeathAOE: desc = eff.value2 ? std::format("殉爆{}%眩{}幀", eff.value, eff.value2) : std::format("殉爆{}%", eff.value); break;
-    case EffectType::ShieldExplosion: desc = compact ? std::format("盾爆{}%", eff.value) : std::format("護盾爆炸{}%", eff.value); break;
+    case EffectType::ShieldExplosion: desc = compact ? std::format("盾爆%", eff.value) : std::format("護盾爆炸{}%", eff.value); break;
     case EffectType::ShieldOnAllyDeath: desc = compact ? std::format("每{}友死獲盾", eff.value) : std::format("每{}友死獲盾", eff.value); break;
+    case EffectType::DamageImmunityAfterFrames: desc = std::format("每{}幀免傷{}幀", eff.value, eff.value2); break;
+    case EffectType::AutoUltimateAfterFrames: desc = std::format("每{}幀絕招", eff.value); break;
     default: desc = std::format("效果({})", eff.value); break;
     }
     return triggerPrefix() + desc + countSuffix();

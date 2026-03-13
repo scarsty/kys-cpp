@@ -552,6 +552,31 @@ void EquipmentDetailPanel::drawPanel()
     drawEquipmentDetail(*equipment, frame_, detail.count, detail.equippedBy);
 }
 
+EquipmentInstanceDetailPanel::EquipmentInstanceDetailPanel(std::vector<std::pair<const EquipmentDef*, ItemInstanceID>> equipmentInstances, EquipmentInstanceDetailProvider detailProvider, PanelFrame frame)
+    : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
+    , equipmentInstances_(std::move(equipmentInstances))
+    , detailProvider_(std::move(detailProvider))
+    , frame_(frame)
+{
+}
+
+void EquipmentInstanceDetailPanel::drawPanel()
+{
+    int idx = getItemIndex();
+    if (idx < 0 || idx >= static_cast<int>(equipmentInstances_.size()))
+    {
+        return;
+    }
+    auto [equipment, instanceId] = equipmentInstances_[idx];
+    if (!equipment)
+    {
+        return;
+    }
+    auto detail = detailProvider_ ? detailProvider_(*equipment, instanceId) : EquipmentInstanceDetailState{};
+    std::vector<std::string> equippedBy = detail.equippedBy.empty() ? std::vector<std::string>{} : std::vector<std::string>{detail.equippedBy};
+    drawEquipmentDetail(*equipment, frame_, 1, equippedBy);
+}
+
 ChallengeDetailPanel::ChallengeDetailPanel(const std::vector<BalanceConfig::ChallengeDef>& challenges, ChessProgress& progress, ChessRoleSave& roleSave)
     : ChallengeDetailPanel(challenges, progress, roleSave, ChessScreenLayout::challengeDetailPanel())
 {

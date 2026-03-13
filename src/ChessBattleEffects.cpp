@@ -43,6 +43,8 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"破罡", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff},
     {"攻击倾城", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
     {"护盾爆炸", EffectType::ShieldExplosion}, {"护盾重获", EffectType::ShieldOnAllyDeath},
+    {"周期免伤", EffectType::DamageImmunityAfterFrames}, {"周期绝招", EffectType::AutoUltimateAfterFrames},
+    {"初次格挡", EffectType::BlockFirstHits},
 };
 
 static const std::map<std::string, Trigger> triggerMap = {
@@ -178,6 +180,12 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         break;
     case EffectType::ShieldExplosion: s.shieldExplosionPct = std::max(s.shieldExplosionPct, e.value); break;
     case EffectType::ShieldOnAllyDeath: s.shieldOnAllyDeathCount = e.value; break;
+    case EffectType::DamageImmunityAfterFrames:
+        s.damageImmunityAfterFrames = e.value;
+        s.damageImmunityDuration = e.value2;
+        break;
+    case EffectType::AutoUltimateAfterFrames: s.autoUltimateAfterFrames = e.value; break;
+    case EffectType::BlockFirstHits: s.blockFirstHitsCount = e.value; break;
     }
 }
 

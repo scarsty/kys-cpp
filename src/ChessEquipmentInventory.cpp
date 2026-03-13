@@ -61,6 +61,19 @@ ChessStoredItemStats ChessEquipmentInventory::getItemStats(int itemId) const
     return stats;
 }
 
+std::vector<std::pair<ItemInstanceID, ChessInstanceID>> ChessEquipmentInventory::getInstancesForItem(int itemId) const
+{
+    std::vector<std::pair<ItemInstanceID, ChessInstanceID>> result;
+    for (const auto& [id, attachableItem] : equipments_)
+    {
+        if (attachableItem.instance.itemId == itemId)
+        {
+            result.push_back({id, attachableItem.chessInstanceId});
+        }
+    }
+    return result;
+}
+
 bool ChessEquipmentInventory::contains(ItemInstanceID id) const
 {
     return equipments_.contains(id);

@@ -106,8 +106,6 @@ void ChessUIStatus::draw()
     drawLabeledValue(skillCursor.x, skillCursor.y, "耍刀", std::format("{:5}", dispKnife), select_color1(dispKnife, Role::getMaxValue()->Knife));
     skillCursor.skip(25);
     drawLabeledValue(skillCursor.x, skillCursor.y, "特殊", std::format("{:5}", dispUnusual), select_color1(dispUnusual, Role::getMaxValue()->Unusual));
-    skillCursor.skip(25);
-    drawLabeledValue(skillCursor.x, skillCursor.y, "暗器", std::format("{:5}", dispHidden), select_color1(dispHidden, Role::getMaxValue()->HiddenWeapon));
 
     // 武学 section - beside 技能, single column
     int mx = x_ + 220;
@@ -128,7 +126,7 @@ void ChessUIStatus::draw()
 
     // Owned pieces and combo affiliations stay on the lower-left.
     x = x_ + 10;
-    y = y_ + 305;
+    y = skillCursor.y + 30;
     font->draw("擁有", font_size, x, y, color_name);
     std::map<int, int> starCounts;
     for (auto& [instanceId, chess] : gd.roster().items())
