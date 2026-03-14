@@ -118,15 +118,31 @@ def parse_threshold_overrides(values: Sequence[str]) -> Dict[str, int]:
     return overrides
 
 
-def collect_pool(pool_data: Sequence[dict]) -> tuple[list[int], dict[int, int]]:
+def collect_pool(pool_path: Path) -> tuple[list[int], dict[int, int]]:
     ordered_roles: list[int] = []
     tier_map: dict[int, int] = {}
-    for tier in pool_data:
-        cost = int(tier['费用'])
-        for role_id in tier['角色']:
-            role_id = int(role_id)
+    current_tier: int | None = None
+    tier_pattern = re.compile(r'^\s*#\s*费用\s*:\s*(\d+)\s*$')
+    role_pattern = re.compile(r'^\s*-\s*(\d+)\s*(?:#.*)?$')
+
+    with pool_path.open('r', encoding='utf-8') as handle:
+        for raw_line in handle:
+            line = raw_line.rstrip('\n')
+            tier_match = tier_pattern.match(line)
+            if tier_match:
+                current_tier = int(tier_match.group(1))
+                continue
+
+            role_match = role_pattern.match(line)
+            if not role_match:
+                continue
+            if current_tier is None:
+                raise ValueError(f'Missing tier comment before role entry in {pool_path}')
+
+            role_id = int(role_match.group(1))
             ordered_roles.append(role_id)
-            tier_map[role_id] = cost
+            tier_map[role_id] = current_tier
+
     return ordered_roles, tier_map
 
 
@@ -565,23 +581,26 @@ def print_report(
 
 def write_pool_yaml(
     output_path: Path,
-    pool_data: Sequence[dict],
+    roles: Sequence[int],
+    tier_map: Dict[int, int],
     selected_roles: set[int],
     role_names: Dict[int, str],
 ) -> None:
     with output_path.open('w', encoding='utf-8', newline='') as handle:
-        for tier in pool_data:
-            roles = [int(role_id) for role_id in tier['角色'] if int(role_id) in selected_roles]
-            if not roles:
+        handle.write('角色:\n')
+        last_tier = None
+        for role_id in roles:
+            if role_id not in selected_roles:
                 continue
-            handle.write(f"- 费用: {tier['费用']}\n")
-            handle.write('  角色:\n')
-            for role_id in roles:
-                role_name = role_names.get(role_id)
-                if role_name:
-                    handle.write(f'    - {role_id}  # {role_name}\n')
-                else:
-                    handle.write(f'    - {role_id}\n')
+            tier = tier_map[role_id]
+            if tier != last_tier:
+                handle.write(f'  # 费用: {tier}\n')
+                last_tier = tier
+            role_name = role_names.get(role_id)
+            if role_name:
+                handle.write(f'  - {role_id}  # {role_name}\n')
+            else:
+                handle.write(f'  - {role_id}\n')
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -653,8 +672,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     combos_raw = load_yaml(combos_path)
-    pool_data = load_yaml(pool_path)
-    roles, tier_map = collect_pool(pool_data)
+    roles, tier_map = collect_pool(pool_path)
     universe = set(roles)
     synergies = collect_synergies(combos_raw, universe, threshold_overrides, set(args.exclude_synergy))
     role_names = load_role_names(pool_path, db_path)
@@ -662,7 +680,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     selected_roles, min_count, total_cost = solve_pool(roles, tier_map, synergies, min_selected)
 
     if args.mode == 'generate':
-        write_pool_yaml(output_path, pool_data, selected_roles, role_names)
+        write_pool_yaml(output_path, roles, tier_map, selected_roles, role_names)
         print(f'Generated {output_path} with {min_count} roles and total tier cost {total_cost}.')
         included_synergies = summarize_synergies(selected_roles, synergies)
         print(f'Included synergies: {len(included_synergies)} / {len(synergies)}')

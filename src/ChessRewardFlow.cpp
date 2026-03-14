@@ -224,7 +224,7 @@ int ChessRewardFlow::selectChallengeReward(const std::vector<BalanceConfig::Chal
             for (auto& [instanceId, chess] : services_.roster.items())
             {
                 if (chess.star != fromStar) continue;
-                int tier = ChessPool::GetChessTier(chess.role->ID);
+                int tier = chess.role ? chess.role->Cost : -1;
                 if (tier >= 0 && tier <= reward.value) return true;
             }
             return false;
@@ -331,13 +331,15 @@ bool ChessRewardFlow::rewardPiece(int maxTier)
     std::vector<int> roleIds;
     for (int tier = 1; tier <= maxTier && tier <= 5; ++tier)
     {
-        for (int roleId : ChessPool::getRolesOfTier(tier))
+        for (int roleId : services_.shop.pool().getRolesOfTier(tier))
         {
             auto* role = services_.roleSave.getRole(roleId);
             if (!role) continue;
-            auto [name, color] = chessPresenter().formatChessName(role, tier, 1, {});
-            items.push_back(name);
-            colors.push_back(color);
+            {
+                auto formatted = chessPresenter().formatChessName(role, tier, 1);
+                items.push_back(formatted.text);
+                colors.push_back(formatted.color);
+            }
             previewData.push_back({role, 1, -1});
             roleIds.push_back(roleId);
         }
@@ -419,10 +421,12 @@ bool ChessRewardFlow::rewardStarUp(int fromStar, int maxTier)
     std::vector<Chess> previewData;
     for (auto& chess : chesses)
     {
-        int tier = ChessPool::GetChessTier(chess.role->ID);
-        auto [name, color] = chessPresenter().formatChessName(chess.role, tier, chess.star, {});
-        items.push_back(name);
-        colors.push_back(color);
+        int tier = chess.role ? chess.role->Cost : -1;
+        {
+            auto formatted = chessPresenter().formatChessName(chess.role, tier, chess.star);
+            items.push_back(formatted.text);
+            colors.push_back(formatted.color);
+        }
         previewData.push_back(chess);
     }
 

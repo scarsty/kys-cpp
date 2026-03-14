@@ -14,13 +14,13 @@ tiers = [
 ]
 
 lines = []
+lines.append("角色:")
 for i, ids in enumerate(tiers):
-    lines.append(f"- 费用: {i+1}")
-    lines.append(f"  角色:")
+    lines.append(f"  # 费用: {i+1}")
     for rid in ids:
         cur.execute('SELECT 名字 FROM role WHERE 编号=?', (rid,))
         name = cur.fetchone()[0].strip()
-        lines.append(f"    - {rid}  # {name}")
+        lines.append(f"  - {rid}  # {name}")
 
 with open('d:/projects/kys-cpp/kys-cpp/config/chess_pool.yaml', 'w', encoding='utf-8') as f:
     f.write('\n'.join(lines) + '\n')

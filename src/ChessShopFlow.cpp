@@ -26,12 +26,14 @@ std::string buildWeightString(int level)
     return std::format("1費{}% 2費{}% 3費{}% 4費{}% 5費{}%", weights[0], weights[1], weights[2], weights[3], weights[4]);
 }
 
-std::vector<int> getSortedSeenRoleIds(const std::set<int>& seenRoleIds)
+std::vector<int> getSortedSeenRoleIds(const std::set<int>& seenRoleIds, ChessRoleSave& roleSave)
 {
     std::vector<int> sortedRoleIds(seenRoleIds.begin(), seenRoleIds.end());
-    std::sort(sortedRoleIds.begin(), sortedRoleIds.end(), [](int lhs, int rhs) {
-        const auto lhsTier = ChessPool::GetChessTier(lhs);
-        const auto rhsTier = ChessPool::GetChessTier(rhs);
+    std::sort(sortedRoleIds.begin(), sortedRoleIds.end(), [&](int lhs, int rhs) {
+        const auto* lhsRole = roleSave.getRole(lhs);
+        const auto* rhsRole = roleSave.getRole(rhs);
+        const auto lhsTier = lhsRole ? lhsRole->Cost : -1;
+        const auto rhsTier = rhsRole ? rhsRole->Cost : -1;
         if (lhsTier != rhsTier)
         {
             return lhsTier < rhsTier;
@@ -87,9 +89,9 @@ void ChessShopFlow::getChess()
 
             auto chessMap = services_.roster.getChessCountMap();
             auto addRoleWithTier = [&](Role* role, int tier) {
-                auto [name, color] = chessPresenter().formatChessName(role, tier, {}, {});
-                menuData.labels.push_back(name);
-                menuData.colors.push_back(color);
+                auto formatted = chessPresenter().formatChessName(role, tier, {});
+                menuData.labels.push_back(formatted.text);
+                menuData.colors.push_back(formatted.color);
                 menuData.previewData.push_back({role, 1, -1});
 
                 Chess chess = {role, 1};
@@ -146,11 +148,13 @@ void ChessShopFlow::getChess()
             }
 
             menuConfig.perPage = static_cast<int>(menuData.labels.size());
+            auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize, 8);
+            menuConfig.previewFrame = shopPanels.status;
             auto menu = makeIndexedMenu(
                 std::format("購買棋子 等級{} ${} 背包{}/{}", services_.economy.getLevel() + 1, services_.economy.getMoney(), manager.getBenchCount(), ChessBalance::config().benchSize),
                 menuData,
                 menuConfig,
-                {std::make_shared<ComboInfoPanel>(manager), std::make_shared<OwnedRosterPanel>(services_.roster, manager)},
+                {std::make_shared<ComboInfoPanel>(manager, shopPanels.combo), std::make_shared<OwnedRosterPanel>(services_.roster, manager, shopPanels.owned)},
                 menuData.previewData);
             menu->run();
 
@@ -227,7 +231,14 @@ void ChessShopFlow::sellChess()
         auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
         menuConfig.x = menuAnchor.x;
         menuConfig.y = menuAnchor.y;
-        auto menu = makeIndexedMenu(std::format("出售棋子 背包{}/{}", manager.getBenchCount(), ChessBalance::config().benchSize), menuData, menuConfig, {}, menuData.previewData);
+        auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+        menuConfig.previewFrame = shopPanels.status;
+        auto menu = makeIndexedMenu(
+            std::format("出售棋子 背包{}/{}", manager.getBenchCount(), ChessBalance::config().benchSize),
+            menuData,
+            menuConfig,
+            {std::make_shared<ComboInfoPanel>(manager, shopPanels.combo)},
+            menuData.previewData);
         menu->run();
 
         int selectedId = menu->getResult();
@@ -308,7 +319,7 @@ void ChessShopFlow::showBanMenu()
 
     for (;;)
     {
-        auto sortedRoleIds = getSortedSeenRoleIds(seenRoleIds);
+        auto sortedRoleIds = getSortedSeenRoleIds(seenRoleIds, services_.roleSave);
         ChessMenuData menuData;
         IndexedMenuConfig menuConfig;
         menuConfig.perPage = 12;
@@ -320,11 +331,11 @@ void ChessShopFlow::showBanMenu()
         for (auto roleId : sortedRoleIds)
         {
             auto role = services_.roleSave.getRole(roleId);
-            auto tier = std::max(1, ChessPool::GetChessTier(roleId));
+            auto tier = std::max(1, role ? role->Cost : -1);
             const auto isBanned = bannedRoleIds.contains(roleId);
-            auto [name, color] = chessPresenter().formatChessName(role, tier, {}, {});
-            menuData.labels.push_back(std::format("{} {}", isBanned ? "[已禁]" : "[未禁]", name));
-            menuData.colors.push_back(color);
+            auto formatted = chessPresenter().formatChessName(role, tier, {});
+            menuData.labels.push_back(std::format("{} {}", isBanned ? "[已禁]" : "[未禁]", formatted.text));
+            menuData.colors.push_back(formatted.color);
             menuData.previewData.push_back({role, 1, -1});
             menuConfig.outlineColors.push_back(isBanned ? Color{255, 80, 80, 255} : Color{0, 0, 0, 0});
             menuConfig.animateOutlines.push_back(false);

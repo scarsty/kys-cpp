@@ -113,7 +113,8 @@ std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& sele
             int bestId = -1, bestTier = -1;
             for (int rid : ac.memberRoleIds)
             {
-                int t = ChessPool::GetChessTier(rid);
+                auto* role = Save::getInstance()->getRole(rid);
+                int t = role ? role->Cost : -1;
                 if (t > bestTier) { bestTier = t; bestId = rid; }
             }
             ac.memberRoleIds.clear();
@@ -206,7 +207,7 @@ void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& all
             {
                 if (r->ID == mid && r->Team == deadTeam && r->Dead == 0)
                 {
-                    int tier = ChessPool::GetChessTier(mid);
+                    int tier = r->Cost;
                     if (tier > bestTier) { bestTier = tier; bestId = mid; }
                     break;
                 }

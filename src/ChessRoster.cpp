@@ -190,7 +190,7 @@ std::vector<Chess> ChessRoster::getByStarAndTier(int star, int maxTier) const
     {
         if (chess.star == star)
         {
-            int tier = ChessPool::GetChessTier(chess.role->ID);
+            int tier = chess.role ? chess.role->Cost : -1;
             if (tier >= 0 && tier <= maxTier)
             {
                 result.push_back(chess);

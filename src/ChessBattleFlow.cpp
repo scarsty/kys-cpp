@@ -55,13 +55,18 @@ void ChessBattleFlow::selectForBattle()
         }
 
         IndexedMenuConfig menuConfig;
+        auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
         menuConfig.perPage = 12;
         menuConfig.fontSize = 32;
+        menuConfig.x = menuAnchor.x;
+        menuConfig.y = menuAnchor.y;
+        auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+        menuConfig.previewFrame = shopPanels.status;
         auto menu = makeIndexedMenu(
             std::format("選擇出戰棋子 {}/{} 背包{}/{}", selectedCount, maxSelection, manager.getBenchCount(), ChessBalance::config().benchSize),
             menuData,
             menuConfig,
-            {std::make_shared<ComboInfoPanel>(manager)},
+            {std::make_shared<ComboInfoPanel>(manager, shopPanels.combo)},
             menuData.previewData);
         menu->run();
 

@@ -135,6 +135,7 @@ struct RoleSave
 public:
     int ID = 0;
     int HeadID = 0;
+    int Cost = -1;
     int Sexual = 0;                //性别 0-男 1-女 2-其他
     int MaxHP = 0;
     int MPType = 0, MaxMP = 0;

@@ -34,8 +34,10 @@ std::shared_ptr<SuperMenuText> makeIndexedMenu(
     if (!itemPreviewData.empty())
     {
         auto statusDrawable = std::make_shared<UIStatusDrawable>(itemPreviewData);
-        auto frame = ChessScreenLayout::shopStatusPanel();
-        statusDrawable->getUIStatus().setPosition(frame.x, frame.y);
+        PanelAnchor menuAnchor{config.x, config.y};
+        auto previewFrame = config.previewFrame.value_or(ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, data.labels, config.fontSize));
+        statusDrawable->getUIStatus().setPosition(previewFrame.x, previewFrame.y);
+        statusDrawable->getUIStatus().setSize(previewFrame.w, previewFrame.h);
         menu->addDrawableOnCall(statusDrawable);
     }
 

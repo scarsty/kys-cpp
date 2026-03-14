@@ -23,7 +23,28 @@ Usage:
 import sqlite3
 import sys
 import os
+import re
 import shutil
+from pathlib import Path
+
+
+TIER_LINE_RE = re.compile(r'^\s*(?:#|-)\s*费用:\s*(\d+)\s*$')
+ROLE_LINE_RE = re.compile(r'^\s*-\s*(\d+)\b')
+
+
+def load_cost_mapping(pool_path: Path) -> dict[int, int]:
+    cost_map: dict[int, int] = {}
+    current_tier: int | None = None
+    for raw_line in pool_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.rstrip()
+        tier_match = TIER_LINE_RE.match(line)
+        if tier_match:
+            current_tier = int(tier_match.group(1))
+            continue
+        role_match = ROLE_LINE_RE.match(line)
+        if role_match and current_tier is not None:
+            cost_map[int(role_match.group(1))] = current_tier
+    return cost_map
 
 
 def get_columns(cur, table):
@@ -41,6 +62,8 @@ def get_column_info(cur, table):
 def migrate_role_table(conn, dry_run):
     """Rebuild the role table with interleaved star columns."""
     cur = conn.cursor()
+    repo_root = Path(__file__).resolve().parents[1]
+    cost_map = load_cost_mapping(repo_root / 'config' / 'chess_pool.yaml')
 
     # Determine source table
     all_tables = {r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
@@ -91,6 +114,7 @@ def migrate_role_table(conn, dry_run):
         ("头像", "INTEGER DEFAULT 0"),
         ("名字", "TEXT"),
         ("外号", "TEXT"),
+        ("费用", "INTEGER DEFAULT -1"),
         ("性别", "INTEGER DEFAULT 0"),
         ("生命最大值", "INTEGER DEFAULT 0"),
         ("内力性质", "INTEGER DEFAULT 0"),
@@ -144,6 +168,7 @@ def migrate_role_table(conn, dry_run):
 
         new_row["名字"] = get_val(row, "名字", "")
         new_row["外号"] = get_val(row, "外号", "")
+        new_row["费用"] = cost_map.get(new_row["编号"], get_val(row, "费用", -1))
 
         # Gather all skills with their power values, pick top 2
         skills = []

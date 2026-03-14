@@ -47,7 +47,9 @@ def parse_synergies_and_comments(yaml_path):
 def load_pool(pool_path):
     with open(pool_path, 'r', encoding='utf-8') as f:
         pool_data = yaml.safe_load(f)
-    return {r for tier in pool_data for r in tier['角色']}
+    if isinstance(pool_data, dict):
+        return {int(role_id) for role_id in pool_data.get('角色', [])}
+    return {int(role_id) for tier in pool_data for role_id in tier['角色']}
 
 def generate_csvs(synergies, id_to_name, pool_ids, pool_name, outdir):
     filtered_synergies = [{'name': s['name'], 'members': [m for m in s['members'] if m in pool_ids]} for s in synergies]

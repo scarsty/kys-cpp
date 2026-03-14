@@ -142,6 +142,14 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
 ComboInfoPanel::ComboInfoPanel(ChessManager manager)
     : ChessDrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , manager_(std::move(manager))
+    , frame_(ChessScreenLayout::comboInfoPanel())
+{
+}
+
+ComboInfoPanel::ComboInfoPanel(ChessManager manager, PanelFrame frame)
+    : ChessDrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
+    , manager_(std::move(manager))
+    , frame_(frame)
 {
 }
 
@@ -161,7 +169,7 @@ void ComboInfoPanel::drawPanel()
 
     auto& allCombos = ChessCombo::getAllCombos();
     auto starByRole = ChessCombo::buildStarMap(manager_.getSelectedForBattle());
-    auto frame = ChessScreenLayout::comboInfoPanel();
+    auto frame = frame_;
     ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
 
     int fs = 20;
@@ -269,7 +277,7 @@ void ComboInfoPanel::drawPanel()
     int maxColumns = std::min(3, std::max(1, static_cast<int>(roleCombos.size())));
     for (int columns = 1; columns <= maxColumns; ++columns)
     {
-        int columnWidth = std::max(160, (frame.w - 20) / columns);
+        int columnWidth = std::max(140, (frame.w - 20) / columns);
         auto candidateBlocks = buildBlocks(columnWidth);
         if (canFit(candidateBlocks, columns))
         {
@@ -284,7 +292,7 @@ void ComboInfoPanel::drawPanel()
         }
     }
 
-    int columnWidth = std::max(160, (frame.w - 20) / chosenColumns);
+    int columnWidth = std::max(140, (frame.w - 20) / chosenColumns);
     PanelColumnFlow flow{font, frame, frame.x + 10, frame.y + 32, frame.y + 32, frame.y + frame.h - 15, columnWidth};
     for (const auto& block : blocks)
     {
@@ -309,10 +317,11 @@ void ComboInfoPanel::drawPanel()
     }
 }
 
-OwnedRosterPanel::OwnedRosterPanel(ChessRoster& roster, ChessManager manager)
+OwnedRosterPanel::OwnedRosterPanel(ChessRoster& roster, ChessManager manager, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , roster_(roster)
     , manager_(std::move(manager))
+    , frame_(frame)
 {
 }
 
@@ -325,7 +334,7 @@ void OwnedRosterPanel::drawPanel()
     }
 
     auto* font = Font::getInstance();
-    auto frame = ChessScreenLayout::shopOwnedPanel();
+    auto frame = frame_;
     ChessScreenLayout::drawPanel(frame, {0, 0, 0, 160});
     int fs = 20;
     font->draw("我方棋子", fs + 4, frame.x + 10, frame.y + 5, {255, 255, 100, 255});
@@ -348,7 +357,7 @@ void OwnedRosterPanel::drawPanel()
     {
         auto key = std::make_pair(roleAndStar.role->ID, roleAndStar.star);
         int deployedForRole = deployedCount[key];
-        Color color = ChessPool::GetTierColor(ChessPool::GetChessTier(roleAndStar.role->ID));
+        Color color = ChessPool::GetTierColor(roleAndStar.role ? roleAndStar.role->Cost : -1);
         std::string stars;
         for (int i = 0; i < roleAndStar.star; ++i)
         {
@@ -386,14 +395,15 @@ void OwnedRosterPanel::drawPanel()
     }
 }
 
-ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole)
-    : ComboCatalogDetailPanel(combos, roleSave, std::move(starByRole), ChessScreenLayout::comboCatalogDetailPanel())
+ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole)
+    : ComboCatalogDetailPanel(combos, pool, roleSave, std::move(starByRole), ChessScreenLayout::comboCatalogDetailPanel())
 {
 }
 
-ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame)
+ComboCatalogDetailPanel::ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , combos_(combos)
+    , pool_(pool)
     , roleSave_(roleSave)
     , starByRole_(std::move(starByRole))
     , frame_(frame)
@@ -423,7 +433,7 @@ void ComboCatalogDetailPanel::drawPanel()
     int totalBonus = 0;
     for (int roleId : combo.memberRoleIds)
     {
-        if (ChessPool::GetChessTier(roleId) < 0) continue;
+        if (!pool_.isRoleInPool(roleId)) continue;
         auto* role = roleSave_.getRole(roleId);
         if (!role)
         {
@@ -438,7 +448,7 @@ void ComboCatalogDetailPanel::drawPanel()
             starSuffix = std::format(" ★{}", star);
             totalBonus += (star - 1);
         }
-        memberCursor.line(std::format("  {} ({}費){}{}", role->Name, ChessPool::GetChessTier(roleId), owned ? " ✓" : "", starSuffix), fs, color, 1);
+        memberCursor.line(std::format("  {} ({}費){}{}", role->Name, role->Cost, owned ? " ✓" : "", starSuffix), fs, color, 1);
     }
 
     PanelTextCursor thresholdCursor{font, frame.x + 290, frame.y + 45};
@@ -620,7 +630,7 @@ void ChallengeDetailPanel::drawPanel()
         {
             continue;
         }
-        int tier = ChessPool::GetChessTier(enemy.roleId);
+        int tier = role->Cost;
         std::string stars;
         for (int s = 0; s < enemy.star; ++s)
         {

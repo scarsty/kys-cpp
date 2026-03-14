@@ -1,11 +1,18 @@
 ﻿#pragma once
 
+#include "ChessBalance.h"
 #include "Chess.h"
 #include "Engine.h"
 #include "GameDataStore.h"
 
+#include <array>
 #include <set>
 #include <unordered_set>
+
+namespace YAML
+{
+class Node;
+}
 
 namespace KysChess
 {
@@ -19,7 +26,6 @@ public:
     ChessPool(ChessRandom& random, ChessRoleSave& roleSave);
     ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::vector<StoredShopEntry>& shop);
 
-    static int GetChessTier(int roleId);
     static Color GetTierColor(int tier);
 
     // Returns a list of pairs of Role* and its star (0-4)
@@ -35,11 +41,16 @@ public:
     // Select a random enemy role from a specific tier (no rejection logic)
     Role* selectEnemyFromPool(int tier);
 
-    static const std::vector<int>& getRolesOfTier(int tier);
+    bool isRoleInPool(int roleId);
+    const std::vector<int>& getRolesOfTier(int tier);
     void setBannedRoleIds(const std::set<int>& banned);
 
 private:
+    void ensurePoolLoaded();
+    void reloadPool();
+    void loadPoolNode(const YAML::Node& root);
     Role* selectFromPool(int tier);
+    int getRoleTier(int roleId) const;
 
     ChessRandom& random_;
     ChessRoleSave& roleSave_;
@@ -47,6 +58,10 @@ private:
     std::vector<std::pair<Role*, int>> current_;
     std::unordered_set<Role*> rejected_;
     std::set<int> banned_;
+    std::array<std::vector<int>, 5> rolesByTier_;
+    std::unordered_set<int> roleIdsInPool_;
+    bool poolLoaded_ = false;
+    Difficulty loadedDifficulty_ = Difficulty::Easy;
 
 };
 

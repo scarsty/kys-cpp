@@ -21,6 +21,8 @@
 namespace KysChess
 {
 
+class ChessPool;
+
 struct PanelTextCursor
 {
     Font* font;
@@ -57,35 +59,39 @@ class ComboInfoPanel : public ChessDrawableOnCall
 {
 public:
     explicit ComboInfoPanel(ChessManager manager);
+    ComboInfoPanel(ChessManager manager, PanelFrame frame);
 
 private:
     void drawPanel();
 
     ChessManager manager_;
+    PanelFrame frame_;
 };
 
 class OwnedRosterPanel : public DrawableOnCall
 {
 public:
-    OwnedRosterPanel(ChessRoster& roster, ChessManager manager);
+    OwnedRosterPanel(ChessRoster& roster, ChessManager manager, PanelFrame frame);
 
 private:
     void drawPanel();
 
     ChessRoster& roster_;
     ChessManager manager_;
+    PanelFrame frame_;
 };
 
 class ComboCatalogDetailPanel : public DrawableOnCall
 {
 public:
-    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole);
-    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame);
+    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole);
+    ComboCatalogDetailPanel(const std::vector<ComboDef>& combos, ChessPool& pool, ChessRoleSave& roleSave, std::map<int, int> starByRole, PanelFrame frame);
 
 private:
     void drawPanel();
 
     const std::vector<ComboDef>& combos_;
+    ChessPool& pool_;
     ChessRoleSave& roleSave_;
     std::map<int, int> starByRole_;
     PanelFrame frame_;

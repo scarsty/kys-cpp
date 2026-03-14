@@ -2,9 +2,11 @@
 
 #include "ChessSelectorPresenter.h"
 #include "DrawableOnCall.h"
+#include "ChessScreenLayout.h"
 #include "SuperMenuText.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace KysChess
@@ -20,6 +22,7 @@ struct IndexedMenuConfig
     bool needInputBox = false;
     bool confirmation = false;
     bool exitable = true;
+    std::optional<PanelFrame> previewFrame;
     std::vector<Color> outlineColors;
     std::vector<bool> animateOutlines;
     std::vector<int> outlineThicknesses;

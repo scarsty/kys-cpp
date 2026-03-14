@@ -65,9 +65,6 @@ struct BalanceConfig
     struct EnemySlot { int tier = 1; int star = 1; };
     std::vector<std::vector<EnemySlot>> enemyTable;
 
-    // Chess pool: role IDs per tier (index 0 = tier 1, etc.)
-    std::array<std::vector<int>, 5> chessPool;
-
     // Stage progress
     int totalFights = 28;
     int bossInterval = 4;

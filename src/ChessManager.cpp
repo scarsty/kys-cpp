@@ -127,7 +127,7 @@ SellResult ChessManager::sellChess(ChessInstanceID chessInstanceId)
 {
     auto chess = roster_.find(chessInstanceId);
 
-    int tier = ChessPool::GetChessTier(chess.role->ID);
+    int tier = chess.role ? chess.role->Cost : -1;
     int sellPrice = calculateCost(tier, chess.star, 1);
 
     roster_.remove(chessInstanceId);

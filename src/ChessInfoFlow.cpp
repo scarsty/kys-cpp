@@ -30,7 +30,7 @@ void ChessInfoFlow::viewCombos()
     {
         int availableCount = 0;
         for (int rid : combo.memberRoleIds)
-            if (ChessPool::GetChessTier(rid) > 0) availableCount++;
+            if (services_.shop.pool().isRoleInPool(rid)) availableCount++;
         if (availableCount == 0) continue;
 
         filteredCombos.push_back(combo);
@@ -51,7 +51,7 @@ void ChessInfoFlow::viewCombos()
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
     auto detailFrame = ChessScreenLayout::browseDetailRegionForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
-    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(filteredCombos, services_.roleSave, starByRole, detailFrame);
+    auto detailPanel = std::make_shared<ComboCatalogDetailPanel>(filteredCombos, services_.shop.pool(), services_.roleSave, starByRole, detailFrame);
     auto menu = makeIndexedMenu("羈絆一覽", menuData, menuConfig, {detailPanel});
     menu->run();
 }

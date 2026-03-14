@@ -134,7 +134,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::DamageImmunityAfterFrames: desc = std::format("每{}幀免傷{}幀", eff.value, eff.value2); break;
     case EffectType::AutoUltimateAfterFrames: desc = std::format("每{}幀自動絕招", eff.value); break;
     case EffectType::BlockFirstHits: desc = compact ? std::format("格擋前{}次", eff.value) : std::format("格擋前{}次攻擊", eff.value); break;
-    case EffectType::GoldCoefficient: desc = compact ? std::format("勝利+{}×最高星", eff.value) : std::format("勝利獲得{}×最高星級金幣", eff.value); break;
+    case EffectType::GoldCoefficient: desc = compact ? std::format("勝利+{}×最高星金", eff.value) : std::format("勝利獲得{}×最高星級金幣", eff.value); break;
     default: desc = std::format("效果({})", eff.value); break;
     }
     return triggerPrefix() + desc + countSuffix();

@@ -94,22 +94,6 @@ bool ChessBalance::loadConfig(const std::string& path)
         }
     }
 
-    const std::string poolPath = GameUtil::PATH()
-        + ((difficulty_ == Difficulty::Easy) ? "config/chess_pool_easy.yaml" : "config/chess_pool.yaml");
-    try {
-        auto pool = YAML::LoadFile(poolPath);
-        for (const auto& entry : pool)
-        {
-            int tier = entry["费用"].as<int>();
-            if (tier < 1 || tier > 5) continue;
-            c.chessPool[tier - 1].clear();
-            for (const auto& v : entry["角色"])
-                c.chessPool[tier - 1].push_back(v.as<int>());
-        }
-    } catch (const YAML::Exception& e) {
-        std::print("【平衡配置】无法读取棋池文件 {}: {}\n", poolPath, e.what());
-    }
-
     if (auto n = root["进度"])
     {
         if (n["总关卡数"]) c.totalFights = n["总关卡数"].as<int>();

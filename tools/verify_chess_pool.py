@@ -7,7 +7,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding='utf-8')
 
 ROLE_LINE_RE = re.compile(r'^\s*-\s+(\d+)\s+#\s+(.+)$')
-TIER_LINE_RE = re.compile(r'^- 费用: (\d+)$')
+TIER_LINE_RE = re.compile(r'^\s*(?:#|-)\s*费用:\s*(\d+)\s*$')
 
 
 def parse_args() -> argparse.Namespace:

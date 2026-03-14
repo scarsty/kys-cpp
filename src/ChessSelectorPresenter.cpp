@@ -5,6 +5,7 @@
 #include "ChessPool.h"
 #include "Font.h"
 #include "Save.h"
+#include "ChessScreenLayout.h"
 
 namespace KysChess
 {
@@ -14,65 +15,55 @@ int ChessSelectorPresenter::getDisplayWidth(const std::string& text) const
     return Font::getTextDrawSize(text);
 }
 
-std::pair<std::string, Color> ChessSelectorPresenter::formatChessName(Role* role,
+ChessSelectorPresenter::FormattedChessName ChessSelectorPresenter::formatChessName(Role* role,
     int tier,
     std::optional<int> starOpt,
-    std::optional<int> countOpt,
     const std::string& prefix) const
 {
-    std::string result;
-    int displayWidth = 0;
+    // Use the shared menu-budget constants so anchors and formatter agree.
 
+    std::string result;
+
+    int prefixUnits = prefix.empty() ? 0 : getDisplayWidth(prefix);
+    int nameUnitsActual = prefixUnits + getDisplayWidth(role->Name);
+    int nameUnits = std::max(ChessScreenLayout::kMenuNameUnits, nameUnitsActual);
+
+    // Append prefix and name
     if (!prefix.empty())
     {
         result += prefix;
-        displayWidth += getDisplayWidth(prefix);
     }
-
     result += role->Name;
-    displayWidth += getDisplayWidth(role->Name);
-    while (displayWidth < 16)
-    {
-        result += " ";
-        displayWidth += 1;
-    }
 
-    int starWidth = 0;
+    // Pad name region to target units
+    int padAfterName = nameUnits - nameUnitsActual;
+    for (int i = 0; i < padAfterName; ++i) result += ' ';
+
+    // Stars region
+    int starUnitsActual = 0;
     if (starOpt)
     {
         for (int i = 0; i < *starOpt; ++i)
         {
             result += "★";
-            starWidth += 2;
+            starUnitsActual += getDisplayWidth("★");
         }
     }
-    while (starWidth < 8)
-    {
-        result += " ";
-        starWidth += 1;
-    }
+    int starUnits = std::max(ChessScreenLayout::kMenuStarUnits, starUnitsActual);
+    int padStars = starUnits - starUnitsActual;
+    for (int i = 0; i < padStars; ++i) result += ' ';
 
-    int quantityWidth = 0;
-    if (countOpt)
-    {
-        std::string countStr = "x" + std::to_string(*countOpt);
-        result += countStr;
-        quantityWidth += static_cast<int>(countStr.size());
-    }
-    while (quantityWidth < 6)
-    {
-        result += " ";
-        quantityWidth += 1;
-    }
-
-    std::string costStr = "$" + std::to_string(ChessManager::calculateCost(tier, starOpt.value_or(1), countOpt.value_or(1)));
-    while (static_cast<int>(costStr.size()) < 6)
+    // Cost region: right-pad to a small fixed width so columns align
+    std::string costStr = "$" + std::to_string(ChessManager::calculateCost(tier, starOpt.value_or(1), 1));
+    while (getDisplayWidth(costStr) < ChessScreenLayout::kMenuCostUnits)
     {
         costStr = " " + costStr;
     }
     result += costStr;
 
-    return {result, ChessPool::GetTierColor(tier)};
+    int totalUnits = nameUnits + starUnits + getDisplayWidth(costStr);
+
+    return {result, ChessPool::GetTierColor(tier), totalUnits};
 }
 
 ChessMenuData ChessSelectorPresenter::buildChessMenuData(const std::vector<ChessMenuEntry>& entries) const
@@ -83,10 +74,10 @@ ChessMenuData ChessSelectorPresenter::buildChessMenuData(const std::vector<Chess
     data.previewData.reserve(entries.size());
     for (const auto& entry : entries)
     {
-        int tier = ChessPool::GetChessTier(entry.chess.role->ID);
-        auto [label, color] = formatChessName(entry.chess.role, tier, entry.chess.star, {}, entry.prefix);
-        data.labels.push_back(label);
-        data.colors.push_back(color);
+        int tier = entry.chess.role ? entry.chess.role->Cost : -1;
+        auto formatted = formatChessName(entry.chess.role, tier, entry.chess.star, entry.prefix);
+        data.labels.push_back(formatted.text);
+        data.colors.push_back(formatted.color);
         data.previewData.push_back(entry.chess);
     }
     return data;

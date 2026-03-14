@@ -60,6 +60,7 @@ void NewSave::initDBFieldInfo()
             BIND_FIELD_INT("头像", HeadID),
             BIND_FIELD_STRING("名字", Name),
             BIND_FIELD_STRING("外号", Nick),
+            BIND_FIELD_INT("费用", Cost),
             BIND_FIELD_INT("性别", Sexual),
             BIND_FIELD_INT("生命最大值", MaxHP),
             BIND_FIELD_INT("内力性质", MPType),

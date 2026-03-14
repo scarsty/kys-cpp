@@ -6,9 +6,12 @@ with open('config/chess_combos.yaml', 'r', encoding='utf-8') as f:
 with open('config/chess_pool_easy.yaml', 'r', encoding='utf-8') as f:
     easy_pool = yaml.safe_load(f)
 
-pool_roles = set()
-for tier in easy_pool:
-    pool_roles.update(tier['角色'])
+if isinstance(easy_pool, dict):
+    pool_roles = {int(role_id) for role_id in easy_pool.get('角色', [])}
+else:
+    pool_roles = set()
+    for tier in easy_pool:
+        pool_roles.update(tier['角色'])
 
 print(f"Total roles in pool: {len(pool_roles)}")
 

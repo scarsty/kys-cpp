@@ -24,8 +24,25 @@ struct PanelAnchor
     int y;
 };
 
+struct ShopPanelLayout
+{
+    PanelFrame owned;
+    PanelFrame combo;
+    PanelFrame status;
+    int menuWidth;
+};
+
 namespace ChessScreenLayout
 {
+
+// Menu formatting budget (in Font display-units). These define the
+// conservative minimum allocation for menu item regions so anchors and
+// formatters agree on layout. If a name or cost exceeds these values the
+// formatter will expand the regions to fit the actual text.
+inline constexpr int kMenuNameUnits = 16;
+inline constexpr int kMenuStarUnits = 8;
+inline constexpr int kMenuCostUnits = 6;
+inline int getDefaultMenuItemUnits() { return kMenuNameUnits + kMenuStarUnits + kMenuCostUnits; }
 
 inline PanelFrame fullContentRegion()
 {
@@ -51,7 +68,47 @@ inline int estimateMenuWidth(const std::vector<std::string>& labels, int fontSiz
     {
         maxUnits = std::max(maxUnits, Font::getTextDrawSize(label));
     }
+    // Ensure we honor the minimum menu-item budget so formatters and anchors
+    // agree on menu widths even when labels are padded to a fixed budget.
+    maxUnits = std::max(maxUnits, getDefaultMenuItemUnits());
     return maxUnits * fontSize / 2 + extraPadding;
+}
+
+inline int estimateMenuBoxWidth(const std::vector<std::string>& labels, int fontSize)
+{
+    int maxUnits = 0;
+    for (const auto& label : labels)
+    {
+        maxUnits = std::max(maxUnits, Font::getTextDrawSize(label));
+    }
+    maxUnits = std::max(maxUnits, getDefaultMenuItemUnits());
+    return Font::getBoxSize(maxUnits, fontSize, 0, 0).w;
+}
+
+inline int menuRowHeight(int fontSize)
+{
+    return Engine::uiStyle() == 1 ? fontSize + 9 : fontSize + 1;
+}
+
+inline ShopPanelLayout shopPanelsForMenu(const PanelAnchor& menuAnchor, const std::vector<std::string>& labels, int fontSize, int visibleRows = 8)
+{
+    auto region = fullContentRegion();
+    const int outerPadding = 10;
+    const int panelGap = 20;
+    const int panelTopGap = 12;
+    const int statusTop = region.y + 10;
+
+    int menuWidth = estimateMenuBoxWidth(labels, fontSize);
+    int selectionsY = menuAnchor.y + fontSize + 16;
+    int panelsY = selectionsY + menuRowHeight(fontSize) * visibleRows + panelTopGap;
+    int bottom = region.y + region.h - outerPadding;
+
+    PanelFrame owned{region.x, panelsY, menuWidth, bottom - panelsY};
+    int comboX = owned.x + owned.w + panelGap;
+    int comboW = region.x + region.w - outerPadding - comboX;
+    PanelFrame combo{comboX, panelsY, comboW, owned.h};
+    PanelFrame status{comboX, statusTop, comboW, panelsY - panelGap - statusTop};
+    return {owned, combo, status, menuWidth};
 }
 
 inline PanelFrame browseDetailRegionForMenu(const PanelAnchor& menuAnchor, const std::vector<std::string>& labels, int fontSize)
@@ -108,7 +165,12 @@ inline PanelFrame comboInfoPanel()
     auto region = fullContentRegion();
     auto owned = shopOwnedPanel();
     int x = owned.x + owned.w + 20;
-    return {x, region.y + 455, region.x + region.w - x - 10, 175};
+    // Align combo/info panel vertically with the owned panel so their tops
+    // and heights match for a tidy visual alignment.
+    int y = owned.y;
+    int h = owned.h;
+    int w = region.x + region.w - x - 10;
+    return {x, y, w, h};
 }
 
 inline PanelFrame comboCatalogDetailPanel()

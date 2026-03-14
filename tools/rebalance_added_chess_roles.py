@@ -196,7 +196,7 @@ def parse_pool(path: Path) -> tuple[list[PoolEntry], dict[int, list[int]]]:
     tier_to_ids: dict[int, list[int]] = defaultdict(list)
     seen: set[str] = set()
     for line in text.splitlines():
-        tier_match = re.match(r"-\s*费用:\s*(\d+)", line)
+        tier_match = re.match(r"\s*(?:#|-)\s*费用:\s*(\d+)", line)
         if tier_match:
             current_tier = int(tier_match.group(1))
             continue

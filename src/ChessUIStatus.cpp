@@ -16,9 +16,9 @@ void ChessUIStatus::draw()
 {
     if (!chess_.role) return;
 
-    auto frame = ChessScreenLayout::shopStatusPanel();
-    int panelW = frame.w;
-    int panelH = frame.h;
+    auto defaultFrame = ChessScreenLayout::shopStatusPanel();
+    int panelW = (w_ > 0) ? w_ : defaultFrame.w;
+    int panelH = (h_ > 0) ? h_ : defaultFrame.h;
 
     // Draw translucent black background
     Engine::getInstance()->fillRoundedRect({0, 0, 0, 128}, x_, y_, panelW, panelH, 8);

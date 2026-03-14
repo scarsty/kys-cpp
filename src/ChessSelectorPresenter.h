@@ -30,10 +30,15 @@ class ChessSelectorPresenter
 {
 public:
     int getDisplayWidth(const std::string& text) const;
-    std::pair<std::string, Color> formatChessName(Role* role,
+    struct FormattedChessName {
+        std::string text;
+        Color color;
+        int units;
+    };
+
+    FormattedChessName formatChessName(Role* role,
         int tier,
         std::optional<int> starOpt,
-        std::optional<int> countOpt,
         const std::string& prefix = "") const;
     ChessMenuData buildChessMenuData(const std::vector<ChessMenuEntry>& entries) const;
     std::string challengeRewardDesc(const BalanceConfig::ChallengeReward& reward) const;
