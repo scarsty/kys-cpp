@@ -19,6 +19,36 @@
 #include <cmath>
 #include <string>
 
+namespace
+{
+
+constexpr int kFightStyleCount = 5;
+constexpr int kFightStyleFallbacks[kFightStyleCount][kFightStyleCount - 1] = {
+    {1, 2, 3, 4},
+    {4, 2, 3, 0},
+    {3, 1, 4, 0},
+    {2, 1, 4, 0},
+    {1, 2, 3, 0},
+};
+
+int firstAvailableFightStyle(const Role* role)
+{
+    if (!role)
+    {
+        return -1;
+    }
+    for (int style = 0; style < kFightStyleCount; style++)
+    {
+        if (role->FightFrame[style] > 0)
+        {
+            return style;
+        }
+    }
+    return -1;
+}
+
+}
+
 BattleScene::BattleScene()
 {
     full_window_ = 1;
@@ -639,6 +669,29 @@ void BattleScene::readFightFrame(Role* r)
     }
 }
 
+int BattleScene::resolveFightStyle(Role* r, int style) const
+{
+    if (!r)
+    {
+        return -1;
+    }
+    if (style >= 0 && style < kFightStyleCount && r->FightFrame[style] > 0)
+    {
+        return style;
+    }
+    if (style >= 0 && style < kFightStyleCount)
+    {
+        for (int fallback : kFightStyleFallbacks[style])
+        {
+            if (r->FightFrame[fallback] > 0)
+            {
+                return fallback;
+            }
+        }
+    }
+    return firstAvailableFightStyle(r);
+}
+
 void BattleScene::sortRoles()
 {
     if (semi_real_ == 0)
@@ -690,24 +743,23 @@ int BattleScene::calMoveStep(Role* r)
 
 int BattleScene::calRolePic(Role* r, int style, int frame)
 {
-    if (r->FightFrame[style] <= 0)
+    if (style < 0 || style >= kFightStyleCount)
     {
-        style = -1;
-    }
-    if (style == -1)
-    {
-        for (int i = 0; i < 5; i++)
+        style = firstAvailableFightStyle(r);
+        if (style >= 0)
         {
-            if (r->FightFrame[i] > 0)
-            {
-                return r->FightFrame[i] * r->FaceTowards;
-            }
+            return r->FightFrame[style] * r->FaceTowards;
         }
     }
     else
     {
+        style = resolveFightStyle(r, style);
+        if (style < 0)
+        {
+            return r->FaceTowards;
+        }
         int total = 0;
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < kFightStyleCount; i++)
         {
             if (i == style)
             {
@@ -1510,7 +1562,12 @@ void BattleScene::actionAnimation(Role* r, int style, int effect_id, int shake /
         //自动的情況下面向一个敌人，否则看着很奇怪
         setFaceTowardsNearest(r, true);
     }
-    auto frame_count = r->FightFrame[style];
+    int frame_style = resolveFightStyle(r, style);
+    auto frame_count = (frame_style >= 0) ? r->FightFrame[frame_style] : 0;
+    if (frame_count <= 0)
+    {
+        frame_count = 1;
+    }
     r->ActType = style;
     //Audio::getInstance()->playASound(style);
 

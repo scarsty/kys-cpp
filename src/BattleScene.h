@@ -108,6 +108,7 @@ public:
     virtual void setRoleInitState(Role* r);                                 //初始化人物的属性
     virtual void setFaceTowardsNearest(Role* r, bool in_effect = false);    //以离得最近的敌人设置面向，参数为是否敌人在自己行动效果中
     virtual void readFightFrame(Role* r);                                   //读取人物行动帧数
+    int resolveFightStyle(Role* r, int style) const;
     virtual void sortRoles();                                               //角色排序
     virtual void resetRolesAct();                                           //设置所有人未行动过
     virtual int calMoveStep(Role* r);                                       //计算可移动步数(考虑装备)

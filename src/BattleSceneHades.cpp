@@ -3225,24 +3225,19 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
 {
     if (style < 0 || style >= 5)
     {
-        for (int i = 0; i < 5; i++)
+        style = resolveFightStyle(r, -1);
+        if (style >= 0)
         {
-            if (r->FightFrame[i] > 0)
-            {
-                return r->FightFrame[i] * r->FaceTowards;
-            }
+            return r->FightFrame[style] * r->FaceTowards;
         }
     }
-    if (r->FightFrame[style] <= 0)
+    else
     {
-        //改为选一个存在的动作，否则看不出是在攻击
-        for (int i = 0; i < 5; i++)
-        {
-            if (r->FightFrame[i] > 0)
-            {
-                style = i;
-            }
-        }
+        style = resolveFightStyle(r, style);
+    }
+    if (style < 0)
+    {
+        return r->FaceTowards;
     }
     int total = 0;
     for (int i = 0; i < 5; i++)

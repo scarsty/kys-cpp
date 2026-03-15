@@ -183,17 +183,6 @@ Role* ChessPool::selectFromPool(int tier)
 void ChessPool::setBannedRoleIds(const std::set<int>& banned)
 {
     banned_ = banned;
-    const auto hasBannedCurrentRole = std::any_of(current_.begin(), current_.end(), [&](const auto& entry) {
-        return entry.first && banned_.contains(entry.first->ID);
-    });
-    if (!hasBannedCurrentRole)
-    {
-        return;
-    }
-
-    current_.clear();
-    rejected_.clear();
-    getNewChess_ = true;
 }
 
 std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
