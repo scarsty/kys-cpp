@@ -773,7 +773,6 @@ void BattleSceneHades::onEntrance()
                 auto& enemy = enemies_obj_[enemyOrder[i]];
                 enemy.Attack = std::max(0, enemy.Attack - enemyTopDebuffValue);
                 enemy.Defence = std::max(0, enemy.Defence - enemyTopDebuffValue);
-                enemy.Speed = std::max(0, enemy.Speed - enemyTopDebuffValue);
             }
         }
 

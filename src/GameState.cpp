@@ -42,6 +42,22 @@ void GameState::reset()
     ChessBalance::setDifficulty(difficulty());
 }
 
+void GameState::syncBanRuleFromBalance()
+{
+    auto& cfg = ChessBalance::config();
+    banBaseCount() = cfg.banBaseCount;
+    banCountPerLevel() = cfg.banCountPerLevel;
+}
+
+void GameState::hydrateBanRuleFromBalanceIfMissing()
+{
+    if (banBaseCount() > 0 || banCountPerLevel() > 0)
+    {
+        return;
+    }
+    syncBanRuleFromBalance();
+}
+
 GameDataStore GameState::exportStore() const
 {
     GameDataStore exported = *this;
@@ -58,6 +74,7 @@ void GameState::importStore(const GameDataStore& store)
 {
     GameDataStore::operator=(store);
     ChessBalance::setDifficulty(difficulty());
+    hydrateBanRuleFromBalanceIfMissing();
     constructServicesFromStore(store);
 }
 

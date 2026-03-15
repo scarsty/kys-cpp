@@ -21,6 +21,27 @@ SuperMenuTextExtraOptions makeMenuOptions(const IndexedMenuData& data, const Ind
     return opts;
 }
 
+ShopIndexedMenuSetup makeShopIndexedMenuSetup(const IndexedMenuData& data, IndexedMenuConfig config, int visibleRows)
+{
+    auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
+    config.x = menuAnchor.x;
+    config.y = menuAnchor.y;
+
+    int resolvedVisibleRows = std::max(1, visibleRows);
+    auto panels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, data.labels, config.fontSize, resolvedVisibleRows);
+    config.previewFrame = panels.status;
+    return {config, panels};
+}
+
+std::shared_ptr<SuperMenuText> makeChessMenu(
+    const std::string& title,
+    const ChessMenuData& data,
+    IndexedMenuConfig config,
+    const std::vector<std::shared_ptr<DrawableOnCall>>& drawables)
+{
+    return makeIndexedMenu(title, data, config, drawables, data.previewData);
+}
+
 std::shared_ptr<SuperMenuText> makeIndexedMenu(
     const std::string& title,
     const IndexedMenuData& data,

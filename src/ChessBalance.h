@@ -45,7 +45,8 @@ struct BalanceConfig
     int benchSize = 10;
     int minBattleSize = 2;
     int shopSlotCount = 5;
-    int maxBanCount = 15;
+    int banBaseCount = 0;
+    int banCountPerLevel = 0;
 
     // Shop weights [level][tier]
     std::array<std::array<int, 5>, 10> shopWeights = {{

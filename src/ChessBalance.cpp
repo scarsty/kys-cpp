@@ -68,7 +68,8 @@ bool ChessBalance::loadConfig(const std::string& path)
     if (root["背包上限"]) c.benchSize = root["背包上限"].as<int>();
     if (root["最低出战人数"]) c.minBattleSize = root["最低出战人数"].as<int>();
     if (root["商店数量"]) c.shopSlotCount = root["商店数量"].as<int>();
-    if (root["最大禁棋数"]) c.maxBanCount = root["最大禁棋数"].as<int>();
+    if (root["基础禁棋数"]) c.banBaseCount = root["基础禁棋数"].as<int>();
+    if (root["每级增加禁棋数"]) c.banCountPerLevel = root["每级增加禁棋数"].as<int>();
 
     if (root["商店权重"])
     {

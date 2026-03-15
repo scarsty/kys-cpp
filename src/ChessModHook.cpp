@@ -76,7 +76,24 @@ void ChessMod::onSubSceneEntrance(int submap_id)
         auto difficulty = (diff == 1) ? Difficulty::Normal : Difficulty::Easy;
         gameState_.difficulty() = difficulty;
         ChessBalance::setDifficulty(difficulty);
-        gameState_.economy().setMoney(ChessBalance::config().initialMoney);
+        gameState_.syncBanRuleFromBalance();
+        const auto& cfg = ChessBalance::config();
+        gameState_.economy().setMoney(cfg.initialMoney);
+        if (difficulty == Difficulty::Normal)
+        {
+            auto hardModeTalk = std::make_shared<Talk>(
+                std::format(
+                    "此局乃困難棋式，江湖譜牒更廣，棋池尤深。"
+                    "為免少俠在茫茫人海中錯失機緣，老夫命商肆多開一席，每回合可見{}路人選。"
+                    "但旁門雜流既多，若不先行剪除，便難聚攏心中武學。"
+                    "故自開局起，你可先封禁{}名棋子；往後每升一重境界，便再添{}道禁令。"
+                    "境界愈高，可斷去的岔路愈多，方能在大江湖中收束成局。",
+                    cfg.shopSlotCount,
+                    gameState_.banBaseCount(),
+                    gameState_.banCountPerLevel()),
+                115);
+            hardModeTalk->run();
+        }
     }
 }
 

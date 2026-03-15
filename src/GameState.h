@@ -9,6 +9,7 @@
 #include "ChessRoleSave.h"
 #include "ChessShop.h"
 
+#include <algorithm>
 #include <optional>
 
 namespace KysChess
@@ -44,10 +45,18 @@ public:
     const ChessRandom& random() const { return *random_; }
     Difficulty& difficulty() { return GameDataStore::difficulty; }
     const Difficulty& difficulty() const { return GameDataStore::difficulty; }
+    int& banBaseCount() { return GameDataStore::banBaseCount; }
+    const int& banBaseCount() const { return GameDataStore::banBaseCount; }
+    int& banCountPerLevel() { return GameDataStore::banCountPerLevel; }
+    const int& banCountPerLevel() const { return GameDataStore::banCountPerLevel; }
+    int maxBanCount() const { return std::max(0, banBaseCount() + economy().getLevel() * banCountPerLevel()); }
+    bool hasBanSystem() const { return banBaseCount() > 0 || banCountPerLevel() > 0; }
     std::set<int>& seenRoleIds() { return GameDataStore::seenRoleIds; }
     const std::set<int>& seenRoleIds() const { return GameDataStore::seenRoleIds; }
     std::set<int>& bannedRoleIds() { return GameDataStore::bannedRoleIds; }
     const std::set<int>& bannedRoleIds() const { return GameDataStore::bannedRoleIds; }
+    void syncBanRuleFromBalance();
+    void hydrateBanRuleFromBalanceIfMissing();
 
 private:
     GameState();

@@ -114,7 +114,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::BleedChance: desc = std::format("{}%流血", eff.value); break;
     case EffectType::BleedPersist: desc = "流血持續"; break;
     case EffectType::PostSkillDash: desc = "絕招後疾退"; break;
-    case EffectType::EnemyTopDebuff: desc = std::format("敵方前{}名三維-{}", eff.value, eff.value2); break;
+    case EffectType::EnemyTopDebuff: desc = std::format("敵方前{}名攻防-{}", eff.value, eff.value2); break;
     case EffectType::BlinkAttack: desc = "閃現攻擊"; break;
     case EffectType::AllyDeathStatBoost: desc = compact ? std::format("友死增{}屬", eff.value) : std::format("友死增屬性{}", eff.value); break;
     case EffectType::CloneSummon: desc = std::format("召喚{}分身", eff.value); break;

@@ -34,7 +34,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"连击蓄力", EffectType::RampingDmg}, {"连击增伤", EffectType::RampingDmg},
     {"回血", EffectType::HealBurst},
     {"流血", EffectType::BleedChance}, {"流血持续", EffectType::BleedPersist},
-    {"踏雪", EffectType::PostSkillDash}, {"敌方削弱", EffectType::EnemyTopDebuff},
+    {"踏雪", EffectType::PostSkillDash}, {"敌方攻防削弱", EffectType::EnemyTopDebuff},
     {"闪击", EffectType::BlinkAttack}, {"同袍之死", EffectType::AllyDeathStatBoost},
     {"七截分身", EffectType::CloneSummon}, {"弹反", EffectType::ProjectileReflect},
     {"无视防御", EffectType::IgnoreDefense}, {"群体施治", EffectType::OnSkillTeamHeal},

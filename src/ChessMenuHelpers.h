@@ -28,7 +28,19 @@ struct IndexedMenuConfig
     std::vector<int> outlineThicknesses;
 };
 
+struct ShopIndexedMenuSetup
+{
+    IndexedMenuConfig config;
+    ShopPanelLayout panels;
+};
+
 SuperMenuTextExtraOptions makeMenuOptions(const IndexedMenuData& data, const IndexedMenuConfig& config);
+ShopIndexedMenuSetup makeShopIndexedMenuSetup(const IndexedMenuData& data, IndexedMenuConfig config = {}, int visibleRows = 8);
+std::shared_ptr<SuperMenuText> makeChessMenu(
+    const std::string& title,
+    const ChessMenuData& data,
+    IndexedMenuConfig config = {},
+    const std::vector<std::shared_ptr<DrawableOnCall>>& drawables = {});
 std::shared_ptr<SuperMenuText> makeIndexedMenu(
     const std::string& title,
     const IndexedMenuData& data,

@@ -7,6 +7,7 @@
 #include "ChessRewardFlow.h"
 #include "ChessShopFlow.h"
 #include "ChessUiCommon.h"
+#include "GameState.h"
 #include "Menu.h"
 #include "UISave.h"
 
@@ -78,7 +79,7 @@ void ChessSelector::showContextMenu()
 {
     while (true)
     {
-        const auto banEnabled = ChessBalance::config().maxBanCount > 0;
+        const auto banEnabled = GameState::get().hasBanSystem();
         std::vector<std::string> menuItems{
             "購買棋子",
             "出售棋子",

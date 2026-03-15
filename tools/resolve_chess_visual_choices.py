@@ -45,23 +45,7 @@ OUTPUT_JSON = ROOT / "output" / "chess_visual_choices.json"
 OUTPUT_MD = ROOT / "output" / "chess_visual_choices.md"
 
 TARGET_CONFIG: dict[int, dict[str, Any]] = {
-    16: {},
-    28: {"target_head_id": 612},
-    104: {},
-    105: {},
-    171: {},
-    589: {},
-    593: {},
-    600: {},
-    603: {},
-    604: {},
-    605: {},
-    606: {},
-    607: {},
-    608: {},
-    609: {},
-    610: {},
-    611: {"substitute_name": "玄澄", "substitute_note": "无色禅师外部来源缺失，改用人在江湖少林高僧玄澄替代，避免与当前棋池人物重合"},
+    132: {},
 }
 
 

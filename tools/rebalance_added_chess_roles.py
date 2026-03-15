@@ -70,6 +70,10 @@ CANONICAL_MAGIC_NAME_ALIASES = {
     "无极玄功拳": "無極玄功拳",
 }
 
+MAGIC_FIELD_UPDATES = {
+    107: {"武功类型": 4},
+}
+
 
 @dataclass(frozen=True)
 class RolePlan:
@@ -148,14 +152,14 @@ TARGET_PLANS = [
     plan("平一指", role_type="support", primary="Unusual", secondary="Fist", tags=("healer", "support"), rank=-1, normal_skill="藥王毒手", ultimate_skill="青囊奇術", normal_power=340, ultimate_power=680),
     plan("胡青牛", role_type="support", primary="Unusual", secondary="Fist", tags=("healer", "support"), rank=-1, normal_skill="藥王毒手", ultimate_skill="青囊奇術", normal_power=340, ultimate_power=680),
     plan("王處一", role_type="melee", primary="Fist", secondary="Sword", tags=("tank",), rank=0, normal_skill="無極玄功拳", ultimate_skill="一炁化三清", normal_power=400, ultimate_power=760),
-    plan("劉處玄", role_type="ranged", primary="Sword", secondary=None, tags=("support",), rank=0, normal_skill="七星劍法", ultimate_skill="一炁化三清", normal_power=390, ultimate_power=740),
+    plan("劉處玄", role_type="ranged", primary="Unusual", secondary="Sword", tags=("support",), rank=0, normal_skill="中平槍法", ultimate_skill="伏魔杖法", normal_power=390, ultimate_power=740, note="Shifted to a 奇门 loadout to match the 奇门 synergy tag."),
     plan("韋一笑", role_type="melee", primary="Fist", secondary=None, tags=("burst", "fast"), rank=1, normal_skill="逍遙游", ultimate_skill="寒冰綿掌", normal_power=460, ultimate_power=900),
     plan("周芷若", role_type="melee", primary="Unusual", secondary="Fist", tags=("burst",), rank=0, normal_skill="毒龍鞭法", ultimate_skill="九陰白骨爪", normal_power=420, ultimate_power=840),
     plan("楊逍", role_type="ranged", primary="Fist", secondary="Unusual", tags=("burst",), rank=1, normal_skill="彈指神通", ultimate_skill="乾坤大挪移", normal_power=450, ultimate_power=880),
     plan("滅絕", aliases=("滅絕師太",), role_type="ranged", primary="Sword", secondary=None, tags=("burst",), rank=0, normal_skill="松風劍法", ultimate_skill="滅劍絕劍", normal_power=420, ultimate_power=840, note="Using 松風劍法 as the closest existing substitute for missing 峨眉劍法."),
-    plan("范遙", aliases=("范瑤",), role_type="ranged", primary="Sword", secondary=None, tags=("burst",), rank=0, normal_skill="兩儀劍法", ultimate_skill="滅劍絕劍", normal_power=450, ultimate_power=900),
+    plan("范遙", aliases=("范瑤",), role_type="ranged", primary="Knife", secondary="Sword", tags=("burst",), rank=0, normal_skill="反兩儀刀法", ultimate_skill="火焰刀法", normal_power=450, ultimate_power=900, note="Shifted off sword skills so the 刀客 tag now matches both weapon type and mastery."),
     plan("張松溪", role_type="melee", primary="Sword", secondary="Fist", tags=("support",), rank=0, normal_skill="綿掌", ultimate_skill="太極劍法", normal_power=400, ultimate_power=820),
-    plan("俞蓮舟", role_type="ranged", primary="Sword", secondary=None, tags=("support",), rank=0, normal_skill="柔云劍術", ultimate_skill="太極劍法", normal_power=410, ultimate_power=840, note="Canonicalized 柔雲劍法 to 柔云劍術."),
+    plan("俞蓮舟", role_type="melee", primary="Fist", secondary="Sword", tags=("support",), rank=0, normal_skill="綿掌", ultimate_skill="太極拳", normal_power=410, ultimate_power=840, note="Shifted to拳掌 skills to match the 拳师 synergy tag."),
     plan("胡斐", role_type="melee", primary="Knife", secondary="Sword", tags=("burst", "fast"), rank=1, normal_skill="狂風刀法", ultimate_skill="胡家刀法", normal_power=450, ultimate_power=900),
     plan("成崑", aliases=("成昆",), role_type="melee", primary="Fist", secondary=None, tags=("burst",), rank=1, normal_skill="幻陰指", ultimate_skill="混元功", normal_power=430, ultimate_power=860),
     plan("岳不群", role_type="melee", primary="Sword", secondary="Fist", tags=("burst", "support"), rank=1, normal_skill="寧式劍訣", ultimate_skill="辟邪劍法", normal_power=430, ultimate_power=880),
@@ -167,7 +171,7 @@ TARGET_PLANS = [
     plan("無色禪師", aliases=("無色",), role_type="melee", primary="Fist", secondary=None, tags=("burst", "tank"), rank=1, normal_skill="大金剛掌", ultimate_skill="須彌山神掌", normal_power=500, ultimate_power=980),
     plan("郭襄", role_type="ranged", primary="Sword", secondary="Unusual", tags=("burst", "fast"), rank=0, normal_skill="玉簫劍法", ultimate_skill="滅劍絕劍", normal_power=460, ultimate_power=940, note="Using 玉簫劍法 as the closest existing substitute for missing 峨眉劍法."),
     plan("東方不敗", role_type="ranged", primary="Sword", secondary="Unusual", tags=("burst", "fast"), rank=1, normal_skill="辟邪劍法", ultimate_skill="葵花神功", normal_power=540, ultimate_power=1100),
-    plan("黃裳", role_type="melee", primary="Fist", secondary="Unusual", tags=("burst",), rank=1, normal_skill="九陰白骨爪", ultimate_skill="九陰神功", normal_power=540, ultimate_power=1080),
+    plan("黃裳", role_type="melee", primary="Unusual", secondary="Fist", tags=("burst",), rank=1, normal_skill="裴將軍帖", ultimate_skill="九陰神功", normal_power=540, ultimate_power=1080, note="Retags 九陰神功 to 奇门 for its sole user and pairs it with a 奇门 side skill to match the 奇门 synergy tag."),
     plan("張三丰", aliases=("張三豐",), role_type="melee", primary="Fist", secondary="Sword", tags=("tank", "support"), rank=1, normal_skill="太極拳", ultimate_skill="太極劍法", normal_power=520, ultimate_power=1060, note="Canonicalized 太極劍 to 太極劍法."),
 ]
 
@@ -426,6 +430,17 @@ def update_role(conn: sqlite3.Connection, role_id: int, values: dict[str, int]) 
     )
 
 
+def update_magic_fields(conn: sqlite3.Connection) -> None:
+    for magic_id, fields in MAGIC_FIELD_UPDATES.items():
+        assignments = ", ".join(f"[{column}] = ?" for column in fields)
+        result = conn.execute(
+            f"UPDATE magic SET {assignments} WHERE 编号 = ?",
+            list(fields.values()) + [magic_id],
+        )
+        if not result.rowcount:
+            raise RuntimeError(f"Missing magic row for override: {magic_id}")
+
+
 def main() -> int:
     args = parse_args()
     db_path = Path(args.db_path).resolve()
@@ -485,6 +500,7 @@ def main() -> int:
         print(f"  after    {format_skill_pairs(after_snapshot['after_pairs'])}")
 
     if args.apply:
+        update_magic_fields(conn)
         for _, role_row, after_snapshot in reports:
             update_role(conn, int(role_row["编号"]), after_snapshot["values"])
         conn.commit()

@@ -1,5 +1,6 @@
 #include "ChessDetailPanels.h"
 
+#include "GameState.h"
 #include "ChessPool.h"
 #include "ChessScreenLayout.h"
 #include "ChessUiCommon.h"
@@ -714,44 +715,121 @@ void GuidePanel::drawPanel()
 {
     auto frame = ChessScreenLayout::guidePanel();
     ChessScreenLayout::drawPanel(frame);
-    int fs = 20;
-    PanelTextCursor cursor{Font::getInstance(), frame.x + 30, frame.y + 15};
-    auto title = [&](const std::string& text) {
-        cursor.line(text, fs + 2, {255, 255, 100, 255}, 8);
+    auto* font = Font::getInstance();
+    auto& cfg = ChessBalance::config();
+    auto& gameState = GameState::get();
+    constexpr int titleFs = 22;
+    constexpr int bodyFs = 19;
+    constexpr int bodySpacing = 4;
+    const int columnWidth = (frame.w - 90) / 2;
+
+    font->draw("珍瓏棋局 · 遊戲說明", titleFs + 4, frame.x + 30, frame.y + 14, {255, 255, 100, 255});
+
+    struct GuideLine
+    {
+        std::string text;
+        Color color = {220, 220, 220, 255};
     };
-    auto line = [&](const std::string& text, Color color = {220, 220, 220, 255}) {
-        cursor.line(text, fs, color, 6);
+
+    struct GuideSection
+    {
+        std::string title;
+        std::vector<GuideLine> lines;
     };
 
-    title("珍瓏棋局 · 遊戲說明");
-    cursor.skip(4);
-    line("這是一場自走棋對弈。招募武林中人，排兵佈陣，棋子上場後將自動戰鬥。");
-    cursor.skip(6);
+    std::vector<GuideSection> sections{
+        {
+            "基本流程",
+            {
+                {"· 每回合先在商店招募棋子、整隊佈陣，再入局交鋒"},
+                {"· 戰鬥全自動進行，勝後進下一回；每四回合有一位強敵"},
+                {"· 共二十八回，撐到最後便算破局"},
+            },
+        },
+        {
+            "棋子與升星",
+            {
+                {"· 棋子分一至五費，費用越高越難遇見"},
+                {"· 三枚相同合成二星，三枚二星再成三星，升星後屬性大增"},
+            },
+        },
+        {
+            "經濟與等級",
+            {
+                {std::format("· 金幣可用於招募、刷新商店(${})、購買經驗(${})", cfg.refreshCost, cfg.buyExpCost)},
+                {std::format("· 存款可生利息，每10金幣多得1金，上限{}金", cfg.interestMax)},
+                {"· 提升等級可增加上陣人數，並提高高費棋子的現身機會"},
+            },
+        },
+        {
+            "羈絆",
+            {
+                {"· 同門同路的棋子同時上陣，可激活羈絆效果"},
+                {"· 羈絆常比單追高費更穩，成局時記得先看羈絆一覽"},
+            },
+        },
+        {
+            "裝備與內功",
+            {
+                {"· 裝備管理可將武器、防具授予棋子，補強前排或成全主力"},
+                {"· Boss與獎勵回合會送內功或裝備，都是後期定勝負的關鍵"},
+            },
+        },
+        {
+            "遠征挑戰",
+            {
+                {"· 遠征挑戰是局外試煉，不占回合，隨時可去闖關"},
+                {"· 勝後可領金幣、棋子、裝備等獎勵，每個挑戰只領一次"},
+            },
+        },
+    };
 
-    title("基本流程");
-    line("· 每回合在商店中花費金幣招募棋子並部署上陣");
-    line("· 戰鬥自動進行，獲勝後進入下一回合");
-    line("· 每四回合遭遇一位強敵(Boss)，擊敗可獲內功");
-    line("· 共二十八回合，存活到最後即為通關");
-    cursor.skip(6);
+    if (gameState.hasBanSystem())
+    {
+        GuideSection hardModeSection{
+            "困難棋局",
+            {
+                {std::format("· 棋池更大，商店每回合多開一格，共{}格可選", cfg.shopSlotCount), {200, 230, 255, 255}},
+                {std::format("· 開局可禁{}名棋子；每升1級，再增{}名禁位", gameState.banBaseCount(), gameState.banCountPerLevel()), {255, 210, 150, 255}},
+                {"· 禁棋會把已見過的角色逐出棋池，助你在大棋池中收束門路"},
+            },
+        };
+        sections.insert(sections.begin() + 3, std::move(hardModeSection));
+    }
 
-    title("棋子與升星");
-    line("· 棋子分為1至5費，費用越高越稀有");
-    line("· 集齊三個相同棋子自動合成二星，三個二星合成三星，升星後屬性大幅提升");
-    cursor.skip(6);
+    auto measureWrappedLines = [&](const std::string& text) {
+        int availableUnits = std::max(4, (columnWidth - 24) * 2 / bodyFs);
+        return std::max(1, static_cast<int>(wrapDisplayText(text, availableUnits).size()));
+    };
 
-    title("經濟系統");
-    line("· 每回合獲得基礎金幣，存款產生利息(每10金幣額外+1，上限3)");
-    line("· 金幣用於：招募棋子、刷新商店($2)、購買經驗($5)");
-    line("· 提升等級可增加上陣人數與高費棋子出現概率");
-    cursor.skip(6);
+    auto measureSectionHeight = [&](const GuideSection& section) {
+        int height = titleFs + 8;
+        for (const auto& line : section.lines)
+        {
+            height += measureWrappedLines(line.text) * (bodyFs + bodySpacing);
+        }
+        return height + 8;
+    };
 
-    title("羈絆");
-    line("· 同門派棋子上陣達到一定數量可激活羈絆效果");
-    line("· 羈絆提供攻擊、防禦、生命等多種加成，合理搭配羈絆是制勝關鍵");
-    cursor.skip(12);
+    PanelColumnFlow flow{font, frame, frame.x + 30, frame.y + 58, frame.y + 58, frame.y + frame.h - 42, columnWidth};
+    for (const auto& section : sections)
+    {
+        if (!flow.ensureSpace(measureSectionHeight(section)))
+        {
+            break;
+        }
 
-    cursor.line("點擊任意處返回", fs - 2, {150, 150, 150, 255}, 0);
+        PanelTextCursor cursor{font, flow.x, flow.y};
+        cursor.line(section.title, titleFs, {255, 255, 100, 255}, 8);
+        for (const auto& line : section.lines)
+        {
+            drawWrappedCursorText(cursor, line.text, bodyFs, line.color, columnWidth - 12, bodySpacing);
+        }
+        cursor.skip(8);
+        flow.y = cursor.y;
+    }
+
+    font->draw("點擊任意處返回", bodyFs - 1, frame.x + 30, frame.y + frame.h - 28, {150, 150, 150, 255});
 }
 
 }    // namespace KysChess

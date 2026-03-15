@@ -44,6 +44,8 @@ struct GameDataStore {
     bool positionSwapEnabled = false;
     int nextChessInstanceId = 1;
     int nextEquipInstanceId = 1;
+    int banBaseCount = 0;
+    int banCountPerLevel = 0;
 
     // Collections
     std::vector<StoredChess> storedCollection;

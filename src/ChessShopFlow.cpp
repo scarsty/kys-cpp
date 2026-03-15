@@ -69,9 +69,6 @@ void ChessShopFlow::getChess()
             IndexedMenuConfig menuConfig;
             menuConfig.fontSize = 32;
             menuConfig.showNav = false;
-            auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
-            menuConfig.x = menuAnchor.x;
-            menuConfig.y = menuAnchor.y;
 
             menuData.labels.push_back(std::format("刷新               ${}", ChessBalance::config().refreshCost));
             menuData.colors.push_back({255, 204, 229, 255});
@@ -148,14 +145,12 @@ void ChessShopFlow::getChess()
             }
 
             menuConfig.perPage = static_cast<int>(menuData.labels.size());
-            auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize, 8);
-            menuConfig.previewFrame = shopPanels.status;
-            auto menu = makeIndexedMenu(
+            auto shopMenu = makeShopIndexedMenuSetup(menuData, menuConfig, 8);
+            auto menu = makeChessMenu(
                 std::format("購買棋子 等級{} ${} 背包{}/{}", services_.economy.getLevel() + 1, services_.economy.getMoney(), manager.getBenchCount(), ChessBalance::config().benchSize),
                 menuData,
-                menuConfig,
-                {std::make_shared<ComboInfoPanel>(manager, shopPanels.combo), std::make_shared<OwnedRosterPanel>(services_.roster, manager, shopPanels.owned)},
-                menuData.previewData);
+                shopMenu.config,
+                {std::make_shared<ComboInfoPanel>(manager, shopMenu.panels.combo), std::make_shared<OwnedRosterPanel>(services_.roster, manager, shopMenu.panels.owned)});
             menu->run();
 
             int selectedId = menu->getResult();
@@ -228,17 +223,12 @@ void ChessShopFlow::sellChess()
         IndexedMenuConfig menuConfig;
         menuConfig.perPage = 12;
         menuConfig.fontSize = 32;
-        auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
-        menuConfig.x = menuAnchor.x;
-        menuConfig.y = menuAnchor.y;
-        auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
-        menuConfig.previewFrame = shopPanels.status;
-        auto menu = makeIndexedMenu(
+        auto shopMenu = makeShopIndexedMenuSetup(menuData, menuConfig);
+        auto menu = makeChessMenu(
             std::format("出售棋子 背包{}/{}", manager.getBenchCount(), ChessBalance::config().benchSize),
             menuData,
-            menuConfig,
-            {std::make_shared<ComboInfoPanel>(manager, shopPanels.combo)},
-            menuData.previewData);
+            shopMenu.config,
+            {std::make_shared<ComboInfoPanel>(manager, shopMenu.panels.combo)});
         menu->run();
 
         int selectedId = menu->getResult();
@@ -302,13 +292,13 @@ void ChessShopFlow::buyExp()
 
 void ChessShopFlow::showBanMenu()
 {
-    const auto maxBanCount = ChessBalance::config().maxBanCount;
+    auto& gameState = GameState::get();
+    const auto maxBanCount = gameState.maxBanCount();
     if (maxBanCount <= 0)
     {
         return;
     }
 
-    auto& gameState = GameState::get();
     auto& seenRoleIds = gameState.seenRoleIds();
     auto& bannedRoleIds = gameState.bannedRoleIds();
     if (seenRoleIds.empty())
@@ -324,17 +314,14 @@ void ChessShopFlow::showBanMenu()
         IndexedMenuConfig menuConfig;
         menuConfig.perPage = 12;
         menuConfig.fontSize = 32;
-        auto menuAnchor = ChessScreenLayout::shopMenuAnchor();
-        menuConfig.x = menuAnchor.x;
-        menuConfig.y = menuAnchor.y;
 
         for (auto roleId : sortedRoleIds)
         {
             auto role = services_.roleSave.getRole(roleId);
             auto tier = std::max(1, role ? role->Cost : -1);
             const auto isBanned = bannedRoleIds.contains(roleId);
-            auto formatted = chessPresenter().formatChessName(role, tier, {});
-            menuData.labels.push_back(std::format("{} {}", isBanned ? "[已禁]" : "[未禁]", formatted.text));
+            auto formatted = chessPresenter().formatChessName(role, tier, {}, isBanned ? "[已禁] " : "[未禁] ");
+            menuData.labels.push_back(formatted.text);
             menuData.colors.push_back(formatted.color);
             menuData.previewData.push_back({role, 1, -1});
             menuConfig.outlineColors.push_back(isBanned ? Color{255, 80, 80, 255} : Color{0, 0, 0, 0});
@@ -343,16 +330,15 @@ void ChessShopFlow::showBanMenu()
         }
 
         const auto bannedCount = static_cast<int>(bannedRoleIds.size());
-        auto menu = makeIndexedMenu(
+        auto shopMenu = makeShopIndexedMenuSetup(menuData, menuConfig);
+        auto menu = makeChessMenu(
             std::format(
                 "禁棋管理 已禁{}/{} 剩餘{}",
                 bannedCount,
                 maxBanCount,
                 std::max(0, maxBanCount - bannedCount)),
             menuData,
-            menuConfig,
-            {},
-            menuData.previewData);
+            shopMenu.config);
         menu->run();
 
         const auto selectedId = menu->getResult();
