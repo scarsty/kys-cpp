@@ -2,15 +2,149 @@
 #include "BattleRoleManager.h"
 #include "BattleSceneHades.h"
 #include "ChessCombo.h"
-#include "ChessDetailPanels.h"
+#include "ChessEquipment.h"
 #include "ChessManager.h"
 #include "ChessPool.h"
 #include "ChessScreenLayout.h"
+#include "ChessUiCommon.h"
 #include "Engine.h"
 #include "GameUtil.h"
 #include "GameState.h"
 
+#include <algorithm>
+
 namespace KysChess {
+
+namespace
+{
+
+constexpr int kAvatarMinWidth = 96;
+constexpr int kAvatarHeight = 128;
+constexpr int kStatsDetailOffsetY = 4;
+constexpr int kSkillTopGap = 14;
+constexpr int kOwnedTextInset = 8;
+constexpr int kMagicBottomReserve = 10;
+constexpr int kMagicValueMinOffset = 92;
+constexpr int kMagicValuePreferredOffset = 110;
+constexpr int kMagicValueMaxOffset = 130;
+constexpr int kComboRowGap = 2;
+constexpr int kEquipIconOffsetX = 46;
+constexpr int kEquipIconSize = 28;
+constexpr int kEquipIconTopAdjust = 3;
+constexpr int kEquipFallbackTopAdjust = 2;
+constexpr int kEquipNameGap = 8;
+
+struct StatusBlock
+{
+    int x;
+    int y;
+    int w;
+    int h;
+};
+
+struct StatusLayout
+{
+    int fontSize = 22;
+    int smallFontSize = 20;
+    int titleFontSize = 24;
+    int pad = 12;
+    int gap = 14;
+    int lineHeight = fontSize + 4;
+    int topY = 0;
+    int bottomY = 0;
+    int sectionTitleY = 0;
+    int sectionContentY = 0;
+    int magicStartY = 0;
+    int magicAvailableRows = 1;
+    int magicCols = 1;
+    int magicColWidth = 0;
+    int comboRows = 2;
+    int comboCols = 1;
+    int comboColWidth = 0;
+    StatusBlock panel{};
+    StatusBlock avatar{};
+    StatusBlock magic{};
+    StatusBlock owned{};
+    StatusBlock combo{};
+    StatusBlock equip{};
+    LabelValueColumn statsColumn{};
+    LabelValueColumn skillCol1{};
+    LabelValueColumn skillCol2{};
+
+    static StatusLayout build(Font* font, const StatusBlock& panel, int avatarWidth)
+    {
+        StatusLayout layout;
+        constexpr int kTopTextY = 18;
+        constexpr int kAvatarTop = 14;
+        constexpr int kStatValueOffset = 62;
+        constexpr int kSkillValueOffset = 44;
+        constexpr int kSkillSecondColumnX = 118;
+        constexpr int kMagicStartOffsetX = 210;
+        constexpr int kMagicHeaderHeight = 30;
+        constexpr int kBottomSectionMinHeight = 96;
+        constexpr int kBottomSectionMaxHeight = 128;
+        constexpr int kBottomSectionTitleTop = 6;
+        constexpr int kBottomSectionHeaderHeight = 28;
+        constexpr int kOwnedSectionWidth = 150;
+        constexpr int kEquipSectionWidth = 180;
+        constexpr int kComboSectionMinWidth = 160;
+
+        layout.panel = panel;
+        layout.topY = panel.y + kTopTextY;
+        layout.avatar = {panel.x + layout.pad, panel.y + kAvatarTop, avatarWidth, kAvatarHeight};
+
+        int bottomHeight = std::clamp(panel.h / 3, kBottomSectionMinHeight, kBottomSectionMaxHeight);
+        layout.bottomY = panel.y + panel.h - layout.pad - bottomHeight;
+        layout.sectionTitleY = layout.bottomY + kBottomSectionTitleTop;
+        layout.sectionContentY = layout.sectionTitleY + kBottomSectionHeaderHeight;
+
+        int statsX = layout.avatar.x + layout.avatar.w + layout.gap;
+        layout.statsColumn = {font, layout.fontSize, statsX, statsX + kStatValueOffset, {255, 250, 205, 255}};
+        layout.skillCol1 = {font, layout.fontSize, layout.avatar.x, layout.avatar.x + kSkillValueOffset, {255, 250, 205, 255}};
+        layout.skillCol2 = {font, layout.fontSize, layout.avatar.x + kSkillSecondColumnX, layout.avatar.x + kSkillSecondColumnX + kSkillValueOffset, {255, 250, 205, 255}};
+
+        int magicX = statsX + kMagicStartOffsetX;
+        layout.magic = {magicX, layout.topY, panel.x + panel.w - layout.pad - magicX, layout.bottomY - layout.topY};
+        layout.magicStartY = layout.magic.y + kMagicHeaderHeight;
+        layout.magicAvailableRows = std::max(1, (layout.bottomY - kMagicBottomReserve - layout.magicStartY) / layout.lineHeight);
+
+        int innerW = panel.w - layout.pad * 2;
+        int comboW = std::max(kComboSectionMinWidth, innerW - kOwnedSectionWidth - kEquipSectionWidth - layout.gap * 2);
+        layout.owned = {panel.x + layout.pad, layout.sectionTitleY, kOwnedSectionWidth, bottomHeight};
+        layout.combo = {layout.owned.x + layout.owned.w + layout.gap, layout.sectionTitleY, comboW, bottomHeight};
+        layout.equip = {layout.combo.x + layout.combo.w + layout.gap, layout.sectionTitleY, kEquipSectionWidth, bottomHeight};
+
+        // Sections keep a stable horizontal layout regardless of whether the
+        // current preview chess has equipment to show.
+        return layout;
+    }
+
+    void finalizeMagicColumns(int magicCount)
+    {
+        magicCols = magicCount > magicAvailableRows ? 2 : 1;
+        constexpr int kMagicMinColumnWidth = 170;
+        magicColWidth = magicCols == 1 ? magic.w : std::max(kMagicMinColumnWidth, (magic.w - gap) / 2);
+    }
+
+    void finalizeComboColumns(int comboCount)
+    {
+        comboRows = std::max(2, (combo.h - 32) / (smallFontSize + 2));
+        comboCols = comboCount > comboRows ? 2 : 1;
+        constexpr int kComboMinColumnWidth = 90;
+        comboColWidth = comboCols == 1 ? combo.w : std::max(kComboMinColumnWidth, (combo.w - gap) / 2);
+    }
+};
+
+Rect scaledTextureRect(TextureWarpper* texture, int x, int y, int targetH, int minW = 0)
+{
+    texture->load();
+    int renderH = std::max(1, targetH);
+    int renderW = texture->h > 0 ? texture->w * renderH / std::max(1, texture->h) : renderH;
+    renderW = std::max(renderW, minW);
+    return {x + texture->dx, y + texture->dy, renderW, renderH};
+}
+
+}
 
 void ChessUIStatus::draw()
 {
@@ -36,13 +170,12 @@ void ChessUIStatus::draw()
     int dispDefence = bs.def;
     int dispSpeed = bs.spd;
 
-    TextureManager::getInstance()->renderTexture("head", chess_.role->HeadID, x_ + 10, y_ + 15);
-
     Color color_ability1 = { 255, 250, 205, 255 };
     Color color_red = { 255, 90, 60, 255 };
     Color color_magic = { 236, 200, 40, 255 };
     Color color_purple = { 208, 152, 208, 255 };
     Color color_equip = { 210, 230, 220, 255 };
+    Color color_inactive = { 180, 180, 180, 255 };
 
     auto select_color1 = [&](int v, int max_v) -> Color
     {
@@ -65,130 +198,156 @@ void ChessUIStatus::draw()
         return color_white;
     };
 
-    int font_size = 22;
+    int avatarW = 128;
+    bool showEquip = chess_.id.value >= 0;
 
-    auto drawLabeledValue = [&](int baseX, int rowY, const char* label, const std::string& value, Color valueColor) {
-        font->draw(label, font_size, baseX, rowY, color_ability1);
-        font->draw(value, font_size, baseX + 44, rowY, valueColor);
-    };
+    StatusBlock panel{x_, y_, panelW, panelH};
 
-    // Stats right of avatar
-    int sx = x_ + 195, sy = y_ + 20;
+    if (auto* headTexture = TextureManager::getInstance()->getTexture("head", chess_.role->HeadID))
+    {
+        headTexture->load();
+        if (headTexture->h > 0)
+        {
+            avatarW = std::max(kAvatarMinWidth, headTexture->w * kAvatarHeight / std::max(1, headTexture->h));
+        }
+    }
+
+    auto layout = StatusLayout::build(font, panel, avatarW);
+
+    if (auto* headTexture = TextureManager::getInstance()->getTexture("head", chess_.role->HeadID))
+    {
+        auto rect = scaledTextureRect(headTexture, layout.avatar.x, layout.avatar.y, layout.avatar.h, 96);
+        TextureManager::getInstance()->renderTexture(headTexture, rect, color_white, 255);
+    }
+    else
+    {
+        TextureManager::getInstance()->renderTexture("head", chess_.role->HeadID, layout.avatar.x, layout.avatar.y);
+    }
+
+    int statsY = layout.topY;
     Color c = color_white;
     if (chess_.role->MPType == 0) c = color_purple;
     else if (chess_.role->MPType == 1) c = color_magic;
-    PanelTextCursor statCursor{font, sx, sy};
-    drawLabeledValue(statCursor.x, statCursor.y, "生命", std::format("{:5}/{:5}", dispMaxHP, dispMaxHP), color_white);
-    statCursor.skip(25);
-    drawLabeledValue(statCursor.x, statCursor.y, "內力", std::format("{:5}/{:5}", chess_.role->MP, GameUtil::MAX_MP), c);
-    statCursor.skip(30);
-    drawLabeledValue(statCursor.x, statCursor.y, "攻擊", std::format("{:5}", dispAttack), select_color1(dispAttack, Role::getMaxValue()->Attack));
-    statCursor.skip(25);
-    drawLabeledValue(statCursor.x, statCursor.y, "防禦", std::format("{:5}", dispDefence), select_color1(dispDefence, Role::getMaxValue()->Defence));
-    statCursor.skip(25);
-    drawLabeledValue(statCursor.x, statCursor.y, "輕功", std::format("{:5}", dispSpeed), select_color1(dispSpeed, Role::getMaxValue()->Speed));
-
-    // 技能 section
-    int x = x_ + 20;
-    int y = y_ + 155;
+    layout.statsColumn.line(statsY + layout.lineHeight * 0, "生命", std::format("{:5}/{:5}", dispMaxHP, dispMaxHP), color_white);
+    layout.statsColumn.line(statsY + layout.lineHeight * 1, "內力", std::format("{:5}/{:5}", chess_.role->MP, GameUtil::MAX_MP), c);
+    layout.statsColumn.line(statsY + layout.lineHeight * 2 + kStatsDetailOffsetY, "攻擊", std::format("{:5}", dispAttack), select_color1(dispAttack, Role::getMaxValue()->Attack));
+    layout.statsColumn.line(statsY + layout.lineHeight * 3 + kStatsDetailOffsetY, "防禦", std::format("{:5}", dispDefence), select_color1(dispDefence, Role::getMaxValue()->Defence));
+    layout.statsColumn.line(statsY + layout.lineHeight * 4 + kStatsDetailOffsetY, "輕功", std::format("{:5}", dispSpeed), select_color1(dispSpeed, Role::getMaxValue()->Speed));
 
     int dispFist = bs.fist;
     int dispSword = bs.sword;
     int dispKnife = bs.knife;
     int dispUnusual = bs.unusual;
-    int dispHidden = bs.hidden;
+    int skillY = layout.avatar.y + layout.avatar.h + kSkillTopGap;
+    layout.skillCol1.line(skillY + layout.lineHeight * 0, "拳掌", std::format("{:5}", dispFist), select_color1(dispFist, Role::getMaxValue()->Fist));
+    layout.skillCol2.line(skillY + layout.lineHeight * 0, "御劍", std::format("{:5}", dispSword), select_color1(dispSword, Role::getMaxValue()->Sword));
+    layout.skillCol1.line(skillY + layout.lineHeight * 1, "耍刀", std::format("{:5}", dispKnife), select_color1(dispKnife, Role::getMaxValue()->Knife));
+    layout.skillCol2.line(skillY + layout.lineHeight * 1, "特殊", std::format("{:5}", dispUnusual), select_color1(dispUnusual, Role::getMaxValue()->Unusual));
 
-    PanelTextCursor skillCursor{font, x, y + 30};
-    drawLabeledValue(skillCursor.x, skillCursor.y, "拳掌", std::format("{:5}", dispFist), select_color1(dispFist, Role::getMaxValue()->Fist));
-    skillCursor.skip(25);
-    drawLabeledValue(skillCursor.x, skillCursor.y, "御劍", std::format("{:5}", dispSword), select_color1(dispSword, Role::getMaxValue()->Sword));
-    skillCursor.skip(25);
-    drawLabeledValue(skillCursor.x, skillCursor.y, "耍刀", std::format("{:5}", dispKnife), select_color1(dispKnife, Role::getMaxValue()->Knife));
-    skillCursor.skip(25);
-    drawLabeledValue(skillCursor.x, skillCursor.y, "特殊", std::format("{:5}", dispUnusual), select_color1(dispUnusual, Role::getMaxValue()->Unusual));
-
-    // 武学 section - beside 技能, single column
-    int mx = x_ + 220;
-    font->draw("武學", 25, mx - 10, y, color_name);
+    font->draw("武學", layout.titleFontSize, layout.magic.x, layout.magic.y, color_name);
     auto magics = chess_.role->getLearnedMagics(chess_.star);
-    PanelTextCursor magicCursor{font, mx, y + 30};
+    layout.finalizeMagicColumns(static_cast<int>(magics.size()));
     for (int i = 0; i < magics.size(); i++)
     {
+        int colIndex = i / layout.magicAvailableRows;
+        int row = i % layout.magicAvailableRows;
+        if (colIndex >= layout.magicCols)
+        {
+            break;
+        }
         auto magic = magics[i];
-        int rowY = magicCursor.y;
+        int colX = layout.magic.x + colIndex * (layout.magicColWidth + layout.gap);
+        int rowY = layout.magicStartY + row * layout.lineHeight;
         int skillAtk = chess_.role->getMagicPower(magic, chess_.star);
         int opType = BattleSceneHades::getOperationType(magic->AttackAreaType);
         const char* opName = BattleSceneHades::getOperationTypeName(opType);
-        font->draw(std::format("{}", magic->Name), font_size, magicCursor.x, rowY, color_ability1);
-        font->draw(std::format("{:4} {}", skillAtk, opName), font_size, magicCursor.x + 120, rowY, color_white);
-        magicCursor.skip(25);
+        int magicValueX = colX + std::min(kMagicValueMaxOffset, std::max(kMagicValueMinOffset, layout.magicColWidth - kMagicValuePreferredOffset));
+        font->draw(std::format("{}", magic->Name), layout.fontSize, colX, rowY, color_ability1);
+        font->draw(std::format("{:4} {}", skillAtk, opName), layout.fontSize, magicValueX, rowY, color_white);
     }
 
-    // Owned pieces and combo affiliations stay on the lower-left.
-    x = x_ + 10;
-    y = skillCursor.y + 30;
-    font->draw("擁有", font_size, x, y, color_name);
+    font->draw("擁有", layout.titleFontSize, layout.owned.x, layout.sectionTitleY, color_name);
     std::map<int, int> starCounts;
     for (auto& [instanceId, chess] : gd.roster().items())
     {
         if (chess.role->ID == chess_.role->ID)
             starCounts[chess.star]++;
     }
-    int ownedX = x + 50;
-    for (auto& [star, count] : starCounts)
+    if (starCounts.empty())
     {
-        std::string stars;
-        for (int i = 0; i < star; i++) stars += "★";
-        font->draw(std::format("{} x{}", stars, count), font_size, ownedX, y, color_white);
-        ownedX += 120;
+        font->draw("無", layout.smallFontSize, layout.owned.x + kOwnedTextInset, layout.sectionContentY, color_inactive);
     }
-
-    // Combo affiliations
-    y += 28;
-    auto roleCombos = KysChess::ChessCombo::getCombosForRole(chess_.role->ID);
-    if (!roleCombos.empty())
+    else
     {
-        font->draw("羈絆", font_size, x, y, color_name);
-        PanelTextCursor comboCursor{font, x + 10, y + 24};
-        auto& gameState = KysChess::GameState::get();
-        auto starByRole = KysChess::ChessCombo::buildStarMap(KysChess::ChessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy()).getSelectedForBattle());
-        auto& allCombos = KysChess::ChessCombo::getAllCombos();
-        for (auto cid : roleCombos)
+        PanelTextCursor ownedCursor{font, layout.owned.x + kOwnedTextInset, layout.sectionContentY};
+        for (auto& [star, count] : starCounts)
         {
-            auto& combo = allCombos[(int)cid];
-            auto [owned, effective] = KysChess::computeOwnership(combo, starByRole);
-            // Active if any threshold is satisfied
-            bool active = false;
-            for (auto& t : combo.thresholds)
-                if (effective >= t.count) { active = true; break; }
-            Color col = active ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
-            comboCursor.line(std::format("{}", combo.name), font_size - 2, col, 0);
-            if (comboCursor.y > y_ + panelH - 10) break;
+            std::string stars;
+            for (int i = 0; i < star; i++) stars += "★";
+            ownedCursor.line(std::format("{} x{}", stars, count), layout.smallFontSize, color_white, 4);
         }
     }
 
-    // Equipment display uses the preview chess instance directly and stays in a fixed lower-right block.
-    if (chess_.id.value >= 0)
+    auto roleCombos = KysChess::ChessCombo::getCombosForRole(chess_.role->ID);
+    font->draw("羈絆", layout.titleFontSize, layout.combo.x, layout.sectionTitleY, color_name);
+    if (!roleCombos.empty())
     {
-        int equipX = x_ + 235;
-        int equipY = roleCombos.empty() ? y_ + 333 : y;
-        PanelTextCursor equipCursor{font, equipX, equipY};
-        equipCursor.line("裝備", font_size, color_name, 6);
+        auto& gameState = KysChess::GameState::get();
+        auto starByRole = KysChess::ChessCombo::buildStarMap(KysChess::ChessManager(gameState.roster(), gameState.equipmentInventory(), gameState.economy()).getSelectedForBattle());
+        auto& allCombos = KysChess::ChessCombo::getAllCombos();
+        layout.finalizeComboColumns(static_cast<int>(roleCombos.size()));
+        for (int index = 0; index < roleCombos.size(); ++index)
+        {
+            int colIndex = index / layout.comboRows;
+            int row = index % layout.comboRows;
+            if (colIndex >= layout.comboCols)
+            {
+                break;
+            }
+            auto cid = roleCombos[index];
+            auto& combo = allCombos[(int)cid];
+            auto [owned, effective] = KysChess::computeOwnership(combo, starByRole);
+            bool active = false;
+            for (auto& t : combo.thresholds)
+                if (effective >= t.count) { active = true; break; }
+            Color labelColor = active ? Color{0, 255, 100, 255} : Color{180, 180, 180, 255};
+            font->draw(combo.name, layout.smallFontSize, layout.combo.x + colIndex * layout.comboColWidth, layout.sectionContentY + row * (layout.smallFontSize + kComboRowGap), labelColor);
+        }
+    }
+    else
+    {
+        font->draw("無", layout.smallFontSize, layout.combo.x + kOwnedTextInset, layout.sectionContentY, color_inactive);
+    }
+
+    if (showEquip)
+    {
+        font->draw("裝備", layout.titleFontSize, layout.equip.x, layout.sectionTitleY, color_name);
+        PanelTextCursor equipCursor{font, layout.equip.x, layout.sectionContentY};
 
         auto drawEquipLine = [&](const char* slotName, const InstancedItem& instance) {
             int rowY = equipCursor.y;
             auto* equipment = instance.itemId >= 0 ? KysChess::ChessEquipment::getById(instance.itemId) : nullptr;
             auto* item = equipment ? equipment->getItem() : nullptr;
-            equipCursor.line(slotName, font_size - 2, color_ability1, 6);
+            int iconX = equipCursor.x + kEquipIconOffsetX;
+            font->draw(slotName, layout.smallFontSize, equipCursor.x, rowY, color_ability1);
             if (item)
             {
-                TextureManager::getInstance()->renderTexture("item", instance.itemId, equipX + 64, rowY, color_white, 255, 0.24, 0.24);
-                font->draw(item->Name, font_size - 2, equipX + 88, rowY + 2, color_equip);
+                if (auto* itemTexture = TextureManager::getInstance()->getTexture("item", instance.itemId))
+                {
+                    auto rect = scaledTextureRect(itemTexture, iconX, rowY - kEquipIconTopAdjust, kEquipIconSize);
+                    TextureManager::getInstance()->renderTexture(itemTexture, rect, color_white, 255);
+                }
+                else
+                {
+                    TextureManager::getInstance()->renderTexture("item", instance.itemId, iconX, rowY - kEquipFallbackTopAdjust, color_white, 255, 0.26, 0.26);
+                }
+                font->draw(item->Name, layout.smallFontSize, iconX + kEquipIconSize + kEquipNameGap, rowY, color_equip);
             }
             else
             {
-                font->draw("無", font_size - 2, equipX + 64, rowY + 2, {140, 140, 140, 255});
+                font->draw("無", layout.smallFontSize, iconX, rowY, color_inactive);
             }
+            equipCursor.skip(layout.smallFontSize + 8);
         };
 
         drawEquipLine("武器", chess_.weaponInstance);

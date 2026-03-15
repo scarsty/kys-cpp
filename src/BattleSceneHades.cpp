@@ -4,6 +4,7 @@
 #include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessNeigong.h"
+#include "ChessUiCommon.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
@@ -603,7 +604,7 @@ void BattleSceneHades::dealEvent2(EngineEvent& e)
 void BattleSceneHades::onEntrance()
 {
     calViewRegion();
-    Audio::getInstance()->playMusic(info_->Music);
+
     //注意此时才能得到窗口的大小，用来设置头像的位置
     head_self_->setPosition(10, 10);
     int count = 0;
@@ -1025,6 +1026,8 @@ void BattleSceneHades::onEntrance()
     //     heads_[0]->setVisible(false);
     // }
 
+    Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
+    // Audio::getInstance()->playMusic(info_->Music);
 }
 
 void BattleSceneHades::onExit()

@@ -9,6 +9,7 @@
 #include "ChessRoleSave.h"
 #include "ChessRoster.h"
 #include "ChessScreenLayout.h"
+#include "ChessUiCommon.h"
 #include "DrawableOnCall.h"
 
 #include <functional>
@@ -22,24 +23,6 @@ namespace KysChess
 {
 
 class ChessPool;
-
-struct PanelTextCursor
-{
-    Font* font;
-    int x;
-    int y;
-
-    void line(std::string text, int fontSize, Color color, int extraSpacing = 4, int indent = 0)
-    {
-        font->draw(text, fontSize, x + indent, y, color);
-        y += fontSize + extraSpacing;
-    }
-
-    void skip(int spacing)
-    {
-        y += spacing;
-    }
-};
 
 struct EquipmentDetailState
 {

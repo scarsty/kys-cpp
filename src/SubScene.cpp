@@ -6,6 +6,7 @@
 #include "ChessModHook.h"
 #include "ChessNeigong.h"
 #include "ChessSelector.h"
+#include "ChessUiCommon.h"
 #include "Console.h"
 #include "Event.h"
 #include "Font.h"
@@ -47,7 +48,7 @@ void SubScene::setID(int id)
     }
     //submap_info_->ID = submap_id_;    //这句是修正存档中可能存在的错误
     exit_music_ = submap_info_->ExitMusic;
-    Audio::getInstance()->playMusic(submap_info_->EntranceMusic);
+    Audio::getInstance()->playMusic(KysChess::getRandomChessMusic());
     LOG("Sub Scene {}, {}\n", submap_id_, submap_info_->Name);
 }
 

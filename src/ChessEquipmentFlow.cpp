@@ -47,6 +47,10 @@ void ChessEquipmentFlow::manageEquipment()
                 std::string name = item ? item->Name : "???";
                 while (name.size() < 15) name += "\xe3\x80\x80";
                 std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
+                static int k_equipSize = Font::getTextDrawSize(" [已裝]");
+                for (int i = 0; i < k_equipSize; ++i) {
+                    label += " ";
+                }
                 entries.push_back({&eq, k_nonExistentItem, std::move(label), {120, 120, 120, 255}, false});
             }
             else
@@ -128,6 +132,8 @@ void ChessEquipmentFlow::manageEquipment()
         chessMenuConfig.perPage = 12;
         chessMenuConfig.x = menuAnchor.x;
         chessMenuConfig.y = menuAnchor.y;
+        auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, chessMenuData.labels, chessMenuConfig.fontSize);
+        chessMenuConfig.previewFrame = shopPanels.status;
         auto menu2 = makeIndexedMenu("選擇棋子", chessMenuData, chessMenuConfig, {}, chessMenuData.previewData);
         menu2->run();
         int selectedIdx = menu2->getResult();

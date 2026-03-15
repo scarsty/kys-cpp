@@ -1,6 +1,7 @@
 ﻿#include "BattleScene.h"
 #include "Audio.h"
 #include "BattleNetwork.h"    //必须在Audio之前
+#include "ChessUiCommon.h"
 #include "DrawableOnCall.h"
 #include "Event.h"
 #include "Font.h"

@@ -352,6 +352,8 @@ bool ChessRewardFlow::rewardPiece(int maxTier)
     auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
+    auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+    menuConfig.previewFrame = shopPanels.status;
     auto menu = makeIndexedMenu("選擇棋子", menuData, menuConfig, {std::make_shared<ComboInfoPanel>(makeChessManager(services_))}, previewData);
     menu->run();
     int sel = menu->getResult();
@@ -437,6 +439,8 @@ bool ChessRewardFlow::rewardStarUp(int fromStar, int maxTier)
     auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
     menuConfig.x = menuAnchor.x;
     menuConfig.y = menuAnchor.y;
+    auto shopPanels = ChessScreenLayout::shopPanelsForMenu(menuAnchor, menuData.labels, menuConfig.fontSize);
+    menuConfig.previewFrame = shopPanels.status;
     auto menu = makeIndexedMenu(std::format("選擇升星 {}★→{}★", fromStar, toStar), menuData, menuConfig, {}, previewData);
     menu->run();
     int sel = menu->getResult();

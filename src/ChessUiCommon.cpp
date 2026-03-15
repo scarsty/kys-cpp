@@ -89,9 +89,9 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::KnockbackChance: desc = std::format("{}%擊退", eff.value); break;
     case EffectType::PoisonDOT: desc = eff.value2 ? std::format("中毒{}%×{}次", eff.value, eff.value2) : std::format("中毒{}%", eff.value); break;
     case EffectType::PoisonDmgAmp: desc = std::format("中毒增傷{}%", eff.value); break;
-    case EffectType::MPOnHit: desc = compact ? std::format("命中回{}MP", eff.value) : std::format("命中回{}MP", eff.value); break;
+    case EffectType::MPOnHit: desc = std::format("命中回{}MP", eff.value); break;
     case EffectType::MPDrain: desc = std::format("吸取{}MP", eff.value); break;
-    case EffectType::MPRecoveryBonus: desc = compact ? std::format("回藍+{}%", eff.value) : std::format("回藍+{}%", eff.value); break;
+    case EffectType::MPRecoveryBonus: desc = std::format("回藍+{}%", eff.value); break;
     case EffectType::SkillDmgPct: desc = compact ? std::format("技傷+{}%", eff.value) : std::format("技能傷害+{}%", eff.value); break;
     case EffectType::SkillReflectPct: desc = compact ? std::format("反彈{}%", eff.value) : std::format("反彈{}%", eff.value); break;
     case EffectType::CDR: desc = std::format("冷卻-{}%", eff.value); break;
@@ -99,34 +99,34 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::ShieldFreezeRes: desc = compact ? std::format("護盾僵抗{}%", eff.value) : std::format("護盾僵直抗性{}%", eff.value); break;
     case EffectType::HealAuraPct: desc = eff.value2 ? (compact ? std::format("治療環{}%/{}幀", eff.value, eff.value2) : std::format("治療光環{}%(每{}幀)", eff.value, eff.value2)) : std::format("治療光環{}%", eff.value); break;
     case EffectType::HealAuraFlat: desc = eff.value2 ? (compact ? std::format("治療環{}/{}幀", eff.value, eff.value2) : std::format("治療光環{}(每{}幀)", eff.value, eff.value2)) : std::format("治療光環{}", eff.value); break;
-    case EffectType::HealedATKSPDBoost: desc = compact ? std::format("受治療加速{}%", eff.value) : std::format("受治療加速{}%", eff.value); break;
+    case EffectType::HealedATKSPDBoost: desc = std::format("受治療加速{}%", eff.value);
     case EffectType::HPRegenPct: desc = eff.value2 ? (compact ? std::format("回血{}%/{}幀", eff.value, eff.value2) : std::format("回血{}%(每{}幀)", eff.value, eff.value2)) : std::format("回血{}%", eff.value); break;
-    case EffectType::FreezeReductionPct: desc = compact ? std::format("僵直-{}%", eff.value) : std::format("僵直-{}%", eff.value); break;
-    case EffectType::ControlImmunityFrames: desc = compact ? std::format("僵直吸收{}幀", eff.value) : std::format("僵直吸收{}幀", eff.value); break;
-    case EffectType::KillHealPct: desc = compact ? std::format("擊殺回{}%血", eff.value) : std::format("擊殺回{}%血", eff.value); break;
-    case EffectType::KillInvincFrames: desc = compact ? std::format("擊殺無敵{}幀", eff.value) : std::format("擊殺無敵{}幀", eff.value); break;
-    case EffectType::PostSkillInvincFrames: desc = compact ? std::format("技後無敵{}幀", eff.value) : std::format("技能後無敵{}幀", eff.value); break;
+    case EffectType::FreezeReductionPct: desc = std::format("僵直-{}%", eff.value); break;
+    case EffectType::ControlImmunityFrames: desc = std::format("僵直吸收{}幀", eff.value); break;
+    case EffectType::KillHealPct: desc = std::format("擊殺回{}%血", eff.value); break;
+    case EffectType::KillInvincFrames: desc = std::format("擊殺無敵{}幀", eff.value); break;
+    case EffectType::PostSkillInvincFrames: desc = std::format("技能後無敵{}幀", eff.value); break;
     case EffectType::DmgReductionPct: desc = compact ? std::format("減傷{}%", eff.value) : std::format("傷害減免{}%", eff.value); break;
-    case EffectType::Bloodlust: desc = compact ? std::format("擊殺增攻+{}", eff.value) : std::format("击杀增攻+{}攻", eff.value); break;
-    case EffectType::Adaptation: desc = compact ? std::format("同敵減傷{}%({}層)", eff.value, eff.value2) : std::format("同敌减伤{}%({}层)", eff.value, eff.value2); break;
-    case EffectType::RampingDmg: desc = compact ? std::format("連擊增傷+{}%({}層)", eff.value, eff.value2) : std::format("连击增伤+{}%({}层)", eff.value, eff.value2); break;
+    case EffectType::Bloodlust: desc = std::format("擊殺增攻+{}", eff.value); break;
+    case EffectType::Adaptation: desc = std::format("同敵減傷{}%({}層)", eff.value, eff.value2); break;
+    case EffectType::RampingDmg: desc = std::format("連擊增傷+{}%({}層)", eff.value, eff.value2); break;
     case EffectType::HealBurst: desc = std::format("回血{}%", eff.value); break;
-    case EffectType::BleedChance: desc = compact ? std::format("{}%流血", eff.value) : std::format("{}%流血", eff.value); break;
+    case EffectType::BleedChance: desc = std::format("{}%流血", eff.value); break;
     case EffectType::BleedPersist: desc = "流血持續"; break;
     case EffectType::PostSkillDash: desc = "絕招後疾退"; break;
-    case EffectType::EnemyTopDebuff: desc = compact ? std::format("敵前{}降{}", eff.value, eff.value2) : std::format("敵方前{}名三維-{}", eff.value, eff.value2); break;
+    case EffectType::EnemyTopDebuff: desc = std::format("敵方前{}名三維-{}", eff.value, eff.value2); break;
     case EffectType::BlinkAttack: desc = "閃現攻擊"; break;
-    case EffectType::AllyDeathStatBoost: desc = compact ? std::format("友死增{}", eff.value) : std::format("友死增屬性{}", eff.value); break;
-    case EffectType::CloneSummon: desc = compact ? std::format("召喚{}分身", eff.value) : std::format("召喚{}分身", eff.value); break;
-    case EffectType::ProjectileReflect: desc = compact ? std::format("{}%彈反", eff.value) : std::format("{}%彈反", eff.value); break;
+    case EffectType::AllyDeathStatBoost: desc = compact ? std::format("友死增{}屬", eff.value) : std::format("友死增屬性{}", eff.value); break;
+    case EffectType::CloneSummon: desc = std::format("召喚{}分身", eff.value); break;
+    case EffectType::ProjectileReflect: desc = std::format("{}%彈反", eff.value); break;
     case EffectType::IgnoreDefense: desc = "無視防禦"; break;
     case EffectType::OnSkillTeamHeal: desc = compact ? std::format("絕招群療{}HP", eff.value) : std::format("絕招後全隊回{}HP", eff.value); break;
     case EffectType::DeathPrevention: desc = std::format("鎖血並無敵{}幀", eff.value); break;
     case EffectType::ForcePullProtect: desc = "保護挪移"; break;
     case EffectType::ForcePullExecute: desc = "處決挪移"; break;
     case EffectType::Execute: desc = eff.value2 ? std::format("{}%斬殺<{}%", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.value2 > 0 ? eff.value2 : eff.value) : std::format("{}%斬殺", eff.value); break;
-    case EffectType::MPBlock: desc = compact ? std::format("{}%破罡{}幀", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.triggerValue > 0 ? eff.value : eff.value2) : std::format("{}%破罡{}幀", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.triggerValue > 0 ? eff.value : eff.value2); break;
-    case EffectType::CharmCDRDebuff: desc = compact ? std::format("{}%增敵CD{}%", eff.value, eff.value2) : std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
+    case EffectType::MPBlock: desc =  std::format("{}%破罡{}幀", eff.triggerValue > 0 ? eff.triggerValue : eff.value, eff.triggerValue > 0 ? eff.value : eff.value2); break;
+    case EffectType::CharmCDRDebuff: desc = std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
     case EffectType::OffensiveCharm: desc = "攻擊傾城"; break;
     case EffectType::DeathAOE: desc = eff.value2 ? std::format("殉爆{}%眩{}幀", eff.value, eff.value2) : std::format("殉爆{}%", eff.value); break;
     case EffectType::ShieldExplosion: desc = compact ? std::format("盾爆{}%", eff.value) : std::format("護盾爆炸{}%", eff.value); break;
@@ -159,6 +159,34 @@ void showChessMessage(const std::string& text, int fontSize)
 void playChessUpgradeSound()
 {
     Audio::getInstance()->playESound(72);
+}
+
+int getRandomChessMusic()
+{
+    static const std::vector<int> musicIds = {0, 1, 2, 8, 9, 13, 14, 16, 18, 19, 20, 21, 23, 24, 25, 59};
+    static int lastPlayed = -1;
+
+    int idx = rand() % musicIds.size();
+    if (musicIds.size() > 1 && musicIds[idx] == lastPlayed)
+    {
+        idx = (idx + 1) % musicIds.size();
+    }
+    lastPlayed = musicIds[idx];
+    return musicIds[idx];
+}
+
+int getRandomBattleMusic()
+{
+    static const std::vector<int> musicIds = {3, 4, 5, 6, 7, 10, 15, 17, 48, 53, 55};
+    static int lastPlayed = -1;
+
+    int idx = rand() % musicIds.size();
+    if (musicIds.size() > 1 && musicIds[idx] == lastPlayed)
+    {
+        idx = (idx + 1) % musicIds.size();
+    }
+    lastPlayed = musicIds[idx];
+    return musicIds[idx];
 }
 
 ChessManager makeChessManager(ChessRoster& roster, ChessEquipmentInventory& equipmentInventory, ChessEconomy& economy)
