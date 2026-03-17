@@ -80,7 +80,18 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
             //auto ws = PotConv::ToWide(s, "utf-8");
             //buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, ws[0], size, { 255, 255, 255, 255 });
             auto fontname = (c < 128) ? fontnamee_ : fontnamec_;
-            buffer_[c][size] = Engine::getInstance()->createTextTexture(fontname, s, size, { 255, 255, 255, 255 });
+            auto ttf_font = font_buffer_[fontname];
+            if (!ttf_font)
+            {
+                ttf_font = TTF_OpenFont(fontname.c_str(), size);
+                if (!ttf_font)
+                {
+                    LOG("Failed to load font {}, size {}\n", fontname, size);
+                    continue;
+                }
+                font_buffer_[fontname] = ttf_font;
+            }
+            buffer_[c][size] = Engine::getInstance()->createTextTexture(ttf_font, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
         char_count++;

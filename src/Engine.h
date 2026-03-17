@@ -561,6 +561,7 @@ private:
 
 public:
     Texture* createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const;
+    Texture* createTextTexture(TTF_Font* font, const std::string& text, int size, Color c) const;
     int showMessage(const std::string& content) const;
     void renderSquareTexture(Rect* rect, Color color, uint8_t alpha);
 

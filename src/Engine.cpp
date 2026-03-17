@@ -963,6 +963,13 @@ Texture* Engine::createRectTexture(int w, int h, int style) const
 Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
+    auto text_t = createTextTexture(font, text, size, c);
+    TTF_CloseFont(font);
+    return text_t;
+}
+
+Texture* Engine::createTextTexture(TTF_Font* font, const std::string& text, int size, Color c) const
+{
     if (!font)
     {
         return nullptr;
@@ -970,7 +977,6 @@ Texture* Engine::createTextTexture(const std::string& fontname, const std::strin
     auto text_s = TTF_RenderText_Blended(font, text.c_str(), 0, c);
     auto text_t = SDL_CreateTextureFromSurface(renderer_, text_s);
     SDL_DestroySurface(text_s);
-    TTF_CloseFont(font);
     return text_t;
 }
 

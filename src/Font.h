@@ -17,6 +17,8 @@ private:
 
     int simplified_ = 1;
 
+    std::map<std::string, TTF_Font*> font_buffer_;    //缓存字体文件
+
     std::map<uint32_t, std::map<int, Texture*>> buffer_;    //缓存画过的字体
 
     std::unordered_map<std::string, std::string> t2s_buffer_;    //缓存繁体转简体的结果
