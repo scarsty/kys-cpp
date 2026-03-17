@@ -5,12 +5,6 @@
 
 Audio::Audio()
 {
-#ifdef USE_BASS
-    if (!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, nullptr))
-    {
-        LOG("Init Bass fault!\n");
-    }
-#else
     MIX_Init();
     SDL_AudioSpec spec;
     spec.freq = 22500;
@@ -27,20 +21,11 @@ Audio::Audio()
     {
         t = MIX_CreateTrack(mixer_);
     }
-#endif
     init();
 }
 
 Audio::~Audio()
 {
-#ifdef USE_BASS
-    if (mid_sound_font_.font)
-    {
-        BASS_MIDI_FontFree(mid_sound_font_.font);
-    }
-    BASS_Stop();
-    BASS_Free();
-#else
     //如使用SDL_Mixer播放音频，则销毁应该在SDL_Quit之前，此处的单例设计无法保证，故暂时不处理
     /*
     for (auto m : music_)
@@ -57,7 +42,6 @@ Audio::~Audio()
     }
     MIX_Quit();
     */
-#endif
 }
 
 void Audio::init()
@@ -65,17 +49,9 @@ void Audio::init()
     std::string music_path;
     std::string asound_path;
     std::string esound_path;
-#ifdef USE_BASS
-    auto flag = BASS_SAMPLE_3D | BASS_SAMPLE_MONO;
-    mid_sound_font_.font = BASS_MIDI_FontInit((GameUtil::PATH() + "music/mid.sf2").c_str(), 0);
-    mid_sound_font_.preset = -1;
-    mid_sound_font_.bank = 0;
-    BASS_MIDI_StreamSetFonts(0, &mid_sound_font_, 1);
-#else
     auto timi_path = std::format("{}music/timidity.cfg", GameUtil::PATH());
     //SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "TIMIDITY_CFG", timi_path.c_str(), true);
     //SDL_setenv_unsafe("TIMIDITY_CFG", timi_path.c_str(), true);
-#endif
     for (int i = 0; i < 100; i++)
     {
         music_path = std::format("{}music/{}.mid", GameUtil::PATH(), i);
@@ -140,38 +116,22 @@ void Audio::playESound(int num, int volume)
 
 void Audio::pauseMusic()
 {
-#ifdef USE_BASS
-    BASS_ChannelPause(current_music_);
-#else
     MIX_PauseTrack(track_music_);
-#endif
 }
 
 void Audio::resumeMusic()
 {
-#ifdef USE_BASS
-    BASS_ChannelPlay(current_music_, false);
-#else
     MIX_ResumeTrack(track_music_);
-#endif
 }
 
 void Audio::stopMusic()
 {
-#ifdef USE_BASS
-    BASS_ChannelStop(current_music_);
-#else
     MIX_StopTrack(track_music_, 1000);
-#endif
 }
 
 void Audio::stopWav()
 {
-#ifdef USE_BASS
-    BASS_ChannelStop(current_sound_);
-#else
     MIX_StopTrack(track_wav_[0], 0);
-#endif
 }
 
 void Audio::playVoice(int voice_id, int volume)
@@ -192,19 +152,6 @@ void Audio::playVoice(int voice_id, int volume)
 
 MUSIC Audio::loadMusic(const std::string& file)
 {
-#ifdef USE_BASS
-    MUSIC m{};
-    if (file.contains(".mid"))
-    {
-        m = BASS_MIDI_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO, 0);
-        BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
-    }
-    else
-    {
-        m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
-    }
-    return m;
-#else
     if (file.contains(".mid"))
     {
         Prop pro;
@@ -217,38 +164,21 @@ MUSIC Audio::loadMusic(const std::string& file)
         return m;
     }
     return MIX_LoadAudio(nullptr, file.c_str(), false);
-#endif
 }
 
 WAV Audio::loadWav(const std::string& file)
 {
-#ifdef USE_BASS
-    auto s = BASS_StreamCreateFile(false, file.c_str(), 0, 0, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
-    if (s == 0)
-    {
-        s = BASS_SampleLoad(false, file.c_str(), 0, 0, 1, BASS_SAMPLE_3D | BASS_SAMPLE_MONO);
-    }
-    return s;
-#else
     return MIX_LoadAudio(nullptr, file.c_str(), false);
-#endif
 }
 
 void Audio::playMusic(MUSIC m)
 {
-#ifdef USE_BASS
-    BASS_ChannelSetAttribute(m, BASS_ATTRIB_VOL, volume_ / 100.0);
-    BASS_Apply3D();
-    BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
-    BASS_ChannelPlay(m, false);
-#else
     MIX_SetTrackGain(track_music_, volume_ / 100.0);
     MIX_SetTrackAudio(track_music_, m);
     Prop pro;
-    pro.set(MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, 500);
-    pro.set(MIX_PROP_PLAY_LOOPS_NUMBER, 100);
+    pro.set(MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, 50);
+    pro.set(MIX_PROP_PLAY_LOOPS_NUMBER, -1);
     MIX_PlayTrack(track_music_, pro.id());
-#endif
 }
 
 void Audio::playWav(WAV w, int volume, int track_num)
@@ -257,11 +187,6 @@ void Audio::playWav(WAV w, int volume, int track_num)
     {
         volume = volume_wav_;
     }
-#ifdef USE_BASS
-    auto ch = BASS_SampleGetChannel(w, 1);
-    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume / 100.0);
-    BASS_ChannelPlay(w, false);
-#else
     int tnum = track_num;
     if (tnum < 0)
     {
@@ -275,5 +200,4 @@ void Audio::playWav(WAV w, int volume, int track_num)
     {
         current_track_num_ = 0;
     }
-#endif
 }
