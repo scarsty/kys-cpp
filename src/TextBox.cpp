@@ -62,7 +62,7 @@ void TextBox::draw()
     }
     if (have_alpha_box_)
     {
-        auto rect = Font::getBoxSize(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
+        auto rect = Font::getBoxRect(Font::getTextDrawSize(text_), font_size_, x_ + text_x_, y_ + text_y_);
         // 背景
         Engine::getInstance()->fillColor(background_color_, rect.x, rect.y, rect.w, rect.h);
         // 上面的

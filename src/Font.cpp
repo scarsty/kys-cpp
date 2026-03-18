@@ -11,13 +11,13 @@ Font::Font()
     cct2s_.init({ GameUtil::PATH() + "cc/TSPhrases.txt", GameUtil::PATH() + "cc/TSCharacters.txt" });
 }
 
-Rect Font::getBoxSize(int textLen, int size, int x, int y)
+Rect Font::getBoxRect(int textLen, int size, int x, int y)
 {
     Rect r;
     r.x = x - 10;
     r.y = y - 3;
     r.w = size * textLen / 2 + 20;
-    r.h = size + 6;
+    r.h = size + 8;
     return r;
 }
 
@@ -79,8 +79,9 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
             auto s = std::string((char*)(&c));
             //auto ws = PotConv::ToWide(s, "utf-8");
             //buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, ws[0], size, { 255, 255, 255, 255 });
-            auto fontname = (c < 128) ? fontnamee_ : fontnamec_;
-            auto ttf_font = font_buffer_[fontname];
+            auto fontname = (c < 128) ? fontnamee_ : fontnamec_ ;
+            auto fonrname_size = fontname + std::to_string(size);
+            auto ttf_font = font_buffer_[fonrname_size];
             if (!ttf_font)
             {
                 ttf_font = TTF_OpenFont(fontname.c_str(), size);
@@ -89,9 +90,9 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
                     LOG("Failed to load font {}, size {}\n", fontname, size);
                     continue;
                 }
-                font_buffer_[fontname] = ttf_font;
+                font_buffer_[fonrname_size] = ttf_font;
             }
-            buffer_[c][size] = Engine::getInstance()->createTextTexture(ttf_font, s, size, { 255, 255, 255, 255 });
+            buffer_[c][size] = Engine::getInstance()->createTextTexture(ttf_font, s, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
         char_count++;
@@ -136,8 +137,10 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, Color co
     //{
     //TextureManager::getInstance()->renderTexture("title", 20, x + 10 * i, y - 3);
     //}
-    auto r = getBoxSize(getTextDrawSize(text), size, x, y);
+    auto r = getBoxRect(getTextDrawSize(text), size, x, y);
     TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+    //TextureManager::getInstance()->renderTexture("title", 19, r1, { 255, 255, 255, 255 }, alpha_box);    
+    //TextureManager::getInstance()->renderTexture("title", 21, r2, { 255, 255, 255, 255 }, alpha_box);
     draw(text, size, x, y, color, alpha);
 }
 

@@ -20,7 +20,9 @@ Application::~Application()
 
 int Application::run()
 {
-    config();
+    auto game = GameUtil::getInstance();
+    renderer_ = game->getString("game", "renderer", "");
+    title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");
 
     auto engine = Engine::getInstance();
     engine->setUISize(1280, 720);
@@ -50,6 +52,8 @@ int Application::run()
     //引擎初始化之后才能创建纹理
     engine->createAssistTexture("scene", 800, 450);
 
+    config();
+
     auto s = std::make_shared<TitleScene>();    //开始界面
     s->run();
 
@@ -72,9 +76,6 @@ void Application::config()
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
     Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 1));
-
-    renderer_ = game->getString("game", "renderer", "");
-    title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");
 
     Role::setMaxValue();
     Role::setLevelUpList();

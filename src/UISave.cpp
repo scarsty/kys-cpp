@@ -20,7 +20,7 @@ UISave::UISave()
         auto str = filefunc::getFileTime(filename);
         if (str.empty())
         {
-            str = "--------------------";
+            str = "-------------------";
         }
         return str;
     };

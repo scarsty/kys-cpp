@@ -963,12 +963,12 @@ Texture* Engine::createRectTexture(int w, int h, int style) const
 Texture* Engine::createTextTexture(const std::string& fontname, const std::string& text, int size, Color c) const
 {
     auto font = TTF_OpenFont(fontname.c_str(), size);
-    auto text_t = createTextTexture(font, text, size, c);
+    auto text_t = createTextTexture(font, text, c);
     TTF_CloseFont(font);
     return text_t;
 }
 
-Texture* Engine::createTextTexture(TTF_Font* font, const std::string& text, int size, Color c) const
+Texture* Engine::createTextTexture(TTF_Font* font, const std::string& text, Color c) const
 {
     if (!font)
     {
