@@ -802,6 +802,12 @@ void BattleSceneHades::onEntrance()
             applyById(weaponId);
             applyById(armorId);
         };
+        auto initializeTimedEffects = [](KysChess::RoleComboState& state) {
+            if (state.damageImmunityAfterFrames > 0)
+                state.damageImmunityTimer = state.damageImmunityAfterFrames;
+            if (state.autoUltimateAfterFrames > 0)
+                state.autoUltimateTimer = state.autoUltimateAfterFrames;
+        };
         auto applyOnCopies = [&](std::deque<Role>& objs, std::map<int, KysChess::RoleComboState>& states, auto equipmentLookup) {
             for (size_t index = 0; index < objs.size(); ++index)
             {
@@ -814,6 +820,7 @@ void BattleSceneHades::onEntrance()
                 auto [weaponId, armorId] = equipmentLookup(index);
                 applyEquipmentEffects(battleState, weaponId, armorId);
                 applyStateToCopy(r, battleState);
+                initializeTimedEffects(battleState);
                 battleState.blockFirstHitsRemaining = battleState.blockFirstHitsCount;
                 cs[r.ID] = battleState;
             }
@@ -944,6 +951,10 @@ void BattleSceneHades::onEntrance()
         cloneState.forcePullProtectUsed = false;
         cloneState.forcePullExecuteUsed = false;
         cloneState.onSkillTeamHealPending = false;
+        if (cloneState.damageImmunityAfterFrames > 0)
+            cloneState.damageImmunityTimer = cloneState.damageImmunityAfterFrames;
+        if (cloneState.autoUltimateAfterFrames > 0)
+            cloneState.autoUltimateTimer = cloneState.autoUltimateAfterFrames;
 
         int spawned = 0;
         for (auto [x, y] : clone_spawn_positions_)
@@ -1545,7 +1556,10 @@ void BattleSceneHades::backRun1()
         //}
         {
             int prevCD = r->CoolDown;
-            decreaseToZero(r->CoolDown);
+            if (r->Frozen == 0)
+            {
+                decreaseToZero(r->CoolDown);
+            }
             // Combo: post-skill invincibility (逍遥至尊)
             if (prevCD > 0 && r->CoolDown == 0)
             {
@@ -1915,7 +1929,7 @@ void BattleSceneHades::backRun1()
                         {
                             ally->Attack += as.allyDeathStatBoost;
                             ally->Defence += as.allyDeathStatBoost;
-                            ally->Speed += as.allyDeathStatBoost;
+                            // ally->Speed += as.allyDeathStatBoost;
                         }
 
                         if (as.shieldOnAllyDeathCount > 0
@@ -2923,11 +2937,13 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         if (ait != cs.end())
         {
             auto& as = ait->second;
-            attackerIgnoreDefense = as.ignoreDefense;
 
             // Skill damage bonus
             if (ae.UsingMagic && as.skillDmgPct > 0)
                 hurt *= (1.0 + as.skillDmgPct / 100.0);
+
+            // Flat damage increase
+            hurt += as.flatDmgIncrease;
 
             // Triggered effect damage modifiers
             for (auto& te : as.triggeredEffects)
@@ -3047,7 +3063,8 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 r->Velocity += kb;
             }
 
-            if (as.offensiveCharm && as.charmCDRAmountPct > 0 && rand_.rand() * 100 < 10)
+            if (as.offensiveCharmChancePct > 0 && as.charmCDRAmountPct > 0
+                && rand_.rand() * 100 < as.offensiveCharmChancePct)
                 increaseCooldown(r, as.charmCDRAmountPct);
         }
 
@@ -3095,6 +3112,18 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (ds.charmCDRChancePct > 0 && rand_.rand() * 100 < ds.charmCDRChancePct)
                 increaseCooldown(ae.Attacker, ds.charmCDRAmountPct);
 
+            // OnBeingHit triggered effects
+            for (auto& eff : ds.triggeredEffects)
+            {
+                if (eff.trigger != KysChess::Trigger::OnBeingHit)
+                    continue;
+
+                if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
+                {
+                    applyFrozen(ae.Attacker, eff.value);
+                }
+            }
+
             if (rangedProjectile && ds.projectileReflectPct > 0
                 && rand_.rand() * 100 < ds.projectileReflectPct)
             {
@@ -3129,7 +3158,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 text_effects_.push_back(std::move(te));
             }
 
-            if (!reflectToAttacker && ds.blockFirstHitsRemaining > 0)
+            if (!reflectToAttacker && hurt > 0 && ds.blockFirstHitsRemaining > 0)
             {
                 hurt = 0;
                 ds.blockFirstHitsRemaining--;
@@ -3162,13 +3191,8 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 
                 if (eff.type == KysChess::EffectType::Execute)
                 {
-                    int executeChance = eff.value;
-                    int executeThreshold = eff.value2;
-                    if (executeThreshold <= 0 && eff.triggerValue > 0)
-                    {
-                        executeChance = eff.triggerValue;
-                        executeThreshold = eff.value;
-                    }
+                    int executeChance = eff.triggerValue;
+                    int executeThreshold = eff.value;
                     if (executeChance > 0 && executeThreshold > 0)
                     {
                         int projectedHP = r->HP - r->HurtThisFrame;
@@ -3184,8 +3208,8 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 }
                 else if (eff.type == KysChess::EffectType::MPBlock)
                 {
-                    int chance = eff.triggerValue > 0 ? eff.triggerValue : eff.value;
-                    int frames = eff.triggerValue > 0 ? eff.value : eff.value2;
+                    int chance = eff.triggerValue;
+                    int frames = eff.value;
                     if (chance > 0 && frames > 0 && rand_.rand() * 100 < chance)
                         cs[r->ID].mpBlockTimer = std::max(cs[r->ID].mpBlockTimer, frames);
                 }
@@ -3273,10 +3297,8 @@ int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
     if (it != cs.end())
     {
         auto& as = it->second;
-        if (as.ignoreDefense)
-            defence = 0;
         // Legacy armor pen
-        if (!as.ignoreDefense && as.armorPenChancePct > 0 && rand_.rand() * 100 < as.armorPenChancePct)
+        if (as.armorPenChancePct > 0 && rand_.rand() * 100 < as.armorPenChancePct)
             defence *= (1.0 - as.armorPenPct / 100.0);
         // New unified armor pen
         for (auto& eff : as.triggeredEffects)

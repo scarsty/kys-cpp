@@ -12,7 +12,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"防御加成", EffectType::FlatDEF}, {"速度加成", EffectType::FlatSPD},
     {"生命百分比", EffectType::PctHP}, {"攻击百分比", EffectType::PctATK},
     {"防御百分比", EffectType::PctDEF}, {"防御削减", EffectType::NegPctDEF},
-    {"固定减伤", EffectType::FlatDmgReduction}, {"格挡几率", EffectType::BlockChance},
+    {"固定减伤", EffectType::FlatDmgReduction}, {"固定加伤", EffectType::FlatDmgIncrease}, {"格挡几率", EffectType::BlockChance},
     {"闪避几率", EffectType::DodgeChance}, {"闪避后暴击", EffectType::DodgeThenCrit},
     {"暴击几率", EffectType::CritChance}, {"暴击伤害", EffectType::CritMultiplier},
     {"每N次双倍", EffectType::EveryNthDouble}, {"穿甲几率", EffectType::ArmorPenChance},
@@ -34,14 +34,14 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"连击蓄力", EffectType::RampingDmg}, {"连击增伤", EffectType::RampingDmg},
     {"回血", EffectType::HealBurst},
     {"流血", EffectType::BleedChance}, {"流血持续", EffectType::BleedPersist},
-    {"踏雪", EffectType::PostSkillDash}, {"敌方攻防削弱", EffectType::EnemyTopDebuff},
+    {"绝招后退", EffectType::PostSkillDash}, {"敌方攻防削弱", EffectType::EnemyTopDebuff},
     {"闪击", EffectType::BlinkAttack}, {"同袍之死", EffectType::AllyDeathStatBoost},
     {"七截分身", EffectType::CloneSummon}, {"弹反", EffectType::ProjectileReflect},
-    {"无视防御", EffectType::IgnoreDefense}, {"群体施治", EffectType::OnSkillTeamHeal},
+    {"群体施治", EffectType::OnSkillTeamHeal},
     {"死亡庇护", EffectType::DeathPrevention}, {"保护挪移", EffectType::ForcePullProtect},
     {"处决挪移", EffectType::ForcePullExecute}, {"斩杀", EffectType::Execute},
-    {"破罡", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff},
-    {"攻击倾城", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
+    {"破罡", EffectType::MPBlock}, {"封内", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff}, {"冷却延长反击", EffectType::CharmCDRDebuff},
+    {"攻击倾城", EffectType::OffensiveCharm}, {"攻击冷却延长", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
     {"护盾爆炸", EffectType::ShieldExplosion}, {"护盾重获", EffectType::ShieldOnAllyDeath},
     {"周期免伤", EffectType::DamageImmunityAfterFrames}, {"周期绝招", EffectType::AutoUltimateAfterFrames},
     {"初次格挡", EffectType::BlockFirstHits},
@@ -53,6 +53,7 @@ static const std::map<std::string, Trigger> triggerMap = {
     {"友方低血狂暴", Trigger::AllyLowHPBurst},
     {"最后存活", Trigger::LastAlive},
     {"攻击命中时概率", Trigger::OnHit},
+    {"被击中时概率", Trigger::OnBeingHit},
 };
 
 const std::map<std::string, EffectType>& ChessBattleEffects::getEffectTypeMap()
@@ -107,6 +108,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::PctDEF:  s.pctDEF += e.value; break;
     case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
     case EffectType::FlatDmgReduction: s.flatDmgReduction += e.value; break;
+    case EffectType::FlatDmgIncrease: s.flatDmgIncrease += e.value; break;
     case EffectType::BlockChance: s.blockChancePct += e.value; break;
     case EffectType::DodgeChance: s.dodgeChancePct += e.value; break;
     case EffectType::DodgeThenCrit: s.dodgeThenCrit = true; break;
@@ -166,7 +168,6 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::AllyDeathStatBoost: s.allyDeathStatBoost += e.value; break;
     case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
     case EffectType::ProjectileReflect: s.projectileReflectPct += e.value; break;
-    case EffectType::IgnoreDefense: s.ignoreDefense = true; break;
     case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
     case EffectType::DeathPrevention:
         s.deathPrevention = true;
@@ -180,7 +181,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.charmCDRChancePct = e.value;
         s.charmCDRAmountPct = e.value2;
         break;
-    case EffectType::OffensiveCharm: s.offensiveCharm = true; break;
+    case EffectType::OffensiveCharm: s.offensiveCharmChancePct = std::max(s.offensiveCharmChancePct, e.value); break;
     case EffectType::DeathAOE:
         s.deathAOEPct = std::max(s.deathAOEPct, e.value);
         if (e.value2 > 0) s.deathAOEStunFrames = e.value2;

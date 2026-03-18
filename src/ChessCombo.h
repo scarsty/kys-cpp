@@ -15,46 +15,6 @@ namespace KysChess
 
 struct Chess;
 
-enum class ComboId
-{
-    JiangNanQiGuai,     // 1. 江南七怪
-    ShenDiaoXiaLv,      // 2. 神雕侠侣
-    GuSuMuRong,         // 3. 姑苏慕容
-    TianLongSanXiongDi, // 4. 天龙三兄弟
-    WuJue,              // 5. 五绝
-    XingXuXiaoYao,      // 6. 星宿逍遥
-    DaLiDuanShi,        // 7. 大理段氏
-    SiDaEren,           // 8. 四大恶人
-    TaoHuaDao,          // 9. 桃花岛
-    ShaoLinSi,          // 10. 少林寺
-    QuanZhenJiao,       // 11. 全真教
-    MengGuShuangXiong,  // 12. 蒙古双雄
-    LianChengJue,       // 13. 连城诀
-    DuZong,             // 14. 毒宗
-    BeiMingShenGong,    // 15. 北冥神功
-    SheDiaoYingXiong,   // 16. 射雕英雄
-    WuLinWaiDao,        // 17. 武林外道
-    JianKe,             // 18. 剑客
-    QuanShi,            // 19. 拳师
-    DaoKe,              // 20. 刀客
-    HongYan,            // 21. 红颜
-    QinQiShuHua,        // 22. 琴棋书画
-    DuXing,             // 23. 独行
-    TaXueWuHen,         // 24. 踏雪无痕
-    YinXian,            // 25. 阴险
-    ZongShi,            // 26. 宗师
-    SiDaFaWang,         // 27. 四大法王
-    ZhenWuQiJie,        // 28. 真武七截阵
-    XiaoYaoErXian,      // 29. 逍遥二仙
-    JiuYangChuanRen,    // 30. 九阳传人
-    YiTianTuLong,       // 31. 倚天屠龙
-    MiaoShouRenXin,     // 32. 妙手仁心
-    XianTianShenZhao,   // 33. 先天神照
-    QianKunNuoYi,       // 34. 乾坤挪移
-    LongTao,            // 35. 龙套
-    COUNT
-};
-
 struct ComboThreshold
 {
     int count;
@@ -64,7 +24,7 @@ struct ComboThreshold
 
 struct ComboDef
 {
-    ComboId id;
+    int id;
     std::string name;
     std::vector<int> memberRoleIds;
     std::vector<ComboThreshold> thresholds;
@@ -74,7 +34,7 @@ struct ComboDef
 
 struct ActiveCombo
 {
-    ComboId id;
+    int id;
     int memberCount = 0;          // effective count (star-augmented when starSynergyBonus)
     int physicalMemberCount = 0;  // raw count of distinct heroes selected
     int activeThresholdIdx = -1;
@@ -133,7 +93,7 @@ public:
     static const std::map<int, RoleComboState>& getActiveStates();
     static std::map<int, RoleComboState>& getMutableStates();
     static void clearActiveStates();
-    static std::vector<ComboId> getCombosForRole(int roleId);
+    static std::vector<int> getCombosForRole(int roleId);
     // Build { roleId -> starLevel } map from a selection of Chess pieces.
     // An entry in the returned map means the hero is on the field.
     static std::map<int, int> buildStarMap(const std::vector<Chess>& selected);

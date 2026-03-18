@@ -16,6 +16,7 @@ enum class Trigger
     AllyLowHPBurst,
     LastAlive,
     OnHit,  // Proc on attack hit
+    OnBeingHit,  // Proc when being hit (defender)
 };
 
 enum class EffectType
@@ -26,6 +27,7 @@ enum class EffectType
 
     // Trigger effects (runtime)
     FlatDmgReduction,
+    FlatDmgIncrease,
     BlockChance,
     DodgeChance,
     DodgeThenCrit,
@@ -72,7 +74,6 @@ enum class EffectType
     AllyDeathStatBoost,
     CloneSummon,
     ProjectileReflect,
-    IgnoreDefense,
     OnSkillTeamHeal,
     DeathPrevention,
     ForcePullProtect,
@@ -109,6 +110,7 @@ struct RoleComboState
 
     // Trigger values
     int flatDmgReduction = 0;
+    int flatDmgIncrease = 0;
     int blockChancePct = 0;
     int dodgeChancePct = 0;
     bool dodgeThenCrit = false;
@@ -161,13 +163,12 @@ struct RoleComboState
     int allyDeathStatBoost = 0;
     int cloneSummonCount = 0;
     int projectileReflectPct = 0;
-    bool ignoreDefense = false;
     int onSkillTeamHeal = 0;
     bool deathPrevention = false;
     int deathPreventionFrames = 0;
     int charmCDRChancePct = 0;
     int charmCDRAmountPct = 0;
-    bool offensiveCharm = false;
+    int offensiveCharmChancePct = 0;
     int deathAOEPct = 0;
     int deathAOEStunFrames = 0;
     int shieldExplosionPct = 0;

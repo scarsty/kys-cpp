@@ -36,7 +36,7 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
         ComboDef def;
         if (!node["名称"]) { std::print("【羁绊配置】第{}个羁绊缺少「名称」\n", idx + 1); return {}; }
         def.name = Font::getInstance()->S2T(node["名称"].as<std::string>());
-        def.id = static_cast<ComboId>(idx);
+        def.id = idx;
         def.isAntiCombo = node["反向羁绊"] && node["反向羁绊"].as<bool>();
         def.starSynergyBonus = node["星级羁绊加成"] && node["星级羁绊加成"].as<bool>();
 
@@ -178,9 +178,9 @@ const std::map<int, RoleComboState>& ChessCombo::getActiveStates() { return acti
 std::map<int, RoleComboState>& ChessCombo::getMutableStates() { return activeStates_; }
 void ChessCombo::clearActiveStates() { activeStates_.clear(); }
 
-std::vector<ComboId> ChessCombo::getCombosForRole(int roleId)
+std::vector<int> ChessCombo::getCombosForRole(int roleId)
 {
-    std::vector<ComboId> result;
+    std::vector<int> result;
     for (auto& combo : getAllCombos())
         for (int rid : combo.memberRoleIds)
             if (rid == roleId) { result.push_back(combo.id); break; }
