@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <print>
 #include <string>
 #include <thread>
@@ -53,6 +54,7 @@ enum Align
 using AudioSpec = SDL_AudioSpec;
 //这里直接使用SDL的事件结构
 using EngineEvent = SDL_Event;
+struct BattleLogData;
 
 //这里直接照搬SDL
 //更换底层需自己定义一套
@@ -284,6 +286,7 @@ private:
 
     std::unordered_map<std::string, Texture*> tex_map_;
     std::map<std::pair<std::string, int>, TTF_Font*> font_cache_;
+    std::unique_ptr<class ImGuiLayer> imgui_;
 
     static std::unordered_map<Texture*, Color> color_cache_;
 
@@ -365,6 +368,11 @@ public:
     //void showLogo() { renderTexture(logo_, nullptr, nullptr); }
 
     void renderPresent() const;
+    bool processImGuiEvent(const EngineEvent& e) const;
+    void renderImGuiOverlay() const;
+    void showBattleLogWindow(const BattleLogData& data) const;
+    void hideBattleLogWindow() const;
+    bool isBattleLogWindowOpen() const;
 
     void renderClear() const { SDL_RenderClear(renderer_); }
 

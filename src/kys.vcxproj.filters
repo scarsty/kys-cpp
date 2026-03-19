@@ -178,6 +178,9 @@
     <ClCompile Include="Weather.cpp">
       <Filter>weather</Filter>
     </ClCompile>
+    <ClCompile Include="ImGuiLayer.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
     <ClCompile Include="Video.cpp">
       <Filter>video</Filter>
     </ClCompile>
@@ -210,6 +213,27 @@
     <ClCompile Include="TempStore.cpp" />
     <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="Chess.cpp" />
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_sdl3.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_sdlrenderer3.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_demo.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_draw.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_tables.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -247,6 +271,9 @@
     </ClInclude>
     <ClInclude Include="Head.h">
       <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGuiLayer.h">
+      <Filter>engine</Filter>
     </ClInclude>
     <ClInclude Include="Menu.h">
       <Filter>ui</Filter>
