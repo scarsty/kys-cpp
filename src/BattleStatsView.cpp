@@ -24,23 +24,79 @@ void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, con
     }
     if (defender)
         stats_[defender->ID].damageTaken += damage;
+
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Damage;
+    event.frame = frame;
+    event.value = damage;
+    if (attacker)
+    {
+        event.sourceId = attacker->ID;
+        event.sourceTeam = attacker->Team;
+        event.sourceName = attacker->Name;
+    }
+    if (defender)
+    {
+        event.targetId = defender->ID;
+        event.targetTeam = defender->Team;
+        event.targetName = defender->Name;
+    }
+    event.skillName = skillName;
+    events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordKill(Role* killer)
+void BattleTracker::recordKill(Role* killer, Role* victim, int frame)
 {
     if (killer)
         stats_[killer->ID].kills++;
+
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Kill;
+    event.frame = frame;
+    if (killer)
+    {
+        event.sourceId = killer->ID;
+        event.sourceTeam = killer->Team;
+        event.sourceName = killer->Name;
+    }
+    if (victim)
+    {
+        event.targetId = victim->ID;
+        event.targetTeam = victim->Team;
+        event.targetName = victim->Name;
+    }
+    events_.push_back(std::move(event));
 }
 
 void BattleTracker::recordDeath(Role* role, int frame)
 {
     if (role)
         stats_[role->ID].lastActiveFrame = frame;
+
+    if (!role)
+    {
+        return;
+    }
+
+    BattleLogEvent event;
+    event.type = BattleLogEventType::Death;
+    event.frame = frame;
+    event.targetId = role->ID;
+    event.targetTeam = role->Team;
+    event.targetName = role->Name;
+    events_.push_back(std::move(event));
 }
 
-void BattleTracker::recordBattleEnd(int frame)
+void BattleTracker::recordBattleEnd(int frame, int battleResult)
 {
     battleEndFrame_ = frame;
+    battleResult_ = battleResult;
+
+    BattleLogEvent event;
+    event.type = BattleLogEventType::BattleEnd;
+    event.frame = frame;
+    event.value = battleResult;
+    events_.push_back(std::move(event));
 }
 
 static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int chessInstanceId = -1)

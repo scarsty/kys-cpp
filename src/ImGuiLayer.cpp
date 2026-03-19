@@ -1,8 +1,8 @@
 #include "ImGuiLayer.h"
 
-#include "../third_party/imgui/imgui.h"
-#include "../third_party/imgui/backends/imgui_impl_sdl3.h"
-#include "../third_party/imgui/backends/imgui_impl_sdlrenderer3.h"
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_sdlrenderer3.h>
 
 #include "SDL3/SDL.h"
 #include "GameUtil.h"
@@ -116,10 +116,6 @@ void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_tex
 
     renderBattleLogWindow();
 
-    if (show_demo_window_)
-    {
-        ImGui::ShowDemoWindow(&show_demo_window_);
-    }
     if (show_metrics_window_)
     {
         ImGui::ShowMetricsWindow(&show_metrics_window_);

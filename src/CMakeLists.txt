@@ -6,7 +6,7 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG")
 
-include_directories(../include . ../mlcc ../others ../local/include ../third_party/imgui ../third_party/imgui/backends /usr/include)
+include_directories(../include . ../mlcc ../others ../local/include /usr/include)
 link_directories(. ../lib)
 
 file(GLOB SRC_LIST
@@ -15,13 +15,6 @@ file(GLOB SRC_LIST
     ../mlcc/filefunc.cpp
     ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp
-    ../third_party/imgui/imgui.cpp
-    ../third_party/imgui/imgui_demo.cpp
-    ../third_party/imgui/imgui_draw.cpp
-    ../third_party/imgui/imgui_tables.cpp
-    ../third_party/imgui/imgui_widgets.cpp
-    ../third_party/imgui/backends/imgui_impl_sdl3.cpp
-    ../third_party/imgui/backends/imgui_impl_sdlrenderer3.cpp
     )
 
 set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yaml-cpp zip)
@@ -29,5 +22,7 @@ if (APPLE)
     set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
 endif ()
 
+find_package(imgui CONFIG REQUIRED)
+
 add_executable(kys ${SRC_LIST})
-target_link_libraries(kys ${LINK_LIBRARIES})
+target_link_libraries(kys imgui::imgui ${LINK_LIBRARIES})

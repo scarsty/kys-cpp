@@ -1,0 +1,31 @@
+{
+  "name": "kys-cpp",
+  "version-string": "0.1.0",
+  "builtin-baseline": "d90a9b159c08169f39adcd1b0f1ac0ca12c4b96c",
+  "dependencies": [
+    "asio",
+    "glaze",
+    {
+      "name": "imgui",
+      "features": [
+        "sdl3-binding",
+        "sdl3-renderer-binding"
+      ]
+    },
+    "libiconv",
+    "libzip",
+    "lua",
+    "opencv",
+    "picosha2",
+    "sdl3",
+    {
+      "name": "sdl3-image",
+      "features": [
+        "png"
+      ]
+    },
+    "sdl3-ttf",
+    "sqlite3",
+    "yaml-cpp"
+  ]
+}

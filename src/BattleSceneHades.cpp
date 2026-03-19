@@ -5,10 +5,12 @@
 #include "ChessCombo.h"
 #include "ChessNeigong.h"
 #include "ChessUiCommon.h"
+#include "Engine.h"
 #include "Event.h"
 #include "Font.h"
 #include "GameUtil.h"
 #include "Head.h"
+#include "ImGuiLayer.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
 #include "Weather.h"
@@ -78,6 +80,29 @@ int getComboLookupId(const Role* r)
     if (!r) return -1;
     if (isSummonedCloneRole(r)) return -1;
     return r->RealID >= 0 ? r->RealID : r->ID;
+}
+
+BattleLogTone teamToBattleLogTone(int team)
+{
+    if (team == 0) return BattleLogTone::Ally;
+    if (team == 1) return BattleLogTone::Enemy;
+    return BattleLogTone::Neutral;
+}
+
+BattleLogFieldTone teamToFieldTone(int team)
+{
+    if (team == 0) return BattleLogFieldTone::AllyName;
+    if (team == 1) return BattleLogFieldTone::EnemyName;
+    return BattleLogFieldTone::Default;
+}
+
+void appendBattleLogSegment(BattleLogLine& line, std::string text, BattleLogFieldTone tone = BattleLogFieldTone::Default)
+{
+    if (text.empty())
+    {
+        return;
+    }
+    line.segments.push_back({std::move(text), tone});
 }
 
 bool roleHasCombo(const Role* r, std::initializer_list<const char*> comboNames)
@@ -1127,6 +1152,8 @@ void BattleSceneHades::onEntrance()
 void BattleSceneHades::onExit()
 {
     hurt_flash_timers_.clear();
+    Engine::getInstance()->hideBattleLogWindow();
+    battle_log_shown_ = false;
 }
 
 class PositionSwapNode : public RunNode
@@ -1974,7 +2001,7 @@ void BattleSceneHades::backRun1()
                         r->HP = 0;
                         if (sit != cs.end())
                             sit->second.onSkillTeamHealPending = false;
-                        tracker_.recordKill(r->LastAttacker);
+                        tracker_.recordKill(r->LastAttacker, r, current_frame_);
                         tracker_.recordDeath(r, current_frame_);
 
                         // Combo: kill-heal and kill-invincibility
@@ -2139,12 +2166,21 @@ void BattleSceneHades::backRun1()
                 slow_ = 40;
                 shake_ = 60;
                 result_ = battle_result;
-                tracker_.recordBattleEnd(current_frame_);
+                tracker_.recordBattleEnd(current_frame_, battle_result);
             }
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
             {
-                calExpGot();
-                setExit(true);
+                auto* engine = Engine::getInstance();
+                if (!battle_log_shown_)
+                {
+                    engine->showBattleLogWindow(buildBattleLogData());
+                    battle_log_shown_ = true;
+                }
+                if (!engine->isBattleLogWindowOpen())
+                {
+                    calExpGot();
+                    setExit(true);
+                }
             }
         }
     }
@@ -2839,6 +2875,129 @@ void BattleSceneHades::AI(Role* r)
 
 void BattleSceneHades::onPressedCancel()
 {
+}
+
+BattleLogData BattleSceneHades::buildBattleLogData() const
+{
+    BattleLogData data;
+    data.title = "本场战斗日志";
+    if (result_ == 0)
+    {
+        data.resultText = "我方胜利";
+    }
+    else if (result_ == 1)
+    {
+        data.resultText = "敌方胜利";
+    }
+    else
+    {
+        data.resultText = "战斗结束";
+    }
+
+    data.totalFrames = tracker_.getBattleEndFrame();
+
+    auto appendRoleRows = [&](const std::deque<Role>& roles, int team, std::vector<BattleLogRoleRow>& rows)
+    {
+        auto& stats = tracker_.getStats();
+        for (const auto& role : roles)
+        {
+            BattleLogRoleRow row;
+            row.name = role.Name;
+            row.team = team;
+            row.cancelDmg = role.CancelDmg;
+            row.hpRemaining = role.HP;
+            row.maxHp = role.MaxHP;
+            row.dead = role.Dead != 0 || role.HP <= 0;
+
+            auto it = stats.find(role.ID);
+            if (it != stats.end())
+            {
+                row.damageDealt = it->second.damageDealt;
+                row.damageTaken = it->second.damageTaken;
+                row.kills = it->second.kills;
+            }
+            rows.push_back(std::move(row));
+        }
+
+        std::sort(rows.begin(), rows.end(), [](const BattleLogRoleRow& a, const BattleLogRoleRow& b)
+        {
+            if (a.damageDealt != b.damageDealt) return a.damageDealt > b.damageDealt;
+            if (a.kills != b.kills) return a.kills > b.kills;
+            return a.name < b.name;
+        });
+    };
+
+    appendRoleRows(friends_obj_, 0, data.allies);
+    appendRoleRows(enemies_obj_, 1, data.enemies);
+
+    auto pushSystemLine = [&](std::string text)
+    {
+        BattleLogLine line;
+        line.tone = BattleLogTone::System;
+        line.text = std::move(text);
+        data.entries.push_back(std::move(line));
+    };
+
+    for (const auto& event : tracker_.getEvents())
+    {
+        BattleLogLine line;
+        switch (event.type)
+        {
+        case BattleLogEventType::Damage:
+            line.tone = teamToBattleLogTone(event.sourceTeam);
+            appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
+            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
+            if (!event.skillName.empty())
+            {
+                appendBattleLogSegment(line, " 施放 ");
+                appendBattleLogSegment(line, event.skillName, BattleLogFieldTone::SkillName);
+                appendBattleLogSegment(line, " 命中 ");
+            }
+            else
+            {
+                appendBattleLogSegment(line, " 攻击 ");
+            }
+            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
+            appendBattleLogSegment(line, " ，造成 ");
+            appendBattleLogSegment(line, std::to_string(event.value), BattleLogFieldTone::DamageValue);
+            appendBattleLogSegment(line, " 点伤害");
+            data.entries.push_back(std::move(line));
+            break;
+        case BattleLogEventType::Kill:
+            line.tone = BattleLogTone::System;
+            appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
+            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
+            appendBattleLogSegment(line, " 击杀了 ");
+            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
+            data.entries.push_back(std::move(line));
+            break;
+        case BattleLogEventType::Death:
+            line.tone = BattleLogTone::System;
+            appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
+            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
+            appendBattleLogSegment(line, " 倒下");
+            data.entries.push_back(std::move(line));
+            break;
+        case BattleLogEventType::BattleEnd:
+            pushSystemLine(std::format("[{:>4}F] {}", event.frame, data.resultText));
+            break;
+        }
+    }
+
+    if (data.entries.empty())
+    {
+        pushSystemLine("本场战斗没有产生可记录的伤害事件。");
+    }
+
+    constexpr int kMaxBattleLogEntries = 180;
+    if ((int)data.entries.size() > kMaxBattleLogEntries)
+    {
+        data.omittedEntries = (int)data.entries.size() - kMaxBattleLogEntries;
+        data.entries.erase(data.entries.begin(), data.entries.end() - kMaxBattleLogEntries);
+        pushSystemLine(std::format("已省略较早的 {} 条记录。", data.omittedEntries));
+    }
+
+    return data;
 }
 
 void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
