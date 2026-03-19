@@ -63,7 +63,13 @@ void ChessChallengeFlow::showExpeditionChallenge()
             continue;
         }
 
+        bool alreadyCompleted = services_.progress.isChallengeCompleted(sel);
         auto savedEnemyCallCount = services_.random.getEnemyCallCount();
+        auto restoreChallengeSeed = [&]()
+        {
+            services_.random.setEnemyCallCount(savedEnemyCallCount);
+            services_.random.restore();
+        };
         DynamicBattleRoles roles;
         for (auto& chess : selectedChess)
         {
@@ -88,14 +94,14 @@ void ChessChallengeFlow::showExpeditionChallenge()
 
         if (result != 0)
         {
-            services_.random.setEnemyCallCount(savedEnemyCallCount);
-            services_.random.restore();
+            restoreChallengeSeed();
             showChessMessage("挑戰失敗！請調整陣容後再試");
             continue;
         }
 
-        if (services_.progress.isChallengeCompleted(sel))
+        if (alreadyCompleted)
         {
+            restoreChallengeSeed();
             showChessMessage("挑戰勝利！(已領取過獎勵)");
             continue;
         }
@@ -103,6 +109,7 @@ void ChessChallengeFlow::showExpeditionChallenge()
         int rewardIndex = rewardFlow_.selectChallengeReward(challenge.rewards);
         if (!rewardFlow_.applyReward(challenge.rewards[rewardIndex]))
         {
+            restoreChallengeSeed();
             continue;
         }
 

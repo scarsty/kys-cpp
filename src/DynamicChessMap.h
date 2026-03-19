@@ -10,6 +10,8 @@ struct DynamicBattleRoles
     std::vector<int> teammate_ids;  // Role IDs for real teammates (up to 10)
     std::vector<int> teammate_stars; // Star levels per teammate
     std::vector<int> teammate_instances; // Instance IDs per teammate
+    std::vector<int> teammate_weapons; // Weapon item IDs per teammate override
+    std::vector<int> teammate_armors;  // Armor item IDs per teammate override
 
     std::vector<int> enemy_ids;     // Role IDs for enemies (up to 20)
     std::vector<int> enemy_stars;   // Star levels per enemy

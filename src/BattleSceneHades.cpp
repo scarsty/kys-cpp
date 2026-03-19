@@ -113,12 +113,18 @@ double calcBlinkReach(const Magic* magic)
     return std::max(BATTLE_TILE_W * 3.0, static_cast<double>(magic->SelectDistance * BATTLE_TILE_W));
 }
 
-bool isWithin3x3Area(const Role* center, const Role* target)
+bool isWithinGridRadius(const Role* center, const Role* target, int xRadius, int yRadius)
 {
     if (!center || !target) return false;
-    auto centerPos = battlePos90To45(center->Pos.x, center->Pos.y);
-    auto targetPos = battlePos90To45(target->Pos.x, target->Pos.y);
-    return std::abs(centerPos.x - targetPos.x) <= 1 && std::abs(centerPos.y - targetPos.y) <= 1;
+    if (xRadius < 0 || yRadius < 0) return false;
+    return std::abs(center->X() - target->X()) <= xRadius
+        && std::abs(center->Y() - target->Y()) <= yRadius;
+}
+
+bool isWithinGridArea(const Role* center, const Role* target, int width, int height)
+{
+    if (width <= 0 || height <= 0) return false;
+    return isWithinGridRadius(center, target, (width - 1) / 2, (height - 1) / 2);
 }
 
 bool hasMPBlock(const Role* r)
@@ -249,6 +255,8 @@ Color BattleSceneHades::calculateHurtFlashColor(const Role* r, const Color& base
 
 void BattleSceneHades::draw()
 {
+    constexpr int kCullMargin = 96;
+
     //在这个模式下，使用的是直角坐标
     Engine::getInstance()->setRenderTarget("scene");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
@@ -263,8 +271,30 @@ void BattleSceneHades::draw()
     //整个场景
     auto whole_scene = Engine::getInstance()->getTexture("whole_scene");
     Engine::getInstance()->setRenderTarget(whole_scene);
+    int w = render_center_x_ * 2;
+    int h = render_center_y_ * 2;
+    Rect camera_rect = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
+    Rect clear_rect = {
+        camera_rect.x - kCullMargin,
+        camera_rect.y - kCullMargin,
+        camera_rect.w + kCullMargin * 2,
+        camera_rect.h + kCullMargin * 2
+    };
+    clear_rect.x = std::max(0, clear_rect.x);
+    clear_rect.y = std::max(0, clear_rect.y);
+    clear_rect.w = std::min(clear_rect.w, COORD_COUNT * TILE_W * 2 - clear_rect.x);
+    clear_rect.h = std::min(clear_rect.h, COORD_COUNT * TILE_H * 2 - clear_rect.y);
+    if (clear_rect.w > 0 && clear_rect.h > 0)
+    {
+        Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, clear_rect.x, clear_rect.y, clear_rect.w, clear_rect.h);
+    }
 
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    auto is_visible_world = [&](double world_x, double world_y) -> bool
+    {
+        return world_x >= clear_rect.x && world_x <= clear_rect.x + clear_rect.w
+            && world_y >= clear_rect.y && world_y <= clear_rect.y + clear_rect.h;
+    };
+
     auto earth_tex = Engine::getInstance()->getTexture("earth");
     if (earth_tex)
     {
@@ -272,8 +302,6 @@ void BattleSceneHades::draw()
         Color c = { 255, 255, 255, 255 };
         Engine::getInstance()->setColor(earth_tex, c);
         auto p = getPositionOnWholeEarth(man_x_, man_y_);
-        int w = render_center_x_ * 2;
-        int h = render_center_y_ * 2;
         Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
         Rect rect1 = rect0;
         //注意这种画法，地面最上面会缺一块
@@ -324,8 +352,7 @@ void BattleSceneHades::draw()
     }
     struct DrawInfo
     {
-        std::string path;
-        int num;
+        TextureWarpper* tex = nullptr;
         Pointf p;
         Pointf sort_p;
         Color color{ 255, 255, 255, 255 };
@@ -352,8 +379,11 @@ void BattleSceneHades::draw()
                 {
                     //TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y/2);
                     DrawInfo info;
-                    info.path = "smap";
-                    info.num = num;
+                    info.tex = TextureManager::getInstance()->getTexture("smap", num);
+                    if (!info.tex)
+                    {
+                        continue;
+                    }
                     info.p.x = p.x;
                     info.p.y = p.y;
                     info.shadow = 0;
@@ -362,12 +392,15 @@ void BattleSceneHades::draw()
             }
         }
     }
-
     for (auto r : battle_roles_)
     {
+        if (!is_visible_world(r->Pos.x, r->Pos.y / 2.0))
+        {
+            continue;
+        }
         //if (r->Dead) { continue; }
         DrawInfo info;
-        info.path = std::format("fight/fight{:03}", r->HeadID);
+        auto path = std::format("fight/fight{:03}", r->HeadID);
         info.color = { 255, 255, 255, 255 };
         info.alpha = 255;
         info.white = 0;
@@ -385,7 +418,11 @@ void BattleSceneHades::draw()
             info.p.x += -2.5 + rand_.rand() * 5;
         }
         r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-        info.num = calRolePic(r, r->ActType, r->ActFrame);
+        info.tex = TextureManager::getInstance()->getTexture(path, calRolePic(r, r->ActType, r->ActFrame));
+        if (!info.tex)
+        {
+            continue;
+        }
         //if (r->HurtFrame)
         //{
         //    if (r->HurtFrame % 2 == 1)
@@ -425,25 +462,27 @@ void BattleSceneHades::draw()
     {
         //for (auto r : ae.Defender)
         {
+            auto effect_pos = ae.FollowRole ? ae.FollowRole->Pos : ae.Pos;
+            if (!is_visible_world(effect_pos.x, effect_pos.y / 2.0))
+            {
+                continue;
+            }
             DrawInfo info;
-            info.path = ae.Path;
+            int frame = 0;
             if (ae.TotalEffectFrame > 0)
             {
-                info.num = ae.Frame % ae.TotalEffectFrame;
+                frame = ae.Frame % ae.TotalEffectFrame;
             }
-            else
+            info.tex = TextureManager::getInstance()->getTexture(ae.Path, frame);
+            if (!info.tex)
             {
-                info.num = 0;
+                continue;
             }
-            info.p = ae.Pos;
-            info.sort_p = ae.Pos;
+            info.p = effect_pos;
+            info.sort_p = effect_pos;
             info.sort_p.y += 10000;  // force projectiles to render on top
             info.color = { 255, 255, 255, 255 };
             info.alpha = 192;
-            if (ae.FollowRole)
-            {
-                info.p = ae.FollowRole->Pos;
-            }
             info.shadow = 1;
             if (ae.Attacker && ae.Attacker->Team == 0)
             {
@@ -475,24 +514,24 @@ void BattleSceneHades::draw()
     {
         if (d.shadow)
         {
-            auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
-            if (tex)
+            d.tex->load();
+            if (d.tex->getTexture())
             {
                 double scalex = 1, scaley = 0.3;
-                int yd = tex->dy * 0.7;
+                int yd = d.tex->dy * 0.7;
                 if (d.rot)
                 {
                     scalex = 0.3;
                     scaley = 1;
-                    yd = tex->dy * 0.1;
+                    yd = d.tex->dy * 0.1;
                 }
                 if (d.shadow == 1)
                 {
-                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                    TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
                 }
                 if (d.shadow == 2)
                 {
-                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
+                    TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
                 }
             }
         }
@@ -504,23 +543,24 @@ void BattleSceneHades::draw()
         {
             scaley = 0.5;
         }
-        TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
     }
 
     for (auto r : battle_roles_)
     {
-        renderExtraRoleInfo(r, r->Pos.x, r->Pos.y / 2);
+        if (is_visible_world(r->Pos.x, r->Pos.y / 2.0))
+        {
+            renderExtraRoleInfo(r, r->Pos.x, r->Pos.y / 2);
+        }
     }
 
-    if (swapSelected_)
+    if (swapSelected_ && is_visible_world(swapSelected_->Pos.x, swapSelected_->Pos.y / 2.0))
     {
         Engine::getInstance()->fillColor({ 255, 255, 0, 80 }, swapSelected_->Pos.x - 15, swapSelected_->Pos.y / 2 - 5, 30, 10);
     }
 
     Color c = { 255, 255, 255, 255 };
     Engine::getInstance()->setColor(whole_scene, c);
-    int w = render_center_x_ * 2;
-    int h = render_center_y_ * 2;
     //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
     Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
     Rect rect1 = { 0, 0, w, h };
@@ -542,7 +582,10 @@ void BattleSceneHades::draw()
     rect1.h = rect0.h;
     for (auto& te : text_effects_)
     {
-        Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
+        if (is_visible_world(te.Pos.x, te.Pos.y / 2.0))
+        {
+            Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
+        }
     }
 
     Engine::getInstance()->setRenderTarget("scene");
@@ -622,7 +665,7 @@ void BattleSceneHades::onEntrance()
     //首先设置位置和阵营，其他的后面统一处理
     int battleUid = 10000;
     int cloneSummonCount = 0;
-    size_t cloneSourceIndex = static_cast<size_t>(-1);
+    std::vector<size_t> cloneSourceIndices;
     //敌方
     for (int i = 0; i < BATTLE_ENEMY_COUNT; i++)
     {
@@ -826,9 +869,17 @@ void BattleSceneHades::onEntrance()
             }
         };
         applyOnCopies(friends_obj_, allyStates, [&](size_t index) {
+            int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
+            int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
+            if (weaponId >= 0 || armorId >= 0)
+                return std::pair{weaponId, armorId};
             if (index >= extended_teammates_.size()) return std::pair{-1, -1};
 
-            KysChess::ChessInstanceID chessInstanceId{extended_teammates_[index].chessInstanceId};
+            auto& teammate = extended_teammates_[index];
+            if (teammate.weaponId >= 0 || teammate.armorId >= 0)
+                return std::pair{teammate.weaponId, teammate.armorId};
+
+            KysChess::ChessInstanceID chessInstanceId{teammate.chessInstanceId};
             auto chess = chessManager_.tryFindChessByInstanceId(chessInstanceId);
             if (!chess)
                 return std::pair{-1, -1};
@@ -854,21 +905,51 @@ void BattleSceneHades::onEntrance()
 
         if (cloneSummonCount > 0)
         {
-            int bestStar = -1;
-            int bestPower = -1;
+            struct CloneSourceCandidate
+            {
+                size_t index = static_cast<size_t>(-1);
+                int chessInstanceId = -1;
+                int star = 0;
+                int power = 0;
+            };
+
+            std::vector<CloneSourceCandidate> cloneCandidates;
             for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); ++i)
             {
                 if (!roleHasCombo(&friends_obj_[i], {"真武七截阵"}))
                     continue;
 
-                int star = extended_teammates_[i].star;
-                int power = friends_obj_[i].MaxHP + friends_obj_[i].Attack + friends_obj_[i].Defence;
-                if (star > bestStar || (star == bestStar && power > bestPower))
+                cloneCandidates.push_back({
+                    i,
+                    extended_teammates_[i].chessInstanceId,
+                    extended_teammates_[i].star,
+                    friends_obj_[i].MaxHP + friends_obj_[i].Attack + friends_obj_[i].Defence});
+            }
+
+            std::sort(cloneCandidates.begin(), cloneCandidates.end(), [](const auto& left, const auto& right) {
+                if (left.star != right.star) return left.star > right.star;
+                if (left.power != right.power) return left.power > right.power;
+                return left.index < right.index;
+            });
+
+            std::set<int> usedInstanceIds;
+            std::vector<size_t> fallbackIndices;
+            for (const auto& candidate : cloneCandidates)
+            {
+                if (candidate.chessInstanceId >= 0)
                 {
-                    bestStar = star;
-                    bestPower = power;
-                    cloneSourceIndex = i;
+                    if (!usedInstanceIds.insert(candidate.chessInstanceId).second)
+                    {
+                        fallbackIndices.push_back(candidate.index);
+                        continue;
+                    }
                 }
+                cloneSourceIndices.push_back(candidate.index);
+            }
+            cloneSourceIndices.insert(cloneSourceIndices.end(), fallbackIndices.begin(), fallbackIndices.end());
+            if (cloneSummonCount < static_cast<int>(cloneSourceIndices.size()))
+            {
+                cloneSourceIndices.resize(cloneSummonCount);
             }
         }
     }
@@ -924,8 +1005,7 @@ void BattleSceneHades::onEntrance()
 
     if (!extended_teammates_.empty()
         && cloneSummonCount > 0
-        && cloneSourceIndex != static_cast<size_t>(-1)
-        && cloneSourceIndex < friends_obj_.size()
+        && !cloneSourceIndices.empty()
         && !clone_spawn_positions_.empty())
     {
         auto isOccupied45 = [&](int x, int y) {
@@ -939,28 +1019,32 @@ void BattleSceneHades::onEntrance()
             return false;
         };
 
-        auto source = &friends_obj_[cloneSourceIndex];
         auto& cs = KysChess::ChessCombo::getMutableStates();
-        KysChess::RoleComboState cloneState;
-        if (auto it = cs.find(source->ID); it != cs.end())
-            cloneState = it->second;
-        cloneState.isSummonedClone = true;
-        cloneState.cloneSummonCount = 0;
-        cloneState.postSkillDashPending = false;
-        cloneState.postSkillDashTimer = 0;
-        cloneState.forcePullProtectUsed = false;
-        cloneState.forcePullExecuteUsed = false;
-        cloneState.onSkillTeamHealPending = false;
-        if (cloneState.damageImmunityAfterFrames > 0)
-            cloneState.damageImmunityTimer = cloneState.damageImmunityAfterFrames;
-        if (cloneState.autoUltimateAfterFrames > 0)
-            cloneState.autoUltimateTimer = cloneState.autoUltimateAfterFrames;
-
         int spawned = 0;
         for (auto [x, y] : clone_spawn_positions_)
         {
             if (spawned >= cloneSummonCount) break;
             if (!canWalk45(x, y) || isOccupied45(x, y)) continue;
+
+            size_t sourceIndex = cloneSourceIndices[spawned % cloneSourceIndices.size()];
+            if (sourceIndex >= friends_obj_.size())
+                continue;
+
+            auto source = &friends_obj_[sourceIndex];
+            KysChess::RoleComboState cloneState;
+            if (auto it = cs.find(source->ID); it != cs.end())
+                cloneState = it->second;
+            cloneState.isSummonedClone = true;
+            cloneState.cloneSummonCount = 0;
+            cloneState.postSkillDashPending = false;
+            cloneState.postSkillDashTimer = 0;
+            cloneState.forcePullProtectUsed = false;
+            cloneState.forcePullExecuteUsed = false;
+            cloneState.onSkillTeamHealPending = false;
+            if (cloneState.damageImmunityAfterFrames > 0)
+                cloneState.damageImmunityTimer = cloneState.damageImmunityAfterFrames;
+            if (cloneState.autoUltimateAfterFrames > 0)
+                cloneState.autoUltimateTimer = cloneState.autoUltimateAfterFrames;
 
             friends_obj_.push_back(*source);
             auto clone = &friends_obj_.back();
@@ -1630,7 +1714,10 @@ void BattleSceneHades::backRun1()
             Role* r = nullptr;
             if (ae.Attacker)
             {
-                r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
+                if (ae.PreferredTarget && ae.PreferredTarget->Dead == 0 && ae.PreferredTarget->Team != ae.Attacker->Team)
+                    r = ae.PreferredTarget;
+                else
+                    r = findNearestEnemy(ae.Attacker->Team, ae.Pos);
             }
             if (ae.Track && r)
             {
@@ -1839,157 +1926,165 @@ void BattleSceneHades::backRun1()
         }
         return false;
     };
-    for (auto r : battle_roles_)
+    bool hasPendingDamage = true;
+    while (hasPendingDamage)
     {
-        int hurt = r->HurtThisFrame;
-        if (hurt > 0)
+        hasPendingDamage = false;
+        for (auto r : battle_roles_)
         {
-            int hpBefore = r->HP;
-            bool isUlt = ultHitRoles_.count(r) > 0;
-            TextEffect te;
-            Color c = isUlt ? Color{255, 215, 0, 255} : (r->Team == 0 ? Color{255, 20, 20, 255} : Color{255, 255, 255, 255});
-            te.set(std::to_string(-hurt), c, r);
-            if (isUlt) te.Size = 28;
-            text_effects_.push_back(std::move(te));
-            AttackEffect ae1;
-            ae1.FollowRole = r;
-            //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
-            ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
-            ae1.TotalFrame = ae1.TotalEffectFrame;
-            ae1.Frame = 0;
-            attack_effects_.push_back(std::move(ae1));
-            r->HP -= hurt;
-            hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
-            double mpGain = (hurt / r->MaxHP)  * 75.0;
-            changeRoleMP(r, mpGain);
-            if (r->HP <= 0 && r->Dead == 0)
+            int hurt = r->HurtThisFrame;
+            if (hurt > 0)
             {
-                auto& cs = KysChess::ChessCombo::getMutableStates();
-                auto sit = cs.find(r->ID);
-                if (sit != cs.end() && sit->second.deathPrevention && !sit->second.deathPreventionUsed)
-                {
-                    sit->second.deathPreventionUsed = true;
-                    r->HP = 1;
-                    r->Invincible = std::max(r->Invincible,
-                        sit->second.deathPreventionFrames > 0 ? sit->second.deathPreventionFrames : 100);
-                }
-                else
-                {
-                    //LOG("{} has been beat\n", r->Name);
-                    r->Dead = 1;
-                    r->HP = 0;
-                    if (sit != cs.end())
-                        sit->second.onSkillTeamHealPending = false;
-                    tracker_.recordKill(r->LastAttacker);
-                    tracker_.recordDeath(r, current_frame_);
+                hasPendingDamage = true;
+                r->HurtThisFrame = 0;
 
-                    // Combo: kill-heal and kill-invincibility
-                    if (r->LastAttacker)
+                int hpBefore = r->HP;
+                bool isUlt = ultHitRoles_.count(r) > 0;
+                TextEffect te;
+                Color c = isUlt ? Color{255, 215, 0, 255} : (r->Team == 0 ? Color{255, 20, 20, 255} : Color{255, 255, 255, 255});
+                te.set(std::to_string(-hurt), c, r);
+                if (isUlt) te.Size = 28;
+                text_effects_.push_back(std::move(te));
+                AttackEffect ae1;
+                ae1.FollowRole = r;
+                //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
+                ae1.setPath(std::format("eft/bld{:03}", int(rand_.rand() * 5)));
+                ae1.TotalFrame = ae1.TotalEffectFrame;
+                ae1.Frame = 0;
+                attack_effects_.push_back(std::move(ae1));
+                r->HP -= hurt;
+                hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
+                double mpGain = (hurt / r->MaxHP)  * 75.0;
+                changeRoleMP(r, mpGain);
+                if (r->HP <= 0 && r->Dead == 0)
+                {
+                    auto& cs = KysChess::ChessCombo::getMutableStates();
+                    auto sit = cs.find(r->ID);
+                    if (sit != cs.end() && sit->second.deathPrevention && !sit->second.deathPreventionUsed)
                     {
-                        auto kit = cs.find(r->LastAttacker->ID);
-                        if (kit != cs.end())
-                        {
-                            if (kit->second.killHealPct > 0)
-                                r->LastAttacker->HP = std::min(r->LastAttacker->MaxHP,
-                                    r->LastAttacker->HP + r->LastAttacker->MaxHP * kit->second.killHealPct / 100);
-                            if (kit->second.killInvincFrames > 0)
-                                r->LastAttacker->Invincible = kit->second.killInvincFrames;
-                            // Bloodlust: permanent ATK per kill
-                            if (kit->second.bloodlustATKPerKill > 0)
-                                r->LastAttacker->Attack += kit->second.bloodlustATKPerKill;
-                        }
+                        sit->second.deathPreventionUsed = true;
+                        r->HP = 1;
+                        r->Invincible = std::max(r->Invincible,
+                            sit->second.deathPreventionFrames > 0 ? sit->second.deathPreventionFrames : 100);
                     }
-
-                    if (sit != cs.end() && sit->second.deathAOEPct > 0)
+                    else
                     {
-                        int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
-                        for (auto enemy : battle_roles_)
+                        //LOG("{} has been beat\n", r->Name);
+                        r->Dead = 1;
+                        r->HP = 0;
+                        if (sit != cs.end())
+                            sit->second.onSkillTeamHealPending = false;
+                        tracker_.recordKill(r->LastAttacker);
+                        tracker_.recordDeath(r, current_frame_);
+
+                        // Combo: kill-heal and kill-invincibility
+                        if (r->LastAttacker)
                         {
-                            if (enemy->Team != r->Team && enemy->Dead == 0 && isWithin3x3Area(r, enemy))
+                            auto kit = cs.find(r->LastAttacker->ID);
+                            if (kit != cs.end())
                             {
-                                enemy->HurtThisFrame += aoeDmg;
-                                if (sit->second.deathAOEStunFrames > 0)
-                                    applyFrozen(enemy, sit->second.deathAOEStunFrames);
+                                if (kit->second.killHealPct > 0)
+                                    r->LastAttacker->HP = std::min(r->LastAttacker->MaxHP,
+                                        r->LastAttacker->HP + r->LastAttacker->MaxHP * kit->second.killHealPct / 100);
+                                if (kit->second.killInvincFrames > 0)
+                                    r->LastAttacker->Invincible = kit->second.killInvincFrames;
+                                // Bloodlust: permanent ATK per kill
+                                if (kit->second.bloodlustATKPerKill > 0)
+                                    r->LastAttacker->Attack += kit->second.bloodlustATKPerKill;
                             }
                         }
-                    }
 
-                    for (auto ally : battle_roles_)
-                    {
-                        if (ally == r || ally->Team != r->Team || ally->Dead != 0)
-                            continue;
-
-                        auto ait = cs.find(ally->ID);
-                        if (ait == cs.end())
-                            continue;
-
-                        auto& as = ait->second;
-                        if (as.allyDeathStatBoost > 0
-                            && rolesShareCombo(ally, r, {"明教", "四大法王"}))
+                        if (sit != cs.end() && sit->second.deathAOEPct > 0)
                         {
-                            ally->Attack += as.allyDeathStatBoost;
-                            ally->Defence += as.allyDeathStatBoost;
-                            // ally->Speed += as.allyDeathStatBoost;
-                        }
-
-                        if (as.shieldOnAllyDeathCount > 0
-                            && rolesShareCombo(ally, r, {"全真教"}))
-                        {
-                            as.shieldOnAllyDeathTracker++;
-                            if (as.shieldOnAllyDeathTracker >= as.shieldOnAllyDeathCount)
+                            int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
+                            for (auto enemy : battle_roles_)
                             {
-                                as.shieldOnAllyDeathTracker = 0;
-                                if (as.shieldPctMaxHP > 0)
-                                    as.shield = std::max(as.shield, ally->MaxHP * as.shieldPctMaxHP / 100);
+                                if (enemy->Team != r->Team && enemy->Dead == 0 && isWithinGridArea(r, enemy, 5, 5))
+                                {
+                                    enemy->HurtThisFrame += aoeDmg;
+                                    if (sit->second.deathAOEStunFrames > 0)
+                                        applyFrozen(enemy, sit->second.deathAOEStunFrames);
+                                }
                             }
                         }
+
+                        for (auto ally : battle_roles_)
+                        {
+                            if (ally == r || ally->Team != r->Team || ally->Dead != 0)
+                                continue;
+
+                            auto ait = cs.find(ally->ID);
+                            if (ait == cs.end())
+                                continue;
+
+                            auto& as = ait->second;
+                            if (as.allyDeathStatBoost > 0
+                                && rolesShareCombo(ally, r, {"明教", "四大法王"}))
+                            {
+                                ally->Attack += as.allyDeathStatBoost;
+                                ally->Defence += as.allyDeathStatBoost;
+                                // ally->Speed += as.allyDeathStatBoost;
+                            }
+
+                            if (as.shieldOnAllyDeathCount > 0
+                                && rolesShareCombo(ally, r, {"全真教"}))
+                            {
+                                as.shieldOnAllyDeathTracker++;
+                                if (as.shieldOnAllyDeathTracker >= as.shieldOnAllyDeathCount)
+                                {
+                                    as.shieldOnAllyDeathTracker = 0;
+                                    if (as.shieldPctMaxHP > 0)
+                                        as.shield = std::max(as.shield, ally->MaxHP * as.shieldPctMaxHP / 100);
+                                }
+                            }
+                        }
+
+                        // Transfer 独行 to next strongest alive member
+                        KysChess::ChessCombo::transferAntiCombo(r->ID, battle_roles_);
+
+                        //r->Velocity = r->Pos - ae1.Attacker->Pos;
+                        r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
+                        r->Velocity.z = 12;
+                        //r->Velocity.normTo(std::min(hurt / 1.0, 15.0));
+                        r->Velocity.normTo(hurt / 2.0);
+                        r->Frozen = 0;
+                        applyFrozen(r, 5);
+                        x_ = rand_.rand_int(2) - rand_.rand_int(2);
+                        y_ = rand_.rand_int(2) - rand_.rand_int(2);
+                        //dying_ = r;
+                        pos_ = r->Pos;
+                        frozen_ = 5;
+                        shake_ = 10;
+                        slow_ = 10;
+                        close_up_ = 30;
+                    }
+                }
+
+                if (r->Dead == 0)
+                {
+                    if (r->MaxHP > 0
+                        && hpBefore * 4 > r->MaxHP
+                        && r->HP * 4 <= r->MaxHP
+                        && r->LastAttacker
+                        && r->LastAttacker->Dead == 0
+                        && r->LastAttacker->Team != r->Team)
+                    {
+                        tryForcePull(r->LastAttacker, r->Team, r, false);
                     }
 
-                    // Transfer 独行 to next strongest alive member
-                    KysChess::ChessCombo::transferAntiCombo(r->ID, battle_roles_);
-
-                    //r->Velocity = r->Pos - ae1.Attacker->Pos;
-                    r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
-                    r->Velocity.z = 12;
-                    //r->Velocity.normTo(std::min(hurt / 1.0, 15.0));
-                    r->Velocity.normTo(hurt / 2.0);
-                    r->Frozen = 0;
-                    applyFrozen(r, 5);
-                    x_ = rand_.rand_int(2) - rand_.rand_int(2);
-                    y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                    //dying_ = r;
-                    pos_ = r->Pos;
-                    frozen_ = 5;
-                    shake_ = 10;
-                    slow_ = 10;
-                    close_up_ = 30;
+                    if (r->MaxHP > 0
+                        && hpBefore * 100 > r->MaxHP * 15
+                        && r->HP * 100 <= r->MaxHP * 15
+                        && isUnattended(r, 1 - r->Team))
+                    {
+                        tryForcePull(r, 1 - r->Team, r, true);
+                    }
                 }
             }
-
-            if (r->Dead == 0)
-            {
-                if (r->MaxHP > 0
-                    && hpBefore * 4 > r->MaxHP
-                    && r->HP * 4 <= r->MaxHP
-                    && r->LastAttacker
-                    && r->LastAttacker->Dead == 0
-                    && r->LastAttacker->Team != r->Team)
-                {
-                    tryForcePull(r->LastAttacker, r->Team, r, false);
-                }
-
-                if (r->MaxHP > 0
-                    && hpBefore * 100 > r->MaxHP * 15
-                    && r->HP * 100 <= r->MaxHP * 15
-                    && isUnattended(r, 1 - r->Team))
-                {
-                    tryForcePull(r, 1 - r->Team, r, true);
-                }
-            }
+            r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
+            r->MP = GameUtil::limit(r->MP, 0, GameUtil::MAX_MP);
+            r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
         }
-        r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
-        r->MP = GameUtil::limit(r->MP, 0, GameUtil::MAX_MP);
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
     }
 
     //处理文字
@@ -2181,6 +2276,7 @@ void BattleSceneHades::Action(Role* r)
             //r->CoolDown += ae.TotalFrame;
             ae.Attacker = r;
             ae.IsUltimate = ultCasters_.count(r) ? 1 : 0;
+            int extraUltimateProjectiles = ae.IsUltimate ? getUltimateExtraProjectileCount(r) : 0;
             if (ae.IsUltimate)
             {
                 auto& cs = KysChess::ChessCombo::getMutableStates();
@@ -2230,34 +2326,26 @@ void BattleSceneHades::Action(Role* r)
                     splash.Strengthen = 0.5;
                     splash.Track = 1;
                     splash.TotalFrame = 60;
-                    double angle = r->RealTowards.getAngle();
-                    for (int i = 0; i < 1; i++)
-                    {
-                        float a = angle - 30.0 / 180 * M_PI + i * 60.0 / 180 * M_PI;
-                        splash.Velocity = { cos(a), sin(a) };
-                        splash.Velocity.normTo(3);
-                        splash.Frame = 5 + i * 5;
-                        attack_effects_.push_back(splash);
-                    }
+                    splash.Velocity = r->RealTowards;
+                    splash.Velocity.normTo(3);
+                    spawnTrackingProjectileSpread(splash, 1, 5, 5);
                 }
+                spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
             }
             else if (ae.OperationType == 1)
             {
                 int count = 1;
                 if (ae.IsUltimate) count *= 2;
                 auto p = ae.Pos;
-                ae.TotalFrame = 120;
-                double angle = r->RealTowards.getAngle();
-                for (int i = 0; i < count; i++)
-                {
-                    float a = angle - 5 / 180 * M_PI + rand_.rand() * 10 / 180 * M_PI;
-                    ae.Pos = p;
-                    ae.Velocity = { cos(a), sin(a) };
-                    ae.Velocity.normTo(3);
-                    ae.Frame = rand_.rand() * 10;
-                    ae.Track = 1;
-                    attack_effects_.push_back(ae);
-                }
+                auto projectilePrototype = ae;
+                projectilePrototype.TotalFrame = 120;
+                projectilePrototype.Track = 1;
+                projectilePrototype.Pos = p;
+                projectilePrototype.Velocity = r->RealTowards;
+                projectilePrototype.Velocity.normTo(3);
+                projectilePrototype.Frame = 0;
+                spawnTrackingProjectileSpread(projectilePrototype, count, 0, 0, 10);
+                spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
             }
             else if (ae.OperationType == 2)
             {
@@ -2279,6 +2367,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.Through = 1;
                 }
                 attack_effects_.push_back(ae);
+                spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
                 {
                     int sideCount = ae.IsUltimate ? 3 : 2;
@@ -2317,6 +2406,11 @@ void BattleSceneHades::Action(Role* r)
                     ae.Frame += 3;
                     attack_effects_.push_back(ae);
                 }
+                auto projectilePrototype = ae;
+                projectilePrototype.Pos = p;
+                projectilePrototype.Frame = 0;
+                projectilePrototype.Track = 1;
+                spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
             }
             // LOG("{} team {} use {} as {}\n", ae.Attacker->Name, ae.Attacker->Team, ae.UsingMagic->Name, ae.OperationType);
             changeRoleMP(r, ultCasters_.count(r) ? -r->MaxMP : 5);
@@ -2410,6 +2504,116 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
     ae.Frame = 0;
     ae.OperationType = getOperationType(magic->AttackAreaType);
     attack_effects_.push_back(ae);
+    if (isUltimate)
+        spawnUltimateExtraProjectiles(ae, getUltimateExtraProjectileCount(r));
+}
+
+int BattleSceneHades::getUltimateExtraProjectileCount(Role* r) const
+{
+    if (!r) return 0;
+    auto& cs = KysChess::ChessCombo::getActiveStates();
+    auto it = cs.find(r->ID);
+    if (it == cs.end())
+        return 0;
+    return std::max(0, it->second.ultimateExtraProjectiles);
+}
+
+void BattleSceneHades::spawnUltimateExtraProjectiles(const AttackEffect& prototype, int extraCount)
+{
+    if (extraCount <= 0 || !prototype.IsUltimate || !prototype.Attacker)
+        return;
+
+    auto launch = prototype;
+    launch.Defender.clear();
+    launch.NoHurt = 0;
+    launch.Weaken = 0;
+    launch.IsMain = 0;
+    spawnTrackingProjectileSpread(launch, extraCount);
+}
+
+void BattleSceneHades::spawnTrackingProjectileSpread(const AttackEffect& prototype,
+                                                     int projectileCount,
+                                                     int initialFrame,
+                                                     int frameStep,
+                                                     int randomFrameRange)
+{
+    if (projectileCount <= 0 || !prototype.Attacker)
+        return;
+
+    auto launch = prototype;
+    double speed = launch.Velocity.norm();
+    if (speed <= 0.01)
+        speed = (launch.OperationType == 2) ? PROJECTILE_SPEED : 3.0;
+
+    auto direction = launch.Velocity;
+    if (direction.norm() <= 0.01)
+    {
+        direction = launch.Attacker->RealTowards;
+        if (direction.norm() <= 0.01)
+        {
+            if (auto target = findNearestEnemy(launch.Attacker->Team, launch.Pos))
+                direction = target->Pos - launch.Pos;
+        }
+    }
+    if (direction.norm() <= 0.01)
+        return;
+
+    direction.normTo(1);
+    double baseAngle = direction.getAngle();
+    double spreadRadians = ((launch.Track || launch.OperationType == 1 || launch.OperationType == 2) ? 12.0 : 20.0) / 180.0 * M_PI;
+    Role* primaryTarget = findNearestEnemy(launch.Attacker->Team, launch.Pos);
+    double maxTravel = speed * std::max(1, launch.TotalFrame - launch.Frame) + TILE_W * 2;
+    std::vector<Role*> alternateTargets;
+    for (auto enemy : battle_roles_)
+    {
+        if (!enemy || enemy->Dead != 0 || enemy->Team == launch.Attacker->Team || enemy == primaryTarget)
+            continue;
+        if (EuclidDis(enemy->Pos, launch.Pos) > maxTravel)
+            continue;
+        alternateTargets.push_back(enemy);
+    }
+    std::sort(alternateTargets.begin(), alternateTargets.end(), [&](Role* lhs, Role* rhs) {
+        auto lhsDir = lhs->Pos - launch.Pos;
+        auto rhsDir = rhs->Pos - launch.Pos;
+        double lhsAngle = lhsDir.norm() > 0.01 ? lhsDir.getAngle() : baseAngle;
+        double rhsAngle = rhsDir.norm() > 0.01 ? rhsDir.getAngle() : baseAngle;
+        double lhsDelta = std::abs(std::atan2(std::sin(lhsAngle - baseAngle), std::cos(lhsAngle - baseAngle)));
+        double rhsDelta = std::abs(std::atan2(std::sin(rhsAngle - baseAngle), std::cos(rhsAngle - baseAngle)));
+        if (lhsDelta != rhsDelta)
+            return lhsDelta < rhsDelta;
+        return EuclidDis(lhs->Pos, launch.Pos) < EuclidDis(rhs->Pos, launch.Pos);
+    });
+
+    for (int i = 0; i < projectileCount; ++i)
+    {
+        auto extra = launch;
+        Role* assignedTarget = i < static_cast<int>(alternateTargets.size()) ? alternateTargets[i] : primaryTarget;
+        double angle = baseAngle;
+        if (assignedTarget)
+        {
+            auto targetDir = assignedTarget->Pos - launch.Pos;
+            if (targetDir.norm() > 0.01)
+                angle = targetDir.getAngle();
+            extra.PreferredTarget = assignedTarget;
+        }
+        else if (projectileCount > 1)
+        {
+            double offset = (i - (projectileCount - 1) / 2.0) * spreadRadians;
+            angle += offset;
+        }
+
+        extra.Velocity = { static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)) };
+        extra.Velocity.normTo(speed);
+        if (randomFrameRange > 0)
+            extra.Frame = initialFrame + rand_.rand_int(randomFrameRange);
+        else
+            extra.Frame = initialFrame + i * frameStep;
+        if (extra.Track || extra.OperationType == 0 || extra.OperationType == 3)
+            extra.Track = 1;
+        if (extra.OperationType == 0 || extra.OperationType == 3)
+            extra.TotalFrame = std::max(extra.TotalFrame, 60);
+        attack_effects_.push_back(extra);
+    }
 }
 
 void BattleSceneHades::AI(Role* r)
@@ -3144,7 +3348,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     int explosionDmg = std::max(1, shieldBefore * ds.shieldExplosionPct / 100);
                     for (auto enemy : battle_roles_)
                     {
-                        if (enemy->Team != r->Team && enemy->Dead == 0 && isWithin3x3Area(r, enemy))
+                        if (enemy->Team != r->Team && enemy->Dead == 0 && isWithinGridArea(r, enemy, 3, 3))
                             enemy->HurtThisFrame += explosionDmg;
                     }
                 }

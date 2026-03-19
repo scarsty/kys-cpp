@@ -56,8 +56,6 @@ void VirtualStick::dealEvent(EngineEvent& e)
         setStyle(0);
     }
     int num = 0;
-    SDL_GetTouchDevices(&num);
-    //LOG("{}", num);
     auto engine = Engine::getInstance();
     engine->clearGameControllerButton();
     engine->clearGameControllerAxis();
@@ -70,27 +68,40 @@ void VirtualStick::dealEvent(EngineEvent& e)
         axis_center_y_ = t->h / 2 + h_ * 0.5;
         axis_radius_ = t->w / 2;
     }
-    //LOG("{}", "clear button");
+
     for (auto c : childs_)
     {
         auto b = std::dynamic_pointer_cast<Button>(c);
         b->state_ = NodeNormal;
     }
-    auto touch = SDL_GetTouchDevices(&num);
+
+    auto touch_devices = SDL_GetTouchDevices(&num);
+    auto touch = touch_devices;
+    if (!touch_devices || num <= 0)
+    {
+        SDL_free(touch_devices);
+        return;
+    }
+
     for (int i_device = 0; i_device < num; i_device++)
-    {        
-        if (!touch)
-        {
-            continue;
-        }
+    {
         int fingers;
-        SDL_Finger** finger_pp;
-        finger_pp = SDL_GetTouchFingers(*touch, &fingers);
+        SDL_Finger** finger_pp = SDL_GetTouchFingers(*touch, &fingers);
         bool is_press = false;
         bool is_press2 = false;    //将按键范围扩大一点，避免按到键中间被当成鼠标操作
+        if (!finger_pp || fingers <= 0)
+        {
+            SDL_free(finger_pp);
+            touch++;
+            continue;
+        }
         for (int i = 0; i < fingers; i++)
         {
             auto s = finger_pp[i];
+            if (!s)
+            {
+                continue;
+            }
             //LOG("{}: {} {} ", i, s->x * w_, s->y * h_);
             int x = s->x * w_;
             int y = s->y * h_;
@@ -199,10 +210,14 @@ void VirtualStick::dealEvent(EngineEvent& e)
         }
         if (is_press)
         {
+            SDL_free(finger_pp);
+            SDL_free(touch_devices);
             return;
         }
+        SDL_free(finger_pp);
         touch++;
     }
+    SDL_free(touch_devices);
 }
 
 void VirtualStick::draw()

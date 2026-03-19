@@ -39,7 +39,8 @@ void ChessEquipment::loadConfig()
             for (const auto& eNode : entry["效果"])
             {
                 ComboEffect eff;
-                if (ChessBattleEffects::parseEffect(eNode, eff, std::format("装备{}", def.itemId)))
+                auto effectContext = std::format("装备{}效果#{}", def.itemId, def.effects.size() + 1);
+                if (ChessBattleEffects::parseEffect(eNode, eff, effectContext))
                     def.effects.push_back(eff);
             }
         }

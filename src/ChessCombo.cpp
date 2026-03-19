@@ -60,7 +60,8 @@ std::vector<ComboDef> loadFromYaml(const std::string& path)
             for (const auto& eNode : tNode["效果"])
             {
                 ComboEffect eff;
-                if (!ChessBattleEffects::parseEffect(eNode, eff, def.name))
+                auto effectContext = std::format("羁绊「{}」阈值「{}」效果#{}", def.name, thresh.name, thresh.effects.size() + 1);
+                if (!ChessBattleEffects::parseEffect(eNode, eff, effectContext))
                     return {};
                 thresh.effects.push_back(eff);
             }

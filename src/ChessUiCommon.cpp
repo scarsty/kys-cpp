@@ -119,7 +119,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::EnemyTopDebuff: desc = std::format("敵方前{}名攻防-{}", eff.value, eff.value2); break;
     case EffectType::BlinkAttack: desc = "閃現攻擊"; break;
     case EffectType::AllyDeathStatBoost: desc = compact ? std::format("友死增{}攻防", eff.value) : std::format("友死增攻防{}", eff.value); break;
-    case EffectType::CloneSummon: desc = std::format("召喚{}分身", eff.value); break;
+    case EffectType::CloneSummon: desc = eff.value > 1 ? std::format("分身×{}", eff.value) : "分身"; break;
     case EffectType::ProjectileReflect: desc = std::format("{}%彈反", eff.value); break;
     case EffectType::OnSkillTeamHeal: desc = compact ? std::format("絕招群療{}HP", eff.value) : std::format("絕招後全隊回{}HP", eff.value); break;
     case EffectType::DeathPrevention: desc = std::format("鎖血並無敵{}幀", eff.value); break;
@@ -134,6 +134,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::ShieldOnAllyDeath: desc = compact ? std::format("每{}友死獲盾", eff.value) : std::format("每{}友死獲盾", eff.value); break;
     case EffectType::DamageImmunityAfterFrames: desc = std::format("每{}幀免傷{}幀", eff.value, eff.value2); break;
     case EffectType::AutoUltimateAfterFrames: desc = std::format("每{}幀自動絕招", eff.value); break;
+    case EffectType::UltimateExtraProjectiles: desc = compact ? std::format("絕招+{}彈", eff.value) : std::format("絕招額外投射物+{}", eff.value); break;
     case EffectType::BlockFirstHits: desc = compact ? std::format("格擋前{}次", eff.value) : std::format("格擋前{}次攻擊", eff.value); break;
     case EffectType::GoldCoefficient: desc = compact ? std::format("勝利+{}×最高星金", eff.value) : std::format("勝利獲得{}×最高星級金幣", eff.value); break;
     default: desc = std::format("效果({})", eff.value); break;

@@ -254,9 +254,9 @@ public:
 
     void resetPosition() { setPosition(prevX_, prevY_); }
 
-    int X() { return X_; }
+    int X() const { return X_; }
 
-    int Y() { return Y_; }
+    int Y() const { return Y_; }
 
     //带role的，表示后面的参数是人物武功栏
     int getRoleShowLearnedMagicLevel(int i);   // deprecated, returns 0

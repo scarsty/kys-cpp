@@ -26,6 +26,7 @@ void ChessEquipmentFlow::manageEquipment()
     }
 
     std::string tierName[] = {"初階", "中階", "高階", "傳說"};
+    static int k_equipSuffixWidth = Font::getTextDrawSize(" [已裝]");
     struct EquipmentInstanceEntry
     {
         const EquipmentDef* equipment;
@@ -38,33 +39,39 @@ void ChessEquipmentFlow::manageEquipment()
     while (true)
     {
         std::vector<EquipmentInstanceEntry> entries;
+        auto buildLabel = [&](const EquipmentDef& eq, bool equipped)
+        {
+            auto* item = eq.getItem();
+            std::string name = item ? item->Name : "???";
+            while (name.size() < 15) name += "\xe3\x80\x80";
+
+            std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
+            if (equipped)
+            {
+                label += " [已裝]";
+            }
+            else
+            {
+                for (int i = 0; i < k_equipSuffixWidth; ++i)
+                {
+                    label += " ";
+                }
+            }
+            return label;
+        };
         for (auto& eq : allEquip)
         {
             auto instances = services_.equipmentInventory.getInstancesForItem(eq.itemId);
             if (instances.empty())
             {
-                auto* item = eq.getItem();
-                std::string name = item ? item->Name : "???";
-                while (name.size() < 15) name += "\xe3\x80\x80";
-                std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
-                static int k_equipSize = Font::getTextDrawSize(" [已裝]");
-                for (int i = 0; i < k_equipSize; ++i) {
-                    label += " ";
-                }
+                std::string label = buildLabel(eq, false);
                 entries.push_back({&eq, k_nonExistentItem, std::move(label), {120, 120, 120, 255}, false});
             }
             else
             {
                 for (auto [instId, chessId] : instances)
                 {
-                    auto* item = eq.getItem();
-                    std::string name = item ? item->Name : "???";
-                    while (name.size() < 15) name += "\xe3\x80\x80";
-                    std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
-                    if (chessId != k_nonExistentChess)
-                    {
-                        label += " [已裝]";
-                    }
+                    std::string label = buildLabel(eq, chessId != k_nonExistentChess);
                     entries.push_back({&eq, instId, std::move(label), {0, 255, 0, 255}, true});
                 }
             }

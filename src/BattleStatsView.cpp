@@ -7,6 +7,7 @@
 #include "TextureManager.h"
 #include "GameUtil.h"
 #include "Audio.h"
+#include "ChessUiCommon.h"
 #include <format>
 #include <set>
 
@@ -92,15 +93,23 @@ void BattleStatsView::setupPreBattle(
     const std::vector<KysChess::ActiveCombo>& enemyCombos,
     int musicId,
     const std::vector<int>& enemyWeapons,
-    const std::vector<int>& enemyArmors)
+    const std::vector<int>& enemyArmors,
+    const std::vector<int>& allyWeapons,
+    const std::vector<int>& allyArmors)
 {
     isPreBattle_ = true;
     musicId_ = musicId;
     allies_.clear(); enemies_.clear();
-    for (auto& c : allies)
+    for (size_t i = 0; i < allies.size(); ++i)
+    {
+        auto& c = allies[i];
         if (c.role) {
-            allies_.push_back(makeEntry(c.role, c.star, 0, c.id.value));
+            auto e = makeEntry(c.role, c.star, 0, c.id.value);
+            if (i < allyWeapons.size()) e.weaponId = allyWeapons[i];
+            if (i < allyArmors.size()) e.armorId = allyArmors[i];
+            allies_.push_back(e);
         }
+    }
     for (size_t i = 0; i < enemyIds.size(); ++i)
     {
         auto r = roleSave_.getRole(enemyIds[i]);
@@ -246,8 +255,8 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
             auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{e.chessInstanceId});
             if (chess)
             {
-                int weaponId = chess->weaponInstance.itemId;
-                int armorId = chess->armorInstance.itemId;
+                int weaponId = e.weaponId >= 0 ? e.weaponId : chess->weaponInstance.itemId;
+                int armorId = e.armorId >= 0 ? e.armorId : chess->armorInstance.itemId;
                 if (weaponId >= 0)
                     TextureManager::getInstance()->renderTexture("item", weaponId, x + cEquip, y, cWhite, 255, 0.16, 0.16);
                 if (armorId >= 0)
@@ -283,16 +292,102 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
 void BattleStatsView::drawComboList(const std::vector<ComboEntry>& combos, int x, int y, int w)
 {
     auto font = Font::getInstance();
+    auto engine = Engine::getInstance();
     Color cActive = {0, 255, 100, 255};
-    for (auto& c : combos)
+    constexpr int kFontSize = 16;
+    constexpr int kLineHeight = 20;
+    constexpr int kColumnGap = 18;
+    constexpr int kBottomReserve = 55;
+    constexpr int kMinColumnWidth = 140;
+
+    std::vector<std::string> comboLines;
+    comboLines.reserve(combos.size());
+    for (const auto& c : combos)
     {
         // For anti-combos use threshold count (1) as denominator; otherwise total pool size.
         int denom = c.isAntiCombo ? c.thresholdCount : c.totalMembers;
         std::string countStr = KysChess::formatComboCount(
             c.physicalMemberCount, c.memberCount, denom, c.starSynergyBonus, c.isAntiCombo);
-        font->draw(std::format("{} ({}) {}", c.name, countStr, c.thresholdName),
-            16, x, y, cActive);
-        y += 20;
+        comboLines.push_back(std::format("{} ({}) {}", c.name, countStr, c.thresholdName));
+    }
+
+    int availableHeight = std::max(kLineHeight, engine->getUIHeight() - kBottomReserve - y);
+    int maxColumns = std::min(
+        static_cast<int>(comboLines.size()),
+        std::max(1, (w + kColumnGap) / (kMinColumnWidth + kColumnGap)));
+
+    auto buildWrappedEntries = [&](int columnWidth) {
+        std::vector<std::vector<std::string>> entries;
+        int availableUnits = std::max(6, (columnWidth - 8) * 2 / kFontSize);
+        entries.reserve(comboLines.size());
+        for (const auto& line : comboLines)
+        {
+            auto wrapped = KysChess::wrapDisplayText(line, availableUnits);
+            if (wrapped.empty())
+            {
+                wrapped.push_back(line);
+            }
+            entries.push_back(std::move(wrapped));
+        }
+        return entries;
+    };
+
+    auto canFit = [&](const std::vector<std::vector<std::string>>& entries, int columns) {
+        int usedColumns = 1;
+        int currentHeight = 0;
+        for (const auto& entry : entries)
+        {
+            int entryHeight = std::max(1, static_cast<int>(entry.size())) * kLineHeight;
+            if (currentHeight > 0 && currentHeight + entryHeight > availableHeight)
+            {
+                ++usedColumns;
+                currentHeight = 0;
+            }
+            if (usedColumns > columns)
+            {
+                return false;
+            }
+            currentHeight += entryHeight;
+        }
+        return true;
+    };
+
+    int chosenColumns = 1;
+    std::vector<std::vector<std::string>> wrappedEntries;
+    for (int columns = 1; columns <= maxColumns; ++columns)
+    {
+        int columnWidth = std::max(kMinColumnWidth, (w - (columns - 1) * kColumnGap) / columns);
+        auto candidate = buildWrappedEntries(columnWidth);
+        if (canFit(candidate, columns) || columns == maxColumns)
+        {
+            chosenColumns = columns;
+            wrappedEntries = std::move(candidate);
+            break;
+        }
+    }
+
+    int columnWidth = std::max(kMinColumnWidth, (w - (chosenColumns - 1) * kColumnGap) / chosenColumns);
+    int currentColumn = 0;
+    int currentY = y;
+    for (const auto& entry : wrappedEntries)
+    {
+        int entryHeight = std::max(1, static_cast<int>(entry.size())) * kLineHeight;
+        if (currentY > y && currentY - y + entryHeight > availableHeight)
+        {
+            ++currentColumn;
+            currentY = y;
+        }
+        if (currentColumn >= chosenColumns)
+        {
+            break;
+        }
+
+        int drawX = x + currentColumn * (columnWidth + kColumnGap);
+        for (const auto& line : entry)
+        {
+            font->draw(line, kFontSize, drawX, currentY, cActive);
+            currentY += kLineHeight;
+        }
     }
 }
 

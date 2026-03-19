@@ -138,20 +138,21 @@ def add_yrjh_candidates(out: list[dict[str, Any]], used_names: set[str], used_he
 
 def add_jsg_candidates(out: list[dict[str, Any]], used_names: set[str], used_head_ids: set[int], pool_head_hashes: set[str], pool_fight_hashes: set[str]) -> None:
     with zipfile.ZipFile(JSG_ROOT / "data" / "head.zip") as head_zip:
-        seen: set[tuple[str, int]] = set()
+        seen: set[tuple[str, int, int]] = set()
         for rows in load_jsg_rows().values():
             for row in rows:
                 name = str(row["name"])
                 nickname = str(row["nickname"])
-                key = (name, int(row["head_id"]))
+                key = (name, int(row["record_id"]), int(row["head_id"]))
                 if key in seen or not is_monk_like(name, nickname):
                     continue
                 seen.add(key)
-                head_id = int(row["head_id"])
-                head_name = f"{head_id}.png"
+                portrait_id = int(row["record_id"])
+                fight_id = int(row["head_id"])
+                head_name = f"{portrait_id}.png"
                 if head_name not in head_zip.namelist():
                     continue
-                fight_path = find_fight_zip(JSG_ROOT / "data" / "fight", head_id)
+                fight_path = find_fight_zip(JSG_ROOT / "data" / "fight", fight_id)
                 if fight_path is None:
                     continue
                 head_bytes = head_zip.read(head_name)
@@ -162,11 +163,11 @@ def add_jsg_candidates(out: list[dict[str, Any]], used_names: set[str], used_hea
                         "source": "金书",
                         "name": name,
                         "nickname": nickname,
-                        "head_id": head_id,
-                        "fight_id": head_id,
+                        "head_id": portrait_id,
+                        "fight_id": fight_id,
                         "name_in_pool": name in used_names,
-                        "head_id_in_pool": head_id in used_head_ids,
-                        "fight_id_in_pool": head_id in used_head_ids,
+                        "head_id_in_pool": portrait_id in used_head_ids,
+                        "fight_id_in_pool": fight_id in used_head_ids,
                         "head_hash_in_pool": head_hash in pool_head_hashes,
                         "fight_hash_in_pool": fight_hash in pool_fight_hashes,
                     }

@@ -87,6 +87,7 @@ enum class EffectType
     ShieldOnAllyDeath,
     DamageImmunityAfterFrames,
     AutoUltimateAfterFrames,
+    UltimateExtraProjectiles,
     BlockFirstHits,
     GoldCoefficient,
 };
@@ -180,6 +181,7 @@ struct RoleComboState
     int damageImmunityAfterFrames = 0;
     int damageImmunityDuration = 0;
     int autoUltimateAfterFrames = 0;
+    int ultimateExtraProjectiles = 0;
     int blockFirstHitsCount = 0;
 
     // Mutable runtime state

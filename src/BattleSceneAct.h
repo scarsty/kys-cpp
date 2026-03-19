@@ -19,6 +19,7 @@ public:
         Pointf Pos;
         Pointf Velocity, Acceleration;
         Role* Attacker = nullptr;         //攻击者
+        Role* PreferredTarget = nullptr;  //优先追踪/命中的目标
         std::map<Role*, int> Defender;    //每人只能被一个特效击中一次
         Magic* UsingMagic = nullptr;
         Item* UsingHiddenWeapon = nullptr;

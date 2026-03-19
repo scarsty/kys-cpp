@@ -75,7 +75,9 @@ public:
         const std::vector<KysChess::ActiveCombo>& enemyCombos,
         int musicId,
         const std::vector<int>& enemyWeapons = {},
-        const std::vector<int>& enemyArmors = {});
+        const std::vector<int>& enemyArmors = {},
+        const std::vector<int>& allyWeapons = {},
+        const std::vector<int>& allyArmors = {});
 
     void setupPostBattle(
         const std::deque<Role>& allyBattleCopies,

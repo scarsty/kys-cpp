@@ -46,6 +46,13 @@ protected:
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate);
+    int getUltimateExtraProjectileCount(Role* r) const;
+    void spawnTrackingProjectileSpread(const AttackEffect& prototype,
+                                       int projectileCount,
+                                       int initialFrame = 0,
+                                       int frameStep = 0,
+                                       int randomFrameRange = 0);
+    void spawnUltimateExtraProjectiles(const AttackEffect& prototype, int extraCount);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1) override;
@@ -65,6 +72,8 @@ public:
     const std::deque<Role>& getFriendsObj() const { return friends_obj_; }
     const std::deque<Role>& getEnemiesObj() const { return enemies_obj_; }
     void setEnemyStars(const std::vector<int>& stars) { enemy_stars_ = stars; }
+    void setTeammateWeapons(const std::vector<int>& weapons) { teammate_weapons_ = weapons; }
+    void setTeammateArmors(const std::vector<int>& armors) { teammate_armors_ = armors; }
     void setEnemyWeapons(const std::vector<int>& weapons) { enemy_weapons_ = weapons; }
     void setEnemyArmors(const std::vector<int>& armors) { enemy_armors_ = armors; }
     void setCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { clone_spawn_positions_ = positions; }
@@ -82,6 +91,8 @@ protected:
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;
+    std::vector<int> teammate_weapons_;
+    std::vector<int> teammate_armors_;
     std::vector<int> enemy_weapons_;
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;

@@ -77,7 +77,8 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
             for (const auto& eNode : effNode)
             {
                 ComboEffect eff;
-                if (ChessBattleEffects::parseEffect(eNode, eff, def.name))
+                auto effectContext = std::format("内功「{}」效果#{}", def.name, def.effects.size() + 1);
+                if (ChessBattleEffects::parseEffect(eNode, eff, effectContext))
                     def.effects.push_back(eff);
             }
         }

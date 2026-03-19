@@ -2,6 +2,7 @@
 #include "yaml-cpp/yaml.h"
 
 #include <algorithm>
+#include <format>
 #include <print>
 
 namespace KysChess
@@ -44,6 +45,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"攻击倾城", EffectType::OffensiveCharm}, {"攻击冷却延长", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
     {"护盾爆炸", EffectType::ShieldExplosion}, {"护盾重获", EffectType::ShieldOnAllyDeath},
     {"周期免伤", EffectType::DamageImmunityAfterFrames}, {"周期绝招", EffectType::AutoUltimateAfterFrames},
+    {"绝招追加弹", EffectType::UltimateExtraProjectiles},
     {"初次格挡", EffectType::BlockFirstHits},
     {"金币加成", EffectType::GoldCoefficient},
 };
@@ -63,31 +65,92 @@ const std::map<std::string, EffectType>& ChessBattleEffects::getEffectTypeMap()
 
 bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context)
 {
-    auto typeName = eNode["类型"].as<std::string>();
-    auto etIt = effectTypeMap.find(typeName);
-    if (etIt == effectTypeMap.end())
-    {
-        std::print("【效果配置】「{}」效果类型「{}」无法识别\n", context, typeName);
+    auto mark = eNode.Mark();
+    auto fail = [&](const std::string& msg) {
+        if (!mark.is_null())
+            std::print("【效果配置】「{}」(第{}行，第{}列) {}\n", context, mark.line + 1, mark.column + 1, msg);
+        else
+            std::print("【效果配置】「{}」{}\n", context, msg);
         return false;
-    }
-    out.type = etIt->second;
-    out.value = eNode["数值"].as<int>();
-    if (eNode["附加参数"]) out.value2 = eNode["附加参数"].as<int>();
-    if (eNode["触发"])
-    {
-        auto trigName = eNode["触发"].as<std::string>();
-        auto trIt = triggerMap.find(trigName);
-        if (trIt == triggerMap.end())
+    };
+
+    auto readString = [&](const char* key, std::string& dst, bool required) {
+        auto node = eNode[key];
+        if (!node)
+            return !required ? true : fail(std::format("缺少「{}」字段", key));
+        try
         {
-            std::print("【效果配置】「{}」触发类型「{}」无法识别\n", context, trigName);
-            return false;
+            dst = node.as<std::string>();
+            return true;
         }
-        out.trigger = trIt->second;
-        if (eNode["触发参数"]) out.triggerValue = eNode["触发参数"].as<int>();
-        if (eNode["持续帧数"]) out.duration = eNode["持续帧数"].as<int>();
+        catch (const YAML::Exception& ex)
+        {
+            return fail(std::format("「{}」字段不是有效字符串: {}", key, ex.what()));
+        }
+    };
+
+    auto readInt = [&](const char* key, int& dst, bool required) {
+        auto node = eNode[key];
+        if (!node)
+            return !required ? true : fail(std::format("缺少「{}」字段", key));
+        try
+        {
+            dst = node.as<int>();
+            return true;
+        }
+        catch (const YAML::Exception& ex)
+        {
+            return fail(std::format("「{}」字段不是有效整数: {}", key, ex.what()));
+        }
+    };
+
+    if (!eNode || !eNode.IsMap())
+        return fail("效果节点必须是映射表");
+
+    try
+    {
+        out = {};
+
+        std::string typeName;
+        if (!readString("类型", typeName, true))
+            return false;
+
+        auto etIt = effectTypeMap.find(typeName);
+        if (etIt == effectTypeMap.end())
+            return fail(std::format("效果类型「{}」无法识别", typeName));
+
+        out.type = etIt->second;
+        if (!readInt("数值", out.value, true))
+            return false;
+        if (!readInt("附加参数", out.value2, false))
+            return false;
+
+        if (eNode["触发"])
+        {
+            std::string trigName;
+            if (!readString("触发", trigName, true))
+                return false;
+
+            auto trIt = triggerMap.find(trigName);
+            if (trIt == triggerMap.end())
+                return fail(std::format("触发类型「{}」无法识别", trigName));
+
+            out.trigger = trIt->second;
+            if (!readInt("触发参数", out.triggerValue, false))
+                return false;
+            if (!readInt("持续帧数", out.duration, false))
+                return false;
+        }
+
+        if (!readInt("次数", out.maxCount, false))
+            return false;
+
+        return true;
     }
-    if (eNode["次数"]) out.maxCount = eNode["次数"].as<int>();
-    return true;
+    catch (const YAML::Exception& ex)
+    {
+        return fail(std::format("解析效果时发生 YAML 异常: {}", ex.what()));
+    }
 }
 
 void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
@@ -193,6 +256,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.damageImmunityDuration = e.value2;
         break;
     case EffectType::AutoUltimateAfterFrames: s.autoUltimateAfterFrames = e.value; break;
+    case EffectType::UltimateExtraProjectiles: s.ultimateExtraProjectiles += e.value; break;
     case EffectType::BlockFirstHits: s.blockFirstHitsCount = e.value; break;
     case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
     }

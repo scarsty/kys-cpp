@@ -18,7 +18,7 @@ void Button::dealEvent(EngineEvent& e)
     result_ = -1;
     if (e.type == EVENT_MOUSE_BUTTON_UP)
     {
-        if (inSide(e.motion.x, e.motion.y))
+        if (inSide(e.button.x, e.button.y))
         {
             result_ = 0;
         }

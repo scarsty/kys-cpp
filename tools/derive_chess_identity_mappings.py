@@ -151,6 +151,7 @@ def build_role_report(role: dict[str, Any], yrjh_rows: dict[str, list[dict[str, 
         candidate_codes.add(row["portrait_code"])
         candidate_codes.add(row["fight_code"])
     for row in jsg:
+        candidate_codes.add(row["record_id"])
         candidate_codes.add(row["head_id"])
 
     facts: list[str] = []
@@ -161,8 +162,12 @@ def build_role_report(role: dict[str, Any], yrjh_rows: dict[str, list[dict[str, 
         else:
             facts.append(f"人在江湖拆分: 头像={row['portrait_code']} 战斗={row['fight_code']}")
     if jsg:
-        head_ids = sorted({row["head_id"] for row in jsg})
-        facts.append("金书HeadID=" + "/".join(str(v) for v in head_ids))
+        portrait_ids = sorted({row["record_id"] for row in jsg})
+        fight_ids = sorted({row["head_id"] for row in jsg})
+        if portrait_ids == fight_ids:
+            facts.append("金书单键ID=" + "/".join(str(v) for v in portrait_ids))
+        else:
+            facts.append("金书拆分: 头像=" + "/".join(str(v) for v in portrait_ids) + " 战斗=" + "/".join(str(v) for v in fight_ids))
     if current_head in candidate_codes:
         facts.append("当前HeadID命中外部来源")
     else:

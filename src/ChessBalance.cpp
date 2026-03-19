@@ -11,6 +11,60 @@
 namespace KysChess
 {
 
+bool parseBattlePieceNode(const YAML::Node& node, BattlePieceDef& out, const std::string& context)
+{
+    auto mark = node.Mark();
+    auto fail = [&](const std::string& msg) {
+        if (!mark.is_null())
+            std::print("【棋子配置】「{}」(第{}行，第{}列) {}\n", context, mark.line + 1, mark.column + 1, msg);
+        else
+            std::print("【棋子配置】「{}」{}\n", context, msg);
+        return false;
+    };
+
+    if (!node)
+        return fail("棋子节点为空");
+
+    if (node.IsSequence())
+    {
+        if (node.size() < 2)
+            return fail("数组写法至少需要 [角色ID, 星级]");
+
+        try
+        {
+            out.roleId = node[0].as<int>();
+            out.star = node[1].as<int>();
+            if (node.size() > 2) out.weaponId = node[2].as<int>();
+            if (node.size() > 3) out.armorId = node[3].as<int>();
+            return true;
+        }
+        catch (const YAML::Exception& ex)
+        {
+            return fail(std::format("数组写法解析失败: {}", ex.what()));
+        }
+    }
+
+    if (!node.IsMap())
+        return fail("棋子节点必须是数组或映射表");
+
+    auto roleNode = node["角色ID"] ? node["角色ID"] : node["角色"];
+    if (!roleNode)
+        return fail("缺少「角色ID」字段");
+
+    try
+    {
+        out.roleId = roleNode.as<int>();
+        if (node["星级"]) out.star = node["星级"].as<int>();
+        if (node["武器"]) out.weaponId = node["武器"].as<int>();
+        if (node["防具"]) out.armorId = node["防具"].as<int>();
+        return true;
+    }
+    catch (const YAML::Exception& ex)
+    {
+        return fail(std::format("映射写法解析失败: {}", ex.what()));
+    }
+}
+
 bool ChessBalance::loadConfig(const std::string& path)
 {
     YAML::Node root;
@@ -112,22 +166,11 @@ bool ChessBalance::loadConfig(const std::string& path)
                 if (entry["描述"]) def.description = Font::getInstance()->S2T(entry["描述"].as<std::string>());
                 for (const auto& e : entry["敌人"])
                 {
-                    int roleId, star, weaponId = -1, armorId = -1;
-                    if (e.IsSequence())
-                    {
-                        roleId = e[0].as<int>();
-                        star = e[1].as<int>();
-                        if (e.size() > 2) weaponId = e[2].as<int>();
-                        if (e.size() > 3) armorId = e[3].as<int>();
-                    }
-                    else
-                    {
-                        roleId = e["角色ID"].as<int>();
-                        star = e["星级"].as<int>();
-                        if (e["武器"]) weaponId = e["武器"].as<int>();
-                        if (e["防具"]) armorId = e["防具"].as<int>();
-                    }
-                    def.enemies.push_back({roleId, star, weaponId, armorId});
+                    BattlePieceDef piece;
+                    auto pieceContext = std::format("远征挑战「{}」敌人#{}", def.name, def.enemies.size() + 1);
+                    if (!parseBattlePieceNode(e, piece, pieceContext))
+                        return false;
+                    def.enemies.push_back(piece);
                 }
                 if (entry["奖励"])
                 {

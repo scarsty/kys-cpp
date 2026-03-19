@@ -71,15 +71,45 @@ Console::Console()
 
         // Parse config
         DynamicBattleRoles roles;
-        for (const auto& a : cfg["我方"])
+        auto loadTeam = [&](const YAML::Node& teamNode, bool isEnemy, const char* teamLabel) {
+            if (!teamNode || !teamNode.IsSequence())
+            {
+                std::print("【测试】「{}」必须是棋子列表\n", teamLabel);
+                return false;
+            }
+
+            for (const auto& entry : teamNode)
+            {
+                KysChess::BattlePieceDef piece;
+                auto context = std::format("测试配置{}棋子#{}", teamLabel, isEnemy ? roles.enemy_ids.size() + 1 : roles.teammate_ids.size() + 1);
+                if (!KysChess::parseBattlePieceNode(entry, piece, context))
+                    return false;
+
+                if (isEnemy)
+                {
+                    roles.enemy_ids.push_back(piece.roleId);
+                    roles.enemy_stars.push_back(piece.star);
+                    roles.enemy_weapons.push_back(piece.weaponId);
+                    roles.enemy_armors.push_back(piece.armorId);
+                }
+                else
+                {
+                    roles.teammate_ids.push_back(piece.roleId);
+                    roles.teammate_stars.push_back(piece.star);
+                    roles.teammate_weapons.push_back(piece.weaponId);
+                    roles.teammate_armors.push_back(piece.armorId);
+                }
+            }
+            return true;
+        };
+
+        if (!loadTeam(cfg["我方"], false, "我方"))
         {
-            roles.teammate_ids.push_back(a["角色"].as<int>());
-            roles.teammate_stars.push_back(a["星级"].as<int>(1));
+            return;
         }
-        for (const auto& e : cfg["敌方"])
+        if (!loadTeam(cfg["敌方"], true, "敌方"))
         {
-            roles.enemy_ids.push_back(e["角色"].as<int>());
-            roles.enemy_stars.push_back(e["星级"].as<int>(1));
+            return;
         }
         int battle_id = cfg["战场ID"].as<int>(-1);
         int seed = cfg["随机种子"].as<int>(-1);

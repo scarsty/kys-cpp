@@ -36,7 +36,7 @@ set(EM_SDL_FLAGS
 
 # Compile flags
 add_compile_options(
-    -O2
+    -O3
     -DNDEBUG
     -pthread
     ${EM_SDL_FLAGS}
@@ -61,6 +61,7 @@ target_link_libraries(kyschess
 )
 # Emscripten-specific link flags
 set(EM_LINK_FLAGS
+    "-O3"
     "${EM_SDL_FLAGS}"
     "-pthread"
     "-sPROXY_TO_PTHREAD"
@@ -70,7 +71,7 @@ set(EM_LINK_FLAGS
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"
     "-lfetchfs.js"
-    "-sASSERTIONS=1"
+    "-sASSERTIONS=0"
     "-fexceptions"
     "--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
     "-sEXPORTED_RUNTIME_METHODS=['ccall']"

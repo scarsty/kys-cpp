@@ -18,6 +18,8 @@ struct ExtendedTeammateInfo
     int Y;
     int star = 1;
     int chessInstanceId = -1;
+    int weaponId = -1;
+    int armorId = -1;
 };
 
 class BattleScene : public Scene

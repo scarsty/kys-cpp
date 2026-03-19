@@ -121,9 +121,10 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     checkGameControllers();
 
     int num_touch = 0;
-    SDL_GetTouchDevices(&num_touch);
+    auto touch_devices = SDL_GetTouchDevices(&num_touch);
 
     std::print("Found {} touch(es)\n", num_touch);
+    SDL_free(touch_devices);
 
     rect_ = { 0, 0, ui_w_, ui_h_ };
 

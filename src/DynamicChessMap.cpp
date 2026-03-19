@@ -68,12 +68,16 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(
         info.Y = all_positions[i].second;
         info.star = (i < roles.teammate_stars.size()) ? roles.teammate_stars[i] : 1;
         info.chessInstanceId = (i < roles.teammate_instances.size()) ? roles.teammate_instances[i] : -1;
+        info.weaponId = (i < roles.teammate_weapons.size()) ? roles.teammate_weapons[i] : -1;
+        info.armorId = (i < roles.teammate_armors.size()) ? roles.teammate_armors[i] : -1;
         teammates.push_back(info);
     }
 
     battle->setExtendedBattleInfo(teammates);
     battle->setCloneSpawnPositions(selected_map.clone_positions);
     battle->setEnemyStars(roles.enemy_stars);
+    battle->setTeammateWeapons(roles.teammate_weapons);
+    battle->setTeammateArmors(roles.teammate_armors);
     battle->setEnemyWeapons(roles.enemy_weapons);
     battle->setEnemyArmors(roles.enemy_armors);
 

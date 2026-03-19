@@ -6,10 +6,23 @@
 #include <string>
 #include <vector>
 
+namespace YAML
+{
+class Node;
+}
+
 namespace KysChess
 {
 
 enum class Difficulty { Easy, Normal };
+
+struct BattlePieceDef
+{
+    int roleId = -1;
+    int star = 1;
+    int weaponId = -1;
+    int armorId = -1;
+};
 
 struct BalanceConfig
 {
@@ -81,7 +94,7 @@ struct BalanceConfig
     // Expedition challenges
     enum class ChallengeRewardType { Gold, GetPiece, GetNeigong, StarUp1to2, StarUp2to3, GetEquipment, GetSpecificEquipment };
     struct ChallengeReward { ChallengeRewardType type; int value = 0; int value2 = 0; };
-    struct ChallengeEnemy { int roleId; int star; int weaponId = -1; int armorId = -1; };
+    using ChallengeEnemy = BattlePieceDef;
     struct ChallengeDef
     {
         std::string name;
@@ -105,5 +118,7 @@ private:
     static inline Difficulty difficulty_ = Difficulty::Easy;
     static inline bool loaded_ = false;
 };
+
+bool parseBattlePieceNode(const YAML::Node& node, BattlePieceDef& out, const std::string& context);
 
 }    // namespace KysChess

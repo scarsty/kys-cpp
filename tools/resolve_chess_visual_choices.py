@@ -45,7 +45,54 @@ OUTPUT_JSON = ROOT / "output" / "chess_visual_choices.json"
 OUTPUT_MD = ROOT / "output" / "chess_visual_choices.md"
 
 TARGET_CONFIG: dict[int, dict[str, Any]] = {
+    27: {
+        "target_head_id": 27,
+    },
+    29: {
+        "target_head_id": 29,
+    },
+    112: {
+        "target_head_id": 112,
+    },
+    113: {
+        "target_head_id": 113,
+    },
+    115: {
+        "target_head_id": 115,
+    },
+    116: {
+        "target_head_id": 116,
+    },
+    117: {
+        "target_head_id": 117,
+    },
     132: {},
+    160: {
+        "target_head_id": 160,
+    },
+    589: {
+        "target_head_id": 589,
+    },
+    600: {
+        "target_head_id": 600,
+        "head_from": "yrjh",
+        "fight_from": "jsg",
+        "substitute_note": "保留人在江湖头像，改用金书战斗资源以消除重复战斗帧",
+    },
+    603: {
+        "target_head_id": 603,
+    },
+    610: {
+        "target_head_id": 610,
+        "head_from": "yrjh",
+        "fight_from": "jsg",
+        "substitute_note": "保留人在江湖头像，改用金书战斗资源以消除重复战斗帧",
+    },
+    611: {
+        "substitute_name": "玄澄",
+        "substitute_note": "金书按记录号取头像、按头像代号取战斗资源",
+        "target_head_id": 611,
+    },
 }
 
 
@@ -180,15 +227,15 @@ def make_yrjh_asset(display_name: str, head_id: int, fight_id: int, note: str = 
     )
 
 
-def make_jsg_asset(display_name: str, head_id: int, note: str = "") -> SourceAsset:
-    fight_path = find_fight_zip(JSG_FIGHT_DIR, head_id)
-    head_bytes = load_jsg_head_bytes(head_id)
+def make_jsg_asset(display_name: str, portrait_id: int, fight_id: int, note: str = "") -> SourceAsset:
+    fight_path = find_fight_zip(JSG_FIGHT_DIR, fight_id)
+    head_bytes = load_jsg_head_bytes(portrait_id)
     fight_bytes = load_file_bytes(fight_path)
     return SourceAsset(
         source="金书",
         display_name=display_name,
-        head_id=head_id,
-        fight_id=head_id,
+        head_id=portrait_id,
+        fight_id=fight_id,
         head_exists=head_bytes is not None,
         fight_exists=fight_bytes is not None,
         head_hash=image_hash_from_bytes(head_bytes) if head_bytes is not None else None,
@@ -200,6 +247,29 @@ def make_jsg_asset(display_name: str, head_id: int, note: str = "") -> SourceAss
     )
 
 
+def compose_asset(display_name: str, head_asset: SourceAsset, fight_asset: SourceAsset) -> SourceAsset:
+    if head_asset.head_bytes is None:
+        raise RuntimeError(f"{head_asset.source} 缺少可用头像资源")
+    if fight_asset.fight_bytes is None:
+        raise RuntimeError(f"{fight_asset.source} 缺少可用战斗资源")
+    source = head_asset.source if head_asset.source == fight_asset.source else f"{head_asset.source}+{fight_asset.source}"
+    note_parts = [part for part in (head_asset.note, fight_asset.note) if part]
+    return SourceAsset(
+        source=source,
+        display_name=display_name,
+        head_id=head_asset.head_id,
+        fight_id=fight_asset.fight_id,
+        head_exists=True,
+        fight_exists=True,
+        head_hash=head_asset.head_hash,
+        fight_hash=fight_asset.fight_hash,
+        fight_png_count=fight_asset.fight_png_count,
+        head_bytes=head_asset.head_bytes,
+        fight_bytes=fight_asset.fight_bytes,
+        note="；".join(dict.fromkeys(note_parts)),
+    )
+
+
 def pick_yrjh_row(name: str, yrjh_rows: dict[str, list[dict[str, Any]]]) -> dict[str, Any] | None:
     rows = yrjh_rows.get(name, []) or yrjh_rows.get(to_simplified(name), [])
     unique = dedupe_rows(rows, ("portrait_code", "fight_code"))
@@ -207,7 +277,7 @@ def pick_yrjh_row(name: str, yrjh_rows: dict[str, list[dict[str, Any]]]) -> dict
 
 
 def pick_jsg_row(name: str, jsg_rows: dict[str, list[dict[str, Any]]]) -> dict[str, Any] | None:
-    rows = dedupe_rows(jsg_rows.get(name, []), ("head_id",))
+    rows = dedupe_rows(jsg_rows.get(name, []), ("record_id", "head_id"))
     return rows[0] if rows else None
 
 
@@ -288,15 +358,38 @@ def build_choice(role: dict[str, Any], yrjh_rows: dict[str, list[dict[str, Any]]
     jsg_asset = None
     if jsg_row is not None:
         extra_note = substitute_note if substitute_note else ""
-        jsg_asset = make_jsg_asset(source_name, int(jsg_row["head_id"]), extra_note)
+        jsg_asset = make_jsg_asset(source_name, int(jsg_row["record_id"]), int(jsg_row["head_id"]), extra_note)
 
-    chosen, reason, same_head, same_fight = choose_asset(yrjh_asset, jsg_asset)
+    assets_by_key = {
+        "yrjh": yrjh_asset,
+        "jsg": jsg_asset,
+    }
+    default_choice, reason, same_head, same_fight = choose_asset(yrjh_asset, jsg_asset)
+    head_from = cfg.get("head_from")
+    fight_from = cfg.get("fight_from")
+    chosen = default_choice
+    if head_from or fight_from:
+        head_asset = assets_by_key.get(str(head_from)) if head_from else default_choice
+        fight_asset = assets_by_key.get(str(fight_from)) if fight_from else default_choice
+        if head_asset is None:
+            raise RuntimeError(f"角色 {name} 缺少 {head_from} 头像来源")
+        if fight_asset is None:
+            raise RuntimeError(f"角色 {name} 缺少 {fight_from} 战斗来源")
+        chosen = compose_asset(source_name, head_asset, fight_asset)
+        reasons: list[str] = []
+        if head_from:
+            reasons.append(f"头像强制采用{head_asset.source}")
+        if fight_from:
+            reasons.append(f"战斗强制采用{fight_asset.source}")
+        reason = "；".join(reasons)
 
     notes: list[str] = []
     if substitute_note:
         notes.append(substitute_note)
     if yrjh_asset is not None and yrjh_asset.head_id != yrjh_asset.fight_id:
         notes.append(f"人在江湖拆头身: 头像 {yrjh_asset.head_id}, 战斗 {yrjh_asset.fight_id}")
+    if jsg_asset is not None and jsg_asset.head_id != jsg_asset.fight_id:
+        notes.append(f"金书拆头身: 头像 {jsg_asset.head_id}, 战斗 {jsg_asset.fight_id}")
     if target_head_id != current_head_id:
         notes.append(f"当前头ID冲突，改用独占目标ID {target_head_id}")
 
@@ -376,6 +469,7 @@ def json_ready(choices: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def write_markdown(choices: list[dict[str, Any]]) -> None:
+    OUTPUT_MD.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "# Chess Visual Choices",
         "",
@@ -412,6 +506,7 @@ def main() -> int:
         for choice in choices:
             apply_choice(choice)
 
+    OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_JSON.write_text(json.dumps({"choices": json_ready(choices)}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     write_markdown(json_ready(choices))
     print(OUTPUT_JSON)
