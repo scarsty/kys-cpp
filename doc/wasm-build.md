@@ -62,9 +62,12 @@ vcpkg install sqlite3:wasm32-emscripten
 vcpkg install yaml-cpp:wasm32-emscripten
 vcpkg install "libzip[core,bzip2]:wasm32-emscripten"
 vcpkg install glaze:wasm32-emscripten
+vcpkg install "imgui[sdl3-binding,sdl3-renderer-binding]:wasm32-emscripten"
 ```
 
 > **Note**: Install libzip with `[core,bzip2]` only — the default openssl feature fails to build for WASM.
+
+`imgui` now comes from vcpkg for both the native and wasm builds, so the project no longer needs a copied `third_party/imgui` tree.
 
 ## Step 3: Build SDL3_image from source
 
@@ -306,10 +309,10 @@ emcmake cmake .. \
 emmake ninja
 ```
 
-Or use the provided `rebuild.sh` (adjust paths in the script to match your environment):
+Or use the provided `rebuild.ps1` (adjust paths in the script to match your environment):
 
-```bash
-bash wasm/rebuild.sh
+```powershell
+.\wasm\rebuild.ps1
 ```
 
 ### Output files

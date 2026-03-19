@@ -1,8 +1,8 @@
 #include "ImGuiLayer.h"
 
-#include "../third_party/imgui/imgui.h"
-#include "../third_party/imgui/backends/imgui_impl_sdl3.h"
-#include "../third_party/imgui/backends/imgui_impl_sdlrenderer3.h"
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_sdlrenderer3.h>
 
 #include "SDL3/SDL.h"
 #include "GameUtil.h"
