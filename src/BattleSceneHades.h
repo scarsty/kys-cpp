@@ -107,6 +107,7 @@ protected:
     std::vector<int> enemy_armors_;
     std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
+    std::set<int> execution_popup_roles_;
 
     struct PathInfo {
         std::vector<Pointf> waypoints;

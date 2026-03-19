@@ -145,6 +145,29 @@ bool hasScriptedImpact(const BattleSceneAct::AttackEffect& ae)
     return ae.ScriptedDamage > 0 || ae.ScriptedStunFrames > 0;
 }
 
+bool attackHasExecuteEffect(const BattleSceneAct::AttackEffect& ae)
+{
+    if (!ae.Attacker)
+        return false;
+
+    auto& cs = KysChess::ChessCombo::getActiveStates();
+    auto it = cs.find(ae.Attacker->ID);
+    if (it == cs.end())
+        return false;
+
+    for (auto& effect : it->second.triggeredEffects)
+    {
+        if (effect.trigger == KysChess::Trigger::OnHit
+            && effect.type == KysChess::EffectType::Execute
+            && effect.triggerValue > 0
+            && effect.value > 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void changeRoleMP(Role* r, double delta)
 {
     if (!r) return;
@@ -1167,6 +1190,7 @@ void BattleSceneHades::onEntrance()
 void BattleSceneHades::onExit()
 {
     hurt_flash_timers_.clear();
+    execution_popup_roles_.clear();
 }
 
 class PositionSwapNode : public RunNode
@@ -1777,7 +1801,7 @@ void BattleSceneHades::backRun1()
             }
             //是否打中了敌人
             if (r && !r->HurtFrame
-                && !r->Invincible
+                && (!r->Invincible || attackHasExecuteEffect(ae))
                 && r->Dead == 0
                 && ae.Attacker
                 && r->Team != ae.Attacker->Team
@@ -1907,6 +1931,42 @@ void BattleSceneHades::backRun1()
         }
         return true;
     };
+    auto spawnBasicAttackProjectile = [&](Role* attacker, Role* target) {
+        if (!attacker || !target || attacker->Dead != 0 || target->Dead != 0)
+            return;
+
+        Magic* basicMagic = Save::getInstance()->getMagic(1);
+        if (!basicMagic)
+            return;
+
+        auto direction = target->Pos - attacker->Pos;
+        if (direction.norm() <= 0.01)
+            return;
+
+        direction.normTo(1);
+        attacker->RealTowards = direction;
+        setFaceTowardsNearest(attacker);
+
+        AttackEffect projectile;
+        projectile.Attacker = attacker;
+        projectile.UsingMagic = basicMagic;
+        projectile.PreferredTarget = target;
+        projectile.RequirePreferredTarget = 1;
+        projectile.Track = 1;
+        projectile.IsMain = 0;
+        projectile.OperationType = 0;
+        projectile.setEft(11);
+        projectile.Pos = attacker->Pos + TILE_W * 2.0 * direction;
+        projectile.Velocity = target->Pos - projectile.Pos;
+        if (projectile.Velocity.norm() <= 0.01)
+            projectile.Velocity = direction;
+        projectile.Velocity.normTo(PROJECTILE_SPEED);
+        projectile.TotalFrame = std::max(20,
+            static_cast<int>(std::ceil(EuclidDis(target->Pos, projectile.Pos) / static_cast<double>(PROJECTILE_SPEED))) + 15);
+        projectile.Frame = 0;
+        attack_effects_.push_back(std::move(projectile));
+        Audio::getInstance()->playESound(attacker->ActType);
+    };
     auto tryForcePull = [&](Role* pulled, int pullerTeam, Role* reference, bool executeMode) {
         if (!pulled || !reference || pulled->Dead != 0) return false;
 
@@ -1972,9 +2032,20 @@ void BattleSceneHades::backRun1()
 
             auto& pullState = cs[puller->ID];
             if (executeMode)
+            {
                 pullState.forcePullExecuteUsed = true;
+                spawnBasicAttackProjectile(puller, pulled);
+            }
             else
+            {
                 pullState.forcePullProtectUsed = true;
+                int hpBefore = pulled->HP;
+                int heal = std::max(1, pulled->MaxHP * 10 / 100);
+                pulled->HP = std::min(pulled->MaxHP, pulled->HP + heal);
+                pulled->Invincible = std::max(pulled->Invincible, 5);
+                if (pulled->HP > hpBefore)
+                    addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            }
 
             addFloatingText(pulled, "挪移", {160, 220, 255, 255}, STATUS_TEXT_SIZE);
             return true;
@@ -1990,11 +2061,19 @@ void BattleSceneHades::backRun1()
 
             int hpBefore = r->HP;
             bool isUlt = ultHitRoles_.count(r) > 0;
-            TextEffect te;
-            Color c = isUlt ? Color{255, 215, 0, 255} : (r->Team == 0 ? Color{255, 20, 20, 255} : Color{255, 255, 255, 255});
-            te.set(std::to_string(-hurt), c, r);
-            if (isUlt) te.Size = ULT_DAMAGE_TEXT_SIZE;
-            text_effects_.push_back(std::move(te));
+            bool executedHit = execution_popup_roles_.erase(r->ID) > 0;
+            if (executedHit)
+            {
+                addFloatingText(r, "9999", {255, 136, 48, 255}, ULT_DAMAGE_TEXT_SIZE);
+            }
+            else
+            {
+                TextEffect te;
+                Color c = isUlt ? Color{255, 215, 0, 255} : (r->Team == 0 ? Color{255, 20, 20, 255} : Color{255, 255, 255, 255});
+                te.set(std::to_string(-hurt), c, r);
+                if (isUlt) te.Size = ULT_DAMAGE_TEXT_SIZE;
+                text_effects_.push_back(std::move(te));
+            }
                 AttackEffect ae1;
                 ae1.FollowRole = r;
                 //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
@@ -2111,7 +2190,7 @@ void BattleSceneHades::backRun1()
                         && r->LastAttacker->Dead == 0
                         && r->LastAttacker->Team != r->Team)
                     {
-                        tryForcePull(r->LastAttacker, r->Team, r, false);
+                        tryForcePull(r, r->Team, r, false);
                     }
 
                     if (r->MaxHP > 0
@@ -2935,8 +3014,29 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     {
         return;
     }
+
+    auto& comboStates = KysChess::ChessCombo::getActiveStates();
+    const KysChess::RoleComboState* comboState = nullptr;
+    if (auto it = comboStates.find(r->ID); it != comboStates.end())
+        comboState = &it->second;
+
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
+    constexpr int hpBarWidth = 24;
+    constexpr int hpBarHeight = 3;
+    constexpr int hpBarY = -60;
+
+    auto renderOutline = [&](int bar_x, int bar_y, int width, int height, Color color, int alpha)
+    {
+        Rect top = { bar_x - 1, bar_y - 1, width + 2, 1 };
+        Rect bottom = { bar_x - 1, bar_y + height, width + 2, 1 };
+        Rect left = { bar_x - 1, bar_y, 1, height };
+        Rect right = { bar_x + width, bar_y, 1, height };
+        Engine::getInstance()->renderSquareTexture(&top, color, alpha);
+        Engine::getInstance()->renderSquareTexture(&bottom, color, alpha);
+        Engine::getInstance()->renderSquareTexture(&left, color, alpha);
+        Engine::getInstance()->renderSquareTexture(&right, color, alpha);
+    };
 
     auto renderBar = [&](int bar_y, int cur, int max, Color background_color, Color shadow_color)
     {
@@ -2955,8 +3055,7 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
 
         // Draw outline
-        Rect r0 = { bar_x - 1, bar_y - 1, width + 2, height + 2 };
-        Engine::getInstance()->renderSquareTexture(&r0, outline_color, 128 * alpha);
+        renderOutline(bar_x, bar_y, width, height, outline_color, 128 * alpha);
     };
 
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
@@ -2967,7 +3066,33 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         background_color = { 255, 0, 0, 128 };
     }
 
-    renderBar(y - 60, r->HP, r->MaxHP, background_color, shadow_color);
+    renderBar(y + hpBarY, r->HP, r->MaxHP, background_color, shadow_color);
+
+    if (r->MaxHP > 0 && r->HP > 0)
+    {
+        int bar_x = int(x - hpBarWidth / 2);
+        int bar_y = y + hpBarY;
+        int hpFillWidth = std::clamp(static_cast<int>(std::round(hpBarWidth * (static_cast<double>(r->HP) / r->MaxHP))), 0, hpBarWidth);
+
+        if (comboState && comboState->shield > 0)
+        {
+            int shieldWidth = std::clamp(static_cast<int>(std::round(hpBarWidth * (static_cast<double>(comboState->shield) / r->MaxHP))), 1, hpBarWidth);
+            int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
+            Rect shieldRect = { bar_x, bar_y, visibleShieldWidth, hpBarHeight };
+            int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
+            Engine::getInstance()->renderSquareTexture(&shieldRect, { 70, 140, 255, 255 }, shieldAlpha);
+        }
+
+        bool hasDamageProtection = r->Invincible > 0 || (comboState && comboState->blockFirstHitsRemaining > 0);
+        if (hasDamageProtection)
+        {
+            Color protectionColor = comboState && comboState->blockFirstHitsRemaining > 0
+                ? Color{ 255, 220, 110, 255 }
+                : Color{ 255, 170, 95, 255 };
+            renderOutline(bar_x, bar_y, hpBarWidth, hpBarHeight, protectionColor, 220);
+        }
+    }
+
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
     renderBar(y - 56, r->MP, r->MaxMP, mp_color, mp_shadow_color);
@@ -3097,7 +3222,7 @@ Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
 //前摇
 int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 {
-    int v[4] = { 35, 40, 30, 35 };
+    int v[4] = { 25, 30, 20, 25 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         return v[operation_type];
@@ -3363,6 +3488,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         if (dit != cs.end())
         {
             auto& ds = dit->second;
+            bool invincibleBeforeHit = r->Invincible > 0;
 
             if (!attackerIgnoreDefense)
             {
@@ -3434,13 +3560,43 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 }
             }
 
-            if (!reflectToAttacker && ds.blockChancePct > 0 && rand_.rand() * 100 < ds.blockChancePct)
+            if (!reflectToAttacker && ait != cs.end())
+            {
+                auto& as = ait->second;
+                for (auto& eff : as.triggeredEffects)
+                {
+                    if (eff.trigger != KysChess::Trigger::OnHit || eff.type != KysChess::EffectType::Execute)
+                        continue;
+
+                    int executeChance = eff.triggerValue;
+                    int executeThreshold = eff.value;
+                    if (executeChance <= 0 || executeThreshold <= 0 || hurt <= 0)
+                        continue;
+
+                    int projectedHP = r->HP - r->HurtThisFrame;
+                    if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
+                        projectedHP -= static_cast<int>(hurt);
+                    if (projectedHP * 100 < r->MaxHP * executeThreshold
+                        && rand_.rand() * 100 < executeChance)
+                    {
+                        executed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!executed && invincibleBeforeHit)
+            {
+                hurt = 0;
+            }
+
+            if (!executed && !reflectToAttacker && ds.blockChancePct > 0 && rand_.rand() * 100 < ds.blockChancePct)
             {
                 hurt = 0;
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
             }
 
-            if (!reflectToAttacker && hurt > 0 && ds.blockFirstHitsRemaining > 0)
+            if (!executed && !reflectToAttacker && hurt > 0 && ds.blockFirstHitsRemaining > 0)
             {
                 hurt = 0;
                 ds.blockFirstHitsRemaining--;
@@ -3469,24 +3625,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 if (eff.trigger != KysChess::Trigger::OnHit)
                     continue;
 
-                if (eff.type == KysChess::EffectType::Execute)
-                {
-                    int executeChance = eff.triggerValue;
-                    int executeThreshold = eff.value;
-                    if (executeChance > 0 && executeThreshold > 0)
-                    {
-                        int projectedHP = r->HP - r->HurtThisFrame;
-                        if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
-                            projectedHP -= static_cast<int>(hurt);
-                        if (hurt > 0
-                            && projectedHP * 100 < r->MaxHP * executeThreshold
-                            && rand_.rand() * 100 < executeChance)
-                        {
-                            executed = true;
-                        }
-                    }
-                }
-                else if (eff.type == KysChess::EffectType::MPBlock)
+                if (eff.type == KysChess::EffectType::MPBlock)
                 {
                     int chance = eff.triggerValue;
                     int frames = eff.value;
@@ -3509,7 +3648,10 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     {
         actualTarget->HurtThisFrame += hurt;
         if (!reflectToAttacker && executed)
+        {
             actualTarget->HurtThisFrame = std::max(actualTarget->HurtThisFrame, actualTarget->HP);
+            execution_popup_roles_.insert(actualTarget->ID);
+        }
         std::string skillName = ae.UsingMagic ? std::string(ae.UsingMagic->Name) : "";
         tracker_.recordDamage(actualSource, actualTarget, (int)hurt, skillName, current_frame_);
     }

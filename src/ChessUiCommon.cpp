@@ -78,6 +78,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::PctDEF: desc = compact ? std::format("防+{}%", eff.value) : std::format("防禦+{}%", eff.value); break;
     case EffectType::NegPctDEF: desc = compact ? std::format("防-{}%", eff.value) : std::format("防禦-{}%", eff.value); break;
     case EffectType::FlatDmgReduction: desc = std::format("減傷{}", eff.value); break;
+    case EffectType::FlatDmgIncrease: desc = std::format("增傷{}", eff.value); break;
     case EffectType::BlockChance: desc = std::format("{}%格擋", eff.value); break;
     case EffectType::DodgeChance: desc = std::format("{}%閃避", eff.value); break;
     case EffectType::DodgeThenCrit: desc = "閃避後暴擊"; break;
@@ -125,8 +126,8 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::DeathPrevention: desc = std::format("鎖血並無敵{}幀", eff.value); break;
     case EffectType::ForcePullProtect: desc = "保護挪移"; break;
     case EffectType::ForcePullExecute: desc = "處決挪移"; break;
-    case EffectType::Execute: desc = std::format("{}%斩殺<{}%", eff.triggerValue, eff.value); break;
-    case EffectType::MPBlock: desc = std::format("{}%封内力回復{}幀", eff.triggerValue, eff.value); break;
+    case EffectType::Execute: desc = std::format("斩殺<{}%", eff.value); break;
+    case EffectType::MPBlock: desc = std::format("封内力回復{}幀", eff.value); break;
     case EffectType::CharmCDRDebuff: desc = std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
     case EffectType::OffensiveCharm: desc = std::format("攻擊傾城{}%", eff.value); break;
     case EffectType::DeathAOE: desc = eff.value2 ? std::format("殉爆{}%眩{}幀", eff.value, eff.value2) : std::format("殉爆{}%", eff.value); break;
