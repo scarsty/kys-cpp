@@ -350,11 +350,15 @@ void RunNode::dealEventSelfChilds(bool check_event)
             if (isSpecialEvent(e_temp))
             {
                 e = e_temp;
+                bool consumed_by_imgui = Engine::getInstance()->processImGuiEvent(e);
                 if (use_virtual_stick_)
                 {
                     virtual_stick()->dealEvent(e);
                 }
-                checkStateSelfChilds(e, check_event);
+                if (!consumed_by_imgui)
+                {
+                    checkStateSelfChilds(e, check_event);
+                }
                 if (e.type == EVENT_QUIT
                     || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
                 {
@@ -398,11 +402,15 @@ void RunNode::dealEventSelfChilds(bool check_event)
             LOG("Controllers changed\n");
             Engine::getInstance()->checkGameControllers();
         }
+        bool consumed_by_imgui = Engine::getInstance()->processImGuiEvent(e);
         if (use_virtual_stick_)
         {
             virtual_stick()->dealEvent(e);
         }
-        checkStateSelfChilds(e, check_event);
+        if (!consumed_by_imgui)
+        {
+            checkStateSelfChilds(e, check_event);
+        }
         if (e.type == EVENT_QUIT
             || (e.type == EVENT_WINDOW_CLOSE_REQUESTED))
         {
@@ -512,6 +520,7 @@ void RunNode::present()
         e->resetRenderTimes();
     }
     e->renderMainTextureToWindow();
+    e->renderImGuiOverlay();
     e->renderPresent();
     e->setRenderMainTexture();
 

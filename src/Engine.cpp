@@ -1,5 +1,6 @@
 ﻿#include "Engine.h"
 #include "GameUtil.h"
+#include "ImGuiLayer.h"
 #include "strfunc.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -161,6 +162,11 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     std::print("maximum width and height are: {}, {}\n", max_x_, max_y_);
 
     createMainTexture(SDL_PixelFormat(0), TEXTUREACCESS_TARGET, ui_w_, ui_h_);
+    if (!imgui_)
+    {
+        imgui_ = std::make_unique<ImGuiLayer>();
+    }
+    imgui_->init(window_, renderer_);
     return 0;
 }
 
@@ -552,6 +558,10 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
 
 void Engine::destroy()
 {
+    if (imgui_)
+    {
+        imgui_->shutdown();
+    }
     for (auto& [key, font] : font_cache_)
     {
         TTF_CloseFont(font);
@@ -1081,6 +1091,55 @@ void Engine::renderMainTextureToWindow()
     //v.push_back({ wf, hf });
     //v.push_back({ 0, hf });
     //renderTexture(tex_, v);
+}
+
+bool Engine::processImGuiEvent(const EngineEvent& e) const
+{
+    if (!imgui_)
+    {
+        return false;
+    }
+    return imgui_->processEvent(e);
+}
+
+void Engine::renderImGuiOverlay() const
+{
+    if (!imgui_)
+    {
+        return;
+    }
+
+    int main_texture_w = 0;
+    int main_texture_h = 0;
+    getTextureSize(tex_, main_texture_w, main_texture_h);
+    imgui_->render(window_, renderer_, main_texture_w, main_texture_h, SDL_GetRendererName(renderer_));
+}
+
+void Engine::showBattleLogWindow(const BattleLogData& data) const
+{
+    if (!imgui_)
+    {
+        return;
+    }
+    imgui_->showBattleLog(data);
+}
+
+void Engine::hideBattleLogWindow() const
+{
+    if (!imgui_)
+    {
+        return;
+    }
+    imgui_->hideBattleLog();
+}
+
+bool Engine::isBattleLogWindowOpen() const
+{
+    if (!imgui_)
+    {
+        return false;
+    }
+    return imgui_->isBattleLogOpen();
 }
 
 void Engine::createRenderedTexture(const std::string& name, int w, int h)

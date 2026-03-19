@@ -1,3 +1,6 @@
 [submodule "mlcc"]
 	path = mlcc
 	url = https://github.com/scarsty/mlcc
+[submodule "third_party/imgui"]
+	path = third_party/imgui
+	url = https://github.com/ocornut/imgui.git
