@@ -158,11 +158,13 @@ void ImGuiLayer::showBattleLog(const BattleLogData& data)
 {
     battle_log_ = data;
     battle_log_.open = true;
+    battle_log_input_guard_frames_ = 10;
 }
 
 void ImGuiLayer::hideBattleLog()
 {
     battle_log_.open = false;
+    battle_log_input_guard_frames_ = 0;
 }
 
 bool ImGuiLayer::isBattleLogOpen() const
@@ -186,6 +188,8 @@ void ImGuiLayer::renderBattleLogWindow()
     const ImVec4 enemy_color = colorU8(245, 165, 155);
     const ImVec4 neutral_line = colorU8(230, 224, 205);
     const ImVec4 system_line = colorU8(241, 220, 118);
+    const ImVec4 skill_color = colorU8(125, 205, 245);
+    const ImVec4 damage_color = colorU8(255, 196, 96);
     const ImVec4 chip_bg = colorU8(92, 96, 59, 150);
     const ImVec4 child_bg = colorU8(30, 34, 27, 88);
     const ImVec4 accent_line = colorU8(166, 152, 82, 90);
@@ -219,6 +223,7 @@ void ImGuiLayer::renderBattleLogWindow()
 
     if (ImGui::Begin("##battle_log", &battle_log_.open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
     {
+        bool allow_close = battle_log_input_guard_frames_ <= 0;
         ImGui::SetWindowFontScale(title_scale);
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
         ImGui::TextUnformatted(battle_log_.title.empty() ? "本次战斗日志" : battle_log_.title.c_str());
@@ -325,25 +330,61 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
         ImGui::TextUnformatted("戰鬥記錄");
         ImGui::PopStyleColor();
-        ImGui::SetWindowFontScale(body_scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        ImGui::TextUnformatted("记录本场关键出手、伤害与击杀。");
-        ImGui::PopStyleColor();
         ImGui::Separator();
         ImGui::BeginChild("battle_log_entries", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
         ImGui::SetWindowFontScale(body_scale);
+        auto colorForField = [&](BattleLogFieldTone tone, BattleLogTone line_tone) -> ImVec4
+        {
+            switch (tone)
+            {
+            case BattleLogFieldTone::AllyName:
+                return ally_color;
+            case BattleLogFieldTone::EnemyName:
+                return enemy_color;
+            case BattleLogFieldTone::SkillName:
+                return skill_color;
+            case BattleLogFieldTone::DamageValue:
+                return damage_color;
+            case BattleLogFieldTone::SystemAccent:
+                return system_line;
+            default:
+                break;
+            }
+            if (line_tone == BattleLogTone::Ally) return neutral_line;
+            if (line_tone == BattleLogTone::Enemy) return neutral_line;
+            if (line_tone == BattleLogTone::System) return system_line;
+            return neutral_line;
+        };
         for (const auto& entry : battle_log_.entries)
         {
             ImVec4 line_color = neutral_line;
             if (entry.tone == BattleLogTone::Ally) line_color = ally_color;
             if (entry.tone == BattleLogTone::Enemy) line_color = enemy_color;
             if (entry.tone == BattleLogTone::System) line_color = system_line;
-            ImGui::PushStyleColor(ImGuiCol_Text, line_color);
             ImGui::Bullet();
-            ImGui::SameLine();
-            ImGui::TextWrapped("%s", entry.text.c_str());
+            if (!entry.segments.empty())
+            {
+                ImGui::SameLine();
+                for (int i = 0; i < (int)entry.segments.size(); ++i)
+                {
+                    const auto& seg = entry.segments[i];
+                    ImGui::PushStyleColor(ImGuiCol_Text, colorForField(seg.tone, entry.tone));
+                    ImGui::TextUnformatted(seg.text.c_str());
+                    ImGui::PopStyleColor();
+                    if (i + 1 < (int)entry.segments.size())
+                    {
+                        ImGui::SameLine(0.0f, 0.0f);
+                    }
+                }
+            }
+            else
+            {
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, line_color);
+                ImGui::TextWrapped("%s", entry.text.c_str());
+                ImGui::PopStyleColor();
+            }
             ImGui::Spacing();
-            ImGui::PopStyleColor();
         }
         ImGui::EndChild();
         ImGui::EndChild();
@@ -410,9 +451,17 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colorU8(67, 78, 39, 230));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, colorU8(88, 98, 50, 230));
         ImGui::SetWindowFontScale(body_scale);
-        if (ImGui::Button("继续", ImVec2(button_w, 0.0f)))
+        if (!allow_close)
+        {
+            ImGui::BeginDisabled();
+        }
+        if (ImGui::Button("继续", ImVec2(button_w, 0.0f)) && allow_close)
         {
             battle_log_.open = false;
+        }
+        if (!allow_close)
+        {
+            ImGui::EndDisabled();
         }
         ImGui::PopStyleColor(3);
         ImGui::SetWindowFontScale(1.0f);
@@ -420,4 +469,9 @@ void ImGuiLayer::renderBattleLogWindow()
     ImGui::End();
     ImGui::PopStyleColor(6);
     ImGui::PopStyleVar(3);
+
+    if (battle_log_input_guard_frames_ > 0)
+    {
+        battle_log_input_guard_frames_--;
+    }
 }

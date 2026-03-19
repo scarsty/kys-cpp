@@ -28,10 +28,27 @@ enum class BattleLogTone
     System
 };
 
+enum class BattleLogFieldTone
+{
+    Default,
+    AllyName,
+    EnemyName,
+    SkillName,
+    DamageValue,
+    SystemAccent
+};
+
+struct BattleLogSegment
+{
+    std::string text;
+    BattleLogFieldTone tone = BattleLogFieldTone::Default;
+};
+
 struct BattleLogLine
 {
     std::string text;
     BattleLogTone tone = BattleLogTone::Neutral;
+    std::vector<BattleLogSegment> segments;
 };
 
 struct BattleLogData
@@ -67,5 +84,6 @@ private:
     bool visible_ = false;
     bool show_demo_window_ = false;
     bool show_metrics_window_ = false;
+    int battle_log_input_guard_frames_ = 0;
     BattleLogData battle_log_;
 };
