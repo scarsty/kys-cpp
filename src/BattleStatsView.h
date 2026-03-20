@@ -20,19 +20,45 @@ struct RoleBattleStats
     int lastActiveFrame = 0;
 };
 
+enum class BattleLogEventType
+{
+    Damage,
+    Kill,
+    Death,
+    BattleEnd
+};
+
+struct BattleLogEvent
+{
+    BattleLogEventType type = BattleLogEventType::Damage;
+    int frame = 0;
+    int sourceId = -1;
+    int targetId = -1;
+    int sourceTeam = -1;
+    int targetTeam = -1;
+    int value = 0;
+    std::string sourceName;
+    std::string targetName;
+    std::string skillName;
+};
+
 class BattleTracker
 {
 public:
     void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame);
-    void recordKill(Role* killer);
+    void recordKill(Role* killer, Role* victim, int frame);
     void recordDeath(Role* role, int frame);
-    void recordBattleEnd(int frame);
+    void recordBattleEnd(int frame, int battleResult);
     const std::map<int, RoleBattleStats>& getStats() const { return stats_; }
+    const std::vector<BattleLogEvent>& getEvents() const { return events_; }
     int getBattleEndFrame() const { return battleEndFrame_; }
+    int getBattleResult() const { return battleResult_; }
 
 private:
     std::map<int, RoleBattleStats> stats_;
+    std::vector<BattleLogEvent> events_;
     int battleEndFrame_ = 0;
+    int battleResult_ = -1;
 };
 
 class BattleStatsView : public RunNode

@@ -5,9 +5,7 @@ cmake_policy(SET CMP0015 OLD)
 set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG")
-
 find_package(imgui CONFIG REQUIRED)
-
 include_directories(../include . ../mlcc ../others ../local/include /usr/include)
 link_directories(. ../lib)
 
@@ -25,4 +23,4 @@ if (APPLE)
 endif ()
 
 add_executable(kys ${SRC_LIST})
-target_link_libraries(kys ${LINK_LIBRARIES} imgui::imgui)
+target_link_libraries(kys imgui::imgui ${LINK_LIBRARIES})

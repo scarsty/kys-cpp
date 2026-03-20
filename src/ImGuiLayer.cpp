@@ -116,10 +116,6 @@ void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_tex
 
     renderBattleLogWindow();
 
-    if (show_demo_window_)
-    {
-        ImGui::ShowDemoWindow(&show_demo_window_);
-    }
     if (show_metrics_window_)
     {
         ImGui::ShowMetricsWindow(&show_metrics_window_);

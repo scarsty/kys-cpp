@@ -25,6 +25,7 @@ hades
 kys-c++
 .vscode
 .claude
+vcpkg_installed/
 
 wasm/build
 wasm/dist
