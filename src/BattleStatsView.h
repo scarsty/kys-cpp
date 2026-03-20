@@ -23,6 +23,8 @@ struct RoleBattleStats
 enum class BattleLogEventType
 {
     Damage,
+    Heal,
+    Status,
     Kill,
     Death,
     BattleEnd
@@ -40,12 +42,15 @@ struct BattleLogEvent
     std::string sourceName;
     std::string targetName;
     std::string skillName;
+    std::string detailText;
 };
 
 class BattleTracker
 {
 public:
     void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame);
+    void recordHeal(Role* source, Role* target, int amount, const std::string& reason, int frame);
+    void recordStatus(Role* source, Role* target, const std::string& text, int frame);
     void recordKill(Role* killer, Role* victim, int frame);
     void recordDeath(Role* role, int frame);
     void recordBattleEnd(int frame, int battleResult);
@@ -65,13 +70,18 @@ class BattleStatsView : public RunNode
 {
 public:
     BattleStatsView(KysChess::ChessRoleSave& roleSave, KysChess::ChessManager& chessManager)
-        : roleSave_(roleSave), chessManager_(chessManager) {}
+        : roleSave_(roleSave), chessManager_(chessManager)
+    {
+    }
+
+    ~BattleStatsView() override;
 
     struct RoleEntry
     {
         Role* role = nullptr;
         int star = 1;
         int chessInstanceId = -1;
+        int battleId = -1;
         int team = 0;
         int hp = 0, atk = 0, def = 0, spd = 0;
         int weaponId = -1, armorId = -1;
@@ -79,6 +89,9 @@ public:
         int damageDealt = 0, damageTaken = 0, kills = 0, dps = 0, cancelDmg = 0;
         std::string skill1, skill2;
         int skill1Dmg = 0, skill2Dmg = 0;
+        int hpRemaining = 0;
+        int maxHpRemaining = 0;
+        bool dead = false;
     };
 
     struct ComboEntry
@@ -113,6 +126,7 @@ public:
 
     void draw() override;
     void dealEvent(EngineEvent& e) override;
+    void backRun() override;
 
 private:
     KysChess::ChessRoleSave& roleSave_;
@@ -122,10 +136,21 @@ private:
     bool assetsPreloaded_ = false;
     bool loadingTextRendered_ = false;
     int musicId_ = -1;
+    bool postBattleLogShown_ = false;
+    int postBattleLogOpenFrame_ = -1;
+    bool postBattleMouseReleaseArmed_ = false;
+    bool postBattleKeyboardReleaseArmed_ = false;
+    bool postBattleGamepadReleaseArmed_ = false;
+    int battleLogTotalFrames_ = 0;
+    std::vector<BattleLogEvent> battleLogEvents_;
+    Texture* postBattleBackground_ = nullptr;
 
     std::vector<RoleEntry> allies_, enemies_;
     std::vector<ComboEntry> allyCombos_, enemyCombos_;
 
+    void clearPostBattleBackground();
+    void queuePostBattleLogOpen();
+    void showPostBattleLog();
     void drawTeamTable(const std::vector<RoleEntry>& team, int x, int y, int w, const std::string& title, bool showPostBattle);
     void drawComboList(const std::vector<ComboEntry>& combos, int x, int y, int w);
 };

@@ -11,7 +11,6 @@
 #include "Font.h"
 #include "GameUtil.h"
 #include "Head.h"
-#include "ImGuiLayer.h"
 #include "MainScene.h"
 #include "TeamMenu.h"
 #include "Weather.h"
@@ -89,29 +88,6 @@ int getComboLookupId(const Role* r)
     if (!r) return -1;
     if (isSummonedCloneRole(r)) return -1;
     return r->RealID >= 0 ? r->RealID : r->ID;
-}
-
-BattleLogTone teamToBattleLogTone(int team)
-{
-    if (team == 0) return BattleLogTone::Ally;
-    if (team == 1) return BattleLogTone::Enemy;
-    return BattleLogTone::Neutral;
-}
-
-BattleLogFieldTone teamToFieldTone(int team)
-{
-    if (team == 0) return BattleLogFieldTone::AllyName;
-    if (team == 1) return BattleLogFieldTone::EnemyName;
-    return BattleLogFieldTone::Default;
-}
-
-void appendBattleLogSegment(BattleLogLine& line, std::string text, BattleLogFieldTone tone = BattleLogFieldTone::Default)
-{
-    if (text.empty())
-    {
-        return;
-    }
-    line.segments.push_back({std::move(text), tone});
 }
 
 bool roleHasCombo(const Role* r, std::initializer_list<const char*> comboNames)
@@ -341,6 +317,16 @@ void BattleSceneHades::addRoleEffect(Role* role, int eftId, int totalFrames)
     effect.IsMain = 0;
     effect.IgnoreProjectileCancel = 1;
     attack_effects_.push_back(std::move(effect));
+}
+
+void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, const std::string& reason)
+{
+    tracker_.recordHeal(source, target, amount, reason, current_frame_);
+}
+
+void BattleSceneHades::logBattleStatus(Role* source, Role* target, const std::string& text)
+{
+    tracker_.recordStatus(source, target, text, current_frame_);
 }
 
 void BattleSceneHades::draw()
@@ -1220,7 +1206,6 @@ void BattleSceneHades::onExit()
     hurt_flash_timers_.clear();
     execution_popup_roles_.clear();
     Engine::getInstance()->hideBattleLogWindow();
-    battle_log_shown_ = false;
 }
 
 class PositionSwapNode : public RunNode
@@ -1500,6 +1485,7 @@ void BattleSceneHades::backRun1()
                     {
                         r->Invincible = std::max(r->Invincible, s.damageImmunityDuration);
                         s.damageImmunityTimer = s.damageImmunityAfterFrames;
+                        logBattleStatus(r, r, "周期免伤");
                     }
                 }
 
@@ -1515,6 +1501,7 @@ void BattleSceneHades::backRun1()
                         {
                             createSkillAttackEffect(r, magic, true);
                             addFloatingText(r, std::string(magic->Name), {255, 215, 0, 255}, EMPHASIS_TEXT_SIZE);
+                            logBattleStatus(r, nullptr, std::format("自动绝招·{}", magic->Name));
                         }
                         s.autoUltimateTimer = s.autoUltimateAfterFrames;
                     }
@@ -1524,7 +1511,9 @@ void BattleSceneHades::backRun1()
                 if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && current_frame_ % s.hpRegenInterval == 0)
                 {
                     int heal = r->MaxHP * s.hpRegenPct / 100;
+                    int hpBefore = r->HP;
                     r->HP = std::min(r->MaxHP, r->HP + heal);
+                    logBattleHeal(r, r, r->HP - hpBefore, "生命回复");
                 }
 
                 // Heal aura (heal nearby allies)
@@ -1536,7 +1525,9 @@ void BattleSceneHades::backRun1()
                             && EuclidDis(ally->Pos, r->Pos) <= TILE_W * 6)
                         {
                             int heal = ally->MaxHP * s.healAuraPct / 100 + s.healAuraFlat;
+                            int hpBefore = ally->HP;
                             ally->HP = std::min(ally->MaxHP, ally->HP + heal);
+                            logBattleHeal(r, ally, ally->HP - hpBefore, "治疗光环");
                             // HealedATKSPDBoost: reduce cooldown for healed allies
                             if (s.healedATKSPDBoostPct > 0 && ally->CoolDown > 0)
                                 ally->CoolDown = static_cast<int>(ally->CoolDown * (1.0 - s.healedATKSPDBoostPct / 100.0));
@@ -1587,7 +1578,10 @@ void BattleSceneHades::backRun1()
                         int hpBefore = r->HP;
                         r->HP = std::min(r->MaxHP, r->HP + r->MaxHP * te.value / 100);
                         if (r->HP > hpBefore)
+                        {
                             addRoleEffect(r, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                            logBattleHeal(r, r, r->HP - hpBefore, "爆发治疗");
+                        }
                     }
                 }
 
@@ -1759,7 +1753,10 @@ void BattleSceneHades::backRun1()
                                 int hpBefore = ally->HP;
                                 ally->HP = std::min(ally->MaxHP, ally->HP + it->second.onSkillTeamHeal);
                                 if (ally->HP > hpBefore)
+                                {
                                     addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                                    logBattleHeal(r, ally, ally->HP - hpBefore, "技能群疗");
+                                }
                             }
                         }
                     }
@@ -1853,6 +1850,7 @@ void BattleSceneHades::backRun1()
                         {
                             dit->second.dodgedLast = true;
                             addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
+                            logBattleStatus(r, ae.Attacker, "闪避了来袭攻击");
                             ae.Defender[r]++;
                             continue;
                         }
@@ -2065,6 +2063,7 @@ void BattleSceneHades::backRun1()
             {
                 pullState.forcePullExecuteUsed = true;
                 spawnBasicAttackProjectile(puller, pulled);
+                logBattleStatus(puller, pulled, "处决挪移");
             }
             else
             {
@@ -2074,7 +2073,12 @@ void BattleSceneHades::backRun1()
                 pulled->HP = std::min(pulled->MaxHP, pulled->HP + heal);
                 pulled->Invincible += 10;
                 if (pulled->HP > hpBefore)
+                {
                     addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                    logBattleHeal(puller, pulled, pulled->HP - hpBefore, "保护挪移");
+                }
+                logBattleStatus(puller, pulled, "保护挪移");
+                logBattleStatus(puller, pulled, "短暂无敌");
             }
 
             addFloatingText(pulled, "挪移", {160, 220, 255, 255}, STATUS_TEXT_SIZE);
@@ -2094,7 +2098,7 @@ void BattleSceneHades::backRun1()
             bool executedHit = execution_popup_roles_.erase(r->ID) > 0;
             if (executedHit)
             {
-                addFloatingText(r, "9999", {255, 136, 48, 255}, ULT_DAMAGE_TEXT_SIZE);
+                addFloatingText(r, "處決！", {255, 136, 48, 255}, ULT_DAMAGE_TEXT_SIZE);
             }
             else
             {
@@ -2125,6 +2129,7 @@ void BattleSceneHades::backRun1()
                         r->HP = 1;
                         r->Invincible = std::max(r->Invincible,
                             sit->second.deathPreventionFrames > 0 ? sit->second.deathPreventionFrames : 100);
+                        logBattleStatus(r, r, "死亡庇护");
                     }
                     else
                     {
@@ -2143,10 +2148,17 @@ void BattleSceneHades::backRun1()
                             if (kit != cs.end())
                             {
                                 if (kit->second.killHealPct > 0)
+                                {
+                                    int hpBefore = r->LastAttacker->HP;
                                     r->LastAttacker->HP = std::min(r->LastAttacker->MaxHP,
                                         r->LastAttacker->HP + r->LastAttacker->MaxHP * kit->second.killHealPct / 100);
+                                    logBattleHeal(r->LastAttacker, r->LastAttacker, r->LastAttacker->HP - hpBefore, "击杀回复");
+                                }
                                 if (kit->second.killInvincFrames > 0)
+                                {
                                     r->LastAttacker->Invincible = kit->second.killInvincFrames;
+                                    logBattleStatus(r->LastAttacker, r->LastAttacker, "击杀无敌");
+                                }
                                 // Bloodlust: permanent ATK per kill
                                 if (kit->second.bloodlustATKPerKill > 0)
                                     r->LastAttacker->Attack += kit->second.bloodlustATKPerKill;
@@ -2293,17 +2305,8 @@ void BattleSceneHades::backRun1()
             }
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
             {
-                auto* engine = Engine::getInstance();
-                if (!battle_log_shown_)
-                {
-                    engine->showBattleLogWindow(buildBattleLogData());
-                    battle_log_shown_ = true;
-                }
-                if (!engine->isBattleLogWindowOpen())
-                {
-                    calExpGot();
-                    setExit(true);
-                }
+                calExpGot();
+                setExit(true);
             }
         }
     }
@@ -2366,6 +2369,7 @@ void BattleSceneHades::Action(Role* r)
                         target = findRandomEnemy(r->Team);
                     if (target)
                     {
+                        logBattleStatus(r, target, blinkState.blinkAttackUseWeakest ? "闪击追杀" : "闪击突袭");
                         blinkState.blinkAttackUseWeakest = !blinkState.blinkAttackUseWeakest;
                         auto targetPos45 = pos90To45(target->Pos.x, target->Pos.y);
                         auto currentPos45 = pos90To45(r->Pos.x, r->Pos.y);
@@ -3034,147 +3038,24 @@ void BattleSceneHades::AI(Role* r)
     }
 
     // Print pathfinding stats every 300 frames
-    static int print_counter = 0;
-    if (++print_counter >= 300) {
-        print_counter = 0;
-        for (auto& [role, info] : paths_) {
-            if (role->Team == 0 && !role->Dead) {
-                std::print("Role {} {}: following={} sliding={} stuck={} waypoints={}/{}\n",
-                    role->ID, role->Name.c_str(), info.frames_following, info.frames_sliding,
-                    info.frames_stuck, info.current_waypoint, (int)info.waypoints.size());
-                info.frames_following = 0;
-                info.frames_sliding = 0;
-                info.frames_stuck = 0;
-            }
-        }
-    }
+    // static int print_counter = 0;
+    // if (++print_counter >= 300) {
+    //     print_counter = 0;
+    //     for (auto& [role, info] : paths_) {
+    //         if (role->Team == 0 && !role->Dead) {
+    //             std::print("Role {} {}: following={} sliding={} stuck={} waypoints={}/{}\n",
+    //                 role->ID, role->Name.c_str(), info.frames_following, info.frames_sliding,
+    //                 info.frames_stuck, info.current_waypoint, (int)info.waypoints.size());
+    //             info.frames_following = 0;
+    //             info.frames_sliding = 0;
+    //             info.frames_stuck = 0;
+    //         }
+    //     }
+    // }
 }
 
 void BattleSceneHades::onPressedCancel()
 {
-}
-
-BattleLogData BattleSceneHades::buildBattleLogData() const
-{
-    BattleLogData data;
-    data.title = "本场战斗日志";
-    if (result_ == 0)
-    {
-        data.resultText = "我方胜利";
-    }
-    else if (result_ == 1)
-    {
-        data.resultText = "敌方胜利";
-    }
-    else
-    {
-        data.resultText = "战斗结束";
-    }
-
-    data.totalFrames = tracker_.getBattleEndFrame();
-
-    auto appendRoleRows = [&](const std::deque<Role>& roles, int team, std::vector<BattleLogRoleRow>& rows)
-    {
-        auto& stats = tracker_.getStats();
-        for (const auto& role : roles)
-        {
-            BattleLogRoleRow row;
-            row.name = role.Name;
-            row.team = team;
-            row.cancelDmg = role.CancelDmg;
-            row.hpRemaining = role.HP;
-            row.maxHp = role.MaxHP;
-            row.dead = role.Dead != 0 || role.HP <= 0;
-
-            auto it = stats.find(role.ID);
-            if (it != stats.end())
-            {
-                row.damageDealt = it->second.damageDealt;
-                row.damageTaken = it->second.damageTaken;
-                row.kills = it->second.kills;
-            }
-            rows.push_back(std::move(row));
-        }
-
-        std::sort(rows.begin(), rows.end(), [](const BattleLogRoleRow& a, const BattleLogRoleRow& b)
-        {
-            if (a.damageDealt != b.damageDealt) return a.damageDealt > b.damageDealt;
-            if (a.kills != b.kills) return a.kills > b.kills;
-            return a.name < b.name;
-        });
-    };
-
-    appendRoleRows(friends_obj_, 0, data.allies);
-    appendRoleRows(enemies_obj_, 1, data.enemies);
-
-    auto pushSystemLine = [&](std::string text)
-    {
-        BattleLogLine line;
-        line.tone = BattleLogTone::System;
-        line.text = std::move(text);
-        data.entries.push_back(std::move(line));
-    };
-
-    for (const auto& event : tracker_.getEvents())
-    {
-        BattleLogLine line;
-        switch (event.type)
-        {
-        case BattleLogEventType::Damage:
-            line.tone = teamToBattleLogTone(event.sourceTeam);
-            appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
-            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-            if (!event.skillName.empty())
-            {
-                appendBattleLogSegment(line, " 施放 ");
-                appendBattleLogSegment(line, event.skillName, BattleLogFieldTone::SkillName);
-                appendBattleLogSegment(line, " 命中 ");
-            }
-            else
-            {
-                appendBattleLogSegment(line, " 攻击 ");
-            }
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-            appendBattleLogSegment(line, " ，造成 ");
-            appendBattleLogSegment(line, std::to_string(event.value), BattleLogFieldTone::DamageValue);
-            appendBattleLogSegment(line, " 点伤害");
-            data.entries.push_back(std::move(line));
-            break;
-        case BattleLogEventType::Kill:
-            line.tone = BattleLogTone::System;
-            appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
-            appendBattleLogSegment(line, event.sourceName, teamToFieldTone(event.sourceTeam));
-            appendBattleLogSegment(line, " 击杀了 ");
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-            data.entries.push_back(std::move(line));
-            break;
-        case BattleLogEventType::Death:
-            line.tone = BattleLogTone::System;
-            appendBattleLogSegment(line, std::format("[{:>4}F] ", event.frame), BattleLogFieldTone::SystemAccent);
-            appendBattleLogSegment(line, event.targetName, teamToFieldTone(event.targetTeam));
-            appendBattleLogSegment(line, " 倒下");
-            data.entries.push_back(std::move(line));
-            break;
-        case BattleLogEventType::BattleEnd:
-            pushSystemLine(std::format("[{:>4}F] {}", event.frame, data.resultText));
-            break;
-        }
-    }
-
-    if (data.entries.empty())
-    {
-        pushSystemLine("本场战斗没有产生可记录的伤害事件。");
-    }
-
-    constexpr int kMaxBattleLogEntries = 180;
-    if ((int)data.entries.size() > kMaxBattleLogEntries)
-    {
-        data.omittedEntries = (int)data.entries.size() - kMaxBattleLogEntries;
-        data.entries.erase(data.entries.begin(), data.entries.end() - kMaxBattleLogEntries);
-        pushSystemLine(std::format("已省略较早的 {} 条记录。", data.omittedEntries));
-    }
-
-    return data;
 }
 
 void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
@@ -3594,6 +3475,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             {
                 hurt *= as.critMultiplier / 100.0;
                 addFloatingText(ae.Attacker, "暴击", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
+                logBattleStatus(ae.Attacker, r, "暴击");
             }
 
             // Every-Nth-hit double
@@ -3641,6 +3523,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     {
                         dit->second.poisonTimer = as.poisonDuration;
                         dit->second.poisonTickDmg = as.poisonDOTPct;
+                        logBattleStatus(ae.Attacker, r, "中毒");
                     }
                 }
                 else
@@ -3648,12 +3531,16 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     auto& ds = cs[r->ID];
                     ds.poisonTimer = as.poisonDuration;
                     ds.poisonTickDmg = as.poisonDOTPct;
+                    logBattleStatus(ae.Attacker, r, "中毒");
                 }
             }
 
             // Stun (legacy)
             if (as.stunChancePct > 0 && rand_.rand() * 100 < as.stunChancePct)
+            {
                 applyFrozen(r, as.stunFrames);
+                logBattleStatus(ae.Attacker, r, "眩晕");
+            }
 
             // OnHit triggered effects
             for (auto& eff : as.triggeredEffects)
@@ -3668,6 +3555,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 else if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
                 {
                     applyFrozen(r, eff.value);
+                    logBattleStatus(ae.Attacker, r, "眩晕");
                 }
             }
 
@@ -3738,6 +3626,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
                 {
                     applyFrozen(ae.Attacker, eff.value);
+                    logBattleStatus(r, ae.Attacker, "反制并眩晕了对手");
                 }
             }
 
@@ -3746,6 +3635,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             {
                 reflectToAttacker = true;
                 addFloatingText(r, "弹反", {100, 220, 255, 255}, STATUS_TEXT_SIZE);
+                logBattleStatus(r, ae.Attacker, "弹反了远程攻击");
             }
 
             if (!reflectToAttacker && ds.shield > 0)
@@ -3758,6 +3648,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 {
                     int explosionDmg = std::max(1, shieldBefore * ds.shieldExplosionPct / 100);
                     spawnAreaImpactProjectiles(r, r, 9, 9, KysChess::EFT_SHIELD_BLAST, explosionDmg);
+                    logBattleStatus(r, nullptr, "护盾爆炸");
                 }
             }
 
@@ -3781,6 +3672,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                         && rand_.rand() * 100 < executeChance)
                     {
                         executed = true;
+                        logBattleStatus(ae.Attacker, r, "触发处决");
                         break;
                     }
                 }
@@ -3795,6 +3687,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             {
                 hurt = 0;
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
+                logBattleStatus(r, ae.Attacker, "格挡了本次攻击");
             }
 
             if (!executed && !reflectToAttacker && hurt > 0 && ds.blockFirstHitsRemaining > 0)
@@ -3802,6 +3695,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 hurt = 0;
                 ds.blockFirstHitsRemaining--;
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
+                logBattleStatus(r, ae.Attacker, "格挡了首轮伤害");
             }
 
             if (!reflectToAttacker && ae.UsingMagic && ds.skillReflectPct > 0)
@@ -3819,6 +3713,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 if (ds.bleedTimer <= 0)
                     ds.bleedTimer = 10;
                 ds.bleedPersistFlag = as.bleedPersist;
+                logBattleStatus(ae.Attacker, r, "流血");
             }
 
             for (auto& eff : as.triggeredEffects)
@@ -3831,7 +3726,10 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     int chance = eff.triggerValue;
                     int frames = eff.value;
                     if (chance > 0 && frames > 0 && rand_.rand() * 100 < chance)
+                    {
                         cs[r->ID].mpBlockTimer = std::max(cs[r->ID].mpBlockTimer, frames);
+                        logBattleStatus(ae.Attacker, r, "封内");
+                    }
                 }
             }
         }
@@ -3873,7 +3771,10 @@ void BattleSceneHades::applyScriptedAttackEffect(AttackEffect& ae, Role* r)
         return;
 
     if (ae.ScriptedStunFrames > 0)
+    {
         applyFrozen(r, ae.ScriptedStunFrames);
+        logBattleStatus(ae.Attacker, r, "眩晕");
+    }
 
     if (ae.Through == 0)
     {

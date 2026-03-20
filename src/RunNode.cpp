@@ -520,6 +520,7 @@ void RunNode::present()
         e->resetRenderTimes();
     }
     e->renderMainTextureToWindow();
+    Font::getInstance()->executeDrawCalls();
     e->renderImGuiOverlay();
     e->renderPresent();
     e->setRenderMainTexture();

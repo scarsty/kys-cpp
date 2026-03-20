@@ -71,6 +71,30 @@ bool ImGuiLayer::processEvent(const SDL_Event& event)
         return false;
     }
 
+    if (battle_log_.open && battle_log_input_guard_frames_ > 0)
+    {
+        switch (event.type)
+        {
+        case SDL_EVENT_MOUSE_MOTION:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+        case SDL_EVENT_MOUSE_WHEEL:
+        case SDL_EVENT_FINGER_DOWN:
+        case SDL_EVENT_FINGER_UP:
+        case SDL_EVENT_FINGER_MOTION:
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
+        case SDL_EVENT_TEXT_INPUT:
+        case SDL_EVENT_TEXT_EDITING:
+        case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+        case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        case SDL_EVENT_GAMEPAD_BUTTON_UP:
+            return true;
+        default:
+            break;
+        }
+    }
+
     ImGui_ImplSDL3_ProcessEvent(&event);
 
     if (event.type == SDL_EVENT_KEY_UP && event.key.key == SDLK_F1)
@@ -139,11 +163,17 @@ bool ImGuiLayer::wantsCaptureEvent(const SDL_Event& event) const
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
     case SDL_EVENT_MOUSE_WHEEL:
+    case SDL_EVENT_FINGER_DOWN:
+    case SDL_EVENT_FINGER_UP:
+    case SDL_EVENT_FINGER_MOTION:
         return battle_log_.open || io.WantCaptureMouse;
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
     case SDL_EVENT_TEXT_INPUT:
     case SDL_EVENT_TEXT_EDITING:
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
         return battle_log_.open || io.WantCaptureKeyboard || io.WantTextInput;
     default:
         return false;
@@ -155,12 +185,18 @@ void ImGuiLayer::showBattleLog(const BattleLogData& data)
     battle_log_ = data;
     battle_log_.open = true;
     battle_log_input_guard_frames_ = 10;
+    battle_log_reset_scroll_ = true;
+    battle_log_hover_guard_ = true;
+    battle_log_ally_filter_id_ = -1;
+    battle_log_enemy_filter_id_ = -1;
 }
 
 void ImGuiLayer::hideBattleLog()
 {
     battle_log_.open = false;
     battle_log_input_guard_frames_ = 0;
+    battle_log_reset_scroll_ = false;
+    battle_log_hover_guard_ = false;
 }
 
 bool ImGuiLayer::isBattleLogOpen() const
@@ -194,10 +230,17 @@ void ImGuiLayer::renderBattleLogWindow()
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImVec2 vp_pos = viewport ? viewport->Pos : ImVec2(0.0f, 0.0f);
     ImVec2 vp_size = viewport ? viewport->Size : ImVec2(1280.0f, 720.0f);
+    const ImGuiIO& io = ImGui::GetIO();
+    if (battle_log_hover_guard_ && (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f))
+    {
+        battle_log_hover_guard_ = false;
+    }
     float body_scale = clampf(vp_size.y / 740.0f, 1.24f, 2.10f);
     float title_scale = clampf(body_scale * 1.34f, 1.52f, 2.48f);
     float chip_scale = clampf(body_scale * 1.18f, 1.34f, 2.18f);
     float small_scale = clampf(body_scale * 1.04f, 1.16f, 1.78f);
+    float filter_scale = clampf(body_scale * 1.14f, 1.34f, 2.20f);
+    float scrollbar_size = clampf(vp_size.y / 18.0f, 26.0f, 42.0f);
     ImVec2 panel_size((std::max)(980.0f, vp_size.x * 0.90f), (std::max)(620.0f, vp_size.y * 0.86f));
     panel_size.x = (std::min)(panel_size.x, vp_size.x - 36.0f);
     panel_size.y = (std::min)(panel_size.y, vp_size.y - 30.0f);
@@ -217,27 +260,66 @@ void ImGuiLayer::renderBattleLogWindow()
     ImGui::PushStyleColor(ImGuiCol_TableRowBg, colorU8(255, 255, 255, 10));
     ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, colorU8(255, 255, 255, 18));
 
-    if (ImGui::Begin("##battle_log", &battle_log_.open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
+    if (ImGui::Begin("battle_log_window", &battle_log_.open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus))
     {
         bool allow_close = battle_log_input_guard_frames_ <= 0;
+        bool suppress_hover = battle_log_hover_guard_ || !allow_close;
+        if (suppress_hover)
+        {
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, chip_bg);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, chip_bg);
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_Header));
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_Header));
+        }
+        auto matchesFilter = [&](const BattleLogLine& entry) {
+            if (entry.sourceId < 0 && entry.targetId < 0)
+            {
+                return true;
+            }
+
+            auto matchesTeamFilter = [&](int filterId, int team) {
+                if (filterId < 0)
+                {
+                    return true;
+                }
+                return (entry.sourceTeam == team && entry.sourceId == filterId)
+                    || (entry.targetTeam == team && entry.targetId == filterId);
+            };
+
+            return matchesTeamFilter(battle_log_ally_filter_id_, 0)
+                && matchesTeamFilter(battle_log_enemy_filter_id_, 1);
+        };
+
+        auto visibleEntryCount = [&]() {
+            int count = 0;
+            for (const auto& entry : battle_log_.entries)
+            {
+                if (matchesFilter(entry))
+                {
+                    ++count;
+                }
+            }
+            return count;
+        };
+
         ImGui::SetWindowFontScale(title_scale);
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
-        ImGui::TextUnformatted(battle_log_.title.empty() ? "本次战斗日志" : battle_log_.title.c_str());
-        ImGui::SameLine();
-        ImGui::TextUnformatted("  •  戰鬥記錄");
+        ImGui::TextUnformatted(battle_log_.title.empty() ? "本次戰鬥日誌" : battle_log_.title.c_str());
         ImGui::PopStyleColor();
 
         ImGui::Spacing();
         ImGui::SetWindowFontScale(body_scale);
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        ImGui::TextUnformatted("记录本场自动战斗中的关键出手、伤害与击杀。");
+        ImGui::TextUnformatted("篩選指定棋子，查看對應的詳細戰鬥記錄。");
         ImGui::PopStyleColor();
         ImGui::Spacing();
 
         std::vector<std::pair<std::string, std::string>> chips = {
-            {"战斗结果", battle_log_.resultText},
-            {"总帧数", std::to_string(battle_log_.totalFrames)},
-            {"记录条数", std::to_string((int)battle_log_.entries.size())}
+            {"戰鬥結果", battle_log_.resultText},
+            {"總幀數", std::to_string(battle_log_.totalFrames)},
+            {"顯示條數", std::format("{} / {}", visibleEntryCount(), (int)battle_log_.entries.size())}
         };
         if (battle_log_.omittedEntries > 0)
         {
@@ -274,60 +356,85 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::Separator();
         ImGui::Spacing();
 
-        auto drawTeamTable = [&](const char* table_id, const char* label, const std::vector<BattleLogRoleRow>& rows, const ImVec4& name_color)
+        auto drawFilterCombo = [&](const char* label, const char* allLabel, const std::vector<BattleLogRoleRow>& rows, int& selectedId)
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
-            ImGui::TextUnformatted(label);
-            ImGui::PopStyleColor();
-            if (ImGui::BeginTable(table_id, 5, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+            std::string preview = allLabel;
+            for (const auto& row : rows)
             {
-                ImGui::TableSetupColumn("角色");
-                ImGui::TableSetupColumn("输出");
-                ImGui::TableSetupColumn("承伤");
-                ImGui::TableSetupColumn("击杀");
-                ImGui::TableSetupColumn("存活");
-                ImGui::TableHeadersRow();
+                if (row.id == selectedId)
+                {
+                    preview = row.name;
+                    break;
+                }
+            }
+
+            ImGui::SetWindowFontScale(filter_scale);
+            if (ImGui::BeginCombo(label, preview.c_str()))
+            {
+                ImGui::SetWindowFontScale(filter_scale);
+                bool allSelected = selectedId < 0;
+                if (ImGui::Selectable(allLabel, allSelected))
+                {
+                    selectedId = -1;
+                }
+                if (allSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
                 for (const auto& row : rows)
                 {
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::PushStyleColor(ImGuiCol_Text, name_color);
-                    ImGui::Text("%s", row.name.c_str());
-                    ImGui::PopStyleColor();
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%d", row.damageDealt);
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%d", row.damageTaken);
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%d", row.kills);
-                    ImGui::TableNextColumn();
-                    if (row.dead)
+                    bool selected = selectedId == row.id;
+                    ImGui::PushID(row.id);
+                    if (ImGui::Selectable(row.name.c_str(), selected))
                     {
-                        ImGui::PushStyleColor(ImGuiCol_Text, enemy_color);
-                        ImGui::TextUnformatted("阵亡");
-                        ImGui::PopStyleColor();
+                        selectedId = row.id;
                     }
-                    else
+                    if (selected)
                     {
-                        ImGui::Text("%d/%d", (std::max)(row.hpRemaining, 0), (std::max)(row.maxHp, 0));
+                        ImGui::SetItemDefaultFocus();
                     }
+                    ImGui::PopID();
                 }
-                ImGui::EndTable();
+                ImGui::EndCombo();
             }
+            ImGui::SetWindowFontScale(body_scale);
         };
 
-        float avail_w = ImGui::GetContentRegionAvail().x;
-        float left_w = avail_w * 0.66f;
-        float right_w = avail_w - left_w - 16.0f;
-        float section_h = ImGui::GetContentRegionAvail().y - 68.0f;
+        ImGui::SetWindowFontScale(filter_scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+        ImGui::TextUnformatted("我方篩選");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(220.0f);
+        drawFilterCombo("##ally_filter", "全部我方", battle_log_.allies, battle_log_ally_filter_id_);
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+        ImGui::TextUnformatted("敵方篩選");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(220.0f);
+        drawFilterCombo("##enemy_filter", "全部敵方", battle_log_.enemies, battle_log_enemy_filter_id_);
+        ImGui::SameLine();
+        if (ImGui::Button("重設篩選") && allow_close)
+        {
+            battle_log_ally_filter_id_ = -1;
+            battle_log_enemy_filter_id_ = -1;
+        }
+        ImGui::SetWindowFontScale(body_scale);
 
-        ImGui::BeginChild("battle_log_left", ImVec2(left_w, section_h), true);
-        ImGui::SetWindowFontScale(chip_scale);
+        ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
+        ImGui::SetWindowFontScale(chip_scale);
         ImGui::TextUnformatted("戰鬥記錄");
         ImGui::PopStyleColor();
         ImGui::Separator();
-        ImGui::BeginChild("battle_log_entries", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, scrollbar_size);
+        if (battle_log_reset_scroll_)
+        {
+            ImGui::SetNextWindowScroll(ImVec2(0.0f, 0.0f));
+            battle_log_reset_scroll_ = false;
+        }
+        ImGui::BeginChild("battle_log_entries", ImVec2(0.0f, ImGui::GetContentRegionAvail().y - 60.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
         ImGui::SetWindowFontScale(body_scale);
         auto colorForField = [&](BattleLogFieldTone tone, BattleLogTone line_tone) -> ImVec4
         {
@@ -351,8 +458,15 @@ void ImGuiLayer::renderBattleLogWindow()
             if (line_tone == BattleLogTone::System) return system_line;
             return neutral_line;
         };
+        bool drewAnyEntry = false;
         for (const auto& entry : battle_log_.entries)
         {
+            if (!matchesFilter(entry))
+            {
+                continue;
+            }
+
+            drewAnyEntry = true;
             ImVec4 line_color = neutral_line;
             if (entry.tone == BattleLogTone::Ally) line_color = ally_color;
             if (entry.tone == BattleLogTone::Enemy) line_color = enemy_color;
@@ -382,54 +496,23 @@ void ImGuiLayer::renderBattleLogWindow()
             }
             ImGui::Spacing();
         }
-        ImGui::EndChild();
-        ImGui::EndChild();
 
-        ImGui::SameLine();
-
-        ImGui::BeginChild("battle_log_right", ImVec2(right_w, section_h), true);
-        ImGui::SetWindowFontScale(chip_scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
-        ImGui::TextUnformatted("本場概覽");
-        ImGui::PopStyleColor();
-        ImGui::SetWindowFontScale(body_scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        ImGui::TextUnformatted("右侧集中查看双方表现。");
-        ImGui::PopStyleColor();
-        ImGui::Separator();
-
-        int ally_alive = 0;
-        int enemy_alive = 0;
-        int ally_damage = 0;
-        int enemy_damage = 0;
-        for (const auto& row : battle_log_.allies)
+        if (!drewAnyEntry)
         {
-            ally_alive += row.dead ? 0 : 1;
-            ally_damage += row.damageDealt;
-        }
-        for (const auto& row : battle_log_.enemies)
-        {
-            enemy_alive += row.dead ? 0 : 1;
-            enemy_damage += row.damageDealt;
+            ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+            ImGui::TextUnformatted("當前篩選下沒有符合的記錄。");
+            ImGui::PopStyleColor();
         }
 
-        ImGui::PushStyleColor(ImGuiCol_Text, ally_color);
-        ImGui::Text("我方存活: %d / %d", ally_alive, (int)battle_log_.allies.size());
-        ImGui::PopStyleColor();
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, enemy_color);
-        ImGui::Text("敌方存活: %d / %d", enemy_alive, (int)battle_log_.enemies.size());
-        ImGui::PopStyleColor();
-        ImGui::PushStyleColor(ImGuiCol_Text, text_main);
-        ImGui::Text("我方总输出: %d", ally_damage);
-        ImGui::Text("敌方总输出: %d", enemy_damage);
-        ImGui::PopStyleColor();
-
-        ImGui::Spacing();
-        drawTeamTable("battle_log_allies", "我方统计", battle_log_.allies, ally_color);
-        ImGui::Spacing();
-        drawTeamTable("battle_log_enemies", "敌方统计", battle_log_.enemies, enemy_color);
+        if (allow_close
+            && ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
+            && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)
+            && !ImGui::IsAnyItemActive())
+        {
+            ImGui::SetScrollY(ImGui::GetScrollY() - ImGui::GetIO().MouseDelta.y);
+        }
         ImGui::EndChild();
+        ImGui::PopStyleVar();
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -437,30 +520,26 @@ void ImGuiLayer::renderBattleLogWindow()
 
         ImGui::SetWindowFontScale(small_scale);
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        ImGui::TextUnformatted("点击“继续”关闭日志");
+        ImGui::TextUnformatted("點擊「繼續」關閉日誌");
         ImGui::PopStyleColor();
         ImGui::SameLine();
         float button_w = 150.0f;
         float button_x = ImGui::GetWindowContentRegionMax().x - button_w;
         ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), button_x));
         ImGui::PushStyleColor(ImGuiCol_Button, chip_bg);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colorU8(67, 78, 39, 230));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, colorU8(88, 98, 50, 230));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, allow_close ? colorU8(67, 78, 39, 230) : chip_bg);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, allow_close ? colorU8(88, 98, 50, 230) : chip_bg);
         ImGui::SetWindowFontScale(body_scale);
-        if (!allow_close)
-        {
-            ImGui::BeginDisabled();
-        }
-        if (ImGui::Button("继续", ImVec2(button_w, 0.0f)) && allow_close)
+        if (ImGui::Button("繼續", ImVec2(button_w, 0.0f)) && allow_close)
         {
             battle_log_.open = false;
         }
-        if (!allow_close)
-        {
-            ImGui::EndDisabled();
-        }
         ImGui::PopStyleColor(3);
         ImGui::SetWindowFontScale(1.0f);
+        if (suppress_hover)
+        {
+            ImGui::PopStyleColor(6);
+        }
     }
     ImGui::End();
     ImGui::PopStyleColor(6);

@@ -10,7 +10,6 @@
 #include <unordered_map>
 
 class PositionSwapNode;
-struct BattleLogData;
 
 class BattleSceneHades : public BattleSceneAct
 {
@@ -36,7 +35,6 @@ public:
 
 protected:
     void renderExtraRoleInfo(Role* r, double x, double y);
-    BattleLogData buildBattleLogData() const;
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
@@ -77,6 +75,8 @@ protected:
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
     void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
     void addRoleEffect(Role* role, int eftId, int totalFrames = 0);
+    void logBattleHeal(Role* source, Role* target, int amount, const std::string& reason = "");
+    void logBattleStatus(Role* source, Role* target, const std::string& text);
 
     std::vector<Point> findPath(Point start45, Point goal45);
     std::vector<Pointf> smoothPath(const std::vector<Point>& path45);
@@ -112,7 +112,6 @@ protected:
     std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
     std::set<int> execution_popup_roles_;
-    bool battle_log_shown_ = false;
 
     struct PathInfo {
         std::vector<Pointf> waypoints;

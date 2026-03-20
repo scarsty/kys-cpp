@@ -9,6 +9,7 @@ struct SDL_Window;
 
 struct BattleLogRoleRow
 {
+    int id = -1;
     std::string name;
     int team = 0;
     int damageDealt = 0;
@@ -48,6 +49,10 @@ struct BattleLogLine
 {
     std::string text;
     BattleLogTone tone = BattleLogTone::Neutral;
+    int sourceId = -1;
+    int targetId = -1;
+    int sourceTeam = -1;
+    int targetTeam = -1;
     std::vector<BattleLogSegment> segments;
 };
 
@@ -84,5 +89,9 @@ private:
     bool visible_ = false;
     bool show_metrics_window_ = false;
     int battle_log_input_guard_frames_ = 0;
+    bool battle_log_reset_scroll_ = false;
+    bool battle_log_hover_guard_ = false;
+    int battle_log_ally_filter_id_ = -1;
+    int battle_log_enemy_filter_id_ = -1;
     BattleLogData battle_log_;
 };

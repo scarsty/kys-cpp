@@ -299,6 +299,36 @@ void Engine::createAssistTexture(const std::string& name, int w, int h)
     //SDL_SetTextureBlendMode(tex2_, SDL_BLENDMODE_BLEND);
 }
 
+Texture* Engine::cloneTexture(Texture* source) const
+{
+    if (!source)
+    {
+        return nullptr;
+    }
+
+    int w = 0;
+    int h = 0;
+    getTextureSize(source, w, h);
+    if (w <= 0 || h <= 0)
+    {
+        return nullptr;
+    }
+
+    auto clone = createRenderedTexture(w, h);
+    if (!clone)
+    {
+        return nullptr;
+    }
+
+    auto previousTarget = getRenderTarget();
+    setRenderTarget(clone);
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
+    SDL_RenderClear(renderer_);
+    SDL_RenderTexture(renderer_, source, nullptr, nullptr);
+    setRenderTarget(previousTarget);
+    return clone;
+}
+
 void Engine::setPresentPosition(Texture* tex)
 {
     if (!tex)
@@ -368,7 +398,7 @@ Texture* Engine::createTexture(int w, int h)
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, w, h);
 }
 
-Texture* Engine::createRenderedTexture(int w, int h)
+Texture* Engine::createRenderedTexture(int w, int h) const
 {
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
 }

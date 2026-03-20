@@ -340,12 +340,27 @@ public:
     void createMainTexture(PixelFormat pixfmt, TextureAccess a, int w, int h);
     void resizeMainTexture(int w, int h) const;
     void createAssistTexture(const std::string& name, int w, int h);
+    Texture* cloneTexture(Texture* source) const;
     void setPresentPosition(Texture* tex);    //设置贴图的位置
 
     //void getPresentSize(int& w, int& h) { w = rect_.w; h = rect_.h; }
     int getPresentWidth() const { return rect_.w; }
 
     int getPresentHeight() const { return rect_.h; }
+
+    float getDisplayScale() const
+    {
+        if (ui_w_ == 0) return 1.0f;
+        return (std::max)(1.0f, float(rect_.w) / ui_w_);
+    }
+
+    void getPresentRect(int& x, int& y, int& w, int& h) const
+    {
+        x = rect_.x;
+        y = rect_.y;
+        w = rect_.w;
+        h = rect_.h;
+    }
 
     Texture* getMainTexture() const { return tex_; }
 
@@ -356,7 +371,7 @@ private:
     Texture* createYUVTexture(int w, int h) const;
     static void updateYUVTexture(Texture* t, uint8_t* data0, int size0, uint8_t* data1, int size1, uint8_t* data2, int size2);
     Texture* createTexture(int w, int h);
-    Texture* createRenderedTexture(int w, int h);
+    Texture* createRenderedTexture(int w, int h) const;
     static void updateTexture(Texture* t, uint8_t* buffer, int pitch);
     static int lockTexture(Texture* t, Rect* r, void** pixel, int* pitch);
     static void unlockTexture(Texture* t);

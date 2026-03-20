@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class Font
 {
@@ -21,8 +22,21 @@ private:
 
     std::unordered_map<std::string, std::string> t2s_buffer_;    //缓存繁体转简体的结果
 
+    struct DrawCall
+    {
+        std::string text;
+        int size = 0;
+        int x = 0;
+        int y = 0;
+        Color color = { 255, 255, 255, 255 };
+        uint8_t alpha = 255;
+    };
+    std::vector<DrawCall> draw_calls_;
+
     SimpleCC cct2s_;
     SimpleCC ccs2t_;
+
+    int renderText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha);
 
 public:
     static Font* getInstance()
@@ -37,7 +51,7 @@ public:
     int draw(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255);
     void drawWithBox(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, uint8_t alpha_box = 255);
     void drawWithBoxCentered(const std::string& text, int size, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, uint8_t alpha_box = 255);
-    //void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c);
+    void executeDrawCalls();
     void clearBuffer();
     int getBufferSize();
     static int getTextDrawSize(const std::string& text);

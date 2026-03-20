@@ -61,9 +61,37 @@ int Font::utf8DisplayWidth(unsigned char c)
     return 1;
 }
 
-//此处仅接受utf8
-//返回值为实际画的行数
+//此处仅接受utf8，将绘制调用加入延迟队列
+//返回值为估算的行数
 int Font::draw(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
+{
+    if (text.empty() || size <= 0 || alpha == 0)
+    {
+        return 0;
+    }
+
+    auto* engine = Engine::getInstance();
+    if (engine->getRenderTarget() != engine->getMainTexture())
+    {
+        return renderText(text, size, x, y, color, alpha);
+    }
+
+    draw_calls_.push_back({ text, size, x, y, color, alpha });
+
+    int lines = 1;
+    for (char c : text)
+    {
+        if (c == '\n')
+        {
+            lines++;
+        }
+    }
+    return lines;
+}
+
+//实际执行渲染，在当前渲染目标上绘制文字
+//size 为渲染目标像素尺寸，(x, y) 为渲染目标坐标
+int Font::renderText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
 {
     if (text.empty() || size <= 0 || alpha == 0)
     {
@@ -71,8 +99,6 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
     }
     int line = 1;
     int p = 0;
-    int char_count = 0;
-    int s1;
     color.a = alpha;
     std::string text1;
     int x0 = x;
@@ -87,11 +113,6 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         }
         textp = &text1;
     }
-    if (stat_message_)
-    {
-        s1 = getBufferSize();
-    }
-    //auto ss = PotConv::utf8tocp936(text);
     while (p < textp->size())
     {
         int w = size, h = size;
@@ -117,32 +138,36 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         if (buffer_[c].count(size) == 0)
         {
             auto s = std::string((char*)(&c));
-            //auto ws = PotConv::ToWide(s, "utf-8");
-            //buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, ws[0], size, { 255, 255, 255, 255 });
             auto fontname = (c < 128) ? fontnamee_ : fontnamec_;
             buffer_[c][size] = Engine::getInstance()->createTextTexture(fontname, s, size, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
-        char_count++;
-        int w1 = w;
         int x1 = x;
         int y1 = y;
-        //Engine::getInstance()->getTextureSize(tex, w, h);
         if (c < 128)
         {
             w = size / 2;
-            int h1;
-            Engine::getInstance()->getTextureSize(tex, w1, h1);
-            w1 = (std::min)(w1, w);
-            x1 += (w - w1) / 2;
-            y1 = y + 1;
+            int native_w, native_h;
+            Engine::getInstance()->getTextureSize(tex, native_w, native_h);
+            int draw_w = (std::min)(native_w, w);
+            x1 += (w - draw_w) / 2;
+            y1 = y + (std::max)(1, size / 24);
+            if (c > ' ')
+            {
+                if (Engine::uiStyle() != 1)
+                {
+                    Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
+                    Engine::getInstance()->renderTexture(tex, x1 + 1, y1, draw_w, size);
+                }
+                Engine::getInstance()->setColor(tex, color);
+                Engine::getInstance()->renderTexture(tex, x1, y1, draw_w, size);
+            }
         }
-        if (c > ' ')
+        else if (c > ' ')
         {
             if (Engine::uiStyle() != 1)
             {
-                // Dark shadow for readability on light backgrounds (classic style only)
-                Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
+                Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
                 Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
             }
             Engine::getInstance()->setColor(tex, color);
@@ -150,15 +175,40 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         }
         x += w;
     }
-    if (stat_message_)
-    {
-        int s = getBufferSize() - s1;
-        if (s > 0)
-        {
-            LOG(" {}/{}, {}, total = {}, t2s buffer = {}\n", s, char_count, size, getBufferSize(), t2s_buffer_.size());
-        }
-    }
     return line;
+}
+
+//将延迟队列中的文字绘制调用执行到窗口帧缓冲（已无缩放），保证字体清晰
+//应在 renderMainTextureToWindow() 之后、renderPresent() 之前调用
+void Font::executeDrawCalls()
+{
+    if (draw_calls_.empty())
+    {
+        return;
+    }
+
+    int ui_w = 0, ui_h = 0;
+    Engine::getInstance()->getUISize(ui_w, ui_h);
+    int present_x = 0, present_y = 0, present_w = 0, present_h = 0;
+    Engine::getInstance()->getPresentRect(present_x, present_y, present_w, present_h);
+    if (present_w <= 0 || present_h <= 0 || ui_w <= 0 || ui_h <= 0)
+    {
+        draw_calls_.clear();
+        return;
+    }
+
+    float sx = float(present_w) / ui_w;
+    float sy = float(present_h) / ui_h;
+
+    for (const auto& call : draw_calls_)
+    {
+        int wx = present_x + int(call.x * sx);
+        int wy = present_y + int(call.y * sy);
+        int wsize = (std::max)(1, int(call.size * sx));
+        renderText(call.text, wsize, wx, wy, call.color, call.alpha);
+    }
+
+    draw_calls_.clear();
 }
 
 void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
@@ -187,39 +237,6 @@ void Font::drawWithBoxCentered(const std::string& text, int size, int y, Color c
     drawWithBox(text, size, x, y, color, alpha, alpha_box);
 }
 
-//此处仅接受utf8
-/*
-void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c)
-{
-    if (alpha == 0)
-    {
-        return;
-    }
-    auto text_t = Engine::getInstance()->createTextTexture(fontname, text, size, c);
-    if (!text_t)
-    {
-        return;
-    }
-    Engine::getInstance()->setTextureAlphaMod(text_t, alpha);
-    Rect rect;
-    Engine::getInstance()->getTextureSize(text_t, rect.w, rect.h);
-    rect.y = y;
-    switch (align)
-    {
-    case ALIGN_LEFT:
-        rect.x = x;
-        break;
-    case ALIGN_RIGHT:
-        rect.x = x - rect.w;
-        break;
-    case ALIGN_MIDDLE:
-        rect.x = x - rect.w / 2;
-        break;
-    }
-    Engine::getInstance()->renderTexture(text_t, nullptr, &rect);
-    Engine::getInstance()->destroyTexture(text_t);
-}*/
-
 void Font::clearBuffer()
 {
     for (auto& f : buffer_)
@@ -230,6 +247,7 @@ void Font::clearBuffer()
         }
     }
     buffer_.clear();
+    draw_calls_.clear();
 }
 
 int Font::getBufferSize()
