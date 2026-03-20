@@ -415,6 +415,9 @@
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h">
       <Filter>mlcc</Filter>
     </ClInclude>
+    <ClInclude Include="Fade.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">

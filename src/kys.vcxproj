@@ -201,6 +201,7 @@
     <ClInclude Include="BattleSceneSekiro.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
+    <ClInclude Include="Fade.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Audio.h" />

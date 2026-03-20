@@ -1,5 +1,6 @@
 ﻿#include "MainScene.h"
 #include "Console.h"
+#include "Fade.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "Random.h"
@@ -250,6 +251,7 @@ void MainScene::dealEvent(EngineEvent& e)
         sub_map->setForceBeginEvent(force_event_);
         sub_map->run();
         towards_ = sub_map->towards_;
+        Fade::fadeIn(8);
         force_submap_ = -1;
         force_event_ = -1;
     }
@@ -535,8 +537,10 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
                 drawAndPresent();
                 auto sub_map = std::make_shared<SubScene>(i);
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
+                Fade::fadeOut(8);
                 sub_map->run();
                 towards_ = sub_map->towards_;
+                Fade::fadeIn(8);
                 return true;
             }
         }
