@@ -657,13 +657,6 @@ void BattleSceneHades::draw()
     rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
     rect1.w = rect0.w;
     rect1.h = rect0.h;
-    for (auto& te : text_effects_)
-    {
-        if (is_visible_world(te.Pos.x, te.Pos.y / 2.0))
-        {
-            Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
-        }
-    }
 
     Engine::getInstance()->setRenderTarget("scene");
     if (close_up_)
@@ -677,6 +670,57 @@ void BattleSceneHades::draw()
     Engine::getInstance()->renderTexture(whole_scene, &rect0, &rect1, 0);
 
     Engine::getInstance()->renderTextureToMain("scene");
+
+    // World→UI coordinate transform for deferred text rendering.
+    // world coords live on whole_scene; rect0→rect1 maps them to the scene texture (w x h).
+    // The scene texture is then stretched to fill the main texture (ui_w x ui_h).
+    int ui_w = Engine::getInstance()->getUIWidth();
+    int ui_h = Engine::getInstance()->getUIHeight();
+    float sceneToUiX = (w > 0) ? float(ui_w) / w : 1.0f;
+    float sceneToUiY = (h > 0) ? float(ui_h) / h : 1.0f;
+    float viewScaleX = (rect0.w > 0) ? float(rect1.w) / rect0.w : 1.0f;
+    float viewScaleY = (rect0.h > 0) ? float(rect1.h) / rect0.h : 1.0f;
+    auto worldToUiX = [&](double wx) -> int { return int((rect1.x + (wx - rect0.x) * viewScaleX) * sceneToUiX); };
+    auto worldToUiY = [&](double wy) -> int { return int((rect1.y + (wy - rect0.y) * viewScaleY) * sceneToUiY); };
+    float sizeScale = viewScaleX * sceneToUiX;
+
+    // Text effects (damage numbers etc.) - deferred for crisp rendering
+    for (auto& te : text_effects_)
+    {
+        int ux = worldToUiX(te.Pos.x);
+        int uy = worldToUiY(te.Pos.y / 2.0);
+        if (ux >= -80 && ux < ui_w + 80 && uy >= -80 && uy < ui_h + 80)
+        {
+            int usize = (std::max)(1, int(te.Size * sizeScale));
+            Font::getInstance()->draw(te.Text, usize, ux, uy, te.color, 255);
+        }
+    }
+
+    // Role info text (frozen timer, swap coordinates)
+    for (auto r : battle_roles_)
+    {
+        if (r == nullptr || r->Dead) { continue; }
+        double wx = r->Pos.x;
+        double wy = r->Pos.y / 2.0;
+        int ux = worldToUiX(wx);
+        int uy = worldToUiY(wy);
+        if (ux < -80 || ux >= ui_w + 80 || uy < -80 || uy >= ui_h + 80) { continue; }
+        if (r->Frozen > 0 && r->FrozenMax > 0)
+        {
+            Font::getInstance()->draw(std::to_string(r->Frozen),
+                (std::max)(1, int(10 * sizeScale)),
+                worldToUiX(wx - 5), worldToUiY(wy - 52),
+                { 255, 255, 255, 255 });
+        }
+        if (positionSwapActive_ && r->Team == 0)
+        {
+            std::string coord = std::format("({},{})", r->X(), r->Y());
+            Font::getInstance()->draw(coord,
+                (std::max)(1, int(14 * sizeScale)),
+                worldToUiX(wx - 5), worldToUiY(wy - 5),
+                { 255, 255, 100, 255 });
+        }
+    }
 
     // Draw total frames elapsed on top left
     Font::getInstance()->draw(std::to_string(current_frame_), 20, 10, 10, { 255, 255, 255, 255 }, 200);
@@ -2021,30 +2065,7 @@ void BattleSceneHades::backRun1()
         });
 
         auto currentPos45 = pos90To45(pulled->Pos.x, pulled->Pos.y);
-        for (auto puller : candidates)
-        {
-            auto center = pos90To45(puller->Pos.x, puller->Pos.y);
-            std::vector<Point> cells;
-            for (int dx = -1; dx <= 1; ++dx)
-            {
-                for (int dy = -1; dy <= 1; ++dy)
-                {
-                    if (dx == 0 && dy == 0) continue;
-                    int x = center.x + dx;
-                    int y = center.y + dy;
-                    if (!canWalk45(x, y) || isOccupied45(x, y, pulled)) continue;
-                    if (x == currentPos45.x && y == currentPos45.y) continue;
-                    cells.push_back({x, y});
-                }
-            }
-            if (cells.empty()) continue;
-
-            std::sort(cells.begin(), cells.end(), [&](const Point& lhs, const Point& rhs) {
-                return std::abs(lhs.x - currentPos45.x) + std::abs(lhs.y - currentPos45.y)
-                    < std::abs(rhs.x - currentPos45.x) + std::abs(rhs.y - currentPos45.y);
-            });
-
-            const auto& cell = cells.front();
+        auto commitPull = [&](Role* puller, const Point& cell) {
             int x = cell.x;
             int y = cell.y;
             auto pos = pos45To90(x, y);
@@ -2057,34 +2078,184 @@ void BattleSceneHades::backRun1()
             pulled->FindingWay = 0;
             setFaceTowardsNearest(pulled);
             setFaceTowardsNearest(puller);
+        };
 
-            auto& pullState = cs[puller->ID];
-            if (executeMode)
+        if (executeMode)
+        {
+            for (auto puller : candidates)
             {
+                auto center = pos90To45(puller->Pos.x, puller->Pos.y);
+                std::vector<Point> cells;
+                for (int dx = -1; dx <= 1; ++dx)
+                {
+                    for (int dy = -1; dy <= 1; ++dy)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        int x = center.x + dx;
+                        int y = center.y + dy;
+                        if (!canWalk45(x, y) || isOccupied45(x, y, pulled)) continue;
+                        if (x == currentPos45.x && y == currentPos45.y) continue;
+                        cells.push_back({x, y});
+                    }
+                }
+                if (cells.empty()) continue;
+
+                std::sort(cells.begin(), cells.end(), [&](const Point& lhs, const Point& rhs) {
+                    return std::abs(lhs.x - currentPos45.x) + std::abs(lhs.y - currentPos45.y)
+                        < std::abs(rhs.x - currentPos45.x) + std::abs(rhs.y - currentPos45.y);
+                });
+
+                const auto& cell = cells.front();
+                commitPull(puller, cell);
+
+                auto& pullState = cs[puller->ID];
                 pullState.forcePullExecuteUsed = true;
                 spawnBasicAttackProjectile(puller, pulled);
                 logBattleStatus(puller, pulled, "处决挪移");
+
+                addFloatingText(pulled, "挪移", {160, 220, 255, 255}, STATUS_TEXT_SIZE);
+                return true;
+            }
+
+            return false;
+        }
+
+        Pointf allyCenter{0, 0, 0};
+        Pointf enemyCenter{0, 0, 0};
+        int allyCount = 0;
+        int enemyCount = 0;
+        for (auto role : battle_roles_)
+        {
+            if (role->Dead != 0 || role == pulled) continue;
+            if (role->Team == pullerTeam)
+            {
+                allyCenter += role->Pos;
+                allyCount++;
             }
             else
             {
-                pullState.forcePullProtectUsed = true;
-                int hpBefore = pulled->HP;
-                int heal = std::max(1, pulled->MaxHP * 10 / 100);
-                pulled->HP = std::min(pulled->MaxHP, pulled->HP + heal);
-                pulled->Invincible += 10;
-                if (pulled->HP > hpBefore)
+                enemyCenter += role->Pos;
+                enemyCount++;
+            }
+        }
+        if (allyCount > 0)
+        {
+            allyCenter.x /= allyCount;
+            allyCenter.y /= allyCount;
+        }
+        if (enemyCount > 0)
+        {
+            enemyCenter.x /= enemyCount;
+            enemyCenter.y /= enemyCount;
+        }
+
+        Pointf backrowVec = allyCenter - enemyCenter;
+        double backrowLen = std::sqrt(backrowVec.x * backrowVec.x + backrowVec.y * backrowVec.y);
+
+        struct PullChoice
+        {
+            bool valid = false;
+            Role* puller = nullptr;
+            Point cell{};
+            int enemyThreat = std::numeric_limits<int>::max();
+            int enemyMinDist = -1;
+            int allySupport = -1;
+            double backrowScore = std::numeric_limits<double>::lowest();
+            int pullerDist = std::numeric_limits<int>::max();
+        };
+
+        auto betterChoice = [&](const PullChoice& lhs, const PullChoice& rhs) {
+            if (!rhs.valid) return lhs.valid;
+            if (!lhs.valid) return false;
+            if (lhs.enemyThreat != rhs.enemyThreat) return lhs.enemyThreat < rhs.enemyThreat;
+            if (lhs.enemyMinDist != rhs.enemyMinDist) return lhs.enemyMinDist > rhs.enemyMinDist;
+            if (lhs.allySupport != rhs.allySupport) return lhs.allySupport > rhs.allySupport;
+            if (std::abs(lhs.backrowScore - rhs.backrowScore) > 1e-6) return lhs.backrowScore > rhs.backrowScore;
+            if (lhs.pullerDist != rhs.pullerDist) return lhs.pullerDist < rhs.pullerDist;
+            if (lhs.cell.x != rhs.cell.x) return lhs.cell.x < rhs.cell.x;
+            return lhs.cell.y < rhs.cell.y;
+        };
+
+        constexpr int PROTECT_SEARCH_RADIUS = 10;
+        PullChoice bestChoice;
+        for (auto puller : candidates)
+        {
+            auto center = pos90To45(puller->Pos.x, puller->Pos.y);
+            PullChoice bestForPuller;
+            bestForPuller.valid = false;
+            bestForPuller.puller = puller;
+            bestForPuller.pullerDist = calDistance(center.x, center.y, currentPos45.x, currentPos45.y);
+
+            for (int dx = -PROTECT_SEARCH_RADIUS; dx <= PROTECT_SEARCH_RADIUS; ++dx)
+            {
+                for (int dy = -PROTECT_SEARCH_RADIUS; dy <= PROTECT_SEARCH_RADIUS; ++dy)
                 {
-                    addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                    logBattleHeal(puller, pulled, pulled->HP - hpBefore, "保护挪移");
+                    if (std::abs(dx) + std::abs(dy) > PROTECT_SEARCH_RADIUS) continue;
+                    if (dx == 0 && dy == 0) continue;
+                    int x = center.x + dx;
+                    int y = center.y + dy;
+                    if (!canWalk45(x, y) || isOccupied45(x, y, pulled)) continue;
+                    if (x == currentPos45.x && y == currentPos45.y) continue;
+
+                    PullChoice choice;
+                    choice.valid = true;
+                    choice.puller = puller;
+                    choice.cell = {x, y};
+                    choice.pullerDist = calDistance(x, y, center.x, center.y);
+
+                    for (auto role : battle_roles_)
+                    {
+                        if (role->Dead != 0 || role == pulled) continue;
+                        int d = calDistance(x, y, role->X(), role->Y());
+                        if (role->Team == pullerTeam)
+                        {
+                            if (d <= 4) choice.allySupport++;
+                        }
+                        else
+                        {
+                            choice.enemyMinDist = std::min(choice.enemyMinDist, d);
+                            if (d <= 4) choice.enemyThreat++;
+                        }
+                    }
+                    if (choice.enemyMinDist == std::numeric_limits<int>::max())
+                        choice.enemyMinDist = BATTLEMAP_COORD_COUNT;
+                    if (backrowLen > 0.0001)
+                    {
+                        auto candidatePos90 = pos45To90(x, y);
+                        double vx = candidatePos90.x - allyCenter.x;
+                        double vy = candidatePos90.y - allyCenter.y;
+                        choice.backrowScore = (vx * backrowVec.x + vy * backrowVec.y) / backrowLen;
+                    }
+
+                    if (betterChoice(choice, bestForPuller))
+                        bestForPuller = choice;
                 }
-                logBattleStatus(puller, pulled, "保护挪移");
-                logBattleStatus(puller, pulled, "短暂无敌");
             }
 
-            addFloatingText(pulled, "挪移", {160, 220, 255, 255}, STATUS_TEXT_SIZE);
-            return true;
+            if (betterChoice(bestForPuller, bestChoice))
+                bestChoice = bestForPuller;
         }
-        return false;
+
+        if (!bestChoice.valid) return false;
+
+        commitPull(bestChoice.puller, bestChoice.cell);
+
+        auto& pullState = cs[bestChoice.puller->ID];
+        pullState.forcePullProtectUsed = true;
+        int hpBefore = pulled->HP;
+        int heal = std::max(1, pulled->MaxHP * 10 / 100);
+        pulled->HP = std::min(pulled->MaxHP, pulled->HP + heal);
+        pulled->Invincible += 10;
+        if (pulled->HP > hpBefore)
+        {
+            addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            logBattleHeal(bestChoice.puller, pulled, pulled->HP - hpBefore, "保护挪移");
+        }
+        logBattleStatus(bestChoice.puller, pulled, "保护挪移");
+        logBattleStatus(bestChoice.puller, pulled, "短暂无敌");
+
+        addFloatingText(pulled, "挪移", {160, 220, 255, 255}, STATUS_TEXT_SIZE);
+        return true;
     };
     for (auto r : battle_roles_)
     {
@@ -3165,15 +3336,6 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         Rect r_frozen = { bar_x, bar_y, int(perc * width), height };
         Engine::getInstance()->renderSquareTexture(&r_frozen, frozen_color, 192);
 
-        std::string frames_text = std::to_string(r->Frozen);
-        Font::getInstance()->draw(frames_text, 10, x - 5, y - 52, {255, 255, 255, 255});
-    }
-
-
-    if (positionSwapActive_ && r->Team == 0) {
-        std::string coord = std::format("({},{})", r->X(), r->Y());
-        int tw = Font::getTextDrawSize(coord);
-        Font::getInstance()->draw(coord, 14, x - 5, y - 5, {255, 255, 100, 255});
     }
 }
 

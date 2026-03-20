@@ -1789,7 +1789,7 @@ void BattleScene::showMagicName(std::string name)
 {
     auto magic_name = std::make_shared<TextBox>();
     magic_name->setText(name);
-    int x = Engine::getInstance()->getPresentWidth() / 2 - Font::getTextDrawSize(name) * 10 / 2 - 10;
+    int x = Engine::getInstance()->getUIWidth() / 2 - Font::getTextDrawSize(name) * 10 / 2 - 10;
     magic_name->setPosition(x, 150);
     magic_name->setFontSize(20);
     magic_name->setStayFrame(40);

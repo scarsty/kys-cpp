@@ -55,7 +55,7 @@ void Talk::onPressedOK()
 
 void Talk::onEntrance()
 {
-    int w = Engine::getInstance()->getPresentWidth();
+    int w = Engine::getInstance()->getUIWidth();
     //width_ = (w - 400) / 12;    // 每行宽度
     content_lines_.clear();
     current_line_ = 0;

@@ -832,7 +832,7 @@ void BattleStatsView::draw()
 
     if (!isPreBattle_ && postBattleBackground_)
     {
-        engine->renderTexture(postBattleBackground_);
+        engine->renderTexture(postBattleBackground_, 0, 0, uiW, uiH);
     }
 
     if (!isPreBattle_ && (postBattleLogShown_ || postBattleLogOpenFrame_ >= 0))

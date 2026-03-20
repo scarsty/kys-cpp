@@ -337,6 +337,16 @@ void RunNode::dealEventSelfChilds(bool check_event)
 {
     if (check_event)
     {
+        auto handleWindowGeometryEvent = [](const EngineEvent& event) {
+            if (event.type == EVENT_WINDOW_RESIZED
+                || event.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+                || event.type == EVENT_WINDOW_MAXIMIZED
+                || event.type == EVENT_WINDOW_RESTORED)
+            {
+                auto* engine = Engine::getInstance();
+                engine->setPresentPosition(engine->getMainTexture());
+            }
+        };
         EngineEvent e;
         e.type = EVENT_FIRST;
         //此处这样设计的原因是某些系统下会连续生成一大串事件，如果每个循环仅处理一个会造成响应慢
@@ -350,6 +360,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
             if (isSpecialEvent(e_temp))
             {
                 e = e_temp;
+                handleWindowGeometryEvent(e);
                 bool consumed_by_imgui = Engine::getInstance()->processImGuiEvent(e);
                 if (use_virtual_stick_)
                 {
@@ -386,6 +397,7 @@ void RunNode::dealEventSelfChilds(bool check_event)
             EngineEvent e1;
             while (Engine::getInstance()->pollEvent(e1)) {};
         }
+        handleWindowGeometryEvent(e);
         //SDL3中，这两个事件需要在AddEventWatch处理
         if (e.type == EVENT_DID_ENTER_BACKGROUND)
         {
@@ -430,6 +442,10 @@ bool RunNode::isSpecialEvent(EngineEvent& e)
     //LOG("type = {}\n", e.type);
     return e.type == EVENT_QUIT
         || e.type == EVENT_WINDOW_CLOSE_REQUESTED
+        || e.type == EVENT_WINDOW_RESIZED
+        || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+        || e.type == EVENT_WINDOW_MAXIMIZED
+        || e.type == EVENT_WINDOW_RESTORED
         || e.type == EVENT_KEY_DOWN
         || e.type == EVENT_KEY_UP
         || e.type == EVENT_TEXT_EDITING
@@ -513,8 +529,8 @@ void RunNode::present()
     auto e = Engine::getInstance();
     if (render_message_)
     {
-        int w = e->getPresentWidth();
-        int h = e->getPresentHeight();
+        int w = e->getUIWidth();
+        int h = e->getUIHeight();
         Font::getInstance()->draw(std::format("Render one frame in {:.3f} ms", t), 20, w - 300, h - 60);
         Font::getInstance()->draw(std::format("Render texture time is {}", Engine::getInstance()->getRenderTimes()), 20, w - 300, h - 35);
         e->resetRenderTimes();

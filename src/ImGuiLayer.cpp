@@ -185,8 +185,8 @@ void ImGuiLayer::showBattleLog(const BattleLogData& data)
     battle_log_ = data;
     battle_log_.open = true;
     battle_log_input_guard_frames_ = 10;
-    battle_log_reset_scroll_ = true;
     battle_log_hover_guard_ = true;
+    battle_log_child_flip_ ^= 1;
     battle_log_ally_filter_id_ = -1;
     battle_log_enemy_filter_id_ = -1;
 }
@@ -195,7 +195,6 @@ void ImGuiLayer::hideBattleLog()
 {
     battle_log_.open = false;
     battle_log_input_guard_frames_ = 0;
-    battle_log_reset_scroll_ = false;
     battle_log_hover_guard_ = false;
 }
 
@@ -429,12 +428,8 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::PopStyleColor();
         ImGui::Separator();
         ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, scrollbar_size);
-        if (battle_log_reset_scroll_)
-        {
-            ImGui::SetNextWindowScroll(ImVec2(0.0f, 0.0f));
-            battle_log_reset_scroll_ = false;
-        }
-        ImGui::BeginChild("battle_log_entries", ImVec2(0.0f, ImGui::GetContentRegionAvail().y - 60.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
+        const char* child_id = battle_log_child_flip_ ? "battle_log_entries_b" : "battle_log_entries_a";
+        ImGui::BeginChild(child_id, ImVec2(0.0f, ImGui::GetContentRegionAvail().y - 60.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
         ImGui::SetWindowFontScale(body_scale);
         auto colorForField = [&](BattleLogFieldTone tone, BattleLogTone line_tone) -> ImVec4
         {

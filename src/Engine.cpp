@@ -1104,14 +1104,10 @@ void Engine::initUIStyle()
 void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
-#ifdef __EMSCRIPTEN__
+    setPresentPosition(tex_);
     SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
     renderTexture(tex_);
-#else
-    SDL_Rect r;
-    renderTexture(tex_, nullptr, nullptr);
-#endif
     //std::vector<FPoint> v;
     //int w, h;
     //getWindowSize(w, h);
