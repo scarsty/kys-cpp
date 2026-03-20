@@ -337,6 +337,20 @@ public:
 
     int getPresentHeight() const { return rect_.h; }
 
+    float getDisplayScale() const
+    {
+        if (ui_w_ == 0) return 1.0f;
+        return std::max(1.0f, float(rect_.w) / ui_w_);
+    }
+
+    void getPresentRect(int& x, int& y, int& w, int& h) const
+    {
+        x = rect_.x;
+        y = rect_.y;
+        w = rect_.w;
+        h = rect_.h;
+    }
+
     Texture* getMainTexture() const { return tex_; }
 
     void getAssistTextureSize(const std::string& name, int& w, int& h) { getTextureSize(tex_map_[name], w, h); }

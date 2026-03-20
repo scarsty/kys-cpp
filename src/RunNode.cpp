@@ -511,6 +511,7 @@ void RunNode::present()
         e->resetRenderTimes();
     }
     e->renderMainTextureToWindow();
+    Font::getInstance()->executeDrawCalls();
     e->renderPresent();
     e->setRenderMainTexture();
     auto t_delay = refresh_interval_ - t;

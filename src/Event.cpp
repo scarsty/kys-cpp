@@ -103,7 +103,7 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
     }
     subscene_ = dynamic_cast<SubScene*>(subscene);
     submap_id_ = -1;
-    if (subscene)
+    if (subscene_)
     {
         submap_id_ = subscene_->getMapInfo()->ID;
     }

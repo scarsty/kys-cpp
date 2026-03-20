@@ -50,11 +50,11 @@ Console::Console()
         {
             generated.emplace_back(i, "a" + std::to_string(i));
         }
-        auto smt = std::make_shared<SuperMenuText>("少废话", 28, generated, 10);
+        auto smt = std::make_shared<SuperMenuText>("少廢話", 28, generated, 10);
         smt->setInputPosition(180, 80);
         smt->run();
         int id = smt->getResult();
-        LOG("result %d\n", id);
+        LOG("result {}\n", id);
     }
     else if (RunNode::getPointerFromRoot<SubScene>() == nullptr
         && (code == "chuansong" || code == "teleport" || code == "mache" || code == ""))

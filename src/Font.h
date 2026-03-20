@@ -25,6 +25,18 @@ private:
 
     SimpleCC cct2s_;
 
+    struct DrawCall
+    {
+        std::string text;
+        int size;
+        int x, y;
+        Color color;
+        uint8_t alpha;
+    };
+    std::vector<DrawCall> draw_calls_;
+
+    int renderText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha);
+
 public:
     static Font* getInstance()
     {
@@ -35,7 +47,7 @@ public:
     void setStatMessage(int s) { stat_message_ = s; }
     int draw(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255);
     void drawWithBox(const std::string& text, int size, int x, int y, Color color = { 255, 255, 255, 255 }, uint8_t alpha = 255, uint8_t alpha_box = 255);
-    //void drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c);
+    void executeDrawCalls();
     void clearBuffer();
     int getBufferSize();
     static int getTextDrawSize(const std::string& text);

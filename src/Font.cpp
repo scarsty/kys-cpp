@@ -21,9 +21,27 @@ Rect Font::getBoxRect(int textLen, int size, int x, int y)
     return r;
 }
 
-//此处仅接受utf8
-//返回值为实际画的行数
+//此处仅接受utf8，将绘制调用加入延迟队列
+//返回值为估算的行数
 int Font::draw(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
+{
+    if (text.empty() || size <= 0 || alpha == 0)
+    {
+        return 0;
+    }
+    draw_calls_.push_back({ text, size, x, y, color, alpha });
+
+    int lines = 1;
+    for (char c : text)
+    {
+        if (c == '\n') { lines++; }
+    }
+    return lines;
+}
+
+//实际执行渲染，在当前渲染目标上绘制文字
+//size 为渲染目标像素尺寸，(x, y) 为渲染目标坐标
+int Font::renderText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
 {
     if (text.empty() || size <= 0 || alpha == 0)
     {
@@ -31,8 +49,6 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
     }
     int line = 1;
     int p = 0;
-    int char_count = 0;
-    int s1;
     color.a = alpha;
     std::string text1;
     int x0 = x;
@@ -47,11 +63,7 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         }
         textp = &text1;
     }
-    if (stat_message_)
-    {
-        s1 = getBufferSize();
-    }
-    //auto ss = PotConv::utf8tocp936(text);
+
     while (p < textp->size())
     {
         int w = size, h = size;
@@ -77,11 +89,9 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
         if (buffer_[c].count(size) == 0)
         {
             auto s = std::string((char*)(&c));
-            //auto ws = PotConv::ToWide(s, "utf-8");
-            //buffer_[c][size] = Engine::getInstance()->createTextTexture(fontnamec_, ws[0], size, { 255, 255, 255, 255 });
-            auto fontname = (c < 128) ? fontnamee_ : fontnamec_ ;
-            auto fonrname_size = fontname + std::to_string(size);
-            auto ttf_font = font_buffer_[fonrname_size];
+            auto fontname = (c < 128) ? fontnamee_ : fontnamec_;
+            auto key = fontname + std::to_string(size);
+            auto ttf_font = font_buffer_[key];
             if (!ttf_font)
             {
                 ttf_font = TTF_OpenFont(fontname.c_str(), size);
@@ -90,92 +100,84 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
                     LOG("Failed to load font {}, size {}\n", fontname, size);
                     continue;
                 }
-                font_buffer_[fonrname_size] = ttf_font;
+                font_buffer_[key] = ttf_font;
             }
             buffer_[c][size] = Engine::getInstance()->createTextTexture(ttf_font, s, { 255, 255, 255, 255 });
         }
         auto tex = buffer_[c][size];
-        char_count++;
-        int w1 = w;
         int x1 = x;
         int y1 = y;
-        //Engine::getInstance()->getTextureSize(tex, w, h);
         if (c < 128)
         {
             w = size / 2;
-            int h1;
-            Engine::getInstance()->getTextureSize(tex, w1, h1);
-            w1 = (std::min)(w1, w);
-            x1 += (w - w1) / 2;
-            y1 = y + 1;
+            int native_w, native_h;
+            Engine::getInstance()->getTextureSize(tex, native_w, native_h);
+            int draw_w = (std::min)(native_w, w);
+            x1 += (w - draw_w) / 2;
+            y1 = y + 4;
+            if (c > ' ')
+            {
+                Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
+                Engine::getInstance()->renderTexture(tex, x1 + 1, y1, draw_w, size);
+                Engine::getInstance()->setColor(tex, color);
+                Engine::getInstance()->renderTexture(tex, x1, y1, draw_w, size);
+            }
         }
-        if (c > ' ')
+        else
         {
-            Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
-            //Engine::getInstance()->setColor(tex, { 0, 0, 0, color.a });
-            Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
-            Engine::getInstance()->setColor(tex, color);
-            Engine::getInstance()->renderTexture(tex, x1, y1, -1, -1);
+            if (c > ' ')
+            {
+                Engine::getInstance()->setColor(tex, { uint8_t(color.r / 10), uint8_t(color.g / 10), uint8_t(color.b / 10), color.a });
+                Engine::getInstance()->renderTexture(tex, x1 + 1, y1, -1, -1);
+                Engine::getInstance()->setColor(tex, color);
+                Engine::getInstance()->renderTexture(tex, x1, y1, -1, -1);
+            }
         }
         x += w;
-    }
-    if (stat_message_)
-    {
-        int s = getBufferSize() - s1;
-        if (s > 0)
-        {
-            LOG(" {}/{}, {}, total = {}, t2s buffer = {}\n", s, char_count, size, getBufferSize(), t2s_buffer_.size());
-        }
     }
     return line;
 }
 
-void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
+//将延迟队列中的文字绘制调用执行到窗口帧缓冲（已无缩放），保证字体清晰
+//应在 renderMainTextureToWindow() 之后、renderPresent() 之前调用
+void Font::executeDrawCalls()
 {
-    //TextureManager::getInstance()->renderTexture("title", 19, x - 19, y - 3);
-    //for (int i = 0; i < text.size(); i++)
-    //{
-    //TextureManager::getInstance()->renderTexture("title", 20, x + 10 * i, y - 3);
-    //}
-    auto r = getBoxRect(getTextDrawSize(text), size, x, y);
-    TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
-    //TextureManager::getInstance()->renderTexture("title", 19, r1, { 255, 255, 255, 255 }, alpha_box);    
-    //TextureManager::getInstance()->renderTexture("title", 21, r2, { 255, 255, 255, 255 }, alpha_box);
-    draw(text, size, x, y, color, alpha);
+    if (draw_calls_.empty())
+    {
+        return;
+    }
+
+    int win_w, win_h;
+    Engine::getInstance()->getWindowSize(win_w, win_h);
+    int ui_w, ui_h;
+    Engine::getInstance()->getUISize(ui_w, ui_h);
+
+    if (win_w <= 0 || win_h <= 0 || ui_w <= 0 || ui_h <= 0)
+    {
+        draw_calls_.clear();
+        return;
+    }
+
+    float sx = float(win_w) / ui_w;
+    float sy = float(win_h) / ui_h;
+
+    for (auto& call : draw_calls_)
+    {
+        int wx = int(call.x * sx);
+        int wy = int(call.y * sy);
+        int wsize = std::max(1, int(call.size * sx));
+        renderText(call.text, wsize, wx, wy, call.color, call.alpha);
+    }
+
+    draw_calls_.clear();
 }
 
-//此处仅接受utf8
-/*
-void Font::drawText(const std::string& fontname, std::string& text, int size, int x, int y, uint8_t alpha, int align, Color c)
+void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
 {
-    if (alpha == 0)
-    {
-        return;
-    }
-    auto text_t = Engine::getInstance()->createTextTexture(fontname, text, size, c);
-    if (!text_t)
-    {
-        return;
-    }
-    Engine::getInstance()->setTextureAlphaMod(text_t, alpha);
-    Rect rect;
-    Engine::getInstance()->getTextureSize(text_t, rect.w, rect.h);
-    rect.y = y;
-    switch (align)
-    {
-    case ALIGN_LEFT:
-        rect.x = x;
-        break;
-    case ALIGN_RIGHT:
-        rect.x = x - rect.w;
-        break;
-    case ALIGN_MIDDLE:
-        rect.x = x - rect.w / 2;
-        break;
-    }
-    Engine::getInstance()->renderTexture(text_t, nullptr, &rect);
-    Engine::getInstance()->destroyTexture(text_t);
-}*/
+    auto r = getBoxRect(getTextDrawSize(text), size, x, y);
+    TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+    draw(text, size, x, y, color, alpha);
+}
 
 void Font::clearBuffer()
 {
