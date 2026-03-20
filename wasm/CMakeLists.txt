@@ -4,6 +4,20 @@ project(kys-wasm)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(WASM_DEPS_DIR)
+    list(PREPEND CMAKE_PREFIX_PATH "${WASM_DEPS_DIR}")
+    set(imgui_DIR "${WASM_DEPS_DIR}/share/imgui")
+    set(SDL3_DIR "${WASM_DEPS_DIR}/share/sdl3")
+endif()
+
+find_package(imgui CONFIG REQUIRED)
+
+if(EMSCRIPTEN)
+    # Keep Dear ImGui from pulling in vcpkg's SDL3 archive: this target already
+    # uses Emscripten's threaded SDL port via -sUSE_SDL=3.
+    set_property(TARGET imgui::imgui PROPERTY INTERFACE_LINK_LIBRARIES "")
+endif()
+
 # Source files
 file(GLOB SRC_LIST
     ../src/*.cpp
@@ -46,6 +60,7 @@ add_executable(kyschess ${SRC_LIST})
 
 # Link libraries: SDL3_image/SDL3_ttf built from source + vcpkg deps
 target_link_libraries(kyschess
+    imgui::imgui
     SDL3_mixer
     fluidsynth
     SDL3_image

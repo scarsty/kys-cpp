@@ -8,6 +8,7 @@
 #include "GameUtil.h"
 #include "Audio.h"
 #include "ChessUiCommon.h"
+#include "ChessEftIds.h"
 #include <format>
 #include <set>
 
@@ -519,6 +520,16 @@ void BattleStatsView::dealEvent(EngineEvent& e)
     if (isPreBattle_ && !assetsPreloaded_ && loadingTextRendered_)
     {
         std::vector<int> atkSounds, effSounds;
+        auto preloadEffect = [&](int effectId)
+        {
+            if (effectId < 0)
+                return;
+
+            auto path = std::format("eft/eft{:03}", effectId);
+            int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
+            for (int frame = 0; frame < frameCount; ++frame)
+                TextureManager::getInstance()->getTexture(path, frame);
+        };
         auto loadForRoles = [&](const std::vector<RoleEntry>& roles)
         {
             for (auto& re : roles)
@@ -535,7 +546,7 @@ void BattleStatsView::dealEvent(EngineEvent& e)
                     if (m->EffectID >= 0)
                     {
                         effSounds.push_back(m->EffectID);
-                        TextureManager::getInstance()->getTexture(std::format("eft/eft{:03}", m->EffectID), 0);
+                        preloadEffect(m->EffectID);
                     }
                 }
             }
@@ -546,6 +557,10 @@ void BattleStatsView::dealEvent(EngineEvent& e)
         for (int i = 0; i < 5; i++)
         {
             TextureManager::getInstance()->getTexture(std::format("eft/bld{:03}", i), 0);
+        }
+        for (auto eftId : KysChess::EFT_ALL)
+        {
+            preloadEffect(std::to_underlying(eftId));
         }
         Audio::getInstance()->preloadBattleAudio(musicId_, atkSounds, effSounds);
 

@@ -46,9 +46,17 @@ protected:
     int calCoolDown(int act_type, int operation_type, Role* r);
 
     void defaultMagicEffect(AttackEffect& ae, Role* r);
+    void applyScriptedAttackEffect(AttackEffect& ae, Role* r);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate);
     int getUltimateExtraProjectileCount(Role* r) const;
+    void spawnAreaImpactProjectiles(Role* attacker,
+                                    Role* origin,
+                                    int width,
+                                    int height,
+                                    int eftId,
+                                    int damage,
+                                    int stunFrames = 0);
     void spawnTrackingProjectileSpread(const AttackEffect& prototype,
                                        int projectileCount,
                                        int initialFrame = 0,
@@ -65,6 +73,8 @@ protected:
     void runListBasedSwap();
     Role* assignFlankTarget(Role* r);
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
+    void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
+    void addRoleEffect(Role* role, int eftId, int totalFrames = 0);
 
     std::vector<Point> findPath(Point start45, Point goal45);
     std::vector<Pointf> smoothPath(const std::vector<Point>& path45);

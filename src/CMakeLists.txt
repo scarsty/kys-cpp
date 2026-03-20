@@ -5,7 +5,7 @@ cmake_policy(SET CMP0015 OLD)
 set(CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_COMPILER $ENV{CXX})
 set(CMAKE_CXX_FLAGS "-O2 -std=c++23 -pthread -DNDEBUG")
-
+find_package(imgui CONFIG REQUIRED)
 include_directories(../include . ../mlcc ../others ../local/include /usr/include)
 link_directories(. ../lib)
 
@@ -21,8 +21,6 @@ set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yam
 if (APPLE)
     set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
 endif ()
-
-find_package(imgui CONFIG REQUIRED)
 
 add_executable(kys ${SRC_LIST})
 target_link_libraries(kys imgui::imgui ${LINK_LIBRARIES})

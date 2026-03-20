@@ -36,6 +36,10 @@ public:
         int NoHurt = 0;                //是否无伤害
         int IsUltimate = 0;            //大招标记
         int IsMain = 1;                //是否主弹（非多重小弹）
+        int ScriptedDamage = 0;        //非武功/暗器投射物命中时造成的固定伤害
+        int ScriptedStunFrames = 0;    //非武功投射物命中时附带的控制时间
+        int IgnoreProjectileCancel = 0;    //忽略弹体互相抵消
+        int RequirePreferredTarget = 0;    //只追踪/命中指定目标
 
         void setEft(int num)
         {
