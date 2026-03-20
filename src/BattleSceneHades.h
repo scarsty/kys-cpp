@@ -40,6 +40,8 @@ protected:
     virtual void setRoleInitState(Role* r) override;
     Role* findNearestEnemy(int team, Pointf p);
     Role* findFarthestEnemy(int team, Pointf p);
+    Role* findRandomEnemy(int team);
+    Role* findWeakestVulnerableEnemy(int team);
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
 

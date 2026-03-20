@@ -14,6 +14,8 @@
 #include "Weather.h"
 #include "ChessEftIds.h"
 
+#include <limits>
+
 namespace
 {
 constexpr int PROJECTILE_SPEED = 7;
@@ -28,6 +30,7 @@ constexpr int EMPHASIS_TEXT_SIZE = 18;
 constexpr int ULT_DAMAGE_TEXT_SIZE = 22;
 constexpr int ROLE_STATUS_EFT_FRAMES = 24;
 constexpr float ROLE_STATUS_EFT_Z_OFFSET = 42.0f;
+constexpr double BLINK_WEAK_TARGET_DEF_WEIGHT = 4.0;
 constexpr int BATTLE_TILE_W = 18;
 constexpr int BATTLE_COORD_COUNT = BATTLEMAP_COORD_COUNT;
 
@@ -2042,7 +2045,7 @@ void BattleSceneHades::backRun1()
                 int hpBefore = pulled->HP;
                 int heal = std::max(1, pulled->MaxHP * 10 / 100);
                 pulled->HP = std::min(pulled->MaxHP, pulled->HP + heal);
-                pulled->Invincible = std::max(pulled->Invincible, 5);
+                pulled->Invincible += 10;
                 if (pulled->HP > hpBefore)
                     addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
             }
@@ -2318,9 +2321,16 @@ void BattleSceneHades::Action(Role* r)
                 auto sit = cs.find(r->ID);
                 if (sit != cs.end() && sit->second.blinkAttack)
                 {
-                    auto target = findNearestEnemy(r->Team, r->Pos);
+                    // auto target = findNearestEnemy(r->Team, r->Pos);
+                    auto& blinkState = sit->second;
+                    auto target = blinkState.blinkAttackUseWeakest
+                        ? findWeakestVulnerableEnemy(r->Team)
+                        : findRandomEnemy(r->Team);
+                    if (!target)
+                        target = findRandomEnemy(r->Team);
                     if (target)
                     {
+                        blinkState.blinkAttackUseWeakest = !blinkState.blinkAttackUseWeakest;
                         auto targetPos45 = pos90To45(target->Pos.x, target->Pos.y);
                         auto currentPos45 = pos90To45(r->Pos.x, r->Pos.y);
                         int gridReach = std::max(1, static_cast<int>(calcBlinkReach(magic) / TILE_W) + 1);
@@ -3217,6 +3227,38 @@ Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
         }
     }
     return r0;
+}
+
+Role* BattleSceneHades::findRandomEnemy(int team)
+{
+    std::vector<Role*> candidates;
+    for (auto r1 : battle_roles_)
+    {
+        if (r1->Dead == 0 && team != r1->Team)
+            candidates.push_back(r1);
+    }
+    if (candidates.empty())
+        return nullptr;
+    return candidates[rand_.rand_int(static_cast<int>(candidates.size()))];
+}
+
+Role* BattleSceneHades::findWeakestVulnerableEnemy(int team)
+{
+    Role* target = nullptr;
+    double bestScore = std::numeric_limits<double>::max();
+    for (auto r1 : battle_roles_)
+    {
+        if (r1->Dead != 0 || team == r1->Team || r1->Invincible > 0)
+            continue;
+
+        double effectiveHp = r1->MaxHP + r1->Defence * BLINK_WEAK_TARGET_DEF_WEIGHT;
+        if (effectiveHp < bestScore)
+        {
+            bestScore = effectiveHp;
+            target = r1;
+        }
+    }
+    return target;
 }
 
 //前摇

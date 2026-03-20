@@ -208,6 +208,7 @@ struct RoleComboState
     bool postSkillDashPending = false;
     int postSkillDashTimer = 0;
     bool isSummonedClone = false;
+    bool blinkAttackUseWeakest = false;
     int damageImmunityTimer = 0;
     int autoUltimateTimer = 0;
     int blockFirstHitsRemaining = 0;
