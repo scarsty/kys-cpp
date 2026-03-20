@@ -147,24 +147,24 @@ void Font::executeDrawCalls()
         return;
     }
 
-    int win_w, win_h;
-    Engine::getInstance()->getWindowSize(win_w, win_h);
+    int px, py, pw, ph;
+    Engine::getInstance()->getPresentRect(px, py, pw, ph);
     int ui_w, ui_h;
     Engine::getInstance()->getUISize(ui_w, ui_h);
 
-    if (win_w <= 0 || win_h <= 0 || ui_w <= 0 || ui_h <= 0)
+    if (pw <= 0 || ph <= 0 || ui_w <= 0 || ui_h <= 0)
     {
         draw_calls_.clear();
         return;
     }
 
-    float sx = float(win_w) / ui_w;
-    float sy = float(win_h) / ui_h;
+    float sx = float(pw) / ui_w;
+    float sy = float(ph) / ui_h;
 
     for (auto& call : draw_calls_)
     {
-        int wx = int(call.x * sx);
-        int wy = int(call.y * sy);
+        int wx = px + int(call.x * sx);
+        int wy = py + int(call.y * sy);
         int wsize = std::max(1, int(call.size * sx));
         renderText(call.text, wsize, wx, wy, call.color, call.alpha);
     }

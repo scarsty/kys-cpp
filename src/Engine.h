@@ -351,6 +351,9 @@ public:
         h = rect_.h;
     }
 
+    bool windowToUISpace(int wx, int wy, int& ux, int& uy, bool clamp = false) const;
+    void uiToWindowSpace(int ux, int uy, int& wx, int& wy) const;
+
     Texture* getMainTexture() const { return tex_; }
 
     void getAssistTextureSize(const std::string& name, int& w, int& h) { getTextureSize(tex_map_[name], w, h); }

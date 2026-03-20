@@ -119,13 +119,12 @@ public:
     bool inSide(int x, int y)
     {
         if (visible_ == false) { return false; }
-        int w, h;
-        int w1, h1;
-        Engine::getInstance()->getWindowSize(w, h);
-        Engine::getInstance()->getUISize(w1, h1);
-        x = x * w1 / w;
-        y = y * h1 / h;
-        return x > x_ && x < x_ + w_ && y > y_ && y < y_ + h_;
+        int ux = 0, uy = 0;
+        if (!Engine::getInstance()->windowToUISpace(x, y, ux, uy, false))
+        {
+            return false;
+        }
+        return ux > x_ && ux < x_ + w_ && uy > y_ && uy < y_ + h_;
     }
 
     bool mouseIn()

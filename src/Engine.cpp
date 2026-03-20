@@ -667,17 +667,7 @@ void Engine::fillColor(Color color, int x, int y, int w, int h, BlendMode blend)
 void Engine::renderMainTextureToWindow()
 {
     resetRenderTarget();
-    SDL_Rect r;
-    renderTexture(tex_, nullptr, nullptr);
-    //std::vector<FPoint> v;
-    //int w, h;
-    //getWindowSize(w, h);
-    //float wf = w, hf = h;
-    //v.push_back({ wf * 0.25f, 0 });
-    //v.push_back({ wf * 0.75f, 0 });
-    //v.push_back({ wf, hf });
-    //v.push_back({ 0, hf });
-    //renderTexture(tex_, v);
+    renderTexture(tex_);
 }
 
 void Engine::createRenderedTexture(const std::string& name, int w, int h)
@@ -781,32 +771,81 @@ void Engine::getMouseState(int& x, int& y)
     y = yf;
 }
 
+bool Engine::windowToUISpace(int wx, int wy, int& ux, int& uy, bool clamp) const
+{
+    int px, py, pw, ph;
+    getPresentRect(px, py, pw, ph);
+    if (pw <= 0 || ph <= 0 || ui_w_ <= 0 || ui_h_ <= 0)
+    {
+        ux = 0;
+        uy = 0;
+        return false;
+    }
+
+    bool inside = (wx >= px && wx < px + pw && wy >= py && wy < py + ph);
+    if (!inside && !clamp)
+    {
+        return false;
+    }
+
+    int cx = wx;
+    int cy = wy;
+    if (clamp)
+    {
+        cx = std::clamp(cx, px, px + pw - 1);
+        cy = std::clamp(cy, py, py + ph - 1);
+    }
+
+    ux = (cx - px) * ui_w_ / pw;
+    uy = (cy - py) * ui_h_ / ph;
+    ux = std::clamp(ux, 0, ui_w_ - 1);
+    uy = std::clamp(uy, 0, ui_h_ - 1);
+    return inside;
+}
+
+void Engine::uiToWindowSpace(int ux, int uy, int& wx, int& wy) const
+{
+    int px, py, pw, ph;
+    getPresentRect(px, py, pw, ph);
+    if (pw <= 0 || ph <= 0 || ui_w_ <= 0 || ui_h_ <= 0)
+    {
+        wx = px;
+        wy = py;
+        return;
+    }
+
+    ux = std::clamp(ux, 0, ui_w_ - 1);
+    uy = std::clamp(uy, 0, ui_h_ - 1);
+    wx = px + ux * pw / ui_w_;
+    wy = py + uy * ph / ui_h_;
+}
+
 void Engine::getMouseStateInStartWindow(int& x, int& y) const
 {
     getMouseState(x, y);
-    int w, h;
-    getWindowSize(w, h);
-    x = x * ui_w_ / w;
-    y = y * ui_h_ / h;
-}
-
-void Engine::setMouseState(int x, int y) const
-{
-    SDL_WarpMouseInWindow(window_, x, y);
+    windowToUISpace(x, y, x, y, true);
 }
 
 void Engine::setMouseStateInStartWindow(int x, int y) const
 {
-    int w, h;
-    getWindowSize(w, h);
-    x = x * w / ui_w_;
-    y = y * h / ui_h_;
-    SDL_WarpMouseInWindow(window_, x, y);
+    int wx, wy;
+    uiToWindowSpace(x, y, wx, wy);
+    SDL_WarpMouseInWindow(window_, wx, wy);
 }
 
 int Engine::pollEvent(EngineEvent& e) const
 {
     int r = SDL_PollEvent(&e);
+    if (r)
+    {
+        if (e.type == EVENT_WINDOW_RESIZED
+            || e.type == EVENT_WINDOW_PIXEL_SIZE_CHANGED
+            || e.type == EVENT_WINDOW_MAXIMIZED
+            || e.type == EVENT_WINDOW_RESTORED)
+        {
+            const_cast<Engine*>(this)->setPresentPosition(tex_);
+        }
+    }
     return r;
 }
 
