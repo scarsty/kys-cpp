@@ -8,6 +8,7 @@
 #include "TextureManager.h"
 #include "TitleScene.h"
 #include "Types.h"
+#include "SystemSettings.h"
 #include "UIKeyConfig.h"
 
 Application::Application()
@@ -59,12 +60,10 @@ int Application::run()
 void Application::config()
 {
     auto game = GameUtil::getInstance();
+    SystemSettings::getInstance()->load();
     //RunNode::setRefreshInterval(game->getReal("game", "refresh_interval", 16));
-    Audio::getInstance()->setVolume(game->getInt("music", "volume", 50));
-    Audio::getInstance()->setVolumeWav(game->getInt("music", "volumewav", 50));
     Event::getInstance()->setUseScript(game->getInt("game", "use_script", 1));
     Font::getInstance()->setStatMessage(game->getInt("game", "stat_font", 0));
-    Font::getInstance()->setSimplified(game->getInt("game", "simplified_chinese", 1));
     TextureManager::getInstance()->setLoadFromPath(game->getInt("game", "png_from_path", 0));
     TextureManager::getInstance()->setLoadAll(game->getInt("game", "load_all_png", 0));
     UIKeyConfig::readFromString(game->getString("game", "key", ""));

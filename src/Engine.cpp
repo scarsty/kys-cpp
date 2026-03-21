@@ -1,6 +1,7 @@
 ﻿#include "Engine.h"
 #include "GameUtil.h"
 #include "ImGuiLayer.h"
+#include "SystemSettings.h"
 #include "strfunc.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -1144,6 +1145,10 @@ void Engine::renderImGuiOverlay() const
 void Engine::showBattleLogWindow(const BattleLogData& data) const
 {
     if (!imgui_)
+    {
+        return;
+    }
+    if (!SystemSettings::getInstance()->data().showBattleLog)
     {
         return;
     }

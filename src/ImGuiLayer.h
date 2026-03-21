@@ -106,7 +106,9 @@ private:
     bool visible_ = false;
     bool show_metrics_window_ = false;
     int battle_log_input_guard_frames_ = 0;
+    int system_menu_input_guard_frames_ = 0;
     bool battle_log_hover_guard_ = false;
+    bool system_menu_hover_guard_ = false;
     int battle_log_child_flip_ = 0;
     int battle_log_ally_filter_id_ = -1;
     int battle_log_enemy_filter_id_ = -1;

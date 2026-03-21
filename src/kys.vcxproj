@@ -195,6 +195,7 @@
     <ClCompile Include="ShowExp.cpp" />
     <ClCompile Include="ShowRoleDifference.cpp" />
     <ClCompile Include="SuperMenuText.cpp" />
+    <ClCompile Include="SystemSettings.cpp" />
     <ClCompile Include="Talk.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="Head.cpp" />
@@ -303,6 +304,7 @@
     <ClInclude Include="ShowExp.h" />
     <ClInclude Include="ShowRoleDifference.h" />
     <ClInclude Include="SuperMenuText.h" />
+    <ClInclude Include="SystemSettings.h" />
     <ClInclude Include="Talk.h" />
     <ClInclude Include="EventMacro.h" />
     <ClInclude Include="Font.h" />

@@ -1,6 +1,7 @@
 #include "ChessProgress.h"
 
 #include "ChessBalance.h"
+#include "SystemSettings.h"
 
 namespace KysChess
 {
@@ -17,7 +18,6 @@ bool BattleProgress::isGameComplete() const
 
 ChessProgress::ChessProgress(const GameDataStore& store)
 {
-    positionSwapEnabled_ = store.positionSwapEnabled;
     battleProgress_.setFight(store.fight);
     obtainedNeigong_ = store.obtainedNeigong;
     completedChallenges_ = store.completedChallenges;
@@ -26,9 +26,18 @@ ChessProgress::ChessProgress(const GameDataStore& store)
 void ChessProgress::exportTo(GameDataStore& store) const
 {
     store.fight = battleProgress_.getFight();
-    store.positionSwapEnabled = positionSwapEnabled_;
     store.obtainedNeigong = obtainedNeigong_;
     store.completedChallenges = completedChallenges_;
+}
+
+bool ChessProgress::isPositionSwapEnabled() const
+{
+    return SystemSettings::getInstance()->positionSwapEnabled();
+}
+
+void ChessProgress::setPositionSwapEnabled(bool value)
+{
+    SystemSettings::getInstance()->setPositionSwapEnabled(value);
 }
 
 }

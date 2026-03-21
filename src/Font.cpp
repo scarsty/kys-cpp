@@ -89,6 +89,21 @@ int Font::draw(const std::string& text, int size, int x, int y, Color color, uin
     return lines;
 }
 
+std::string Font::localize(const std::string& str)
+{
+    if (!simplified_ || str.empty())
+    {
+        return str;
+    }
+
+    auto& cached = t2s_buffer_[str];
+    if (cached.empty())
+    {
+        cached = cct2s_.conv(str);
+    }
+    return cached;
+}
+
 //实际执行渲染，在当前渲染目标上绘制文字
 //size 为渲染目标像素尺寸，(x, y) 为渲染目标坐标
 int Font::renderText(const std::string& text, int size, int x, int y, Color color, uint8_t alpha)
@@ -105,12 +120,7 @@ int Font::renderText(const std::string& text, int size, int x, int y, Color colo
     const std::string* textp = &text;
     if (simplified_)
     {
-        text1 = t2s_buffer_[text];
-        if (text1.empty())
-        {
-            text1 = cct2s_.conv(text);
-            t2s_buffer_[text] = text1;
-        }
+        text1 = localize(text);
         textp = &text1;
     }
     while (p < textp->size())

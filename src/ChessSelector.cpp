@@ -9,9 +9,9 @@
 #include "ChessUiCommon.h"
 #include "Engine.h"
 #include "GameState.h"
-#include "GameUtil.h"
 #include "ImGuiLayer.h"
 #include "Menu.h"
+#include "SystemSettings.h"
 #include "UISave.h"
 
 namespace KysChess
@@ -107,7 +107,7 @@ void ChessSelector::showContextMenu()
             "查看羈絆",
             "查看內功",
             "遠征挑戰",
-            "戰鬥系統",
+            "系統設定",
             "裝備管理",
         };
         if (banEnabled)
@@ -190,15 +190,15 @@ void ChessSelector::showGameGuide()
 
 void ChessSelector::showSystemMenu()
 {
-    auto* game = GameUtil::getInstance();
+    auto settings = SystemSettings::getInstance()->snapshot();
     BattleSystemMenuData data;
-    data.positionSwapEnabled = progress_.isPositionSwapEnabled();
-    data.musicVolume = game->getInt("music", "volume", 50);
-    data.soundVolume = game->getInt("music", "volumewav", 50);
-    data.manualCamera = game->getInt("game", "manual_battle_camera", 0) != 0;
-    data.battleSpeed = GameUtil::limit(game->getInt("game", "battle_speed", 1), 0, 2);
-    data.simplifiedChinese = game->getInt("game", "simplified_chinese", 1) != 0;
-    data.showBattleLog = game->getInt("game", "show_battle_log", 1) != 0;
+    data.positionSwapEnabled = settings.positionSwapEnabled;
+    data.musicVolume = settings.musicVolume;
+    data.soundVolume = settings.soundVolume;
+    data.manualCamera = settings.manualCamera;
+    data.battleSpeed = settings.battleSpeed;
+    data.simplifiedChinese = settings.simplifiedChinese;
+    data.showBattleLog = settings.showBattleLog;
 
     auto* engine = Engine::getInstance();
     engine->showBattleSystemMenu(data);
@@ -207,7 +207,15 @@ void ChessSelector::showSystemMenu()
     waitNode->run();
 
     auto result = engine->getBattleSystemMenuData();
-    progress_.setPositionSwapEnabled(result.positionSwapEnabled);
+    SystemSettingsData updated = settings;
+    updated.positionSwapEnabled = result.positionSwapEnabled;
+    updated.musicVolume = result.musicVolume;
+    updated.soundVolume = result.soundVolume;
+    updated.manualCamera = result.manualCamera;
+    updated.battleSpeed = result.battleSpeed;
+    updated.simplifiedChinese = result.simplifiedChinese;
+    updated.showBattleLog = result.showBattleLog;
+    SystemSettings::getInstance()->update(updated);
 }
 
 }    // namespace KysChess

@@ -213,6 +213,9 @@
     <ClCompile Include="TempStore.cpp" />
     <ClCompile Include="ChessSelector.cpp" />
     <ClCompile Include="Chess.cpp" />
+    <ClCompile Include="SystemSettings.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BattleCursor.h">
@@ -442,6 +445,9 @@
     <ClInclude Include="TempStore.h" />
     <ClInclude Include="ChessSelector.h" />
     <ClInclude Include="Chess.h" />
+    <ClInclude Include="SystemSettings.h">
+      <Filter>engine</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="_Resources">

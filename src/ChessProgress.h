@@ -30,8 +30,8 @@ public:
 
     void exportTo(GameDataStore& store) const;
 
-    bool isPositionSwapEnabled() const { return positionSwapEnabled_; }
-    void setPositionSwapEnabled(bool value) { positionSwapEnabled_ = value; }
+    bool isPositionSwapEnabled() const;
+    void setPositionSwapEnabled(bool value);
 
     const std::vector<int>& getObtainedNeigong() const { return obtainedNeigong_; }
     void addNeigong(int magicId) { obtainedNeigong_.push_back(magicId); }
@@ -44,7 +44,6 @@ public:
     const BattleProgress& battleProgress() const { return battleProgress_; }
 
 private:
-    bool positionSwapEnabled_ = false;
     BattleProgress battleProgress_;
     std::vector<int> obtainedNeigong_;
     std::set<int> completedChallenges_;

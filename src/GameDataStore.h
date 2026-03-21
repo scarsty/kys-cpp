@@ -41,7 +41,6 @@ struct GameDataStore {
     unsigned int enemyCallCount = 0;
     bool shopLocked = false;
     Difficulty difficulty = Difficulty::Easy;
-    bool positionSwapEnabled = false;
     int nextChessInstanceId = 1;
     int nextEquipInstanceId = 1;
     int banBaseCount = 0;

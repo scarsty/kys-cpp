@@ -55,7 +55,9 @@ public:
     void clearBuffer();
     int getBufferSize();
     static int getTextDrawSize(const std::string& text);
+    bool isSimplified() const { return simplified_ != 0; }
     void setSimplified(int s) { simplified_ = s; }
+    std::string localize(const std::string& str);
     std::string T2S(const std::string& str) { return cct2s_.conv(str); }
     std::string S2T(const std::string& str) { return ccs2t_.conv(str); }
 };
