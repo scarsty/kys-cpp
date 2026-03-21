@@ -108,6 +108,12 @@ BattleLogLine buildBattleLogLine(const BattleLogEvent& event)
         appendBattleLogSegment(line, " ，造成 ");
         appendBattleLogSegment(line, std::to_string(event.value), BattleLogFieldTone::DamageValue);
         appendBattleLogSegment(line, " 點傷害");
+        if (!event.detailText.empty())
+        {
+            appendBattleLogSegment(line, "（");
+            appendBattleLogSegment(line, event.detailText, BattleLogFieldTone::SkillName);
+            appendBattleLogSegment(line, "）");
+        }
         break;
     case BattleLogEventType::Heal:
         line.tone = teamToBattleLogTone(event.targetTeam >= 0 ? event.targetTeam : event.sourceTeam);
@@ -208,8 +214,9 @@ void BattleStatsView::queuePostBattleLogOpen()
     }
 }
 
-void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame)
+void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame, const std::string& detailText)
 {
+    if (battleResult_ != -1) return;
     if (damage <= 0) return;
     if (attacker) {
         auto& s = stats_[attacker->ID];
@@ -239,11 +246,13 @@ void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, con
         event.targetName = defender->Name;
     }
     event.skillName = skillName;
+    event.detailText = detailText;
     events_.push_back(std::move(event));
 }
 
 void BattleTracker::recordHeal(Role* source, Role* target, int amount, const std::string& reason, int frame)
 {
+    if (battleResult_ != -1) return;
     if (amount <= 0)
     {
         return;
@@ -276,6 +285,7 @@ void BattleTracker::recordHeal(Role* source, Role* target, int amount, const std
 
 void BattleTracker::recordStatus(Role* source, Role* target, const std::string& text, int frame)
 {
+    if (battleResult_ != -1) return;
     if (text.empty())
     {
         return;
@@ -307,6 +317,7 @@ void BattleTracker::recordStatus(Role* source, Role* target, const std::string& 
 
 void BattleTracker::recordKill(Role* killer, Role* victim, int frame)
 {
+    if (battleResult_ != -1) return;
     if (killer)
         stats_[killer->ID].kills++;
 
@@ -330,6 +341,7 @@ void BattleTracker::recordKill(Role* killer, Role* victim, int frame)
 
 void BattleTracker::recordDeath(Role* role, int frame)
 {
+    if (battleResult_ != -1) return;
     if (role)
         stats_[role->ID].lastActiveFrame = frame;
 

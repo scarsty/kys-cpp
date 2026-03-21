@@ -15,6 +15,7 @@ enum class Trigger
     WhileLowHP,
     AllyLowHPBurst,
     LastAlive,
+    OnUltimate,
     OnHit,  // Proc on attack hit
     OnBeingHit,  // Proc when being hit (defender)
 };
@@ -23,7 +24,7 @@ enum class EffectType
 {
     // Stat buffs (pre-battle)
     FlatHP, FlatATK, FlatDEF, FlatSPD,
-    PctHP, PctATK, PctDEF, NegPctDEF,
+    PctHP, PctATK, PctDEF, PctSPD, NegPctDEF,
 
     // Trigger effects (runtime)
     FlatDmgReduction,
@@ -62,6 +63,7 @@ enum class EffectType
     // Comeback & Scaling
     Bloodlust,
     Adaptation,
+    DodgeAdaptation,
     RampingDmg,
     // Triggered heal
     HealBurst,
@@ -74,7 +76,9 @@ enum class EffectType
     AllyDeathStatBoost,
     CloneSummon,
     ProjectileReflect,
+    ProjectileBounce,
     OnSkillTeamHeal,
+    OnSkillTeamHealPct,
     DeathPrevention,
     ForcePullProtect,
     ForcePullExecute,
@@ -107,7 +111,7 @@ struct RoleComboState
 {
     // Stat buffs
     int flatHP = 0, flatATK = 0, flatDEF = 0, flatSPD = 0;
-    double pctHP = 0, pctATK = 0, pctDEF = 0;
+    double pctHP = 0, pctATK = 0, pctDEF = 0, pctSPD = 0;
 
     // Trigger values
     int flatDmgReduction = 0;
@@ -152,6 +156,8 @@ struct RoleComboState
     int bloodlustATKPerKill = 0;
     struct AdaptationInstance { int pctPerStack; int maxStacks; };
     std::vector<AdaptationInstance> adaptations;
+    struct DodgeAdaptationInstance { int pctPerStack; int maxStacks; };
+    std::vector<DodgeAdaptationInstance> dodgeAdaptations;
     struct RampingInstance { int pctPerStack; int maxStacks; };
     std::vector<RampingInstance> rampings;
     // --- New effects (expanded pool) ---
@@ -165,6 +171,7 @@ struct RoleComboState
     int cloneSummonCount = 0;
     int projectileReflectPct = 0;
     int onSkillTeamHeal = 0;
+    int onSkillTeamHealPct = 0;
     bool deathPrevention = false;
     int deathPreventionFrames = 0;
     int charmCDRChancePct = 0;
@@ -176,6 +183,7 @@ struct RoleComboState
     int shieldOnAllyDeathCount = 0;
     int enemyTopDebuffCount = 0;
     int enemyTopDebuffValue = 0;
+    int enemyTopDebuffApplied = 0;
     bool forcePullProtect = false;
     bool forcePullExecute = false;
     int damageImmunityAfterFrames = 0;
@@ -190,15 +198,18 @@ struct RoleComboState
     int shield = 0;
     int poisonTimer = 0;
     int poisonTickDmg = 0;
+    int poisonSourceId = -1;
     std::map<Trigger, int> triggerTimers;
     bool lastAliveFlag = false;
     std::map<int, int> effectActivationCounts;  // effect index → count
     std::vector<std::map<int, int>> adaptationStacks;  // per instance: enemyID → stacks
+    std::vector<std::map<int, int>> dodgeAdaptationStacks;  // per instance: enemyID → stacks
     std::vector<int> rampingStacks;  // per instance
     std::vector<int> rampingIdleTimers;  // per instance
     int bleedStacks = 0;
     int bleedTimer = 0;
     bool bleedPersistFlag = false;
+    int bleedSourceId = -1;
     int mpBlockTimer = 0;
     bool deathPreventionUsed = false;
     bool forcePullProtectUsed = false;

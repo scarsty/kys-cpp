@@ -12,7 +12,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"生命加成", EffectType::FlatHP}, {"攻击加成", EffectType::FlatATK},
     {"防御加成", EffectType::FlatDEF}, {"速度加成", EffectType::FlatSPD},
     {"生命百分比", EffectType::PctHP}, {"攻击百分比", EffectType::PctATK},
-    {"防御百分比", EffectType::PctDEF}, {"防御削减", EffectType::NegPctDEF},
+    {"防御百分比", EffectType::PctDEF}, {"速度百分比", EffectType::PctSPD}, {"防御削减", EffectType::NegPctDEF},
     {"固定减伤", EffectType::FlatDmgReduction}, {"固定加伤", EffectType::FlatDmgIncrease}, {"格挡几率", EffectType::BlockChance},
     {"闪避几率", EffectType::DodgeChance}, {"闪避后暴击", EffectType::DodgeThenCrit},
     {"暴击几率", EffectType::CritChance}, {"暴击伤害", EffectType::CritMultiplier},
@@ -38,7 +38,9 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"绝招后退", EffectType::PostSkillDash}, {"敌方攻防削弱", EffectType::EnemyTopDebuff},
     {"闪击", EffectType::BlinkAttack}, {"同袍之死", EffectType::AllyDeathStatBoost},
     {"七截分身", EffectType::CloneSummon}, {"弹反", EffectType::ProjectileReflect},
+    {"连锁弹", EffectType::ProjectileBounce},
     {"群体施治", EffectType::OnSkillTeamHeal},
+    {"群体施治百分比", EffectType::OnSkillTeamHealPct},
     {"死亡庇护", EffectType::DeathPrevention}, {"保护挪移", EffectType::ForcePullProtect},
     {"处决挪移", EffectType::ForcePullExecute}, {"斩杀", EffectType::Execute},
     {"破罡", EffectType::MPBlock}, {"封内", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff}, {"冷却延长反击", EffectType::CharmCDRDebuff},
@@ -48,12 +50,14 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"绝招追加弹", EffectType::UltimateExtraProjectiles},
     {"初次格挡", EffectType::BlockFirstHits},
     {"金币加成", EffectType::GoldCoefficient},
+    {"同敌闪避", EffectType::DodgeAdaptation},
 };
 
 static const std::map<std::string, Trigger> triggerMap = {
     {"低血量", Trigger::WhileLowHP},
     {"友方低血狂暴", Trigger::AllyLowHPBurst},
     {"最后存活", Trigger::LastAlive},
+    {"绝招时", Trigger::OnUltimate},
     {"攻击命中时概率", Trigger::OnHit},
     {"被击中时概率", Trigger::OnBeingHit},
 };
@@ -125,6 +129,9 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
         if (!readInt("附加参数", out.value2, false))
             return false;
 
+        if (out.type == EffectType::ProjectileBounce)
+            out.trigger = Trigger::OnHit;
+
         if (eNode["触发"])
         {
             std::string trigName;
@@ -169,6 +176,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::PctHP:   s.pctHP += e.value; break;
     case EffectType::PctATK:  s.pctATK += e.value; break;
     case EffectType::PctDEF:  s.pctDEF += e.value; break;
+    case EffectType::PctSPD:  s.pctSPD += e.value; break;
     case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
     case EffectType::FlatDmgReduction: s.flatDmgReduction += e.value; break;
     case EffectType::FlatDmgIncrease: s.flatDmgIncrease += e.value; break;
@@ -208,6 +216,10 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.adaptations.push_back({e.value, e.value2});
         s.adaptationStacks.push_back({});
         break;
+    case EffectType::DodgeAdaptation:
+        s.dodgeAdaptations.push_back({e.value, e.value2});
+        s.dodgeAdaptationStacks.push_back({});
+        break;
     case EffectType::RampingDmg:
         s.rampings.push_back({e.value, e.value2});
         s.rampingStacks.push_back(0);
@@ -231,7 +243,9 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::AllyDeathStatBoost: s.allyDeathStatBoost += e.value; break;
     case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
     case EffectType::ProjectileReflect: s.projectileReflectPct += e.value; break;
+    case EffectType::ProjectileBounce: break;
     case EffectType::OnSkillTeamHeal: s.onSkillTeamHeal = std::max(s.onSkillTeamHeal, e.value); break;
+    case EffectType::OnSkillTeamHealPct: s.onSkillTeamHealPct = std::max(s.onSkillTeamHealPct, e.value); break;
     case EffectType::DeathPrevention:
         s.deathPrevention = true;
         s.deathPreventionFrames = std::max(s.deathPreventionFrames, e.value);

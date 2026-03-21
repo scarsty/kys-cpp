@@ -167,6 +167,7 @@ void ChessCombo::applyStatBuffs(const std::map<int, RoleComboState>& states)
         if (s.pctHP != 0) role->MaxHP = static_cast<int>(role->MaxHP * (1.0 + s.pctHP / 100.0));
         if (s.pctATK != 0) role->Attack = static_cast<int>(role->Attack * (1.0 + s.pctATK / 100.0));
         if (s.pctDEF != 0) role->Defence = static_cast<int>(role->Defence * (1.0 + s.pctDEF / 100.0));
+        if (s.pctSPD != 0) role->Speed = static_cast<int>(role->Speed * (1.0 + s.pctSPD / 100.0));
 
         role->HP = role->MaxHP;
 

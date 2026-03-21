@@ -40,6 +40,9 @@ public:
         int ScriptedStunFrames = 0;    //非武功投射物命中时附带的控制时间
         int IgnoreProjectileCancel = 0;    //忽略弹体互相抵消
         int RequirePreferredTarget = 0;    //只追踪/命中指定目标
+        int BounceRemaining = 0;
+        int BounceChancePct = 0;
+        int BounceRange = 0;
 
         void setEft(int num)
         {

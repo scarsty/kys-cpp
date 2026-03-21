@@ -9,6 +9,12 @@
 #include <set>
 #include <unordered_map>
 
+namespace KysChess
+{
+struct RoleComboState;
+enum class Trigger;
+}
+
 class PositionSwapNode;
 
 class BattleSceneHades : public BattleSceneAct
@@ -49,7 +55,7 @@ protected:
     void applyScriptedAttackEffect(AttackEffect& ae, Role* r);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate);
-    int getUltimateExtraProjectileCount(Role* r) const;
+    int getUltimateExtraProjectileCount(Role* r);
     void spawnAreaImpactProjectiles(Role* attacker,
                                     Role* origin,
                                     int width,
@@ -63,6 +69,17 @@ protected:
                                        int frameStep = 0,
                                        int randomFrameRange = 0);
     void spawnUltimateExtraProjectiles(const AttackEffect& prototype, int extraCount);
+    void spawnHitExtraProjectiles(const AttackEffect& prototype, int extraCount, Role* target);
+    void spawnExtraProjectiles(const AttackEffect& prototype, int extraCount, const char* logLabel, Role* target);
+    void refreshEnemyTopDebuffs();
+    void applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason);
+    void collectTriggeredTeamHeal(KysChess::RoleComboState& state,
+                                  KysChess::Trigger trigger,
+                                  int& flatHeal,
+                                  int& pctHeal);
+    int getProjectileBounceCount(Role* r) const;
+    void primeProjectileBounce(AttackEffect& ae);
+    void spawnProjectileBounce(AttackEffect& source, Role* hitTarget);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1) override;
@@ -75,8 +92,10 @@ protected:
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
     void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
     void addRoleEffect(Role* role, int eftId, int totalFrames = 0);
+    void logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName = "", const std::string& detailText = "");
     void logBattleHeal(Role* source, Role* target, int amount, const std::string& reason = "");
     void logBattleStatus(Role* source, Role* target, const std::string& text);
+    int getHitExtraProjectileCount(Role* r);
 
     std::vector<Point> findPath(Point start45, Point goal45);
     std::vector<Pointf> smoothPath(const std::vector<Point>& path45);
@@ -118,6 +137,7 @@ protected:
         int current_waypoint = 0;
         int frames_since_update = 0;
         Role* target = nullptr;
+        Point target_cell;
         int frames_following = 0;
         int frames_sliding = 0;
         int frames_stuck = 0;

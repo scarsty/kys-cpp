@@ -307,13 +307,8 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
         ImGui::TextUnformatted(battle_log_.title.empty() ? "本次戰鬥日誌" : battle_log_.title.c_str());
         ImGui::PopStyleColor();
-
         ImGui::Spacing();
         ImGui::SetWindowFontScale(body_scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-        ImGui::TextUnformatted("篩選指定棋子，查看對應的詳細戰鬥記錄。");
-        ImGui::PopStyleColor();
-        ImGui::Spacing();
 
         std::vector<std::pair<std::string, std::string>> chips = {
             {"戰鬥結果", battle_log_.resultText},
@@ -331,6 +326,7 @@ void ImGuiLayer::renderBattleLogWindow()
             ImGui::SetWindowFontScale(small_scale);
             ImGui::TextUnformatted(label.c_str());
             ImGui::PopStyleColor();
+            ImGui::SameLine(0.0f, 8.0f);
             ImGui::SetWindowFontScale(chip_scale);
             ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
             ImGui::TextUnformatted(value.c_str());
@@ -422,11 +418,6 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::SetWindowFontScale(body_scale);
 
         ImGui::Spacing();
-        ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
-        ImGui::SetWindowFontScale(chip_scale);
-        ImGui::TextUnformatted("戰鬥記錄");
-        ImGui::PopStyleColor();
-        ImGui::Separator();
         ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, scrollbar_size);
         const char* child_id = battle_log_child_flip_ ? "battle_log_entries_b" : "battle_log_entries_a";
         ImGui::BeginChild(child_id, ImVec2(0.0f, ImGui::GetContentRegionAvail().y - 60.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
@@ -518,14 +509,15 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::TextUnformatted("點擊「繼續」關閉日誌");
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        float button_w = 150.0f;
+        float button_w = 225.0f;
         float button_x = ImGui::GetWindowContentRegionMax().x - button_w;
+        float button_h = ImGui::GetFrameHeight() * 1.5f;
         ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), button_x));
         ImGui::PushStyleColor(ImGuiCol_Button, chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, allow_close ? colorU8(67, 78, 39, 230) : chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, allow_close ? colorU8(88, 98, 50, 230) : chip_bg);
-        ImGui::SetWindowFontScale(body_scale);
-        if (ImGui::Button("繼續", ImVec2(button_w, 0.0f)) && allow_close)
+        ImGui::SetWindowFontScale(clampf(body_scale * 1.14f, 1.28f, 2.35f));
+        if (ImGui::Button("繼續", ImVec2(button_w, button_h)) && allow_close)
         {
             battle_log_.open = false;
         }

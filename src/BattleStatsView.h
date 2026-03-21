@@ -48,7 +48,7 @@ struct BattleLogEvent
 class BattleTracker
 {
 public:
-    void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame);
+    void recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame, const std::string& detailText = "");
     void recordHeal(Role* source, Role* target, int amount, const std::string& reason, int frame);
     void recordStatus(Role* source, Role* target, const std::string& text, int frame);
     void recordKill(Role* killer, Role* victim, int frame);

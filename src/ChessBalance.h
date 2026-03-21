@@ -84,7 +84,7 @@ struct BalanceConfig
     int bossInterval = 4;
 
     // Enemy equipment progression
-    struct EnemyEquipmentLevel { int fight; int maxTier; int count; };
+    struct EnemyEquipmentLevel { int fight; int maxTier; int count; bool equipBoth = false; };
     std::vector<EnemyEquipmentLevel> enemyEquipmentLevels;
 
     // Player equipment rewards

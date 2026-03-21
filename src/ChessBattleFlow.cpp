@@ -5,6 +5,7 @@
 #include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessDetailPanels.h"
+#include "ChessEquipment.h"
 #include "ChessMenuHelpers.h"
 #include "ChessRewardFlow.h"
 #include "DynamicChessMap.h"
@@ -554,12 +555,14 @@ void ChessBattleFlow::enterBattle()
 
     int maxTier = 0;
     int equipCount = 0;
+    bool equipBoth = false;
     for (auto& level : config.enemyEquipmentLevels)
     {
         if (fightNum + 1 >= level.fight)
         {
             maxTier = level.maxTier;
             equipCount = level.count;
+            equipBoth = level.equipBoth;
         }
     }
     if (maxTier > 0 && equipCount > 0)
@@ -567,14 +570,45 @@ void ChessBattleFlow::enterBattle()
         auto tierEquip = ChessEquipment::getByTier(maxTier);
         if (!tierEquip.empty())
         {
+            std::vector<const EquipmentDef*> weaponEquip;
+            std::vector<const EquipmentDef*> armorEquip;
+            if (equipBoth)
+            {
+                for (auto* equip : tierEquip)
+                {
+                    if (equip->equipType == 0)
+                        weaponEquip.push_back(equip);
+                    else if (equip->equipType == 1)
+                        armorEquip.push_back(equip);
+                }
+            }
+
             std::vector<int> indices(enemyStars.size());
             std::iota(indices.begin(), indices.end(), 0);
             std::sort(indices.begin(), indices.end(), [&](int a, int b) { return enemyStars[a] > enemyStars[b]; });
-            for (int i = 0; i < std::min(equipCount, static_cast<int>(indices.size())); ++i)
+            int equipSlots = std::min(equipCount, static_cast<int>(indices.size()));
+            for (int i = 0; i < equipSlots; ++i)
             {
-                auto* equip = tierEquip[services_.random.enemyRandInt(static_cast<int>(tierEquip.size()))];
-                if (equip->equipType == 0) roles.enemy_weapons[indices[i]] = equip->itemId;
-                else roles.enemy_armors[indices[i]] = equip->itemId;
+                int enemyIndex = indices[i];
+                if (equipBoth)
+                {
+                    if (!weaponEquip.empty())
+                    {
+                        auto* equip = weaponEquip[services_.random.enemyRandInt(static_cast<int>(weaponEquip.size()))];
+                        roles.enemy_weapons[enemyIndex] = equip->itemId;
+                    }
+                    if (!armorEquip.empty())
+                    {
+                        auto* equip = armorEquip[services_.random.enemyRandInt(static_cast<int>(armorEquip.size()))];
+                        roles.enemy_armors[enemyIndex] = equip->itemId;
+                    }
+                }
+                else
+                {
+                    auto* equip = tierEquip[services_.random.enemyRandInt(static_cast<int>(tierEquip.size()))];
+                    if (equip->equipType == 0) roles.enemy_weapons[enemyIndex] = equip->itemId;
+                    else roles.enemy_armors[enemyIndex] = equip->itemId;
+                }
             }
         }
     }

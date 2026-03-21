@@ -208,6 +208,7 @@ bool ChessBalance::loadConfig(const std::string& path)
             level.fight = entry["关卡"].as<int>();
             level.maxTier = entry["最高层级"].as<int>();
             level.count = entry["装备数量"].as<int>();
+            if (entry["双装备"]) level.equipBoth = entry["双装备"].as<bool>();
             c.enemyEquipmentLevels.push_back(level);
         }
     }

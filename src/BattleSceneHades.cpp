@@ -22,6 +22,7 @@ namespace
 constexpr int PROJECTILE_SPEED = 7;
 constexpr int PROJECTILE_BASE_TRAVEL = 100;  // travel distance at sd=1 (excluding spawn offset)
 constexpr int PROJECTILE_TRAVEL_PER_SD = 25; // extra travel per sd
+constexpr double PROJECTILE_BOUNCE_RANGE = 90.0;
 constexpr int HURT_FLASH_DURATION = 15;
 constexpr int HURT_FLASH_PERIOD = 3;
 constexpr int BLINK_SOUND_EFFECT_ID = 11;
@@ -32,6 +33,8 @@ constexpr int ULT_DAMAGE_TEXT_SIZE = 22;
 constexpr int ROLE_STATUS_EFT_FRAMES = 24;
 constexpr float ROLE_STATUS_EFT_Z_OFFSET = 42.0f;
 constexpr double BLINK_WEAK_TARGET_DEF_WEIGHT = 4.0;
+constexpr int PATH_REFRESH_FRAMES = 12;
+constexpr int PATH_STUCK_FRAMES = 3;
 constexpr int BATTLE_TILE_W = 18;
 constexpr int BATTLE_COORD_COUNT = BATTLEMAP_COORD_COUNT;
 
@@ -43,6 +46,7 @@ Pointf battlePos45To90(int x, int y)
         0.0f,
     };
 }
+
 
 Point battlePos90To45(double x, double y)
 {
@@ -57,6 +61,44 @@ Point battlePos90To45(double x, double y)
 int calcProjectileReach(int select_distance, int spawn_offset)
 {
     return spawn_offset + PROJECTILE_BASE_TRAVEL + (select_distance - 1) * PROJECTILE_TRAVEL_PER_SD;
+}
+
+float damageTextImpactScale(int damage, int maxHp)
+{
+    if (damage <= 0 || maxHp <= 0)
+    {
+        return 1.0f;
+    }
+
+    float ratio = static_cast<float>(damage) / static_cast<float>(maxHp);
+    return (std::max)(0.0f, (std::min)(ratio / 0.2f, 1.0f));
+}
+
+int damageTextSize(int baseSize, int damage, int maxHp)
+{
+    float impactScale = damageTextImpactScale(damage, maxHp);
+    float sizeScale = 0.82f + 0.18f * impactScale;
+    return (std::max)(1, int(baseSize * sizeScale + 0.5f));
+}
+
+uint8_t damageTextAlpha(int damage, int maxHp)
+{
+    float impactScale = damageTextImpactScale(damage, maxHp);
+    return static_cast<uint8_t>(140 + (255 - 140) * impactScale);
+}
+
+void addDamageText(std::deque<BattleSceneAct::TextEffect>& textEffects, Role* role, int damage, Color color, int baseSize = 15)
+{
+    if (!role || damage <= 0)
+    {
+        return;
+    }
+
+    BattleSceneAct::TextEffect te;
+    te.set(std::to_string(-damage), color, role);
+    te.Size = damageTextSize(baseSize, damage, role->MaxHP);
+    te.color.a = damageTextAlpha(damage, role->MaxHP);
+    textEffects.push_back(std::move(te));
 }
 
 int calcProjectileFrames(int select_distance, int spawn_offset)
@@ -107,6 +149,63 @@ bool roleHasCombo(const Role* r, std::initializer_list<const char*> comboNames)
             return true;
     }
     return false;
+}
+
+std::string formatStatusFrames(const char* label, int frames)
+{
+    if (frames <= 0) return label;
+    return std::format("{}（{}幀）", label, frames);
+}
+
+std::string formatStatusPercent(const char* label, int pct)
+{
+    if (pct <= 0) return label;
+    return std::format("{}（{}%）", label, pct);
+}
+
+std::string formatStatusPercentFrames(const char* label, int pct, int frames)
+{
+    if (pct > 0 && frames > 0)
+        return std::format("{}（{}%·{}幀）", label, pct, frames);
+    if (pct > 0)
+        return formatStatusPercent(label, pct);
+    return formatStatusFrames(label, frames);
+}
+
+std::string formatStackingEffectStatus(const char* label, int pctPerStack, int stacks)
+{
+    if (pctPerStack <= 0 || stacks <= 0)
+        return label;
+
+    return std::format("{} +{}%（{}層）", label, pctPerStack * stacks, stacks);
+}
+
+std::string formatStatusValue(const char* label, int value, const char* unit)
+{
+    if (value <= 0) return label;
+    return std::format("{}（{}{}）", label, value, unit);
+}
+
+std::string formatStatusRange(const char* label, int current, int maxValue, const char* unit)
+{
+    if (current <= 0 || maxValue <= 0) return label;
+    return std::format("{}（{}/{}{}）", label, current, maxValue, unit);
+}
+
+std::string formatCooldownIncreaseStatus(int pct, int before, int after)
+{
+    if (pct <= 0)
+        return "冷却延长";
+    if (before > 0 && after > 0)
+        return std::format("冷却延长（+{}%，{}→{}幀）", pct, before, after);
+    return std::format("冷却延长（+{}%）", pct);
+}
+
+std::string formatExecuteStatus(int thresholdPct)
+{
+    if (thresholdPct <= 0)
+        return "触发处决";
+    return std::format("触发处决（斩杀线{}%）", thresholdPct);
 }
 
 bool rolesShareCombo(const Role* a, const Role* b, std::initializer_list<const char*> comboNames)
@@ -319,6 +418,11 @@ void BattleSceneHades::addRoleEffect(Role* role, int eftId, int totalFrames)
     attack_effects_.push_back(std::move(effect));
 }
 
+void BattleSceneHades::logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName, const std::string& detailText)
+{
+    tracker_.recordDamage(source, target, amount, skillName, current_frame_, detailText);
+}
+
 void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, const std::string& reason)
 {
     tracker_.recordHeal(source, target, amount, reason, current_frame_);
@@ -327,6 +431,151 @@ void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, con
 void BattleSceneHades::logBattleStatus(Role* source, Role* target, const std::string& text)
 {
     tracker_.recordStatus(source, target, text, current_frame_);
+}
+
+int BattleSceneHades::getProjectileBounceCount(Role* r) const
+{
+    if (!r)
+        return 0;
+
+    auto& states = KysChess::ChessCombo::getActiveStates();
+    auto it = states.find(r->ID);
+    if (it == states.end())
+        return 0;
+
+    int bounceCount = 0;
+    for (const auto& effect : it->second.triggeredEffects)
+    {
+        if (effect.trigger == KysChess::Trigger::OnHit
+            && effect.type == KysChess::EffectType::ProjectileBounce
+            && effect.value > 0)
+        {
+            bounceCount += effect.value;
+        }
+    }
+    return bounceCount;
+}
+
+void BattleSceneHades::primeProjectileBounce(AttackEffect& ae)
+{
+    if (ae.BounceRemaining > 0 || !ae.Attacker || ae.NoHurt || ae.FollowRole || ae.ScriptedDamage > 0)
+        return;
+
+    if (!(ae.Track || ae.OperationType == 2 || ae.UsingHiddenWeapon != nullptr))
+        return;
+
+    auto& states = KysChess::ChessCombo::getActiveStates();
+    auto it = states.find(ae.Attacker->ID);
+    if (it == states.end())
+        return;
+
+    int bounceCount = 0;
+    int bounceChance = 0;
+    int bounceRange = 0;
+    for (const auto& effect : it->second.triggeredEffects)
+    {
+        if (effect.trigger != KysChess::Trigger::OnHit || effect.type != KysChess::EffectType::ProjectileBounce)
+            continue;
+        if (effect.value > 0)
+            bounceCount += effect.value;
+        if (effect.triggerValue > 0)
+            bounceChance = std::min(100, bounceChance + effect.triggerValue);
+        if (effect.value2 > 0)
+            bounceRange = std::max(bounceRange, effect.value2);
+    }
+
+    if (bounceCount <= 0)
+        return;
+
+    ae.BounceRemaining = bounceCount;
+    ae.BounceChancePct = bounceChance;
+    ae.BounceRange = bounceRange > 0 ? bounceRange : static_cast<int>(PROJECTILE_BOUNCE_RANGE);
+}
+
+void BattleSceneHades::spawnProjectileBounce(AttackEffect& source, Role* hitTarget)
+{
+    if (!hitTarget || !source.Attacker)
+        return;
+
+    int remainingBounces = source.BounceRemaining;
+    if (remainingBounces <= 0)
+        return;
+
+    int bounceChancePct = source.BounceChancePct;
+    int bounceRange = source.BounceRange > 0 ? source.BounceRange : static_cast<int>(PROJECTILE_BOUNCE_RANGE);
+
+    source.BounceRemaining = 0;
+
+    source.NoHurt = 1;
+    source.Frame = std::max(source.TotalFrame - 15, source.Frame);
+
+    if (bounceChancePct <= 0 || rand_.rand() * 100 >= bounceChancePct)
+        return;
+
+    Role* nextTarget = nullptr;
+    double nextDistance = static_cast<double>(bounceRange);
+    for (auto enemy : battle_roles_)
+    {
+        if (!enemy || enemy->Dead != 0 || enemy->Team == source.Attacker->Team || enemy == hitTarget)
+            continue;
+        if (source.Defender.count(enemy) > 0)
+            continue;
+
+        double distance = EuclidDis(hitTarget->Pos, enemy->Pos);
+        if (distance > nextDistance)
+            continue;
+        if (!nextTarget || distance < nextDistance)
+        {
+            nextTarget = enemy;
+            nextDistance = distance;
+        }
+    }
+
+    if (!nextTarget)
+    {
+        logBattleStatus(source.Attacker, hitTarget,
+            std::format("連鎖彈中止（搜尋半徑 {}，沒有符合條件的目標）",
+                bounceRange));
+        return;
+    }
+
+    logBattleStatus(source.Attacker, nextTarget,
+        std::format("彈道連鎖（再跳 {} 次，搜尋半徑 {}，距離 {:.0f}）",
+            std::max(0, remainingBounces - 1), bounceRange, nextDistance));
+
+    AttackEffect bounce = source;
+    bounce.BounceRemaining = std::max(0, remainingBounces - 1);
+    bounce.PreferredTarget = nextTarget;
+    bounce.RequirePreferredTarget = 1;
+    bounce.Track = 1;
+    bounce.IsMain = 0;
+    bounce.IgnoreProjectileCancel = 1;
+    bounce.Through = 0;
+    bounce.NoHurt = 0;
+    bounce.Weaken = 0;
+    bounce.Frame = 0;
+
+    double speed = source.Velocity.norm();
+    if (speed <= 0.01)
+        speed = PROJECTILE_SPEED;
+
+    auto direction = nextTarget->Pos - hitTarget->Pos;
+    if (direction.norm() <= 0.01)
+        direction = nextTarget->Pos - source.Pos;
+    if (direction.norm() <= 0.01)
+        direction = {1, 0, 0};
+    direction.normTo(1);
+
+    auto spawnOffset = direction;
+    spawnOffset.normTo(TILE_W * 1.5);
+    bounce.Pos = hitTarget->Pos + spawnOffset;
+    bounce.Velocity = nextTarget->Pos - bounce.Pos;
+    if (bounce.Velocity.norm() <= 0.01)
+        bounce.Velocity = direction;
+    bounce.Velocity.normTo(speed);
+    bounce.TotalFrame = std::max(20,
+        static_cast<int>(std::ceil(EuclidDis(nextTarget->Pos, bounce.Pos) / std::max(speed, 1.0))) + 20);
+    attack_effects_.push_back(std::move(bounce));
 }
 
 void BattleSceneHades::draw()
@@ -358,6 +607,7 @@ void BattleSceneHades::draw()
     };
     clear_rect.x = std::max(0, clear_rect.x);
     clear_rect.y = std::max(0, clear_rect.y);
+
     clear_rect.w = std::min(clear_rect.w, COORD_COUNT * TILE_W * 2 - clear_rect.x);
     clear_rect.h = std::min(clear_rect.h, COORD_COUNT * TILE_H * 2 - clear_rect.y);
     if (clear_rect.w > 0 && clear_rect.h > 0)
@@ -505,6 +755,7 @@ void BattleSceneHades::draw()
         //    {
         //        info.white = 128;
         //    }
+
         //}
         if (r->Dead)
         {
@@ -692,7 +943,7 @@ void BattleSceneHades::draw()
         if (ux >= -80 && ux < ui_w + 80 && uy >= -80 && uy < ui_h + 80)
         {
             int usize = (std::max)(1, int(te.Size * sizeScale));
-            Font::getInstance()->draw(te.Text, usize, ux, uy, te.color, 255);
+            Font::getInstance()->draw(te.Text, usize, ux, uy, te.color, te.color.a);
         }
     }
 
@@ -911,35 +1162,6 @@ void BattleSceneHades::onEntrance()
             }
         }
 
-        int enemyTopDebuffCount = 0;
-        int enemyTopDebuffValue = 0;
-        for (auto& entry : allyStates)
-        {
-            auto& state = entry.second;
-            enemyTopDebuffCount = std::max(enemyTopDebuffCount, state.enemyTopDebuffCount);
-            enemyTopDebuffValue = std::max(enemyTopDebuffValue, state.enemyTopDebuffValue);
-        }
-        if (enemyTopDebuffCount > 0 && enemyTopDebuffValue > 0 && !enemies_obj_.empty())
-        {
-            std::vector<size_t> enemyOrder;
-            enemyOrder.reserve(enemies_obj_.size());
-            for (size_t i = 0; i < enemies_obj_.size(); ++i)
-                enemyOrder.push_back(i);
-
-            std::stable_sort(enemyOrder.begin(), enemyOrder.end(), [&](size_t l, size_t r) {
-                int lStar = l < enemy_stars_.size() ? enemy_stars_[l] : 0;
-                int rStar = r < enemy_stars_.size() ? enemy_stars_[r] : 0;
-                return lStar > rStar;
-            });
-
-            for (int i = 0; i < enemyTopDebuffCount && i < static_cast<int>(enemyOrder.size()); ++i)
-            {
-                auto& enemy = enemies_obj_[enemyOrder[i]];
-                enemy.Attack = std::max(0, enemy.Attack - enemyTopDebuffValue);
-                enemy.Defence = std::max(0, enemy.Defence - enemyTopDebuffValue);
-            }
-        }
-
         // Apply combo stat buffs on copies and remap to battle IDs
         KysChess::ChessCombo::clearActiveStates();
         auto& cs = KysChess::ChessCombo::getMutableStates();
@@ -951,6 +1173,7 @@ void BattleSceneHades::onEntrance()
             if (s.pctHP != 0) r.MaxHP = static_cast<int>(r.MaxHP * (1.0 + s.pctHP / 100.0));
             if (s.pctATK != 0) r.Attack = static_cast<int>(r.Attack * (1.0 + s.pctATK / 100.0));
             if (s.pctDEF != 0) r.Defence = static_cast<int>(r.Defence * (1.0 + s.pctDEF / 100.0));
+            if (s.pctSPD != 0) r.Speed = static_cast<int>(r.Speed * (1.0 + s.pctSPD / 100.0));
             r.HP = r.MaxHP;
             if (s.shieldPctMaxHP > 0)
                 s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
@@ -1016,6 +1239,7 @@ void BattleSceneHades::onEntrance()
             int armorId = index < enemy_armors_.size() ? enemy_armors_[index] : -1;
             return std::pair{weaponId, armorId};
         });
+        refreshEnemyTopDebuffs();
 
         for (auto& role : friends_obj_)
         {
@@ -1193,6 +1417,7 @@ void BattleSceneHades::onEntrance()
             setRoleInitState(clone);
             battle_roles_.push_back(clone);
             cs[clone->ID] = cloneState;
+            logBattleStatus(source, clone, std::format("七截分身（落点 {}, {}）", x, y));
             spawned++;
         }
     }
@@ -1235,21 +1460,15 @@ void BattleSceneHades::onEntrance()
     //     }
     // }
 
-    // // Hide main character head if using extended teammates (no main character)
-    // if (!extended_teammates_.empty())
-    // {
-    //     heads_[0]->setVisible(false);
-    // }
-
     Audio::getInstance()->playMusic(KysChess::getRandomBattleMusic());
     // Audio::getInstance()->playMusic(info_->Music);
 }
 
 void BattleSceneHades::onExit()
 {
-    hurt_flash_timers_.clear();
-    execution_popup_roles_.clear();
-    Engine::getInstance()->hideBattleLogWindow();
+    // hurt_flash_timers_.clear();
+    // execution_popup_roles_.clear();
+    // Engine::getInstance()->hideBattleLogWindow();
 }
 
 class PositionSwapNode : public RunNode
@@ -1427,6 +1646,18 @@ void BattleSceneHades::runListBasedSwap()
 
 void BattleSceneHades::backRun1()
 {
+    auto findBattleRoleById = [&](int roleId) -> Role* {
+        if (roleId < 0)
+            return nullptr;
+
+        for (auto role : battle_roles_)
+        {
+            if (role && role->ID == roleId)
+                return role;
+        }
+        return nullptr;
+    };
+
     // 更新受击闪红计时器
     for (auto it = hurt_flash_timers_.begin(); it != hurt_flash_timers_.end();)
     {
@@ -1483,10 +1714,11 @@ void BattleSceneHades::backRun1()
                     {
                         int dmg = std::max(1, r->HP * s.poisonTickDmg / 100);
                         r->HurtThisFrame += dmg;
-                        TextEffect te;
-                        te.set(std::to_string(-dmg), {0, 200, 0, 255}, r);
-                        text_effects_.push_back(std::move(te));
+                        addDamageText(text_effects_, r, dmg, {0, 200, 0, 255});
+                        logBattleDamage(findBattleRoleById(s.poisonSourceId), r, dmg, "", "中毒");
                     }
+                    if (s.poisonTimer <= 0)
+                        s.poisonSourceId = -1;
                 }
 
                 if (s.bleedStacks > 0)
@@ -1497,9 +1729,8 @@ void BattleSceneHades::backRun1()
                     {
                         int dmg = std::max(1, r->MaxHP * s.bleedStacks / 100);
                         r->HurtThisFrame += dmg;
-                        TextEffect te;
-                        te.set(std::to_string(-dmg), {180, 0, 0, 255}, r);
-                        text_effects_.push_back(std::move(te));
+                        addDamageText(text_effects_, r, dmg, {180, 0, 0, 255});
+                        logBattleDamage(findBattleRoleById(s.bleedSourceId), r, dmg, "", "流血");
                         if (!s.bleedPersistFlag)
                             s.bleedStacks = std::max(0, s.bleedStacks - 1);
                         if (s.bleedStacks > 0)
@@ -1508,6 +1739,7 @@ void BattleSceneHades::backRun1()
                         {
                             s.bleedTimer = 0;
                             s.bleedPersistFlag = false;
+                            s.bleedSourceId = -1;
                         }
                     }
                 }
@@ -1515,6 +1747,7 @@ void BattleSceneHades::backRun1()
                 {
                     s.bleedTimer = 0;
                     s.bleedPersistFlag = false;
+                    s.bleedSourceId = -1;
                 }
 
                 if (s.mpBlockTimer > 0)
@@ -1529,7 +1762,7 @@ void BattleSceneHades::backRun1()
                     {
                         r->Invincible = std::max(r->Invincible, s.damageImmunityDuration);
                         s.damageImmunityTimer = s.damageImmunityAfterFrames;
-                        logBattleStatus(r, r, "周期免伤");
+                        logBattleStatus(r, r, formatStatusFrames("周期免伤", s.damageImmunityDuration));
                     }
                 }
 
@@ -1700,6 +1933,7 @@ void BattleSceneHades::backRun1()
             {
                 r->Pos = p;
                 path_info.frames_following++;
+                path_info.frames_stuck = 0;
             }
             else
             {
@@ -1714,6 +1948,7 @@ void BattleSceneHades::backRun1()
                     r->Velocity.y = 0;
                     can_slide = true;
                     path_info.frames_sliding++;
+                    path_info.frames_stuck = 0;
                 }
                 // Try Y-only movement
                 else {
@@ -1724,6 +1959,7 @@ void BattleSceneHades::backRun1()
                         r->Velocity.x = 0;
                         can_slide = true;
                         path_info.frames_sliding++;
+                        path_info.frames_stuck = 0;
                     }
                 }
 
@@ -1781,28 +2017,25 @@ void BattleSceneHades::backRun1()
                 if (it != cs.end() && r->Dead == 0)
                 {
                     if (it->second.postSkillInvincFrames > 0)
+                    {
+                        int invincibleBefore = r->Invincible;
                         r->Invincible = std::max(r->Invincible, it->second.postSkillInvincFrames);
+                        if (r->Invincible > invincibleBefore)
+                            logBattleStatus(r, r, formatStatusFrames("技能后无敌", it->second.postSkillInvincFrames));
+                    }
                     if (it->second.postSkillDash && it->second.postSkillDashPending)
                     {
                         it->second.postSkillDashTimer = std::max(1,
                             it->second.postSkillDashFrames > 0 ? it->second.postSkillDashFrames : POST_SKILL_DASH_FRAMES);
                         it->second.postSkillDashPending = false;
                     }
-                    if (it->second.onSkillTeamHealPending && it->second.onSkillTeamHeal > 0)
+                    if (it->second.onSkillTeamHealPending)
                     {
-                        for (auto ally : battle_roles_)
-                        {
-                            if (ally->Team == r->Team && ally->Dead == 0)
-                            {
-                                int hpBefore = ally->HP;
-                                ally->HP = std::min(ally->MaxHP, ally->HP + it->second.onSkillTeamHeal);
-                                if (ally->HP > hpBefore)
-                                {
-                                    addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                                    logBattleHeal(r, ally, ally->HP - hpBefore, "技能群疗");
-                                }
-                            }
-                        }
+                        int flatHeal = it->second.onSkillTeamHeal;
+                        int pctHeal = it->second.onSkillTeamHealPct;
+                        collectTriggeredTeamHeal(it->second, KysChess::Trigger::OnUltimate, flatHeal, pctHeal);
+                        if (flatHeal > 0 || pctHeal > 0)
+                            applyTeamHeal(r, flatHeal, pctHeal, "技能群疗");
                     }
                     it->second.onSkillTeamHealPending = false;
                 }
@@ -1889,14 +2122,26 @@ void BattleSceneHades::backRun1()
                     {
                         auto& cs = KysChess::ChessCombo::getMutableStates();
                         auto dit = cs.find(r->ID);
-                        if (dit != cs.end() && dit->second.dodgeChancePct > 0
-                            && rand_.rand() * 100 < dit->second.dodgeChancePct)
+                        if (dit != cs.end())
                         {
-                            dit->second.dodgedLast = true;
-                            addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
-                            logBattleStatus(r, ae.Attacker, "闪避了来袭攻击");
-                            ae.Defender[r]++;
-                            continue;
+                            int dodgeChancePct = dit->second.dodgeChancePct;
+                            for (size_t i = 0; i < dit->second.dodgeAdaptations.size(); ++i)
+                            {
+                                auto& evade = dit->second.dodgeAdaptations[i];
+                                auto sit = dit->second.dodgeAdaptationStacks[i].find(ae.Attacker->ID);
+                                if (sit != dit->second.dodgeAdaptationStacks[i].end())
+                                    dodgeChancePct += sit->second * evade.pctPerStack;
+                            }
+
+                            dodgeChancePct = std::clamp(dodgeChancePct, 0, 100);
+                            if (dodgeChancePct > 0 && rand_.rand() * 100 < dodgeChancePct)
+                            {
+                                dit->second.dodgedLast = true;
+                                addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
+                                logBattleStatus(r, ae.Attacker, "闪避了来袭攻击");
+                                ae.Defender[r]++;
+                                continue;
+                            }
                         }
                     }
                 }
@@ -1920,6 +2165,7 @@ void BattleSceneHades::backRun1()
                         defaultMagicEffect(ae, r);
                     }
                 }
+                spawnProjectileBounce(ae, r);
                 //std::vector<std::string> = {};
             }
         }
@@ -2035,6 +2281,7 @@ void BattleSceneHades::backRun1()
         projectile.Velocity.normTo(PROJECTILE_SPEED);
         projectile.TotalFrame = std::max(20,
             static_cast<int>(std::ceil(EuclidDis(target->Pos, projectile.Pos) / static_cast<double>(PROJECTILE_SPEED))) + 15);
+        primeProjectileBounce(projectile);
         projectile.Frame = 0;
         attack_effects_.push_back(std::move(projectile));
         Audio::getInstance()->playESound(attacker->ActType);
@@ -2252,7 +2499,7 @@ void BattleSceneHades::backRun1()
             logBattleHeal(bestChoice.puller, pulled, pulled->HP - hpBefore, "保护挪移");
         }
         logBattleStatus(bestChoice.puller, pulled, "保护挪移");
-        logBattleStatus(bestChoice.puller, pulled, "短暂无敌");
+        logBattleStatus(bestChoice.puller, pulled, formatStatusFrames("短暂无敌", 10));
 
         addFloatingText(pulled, "挪移", {160, 220, 255, 255}, STATUS_TEXT_SIZE);
         return true;
@@ -2273,11 +2520,8 @@ void BattleSceneHades::backRun1()
             }
             else
             {
-                TextEffect te;
                 Color c = isUlt ? Color{255, 215, 0, 255} : (r->Team == 0 ? Color{255, 20, 20, 255} : Color{255, 255, 255, 255});
-                te.set(std::to_string(-hurt), c, r);
-                if (isUlt) te.Size = ULT_DAMAGE_TEXT_SIZE;
-                text_effects_.push_back(std::move(te));
+                addDamageText(text_effects_, r, int(hurt), c, isUlt ? ULT_DAMAGE_TEXT_SIZE : 15);
             }
                 AttackEffect ae1;
                 ae1.FollowRole = r;
@@ -2298,9 +2542,11 @@ void BattleSceneHades::backRun1()
                     {
                         sit->second.deathPreventionUsed = true;
                         r->HP = 1;
-                        r->Invincible = std::max(r->Invincible,
-                            sit->second.deathPreventionFrames > 0 ? sit->second.deathPreventionFrames : 100);
-                        logBattleStatus(r, r, "死亡庇护");
+                        int deathPreventionFrames = sit->second.deathPreventionFrames > 0
+                            ? sit->second.deathPreventionFrames
+                            : 100;
+                        r->Invincible = std::max(r->Invincible, deathPreventionFrames);
+                        logBattleStatus(r, r, formatStatusFrames("死亡庇护", deathPreventionFrames));
                     }
                     else
                     {
@@ -2311,6 +2557,7 @@ void BattleSceneHades::backRun1()
                             sit->second.onSkillTeamHealPending = false;
                         tracker_.recordKill(r->LastAttacker, r, current_frame_);
                         tracker_.recordDeath(r, current_frame_);
+                        refreshEnemyTopDebuffs();
 
                         // Combo: kill-heal and kill-invincibility
                         if (r->LastAttacker)
@@ -2328,17 +2575,24 @@ void BattleSceneHades::backRun1()
                                 if (kit->second.killInvincFrames > 0)
                                 {
                                     r->LastAttacker->Invincible = kit->second.killInvincFrames;
-                                    logBattleStatus(r->LastAttacker, r->LastAttacker, "击杀无敌");
+                                    logBattleStatus(r->LastAttacker, r->LastAttacker,
+                                        formatStatusFrames("击杀无敌", kit->second.killInvincFrames));
                                 }
                                 // Bloodlust: permanent ATK per kill
                                 if (kit->second.bloodlustATKPerKill > 0)
+                                {
                                     r->LastAttacker->Attack += kit->second.bloodlustATKPerKill;
+                                    logBattleStatus(r->LastAttacker, r->LastAttacker,
+                                        std::format("嗜血（+{}攻）", kit->second.bloodlustATKPerKill));
+                                }
                             }
                         }
 
                         if (sit != cs.end() && sit->second.deathAOEPct > 0)
                         {
                             int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
+                            logBattleStatus(r, nullptr,
+                                formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
                             spawnAreaImpactProjectiles(r, r, 9, 9, KysChess::EFT_DEATH_BLAST, aoeDmg, sit->second.deathAOEStunFrames);
                         }
 
@@ -2357,6 +2611,8 @@ void BattleSceneHades::backRun1()
                             {
                                 ally->Attack += as.allyDeathStatBoost;
                                 ally->Defence += as.allyDeathStatBoost;
+                                logBattleStatus(r, ally,
+                                    std::format("同袍之死（攻防+{}）", as.allyDeathStatBoost));
                                 // ally->Speed += as.allyDeathStatBoost;
                             }
 
@@ -2368,7 +2624,13 @@ void BattleSceneHades::backRun1()
                                 {
                                     as.shieldOnAllyDeathTracker = 0;
                                     if (as.shieldPctMaxHP > 0)
+                                    {
+                                        int shieldBefore = as.shield;
                                         as.shield = std::max(as.shield, ally->MaxHP * as.shieldPctMaxHP / 100);
+                                        if (as.shield > shieldBefore)
+                                            logBattleStatus(r, ally,
+                                                formatStatusValue("护盾重获", as.shield - shieldBefore, "护盾"));
+                                    }
                                 }
                             }
                         }
@@ -2624,8 +2886,7 @@ void BattleSceneHades::Action(Role* r)
                 auto it = cs.find(r->ID);
                 if (it != cs.end())
                 {
-                    if (it->second.onSkillTeamHeal > 0)
-                        it->second.onSkillTeamHealPending = true;
+                    it->second.onSkillTeamHealPending = true;
                     if (it->second.postSkillDash)
                         it->second.postSkillDashPending = true;
                 }
@@ -2659,6 +2920,7 @@ void BattleSceneHades::Action(Role* r)
                     ae.Track = 1;
                     r->OperationCount = 0;
                 }
+                primeProjectileBounce(ae);
                 attack_effects_.push_back(ae);
                 // Ulti splash: spawn 1 extra homing projectiles
                 if (ae.IsUltimate)
@@ -2669,6 +2931,7 @@ void BattleSceneHades::Action(Role* r)
                     splash.TotalFrame = 60;
                     splash.Velocity = r->RealTowards;
                     splash.Velocity.normTo(3);
+                    primeProjectileBounce(splash);
                     spawnTrackingProjectileSpread(splash, 1, 5, 5);
                 }
                 spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
@@ -2685,6 +2948,7 @@ void BattleSceneHades::Action(Role* r)
                 projectilePrototype.Velocity = r->RealTowards;
                 projectilePrototype.Velocity.normTo(3);
                 projectilePrototype.Frame = 0;
+                primeProjectileBounce(projectilePrototype);
                 spawnTrackingProjectileSpread(projectilePrototype, count, 0, 0, 10);
                 spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
             }
@@ -2707,6 +2971,7 @@ void BattleSceneHades::Action(Role* r)
                 {
                     ae.Through = 1;
                 }
+                primeProjectileBounce(ae);
                 attack_effects_.push_back(ae);
                 spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
                 if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
@@ -2724,6 +2989,7 @@ void BattleSceneHades::Action(Role* r)
                         ae.Through = 1;
                         ae.Strengthen = sideStr;
                         ae.IsMain = 0;
+                        primeProjectileBounce(ae);
                         attack_effects_.push_back(ae);
                     }
                 }
@@ -2751,6 +3017,7 @@ void BattleSceneHades::Action(Role* r)
                 projectilePrototype.Pos = p;
                 projectilePrototype.Frame = 0;
                 projectilePrototype.Track = 1;
+                primeProjectileBounce(projectilePrototype);
                 spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
             }
             // LOG("{} team {} use {} as {}\n", ae.Attacker->Name, ae.Attacker->Team, ae.UsingMagic->Name, ae.OperationType);
@@ -2798,6 +3065,7 @@ void BattleSceneHades::Action(Role* r)
                 ae1.TotalFrame = 100;
                 ae1.Frame = 0;
                 ae1.OperationType = 4;
+                primeProjectileBounce(ae1);
                 attack_effects_.push_back(std::move(ae1));
             }
             // 减少数量
@@ -2833,8 +3101,7 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
         auto it = cs.find(r->ID);
         if (it != cs.end())
         {
-            if (it->second.onSkillTeamHeal > 0)
-                it->second.onSkillTeamHealPending = true;
+            it->second.onSkillTeamHealPending = true;
             if (it->second.postSkillDash)
                 it->second.postSkillDashPending = true;
         }
@@ -2844,19 +3111,126 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
     ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
     ae.Frame = 0;
     ae.OperationType = getOperationType(magic->AttackAreaType);
+    primeProjectileBounce(ae);
     attack_effects_.push_back(ae);
     if (isUltimate)
         spawnUltimateExtraProjectiles(ae, getUltimateExtraProjectileCount(r));
 }
 
-int BattleSceneHades::getUltimateExtraProjectileCount(Role* r) const
+void BattleSceneHades::applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason)
+{
+    if (!source || (flatHeal <= 0 && pctHeal <= 0))
+        return;
+
+    const char* healReason = reason ? reason : "群疗";
+    for (auto ally : battle_roles_)
+    {
+        if (!ally || ally->Team != source->Team || ally->Dead != 0)
+            continue;
+
+        int hpBefore = ally->HP;
+        int heal = flatHeal + ally->MaxHP * pctHeal / 100;
+        if (heal <= 0)
+            continue;
+
+        ally->HP = std::min(ally->MaxHP, ally->HP + heal);
+        if (ally->HP > hpBefore)
+        {
+            addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            logBattleHeal(source, ally, ally->HP - hpBefore, healReason);
+        }
+    }
+}
+
+void BattleSceneHades::collectTriggeredTeamHeal(KysChess::RoleComboState& state,
+                                                KysChess::Trigger trigger,
+                                                int& flatHeal,
+                                                int& pctHeal)
+{
+    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    {
+        auto& effect = state.triggeredEffects[i];
+        if (effect.trigger != trigger)
+            continue;
+        if (effect.maxCount > 0 && state.effectActivationCounts[i] >= effect.maxCount)
+            continue;
+        if (trigger == KysChess::Trigger::OnHit && effect.triggerValue > 0 && rand_.rand() * 100 >= effect.triggerValue)
+            continue;
+
+        switch (effect.type)
+        {
+        case KysChess::EffectType::OnSkillTeamHeal:
+            flatHeal += effect.value;
+            break;
+        case KysChess::EffectType::OnSkillTeamHealPct:
+            pctHeal += effect.value;
+            break;
+        default:
+            continue;
+        }
+
+        state.effectActivationCounts[i]++;
+    }
+}
+
+int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
 {
     if (!r) return 0;
-    auto& cs = KysChess::ChessCombo::getActiveStates();
+    auto& cs = KysChess::ChessCombo::getMutableStates();
     auto it = cs.find(r->ID);
     if (it == cs.end())
         return 0;
-    return std::max(0, it->second.ultimateExtraProjectiles);
+
+    auto& s = it->second;
+    int flatCount = std::max(0, s.ultimateExtraProjectiles);
+
+    for (size_t i = 0; i < s.triggeredEffects.size(); ++i)
+    {
+        auto& effect = s.triggeredEffects[i];
+        if (effect.trigger != KysChess::Trigger::OnUltimate)
+            continue;
+        if (effect.maxCount > 0 && s.effectActivationCounts[i] >= effect.maxCount)
+            continue;
+
+        if (effect.type == KysChess::EffectType::UltimateExtraProjectiles)
+            flatCount += effect.value;
+        else
+            continue;
+
+        s.effectActivationCounts[i]++;
+    }
+
+    return flatCount;
+}
+
+int BattleSceneHades::getHitExtraProjectileCount(Role* r)
+{
+    if (!r) return 0;
+    auto& cs = KysChess::ChessCombo::getMutableStates();
+    auto it = cs.find(r->ID);
+    if (it == cs.end())
+        return 0;
+
+    auto& s = it->second;
+    int flatCount = 0;
+
+    for (size_t i = 0; i < s.triggeredEffects.size(); ++i)
+    {
+        auto& effect = s.triggeredEffects[i];
+        if (effect.trigger != KysChess::Trigger::OnHit)
+            continue;
+        if (effect.type != KysChess::EffectType::UltimateExtraProjectiles)
+            continue;
+        if (effect.maxCount > 0 && s.effectActivationCounts[i] >= effect.maxCount)
+            continue;
+        if (effect.triggerValue > 0 && rand_.rand() * 100 >= effect.triggerValue)
+            continue;
+
+        flatCount += effect.value;
+        s.effectActivationCounts[i]++;
+    }
+
+    return flatCount;
 }
 
 void BattleSceneHades::spawnUltimateExtraProjectiles(const AttackEffect& prototype, int extraCount)
@@ -2864,12 +3238,122 @@ void BattleSceneHades::spawnUltimateExtraProjectiles(const AttackEffect& prototy
     if (extraCount <= 0 || !prototype.IsUltimate || !prototype.Attacker)
         return;
 
+    spawnExtraProjectiles(prototype, extraCount, "绝招追加弹", nullptr);
+}
+
+void BattleSceneHades::spawnHitExtraProjectiles(const AttackEffect& prototype, int extraCount, Role* target)
+{
+    if (extraCount <= 0 || !prototype.Attacker)
+        return;
+
+    spawnExtraProjectiles(prototype, extraCount, "命中追加弹", target);
+}
+
+void BattleSceneHades::spawnExtraProjectiles(const AttackEffect& prototype, int extraCount, const char* logLabel, Role* target)
+{
+    if (extraCount <= 0 || !prototype.Attacker || !logLabel)
+        return;
+
+    if (prototype.UsingMagic)
+        logBattleStatus(prototype.Attacker, target,
+            std::format("{}·{}（{}发）", logLabel, prototype.UsingMagic->Name, extraCount));
+    else
+        logBattleStatus(prototype.Attacker, target,
+            std::format("{}（{}发）", logLabel, extraCount));
+
     auto launch = prototype;
     launch.Defender.clear();
     launch.NoHurt = 0;
     launch.Weaken = 0;
     launch.IsMain = 0;
     spawnTrackingProjectileSpread(launch, extraCount);
+}
+
+void BattleSceneHades::refreshEnemyTopDebuffs()
+{
+    auto& cs = KysChess::ChessCombo::getMutableStates();
+
+    int liveAllies = 0;
+    int topTargets = 0;
+    int perMemberValue = 0;
+    for (const auto& ally : friends_obj_)
+    {
+        if (ally.Dead != 0)
+            continue;
+
+        auto sit = cs.find(ally.ID);
+        if (sit == cs.end() || sit->second.enemyTopDebuffCount <= 0)
+            continue;
+
+        liveAllies++;
+        topTargets = std::max(topTargets, sit->second.enemyTopDebuffCount);
+        perMemberValue = std::max(perMemberValue, sit->second.enemyTopDebuffValue);
+    }
+
+    if (liveAllies <= 0 || topTargets <= 0 || perMemberValue <= 0)
+    {
+        topTargets = std::max(topTargets, 0);
+    }
+
+    std::vector<size_t> enemyOrder;
+    enemyOrder.reserve(enemies_obj_.size());
+    for (size_t i = 0; i < enemies_obj_.size(); ++i)
+    {
+        if (enemies_obj_[i].Dead == 0)
+            enemyOrder.push_back(i);
+    }
+
+    auto enemySortScore = [&](size_t index) -> long long {
+        int tier = index < enemies_obj_.size() ? enemies_obj_[index].Cost : 0;
+        int star = index < enemy_stars_.size() ? enemy_stars_[index] : 0;
+        if (tier <= 0)
+            return 0;
+
+        long long score = 1;
+        for (int i = 0; i < star; ++i)
+            score *= tier;
+        return score;
+    };
+
+    std::stable_sort(enemyOrder.begin(), enemyOrder.end(), [&](size_t l, size_t r) {
+        long long lScore = enemySortScore(l);
+        long long rScore = enemySortScore(r);
+        if (lScore != rScore)
+            return lScore > rScore;
+
+        int lHP = l < enemies_obj_.size() ? enemies_obj_[l].MaxHP : 0;
+        int rHP = r < enemies_obj_.size() ? enemies_obj_[r].MaxHP : 0;
+        return lHP > rHP;
+    });
+
+    int assignedTargets = 0;
+    for (size_t index : enemyOrder)
+    {
+        auto& enemy = enemies_obj_[index];
+        auto& state = cs[enemy.ID];
+        int desired = 0;
+        if (assignedTargets < topTargets && liveAllies > 0 && perMemberValue > 0)
+        {
+            desired = perMemberValue * liveAllies;
+            ++assignedTargets;
+        }
+
+        int delta = desired - state.enemyTopDebuffApplied;
+        if (delta != 0)
+        {
+            int change = delta > 0 ? delta : -delta;
+            enemy.Attack = std::max(0, enemy.Attack - delta);
+            enemy.Defence = std::max(0, enemy.Defence - delta);
+            state.enemyTopDebuffApplied = desired;
+            logBattleStatus(nullptr,
+                            &enemy,
+                            std::format("陰险：前{}名攻防{}{}（{}名存活）",
+                                topTargets,
+                                delta > 0 ? "-" : "+",
+                                change,
+                                liveAllies));
+        }
+    }
 }
 
 void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
@@ -2904,8 +3388,6 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         blast.Track = 1;
         blast.Through = 0;
         blast.IsMain = 0;
-        blast.IgnoreProjectileCancel = 1;
-        blast.RequirePreferredTarget = 1;
         blast.OperationType = 2;
         blast.setEft(eftId);
         auto spawnOffset = direction;
@@ -3047,6 +3529,31 @@ void BattleSceneHades::AI(Role* r)
             if (!r0) r0 = findNearestEnemy(r->Team, r->Pos);
             if (r0)
             {
+                auto findApproachCell = [&](Role* chaser, Role* target)
+                {
+                    auto target45 = pos90To45(target->Pos.x, target->Pos.y);
+                    auto current45 = pos90To45(chaser->Pos.x, chaser->Pos.y);
+                    const Point offsets[] = { Point(-1, 0), Point(1, 0), Point(0, -1), Point(0, 1) };
+                    Point best = target45;
+                    int bestScore = std::numeric_limits<int>::max();
+
+                    for (const auto& offset : offsets)
+                    {
+                        Point candidate(target45.x + offset.x, target45.y + offset.y);
+                        if (!canWalk(candidate.x, candidate.y))
+                            continue;
+
+                        int score = calDistance(current45.x, current45.y, candidate.x, candidate.y);
+                        if (score < bestScore)
+                        {
+                            bestScore = score;
+                            best = candidate;
+                        }
+                    }
+
+                    return best;
+                };
+
                 r->RealTowards = r0->Pos - r->Pos;
                 //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
                 r->RealTowards.normTo(1);
@@ -3062,6 +3569,7 @@ void BattleSceneHades::AI(Role* r)
                     }
                 }
                 double speed = r->Speed / 30.0;
+                auto& path_info = paths_[r];
                 if (EuclidDis(r->Pos, r0->Pos) > dis)
                 {
                     auto p = r->Pos + speed * r->RealTowards;
@@ -3085,17 +3593,23 @@ void BattleSceneHades::AI(Role* r)
                         {
                             r->Velocity = speed * r->RealTowards;
                         }
+                        path_info.frames_stuck = 0;
                     }
                     else if (r->Velocity.norm() < 0.1)
                     {
-                        // A* pathfinding with caching
-                        auto& path_info = paths_[r];
                         path_info.frames_since_update++;
 
+                        auto goal45 = findApproachCell(r, r0);
+                        bool needRepath = path_info.target != r0
+                            || path_info.target_cell.x != goal45.x
+                            || path_info.target_cell.y != goal45.y
+                            || path_info.frames_since_update > PATH_REFRESH_FRAMES
+                            || path_info.waypoints.empty()
+                            || path_info.frames_stuck >= PATH_STUCK_FRAMES;
+
                         // Recompute path if needed
-                        if (path_info.target != r0 || path_info.frames_since_update > 30 || path_info.waypoints.empty()) {
+                        if (needRepath) {
                             auto start45 = pos90To45(r->Pos.x, r->Pos.y);
-                            auto goal45 = pos90To45(r0->Pos.x, r0->Pos.y);
                             auto path45 = findPath(start45, goal45);
                             path_info.waypoints.clear();
                             for (auto& p : path45) {
@@ -3104,6 +3618,8 @@ void BattleSceneHades::AI(Role* r)
                             path_info.current_waypoint = 0;
                             path_info.frames_since_update = 0;
                             path_info.target = r0;
+                            path_info.target_cell = goal45;
+                            path_info.frames_stuck = 0;
                         }
 
                         // Follow path
@@ -3206,8 +3722,6 @@ void BattleSceneHades::AI(Role* r)
                 }
             }
         }
-    }
-
     // Print pathfinding stats every 300 frames
     // static int print_counter = 0;
     // if (++print_counter >= 300) {
@@ -3223,6 +3737,7 @@ void BattleSceneHades::AI(Role* r)
     //         }
     //     }
     // }
+}
 }
 
 void BattleSceneHades::onPressedCancel()
@@ -3479,13 +3994,13 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
-    int v[4] = { 90 - i / 2, 210 - i, 115 - i / 2, 35 };
-    int min_v[4] = { 67, 80, 75, 35 };
+    int v[4] = { 95 - i / 2, 215 - i, 120 - i / 2, 40 };
+    int min_v[4] = { 72, 85, 80, 40 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         int c = std::max(min_v[operation_type], v[operation_type]);
-        int spd = std::min(100, r->Speed);
-        c = c * (1.0 - 0.334 * spd / 100.0);
+        int spd = std::min(150, r->Speed);
+        c = c * (1.0 - 0.5 * spd / 150.0);
         c = std::max(calCast(act_type, operation_type, r) + 2, c);
         // CDR from combos/neigong — clamp so cooldown never drops below cast time
         auto& cs = KysChess::ChessCombo::getMutableStates();
@@ -3510,9 +4025,23 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         return;
     }
     double hurt;
+    bool critted = false;
     bool reflectToAttacker = false;
     bool attackerIgnoreDefense = false;
     bool executed = false;
+    int shieldAbsorbed = 0;
+    std::string damageDetail;
+    auto appendDamageDetail = [&](const std::string& text) {
+        if (text.empty())
+        {
+            return;
+        }
+        if (!damageDetail.empty())
+        {
+            damageDetail += "、";
+        }
+        damageDetail += text;
+    };
     bool rangedProjectile = ae.UsingHiddenWeapon != nullptr || ae.OperationType == 2;
     //先特别处理暗器
     if (ae.UsingHiddenWeapon != nullptr)
@@ -3625,7 +4154,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             }
 
             // Crit
-            bool critted = false;
+            // bool critted = false;
             if (as.dodgedLast && as.dodgeThenCrit)
             {
                 critted = true;
@@ -3637,7 +4166,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             {
                 hurt *= as.critMultiplier / 100.0;
                 addFloatingText(ae.Attacker, "暴击", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
-                logBattleStatus(ae.Attacker, r, "暴击");
+                logBattleStatus(ae.Attacker, r, formatStatusPercent("暴击", as.critMultiplier));
             }
 
             // Every-Nth-hit double
@@ -3656,9 +4185,15 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             for (size_t i = 0; i < as.rampings.size(); i++)
             {
                 auto& ramp = as.rampings[i];
+                int beforeStacks = as.rampingStacks[i];
                 as.rampingStacks[i] = std::min(as.rampingStacks[i] + 1, ramp.maxStacks);
                 as.rampingIdleTimers[i] = 90;
                 hurt *= (1.0 + as.rampingStacks[i] * ramp.pctPerStack / 100.0);
+                if (as.rampingStacks[i] > beforeStacks)
+                {
+                    logBattleStatus(ae.Attacker, r,
+                        formatStackingEffectStatus("连击增伤", ramp.pctPerStack, as.rampingStacks[i]));
+                }
             }
 
             // MP on hit
@@ -3685,7 +4220,9 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     {
                         dit->second.poisonTimer = as.poisonDuration;
                         dit->second.poisonTickDmg = as.poisonDOTPct;
-                        logBattleStatus(ae.Attacker, r, "中毒");
+                        dit->second.poisonSourceId = ae.Attacker ? ae.Attacker->ID : -1;
+                        logBattleStatus(ae.Attacker, r,
+                            formatStatusPercentFrames("中毒", as.poisonDOTPct, as.poisonDuration));
                     }
                 }
                 else
@@ -3693,7 +4230,9 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     auto& ds = cs[r->ID];
                     ds.poisonTimer = as.poisonDuration;
                     ds.poisonTickDmg = as.poisonDOTPct;
-                    logBattleStatus(ae.Attacker, r, "中毒");
+                    ds.poisonSourceId = ae.Attacker ? ae.Attacker->ID : -1;
+                    logBattleStatus(ae.Attacker, r,
+                        formatStatusPercentFrames("中毒", as.poisonDOTPct, as.poisonDuration));
                 }
             }
 
@@ -3701,7 +4240,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (as.stunChancePct > 0 && rand_.rand() * 100 < as.stunChancePct)
             {
                 applyFrozen(r, as.stunFrames);
-                logBattleStatus(ae.Attacker, r, "眩晕");
+                logBattleStatus(ae.Attacker, r, formatStatusFrames("眩晕", as.stunFrames));
             }
 
             // OnHit triggered effects
@@ -3717,7 +4256,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 else if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
                 {
                     applyFrozen(r, eff.value);
-                    logBattleStatus(ae.Attacker, r, "眩晕");
+                    logBattleStatus(ae.Attacker, r, formatStatusFrames("眩晕", eff.value));
                 }
             }
 
@@ -3731,7 +4270,19 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
 
             if (as.offensiveCharmChancePct > 0 && as.charmCDRAmountPct > 0
                 && rand_.rand() * 100 < as.offensiveCharmChancePct)
+            {
+                int cooldownBefore = r->CoolDown;
                 increaseCooldown(r, as.charmCDRAmountPct);
+                if (r->CoolDown > cooldownBefore)
+                    logBattleStatus(ae.Attacker, r,
+                        formatCooldownIncreaseStatus(as.charmCDRAmountPct, cooldownBefore, r->CoolDown));
+            }
+
+            int teamHealFlat = 0;
+            int teamHealPct = 0;
+            collectTriggeredTeamHeal(as, KysChess::Trigger::OnHit, teamHealFlat, teamHealPct);
+            if (teamHealFlat > 0 || teamHealPct > 0)
+                applyTeamHeal(ae.Attacker, teamHealFlat, teamHealPct, "命中群疗");
         }
 
         // Defender effects
@@ -3767,8 +4318,28 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 {
                     auto& adapt = ds.adaptations[i];
                     int& stacks = ds.adaptationStacks[i][ae.Attacker->ID];
+                    int beforeStacks = stacks;
                     stacks = std::min(stacks + 1, adapt.maxStacks);
                     hurt *= (1.0 - stacks * adapt.pctPerStack / 100.0);
+                    if (stacks > beforeStacks)
+                    {
+                        logBattleStatus(r, ae.Attacker,
+                            formatStackingEffectStatus("同敌减伤", adapt.pctPerStack, stacks));
+                    }
+                }
+
+                // Dodge adaptation: build evasion against the same attacker
+                for (size_t i = 0; i < ds.dodgeAdaptations.size(); ++i)
+                {
+                    auto& evade = ds.dodgeAdaptations[i];
+                    int& stacks = ds.dodgeAdaptationStacks[i][ae.Attacker->ID];
+                    int beforeStacks = stacks;
+                    stacks = std::min(stacks + 1, evade.maxStacks);
+                    if (stacks > beforeStacks)
+                    {
+                        logBattleStatus(r, ae.Attacker,
+                            formatStackingEffectStatus("同敌闪避", evade.pctPerStack, stacks));
+                    }
                 }
             }
 
@@ -3777,7 +4348,13 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 hurt *= (1.0 + ait->second.poisonDmgAmpPct / 100.0);
 
             if (ds.charmCDRChancePct > 0 && rand_.rand() * 100 < ds.charmCDRChancePct)
+            {
+                int cooldownBefore = ae.Attacker->CoolDown;
                 increaseCooldown(ae.Attacker, ds.charmCDRAmountPct);
+                if (ae.Attacker->CoolDown > cooldownBefore)
+                    logBattleStatus(r, ae.Attacker,
+                        formatCooldownIncreaseStatus(ds.charmCDRAmountPct, cooldownBefore, ae.Attacker->CoolDown));
+            }
 
             // OnBeingHit triggered effects
             for (auto& eff : ds.triggeredEffects)
@@ -3788,7 +4365,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
                 {
                     applyFrozen(ae.Attacker, eff.value);
-                    logBattleStatus(r, ae.Attacker, "反制并眩晕了对手");
+                    logBattleStatus(r, ae.Attacker, formatStatusFrames("反制并眩晕对手", eff.value));
                 }
             }
 
@@ -3806,11 +4383,12 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 int absorbed = std::min(ds.shield, (int)hurt);
                 ds.shield -= absorbed;
                 hurt -= absorbed;
+                shieldAbsorbed = absorbed;
                 if (shieldBefore > 0 && ds.shield == 0 && ds.shieldExplosionPct > 0)
                 {
                     int explosionDmg = std::max(1, shieldBefore * ds.shieldExplosionPct / 100);
                     spawnAreaImpactProjectiles(r, r, 9, 9, KysChess::EFT_SHIELD_BLAST, explosionDmg);
-                    logBattleStatus(r, nullptr, "护盾爆炸");
+                    logBattleStatus(r, nullptr, formatStatusValue("护盾爆炸", explosionDmg, "伤害"));
                 }
             }
 
@@ -3834,7 +4412,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                         && rand_.rand() * 100 < executeChance)
                     {
                         executed = true;
-                        logBattleStatus(ae.Attacker, r, "触发处决");
+                        logBattleStatus(ae.Attacker, r, formatExecuteStatus(executeThreshold));
                         break;
                     }
                 }
@@ -3861,7 +4439,14 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             }
 
             if (!reflectToAttacker && ae.UsingMagic && ds.skillReflectPct > 0)
-                ae.Attacker->HurtThisFrame += static_cast<int>(hurt * ds.skillReflectPct / 100.0);
+            {
+                int reflectedDamage = static_cast<int>(hurt * ds.skillReflectPct / 100.0);
+                if (reflectedDamage > 0)
+                {
+                    ae.Attacker->HurtThisFrame += reflectedDamage;
+                    logBattleDamage(r, ae.Attacker, reflectedDamage, "", "技能反弹");
+                }
+            }
         }
 
         if (!reflectToAttacker && ait != cs.end())
@@ -3875,7 +4460,9 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 if (ds.bleedTimer <= 0)
                     ds.bleedTimer = 10;
                 ds.bleedPersistFlag = as.bleedPersist;
-                logBattleStatus(ae.Attacker, r, "流血");
+                ds.bleedSourceId = ae.Attacker ? ae.Attacker->ID : -1;
+                logBattleStatus(ae.Attacker, r,
+                    formatStatusRange("流血", ds.bleedStacks, as.bleedMaxStacks, "层"));
             }
 
             for (auto& eff : as.triggeredEffects)
@@ -3890,10 +4477,14 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     if (chance > 0 && frames > 0 && rand_.rand() * 100 < chance)
                     {
                         cs[r->ID].mpBlockTimer = std::max(cs[r->ID].mpBlockTimer, frames);
-                        logBattleStatus(ae.Attacker, r, "封内");
+                        logBattleStatus(ae.Attacker, r, formatStatusFrames("封内", frames));
                     }
                 }
             }
+
+            int extraProjectiles = getHitExtraProjectileCount(ae.Attacker);
+            if (extraProjectiles > 0)
+                spawnHitExtraProjectiles(ae, extraProjectiles, r);
         }
 
         // Track last attacker for kill attribution
@@ -3905,6 +4496,26 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     //扣HP或MP
     Role* actualSource = reflectToAttacker ? r : ae.Attacker;
     Role* actualTarget = reflectToAttacker ? ae.Attacker : r;
+    if (ae.UsingHiddenWeapon)
+    {
+        appendDamageDetail("暗器");
+    }
+    if (critted)
+    {
+        appendDamageDetail("暴擊");
+    }
+    if (shieldAbsorbed > 0)
+    {
+        appendDamageDetail(std::format("護盾吸收 {}", shieldAbsorbed));
+    }
+    if (executed)
+    {
+        appendDamageDetail("處決");
+    }
+    if (reflectToAttacker)
+    {
+        appendDamageDetail("彈反");
+    }
     if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
     {
         actualTarget->HurtThisFrame += hurt;
@@ -3914,15 +4525,13 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             execution_popup_roles_.insert(actualTarget->ID);
         }
         std::string skillName = ae.UsingMagic ? std::string(ae.UsingMagic->Name) : "";
-        tracker_.recordDamage(actualSource, actualTarget, (int)hurt, skillName, current_frame_);
+        logBattleDamage(actualSource, actualTarget, (int)hurt, skillName, damageDetail);
     }
     if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
     {
         actualTarget->MP -= hurt;
         changeRoleMP(actualSource, hurt * 0.8);
-        TextEffect te;
-        te.set(std::to_string(int(-hurt)), { 160, 32, 240, 255 }, actualTarget);
-        text_effects_.push_back(std::move(te));
+        addDamageText(text_effects_, actualTarget, int(hurt), { 160, 32, 240, 255 });
     }
     //LOG("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
@@ -3935,7 +4544,7 @@ void BattleSceneHades::applyScriptedAttackEffect(AttackEffect& ae, Role* r)
     if (ae.ScriptedStunFrames > 0)
     {
         applyFrozen(r, ae.ScriptedStunFrames);
-        logBattleStatus(ae.Attacker, r, "眩晕");
+        logBattleStatus(ae.Attacker, r, formatStatusFrames("眩晕", ae.ScriptedStunFrames));
     }
 
     if (ae.Through == 0)
@@ -3948,7 +4557,7 @@ void BattleSceneHades::applyScriptedAttackEffect(AttackEffect& ae, Role* r)
     if (ae.ScriptedDamage > 0)
     {
         r->HurtThisFrame += ae.ScriptedDamage;
-        tracker_.recordDamage(ae.Attacker, r, ae.ScriptedDamage, "", current_frame_);
+        logBattleDamage(ae.Attacker, r, ae.ScriptedDamage, "", "特效傷害");
     }
 }
 
