@@ -3,6 +3,7 @@
 #include "BattleScene.h"
 #include "Console.h"
 #include "Event.h"
+#include "Fade.h"
 #include "Font.h"
 #include "MainScene.h"
 #include "ParticleExample.h"
@@ -407,7 +408,7 @@ void SubScene::onEntrance()
     //Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     reDrawEarthTexture();
     //Engine::getInstance()->saveTexture(earth_texture, std::format("{}.bmp", submap_id_).c_str());
-
+    Fade::fadeIn(8);
     auto scene_name = std::make_shared<TextBox>();
     scene_name->setFontSize(24);
     scene_name->setText(submap_info_->Name);

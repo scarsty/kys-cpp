@@ -537,7 +537,6 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
                 drawAndPresent();
                 auto sub_map = std::make_shared<SubScene>(i);
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
-                Fade::fadeOut(8);
                 sub_map->run();
                 towards_ = sub_map->towards_;
                 Fade::fadeIn(8);
