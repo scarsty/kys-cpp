@@ -26,8 +26,8 @@ private:
     std::unordered_map<int, WAV> asound_, esound_;
     std::unordered_map<int, WAV> voice_;
     MIDI_FONT mid_sound_font_;
-    MUSIC current_music_;
-    WAV current_sound_;
+    MUSIC current_music_{};
+    WAV current_sound_{};
 
     int volume_ = 20;
     int volume_wav_ = 50;
@@ -56,8 +56,8 @@ public:
 
     void stopWav();
 
-    void setVolume(int v) { volume_ = v; }
-    void setVolumeWav(int v) { volume_wav_ = v; }
+    void setVolume(int v);
+    void setVolumeWav(int v);
 
     void playVoice(int voice_id, int volume = -1);
 

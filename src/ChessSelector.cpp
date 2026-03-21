@@ -7,12 +7,30 @@
 #include "ChessRewardFlow.h"
 #include "ChessShopFlow.h"
 #include "ChessUiCommon.h"
+#include "Engine.h"
 #include "GameState.h"
+#include "GameUtil.h"
+#include "ImGuiLayer.h"
 #include "Menu.h"
 #include "UISave.h"
 
 namespace KysChess
 {
+
+namespace
+{
+class BattleSystemMenuNode : public RunNode
+{
+public:
+    void backRun() override
+    {
+        if (!Engine::getInstance()->isBattleSystemMenuOpen())
+        {
+            exitWithResult(0);
+        }
+    }
+};
+}    // namespace
 
 ChessSelector::ChessSelector(
     ChessRoleSave& roleSave,
@@ -89,7 +107,7 @@ void ChessSelector::showContextMenu()
             "查看羈絆",
             "查看內功",
             "遠征挑戰",
-            "排兵佈陣",
+            "戰鬥系統",
             "裝備管理",
         };
         if (banEnabled)
@@ -131,7 +149,7 @@ void ChessSelector::showContextMenu()
         case 5: viewCombos(); break;
         case 6: viewNeigong(); break;
         case 7: showExpeditionChallenge(); break;
-        case 8: showPositionSwap(); break;
+        case 8: showSystemMenu(); break;
         case 9: manageEquipment(); break;
         }
         UISave::autoSave();
@@ -170,9 +188,26 @@ void ChessSelector::showGameGuide()
     ChessInfoFlow(services()).showGameGuide();
 }
 
-void ChessSelector::showPositionSwap()
+void ChessSelector::showSystemMenu()
 {
-    ChessInfoFlow(services()).showPositionSwap();
+    auto* game = GameUtil::getInstance();
+    BattleSystemMenuData data;
+    data.positionSwapEnabled = progress_.isPositionSwapEnabled();
+    data.musicVolume = game->getInt("music", "volume", 50);
+    data.soundVolume = game->getInt("music", "volumewav", 50);
+    data.manualCamera = game->getInt("game", "manual_battle_camera", 0) != 0;
+    data.battleSpeed = GameUtil::limit(game->getInt("game", "battle_speed", 1), 0, 2);
+    data.simplifiedChinese = game->getInt("game", "simplified_chinese", 1) != 0;
+    data.showBattleLog = game->getInt("game", "show_battle_log", 1) != 0;
+
+    auto* engine = Engine::getInstance();
+    engine->showBattleSystemMenu(data);
+
+    auto waitNode = std::make_shared<BattleSystemMenuNode>();
+    waitNode->run();
+
+    auto result = engine->getBattleSystemMenuData();
+    progress_.setPositionSwapEnabled(result.positionSwapEnabled);
 }
 
 }    // namespace KysChess

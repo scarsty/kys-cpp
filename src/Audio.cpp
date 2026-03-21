@@ -188,6 +188,33 @@ void Audio::playVoice(int voice_id, int volume)
     current_sound_ = voice_[voice_id];
 }
 
+void Audio::setVolume(int v)
+{
+    volume_ = GameUtil::limit(v, 0, 100);
+    if (!current_music_)
+    {
+        return;
+    }
+#ifdef USE_BASS
+    BASS_CHANNELINFO info;
+    if (BASS_ChannelGetInfo(current_music_, &info) && info.ctype == BASS_CTYPE_STREAM_MIDI)
+    {
+        BASS_ChannelSetAttribute(current_music_, BASS_ATTRIB_MIDI_VOL, volume_ / 100.0f);
+    }
+    BASS_ChannelSetAttribute(current_music_, BASS_ATTRIB_VOL, volume_ / 100.0f);
+#else
+    if (track_music_)
+    {
+        MIX_SetTrackGain(track_music_, volume_ / 100.0f);
+    }
+#endif
+}
+
+void Audio::setVolumeWav(int v)
+{
+    volume_wav_ = GameUtil::limit(v, 0, 100);
+}
+
 MUSIC Audio::loadMusic(const std::string& file)
 {
 #ifdef USE_BASS
