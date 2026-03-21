@@ -2212,15 +2212,24 @@ void BattleSceneHades::backRun1()
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
             {
                 auto* engine = Engine::getInstance();
-                if (!battle_log_shown_)
-                {
-                    engine->showBattleLogWindow(buildBattleLogData());
-                    battle_log_shown_ = true;
-                }
-                if (!engine->isBattleLogWindowOpen())
+                bool show_battle_log = GameUtil::getInstance()->getInt("game", "show_battle_log", 1) != 0;
+                if (!show_battle_log)
                 {
                     calExpGot();
                     setExit(true);
+                }
+                else
+                {
+                    if (!battle_log_shown_)
+                    {
+                        engine->showBattleLogWindow(buildBattleLogData());
+                        battle_log_shown_ = true;
+                    }
+                    if (!engine->isBattleLogWindowOpen())
+                    {
+                        calExpGot();
+                        setExit(true);
+                    }
                 }
             }
         }

@@ -44,7 +44,7 @@ public:
     void manageEquipment();
     void showExpeditionChallenge();
     void showGameGuide();
-    void showPositionSwap();
+    void showSystemMenu();
 
 private:
     ChessSelectorServices services() const;

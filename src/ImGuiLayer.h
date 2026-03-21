@@ -63,6 +63,18 @@ struct BattleLogData
     std::vector<BattleLogLine> entries;
 };
 
+struct BattleSystemMenuData
+{
+    bool open = false;
+    bool positionSwapEnabled = false;
+    int musicVolume = 50;
+    int soundVolume = 50;
+    bool manualCamera = false;
+    int battleSpeed = 1;
+    bool simplifiedChinese = true;
+    bool showBattleLog = true;
+};
+
 class ImGuiLayer
 {
 public:
@@ -74,10 +86,15 @@ public:
     void showBattleLog(const BattleLogData& data);
     void hideBattleLog();
     bool isBattleLogOpen() const;
+    void showBattleSystemMenu(const BattleSystemMenuData& data);
+    void hideBattleSystemMenu();
+    bool isBattleSystemMenuOpen() const;
+    BattleSystemMenuData getBattleSystemMenuData() const;
 
 private:
     bool wantsCaptureEvent(const SDL_Event& event) const;
     void renderBattleLogWindow();
+    void renderBattleSystemMenuWindow();
 
 private:
     bool initialized_ = false;
@@ -85,4 +102,5 @@ private:
     bool show_metrics_window_ = false;
     int battle_log_input_guard_frames_ = 0;
     BattleLogData battle_log_;
+    BattleSystemMenuData system_menu_;
 };

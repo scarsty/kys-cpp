@@ -4,9 +4,12 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlrenderer3.h>
 
+#include "Audio.h"
+#include "Font.h"
 #include "SDL3/SDL.h"
 #include "GameUtil.h"
 #include <algorithm>
+#include <format>
 
 namespace
 {
@@ -84,7 +87,7 @@ bool ImGuiLayer::processEvent(const SDL_Event& event)
 
 void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_texture_w, int main_texture_h, const char* renderer_name)
 {
-    if (!initialized_ || (!visible_ && !battle_log_.open))
+    if (!initialized_ || (!visible_ && !battle_log_.open && !system_menu_.open))
     {
         return;
     }
@@ -115,6 +118,7 @@ void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_tex
     }
 
     renderBattleLogWindow();
+    renderBattleSystemMenuWindow();
 
     if (show_metrics_window_)
     {
@@ -127,7 +131,7 @@ void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_tex
 
 bool ImGuiLayer::wantsCaptureEvent(const SDL_Event& event) const
 {
-    if (!initialized_ || (!visible_ && !battle_log_.open))
+    if (!initialized_ || (!visible_ && !battle_log_.open && !system_menu_.open))
     {
         return false;
     }
@@ -139,12 +143,12 @@ bool ImGuiLayer::wantsCaptureEvent(const SDL_Event& event) const
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
     case SDL_EVENT_MOUSE_WHEEL:
-        return battle_log_.open || io.WantCaptureMouse;
+        return battle_log_.open || system_menu_.open || io.WantCaptureMouse;
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP:
     case SDL_EVENT_TEXT_INPUT:
     case SDL_EVENT_TEXT_EDITING:
-        return battle_log_.open || io.WantCaptureKeyboard || io.WantTextInput;
+        return battle_log_.open || system_menu_.open || io.WantCaptureKeyboard || io.WantTextInput;
     default:
         return false;
     }
@@ -166,6 +170,30 @@ void ImGuiLayer::hideBattleLog()
 bool ImGuiLayer::isBattleLogOpen() const
 {
     return battle_log_.open;
+}
+
+void ImGuiLayer::showBattleSystemMenu(const BattleSystemMenuData& data)
+{
+    system_menu_ = data;
+    system_menu_.musicVolume = GameUtil::limit(system_menu_.musicVolume, 0, 100);
+    system_menu_.soundVolume = GameUtil::limit(system_menu_.soundVolume, 0, 100);
+    system_menu_.battleSpeed = GameUtil::limit(system_menu_.battleSpeed, 0, 2);
+    system_menu_.open = true;
+}
+
+void ImGuiLayer::hideBattleSystemMenu()
+{
+    system_menu_.open = false;
+}
+
+bool ImGuiLayer::isBattleSystemMenuOpen() const
+{
+    return system_menu_.open;
+}
+
+BattleSystemMenuData ImGuiLayer::getBattleSystemMenuData() const
+{
+    return system_menu_;
 }
 
 void ImGuiLayer::renderBattleLogWindow()
@@ -470,4 +498,244 @@ void ImGuiLayer::renderBattleLogWindow()
     {
         battle_log_input_guard_frames_--;
     }
+}
+
+void ImGuiLayer::renderBattleSystemMenuWindow()
+{
+    if (!system_menu_.open)
+    {
+        return;
+    }
+
+    system_menu_.musicVolume = GameUtil::limit(system_menu_.musicVolume, 0, 100);
+    system_menu_.soundVolume = GameUtil::limit(system_menu_.soundVolume, 0, 100);
+    system_menu_.battleSpeed = GameUtil::limit(system_menu_.battleSpeed, 0, 2);
+
+    const ImVec4 panel_bg = colorU8(34, 38, 30, 164);
+    const ImVec4 panel_border = colorU8(192, 172, 118, 190);
+    const ImVec4 title_gold = colorU8(238, 221, 112);
+    const ImVec4 text_main = colorU8(248, 245, 232);
+    const ImVec4 text_muted = colorU8(202, 198, 180);
+    const ImVec4 accent_line = colorU8(166, 152, 82, 90);
+    const ImVec4 chip_bg = colorU8(92, 96, 59, 150);
+    const ImVec4 child_bg = colorU8(30, 34, 27, 88);
+    const ImVec4 dim_bg = colorU8(8, 10, 8, 42);
+    const ImVec4 value_info = colorU8(125, 205, 245);
+
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 vp_pos = viewport ? viewport->Pos : ImVec2(0.0f, 0.0f);
+    ImVec2 vp_size = viewport ? viewport->Size : ImVec2(1280.0f, 720.0f);
+    float body_scale = clampf(vp_size.y / 740.0f, 1.24f, 2.10f);
+    float title_scale = clampf(body_scale * 1.34f, 1.52f, 2.48f);
+    float section_scale = clampf(body_scale * 1.14f, 1.28f, 2.02f);
+    float small_scale = clampf(body_scale * 0.98f, 1.08f, 1.68f);
+    ImVec2 panel_size((std::max)(760.0f, vp_size.x * 0.58f), (std::max)(560.0f, vp_size.y * 0.72f));
+    panel_size.x = (std::min)(panel_size.x, vp_size.x - 42.0f);
+    panel_size.y = (std::min)(panel_size.y, vp_size.y - 34.0f);
+    ImVec2 panel_pos(vp_pos.x + (vp_size.x - panel_size.x) * 0.5f, vp_pos.y + (vp_size.y - panel_size.y) * 0.5f);
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+    {
+        system_menu_.open = false;
+    }
+
+    ImGui::GetForegroundDrawList()->AddRectFilled(vp_pos, ImVec2(vp_pos.x + vp_size.x, vp_pos.y + vp_size.y), ImGui::ColorConvertFloat4ToU32(dim_bg));
+
+    ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(panel_size, ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 14.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.2f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(26.0f, 22.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, panel_bg);
+    ImGui::PushStyleColor(ImGuiCol_Border, panel_border);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, child_bg);
+    ImGui::PushStyleColor(ImGuiCol_Separator, accent_line);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, colorU8(49, 55, 43, 200));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, colorU8(60, 67, 52, 220));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, colorU8(70, 77, 58, 230));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, title_gold);
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, title_gold);
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, colorU8(255, 236, 140));
+
+    auto* game = GameUtil::getInstance();
+    const char* speed_labels[] = { "2x", "1x", "0.5x" };
+    auto persistGameInt = [&](const char* section, const char* key, int value)
+    {
+        game->setKey(section, key, std::to_string(value));
+    };
+    auto drawSectionTitle = [&](const char* title)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
+        ImGui::SetWindowFontScale(section_scale);
+        ImGui::TextUnformatted(title);
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(body_scale);
+    };
+    auto drawSettingLabel = [&](const char* title, const char* desc)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, text_main);
+        ImGui::TextUnformatted(title);
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(small_scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+        ImGui::TextWrapped("%s", desc);
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(body_scale);
+    };
+
+    if (ImGui::Begin("##battle_system_menu", &system_menu_.open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings))
+    {
+        ImGui::SetWindowFontScale(title_scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
+        ImGui::TextUnformatted("戰鬥系統");
+        ImGui::SameLine();
+        ImGui::TextUnformatted("  •  佈陣與偏好設定");
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+        ImGui::SetWindowFontScale(body_scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+        ImGui::TextUnformatted("調整棋局戰鬥相關設定。音量與簡繁切換會立即生效，其餘項目先保存偏好。");
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        float section_h = ImGui::GetContentRegionAvail().y - 68.0f;
+        ImGui::BeginChild("battle_system_content", ImVec2(0.0f, section_h), true);
+
+        drawSectionTitle("基本設定");
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        drawSettingLabel("是否啟動佈陣", "進入戰鬥前顯示地圖佈陣／列表佈陣選擇。");
+        ImGui::Checkbox("開啟佈陣流程##position_swap", &system_menu_.positionSwapEnabled);
+        ImGui::Spacing();
+
+        drawSettingLabel("是否手動鏡頭", "尚未實裝，目前僅保存偏好值。");
+        if (ImGui::Checkbox("手動鏡頭##manual_camera", &system_menu_.manualCamera))
+        {
+            persistGameInt("game", "manual_battle_camera", system_menu_.manualCamera ? 1 : 0);
+        }
+        ImGui::Spacing();
+
+        drawSettingLabel("是否顯示戰鬥日誌", "黑帝斯戰鬥結束後是否顯示統計與出手記錄視窗。");
+        if (ImGui::Checkbox("顯示戰鬥日誌##show_battle_log", &system_menu_.showBattleLog))
+        {
+            persistGameInt("game", "show_battle_log", system_menu_.showBattleLog ? 1 : 0);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        drawSectionTitle("音量");
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        drawSettingLabel("音樂音量", "立即調整當前背景音樂與後續戰鬥配樂音量。");
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::SliderInt("##music_volume", &system_menu_.musicVolume, 0, 100, "%d%%"))
+        {
+            Audio::getInstance()->setVolume(system_menu_.musicVolume);
+            persistGameInt("music", "volume", system_menu_.musicVolume);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, value_info);
+        ImGui::Text("目前：%s", std::format("{}%", system_menu_.musicVolume).c_str());
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        drawSettingLabel("音效音量", "影響出招、受擊與其他戰鬥音效。");
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::SliderInt("##sound_volume", &system_menu_.soundVolume, 0, 100, "%d%%"))
+        {
+            Audio::getInstance()->setVolumeWav(system_menu_.soundVolume);
+            persistGameInt("music", "volumewav", system_menu_.soundVolume);
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, value_info);
+        ImGui::Text("目前：%s", std::format("{}%", system_menu_.soundVolume).c_str());
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        drawSectionTitle("偏好");
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        drawSettingLabel("戰鬥速度", "尚未實裝，目前僅記錄偏好。");
+        if (ImGui::RadioButton("2x##battle_speed", system_menu_.battleSpeed == 0))
+        {
+            system_menu_.battleSpeed = 0;
+            persistGameInt("game", "battle_speed", system_menu_.battleSpeed);
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("1x##battle_speed", system_menu_.battleSpeed == 1))
+        {
+            system_menu_.battleSpeed = 1;
+            persistGameInt("game", "battle_speed", system_menu_.battleSpeed);
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("0.5x##battle_speed", system_menu_.battleSpeed == 2))
+        {
+            system_menu_.battleSpeed = 2;
+            persistGameInt("game", "battle_speed", system_menu_.battleSpeed);
+        }
+        ImGui::Spacing();
+
+        drawSettingLabel("簡體／繁體", "切換一般字型繪製文字的顯示語系。");
+        if (ImGui::RadioButton("繁體##font_lang", !system_menu_.simplifiedChinese))
+        {
+            system_menu_.simplifiedChinese = false;
+            Font::getInstance()->setSimplified(0);
+            Font::getInstance()->clearBuffer();
+            persistGameInt("game", "simplified_chinese", 0);
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("簡體##font_lang", system_menu_.simplifiedChinese))
+        {
+            system_menu_.simplifiedChinese = true;
+            Font::getInstance()->setSimplified(1);
+            Font::getInstance()->clearBuffer();
+            persistGameInt("game", "simplified_chinese", 1);
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::SetWindowFontScale(small_scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+        ImGui::TextUnformatted("按 Esc 或點擊「完成」即可關閉。手動鏡頭與戰鬥速度目前僅保存設定。");
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(body_scale);
+        ImGui::EndChild();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::SetWindowFontScale(small_scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
+        ImGui::TextUnformatted("音量與語言會立即生效，佈陣開關則隨棋局存檔保存。");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        float button_w = 150.0f;
+        float button_x = ImGui::GetWindowContentRegionMax().x - button_w;
+        ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), button_x));
+        ImGui::PushStyleColor(ImGuiCol_Button, chip_bg);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colorU8(67, 78, 39, 230));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, colorU8(88, 98, 50, 230));
+        ImGui::SetWindowFontScale(body_scale);
+        if (ImGui::Button("完成", ImVec2(button_w, 0.0f)))
+        {
+            system_menu_.open = false;
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::SetWindowFontScale(1.0f);
+    }
+    ImGui::End();
+    ImGui::PopStyleColor(10);
+    ImGui::PopStyleVar(3);
 }
