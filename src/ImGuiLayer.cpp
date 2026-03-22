@@ -128,6 +128,7 @@ void ImGuiLayer::init(SDL_Window* window, SDL_Renderer* renderer)
     }
 
     ImGui::StyleColorsDark();
+    ImGui::GetStyle().FontSizeBase = 18.0f;
 
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
@@ -177,7 +178,7 @@ bool ImGuiLayer::processEvent(const SDL_Event& event)
 
 void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_texture_w, int main_texture_h, const char* renderer_name)
 {
-    if (!initialized_ || (!visible_ && !battle_log_.open && !system_menu_.open))
+    if (!initialized_)
     {
         return;
     }
@@ -189,6 +190,13 @@ void ImGuiLayer::render(SDL_Window* window, SDL_Renderer* renderer, int main_tex
     int window_w = 0;
     int window_h = 0;
     SDL_GetWindowSize(window, &window_w, &window_h);
+    ImGui::GetStyle().FontScaleMain = clampf(window_h / 720.0f, 1.24f, 3.0f);
+
+    if (!visible_ && !battle_log_.open && !system_menu_.open && !show_metrics_window_)
+    {
+        ImGui::EndFrame();
+        return;
+    }
 
     if (visible_)
     {
@@ -332,24 +340,20 @@ void ImGuiLayer::renderBattleLogWindow()
     {
         battle_log_hover_guard_ = false;
     }
-    float body_scale = clampf(vp_size.y / 740.0f, 1.24f, 2.10f);
-    float title_scale = clampf(body_scale * 1.34f, 1.52f, 2.48f);
-    float chip_scale = clampf(body_scale * 1.18f, 1.34f, 2.18f);
-    float small_scale = clampf(body_scale * 1.04f, 1.16f, 1.78f);
-    float filter_scale = clampf(body_scale * 1.14f, 1.34f, 2.20f);
-    float scrollbar_size = clampf(vp_size.y / 18.0f, 26.0f, 42.0f);
-    ImVec2 panel_size((std::max)(980.0f, vp_size.x * 0.90f), (std::max)(620.0f, vp_size.y * 0.86f));
-    panel_size.x = (std::min)(panel_size.x, vp_size.x - 36.0f);
-    panel_size.y = (std::min)(panel_size.y, vp_size.y - 30.0f);
+    const float fs = ImGui::GetFontSize();
+    const float fsBase = ImGui::GetStyle().FontSizeBase;
+    ImVec2 panel_size((std::max)(fs * 36.0f, vp_size.x * 0.90f), (std::max)(fs * 23.0f, vp_size.y * 0.86f));
+    panel_size.x = (std::min)(panel_size.x, vp_size.x - fs * 1.3f);
+    panel_size.y = (std::min)(panel_size.y, vp_size.y - fs * 1.1f);
     ImVec2 panel_pos(vp_pos.x + (vp_size.x - panel_size.x) * 0.5f, vp_pos.y + (vp_size.y - panel_size.y) * 0.5f);
 
     ImGui::GetForegroundDrawList()->AddRectFilled(vp_pos, ImVec2(vp_pos.x + vp_size.x, vp_pos.y + vp_size.y), ImGui::ColorConvertFloat4ToU32(dim_bg));
 
     ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(panel_size, ImGuiCond_Always);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 14.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, fs * 0.5f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.2f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(26.0f, 22.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(fs * 1.0f, fs * 0.8f));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, panel_bg);
     ImGui::PushStyleColor(ImGuiCol_Border, panel_border);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, child_bg);
@@ -401,13 +405,13 @@ void ImGuiLayer::renderBattleLogWindow()
             return count;
         };
 
-        ImGui::SetWindowFontScale(title_scale);
+        ImGui::PushFont(nullptr, fsBase * 1.34f);
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
         auto title = localizeImGuiText(battle_log_.title.empty() ? std::string_view("本次戰鬥日誌") : std::string_view(battle_log_.title));
         ImGui::TextUnformatted(title.c_str());
         ImGui::PopStyleColor();
         ImGui::Spacing();
-        ImGui::SetWindowFontScale(body_scale);
+        ImGui::PopFont();
 
         std::vector<std::pair<std::string, std::string>> chips = {
             {"戰鬥結果", battle_log_.resultText},
@@ -422,17 +426,18 @@ void ImGuiLayer::renderBattleLogWindow()
         auto drawChip = [&](const std::string& label, const std::string& value)
         {
             ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
-            ImGui::SetWindowFontScale(small_scale);
+            ImGui::PushFont(nullptr, fsBase * 1.04f);
             auto localizedLabel = localizeImGuiText(label);
             ImGui::TextUnformatted(localizedLabel.c_str());
+            ImGui::PopFont();
             ImGui::PopStyleColor();
-            ImGui::SameLine(0.0f, 8.0f);
-            ImGui::SetWindowFontScale(chip_scale);
+            ImGui::SameLine(0.0f, fs * 0.3f);
+            ImGui::PushFont(nullptr, fsBase * 1.18f);
             ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
             auto localizedValue = localizeImGuiText(value);
             ImGui::TextUnformatted(localizedValue.c_str());
             ImGui::PopStyleColor();
-            ImGui::SetWindowFontScale(body_scale);
+            ImGui::PopFont();
         };
 
         ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, colorU8(188, 170, 110, 120));
@@ -464,10 +469,8 @@ void ImGuiLayer::renderBattleLogWindow()
                 }
             }
 
-            ImGui::SetWindowFontScale(filter_scale);
             if (beginComboLocalized(label, preview))
             {
-                ImGui::SetWindowFontScale(filter_scale);
                 bool allSelected = selectedId < 0;
                 if (selectableLocalized(allLabel, allSelected))
                 {
@@ -493,22 +496,21 @@ void ImGuiLayer::renderBattleLogWindow()
                 }
                 ImGui::EndCombo();
             }
-            ImGui::SetWindowFontScale(body_scale);
         };
 
-        ImGui::SetWindowFontScale(filter_scale);
+        ImGui::PushFont(nullptr, fsBase * 1.14f);
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
         textLocalized("我方篩選");
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(220.0f);
+        ImGui::SetNextItemWidth(fs * 8.0f);
         drawFilterCombo("##ally_filter", "全部我方", battle_log_.allies, battle_log_ally_filter_id_);
         ImGui::SameLine();
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
         textLocalized("敵方篩選");
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(220.0f);
+        ImGui::SetNextItemWidth(fs * 8.0f);
         drawFilterCombo("##enemy_filter", "全部敵方", battle_log_.enemies, battle_log_enemy_filter_id_);
         ImGui::SameLine();
         if (buttonLocalized("重設篩選") && allow_close)
@@ -516,13 +518,12 @@ void ImGuiLayer::renderBattleLogWindow()
             battle_log_ally_filter_id_ = -1;
             battle_log_enemy_filter_id_ = -1;
         }
-        ImGui::SetWindowFontScale(body_scale);
+        ImGui::PopFont();
 
         ImGui::Spacing();
-        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, scrollbar_size);
+        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, fs * 2.0f);
         const char* child_id = battle_log_child_flip_ ? "battle_log_entries_b" : "battle_log_entries_a";
-        ImGui::BeginChild(child_id, ImVec2(0.0f, ImGui::GetContentRegionAvail().y - 60.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
-        ImGui::SetWindowFontScale(body_scale);
+        ImGui::BeginChild(child_id, ImVec2(0.0f, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 2.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
         auto colorForField = [&](BattleLogFieldTone tone, BattleLogTone line_tone) -> ImVec4
         {
             switch (tone)
@@ -607,25 +608,26 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::Separator();
         ImGui::Spacing();
 
-        ImGui::SetWindowFontScale(small_scale);
+        ImGui::PushFont(nullptr, fsBase * 1.04f);
         ImGui::PushStyleColor(ImGuiCol_Text, text_muted);
         textLocalized("點擊「繼續」關閉日誌");
         ImGui::PopStyleColor();
         ImGui::SameLine();
-        float button_w = 225.0f;
+        float button_w = fs * 8.5f;
         float button_x = ImGui::GetWindowContentRegionMax().x - button_w;
         float button_h = ImGui::GetFrameHeight() * 1.5f;
+        ImGui::PopFont();
         ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), button_x));
         ImGui::PushStyleColor(ImGuiCol_Button, chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, allow_close ? colorU8(67, 78, 39, 230) : chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, allow_close ? colorU8(88, 98, 50, 230) : chip_bg);
-        ImGui::SetWindowFontScale(clampf(body_scale * 1.14f, 1.28f, 2.35f));
+        ImGui::PushFont(nullptr, fsBase * 1.14f);
         if (buttonLocalized("繼續", ImVec2(button_w, button_h)) && allow_close)
         {
             battle_log_.open = false;
         }
+        ImGui::PopFont();
         ImGui::PopStyleColor(3);
-        ImGui::SetWindowFontScale(1.0f);
         if (suppress_hover)
         {
             ImGui::PopStyleColor(6);
@@ -655,6 +657,7 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
     const ImVec4 panel_bg = colorU8(34, 38, 30, 164);
     const ImVec4 panel_border = colorU8(192, 172, 118, 190);
     const ImVec4 title_gold = colorU8(238, 221, 112);
+    const ImVec4 text_main = colorU8(244, 240, 224);
     const ImVec4 accent_line = colorU8(166, 152, 82, 90);
     const ImVec4 chip_bg = colorU8(92, 96, 59, 150);
     const ImVec4 child_bg = colorU8(30, 34, 27, 88);
@@ -669,27 +672,15 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
         system_menu_hover_guard_ = false;
     }
 
-    float ui_scale = clampf((std::min)(vp_size.x / 1280.0f, vp_size.y / 720.0f), 1.0f, 2.15f);
-    float body_scale = clampf(ui_scale * 1.08f, 1.10f, 2.05f);
-    float title_scale = clampf(body_scale * 1.30f, 1.40f, 2.66f);
-    float section_scale = clampf(body_scale * 1.10f, 1.18f, 2.18f);
-    float label_scale = clampf(body_scale * 0.98f, 1.02f, 1.70f);
-    float small_scale = clampf(body_scale * 0.92f, 0.98f, 1.48f);
-    float window_rounding = clampf(14.0f * ui_scale, 14.0f, 28.0f);
-    float window_padding_x = clampf(20.0f * ui_scale, 20.0f, 44.0f);
-    float window_padding_y = clampf(16.0f * ui_scale, 16.0f, 34.0f);
-    float item_spacing_x = clampf(10.0f * ui_scale, 10.0f, 24.0f);
-    float item_spacing_y = clampf(8.0f * ui_scale, 8.0f, 20.0f);
-    float frame_padding_x = clampf(8.0f * ui_scale, 8.0f, 18.0f);
-    float frame_padding_y = clampf(6.0f * ui_scale, 6.0f, 14.0f);
-    float cell_padding_x = clampf(6.0f * ui_scale, 6.0f, 16.0f);
-    float cell_padding_y = clampf(4.0f * ui_scale, 4.0f, 10.0f);
-    float child_rounding = clampf(10.0f * ui_scale, 10.0f, 22.0f);
-    float frame_rounding = clampf(4.0f * ui_scale, 4.0f, 10.0f);
-    float grab_min_size = clampf(12.0f * ui_scale, 12.0f, 24.0f);
-    ImVec2 panel_size((std::max)(980.0f, vp_size.x * 0.80f), (std::max)(640.0f, vp_size.y * 0.90f));
-    panel_size.x = (std::min)(panel_size.x, vp_size.x - 20.0f);
-    panel_size.y = (std::min)(panel_size.y, vp_size.y - 12.0f);
+    const float fs = ImGui::GetFontSize();
+    const float fsBase = ImGui::GetStyle().FontSizeBase;
+    float row_gap = fs * 0.7f;
+    float label_column_w = fs * 15.0f;
+    float button_w = fs * 10.0f;
+    float footer_gap = fs * 0.6f;
+    ImVec2 panel_size((std::max)(fs * 32.0f, vp_size.x * 0.64f), (std::max)(fs * 21.0f, vp_size.y * 0.84f));
+    panel_size.x = (std::min)(panel_size.x, vp_size.x - fs * 0.7f);
+    panel_size.y = (std::min)(panel_size.y, vp_size.y - fs * 0.45f);
     ImVec2 panel_pos(vp_pos.x + (vp_size.x - panel_size.x) * 0.5f, vp_pos.y + (vp_size.y - panel_size.y) * 0.5f);
     bool suppress_hover = system_menu_hover_guard_ || system_menu_input_guard_frames_ > 0;
 
@@ -702,15 +693,15 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
 
     ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(panel_size, ImGuiCond_Always);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, window_rounding);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, fs * 0.8f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.2f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(window_padding_x, window_padding_y));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(item_spacing_x, item_spacing_y));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(frame_padding_x, frame_padding_y));
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(cell_padding_x, cell_padding_y));
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, child_rounding);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, frame_rounding);
-    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, grab_min_size);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(fs * 1.2f, fs * 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(fs * 0.6f, fs * 0.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(fs * 0.5f, fs * 0.35f));
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(fs * 0.35f, fs * 0.25f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, fs * 0.6f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, fs * 0.25f);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, fs * 0.7f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, panel_bg);
     ImGui::PushStyleColor(ImGuiCol_Border, panel_border);
     ImGui::PushStyleColor(ImGuiCol_ChildBg, child_bg);
@@ -721,72 +712,6 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
     ImGui::PushStyleColor(ImGuiCol_CheckMark, title_gold);
     ImGui::PushStyleColor(ImGuiCol_SliderGrab, title_gold);
     ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, colorU8(255, 236, 140));
-    auto drawSectionTitle = [&](const char* title)
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
-        ImGui::SetWindowFontScale(section_scale);
-        auto localizedTitle = localizeImGuiText(title);
-        ImGui::TextUnformatted(localizedTitle.c_str());
-        ImGui::PopStyleColor();
-        ImGui::SetWindowFontScale(body_scale);
-    };
-    auto drawCheckboxRow = [&](const char* label, const char* id, bool* value)
-    {
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        ImGui::SetWindowFontScale(label_scale);
-        textLocalized(label);
-        ImGui::TableNextColumn();
-        ImGui::SetWindowFontScale(body_scale);
-        float checkboxX = ImGui::GetCursorPosX() + (std::max)(0.0f, ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight());
-        ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), checkboxX));
-        ImGui::Checkbox(id, value);
-    };
-    auto drawRadioGroupRow = [&](const char* label, auto&& drawValue)
-    {
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn();
-        ImGui::SetWindowFontScale(label_scale);
-        textLocalized(label);
-        ImGui::TableNextColumn();
-        ImGui::SetWindowFontScale(body_scale);
-        drawValue();
-    };
-    auto drawVolumeSlider = [&](const char* label, const char* id, int* value, auto&& applyValue)
-    {
-        std::string valueText = std::to_string(*value) + "%";
-        ImGui::PushID(id);
-        if (ImGui::BeginTable("volume_header", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX))
-        {
-            const float valueColumnWidth = ImGui::CalcTextSize("100%").x + clampf(10.0f * ui_scale, 10.0f, 20.0f);
-            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 1.0f);
-            ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthFixed, valueColumnWidth);
-            ImGui::TableNextRow();
-
-            ImGui::TableNextColumn();
-            ImGui::SetWindowFontScale(label_scale);
-            ImGui::AlignTextToFramePadding();
-            textLocalized(label);
-
-            ImGui::TableNextColumn();
-            ImGui::SetWindowFontScale(small_scale);
-            ImGui::AlignTextToFramePadding();
-            ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
-            float valueX = ImGui::GetCursorPosX() + (std::max)(0.0f, ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(valueText.c_str()).x);
-            ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), valueX));
-            ImGui::TextUnformatted(valueText.c_str());
-            ImGui::PopStyleColor();
-            ImGui::EndTable();
-        }
-
-        ImGui::SetWindowFontScale(body_scale);
-        ImGui::SetNextItemWidth(-1.0f);
-        if (ImGui::SliderInt(id, value, 0, 100, " "))
-        {
-            applyValue();
-        }
-        ImGui::PopID();
-    };
 
     if (ImGui::Begin("##battle_system_menu", &system_menu_.open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
     {
@@ -800,150 +725,124 @@ void ImGuiLayer::renderBattleSystemMenuWindow()
             ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_Header));
         }
 
-        ImGui::SetWindowFontScale(title_scale);
+        ImGui::PushFont(nullptr, fsBase * 1.16f);
         ImGui::PushStyleColor(ImGuiCol_Text, title_gold);
         textLocalized("系統設定");
         ImGui::PopStyleColor();
-        ImGui::SetWindowFontScale(body_scale);
+        ImGui::PopFont();
 
         ImGui::Separator();
-        ImGui::Dummy(ImVec2(0.0f, clampf(6.0f * ui_scale, 6.0f, 14.0f)));
+        ImGui::Dummy(ImVec2(0.0f, row_gap));
 
-        const float footer_gap = clampf(8.0f * ui_scale, 8.0f, 18.0f);
-        const float body_h = (std::max)(380.0f, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() - footer_gap);
-        const float body_w = ImGui::GetContentRegionAvail().x;
-        const bool split_top = body_w >= 860.0f;
-        const float column_gap = clampf(16.0f * ui_scale, 12.0f, 24.0f);
-        const float section_gap = clampf(10.0f * ui_scale, 8.0f, 18.0f);
-        const float top_card_w = split_top ? (body_w - column_gap) * 0.5f : body_w;
-        const float min_bottom_h = split_top ? clampf(150.0f * ui_scale, 150.0f, 250.0f) : clampf(140.0f * ui_scale, 140.0f, 220.0f);
-        const float radio_gap = clampf(14.0f * ui_scale, 12.0f, 28.0f);
-        const float toggle_column_w = clampf(46.0f * ui_scale, 46.0f, 90.0f);
-        const float display_label_w = clampf(150.0f * ui_scale, 150.0f, 250.0f);
-        const float button_w = clampf(150.0f * ui_scale, 150.0f, 260.0f);
-
-        float top_card_h = 0.0f;
-        if (split_top)
-        {
-            top_card_h = clampf(body_h * 0.44f, clampf(190.0f * ui_scale, 190.0f, 320.0f), body_h - min_bottom_h - section_gap);
-        }
-        else
-        {
-            top_card_h = (body_h - min_bottom_h - section_gap * 2.0f) * 0.5f;
-            top_card_h = clampf(top_card_h, clampf(120.0f * ui_scale, 120.0f, 180.0f), clampf(180.0f * ui_scale, 180.0f, 240.0f));
-        }
-
+        const float button_h = ImGui::GetFrameHeight() * 1.45f;
+        const float footer_reserve_h = button_h + footer_gap * 2.0f + ImGui::GetFrameHeightWithSpacing();
+        const float body_h = (std::max)(0.0f, ImGui::GetContentRegionAvail().y - footer_reserve_h);
         ImGui::BeginChild("system_settings_body", ImVec2(0.0f, body_h), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        const ImGuiStyle& style = ImGui::GetStyle();
 
-        ImGui::BeginChild("system_settings_battle", ImVec2(top_card_w, top_card_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        drawSectionTitle("戰鬥");
-        ImGui::Separator();
-        ImGui::Dummy(ImVec2(0.0f, clampf(4.0f * ui_scale, 4.0f, 10.0f)));
-        if (ImGui::BeginTable("system_settings_battle_rows", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX))
-        {
-            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthStretch, 2.6f);
-            ImGui::TableSetupColumn("toggle", ImGuiTableColumnFlags_WidthFixed, toggle_column_w);
-            drawCheckboxRow("啟動佈陣", "##position_swap_enabled", &system_menu_.positionSwapEnabled);
-            drawCheckboxRow("手動鏡頭（未實裝）", "##manual_camera_enabled", &system_menu_.manualCamera);
-            drawCheckboxRow("顯示戰鬥日誌", "##show_battle_log_enabled", &system_menu_.showBattleLog);
-            ImGui::EndTable();
-        }
-        ImGui::EndChild();
-
-        if (split_top)
-        {
-            ImGui::SameLine(0.0f, column_gap);
-        }
-        else
-        {
-            ImGui::Dummy(ImVec2(0.0f, section_gap));
-        }
-
-        ImGui::BeginChild("system_settings_audio", ImVec2(0.0f, top_card_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        drawSectionTitle("音訊");
-        ImGui::Separator();
-        ImGui::Dummy(ImVec2(0.0f, clampf(4.0f * ui_scale, 4.0f, 10.0f)));
-        if (ImGui::BeginTable("system_settings_audio_controls", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoPadOuterX))
+        auto drawSettingRow = [&](const char* label, auto&& drawControl)
         {
             ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::PushStyleColor(ImGuiCol_Text, text_main);
+            ImGui::AlignTextToFramePadding();
+            textLocalized(label);
+            ImGui::PopStyleColor();
 
             ImGui::TableNextColumn();
-            drawVolumeSlider("音樂", "##music_volume", &system_menu_.musicVolume, [&]() {
-                Audio::getInstance()->setVolume(system_menu_.musicVolume);
-            });
+            drawControl(ImGui::GetContentRegionAvail().x);
+        };
 
-            ImGui::TableNextColumn();
-            drawVolumeSlider("音效", "##sound_volume", &system_menu_.soundVolume, [&]() {
-                Audio::getInstance()->setVolumeWav(system_menu_.soundVolume);
-            });
-
-            ImGui::EndTable();
-        }
-        ImGui::EndChild();
-
-        ImGui::Dummy(ImVec2(0.0f, section_gap));
-
-        float bottom_card_h = (std::max)(0.0f, ImGui::GetContentRegionAvail().y);
-        ImGui::BeginChild("system_settings_display", ImVec2(0.0f, bottom_card_h), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        drawSectionTitle("顯示與速度");
-        ImGui::Separator();
-        ImGui::Dummy(ImVec2(0.0f, clampf(4.0f * ui_scale, 4.0f, 10.0f)));
-        if (ImGui::BeginTable("system_settings_display_rows", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX))
+        auto drawCenteredCheckbox = [&](const char* id, bool* value, float control_width)
         {
-            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, display_label_w);
-            ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::Checkbox(id, value);
+        };
 
-            drawRadioGroupRow("戰鬥速度", [&]() {
-                if (radioButtonLocalized("2x##battle_speed_2x", system_menu_.battleSpeed == 0))
-                {
-                    system_menu_.battleSpeed = 0;
-                }
-                ImGui::SameLine(0.0f, radio_gap);
-                if (radioButtonLocalized("1x##battle_speed_1x", system_menu_.battleSpeed == 1))
-                {
-                    system_menu_.battleSpeed = 1;
-                }
-                ImGui::SameLine(0.0f, radio_gap);
-                if (radioButtonLocalized("0.5x##battle_speed_half", system_menu_.battleSpeed == 2))
-                {
-                    system_menu_.battleSpeed = 2;
-                }
-            });
+        auto drawVolumeSlider = [&](const char* id, int* value, float control_width, auto&& applyValue)
+        {
+            float sliderWidth = (std::min)(fs * 12.0f, control_width * 0.60f);
+            ImGui::SetNextItemWidth(sliderWidth);
+            if (ImGui::SliderInt(id, value, 0, 100, " "))
+            {
+                applyValue();
+            }
+        };
 
-            drawRadioGroupRow("文字", [&]() {
-                if (radioButtonLocalized("繁體##font_lang_traditional", !system_menu_.simplifiedChinese))
-                {
-                    system_menu_.simplifiedChinese = false;
-                    Font::getInstance()->setSimplified(0);
-                    Font::getInstance()->clearBuffer();
-                }
-                ImGui::SameLine(0.0f, radio_gap);
-                if (radioButtonLocalized("簡體##font_lang_simplified", system_menu_.simplifiedChinese))
-                {
-                    system_menu_.simplifiedChinese = true;
-                    Font::getInstance()->setSimplified(1);
-                    Font::getInstance()->clearBuffer();
-                }
-            });
+        auto radioButtonWidth = [&](const char* label)
+        {
+            std::string localized = localizeImGuiLabel(label);
+            return ImGui::CalcTextSize(localized.c_str()).x + ImGui::GetFrameHeight() + style.ItemInnerSpacing.x;
+        };
+
+        auto drawBattleSpeedRow = [&](float control_width)
+        {
+            const float radio_gap = fs * 0.8f;
+            if (radioButtonLocalized("2x##battle_speed_2x", system_menu_.battleSpeed == 0))
+            {
+                system_menu_.battleSpeed = 0;
+            }
+            ImGui::SameLine(0.0f, radio_gap);
+            if (radioButtonLocalized("1x##battle_speed_1x", system_menu_.battleSpeed == 1))
+            {
+                system_menu_.battleSpeed = 1;
+            }
+            ImGui::SameLine(0.0f, radio_gap);
+            if (radioButtonLocalized("0.5x##battle_speed_half", system_menu_.battleSpeed == 2))
+            {
+                system_menu_.battleSpeed = 2;
+            }
+        };
+
+        auto drawLanguageRow = [&](float control_width)
+        {
+            const float radio_gap = fs * 0.8f;
+            if (radioButtonLocalized("繁體##font_lang_traditional", !system_menu_.simplifiedChinese))
+            {
+                system_menu_.simplifiedChinese = false;
+                Font::getInstance()->setSimplified(0);
+                Font::getInstance()->clearBuffer();
+            }
+            ImGui::SameLine(0.0f, radio_gap);
+            if (radioButtonLocalized("簡體##font_lang_simplified", system_menu_.simplifiedChinese))
+            {
+                system_menu_.simplifiedChinese = true;
+                Font::getInstance()->setSimplified(1);
+                Font::getInstance()->clearBuffer();
+            }
+        };
+
+        if (ImGui::BeginTable("system_settings_rows", 2, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_NoPadOuterX))
+        {
+            ImGui::TableSetupColumn("label", ImGuiTableColumnFlags_WidthFixed, label_column_w);
+            ImGui::TableSetupColumn("control", ImGuiTableColumnFlags_WidthStretch, 1.0f);
+
+            drawSettingRow("啟動佈陣", [&](float control_width) { drawCenteredCheckbox("##position_swap_enabled", &system_menu_.positionSwapEnabled, control_width); });
+            drawSettingRow("手動鏡頭", [&](float control_width) { drawCenteredCheckbox("##manual_camera_enabled", &system_menu_.manualCamera, control_width); });
+            drawSettingRow("顯示戰鬥日誌", [&](float control_width) { drawCenteredCheckbox("##show_battle_log_enabled", &system_menu_.showBattleLog, control_width); });
+            drawSettingRow("音樂", [&](float control_width) { drawVolumeSlider("##music_volume", &system_menu_.musicVolume, control_width, [&]() { Audio::getInstance()->setVolume(system_menu_.musicVolume); }); });
+            drawSettingRow("音效", [&](float control_width) { drawVolumeSlider("##sound_volume", &system_menu_.soundVolume, control_width, [&]() { Audio::getInstance()->setVolumeWav(system_menu_.soundVolume); }); });
+            drawSettingRow("戰鬥速度", [&](float control_width) { drawBattleSpeedRow(control_width); });
+            drawSettingRow("文字", [&](float control_width) { drawLanguageRow(control_width); });
 
             ImGui::EndTable();
         }
-        ImGui::EndChild();
+
         ImGui::EndChild();
 
-        ImGui::Dummy(ImVec2(0.0f, footer_gap));
+        ImGui::Dummy(ImVec2(0.0f, footer_gap * 0.75f));
+        ImGui::Separator();
+        ImGui::Dummy(ImVec2(0.0f, footer_gap * 0.75f));
+
         float button_x = ImGui::GetWindowContentRegionMax().x - button_w;
         ImGui::SetCursorPosX((std::max)(ImGui::GetCursorPosX(), button_x));
         ImGui::PushStyleColor(ImGuiCol_Button, chip_bg);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colorU8(67, 78, 39, 230));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, colorU8(88, 98, 50, 230));
-        ImGui::SetWindowFontScale(body_scale);
-        if (buttonLocalized("完成", ImVec2(button_w, 0.0f)))
+        if (buttonLocalized("完成", ImVec2(button_w, button_h)))
         {
             system_menu_.open = false;
         }
         ImGui::PopStyleColor(3);
-        ImGui::SetWindowFontScale(1.0f);
         if (suppress_hover)
         {
             ImGui::PopStyleColor(6);

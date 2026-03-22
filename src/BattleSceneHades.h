@@ -88,6 +88,10 @@ protected:
     void makeSpecialMagicEffect();
     void runPositionSwapLoop();
     void runListBasedSwap();
+    bool isManualCameraEnabled() const;
+    void handleManualCameraInput(const EngineEvent& e);
+    void updateAutoCamera();
+    void clampCameraCenter();
     Role* assignFlankTarget(Role* r);
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
     void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
@@ -131,6 +135,7 @@ protected:
     std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
     std::set<int> execution_popup_roles_;
+    bool manual_camera_dragging_ = false;
 
     struct PathInfo {
         std::vector<Pointf> waypoints;

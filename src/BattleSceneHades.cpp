@@ -12,9 +12,11 @@
 #include "GameUtil.h"
 #include "Head.h"
 #include "MainScene.h"
+#include "SystemSettings.h"
 #include "TeamMenu.h"
 #include "Weather.h"
 
+#include <algorithm>
 #include <limits>
 
 namespace
@@ -373,6 +375,110 @@ BattleSceneHades::BattleSceneHades(int id, KysChess::ChessRoleSave& roleSave, Ky
 
 BattleSceneHades::~BattleSceneHades()
 {
+}
+
+bool BattleSceneHades::isManualCameraEnabled() const
+{
+    return SystemSettings::getInstance()->data().manualCamera;
+}
+
+void BattleSceneHades::handleManualCameraInput(const EngineEvent& e)
+{
+    if (!isManualCameraEnabled())
+    {
+        manual_camera_dragging_ = false;
+        return;
+    }
+
+    auto* engine = Engine::getInstance();
+    switch (e.type)
+    {
+    case EVENT_MOUSE_BUTTON_DOWN:
+        if (e.button.button == BUTTON_LEFT)
+        {
+            int present_x = 0;
+            int present_y = 0;
+            int present_w = 0;
+            int present_h = 0;
+            engine->getPresentRect(present_x, present_y, present_w, present_h);
+            manual_camera_dragging_ = present_w > 0
+                && present_h > 0
+                && e.button.x >= present_x
+                && e.button.x < present_x + present_w
+                && e.button.y >= present_y
+                && e.button.y < present_y + present_h;
+        }
+        break;
+    case EVENT_MOUSE_BUTTON_UP:
+        if (e.button.button == BUTTON_LEFT)
+        {
+            manual_camera_dragging_ = false;
+        }
+        break;
+    case EVENT_MOUSE_MOTION:
+        if (manual_camera_dragging_)
+        {
+            int present_x = 0;
+            int present_y = 0;
+            int present_w = 0;
+            int present_h = 0;
+            engine->getPresentRect(present_x, present_y, present_w, present_h);
+            if (present_w > 0 && present_h > 0)
+            {
+                double world_delta_x = static_cast<double>(e.motion.xrel) * (render_center_x_ * 2.0 / present_w);
+                double world_delta_y = static_cast<double>(e.motion.yrel) * (render_center_y_ * 2.0 / present_h);
+                pos_.x -= static_cast<float>(world_delta_x);
+                pos_.y -= static_cast<float>(world_delta_y * 2.0);
+                clampCameraCenter();
+            }
+        }
+        break;
+    }
+}
+
+void BattleSceneHades::updateAutoCamera()
+{
+    for (auto r : battle_roles_)
+    {
+        if (r->Team == 0 && r->Dead == 0)
+        {
+            pos_ = r->Pos;
+        }
+    }
+}
+
+void BattleSceneHades::clampCameraCenter()
+{
+    float scene_w = static_cast<float>(COORD_COUNT * TILE_W * 2);
+    float scene_h = static_cast<float>(COORD_COUNT * TILE_H * 2);
+    if (scene_w <= 0.0f || scene_h <= 0.0f)
+    {
+        return;
+    }
+
+    float min_x = static_cast<float>(render_center_x_);
+    float max_x = scene_w - static_cast<float>(render_center_x_);
+    if (max_x <= min_x)
+    {
+        pos_.x = scene_w * 0.5f;
+    }
+    else
+    {
+        pos_.x = (std::max)(min_x, (std::min)(pos_.x, max_x));
+    }
+
+    float center_y = pos_.y * 0.5f;
+    float min_y = static_cast<float>(render_center_y_);
+    float max_y = scene_h - static_cast<float>(render_center_y_);
+    if (max_y <= min_y)
+    {
+        center_y = scene_h * 0.5f;
+    }
+    else
+    {
+        center_y = (std::max)(min_y, (std::min)(center_y, max_y));
+    }
+    pos_.y = center_y * 2.0f;
 }
 
 Color BattleSceneHades::calculateHurtFlashColor(const Role* r, const Color& base_color) const
@@ -985,6 +1091,7 @@ void BattleSceneHades::draw()
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
     auto engine = Engine::getInstance();
+    handleManualCameraInput(e);
     if (shake_ > 0)
     {
         x_ = rand_.rand_int(3) - rand_.rand_int(3);
@@ -1000,12 +1107,13 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     decreaseToZero(close_up_);
     if (close_up_ == 0)
     {
-        for (auto r1 : battle_roles_)
+        if (isManualCameraEnabled())
         {
-            if (r1->Team == 0 && r1->Dead == 0)
-            {
-                pos_ = r1->Pos;
-            }
+            clampCameraCenter();
+        }
+        else
+        {
+            updateAutoCamera();
         }
     }
 
@@ -1429,6 +1537,8 @@ void BattleSceneHades::onEntrance()
         for (auto r : friends_) { sx += r->X(); sy += r->Y(); }
         pos_ = pos45To90(sx / friends_.size(), sy / friends_.size());
     }
+    manual_camera_dragging_ = false;
+    clampCameraCenter();
 
     // Pre-battle position swap
     if (!extended_teammates_.empty() && progress_.isPositionSwapEnabled())
@@ -2648,11 +2758,17 @@ void BattleSceneHades::backRun1()
                         x_ = rand_.rand_int(2) - rand_.rand_int(2);
                         y_ = rand_.rand_int(2) - rand_.rand_int(2);
                         //dying_ = r;
-                        pos_ = r->Pos;
+                        if (!isManualCameraEnabled())
+                        {
+                            pos_ = r->Pos;
+                        }
                         frozen_ = 5;
                         shake_ = 10;
                         slow_ = 10;
-                        close_up_ = 30;
+                        if (!isManualCameraEnabled())
+                        {
+                            close_up_ = 30;
+                        }
                     }
                 }
 
@@ -2729,7 +2845,10 @@ void BattleSceneHades::backRun1()
             if (result_ == -1)
             {
                 //pos_ = dying_->Pos;
-                close_up_ = 60;
+                if (!isManualCameraEnabled())
+                {
+                    close_up_ = 60;
+                }
                 frozen_ = 60;
                 slow_ = 40;
                 shake_ = 60;
