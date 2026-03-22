@@ -1027,6 +1027,9 @@ void BattleScene::calDistanceLayer(int x, int y, MapSquareInt& distance_layer, i
         std::vector<Point> cal_stack_next;
         auto check_next = [&](Point p1) -> void
         {
+            if (p1.x < 0 || p1.x >= SUBMAP_COORD_COUNT || p1.y < 0 || p1.y >= SUBMAP_COORD_COUNT) {
+                return;
+            }
             //未计算过且可以走的格子参与下一步的计算
             if (distance_layer.data(p1.x, p1.y) == max_step + 1 && canWalk(p1.x, p1.y))
             {
