@@ -89,6 +89,8 @@ protected:
     void runPositionSwapLoop();
     void runListBasedSwap();
     bool isManualCameraEnabled() const;
+    int getBattleStepsThisRender();
+    void advanceBattleFrame();
     void handleManualCameraInput(const EngineEvent& e);
     void updateAutoCamera();
     void clampCameraCenter();
@@ -136,6 +138,8 @@ protected:
     std::unordered_map<int, int> hurt_flash_timers_;
     std::set<int> execution_popup_roles_;
     bool manual_camera_dragging_ = false;
+    int battle_frame_ = 0;
+    bool half_speed_step_on_next_render_ = true;
 
     struct PathInfo {
         std::vector<Pointf> waypoints;

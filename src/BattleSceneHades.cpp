@@ -526,17 +526,17 @@ void BattleSceneHades::addRoleEffect(Role* role, int eftId, int totalFrames)
 
 void BattleSceneHades::logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName, const std::string& detailText)
 {
-    tracker_.recordDamage(source, target, amount, skillName, current_frame_, detailText);
+    tracker_.recordDamage(source, target, amount, skillName, battle_frame_, detailText);
 }
 
 void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, const std::string& reason)
 {
-    tracker_.recordHeal(source, target, amount, reason, current_frame_);
+    tracker_.recordHeal(source, target, amount, reason, battle_frame_);
 }
 
 void BattleSceneHades::logBattleStatus(Role* source, Role* target, const std::string& text)
 {
-    tracker_.recordStatus(source, target, text, current_frame_);
+    tracker_.recordStatus(source, target, text, battle_frame_);
 }
 
 int BattleSceneHades::getProjectileBounceCount(Role* r) const
@@ -1080,7 +1080,7 @@ void BattleSceneHades::draw()
     }
 
     // Draw total frames elapsed on top left
-    Font::getInstance()->draw(std::to_string(current_frame_), 20, 10, 10, { 255, 255, 255, 255 }, 200);
+    Font::getInstance()->draw(std::to_string(battle_frame_), 20, 10, 10, { 255, 255, 255, 255 }, 200);
 
     //if (result_ >= 0)
     //{
@@ -1090,8 +1090,39 @@ void BattleSceneHades::draw()
 
 void BattleSceneHades::dealEvent(EngineEvent& e)
 {
-    auto engine = Engine::getInstance();
     handleManualCameraInput(e);
+
+    int steps = getBattleStepsThisRender();
+    for (int step = 0; step < steps && !exit_; ++step)
+    {
+        advanceBattleFrame();
+    }
+}
+
+void BattleSceneHades::dealEvent2(EngineEvent& e)
+{
+}
+
+int BattleSceneHades::getBattleStepsThisRender()
+{
+    switch (SystemSettings::getInstance()->data().battleSpeed)
+    {
+    case 0:
+        return 2;
+    case 2:
+    {
+        bool shouldStep = half_speed_step_on_next_render_;
+        half_speed_step_on_next_render_ = !half_speed_step_on_next_render_;
+        return shouldStep ? 1 : 0;
+    }
+    default:
+        return 1;
+    }
+}
+
+void BattleSceneHades::advanceBattleFrame()
+{
+    auto* engine = Engine::getInstance();
     if (shake_ > 0)
     {
         x_ = rand_.rand_int(3) - rand_.rand_int(3);
@@ -1102,6 +1133,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     {
         frozen_--;
         engine->gameControllerRumble(100, 100, 50);
+        battle_frame_++;
         return;
     }
     decreaseToZero(close_up_);
@@ -1118,10 +1150,7 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
     }
 
     backRun1();
-}
-
-void BattleSceneHades::dealEvent2(EngineEvent& e)
-{
+    battle_frame_++;
 }
 
 void BattleSceneHades::onEntrance()
@@ -1537,6 +1566,8 @@ void BattleSceneHades::onEntrance()
         for (auto r : friends_) { sx += r->X(); sy += r->Y(); }
         pos_ = pos45To90(sx / friends_.size(), sy / friends_.size());
     }
+    battle_frame_ = 0;
+    half_speed_step_on_next_render_ = true;
     manual_camera_dragging_ = false;
     clampCameraCenter();
 
@@ -1784,7 +1815,7 @@ void BattleSceneHades::backRun1()
 
     if (slow_ > 0)
     {
-        if (current_frame_ % 4) { return; }
+        if (battle_frame_ % 4) { return; }
         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
@@ -1820,7 +1851,7 @@ void BattleSceneHades::backRun1()
                 if (s.poisonTimer > 0)
                 {
                     s.poisonTimer--;
-                    if (current_frame_ % 30 == 0)
+                    if (battle_frame_ % 30 == 0)
                     {
                         int dmg = std::max(1, r->HP * s.poisonTickDmg / 100);
                         r->HurtThisFrame += dmg;
@@ -1895,7 +1926,7 @@ void BattleSceneHades::backRun1()
                 }
 
                 // HP regen
-                if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && current_frame_ % s.hpRegenInterval == 0)
+                if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && battle_frame_ % s.hpRegenInterval == 0)
                 {
                     int heal = r->MaxHP * s.hpRegenPct / 100;
                     int hpBefore = r->HP;
@@ -1904,7 +1935,7 @@ void BattleSceneHades::backRun1()
                 }
 
                 // Heal aura (heal nearby allies)
-                if ((s.healAuraPct > 0 || s.healAuraFlat > 0) && s.healAuraInterval > 0 && current_frame_ % s.healAuraInterval == 0)
+                if ((s.healAuraPct > 0 || s.healAuraFlat > 0) && s.healAuraInterval > 0 && battle_frame_ % s.healAuraInterval == 0)
                 {
                     for (auto ally : battle_roles_)
                     {
@@ -2153,7 +2184,7 @@ void BattleSceneHades::backRun1()
         }
         if (r->CoolDown == 0)
         {
-            if (current_frame_ % 3 == 0)
+            if (battle_frame_ % 3 == 0)
             {
                 r->PhysicalPower += 1;
             }
@@ -2162,7 +2193,7 @@ void BattleSceneHades::backRun1()
             r->ActType = -1;
             r->HaveAction = 0;
         }
-        if (current_frame_ % 3 == 0) { 
+        if (battle_frame_ % 3 == 0) {
             changeRoleMP(r, 1);
         }
         decreaseToZero(r->HurtFrame);
@@ -2172,8 +2203,6 @@ void BattleSceneHades::backRun1()
 
     //if (current_frame_ % 2 == 0)
     {
-
-        int current_frame2 = current_frame_;
         for (auto r : battle_roles_)
         {
             //有行动
@@ -2665,8 +2694,8 @@ void BattleSceneHades::backRun1()
                         r->HP = 0;
                         if (sit != cs.end())
                             sit->second.onSkillTeamHealPending = false;
-                        tracker_.recordKill(r->LastAttacker, r, current_frame_);
-                        tracker_.recordDeath(r, current_frame_);
+                        tracker_.recordKill(r->LastAttacker, r, battle_frame_);
+                        tracker_.recordDeath(r, battle_frame_);
                         refreshEnemyTopDebuffs();
 
                         // Combo: kill-heal and kill-invincibility
@@ -2853,7 +2882,7 @@ void BattleSceneHades::backRun1()
                 slow_ = 40;
                 shake_ = 60;
                 result_ = battle_result;
-                tracker_.recordBattleEnd(current_frame_, battle_result);
+                tracker_.recordBattleEnd(battle_frame_, battle_result);
             }
             if (slow_ == 0 && (result_ == 0 || result_ == 1))
             {
@@ -2874,7 +2903,7 @@ void BattleSceneHades::Action(Role* r)
             && r->ActFrame == calCast(r->ActType, r->OperationType, r))
         {
             //r->HaveAction = 0;
-            r->PreActTimer = current_frame_;
+            r->PreActTimer = battle_frame_;
             for (auto m : r->getLearnedMagics())
             {
                 if (special_magic_effect_attack_.count(m->Name))
@@ -3022,7 +3051,7 @@ void BattleSceneHades::Action(Role* r)
             // Chess mod: no in-battle magic level-up
             //根据性质创造攻击效果
             //连击计数：超时或已触发终结技则重置
-            if (current_frame_ - r->PreActTimer > 120 || r->OperationCount >= 3)
+            if (battle_frame_ - r->PreActTimer > 120 || r->OperationCount >= 3)
             {
                 r->OperationCount = 0;
             }
