@@ -100,7 +100,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::SkillDmgPct: desc = compact ? std::format("技傷+{}%", eff.value) : std::format("技能傷害+{}%", eff.value); break;
     case EffectType::SkillReflectPct: desc = compact ? std::format("反彈{}%", eff.value) : std::format("反彈{}%", eff.value); break;
     case EffectType::CDR: desc = std::format("冷卻-{}%", eff.value); break;
-    case EffectType::ShieldPctMaxHP: desc = compact ? std::format("護盾={} %生", eff.value) : std::format("護盾{}%生命", eff.value); break;
+    case EffectType::ShieldPctMaxHP: desc = compact ? std::format("護盾{}%生", eff.value) : std::format("護盾{}%生命", eff.value); break;
     case EffectType::ShieldFreezeRes: desc = compact ? std::format("護盾僵抗{}%", eff.value) : std::format("護盾僵直抗性{}%", eff.value); break;
     case EffectType::HealAuraPct: desc = eff.value2 ? (compact ? std::format("治療環{}%/{}幀", eff.value, eff.value2) : std::format("治療光環{}%(每{}幀)", eff.value, eff.value2)) : std::format("治療光環{}%", eff.value); break;
     case EffectType::HealAuraFlat: desc = eff.value2 ? (compact ? std::format("治療環{}/{}幀", eff.value, eff.value2) : std::format("治療光環{}(每{}幀)", eff.value, eff.value2)) : std::format("治療光環{}", eff.value); break;

@@ -3094,7 +3094,7 @@ void BattleSceneHades::Action(Role* r)
                 projectilePrototype.Track = 1;
                 projectilePrototype.Pos = p;
                 projectilePrototype.Velocity = r->RealTowards;
-                projectilePrototype.Velocity.normTo(3);
+                projectilePrototype.Velocity.normTo(PROJECTILE_SPEED);
                 projectilePrototype.Frame = 0;
                 primeProjectileBounce(projectilePrototype);
                 spawnTrackingProjectileSpread(projectilePrototype, count, 0, 0, 10);
@@ -3220,15 +3220,7 @@ void BattleSceneHades::Action(Role* r)
             Event::getInstance()->addItemWithoutHint(item->ID, -1);
             r->UsingItem = nullptr;
         }
-
-        if (r->OperationType == 1)
-        {
-            r->ActFrame++;
-        }
-        else
-        {
-            r->ActFrame++;
-        }
+        r->ActFrame++;
     }
 }
 
@@ -4142,8 +4134,8 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
-    int v[4] = { 95 - i / 2, 215 - i, 120 - i / 2, 40 };
-    int min_v[4] = { 72, 85, 80, 40 };
+    int v[4] = { 95 - i / 2, 215 - i, 120 - i / 2, 45 };
+    int min_v[4] = { 72, 85, 80, 45 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         int c = std::max(min_v[operation_type], v[operation_type]);
