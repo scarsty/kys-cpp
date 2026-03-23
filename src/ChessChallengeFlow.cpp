@@ -85,7 +85,8 @@ void ChessChallengeFlow::showExpeditionChallenge()
             roles.enemy_armors.push_back(enemy.armorId);
         }
 
-        int result = battleFlow_.runBattle(roles, selectedChess);
+        int battleSeed = static_cast<int>(services_.random.enemyRandInt(INT_MAX));
+        int result = battleFlow_.runBattle(roles, selectedChess, -1, battleSeed);
         for (const auto& chess : selectedChess)
         {
             chess.role->HP = chess.role->MaxHP;
@@ -109,7 +110,6 @@ void ChessChallengeFlow::showExpeditionChallenge()
         int rewardIndex = rewardFlow_.selectChallengeReward(challenge.rewards);
         if (!rewardFlow_.applyReward(challenge.rewards[rewardIndex]))
         {
-            restoreChallengeSeed();
             continue;
         }
 

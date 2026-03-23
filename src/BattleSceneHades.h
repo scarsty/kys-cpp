@@ -138,6 +138,7 @@ protected:
     std::unordered_map<int, int> hurt_flash_timers_;
     std::set<int> execution_popup_roles_;
     bool manual_camera_dragging_ = false;
+    double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;
     bool half_speed_step_on_next_render_ = true;
 

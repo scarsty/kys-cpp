@@ -17,6 +17,7 @@
 #include "Weather.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 
 namespace
@@ -63,6 +64,51 @@ Point battlePos90To45(double x, double y)
 int calcProjectileReach(int select_distance, int spawn_offset)
 {
     return spawn_offset + PROJECTILE_BASE_TRAVEL + (select_distance - 1) * PROJECTILE_TRAVEL_PER_SD;
+}
+
+double battleSpeedToRefreshMultiplier(int battleSpeed)
+{
+    switch (battleSpeed)
+    {
+    case 0:
+        return 0.5;
+    case 2:
+        return 2.0;
+    default:
+        return 1.0;
+    }
+}
+
+float shakeJitter(int battleFrame, int roleId)
+{
+    uint32_t state = static_cast<uint32_t>(battleFrame) ^ (static_cast<uint32_t>(roleId) * 0x9e3779b9u);
+    state ^= state >> 16;
+    state *= 0x7feb352du;
+    state ^= state >> 15;
+    state *= 0x846ca68bu;
+    state ^= state >> 16;
+    return -2.5f + static_cast<float>(state & 0xffffu) * (5.0f / 65535.0f);
+}
+
+double operationTypeDamageScale(int operationType)
+{
+    switch (operationType)
+    {
+    case 1:
+        return 1.5;
+    default:
+        return 1.0;
+    }
+}
+
+int scaleCancelDamage(int damage, int operationType)
+{
+    if (damage <= 0)
+    {
+        return 0;
+    }
+
+    return std::max(1, static_cast<int>(std::ceil(damage * operationTypeDamageScale(operationType))));
 }
 
 float damageTextImpactScale(int damage, int maxHp)
@@ -847,7 +893,7 @@ void BattleSceneHades::draw()
         info.p = r->Pos;
         if (result_ == -1 && r->Shake)
         {
-            info.p.x += -2.5 + rand_.rand() * 5;
+                    info.p.x += shakeJitter(battle_frame_, r->ID);
         }
         r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
         info.tex = TextureManager::getInstance()->getTexture(path, calRolePic(r, r->ActType, r->ActFrame));
@@ -1105,19 +1151,7 @@ void BattleSceneHades::dealEvent2(EngineEvent& e)
 
 int BattleSceneHades::getBattleStepsThisRender()
 {
-    switch (SystemSettings::getInstance()->data().battleSpeed)
-    {
-    case 0:
-        return 2;
-    case 2:
-    {
-        bool shouldStep = half_speed_step_on_next_render_;
-        half_speed_step_on_next_render_ = !half_speed_step_on_next_render_;
-        return shouldStep ? 1 : 0;
-    }
-    default:
-        return 1;
-    }
+    return 1;
 }
 
 void BattleSceneHades::advanceBattleFrame()
@@ -1155,6 +1189,9 @@ void BattleSceneHades::advanceBattleFrame()
 
 void BattleSceneHades::onEntrance()
 {
+    previous_refresh_interval_ = RunNode::getRefreshInterval();
+    RunNode::setRefreshInterval(previous_refresh_interval_ * battleSpeedToRefreshMultiplier(SystemSettings::getInstance()->data().battleSpeed));
+
     calViewRegion();
 
     //注意此时才能得到窗口的大小，用来设置头像的位置
@@ -1607,6 +1644,12 @@ void BattleSceneHades::onEntrance()
 
 void BattleSceneHades::onExit()
 {
+    if (previous_refresh_interval_ > 0.0)
+    {
+        RunNode::setRefreshInterval(previous_refresh_interval_);
+        previous_refresh_interval_ = 0.0;
+    }
+
     // hurt_flash_timers_.clear();
     // execution_popup_roles_.clear();
     // Engine::getInstance()->hideBattleLogWindow();
@@ -2311,14 +2354,14 @@ void BattleSceneHades::backRun1()
         //效果间的互相抵消
         if (attack_effects_.size() >= 2)
         {
-            for (int i = 0; i < attack_effects_.size() - 2; i++)
+            for (size_t i = 0; i + 1 < attack_effects_.size(); ++i)
             {
                 auto& ae1 = attack_effects_[i];
                 if (!ae1.UsingMagic || ae1.IgnoreProjectileCancel)
                 {
                     continue;
                 }
-                for (int j = i + 1; j < attack_effects_.size() - 1; j++)
+                for (size_t j = i + 1; j < attack_effects_.size(); ++j)
                 {
                     auto& ae2 = attack_effects_[j];
                     if (!ae2.UsingMagic || ae2.IgnoreProjectileCancel)
@@ -2333,8 +2376,8 @@ void BattleSceneHades::backRun1()
                         && !ae1.IsUltimate && !ae2.IsUltimate)
                     {
                         //LOG("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
-                        int hurt1 = calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic);
-                        int hurt2 = calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic);
+                        int hurt1 = scaleCancelDamage(calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic), ae1.OperationType);
+                        int hurt2 = scaleCancelDamage(calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic), ae2.OperationType);
                         ae1.Weaken += hurt2;
                         ae2.Weaken += hurt1;
                         ae1.Attacker->CancelDmg += hurt1;
@@ -4208,17 +4251,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         hurt *= 1.5;
     }
     //操作类型的伤害效果
-    if (ae.OperationType == 0)
-    {
-    }
-    if (ae.OperationType == 1)
-    {
-        hurt *= 1.5;
-        //ae.Frame = ae.TotalFrame + 1;
-    }
-    if (ae.OperationType == 2)
-    {
-    }
+    hurt *= operationTypeDamageScale(ae.OperationType);
     if (ae.OperationType == 3)
     {
         hurt /= 1.5;
