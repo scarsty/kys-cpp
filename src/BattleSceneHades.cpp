@@ -235,7 +235,7 @@ bool isWithinGridRadius(const Role* center, const Role* target, int xRadius, int
 bool isWithinGridArea(const Role* center, const Role* target, int width, int height)
 {
     if (width <= 0 || height <= 0) return false;
-    return isWithinGridRadius(center, target, (width - 1) / 2, (height - 1) / 2);
+    return isWithinGridRadius(center, target, width, height);
 }
 
 bool hasMPBlock(const Role* r)
@@ -2732,7 +2732,7 @@ void BattleSceneHades::backRun1()
                             int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
                             logBattleStatus(r, nullptr,
                                 formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
-                            spawnAreaImpactProjectiles(r, r, 9, 9, KysChess::EFT_DEATH_BLAST, aoeDmg, sit->second.deathAOEStunFrames);
+                            spawnAreaImpactProjectiles(r, r, 8, 8, KysChess::EFT_DEATH_BLAST, aoeDmg, sit->second.deathAOEStunFrames);
                         }
 
                         for (auto ally : battle_roles_)
@@ -3529,6 +3529,7 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         blast.Through = 0;
         blast.IsMain = 0;
         blast.OperationType = 2;
+        blast.IgnoreProjectileCancel = true;
         blast.setEft(eftId);
         auto spawnOffset = direction;
         spawnOffset.normTo(TILE_W * 1.5);
@@ -4527,7 +4528,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 if (shieldBefore > 0 && ds.shield == 0 && ds.shieldExplosionPct > 0)
                 {
                     int explosionDmg = std::max(1, shieldBefore * ds.shieldExplosionPct / 100);
-                    spawnAreaImpactProjectiles(r, r, 9, 9, KysChess::EFT_SHIELD_BLAST, explosionDmg);
+                    spawnAreaImpactProjectiles(r, r, 8, 8, KysChess::EFT_SHIELD_BLAST, explosionDmg);
                     logBattleStatus(r, nullptr, formatStatusValue("护盾爆炸", explosionDmg, "伤害"));
                 }
             }

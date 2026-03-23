@@ -1,32 +1,37 @@
-﻿#include "Audio.h"
+#include "Audio.h"
 #include "Engine.h"
 #include "GameUtil.h"
 #include "filefunc.h"
 
-#ifdef USE_BASS
-Audio::Audio()
+#include <cmath>
+
+namespace
 {
-    if (!BASS_Init(-1, 22050, 0, 0, nullptr))
+float volumePercentToGain(int volume)
+{
+    if (volume <= 0)
     {
-        LOG("Init Bass fault!\n");
+        return 0.0f;
     }
-    init();
+    if (volume >= 100)
+    {
+        return 1.0f;
+    }
+
+    const float normalized = static_cast<float>(volume) / 100.0f;
+    return std::pow(normalized, 2.2f);
 }
 
-Audio::~Audio()
+bool isMidiFile(const std::string& file)
 {
-    if (mid_sound_font_.font)
-    {
-        BASS_MIDI_FontFree(mid_sound_font_.font);
-    }
-    BASS_Stop();
-    BASS_Free();
+    return file.contains(".mid") || file.contains(".midi") || file.contains(".kar");
 }
-#else
+}
+
 Audio::Audio()
 {
     MIX_Init();
-    SDL_AudioSpec spec;
+    SDL_AudioSpec spec{};
     spec.freq = 22050;
     spec.format = SDL_AUDIO_S16;
     spec.channels = 2;
@@ -46,19 +51,12 @@ Audio::Audio()
 
 Audio::~Audio()
 {
-    //如使用SDL_Mixer播放音频，则销毁应该在SDL_Quit之前，此处的单例设计无法保证，故暂时不处理
+    // 如使用SDL_Mixer播放音频，则销毁应该在SDL_Quit之前，此处的单例设计无法保证，故暂时不处理
 }
-#endif
 
 void Audio::init()
 {
-#ifdef USE_BASS
-    mid_sound_font_.font = BASS_MIDI_FontInit((GameUtil::PATH() + "music/mid.sf2").c_str(), 0);
-    mid_sound_font_.preset = -1;
-    mid_sound_font_.bank = 0;
-    BASS_MIDI_StreamSetFonts(0, &mid_sound_font_, 1);
-#endif
-    // Audio files are now loaded on demand in play*() methods
+    // Audio files are loaded on demand in play*() methods.
 }
 
 void Audio::playMusic(int num)
@@ -138,38 +136,22 @@ void Audio::playESound(int num, int volume)
 
 void Audio::pauseMusic()
 {
-#ifdef USE_BASS
-    BASS_ChannelPause(current_music_);
-#else
     MIX_PauseTrack(track_music_);
-#endif
 }
 
 void Audio::resumeMusic()
 {
-#ifdef USE_BASS
-    BASS_ChannelPlay(current_music_, false);
-#else
     MIX_ResumeTrack(track_music_);
-#endif
 }
 
 void Audio::stopMusic()
 {
-#ifdef USE_BASS
-    BASS_ChannelStop(current_music_);
-#else
     MIX_StopTrack(track_music_, 22050);  // ~1 second fade at 22050 Hz (param is sample frames, not ms)
-#endif
 }
 
 void Audio::stopWav()
 {
-#ifdef USE_BASS
-    BASS_ChannelStop(current_sound_);
-#else
     MIX_StopTrack(track_wav_[0], 0);
-#endif
 }
 
 void Audio::playVoice(int voice_id, int volume)
@@ -191,23 +173,10 @@ void Audio::playVoice(int voice_id, int volume)
 void Audio::setVolume(int v)
 {
     volume_ = GameUtil::limit(v, 0, 100);
-    if (!current_music_)
-    {
-        return;
-    }
-#ifdef USE_BASS
-    BASS_CHANNELINFO info;
-    if (BASS_ChannelGetInfo(current_music_, &info) && info.ctype == BASS_CTYPE_STREAM_MIDI)
-    {
-        BASS_ChannelSetAttribute(current_music_, BASS_ATTRIB_MIDI_VOL, volume_ / 100.0f);
-    }
-    BASS_ChannelSetAttribute(current_music_, BASS_ATTRIB_VOL, volume_ / 100.0f);
-#else
     if (track_music_)
     {
-        MIX_SetTrackGain(track_music_, volume_ / 100.0f);
+        MIX_SetTrackGain(track_music_, volumePercentToGain(volume_));
     }
-#endif
 }
 
 void Audio::setVolumeWav(int v)
@@ -217,20 +186,7 @@ void Audio::setVolumeWav(int v)
 
 MUSIC Audio::loadMusic(const std::string& file)
 {
-#ifdef USE_BASS
-    MUSIC m{};
-    if (file.contains(".mid"))
-    {
-        m = BASS_MIDI_StreamCreateFile(false, file.c_str(), 0, 0, 0, 0);
-        BASS_MIDI_StreamSetFonts(m, &mid_sound_font_, 1);
-    }
-    else
-    {
-        m = BASS_StreamCreateFile(false, file.c_str(), 0, 0, 0);
-    }
-    return m;
-#else
-    if (file.contains(".mid"))
+    if (isMidiFile(file))
     {
         // Load MIDI with fluidsynth + soundfont
         Prop pro;
@@ -257,43 +213,22 @@ MUSIC Audio::loadMusic(const std::string& file)
         LOG("loadMusic: failed to load {}: {}\n", file, SDL_GetError());
     }
     return m;
-#endif
 }
 
 WAV Audio::loadWav(const std::string& file)
 {
-#ifdef USE_BASS
-    auto s = BASS_StreamCreateFile(false, file.c_str(), 0, 0, 0);
-    if (s == 0)
-    {
-        s = BASS_SampleLoad(false, file.c_str(), 0, 0, 1, 0);
-    }
-    return s;
-#else
     return MIX_LoadAudio(nullptr, file.c_str(), false);
-#endif
 }
 
 void Audio::playMusic(MUSIC m)
 {
-#ifdef USE_BASS
-    BASS_CHANNELINFO info;
-    if (BASS_ChannelGetInfo(m, &info))
+    if (!track_music_)
     {
-        // Check if this is a MIDI stream and set MIDI-specific volume
-        if (info.ctype == BASS_CTYPE_STREAM_MIDI)
-        {
-            LOG("This is a MIDI stream, setting MIDI volume attribute\n");
-            BASS_ChannelSetAttribute(m, BASS_ATTRIB_MIDI_VOL, volume_ / 100.0);
-        }
+        return;
     }
 
-    BASS_ChannelSetAttribute(m, BASS_ATTRIB_VOL, volume_ / 100.0);
-    BASS_ChannelFlags(m, BASS_SAMPLE_LOOP, BASS_SAMPLE_LOOP);
-    BASS_ChannelPlay(m, false);
-#else
     LOG("playMusic: m={}, volume={}, track={}\n", (void*)m, volume_, (void*)track_music_);
-    MIX_SetTrackGain(track_music_, volume_ / 100.0f);
+    MIX_SetTrackGain(track_music_, volumePercentToGain(volume_));
     MIX_SetTrackAudio(track_music_, m);
     Prop pro;
     pro.set(MIX_PROP_PLAY_FADE_IN_MILLISECONDS_NUMBER, 500);
@@ -303,7 +238,6 @@ void Audio::playMusic(MUSIC m)
     {
         LOG("playMusic: MIX_PlayTrack failed: {}\n", SDL_GetError());
     }
-#endif
 }
 
 void Audio::playWav(WAV w, int volume, int track_num)
@@ -312,30 +246,25 @@ void Audio::playWav(WAV w, int volume, int track_num)
     {
         volume = volume_wav_;
     }
-#ifdef USE_BASS
-    auto ch = BASS_SampleGetChannel(w, 1);
-    if (ch == 0)
-    {
-        // w is already a stream, not a sample
-        ch = w;
-    }
-    BASS_ChannelSetAttribute(ch, BASS_ATTRIB_VOL, volume / 100.0);
-    BASS_ChannelPlay(ch, false);
-#else
+
     int tnum = track_num;
     if (tnum < 0)
     {
         tnum = current_track_num_;
     }
-    MIX_SetTrackGain(track_wav_[tnum], volume / 100.0f);
+    if (tnum < 0 || tnum >= static_cast<int>(track_wav_.size()) || !track_wav_[tnum])
+    {
+        return;
+    }
+
+    MIX_SetTrackGain(track_wav_[tnum], volumePercentToGain(volume));
     MIX_SetTrackAudio(track_wav_[tnum], w);
     MIX_PlayTrack(track_wav_[tnum], 0);
     current_track_num_++;
-    if (current_track_num_ >= track_wav_.size())
+    if (current_track_num_ >= static_cast<int>(track_wav_.size()))
     {
         current_track_num_ = 0;
     }
-#endif
 }
 
 void Audio::preloadBattleAudio(int music_id, const std::vector<int>& atk_ids, const std::vector<int>& eff_ids)

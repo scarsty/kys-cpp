@@ -1,20 +1,12 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#ifdef USE_BASS
-#include "bass.h"
-#include "bassmidi.h"
-using MUSIC = HSTREAM;
-using WAV = HSAMPLE;
-using MIDI_FONT = BASS_MIDI_FONT;
-#else
 #include "SDL3_mixer/SDL_mixer.h"
+
 using MUSIC = MIX_Audio*;
 using WAV = MIX_Audio*;
-using MIDI_FONT = void*;
-#endif
 
 class Audio
 {
@@ -25,19 +17,16 @@ private:
     std::unordered_map<int, MUSIC> music_;
     std::unordered_map<int, WAV> asound_, esound_;
     std::unordered_map<int, WAV> voice_;
-    MIDI_FONT mid_sound_font_;
     MUSIC current_music_{};
     WAV current_sound_{};
 
     int volume_ = 20;
     int volume_wav_ = 50;
     int current_music_index_ = -1;
-#if !defined(USE_BASS)
     MIX_Track* track_music_{};
     std::vector<MIX_Track*> track_wav_;
     MIX_Mixer* mixer_{};
     int current_track_num_ = 0;
-#endif
 
 public:
     static Audio* getInstance()

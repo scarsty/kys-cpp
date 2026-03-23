@@ -11,6 +11,7 @@ x86/
 .vs/
 *.zip
 src/CMakeFiles/*
+src/x64/
 *.aps
 Win32/
 x64/

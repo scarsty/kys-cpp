@@ -24,6 +24,13 @@
         "png"
       ]
     },
+    {
+      "name": "sdl3-mixer",
+      "features": [
+        "fluidsynth",
+        "mpg123"
+      ]
+    },
     "sdl3-ttf",
     "sqlite3",
     "yaml-cpp"

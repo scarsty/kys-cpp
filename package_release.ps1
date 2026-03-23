@@ -44,8 +44,8 @@ New-Item -ItemType Directory -Path "$PkgDir\bin" -Force | Out-Null
 Write-Host "[3/6] Copying executable and dependencies..."
 Copy-Item "x64\Release\kys.exe" "$PkgDir\bin\" -Force
 
-# Copy direct dependencies from vcpkg
-$vcpkgBin = "$env:VCPKG_ROOT\installed\x64-windows\bin"
+# Copy direct dependencies from the workspace vcpkg manifest tree
+$vcpkgBin = Join-Path $PSScriptRoot 'vcpkg_installed\x64-windows\bin'
 if (Test-Path $vcpkgBin) {
     $processedDlls = @{}
     $scannedFiles = @{}
@@ -86,8 +86,8 @@ if (Test-Path $vcpkgBin) {
     }
 }
 
-# Copy DLLs from local directory (bass, bassmidi, smallpot)
-$localDlls = @("bass.dll", "bassmidi.dll", "smallpot.dll")
+# Copy DLLs from local directory (smallpot)
+$localDlls = @("smallpot.dll")
 foreach ($dll in $localDlls) {
     $sourcePath = "work\$dll"
     if (Test-Path $sourcePath) {

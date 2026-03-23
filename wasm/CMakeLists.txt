@@ -86,7 +86,7 @@ set(EM_LINK_FLAGS
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"
     "-lfetchfs.js"
-    "-sASSERTIONS=0"
+    "-sASSERTIONS=1"
     "-fexceptions"
     "--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
     "-sEXPORTED_RUNTIME_METHODS=['ccall']"
