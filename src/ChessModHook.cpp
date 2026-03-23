@@ -138,16 +138,13 @@ void ChessMod::showMenu()
     }
 }
 
-void ChessModHook::saveGameData(SQLite3Wrapper& db)
+GameDataStore ChessModHook::exportGameData()
 {
-    auto store = GameState::get().exportStore();
-    store.save(db);
+    return GameState::get().exportStore();
 }
 
-void ChessModHook::loadGameData(SQLite3Wrapper& db)
+void ChessModHook::importGameData(const GameDataStore& store)
 {
-    GameDataStore store;
-    store.load(db);
     GameState::get().importStore(store);
 }
 

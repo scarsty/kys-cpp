@@ -440,10 +440,14 @@ All changes are guarded with `#ifdef __EMSCRIPTEN__` / `#ifndef __EMSCRIPTEN__` 
 - Both backends must be created on a worker thread (not the main browser thread), which is why they are in `main()` rather than `wasmfs_before_preload()`
 
 ### `src/Save.cpp`
-- Save files written to `/persist/` (OPFS-backed, persists automatically — no `FS.syncfs()` needed)
+- Shared static data loads from `/game/save/game.db`
+- Per-slot save payloads are written as `/persist/0.json`, `/persist/1.json`, ... (OPFS-backed, persists automatically — no `FS.syncfs()` needed)
+
+### `src/SystemSettings.cpp`
+- System settings persist as `/persist/setting.json`
 
 ### `src/TitleScene.cpp`
-- Auto-save detection uses direct `filefunc::fileExist("/persist/4.db")` instead of JS `Module.hasAutoSave`
+- Auto-save detection goes through the save layer, which now resolves `/persist/4.json` plus legacy migrations instead of hardcoding `/persist/4.db`
 
 ### `src/Engine.h`
 - `Engine::delay()` uses `std::this_thread::sleep_for` unconditionally (works because `PROXY_TO_PTHREAD` runs `main()` on a real thread)

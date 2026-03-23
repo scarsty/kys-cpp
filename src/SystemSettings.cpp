@@ -3,7 +3,6 @@
 #include "Audio.h"
 #include "Font.h"
 #include "GameUtil.h"
-#include "SQLite3Wrapper.h"
 #include "filefunc.h"
 
 #include <format>
@@ -12,18 +11,44 @@
 namespace
 {
 
-constexpr int kSystemSettingsSchemaVersion = 1;
 constexpr auto kSystemSettingsWriteOptions = glz::opts{.prettify = true};
 constexpr auto kSystemSettingsReadOptions = glz::opts{.error_on_unknown_keys = false};
+bool readSettingsJson(const std::string& path, SystemSettingsData& data)
+{
+    if (!filefunc::fileExist(path))
+    {
+        return false;
+    }
+
+    auto payload = filefunc::readFileToString(path);
+    if (payload.empty())
+    {
+        return false;
+    }
+
+    return !glz::read<kSystemSettingsReadOptions>(data, payload);
+}
+
+bool writeSettingsJson(const std::string& path, const SystemSettingsData& data)
+{
+    std::string payload;
+    if (const auto result = glz::write<kSystemSettingsWriteOptions>(data, payload); result)
+    {
+        return false;
+    }
+
+    filefunc::makePath(filefunc::getParentPath(path));
+    return filefunc::writeStringToFile(payload, path) > 0;
+}
 
 }
 
 std::string SystemSettings::filename()
 {
 #ifdef __EMSCRIPTEN__
-    return "/persist/setting.db";
+    return "/persist/setting.json";
 #else
-    return std::format("{}save/setting.db", GameUtil::PATH());
+    return std::format("{}save/setting.json", GameUtil::PATH());
 #endif
 }
 
@@ -32,56 +57,6 @@ void SystemSettings::clamp(SystemSettingsData& data)
     data.musicVolume = GameUtil::limit(data.musicVolume, 0, 100);
     data.soundVolume = GameUtil::limit(data.soundVolume, 0, 100);
     data.battleSpeed = GameUtil::limit(data.battleSpeed, 0, 2);
-}
-
-void SystemSettings::save(SQLite3Wrapper& db, const SystemSettingsData& data)
-{
-    std::string payload;
-    if (const auto writeResult = glz::write<kSystemSettingsWriteOptions>(data, payload); writeResult)
-    {
-        return;
-    }
-
-    db.execute("drop table if exists system_settings_store");
-    db.execute("create table system_settings_store(schema_version int not null, payload text not null)");
-
-    auto stmt = db.prepare("insert into system_settings_store(schema_version, payload) values(?, ?)");
-    if (!stmt.isValid())
-    {
-        return;
-    }
-    if (!stmt.bind(1, kSystemSettingsSchemaVersion) || !stmt.bind(2, payload.c_str()))
-    {
-        return;
-    }
-    stmt.step();
-}
-
-void SystemSettings::load(SQLite3Wrapper& db, SystemSettingsData& data)
-{
-    data = {};
-
-    auto stmt = db.query("select schema_version, payload from system_settings_store limit 1");
-    if (!stmt.isValid() || !stmt.step())
-    {
-        return;
-    }
-
-    if (stmt.getColumnInt(0) != kSystemSettingsSchemaVersion)
-    {
-        return;
-    }
-
-    const char* payload = stmt.getColumnText(1);
-    if (!payload)
-    {
-        return;
-    }
-
-    if (const auto readResult = glz::read<kSystemSettingsReadOptions>(data, std::string(payload)); readResult)
-    {
-        data = {};
-    }
 }
 
 void SystemSettings::applyRuntime() const
@@ -109,11 +84,7 @@ void SystemSettings::load()
     std::string path = filename();
     filefunc::makePath(filefunc::getParentPath(path));
 
-    SQLite3Wrapper db;
-    if (db.open(path))
-    {
-        load(db, data_);
-    }
+    readSettingsJson(path, data_);
 
     clamp(data_);
     applyRuntime();
@@ -124,13 +95,10 @@ void SystemSettings::save() const
     std::string path = filename();
     filefunc::makePath(filefunc::getParentPath(path));
 
-    SQLite3Wrapper db;
-    if (!db.open(path))
+    if (!writeSettingsJson(path, data_))
     {
         return;
     }
-
-    save(db, data_);
 }
 
 void SystemSettings::update(const SystemSettingsData& data, bool persist)

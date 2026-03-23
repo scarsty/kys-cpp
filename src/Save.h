@@ -192,8 +192,6 @@ public:
 
     int DB_SD = 0;    //使用数据库保存SD数据，0-不使用，1-使用，这个功能看起来不是很有必要
 
-    int ZIP_SAVE = 0;    //使用压缩保存数据，0-不使用，1-使用
-
 public:
     struct BaseInfo
     {
@@ -201,14 +199,9 @@ public:
         int Team[TEAMMATE_COUNT];
     };
 
+private:
+    void loadStaticDataFromDb(SQLite3Wrapper& db);
+
 public:
-    void saveRToDB(SQLite3Wrapper& db);
-    void loadRFromDB(SQLite3Wrapper& db);
-
     void runSql(const std::string& cmd);
-
-    void setZipSave(int v)
-    {
-        ZIP_SAVE = v;
-    }
 };

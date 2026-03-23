@@ -2,8 +2,6 @@
 
 #include <string>
 
-class SQLite3Wrapper;
-
 struct SystemSettingsData
 {
     bool positionSwapEnabled = false;
@@ -40,8 +38,6 @@ private:
     SystemSettings() = default;
 
     static void clamp(SystemSettingsData& data);
-    static void save(SQLite3Wrapper& db, const SystemSettingsData& data);
-    static void load(SQLite3Wrapper& db, SystemSettingsData& data);
     void applyRuntime() const;
 
     SystemSettingsData data_;

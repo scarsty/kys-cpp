@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "GameUtil.h"
 #include "Save.h"
+#include "SQLite3Wrapper.h"
 #include <cstring>
 
 class NewSave

@@ -9,6 +9,7 @@ namespace KysChess
 
 class ChessSelector;
 class GameState;
+struct GameDataStore;
 
 class ChessMod
 {
@@ -31,10 +32,8 @@ class ChessModHook
 {
 public:
     static bool overrideNewGame(int& scene, int& x, int& y, int& event);
-
-    // Persist/restore GameState to/from SQLite save DB
-    static void saveGameData(SQLite3Wrapper& db);
-    static void loadGameData(SQLite3Wrapper& db);
+    static GameDataStore exportGameData();
+    static void importGameData(const GameDataStore& store);
 };
 
 }    // namespace KysChess

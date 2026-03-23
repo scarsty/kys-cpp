@@ -38,7 +38,7 @@ void ChessInfoFlow::viewCombos()
         std::string padded = combo.name;
         while (padded.size() < 14) padded += "　";
         int extra = effective - owned;
-        int denominator = combo.isAntiCombo ? (combo.thresholds.empty() ? 1 : combo.thresholds[0].count) : static_cast<int>(combo.memberRoleIds.size());
+        int denominator = combo.isAntiCombo ? (combo.thresholds.empty() ? 1 : combo.thresholds[0].count) : availableCount;
         std::string countPrefix = combo.isAntiCombo ? "独" : (combo.starSynergyBonus ? "★" : "　");
         std::string bonusPart = (combo.starSynergyBonus && extra > 0) ? std::format("+{:<2}", extra) : "   ";
         std::string countFmt = std::format("{}{:2}{}/{:2}", countPrefix, owned, bonusPart, denominator);

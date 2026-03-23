@@ -179,7 +179,7 @@ void TitleScene::onEntrance()
     Audio::getInstance()->playMusic(16);
 
 #ifdef __EMSCRIPTEN__
-    bool hasAutoSave = filefunc::fileExist("/persist/4.db");
+    bool hasAutoSave = Save::getInstance()->checkSaveFileExist(static_cast<int>(UISave::Slot::Auto));
     if (hasAutoSave)
     {
         auto prompt = std::make_shared<MenuText>(std::vector<std::string>{"  是  ", "  否  "});

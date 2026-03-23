@@ -1,11 +1,259 @@
 ﻿#include "Save.h"
 #include "ChessModHook.h"
+#include "GameDataStore.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "NewSave.h"
 #include "PotConv.h"
-#include "ZipFile.h"
+#include "SQLite3Wrapper.h"
 #include "filefunc.h"
+
+#include <array>
+#include <glaze/json.hpp>
+
+namespace SavePersistence
+{
+
+constexpr auto kWriteOptions = glz::opts{.prettify = true};
+constexpr auto kReadOptions = glz::opts{.error_on_unknown_keys = false};
+
+struct BaseInfoData
+{
+    int inShip = 0;
+    int inSubMap = 0;
+    int mainMapX = 0;
+    int mainMapY = 0;
+    int subMapX = 0;
+    int subMapY = 0;
+    int faceTowards = 0;
+    int shipX = 0;
+    int shipY = 0;
+    int shipX1 = 0;
+    int shipY1 = 0;
+    int encode = 0;
+    std::array<int, TEAMMATE_COUNT> team{};
+};
+
+struct BagEntry
+{
+    int itemId = -1;
+    int count = 0;
+};
+
+struct SlotData
+{
+    BaseInfoData base;
+    std::vector<BagEntry> bag;
+    KysChess::GameDataStore gameData;
+};
+
+std::string sharedGameDbFilename()
+{
+    return std::format("{}save/game.db", GameUtil::PATH());
+}
+
+std::string slotJsonFilename(int slot)
+{
+#ifdef __EMSCRIPTEN__
+    return std::format("/persist/{}.json", slot);
+#else
+    return std::format("{}save/{}.json", GameUtil::PATH(), slot);
+#endif
+}
+
+std::string packagedSlotZeroJsonFilename()
+{
+    return GameUtil::PATH() + "save/0.json";
+}
+
+BaseInfoData captureBaseInfo(const Save& save)
+{
+    BaseInfoData base;
+    base.inShip = save.InShip;
+    base.inSubMap = save.InSubMap;
+    base.mainMapX = save.MainMapX;
+    base.mainMapY = save.MainMapY;
+    base.subMapX = save.SubMapX;
+    base.subMapY = save.SubMapY;
+    base.faceTowards = save.FaceTowards;
+    base.shipX = save.ShipX;
+    base.shipY = save.ShipY;
+    base.shipX1 = save.ShipX1;
+    base.shipY1 = save.ShipY1;
+    base.encode = save.Encode;
+    for (int i = 0; i < TEAMMATE_COUNT; ++i)
+    {
+        base.team[i] = save.Team[i];
+    }
+    return base;
+}
+
+void applyBaseInfo(const BaseInfoData& base, Save& save)
+{
+    save.InShip = base.inShip;
+    save.InSubMap = base.inSubMap;
+    save.MainMapX = base.mainMapX;
+    save.MainMapY = base.mainMapY;
+    save.SubMapX = base.subMapX;
+    save.SubMapY = base.subMapY;
+    save.FaceTowards = base.faceTowards;
+    save.ShipX = base.shipX;
+    save.ShipY = base.shipY;
+    save.ShipX1 = base.shipX1;
+    save.ShipY1 = base.shipY1;
+    save.Encode = base.encode;
+    for (int i = 0; i < TEAMMATE_COUNT; ++i)
+    {
+        save.Team[i] = base.team[i];
+    }
+}
+
+std::vector<BagEntry> captureBag(const Save& save)
+{
+    std::vector<BagEntry> bag;
+    bag.reserve(ITEM_IN_BAG_COUNT);
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; ++i)
+    {
+        if (save.Items[i].item_id < 0)
+        {
+            break;
+        }
+        bag.push_back({save.Items[i].item_id, save.Items[i].count});
+    }
+    return bag;
+}
+
+void applyBag(const std::vector<BagEntry>& bag, Save& save)
+{
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; ++i)
+    {
+        save.Items[i] = {};
+    }
+
+    const size_t maxCount = static_cast<size_t>(ITEM_IN_BAG_COUNT);
+    const size_t count = bag.size() < maxCount ? bag.size() : maxCount;
+    for (size_t i = 0; i < count; ++i)
+    {
+        save.Items[i].item_id = bag[i].itemId;
+        save.Items[i].count = bag[i].count;
+    }
+}
+
+SlotData captureSlotData(const Save& save)
+{
+    SlotData data;
+    data.base = captureBaseInfo(save);
+    data.bag = captureBag(save);
+    data.gameData = KysChess::ChessModHook::exportGameData();
+    return data;
+}
+
+void applySlotData(const SlotData& data, Save& save)
+{
+    applyBaseInfo(data.base, save);
+    applyBag(data.bag, save);
+    KysChess::ChessModHook::importGameData(data.gameData);
+}
+
+bool readSlotJson(const std::string& path, SlotData& data)
+{
+    if (!filefunc::fileExist(path))
+    {
+        return false;
+    }
+
+    auto payload = filefunc::readFileToString(path);
+    if (payload.empty())
+    {
+        return false;
+    }
+
+    if (const auto result = glz::read<kReadOptions>(data, payload); result)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool writeSlotJson(const std::string& path, const SlotData& data)
+{
+    std::string payload;
+    if (const auto result = glz::write<kWriteOptions>(data, payload); result)
+    {
+        return false;
+    }
+
+    filefunc::makePath(filefunc::getParentPath(path));
+    return filefunc::writeStringToFile(payload, path) > 0;
+}
+
+std::string slotJsonLoadFilename(int slot)
+{
+    auto persistedPath = slotJsonFilename(slot);
+    if (filefunc::fileExist(persistedPath))
+    {
+        return persistedPath;
+    }
+
+    if (slot == 0)
+    {
+        auto packagedPath = packagedSlotZeroJsonFilename();
+        if (packagedPath != persistedPath && filefunc::fileExist(packagedPath))
+        {
+            return packagedPath;
+        }
+    }
+
+    return {};
+}
+
+std::string preferredTimestampFilename(int slot)
+{
+    if (auto jsonPath = slotJsonLoadFilename(slot); !jsonPath.empty())
+    {
+        return jsonPath;
+    }
+
+    return slotJsonFilename(slot);
+}
+
+}    // namespace SavePersistence
+
+template <>
+struct glz::meta<SavePersistence::BaseInfoData>
+{
+    static constexpr auto value = glz::object(
+        "inShip", &SavePersistence::BaseInfoData::inShip,
+        "inSubMap", &SavePersistence::BaseInfoData::inSubMap,
+        "mainMapX", &SavePersistence::BaseInfoData::mainMapX,
+        "mainMapY", &SavePersistence::BaseInfoData::mainMapY,
+        "subMapX", &SavePersistence::BaseInfoData::subMapX,
+        "subMapY", &SavePersistence::BaseInfoData::subMapY,
+        "faceTowards", &SavePersistence::BaseInfoData::faceTowards,
+        "shipX", &SavePersistence::BaseInfoData::shipX,
+        "shipY", &SavePersistence::BaseInfoData::shipY,
+        "shipX1", &SavePersistence::BaseInfoData::shipX1,
+        "shipY1", &SavePersistence::BaseInfoData::shipY1,
+        "encode", &SavePersistence::BaseInfoData::encode,
+        "team", &SavePersistence::BaseInfoData::team);
+};
+
+template <>
+struct glz::meta<SavePersistence::BagEntry>
+{
+    static constexpr auto value = glz::object(
+        "itemId", &SavePersistence::BagEntry::itemId,
+        "count", &SavePersistence::BagEntry::count);
+};
+
+template <>
+struct glz::meta<SavePersistence::SlotData>
+{
+    static constexpr auto value = glz::object(
+        "base", &SavePersistence::SlotData::base,
+        "bag", &SavePersistence::SlotData::bag,
+        "gameData", &SavePersistence::SlotData::gameData);
+};
 
 Save::Save()
 {
@@ -19,63 +267,42 @@ std::string Save::getFilename(int i, char c)
 {
     std::string filename;
 
-    //自动决定
     if (c == 0)
     {
-#ifdef __EMSCRIPTEN__
-        c = 'r';
-#else
-        c = ZIP_SAVE ? 'z' : 'r';
-#endif
+        return SavePersistence::preferredTimestampFilename(i);
+    }
+
+    if (c == 'r')
+    {
+        return SavePersistence::slotJsonFilename(i);
     }
 
     if (i > 0)
     {
-        if (c == 'r')
+        if (c == 's')
         {
-#ifdef __EMSCRIPTEN__
-            filename = std::format("/persist/{}.db", i);
-#else
-            filename = std::format("{}save/{}.db", GameUtil::PATH(), i);
-#endif
+            return GameUtil::PATH() + "save/allsin.grp";
         }
-        else
+        if (c == 'd')
         {
-            filename = std::format("{}save/{}{}.grp", GameUtil::PATH(), c, i);
+            return GameUtil::PATH() + "save/alldef.grp";
         }
+        return std::format("{}save/{}{}.grp", GameUtil::PATH(), c, i);
     }
-    else
+    if (i == 0 && c == 's')
     {
-        if (c == 'r')
-        {
-            filename = GameUtil::PATH() + "save/0.db";
-        }
-        else if (c == 's')
-        {
-            filename = GameUtil::PATH() + "save/allsin.grp";
-        }
-        else if (c == 'd')
-        {
-            filename = GameUtil::PATH() + "save/alldef.grp";
-        }
+        return GameUtil::PATH() + "save/allsin.grp";
     }
-#ifndef __EMSCRIPTEN__
-    if (c == 'z')
+    if (i == 0 && c == 'd')
     {
-        filename = std::format("{}save/{}.zip", GameUtil::PATH(), i);
+        return GameUtil::PATH() + "save/alldef.grp";
     }
-#endif
     return filename;
 }
 
 bool Save::checkSaveFileExist(int num)
 {
-#ifdef __EMSCRIPTEN__
-    return filefunc::fileExist(getFilename(num, 'r'));
-#else
-    return (ZIP_SAVE == 1 && filefunc::fileExist(getFilename(num, 'z')))
-        || filefunc::fileExist(getFilename(num, 'r'));
-#endif
+    return !SavePersistence::slotJsonLoadFilename(num).empty();
 }
 
 void Save::updateAllPtrVector()
@@ -94,31 +321,32 @@ bool Save::load(int num)
         return false;
     }
 
-#ifndef __EMSCRIPTEN__
-    ZipFile zip;
-    if (ZIP_SAVE)
+    auto jsonPath = SavePersistence::slotJsonLoadFilename(num);
+    auto sharedDbPath = SavePersistence::sharedGameDbFilename();
+    if (!filefunc::fileExist(sharedDbPath))
     {
-        zip.openRead(getFilename(num, 'z'));
+        return false;
     }
-#endif
 
-    auto filenamedb = getFilename(num, 'r');
-#ifndef __EMSCRIPTEN__
-    if (zip.opened())
+    SQLite3Wrapper db;
+    if (!db.open(sharedDbPath))
     {
-        //临时使用99号文件名，避免覆盖原来的文件
-        filenamedb = getFilename(99, 'r');
-        filefunc::writeStringToFile(zip.readFile("1.db"), filenamedb);
+        return false;
     }
-#endif
 
-    SQLite3Wrapper db(filenamedb);
-    loadRFromDB(db);
+    loadStaticDataFromDb(db);
     updateAllPtrVector();
-    KysChess::ChessModHook::loadGameData(db);
+
+    SavePersistence::SlotData slotData;
+    if (!SavePersistence::readSlotJson(jsonPath, slotData))
+    {
+        return false;
+    }
+
+    SavePersistence::applySlotData(slotData, *this);
 
     //读取SD数据，始终从默认文件读取
-    auto submap_count = submap_infos_.size();
+    const int submap_count = static_cast<int>(submap_infos_.size());
     {
         std::vector<char> sdata(submap_count * sdata_length_);
         std::vector<char> ddata(submap_count * ddata_length_);
@@ -133,54 +361,20 @@ bool Save::load(int num)
             memcpy(pd, ddata.data() + ddata_length_ * i, ddata_length_);
         }
     }
-    //saveRToDB(0);    //调试用
     makeMapsAndRepairID();
-    //saveRToDB(num);    //临时转换
     db.close();
-    filefunc::removeFile(getFilename(99, 'r'));    //删除临时文件
-
-#ifndef __EMSCRIPTEN__
-    if (ZIP_SAVE && !zip.opened())
-    {
-        //转换未压缩存档格式
-        save(num);
-    }
-#endif
 
     return true;
 }
 
 bool Save::save(int num)
 {
-#ifndef __EMSCRIPTEN__
-    ZipFile zip;
-    if (ZIP_SAVE)
+    auto slotPath = SavePersistence::slotJsonFilename(num);
+    auto slotData = SavePersistence::captureSlotData(*this);
+    if (!SavePersistence::writeSlotJson(slotPath, slotData))
     {
-        zip.create(getFilename(num, 'z'));
+        return false;
     }
-#endif
-
-    auto filenamedb = getFilename(num, 'r');
-
-#ifndef __EMSCRIPTEN__
-    if (ZIP_SAVE)
-    {
-        filenamedb = getFilename(99, 'r');
-    }
-#endif
-
-    SQLite3Wrapper db(filenamedb);
-    saveRToDB(db);
-
-#ifndef __EMSCRIPTEN__
-    //最后处理db文件
-    if (ZIP_SAVE)
-    {
-        db.close();
-        zip.addFile("1.db", filenamedb);
-        filefunc::removeFile(filenamedb);    //删除临时文件
-    }
-#endif
 
     return true;
 }
@@ -339,21 +533,7 @@ int Save::getRoleLearnedMagicLevelIndex(Role* r, Magic* m)
     return -1;
 }
 
-void Save::saveRToDB(SQLite3Wrapper& db)
-{
-    db.BeginTransaction();
-    NewSave::SaveDBBaseInfo(db, (BaseInfo*)this, 1);
-    NewSave::SaveDBItemList(db, Items, ITEM_IN_BAG_COUNT);
-    NewSave::SaveDBRoleSave(db, roles_mem_);
-    NewSave::SaveDBItemSave(db, items_mem_);
-    NewSave::SaveDBSubMapInfoSave(db, submap_infos_mem_);
-    NewSave::SaveDBMagicSave(db, magics_mem_);
-    NewSave::SaveDBShopSave(db, shops_mem_);
-    KysChess::ChessModHook::saveGameData(db);
-    db.CommitTransaction();
-}
-
-void Save::loadRFromDB(SQLite3Wrapper& db)
+void Save::loadStaticDataFromDb(SQLite3Wrapper& db)
 {
     NewSave::LoadDBBaseInfo(db, (BaseInfo*)this, 1);
     NewSave::LoadDBItemList(db, Items, ITEM_IN_BAG_COUNT);

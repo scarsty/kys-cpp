@@ -11,12 +11,7 @@ UISave::UISave()
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
-        //获取存档文件名，如果zip文件不存在，则获取r文件名
         auto filename = Save::getInstance()->getFilename(i, '\0');
-        if (!filefunc::fileExist(filename))
-        {
-            filename = Save::getInstance()->getFilename(i, 'r');
-        }
         auto str = filefunc::getFileTime(filename);
         if (str.empty())
         {
