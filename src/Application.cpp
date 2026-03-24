@@ -77,6 +77,11 @@ void Application::config()
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
     Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 1));
 
+    auto upscale_mode = game->getInt("game", "upscale_mode", 0);
+    Engine::getInstance()->setUpscaleMode(upscale_mode == 1 ? UPSCALE_FSR_LITE : UPSCALE_NONE);
+    auto sharpness = game->getReal("game", "upscale_sharpness", 0.4);
+    Engine::getInstance()->setUpscaleSharpness((float)sharpness);
+
     Role::setMaxValue();
     Role::setLevelUpList();
     Item::setSpecialItems();

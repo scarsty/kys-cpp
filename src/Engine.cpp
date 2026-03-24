@@ -687,12 +687,38 @@ void Engine::createRenderedTexture(const std::string& name, int w, int h)
 
 void Engine::renderTextureToMain(const std::string& name)
 {
+    auto src = tex_map_[name];
+    if (!src)
+    {
+        return;
+    }
+
     setRenderTarget(tex_);
-    renderTexture(tex_map_[name], nullptr, nullptr);
-    //setRenderTarget(tex_);
-    //SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 0);
-    //SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
-    //SDL_RenderFillRect(renderer_, nullptr);
+
+    if (upscale_mode_ == UPSCALE_FSR_LITE && name == "scene")
+    {
+        SDL_SetTextureBlendMode(src, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureAlphaMod(src, 255);
+        SDL_SetTextureScaleMode(src, SDL_SCALEMODE_LINEAR);
+        renderTexture(src, nullptr, nullptr);
+
+        uint8_t sharp_alpha = uint8_t(std::clamp(int(upscale_sharpness_ * 96.0f), 0, 96));
+        if (sharp_alpha > 0)
+        {
+            SDL_SetTextureBlendMode(src, SDL_BLENDMODE_ADD);
+            SDL_SetTextureAlphaMod(src, sharp_alpha);
+            SDL_SetTextureScaleMode(src, SDL_SCALEMODE_NEAREST);
+            renderTexture(src, nullptr, nullptr);
+        }
+
+        SDL_SetTextureBlendMode(src, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureAlphaMod(src, 255);
+        SDL_SetTextureScaleMode(src, SDL_SCALEMODE_LINEAR);
+    }
+    else
+    {
+        renderTexture(src, nullptr, nullptr);
+    }
 }
 
 void Engine::mixAudio(uint8_t* dst, const uint8_t* src, uint32_t len, float volume) const

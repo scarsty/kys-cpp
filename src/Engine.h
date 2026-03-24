@@ -245,6 +245,12 @@ enum BlendMode
     BLENDMODE_INVALID = SDL_BLENDMODE_INVALID
 };
 
+enum UpscaleMode
+{
+    UPSCALE_NONE = 0,
+    UPSCALE_FSR_LITE = 1,
+};
+
 class Engine
 {
 private:
@@ -274,6 +280,9 @@ private:
     int win_w_, win_h_, min_x_, min_y_, max_x_, max_y_;
     double rotation_ = 0;
     double ratio_x_ = 1, ratio_y_ = 1;
+
+    UpscaleMode upscale_mode_ = UPSCALE_NONE;
+    float upscale_sharpness_ = 0.4f;
 
     int render_times_ = 0;
 
@@ -420,6 +429,11 @@ public:
         ratio_x_ = x;
         ratio_y_ = y;
     }
+
+    void setUpscaleMode(UpscaleMode mode) { upscale_mode_ = mode; }
+    UpscaleMode getUpscaleMode() const { return upscale_mode_; }
+    void setUpscaleSharpness(float s) { upscale_sharpness_ = std::clamp(s, 0.0f, 1.0f); }
+    float getUpscaleSharpness() const { return upscale_sharpness_; }
 
     static void setColor(Texture* tex, Color c);
     void fillColor(Color color, int x, int y, int w, int h, BlendMode blend = BLENDMODE_BLEND) const;
