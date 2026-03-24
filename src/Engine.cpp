@@ -95,6 +95,8 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 
     std::print("Renderer name: {}\n", SDL_GetRendererName(renderer_));
 
+    //SDL_SetDefaultTextureScaleMode(renderer_, SDL_SCALEMODE_PIXELART);
+
     //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     //SDL_EventState(SDL_EVENT_DROP_FILE, SDL_ENABLE);
 

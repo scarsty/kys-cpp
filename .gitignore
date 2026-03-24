@@ -25,3 +25,7 @@ hades
 kys-c++
 .vscode
 
+kys-cpp-androidstudio/app/.cxx
+kys-cpp-androidstudio/app/lib/arm64-v8a
+kys-cpp-androidstudio/.gradle
+kys-cpp-androidstudio/.idea

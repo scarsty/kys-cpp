@@ -146,7 +146,7 @@ void Audio::playVoice(int voice_id, int volume)
         }
         voice_[voice_id] = loadWav(filename);
     }
-    playWav(voice_[voice_id], volume, 0);
+    playWav(voice_[voice_id], volume, 0);    //使用一个固定的track来播放语音，每次只能有一个语音在播放
     current_sound_ = voice_[voice_id];
 }
 
