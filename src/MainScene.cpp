@@ -166,7 +166,7 @@ void MainScene::draw()
                     auto w = tex->w;
                     auto h = tex->h;
                     auto dy = tex->dy;
-                    int c = ((ix + iy) - (w + 35) / 36 - (dy - h + 1) / 9) * 1024 + ix;
+                    int c = ((ix + iy) - (w + TILE_W * 2 - 1) / (TILE_W * 2) - (dy - h + 1) / (TILE_H / 2)) * 1024 + ix;
                     //map[2 * c + 1] = { 2*c+1, t, p };
                     building_vec[building_count++] = { 2 * c + 1, tex, p };
                 }

@@ -15,7 +15,7 @@
 #define NOMINMAX
 
 #ifndef M_PI
-#define M_PI 3.1415926535897
+#define M_PI 3.141592653589793
 #endif
 
 //这里是底层部分，将SDL的函数均封装了一次
