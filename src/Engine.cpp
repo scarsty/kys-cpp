@@ -642,20 +642,12 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) c
 
 void Engine::toWhite(Surface* sur)
 {
-    //for (int i = 0; i < sur->w * sur->h; i++)
-    //{
-    //    auto p = (uint32_t*)sur->pixels + i;
-    //    uint8_t r, g, b, a;
-    //    SDL_GetRGBA(*p, SDL_GetPixelFormatDetails(sur->format), SDL_GetSurfacePalette(sur), &r, &g, &b, &a);
-    //    if (a == 0)
-    //    {
-    //        *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 0);
-    //    }
-    //    else
-    //    {
-    //        *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 255);
-    //    }
-    //}
+    if (sur->format != SDL_PIXELFORMAT_RGBA8888)
+    {
+        auto sur2 = SDL_ConvertSurface(sur, SDL_PIXELFORMAT_RGBA8888);
+        SDL_DestroySurface(sur);
+        sur = sur2;
+    }
     for (int y = 0; y < sur->h; y++)
     {
         for (int x = 0; x < sur->w; x++)

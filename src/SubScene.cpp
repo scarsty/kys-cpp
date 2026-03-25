@@ -132,9 +132,10 @@ void SubScene::draw()
             if (!isOutLine(ix, iy))
             {
                 //有高度地面
+                //应该是先画，但是也不太对，暂时用大地面图时不画
                 int h = submap_info_->BuildingHeight(ix, iy);
                 int num = submap_info_->Earth(ix, iy) / 2;
-                if (num > 0 && h > 2)
+                if (num > 0 && h > 2 &&!earth_texture)
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
