@@ -622,15 +622,14 @@ void SubScene::reDrawEarthTexture()
         return;
     }
     Engine::getInstance()->setRenderTarget(earth_texture);
-    
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
     if (TextureManager::getInstance()->getTextureGroup("smap-earth")->getTextureCount() > 0)
     {
-        TextureManager::getInstance()->renderTexture("smap-earth", submap_info_->ID, 0, 0);       
+        TextureManager::getInstance()->renderTexture("smap-earth", submap_info_->ID, 0, 0);
     }
     else
     {
-        Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-
         //二者之差是屏幕中心与大纹理的中心的距离
         for (int i1 = 0; i1 < COORD_COUNT; i1++)
         {

@@ -2152,6 +2152,7 @@ void BattleScene::makeEarthTexture()
 {
     Engine::getInstance()->createRenderedTexture("earth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     Engine::getInstance()->setRenderTarget("earth");
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 
     if (TextureManager::getInstance()->getTextureGroup("battle-earth")->getTextureCount() > 0)
     {

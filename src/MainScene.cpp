@@ -251,7 +251,7 @@ void MainScene::dealEvent(EngineEvent& e)
         sub_map->setForceBeginEvent(force_event_);
         sub_map->run();
         towards_ = sub_map->towards_;
-        Fade::fadeIn(8);
+        //Fade::fadeIn(8);
         force_submap_ = -1;
         force_event_ = -1;
     }
@@ -539,7 +539,7 @@ bool MainScene::checkEntrance(int x, int y, bool only_check /*= false*/)
                 sub_map->setManViewPosition(s->EntranceX, s->EntranceY);
                 sub_map->run();
                 towards_ = sub_map->towards_;
-                Fade::fadeIn(8);
+                //Fade::fadeIn(8);
                 return true;
             }
         }

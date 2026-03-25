@@ -1,6 +1,7 @@
 ﻿#include "Engine.h"
 
 #include "strfunc.h"
+#include <vector>
 #ifdef _MSC_VER
 #define NOMINMAX
 #include <windows.h>
@@ -25,22 +26,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         return 0;
     }
     inited_ = true;
-#ifdef _WIN32
-    std::string renderer_turn = "direct3d12, opengl, vulkan, direct3d11, direct3d, opengles2, opengles, metal, gpu, software";
-    if (!str.empty())
-    {
-        auto str1 = strfunc::toLowerCase(str);
-        for (auto s : strfunc::splitString(renderer_turn, ","))
-        {
-            if (str1 == strfunc::trim(s))
-            {
-                renderer_turn = str1;
-                break;
-            }
-        }
-    }
-    SDL_SetHint(SDL_HINT_RENDER_DRIVER, renderer_turn.c_str());
-#endif
+
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 #endif
@@ -51,46 +37,119 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         return -1;
     }
 #endif
+
     window_mode_ = handle_type;
-    if (handle)
+
+    auto create_window = [&]() -> Window*
     {
-        if (handle_type == 0)
+        if (handle)
         {
-            //window_ = SDL_CreateWindowFrom(handle);
-            Prop props;
-            props.set(SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, handle);    //未测试
-            SDL_CreateWindowWithProperties(props.id());
+#ifdef _WIN32
+            if (handle_type == 0)
+            {
+                Prop props;
+                props.set(SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, handle);
+                return SDL_CreateWindowWithProperties(props.id());
+            }
+#endif
+            return (Window*)handle;
         }
-        else
-        {
-            window_ = (Window*)handle;
-        }
-    }
-    else
-    {
+
         Prop props;
         props.set(SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         props.set(SDL_PROP_WINDOW_CREATE_MAXIMIZED_BOOLEAN, maximized);
         props.set(SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, ui_w_);
         props.set(SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, ui_h_);
         props.set(SDL_PROP_WINDOW_CREATE_TITLE_STRING, title_.c_str());
-        window_ = SDL_CreateWindowWithProperties(props.id());
-        //window_ = SDL_CreateWindow("Lightning Generator", ui_w_, ui_w_, SDL_WINDOW_RESIZABLE);
+        return SDL_CreateWindowWithProperties(props.id());
+    };
+
+    window_ = create_window();
+    if (!window_)
+    {
+        return -1;
     }
-    //SDL_CreateWindowFrom()
+
 #ifndef _WINDLL
     SDL_ShowWindow(window_);
     SDL_RaiseWindow(window_);
 #endif
+
     renderer_ = SDL_GetRenderer(window_);
     std::print("{}\n", SDL_GetError());
+
     if (renderer_ == nullptr)
     {
         Prop props;
         props.set(SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window_);
+
+#ifdef _WIN32
+        std::vector<std::string> renderer_candidates;
+        auto add_renderer_candidate = [&renderer_candidates](const std::string& name)
+        {
+            if (name.empty())
+            {
+                return;
+            }
+            for (auto& existing : renderer_candidates)
+            {
+                if (existing == name)
+                {
+                    return;
+                }
+            }
+            renderer_candidates.push_back(name);
+        };
+
+        if (!str.empty())
+        {
+            auto str1 = strfunc::toLowerCase(str);
+            for (auto s : strfunc::splitString(str1, ","))
+            {
+                add_renderer_candidate(strfunc::trim(s));
+            }
+        }
+        add_renderer_candidate("direct3d12");
+        add_renderer_candidate("direct3d");
+        add_renderer_candidate("opengl");
+        add_renderer_candidate("software");
+
+        for (auto& candidate : renderer_candidates)
+        {
+            SDL_SetHint(SDL_HINT_RENDER_DRIVER, candidate.c_str());
+            renderer_ = SDL_CreateRendererWithProperties(props.id());
+            if (renderer_)
+            {
+                std::print("Renderer fallback selected: {}\n", candidate);
+                renderer_self_ = true;
+                break;
+            }
+        }
+#else
+        if (!str.empty())
+        {
+            auto str1 = strfunc::toLowerCase(str);
+            auto drivers = strfunc::splitString(str1, ",");
+            if (!drivers.empty())
+            {
+                SDL_SetHint(SDL_HINT_RENDER_DRIVER, strfunc::trim(drivers[0]).c_str());
+            }
+        }
         renderer_ = SDL_CreateRendererWithProperties(props.id());
-        //renderer_ = SDL_CreateRenderer(window_, "Direct3D12");
-        renderer_self_ = true;
+        renderer_self_ = renderer_ != nullptr;
+#endif
+
+        if (renderer_ == nullptr)
+        {
+            renderer_ = SDL_CreateRendererWithProperties(props.id());
+            renderer_self_ = renderer_ != nullptr;
+        }
+    }
+
+    if (renderer_ == nullptr)
+    {
+        std::print("Failed to create renderer: {}\n", SDL_GetError());
+        return -1;
     }
 
     std::print("Renderer name: {}\n", SDL_GetRendererName(renderer_));
@@ -583,18 +642,30 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) c
 
 void Engine::toWhite(Surface* sur)
 {
-    for (int i = 0; i < sur->w * sur->h; i++)
+    //for (int i = 0; i < sur->w * sur->h; i++)
+    //{
+    //    auto p = (uint32_t*)sur->pixels + i;
+    //    uint8_t r, g, b, a;
+    //    SDL_GetRGBA(*p, SDL_GetPixelFormatDetails(sur->format), SDL_GetSurfacePalette(sur), &r, &g, &b, &a);
+    //    if (a == 0)
+    //    {
+    //        *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 0);
+    //    }
+    //    else
+    //    {
+    //        *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 255);
+    //    }
+    //}
+    for (int y = 0; y < sur->h; y++)
     {
-        auto p = (uint32_t*)sur->pixels + i;
-        uint8_t r, g, b, a;
-        SDL_GetRGBA(*p, SDL_GetPixelFormatDetails(sur->format), SDL_GetSurfacePalette(sur), &r, &g, &b, &a);
-        if (a == 0)
+        for (int x = 0; x < sur->w; x++)
         {
-            *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 0);
-        }
-        else
-        {
-            *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 255);
+            uint8_t r, g, b, a;
+            if (!SDL_ReadSurfacePixel(sur, x, y, &r, &g, &b, &a))
+            {
+                continue;
+            }
+            SDL_WriteSurfacePixel(sur, x, y, 255, 255, 255, a);
         }
     }
 }
