@@ -653,7 +653,7 @@ void BattleSceneHades::onEntrance()
     }
     addChild(Weather::getInstance());
 
-    //makeEarthTexture(); //注意高度稍微多了一点
+    makeEarthTexture(); //注意高度稍微多了一点
     
     //此处创建了一个大的纹理，用于渲染整个场景
     Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);

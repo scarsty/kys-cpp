@@ -405,10 +405,10 @@ void SubScene::onEntrance()
 
     //一大块地面的纹理，预先拼好地面，可以减少绘制的次数
     //暂时不使用这种方法，地面的动态效果会消失
-    //Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     reDrawEarthTexture();
     //Engine::getInstance()->saveTexture(earth_texture, std::format("{}.bmp", submap_id_).c_str());
-    Fade::fadeIn(8);
+    //Fade::fadeIn(8);
     auto scene_name = std::make_shared<TextBox>();
     scene_name->setFontSize(24);
     scene_name->setText(submap_info_->Name);
@@ -622,20 +622,28 @@ void SubScene::reDrawEarthTexture()
         return;
     }
     Engine::getInstance()->setRenderTarget(earth_texture);
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-
-    //二者之差是屏幕中心与大纹理的中心的距离
-    for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    
+    if (TextureManager::getInstance()->getTextureGroup("smap-earth")->getTextureCount() > 0)
     {
-        for (int i2 = 0; i2 < COORD_COUNT; i2++)
+        TextureManager::getInstance()->renderTexture("smap-earth", submap_info_->ID, 0, 0);       
+    }
+    else
+    {
+        Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
+        //二者之差是屏幕中心与大纹理的中心的距离
+        for (int i1 = 0; i1 < COORD_COUNT; i1++)
         {
-            auto p = getPositionOnWholeEarth(i1, i2);
-            int h = submap_info_->BuildingHeight(i1, i2);
-            int num = submap_info_->Earth(i1, i2) / 2;
-            //无高度地面
-            if (num > 0 && h <= 2)
+            for (int i2 = 0; i2 < COORD_COUNT; i2++)
             {
-                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                auto p = getPositionOnWholeEarth(i1, i2);
+                int h = submap_info_->BuildingHeight(i1, i2);
+                int num = submap_info_->Earth(i1, i2) / 2;
+                //无高度地面
+                if (num > 0 && h <= 2)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                }
             }
         }
     }
