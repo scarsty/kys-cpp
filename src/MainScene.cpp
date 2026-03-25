@@ -107,10 +107,10 @@ void MainScene::draw()
     //新的画地面方法
     if (TextureManager::getInstance()->getTextureGroup("mmap-earth")->getTextureCount() > 0)
     {
-        const int earth_size = 17280;
+        const int earth_size = TILE_W * 480 * 2;
         auto pe = getPositionOnRender(0, 0, man_x_, man_y_);
         int earth_x = pe.x - earth_size / 2;
-        int earth_y = pe.y - 17;
+        int earth_y = pe.y - TILE_H * 2 + 1;
         int view_w, view_h;
         Engine::getInstance()->getAssistTextureSize("scene", view_w, view_h);
         for (int i = 0; i < 8; i++)

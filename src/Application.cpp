@@ -50,7 +50,7 @@ int Application::run()
         nullptr);
 
     //引擎初始化之后才能创建纹理
-    engine->createAssistTexture("scene", 640, 360);
+    engine->createAssistTexture("scene", 1280, 720);
 
     config();
 
