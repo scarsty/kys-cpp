@@ -217,7 +217,7 @@ void BattleStatsView::queuePostBattleLogOpen()
 void BattleTracker::recordDamage(Role* attacker, Role* defender, int damage, const std::string& skillName, int frame, const std::string& detailText)
 {
     if (battleResult_ != -1) return;
-    if (damage <= 0) return;
+    // if (damage <= 0) return;
     if (attacker) {
         auto& s = stats_[attacker->ID];
         s.damageDealt += damage;

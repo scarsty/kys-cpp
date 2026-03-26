@@ -50,6 +50,8 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
             if (eff.trigger == Trigger::OnUltimate) return "絕招·";
             if (eff.trigger == Trigger::OnHit && eff.triggerValue < 100) return std::format("擊中{}%·", eff.triggerValue);
             if (eff.trigger == Trigger::OnBeingHit && eff.triggerValue < 100) return std::format("被擊{}%·", eff.triggerValue);
+            if (eff.trigger == Trigger::OnShieldBreak && eff.triggerValue < 100) return std::format("盾爆{}%·", eff.triggerValue);
+            if (eff.trigger == Trigger::OnShieldBreak) return "盾爆·";
             return "";
         }
         if (eff.trigger == Trigger::WhileLowHP) return std::format("血量<{}%: ", eff.triggerValue);
@@ -58,12 +60,21 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
         if (eff.trigger == Trigger::OnUltimate) return "絕招觸發: ";
         if (eff.trigger == Trigger::OnHit && eff.triggerValue < 100) return std::format("{}%擊中觸發", eff.triggerValue);
         if (eff.trigger == Trigger::OnBeingHit && eff.triggerValue < 100) return std::format("{}%被擊中觸發", eff.triggerValue);
+        if (eff.trigger == Trigger::OnShieldBreak && eff.triggerValue != 0) return std::format("{}%護盾解除時", eff.triggerValue);
+        if (eff.trigger == Trigger::OnShieldBreak) return "護盾解除時";
         return "";
     };
     auto countSuffix = [&]() -> std::string {
         if (eff.maxCount > 0)
         {
             return compact ? std::format("·{}次", eff.maxCount) : std::format(" ({}次)", eff.maxCount);
+        }
+        return "";
+    };
+    auto durationSuffix = [&]() -> std::string {
+        if (eff.duration > 0 && eff.trigger != Trigger::AllyLowHPBurst)
+        {
+            return compact ? std::format("·{}幀", eff.duration) : std::format(" ({}幀)", eff.duration);
         }
         return "";
     };
@@ -137,7 +148,10 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::CharmCDRDebuff: desc = std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
     case EffectType::OffensiveCharm: desc = std::format("攻擊傾城{}%", eff.value); break;
     case EffectType::DeathAOE: desc = eff.value2 ? std::format("殉爆{}%眩{}幀", eff.value, eff.value2) : std::format("殉爆{}%", eff.value); break;
-    case EffectType::ShieldExplosion: desc = compact ? std::format("盾爆{}%", eff.value) : std::format("護盾爆炸{}%", eff.value); break;
+    case EffectType::ShieldExplosion: desc = "護盾解除"; break;
+    case EffectType::TempFlatATK: desc = compact ? std::format("临时攻+{}", eff.value) : std::format("临时攻击+{}", eff.value); break;
+    case EffectType::AutoUltimate: desc = "自動絕招"; break;
+    case EffectType::MPRestore: desc = std::format("回内力+{}", eff.value); break;
     case EffectType::ShieldOnAllyDeath: desc = compact ? std::format("每{}友死獲盾", eff.value) : std::format("每{}友死獲盾", eff.value); break;
     case EffectType::DamageImmunityAfterFrames: desc = std::format("每{}幀免傷{}幀", eff.value, eff.value2); break;
     case EffectType::AutoUltimateAfterFrames: desc = std::format("每{}幀自動絕招", eff.value); break;
@@ -146,7 +160,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::GoldCoefficient: desc = compact ? std::format("勝利+{}×最高星金", eff.value) : std::format("勝利獲得{}×最高星級金幣", eff.value); break;
     default: desc = std::format("效果({})", eff.value); break;
     }
-    return triggerPrefix() + desc + countSuffix();
+    return triggerPrefix() + desc + durationSuffix() + countSuffix();
 }
 
 }    // namespace

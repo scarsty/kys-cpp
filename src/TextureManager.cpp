@@ -80,8 +80,16 @@ void TextureWarpper::destory()
         if (tex[i])
         {
             Engine::destroyTexture(tex[i]);
+            tex[i] = nullptr;
         }
     }
+    if (tex_white)
+    {
+        Engine::destroyTexture(tex_white);
+        tex_white = nullptr;
+    }
+    loaded = false;
+    count = 1;
 }
 
 std::string TextureGroup::getFileContent(const std::string& filename)
@@ -199,8 +207,11 @@ void TextureManager::renderTexture(TextureWarpper* tex, Rect r, Color c, uint8_t
     if (white)
     {
         tex->createWhiteTexture();
-        engine->setColor(tex->tex_white, { 255, 255, 255, white });
-        engine->renderTexture(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
+        if (tex->tex_white)
+        {
+            engine->setColor(tex->tex_white, { 255, 255, 255, white });
+            engine->renderTexture(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
+        }
     }
 }
 

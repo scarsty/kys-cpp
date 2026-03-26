@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import csv
 import json
 import sqlite3
@@ -32,6 +33,9 @@ JSG_ROLE_NAME_OFFSET = 8
 JSG_ROLE_NAME_SIZE = 10
 JSG_ROLE_NICK_OFFSET = 18
 JSG_ROLE_NICK_SIZE = 10
+JSG_ROLE_FRAME_OFFSET = 50
+JSG_ROLE_FRAME_DELAY_OFFSET = 60
+JSG_ROLE_SOUND_DELAY_OFFSET = 70
 
 
 def to_simplified(text: str) -> str:
@@ -49,6 +53,24 @@ def to_simplified(text: str) -> str:
         "嶽": "岳", "葉": "叶", "後": "后", "國": "国", "實": "实", "兒": "儿", "雙": "双",
     })
     return text.translate(t2s)
+
+
+def read_i16_values(raw: bytes, offset: int, count: int = 5) -> list[int]:
+    return [
+        int.from_bytes(raw[offset + 2 * index: offset + 2 * index + 2], "little", signed=True)
+        for index in range(count)
+    ]
+
+
+def fightframe_text_from_values(values: list[int]) -> str:
+    lines = [f"{index}, {value}" for index, value in enumerate(values) if value > 0]
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def fightframe_hash_from_values(values: list[int]) -> str:
+    h = hashlib.sha256()
+    h.update(fightframe_text_from_values(values).encode("utf-8"))
+    return h.hexdigest()
 
 
 def fight_exists(fight_dir: Path, head_id: int | None) -> bool:
@@ -132,8 +154,24 @@ def load_jsg_rows() -> dict[str, list[dict[str, Any]]]:
         nick = decode_cp950(role_blob[start + JSG_ROLE_NICK_OFFSET:start + JSG_ROLE_NICK_OFFSET + JSG_ROLE_NICK_SIZE])
         if not name:
             continue
-        payload = {"record_id": record_id, "head_id": head_id, "name": name, "nickname": nick}
-        by_name.setdefault(name, []).append(payload)
+        frame_num = read_i16_values(role_blob, start + JSG_ROLE_FRAME_OFFSET)
+        frame_delay = read_i16_values(role_blob, start + JSG_ROLE_FRAME_DELAY_OFFSET)
+        sound_delay = read_i16_values(role_blob, start + JSG_ROLE_SOUND_DELAY_OFFSET)
+        payload = {
+            "record_id": record_id,
+            "head_id": head_id,
+            "name": name,
+            "nickname": nick,
+            "frame_num": frame_num,
+            "frame_delay": frame_delay,
+            "sound_delay": sound_delay,
+            "fightframe_text": fightframe_text_from_values(frame_num),
+            "fightframe_hash": fightframe_hash_from_values(frame_num),
+        }
+        for key in {name, to_simplified(name)}:
+            bucket = by_name.setdefault(key, [])
+            if payload not in bucket:
+                bucket.append(payload)
     return by_name
 
 

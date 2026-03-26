@@ -45,7 +45,8 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"处决挪移", EffectType::ForcePullExecute}, {"斩杀", EffectType::Execute},
     {"破罡", EffectType::MPBlock}, {"封内", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff}, {"冷却延长反击", EffectType::CharmCDRDebuff},
     {"攻击倾城", EffectType::OffensiveCharm}, {"攻击冷却延长", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
-    {"护盾爆炸", EffectType::ShieldExplosion}, {"护盾重获", EffectType::ShieldOnAllyDeath},
+    {"护盾爆炸", EffectType::ShieldExplosion}, {"临时攻击加成", EffectType::TempFlatATK},
+    {"护盾重获", EffectType::ShieldOnAllyDeath}, {"自动绝招", EffectType::AutoUltimate}, {"回内力", EffectType::MPRestore},
     {"周期免伤", EffectType::DamageImmunityAfterFrames}, {"周期绝招", EffectType::AutoUltimateAfterFrames},
     {"绝招追加弹", EffectType::UltimateExtraProjectiles},
     {"初次格挡", EffectType::BlockFirstHits},
@@ -60,6 +61,7 @@ static const std::map<std::string, Trigger> triggerMap = {
     {"绝招时", Trigger::OnUltimate},
     {"攻击命中时概率", Trigger::OnHit},
     {"被击中时概率", Trigger::OnBeingHit},
+    {"护盾爆炸时", Trigger::OnShieldBreak},
 };
 
 const std::map<std::string, EffectType>& ChessBattleEffects::getEffectTypeMap()
@@ -263,7 +265,10 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.deathAOEPct = std::max(s.deathAOEPct, e.value);
         if (e.value2 > 0) s.deathAOEStunFrames = e.value2;
         break;
-    case EffectType::ShieldExplosion: s.shieldExplosionPct = std::max(s.shieldExplosionPct, e.value); break;
+    case EffectType::ShieldExplosion: break;
+    case EffectType::TempFlatATK: break;
+    case EffectType::AutoUltimate: break;
+    case EffectType::MPRestore: break;
     case EffectType::ShieldOnAllyDeath: s.shieldOnAllyDeathCount = e.value; break;
     case EffectType::DamageImmunityAfterFrames:
         s.damageImmunityAfterFrames = e.value;

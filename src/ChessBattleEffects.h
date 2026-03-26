@@ -18,6 +18,7 @@ enum class Trigger
     OnUltimate,
     OnHit,  // Proc on attack hit
     OnBeingHit,  // Proc when being hit (defender)
+    OnShieldBreak,  // Proc when shield breaks
 };
 
 enum class EffectType
@@ -88,6 +89,9 @@ enum class EffectType
     OffensiveCharm,
     DeathAOE,
     ShieldExplosion,
+    TempFlatATK,
+    AutoUltimate,
+    MPRestore,
     ShieldOnAllyDeath,
     DamageImmunityAfterFrames,
     AutoUltimateAfterFrames,
@@ -179,7 +183,6 @@ struct RoleComboState
     int offensiveCharmChancePct = 0;
     int deathAOEPct = 0;
     int deathAOEStunFrames = 0;
-    int shieldExplosionPct = 0;
     int shieldOnAllyDeathCount = 0;
     int enemyTopDebuffCount = 0;
     int enemyTopDebuffValue = 0;
@@ -220,6 +223,8 @@ struct RoleComboState
     int postSkillDashTimer = 0;
     bool isSummonedClone = false;
     bool blinkAttackUseWeakest = false;
+    struct TempAttackBuffInstance { int attackBonus = 0; int remainingFrames = 0; };
+    std::vector<TempAttackBuffInstance> tempAttackBuffs;
     int damageImmunityTimer = 0;
     int autoUltimateTimer = 0;
     int blockFirstHitsRemaining = 0;

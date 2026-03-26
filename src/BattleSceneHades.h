@@ -54,7 +54,8 @@ protected:
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     void applyScriptedAttackEffect(AttackEffect& ae, Role* r);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
-    void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate);
+    void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, bool consumeMP = true);
+    Magic* triggerAutoUltimate(Role* r, bool consumeMP);
     int getUltimateExtraProjectileCount(Role* r);
     void spawnAreaImpactProjectiles(Role* attacker,
                                     Role* origin,
@@ -73,6 +74,13 @@ protected:
     void spawnExtraProjectiles(const AttackEffect& prototype, int extraCount, const char* logLabel, Role* target);
     void refreshEnemyTopDebuffs();
     void applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason);
+    void applyTempAttackBuff(Role* role,
+                             KysChess::RoleComboState& state,
+                             int attackBonus,
+                             int durationFrames,
+                             const std::string& reason);
+    void tickTempAttackBuffs(Role* role, KysChess::RoleComboState& state);
+    void triggerShieldBreakEffects(Role* role, KysChess::RoleComboState& state);
     void collectTriggeredTeamHeal(KysChess::RoleComboState& state,
                                   KysChess::Trigger trigger,
                                   int& flatHeal,

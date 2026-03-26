@@ -436,7 +436,7 @@ void Engine::renderTexture(Texture* t /*= nullptr*/, double angle)
     FRect rectf;
     SDL_RectToFRect(&rect_, &rectf);
     SDL_RenderTextureRotated(renderer_, t, nullptr, &rectf, angle, nullptr, SDL_FLIP_NONE);
-    // SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
     render_times_++;
 }
 
@@ -476,7 +476,7 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
         rect1f_ptr = &rect1f;
     }
     SDL_RenderTextureRotated(renderer_, t, rect0f_ptr, rect1f_ptr, angle, nullptr, SDL_FLIP_NONE);
-    // SDL_SetTextureScaleMode(t, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
     render_times_++;
 }
 
@@ -657,18 +657,16 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) c
 
 void Engine::toWhite(Surface* sur)
 {
-    for (int i = 0; i < sur->w * sur->h; i++)
+    for (int y = 0; y < sur->h; y++)
     {
-        auto p = (uint32_t*)sur->pixels + i;
-        uint8_t r, g, b, a;
-        SDL_GetRGBA(*p, SDL_GetPixelFormatDetails(sur->format), SDL_GetSurfacePalette(sur), &r, &g, &b, &a);
-        if (a == 0)
+        for (int x = 0; x < sur->w; x++)
         {
-            *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 0);
-        }
-        else
-        {
-            *p = SDL_MapSurfaceRGBA(sur, 255, 255, 255, 255);
+            uint8_t r, g, b, a;
+            if (!SDL_ReadSurfacePixel(sur, x, y, &r, &g, &b, &a))
+            {
+                continue;
+            }
+            SDL_WriteSurfacePixel(sur, x, y, 255, 255, 255, a);
         }
     }
 }

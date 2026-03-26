@@ -132,7 +132,7 @@ int damageTextSize(int baseSize, int damage, int maxHp)
 uint8_t damageTextAlpha(int damage, int maxHp)
 {
     float impactScale = damageTextImpactScale(damage, maxHp);
-    return static_cast<uint8_t>(140 + (255 - 140) * impactScale);
+    return static_cast<uint8_t>(192 + (255 - 192) * impactScale);
 }
 
 void addDamageText(std::deque<BattleSceneAct::TextEffect>& textEffects, Role* role, int damage, Color color, int baseSize = 15)
@@ -274,8 +274,10 @@ bool isWithinGridRadius(const Role* center, const Role* target, int xRadius, int
 {
     if (!center || !target) return false;
     if (xRadius < 0 || yRadius < 0) return false;
-    return std::abs(center->X() - target->X()) <= xRadius
-        && std::abs(center->Y() - target->Y()) <= yRadius;
+    auto center45 = battlePos90To45(center->Pos.x, center->Pos.y);
+    auto target45 = battlePos90To45(target->Pos.x, target->Pos.y);
+    return std::abs(center45.x - target45.x) <= xRadius
+        && std::abs(center45.y - target45.y) <= yRadius;
 }
 
 bool isWithinGridArea(const Role* center, const Role* target, int width, int height)
@@ -342,28 +344,165 @@ void increaseCooldown(Role* r, int pct)
     r->CoolDown = std::max(r->CoolDown + 1, increased);
 }
 
+}    // namespace
+
+void BattleSceneHades::applyTempAttackBuff(Role* role,
+                                           KysChess::RoleComboState& state,
+                                           int attackBonus,
+                                           int durationFrames,
+                                           const std::string& reason)
+{
+    if (!role || attackBonus == 0 || durationFrames <= 0)
+        return;
+
+    role->Attack += attackBonus;
+    state.tempAttackBuffs.push_back({attackBonus, durationFrames});
+    if (!reason.empty())
+        logBattleStatus(role, role, reason);
+}
+
+void BattleSceneHades::tickTempAttackBuffs(Role* role, KysChess::RoleComboState& state)
+{
+    if (!role)
+        return;
+
+    for (auto it = state.tempAttackBuffs.begin(); it != state.tempAttackBuffs.end();)
+    {
+        if (it->remainingFrames > 0)
+            --it->remainingFrames;
+        if (it->remainingFrames <= 0)
+        {
+            role->Attack -= it->attackBonus;
+            it = state.tempAttackBuffs.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+Magic* BattleSceneHades::triggerAutoUltimate(Role* role, bool consumeMP)
+{
+    if (!role || role->Dead != 0)
+        return nullptr;
+
+    Magic* magic = selectMagic(role, std::greater<double>{});
+    if (!magic)
+        return nullptr;
+
+    createSkillAttackEffect(role, magic, true, consumeMP);
+    return magic;
+}
+
+void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleComboState& state)
+{
+    if (!role || role->Dead != 0)
+        return;
+
+    // This needs to be fundamentally reworked.
+    
+    int shieldExplosionPct = 0;
+    for (size_t i = 0; i < state.triggeredEffects.size(); ++i)
+    {
+        auto& effect = state.triggeredEffects[i];
+        if (effect.trigger != KysChess::Trigger::OnShieldBreak)
+            continue;
+        if (effect.maxCount > 0 && state.effectActivationCounts[i] >= effect.maxCount)
+            continue;
+        if (effect.triggerValue > 0 && rand_.rand() * 100 >= effect.triggerValue)
+            continue;
+
+        bool activated = false;
+        switch (effect.type)
+        {
+        case KysChess::EffectType::ShieldExplosion:
+            if (effect.value > 0)
+            {
+                shieldExplosionPct = std::max(shieldExplosionPct, effect.value);
+                activated = true;
+            }
+            break;
+        case KysChess::EffectType::AutoUltimate:
+        {
+            if (auto* magic = this->triggerAutoUltimate(role, false))
+            {
+                addFloatingText(role, std::string(magic->Name), {255, 215, 0, 255}, EMPHASIS_TEXT_SIZE);
+                logBattleStatus(role, nullptr, std::format("护盾爆炸·自动绝招·{}", std::string(magic->Name)));
+                activated = true;
+            }
+            break;
+        }
+        case KysChess::EffectType::TempFlatATK:
+            if (effect.duration > 0 && effect.value != 0)
+            {
+                applyTempAttackBuff(role, state, effect.value, effect.duration,
+                    std::format("护盾爆炸（临时攻+{}，{}幀）", effect.value, effect.duration));
+                activated = true;
+            }
+            break;
+        case KysChess::EffectType::MPRestore:
+            if (effect.value > 0)
+            {
+                int restored = std::min(effect.value, std::max(0, role->MaxMP - role->MP));
+                if (restored > 0)
+                {
+                    role->MP += restored;
+                    logBattleStatus(role, role, std::format("护盾爆炸·回内力+{}", restored));
+                    activated = true;
+                }
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (activated)
+            state.effectActivationCounts[i]++;
+    }
+
+    if (shieldExplosionPct > 0)
+    {
+        int explosionDmg = std::max(1, state.shieldPctMaxHP * role->MaxHP / 100 * shieldExplosionPct / 100);
+        spawnAreaImpactProjectiles(role, role, 5, 5, KysChess::EFT_SHIELD_BLAST, explosionDmg);
+        logBattleStatus(role, nullptr, formatStatusValue("护盾爆炸", explosionDmg, "伤害"));
+    }
+}
+
 // Apply freeze frames to a role, accounting for low-HP immunity and freeze shield
 void applyFrozen(Role* r, int frames)
 {
-    if (frames <= 0) return;
+    if (!r || frames <= 0) return;
     // Low HP immunity: below 25% HP
     if (r->MaxHP > 0 && r->HP < r->MaxHP * 0.25) return;
-    // Freeze shield absorption
+
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto it = cs.find(r->ID);
+
+    int totalFreezeRes = 0;
+    if (it != cs.end())
+    {
+        totalFreezeRes = it->second.freezeReductionPct;
+        if (it->second.shield > 0)
+            totalFreezeRes += it->second.shieldFreezeResPct;
+    }
+    totalFreezeRes = std::clamp(totalFreezeRes, 0, 100);
+    if (totalFreezeRes > 0)
+        frames = (frames * (100 - totalFreezeRes)) / 100;
+
     if (it != cs.end() && it->second.controlImmunityFrames > 0)
     {
         int absorbed = std::min(frames, it->second.controlImmunityFrames);
         it->second.controlImmunityFrames -= absorbed;
         frames -= absorbed;
     }
+
     if (frames > 0)
     {
         r->Frozen += frames;
         r->FrozenMax = r->Frozen;  // Reset max when frozen is applied
     }
 }
-}    // namespace
 
 int BattleSceneHades::getOperationType(int attackAreaType)
 {
@@ -1005,14 +1144,15 @@ void BattleSceneHades::draw()
                     scaley = 1;
                     yd = d.tex->dy * 0.1;
                 }
-                if (d.shadow == 1)
-                {
-                    TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
-                }
-                if (d.shadow == 2)
-                {
-                    TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
-                }
+                TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                // if (d.shadow == 1)
+                // {
+                //     TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                // }
+                // if (d.shadow == 2)
+                // {
+                //     TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
+                // }
             }
         }
     }
@@ -1349,8 +1489,12 @@ void BattleSceneHades::onEntrance()
             if (s.pctDEF != 0) r.Defence = static_cast<int>(r.Defence * (1.0 + s.pctDEF / 100.0));
             if (s.pctSPD != 0) r.Speed = static_cast<int>(r.Speed * (1.0 + s.pctSPD / 100.0));
             r.HP = r.MaxHP;
-            if (s.shieldPctMaxHP > 0)
+            if (s.shieldPctMaxHP > 0) {
                 s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
+                logBattleStatus(&r, nullptr,
+                    formatStatusValue("获取", s.shield, "护盾"));
+            }
+                
         };
         auto applyEquipmentEffects = [&](KysChess::RoleComboState& state, int weaponId, int armorId) {
             auto applyById = [&](int itemId) {
@@ -1885,10 +2029,7 @@ void BattleSceneHades::backRun1()
             {
                 auto& s = it->second;
 
-                // Freeze reduction (base + shield bonus)
-                int totalFreezeRes = s.freezeReductionPct + (s.shield > 0 ? s.shieldFreezeResPct : 0);
-                if (totalFreezeRes > 0 && r->Frozen > 0)
-                    r->Frozen = std::max(0, (int)(r->Frozen * (1.0 - totalFreezeRes / 100.0)));
+                tickTempAttackBuffs(r, s);
 
                 // Poison DOT tick (every 30 frames)
                 if (s.poisonTimer > 0)
@@ -1957,12 +2098,10 @@ void BattleSceneHades::backRun1()
                         s.autoUltimateTimer--;
                     if (s.autoUltimateTimer <= 0)
                     {
-                        Magic* magic = selectMagic(r, std::greater<double>{});
-                        if (magic)
+                        if (auto magic = this->triggerAutoUltimate(r, false))
                         {
-                            createSkillAttackEffect(r, magic, true);
                             addFloatingText(r, std::string(magic->Name), {255, 215, 0, 255}, EMPHASIS_TEXT_SIZE);
-                            logBattleStatus(r, nullptr, std::format("自动绝招·{}", magic->Name));
+                            logBattleStatus(r, nullptr, std::format("自动绝招·{}", std::string(magic->Name)));
                         }
                         s.autoUltimateTimer = s.autoUltimateAfterFrames;
                     }
@@ -2635,7 +2774,8 @@ void BattleSceneHades::backRun1()
                     for (auto role : battle_roles_)
                     {
                         if (role->Dead != 0 || role == pulled) continue;
-                        int d = calDistance(x, y, role->X(), role->Y());
+                        auto rolePos45 = pos90To45(role->Pos.x, role->Pos.y);
+                        int d = calDistance(x, y, rolePos45.x, rolePos45.y);
                         if (role->Team == pullerTeam)
                         {
                             if (d <= 4) choice.allySupport++;
@@ -2775,7 +2915,7 @@ void BattleSceneHades::backRun1()
                             int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
                             logBattleStatus(r, nullptr,
                                 formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
-                            spawnAreaImpactProjectiles(r, r, 8, 8, KysChess::EFT_DEATH_BLAST, aoeDmg, sit->second.deathAOEStunFrames);
+                            spawnAreaImpactProjectiles(r, r, 7, 7, KysChess::EFT_DEATH_BLAST, aoeDmg, sit->second.deathAOEStunFrames);
                         }
 
                         for (auto ally : battle_roles_)
@@ -2808,7 +2948,7 @@ void BattleSceneHades::backRun1()
                                     if (as.shieldPctMaxHP > 0)
                                     {
                                         int shieldBefore = as.shield;
-                                        as.shield = std::max(as.shield, ally->MaxHP * as.shieldPctMaxHP / 100);
+                                        as.shield += ally->MaxHP * as.shieldPctMaxHP / 100;
                                         if (as.shield > shieldBefore)
                                             logBattleStatus(r, ally,
                                                 formatStatusValue("护盾重获", as.shield - shieldBefore, "护盾"));
@@ -3267,7 +3407,7 @@ void BattleSceneHades::Action(Role* r)
     }
 }
 
-void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate)
+void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, bool consumeMP)
 {
     AttackEffect ae;
     Audio::getInstance()->playASound(magic->SoundID);
@@ -3279,7 +3419,6 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
 
     if (isUltimate)
     {
-        ultCasters_.insert(r);
         auto& cs = KysChess::ChessCombo::getMutableStates();
         auto it = cs.find(r->ID);
         if (it != cs.end())
@@ -3288,6 +3427,9 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
             if (it->second.postSkillDash)
                 it->second.postSkillDashPending = true;
         }
+
+        if (consumeMP)
+            ultCasters_.insert(r);
     }
 
     r->RealTowards.normTo(1);
@@ -3999,8 +4141,8 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
             int shieldWidth = std::clamp(static_cast<int>(std::round(hpBarWidth * (static_cast<double>(comboState->shield) / r->MaxHP))), 1, hpBarWidth);
             int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
             Rect shieldRect = { bar_x, bar_y, visibleShieldWidth, hpBarHeight };
-            int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
-            Engine::getInstance()->renderSquareTexture(&shieldRect, { 70, 140, 255, 255 }, shieldAlpha);
+            // int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
+            Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
 
         bool hasDamageProtection = r->Invincible > 0 || (comboState && comboState->blockFirstHitsRemaining > 0);
@@ -4277,20 +4419,6 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         int actDiff = ae.Attacker->getActProperty(actType) - r->getActProperty(actType);
         hurt *= 1 + std::clamp((actDiff / 200.0), -0.25, 0.25);
     }
-    //添加一点随机性
-    hurt += 5 * (rand_.rand() - rand_.rand());
-    //若无法破防，则随机一个小的数字
-    if (hurt <= 0)
-    {
-        hurt = 1 + rand_.rand() * 3;
-    }
-    //无贯穿则后面不会再造成伤害，再播放一下
-    if (ae.Through == 0)
-    {
-        ae.NoHurt = 1;
-        ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
-    }
-    ae.Attacker->ExpGot += hurt / 2;    // deprecated: kept for compat but unused
 
     // === Combo trigger effects ===
     {
@@ -4339,7 +4467,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (critted)
             {
                 hurt *= as.critMultiplier / 100.0;
-                addFloatingText(ae.Attacker, "暴击", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
+                // addFloatingText(ae.Attacker, "暴击", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
                 logBattleStatus(ae.Attacker, r, formatStatusPercent("暴击", as.critMultiplier));
             }
 
@@ -4551,21 +4679,6 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 logBattleStatus(r, ae.Attacker, "弹反了远程攻击");
             }
 
-            if (!reflectToAttacker && ds.shield > 0)
-            {
-                int shieldBefore = ds.shield;
-                int absorbed = std::min(ds.shield, (int)hurt);
-                ds.shield -= absorbed;
-                hurt -= absorbed;
-                shieldAbsorbed = absorbed;
-                if (shieldBefore > 0 && ds.shield == 0 && ds.shieldExplosionPct > 0)
-                {
-                    int explosionDmg = std::max(1, shieldBefore * ds.shieldExplosionPct / 100);
-                    spawnAreaImpactProjectiles(r, r, 8, 8, KysChess::EFT_SHIELD_BLAST, explosionDmg);
-                    logBattleStatus(r, nullptr, formatStatusValue("护盾爆炸", explosionDmg, "伤害"));
-                }
-            }
-
             if (!reflectToAttacker && ait != cs.end())
             {
                 auto& as = ait->second;
@@ -4610,6 +4723,17 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                 ds.blockFirstHitsRemaining--;
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
                 logBattleStatus(r, ae.Attacker, "格挡了首轮伤害");
+            }
+
+            if (!reflectToAttacker && ds.shield > 0 && hurt > 0)
+            {
+                int shieldBefore = ds.shield;
+                int absorbed = std::min(ds.shield, (int)hurt);
+                ds.shield -= absorbed;
+                hurt -= absorbed;
+                shieldAbsorbed = absorbed;
+                if (shieldBefore > 0 && ds.shield == 0)
+                    triggerShieldBreakEffects(r, ds);
             }
 
             if (!reflectToAttacker && ae.UsingMagic && ds.skillReflectPct > 0)
@@ -4665,6 +4789,22 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         r->LastAttacker = ae.Attacker;
         if (reflectToAttacker)
             ae.Attacker->LastAttacker = r;
+    }
+
+    if (hurt != 0) {
+        //添加一点随机性
+        hurt += 5 * (rand_.rand() - rand_.rand());
+    }
+    
+    if (hurt <= 0)
+    {
+        hurt = 0;
+    }
+    //无贯穿则后面不会再造成伤害，再播放一下
+    if (ae.Through == 0)
+    {
+        ae.NoHurt = 1;
+        ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
     }
 
     //扣HP或MP
