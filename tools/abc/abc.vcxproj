@@ -12,10 +12,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\mlcc\PotConv.cpp" />
-    <ClCompile Include="..\..\src\OpenCCConverter.cpp" />
+    <ClCompile Include="..\..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="abc.cpp" />
     <ClCompile Include="..\..\mlcc\filefunc.cpp" />
     <ClCompile Include="..\..\mlcc\strfunc.cpp" />
+    <ClCompile Include="..\..\mlcc\ZipFile.cpp" />
     <ClCompile Include="..\..\src\GrpIdxFile.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="png_offset.cpp" />
@@ -36,13 +37,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>

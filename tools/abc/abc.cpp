@@ -1,12 +1,12 @@
-﻿
-//一些辅助的功能
+﻿//一些辅助的功能
 //一些常数的设置比较不合理，建议以调试模式手动执行
 
 #include "abc.h"
 #include "GrpIdxFile.h"
-#include "OpenCCConverter.h"
+#include "SimpleCC.h"
 #include "PotConv.h"
 #include "TypesABC.h"
+#include "ZipFile.h"
 #include "filefunc.h"
 #include "strfunc.h"
 #include <print>
@@ -424,6 +424,127 @@ void trans_fight_frame(std::string path0)
     }
 }
 
+namespace
+{
+std::string make_index_txt_content(const std::vector<int16_t>& index_data, bool* all_zero = nullptr)
+{
+    std::string content;
+    bool has_non_zero = false;
+    for (int i = 0; i + 1 < index_data.size(); i += 2)
+    {
+        if (index_data[i] != 0 || index_data[i + 1] != 0)
+        {
+            has_non_zero = true;
+            content += std::format("{}: {}, {}\n", i / 2, index_data[i], index_data[i + 1]);
+        }
+    }
+    if (all_zero)
+    {
+        *all_zero = !has_non_zero;
+    }
+    return content;
+}
+
+std::string get_index_txt_name_in_zip(const std::string& filename)
+{
+    auto pos = filename.find_last_of('/');
+    if (pos == std::string::npos)
+    {
+        return "index.txt";
+    }
+    return filename.substr(0, pos + 1) + "index.txt";
+}
+
+void trans_index_ka_in_zip(const std::string& zip_filename)
+{
+    ZipFile zip;
+    zip.openRead(zip_filename);
+    if (!zip.opened())
+    {
+        return;
+    }
+
+    std::vector<std::pair<std::string, std::string>> txt_files;
+    std::vector<std::string> ka_files_remove;
+    auto zip_files = zip.getFileNames();
+    for (auto& f : zip_files)
+    {
+        if (f == "index.ka")
+        {
+            auto ka_data = zip.readFile(f);
+            std::vector<int16_t> index_data;
+            if (!ka_data.empty())
+            {
+                filefunc::readDataToVector(ka_data.data(), ka_data.size(), index_data);
+            }
+
+            bool all_zero = false;
+            auto txt = make_index_txt_content(index_data, &all_zero);
+            if (!txt.empty())
+            {
+                txt_files.push_back({ get_index_txt_name_in_zip(f), txt });
+            }
+            if (all_zero)
+            {
+                ka_files_remove.push_back(f);
+            }
+        }
+    }
+
+    if (txt_files.empty() && ka_files_remove.empty())
+    {
+        return;
+    }
+
+    zip.openWrite(zip_filename);
+    for (auto& f : ka_files_remove)
+    {
+        zip.removeFile(f);
+        std::print("remove {} in {}\n", f, zip_filename);
+    }
+    for (auto& f : txt_files)
+    {
+        zip.addData(f.first, f.second.data(), f.second.size());
+        std::print("trans {} in {}\n", f.first, zip_filename);
+    }
+}
+}    //namespace
+
+void trans_all_index_ka(std::string path0)
+{
+    if (!filefunc::pathExist(path0))
+    {
+        return;
+    }
+
+    auto files = filefunc::getFilesInPath(path0, 1, 0, 1);
+    for (auto& f : files)
+    {
+        if (filefunc::getFilenameWithoutPath(f) == "index.ka")
+        {
+            std::vector<int16_t> index_data;
+            filefunc::readFileToVector(f, index_data);
+            bool all_zero = false;
+            auto txt = make_index_txt_content(index_data, &all_zero);
+            if (!txt.empty())
+            {
+                auto index_txt = filefunc::getParentPath(f) + "/index.txt";
+                filefunc::writeStringToFile(txt, index_txt);
+                std::print("trans {}\n", index_txt);
+            }
+            else if (all_zero)
+            {
+                filefunc::removeFile(f);
+                std::print("remove {}\n", f);
+            }
+        }
+        else if (filefunc::getFileExt(f) == "zip")
+        {
+            trans_index_ka_in_zip(f);
+        }
+    }
+}
+
 template <class T>
 static void writeValues(sqlite3* db, const std::string& table_name, std::vector<FieldInfo>& infos, const std::vector<T>& data)
 {
@@ -503,6 +624,7 @@ void saveR0ToDB(int num, std::string path)
     }
     cmd.pop_back();
     cmd += ")";
+
     sqlite3_exec(db, cmd.c_str(), nullptr, nullptr, nullptr);
 
     //背包
@@ -639,7 +761,6 @@ int expandR(std::string idx, std::string grp, int index, std::string path, bool 
 
     saveR0ToDB(index, path);
     std::print("trans {} end\n", grp.c_str());
-    return 0;
 }
 
 void combine_image_path(std::string in, std::string out)
@@ -756,6 +877,7 @@ void check_script(std::string path)
                         strs[12][0] = '2';
                         strs[12] = "-" + strs[12];
                         std::string new_str = std::string(line.find_first_not_of(" "), ' ');
+
                         for (auto& s : strs)
                         {
                             new_str += s + ", ";
@@ -803,11 +925,12 @@ void make_heads(std::string path)
 {
     auto h_lib = filefunc::getFilesInPath(path);
     loadR0();
-    OpenCCConverter::getInstance()->set("cc/t2s.json");
+    SimpleCC cc;
+    cc.init({ "cc/t2s.json" });
     for (auto& r : roles_)
     {
         std::string name = r.Name;
-        name = OpenCCConverter::getInstance()->UTF8s2t(name);
+        name = cc.conv(name);
         name = PotConv::utf8tocp936(name);
         for (auto& h : h_lib)
         {

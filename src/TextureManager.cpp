@@ -111,26 +111,94 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         {
             info_.zip.openRead(path + ".zip");
         }
-        std::vector<short> offset;
+
+        std::vector<std::string> files;
         if (info_.zip.opened())
         {
-            std::string index_ka = info_.zip.readFile("index.ka");
-            offset.resize(index_ka.size() / 2);
-            memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+            files = info_.zip.getFileNames();
         }
         else
         {
-            filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+            files = filefunc::getFilesInPath(info_.path);
         }
-        group_.resize(offset.size() / 2);
+
+        int max_num = -1;
+        for (auto& f : files)
+        {
+            if (strfunc::toLowerCase(filefunc::getFileExt(f)) != "png")
+            {
+                continue;
+            }
+            auto name = filefunc::getFileMainNameWithoutPath(f);
+            auto nums = strfunc::findNumbers<int>(name);
+            if (!nums.empty())
+            {
+                max_num = (std::max)(max_num, nums[0]);
+            }
+        }
+
+        group_.resize((std::max)(0, max_num + 1));
         for (int i = 0; i < group_.size(); i++)
         {
             group_[i] = new TextureWarpper();
-            group_[i]->dx = offset[i * 2];
-            group_[i]->dy = offset[i * 2 + 1];
+            group_[i]->dx = 0;
+            group_[i]->dy = 0;
             group_[i]->group_info_ = &info_;
             group_[i]->num_ = i;
         }
+
+        std::string index_txt;
+        if (info_.zip.opened())
+        {
+            index_txt = info_.zip.readFile("index.txt");
+        }
+        else
+        {
+            auto filename = info_.path + "/index.txt";
+            if (filefunc::fileExist(filename))
+            {
+                index_txt = filefunc::readFileToString(filename);
+            }
+        }
+
+        if (!index_txt.empty())
+        {
+            for (auto& line : strfunc::splitString(index_txt, "\n"))
+            {
+                strfunc::replaceAllSubStringRef(line, "\r", "");
+                auto nums = strfunc::findNumbers<int>(line);
+                if (nums.size() >= 3)
+                {
+                    int idx = nums[0];
+                    if (idx >= 0 && idx < group_.size())
+                    {
+                        group_[idx]->dx = nums[1];
+                        group_[idx]->dy = nums[2];
+                    }
+                }
+            }
+        }
+        else
+        {
+            std::vector<short> offset;
+            if (info_.zip.opened())
+            {
+                std::string index_ka = info_.zip.readFile("index.ka");
+                offset.resize(index_ka.size() / 2);
+                memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+            }
+            else
+            {
+                filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+            }
+            int n = (std::min)(int(group_.size()), int(offset.size() / 2));
+            for (int i = 0; i < n; i++)
+            {
+                group_[i]->dx = offset[i * 2];
+                group_[i]->dy = offset[i * 2 + 1];
+            }
+        }
+
         if (info_.zip.opened())
         {
             LOG("Load texture group from file: {}.zip, {} textures\n", info_.path, group_.size());

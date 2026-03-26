@@ -4,10 +4,12 @@
     <LocalDebuggerCommandArguments>ranger1.xlsx</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>D:\_sty\_bak\kys-all\kys-more\pig3\初始存档生成工具</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArgumentsHistory>ranger1.xlsx|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments>ranger1.xlsx</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>D:\_sty\_bak\kys-all\kys-more\pig3\初始存档生成工具</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArgumentsHistory>ranger1.xlsx|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
 </Project>

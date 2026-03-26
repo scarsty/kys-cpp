@@ -51,6 +51,24 @@ make.bat path
 .\abc.exe --save
 ```
 
+#### 递归转换index.ka为index.txt
+
+```
+.\abc.exe --trans-indexka --path 资源目录
+```
+
+会递归查找目录下所有`index.ka`，以及zip中的`index.ka`，并生成同位置的`index.txt`。
+
+`index.txt`每行格式为：
+
+```
+编号: 数字1, 数字2
+```
+
+其中编号从0开始，按`index.ka`每两个`int16`为一组的顺序递增。不存在的编号视为两个0。
+
+编号可以不按顺序。
+
 #### 验证战斗帧数
 
 ```c++

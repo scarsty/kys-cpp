@@ -4,6 +4,7 @@
     <LocalDebuggerCommandArguments>--50 --in ./event --talkpath "D:\kys-all\kys-pascal\all-mod\kys-pineapple\resource"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>D:\kys-all\kys-pascal\all-mod\trans50</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArgumentsHistory>--50 --in ./event --talkpath "D:\kys-all\kys-pascal\all-mod\kys-pineapple\resource"|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments> --50 --in ./event/ka157.lua --talkpath "D:\kys-all\kys-pascal\all-mod\kys-pineapple\resource" --refine</LocalDebuggerCommandArguments>

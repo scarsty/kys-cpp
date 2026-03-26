@@ -1,5 +1,4 @@
-﻿
-#include "abc.h"
+﻿#include "abc.h"
 #include "cmdline.h"
 #include "filefunc.h"
 #include "png_offset.h"
@@ -18,6 +17,7 @@ int main()
     cmd.add("check-fightframe", '\0', "cheak fightframe is right");
     cmd.add("split-eft", '\0', "split eft file to seperate paths");
     cmd.add("combine-wmpsmp", '\0', "combine wmp to smp");
+    cmd.add("trans-indexka", '\0', "recursively trans all index.ka to index.txt");
 
     cmd.add<std::string>("path", 'p', "resource path", false, "./");    
 
@@ -67,11 +67,15 @@ int main()
         split_eft_file(path + "/eft", path + "/effect.bin");
     }
 
-
     if (cmd.exist("combine-wmpsmp"))
     {
         combine_image_path(path + "/wmap", path + "/smap");
         combine_ka(path + "/wmap/index.ka", path + "/smap/index.ka");
+    }
+
+    if (cmd.exist("trans-indexka"))
+    {
+        trans_all_index_ka(path);
     }
 
     //check_script(R"(D:\kys-all\trans50/event)");
