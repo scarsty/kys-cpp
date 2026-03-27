@@ -54,7 +54,7 @@ protected:
     void defaultMagicEffect(AttackEffect& ae, Role* r);
     void applyScriptedAttackEffect(AttackEffect& ae, Role* r);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
-    void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, bool consumeMP = true);
+    void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, int operationType = -1);
     Magic* triggerAutoUltimate(Role* r, bool consumeMP);
     int getUltimateExtraProjectileCount(Role* r);
     void spawnAreaImpactProjectiles(Role* attacker,

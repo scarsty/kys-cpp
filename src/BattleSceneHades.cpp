@@ -533,7 +533,11 @@ Magic* BattleSceneHades::triggerAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
-    createSkillAttackEffect(role, magic, true, consumeMP);
+    createSkillAttackEffect(role, magic, true);
+    if (consumeMP)
+    {
+        changeRoleMP(role, -role->MaxMP);
+    }
     return magic;
 }
 
@@ -2522,7 +2526,7 @@ void BattleSceneHades::backRun1()
                 }
 
                 // Periodic auto ultimate
-                if (s.autoUltimateAfterFrames > 0 && r->UsingMagic == nullptr && r->Dead == 0)
+                if (s.autoUltimateAfterFrames > 0 && r->Dead == 0)
                 {
                     if (s.autoUltimateTimer > 0)
                     {
@@ -3809,177 +3813,14 @@ void BattleSceneHades::Action(Role* r)
                 }
             }
 
-            AttackEffect ae;
             if (magic)
             {
-                Audio::getInstance()->playASound(magic->SoundID);
-                ae.setEft(magic->EffectID);
-                ae.UsingMagic = magic;
             }
             else
             {
-                Audio::getInstance()->playESound(r->ActType);
-                ae.setEft(11);
                 magic = Save::getInstance()->getMagic(1);
-                ae.UsingMagic = Save::getInstance()->getMagic(1);
             }
-            // r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
-            ae.TotalFrame = 30;
-            //r->CoolDown += ae.TotalFrame;
-            ae.Attacker = r;
-            ae.IsUltimate = ultCasters_.count(r) ? 1 : 0;
-            int extraUltimateProjectiles = ae.IsUltimate ? getUltimateExtraProjectileCount(r) : 0;
-            if (ae.IsUltimate)
-            {
-                auto& cs = KysChess::ChessCombo::getMutableStates();
-                auto it = cs.find(r->ID);
-                if (it != cs.end())
-                {
-                    it->second.onSkillTeamHealPending = true;
-                    if (it->second.postSkillDash)
-                    {
-                        it->second.postSkillDashPending = true;
-                    }
-                }
-            }
-            r->RealTowards.normTo(1);
-            ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
-            ae.Frame = 0;
-            ae.OperationType = r->OperationType;
-            if (r->OperationType == -1)
-            {
-                ae.OperationType = getOperationType(ae.UsingMagic->AttackAreaType);
-            }
-
-            // Chess mod: no in-battle magic level-up
-            //根据性质创造攻击效果
-            //连击计数：超时或已触发终结技则重置
-            if (battle_frame_ - r->PreActTimer > 120 || r->OperationCount >= 3)
-            {
-                r->OperationCount = 0;
-            }
-            if (ae.OperationType == 0)
-            {
-                r->OperationCount++;
-                ae.TotalFrame = 10;
-                if (ae.IsUltimate || r->OperationCount >= 3)
-                {
-                    ae.TotalFrame = 30;
-                    ae.Strengthen = 2;
-                    ae.Velocity = r->RealTowards;
-                    ae.Velocity.normTo(magic->SelectDistance / 2.0);
-                    ae.Track = 1;
-                    r->OperationCount = 0;
-                }
-                primeProjectileBounce(ae);
-                attack_effects_.push_back(ae);
-                // Ulti splash: spawn 1 extra homing projectiles
-                if (ae.IsUltimate)
-                {
-                    auto splash = ae;
-                    splash.Strengthen = 0.5;
-                    splash.Track = 1;
-                    splash.TotalFrame = 60;
-                    splash.Velocity = r->RealTowards;
-                    splash.Velocity.normTo(3);
-                    primeProjectileBounce(splash);
-                    spawnTrackingProjectileSpread(splash, 1, 5, 5);
-                }
-                spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
-            }
-            else if (ae.OperationType == 1)
-            {
-                int count = 1;
-                if (ae.IsUltimate)
-                {
-                    count *= 2;
-                }
-                auto p = ae.Pos;
-                auto projectilePrototype = ae;
-                projectilePrototype.TotalFrame = 120;
-                projectilePrototype.Track = 1;
-                projectilePrototype.Pos = p;
-                projectilePrototype.Velocity = r->RealTowards;
-                projectilePrototype.Velocity.normTo(PROJECTILE_SPEED);
-                projectilePrototype.Frame = 0;
-                primeProjectileBounce(projectilePrototype);
-                spawnTrackingProjectileSpread(projectilePrototype, count, 0, 0, 10);
-                spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
-            }
-            else if (ae.OperationType == 2)
-            {
-                auto r0 = findNearestEnemy(r->Team, r->Pos);
-                if (r0)
-                {
-                    ae.Velocity = r0->Pos - r->Pos;
-                    r->RealTowards = ae.Velocity;
-                    //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
-                }
-                else
-                {
-                    ae.Velocity = r->RealTowards;
-                }
-                ae.Velocity.normTo(PROJECTILE_SPEED);
-                ae.TotalFrame = calcProjectileFrames(magic->SelectDistance, TILE_W * 2);
-                if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
-                {
-                    ae.Through = 1;
-                }
-                primeProjectileBounce(ae);
-                attack_effects_.push_back(ae);
-                spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
-                if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
-                {
-                    int sideCount = ae.IsUltimate ? 3 : 2;
-                    double sideStr = ae.IsUltimate ? 0.35 : 0.2;
-                    double v = 5;
-                    double angle = ae.Velocity.getAngle();
-                    for (int i = 0; i < sideCount; i++)
-                    {
-                        v -= 0.5 / sideCount * 2;
-                        float a = angle - 15.0 / 180 * M_PI + rand_.rand() * 30.0 / 180 * M_PI;
-                        ae.Velocity = { cos(a), sin(a) };
-                        ae.Velocity.normTo(v);
-                        ae.Through = 1;
-                        ae.Strengthen = sideStr;
-                        ae.IsMain = 0;
-                        primeProjectileBounce(ae);
-                        attack_effects_.push_back(ae);
-                    }
-                }
-            }
-            else if (ae.OperationType == 3)
-            {
-                auto acc = r->RealTowards;
-                acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
-                r->Velocity = acc;
-                //r->Acceleration += acc;
-                //r->VelocitytFrame = 10;
-                r->ActType = 0;
-                auto p = ae.Pos;
-                int count = 1;
-                double multiHitScore = (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 180.0;
-                if (rand_.rand() < multiHitScore)
-                {
-                    count++;
-                }
-                if (rand_.rand() < multiHitScore * 0.5)
-                {
-                    count++;
-                }
-                for (int i = 0; i < count; i++)
-                {
-                    ae.Pos = p + r->Velocity * (i - 1) * 2;
-                    ae.Frame += 3;
-                    attack_effects_.push_back(ae);
-                }
-                auto projectilePrototype = ae;
-                projectilePrototype.Pos = p;
-                projectilePrototype.Frame = 0;
-                projectilePrototype.Track = 1;
-                primeProjectileBounce(projectilePrototype);
-                spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
-            }
+            createSkillAttackEffect(r, magic, ultCasters_.count(r) > 0, r->OperationType);
             // LOG("{} team {} use {} as {}\n", ae.Attacker->Name, ae.Attacker->Team, ae.UsingMagic->Name, ae.OperationType);
             changeRoleMP(r, ultCasters_.count(r) ? -r->MaxMP : 5);
             ultCasters_.erase(r);
@@ -4036,8 +3877,13 @@ void BattleSceneHades::Action(Role* r)
     }
 }
 
-void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, bool consumeMP)
+void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, int operationType)
 {
+    if (!r || !magic)
+    {
+        return;
+    }
+
     AttackEffect ae;
     Audio::getInstance()->playASound(magic->SoundID);
     ae.setEft(magic->EffectID);
@@ -4045,6 +3891,7 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
     ae.TotalFrame = 30;
     ae.Attacker = r;
     ae.IsUltimate = isUltimate ? 1 : 0;
+    int extraUltimateProjectiles = ae.IsUltimate ? getUltimateExtraProjectileCount(r) : 0;
 
     if (isUltimate)
     {
@@ -4058,23 +3905,154 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
                 it->second.postSkillDashPending = true;
             }
         }
-
-        if (consumeMP)
-        {
-            ultCasters_.insert(r);
-        }
     }
 
+    auto facing = r->RealTowards;
+    if (facing.norm() <= 0.01)
+    {
+        if (auto* nearest = findNearestEnemy(r->Team, r->Pos))
+        {
+            facing = nearest->Pos - r->Pos;
+        }
+    }
+    if (facing.norm() <= 0.01)
+    {
+        facing = { 1, 0, 0 };
+    }
+    facing.normTo(1);
+    r->RealTowards = facing;
     r->RealTowards.normTo(1);
     ae.Pos = r->Pos + TILE_W * 2.0 * r->RealTowards;
     ae.Frame = 0;
-    ae.OperationType = getOperationType(magic->AttackAreaType);
+    ae.OperationType = operationType >= 0 ? operationType : getOperationType(magic->AttackAreaType);
+
+    if (battle_frame_ - r->PreActTimer > 120 || r->OperationCount >= 3)
+    {
+        r->OperationCount = 0;
+    }
+
+    if (ae.OperationType == 0)
+    {
+        r->OperationCount++;
+        ae.TotalFrame = 10;
+        if (ae.IsUltimate || r->OperationCount >= 3)
+        {
+            ae.TotalFrame = 30;
+            ae.Strengthen = 2;
+            ae.Velocity = r->RealTowards;
+            ae.Velocity.normTo(magic->SelectDistance / 2.0);
+            ae.Track = 1;
+            r->OperationCount = 0;
+        }
+        primeProjectileBounce(ae);
+        attack_effects_.push_back(ae);
+        if (ae.IsUltimate)
+        {
+            auto splash = ae;
+            splash.Strengthen = 0.5;
+            splash.Track = 1;
+            splash.TotalFrame = 60;
+            splash.Velocity = r->RealTowards;
+            splash.Velocity.normTo(3);
+            primeProjectileBounce(splash);
+            spawnTrackingProjectileSpread(splash, 1, 5, 5);
+        }
+        spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
+        return;
+    }
+
+    if (ae.OperationType == 1)
+    {
+        int count = ae.IsUltimate ? 2 : 1;
+        auto projectilePrototype = ae;
+        projectilePrototype.TotalFrame = 120;
+        projectilePrototype.Track = 1;
+        projectilePrototype.Velocity = r->RealTowards;
+        projectilePrototype.Velocity.normTo(PROJECTILE_SPEED);
+        projectilePrototype.Frame = 0;
+        primeProjectileBounce(projectilePrototype);
+        spawnTrackingProjectileSpread(projectilePrototype, count, 0, 0, 10);
+        spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
+        return;
+    }
+
+    if (ae.OperationType == 2)
+    {
+        if (auto* target = findNearestEnemy(r->Team, r->Pos))
+        {
+            ae.Velocity = target->Pos - r->Pos;
+            r->RealTowards = ae.Velocity;
+        }
+        else
+        {
+            ae.Velocity = r->RealTowards;
+        }
+        ae.Velocity.normTo(PROJECTILE_SPEED);
+        ae.TotalFrame = calcProjectileFrames(magic->SelectDistance, TILE_W * 2);
+        if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+        {
+            ae.Through = 1;
+        }
+        primeProjectileBounce(ae);
+        attack_effects_.push_back(ae);
+        spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
+        if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
+        {
+            int sideCount = ae.IsUltimate ? 3 : 2;
+            double sideStr = ae.IsUltimate ? 0.35 : 0.2;
+            double v = 5;
+            double angle = ae.Velocity.getAngle();
+            for (int i = 0; i < sideCount; i++)
+            {
+                v -= 0.5 / sideCount * 2;
+                float a = angle - 15.0 / 180 * M_PI + rand_.rand() * 30.0 / 180 * M_PI;
+                ae.Velocity = { cos(a), sin(a) };
+                ae.Velocity.normTo(v);
+                ae.Through = 1;
+                ae.Strengthen = sideStr;
+                ae.IsMain = 0;
+                primeProjectileBounce(ae);
+                attack_effects_.push_back(ae);
+            }
+        }
+        return;
+    }
+
+    if (ae.OperationType == 3)
+    {
+        auto acc = r->RealTowards;
+        acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
+        r->Velocity = acc;
+        r->ActType = 0;
+        auto p = ae.Pos;
+        int count = 1;
+        double multiHitScore = (r->Speed + r->getActProperty(ae.UsingMagic->MagicType)) / 180.0;
+        if (rand_.rand() < multiHitScore)
+        {
+            count++;
+        }
+        if (rand_.rand() < multiHitScore * 0.5)
+        {
+            count++;
+        }
+        for (int i = 0; i < count; i++)
+        {
+            ae.Pos = p + r->Velocity * (i - 1) * 2;
+            ae.Frame += 3;
+            attack_effects_.push_back(ae);
+        }
+        auto projectilePrototype = ae;
+        projectilePrototype.Pos = p;
+        projectilePrototype.Frame = 0;
+        projectilePrototype.Track = 1;
+        primeProjectileBounce(projectilePrototype);
+        spawnUltimateExtraProjectiles(projectilePrototype, extraUltimateProjectiles);
+        return;
+    }
+
     primeProjectileBounce(ae);
     attack_effects_.push_back(ae);
-    if (isUltimate)
-    {
-        spawnUltimateExtraProjectiles(ae, getUltimateExtraProjectileCount(r));
-    }
+    spawnUltimateExtraProjectiles(ae, extraUltimateProjectiles);
 }
 
 void BattleSceneHades::applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason)
