@@ -64,6 +64,9 @@ target_link_libraries(kyschess
     SDL3_mixer
     fluidsynth
     SDL3_image
+    webpdemux
+    webp
+    sharpyuv
     SDL3_ttf
     freetype
     plutosvg

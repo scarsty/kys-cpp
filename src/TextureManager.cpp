@@ -13,19 +13,43 @@ void TextureWarpper::setTex(Texture* t)
     Engine::getInstance()->getTextureSize(t, w, h);
 }
 
+// Try loading an image by base name, preferring .webp over .png.
+static Texture* loadFromZip(GroupInfo* gi, const std::string& base, int as_white = 0)
+{
+    auto content = gi->zip.readFile(base + ".webp");
+    if (!content.empty())
+    {
+        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
+            return t;
+    }
+    content = gi->zip.readFile(base + ".png");
+    if (!content.empty())
+        return Engine::getInstance()->loadImageFromMemory(content, as_white);
+    return nullptr;
+}
+
+static Texture* loadFromDisk(const std::string& dir, const std::string& base, int as_white = 0)
+{
+    auto path = dir + "/" + base;
+    if (auto t = Engine::getInstance()->loadImage(path + ".webp", as_white))
+        return t;
+    return Engine::getInstance()->loadImage(path + ".png", as_white);
+}
+
 void TextureWarpper::load()
 {
     if (!loaded)
     {
         loaded = true;
         //LOG("Load texture {}, {}\n", group_info_->path, num_);
+        auto base = std::to_string(num_);
         if (group_info_->zip.opened())
         {
-            tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + ".png"));
+            tex[0] = loadFromZip(group_info_, base);
         }
         else
         {
-            tex[0] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + ".png");
+            tex[0] = loadFromDisk(group_info_->path, base);
         }
         if (tex[0])
         {
@@ -35,13 +59,14 @@ void TextureWarpper::load()
         {
             for (int i = 0; i < TextureWarpper::SUB_TEXTURE_COUNT; i++)
             {
+                auto sub = base + "_" + std::to_string(i);
                 if (group_info_->zip.opened())
                 {
-                    tex[i] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + "_" + std::to_string(i) + ".png"));
+                    tex[i] = loadFromZip(group_info_, sub);
                 }
                 else
                 {
-                    tex[i] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + "_" + std::to_string(i) + ".png");
+                    tex[i] = loadFromDisk(group_info_->path, sub);
                 }
                 if (tex[i] == nullptr)
                 {
@@ -62,13 +87,14 @@ void TextureWarpper::createWhiteTexture()
 {
     if (tex_white == nullptr)
     {
+        auto base = std::to_string(num_);
         if (group_info_->zip.opened())
         {
-            tex_white = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + ".png"), 1);
+            tex_white = loadFromZip(group_info_, base, 1);
         }
         else
         {
-            tex_white = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + ".png", 1);
+            tex_white = loadFromDisk(group_info_->path, base, 1);
         }
     }
 }

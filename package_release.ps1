@@ -101,9 +101,19 @@ Copy-Item "work\game-dev" "$PkgDir\game" -Recurse -Force
 
 # Step 5: Clean up save files
 Write-Host "[5/6] Cleaning up save files..."
-Remove-Item "$PkgDir\game\save\*.db" -Force
-Copy-Item "work\game-dev\save\0.db" "$PkgDir\game\save\" -Force
-
+Remove-Item "$PkgDir\game\save\*.json" -Force
+Copy-Item "work\game-dev\save\0.json" "$PkgDir\game\save\" -Force
+@"
+{
+   "positionSwapEnabled": false,
+   "musicVolume": 31,
+   "soundVolume": 14,
+   "manualCamera": false,
+   "battleSpeed": 1,
+   "simplifiedChinese": false,
+   "showBattleLog": false
+}
+"@ | Out-File -FilePath "$PkgDir\game\save\setting.json"
 # Step 6: Copy changelog and create play.bat
 Write-Host "[6/6] Finalizing package..."
 $changelog = Get-ChildItem "docs\*.md" | Where-Object { $_.Name -match '\u66f4\u65b0\u65e5\u5fd7' } | Select-Object -First 1

@@ -648,7 +648,7 @@ Texture* Engine::loadImage(const std::string& filename, int as_white)
 Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) const
 {
     auto rw = SDL_IOFromConstMem(content.data(), content.size());
-    auto sur = IMG_LoadTyped_IO(rw, 1, "png");
+    auto sur = IMG_Load_IO(rw, 1);
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
     SDL_DestroySurface(sur);

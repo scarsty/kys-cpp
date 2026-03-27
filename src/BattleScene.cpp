@@ -2257,21 +2257,31 @@ void BattleScene::sendAction(Role* r)
     network_->sendMyAction(action);
 }
 
+
 void BattleScene::makeEarthTexture()
 {
     Engine::getInstance()->createRenderedTexture("earth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     Engine::getInstance()->setRenderTarget("earth");
-    //二者之差是屏幕中心与大纹理的中心的距离
-    for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
+    if (TextureManager::getInstance()->getTextureGroup("battle-earth")->getTextureCount() > 0)
     {
-        for (int i2 = 0; i2 < COORD_COUNT; i2++)
+        TextureManager::getInstance()->renderTexture("battle-earth", info_->BattleFieldID, 0, 0);
+    }
+    else
+    {
+        //二者之差是屏幕中心与大纹理的中心的距离
+        for (int i1 = 0; i1 < COORD_COUNT; i1++)
         {
-            auto p = getPositionOnWholeEarth(i1, i2);
-            int num = earth_layer_.data(i1, i2) / 2;
-            //无高度地面
-            if (num > 0)
+            for (int i2 = 0; i2 < COORD_COUNT; i2++)
             {
-                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                auto p = getPositionOnWholeEarth(i1, i2);
+                int num = earth_layer_.data(i1, i2) / 2;
+                //无高度地面
+                if (num > 0)
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                }
             }
         }
     }

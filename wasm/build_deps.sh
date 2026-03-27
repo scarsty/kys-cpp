@@ -123,6 +123,9 @@ if [ ! -f "${INSTALL_DIR}/lib/libSDL3_image.a" ]; then
         git clone --depth 1 --branch release-3.2.6 \
             https://github.com/libsdl-org/SDL_image.git
     fi
+    # Ensure vendored libwebp is available
+    cd "${SDLIMAGE_DIR}"
+    git submodule update --init external/libwebp
     # Ensure SDL3 version file exists for find_package
     SDL3_CMAKE_DIR="$(dirname "$(which emcc)")/../cache/sysroot/lib/cmake/SDL3"
     if [ ! -f "${SDL3_CMAKE_DIR}/sdl3-config-version.cmake" ]; then
@@ -142,11 +145,13 @@ VEOF
     cd "${SDLIMAGE_DIR}/build_wasm"
     emcmake cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DSDL3IMAGE_PNG=ON -DSDL3IMAGE_PNG_VENDORED=ON \
-        -DSDL3IMAGE_BMP=ON \
-        -DSDL3IMAGE_JPG=OFF -DSDL3IMAGE_WEBP=OFF \
-        -DSDL3IMAGE_AVIF=OFF -DSDL3IMAGE_JXL=OFF \
-        -DSDL3IMAGE_TIF=OFF \
+        -DSDLIMAGE_VENDORED=ON \
+        -DSDLIMAGE_PNG=ON \
+        -DSDLIMAGE_BMP=ON \
+        -DSDLIMAGE_JPG=OFF \
+        -DSDLIMAGE_WEBP=ON \
+        -DSDLIMAGE_AVIF=OFF -DSDLIMAGE_JXL=OFF \
+        -DSDLIMAGE_TIF=OFF \
         -DCMAKE_C_FLAGS="-pthread" \
         -DCMAKE_CXX_FLAGS="-pthread" \
         -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \

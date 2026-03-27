@@ -21,7 +21,8 @@
     {
       "name": "sdl3-image",
       "features": [
-        "png"
+        "png",
+        "webp"
       ]
     },
     {

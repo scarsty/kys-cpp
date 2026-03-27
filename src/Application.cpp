@@ -49,7 +49,7 @@ int Application::run()
         nullptr);
 
     //引擎初始化之后才能创建纹理
-    engine->createAssistTexture("scene", 800, 450);
+    engine->createAssistTexture("scene", 1280, 720);
 
     auto s = std::make_shared<TitleScene>();    //开始界面
     s->run();
