@@ -100,6 +100,7 @@ protected:
     int getBattleStepsThisRender();
     void advanceBattleFrame();
     void handleManualCameraInput(const EngineEvent& e);
+    void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
     Role* assignFlankTarget(Role* r);
@@ -149,6 +150,8 @@ protected:
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;
     bool half_speed_step_on_next_render_ = true;
+    Pointf camera_target_;
+    int close_up_total_ = 0;
 
     struct PathInfo {
         std::vector<Pointf> waypoints;

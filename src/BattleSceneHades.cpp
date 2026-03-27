@@ -30,6 +30,16 @@ constexpr int HURT_FLASH_DURATION = 15;
 constexpr int HURT_FLASH_PERIOD = 3;
 constexpr int BLINK_SOUND_EFFECT_ID = 11;
 constexpr int POST_SKILL_DASH_FRAMES = 30;
+constexpr int CAMERA_DEATH_ZOOM_FRAMES = 30;           // death-focus hold time; original behavior used 30
+constexpr int CAMERA_BATTLE_END_ZOOM_FRAMES = 30;      // end-of-battle hold time; original behavior used 60
+constexpr float CAMERA_DEATH_ZOOM_SCALE = 0.5f;        // 0.5 == original half-screen zoom; 1.0 disables zoom
+constexpr int CAMERA_ZOOM_EASE_FRAMES = 0;             // 0 restores the old hard snap zoom; higher = softer zoom edges
+constexpr int CAMERA_DEATH_SLOW_FRAMES = 10;           // slow-motion duration after a death
+constexpr int CAMERA_BATTLE_END_SLOW_FRAMES = 30;      // slow-motion duration when the battle ends
+constexpr int CAMERA_SLOW_STEP_INTERVAL = 4;           // lower = less slow-motion, higher = slower motion
+constexpr float CAMERA_AUTO_FOLLOW_LERP = 1.0f;       // 1.0 restores the old instant auto-follow snap
+constexpr float CAMERA_DEATH_FOCUS_LERP = 1.0f;       // 1.0 restores the old instant death-focus snap
+constexpr float CAMERA_DEATH_RETARGET_BLEND = 0.0f;   // 0.0 restores the old immediate retarget on repeated deaths
 constexpr int STATUS_TEXT_SIZE = 24;
 constexpr int EMPHASIS_TEXT_SIZE = 36;
 constexpr int NORMAL_DAMAGE_TEXT_SIZE = 30;
@@ -41,6 +51,12 @@ constexpr int PATH_REFRESH_FRAMES = 12;
 constexpr int PATH_STUCK_FRAMES = 3;
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int BATTLE_COORD_COUNT = BATTLEMAP_COORD_COUNT;
+constexpr int ROLE_STATUS_BAR_WIDTH = 48;
+constexpr int ROLE_STATUS_BAR_HEIGHT = 6;
+constexpr int ROLE_STATUS_BAR_Y = -120;
+constexpr int ROLE_STATUS_BAR_STEP_Y = ROLE_STATUS_BAR_HEIGHT + ROLE_STATUS_BAR_HEIGHT / 3;
+constexpr int ROLE_STATUS_BAR_MP_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y;
+constexpr int ROLE_STATUS_BAR_FROZEN_Y = ROLE_STATUS_BAR_Y + ROLE_STATUS_BAR_STEP_Y * 2;
 
 Pointf battlePos45To90(int x, int y)
 {
@@ -59,6 +75,47 @@ Point battlePos90To45(double x, double y)
         static_cast<int>(std::round((-x / BATTLE_TILE_W + y / BATTLE_TILE_W) / 2.0)),
         0,
     };
+}
+
+Pointf lerpPoint(const Pointf& from, const Pointf& to, float t)
+{
+    t = (std::max)(0.0f, (std::min)(t, 1.0f));
+    return {
+        from.x + (to.x - from.x) * t,
+        from.y + (to.y - from.y) * t,
+        from.z + (to.z - from.z) * t,
+    };
+}
+
+float smoothStep(float t)
+{
+    t = (std::max)(0.0f, (std::min)(t, 1.0f));
+    return t * t * (3.0f - 2.0f * t);
+}
+
+float cameraZoomBlend(int closeUp, int closeUpTotal)
+{
+    if (closeUp <= 0 || closeUpTotal <= 0)
+    {
+        return 0.0f;
+    }
+
+    if (CAMERA_ZOOM_EASE_FRAMES <= 0)
+    {
+        return 1.0f;
+    }
+
+    int easeFrames = std::max(1, std::min(CAMERA_ZOOM_EASE_FRAMES, closeUpTotal / 2));
+    int elapsed = closeUpTotal - closeUp;
+    if (elapsed < easeFrames)
+    {
+        return smoothStep(static_cast<float>(elapsed) / easeFrames);
+    }
+    if (closeUp < easeFrames)
+    {
+        return smoothStep(static_cast<float>(closeUp) / easeFrames);
+    }
+    return 1.0f;
 }
 
 int calcProjectileReach(int select_distance, int spawn_offset)
@@ -745,13 +802,64 @@ void BattleSceneHades::handleManualCameraInput(const EngineEvent& e)
 
 void BattleSceneHades::updateAutoCamera()
 {
-    for (auto r : battle_roles_)
+    Pointf desired = camera_target_;
+    bool haveDesired = false;
+
+    if (close_up_ <= 0)
     {
-        if (r->Team == 0 && r->Dead == 0)
+        Pointf center{ 0, 0, 0 };
+        int count = 0;
+        for (auto r : battle_roles_)
         {
-            pos_ = r->Pos;
+            if (r && r->Team == 0 && r->Dead == 0)
+            {
+                center += r->Pos;
+                count++;
+            }
+        }
+
+        if (count > 0)
+        {
+            center.x /= count;
+            center.y /= count;
+            center.z /= count;
+            desired = center;
+            haveDesired = true;
         }
     }
+    else
+    {
+        haveDesired = true;
+    }
+
+    if (haveDesired)
+    {
+        camera_target_ = desired;
+    }
+
+    float lerp = close_up_ > 0 ? CAMERA_DEATH_FOCUS_LERP : CAMERA_AUTO_FOLLOW_LERP;
+    pos_ = lerpPoint(pos_, camera_target_, lerp);
+    clampCameraCenter();
+}
+
+void BattleSceneHades::focusCameraOn(const Pointf& focusPoint, int zoomFrames)
+{
+    if (zoomFrames <= 0)
+    {
+        return;
+    }
+
+    if (close_up_ <= 0)
+    {
+        camera_target_ = focusPoint;
+    }
+    else
+    {
+        camera_target_ = lerpPoint(camera_target_, focusPoint, CAMERA_DEATH_RETARGET_BLEND);
+    }
+
+    close_up_ = std::max(close_up_, zoomFrames);
+    close_up_total_ = std::max(close_up_total_, close_up_);
 }
 
 void BattleSceneHades::clampCameraCenter()
@@ -1365,17 +1473,22 @@ void BattleSceneHades::draw()
     }
     rect0.w = std::min(rect0.w, COORD_COUNT * TILE_W * 2 - rect0.x);
     rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
-    rect1.w = rect0.w;
-    rect1.h = rect0.h;
+
+    float zoomBlend = cameraZoomBlend(close_up_, close_up_total_);
+    if (zoomBlend > 0.0f)
+    {
+        float zoomScale = 1.0f + (CAMERA_DEATH_ZOOM_SCALE - 1.0f) * zoomBlend;
+        int zoomedW = std::max(1, int(rect0.w * zoomScale + 0.5f));
+        int zoomedH = std::max(1, int(rect0.h * zoomScale + 0.5f));
+        rect0.x += (rect0.w - zoomedW) / 2;
+        rect0.y += (rect0.h - zoomedH) / 2 - int(20.0f * zoomBlend);
+        rect0.w = zoomedW;
+        rect0.h = zoomedH;
+        rect0.x = std::max(0, std::min(rect0.x, COORD_COUNT * TILE_W * 2 - rect0.w));
+        rect0.y = std::max(0, std::min(rect0.y, COORD_COUNT * TILE_H * 2 - rect0.h));
+    }
 
     Engine::getInstance()->setRenderTarget("scene");
-    if (close_up_)
-    {
-        rect0.w /= 2;
-        rect0.h /= 2;
-        rect0.x += rect0.w / 2;
-        rect0.y += rect0.h / 2 - 20;
-    }
 
     Engine::getInstance()->renderTexture(whole_scene, &rect0, &rect1, 0);
 
@@ -1425,14 +1538,14 @@ void BattleSceneHades::draw()
         {
             Font::getInstance()->draw(std::to_string(r->Frozen),
                 (std::max)(1, int(10 * sizeScale)),
-                worldToUiX(wx - 5), worldToUiY(wy - 52),
+                worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y),
                 { 255, 255, 255, 255 });
         }
         if (positionSwapActive_ && r->Team == 0)
         {
             std::string coord = std::format("({},{})", r->X(), r->Y());
             Font::getInstance()->draw(coord,
-                (std::max)(1, int(14 * sizeScale)),
+                (std::max)(1, int(28 * sizeScale)),
                 worldToUiX(wx - 5), worldToUiY(wy - 5),
                 { 255, 255, 100, 255 });
         }
@@ -2021,6 +2134,8 @@ void BattleSceneHades::onEntrance()
     battle_frame_ = 0;
     half_speed_step_on_next_render_ = true;
     manual_camera_dragging_ = false;
+    camera_target_ = pos_;
+    close_up_total_ = 0;
     clampCameraCenter();
 
     // Pre-battle position swap
@@ -2305,7 +2420,7 @@ void BattleSceneHades::backRun1()
 
     if (slow_ > 0)
     {
-        if (battle_frame_ % 4) { return; }
+        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL) { return; }
         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
@@ -3455,17 +3570,17 @@ void BattleSceneHades::backRun1()
                     applyFrozen(r, 5);
                     x_ = rand_.rand_int(2) - rand_.rand_int(2);
                     y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                    //dying_ = r;
                     if (!isManualCameraEnabled())
                     {
-                        pos_ = r->Pos;
+                        focusCameraOn(r->Pos, CAMERA_DEATH_ZOOM_FRAMES);
                     }
                     frozen_ = 5;
                     shake_ = 10;
-                    slow_ = 10;
+                    slow_ = CAMERA_DEATH_SLOW_FRAMES;
                     if (!isManualCameraEnabled())
                     {
-                        close_up_ = 30;
+                        close_up_ = std::max(close_up_, CAMERA_DEATH_ZOOM_FRAMES);
+                        close_up_total_ = std::max(close_up_total_, close_up_);
                     }
                 }
             }
@@ -3545,10 +3660,11 @@ void BattleSceneHades::backRun1()
                 //pos_ = dying_->Pos;
                 if (!isManualCameraEnabled())
                 {
-                    close_up_ = 60;
+                    close_up_ = std::max(close_up_, CAMERA_BATTLE_END_ZOOM_FRAMES);
+                    close_up_total_ = std::max(close_up_total_, close_up_);
                 }
                 frozen_ = 60;
-                slow_ = 40;
+                slow_ = CAMERA_BATTLE_END_SLOW_FRAMES;
                 shake_ = 60;
                 result_ = battle_result;
                 tracker_.recordBattleEnd(battle_frame_, battle_result);
@@ -4716,9 +4832,7 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
     // 画个血条
     Color outline_color = { 0, 0, 0, 128 };
-    constexpr int hpBarWidth = 24;
-    constexpr int hpBarHeight = 3;
-    constexpr int hpBarY = -60;
+    const int barLeft = int(std::round(x - ROLE_STATUS_BAR_WIDTH / 2.0));
 
     auto renderOutline = [&](int bar_x, int bar_y, int width, int height, Color color, int alpha)
     {
@@ -4734,22 +4848,24 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
 
     auto renderBar = [&](int bar_y, int cur, int max, Color background_color, Color shadow_color)
     {
-        constexpr auto width = 24;
-        constexpr auto height = 3;
-        int bar_x = int(x - width / 2);
-        double perc = static_cast<double>(cur) / max;
+        if (max <= 0)
+        {
+            return;
+        }
+
+        double perc = std::clamp(static_cast<double>(cur) / max, 0.0, 1.0);
         double alpha = 1;
 
         // Draw full background bar (max HP/MP) - shadow
-        Rect r_bg = { bar_x, bar_y, width, height };
+        Rect r_bg = { barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT };
         Engine::getInstance()->renderSquareTexture(&r_bg, shadow_color, 128 * alpha);
 
         // Draw current HP/MP bar on top (percentage of max)
-        Rect r1 = { bar_x, bar_y, int(perc * width), height };
+        Rect r1 = { barLeft, bar_y, int(perc * ROLE_STATUS_BAR_WIDTH), ROLE_STATUS_BAR_HEIGHT };
         Engine::getInstance()->renderSquareTexture(&r1, background_color, 192 * alpha);
 
         // Draw outline
-        renderOutline(bar_x, bar_y, width, height, outline_color, 128 * alpha);
+        renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, outline_color, 128 * alpha);
     };
 
     Color background_color = { 0, 255, 0, 128 };    // 我方绿色
@@ -4760,19 +4876,18 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         background_color = { 255, 0, 0, 128 };
     }
 
-    renderBar(y + hpBarY, r->HP, r->MaxHP, background_color, shadow_color);
+    renderBar(y + ROLE_STATUS_BAR_Y, r->HP, r->MaxHP, background_color, shadow_color);
 
     if (r->MaxHP > 0 && r->HP > 0)
     {
-        int bar_x = int(x - hpBarWidth / 2);
-        int bar_y = y + hpBarY;
-        int hpFillWidth = std::clamp(static_cast<int>(std::round(hpBarWidth * (static_cast<double>(r->HP) / r->MaxHP))), 0, hpBarWidth);
+        int bar_y = y + ROLE_STATUS_BAR_Y;
+        int hpFillWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(r->HP) / r->MaxHP))), 0, ROLE_STATUS_BAR_WIDTH);
 
         if (comboState && comboState->shield > 0)
         {
-            int shieldWidth = std::clamp(static_cast<int>(std::round(hpBarWidth * (static_cast<double>(comboState->shield) / r->MaxHP))), 1, hpBarWidth);
+            int shieldWidth = std::clamp(static_cast<int>(std::round(ROLE_STATUS_BAR_WIDTH * (static_cast<double>(comboState->shield) / r->MaxHP))), 1, ROLE_STATUS_BAR_WIDTH);
             int visibleShieldWidth = std::min(shieldWidth, hpFillWidth);
-            Rect shieldRect = { bar_x, bar_y, visibleShieldWidth, hpBarHeight };
+            Rect shieldRect = { barLeft, bar_y, visibleShieldWidth, ROLE_STATUS_BAR_HEIGHT };
             // int shieldAlpha = std::clamp(90 + comboState->shield * 120 / std::max(1, r->MaxHP), 90, 180);
             Engine::getInstance()->renderSquareTexture(&shieldRect, { 250, 200, 0, 255 }, 255);
         }
@@ -4781,30 +4896,26 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         if (hasDamageProtection)
         {
             Color protectionColor = comboState && comboState->blockFirstHitsRemaining > 0 ? Color{ 255, 220, 110, 255 } : Color{ 255, 170, 95, 255 };
-            renderOutline(bar_x, bar_y, hpBarWidth, hpBarHeight, protectionColor, 220);
+            renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, protectionColor, 220);
         }
     }
 
     Color mp_color = { 0, 0, 255, 128 };
     Color mp_shadow_color = { 64, 64, 64, 128 };
-    renderBar(y - 56, r->MP, r->MaxMP, mp_color, mp_shadow_color);
+    renderBar(y + ROLE_STATUS_BAR_MP_Y, r->MP, r->MaxMP, mp_color, mp_shadow_color);
 
     // Frozen bar
     if (r->Frozen > 0 && r->FrozenMax > 0)
     {
-        constexpr auto width = 24;
-        constexpr auto height = 3;
         Color frozen_color = { 200, 220, 255, 192 };
-        int bar_x = int(x - width / 2);
-        int bar_y = y - 52;
+        int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
         double perc = static_cast<double>(r->Frozen) / r->FrozenMax;
 
         // Draw outline (same color as bar)
-        Rect r_outline = { bar_x - 1, bar_y - 1, width + 2, height + 2 };
-        Engine::getInstance()->renderSquareTexture(&r_outline, frozen_color, 128);
+        renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, frozen_color, 128);
 
         // Draw current frozen bar
-        Rect r_frozen = { bar_x, bar_y, int(perc * width), height };
+        Rect r_frozen = { barLeft, bar_y, int(perc * ROLE_STATUS_BAR_WIDTH), ROLE_STATUS_BAR_HEIGHT };
         Engine::getInstance()->renderSquareTexture(&r_frozen, frozen_color, 192);
     }
 }
