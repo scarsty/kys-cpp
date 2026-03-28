@@ -132,6 +132,7 @@ void TitleScene::draw()
     Font::getInstance()->draw(GameUtil::VERSION(), 20, titleX, titleY + titleSize + 16, { 150, 150, 150, 255 }, 255);
 
 #ifdef __EMSCRIPTEN__
+    Font::getInstance()->draw("推荐使用 Edge / Firefox / Chrome / Opera 浏览器", 16, 10, 10, { 180, 180, 180, 180 }, 255);
     if (!overlay_dismissed_)
     {
         overlay_dismissed_ = true;

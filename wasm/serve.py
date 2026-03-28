@@ -1,4 +1,4 @@
-from http.server import HTTPServer
+from http.server import HTTPServer, ThreadingHTTPServer
 from RangeHTTPServer import RangeRequestHandler
 import ssl
 import sys
@@ -25,7 +25,7 @@ port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 # ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 # ctx.load_cert_chain("cert.pem", "key.pem")
 
-server = HTTPServer(("", port), Handler)
+server = ThreadingHTTPServer(("", port), Handler)
 # server.socket = ctx.wrap_socket(server.socket, server_side=True)
 
 print(f"Serving HTTPS on port {port}")

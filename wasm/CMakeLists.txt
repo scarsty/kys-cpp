@@ -87,6 +87,7 @@ set(EM_LINK_FLAGS
 # Join list into a space-separated string for link flags
 list(JOIN EM_LINK_FLAGS " " EM_LINK_FLAGS_STR)
 set_target_properties(kyschess PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS_STR}")
+set_target_properties(kyschess PROPERTIES LINK_DEPENDS "${CMAKE_SOURCE_DIR}/shell.html")
 
 # Output .html so emscripten generates the .js and .wasm alongside it
 set_target_properties(kyschess PROPERTIES SUFFIX ".html")

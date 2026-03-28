@@ -636,8 +636,17 @@ Texture* Engine::loadImage(const std::string& filename, int as_white)
     //屏蔽libpng的错误输出
     DisableStream d(stderr);
     auto sur = IMG_Load(filename.c_str());
+    if (!sur)
+    {
+        LOG("IMG_Load failed: {} ({})\n", filename, SDL_GetError());
+        return nullptr;
+    }
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
+    if (!tex)
+    {
+        LOG("SDL_CreateTextureFromSurface failed: {} ({}x{}, {})\n", filename, sur->w, sur->h, SDL_GetError());
+    }
     SDL_DestroySurface(sur);
     return tex;
 }
@@ -646,8 +655,17 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) c
 {
     auto rw = SDL_IOFromConstMem(content.data(), content.size());
     auto sur = IMG_Load_IO(rw, 1);
+    if (!sur)
+    {
+        LOG("IMG_Load_IO failed: {} bytes ({})\n", content.size(), SDL_GetError());
+        return nullptr;
+    }
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
+    if (!tex)
+    {
+        LOG("SDL_CreateTextureFromSurface failed from memory: {} bytes ({}x{}, {})\n", content.size(), sur->w, sur->h, SDL_GetError());
+    }
     SDL_DestroySurface(sur);
     return tex;
 }
