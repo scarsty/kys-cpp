@@ -7,17 +7,20 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
+#include <limits>
 #include <vector>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 #else
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #endif
 
 namespace AtlasManifestFormat
@@ -161,10 +164,10 @@ private:
     std::uint64_t blob_size_ = 0;
 };
 #else
-class MappedAtlasStorage final : public AtlasManager::Storage
+class StreamAtlasStorage final : public AtlasManager::Storage
 {
 public:
-    ~MappedAtlasStorage() override
+    ~StreamAtlasStorage() override
     {
         close();
     }
@@ -173,33 +176,20 @@ public:
     {
         close();
 
-        fd_ = open(blob_path.c_str(), O_RDONLY);
+        fd_ = ::open(blob_path.c_str(), O_RDONLY);
         if (fd_ < 0)
         {
             return false;
         }
 
-        struct stat stat_buffer {};
-        if (fstat(fd_, &stat_buffer) != 0 || stat_buffer.st_size < 0)
+        const off_t end_pos = ::lseek(fd_, 0, SEEK_END);
+        if (end_pos < 0)
         {
             close();
             return false;
         }
 
-        blob_size_ = static_cast<std::uint64_t>(stat_buffer.st_size);
-        if (blob_size_ == 0)
-        {
-            return true;
-        }
-
-        mapped_data_ = static_cast<const std::byte*>(mmap(nullptr, static_cast<size_t>(blob_size_), PROT_READ, MAP_PRIVATE, fd_, 0));
-        if (mapped_data_ == MAP_FAILED)
-        {
-            mapped_data_ = nullptr;
-            close();
-            return false;
-        }
-
+        blob_size_ = static_cast<std::uint64_t>(end_pos);
         return true;
     }
 
@@ -210,7 +200,7 @@ public:
 
     std::string read(std::uint64_t offset, std::uint64_t size) const override
     {
-        if (offset > blob_size_ || size > blob_size_ - offset)
+        if (fd_ < 0 || offset > blob_size_ || size > blob_size_ - offset)
         {
             return {};
         }
@@ -218,23 +208,28 @@ public:
         {
             return {};
         }
-        if (!mapped_data_)
-        {
-            return {};
-        }
 
-        auto begin = reinterpret_cast<const char*>(mapped_data_ + offset);
-        return std::string(begin, begin + static_cast<size_t>(size));
+        std::string content(static_cast<std::size_t>(size), '\0');
+        std::size_t done = 0;
+        while (done < static_cast<std::size_t>(size))
+        {
+            const auto got = ::pread(
+                fd_,
+                content.data() + done,
+                static_cast<std::size_t>(size) - done,
+                static_cast<off_t>(offset + done));
+            if (got <= 0)
+            {
+                return {};
+            }
+            done += static_cast<std::size_t>(got);
+        }
+        return content;
     }
 
 private:
     void close()
     {
-        if (mapped_data_)
-        {
-            munmap(const_cast<std::byte*>(mapped_data_), static_cast<size_t>(blob_size_));
-            mapped_data_ = nullptr;
-        }
         if (fd_ >= 0)
         {
             ::close(fd_);
@@ -244,7 +239,6 @@ private:
     }
 
     int fd_ = -1;
-    const std::byte* mapped_data_ = nullptr;
     std::uint64_t blob_size_ = 0;
 };
 #endif
@@ -284,7 +278,11 @@ bool AtlasManager::openRead(const std::string& base_path)
     }
 
     std::unique_ptr<Storage> storage;
+#ifdef _WIN32
     storage = std::make_unique<MappedAtlasStorage>();
+#else
+    storage = std::make_unique<StreamAtlasStorage>();
+#endif
     if (!storage->openBlob(blob_path))
     {
         return false;
