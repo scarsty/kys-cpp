@@ -71,7 +71,7 @@
             user-select: none;
         }
         #rclick-btn { bottom: 2rem; right: 2rem; }
-        #fs-btn { bottom: 2rem; left: 2rem; }
+        #fs-btn { bottom: 2rem; left: 2rem; display: flex; }
         #rclick-btn:active, #fs-btn:active { background: rgba(255,255,255,0.3); }
         @media (pointer: coarse) { #rclick-btn, #fs-btn { display: flex !important; } }
         /* #mobile-indicator {
@@ -97,7 +97,7 @@
     <div id="wrap">
         <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
         <button id="rclick-btn" aria-label="Right click">✕</button>
-        <button id="fs-btn" aria-label="Fullscreen">⛶</button>
+        <button id="fs-btn" aria-label="Expand viewport">⛶</button>
     </div>
     <script>
         var statusEl = document.getElementById('status');
@@ -253,18 +253,17 @@
             lastTouchY = e.touches[0].clientY - rect.top;
         });
 
-        // Fullscreen button for touch devices
+        // Desktop: viewport expand button. Mobile: explicit browser fullscreen.
         var fsBtn = document.getElementById('fs-btn');
         var originalCanvasW = 1280, originalCanvasH = 720;
 
         var _syncTimer = 0;
         var _generation = 0;
-        var _inFullscreen = false;
+        var _viewportExpanded = false;
 
-        // iOS standalone PWA (Add to Home Screen) counts as "fullscreen"
         function isEffectiveFullscreen() {
             if (document.fullscreenElement || document.webkitFullscreenElement) return true;
-            if (navigator.standalone) return true; // iOS PWA
+            if (navigator.standalone) return true;
             if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
             return false;
         }
@@ -272,20 +271,22 @@
         function applyCanvasSize() {
             if (!runtimeReady) return;
             var canvas = Module.canvas;
-            var fs = isEffectiveFullscreen();
+            var expanded = _viewportExpanded;
 
-            if (fs) {
+            if (expanded) {
                 var dpr = window.devicePixelRatio || 1;
                 var vv = window.visualViewport;
                 var cssW = vv ? vv.width : window.innerWidth;
                 var cssH = vv ? vv.height : window.innerHeight;
                 canvas.style.maxWidth = 'none';
                 canvas.style.maxHeight = 'none';
+                canvas.style.width = cssW + 'px';
+                canvas.style.height = cssH + 'px';
                 Module.ccall('resize_to_viewport', null,
                     ['number', 'number', 'number', 'number'],
                     [cssW * dpr, cssH * dpr, cssW, cssH]);
-            } else if (_inFullscreen) {
-                // Only reset when actually exiting fullscreen
+                if (!isMobileDevice) fsBtn.textContent = '🗗';
+            } else {
                 canvas.style.width = '';
                 canvas.style.height = '';
                 canvas.style.maxWidth = '';
@@ -295,8 +296,8 @@
                     [originalCanvasW, originalCanvasH, originalCanvasW, originalCanvasH]);
                 canvas.style.width = '';
                 canvas.style.height = '';
+                if (!isMobileDevice) fsBtn.textContent = '⛶';
             }
-            _inFullscreen = fs;
         }
 
         function syncCanvasSize() {
@@ -311,19 +312,19 @@
             }
         }
 
-        // Listen for fullscreen changes and ensure buttons remain visible
-        function onFullscreenChange() {
+        function onViewportChange() {
             syncCanvasSize();
-            // Force button visibility check on mobile
             if (isMobileDevice) {
                 rclickBtn.style.display = 'flex';
                 fsBtn.style.display = 'flex';
             }
         }
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+        window.addEventListener('resize', onViewportChange);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', onViewportChange);
+        }
 
-        fsBtn.addEventListener('touchstart', function(e) {
+        function toggleMobileFullscreen(e) {
             e.preventDefault();
             e.stopPropagation();
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -341,6 +342,25 @@
                 }
                 var exit = document.exitFullscreen || document.webkitExitFullscreen;
                 if (exit) exit.call(document);
+            }
+        }
+
+        function toggleViewportExpand(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            _viewportExpanded = !_viewportExpanded;
+            syncCanvasSize();
+        }
+        fsBtn.addEventListener('touchstart', function(e) {
+            if (isMobileDevice) {
+                toggleMobileFullscreen(e);
+            } else {
+                toggleViewportExpand(e);
+            }
+        });
+        fsBtn.addEventListener('click', function(e) {
+            if (!isMobileDevice) {
+                toggleViewportExpand(e);
             }
         });
 

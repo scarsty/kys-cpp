@@ -158,6 +158,20 @@ bool ImGuiLayer::processEvent(const SDL_Event& event)
         return false;
     }
 
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && event.button.button == SDL_BUTTON_RIGHT)
+    {
+        if (system_menu_.open && system_menu_input_guard_frames_ <= 0)
+        {
+            hideBattleSystemMenu();
+            return true;
+        }
+        if (battle_log_.open && battle_log_input_guard_frames_ <= 0)
+        {
+            hideBattleLog();
+            return true;
+        }
+    }
+
     if (((battle_log_.open && battle_log_input_guard_frames_ > 0)
             || (system_menu_.open && system_menu_input_guard_frames_ > 0))
         && isGuardedOverlayEventType(event.type))
@@ -264,6 +278,7 @@ void ImGuiLayer::showBattleLog(const BattleLogData& data)
     battle_log_.open = true;
     battle_log_input_guard_frames_ = 10;
     battle_log_hover_guard_ = true;
+    battle_log_dragging_ = false;
     battle_log_child_flip_ ^= 1;
     battle_log_ally_filter_id_ = -1;
     battle_log_enemy_filter_id_ = -1;
@@ -274,6 +289,7 @@ void ImGuiLayer::hideBattleLog()
     battle_log_.open = false;
     battle_log_input_guard_frames_ = 0;
     battle_log_hover_guard_ = false;
+    battle_log_dragging_ = false;
 }
 
 bool ImGuiLayer::isBattleLogOpen() const
@@ -523,7 +539,11 @@ void ImGuiLayer::renderBattleLogWindow()
         ImGui::Spacing();
         ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, fs * 2.0f);
         const char* child_id = battle_log_child_flip_ ? "battle_log_entries_b" : "battle_log_entries_a";
-        ImGui::BeginChild(child_id, ImVec2(0.0f, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 2.0f), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
+        ImVec2 child_pos = ImGui::GetCursorScreenPos();
+        ImVec2 child_size = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() * 2.0f);
+        if (child_size.x < 1.0f) child_size.x = 1.0f;
+        if (child_size.y < 1.0f) child_size.y = 1.0f;
+        ImGui::BeginChild(child_id, child_size, true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus);
         auto colorForField = [&](BattleLogFieldTone tone, BattleLogTone line_tone) -> ImVec4
         {
             switch (tone)
@@ -594,12 +614,23 @@ void ImGuiLayer::renderBattleLogWindow()
             ImGui::PopStyleColor();
         }
 
-        if (allow_close
-            && ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
-            && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)
-            && !ImGui::IsAnyItemActive())
+        const ImGuiIO& drag_io = ImGui::GetIO();
+        bool mouse_in_child = drag_io.MousePos.x >= child_pos.x
+            && drag_io.MousePos.x < child_pos.x + child_size.x
+            && drag_io.MousePos.y >= child_pos.y
+            && drag_io.MousePos.y < child_pos.y + child_size.y;
+        if (allow_close && !battle_log_dragging_ && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && mouse_in_child)
         {
-            ImGui::SetScrollY(ImGui::GetScrollY() - ImGui::GetIO().MouseDelta.y);
+            battle_log_dragging_ = true;
+        }
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        {
+            battle_log_dragging_ = false;
+        }
+        if (battle_log_dragging_)
+        {
+            ImGui::SetScrollY(ImGui::GetScrollY() - drag_io.MouseDelta.y);
+            ImGui::SetScrollX(ImGui::GetScrollX() - drag_io.MouseDelta.x);
         }
         ImGui::EndChild();
         ImGui::PopStyleVar();
@@ -625,6 +656,7 @@ void ImGuiLayer::renderBattleLogWindow()
         if (buttonLocalized("繼續", ImVec2(button_w, button_h)) && allow_close)
         {
             battle_log_.open = false;
+            battle_log_dragging_ = false;
         }
         ImGui::PopFont();
         ImGui::PopStyleColor(3);
@@ -640,6 +672,10 @@ void ImGuiLayer::renderBattleLogWindow()
     if (battle_log_input_guard_frames_ > 0)
     {
         battle_log_input_guard_frames_--;
+    }
+    if (!battle_log_.open)
+    {
+        battle_log_dragging_ = false;
     }
 }
 
