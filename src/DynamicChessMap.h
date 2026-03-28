@@ -33,6 +33,11 @@ public:
         KysChess::ChessManager& chessManager,
         int battle_id = -1);
 
+    static int resolveBattleId(
+        const DynamicBattleRoles& roles,
+        KysChess::ChessRandom& random,
+        int battle_id = -1);
+
 private:
     struct MapInfo
     {

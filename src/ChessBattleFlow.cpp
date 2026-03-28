@@ -681,6 +681,8 @@ void ChessBattleFlow::enterBattle()
 
 int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed)
 {
+    battle_id = DynamicChessMap::resolveBattleId(roles, services_.random, battle_id);
+
     ChessManager chessManager(services_.roster, services_.equipmentInventory, services_.economy);
     std::vector<Chess> enemyChessVec;
     for (size_t i = 0; i < roles.enemy_ids.size(); ++i)
@@ -704,6 +706,7 @@ int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vecto
             roles.enemy_stars,
             allyCombos,
             enemyCombos,
+            battle_id,
             musicId,
             roles.enemy_weapons,
             roles.enemy_armors,

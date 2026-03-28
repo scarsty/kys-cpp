@@ -1,6 +1,7 @@
 ﻿#include "UISave.h"
 #include "Event.h"
 #include "MainScene.h"
+#include "ScenePreloader.h"
 #include "Save.h"
 #include "SubScene.h"
 #include "UI.h"
@@ -71,6 +72,13 @@ bool UISave::load(int r)
     auto main_scene = MainScene::getInstance();
     if (save->load(r))
     {
+        ScenePreloader::showPromptAndPreload("加載中...", [targetSubmap = save->InSubMap]() {
+            ScenePreloader::preloadSubSceneAssets(53);
+            if (targetSubmap >= 0 && targetSubmap != 53)
+            {
+                ScenePreloader::preloadSubSceneAssets(targetSubmap);
+            }
+        });
         main_scene->setManPosition(save->MainMapX, save->MainMapY);
         if (save->InSubMap >= 0)
         {

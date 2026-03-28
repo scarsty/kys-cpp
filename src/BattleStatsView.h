@@ -112,6 +112,7 @@ public:
         const std::vector<int>& enemyStars,
         const std::vector<KysChess::ActiveCombo>& allyCombos,
         const std::vector<KysChess::ActiveCombo>& enemyCombos,
+        int battleId,
         int musicId,
         const std::vector<int>& enemyWeapons = {},
         const std::vector<int>& enemyArmors = {},
@@ -136,6 +137,7 @@ private:
     bool assetsPreloaded_ = false;
     bool loadingTextRendered_ = false;
     int musicId_ = -1;
+    int battleId_ = -1;
     bool postBattleLogShown_ = false;
     int postBattleLogOpenFrame_ = -1;
     bool postBattleMouseReleaseArmed_ = false;

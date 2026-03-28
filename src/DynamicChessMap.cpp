@@ -9,38 +9,22 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(
     KysChess::ChessManager& chessManager,
     int battle_id)
 {
+    battle_id = resolveBattleId(roles, random, battle_id);
+
     const auto& maps = getTopMaps();
     int map_index = -1;
-
-    if (battle_id >= 0)
+    for (int i = 0; i < (int)maps.size(); i++)
     {
-        for (int i = 0; i < (int)maps.size(); i++)
-            if (maps[i].battle_id == battle_id) { map_index = i; break; }
+        if (maps[i].battle_id == battle_id)
+        {
+            map_index = i;
+            break;
+        }
     }
 
     if (map_index < 0)
     {
-        // Select map that has enough enemy positions for the requested enemies
-        int needed = (int)roles.enemy_ids.size();
-        std::vector<int> candidates;
-        for (int i = 0; i < (int)maps.size(); i++)
-        {
-            if (maps[i].enemy_count >= needed)
-                candidates.push_back(i);
-        }
-        // Fallback: if no map has enough, pick the one with the most enemies
-        if (candidates.empty())
-        {
-            int best = 0;
-            for (int i = 1; i < (int)maps.size(); i++)
-            {
-                if (maps[i].enemy_count > maps[best].enemy_count)
-                    best = i;
-            }
-            candidates.push_back(best);
-        }
-        size_t candidateIndex = static_cast<size_t>(random.enemyRandInt(static_cast<int>(candidates.size())));
-        map_index = candidates[candidateIndex];
+        return nullptr;
     }
 
     const auto& selected_map = maps[map_index];
@@ -94,6 +78,53 @@ std::shared_ptr<BattleSceneHades> DynamicChessMap::createBattle(
     }
 
     return battle;
+}
+
+int DynamicChessMap::resolveBattleId(
+    const DynamicBattleRoles& roles,
+    KysChess::ChessRandom& random,
+    int battle_id)
+{
+    const auto& maps = getTopMaps();
+    int map_index = -1;
+
+    if (battle_id >= 0)
+    {
+        for (int i = 0; i < (int)maps.size(); i++)
+            if (maps[i].battle_id == battle_id) { map_index = i; break; }
+    }
+
+    if (map_index < 0)
+    {
+        // Select map that has enough enemy positions for the requested enemies
+        int needed = (int)roles.enemy_ids.size();
+        std::vector<int> candidates;
+        for (int i = 0; i < (int)maps.size(); i++)
+        {
+            if (maps[i].enemy_count >= needed)
+                candidates.push_back(i);
+        }
+        // Fallback: if no map has enough, pick the one with the most enemies
+        if (candidates.empty())
+        {
+            int best = 0;
+            for (int i = 1; i < (int)maps.size(); i++)
+            {
+                if (maps[i].enemy_count > maps[best].enemy_count)
+                    best = i;
+            }
+            candidates.push_back(best);
+        }
+        size_t candidateIndex = static_cast<size_t>(random.enemyRandInt(static_cast<int>(candidates.size())));
+        map_index = candidates[candidateIndex];
+    }
+
+    if (map_index < 0)
+    {
+        return -1;
+    }
+
+    return maps[map_index].battle_id;
 }
 
 const std::vector<DynamicChessMap::MapInfo>& DynamicChessMap::getTopMaps()

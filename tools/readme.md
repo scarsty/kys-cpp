@@ -38,6 +38,25 @@ work/game-dev/resource/smap.atlas.json
 运行时会按 `smap.zip -> smap atlas -> smap目录` 的顺序查找，因此旧的平铺目录和 `smap.zip` 仍可继续使用。
 
 
+## pack_chess_smap_zip.py
+
+根据棋局模式实际会用到的资源，打包更小的 `smap.zip`。脚本会扫描 `DynamicChessMap.cpp` 里的动态战斗地图，读取 `warfld.idx` / `warfld.grp` 的战场层数据，并合并主场景 `53` 的地形与事件资源，最后把需要的贴图和 `index.ka` 写入一个 zip。
+
+默认用法：
+
+```bash
+python tools/pack_chess_smap_zip.py
+```
+
+默认输出：
+
+```text
+work/game-dev/resource/smap.chess-battle.zip
+```
+
+如果要直接替换运行时读取的包，可以把输出路径改成 `work/game-dev/resource/smap.zip`。
+
+
 ## trans50
 
 包含3个功能，覆盖了原sfe2kdefscript，talkmaker的功能。

@@ -10,6 +10,7 @@
 #include "ChessUiCommon.h"
 #include "ChessEftIds.h"
 #include "ImGuiLayer.h"
+#include "ScenePreloader.h"
 #include <format>
 #include <set>
 #include <unordered_map>
@@ -422,6 +423,7 @@ void BattleStatsView::setupPreBattle(
     const std::vector<int>& enemyStars,
     const std::vector<KysChess::ActiveCombo>& allyCombos,
     const std::vector<KysChess::ActiveCombo>& enemyCombos,
+    int battleId,
     int musicId,
     const std::vector<int>& enemyWeapons,
     const std::vector<int>& enemyArmors,
@@ -430,6 +432,9 @@ void BattleStatsView::setupPreBattle(
 {
     isPreBattle_ = true;
     full_window_ = 0;
+    assetsPreloaded_ = false;
+    loadingTextRendered_ = false;
+    battleId_ = battleId;
     musicId_ = musicId;
     clearPostBattleBackground();
     postBattleLogShown_ = false;
@@ -480,6 +485,9 @@ void BattleStatsView::setupPostBattle(
 {
     isPreBattle_ = false;
     full_window_ = 1;
+    assetsPreloaded_ = false;
+    loadingTextRendered_ = false;
+    battleId_ = -1;
     battleResult_ = battleResult;
     clearPostBattleBackground();
     postBattleBackground_ = Engine::getInstance()->cloneTexture(Engine::getInstance()->getMainTexture());
@@ -927,7 +935,13 @@ void BattleStatsView::dealEvent(EngineEvent& e)
             auto path = std::format("eft/eft{:03}", effectId);
             int frameCount = TextureManager::getInstance()->getTextureGroupCount(path);
             for (int frame = 0; frame < frameCount; ++frame)
-                TextureManager::getInstance()->getTexture(path, frame);
+            {
+                auto* tex = TextureManager::getInstance()->getTexture(path, frame);
+                if (tex)
+                {
+                    tex->load();
+                }
+            }
         };
         auto loadForRoles = [&](const std::vector<RoleEntry>& roles)
         {
@@ -935,10 +949,18 @@ void BattleStatsView::dealEvent(EngineEvent& e)
             {
                 if (!re.role)
                 {
-                    return;
+                    continue;
                 }
                 std::string text_group = std::format("fight/fight{:03}", re.role->HeadID);
-                TextureManager::getInstance()->getTextureGroup(text_group);
+                int frameCount = TextureManager::getInstance()->getTextureGroupCount(text_group);
+                for (int frame = 0; frame < frameCount; ++frame)
+                {
+                    auto* tex = TextureManager::getInstance()->getTexture(text_group, frame);
+                    if (tex)
+                    {
+                        tex->load();
+                    }
+                }
                 auto magics = re.role->getLearnedMagics(re.star);
                 for (auto m : magics) {
                     if (m->SoundID >= 0) atkSounds.push_back(m->SoundID);
@@ -955,11 +977,19 @@ void BattleStatsView::dealEvent(EngineEvent& e)
         loadForRoles(enemies_);
         for (int i = 0; i < 5; i++)
         {
-            TextureManager::getInstance()->getTexture(std::format("eft/bld{:03}", i), 0);
+            auto* tex = TextureManager::getInstance()->getTexture(std::format("eft/bld{:03}", i), 0);
+            if (tex)
+            {
+                tex->load();
+            }
         }
         for (auto eftId : KysChess::EFT_ALL)
         {
             preloadEffect(std::to_underlying(eftId));
+        }
+        if (battleId_ >= 0)
+        {
+            ScenePreloader::preloadBattleAssets(battleId_);
         }
         Audio::getInstance()->preloadBattleAudio(musicId_, atkSounds, effSounds);
 

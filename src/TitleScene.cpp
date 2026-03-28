@@ -10,6 +10,7 @@
 #include "Menu.h"
 #include "Random.h"
 #include "RandomRole.h"
+#include "ScenePreloader.h"
 #include "SubScene.h"
 #include "UISave.h"
 #include "DrawableOnCall.h"
@@ -154,6 +155,9 @@ void TitleScene::dealEvent(EngineEvent& e)
             int s = 0, x = 0, y = 0, ev = -1;
             KysChess::ChessModHook::overrideNewGame(s, x, y, ev);
             MainScene::getInstance()->forceEnterSubScene(s, x, y, ev);
+            ScenePreloader::showPromptAndPreload("加載中...", []() {
+                ScenePreloader::preloadSubSceneAssets(53);
+            });
             MainScene::getInstance()->run();
         }
     }

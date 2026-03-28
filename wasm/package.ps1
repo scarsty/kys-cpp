@@ -33,15 +33,16 @@ New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 Copy-Item -Force (Join-Path $buildDir 'index.html') $distDir
 Copy-Item -Force (Join-Path $buildDir 'kyschess.html') $distDir
 Copy-Item -Force (Join-Path $buildDir 'kyschess.js') $distDir
+Copy-Item -Force (Join-Path $buildDir 'kys_manifest.js') $distDir
 Copy-Item -Force (Join-Path $buildDir 'kyschess.wasm') $distDir
 Copy-Item -Recurse -Force $gameDir (Join-Path $distDir 'kys\game')
 
-Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
-/*
-  Cache-Control: public, max-age=3600
-'@
+# Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
+# /*
+#   Cache-Control: public, max-age=3600
+# '@
 
-Copy-Item -Force (Join-Path $paths.WasmDir 'edgeone.json') $distDir
+# Copy-Item -Force (Join-Path $paths.WasmDir 'edgeone.json') $distDir
 
 if (Test-Path $zipPath)
 {

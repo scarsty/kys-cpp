@@ -213,6 +213,7 @@
     <ClCompile Include="Menu.cpp" />
     <ClCompile Include="Point.cpp" />
     <ClCompile Include="Save.cpp" />
+    <ClCompile Include="ScenePreloader.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Types.cpp" />
@@ -322,6 +323,7 @@
     <ClInclude Include="Menu.h" />
     <ClInclude Include="Point.h" />
     <ClInclude Include="Save.h" />
+    <ClInclude Include="ScenePreloader.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SubScene.h" />
     <ClInclude Include="TextureManager.h" />
