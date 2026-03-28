@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "AtlasManager.h"
 #include "Engine.h"
 #ifdef __EMSCRIPTEN__
 #include "InMemZipReader.h"
@@ -19,6 +20,7 @@ struct GroupInfo
 #else
     ZipFile zip;
 #endif
+    AtlasManager atlas;
     std::string path;
 };
 
@@ -75,7 +77,7 @@ private:
     TextureManager();
     virtual ~TextureManager();
     std::string path_;
-    int load_from_path_ = 0;    //0 - 先尝试读取zip，如没有则读取目录；1 - 不尝试读取zip，直接读取目录
+    int load_from_path_ = 0;    //0 - 先尝试读取zip/atlas，如没有则读取目录；1 - 不尝试读取zip或atlas，直接读取目录
     int load_all_ = 0;
     std::map<const std::string, TextureGroup> map_;
 

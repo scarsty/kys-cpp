@@ -28,6 +28,20 @@ static Texture* loadFromZip(GroupInfo* gi, const std::string& base, int as_white
     return nullptr;
 }
 
+static Texture* loadFromAtlas(GroupInfo* gi, const std::string& base, int as_white = 0)
+{
+    auto content = gi->atlas.readFile(base + ".webp");
+    if (!content.empty())
+    {
+        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
+            return t;
+    }
+    content = gi->atlas.readFile(base + ".png");
+    if (!content.empty())
+        return Engine::getInstance()->loadImageFromMemory(content, as_white);
+    return nullptr;
+}
+
 static Texture* loadFromDisk(const std::string& dir, const std::string& base, int as_white = 0)
 {
     auto path = dir + "/" + base;
@@ -47,6 +61,14 @@ void TextureWarpper::load()
         {
             tex[0] = loadFromZip(group_info_, base);
         }
+        else if (group_info_->atlas.opened())
+        {
+            tex[0] = loadFromAtlas(group_info_, base);
+            if (!tex[0])
+            {
+                tex[0] = loadFromDisk(group_info_->path, base);
+            }
+        }
         else
         {
             tex[0] = loadFromDisk(group_info_->path, base);
@@ -63,6 +85,14 @@ void TextureWarpper::load()
                 if (group_info_->zip.opened())
                 {
                     tex[i] = loadFromZip(group_info_, sub);
+                }
+                else if (group_info_->atlas.opened())
+                {
+                    tex[i] = loadFromAtlas(group_info_, sub);
+                    if (!tex[i])
+                    {
+                        tex[i] = loadFromDisk(group_info_->path, sub);
+                    }
                 }
                 else
                 {
@@ -91,6 +121,14 @@ void TextureWarpper::createWhiteTexture()
         if (group_info_->zip.opened())
         {
             tex_white = loadFromZip(group_info_, base, 1);
+        }
+        else if (group_info_->atlas.opened())
+        {
+            tex_white = loadFromAtlas(group_info_, base, 1);
+            if (!tex_white)
+            {
+                tex_white = loadFromDisk(group_info_->path, base, 1);
+            }
         }
         else
         {
@@ -128,10 +166,19 @@ std::string TextureGroup::getFileContent(const std::string& filename)
     {
         return info_.zip.readFile(filename);
     }
+    else if (info_.atlas.opened())
+    {
+        auto content = info_.atlas.readFile(filename);
+        if (!content.empty())
+        {
+            return content;
+        }
+    }
     else
     {
         return filefunc::readFileToString(info_.path + "/" + filename);
     }
+    return filefunc::readFileToString(info_.path + "/" + filename);
 }
 
 void TextureGroup::init(const std::string& path, int load_from_path, int load_all)
@@ -144,6 +191,10 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         if (!load_from_path)
         {
             info_.zip.openRead(path + ".zip");
+            if (!info_.zip.opened())
+            {
+                info_.atlas.openRead(path);
+            }
         }
         std::vector<short> offset;
         if (info_.zip.opened())
@@ -151,6 +202,19 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
             std::string index_ka = info_.zip.readFile("index.ka");
             offset.resize(index_ka.size() / 2);
             memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+        }
+        else if (info_.atlas.opened())
+        {
+            std::string index_ka = info_.atlas.readFile("index.ka");
+            if (!index_ka.empty())
+            {
+                offset.resize(index_ka.size() / 2);
+                memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+            }
+            else
+            {
+                filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+            }
         }
         else
         {
@@ -168,6 +232,10 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         if (info_.zip.opened())
         {
             LOG("Load texture group from file: {}.zip, {} textures\n", info_.path, group_.size());
+        }
+        else if (info_.atlas.opened())
+        {
+            LOG("Load texture group from atlas: {}.atlas, {} textures\n", info_.path, group_.size());
         }
         else
         {

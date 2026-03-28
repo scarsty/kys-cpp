@@ -18,6 +18,25 @@ makeRanger.exe ranger.xlsx
 ```
 会生成ranger.idx和ranger.grp两个文件。
 
+## pack_smap_atlas.py
+
+将 `work/game-dev/resource/smap` 下的资源打包为单个 atlas blob 和清单文件，供 wasm 下减少文件数使用。
+
+默认用法：
+
+```bash
+python tools/pack_smap_atlas.py
+```
+
+会生成：
+
+```text
+work/game-dev/resource/smap.atlas
+work/game-dev/resource/smap.atlas.json
+```
+
+运行时会按 `smap.zip -> smap atlas -> smap目录` 的顺序查找，因此旧的平铺目录和 `smap.zip` 仍可继续使用。
+
 
 ## trans50
 

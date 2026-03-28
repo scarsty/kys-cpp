@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="AtlasManager.cpp">
+      <Filter>texture</Filter>
+    </ClCompile>
     <ClCompile Include="Application.cpp">
       <Filter>application</Filter>
     </ClCompile>
@@ -218,6 +221,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AtlasManager.h">
+      <Filter>texture</Filter>
+    </ClInclude>
     <ClInclude Include="BattleCursor.h">
       <Filter>battle</Filter>
     </ClInclude>
