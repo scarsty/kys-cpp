@@ -419,7 +419,12 @@ void Engine::renderPresent() const
 {
     //renderMainTextureToWindow();
     SDL_RenderPresent(renderer_);
+#ifndef __EMSCRIPTEN__
+    // On Emscripten with asyncify, clearing here would make the canvas black
+    // during any browser yield (emscripten_sleep, async IO fetch).
+    // renderMainTextureToWindow() already clears before blitting each frame.
     SDL_RenderClear(renderer_);
+#endif
     //setRenderMainTexture();
 }
 
