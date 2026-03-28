@@ -79,6 +79,11 @@ void SubScene::draw()
             rect1.y = -rect0.y;
             rect0.y = 0;
         }
+        std::vector<Color> cv(4);
+        cv[0] = { 255, 205, 0, 255 };
+        cv[1] = { 255, 255, 0, 255 };
+        cv[2] = { 255, 128, 128, 255 };
+        cv[3] = { 128, 129, 129, 255 };
         Engine::getInstance()->renderTexture(earth_texture, &rect0, &rect1);
     }
     else
@@ -119,7 +124,10 @@ void SubScene::draw()
         }
         //#endif
     }
-
+    std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+    color_v[0] = { 128, 128, 128, 255 };
+    color_v[1] = { 192, 192, 192, 255 };
+    color_v[3] = { 192, 192, 192, 255 };
     for (int sum = -view_sum_region_; sum <= view_sum_region_ + 20; sum++)
     {
         for (int i = -view_width_region_; i <= view_width_region_; i++)
@@ -148,7 +156,7 @@ void SubScene::draw()
                 num = submap_info_->Building(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h, { 255, 255, 255, 255 }, 255, 1, 1, 0,0, color_v);
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
@@ -161,7 +169,7 @@ void SubScene::draw()
                     {
                         man_pic_ = force_man_pic_;
                     }
-                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
+                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h, { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v);
                 }
                 //事件
                 auto event = submap_info_->Event(ix, iy);
@@ -171,14 +179,14 @@ void SubScene::draw()
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h, { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v);
                     }
                 }
                 //装饰
                 num = submap_info_->Decoration(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy));
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy), { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v);
                 }
             }
             //k++;

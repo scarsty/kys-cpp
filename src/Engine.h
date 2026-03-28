@@ -339,7 +339,10 @@ public:
 
     float getDisplayScale() const
     {
-        if (ui_w_ == 0) return 1.0f;
+        if (ui_w_ == 0)
+        {
+            return 1.0f;
+        }
         return std::max(1.0f, float(rect_.w) / ui_w_);
     }
 
@@ -402,6 +405,8 @@ public:
     void renderTexture(Texture* t, int x, int y, int w = 0, int h = 0, double angle = 0, int inPresent = 0);
     void renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle = 0, int inPresent = 0);
     void renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2);
+    void renderTexture(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors, double angle = 0);
+
     void destroy() const;
     bool isFullScreen();
     void toggleFullscreen();

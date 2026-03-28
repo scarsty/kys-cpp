@@ -326,7 +326,9 @@ void BattleSceneHades::draw()
         {
             scaley = 0.5;
         }
-        TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        color_v[0] = { 128, 128, 64, 255 };
+        TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white, color_v);
     }
 
     for (auto r : battle_roles_)
@@ -653,8 +655,8 @@ void BattleSceneHades::onEntrance()
     }
     addChild(Weather::getInstance());
 
-    makeEarthTexture(); //注意高度稍微多了一点
-    
+    makeEarthTexture();    //注意高度稍微多了一点
+
     //此处创建了一个大的纹理，用于渲染整个场景
     Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
 

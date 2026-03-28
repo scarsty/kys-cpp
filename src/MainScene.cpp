@@ -126,7 +126,7 @@ void MainScene::draw()
                 {
                     continue;
                 }
-                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);
+                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);//, { 192, 192, 192, 255 }, 255, 1, 1, 0, 0);
             }
         }
     }
@@ -204,7 +204,11 @@ void MainScene::draw()
     for (int i = 0; i < building_count; i++)
     {
         auto& d = building_vec[i];
-        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y);
+        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        //color_v[0] = { 255, 255, 255, 255 };
+        //color_v[2] = { 192, 192, 192, 255 };
+        //color_v[3] = { 192, 192, 192, 255 };
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y, { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v);
     }
 
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);

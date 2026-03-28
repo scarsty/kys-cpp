@@ -1,6 +1,7 @@
 ﻿#include "Engine.h"
 
 #include "strfunc.h"
+#include <cmath>
 #include <vector>
 #ifdef _MSC_VER
 #define NOMINMAX
@@ -476,111 +477,107 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
 
 void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2)
 {
-    //float a11, a12, a13, a21, a22, a23, a31, a32, a33 = 1;
+    // 占位符实现：暂时不支持透视变换
+    // TODO: 如需透视变换需要使用 SDL_RenderGeometry 或其他方法
+    if (rect0)
+    {
+        renderTexture(t, rect0, rect0);
+    }
+    else
+    {
+        renderTexture(t);
+    }
+}
 
-    //int w, h;
-    //getTextureSize(t, w, h);
+void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors, double angle)
+{
+    if (!t || !rect1)
+    {
+        return;
+    }
 
-    //std::vector<cv::Point2f> v0;
+    int w = rect1->w;
+    int h = rect1->h;
 
-    //if (rect0 == nullptr)
-    //{
-    //    v0 = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } };
-    //}
-    //else
-    //{
-    //    v0 = { { 1.0f * rect0->x / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * rect0->y / h }, { 1.0f * (rect0->x + rect0->w) / w, 1.0f * (rect0->y + rect0->h) / h }, { 1.0f * rect0->x / w, 1.0f * (rect0->y + rect0->h) / h } };
-    //}
-    //std::vector<cv::Point2f> v1 = { { v[0].x, v[0].y }, { v[1].x, v[1].y }, { v[2].x, v[2].y }, { v[3].x, v[3].y } };
+    int w0, h0;
+    getTextureSize(t, w0, h0);
+    if (w < 0)
+    {
+        w = w0;
+    }
+    if (h < 0)
+    {
+        h = h0;
+    }
 
-    //if (v.size() != 4)
-    //{
-    //    return;
-    //}
+    float x0 = float(rect1->x);
+    float y0 = float(rect1->y);
+    float x1 = x0 + w;
+    float y1 = y0 + h;
 
-    //cv::Mat m = cv::getPerspectiveTransform(v0, v1);
+    float tex_x0 = rect0 ? float(rect0->x) : 0.0f;
+    float tex_y0 = rect0 ? float(rect0->y) : 0.0f;
+    float tex_x1 = tex_x0 + (rect0 ? rect0->w : w);
+    float tex_y1 = tex_y0 + (rect0 ? rect0->h : h);
 
-    //a11 = m.at<double>(0, 0);
-    //a12 = m.at<double>(0, 1);
-    //a13 = m.at<double>(0, 2);
-    //a21 = m.at<double>(1, 0);
-    //a22 = m.at<double>(1, 1);
-    //a23 = m.at<double>(1, 2);
-    //a31 = m.at<double>(2, 0);
-    //a32 = m.at<double>(2, 1);
-    //a33 = m.at<double>(2, 2);
+    float tw = 1.0f, th = 1.0f;
+    float tw_f, th_f;
+    SDL_GetTextureSize(t, &tw_f, &th_f);
+    tw = tw_f;
+    th = th_f;
 
-    //float step_i = 1.0f / 100;
-    //float step_j = 1.0f / 100;
-    //float i0 = 0, j0 = 0, i1 = 1, j1 = 1;
+    auto color_to_fcolor = [](const Color& c) -> SDL_FColor
+    {
+        return { float(c.r) / 255.0f, float(c.g) / 255.0f, float(c.b) / 255.0f, float(c.a) / 255.0f };
+    };
 
-    //for (auto p : v2)
-    //{
-    //    auto x = p.x / w;
-    //    auto y = p.y / h;
-    //    auto x1 = a11 * x + a12 * y + a13;
-    //    auto y1 = a21 * x + a22 * y + a23;
-    //    auto zoom = a31 * x + a32 * y + a33;
-    //    x1 /= zoom;
-    //    y1 /= zoom;
-    //    //std::print("{}, {} {}, {}\n", p.x,p.y,x1, y1);
-    //}
-    ////std::print("\n");
-    //if (rect0)
-    //{
-    //    step_i = 1.0f * rect0->w / 10 / w;
-    //    step_j = 1.0f * rect0->h / 10 / h;
-    //    i0 = 1.0f * rect0->x / w;
-    //    j0 = 1.0f * rect0->y / h;
-    //    i1 = 1.0f * (rect0->x + rect0->w) / w;
-    //    j1 = 1.0f * (rect0->y + rect0->h) / h;
-    //}
+    SDL_FColor default_color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    //std::vector<SDL_Vertex> vv;
-    //std::vector<int> indexList;
-    //int index = 0;
-    //auto get_vertex = [&](float x, float y) -> SDL_Vertex
-    //{
-    //    SDL_Vertex v;
-    //    v.color = { 1, 1, 1, 1 };
-    //    v.tex_coord = { x, y };
-    //    v.position = { a11 * x + a12 * y + a13, a21 * x + a22 * y + a23 };
-    //    auto zoom = a31 * x + a32 * y + a33;
-    //    v.position.x /= zoom;
-    //    v.position.y /= zoom;
-    //    return v;
-    //};
+    SDL_Vertex vertices[4];
 
-    //for (float i = i0; i < i1; i += step_i)
-    //{
-    //    for (float j = j0; j < j1; j += step_j)
-    //    {
-    //        auto v1 = get_vertex(i, j);
-    //        auto v2 = get_vertex(i + step_i, j);
-    //        auto v3 = get_vertex(i + step_i, j + step_j);
-    //        auto v4 = get_vertex(i, j + step_j);
-    //        float w = 800, h = 600;
-    //        if (v1.position.x <= 0 || v1.position.x >= w || v1.position.y <= 0 || v1.position.y >= h || v2.position.x <= 0 || v2.position.x >= w || v2.position.y <= 0 || v2.position.y >= h || v3.position.x <= 0 || v3.position.x >= w || v3.position.y <= 0 || v3.position.y >= h || v4.position.x <= 0 || v4.position.x >= w || v4.position.y <= 0 || v4.position.y >= h)
-    //        {
-    //            continue;
-    //        }
-    //        vv.push_back(get_vertex(i, j));
-    //        vv.push_back(get_vertex(i + step_i, j));
-    //        vv.push_back(get_vertex(i + step_i, j + step_j));
-    //        vv.push_back(get_vertex(i, j + step_j));
-    //        indexList.push_back(index);
-    //        indexList.push_back(index + 1);
-    //        indexList.push_back(index + 2);
-    //        indexList.push_back(index + 2);
-    //        indexList.push_back(index);
-    //        indexList.push_back(index + 3);
-    //        index += 4;
-    //    }
-    //}
-    //if (!SDL_RenderGeometry(renderer_, t, vv.data(), vv.size(), indexList.data(), indexList.size()))
-    //{
-    //    //std::print("render geometry failed {}\n", SDL_GetError());
-    //}
+    // colors 的顺序对应四个顶点：
+    // colors[0] -> 左上(x0, y0)
+    // colors[1] -> 右上(x1, y0)
+    // colors[2] -> 右下(x1, y1)
+    // colors[3] -> 左下(x0, y1)
+    // 若未提供某个索引的颜色，则该顶点使用默认白色。
+    vertices[0].position = { x0, y0 };
+    vertices[0].tex_coord = { tex_x0 / tw, tex_y0 / th };
+    vertices[0].color = colors.size() > 0 ? color_to_fcolor(colors[0]) : default_color;
+
+    vertices[1].position = { x1, y0 };
+    vertices[1].tex_coord = { tex_x1 / tw, tex_y0 / th };
+    vertices[1].color = colors.size() > 1 ? color_to_fcolor(colors[1]) : default_color;
+
+    vertices[2].position = { x1, y1 };
+    vertices[2].tex_coord = { tex_x1 / tw, tex_y1 / th };
+    vertices[2].color = colors.size() > 2 ? color_to_fcolor(colors[2]) : default_color;
+
+    vertices[3].position = { x0, y1 };
+    vertices[3].tex_coord = { tex_x0 / tw, tex_y1 / th };
+    vertices[3].color = colors.size() > 3 ? color_to_fcolor(colors[3]) : default_color;
+
+    if (angle != 0)
+    {
+        const double pi = 3.14159265358979323846;
+        const float rad = float(angle * pi / 180.0);
+        const float c = float(std::cos(rad));
+        const float s = float(std::sin(rad));
+        const float cx = x0 + w * 0.5f;
+        const float cy = y0 + h * 0.5f;
+        for (auto& v : vertices)
+        {
+            float rx = v.position.x - cx;
+            float ry = v.position.y - cy;
+            v.position.x = cx + rx * c - ry * s;
+            v.position.y = cy + rx * s + ry * c;
+        }
+    }
+
+    int indices[6] = { 0, 1, 2, 2, 3, 0 };
+
+    SDL_RenderGeometry(renderer_, t, vertices, 4, indices, 6);
+    render_times_++;
 }
 
 void Engine::destroy() const
