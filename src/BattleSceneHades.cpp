@@ -147,7 +147,7 @@ void BattleSceneHades::draw()
                     bool need_draw = true;
                     if (need_draw && num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, { color });
                     }
                 }
             }
@@ -310,11 +310,13 @@ void BattleSceneHades::draw()
                 }
                 if (d.shadow == 1)
                 {
-                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd,
+                        { { 32, 32, 32, 255 }, uint8_t(d.alpha / 2), scalex, scaley, double(d.rot) });
                 }
                 if (d.shadow == 2)
                 {
-                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot, 128);
+                    TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd,
+                        { { 128, 128, 128, 255 }, uint8_t(d.alpha / 2), scalex, scaley, double(d.rot), 128 });
                 }
             }
         }
@@ -326,9 +328,13 @@ void BattleSceneHades::draw()
         {
             scaley = 0.5;
         }
-        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
-        color_v[0] = { 128, 128, 64, 255 };
-        TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white, color_v);
+        std::vector<Color> color_v;
+        //color_v[0] = { 128, 128, 64, 255 };
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 1;
+        brightness_v[2] = 0;
+        TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z,
+            { d.color, d.alpha, scaley, 1, double(d.rot), d.white, color_v, brightness_v });
     }
 
     for (auto r : battle_roles_)

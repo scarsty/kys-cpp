@@ -83,7 +83,7 @@ void TitleScene::draw()
         head_x_ = r.rand_int(1280 - 150);
         head_y_ = r.rand_int(800 - 150);
     }
-    TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { 255, 255, 255, 255 }, alpha);
+    TextureManager::getInstance()->renderTexture("head", head_id_, head_x_, head_y_, { { 255, 255, 255, 255 }, uint8_t(alpha) });
     //TextureManager::getInstance()->renderTexture("title", 150, 240, 150, { 255,255,255,255 }, 255, 0.3, 0.3);
 }
 

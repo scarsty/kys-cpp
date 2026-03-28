@@ -204,15 +204,14 @@ void MainScene::draw()
     for (int i = 0; i < building_count; i++)
     {
         auto& d = building_vec[i];
-        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
-        //color_v[0] = { 255, 255, 255, 255 };
-        //color_v[2] = { 192, 192, 192, 255 };
-        //color_v[3] = { 192, 192, 192, 255 };
-        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y, { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v);
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 1;
+        brightness_v[2] = 0;
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
+            { { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, {}, brightness_v });
     }
-
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
-    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { { 255, 255, 255, 255 }, 128 });
 
     for (auto& c : cloud_vector_)
     {

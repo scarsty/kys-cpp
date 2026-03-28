@@ -175,7 +175,7 @@ void Font::executeDrawCalls()
 void Font::drawWithBox(const std::string& text, int size, int x, int y, Color color, uint8_t alpha, uint8_t alpha_box)
 {
     auto r = getBoxRect(getTextDrawSize(text), size, x, y);
-    TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+    TextureManager::getInstance()->renderTexture("title", 126, r.x, r.y, { { 255, 255, 255, 255 }, alpha_box }, r.w, r.h);
     draw(text, size, x, y, color, alpha);
 }
 

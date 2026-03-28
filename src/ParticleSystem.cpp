@@ -445,7 +445,7 @@ void ParticleSystem::draw()
         Rect r = { int(p.posx + p.startPosX - p.size / 2), int(p.posy + p.startPosY - p.size / 2), int(p.size), int(p.size) };
         Color c = { uint8_t(p.colorR * 255), uint8_t(p.colorG * 255), uint8_t(p.colorB * 255), uint8_t(p.colorA * 255) };
         auto tex = TextureManager::getInstance()->getTexture(path_, num_);
-        TextureManager::getInstance()->renderTexture(tex, r, c, c.a, p.rotation);
+        TextureManager::getInstance()->renderTexture(tex, r.x, r.y, { c, c.a, 1, 1, p.rotation }, r.w, r.h);
         count++;
     }
     update();

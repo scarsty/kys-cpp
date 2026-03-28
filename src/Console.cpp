@@ -83,7 +83,7 @@ Console::Console()
             int nx = dx + 350;
             int ny = dy + 100;
             int fontSize = 28;
-            TextureManager::getInstance()->renderTexture("title", 126, { nx, ny, 400, 400 }, { 192, 192, 192, 255 }, 255);
+            TextureManager::getInstance()->renderTexture("title", 126, nx, ny, { { 192, 192, 192, 255 }, 255 }, 400, 400);
             //Engine::getInstance()->fillColor({ 0, 0, 0, 192 }, nx, ny, 400, 400);
             Font::getInstance()->draw(std::format("{}，{}", scene->Name, scene->ID), fontSize, nx + 20, ny + 20, { 0, 0, 0, 255 });
             Font::getInstance()->draw(std::format("（{}，{}）", scene->MainEntranceX1, scene->MainEntranceY1),

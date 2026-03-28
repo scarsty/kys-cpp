@@ -315,11 +315,13 @@ void BattleScenePaper::draw()
                     }
                     if (d.shadow == 1)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd,
+                            { { 32, 32, 32, 255 }, uint8_t(d.alpha / 2), scalex, scaley, double(d.rot) });
                     }
                     if (d.shadow == 2)
                     {
-                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd, { 128, 128, 128, 255 }, d.alpha / 2, scalex, scaley, d.rot2, 128);
+                        TextureManager::getInstance()->renderTexture(tex, d.p.x, d.p.y / 2 + yd,
+                            { { 128, 128, 128, 255 }, uint8_t(d.alpha / 2), scalex, scaley, double(d.rot2), 128 });
                     }
                 }
             }
@@ -339,7 +341,8 @@ void BattleScenePaper::draw()
                     scaley = 0.5;
                 }
                 Engine::getInstance()->setRenderTarget(earth_texture2);
-                TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+                TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z,
+                    { d.color, d.alpha, scaley, 1, double(d.rot), d.white });
 
                 auto tex = TextureManager::getInstance()->getTexture(d.path, d.num);
 
@@ -368,7 +371,8 @@ void BattleScenePaper::draw()
 
                 if (d.breathless)
                 {
-                    TextureManager::getInstance()->renderTexture("title", 205, d.p.x - 5, d.p.y / 2 - d.p.z - 36, { 255, 255, 255, 255 }, 255, 0.1, 0.1, d.rot2, 0);
+                    TextureManager::getInstance()->renderTexture("title", 205, d.p.x - 5, d.p.y / 2 - d.p.z - 36,
+                        { { 255, 255, 255, 255 }, 255, 0.1, 0.1, double(d.rot2), 0 });
                 }
             }
         }
@@ -431,7 +435,8 @@ void BattleScenePaper::draw()
         h *= zoom;
         int x = Engine::getInstance()->getPresentWidth() / 2 - w / 2;
         int y = Engine::getInstance()->getPresentHeight() / 2 - h / 2;
-        TextureManager::getInstance()->renderTexture("title", 203, x, y, sword_light_color_, 255, zoom, zoom, 0, 0);
+        TextureManager::getInstance()->renderTexture("title", 203, x, y,
+            { sword_light_color_, 255, zoom, zoom, 0, 0 });
         //if (sword_light_ > 30)
         //{
         //    int w1 = TextureManager::getInstance()->getTexture("title", 204)->w;
@@ -780,7 +785,7 @@ void BattleScenePaper::onEntrance()
                     bool need_draw = true;
                     if (need_draw && num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, { color });
                     }
                 }
             }

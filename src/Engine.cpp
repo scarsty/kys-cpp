@@ -489,7 +489,8 @@ void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v
     }
 }
 
-void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors, double angle)
+void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
+    const std::vector<float>& brightness_v, double angle)
 {
     if (!t || !rect1)
     {
@@ -578,6 +579,51 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, const std::vect
 
     SDL_RenderGeometry(renderer_, t, vertices, 4, indices, 6);
     render_times_++;
+
+    if (!brightness_v.empty())
+    {
+        float b[4] = { 0, 0, 0, 0 };
+        for (int i = 0; i < 4; i++)
+        {
+            if (i < (int)brightness_v.size())
+            {
+                b[i] = (std::max)(0.0f, brightness_v[i]);
+            }
+        }
+
+        float max_b = (std::max)((std::max)(b[0], b[1]), (std::max)(b[2], b[3]));
+        int full_pass = int(std::floor(max_b));
+        float remain = max_b - full_pass;
+
+        SDL_BlendMode prev_blend = SDL_BLENDMODE_BLEND;
+        SDL_GetTextureBlendMode(t, &prev_blend);
+        SDL_SetTextureBlendMode(t, SDL_BLENDMODE_ADD);
+
+        auto do_add_pass = [&](float pass_base)
+        {
+            SDL_Vertex add_vertices[4] = { vertices[0], vertices[1], vertices[2], vertices[3] };
+            for (int i = 0; i < 4; i++)
+            {
+                float k = b[i] - pass_base;
+                if (k > 1.0f) { k = 1.0f; }
+                if (k < 0.0f) { k = 0.0f; }
+                add_vertices[i].color = { k, k, k, 1.0f };
+            }
+            SDL_RenderGeometry(renderer_, t, add_vertices, 4, indices, 6);
+            render_times_++;
+        };
+
+        for (int p = 0; p < full_pass; p++)
+        {
+            do_add_pass(float(p));
+        }
+        if (remain > 0.0f)
+        {
+            do_add_pass(float(full_pass));
+        }
+
+        SDL_SetTextureBlendMode(t, prev_blend);
+    }
 }
 
 void Engine::destroy() const
