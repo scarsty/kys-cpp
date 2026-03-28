@@ -14,6 +14,10 @@
 #include <map>
 #include <unordered_map>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 
@@ -515,7 +519,14 @@ private:
 public:
     static void delay(double t)
     {
+// #ifdef __EMSCRIPTEN__
+//         if (t > 0)
+//         {
+//             emscripten_sleep((unsigned int)t);
+//         }
+// #else
         std::this_thread::sleep_for(std::chrono::nanoseconds(int64_t(t * 1e6)));
+// #endif
     }
 
     static double getTicks()

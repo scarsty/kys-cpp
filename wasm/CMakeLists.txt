@@ -12,12 +12,6 @@ endif()
 
 find_package(imgui CONFIG REQUIRED)
 
-if(EMSCRIPTEN)
-    # Keep Dear ImGui from pulling in vcpkg's SDL3 archive: this target already
-    # uses Emscripten's threaded SDL port via -sUSE_SDL=3.
-    set_property(TARGET imgui::imgui PROPERTY INTERFACE_LINK_LIBRARIES "")
-endif()
-
 # Source files
 file(GLOB SRC_LIST
     ../src/*.cpp
@@ -42,55 +36,50 @@ include_directories(
 # Link directories for pre-built WASM deps (vcpkg or manual)
 link_directories(${WASM_DEPS_DIR}/lib)
 
-# Emscripten SDL3 port (only SDL3 core is available as a port)
-set(EM_SDL_FLAGS
-    -sUSE_SDL=3
-    -sUSE_ZLIB=1
-)
-
-# Compile flags
+# Compile flags (SDL3 and zlib come from vcpkg, not Emscripten ports)
 add_compile_options(
     -O3
     -DNDEBUG
-    -pthread
-    ${EM_SDL_FLAGS}
 )
 
 add_executable(kyschess ${SRC_LIST})
 
-# Link libraries: SDL3_image/SDL3_ttf built from source + vcpkg deps
+# Link libraries: all from vcpkg wasm32-emscripten
 target_link_libraries(kyschess
     imgui::imgui
     SDL3_mixer
     fluidsynth
     SDL3_image
     webpdemux
+    webpmux
     webp
     sharpyuv
     SDL3_ttf
     freetype
     plutosvg
     plutovg
+    png
+    brotlidec
+    brotlicommon
     yaml-cpp
     zip
     bz2
     sqlite3
     marisa
+    SDL3
+    z
 )
 # Emscripten-specific link flags
 set(EM_LINK_FLAGS
     "-O3"
-    "${EM_SDL_FLAGS}"
-    "-pthread"
-    "-sPROXY_TO_PTHREAD"
-    "-sWASMFS"
-    "-sOFFSCREEN_FRAMEBUFFER"
+    "-sASYNCIFY"
+    "-sASYNCIFY_STACK_SIZE=65536"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"
-    "-lfetchfs.js"
+    "-lidbfs.js"
+    "-sASYNCIFY_IMPORTS=__syscall_openat"
     "-sASSERTIONS=1"
-    "-fexceptions"
     "--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
     "-sEXPORTED_RUNTIME_METHODS=['ccall']"
 )

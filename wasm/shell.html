@@ -104,33 +104,6 @@
         var overlay = document.getElementById('overlay');
         var prerequisiteFailed = false;
 
-        // Diagnostic: check prerequisites for pthreads
-        (function() {
-            var msgs = [];
-            if (typeof SharedArrayBuffer === 'undefined')
-                msgs.push('SharedArrayBuffer is NOT available');
-            if (!window.crossOriginIsolated)
-                msgs.push('Page is NOT cross-origin isolated');
-            if (typeof Worker === 'undefined')
-                msgs.push('Web Workers are NOT available');
-            if (msgs.length) {
-                prerequisiteFailed = true;
-                var spinner = document.getElementById('spinner');
-                if (spinner) spinner.style.display = 'none';
-                statusEl.innerHTML =
-                    '<span style="color:#f44;font-weight:bold">⚠ 无法启动游戏</span><br><br>' +
-                    '<span style="color:#f44">' + msgs.join('<br>') + '</span><br><br>' +
-                    '<span style="color:#aaa;font-size:0.9rem">' +
-                    '您的浏览器不支持本游戏所需的功能。<br>' +
-                    '请使用最新版本的 <b>Chrome</b>、<b>Edge</b> 或 <b>Firefox</b> 打开此页面。' +
-                    '</span>';
-                statusEl.style.color = '';
-                console.error('[kys-diag]', msgs.join('; '));
-            } else {
-                console.log('[kys-diag] SharedArrayBuffer OK, crossOriginIsolated OK');
-            }
-        })();
-
         // Gate overlay dismissal on two conditions:
         // 1. WASM runtime initialized, 2. C++ fonts loaded (fired from TitleScene::draw)
         var runtimeReady = false;
@@ -142,14 +115,6 @@
                 overlay.classList.add('hidden');
                 setTimeout(function() { overlay.style.display = 'none'; }, 500);
             }
-        }
-
-        // Test OPFS before wasm loads — resolves as microtask before any pthread proxy message
-        var opfsReady = false;
-        if (navigator.storage && navigator.storage.getDirectory) {
-            navigator.storage.getDirectory()
-                .then(function() { opfsReady = true; console.log('[kys] OPFS available'); })
-                .catch(function(e) { console.warn('[kys] OPFS unavailable:', e.message); });
         }
 
         // Detect if running on mobile device
@@ -197,7 +162,69 @@
                 runtimeReady = true;
                 if (!cppFontsReady && !prerequisiteFailed) statusEl.innerText = 'Loading game fonts...';
                 tryHideOverlay();
-            }
+            },
+            preRun: [function() {
+                if (typeof KYS_MANIFEST === 'undefined') {
+                    console.error('[kys] kys_manifest.js not loaded');
+                    return;
+                }
+                var m = KYS_MANIFEST;
+                // Create directory tree
+                for (var i = 0; i < m.dirs.length; i++) {
+                    try { FS.mkdir(m.dirs[i]); } catch(e) {}
+                }
+                // Create empty file entries tagged for lazy loading
+                var files = 0;
+                for (var i = 0; i < m.files.length; i++) {
+                    var path = m.files[i];
+                    var parts = path.split('/');
+                    var name = parts.pop();
+                    var parent = parts.join('/') || '/';
+                    try {
+                        FS.createDataFile(parent, name, new Uint8Array(0), true, false);
+                        FS.lookupPath(path).node._lazyUrl = 'kys' + path;
+                        files++;
+                    } catch(e) {
+                        console.error('[kys] register ' + path, e);
+                    }
+                }
+                // Monkey-patch FS.open: first open() of a lazy file fetches
+                // its content via fetch + Asyncify, pausing wasm until done.
+                var origOpen = FS.open;
+                FS.open = function(path, flags, mode) {
+                    try {
+                        var node = FS.lookupPath(path, {follow:true}).node;
+                        if (node && node._lazyUrl) {
+                            if (!node._loaded) {
+                                var url = node._lazyUrl;
+                                Asyncify.handleAsync(function() {
+                                    return fetch(url).then(function(r) {
+                                        if (!r.ok) throw new Error('HTTP ' + r.status + ' for ' + url);
+                                        return r.arrayBuffer();
+                                    }).then(function(ab) {
+                                        node.contents = new Uint8Array(ab);
+                                        node.usedBytes = ab.byteLength;
+                                        node._loaded = true;
+                                    });
+                                });
+                            } else if (typeof Asyncify !== 'undefined' && Asyncify.state === 2) {
+                                Asyncify.handleAsync(function() { return Promise.resolve(); });
+                            }
+                        }
+                    } catch(e) { /* lookupPath throws for non-lazy paths */ }
+                    return origOpen.call(this, path, flags, mode);
+                };
+                // Mount IDBFS for persistent save data
+                try { FS.mkdir('/persist'); } catch(e) {}
+                FS.mount(IDBFS, {}, '/persist');
+                // Sync IndexedDB → MEMFS before main() runs
+                addRunDependency('idbfs-sync');
+                FS.syncfs(true, function(err) {
+                    if (err) console.error('[kys] IDBFS sync error:', err);
+                    removeRunDependency('idbfs-sync');
+                });
+                console.log('[kys] manifest: ' + m.dirs.length + ' dirs, ' + files + ' deferred files');
+            }]
         };
 
         document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
@@ -335,6 +362,7 @@
             }
         });
     </script>
+    <script src="kys_manifest.js"></script>
     {{{ SCRIPT }}}
 </body>
 </html>

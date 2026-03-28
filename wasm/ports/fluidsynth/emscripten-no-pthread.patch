@@ -1,0 +1,27 @@
+diff --git a/src/utils/fluid_sys.c b/src/utils/fluid_sys.c
+--- a/src/utils/fluid_sys.c
++++ b/src/utils/fluid_sys.c
+@@ -29,7 +29,7 @@
+ #include "fluid_rtkit.h"
+ #endif
+ 
+-#if HAVE_PTHREAD_H && !defined(_WIN32)
++#if HAVE_PTHREAD_H && !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+ // Do not include pthread on windows. It includes winsock.h, which collides with ws2tcpip.h from fluid_sys.h
+ // It isn't need on Windows anyway.
+ #include <pthread.h>
+@@ -443,6 +443,14 @@
+     }
+ }
+ 
++#elif defined(__EMSCRIPTEN__)
++
++void
++fluid_thread_self_set_prio(int prio_level)
++{
++    /* Thread priority is not applicable in a browser environment. */
++}
++
+ #else /* POSIX stuff..  Nice POSIX..  Good POSIX. */
+ 
+ void

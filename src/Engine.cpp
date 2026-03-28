@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <vector>
 #ifdef __EMSCRIPTEN__
-#include <emscripten/html5_webgl.h>
+#include <emscripten.h>
 #endif
 
 std::unordered_map<Texture*, Color> Engine::color_cache_;
@@ -55,11 +55,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 #endif
-#ifdef __EMSCRIPTEN__
-    // We use pthreads (PROXY_TO_PTHREAD), not ASYNCIFY. Disable SDL3's
-    // default emscripten_sleep calls in RenderPresent/event polling.
-    SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
-#endif
+
 
 #ifndef _WINDLL
     if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_SENSOR))
@@ -423,11 +419,7 @@ void Engine::renderPresent() const
 {
     //renderMainTextureToWindow();
     SDL_RenderPresent(renderer_);
-#ifdef __EMSCRIPTEN__
-    emscripten_webgl_commit_frame();
-#else
     SDL_RenderClear(renderer_);
-#endif
     //setRenderMainTexture();
 }
 
@@ -1603,7 +1595,7 @@ void inject_right_click()
 EMSCRIPTEN_KEEPALIVE
 void notify_fonts_loaded()
 {
-    MAIN_THREAD_EM_ASM({
+    EM_ASM({
         if (typeof Module._onCppFontsLoaded === 'function') {
             Module._onCppFontsLoaded();
         }
@@ -1614,11 +1606,9 @@ EMSCRIPTEN_KEEPALIVE
 void resize_to_viewport(int w, int h, int css_w, int css_h)
 {
     auto* eng = Engine::getInstance();
-    // Clamp backing buffer to at least the game's logical resolution
     w = std::max(w, eng->getUIWidth());
     h = std::max(h, eng->getUIHeight());
     SDL_SetWindowSize(eng->getWindow(), w, h);
-    // Restore CSS size so the canvas doesn't overflow the viewport
     EM_ASM({
         var c = Module['canvas'];
         c.style.width = $0 + 'px';

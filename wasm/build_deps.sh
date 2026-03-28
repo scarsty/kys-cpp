@@ -1,7 +1,17 @@
 #!/bin/bash
-# Build WASM dependencies for kys-cpp
-# Prerequisites: emsdk must be installed and activated (source emsdk_env.sh)
+# Build WASM dependencies for kys-cpp (LEGACY - prefer vcpkg approach below)
 #
+# PREFERRED: Install all deps via vcpkg with wasm32-emscripten triplet:
+#   cd $VCPKG_ROOT
+#   vcpkg install --overlay-triplets=<project>/wasm/triplets \
+#                 --overlay-ports=<project>/wasm/ports \
+#     imgui[sdl3-binding,sdl3-renderer-binding]:wasm32-emscripten \
+#     sqlite3:wasm32-emscripten yaml-cpp:wasm32-emscripten \
+#     libzip[bzip2]:wasm32-emscripten marisa-trie:wasm32-emscripten \
+#     sdl3-image[png,webp]:wasm32-emscripten sdl3-ttf[svg]:wasm32-emscripten \
+#     sdl3-mixer[fluidsynth]:wasm32-emscripten
+#
+# FALLBACK: This script builds from source. Requires emsdk activated.
 # Usage: ./build_deps.sh [install_prefix]
 # Default install prefix: ./wasm_deps
 
@@ -39,7 +49,7 @@ if [ ! -f "${INSTALL_DIR}/lib/libsqlite3.a" ]; then
         rm -rf sqlite-amalgamation-* sqlite.zip
     fi
     cd "${SQLITE_DIR}"
-    emcc -O2 -pthread -DSQLITE_OMIT_LOAD_EXTENSION \
+    emcc -O2 -DSQLITE_OMIT_LOAD_EXTENSION \
         -c sqlite3.c -o sqlite3.o
     emar rcs libsqlite3.a sqlite3.o
     cp libsqlite3.a "${INSTALL_DIR}/lib/"
@@ -67,9 +77,7 @@ if [ ! -f "${INSTALL_DIR}/lib/libyaml-cpp.a" ]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DYAML_CPP_BUILD_TESTS=OFF \
         -DYAML_CPP_BUILD_TOOLS=OFF \
-        -DYAML_BUILD_SHARED_LIBS=OFF \
-        -DCMAKE_C_FLAGS="-pthread" \
-        -DCMAKE_CXX_FLAGS="-pthread"
+        -DYAML_BUILD_SHARED_LIBS=OFF
     emmake make -j$(nproc) install
     echo "yaml-cpp done."
 else
@@ -103,8 +111,6 @@ if [ ! -f "${INSTALL_DIR}/lib/libzip.a" ]; then
         -DENABLE_OPENSSL=OFF \
         -DENABLE_GNUTLS=OFF \
         -DENABLE_MBEDTLS=OFF \
-        -DCMAKE_C_FLAGS="-pthread" \
-        -DCMAKE_CXX_FLAGS="-pthread" \
         -DCMAKE_PREFIX_PATH="${INSTALL_DIR}"
     emmake make -j$(nproc) install
     echo "libzip done."
@@ -152,8 +158,6 @@ VEOF
         -DSDLIMAGE_WEBP=ON \
         -DSDLIMAGE_AVIF=OFF -DSDLIMAGE_JXL=OFF \
         -DSDLIMAGE_TIF=OFF \
-        -DCMAKE_C_FLAGS="-pthread" \
-        -DCMAKE_CXX_FLAGS="-pthread" \
         -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
         -G Ninja
     emmake ninja
@@ -184,8 +188,6 @@ if [ ! -f "${INSTALL_DIR}/lib/libSDL3_ttf.a" ]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DSDL3TTF_VENDORED=ON \
         -DSDL3TTF_HARFBUZZ=OFF \
-        -DCMAKE_C_FLAGS="-pthread" \
-        -DCMAKE_CXX_FLAGS="-pthread" \
         -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
         -G Ninja
     emmake ninja
@@ -243,8 +245,8 @@ if [ ! -f "${INSTALL_DIR}/lib/libfluidsynth.a" ]; then
         -DBUILD_SHARED_LIBS=OFF \
         -Dosal=cpp11 \
         -Denable-libinstpatch=0 \
-        -DCMAKE_C_FLAGS="-fexceptions -pthread" \
-        -DCMAKE_CXX_FLAGS="-fexceptions -pthread" \
+        -DCMAKE_C_FLAGS="-fexceptions" \
+        -DCMAKE_CXX_FLAGS="-fexceptions" \
         -G Ninja
     emmake ninja libfluidsynth
     # Manual install (skip fluidsynth CLI which may fail to link)
@@ -295,8 +297,6 @@ if [ ! -f "${INSTALL_DIR}/lib/libSDL3_mixer.a" ]; then
         -DSDLMIXER_MOD=OFF \
         -DSDLMIXER_GME=OFF \
         -DSDLMIXER_WAVPACK=OFF \
-        -DCMAKE_C_FLAGS="-pthread" \
-        -DCMAKE_CXX_FLAGS="-pthread" \
         -DCMAKE_FIND_ROOT_PATH="${INSTALL_DIR}" \
         -G Ninja
     emmake ninja
@@ -330,7 +330,7 @@ lib/marisa/trie.cc"
     OBJS=""
     for src in $MARISA_SRCS; do
         obj="$(basename "${src}" .cc).o"
-        em++ -O2 -pthread -I lib -c "$src" -o "$obj"
+        em++ -O2 -I lib -c "$src" -o "$obj"
         OBJS="$OBJS $obj"
     done
     emar rcs libmarisa.a $OBJS

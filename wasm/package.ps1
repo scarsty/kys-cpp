@@ -38,8 +38,7 @@ Copy-Item -Recurse -Force $gameDir (Join-Path $distDir 'kys\game')
 
 Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 /*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: require-corp
+  Cache-Control: public, max-age=3600
 '@
 
 Copy-Item -Force (Join-Path $paths.WasmDir 'edgeone.json') $distDir

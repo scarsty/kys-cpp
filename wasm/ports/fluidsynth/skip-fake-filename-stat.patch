@@ -1,0 +1,28 @@
+diff --git a/src/utils/fluid_sys_cpp11.cpp b/src/utils/fluid_sys_cpp11.cpp
+--- a/src/utils/fluid_sys_cpp11.cpp
++++ b/src/utils/fluid_sys_cpp11.cpp
+@@ -266,18 +266,17 @@
+ #if HAVE_CXX_FILESYSTEM
+ 
+ #include <filesystem>
++#include <system_error>
+ 
+ int fluid_stat(const char *_path, fluid_stat_buf_t *buffer)
+ {
+-    try
++    std::error_code ec;
++    std::filesystem::path path = std::filesystem::u8path(_path);
++    const auto mtime = std::filesystem::last_write_time(path, ec);
++    if (!ec)
+     {
+-        std::filesystem::path path = std::filesystem::u8path(_path);
+-        auto mtime = std::filesystem::last_write_time(path).time_since_epoch();
+-        buffer->st_mtime = std::chrono::duration_cast<std::chrono::seconds>(mtime).count();
++        buffer->st_mtime = std::chrono::duration_cast<std::chrono::seconds>(mtime.time_since_epoch()).count();
+         return FLUID_OK;
+     }
+-    catch (...)
+-    {
+-    }
+ 
+ #else

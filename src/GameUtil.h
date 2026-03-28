@@ -109,7 +109,7 @@ public:
         static int cached = -1;
         if (cached == -1)
         {
-            cached = MAIN_THREAD_EM_ASM_INT({
+            cached = EM_ASM_INT({
                 return isMobileDevice ? 1 : 0;
             });
             std::print("Mobile device is {}\n", cached);
@@ -117,6 +117,20 @@ public:
         return cached == 1;
 #else
         return false;
+#endif
+    }
+
+    // Flush IDBFS persistent storage to IndexedDB (no-op on non-WASM).
+    static void syncPersistentStorage()
+    {
+#ifdef __EMSCRIPTEN__
+        EM_ASM({
+            if (typeof FS !== 'undefined' && FS.syncfs) {
+                FS.syncfs(false, function(err) {
+                    if (err) console.error('[kys] IDBFS flush error:', err);
+                });
+            }
+        });
 #endif
     }
 

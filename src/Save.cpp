@@ -376,6 +376,7 @@ bool Save::save(int num)
         return false;
     }
 
+    GameUtil::syncPersistentStorage();
     return true;
 }
 

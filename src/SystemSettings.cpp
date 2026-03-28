@@ -99,6 +99,8 @@ void SystemSettings::save() const
     {
         return;
     }
+
+    GameUtil::syncPersistentStorage();
 }
 
 void SystemSettings::update(const SystemSettingsData& data, bool persist)
