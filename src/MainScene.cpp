@@ -41,11 +41,14 @@ MainScene::MainScene()
     data_readed_ = true;
 
     //100个云
-    cloud_vector_.resize(100);
-    for (int i = 0; i < 100; i++)
-    {
-        cloud_vector_[i].initRand();
-    }
+    //cloud_vector_.resize(100);
+    //for (int i = 0; i < 100; i++)
+    //{
+    //    cloud_vector_[i].initRand();
+    //}
+    cloud_group_ = std::make_shared<CloudGroup>();
+    cloud_group_->init(100, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    addChild(cloud_group_);
     //getEntrance();
     addChild(Weather::getInstance());
 }
@@ -213,10 +216,6 @@ void MainScene::draw()
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
     TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { { 255, 255, 255, 255 }, 128 });
 
-    for (auto& c : cloud_vector_)
-    {
-        c.draw();
-    }
     //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getTexture(), { 227, 207, 87, 255 });
     Engine::getInstance()->renderTextureToMain("scene");
@@ -226,18 +225,8 @@ void MainScene::backRun()
 {
     rest_time_++;    //只要出现走动，rest_time就会清零
     //云的贴图
-    view_cloud_ = 0;
-    for (auto& c : cloud_vector_)
-    {
-        c.flow();
-        c.setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
-        int x, y;
-        c.getPosition(x, y);
-        if (x > -render_center_x_ * 1 && x < render_center_x_ * 3 && y > -0 && y < render_center_y_ * 2)
-        {
-            view_cloud_++;
-        }
-    }
+    view_cloud_ = cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
+
     Weather::getInstance()->setWeather(inNorth(), view_cloud_);
 }
 

@@ -19,8 +19,8 @@ public:
     int render_center_x_ = 0;
     int render_center_y_ = 0;
 
-    const int TILE_W = 36;    //小图块大小X
-    const int TILE_H = 18;    //小图块大小Y
+    static const int TILE_W = 36;    //小图块大小X
+    static const int TILE_H = 18;    //小图块大小Y
 
     //确定视野使用
     int view_width_region_ = 0;

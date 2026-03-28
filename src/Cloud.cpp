@@ -1,5 +1,6 @@
 #include "Cloud.h"
 #include "Random.h"
+#include "Scene.h"
 #include "TextureManager.h"
 
 void Cloud::initRand()
@@ -14,10 +15,10 @@ void Cloud::initRand()
     color_ = { (uint8_t)(r.rand_int(256)), (uint8_t)(r.rand_int(256)), (uint8_t)(r.rand_int(256)), 255 };
 }
 
-void Cloud::setPositionOnScreen(int x, int y, int Center_X, int Center_Y)
+void Cloud::setPositionOnScreen(int x, int y, int center_x, int center_y)
 {
-    x_ = position_.x - (-y * 18 + x * 18 + max_X_ / 2 - Center_X);
-    y_ = position_.y - (y * 9 + x * 9 + 9 - Center_Y);
+    x_ = position_.x - (-y * Scene::TILE_W + x * Scene::TILE_W + max_X_ / 2 - center_x);
+    y_ = position_.y - (y * Scene::TILE_H + x * Scene::TILE_H + Scene::TILE_H - center_y);
 }
 
 void Cloud::draw()
