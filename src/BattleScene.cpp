@@ -2260,30 +2260,36 @@ void BattleScene::sendAction(Role* r)
 
 void BattleScene::makeEarthTexture()
 {
+    if (GameUtil::isLegacyBrowser())
+    {
+        Engine::getInstance()->destroyTexture("earth");
+        return;
+    }
     Engine::getInstance()->createRenderedTexture("earth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     Engine::getInstance()->setRenderTarget("earth");
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+
+    // TODO: make this legacy ONLY
+    //二者之差是屏幕中心与大纹理的中心的距离
+    for (int i1 = 0; i1 < COORD_COUNT; i1++)
+    {
+        for (int i2 = 0; i2 < COORD_COUNT; i2++)
+        {
+            auto p = getPositionOnWholeEarth(i1, i2);
+            int num = earth_layer_.data(i1, i2) / 2;
+            //无高度地面
+            if (num > 0)
+            {
+                TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+            }
+        }
+    }
 
     if (TextureManager::getInstance()->getTextureGroup("battle-earth")->getTextureCount() > 0)
     {
         TextureManager::getInstance()->renderTexture("battle-earth", info_->BattleFieldID, 0, 0);
     }
-    else
-    {
-        //二者之差是屏幕中心与大纹理的中心的距离
-        for (int i1 = 0; i1 < COORD_COUNT; i1++)
-        {
-            for (int i2 = 0; i2 < COORD_COUNT; i2++)
-            {
-                auto p = getPositionOnWholeEarth(i1, i2);
-                int num = earth_layer_.data(i1, i2) / 2;
-                //无高度地面
-                if (num > 0)
-                {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                }
-            }
-        }
-    }
+
+
     Engine::getInstance()->resetRenderTarget();
 }

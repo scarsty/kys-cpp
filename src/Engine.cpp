@@ -181,6 +181,12 @@ int Engine::getWindowHeight() const
     return h;
 }
 
+int Engine::getMaxTextureSize() const
+{
+    auto props = SDL_GetRendererProperties(renderer_);
+    return int(SDL_GetNumberProperty(props, SDL_PROP_RENDERER_MAX_TEXTURE_SIZE_NUMBER, 0));
+}
+
 void Engine::setWindowIsMaximized(bool b) const
 {
     if (b)
@@ -1235,6 +1241,17 @@ void Engine::createRenderedTexture(const std::string& name, int w, int h)
     }
     destroyTexture(tex_map_[name]);
     tex_map_[name] = createRenderedTexture(w, h);
+    if (!tex_map_[name])
+    {
+        LOG("createRenderedTexture failed: {} ({}x{}, {})\n", name, w, h, SDL_GetError());
+    }
+}
+
+void Engine::destroyTexture(const std::string& name)
+{
+    auto& tex = tex_map_[name];
+    destroyTexture(tex);
+    tex = nullptr;
 }
 
 void Engine::renderTextureToMain(const std::string& name)

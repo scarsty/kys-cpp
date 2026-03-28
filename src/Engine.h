@@ -308,6 +308,7 @@ public:
 
     int getWindowWidth() const;
     int getWindowHeight() const;
+    int getMaxTextureSize() const;
 
     int getUIWidth() const { return ui_w_; }
 
@@ -465,6 +466,7 @@ public:
 
     //除了纹理管理器和字体管理器，其余的类都只能使用string来标识纹理，避免泄露
     void createRenderedTexture(const std::string& name, int w, int h);
+    void destroyTexture(const std::string& name);
     void renderTextureToMain(const std::string& name);
     Texture* getTexture(const std::string& name) { return tex_map_[name]; }
     void setRenderTarget(const std::string& name) { setRenderTarget(tex_map_[name]); }

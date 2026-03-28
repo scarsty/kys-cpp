@@ -120,6 +120,51 @@ public:
 #endif
     }
 
+    static bool isLegacyBrowser()
+    {
+#ifdef __EMSCRIPTEN__
+        static int cached = -1;
+        if (cached == -1)
+        {
+            EM_ASM({
+                var ua = navigator.userAgent || "";
+                var isEdge = ua.indexOf("Edg/") >= 0 || ua.indexOf("EdgA/") >= 0 || ua.indexOf("Edge/") >= 0;
+                var isFirefox = ua.indexOf("Firefox/") >= 0 || ua.indexOf("FxiOS/") >= 0;
+                var isOpera = ua.indexOf("OPR/") >= 0 || ua.indexOf("Opera/") >= 0;
+                var isSamsung = ua.indexOf("SamsungBrowser/") >= 0;
+                var isHuawei = ua.indexOf("HuaweiBrowser/") >= 0;
+                var isChromeFamily = !isEdge && !isOpera && !isSamsung && (ua.indexOf("Chrome/") >= 0 || ua.indexOf("CriOS/") >= 0);
+                var isAppleWebKit = ua.indexOf("Safari/") >= 0 && ua.indexOf("AppleWebKit/") >= 0 && !isChromeFamily && !isEdge && !isOpera && !isSamsung;
+                console.log("[kys] userAgent:", ua);
+                console.log("[kys] legacy detect flags", {
+                    isEdge: isEdge,
+                    isFirefox: isFirefox,
+                    isOpera: isOpera,
+                    isSamsung: isSamsung,
+                    isHuawei: isHuawei,
+                    isChromeFamily: isChromeFamily,
+                    isAppleWebKit: isAppleWebKit
+                });
+            });
+            cached = EM_ASM_INT({
+                var ua = navigator.userAgent || "";
+                var isEdge = ua.indexOf('Edg/') >= 0 || ua.indexOf('EdgA/') >= 0 || ua.indexOf('Edge/') >= 0;
+                var isFirefox = ua.indexOf('Firefox/') >= 0 || ua.indexOf('FxiOS/') >= 0;
+                var isOpera = ua.indexOf('OPR/') >= 0 || ua.indexOf('Opera/') >= 0;
+                var isSamsung = ua.indexOf('SamsungBrowser/') >= 0;
+                var isHuawei = ua.indexOf('HuaweiBrowser/') >= 0;
+                var isChromeFamily = !isEdge && !isOpera && !isSamsung && (ua.indexOf('Chrome/') >= 0 || ua.indexOf('CriOS/') >= 0);
+                var isAppleWebKit = ua.indexOf('Safari/') >= 0 && ua.indexOf('AppleWebKit/') >= 0 && !isChromeFamily && !isEdge && !isOpera && !isSamsung;
+                return !(isEdge || isFirefox || isOpera || isChromeFamily || isAppleWebKit || isHuawei);
+            });
+            std::print("Legacy browser is {}\n", cached);
+        }
+        return cached == 1;
+#else
+        return false;
+#endif
+    }
+
     // Flush IDBFS persistent storage to IndexedDB (no-op on non-WASM).
     static void syncPersistentStorage()
     {

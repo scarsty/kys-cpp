@@ -1150,9 +1150,13 @@ void BattleSceneHades::draw()
 {
     constexpr int kCullMargin = 96;
 
+    auto* engine = Engine::getInstance();
+    int w = render_center_x_ * 2;
+    int h = render_center_y_ * 2;
+
     //在这个模式下，使用的是直角坐标
-    Engine::getInstance()->setRenderTarget("scene");
-    Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, render_center_x_ * 2, render_center_y_ * 2);
+    engine->setRenderTarget("scene");
+    engine->fillColor({ 0, 0, 0, 255 }, 0, 0, w, h);
 
     //以下是计算出需要画的区域，先画到一个大图上，再转贴到窗口
     {
@@ -1161,26 +1165,61 @@ void BattleSceneHades::draw()
         man_y_ = p.y;
     }
 
-    //整个场景
-    auto whole_scene = Engine::getInstance()->getTexture("whole_scene");
-    Engine::getInstance()->setRenderTarget(whole_scene);
-    int w = render_center_x_ * 2;
-    int h = render_center_y_ * 2;
-    Rect camera_rect = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
+    Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
+    Rect rect1 = { 0, 0, w, h };
+    if (rect0.x < 0)
+    {
+        rect1.x = -rect0.x;
+        rect0.x = 0;
+        rect0.w = w - rect1.x;
+    }
+    if (rect0.y < 0)
+    {
+        rect1.y = -rect0.y;
+        rect0.y = 0;
+        rect0.h = h - rect1.y;
+    }
+    rect0.w = std::min(rect0.w, COORD_COUNT * TILE_W * 2 - rect0.x);
+    rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
+
+    auto whole_scene = engine->getTexture("whole_scene");
+    bool use_whole_scene = use_whole_scene_ && whole_scene != nullptr;
+    float zoomBlend = use_whole_scene ? cameraZoomBlend(close_up_, close_up_total_) : 0.0f;
+    if (zoomBlend > 0.0f)
+    {
+        float zoomScale = 1.0f + (CAMERA_DEATH_ZOOM_SCALE - 1.0f) * zoomBlend;
+        int zoomedW = std::max(1, int(rect0.w * zoomScale + 0.5f));
+        int zoomedH = std::max(1, int(rect0.h * zoomScale + 0.5f));
+        rect0.x += (rect0.w - zoomedW) / 2;
+        rect0.y += (rect0.h - zoomedH) / 2 - int(20.0f * zoomBlend);
+        rect0.w = zoomedW;
+        rect0.h = zoomedH;
+        rect0.x = std::max(0, std::min(rect0.x, COORD_COUNT * TILE_W * 2 - rect0.w));
+        rect0.y = std::max(0, std::min(rect0.y, COORD_COUNT * TILE_H * 2 - rect0.h));
+    }
+
     Rect clear_rect = {
-        camera_rect.x - kCullMargin,
-        camera_rect.y - kCullMargin,
-        camera_rect.w + kCullMargin * 2,
-        camera_rect.h + kCullMargin * 2
+        rect0.x - kCullMargin,
+        rect0.y - kCullMargin,
+        rect0.w + kCullMargin * 2,
+        rect0.h + kCullMargin * 2
     };
     clear_rect.x = std::max(0, clear_rect.x);
     clear_rect.y = std::max(0, clear_rect.y);
-
     clear_rect.w = std::min(clear_rect.w, COORD_COUNT * TILE_W * 2 - clear_rect.x);
     clear_rect.h = std::min(clear_rect.h, COORD_COUNT * TILE_H * 2 - clear_rect.y);
-    if (clear_rect.w > 0 && clear_rect.h > 0)
+
+    if (use_whole_scene)
     {
-        Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, clear_rect.x, clear_rect.y, clear_rect.w, clear_rect.h);
+        engine->setRenderTarget(whole_scene);
+        if (clear_rect.w > 0 && clear_rect.h > 0)
+        {
+            engine->fillColor({ 0, 0, 0, 255 }, clear_rect.x, clear_rect.y, clear_rect.w, clear_rect.h);
+        }
+    }
+    else
+    {
+        engine->setRenderTarget("scene");
     }
 
     auto is_visible_world = [&](double world_x, double world_y) -> bool
@@ -1188,62 +1227,79 @@ void BattleSceneHades::draw()
         return world_x >= clear_rect.x && world_x <= clear_rect.x + clear_rect.w
             && world_y >= clear_rect.y && world_y <= clear_rect.y + clear_rect.h;
     };
+    float viewScaleX = (rect0.w > 0) ? float(rect1.w) / rect0.w : 1.0f;
+    float viewScaleY = (rect0.h > 0) ? float(rect1.h) / rect0.h : 1.0f;
+    auto renderWorldX = [&](double world_x) -> int
+    {
+        if (use_whole_scene)
+        {
+            return int(world_x);
+        }
+        return int(rect1.x + (world_x - rect0.x) * viewScaleX);
+    };
+    auto renderWorldY = [&](double world_y) -> int
+    {
+        if (use_whole_scene)
+        {
+            return int(world_y);
+        }
+        return int(rect1.y + (world_y - rect0.y) * viewScaleY);
+    };
 
-    auto earth_tex = Engine::getInstance()->getTexture("earth");
-    if (earth_tex)
+    for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
     {
-        //此画法节省资源
-        Color c = { 255, 255, 255, 255 };
-        Engine::getInstance()->setColor(earth_tex, c);
-        auto p = getPositionOnWholeEarth(man_x_, man_y_);
-        Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
-        Rect rect1 = rect0;
-        //注意这种画法，地面最上面会缺一块
-        rect0.y += TILE_H * 2;
-        if (rect0.x < 0)
+        for (int i = -view_width_region_; i <= view_width_region_; i++)
         {
-            rect1.x -= rect0.x;
-            rect0.x = 0;
-        }
-        if (rect0.y < 0)
-        {
-            rect1.y -= rect0.y;
-            rect0.y = 0;
-        }
-        if (rect0.x + rect0.w > COORD_COUNT * TILE_W * 2)
-        {
-            rect1.w -= (rect0.x + rect0.w - COORD_COUNT * TILE_W * 2);
-            rect0.w = COORD_COUNT * TILE_W * 2 - rect0.x;
-        }
-        if (rect0.y + rect0.h > COORD_COUNT * TILE_H * 2)
-        {
-            rect1.h -= (rect0.y + rect0.h - COORD_COUNT * TILE_H * 2);
-            rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
-        }
-        Engine::getInstance()->renderTexture(earth_tex, &rect0, &rect1);
-    }
-    else
-    {
-        for (int sum = -view_sum_region_; sum <= view_sum_region_ + 15; sum++)
-        {
-            for (int i = -view_width_region_; i <= view_width_region_; i++)
+            int ix = man_x_ + i + (sum / 2);
+            int iy = man_y_ - i + (sum - sum / 2);
+            auto p = pos45To90(ix, iy);
+            if (!isOutLine(ix, iy))
             {
-                int ix = man_x_ + i + (sum / 2);
-                int iy = man_y_ - i + (sum - sum / 2);
-                auto p = pos45To90(ix, iy);
-                if (!isOutLine(ix, iy))
+                int num = earth_layer_.data(ix, iy) / 2;
+                Color color = { 255, 255, 255, 255 };
+                bool need_draw = true;
+                if (need_draw && num > 0)
                 {
-                    int num = earth_layer_.data(ix, iy) / 2;
-                    Color color = { 255, 255, 255, 255 };
-                    bool need_draw = true;
-                    if (need_draw && num > 0)
-                    {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y / 2, color);
-                    }
+                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), color);
                 }
             }
         }
     }
+
+    auto earth_tex = Engine::getInstance()->getTexture("earth");
+    if (earth_tex && use_whole_scene)
+    {
+        //此画法节省资源
+        Color c = { 255, 255, 255, 255 };
+        engine->setColor(earth_tex, c);
+        Rect earth_src = rect0;
+        Rect earth_dst = rect0;
+        //注意这种画法，地面最上面会缺一块
+        earth_src.y += TILE_H * 2;
+        if (earth_src.x < 0)
+        {
+            earth_dst.x -= earth_src.x;
+            earth_src.x = 0;
+        }
+        if (earth_src.y < 0)
+        {
+            earth_dst.y -= earth_src.y;
+            earth_src.y = 0;
+        }
+        if (earth_src.x + earth_src.w > COORD_COUNT * TILE_W * 2)
+        {
+            earth_dst.w -= (earth_src.x + earth_src.w - COORD_COUNT * TILE_W * 2);
+            earth_src.w = COORD_COUNT * TILE_W * 2 - earth_src.x;
+        }
+        if (earth_src.y + earth_src.h > COORD_COUNT * TILE_H * 2)
+        {
+            earth_dst.h -= (earth_src.y + earth_src.h - COORD_COUNT * TILE_H * 2);
+            earth_src.h = COORD_COUNT * TILE_H * 2 - earth_src.y;
+        }
+        engine->renderTexture(earth_tex, &earth_src, &earth_dst);
+    }
+
+
     struct DrawInfo
     {
         TextureWarpper* tex = nullptr;
@@ -1271,15 +1327,16 @@ void BattleSceneHades::draw()
                 int num = building_layer_.data(ix, iy) / 2;
                 if (num > 0)
                 {
-                    //TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y/2);
+                    // TODO: make this legacy only
+                    // TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y/2);
                     DrawInfo info;
                     info.tex = TextureManager::getInstance()->getTexture("smap", num);
                     if (!info.tex)
                     {
                         continue;
                     }
-                    info.p.x = p.x;
-                    info.p.y = p.y;
+                    info.p.x = float(p.x);
+                    info.p.y = float(p.y);
                     info.shadow = 0;
                     draw_infos.emplace_back(std::move(info));
                 }
@@ -1423,7 +1480,7 @@ void BattleSceneHades::draw()
                     scaley = 1;
                     yd = d.tex->dy * 0.1;
                 }
-                TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                TextureManager::getInstance()->renderTexture(d.tex, renderWorldX(d.p.x), renderWorldY(d.p.y / 2.0 + yd), { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
                 // if (d.shadow == 1)
                 // {
                 //     TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
@@ -1442,71 +1499,43 @@ void BattleSceneHades::draw()
         {
             scaley = 0.5;
         }
-        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 - d.p.z, d.color, d.alpha, scaley, 1, d.rot, d.white);
+        TextureManager::getInstance()->renderTexture(d.tex, renderWorldX(d.p.x), renderWorldY(d.p.y / 2.0 - d.p.z), d.color, d.alpha, scaley, 1, d.rot, d.white);
     }
 
     for (auto r : battle_roles_)
     {
         if (is_visible_world(r->Pos.x, r->Pos.y / 2.0))
         {
-            renderExtraRoleInfo(r, r->Pos.x, r->Pos.y / 2);
+            renderExtraRoleInfo(r, renderWorldX(r->Pos.x), renderWorldY(r->Pos.y / 2.0));
         }
     }
 
     if (swapSelected_ && is_visible_world(swapSelected_->Pos.x, swapSelected_->Pos.y / 2.0))
     {
-        Engine::getInstance()->fillColor({ 255, 255, 0, 80 }, swapSelected_->Pos.x - 15, swapSelected_->Pos.y / 2 - 5, 30, 10);
+        engine->fillColor(
+            { 255, 255, 0, 80 },
+            renderWorldX(swapSelected_->Pos.x - 15),
+            renderWorldY(swapSelected_->Pos.y / 2.0 - 5),
+            std::max(1, int(30 * viewScaleX)),
+            std::max(1, int(10 * viewScaleY)));
     }
 
-    Color c = { 255, 255, 255, 255 };
-    Engine::getInstance()->setColor(whole_scene, c);
-    //获取的是中心位置，如贴图应减掉屏幕尺寸的一半
-    Rect rect0 = { int(pos_.x - render_center_x_ - x_), int(pos_.y / 2 - render_center_y_ - y_), w, h };
-    Rect rect1 = { 0, 0, w, h };
-    if (rect0.x < 0)
+    if (use_whole_scene)
     {
-        rect1.x = -rect0.x;
-        rect0.x = 0;
-        rect0.w = w - rect1.x;
+        Color c = { 255, 255, 255, 255 };
+        engine->setColor(whole_scene, c);
+        engine->setRenderTarget("scene");
+        engine->renderTexture(whole_scene, &rect0, &rect1, 0);
     }
-    if (rect0.y < 0)
-    {
-        rect1.y = -rect0.y;
-        rect0.y = 0;
-        rect0.h = h - rect1.y;
-    }
-    rect0.w = std::min(rect0.w, COORD_COUNT * TILE_W * 2 - rect0.x);
-    rect0.h = std::min(rect0.h, COORD_COUNT * TILE_H * 2 - rect0.y);
-
-    float zoomBlend = cameraZoomBlend(close_up_, close_up_total_);
-    if (zoomBlend > 0.0f)
-    {
-        float zoomScale = 1.0f + (CAMERA_DEATH_ZOOM_SCALE - 1.0f) * zoomBlend;
-        int zoomedW = std::max(1, int(rect0.w * zoomScale + 0.5f));
-        int zoomedH = std::max(1, int(rect0.h * zoomScale + 0.5f));
-        rect0.x += (rect0.w - zoomedW) / 2;
-        rect0.y += (rect0.h - zoomedH) / 2 - int(20.0f * zoomBlend);
-        rect0.w = zoomedW;
-        rect0.h = zoomedH;
-        rect0.x = std::max(0, std::min(rect0.x, COORD_COUNT * TILE_W * 2 - rect0.w));
-        rect0.y = std::max(0, std::min(rect0.y, COORD_COUNT * TILE_H * 2 - rect0.h));
-    }
-
-    Engine::getInstance()->setRenderTarget("scene");
-
-    Engine::getInstance()->renderTexture(whole_scene, &rect0, &rect1, 0);
-
-    Engine::getInstance()->renderTextureToMain("scene");
+    engine->renderTextureToMain("scene");
 
     // World→UI coordinate transform for deferred text rendering.
-    // world coords live on whole_scene; rect0→rect1 maps them to the scene texture (w x h).
+    // world coords live on the battle map; rect0→rect1 maps them to the scene texture (w x h).
     // The scene texture is then stretched to fill the main texture (ui_w x ui_h).
-    int ui_w = Engine::getInstance()->getUIWidth();
-    int ui_h = Engine::getInstance()->getUIHeight();
+    int ui_w = engine->getUIWidth();
+    int ui_h = engine->getUIHeight();
     float sceneToUiX = (w > 0) ? float(ui_w) / w : 1.0f;
     float sceneToUiY = (h > 0) ? float(ui_h) / h : 1.0f;
-    float viewScaleX = (rect0.w > 0) ? float(rect1.w) / rect0.w : 1.0f;
-    float viewScaleY = (rect0.h > 0) ? float(rect1.h) / rect0.h : 1.0f;
     auto worldToUiX = [&](double wx) -> int
     {
         return int((rect1.x + (wx - rect0.x) * viewScaleX) * sceneToUiX);
@@ -1635,8 +1664,22 @@ void BattleSceneHades::onEntrance()
 
     makeEarthTexture();    //注意高度稍微多了一点
 
-    //此处创建了一个大的纹理，用于渲染整个场景
-    Engine::getInstance()->createRenderedTexture("whole_scene", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    auto* engine = Engine::getInstance();
+    int whole_scene_w = COORD_COUNT * TILE_W * 2;
+    int whole_scene_h = COORD_COUNT * TILE_H * 2;
+    int max_texture_size = engine->getMaxTextureSize();
+    bool is_legacy = GameUtil::isLegacyBrowser();
+    use_whole_scene_ = !is_legacy
+        && (max_texture_size <= 0 || (whole_scene_w <= max_texture_size && whole_scene_h <= max_texture_size));
+    if (use_whole_scene_)
+    {
+        engine->createRenderedTexture("whole_scene", whole_scene_w, whole_scene_h);
+    }
+    else
+    {
+        LOG("whole_scene disabled: legacy={}, required={}x{}, renderer max={}\n",
+            is_legacy, whole_scene_w, whole_scene_h, max_texture_size);
+    }
 
     //首先设置位置和阵营，其他的后面统一处理
     int battleUid = 10000;
@@ -2183,6 +2226,9 @@ void BattleSceneHades::onExit()
         RunNode::setRefreshInterval(previous_refresh_interval_);
         previous_refresh_interval_ = 0.0;
     }
+
+    Engine::getInstance()->destroyTexture("whole_scene");
+    use_whole_scene_ = false;
 
     // hurt_flash_timers_.clear();
     // execution_popup_roles_.clear();

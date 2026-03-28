@@ -130,6 +130,7 @@ public:
     static const char* getOperationTypeName(int operationType);
 
 protected:
+    bool use_whole_scene_ = false;
     KysChess::ChessRoleSave& roleSave_;
     KysChess::ChessProgress& progress_;
     KysChess::ChessManager& chessManager_;

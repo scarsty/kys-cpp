@@ -144,10 +144,11 @@ void SubScene::draw()
                 //有高度地面
                 int h = submap_info_->BuildingHeight(ix, iy);
                 int num = submap_info_->Earth(ix, iy) / 2;
-                // if (num > 0 && h > 2)
-                // {
-                //     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
-                // }
+                // TODO: legacy device only
+                if (num > 0 && h > 2 || GameUtil::isLegacyBrowser())
+                {
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
+                }
                 //鼠标位置
                 if (ix == cursor_x_ && iy == cursor_y_)
                 {
@@ -537,8 +538,15 @@ void SubScene::onEntrance()
 
     //一大块地面的纹理，预先拼好地面，可以减少绘制的次数
     //暂时不使用这种方法，地面的动态效果会消失
-    Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
-    reDrawEarthTexture();
+    if (GameUtil::isLegacyBrowser())
+    {
+        Engine::getInstance()->destroyTexture("searth");
+    }
+    else
+    {
+        Engine::getInstance()->createRenderedTexture("searth", COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+        reDrawEarthTexture();
+    }
     //Engine::getInstance()->saveTexture(earth_texture, std::format("{}.bmp", submap_id_).c_str());
 
     // auto scene_name = std::make_shared<TextBox>();
