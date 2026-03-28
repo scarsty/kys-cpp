@@ -11,11 +11,6 @@
 #include <limits>
 #include <vector>
 
-#ifndef _WIN32
-#include <fcntl.h>
-#include <unistd.h>
-#endif
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -176,13 +171,14 @@ public:
     {
         close();
 
-        fd_ = ::open(blob_path.c_str(), O_RDONLY);
-        if (fd_ < 0)
+        stream_.open(blob_path, std::ios::binary);
+        if (!stream_)
         {
             return false;
         }
 
-        const off_t end_pos = ::lseek(fd_, 0, SEEK_END);
+        stream_.seekg(0, std::ios::end);
+        const auto end_pos = stream_.tellg();
         if (end_pos < 0)
         {
             close();
@@ -200,7 +196,7 @@ public:
 
     std::string read(std::uint64_t offset, std::uint64_t size) const override
     {
-        if (fd_ < 0 || offset > blob_size_ || size > blob_size_ - offset)
+        if (offset > blob_size_ || size > blob_size_ - offset)
         {
             return {};
         }
@@ -213,16 +209,21 @@ public:
         std::size_t done = 0;
         while (done < static_cast<std::size_t>(size))
         {
-            const auto got = ::pread(
-                fd_,
-                content.data() + done,
-                static_cast<std::size_t>(size) - done,
-                static_cast<off_t>(offset + done));
-            if (got <= 0)
+            const auto target = static_cast<std::streamoff>(offset + done);
+            stream_.clear();
+            stream_.seekg(target);
+            if (!stream_)
             {
                 return {};
             }
-            done += static_cast<std::size_t>(got);
+
+            stream_.read(content.data() + done, static_cast<std::streamsize>(size - done));
+            const auto got = static_cast<std::size_t>(stream_.gcount());
+            if (got == 0)
+            {
+                return {};
+            }
+            done += got;
         }
         return content;
     }
@@ -230,15 +231,12 @@ public:
 private:
     void close()
     {
-        if (fd_ >= 0)
-        {
-            ::close(fd_);
-            fd_ = -1;
-        }
+        stream_.close();
+        stream_.clear();
         blob_size_ = 0;
     }
 
-    int fd_ = -1;
+    mutable std::ifstream stream_;
     std::uint64_t blob_size_ = 0;
 };
 #endif
