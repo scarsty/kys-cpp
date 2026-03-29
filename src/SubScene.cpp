@@ -18,6 +18,9 @@ SubScene::SubScene()
 {
     full_window_ = 1;
     COORD_COUNT = SUBMAP_COORD_COUNT;
+    cloud_group_ = std::make_shared<CloudGroup>();
+    cloud_group_->init(2, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    addChild(cloud_group_);
 }
 
 SubScene::SubScene(int id) :
@@ -388,6 +391,7 @@ void SubScene::backRun()
         }
     }
     //LOG("sub scene %d,", current_frame_);
+    cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
 }
 
 void SubScene::onEntrance()

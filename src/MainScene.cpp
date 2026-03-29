@@ -40,12 +40,6 @@ MainScene::MainScene()
     }
     data_readed_ = true;
 
-    //100个云
-    //cloud_vector_.resize(100);
-    //for (int i = 0; i < 100; i++)
-    //{
-    //    cloud_vector_[i].initRand();
-    //}
     cloud_group_ = std::make_shared<CloudGroup>();
     cloud_group_->init(100, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
     addChild(cloud_group_);
@@ -129,7 +123,7 @@ void MainScene::draw()
                 {
                     continue;
                 }
-                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);//, { 192, 192, 192, 255 }, 255, 1, 1, 0, 0);
+                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);    //, { 192, 192, 192, 255 }, 255, 1, 1, 0, 0);
             }
         }
     }

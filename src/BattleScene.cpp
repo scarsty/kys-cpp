@@ -39,6 +39,10 @@ BattleScene::BattleScene()
     semi_real_ = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
     rand_.set_seed();
     prev_music_ = Audio::getInstance()->getCurrentMusic();
+
+    cloud_group_ = std::make_shared<CloudGroup>();
+    cloud_group_->init(10, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    addChild(cloud_group_);
 }
 
 BattleScene::BattleScene(int id) :
@@ -377,6 +381,7 @@ void BattleScene::onExit()
 
 void BattleScene::backRun()
 {
+    cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
 }
 
 //读取战斗信息，确定是选人物还是自动人物

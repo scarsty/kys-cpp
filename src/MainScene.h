@@ -23,12 +23,12 @@ public:
 
     void divide2(MapSquareInt& m1, MapSquare<Object>& m);
 
-    int MAN_PIC_0 = 2501;         //初始主角图偏移量
+    int MAN_PIC_0 = 2501;         //初始主角图
     int MAN_PIC_COUNT = 7;        //单向主角图张数
-    int REST_PIC_0 = 2529;        //主角休息图偏移量
+    int REST_PIC_0 = 2529;        //初始主角休息图
     int REST_PIC_COUNT = 6;       //单向休息图张数
-    int SHIP_PIC_0 = 3715;        //初始主角图偏移量
-    int SHIP_PIC_COUNT = 4;       //单向主角图张数
+    int SHIP_PIC_0 = 3715;        //初始船图
+    int SHIP_PIC_COUNT = 4;       //单向船图张数
     int BEGIN_REST_TIME = 200;    //开始休息的时间
     int REST_INTERVAL = 15;       //休息图切换间隔
 
@@ -37,9 +37,6 @@ public:
     int force_submap_y_ = -1;
     int force_event_ = -1;
 
-    //todo: 休息未完成
-
-   // std::vector<Cloud> cloud_vector_;
     std::shared_ptr<CloudGroup> cloud_group_;
 
     virtual void draw() override;
@@ -65,5 +62,4 @@ public:
     bool inNorth() { return man_x_ + man_y_ <= 220; }
     int view_cloud_ = 0;
     int getViewCloud() { return view_cloud_; }
-
 };

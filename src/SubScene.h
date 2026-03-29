@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Cloud.h"
 #include "Scene.h"
 #include "Save.h"
 
@@ -23,6 +24,8 @@ public:
     int force_man_pic_ = -1;
 
     int force_begin_event_ = -1;
+
+    std::shared_ptr<CloudGroup> cloud_group_;
 
 public:
     SubMapInfo* getMapInfo() { return submap_info_; }

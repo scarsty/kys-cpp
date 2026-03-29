@@ -2,6 +2,7 @@
 #include "BattleCursor.h"
 #include "BattleMap.h"
 #include "BattleMenu.h"
+#include "Cloud.h"
 #include "Point.h"
 #include "Random.h"
 #include "Scene.h"
@@ -73,6 +74,8 @@ protected:
     std::unique_ptr<BattleNetwork> network_;    // 网络连接
 
     int prev_music_ = 0;
+
+    std::shared_ptr<CloudGroup> cloud_group_;
 
 public:
     void setSelectPosition(int x, int y)    //设置选择的坐标
