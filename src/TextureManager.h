@@ -24,6 +24,18 @@ struct GroupInfo
     std::string path;
 };
 
+struct RenderInfo
+{
+    Color c{ 255, 255, 255, 255 };
+    uint8_t alpha = 255;
+    double zoom_x = 1;
+    double zoom_y = 1;
+    double angle = 0;
+    uint8_t white = 0;
+    std::vector<Color> color_v{};
+    std::vector<float> brightness_v{};
+};
+
 struct TextureWarpper
 {
     enum
@@ -82,17 +94,7 @@ private:
     std::map<const std::string, TextureGroup> map_;
 
 public:
-    struct RenderInfo
-    {
-        Color c = { 255, 255, 255, 255 };
-        uint8_t alpha = 255;
-        double zoom_x = 1;
-        double zoom_y = 1;
-        double angle = 0;
-        uint8_t white = 0;
-        std::vector<Color> color_v;
-        std::vector<float> brightness_v;
-    };
+    using RenderInfo = RenderInfo;
 
     static TextureManager* getInstance()
     {
