@@ -23,7 +23,13 @@ void Cloud::setPositionOnScreen(int x, int y, int center_x, int center_y)
 
 void Cloud::draw()
 {
-    TextureManager::getInstance()->renderTexture("cloud", num_, x_, y_, { color_, alpha_ });
+    TextureManager::RenderInfo info;
+    info.c = color_;
+    info.alpha = alpha_;
+    info.c.a = alpha_;
+    info.color_v.resize(4, info.c);
+    info.brightness_v = { 1, 0, 0, 0 };
+    TextureManager::getInstance()->renderTexture("cloud", num_, x_, y_, info);
 }
 
 void Cloud::flow()

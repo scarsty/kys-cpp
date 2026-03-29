@@ -110,6 +110,8 @@ void MainScene::draw()
         int earth_y = pe.y - TILE_H * 2 + 1;
         int view_w, view_h;
         Engine::getInstance()->getAssistTextureSize("scene", view_w, view_h);
+        Engine::getInstance()->createAssistTexture("temp", view_w, view_h);
+        Engine::getInstance()->setRenderTarget("temp");
         for (int i = 0; i < 8; i++)
         {
             for (int j = 0; j < 8; j++)
@@ -118,14 +120,21 @@ void MainScene::draw()
                 int y = j * earth_size / 8 / 2 + earth_y;
                 int w = earth_size / 8;
                 int h = earth_size / 8 / 2;
-
                 if (x > view_w || y > view_h || x + w < 0 || y + h < 0)
                 {
                     continue;
                 }
-                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);    //, { 192, 192, 192, 255 }, 255, 1, 1, 0, 0);
+                TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);
             }
         }
+        Engine::getInstance()->setRenderTarget("scene");
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 0.75;
+        brightness_v[2] = 0;
+        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        auto temp_texture = Engine::getInstance()->getTexture("temp");
+        Rect r = { 0, 0, view_w, view_h };
+        Engine::getInstance()->renderTextureLight(temp_texture, nullptr, &r, color_v, brightness_v);
     }
 
     //下面的15是下方较高贴图的余量，其余场景同

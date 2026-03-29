@@ -518,8 +518,8 @@ void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std:
 
     float tex_x0 = rect0 ? float(rect0->x) : 0.0f;
     float tex_y0 = rect0 ? float(rect0->y) : 0.0f;
-    float tex_x1 = tex_x0 + (rect0 ? rect0->w : w);
-    float tex_y1 = tex_y0 + (rect0 ? rect0->h : h);
+    float tex_x1 = tex_x0 + (rect0 ? rect0->w : w0);
+    float tex_y1 = tex_y0 + (rect0 ? rect0->h : h0);
 
     float tw = 1.0f, th = 1.0f;
     float tw_f, th_f;

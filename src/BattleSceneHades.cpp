@@ -129,7 +129,8 @@ void BattleSceneHades::draw()
             rect1.h -= (rect0.y + rect0.h - COORD_COUNT * TILE_H * 2);
             rect0.h = COORD_COUNT * TILE_H * 2 - rect0.y;
         }
-        Engine::getInstance()->renderTexture(earth_tex, &rect0, &rect1);
+        std::vector<Color> cv(4, { 255, 255, 255, 255 });
+        Engine::getInstance()->renderTextureLight(earth_tex, &rect0, &rect1, cv, { 1, 0, 0, 0 });
     }
     else
     {
@@ -331,7 +332,7 @@ void BattleSceneHades::draw()
         std::vector<Color> color_v;
         //color_v[0] = { 128, 128, 64, 255 };
         std::vector<float> brightness_v(4, 0);
-        brightness_v[0] = 1;
+        brightness_v[0] = 0.75;
         brightness_v[2] = 0;
         TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z,
             { d.color, d.alpha, scaley, 1, double(d.rot), d.white, color_v, brightness_v });

@@ -316,7 +316,7 @@ void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, const Rend
     else
     {
         engine->setColor(tex->tex[i], { 255, 255, 255, info.alpha });
-        Rect r1 = { r.x - tex->dx, r.y - tex->dy, r.w, r.h };
+        Rect r1 = { r.x - tex->dx, r.y - tex->dy, rw, rh };
         engine->renderTextureLight(tex->tex[i], nullptr, &r1, info.color_v, info.brightness_v, info.angle);
     }
     if (info.white)
