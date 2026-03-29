@@ -2731,7 +2731,7 @@ void BattleSceneHades::backRun1()
 
                     if (away.norm() > 0.01)
                     {
-                        double speed = std::max(4.0, r->Speed / 10.0);
+                        double speed =  2.5 + std::clamp(r->Speed / 12.0, 0.0, 10.0);
                         double angle = away.getAngle();
                         const double offsets[] = { 0.0, M_PI / 6.0, -M_PI / 6.0, M_PI / 3.0, -M_PI / 3.0 };
                         bool foundPath = false;
@@ -5090,8 +5090,8 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
-    int v[4] = { 95 - i / 2, 215 - i, 120 - i / 2, 45 };
-    int min_v[4] = { 72, 85, 80, 45 };
+    int v[4] = { 105 - i / 2, 185 - i, 115 - i / 2, 45 };
+    int min_v[4] = { 60, 70, 70, 45 };
     if (operation_type >= 0 && operation_type <= 3)
     {
         int c = std::max(min_v[operation_type], v[operation_type]);

@@ -28,6 +28,6 @@ port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 server = ThreadingHTTPServer(("", port), Handler)
 # server.socket = ctx.wrap_socket(server.socket, server_side=True)
 
-print(f"Serving HTTPS on port {port}")
-print(f"  https://localhost:{port}")
+print(f"Serving HTTP on port {port}")
+print(f"  http://localhost:{port}")
 server.serve_forever()
