@@ -26,6 +26,9 @@ SubScene::SubScene()
     full_window_ = 1;
     COORD_COUNT = SUBMAP_COORD_COUNT;
     chess_mod_ = std::make_unique<KysChess::ChessMod>(KysChess::GameState::get());
+    cloud_group_ = std::make_shared<CloudGroup>();
+    cloud_group_->init(2, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    addChild(cloud_group_);
 }
 
 SubScene::SubScene(int id) :
@@ -89,7 +92,8 @@ void SubScene::draw()
             rect1.y = -rect0.y;
             rect0.y = 0;
         }
-        Engine::getInstance()->renderTexture(earth_texture, &rect0, &rect1);
+        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, color_v, { 0.25f, 0.0f, 0.0f, 0.0f });
     }
     else
     {
@@ -146,20 +150,23 @@ void SubScene::draw()
                 int h = submap_info_->BuildingHeight(ix, iy) * rate;    //高清模式要乘以倍率
                 int num = submap_info_->Earth(ix, iy) / 2;
                 // TODO: legacy device only
-                if (num > 0 && h > 2 || GameUtil::isLegacyBrowser())
+                if (GameUtil::isLegacyBrowser() || (num > 0 && h > 2 && !earth_texture))
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
                 //鼠标位置
                 if (ix == cursor_x_ && iy == cursor_y_)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", 1, p.x, p.y - h, { 255, 255, 255, 255 }, 128);
+                    TextureManager::getInstance()->renderTexture("smap", 1, p.x, p.y - h, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 128 });
                 }
+                std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+                std::vector<float> brightness_v = { 0.0f, 0.0f, 0.0f, 0.0f };
                 //建筑和主角
                 num = submap_info_->Building(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h,
+                        TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, brightness_v });
                 }
                 if (ix == man_x_ && iy == man_y_)
                 {
@@ -172,7 +179,8 @@ void SubScene::draw()
                     {
                         man_pic_ = force_man_pic_;
                     }
-                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h);
+                    TextureManager::getInstance()->renderTexture("smap", man_pic_, p.x, p.y - h,
+                        TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, brightness_v });
                 }
                 //事件
                 auto event = submap_info_->Event(ix, iy);
@@ -182,14 +190,16 @@ void SubScene::draw()
                     //map[calBlockTurn(i1, i2, 2)] = s;
                     if (num > 0)
                     {
-                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h);
+                        TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - h,
+                            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, brightness_v });
                     }
                 }
                 //装饰
                 num = submap_info_->Decoration(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy) * rate);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy) * rate,
+                        TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, color_v, brightness_v });
                 }
             }
             //k++;
@@ -269,7 +279,8 @@ void SubScene::draw()
                 if (ng.magicId == obtained[i])
                 {
                     iconX -= 22;
-                    TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4, {255, 255, 255, 255}, 255, 0.35, 0.35);
+                    TextureManager::getInstance()->renderTexture("item", ng.itemId, iconX, 4,
+                        TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 0.35, 0.35 });
                     break;
                 }
     }
@@ -512,6 +523,7 @@ void SubScene::backRun()
         }
     }
     //LOG("sub scene %d,", current_frame_);
+    cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
 }
 
 void SubScene::onEntrance()

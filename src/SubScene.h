@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Cloud.h"
 #include "Scene.h"
 #include "Save.h"
 
@@ -32,6 +33,7 @@ public:
     int force_begin_event_ = -1;
 
     std::unique_ptr<KysChess::ChessMod> chess_mod_;
+    std::shared_ptr<CloudGroup> cloud_group_;
 
     // Chess quick-access button bounds (for click detection)
     int chess_btn_x_ = 0, chess_btn_y_ = 0, chess_btn_w_ = 0, chess_btn_h_ = 0;

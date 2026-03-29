@@ -235,7 +235,7 @@ void Font::drawWithBox(const std::string& text, int size, int x, int y, Color co
     }
     else
     {
-        TextureManager::getInstance()->renderTexture("title", 126, r, { 255, 255, 255, 255 }, alpha_box);
+        TextureManager::getInstance()->renderTexture("title", 126, r.x, r.y, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, alpha_box }, r.w, r.h);
     }
     draw(text, size, x, y, color, alpha);
 }

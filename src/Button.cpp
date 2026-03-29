@@ -196,7 +196,7 @@ void Button::draw()
         y += 2;
     }
     if (alpha_ != 255) { alpha = alpha_; }
-    TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, color, alpha);
+    TextureManager::getInstance()->renderTexture(texture_path_, id, x, y, TextureManager::RenderInfo{ color, alpha });
 
     if (!text_.empty())
     {

@@ -82,6 +82,18 @@ private:
     std::map<const std::string, TextureGroup> map_;
 
 public:
+    struct RenderInfo
+    {
+        Color c = { 255, 255, 255, 255 };
+        uint8_t alpha = 255;
+        double zoom_x = 1;
+        double zoom_y = 1;
+        double angle = 0;
+        uint8_t white = 0;
+        std::vector<Color> color_v;
+        std::vector<float> brightness_v;
+    };
+
     static TextureManager* getInstance()
     {
         static TextureManager tm;
@@ -89,15 +101,8 @@ public:
     }
 
 public:
-    void renderTexture(TextureWarpper* tex, Rect r,
-        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
-    void renderTexture(const std::string& path, int num, Rect r,
-        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double angle = 0, uint8_t white = 0);
-
-    void renderTexture(TextureWarpper* tex, int x, int y,
-        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
-    void renderTexture(const std::string& path, int num, int x, int y,
-        Color c = { 255, 255, 255, 255 }, uint8_t alpha = 255, double zoom_x = 1, double zoom_y = 1, double angle = 0, uint8_t white = 0);
+    void renderTexture(TextureWarpper* tex, int x, int y, const RenderInfo& info = {}, int w = -1, int h = -1);
+    void renderTexture(const std::string& path, int num, int x, int y, const RenderInfo& info = {}, int w = -1, int h = -1);
 
     TextureWarpper* getTexture(const std::string& path, int num);
     int getTextureGroupCount(const std::string& path);

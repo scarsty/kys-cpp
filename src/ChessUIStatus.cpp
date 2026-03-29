@@ -217,7 +217,7 @@ void ChessUIStatus::draw()
     if (auto* headTexture = TextureManager::getInstance()->getTexture("head", chess_.role->HeadID))
     {
         auto rect = scaledTextureRect(headTexture, layout.avatar.x, layout.avatar.y, layout.avatar.h, 96);
-        TextureManager::getInstance()->renderTexture(headTexture, rect, color_white, 255);
+        TextureManager::getInstance()->renderTexture(headTexture, rect.x, rect.y, TextureManager::RenderInfo{ color_white, 255 }, rect.w, rect.h);
     }
     else
     {
@@ -335,11 +335,12 @@ void ChessUIStatus::draw()
                 if (auto* itemTexture = TextureManager::getInstance()->getTexture("item", instance.itemId))
                 {
                     auto rect = scaledTextureRect(itemTexture, iconX, rowY - kEquipIconTopAdjust, kEquipIconSize);
-                    TextureManager::getInstance()->renderTexture(itemTexture, rect, color_white, 255);
+                    TextureManager::getInstance()->renderTexture(itemTexture, rect.x, rect.y, TextureManager::RenderInfo{ color_white, 255 }, rect.w, rect.h);
                 }
                 else
                 {
-                    TextureManager::getInstance()->renderTexture("item", instance.itemId, iconX, rowY - kEquipFallbackTopAdjust, color_white, 255, 0.26, 0.26);
+                    TextureManager::getInstance()->renderTexture("item", instance.itemId, iconX, rowY - kEquipFallbackTopAdjust,
+                        TextureManager::RenderInfo{ color_white, 255, 0.26, 0.26 });
                 }
                 font->draw(item->Name, layout.smallFontSize, iconX + kEquipIconSize + kEquipNameGap, rowY, color_equip);
             }

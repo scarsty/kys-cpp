@@ -425,12 +425,12 @@ void Engine::renderPresent() const
 {
     //renderMainTextureToWindow();
     SDL_RenderPresent(renderer_);
-#ifndef __EMSCRIPTEN__
-    // On Emscripten with asyncify, clearing here would make the canvas black
-    // during any browser yield (emscripten_sleep, async IO fetch).
-    // renderMainTextureToWindow() already clears before blitting each frame.
-    SDL_RenderClear(renderer_);
-#endif
+// #ifndef __EMSCRIPTEN__
+//     // On Emscripten with asyncify, clearing here would make the canvas black
+//     // during any browser yield (emscripten_sleep, async IO fetch).
+//     // renderMainTextureToWindow() already clears before blitting each frame.
+//     SDL_RenderClear(renderer_);
+// #endif
     //setRenderMainTexture();
 }
 
@@ -481,6 +481,132 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
     SDL_RenderTextureRotated(renderer_, t, rect0f_ptr, rect1f_ptr, angle, nullptr, SDL_FLIP_NONE);
     SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
     render_times_++;
+}
+
+void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std::vector<Color>& colors,
+    const std::vector<float>& brightness_v, double angle)
+{
+    if (!t || !rect1)
+    {
+        return;
+    }
+
+    int w = rect1->w;
+    int h = rect1->h;
+
+    int texture_w, texture_h;
+    getTextureSize(t, texture_w, texture_h);
+    if (w < 0)
+    {
+        w = texture_w;
+    }
+    if (h < 0)
+    {
+        h = texture_h;
+    }
+
+    float x0 = float(rect1->x);
+    float y0 = float(rect1->y);
+    float x1 = x0 + w;
+    float y1 = y0 + h;
+
+    float tex_x0 = rect0 ? float(rect0->x) : 0.0f;
+    float tex_y0 = rect0 ? float(rect0->y) : 0.0f;
+    float tex_x1 = rect0 ? float(rect0->x + rect0->w) : float(texture_w);
+    float tex_y1 = rect0 ? float(rect0->y + rect0->h) : float(texture_h);
+    const float tw = float((std::max)(1, texture_w));
+    const float th = float((std::max)(1, texture_h));
+
+    auto color_to_fcolor = [](const Color& color) -> SDL_FColor
+    {
+        return { float(color.r) / 255.0f, float(color.g) / 255.0f, float(color.b) / 255.0f, float(color.a) / 255.0f };
+    };
+
+    const SDL_FColor default_color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    SDL_Vertex vertices[4];
+
+    vertices[0].position = { x0, y0 };
+    vertices[0].tex_coord = { tex_x0 / tw, tex_y0 / th };
+    vertices[0].color = colors.size() > 0 ? color_to_fcolor(colors[0]) : default_color;
+
+    vertices[1].position = { x1, y0 };
+    vertices[1].tex_coord = { tex_x1 / tw, tex_y0 / th };
+    vertices[1].color = colors.size() > 1 ? color_to_fcolor(colors[1]) : default_color;
+
+    vertices[2].position = { x1, y1 };
+    vertices[2].tex_coord = { tex_x1 / tw, tex_y1 / th };
+    vertices[2].color = colors.size() > 2 ? color_to_fcolor(colors[2]) : default_color;
+
+    vertices[3].position = { x0, y1 };
+    vertices[3].tex_coord = { tex_x0 / tw, tex_y1 / th };
+    vertices[3].color = colors.size() > 3 ? color_to_fcolor(colors[3]) : default_color;
+
+    if (angle != 0)
+    {
+        const float rad = float(angle * M_PI / 180.0);
+        const float cos_angle = float(std::cos(rad));
+        const float sin_angle = float(std::sin(rad));
+        const float cx = x0 + w * 0.5f;
+        const float cy = y0 + h * 0.5f;
+        for (auto& vertex : vertices)
+        {
+            const float rx = vertex.position.x - cx;
+            const float ry = vertex.position.y - cy;
+            vertex.position.x = cx + rx * cos_angle - ry * sin_angle;
+            vertex.position.y = cy + rx * sin_angle + ry * cos_angle;
+        }
+    }
+
+    int indices[6] = { 0, 1, 2, 2, 3, 0 };
+    SDL_RenderGeometry(renderer_, t, vertices, 4, indices, 6);
+    render_times_++;
+
+    if (!brightness_v.empty())
+    {
+        float brightness[4] = { 0, 0, 0, 0 };
+        for (int i = 0; i < 4; i++)
+        {
+            if (i < static_cast<int>(brightness_v.size()))
+            {
+                brightness[i] = (std::max)(0.0f, brightness_v[i]);
+            }
+        }
+
+        const float max_brightness = (std::max)((std::max)(brightness[0], brightness[1]), (std::max)(brightness[2], brightness[3]));
+        const int full_pass = int(std::floor(max_brightness));
+        const float remain = max_brightness - full_pass;
+
+        SDL_BlendMode previous_blend = SDL_BLENDMODE_BLEND;
+        SDL_GetTextureBlendMode(t, &previous_blend);
+        SDL_SetTextureBlendMode(t, SDL_BLENDMODE_ADD);
+
+        auto do_add_pass = [&](float pass_base)
+        {
+            SDL_Vertex add_vertices[4] = { vertices[0], vertices[1], vertices[2], vertices[3] };
+            for (int i = 0; i < 4; i++)
+            {
+                float factor = brightness[i] - pass_base;
+                if (factor > 1.0f) { factor = 1.0f; }
+                if (factor < 0.0f) { factor = 0.0f; }
+                add_vertices[i].color = { factor, factor, factor, 1.0f };
+            }
+            SDL_RenderGeometry(renderer_, t, add_vertices, 4, indices, 6);
+            render_times_++;
+        };
+
+        for (int pass = 0; pass < full_pass; pass++)
+        {
+            do_add_pass(float(pass));
+        }
+        if (remain > 0.0f)
+        {
+            do_add_pass(float(full_pass));
+        }
+
+        SDL_SetTextureBlendMode(t, previous_blend);
+    }
+
+    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
 }
 
 void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2)

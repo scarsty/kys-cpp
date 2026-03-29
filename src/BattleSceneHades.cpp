@@ -37,9 +37,9 @@ constexpr int CAMERA_ZOOM_EASE_FRAMES = 0;             // 0 restores the old har
 constexpr int CAMERA_DEATH_SLOW_FRAMES = 10;           // slow-motion duration after a death
 constexpr int CAMERA_BATTLE_END_SLOW_FRAMES = 30;      // slow-motion duration when the battle ends
 constexpr int CAMERA_SLOW_STEP_INTERVAL = 4;           // lower = less slow-motion, higher = slower motion
-constexpr float CAMERA_AUTO_FOLLOW_LERP = 1.0f;       // 1.0 restores the old instant auto-follow snap
-constexpr float CAMERA_DEATH_FOCUS_LERP = 1.0f;       // 1.0 restores the old instant death-focus snap
-constexpr float CAMERA_DEATH_RETARGET_BLEND = 0.0f;   // 0.0 restores the old immediate retarget on repeated deaths
+constexpr float CAMERA_AUTO_FOLLOW_LERP = 1.0f;        // 1.0 restores the old instant auto-follow snap
+constexpr float CAMERA_DEATH_FOCUS_LERP = 1.0f;        // 1.0 restores the old instant death-focus snap
+constexpr float CAMERA_DEATH_RETARGET_BLEND = 0.0f;    // 0.0 restores the old immediate retarget on repeated deaths
 constexpr int STATUS_TEXT_SIZE = 24;
 constexpr int EMPHASIS_TEXT_SIZE = 36;
 constexpr int NORMAL_DAMAGE_TEXT_SIZE = 30;
@@ -527,7 +527,7 @@ Magic* BattleSceneHades::triggerAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
-    Magic* magic = selectMagic(role, std::greater<double>{});
+    Magic* magic = selectMagic(role, std::greater<double>{ });
     if (!magic)
     {
         return nullptr;
@@ -1260,7 +1260,7 @@ void BattleSceneHades::draw()
                 bool need_draw = true;
                 if (need_draw && num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), color);
+                    TextureManager::getInstance()->renderTexture("smap", num, renderWorldX(p.x), renderWorldY(p.y / 2.0), TextureManager::RenderInfo{ color });
                 }
             }
         }
@@ -1296,9 +1296,9 @@ void BattleSceneHades::draw()
             earth_dst.h -= (earth_src.y + earth_src.h - COORD_COUNT * TILE_H * 2);
             earth_src.h = COORD_COUNT * TILE_H * 2 - earth_src.y;
         }
-        engine->renderTexture(earth_tex, &earth_src, &earth_dst);
+        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        engine->renderTextureLight(earth_tex, &earth_src, &earth_dst, color_v, { 0.25f, 0.0f, 0.0f, 0.0f });
     }
-
 
     struct DrawInfo
     {
@@ -1480,7 +1480,8 @@ void BattleSceneHades::draw()
                     scaley = 1;
                     yd = d.tex->dy * 0.1;
                 }
-                TextureManager::getInstance()->renderTexture(d.tex, renderWorldX(d.p.x), renderWorldY(d.p.y / 2.0 + yd), { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
+                TextureManager::getInstance()->renderTexture(d.tex, renderWorldX(d.p.x), renderWorldY(d.p.y / 2.0 + yd),
+                    TextureManager::RenderInfo{ { 32, 32, 32, 255 }, uint8_t(d.alpha / 2), scalex, scaley, double(d.rot) });
                 // if (d.shadow == 1)
                 // {
                 //     TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y / 2 + yd, { 32, 32, 32, 255 }, d.alpha / 2, scalex, scaley, d.rot);
@@ -1499,7 +1500,15 @@ void BattleSceneHades::draw()
         {
             scaley = 0.5;
         }
-        TextureManager::getInstance()->renderTexture(d.tex, renderWorldX(d.p.x), renderWorldY(d.p.y / 2.0 - d.p.z), d.color, d.alpha, scaley, 1, d.rot, d.white);
+        std::vector<Color> color_v;
+        //color_v[0] = { 128, 128, 64, 255 };
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 0.5;
+        brightness_v[2] = 0;
+        TextureManager::getInstance()->renderTexture(d.tex,
+            renderWorldX(d.p.x),
+            renderWorldY(d.p.y / 2.0 - d.p.z),
+            TextureManager::RenderInfo{ d.color, d.alpha, scaley, 1, static_cast<double>(d.rot), d.white, color_v, {} });
     }
 
     for (auto r : battle_roles_)
@@ -2240,7 +2249,7 @@ class PositionSwapNode : public RunNode
     BattleSceneHades* battle_;
 
 public:
-    PositionSwapNode(BattleSceneHades* b) : battle_(b) {}
+    PositionSwapNode(BattleSceneHades* b) : battle_(b) { }
 
     void dealEvent(EngineEvent& e) override
     {
@@ -2731,7 +2740,7 @@ void BattleSceneHades::backRun1()
 
                     if (away.norm() > 0.01)
                     {
-                        double speed =  2.5 + std::clamp(r->Speed / 13.0, 0.0, 12.0);
+                        double speed = 2.5 + std::clamp(r->Speed / 13.0, 0.0, 12.0);
                         double angle = away.getAngle();
                         const double offsets[] = { 0.0, M_PI / 6.0, -M_PI / 6.0, M_PI / 3.0, -M_PI / 3.0 };
                         bool foundPath = false;
@@ -3314,7 +3323,7 @@ void BattleSceneHades::backRun1()
         {
             bool valid = false;
             Role* puller = nullptr;
-            Point cell{};
+            Point cell{ };
             int enemyThreat = std::numeric_limits<int>::max();
             int enemyMinDist = -1;
             int allySupport = -1;
@@ -4598,7 +4607,7 @@ void BattleSceneHades::AI(Role* r)
                         return chooseMagic;
                     };
                     bool isUltimate = r->MP >= r->MaxMP;
-                    r->UsingMagic = isUltimate ? selectMagic(std::greater<int>{}) : selectMagic(std::less<int>{});
+                    r->UsingMagic = isUltimate ? selectMagic(std::greater<int>{ }) : selectMagic(std::less<int>{ });
                     if (isUltimate)
                     {
                         ultCasters_.insert(r);

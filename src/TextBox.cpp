@@ -69,7 +69,7 @@ void TextBox::draw()
         }
         else
         {
-            TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, { 255, 255, 255, 255 }, 255);
+            TextureManager::getInstance()->renderTexture(texture_path_, texture_normal_id_, x_, y_, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255 });
         }
     }
     if (have_alpha_box_)

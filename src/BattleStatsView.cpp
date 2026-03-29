@@ -690,7 +690,7 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
         // Avatar scaled to ~40px tall
         auto tex = TextureManager::getInstance()->getTexture("head", e.role->HeadID);
         if (tex)
-            TextureManager::getInstance()->renderTexture(tex, x, y - 2, cWhite, 255, 0.22, 0.22);
+            TextureManager::getInstance()->renderTexture(tex, x, y - 2, TextureManager::RenderInfo{ cWhite, 255, 0.22, 0.22 });
 
         Color nameCol = e.team == 0 ? cGreen : cRed;
         font->draw(std::string(e.role->Name), fs, x + cName, y, nameCol);
@@ -711,16 +711,16 @@ void BattleStatsView::drawTeamTable(const std::vector<RoleEntry>& team, int x, i
                 int weaponId = e.weaponId >= 0 ? e.weaponId : chess->weaponInstance.itemId;
                 int armorId = e.armorId >= 0 ? e.armorId : chess->armorInstance.itemId;
                 if (weaponId >= 0)
-                    TextureManager::getInstance()->renderTexture("item", weaponId, x + cEquip, y, cWhite, 255, 0.16, 0.16);
+                    TextureManager::getInstance()->renderTexture("item", weaponId, x + cEquip, y, TextureManager::RenderInfo{ cWhite, 255, 0.16, 0.16 });
                 if (armorId >= 0)
-                    TextureManager::getInstance()->renderTexture("item", armorId, x + cEquip + 18, y, cWhite, 255, 0.16, 0.16);
+                    TextureManager::getInstance()->renderTexture("item", armorId, x + cEquip + 18, y, TextureManager::RenderInfo{ cWhite, 255, 0.16, 0.16 });
             }
             else if (e.weaponId >= 0 || e.armorId >= 0)
             {
                 if (e.weaponId >= 0)
-                    TextureManager::getInstance()->renderTexture("item", e.weaponId, x + cEquip, y, cWhite, 255, 0.16, 0.16);
+                    TextureManager::getInstance()->renderTexture("item", e.weaponId, x + cEquip, y, TextureManager::RenderInfo{ cWhite, 255, 0.16, 0.16 });
                 if (e.armorId >= 0)
-                    TextureManager::getInstance()->renderTexture("item", e.armorId, x + cEquip + 18, y, cWhite, 255, 0.16, 0.16);
+                    TextureManager::getInstance()->renderTexture("item", e.armorId, x + cEquip + 18, y, TextureManager::RenderInfo{ cWhite, 255, 0.16, 0.16 });
             }
 
             font->draw(e.skillNames, fs - 4, x + cSkill, y + 2, cGray);

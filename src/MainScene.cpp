@@ -17,12 +17,9 @@ MainScene::MainScene()
     full_window_ = 1;
     COORD_COUNT = MAINMAP_COORD_COUNT;
 
-    //100个云
-    cloud_vector_.resize(100);
-    for (int i = 0; i < 100; i++)
-    {
-        cloud_vector_[i].initRand();
-    }
+    cloud_group_ = std::make_shared<CloudGroup>();
+    cloud_group_->init(100, COORD_COUNT * TILE_W * 2, COORD_COUNT * TILE_H * 2);
+    addChild(cloud_group_);
     //getEntrance();
     addChild(Weather::getInstance());
 }
@@ -120,6 +117,8 @@ void MainScene::draw()
         int earth_y = pe.y - 17;
         int view_w, view_h;
         Engine::getInstance()->getAssistTextureSize("scene", view_w, view_h);
+        Engine::getInstance()->createAssistTexture("temp", view_w, view_h);
+        Engine::getInstance()->setRenderTarget("temp");
         for (int i = 0; i < 8; i++)
         {
             for (int j = 0; j < 8; j++)
@@ -136,6 +135,14 @@ void MainScene::draw()
                 TextureManager::getInstance()->renderTexture("mmap-earth", i + j * 8, i * earth_size / 8 + earth_x, j * earth_size / 8 / 2 + earth_y);
             }
         }
+        Engine::getInstance()->setRenderTarget("scene");
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 0.5f;
+        brightness_v[2] = 0.0f;
+        std::vector<Color> color_v(4, { 255, 255, 255, 255 });
+        auto temp_texture = Engine::getInstance()->getTexture("temp");
+        Rect r = { 0, 0, view_w, view_h };
+        Engine::getInstance()->renderTextureLight(temp_texture, nullptr, &r, color_v, brightness_v);
     }
 
     //下面的15是下方较高贴图的余量，其余场景同
@@ -211,16 +218,15 @@ void MainScene::draw()
     for (int i = 0; i < building_count; i++)
     {
         auto& d = building_vec[i];
-        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y);
+        std::vector<float> brightness_v(4, 0);
+        brightness_v[0] = 1.0f;
+        brightness_v[2] = 0.0f;
+        TextureManager::getInstance()->renderTexture(d.tex, d.p.x, d.p.y,
+            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, 1, 1, 0, 0, {}, brightness_v });
     }
 
     auto p = getPositionOnRender(cursor_x_, cursor_y_, man_x_, man_y_);
-    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, { 255, 255, 255, 255 }, 128);
-
-    for (auto& c : cloud_vector_)
-    {
-        c.draw();
-    }
+    TextureManager::getInstance()->renderTexture("mmap", 1, p.x, p.y, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 128 });
     //LOG("%d buildings in %g s.\n", building_count, t1.getElapsedTime());
     //Engine::getInstance()->setColor(Engine::getInstance()->getTexture(), { 227, 207, 87, 255 });
     Engine::getInstance()->renderTextureToMain("scene");
@@ -230,18 +236,7 @@ void MainScene::backRun()
 {
     rest_time_++;    //只要出现走动，rest_time就会清零
     //云的贴图
-    view_cloud_ = 0;
-    for (auto& c : cloud_vector_)
-    {
-        c.flow();
-        c.setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
-        int x, y;
-        c.getPosition(x, y);
-        if (x > -render_center_x_ * 1 && x < render_center_x_ * 3 && y > -0 && y < render_center_y_ * 2)
-        {
-            view_cloud_++;
-        }
-    }
+    view_cloud_ = cloud_group_->setPositionOnScreen(man_x_, man_y_, render_center_x_, render_center_y_);
     Weather::getInstance()->setWeather(inNorth(), view_cloud_);
 }
 

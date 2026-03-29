@@ -197,7 +197,7 @@ void BattleScene::draw()
                 }
                 if (need_draw && num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, color);
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y, TextureManager::RenderInfo{ color });
                 }
             }
         }
@@ -237,7 +237,7 @@ void BattleScene::draw()
                     {
                         alpha = dead_alpha_;
                     }
-                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, color, alpha);
+                    TextureManager::getInstance()->renderTexture(path, pic, p.x, p.y, TextureManager::RenderInfo{ color, alpha });
                     renderExtraRoleInfo(r, p.x, p.y);
                 }
                 if (effect_id_ >= 0 && haveEffect(ix, iy))
@@ -245,7 +245,7 @@ void BattleScene::draw()
                     std::string path = std::format("eft/eft{:03}", effect_id_);
                     int dis = calDistance(acting_role_->X(), acting_role_->Y(), ix, iy);
                     num = effect_frame_ - dis + rand_.rand_int(3) - rand_.rand_int(3);
-                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, { 255, 255, 255, 255 }, 224);
+                    TextureManager::getInstance()->renderTexture(path, num, p.x, p.y, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 224 });
                 }
             }
         }
@@ -264,7 +264,7 @@ void BattleScene::draw()
             {
                 alpha = dead_alpha_;
             }
-            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, h - 100, { 255, 255, 255, 255 }, alpha, 0.25, 0.25);
+            TextureManager::getInstance()->renderTexture("head", r->HeadID, x, h - 100, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, alpha, 0.25, 0.25 });
         }
     }
 
@@ -1843,7 +1843,7 @@ void BattleScene::showNumberAnimation(int delay, bool floating, const std::vecto
                 if (r->Show.Effect != -1)
                 {
                     auto path = std::format("eft/eft{:03}", r->Show.Effect);
-                    TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, { 255, 255, 255, 255 }, 224);
+                    TextureManager::getInstance()->renderTexture(path, i_frame, p.x, p.y, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 224 });
                 }
                 if (!r->Show.ShowStrings.empty())
                 {

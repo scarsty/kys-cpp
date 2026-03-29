@@ -430,26 +430,34 @@ TextureManager::~TextureManager()
     }
 }
 
-void TextureManager::renderTexture(TextureWarpper* tex, Rect r, Color c, uint8_t alpha, double angle, uint8_t white)
+void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, const RenderInfo& info, int w, int h)
 {
     if (tex == nullptr) { return; }
     tex->load();
     if (tex->tex[0] == nullptr) { return; }
+
+    int rw = w;
+    int rh = h;
+    if (rw < 0)
+    {
+        rw = int(tex->w * info.zoom_x);
+    }
+    if (rh < 0)
+    {
+        rh = int(tex->h * info.zoom_y);
+    }
 
     auto engine = Engine::getInstance();
     int i = 0;
     if (tex->count > 1)
     {
         int now = RunNode::getShowTimes();
-        //此处同时模拟随机的水面和大场景的瀑布
         if (now == tex->prev_show)
         {
-            //若本张图在一帧中再次出现则更换一个贴图
             i = rand() % tex->count;
         }
         else
         {
-            //若本张图在一帧中首次出现则顺序贴图
             i = now % tex->count;
         }
         tex->prev_show = now;
@@ -458,37 +466,36 @@ void TextureManager::renderTexture(TextureWarpper* tex, Rect r, Color c, uint8_t
     {
         i = 0;
     }
-    c.a = alpha;
-    engine->setColor(tex->tex[i], c);
-    engine->renderTexture(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
-    if (white)
+
+    Color c = info.c;
+    c.a = info.alpha;
+    Rect r = { x, y, rw, rh };
+    if (info.color_v.empty() && info.brightness_v.empty())
+    {
+        engine->setColor(tex->tex[i], c);
+        engine->renderTexture(tex->tex[i], r.x - tex->dx, r.y - tex->dy, r.w, r.h, info.angle);
+    }
+    else
+    {
+        engine->setColor(tex->tex[i], { 255, 255, 255, info.alpha });
+        Rect r1 = { r.x - tex->dx, r.y - tex->dy, r.w, r.h };
+        engine->renderTextureLight(tex->tex[i], nullptr, &r1, info.color_v, info.brightness_v, info.angle);
+    }
+
+    if (info.white)
     {
         tex->createWhiteTexture();
         if (tex->tex_white)
         {
-            engine->setColor(tex->tex_white, { 255, 255, 255, white });
-            engine->renderTexture(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, angle);
+            engine->setColor(tex->tex_white, { 255, 255, 255, info.white });
+            engine->renderTexture(tex->tex_white, r.x - tex->dx, r.y - tex->dy, r.w, r.h, info.angle);
         }
     }
 }
 
-void TextureManager::renderTexture(const std::string& path, int num, Rect r, Color c, uint8_t alpha, double angle, uint8_t white)
+void TextureManager::renderTexture(const std::string& path, int num, int x, int y, const RenderInfo& info, int w, int h)
 {
-    renderTexture(getTexture(path, num), r, c, alpha, angle, white);
-}
-
-void TextureManager::renderTexture(TextureWarpper* tex, int x, int y, Color c, uint8_t alpha, double zoom_x, double zoom_y, double angle, uint8_t white)
-{
-    if (tex)
-    {
-        tex->load();    //需要纹理尺寸
-        renderTexture(tex, { x, y, int(tex->w * zoom_x), int(tex->h * zoom_y) }, c, alpha, angle, white);
-    }
-}
-
-void TextureManager::renderTexture(const std::string& path, int num, int x, int y, Color c, uint8_t alpha, double zoom_x, double zoom_y, double angle, uint8_t white)
-{
-    renderTexture(getTexture(path, num), x, y, c, alpha, zoom_x, zoom_y, angle, white);
+    renderTexture(getTexture(path, num), x, y, info, w, h);
 }
 
 TextureWarpper* TextureManager::getTexture(const std::string& path, int num)

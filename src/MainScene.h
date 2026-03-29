@@ -40,7 +40,7 @@ public:
 
     //todo: 休息未完成
 
-    std::vector<Cloud> cloud_vector_;
+    std::shared_ptr<CloudGroup> cloud_group_;
 
     virtual void draw() override;
     virtual void backRun() override;

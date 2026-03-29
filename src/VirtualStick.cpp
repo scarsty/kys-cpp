@@ -225,7 +225,7 @@ void VirtualStick::draw()
     if (axis_x_ > 0 && axis_y_ > 0)
     {
         auto t = TextureManager::getInstance()->getTexture("title", 312);
-        TextureManager::getInstance()->renderTexture("title", 312, axis_x_ - t->w / 2, axis_y_ - t->h / 2, { 255, 255, 255, 255 }, 128);
+        TextureManager::getInstance()->renderTexture("title", 312, axis_x_ - t->w / 2, axis_y_ - t->h / 2, TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 128 });
     }
 }
 

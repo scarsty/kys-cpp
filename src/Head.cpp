@@ -55,7 +55,7 @@ void Head::draw()
     }
     if (style_ == 0)
     {
-        TextureManager::getInstance()->renderTexture("title", 102, x_, y_, color);
+        TextureManager::getInstance()->renderTexture("title", 102, x_, y_, TextureManager::RenderInfo{ color });
     }
     if (role_->HP <= 0)
     {
@@ -77,7 +77,7 @@ void Head::draw()
             alpha_text = 128;
             alpha_ribbon = 96;
         }
-        TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, color, 255, 0.5, 0.5);
+        TextureManager::getInstance()->renderTexture("head", role_->HeadID, x_ + 10, y_, TextureManager::RenderInfo{ color, 255, 0.5, 0.5 });
         TextBox::draw();
         font->draw(role_->Name, 16, x_ + 117, y_ + 9, white, alpha_text);
         Rect r1 = { 0, 0, 0, 0 };
@@ -168,10 +168,12 @@ void Head::draw()
         int h_tex = TextureManager::getInstance()->getTexture("title", 203)->h;
         double zoomb_x = 1.0 * 450 / w_tex;
         double zoomb_y = 3.0 * 450 / w_tex;
-        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getUIWidth() / 2 - 450 / 2 + 20, y_ - 10, { 255, 128, 128, 255 }, 255, zoomb_x, zoomb_y);
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getUIWidth() / 2 - 450 / 2 + 20, y_ - 10,
+            TextureManager::RenderInfo{ { 255, 128, 128, 255 }, 255, zoomb_x, zoomb_y });
         double zoom_x = 1.0 * length / w_tex;
         double zoom_y = 3.0 * length / w_tex;
-        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getUIWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex * (zoom_y / 2 - zoomb_y / 2), { 255, 255, 255, 255 }, 255, zoom_x, zoom_y);
+        TextureManager::getInstance()->renderTexture("title", 203, Engine::getInstance()->getUIWidth() / 2 - length / 2 + 20, y_ - 10 - h_tex * (zoom_y / 2 - zoomb_y / 2),
+            TextureManager::RenderInfo{ { 255, 255, 255, 255 }, 255, zoom_x, zoom_y });
         if (role_->Team == 0 && role_->Auto)
         {
             font->draw("自動", 15, x_ + 10, y_ + 40, white);
