@@ -6,6 +6,8 @@
 
 namespace
 {
+constexpr const char* kTextureExtensions[] = { ".avif", ".webp", ".png" };
+
 std::string normalizeGroupFilename(const std::string& filename)
 {
     auto normalized = strfunc::toLowerCase(filename);
@@ -21,7 +23,7 @@ bool isRootGroupFile(const std::string& filename)
 bool isSupportedTextureFile(const std::string& filename)
 {
     const auto ext = filefunc::getFileExt(filename);
-    return ext == "png" || ext == "webp";
+    return ext == "avif" || ext == "png" || ext == "webp";
 }
 
 bool hasRootFile(const std::vector<std::string>& files, const std::string& filename)
@@ -156,41 +158,55 @@ void TextureWarpper::setTex(Texture* t)
     Engine::getInstance()->getTextureSize(t, w, h);
 }
 
-// Try loading an image by base name, preferring .webp over .png.
+// Try loading an image by base name, preferring .avif over .webp over .png.
 static Texture* loadFromZip(GroupInfo* gi, const std::string& base, int as_white = 0)
 {
-    auto content = gi->zip.readFile(base + ".webp");
-    if (!content.empty())
+    for (const auto* ext : kTextureExtensions)
     {
-        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
-            return t;
+        auto content = gi->zip.readFile(base + ext);
+        if (!content.empty())
+        {
+            if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
+            {
+                return t;
+            }
+        }
     }
-    content = gi->zip.readFile(base + ".png");
-    if (!content.empty())
-        return Engine::getInstance()->loadImageFromMemory(content, as_white);
     return nullptr;
 }
 
 static Texture* loadFromAtlas(GroupInfo* gi, const std::string& base, int as_white = 0)
 {
-    auto content = gi->atlas.readFile(base + ".webp");
-    if (!content.empty())
+    for (const auto* ext : kTextureExtensions)
     {
-        if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
-            return t;
+        auto content = gi->atlas.readFile(base + ext);
+        if (!content.empty())
+        {
+            if (auto t = Engine::getInstance()->loadImageFromMemory(content, as_white))
+            {
+                return t;
+            }
+        }
     }
-    content = gi->atlas.readFile(base + ".png");
-    if (!content.empty())
-        return Engine::getInstance()->loadImageFromMemory(content, as_white);
     return nullptr;
 }
 
 static Texture* loadFromDisk(const std::string& dir, const std::string& base, int as_white = 0)
 {
     auto path = dir + "/" + base;
-    if (auto t = Engine::getInstance()->loadImage(path + ".webp", as_white))
-        return t;
-    return Engine::getInstance()->loadImage(path + ".png", as_white);
+    for (const auto* ext : kTextureExtensions)
+    {
+        const auto filename = path + ext;
+        if (!filefunc::fileExist(filename))
+        {
+            continue;
+        }
+        if (auto t = Engine::getInstance()->loadImage(filename, as_white))
+        {
+            return t;
+        }
+    }
+    return nullptr;
 }
 
 void TextureWarpper::load()

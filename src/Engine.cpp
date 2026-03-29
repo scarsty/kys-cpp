@@ -439,7 +439,7 @@ void Engine::renderTexture(Texture* t /*= nullptr*/, double angle)
     FRect rectf;
     SDL_RectToFRect(&rect_, &rectf);
     SDL_RenderTextureRotated(renderer_, t, nullptr, &rectf, angle, nullptr, SDL_FLIP_NONE);
-    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
+    // SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
     render_times_++;
 }
 
@@ -479,7 +479,7 @@ void Engine::renderTexture(Texture* t, Rect* rect0, Rect* rect1, double angle, i
         rect1f_ptr = &rect1f;
     }
     SDL_RenderTextureRotated(renderer_, t, rect0f_ptr, rect1f_ptr, angle, nullptr, SDL_FLIP_NONE);
-    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
+    // SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
     render_times_++;
 }
 
@@ -606,7 +606,7 @@ void Engine::renderTextureLight(Texture* t, Rect* rect0, Rect* rect1, const std:
         SDL_SetTextureBlendMode(t, previous_blend);
     }
 
-    SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
+    // SDL_SetTextureScaleMode(t, SDL_SCALEMODE_PIXELART);
 }
 
 void Engine::renderTexture(Texture* t, Rect* rect0, const std::vector<FPoint>& v, const std::vector<FPoint>& v2)

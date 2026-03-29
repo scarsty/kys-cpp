@@ -21,6 +21,7 @@
     {
       "name": "sdl3-image",
       "features": [
+        "avif",
         "png",
         "webp"
       ]

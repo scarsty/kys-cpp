@@ -157,7 +157,7 @@ def collect_ids_from_battlefield(work_root: Path, battlefield_id: int) -> set[in
 
 
 def resolve_texture_file(source_dir: Path, base_name: str) -> Path | None:
-    for suffix in (".webp", ".png"):
+    for suffix in (".avif", ".webp", ".png"):
         candidate = source_dir / f"{base_name}{suffix}"
         if candidate.is_file():
             return candidate
@@ -189,7 +189,7 @@ def write_zip(output_path: Path, index_path: Path, texture_files: list[Path]) ->
 
     try:
         with zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_STORED) as archive:
-            archive.write(index_path, arcname="index.ka")
+            archive.write(index_path, arcname="index.txt")
             for texture_file in texture_files:
                 archive.write(texture_file, arcname=texture_file.name)
         temp_path.replace(output_path)
@@ -231,12 +231,13 @@ def main() -> int:
     args = parse_args()
     work_root = args.work_root.resolve()
     source_dir = work_root / "resource" / "smap"
-    index_path = source_dir / "index.ka"
+    index_path = source_dir / "index.txt"
+    # index_path_txt = source_dir / "index.txt"
 
     if not source_dir.is_dir():
         raise SystemExit(f"SMAP source directory not found: {source_dir}")
     if not index_path.is_file():
-        raise SystemExit(f"Missing index.ka: {index_path}")
+        raise SystemExit(f"Missing index.txt: {index_path}")
 
     dynamic_maps = parse_dynamic_battlefield_ids(args.dynamic_map_source.resolve())
     selected_ids = collect_ids_from_submap(work_root, args.main_submap_id)
