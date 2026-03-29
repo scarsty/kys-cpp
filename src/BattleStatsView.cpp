@@ -908,6 +908,7 @@ void BattleStatsView::draw()
     }
     else
     {
+        font->draw(std::format("戰鬥幀數 {}", battleLogTotalFrames_), 18, 20, 10, {180, 180, 180, 255});
         std::string titleText = battleResult_ == 0 ? "戰鬥勝利" : "戰鬥失敗";
         Color titleCol = battleResult_ == 0 ? Color{100, 255, 100, 255} : Color{255, 100, 100, 255};
         font->draw(titleText, 28, cx(titleText, 28), 10, titleCol);

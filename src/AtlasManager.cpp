@@ -332,3 +332,15 @@ std::string AtlasManager::readFile(const std::string& filename) const
     }
     return storage_->read(entry.offset, entry.size);
 }
+
+std::vector<std::string> AtlasManager::getFileNames() const
+{
+    std::vector<std::string> files;
+    files.reserve(entries_.size());
+    for (const auto& [name, entry] : entries_)
+    {
+        (void)entry;
+        files.push_back(name);
+    }
+    return files;
+}

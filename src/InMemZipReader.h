@@ -25,6 +25,7 @@ public:
     bool openRead(const std::string& zip_filename);
     bool opened() const { return zip_ != nullptr; }
     std::string readFile(const std::string& filename) const;
+    std::vector<std::string> getFileNames() const;
 
 private:
     struct ZipDeleter

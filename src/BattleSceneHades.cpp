@@ -2731,7 +2731,7 @@ void BattleSceneHades::backRun1()
 
                     if (away.norm() > 0.01)
                     {
-                        double speed =  2.5 + std::clamp(r->Speed / 12.0, 0.0, 10.0);
+                        double speed =  2.5 + std::clamp(r->Speed / 13.0, 0.0, 12.0);
                         double angle = away.getAngle();
                         const double offsets[] = { 0.0, M_PI / 6.0, -M_PI / 6.0, M_PI / 3.0, -M_PI / 3.0 };
                         bool foundPath = false;
@@ -4067,7 +4067,7 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
     if (ae.OperationType == 3)
     {
         auto acc = r->RealTowards;
-        acc.normTo(std::min(4.0, r->Speed / 30.0) * 1.7);
+        acc.normTo(std::min(4.0, r->Speed / 15.0) * 1.5);
         r->Velocity = acc;
         r->ActType = 0;
         auto p = ae.Pos;

@@ -142,7 +142,8 @@ void SubScene::draw()
             if (!isOutLine(ix, iy))
             {
                 //有高度地面
-                int h = submap_info_->BuildingHeight(ix, iy);
+                int rate = TILE_W / 18;                                 //高清模式要乘以倍率
+                int h = submap_info_->BuildingHeight(ix, iy) * rate;    //高清模式要乘以倍率
                 int num = submap_info_->Earth(ix, iy) / 2;
                 // TODO: legacy device only
                 if (num > 0 && h > 2 || GameUtil::isLegacyBrowser())
@@ -188,7 +189,7 @@ void SubScene::draw()
                 num = submap_info_->Decoration(ix, iy) / 2;
                 if (num > 0)
                 {
-                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy));
+                    TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y - submap_info_->DecorationHeight(ix, iy) * rate);
                 }
             }
             //k++;

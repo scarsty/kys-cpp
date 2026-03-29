@@ -69,3 +69,23 @@ std::string InMemZipReader::readFile(const std::string& filename) const
     zip_fread(zf.get(), content.data(), zs.size);
     return content;
 }
+
+std::vector<std::string> InMemZipReader::getFileNames() const
+{
+    std::vector<std::string> files;
+    if (!zip_)
+    {
+        return files;
+    }
+
+    const auto count = zip_get_num_entries(zip_.get(), ZIP_FL_UNCHANGED);
+    files.reserve(static_cast<size_t>(count));
+    for (zip_uint64_t i = 0; i < count; ++i)
+    {
+        if (const char* name = zip_get_name(zip_.get(), i, ZIP_FL_UNCHANGED))
+        {
+            files.emplace_back(name);
+        }
+    }
+    return files;
+}

@@ -57,6 +57,28 @@ work/game-dev/resource/smap.chess-battle.zip
 如果要直接替换运行时读取的包，可以把输出路径改成 `work/game-dev/resource/smap.zip`。
 
 
+## convert_index_ka_to_txt.py
+
+将资源里的 `index.ka` 转成稀疏的 `index.txt`，供运行时直接读取。
+
+文本格式为：
+
+```text
+12: 51, 59
+13: 48, 60
+```
+
+默认只写入非零偏移；如果整份 `index.ka` 全是 `0, 0`，则默认不生成 `index.txt`。
+
+默认用法：
+
+```bash
+python tools/convert_index_ka_to_txt.py work/game-dev/resource
+```
+
+脚本会递归处理目录下的独立 `index.ka` 文件和 `.zip` 资源包。默认会保留原始 `index.ka`；如果确认要切换到纯文本格式，可以加 `--remove-ka`。
+
+
 ## trans50
 
 包含3个功能，覆盖了原sfe2kdefscript，talkmaker的功能。

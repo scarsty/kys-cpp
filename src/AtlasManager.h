@@ -21,6 +21,7 @@ public:
     bool openRead(const std::string& base_path);
     bool opened() const { return storage_ != nullptr; }
     std::string readFile(const std::string& filename) const;
+    std::vector<std::string> getFileNames() const;
 
 private:
     struct Entry

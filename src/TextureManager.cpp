@@ -4,6 +4,149 @@
 #include "filefunc.h"
 #include "strfunc.h"
 
+namespace
+{
+std::string normalizeGroupFilename(const std::string& filename)
+{
+    auto normalized = strfunc::toLowerCase(filename);
+    strfunc::replaceAllSubStringRef(normalized, "\\", "/");
+    return normalized;
+}
+
+bool isRootGroupFile(const std::string& filename)
+{
+    return filename.find('/') == std::string::npos;
+}
+
+bool isSupportedTextureFile(const std::string& filename)
+{
+    const auto ext = filefunc::getFileExt(filename);
+    return ext == "png" || ext == "webp";
+}
+
+bool hasRootFile(const std::vector<std::string>& files, const std::string& filename)
+{
+    const auto normalized_target = normalizeGroupFilename(filename);
+    for (const auto& file : files)
+    {
+        const auto normalized = normalizeGroupFilename(file);
+        if (isRootGroupFile(normalized) && normalized == normalized_target)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<std::string> collectGroupFiles(const GroupInfo& info)
+{
+    if (info.zip.opened())
+    {
+        return info.zip.getFileNames();
+    }
+
+    std::vector<std::string> files;
+    if (info.atlas.opened())
+    {
+        files = info.atlas.getFileNames();
+    }
+
+    auto disk_files = filefunc::getFilesInPath(info.path);
+    files.insert(files.end(), disk_files.begin(), disk_files.end());
+    return files;
+}
+
+int findMaxTextureIndex(const std::vector<std::string>& files)
+{
+    int max_num = -1;
+    for (const auto& file : files)
+    {
+        const auto normalized = normalizeGroupFilename(file);
+        if (!isRootGroupFile(normalized) || !isSupportedTextureFile(normalized))
+        {
+            continue;
+        }
+
+        auto name = filefunc::getFileMainNameWithoutPath(normalized);
+        auto numbers = strfunc::findNumbers<int>(name);
+        if (!numbers.empty())
+        {
+            max_num = (std::max)(max_num, numbers[0]);
+        }
+    }
+    return max_num;
+}
+
+std::string readRootTextFile(const GroupInfo& info, const std::string& filename)
+{
+    if (info.zip.opened())
+    {
+        return info.zip.readFile(filename);
+    }
+    if (info.atlas.opened())
+    {
+        auto content = info.atlas.readFile(filename);
+        if (!content.empty())
+        {
+            return content;
+        }
+    }
+    return filefunc::readFileToString(info.path + "/" + filename);
+}
+
+std::vector<short> readRootIndexKa(const GroupInfo& info)
+{
+    std::vector<short> offset;
+    if (info.zip.opened())
+    {
+        std::string index_ka = info.zip.readFile("index.ka");
+        offset.resize(index_ka.size() / 2);
+        memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+        return offset;
+    }
+
+    if (info.atlas.opened())
+    {
+        std::string index_ka = info.atlas.readFile("index.ka");
+        if (!index_ka.empty())
+        {
+            offset.resize(index_ka.size() / 2);
+            memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+            return offset;
+        }
+    }
+
+    filefunc::readFileToVector((info.path + "/index.ka").c_str(), offset);
+    return offset;
+}
+
+struct TextOffsetEntry
+{
+    int index = -1;
+    int dx = 0;
+    int dy = 0;
+};
+
+std::vector<TextOffsetEntry> parseIndexTxt(const std::string& content, int& max_index)
+{
+    std::vector<TextOffsetEntry> entries;
+    max_index = -1;
+    for (auto line : strfunc::splitString(content, "\n", false))
+    {
+        strfunc::replaceAllSubStringRef(line, "\r", "");
+        auto numbers = strfunc::findNumbers<int>(line);
+        if (numbers.size() < 3)
+        {
+            continue;
+        }
+
+        entries.push_back({numbers[0], numbers[1], numbers[2]});
+        max_index = (std::max)(max_index, numbers[0]);
+    }
+    return entries;
+}
+}    // namespace
+
 void TextureWarpper::setTex(Texture* t)
 {
     destory();
@@ -196,39 +339,59 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
                 info_.atlas.openRead(path);
             }
         }
-        std::vector<short> offset;
-        if (info_.zip.opened())
+
+        const auto files = collectGroupFiles(info_);
+        const bool has_index_txt = hasRootFile(files, "index.txt");
+        const bool has_index_ka = hasRootFile(files, "index.ka");
+
+        const int max_texture_num = findMaxTextureIndex(files);
+        int max_index_num = -1;
+        std::vector<TextOffsetEntry> text_offsets;
+        std::vector<short> binary_offsets;
+
+        if (has_index_txt)
         {
-            std::string index_ka = info_.zip.readFile("index.ka");
-            offset.resize(index_ka.size() / 2);
-            memcpy(offset.data(), index_ka.data(), offset.size() * 2);
+            text_offsets = parseIndexTxt(readRootTextFile(info_, "index.txt"), max_index_num);
         }
-        else if (info_.atlas.opened())
+        else if (has_index_ka)
         {
-            std::string index_ka = info_.atlas.readFile("index.ka");
-            if (!index_ka.empty())
+            binary_offsets = readRootIndexKa(info_);
+            max_index_num = static_cast<int>(binary_offsets.size() / 2) - 1;
+        }
+
+        const int group_count = (std::max)(max_texture_num, max_index_num) + 1;
+        group_.resize((std::max)(0, group_count));
+        for (int i = 0; i < group_.size(); i++)
+        {
+            group_[i] = new TextureWarpper();
+            group_[i]->dx = 0;
+            group_[i]->dy = 0;
+            group_[i]->group_info_ = &info_;
+            group_[i]->num_ = i;
+        }
+
+        if (has_index_txt)
+        {
+            for (const auto& entry : text_offsets)
             {
-                offset.resize(index_ka.size() / 2);
-                memcpy(offset.data(), index_ka.data(), offset.size() * 2);
-            }
-            else
-            {
-                filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+                if (entry.index < 0 || entry.index >= group_.size())
+                {
+                    continue;
+                }
+                group_[entry.index]->dx = entry.dx;
+                group_[entry.index]->dy = entry.dy;
             }
         }
         else
         {
-            filefunc::readFileToVector((info_.path + "/index.ka").c_str(), offset);
+            const int n = (std::min)(static_cast<int>(group_.size()), static_cast<int>(binary_offsets.size() / 2));
+            for (int i = 0; i < n; i++)
+            {
+                group_[i]->dx = binary_offsets[i * 2];
+                group_[i]->dy = binary_offsets[i * 2 + 1];
+            }
         }
-        group_.resize(offset.size() / 2);
-        for (int i = 0; i < group_.size(); i++)
-        {
-            group_[i] = new TextureWarpper();
-            group_[i]->dx = offset[i * 2];
-            group_[i]->dy = offset[i * 2 + 1];
-            group_[i]->group_info_ = &info_;
-            group_[i]->num_ = i;
-        }
+
         if (info_.zip.opened())
         {
             LOG("Load texture group from file: {}.zip, {} textures\n", info_.path, group_.size());
