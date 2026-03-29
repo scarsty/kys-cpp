@@ -231,6 +231,232 @@
             }]
         };
 
+        Module.kysOpenExternalSaveDialog = function(title, initialText, importMode) {
+            var state = Module.kysExternalSave;
+            if (!state) {
+                if (!document.getElementById('kys-external-save-style')) {
+                    var style = document.createElement('style');
+                    style.id = 'kys-external-save-style';
+                    style.textContent =
+                        '#kys-external-save-root{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.78);z-index:40;padding:24px;font-family:system-ui,sans-serif;}' +
+                        '#kys-external-save-panel{width:min(960px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;gap:14px;background:#151515;color:#f2ead7;border:1px solid rgba(255,255,255,.2);border-radius:14px;box-shadow:0 18px 70px rgba(0,0,0,.5);padding:18px;}' +
+                        '#kys-external-save-title{font-size:24px;font-weight:700;color:#ffe086;}' +
+                        '#kys-external-save-desc{font-size:14px;line-height:1.5;color:#d0c8b8;}' +
+                        '#kys-external-save-actions,#kys-external-save-footer{display:flex;flex-wrap:wrap;gap:10px;}' +
+                        '#kys-external-save-text{width:100%;min-height:360px;resize:vertical;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#0d0d0d;color:#f5f0e6;padding:14px;font:14px/1.5 Consolas,"Courier New",monospace;}' +
+                        '.kys-external-save-btn{border:1px solid rgba(255,255,255,.22);background:#2a2a2a;color:#f3efe4;border-radius:999px;padding:10px 16px;font-size:14px;cursor:pointer;}' +
+                        '.kys-external-save-btn:hover{background:#3a3a3a;}' +
+                        '.kys-external-save-btn-primary{background:#8d2f2f;border-color:#b24e4e;}' +
+                        '.kys-external-save-btn-primary:hover{background:#a53939;}';
+                    document.head.appendChild(style);
+                }
+
+                var root = document.createElement('div');
+                root.id = 'kys-external-save-root';
+
+                var panel = document.createElement('div');
+                panel.id = 'kys-external-save-panel';
+                root.appendChild(panel);
+
+                var titleEl = document.createElement('div');
+                titleEl.id = 'kys-external-save-title';
+                panel.appendChild(titleEl);
+
+                var descEl = document.createElement('div');
+                descEl.id = 'kys-external-save-desc';
+                panel.appendChild(descEl);
+
+                var actions = document.createElement('div');
+                actions.id = 'kys-external-save-actions';
+                panel.appendChild(actions);
+
+                var copyBtn = document.createElement('button');
+                copyBtn.className = 'kys-external-save-btn';
+                copyBtn.textContent = '複製到剪貼簿';
+                actions.appendChild(copyBtn);
+
+                var loadBtn = document.createElement('button');
+                loadBtn.className = 'kys-external-save-btn';
+                loadBtn.textContent = '讀取本機檔案';
+                actions.appendChild(loadBtn);
+
+                var downloadBtn = document.createElement('button');
+                downloadBtn.className = 'kys-external-save-btn';
+                downloadBtn.textContent = '下載 JSON';
+                actions.appendChild(downloadBtn);
+
+                var textarea = document.createElement('textarea');
+                textarea.id = 'kys-external-save-text';
+                textarea.spellcheck = false;
+                panel.appendChild(textarea);
+
+                var footer = document.createElement('div');
+                footer.id = 'kys-external-save-footer';
+                panel.appendChild(footer);
+
+                var confirmBtn = document.createElement('button');
+                confirmBtn.className = 'kys-external-save-btn kys-external-save-btn-primary';
+                confirmBtn.textContent = '套用匯入';
+                footer.appendChild(confirmBtn);
+
+                var closeBtn = document.createElement('button');
+                closeBtn.className = 'kys-external-save-btn';
+                closeBtn.textContent = '關閉';
+                footer.appendChild(closeBtn);
+
+                var fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.json,application/json,text/json';
+                fileInput.style.display = 'none';
+                panel.appendChild(fileInput);
+
+                document.body.appendChild(root);
+
+                state = {
+                    root: root,
+                    titleEl: titleEl,
+                    descEl: descEl,
+                    textarea: textarea,
+                    copyBtn: copyBtn,
+                    loadBtn: loadBtn,
+                    downloadBtn: downloadBtn,
+                    confirmBtn: confirmBtn,
+                    closeBtn: closeBtn,
+                    fileInput: fileInput,
+                    result: 0
+                };
+
+                var focusCanvas = function() {
+                    if (Module.canvas && Module.canvas.focus) {
+                        Module.canvas.focus();
+                    }
+                };
+
+                copyBtn.addEventListener('click', async function() {
+                    var text = textarea.value || '';
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(text);
+                        } else {
+                            textarea.focus();
+                            textarea.select();
+                            document.execCommand('copy');
+                        }
+                    } catch (err) {
+                        textarea.focus();
+                        textarea.select();
+                    }
+                });
+
+                loadBtn.addEventListener('click', function() {
+                    fileInput.click();
+                });
+
+                downloadBtn.addEventListener('click', function() {
+                    var blob = new Blob([textarea.value || ''], { type: 'application/json;charset=utf-8' });
+                    var url = URL.createObjectURL(blob);
+                    var anchor = document.createElement('a');
+                    anchor.href = url;
+                    anchor.download = 'kys-save.json';
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    anchor.remove();
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 0);
+                });
+
+                fileInput.addEventListener('change', function() {
+                    var file = fileInput.files && fileInput.files[0];
+                    if (!file) {
+                        return;
+                    }
+                    var reader = new FileReader();
+                    reader.onload = function() {
+                        textarea.value = String(reader.result || '');
+                    };
+                    reader.readAsText(file);
+                    fileInput.value = '';
+                });
+
+                confirmBtn.addEventListener('click', function() {
+                    state.result = 1;
+                    root.style.display = 'none';
+                    focusCanvas();
+                });
+
+                closeBtn.addEventListener('click', function() {
+                    state.result = 2;
+                    root.style.display = 'none';
+                    focusCanvas();
+                });
+
+                root.addEventListener('click', function(event) {
+                    if (event.target === root) {
+                        state.result = 2;
+                        root.style.display = 'none';
+                        focusCanvas();
+                    }
+                });
+
+                document.addEventListener('keydown', function(event) {
+                    if (root.style.display !== 'flex') {
+                        return;
+                    }
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        state.result = 2;
+                        root.style.display = 'none';
+                        focusCanvas();
+                    }
+                });
+
+                Module.kysExternalSave = state;
+            }
+
+            state.result = 0;
+            state.titleEl.textContent = title;
+            state.descEl.textContent = importMode
+                ? '請直接在下方貼上 JSON，也可按「讀取本機檔案」選擇匯入檔。'
+                : '下方即為存檔 JSON，可直接複製、手動全選，或下載成本地檔案。';
+            state.textarea.value = initialText || '';
+            state.textarea.readOnly = !importMode;
+            state.copyBtn.style.display = importMode ? 'none' : '';
+            state.loadBtn.style.display = importMode ? '' : 'none';
+            state.confirmBtn.style.display = importMode ? '' : 'none';
+            state.downloadBtn.style.display = importMode ? 'none' : '';
+            state.root.style.display = 'flex';
+            state.textarea.focus();
+            if (!importMode) {
+                state.textarea.select();
+            }
+        };
+
+        Module.kysPollExternalSaveDialog = function() {
+            return Module.kysExternalSave ? Module.kysExternalSave.result : 0;
+        };
+
+        Module.kysGetExternalSaveDialogTextLength = function() {
+            return Module.kysExternalSave ? (Module.kysExternalSave.textarea.value || '').length : 0;
+        };
+
+        Module.kysWriteExternalSaveDialogTextToBuffer = function(ptr, size) {
+            if (!Module.kysExternalSave || typeof stringToUTF8 === 'undefined') {
+                return;
+            }
+            stringToUTF8(Module.kysExternalSave.textarea.value || '', ptr, size);
+            Module.kysExternalSave.result = 0;
+        };
+
+        Module.kysCloseExternalSaveDialog = function() {
+            if (!Module.kysExternalSave) {
+                return;
+            }
+            Module.kysExternalSave.result = 0;
+            Module.kysExternalSave.root.style.display = 'none';
+            if (Module.canvas && Module.canvas.focus) {
+                Module.canvas.focus();
+            }
+        };
+
         document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
         document.addEventListener('click', function() { Module.canvas.focus(); });
         document.addEventListener('touchstart', function() { Module.canvas.focus(); });

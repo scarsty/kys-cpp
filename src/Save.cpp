@@ -380,6 +380,44 @@ bool Save::save(int num)
     return true;
 }
 
+bool Save::exportSlotJson(int num, std::string& payload)
+{
+    payload.clear();
+
+    SavePersistence::SlotData slotData;
+    auto slotPath = SavePersistence::slotJsonLoadFilename(num);
+    if (slotPath.empty() || !SavePersistence::readSlotJson(slotPath, slotData))
+    {
+        return false;
+    }
+
+    if (const auto result = glz::write<SavePersistence::kWriteOptions>(slotData, payload); result)
+    {
+        payload.clear();
+        return false;
+    }
+
+    return true;
+}
+
+bool Save::importSlotJson(int num, const std::string& payload)
+{
+    SavePersistence::SlotData slotData;
+    if (const auto result = glz::read<SavePersistence::kReadOptions>(slotData, payload); result)
+    {
+        return false;
+    }
+
+    auto slotPath = SavePersistence::slotJsonFilename(num);
+    if (!SavePersistence::writeSlotJson(slotPath, slotData))
+    {
+        return false;
+    }
+
+    GameUtil::syncPersistentStorage();
+    return true;
+}
+
 void Save::resetRData(const std::vector<RoleSave>& newData)
 {
     roles_mem_.clear();

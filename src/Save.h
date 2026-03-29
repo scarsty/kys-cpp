@@ -30,6 +30,8 @@ public:
 
     bool load(int num);
     bool save(int num);
+    bool exportSlotJson(int num, std::string& payload);
+    bool importSlotJson(int num, const std::string& payload);
 
     // 帮助网络交流
     void resetRData(const std::vector<RoleSave>& newData);

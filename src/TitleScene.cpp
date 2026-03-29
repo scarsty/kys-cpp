@@ -10,6 +10,7 @@
 #include "Menu.h"
 #include "Random.h"
 #include "RandomRole.h"
+#include "Save.h"
 #include "ScenePreloader.h"
 #include "SubScene.h"
 #include "UISave.h"
@@ -19,23 +20,181 @@
 #include "ChessModHook.h"
 #include "filefunc.h"
 #include <cstdlib>
+#include <vector>
 
 #ifdef __EMSCRIPTEN__
 extern "C" void notify_fonts_loaded();
 #endif
 
+namespace
+{
+
+constexpr int kExternalSaveDialogPollMs = 16;
+
+std::shared_ptr<DrawableOnCall> makeModalBackdrop()
+{
+    return std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
+        Engine::getInstance()->fillColor({0, 0, 0, 255}, 0, 0, -1, -1);
+    });
+}
+
+std::shared_ptr<TextBox> makeModalLabel(const std::string& text, int x, int y)
+{
+    auto label = std::make_shared<TextBox>();
+    label->setText(text);
+    label->setFontSize(32);
+    label->setHaveBox(false);
+    label->setTextColor({255, 220, 80});
+    label->setPosition(x, y);
+    return label;
+}
+
+int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<TextBox>& label = nullptr)
+{
+    auto bg = makeModalBackdrop();
+    RunNode::addIntoDrawTop(bg);
+    if (label)
+    {
+        RunNode::addIntoDrawTop(label);
+    }
+    int result = node->run();
+    if (label)
+    {
+        RunNode::removeFromDraw(label);
+    }
+    RunNode::removeFromDraw(bg);
+    return result;
+}
+
+void showMessageBox(const std::string& title, const std::string& message, SDL_MessageBoxFlags flags = SDL_MESSAGEBOX_INFORMATION)
+{
+#ifdef __EMSCRIPTEN__
+    auto prompt = std::make_shared<MenuText>(std::vector<std::string>{"確 定"});
+    prompt->setFontSize(32);
+    prompt->setPosition(560, 420);
+    prompt->arrange(0, 0, 0, 0);
+
+    auto titleLabel = makeModalLabel(title, 430, 220);
+    auto messageLabel = std::make_shared<TextBox>();
+    messageLabel->setText(message);
+    messageLabel->setFontSize(28);
+    messageLabel->setHaveBox(false);
+    messageLabel->setTextColor({220, 220, 220});
+    messageLabel->setPosition(290, 300);
+
+    auto bg = makeModalBackdrop();
+    RunNode::addIntoDrawTop(bg);
+    RunNode::addIntoDrawTop(titleLabel);
+    RunNode::addIntoDrawTop(messageLabel);
+    prompt->run();
+    RunNode::removeFromDraw(messageLabel);
+    RunNode::removeFromDraw(titleLabel);
+    RunNode::removeFromDraw(bg);
+#else
+    (void)flags;
+    SDL_ShowSimpleMessageBox(flags, title.c_str(), message.c_str(), Engine::getInstance()->getWindow());
+#endif
+}
+
+std::string getSlotTitle(int slot)
+{
+    if (slot == static_cast<int>(UISave::Slot::Auto))
+    {
+        return "自動檔";
+    }
+    return std::format("進度{:02}", slot);
+}
+
+std::string getSlotSummary(int slot)
+{
+    auto filename = Save::getInstance()->getFilename(slot, '\0');
+    auto timestamp = filefunc::getFileTime(filename);
+    if (timestamp.empty())
+    {
+        timestamp = "-------------------";
+    }
+    return std::format("{}  {}", getSlotTitle(slot), timestamp);
+}
+
+#ifdef __EMSCRIPTEN__
+void openWebExternalSaveDialog(const std::string& title, const std::string& initialText, bool importMode)
+{
+    EM_ASM({
+        if (Module.kysOpenExternalSaveDialog) {
+            Module.kysOpenExternalSaveDialog(UTF8ToString($0), UTF8ToString($1), !!$2);
+        }
+    }, title.c_str(), initialText.c_str(), importMode ? 1 : 0);
+}
+
+int pollWebExternalSaveDialog()
+{
+    return EM_ASM_INT({
+        return Module.kysPollExternalSaveDialog ? Module.kysPollExternalSaveDialog() : 2;
+    });
+}
+
+std::string takeWebExternalSaveDialogText()
+{
+    const int length = EM_ASM_INT({
+        return Module.kysGetExternalSaveDialogTextLength ? Module.kysGetExternalSaveDialogTextLength() : 0;
+    });
+
+    std::vector<char> buffer(static_cast<size_t>(length) + 1, '\0');
+    EM_ASM({
+        if (Module.kysWriteExternalSaveDialogTextToBuffer) {
+            Module.kysWriteExternalSaveDialogTextToBuffer($0, $1);
+        }
+    }, buffer.data(), static_cast<int>(buffer.size()));
+
+    return std::string(buffer.data());
+}
+
+void closeWebExternalSaveDialog()
+{
+    EM_ASM({
+        if (Module.kysCloseExternalSaveDialog) {
+            Module.kysCloseExternalSaveDialog();
+        }
+    });
+}
+
+bool runWebExternalSaveDialog(const std::string& title, bool importMode, std::string& text)
+{
+    openWebExternalSaveDialog(title, text, importMode);
+    while (true)
+    {
+        const int state = pollWebExternalSaveDialog();
+        if (state == 0)
+        {
+            emscripten_sleep(kExternalSaveDialogPollMs);
+            continue;
+        }
+        if (state == 1)
+        {
+            text = takeWebExternalSaveDialogText();
+            closeWebExternalSaveDialog();
+            return true;
+        }
+        closeWebExternalSaveDialog();
+        return false;
+    }
+}
+#endif
+
+}    // namespace
+
 TitleScene::TitleScene()
 {
     full_window_ = 1;
     battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
-    // Text-only menu: 3 items, each 4 CJK chars at size 28 = 112px wide
-    // Spacing 172px (112 + 60 gap), total span 456px, centered: x = (1280-456)/2 = 412
+    // Text-only menu: 4 items, each 4 CJK chars at size 36 ~= 144px wide.
+    // Spacing 204px (144 + 60 gap), total span 756px, centered: x = (1280-756)/2 = 262.
     auto mt = std::make_shared<MenuText>();
     mt->setFontSize(36);
     mt->setHaveBox(true);
-    mt->setStrings({"重新開始", "載入進度", "離開遊戲"});
-    mt->setPosition(412, 500);
-    mt->arrange(0, 0, 172, 0);
+    mt->setStrings({"重新開始", "載入進度", "外部存檔", "離開遊戲"});
+    mt->setPosition(262, 500);
+    mt->arrange(0, 0, 204, 0);
     for (auto& c : mt->getChilds())
     {
         auto* btn = dynamic_cast<Button*>(c.get());
@@ -92,6 +251,10 @@ void TitleScene::draw()
     int w = engine->getUIWidth();
     int h = engine->getUIHeight();
     engine->fillColor({ 0, 0, 0, 255 }, 0, 0, w, h);
+    if (hide_title_art_for_external_save_)
+    {
+        return;
+    }
 
     // Chess piece (king) in ASCII art — each char is 8px wide at size 16
     const char* chess[] = {
@@ -163,7 +326,7 @@ void TitleScene::dealEvent(EngineEvent& e)
     }
     if (r == 1)
     {
-        if (menu_load_->run() >= 0)
+        if (runModalNode(menu_load_) >= 0)
         {
             //Save::getInstance()->getRole(0)->MagicLevel[0] = 900;    //测试用
             //Script::getInstance()->runScript(GameUtil::PATH()+"script/0.lua");
@@ -172,9 +335,137 @@ void TitleScene::dealEvent(EngineEvent& e)
     }
     if (r == 2)
     {
+        runExternalSaveFlow();
+    }
+    if (r == 3)
+    {
         setExit(true);
         exit(0);    //强制退出，否则在Android下可能退不完全
     }
+}
+
+void TitleScene::runExternalSaveFlow()
+{
+    hide_title_art_for_external_save_ = true;
+    const int slot = promptExternalSaveSlot();
+    if (slot < 0)
+    {
+        hide_title_art_for_external_save_ = false;
+        return;
+    }
+
+    const int action = promptExternalSaveAction(slot);
+    if (action == 0)
+    {
+        exportExternalSaveSlot(slot);
+    }
+    else if (action == 1)
+    {
+        importExternalSaveSlot(slot);
+    }
+    hide_title_art_for_external_save_ = false;
+}
+
+int TitleScene::promptExternalSaveSlot()
+{
+    auto menu = std::make_shared<MenuText>();
+    menu->setFontSize(32);
+    menu->setStrings({
+        getSlotSummary(1),
+        getSlotSummary(2),
+        getSlotSummary(3),
+        getSlotSummary(static_cast<int>(UISave::Slot::Auto))
+    });
+    menu->setPosition(400, 240);
+    menu->arrange(0, 0, 0, 42);
+
+    auto label = makeModalLabel("選擇要處理的存檔", 420, 180);
+    const int result = runModalNode(menu, label);
+    switch (result)
+    {
+    case 0:
+        return 1;
+    case 1:
+        return 2;
+    case 2:
+        return 3;
+    case 3:
+        return static_cast<int>(UISave::Slot::Auto);
+    default:
+        return -1;
+    }
+}
+
+int TitleScene::promptExternalSaveAction(int slot)
+{
+    auto menu = std::make_shared<MenuText>();
+    menu->setFontSize(32);
+    menu->setStrings({"匯出 JSON", "匯入 JSON", "取消"});
+    menu->setPosition(470, 290);
+    menu->arrange(0, 0, 0, 52);
+
+    auto label = makeModalLabel(std::format("{} 外部存檔", getSlotTitle(slot)), 430, 220);
+    const int result = runModalNode(menu, label);
+    if (result == 2)
+    {
+        return -1;
+    }
+    return result;
+}
+
+void TitleScene::exportExternalSaveSlot(int slot)
+{
+    std::string payload;
+    if (!Save::getInstance()->exportSlotJson(slot, payload))
+    {
+        showMessageBox("外部存檔", std::format("{} 目前沒有可匯出的 JSON 存檔。", getSlotTitle(slot)), SDL_MESSAGEBOX_WARNING);
+        return;
+    }
+
+#ifdef __EMSCRIPTEN__
+    auto title = std::format("{} 匯出 JSON", getSlotTitle(slot));
+    runWebExternalSaveDialog(title, false, payload);
+#else
+    if (!SDL_SetClipboardText(payload.c_str()))
+    {
+        showMessageBox("外部存檔", std::format("{} 匯出失敗。\n{}", getSlotTitle(slot), SDL_GetError()), SDL_MESSAGEBOX_ERROR);
+        return;
+    }
+    showMessageBox("外部存檔", std::format("{} JSON 已複製到剪貼簿。", getSlotTitle(slot)));
+#endif
+}
+
+void TitleScene::importExternalSaveSlot(int slot)
+{
+    std::string payload;
+    Save::getInstance()->exportSlotJson(slot, payload);
+
+#ifdef __EMSCRIPTEN__
+    auto title = std::format("{} 匯入 JSON", getSlotTitle(slot));
+    if (!runWebExternalSaveDialog(title, true, payload))
+    {
+        return;
+    }
+#else
+    char* clipboardText = SDL_GetClipboardText();
+    if (clipboardText)
+    {
+        payload = clipboardText;
+        SDL_free(clipboardText);
+    }
+    if (payload.empty())
+    {
+        showMessageBox("外部存檔", "請先把存檔 JSON 複製到剪貼簿，再執行匯入。", SDL_MESSAGEBOX_WARNING);
+        return;
+    }
+#endif
+
+    if (!Save::getInstance()->importSlotJson(slot, payload))
+    {
+        showMessageBox("外部存檔", std::format("{} 匯入失敗，請確認貼上的內容是完整 JSON。", getSlotTitle(slot)), SDL_MESSAGEBOX_ERROR);
+        return;
+    }
+    menu_load_->refreshEntries();
 }
 
 void TitleScene::onEntrance()

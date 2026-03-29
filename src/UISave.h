@@ -16,6 +16,7 @@ private:
     int mode_ = 0;  //0为读档，1为存档
 public:
     void setMode(int m) { mode_ = m; }
+    void refreshEntries();
 
     void onEntrance() override;
     virtual void onPressedOK() override;
@@ -25,4 +26,3 @@ public:
     static void autoSave() { save(static_cast<int>(Slot::Auto)); }
     static bool loadAuto() { return load(static_cast<int>(Slot::Auto)); }
 };
-

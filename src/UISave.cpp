@@ -9,6 +9,15 @@
 
 UISave::UISave()
 {
+    refreshEntries();
+}
+
+UISave::~UISave()
+{
+}
+
+void UISave::refreshEntries()
+{
     std::vector<std::string> strings;
     auto get_save_time = [](int i) -> std::string
     {
@@ -34,12 +43,9 @@ UISave::UISave()
     arrange(0, 0, 0, 41);
 }
 
-UISave::~UISave()
-{
-}
-
 void UISave::onEntrance()
 {
+    refreshEntries();
     //存档时屏蔽自动档
     if (mode_ == 1)
     {
