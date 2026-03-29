@@ -188,7 +188,7 @@ void ComboInfoPanel::drawPanel()
     auto buildBlocks = [&](int columnWidth) {
         std::vector<ComboBlock> blocks;
         int headerUnits = std::max(12, (columnWidth - 20) * 2 / fs);
-        int effectUnits = std::max(12, (columnWidth - 28) * 2 / (fs - 2));
+        int effectUnits = std::max(12, (columnWidth - 28) * 2 / (fs - 1));
         for (auto cid : roleCombos)
         {
             auto& combo = allCombos[static_cast<int>(cid)];
@@ -221,7 +221,7 @@ void ComboInfoPanel::drawPanel()
             ComboBlock block;
             block.header = std::format("{} ({})", combo.name, countText);
             block.headerColor = active ? Color{0, 255, 100, 255} : Color{200, 200, 200, 255};
-            block.effectColor = active ? Color{180, 220, 255, 255} : Color{120, 120, 120, 255};
+            block.effectColor = active ? Color{180, 220, 255, 255} : Color{180, 180, 180, 255};
 
             auto headerLines = wrapDisplayText(block.header, headerUnits);
             if (!headerLines.empty())
@@ -306,7 +306,7 @@ void ComboInfoPanel::drawPanel()
         flow.line(block.header, fs, block.headerColor);
         for (const auto& line : block.effectLines)
         {
-            if (!flow.line(line, fs - 2, block.effectColor, 2))
+            if (!flow.line(line, fs - 1, block.effectColor, 2))
             {
                 break;
             }

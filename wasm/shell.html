@@ -259,7 +259,9 @@
 
         // Desktop: viewport expand button. Mobile: explicit browser fullscreen.
         var fsBtn = document.getElementById('fs-btn');
+        var wrapEl = document.getElementById('wrap');
         var originalCanvasW = 1280, originalCanvasH = 720;
+
 
         var _syncTimer = 0;
         var _generation = 0;
@@ -270,6 +272,18 @@
             if (navigator.standalone) return true;
             if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
             return false;
+        }
+
+        function computeContainedCanvasSize() {
+            var bounds = wrapEl.getBoundingClientRect();
+            var maxCssW = bounds.width || window.innerWidth || originalCanvasW;
+            var maxCssH = bounds.height || window.innerHeight || originalCanvasH;
+            var scale = Math.min(maxCssW / originalCanvasW, maxCssH / originalCanvasH, 1);
+            return {
+                width: Math.max(1, Math.round(originalCanvasW * scale)),
+                height: Math.max(1, Math.round(originalCanvasH * scale)),
+                scale: scale
+            };
         }
 
         function applyCanvasSize() {
@@ -291,15 +305,15 @@
                     [cssW * dpr, cssH * dpr, cssW, cssH]);
                 fsBtn.textContent = '🗗';
             } else {
-                canvas.style.width = '';
-                canvas.style.height = '';
-                canvas.style.maxWidth = '';
-                canvas.style.maxHeight = '';
+                var dpr = window.devicePixelRatio || 1;
+                var fitted = computeContainedCanvasSize();
+                canvas.style.maxWidth = 'none';
+                canvas.style.maxHeight = 'none';
+                canvas.style.width = fitted.width + 'px';
+                canvas.style.height = fitted.height + 'px';
                 Module.ccall('resize_to_viewport', null,
                     ['number', 'number', 'number', 'number'],
-                    [originalCanvasW, originalCanvasH, originalCanvasW, originalCanvasH]);
-                canvas.style.width = '';
-                canvas.style.height = '';
+                    [Math.round(fitted.width * dpr), Math.round(fitted.height * dpr), fitted.width, fitted.height]);
                 fsBtn.textContent = '⛶';
             }
         }

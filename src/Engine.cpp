@@ -1646,8 +1646,6 @@ EMSCRIPTEN_KEEPALIVE
 void resize_to_viewport(int w, int h, int css_w, int css_h)
 {
     auto* eng = Engine::getInstance();
-    w = std::max(w, eng->getUIWidth());
-    h = std::max(h, eng->getUIHeight());
     SDL_SetWindowSize(eng->getWindow(), w, h);
     EM_ASM({
         var c = Module['canvas'];
