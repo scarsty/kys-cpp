@@ -73,7 +73,7 @@ target_link_libraries(kyschess
 set(EM_LINK_FLAGS
     "-O3"
     "-sASYNCIFY"
-    "-sASYNCIFY_STACK_SIZE=65536"
+    "-sASYNCIFY_STACK_SIZE=262144"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sINITIAL_MEMORY=268435456"
     "-sFORCE_FILESYSTEM=1"

@@ -1,0 +1,45 @@
+{
+  "name": "kys-cpp-wasm",
+  "version-string": "0.1.0",
+  "builtin-baseline": "d90a9b159c08169f39adcd1b0f1ac0ca12c4b96c",
+  "dependencies": [
+    "sdl3",
+    "glaze",
+    {
+      "name": "imgui",
+      "features": [
+        "sdl3-binding",
+        "sdl3-renderer-binding"
+      ]
+    },
+    "sqlite3",
+    "yaml-cpp",
+    {
+      "name": "libzip",
+      "default-features": false,
+      "features": [
+        "bzip2"
+      ]
+    },
+    "marisa-trie",
+    {
+      "name": "sdl3-image",
+      "features": [
+        "png",
+        "webp"
+      ]
+    },
+    {
+      "name": "sdl3-ttf",
+      "features": [
+        "svg"
+      ]
+    },
+    {
+      "name": "sdl3-mixer",
+      "features": [
+        "fluidsynth"
+      ]
+    }
+  ]
+}

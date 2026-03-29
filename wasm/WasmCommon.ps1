@@ -30,7 +30,7 @@ function Get-WasmPaths
 
         [string]$VcpkgRoot = $env:VCPKG_ROOT,
         [string]$EmsdkRoot = $env:EMSDK,
-        [string]$VcpkgWasm = $env:VCPKG_WASM
+        [string]$VcpkgWasm
     )
 
     if ([string]::IsNullOrWhiteSpace($VcpkgRoot))
@@ -43,13 +43,15 @@ function Get-WasmPaths
         $EmsdkRoot = 'D:\projects\emsdk'
     }
 
-    if ([string]::IsNullOrWhiteSpace($VcpkgWasm))
-    {
-        $VcpkgWasm = Join-Path $VcpkgRoot 'installed\wasm32-emscripten'
-    }
-
     $projectDir = Split-Path -Parent $WasmDir
     $buildDir = Join-Path $WasmDir 'build'
+    $vcpkgManifestRoot = $WasmDir
+    $vcpkgInstallRoot = Join-Path $WasmDir 'vcpkg_installed'
+
+    if ([string]::IsNullOrWhiteSpace($VcpkgWasm))
+    {
+        $VcpkgWasm = Join-Path $vcpkgInstallRoot 'wasm32-emscripten'
+    }
 
     [pscustomobject]@{
         WasmDir = $WasmDir
@@ -57,11 +59,49 @@ function Get-WasmPaths
         BuildDir = $buildDir
         VcpkgRoot = $VcpkgRoot
         EmsdkRoot = $EmsdkRoot
+        VcpkgManifestRoot = $vcpkgManifestRoot
+        VcpkgInstallRoot = $vcpkgInstallRoot
         VcpkgWasm = $VcpkgWasm
         CMakeDir = Join-Path $VcpkgRoot 'downloads\tools\cmake-3.31.10-windows\cmake-3.31.10-windows-x86_64\bin'
         NinjaDir = Join-Path $VcpkgRoot 'downloads\tools\ninja-1.13.2-windows'
         EmsdkEnv = Join-Path $EmsdkRoot 'emsdk_env.ps1'
     }
+}
+
+function Install-WasmDependencies
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Paths
+    )
+
+    $vcpkgExe = Join-Path $Paths.VcpkgRoot 'vcpkg.exe'
+    Ensure-PathExists -Path $vcpkgExe -Message "vcpkg.exe not found at $vcpkgExe"
+
+    $manifestFile = Join-Path $Paths.VcpkgManifestRoot 'vcpkg.json'
+    Ensure-PathExists -Path $manifestFile -Message "WASM vcpkg manifest not found at $manifestFile"
+
+    $overlayTriplets = Join-Path $Paths.WasmDir 'triplets'
+    $overlayPorts = Join-Path $Paths.WasmDir 'ports'
+
+    Write-Host '=== Installing WASM dependencies ==='
+    New-Item -ItemType Directory -Force -Path $Paths.VcpkgInstallRoot | Out-Null
+
+    $arguments = @(
+        'install',
+        '--x-wait-for-lock',
+        "--x-manifest-root=$($Paths.VcpkgManifestRoot)",
+        "--x-install-root=$($Paths.VcpkgInstallRoot)",
+        '--triplet=wasm32-emscripten',
+        "--overlay-triplets=$overlayTriplets"
+    )
+
+    if (Test-Path $overlayPorts)
+    {
+        $arguments += "--overlay-ports=$overlayPorts"
+    }
+
+    Invoke-NativeCommand -FilePath $vcpkgExe -ArgumentList $arguments
 }
 
 function Add-PathEntry
