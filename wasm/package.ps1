@@ -14,7 +14,7 @@ $gameDir = Join-Path $paths.ProjectDir 'work\game-dev'
 $distDir = Join-Path $paths.WasmDir 'dist'
 $zipPath = Join-Path $paths.WasmDir 'dist.zip'
 
-foreach ($file in Get-RequiredBuildFiles -BuildDir $buildDir)
+foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $buildDir)
 {
     Ensure-PathExists -Path $file -Message "Build output missing: $file. Run rebuild.ps1 first."
 }
@@ -31,10 +31,7 @@ New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
 Copy-Item -Force (Join-Path $buildDir 'index.html') $distDir
-Copy-Item -Force (Join-Path $buildDir 'kyschess.html') $distDir
-Copy-Item -Force (Join-Path $buildDir 'kyschess.js') $distDir
-Copy-Item -Force (Join-Path $buildDir 'kys_manifest.js') $distDir
-Copy-Item -Force (Join-Path $buildDir 'kyschess.wasm') $distDir
+Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
 Copy-Item -Recurse -Force $gameDir (Join-Path $distDir 'kys\game')
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'

@@ -217,18 +217,37 @@ function Invoke-WasmConfigureBuild
     }
 }
 
-function Get-RequiredBuildFiles
+function Get-WasmMainHtmlFileName
+{
+    'kyschess.html'
+}
+
+function Get-WasmManifestFileName
+{
+    'kys_manifest.js'
+}
+
+function Get-WasmBuildArtifactNames
+{
+    @(
+        (Get-WasmMainHtmlFileName)
+        'kyschess.js'
+        (Get-WasmManifestFileName)
+        'kyschess.wasm'
+    )
+}
+
+function Get-WasmBuildArtifactPaths
 {
     param(
         [Parameter(Mandatory = $true)]
         [string]$BuildDir
     )
 
-    @(
-        Join-Path $BuildDir 'kyschess.html'
-        Join-Path $BuildDir 'kyschess.js'
-        Join-Path $BuildDir 'kyschess.wasm'
-    )
+    foreach ($artifactName in Get-WasmBuildArtifactNames)
+    {
+        Join-Path $BuildDir $artifactName
+    }
 }
 
 function Format-FileSize

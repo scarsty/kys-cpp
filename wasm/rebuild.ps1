@@ -35,7 +35,7 @@ Write-Host '=== Generating manifest ==='
 Invoke-ProjectPython -ProjectDir $paths.ProjectDir -ArgumentList @(
     (Join-Path $paths.WasmDir 'gen_manifest.py'),
     $gameTarget,
-    (Join-Path $paths.BuildDir 'kys_manifest.js')
+    (Join-Path $paths.BuildDir (Get-WasmManifestFileName))
 )
 
 Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -DepsDir $paths.VcpkgWasm
@@ -43,13 +43,14 @@ Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -Dep
 Copy-Item -Force (Join-Path $paths.WasmDir 'serve.py') (Join-Path $paths.BuildDir 'serve.py')
 
 $indexPath = Join-Path $paths.BuildDir 'index.html'
-Set-Content -Path $indexPath -NoNewline -Value @'
+$mainHtmlFileName = Get-WasmMainHtmlFileName
+Set-Content -Path $indexPath -NoNewline -Value @"
 <!DOCTYPE html>
 <html>
-<head><meta http-equiv="refresh" content="0;url=kyschess.html"></head>
-<body><a href="kyschess.html">kyschess</a></body>
+<head><meta http-equiv="refresh" content="0;url=$mainHtmlFileName"></head>
+<body><a href="$mainHtmlFileName">kyschess</a></body>
 </html>
-'@
+"@
 
 $headersPath = Join-Path $paths.BuildDir '_headers'
 Set-Content -Path $headersPath -NoNewline -Value @'

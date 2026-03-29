@@ -17,13 +17,10 @@ $stagingDir = Join-Path $env:TEMP 'kys-deploy'
 $tarPath = Join-Path $env:TEMP 'kys-deploy.tar.gz'
 $remote = "$RemoteUser@$ServerIp"
 
-Ensure-PathExists -Path (Join-Path $distDir 'kyschess.html') -Message "dist output missing. Run package.ps1 first."
-Ensure-PathExists -Path (Join-Path $distDir 'kyschess.js') -Message "dist output missing. Run package.ps1 first."
-Ensure-PathExists -Path (Join-Path $distDir 'kyschess.wasm') -Message "dist output missing. Run package.ps1 first."
 Ensure-PathExists -Path (Join-Path $distDir 'kys\game') -Message "Game assets not found in $distDir. Run package.ps1 first."
 
 Write-Host '=== Checking build files ==='
-foreach ($file in Get-RequiredBuildFiles -BuildDir $distDir)
+foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $distDir)
 {
     $info = Get-Item $file
     Write-Host "  $($info.Name) $(Format-FileSize -Bytes $info.Length)"

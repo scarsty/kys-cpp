@@ -30,9 +30,9 @@ Invoke-WasmConfigureBuild -WasmDir $paths.WasmDir -BuildDir $paths.BuildDir -Dep
 
 Write-Host ''
 Write-Host '=== Build complete ==='
-Write-Host "Output: $(Join-Path $paths.BuildDir 'kyschess.html')"
+Write-Host "Output: $(Join-Path $paths.BuildDir (Get-WasmMainHtmlFileName))"
 Write-Host ''
 Write-Host 'To test locally:'
 Write-Host "  Set-Location '$($paths.BuildDir)'"
 Write-Host '  python -m http.server 8080'
-Write-Host '  Open http://localhost:8080/kyschess.html'
+Write-Host "  Open http://localhost:8080/$(Get-WasmMainHtmlFileName)"
