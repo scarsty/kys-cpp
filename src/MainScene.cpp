@@ -129,7 +129,7 @@ void MainScene::draw()
         }
         Engine::getInstance()->setRenderTarget("scene");
         std::vector<float> brightness_v(4, 0);
-        brightness_v[0] = 0.75;
+        brightness_v[0] = 0.5;
         brightness_v[2] = 0;
         std::vector<Color> color_v(4, { 255, 255, 255, 255 });
         auto temp_texture = Engine::getInstance()->getTexture("temp");

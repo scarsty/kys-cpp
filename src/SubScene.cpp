@@ -83,7 +83,7 @@ void SubScene::draw()
             rect0.y = 0;
         }
         std::vector<Color> cv(4, { 255, 255, 255, 255 });
-        Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, cv, { 1, 0, 0, 0 });
+        Engine::getInstance()->renderTextureLight(earth_texture, &rect0, &rect1, cv, { 0.25, 0, 0, 0 });
     }
     else
     {
