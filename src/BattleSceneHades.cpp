@@ -331,9 +331,12 @@ void BattleSceneHades::draw()
         }
         std::vector<Color> color_v;
         //color_v[0] = { 128, 128, 64, 255 };
-        std::vector<float> brightness_v(4, 0);
-        brightness_v[0] = 0.5;
-        brightness_v[2] = 0;
+        std::vector<float> brightness_v;
+        if (d.alpha == 255)
+        {
+            brightness_v.resize(4, 0);
+            brightness_v[0] = 0.5;
+        }
         TextureManager::getInstance()->renderTexture(d.path, d.num, d.p.x, d.p.y / 2 - d.p.z,
             { d.color, d.alpha, scaley, 1, double(d.rot), d.white, color_v, brightness_v });
     }
@@ -368,7 +371,13 @@ void BattleSceneHades::draw()
     rect1.h = rect0.h;
     for (auto& te : text_effects_)
     {
-        Font::getInstance()->draw(te.Text, te.Size, te.Pos.x, te.Pos.y / 2, te.color, 255);
+        int w_ui, h_ui;
+        Engine::getInstance()->getUISize(w_ui, h_ui);
+        int x = te.Pos.x * w_ui / render_center_x_ / 2;
+        int y = te.Pos.y * h_ui / render_center_y_ / 2 / 2;
+        x -= rect0.x;
+        y -= rect0.y;
+        Font::getInstance()->draw(te.Text, te.Size, x, y, te.color, 255);
     }
 
     Engine::getInstance()->setRenderTarget("scene");

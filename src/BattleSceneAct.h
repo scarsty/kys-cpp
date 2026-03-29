@@ -50,7 +50,7 @@ public:
     {
         Pointf Pos;
         std::string Text;
-        int Size = 15;
+        int Size = 30;
         int Frame = 0;
         Color color;
         int Type = 0;    //0-缓缓向上, 1-原地不动
