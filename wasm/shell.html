@@ -123,6 +123,66 @@
                    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
         })();
 
+        function getUserAgentBrands() {
+            var uaData = navigator.userAgentData;
+            if (!uaData || !uaData.brands || !uaData.brands.length) {
+                return null;
+            }
+            var brands = [];
+            for (var i = 0; i < uaData.brands.length; i++) {
+                var brand = uaData.brands[i] && uaData.brands[i].brand;
+                if (brand) {
+                    brands.push(brand);
+                }
+            }
+            return brands.length ? brands : null;
+        }
+
+        function hasBrand(brands, name) {
+            return brands.indexOf(name) >= 0;
+        }
+
+        function detectLegacyBrowserFromBrands() {
+            var brands = getUserAgentBrands();
+            if (!brands) {
+                return null;
+            }
+
+            var isEdge = hasBrand(brands, 'Microsoft Edge') || hasBrand(brands, 'Microsoft Edge Mobile');
+            var isFirefox = hasBrand(brands, 'Firefox') || hasBrand(brands, 'Firefox iOS');
+            var isOpera = hasBrand(brands, 'Opera');
+            var isSamsung = hasBrand(brands, 'Samsung Internet');
+            var isHuawei = hasBrand(brands, 'Huawei Browser');
+            var isChromeFamily = !isEdge && !isOpera && !isSamsung && (hasBrand(brands, 'Chromium') || hasBrand(brands, 'Google Chrome'));
+            var isAppleWebKit = hasBrand(brands, 'Safari') && !isChromeFamily && !isEdge && !isOpera && !isSamsung;
+
+            if (!isEdge && !isFirefox && !isOpera && !isSamsung && !isHuawei && !isChromeFamily && !isAppleWebKit) {
+                return null;
+            }
+
+            return !(isEdge || isFirefox || isOpera || isChromeFamily || isAppleWebKit || isHuawei);
+        }
+
+        function detectLegacyBrowserFromUA() {
+            var ua = navigator.userAgent || '';
+            var isEdge = ua.indexOf('Edg/') >= 0 || ua.indexOf('EdgA/') >= 0 || ua.indexOf('Edge/') >= 0;
+            var isFirefox = ua.indexOf('Firefox/') >= 0 || ua.indexOf('FxiOS/') >= 0;
+            var isOpera = ua.indexOf('OPR/') >= 0 || ua.indexOf('Opera/') >= 0;
+            var isSamsung = ua.indexOf('SamsungBrowser/') >= 0;
+            var isHuawei = ua.indexOf('HuaweiBrowser/') >= 0;
+            var isChromeFamily = !isEdge && !isOpera && !isSamsung && (ua.indexOf('Chrome/') >= 0 || ua.indexOf('CriOS/') >= 0);
+            var isAppleWebKit = ua.indexOf('Safari/') >= 0 && ua.indexOf('AppleWebKit/') >= 0 && !isChromeFamily && !isEdge && !isOpera && !isSamsung;
+            return !(isEdge || isFirefox || isOpera || isChromeFamily || isAppleWebKit || isHuawei);
+        }
+
+        function isLegacyBrowser() {
+            var fromBrands = detectLegacyBrowserFromBrands();
+            if (fromBrands !== null) {
+                return fromBrands;
+            }
+            return detectLegacyBrowserFromUA();
+        }
+
         // Show mobile detection status
         // document.getElementById('mobile-indicator').textContent =
         //     isMobileDevice ? '📱 Mobile Mode' : '🖥️ Desktop Mode';

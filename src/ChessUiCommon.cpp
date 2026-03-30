@@ -186,7 +186,7 @@ void playChessUpgradeSound()
 
 int getRandomChessMusic()
 {
-    static const std::vector<int> musicIds = {0, 1, 2, 8, 9, 13, 14, 16, 18, 19, 20, 21, 23, 24, 25, 59};
+    static const std::vector<int> musicIds = {0, 1, 2, 8, 9, 13, 14, 16, 18, 19, 20, 21, 23, 24, 25, 31, 59, 60, 61, 62};
     static int lastPlayed = -1;
 
     int idx = rand() % musicIds.size();
@@ -200,7 +200,7 @@ int getRandomChessMusic()
 
 int getRandomBattleMusic()
 {
-    static const std::vector<int> musicIds = {3, 4, 5, 6, 7, 10, 15, 17, 48, 53, 55};
+    static const std::vector<int> musicIds = {3, 4, 5, 6, 7, 10, 17, 48, 53, 55, 70, 75, 79, 80, 84, 88, 90};
     static int lastPlayed = -1;
 
     int idx = rand() % musicIds.size();

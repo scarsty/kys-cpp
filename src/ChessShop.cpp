@@ -20,7 +20,6 @@ ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave, const GameDat
 void ChessShop::exportTo(GameDataStore& store) const
 {
     store.shopLocked = locked_;
-    store.currentShop.clear();
     for (auto [role, star] : pool_.getCurrentShop())
     {
         store.currentShop.push_back({role->ID, star});

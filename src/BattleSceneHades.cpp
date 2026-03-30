@@ -2932,8 +2932,10 @@ void BattleSceneHades::backRun1()
     //效果
     //if (current_frame_ % 2 == 0)
     {
-        for (auto& ae : attack_effects_)
+        const size_t initialCount = attack_effects_.size();
+        for (size_t i = 0; i < initialCount; ++i)
         {
+            auto& ae = attack_effects_[i];
             ae.Frame++;
             ae.Velocity += ae.Acceleration;
             ae.Pos += ae.Velocity;
