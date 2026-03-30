@@ -20,9 +20,14 @@ ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave, const GameDat
 void ChessShop::exportTo(GameDataStore& store) const
 {
     store.shopLocked = locked_;
-    for (auto [role, star] : pool_.getCurrentShop())
+    store.currentShop.clear();
+    for (auto [role, tier] : pool_.getCurrentShop())
     {
-        store.currentShop.push_back({role->ID, star});
+        if (!role)
+        {
+            continue;
+        }
+        store.currentShop.push_back({role->ID, tier});
     }
 }
 

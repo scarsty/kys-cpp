@@ -48,9 +48,12 @@ void ChessPool::ensurePoolLoaded()
         return;
     }
 
-    current_.clear();
     rejected_.clear();
-    getNewChess_ = true;
+    if (poolLoaded_ && loadedDifficulty_ != difficulty)
+    {
+        current_.clear();
+        getNewChess_ = true;
+    }
 
     reloadPool();
     loadedDifficulty_ = difficulty;

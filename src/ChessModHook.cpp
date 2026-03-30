@@ -16,18 +16,22 @@ static bool needIntro_ = false;
 
 ChessMod::ChessMod(GameState& gameState)
     : gameState_(gameState)
-    , selector_(std::make_unique<ChessSelector>(
-        gameState.roleSave(),
-        gameState.equipmentInventory(),
-        gameState.roster(),
-        gameState.shop(),
-        gameState.progress(),
-        gameState.economy(),
-        gameState.random()))
 {
 }
 
     ChessMod::~ChessMod() = default;
+
+ChessSelector ChessMod::makeSelector() const
+{
+    return ChessSelector(
+        gameState_.roleSave(),
+        gameState_.equipmentInventory(),
+        gameState_.roster(),
+        gameState_.shop(),
+        gameState_.progress(),
+        gameState_.economy(),
+        gameState_.random());
+}
 
 bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
 {
@@ -104,7 +108,8 @@ bool ChessMod::blockExit(int submap_id) const
 
 void ChessMod::showContextMenu()
 {
-    selector_->showContextMenu();
+    auto selector = makeSelector();
+    selector.showContextMenu();
 }
 
 void ChessMod::showMenu()

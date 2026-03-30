@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-
 class SQLite3Wrapper;
 
 namespace KysChess
@@ -24,8 +22,9 @@ public:
     void showContextMenu();
 
 private:
+    ChessSelector makeSelector() const;
+
     GameState& gameState_;
-    std::unique_ptr<ChessSelector> selector_;
 };
 
 class ChessModHook
