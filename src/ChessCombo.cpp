@@ -145,7 +145,7 @@ std::map<int, RoleComboState> ChessCombo::buildComboStates(const std::vector<Act
         auto& thresh = combo.thresholds[ac.activeThresholdIdx];
         for (int rid : ac.memberRoleIds)
             for (auto& e : thresh.effects)
-                ChessBattleEffects::applyEffect(states[rid], e);
+                ChessBattleEffects::applyEffect(states[rid], e, ac.id);
     }
     return states;
 }
@@ -220,7 +220,7 @@ void ChessCombo::transferAntiCombo(int deadRoleId, const std::vector<Role*>& all
         {
             auto& thresh = combo.thresholds[0];
             for (auto& e : thresh.effects)
-                ChessBattleEffects::applyEffect(activeStates_[bestId], e);
+                ChessBattleEffects::applyEffect(activeStates_[bestId], e, cid);
         }
     }
 }

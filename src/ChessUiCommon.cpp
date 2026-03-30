@@ -106,6 +106,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::PoisonDOT: desc = eff.value2 ? std::format("中毒{}%×{}次", eff.value, eff.value2) : std::format("中毒{}%", eff.value); break;
     case EffectType::PoisonDmgAmp: desc = std::format("中毒增傷{}%", eff.value); break;
     case EffectType::MPOnHit: desc = std::format("命中回{}MP", eff.value); break;
+    case EffectType::HPOnHit: desc = std::format("命中回{}HP", eff.value); break;
     case EffectType::MPDrain: desc = std::format("吸取{}MP", eff.value); break;
     case EffectType::MPRecoveryBonus: desc = std::format("回藍+{}%", eff.value); break;
     case EffectType::SkillDmgPct: desc = compact ? std::format("技傷+{}%", eff.value) : std::format("技能傷害+{}%", eff.value); break;
@@ -140,6 +141,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::OnSkillTeamHeal: desc = compact ? std::format("群療{}HP", eff.value) : std::format("全隊回{}HP", eff.value); break;
     case EffectType::OnSkillTeamHealPct: desc = compact ? std::format("群療{}%HP", eff.value) : std::format("全隊回{}%HP", eff.value); break;
     case EffectType::DeathPrevention: desc = std::format("鎖血並無敵{}幀", eff.value); break;
+    case EffectType::DeathMedical: desc = compact ? std::format("死療{}%", eff.value) : std::format("死亡醫療{}%HP", eff.value); break;
     case EffectType::ForcePullProtect: desc = compact? "保護挪移" : "一場一次隊友低血挪移并保護"; break;
     case EffectType::ForcePullExecute: desc = compact? "處決挪移" : "一場一次敵方殘血挪移"; break;
     case EffectType::ProjectileBounce: desc = compact ?  std::format("彈道彈射{}次", eff.value) : std::format("彈道{}半径内彈射{}次", eff.value2, eff.value); break;

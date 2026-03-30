@@ -21,6 +21,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"眩晕", EffectType::Stun},
     {"击退几率", EffectType::KnockbackChance}, {"中毒伤害", EffectType::PoisonDOT},
     {"中毒增伤", EffectType::PoisonDmgAmp}, {"命中回蓝", EffectType::MPOnHit},
+    {"命中回血", EffectType::HPOnHit},
     {"吸取内力", EffectType::MPDrain}, {"回蓝加成", EffectType::MPRecoveryBonus},
     {"技能伤害", EffectType::SkillDmgPct}, {"技能反弹", EffectType::SkillReflectPct},
     {"冷却缩减", EffectType::CDR}, {"护盾生命比", EffectType::ShieldPctMaxHP},
@@ -41,7 +42,8 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"连锁弹", EffectType::ProjectileBounce},
     {"群体施治", EffectType::OnSkillTeamHeal},
     {"群体施治百分比", EffectType::OnSkillTeamHealPct},
-    {"死亡庇护", EffectType::DeathPrevention}, {"保护挪移", EffectType::ForcePullProtect},
+    {"死亡庇护", EffectType::DeathPrevention}, {"死亡医疗", EffectType::DeathMedical},
+    {"保护挪移", EffectType::ForcePullProtect},
     {"处决挪移", EffectType::ForcePullExecute}, {"斩杀", EffectType::Execute},
     {"破罡", EffectType::MPBlock}, {"封内", EffectType::MPBlock}, {"倾国倾城", EffectType::CharmCDRDebuff}, {"冷却延长反击", EffectType::CharmCDRDebuff},
     {"攻击倾城", EffectType::OffensiveCharm}, {"攻击冷却延长", EffectType::OffensiveCharm}, {"殉爆", EffectType::DeathAOE},
@@ -162,11 +164,16 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
     }
 }
 
-void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
+void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, int sourceComboId)
 {
+    AppliedEffectInstance instance;
+    static_cast<ComboEffect&>(instance) = e;
+    instance.sourceComboId = sourceComboId;
+    s.appliedEffects.push_back(instance);
+
     if (e.trigger != Trigger::Always)
     {
-        s.triggeredEffects.push_back(e);
+        s.triggeredEffects.push_back(instance);
         return;
     }
     switch (e.type)
@@ -196,6 +203,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::PoisonDOT: s.poisonDOTPct += e.value; if (e.value2) s.poisonDuration = std::max(s.poisonDuration, e.value2 * 30); break;
     case EffectType::PoisonDmgAmp: s.poisonDmgAmpPct += e.value; break;
     case EffectType::MPOnHit: s.mpOnHit += e.value; break;
+    case EffectType::HPOnHit: s.hpOnHit += e.value; break;
     case EffectType::MPDrain: s.mpDrain += e.value; break;
     case EffectType::MPRecoveryBonus: s.mpRecoveryBonusPct += e.value; break;
     case EffectType::SkillDmgPct: s.skillDmgPct += e.value; break;
@@ -242,7 +250,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.enemyTopDebuffValue = e.value2;
         break;
     case EffectType::BlinkAttack: s.blinkAttack = true; break;
-    case EffectType::AllyDeathStatBoost: s.allyDeathStatBoost += e.value; break;
+    case EffectType::AllyDeathStatBoost: break;
     case EffectType::CloneSummon: s.cloneSummonCount = std::max(s.cloneSummonCount, e.value); break;
     case EffectType::ProjectileReflect: s.projectileReflectPct += e.value; break;
     case EffectType::ProjectileBounce: break;
@@ -252,6 +260,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
         s.deathPrevention = true;
         s.deathPreventionFrames = std::max(s.deathPreventionFrames, e.value);
         break;
+    case EffectType::DeathMedical: break;
     case EffectType::ForcePullProtect: s.forcePullProtect = true; break;
     case EffectType::ForcePullExecute: s.forcePullExecute = true; break;
     case EffectType::Execute: break;  // handled as triggered effect (OnHit)
@@ -269,7 +278,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
     case EffectType::TempFlatATK: break;
     case EffectType::AutoUltimate: break;
     case EffectType::MPRestore: break;
-    case EffectType::ShieldOnAllyDeath: s.shieldOnAllyDeathCount = e.value; break;
+    case EffectType::ShieldOnAllyDeath: break;
     case EffectType::DamageImmunityAfterFrames:
         s.damageImmunityAfterFrames = e.value;
         s.damageImmunityDuration = e.value2;
@@ -283,13 +292,14 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e)
 
 void ChessBattleEffects::mergeEffects(std::map<int, RoleComboState>& states,
                                       const std::vector<ComboEffect>& effects,
-                                      const std::vector<int>& roleIds)
+                                      const std::vector<int>& roleIds,
+                                      int sourceComboId)
 {
     for (int rid : roleIds)
     {
         auto& s = states[rid];
         for (auto& e : effects)
-            applyEffect(s, e);
+            applyEffect(s, e, sourceComboId);
     }
 }
 

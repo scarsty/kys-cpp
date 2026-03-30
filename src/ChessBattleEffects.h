@@ -44,6 +44,7 @@ enum class EffectType
     PoisonDOT,
     PoisonDmgAmp,
     MPOnHit,
+    HPOnHit,
     MPDrain,
     MPRecoveryBonus,
     SkillDmgPct,
@@ -81,6 +82,7 @@ enum class EffectType
     OnSkillTeamHeal,
     OnSkillTeamHealPct,
     DeathPrevention,
+    DeathMedical,
     ForcePullProtect,
     ForcePullExecute,
     Execute,
@@ -111,6 +113,11 @@ struct ComboEffect
     int maxCount = 0;
 };
 
+struct AppliedEffectInstance : ComboEffect
+{
+    int sourceComboId = -1;  // -1 means the effect did not originate from a synergy
+};
+
 struct RoleComboState
 {
     // Stat buffs
@@ -135,6 +142,7 @@ struct RoleComboState
     int poisonDuration = 0;
     int poisonDmgAmpPct = 0;
     int mpOnHit = 0;
+    int hpOnHit = 0;
     int mpDrain = 0;
     int mpRecoveryBonusPct = 0;
     int skillDmgPct = 0;
@@ -148,8 +156,9 @@ struct RoleComboState
     int healedATKSPDBoostPct = 0;
     int hpRegenPct = 0;
     int hpRegenInterval = 0;
+    std::vector<AppliedEffectInstance> appliedEffects;
     // Generic triggered effects (non-Always triggers stored here)
-    std::vector<ComboEffect> triggeredEffects;
+    std::vector<AppliedEffectInstance> triggeredEffects;
     int freezeReductionPct = 0;
     int controlImmunityFrames = 0;
     int killHealPct = 0;
@@ -171,7 +180,6 @@ struct RoleComboState
     bool postSkillDash = false;
     int postSkillDashFrames = 0;
     bool blinkAttack = false;
-    int allyDeathStatBoost = 0;
     int cloneSummonCount = 0;
     int projectileReflectPct = 0;
     int onSkillTeamHeal = 0;
@@ -183,7 +191,6 @@ struct RoleComboState
     int offensiveCharmChancePct = 0;
     int deathAOEPct = 0;
     int deathAOEStunFrames = 0;
-    int shieldOnAllyDeathCount = 0;
     int enemyTopDebuffCount = 0;
     int enemyTopDebuffValue = 0;
     int enemyTopDebuffApplied = 0;
@@ -236,10 +243,11 @@ class ChessBattleEffects
 public:
     static const std::map<std::string, EffectType>& getEffectTypeMap();
     static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context);
-    static void applyEffect(RoleComboState& s, const ComboEffect& e);
+    static void applyEffect(RoleComboState& s, const ComboEffect& e, int sourceComboId = -1);
     static void mergeEffects(std::map<int, RoleComboState>& states,
-                             const std::vector<ComboEffect>& effects,
-                             const std::vector<int>& roleIds);
+                              const std::vector<ComboEffect>& effects,
+                             const std::vector<int>& roleIds,
+                             int sourceComboId = -1);
 };
 
 }  // namespace KysChess

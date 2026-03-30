@@ -222,19 +222,6 @@ bool isSummonedCloneRole(const Role* r)
     return it != cs.end() && it->second.isSummonedClone;
 }
 
-bool comboNameMatches(const std::string& comboName, std::initializer_list<const char*> candidates)
-{
-    auto* font = Font::getInstance();
-    for (const char* candidate : candidates)
-    {
-        if (comboName == font->S2T(candidate))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 int getComboLookupId(const Role* r)
 {
     if (!r)
@@ -248,29 +235,26 @@ int getComboLookupId(const Role* r)
     return r->RealID >= 0 ? r->RealID : r->ID;
 }
 
-bool roleHasCombo(const Role* r, std::initializer_list<const char*> comboNames)
+bool roleParticipatesInCombo(const Role* r, int comboId)
 {
     int comboLookupId = getComboLookupId(r);
-    if (comboLookupId < 0)
+    if (comboLookupId < 0 || comboId < 0)
     {
         return false;
     }
 
     auto combos = KysChess::ChessCombo::getCombosForRole(comboLookupId);
+    return std::find(combos.begin(), combos.end(), comboId) != combos.end();
+}
+
+bool comboIdIsRegularSynergy(int comboId)
+{
     auto& allCombos = KysChess::ChessCombo::getAllCombos();
-    for (auto comboId : combos)
+    if (comboId < 0 || comboId >= static_cast<int>(allCombos.size()))
     {
-        int comboIndex = static_cast<int>(comboId);
-        if (comboIndex < 0 || comboIndex >= static_cast<int>(allCombos.size()))
-        {
-            continue;
-        }
-        if (comboNameMatches(allCombos[comboIndex].name, comboNames))
-        {
-            return true;
-        }
+        return false;
     }
-    return false;
+    return !allCombos[comboId].isAntiCombo;
 }
 
 std::string formatStatusFrames(const char* label, int frames)
@@ -352,11 +336,6 @@ std::string formatExecuteStatus(int thresholdPct)
         return "触发处决";
     }
     return std::format("触发处决（斩杀线{}%）", thresholdPct);
-}
-
-bool rolesShareCombo(const Role* a, const Role* b, std::initializer_list<const char*> comboNames)
-{
-    return roleHasCombo(a, comboNames) && roleHasCombo(b, comboNames);
 }
 
 double calcBlinkReach(const Magic* magic)
@@ -1987,7 +1966,8 @@ void BattleSceneHades::onEntrance()
             std::vector<CloneSourceCandidate> cloneCandidates;
             for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); ++i)
             {
-                if (!roleHasCombo(&friends_obj_[i], { "真武七截阵" }))
+                auto it = cs.find(friends_obj_[i].ID);
+                if (it == cs.end() || it->second.cloneSummonCount <= 0)
                 {
                     continue;
                 }
@@ -3588,21 +3568,55 @@ void BattleSceneHades::backRun1()
                         }
 
                         auto& as = ait->second;
-                        if (as.allyDeathStatBoost > 0
-                            && rolesShareCombo(ally, r, { "明教", "四大法王" }))
+                        for (const auto& effect : as.appliedEffects)
                         {
-                            ally->Attack += as.allyDeathStatBoost;
-                            ally->Defence += as.allyDeathStatBoost;
+                            if (effect.type != KysChess::EffectType::AllyDeathStatBoost
+                                || !comboIdIsRegularSynergy(effect.sourceComboId)
+                                || !roleParticipatesInCombo(r, effect.sourceComboId))
+                            {
+                                continue;
+                            }
+
+                            ally->Attack += effect.value;
+                            ally->Defence += effect.value;
                             logBattleStatus(r, ally,
-                                std::format("同袍之死（攻防+{}）", as.allyDeathStatBoost));
-                            // ally->Speed += as.allyDeathStatBoost;
+                                std::format("同袍之死（攻防+{}）", effect.value));
+                            // ally->Speed += effect.value;
                         }
 
-                        if (as.shieldOnAllyDeathCount > 0
-                            && rolesShareCombo(ally, r, { "全真教" }))
+                        if (sit != cs.end())
                         {
+                            for (const auto& effect : sit->second.appliedEffects)
+                            {
+                                if (effect.type != KysChess::EffectType::DeathMedical
+                                    || !comboIdIsRegularSynergy(effect.sourceComboId)
+                                    || !roleParticipatesInCombo(ally, effect.sourceComboId))
+                                {
+                                    continue;
+                                }
+
+                                int hpBefore = ally->HP;
+                                int heal = std::max(1, ally->MaxHP * effect.value / 100);
+                                ally->HP = std::min(ally->MaxHP, ally->HP + heal);
+                                if (ally->HP > hpBefore)
+                                {
+                                    addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                                    logBattleHeal(r, ally, ally->HP - hpBefore, "死亡医疗");
+                                }
+                            }
+                        }
+
+                        for (const auto& effect : as.appliedEffects)
+                        {
+                            if (effect.type != KysChess::EffectType::ShieldOnAllyDeath
+                                || !comboIdIsRegularSynergy(effect.sourceComboId)
+                                || !roleParticipatesInCombo(r, effect.sourceComboId))
+                            {
+                                continue;
+                            }
+
                             as.shieldOnAllyDeathTracker++;
-                            if (as.shieldOnAllyDeathTracker >= as.shieldOnAllyDeathCount)
+                            if (as.shieldOnAllyDeathTracker >= effect.value)
                             {
                                 as.shieldOnAllyDeathTracker = 0;
                                 if (as.shieldPctMaxHP > 0)
@@ -5296,6 +5310,18 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
             if (as.mpOnHit > 0)
             {
                 changeRoleMP(ae.Attacker, as.mpOnHit);
+            }
+
+            // HP on hit
+            if (ae.Attacker && as.hpOnHit > 0)
+            {
+                int hpBefore = ae.Attacker->HP;
+                ae.Attacker->HP = std::min(ae.Attacker->MaxHP, ae.Attacker->HP + as.hpOnHit);
+                if (ae.Attacker->HP > hpBefore)
+                {
+                    addRoleEffect(ae.Attacker, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                    logBattleHeal(ae.Attacker, ae.Attacker, ae.Attacker->HP - hpBefore, "命中回血");
+                }
             }
 
             // MP drain
