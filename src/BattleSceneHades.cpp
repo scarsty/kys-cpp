@@ -1791,31 +1791,26 @@ void BattleSceneHades::onEntrance()
         auto enemyCombos = KysChess::ChessCombo::detectCombos(enemyChessVec);
         auto allyStates = KysChess::ChessCombo::buildComboStates(allyCombos);
         auto enemyStates = KysChess::ChessCombo::buildComboStates(enemyCombos);
+        std::vector<KysChess::ComboEffect> allyGlobalEffects;
 
-        // Merge neigong global effects into ally states
+        // Collect neigong global effects and apply them per battle copy.
+        // This avoids stacking the same effect multiple times when duplicate role IDs are selected.
         {
             auto& obtained = progress_.getObtainedNeigong();
             if (!obtained.empty())
             {
                 auto& pool = KysChess::ChessNeigong::getPool();
-                std::vector<KysChess::ComboEffect> globalEffects;
                 for (int mid : obtained)
                 {
                     for (auto& ng : pool)
                     {
                         if (ng.magicId == mid)
                         {
-                            globalEffects.insert(globalEffects.end(), ng.effects.begin(), ng.effects.end());
+                            allyGlobalEffects.insert(allyGlobalEffects.end(), ng.effects.begin(), ng.effects.end());
                             break;
                         }
                     }
                 }
-                std::vector<int> allyIds;
-                for (auto& c : allyChessVec)
-                {
-                    allyIds.push_back(c.role->ID);
-                }
-                KysChess::ChessBattleEffects::mergeEffects(allyStates, globalEffects, allyIds);
             }
         }
 
@@ -1884,7 +1879,10 @@ void BattleSceneHades::onEntrance()
                 state.autoUltimateTimer = state.autoUltimateAfterFrames;
             }
         };
-        auto applyOnCopies = [&](std::deque<Role>& objs, std::map<int, KysChess::RoleComboState>& states, auto equipmentLookup)
+        auto applyOnCopies = [&](std::deque<Role>& objs,
+                                 std::map<int, KysChess::RoleComboState>& states,
+                                 const std::vector<KysChess::ComboEffect>& globalEffects,
+                                 auto equipmentLookup)
         {
             for (size_t index = 0; index < objs.size(); ++index)
             {
@@ -1896,6 +1894,11 @@ void BattleSceneHades::onEntrance()
                     battleState = it->second;
                 }
 
+                for (auto& effect : globalEffects)
+                {
+                    KysChess::ChessBattleEffects::applyEffect(battleState, effect);
+                }
+
                 auto [weaponId, armorId] = equipmentLookup(index);
                 applyEquipmentEffects(battleState, weaponId, armorId);
                 applyStateToCopy(r, battleState);
@@ -1904,7 +1907,7 @@ void BattleSceneHades::onEntrance()
                 cs[r.ID] = battleState;
             }
         };
-        applyOnCopies(friends_obj_, allyStates, [&](size_t index)
+        applyOnCopies(friends_obj_, allyStates, allyGlobalEffects, [&](size_t index)
             {
                 int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
                 int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
@@ -1936,7 +1939,7 @@ void BattleSceneHades::onEntrance()
                     c.armorInstance.itemId
                 };
             });
-        applyOnCopies(enemies_obj_, enemyStates, [&](size_t index)
+        applyOnCopies(enemies_obj_, enemyStates, {}, [&](size_t index)
             {
                 int weaponId = index < enemy_weapons_.size() ? enemy_weapons_[index] : -1;
                 int armorId = index < enemy_armors_.size() ? enemy_armors_[index] : -1;
@@ -3528,7 +3531,8 @@ void BattleSceneHades::backRun1()
                                 int hpBefore = r->LastAttacker->HP;
                                 r->LastAttacker->HP = std::min(r->LastAttacker->MaxHP,
                                     r->LastAttacker->HP + r->LastAttacker->MaxHP * kit->second.killHealPct / 100);
-                                logBattleHeal(r->LastAttacker, r->LastAttacker, r->LastAttacker->HP - hpBefore, "击杀回复");
+                                logBattleHeal(r->LastAttacker, r->LastAttacker, r->LastAttacker->HP - hpBefore,
+                                    std::format("击杀回复 {}%", kit->second.killHealPct));
                             }
                             if (kit->second.killInvincFrames > 0)
                             {

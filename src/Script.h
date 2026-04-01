@@ -1,6 +1,6 @@
 ﻿#pragma once
-#ifdef __EMSCRIPTEN__
-// WASM stub: no Lua scripting
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
+// WASM/Android stub: no Lua scripting
 #include <string>
 
 class Script
@@ -19,16 +19,12 @@ public:
     int runScriptString(const std::string& content) { return 0; }
     int registerEventFunctions() { return 0; }
 };
-#else // !__EMSCRIPTEN__
+#else // !__EMSCRIPTEN__ && !__ANDROID__
 #include "FunctionTrait.h"
 #ifdef _WIN32
 #include "lua.hpp"
 #else
-#ifdef __ANDROID__
-#include "lua.hpp"
-#else
 #include "lua5.4/lua.hpp"
-#endif
 #endif
 #include <array>
 #include <string>

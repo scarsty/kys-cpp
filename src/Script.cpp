@@ -1,6 +1,6 @@
 ﻿#include "Script.h"
-#ifdef __EMSCRIPTEN__
-// WASM stub: Script is fully inlined in the header, nothing needed here
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
+// WASM/Android stub: Script is fully inlined in the header, nothing needed here
 #else
 #include "Event.h"
 #include "EventMacro.h"
@@ -462,4 +462,4 @@ int Script::registerEventFunctions()
     return 0;
 }
 
-#endif // !__EMSCRIPTEN__
+#endif // !__EMSCRIPTEN__ && !__ANDROID__

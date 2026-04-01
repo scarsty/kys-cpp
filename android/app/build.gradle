@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.kysgame.kyschess'
+    compileSdk 35
+    ndkVersion '30.0.14904198'
+
+    signingConfigs {
+        debug {
+            storeFile file("${project.rootDir}/debug.keystore")
+            storePassword 'android'
+            keyAlias 'debug'
+            keyPassword 'android'
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.kysgame.kyschess"
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DVCPKG_INSTALLED_DIR=${project.projectDir}/../vcpkg_installed/arm64-android"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+        debug {
+            jniDebuggable true
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '4.1.2'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = ['src/main/assets']
+        }
+    }
+}
+
+// Task: copy game assets before build
+tasks.register('copyGameAssets', Exec) {
+    workingDir project.projectDir.parentFile  // android/
+    commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', 'copy_assets.ps1'
+}
+
+tasks.named('preBuild').configure {
+    dependsOn 'copyGameAssets'
+}

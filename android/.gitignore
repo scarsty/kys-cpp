@@ -1,0 +1,11 @@
+local.properties
+.gradle/
+build/
+app/build/
+app/src/main/assets/game/
+app/src/main/java/org/libsdl/
+vcpkg_installed/
+*.apk
+*.aab
+*.keystore
+.cxx/

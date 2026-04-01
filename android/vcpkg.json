@@ -1,0 +1,24 @@
+{
+  "name": "kys-cpp-android",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "glaze",
+    {
+      "name": "imgui",
+      "features": ["sdl3-binding", "sdl3-renderer-binding"]
+    },
+    "libzip",
+    "sdl3",
+    {
+      "name": "sdl3-image",
+      "features": ["png", "webp"]
+    },
+    {
+      "name": "sdl3-mixer",
+      "features": ["fluidsynth", "mpg123"]
+    },
+    "sdl3-ttf",
+    "sqlite3",
+    "yaml-cpp"
+  ]
+}

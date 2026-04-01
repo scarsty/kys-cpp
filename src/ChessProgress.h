@@ -34,8 +34,8 @@ public:
     void setPositionSwapEnabled(bool value);
 
     const std::vector<int>& getObtainedNeigong() const { return obtainedNeigong_; }
-    void addNeigong(int magicId) { obtainedNeigong_.push_back(magicId); }
-    void setObtainedNeigong(std::vector<int> value) { obtainedNeigong_ = std::move(value); }
+    void addNeigong(int magicId);
+    void setObtainedNeigong(std::vector<int> value);
 
     bool isChallengeCompleted(int idx) const { return completedChallenges_.contains(idx); }
     void completeChallenge(int idx) { completedChallenges_.insert(idx); }

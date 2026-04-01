@@ -54,6 +54,7 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
 #endif
 #ifdef __ANDROID__
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
 #endif
 
 
@@ -1779,6 +1780,32 @@ void resize_to_viewport(int w, int h, int css_w, int css_h)
         c.style.height = $1 + 'px';
     }, css_w, css_h);
     eng->setPresentPosition(eng->getMainTexture());
+}
+}
+#endif
+
+#ifdef __ANDROID__
+#include <jni.h>
+extern "C" {
+JNIEXPORT void JNICALL
+Java_com_kysgame_kyschess_KysActivity_nativeInjectRightClick(JNIEnv* env, jclass cls)
+{
+    float mx, my;
+    SDL_GetMouseState(&mx, &my);
+    SDL_Event down = {};
+    down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+    down.button.button = SDL_BUTTON_RIGHT;
+    down.button.x = mx;
+    down.button.y = my;
+    down.button.down = true;
+    SDL_PushEvent(&down);
+    SDL_Event up = {};
+    up.type = SDL_EVENT_MOUSE_BUTTON_UP;
+    up.button.button = SDL_BUTTON_RIGHT;
+    up.button.x = mx;
+    up.button.y = my;
+    up.button.down = false;
+    SDL_PushEvent(&up);
 }
 }
 #endif

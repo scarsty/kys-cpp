@@ -50,11 +50,7 @@ public:
 #elif !defined(__ANDROID__)
         s = "../game/";
 #else
-        s = "/sdcard/kys-cpp/game/";
-        if (!filefunc::fileExist(s + "config/kysmod.ini"))
-        {
-            s = std::string(SDL_GetAndroidExternalStoragePath()) + "/game/";
-        }
+        s = std::string(SDL_GetAndroidInternalStoragePath()) + "/game/";
 #endif
         return s;
     }
