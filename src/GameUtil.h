@@ -101,7 +101,7 @@ public:
 
     static bool isMobileDevice()
     {
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__)
         static int cached = -1;
         if (cached == -1)
         {
@@ -111,6 +111,8 @@ public:
             std::print("Mobile device is {}\n", cached);
         }
         return cached == 1;
+#elif defined(__ANDROID__)
+        return true;
 #else
         return false;
 #endif

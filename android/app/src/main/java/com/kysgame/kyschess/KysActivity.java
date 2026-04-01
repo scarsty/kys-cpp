@@ -6,6 +6,7 @@ import android.content.res.AssetManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -29,6 +30,13 @@ public class KysActivity extends SDLActivity {
     private static final int ASSET_VERSION = 2;
 
     public static native void nativeInjectRightClick();
+
+    private int dp(int value) {
+        return Math.round(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                value,
+                getResources().getDisplayMetrics()));
+    }
 
     @Override
     protected String[] getLibraries() {
@@ -133,7 +141,7 @@ public class KysActivity extends SDLActivity {
             // Create the right-click button
             TextView btn = new TextView(this);
             btn.setText("✕");
-            btn.setTextSize(28);
+            btn.setTextSize(32);
             btn.setTextColor(0xCCFFFFFF);
             btn.setBackgroundColor(0x44000000);
             btn.setPadding(32, 16, 32, 16);
@@ -143,7 +151,7 @@ public class KysActivity extends SDLActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     Gravity.BOTTOM | Gravity.END
             );
-            params.setMargins(0, 0, 24, 24);
+                params.setMargins(0, 0, dp(16), dp(16));
 
             btn.setOnTouchListener((v, event) -> {
                 switch (event.getAction()) {
