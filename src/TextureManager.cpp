@@ -21,11 +21,11 @@ void TextureWarpper::load()
         //LOG("Load texture {}, {}\n", group_info_->path, num_);
         if (group_info_->zip.opened())
         {
-            tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + ".png"));
+            tex[0] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + group_info_->ext_));
         }
         else
         {
-            tex[0] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + ".png");
+            tex[0] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + group_info_->ext_);
         }
         if (tex[0])
         {
@@ -37,11 +37,11 @@ void TextureWarpper::load()
             {
                 if (group_info_->zip.opened())
                 {
-                    tex[i] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + "_" + std::to_string(i) + ".png"));
+                    tex[i] = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + "_" + std::to_string(i) + group_info_->ext_));
                 }
                 else
                 {
-                    tex[i] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + "_" + std::to_string(i) + ".png");
+                    tex[i] = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + "_" + std::to_string(i) + group_info_->ext_);
                 }
                 if (tex[i] == nullptr)
                 {
@@ -64,11 +64,11 @@ void TextureWarpper::createWhiteTexture()
     {
         if (group_info_->zip.opened())
         {
-            tex_white = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + ".png"), 1);
+            tex_white = Engine::getInstance()->loadImageFromMemory(group_info_->zip.readFile(std::to_string(num_) + group_info_->ext_), 1);
         }
         else
         {
-            tex_white = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + ".png", 1);
+            tex_white = Engine::getInstance()->loadImage(group_info_->path + "/" + std::to_string(num_) + group_info_->ext_, 1);
         }
     }
 }
@@ -125,16 +125,21 @@ void TextureGroup::init(const std::string& path, int load_from_path, int load_al
         int max_num = -1;
         for (auto& f : files)
         {
-            if (strfunc::toLowerCase(filefunc::getFileExt(f)) != "png")
+            if (strfunc::toLowerCase(filefunc::getFileExt(f)) != "png" && strfunc::toLowerCase(filefunc::getFileExt(f)) != "webp")
             {
                 continue;
             }
+            info_.ext_ = filefunc::getFileExt(f);
             auto name = filefunc::getFileMainNameWithoutPath(f);
             auto nums = strfunc::findNumbers<int>(name);
             if (!nums.empty())
             {
                 max_num = (std::max)(max_num, nums[0]);
             }
+        }
+        if (!info_.ext_.contains("."))
+        {
+            info_.ext_ = "." + info_.ext_;
         }
 
         group_.resize((std::max)(0, max_num + 1));

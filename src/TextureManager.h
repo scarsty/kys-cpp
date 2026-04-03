@@ -12,6 +12,7 @@ struct GroupInfo
 {
     ZipFile zip;
     std::string path;
+    std::string ext_ = ".png";
 };
 
 struct TextureWarpper
@@ -48,17 +49,11 @@ public:
     std::vector<TextureWarpper*> group_;
     int inited_ = 0;
     GroupInfo info_;
-    //ZipFile zip_;
-    //ZipFile* getZip() { return &zip_; }
-    //std::string path_;
-    //const std::string& getPath() { return path_; }
     std::string getFileContent(const std::string& filename);
     int getTextureCount() const { return group_.size(); }
 
 protected:
     void init(const std::string& path, int load_from_path, int load_all);
-    //void loadTexture(int num, Texture* t);
-    //void loadTextureWhite(int num, Texture* t);
 };
 
 class TextureManager
