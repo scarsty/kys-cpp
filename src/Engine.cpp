@@ -942,7 +942,7 @@ void Engine::setMouseStateInStartWindow(int x, int y) const
     SDL_WarpMouseInWindow(window_, wx, wy);
 }
 
-int Engine::pollEvent(EngineEvent& e) const
+int Engine::pollEvent(EngineEvent& e)
 {
     int r = SDL_PollEvent(&e);
     if (r)
@@ -952,7 +952,7 @@ int Engine::pollEvent(EngineEvent& e) const
             || e.type == EVENT_WINDOW_MAXIMIZED
             || e.type == EVENT_WINDOW_RESTORED)
         {
-            const_cast<Engine*>(this)->setPresentPosition(tex_);
+            setPresentPosition(tex_);
         }
     }
     return r;

@@ -9,8 +9,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerWorkingDirectory>..\..\cpp版资源</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>.\game2xwebp</LocalDebuggerCommandArguments>
-    <LocalDebuggerCommandArgumentsHistory>game-dev|D:\kys-all\_cpp\cpp版资源\game2xwebp|D:\kys-all\_cpp\cpp版资源\game2x|.\game2x|.\game2xwebp|</LocalDebuggerCommandArgumentsHistory>
+    <LocalDebuggerCommandArguments>.\game2x</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArgumentsHistory>game-dev|D:\kys-all\_cpp\cpp版资源\game2xwebp|D:\kys-all\_cpp\cpp版资源\game2x|.\game2xwebp|.\game2x|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

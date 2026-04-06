@@ -516,7 +516,7 @@ public:
     void getMouseStateInStartWindow(int& x, int& y) const;
     void setMouseState(int x, int y) const;
     void setMouseStateInStartWindow(int x, int y) const;
-    int pollEvent(EngineEvent& e) const;
+    int pollEvent(EngineEvent& e);
 
     static int pollEvent() { return SDL_PollEvent(nullptr); }
 
