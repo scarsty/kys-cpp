@@ -1,6 +1,7 @@
 param(
     [string]$PkgDir = "release_package",
     [string]$GameDir = (Join-Path $PSScriptRoot 'work\game-dev'),
+    [string]$Version,
     [string]$ZipPath
 )
 
@@ -104,7 +105,7 @@ foreach ($dll in $localDlls) {
 
 # Step 4: Copy resources
 Write-Host "[4/6] Copying resources..."
-Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir "$PkgDir\game"
+Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir "$PkgDir\game" -Version $Version
 
 # Step 5: Copy changelog and create play.bat
 Write-Host "[6/6] Finalizing package..."

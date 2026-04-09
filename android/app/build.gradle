@@ -5,6 +5,16 @@ plugins {
 def releaseVersionName = (project.findProperty('releaseVersionName') ?: '1.0').toString()
 def releaseVersionCode = Integer.parseInt((project.findProperty('releaseVersionCode') ?: '1').toString())
 def releaseGameDir = project.findProperty('gameDir')?.toString()
+def launcherIconSource = file("${project.rootDir}/kys_chess_icon.png")
+def launcherIconScript = file("${project.rootDir}/generate_launcher_icons.ps1")
+def launcherIconOutputs = [
+    'src/main/res/mipmap-mdpi/ic_launcher.png',
+    'src/main/res/mipmap-hdpi/ic_launcher.png',
+    'src/main/res/mipmap-xhdpi/ic_launcher.png',
+    'src/main/res/mipmap-xxhdpi/ic_launcher.png',
+    'src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+    'src/main/res/drawable/ic_launcher_foreground.png'
+].collect { file("${project.projectDir}/${it}") }
 
 android {
     namespace 'com.kysgame.kyschess'
@@ -78,6 +88,14 @@ tasks.register('copyGameAssets', Exec) {
     commandLine command
 }
 
+tasks.register('generateLauncherIcons', Exec) {
+    workingDir project.rootDir
+    commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', 'generate_launcher_icons.ps1'
+    inputs.file(launcherIconSource)
+    inputs.file(launcherIconScript)
+    outputs.files(launcherIconOutputs)
+}
+
 tasks.named('preBuild').configure {
-    dependsOn 'copyGameAssets'
+    dependsOn 'copyGameAssets', 'generateLauncherIcons'
 }

@@ -16,6 +16,7 @@
 #include "UISave.h"
 #include "DrawableOnCall.h"
 #include "ChessUiCommon.h"
+#include "SuperMenuText.h"
 #include "Video.h"
 #include "Weather.h"
 #include "ChessBalance.h"
@@ -37,6 +38,18 @@ namespace
 
 constexpr int kExternalSaveDialogPollMs = 16;
 
+int fitTextSizeToWidth(const std::string& text, int maxWidth, int maxSize)
+{
+    const int textUnits = std::max(1, Font::getTextDrawSize(text));
+    const int fittedSize = std::max(1, maxWidth * 2 / textUnits);
+    return std::clamp(fittedSize, 1, maxSize);
+}
+
+int rightAlignTextX(const std::string& text, int textSize, int rightMargin, int uiWidth)
+{
+    return uiWidth - rightMargin - textSize * Font::getTextDrawSize(text) / 2;
+}
+
 std::shared_ptr<DrawableOnCall> makeModalBackdrop()
 {
     return std::make_shared<DrawableOnCall>([](DrawableOnCall*) {
@@ -55,8 +68,17 @@ std::shared_ptr<TextBox> makeModalLabel(const std::string& text, int x, int y)
     return label;
 }
 
-std::shared_ptr<DrawableOnCall> makeDifficultyDescriptionOverlay(const std::shared_ptr<MenuText>& diffMenu)
+class DifficultyDescriptionOverlay : public DrawableOnCall
 {
+public:
+    DifficultyDescriptionOverlay()
+        : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
+    {
+    }
+
+private:
+    void drawPanel()
+    {
     static const std::array<std::string, 3> kDifficultyNames = { "簡單", "標準", "困難" };
     static const std::array<std::string, 3> kDifficultyDescriptions = {
         "入門模式，棋池固定，適合剛上手的新手。",
@@ -64,7 +86,6 @@ std::shared_ptr<DrawableOnCall> makeDifficultyDescriptionOverlay(const std::shar
         "挑戰模式，總戰數更長，但金幣收益會略少。",
     };
 
-    return std::make_shared<DrawableOnCall>([diffMenu](DrawableOnCall*) {
         constexpr int panelX = 690;
         constexpr int panelY = 292;
         constexpr int panelW = 500;
@@ -88,7 +109,7 @@ std::shared_ptr<DrawableOnCall> makeDifficultyDescriptionOverlay(const std::shar
         engine->fillRoundedRect(panelBg, panelX, panelY, panelW, panelH, 8);
         engine->drawRoundedRect(panelOutline, panelX, panelY, panelW, panelH, 8);
 
-        int activeIndex = diffMenu ? diffMenu->getActiveChildIndex() : 0;
+        int activeIndex = getItemIndex();
         if (activeIndex < 0 || activeIndex >= static_cast<int>(kDifficultyNames.size()))
         {
             activeIndex = 0;
@@ -108,8 +129,8 @@ std::shared_ptr<DrawableOnCall> makeDifficultyDescriptionOverlay(const std::shar
         }
 
         font->draw("上下切換可查看說明", 18, panelX + 18, panelY + panelH - 28, hintColor, 255);
-    });
-}
+    }
+};
 
 int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<TextBox>& label = nullptr,
     const std::vector<std::shared_ptr<RunNode>>& overlays = {})
@@ -379,6 +400,11 @@ void TitleScene::draw()
     int titleY = chessY + 15 * chessSize + 30;
     Font::getInstance()->draw("金群自走棋", titleSize, titleX, titleY, { 220, 40, 40, 255 }, 255);
 
+    const std::string qqGroupText = "QQ群910723737";
+    const int qqGroupSize = fitTextSizeToWidth(qqGroupText, w - 20, 18);
+    const int qqGroupX = rightAlignTextX(qqGroupText, qqGroupSize, 10, w);
+    Font::getInstance()->draw(qqGroupText, qqGroupSize, qqGroupX, h - 30, { 150, 150, 150, 255 }, 255);
+
     // Version string below title
     Font::getInstance()->draw(GameUtil::VERSION(), 20, 10, h - 30, { 150, 150, 150, 255 }, 255);
 
@@ -399,14 +425,16 @@ void TitleScene::dealEvent(EngineEvent& e)
     {
         // Difficulty selection before entering the game
         ScopedTitleArtHide hideTitleArt(hide_title_art_for_external_save_);
-        auto diffMenu = std::make_shared<MenuText>();
-        diffMenu->setStrings({"簡單", "標準", "困難"});
-        diffMenu->setFontSize(40);
-        diffMenu->setPosition(320, 330);
-        diffMenu->arrange(0, 0, 0, 49);
+        SuperMenuTextExtraOptions diffMenuOpts;
+        diffMenuOpts.needInputBox_ = false;
+        diffMenuOpts.exitable_ = true;
+        auto diffMenu = std::make_shared<SuperMenuText>("", 40, std::vector<std::string>{"簡單", "標準", "困難"}, 3, diffMenuOpts);
+        diffMenu->setInputPosition(320, 330);
+        diffMenu->setShowNavigationButtons(false);
+        diffMenu->setDoubleTapMode(GameUtil::isMobileDevice());
+        diffMenu->addDrawableOnCall(std::make_shared<DifficultyDescriptionOverlay>());
         auto diffLabel = makeModalLabel("選擇難度", 540, 240);
-        auto diffDesc = makeDifficultyDescriptionOverlay(diffMenu);
-        int diff = runModalNode(diffMenu, diffLabel, { diffDesc });
+        int diff = runModalNode(diffMenu, diffLabel);
         if (diff < 0)
         {
             return;    // cancelled — back to title menu

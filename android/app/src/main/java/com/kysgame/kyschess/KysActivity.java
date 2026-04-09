@@ -2,6 +2,8 @@ package com.kysgame.kyschess;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -20,14 +22,17 @@ import android.widget.TextView;
 import org.libsdl.app.SDLActivity;
 
 import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 public class KysActivity extends SDLActivity {
 
     private static final String TAG = "KysActivity";
-    private static final int ASSET_VERSION = 2;
+    private static final String PREFS_NAME = "kys_prefs";
+    private static final String PREF_ASSET_MARKER = "asset_marker";
 
     public static native void nativeInjectRightClick();
 
@@ -82,25 +87,107 @@ public class KysActivity extends SDLActivity {
     }
 
     private void extractAssetsIfNeeded() {
-        SharedPreferences prefs = getSharedPreferences("kys_prefs", Context.MODE_PRIVATE);
-        int installed = prefs.getInt("asset_version", 0);
-        if (installed >= ASSET_VERSION) {
-            Log.i(TAG, "Assets already extracted (v" + installed + "), skipping.");
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        File destDir = new File(getFilesDir(), "game");
+        String packagedVersion = readPackagedReleaseVersion();
+        String desiredMarker = buildAssetExtractionMarker(packagedVersion);
+        String installedMarker = prefs.getString(PREF_ASSET_MARKER, "");
+
+        if (desiredMarker.equals(installedMarker) && destDir.isDirectory()) {
+            Log.i(TAG, "Assets already extracted for marker " + desiredMarker + ", skipping.");
             return;
         }
 
-        Log.i(TAG, "Extracting game assets (v" + ASSET_VERSION + ")...");
-        File destDir = new File(getFilesDir(), "game");
+        Log.i(TAG, "Refreshing game assets for marker " + desiredMarker + "...");
         try {
-            copyAssetDir(getAssets(), "game", destDir);
-            prefs.edit().putInt("asset_version", ASSET_VERSION).apply();
+            prepareGameDirForExtraction(destDir);
+            copyAssetDir(getAssets(), "game", destDir, true);
+            copyPackagedSaveAssets(getAssets(), destDir);
+            prefs.edit().putString(PREF_ASSET_MARKER, desiredMarker).apply();
             Log.i(TAG, "Asset extraction complete.");
         } catch (IOException e) {
             Log.e(TAG, "Asset extraction failed", e);
         }
     }
 
-    private void copyAssetDir(AssetManager am, String assetPath, File destDir) throws IOException {
+    private String buildAssetExtractionMarker(String packagedVersion) {
+        try {
+            PackageInfo packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            long versionCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                    ? packageInfo.getLongVersionCode()
+                    : packageInfo.versionCode;
+            String versionName = packageInfo.versionName != null ? packageInfo.versionName : "";
+            return packagedVersion + "|" + versionName + "|" + versionCode + "|" + packageInfo.lastUpdateTime;
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.w(TAG, "Unable to resolve package info for asset marker", e);
+            return packagedVersion;
+        }
+    }
+
+    private String readPackagedReleaseVersion() {
+        try {
+            String releaseIni = readTextAsset("game/config/release.ini");
+            for (String rawLine : releaseIni.split("\\r?\\n")) {
+                String line = rawLine.trim();
+                if (line.startsWith("version")) {
+                    int equalsIndex = line.indexOf('=');
+                    if (equalsIndex >= 0 && equalsIndex + 1 < line.length()) {
+                        return line.substring(equalsIndex + 1).trim();
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Unable to read packaged release version", e);
+        }
+        return "dev";
+    }
+
+    private String readTextAsset(String assetPath) throws IOException {
+        try (InputStream in = getAssets().open(assetPath);
+             ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+            byte[] chunk = new byte[4096];
+            int read;
+            while ((read = in.read(chunk)) != -1) {
+                buffer.write(chunk, 0, read);
+            }
+            return buffer.toString(StandardCharsets.UTF_8.name());
+        }
+    }
+
+    private void prepareGameDirForExtraction(File destDir) throws IOException {
+        if (!destDir.exists() && !destDir.mkdirs()) {
+            throw new IOException("Failed to create directory: " + destDir);
+        }
+
+        File[] children = destDir.listFiles();
+        if (children == null) {
+            return;
+        }
+
+        for (File child : children) {
+            if ("save".equals(child.getName())) {
+                continue;
+            }
+            deleteRecursively(child);
+        }
+    }
+
+    private void deleteRecursively(File file) throws IOException {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+
+        if (file.exists() && !file.delete()) {
+            throw new IOException("Failed to delete " + file.getAbsolutePath());
+        }
+    }
+
+    private void copyAssetDir(AssetManager am, String assetPath, File destDir, boolean skipPackagedSaveDir) throws IOException {
         String[] children = am.list(assetPath);
         if (children == null || children.length == 0) {
             // It's a file — copy it
@@ -113,14 +200,50 @@ public class KysActivity extends SDLActivity {
             throw new IOException("Failed to create directory: " + destDir);
         }
         for (String child : children) {
+            if (skipPackagedSaveDir && "game".equals(assetPath) && "save".equals(child)) {
+                continue;
+            }
             String childAsset = assetPath + "/" + child;
             File childDest = new File(destDir, child);
-            copyAssetDir(am, childAsset, childDest);
+            copyAssetDir(am, childAsset, childDest, skipPackagedSaveDir);
         }
     }
 
+    private void copyPackagedSaveAssets(AssetManager am, File gameDir) throws IOException {
+        File saveDir = new File(gameDir, "save");
+        if (!saveDir.exists() && !saveDir.mkdirs()) {
+            throw new IOException("Failed to create directory: " + saveDir);
+        }
+
+        copyAssetFile(am, "game/save/game.db", new File(saveDir, "game.db"));
+
+        String[] saveEntries = am.list("game/save");
+        if (saveEntries == null) {
+            return;
+        }
+
+        for (String entry : saveEntries) {
+            if (entry.endsWith(".grp.zip")) {
+                copyAssetFile(am, "game/save/" + entry, new File(saveDir, entry));
+            }
+        }
+
+        copyAssetFileIfMissing(am, "game/save/0.json", new File(saveDir, "0.json"));
+        copyAssetFileIfMissing(am, "game/save/setting.json", new File(saveDir, "setting.json"));
+    }
+
+    private void copyAssetFileIfMissing(AssetManager am, String assetPath, File destFile) throws IOException {
+        if (destFile.exists()) {
+            return;
+        }
+        copyAssetFile(am, assetPath, destFile);
+    }
+
     private void copyAssetFile(AssetManager am, String assetPath, File destFile) throws IOException {
-        destFile.getParentFile().mkdirs();
+        File parent = destFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Failed to create directory: " + parent);
+        }
 
         try (InputStream in = am.open(assetPath);
              FileOutputStream out = new FileOutputStream(destFile)) {

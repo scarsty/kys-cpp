@@ -51,6 +51,19 @@ keytool -genkeypair -v -keystore android/debug.keystore `
     -storepass android -keypass android -dname "CN=Debug,O=KysGame,C=US"
 ```
 
+### 5. Launcher icon generation
+
+The Android build now regenerates the launcher mipmaps from `android/kys_chess_icon.png` before `preBuild` runs, and the app uses an adaptive launcher icon on Android 8+ so the launcher can apply rounded masks correctly. The generator writes:
+
+- `app/src/main/res/mipmap-mdpi/ic_launcher.png` at 48x48
+- `app/src/main/res/mipmap-hdpi/ic_launcher.png` at 72x72
+- `app/src/main/res/mipmap-xhdpi/ic_launcher.png` at 96x96
+- `app/src/main/res/mipmap-xxhdpi/ic_launcher.png` at 144x144
+- `app/src/main/res/mipmap-xxxhdpi/ic_launcher.png` at 192x192
+- `app/src/main/res/drawable/ic_launcher_foreground.png` for the adaptive icon foreground
+
+If you want to refresh them manually, run `android/generate_launcher_icons.ps1`.
+
 ## Building
 
 ```powershell

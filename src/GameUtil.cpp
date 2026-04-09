@@ -14,6 +14,15 @@ GameUtil::~GameUtil()
 std::string GameUtil::loadReleaseVersion()
 {
     INIReaderNormal releaseConfig;
-    releaseConfig.loadFile(GameUtil::PATH() + "config/release.ini");
-    return releaseConfig.getString("release", "version", "");
+    if (releaseConfig.loadFile(GameUtil::PATH() + "config/release.ini") != 0)
+    {
+        return "dev";
+    }
+
+    auto version = releaseConfig.getString("release", "version", "");
+    if (version.empty())
+    {
+        return "dev";
+    }
+    return version;
 }

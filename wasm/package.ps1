@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$GameDir,
+    [string]$Version,
     [string]$ZipPath
 )
 
@@ -41,7 +42,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
 Copy-Item -Force (Join-Path $buildDir 'index.html') $distDir
 Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
-Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir (Join-Path $distDir 'kys\game')
+Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir (Join-Path $distDir 'kys\game') -Version $Version
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 # /*

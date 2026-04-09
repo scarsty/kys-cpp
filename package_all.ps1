@@ -54,11 +54,11 @@ Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir $preparedGame
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
 Write-Host '[2/5] Packaging Windows release...'
-& (Join-Path $PSScriptRoot 'package_release.ps1') -PkgDir $windowsPackageDir -GameDir $preparedGameDir -ZipPath $windowsZipPath
+& (Join-Path $PSScriptRoot 'package_release.ps1') -PkgDir $windowsPackageDir -GameDir $preparedGameDir -Version $Version -ZipPath $windowsZipPath
 
 Write-Host '[3/5] Building and packaging WASM release...'
 & (Join-Path $PSScriptRoot 'wasm\rebuild.ps1') -GameDir $preparedGameDir
-& (Join-Path $PSScriptRoot 'wasm\package.ps1') -GameDir $preparedGameDir -ZipPath $wasmZipPath
+& (Join-Path $PSScriptRoot 'wasm\package.ps1') -GameDir $preparedGameDir -Version $Version -ZipPath $wasmZipPath
 
 Write-Host '[4/5] Building Android release...'
 if (-not [string]::IsNullOrWhiteSpace($JavaHome))

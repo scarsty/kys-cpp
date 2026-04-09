@@ -319,7 +319,10 @@ bool BattleNetworkFactory::UI(BattleNetwork* net)
     {
         return false;
     }
-    std::memcpy(&version[0], &verStr[0], verStr.size());
+    if (!verStr.empty())
+    {
+        std::memcpy(version.data(), verStr.data(), verStr.size());
+    }
     net->addValidation(std::move(version));
 
     const auto MagicSize = sizeof(MagicSave);

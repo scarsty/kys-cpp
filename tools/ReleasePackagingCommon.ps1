@@ -112,7 +112,6 @@ function Get-DefaultReleaseSettingsJson
 function Get-ReleaseVersionConfigContent
 {
     param(
-        [Parameter(Mandatory = $true)]
         [string]$Version
     )
 
