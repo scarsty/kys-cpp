@@ -151,11 +151,12 @@ public class KysActivity extends SDLActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     Gravity.BOTTOM | Gravity.END
             );
-                params.setMargins(0, 0, dp(16), dp(16));
+            params.setMargins(0, 0, dp(16), dp(16));
 
             btn.setOnTouchListener((v, event) -> {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
+                        return true;
                     case MotionEvent.ACTION_UP:
                         nativeInjectRightClick();
                         return true;

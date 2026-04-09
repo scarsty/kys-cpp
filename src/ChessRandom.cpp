@@ -41,6 +41,14 @@ void ChessRandom::restore()
     enemyRand_.get_generator().discard(enemyCallCount_);
 }
 
+void ChessRandom::rerollEnemySeed()
+{
+    std::random_device rd;
+    enemySeed_ = rd();
+    enemyCallCount_ = 0;
+    enemyRand_.set_seed(enemySeed_);
+}
+
 int ChessRandom::shopRandInt(int n)
 {
     shopCallCount_++;

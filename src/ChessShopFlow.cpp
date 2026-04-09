@@ -57,7 +57,7 @@ void ChessShopFlow::getChess()
     for (;;)
     {
         services_.shop.pool().setBannedRoleIds(gameState.bannedRoleIds());
-        auto rollOfChess = services_.shop.pool().getChessFromPool(services_.economy.getLevel());
+        auto rollOfChess = services_.shop.pool().getCurrentShop();
         for (auto [role, tier] : rollOfChess)
         {
             gameState.seenRoleIds().insert(role->ID);
@@ -164,7 +164,7 @@ void ChessShopFlow::getChess()
                 {
                     continue;
                 }
-                services_.shop.pool().refresh();
+                services_.shop.pool().refresh(services_.economy.getLevel());
                 services_.shop.setLocked(false);
                 break;
             }
@@ -332,11 +332,7 @@ void ChessShopFlow::showBanMenu()
         const auto bannedCount = static_cast<int>(bannedRoleIds.size());
         auto shopMenu = makeShopIndexedMenuSetup(menuData, menuConfig);
         auto menu = makeChessMenu(
-            std::format(
-                "禁棋管理 已禁{}/{} 剩餘{}",
-                bannedCount,
-                maxBanCount,
-                std::max(0, maxBanCount - bannedCount)),
+            std::format("禁棋管理 已禁{}/{} 剩餘{}", bannedCount, maxBanCount, std::max(0, maxBanCount - bannedCount)),
             menuData,
             shopMenu.config);
         menu->run();
@@ -364,6 +360,106 @@ void ChessShopFlow::showBanMenu()
         services_.shop.pool().setBannedRoleIds(bannedRoleIds);
         showChessMessage(std::format("禁棋：{}", role->Name));
     }
+}
+
+int ChessShopFlow::showForcedBanSelection(int slots, int maxTier)
+{
+    auto& gameState = GameState::get();
+    auto& bannedRoleIds = gameState.bannedRoleIds();
+
+    int bansAdded = 0;
+    while (bansAdded < slots)
+    {
+        int remaining = slots - bansAdded;
+        std::vector<int> sortedRoleIds;
+        for (int tier = 1; tier <= std::min(maxTier, 5); ++tier)
+        {
+            auto tierRoleIds = services_.shop.pool().getRolesOfTier(tier);
+            sortedRoleIds.insert(sortedRoleIds.end(), tierRoleIds.begin(), tierRoleIds.end());
+        }
+        std::sort(sortedRoleIds.begin(), sortedRoleIds.end(), [&](int lhs, int rhs) {
+            const auto* lhsRole = services_.roleSave.getRole(lhs);
+            const auto* rhsRole = services_.roleSave.getRole(rhs);
+            const auto lhsTier = lhsRole ? lhsRole->Cost : -1;
+            const auto rhsTier = rhsRole ? rhsRole->Cost : -1;
+            if (lhsTier != rhsTier)
+            {
+                return lhsTier < rhsTier;
+            }
+            return lhs < rhs;
+        });
+
+        // Filter: tier <= maxTier, not already banned
+        std::vector<int> filteredRoleIds;
+        for (auto roleId : sortedRoleIds)
+        {
+            if (bannedRoleIds.contains(roleId))
+            {
+                continue;
+            }
+            auto role = services_.roleSave.getRole(roleId);
+            auto tier = std::max(1, role ? role->Cost : -1);
+            if (tier > maxTier)
+            {
+                continue;
+            }
+            filteredRoleIds.push_back(roleId);
+        }
+
+        if (filteredRoleIds.empty())
+        {
+            break;
+        }
+
+        ChessMenuData menuData;
+        IndexedMenuConfig menuConfig;
+        menuConfig.perPage = 12;
+        menuConfig.fontSize = 32;
+
+        for (auto roleId : filteredRoleIds)
+        {
+            auto role = services_.roleSave.getRole(roleId);
+            auto tier = std::max(1, role ? role->Cost : -1);
+            auto formatted = chessPresenter().formatChessName(role, tier, {});
+            menuData.labels.push_back(formatted.text);
+            menuData.colors.push_back(formatted.color);
+            menuData.previewData.push_back({role, 1, -1});
+            menuConfig.outlineColors.push_back({0, 0, 0, 0});
+            menuConfig.animateOutlines.push_back(false);
+            menuConfig.outlineThicknesses.push_back(1);
+        }
+
+        auto shopMenu = makeShopIndexedMenuSetup(menuData, menuConfig);
+        auto menu = makeChessMenu(
+            std::format("禁棋選擇 (≤{}費) 剩餘{}/{}", maxTier, remaining, slots),
+            menuData,
+            shopMenu.config);
+        menu->run();
+
+        auto selectedId = menu->getResult();
+        if (selectedId < 0)
+        {
+            // Right-click: confirm skip
+            auto confirm = std::make_shared<MenuText>(std::vector<std::string>{"繼續選擇", "跳過剩餘禁棋"});
+            confirm->setFontSize(36);
+            confirm->arrange(0, 0, 0, 45);
+            confirm->runAtPosition(200, 200);
+            if (confirm->getResult() == 1)
+            {
+                break;
+            }
+            continue;
+        }
+
+        auto roleId = filteredRoleIds[selectedId];
+        bannedRoleIds.insert(roleId);
+        services_.shop.pool().setBannedRoleIds(bannedRoleIds);
+        bansAdded++;
+
+        auto role = services_.roleSave.getRole(roleId);
+        showChessMessage(std::format("禁棋：{}", role->Name));
+    }
+    return bansAdded;
 }
 
 }    // namespace KysChess

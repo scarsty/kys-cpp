@@ -2,6 +2,10 @@ plugins {
     id 'com.android.application'
 }
 
+def releaseVersionName = (project.findProperty('releaseVersionName') ?: '1.0').toString()
+def releaseVersionCode = Integer.parseInt((project.findProperty('releaseVersionCode') ?: '1').toString())
+def releaseGameDir = project.findProperty('gameDir')?.toString()
+
 android {
     namespace 'com.kysgame.kyschess'
     compileSdk 35
@@ -20,8 +24,8 @@ android {
         applicationId "com.kysgame.kyschess"
         minSdk 21
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        versionCode releaseVersionCode
+        versionName releaseVersionName
 
         ndk {
             abiFilters 'arm64-v8a'
@@ -67,7 +71,11 @@ android {
 // Task: copy game assets before build
 tasks.register('copyGameAssets', Exec) {
     workingDir project.projectDir.parentFile  // android/
-    commandLine 'powershell', '-ExecutionPolicy', 'Bypass', '-File', 'copy_assets.ps1'
+    def command = ['powershell', '-ExecutionPolicy', 'Bypass', '-File', 'copy_assets.ps1']
+    if (releaseGameDir != null && !releaseGameDir.isBlank()) {
+        command += ['-GameDir', releaseGameDir]
+    }
+    commandLine command
 }
 
 tasks.named('preBuild').configure {

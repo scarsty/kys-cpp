@@ -2,7 +2,8 @@
 param(
     [string]$VcpkgRoot = $env:VCPKG_ROOT,
     [string]$EmsdkRoot = $env:EMSDK,
-    [string]$VcpkgWasm
+  [string]$VcpkgWasm,
+  [string]$GameDir
 )
 
 Set-StrictMode -Version Latest
@@ -18,7 +19,12 @@ $imguiLibrary = Join-Path $paths.VcpkgWasm 'lib\libimgui.a'
 Install-WasmDependencies -Paths $paths
 Ensure-PathExists -Path $imguiLibrary -Message "WASM dependency install did not produce $imguiLibrary"
 
-$gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
+$gameTarget = $GameDir
+if ([string]::IsNullOrWhiteSpace($gameTarget))
+{
+  $gameTarget = Join-Path $paths.ProjectDir 'work\game-dev'
+}
+Ensure-PathExists -Path $gameTarget -Message "Game assets not found at $gameTarget"
 Ensure-GameJunction -LinkPath (Join-Path $paths.BuildDir 'kys\game') -TargetPath $gameTarget
 
 Write-Host '=== Generating manifest ==='

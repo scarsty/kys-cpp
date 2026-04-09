@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ChessBalance.h"
+
 class SQLite3Wrapper;
 
 namespace KysChess
@@ -30,7 +32,7 @@ private:
 class ChessModHook
 {
 public:
-    static bool overrideNewGame(int& scene, int& x, int& y, int& event);
+    static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
     static GameDataStore exportGameData();
     static void importGameData(const GameDataStore& store);
 };

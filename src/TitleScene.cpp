@@ -15,11 +15,17 @@
 #include "SubScene.h"
 #include "UISave.h"
 #include "DrawableOnCall.h"
+#include "ChessUiCommon.h"
 #include "Video.h"
 #include "Weather.h"
+#include "ChessBalance.h"
 #include "ChessModHook.h"
 #include "filefunc.h"
+
+#include <algorithm>
+#include <array>
 #include <cstdlib>
+#include <format>
 #include <vector>
 
 #ifdef __EMSCRIPTEN__
@@ -49,7 +55,64 @@ std::shared_ptr<TextBox> makeModalLabel(const std::string& text, int x, int y)
     return label;
 }
 
-int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<TextBox>& label = nullptr)
+std::shared_ptr<DrawableOnCall> makeDifficultyDescriptionOverlay(const std::shared_ptr<MenuText>& diffMenu)
+{
+    static const std::array<std::string, 3> kDifficultyNames = { "簡單", "標準", "困難" };
+    static const std::array<std::string, 3> kDifficultyDescriptions = {
+        "入門模式，棋池固定，適合剛上手的新手。",
+        "標準模式，需要進行棋子禁用來控制棋池。",
+        "挑戰模式，總戰數更長，但金幣收益會略少。",
+    };
+
+    return std::make_shared<DrawableOnCall>([diffMenu](DrawableOnCall*) {
+        constexpr int panelX = 690;
+        constexpr int panelY = 292;
+        constexpr int panelW = 500;
+        constexpr int panelH = 210;
+        constexpr int titleFontSize = 22;
+        constexpr int bodyFontSize = 24;
+
+        auto engine = Engine::getInstance();
+        Color panelBg = { 0, 0, 0, 185 };
+        Color panelOutline = { 210, 180, 90, 220 };
+        Color titleColor = { 255, 230, 150, 255 };
+        Color bodyColor = { 230, 230, 230, 255 };
+        Color hintColor = { 150, 150, 150, 255 };
+        if (Engine::uiStyle() == 1)
+        {
+            panelBg = { 20, 20, 20, 215 };
+            panelOutline = { 180, 170, 140, 220 };
+            bodyColor = { 240, 230, 210, 255 };
+        }
+
+        engine->fillRoundedRect(panelBg, panelX, panelY, panelW, panelH, 8);
+        engine->drawRoundedRect(panelOutline, panelX, panelY, panelW, panelH, 8);
+
+        int activeIndex = diffMenu ? diffMenu->getActiveChildIndex() : 0;
+        if (activeIndex < 0 || activeIndex >= static_cast<int>(kDifficultyNames.size()))
+        {
+            activeIndex = 0;
+        }
+
+        auto* font = Font::getInstance();
+        font->draw("選項說明", titleFontSize, panelX + 18, panelY + 16, titleColor, 255);
+        font->draw(std::format("{}：", kDifficultyNames[activeIndex]), bodyFontSize, panelX + 18, panelY + 48, bodyColor, 255);
+
+        int availableUnits = std::max(4, (panelW - 36) * 2 / bodyFontSize);
+        auto wrappedLines = KysChess::wrapDisplayText(kDifficultyDescriptions[activeIndex], availableUnits);
+        int textY = panelY + 82;
+        for (const auto& line : wrappedLines)
+        {
+            font->draw(line, bodyFontSize, panelX + 18, textY, bodyColor, 255);
+            textY += bodyFontSize + 6;
+        }
+
+        font->draw("上下切換可查看說明", 18, panelX + 18, panelY + panelH - 28, hintColor, 255);
+    });
+}
+
+int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<TextBox>& label = nullptr,
+    const std::vector<std::shared_ptr<RunNode>>& overlays = {})
 {
     auto bg = makeModalBackdrop();
     RunNode::addIntoDrawTop(bg);
@@ -57,7 +120,15 @@ int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<Tex
     {
         RunNode::addIntoDrawTop(label);
     }
+    for (const auto& overlay : overlays)
+    {
+        RunNode::addIntoDrawTop(overlay);
+    }
     int result = node->run();
+    for (auto it = overlays.rbegin(); it != overlays.rend(); ++it)
+    {
+        RunNode::removeFromDraw(*it);
+    }
     if (label)
     {
         RunNode::removeFromDraw(label);
@@ -65,6 +136,22 @@ int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<Tex
     RunNode::removeFromDraw(bg);
     return result;
 }
+
+struct ScopedTitleArtHide
+{
+    bool& flag;
+    bool previous;
+
+    explicit ScopedTitleArtHide(bool& flag) : flag(flag), previous(flag)
+    {
+        this->flag = true;
+    }
+
+    ~ScopedTitleArtHide()
+    {
+        flag = previous;
+    }
+};
 
 void showMessageBox(const std::string& title, const std::string& message, SDL_MessageBoxFlags flags = SDL_MESSAGEBOX_INFORMATION)
 {
@@ -293,7 +380,7 @@ void TitleScene::draw()
     Font::getInstance()->draw("金群自走棋", titleSize, titleX, titleY, { 220, 40, 40, 255 }, 255);
 
     // Version string below title
-    Font::getInstance()->draw(GameUtil::VERSION(), 20, titleX, titleY + titleSize + 16, { 150, 150, 150, 255 }, 255);
+    Font::getInstance()->draw(GameUtil::VERSION(), 20, 10, h - 30, { 150, 150, 150, 255 }, 255);
 
 #ifdef __EMSCRIPTEN__
     Font::getInstance()->draw("推荐使用 Edge / Firefox / Chrome / Opera 浏览器", 16, 10, 10, { 180, 180, 180, 180 }, 255);
@@ -310,13 +397,31 @@ void TitleScene::dealEvent(EngineEvent& e)
     int r = menu_->run();
     if (r == 0)
     {
+        // Difficulty selection before entering the game
+        ScopedTitleArtHide hideTitleArt(hide_title_art_for_external_save_);
+        auto diffMenu = std::make_shared<MenuText>();
+        diffMenu->setStrings({"簡單", "標準", "困難"});
+        diffMenu->setFontSize(40);
+        diffMenu->setPosition(320, 330);
+        diffMenu->arrange(0, 0, 0, 49);
+        auto diffLabel = makeModalLabel("選擇難度", 540, 240);
+        auto diffDesc = makeDifficultyDescriptionOverlay(diffMenu);
+        int diff = runModalNode(diffMenu, diffLabel, { diffDesc });
+        if (diff < 0)
+        {
+            return;    // cancelled — back to title menu
+        }
+        auto difficulty = KysChess::Difficulty::Easy;
+        if (diff == 1) difficulty = KysChess::Difficulty::Normal;
+        else if (diff == 2) difficulty = KysChess::Difficulty::Hard;
+
         Engine::getInstance()->gameControllerRumble(50, 50, 500);
         Save::getInstance()->load(0);
         {
             MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
             MainScene::getInstance()->setTowards(1);
             int s = 0, x = 0, y = 0, ev = -1;
-            KysChess::ChessModHook::overrideNewGame(s, x, y, ev);
+            KysChess::ChessModHook::overrideNewGame(s, x, y, ev, difficulty);
             MainScene::getInstance()->forceEnterSubScene(s, x, y, ev);
             ScenePreloader::showPromptAndPreload("加載中...", []() {
                 ScenePreloader::preloadSubSceneAssets(53);

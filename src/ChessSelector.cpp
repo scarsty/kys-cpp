@@ -1,9 +1,11 @@
 #include "ChessSelector.h"
 
 #include "ChessBattleFlow.h"
+#include "ChessDetailPanels.h"
 #include "ChessChallengeFlow.h"
 #include "ChessEquipmentFlow.h"
 #include "ChessInfoFlow.h"
+#include "ChessScreenLayout.h"
 #include "ChessRewardFlow.h"
 #include "ChessShopFlow.h"
 #include "ChessUiCommon.h"
@@ -93,6 +95,42 @@ void ChessSelector::manageBans()
     ChessShopFlow(services()).showBanMenu();
 }
 
+void ChessSelector::viewChessPool()
+{
+    ChessInfoFlow(services()).viewChessPool();
+}
+
+void ChessSelector::rerollBattleSeed()
+{
+    constexpr int kRerollCost = 3;
+    auto previewPanel = std::make_shared<BattleSeedRerollPreviewPanel>(
+        "逆天改命",
+        std::format("花費 ${}  重新抽取下場戰鬥的敵方隨機種子", kRerollCost),
+        "敵人陣容會改變，地圖不保證改變",
+        "確認後立即生效");
+
+    auto menu = std::make_shared<MenuText>(std::vector<std::string>{"確認逆天改命", "取消"});
+    menu->setFontSize(36);
+    menu->arrange(0, 0, 0, 45);
+    menu->addChild(previewPanel);
+    auto menuAnchor = ChessScreenLayout::battleSeedRerollMenuAnchor();
+    menu->runAtPosition(menuAnchor.x, menuAnchor.y);
+
+    if (menu->getResult() != 0)
+    {
+        return;
+    }
+
+    if (!economy_.spend(kRerollCost))
+    {
+        showChessMessage(std::format("金幣不足，需要${}！", kRerollCost));
+        return;
+    }
+    // Reseed the enemy RNG so the next battle regenerates with a new sequence.
+    random_.rerollEnemySeed();
+    showChessMessage(std::format("花費${}逆天改命！下場戰鬥的敵人陣容和隨機種子已改變（地圖不保證改變）", kRerollCost));
+}
+
 void ChessSelector::showContextMenu()
 {
     while (true)
@@ -104,7 +142,9 @@ void ChessSelector::showContextMenu()
             "選擇出戰",
             "進入戰鬥",
             "購買經驗",
+            "逆天改命",
             "查看羈絆",
+            "棋子一覽",
             "查看內功",
             "遠征挑戰",
             "系統設定",
@@ -118,15 +158,16 @@ void ChessSelector::showContextMenu()
         auto menu = std::make_shared<MenuText>(menuItems);
         menu->setFontSize(36);
         menu->arrange(0, 0, 0, 45);
-        menu->runAtPosition(200, 120);
+        menu->runAtPosition(200, 60);
 
         const auto result = menu->getResult();
-        const auto guideIndex = banEnabled ? 11 : 10;
+        const auto banIndex = banEnabled ? 12 : -1;
+        const auto guideIndex = banEnabled ? 13 : 12;
         if (result == -1)
         {
             return;
         }
-        if (banEnabled && result == 10)
+        if (banEnabled && result == banIndex)
         {
             manageBans();
             UISave::autoSave();
@@ -146,11 +187,13 @@ void ChessSelector::showContextMenu()
         case 2: selectForBattle(); break;
         case 3: enterBattle(); break;
         case 4: buyExp(); break;
-        case 5: viewCombos(); break;
-        case 6: viewNeigong(); break;
-        case 7: showExpeditionChallenge(); break;
-        case 8: showSystemMenu(); break;
-        case 9: manageEquipment(); break;
+        case 5: rerollBattleSeed(); break;
+        case 6: viewCombos(); break;
+        case 7: viewChessPool(); break;
+        case 8: viewNeigong(); break;
+        case 9: showExpeditionChallenge(); break;
+        case 10: showSystemMenu(); break;
+        case 11: manageEquipment(); break;
         }
         UISave::autoSave();
     }

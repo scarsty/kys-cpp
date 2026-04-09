@@ -233,7 +233,7 @@ void SubScene::draw()
         auto chessManager = KysChess::ChessManager(gd.roster(), gd.equipmentInventory(), gd.economy());
         seg(std::format("出戰{}/{}", chessManager.getSelectedCount(), economy.getMaxDeploy()), {100, 255, 100, 255});
         seg(std::format("背包{}/{}", chessManager.getBenchCount(), cfg.benchSize), {200, 180, 255, 255});
-        const char* diffName = gd.difficulty() == Difficulty::Easy ? "普通" : "困難";
+        const char* diffName = KysChess::ChessBalance::difficultyDisplayNameTraditional(gd.difficulty());
         seg(std::format("[{}]", diffName), {255, 150, 150, 255});
 
         // Quick-access chess button (bottom-right of screen)

@@ -100,6 +100,11 @@ enum class EffectType
     UltimateExtraProjectiles,
     BlockFirstHits,
     GoldCoefficient,
+    HurtInvincFrames,
+    DashAttack,
+    DashChanceBoost,
+    MPRatioDmgBoost,
+    DmgReduceDebuff,
 };
 
 struct ComboEffect
@@ -227,7 +232,6 @@ struct RoleComboState
     int shieldOnAllyDeathTracker = 0;
     bool onSkillTeamHealPending = false;
     bool postSkillDashPending = false;
-    int postSkillDashTimer = 0;
     bool isSummonedClone = false;
     bool blinkAttackUseWeakest = false;
     struct TempAttackBuffInstance { int attackBonus = 0; int remainingFrames = 0; };
@@ -236,6 +240,17 @@ struct RoleComboState
     int autoUltimateTimer = 0;
     int blockFirstHitsRemaining = 0;
     int goldCoefficient = 0;
+    int hurtInvincFrames = 0;
+    bool dashAttack = false;
+    int dashChanceBoostPct = 0;
+    int mpRatioDmgBoostPct = 0;
+    // Damage reduce debuff: on hit, chance to mark target to reduce their damage for X frames by Y%
+    int dmgReduceDebuffChancePct = 0;
+    int dmgReduceDebuffDurationFrames = 0;
+    int dmgReduceDebuffPct = 0;
+    // Mutable runtime: per-target damage reduction debuff instances
+    struct DmgReduceDebuffInstance { int remainingFrames = 0; int pct = 0; };
+    std::vector<DmgReduceDebuffInstance> dmgReduceDebuffs;
 };
 
 class ChessBattleEffects

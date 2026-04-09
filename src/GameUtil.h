@@ -22,6 +22,12 @@ class GameUtil : public INIReaderNormal
 private:
     GameUtil();
     ~GameUtil();
+    static std::string& versionStorage()
+    {
+        static std::string v;
+        return v;
+    }
+    static std::string loadReleaseVersion();
 
 public:
     static GameUtil* getInstance()
@@ -32,8 +38,8 @@ public:
 
     static const std::string& VERSION()
     {
-        static std::string v = "";
-        return v;
+        getInstance();
+        return versionStorage();
     }
 
     static std::string& PATH()

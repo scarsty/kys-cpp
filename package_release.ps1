@@ -1,6 +1,13 @@
 param(
-    [string]$PkgDir = "release_package"
+    [string]$PkgDir = "release_package",
+    [string]$GameDir = (Join-Path $PSScriptRoot 'work\game-dev'),
+    [string]$ZipPath
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+. (Join-Path $PSScriptRoot 'tools\ReleasePackagingCommon.ps1')
 
 Write-Host "========================================"
 Write-Host "Building Release Package"
@@ -97,24 +104,9 @@ foreach ($dll in $localDlls) {
 
 # Step 4: Copy resources
 Write-Host "[4/6] Copying resources..."
-Copy-Item "work\game-dev" "$PkgDir\game" -Recurse -Force
+Copy-ReleaseGameAssets -SourceGameDir $GameDir -DestinationGameDir "$PkgDir\game"
 
-# Step 5: Clean up save files
-Write-Host "[5/6] Cleaning up save files..."
-Remove-Item "$PkgDir\game\save\*.json" -Force
-Copy-Item "work\game-dev\save\0.json" "$PkgDir\game\save\" -Force
-@"
-{
-   "positionSwapEnabled": false,
-   "musicVolume": 31,
-   "soundVolume": 14,
-   "manualCamera": false,
-   "battleSpeed": 1,
-   "simplifiedChinese": false,
-   "showBattleLog": false
-}
-"@ | Out-File -FilePath "$PkgDir\game\save\setting.json"
-# Step 6: Copy changelog and create play.bat
+# Step 5: Copy changelog and create play.bat
 Write-Host "[6/6] Finalizing package..."
 $changelog = Get-ChildItem "docs\*.md" | Where-Object { $_.Name -match '\u66f4\u65b0\u65e5\u5fd7' } | Select-Object -First 1
 if ($changelog) {
@@ -130,4 +122,11 @@ start bin\kys.exe game
 Write-Host "========================================"
 Write-Host "Package created in: $PkgDir"
 Write-Host "========================================"
+
+if (-not [string]::IsNullOrWhiteSpace($ZipPath)) {
+    Write-Host "[7/7] Creating Windows zip..."
+    New-ZipFromDirectory -SourceDir $PkgDir -ZipPath $ZipPath
+    $zipInfo = Get-Item $ZipPath
+    Write-Host "Windows zip created: $ZipPath ($(Format-FileSize -Bytes $zipInfo.Length))"
+}
 

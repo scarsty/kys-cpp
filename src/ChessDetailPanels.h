@@ -161,6 +161,24 @@ private:
     std::string nextWeights_;
 };
 
+class BattleSeedRerollPreviewPanel : public DrawableOnCall
+{
+public:
+    BattleSeedRerollPreviewPanel(
+        std::string header,
+        std::string costLine,
+        std::string detailLine,
+        std::string confirmLine);
+
+private:
+    void drawPanel();
+
+    std::string header_;
+    std::string costLine_;
+    std::string detailLine_;
+    std::string confirmLine_;
+};
+
 class PositionSwapInfoPanel : public DrawableOnCall
 {
 public:

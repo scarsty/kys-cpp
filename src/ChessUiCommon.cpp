@@ -5,6 +5,7 @@
 #include "Font.h"
 #include "TextBox.h"
 
+#include <array>
 #include <format>
 #include <vector>
 
@@ -13,6 +14,36 @@ namespace KysChess
 
 namespace
 {
+
+constexpr std::array<int, 20> kChessMusicIds = {0, 1, 2, 8, 9, 13, 14, 16, 18, 19, 20, 21, 23, 24, 25, 31, 59, 60, 61, 62};
+constexpr std::array<int, 17> kBattleMusicIds = {3, 4, 5, 6, 7, 10, 17, 48, 53, 55, 70, 75, 79, 80, 84, 88, 90};
+
+template <size_t N>
+int pickRandomMusic(const std::array<int, N>& musicIds)
+{
+    static int lastPlayed = -1;
+
+    int idx = rand() % musicIds.size();
+    if (musicIds.size() > 1 && musicIds[idx] == lastPlayed)
+    {
+        idx = (idx + 1) % musicIds.size();
+    }
+    lastPlayed = musicIds[idx];
+    return musicIds[idx];
+}
+
+template <size_t N>
+bool containsMusicId(const std::array<int, N>& musicIds, int musicId)
+{
+    for (int value : musicIds)
+    {
+        if (value == musicId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
 struct DisplayGlyph
 {
@@ -160,6 +191,11 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::UltimateExtraProjectiles: desc = compact ? std::format("絕招+{}彈", eff.value) : std::format("絕招額外投射物+{}", eff.value); break;
     case EffectType::BlockFirstHits: desc = compact ? std::format("格擋前{}次", eff.value) : std::format("格擋前{}次攻擊", eff.value); break;
     case EffectType::GoldCoefficient: desc = compact ? std::format("勝利+{}×最高星金", eff.value) : std::format("勝利獲得{}×最高星級金幣", eff.value); break;
+    case EffectType::HurtInvincFrames: desc = std::format("受傷後無敵{}幀", eff.value); break;
+    case EffectType::DashAttack: desc = "滑步攻擊"; break;
+    case EffectType::DashChanceBoost: desc = std::format("滑步率+{}%", eff.value); break;
+    case EffectType::MPRatioDmgBoost: desc = compact ? std::format("內力加傷≤{}%", eff.value) : std::format("當前內力比例加傷≤{}%", eff.value); break;
+    case EffectType::DmgReduceDebuff: desc = compact ? std::format("降傷標記{}%/{}幀", eff.value, eff.value2) : std::format("攻擊{}%概率標記降傷{}幀", eff.value, eff.value2); break;
     default: desc = std::format("效果({})", eff.value); break;
     }
     return triggerPrefix() + desc + durationSuffix() + countSuffix();
@@ -188,30 +224,17 @@ void playChessUpgradeSound()
 
 int getRandomChessMusic()
 {
-    static const std::vector<int> musicIds = {0, 1, 2, 8, 9, 13, 14, 16, 18, 19, 20, 21, 23, 24, 25, 31, 59, 60, 61, 62};
-    static int lastPlayed = -1;
-
-    int idx = rand() % musicIds.size();
-    if (musicIds.size() > 1 && musicIds[idx] == lastPlayed)
-    {
-        idx = (idx + 1) % musicIds.size();
-    }
-    lastPlayed = musicIds[idx];
-    return musicIds[idx];
+    return pickRandomMusic(kChessMusicIds);
 }
 
 int getRandomBattleMusic()
 {
-    static const std::vector<int> musicIds = {3, 4, 5, 6, 7, 10, 17, 48, 53, 55, 70, 75, 79, 80, 84, 88, 90};
-    static int lastPlayed = -1;
+    return pickRandomMusic(kBattleMusicIds);
+}
 
-    int idx = rand() % musicIds.size();
-    if (musicIds.size() > 1 && musicIds[idx] == lastPlayed)
-    {
-        idx = (idx + 1) % musicIds.size();
-    }
-    lastPlayed = musicIds[idx];
-    return musicIds[idx];
+bool isChessSceneMusic(int musicId)
+{
+    return containsMusicId(kChessMusicIds, musicId);
 }
 
 ChessManager makeChessManager(ChessRoster& roster, ChessEquipmentInventory& equipmentInventory, ChessEconomy& economy)

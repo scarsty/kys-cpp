@@ -10,6 +10,7 @@ class ChessInfoFlow
 public:
     explicit ChessInfoFlow(const ChessSelectorServices& services);
 
+    void viewChessPool();
     void viewCombos();
     void viewNeigong();
     void showGameGuide();

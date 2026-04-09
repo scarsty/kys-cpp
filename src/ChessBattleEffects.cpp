@@ -54,6 +54,11 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"初次格挡", EffectType::BlockFirstHits},
     {"金币加成", EffectType::GoldCoefficient},
     {"同敌闪避", EffectType::DodgeAdaptation},
+    {"受伤无敌", EffectType::HurtInvincFrames},
+    {"滑步攻击", EffectType::DashAttack},
+    {"滑步概率提升", EffectType::DashChanceBoost},
+    {"当前内力加伤", EffectType::MPRatioDmgBoost},
+    {"伤害降低", EffectType::DmgReduceDebuff},
 };
 
 static const std::map<std::string, Trigger> triggerMap = {
@@ -287,6 +292,16 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::UltimateExtraProjectiles: s.ultimateExtraProjectiles += e.value; break;
     case EffectType::BlockFirstHits: s.blockFirstHitsCount = e.value; break;
     case EffectType::GoldCoefficient: s.goldCoefficient = e.value; break;
+    case EffectType::HurtInvincFrames: s.hurtInvincFrames = std::max(s.hurtInvincFrames, e.value); break;
+    case EffectType::DashAttack: s.dashAttack = true; break;
+    case EffectType::DashChanceBoost: s.dashChanceBoostPct += e.value; break;
+    case EffectType::MPRatioDmgBoost: s.mpRatioDmgBoostPct += e.value; break;
+    case EffectType::DmgReduceDebuff:
+        s.dmgReduceDebuffChancePct = e.value;
+        s.dmgReduceDebuffDurationFrames = e.value2;
+        if (e.triggerValue > 0) s.dmgReduceDebuffPct = e.triggerValue;
+        else s.dmgReduceDebuffPct = e.value;
+        break;
     }
 }
 

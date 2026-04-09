@@ -28,13 +28,11 @@ public:
 
     static Color GetTierColor(int tier);
 
-    // Returns a list of pairs of Role* and its star (0-4)
-    std::vector<std::pair<Role*, int>> getChessFromPool(int level);
-
     // Remove a chess from the current selection;
     void removeChessAt(int idx);
 
-    void refresh();
+    // Clear current shop and generate a fresh one for the given level.
+    void refresh(int level);
 
     const std::vector<std::pair<Role*, int>>& getCurrentShop() const { return current_; }
 
@@ -49,12 +47,12 @@ private:
     void ensurePoolLoaded();
     void reloadPool();
     void loadPoolNode(const YAML::Node& root);
+    void generateShop(int level);
     Role* selectFromPool(int tier);
     int getRoleTier(int roleId) const;
 
     ChessRandom& random_;
     ChessRoleSave& roleSave_;
-    bool getNewChess_ = true;
     std::vector<std::pair<Role*, int>> current_;
     std::unordered_set<Role*> rejected_;
     std::set<int> banned_;

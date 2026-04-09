@@ -59,11 +59,11 @@ protected:
     int getUltimateExtraProjectileCount(Role* r);
     void spawnAreaImpactProjectiles(Role* attacker,
                                     Role* origin,
-                                    int width,
-                                    int height,
+                                    int areaSize,
                                     int eftId,
                                     int damage,
-                                    int stunFrames = 0);
+                                    int stunFrames = 0,
+                                    Role* trackedTarget = nullptr);
     void spawnTrackingProjectileSpread(const AttackEffect& prototype,
                                        int projectileCount,
                                        int initialFrame = 0,

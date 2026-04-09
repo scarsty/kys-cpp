@@ -1,18 +1,27 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$GameDir,
+    [string]$ZipPath
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
 . (Join-Path $PSScriptRoot 'WasmCommon.ps1')
+. (Join-Path $PSScriptRoot '..\tools\ReleasePackagingCommon.ps1')
 
 $paths = Get-WasmPaths -WasmDir $PSScriptRoot
 $buildDir = $paths.BuildDir
-$gameDir = Join-Path $paths.ProjectDir 'work\game-dev'
+$gameDir = $GameDir
+if ([string]::IsNullOrWhiteSpace($gameDir))
+{
+    $gameDir = Join-Path $paths.ProjectDir 'work\game-dev'
+}
 $distDir = Join-Path $paths.WasmDir 'dist'
-$zipPath = Join-Path $paths.WasmDir 'dist.zip'
+if ([string]::IsNullOrWhiteSpace($ZipPath))
+{
+    $ZipPath = Join-Path $paths.WasmDir 'dist.zip'
+}
 
 foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $buildDir)
 {
@@ -32,7 +41,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $distDir 'kys') | Out-Null
 
 Copy-Item -Force (Join-Path $buildDir 'index.html') $distDir
 Copy-Item -Force -Path (Get-WasmBuildArtifactPaths -BuildDir $buildDir) -Destination $distDir
-Copy-Item -Recurse -Force $gameDir (Join-Path $distDir 'kys\game')
+Copy-ReleaseGameAssets -SourceGameDir $gameDir -DestinationGameDir (Join-Path $distDir 'kys\game')
 
 # Set-Content -Path (Join-Path $distDir '_headers') -NoNewline -Value @'
 # /*
@@ -41,15 +50,10 @@ Copy-Item -Recurse -Force $gameDir (Join-Path $distDir 'kys\game')
 
 # Copy-Item -Force (Join-Path $paths.WasmDir 'edgeone.json') $distDir
 
-if (Test-Path $zipPath)
-{
-    Remove-Item -Force $zipPath
-}
+New-ZipFromDirectory -SourceDir $distDir -ZipPath $ZipPath
 
-[System.IO.Compression.ZipFile]::CreateFromDirectory($distDir, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
-
-$zipInfo = Get-Item $zipPath
-Write-Host "  Created $zipPath ($(Format-FileSize -Bytes $zipInfo.Length))"
+$zipInfo = Get-Item $ZipPath
+Write-Host "  Created $ZipPath ($(Format-FileSize -Bytes $zipInfo.Length))"
 
 $distFiles = Get-ChildItem -File -Recurse $distDir
 $totalBytes = ($distFiles | Measure-Object -Property Length -Sum).Sum
@@ -62,4 +66,4 @@ Write-Host "  $($distFiles.Count) files, $(Format-FileSize -Bytes $totalBytes) t
 Write-Host ''
 Write-Host 'Deploy with:'
 Write-Host "  Cloudflare: wrangler pages deploy $distDir --project-name=kyschess"
-Write-Host "  EdgeOne:    upload $zipPath"
+Write-Host "  EdgeOne:    upload $ZipPath"

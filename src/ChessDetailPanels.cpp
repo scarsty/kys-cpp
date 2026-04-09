@@ -85,7 +85,8 @@ void drawNeigongDetail(const NeigongDef& ng, PanelFrame frame, int ownedState = 
     PanelTextCursor header{Font::getInstance(), frame.x + 100, frame.y + 10};
     header.line(ng.name, fs + 4, {255, 255, 100, 255}, 6);
     std::string tierName[] = {"初階", "中階", "高階", "傳說"};
-    header.line(std::format("層級: {}", tierName[std::min(ng.tier - 1, 3)]), fs, {200, 200, 200, 255});
+    int tierIdx = std::min(ng.tier - 1, 3);
+    header.line(std::format("層級: {}", tierName[tierIdx]), fs, ChessNeigong::GetTierColor(ng.tier));
     if (ownedState >= 0)
     {
         bool owned = ownedState > 0;
@@ -111,9 +112,7 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
     PanelTextCursor header{Font::getInstance(), frame.x + 150, frame.y + 10};
     header.line(item ? item->Name : "???", fs + 4, {255, 255, 100, 255}, 6);
     std::string tierName[] = {"初階", "中階", "高階", "傳說"};
-    Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
-    header.line(std::format("層級: {}", tierName[std::min(eq.tier - 1, 3)]), fs, tierColors[std::min(eq.tier - 1, 3)]);
-    header.line(std::format("擁有: x{}", count), fs, count > 0 ? Color{0, 255, 0, 255} : Color{180, 180, 180, 255});
+    header.line(std::format("層級: {}", tierName[std::min(eq.tier - 1, 3)]), fs, ChessNeigong::GetTierColor(eq.tier));
 
     PanelTextCursor body{Font::getInstance(), frame.x + 10, frame.y + 100};
     if (!eq.effects.empty())
@@ -686,6 +685,32 @@ void BuyExpPreviewPanel::drawPanel()
     cursor.line(nextWeights_, fs, {100, 255, 100, 255}, 6);
 }
 
+BattleSeedRerollPreviewPanel::BattleSeedRerollPreviewPanel(
+    std::string header,
+    std::string costLine,
+    std::string detailLine,
+    std::string confirmLine)
+    : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
+    , header_(std::move(header))
+    , costLine_(std::move(costLine))
+    , detailLine_(std::move(detailLine))
+    , confirmLine_(std::move(confirmLine))
+{
+}
+
+void BattleSeedRerollPreviewPanel::drawPanel()
+{
+    auto frame = ChessScreenLayout::battleSeedRerollPreviewPanel();
+    ChessScreenLayout::drawPanel(frame);
+    int fs = 22;
+    PanelTextCursor cursor{Font::getInstance(), frame.x + 10, frame.y + 10};
+
+    cursor.line(header_, fs + 2, {255, 215, 0, 255}, 8);
+    cursor.line(costLine_, fs, {255, 255, 255, 255}, 12);
+    cursor.line(detailLine_, fs, {130, 220, 255, 255}, 8);
+    cursor.line(confirmLine_, fs, {100, 255, 100, 255}, 8);
+}
+
 PositionSwapInfoPanel::PositionSwapInfoPanel(bool currentEnabled)
     : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
     , currentEnabled_(currentEnabled)
@@ -787,15 +812,15 @@ void GuidePanel::drawPanel()
 
     if (gameState.hasBanSystem())
     {
-        GuideSection hardModeSection{
-            "困難棋局",
+        GuideSection advancedModeSection{
+            std::format("{}棋局", ChessBalance::difficultyDisplayNameTraditional(gameState.difficulty())),
             {
                 {std::format("· 棋池更大，商店每回合多開一格，共{}格可選", cfg.shopSlotCount), {200, 230, 255, 255}},
                 {std::format("· 開局可禁{}名棋子；每升1級，再增{}名禁位", gameState.banBaseCount(), gameState.banCountPerLevel()), {255, 210, 150, 255}},
                 {"· 禁棋會把已見過的角色逐出棋池，助你在大棋池中收束門路"},
             },
         };
-        sections.insert(sections.begin() + 3, std::move(hardModeSection));
+        sections.insert(sections.begin() + 3, std::move(advancedModeSection));
     }
 
     auto measureWrappedLines = [&](const std::string& text) {

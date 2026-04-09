@@ -14,6 +14,7 @@ public:
 
     void exportTo(GameDataStore& store) const;
     void restore();
+    void rerollEnemySeed();
 
     int shopRandInt(int n);
     int enemyRandInt(int n);

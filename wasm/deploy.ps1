@@ -3,7 +3,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ServerIp,
 
-    [string]$RemoteUser = 'root'
+    [string]$RemoteUser = 'root',
+
+    [string]$DistDir,
+
+    [string]$PackagePath
 )
 
 Set-StrictMode -Version Latest
@@ -12,29 +16,62 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'WasmCommon.ps1')
 
 $paths = Get-WasmPaths -WasmDir $PSScriptRoot
-$distDir = Join-Path $paths.WasmDir 'dist'
 $stagingDir = Join-Path $env:TEMP 'kys-deploy'
 $tarPath = Join-Path $env:TEMP 'kys-deploy.tar.gz'
 $remote = "$RemoteUser@$ServerIp"
 
-Ensure-PathExists -Path (Join-Path $distDir 'kys\game') -Message "Game assets not found in $distDir. Run package.ps1 first."
+if (-not [string]::IsNullOrWhiteSpace($DistDir) -and -not [string]::IsNullOrWhiteSpace($PackagePath))
+{
+    throw 'Specify either DistDir or PackagePath, not both.'
+}
+
+if ([string]::IsNullOrWhiteSpace($DistDir) -and [string]::IsNullOrWhiteSpace($PackagePath))
+{
+    $DistDir = Join-Path $paths.WasmDir 'dist'
+}
 
 Write-Host '=== Checking build files ==='
-foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $distDir)
+if (-not [string]::IsNullOrWhiteSpace($PackagePath))
 {
-    $info = Get-Item $file
-    Write-Host "  $($info.Name) $(Format-FileSize -Bytes $info.Length)"
+    Ensure-PathExists -Path $PackagePath -Message "WASM package not found: $PackagePath"
+
+    if (Test-Path $stagingDir)
+    {
+        Remove-Item -Recurse -Force $stagingDir
+    }
+
+    Write-Host "=== Expanding package $PackagePath ==="
+    Expand-Archive -Path $PackagePath -DestinationPath $stagingDir -Force
+
+    foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $stagingDir)
+    {
+        $info = Get-Item $file
+        Write-Host "  $($info.Name) $(Format-FileSize -Bytes $info.Length)"
+    }
+}
+else
+{
+    Ensure-PathExists -Path (Join-Path $DistDir 'kys\game') -Message "Game assets not found in $DistDir. Run package.ps1 first."
+
+    foreach ($file in Get-WasmBuildArtifactPaths -BuildDir $DistDir)
+    {
+        $info = Get-Item $file
+        Write-Host "  $($info.Name) $(Format-FileSize -Bytes $info.Length)"
+    }
 }
 
 Write-Host ''
 Write-Host '=== Packaging ==='
-if (Test-Path $stagingDir)
+if ([string]::IsNullOrWhiteSpace($PackagePath))
 {
-    Remove-Item -Recurse -Force $stagingDir
-}
+    if (Test-Path $stagingDir)
+    {
+        Remove-Item -Recurse -Force $stagingDir
+    }
 
-New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
-Copy-Item -Recurse -Force (Join-Path $distDir '*') $stagingDir
+    New-Item -ItemType Directory -Force -Path $stagingDir | Out-Null
+    Copy-Item -Recurse -Force (Join-Path $DistDir '*') $stagingDir
+}
 
 if (Test-Path $tarPath)
 {

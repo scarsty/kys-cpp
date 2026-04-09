@@ -9,6 +9,25 @@
 
 #include <format>
 #include <set>
+#include <unordered_set>
+
+namespace
+{
+
+std::unordered_set<int> getOwnedRoleIds(const KysChess::ChessRoster& roster)
+{
+    std::unordered_set<int> ownedRoleIds;
+    for (const auto& [instanceId, chess] : roster.items())
+    {
+        if (chess.role)
+        {
+            ownedRoleIds.insert(chess.role->ID);
+        }
+    }
+    return ownedRoleIds;
+}
+
+}    // namespace
 
 namespace KysChess
 {
@@ -16,6 +35,62 @@ namespace KysChess
 ChessInfoFlow::ChessInfoFlow(const ChessSelectorServices& services)
     : services_(services)
 {
+}
+
+void ChessInfoFlow::viewChessPool()
+{
+    auto& pool = services_.shop.pool();
+    auto ownedRoleIds = getOwnedRoleIds(services_.roster);
+    auto manager = makeChessManager(services_);
+
+    ChessMenuData menuData;
+    auto& presenter = chessPresenter();
+
+    std::string ownedPrefix = "[✓] ";
+    std::string unownedPrefix = "[ ] ";
+    int ownedPrefixUnits = presenter.getDisplayWidth(ownedPrefix);
+    while (presenter.getDisplayWidth(unownedPrefix) < ownedPrefixUnits)
+    {
+        unownedPrefix += ' ';
+    }
+
+    for (int tier = 1; tier <= 5; ++tier)
+    {
+        for (int roleId : pool.getRolesOfTier(tier))
+        {
+            auto* role = services_.roleSave.getRole(roleId);
+            if (!role)
+            {
+                continue;
+            }
+
+            bool owned = ownedRoleIds.contains(roleId);
+            auto formatted = presenter.formatChessName(role, tier, std::nullopt, owned ? ownedPrefix : unownedPrefix);
+            menuData.labels.push_back(formatted.text);
+            menuData.colors.push_back(formatted.color);
+            menuData.previewData.push_back({role, 1, -1});
+        }
+    }
+
+    if (menuData.labels.empty())
+    {
+        return;
+    }
+
+    IndexedMenuConfig menuConfig;
+    menuConfig.perPage = 12;
+    menuConfig.fontSize = 32;
+
+    auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
+    menuConfig.x = menuAnchor.x;
+    menuConfig.y = menuAnchor.y;
+    auto shopMenu = makeShopIndexedMenuSetup(menuData, menuConfig, 8);
+    auto menu = makeChessMenu(
+        "棋子一覽",
+        menuData,
+        shopMenu.config,
+        {std::make_shared<ComboInfoPanel>(manager, shopMenu.panels.combo)});
+    menu->run();
 }
 
 void ChessInfoFlow::viewCombos()

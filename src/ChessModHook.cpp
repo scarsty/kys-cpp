@@ -33,13 +33,13 @@ ChessSelector ChessMod::makeSelector() const
         gameState_.random());
 }
 
-bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event)
+bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty)
 {
     scene = MOD_SCENE_ID;
     x = 21;
     y = 54;
     event = -1;
-    GameState::get().reset();
+    GameState::get().reset(difficulty);
     ChessCombo::clearActiveStates();
     needIntro_ = true;
     return true;
@@ -67,36 +67,26 @@ void ChessMod::onSubSceneEntrance(int submap_id)
             "弈者不執棋，而在於選將、佈陣、運籌帷幄。"
             "你若有意一試，便來與老夫說話罷。", 115);
         talk->run();
-        
-        int diff = -1;
-        while (diff == -1) {
-            auto diffMenu = std::make_shared<MenuText>();
-            diffMenu->setStrings({ "正常難度", "挑戰難度" });
-            diffMenu->setFontSize(40);
-            diffMenu->arrange(0, 0, 0, 49);
-            diffMenu->runAtPosition(500, 300);
-            diff = diffMenu->getResult();
-        }
-        auto difficulty = (diff == 1) ? Difficulty::Normal : Difficulty::Easy;
-        gameState_.difficulty() = difficulty;
-        ChessBalance::setDifficulty(difficulty);
-        gameState_.syncBanRuleFromBalance();
-        const auto& cfg = ChessBalance::config();
-        gameState_.economy().setMoney(cfg.initialMoney);
-        if (difficulty == Difficulty::Normal)
+
+        // Difficulty was already chosen at the title screen; show explanation if non-Easy.
+        auto difficulty = gameState_.difficulty();
+        if (difficulty != Difficulty::Easy)
         {
-            auto hardModeTalk = std::make_shared<Talk>(
+            const auto& cfg = ChessBalance::config();
+            auto advancedModeTalk = std::make_shared<Talk>(
                 std::format(
-                    "此局乃困難棋式，江湖譜牒更廣，棋池尤深。"
+                    "此局乃{}棋式，江湖譜牒更廣，棋池尤深。"
                     "為免少俠在茫茫人海中錯失機緣，老夫命商肆多開一席，每回合可見{}路人選。"
                     "但旁門雜流既多，若不先行剪除，便難聚攏心中武學。"
                     "故自開局起，你可先封禁{}名棋子；往後每升一重境界，便再添{}道禁令。"
-                    "境界愈高，可斷去的岔路愈多，方能在大江湖中收束成局。",
+                    "境界愈高，可斷去的岔路愈多，方能在大江湖中收束成局。此局共{}關，且看少俠能走到哪一步。",
+                    ChessBalance::difficultyDisplayNameTraditional(difficulty),
                     cfg.shopSlotCount,
                     gameState_.banBaseCount(),
-                    gameState_.banCountPerLevel()),
+                    gameState_.banCountPerLevel(),
+                    cfg.totalFights),
                 115);
-            hardModeTalk->run();
+            advancedModeTalk->run();
         }
     }
 }

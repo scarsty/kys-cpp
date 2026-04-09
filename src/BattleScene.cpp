@@ -80,7 +80,14 @@ BattleScene::BattleScene(int id) :
 
 BattleScene::~BattleScene()
 {
-    Audio::getInstance()->playMusic(prev_music_);
+    if (KysChess::isChessSceneMusic(prev_music_))
+    {
+        Audio::getInstance()->playMusic(KysChess::getRandomChessMusic());
+    }
+    else
+    {
+        Audio::getInstance()->playMusic(prev_music_);
+    }
 }
 
 void BattleScene::setID(int id)

@@ -21,6 +21,14 @@ std::string poolPathForDifficulty(Difficulty difficulty)
     return GameUtil::PATH() + ((difficulty == Difficulty::Easy) ? "config/chess_pool_easy.yaml" : "config/chess_pool.yaml");
 }
 
+const std::array<Color, 5> kTierColors = {{
+    {175, 238, 238, 255},
+    {0, 255, 0, 255},
+    {30, 144, 255, 255},
+    {186, 96, 255, 255},
+    {255, 0, 0, 255},
+}};
+
 }    // namespace
 
 ChessPool::ChessPool(ChessRandom& random, ChessRoleSave& roleSave)
@@ -37,7 +45,6 @@ ChessPool::ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::ve
         auto* role = roleSave_.getRole(shopEntry.roleId);
         current_.emplace_back(role, role ? role->Cost : shopEntry.tier);
     }
-    getNewChess_ = current_.empty();
 }
 
 void ChessPool::ensurePoolLoaded()
@@ -52,7 +59,6 @@ void ChessPool::ensurePoolLoaded()
     if (poolLoaded_ && loadedDifficulty_ != difficulty)
     {
         current_.clear();
-        getNewChess_ = true;
     }
 
     reloadPool();
@@ -131,9 +137,9 @@ int ChessPool::getRoleTier(int roleId) const
     return -1;
 }
 
-Color ChessPool::GetTierColor(int tier) {
-    static Color colors[] = {{175,238,238},{0,255,0},{30,144,255},{75,0,130},{255,0,0}};
-    return colors[std::clamp(tier - 1, 0, 4)];
+Color ChessPool::GetTierColor(int tier)
+{
+    return kTierColors[std::clamp(tier - 1, 0, static_cast<int>(kTierColors.size()) - 1)];
 }
 
 Role* ChessPool::selectFromPool(int tier)
@@ -188,14 +194,10 @@ void ChessPool::setBannedRoleIds(const std::set<int>& banned)
     banned_ = banned;
 }
 
-std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
+// Private: generate new shop items for the given level.
+void ChessPool::generateShop(int level)
 {
     ensurePoolLoaded();
-    if (!getNewChess_) {
-        return current_;
-    }
-
-    getNewChess_ = false;
 
     std::vector<std::pair<Role*, int>> roles;
     roles.reserve(ChessBalance::config().shopSlotCount);
@@ -249,16 +251,15 @@ std::vector<std::pair<Role*, int>> ChessPool::getChessFromPool(int level)
     }
 
     current_ = roles;
-
-    return roles;
 }
 
 void ChessPool::removeChessAt(int idx) {
     current_.erase(current_.begin() + idx);
 }
 
-void ChessPool::refresh() {
-    getNewChess_ = true;
+void ChessPool::refresh(int level) {
+    current_.clear();
+    generateShop(level);
 }
 
 Role* ChessPool::selectEnemyFromPool(int tier)

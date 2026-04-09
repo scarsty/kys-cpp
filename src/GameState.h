@@ -24,7 +24,7 @@ public:
         return state;
     }
 
-    void reset();
+    void reset(Difficulty difficulty);
     GameDataStore exportStore() const;
     void importStore(const GameDataStore& store);
 
@@ -49,8 +49,30 @@ public:
     const int& banBaseCount() const { return GameDataStore::banBaseCount; }
     int& banCountPerLevel() { return GameDataStore::banCountPerLevel; }
     const int& banCountPerLevel() const { return GameDataStore::banCountPerLevel; }
-    int maxBanCount() const { return std::max(0, banBaseCount() + economy().getLevel() * banCountPerLevel()); }
-    bool hasBanSystem() const { return banBaseCount() > 0 || banCountPerLevel() > 0; }
+    int maxBanCount() const {
+        int count = std::max(0, banBaseCount() + economy().getLevel() * banCountPerLevel());
+        for (auto& unlock : ChessBalance::config().banUnlocks)
+        {
+            if (progress().battleProgress().getFight() >= unlock.afterFight)
+                count += unlock.slots;
+        }
+        return count;
+    }
+    int maxBanTier() const {
+        int tier = 5;
+        auto& unlocks = ChessBalance::config().banUnlocks;
+        if (!unlocks.empty())
+        {
+            tier = 0;
+            for (auto& unlock : unlocks)
+            {
+                if (progress().battleProgress().getFight() >= unlock.afterFight)
+                    tier = std::max(tier, unlock.maxTier);
+            }
+        }
+        return tier;
+    }
+    bool hasBanSystem() const { return banBaseCount() > 0 || banCountPerLevel() > 0 || !ChessBalance::config().banUnlocks.empty(); }
     std::set<int>& seenRoleIds() { return GameDataStore::seenRoleIds; }
     const std::set<int>& seenRoleIds() const { return GameDataStore::seenRoleIds; }
     std::set<int>& bannedRoleIds() { return GameDataStore::bannedRoleIds; }

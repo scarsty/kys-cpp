@@ -125,6 +125,26 @@ bool ChessBalance::loadConfig(const std::string& path)
     if (root["基础禁棋数"]) c.banBaseCount = root["基础禁棋数"].as<int>();
     if (root["每级增加禁棋数"]) c.banCountPerLevel = root["每级增加禁棋数"].as<int>();
 
+    if (root["禁棋解锁"])
+    {
+        c.banUnlocks.clear();
+        for (const auto& entry : root["禁棋解锁"])
+        {
+            BalanceConfig::BanUnlock unlock;
+            unlock.afterFight = entry["通关后"].as<int>();
+            unlock.slots = entry["禁棋数"].as<int>();
+            unlock.maxTier = entry["最高费用"] ? entry["最高费用"].as<int>() : 5;
+            c.banUnlocks.push_back(unlock);
+        }
+    }
+
+    if (root["无羁绊关卡"])
+    {
+        c.noSynergyFights.clear();
+        for (const auto& v : root["无羁绊关卡"])
+            c.noSynergyFights.push_back(v.as<int>());
+    }
+
     if (root["商店权重"])
     {
         int lvl = 0;
@@ -242,13 +262,40 @@ Difficulty ChessBalance::getDifficulty()
     return difficulty_;
 }
 
+const char* ChessBalance::difficultyConfigSuffix(Difficulty d)
+{
+    switch (d)
+    {
+    case Difficulty::Easy:
+        return "easy";
+    case Difficulty::Normal:
+        return "normal";
+    case Difficulty::Hard:
+        return "hard";
+    }
+    return "easy";
+}
+
+const char* ChessBalance::difficultyDisplayNameTraditional(Difficulty d)
+{
+    switch (d)
+    {
+    case Difficulty::Easy:
+        return "簡單";
+    case Difficulty::Normal:
+        return "標準";
+    case Difficulty::Hard:
+        return "困難";
+    }
+    return "簡單";
+}
+
 const BalanceConfig& ChessBalance::config()
 {
     if (!loaded_)
     {
         loaded_ = true;
-        const char* suffix = (difficulty_ == Difficulty::Normal) ? "normal" : "easy";
-        loadConfig(GameUtil::PATH() + std::format("config/chess_balance_{}.yaml", suffix));
+        loadConfig(GameUtil::PATH() + std::format("config/chess_balance_{}.yaml", difficultyConfigSuffix(difficulty_)));
     }
     return config_;
 }

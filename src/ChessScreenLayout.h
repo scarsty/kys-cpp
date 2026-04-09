@@ -149,6 +149,11 @@ inline PanelAnchor buyExpMenuAnchor()
     return {170, 255};
 }
 
+inline PanelAnchor battleSeedRerollMenuAnchor()
+{
+    return buyExpMenuAnchor();
+}
+
 inline PanelAnchor positionSwapMenuAnchor()
 {
     return {170, 255};
@@ -199,6 +204,11 @@ inline PanelFrame challengeDetailPanel()
 inline PanelFrame buyExpPreviewPanel()
 {
     return {400, 180, 540, 300};
+}
+
+inline PanelFrame battleSeedRerollPreviewPanel()
+{
+    return buyExpPreviewPanel();
 }
 
 inline PanelFrame positionSwapPanel()

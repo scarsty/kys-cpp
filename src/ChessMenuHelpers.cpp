@@ -52,7 +52,7 @@ std::shared_ptr<SuperMenuText> makeIndexedMenu(
     auto menu = std::make_shared<SuperMenuText>(title, config.fontSize, data.labels, config.perPage, makeMenuOptions(data, config));
     menu->setInputPosition(config.x, config.y);
 
-    if (!itemPreviewData.empty())
+    if (config.showPreviewStatus && !itemPreviewData.empty())
     {
         auto statusDrawable = std::make_shared<UIStatusDrawable>(itemPreviewData);
         PanelAnchor menuAnchor{config.x, config.y};

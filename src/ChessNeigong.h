@@ -1,6 +1,9 @@
 #pragma once
 
 #include "ChessBattleEffects.h"
+#include "Engine.h"
+
+#include <array>
 #include <map>
 #include <string>
 #include <vector>
@@ -29,6 +32,7 @@ class ChessNeigong
 public:
     static const NeigongConfig& config();
     static const std::vector<NeigongDef>& getPool();
+    static Color GetTierColor(int tier);
 
 private:
     static inline NeigongConfig config_;

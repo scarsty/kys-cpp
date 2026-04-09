@@ -1,10 +1,8 @@
 #pragma once
-#include <set>
-#include <vector>
 #include "Chess.h"
 #include "ChessBalance.h"
-
-class SQLite3Wrapper;
+#include <set>
+#include <vector>
 
 namespace KysChess
 {
@@ -29,6 +27,7 @@ struct StoredEquipmentInventoryEntry {
     int itemId = -1;
 };
 
+// Serialized directly into slot *.json files through the save layer.
 struct GameDataStore {
     // Scalar state
     int money = 0;
@@ -55,8 +54,6 @@ struct GameDataStore {
     std::set<int> bannedRoleIds;
     std::vector<StoredEquipmentInventoryEntry> equipmentInventory;
 
-    void save(SQLite3Wrapper& db) const;
-    void load(SQLite3Wrapper& db);
     void reset();
 };
 

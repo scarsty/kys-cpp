@@ -8,6 +8,7 @@
 #include "ChessEquipment.h"
 #include "ChessMenuHelpers.h"
 #include "ChessRewardFlow.h"
+#include "ChessShopFlow.h"
 #include "DynamicChessMap.h"
 #include "Talk.h"
 #include "TextBox.h"
@@ -417,6 +418,39 @@ EnemyLineupCandidate generateSynergyBiasedEnemyLineup(
     return candidates[random.enemyRandInt(topCount)];
 }
 
+EnemyLineupCandidate generateAntiSynergyEnemyLineup(
+    const std::vector<BalanceConfig::EnemySlot>& slots,
+    ChessPool& pool,
+    ChessRoleSave& roleSave,
+    ChessRandom& random)
+{
+    int attemptCount = EnemySynergyTuning::kMaxCandidateAttempts;
+    std::vector<EnemyLineupCandidate> candidates;
+    candidates.reserve(attemptCount);
+
+    for (int attempt = 0; attempt < attemptCount; ++attempt)
+    {
+        auto candidate = buildRandomEnemyLineup(slots, pool, random);
+        candidate.score = scoreEnemyLineup(candidate, roleSave);
+        candidate.tiebreak = random.enemyRandInt(INT_MAX);
+        candidates.push_back(std::move(candidate));
+    }
+
+    // Sort ascending: prefer lowest synergy score
+    std::sort(candidates.begin(), candidates.end(), [](const EnemyLineupCandidate& left, const EnemyLineupCandidate& right) {
+        if (left.score != right.score)
+        {
+            return left.score < right.score;
+        }
+        return left.tiebreak > right.tiebreak;
+    });
+
+    int topCount = std::min(
+        EnemySynergyTuning::kTopCandidatePoolCap,
+        std::max(1, static_cast<int>(candidates.size()) / EnemySynergyTuning::kTopCandidatePoolDivisor + EnemySynergyTuning::kTopCandidatePoolBias));
+    return candidates[random.enemyRandInt(topCount)];
+}
+
 }    // namespace
 
 ChessBattleFlow::ChessBattleFlow(const ChessSelectorServices& services, ChessRewardFlow& rewardFlow)
@@ -515,17 +549,43 @@ void ChessBattleFlow::enterBattle()
     int tableIdx = std::min(fightNum, static_cast<int>(config.enemyTable.size()) - 1);
     auto& slots = config.enemyTable[tableIdx];
 
-    if (ChessBalance::getDifficulty() == Difficulty::Normal)
+    if (ChessBalance::getDifficulty() != Difficulty::Easy)
     {
-        auto candidate = generateSynergyBiasedEnemyLineup(
-            slots,
-            services_.shop.pool(),
-            services_.roleSave,
-            services_.random);
-        if (candidate.ids.size() == slots.size() && candidate.stars.size() == slots.size())
+        bool noSynergy = false;
+        for (int f : config.noSynergyFights)
         {
-            enemyIds = std::move(candidate.ids);
-            enemyStars = std::move(candidate.stars);
+            if (f == fightNum + 1)    // config is 1-indexed
+            {
+                noSynergy = true;
+                break;
+            }
+        }
+
+        if (noSynergy)
+        {
+            auto candidate = generateAntiSynergyEnemyLineup(
+                slots,
+                services_.shop.pool(),
+                services_.roleSave,
+                services_.random);
+            if (candidate.ids.size() == slots.size() && candidate.stars.size() == slots.size())
+            {
+                enemyIds = std::move(candidate.ids);
+                enemyStars = std::move(candidate.stars);
+            }
+        }
+        else
+        {
+            auto candidate = generateSynergyBiasedEnemyLineup(
+                slots,
+                services_.shop.pool(),
+                services_.roleSave,
+                services_.random);
+            if (candidate.ids.size() == slots.size() && candidate.stars.size() == slots.size())
+            {
+                enemyIds = std::move(candidate.ids);
+                enemyStars = std::move(candidate.stars);
+            }
         }
     }
 
@@ -647,7 +707,7 @@ void ChessBattleFlow::enterBattle()
         battleProgress.advance();
         if (!services_.shop.isLocked())
         {
-            services_.shop.pool().refresh();
+            services_.shop.pool().refresh(services_.economy.getLevel());
         }
 
         auto text = std::make_shared<TextBox>();
@@ -660,6 +720,18 @@ void ChessBattleFlow::enterBattle()
         text->setText(std::format("勝利！獲得${}{}{} 經驗+{}{}{}", reward, interestMsg, bonusMsg, expGain, levelMsg, nextInfo));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+
+        if (!battleProgress.isGameComplete())
+        {
+            for (const auto& unlock : config.banUnlocks)
+            {
+                if (battleProgress.getFight() == unlock.afterFight)
+                {
+                    ChessShopFlow shopFlow(services_);
+                    shopFlow.showForcedBanSelection(unlock.slots, unlock.maxTier);
+                }
+            }
+        }
 
         if (battleProgress.isGameComplete())
         {

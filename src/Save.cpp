@@ -337,15 +337,8 @@ bool Save::load(int num)
     loadStaticDataFromDb(db);
     updateAllPtrVector();
 
-    SavePersistence::SlotData slotData;
-    if (!SavePersistence::readSlotJson(jsonPath, slotData))
-    {
-        return false;
-    }
-
-    SavePersistence::applySlotData(slotData, *this);
-
     //读取SD数据，始终从默认文件读取
+    //放在slot JSON之前：即使JSON解析失败，场景层数据也必须加载
     const int submap_count = static_cast<int>(submap_infos_.size());
     {
         std::vector<char> sdata(submap_count * sdata_length_);
@@ -363,6 +356,15 @@ bool Save::load(int num)
     }
     makeMapsAndRepairID();
     db.close();
+
+    SavePersistence::SlotData slotData;
+    if (!SavePersistence::readSlotJson(jsonPath, slotData))
+    {
+        LOG("WARNING: failed to parse slot JSON '{}', using DB defaults\n", jsonPath);
+        return false;
+    }
+
+    SavePersistence::applySlotData(slotData, *this);
 
     return true;
 }
@@ -519,6 +521,8 @@ int Save::getMoneyCountInBag()
 
 void Save::makeMapsAndRepairID()
 {
+    updateAllPtrVector();
+
     roles_by_name_.clear();
     magics_by_name_.clear();
     items_by_name_.clear();

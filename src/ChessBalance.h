@@ -14,7 +14,7 @@ class Node;
 namespace KysChess
 {
 
-enum class Difficulty { Easy, Normal };
+enum class Difficulty { Easy, Normal, Hard };
 
 struct BattlePieceDef
 {
@@ -60,6 +60,13 @@ struct BalanceConfig
     int shopSlotCount = 5;
     int banBaseCount = 0;
     int banCountPerLevel = 0;
+
+    // Ban unlock: after winning fight N (1-indexed), grant X ban slots for tiers up to Y
+    struct BanUnlock { int afterFight; int slots; int maxTier; };
+    std::vector<BanUnlock> banUnlocks;
+
+    // Fights where enemies should have no synergy (1-indexed fight numbers)
+    std::vector<int> noSynergyFights;
 
     // Shop weights [level][tier]
     std::array<std::array<int, 5>, 10> shopWeights = {{
@@ -111,6 +118,8 @@ public:
     static bool loadConfig(const std::string& path);
     static void setDifficulty(Difficulty d);
     static Difficulty getDifficulty();
+    static const char* difficultyConfigSuffix(Difficulty d);
+    static const char* difficultyDisplayNameTraditional(Difficulty d);
     static const BalanceConfig& config();
 
 private:

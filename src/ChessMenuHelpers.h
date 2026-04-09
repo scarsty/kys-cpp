@@ -19,6 +19,7 @@ struct IndexedMenuConfig
     int x = 80;
     int y = 70;
     bool showNav = true;
+    bool showPreviewStatus = true;
     bool needInputBox = false;
     bool confirmation = false;
     bool exitable = true;

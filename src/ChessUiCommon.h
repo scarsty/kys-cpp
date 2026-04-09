@@ -67,6 +67,7 @@ void showChessMessage(const std::string& text, int fontSize = 32);
 void playChessUpgradeSound();
 int getRandomChessMusic();
 int getRandomBattleMusic();
+bool isChessSceneMusic(int musicId);
 ChessManager makeChessManager(ChessRoster& roster, ChessEquipmentInventory& equipmentInventory, ChessEconomy& economy);
 ChessManager makeChessManager(const ChessSelectorServices& services);
 std::string comboEffectDesc(const ComboEffect& eff);

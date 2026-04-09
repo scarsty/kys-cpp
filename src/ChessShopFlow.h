@@ -14,6 +14,7 @@ public:
     void sellChess();
     void buyExp();
     void showBanMenu();
+    int showForcedBanSelection(int slots, int maxTier);
 
 private:
     ChessSelectorServices services_;

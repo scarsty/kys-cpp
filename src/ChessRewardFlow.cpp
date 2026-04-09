@@ -85,9 +85,8 @@ void ChessRewardFlow::showNeigongReward()
             auto* ng = choices[i];
             std::string padded = ng->name;
             while (padded.size() < 15) padded += "\xe3\x80\x80";
-            menuData.labels.push_back(std::format("[{}] {}", tierName[std::min(ng->tier - 1, 2)], padded));
-            Color tierColors[] = {{175, 238, 238}, {100, 255, 100}, {255, 200, 100}};
-            menuData.colors.push_back(tierColors[std::min(ng->tier - 1, 2)]);
+            menuData.labels.push_back(std::format("[{}] {}", tierName[std::min(ng->tier - 1, 3)], padded));
+            menuData.colors.push_back(ChessNeigong::GetTierColor(ng->tier));
             detailChoices.push_back(ng);
         }
         if (!rerolled)

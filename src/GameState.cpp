@@ -33,13 +33,18 @@ void GameState::constructServicesFromStore(const GameDataStore& store)
 
 // --------------- Lifecycle ---------------------
 
-void GameState::reset()
+void GameState::reset(Difficulty diff)
 {
     // The random class is not copyable
     GameDataStore::operator=(GameDataStore{});
+    GameDataStore::difficulty = diff;
 
+    ChessBalance::setDifficulty(diff);
     constructDefaultServices();
-    ChessBalance::setDifficulty(difficulty());
+    syncBanRuleFromBalance();
+    economy_->setMoney(ChessBalance::config().initialMoney);
+    // Generate initial shop with the correct difficulty pool
+    shop_->pool().refresh(economy_->getLevel());
 }
 
 void GameState::syncBanRuleFromBalance()
@@ -76,6 +81,8 @@ void GameState::importStore(const GameDataStore& store)
     ChessBalance::setDifficulty(difficulty());
     hydrateBanRuleFromBalanceIfMissing();
     constructServicesFromStore(store);
+    // No regeneration — honour exactly what the save contains.
+    // An empty shop means the player bought everything; they can refresh manually.
 }
 
 }

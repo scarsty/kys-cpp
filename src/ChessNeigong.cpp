@@ -5,11 +5,25 @@
 #include "Save.h"
 #include "yaml-cpp/yaml.h"
 
+#include <algorithm>
+#include <array>
 #include <format>
 #include <print>
 
 namespace KysChess
 {
+
+namespace
+{
+
+const std::array<Color, 4> kNeigongTierColors = {{
+    {100, 200, 100, 255},
+    {100, 150, 255, 255},
+    {255, 150, 50, 255},
+    {255, 100, 255, 255},
+}};
+
+}    // namespace
 
 const NeigongConfig& ChessNeigong::config()
 {
@@ -90,6 +104,11 @@ const std::vector<NeigongDef>& ChessNeigong::getPool()
 
     std::print("【内功配置】加载{}个内功\n", pool_.size());
     return pool_;
+}
+
+Color ChessNeigong::GetTierColor(int tier)
+{
+    return kNeigongTierColors[std::clamp(tier - 1, 0, static_cast<int>(kNeigongTierColors.size()) - 1)];
 }
 
 }    // namespace KysChess
