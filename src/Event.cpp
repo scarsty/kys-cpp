@@ -424,6 +424,11 @@ bool Event::askBattle()
 bool Event::tryBattle(int battle_id, int get_exp)
 {
     int result = 0;
+    if (GameUtil::getInstance()->getInt("game", "battle_debug_win", 0) != 0)
+    {
+        clearTalkBox();
+        return true;
+    }
     int battle_mode = GameUtil::getInstance()->getInt("game", "battle_mode");
     LOG("Battle mode: {}\n", battle_mode);
     if (battle_mode == 0 || battle_mode == 1)
@@ -453,10 +458,6 @@ bool Event::tryBattle(int battle_id, int get_exp)
         battle->setID(battle_id);
         //battle->setHaveFailExp(get_exp);
         result = battle->run();
-    }
-    else if (battle_mode == -1)
-    {
-        result = 0;    //直接判断为胜利，用于调试
     }
     clearTalkBox();
     return result == 0;

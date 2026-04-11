@@ -201,6 +201,7 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/TitleScene.cpp"
         "${KYS_SRC_DIR}/Types.cpp"
         "${KYS_SRC_DIR}/UI.cpp"
+        "${KYS_SRC_DIR}/UIConfig.cpp"
         "${KYS_SRC_DIR}/UIItem.cpp"
         "${KYS_SRC_DIR}/UIKeyConfig.cpp"
         "${KYS_SRC_DIR}/UISave.cpp"

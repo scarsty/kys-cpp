@@ -16,10 +16,39 @@
 #include "Weather.h"
 #include <cstdlib>
 
+namespace {
+    int normalizeTitleBattleMode(int battle_mode)
+    {
+        if (battle_mode < 0 || battle_mode > 4)
+        {
+            return 0;
+        }
+        return battle_mode;
+    }
+
+    int getTitleTextureID(int battle_mode)
+    {
+        if (battle_mode == 2)
+        {
+            return 153;
+        }
+        return 154;
+    }
+
+    int getTitleTextureY(int battle_mode)
+    {
+        if (battle_mode == 2)
+        {
+            return 0;
+        }
+        return 90;
+    }
+}
+
 TitleScene::TitleScene()
 {
     full_window_ = 1;
-    battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
+    battle_mode_ = normalizeTitleBattleMode(GameUtil::getInstance()->getInt("game", "battle_mode"));
     menu_ = std::make_shared<Menu>();
     menu_->setPosition(560, 550);
     menu_->addChild<Button>(-180, 0)->setTexture("title", 3, 23, 23);
@@ -67,9 +96,7 @@ TitleScene::~TitleScene()
 void TitleScene::draw()
 {
     Engine::getInstance()->fillColor({ 0, 0, 0, 255 }, 0, 0, Engine::getInstance()->getWindowWidth(), Engine::getInstance()->getWindowHeight());
-    int pic[] = { 154, 154, 153, 154 };
-    int y[] = { 90, 90, 0, 90 };
-    TextureManager::getInstance()->renderTexture("title", pic[battle_mode_], 0, y[battle_mode_]);
+    TextureManager::getInstance()->renderTexture("title", getTitleTextureID(battle_mode_), 0, getTitleTextureY(battle_mode_));
     Font::getInstance()->draw(GameUtil::VERSION(), 28, 0, 0);
     return;
     //屏蔽随机头像

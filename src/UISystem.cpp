@@ -3,13 +3,14 @@
 #include "Event.h"
 #include "GameUtil.h"
 #include "Script.h"
+#include "UIConfig.h"
 #include "UIKeyConfig.h"
 #include "UISave.h"
 
 UISystem::UISystem()
 {
     title_ = std::make_shared<MenuText>();
-    title_->setStrings({ "讀取進度", "保存進度", "我的代碼", "戰鬥模式", "離開遊戲" });
+    title_->setStrings({ "讀取進度", "保存進度", "我的代碼", "遊戲配置", "離開遊戲" });
     title_->setFontSize(24);
     title_->arrange(100, 50, 120, 0);
     title_->setLRStyle(1);
@@ -46,23 +47,12 @@ void UISystem::onPressedOK()
     }
     else if (title_->getResult() == 3)
     {
-        std::vector<std::string> modes = { "回合制", "半即時回合制", "黑帝斯", "隻狼" };
-        int mode = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
-        if (mode >= 0 && mode < modes.size())
-        {
-            modes[mode] += "（當前）";
-        }
-        auto menu = std::make_shared<MenuText>();
-        menu->setStrings(modes);
-        menu->setFontSize(24);
-        menu->arrange(0, 0, 0, 40);
+        auto menu = std::make_shared<UIConfig>();
         result_ = menu->runAtPosition(x, 100);
-        if (result_ >= 0)
+        if (result_ == 0)
         {
-            GameUtil::getInstance()->setKey("game", "battle_mode", std::to_string(result_));
             auto text = std::make_shared<TextBox>();
-            mode = GameUtil::getInstance()->getInt("game", "battle_mode", 0);
-            text->setText("戰鬥模式已設置為：" + modes[mode]);
+            text->setText("戰鬥配置已保存");
             text->setFontSize(24);
             text->runAtPosition(x, 100);
         }

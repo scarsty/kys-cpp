@@ -19,6 +19,9 @@
     <ClCompile Include="UI.cpp">
       <Filter>ui</Filter>
     </ClCompile>
+    <ClCompile Include="UIConfig.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
     <ClCompile Include="UIItem.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -218,6 +221,9 @@
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="UI.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="UIConfig.h">
       <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="UIItem.h">

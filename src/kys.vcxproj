@@ -55,8 +55,8 @@
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgAutoLink>true</VcpkgAutoLink>
-    <VcpkgXUseBuiltInApplocalDeps>false</VcpkgXUseBuiltInApplocalDeps>
-    <VcpkgApplocalDeps>true</VcpkgApplocalDeps>
+    <VcpkgXUseBuiltInApplocalDeps>true</VcpkgXUseBuiltInApplocalDeps>
+    <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <VcpkgTriplet>
@@ -163,6 +163,7 @@
     <ClCompile Include="TextBox.cpp" />
     <ClCompile Include="TextBoxRoll.cpp" />
     <ClCompile Include="UI.cpp" />
+    <ClCompile Include="UIConfig.cpp" />
     <ClCompile Include="SubScene.cpp" />
     <ClCompile Include="TitleScene.cpp" />
     <ClCompile Include="kys.cpp" />
@@ -248,6 +249,7 @@
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Types.h" />
     <ClInclude Include="UIItem.h" />
+    <ClInclude Include="UIConfig.h" />
     <ClInclude Include="UIKeyConfig.h" />
     <ClInclude Include="UISave.h" />
     <ClInclude Include="UIShop.h" />
