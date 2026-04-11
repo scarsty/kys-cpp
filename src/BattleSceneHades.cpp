@@ -478,8 +478,8 @@ void BattleSceneHades::dealEvent(EngineEvent& e)
                 if (axis_x != 0 || axis_y != 0)
                 {
                     //LOG("{} {}, ", axis_x, axis_y);
-                    axis_x = GameUtil::limit(axis_x, -20000, 20000);
-                    axis_y = GameUtil::limit(axis_y, -20000, 20000);
+                    axis_x = GameUtil::clamp(axis_x, -20000, 20000);
+                    axis_y = GameUtil::clamp(axis_y, -20000, 20000);
                     Pointf axis{ float(axis_x), float(axis_y) };
                     axis *= 1.0 / 20000;    // / sqrt(2.0);
                     r->RealTowards = axis;
@@ -1077,9 +1077,9 @@ void BattleSceneHades::backRun1()
                 close_up_ = 30;
             }
         }
-        r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
-        r->MP = GameUtil::limit(r->MP, 0, r->MaxMP);
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
+        r->HP = GameUtil::clamp(r->HP, 0, r->MaxHP);
+        r->MP = GameUtil::clamp(r->MP, 0, r->MaxMP);
+        r->PhysicalPower = GameUtil::clamp(r->PhysicalPower, 0, 100);
     }
 
     //处理文字
@@ -1206,7 +1206,7 @@ void BattleSceneHades::Action(Role* r)
                 magic = Save::getInstance()->getMagic(1);
                 ae.UsingMagic = Save::getInstance()->getMagic(1);
             }
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+            r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
             int level_index = r->getMagicLevelIndex(magic->ID);
             int needMP = magic->calNeedMP(level_index);
             ae.TotalFrame = 30;
@@ -1254,7 +1254,7 @@ void BattleSceneHades::Action(Role* r)
             int index = r->getMagicOfRoleIndex(ae.UsingMagic);
             if (index >= 0)
             {
-                r->MagicLevel[index] = GameUtil::limit(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
+                r->MagicLevel[index] = GameUtil::clamp(r->MagicLevel[index] + rand_.rand() * 2 + 1, 0, 999);
             }
             //根据性质创造攻击效果
             if (ae.OperationType == 0)

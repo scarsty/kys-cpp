@@ -284,7 +284,7 @@ void Scene::lightScene()
         }
         auto fill = [&](void*) -> void
         {
-            uint8_t alpha = GameUtil::limit(i * 25, 0, 255);
+            uint8_t alpha = GameUtil::clamp(i * 25, 0, 255);
             Engine::getInstance()->fillColor({ 0, 0, 0, alpha }, 0, 0, -1, -1);
         };
         drawAndPresent(1, fill);
@@ -301,7 +301,7 @@ void Scene::darkScene()
         }
         auto fill = [&](void*) -> void
         {
-            uint8_t alpha = GameUtil::limit(i * 25, 0, 255);
+            uint8_t alpha = GameUtil::clamp(i * 25, 0, 255);
             Engine::getInstance()->fillColor({ 0, 0, 0, alpha }, 0, 0, -1, -1);
         };
         drawAndPresent(1, fill);

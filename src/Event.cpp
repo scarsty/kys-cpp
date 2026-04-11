@@ -785,7 +785,7 @@ void Event::addIQ(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->IQ;
-    r->IQ = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->IQ);
+    r->IQ = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->IQ);
     text_box_->setText(std::format("{}資質增加{}", r->Name, r->IQ - v0));
     text_box_->run();
 }
@@ -812,7 +812,7 @@ bool Event::checkRoleSexual(int sexual)
 void Event::addMorality(int value)
 {
     auto role = Save::getInstance()->getRole(0);
-    role->Morality = GameUtil::limit(role->Morality + value, 0, Role::getMaxValue()->Morality);
+    role->Morality = GameUtil::clamp(role->Morality + value, 0, Role::getMaxValue()->Morality);
 }
 
 void Event::changeSubMapPic(int submap_id, int layer, int old_pic, int new_pic)
@@ -955,7 +955,7 @@ void Event::addSpeed(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Speed;
-    r->Speed = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Speed);
+    r->Speed = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->Speed);
     text_box_->setText(std::format("{}輕功增加{}", r->Name, r->Speed - v0));
     text_box_->run();
 }
@@ -964,8 +964,8 @@ void Event::addMaxMP(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxMP;
-    r->MaxMP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->MP);
-    r->MP = GameUtil::limit(r->MP + value, 0, r->MaxMP);
+    r->MaxMP = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->MP);
+    r->MP = GameUtil::clamp(r->MP + value, 0, r->MaxMP);
     text_box_->setText(std::format("{}內力增加{}", r->Name, r->MaxMP - v0));
     text_box_->run();
 }
@@ -974,7 +974,7 @@ void Event::addAttack(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->Attack;
-    r->Attack = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->Attack);
+    r->Attack = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->Attack);
     text_box_->setText(std::format("{}武力增加{}", r->Name, r->Attack - v0));
     text_box_->run();
 }
@@ -983,8 +983,8 @@ void Event::addMaxHP(int role_id, int value)
 {
     auto r = Save::getInstance()->getRole(role_id);
     auto v0 = r->MaxHP;
-    r->MaxHP = GameUtil::limit(v0 + value, 0, Role::getMaxValue()->HP);
-    r->HP = GameUtil::limit(r->HP + value, 0, r->MaxHP);
+    r->MaxHP = GameUtil::clamp(v0 + value, 0, Role::getMaxValue()->HP);
+    r->HP = GameUtil::clamp(r->HP + value, 0, r->MaxHP);
     text_box_->setText(std::format("{}生命增加{}", r->Name, r->MaxHP - v0));
     text_box_->run();
 }

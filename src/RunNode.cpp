@@ -363,8 +363,8 @@ void RunNode::dealEventSelfChilds(bool check_event)
             //    if (abs(axis_y) < 10000) { axis_y = 0; }
             //    if (axis_x != 0 || axis_y != 0)
             //    {
-            //        axis_x = GameUtil::limit(axis_x, -30000, 30000);
-            //        axis_y = GameUtil::limit(axis_y, -30000, 30000);
+            //        axis_x = GameUtil::clamp(axis_x, -30000, 30000);
+            //        axis_y = GameUtil::clamp(axis_y, -30000, 30000);
             //        int x, y;
             //        Engine::getInstance()->getMouseStateInStartWindow(x, y);
             //        x += axis_x / 3000;

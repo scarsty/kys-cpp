@@ -528,8 +528,8 @@ void BattleScene::setRoleInitState(Role* r)
     r->ActType = -1;
     r->ActFrame = 0;
 
-    GameUtil::limit2(r->HP, r->MaxHP / 10, r->MaxHP);
-    GameUtil::limit2(r->MP, r->MaxMP / 10, r->MaxMP);
+    GameUtil::clamp_int(r->HP, r->MaxHP / 10, r->MaxHP);
+    GameUtil::clamp_int(r->MP, r->MaxMP / 10, r->MaxMP);
 
     // 对方==1 则 自动
     r->Auto = r->Team;
@@ -1074,7 +1074,7 @@ void BattleScene::actMove(Role* r)
     battle_cursor_->setMode(BattleCursor::Move);
     if (battle_cursor_->run() == 0)
     {
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 2, 0, Role::getMaxValue()->PhysicalPower);
+        r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 2, 0, Role::getMaxValue()->PhysicalPower);
         r->setPrevPosition(r->X(), r->Y());
         r->Network_MoveX = select_x_;
         r->Network_MoveY = select_y_;
@@ -1149,8 +1149,8 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
     {
         int level_index = r->getMagicLevelIndex(magic->ID);
         //计算伤害
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
-        r->MP = GameUtil::limit(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
+        r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+        r->MP = GameUtil::clamp(r->MP - magic->calNeedMP(level_index), 0, r->MaxMP);
         calMagiclHurtAllEnemies(r, magic);
 
         // 做显示部分，由于多次攻击，并且数据动画分离，需要分开保存显示信息
@@ -1179,7 +1179,7 @@ void BattleScene::actUseMagicSub(Role* r, Magic* magic)
         if (index >= 0)
         {
             r->MagicLevel[index] += 1 + rand_.rand_int(2);
-            GameUtil::limit2(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
+            GameUtil::clamp_int(r->MagicLevel[index], 0, MAX_MAGIC_LEVEL);
         }
         LOG("{} {} level is {}\n", r->Name, magic->Name, r->MagicLevel[index]);
     }
@@ -1227,7 +1227,7 @@ void BattleScene::actUsePoison(Role* r)
             r2->addShowString(std::format("{:+}", v), { 20, 255, 20, 255 });
             r->ExpGot += v;
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
+        r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 3, 0, Role::getMaxValue()->PhysicalPower);
         r->Acted = 1;
         actionAnimation_ = [this, r]()
         {
@@ -1255,7 +1255,7 @@ void BattleScene::actDetoxification(Role* r)
             r2->addShowString(std::format("-{}", -v), { 20, 200, 255, 255 });
             r->ExpGot += v;
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
+        r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         r->Acted = 1;
         actionAnimation_ = [this, r]()
         {
@@ -1283,7 +1283,7 @@ void BattleScene::actMedicine(Role* r)
             r2->addShowString(std::format("-{}", abs(v)), { 255, 255, 200, 255 });
             r->ExpGot += v;
         }
-        r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
+        r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
         r->Acted = 1;
         actionAnimation_ = [this, r]()
         {
@@ -1318,7 +1318,7 @@ void BattleScene::actUseHiddenWeapon(Role* r)
                 r2->Show.BattleHurt = v;
                 r2->addShowString(std::format("-{}", v), { 255, 20, 20, 255 });
             }
-            r->PhysicalPower = GameUtil::limit(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
+            r->PhysicalPower = GameUtil::clamp(r->PhysicalPower - 5, 0, Role::getMaxValue()->PhysicalPower);
             item_menu->addItem(item, -1);
             r->ExpGot += v;
             r->Acted = 1;
@@ -1402,9 +1402,9 @@ void BattleScene::actAuto(Role* r)
 
 void BattleScene::actRest(Role* r)
 {
-    r->PhysicalPower = GameUtil::limit(r->PhysicalPower + 5, 0, Role::getMaxValue()->PhysicalPower);
-    r->HP = GameUtil::limit(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
-    r->MP = GameUtil::limit(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
+    r->PhysicalPower = GameUtil::clamp(r->PhysicalPower + 5, 0, Role::getMaxValue()->PhysicalPower);
+    r->HP = GameUtil::clamp(r->HP + 0.05 * r->MaxHP, 0, r->MaxHP);
+    r->MP = GameUtil::clamp(r->MP + 0.05 * r->MaxMP, 0, r->MaxMP);
     r->Acted = 1;
 }
 
@@ -1640,7 +1640,7 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                 r2->Show.BattleHurt = hurt;
                 if (m->HurtType == 0)
                 {
-                    auto temp = GameUtil::limit(r2->Show.BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
+                    auto temp = GameUtil::clamp(r2->Show.BattleHurt, -(r2->MaxHP - r2->HP), r2->HP);
                     r->ExpGot += temp;
                     if (r2->HP == temp)
                     {
@@ -1651,8 +1651,8 @@ int BattleScene::calMagiclHurtAllEnemies(Role* r, Magic* m, bool simulation)
                 else if (m->HurtType == 1)
                 {
                     int prevMP = r2->MP;
-                    r2->MP = GameUtil::limit(r2->MP - hurt, 0, r2->MaxMP);
-                    r->MP = GameUtil::limit(r->MP + hurt, 0, r->MaxMP);
+                    r2->MP = GameUtil::clamp(r2->MP - hurt, 0, r2->MaxMP);
+                    r->MP = GameUtil::clamp(r->MP + hurt, 0, r->MaxMP);
                     int hurt1 = prevMP - r2->MP;
                     r->ExpGot += hurt1 / 2;
                 }
@@ -1884,7 +1884,7 @@ void BattleScene::poisonEffect(Role* r)
     {
         //抗毒高者会自动解毒
         r->Poison -= r->AntiPoison;
-        GameUtil::limit2(r->Poison, 0, Role::getMaxValue()->Poison);
+        GameUtil::clamp_int(r->Poison, 0, Role::getMaxValue()->Poison);
         r->HP -= r->Poison / 3;
         //最低扣到1点
         if (r->HP < 1)

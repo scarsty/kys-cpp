@@ -146,7 +146,7 @@ void UIItem::checkCurrentItem()
         max_leftup_ = 0;
     }
 
-    leftup_index_ = GameUtil::limit(leftup_index_, 0, max_leftup_);
+    leftup_index_ = GameUtil::clamp(leftup_index_, 0, max_leftup_);
 
     //计算被激活的按钮
     current_button_ = nullptr;

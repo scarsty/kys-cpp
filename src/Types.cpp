@@ -570,7 +570,7 @@ int Role::medicine(Role* r2)
     }
     auto temp = r2->HP;
     r2->HP += Medicine;
-    GameUtil::limit2(r2->HP, 0, r2->MaxHP);
+    GameUtil::clamp_int(r2->HP, 0, r2->MaxHP);
     return r2->HP - temp;
 }
 
@@ -584,7 +584,7 @@ int Role::detoxification(Role* r2)
     }
     auto temp = r2->Poison;
     r2->Poison -= Detoxification / 3;
-    GameUtil::limit2(r2->Poison, 0, Role::getMaxValue()->Poison);
+    GameUtil::clamp_int(r2->Poison, 0, Role::getMaxValue()->Poison);
     return r2->Poison - temp;
 }
 
@@ -597,7 +597,7 @@ int Role::usePoison(Role* r2)
     }
     auto temp = r2->Poison;
     r2->Poison += UsePoison / 3;
-    GameUtil::limit2(r2->Poison, 0, Role::getMaxValue()->Poison);
+    GameUtil::clamp_int(r2->Poison, 0, Role::getMaxValue()->Poison);
     return r2->Poison - temp;
 }
 

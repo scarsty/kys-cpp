@@ -124,12 +124,12 @@ void UI::dealEvent(EngineEvent& e)
 
         if (engine->gameControllerGetAxis(GAMEPAD_AXIS_LEFT_TRIGGER))
         {
-            cb = GameUtil::limit(cb - 1, 0, 3);
+            cb = GameUtil::clamp(cb - 1, 0, 3);
             engine->setInterValControllerPress(200);
         }
         if (engine->gameControllerGetAxis(GAMEPAD_AXIS_RIGHT_TRIGGER))
         {
-            cb = GameUtil::limit(cb + 1, 0, 3);
+            cb = GameUtil::clamp(cb + 1, 0, 3);
             engine->setInterValControllerPress(200);
         }
         if (cb != current_button_)

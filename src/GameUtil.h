@@ -68,7 +68,7 @@ public:
 
     //返回限制值
     template <typename T, typename T2>
-    static T limit(T current, T2 min_value, T2 max_value)
+    static T clamp(T current, T2 min_value, T2 max_value)
     {
         if (current < min_value)
         {
@@ -81,20 +81,20 @@ public:
         return current;
     }
 
-    //limit2是直接修改引用值，有两个重载
-    static void limit2(int& current, int min_value, int max_value)
+    //clamp_int是直接修改引用值，有重载
+    static void clamp_int(int& current, int min_value, int max_value)
     {
-        current = limit(current, min_value, max_value);
+        current = clamp(current, min_value, max_value);
     }
 
-    static void limit2(int16_t& current, int min_value, int max_value)
+    static void clamp_int(int16_t& current, int min_value, int max_value)
     {
-        current = limit(current, min_value, max_value);
+        current = clamp(current, min_value, max_value);
     }
 
-    static void limit2(uint16_t& current, int min_value, int max_value)
+    static void clamp_int(uint16_t& current, int min_value, int max_value)
     {
-        current = limit(current, min_value, max_value);
+        current = clamp(current, min_value, max_value);
     }
 
     //计算某个数值的位数
@@ -116,7 +116,7 @@ template <typename... Args>
 void LOG(std::format_string<Args...> fmt, Args... args)
 {
     auto str = std::format(fmt, std::forward<Args>(args)...);
-    fprintf(stdout, "%s", str.c_str());
+    fputs(str.c_str(), stdout);
 #ifdef __ANDROID__
     __android_log_print(ANDROID_LOG_INFO, "KYS", "%s", str.c_str());
 #endif
