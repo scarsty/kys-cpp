@@ -1194,3 +1194,70 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
     resetRenderTarget();
     return 0;
 }
+
+#ifdef __ANDROID__
+#include "ZipFile.h"
+#include "filefunc.h"
+
+void Engine::extractAssetsIfNeeded()
+{
+    const std::string internal = SDL_GetAndroidInternalStoragePath();
+    const std::string marker   = internal + "/.game_extracted";
+    const std::string dest     = internal + "/game/";
+
+    if (filefunc::fileExist(marker))
+    {
+        return;
+    }
+
+    SDL_Log("kys-cpp: extracting game assets to %s ...", dest.c_str());
+
+    // 从 Android assets 读取打包好的 game.zip
+    SDL_IOStream* io = SDL_IOFromFile("game.zip", "rb");
+    if (!io)
+    {
+        SDL_Log("kys-cpp: cannot open game.zip from assets: %s", SDL_GetError());
+        return;
+    }
+    Sint64 size = SDL_GetIOSize(io);
+    std::string buf(size, '\0');
+    SDL_ReadIO(io, buf.data(), (size_t)size);
+    SDL_CloseIO(io);
+
+    // 写入临时文件（libzip 需要文件路径）
+    const std::string tmp_zip = internal + "/.game_tmp.zip";
+    filefunc::writeFile(buf.c_str(), (int)buf.size(), tmp_zip);
+
+    {
+        ZipFile zip;
+        zip.openRead(tmp_zip);
+        if (!zip.opened())
+        {
+            SDL_Log("kys-cpp: cannot open temp zip at %s", tmp_zip.c_str());
+            return;
+        }
+
+        for (const auto& f : zip.getFileNames())
+        {
+            const std::string out_path = dest + f;
+
+            // 创建父目录
+            const size_t slash = out_path.rfind('/');
+            if (slash != std::string::npos)
+            {
+                SDL_CreateDirectory(out_path.substr(0, slash).c_str());
+            }
+
+            const auto data = zip.readFile(f);
+            filefunc::writeFile(data.c_str(), (int)data.size(), out_path);
+        }
+    }    // ZipFile 析构关闭 zip
+
+    remove(tmp_zip.c_str());
+
+    // 写入标记文件
+    filefunc::writeFile("ok", 2, marker);
+
+    SDL_Log("kys-cpp: assets extracted successfully.");
+}
+#endif

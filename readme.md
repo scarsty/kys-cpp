@@ -2,7 +2,7 @@
 
 金庸群侠传复刻版，为区别于其他语言的复刻版，添加后缀cpp。
 
-<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/title.jpg' />
+<img src='pic/title.jpg' />
 
 除了经典的回合制战斗外，还包含半即时战斗（含进度条），以及两种完全即时战斗模式。即模仿黑帝斯和只狼的战斗系统。可以通过修改ini文件中的battle_mode来切换。
 
@@ -62,11 +62,11 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 
 ## 运行截图
 
-<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/1.png' />
+<img src='pic/1.png' />
 
-<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/2.png' />
+<img src='pic/2.png' />
 
-<img src='https://raw.githubusercontent.com/scarsty/kys-cpp/master/pic/3.png' />
+<img src='pic/3.png' />
 
 
 ## 其他
@@ -74,6 +74,8 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 Special thanks to ReSharper C++ for its support to the open source community.
 
 <img src='https://resources.jetbrains.com/storage/products/company/brand/logos/ReSharperCPP_icon.svg'>
+
+Special thanks to GitHub Copilot.
 
 Special thanks to WangZi, NiBa, HuaKaiYeLuo, XiaoWu, LiuYunFeiYue, ZhenZhengDeQiangQiang, SanDaShan, YangYubiao SB250 and SB750.
 

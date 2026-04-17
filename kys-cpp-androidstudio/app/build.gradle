@@ -29,6 +29,8 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // 使用 debug keystore 签名，方便直接安装测试；生产环境请换成正式 keystore
+            signingConfig signingConfigs.debug
         }
     }
     applicationVariants.all { variant ->

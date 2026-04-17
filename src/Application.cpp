@@ -20,6 +20,11 @@ Application::~Application()
 
 int Application::run()
 {
+#ifdef __ANDROID__
+    // 首次运行时将 assets/game.zip 解压到内部存储，引擎初始化前完成
+    Engine::extractAssetsIfNeeded();
+#endif
+
     auto game = GameUtil::getInstance();
     renderer_ = game->getString("game", "renderer", "");
     title_ = game->getString("game", "title", "All Heroes in Kam Yung Stories");
