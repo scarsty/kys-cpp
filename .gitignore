@@ -30,3 +30,4 @@ kys-cpp-androidstudio/app/lib/arm64-v8a
 kys-cpp-androidstudio/.gradle
 kys-cpp-androidstudio/.idea
 kys-cpp-androidstudio/app/jni/include/
+build.log

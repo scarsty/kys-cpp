@@ -187,6 +187,7 @@
     <ClCompile Include="Weather.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\mlcc\Cifa.h" />
     <ClInclude Include="..\mlcc\SimpleCC.h" />
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h" />
     <ClInclude Include="..\mlcc\ZipFile.h" />
