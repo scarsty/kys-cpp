@@ -1,7 +1,7 @@
 ﻿#include "Engine.h"
 
-#include "strfunc.h"
 #include "SDL3_image/SDL_image.h"
+#include "strfunc.h"
 #include <cmath>
 #include <vector>
 #ifdef _MSC_VER
@@ -85,20 +85,13 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
         Prop props;
         props.set(SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window_);
 
-#ifdef _WIN32
         std::vector<std::string> renderer_candidates;
         auto add_renderer_candidate = [&renderer_candidates](const std::string& name)
         {
-            if (name.empty())
-            {
-                return;
-            }
+            if (name.empty()) { return; }
             for (auto& existing : renderer_candidates)
             {
-                if (existing == name)
-                {
-                    return;
-                }
+                if (existing == name) { return; }
             }
             renderer_candidates.push_back(name);
         };
@@ -111,8 +104,13 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
                 add_renderer_candidate(strfunc::trim(s));
             }
         }
+#ifdef _WIN32
         add_renderer_candidate("direct3d12");
         add_renderer_candidate("direct3d");
+#else
+        add_renderer_candidate("gpu");
+        add_renderer_candidate("opengles2");
+#endif
         add_renderer_candidate("opengl");
         add_renderer_candidate("software");
 
@@ -127,19 +125,6 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
                 break;
             }
         }
-#else
-        if (!str.empty())
-        {
-            auto str1 = strfunc::toLowerCase(str);
-            auto drivers = strfunc::splitString(str1, ",");
-            if (!drivers.empty())
-            {
-                SDL_SetHint(SDL_HINT_RENDER_DRIVER, strfunc::trim(drivers[0]).c_str());
-            }
-        }
-        renderer_ = SDL_CreateRendererWithProperties(props.id());
-        renderer_self_ = renderer_ != nullptr;
-#endif
 
         if (renderer_ == nullptr)
         {
@@ -155,6 +140,9 @@ int Engine::init(void* handle /*= nullptr*/, int handle_type /*= 0*/, int maximi
     }
 
     std::print("Renderer name: {}\n", SDL_GetRendererName(renderer_));
+
+    max_texture_size_ = (int)SDL_GetNumberProperty(SDL_GetRendererProperties(renderer_), SDL_PROP_RENDERER_MAX_TEXTURE_SIZE_NUMBER, 0);
+    std::print("Max texture size: {}\n", max_texture_size_);
 
     //SDL_SetDefaultTextureScaleMode(renderer_, SDL_SCALEMODE_PIXELART);
 
@@ -383,6 +371,11 @@ Texture* Engine::createTexture(PixelFormat pix_fmt, TextureAccess a, int w, int 
     {
         pix_fmt = SDL_PIXELFORMAT_RGBA8888;
     }
+    if (max_texture_size_ > 0)
+    {
+        w = std::min(w, max_texture_size_);
+        h = std::min(h, max_texture_size_);
+    }
     return SDL_CreateTexture(renderer_, pix_fmt, (SDL_TextureAccess)a, w, h);
 }
 
@@ -403,6 +396,11 @@ Texture* Engine::createTexture(int w, int h)
 
 Texture* Engine::createRenderedTexture(int w, int h)
 {
+    if (max_texture_size_ > 0)
+    {
+        w = std::min(w, max_texture_size_);
+        h = std::min(h, max_texture_size_);
+    }
     return SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h);
 }
 
@@ -668,6 +666,7 @@ Texture* Engine::loadImage(const std::string& filename, int as_white)
     //屏蔽libpng的错误输出
     DisableStream d(stderr);
     auto sur = IMG_Load(filename.c_str());
+    if (!sur) { return nullptr; }
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
     SDL_DestroySurface(sur);
@@ -678,6 +677,7 @@ Texture* Engine::loadImageFromMemory(const std::string& content, int as_white) c
 {
     auto rw = SDL_IOFromConstMem(content.data(), content.size());
     auto sur = IMG_Load_IO(rw, 1);
+    if (!sur) { return nullptr; }
     if (as_white) { toWhite(sur); }
     auto tex = SDL_CreateTextureFromSurface(renderer_, sur);
     SDL_DestroySurface(sur);
@@ -1202,8 +1202,8 @@ int Engine::saveTexture(Texture* tex, const char* filename) const
 void Engine::extractAssetsIfNeeded()
 {
     const std::string internal = SDL_GetAndroidInternalStoragePath();
-    const std::string marker   = internal + "/.game_extracted";
-    const std::string dest     = internal + "/game/";
+    const std::string marker = internal + "/.game_extracted";
+    const std::string dest = internal + "/game/";
 
     if (filefunc::fileExist(marker))
     {

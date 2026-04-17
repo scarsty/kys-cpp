@@ -277,6 +277,8 @@ private:
 
     int render_times_ = 0;
 
+    int max_texture_size_ = 0;
+
     int window_mode_ = 0;    //0-窗口和渲染器自行创建，1-窗口和渲染器由外部创建
     bool renderer_self_ = false;
 
@@ -297,6 +299,8 @@ public:
     int getUIWidth() const { return ui_w_; }
 
     int getUIHeight() const { return ui_h_; }
+
+    int getMaxTextureSize() const { return max_texture_size_; }
 
     int getMaxWindowWidth() const { return max_x_ - min_x_; }
 
