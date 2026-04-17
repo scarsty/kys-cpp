@@ -429,12 +429,12 @@ void BattleScenePaper::draw()
         //20最大
         int w = TextureManager::getInstance()->getTexture("title", 203)->w;
         int h = TextureManager::getInstance()->getTexture("title", 203)->h;
-        double zoom_max = 1.0 * Engine::getInstance()->getPresentWidth() / w;
+        double zoom_max = 1.0 * Engine::getInstance()->getUIWidth() / w;
         double zoom = zoom_max * sword_light_ / 20;
         w *= zoom;
         h *= zoom;
-        int x = Engine::getInstance()->getPresentWidth() / 2 - w / 2;
-        int y = Engine::getInstance()->getPresentHeight() / 2 - h / 2;
+        int x = Engine::getInstance()->getUIWidth() / 2 - w / 2;
+        int y = Engine::getInstance()->getUIHeight() / 2 - h / 2;
         TextureManager::getInstance()->renderTexture("title", 203, x, y,
             { sword_light_color_, 255, zoom, zoom, 0, 0 });
         //if (sword_light_ > 30)

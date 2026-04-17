@@ -33,7 +33,7 @@ Event::Event()
     menu2_->setHaveBox(true);
     menu2_->arrange(0, 50, 150, 0);
     text_box_ = std::make_shared<TextBox>();
-    text_box_->setPosition(Engine::getInstance()->getPresentWidth() / 2 - 100, 200);
+    text_box_->setPosition(Engine::getInstance()->getUIWidth() / 2 - 100, 200);
     text_box_->setTextPosition(-20, 100);
     event_node_ = std::make_shared<DrawNode>();
 }

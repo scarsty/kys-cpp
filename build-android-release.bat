@@ -16,7 +16,7 @@ set SDK_DIR=C:\Users\%USERNAME%\AppData\Local\Android\Sdk
 set ADB=%SDK_DIR%\platform-tools\adb.exe
 set SEVENZIP=C:\Program Files\7-Zip\7z.exe
 set APP_PACKAGE=org.libsdl.kys_cpp
-set APP_ACTIVITY=.SDLActivity
+set APP_ACTIVITY=org.libsdl.app.SDLActivity
 
 echo ============================================================
 echo kys-cpp Android Release Build
@@ -31,6 +31,18 @@ if not exist "%RESOURCE_DIR%\" (
 
 :: 确保 assets 目录存在
 if not exist "%ASSETS_DIR%\" mkdir "%ASSETS_DIR%"
+
+:: ---- 步骤 0: 同步 vcpkg so 到 app/lib ----
+echo.
+echo [0/3] 同步 so 库文件...
+set VCPKG_LIB=%VCPKG_ROOT%\installed\arm64-android-dynamic\lib
+set JNI_LIB=%ANDROID_DIR%\app\lib\arm64-v8a
+for %%F in (libSDL3_image.so libwebp.so libwebpdecoder.so libwebpdemux.so libwebpmux.so libpng16.so libsharpyuv.so) do (
+    if exist "%VCPKG_LIB%\%%F" (
+        copy /y "%VCPKG_LIB%\%%F" "%JNI_LIB%\%%F" >nul
+        echo   已同步: %%F
+    )
+)
 
 :: ---- 步骤 1: 打包资源为 game.zip ----
 echo.
@@ -93,11 +105,10 @@ if not exist "%ADB%" (
 :: 启动 adb server
 "%ADB%" start-server >nul 2>nul
 
-:: 获取已连接的实体机（过滤掉模拟器和空行）
+:: 获取已连接的实体机（用 PowerShell 解析，避免 findstr 管道问题）
 set DEVICE=
-"%ADB%" devices > "%TEMP%\adb_devices.txt" 2>nul
-for /f "tokens=1" %%D in ('findstr /v /i "List emulator" "%TEMP%\adb_devices.txt" ^| findstr "device"') do (
-    if not defined DEVICE set DEVICE=%%D
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "& '%ADB%' devices | Select-String '\tdevice$' | ForEach-Object { $_.ToString().Split([char]9)[0] } | Select-Object -First 1"`) do (
+    set DEVICE=%%D
 )
 
 if not defined DEVICE (
@@ -113,7 +124,7 @@ if %ERRORLEVEL% NEQ 0 (
     goto :done
 )
 echo 安装成功，正在启动应用...
-"%ADB%" -s %DEVICE% shell am start -n "%APP_PACKAGE%/%APP_PACKAGE%%APP_ACTIVITY%"
+"%ADB%" -s %DEVICE% shell am start -n "%APP_PACKAGE%/%APP_ACTIVITY%"
 if %ERRORLEVEL% NEQ 0 (
     echo [警告] 启动应用失败
 )

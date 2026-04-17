@@ -79,6 +79,9 @@ void Application::config()
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
     Scene::setKeyWalkDealy(game->getInt("game", "walk_speed", 20));
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
+#ifdef __ANDROID__
+    RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 1));
+#endif
     RunNode ::setRenderMessage(game->getInt("game", "render_message", 0));
     Save::getInstance()->setZipSave(game->getInt("game", "zip_save", 1));
 
