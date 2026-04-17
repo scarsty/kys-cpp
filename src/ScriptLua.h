@@ -13,17 +13,17 @@
 #include <string>
 #include <type_traits>
 
-class Script
+class ScriptLua
 {
 public:
-    Script();
-    ~Script();
+    ScriptLua();
+    ~ScriptLua();
 
     lua_State* lua_state_ = nullptr;
 
-    static Script* getInstance()
+    static ScriptLua* getInstance()
     {
-        static Script s;
+        static ScriptLua s;
         return &s;
     }
 

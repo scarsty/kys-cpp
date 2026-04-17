@@ -1,4 +1,4 @@
-﻿#include "Script.h"
+﻿#include "ScriptLua.h"
 #include "Event.h"
 #include "EventMacro.h"
 #include "Font.h"
@@ -76,7 +76,7 @@ int lua_tonumber1(lua_State* L, int idx)
     return r;
 }
 
-Script::Script()
+ScriptLua::ScriptLua()
 {
     lua_state_ = luaL_newstate();
 
@@ -89,12 +89,12 @@ Script::Script()
     registerEventFunctions();
 }
 
-Script::~Script()
+ScriptLua::~ScriptLua()
 {
     lua_close(lua_state_);
 }
 
-int Script::runScript(const std::string& filename)
+int ScriptLua::runScript(const std::string& filename)
 {
     std::string content = filefunc::readFileToString(filename);
     LOG("{}\n", content);
@@ -102,7 +102,7 @@ int Script::runScript(const std::string& filename)
     return runScriptString(content);
 }
 
-int Script::runScriptString(const std::string& content)
+int ScriptLua::runScriptString(const std::string& content)
 {
     int r = 0;
     r = luaL_loadbuffer(lua_state_, content.c_str(), content.size(), "code");
@@ -117,7 +117,7 @@ int Script::runScriptString(const std::string& content)
     return r;
 }
 
-int Script::registerEventFunctions()
+int ScriptLua::registerEventFunctions()
 {
 #define REGISTER_INSTRUCT_ALIAS(name, function) \
     { \
@@ -409,7 +409,7 @@ int Script::registerEventFunctions()
         Font::getInstance()->draw(str, 20, x, y, { 255, 255, 255, 255 });
         return 0;
     };
-    lua_register(lua_state_, "drawstring", drawRect);
+    lua_register(lua_state_, "drawstring", drawString);
 
     auto getTalk = [](lua_State* L)
     {

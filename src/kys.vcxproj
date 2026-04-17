@@ -115,6 +115,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\mlcc\Cifa.cpp" />
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp" />
     <ClCompile Include="..\mlcc\ZipFile.cpp" />
@@ -152,7 +153,8 @@
     <ClCompile Include="GrpIdxFile.cpp" />
     <ClCompile Include="RandomRole.cpp" />
     <ClCompile Include="RunNodeFromJson.cpp" />
-    <ClCompile Include="Script.cpp" />
+    <ClCompile Include="ScriptLua.cpp" />
+    <ClCompile Include="ScriptCifa.cpp" />
     <ClCompile Include="ShowExp.cpp" />
     <ClCompile Include="ShowRoleDifference.cpp" />
     <ClCompile Include="SuperMenuText.cpp" />
@@ -227,7 +229,8 @@
     <ClInclude Include="GrpIdxFile.h" />
     <ClInclude Include="RandomRole.h" />
     <ClInclude Include="RunNodeFromJson.h" />
-    <ClInclude Include="Script.h" />
+    <ClInclude Include="ScriptLua.h" />
+    <ClInclude Include="ScriptCifa.h" />
     <ClInclude Include="ShowExp.h" />
     <ClInclude Include="ShowRoleDifference.h" />
     <ClInclude Include="SuperMenuText.h" />

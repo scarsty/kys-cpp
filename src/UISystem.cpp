@@ -2,7 +2,7 @@
 #include "Engine.h"
 #include "Event.h"
 #include "GameUtil.h"
-#include "Script.h"
+#include "ScriptLua.h"
 #include "UIConfig.h"
 #include "UIKeyConfig.h"
 #include "UISave.h"
@@ -43,7 +43,7 @@ void UISystem::onPressedOK()
     }
     else if (title_->getResult() == 2)
     {
-        Script::getInstance()->runScript(GameUtil::PATH() + "script/1.lua");
+        ScriptLua::getInstance()->runScript(GameUtil::PATH() + "script/1.lua");
     }
     else if (title_->getResult() == 3)
     {

@@ -11,7 +11,8 @@
 #include "Menu.h"
 #include "PotConv.h"
 #include "Save.h"
-#include "Script.h"
+#include "ScriptCifa.h"
+#include "ScriptLua.h"
 #include "SubScene.h"
 #include "Talk.h"
 #include "UIShop.h"
@@ -134,13 +135,21 @@ bool Event::callEvent(int event_id, RunNode* subscene, int supmap_id, int item_i
 
     if (use_script_)
     {
+        auto cifa_script = std::format("{}script/event-cifa/{}.c", GameUtil::PATH(), event_id);
         auto script = std::format("{}script/event/ka{}.lua", GameUtil::PATH(), event_id);
         if (!filefunc::fileExist(script))
         {
             script = std::format("{}script/oldevent/oldevent_{}.lua", GameUtil::PATH(), event_id);
         }
-        LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, script);
-        ret = Script::getInstance()->runScript(script) == 0;
+        LOG("Event {} ({} of current scene): {}\n", event_id, event_index_, cifa_script);
+        if (filefunc::fileExist(cifa_script))
+        {
+            ret = ScriptCifa::getInstance()->runScript(cifa_script) == 0;
+        }
+        else
+        {
+            ret = ScriptLua::getInstance()->runScript(script) == 0;
+        }
     }
     else
     {
