@@ -188,7 +188,7 @@ add_library(main SHARED
         "${KYS_SRC_DIR}/RunNodeFromJson.cpp"
         "${KYS_SRC_DIR}/Save.cpp"
         "${KYS_SRC_DIR}/Scene.cpp"
-        "${KYS_SRC_DIR}/Script.cpp"
+        "${KYS_SRC_DIR}/ScriptLua.cpp"
         "${KYS_SRC_DIR}/ScriptCifa.cpp"
         "${KYS_SRC_DIR}/ShowExp.cpp"
         "${KYS_SRC_DIR}/ShowRoleDifference.cpp"
