@@ -60,6 +60,7 @@ public:
     bool applyGoldReward(int amount);
     bool applyStarUpReward(int fromStar, int maxTier) const;
     bool applyEquipmentReward(int maxTier, int specificId = -1);
+    void incrementFightsWon(ChessInstanceID chessInstanceId, int amount = 1);
 
     void upgradeChess(ChessInstanceID chessInstanceId, int newStar);
     void equipItem(ChessInstanceID chessInstanceId, const EquipmentDef& equipment, ItemInstanceID itemInstanceId);

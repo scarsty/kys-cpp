@@ -86,7 +86,7 @@ void ChessChallengeFlow::showExpeditionChallenge()
         }
 
         int battleSeed = static_cast<int>(services_.random.enemyRandInt(INT_MAX));
-        int result = battleFlow_.runBattle(roles, selectedChess, -1, battleSeed);
+        int result = battleFlow_.runBattle(roles, selectedChess, -1, battleSeed, !alreadyCompleted);
         for (const auto& chess : selectedChess)
         {
             chess.role->HP = chess.role->MaxHP;

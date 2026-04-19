@@ -164,7 +164,7 @@ void ChessUIStatus::draw()
     Color color_name = { 255, 215, 0, 255 };
 
     // Compute boosted stats for display
-    auto bs = KysChess::BattleRoleManager::computeStarStats(chess_.role, chess_.star);
+    auto bs = KysChess::BattleRoleManager::computeStarStats(chess_.role, chess_.star, chess_.fightsWon);
     int dispMaxHP = bs.hp;
     int dispAttack = bs.atk;
     int dispDefence = bs.def;
@@ -286,6 +286,17 @@ void ChessUIStatus::draw()
             for (int i = 0; i < star; i++) stars += "★";
             ownedCursor.line(std::format("{} x{}", stars, count), layout.smallFontSize, color_white, 4);
         }
+
+        if (showEquip)
+        {
+            ownedCursor.line(std::format("勝場 {}", chess_.fightsWon), layout.smallFontSize, color_ability1, 4);
+        }
+    }
+
+    if (starCounts.empty() && showEquip)
+    {
+        font->draw(std::format("勝場 {}", chess_.fightsWon), layout.smallFontSize,
+            layout.owned.x + kOwnedTextInset, layout.sectionContentY + layout.smallFontSize + 8, color_ability1);
     }
 
     auto roleCombos = KysChess::ChessCombo::getCombosForRole(chess_.role->ID);

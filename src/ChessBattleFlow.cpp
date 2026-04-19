@@ -751,7 +751,7 @@ void ChessBattleFlow::enterBattle()
     }
 }
 
-int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed)
+int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed, bool countFightsWon)
 {
     battle_id = DynamicChessMap::resolveBattleId(roles, services_.random, battle_id);
 
@@ -788,6 +788,7 @@ int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vecto
     }
 
     auto battle = DynamicChessMap::createBattle(roles, services_.random, services_.roleSave, services_.progress, chessManager, battle_id);
+    battle->setCountFightsWon(countFightsWon);
     if (seed >= 0)
     {
         battle->rand_.set_seed(static_cast<unsigned int>(seed));

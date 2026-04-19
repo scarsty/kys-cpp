@@ -66,8 +66,10 @@ Chess ChessManager::handleMerge(Chess newChess)
     int bestWeaponTier = 0;
     InstancedItem bestArmor{}; 
     int bestArmorTier = 0;
+    int bestFightsWon = 0;
 
     for (const auto& chess : mergedChess) {
+        bestFightsWon = std::max(bestFightsWon, chess.fightsWon);
         int w = chess.weaponInstance.itemId;
         if (w >= 0) {
             auto* eq = ChessEquipment::getById(w);
@@ -92,6 +94,7 @@ Chess ChessManager::handleMerge(Chess newChess)
 
     // Create upgraded piece
     Chess upgraded = roster_.create(newChess.role, newChess.star + 1);
+    upgraded.fightsWon = bestFightsWon;
 
     // Equip best items from inventory
     if (bestWeapon.id != k_nonExistentItem)
@@ -202,6 +205,18 @@ bool ChessManager::applyEquipmentReward(int maxTier, int specificId)
         return false;
     }
     return true;  // UI selection required, handled by ChessSelector
+}
+
+void ChessManager::incrementFightsWon(ChessInstanceID chessInstanceId, int amount)
+{
+    if (amount <= 0)
+    {
+        return;
+    }
+
+    auto chess = roster_.find(chessInstanceId);
+    chess.fightsWon += amount;
+    roster_.update(chess);
 }
 
 void ChessManager::upgradeChess(ChessInstanceID chessInstanceId, int newStar)

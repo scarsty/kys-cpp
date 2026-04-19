@@ -196,6 +196,7 @@ struct RoleComboState
     int offensiveCharmChancePct = 0;
     int deathAOEPct = 0;
     int deathAOEStunFrames = 0;
+    int deathAOEMaxTargets = 0;
     int enemyTopDebuffCount = 0;
     int enemyTopDebuffValue = 0;
     int enemyTopDebuffApplied = 0;
@@ -244,7 +245,7 @@ struct RoleComboState
     bool dashAttack = false;
     int dashChanceBoostPct = 0;
     int mpRatioDmgBoostPct = 0;
-    // Damage reduce debuff: on hit, chance to mark target to reduce their damage for X frames by Y%
+    // Damage reduce debuff: on hit, mark target to reduce their damage for X frames by Y%
     int dmgReduceDebuffChancePct = 0;
     int dmgReduceDebuffDurationFrames = 0;
     int dmgReduceDebuffPct = 0;

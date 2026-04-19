@@ -15,6 +15,7 @@ struct StoredChess {
     bool selectedForBattle = false;
     int weaponInstanceId = -1;
     int armorInstanceId = -1;
+    int fightsWon = 0;
 };
 
 struct StoredShopEntry {
@@ -48,6 +49,7 @@ struct GameDataStore {
     // Collections
     std::vector<StoredChess> storedCollection;
     std::vector<StoredShopEntry> currentShop;
+    std::vector<int> rejectedRoleIds;
     std::vector<int> obtainedNeigong;
     std::set<int> completedChallenges;
     std::set<int> seenRoleIds;

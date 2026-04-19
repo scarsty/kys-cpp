@@ -24,7 +24,7 @@ class ChessPool {
 
 public:
     ChessPool(ChessRandom& random, ChessRoleSave& roleSave);
-    ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::vector<StoredShopEntry>& shop);
+    ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::vector<StoredShopEntry>& shop, const std::vector<int>& rejectedRoleIds);
 
     static Color GetTierColor(int tier);
 
@@ -35,6 +35,7 @@ public:
     void refresh(int level);
 
     const std::vector<std::pair<Role*, int>>& getCurrentShop() const { return current_; }
+    const std::unordered_set<int>& getRejectedRoleIds() const { return rejected_; }
 
     // Select a random enemy role from a specific tier (no rejection logic)
     Role* selectEnemyFromPool(int tier);
@@ -48,13 +49,14 @@ private:
     void reloadPool();
     void loadPoolNode(const YAML::Node& root);
     void generateShop(int level);
-    Role* selectFromPool(int tier);
+    Role* selectFromPool(int tier, const std::unordered_set<int>& alreadySelected);
+    bool tierHasCandidate(int tier, const std::unordered_set<int>& alreadySelected) const;
     int getRoleTier(int roleId) const;
 
     ChessRandom& random_;
     ChessRoleSave& roleSave_;
     std::vector<std::pair<Role*, int>> current_;
-    std::unordered_set<Role*> rejected_;
+    std::unordered_set<int> rejected_;    // role IDs from previous roll that player didn't pick
     std::set<int> banned_;
     std::array<std::vector<int>, 5> rolesByTier_;
     std::unordered_set<int> roleIdsInPool_;

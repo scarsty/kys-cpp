@@ -444,7 +444,11 @@ void TitleScene::dealEvent(EngineEvent& e)
         else if (diff == 2) difficulty = KysChess::Difficulty::Hard;
 
         Engine::getInstance()->gameControllerRumble(50, 50, 500);
-        Save::getInstance()->load(0);
+        if (!Save::getInstance()->prepareChessMode())
+        {
+            showMessageBox("錯誤", "初始化棋局資料失敗");
+            return;
+        }
         {
             MainScene::getInstance()->setManPosition(Save::getInstance()->MainMapX, Save::getInstance()->MainMapY);
             MainScene::getInstance()->setTowards(1);

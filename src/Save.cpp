@@ -8,7 +8,6 @@
 #include "SQLite3Wrapper.h"
 #include "filefunc.h"
 
-#include <array>
 #include <glaze/json.hpp>
 
 namespace SavePersistence
@@ -17,33 +16,17 @@ namespace SavePersistence
 constexpr auto kWriteOptions = glz::opts{.prettify = true};
 constexpr auto kReadOptions = glz::opts{.error_on_unknown_keys = false};
 
-struct BaseInfoData
+struct SceneStateData
 {
-    int inShip = 0;
     int inSubMap = 0;
-    int mainMapX = 0;
-    int mainMapY = 0;
     int subMapX = 0;
     int subMapY = 0;
     int faceTowards = 0;
-    int shipX = 0;
-    int shipY = 0;
-    int shipX1 = 0;
-    int shipY1 = 0;
-    int encode = 0;
-    std::array<int, TEAMMATE_COUNT> team{};
-};
-
-struct BagEntry
-{
-    int itemId = -1;
-    int count = 0;
 };
 
 struct SlotData
 {
-    BaseInfoData base;
-    std::vector<BagEntry> bag;
+    SceneStateData scene;
     KysChess::GameDataStore gameData;
 };
 
@@ -61,98 +44,23 @@ std::string slotJsonFilename(int slot)
 #endif
 }
 
-std::string packagedSlotZeroJsonFilename()
-{
-    return GameUtil::PATH() + "save/0.json";
-}
-
-BaseInfoData captureBaseInfo(const Save& save)
-{
-    BaseInfoData base;
-    base.inShip = save.InShip;
-    base.inSubMap = save.InSubMap;
-    base.mainMapX = save.MainMapX;
-    base.mainMapY = save.MainMapY;
-    base.subMapX = save.SubMapX;
-    base.subMapY = save.SubMapY;
-    base.faceTowards = save.FaceTowards;
-    base.shipX = save.ShipX;
-    base.shipY = save.ShipY;
-    base.shipX1 = save.ShipX1;
-    base.shipY1 = save.ShipY1;
-    base.encode = save.Encode;
-    for (int i = 0; i < TEAMMATE_COUNT; ++i)
-    {
-        base.team[i] = save.Team[i];
-    }
-    return base;
-}
-
-void applyBaseInfo(const BaseInfoData& base, Save& save)
-{
-    save.InShip = base.inShip;
-    save.InSubMap = base.inSubMap;
-    save.MainMapX = base.mainMapX;
-    save.MainMapY = base.mainMapY;
-    save.SubMapX = base.subMapX;
-    save.SubMapY = base.subMapY;
-    save.FaceTowards = base.faceTowards;
-    save.ShipX = base.shipX;
-    save.ShipY = base.shipY;
-    save.ShipX1 = base.shipX1;
-    save.ShipY1 = base.shipY1;
-    save.Encode = base.encode;
-    for (int i = 0; i < TEAMMATE_COUNT; ++i)
-    {
-        save.Team[i] = base.team[i];
-    }
-}
-
-std::vector<BagEntry> captureBag(const Save& save)
-{
-    std::vector<BagEntry> bag;
-    bag.reserve(ITEM_IN_BAG_COUNT);
-    for (int i = 0; i < ITEM_IN_BAG_COUNT; ++i)
-    {
-        if (save.Items[i].item_id < 0)
-        {
-            break;
-        }
-        bag.push_back({save.Items[i].item_id, save.Items[i].count});
-    }
-    return bag;
-}
-
-void applyBag(const std::vector<BagEntry>& bag, Save& save)
-{
-    for (int i = 0; i < ITEM_IN_BAG_COUNT; ++i)
-    {
-        save.Items[i] = {};
-    }
-
-    const size_t maxCount = static_cast<size_t>(ITEM_IN_BAG_COUNT);
-    const size_t count = bag.size() < maxCount ? bag.size() : maxCount;
-    for (size_t i = 0; i < count; ++i)
-    {
-        save.Items[i].item_id = bag[i].itemId;
-        save.Items[i].count = bag[i].count;
-    }
-}
-
 SlotData captureSlotData(const Save& save)
 {
     SlotData data;
-    data.base = captureBaseInfo(save);
-    data.bag = captureBag(save);
+    data.scene.inSubMap = save.InSubMap;
+    data.scene.subMapX = save.SubMapX;
+    data.scene.subMapY = save.SubMapY;
+    data.scene.faceTowards = save.FaceTowards;
     data.gameData = KysChess::ChessModHook::exportGameData();
     return data;
 }
 
-void applySlotData(const SlotData& data, Save& save)
+void applySceneState(const SceneStateData& scene, Save& save)
 {
-    applyBaseInfo(data.base, save);
-    applyBag(data.bag, save);
-    KysChess::ChessModHook::importGameData(data.gameData);
+    save.InSubMap = scene.inSubMap;
+    save.SubMapX = scene.subMapX;
+    save.SubMapY = scene.subMapY;
+    save.FaceTowards = scene.faceTowards;
 }
 
 bool readSlotJson(const std::string& path, SlotData& data)
@@ -195,15 +103,6 @@ std::string slotJsonLoadFilename(int slot)
         return persistedPath;
     }
 
-    if (slot == 0)
-    {
-        auto packagedPath = packagedSlotZeroJsonFilename();
-        if (packagedPath != persistedPath && filefunc::fileExist(packagedPath))
-        {
-            return packagedPath;
-        }
-    }
-
     return {};
 }
 
@@ -220,38 +119,20 @@ std::string preferredTimestampFilename(int slot)
 }    // namespace SavePersistence
 
 template <>
-struct glz::meta<SavePersistence::BaseInfoData>
+struct glz::meta<SavePersistence::SceneStateData>
 {
     static constexpr auto value = glz::object(
-        "inShip", &SavePersistence::BaseInfoData::inShip,
-        "inSubMap", &SavePersistence::BaseInfoData::inSubMap,
-        "mainMapX", &SavePersistence::BaseInfoData::mainMapX,
-        "mainMapY", &SavePersistence::BaseInfoData::mainMapY,
-        "subMapX", &SavePersistence::BaseInfoData::subMapX,
-        "subMapY", &SavePersistence::BaseInfoData::subMapY,
-        "faceTowards", &SavePersistence::BaseInfoData::faceTowards,
-        "shipX", &SavePersistence::BaseInfoData::shipX,
-        "shipY", &SavePersistence::BaseInfoData::shipY,
-        "shipX1", &SavePersistence::BaseInfoData::shipX1,
-        "shipY1", &SavePersistence::BaseInfoData::shipY1,
-        "encode", &SavePersistence::BaseInfoData::encode,
-        "team", &SavePersistence::BaseInfoData::team);
-};
-
-template <>
-struct glz::meta<SavePersistence::BagEntry>
-{
-    static constexpr auto value = glz::object(
-        "itemId", &SavePersistence::BagEntry::itemId,
-        "count", &SavePersistence::BagEntry::count);
+        "inSubMap", &SavePersistence::SceneStateData::inSubMap,
+        "subMapX", &SavePersistence::SceneStateData::subMapX,
+        "subMapY", &SavePersistence::SceneStateData::subMapY,
+        "faceTowards", &SavePersistence::SceneStateData::faceTowards);
 };
 
 template <>
 struct glz::meta<SavePersistence::SlotData>
 {
     static constexpr auto value = glz::object(
-        "base", &SavePersistence::SlotData::base,
-        "bag", &SavePersistence::SlotData::bag,
+        "scene", &SavePersistence::SlotData::scene,
         "gameData", &SavePersistence::SlotData::gameData);
 };
 
@@ -305,23 +186,8 @@ bool Save::checkSaveFileExist(int num)
     return !SavePersistence::slotJsonLoadFilename(num).empty();
 }
 
-void Save::updateAllPtrVector()
+bool Save::loadSharedGameData()
 {
-    toPtrVector(roles_mem_, roles_);
-    toPtrVector(items_mem_, items_);
-    toPtrVector(submap_infos_mem_, submap_infos_);
-    toPtrVector(magics_mem_, magics_);
-    toPtrVector(shops_mem_, shops_);
-}
-
-bool Save::load(int num)
-{
-    if (!checkSaveFileExist(num))
-    {
-        return false;
-    }
-
-    auto jsonPath = SavePersistence::slotJsonLoadFilename(num);
     auto sharedDbPath = SavePersistence::sharedGameDbFilename();
     if (!filefunc::fileExist(sharedDbPath))
     {
@@ -337,8 +203,7 @@ bool Save::load(int num)
     loadStaticDataFromDb(db);
     updateAllPtrVector();
 
-    //读取SD数据，始终从默认文件读取
-    //放在slot JSON之前：即使JSON解析失败，场景层数据也必须加载
+    // 读取SD数据，始终从默认文件读取。
     const int submap_count = static_cast<int>(submap_infos_.size());
     {
         std::vector<char> sdata(submap_count * sdata_length_);
@@ -356,6 +221,41 @@ bool Save::load(int num)
     }
     makeMapsAndRepairID();
     db.close();
+    return true;
+}
+
+bool Save::prepareChessMode()
+{
+    if (!loadSharedGameData())
+    {
+        return false;
+    }
+
+    KysChess::ChessModHook::initializeSaveState(*this);
+    return true;
+}
+
+void Save::updateAllPtrVector()
+{
+    toPtrVector(roles_mem_, roles_);
+    toPtrVector(items_mem_, items_);
+    toPtrVector(submap_infos_mem_, submap_infos_);
+    toPtrVector(magics_mem_, magics_);
+    toPtrVector(shops_mem_, shops_);
+}
+
+bool Save::load(int num)
+{
+    if (!checkSaveFileExist(num))
+    {
+        return false;
+    }
+
+    auto jsonPath = SavePersistence::slotJsonLoadFilename(num);
+    if (!prepareChessMode())
+    {
+        return false;
+    }
 
     SavePersistence::SlotData slotData;
     if (!SavePersistence::readSlotJson(jsonPath, slotData))
@@ -364,7 +264,8 @@ bool Save::load(int num)
         return false;
     }
 
-    SavePersistence::applySlotData(slotData, *this);
+    SavePersistence::applySceneState(slotData.scene, *this);
+    KysChess::ChessModHook::importGameData(slotData.gameData);
 
     return true;
 }

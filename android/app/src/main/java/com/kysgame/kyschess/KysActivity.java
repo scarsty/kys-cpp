@@ -228,7 +228,6 @@ public class KysActivity extends SDLActivity {
             }
         }
 
-        copyAssetFileIfMissing(am, "game/save/0.json", new File(saveDir, "0.json"));
         copyAssetFileIfMissing(am, "game/save/setting.json", new File(saveDir, "setting.json"));
     }
 

@@ -32,6 +32,7 @@ public:
     bool save(int num);
     bool exportSlotJson(int num, std::string& payload);
     bool importSlotJson(int num, const std::string& payload);
+    bool prepareChessMode();
 
     // 帮助网络交流
     void resetRData(const std::vector<RoleSave>& newData);
@@ -203,6 +204,7 @@ public:
 
 private:
     void loadStaticDataFromDb(SQLite3Wrapper& db);
+    bool loadSharedGameData();
 
 public:
     void runSql(const std::string& cmd);

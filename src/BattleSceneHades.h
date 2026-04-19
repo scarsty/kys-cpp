@@ -31,6 +31,7 @@ public:
     virtual void dealEvent2(EngineEvent& e) override;    //用于停止自动
     virtual void onEntrance() override;
     virtual void onExit() override;
+    virtual void calExpGot() override;
 
     virtual void backRun() override {}
 
@@ -63,7 +64,8 @@ protected:
                                     int eftId,
                                     int damage,
                                     int stunFrames = 0,
-                                    Role* trackedTarget = nullptr);
+                                    Role* trackedTarget = nullptr,
+                                    int maxTargets = 0);
     void spawnTrackingProjectileSpread(const AttackEffect& prototype,
                                        int projectileCount,
                                        int initialFrame = 0,
@@ -125,6 +127,7 @@ public:
     void setEnemyWeapons(const std::vector<int>& weapons) { enemy_weapons_ = weapons; }
     void setEnemyArmors(const std::vector<int>& armors) { enemy_armors_ = armors; }
     void setCloneSpawnPositions(const std::vector<std::pair<int, int>>& positions) { clone_spawn_positions_ = positions; }
+    void setCountFightsWon(bool countFightsWon) { count_fights_won_ = countFightsWon; }
 
     static int getOperationType(int attackAreaType);
     static const char* getOperationTypeName(int operationType);
@@ -153,6 +156,7 @@ protected:
     bool half_speed_step_on_next_render_ = true;
     Pointf camera_target_;
     int close_up_total_ = 0;
+    bool count_fights_won_ = true;
 
     struct PathInfo {
         std::vector<Pointf> waypoints;

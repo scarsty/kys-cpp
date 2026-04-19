@@ -16,7 +16,7 @@ public:
 
     void selectForBattle();
     void enterBattle();
-    int runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id = -1, int seed = -1);
+    int runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id = -1, int seed = -1, bool countFightsWon = true);
 
 private:
     ChessSelectorServices services_;

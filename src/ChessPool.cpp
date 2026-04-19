@@ -37,7 +37,7 @@ ChessPool::ChessPool(ChessRandom& random, ChessRoleSave& roleSave)
 {
 }
 
-ChessPool::ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::vector<StoredShopEntry>& shop)
+ChessPool::ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::vector<StoredShopEntry>& shop, const std::vector<int>& rejectedRoleIds)
     : ChessPool(random, roleSave)
 {
     for (const auto& shopEntry : shop)
@@ -45,6 +45,7 @@ ChessPool::ChessPool(ChessRandom& random, ChessRoleSave& roleSave, const std::ve
         auto* role = roleSave_.getRole(shopEntry.roleId);
         current_.emplace_back(role, role ? role->Cost : shopEntry.tier);
     }
+    rejected_.insert(rejectedRoleIds.begin(), rejectedRoleIds.end());
 }
 
 void ChessPool::ensurePoolLoaded()
@@ -55,9 +56,9 @@ void ChessPool::ensurePoolLoaded()
         return;
     }
 
-    rejected_.clear();
     if (poolLoaded_ && loadedDifficulty_ != difficulty)
     {
+        rejected_.clear();
         current_.clear();
     }
 
@@ -142,51 +143,45 @@ Color ChessPool::GetTierColor(int tier)
     return kTierColors[std::clamp(tier - 1, 0, static_cast<int>(kTierColors.size()) - 1)];
 }
 
-Role* ChessPool::selectFromPool(int tier)
+Role* ChessPool::selectFromPool(int tier, const std::unordered_set<int>& alreadySelected)
 {
     ensurePoolLoaded();
     const auto& roles = rolesByTier_[tier - 1];
-    if (roles.empty())
+
+    std::vector<int> candidates;
+    std::vector<int> rejectedCandidates;
+    for (auto roleId : roles)
+    {
+        if (banned_.contains(roleId) || alreadySelected.contains(roleId))
+        {
+            continue;
+        }
+        if (tier <= 4 && rejected_.contains(roleId))
+        {
+            rejectedCandidates.push_back(roleId);
+            continue;
+        }
+        candidates.push_back(roleId);
+    }
+
+    auto& pool = candidates.empty() ? rejectedCandidates : candidates;
+    if (pool.empty())
     {
         return nullptr;
     }
+    return roleSave_.getRole(pool[random_.shopRandInt(static_cast<int>(pool.size()))]);
+}
 
-    for (int attempts = 0; attempts < 100; ++attempts)
+bool ChessPool::tierHasCandidate(int tier, const std::unordered_set<int>& alreadySelected) const
+{
+    for (auto roleId : rolesByTier_[tier - 1])
     {
-        auto idx = roles[random_.shopRandInt(static_cast<int>(roles.size()))];
-        if (banned_.contains(idx))
+        if (!banned_.contains(roleId) && !alreadySelected.contains(roleId))
         {
-            continue;
+            return true;
         }
-        auto role = roleSave_.getRole(idx);
-        if (tier <= 4 && rejected_.contains(role))
-        {
-            continue;
-        }
-        return role;
     }
-
-    Role* fallback = nullptr;
-    for (auto idx : roles)
-    {
-        if (banned_.contains(idx))
-        {
-            continue;
-        }
-
-        auto role = roleSave_.getRole(idx);
-        if (tier <= 4 && rejected_.contains(role))
-        {
-            if (!fallback)
-            {
-                fallback = role;
-            }
-            continue;
-        }
-        return role;
-    }
-
-    return fallback;
+    return false;
 }
 
 void ChessPool::setBannedRoleIds(const std::set<int>& banned)
@@ -199,58 +194,50 @@ void ChessPool::generateShop(int level)
 {
     ensurePoolLoaded();
 
-    std::vector<std::pair<Role*, int>> roles;
-    roles.reserve(ChessBalance::config().shopSlotCount);
-    rejected_.clear();
+    std::unordered_set<int> selected;
+    current_.clear();
+    current_.reserve(ChessBalance::config().shopSlotCount);
 
     for (int i = 0; i < ChessBalance::config().shopSlotCount; ++i)
     {
-        Role* selectedRole = nullptr;
-        int selectedTier = -1;
-
-        for (int attempt = 0; attempt < 100 && !selectedRole; ++attempt)
+        // Compute effective weights: only include tiers that still have candidates.
+        int totalWeight = 0;
+        std::array<int, 5> weights = {};
+        for (int t = 0; t < 5; ++t)
         {
-            auto val = random_.shopRandInt(100);
-            auto cur = 0;
-            for (int tier = 1; tier <= 5; ++tier)
+            if (tierHasCandidate(t + 1, selected))
             {
-                auto w = ChessBalance::config().shopWeights[level][tier - 1];
-                cur += w;
-                if (val < cur)
-                {
-                    selectedRole = selectFromPool(tier);
-                    if (selectedRole)
-                    {
-                        selectedTier = tier;
-                    }
-                    break;
-                }
+                weights[t] = ChessBalance::config().shopWeights[level][t];
+                totalWeight += weights[t];
             }
         }
-
-        if (!selectedRole)
-        {
-            for (int tier = 1; tier <= 5; ++tier)
-            {
-                selectedRole = selectFromPool(tier);
-                if (selectedRole)
-                {
-                    selectedTier = tier;
-                    break;
-                }
-            }
-        }
-
-        if (!selectedRole)
+        if (totalWeight == 0)
         {
             break;
         }
 
-        roles.emplace_back(selectedRole, selectedTier);
-        rejected_.insert(selectedRole);
-    }
+        auto val = random_.shopRandInt(totalWeight);
+        int cum = 0;
+        int selectedTier = 1;
+        for (int t = 0; t < 5; ++t)
+        {
+            cum += weights[t];
+            if (val < cum)
+            {
+                selectedTier = t + 1;
+                break;
+            }
+        }
 
-    current_ = roles;
+        auto* role = selectFromPool(selectedTier, selected);
+        if (!role)
+        {
+            break;
+        }
+
+        current_.emplace_back(role, selectedTier);
+        selected.insert(role->ID);
+    }
 }
 
 void ChessPool::removeChessAt(int idx) {
@@ -258,6 +245,16 @@ void ChessPool::removeChessAt(int idx) {
 }
 
 void ChessPool::refresh(int level) {
+    // The roles still in the shop become "rejected" for the next generation,
+    // preventing the same unchosen pieces from reappearing immediately.
+    rejected_.clear();
+    for (const auto& [role, tier] : current_)
+    {
+        if (role)
+        {
+            rejected_.insert(role->ID);
+        }
+    }
     current_.clear();
     generateShop(level);
 }

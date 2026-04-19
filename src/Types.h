@@ -347,6 +347,7 @@ public:
     Pointf Acceleration;    //加速度
     int HurtFrame = 0;      //正在受到伤害
     int CoolDown = 0;       //冷却
+    int CoolDownMax = 0;    //最大冷却时间（用于显示进度条）
     int Attention = 0;      //出场
     int Invincible = 0;     //无敌时间
     int Frozen = 0;         //静止时间

@@ -5,6 +5,7 @@
 #include "Menu.h"
 #include "Talk.h"
 #include "GameState.h"
+#include "Save.h"
 #include "UISave.h"
 #include <format>
 
@@ -12,6 +13,14 @@ namespace KysChess
 {
 
 static constexpr int MOD_SCENE_ID = 53;    // 擂鼓山
+static constexpr int MOD_ENTRY_X = 21;
+static constexpr int MOD_ENTRY_Y = 54;
+static constexpr int MAIN_MAP_X = 358;
+static constexpr int MAIN_MAP_Y = 235;
+static constexpr int SHIP_X = 109;
+static constexpr int SHIP_Y = 100;
+static constexpr int SHIP_X1 = 109;
+static constexpr int SHIP_Y1 = 99;
 static bool needIntro_ = false;
 
 ChessMod::ChessMod(GameState& gameState)
@@ -33,11 +42,38 @@ ChessSelector ChessMod::makeSelector() const
         gameState_.random());
 }
 
+void ChessModHook::initializeSaveState(::Save& save)
+{
+    save.InShip = 0;
+    save.InSubMap = MOD_SCENE_ID;
+    save.MainMapX = MAIN_MAP_X;
+    save.MainMapY = MAIN_MAP_Y;
+    save.SubMapX = MOD_ENTRY_X;
+    save.SubMapY = MOD_ENTRY_Y;
+    save.FaceTowards = 1;
+    save.ShipX = SHIP_X;
+    save.ShipY = SHIP_Y;
+    save.ShipX1 = SHIP_X1;
+    save.ShipY1 = SHIP_Y1;
+    save.Encode = 65001;
+
+    for (int i = 0; i < TEAMMATE_COUNT; ++i)
+    {
+        save.Team[i] = -1;
+    }
+    save.Team[0] = 0;
+
+    for (int i = 0; i < ITEM_IN_BAG_COUNT; ++i)
+    {
+        save.Items[i] = {};
+    }
+}
+
 bool ChessModHook::overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty)
 {
     scene = MOD_SCENE_ID;
-    x = 21;
-    y = 54;
+    x = MOD_ENTRY_X;
+    y = MOD_ENTRY_Y;
     event = -1;
     GameState::get().reset(difficulty);
     ChessCombo::clearActiveStates();

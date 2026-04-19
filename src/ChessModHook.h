@@ -3,6 +3,7 @@
 #include "ChessBalance.h"
 
 class SQLite3Wrapper;
+class Save;
 
 namespace KysChess
 {
@@ -32,6 +33,7 @@ private:
 class ChessModHook
 {
 public:
+    static void initializeSaveState(::Save& save);
     static bool overrideNewGame(int& scene, int& x, int& y, int& event, Difficulty difficulty);
     static GameDataStore exportGameData();
     static void importGameData(const GameDataStore& store);

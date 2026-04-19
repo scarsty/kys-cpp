@@ -14,8 +14,8 @@ struct StarBoostedStats
 class BattleRoleManager
 {
 public:
-    static void applyStarBonus(Role* role, int stars);
-    static StarBoostedStats computeStarStats(const Role* role, int stars);
+    static void applyStarBonus(Role* role, int stars, int fightsWon = 0);
+    static StarBoostedStats computeStarStats(const Role* role, int stars, int fightsWon = 0);
 };
 
 }  // namespace KysChess

@@ -88,6 +88,13 @@ bool ChessBalance::loadConfig(const std::string& path)
         if (n["固定防御"]) c.starFlatDef = n["固定防御"].as<int>();
     }
 
+    if (auto n = root["棋子成长"])
+    {
+        if (n["每胜生命"]) c.fightWinGrowthHP = n["每胜生命"].as<int>();
+        if (n["每胜攻击"]) c.fightWinGrowthAtk = n["每胜攻击"].as<int>();
+        if (n["每胜防御"]) c.fightWinGrowthDef = n["每胜防御"].as<int>();
+    }
+
     if (auto n = root["经济"])
     {
         if (n["初始金币"]) c.initialMoney = n["初始金币"].as<int>();

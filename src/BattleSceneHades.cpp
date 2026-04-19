@@ -481,6 +481,13 @@ void increaseCooldown(Role* r, int pct)
     }
     int increased = (r->CoolDown * (100 + pct) + 99) / 100;
     r->CoolDown = std::max(r->CoolDown + 1, increased);
+    r->CoolDownMax = std::max(r->CoolDownMax, r->CoolDown);
+}
+
+void setCoolDown(Role* r, int cd)
+{
+    r->CoolDown = cd;
+    r->CoolDownMax = cd;
 }
 
 }    // namespace
@@ -1588,9 +1595,16 @@ void BattleSceneHades::draw()
         if (r->Frozen > 0 && r->FrozenMax > 0)
         {
             Font::getInstance()->draw(std::to_string(r->Frozen),
-                (std::max)(1, int(10 * sizeScale)),
-                worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y),
+                (std::max)(1, int(9 * sizeScale)),
+                worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
                 { 255, 255, 255, 255 });
+        }
+        else if (r->CoolDown > 0 && r->CoolDownMax > 0)
+        {
+            Font::getInstance()->draw(std::to_string(r->CoolDown),
+                (std::max)(1, int(9 * sizeScale)),
+                worldToUiX(wx - 5), worldToUiY(wy + ROLE_STATUS_BAR_FROZEN_Y - 1),
+                { 230, 195, 120, 240 });
         }
         if (positionSwapActive_ && r->Team == 0)
         {
@@ -1781,9 +1795,25 @@ void BattleSceneHades::onEntrance()
         }
 
         // Apply star + combo enhancements on battle copies
+        auto getTeammateFightsWon = [&](size_t index)
+        {
+            if (index >= extended_teammates_.size())
+            {
+                return 0;
+            }
+
+            int chessInstanceId = extended_teammates_[index].chessInstanceId;
+            if (chessInstanceId < 0)
+            {
+                return 0;
+            }
+
+            auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
+            return chess ? chess->fightsWon : 0;
+        };
         for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); i++)
         {
-            KysChess::BattleRoleManager::applyStarBonus(&friends_obj_[i], extended_teammates_[i].star);
+            KysChess::BattleRoleManager::applyStarBonus(&friends_obj_[i], extended_teammates_[i].star, getTeammateFightsWon(i));
         }
         for (size_t i = 0; i < enemies_obj_.size() && i < enemy_stars_.size(); i++)
         {
@@ -2240,6 +2270,36 @@ void BattleSceneHades::onExit()
     // hurt_flash_timers_.clear();
     // execution_popup_roles_.clear();
     // Engine::getInstance()->hideBattleLogWindow();
+}
+
+void BattleSceneHades::calExpGot()
+{
+    BattleScene::calExpGot();
+
+    if (result_ != 0)
+    {
+        return;
+    }
+
+    if (!count_fights_won_)
+    {
+        return;
+    }
+
+    std::set<int> rewardedInstanceIds;
+    for (const auto& teammate : extended_teammates_)
+    {
+        if (teammate.chessInstanceId < 0)
+        {
+            continue;
+        }
+        if (!rewardedInstanceIds.insert(teammate.chessInstanceId).second)
+        {
+            continue;
+        }
+
+        chessManager_.incrementFightsWon(KysChess::ChessInstanceID{ teammate.chessInstanceId });
+    }
 }
 
 class PositionSwapNode : public RunNode
@@ -3538,7 +3598,8 @@ void BattleSceneHades::backRun1()
                         int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
                         logBattleStatus(r, nullptr,
                             formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
-                        spawnAreaImpactProjectiles(r, r, 6, KysChess::EFT_DEATH_BLAST, aoeDmg, sit->second.deathAOEStunFrames, r->LastAttacker);
+                        spawnAreaImpactProjectiles(r, r, 6, KysChess::EFT_DEATH_BLAST, aoeDmg,
+                            sit->second.deathAOEStunFrames, r->LastAttacker, sit->second.deathAOEMaxTargets);
                     }
 
                     for (auto ally : battle_roles_)
@@ -4461,7 +4522,8 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
     int eftId,
     int damage,
     int stunFrames,
-    Role* trackedTarget)
+    Role* trackedTarget,
+    int maxTargets)
 {
     if (!origin || damage <= 0)
     {
@@ -4509,9 +4571,14 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         attack_effects_.push_back(std::move(blast));
     };
 
+    std::vector<Role*> areaTargets;
     for (auto enemy : battle_roles_)
     {
         if (!enemy)
+        {
+            continue;
+        }
+        if (enemy == origin || enemy->Dead != 0 || enemy->Team == origin->Team)
         {
             continue;
         }
@@ -4519,6 +4586,21 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         {
             continue;
         }
+        areaTargets.push_back(enemy);
+    }
+
+    std::stable_sort(areaTargets.begin(), areaTargets.end(), [&](Role* lhs, Role* rhs)
+    {
+        return EuclidDis(origin->Pos, lhs->Pos) < EuclidDis(origin->Pos, rhs->Pos);
+    });
+
+    if (maxTargets > 0 && static_cast<int>(areaTargets.size()) > maxTargets)
+    {
+        areaTargets.resize(maxTargets);
+    }
+
+    for (auto enemy : areaTargets)
+    {
         spawnImpactProjectile(enemy);
     }
 
@@ -4754,7 +4836,7 @@ void BattleSceneHades::AI(Role* r)
                         }
                         if (r->OperationType == 3)
                         {
-                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            setCoolDown(r, calCoolDown(r->UsingMagic->MagicType, r->OperationType, r));
                             r->ActFrame = 0;
                             r->HaveAction = 1;
                         }
@@ -4825,7 +4907,7 @@ void BattleSceneHades::AI(Role* r)
 
                         if (r->OperationType == 3)
                         {
-                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            setCoolDown(r, calCoolDown(r->UsingMagic->MagicType, r->OperationType, r));
                             r->ActFrame = 0;
                             r->HaveAction = 1;
                         }
@@ -4850,7 +4932,7 @@ void BattleSceneHades::AI(Role* r)
                                 r->OperationType = 0;
                             }
 
-                            r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                            setCoolDown(r, calCoolDown(m->MagicType, r->OperationType, r));
                             r->ActFrame = 0;
                             r->ActType = m->MagicType;
                             r->HaveAction = 1;
@@ -4858,7 +4940,7 @@ void BattleSceneHades::AI(Role* r)
                         else if (wantDashAttack)
                         {
                             r->OperationType = 3;
-                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            setCoolDown(r, calCoolDown(r->UsingMagic->MagicType, r->OperationType, r));
                             r->ActFrame = 0;
                             r->ActType = r->UsingMagic->MagicType;
                             r->HaveAction = 1;
@@ -4881,7 +4963,7 @@ void BattleSceneHades::AI(Role* r)
                                 {
                                     r->OperationType = 1;
                                 }
-                                r->CoolDown = calCoolDown(m->MagicType, r->OperationType, r);
+                                setCoolDown(r, calCoolDown(m->MagicType, r->OperationType, r));
                                 r->ActFrame = 0;
                                 r->ActType = m->MagicType;
                                 r->HaveAction = 1;
@@ -4904,7 +4986,7 @@ void BattleSceneHades::AI(Role* r)
                                 //随机移动一下，增加一些变数
                                 r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
                             }
-                            r->CoolDown = calCoolDown(r->UsingMagic->MagicType, r->OperationType, r);
+                            setCoolDown(r, calCoolDown(r->UsingMagic->MagicType, r->OperationType, r));
                             r->ActFrame = 0;
                             r->ActType = r->UsingMagic->MagicType;
                             r->HaveAction = 1;
@@ -5036,7 +5118,7 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
     Color mp_shadow_color = { 64, 64, 64, 128 };
     renderBar(y + ROLE_STATUS_BAR_MP_Y, r->MP, r->MaxMP, mp_color, mp_shadow_color);
 
-    // Frozen bar
+    // Frozen / cooldown bar – frozen takes priority
     if (r->Frozen > 0 && r->FrozenMax > 0)
     {
         Color frozen_color = { 200, 220, 255, 192 };
@@ -5049,6 +5131,17 @@ void BattleSceneHades::renderExtraRoleInfo(Role* r, double x, double y)
         // Draw current frozen bar
         Rect r_frozen = { barLeft, bar_y, int(perc * ROLE_STATUS_BAR_WIDTH), ROLE_STATUS_BAR_HEIGHT };
         Engine::getInstance()->renderSquareTexture(&r_frozen, frozen_color, 192);
+    }
+    else if (r->CoolDown > 0 && r->CoolDownMax > 0)
+    {
+        Color cd_color = { 255, 210, 140, 160 };
+        int bar_y = y + ROLE_STATUS_BAR_FROZEN_Y;
+        double perc = static_cast<double>(r->CoolDown) / r->CoolDownMax;
+
+        renderOutline(barLeft, bar_y, ROLE_STATUS_BAR_WIDTH, ROLE_STATUS_BAR_HEIGHT, cd_color, 100);
+
+        Rect r_cd = { barLeft, bar_y, int(perc * ROLE_STATUS_BAR_WIDTH), ROLE_STATUS_BAR_HEIGHT };
+        Engine::getInstance()->renderSquareTexture(&r_cd, cd_color, 160);
     }
 }
 
@@ -5214,6 +5307,7 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
             c = static_cast<int>(c * (1.0 - it->second.cdrPct / 100.0));
             c = std::max(calCast(act_type, operation_type, r) + 2, c);
         }
+        std::print("{} cast time {}\n", r->Name, c);
         return c;
     }
     else
@@ -5726,7 +5820,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
                     formatStatusRange("流血", ds.bleedStacks, as.bleedMaxStacks, "层"));
             }
 
-            // Damage reduce debuff (伤害降低): chance on hit to mark target
+            // Damage reduce debuff (伤害降低): mark target on hit to reduce outgoing damage
             if (hurt > 0 && as.dmgReduceDebuffChancePct > 0
                 && as.dmgReduceDebuffDurationFrames > 0
                 && rand_.rand() * 100 < as.dmgReduceDebuffChancePct)

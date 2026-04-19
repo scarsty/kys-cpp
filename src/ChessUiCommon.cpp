@@ -161,7 +161,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::DodgeAdaptation: desc = std::format("同敵閃避{}%({}層)", eff.value, eff.value2); break;
     case EffectType::RampingDmg: desc = std::format("連擊增傷+{}%({}層)", eff.value, eff.value2); break;
     case EffectType::HealBurst: desc = std::format("回血{}%", eff.value); break;
-    case EffectType::BleedChance: desc = std::format("{}%流血", eff.value); break;
+    case EffectType::BleedChance: desc = std::format("{}%流血{}層", eff.value, eff.value2); break;
     case EffectType::BleedPersist: desc = "流血持續"; break;
     case EffectType::PostSkillDash: desc = "絕招後疾退"; break;
     case EffectType::EnemyTopDebuff: desc = std::format("敵方前{}名攻防-{}×存活數", eff.value, eff.value2); break;
@@ -180,7 +180,9 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::MPBlock: desc = std::format("封内力回復{}幀", eff.value); break;
     case EffectType::CharmCDRDebuff: desc = std::format("{}%增敵CD{}%", eff.value, eff.value2); break;
     case EffectType::OffensiveCharm: desc = std::format("攻擊傾城{}%", eff.value); break;
-    case EffectType::DeathAOE: desc = eff.value2 ? std::format("殉爆{}%眩{}幀", eff.value, eff.value2) : std::format("殉爆{}%", eff.value); break;
+    case EffectType::DeathAOE:
+        desc = eff.value2 > 0 ? std::format("殉爆{}%最多{}敵", eff.value, eff.value2) : std::format("殉爆{}%", eff.value);
+        break;
     case EffectType::ShieldExplosion: desc = "護盾解除"; break;
     case EffectType::TempFlatATK: desc = compact ? std::format("临时攻+{}", eff.value) : std::format("临时攻击+{}", eff.value); break;
     case EffectType::AutoUltimate: desc = "自動絕招"; break;
@@ -194,8 +196,8 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::HurtInvincFrames: desc = std::format("受傷後無敵{}幀", eff.value); break;
     case EffectType::DashAttack: desc = "滑步攻擊"; break;
     case EffectType::DashChanceBoost: desc = std::format("滑步率+{}%", eff.value); break;
-    case EffectType::MPRatioDmgBoost: desc = compact ? std::format("內力加傷≤{}%", eff.value) : std::format("當前內力比例加傷≤{}%", eff.value); break;
-    case EffectType::DmgReduceDebuff: desc = compact ? std::format("降傷標記{}%/{}幀", eff.value, eff.value2) : std::format("攻擊{}%概率標記降傷{}幀", eff.value, eff.value2); break;
+    case EffectType::MPRatioDmgBoost: desc = compact ? std::format("內力比加傷至{}%", eff.value) : std::format("當前內力比例加傷至{}%", eff.value); break;
+    case EffectType::DmgReduceDebuff: desc = compact ? std::format("降傷標記{}%/{}幀", eff.value, eff.value2) : std::format("攻擊標記目標降傷{}%/{}幀", eff.value, eff.value2); break;
     default: desc = std::format("效果({})", eff.value); break;
     }
     return triggerPrefix() + desc + durationSuffix() + countSuffix();

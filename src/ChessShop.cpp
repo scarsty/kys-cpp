@@ -11,7 +11,7 @@ ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave)
 }
 
 ChessShop::ChessShop(ChessRandom& random, ChessRoleSave& roleSave, const GameDataStore& store)
-    : pool_(random, roleSave, store.currentShop)
+    : pool_(random, roleSave, store.currentShop, store.rejectedRoleIds)
 {
     locked_ = store.shopLocked;
     pool_.setBannedRoleIds(store.bannedRoleIds);
@@ -29,6 +29,7 @@ void ChessShop::exportTo(GameDataStore& store) const
         }
         store.currentShop.push_back({role->ID, tier});
     }
+    store.rejectedRoleIds.assign(pool_.getRejectedRoleIds().begin(), pool_.getRejectedRoleIds().end());
 }
 
 }

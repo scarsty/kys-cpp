@@ -151,7 +151,6 @@ function Copy-ReleaseGameAssets
 
     $sourceSaveDir = Join-Path $SourceGameDir 'save'
     Ensure-PathExists -Path (Join-Path $sourceSaveDir 'game.db') -Message "Required save data missing: $(Join-Path $sourceSaveDir 'game.db')"
-    Ensure-PathExists -Path (Join-Path $sourceSaveDir '0.json') -Message "Required save data missing: $(Join-Path $sourceSaveDir '0.json')"
 
     Invoke-RobocopyMirror -Source $SourceGameDir -Destination $DestinationGameDir -ExcludeDirectories @('save')
 
@@ -163,7 +162,6 @@ function Copy-ReleaseGameAssets
     New-Item -ItemType Directory -Force -Path $destSaveDir | Out-Null
 
     Copy-Item (Join-Path $sourceSaveDir 'game.db') $destSaveDir -Force
-    Copy-Item (Join-Path $sourceSaveDir '0.json') $destSaveDir -Force
 
     foreach ($archive in Get-ChildItem -Path $sourceSaveDir -Filter '*.grp.zip' -File -ErrorAction SilentlyContinue)
     {

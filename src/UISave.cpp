@@ -86,11 +86,13 @@ bool UISave::load(int r)
             }
         });
         main_scene->setManPosition(save->MainMapX, save->MainMapY);
+        main_scene->setTowards(save->FaceTowards);
         if (save->InSubMap >= 0)
         {
             if (sub_scene)
             {
                 sub_scene->forceJumpSubScene(save->InSubMap, save->SubMapX, save->SubMapY);
+                sub_scene->setTowards(save->FaceTowards);
             }
             else
             {
@@ -128,10 +130,12 @@ void UISave::save(int r)
     {
         sub_scene->getManPosition(save->SubMapX, save->SubMapY);
         save->InSubMap = sub_scene->getMapInfo()->ID;
+        save->FaceTowards = sub_scene->towards_;
     }
     else
     {
         save->InSubMap = -1;
+        save->FaceTowards = main_scene->towards_;
     }
     save->save(r);
 }

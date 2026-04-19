@@ -137,6 +137,8 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
             return false;
         if (!readInt("附加参数", out.value2, false))
             return false;
+        if (!readInt("持续帧数", out.duration, false))
+            return false;
 
         if (out.type == EffectType::ProjectileBounce)
             out.trigger = Trigger::OnHit;
@@ -153,8 +155,6 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
 
             out.trigger = trIt->second;
             if (!readInt("触发参数", out.triggerValue, false))
-                return false;
-            if (!readInt("持续帧数", out.duration, false))
                 return false;
         }
 
@@ -277,7 +277,8 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::OffensiveCharm: s.offensiveCharmChancePct = std::max(s.offensiveCharmChancePct, e.value); break;
     case EffectType::DeathAOE:
         s.deathAOEPct = std::max(s.deathAOEPct, e.value);
-        if (e.value2 > 0) s.deathAOEStunFrames = e.value2;
+        if (e.duration > 0) s.deathAOEStunFrames = std::max(s.deathAOEStunFrames, e.duration);
+        if (e.value2 > 0) s.deathAOEMaxTargets = std::max(s.deathAOEMaxTargets, e.value2);
         break;
     case EffectType::ShieldExplosion: break;
     case EffectType::TempFlatATK: break;
@@ -297,10 +298,9 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::DashChanceBoost: s.dashChanceBoostPct += e.value; break;
     case EffectType::MPRatioDmgBoost: s.mpRatioDmgBoostPct += e.value; break;
     case EffectType::DmgReduceDebuff:
-        s.dmgReduceDebuffChancePct = e.value;
+        s.dmgReduceDebuffChancePct = 100;
         s.dmgReduceDebuffDurationFrames = e.value2;
-        if (e.triggerValue > 0) s.dmgReduceDebuffPct = e.triggerValue;
-        else s.dmgReduceDebuffPct = e.value;
+        s.dmgReduceDebuffPct = e.value;
         break;
     }
 }

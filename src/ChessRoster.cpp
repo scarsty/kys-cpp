@@ -27,6 +27,7 @@ ChessRoster::ChessRoster(ChessRoleSave& roleSave, ChessEquipmentInventory& equip
         chess.star = storedChess.star;
         chess.id = ChessInstanceID{storedChess.chessInstanceId};
         chess.selectedForBattle = storedChess.selectedForBattle;
+        chess.fightsWon = storedChess.fightsWon;
 
         auto restoreItemInstance = [&](int storedItemInstanceId, InstancedItem& slot) {
             if (storedItemInstanceId == k_nonExistentItem.value)
@@ -63,13 +64,14 @@ void ChessRoster::exportTo(GameDataStore& store) const
     store.storedCollection.clear();
     for (auto [instanceId, chess] : collection_)
     {
-        store.storedCollection.emplace_back(
+        store.storedCollection.push_back(StoredChess{
             chess.role->ID,
             chess.star,
             chess.id.value,
             chess.selectedForBattle,
             chess.weaponInstance.id.value,
-            chess.armorInstance.id.value);
+            chess.armorInstance.id.value,
+            chess.fightsWon});
     }
 }
 

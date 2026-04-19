@@ -372,7 +372,7 @@ void BattleTracker::recordBattleEnd(int frame, int battleResult)
     events_.push_back(std::move(event));
 }
 
-static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int chessInstanceId = -1)
+static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int chessInstanceId = -1, int fightsWon = 0)
 {
     BattleStatsView::RoleEntry e;
     e.role = role;
@@ -382,7 +382,7 @@ static BattleStatsView::RoleEntry makeEntry(Role* role, int star, int team, int 
     e.hpRemaining = role ? role->HP : 0;
     e.maxHpRemaining = role ? role->MaxHP : 0;
     e.dead = role ? role->Dead != 0 : false;
-    auto s = KysChess::BattleRoleManager::computeStarStats(role, star);
+    auto s = KysChess::BattleRoleManager::computeStarStats(role, star, fightsWon);
     e.hp = s.hp;
     e.atk = s.atk;
     e.def = s.def;
@@ -449,7 +449,7 @@ void BattleStatsView::setupPreBattle(
     {
         auto& c = allies[i];
         if (c.role) {
-            auto e = makeEntry(c.role, c.star, 0, c.id.value);
+            auto e = makeEntry(c.role, c.star, 0, c.id.value, c.fightsWon);
             if (i < allyWeapons.size()) e.weaponId = allyWeapons[i];
             if (i < allyArmors.size()) e.armorId = allyArmors[i];
             allies_.push_back(e);

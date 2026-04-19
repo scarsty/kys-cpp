@@ -39,6 +39,7 @@ struct Chess
     bool selectedForBattle = false;
     InstancedItem weaponInstance{};
     InstancedItem armorInstance{};
+    int fightsWon = 0;
 };
 
 constexpr auto k_nonExistentItem = ItemInstanceID{-1};
