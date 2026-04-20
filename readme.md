@@ -68,6 +68,10 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 
 <img src='pic/3.png' />
 
+## 字体
+
+不同的字体可能需要调整Font类中的y轴的位置。
+
 
 ## 其他
 

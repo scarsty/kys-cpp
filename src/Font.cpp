@@ -7,7 +7,7 @@
 Font::Font()
 {
     fontnamec_ = GameUtil::PATH() + "font/chinese.ttf";
-    fontnamee_ = GameUtil::PATH() + "font/english.ttf";
+    fontnamee_ = GameUtil::PATH() + "font/chinese.ttf";
     cct2s_.init({ GameUtil::PATH() + "cc/TSPhrases.txt", GameUtil::PATH() + "cc/TSCharacters.txt" });
 }
 
