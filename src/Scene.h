@@ -14,13 +14,19 @@ public:
 
     virtual void dealEvent(EngineEvent& e) override {}
 
-    //BP_Texture* earth_texture = nullptr;
+    static const int TILE_W_0 = 18;    //小图块大小X基准
+    static const int TILE_H_0 = 9;    //小图块大小Y基准
+    static inline int TILE_W = 18;     //小图块大小X
+    static inline int TILE_H = 9;     //小图块大小Y
+
+    static void setTileScale(int scale)
+    {
+        TILE_W = TILE_W_0 * scale;
+        TILE_H = TILE_H_0 * scale;
+    }
 
     int render_center_x_ = 0;
     int render_center_y_ = 0;
-
-    static const int TILE_W = 36;    //小图块大小X
-    static const int TILE_H = 18;    //小图块大小Y
 
     //确定视野使用
     int view_width_region_ = 0;

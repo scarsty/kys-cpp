@@ -79,6 +79,7 @@ void Application::config()
     UIKeyConfig::readFromString(game->getString("game", "key", ""));
     Scene::setKeyWalkDealy(game->getInt("game", "walk_speed", 20));
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 0));
+    Scene::setTileScale(game->getInt("game", "tile_scale", 1));
 #ifdef __ANDROID__
     RunNode::setUseVirtualStick(game->getInt("game", "use_virtual_stick", 1));
 #endif

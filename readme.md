@@ -66,12 +66,21 @@ If the codes are used in Jin Yong's novels related games, the game is strictly p
 
 <img src='pic/2.png' />
 
+以下2张是使用了高清素材，还增加了一点伪光照。
+
 <img src='pic/3.png' />
+
+<img src='pic/4.png' />
 
 ## 字体
 
-不同的字体可能需要调整Font类中的y轴的位置。
+不同的字体可能需要细微调整Font类中的y轴的位置。
 
+## 剧情脚本
+
+脚本一般是用使用Lua执行，也可以使用mlcc中的Cifa的类c风格脚本。在高清版素材中尝试了Cifa脚本（参考<https://github.com/scarsty/kys-cpp-script>下的game2x目录）。
+
+因为剧情流程很简单，大部分脚本可以由正则简单转换，少数需要手动修正。
 
 ## 其他
 

@@ -141,10 +141,11 @@ void SubScene::draw()
             {
                 //有高度地面
                 //应该是先画，但是也不太对，暂时用大地面图时不画
-                int rate = TILE_W / 18;                                 //高清模式要乘以倍率
-                int h = submap_info_->BuildingHeight(ix, iy) * rate;    //高清模式要乘以倍率
+                int rate = TILE_W / 18;                           //高清模式要乘以倍率
+                int h0 = submap_info_->BuildingHeight(ix, iy);    //高清模式要乘以倍率
+                int h = h0 * rate;
                 int num = submap_info_->Earth(ix, iy) / 2;
-                if (num > 0 && h > 2 && !earth_texture)
+                if (num > 0 && (!earth_texture || (earth_texture && h0 > 2 && rate == 1)))    //判断有点复杂，暂时先这样，高清模式下有高度的地面才画小图
                 {
                     TextureManager::getInstance()->renderTexture("smap", num, p.x, p.y);
                 }
