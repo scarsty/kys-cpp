@@ -31,10 +31,10 @@ Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 获取子模块：
 
 ```shell
-git submodule init
-git submodule update
+git submodule sync --recursive
+git submodule update --init --recursive
 # 可选
-git submodule update --remote --rebase
+git submodule update --remote --rebase --recursive
 ```
 之后使用Visual Studio（尽量用新版）打开kys.sln，编译即可。工程为x64版本，如需要x86版请自行修改。
 
