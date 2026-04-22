@@ -69,7 +69,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WITH_SMALLPOT1;WIN32;WITH_NETWORK;_DEBUG;_CONSOLE;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../local/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../cifa</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -93,7 +93,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WITH_SMALLPOT1;WITH_NETWORK;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../local/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../mod;.;\project\microsoft\vcpkg\installed\x64-windows\include\opencv4;../mlcc;../cifa</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalOptions>/source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -115,7 +115,7 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\mlcc\Cifa.cpp" />
+    <ClCompile Include="..\cifa\Cifa.cpp" />
     <ClCompile Include="..\mlcc\SimpleCC.cpp" />
     <ClCompile Include="..\mlcc\SQLite3Wrapper.cpp" />
     <ClCompile Include="..\mlcc\ZipFile.cpp" />
@@ -187,7 +187,7 @@
     <ClCompile Include="Weather.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\mlcc\Cifa.h" />
+    <ClInclude Include="..\cifa\Cifa.h" />
     <ClInclude Include="..\mlcc\SimpleCC.h" />
     <ClInclude Include="..\mlcc\SQLite3Wrapper.h" />
     <ClInclude Include="..\mlcc\ZipFile.h" />

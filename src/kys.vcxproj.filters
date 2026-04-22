@@ -200,14 +200,14 @@
     <ClCompile Include="..\mlcc\ZipFile.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\Cifa.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
     <ClCompile Include="ScriptCifa.cpp">
       <Filter>script</Filter>
     </ClCompile>
     <ClCompile Include="ScriptLua.cpp">
       <Filter>script</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cifa\Cifa.cpp">
+      <Filter>cifa</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -433,8 +433,8 @@
     <ClInclude Include="ScriptLua.h">
       <Filter>script</Filter>
     </ClInclude>
-    <ClInclude Include="..\mlcc\Cifa.h">
-      <Filter>mlcc</Filter>
+    <ClInclude Include="..\cifa\Cifa.h">
+      <Filter>cifa</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -513,6 +513,9 @@
     </Filter>
     <Filter Include="script">
       <UniqueIdentifier>{2a6c4b33-8077-46ba-b047-5afac2335732}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cifa">
+      <UniqueIdentifier>{fe8b0f3f-0e6f-4ae3-8a14-e713da054e16}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

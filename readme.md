@@ -28,7 +28,7 @@ Windows下建议先安装vcpkg，并在vcpkg目录中执行：
 ```bat
 .\vcpkg.exe integrate install
 ```
-获取子模块mlcc：
+获取子模块：
 
 ```shell
 git submodule init
