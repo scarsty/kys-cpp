@@ -148,9 +148,6 @@
     <ClCompile Include="DrawNode.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlcc\PotConv.cpp">
-      <Filter>mlcc</Filter>
-    </ClCompile>
     <ClCompile Include="..\mlcc\strfunc.cpp">
       <Filter>mlcc</Filter>
     </ClCompile>
@@ -393,9 +390,6 @@
       <Filter>mlcc</Filter>
     </ClInclude>
     <ClInclude Include="..\mlcc\INIReader.h">
-      <Filter>mlcc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\mlcc\PotConv.h">
       <Filter>mlcc</Filter>
     </ClInclude>
     <ClInclude Include="..\mlcc\strfunc.h">

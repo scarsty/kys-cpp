@@ -2,7 +2,6 @@
 #include "BattleScene.h"
 #include "Event.h"
 #include "Font.h"
-#include "PotConv.h"
 #include "Random.h"
 #include "Save.h"
 #include "strfunc.h"
@@ -304,7 +303,7 @@ int BattleActionMenu::autoSelect(Role* role)
                                 }
                                 if (total_hurt > -1)
                                 {
-                                    //LOG("AI {} {} ({}, {}): {}\n", role->Name, PotConv::to_read(magic->Name).c_str(), ix, iy, total_hurt);
+                                    //LOG("AI {} {} ({}, {}): {}\n", role->Name, magic->Name, ix, iy, total_hurt);
                                 }
                             }
                         }

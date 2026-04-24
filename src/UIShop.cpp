@@ -1,7 +1,6 @@
 ﻿#include "UIShop.h"
 #include "Event.h"
 #include "Font.h"
-#include "PotConv.h"
 #include "Save.h"
 #include "strfunc.h"
 
@@ -66,8 +65,6 @@ void UIShop::draw()
         str = std::string(item->Name) + std::string(abs(12 - Font::getTextDrawSize(item->Name)), ' ');
         str += std::format("{:8}{:8}{:8}{:8}", shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
         //str = std::format("{:12}{:8}{:8}{:8}{:8}", item->Name, shop_->Price[i], shop_->Total[i], count, plan_buy_[i]);
-        //std::string m = PotConv::utf8tocp936((char*)str1.c_str());
-        //std::cout << m << "\n";
         ((Button*)(getChild(i).get()))->setText(str);
     }
 

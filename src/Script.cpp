@@ -6,7 +6,6 @@
 #include "EventMacro.h"
 #include "Font.h"
 #include "NewSave.h"
-#include "PotConv.h"
 #include "filefunc.h"
 #include "strfunc.h"
 #include <array>

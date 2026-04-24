@@ -127,11 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="C:\project\mlcc\PotConv.cpp" />
     <ClCompile Include="makeRanger.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="C:\project\mlcc\PotConv.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

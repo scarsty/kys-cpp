@@ -9,7 +9,6 @@
 #include "GrpIdxFile.h"
 #include "MainScene.h"
 #include "Menu.h"
-#include "PotConv.h"
 #include "Save.h"
 #include "Script.h"
 #include "SubScene.h"
@@ -55,7 +54,7 @@ bool Event::loadEventData()
     }
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = strfunc::replaceAllSubString(PotConv::cp950toutf8(talk.data() + offset[i]), "*", "");
+        std::string str = strfunc::replaceAllSubString(std::string(talk.data() + offset[i]), "*", "");
         talk_contents_.push_back(str);
     }*/
 

@@ -5,8 +5,8 @@
 #include "abc.h"
 #include "GrpIdxFile.h"
 #include "OpenCCConverter.h"
-#include "PotConv.h"
 #include "TypesABC.h"
+#include "../common/TextEncoding.h"
 #include "filefunc.h"
 #include "strfunc.h"
 #include <print>
@@ -604,25 +604,25 @@ int expandR(std::string idx, std::string grp, int index, std::string path, bool 
         {
             memset(roles_[i].Name, 0, sizeof(roles_[i].Name));
             memset(roles_[i].Nick, 0, sizeof(roles_[i].Nick));
-            PotConv::fromCP950ToUTF8(roles16_[i].Name, roles_[i].Name);
-            PotConv::fromCP950ToUTF8(roles16_[i].Nick, roles_[i].Nick);
+            tool::text::copyConverted(roles16_[i].Name, roles_[i].Name, sizeof(roles_[i].Name), "cp950", "utf-8");
+            tool::text::copyConverted(roles16_[i].Nick, roles_[i].Nick, sizeof(roles_[i].Nick), "cp950", "utf-8");
         }
         for (int i = 0; i < items_.size(); i++)
         {
             memset(items_[i].Name, 0, sizeof(items_[i].Name));
             memset(items_[i].Introduction, 0, sizeof(items_[i].Introduction));
-            PotConv::fromCP950ToUTF8(items16_[i].Name, items_[i].Name);
-            PotConv::fromCP950ToUTF8(items16_[i].Introduction, items_[i].Introduction);
+            tool::text::copyConverted(items16_[i].Name, items_[i].Name, sizeof(items_[i].Name), "cp950", "utf-8");
+            tool::text::copyConverted(items16_[i].Introduction, items_[i].Introduction, sizeof(items_[i].Introduction), "cp950", "utf-8");
         }
         for (int i = 0; i < magics_.size(); i++)
         {
             memset(magics_[i].Name, 0, sizeof(magics_[i].Name));
-            PotConv::fromCP950ToUTF8(magics16_[i].Name, magics_[i].Name);
+            tool::text::copyConverted(magics16_[i].Name, magics_[i].Name, sizeof(magics_[i].Name), "cp950", "utf-8");
         }
         for (int i = 0; i < submapinfos_.size(); i++)
         {
             memset(submapinfos_[i].Name, 0, sizeof(submapinfos_[i].Name));
-            PotConv::fromCP950ToUTF8(submapinfo16_[i].Name, submapinfos_[i].Name);
+            tool::text::copyConverted(submapinfo16_[i].Name, submapinfos_[i].Name, sizeof(submapinfos_[i].Name), "cp950", "utf-8");
         }
         baseinfo_.Encode = 65001;
         memcpy(rgrp2, &baseinfo_, sizeof(baseinfo_));
@@ -808,7 +808,7 @@ void make_heads(std::string path)
     {
         std::string name = r.Name;
         name = OpenCCConverter::getInstance()->UTF8s2t(name);
-        name = PotConv::utf8tocp936(name);
+        name = tool::text::convert(name, "utf-8", "cp936");
         for (auto& h : h_lib)
         {
             if (h.find(name) == 0)

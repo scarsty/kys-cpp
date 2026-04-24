@@ -13,14 +13,10 @@ file(GLOB SRC_LIST
     ./*.cpp
     ../mlcc/strfunc.cpp
     ../mlcc/filefunc.cpp
-    ../mlcc/PotConv.cpp
     ../others/Hanz2Piny.cpp
     )
 
 set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yaml-cpp zip)
-if (APPLE)
-    set(LINK_LIBRARIES ${LINK_LIBRARIES} iconv)
-endif ()
 
 add_executable(kys ${SRC_LIST})
 target_link_libraries(kys imgui::imgui ${LINK_LIBRARIES})

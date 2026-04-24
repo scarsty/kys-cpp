@@ -24,9 +24,6 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\mlcc\PotConv.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\mlcc\strfunc.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -38,9 +35,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\mlcc\PotConv.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\mlcc\strfunc.h">
       <Filter>头文件</Filter>
     </ClInclude>

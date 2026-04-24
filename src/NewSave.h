@@ -162,7 +162,6 @@ private:
                     {
                         auto p = (char*)((char*)&data1 + info.offset);
                         std::string str((char*)stmt.getColumnText(info.col));
-                        //str = PotConv::utf8tocp936(str);
                         memset(p, 0, info.length);
                         memcpy(p, str.data(), std::min(info.length, str.length()));
                     }

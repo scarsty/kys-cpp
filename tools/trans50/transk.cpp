@@ -1,12 +1,13 @@
 ﻿
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "GrpIdxFile.h"
 #include "filefunc.h"
-#include "potconv.h"
 #include "strfunc.h"
+#include "../common/TextEncoding.h"
 
 #include "INIReader.h"
 
@@ -24,7 +25,7 @@ std::vector<std::string> get_talks(std::string path, std::string coding)
     std::vector<std::string> talk_contents;
     for (int i = 0; i < length.size(); i++)
     {
-        std::string str = strfunc::replaceAllSubString(PotConv::conv(talk.data() + offset[i], coding, "utf-8"), "*", "");
+        std::string str = strfunc::replaceAllSubString(tool::text::convert(talk.data() + offset[i], coding, "utf-8"), "*", "");
         strfunc::replaceAllSubStringRef(str, "\r", "");
         strfunc::replaceAllSubStringRef(str, "\n", "");
         strfunc::replaceAllSubStringRef(str, "\"", (char*)u8"”");

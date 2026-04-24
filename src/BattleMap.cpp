@@ -1,7 +1,6 @@
 #include "BattleMap.h"
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
-#include "PotConv.h"
 #include "filefunc.h"
 
 BattleMap::BattleMap()
@@ -17,14 +16,6 @@ BattleMap::BattleMap()
         memcpy(battle_field_data2_[i].data, battle_map.data() + offset[i], sizeof(BattleFieldData2));
     }
     //File::readFileToVector(GameUtil::PATH()+"resource/warfld.grp", battle_field_data2_);
-
-    //std::string str;
-    for (auto& i : battle_infos_)
-    {
-        std::string s = PotConv::cp950toutf8(i.Name);
-        //str += s + "\n";
-    }
-    //File::writeFile("1.txt", (void*)str.c_str(), str.size());
 }
 
 BattleMap::~BattleMap()

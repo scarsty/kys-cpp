@@ -34,7 +34,6 @@ file(GLOB KYS_SRC
     "${KYS_ROOT}/src/*.cpp"
     "${KYS_ROOT}/mlcc/strfunc.cpp"
     "${KYS_ROOT}/mlcc/filefunc.cpp"
-    "${KYS_ROOT}/mlcc/PotConv.cpp"
     "${KYS_ROOT}/mlcc/ZipFile.cpp"
     "${KYS_ROOT}/mlcc/SQLite3Wrapper.cpp"
     "${KYS_ROOT}/mlcc/SimpleCC.cpp"

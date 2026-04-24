@@ -4,7 +4,6 @@
 #include "GameUtil.h"
 #include "GrpIdxFile.h"
 #include "NewSave.h"
-#include "PotConv.h"
 #include "SQLite3Wrapper.h"
 #include "filefunc.h"
 

@@ -10,7 +10,6 @@
 #include "GameUtil.h"
 #include "InputBox.h"
 #include "MainScene.h"
-#include "PotConv.h"
 #include "Save.h"
 #include "SuperMenuText.h"
 #include "GameState.h"

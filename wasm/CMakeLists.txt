@@ -17,7 +17,6 @@ file(GLOB SRC_LIST
     ../src/*.cpp
     ../mlcc/strfunc.cpp
     ../mlcc/filefunc.cpp
-    ../mlcc/PotConv.cpp
     ../mlcc/ZipFile.cpp
     ../mlcc/SQLite3Wrapper.cpp
     ../mlcc/SimpleCC.cpp

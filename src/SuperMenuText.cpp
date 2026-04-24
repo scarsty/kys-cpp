@@ -1,7 +1,6 @@
 ﻿#include "SuperMenuText.h"
 #include "../others/Hanz2Piny.h"
 #include "Font.h"
-#include "PotConv.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>

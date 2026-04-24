@@ -13,9 +13,6 @@
     <ClCompile Include="..\..\mlcc\filefunc.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\mlcc\PotConv.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\OpenCCConverter.cpp">
       <Filter>sources</Filter>
     </ClCompile>

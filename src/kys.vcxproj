@@ -80,7 +80,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>imguid.lib;sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;SDL3_mixer.lib;iconv.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cppd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>imguid.lib;sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;SDL3_mixer.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cppd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
       <Profile>true</Profile>
     </Link>
@@ -110,7 +110,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>imgui.lib;sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;SDL3_mixer.lib;iconv.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>imgui.lib;sdl3.lib;sdl3_image.lib;sdl3_ttf.lib;SDL3_mixer.lib;smallpot.lib;lua.lib;sqlite3.lib;yaml-cpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(VCPKG_LIB_PATH)\x64-windows\lib;$(VCPKG_LIB_PATH)\x64-windows\lib\manual-link;../local/lib/x64</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
@@ -151,7 +151,6 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\mlcc\filefunc.cpp" />
-    <ClCompile Include="..\mlcc\PotConv.cpp" />
     <ClCompile Include="..\others\Hanz2Piny.cpp" />
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Audio.cpp" />
@@ -260,7 +259,6 @@
     <ClInclude Include="..\mlcc\filefunc.h" />
     <ClInclude Include="..\mlcc\fmt1.h" />
     <ClInclude Include="..\mlcc\INIReader.h" />
-    <ClInclude Include="..\mlcc\PotConv.h" />
     <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
