@@ -28,13 +28,14 @@ std::vector<ShopSave> shops_;
 
 std::vector<int> offset16, length16, offset32, length32;
 
+// 字段描述信息，用于将二进制结构体映射到 SQLite 表列
 struct FieldInfo
 {
-    std::string name;
-    int type;    //0-int, 1-char, 2-string
-    int offset;
-    size_t length;
-    int col = -1;
+    std::string name;    // SQLite 列名
+    int type;            // 0=整数, 1=字符数组 (text)
+    int offset;          // 在结构体中的字节偏移
+    size_t length;       // 字段字节大小
+    int col = -1;        // Excel 列号（暂未使用）
 
     FieldInfo() {}
 
@@ -42,6 +43,7 @@ struct FieldInfo
         name(n), type(t), offset(o), length(l), col(c) {}
 };
 
+// index.ka 格式：每两个 int16_t 对应一张 sprite 的 (x, y) 显示偏移
 struct index_ka
 {
     int16_t x, y;    //偏移
@@ -49,8 +51,11 @@ struct index_ka
 
 std::vector<FieldInfo> db_base_, db_item_list_, db_role_, db_item_, db_submapinfo_, db_magic_, db_shop_;
 
+// GET_OFFSET: 获取字段在结构体中的偏移量
 #define GET_OFFSET(field) (int((char*)(&(a.field)) - (char*)(&a)))
+// BIND_FIELD_INT: 绑定整数字段（写入 SQLite 时以 integer 类型）
 #define BIND_FIELD_INT(key, field) FieldInfo(key, 0, GET_OFFSET(field), sizeof(a.field))
+// BIND_FIELD_TEXT: 绑定字符串字段（写入 SQLite 时以 text 类型）
 #define BIND_FIELD_TEXT(key, field) FieldInfo(key, 1, GET_OFFSET(field), sizeof(a.field))
 #define BIND_FIELD_STRING BIND_FIELD_TEXT
 
@@ -398,7 +403,8 @@ void trans_bin_list(std::string in, std::string out)
     filefunc::writeStringToFile(s, out);
 }
 
-//导出战斗帧数为文本
+// 将 path0 下所有 fight??? 子目录中的 fightframe.ka 转为可读文本
+// fightframe.ka: 10 个 int16_t，存放 5 种犴树 为动作的帧数
 void trans_fight_frame(std::string path0)
 {
     for (int i = 0; i <= 900; i++)
@@ -673,7 +679,8 @@ int expandR(std::string idx, std::string grp, int index, std::string path, bool 
     }
 
     int len = offset16.back();
-    auto rgrp2 = new char[len * 2];
+    std::vector<char> rgrp2_buf(len * 2, 0);
+    auto rgrp2 = rgrp2_buf.data();
 
     auto s16 = (int16_t*)rgrp1;
     auto s32 = (int*)rgrp2;
@@ -756,11 +763,10 @@ int expandR(std::string idx, std::string grp, int index, std::string path, bool 
     s32[1]--;    //submap scene id
     GrpIdxFile::writeFile(grp + "32", rgrp2, len * 2);
     GrpIdxFile::writeFile(idx + "32", &offset32[1], 4 * offset32.size() - 4);
-    //delete rgrp1;
-    delete rgrp2;
 
     saveR0ToDB(index, path);
     std::print("trans {} end\n", grp.c_str());
+    return 1;
 }
 
 void combine_image_path(std::string in, std::string out)
@@ -790,8 +796,6 @@ void combine_ka(std::string in, std::string out)
     std::vector<int16_t> in1, out1;
     filefunc::readFileToVector(in, in1);
     filefunc::readFileToVector(out, out1);
-    std::string s;
-    int i = 0;
     for (int i = 0; i < out1.size(); i += 2)
     {
         if (i < in1.size() && out1[i] == 0 && out1[i + 1] == 0)

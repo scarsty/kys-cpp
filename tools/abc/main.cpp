@@ -1,4 +1,9 @@
-﻿#include "abc.h"
+﻿// abc/main.cpp — DOS 版金庸群侠传资源转换工具入口
+// 通过命令行参数选择转换模式；典型用法：
+//   abc --save -p <游戏资源目录>   将存档扩展为 32 位并导出到 .db
+//   abc --trans-indexka -p <路径>  递归将 index.ka 转换为 index.txt
+
+#include "abc.h"
 #include "cmdline.h"
 #include "filefunc.h"
 #include "png_offset.h"
@@ -36,6 +41,7 @@ int main()
     if (cmd.exist("save"))
     {
         initDBFieldInfo();
+        // ranger.grp 是默认存档，r1~r5.grp 是 5 个存档槽位
         expandR(path + "/ranger.idx", path + "/ranger.grp", 0, path, true, false);
         expandR(path + "/ranger.idx", path + "/r1.grp", 1, path, true, false);
         expandR(path + "/ranger.idx", path + "/r2.grp", 2, path, true, false);

@@ -74,7 +74,7 @@ make.bat path
 #### 验证战斗帧数
 
 ```c++
-.\abc.exe --check-frame
+.\abc.exe --check-fightframe
 ```
 主要用于检查帧数与贴图数是否一致，不能保证结果完全正确。
 

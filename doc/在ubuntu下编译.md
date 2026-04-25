@@ -1,4 +1,7 @@
 ## 如何在 linux 上编译
+
+> **注意：以下内容基于旧版本（SDL2 + BASS + C++17），当前代码已迁移至 SDL3 + SDL_mixer + C++23，BASS 已废弃。本文档仅供参考，需按实际依赖库版本调整。**
+
 本作支持 linux 32/64 bit 环境，以本机示范如何编译。
 
 ### 编译环境
@@ -53,7 +56,7 @@ export BASS_HOME=${自己的bass解压路径}
 export BASS_MIDI_HOME=${自己的bassmidi解压路径}
 export CPATH=${BASS_HOME}:${BASS_MIDI_HOME}:${CPATH}
 export LD_LIBRARY_PATH=${BASS_HOME}:${BASS_MIDI_HOME}:${LD_LIBRARY_PATH}
-export export CPLUS_INCLUDE_PATH=${自己的kys-cpp路径}/nb:${CPLUS_INCLUDE_PATH}
+export CPLUS_INCLUDE_PATH=${自己的kys-cpp路径}/nb:${CPLUS_INCLUDE_PATH}
 ```
 注意 64bit 机器要链接的是 x64 目录下面的 so，这个压缩包下面先放的是 32bit 用的 so。`cp -rf x64/libbass.so libbass.so`覆盖掉即可。
 ```shell

@@ -1,5 +1,8 @@
-﻿// trans50.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+﻿// trans50.cpp — 将 Lua 脚本中的 instruct_50 调用展开为可读的 Lua 语句
 //
+// DOS 版完全依赖内置指令系统，自定义指令均以 instruct_50(code, e1..e6) 形式出现。
+// trans50() 识别这些行并将其替换为对应的 Lua 表达式，保留原注释。
+// 当 refine != 0 时将进一步合并隔行的 if/goto 为结构化控制流。
 
 #include <iostream>
 
@@ -21,6 +24,9 @@ std::string trans50(std::string str, int refine)
     std::vector<std::string> lines = strfunc::splitString(str, "\n", false);
 
     int next_parameter = -1;
+    // e_GetValue: 根据类型位 t 的第 bit 位判断 x 是直接常数还是数组索引
+    //   位为 0 → 返回字符串形式的数字（常量）
+    //   位为 1 → 返回 "x[x]" 形式（变量引用）
     auto e_GetValue = [&next_parameter](int bit, int t, int x) -> std::string
     {
         int i = t & (1 << bit);
@@ -37,6 +43,7 @@ std::string trans50(std::string str, int refine)
     {
         return (t & (1 << bit)) == 0;
     };
+    // talks_ 已由 transk.cpp 的 init_ins() 加载，这里取引用避免拷贝
     //读对话
     std::vector<std::string>& talk_contents = talks_;
 
@@ -64,16 +71,16 @@ std::string trans50(std::string str, int refine)
 
                 switch (code)
                 {
-                case 0:
+                case 0:    // 常量赋値： x[e1] = e2
                     str = std::format("x[{}] = {};", e1, e2);
                     break;
-                case 1:
+                case 1:    // 数组写： x[e3 + e4] = e5
                     str = std::format("x[{} + {}] = {};", e3, e_GetValue(0, e1, e4), e_GetValue(1, e1, e5));
                     break;
-                case 2:
+                case 2:    // 数组读： x[e5] = x[e3 + e4]
                     str = std::format("x[{}] = x[{}+ {}];", e5, e3, e_GetValue(0, e1, e4));
                     break;
-                case 3:
+                case 3:    // 算数运算： x[e3] = x[e4] op e5（e2=0~4：+-*/%，e2=5：无符号除）
                 {
                     std::string op = "+-*/%";
                     if (e2 >= 0 && e2 <= 4)
@@ -82,11 +89,11 @@ std::string trans50(std::string str, int refine)
                     }
                     else if (e2 == 5)
                     {
-                        str = std::format("x[{}] = uint(x[{}]) / {};", e3, e4, op[e2 - 4], e_GetValue(0, e1, e5));
+                        str = std::format("x[{}] = uint(x[{}]) / {};", e3, e4, e_GetValue(0, e1, e5));
                     }
                     break;
                 }
-                case 4:
+                case 4:    // 比较运算，结果存入 jump_flag（e2=0~5：< <= == ~= >= >；e2=6/7：常量 true/false）
                 {
                     std::vector<std::string> op = { "<", "<=", "==", "~=", ">=", ">" };
                     if (e2 >= 0 && e2 <= 5)
@@ -103,14 +110,14 @@ std::string trans50(std::string str, int refine)
                     }
                     break;
                 }
-                case 5:
+                case 5:    // 清空 x[0..30000]
                 {
                     str = "for i=0, 30000 do x[i]=0; end;";
                     break;
                 }
-                case 6: break;
-                case 7: break;
-                case 8:
+                case 6: break;    // 无操作
+                case 7: break;    // 无操作
+                case 8:    // 加载对话内容到字符串变量
                 {
                     if (is_number(0, e1, e2))
                     {
@@ -122,74 +129,74 @@ std::string trans50(std::string str, int refine)
                     }
                     break;
                 }
-                case 9:
+                case 9:    // 字符串格式化（string.format）
                 {
                     str = std::format("x[{}] = string.format({}, {});", e2, e3, e_GetValue(0, e1, e4));
                     break;
                 }
-                case 10:
+                case 10:    // 计算字符串实际显示宽度
                 {
                     str = std::format("x[{}] = DrawLength(x[{}]);", e2, e1);
                     break;
                 }
-                case 11:
+                case 11:    // 字符串拼接
                 {
                     str = std::format("x[{}] = x[{}]..x[{}];", e3, e1, e2);
                     break;
                 }
-                case 12:
+                case 12:    // 生成指定宽度的空格字符串
                 {
                     str = std::format("x[{}] = string.rep(\" \", {});", e2, e_GetValue(0, e1, e3));
                     break;
                 }
-                case 16:
+                case 16:    // 设置游戏对象属性（角色/物品/子场景/武功/商店）
                 {
                     std::vector<std::string> names = { "Role", "Item", "SubmapInfo", "Magic", "Shop" };
                     str = std::format("Set{}({}, {} / 2, {});", names[e2], e_GetValue(0, e1, e3), e_GetValue(1, e1, e4), e_GetValue(2, e1, e5));
                     break;
                 }
-                case 17:
+                case 17:    // 读取游戏对象属性
                 {
                     std::vector<std::string> names = { "Role", "Item", "SubmapInfo", "Magic", "Shop" };
                     str = std::format("x[{}] = Get{}({}, {} / 2);", e5, names[e2], e_GetValue(0, e1, e3), e_GetValue(1, e1, e4));
                     break;
                 }
-                case 18:
+                case 18:    // 设置队伍成员
                 {
                     str = std::format("SetTeam({}, {});", e_GetValue(0, e1, e2), e_GetValue(0, e1, e3));
                     break;
                 }
-                case 19:
+                case 19:    // 读取队伍成员
                 {
                     str = std::format("x[{}] = GetTeam({});", e3, e_GetValue(0, e1, e2));
                     break;
                 }
-                case 20:
+                case 20:    // 获取背包中物品数量
                 {
                     str = std::format("x[{}] = GetItemAmount({});", e3, e_GetValue(0, e1, e2));
                     break;
                 }
-                case 21:
+                case 21:    // SetD: 写入主地图对象属性
                 {
                     str = std::format("SetD({}, {}, {}, {});", e_GetValue(0, e1, e2), e_GetValue(1, e1, e3), e_GetValue(2, e1, e4), e_GetValue(3, e1, e5));
                     break;
                 }
-                case 22:
+                case 22:    // GetD: 读取主地图对象属性
                 {
                     str = std::format("x[{}] = GetD({}, {}, {});", e5, e_GetValue(0, e1, e2), e_GetValue(1, e1, e3), e_GetValue(2, e1, e4));
                     break;
                 }
-                case 23:
+                case 23:    // SetS: 写入子场景对象属性
                 {
                     str = std::format("SetS({}, {}, {}, {}, {});", e_GetValue(0, e1, e2), e_GetValue(1, e1, e3), e_GetValue(2, e1, e4), e_GetValue(3, e1, e5), e_GetValue(4, e1, e6));
                     break;
                 }
-                case 24:
+                case 24:    // GetS: 读取子场景对象属性
                 {
                     str = std::format("x[{}] = GetS({}, {}, {}, {});", e6, e_GetValue(0, e1, e2), e_GetValue(1, e1, e3), e_GetValue(2, e1, e4), e_GetValue(3, e1, e5));
                     break;
                 }
-                case 25:
+                case 25:    // write_mem: 写入 DOS 内存地址（历史兼容指令）
                 {
                     if (e3 < 0)
                     {
@@ -199,7 +206,7 @@ std::string trans50(std::string str, int refine)
                         e_GetValue(0, e1, e5));
                     break;
                 }
-                case 26:
+                case 26:    // read_mem: 读取 DOS 内存地址
                 {
                     if (e3 < 0)
                     {
@@ -208,52 +215,52 @@ std::string trans50(std::string str, int refine)
                     str = std::format("x[{}] = read_mem(0x{:x} + {});", e5, e3 + e4 * 0x10000, e_GetValue(0, e1, e6));
                     break;
                 }
-                case 27:
+                case 27:    // 获取对象名称字符串
                 {
                     std::vector<std::string> names = { "Role", "Item", "Submap", "Magic", "Shop" };
                     str = std::format("x[{}] = Get{}Name({});", e4, names[e2], e_GetValue(0, e1, e3));
                     break;
                 }
-                case 32:
+                case 32:    // 读取参数到 temp，同时记录下一条指令需替换的参数位置
                 {
                     str = std::format("temp = x[{}];", e2);
                     e_GetValue(0, e1, e3);
                     next_parameter = e3;
                     break;
                 }
-                case 33:
+                case 33:    // DrawString: 展示文本（同时清除 next_parameter 占位符）
                 {
                     str = std::format("DrawString(x[{}], {}, {}, {});", e2, e_GetValue(0, e1, e3), e_GetValue(1, e1, e4), e_GetValue(2, e1, e5));
                     next_parameter = -1;
                     break;
                 }
-                case 34:
+                case 34:    // DrawRect: 画矩形
                 {
                     str = std::format("DrawRect({}, {}, {}, {});", e_GetValue(0, e1, e2), e_GetValue(1, e1, e3), e_GetValue(2, e1, e4), e_GetValue(3, e1, e5));
                     break;
                 }
-                case 35:
+                case 35:    // 等待键盘输入
                 {
                     str = std::format("x[{}] = GetKey();", e1);
                     break;
                 }
-                case 36:
+                case 36:    // 展示消息对话框，返回用户选择
                 {
                     str = std::format("x[28672] = showmessage(x[{}], {}, {}, {});", e2, e_GetValue(0, e1, e3), e_GetValue(1, e1, e4), e_GetValue(2, e1, e5));
                     break;
                 }
-                case 37:
+                case 37:    // 延迟指定帧数
                 {
                     str = std::format("Delay({});", e_GetValue(0, e1, e2));
                     break;
                 }
-                case 38:
+                case 38:    // 生成随机数
                 {
                     str = std::format("x[{}] = math.random({});", e3, e_GetValue(0, e1, e2));
                     break;
                 }
-                case 39:
-                case 40:
+                case 39:    // 展示选单（e2 个选项）
+                case 40:    // 展示选单（同 case 39，参数约定略有不同）
                 {
                     str = "strs = {};\n";
                     str += std::format("for i=1, {} do\n", e_GetValue(0, e1, e2));
@@ -264,7 +271,7 @@ std::string trans50(std::string str, int refine)
                 }
                 case 41:
                 {
-                    //画图
+                    //画图（e2=0：主图，e2=1：头像）
                     if (e2 == 0)
                     {
                         str = std::format("DrawMainImage({} / 2, {}, {});", e_GetValue(2, e1, e5), e_GetValue(0, e1, e3), e_GetValue(1, e1, e4));
@@ -275,7 +282,7 @@ std::string trans50(std::string str, int refine)
                     }
                     break;
                 }
-                case 43:
+                case 43:    // 设置事件参数并调用子事件
                 {
                     str = std::format("x[28928] = {};\n", e_GetValue(1, e1, e3));
                     str += std::format("x[28929] = {};\n", e_GetValue(2, e1, e4));

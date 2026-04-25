@@ -1,4 +1,9 @@
-﻿
+﻿// transk.cpp — 将 kdef 二进制指令流翻译为 Lua 文本
+//
+// kdef 存储的是定长指令流，每条指令由 ins.length 个 int16 组成。
+// ini 文件记录各指令的属性（名称/长度/跳转偏移/是否条件跳）。
+// transk() 输入整条指令流，输出可人读 Lua 脚本字符串。
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -41,19 +46,22 @@ std::vector<std::string> get_talk_utf8(std::string filename)
     return lines;
 }
 
+// 一条 kdef 指令的属性描述
 struct Instruct
 {
     int id;
-    std::string name;
-    int length;
-    int is_bool;
-    int jump1;
-    int jump2;
+    std::string name;    // 指令名称模板（含 $0/$1 占位符，展开时替换为实际参数）
+    int length;          // 指令占用的 int16 个数（包含指令码本身）
+    int is_bool;         // 是否是条件指令（含条件跳转）
+    int jump1;           // 条件为真时的跳转偏移在指令中的下标
+    int jump2;           // 条件为假时的跳转偏移在指令中的下标
 };
 
+// 全局指令表（读自 kdef.ini [KdefAttrib]）和对话表（读自 talkutf8.txt）
 std::map<int, Instruct> ins_;
 std::vector<std::string> talks_;
 
+// 将 talk.grp/idx 中的对话解密、编码转换并写入 talkutf8.txt
 void trans_talks(std::string talk_path, std::string coding)
 {
     auto talk_utf8 = get_talks(talk_path, coding);
@@ -66,6 +74,9 @@ void trans_talks(std::string talk_path, std::string coding)
     filefunc::writeStringToFile(str, talk_path + "/talkutf8.txt");
 }
 
+// 从 kdef.ini 加载指令表，从 talkutf8.txt 加载对话表。
+// 两者均加载到全局变量 ins_ / talks_。
+// 读取顺序必须先 trans_talks 生成 talkutf8.txt，再调用 init_ins。
 void init_ins(std::string ini_file, std::string path)
 {
     INIReaderNormal ini;
@@ -106,9 +117,15 @@ void init_ins(std::string ini_file, std::string path)
     }
 }
 
+// 将一个事件的指令流（int16 数组）翻译为 Lua 文本。
+// lines 是以指令入口位置为 key 的有序 map；
+// 条件跳转目标位置用 "当前位置 + 偏移 - 0.5" 作为 key 插入标签，
+// 确保标签行排列在被跳转指令之前。
 std::string transk(std::vector<int> e)
 {
     int i = 0, i_line = 0;
+    // key 为指令入口字节位置；条件跳转标签用位置 - 0.5 的 double 键插入，
+    // 这样标签行在迭代时自然排列在目标指令入口行之前
     std::map<double, std::string> lines;    //索引为指令的位置，方便处理偏移
     while (i < e.size())
     {
