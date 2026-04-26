@@ -77,6 +77,10 @@ public:
     const std::set<int>& seenRoleIds() const { return GameDataStore::seenRoleIds; }
     std::set<int>& bannedRoleIds() { return GameDataStore::bannedRoleIds; }
     const std::set<int>& bannedRoleIds() const { return GameDataStore::bannedRoleIds; }
+    bool& strategistFreeRefreshAvailable() { return GameDataStore::strategistFreeRefreshAvailable; }
+    const bool& strategistFreeRefreshAvailable() const { return GameDataStore::strategistFreeRefreshAvailable; }
+    int& strategistFreeRefreshFight() { return GameDataStore::strategistFreeRefreshFight; }
+    const int& strategistFreeRefreshFight() const { return GameDataStore::strategistFreeRefreshFight; }
     void syncBanRuleFromBalance();
     void hydrateBanRuleFromBalanceIfMissing();
 

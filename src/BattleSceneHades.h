@@ -74,8 +74,17 @@ protected:
     void spawnUltimateExtraProjectiles(const AttackEffect& prototype, int extraCount);
     void spawnHitExtraProjectiles(const AttackEffect& prototype, int extraCount, Role* target);
     void spawnExtraProjectiles(const AttackEffect& prototype, int extraCount, const char* logLabel, Role* target);
+    void spawnSpiralBleedProjectiles(Role* attacker, int bleedStacks, int projectileCount = 6);
+    void spawnNearbyTrackingProjectiles(const AttackEffect& prototype,
+                                        Role* centerTarget,
+                                        int rangePixels,
+                                        int damagePct = 40);
     void refreshEnemyTopDebuffs();
     void applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason);
+    void applyTeamMP(Role* source, int amount, const char* reason);
+    void applyTeamShield(Role* source, int amount, const char* reason, bool refreshOnly);
+    int getSharedBleedMaxStacks(Role* source) const;
+    void applyBleed(Role* source, Role* target, int stacks, int maxStacks, bool persist, const char* reason);
     void applyTempAttackBuff(Role* role,
                              KysChess::RoleComboState& state,
                              int attackBonus,
@@ -113,6 +122,9 @@ protected:
     void logBattleHeal(Role* source, Role* target, int amount, const std::string& reason = "");
     void logBattleStatus(Role* source, Role* target, const std::string& text);
     int getHitExtraProjectileCount(Role* r);
+    bool roleForcesRangedMagic(Role* role) const;
+    int getForcedRangedMinSelectDistance(Role* role) const;
+    int getProjectileSpeedMultiplierPct(Role* role) const;
 
     std::vector<Point> findPath(Point start45, Point goal45);
     std::vector<Pointf> smoothPath(const std::vector<Point>& path45);
@@ -150,6 +162,8 @@ protected:
     std::vector<std::pair<int, int>> clone_spawn_positions_;
     std::unordered_map<int, int> hurt_flash_timers_;
     std::set<int> execution_popup_roles_;
+    std::unordered_map<int, std::set<int>> shared_hit_group_targets_;
+    int next_shared_hit_group_id_ = 1;
     bool manual_camera_dragging_ = false;
     double previous_refresh_interval_ = 0.0;
     int battle_frame_ = 0;

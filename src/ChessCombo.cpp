@@ -12,6 +12,29 @@
 namespace KysChess
 {
 
+namespace
+{
+
+bool isTeamwideComboEffect(EffectType effectType)
+{
+    switch (effectType)
+    {
+    case EffectType::TeamFlatHP:
+    case EffectType::TeamFlatATK:
+    case EffectType::TeamFlatDEF:
+    case EffectType::TeamFlatSPD:
+    case EffectType::TeamPctHP:
+    case EffectType::TeamPctATK:
+    case EffectType::TeamPctDEF:
+    case EffectType::TeamPctSPD:
+        return true;
+    default:
+        return false;
+    }
+}
+
+}  // namespace
+
 std::vector<ComboDef> loadFromYaml(const std::string& path)
 {
     YAML::Node root;
@@ -145,15 +168,65 @@ std::map<int, RoleComboState> ChessCombo::buildComboStates(const std::vector<Act
         auto& thresh = combo.thresholds[ac.activeThresholdIdx];
         for (int rid : ac.memberRoleIds)
             for (auto& e : thresh.effects)
+            {
+                if (isTeamwideComboEffect(e.type)) continue;
                 ChessBattleEffects::applyEffect(states[rid], e, ac.id);
+            }
     }
     return states;
+}
+
+std::vector<ComboEffect> ChessCombo::collectGlobalEffects(const std::vector<ActiveCombo>& active)
+{
+    std::vector<ComboEffect> result;
+    for (auto& ac : active)
+    {
+        if (ac.activeThresholdIdx < 0) continue;
+        auto& combo = getAllCombos()[(int)ac.id];
+        auto& thresh = combo.thresholds[ac.activeThresholdIdx];
+        for (auto& effect : thresh.effects)
+        {
+            if (isTeamwideComboEffect(effect.type))
+            {
+                result.push_back(effect);
+            }
+        }
+    }
+    return result;
+}
+
+int ChessCombo::computeTeamFlatShieldBonus(const std::map<int, RoleComboState>& states)
+{
+    int totalShield = 0;
+    std::set<int> seenComboIds;
+    for (const auto& [roleId, state] : states)
+    {
+        for (const auto& effect : state.appliedEffects)
+        {
+            if (effect.type != EffectType::FlatShield || effect.trigger != Trigger::Always || effect.value <= 0)
+            {
+                continue;
+            }
+
+            if (effect.sourceComboId >= 0)
+            {
+                if (!seenComboIds.insert(effect.sourceComboId).second)
+                {
+                    continue;
+                }
+            }
+
+            totalShield += effect.value;
+        }
+    }
+    return totalShield;
 }
 
 void ChessCombo::applyStatBuffs(const std::map<int, RoleComboState>& states)
 {
     activeStates_ = states;
     auto save = Save::getInstance();
+    int teamFlatShield = computeTeamFlatShieldBonus(states);
     for (auto& [roleId, s] : activeStates_)
     {
         Role* role = save->getRole(roleId);
@@ -172,7 +245,9 @@ void ChessCombo::applyStatBuffs(const std::map<int, RoleComboState>& states)
         role->HP = role->MaxHP;
 
         if (s.shieldPctMaxHP > 0)
-            activeStates_[roleId].shield = role->MaxHP * s.shieldPctMaxHP / 100;
+            activeStates_[roleId].shield += role->MaxHP * s.shieldPctMaxHP / 100;
+        if (teamFlatShield > 0)
+            activeStates_[roleId].shield += teamFlatShield;
     }
 }
 
@@ -255,6 +330,27 @@ int ChessCombo::calculateGoldBonus(const std::vector<ActiveCombo>& active, const
         }
     }
     return 0;
+}
+
+bool ChessCombo::hasActiveEffect(const std::vector<ActiveCombo>& active, EffectType effectType)
+{
+    auto& combos = getAllCombos();
+    for (const auto& ac : active)
+    {
+        if (ac.activeThresholdIdx < 0)
+        {
+            continue;
+        }
+        auto& threshold = combos[static_cast<int>(ac.id)].thresholds[ac.activeThresholdIdx];
+        for (const auto& effect : threshold.effects)
+        {
+            if (effect.type == effectType)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 }  // namespace KysChess

@@ -608,7 +608,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--combos', default='config/chess_combos.yaml', help='combo config path')
     parser.add_argument('--pool', default='config/chess_pool.yaml', help='full pool config path')
     parser.add_argument('--output', default='config/chess_pool_easy.yaml', help='easy pool output path')
-    parser.add_argument('--db', default='work/game-dev/save/0.db', help='role name database path')
+    parser.add_argument('--db', default='work/game-dev/save/game.db', help='role name database path')
     parser.add_argument(
         '--mode',
         choices=['generate', 'report'],

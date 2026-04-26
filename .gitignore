@@ -39,3 +39,5 @@ wasm/.wrangler
 .github/
 
 **/__pycache__
+
+output/

@@ -22,6 +22,10 @@ TILE_WIDTH = 248
 TILE_HEIGHT = 240
 ANIMATION_INTERVAL_MS = 60
 GROUP_PATTERN = re.compile(r"^eft(\d+)$", re.IGNORECASE)
+INDEX_KA_NAME = "index.ka"
+INDEX_TXT_NAME = "index.txt"
+TEXT_NUMBER_PATTERN = re.compile(r"[+-]?\d+")
+IMAGE_EXTENSIONS = (".webp", ".png")
 RESAMPLING = getattr(Image, "Resampling", Image)
 
 
@@ -55,22 +59,29 @@ class ArchiveAccessor:
         self.source_path = source_path
         self._zip_file: zipfile.ZipFile | None = None
         self._name_map: dict[str, str | Path] = {}
+        self._root_names: list[str] = []
 
         if source_path.is_dir():
             for child in source_path.iterdir():
                 if child.is_file():
+                    self._root_names.append(child.name)
                     self._name_map[child.name.lower()] = child
         else:
             self._zip_file = zipfile.ZipFile(source_path)
             for info in self._zip_file.infolist():
                 if info.is_dir():
                     continue
-                key = Path(info.filename.replace("\\", "/")).name.lower()
-                self._name_map.setdefault(key, info.filename)
+                normalized_name = info.filename.replace("\\", "/")
+                if "/" not in normalized_name:
+                    self._root_names.append(normalized_name)
+                    self._name_map.setdefault(normalized_name.lower(), info.filename)
 
     def close(self) -> None:
         if self._zip_file is not None:
             self._zip_file.close()
+
+    def root_names(self) -> list[str]:
+        return list(self._root_names)
 
     def read_bytes(self, name: str) -> bytes | None:
         target = self._name_map.get(name.lower())
@@ -149,40 +160,84 @@ def discover_groups(eft_root: Path) -> list[tuple[int, Path]]:
     return groups
 
 
+def find_max_texture_index(accessor: ArchiveAccessor) -> int:
+    max_index = -1
+    for name in accessor.root_names():
+        if Path(name).suffix.lower() not in {".png", ".webp"}:
+            continue
+        numbers = TEXT_NUMBER_PATTERN.findall(Path(name).stem)
+        if numbers:
+            max_index = max(max_index, int(numbers[0]))
+    return max_index
+
+
+def parse_index_txt(payload: bytes) -> list[tuple[int, int, int]]:
+    entries: list[tuple[int, int, int]] = []
+    for line in payload.decode("utf-8-sig", errors="replace").splitlines():
+        numbers = [int(number) for number in TEXT_NUMBER_PATTERN.findall(line)]
+        if len(numbers) < 3:
+            continue
+        entries.append((numbers[0], numbers[1], numbers[2]))
+    return entries
+
+
 def load_offsets(accessor: ArchiveAccessor) -> list[tuple[int, int]]:
-    raw = accessor.read_bytes("index.ka")
-    if not raw:
-        raise FileNotFoundError("index.ka is missing")
-    if len(raw) % 4 != 0:
-        raise ValueError(f"index.ka size {len(raw)} is not divisible by 4")
-    count = len(raw) // 4
-    return [struct.unpack_from("<hh", raw, index * 4) for index in range(count)]
+    max_texture_index = find_max_texture_index(accessor)
+
+    raw_txt = accessor.read_bytes(INDEX_TXT_NAME)
+    if raw_txt is not None:
+        entries = parse_index_txt(raw_txt)
+        max_index = max((index for index, _, _ in entries), default=-1)
+        slot_count = max(max_texture_index, max_index) + 1
+        offsets = [(0, 0)] * max(slot_count, 0)
+        for index, dx, dy in entries:
+            if 0 <= index < slot_count:
+                offsets[index] = (dx, dy)
+        return offsets
+
+    raw_ka = accessor.read_bytes(INDEX_KA_NAME)
+    if raw_ka is None:
+        raise FileNotFoundError("index.txt or index.ka is missing")
+    if len(raw_ka) % 4 != 0:
+        raise ValueError(f"index.ka size {len(raw_ka)} is not divisible by 4")
+
+    count = len(raw_ka) // 4
+    offsets = [struct.unpack_from("<hh", raw_ka, index * 4) for index in range(count)]
+    slot_count = max(max_texture_index, count - 1) + 1
+    if len(offsets) < slot_count:
+        offsets.extend([(0, 0)] * (slot_count - len(offsets)))
+    return offsets
 
 
-def load_png_variants(accessor: ArchiveAccessor, index: int) -> list[Image.Image]:
-    direct = accessor.read_bytes(f"{index}.png")
-    if direct is not None:
-        return [decode_png(direct)]
+def load_image_variants(accessor: ArchiveAccessor, index: int) -> list[Image.Image]:
+    for extension in IMAGE_EXTENSIONS:
+        direct = accessor.read_bytes(f"{index}{extension}")
+        if direct is not None:
+            return [decode_image(direct)]
 
-    variants: list[Image.Image] = []
-    sub_index = 0
-    while True:
-        payload = accessor.read_bytes(f"{index}_{sub_index}.png")
-        if payload is None:
-            break
-        variants.append(decode_png(payload))
-        sub_index += 1
-    return variants
+    for extension in IMAGE_EXTENSIONS:
+        variants: list[Image.Image] = []
+        sub_index = 0
+        while True:
+            payload = accessor.read_bytes(f"{index}_{sub_index}{extension}")
+            if payload is None:
+                break
+            variants.append(decode_image(payload))
+            sub_index += 1
+        if variants:
+            return variants
+
+    return []
 
 
-def decode_png(payload: bytes) -> Image.Image:
+def decode_image(payload: bytes) -> Image.Image:
     with Image.open(io.BytesIO(payload)) as image:
         return image.convert("RGBA")
 
 
 def build_preview_frames(render_frames: list[RenderFrame]) -> list[Image.Image]:
     if not render_frames:
-        return [make_placeholder_image("No PNG frames")]
+        return [make_placeholder_image("No image frames")]
 
     min_x = min(-frame.dx for frame in render_frames)
     min_y = min(-frame.dy for frame in render_frames)
@@ -228,7 +283,7 @@ def load_animation(eft_id: int, source_path: Path) -> EftAnimation:
         render_frames: list[RenderFrame] = []
         populated_slots = 0
         for index, (dx, dy) in enumerate(offsets):
-            variants = load_png_variants(accessor, index)
+            variants = load_image_variants(accessor, index)
             if not variants:
                 continue
             populated_slots += 1

@@ -120,6 +120,14 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::PctHP: desc = compact ? std::format("生+{}%", eff.value) : std::format("生命+{}%", eff.value); break;
     case EffectType::PctATK: desc = compact ? std::format("攻+{}%", eff.value) : std::format("攻擊+{}%", eff.value); break;
     case EffectType::PctDEF: desc = compact ? std::format("防+{}%", eff.value) : std::format("防禦+{}%", eff.value); break;
+    case EffectType::TeamFlatHP: desc = compact ? std::format("全生+{}", eff.value) : std::format("全隊生命+{}", eff.value); break;
+    case EffectType::TeamFlatATK: desc = compact ? std::format("全攻+{}", eff.value) : std::format("全隊攻擊+{}", eff.value); break;
+    case EffectType::TeamFlatDEF: desc = compact ? std::format("全防+{}", eff.value) : std::format("全隊防禦+{}", eff.value); break;
+    case EffectType::TeamFlatSPD: desc = compact ? std::format("全速+{}", eff.value) : std::format("全隊速度+{}", eff.value); break;
+    case EffectType::TeamPctHP: desc = compact ? std::format("全生+{}%", eff.value) : std::format("全隊生命+{}%", eff.value); break;
+    case EffectType::TeamPctATK: desc = compact ? std::format("全攻+{}%", eff.value) : std::format("全隊攻擊+{}%", eff.value); break;
+    case EffectType::TeamPctDEF: desc = compact ? std::format("全防+{}%", eff.value) : std::format("全隊防禦+{}%", eff.value); break;
+    case EffectType::TeamPctSPD: desc = compact ? std::format("全速+{}%", eff.value) : std::format("全隊速度+{}%", eff.value); break;
     case EffectType::NegPctDEF: desc = compact ? std::format("防-{}%", eff.value) : std::format("防禦-{}%", eff.value); break;
     case EffectType::FlatDmgReduction: desc = std::format("減傷{}", eff.value); break;
     case EffectType::FlatDmgIncrease: desc = std::format("增傷{}", eff.value); break;
@@ -143,6 +151,7 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::SkillDmgPct: desc = compact ? std::format("技傷+{}%", eff.value) : std::format("技能傷害+{}%", eff.value); break;
     case EffectType::SkillReflectPct: desc = compact ? std::format("反彈{}%", eff.value) : std::format("反彈{}%", eff.value); break;
     case EffectType::CDR: desc = std::format("冷卻-{}%", eff.value); break;
+    case EffectType::FlatShield: desc = compact ? std::format("全隊盾+{}", eff.value) : std::format("全隊固定護盾+{}", eff.value); break;
     case EffectType::ShieldPctMaxHP: desc = compact ? std::format("護盾{}%生", eff.value) : std::format("護盾{}%生命", eff.value); break;
     case EffectType::ShieldFreezeRes: desc = compact ? std::format("護盾僵抗{}%", eff.value) : std::format("護盾僵直抗性{}%", eff.value); break;
     case EffectType::HealAuraPct: desc = eff.value2 ? (compact ? std::format("治療環{}%/{}幀", eff.value, eff.value2) : std::format("治療光環{}%(每{}幀)", eff.value, eff.value2)) : std::format("治療光環{}%", eff.value); break;
@@ -198,6 +207,25 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::DashChanceBoost: desc = std::format("滑步率+{}%", eff.value); break;
     case EffectType::MPRatioDmgBoost: desc = compact ? std::format("內力比加傷至{}%", eff.value) : std::format("當前內力比例加傷至{}%", eff.value); break;
     case EffectType::DmgReduceDebuff: desc = compact ? std::format("降傷標記{}%/{}幀", eff.value, eff.value2) : std::format("攻擊標記目標降傷{}%/{}幀", eff.value, eff.value2); break;
+    case EffectType::CurrentHPPctBlast: desc = compact ? std::format("全敵現血-{}%", eff.value) : std::format("全敵當前生命-{}%", eff.value); break;
+    case EffectType::TeamMPRestore: desc = compact ? std::format("全隊回{}MP", eff.value) : std::format("全隊回復{}MP", eff.value); break;
+    case EffectType::SpiralBleedProjectile: desc = compact ? std::format("擴張螺旋彈+{}層", eff.value) : std::format("發射高速擴張螺旋流血彈並附加{}層流血", eff.value); break;
+    case EffectType::NearbyTrackingProjectiles:
+    {
+        int damagePct = eff.value2 > 0 ? eff.value2 : 40;
+        desc = compact ? std::format("近敵追彈{}格/{}%", eff.value, damagePct) : std::format("命中時向{}範圍內敵人各發一枚{}%追蹤彈", eff.value, damagePct);
+        break;
+    }
+    case EffectType::ForceRangedAttack:
+    {
+        int minDistance = eff.value2 > 0 ? eff.value2 : 6;
+        desc = compact ? std::format("武功遠程/距{}/彈速{}%", minDistance, eff.value) : std::format("武功遠程化(至少{}距離)且彈速{}%", minDistance, eff.value);
+        break;
+    }
+    case EffectType::CounterUltimateBlock: desc = compact ? std::format("{}%格擋反絕", eff.value) : std::format("{}%格擋並反擊絕招", eff.value); break;
+    case EffectType::MaxHitPctCurrentHP: desc = compact ? std::format("單次承傷<=最大血{}%", eff.value) : std::format("單次承傷不超過最大生命{}%", eff.value); break;
+    case EffectType::FreeRefresh: desc = compact ? "免費刷新" : "戰勝後獲得一次免費刷新"; break;
+    case EffectType::BattleMapChoice: desc = compact ? "選戰場" : "戰鬥前可選擇戰場"; break;
     default: desc = std::format("效果({})", eff.value); break;
     }
     return triggerPrefix() + desc + durationSuffix() + countSuffix();

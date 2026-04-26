@@ -45,6 +45,8 @@ struct GameDataStore {
     int nextEquipInstanceId = 1;
     int banBaseCount = 0;
     int banCountPerLevel = 0;
+    bool strategistFreeRefreshAvailable = false;
+    int strategistFreeRefreshFight = -1;
 
     // Collections
     std::vector<StoredChess> storedCollection;

@@ -26,6 +26,8 @@ enum class EffectType
     // Stat buffs (pre-battle)
     FlatHP, FlatATK, FlatDEF, FlatSPD,
     PctHP, PctATK, PctDEF, PctSPD, NegPctDEF,
+    TeamFlatHP, TeamFlatATK, TeamFlatDEF, TeamFlatSPD,
+    TeamPctHP, TeamPctATK, TeamPctDEF, TeamPctSPD,
 
     // Trigger effects (runtime)
     FlatDmgReduction,
@@ -50,6 +52,7 @@ enum class EffectType
     SkillDmgPct,
     SkillReflectPct,
     CDR,
+    FlatShield,
     ShieldPctMaxHP,
     ShieldFreezeRes,
     HealAuraPct,
@@ -105,6 +108,15 @@ enum class EffectType
     DashChanceBoost,
     MPRatioDmgBoost,
     DmgReduceDebuff,
+    CurrentHPPctBlast,
+    TeamMPRestore,
+    SpiralBleedProjectile,
+    NearbyTrackingProjectiles,
+    ForceRangedAttack,
+    CounterUltimateBlock,
+    MaxHitPctCurrentHP,
+    FreeRefresh,
+    BattleMapChoice,
 };
 
 struct ComboEffect
@@ -153,6 +165,7 @@ struct RoleComboState
     int skillDmgPct = 0;
     int skillReflectPct = 0;
     int cdrPct = 0;
+    int flatShield = 0;
     int shieldPctMaxHP = 0;
     int shieldFreezeResPct = 0;
     int healAuraPct = 0;
@@ -207,6 +220,13 @@ struct RoleComboState
     int autoUltimateAfterFrames = 0;
     int ultimateExtraProjectiles = 0;
     int blockFirstHitsCount = 0;
+    bool forceRangedAttack = false;
+    int forceRangedMinSelectDistance = 0;
+    int projectileSpeedMultiplierPct = 100;
+    bool ignoreProjectileCancel = false;
+    int counterUltimateBlockChancePct = 0;
+    int maxHitPctCurrentHP = 0;
+    int nearbyTrackingProjectileRange = 0;
 
     // Mutable runtime state
     std::map<int, int> everyNthCounters;  // N value → counter

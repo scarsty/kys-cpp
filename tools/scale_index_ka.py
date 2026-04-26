@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Scale int16 offsets in an index.ka by a fixed factor.
+"""Scale int16 offsets in an index.ka or index.txt by a fixed factor.
 
 Accepted targets:
 - a directory: updates every direct child *.zip file
-- a .zip file: updates the root-level index.ka inside the archive
-- a standalone index.ka file: updates the file in place
+- a .zip file: updates the root-level index.ka or index.txt inside the archive
+- a standalone index.ka or index.txt file: updates the file in place
 
 The default scale factor is 2.
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import struct
 import sys
 import tempfile
@@ -21,7 +22,13 @@ from pathlib import Path
 
 INT16_MIN = -32768
 INT16_MAX = 32767
-INDEX_NAME = "index.ka"
+INDEX_KA_NAME = "index.ka"
+INDEX_TXT_NAME = "index.txt"
+TEXT_NUMBER_PATTERN = re.compile(r"[+-]?\d+")
+
+
+def normalize_zip_name(name: str) -> str:
+    return name.replace("\\", "/").lower()
 
 
 def scale_pair(value: int, factor: int, path: Path, pair_index: int, axis: str) -> int:
@@ -57,25 +64,71 @@ def replace_file(path: Path, data: bytes) -> None:
 
 
 def scale_index_file(index_path: Path, factor: int) -> None:
-    data = index_path.read_bytes()
-    scaled = scale_index_bytes(data, factor, index_path)
-    replace_file(index_path, scaled)
+    if index_path.name.lower() == INDEX_KA_NAME:
+        data = index_path.read_bytes()
+        scaled = scale_index_bytes(data, factor, index_path)
+        replace_file(index_path, scaled)
+        return
+
+    if index_path.name.lower() == INDEX_TXT_NAME:
+        content = index_path.read_text(encoding="utf-8-sig")
+        scaled = scale_index_text(content, factor, index_path)
+        replace_file(index_path, scaled.encode("utf-8"))
+        return
+
+    raise ValueError(f"Unsupported index file type: {index_path}")
 
 
-def find_root_index_info(zip_file: zipfile.ZipFile) -> zipfile.ZipInfo | None:
+def scale_index_text(content: str, factor: int, path: Path) -> str:
+    scaled_lines: list[str] = []
+    for line in content.splitlines(keepends=True):
+        if line.endswith("\r\n"):
+            body = line[:-2]
+            newline = "\r\n"
+        elif line.endswith("\n"):
+            body = line[:-1]
+            newline = "\n"
+        else:
+            body = line
+            newline = ""
+
+        numbers = [int(number) for number in TEXT_NUMBER_PATTERN.findall(body)]
+        if len(numbers) < 3:
+            scaled_lines.append(line)
+            continue
+
+        index, dx, dy = numbers[:3]
+        dx = scale_pair(dx, factor, path, index, "dx")
+        dy = scale_pair(dy, factor, path, index, "dy")
+        scaled_lines.append(f"{index}: {dx}, {dy}{newline}")
+
+    return "".join(scaled_lines)
+
+
+def find_root_index_infos(zip_file: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
+    infos: dict[str, zipfile.ZipInfo] = {}
     for info in zip_file.infolist():
         if info.is_dir():
             continue
-        if info.filename.replace("\\", "/").lower() == INDEX_NAME:
-            return info
-    return None
+        normalized_name = normalize_zip_name(info.filename)
+        if normalized_name in {INDEX_KA_NAME, INDEX_TXT_NAME}:
+            infos.setdefault(normalized_name, info)
+    return infos
 
 
-def scale_zip_info(zip_file: zipfile.ZipFile, factor: int, zip_path: Path) -> bytes:
-    index_info = find_root_index_info(zip_file)
-    if index_info is None:
-        raise FileNotFoundError(f"{zip_path}: missing root-level {INDEX_NAME}")
-    return scale_index_bytes(zip_file.read(index_info), factor, zip_path)
+def scale_zip_infos(zip_file: zipfile.ZipFile, factor: int, zip_path: Path) -> dict[str, bytes]:
+    index_infos = find_root_index_infos(zip_file)
+    if not index_infos:
+        raise FileNotFoundError(f"{zip_path}: missing root-level {INDEX_KA_NAME} or {INDEX_TXT_NAME}")
+
+    scaled: dict[str, bytes] = {}
+    for normalized_name, info in index_infos.items():
+        if normalized_name == INDEX_KA_NAME:
+            scaled[normalized_name] = scale_index_bytes(zip_file.read(info), factor, zip_path)
+        else:
+            text = zip_file.read(info).decode("utf-8-sig")
+            scaled[normalized_name] = scale_index_text(text, factor, zip_path).encode("utf-8")
+    return scaled
 
 
 def clone_zip_info(info: zipfile.ZipInfo) -> zipfile.ZipInfo:
@@ -101,28 +154,31 @@ def rewrite_zip(zip_path: Path, factor: int) -> None:
 
     try:
         with zipfile.ZipFile(zip_path, "r") as source_zip:
-            scaled_index = scale_zip_info(source_zip, factor, zip_path)
+            scaled_indexes = scale_zip_infos(source_zip, factor, zip_path)
 
             with zipfile.ZipFile(temp_path, "w") as target_zip:
                 target_zip.comment = source_zip.comment
-                wrote_index = False
+                wrote_indexes: set[str] = set()
 
                 for info in source_zip.infolist():
                     if info.is_dir():
                         target_zip.writestr(clone_zip_info(info), b"")
                         continue
 
-                    normalized_name = info.filename.replace("\\", "/").lower()
-                    if normalized_name == INDEX_NAME:
-                        if not wrote_index:
-                            target_zip.writestr(clone_zip_info(info), scaled_index)
-                            wrote_index = True
+                    normalized_name = normalize_zip_name(info.filename)
+                    if normalized_name in scaled_indexes:
+                        if normalized_name not in wrote_indexes:
+                            target_zip.writestr(clone_zip_info(info), scaled_indexes[normalized_name])
+                            wrote_indexes.add(normalized_name)
                         continue
 
                     target_zip.writestr(clone_zip_info(info), source_zip.read(info.filename))
 
-                if not wrote_index:
-                    raise FileNotFoundError(f"{zip_path}: missing root-level {INDEX_NAME}")
+                for normalized_name, payload in scaled_indexes.items():
+                    if normalized_name in wrote_indexes:
+                        continue
+                    source_info = find_root_index_infos(source_zip)[normalized_name]
+                    target_zip.writestr(clone_zip_info(source_info), payload)
 
         os.replace(temp_path, zip_path)
     except Exception:
@@ -158,7 +214,7 @@ def process_target(target: Path, factor: int) -> tuple[int, int]:
         print(f"scaled {target}")
         return 1, 0
 
-    if target.name.lower() == INDEX_NAME:
+    if target.name.lower() in {INDEX_KA_NAME, INDEX_TXT_NAME}:
         scale_index_file(target, factor)
         print(f"scaled {target}")
         return 1, 0
@@ -167,8 +223,8 @@ def process_target(target: Path, factor: int) -> tuple[int, int]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Scale offsets in an index.ka by a fixed factor")
-    parser.add_argument("target", type=Path, help="directory, zip file, or standalone index.ka")
+    parser = argparse.ArgumentParser(description="Scale offsets in an index.ka or index.txt by a fixed factor")
+    parser.add_argument("target", type=Path, help="directory, zip file, or standalone index.ka/index.txt")
     parser.add_argument("--factor", type=int, default=2, help="multiplier applied to each dx and dy value")
     return parser.parse_args()
 

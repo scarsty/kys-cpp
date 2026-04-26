@@ -10,6 +10,8 @@
 #include "ChessRewardFlow.h"
 #include "ChessShopFlow.h"
 #include "DynamicChessMap.h"
+#include "Engine.h"
+#include "GameState.h"
 #include "Talk.h"
 #include "TextBox.h"
 #include "UISave.h"
@@ -17,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <climits>
+#include <sstream>
 #include <numeric>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,6 +29,212 @@ namespace KysChess
 
 namespace
 {
+
+std::vector<std::string> extractMiniMapRows(const char* asciiMap)
+{
+    std::vector<std::string> rows;
+    if (!asciiMap)
+    {
+        return rows;
+    }
+
+    std::stringstream stream(asciiMap);
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        size_t first = line.find('|');
+        size_t last = line.rfind('|');
+        if (first == std::string::npos || last == std::string::npos || last <= first)
+        {
+            continue;
+        }
+        rows.push_back(line.substr(first + 1, last - first - 1));
+    }
+    return rows;
+}
+
+Color miniMapTileColor(char tile)
+{
+    switch (tile)
+    {
+    case '#': return {95, 85, 70, 255};
+    case '~': return {65, 120, 190, 255};
+    case '.': return {90, 120, 80, 255};
+    case '+': return {90, 200, 110, 255};
+    case 'T': return {90, 200, 110, 255};
+    case 'E': return {220, 90, 90, 255};
+    default: return {40, 40, 40, 180};
+    }
+}
+
+std::vector<std::string> buildBattleMapLabels(const std::vector<DynamicChessMap::MapOption>& options)
+{
+    std::unordered_map<std::string, int> nameCounts;
+    for (const auto& option : options)
+    {
+        nameCounts[option.name ? option.name : ""]++;
+    }
+
+    std::vector<std::string> labels;
+    labels.reserve(options.size());
+    for (const auto& option : options)
+    {
+        std::string name = option.name ? option.name : "";
+        if (name.empty())
+        {
+            labels.push_back(std::format("({})", option.battleId));
+            continue;
+        }
+        if (nameCounts[name] > 1)
+        {
+            labels.push_back(std::format("{}({})", name, option.battleId));
+            continue;
+        }
+        labels.push_back(std::move(name));
+    }
+    return labels;
+}
+
+class BattleMapPreviewPanel : public DrawableOnCall
+{
+public:
+    explicit BattleMapPreviewPanel(std::vector<DynamicChessMap::MapOption> options)
+        : DrawableOnCall([this](DrawableOnCall*) { drawPanel(); })
+        , options_(std::move(options))
+        , labels_(buildBattleMapLabels(options_))
+    {
+    }
+
+private:
+    void drawIsoDiamond(int centerX, int centerY, int halfWidth, int halfHeight, Color color) const
+    {
+        auto* engine = Engine::getInstance();
+        for (int dy = -halfHeight; dy <= halfHeight; ++dy)
+        {
+            float t = 1.0f - static_cast<float>(std::abs(dy)) / static_cast<float>(halfHeight + 1);
+            int span = std::max(1, static_cast<int>(std::round(halfWidth * t)));
+            engine->fillColor(color, centerX - span, centerY + dy, span * 2 + 1, 1);
+        }
+    }
+
+    void drawPanel()
+    {
+        auto frame = ChessScreenLayout::battleSeedRerollPreviewPanel();
+        ChessScreenLayout::drawPanel(frame);
+
+        int index = getItemIndex();
+        if (index < 0 || index >= static_cast<int>(options_.size()))
+        {
+            PanelTextCursor cursor{Font::getInstance(), frame.x + 10, frame.y + 10};
+            cursor.line("戰場預覽", 24, {255, 215, 0, 255}, 8);
+            cursor.line("移動選項可查看地圖概覽", 18, {220, 220, 220, 255}, 6);
+            return;
+        }
+
+        const auto& option = options_[index];
+        PanelTextCursor cursor{Font::getInstance(), frame.x + 10, frame.y + 10};
+    cursor.line(labels_[index], 24, {255, 215, 0, 255}, 4);
+        cursor.line(std::format("我方上限{}  敵軍上限{}", option.teammateCount, option.enemyCount), 18, {220, 220, 220, 255}, 8);
+
+        auto rows = extractMiniMapRows(option.asciiMap);
+        if (rows.empty())
+        {
+            for (const auto& line : wrapDisplayText(option.description ? option.description : "", frame.w - 20))
+            {
+                cursor.line(line, 16, {200, 200, 200, 255}, 4);
+            }
+            return;
+        }
+
+        size_t columns = 0;
+        for (const auto& row : rows)
+        {
+            columns = std::max(columns, row.size());
+        }
+        if (columns == 0)
+        {
+            return;
+        }
+
+        const int mapTop = cursor.y;
+        const int availableW = frame.w - 28;
+        const int availableH = frame.h - (mapTop - frame.y) - 12;
+        const int isoHalfWidth = std::max(2, std::min(availableW / static_cast<int>(columns + rows.size() + 2),
+                                                        (availableH * 2) / static_cast<int>(columns + rows.size() + 2)));
+        const int isoHalfHeight = std::max(1, isoHalfWidth / 2);
+        const int drawW = static_cast<int>((columns + rows.size()) * isoHalfWidth);
+        const int drawH = static_cast<int>((columns + rows.size()) * isoHalfHeight);
+        const int mapCenterX = frame.x + frame.w / 2;
+        const int mapOriginY = mapTop + std::max(0, (availableH - drawH) / 2) + isoHalfHeight;
+        const int left = mapCenterX - drawW / 2 - isoHalfWidth;
+        const int top = mapOriginY - isoHalfHeight;
+
+        Rect border{left - 6, top - 6, drawW + isoHalfWidth * 2 + 12, drawH + isoHalfHeight * 2 + 12};
+        Engine::getInstance()->renderSquareTexture(&border, {180, 170, 140, 255}, 180);
+        Rect background{left - 2, top - 2, drawW + isoHalfWidth * 2 + 4, drawH + isoHalfHeight * 2 + 4};
+        Engine::getInstance()->renderSquareTexture(&background, {30, 45, 30, 255}, 170);
+        for (int rowIndex = 0; rowIndex < static_cast<int>(rows.size()); ++rowIndex)
+        {
+            for (int colIndex = 0; colIndex < static_cast<int>(rows[rowIndex].size()); ++colIndex)
+            {
+                const int centerX = mapCenterX + (colIndex - rowIndex) * isoHalfWidth;
+                const int centerY = mapOriginY + (colIndex + rowIndex) * isoHalfHeight;
+                drawIsoDiamond(centerX, centerY, isoHalfWidth, isoHalfHeight, miniMapTileColor(rows[rowIndex][colIndex]));
+            }
+        }
+    }
+
+    std::vector<DynamicChessMap::MapOption> options_;
+    std::vector<std::string> labels_;
+};
+
+int chooseBattleMapIfNeeded(const DynamicBattleRoles& roles,
+                            const std::vector<Chess>& allyChess,
+                            int requestedBattleId)
+{
+    if (requestedBattleId >= 0)
+    {
+        return requestedBattleId;
+    }
+
+    auto combos = ChessCombo::detectCombos(allyChess);
+    if (!ChessCombo::hasActiveEffect(combos, EffectType::BattleMapChoice))
+    {
+        return requestedBattleId;
+    }
+
+    auto options = DynamicChessMap::getSelectableMaps(roles);
+    if (options.size() <= 1)
+    {
+        return options.empty() ? requestedBattleId : options.front().battleId;
+    }
+
+    ChessMenuData menuData;
+    IndexedMenuConfig menuConfig;
+    menuConfig.fontSize = 28;
+    menuConfig.showNav = false;
+    menuConfig.showPreviewStatus = false;
+    menuConfig.previewFrame = ChessScreenLayout::battleSeedRerollPreviewPanel();
+    auto labels = buildBattleMapLabels(options);
+    for (size_t i = 0; i < options.size(); ++i)
+    {
+        menuData.labels.push_back(labels[i]);
+        menuData.colors.push_back(Color{255, 240, 210, 255});
+        menuData.previewData.push_back({});
+        menuConfig.outlineColors.push_back({0, 0, 0, 0});
+        menuConfig.animateOutlines.push_back(false);
+        menuConfig.outlineThicknesses.push_back(1);
+    }
+    menuConfig.perPage = static_cast<int>(menuData.labels.size());
+    auto menu = makeChessMenu("智將選擇戰場", menuData, menuConfig, {std::make_shared<BattleMapPreviewPanel>(options)});
+    menu->run();
+    int choice = menu->getResult();
+    if (choice < 0 || choice >= static_cast<int>(options.size()))
+    {
+        return requestedBattleId;
+    }
+    return options[choice].battleId;
+}
 
 struct EnemySynergyTuning
 {
@@ -705,6 +914,17 @@ void ChessBattleFlow::enterBattle()
         }
         rewardFlow_.showEquipmentReward();
         battleProgress.advance();
+        if (ChessCombo::hasActiveEffect(combos, EffectType::FreeRefresh))
+        {
+            auto& gameState = GameState::get();
+            // Strategist refresh is an earned post-win reward for this normal battle.
+            // It should never be granted from roster selection alone and it does not stack.
+            if (!gameState.strategistFreeRefreshAvailable())
+            {
+                gameState.strategistFreeRefreshAvailable() = true;
+                gameState.strategistFreeRefreshFight() = battleProgress.getFight();
+            }
+        }
         if (!services_.shop.isLocked())
         {
             services_.shop.pool().refresh(services_.economy.getLevel());
@@ -720,6 +940,17 @@ void ChessBattleFlow::enterBattle()
         text->setText(std::format("勝利！獲得${}{}{} 經驗+{}{}{}", reward, interestMsg, bonusMsg, expGain, levelMsg, nextInfo));
         text->setFontSize(32);
         text->runCentered(Engine::getInstance()->getUIHeight() / 2);
+
+        if (config.legendaryShop.unlockFight > 0 && battleProgress.getFight() == config.legendaryShop.unlockFight)
+        {
+            auto unlockTalk = std::make_shared<Talk>(
+                std::format(
+                    "少俠既已闖過第{}關，老夫便為你開啟神兵商店。此後可於「裝備管理」中前往「神兵商店」，花費${}購買傳說裝備。",
+                    config.legendaryShop.unlockFight,
+                    config.legendaryShop.price),
+                116);
+            unlockTalk->run();
+        }
 
         if (!battleProgress.isGameComplete())
         {
@@ -753,6 +984,7 @@ void ChessBattleFlow::enterBattle()
 
 int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed, bool countFightsWon)
 {
+    battle_id = chooseBattleMapIfNeeded(roles, allyChess, battle_id);
     battle_id = DynamicChessMap::resolveBattleId(roles, services_.random, battle_id);
 
     ChessManager chessManager(services_.roster, services_.equipmentInventory, services_.economy);

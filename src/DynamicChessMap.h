@@ -22,6 +22,16 @@ struct DynamicBattleRoles
 class DynamicChessMap
 {
 public:
+    struct MapOption
+    {
+        int battleId = -1;
+        int enemyCount = 0;
+        int teammateCount = 0;
+        const char* name = "";
+        const char* asciiMap = "";
+        const char* description = "";
+    };
+
     // Creates a BattleSceneHades with randomly selected map and extended battle info
     // teammates: Role IDs for real teammates (up to 10)
     // enemies: Role IDs for enemies (up to 20)
@@ -37,6 +47,7 @@ public:
         const DynamicBattleRoles& roles,
         KysChess::ChessRandom& random,
         int battle_id = -1);
+    static std::vector<MapOption> getSelectableMaps(const DynamicBattleRoles& roles);
 
 private:
     struct MapInfo

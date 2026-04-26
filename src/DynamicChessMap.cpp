@@ -96,21 +96,27 @@ int DynamicChessMap::resolveBattleId(
 
     if (map_index < 0)
     {
-        // Select map that has enough enemy positions for the requested enemies
-        int needed = (int)roles.enemy_ids.size();
+        auto canFit = [&](const auto& map) {
+            int neededEnemies = static_cast<int>(roles.enemy_ids.size());
+            int neededTeammates = static_cast<int>(roles.teammate_ids.size());
+            int teammateCapacity = static_cast<int>(map.existing_positions.size() + map.new_positions.size());
+            return map.enemy_count >= neededEnemies && teammateCapacity >= neededTeammates;
+        };
         std::vector<int> candidates;
         for (int i = 0; i < (int)maps.size(); i++)
         {
-            if (maps[i].enemy_count >= needed)
+            if (canFit(maps[i]))
                 candidates.push_back(i);
         }
-        // Fallback: if no map has enough, pick the one with the most enemies
+        // Fallback: if no map fits both sides, pick the one with the largest combined capacity.
         if (candidates.empty())
         {
             int best = 0;
             for (int i = 1; i < (int)maps.size(); i++)
             {
-                if (maps[i].enemy_count > maps[best].enemy_count)
+                int lhsScore = maps[i].enemy_count + static_cast<int>(maps[i].existing_positions.size() + maps[i].new_positions.size());
+                int rhsScore = maps[best].enemy_count + static_cast<int>(maps[best].existing_positions.size() + maps[best].new_positions.size());
+                if (lhsScore > rhsScore)
                     best = i;
             }
             candidates.push_back(best);
@@ -127,11 +133,58 @@ int DynamicChessMap::resolveBattleId(
     return maps[map_index].battle_id;
 }
 
+std::vector<DynamicChessMap::MapOption> DynamicChessMap::getSelectableMaps(const DynamicBattleRoles& roles)
+{
+    std::vector<MapOption> result;
+    auto canFit = [&](const auto& map) {
+        int neededEnemies = static_cast<int>(roles.enemy_ids.size());
+        int neededTeammates = static_cast<int>(roles.teammate_ids.size());
+        int teammateCapacity = static_cast<int>(map.existing_positions.size() + map.new_positions.size());
+        return map.enemy_count >= neededEnemies && teammateCapacity >= neededTeammates;
+    };
+    for (const auto& map : getTopMaps())
+    {
+        if (canFit(map))
+        {
+            result.push_back({
+                map.battle_id,
+                map.enemy_count,
+                static_cast<int>(map.existing_positions.size() + map.new_positions.size()),
+                map.name,
+                map.ascii_map,
+                map.description,
+            });
+        }
+    }
+    if (!result.empty())
+    {
+        return result;
+    }
+
+    auto best = std::max_element(getTopMaps().begin(), getTopMaps().end(), [](const auto& lhs, const auto& rhs) {
+        int lhsScore = lhs.enemy_count + static_cast<int>(lhs.existing_positions.size() + lhs.new_positions.size());
+        int rhsScore = rhs.enemy_count + static_cast<int>(rhs.existing_positions.size() + rhs.new_positions.size());
+        return lhsScore < rhsScore;
+    });
+    if (best != getTopMaps().end())
+    {
+        result.push_back({
+            best->battle_id,
+            best->enemy_count,
+            static_cast<int>(best->existing_positions.size() + best->new_positions.size()),
+            best->name,
+            best->ascii_map,
+            best->description,
+        });
+    }
+    return result;
+}
+
 const std::vector<DynamicChessMap::MapInfo>& DynamicChessMap::getTopMaps()
 {
     static const std::vector<MapInfo> top_maps = {
         // ========================================================================
-        // Battle ID 6 - 闖王寶藏
+        // Battle ID 6 - 迷城巷戰
         // Battlefield: 16, Enemies: 10
         // ========================================================================
         {
@@ -139,7 +192,7 @@ const std::vector<DynamicChessMap::MapInfo>& DynamicChessMap::getTopMaps()
             {{30, 39}, {32, 37}, {32, 34}, {28, 32}, {22, 21}, {22, 18}},
             {{32, 36}, {32, 35}, {22, 20}, {22, 19}},
             {{31, 39}, {31, 38}, {31, 37}},
-            "闖王寶藏",
+            "迷洞巷戰",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
      0    5    0    5    0    5
@@ -181,7 +234,7 @@ Positions: Existing=[(30, 39), (32, 37), (32, 34), (28, 32), (22, 21), (22, 18)]
         },
 
         // ========================================================================
-        // Battle ID 13 - 弒殺成崑
+        // Battle ID 13 - 十面埋伏
         // Battlefield: 4, Enemies: 20
         // ========================================================================
         {
@@ -189,7 +242,7 @@ Positions: Existing=[(30, 39), (32, 37), (32, 34), (28, 32), (22, 21), (22, 18)]
             {{25, 27}, {24, 27}, {25, 28}, {24, 28}, {25, 25}, {24, 25}},
             {{25, 26}, {24, 26}, {25, 29}, {24, 29}},
             {{26, 25}, {26, 26}, {26, 27}},
-            "弒殺成崑",
+            "十面埋伏",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
      0    5    0    5    0    5
@@ -231,7 +284,7 @@ Positions: Existing=[(25, 27), (24, 27), (25, 28), (24, 28), (25, 25), (24, 25)]
         },
 
         // ========================================================================
-        // Battle ID 17 - 鬧崆峒
+        // Battle ID 17 - 雙線迎擊
         // Battlefield: 5, Enemies: 13
         // ========================================================================
         {
@@ -239,7 +292,7 @@ Positions: Existing=[(25, 27), (24, 27), (25, 28), (24, 28), (25, 25), (24, 25)]
             {{29, 20}, {31, 23}, {33, 26}, {32, 20}, {34, 23}, {35, 20}},
             {{34, 20}, {33, 23}, {33, 20}, {32, 23}},
             {{35, 21}, {34, 21}, {35, 22}},
-            "鬧崆峒",
+            "雙線迎擊",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
      0    5    0    5    0    5
@@ -281,7 +334,7 @@ Positions: Existing=[(29, 20), (31, 23), (33, 26), (32, 20), (34, 23), (35, 20)]
         },
 
         // ========================================================================
-        // Battle ID 21 - 峨嵋圍攻
+        // Battle ID 21 - 庭院圍戰
         // Battlefield: 20, Enemies: 10
         // ========================================================================
         {
@@ -289,7 +342,7 @@ Positions: Existing=[(29, 20), (31, 23), (33, 26), (32, 20), (34, 23), (35, 20)]
             {{33, 27}, {34, 25}, {34, 30}, {35, 27}, {35, 29}, {35, 24}},
             {{35, 25}, {34, 27}, {35, 30}, {35, 28}},
             {{36, 26}, {36, 27}, {34, 28}},
-            "峨嵋圍攻",
+            "庭院圍戰",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
     5    0    5    0    5    0
@@ -331,7 +384,7 @@ Positions: Existing=[(33, 27), (34, 25), (34, 30), (35, 27), (35, 29), (35, 24)]
         },
 
         // ========================================================================
-        // Battle ID 24 - 斗定閑
+        // Battle ID 24 - 長廊固守
         // Battlefield: 21, Enemies: 11
         // ========================================================================
         {
@@ -339,7 +392,7 @@ Positions: Existing=[(33, 27), (34, 25), (34, 30), (35, 27), (35, 29), (35, 24)]
             {{35, 32}, {35, 28}, {35, 26}, {35, 34}, {35, 36}, {35, 24}},
             {{35, 35}, {35, 33}, {35, 27}, {35, 25}},
             {{36, 32}, {36, 31}, {36, 28}},
-            "斗定閑",
+            "長廊固守",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
      5    0    5    0    5    0
@@ -381,7 +434,7 @@ Positions: Existing=[(35, 32), (35, 28), (35, 26), (35, 34), (35, 36), (35, 24)]
         },
 
         // ========================================================================
-        // Battle ID 26 - 斗天門
+        // Battle ID 26 - 側殿突圍
         // Battlefield: 10, Enemies: 11
         // ========================================================================
         {
@@ -389,7 +442,7 @@ Positions: Existing=[(35, 32), (35, 28), (35, 26), (35, 34), (35, 36), (35, 24)]
             {{30, 29}, {33, 28}, {32, 33}, {34, 31}, {36, 28}, {36, 35}},
             {{35, 28}, {34, 28}, {37, 35}, {37, 28}},
             {{35, 29}, {35, 30}, {35, 31}},
-            "斗天門",
+            "側殿突圍",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
       5    0    5    0    5    0
@@ -431,7 +484,7 @@ Positions: Existing=[(30, 29), (33, 28), (32, 33), (34, 31), (36, 28), (36, 35)]
         },
 
         // ========================================================================
-        // Battle ID 54 - 斗天門
+        // Battle ID 54 - 長廊夾擊
         // Battlefield: 23, Enemies: 15
         // ========================================================================
         {
@@ -439,7 +492,7 @@ Positions: Existing=[(30, 29), (33, 28), (32, 33), (34, 31), (36, 28), (36, 35)]
             {{24, 27}, {24, 29}, {24, 25}, {24, 31}, {24, 23}, {24, 33}},
             {{24, 32}, {24, 30}, {24, 28}, {24, 26}},
             {{25, 27}, {25, 29}, {25, 31}},
-            "斗天門",
+            "長廊夾擊",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
       5    0    5    0    5    0
@@ -481,7 +534,7 @@ Positions: Existing=[(24, 27), (24, 29), (24, 25), (24, 31), (24, 23), (24, 33)]
         },
 
         // ========================================================================
-        // Battle ID 56 - 斗天門
+        // Battle ID 56 - 山門死戰
         // Battlefield: 24, Enemies: 20
         // ========================================================================
         {
@@ -489,7 +542,7 @@ Positions: Existing=[(24, 27), (24, 29), (24, 25), (24, 31), (24, 23), (24, 33)]
             {{17, 29}, {18, 29}, {19, 29}, {20, 29}, {21, 29}, {22, 29}},
             {{23, 29}, {16, 29}, {22, 30}, {22, 28}},
             {{19, 30}, {20, 30}, {21, 30}},
-            "斗天門",
+            "山門死戰",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
         5    0    5    0    5    0
@@ -531,7 +584,7 @@ Positions: Existing=[(17, 29), (18, 29), (19, 29), (20, 29), (21, 29), (22, 29)]
         },
 
         // ========================================================================
-        // Battle ID 60 - 斗天門
+        // Battle ID 60 - 散陣遭遇
         // Battlefield: 0, Enemies: 10
         // ========================================================================
         {
@@ -539,7 +592,7 @@ Positions: Existing=[(17, 29), (18, 29), (19, 29), (20, 29), (21, 29), (22, 29)]
             {{32, 20}, {36, 17}, {35, 20}, {36, 24}, {38, 20}, {41, 20}},
             {{40, 20}, {39, 20}, {37, 20}, {36, 20}},
             {{33, 20}, {34, 20}, {36, 21}},
-            "斗天門",
+            "散陣遭遇",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
     0    5    0    5    0    5
@@ -581,7 +634,7 @@ Positions: Existing=[(32, 20), (36, 17), (35, 20), (36, 24), (38, 20), (41, 20)]
         },
 
         // ========================================================================
-        // Battle ID 80 - 斗定閑
+        // Battle ID 80 - 狹道拒守
         // Battlefield: 8, Enemies: 14
         // ========================================================================
         {
@@ -589,7 +642,7 @@ Positions: Existing=[(32, 20), (36, 17), (35, 20), (36, 24), (38, 20), (41, 20)]
             {{32, 34}, {32, 31}, {32, 28}, {32, 25}, {32, 22}, {32, 19}},
             {{32, 33}, {32, 32}, {32, 30}, {32, 29}},
             {{31, 32}, {31, 31}, {31, 30}},
-            "斗定閑",
+            "狹道拒守",
             R"(Legend: T=Teammate, E=Enemy, +=Candidate, #=Building, ~=Water, .=Ground
 
         5    0    5    0    5    0

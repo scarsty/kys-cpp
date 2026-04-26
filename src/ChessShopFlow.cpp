@@ -70,7 +70,9 @@ void ChessShopFlow::getChess()
             menuConfig.fontSize = 32;
             menuConfig.showNav = false;
 
-            menuData.labels.push_back(std::format("刷新               ${}", ChessBalance::config().refreshCost));
+            menuData.labels.push_back(gameState.strategistFreeRefreshAvailable()
+                ? std::format("刷新               免費(${})", ChessBalance::config().refreshCost)
+                : std::format("刷新               ${}", ChessBalance::config().refreshCost));
             menuData.colors.push_back({255, 204, 229, 255});
             menuData.previewData.push_back({});
             menuConfig.outlineColors.push_back({0, 0, 0, 0});
@@ -160,7 +162,12 @@ void ChessShopFlow::getChess()
             }
             if (selectedId == 0)
             {
-                if (!services_.economy.spend(ChessBalance::config().refreshCost))
+                if (gameState.strategistFreeRefreshAvailable())
+                {
+                    gameState.strategistFreeRefreshAvailable() = false;
+                    gameState.strategistFreeRefreshFight() = -1;
+                }
+                else if (!services_.economy.spend(ChessBalance::config().refreshCost))
                 {
                     continue;
                 }

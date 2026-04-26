@@ -93,6 +93,8 @@ bool ChessBalance::loadConfig(const std::string& path)
         if (n["每胜生命"]) c.fightWinGrowthHP = n["每胜生命"].as<int>();
         if (n["每胜攻击"]) c.fightWinGrowthAtk = n["每胜攻击"].as<int>();
         if (n["每胜防御"]) c.fightWinGrowthDef = n["每胜防御"].as<int>();
+        if (n["每胜兵器"]) c.fightWinGrowthWeapon = n["每胜兵器"].as<int>();
+        if (n["每胜轻功"]) c.fightWinGrowthSpeed = n["每胜轻功"].as<int>();
     }
 
     if (auto n = root["经济"])
@@ -180,6 +182,12 @@ bool ChessBalance::loadConfig(const std::string& path)
     {
         if (n["总关卡数"]) c.totalFights = n["总关卡数"].as<int>();
         if (n["Boss间隔"]) c.bossInterval = n["Boss间隔"].as<int>();
+    }
+
+    if (auto n = root["神兵商店"])
+    {
+        if (n["通关后"]) c.legendaryShop.unlockFight = n["通关后"].as<int>();
+        if (n["价格"]) c.legendaryShop.price = n["价格"].as<int>();
     }
 
     try {

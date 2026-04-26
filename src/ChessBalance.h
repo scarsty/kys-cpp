@@ -39,6 +39,8 @@ struct BalanceConfig
     int fightWinGrowthHP = 15;
     int fightWinGrowthAtk = 2;
     int fightWinGrowthDef = 2;
+    int fightWinGrowthWeapon = 0;
+    int fightWinGrowthSpeed = 0;
 
     // Economy
     int initialMoney = 20;
@@ -94,6 +96,13 @@ struct BalanceConfig
     // Stage progress
     int totalFights = 28;
     int bossInterval = 4;
+
+    // Legendary equipment shop
+    struct LegendaryShopConfig {
+        int unlockFight = 0;
+        int price = 40;
+    };
+    LegendaryShopConfig legendaryShop;
 
     // Enemy equipment progression
     struct EnemyEquipmentLevel { int fight; int maxTier; int count; bool equipBoth = false; };

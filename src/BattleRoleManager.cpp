@@ -15,6 +15,8 @@ StarBoostedStats BattleRoleManager::computeStarStats(const Role* role, int stars
     int baseHP = role->MaxHP + normalizedFightsWon * cfg.fightWinGrowthHP;
     int baseATK = role->Attack + normalizedFightsWon * cfg.fightWinGrowthAtk;
     int baseDEF = role->Defence + normalizedFightsWon * cfg.fightWinGrowthDef;
+    int baseSPD = role->Speed + normalizedFightsWon * cfg.fightWinGrowthSpeed / 2;
+    int baseWeapon = normalizedFightsWon * cfg.fightWinGrowthWeapon / 2;
     double hpM = 1.0 + cfg.starHPMult * s;
     double atkM = 1.0 + cfg.starAtkMult * s;
     double defM = 1.0 + cfg.starDefMult * s;
@@ -24,12 +26,12 @@ StarBoostedStats BattleRoleManager::computeStarStats(const Role* role, int stars
         static_cast<int>(baseHP * hpM) + cfg.starFlatHP * s,
         static_cast<int>(baseATK * atkM) + cfg.starFlatAtk * s,
         static_cast<int>(baseDEF * defM) + cfg.starFlatDef * s,
-        static_cast<int>(role->Speed * spdM),
-        static_cast<int>(role->Fist * defM) + actFlat,
-        static_cast<int>(role->Sword * defM) + actFlat,
-        static_cast<int>(role->Knife * defM) + actFlat,
-        static_cast<int>(role->Unusual * defM) + actFlat,
-        static_cast<int>(role->HiddenWeapon * defM) + actFlat,
+        static_cast<int>(baseSPD * spdM),
+        static_cast<int>((role->Fist + baseWeapon) * defM) + actFlat,
+        static_cast<int>((role->Sword + baseWeapon) * defM) + actFlat,
+        static_cast<int>((role->Knife + baseWeapon) * defM) + actFlat,
+        static_cast<int>((role->Unusual + baseWeapon) * defM) + actFlat,
+        static_cast<int>((role->HiddenWeapon + baseWeapon) * defM) + actFlat,
     };
 }
 

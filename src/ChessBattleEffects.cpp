@@ -12,7 +12,12 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"生命加成", EffectType::FlatHP}, {"攻击加成", EffectType::FlatATK},
     {"防御加成", EffectType::FlatDEF}, {"速度加成", EffectType::FlatSPD},
     {"生命百分比", EffectType::PctHP}, {"攻击百分比", EffectType::PctATK},
-    {"防御百分比", EffectType::PctDEF}, {"速度百分比", EffectType::PctSPD}, {"防御削减", EffectType::NegPctDEF},
+    {"防御百分比", EffectType::PctDEF}, {"速度百分比", EffectType::PctSPD},
+    {"全队生命加成", EffectType::TeamFlatHP}, {"全队攻击加成", EffectType::TeamFlatATK},
+    {"全队防御加成", EffectType::TeamFlatDEF}, {"全队速度加成", EffectType::TeamFlatSPD},
+    {"全队生命百分比", EffectType::TeamPctHP}, {"全队攻击百分比", EffectType::TeamPctATK},
+    {"全队防御百分比", EffectType::TeamPctDEF}, {"全队速度百分比", EffectType::TeamPctSPD},
+    {"防御削减", EffectType::NegPctDEF},
     {"固定减伤", EffectType::FlatDmgReduction}, {"固定加伤", EffectType::FlatDmgIncrease}, {"格挡几率", EffectType::BlockChance},
     {"闪避几率", EffectType::DodgeChance}, {"闪避后暴击", EffectType::DodgeThenCrit},
     {"暴击几率", EffectType::CritChance}, {"暴击伤害", EffectType::CritMultiplier},
@@ -24,7 +29,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"命中回血", EffectType::HPOnHit},
     {"吸取内力", EffectType::MPDrain}, {"回蓝加成", EffectType::MPRecoveryBonus},
     {"技能伤害", EffectType::SkillDmgPct}, {"技能反弹", EffectType::SkillReflectPct},
-    {"冷却缩减", EffectType::CDR}, {"护盾生命比", EffectType::ShieldPctMaxHP},
+    {"冷却缩减", EffectType::CDR}, {"护盾值", EffectType::FlatShield}, {"护盾生命比", EffectType::ShieldPctMaxHP},
     {"护盾僵直抗性", EffectType::ShieldFreezeRes}, {"治疗光环", EffectType::HealAuraPct},
     {"固定治疗光环", EffectType::HealAuraFlat},
     {"受治疗加速", EffectType::HealedATKSPDBoost}, {"生命回复", EffectType::HPRegenPct},
@@ -59,6 +64,15 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"滑步概率提升", EffectType::DashChanceBoost},
     {"当前内力加伤", EffectType::MPRatioDmgBoost},
     {"伤害降低", EffectType::DmgReduceDebuff},
+    {"当前生命伤害", EffectType::CurrentHPPctBlast},
+    {"全队回内", EffectType::TeamMPRestore},
+    {"螺旋流血弹", EffectType::SpiralBleedProjectile},
+    {"范围追踪弹", EffectType::NearbyTrackingProjectiles},
+    {"远程化", EffectType::ForceRangedAttack},
+    {"格挡绝招反击", EffectType::CounterUltimateBlock},
+    {"单次承伤上限", EffectType::MaxHitPctCurrentHP},
+    {"免费刷新", EffectType::FreeRefresh},
+    {"选择战场", EffectType::BattleMapChoice},
 };
 
 static const std::map<std::string, Trigger> triggerMap = {
@@ -191,6 +205,14 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::PctATK:  s.pctATK += e.value; break;
     case EffectType::PctDEF:  s.pctDEF += e.value; break;
     case EffectType::PctSPD:  s.pctSPD += e.value; break;
+    case EffectType::TeamFlatHP: s.flatHP += e.value; break;
+    case EffectType::TeamFlatATK: s.flatATK += e.value; break;
+    case EffectType::TeamFlatDEF: s.flatDEF += e.value; break;
+    case EffectType::TeamFlatSPD: s.flatSPD += e.value; break;
+    case EffectType::TeamPctHP: s.pctHP += e.value; break;
+    case EffectType::TeamPctATK: s.pctATK += e.value; break;
+    case EffectType::TeamPctDEF: s.pctDEF += e.value; break;
+    case EffectType::TeamPctSPD: s.pctSPD += e.value; break;
     case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
     case EffectType::FlatDmgReduction: s.flatDmgReduction += e.value; break;
     case EffectType::FlatDmgIncrease: s.flatDmgIncrease += e.value; break;
@@ -214,6 +236,7 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::SkillDmgPct: s.skillDmgPct += e.value; break;
     case EffectType::SkillReflectPct: s.skillReflectPct = std::max(s.skillReflectPct, e.value); break;
     case EffectType::CDR: s.cdrPct += e.value; break;
+    case EffectType::FlatShield: s.flatShield += e.value; break;
     case EffectType::ShieldPctMaxHP: s.shieldPctMaxHP += e.value; break;
     case EffectType::ShieldFreezeRes: s.shieldFreezeResPct += e.value; break;
     case EffectType::HealAuraPct: s.healAuraPct = std::max(s.healAuraPct, e.value); if (e.value2) s.healAuraInterval = e.value2; break;
@@ -302,6 +325,22 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         s.dmgReduceDebuffDurationFrames = e.value2;
         s.dmgReduceDebuffPct = e.value;
         break;
+    case EffectType::CurrentHPPctBlast: break;
+    case EffectType::TeamMPRestore: break;
+    case EffectType::SpiralBleedProjectile: break;
+    case EffectType::NearbyTrackingProjectiles:
+        s.nearbyTrackingProjectileRange = std::max(s.nearbyTrackingProjectileRange, e.value);
+        break;
+    case EffectType::ForceRangedAttack:
+        s.forceRangedAttack = true;
+        if (e.value2 > 0) s.forceRangedMinSelectDistance = std::max(1, e.value2);
+        if (e.value > 0) s.projectileSpeedMultiplierPct = std::max(s.projectileSpeedMultiplierPct, e.value);
+        s.ignoreProjectileCancel = true;
+        break;
+    case EffectType::CounterUltimateBlock: s.counterUltimateBlockChancePct = std::max(s.counterUltimateBlockChancePct, e.value); break;
+    case EffectType::MaxHitPctCurrentHP: s.maxHitPctCurrentHP = std::max(s.maxHitPctCurrentHP, e.value); break;
+    case EffectType::FreeRefresh: break;
+    case EffectType::BattleMapChoice: break;
     }
 }
 

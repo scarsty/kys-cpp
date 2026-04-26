@@ -38,11 +38,20 @@ public:
         int IsMain = 1;                //是否主弹（非多重小弹）
         int ScriptedDamage = 0;        //非武功/暗器投射物命中时造成的固定伤害
         int ScriptedStunFrames = 0;    //非武功投射物命中时附带的控制时间
+        int ScriptedBleedStacks = 0;   //非武功投射物命中时附带的流血层数
+        int SharedHitGroupId = 0;      //同一触发实例共享命中记录，避免多弹重复命中同一目标
         int IgnoreProjectileCancel = 0;    //忽略弹体互相抵消
         int RequirePreferredTarget = 0;    //只追踪/命中指定目标
+        int SuppressNearbyTrackingProjectileProc = 0;
         int BounceRemaining = 0;
         int BounceChancePct = 0;
         int BounceRange = 0;
+        int SpiralMotion = 0;
+        Pointf SpiralCenter;
+        float SpiralRadius = 0.0f;
+        float SpiralRadiusGrowth = 0.0f;
+        float SpiralAngle = 0.0f;
+        float SpiralAngularVelocity = 0.0f;
 
         void setEft(int num)
         {

@@ -13,6 +13,10 @@ public:
     void manageEquipment();
 
 private:
+    bool isLegendaryShopUnlocked() const;
+    void showEquipmentInventory();
+    void buyLegendaryEquipment();
+
     ChessSelectorServices services_;
 };
 
