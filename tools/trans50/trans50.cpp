@@ -130,7 +130,7 @@ std::string trans50(std::string str)
                 }
                 case 9:    // 字符串格式化（string.format）
                 {
-                    str = std::format("x[{}] = string.format({}, {});", e2, e3, e_GetValue(0, e1, e4));
+                    str = std::format("x[{}] = string.format(x[{}], {});", e2, e3, e_GetValue(0, e1, e4));
                     break;
                 }
                 case 10:    // 计算字符串实际显示宽度

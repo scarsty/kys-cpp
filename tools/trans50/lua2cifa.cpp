@@ -517,6 +517,31 @@ std::string lua2cifa(std::string str)
         result.pop_back();
     }
 
+    // 后处理：去除 Lua 标准库前缀（math./string. 在 Cifa 中直接使用函数名）
+    strfunc::replaceAllSubStringRef(result, "math.random(", "random(");
+    strfunc::replaceAllSubStringRef(result, "string.format(", "sprintf(");
+    // string.rep(" ", EXPR) → sprintf("%-*s", EXPR, "")（生成 EXPR 个空格）
+    {
+        const std::string pat = "string.rep(\" \", ";
+        size_t pos = 0;
+        while ((pos = result.find(pat, pos)) != std::string::npos)
+        {
+            size_t arg_start = pos + pat.size();
+            size_t arg_end = result.find(')', arg_start);
+            if (arg_end != std::string::npos)
+            {
+                std::string expr = result.substr(arg_start, arg_end - arg_start);
+                std::string repl = "sprintf(\"%-*s\", " + expr + ", \"\")";
+                result.replace(pos, arg_end - pos + 1, repl);
+                pos += repl.size();
+            }
+            else
+            {
+                pos += pat.size();
+            }
+        }
+    }
+
     // 后处理：去除标识符与 '(' 之间的多余空格（如 "AskJoin ()" → "AskJoin()"）
     // 控制流关键字 if/while/for 后的空格保留
     for (size_t i = 1; i + 1 < result.size();)
