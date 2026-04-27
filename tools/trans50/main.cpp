@@ -14,6 +14,7 @@
 void init_ins(std::string ini_file, std::string talkfile);
 std::string transk(std::vector<int> e);
 std::string trans50(std::string str);
+std::string lua2cifa(std::string str);
 void trans_talks(std::string talk_path, std::string coding);
 
 int main(int argc, char* argv[])
@@ -22,6 +23,7 @@ int main(int argc, char* argv[])
     cmd.add("talk", '\0', "trans talk to utf-8");
     cmd.add("kdef", '\0', "trans kdef to lua");
     cmd.add("50", '\0', "trans 50 in lua file");
+    cmd.add("lua2cifa", '\0', "convert lua event scripts to cifa (.c) format");
 
     cmd.add<std::string>("in", 'i', "input path or file", false, ".");
     cmd.add<std::string>("out", 'o', "output path or file", false, ".");
@@ -124,6 +126,57 @@ int main(int argc, char* argv[])
                         std::cerr << "The same after translation." << std::endl;
                     }
                 }
+            }
+        }
+    }
+
+    if (cmd.exist("lua2cifa"))
+    {
+        auto path = cmd.get<std::string>("in");
+        auto path_out = cmd.get<std::string>("out");
+        if (path_out == ".")
+        {
+            path_out = path;    // 默认就地（同目录输出 .c）
+        }
+
+        // 将 kaXXX.lua 的文件名基名 kaXXX → XXX（去掉 "ka" 前缀）
+        auto make_out_name = [&](const std::string& base) -> std::string
+        {
+            if (base.size() > 2 && base.substr(0, 2) == "ka")
+            {
+                return base.substr(2) + ".c";
+            }
+            return base + ".c";
+        };
+
+        if (filefunc::pathExist(path))
+        {
+            filefunc::makePath(path_out);
+            for (auto& file : filefunc::getFilesInPath(path, 0))
+            {
+                if (filefunc::getFileExt(file) != "lua")
+                {
+                    continue;
+                }
+                auto src = filefunc::readFileToString(path + "/" + file);
+                auto dst = lua2cifa(src);
+                auto base = filefunc::getFileMainNameWithoutPath(file);
+                auto out_file = path_out + "/" + make_out_name(base);
+                filefunc::writeStringToFile(dst, out_file);
+                printf("%s -> %s\r", file.c_str(), make_out_name(base).c_str());
+            }
+            printf("\ndone.\n");
+        }
+        else if (filefunc::fileExist(path))
+        {
+            if (filefunc::getFileExt(path) == "lua")
+            {
+                auto src = filefunc::readFileToString(path);
+                auto dst = lua2cifa(src);
+                auto base = filefunc::getFileMainNameWithoutPath(filefunc::getFilenameWithoutPath(path));
+                auto out_file = path_out + "/" + make_out_name(base);
+                filefunc::writeStringToFile(dst, out_file);
+                printf("-> %s\n", out_file.c_str());
             }
         }
     }

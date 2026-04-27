@@ -135,6 +135,7 @@
     <ClCompile Include="..\..\mlcc\PotConv.cpp" />
     <ClCompile Include="..\..\mlcc\strfunc.cpp" />
     <ClCompile Include="..\..\src\GrpIdxFile.cpp" />
+    <ClCompile Include="lua2cifa.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="trans50.cpp" />
     <ClCompile Include="transk.cpp" />

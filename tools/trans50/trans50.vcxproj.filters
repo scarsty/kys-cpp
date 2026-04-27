@@ -36,6 +36,9 @@
     <ClCompile Include="..\..\src\GrpIdxFile.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="lua2cifa.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\mlcc\PotConv.h">

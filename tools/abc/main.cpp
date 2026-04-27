@@ -24,7 +24,7 @@ int main()
     cmd.add("combine-wmpsmp", '\0', "combine wmp to smp");
     cmd.add("trans-indexka", '\0', "recursively trans all index.ka to index.txt");
 
-    cmd.add<std::string>("path", 'p', "resource path", false, "./");    
+    cmd.add<std::string>("path", 'p', "resource path", false, "./");
 
 #ifdef _MSC_VER
     cmd.parse_check(GetCommandLineA());
@@ -49,7 +49,7 @@ int main()
         expandR(path + "/ranger.idx", path + "/r4.grp", 4, path, true, false);
         expandR(path + "/ranger.idx", path + "/r5.grp", 5, path, true, false);
 
-        expandR(path  + "/ranger.idx", path + "/ranger.grp", 0, path, false, true);    //只转换战斗帧数
+        expandR(path + "/ranger.idx", path + "/ranger.grp", 0, path, false, true);    //只转换战斗帧数
     }
 
     if (cmd.exist("list"))
@@ -85,7 +85,7 @@ int main()
     }
 
     //check_script(R"(D:\kys-all\trans50/event)");
-    
+
     //make_heads(R"(D:\_sty_bak\kys-all\转换至kys-cpp工具\头像)");
 
     //test_png_offset();

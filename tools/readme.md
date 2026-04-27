@@ -68,9 +68,56 @@ path为上一步转换脚本的文件夹，talkfile为talkutf8.txt的路径。
 
 此处得到的脚本更容易阅读，且大部分能被kys-pascal执行，但因一些关键字不同，不保证能完全正常执行。如有进一步需求建议自行修改相关代码。
 
-转换过程会自动将向前的 goto 跳转改写为 `if ... then ... end` 结构。向后的 goto（循环）因转换效果不稳定，建议用AI来帮忙转换成结构化的代码。
+转换过程会自动将向前的 goto 跳转改写为 `if ... then ... end` 结构。向后的 goto（循环）因转换效果不稳定，建议用AI来帮忙转换成结构化的代码，或使用下面的 lua2cifa 功能进一步转换。
 
 但是需注意50指令变量所在的位置与原来不同，故不能混用转换前后的脚本。
+
+### 将 lua 事件脚本转换为 Cifa 格式
+
+Cifa 是 kys-cpp 使用的类 C 脚本格式。此步骤将上一步输出的 lua 脚本转换为更易阅读的结构化 C 风格代码，可供二次开发或人工审阅。
+
+```
+trans50 --lua2cifa --in path --out path_out
+```
+
+`path` 为 lua 脚本目录（文件名形如 `kaXXXX.lua`），`path_out` 为输出目录（会生成对应的 `XXXX.c` 文件）。也可以传入单个 `.lua` 文件路径进行单文件转换。
+
+#### 转换原理
+
+转换分为三个预处理阶段和一个主转换阶段：
+
+**预处理 B：消解 `jump_flag` 中间变量**
+
+`--50` 转换阶段会将原版比较指令展开为 `if COND then jump_flag = true; else jump_flag = false; end;`，再由后续的 `if jump_flag == false then goto label end;` 驱动跳转。预处理 B 识别此模式，将 `goto` 行直接替换为实际条件，并删除 `jump_flag` 赋值行，从而消除中间变量。
+
+**预处理 C：消解 `showmessage` 的 `jump_flag` 结果**
+
+`showmessage(...)` 调用会将用户选择结果写入 `x[28672]` 并同步设置 `jump_flag`。预处理 C 识别其后出现的 `if jump_flag == false then` 模式，替换为 `if (x[28672] != CODE)` 的显式比较。
+
+**主转换阶段**
+
+逐行将 Lua 语法映射到 Cifa/C 语法：
+
+| Lua | Cifa |
+|-----|------|
+| `if COND then` | `if (COND) {` |
+| `else` | `} else {` |
+| `end;` | `}` |
+| `repeat` | `do {` |
+| `until COND;` | `} while (NEGATE(COND));` |
+| `for VAR=A, B do` | `for (int VAR = A; VAR <= B; VAR++) {` |
+| `::label::` … `if COND then goto label end;` | `do { … } while (COND);` |
+| `or` / `and` | `\|\|` / `&&` |
+| `~=` | `!=` |
+| `-- comment` | `// comment` |
+| `EXPR == false` | `!EXPR` |
+| `EXPR == true` | `EXPR` |
+
+条件取反时优先翻转比较运算符（`!(a > b)` → `a <= b`），无法翻转时才退化为 `!(cond)` 形式。
+
+**后处理：去除函数名与括号间的多余空格**
+
+原版脚本中部分函数调用带有多余空格（如 `AskJoin ()`），后处理阶段将其收紧为 `AskJoin()`，同时保留控制流关键字后的空格（`if (`、`while (` 等不受影响）。
 
 ### 批处理范例
 
