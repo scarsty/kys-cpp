@@ -77,7 +77,7 @@ void trans_talks(std::string talk_path, std::string coding)
 // 从 kdef.ini 加载指令表，从 talkutf8.txt 加载对话表。
 // 两者均加载到全局变量 ins_ / talks_。
 // 读取顺序必须先 trans_talks 生成 talkutf8.txt，再调用 init_ins。
-void init_ins(std::string ini_file, std::string path)
+void init_ins(std::string ini_file, std::string talkfile)
 {
     INIReaderNormal ini;
     ini.loadFile(ini_file);
@@ -101,9 +101,9 @@ void init_ins(std::string ini_file, std::string path)
         ins.jump2 = std::stoi(strs[4]);
     }
 
-    if (filefunc::fileExist(path + "/talkutf8.txt"))
+    if (filefunc::fileExist(talkfile))
     {
-        talks_ = get_talk_utf8(path + "/talkutf8.txt");
+        talks_ = get_talk_utf8(talkfile);
     }
     else
     {

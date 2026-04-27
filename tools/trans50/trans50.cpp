@@ -2,7 +2,6 @@
 //
 // DOS 版完全依赖内置指令系统，自定义指令均以 instruct_50(code, e1..e6) 形式出现。
 // trans50() 识别这些行并将其替换为对应的 Lua 表达式，保留原注释。
-// 当 refine != 0 时将进一步合并隔行的 if/goto 为结构化控制流。
 
 #include <iostream>
 
@@ -16,7 +15,7 @@
 
 extern std::vector<std::string> talks_;
 
-std::string trans50(std::string str, int refine)
+std::string trans50(std::string str)
 {
     std::string result;
 
@@ -117,7 +116,7 @@ std::string trans50(std::string str, int refine)
                 }
                 case 6: break;    // 无操作
                 case 7: break;    // 无操作
-                case 8:    // 加载对话内容到字符串变量
+                case 8:           // 加载对话内容到字符串变量
                 {
                     if (is_number(0, e1, e2))
                     {
@@ -293,7 +292,7 @@ std::string trans50(std::string str, int refine)
                 }
                 }
             }
-            line = std::format("{}{}        --{}", std::string(0, ' '), str, line.substr(pos));
+            line = std::format("{}{}", std::string(0, ' '), str);
         }
         else
         {
@@ -335,7 +334,8 @@ std::string trans50(std::string str, int refine)
         //printf("%s\n", str.c_str());
     }
 
-    auto trim = [](std::string& s)
+    // 辅助：去除首尾空白（原地修改并返回引用）
+    auto trim = [](std::string& s) -> std::string&
     {
         auto pos = s.find_first_not_of(" \t");
         if (pos != std::string::npos)
@@ -350,9 +350,14 @@ std::string trans50(std::string str, int refine)
         return s;
     };
 
-    auto make_reverse = [&](std::string& s)
+    // 辅助：对 Lua 条件取反（原地修改并返回 trim 后的值）
+    auto make_reverse = [&](std::string& s) -> std::string&
     {
-        std::vector<std::pair<std::string, std::string>> opr = { { "== false", "" }, { "== true", "== false" }, { "<=", ">" }, { "==", "~=" }, { "~=", "==" }, { ">=", "<" }, { "<", ">=" }, { ">", "<=" } };
+        std::vector<std::pair<std::string, std::string>> opr = {
+            { "== false", "" }, { "== true", "== false" },
+            { "<=", ">" }, { "==", "~=" }, { "~=", "==" },
+            { ">=", "<" }, { "<", ">=" }, { ">", "<=" }
+        };
         bool dealed = false;
         for (auto& [k, v] : opr)
         {
@@ -365,118 +370,81 @@ std::string trans50(std::string str, int refine)
         }
         if (!dealed)
         {
-            s = trim(s) + " == false";    //如果没有处理过，则加上not
+            s = trim(s) + " == false";
         }
         return trim(s);
     };
 
-    if (refine)
+    // 合并 jump_flag 条件到上一行的 if，减少中间变量
+    for (int i = 1; i < (int)lines.size(); i++)
     {
-        //合并jump_flag的条件
-        for (int i = 1; i < lines.size(); i++)
+        auto& line = lines[i];
+        if (line.contains("jump_flag") && line.contains("if") && line.contains("then") && line.contains("goto") && !line.contains("else"))
         {
-            auto& line = lines[i];
-            if (line.contains("jump_flag") && line.contains("if") && line.contains("then") && line.contains("goto") && !line.contains("else"))
+            auto& line0 = lines[i - 1];
+            if (line0.contains("if") && line0.contains("then"))
             {
-                auto& line0 = lines[i - 1];
-                if (line0.contains("if") && line0.contains("then"))
-                {
-                    //合并到上一行
-                    auto posif = line0.find("if");
-                    auto posthen = line0.find("then");
-                    auto condition = line0.substr(posif + 2, posthen - posif - 2);
-                    trim(condition);
-                    if (line.contains("jump_flag == false"))
-                    {
-                        make_reverse(condition);
-                        strfunc::replaceAllSubStringRef(line, "jump_flag == false", condition);
-                    }
-                    else
-                    {
-                        strfunc::replaceAllSubStringRef(line, "jump_flag", condition);
-                    }
-                    line0.clear();
-                }
-            }
-        }
-
-        //处理向下跳转
-        for (int i = 0; i < lines.size(); i++)
-        {
-            auto& line = lines[i];
-            if (line.contains("if") && line.contains("goto") && !line.contains("else"))
-            {
-                auto pos_goto = line.find("goto");
-                auto pos_end = line.find("end", pos_goto);
-                auto label = line.substr(pos_goto + 4, pos_end - pos_goto - 4);
-                trim(label);
-
-                auto pos_if = line.find("if");
-                auto pos_then = line.find("then", pos_if);
-                auto condition = line.substr(pos_if + 2, pos_then - pos_if - 2);
+                auto posif = line0.find("if");
+                auto posthen = line0.find("then");
+                auto condition = line0.substr(posif + 2, posthen - posif - 2);
                 trim(condition);
-
-                for (int j = i + 1; j < lines.size(); j++)
+                if (line.contains("jump_flag == false"))
                 {
-                    auto& line2 = lines[j];
-                    if (line2.find("::" + label + "::") != std::string::npos)
-                    {
-                        //找到跳转标签
-                        line2 += "\nend;";
-                        line = "if " + make_reverse(condition) + " then";
-                        break;
-                    }
+                    strfunc::replaceAllSubStringRef(line, "jump_flag == false", make_reverse(condition));
+                }
+                else
+                {
+                    strfunc::replaceAllSubStringRef(line, "jump_flag", condition);
+                }
+                line0.clear();
+            }
+        }
+    }
+
+    // 将向前跳转（if ... goto labelN end）转换为 if ... then ... end 结构
+    for (int i = 0; i < (int)lines.size(); i++)
+    {
+        auto& line = lines[i];
+        if (line.contains("if") && line.contains("goto") && !line.contains("else"))
+        {
+            auto pos_goto = line.find("goto");
+            auto pos_end = line.find("end", pos_goto);
+            auto label = line.substr(pos_goto + 4, pos_end - pos_goto - 4);
+            trim(label);
+
+            auto pos_if = line.find("if");
+            auto pos_then = line.find("then", pos_if);
+            auto condition = line.substr(pos_if + 2, pos_then - pos_if - 2);
+            trim(condition);
+
+            // 只处理向前跳转（label 出现在当前行之后）
+            for (int j = i + 1; j < (int)lines.size(); j++)
+            {
+                if (lines[j].find("::" + label + "::") != std::string::npos)
+                {
+                    lines[j] += "\nend;";
+                    line = "if " + make_reverse(condition) + " then";
+                    break;
                 }
             }
         }
+    }
 
-        //处理向上跳转，顺序应在向下跳转之后
-        for (int i = 0; i < lines.size(); i++)
+    // 合并 temp 中间变量到使用它的下一行
+    for (int i = 1; i < (int)lines.size(); i++)
+    {
+        auto& line = lines[i];
+        if (line.contains("temp"))
         {
-            auto& line = lines[i];
-            if (line.contains("if") && line.contains("goto"))
+            auto& line0 = lines[i - 1];
+            if (line0.contains("temp ="))
             {
-                auto pos_goto = line.find("goto");
-                auto pos_end = line.find("end", pos_goto);
-                auto label = line.substr(pos_goto + 4, pos_end - pos_goto - 4);
-                trim(label);
-
-                auto pos_if = line.find("if");
-                auto pos_then = line.find("then", pos_if);
-                auto condition = line.substr(pos_if + 2, pos_then - pos_if - 2);
-                trim(condition);
-
-                for (int j = i - 1; j >= 0; j--)
-                {
-                    auto& line0 = lines[j];
-                    if (line0.find("::" + label + "::") != std::string::npos)
-                    {
-                        //找到跳转标签
-                        line0 += "\nrepeat";
-                        line = "until " + make_reverse(condition) + ";";
-                        break;
-                    }
-                }
-            }
-        }
-
-        //合并temp变量
-        for (int i = 1; i < lines.size(); i++)
-        {
-            auto& line = lines[i];
-            if (line.contains("temp"))
-            {
-                auto& line0 = lines[i - 1];
-                if (line0.contains("temp ="))
-                {
-                    //合并到上一行
-                    auto pos_eq = line0.find("=");
-                    auto pos_end = line0.find(";", pos_eq);
-                    auto value = line0.substr(pos_eq + 1, pos_end - pos_eq - 1);
-                    trim(value);
-                    strfunc::replaceAllSubStringRef(line, "temp", value);
-                    line0.clear();
-                }
+                auto pos_eq = line0.find("=");
+                auto pos_end = line0.find(";", pos_eq);
+                auto value = line0.substr(pos_eq + 1, pos_end - pos_eq - 1);
+                trim(value);
+                strfunc::replaceAllSubStringRef(line, "temp", value);
+                line0.clear();
             }
         }
     }
@@ -493,13 +461,11 @@ std::string trans50(std::string str, int refine)
     {
         result.pop_back();    //去掉最后一个换行符
     }
-    //处理掉未使用的跳转
 
-    if (refine)
+    // 删除转换后不再被 goto 引用的孤立标签
     {
-        std::map<std::string, int> label_map;
-
-        int i = 0;
+        std::map<std::string, std::string::size_type> unused_labels;
+        std::string::size_type i = 0;
         while (i < result.size())
         {
             auto pos = result.find("::", i);
@@ -513,21 +479,19 @@ std::string trans50(std::string str, int refine)
                 break;
             }
             std::string label = result.substr(pos + 2, pos_end - pos - 2);
-
             if (!result.contains("goto " + label))
             {
-                label_map[label] = i;    //记录标签位置
+                unused_labels[label] = i;
             }
             i = pos_end + 2;
         }
-        label_map.erase("exit");    //不处理结束标签
-        for (const auto& [label, pos] : label_map)
+        unused_labels.erase("exit");    // 不处理结束标签
+        for (const auto& [label, _] : unused_labels)
         {
-            //没有使用的跳转，删除
             auto pos_label = result.find("::" + label + "::");
             if (pos_label != std::string::npos)
             {
-                result.erase(pos_label, label.size() + 4);    //删除标签
+                result.erase(pos_label, label.size() + 4);
             }
         }
     }

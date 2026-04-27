@@ -11,9 +11,9 @@
 #include <windows.h>
 #endif
 
-void init_ins(std::string ini_file, std::string path);
+void init_ins(std::string ini_file, std::string talkfile);
 std::string transk(std::vector<int> e);
-std::string trans50(std::string str, int refine);
+std::string trans50(std::string str);
 void trans_talks(std::string talk_path, std::string coding);
 
 int main(int argc, char* argv[])
@@ -26,9 +26,9 @@ int main(int argc, char* argv[])
     cmd.add<std::string>("in", 'i', "input path or file", false, ".");
     cmd.add<std::string>("out", 'o', "output path or file", false, ".");
 
-    cmd.add<std::string>("talkpath", 't', "talk file for 50", false, "talkutf8.txt");
+    cmd.add<std::string>("talkfile", 't', "talk utf-8 file", false, "talkutf8.txt");
     cmd.add<std::string>("talkcoding", 'c', "talkcoding of grp", false, "cp950");
-    cmd.add("refine", '\0', "simple refine when trans 50");
+    cmd.add("overwrite", '\0', "overwrite input files in place instead of writing to event50/");
 
 #ifdef _MSC_VER
     cmd.parse_check(GetCommandLineA());
@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
         }
 
         filefunc::makePath(path_out);
-        init_ins("transk.ini", path);
+        init_ins("transk.ini", cmd.get<std::string>("talkfile"));
         for (int i = 0; i < kdef_.size(); i++)
         {
             auto str = transk(kdef_[i]);
@@ -80,44 +80,49 @@ int main(int argc, char* argv[])
 
     if (cmd.exist("50") && !cmd.exist("kdef"))
     {
-        int refine = cmd.exist("refine") ? 1 : 0;
-        init_ins("transk.ini", cmd.get<std::string>("talkpath"));
+        bool overwrite = cmd.exist("overwrite");
+        init_ins("transk.ini", cmd.get<std::string>("talkfile"));
         if (cmd.exist("in"))
         {
             auto path = cmd.get<std::string>("in");
-            std::string path_out = cmd.get<std::string>("out") + "/event50/";
-            if (refine)
+            std::string path_out = overwrite ? path : (cmd.get<std::string>("out") + "/event50/");
+            if (!overwrite)
             {
-                path_out = cmd.get<std::string>("out") + "/event50r/";
+                filefunc::makePath(path_out);
             }
-            filefunc::makePath(path_out);
             if (filefunc::pathExist(path))
             {
                 for (auto& file : filefunc::getFilesInPath(path, 0))
                 {
-                    if (filefunc::getFileExt(file) == "lua")
+                    auto ext = filefunc::getFileExt(file);
+                    if (ext == "lua" || ext == "c")
                     {
                         auto str = filefunc::readFileToString(path + "/" + file);
-                        auto str1 = trans50(str, refine);
+                        auto str1 = trans50(str);
                         if (str1 != str)
                         {
-                            filefunc::writeStringToFile(str1, path_out + file);
+                            filefunc::writeStringToFile(str1, path_out + "/" + file);
                         }
                     }
                     printf("%s\r", file.c_str());
                 }
             }
-            else if (filefunc::fileExist(path) && filefunc::getFileExt(path) == "lua")
+            else if (filefunc::fileExist(path))
             {
-                auto str = filefunc::readFileToString(path);
-                auto str1 = trans50(str, refine);
-                if (str1 != str)
+                auto ext = filefunc::getFileExt(path);
+                if (ext == "lua" || ext == "c")
                 {
-                    filefunc::writeStringToFile(str1, cmd.get<std::string>("out") + "/" + filefunc::getFilenameWithoutPath(path));
-                }
-                else
-                {
-                    std::cerr << "The same after translation." << std::endl;
+                    auto str = filefunc::readFileToString(path);
+                    auto str1 = trans50(str);
+                    if (str1 != str)
+                    {
+                        auto out_file = overwrite ? path : (cmd.get<std::string>("out") + "/" + filefunc::getFilenameWithoutPath(path));
+                        filefunc::writeStringToFile(str1, out_file);
+                    }
+                    else
+                    {
+                        std::cerr << "The same after translation." << std::endl;
+                    }
                 }
             }
         }

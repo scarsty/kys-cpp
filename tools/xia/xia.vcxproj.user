@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerCommandArguments>mmap.idx mmap.grp mmap 1</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerWorkingDirectory>D:\kys-all\原dos版开发\DosMod\再战江湖\游戏</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArgumentsHistory>mmap.idx mmap.grp mmap 1|</LocalDebuggerCommandArgumentsHistory>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommandArguments>mmap.idx mmap.grp mmap 1</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerWorkingDirectory>D:\kys-all\原dos版开发\DosMod\再战江湖\游戏</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
+</Project>
