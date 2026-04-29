@@ -284,6 +284,10 @@ int BattleActionMenu::autoSelect(Role* role)
                     }
                     int level_index = role->getRoleMagicLevelIndex(i);
 
+                    // 每次迭代重置 ActionX/Y，避免上一个 magic 的结果污染本次
+                    aa.ActionX = r2->X();
+                    aa.ActionY = r2->Y();
+
                     battle_scene_->calSelectLayerByMagic(aa.MoveX, aa.MoveY, role->Team, magic, level_index);
                     //对所有能选到的点测试，估算收益
                     for (int ix = 0; ix < BATTLEMAP_COORD_COUNT; ix++)
@@ -308,6 +312,11 @@ int BattleActionMenu::autoSelect(Role* role)
                                 }
                             }
                         }
+                    }
+                    // max_hurt == -1 说明此武学从 MoveX/Y 没有任何可选格，不加入评分
+                    if (max_hurt < 0)
+                    {
+                        continue;
                     }
                     aa.point = max_hurt;
                     //if (role->AttackTwice) { aa.point *= 2; }
