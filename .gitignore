@@ -43,3 +43,6 @@ wasm/.wrangler
 output/
 
 tmp/
+
+AGENTS.md
+CLAUDE.md
