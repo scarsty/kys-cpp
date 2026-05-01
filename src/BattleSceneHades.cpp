@@ -5421,11 +5421,9 @@ void BattleSceneHades::AI(Role* r)
                         else if (!dashAttackEnabled && rand_.rand() < dashChance)
                         {
                             r->OperationType = 3;
-                            if (!dashAttackEnabled)
-                            {
-                                //随机移动一下，增加一些变数
-                                r->RealTowards.rotate(M_PI * 0.75 * (2 * rand_.rand() - 1));
-                            }
+                            // 一般角色只隨機側移，踏雪滑步攻擊另走 dashAttackEnabled 邏輯。
+                            constexpr double randomDashMaxTurn = M_PI * 0.5;
+                            r->RealTowards.rotate(randomDashMaxTurn * (2 * rand_.rand() - 1));
                             setCoolDown(r, calCoolDown(r->UsingMagic->MagicType, r->OperationType, r));
                             r->ActFrame = 0;
                             r->ActType = r->UsingMagic->MagicType;
