@@ -18,6 +18,25 @@ namespace
 
 constexpr int kLegendaryEquipmentTier = 4;
 
+const char* equipmentTierLabel(int tier)
+{
+    static const char* kTierNames[] = {"初階", "中階", "高階", "傳說"};
+    return kTierNames[std::clamp(tier, 1, 4) - 1];
+}
+
+std::string buildEquipmentMenuPrefix(const EquipmentDef& equipment)
+{
+    auto* item = equipment.getItem();
+    return std::format("[{}] {}", equipmentTierLabel(equipment.tier), item ? item->Name : "???");
+}
+
+std::string padMenuLabelToWidth(std::string label, int targetWidth)
+{
+    int paddingWidth = std::max(0, targetWidth - Font::getTextDrawSize(label));
+    label += std::string(paddingWidth, ' ');
+    return label;
+}
+
 std::vector<std::string> buildEquippedByNames(const ChessSelectorServices& services, int itemId)
 {
     std::vector<std::string> equippedBy;
@@ -95,19 +114,25 @@ void ChessEquipmentFlow::buyLegendaryEquipment()
         return;
     }
 
-    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
     Color tierColor = {255, 100, 255, 255};
     auto menuAnchor = ChessScreenLayout::browseMenuAnchor();
+    int maxPrefixWidth = 0;
+    for (const auto* equipment : legendaryEquipments)
+    {
+        if (!equipment)
+        {
+            continue;
+        }
+        maxPrefixWidth = std::max(maxPrefixWidth, Font::getTextDrawSize(buildEquipmentMenuPrefix(*equipment)));
+    }
 
     while (true)
     {
         IndexedMenuData menuData;
         for (const auto* eq : legendaryEquipments)
         {
-            auto* item = eq ? eq->getItem() : nullptr;
-            std::string name = item ? item->Name : "???";
-            while (name.size() < 15) name += "\xe3\x80\x80";
-            menuData.labels.push_back(std::format("[{}] {} ${}", tierName[kLegendaryEquipmentTier - 1], name, ChessBalance::config().legendaryShop.price));
+            std::string label = eq ? padMenuLabelToWidth(buildEquipmentMenuPrefix(*eq), maxPrefixWidth) : "[傳說] ???";
+            menuData.labels.push_back(std::format("{} ${}", label, ChessBalance::config().legendaryShop.price));
             menuData.colors.push_back(tierColor);
         }
 
@@ -155,7 +180,6 @@ void ChessEquipmentFlow::showEquipmentInventory()
         return;
     }
 
-    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
     static int k_equipSuffixWidth = Font::getTextDrawSize(" [已裝]");
     struct EquipmentInstanceEntry
     {
@@ -166,16 +190,18 @@ void ChessEquipmentFlow::showEquipmentInventory()
         bool owned;
     };
 
+    int maxPrefixWidth = 0;
+    for (const auto& equipment : allEquip)
+    {
+        maxPrefixWidth = std::max(maxPrefixWidth, Font::getTextDrawSize(buildEquipmentMenuPrefix(equipment)));
+    }
+
     while (true)
     {
         std::vector<EquipmentInstanceEntry> entries;
         auto buildLabel = [&](const EquipmentDef& eq, bool equipped)
         {
-            auto* item = eq.getItem();
-            std::string name = item ? item->Name : "???";
-            while (name.size() < 15) name += "\xe3\x80\x80";
-
-            std::string label = std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name);
+            std::string label = padMenuLabelToWidth(buildEquipmentMenuPrefix(eq), maxPrefixWidth);
             if (equipped)
             {
                 label += " [已裝]";
@@ -207,8 +233,9 @@ void ChessEquipmentFlow::showEquipmentInventory()
             }
         }
 
-        std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
+        std::stable_sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
             if (left.owned != right.owned) return left.owned;
+            if (left.equipment->tier != right.equipment->tier) return left.equipment->tier < right.equipment->tier;
             return left.equipment->itemId < right.equipment->itemId;
         });
 

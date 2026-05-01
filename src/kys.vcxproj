@@ -85,7 +85,7 @@
       <Profile>true</Profile>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\"</Command>
+      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\" &amp; powershell -NoProfile -ExecutionPolicy Bypass -Command "Copy-Item -LiteralPath '$(ProjectDir)..\docs\更新日志.md' -Destination '$(ProjectDir)..\work\game-dev\config\changelog.md' -Force"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -118,7 +118,7 @@
       </Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\"</Command>
+      <Command>xcopy /Y /I "$(ProjectDir)..\config\*.yaml" "$(ProjectDir)..\work\game-dev\config\" &amp; powershell -NoProfile -ExecutionPolicy Bypass -Command "Copy-Item -LiteralPath '$(ProjectDir)..\docs\更新日志.md' -Destination '$(ProjectDir)..\work\game-dev\config\changelog.md' -Force"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -28,6 +28,8 @@ enum class EffectType
     PctHP, PctATK, PctDEF, PctSPD, NegPctDEF,
     TeamFlatHP, TeamFlatATK, TeamFlatDEF, TeamFlatSPD,
     TeamPctHP, TeamPctATK, TeamPctDEF, TeamPctSPD,
+    ActAsCombo,
+    FightWinHP, FightWinATKDEF,
 
     // Trigger effects (runtime)
     FlatDmgReduction,
@@ -124,6 +126,7 @@ struct ComboEffect
     EffectType type;
     int value;
     int value2 = 0;
+    std::string text;
     Trigger trigger = Trigger::Always;
     int triggerValue = 0;
     int duration = 0;
@@ -140,6 +143,7 @@ struct RoleComboState
     // Stat buffs
     int flatHP = 0, flatATK = 0, flatDEF = 0, flatSPD = 0;
     double pctHP = 0, pctATK = 0, pctDEF = 0, pctSPD = 0;
+    int fightWinGrowthHP = 0, fightWinGrowthATK = 0, fightWinGrowthDEF = 0;
 
     // Trigger values
     int flatDmgReduction = 0;
@@ -215,6 +219,8 @@ struct RoleComboState
     int enemyTopDebuffApplied = 0;
     bool forcePullProtect = false;
     bool forcePullExecute = false;
+    int forcePullProtectCharges = 0;
+    int forcePullExecuteCharges = 0;
     int damageImmunityAfterFrames = 0;
     int damageImmunityDuration = 0;
     int autoUltimateAfterFrames = 0;
@@ -248,8 +254,8 @@ struct RoleComboState
     int bleedSourceId = -1;
     int mpBlockTimer = 0;
     bool deathPreventionUsed = false;
-    bool forcePullProtectUsed = false;
-    bool forcePullExecuteUsed = false;
+    int forcePullProtectRemaining = 0;
+    int forcePullExecuteRemaining = 0;
     int shieldOnAllyDeathTracker = 0;
     bool onSkillTeamHealPending = false;
     bool postSkillDashPending = false;

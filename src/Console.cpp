@@ -2,6 +2,7 @@
 #include "BattleNetwork.h"
 #include "BattleScene.h"
 #include "ChessPool.h"
+#include "ChessRewardFlow.h"
 #include "ChessSelector.h"
 #include "DrawableOnCall.h"
 #include "DynamicChessMap.h"
@@ -46,6 +47,7 @@ Console::Console()
         }
     }
     // 捂脸
+    code = strfunc::trim(code);
     auto splits = strfunc::splitString(code, " ");
     if (splits.empty())
     {
@@ -54,6 +56,28 @@ Console::Console()
     if (code == "showmethemoney")
     {
         KysChess::GameState::get().economy().make(100);
+    }
+    else if (splits[0] == "item" || splits[0] == "裝備" || splits[0] == "物品")
+    {
+        auto& gd = KysChess::GameState::get();
+        KysChess::ChessRewardFlow rewardFlow({
+            gd.roleSave(),
+            gd.equipmentInventory(),
+            gd.roster(),
+            gd.shop(),
+            gd.progress(),
+            gd.economy(),
+            gd.random(),
+        });
+        KysChess::BalanceConfig::ChallengeReward reward{
+            KysChess::BalanceConfig::ChallengeRewardType::GetEquipment,
+            99,
+            0,
+        };
+        if (rewardFlow.applyReward(reward))
+        {
+            UISave::autoSave();
+        }
     }
     else if (code == "test")
     {
@@ -113,9 +137,13 @@ Console::Console()
         int battle_id = cfg["战场ID"].as<int>(-1);
         int seed = cfg["随机种子"].as<int>(-1);
 
-        // Temporarily override neigong
+        // 先保存原狀，測試用內功不能寫進自動存檔。
         auto& gd = KysChess::GameState::get();
         auto savedNeigong = gd.progress().getObtainedNeigong();
+        UISave::autoSave();
+        std::print("【测试】已自动存档\n");
+
+        // 暫時覆蓋內功
         if (cfg["内功"])
         {
             std::vector<int> testNg;
@@ -125,10 +153,6 @@ Console::Console()
             }
             gd.progress().setObtainedNeigong(std::move(testNg));
         }
-
-        // Auto-save
-        UISave::autoSave();
-        std::print("【测试】已自动存档\n");
 
         // Build ally Chess vector for runBattle
         std::vector<KysChess::Chess> allyChess;
@@ -163,9 +187,9 @@ Console::Console()
         int result = selector.runBattle(roles, allyChess, battle_id, seed);
         std::print("【测试】战斗结束，结果：{}\n", result == 0 ? "胜利" : "失败");
 
-        // Restore neigong and reload auto-save
-        gd.progress().setObtainedNeigong(std::move(savedNeigong));
+        // 讀回自動存檔後再強制還原內功，避免測試戰鬥流程中途存到臨時進度。
         UISave::loadAuto();
+        gd.progress().setObtainedNeigong(savedNeigong);
         std::print("【测试】已恢复存档\n");
     }
 }

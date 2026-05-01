@@ -1357,6 +1357,33 @@ BattleSystemMenuData Engine::getBattleSystemMenuData() const
     return imgui_->getBattleSystemMenuData();
 }
 
+void Engine::showChangelogWindow(const ChangelogData& data) const
+{
+    if (!imgui_)
+    {
+        return;
+    }
+    imgui_->showChangelog(data);
+}
+
+void Engine::hideChangelogWindow() const
+{
+    if (!imgui_)
+    {
+        return;
+    }
+    imgui_->hideChangelog();
+}
+
+bool Engine::isChangelogWindowOpen() const
+{
+    if (!imgui_)
+    {
+        return false;
+    }
+    return imgui_->isChangelogOpen();
+}
+
 void Engine::createRenderedTexture(const std::string& name, int w, int h)
 {
     auto tex = tex_map_[name];

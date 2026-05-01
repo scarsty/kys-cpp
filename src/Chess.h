@@ -2,6 +2,9 @@
 
 #include "Save.h"
 
+#include <string>
+#include <vector>
+
 namespace KysChess
 {
 
@@ -40,6 +43,7 @@ struct Chess
     InstancedItem weaponInstance{};
     InstancedItem armorInstance{};
     int fightsWon = 0;
+    std::vector<std::string> actAsComboNames;
 };
 
 constexpr auto k_nonExistentItem = ItemInstanceID{-1};

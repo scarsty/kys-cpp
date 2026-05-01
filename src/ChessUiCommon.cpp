@@ -128,6 +128,13 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::TeamPctATK: desc = compact ? std::format("全攻+{}%", eff.value) : std::format("全隊攻擊+{}%", eff.value); break;
     case EffectType::TeamPctDEF: desc = compact ? std::format("全防+{}%", eff.value) : std::format("全隊防禦+{}%", eff.value); break;
     case EffectType::TeamPctSPD: desc = compact ? std::format("全速+{}%", eff.value) : std::format("全隊速度+{}%", eff.value); break;
+    case EffectType::ActAsCombo: desc = std::format("計作{}", eff.text); break;
+    case EffectType::FightWinHP:
+        desc = std::format("每勝生命+{}", eff.value);
+        break;
+    case EffectType::FightWinATKDEF:
+        desc = std::format("每勝攻防+{}", eff.value);
+        break;
     case EffectType::NegPctDEF: desc = compact ? std::format("防-{}%", eff.value) : std::format("防禦-{}%", eff.value); break;
     case EffectType::FlatDmgReduction: desc = std::format("減傷{}", eff.value); break;
     case EffectType::FlatDmgIncrease: desc = std::format("增傷{}", eff.value); break;
@@ -182,8 +189,8 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::OnSkillTeamHealPct: desc = compact ? std::format("群療{}%HP", eff.value) : std::format("全隊回{}%HP", eff.value); break;
     case EffectType::DeathPrevention: desc = std::format("鎖血並無敵{}幀", eff.value); break;
     case EffectType::DeathMedical: desc = compact ? std::format("死療{}%", eff.value) : std::format("死亡醫療{}%HP", eff.value); break;
-    case EffectType::ForcePullProtect: desc = compact? "保護挪移" : "一場一次隊友低血挪移并保護"; break;
-    case EffectType::ForcePullExecute: desc = compact? "處決挪移" : "一場一次敵方殘血挪移"; break;
+    case EffectType::ForcePullProtect: desc = compact ? std::format("保護挪移{}次", eff.value) : std::format("一場{}次隊友低血挪移並保護", eff.value); break;
+    case EffectType::ForcePullExecute: desc = compact ? std::format("處決挪移{}次", eff.value) : std::format("一場{}次敵方殘血挪移", eff.value); break;
     case EffectType::ProjectileBounce: desc = compact ?  std::format("彈道彈射{}次", eff.value) : std::format("彈道{}半径内彈射{}次", eff.value2, eff.value); break;
     case EffectType::Execute: desc = std::format("斩殺<{}%", eff.value); break;
     case EffectType::MPBlock: desc = std::format("封内力回復{}幀", eff.value); break;

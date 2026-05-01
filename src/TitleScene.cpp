@@ -22,11 +22,14 @@
 #include "ChessBalance.h"
 #include "ChessModHook.h"
 #include "filefunc.h"
+#include "ImGuiLayer.h"
+#include "strfunc.h"
 
 #include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <format>
+#include <sstream>
 #include <vector>
 
 #ifdef __EMSCRIPTEN__
@@ -131,6 +134,103 @@ private:
         font->draw("上下切換可查看說明", 18, panelX + 18, panelY + panelH - 28, hintColor, 255);
     }
 };
+
+class ChangelogWindowWaitNode : public RunNode
+{
+public:
+    void backRun() override
+    {
+        if (!Engine::getInstance()->isChangelogWindowOpen())
+        {
+            exitWithResult(0);
+        }
+    }
+};
+
+ChangelogData loadChangelogData()
+{
+    ChangelogData data;
+    data.title = "更新日誌";
+
+    const std::vector<std::string> candidates = {
+        GameUtil::PATH() + "config/changelog.md",
+        GameUtil::PATH() + "config/更新日志.md",
+        "docs/更新日志.md",
+        "../docs/更新日志.md",
+    };
+
+    std::string content;
+    for (const auto& path : candidates)
+    {
+        if (!filefunc::fileExist(path))
+        {
+            continue;
+        }
+        content = filefunc::readFileToString(path);
+        if (!content.empty())
+        {
+            data.sourcePath = path;
+            break;
+        }
+    }
+
+    if (content.empty())
+    {
+        data.error = "找不到更新日誌。請確認 docs/更新日志.md 已複製到 game/config/changelog.md。";
+        return data;
+    }
+
+    if (content.size() >= 3 && static_cast<uint8_t>(content[0]) == 0xEF && static_cast<uint8_t>(content[1]) == 0xBB && static_cast<uint8_t>(content[2]) == 0xBF)
+    {
+        content.erase(0, 3);
+    }
+
+    std::istringstream input(content);
+    std::string line;
+    while (std::getline(input, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+
+        const size_t firstText = line.find_first_not_of(" \t");
+        const int leadingSpaces = firstText == std::string::npos ? 0 : static_cast<int>(firstText);
+        auto trimmed = strfunc::trim(line);
+        if (trimmed.empty())
+        {
+            data.lines.push_back({});
+            continue;
+        }
+
+        if (trimmed[0] == '#')
+        {
+            int hashes = 0;
+            while (hashes < static_cast<int>(trimmed.size()) && trimmed[hashes] == '#')
+            {
+                ++hashes;
+            }
+            auto heading = strfunc::trim(trimmed.substr(hashes));
+            if (heading == "更新日志" || heading == "更新日誌")
+            {
+                data.title = "更新日誌";
+                continue;
+            }
+            data.lines.push_back(ChangelogLine{std::max(1, std::min(hashes, 2)), -1, heading});
+            continue;
+        }
+
+        if (trimmed.rfind("- ", 0) == 0)
+        {
+            data.lines.push_back(ChangelogLine{0, leadingSpaces / 4, strfunc::trim(trimmed.substr(2))});
+            continue;
+        }
+
+        data.lines.push_back(ChangelogLine{0, -1, trimmed});
+    }
+
+    return data;
+}
 
 int runModalNode(const std::shared_ptr<RunNode>& node, const std::shared_ptr<TextBox>& label = nullptr,
     const std::vector<std::shared_ptr<RunNode>>& overlays = {})
@@ -295,14 +395,13 @@ TitleScene::TitleScene()
 {
     full_window_ = 1;
     battle_mode_ = GameUtil::getInstance()->getInt("game", "battle_mode");
-    // Text-only menu: 4 items, each 4 CJK chars at size 36 ~= 144px wide.
-    // Spacing 204px (144 + 60 gap), total span 756px, centered: x = (1280-756)/2 = 262.
+    // Text-only menu: 5 items, each 4 CJK chars at size 36 ~= 144px wide.
     auto mt = std::make_shared<MenuText>();
     mt->setFontSize(36);
     mt->setHaveBox(true);
-    mt->setStrings({"重新開始", "載入進度", "外部存檔", "離開遊戲"});
-    mt->setPosition(262, 500);
-    mt->arrange(0, 0, 204, 0);
+    mt->setStrings({"重新開始", "載入進度", "外部存檔", "更新日誌", "離開遊戲"});
+    mt->setPosition(216, 500);
+    mt->arrange(0, 0, 176, 0);
     for (auto& c : mt->getChilds())
     {
         auto* btn = dynamic_cast<Button*>(c.get());
@@ -475,6 +574,12 @@ void TitleScene::dealEvent(EngineEvent& e)
         runExternalSaveFlow();
     }
     if (r == 3)
+    {
+        Engine::getInstance()->showChangelogWindow(loadChangelogData());
+        auto waitNode = std::make_shared<ChangelogWindowWaitNode>();
+        waitNode->run();
+    }
+    if (r == 4)
     {
         setExit(true);
         exit(0);    //强制退出，否则在Android下可能退不完全

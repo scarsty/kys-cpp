@@ -5,6 +5,7 @@
 #include "ChessScreenLayout.h"
 #include "ChessUiCommon.h"
 #include "Font.h"
+#include "Save.h"
 #include "TextureManager.h"
 
 #include <algorithm>
@@ -123,9 +124,55 @@ void drawEquipmentDetail(const EquipmentDef& eq, PanelFrame frame, int count, co
             body.line(comboEffectDesc(eff), fs - 2, {220, 220, 100, 255}, 2);
         }
     }
-    if (!equippedBy.empty())
+    std::vector<const EquipmentSynergyDef*> matchingSynergies;
+    for (auto& synergy : ChessEquipment::getAllSynergies())
+    {
+        if (synergy.equipmentId == eq.itemId)
+        {
+            matchingSynergies.push_back(&synergy);
+        }
+    }
+    if (!matchingSynergies.empty())
     {
         if (!eq.effects.empty())
+        {
+            body.skip(12);
+        }
+        body.line("裝備羈絆:", fs, {255, 200, 100, 255});
+        for (auto* synergy : matchingSynergies)
+        {
+            std::string line;
+            for (size_t i = 0; i < synergy->roleIds.size(); ++i)
+            {
+                if (i > 0) line += "/";
+                auto* role = Save::getInstance()->getRole(synergy->roleIds[i]);
+                line += role ? role->Name : std::to_string(synergy->roleIds[i]);
+            }
+            line += ": ";
+            if (!synergy->actAsComboNames.empty())
+            {
+                line += "計作";
+                for (size_t i = 0; i < synergy->actAsComboNames.size(); ++i)
+                {
+                    if (i > 0) line += "/";
+                    line += synergy->actAsComboNames[i];
+                }
+            }
+            if (!synergy->effects.empty())
+            {
+                if (!synergy->actAsComboNames.empty()) line += "，";
+                for (size_t i = 0; i < synergy->effects.size(); ++i)
+                {
+                    if (i > 0) line += "，";
+                    line += comboEffectCompactDesc(synergy->effects[i]);
+                }
+            }
+            body.line(line, fs - 2, {220, 220, 100, 255}, 2);
+        }
+    }
+    if (!equippedBy.empty())
+    {
+        if (!eq.effects.empty() || !matchingSynergies.empty())
         {
             body.skip(16);
         }

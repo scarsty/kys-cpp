@@ -168,7 +168,7 @@ bool ChessManager::isBenchFull() const
 
 std::vector<Chess> ChessManager::getSelectedForBattle() const
 {
-    return roster_.getSelectedForBattle();
+    return ChessEquipment::withActiveSynergies(roster_.getSelectedForBattle());
 }
 
 std::optional<Chess> ChessManager::tryFindChessByInstanceId(ChessInstanceID id) const

@@ -60,6 +60,7 @@ using AudioSpec = SDL_AudioSpec;
 using EngineEvent = SDL_Event;
 struct BattleLogData;
 struct BattleSystemMenuData;
+struct ChangelogData;
 
 //这里直接照搬SDL
 //更换底层需自己定义一套
@@ -398,6 +399,9 @@ public:
     void hideBattleSystemMenu() const;
     bool isBattleSystemMenuOpen() const;
     BattleSystemMenuData getBattleSystemMenuData() const;
+    void showChangelogWindow(const ChangelogData& data) const;
+    void hideChangelogWindow() const;
+    bool isChangelogWindowOpen() const;
 
     void renderClear() const { SDL_RenderClear(renderer_); }
 

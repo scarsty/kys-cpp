@@ -115,16 +115,37 @@ const std::vector<ComboDef>& ChessCombo::getAllCombos()
 std::vector<ActiveCombo> ChessCombo::detectCombos(const std::vector<Chess>& selected)
 {
     std::map<int, int> starByRole;
+    std::map<std::string, std::set<int>> actAsByComboName;
     for (auto& c : selected)
-        if (c.role) starByRole[c.role->ID] = c.star;
+    {
+        if (!c.role) continue;
+        starByRole[c.role->ID] = c.star;
+        for (const auto& comboName : c.actAsComboNames)
+        {
+            actAsByComboName[comboName].insert(c.role->ID);
+        }
+    }
 
     std::vector<ActiveCombo> result;
     for (auto& combo : getAllCombos())
     {
         ActiveCombo ac;
         ac.id = combo.id;
+        auto addMember = [&](int rid)
+        {
+            if (!starByRole.count(rid)) return;
+            if (ac.memberRoleIds.insert(rid).second)
+            {
+                ac.memberCount++;
+            }
+        };
         for (int rid : combo.memberRoleIds)
-            if (starByRole.count(rid)) { ac.memberCount++; ac.memberRoleIds.insert(rid); }
+            addMember(rid);
+        if (auto it = actAsByComboName.find(combo.name); it != actAsByComboName.end())
+        {
+            for (int rid : it->second)
+                addMember(rid);
+        }
         if (ac.memberCount == 0) continue;
 
         ac.physicalMemberCount = ac.memberCount;

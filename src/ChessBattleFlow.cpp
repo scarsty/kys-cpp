@@ -984,7 +984,8 @@ void ChessBattleFlow::enterBattle()
 
 int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vector<Chess>& allyChess, int battle_id, int seed, bool countFightsWon)
 {
-    battle_id = chooseBattleMapIfNeeded(roles, allyChess, battle_id);
+    auto activeAllyChess = ChessEquipment::withActiveSynergies(allyChess);
+    battle_id = chooseBattleMapIfNeeded(roles, activeAllyChess, battle_id);
     battle_id = DynamicChessMap::resolveBattleId(roles, services_.random, battle_id);
 
     ChessManager chessManager(services_.roster, services_.equipmentInventory, services_.economy);
@@ -994,18 +995,24 @@ int ChessBattleFlow::runBattle(const DynamicBattleRoles& roles, const std::vecto
         auto* role = services_.roleSave.getRole(roles.enemy_ids[i]);
         if (role)
         {
-            enemyChessVec.push_back({role, i < roles.enemy_stars.size() ? roles.enemy_stars[i] : 1});
+            Chess chess;
+            chess.role = role;
+            chess.star = i < roles.enemy_stars.size() ? roles.enemy_stars[i] : 1;
+            chess.weaponInstance.itemId = i < roles.enemy_weapons.size() ? roles.enemy_weapons[i] : -1;
+            chess.armorInstance.itemId = i < roles.enemy_armors.size() ? roles.enemy_armors[i] : -1;
+            enemyChessVec.push_back(chess);
         }
     }
 
-    auto allyCombos = ChessCombo::detectCombos(allyChess);
-    auto enemyCombos = ChessCombo::detectCombos(enemyChessVec);
+    auto activeEnemyChess = ChessEquipment::withActiveSynergies(std::move(enemyChessVec));
+    auto allyCombos = ChessCombo::detectCombos(activeAllyChess);
+    auto enemyCombos = ChessCombo::detectCombos(activeEnemyChess);
     {
         auto info = BattleMap::getInstance()->getBattleInfo(battle_id);
         int musicId = info ? info->Music : -1;
         auto view = std::make_shared<BattleStatsView>(services_.roleSave, chessManager);
         view->setupPreBattle(
-            allyChess,
+            activeAllyChess,
             roles.enemy_ids,
             roles.enemy_stars,
             allyCombos,

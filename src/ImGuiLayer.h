@@ -80,6 +80,22 @@ struct BattleSystemMenuData
     bool showBattleLog = true;
 };
 
+struct ChangelogLine
+{
+    int headingLevel = 0;
+    int bulletIndent = -1;
+    std::string text;
+};
+
+struct ChangelogData
+{
+    bool open = false;
+    std::string title;
+    std::string sourcePath;
+    std::string error;
+    std::vector<ChangelogLine> lines;
+};
+
 class ImGuiLayer
 {
 public:
@@ -95,11 +111,15 @@ public:
     void hideBattleSystemMenu();
     bool isBattleSystemMenuOpen() const;
     BattleSystemMenuData getBattleSystemMenuData() const;
+    void showChangelog(const ChangelogData& data);
+    void hideChangelog();
+    bool isChangelogOpen() const;
 
 private:
     bool wantsCaptureEvent(const SDL_Event& event) const;
     void renderBattleLogWindow();
     void renderBattleSystemMenuWindow();
+    void renderChangelogWindow();
 
 private:
     bool initialized_ = false;
@@ -107,12 +127,16 @@ private:
     bool show_metrics_window_ = false;
     int battle_log_input_guard_frames_ = 0;
     int system_menu_input_guard_frames_ = 0;
+    int changelog_input_guard_frames_ = 0;
     bool battle_log_hover_guard_ = false;
     bool system_menu_hover_guard_ = false;
+    bool changelog_hover_guard_ = false;
     bool battle_log_dragging_ = false;
+    bool changelog_dragging_ = false;
     int battle_log_child_flip_ = 0;
     int battle_log_ally_filter_id_ = -1;
     int battle_log_enemy_filter_id_ = -1;
     BattleLogData battle_log_;
     BattleSystemMenuData system_menu_;
+    ChangelogData changelog_;
 };

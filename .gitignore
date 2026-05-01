@@ -41,3 +41,5 @@ wasm/.wrangler
 **/__pycache__
 
 output/
+
+tmp/

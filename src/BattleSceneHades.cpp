@@ -4,6 +4,7 @@
 #include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessEftIds.h"
+#include "ChessEquipment.h"
 #include "ChessNeigong.h"
 #include "ChessUiCommon.h"
 #include "Engine.h"
@@ -192,8 +193,8 @@ KysChess::RoleComboState makeSummonedCloneState(const KysChess::RoleComboState& 
     }
 
     cloneState.cloneSummonCount = 0;
-    cloneState.forcePullProtectUsed = false;
-    cloneState.forcePullExecuteUsed = false;
+    cloneState.forcePullProtectRemaining = cloneState.forcePullProtectCharges;
+    cloneState.forcePullExecuteRemaining = cloneState.forcePullExecuteCharges;
     cloneState.onSkillTeamHealPending = false;
     cloneState.isSummonedClone = true;
 
@@ -1852,7 +1853,7 @@ void BattleSceneHades::onEntrance()
             }
         }
 
-        // Apply star + combo enhancements on battle copies
+        // Detect combos using RealID (original Save IDs, deduped by set)
         auto getTeammateFightsWon = [&](size_t index)
         {
             if (index >= extended_teammates_.size())
@@ -1869,16 +1870,47 @@ void BattleSceneHades::onEntrance()
             auto chess = chessManager_.tryFindChessByInstanceId(KysChess::ChessInstanceID{ chessInstanceId });
             return chess ? chess->fightsWon : 0;
         };
-        for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); i++)
-        {
-            KysChess::BattleRoleManager::applyStarBonus(&friends_obj_[i], extended_teammates_[i].star, getTeammateFightsWon(i));
-        }
-        for (size_t i = 0; i < enemies_obj_.size() && i < enemy_stars_.size(); i++)
-        {
-            KysChess::BattleRoleManager::applyStarBonus(&enemies_obj_[i], enemy_stars_[i]);
-        }
 
-        // Detect combos using RealID (original Save IDs, deduped by set)
+        auto getAllyEquipment = [&](size_t index)
+        {
+            int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
+            int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
+            if (weaponId >= 0 || armorId >= 0)
+            {
+                return std::pair{ weaponId, armorId };
+            }
+            if (index >= extended_teammates_.size())
+            {
+                return std::pair{ -1, -1 };
+            }
+
+            auto& teammate = extended_teammates_[index];
+            if (teammate.weaponId >= 0 || teammate.armorId >= 0)
+            {
+                return std::pair{ teammate.weaponId, teammate.armorId };
+            }
+
+            KysChess::ChessInstanceID chessInstanceId{ teammate.chessInstanceId };
+            auto chess = chessManager_.tryFindChessByInstanceId(chessInstanceId);
+            if (!chess)
+            {
+                return std::pair{ -1, -1 };
+            }
+
+            auto& c = *chess;
+            return std::pair{
+                c.weaponInstance.itemId,
+                c.armorInstance.itemId
+            };
+        };
+
+        auto getEnemyEquipment = [&](size_t index)
+        {
+            int weaponId = index < enemy_weapons_.size() ? enemy_weapons_[index] : -1;
+            int armorId = index < enemy_armors_.size() ? enemy_armors_[index] : -1;
+            return std::pair{ weaponId, armorId };
+        };
+
         auto allyChessVec = [&]()
         {
             std::vector<KysChess::Chess> v;
@@ -1887,10 +1919,20 @@ void BattleSceneHades::onEntrance()
                 auto orig = roleSave_.getRole(friends_obj_[i].RealID);
                 if (orig)
                 {
-                    v.push_back({ orig, i < extended_teammates_.size() ? extended_teammates_[i].star : 1 });
+                    KysChess::Chess chess;
+                    chess.role = orig;
+                    chess.star = i < extended_teammates_.size() ? extended_teammates_[i].star : 1;
+                    if (i < extended_teammates_.size())
+                    {
+                        chess.id = KysChess::ChessInstanceID{ extended_teammates_[i].chessInstanceId };
+                    }
+                    auto [weaponId, armorId] = getAllyEquipment(i);
+                    chess.weaponInstance.itemId = weaponId;
+                    chess.armorInstance.itemId = armorId;
+                    v.push_back(chess);
                 }
             }
-            return v;
+            return KysChess::ChessEquipment::withActiveSynergies(std::move(v));
         }();
         auto enemyChessVec = [&]()
         {
@@ -1900,10 +1942,16 @@ void BattleSceneHades::onEntrance()
                 auto orig = roleSave_.getRole(enemies_obj_[i].RealID);
                 if (orig)
                 {
-                    v.push_back({ orig, i < enemy_stars_.size() ? enemy_stars_[i] : 0 });
+                    KysChess::Chess chess;
+                    chess.role = orig;
+                    chess.star = i < enemy_stars_.size() ? enemy_stars_[i] : 0;
+                    auto [weaponId, armorId] = getEnemyEquipment(i);
+                    chess.weaponInstance.itemId = weaponId;
+                    chess.armorInstance.itemId = armorId;
+                    v.push_back(chess);
                 }
             }
-            return v;
+            return KysChess::ChessEquipment::withActiveSynergies(std::move(v));
         }();
         auto allyCombos = KysChess::ChessCombo::detectCombos(allyChessVec);
         auto enemyCombos = KysChess::ChessCombo::detectCombos(enemyChessVec);
@@ -1911,6 +1959,40 @@ void BattleSceneHades::onEntrance()
         auto enemyStates = KysChess::ChessCombo::buildComboStates(enemyCombos);
         auto allyComboGlobalEffects = KysChess::ChessCombo::collectGlobalEffects(allyCombos);
         auto enemyComboGlobalEffects = KysChess::ChessCombo::collectGlobalEffects(enemyCombos);
+
+        struct FightWinGrowthBonus
+        {
+            int hp = 0;
+            int atk = 0;
+            int def = 0;
+        };
+
+        auto getFightWinGrowthBonus = [](const std::map<int, KysChess::RoleComboState>& states, int realId)
+        {
+            auto it = states.find(realId);
+            if (it == states.end())
+            {
+                return FightWinGrowthBonus{};
+            }
+            return FightWinGrowthBonus{
+                it->second.fightWinGrowthHP,
+                it->second.fightWinGrowthATK,
+                it->second.fightWinGrowthDEF
+            };
+        };
+
+        // Apply star + combo-aware per-win growth on battle copies
+        for (size_t i = 0; i < friends_obj_.size() && i < extended_teammates_.size(); i++)
+        {
+            auto extraFightWinGrowth = getFightWinGrowthBonus(allyStates, friends_obj_[i].RealID);
+            KysChess::BattleRoleManager::applyStarBonus(&friends_obj_[i], extended_teammates_[i].star, getTeammateFightsWon(i),
+                extraFightWinGrowth.hp, extraFightWinGrowth.atk, extraFightWinGrowth.def);
+        }
+        for (size_t i = 0; i < enemies_obj_.size() && i < enemy_stars_.size(); i++)
+        {
+            KysChess::BattleRoleManager::applyStarBonus(&enemies_obj_[i], enemy_stars_[i]);
+        }
+
         int allyTeamFlatShield = KysChess::ChessCombo::computeTeamFlatShieldBonus(allyStates);
         int enemyTeamFlatShield = KysChess::ChessCombo::computeTeamFlatShieldBonus(enemyStates);
         std::vector<KysChess::ComboEffect> allyGlobalEffects = allyComboGlobalEffects;
@@ -1969,7 +2051,7 @@ void BattleSceneHades::onEntrance()
                     formatStatusValue("获取", s.shield, "护盾"));
             }
         };
-        auto applyEquipmentEffects = [&](KysChess::RoleComboState& state, int weaponId, int armorId)
+        auto applyEquipmentEffects = [&](KysChess::RoleComboState& state, int roleId, int weaponId, int armorId)
         {
             auto applyById = [&](int itemId)
             {
@@ -1989,6 +2071,13 @@ void BattleSceneHades::onEntrance()
             };
             applyById(weaponId);
             applyById(armorId);
+            for (auto* synergy : KysChess::ChessEquipment::getSynergiesFor(roleId, weaponId, armorId))
+            {
+                for (auto& effect : synergy->effects)
+                {
+                    KysChess::ChessBattleEffects::applyEffect(state, effect);
+                }
+            }
         };
         auto initializeTimedEffects = [](KysChess::RoleComboState& state)
         {
@@ -2023,7 +2112,7 @@ void BattleSceneHades::onEntrance()
                 }
 
                 auto [weaponId, armorId] = equipmentLookup(index);
-                applyEquipmentEffects(battleState, weaponId, armorId);
+                applyEquipmentEffects(battleState, r.RealID, weaponId, armorId);
                 applyStateToCopy(r, battleState);
                 if (teamFlatShield > 0)
                 {
@@ -2036,44 +2125,8 @@ void BattleSceneHades::onEntrance()
                 cs[r.ID] = battleState;
             }
         };
-        applyOnCopies(friends_obj_, allyStates, allyGlobalEffects, allyTeamFlatShield, [&](size_t index)
-            {
-                int weaponId = index < teammate_weapons_.size() ? teammate_weapons_[index] : -1;
-                int armorId = index < teammate_armors_.size() ? teammate_armors_[index] : -1;
-                if (weaponId >= 0 || armorId >= 0)
-                {
-                    return std::pair{ weaponId, armorId };
-                }
-                if (index >= extended_teammates_.size())
-                {
-                    return std::pair{ -1, -1 };
-                }
-
-                auto& teammate = extended_teammates_[index];
-                if (teammate.weaponId >= 0 || teammate.armorId >= 0)
-                {
-                    return std::pair{ teammate.weaponId, teammate.armorId };
-                }
-
-                KysChess::ChessInstanceID chessInstanceId{ teammate.chessInstanceId };
-                auto chess = chessManager_.tryFindChessByInstanceId(chessInstanceId);
-                if (!chess)
-                {
-                    return std::pair{ -1, -1 };
-                }
-
-                auto& c = *chess;
-                return std::pair{
-                    c.weaponInstance.itemId,
-                    c.armorInstance.itemId
-                };
-            });
-        applyOnCopies(enemies_obj_, enemyStates, enemyComboGlobalEffects, enemyTeamFlatShield, [&](size_t index)
-            {
-                int weaponId = index < enemy_weapons_.size() ? enemy_weapons_[index] : -1;
-                int armorId = index < enemy_armors_.size() ? enemy_armors_[index] : -1;
-                return std::pair{ weaponId, armorId };
-            });
+        applyOnCopies(friends_obj_, allyStates, allyGlobalEffects, allyTeamFlatShield, getAllyEquipment);
+        applyOnCopies(enemies_obj_, enemyStates, enemyComboGlobalEffects, enemyTeamFlatShield, getEnemyEquipment);
         refreshEnemyTopDebuffs();
 
         for (auto& role : friends_obj_)
@@ -2857,6 +2910,13 @@ void BattleSceneHades::backRun1()
             }
         }
 
+        // Defensive timers should expire in real battle ticks even when control
+        // effects stop movement/actions. Otherwise periodic immunity can cool
+        // down while the previous invincible window is frozen in place.
+        decreaseToZero(r->HurtFrame);
+        decreaseToZero(r->Attention);
+        decreaseToZero(r->Invincible);
+
         if (r->Frozen > 0)
         {
             continue;
@@ -2998,9 +3058,6 @@ void BattleSceneHades::backRun1()
         {
             changeRoleMP(r, 1);
         }
-        decreaseToZero(r->HurtFrame);
-        decreaseToZero(r->Attention);
-        decreaseToZero(r->Invincible);
     }
 
     //if (current_frame_ % 2 == 0)
@@ -3307,14 +3364,14 @@ void BattleSceneHades::backRun1()
             }
             if (executeMode)
             {
-                if (!it->second.forcePullExecute || it->second.forcePullExecuteUsed)
+                if (!it->second.forcePullExecute || it->second.forcePullExecuteRemaining <= 0)
                 {
                     continue;
                 }
             }
             else
             {
-                if (!it->second.forcePullProtect || it->second.forcePullProtectUsed)
+                if (!it->second.forcePullProtect || it->second.forcePullProtectRemaining <= 0)
                 {
                     continue;
                 }
@@ -3386,7 +3443,7 @@ void BattleSceneHades::backRun1()
                 commitPull(puller, cell);
 
                 auto& pullState = cs[puller->ID];
-                pullState.forcePullExecuteUsed = true;
+                pullState.forcePullExecuteRemaining = std::max(0, pullState.forcePullExecuteRemaining - 1);
                 spawnBasicAttackProjectile(puller, pulled);
                 logBattleStatus(puller, pulled, "处决挪移");
 
@@ -3577,7 +3634,7 @@ void BattleSceneHades::backRun1()
         commitPull(bestChoice.puller, bestChoice.cell);
 
         auto& pullState = cs[bestChoice.puller->ID];
-        pullState.forcePullProtectUsed = true;
+        pullState.forcePullProtectRemaining = std::max(0, pullState.forcePullProtectRemaining - 1);
         int hpBefore = pulled->HP;
         int heal = std::max(1, pulled->MaxHP * 10 / 100);
         pulled->HP = std::min(pulled->MaxHP, pulled->HP + heal);
@@ -3693,7 +3750,7 @@ void BattleSceneHades::backRun1()
                         int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
                         logBattleStatus(r, nullptr,
                             formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
-                        spawnAreaImpactProjectiles(r, r, 6, KysChess::EFT_DEATH_BLAST, aoeDmg,
+                        spawnAreaImpactProjectiles(r, r, 7, KysChess::EFT_DEATH_BLAST, aoeDmg,
                             sit->second.deathAOEStunFrames, r->LastAttacker, sit->second.deathAOEMaxTargets);
                     }
 
@@ -4755,7 +4812,7 @@ void BattleSceneHades::spawnSpiralBleedProjectiles(Role* attacker, int bleedStac
     float baseAngle = static_cast<float>(forward.getAngle());
     float angularVelocity = 0.42f;
     float radiusGrowth = static_cast<float>(PROJECTILE_SPEED * getProjectileSpeedMultiplierPct(attacker) / 100.0 * 0.9);
-    int totalFrames = 54;
+    int totalFrames = 35;
     int sharedHitGroupId = next_shared_hit_group_id_++;
     shared_hit_group_targets_[sharedHitGroupId].clear();
 
@@ -4898,7 +4955,7 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
     }
 
     Role* source = attacker ? attacker : origin;
-    auto spawnImpactProjectile = [&](Role* target)
+    auto spawnImpactProjectile = [&](Role* target, bool guaranteedTarget = false)
     {
         if (!target || target == origin || target->Dead != 0 || target->Team == origin->Team)
         {
@@ -4932,8 +4989,8 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
             blast.Velocity = direction;
         }
         blast.Velocity.normTo(PROJECTILE_SPEED);
-        blast.TotalFrame = std::max(15,
-            static_cast<int>(std::ceil(EuclidDis(target->Pos, blast.Pos) / static_cast<double>(PROJECTILE_SPEED))) + 15);
+        int travelFrames = static_cast<int>(std::ceil(EuclidDis(target->Pos, blast.Pos) / static_cast<double>(PROJECTILE_SPEED)));
+        blast.TotalFrame = std::max(15, travelFrames + 15);
         blast.Frame = 0;
         attack_effects_.push_back(std::move(blast));
     };
@@ -4971,10 +5028,18 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         spawnImpactProjectile(enemy);
     }
 
-    if (trackedTarget && trackedTarget->Dead == 0 && trackedTarget->Team != origin->Team
-        && !isWithinGridArea(origin, trackedTarget, areaSize, areaSize))
+    bool trackedTargetAlreadySpawned = false;
+    for (auto enemy : areaTargets)
     {
-        spawnImpactProjectile(trackedTarget);
+        if (enemy == trackedTarget)
+        {
+            trackedTargetAlreadySpawned = true;
+            break;
+        }
+    }
+    if (trackedTarget && trackedTarget->Dead == 0 && trackedTarget->Team != origin->Team && !trackedTargetAlreadySpawned)
+    {
+        spawnImpactProjectile(trackedTarget, true);
     }
 }
 

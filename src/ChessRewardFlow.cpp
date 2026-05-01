@@ -1,15 +1,82 @@
 #include "ChessRewardFlow.h"
 
 #include "ChessDetailPanels.h"
+#include "Font.h"
 #include "ChessMenuHelpers.h"
 #include "ChessNeigong.h"
 #include "ChessPool.h"
 #include "ChessScreenLayout.h"
 
+#include <algorithm>
+#include <format>
 #include <set>
 
 namespace KysChess
 {
+
+namespace
+{
+
+const char* equipmentTierLabel(int tier)
+{
+    static const char* kTierNames[] = {"初階", "中階", "高階", "傳說"};
+    return kTierNames[std::clamp(tier, 1, 4) - 1];
+}
+
+Color equipmentTierColor(int tier)
+{
+    static const Color kTierColors[] = {
+        {100, 200, 100, 255},
+        {100, 150, 255, 255},
+        {255, 150, 50, 255},
+        {255, 100, 255, 255},
+    };
+    return kTierColors[std::clamp(tier, 1, 4) - 1];
+}
+
+std::string buildEquipmentRewardPrefix(const EquipmentDef& equipment)
+{
+    auto* item = equipment.getItem();
+    return std::format("[{}] {}", equipmentTierLabel(equipment.tier), item ? item->Name : "???");
+}
+
+int computeMaxEquipmentRewardPrefixWidth(const std::vector<const EquipmentDef*>& equipments)
+{
+    int maxWidth = 0;
+    for (const auto* equipment : equipments)
+    {
+        if (!equipment)
+        {
+            continue;
+        }
+        maxWidth = std::max(maxWidth, Font::getTextDrawSize(buildEquipmentRewardPrefix(*equipment)));
+    }
+    return maxWidth;
+}
+
+std::string padEquipmentRewardLabel(const EquipmentDef& equipment, int targetWidth)
+{
+    std::string label = buildEquipmentRewardPrefix(equipment);
+    label += std::string(std::max(0, targetWidth - Font::getTextDrawSize(label)), ' ');
+    return label;
+}
+
+void sortEquipmentPointers(std::vector<const EquipmentDef*>& equipments)
+{
+    std::stable_sort(equipments.begin(), equipments.end(), [](const auto* left, const auto* right) {
+        if (left == nullptr || right == nullptr)
+        {
+            return left != nullptr;
+        }
+        if (left->tier != right->tier)
+        {
+            return left->tier < right->tier;
+        }
+        return left->itemId < right->itemId;
+    });
+}
+
+}    // namespace
 
 ChessRewardFlow::ChessRewardFlow(const ChessSelectorServices& services)
     : services_(services)
@@ -163,19 +230,16 @@ void ChessRewardFlow::showEquipmentReward()
     };
 
     auto choices = pickChoices();
-    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
     for (;;)
     {
+        sortEquipmentPointers(choices);
+        int maxPrefixWidth = computeMaxEquipmentRewardPrefixWidth(choices);
         IndexedMenuData menuData;
         std::vector<const EquipmentDef*> detailChoices;
         for (auto* eq : choices)
         {
-            auto* item = eq->getItem();
-            std::string name = item ? item->Name : "???";
-            while (name.size() < 15) name += "\xe3\x80\x80";
-            menuData.labels.push_back(std::format("[{}] {}", tierName[std::min(eq->tier - 1, 3)], name));
-            Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
-            menuData.colors.push_back(tierColors[std::min(eq->tier - 1, 3)]);
+            menuData.labels.push_back(padEquipmentRewardLabel(*eq, maxPrefixWidth));
+            menuData.colors.push_back(equipmentTierColor(eq->tier));
             detailChoices.push_back(eq);
         }
         if (!rerolled)
@@ -471,21 +535,22 @@ bool ChessRewardFlow::rewardEquipment(int maxTier, int specificId)
     auto& allEquip = ChessEquipment::getAll();
     IndexedMenuData menuData;
     std::vector<const EquipmentDef*> detailEquipments;
-    std::string tierName[] = {"初階", "中階", "高階", "傳說"};
     for (auto& eq : allEquip)
     {
         if (eq.tier > maxTier) continue;
-        auto* item = eq.getItem();
-        std::string name = item ? item->Name : "???";
-        while (name.size() < 15) name += "\xe3\x80\x80";
-        menuData.labels.push_back(std::format("[{}] {}", tierName[std::min(eq.tier - 1, 3)], name));
-        Color tierColors[] = {{100, 200, 100, 255}, {100, 150, 255, 255}, {255, 150, 50, 255}, {255, 100, 255, 255}};
-        menuData.colors.push_back(tierColors[std::min(eq.tier - 1, 3)]);
         detailEquipments.push_back(&eq);
     }
-    if (menuData.labels.empty())
+    if (detailEquipments.empty())
     {
         return false;
+    }
+
+    sortEquipmentPointers(detailEquipments);
+    int maxPrefixWidth = computeMaxEquipmentRewardPrefixWidth(detailEquipments);
+    for (const auto* equipment : detailEquipments)
+    {
+        menuData.labels.push_back(padEquipmentRewardLabel(*equipment, maxPrefixWidth));
+        menuData.colors.push_back(equipmentTierColor(equipment->tier));
     }
 
     IndexedMenuConfig menuConfig;

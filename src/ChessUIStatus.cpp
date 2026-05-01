@@ -86,7 +86,7 @@ struct StatusLayout
         constexpr int kBottomSectionTitleTop = 6;
         constexpr int kBottomSectionHeaderHeight = 28;
         constexpr int kOwnedSectionWidth = 150;
-        constexpr int kEquipSectionWidth = 180;
+        constexpr int kEquipSectionWidth = 200;
         constexpr int kComboSectionMinWidth = 160;
 
         layout.panel = panel;

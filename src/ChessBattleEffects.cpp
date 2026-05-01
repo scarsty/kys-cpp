@@ -17,6 +17,9 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"全队防御加成", EffectType::TeamFlatDEF}, {"全队速度加成", EffectType::TeamFlatSPD},
     {"全队生命百分比", EffectType::TeamPctHP}, {"全队攻击百分比", EffectType::TeamPctATK},
     {"全队防御百分比", EffectType::TeamPctDEF}, {"全队速度百分比", EffectType::TeamPctSPD},
+    {"计作羁绊", EffectType::ActAsCombo},
+    {"每勝生命加成", EffectType::FightWinHP}, {"每胜生命加成", EffectType::FightWinHP},
+    {"每勝攻防加成", EffectType::FightWinATKDEF}, {"每胜攻防加成", EffectType::FightWinATKDEF},
     {"防御削减", EffectType::NegPctDEF},
     {"固定减伤", EffectType::FlatDmgReduction}, {"固定加伤", EffectType::FlatDmgIncrease}, {"格挡几率", EffectType::BlockChance},
     {"闪避几率", EffectType::DodgeChance}, {"闪避后暴击", EffectType::DodgeThenCrit},
@@ -147,8 +150,14 @@ bool ChessBattleEffects::parseEffect(const YAML::Node& eNode, ComboEffect& out, 
             return fail(std::format("效果类型「{}」无法识别", typeName));
 
         out.type = etIt->second;
-        if (!readInt("数值", out.value, true))
+        const bool requiresValue = out.type != EffectType::ActAsCombo;
+        if (!readInt("数值", out.value, requiresValue))
             return false;
+        if (out.type == EffectType::ActAsCombo)
+        {
+            if (!readString("名称", out.text, true))
+                return false;
+        }
         if (!readInt("附加参数", out.value2, false))
             return false;
         if (!readInt("持续帧数", out.duration, false))
@@ -213,6 +222,14 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
     case EffectType::TeamPctATK: s.pctATK += e.value; break;
     case EffectType::TeamPctDEF: s.pctDEF += e.value; break;
     case EffectType::TeamPctSPD: s.pctSPD += e.value; break;
+    case EffectType::ActAsCombo: break;
+    case EffectType::FightWinHP:
+        s.fightWinGrowthHP += e.value;
+        break;
+    case EffectType::FightWinATKDEF:
+        s.fightWinGrowthATK += e.value;
+        s.fightWinGrowthDEF += e.value2 > 0 ? e.value2 : e.value;
+        break;
     case EffectType::NegPctDEF: s.pctDEF -= e.value; break;
     case EffectType::FlatDmgReduction: s.flatDmgReduction += e.value; break;
     case EffectType::FlatDmgIncrease: s.flatDmgIncrease += e.value; break;
@@ -289,8 +306,16 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         s.deathPreventionFrames = std::max(s.deathPreventionFrames, e.value);
         break;
     case EffectType::DeathMedical: break;
-    case EffectType::ForcePullProtect: s.forcePullProtect = true; break;
-    case EffectType::ForcePullExecute: s.forcePullExecute = true; break;
+    case EffectType::ForcePullProtect:
+        s.forcePullProtect = true;
+        s.forcePullProtectCharges += std::max(1, e.value);
+        s.forcePullProtectRemaining += std::max(1, e.value);
+        break;
+    case EffectType::ForcePullExecute:
+        s.forcePullExecute = true;
+        s.forcePullExecuteCharges += std::max(1, e.value);
+        s.forcePullExecuteRemaining += std::max(1, e.value);
+        break;
     case EffectType::Execute: break;  // handled as triggered effect (OnHit)
     case EffectType::MPBlock: break;  // handled as triggered effect (OnHit)
     case EffectType::CharmCDRDebuff:
