@@ -57,21 +57,26 @@ constexpr int DASH_MOMENTUM_FRAMES = 5;
 constexpr int MOVEMENT_DASH_COOLDOWN_FRAMES = 18;
 constexpr int POST_DASH_SPREAD_FRAMES = 12;
 constexpr int ACTION_RECOVERY_FRAMES = 4;
-constexpr double ENGAGEMENT_CELL_DEADBAND = BATTLE_TILE_W * 0.55;
-constexpr double MELEE_LOCAL_TARGET_RADIUS = BATTLE_TILE_W * 4.0;
+constexpr double MAX_EFFECTIVE_BATTLE_REACH = 480.0;
+constexpr double ENGAGEMENT_CELL_DEADBAND = BATTLE_TILE_W / 2.0;
+constexpr double ENGAGEMENT_CELL_ARRIVE_DISTANCE = BATTLE_TILE_W - ENGAGEMENT_CELL_DEADBAND / 2.0;
+constexpr double PATH_WAYPOINT_REACHED_DISTANCE = BATTLE_TILE_W;
 constexpr double MELEE_ATTACK_EFFECT_OFFSET = BATTLE_TILE_W * 2.0;
 constexpr double MELEE_ATTACK_HIT_RADIUS = BATTLE_TILE_W * 2.0;
-constexpr double MELEE_ATTACK_SAFETY_MARGIN = BATTLE_TILE_W * 1.35;
+constexpr double MELEE_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_ARRIVE_DISTANCE;
 constexpr double MELEE_ATTACK_REACH = MELEE_ATTACK_EFFECT_OFFSET + MELEE_ATTACK_HIT_RADIUS - MELEE_ATTACK_SAFETY_MARGIN;
-constexpr double MELEE_TARGET_SWITCH_ADVANTAGE = BATTLE_TILE_W * 1.1;
+constexpr double MELEE_ATTACK_PRESSURE_REACH = MELEE_ATTACK_EFFECT_OFFSET + MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_DEADBAND;
+constexpr double MELEE_LOCAL_TARGET_RADIUS = MELEE_ATTACK_REACH + MELEE_ATTACK_EFFECT_OFFSET;
+constexpr double DASH_ATTACK_ADVANCE_DISTANCE = MELEE_LOCAL_TARGET_RADIUS;
+constexpr double DASH_ATTACK_MELEE_REACH = MELEE_ATTACK_REACH + DASH_ATTACK_ADVANCE_DISTANCE;
+constexpr double MELEE_TARGET_SWITCH_ADVANTAGE = MELEE_ATTACK_HIT_RADIUS / 2.0;
 constexpr int MELEE_LONG_GAP_CLOSING_FRAMES = 36;
 constexpr double MELEE_LONG_GAP_DASH_CHANCE = 0.08;
 constexpr double MELEE_BLOCKED_DASH_CHANCE = 0.45;
-constexpr double RANGED_FAR_DASH_GAP = BATTLE_TILE_W * 2.0;
 constexpr double RANGED_FAR_DASH_CHANCE = 0.10;
-constexpr double POST_DASH_SPREAD_RADIUS = BATTLE_TILE_W * 1.35;
-constexpr double POST_DASH_SPREAD_SPEED = BATTLE_TILE_W * 0.10;
-constexpr double RANGED_ATTACK_SAFETY_MARGIN = BATTLE_TILE_W * 1.5;
+constexpr double POST_DASH_SPREAD_RADIUS = MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_ARRIVE_DISTANCE;
+constexpr double POST_DASH_SPREAD_SPEED = POST_DASH_SPREAD_RADIUS / POST_DASH_SPREAD_FRAMES;
+constexpr double RANGED_ATTACK_SAFETY_MARGIN = MELEE_ATTACK_HIT_RADIUS - ENGAGEMENT_CELL_DEADBAND;
 constexpr double APPROACH_DASH_BASE_CHANCE = 0.10;
 constexpr double APPROACH_DASH_STUCK_BONUS = 0.08;
 constexpr double ROLE_MOVE_SPEED_DIVISOR = 22.0;
@@ -288,6 +293,16 @@ Color damageTextColor(const Role* role, bool emphasized)
     return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
 }
 
+Color poisonDamageTextColor()
+{
+    return { 0, 200, 0, 255 };
+}
+
+Color bleedDamageTextColor()
+{
+    return { 190, 120, 60, 255 };
+}
+
 int calcProjectileFrames(int select_distance, int spawn_offset)
 {
     return (calcProjectileReach(select_distance, spawn_offset) - spawn_offset) / PROJECTILE_SPEED;
@@ -432,7 +447,7 @@ double calcBlinkReach(const Magic* magic)
     }
     if (magic->AttackAreaType == 1 || magic->AttackAreaType == 2)
     {
-        return std::min(480.0, static_cast<double>(calcProjectileReach(magic->SelectDistance, BATTLE_TILE_W * 2) - 10));
+        return std::min(MAX_EFFECTIVE_BATTLE_REACH, static_cast<double>(calcProjectileReach(magic->SelectDistance, BATTLE_TILE_W * 2) - 10));
     }
     return std::max(BATTLE_TILE_W * 3.0, static_cast<double>(magic->SelectDistance * BATTLE_TILE_W));
 }
@@ -2762,6 +2777,7 @@ void BattleSceneHades::backRun1()
     }
     ultHitRoles_.clear();
     criticalHitRoles_.clear();
+    semanticDamageTextAmounts_.clear();
     for (auto r : battle_roles_)
     {
         r->HurtThisFrame = 0;
@@ -2793,7 +2809,8 @@ void BattleSceneHades::backRun1()
                     {
                         int dmg = std::max(1, r->HP * s.poisonTickDmg / 100);
                         r->HurtThisFrame += dmg;
-                        addDamageText(text_effects_, r, dmg, { 0, 200, 0, 255 });
+                        addDamageText(text_effects_, r, dmg, poisonDamageTextColor());
+                        semanticDamageTextAmounts_[r] += dmg;
                         logBattleDamage(findBattleRoleById(s.poisonSourceId), r, dmg, "", "中毒");
                     }
                     if (s.poisonTimer <= 0)
@@ -2812,7 +2829,8 @@ void BattleSceneHades::backRun1()
                     {
                         int dmg = std::max(1, r->MaxHP * s.bleedStacks / 100);
                         r->HurtThisFrame += dmg;
-                        addDamageText(text_effects_, r, dmg, { 180, 0, 0, 255 });
+                        addDamageText(text_effects_, r, dmg, bleedDamageTextColor());
+                        semanticDamageTextAmounts_[r] += dmg;
                         logBattleDamage(findBattleRoleById(s.bleedSourceId), r, dmg, "", "流血");
                         if (!s.bleedPersistFlag)
                         {
@@ -3797,9 +3815,15 @@ void BattleSceneHades::backRun1()
             else
             {
                 bool emphasized = isUlt || isCritical;
+                int semanticHurt = 0;
+                if (auto it = semanticDamageTextAmounts_.find(r); it != semanticDamageTextAmounts_.end())
+                {
+                    semanticHurt = it->second;
+                }
+                int displayHurt = std::max(0, hurt - semanticHurt);
                 addDamageText(text_effects_,
                               r,
-                              int(hurt),
+                              displayHurt,
                               damageTextColor(r, emphasized),
                               emphasized ? ULT_DAMAGE_TEXT_SIZE : NORMAL_DAMAGE_TEXT_SIZE);
             }
@@ -4462,10 +4486,8 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
         auto acc = r->RealTowards;
         bool isDashAttack = it != cs.end() && it->second.dashAttack;
         double dashDistance = isDashAttack
-            ? std::clamp(r->Speed / 12.0, 8.0, 14.0)
+            ? MELEE_ATTACK_HIT_RADIUS / DASH_MOMENTUM_FRAMES
             : std::clamp(r->Speed / 18.0, 5.0, 9.0);
-        bool dashRangedRetreat = false;
-        Pointf retreatVelocity = { 0, 0, 0 };
         if (isDashAttack)
         {
             if (auto* target = findNearestEnemy(r->Team, r->Pos))
@@ -4482,14 +4504,14 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
                         rangedStyle = true;
                         attackRange = std::min<double>(
                             calcProjectileReach(magic->SelectDistance, TILE_W * 2) - 10.0,
-                            480.0);
+                            MAX_EFFECTIVE_BATTLE_REACH);
                     }
                     else if (roleForcesRangedMagic(r))
                     {
                         rangedStyle = true;
                         attackRange = std::min<double>(
                             calcProjectileReach(effectiveProjectileSelectDistance(magic, true, getForcedRangedMinSelectDistance(r)), TILE_W * 2) - 10.0,
-                            480.0);
+                            MAX_EFFECTIVE_BATTLE_REACH);
                     }
                     else if (magic->AttackAreaType == 3)
                     {
@@ -4497,28 +4519,35 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
                         attackRange = 180.0;
                     }
 
-                    if (!rangedStyle && magic->AttackAreaType == 0)
-                    {
-                        dashDistance = std::min(dashDistance, targetDistance);
-                    }
-                    else
+                    if (rangedStyle)
                     {
                         double forwardGap = std::max(0.0, targetDistance - attackRange);
-                        if (forwardGap > TILE_W)
+                        dashDistance = MELEE_LOCAL_TARGET_RADIUS / DASH_MOMENTUM_FRAMES;
+                        if (forwardGap > ENGAGEMENT_CELL_DEADBAND)
                         {
-                            dashDistance = std::min(dashDistance, forwardGap);
+                            acc = toTarget;
+                            dashDistance = std::min(dashDistance, forwardGap / DASH_MOMENTUM_FRAMES);
                         }
                         else
                         {
-                            dashDistance = 0.0;
-                            auto retreatDir = r->Pos - target->Pos;
-                            if (retreatDir.norm() > 0.01)
+                            auto away = r->Pos - target->Pos;
+                            if (away.norm() > 0.01)
                             {
-                                retreatVelocity = retreatDir;
-                                retreatVelocity.normTo(std::clamp((attackRange - targetDistance) / 35.0, 3.0, 7.0));
-                                dashRangedRetreat = true;
+                                away.normTo(1);
+                                Pointf side = { -away.y, away.x, 0 };
+                                if (rand_.rand() < 0.5)
+                                {
+                                    side = side * -1.0;
+                                }
+                                side.normTo(1);
+                                acc = side + away * std::clamp((attackRange - targetDistance) / std::max(attackRange, 1.0), 0.0, 1.0);
                             }
                         }
+                    }
+                    else if (magic->AttackAreaType == 0)
+                    {
+                        double usefulAdvance = targetDistance - MELEE_ATTACK_REACH + ENGAGEMENT_CELL_DEADBAND;
+                        dashDistance = std::clamp(usefulAdvance, 0.0, DASH_ATTACK_ADVANCE_DISTANCE) / DASH_MOMENTUM_FRAMES;
                     }
                 }
             }
@@ -4557,10 +4586,6 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
             {
                 logBattleStatus(r, r, "滑步攻击");
                 createSkillAttackEffect(r, magic, ae.IsUltimate != 0, dashAttackOperationType);
-                if (dashRangedRetreat && retreatVelocity.norm() > 0.01)
-                {
-                    r->Velocity = retreatVelocity;
-                }
             }
         }
         if (!isDashAttack)
@@ -4703,7 +4728,7 @@ void BattleSceneHades::applyBleed(Role* source, Role* target, int stacks, int ma
     }
     state.bleedPersistFlag = persist;
     state.bleedSourceId = source ? source->ID : -1;
-    auto status = formatStatusRange("流血", state.bleedStacks, std::max(1, maxStacks), "层");
+    auto status = formatStatusRange("流血", state.bleedStacks, std::max(1, maxStacks), "層");
     if (reason && reason[0] != '\0')
     {
         status = std::format("{}{}", reason, status);
@@ -5332,6 +5357,15 @@ void BattleSceneHades::AI(Role* r)
         && plannedMagic->AttackAreaType == 0
         && !roleForcesRangedMagic(r);
     bool isRangedStyle = isRangedStyleMagic(plannedMagic, roleForcesRangedMagic(r));
+    double plannedReach = plannedMagic
+        ? std::min(
+            effectiveBattleReach(plannedMagic, roleForcesRangedMagic(r), getForcedRangedMinSelectDistance(r), getProjectileSpeedMultiplierPct(r)),
+            MAX_EFFECTIVE_BATTLE_REACH)
+        : MELEE_ATTACK_REACH;
+    double targetLockSlack = std::clamp(
+        plannedReach - MELEE_ATTACK_REACH,
+        MELEE_TARGET_SWITCH_ADVANTAGE,
+        MELEE_LOCAL_TARGET_RADIUS);
 
     auto isValidEnemyTarget = [&](Role* target)
     {
@@ -5367,7 +5401,7 @@ void BattleSceneHades::AI(Role* r)
         double lockedDistance = EuclidDis(r->Pos, path_info.target->Pos);
         bool releaseStuckMeleeTarget = useApproachCell
             && path_info.frames_stuck >= PATH_TARGET_RELEASE_STUCK_FRAMES
-            && lockedDistance > TILE_W * 4;
+            && lockedDistance > MELEE_LOCAL_TARGET_RADIUS;
         bool closerLocalTarget = localMeleeTarget
             && localMeleeTarget != path_info.target
             && localMeleeDistance + MELEE_TARGET_SWITCH_ADVANTAGE < lockedDistance;
@@ -5394,8 +5428,7 @@ void BattleSceneHades::AI(Role* r)
     {
         double lockedDistance = EuclidDis(r->Pos, path_info.target->Pos);
         double assignedDistance = r0 ? EuclidDis(r->Pos, r0->Pos) : std::numeric_limits<double>::max();
-        double lockSlack = isRangedStyle ? TILE_W * 10 : TILE_W * 6;
-        if (battle_frame_ < path_info.target_lock_until || lockedDistance <= assignedDistance + lockSlack)
+        if (battle_frame_ < path_info.target_lock_until || lockedDistance <= assignedDistance + targetLockSlack)
         {
             r0 = path_info.target;
         }
@@ -5406,6 +5439,7 @@ void BattleSceneHades::AI(Role* r)
     }
     if (r0)
     {
+        bool targetChanged = path_info.target != r0;
         if (path_info.target != r0)
         {
             path_info.target = r0;
@@ -5413,6 +5447,8 @@ void BattleSceneHades::AI(Role* r)
             path_info.has_target_cell = false;
             path_info.position_hold_until = 0;
             path_info.frames_gap_closing = 0;
+            path_info.frames_no_gap_progress = 0;
+            path_info.last_gap_distance = -1.0;
             path_info.frames_stuck = 0;
             path_info.waypoints.clear();
             path_info.current_waypoint = 0;
@@ -5441,14 +5477,12 @@ void BattleSceneHades::AI(Role* r)
         r->RealTowards = r0->Pos - r->Pos;
         //r->FaceTowards = realTowardsToFaceTowards(r->RealTowards);
         r->RealTowards.normTo(1);
-        int dis = TILE_W * 3;
-        if (plannedMagic)
-        {
-            dis = static_cast<int>(std::min(
-                effectiveBattleReach(plannedMagic, roleForcesRangedMagic(r), getForcedRangedMinSelectDistance(r), getProjectileSpeedMultiplierPct(r)),
-                480.0));
-        }
+        int dis = static_cast<int>(plannedReach);
         double speed = r->Speed / ROLE_MOVE_SPEED_DIVISOR;
+        double rangedFarDashGap = std::clamp(
+            plannedReach - MELEE_LOCAL_TARGET_RADIUS,
+            MELEE_ATTACK_HIT_RADIUS,
+            MELEE_LOCAL_TARGET_RADIUS);
         double dashChance = 0.25;
         bool dashAttackEnabled = false;
         {
@@ -5466,7 +5500,17 @@ void BattleSceneHades::AI(Role* r)
         bool kiteRingRanged = isRangedStyle && dashAttackEnabled;
         double initialEnemyDistance = EuclidDis(r->Pos, r0->Pos);
         bool meleeLocalScrum = useApproachCell && initialEnemyDistance <= MELEE_LOCAL_TARGET_RADIUS;
-        bool useApproachSlot = useApproachCell && initialEnemyDistance > MELEE_ATTACK_REACH;
+        bool meleeDirectPursuit = false;
+        if (useApproachCell && initialEnemyDistance > MELEE_ATTACK_REACH)
+        {
+            auto directStep = r0->Pos - r->Pos;
+            if (directStep.norm() > 0.01)
+            {
+                directStep.normTo(1);
+                meleeDirectPursuit = canWalk90(r->Pos + directStep * speed, r);
+            }
+        }
+        bool useApproachSlot = useApproachCell && initialEnemyDistance > MELEE_ATTACK_REACH && !meleeDirectPursuit;
         bool useEngagementCell = useApproachSlot || isRangedStyle;
         auto keepReservedEngagementCell = [&]()
         {
@@ -5488,9 +5532,14 @@ void BattleSceneHades::AI(Role* r)
             }
             return true;
         };
-        int rangedDistance45 = std::max(3, dis / TILE_W);
-        int rangedPreferred45 = std::max(2, rangedDistance45 * 3 / 4);
-        int rangedMin45 = std::max(2, rangedPreferred45 - 1);
+        int rangedDistance45 = std::max(1, static_cast<int>(std::ceil(plannedReach / BATTLE_TILE_W)));
+        int rangedPreferred45 = std::clamp(
+            static_cast<int>(std::ceil((plannedReach - RANGED_ATTACK_SAFETY_MARGIN) / BATTLE_TILE_W)),
+            1,
+            rangedDistance45);
+        int rangedMin45 = kiteRingRanged
+            ? std::max(1, static_cast<int>(std::floor((plannedReach - RANGED_ATTACK_SAFETY_MARGIN - MELEE_ATTACK_HIT_RADIUS) / BATTLE_TILE_W)))
+            : 1;
         auto goal45 = keepReservedEngagementCell()
             ? path_info.target_cell
             : (useApproachSlot
@@ -5507,10 +5556,40 @@ void BattleSceneHades::AI(Role* r)
             path_info.reserves_approach_cell = useApproachSlot;
             path_info.target_lock_until = std::max(path_info.target_lock_until, battle_frame_ + PATH_TARGET_LOCK_FRAMES);
         }
-        if (useApproachSlot && EuclidDis(r->Pos, moveTarget) < TILE_W * 0.75)
+        if (useApproachSlot && EuclidDis(r->Pos, moveTarget) < ENGAGEMENT_CELL_ARRIVE_DISTANCE)
         {
             moveTarget = r0->Pos;
         }
+        auto reassignRangedEngagementCell = [&]()
+        {
+            if (!isRangedStyle || !useEngagementCell)
+            {
+                return false;
+            }
+            Point nextGoal45 = findEngagementCell(
+                r,
+                r0,
+                rangedMin45,
+                rangedPreferred45,
+                rangedDistance45 + 1,
+                false,
+                !kiteRingRanged,
+                goal45);
+            if (nextGoal45.x == goal45.x && nextGoal45.y == goal45.y)
+            {
+                return false;
+            }
+
+            goal45 = nextGoal45;
+            moveTarget = pos45To90(goal45.x, goal45.y);
+            path_info.target_cell = goal45;
+            path_info.has_target_cell = true;
+            path_info.reserves_approach_cell = false;
+            path_info.waypoints.clear();
+            path_info.current_waypoint = 0;
+            path_info.frames_since_update = PATH_REFRESH_FRAMES + 1;
+            return true;
+        };
         auto calcPostDashSpreadDirection = [&]()
         {
             Pointf spread = { 0, 0, 0 };
@@ -5540,7 +5619,7 @@ void BattleSceneHades::AI(Role* r)
             }
             return spread;
         };
-        auto faceTargetAndHold = [&]()
+        auto faceTargetAndHold = [&](bool refreshHold)
         {
             auto holdDirection = r0->Pos - r->Pos;
             if (holdDirection.norm() > 0.01)
@@ -5555,13 +5634,19 @@ void BattleSceneHades::AI(Role* r)
                 r->Velocity = spreadDirection;
                 r->FindingWay = 0;
                 r->OperationType = -1;
-                path_info.position_hold_until = battle_frame_ + POSITION_HOLD_FRAMES;
+                if (refreshHold)
+                {
+                    path_info.position_hold_until = battle_frame_ + POSITION_HOLD_FRAMES;
+                }
                 return;
             }
             r->Velocity = { 0, 0, 0 };
             r->FindingWay = 0;
             r->OperationType = -1;
-            path_info.position_hold_until = battle_frame_ + POSITION_HOLD_FRAMES;
+            if (refreshHold)
+            {
+                path_info.position_hold_until = battle_frame_ + POSITION_HOLD_FRAMES;
+            }
         };
         auto tryMove = [&](Pointf direction, double moveSpeed) -> bool
         {
@@ -5573,8 +5658,8 @@ void BattleSceneHades::AI(Role* r)
             auto spreadDirection = calcPostDashSpreadDirection();
             if (spreadDirection.norm() > 0.01)
             {
-                spreadDirection.normTo(0.45);
-                direction = direction + spreadDirection;
+                spreadDirection.normTo(POST_DASH_SPREAD_SPEED);
+                direction = direction * moveSpeed + spreadDirection;
                 direction.normTo(1);
             }
             auto nextPos = r->Pos + direction * moveSpeed;
@@ -5609,18 +5694,22 @@ void BattleSceneHades::AI(Role* r)
                 dashDirection.normTo(1);
                 targetDirection.normTo(1);
                 double forwardDot = dashDirection.x * targetDirection.x + dashDirection.y * targetDirection.y;
-                double targetWeight = forwardDot < 0.70 ? 0.45 : 0.25;
+                double targetWeight = std::clamp(std::cos(M_PI / 4.0) - forwardDot, 0.0, 0.5);
                 dashDirection = dashDirection * (1.0 - targetWeight) + targetDirection * targetWeight;
             }
-            constexpr double controlledDashMaxTurn = M_PI / 24.0;
+            constexpr double controlledDashMaxTurn = M_PI / (DASH_MOMENTUM_FRAMES * DASH_MOMENTUM_FRAMES);
             dashDirection.rotate(controlledDashMaxTurn * (2 * rand_.rand() - 1));
             dashDirection.normTo(1);
             r->RealTowards = dashDirection;
-            double speedScaledTotalDistance = std::clamp(r->Speed / 2.2, BATTLE_TILE_W * 0.55, BATTLE_TILE_W * 2.2);
+            double normalDistanceOverDash = speed * DASH_MOMENTUM_FRAMES;
+            double speedScaledTotalDistance = std::clamp(
+                normalDistanceOverDash * (MELEE_ATTACK_EFFECT_OFFSET / BATTLE_TILE_W),
+                ENGAGEMENT_CELL_DEADBAND,
+                MELEE_LOCAL_TARGET_RADIUS);
             double cappedTotalDistance = maxTotalDistance > 0.0
                 ? std::min(speedScaledTotalDistance, maxTotalDistance)
                 : speedScaledTotalDistance;
-            double dashStep = std::max(4.0, cappedTotalDistance / DASH_MOMENTUM_FRAMES);
+            double dashStep = std::max(speed, cappedTotalDistance / DASH_MOMENTUM_FRAMES);
             r->Velocity = dashDirection * dashStep;
             r->OperationType = -1;
             r->FindingWay = 0;
@@ -5630,6 +5719,8 @@ void BattleSceneHades::AI(Role* r)
             path_info.movement_dash_spread_frames = 0;
             path_info.frames_stuck = 0;
             path_info.frames_gap_closing = 0;
+            path_info.frames_no_gap_progress = 0;
+            path_info.last_gap_distance = -1.0;
             return true;
         };
         auto startAttack = [&](int operationType)
@@ -5641,16 +5732,18 @@ void BattleSceneHades::AI(Role* r)
             }
             r->OperationType = operationType;
             setCoolDown(r, calCoolDown(m->MagicType, r->OperationType, r));
-            r->ActFrame = 0;
             r->ActType = m->MagicType;
+            r->ActFrame = 0;
             r->HaveAction = 1;
             r->Velocity = { 0, 0, 0 };
             r->FindingWay = 0;
             path_info.frames_stuck = 0;
             path_info.movement_dash_spread_frames = 0;
             path_info.frames_gap_closing = 0;
+            path_info.frames_no_gap_progress = 0;
+            path_info.last_gap_distance = -1.0;
         };
-        auto commitMeleeAttack = [&](Role* target) -> bool
+        auto commitMeleeAttack = [&](Role* target, int operationType, double attackReach) -> bool
         {
             if (!useApproachCell || !canStartAttack || !r->UsingMagic || !isValidEnemyTarget(target))
             {
@@ -5658,7 +5751,7 @@ void BattleSceneHades::AI(Role* r)
             }
             auto attackDirection = target->Pos - r->Pos;
             double attackDistance = attackDirection.norm();
-            if (attackDistance > MELEE_ATTACK_REACH || attackDistance <= 0.01)
+            if (attackDistance > attackReach || attackDistance <= 0.01)
             {
                 return false;
             }
@@ -5666,36 +5759,43 @@ void BattleSceneHades::AI(Role* r)
             r->RealTowards = attackDirection;
             path_info.target = target;
             path_info.target_lock_until = battle_frame_ + PATH_TARGET_LOCK_FRAMES;
-            startAttack(0);
+            startAttack(operationType);
             return r->HaveAction != 0;
         };
-        auto commitNearestMeleeAttack = [&]() -> bool
+        auto commitNearestMeleeAttack = [&](int operationType, double attackReach) -> bool
         {
             if (!useApproachCell)
             {
                 return false;
             }
-            if (auto* nearestAttackTarget = findNearestEnemyInRadius(MELEE_ATTACK_REACH))
+            if (auto* nearestAttackTarget = findNearestEnemyInRadius(attackReach))
             {
-                return commitMeleeAttack(nearestAttackTarget);
+                return commitMeleeAttack(nearestAttackTarget, operationType, attackReach);
             }
-            return commitMeleeAttack(r0);
+            return commitMeleeAttack(r0, operationType, attackReach);
         };
         double enemyDistance = EuclidDis(r->Pos, r0->Pos);
-        bool needsEngagementPosition = useEngagementCell && EuclidDis(r->Pos, moveTarget) > TILE_W * 0.75;
-        bool rangedTooClose = isRangedStyle && kiteRingRanged && enemyDistance < dis * 0.55;
+        double rangedRetreatDistance = rangedMin45 * BATTLE_TILE_W;
+        bool needsEngagementPosition = useEngagementCell && EuclidDis(r->Pos, moveTarget) > ENGAGEMENT_CELL_ARRIVE_DISTANCE;
+        bool rangedTooClose = isRangedStyle && kiteRingRanged && enemyDistance < rangedRetreatDistance;
         bool rangedCanShootFromHere = isRangedStyle && enemyDistance <= dis && !rangedTooClose;
+        bool rangedCanAttackFromHere = isRangedStyle && canStartAttack && r->UsingMagic && enemyDistance <= dis;
         bool inEngagementDeadband = useEngagementCell && EuclidDis(r->Pos, moveTarget) <= ENGAGEMENT_CELL_DEADBAND;
         bool meleeBrawlRange = useApproachCell && enemyDistance <= MELEE_LOCAL_TARGET_RADIUS;
         bool meleeAttackReady = useApproachCell && enemyDistance <= MELEE_ATTACK_REACH;
+        bool meleeDashAttackReady = useApproachCell
+            && dashAttackEnabled
+            && canStartAttack
+            && r->UsingMagic
+            && enemyDistance <= DASH_ATTACK_MELEE_REACH;
         auto maxMovementDashDistance = [&]()
         {
             double desiredGap = useApproachCell
                 ? enemyDistance - MELEE_ATTACK_REACH
                 : (isRangedStyle ? enemyDistance - dis : EuclidDis(r->Pos, moveTarget));
             double moveTargetDistance = EuclidDis(r->Pos, moveTarget);
-            double gapCap = std::max(BATTLE_TILE_W * 0.75, desiredGap * 0.75);
-            return std::max(BATTLE_TILE_W * 0.5, std::min(moveTargetDistance + BATTLE_TILE_W * 0.25, gapCap));
+            double gapCap = std::max(ENGAGEMENT_CELL_ARRIVE_DISTANCE, desiredGap - ENGAGEMENT_CELL_DEADBAND);
+            return std::max(ENGAGEMENT_CELL_DEADBAND, std::min(moveTargetDistance + ENGAGEMENT_CELL_DEADBAND, gapCap));
         };
         bool rangedHasClearOptionalStep = false;
         if (kiteRingRanged && rangedCanShootFromHere && needsEngagementPosition)
@@ -5710,6 +5810,15 @@ void BattleSceneHades::AI(Role* r)
         bool shouldMoveForEngagement = enemyDistance > dis
             || (rangedTooClose && kiteRingRanged)
             || (!canStartAttack && rangedCanShootFromHere && rangedHasClearOptionalStep);
+        if (rangedCanAttackFromHere)
+        {
+            shouldMoveForEngagement = false;
+        }
+        else if (targetChanged && isRangedStyle && enemyDistance <= dis)
+        {
+            path_info.position_hold_until = battle_frame_ + POSITION_HOLD_FRAMES;
+            shouldMoveForEngagement = false;
+        }
         if (useApproachCell)
         {
             shouldMoveForEngagement = canStartAttack
@@ -5719,7 +5828,7 @@ void BattleSceneHades::AI(Role* r)
         bool meleeCanCommitAttack = useApproachCell
             && canStartAttack
             && r->UsingMagic
-            && meleeAttackReady;
+            && (meleeAttackReady || meleeDashAttackReady);
         bool meleeShouldHoldCooldown = useApproachCell
             && !canStartAttack
             && meleeBrawlRange;
@@ -5728,7 +5837,7 @@ void BattleSceneHades::AI(Role* r)
             shouldMoveForEngagement = false;
         }
         if (inEngagementDeadband
-            && (!useApproachCell || meleeAttackReady || !canStartAttack)
+            && (!useApproachCell || meleeAttackReady || meleeDashAttackReady || !canStartAttack)
             && (!rangedTooClose || !kiteRingRanged))
         {
             shouldMoveForEngagement = false;
@@ -5741,14 +5850,77 @@ void BattleSceneHades::AI(Role* r)
         {
             path_info.frames_gap_closing = 0;
         }
-        if (useApproachCell && canStartAttack && r->UsingMagic && commitNearestMeleeAttack())
+        double progressDistance = useApproachCell ? enemyDistance : EuclidDis(r->Pos, moveTarget);
+        double progressReach = useApproachCell ? MELEE_ATTACK_REACH : ENGAGEMENT_CELL_ARRIVE_DISTANCE;
+        if (shouldMoveForEngagement && progressDistance > progressReach)
         {
+            double requiredProgress = std::max(speed / 2.0, ENGAGEMENT_CELL_DEADBAND / (PATH_REFRESH_FRAMES * 2.0));
+            if (path_info.last_gap_distance < 0.0
+                || progressDistance < path_info.last_gap_distance - requiredProgress)
+            {
+                path_info.frames_no_gap_progress = 0;
+            }
+            else
+            {
+                path_info.frames_no_gap_progress++;
+            }
+            path_info.last_gap_distance = std::min(
+                path_info.last_gap_distance < 0.0 ? progressDistance : path_info.last_gap_distance,
+                progressDistance);
+        }
+        else
+        {
+            path_info.frames_no_gap_progress = 0;
+            path_info.last_gap_distance = progressDistance;
+        }
+        bool engagementBlockedFromProgress = useEngagementCell
+            && shouldMoveForEngagement
+            && progressDistance > progressReach
+            && path_info.frames_no_gap_progress >= PATH_STUCK_FRAMES;
+        bool meleeBlockedFromClosing = useApproachCell
+            && shouldMoveForEngagement
+            && enemyDistance > MELEE_ATTACK_REACH
+            && path_info.frames_no_gap_progress >= PATH_STUCK_FRAMES;
+        bool rangedPressureAttackReady = isRangedStyle
+            && canStartAttack
+            && r->UsingMagic
+            && engagementBlockedFromProgress
+            && enemyDistance <= plannedReach + RANGED_ATTACK_SAFETY_MARGIN;
+        if (rangedPressureAttackReady)
+        {
+            startAttack(roleForcesRangedMagic(r) && r->UsingMagic->AttackAreaType == 0
+                ? 2
+                : getOperationType(r->UsingMagic->AttackAreaType));
             return;
+        }
+        if (useApproachCell && canStartAttack && r->UsingMagic)
+        {
+            if (meleeBlockedFromClosing && commitNearestMeleeAttack(0, MELEE_ATTACK_PRESSURE_REACH))
+            {
+                return;
+            }
+            bool forceDashAttack = meleeDashAttackReady && enemyDistance > MELEE_ATTACK_REACH;
+            bool rollDashAttack = dashAttackEnabled && rand_.rand() < dashChance;
+            if ((forceDashAttack || rollDashAttack)
+                && commitNearestMeleeAttack(3, forceDashAttack ? DASH_ATTACK_MELEE_REACH : MELEE_ATTACK_REACH))
+            {
+                return;
+            }
+            if (commitNearestMeleeAttack(0, MELEE_ATTACK_REACH))
+            {
+                return;
+            }
         }
         auto handleInRangeMovement = [&]()
         {
             if (isRangedStyle)
             {
+                if (battle_frame_ < path_info.position_hold_until && enemyDistance <= dis)
+                {
+                    faceTargetAndHold(false);
+                    return;
+                }
+
                 if (rangedTooClose)
                 {
                     auto retreat = r->Pos - r0->Pos;
@@ -5758,10 +5930,10 @@ void BattleSceneHades::AI(Role* r)
                     }
                     if (kiteRingRanged && path_info.frames_stuck >= PATH_STUCK_FRAMES)
                     {
-                        startApproachDash(retreat, BATTLE_TILE_W * 1.25);
+                        startApproachDash(retreat, std::max(ENGAGEMENT_CELL_ARRIVE_DISTANCE, rangedRetreatDistance - enemyDistance));
                         return;
                     }
-                    faceTargetAndHold();
+                    faceTargetAndHold(true);
                     return;
                 }
 
@@ -5781,13 +5953,13 @@ void BattleSceneHades::AI(Role* r)
                     }
                 }
 
-                faceTargetAndHold();
+                faceTargetAndHold(true);
                 return;
             }
 
             if (meleeShouldHoldCooldown || meleeAttackReady)
             {
-                faceTargetAndHold();
+                faceTargetAndHold(true);
                 return;
             }
             if (path_info.frames_stuck >= PATH_STUCK_FRAMES)
@@ -5798,7 +5970,7 @@ void BattleSceneHades::AI(Role* r)
                     return;
                 }
             }
-            faceTargetAndHold();
+            faceTargetAndHold(true);
         };
         auto shouldStartMovementDash = [&]()
         {
@@ -5807,17 +5979,18 @@ void BattleSceneHades::AI(Role* r)
                 return false;
             }
             double approachDashChance = APPROACH_DASH_BASE_CHANCE
-                + std::min(path_info.frames_stuck, 2) * APPROACH_DASH_STUCK_BONUS;
+                + std::min(path_info.frames_stuck, PATH_STUCK_FRAMES - 1) * APPROACH_DASH_STUCK_BONUS;
             return (useApproachCell
                     && enemyDistance > MELEE_ATTACK_REACH
                     && path_info.frames_gap_closing >= MELEE_LONG_GAP_CLOSING_FRAMES
                     && rand_.rand() < MELEE_LONG_GAP_DASH_CHANCE)
                 || (useEngagementCell
                     && useApproachCell
-                    && enemyDistance > dis + TILE_W
+                    && enemyDistance > dis + MELEE_ATTACK_HIT_RADIUS
                     && rand_.rand() < approachDashChance)
+                || engagementBlockedFromProgress
                 || (isRangedStyle
-                    && enemyDistance > dis + RANGED_FAR_DASH_GAP
+                    && enemyDistance > dis + rangedFarDashGap
                     && rand_.rand() < RANGED_FAR_DASH_CHANCE)
                 || (useEngagementCell
                     && !rangedCanShootFromHere
@@ -5838,7 +6011,41 @@ void BattleSceneHades::AI(Role* r)
             else
             {
                 bool movedDirectly = tryMove(moveDirection, speed);
-                if (!movedDirectly && meleeLocalScrum)
+                bool movedAfterRangedSlotChange = false;
+                bool movedAfterApproachSlotChange = false;
+                if (!movedDirectly && isRangedStyle && useEngagementCell)
+                {
+                    path_info.frames_stuck++;
+                    if (reassignRangedEngagementCell())
+                    {
+                        auto nextMoveDirection = moveTarget - r->Pos;
+                        if (nextMoveDirection.norm() > 0.01)
+                        {
+                            movedAfterRangedSlotChange = tryMove(nextMoveDirection, speed);
+                        }
+                    }
+                }
+                if (!movedDirectly && !movedAfterRangedSlotChange && useApproachSlot && meleeBlockedFromClosing)
+                {
+                    Point nextGoal45 = findEngagementCell(r, r0, 1, 1, 4, true, false, goal45);
+                    if (nextGoal45.x != goal45.x || nextGoal45.y != goal45.y)
+                    {
+                        goal45 = nextGoal45;
+                        moveTarget = pos45To90(goal45.x, goal45.y);
+                        path_info.target_cell = goal45;
+                        path_info.has_target_cell = true;
+                        path_info.reserves_approach_cell = true;
+                        path_info.waypoints.clear();
+                        path_info.current_waypoint = 0;
+                        path_info.frames_since_update = PATH_REFRESH_FRAMES + 1;
+                        auto nextMoveDirection = moveTarget - r->Pos;
+                        if (nextMoveDirection.norm() > 0.01)
+                        {
+                            movedAfterApproachSlotChange = tryMove(nextMoveDirection, speed);
+                        }
+                    }
+                }
+                if (!movedDirectly && !movedAfterRangedSlotChange && !movedAfterApproachSlotChange && (meleeLocalScrum || meleeBlockedFromClosing))
                 {
                     path_info.frames_stuck++;
                     if (path_info.frames_stuck >= PATH_STUCK_FRAMES
@@ -5848,10 +6055,10 @@ void BattleSceneHades::AI(Role* r)
                     }
                     if (!r->HaveAction && path_info.movement_dash_frames <= 0)
                     {
-                        faceTargetAndHold();
+                        faceTargetAndHold(true);
                     }
                 }
-                else if (!movedDirectly && r->Velocity.norm() < 0.1)
+                else if (!movedDirectly && !movedAfterRangedSlotChange && !movedAfterApproachSlotChange && r->Velocity.norm() < 0.1)
                 {
                     path_info.frames_since_update++;
 
@@ -5888,7 +6095,7 @@ void BattleSceneHades::AI(Role* r)
                     if (path_info.current_waypoint < path_info.waypoints.size())
                     {
                         Pointf wp = path_info.waypoints[path_info.current_waypoint];
-                        if (EuclidDis(r->Pos, wp) < 40)
+                        if (EuclidDis(r->Pos, wp) < PATH_WAYPOINT_REACHED_DISTANCE)
                         {
                             path_info.current_waypoint++;
                         }
@@ -5921,7 +6128,8 @@ void BattleSceneHades::AI(Role* r)
             if (canStartAttack && r->UsingMagic)
             {
                 // 點攻擊直接出手，避免近戰在可命中距離內反覆微調。
-                bool wantDashAttack = dashAttackEnabled && rand_.rand() < dashChance;
+                bool wantDashAttack = dashAttackEnabled
+                    && (rand_.rand() < dashChance || (kiteRingRanged && !inEngagementDeadband));
                 if (r->UsingMagic->AttackAreaType == 0)
                 {
                     if (wantDashAttack)
@@ -6987,7 +7195,7 @@ void BattleSceneHades::applyScriptedAttackEffect(AttackEffect& ae, Role* r)
     }
     if (ae.ScriptedBleedStacks > 0)
     {
-        applyBleed(ae.Attacker, r, ae.ScriptedBleedStacks, getSharedBleedMaxStacks(ae.Attacker), true, "螺旋流血弹");
+        applyBleed(ae.Attacker, r, ae.ScriptedBleedStacks, getSharedBleedMaxStacks(ae.Attacker), true, "螺旋流血彈");
     }
 }
 
@@ -7097,7 +7305,8 @@ Point BattleSceneHades::findEngagementCell(Role* chaser,
                                            int preferredTargetDistance,
                                            int maxTargetDistance,
                                            bool avoidApproachReservations,
-                                           bool avoidWallPressure)
+                                           bool avoidWallPressure,
+                                           Point avoidCell)
 {
     auto target45 = pos90To45(target->Pos.x, target->Pos.y);
     auto current45 = pos90To45(chaser->Pos.x, chaser->Pos.y);
@@ -7117,14 +7326,18 @@ Point BattleSceneHades::findEngagementCell(Role* chaser,
             }
 
             Point candidate(target45.x + dx, target45.y + dy);
+            if (candidate.x == avoidCell.x && candidate.y == avoidCell.y)
+            {
+                continue;
+            }
             if (!canWalk45(candidate.x, candidate.y) || isCellOccupied45(candidate.x, candidate.y, chaser))
             {
                 continue;
             }
 
             int chaserDistance = calDistance(current45.x, current45.y, candidate.x, candidate.y);
-            int reservationPenalty = 0;
             int crowdPenalty = 0;
+            bool reservedByAlly = false;
             for (const auto& [role, info] : paths_)
             {
                 if (role == chaser || role->Dead != 0 || role->Team != chaser->Team)
@@ -7137,8 +7350,13 @@ Point BattleSceneHades::findEngagementCell(Role* chaser,
                     && info.target_cell.x == candidate.x
                     && info.target_cell.y == candidate.y)
                 {
-                    reservationPenalty += 1;
+                    reservedByAlly = true;
+                    break;
                 }
+            }
+            if (reservedByAlly)
+            {
+                continue;
             }
             for (auto role : battle_roles_)
             {
@@ -7170,7 +7388,7 @@ Point BattleSceneHades::findEngagementCell(Role* chaser,
                     }
                 }
             }
-            int score = reservationPenalty * 600 + crowdPenalty * 60 + wallPenalty * 140 + preferredPenalty * 90 + chaserDistance;
+            int score = crowdPenalty * 60 + wallPenalty * 140 + preferredPenalty * 90 + chaserDistance;
             if (score < bestScore)
             {
                 best = candidate;

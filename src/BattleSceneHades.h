@@ -116,7 +116,7 @@ protected:
     void clampCameraCenter();
     Role* assignFlankTarget(Role* r);
     bool isCellOccupied45(int x, int y, const Role* ignore = nullptr) const;
-    Point findEngagementCell(Role* chaser, Role* target, int minTargetDistance, int preferredTargetDistance, int maxTargetDistance, bool avoidApproachReservations, bool avoidWallPressure);
+    Point findEngagementCell(Role* chaser, Role* target, int minTargetDistance, int preferredTargetDistance, int maxTargetDistance, bool avoidApproachReservations, bool avoidWallPressure, Point avoidCell = Point(-1, -1));
     Point findApproachCell(Role* chaser, Role* target);
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
     void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
@@ -157,6 +157,7 @@ protected:
     bool positionSwapActive_ = false;
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
     std::set<Role*> criticalHitRoles_;
+    std::unordered_map<Role*, int> semanticDamageTextAmounts_;
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;
     std::vector<int> teammate_weapons_;
@@ -193,6 +194,8 @@ protected:
         int frames_sliding = 0;
         int frames_stuck = 0;
         int frames_gap_closing = 0;
+        int frames_no_gap_progress = 0;
+        double last_gap_distance = -1.0;
     };
     std::unordered_map<Role*, PathInfo> paths_;
 };
