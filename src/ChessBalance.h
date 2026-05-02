@@ -36,11 +36,11 @@ struct BalanceConfig
     int starFlatDef = 10;
 
     // Per-instance growth
-    int fightWinGrowthHP = 15;
-    int fightWinGrowthAtk = 2;
-    int fightWinGrowthDef = 2;
-    int fightWinGrowthWeapon = 0;
-    int fightWinGrowthSpeed = 0;
+    double fightWinGrowthHP = 15.0;
+    double fightWinGrowthAtk = 2.0;
+    double fightWinGrowthDef = 2.0;
+    double fightWinGrowthWeapon = 0.0;
+    double fightWinGrowthSpeed = 0.0;
 
     // Economy
     int initialMoney = 20;

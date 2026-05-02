@@ -115,6 +115,9 @@ protected:
     void updateAutoCamera();
     void clampCameraCenter();
     Role* assignFlankTarget(Role* r);
+    bool isCellOccupied45(int x, int y, const Role* ignore = nullptr) const;
+    Point findEngagementCell(Role* chaser, Role* target, int minTargetDistance, int preferredTargetDistance, int maxTargetDistance, bool avoidApproachReservations, bool avoidWallPressure);
+    Point findApproachCell(Role* chaser, Role* target);
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
     void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
     void addRoleEffect(Role* role, int eftId, int totalFrames = 0);
@@ -126,7 +129,7 @@ protected:
     int getForcedRangedMinSelectDistance(Role* role) const;
     int getProjectileSpeedMultiplierPct(Role* role) const;
 
-    std::vector<Point> findPath(Point start45, Point goal45);
+    std::vector<Point> findPath(Point start45, Point goal45, Role* traveler = nullptr);
     std::vector<Pointf> smoothPath(const std::vector<Point>& path45);
 
 public:
@@ -153,6 +156,7 @@ protected:
     Role* swapSelected_ = nullptr;
     bool positionSwapActive_ = false;
     std::set<Role*> ultHitRoles_;    // roles hit by ultimate this frame
+    std::set<Role*> criticalHitRoles_;
     std::set<Role*> ultCasters_;     // roles that chose ultimate skill
     std::vector<int> enemy_stars_;
     std::vector<int> teammate_weapons_;
@@ -178,9 +182,17 @@ protected:
         int frames_since_update = 0;
         Role* target = nullptr;
         Point target_cell;
+        bool has_target_cell = false;
+        bool reserves_approach_cell = false;
+        int target_lock_until = 0;
+        int position_hold_until = 0;
+        int movement_dash_frames = 0;
+        int movement_dash_cooldown = 0;
+        int movement_dash_spread_frames = 0;
         int frames_following = 0;
         int frames_sliding = 0;
         int frames_stuck = 0;
+        int frames_gap_closing = 0;
     };
     std::unordered_map<Role*, PathInfo> paths_;
 };

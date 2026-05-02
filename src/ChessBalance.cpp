@@ -90,11 +90,11 @@ bool ChessBalance::loadConfig(const std::string& path)
 
     if (auto n = root["棋子成长"])
     {
-        if (n["每胜生命"]) c.fightWinGrowthHP = n["每胜生命"].as<int>();
-        if (n["每胜攻击"]) c.fightWinGrowthAtk = n["每胜攻击"].as<int>();
-        if (n["每胜防御"]) c.fightWinGrowthDef = n["每胜防御"].as<int>();
-        if (n["每胜兵器"]) c.fightWinGrowthWeapon = n["每胜兵器"].as<int>();
-        if (n["每胜轻功"]) c.fightWinGrowthSpeed = n["每胜轻功"].as<int>();
+        if (n["每胜生命"]) c.fightWinGrowthHP = n["每胜生命"].as<double>();
+        if (n["每胜攻击"]) c.fightWinGrowthAtk = n["每胜攻击"].as<double>();
+        if (n["每胜防御"]) c.fightWinGrowthDef = n["每胜防御"].as<double>();
+        if (n["每胜兵器"]) c.fightWinGrowthWeapon = n["每胜兵器"].as<double>();
+        if (n["每胜轻功"]) c.fightWinGrowthSpeed = n["每胜轻功"].as<double>();
     }
 
     if (auto n = root["经济"])
