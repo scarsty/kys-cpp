@@ -35,6 +35,8 @@ struct BattleStatusUnitState
     int bleedTimer = 0;
     int bleedSourceId = -1;
 
+    int frozenTimer = 0;
+    int frozenMaxTimer = 0;
     int mpBlockTimer = 0;
 
     int damageImmunityAfterFrames = 0;

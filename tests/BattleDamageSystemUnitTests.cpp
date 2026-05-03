@@ -453,3 +453,150 @@ TEST_CASE("傷害交易_魔力傷害不觸發生命傷害防禦層", "[battle][d
     CHECK(result.events[0].type == BattleDamageEventType::MpDamageApplied);
     CHECK(result.events[0].value == 20);
 }
+
+TEST_CASE("傷害交易_命中後資源與冷卻延長只在有效命中後生效", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 20;
+    input.request.mpOnHit = 15;
+    input.request.hpOnHit = 40;
+    input.request.mpDrain = 20;
+    input.request.cooldownExtendPct = 25;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.attacker.hp = 90;
+    input.attacker.maxHp = 120;
+    input.attacker.mp = 80;
+    input.attacker.maxMp = 100;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.mp = 12;
+    input.defender.maxMp = 100;
+    input.defenderCooldown.alive = true;
+    input.defenderCooldown.cooldown = 50;
+    input.defenderCooldown.cooldownMax = 100;
+    input.defenderCooldown.haveAction = true;
+    input.defenderCooldown.operationType = BattleOperationType::Melee;
+    input.defenderCooldown.actType = 1;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.attacker.hp == 120);
+    CHECK(result.attacker.mp == 100);
+    CHECK(result.defender.mp == 0);
+    CHECK(result.attackerDelta.hpDelta == 30);
+    CHECK(result.attackerDelta.mpDelta == 20);
+    CHECK(result.defenderDelta.mpDelta == -12);
+    CHECK(result.defenderCooldown.cooldown == 75);
+    CHECK(result.cooldownDelta == 25);
+
+    bool sawHpRestore = false;
+    bool sawMpRestore = false;
+    bool sawMpDrain = false;
+    bool sawCooldown = false;
+    for (const auto& event : result.events)
+    {
+        sawHpRestore = sawHpRestore || event.type == BattleDamageEventType::HpRestored;
+        sawMpRestore = sawMpRestore || event.type == BattleDamageEventType::MpRestored;
+        sawMpDrain = sawMpDrain || event.type == BattleDamageEventType::MpDrained;
+        sawCooldown = sawCooldown || event.type == BattleDamageEventType::CooldownExtended;
+    }
+    CHECK(sawHpRestore);
+    CHECK(sawMpRestore);
+    CHECK(sawMpDrain);
+    CHECK(sawCooldown);
+
+    input.defender.invincible = 10;
+    auto blocked = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(blocked.finalHpDamage == 0);
+    CHECK(blocked.attacker.hp == 90);
+    CHECK(blocked.attacker.mp == 80);
+    CHECK(blocked.defender.mp == 12);
+    CHECK(blocked.defenderCooldown.cooldown == 50);
+    CHECK(blocked.cooldownDelta == 0);
+}
+
+TEST_CASE("傷害交易_命中後狀態由交易輸出", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 10;
+    input.request.poisonPct = 12;
+    input.request.poisonDurationFrames = 60;
+    input.request.bleedStacks = 2;
+    input.request.bleedMaxStacks = 3;
+    input.request.damageReduceDebuffDurationFrames = 45;
+    input.request.damageReduceDebuffPct = 30;
+    input.request.frozenFrames = 5;
+    input.request.mpBlockFrames = 9;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defenderStatus = statusUnit(2);
+    input.defenderStatus.poisonTickPct = 8;
+    input.defenderStatus.poisonTimer = 30;
+    input.defenderStatus.bleedStacks = 2;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.defenderStatus.poisonTickPct == 12);
+    CHECK(result.defenderStatus.poisonTimer == 60);
+    CHECK(result.defenderStatus.poisonSourceId == 1);
+    CHECK(result.defenderStatus.bleedStacks == 3);
+    CHECK(result.defenderStatus.bleedTimer == 10);
+    CHECK(result.defenderStatus.bleedSourceId == 1);
+    REQUIRE(result.defenderStatus.damageReduceDebuffs.size() == 1);
+    CHECK(result.defenderStatus.damageReduceDebuffs[0].remainingFrames == 45);
+    CHECK(result.defenderStatus.damageReduceDebuffs[0].pct == 30);
+    CHECK(result.defenderStatus.frozenTimer == 5);
+    CHECK(result.defenderStatus.frozenMaxTimer == 5);
+    CHECK(result.defenderStatus.mpBlockTimer == 9);
+
+    std::vector<BattleDamageStatusType> statuses;
+    for (const auto& event : result.events)
+    {
+        if (event.type == BattleDamageEventType::StatusApplied)
+        {
+            statuses.push_back(event.statusType);
+        }
+    }
+    REQUIRE(statuses.size() == 5);
+    CHECK(statuses[0] == BattleDamageStatusType::Poison);
+    CHECK(statuses[1] == BattleDamageStatusType::Bleed);
+    CHECK(statuses[2] == BattleDamageStatusType::DamageReduceDebuff);
+    CHECK(statuses[3] == BattleDamageStatusType::Frozen);
+    CHECK(statuses[4] == BattleDamageStatusType::MpBlocked);
+}
+
+TEST_CASE("傷害交易_較弱中毒不會刷新交易目標", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 10;
+    input.request.poisonPct = 5;
+    input.request.poisonDurationFrames = 60;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defenderStatus = statusUnit(2);
+    input.defenderStatus.poisonTickPct = 8;
+    input.defenderStatus.poisonTimer = 30;
+    input.defenderStatus.poisonSourceId = 7;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.defenderStatus.poisonTickPct == 8);
+    CHECK(result.defenderStatus.poisonTimer == 30);
+    CHECK(result.defenderStatus.poisonSourceId == 7);
+    for (const auto& event : result.events)
+    {
+        CHECK_FALSE(event.statusType == BattleDamageStatusType::Poison);
+    }
+}

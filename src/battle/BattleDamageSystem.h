@@ -183,11 +183,27 @@ enum class BattleDamageEventType
     UnitDied,
     KillRewardApplied,
     ExecuteTriggered,
+    HpRestored,
+    MpRestored,
+    MpDrained,
+    CooldownExtended,
+    StatusApplied,
+};
+
+enum class BattleDamageStatusType
+{
+    None,
+    Frozen,
+    Poison,
+    Bleed,
+    DamageReduceDebuff,
+    MpBlocked,
 };
 
 struct BattleDamageEvent
 {
     BattleDamageEventType type = BattleDamageEventType::DamageApplied;
+    BattleDamageStatusType statusType = BattleDamageStatusType::None;
     int sourceUnitId = -1;
     int targetUnitId = -1;
     int value = 0;
@@ -204,6 +220,20 @@ struct BattleDamageRequest
     bool reflected = false;
     bool canExecute = false;
     int executeThresholdPct = 0;
+
+    int mpOnHit = 0;
+    int hpOnHit = 0;
+    int mpDrain = 0;
+    int cooldownExtendPct = 0;
+
+    int frozenFrames = 0;
+    int poisonPct = 0;
+    int poisonDurationFrames = 0;
+    int bleedStacks = 0;
+    int bleedMaxStacks = 0;
+    int damageReduceDebuffDurationFrames = 0;
+    int damageReduceDebuffPct = 0;
+    int mpBlockFrames = 0;
 };
 
 struct BattleUnitDelta
@@ -225,6 +255,8 @@ struct BattleDamageTransactionInput
     BattleDamageUnitState defender;
     BattleDamageModifierState attackerModifiers;
     BattleDamageModifierState defenderModifiers;
+    BattleStatusUnitState defenderStatus;
+    BattleCooldownState defenderCooldown;
 };
 
 struct BattleDamageTransactionResult
@@ -233,14 +265,18 @@ struct BattleDamageTransactionResult
     BattleDamageUnitState defender;
     BattleUnitDelta attackerDelta;
     BattleUnitDelta defenderDelta;
+    BattleStatusUnitState defenderStatus;
+    BattleCooldownState defenderCooldown;
     std::vector<BattleDamageEvent> events;
     int finalHpDamage = 0;
     int finalMpDamage = 0;
+    int cooldownDelta = 0;
     int shieldAbsorbed = 0;
     bool executed = false;
     bool killed = false;
     bool deathPrevented = false;
     bool blockedByInvincible = false;
+    bool blockedByFirstHit = false;
 };
 
 class BattleDamageSystem
