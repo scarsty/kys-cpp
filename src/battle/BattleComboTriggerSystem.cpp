@@ -804,12 +804,12 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
 bool BattleComboTriggerSystem::resolveProjectileReflect(
     const RoleComboState& state,
     bool rangedProjectile,
-    double rollPercent) const
+    const std::function<double()>& rollPercent) const
 {
-    assert(rollPercent >= 0.0 && rollPercent < 100.0);
+    assert(static_cast<bool>(rollPercent));
     return rangedProjectile
         && state.projectileReflectPct > 0
-        && rollPercent < state.projectileReflectPct;
+        && rollPercent() < state.projectileReflectPct;
 }
 
 std::vector<BattleDefenderBlockCommand> BattleComboTriggerSystem::collectDefenderBlockCommands(
@@ -960,6 +960,85 @@ BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDef
         {
             result.defense *= (1.0 - event.effect.value / 100.0);
         }
+    }
+    return result;
+}
+
+int BattleComboTriggerSystem::resolveLegacyStunFrames(
+    const RoleComboState& state,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+    return state.stunChancePct > 0 && rollPercent() < state.stunChancePct
+        ? state.stunFrames
+        : 0;
+}
+
+bool BattleComboTriggerSystem::shouldApplyKnockback(
+    const RoleComboState& state,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+    return state.knockbackChancePct > 0 && rollPercent() < state.knockbackChancePct;
+}
+
+int BattleComboTriggerSystem::resolveOffensiveCooldownExtendPct(
+    const RoleComboState& state,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+    return state.offensiveCharmChancePct > 0
+        && state.charmCDRAmountPct > 0
+        && rollPercent() < state.offensiveCharmChancePct
+        ? state.charmCDRAmountPct
+        : 0;
+}
+
+int BattleComboTriggerSystem::resolveDefensiveCooldownExtendPct(
+    const RoleComboState& state,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+    return state.charmCDRChancePct > 0
+        && state.charmCDRAmountPct > 0
+        && rollPercent() < state.charmCDRChancePct
+        ? state.charmCDRAmountPct
+        : 0;
+}
+
+BattleBleedProc BattleComboTriggerSystem::resolveBleedProc(
+    const RoleComboState& state,
+    bool damagePositive,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+    BattleBleedProc result;
+    result.applies = damagePositive
+        && state.bleedChancePct > 0
+        && rollPercent() < state.bleedChancePct;
+    if (result.applies)
+    {
+        result.stacks = 1;
+        result.maxStacks = state.bleedMaxStacks;
+    }
+    return result;
+}
+
+BattleDamageReduceDebuffProc BattleComboTriggerSystem::resolveDamageReduceDebuffProc(
+    const RoleComboState& state,
+    bool damagePositive,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+    BattleDamageReduceDebuffProc result;
+    result.applies = damagePositive
+        && state.dmgReduceDebuffChancePct > 0
+        && state.dmgReduceDebuffDurationFrames > 0
+        && rollPercent() < state.dmgReduceDebuffChancePct;
+    if (result.applies)
+    {
+        result.pct = state.dmgReduceDebuffPct;
+        result.durationFrames = state.dmgReduceDebuffDurationFrames;
     }
     return result;
 }

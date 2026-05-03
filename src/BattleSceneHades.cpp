@@ -5501,10 +5501,13 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
             }
 
             // Stun (legacy)
-            if (as.stunChancePct > 0 && rand_.rand() * 100 < as.stunChancePct)
+            int legacyStunFrames = KysChess::Battle::BattleComboTriggerSystem().resolveLegacyStunFrames(
+                as,
+                [&]() { return rand_.rand() * 100.0; });
+            if (legacyStunFrames > 0)
             {
                 KysChess::Battle::BattleDamageRequest request;
-                request.frozenFrames = as.stunFrames;
+                request.frozenFrames = legacyStunFrames;
                 auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
@@ -5537,24 +5540,28 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
             }
 
             // Knockback (extra)
-            if (as.knockbackChancePct > 0 && rand_.rand() * 100 < as.knockbackChancePct)
+            if (KysChess::Battle::BattleComboTriggerSystem().shouldApplyKnockback(
+                    as,
+                    [&]() { return rand_.rand() * 100.0; }))
             {
                 auto kb = r->Pos - attacker->Pos;
                 kb.normTo(5);
                 r->Velocity += kb;
             }
 
-            if (as.offensiveCharmChancePct > 0 && as.charmCDRAmountPct > 0
-                && rand_.rand() * 100 < as.offensiveCharmChancePct)
+            int offensiveCooldownExtendPct = KysChess::Battle::BattleComboTriggerSystem().resolveOffensiveCooldownExtendPct(
+                as,
+                [&]() { return rand_.rand() * 100.0; });
+            if (offensiveCooldownExtendPct > 0)
             {
                 KysChess::Battle::BattleDamageRequest request;
-                request.cooldownExtendPct = as.charmCDRAmountPct;
+                request.cooldownExtendPct = offensiveCooldownExtendPct;
                 auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 if (result.cooldownDelta > 0)
                 {
                     int before = result.defenderCooldown.cooldown - result.cooldownDelta;
                     logBattleStatus(attacker, r,
-                        formatCooldownIncreaseStatus(as.charmCDRAmountPct, before, result.defenderCooldown.cooldown));
+                        formatCooldownIncreaseStatus(offensiveCooldownExtendPct, before, result.defenderCooldown.cooldown));
                 }
             }
 
@@ -5634,17 +5641,19 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                     std::format("單次承傷封頂{}%最大生命", lateDamage.maxHitPct));
             }
 
-            if (ds.charmCDRChancePct > 0
-                && rand_.rand() * 100 < ds.charmCDRChancePct)
+            int defensiveCooldownExtendPct = KysChess::Battle::BattleComboTriggerSystem().resolveDefensiveCooldownExtendPct(
+                ds,
+                [&]() { return rand_.rand() * 100.0; });
+            if (defensiveCooldownExtendPct > 0)
             {
                 KysChess::Battle::BattleDamageRequest request;
-                request.cooldownExtendPct = ds.charmCDRAmountPct;
+                request.cooldownExtendPct = defensiveCooldownExtendPct;
                 auto result = applyAcceptedHitSideEffectTransaction(r, attacker, request);
                 if (result.cooldownDelta > 0)
                 {
                     int before = result.defenderCooldown.cooldown - result.cooldownDelta;
                     logBattleStatus(r, attacker,
-                        formatCooldownIncreaseStatus(ds.charmCDRAmountPct, before, result.defenderCooldown.cooldown));
+                        formatCooldownIncreaseStatus(defensiveCooldownExtendPct, before, result.defenderCooldown.cooldown));
                 }
             }
 
@@ -5672,7 +5681,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
             if (KysChess::Battle::BattleComboTriggerSystem().resolveProjectileReflect(
                     ds,
                     rangedProjectile,
-                    rand_.rand() * 100.0))
+                    [&]() { return rand_.rand() * 100.0; }))
             {
                 reflectToAttacker = true;
                 addFloatingText(r, "彈反", { 180, 150, 255, 255 }, STATUS_TEXT_SIZE);
@@ -5769,36 +5778,41 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
         {
             auto& as = ait->second;
 
-            if (hurt > 0 && as.bleedChancePct > 0 && rand_.rand() * 100 < as.bleedChancePct)
+            auto bleedProc = KysChess::Battle::BattleComboTriggerSystem().resolveBleedProc(
+                as,
+                hurt > 0,
+                [&]() { return rand_.rand() * 100.0; });
+            if (bleedProc.applies)
             {
                 KysChess::Battle::BattleDamageRequest request;
-                request.bleedStacks = 1;
-                request.bleedMaxStacks = as.bleedMaxStacks;
+                request.bleedStacks = bleedProc.stacks;
+                request.bleedMaxStacks = bleedProc.maxStacks;
                 auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
                     if (event.statusType == KysChess::Battle::BattleDamageStatusType::Bleed)
                     {
-                        logBattleStatus(attacker, r, formatStatusRange("流血", event.value, std::max(1, as.bleedMaxStacks), "層"));
+                        logBattleStatus(attacker, r, formatStatusRange("流血", event.value, std::max(1, bleedProc.maxStacks), "層"));
                     }
                 }
             }
 
-            // Damage reduce debuff (傷害降低): mark target on hit to reduce outgoing damage
-            if (hurt > 0 && as.dmgReduceDebuffChancePct > 0
-                && as.dmgReduceDebuffDurationFrames > 0
-                && rand_.rand() * 100 < as.dmgReduceDebuffChancePct)
+            auto damageReduceDebuff = KysChess::Battle::BattleComboTriggerSystem().resolveDamageReduceDebuffProc(
+                as,
+                hurt > 0,
+                [&]() { return rand_.rand() * 100.0; });
+            if (damageReduceDebuff.applies)
             {
                 KysChess::Battle::BattleDamageRequest request;
-                request.damageReduceDebuffDurationFrames = as.dmgReduceDebuffDurationFrames;
-                request.damageReduceDebuffPct = as.dmgReduceDebuffPct;
+                request.damageReduceDebuffDurationFrames = damageReduceDebuff.durationFrames;
+                request.damageReduceDebuffPct = damageReduceDebuff.pct;
                 auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
                     if (event.statusType == KysChess::Battle::BattleDamageStatusType::DamageReduceDebuff)
                     {
                         logBattleStatus(attacker, r,
-                            formatStatusPercentFrames("傷害降低", as.dmgReduceDebuffPct, as.dmgReduceDebuffDurationFrames));
+                            formatStatusPercentFrames("傷害降低", damageReduceDebuff.pct, damageReduceDebuff.durationFrames));
                     }
                 }
             }

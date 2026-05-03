@@ -220,6 +220,20 @@ struct BattleArmorPenetrationResult
     double defense = 0.0;
 };
 
+struct BattleBleedProc
+{
+    bool applies = false;
+    int stacks = 0;
+    int maxStacks = 0;
+};
+
+struct BattleDamageReduceDebuffProc
+{
+    bool applies = false;
+    int pct = 0;
+    int durationFrames = 0;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -351,7 +365,7 @@ public:
 
     bool resolveProjectileReflect(const RoleComboState& state,
                                   bool rangedProjectile,
-                                  double rollPercent) const;
+                                  const std::function<double()>& rollPercent) const;
 
     std::vector<BattleDefenderBlockCommand> collectDefenderBlockCommands(
         const RoleComboState& state,
@@ -378,6 +392,19 @@ public:
     BattleArmorPenetrationResult resolveArmorPenetratedDefense(
         const RoleComboState& state,
         const BattleArmorPenetrationInput& input,
+        const std::function<double()>& rollPercent) const;
+
+    int resolveLegacyStunFrames(const RoleComboState& state, const std::function<double()>& rollPercent) const;
+    bool shouldApplyKnockback(const RoleComboState& state, const std::function<double()>& rollPercent) const;
+    int resolveOffensiveCooldownExtendPct(const RoleComboState& state, const std::function<double()>& rollPercent) const;
+    int resolveDefensiveCooldownExtendPct(const RoleComboState& state, const std::function<double()>& rollPercent) const;
+    BattleBleedProc resolveBleedProc(
+        const RoleComboState& state,
+        bool damagePositive,
+        const std::function<double()>& rollPercent) const;
+    BattleDamageReduceDebuffProc resolveDamageReduceDebuffProc(
+        const RoleComboState& state,
+        bool damagePositive,
         const std::function<double()>& rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;

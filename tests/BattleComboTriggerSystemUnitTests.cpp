@@ -694,9 +694,9 @@ TEST_CASE("BattleComboTriggerSystem_DefenderReactions_ResolveReflectAndBlocksInL
     state.counterUltimateBlockChancePct = 60;
     state.blockChancePct = 70;
 
-    CHECK(BattleComboTriggerSystem().resolveProjectileReflect(state, true, 39.0));
-    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, true, 40.0));
-    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, false, 0.0));
+    CHECK(BattleComboTriggerSystem().resolveProjectileReflect(state, true, []() { return 39.0; }));
+    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, true, []() { return 40.0; }));
+    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, false, []() { return 0.0; }));
 
     std::vector<double> rolls = { 50.0, 69.0 };
     size_t nextRoll = 0;
@@ -803,4 +803,39 @@ TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesLegacyAndTriggeredPe
 
     CHECK(result.defense == Catch::Approx(45.0));
     CHECK(nextRoll == 2);
+}
+
+TEST_CASE("BattleComboTriggerSystem_HitProcHelpers_ResolveLegacyProcDecisions", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.stunChancePct = 50;
+    state.stunFrames = 7;
+    state.knockbackChancePct = 30;
+    state.offensiveCharmChancePct = 60;
+    state.charmCDRAmountPct = 25;
+    state.charmCDRChancePct = 40;
+    state.bleedChancePct = 70;
+    state.bleedMaxStacks = 5;
+    state.dmgReduceDebuffChancePct = 80;
+    state.dmgReduceDebuffPct = 15;
+    state.dmgReduceDebuffDurationFrames = 90;
+
+    CHECK(BattleComboTriggerSystem().resolveLegacyStunFrames(state, []() { return 49.0; }) == 7);
+    CHECK(BattleComboTriggerSystem().resolveLegacyStunFrames(state, []() { return 50.0; }) == 0);
+    CHECK(BattleComboTriggerSystem().shouldApplyKnockback(state, []() { return 29.0; }));
+    CHECK_FALSE(BattleComboTriggerSystem().shouldApplyKnockback(state, []() { return 30.0; }));
+    CHECK(BattleComboTriggerSystem().resolveOffensiveCooldownExtendPct(state, []() { return 59.0; }) == 25);
+    CHECK(BattleComboTriggerSystem().resolveDefensiveCooldownExtendPct(state, []() { return 39.0; }) == 25);
+
+    auto bleed = BattleComboTriggerSystem().resolveBleedProc(state, true, []() { return 69.0; });
+    CHECK(bleed.applies);
+    CHECK(bleed.stacks == 1);
+    CHECK(bleed.maxStacks == 5);
+    CHECK_FALSE(BattleComboTriggerSystem().resolveBleedProc(state, false, []() { return 0.0; }).applies);
+
+    auto debuff = BattleComboTriggerSystem().resolveDamageReduceDebuffProc(state, true, []() { return 79.0; });
+    CHECK(debuff.applies);
+    CHECK(debuff.pct == 15);
+    CHECK(debuff.durationFrames == 90);
+    CHECK_FALSE(BattleComboTriggerSystem().resolveDamageReduceDebuffProc(state, false, []() { return 0.0; }).applies);
 }
