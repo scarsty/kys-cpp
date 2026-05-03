@@ -48,6 +48,8 @@ public:
         int BounceRange = 0;
         int VisualAttackId = -1;
         int VisualEffectId = -1;
+        int VisualOnly = 0;
+        int VisualTeam = -1;
         int SpiralMotion = 0;
         Pointf SpiralCenter;
         float SpiralRadius = 0.0f;

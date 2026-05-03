@@ -148,6 +148,10 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
 
     for (size_t i = 0; i < effectCount; ++i)
     {
+        if (effects[i].VisualOnly)
+        {
+            continue;
+        }
         world.attacks.push_back(makeBattleAttackInstance(effects[i], static_cast<int>(i)));
     }
 

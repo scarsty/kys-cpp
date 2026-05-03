@@ -48,6 +48,12 @@ Role* resolveRole(const BattleScenePresentationPlayer::Bindings& bindings, int u
     return bindings.resolveRole(unitId);
 }
 
+int resolveVisualTeam(const BattleScenePresentationPlayer::Bindings& bindings, int unitId)
+{
+    auto* role = resolveRole(bindings, unitId);
+    return role ? role->Team : -1;
+}
+
 BattleSceneAct::AttackEffect* findProjectile(
     const BattleScenePresentationPlayer::Bindings& bindings,
     int projectileAttackId)
@@ -68,16 +74,14 @@ BattleSceneAct::AttackEffect& createProjectile(
 
     BattleSceneAct::AttackEffect effect;
     effect.VisualAttackId = command.projectileAttackId;
-    effect.Attacker = resolveRole(bindings, command.projectileSourceUnitId);
+    effect.VisualOnly = 1;
+    effect.VisualTeam = resolveVisualTeam(bindings, command.projectileSourceUnitId);
     effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
     effect.Pos = command.projectilePosition;
     effect.Velocity = command.projectileVelocity;
     effect.TotalFrame = std::max(1, command.projectileDurationFrames);
     effect.Frame = 0;
-    effect.OperationType = command.projectileOperationKind;
-    effect.NoHurt = 1;
     effect.IsMain = 0;
-    effect.IgnoreProjectileCancel = 1;
     if (command.visualEffectId >= 0)
     {
         effect.setEft(command.visualEffectId);
@@ -92,12 +96,12 @@ void applyProjectilePayload(
     const KysChess::Battle::BattlePresentationCommand& command,
     const BattleScenePresentationPlayer::Bindings& bindings)
 {
-    effect.Attacker = resolveRole(bindings, command.projectileSourceUnitId);
+    effect.VisualOnly = 1;
+    effect.VisualTeam = resolveVisualTeam(bindings, command.projectileSourceUnitId);
     effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
     effect.Pos = command.projectilePosition;
     effect.Velocity = command.projectileVelocity;
     effect.TotalFrame = std::max(1, command.projectileDurationFrames);
-    effect.OperationType = command.projectileOperationKind;
     if (command.visualEffectId >= 0)
     {
         if (effect.VisualEffectId != command.visualEffectId)
@@ -121,7 +125,6 @@ BattleSceneAct::AttackEffect& upsertProjectile(
 
 void finishProjectile(BattleSceneAct::AttackEffect& effect, int fadeFrames)
 {
-    effect.NoHurt = 1;
     effect.Frame = std::max(effect.Frame, effect.TotalFrame - fadeFrames);
 }
 }  // namespace
@@ -257,9 +260,9 @@ void BattleScenePresentationPlayer::spawnRoleEffect(
         ? std::max(command.durationFrames, effect.TotalEffectFrame)
         : std::max(1, effect.TotalEffectFrame);
     effect.Frame = 0;
-    effect.NoHurt = 1;
+    effect.VisualOnly = 1;
+    effect.VisualTeam = role->Team;
     effect.IsMain = 0;
-    effect.IgnoreProjectileCancel = 1;
     bindings.attackEffects->push_back(std::move(effect));
 }
 
@@ -284,9 +287,7 @@ void BattleScenePresentationPlayer::spawnProjectile(
 {
     auto& effect = upsertProjectile(command, bindings);
     applyProjectilePayload(effect, command, bindings);
-    effect.NoHurt = 1;
     effect.IsMain = 0;
-    effect.IgnoreProjectileCancel = 1;
 }
 
 void BattleScenePresentationPlayer::moveProjectile(
