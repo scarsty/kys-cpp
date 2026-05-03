@@ -46,7 +46,7 @@ void assertValidEvent(const BattleGameplayEvent& event)
         assert(event.targetUnitId >= 0);
         break;
     case BattleGameplayEventType::UnitDied:
-        assert(event.sourceUnitId >= 0 || event.targetUnitId >= 0);
+        assert(event.targetUnitId >= 0);
         break;
     case BattleGameplayEventType::BattleEnded:
         break;

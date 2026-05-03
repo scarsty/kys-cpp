@@ -34,7 +34,7 @@ TEST_CASE("BattlePresentationRecorder_StampsAndPreservesGameplayEventOrder", "[b
 
     recorder.recordGameplay({ BattleGameplayEventType::CastStarted, BattlePresentationCurrentFrame, 1, 2, 0, -1 });
     recorder.recordGameplay({ BattleGameplayEventType::DamageApplied, 43, 1, 2, 12, -1 });
-    recorder.recordGameplay({ BattleGameplayEventType::UnitDied, BattlePresentationCurrentFrame, 2, -1, 0, -1 });
+    recorder.recordGameplay({ BattleGameplayEventType::UnitDied, BattlePresentationCurrentFrame, -1, 2, 0, -1 });
 
     const auto& frame = recorder.frame();
     REQUIRE(frame.gameplayEvents.size() == 3);
@@ -46,6 +46,7 @@ TEST_CASE("BattlePresentationRecorder_StampsAndPreservesGameplayEventOrder", "[b
     CHECK(frame.gameplayEvents[1].amount == 12);
     CHECK(frame.gameplayEvents[2].frame == 42);
     CHECK(frame.gameplayEvents[2].type == BattleGameplayEventType::UnitDied);
+    CHECK(frame.gameplayEvents[2].targetUnitId == 2);
 }
 
 TEST_CASE("BattlePresentationRecorder_ConsumeFrameMovesCurrentFrameAndResets", "[battle][presentation][unit]")

@@ -326,3 +326,64 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     CHECK(firstProjectileEvent.effectId == 10);
     CHECK(firstProjectileEvent.position.x == 5.0f);
 }
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparatelyFromPresentation", "[battle][core]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 105, 100, 0 }),
+    });
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.attackerUnitId = 1;
+    projectile.totalFrame = 30;
+    projectile.position = { 100, 100, 0 };
+    projectile.velocity = { 5, 0, 0 };
+
+    BattleAttackInstance expiringProjectile;
+    expiringProjectile.id = 20;
+    expiringProjectile.attackerUnitId = 1;
+    expiringProjectile.totalFrame = 1;
+    expiringProjectile.noHurt = true;
+    expiringProjectile.position = { 300, 100, 0 };
+    expiringProjectile.velocity = { 5, 0, 0 };
+
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 100, 100, 0 } },
+        { 2, 1, true, false, false, { 105, 100, 0 } },
+    };
+    state.attacks.attacks.push_back(projectile);
+    state.attacks.attacks.push_back(expiringProjectile);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 4);
+    REQUIRE(result.frame.gameplayEvents.size() == result.attackEvents.size());
+    REQUIRE(result.frame.presentationEvents.size() == result.movement.events.size() + result.attackEvents.size());
+
+    CHECK(result.attackEvents[0].type == BattleAttackEventType::Moved);
+    CHECK(result.frame.gameplayEvents[0].type == BattleGameplayEventType::ProjectileMoved);
+    CHECK(result.frame.gameplayEvents[0].effectId == 10);
+    CHECK(result.frame.gameplayEvents[0].sourceUnitId == 1);
+    CHECK(result.frame.gameplayEvents[0].position.x == 105.0f);
+    CHECK(result.frame.presentationEvents[result.movement.events.size()].type == BattlePresentationEventType::ProjectileMoved);
+
+    CHECK(result.attackEvents[1].type == BattleAttackEventType::Hit);
+    CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::ProjectileHit);
+    CHECK(result.frame.gameplayEvents[1].effectId == 10);
+    CHECK(result.frame.gameplayEvents[1].sourceUnitId == 1);
+    CHECK(result.frame.gameplayEvents[1].targetUnitId == 2);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 1].type == BattlePresentationEventType::ProjectileHit);
+
+    CHECK(result.attackEvents[2].type == BattleAttackEventType::Moved);
+    CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileMoved);
+    CHECK(result.frame.gameplayEvents[2].effectId == 20);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].type == BattlePresentationEventType::ProjectileMoved);
+
+    CHECK(result.attackEvents[3].type == BattleAttackEventType::Expired);
+    CHECK(result.frame.gameplayEvents[3].type == BattleGameplayEventType::ProjectileExpired);
+    CHECK(result.frame.gameplayEvents[3].effectId == 20);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 3].type == BattlePresentationEventType::ProjectileExpired);
+}

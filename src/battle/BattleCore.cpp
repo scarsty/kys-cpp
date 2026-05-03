@@ -73,20 +73,44 @@ BattlePresentationEvent toPresentationEvent(const BattleEvent& event)
     return presentation;
 }
 
+const BattleAttackInstance* findAttack(const BattleAttackWorld& world, int attackId)
+{
+    if (auto it = std::find_if(world.attacks.begin(), world.attacks.end(), [&](const BattleAttackInstance& attack)
+        {
+            return attack.id == attackId;
+        }); it != world.attacks.end())
+    {
+        return &*it;
+    }
+    return nullptr;
+}
+
+void applyAttackContext(BattlePresentationEvent& presentation, const BattleAttackWorld& world, int attackId)
+{
+    presentation.effectId = attackId;
+    if (const auto* attack = findAttack(world, attackId))
+    {
+        presentation.sourceUnitId = attack->attackerUnitId;
+        presentation.position = attack->position;
+    }
+}
+
+void applyAttackContext(BattleGameplayEvent& gameplay, const BattleAttackWorld& world, int attackId)
+{
+    gameplay.effectId = attackId;
+    if (const auto* attack = findAttack(world, attackId))
+    {
+        gameplay.sourceUnitId = attack->attackerUnitId;
+        gameplay.position = attack->position;
+    }
+}
+
 BattlePresentationEvent toPresentationEvent(
     const BattleAttackEvent& event,
     const BattleAttackWorld& world)
 {
     BattlePresentationEvent presentation;
-    presentation.effectId = event.attackId;
-    if (auto it = std::find_if(world.attacks.begin(), world.attacks.end(), [&](const BattleAttackInstance& attack)
-        {
-            return attack.id == event.attackId;
-        }); it != world.attacks.end())
-    {
-        presentation.sourceUnitId = it->attackerUnitId;
-        presentation.position = it->position;
-    }
+    applyAttackContext(presentation, world, event.attackId);
 
     switch (event.type)
     {
@@ -115,6 +139,50 @@ BattlePresentationEvent toPresentationEvent(
         break;
     }
     return presentation;
+}
+
+BattleGameplayEvent toGameplayEvent(
+    const BattleAttackEvent& event,
+    const BattleAttackWorld& world)
+{
+    BattleGameplayEvent gameplay;
+    applyAttackContext(gameplay, world, event.attackId);
+
+    switch (event.type)
+    {
+    case BattleAttackEventType::Moved:
+        gameplay.type = BattleGameplayEventType::ProjectileMoved;
+        break;
+    case BattleAttackEventType::Hit:
+        gameplay.type = BattleGameplayEventType::ProjectileHit;
+        gameplay.targetUnitId = event.unitId;
+        break;
+    case BattleAttackEventType::Expired:
+        gameplay.type = BattleGameplayEventType::ProjectileExpired;
+        break;
+    case BattleAttackEventType::TargetLost:
+        gameplay.type = BattleGameplayEventType::ProjectileCancelled;
+        gameplay.targetUnitId = event.unitId;
+        break;
+    case BattleAttackEventType::ProjectileCancel:
+        gameplay.type = BattleGameplayEventType::ProjectileCancelled;
+        gameplay.amount = event.otherAttackId;
+        break;
+    case BattleAttackEventType::Bounce:
+        gameplay.type = BattleGameplayEventType::AttackSpawned;
+        gameplay.effectId = event.otherAttackId;
+        gameplay.targetUnitId = event.unitId;
+        if (const auto* sourceAttack = findAttack(world, event.attackId))
+        {
+            gameplay.sourceUnitId = sourceAttack->attackerUnitId;
+        }
+        if (const auto* spawnedAttack = findAttack(world, event.otherAttackId))
+        {
+            gameplay.position = spawnedAttack->position;
+        }
+        break;
+    }
+    return gameplay;
 }
 
 void syncAttackUnitsFromWorld(BattleFrameState& state)
@@ -162,6 +230,7 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     }
     for (const auto& event : result.attackEvents)
     {
+        recorder.recordGameplay(toGameplayEvent(event, state.attacks));
         recorder.recordPresentation(toPresentationEvent(event, state.attacks));
     }
     result.frame = recorder.consumeFrame();
