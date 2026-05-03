@@ -122,10 +122,6 @@ protected:
                              int durationFrames,
                              const std::string& reason);
     void triggerShieldBreakEffects(Role* role, KysChess::RoleComboState& state);
-    void collectTriggeredTeamHeal(KysChess::RoleComboState& state,
-                                  const KysChess::Battle::BattleComboTriggerInput& input,
-                                  int& flatHeal,
-                                  int& pctHeal);
     bool isLastAliveInTeam(Role* role) const;
     bool attackCanHitInvincible(Role* role) const;
     void applyComboFrameRuntimeEvent(

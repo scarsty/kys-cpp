@@ -136,6 +136,16 @@ public:
                                             Trigger trigger,
                                             const std::function<double()>& rollPercent) const;
 
+    BattleTriggeredTeamHeal collectTriggeredTeamHeal(
+        RoleComboState& state,
+        const BattleComboTriggerInput& input,
+        const std::function<double()>& rollPercent) const;
+
+    BattleTriggeredTeamHeal collectPendingSkillTeamHeal(
+        RoleComboState& state,
+        const BattleComboTriggerInput& input,
+        const std::function<double()>& rollPercent) const;
+
     std::vector<BattleActivatedComboEffect> collectChanceEffects(
         RoleComboState& state,
         Trigger trigger,

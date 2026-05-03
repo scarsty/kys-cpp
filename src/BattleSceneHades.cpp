@@ -3012,21 +3012,14 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     assert(event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::PostSkillInvincibility);
                     applyComboFrameRuntimeEvent(r, it->second, event, cs);
                 }
-                if (it->second.onSkillTeamHealPending)
+                auto teamHeal = KysChess::Battle::BattleComboTriggerSystem().collectPendingSkillTeamHeal(
+                    it->second,
+                    { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
+                    [&]() { return rand_.rand() * 100.0; });
+                if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
                 {
-                    int flatHeal = it->second.onSkillTeamHeal;
-                    int pctHeal = it->second.onSkillTeamHealPct;
-                    collectTriggeredTeamHeal(
-                        it->second,
-                        { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
-                        flatHeal,
-                        pctHeal);
-                    if (flatHeal > 0 || pctHeal > 0)
-                    {
-                        applyTeamHeal(r, flatHeal, pctHeal, "技能群療");
-                    }
+                    applyTeamHeal(r, teamHeal.flatHeal, teamHeal.pctHeal, "技能群療");
                 }
-                it->second.onSkillTeamHealPending = false;
             }
         }
         if (runtimeResult.mpDelta != 0)
@@ -4309,30 +4302,6 @@ int BattleSceneHades::getSharedBleedMaxStacks(Role* source) const
     }
 
     return std::max(1, it->second.bleedMaxStacks);
-}
-
-void BattleSceneHades::collectTriggeredTeamHeal(KysChess::RoleComboState& state,
-    const KysChess::Battle::BattleComboTriggerInput& input,
-    int& flatHeal,
-    int& pctHeal)
-{
-    auto result = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
-        state,
-        input,
-        { KysChess::EffectType::OnSkillTeamHeal, KysChess::EffectType::OnSkillTeamHealPct },
-        [&]() { return rand_.rand() * 100.0; });
-    for (const auto& event : result)
-    {
-        if (event.effect.type == KysChess::EffectType::OnSkillTeamHeal)
-        {
-            flatHeal += event.effect.value;
-        }
-        else
-        {
-            assert(event.effect.type == KysChess::EffectType::OnSkillTeamHealPct);
-            pctHeal += event.effect.value;
-        }
-    }
 }
 
 bool BattleSceneHades::isLastAliveInTeam(Role* role) const
@@ -5688,16 +5657,13 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 }
             }
 
-            int teamHealFlat = 0;
-            int teamHealPct = 0;
-            collectTriggeredTeamHeal(
+            auto teamHeal = KysChess::Battle::BattleComboTriggerSystem().collectTriggeredTeamHeal(
                 as,
                 { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                teamHealFlat,
-                teamHealPct);
-            if (teamHealFlat > 0 || teamHealPct > 0)
+                [&]() { return rand_.rand() * 100.0; });
+            if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
-                applyTeamHeal(attacker, teamHealFlat, teamHealPct, "命中群療");
+                applyTeamHeal(attacker, teamHeal.flatHeal, teamHeal.pctHeal, "命中群療");
             }
         }
 

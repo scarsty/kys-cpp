@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 namespace KysChess::Battle
 {
@@ -293,6 +294,55 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTeamHeal(
             result.activatedEffectIndices.push_back(static_cast<int>(i));
         }
     }
+    return result;
+}
+
+BattleTriggeredTeamHeal BattleComboTriggerSystem::collectTriggeredTeamHeal(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    auto events = collectTriggerEvents(
+        state,
+        input,
+        { EffectType::OnSkillTeamHeal, EffectType::OnSkillTeamHealPct },
+        rollPercent);
+
+    BattleTriggeredTeamHeal result;
+    for (const auto& event : events)
+    {
+        if (event.effect.type == EffectType::OnSkillTeamHeal)
+        {
+            result.flatHeal += event.effect.value;
+        }
+        else
+        {
+            assert(event.effect.type == EffectType::OnSkillTeamHealPct);
+            result.pctHeal += event.effect.value;
+        }
+        result.activatedEffectIndices.push_back(event.effectIndex);
+    }
+    return result;
+}
+
+BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    BattleTriggeredTeamHeal result;
+    if (!state.onSkillTeamHealPending)
+    {
+        return result;
+    }
+
+    result.flatHeal = state.onSkillTeamHeal;
+    result.pctHeal = state.onSkillTeamHealPct;
+    auto triggered = collectTriggeredTeamHeal(state, input, rollPercent);
+    result.flatHeal += triggered.flatHeal;
+    result.pctHeal += triggered.pctHeal;
+    result.activatedEffectIndices = std::move(triggered.activatedEffectIndices);
+    state.onSkillTeamHealPending = false;
     return result;
 }
 

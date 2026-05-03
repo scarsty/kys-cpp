@@ -183,6 +183,51 @@ TEST_CASE("BattleComboTriggerSystem_TeamHeal_ChanceGateDoesNotConsumeMaxCount", 
     CHECK(state.effectActivationCounts[0] == 1);
 }
 
+TEST_CASE("BattleComboTriggerSystem_TriggeredTeamHeal_CollectsFlatAndPercentFromBattleHook", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::OnSkillTeamHeal, Trigger::OnHit, 12, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::OnSkillTeamHealPct, Trigger::OnHit, 8, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 4, 100));
+
+    auto result = BattleComboTriggerSystem().collectTriggeredTeamHeal(
+        state,
+        { BattleComboTriggerHook::DamageDealt, 1, 2 },
+        []() { return 0.0; });
+
+    CHECK(result.flatHeal == 12);
+    CHECK(result.pctHeal == 8);
+    REQUIRE(result.activatedEffectIndices.size() == 2);
+    CHECK(result.activatedEffectIndices[0] == 0);
+    CHECK(result.activatedEffectIndices[1] == 1);
+    CHECK(state.effectActivationCounts[0] == 1);
+    CHECK(state.effectActivationCounts[1] == 1);
+    CHECK(state.effectActivationCounts.count(2) == 0);
+}
+
+TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_ConsumesPendingBaseHealAndUltimateTrigger", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.onSkillTeamHealPending = true;
+    state.onSkillTeamHeal = 5;
+    state.onSkillTeamHealPct = 7;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::OnSkillTeamHeal, Trigger::OnUltimate, 11, 100));
+
+    auto result = BattleComboTriggerSystem().collectPendingSkillTeamHeal(
+        state,
+        { BattleComboTriggerHook::AfterSkillCast, 3, -1 },
+        []() { return 0.0; });
+
+    CHECK(result.flatHeal == 16);
+    CHECK(result.pctHeal == 7);
+    CHECK_FALSE(state.onSkillTeamHealPending);
+    CHECK(state.effectActivationCounts[0] == 1);
+}
+
 TEST_CASE("BattleComboTriggerSystem_ChanceEffects_FilterTypesAndRecordOnlyActivatedEffects", "[battle][combo][unit]")
 {
     RoleComboState state;
