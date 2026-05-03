@@ -30,6 +30,9 @@ struct BattleDamageUnitState
     int killHealPct = 0;
     int killInvincFrames = 0;
     int bloodlustAttackPerKill = 0;
+
+    bool mpBlocked = false;
+    int mpRecoveryBonusPct = 0;
 };
 
 struct BattleDamageModifierState
@@ -138,6 +141,8 @@ struct BattleResourceUnitState
     int maxHp = 0;
     int mp = 0;
     int maxMp = 0;
+    bool mpBlocked = false;
+    int mpRecoveryBonusPct = 0;
 };
 
 struct BattleOnHitResourceInput

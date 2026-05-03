@@ -75,7 +75,6 @@ public:
 
 private:
     BattleTeamEffectUnit& unitById(BattleTeamEffectWorld& world, int unitId) const;
-    int adjustedMpRestore(const BattleTeamEffectUnit& unit, int amount) const;
 };
 
 }  // namespace KysChess::Battle

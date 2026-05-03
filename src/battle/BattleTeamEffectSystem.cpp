@@ -1,5 +1,7 @@
 #include "BattleTeamEffectSystem.h"
 
+#include "BattleResourceRules.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -16,21 +18,6 @@ BattleTeamEffectUnit& BattleTeamEffectSystem::unitById(BattleTeamEffectWorld& wo
     assert(it != world.units.end());
     assert(it->alive);
     return *it;
-}
-
-int BattleTeamEffectSystem::adjustedMpRestore(const BattleTeamEffectUnit& unit, int amount) const
-{
-    assert(amount > 0);
-    if (unit.mpBlocked)
-    {
-        return 0;
-    }
-    double adjusted = amount;
-    if (unit.mpRecoveryBonusPct > 0)
-    {
-        adjusted *= 1.0 + unit.mpRecoveryBonusPct / 100.0;
-    }
-    return static_cast<int>(adjusted);
 }
 
 std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applySelfHeal(BattleTeamEffectWorld& world,
@@ -95,7 +82,7 @@ std::vector<BattleTeamEffectEvent> BattleTeamEffectSystem::applyTeamMp(BattleTea
             continue;
         }
 
-        int restore = adjustedMpRestore(unit, amount);
+        int restore = adjustedMpRestore(unit.mpBlocked, unit.mpRecoveryBonusPct, amount);
         int before = unit.mp;
         unit.mp = std::min(unit.maxMp, unit.mp + restore);
         if (unit.mp > before)

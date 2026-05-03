@@ -1,5 +1,7 @@
 #include "BattleDamageSystem.h"
 
+#include "BattleResourceRules.h"
+
 #include <algorithm>
 #include <cassert>
 
@@ -50,6 +52,8 @@ BattleResourceUnitState makeBattleResourceUnit(const BattleDamageUnitState& unit
     resource.maxHp = unit.maxHp;
     resource.mp = unit.mp;
     resource.maxMp = unit.maxMp;
+    resource.mpBlocked = unit.mpBlocked;
+    resource.mpRecoveryBonusPct = unit.mpRecoveryBonusPct;
     return resource;
 }
 
@@ -592,6 +596,7 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
     assert(input.mpOnHit >= 0);
     assert(input.hpOnHit >= 0);
     assert(input.mpDrain >= 0);
+    assert(input.attacker.mpRecoveryBonusPct >= 0);
 
     BattleOnHitResourceResult result;
     result.attacker = input.attacker;
@@ -599,13 +604,6 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
     if (!result.attacker.alive)
     {
         return result;
-    }
-
-    if (input.mpOnHit > 0)
-    {
-        int before = result.attacker.mp;
-        result.attacker.mp = std::min(result.attacker.maxMp, result.attacker.mp + input.mpOnHit);
-        result.mpRestored += result.attacker.mp - before;
     }
 
     if (input.hpOnHit > 0)
@@ -619,10 +617,17 @@ BattleOnHitResourceResult BattleDamageSystem::applyOnHitResources(const BattleOn
     {
         int drained = std::min(input.mpDrain, std::max(0, result.target.mp));
         result.target.mp -= drained;
-        int before = result.attacker.mp;
-        result.attacker.mp = std::min(result.attacker.maxMp, result.attacker.mp + drained);
-        result.mpRestored += result.attacker.mp - before;
         result.mpDrained = drained;
+    }
+
+    int mpGain = adjustedMpRestore(result.attacker.mpBlocked,
+                                   result.attacker.mpRecoveryBonusPct,
+                                   input.mpOnHit + result.mpDrained);
+    if (mpGain > 0)
+    {
+        int before = result.attacker.mp;
+        result.attacker.mp = std::min(result.attacker.maxMp, result.attacker.mp + mpGain);
+        result.mpRestored = result.attacker.mp - before;
     }
 
     return result;

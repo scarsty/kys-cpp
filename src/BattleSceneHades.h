@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "battle/BattleCastSystem.h"
+#include "battle/BattleDamageSystem.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
 #include "BattleSceneAct.h"
@@ -60,6 +61,10 @@ protected:
 
     void applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r);
     void applyScriptedHitTransaction(AttackEffect& ae, Role* r);
+    KysChess::Battle::BattleDamageTransactionResult applyAcceptedHitSideEffectTransaction(
+        Role* source,
+        Role* target,
+        KysChess::Battle::BattleDamageRequest request);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, int operationType = -1);
     Magic* triggerAutoUltimate(Role* r, bool consumeMP);
@@ -90,7 +95,6 @@ protected:
     void applyTeamMP(Role* source, int amount, const char* reason);
     void applyTeamShield(Role* source, int amount, const char* reason, bool refreshOnly);
     int getSharedBleedMaxStacks(Role* source) const;
-    void applyBleed(Role* source, Role* target, int stacks, int maxStacks, const char* reason);
     void applyTempAttackBuff(Role* role,
                              KysChess::RoleComboState& state,
                              int attackBonus,
