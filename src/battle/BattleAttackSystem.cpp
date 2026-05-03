@@ -17,6 +17,19 @@ struct PendingBounce
     int sourceAttackId = -1;
     int targetUnitId = -1;
 };
+
+void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state)
+{
+    event.sourceUnitId = state.attackerUnitId;
+    event.skillId = state.skillId;
+    event.operationType = state.operationType;
+    event.visualEffectId = state.visualEffectId;
+    event.hiddenWeaponItemId = state.hiddenWeaponItemId;
+    event.scriptedDamage = state.scriptedDamage;
+    event.scriptedStunFrames = state.scriptedStunFrames;
+    event.scriptedBleedStacks = state.scriptedBleedStacks;
+    event.executeCanHitInvincible = state.executeCanHitInvincible;
+}
 }  // namespace
 
 BattleAttackEvent BattleAttackSystem::spawn(
@@ -41,10 +54,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     event.type = BattleAttackEventType::AttackSpawned;
     event.attackId = attack.id;
     event.unitId = attack.state.preferredTargetUnitId;
-    event.sourceUnitId = attack.state.attackerUnitId;
-    event.skillId = attack.state.skillId;
-    event.operationType = attack.state.operationType;
-    event.visualEffectId = attack.state.visualEffectId;
+    applyAttackPayload(event, attack.state);
     event.position = attack.state.position;
     event.velocity = attack.state.velocity;
     event.totalFrame = attack.state.totalFrame;
@@ -94,7 +104,12 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
         if (target && canHit(world, attack, *target))
         {
             markHit(world, attack, target->id);
-            events.push_back({ BattleAttackEventType::Hit, attack.id, -1, target->id });
+            BattleAttackEvent hit;
+            hit.type = BattleAttackEventType::Hit;
+            hit.attackId = attack.id;
+            hit.unitId = target->id;
+            applyAttackPayload(hit, attack.state);
+            events.push_back(hit);
 
             if (attack.state.bounceRemaining > 0)
             {

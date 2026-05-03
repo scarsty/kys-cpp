@@ -48,6 +48,10 @@ struct BattleAttackState
     int bounceRollPct = 0;
     int visualEffectId = -1;
     int operationType = -1;
+    int hiddenWeaponItemId = -1;
+    int scriptedDamage = 0;
+    int scriptedStunFrames = 0;
+    int scriptedBleedStacks = 0;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
     Pointf position;
@@ -98,6 +102,11 @@ struct BattleAttackEvent
     int skillId = -1;
     int operationType = -1;
     int visualEffectId = -1;
+    int hiddenWeaponItemId = -1;
+    int scriptedDamage = 0;
+    int scriptedStunFrames = 0;
+    int scriptedBleedStacks = 0;
+    bool executeCanHitInvincible = false;
     Pointf position;
     Pointf velocity;
     int totalFrame = 0;

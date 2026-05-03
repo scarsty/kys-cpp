@@ -411,6 +411,37 @@ TEST_CASE("BattleCastSystem_CommitSelectedCastUsesExplicitOperationType", "[batt
     CHECK(result.attackSpawnRequests[0].initial.visualEffectId == 33);
 }
 
+TEST_CASE("BattleCastSystem_CommittedCastOnlyRequiresSelectedOperationConfig", "[battle][cast]")
+{
+    auto input = basicInput();
+    const auto fullConfig = input.config;
+    input.config = {};
+    input.config.castFrames[2] = fullConfig.castFrames[2];
+    input.config.baseCooldownFrames[2] = fullConfig.baseCooldownFrames[2];
+    input.config.minimumCooldownFrames[2] = fullConfig.minimumCooldownFrames[2];
+    input.config.cooldownActPropertyDivisors[2] = fullConfig.cooldownActPropertyDivisors[2];
+    input.config.recoveryFrames[2] = fullConfig.recoveryFrames[2];
+    input.config.maxCooldownSpeed = fullConfig.maxCooldownSpeed;
+    input.config.speedCooldownReductionRatio = fullConfig.speedCooldownReductionRatio;
+    input.config.minimumCooldownAfterCastPadding = fullConfig.minimumCooldownAfterCastPadding;
+    input.config.normalCastMpDelta = fullConfig.normalCastMpDelta;
+    input.config.minimumFacingNorm = fullConfig.minimumFacingNorm;
+    input.normalSkill = skill(119, 1, 400.0);
+    input.normalSkill.visualEffectId = 33;
+    input.normalSkill.selectDistance = 4;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().commitSelectedCast(input, false, 2);
+
+    REQUIRE(result.decision.canCast);
+    CHECK(result.decision.operationType == 2);
+    CHECK(result.animation.castFrame == fullConfig.castFrames[2]);
+    CHECK(result.animation.cooldownFrames == fullConfig.baseCooldownFrames[2]);
+    CHECK(result.animation.recoveryFrames == fullConfig.recoveryFrames[2]);
+    REQUIRE(result.attackSpawnRequests.size() == 1);
+    CHECK(result.attackSpawnRequests[0].initial.operationType == 2);
+}
+
 TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][cast]")
 {
     auto input = basicInput();

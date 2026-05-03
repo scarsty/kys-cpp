@@ -3,6 +3,8 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+
 using namespace KysChess::Battle;
 
 namespace
@@ -12,9 +14,7 @@ constexpr double SceneHitRadius = SceneTileWidth * 2.0;
 constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
 constexpr double LegacyMinimumVectorNorm = 0.0001;
-constexpr double TestHitRadius = 50.0;
-constexpr double TightTrackingHitRadius = 5.0;
-constexpr double TestBounceSpawnDistance = 30.0;
+constexpr double TightTrackingHitRadius = SceneTileWidth / 8.0;
 
 BattleAttackUnit unit(int id, int team, double x, double y)
 {
@@ -121,6 +121,10 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.bounceRollPct = 30;
     request.initial.executeCanHitInvincible = true;
     request.initial.ignoreProjectileCancel = true;
+    request.initial.hiddenWeaponItemId = 501;
+    request.initial.scriptedDamage = 33;
+    request.initial.scriptedStunFrames = 12;
+    request.initial.scriptedBleedStacks = 4;
 
     BattleAttackSystem().spawn(world, request);
 
@@ -146,6 +150,10 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.bounceRollPct == 30);
     CHECK(attack.state.executeCanHitInvincible);
     CHECK(attack.state.ignoreProjectileCancel);
+    CHECK(attack.state.hiddenWeaponItemId == 501);
+    CHECK(attack.state.scriptedDamage == 33);
+    CHECK(attack.state.scriptedStunFrames == 12);
+    CHECK(attack.state.scriptedBleedStacks == 4);
     CHECK(attack.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
@@ -197,6 +205,81 @@ TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[ba
     CHECK(event.totalFrame == 30);
 }
 
+TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.hitRadius = SceneHitRadius;
+    world.units = { unit(1, 0, 0, 0), unit(2, 1, 40, 0) };
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.skillId = 101;
+    projectile.state.operationType = 2;
+    projectile.state.hiddenWeaponItemId = 501;
+    projectile.state.scriptedDamage = 33;
+    projectile.state.scriptedStunFrames = 12;
+    projectile.state.scriptedBleedStacks = 4;
+    projectile.state.executeCanHitInvincible = true;
+    world.attacks.push_back(projectile);
+
+    auto events = BattleAttackSystem().tick(world);
+
+    auto hit = std::find_if(events.begin(), events.end(), [](const BattleAttackEvent& event) {
+        return event.type == BattleAttackEventType::Hit;
+    });
+    REQUIRE(hit != events.end());
+    CHECK(hit->attackId == 10);
+    CHECK(hit->sourceUnitId == 1);
+    CHECK(hit->unitId == 2);
+    CHECK(hit->skillId == 101);
+    CHECK(hit->operationType == 2);
+    CHECK(hit->hiddenWeaponItemId == 501);
+    CHECK(hit->scriptedDamage == 33);
+    CHECK(hit->scriptedStunFrames == 12);
+    CHECK(hit->scriptedBleedStacks == 4);
+    CHECK(hit->executeCanHitInvincible);
+}
+
+TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.units = {
+        unit(1, 0, 0, 0),
+        unit(2, 1, SceneHitRadius + 1.0, 0),
+    };
+    auto melee = attack(10, 1, 0, 0);
+    melee.state.operationType = 0;
+    world.attacks.push_back(melee);
+
+    auto beforeReach = BattleAttackSystem().tick(world);
+
+    CHECK(!hasEvent(beforeReach, BattleAttackEventType::Hit, 10, 2));
+
+    world.attacks[0].state.position = { static_cast<float>(SceneHitRadius), 0.0f, 0.0f };
+    auto atReach = BattleAttackSystem().tick(world);
+
+    CHECK(hasEvent(atReach, BattleAttackEventType::Hit, 10, 2));
+}
+
+TEST_CASE("BattleAttackSystem_RangedHitOnlyEmitsAfterProjectileReachesTarget", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.units = {
+        unit(1, 0, 0, 0),
+        unit(2, 1, SceneHitRadius + SceneProjectileSpeed + 1.0, 0),
+    };
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.operationType = 2;
+    projectile.state.velocity = { static_cast<float>(SceneProjectileSpeed), 0.0f, 0.0f };
+    world.attacks.push_back(projectile);
+
+    auto beforeReach = BattleAttackSystem().tick(world);
+
+    CHECK(!hasEvent(beforeReach, BattleAttackEventType::Hit, 10, 2));
+
+    auto atReach = BattleAttackSystem().tick(world);
+
+    CHECK(hasEvent(atReach, BattleAttackEventType::Hit, 10, 2));
+}
+
 TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
@@ -219,7 +302,6 @@ TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][uni
 TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) };
     world.attacks.push_back(attack(10, 1, 0, 0));
 
@@ -237,7 +319,6 @@ TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[ba
 TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameTargetTwice", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.through = true;
@@ -256,7 +337,6 @@ TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameT
 TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectiles", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
     auto first = attack(10, 1, 0, 0);
     first.state.sharedHitGroupId = 7;
@@ -311,7 +391,6 @@ TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "
 TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.hitRadius = TestHitRadius;
     world.projectileGraceFrames = 5;
     world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
     auto lhs = attack(10, 1, 0, 0);
@@ -330,9 +409,7 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle]
 TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTarget", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.hitRadius = TestHitRadius;
     world.nextAttackId = 20;
-    world.bounceSpawnDistance = TestBounceSpawnDistance;
     world.units = {
         unit(1, 0, 0, 0),
         unit(2, 1, 20, 0),
@@ -365,7 +442,7 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
     CHECK_FALSE(bounce.state.through);
     CHECK(bounce.state.ignoreProjectileCancel);
     CHECK(bounce.state.bounceRemaining == 1);
-    CHECK(bounce.state.position.x == 50.0f);
+    CHECK(bounce.state.position.x == Catch::Approx(74.0f));
     CHECK(bounce.state.velocity.x > 0.0f);
 
     REQUIRE(events.back().type == BattleAttackEventType::Bounce);
@@ -377,7 +454,6 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[battle][attack][unit]")
 {
     auto world = attackWorld();
-    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.bounceRemaining = 1;
@@ -392,4 +468,28 @@ TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[
     CHECK(world.attacks[0].noHurt);
     CHECK(world.attacks[0].state.bounceRemaining == 0);
     CHECK(!hasEvent(events, BattleAttackEventType::Bounce, 10, 3));
+}
+
+TEST_CASE("BattleAttackSystem_BounceCannotTriggerWithoutHitEvent", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.units = {
+        unit(1, 0, 0, 0),
+        unit(2, 1, SceneHitRadius + 1.0, 0),
+        unit(3, 1, SceneHitRadius + SceneBounceSpawnDistance, 0),
+    };
+    auto projectile = attack(10, 1, 0, 0);
+    projectile.state.bounceRemaining = 1;
+    projectile.state.bounceRange = static_cast<int>(SceneTileWidth * 4);
+    projectile.state.bounceChancePct = 100;
+    projectile.state.bounceRollPct = 0;
+    world.attacks.push_back(projectile);
+
+    auto events = BattleAttackSystem().tick(world);
+
+    CHECK(!hasEvent(events, BattleAttackEventType::Hit, 10, 2));
+    CHECK(!hasEvent(events, BattleAttackEventType::Bounce, 10, 3));
+    REQUIRE(world.attacks.size() == 1);
+    CHECK(world.attacks[0].state.bounceRemaining == 1);
+    CHECK_FALSE(world.attacks[0].noHurt);
 }

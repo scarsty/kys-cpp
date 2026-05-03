@@ -93,6 +93,10 @@ Battle::BattleAttackInstance makeBattleAttackInstance(
     attack.state.sharedHitGroupId = effect.SharedHitGroupId;
     attack.state.visualEffectId = effect.VisualEffectId;
     attack.state.operationType = effect.OperationType;
+    attack.state.hiddenWeaponItemId = effect.UsingHiddenWeapon ? effect.UsingHiddenWeapon->ID : -1;
+    attack.state.scriptedDamage = effect.ScriptedDamage;
+    attack.state.scriptedStunFrames = effect.ScriptedStunFrames;
+    attack.state.scriptedBleedStacks = effect.ScriptedBleedStacks;
     attack.state.position = effect.Pos;
     attack.state.velocity = effect.Velocity;
     attack.acceleration = effect.Acceleration;
