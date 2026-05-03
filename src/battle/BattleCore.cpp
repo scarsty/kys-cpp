@@ -253,6 +253,23 @@ void assertFrameAttackWorldConfigured(const BattleAttackWorld& attacks)
     assert(attacks.defaultProjectileSpeed > 0.0);
     assert(attacks.minimumBounceTotalFrame > 0);
 }
+
+void assertFrameMovementConfigConfigured(const BattleMovementConfig& config)
+{
+    assert(config.tileWidth > 0.0);
+    assert(config.reservationHorizonFrames >= 0);
+    assert(config.dashFrames > 0);
+    assert(config.dashCooldownFrames >= 0);
+    assert(config.slotSwitchCooldownFrames >= 0);
+    assert(config.bodyRadius > 0.0);
+    assert(config.engagementDeadband > 0.0);
+    assert(config.engagementArriveDistance > 0.0);
+    assert(config.meleeAttackReach > 0.0);
+    assert(config.meleeLocalTargetRadius > 0.0);
+    assert(config.maxDashDistance > 0.0);
+    assert(config.maxRangedReach > 0.0);
+    assert(config.movementDashDistanceMultiplier > 0.0);
+}
 }  // namespace
 
 BattleCore::BattleCore(BattleWorldState& world)
@@ -267,6 +284,7 @@ BattleTickResult BattleCore::tickMovement()
 
 BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
 {
+    assertFrameMovementConfigConfigured(state.world.config);
     assertFrameAttackWorldConfigured(state.attacks);
 
     BattleFrameResult result;

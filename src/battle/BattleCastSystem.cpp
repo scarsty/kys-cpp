@@ -80,7 +80,6 @@ int mpDeltaForCast(const BattleCastInput& input, bool ultimate)
 int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int selectDistance)
 {
     assert(selectDistance > 0);
-    assert(geometry.tileWidth > 0);
     assert(geometry.projectileSpeed > 0.0);
     assert(geometry.projectileSpawnOffset > 0.0);
     assert(geometry.projectileBaseTravel > 0.0);
@@ -93,7 +92,6 @@ int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int se
 
 double projectileSpeedForSkill(const BattleCastGeometry& geometry, const BattleCastSkillState& skill)
 {
-    assert(geometry.tileWidth > 0);
     assert(geometry.projectileSpeed > 0.0);
     assert(skill.projectileSpeedMultiplierPct > 0);
     return geometry.projectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
@@ -138,7 +136,6 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     request.operationType = operationType;
     request.visualEffectId = selectedSkill.visualEffectId;
     request.preferredTargetUnitId = input.targetUnitId;
-    assert(input.geometry.tileWidth > 0);
     request.position = input.unit.position + scaled(facing, spawnOffsetForOperation(input.geometry, operationType));
     request.ultimate = result.decision.ultimate;
     request.castSubrequestKind = kind;
@@ -253,15 +250,17 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
     const BattleCastSkillState& selectedSkill)
 {
     assert(input.unit.dashHitCount > 0);
+    assert(input.geometry.dashHitPositionSpacing > 0.0);
+    assert(input.geometry.dashHitFrameStep > 0);
 
     std::vector<BattleAttackSpawnRequest> requests;
     auto base = makeBaseRequest(result, input, selectedSkill, 3, BattleAttackCastSubrequestKind::DashHit);
     for (int i = 0; i < input.unit.dashHitCount; ++i)
     {
         auto hit = base;
-        hit.position = base.position + scaled(input.unit.dashVelocity, (i - 1) * 2.0);
+        hit.position = base.position + scaled(input.unit.dashVelocity, (i - 1) * input.geometry.dashHitPositionSpacing);
         hit.velocity = input.unit.dashVelocity;
-        hit.initialFrame = (i + 1) * 3;
+        hit.initialFrame = (i + 1) * input.geometry.dashHitFrameStep;
         hit.totalFrame = 30;
         requests.push_back(hit);
     }

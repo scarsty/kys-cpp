@@ -12,6 +12,8 @@ namespace
 
 constexpr int SceneTileWidth = 36;
 constexpr double LegacyMeleeSplashProjectileSpeed = 3.0;
+constexpr double LegacyDashHitPositionSpacing = 2.0;
+constexpr int LegacyDashHitFrameStep = 3;
 
 BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceRanged = false)
 {
@@ -29,13 +31,14 @@ BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceR
 BattleCastInput basicInput()
 {
     BattleCastInput input;
-    input.geometry.tileWidth = SceneTileWidth;
     input.geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
     input.geometry.projectileSpeed = SceneTileWidth / 3.0;
     input.geometry.projectileSpawnOffset = SceneTileWidth * 2.0;
     input.geometry.projectileBaseTravel = SceneTileWidth * 5.0;
     input.geometry.projectileTravelPerSelectDistance = SceneTileWidth;
     input.geometry.meleeSplashProjectileSpeed = LegacyMeleeSplashProjectileSpeed;
+    input.geometry.dashHitPositionSpacing = LegacyDashHitPositionSpacing;
+    input.geometry.dashHitFrameStep = LegacyDashHitFrameStep;
     input.unit.id = 1;
     input.unit.position = { 10.0f, 20.0f, 0.0f };
     input.unit.facing = { 1.0f, 0.0f, 0.0f };
@@ -511,6 +514,8 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     input.unit.dashAttackReach = 350.0;
     input.unit.dashVelocity = { 4.0f, 0.0f, 0.0f };
     input.unit.dashHitCount = 3;
+    input.geometry.dashHitPositionSpacing = 1.5;
+    input.geometry.dashHitFrameStep = 4;
     input.normalSkill = skill(111, 3, 400.0);
     input.targetDistance = 220.0;
 
@@ -520,16 +525,16 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(result.animation.recoveryFrames == 5);
     REQUIRE(result.attackSpawnRequests.size() == 3);
 
-    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(74.0f));
-    CHECK(result.attackSpawnRequests[0].initialFrame == 3);
+    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(76.0f));
+    CHECK(result.attackSpawnRequests[0].initialFrame == 4);
     CHECK(result.attackSpawnRequests[0].velocity.x == Catch::Approx(4.0f));
     CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
 
     CHECK(result.attackSpawnRequests[1].position.x == Catch::Approx(82.0f));
-    CHECK(result.attackSpawnRequests[1].initialFrame == 6);
+    CHECK(result.attackSpawnRequests[1].initialFrame == 8);
 
-    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(90.0f));
-    CHECK(result.attackSpawnRequests[2].initialFrame == 9);
+    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(88.0f));
+    CHECK(result.attackSpawnRequests[2].initialFrame == 12);
     CHECK(result.attackSpawnRequests[2].totalFrame == 30);
     CHECK_FALSE(result.attackSpawnRequests[2].track);
     CHECK_FALSE(result.attackSpawnRequests[2].through);
