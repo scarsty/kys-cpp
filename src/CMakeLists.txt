@@ -41,6 +41,7 @@ add_executable(kys ${SRC_LIST})
 target_link_libraries(kys imgui::imgui kys_battle_core ${LINK_LIBRARIES})
 
 add_executable(kys_tests
+    ../tests/TestMain.cpp
     ../tests/BattleAttackSystemUnitTests.cpp
     ../tests/BattleCastSystemUnitTests.cpp
     ../tests/BattleComboTriggerSystemUnitTests.cpp
@@ -55,6 +56,6 @@ add_executable(kys_tests
     ../tests/BattleTeamEffectSystemUnitTests.cpp
 )
 target_include_directories(kys_tests PRIVATE . ../mlcc ../mod ../local/include)
-target_link_libraries(kys_tests kys_battle_core Catch2::Catch2WithMain)
+target_link_libraries(kys_tests kys_battle_core Catch2::Catch2)
 enable_testing()
 add_test(NAME kys_tests COMMAND kys_tests)
