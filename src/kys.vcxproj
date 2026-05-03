@@ -173,6 +173,7 @@
     <ClCompile Include="battle\BattleStatusSystem.cpp" />
     <ClCompile Include="battle\BattleTeamEffectSystem.cpp" />
     <ClCompile Include="BattleScene.cpp" />
+    <ClCompile Include="BattleSceneBattleAdapter.cpp" />
     <ClCompile Include="BattleScenePresentationPlayer.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
     <ClCompile Include="BattleSceneHades.cpp" />
@@ -277,6 +278,7 @@
     <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
+    <ClInclude Include="BattleSceneBattleAdapter.h" />
     <ClInclude Include="BattleScenePresentationConstants.h" />
     <ClInclude Include="BattleScenePresentationPlayer.h" />
     <ClInclude Include="DrawNode.h" />

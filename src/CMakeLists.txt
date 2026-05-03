@@ -16,6 +16,8 @@ file(GLOB SRC_LIST
     ../mlcc/filefunc.cpp
     ../others/Hanz2Piny.cpp
     )
+list(APPEND SRC_LIST ${CMAKE_CURRENT_SOURCE_DIR}/BattleSceneBattleAdapter.cpp)
+list(REMOVE_DUPLICATES SRC_LIST)
 
 set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yaml-cpp zip)
 

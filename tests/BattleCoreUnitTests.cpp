@@ -5,7 +5,10 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <filesystem>
+#include <fstream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -78,7 +81,49 @@ BattleAttackSpawnRequest attackSpawnRequest()
     return request;
 }
 
+std::filesystem::path findRepoRoot()
+{
+    auto current = std::filesystem::current_path();
+    while (!current.empty())
+    {
+        if (std::filesystem::exists(current / "src" / "BattleSceneHades.cpp"))
+        {
+            return current;
+        }
+        const auto parent = current.parent_path();
+        if (parent == current)
+        {
+            break;
+        }
+        current = parent;
+    }
+    return {};
+}
+
+std::string readTextFile(const std::filesystem::path& path)
+{
+    std::ifstream file(path);
+    REQUIRE(file.is_open());
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
 }  // namespace
+
+TEST_CASE("BattleCore_SceneAttackBridge_LivesOutsideBattleSceneHades", "[battle][core]")
+{
+    const auto repoRoot = findRepoRoot();
+    REQUIRE_FALSE(repoRoot.empty());
+
+    const auto hadesSource = readTextFile(repoRoot / "src" / "BattleSceneHades.cpp");
+    CHECK(hadesSource.find("BattleAttackWorld makeBattleAttackWorld(") == std::string::npos);
+    CHECK(hadesSource.find("void writeBattleAttackWorld(") == std::string::npos);
+
+    const auto adapterSource = readTextFile(repoRoot / "src" / "BattleSceneBattleAdapter.cpp");
+    CHECK(adapterSource.find("BattleAttackWorld makeBattleAttackWorld(") != std::string::npos);
+    CHECK(adapterSource.find("void writeBattleAttackWorld(") != std::string::npos);
+}
 
 TEST_CASE("BattleCombatIntent_OperationTypeMapping_MatchesSceneAnimationTypes", "[battle][intent]")
 {

@@ -133,6 +133,9 @@
     <ClCompile Include="BattleSceneHades.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="BattleSceneBattleAdapter.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="Font.cpp">
       <Filter>font</Filter>
     </ClCompile>
@@ -363,6 +366,9 @@
       <Filter>_Resources</Filter>
     </ClInclude>
     <ClInclude Include="BattleSceneHades.h">
+      <Filter>battle</Filter>
+    </ClInclude>
+    <ClInclude Include="BattleSceneBattleAdapter.h">
       <Filter>battle</Filter>
     </ClInclude>
     <ClInclude Include="Font.h">
