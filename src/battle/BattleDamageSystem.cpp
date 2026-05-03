@@ -76,64 +76,73 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
 
     if (input.request.baseDamage > 0.0)
     {
-        auto modified = applyModifiers({
-            input.request.baseDamage,
-            input.request.usingSkill,
-            input.request.ignoreDefense,
-            input.attackerModifiers,
-            input.defenderModifiers,
-            result.defender,
-        });
-
-        result.executed = input.request.canExecute
-            && shouldExecute({
-                result.defender.hp,
-                result.defender.maxHp,
-                modified.damage,
-                true,
-                input.request.executeThresholdPct,
+        double resolvedDamage = input.request.baseDamage;
+        if (input.request.preResolvedDamage)
+        {
+            acceptedHit = true;
+        }
+        else
+        {
+            auto modified = applyModifiers({
+                input.request.baseDamage,
+                input.request.usingSkill,
+                input.request.ignoreDefense,
+                input.attackerModifiers,
+                input.defenderModifiers,
+                result.defender,
             });
-        if (result.executed)
-        {
-            recordBattleDamageEvent(result.events,
-                                    BattleDamageEventType::ExecuteTriggered,
-                                    input.request.attackerUnitId,
-                                    input.request.defenderUnitId,
-                                    input.request.executeThresholdPct);
-        }
 
-        auto defense = resolveDefense({
-            modified.damage,
-            result.executed,
-            input.request.reflected,
-            result.defender.invincible > 0,
-            result.defender,
-        });
-        result.defender = defense.defender;
-        result.shieldAbsorbed = defense.shieldAbsorbed;
-        result.blockedByInvincible = defense.blockedByInvincible;
-        result.blockedByFirstHit = defense.blockedByFirstHit;
-        acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
+            result.executed = input.request.canExecute
+                && shouldExecute({
+                    result.defender.hp,
+                    result.defender.maxHp,
+                    modified.damage,
+                    true,
+                    input.request.executeThresholdPct,
+                });
+            if (result.executed)
+            {
+                recordBattleDamageEvent(result.events,
+                                        BattleDamageEventType::ExecuteTriggered,
+                                        input.request.attackerUnitId,
+                                        input.request.defenderUnitId,
+                                        input.request.executeThresholdPct);
+            }
 
-        if (defense.shieldAbsorbed > 0)
-        {
-            recordBattleDamageEvent(result.events,
-                                    BattleDamageEventType::ShieldAbsorbed,
-                                    input.request.attackerUnitId,
-                                    input.request.defenderUnitId,
-                                    defense.shieldAbsorbed);
-        }
-        if (defense.blockedByInvincible)
-        {
-            recordBattleDamageEvent(result.events,
-                                    BattleDamageEventType::BlockedByInvincible,
-                                    input.request.attackerUnitId,
-                                    input.request.defenderUnitId,
-                                    0);
+            auto defense = resolveDefense({
+                modified.damage,
+                result.executed,
+                input.request.reflected,
+                result.defender.invincible > 0,
+                result.defender,
+            });
+            result.defender = defense.defender;
+            result.shieldAbsorbed = defense.shieldAbsorbed;
+            result.blockedByInvincible = defense.blockedByInvincible;
+            result.blockedByFirstHit = defense.blockedByFirstHit;
+            acceptedHit = !defense.blockedByInvincible && !defense.blockedByFirstHit;
+            resolvedDamage = defense.damage;
+
+            if (defense.shieldAbsorbed > 0)
+            {
+                recordBattleDamageEvent(result.events,
+                                        BattleDamageEventType::ShieldAbsorbed,
+                                        input.request.attackerUnitId,
+                                        input.request.defenderUnitId,
+                                        defense.shieldAbsorbed);
+            }
+            if (defense.blockedByInvincible)
+            {
+                recordBattleDamageEvent(result.events,
+                                        BattleDamageEventType::BlockedByInvincible,
+                                        input.request.attackerUnitId,
+                                        input.request.defenderUnitId,
+                                        0);
+            }
         }
 
         int hpBeforeDamage = result.defender.hp;
-        int hpDamage = static_cast<int>(defense.damage);
+        int hpDamage = static_cast<int>(resolvedDamage);
         if (result.executed)
         {
             hpDamage = std::max(hpDamage, result.defender.hp);
@@ -142,7 +151,9 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         auto taken = applyDamageTaken(result.defender, hpDamage);
         result.defender = taken.defender;
         result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.hp);
+        result.hurtInvincGranted = taken.hurtInvincGranted;
         result.deathPrevented = taken.deathPrevented;
+        result.invincibilityGranted = taken.invincibilityGranted;
         result.killed = taken.died;
 
         if (result.finalHpDamage > 0)

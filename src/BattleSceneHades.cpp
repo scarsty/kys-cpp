@@ -3836,9 +3836,19 @@ void BattleSceneHades::backRun1()
             changeRoleMP(r, mpGain);
             auto& cs = KysChess::ChessCombo::getMutableStates();
             auto sit = cs.find(r->ID);
-            auto damageTaken = KysChess::Battle::BattleDamageSystem().applyDamageTaken(
-                makeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr),
-                hurt);
+            auto kit = r->LastAttacker ? cs.find(r->LastAttacker->ID) : cs.end();
+            KysChess::Battle::BattleDamageTransactionInput damageInput;
+            damageInput.request.attackerUnitId = r->LastAttacker ? r->LastAttacker->ID : -1;
+            damageInput.request.defenderUnitId = r->ID;
+            damageInput.request.baseDamage = hurt;
+            damageInput.request.preResolvedDamage = true;
+            damageInput.attacker = makeBattleDamageUnit(r->LastAttacker, kit != cs.end() ? &kit->second : nullptr);
+            damageInput.defender = makeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr);
+            auto damageTaken = KysChess::Battle::BattleDamageSystem().resolveTransaction(damageInput);
+            if (kit != cs.end())
+            {
+                writeBattleDamageUnit(r->LastAttacker, &kit->second, damageTaken.attacker);
+            }
             writeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr, damageTaken.defender);
             if (damageTaken.hurtInvincGranted)
             {
@@ -3848,7 +3858,7 @@ void BattleSceneHades::backRun1()
             {
                 logBattleStatus(r, r, formatStatusFrames("死亡庇护", damageTaken.invincibilityGranted));
             }
-            if (damageTaken.died)
+            if (damageTaken.killed)
             {
                     //LOG("{} has been beat\n", r->Name);
                     if (sit != cs.end())
@@ -3859,31 +3869,22 @@ void BattleSceneHades::backRun1()
                     tracker_.recordDeath(r, battle_frame_);
                     refreshEnemyTopDebuffs();
 
-                    // Combo: kill-heal and kill-invincibility
-                    if (r->LastAttacker)
+                    if (r->LastAttacker && kit != cs.end())
                     {
-                        auto kit = cs.find(r->LastAttacker->ID);
-                        if (kit != cs.end())
+                        if (damageTaken.attackerDelta.hpDelta > 0)
                         {
-                            auto reward = KysChess::Battle::BattleDamageSystem().applyKillReward({
-                                makeBattleDamageUnit(r->LastAttacker, &kit->second),
-                            });
-                            writeBattleDamageUnit(r->LastAttacker, &kit->second, reward.killer);
-                            if (reward.healed > 0)
-                            {
-                                logBattleHeal(r->LastAttacker, r->LastAttacker, reward.healed,
-                                    std::format("击杀回复 {}%", kit->second.killHealPct));
-                            }
-                            if (reward.invincibilityGranted > 0)
-                            {
-                                logBattleStatus(r->LastAttacker, r->LastAttacker,
-                                    formatStatusFrames("击杀无敌", reward.invincibilityGranted));
-                            }
-                            if (reward.attackGranted > 0)
-                            {
-                                logBattleStatus(r->LastAttacker, r->LastAttacker,
-                                    std::format("嗜血（+{}攻）", reward.attackGranted));
-                            }
+                            logBattleHeal(r->LastAttacker, r->LastAttacker, damageTaken.attackerDelta.hpDelta,
+                                std::format("击杀回复 {}%", kit->second.killHealPct));
+                        }
+                        if (damageTaken.attackerDelta.invincibleDelta > 0)
+                        {
+                            logBattleStatus(r->LastAttacker, r->LastAttacker,
+                                formatStatusFrames("击杀无敌", damageTaken.attackerDelta.invincibleDelta));
+                        }
+                        if (damageTaken.attackerDelta.attackDelta > 0)
+                        {
+                            logBattleStatus(r->LastAttacker, r->LastAttacker,
+                                std::format("嗜血（+{}攻）", damageTaken.attackerDelta.attackDelta));
                         }
                     }
 

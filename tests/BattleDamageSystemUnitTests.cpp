@@ -660,3 +660,33 @@ TEST_CASE("傷害交易_冰凍套用抗性與控制免疫", "[battle][damage][un
     CHECK(lowHp.defenderStatus.controlImmunityFrames == 3);
     CHECK(lowHp.events.empty());
 }
+
+TEST_CASE("傷害交易_已結算傷害不重跑防禦層但仍處理死亡", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 40;
+    input.request.preResolvedDamage = true;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.attacker.hp = 120;
+    input.attacker.killHealPct = 50;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.hp = 30;
+    input.defender.invincible = 10;
+    input.defender.shield = 99;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK_FALSE(result.defender.alive);
+    CHECK(result.defender.hp == 0);
+    CHECK(result.defender.shield == 99);
+    CHECK(result.attacker.hp == 200);
+    CHECK(result.attackerDelta.hpDelta == 80);
+    REQUIRE(result.events.size() == 3);
+    CHECK(result.events[0].type == BattleDamageEventType::DamageApplied);
+    CHECK(result.events[1].type == BattleDamageEventType::UnitDied);
+    CHECK(result.events[2].type == BattleDamageEventType::KillRewardApplied);
+}

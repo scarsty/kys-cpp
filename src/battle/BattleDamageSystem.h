@@ -216,6 +216,7 @@ struct BattleDamageRequest
     double baseDamage = 0.0;
     int mpDamage = 0;
     bool acceptedHit = false;
+    bool preResolvedDamage = false;
     bool usingSkill = false;
     bool ignoreDefense = false;
     bool reflected = false;
@@ -276,9 +277,11 @@ struct BattleDamageTransactionResult
     int shieldAbsorbed = 0;
     bool executed = false;
     bool killed = false;
+    bool hurtInvincGranted = false;
     bool deathPrevented = false;
     bool blockedByInvincible = false;
     bool blockedByFirstHit = false;
+    int invincibilityGranted = 0;
 };
 
 class BattleDamageSystem
