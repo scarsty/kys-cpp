@@ -94,7 +94,6 @@ BattleCastInput basicInput()
     input.unit.mp = 30;
     input.unit.maxMp = 100;
     input.unit.meleeAttackReach = 137.5;
-    input.unit.actProperty = 0;
     input.unit.speed = 0;
     input.targetUnitId = 2;
     input.targetPosition = { 82.0f, 20.0f, 0.0f };
@@ -265,6 +264,23 @@ TEST_CASE("BattleCastSystem_UltimateCastsOnlyAtMaxMp", "[battle][cast]")
     CHECK(result.decision.operationType == 2);
 }
 
+TEST_CASE("BattleCastSystem_CooldownUsesSelectedSkillActProperty", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.normalSkill = skill(118, 0, 137.5);
+    input.normalSkill.actProperty = 0;
+    input.ultimateSkill = skill(218, 1, 400.0);
+    input.ultimateSkill.actProperty = 80;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.canCast);
+    REQUIRE(result.decision.ultimate);
+    CHECK(result.cooldownDelta == 75);
+}
+
 TEST_CASE("BattleCastSystem_NormalSkillRemainsBehaviorCompatibleWhenUltimateUnavailable", "[battle][cast]")
 {
     auto input = basicInput();
@@ -376,6 +392,23 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsResourceDeltasTimingAndEvents", 
     CHECK(result.presentationEvents[1].type == BattlePresentationEventType::RoleEffect);
     CHECK(result.presentationEvents[1].targetUnitId == 1);
     CHECK(result.presentationEvents[1].effectId == 77);
+}
+
+TEST_CASE("BattleCastSystem_CommitSelectedCastUsesExplicitOperationType", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.normalSkill = skill(118, 0, 400.0);
+    input.normalSkill.visualEffectId = 33;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().commitSelectedCast(input, false, 2);
+
+    REQUIRE(result.decision.canCast);
+    CHECK(result.decision.skillId == 118);
+    CHECK(result.decision.operationType == 2);
+    REQUIRE(result.attackSpawnRequests.size() == 1);
+    CHECK(result.attackSpawnRequests[0].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[0].initial.visualEffectId == 33);
 }
 
 TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][cast]")

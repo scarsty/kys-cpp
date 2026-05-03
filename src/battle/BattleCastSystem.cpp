@@ -96,7 +96,7 @@ int castFrameForOperation(const BattleCastConfig& config, int operationType)
     return config.castFrames[operationType];
 }
 
-int cooldownForOperation(const BattleCastInput& input, int operationType)
+int cooldownForOperation(const BattleCastInput& input, const BattleCastSkillState& selectedSkill, int operationType)
 {
     assert(operationType >= 0 && operationType <= 3);
 
@@ -105,7 +105,7 @@ int cooldownForOperation(const BattleCastInput& input, int operationType)
     const int actPropertyDivisor = config.cooldownActPropertyDivisors[operationType];
     if (actPropertyDivisor > 0)
     {
-        cooldown -= input.unit.actProperty / actPropertyDivisor;
+        cooldown -= selectedSkill.actProperty / actPropertyDivisor;
     }
     cooldown = std::max(config.minimumCooldownFrames[operationType], cooldown);
     const int speed = std::min(static_cast<int>(config.maxCooldownSpeed), input.unit.speed);
@@ -445,6 +445,28 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
     return result;
 }
 
+BattleCastResult BattleCastPlanner::commitSelectedCast(const BattleCastInput& input, bool ultimate, int operationType) const
+{
+    assert(input.unit.id >= 0);
+    assert(operationType >= 0 && operationType <= 3);
+
+    const auto& selectedSkill = ultimate ? input.ultimateSkill : input.normalSkill;
+    assert(selectedSkill.id >= 0);
+    assertCastIntentInput(input, selectedSkill);
+
+    BattleCastResult result;
+    auto& decision = result.decision;
+    decision.canCast = true;
+    decision.ultimate = ultimate;
+    decision.unitId = input.unit.id;
+    decision.targetUnitId = input.targetUnitId;
+    decision.skillId = selectedSkill.id;
+    decision.operationType = operationType;
+
+    appendCommittedCastOutput(result, input, selectedSkill);
+    return result;
+}
+
 const BattleCastSkillState& BattleCastPlanner::selectSkill(const BattleCastInput& input, bool& ultimate) const
 {
     ultimate = input.ultimateSkill.id >= 0 && input.unit.mp == input.unit.maxMp;
@@ -485,7 +507,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     assertCommittedCastInput(input, selectedSkill, result.decision.operationType);
 
     result.animation.castFrame = castFrameForOperation(input.config, result.decision.operationType);
-    result.animation.cooldownFrames = cooldownForOperation(input, result.decision.operationType);
+    result.animation.cooldownFrames = cooldownForOperation(input, selectedSkill, result.decision.operationType);
     result.animation.recoveryFrames = recoveryFramesForOperation(input.config, result.decision.operationType);
     result.cooldownDelta = result.animation.cooldownFrames;
     result.mpDelta = mpDeltaForCast(input, result.decision.ultimate);

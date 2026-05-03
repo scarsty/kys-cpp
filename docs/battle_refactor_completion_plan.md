@@ -62,7 +62,7 @@ Baseline verification history:
 - Slice 2: Complete and slice gate recorded.
 - Slice 3 Task 3.1: Complete. Cast state/planner exists and selection readiness is honored.
 - Slice 3 Task 3.2: Complete under manual review flow. Cast outputs include committed deltas/events/spawn requests, cast constants are explicit input config, attack vector thresholds are explicit adapter/test config, and focused/full tests pass.
-- Slice 3 Task 3.3: Next task.
+- Slice 3 Task 3.3: Complete under manual flow. `AI()` builds `BattleCastInput` through the adapter, starts actions from `BattleCastPlanner`, and stores pending core cast results for `Action()` to commit. `Action()` consumes pending core cast spawn requests and applies result-derived MP/cooldown state. `createSkillAttackEffect()` is now a core spawn-request bridge instead of a scene-side skill/projectile decision tree.
 - Workflow note: Subagent dispatch is paused because the review agents were unstable. Continue manually while preserving the same task order, local review discipline, and verification gates.
 - Current user-feedback constraints carried forward:
   - Do not add source-text tests that assert words/phrases are absent.
@@ -872,3 +872,5 @@ Append entries here after each slice gate. Do not use this log as a completion c
 - 2026-05-03 Slice 1 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 77 test cases / 3259 assertions; `kys` Debug x64 build passed after restoring local `mlcc` submodule files in the isolated worktree.
 - 2026-05-03 Slice 2 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 84 test cases / 3349 assertions; `kys` Debug x64 build passed.
 - 2026-05-03 Slice 3 Task 3.2 manual gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe "[battle][cast],[battle][attack],[battle][core]"` passed 51 test cases / 527 assertions; `x64\Debug\kys_tests.exe` passed 107 test cases / 3637 assertions; `rg -n "Role\*|Magic\*|Item\*|Engine|TextureManager|Font|Scene|SDL" src\battle` returned no matches; hidden cast constants and vector thresholds are explicit config/input.
+- 2026-05-03 Slice 3 Task 3.3 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe "[battle][cast]"` passed 20 test cases / 282 assertions; core forbidden dependency search returned no matches; cast assert/source-constant spot checks returned no bad assert wrappers, stale `unit.actProperty`, or `BattleTileWidth`; `kys` Debug x64 build passed. Abort reporting was adjusted so Windows test aborts keep stderr output while suppressing the report dialog.
+- 2026-05-03 Slice 3 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 109 test cases / 3646 assertions; `kys` Debug x64 build passed.

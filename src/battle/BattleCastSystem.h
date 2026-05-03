@@ -23,7 +23,6 @@ struct BattleCastUnitState
     bool canStartAttack = true;
     int mp = 0;
     int maxMp = 0;
-    int actProperty = 0;
     int speed = 0;
     int cooldownReductionPct = 0;
     int operationCount = 0;
@@ -47,6 +46,7 @@ struct BattleCastSkillState
     int visualEffectId = -1;
     int selectDistance = 1;
     int projectileSpeedMultiplierPct = 100;
+    int actProperty = 0;
     int meleeSplashCount = 0;
     int extraProjectileCount = 0;
     bool strengthenedMelee = false;
@@ -152,6 +152,7 @@ class BattleCastPlanner
 {
 public:
     BattleCastResult plan(const BattleCastInput& input) const;
+    BattleCastResult commitSelectedCast(const BattleCastInput& input, bool ultimate, int operationType) const;
 
 private:
     const BattleCastSkillState& selectSkill(const BattleCastInput& input, bool& ultimate) const;

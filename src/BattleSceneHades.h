@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "battle/BattleCastSystem.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
 #include "BattleSceneAct.h"
@@ -173,6 +174,7 @@ protected:
     std::unordered_map<int, int> hurt_flash_timers_;
     std::set<int> execution_popup_roles_;
     std::unordered_map<int, std::set<int>> shared_hit_group_targets_;
+    std::unordered_map<Role*, KysChess::Battle::BattleCastResult> pending_cast_results_;
     int next_shared_hit_group_id_ = 1;
     bool manual_camera_dragging_ = false;
     double previous_refresh_interval_ = 0.0;
