@@ -158,11 +158,11 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     recorder.beginFrame(makePresentationSnapshot(state.world));
     for (const auto& event : result.movement.events)
     {
-        recorder.record(toPresentationEvent(event));
+        recorder.recordPresentation(toPresentationEvent(event));
     }
     for (const auto& event : result.attackEvents)
     {
-        recorder.record(toPresentationEvent(event, state.attacks));
+        recorder.recordPresentation(toPresentationEvent(event, state.attacks));
     }
     result.frame = recorder.consumeFrame();
     return result;

@@ -7,6 +7,52 @@ namespace KysChess::Battle
 
 namespace
 {
+void stampFrame(int& eventFrame, int snapshotFrame)
+{
+    assert(eventFrame == BattlePresentationCurrentFrame || eventFrame >= 0);
+    if (eventFrame == BattlePresentationCurrentFrame)
+    {
+        eventFrame = snapshotFrame;
+    }
+}
+
+void assertValidEvent(const BattleGameplayEvent& event)
+{
+    assert(event.frame == BattlePresentationCurrentFrame || event.frame >= 0);
+    switch (event.type)
+    {
+    case BattleGameplayEventType::CastStarted:
+    case BattleGameplayEventType::AttackSpawned:
+        assert(event.sourceUnitId >= 0);
+        break;
+    case BattleGameplayEventType::ProjectileMoved:
+    case BattleGameplayEventType::ProjectileExpired:
+    case BattleGameplayEventType::ProjectileCancelled:
+        assert(event.effectId >= 0);
+        break;
+    case BattleGameplayEventType::ProjectileHit:
+        assert(event.effectId >= 0);
+        assert(event.targetUnitId >= 0);
+        break;
+    case BattleGameplayEventType::DamageApplied:
+        assert(event.targetUnitId >= 0);
+        assert(event.amount >= 0);
+        break;
+    case BattleGameplayEventType::StatusApplied:
+        assert(event.targetUnitId >= 0);
+        assert(!event.text.empty());
+        break;
+    case BattleGameplayEventType::ResourceChanged:
+        assert(event.targetUnitId >= 0);
+        break;
+    case BattleGameplayEventType::UnitDied:
+        assert(event.sourceUnitId >= 0 || event.targetUnitId >= 0);
+        break;
+    case BattleGameplayEventType::BattleEnded:
+        break;
+    }
+}
+
 void assertValidEvent(const BattlePresentationEvent& event)
 {
     assert(event.frame == BattlePresentationCurrentFrame || event.frame >= 0);
@@ -62,17 +108,22 @@ void assertValidEvent(const BattlePresentationEvent& event)
 void BattlePresentationRecorder::beginFrame(BattlePresentationSnapshot snapshot)
 {
     frame_.snapshot = std::move(snapshot);
-    frame_.events.clear();
+    frame_.gameplayEvents.clear();
+    frame_.presentationEvents.clear();
 }
 
-void BattlePresentationRecorder::record(BattlePresentationEvent event)
+void BattlePresentationRecorder::recordGameplay(BattleGameplayEvent event)
 {
     assertValidEvent(event);
-    if (event.frame == BattlePresentationCurrentFrame)
-    {
-        event.frame = frame_.snapshot.frame;
-    }
-    frame_.events.push_back(std::move(event));
+    stampFrame(event.frame, frame_.snapshot.frame);
+    frame_.gameplayEvents.push_back(std::move(event));
+}
+
+void BattlePresentationRecorder::recordPresentation(BattlePresentationEvent event)
+{
+    assertValidEvent(event);
+    stampFrame(event.frame, frame_.snapshot.frame);
+    frame_.presentationEvents.push_back(std::move(event));
 }
 
 const BattlePresentationFrame& BattlePresentationRecorder::frame() const

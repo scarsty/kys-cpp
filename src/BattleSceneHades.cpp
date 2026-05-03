@@ -1447,7 +1447,7 @@ void BattleSceneHades::publishPresentationFrame()
 
 void BattleSceneHades::addFloatingText(Role* role, const std::string& text, Color color, int size, int type)
 {
-    presentation_recorder_.record({
+    presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::FloatingText,
         battle_frame_,
         -1,
@@ -1469,7 +1469,7 @@ void BattleSceneHades::addRoleEffect(Role* role, int eftId, int totalFrames)
 {
     assert(role);
 
-    presentation_recorder_.record({
+    presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::RoleEffect,
         battle_frame_,
         -1,
@@ -1485,7 +1485,7 @@ void BattleSceneHades::addDamageNumber(Role* role, int damage, Color color, int 
     assert(role);
     assert(damage > 0);
 
-    presentation_recorder_.record({
+    presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::DamageNumber,
         battle_frame_,
         -1,
@@ -1505,7 +1505,7 @@ void BattleSceneHades::addDamageNumber(Role* role, int damage, Color color, int 
 
 void BattleSceneHades::logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName, const std::string& detailText)
 {
-    presentation_recorder_.record({
+    presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::DamageLog,
         battle_frame_,
         source ? source->ID : -1,
@@ -1523,7 +1523,7 @@ void BattleSceneHades::logBattleDamage(Role* source, Role* target, int amount, c
 
 void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, const std::string& reason)
 {
-    presentation_recorder_.record({
+    presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::HealLog,
         battle_frame_,
         source ? source->ID : -1,
@@ -1539,7 +1539,7 @@ void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, con
 
 void BattleSceneHades::logBattleStatus(Role* source, Role* target, const std::string& text)
 {
-    presentation_recorder_.record({
+    presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::StatusLog,
         battle_frame_,
         source ? source->ID : -1,

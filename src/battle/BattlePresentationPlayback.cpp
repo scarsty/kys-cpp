@@ -48,8 +48,8 @@ BattlePresentationPlaybackPlan BattlePresentationPlaybackPlanner::build(const Ba
 {
     BattlePresentationPlaybackPlan plan;
     plan.snapshot = frame.snapshot;
-    plan.commands.reserve(frame.events.size());
-    for (const auto& event : frame.events)
+    plan.commands.reserve(frame.presentationEvents.size());
+    for (const auto& event : frame.presentationEvents)
     {
         plan.commands.push_back(makeCommand(event));
     }

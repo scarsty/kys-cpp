@@ -9,7 +9,11 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryCommittedPresentationEvent
     BattlePresentationFrame frame;
     frame.snapshot.frame = 18;
     frame.snapshot.units.push_back({ 1, 11, "source", 0, true, 100, 100, 20, 100, 0, 0, { 1, 2, 0 }, {} });
-    frame.events = {
+    frame.gameplayEvents = {
+        { BattleGameplayEventType::DamageApplied, 18, 1, 2, 30, -1 },
+        { BattleGameplayEventType::ProjectileHit, 18, 1, 2, 0, 10 },
+    };
+    frame.presentationEvents = {
         { BattlePresentationEventType::DamageLog, 18, 1, 2, 30, 0, -1, 0, 0, "", "skill", "detail" },
         { BattlePresentationEventType::HealLog, 18, 1, 1, 12, 0, -1, 0, 0, "heal" },
         { BattlePresentationEventType::StatusLog, 18, 1, 2, 0, 0, -1, 0, 0, "status" },
@@ -29,7 +33,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryCommittedPresentationEvent
 
     REQUIRE(plan.snapshot.frame == 18);
     REQUIRE(plan.snapshot.units.size() == 1);
-    REQUIRE(plan.commands.size() == frame.events.size());
+    REQUIRE(plan.commands.size() == frame.presentationEvents.size());
     CHECK(plan.commands[0].type == BattlePresentationCommandType::RecordDamage);
     CHECK(plan.commands[0].amount == 30);
     CHECK(plan.commands[0].skillName == "skill");
@@ -61,7 +65,11 @@ TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][p
 {
     BattlePresentationFrame frame;
     frame.snapshot.frame = 3;
-    frame.events = {
+    frame.gameplayEvents = {
+        { BattleGameplayEventType::CastStarted, 3, 1, 2 },
+        { BattleGameplayEventType::DamageApplied, 3, 1, 2, 9 },
+    };
+    frame.presentationEvents = {
         { BattlePresentationEventType::StatusLog, 3, -1, 1, 0, 0, -1, 0, 0, "first" },
         { BattlePresentationEventType::FloatingText, 3, -1, 1, 0, 0, -1, 24, 0, "second" },
         { BattlePresentationEventType::DamageLog, 3, 1, 2, 9 },
@@ -77,4 +85,25 @@ TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][p
     CHECK(plan.commands[1].text == "second");
     CHECK(plan.commands[2].type == BattlePresentationCommandType::RecordDamage);
     CHECK(plan.commands[2].amount == 9);
+}
+
+TEST_CASE("BattlePresentationPlaybackPlanner_IgnoresGameplayEvents", "[battle][presentation][unit]")
+{
+    BattlePresentationFrame frame;
+    frame.snapshot.frame = 5;
+    frame.gameplayEvents = {
+        { BattleGameplayEventType::CastStarted, 5, 1, 2 },
+        { BattleGameplayEventType::ProjectileMoved, 5, 1, 2, 0, 10, { 4, 5, 0 } },
+        { BattleGameplayEventType::DamageApplied, 5, 1, 2, 9 },
+    };
+    frame.presentationEvents = {
+        { BattlePresentationEventType::StatusLog, 5, -1, -1, 0, 0, -1, 0, 0, "presentation-only" },
+    };
+
+    BattlePresentationPlaybackPlanner planner;
+    auto plan = planner.build(frame);
+
+    REQUIRE(plan.commands.size() == 1);
+    CHECK(plan.commands[0].type == BattlePresentationCommandType::RecordStatus);
+    CHECK(plan.commands[0].text == "presentation-only");
 }

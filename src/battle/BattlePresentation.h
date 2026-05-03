@@ -36,6 +36,33 @@ enum class BattlePresentationEventType
     ProjectileBounced,
 };
 
+enum class BattleGameplayEventType
+{
+    CastStarted,
+    AttackSpawned,
+    ProjectileMoved,
+    ProjectileHit,
+    ProjectileExpired,
+    ProjectileCancelled,
+    DamageApplied,
+    StatusApplied,
+    ResourceChanged,
+    UnitDied,
+    BattleEnded,
+};
+
+struct BattleGameplayEvent
+{
+    BattleGameplayEventType type = BattleGameplayEventType::StatusApplied;
+    int frame = BattlePresentationCurrentFrame;
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int amount = 0;
+    int effectId = -1;
+    Pointf position;
+    std::string text;
+};
+
 struct BattlePresentationEvent
 {
     BattlePresentationEventType type = BattlePresentationEventType::StatusLog;
@@ -80,14 +107,16 @@ struct BattlePresentationSnapshot
 struct BattlePresentationFrame
 {
     BattlePresentationSnapshot snapshot;
-    std::vector<BattlePresentationEvent> events;
+    std::vector<BattleGameplayEvent> gameplayEvents;
+    std::vector<BattlePresentationEvent> presentationEvents;
 };
 
 class BattlePresentationRecorder
 {
 public:
     void beginFrame(BattlePresentationSnapshot snapshot);
-    void record(BattlePresentationEvent event);
+    void recordGameplay(BattleGameplayEvent event);
+    void recordPresentation(BattlePresentationEvent event);
 
     const BattlePresentationFrame& frame() const;
     BattlePresentationFrame consumeFrame();

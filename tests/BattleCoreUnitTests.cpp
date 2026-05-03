@@ -317,11 +317,11 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
 
     CHECK(state.world.frame == 1);
     CHECK(result.movement.events[0].type == BattleEventType::DashStart);
-    REQUIRE(result.frame.events.size() > result.movement.events.size());
+    REQUIRE(result.frame.presentationEvents.size() > result.movement.events.size());
     CHECK(result.frame.snapshot.frame == 1);
-    CHECK(result.frame.events[0].type == BattlePresentationEventType::StatusLog);
-    CHECK(result.frame.events[0].text == "dash-start");
-    const auto& firstProjectileEvent = result.frame.events[result.movement.events.size()];
+    CHECK(result.frame.presentationEvents[0].type == BattlePresentationEventType::StatusLog);
+    CHECK(result.frame.presentationEvents[0].text == "dash-start");
+    const auto& firstProjectileEvent = result.frame.presentationEvents[result.movement.events.size()];
     CHECK(firstProjectileEvent.type == BattlePresentationEventType::ProjectileMoved);
     CHECK(firstProjectileEvent.effectId == 10);
     CHECK(firstProjectileEvent.position.x == 5.0f);
