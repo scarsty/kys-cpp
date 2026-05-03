@@ -666,3 +666,23 @@ TEST_CASE("BattleComboTriggerSystem_DefenderHitDamage_AppliesReductionAndAdaptat
     CHECK(state.adaptationStacks[0][7] == 2);
     CHECK(state.dodgeAdaptationStacks[0][7] == 1);
 }
+
+TEST_CASE("BattleComboTriggerSystem_ExecuteCombo_RecordsOnlyTriggeredExecute", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Execute, Trigger::OnHit, 20, 50, 0, 1));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Execute, Trigger::OnHit, 10, 100, 0, 1));
+
+    auto result = BattleComboTriggerSystem().resolveExecuteCombo(
+        state,
+        { 4, 8, 50, 200, 15.0, true },
+        []() { return 25.0; });
+
+    CHECK(result.executed);
+    CHECK(result.thresholdPct == 20);
+    CHECK(result.effectIndex == 0);
+    CHECK(state.effectActivationCounts[0] == 1);
+    CHECK(state.effectActivationCounts.count(1) == 0);
+}

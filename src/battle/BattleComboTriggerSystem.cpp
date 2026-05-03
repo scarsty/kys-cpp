@@ -1,5 +1,7 @@
 #include "BattleComboTriggerSystem.h"
 
+#include "BattleDamageSystem.h"
+
 #include <algorithm>
 #include <cassert>
 #include <utility>
@@ -755,6 +757,47 @@ BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
         }
     }
 
+    return result;
+}
+
+BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
+    RoleComboState& state,
+    const BattleExecuteComboInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    assert(input.attackerUnitId >= 0);
+    assert(input.targetUnitId >= 0);
+    assert(static_cast<bool>(rollPercent));
+
+    BattleExecuteComboResult result;
+    for (const auto& triggerEvent : matchingTriggerEffects(
+             state,
+             { BattleComboTriggerHook::DamageDealt, input.attackerUnitId, input.targetUnitId },
+             { EffectType::Execute }))
+    {
+        const auto& effect = triggerEvent.effect;
+        assert(effect.type == EffectType::Execute);
+        if (effect.triggerValue <= 0 || effect.value <= 0)
+        {
+            continue;
+        }
+
+        if (BattleDamageSystem().shouldExecute({
+                input.projectedHpBeforeDamage,
+                input.maxHp,
+                input.pendingDamage,
+                input.appliesHpDamage,
+                effect.value,
+            })
+            && rollPercent() < effect.triggerValue)
+        {
+            recordActivation(state, static_cast<size_t>(triggerEvent.effectIndex));
+            result.executed = true;
+            result.thresholdPct = effect.value;
+            result.effectIndex = triggerEvent.effectIndex;
+            break;
+        }
+    }
     return result;
 }
 

@@ -5739,35 +5739,21 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
             if (!reflectToAttacker && ait != cs.end())
             {
                 auto& as = ait->second;
-                for (const auto& triggerEvent : KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
-                         as,
-                         { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                         { KysChess::EffectType::Execute }))
+                auto executeResult = KysChess::Battle::BattleComboTriggerSystem().resolveExecuteCombo(
+                    as,
+                    {
+                        attacker->ID,
+                        r->ID,
+                        r->HP - pendingPreResolvedHpDamage(r),
+                        r->MaxHP,
+                        hurt,
+                        usingHiddenWeapon || usingMagic->HurtType == 0,
+                    },
+                    [&]() { return rand_.rand() * 100.0; });
+                if (executeResult.executed)
                 {
-                    const auto& eff = triggerEvent.effect;
-                    int executeChance = eff.triggerValue;
-                    int executeThreshold = eff.value;
-                    if (executeChance <= 0 || executeThreshold <= 0 || hurt <= 0)
-                    {
-                        continue;
-                    }
-
-                    if (KysChess::Battle::BattleDamageSystem().shouldExecute({
-                            r->HP - pendingPreResolvedHpDamage(r),
-                            r->MaxHP,
-                            hurt,
-                            usingHiddenWeapon || usingMagic->HurtType == 0,
-                            executeThreshold,
-                        })
-                        && rand_.rand() * 100 < executeChance)
-                    {
-                        executed = true;
-                        KysChess::Battle::BattleComboTriggerSystem().recordActivation(
-                            as,
-                            static_cast<size_t>(triggerEvent.effectIndex));
-                        logBattleStatus(attacker, r, formatExecuteStatus(executeThreshold));
-                        break;
-                    }
+                    executed = true;
+                    logBattleStatus(attacker, r, formatExecuteStatus(executeResult.thresholdPct));
                 }
             }
 

@@ -158,6 +158,23 @@ struct BattleDefenderHitDamageResult
     std::vector<BattleDefenderHitDamageEvent> events;
 };
 
+struct BattleExecuteComboInput
+{
+    int attackerUnitId = -1;
+    int targetUnitId = -1;
+    int projectedHpBeforeDamage = 0;
+    int maxHp = 0;
+    double pendingDamage = 0.0;
+    bool appliesHpDamage = true;
+};
+
+struct BattleExecuteComboResult
+{
+    bool executed = false;
+    int thresholdPct = 0;
+    int effectIndex = -1;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -281,6 +298,11 @@ public:
     BattleDefenderHitDamageResult shapeDefenderHitDamage(
         RoleComboState& state,
         const BattleDefenderHitDamageInput& input) const;
+
+    BattleExecuteComboResult resolveExecuteCombo(
+        RoleComboState& state,
+        const BattleExecuteComboInput& input,
+        const std::function<double()>& rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 
