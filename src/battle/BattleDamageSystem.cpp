@@ -172,7 +172,7 @@ BattleCooldownIncreaseResult BattleDamageSystem::extendActiveCooldown(BattleCool
     bool canExtend = unit.alive
         && unit.cooldown > 0
         && unit.haveAction
-        && unit.operationType >= 0
+        && unit.operationType != BattleOperationType::None
         && unit.actType >= 0
         && pct > 0;
     if (!canExtend)

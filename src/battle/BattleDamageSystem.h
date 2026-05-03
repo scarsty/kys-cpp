@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BattleOperation.h"
 #include "BattleStatusSystem.h"
 
 #include <vector>
@@ -106,7 +107,7 @@ struct BattleCooldownState
     int cooldown = 0;
     int cooldownMax = 0;
     bool haveAction = false;
-    int operationType = -1;
+    BattleOperationType operationType = BattleOperationType::None;
     int actType = -1;
 };
 

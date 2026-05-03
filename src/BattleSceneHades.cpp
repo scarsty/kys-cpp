@@ -746,7 +746,7 @@ KysChess::Battle::BattleCooldownState makeBattleCooldownState(Role* role)
     state.cooldown = role->CoolDown;
     state.cooldownMax = role->CoolDownMax;
     state.haveAction = role->HaveAction;
-    state.operationType = role->OperationType;
+    state.operationType = KysChess::Battle::battleOperationFromLegacy(role->OperationType);
     state.actType = role->ActType;
     return state;
 }
@@ -987,7 +987,8 @@ void applyFrozen(Role* r, int frames)
 
 int BattleSceneHades::getOperationType(int attackAreaType)
 {
-    return KysChess::Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType);
+    return KysChess::Battle::toLegacyOperationType(
+        KysChess::Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
 }
 
 const char* BattleSceneHades::getOperationTypeName(int operationType)
@@ -3354,18 +3355,14 @@ void BattleSceneHades::backRun1()
                 assert(ae2.Attacker);
                 assert(ae1.UsingMagic);
                 assert(ae2.UsingMagic);
-                if (ae1.NoHurt != 0 || ae2.NoHurt != 0 || ae1.IgnoreProjectileCancel || ae2.IgnoreProjectileCancel)
-                {
-                    continue;
-                }
 
                 //LOG("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
                 int hurt1 = KysChess::Battle::scaleProjectileCancelDamage(
                     calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic),
-                    ae1.OperationType);
+                    KysChess::Battle::battleOperationFromLegacy(ae1.OperationType));
                 int hurt2 = KysChess::Battle::scaleProjectileCancelDamage(
                     calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic),
-                    ae2.OperationType);
+                    KysChess::Battle::battleOperationFromLegacy(ae2.OperationType));
                 ae1.Weaken += hurt2;
                 ae2.Weaken += hurt1;
                 ae1.Attacker->CancelDmg += hurt1;
@@ -4170,7 +4167,7 @@ void BattleSceneHades::Action(Role* r)
                 primeProjectileBounce(effect);
                 attack_effects_.push_back(std::move(effect));
             }
-            if (castResult.decision.operationType == 0)
+            if (castResult.decision.operationType == KysChess::Battle::BattleOperationType::Melee)
             {
                 if (castResult.decision.ultimate || r->OperationCount >= 2)
                 {
@@ -4311,7 +4308,7 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
         auto castResult = KysChess::Battle::BattleCastPlanner().commitSelectedCast(
             makeBattleCastInput(castAdapterInput),
             isUltimate,
-            resolvedOperationType);
+            KysChess::Battle::battleOperationFromLegacy(resolvedOperationType));
 
         Audio::getInstance()->playASound(magic->SoundID);
         if (isUltimate && comboIt != comboStates.end())
@@ -4328,7 +4325,7 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
             primeProjectileBounce(effect);
             attack_effects_.push_back(std::move(effect));
         }
-        if (castResult.decision.operationType == 0)
+        if (castResult.decision.operationType == KysChess::Battle::BattleOperationType::Melee)
         {
             if (castResult.decision.ultimate || r->OperationCount >= 2)
             {
@@ -5438,7 +5435,8 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         hurt *= 1.5;
     }
     //操作类型的伤害效果
-    hurt *= KysChess::Battle::projectileOperationDamageMultiplier(ae.OperationType);
+    hurt *= KysChess::Battle::projectileOperationDamageMultiplier(
+        KysChess::Battle::battleOperationFromLegacy(ae.OperationType));
     if (ae.OperationType == 3)
     {
         hurt /= 1.5;

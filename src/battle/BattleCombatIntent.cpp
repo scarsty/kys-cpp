@@ -3,21 +3,21 @@
 namespace KysChess::Battle
 {
 
-int BattleCombatIntentPlanner::operationTypeForAttackArea(int attackAreaType) const
+BattleOperationType BattleCombatIntentPlanner::operationTypeForAttackArea(int attackAreaType) const
 {
     if (attackAreaType == 0)
     {
-        return 0;
+        return BattleOperationType::Melee;
     }
     if (attackAreaType == 1 || attackAreaType == 2)
     {
-        return 2;
+        return BattleOperationType::RangedProjectile;
     }
     if (attackAreaType == 3)
     {
-        return 1;
+        return BattleOperationType::TrackingProjectile;
     }
-    return -1;
+    return BattleOperationType::None;
 }
 
 CombatIntent BattleCombatIntentPlanner::select(const CombatIntentInput& input) const
@@ -44,7 +44,7 @@ CombatIntent BattleCombatIntentPlanner::select(const CombatIntentInput& input) c
     if (useDashAttack)
     {
         intent.startAttack = true;
-        intent.operationType = 3;
+        intent.operationType = BattleOperationType::Dash;
         return intent;
     }
 
@@ -53,18 +53,18 @@ CombatIntent BattleCombatIntentPlanner::select(const CombatIntentInput& input) c
         if (input.plannedSkill.forceRanged && input.targetDistance <= input.plannedSkill.reach)
         {
             intent.startAttack = true;
-            intent.operationType = 2;
+            intent.operationType = BattleOperationType::RangedProjectile;
         }
         else if (!input.plannedSkill.forceRanged && input.targetDistance <= input.meleeAttackReach)
         {
             intent.startAttack = true;
-            intent.operationType = 0;
+            intent.operationType = BattleOperationType::Melee;
         }
         return intent;
     }
 
-    int operationType = operationTypeForAttackArea(input.plannedSkill.attackAreaType);
-    if (operationType >= 0 && input.targetDistance <= input.plannedSkill.reach)
+    BattleOperationType operationType = operationTypeForAttackArea(input.plannedSkill.attackAreaType);
+    if (operationType != BattleOperationType::None && input.targetDistance <= input.plannedSkill.reach)
     {
         intent.startAttack = true;
         intent.operationType = operationType;

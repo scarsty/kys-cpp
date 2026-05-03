@@ -52,7 +52,7 @@ BattleAttackSpawnRequest spawnRequest()
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = 1;
     request.initial.skillId = 101;
-    request.initial.operationType = 2;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.visualEffectId = 33;
     request.initial.preferredTargetUnitId = 2;
     request.initial.position = { 10, 20, 0 };
@@ -133,7 +133,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     const auto& attack = world.attacks[0];
     CHECK(attack.state.attackerUnitId == 1);
     CHECK(attack.state.skillId == 101);
-    CHECK(attack.state.operationType == 2);
+    CHECK(attack.state.operationType == BattleOperationType::RangedProjectile);
     CHECK(attack.state.visualEffectId == 33);
     CHECK(attack.state.preferredTargetUnitId == 2);
     CHECK(attack.state.position.x == 10.0f);
@@ -198,7 +198,7 @@ TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[ba
     CHECK(event.sourceUnitId == 1);
     CHECK(event.unitId == 2);
     CHECK(event.skillId == 101);
-    CHECK(event.operationType == 2);
+    CHECK(event.operationType == BattleOperationType::RangedProjectile);
     CHECK(event.visualEffectId == 33);
     CHECK(event.position.x == 10.0f);
     CHECK(event.position.y == 20.0f);
@@ -214,7 +214,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 40, 0) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.state.skillId = 101;
-    projectile.state.operationType = 2;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.hiddenWeaponItemId = 501;
     projectile.state.scriptedDamage = 33;
     projectile.state.scriptedStunFrames = 12;
@@ -232,7 +232,7 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->sourceUnitId == 1);
     CHECK(hit->unitId == 2);
     CHECK(hit->skillId == 101);
-    CHECK(hit->operationType == 2);
+    CHECK(hit->operationType == BattleOperationType::RangedProjectile);
     CHECK(hit->hiddenWeaponItemId == 501);
     CHECK(hit->scriptedDamage == 33);
     CHECK(hit->scriptedStunFrames == 12);
@@ -248,7 +248,7 @@ TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[b
         unit(2, 1, SceneHitRadius + 1.0, 0),
     };
     auto melee = attack(10, 1, 0, 0);
-    melee.state.operationType = 0;
+    melee.state.operationType = BattleOperationType::Melee;
     world.attacks.push_back(melee);
 
     auto beforeReach = BattleAttackSystem().tick(world);
@@ -269,7 +269,7 @@ TEST_CASE("BattleAttackSystem_RangedHitOnlyEmitsAfterProjectileReachesTarget", "
         unit(2, 1, SceneHitRadius + SceneProjectileSpeed + 1.0, 0),
     };
     auto projectile = attack(10, 1, 0, 0);
-    projectile.state.operationType = 2;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.velocity = { static_cast<float>(SceneProjectileSpeed), 0.0f, 0.0f };
     world.attacks.push_back(projectile);
 
@@ -415,11 +415,11 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
     world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
     auto lhs = attack(10, 1, 0, 0);
     lhs.frame = 5;
-    lhs.state.operationType = 1;
+    lhs.state.operationType = BattleOperationType::TrackingProjectile;
     lhs.state.projectileCancelDamage = 11;
     auto rhs = attack(11, 2, 20, 0);
     rhs.frame = 5;
-    rhs.state.operationType = 2;
+    rhs.state.operationType = BattleOperationType::RangedProjectile;
     rhs.state.projectileCancelDamage = 10;
     world.attacks = { lhs, rhs };
 

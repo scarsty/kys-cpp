@@ -84,7 +84,7 @@ BattleAttackSpawnRequest attackSpawnRequest()
     BattleAttackSpawnRequest request;
     request.initial.attackerUnitId = 1;
     request.initial.skillId = 101;
-    request.initial.operationType = 2;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
     request.initial.visualEffectId = 44;
     request.initial.preferredTargetUnitId = 2;
     request.initial.position = { 100, 120, 0 };
@@ -110,11 +110,11 @@ TEST_CASE("BattleMovementGeometryAndConfig_MaxRangedReachStartsEmptyUntilSupplie
 TEST_CASE("BattleCombatIntent_OperationTypeMapping_MatchesSceneAnimationTypes", "[battle][intent]")
 {
     BattleCombatIntentPlanner planner;
-    CHECK(planner.operationTypeForAttackArea(0) == 0);
-    CHECK(planner.operationTypeForAttackArea(1) == 2);
-    CHECK(planner.operationTypeForAttackArea(2) == 2);
-    CHECK(planner.operationTypeForAttackArea(3) == 1);
-    CHECK(planner.operationTypeForAttackArea(99) == -1);
+    CHECK(planner.operationTypeForAttackArea(0) == BattleOperationType::Melee);
+    CHECK(planner.operationTypeForAttackArea(1) == BattleOperationType::RangedProjectile);
+    CHECK(planner.operationTypeForAttackArea(2) == BattleOperationType::RangedProjectile);
+    CHECK(planner.operationTypeForAttackArea(3) == BattleOperationType::TrackingProjectile);
+    CHECK(planner.operationTypeForAttackArea(99) == BattleOperationType::None);
 }
 
 TEST_CASE("BattleCombatIntent_UltimateEquipsOnlyWhenReadyInputIsSet", "[battle][intent]")
@@ -133,7 +133,7 @@ TEST_CASE("BattleCombatIntent_UltimateEquipsOnlyWhenReadyInputIsSet", "[battle][
     CHECK(intent.equipPlannedSkill);
     CHECK(intent.announceUltimate);
     CHECK(intent.startAttack);
-    CHECK(intent.operationType == 0);
+    CHECK(intent.operationType == BattleOperationType::Melee);
 
     input.ultimateReady = false;
     intent = planner.select(input);
@@ -154,14 +154,14 @@ TEST_CASE("BattleCombatIntent_PreservesMeleeBasicForcedRangedAndDashAttackRules"
     BattleCombatIntentPlanner planner;
     auto intent = planner.select(forcedRanged);
     CHECK(intent.startAttack);
-    CHECK(intent.operationType == 2);
+    CHECK(intent.operationType == BattleOperationType::RangedProjectile);
 
     CombatIntentInput meleeDash = forcedRanged;
     meleeDash.dashAttackEnabled = true;
     meleeDash.plannedSkill = skill(0, 137.5, false);
     intent = planner.select(meleeDash);
     CHECK(intent.startAttack);
-    CHECK(intent.operationType == 3);
+    CHECK(intent.operationType == BattleOperationType::Dash);
 }
 
 TEST_CASE("BattleCombatIntent_BlocksAttackWhileMovementDashContinues", "[battle][intent]")
@@ -352,7 +352,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.totalFrame = 30;
     projectile.state.visualEffectId = 33;
-    projectile.state.operationType = 2;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.position = { 0, 0, 0 };
     projectile.state.velocity = { 5, 0, 0 };
 
@@ -564,7 +564,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     first.frame = 5;
     first.state.totalFrame = 30;
     first.state.position = { 500, 500, 0 };
-    first.state.operationType = 1;
+    first.state.operationType = BattleOperationType::TrackingProjectile;
     first.state.projectileCancelDamage = 11;
 
     BattleAttackInstance second;
@@ -573,7 +573,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     second.frame = 5;
     second.state.totalFrame = 30;
     second.state.position = { 500, 500, 0 };
-    second.state.operationType = 2;
+    second.state.operationType = BattleOperationType::RangedProjectile;
     second.state.projectileCancelDamage = 10;
 
     state.attacks.units = {
@@ -616,7 +616,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     projectile.state.preferredTargetUnitId = 2;
     projectile.state.totalFrame = 30;
     projectile.state.visualEffectId = 44;
-    projectile.state.operationType = 2;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
     projectile.state.bounceRemaining = 1;
     projectile.state.bounceRange = 500;
     projectile.state.bounceChancePct = 100;

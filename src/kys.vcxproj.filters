@@ -374,6 +374,9 @@
     <ClInclude Include="battle\BattleMath.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="battle\BattleOperation.h">
+      <Filter>battle</Filter>
+    </ClInclude>
     <ClInclude Include="Font.h">
       <Filter>font</Filter>
     </ClInclude>

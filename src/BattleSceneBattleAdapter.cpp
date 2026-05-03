@@ -92,7 +92,7 @@ Battle::BattleAttackInstance makeBattleAttackInstance(
     attack.state.ignoreProjectileCancel = effect.IgnoreProjectileCancel != 0 || effect.UsingMagic == nullptr;
     attack.state.sharedHitGroupId = effect.SharedHitGroupId;
     attack.state.visualEffectId = effect.VisualEffectId;
-    attack.state.operationType = effect.OperationType;
+    attack.state.operationType = Battle::battleOperationFromLegacy(effect.OperationType);
     attack.state.hiddenWeaponItemId = effect.UsingHiddenWeapon ? effect.UsingHiddenWeapon->ID : -1;
     attack.state.scriptedDamage = effect.ScriptedDamage;
     attack.state.scriptedStunFrames = effect.ScriptedStunFrames;
@@ -156,7 +156,7 @@ BattleSceneAct::AttackEffect makeSpawnedBattleAttackEffect(
         ? findRoleByBattleId(roles, attack.state.preferredTargetUnitId)
         : nullptr;
     effect.RequirePreferredTarget = attack.state.requirePreferredTarget ? 1 : 0;
-    effect.OperationType = attack.state.operationType;
+    effect.OperationType = Battle::toLegacyOperationType(attack.state.operationType);
     effect.TotalFrame = attack.state.totalFrame;
     effect.Track = attack.state.track ? 1 : 0;
     effect.Through = attack.state.through ? 1 : 0;
@@ -284,7 +284,7 @@ Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input)
     castInput.unit.dashVelocity = input.dashVelocity;
     castInput.unit.dashHitCount = input.dashHitCount;
     castInput.unit.emitDashFollowUpSkillAttack = input.emitDashFollowUpSkillAttack;
-    castInput.unit.dashFollowUpOperationType = input.dashFollowUpOperationType;
+    castInput.unit.dashFollowUpOperationType = Battle::battleOperationFromLegacy(input.dashFollowUpOperationType);
     castInput.normalSkill = makeBattleCastSkillState(input.unit, input.normalSkill);
     castInput.ultimateSkill = makeBattleCastSkillState(input.unit, input.ultimateSkill);
     castInput.targetUnitId = input.target ? input.target->ID : -1;
@@ -297,7 +297,7 @@ void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, in
 {
     assert(unit);
     assert(result.decision.canCast);
-    unit->OperationType = result.decision.operationType;
+    unit->OperationType = Battle::toLegacyOperationType(result.decision.operationType);
     unit->CoolDown = result.cooldownDelta;
     unit->CoolDownMax = result.cooldownDelta;
     unit->ActType = actType;
@@ -343,7 +343,7 @@ std::vector<BattleSceneAct::AttackEffect> makeBattleCastAttackEffects(
         effect.UsingMagic = magic;
         effect.Frame = request.initialFrame;
         effect.TotalFrame = state.totalFrame;
-        effect.OperationType = state.operationType;
+        effect.OperationType = Battle::toLegacyOperationType(state.operationType);
         effect.Strengthen = state.strengthMultiplier;
         effect.Track = state.track ? 1 : 0;
         effect.Through = state.through ? 1 : 0;

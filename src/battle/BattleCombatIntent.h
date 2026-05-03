@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BattleOperation.h"
+
 #include <string>
 
 namespace KysChess::Battle
@@ -34,13 +36,13 @@ struct CombatIntent
     bool equipPlannedSkill = false;
     bool announceUltimate = false;
     bool startAttack = false;
-    int operationType = -1;
+    BattleOperationType operationType = BattleOperationType::None;
 };
 
 class BattleCombatIntentPlanner
 {
 public:
-    int operationTypeForAttackArea(int attackAreaType) const;
+    BattleOperationType operationTypeForAttackArea(int attackAreaType) const;
     CombatIntent select(const CombatIntentInput& input) const;
 };
 

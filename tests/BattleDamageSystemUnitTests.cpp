@@ -168,7 +168,7 @@ TEST_CASE("BattleDamageSystem_CooldownExtension_RequiresActiveActionAndCaps", "[
     state.cooldown = 50;
     state.cooldownMax = 100;
     state.haveAction = true;
-    state.operationType = 0;
+    state.operationType = BattleOperationType::Melee;
     state.actType = 1;
 
     auto result = BattleDamageSystem().extendActiveCooldown(state, 25);

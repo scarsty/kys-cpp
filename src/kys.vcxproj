@@ -310,6 +310,7 @@
     <ClInclude Include="battle\BattleGeometry.h" />
     <ClInclude Include="battle\BattleMath.h" />
     <ClInclude Include="battle\BattleMovement.h" />
+    <ClInclude Include="battle\BattleOperation.h" />
     <ClInclude Include="battle\BattlePresentation.h" />
     <ClInclude Include="battle\BattlePresentationPlayback.h" />
     <ClInclude Include="battle\BattleProjectileTargetingSystem.h" />

@@ -3,6 +3,7 @@
 #include "../Point.h"
 #include "BattleAttackSystem.h"
 #include "BattleEffectSystem.h"
+#include "BattleOperation.h"
 #include "BattlePresentation.h"
 
 #include <array>
@@ -34,7 +35,7 @@ struct BattleCastUnitState
     Pointf dashVelocity;
     int dashHitCount = 1;
     bool emitDashFollowUpSkillAttack = false;
-    int dashFollowUpOperationType = -1;
+    BattleOperationType dashFollowUpOperationType = BattleOperationType::None;
 };
 
 struct BattleCastSkillState
@@ -125,7 +126,7 @@ struct BattleCastDecision
     int unitId = -1;
     int targetUnitId = -1;
     int skillId = -1;
-    int operationType = -1;
+    BattleOperationType operationType = BattleOperationType::None;
     BattleCastBlockReason reason = BattleCastBlockReason::None;
 };
 
@@ -152,7 +153,7 @@ class BattleCastPlanner
 {
 public:
     BattleCastResult plan(const BattleCastInput& input) const;
-    BattleCastResult commitSelectedCast(const BattleCastInput& input, bool ultimate, int operationType) const;
+    BattleCastResult commitSelectedCast(const BattleCastInput& input, bool ultimate, BattleOperationType operationType) const;
 
 private:
     const BattleCastSkillState& selectSkill(const BattleCastInput& input, bool& ultimate) const;

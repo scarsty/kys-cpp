@@ -49,18 +49,18 @@ BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, con
 }
 }  // namespace
 
-double projectileOperationDamageMultiplier(int operationType)
+double projectileOperationDamageMultiplier(BattleOperationType operationType)
 {
     switch (operationType)
     {
-    case 1:
+    case BattleOperationType::TrackingProjectile:
         return 1.5;
     default:
         return 1.0;
     }
 }
 
-int scaleProjectileCancelDamage(int damage, int operationType)
+int scaleProjectileCancelDamage(int damage, BattleOperationType operationType)
 {
     if (damage <= 0)
     {

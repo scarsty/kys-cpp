@@ -99,7 +99,7 @@ void applyAttackContext(BattlePresentationEvent& presentation, const BattleAttac
         presentation.visualEffectId = attack->state.visualEffectId;
         presentation.position = attack->state.position;
         presentation.velocity = attack->state.velocity;
-        presentation.operationKind = attack->state.operationType;
+        presentation.operationKind = toLegacyOperationType(attack->state.operationType);
     }
 }
 
@@ -141,7 +141,7 @@ std::vector<BattlePresentationEvent> toPresentationEvents(
         presentation.visualEffectId = event.visualEffectId;
         presentation.position = event.position;
         presentation.velocity = event.velocity;
-        presentation.operationKind = event.operationType;
+        presentation.operationKind = toLegacyOperationType(event.operationType);
         break;
     case BattleAttackEventType::Moved:
         presentation.type = BattlePresentationEventType::ProjectileMoved;

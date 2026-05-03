@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Point.h"
+#include "BattleOperation.h"
 
 #include <unordered_map>
 #include <vector>
@@ -47,7 +48,7 @@ struct BattleAttackState
     int bounceChancePct = 0;
     int bounceRollPct = 0;
     int visualEffectId = -1;
-    int operationType = -1;
+    BattleOperationType operationType = BattleOperationType::None;
     int hiddenWeaponItemId = -1;
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
@@ -102,7 +103,7 @@ struct BattleAttackEvent
     int sourceUnitId = -1;
     int otherSourceUnitId = -1;
     int skillId = -1;
-    int operationType = -1;
+    BattleOperationType operationType = BattleOperationType::None;
     int visualEffectId = -1;
     int hiddenWeaponItemId = -1;
     int scriptedDamage = 0;
@@ -161,7 +162,7 @@ private:
     void collectProjectileCancelEvents(const BattleAttackWorld& world, std::vector<BattleAttackEvent>& events) const;
 };
 
-double projectileOperationDamageMultiplier(int operationType);
-int scaleProjectileCancelDamage(int damage, int operationType);
+double projectileOperationDamageMultiplier(BattleOperationType operationType);
+int scaleProjectileCancelDamage(int damage, BattleOperationType operationType);
 
 }  // namespace KysChess::Battle

@@ -254,14 +254,14 @@ TEST_CASE("BattleCastSystem_UltimateCastsOnlyAtMaxMp", "[battle][cast]")
     CHECK(result.decision.canCast);
     CHECK_FALSE(result.decision.ultimate);
     CHECK(result.decision.skillId == 101);
-    CHECK(result.decision.operationType == 0);
+    CHECK(result.decision.operationType == BattleOperationType::Melee);
 
     input.unit.mp = input.unit.maxMp;
     result = BattleCastPlanner().plan(input);
     CHECK(result.decision.canCast);
     CHECK(result.decision.ultimate);
     CHECK(result.decision.skillId == 201);
-    CHECK(result.decision.operationType == 2);
+    CHECK(result.decision.operationType == BattleOperationType::RangedProjectile);
 }
 
 TEST_CASE("BattleCastSystem_CooldownUsesSelectedSkillActProperty", "[battle][cast]")
@@ -293,7 +293,7 @@ TEST_CASE("BattleCastSystem_NormalSkillRemainsBehaviorCompatibleWhenUltimateUnav
     CHECK(result.decision.canCast);
     CHECK_FALSE(result.decision.ultimate);
     CHECK(result.decision.skillId == 102);
-    CHECK(result.decision.operationType == 2);
+    CHECK(result.decision.operationType == BattleOperationType::RangedProjectile);
 }
 
 TEST_CASE("BattleCastSystem_MeleeNormalAttackMayPairWithRangedUltimate", "[battle][cast]")
@@ -308,7 +308,7 @@ TEST_CASE("BattleCastSystem_MeleeNormalAttackMayPairWithRangedUltimate", "[battl
     CHECK(result.decision.canCast);
     CHECK(result.decision.ultimate);
     CHECK(result.decision.skillId == 203);
-    CHECK(result.decision.operationType == 2);
+    CHECK(result.decision.operationType == BattleOperationType::RangedProjectile);
 }
 
 TEST_CASE("BattleCastSystem_DoesNotRewriteNormalAttackRangeFromUltimate", "[battle][cast]")
@@ -323,7 +323,7 @@ TEST_CASE("BattleCastSystem_DoesNotRewriteNormalAttackRangeFromUltimate", "[batt
     CHECK_FALSE(result.decision.canCast);
     CHECK_FALSE(result.decision.ultimate);
     CHECK(result.decision.skillId == 104);
-    CHECK(result.decision.operationType == -1);
+    CHECK(result.decision.operationType == BattleOperationType::None);
 }
 
 TEST_CASE("BattleCastSystem_BlocksCastWhenUnitIsNotAttackReady", "[battle][cast]")
@@ -337,7 +337,7 @@ TEST_CASE("BattleCastSystem_BlocksCastWhenUnitIsNotAttackReady", "[battle][cast]
     CHECK_FALSE(result.decision.canCast);
     CHECK(result.decision.reason == BattleCastBlockReason::AttackNotReady);
     CHECK(result.decision.skillId == 105);
-    CHECK(result.decision.operationType == -1);
+    CHECK(result.decision.operationType == BattleOperationType::None);
 }
 
 TEST_CASE("BattleCastSystem_BlocksCastWhileDeadFrozenStunnedOrWithoutTarget", "[battle][cast]")
@@ -401,13 +401,16 @@ TEST_CASE("BattleCastSystem_CommitSelectedCastUsesExplicitOperationType", "[batt
     input.normalSkill.visualEffectId = 33;
     input.targetDistance = 300.0;
 
-    auto result = BattleCastPlanner().commitSelectedCast(input, false, 2);
+    auto result = BattleCastPlanner().commitSelectedCast(
+        input,
+        false,
+        BattleOperationType::RangedProjectile);
 
     REQUIRE(result.decision.canCast);
     CHECK(result.decision.skillId == 118);
-    CHECK(result.decision.operationType == 2);
+    CHECK(result.decision.operationType == BattleOperationType::RangedProjectile);
     REQUIRE(result.attackSpawnRequests.size() == 1);
-    CHECK(result.attackSpawnRequests[0].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[0].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[0].initial.visualEffectId == 33);
 }
 
@@ -431,15 +434,18 @@ TEST_CASE("BattleCastSystem_CommittedCastOnlyRequiresSelectedOperationConfig", "
     input.normalSkill.selectDistance = 4;
     input.targetDistance = 300.0;
 
-    auto result = BattleCastPlanner().commitSelectedCast(input, false, 2);
+    auto result = BattleCastPlanner().commitSelectedCast(
+        input,
+        false,
+        BattleOperationType::RangedProjectile);
 
     REQUIRE(result.decision.canCast);
-    CHECK(result.decision.operationType == 2);
+    CHECK(result.decision.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.animation.castFrame == fullConfig.castFrames[2]);
     CHECK(result.animation.cooldownFrames == fullConfig.baseCooldownFrames[2]);
     CHECK(result.animation.recoveryFrames == fullConfig.recoveryFrames[2]);
     REQUIRE(result.attackSpawnRequests.size() == 1);
-    CHECK(result.attackSpawnRequests[0].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[0].initial.operationType == BattleOperationType::RangedProjectile);
 }
 
 TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][cast]")
@@ -457,7 +463,7 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     const auto& request = result.attackSpawnRequests[0];
     CHECK(request.initial.attackerUnitId == 1);
     CHECK(request.initial.skillId == 107);
-    CHECK(request.initial.operationType == 2);
+    CHECK(request.initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(request.initial.visualEffectId == 88);
     CHECK(request.initial.preferredTargetUnitId == 2);
     CHECK(request.initial.position.x == Catch::Approx(82.0f));
@@ -476,7 +482,7 @@ TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 0);
+    REQUIRE(result.decision.operationType == BattleOperationType::Melee);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
     CHECK(request.initial.position.x == Catch::Approx(82.0f));
@@ -500,7 +506,7 @@ TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesLegacyTrackingProjectileSh
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 0);
+    REQUIRE(result.decision.operationType == BattleOperationType::Melee);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
     CHECK(request.initial.totalFrame == 30);
@@ -522,7 +528,7 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 0);
+    REQUIRE(result.decision.operationType == BattleOperationType::Melee);
     REQUIRE(result.attackSpawnRequests.size() == 4);
     CHECK(result.attackSpawnRequests[0].initial.strengthMultiplier == Catch::Approx(2.0f));
     CHECK(result.attackSpawnRequests[0].initial.track);
@@ -547,7 +553,7 @@ TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battl
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 1);
+    REQUIRE(result.decision.operationType == BattleOperationType::TrackingProjectile);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
     CHECK(request.initial.position.x == Catch::Approx(82.0f));
@@ -569,21 +575,21 @@ TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 2);
+    REQUIRE(result.decision.operationType == BattleOperationType::RangedProjectile);
     REQUIRE(result.attackSpawnRequests.size() == 3);
     CHECK(result.attackSpawnRequests[0].initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
-    CHECK(result.attackSpawnRequests[0].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[0].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[0].initial.totalFrame == 24);
     CHECK(result.attackSpawnRequests[0].initial.through);
 
     CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(result.attackSpawnRequests[1].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[1].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
     CHECK(result.attackSpawnRequests[1].initial.through);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
 
     CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(result.attackSpawnRequests[2].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[2].initial.operationType == BattleOperationType::RangedProjectile);
 }
 
 TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[battle][cast]")
@@ -597,7 +603,7 @@ TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[
 
     auto trackingResult = BattleCastPlanner().plan(input);
 
-    REQUIRE(trackingResult.decision.operationType == 1);
+    REQUIRE(trackingResult.decision.operationType == BattleOperationType::TrackingProjectile);
     REQUIRE(trackingResult.attackSpawnRequests.size() == 1);
     CHECK(trackingResult.attackSpawnRequests[0].initial.position.x == Catch::Approx(118.0f));
     CHECK(trackingResult.attackSpawnRequests[0].initial.position.y == Catch::Approx(20.0f));
@@ -612,7 +618,7 @@ TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[
 
     auto rangedResult = BattleCastPlanner().plan(input);
 
-    REQUIRE(rangedResult.decision.operationType == 2);
+    REQUIRE(rangedResult.decision.operationType == BattleOperationType::RangedProjectile);
     REQUIRE(rangedResult.attackSpawnRequests.size() == 2);
     CHECK(rangedResult.attackSpawnRequests[0].initial.position.x == Catch::Approx(118.0f));
     CHECK(rangedResult.attackSpawnRequests[0].initial.position.y == Catch::Approx(20.0f));
@@ -635,7 +641,7 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 3);
+    REQUIRE(result.decision.operationType == BattleOperationType::Dash);
     CHECK(result.animation.recoveryFrames == 5);
     REQUIRE(result.attackSpawnRequests.size() == 3);
 
@@ -671,18 +677,18 @@ TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[batt
     input.unit.dashVelocity = { 4.0f, 0.0f, 0.0f };
     input.unit.dashHitCount = 1;
     input.unit.emitDashFollowUpSkillAttack = true;
-    input.unit.dashFollowUpOperationType = 2;
+    input.unit.dashFollowUpOperationType = BattleOperationType::RangedProjectile;
     input.normalSkill = skill(114, 3, 400.0);
     input.normalSkill.selectDistance = 4;
     input.targetDistance = 220.0;
 
     auto result = BattleCastPlanner().plan(input);
 
-    REQUIRE(result.decision.operationType == 3);
+    REQUIRE(result.decision.operationType == BattleOperationType::Dash);
     REQUIRE(result.attackSpawnRequests.size() == 2);
     CHECK(result.attackSpawnRequests[0].initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
     CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashFollowUpSkill);
-    CHECK(result.attackSpawnRequests[1].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[1].initial.operationType == BattleOperationType::RangedProjectile);
     CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
     CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
 }
