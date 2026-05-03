@@ -14,6 +14,8 @@ struct BattleDamageUnitState
     bool alive = true;
     int hp = 0;
     int maxHp = 0;
+    int mp = 0;
+    int maxMp = 0;
     int attack = 0;
     int invincible = 0;
     int hurtInvincFrames = 0;
@@ -171,9 +173,80 @@ struct BattleStatusApplyResult
     int value = 0;
 };
 
+enum class BattleDamageEventType
+{
+    DamageApplied,
+    MpDamageApplied,
+    ShieldAbsorbed,
+    BlockedByInvincible,
+    DeathPrevented,
+    UnitDied,
+    KillRewardApplied,
+    ExecuteTriggered,
+};
+
+struct BattleDamageEvent
+{
+    BattleDamageEventType type = BattleDamageEventType::DamageApplied;
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int value = 0;
+};
+
+struct BattleDamageRequest
+{
+    int attackerUnitId = -1;
+    int defenderUnitId = -1;
+    double baseDamage = 0.0;
+    int mpDamage = 0;
+    bool usingSkill = false;
+    bool ignoreDefense = false;
+    bool reflected = false;
+    bool canExecute = false;
+    int executeThresholdPct = 0;
+};
+
+struct BattleUnitDelta
+{
+    int unitId = -1;
+    int hpDelta = 0;
+    int mpDelta = 0;
+    int shieldDelta = 0;
+    int invincibleDelta = 0;
+    int attackDelta = 0;
+    bool aliveChanged = false;
+    bool alive = true;
+};
+
+struct BattleDamageTransactionInput
+{
+    BattleDamageRequest request;
+    BattleDamageUnitState attacker;
+    BattleDamageUnitState defender;
+    BattleDamageModifierState attackerModifiers;
+    BattleDamageModifierState defenderModifiers;
+};
+
+struct BattleDamageTransactionResult
+{
+    BattleDamageUnitState attacker;
+    BattleDamageUnitState defender;
+    BattleUnitDelta attackerDelta;
+    BattleUnitDelta defenderDelta;
+    std::vector<BattleDamageEvent> events;
+    int finalHpDamage = 0;
+    int finalMpDamage = 0;
+    int shieldAbsorbed = 0;
+    bool executed = false;
+    bool killed = false;
+    bool deathPrevented = false;
+    bool blockedByInvincible = false;
+};
+
 class BattleDamageSystem
 {
 public:
+    BattleDamageTransactionResult resolveTransaction(const BattleDamageTransactionInput& input) const;
     BattleDamageModifierResult applyModifiers(const BattleDamageModifierInput& input) const;
     BattleDamageDefenseResult resolveDefense(const BattleDamageDefenseInput& input) const;
     BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage) const;

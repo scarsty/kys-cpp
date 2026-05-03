@@ -281,3 +281,175 @@ TEST_CASE("BattleDamageSystem_DamageReduceDebuff_AppendsValidTimedDebuff", "[bat
     CHECK(result.target.damageReduceDebuffs[0].pct == 30);
     CHECK(result.value == 30);
 }
+
+TEST_CASE("傷害交易_物理傷害套用攻守方修正並輸出差量", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 100;
+    input.request.usingSkill = true;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.attackerModifiers.skillDamagePct = 25;
+    input.defenderModifiers.flatDamageReduction = 10;
+    input.defenderModifiers.damageReductionPct = 20;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.finalHpDamage == 92);
+    CHECK(result.defender.hp == 8);
+    CHECK(result.defenderDelta.unitId == 2);
+    CHECK(result.defenderDelta.hpDelta == -92);
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events[0].type == BattleDamageEventType::DamageApplied);
+    CHECK(result.events[0].sourceUnitId == 1);
+    CHECK(result.events[0].targetUnitId == 2);
+    CHECK(result.events[0].value == 92);
+}
+
+TEST_CASE("傷害交易_護盾先吸收生命傷害", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.baseDamage = 80;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.shield = 50;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.shieldAbsorbed == 50);
+    CHECK(result.finalHpDamage == 30);
+    CHECK(result.defender.hp == 70);
+    CHECK(result.defender.shield == 0);
+    CHECK(result.defenderDelta.shieldDelta == -50);
+    REQUIRE(result.events.size() == 2);
+    CHECK(result.events[0].type == BattleDamageEventType::ShieldAbsorbed);
+    CHECK(result.events[0].value == 50);
+    CHECK(result.events[1].type == BattleDamageEventType::DamageApplied);
+    CHECK(result.events[1].value == 30);
+}
+
+TEST_CASE("傷害交易_無敵阻擋一般傷害但不阻擋處決", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput blockedInput;
+    blockedInput.request.attackerUnitId = 1;
+    blockedInput.request.defenderUnitId = 2;
+    blockedInput.request.baseDamage = 80;
+    blockedInput.attacker = unit();
+    blockedInput.attacker.id = 1;
+    blockedInput.defender = unit();
+    blockedInput.defender.id = 2;
+    blockedInput.defender.invincible = 10;
+
+    auto blocked = BattleDamageSystem().resolveTransaction(blockedInput);
+
+    CHECK(blocked.finalHpDamage == 0);
+    CHECK(blocked.defender.hp == 100);
+    REQUIRE(blocked.events.size() == 1);
+    CHECK(blocked.events[0].type == BattleDamageEventType::BlockedByInvincible);
+
+    auto executedInput = blockedInput;
+    executedInput.defender.hp = 35;
+    executedInput.request.canExecute = true;
+    executedInput.request.executeThresholdPct = 20;
+
+    auto executed = BattleDamageSystem().resolveTransaction(executedInput);
+
+    CHECK(executed.executed);
+    CHECK(executed.defender.alive == false);
+    CHECK(executed.defender.hp == 0);
+    CHECK(executed.finalHpDamage == 35);
+    REQUIRE(executed.events.size() == 3);
+    CHECK(executed.events[0].type == BattleDamageEventType::ExecuteTriggered);
+    CHECK(executed.events[1].type == BattleDamageEventType::DamageApplied);
+    CHECK(executed.events[2].type == BattleDamageEventType::UnitDied);
+}
+
+TEST_CASE("傷害交易_死亡保護與擊殺獎勵由同一交易輸出", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput protectedInput;
+    protectedInput.request.attackerUnitId = 1;
+    protectedInput.request.defenderUnitId = 2;
+    protectedInput.request.baseDamage = 50;
+    protectedInput.attacker = unit();
+    protectedInput.attacker.id = 1;
+    protectedInput.defender = unit();
+    protectedInput.defender.id = 2;
+    protectedInput.defender.hp = 20;
+    protectedInput.defender.deathPrevention = true;
+    protectedInput.defender.deathPreventionFrames = 30;
+
+    auto protectedResult = BattleDamageSystem().resolveTransaction(protectedInput);
+
+    CHECK(protectedResult.defender.hp == 1);
+    CHECK(protectedResult.defender.alive);
+    CHECK(protectedResult.defender.deathPreventionUsed);
+    CHECK(protectedResult.defender.invincible == 30);
+    CHECK(protectedResult.defenderDelta.hpDelta == -19);
+    REQUIRE(protectedResult.events.size() == 2);
+    CHECK(protectedResult.events[0].type == BattleDamageEventType::DamageApplied);
+    CHECK(protectedResult.events[1].type == BattleDamageEventType::DeathPrevented);
+
+    BattleDamageTransactionInput killInput;
+    killInput.request.attackerUnitId = 1;
+    killInput.request.defenderUnitId = 2;
+    killInput.request.baseDamage = 50;
+    killInput.attacker = unit();
+    killInput.attacker.id = 1;
+    killInput.attacker.hp = 120;
+    killInput.attacker.killHealPct = 50;
+    killInput.attacker.killInvincFrames = 12;
+    killInput.attacker.bloodlustAttackPerKill = 7;
+    killInput.defender = unit();
+    killInput.defender.id = 2;
+    killInput.defender.hp = 40;
+
+    auto kill = BattleDamageSystem().resolveTransaction(killInput);
+
+    CHECK_FALSE(kill.defender.alive);
+    CHECK(kill.attacker.hp == 200);
+    CHECK(kill.attacker.invincible == 12);
+    CHECK(kill.attacker.attack == 57);
+    CHECK(kill.attackerDelta.hpDelta == 80);
+    CHECK(kill.attackerDelta.invincibleDelta == 12);
+    CHECK(kill.attackerDelta.attackDelta == 7);
+    REQUIRE(kill.events.size() == 3);
+    CHECK(kill.events[0].type == BattleDamageEventType::DamageApplied);
+    CHECK(kill.events[1].type == BattleDamageEventType::UnitDied);
+    CHECK(kill.events[2].type == BattleDamageEventType::KillRewardApplied);
+}
+
+TEST_CASE("傷害交易_魔力傷害不觸發生命傷害防禦層", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.mpDamage = 35;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.mp = 20;
+    input.defender.maxMp = 100;
+    input.defender.invincible = 10;
+    input.defender.shield = 50;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.finalHpDamage == 0);
+    CHECK(result.finalMpDamage == 20);
+    CHECK(result.defender.hp == 100);
+    CHECK(result.defender.mp == 0);
+    CHECK(result.defender.shield == 50);
+    CHECK(result.defenderDelta.mpDelta == -20);
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events[0].type == BattleDamageEventType::MpDamageApplied);
+    CHECK(result.events[0].value == 20);
+}

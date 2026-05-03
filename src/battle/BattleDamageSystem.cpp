@@ -6,6 +6,171 @@
 namespace KysChess::Battle
 {
 
+namespace
+{
+
+BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const BattleDamageUnitState& after)
+{
+    BattleUnitDelta delta;
+    delta.unitId = after.id;
+    delta.hpDelta = after.hp - before.hp;
+    delta.mpDelta = after.mp - before.mp;
+    delta.shieldDelta = after.shield - before.shield;
+    delta.invincibleDelta = after.invincible - before.invincible;
+    delta.attackDelta = after.attack - before.attack;
+    delta.aliveChanged = before.alive != after.alive;
+    delta.alive = after.alive;
+    return delta;
+}
+
+void recordBattleDamageEvent(std::vector<BattleDamageEvent>& events,
+                             BattleDamageEventType type,
+                             int sourceUnitId,
+                             int targetUnitId,
+                             int value)
+{
+    events.push_back({ type, sourceUnitId, targetUnitId, value });
+}
+
+}  // namespace
+
+BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const BattleDamageTransactionInput& input) const
+{
+    assert(input.request.attackerUnitId == input.attacker.id);
+    assert(input.request.defenderUnitId == input.defender.id);
+    assert(input.request.baseDamage >= 0.0 && input.request.mpDamage >= 0);
+
+    BattleDamageTransactionResult result;
+    result.attacker = input.attacker;
+    result.defender = input.defender;
+
+    if (input.request.baseDamage > 0.0)
+    {
+        auto modified = applyModifiers({
+            input.request.baseDamage,
+            input.request.usingSkill,
+            input.request.ignoreDefense,
+            input.attackerModifiers,
+            input.defenderModifiers,
+            result.defender,
+        });
+
+        result.executed = input.request.canExecute
+            && shouldExecute({
+                result.defender.hp,
+                result.defender.maxHp,
+                modified.damage,
+                true,
+                input.request.executeThresholdPct,
+            });
+        if (result.executed)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::ExecuteTriggered,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    input.request.executeThresholdPct);
+        }
+
+        auto defense = resolveDefense({
+            modified.damage,
+            result.executed,
+            input.request.reflected,
+            result.defender.invincible > 0,
+            result.defender,
+        });
+        result.defender = defense.defender;
+        result.shieldAbsorbed = defense.shieldAbsorbed;
+        result.blockedByInvincible = defense.blockedByInvincible;
+
+        if (defense.shieldAbsorbed > 0)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::ShieldAbsorbed,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    defense.shieldAbsorbed);
+        }
+        if (defense.blockedByInvincible)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::BlockedByInvincible,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    0);
+        }
+
+        int hpBeforeDamage = result.defender.hp;
+        int hpDamage = static_cast<int>(defense.damage);
+        if (result.executed)
+        {
+            hpDamage = std::max(hpDamage, result.defender.hp);
+        }
+
+        auto taken = applyDamageTaken(result.defender, hpDamage);
+        result.defender = taken.defender;
+        result.finalHpDamage = std::max(0, hpBeforeDamage - result.defender.hp);
+        result.deathPrevented = taken.deathPrevented;
+        result.killed = taken.died;
+
+        if (result.finalHpDamage > 0)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::DamageApplied,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    result.finalHpDamage);
+        }
+        if (taken.deathPrevented)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::DeathPrevented,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    taken.invincibilityGranted);
+        }
+        if (taken.died)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::UnitDied,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    0);
+
+            auto reward = applyKillReward({ result.attacker });
+            result.attacker = reward.killer;
+            if (reward.healed > 0 || reward.invincibilityGranted > 0 || reward.attackGranted > 0)
+            {
+                recordBattleDamageEvent(result.events,
+                                        BattleDamageEventType::KillRewardApplied,
+                                        input.request.attackerUnitId,
+                                        input.request.attackerUnitId,
+                                        reward.healed);
+            }
+        }
+    }
+
+    if (input.request.mpDamage > 0)
+    {
+        int mpBefore = result.defender.mp;
+        int mpDamage = std::min(input.request.mpDamage, std::max(0, result.defender.mp));
+        result.defender.mp -= mpDamage;
+        result.finalMpDamage = mpBefore - result.defender.mp;
+        if (result.finalMpDamage > 0)
+        {
+            recordBattleDamageEvent(result.events,
+                                    BattleDamageEventType::MpDamageApplied,
+                                    input.request.attackerUnitId,
+                                    input.request.defenderUnitId,
+                                    result.finalMpDamage);
+        }
+    }
+
+    result.attackerDelta = makeBattleUnitDelta(input.attacker, result.attacker);
+    result.defenderDelta = makeBattleUnitDelta(input.defender, result.defender);
+    return result;
+}
+
 BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamageModifierInput& input) const
 {
     double damage = input.damage;
