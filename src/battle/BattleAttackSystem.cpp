@@ -1,5 +1,7 @@
 #include "BattleAttackSystem.h"
 
+#include "BattleMath.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -15,33 +17,6 @@ struct PendingBounce
     int sourceAttackId = -1;
     int targetUnitId = -1;
 };
-
-double distance(const Pointf& lhs, const Pointf& rhs)
-{
-    const double dx = static_cast<double>(lhs.x) - rhs.x;
-    const double dy = static_cast<double>(lhs.y) - rhs.y;
-    return std::sqrt(dx * dx + dy * dy);
-}
-
-double norm(const Pointf& point)
-{
-    return std::sqrt(static_cast<double>(point.x) * point.x
-        + static_cast<double>(point.y) * point.y
-        + static_cast<double>(point.z) * point.z);
-}
-
-Pointf normalizedTo(Pointf point, double length)
-{
-    const double current = norm(point);
-    if (current <= 0.0001)
-    {
-        return {};
-    }
-    point.x = static_cast<float>(point.x * length / current);
-    point.y = static_cast<float>(point.y * length / current);
-    point.z = static_cast<float>(point.z * length / current);
-    return point;
-}
 }  // namespace
 
 BattleAttackEvent BattleAttackSystem::spawn(
@@ -49,6 +24,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     const BattleAttackSpawnRequest& request) const
 {
     assert(request.attackerUnitId >= 0);
+    assert(request.initialFrame >= 0);
     assert(request.totalFrame > 0);
     assert(request.bounceRemaining >= 0);
     assert(request.bounceRange >= 0);
@@ -62,6 +38,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     attack.operationKind = request.operationType;
     attack.visualEffectId = request.visualEffectId;
     attack.preferredTargetUnitId = request.preferredTargetUnitId;
+    attack.frame = request.initialFrame;
     attack.position = request.position;
     attack.velocity = request.velocity;
     attack.totalFrame = request.totalFrame;
@@ -76,6 +53,8 @@ BattleAttackEvent BattleAttackSystem::spawn(
     attack.bounceChancePct = request.bounceChancePct;
     attack.bounceRollPct = request.bounceRollPct;
     attack.ultimate = request.ultimate;
+    attack.castSubrequestKind = request.castSubrequestKind;
+    attack.strengthMultiplier = request.strengthMultiplier;
     world.attacks.push_back(attack);
 
     BattleAttackEvent event;
@@ -241,7 +220,7 @@ const BattleAttackUnit* BattleAttackSystem::selectTarget(
         {
             continue;
         }
-        const double candidateDistance = distance(unit.position, attack.position);
+        const double candidateDistance = pointDistance(unit.position, attack.position);
         if (!best || candidateDistance < bestDistance)
         {
             best = &unit;
@@ -311,7 +290,7 @@ void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
 
 void BattleAttackSystem::trackTarget(BattleAttackInstance& attack, const BattleAttackUnit& target) const
 {
-    const double speed = norm(attack.velocity);
+    const double speed = pointNorm(attack.velocity);
     if (speed <= 0.0001)
     {
         return;
@@ -346,7 +325,7 @@ bool BattleAttackSystem::canHit(
         return false;
     }
 
-    return distance(target.position, attack.position) <= world.hitRadius;
+    return pointDistance(target.position, attack.position) <= world.hitRadius;
 }
 
 const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
@@ -376,7 +355,7 @@ const BattleAttackUnit* BattleAttackSystem::selectBounceTarget(
             continue;
         }
 
-        const double candidateDistance = distance(hitTarget.position, unit.position);
+        const double candidateDistance = pointDistance(hitTarget.position, unit.position);
         if (candidateDistance > bestDistance)
         {
             continue;
@@ -411,18 +390,18 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
     bounce.frame = 0;
     bounce.bounceRemaining = std::max(0, source.bounceRemaining - 1);
 
-    double speed = norm(source.velocity);
+    double speed = pointNorm(source.velocity);
     if (speed <= 0.0001)
     {
         speed = world.defaultProjectileSpeed;
     }
 
     auto direction = normalizedTo(nextTarget.position - hitTarget.position, 1.0);
-    if (norm(direction) <= 0.0001)
+    if (pointNorm(direction) <= 0.0001)
     {
         direction = normalizedTo(nextTarget.position - source.position, 1.0);
     }
-    if (norm(direction) <= 0.0001)
+    if (pointNorm(direction) <= 0.0001)
     {
         direction = { 1.0f, 0.0f, 0.0f };
     }
@@ -434,13 +413,13 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
         direction.z * spawnDistance,
     };
     bounce.velocity = normalizedTo(nextTarget.position - bounce.position, speed);
-    if (norm(bounce.velocity) <= 0.0001)
+    if (pointNorm(bounce.velocity) <= 0.0001)
     {
         bounce.velocity = normalizedTo(direction, speed);
     }
     bounce.totalFrame = std::max(
         world.minimumBounceTotalFrame,
-        static_cast<int>(std::ceil(distance(nextTarget.position, bounce.position) / speed)) + 20);
+        static_cast<int>(std::ceil(pointDistance(nextTarget.position, bounce.position) / speed)) + 20);
     return bounce;
 }
 
@@ -477,7 +456,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             {
                 continue;
             }
-            if (distance(lhs.position, rhs.position) < world.hitRadius)
+            if (pointDistance(lhs.position, rhs.position) < world.hitRadius)
             {
                 events.push_back({ BattleAttackEventType::ProjectileCancel, lhs.id, rhs.id });
             }

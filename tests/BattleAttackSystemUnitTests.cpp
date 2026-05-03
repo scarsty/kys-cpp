@@ -1,5 +1,6 @@
 #include "battle/BattleAttackSystem.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace KysChess::Battle;
@@ -107,6 +108,22 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.bounceRollPct == 30);
     CHECK(attack.executeCanHitInvincible);
     CHECK(attack.ignoreProjectileCancel);
+}
+
+TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][attack][unit]")
+{
+    BattleAttackWorld world;
+    BattleAttackSpawnRequest request = spawnRequest();
+    request.initialFrame = 6;
+    request.castSubrequestKind = BattleAttackCastSubrequestKind::DashHit;
+    request.strengthMultiplier = 2.0f;
+
+    BattleAttackSystem().spawn(world, request);
+
+    REQUIRE(world.attacks.size() == 1);
+    CHECK(world.attacks[0].frame == 6);
+    CHECK(world.attacks[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
+    CHECK(world.attacks[0].strengthMultiplier == Catch::Approx(2.0f));
 }
 
 TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][attack][unit]")

@@ -99,6 +99,9 @@ void checkSpawnRequestEquals(const BattleAttackSpawnRequest& lhs, const BattleAt
     CHECK(lhs.bounceChancePct == rhs.bounceChancePct);
     CHECK(lhs.bounceRollPct == rhs.bounceRollPct);
     CHECK(lhs.ultimate == rhs.ultimate);
+    CHECK(lhs.initialFrame == rhs.initialFrame);
+    CHECK(lhs.castSubrequestKind == rhs.castSubrequestKind);
+    CHECK(lhs.strengthMultiplier == Catch::Approx(rhs.strengthMultiplier));
 }
 
 void checkGameplayEventEquals(const BattleGameplayEvent& lhs, const BattleGameplayEvent& rhs)
@@ -357,6 +360,56 @@ TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][
     CHECK(request.totalFrame == 10);
     CHECK_FALSE(request.track);
     CHECK_FALSE(request.through);
+    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(request.initialFrame == 0);
+    CHECK(request.strengthMultiplier == Catch::Approx(1.0f));
+}
+
+TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesLegacyTrackingProjectileShape", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.operationCount = 2;
+    input.normalSkill = skill(112, 0, 137.5);
+    input.normalSkill.selectDistance = 6;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.operationType == 0);
+    REQUIRE(result.attackSpawnRequests.size() == 1);
+    const auto& request = result.attackSpawnRequests[0];
+    CHECK(request.totalFrame == 30);
+    CHECK(request.track);
+    CHECK(request.velocity.x == Catch::Approx(3.0f));
+    CHECK(request.velocity.y == Catch::Approx(0.0f));
+    CHECK(request.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+}
+
+TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectiles", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.mp = input.unit.maxMp;
+    input.ultimateSkill = skill(113, 0, 137.5);
+    input.ultimateSkill.selectDistance = 6;
+    input.ultimateSkill.meleeSplashCount = 1;
+    input.ultimateSkill.extraProjectileCount = 2;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.operationType == 0);
+    REQUIRE(result.attackSpawnRequests.size() == 4);
+    CHECK(result.attackSpawnRequests[0].strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(result.attackSpawnRequests[0].track);
+    CHECK(result.attackSpawnRequests[0].totalFrame == 30);
+
+    CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::MeleeSplash);
+    CHECK(result.attackSpawnRequests[1].strengthMultiplier == Catch::Approx(0.5f));
+    CHECK(result.attackSpawnRequests[1].track);
+    CHECK(result.attackSpawnRequests[1].totalFrame == 60);
+    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(3.0f));
+
+    CHECK(result.attackSpawnRequests[2].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[3].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
 }
 
 TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battle][cast]")
@@ -383,6 +436,8 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     auto input = basicInput();
     input.unit.dashAttackEnabled = true;
     input.unit.dashAttackReach = 350.0;
+    input.unit.dashVelocity = { 4.0f, 0.0f, 0.0f };
+    input.unit.dashHitCount = 3;
     input.normalSkill = skill(111, 3, 400.0);
     input.targetDistance = 220.0;
 
@@ -390,12 +445,45 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
 
     REQUIRE(result.decision.operationType == 3);
     CHECK(result.animation.recoveryFrames == 5);
-    REQUIRE(result.attackSpawnRequests.size() == 1);
-    const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.position.x == Catch::Approx(110.0f));
-    CHECK(request.totalFrame == 30);
-    CHECK_FALSE(request.track);
-    CHECK_FALSE(request.through);
+    REQUIRE(result.attackSpawnRequests.size() == 3);
+
+    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(102.0f));
+    CHECK(result.attackSpawnRequests[0].initialFrame == 3);
+    CHECK(result.attackSpawnRequests[0].velocity.x == Catch::Approx(4.0f));
+    CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
+
+    CHECK(result.attackSpawnRequests[1].position.x == Catch::Approx(110.0f));
+    CHECK(result.attackSpawnRequests[1].initialFrame == 6);
+
+    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(118.0f));
+    CHECK(result.attackSpawnRequests[2].initialFrame == 9);
+    CHECK(result.attackSpawnRequests[2].totalFrame == 30);
+    CHECK_FALSE(result.attackSpawnRequests[2].track);
+    CHECK_FALSE(result.attackSpawnRequests[2].through);
+}
+
+TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.dashAttackEnabled = true;
+    input.unit.dashAttackReach = 350.0;
+    input.unit.dashVelocity = { 4.0f, 0.0f, 0.0f };
+    input.unit.dashHitCount = 1;
+    input.unit.emitDashFollowUpSkillAttack = true;
+    input.unit.dashFollowUpOperationType = 2;
+    input.normalSkill = skill(114, 3, 400.0);
+    input.normalSkill.selectDistance = 4;
+    input.targetDistance = 220.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.operationType == 3);
+    REQUIRE(result.attackSpawnRequests.size() == 2);
+    CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
+    CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::DashFollowUpSkill);
+    CHECK(result.attackSpawnRequests[1].operationType == 2);
+    CHECK(result.attackSpawnRequests[1].totalFrame == 25);
+    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(16.0f));
 }
 
 TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[battle][cast]")

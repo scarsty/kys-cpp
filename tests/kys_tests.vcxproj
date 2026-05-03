@@ -149,6 +149,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClInclude Include="..\src\battle\BattleDeathEffectSystem.h" />
     <ClInclude Include="..\src\battle\BattleEffectSystem.h" />
     <ClInclude Include="..\src\battle\BattleGeometry.h" />
+    <ClInclude Include="..\src\battle\BattleMath.h" />
     <ClInclude Include="..\src\battle\BattleMovement.h" />
     <ClInclude Include="..\src\battle\BattlePresentation.h" />
     <ClInclude Include="..\src\battle\BattlePresentationPlayback.h" />

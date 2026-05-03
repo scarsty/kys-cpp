@@ -1,10 +1,11 @@
 #include "BattleCastSystem.h"
 
+#include "BattleMath.h"
 #include "BattleCombatIntent.h"
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
+#include <vector>
 
 namespace KysChess::Battle
 {
@@ -29,34 +30,14 @@ BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
     return combatSkill;
 }
 
-double norm(const Pointf& point)
-{
-    return std::sqrt(static_cast<double>(point.x) * point.x
-        + static_cast<double>(point.y) * point.y
-        + static_cast<double>(point.z) * point.z);
-}
-
-Pointf normalizedTo(Pointf point, double length)
-{
-    const double current = norm(point);
-    if (current <= 0.0001)
-    {
-        return {};
-    }
-    point.x = static_cast<float>(point.x * length / current);
-    point.y = static_cast<float>(point.y * length / current);
-    point.z = static_cast<float>(point.z * length / current);
-    return point;
-}
-
 Pointf castFacing(const BattleCastInput& input)
 {
     auto facing = input.targetPosition - input.unit.position;
-    if (norm(facing) <= 0.0001)
+    if (pointNorm(facing) <= 0.0001)
     {
         facing = input.unit.facing;
     }
-    if (norm(facing) <= 0.0001)
+    if (pointNorm(facing) <= 0.0001)
     {
         facing = { 1.0f, 0.0f, 0.0f };
     }
@@ -107,43 +88,63 @@ int projectileFramesForSelectDistance(int selectDistance)
     return (reach - spawnOffset) / ProjectileSpeed;
 }
 
+double projectileSpeedForSkill(const BattleCastSkillState& skill)
+{
+    assert(skill.projectileSpeedMultiplierPct > 0);
+    return ProjectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
+}
+
+double strengthenedMeleeSpeed(const BattleCastSkillState& skill)
+{
+    assert(skill.selectDistance > 0);
+    assert(skill.projectileSpeedMultiplierPct > 0);
+    return skill.selectDistance / 2.0 * skill.projectileSpeedMultiplierPct / 100.0;
+}
+
 BattlePresentationColor ultimateTextColor()
 {
     return { 255, 215, 0, 255 };
 }
 
-BattleAttackSpawnRequest makeAttackSpawnRequest(
-    const BattleCastResult& result,
-    const BattleCastInput& input,
-    const BattleCastSkillState& selectedSkill)
+BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
+                                         const BattleCastInput& input,
+                                         const BattleCastSkillState& selectedSkill,
+                                         int operationType,
+                                         BattleAttackCastSubrequestKind kind)
 {
     auto facing = castFacing(input);
 
     BattleAttackSpawnRequest request;
     request.attackerUnitId = input.unit.id;
     request.skillId = selectedSkill.id;
-    request.operationType = result.decision.operationType;
+    request.operationType = operationType;
     request.visualEffectId = selectedSkill.visualEffectId;
     request.preferredTargetUnitId = input.targetUnitId;
-    request.position = input.unit.position + Pointf{
-        static_cast<float>(facing.x * MeleeAttackEffectOffset),
-        static_cast<float>(facing.y * MeleeAttackEffectOffset),
-        static_cast<float>(facing.z * MeleeAttackEffectOffset),
-    };
+    request.position = input.unit.position + scaled(facing, MeleeAttackEffectOffset);
     request.ultimate = result.decision.ultimate;
+    request.castSubrequestKind = kind;
+    return request;
+}
 
-    switch (result.decision.operationType)
+void applyOperationShape(BattleAttackSpawnRequest& request,
+                         int operationType,
+                         const BattleCastSkillState& selectedSkill,
+                         Pointf facing)
+{
+    assert(operationType >= 0 && operationType <= 3);
+
+    switch (operationType)
     {
     case 0:
         request.totalFrame = 10;
         break;
     case 1:
-        request.velocity = normalizedTo(facing, ProjectileSpeed);
+        request.velocity = normalizedTo(facing, projectileSpeedForSkill(selectedSkill));
         request.totalFrame = 120;
         request.track = true;
         break;
     case 2:
-        request.velocity = normalizedTo(facing, ProjectileSpeed);
+        request.velocity = normalizedTo(facing, projectileSpeedForSkill(selectedSkill));
         request.totalFrame = projectileFramesForSelectDistance(selectedSkill.selectDistance);
         request.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
         break;
@@ -154,7 +155,125 @@ BattleAttackSpawnRequest makeAttackSpawnRequest(
         assert(false);
         break;
     }
+}
+
+bool isStrengthenedMelee(const BattleCastResult& result,
+                         const BattleCastInput& input,
+                         const BattleCastSkillState& selectedSkill)
+{
+    return result.decision.ultimate || input.unit.operationCount >= 2 || selectedSkill.strengthenedMelee;
+}
+
+BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
+                                              const BattleCastInput& input,
+                                              const BattleCastSkillState& selectedSkill,
+                                              int operationType,
+                                              BattleAttackCastSubrequestKind kind)
+{
+    auto request = makeBaseRequest(result, input, selectedSkill, operationType, kind);
+    applyOperationShape(request, operationType, selectedSkill, castFacing(input));
     return request;
+}
+
+std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    auto facing = castFacing(input);
+    std::vector<BattleAttackSpawnRequest> requests;
+    auto main = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::SkillHit);
+    if (isStrengthenedMelee(result, input, selectedSkill))
+    {
+        main.totalFrame = 30;
+        main.track = true;
+        main.velocity = normalizedTo(facing, strengthenedMeleeSpeed(selectedSkill));
+        main.strengthMultiplier = 2.0f;
+    }
+    else
+    {
+        main.totalFrame = 10;
+    }
+    requests.push_back(main);
+
+    assert(selectedSkill.meleeSplashCount >= 0);
+    for (int i = 0; i < selectedSkill.meleeSplashCount; ++i)
+    {
+        auto splash = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::MeleeSplash);
+        splash.totalFrame = 60;
+        splash.track = true;
+        splash.velocity = normalizedTo(facing, 3.0);
+        splash.strengthMultiplier = 0.5f;
+        requests.push_back(splash);
+    }
+
+    assert(selectedSkill.extraProjectileCount >= 0);
+    for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
+    {
+        auto extra = main;
+        extra.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
+        requests.push_back(extra);
+    }
+    return requests;
+}
+
+std::vector<BattleAttackSpawnRequest> makeDashRequests(
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    assert(input.unit.dashHitCount > 0);
+
+    std::vector<BattleAttackSpawnRequest> requests;
+    auto base = makeBaseRequest(result, input, selectedSkill, 3, BattleAttackCastSubrequestKind::DashHit);
+    for (int i = 0; i < input.unit.dashHitCount; ++i)
+    {
+        auto hit = base;
+        hit.position = base.position + scaled(input.unit.dashVelocity, (i - 1) * 2.0);
+        hit.velocity = input.unit.dashVelocity;
+        hit.initialFrame = (i + 1) * 3;
+        hit.totalFrame = 30;
+        requests.push_back(hit);
+    }
+
+    if (input.unit.emitDashFollowUpSkillAttack)
+    {
+        assert(input.unit.dashFollowUpOperationType >= 0 && input.unit.dashFollowUpOperationType <= 2);
+        requests.push_back(makeOperationRequest(
+            result,
+            input,
+            selectedSkill,
+            input.unit.dashFollowUpOperationType,
+            BattleAttackCastSubrequestKind::DashFollowUpSkill));
+    }
+    return requests;
+}
+
+std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    switch (result.decision.operationType)
+    {
+    case 0:
+        return makeMeleeRequests(result, input, selectedSkill);
+    case 1:
+    case 2:
+        return {
+            makeOperationRequest(
+                result,
+                input,
+                selectedSkill,
+                result.decision.operationType,
+                BattleAttackCastSubrequestKind::SkillHit),
+        };
+    case 3:
+        return makeDashRequests(result, input, selectedSkill);
+    default:
+        assert(false);
+        return {};
+    }
 }
 
 }  // namespace
@@ -256,7 +375,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     result.cooldownDelta = result.animation.cooldownFrames;
     result.mpDelta = mpDeltaForCast(input, result.decision.ultimate);
 
-    result.attackSpawnRequests.push_back(makeAttackSpawnRequest(result, input, selectedSkill));
+    result.attackSpawnRequests = makeAttackSpawnRequests(result, input, selectedSkill);
 
     BattleGameplayEvent gameplayEvent;
     gameplayEvent.type = BattleGameplayEventType::CastStarted;

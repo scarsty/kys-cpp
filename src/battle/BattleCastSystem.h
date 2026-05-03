@@ -25,11 +25,16 @@ struct BattleCastUnitState
     int actProperty = 0;
     int speed = 0;
     int cooldownReductionPct = 0;
+    int operationCount = 0;
     double meleeAttackReach = 0.0;
     double dashAttackReach = 0.0;
     bool hasEquippedSkill = false;
     bool movementDashActive = false;
     bool dashAttackEnabled = false;
+    Pointf dashVelocity;
+    int dashHitCount = 1;
+    bool emitDashFollowUpSkillAttack = false;
+    int dashFollowUpOperationType = -1;
 };
 
 struct BattleCastSkillState
@@ -40,6 +45,10 @@ struct BattleCastSkillState
     int magicType = -1;
     int visualEffectId = -1;
     int selectDistance = 1;
+    int projectileSpeedMultiplierPct = 100;
+    int meleeSplashCount = 0;
+    int extraProjectileCount = 0;
+    bool strengthenedMelee = false;
     double reach = 0.0;
     bool forceRanged = false;
     bool rangedStyle = false;
