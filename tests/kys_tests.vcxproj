@@ -112,6 +112,7 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BattleAttackSystemUnitTests.cpp" />
+    <ClCompile Include="BattleCastSystemUnitTests.cpp" />
     <ClCompile Include="BattleComboTriggerSystemUnitTests.cpp" />
     <ClCompile Include="BattleCoreUnitTests.cpp" />
     <ClCompile Include="BattleDamageSystemUnitTests.cpp" />
@@ -136,9 +137,11 @@ for /f "delims=" %%d in ('dir /b /ad "$(UniversalCRTSdkDir)bin"') do if exist "$
     <ClCompile Include="..\src\battle\BattleStatusSystem.cpp" />
     <ClCompile Include="..\src\battle\BattleTeamEffectSystem.cpp" />
     <ClCompile Include="..\src\battle\BattleAttackSystem.cpp" />
+    <ClCompile Include="..\src\battle\BattleCastSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\battle\BattleAttackSystem.h" />
+    <ClInclude Include="..\src\battle\BattleCastSystem.h" />
     <ClInclude Include="..\src\battle\BattleCore.h" />
     <ClInclude Include="..\src\battle\BattleCombatIntent.h" />
     <ClInclude Include="..\src\battle\BattleComboTriggerSystem.h" />

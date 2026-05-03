@@ -20,6 +20,7 @@ set(LINK_LIBRARIES SDL3 SDL3_ttf SDL3_image SDL3_mixer lua5.4 opencc sqlite3 yam
 
 add_library(kys_battle_core
     battle/BattleAttackSystem.cpp
+    battle/BattleCastSystem.cpp
     battle/BattleComboTriggerSystem.cpp
     battle/BattleCore.cpp
     battle/BattleCombatIntent.cpp
@@ -41,6 +42,7 @@ target_link_libraries(kys imgui::imgui kys_battle_core ${LINK_LIBRARIES})
 
 add_executable(kys_tests
     ../tests/BattleAttackSystemUnitTests.cpp
+    ../tests/BattleCastSystemUnitTests.cpp
     ../tests/BattleComboTriggerSystemUnitTests.cpp
     ../tests/BattleCoreUnitTests.cpp
     ../tests/BattleDamageSystemUnitTests.cpp

@@ -159,6 +159,7 @@
     <ClCompile Include="BattleNetwork.cpp" />
     <ClCompile Include="BattleRoleManager.cpp" />
     <ClCompile Include="battle\BattleAttackSystem.cpp" />
+    <ClCompile Include="battle\BattleCastSystem.cpp" />
     <ClCompile Include="battle\BattleComboTriggerSystem.cpp" />
     <ClCompile Include="battle\BattleCore.cpp" />
     <ClCompile Include="battle\BattleCombatIntent.cpp" />
@@ -299,6 +300,7 @@
     <ClInclude Include="BattleNetwork.h" />
     <ClInclude Include="BattleRoleManager.h" />
     <ClInclude Include="battle\BattleAttackSystem.h" />
+    <ClInclude Include="battle\BattleCastSystem.h" />
     <ClInclude Include="battle\BattleComboTriggerSystem.h" />
     <ClInclude Include="battle\BattleCore.h" />
     <ClInclude Include="battle\BattleCombatIntent.h" />
