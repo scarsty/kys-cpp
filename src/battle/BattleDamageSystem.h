@@ -2,6 +2,7 @@
 
 #include "BattleOperation.h"
 #include "BattleStatusSystem.h"
+#include "../Point.h"
 
 #include <vector>
 
@@ -71,6 +72,31 @@ struct BattleMagicBaseDamageInput
     int magicPower = 0;
     double defenderDefense = 0.0;
     int randomVariance = 0;
+};
+
+struct BattleLegacyHitShapeInput
+{
+    double baseDamage = 0.0;
+    int projectileCancelDamage = 0;
+    double strengthMultiplier = 1.0;
+    int frame = 0;
+    int totalFrame = 1;
+    Pointf impactPosition;
+    Pointf defenderPosition;
+    Pointf defenderFacing;
+    BattleOperationType operationType = BattleOperationType::None;
+    bool usingSkill = false;
+    int attackerActProperty = 0;
+    int defenderActProperty = 0;
+};
+
+struct BattleLegacyHitShapeResult
+{
+    double damage = 0.0;
+    int frozenFrames = 0;
+    double knockbackStrength = 0.0;
+    double knockbackVelocityCap = 0.0;
+    bool grantsHurtFrame = false;
 };
 
 struct BattleDamageDefenseInput
@@ -312,6 +338,7 @@ public:
     BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
     BattleStatusApplyResult applyDamageReduceDebuff(BattleStatusUnitState target, int durationFrames, int pct) const;
     int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
+    BattleLegacyHitShapeResult shapeLegacyHitDamage(const BattleLegacyHitShapeInput& input) const;
 };
 
 }  // namespace KysChess::Battle

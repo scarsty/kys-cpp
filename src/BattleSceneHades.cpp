@@ -5472,50 +5472,40 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
     {
         hurt = resolveLegacyMagicBaseDamage(attacker, r, usingMagic);
     }
-    hurt -= event.projectileCancelDamage;                             //弱化
-    hurt *= event.strengthMultiplier;                         //强化
-    hurt *= 1 - 0.3 * event.frame / event.totalFrame;    //距离衰减
-    //角度
-    auto atk_dir = event.position - r->Pos;
-    auto angle = acos((atk_dir.x * r->RealTowards.x + atk_dir.y * r->RealTowards.y) / atk_dir.norm() / r->RealTowards.norm());
-    if (angle >= M_PI * 0.25 && angle < M_PI * 0.75)
+    KysChess::Battle::BattleLegacyHitShapeInput hitShapeInput;
+    hitShapeInput.baseDamage = hurt;
+    hitShapeInput.projectileCancelDamage = event.projectileCancelDamage;
+    hitShapeInput.strengthMultiplier = event.strengthMultiplier;
+    hitShapeInput.frame = event.frame;
+    hitShapeInput.totalFrame = event.totalFrame;
+    hitShapeInput.impactPosition = event.position;
+    hitShapeInput.defenderPosition = r->Pos;
+    hitShapeInput.defenderFacing = r->RealTowards;
+    hitShapeInput.operationType = KysChess::Battle::battleOperationFromLegacy(operationType);
+    hitShapeInput.usingSkill = usingMagic != nullptr;
+    if (usingMagic)
     {
-        hurt *= 1.2;
+        const int actType = usingMagic->MagicType;
+        hitShapeInput.attackerActProperty = attacker->getActProperty(actType);
+        hitShapeInput.defenderActProperty = r->getActProperty(actType);
     }
-    else if (angle >= M_PI * 0.75)
+    const auto hitShape = KysChess::Battle::BattleDamageSystem().shapeLegacyHitDamage(hitShapeInput);
+    hurt = hitShape.damage;
+    if (hitShape.frozenFrames > 0)
     {
-        hurt *= 1.5;
-    }
-    //操作类型的傷害效果
-    hurt *= KysChess::Battle::projectileOperationDamageMultiplier(
-        KysChess::Battle::battleOperationFromLegacy(operationType));
-    if (operationType == 3)
-    {
-        hurt /= 1.5;
         KysChess::Battle::BattleDamageRequest request;
-        request.frozenFrames = 5;
+        request.frozenFrames = hitShape.frozenFrames;
         applyAcceptedHitSideEffectTransaction(attacker, r, request);
     }
     //擊退
     auto v = r->Pos - attacker->Pos;
-    double pushStr = (operationType == 2) ? 0.5 : 2.0;
-    v.normTo(pushStr);
+    v.normTo(hitShape.knockbackStrength);
     r->Velocity += v;
-    double pushCap = (operationType == 2) ? 1.5 : 3.0;
-    if (r->Velocity.norm() > pushCap)
+    if (r->Velocity.norm() > hitShape.knockbackVelocityCap)
     {
-        r->Velocity.normTo(pushCap);
+        r->Velocity.normTo(hitShape.knockbackVelocityCap);
     }
-    r->HurtFrame = 1;    //相当于无敌时间
-
-    //武功类型特殊效果
-    if (usingMagic)
-    {
-        // 简化
-        int actType = usingMagic->MagicType;
-        int actDiff = attacker->getActProperty(actType) - r->getActProperty(actType);
-        hurt *= 1 + std::clamp((actDiff / 200.0), -0.25, 0.25);
-    }
+    if (hitShape.grantsHurtFrame) { r->HurtFrame = 1; }
 
     if (usingMagic && attacker->MaxMP > 0)
     {

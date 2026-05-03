@@ -4,12 +4,15 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 
 namespace KysChess::Battle
 {
 
 namespace
 {
+
+constexpr double BattlePi = 3.14159265358979323846;
 
 BattleUnitDelta makeBattleUnitDelta(const BattleDamageUnitState& before, const BattleDamageUnitState& after)
 {
@@ -441,6 +444,57 @@ int BattleDamageSystem::resolveMagicBaseDamage(const BattleMagicBaseDamageInput&
     int damage = static_cast<int>(attack * attack / (attack + input.defenderDefense) / 4.0);
     damage += input.randomVariance;
     return std::max(1, damage);
+}
+
+BattleLegacyHitShapeResult BattleDamageSystem::shapeLegacyHitDamage(const BattleLegacyHitShapeInput& input) const
+{
+    assert(input.baseDamage >= 0.0);
+    assert(input.totalFrame > 0);
+    assert(input.frame >= 0);
+    assert(input.strengthMultiplier >= 0.0);
+
+    double damage = input.baseDamage;
+    damage -= input.projectileCancelDamage;
+    damage *= input.strengthMultiplier;
+    damage *= 1.0 - 0.3 * input.frame / input.totalFrame;
+
+    auto attackVector = input.impactPosition - input.defenderPosition;
+    const double attackNorm = attackVector.norm();
+    auto defenderFacing = input.defenderFacing;
+    const double facingNorm = defenderFacing.norm();
+    assert(attackNorm > 0.0);
+    assert(facingNorm > 0.0);
+    const double dot = attackVector.x * defenderFacing.x + attackVector.y * defenderFacing.y;
+    const double facingCos = std::clamp(dot / attackNorm / facingNorm, -1.0, 1.0);
+    const double angle = std::acos(facingCos);
+    if (angle >= BattlePi * 0.25 && angle < BattlePi * 0.75)
+    {
+        damage *= 1.2;
+    }
+    else if (angle >= BattlePi * 0.75)
+    {
+        damage *= 1.5;
+    }
+
+    damage *= battleOperationDamageMultiplier(input.operationType);
+    BattleLegacyHitShapeResult result;
+    if (input.operationType == BattleOperationType::Dash)
+    {
+        damage /= 1.5;
+        result.frozenFrames = 5;
+    }
+
+    if (input.usingSkill)
+    {
+        int actDiff = input.attackerActProperty - input.defenderActProperty;
+        damage *= 1.0 + std::clamp((actDiff / 200.0), -0.25, 0.25);
+    }
+
+    result.damage = damage;
+    result.knockbackStrength = input.operationType == BattleOperationType::RangedProjectile ? 0.5 : 2.0;
+    result.knockbackVelocityCap = input.operationType == BattleOperationType::RangedProjectile ? 1.5 : 3.0;
+    result.grantsHurtFrame = true;
+    return result;
 }
 
 BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageDefenseInput& input) const

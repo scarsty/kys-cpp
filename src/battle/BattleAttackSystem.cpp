@@ -72,13 +72,7 @@ BattleAttackInstance& findAttackById(BattleAttackWorld& world, int attackId)
 
 double projectileOperationDamageMultiplier(BattleOperationType operationType)
 {
-    switch (operationType)
-    {
-    case BattleOperationType::TrackingProjectile:
-        return 1.5;
-    default:
-        return 1.0;
-    }
+    return battleOperationDamageMultiplier(operationType);
 }
 
 int scaleProjectileCancelDamage(int damage, BattleOperationType operationType)

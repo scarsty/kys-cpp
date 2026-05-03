@@ -1,5 +1,6 @@
 #include "battle/BattleDamageSystem.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace KysChess::Battle;
@@ -78,6 +79,51 @@ TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesLegacyAttackDefenseCurve", "[ba
     input.defenderDefense = 10000;
     input.randomVariance = -100;
     CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 1);
+}
+
+TEST_CASE("BattleDamageSystem_LegacyHitShapeOwnsProjectileFalloffFacingAndOperationDamage", "[battle][damage][unit]")
+{
+    BattleLegacyHitShapeInput input;
+    input.baseDamage = 100.0;
+    input.projectileCancelDamage = 10;
+    input.strengthMultiplier = 2.0;
+    input.frame = 5;
+    input.totalFrame = 10;
+    input.impactPosition = { -1.0f, 0.0f, 0.0f };
+    input.defenderPosition = { 0.0f, 0.0f, 0.0f };
+    input.defenderFacing = { 1.0f, 0.0f, 0.0f };
+    input.operationType = BattleOperationType::TrackingProjectile;
+    input.usingSkill = true;
+    input.attackerActProperty = 150;
+    input.defenderActProperty = 50;
+
+    auto result = BattleDamageSystem().shapeLegacyHitDamage(input);
+
+    CHECK(result.damage == Catch::Approx(430.3125));
+    CHECK(result.knockbackStrength == Catch::Approx(2.0));
+    CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
+    CHECK(result.frozenFrames == 0);
+    CHECK(result.grantsHurtFrame);
+}
+
+TEST_CASE("BattleDamageSystem_LegacyDashHitShapeEmitsFreezeAndReducedDashDamage", "[battle][damage][unit]")
+{
+    BattleLegacyHitShapeInput input;
+    input.baseDamage = 90.0;
+    input.strengthMultiplier = 1.0;
+    input.frame = 0;
+    input.totalFrame = 20;
+    input.impactPosition = { 1.0f, 0.0f, 0.0f };
+    input.defenderPosition = { 0.0f, 0.0f, 0.0f };
+    input.defenderFacing = { 1.0f, 0.0f, 0.0f };
+    input.operationType = BattleOperationType::Dash;
+
+    auto result = BattleDamageSystem().shapeLegacyHitDamage(input);
+
+    CHECK(result.damage == Catch::Approx(60.0));
+    CHECK(result.frozenFrames == 5);
+    CHECK(result.knockbackStrength == Catch::Approx(2.0));
+    CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
 }
 
 TEST_CASE("BattleDamageSystem_Modifiers_RespectIgnoreDefenseAndMaxHitCap", "[battle][damage][unit]")

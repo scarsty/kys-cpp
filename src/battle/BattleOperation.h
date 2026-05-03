@@ -22,6 +22,17 @@ inline bool isBattleOperation(BattleOperationType operation)
         || operation == BattleOperationType::Dash;
 }
 
+inline double battleOperationDamageMultiplier(BattleOperationType operation)
+{
+    switch (operation)
+    {
+    case BattleOperationType::TrackingProjectile:
+        return 1.5;
+    default:
+        return 1.0;
+    }
+}
+
 inline int battleOperationIndex(BattleOperationType operation)
 {
     assert(isBattleOperation(operation));
