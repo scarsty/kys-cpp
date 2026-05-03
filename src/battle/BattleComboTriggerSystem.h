@@ -187,6 +187,12 @@ enum class BattleDefenderBlockCommand
     Block,
 };
 
+struct BattleStunCommand
+{
+    int frames = 0;
+    int effectIndex = -1;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -323,6 +329,11 @@ public:
     std::vector<BattleDefenderBlockCommand> collectDefenderBlockCommands(
         const RoleComboState& state,
         const BattleDefenderBlockInput& input,
+        const std::function<double()>& rollPercent) const;
+
+    std::vector<BattleStunCommand> collectStunCommands(
+        RoleComboState& state,
+        const BattleComboTriggerInput& input,
         const std::function<double()>& rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;

@@ -839,4 +839,28 @@ std::vector<BattleDefenderBlockCommand> BattleComboTriggerSystem::collectDefende
     return commands;
 }
 
+std::vector<BattleStunCommand> BattleComboTriggerSystem::collectStunCommands(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    auto events = collectTriggerEvents(
+        state,
+        input,
+        { EffectType::Stun },
+        rollPercent,
+        BattleComboActivationRecording::CallerRecords);
+
+    std::vector<BattleStunCommand> commands;
+    for (const auto& event : events)
+    {
+        assert(event.effect.type == EffectType::Stun);
+        commands.push_back({
+            event.effect.value,
+            event.effectIndex,
+        });
+    }
+    return commands;
+}
+
 }  // namespace KysChess::Battle

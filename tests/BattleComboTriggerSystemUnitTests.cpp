@@ -715,3 +715,22 @@ TEST_CASE("BattleComboTriggerSystem_DefenderReactions_ResolveReflectAndBlocksInL
         { true, false },
         []() { return 0.0; }).empty());
 }
+
+TEST_CASE("BattleComboTriggerSystem_StunCommands_CollectWithoutRecordingActivation", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 12, 100, 0, 1));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::MPBlock, Trigger::OnHit, 20, 100));
+
+    auto commands = BattleComboTriggerSystem().collectStunCommands(
+        state,
+        { BattleComboTriggerHook::DamageDealt, 4, 8 },
+        []() { return 0.0; });
+
+    REQUIRE(commands.size() == 1);
+    CHECK(commands[0].frames == 12);
+    CHECK(commands[0].effectIndex == 0);
+    CHECK(state.effectActivationCounts.empty());
+}

@@ -5564,19 +5564,14 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 }
             }
 
-            // OnHit triggered effects
-            auto hitStatusEvents = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
+            auto hitStunCommands = KysChess::Battle::BattleComboTriggerSystem().collectStunCommands(
                 as,
                 { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                { KysChess::EffectType::Stun },
-                [&]() { return rand_.rand() * 100.0; },
-                KysChess::Battle::BattleComboActivationRecording::CallerRecords);
-            for (const auto& triggerEvent : hitStatusEvents)
+                [&]() { return rand_.rand() * 100.0; });
+            for (const auto& stunCommand : hitStunCommands)
             {
-                const auto& eff = triggerEvent.effect;
-                assert(eff.type == KysChess::EffectType::Stun);
                 KysChess::Battle::BattleDamageRequest request;
-                request.frozenFrames = eff.value;
+                request.frozenFrames = stunCommand.frames;
                 auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
@@ -5585,7 +5580,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                         logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
                         KysChess::Battle::BattleComboTriggerSystem().recordActivation(
                             as,
-                            static_cast<size_t>(triggerEvent.effectIndex));
+                            static_cast<size_t>(stunCommand.effectIndex));
                     }
                 }
             }
@@ -5702,19 +5697,14 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 }
             }
 
-            // OnBeingHit triggered effects
-            auto beingHitStatusEvents = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
+            auto beingHitStunCommands = KysChess::Battle::BattleComboTriggerSystem().collectStunCommands(
                 ds,
                 { KysChess::Battle::BattleComboTriggerHook::DamageTaken, r->ID, attacker->ID },
-                { KysChess::EffectType::Stun },
-                [&]() { return rand_.rand() * 100.0; },
-                KysChess::Battle::BattleComboActivationRecording::CallerRecords);
-            for (const auto& triggerEvent : beingHitStatusEvents)
+                [&]() { return rand_.rand() * 100.0; });
+            for (const auto& stunCommand : beingHitStunCommands)
             {
-                const auto& eff = triggerEvent.effect;
-                assert(eff.type == KysChess::EffectType::Stun);
                 KysChess::Battle::BattleDamageRequest request;
-                request.frozenFrames = eff.value;
+                request.frozenFrames = stunCommand.frames;
                 auto result = applyAcceptedHitSideEffectTransaction(r, attacker, request);
                 for (const auto& event : result.events)
                 {
@@ -5723,7 +5713,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                         logBattleStatus(r, attacker, formatStatusFrames("反制並眩暈對手", event.value));
                         KysChess::Battle::BattleComboTriggerSystem().recordActivation(
                             ds,
-                            static_cast<size_t>(triggerEvent.effectIndex));
+                            static_cast<size_t>(stunCommand.effectIndex));
                     }
                 }
             }
