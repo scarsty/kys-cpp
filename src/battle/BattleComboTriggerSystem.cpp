@@ -801,4 +801,42 @@ BattleExecuteComboResult BattleComboTriggerSystem::resolveExecuteCombo(
     return result;
 }
 
+bool BattleComboTriggerSystem::resolveProjectileReflect(
+    const RoleComboState& state,
+    bool rangedProjectile,
+    double rollPercent) const
+{
+    assert(rollPercent >= 0.0 && rollPercent < 100.0);
+    return rangedProjectile
+        && state.projectileReflectPct > 0
+        && rollPercent < state.projectileReflectPct;
+}
+
+std::vector<BattleDefenderBlockCommand> BattleComboTriggerSystem::collectDefenderBlockCommands(
+    const RoleComboState& state,
+    const BattleDefenderBlockInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    assert(static_cast<bool>(rollPercent));
+
+    std::vector<BattleDefenderBlockCommand> commands;
+    if (input.executed || input.reflected)
+    {
+        return commands;
+    }
+
+    if (state.counterUltimateBlockChancePct > 0
+        && rollPercent() < state.counterUltimateBlockChancePct)
+    {
+        commands.push_back(BattleDefenderBlockCommand::CounterUltimateBlock);
+    }
+
+    if (state.blockChancePct > 0 && rollPercent() < state.blockChancePct)
+    {
+        commands.push_back(BattleDefenderBlockCommand::Block);
+    }
+
+    return commands;
+}
+
 }  // namespace KysChess::Battle

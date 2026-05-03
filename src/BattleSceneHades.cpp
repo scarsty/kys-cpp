@@ -5728,8 +5728,10 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 }
             }
 
-            if (rangedProjectile && ds.projectileReflectPct > 0
-                && rand_.rand() * 100 < ds.projectileReflectPct)
+            if (KysChess::Battle::BattleComboTriggerSystem().resolveProjectileReflect(
+                    ds,
+                    rangedProjectile,
+                    rand_.rand() * 100.0))
             {
                 reflectToAttacker = true;
                 addFloatingText(r, "彈反", { 180, 150, 255, 255 }, STATUS_TEXT_SIZE);
@@ -5766,20 +5768,27 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
             });
             hurt = invincibleDefense.damage;
 
-            if (!executed && !reflectToAttacker && ds.counterUltimateBlockChancePct > 0
-                && rand_.rand() * 100 < ds.counterUltimateBlockChancePct)
+            auto blockCommands = KysChess::Battle::BattleComboTriggerSystem().collectDefenderBlockCommands(
+                ds,
+                { executed, reflectToAttacker },
+                [&]() { return rand_.rand() * 100.0; });
+            for (auto blockCommand : blockCommands)
             {
                 hurt = 0;
-                addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
-                logBattleStatus(r, attacker, "格擋後釋放絕招");
-                triggerAutoUltimate(r, false);
-            }
-
-            if (!executed && !reflectToAttacker && ds.blockChancePct > 0 && rand_.rand() * 100 < ds.blockChancePct)
-            {
-                hurt = 0;
-                addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
-                logBattleStatus(r, attacker, "格擋了本次攻擊");
+                switch (blockCommand)
+                {
+                case KysChess::Battle::BattleDefenderBlockCommand::CounterUltimateBlock:
+                    addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
+                    logBattleStatus(r, attacker, "格擋後釋放絕招");
+                    triggerAutoUltimate(r, false);
+                    break;
+                case KysChess::Battle::BattleDefenderBlockCommand::Block:
+                    addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
+                    logBattleStatus(r, attacker, "格擋了本次攻擊");
+                    break;
+                default:
+                    assert(false);
+                }
             }
 
             auto defense = KysChess::Battle::BattleDamageSystem().resolveDefense({

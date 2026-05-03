@@ -686,3 +686,32 @@ TEST_CASE("BattleComboTriggerSystem_ExecuteCombo_RecordsOnlyTriggeredExecute", "
     CHECK(state.effectActivationCounts[0] == 1);
     CHECK(state.effectActivationCounts.count(1) == 0);
 }
+
+TEST_CASE("BattleComboTriggerSystem_DefenderReactions_ResolveReflectAndBlocksInLegacyOrder", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.projectileReflectPct = 40;
+    state.counterUltimateBlockChancePct = 60;
+    state.blockChancePct = 70;
+
+    CHECK(BattleComboTriggerSystem().resolveProjectileReflect(state, true, 39.0));
+    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, true, 40.0));
+    CHECK_FALSE(BattleComboTriggerSystem().resolveProjectileReflect(state, false, 0.0));
+
+    std::vector<double> rolls = { 50.0, 69.0 };
+    size_t nextRoll = 0;
+    auto blocks = BattleComboTriggerSystem().collectDefenderBlockCommands(
+        state,
+        { false, false },
+        [&]() { return rolls[nextRoll++]; });
+
+    REQUIRE(blocks.size() == 2);
+    CHECK(blocks[0] == BattleDefenderBlockCommand::CounterUltimateBlock);
+    CHECK(blocks[1] == BattleDefenderBlockCommand::Block);
+    CHECK(nextRoll == 2);
+
+    CHECK(BattleComboTriggerSystem().collectDefenderBlockCommands(
+        state,
+        { true, false },
+        []() { return 0.0; }).empty());
+}

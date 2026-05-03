@@ -175,6 +175,18 @@ struct BattleExecuteComboResult
     int effectIndex = -1;
 };
 
+struct BattleDefenderBlockInput
+{
+    bool executed = false;
+    bool reflected = false;
+};
+
+enum class BattleDefenderBlockCommand
+{
+    CounterUltimateBlock,
+    Block,
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -302,6 +314,15 @@ public:
     BattleExecuteComboResult resolveExecuteCombo(
         RoleComboState& state,
         const BattleExecuteComboInput& input,
+        const std::function<double()>& rollPercent) const;
+
+    bool resolveProjectileReflect(const RoleComboState& state,
+                                  bool rangedProjectile,
+                                  double rollPercent) const;
+
+    std::vector<BattleDefenderBlockCommand> collectDefenderBlockCommands(
+        const RoleComboState& state,
+        const BattleDefenderBlockInput& input,
         const std::function<double()>& rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
