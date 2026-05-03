@@ -76,7 +76,6 @@ BattleSceneAct::AttackEffect& createProjectile(
     effect.VisualAttackId = command.projectileAttackId;
     effect.VisualOnly = 1;
     effect.Frame = 0;
-    effect.IsMain = 0;
     bindings.attackEffects->push_back(std::move(effect));
     return bindings.attackEffects->back();
 }
@@ -251,7 +250,6 @@ void BattleScenePresentationPlayer::spawnRoleEffect(
     effect.Frame = 0;
     effect.VisualOnly = 1;
     effect.VisualTeam = role->Team;
-    effect.IsMain = 0;
     bindings.attackEffects->push_back(std::move(effect));
 }
 
@@ -276,7 +274,6 @@ void BattleScenePresentationPlayer::spawnProjectile(
 {
     auto& effect = upsertProjectile(command, bindings);
     applyProjectilePayload(effect, command, bindings);
-    effect.IsMain = 0;
 }
 
 void BattleScenePresentationPlayer::moveProjectile(
