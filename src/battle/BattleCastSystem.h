@@ -56,7 +56,7 @@ struct BattleCastSkillState
 
 struct BattleCastGeometry
 {
-    int tileWidth = 36;
+    int tileWidth = 0;
     double meleeAttackEffectOffset = 0.0;
     double projectileSpeed = 0.0;
 };

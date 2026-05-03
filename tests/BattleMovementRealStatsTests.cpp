@@ -13,6 +13,8 @@ using namespace KysChess::Battle;
 namespace
 {
 
+constexpr double SceneTileWidth = 36.0;
+
 struct PinnedRoleMovement
 {
     int roleId = -1;
@@ -51,7 +53,7 @@ struct PinnedUnitSpec
 BattleMovementConfig pinnedConfig()
 {
     BattleMovementGeometry geometry;
-    geometry.tileWidth = 50.0;
+    geometry.tileWidth = SceneTileWidth;
     geometry.meleeAttackEffectOffset = geometry.tileWidth * 2.0;
     geometry.meleeAttackHitRadius = geometry.tileWidth * 2.0;
     return BattleGeometry(geometry).movementConfig();

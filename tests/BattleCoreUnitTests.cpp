@@ -14,12 +14,14 @@ using namespace KysChess::Battle;
 namespace
 {
 
+constexpr double SceneTileWidth = 36.0;
+
 BattleMovementConfig testConfig()
 {
     BattleMovementGeometry geometry;
-    geometry.tileWidth = 50.0;
-    geometry.meleeAttackEffectOffset = 100.0;
-    geometry.meleeAttackHitRadius = 100.0;
+    geometry.tileWidth = SceneTileWidth;
+    geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
+    geometry.meleeAttackHitRadius = SceneTileWidth * 2.0;
     geometry.dashFrames = 5;
     geometry.dashCooldownFrames = 18;
     return BattleGeometry(geometry).movementConfig();
@@ -158,11 +160,11 @@ TEST_CASE("BattleCombatIntent_BlocksAttackWhileMovementDashContinues", "[battle]
 TEST_CASE("BattleCore_MovementConfig_DerivesSharedGeometry", "[battle][core]")
 {
     auto config = testConfig();
-    CHECK(config.engagementDeadband == 25.0);
-    CHECK(config.engagementArriveDistance == 37.5);
-    CHECK(config.meleeAttackReach == 137.5);
-    CHECK(config.meleeLocalTargetRadius == 237.5);
-    CHECK(config.bodyRadius == 75.0);
+    CHECK(config.engagementDeadband == 18.0);
+    CHECK(config.engagementArriveDistance == 27.0);
+    CHECK(config.meleeAttackReach == 99.0);
+    CHECK(config.meleeLocalTargetRadius == 171.0);
+    CHECK(config.bodyRadius == 54.0);
     CHECK(config.movementDashDistanceMultiplier == 2.0);
 }
 

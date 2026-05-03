@@ -1,5 +1,7 @@
 #include "BattleGeometry.h"
 
+#include <cassert>
+
 namespace KysChess::Battle
 {
 
@@ -8,6 +10,15 @@ namespace
 
 BattleMovementConfig deriveMovementConfig(const BattleMovementGeometry& geometry)
 {
+    assert(geometry.tileWidth > 0.0);
+    assert(geometry.reservationHorizonFrames >= 0);
+    assert(geometry.dashFrames > 0);
+    assert(geometry.dashCooldownFrames >= 0);
+    assert(geometry.slotSwitchCooldownFrames >= 0);
+    assert(geometry.maxRangedReach > 0.0);
+    assert(geometry.meleeAttackEffectOffset > 0.0);
+    assert(geometry.meleeAttackHitRadius > 0.0);
+
     BattleMovementConfig config;
     config.tileWidth = geometry.tileWidth;
     config.reservationHorizonFrames = geometry.reservationHorizonFrames;

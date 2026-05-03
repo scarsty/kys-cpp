@@ -10,6 +10,8 @@ using namespace KysChess::Battle;
 namespace
 {
 
+constexpr int SceneTileWidth = 36;
+
 BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceRanged = false)
 {
     BattleCastSkillState state;
@@ -26,9 +28,9 @@ BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceR
 BattleCastInput basicInput()
 {
     BattleCastInput input;
-    input.geometry.tileWidth = 36;
-    input.geometry.meleeAttackEffectOffset = 72.0;
-    input.geometry.projectileSpeed = 12.0;
+    input.geometry.tileWidth = SceneTileWidth;
+    input.geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
+    input.geometry.projectileSpeed = SceneTileWidth / 3.0;
     input.unit.id = 1;
     input.unit.position = { 10.0f, 20.0f, 0.0f };
     input.unit.facing = { 1.0f, 0.0f, 0.0f };
