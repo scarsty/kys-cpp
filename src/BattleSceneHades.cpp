@@ -198,27 +198,6 @@ float shakeJitter(int battleFrame, int roleId)
     return -2.5f + static_cast<float>(state & 0xffffu) * (5.0f / 65535.0f);
 }
 
-double operationTypeDamageScale(int operationType)
-{
-    switch (operationType)
-    {
-    case 1:
-        return 1.5;
-    default:
-        return 1.0;
-    }
-}
-
-int scaleCancelDamage(int damage, int operationType)
-{
-    if (damage <= 0)
-    {
-        return 0;
-    }
-
-    return std::max(1, static_cast<int>(std::ceil(damage * operationTypeDamageScale(operationType))));
-}
-
 KysChess::RoleComboState makeSummonedCloneState(const KysChess::RoleComboState& sourceState, int cloneMaxHP)
 {
     KysChess::RoleComboState cloneState;
@@ -3487,8 +3466,12 @@ void BattleSceneHades::backRun1()
                 }
 
                 //LOG("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
-                int hurt1 = scaleCancelDamage(calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic), ae1.OperationType);
-                int hurt2 = scaleCancelDamage(calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic), ae2.OperationType);
+                int hurt1 = KysChess::Battle::scaleProjectileCancelDamage(
+                    calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic),
+                    ae1.OperationType);
+                int hurt2 = KysChess::Battle::scaleProjectileCancelDamage(
+                    calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic),
+                    ae2.OperationType);
                 ae1.Weaken += hurt2;
                 ae2.Weaken += hurt1;
                 ae1.Attacker->CancelDmg += hurt1;
@@ -5561,7 +5544,7 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
         hurt *= 1.5;
     }
     //操作类型的伤害效果
-    hurt *= operationTypeDamageScale(ae.OperationType);
+    hurt *= KysChess::Battle::projectileOperationDamageMultiplier(ae.OperationType);
     if (ae.OperationType == 3)
     {
         hurt /= 1.5;

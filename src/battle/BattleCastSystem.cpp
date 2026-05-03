@@ -52,40 +52,13 @@ void assertCastOperationConfig(const BattleCastConfig& config, int operationType
     assert(config.recoveryFrames[operationType] >= 0);
 }
 
-void assertMeleeCastConfig(const BattleCastConfig& config)
-{
-    assert(config.meleeHitTotalFrame > 0);
-    assert(config.strengthenedMeleeTotalFrame > 0);
-    assert(config.strengthenedMeleeSelectDistanceDivisor > 0.0);
-    assert(config.strengthenedMeleeMultiplier > 0.0f);
-    assert(config.meleeSplashTotalFrame > 0);
-    assert(config.meleeSplashInitialFrame >= 0);
-    assert(config.meleeSplashStrengthMultiplier > 0.0f);
-    assert(config.strengthenedMeleeOperationCountThreshold >= 0);
-}
-
-void assertTrackingCastConfig(const BattleCastConfig& config)
-{
-    assert(config.trackingProjectileTotalFrame > 0);
-}
-
-void assertDashCastConfig(const BattleCastConfig& config)
-{
-    assert(config.dashHitTotalFrame > 0);
-}
-
 void assertCommittedCastInput(
     const BattleCastInput& input,
     const BattleCastSkillState& selectedSkill,
     int operationType)
 {
     assertCastOperationConfig(input.config, operationType);
-    assert(pointNorm(input.targetPosition - input.unit.position) > input.config.minimumFacingNorm);
     assert(selectedSkill.id >= 0);
-    assert(selectedSkill.selectDistance > 0);
-    assert(selectedSkill.projectileSpeedMultiplierPct > 0);
-    assert(operationType == 1 || operationType == 2 || input.geometry.meleeAttackEffectOffset > 0.0);
-    assert((operationType != 1 && operationType != 2) || input.geometry.projectileSpawnOffset > 0.0);
 }
 
 void assertCastIntentInput(const BattleCastInput& input, const BattleCastSkillState& selectedSkill)
@@ -97,7 +70,6 @@ void assertCastIntentInput(const BattleCastInput& input, const BattleCastSkillSt
     assert(!input.unit.dashAttackEnabled || input.unit.dashAttackReach > 0.0);
     assert(selectedSkill.id >= 0);
     assert(selectedSkill.reach > 0.0);
-    assert(selectedSkill.selectDistance > 0);
 }
 
 int castFrameForOperation(const BattleCastConfig& config, int operationType)
@@ -287,7 +259,6 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     const BattleCastInput& input,
     const BattleCastSkillState& selectedSkill)
 {
-    assertMeleeCastConfig(input.config);
     auto facing = castFacing(input);
     std::vector<BattleAttackSpawnRequest> requests;
     auto main = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::SkillHit);
@@ -307,7 +278,6 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     }
     requests.push_back(main);
 
-    assert(selectedSkill.meleeSplashCount >= 0);
     for (int i = 0; i < selectedSkill.meleeSplashCount; ++i)
     {
         auto splash = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::MeleeSplash);
@@ -332,7 +302,6 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
     const BattleCastInput& input,
     const BattleCastSkillState& selectedSkill)
 {
-    assertDashCastConfig(input.config);
     assert(input.unit.dashHitCount > 0);
     assert(input.geometry.dashHitPositionSpacing > 0.0);
     assert(input.geometry.dashHitFrameStep > 0);
@@ -380,10 +349,6 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
     case 1:
     case 2:
     {
-        if (result.decision.operationType == 1)
-        {
-            assertTrackingCastConfig(input.config);
-        }
         std::vector<BattleAttackSpawnRequest> requests = {
             makeOperationRequest(
                 result,

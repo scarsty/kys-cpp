@@ -564,6 +564,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     first.frame = 5;
     first.state.totalFrame = 30;
     first.state.position = { 500, 500, 0 };
+    first.state.operationType = 1;
+    first.state.projectileCancelDamage = 11;
 
     BattleAttackInstance second;
     second.id = 20;
@@ -571,6 +573,8 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     second.frame = 5;
     second.state.totalFrame = 30;
     second.state.position = { 500, 500, 0 };
+    second.state.operationType = 2;
+    second.state.projectileCancelDamage = 10;
 
     state.attacks.units = {
         { 1, 0, true, false, false, { 100, 100, 0 } },
@@ -584,6 +588,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
     REQUIRE(result.attackEvents.size() == 3);
     REQUIRE(result.frame.gameplayEvents.size() == 3);
     CHECK(result.attackEvents[2].type == BattleAttackEventType::ProjectileCancel);
+    CHECK(result.attackEvents[2].sourceUnitId == 1);
+    CHECK(result.attackEvents[2].otherSourceUnitId == 2);
+    CHECK(result.attackEvents[2].projectileCancelDamage == 17);
+    CHECK(result.attackEvents[2].otherProjectileCancelDamage == 10);
     CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileCancelled);
     CHECK(result.frame.gameplayEvents[2].effectId == 10);
     CHECK(result.frame.gameplayEvents[2].otherAttackId == 20);

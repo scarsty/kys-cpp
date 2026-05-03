@@ -30,7 +30,45 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state
     event.scriptedBleedStacks = state.scriptedBleedStacks;
     event.executeCanHitInvincible = state.executeCanHitInvincible;
 }
+
+BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, const BattleAttackInstance& rhs)
+{
+    BattleAttackEvent event;
+    event.type = BattleAttackEventType::ProjectileCancel;
+    event.attackId = lhs.id;
+    event.otherAttackId = rhs.id;
+    event.sourceUnitId = lhs.state.attackerUnitId;
+    event.otherSourceUnitId = rhs.state.attackerUnitId;
+    event.projectileCancelDamage = scaleProjectileCancelDamage(
+        lhs.state.projectileCancelDamage,
+        lhs.state.operationType);
+    event.otherProjectileCancelDamage = scaleProjectileCancelDamage(
+        rhs.state.projectileCancelDamage,
+        rhs.state.operationType);
+    return event;
+}
 }  // namespace
+
+double projectileOperationDamageMultiplier(int operationType)
+{
+    switch (operationType)
+    {
+    case 1:
+        return 1.5;
+    default:
+        return 1.0;
+    }
+}
+
+int scaleProjectileCancelDamage(int damage, int operationType)
+{
+    if (damage <= 0)
+    {
+        return 0;
+    }
+
+    return std::max(1, static_cast<int>(std::ceil(damage * projectileOperationDamageMultiplier(operationType))));
+}
 
 BattleAttackEvent BattleAttackSystem::spawn(
     BattleAttackWorld& world,
@@ -457,7 +495,7 @@ void BattleAttackSystem::collectProjectileCancelEvents(
             }
             if (pointDistance(lhs.state.position, rhs.state.position) < world.hitRadius)
             {
-                events.push_back({ BattleAttackEventType::ProjectileCancel, lhs.id, rhs.id });
+                events.push_back(makeProjectileCancelEvent(lhs, rhs));
             }
         }
     }

@@ -52,6 +52,7 @@ struct BattleAttackState
     int scriptedDamage = 0;
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
+    int projectileCancelDamage = 0;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
     Pointf position;
@@ -99,6 +100,7 @@ struct BattleAttackEvent
     int otherAttackId = -1;
     int unitId = -1;
     int sourceUnitId = -1;
+    int otherSourceUnitId = -1;
     int skillId = -1;
     int operationType = -1;
     int visualEffectId = -1;
@@ -107,6 +109,8 @@ struct BattleAttackEvent
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
     bool executeCanHitInvincible = false;
+    int projectileCancelDamage = 0;
+    int otherProjectileCancelDamage = 0;
     Pointf position;
     Pointf velocity;
     int totalFrame = 0;
@@ -156,5 +160,8 @@ private:
         int attackId) const;
     void collectProjectileCancelEvents(const BattleAttackWorld& world, std::vector<BattleAttackEvent>& events) const;
 };
+
+double projectileOperationDamageMultiplier(int operationType);
+int scaleProjectileCancelDamage(int damage, int operationType);
 
 }  // namespace KysChess::Battle

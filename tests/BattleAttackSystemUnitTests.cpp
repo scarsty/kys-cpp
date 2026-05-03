@@ -125,6 +125,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.scriptedDamage = 33;
     request.initial.scriptedStunFrames = 12;
     request.initial.scriptedBleedStacks = 4;
+    request.initial.projectileCancelDamage = 90;
 
     BattleAttackSystem().spawn(world, request);
 
@@ -154,6 +155,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.scriptedDamage == 33);
     CHECK(attack.state.scriptedStunFrames == 12);
     CHECK(attack.state.scriptedBleedStacks == 4);
+    CHECK(attack.state.projectileCancelDamage == 90);
     CHECK(attack.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
@@ -404,6 +406,66 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle]
     REQUIRE(events.back().type == BattleAttackEventType::ProjectileCancel);
     CHECK(events.back().attackId == 10);
     CHECK(events.back().otherAttackId == 11);
+}
+
+TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDamage", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.projectileGraceFrames = 5;
+    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto lhs = attack(10, 1, 0, 0);
+    lhs.frame = 5;
+    lhs.state.operationType = 1;
+    lhs.state.projectileCancelDamage = 11;
+    auto rhs = attack(11, 2, 20, 0);
+    rhs.frame = 5;
+    rhs.state.operationType = 2;
+    rhs.state.projectileCancelDamage = 10;
+    world.attacks = { lhs, rhs };
+
+    auto events = BattleAttackSystem().tick(world);
+
+    REQUIRE(events.back().type == BattleAttackEventType::ProjectileCancel);
+    CHECK(events.back().attackId == 10);
+    CHECK(events.back().otherAttackId == 11);
+    CHECK(events.back().sourceUnitId == 1);
+    CHECK(events.back().otherSourceUnitId == 2);
+    CHECK(events.back().projectileCancelDamage == 17);
+    CHECK(events.back().otherProjectileCancelDamage == 10);
+}
+
+TEST_CASE("BattleAttackSystem_UltimateProjectileDoesNotCancel", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.projectileGraceFrames = 5;
+    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto lhs = attack(10, 1, 0, 0);
+    lhs.frame = 5;
+    lhs.state.ultimate = true;
+    auto rhs = attack(11, 2, 20, 0);
+    rhs.frame = 5;
+    world.attacks = { lhs, rhs };
+
+    auto events = BattleAttackSystem().tick(world);
+
+    CHECK(!hasEvent(events, BattleAttackEventType::ProjectileCancel, 10));
+}
+
+TEST_CASE("BattleAttackSystem_IgnoredProjectileDoesNotCancel", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    world.projectileGraceFrames = 5;
+    world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
+    auto lhs = attack(10, 1, 0, 0);
+    lhs.frame = 5;
+    lhs.state.ignoreProjectileCancel = true;
+    auto rhs = attack(11, 2, 20, 0);
+    rhs.frame = 5;
+    world.attacks = { lhs, rhs };
+
+    auto events = BattleAttackSystem().tick(world);
+
+    CHECK(!hasEvent(events, BattleAttackEventType::ProjectileCancel, 10));
 }
 
 TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTarget", "[battle][attack][unit]")
