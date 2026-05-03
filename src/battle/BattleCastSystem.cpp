@@ -14,6 +14,7 @@ namespace
 {
 constexpr int ActionRecoveryFrames = 4;
 constexpr int DashMomentumFrames = 5;
+constexpr double MinimumFacingNorm = 0.0001;
 
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
@@ -30,15 +31,28 @@ BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 Pointf castFacing(const BattleCastInput& input)
 {
     auto facing = input.targetPosition - input.unit.position;
-    if (pointNorm(facing) <= 0.0001)
-    {
-        facing = input.unit.facing;
-    }
-    if (pointNorm(facing) <= 0.0001)
-    {
-        facing = { 1.0f, 0.0f, 0.0f };
-    }
+    assert(pointNorm(facing) > MinimumFacingNorm);
     return normalizedTo(facing, 1.0);
+}
+
+void assertCommittedCastInput(
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill,
+    int operationType)
+{
+    assert(input.unit.id >= 0);
+    assert(input.targetUnitId >= 0);
+    assert(selectedSkill.id >= 0);
+    assert(operationType >= 0 && operationType <= 3);
+    assert(pointNorm(input.targetPosition - input.unit.position) > MinimumFacingNorm);
+    assert(input.geometry.meleeAttackEffectOffset > 0.0);
+    assert(input.geometry.projectileSpeed > 0.0);
+    assert(input.geometry.projectileSpawnOffset > 0.0);
+    assert(input.geometry.projectileBaseTravel > 0.0);
+    assert(input.geometry.projectileTravelPerSelectDistance > 0.0);
+    assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
+    assert(input.geometry.dashHitPositionSpacing > 0.0);
+    assert(input.geometry.dashHitFrameStep > 0);
 }
 
 int castFrameForOperation(int operationType)
@@ -255,10 +269,12 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
 
     std::vector<BattleAttackSpawnRequest> requests;
     auto base = makeBaseRequest(result, input, selectedSkill, 3, BattleAttackCastSubrequestKind::DashHit);
+    assert(pointNorm(input.unit.dashVelocity) > MinimumFacingNorm);
+    const auto dashHitOffset = normalizedTo(input.unit.dashVelocity, input.geometry.dashHitPositionSpacing);
     for (int i = 0; i < input.unit.dashHitCount; ++i)
     {
         auto hit = base;
-        hit.position = base.position + scaled(input.unit.dashVelocity, (i - 1) * input.geometry.dashHitPositionSpacing);
+        hit.position = base.position + scaled(dashHitOffset, i - 1);
         hit.velocity = input.unit.dashVelocity;
         hit.initialFrame = (i + 1) * input.geometry.dashHitFrameStep;
         hit.totalFrame = 30;
@@ -401,6 +417,7 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 {
     assert(result.decision.canCast);
     assert(result.decision.operationType >= 0 && result.decision.operationType <= 3);
+    assertCommittedCastInput(input, selectedSkill, result.decision.operationType);
 
     result.animation.castFrame = castFrameForOperation(result.decision.operationType);
     result.animation.cooldownFrames = cooldownForOperation(input, result.decision.operationType);

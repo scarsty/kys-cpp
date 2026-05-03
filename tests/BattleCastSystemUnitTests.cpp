@@ -526,7 +526,7 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(result.animation.recoveryFrames == 5);
     REQUIRE(result.attackSpawnRequests.size() == 3);
 
-    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(76.0f));
+    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(80.5f));
     CHECK(result.attackSpawnRequests[0].initialFrame == 4);
     CHECK(result.attackSpawnRequests[0].velocity.x == Catch::Approx(4.0f));
     CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
@@ -534,11 +534,20 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(result.attackSpawnRequests[1].position.x == Catch::Approx(82.0f));
     CHECK(result.attackSpawnRequests[1].initialFrame == 8);
 
-    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(88.0f));
+    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(83.5f));
     CHECK(result.attackSpawnRequests[2].initialFrame == 12);
     CHECK(result.attackSpawnRequests[2].totalFrame == 30);
     CHECK_FALSE(result.attackSpawnRequests[2].track);
     CHECK_FALSE(result.attackSpawnRequests[2].through);
+
+    input.unit.dashVelocity = { 8.0f, 0.0f, 0.0f };
+    auto fasterResult = BattleCastPlanner().plan(input);
+
+    REQUIRE(fasterResult.attackSpawnRequests.size() == 3);
+    CHECK(fasterResult.attackSpawnRequests[0].position.x == Catch::Approx(result.attackSpawnRequests[0].position.x));
+    CHECK(fasterResult.attackSpawnRequests[1].position.x == Catch::Approx(result.attackSpawnRequests[1].position.x));
+    CHECK(fasterResult.attackSpawnRequests[2].position.x == Catch::Approx(result.attackSpawnRequests[2].position.x));
+    CHECK(fasterResult.attackSpawnRequests[0].velocity.x == Catch::Approx(8.0f));
 }
 
 TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[battle][cast]")
