@@ -166,7 +166,7 @@ BattleGameplayEvent toGameplayEvent(
         break;
     case BattleAttackEventType::ProjectileCancel:
         gameplay.type = BattleGameplayEventType::ProjectileCancelled;
-        gameplay.amount = event.otherAttackId;
+        gameplay.otherAttackId = event.otherAttackId;
         break;
     case BattleAttackEventType::Bounce:
         gameplay.type = BattleGameplayEventType::AttackSpawned;

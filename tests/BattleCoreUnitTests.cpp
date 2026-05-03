@@ -387,3 +387,122 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
     CHECK(result.frame.gameplayEvents[3].effectId == 20);
     CHECK(result.frame.presentationEvents[result.movement.events.size() + 3].type == BattlePresentationEventType::ProjectileExpired);
 }
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPairedAttack", "[battle][core]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+    });
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.attackerUnitId = 1;
+    projectile.preferredTargetUnitId = 2;
+    projectile.requirePreferredTarget = true;
+    projectile.totalFrame = 30;
+    projectile.position = { 100, 100, 0 };
+    projectile.velocity = { 5, 0, 0 };
+
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 100, 100, 0 } },
+    };
+    state.attacks.attacks.push_back(projectile);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 2);
+    REQUIRE(result.frame.gameplayEvents.size() == 2);
+    REQUIRE(result.frame.presentationEvents.size() == result.movement.events.size() + result.attackEvents.size());
+
+    CHECK(result.attackEvents[1].type == BattleAttackEventType::TargetLost);
+    CHECK(result.frame.gameplayEvents[1].type == BattleGameplayEventType::ProjectileCancelled);
+    CHECK(result.frame.gameplayEvents[1].effectId == 10);
+    CHECK(result.frame.gameplayEvents[1].targetUnitId == -1);
+    CHECK(result.frame.gameplayEvents[1].otherAttackId == -1);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 1].type == BattlePresentationEventType::ProjectileTargetLost);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAttackId", "[battle][core]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 900, 900, 0 }, CombatStyle::Ranged),
+    });
+
+    BattleAttackInstance first;
+    first.id = 10;
+    first.attackerUnitId = 1;
+    first.frame = 5;
+    first.totalFrame = 30;
+    first.position = { 500, 500, 0 };
+
+    BattleAttackInstance second;
+    second.id = 20;
+    second.attackerUnitId = 2;
+    second.frame = 5;
+    second.totalFrame = 30;
+    second.position = { 500, 500, 0 };
+
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 100, 100, 0 } },
+        { 2, 1, true, false, false, { 900, 900, 0 } },
+    };
+    state.attacks.attacks.push_back(first);
+    state.attacks.attacks.push_back(second);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 3);
+    REQUIRE(result.frame.gameplayEvents.size() == 3);
+    CHECK(result.attackEvents[2].type == BattleAttackEventType::ProjectileCancel);
+    CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileCancelled);
+    CHECK(result.frame.gameplayEvents[2].effectId == 10);
+    CHECK(result.frame.gameplayEvents[2].otherAttackId == 20);
+    CHECK(result.frame.gameplayEvents[2].amount == 0);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].type == BattlePresentationEventType::ProjectileCancelled);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].amount == 20);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay", "[battle][core]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 105, 100, 0 }),
+        unit(3, 1, { 180, 100, 0 }),
+    });
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.attackerUnitId = 1;
+    projectile.totalFrame = 30;
+    projectile.bounceRemaining = 1;
+    projectile.bounceRange = 500;
+    projectile.bounceChancePct = 100;
+    projectile.bounceRollPct = 0;
+    projectile.position = { 100, 100, 0 };
+    projectile.velocity = { 5, 0, 0 };
+
+    state.attacks.nextAttackId = 30;
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 100, 100, 0 } },
+        { 2, 1, true, false, false, { 105, 100, 0 } },
+        { 3, 1, true, false, false, { 180, 100, 0 } },
+    };
+    state.attacks.attacks.push_back(projectile);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 3);
+    REQUIRE(result.frame.gameplayEvents.size() == 3);
+    CHECK(result.attackEvents[2].type == BattleAttackEventType::Bounce);
+    CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::AttackSpawned);
+    CHECK(result.frame.gameplayEvents[2].effectId == 30);
+    CHECK(result.frame.gameplayEvents[2].sourceUnitId == 1);
+    CHECK(result.frame.gameplayEvents[2].targetUnitId == 3);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].type == BattlePresentationEventType::ProjectileBounced);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].effectId == 10);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].amount == 30);
+}

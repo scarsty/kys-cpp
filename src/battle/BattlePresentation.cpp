@@ -22,7 +22,10 @@ void assertValidEvent(const BattleGameplayEvent& event)
     switch (event.type)
     {
     case BattleGameplayEventType::CastStarted:
+        assert(event.sourceUnitId >= 0);
+        break;
     case BattleGameplayEventType::AttackSpawned:
+        assert(event.effectId >= 0);
         assert(event.sourceUnitId >= 0);
         break;
     case BattleGameplayEventType::ProjectileMoved:

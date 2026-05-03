@@ -61,6 +61,7 @@ struct BattleGameplayEvent
     int effectId = -1;
     Pointf position;
     std::string text;
+    int otherAttackId = -1;
 };
 
 struct BattlePresentationEvent

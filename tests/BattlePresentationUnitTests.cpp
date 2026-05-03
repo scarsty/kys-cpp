@@ -35,9 +35,10 @@ TEST_CASE("BattlePresentationRecorder_StampsAndPreservesGameplayEventOrder", "[b
     recorder.recordGameplay({ BattleGameplayEventType::CastStarted, BattlePresentationCurrentFrame, 1, 2, 0, -1 });
     recorder.recordGameplay({ BattleGameplayEventType::DamageApplied, 43, 1, 2, 12, -1 });
     recorder.recordGameplay({ BattleGameplayEventType::UnitDied, BattlePresentationCurrentFrame, -1, 2, 0, -1 });
+    recorder.recordGameplay({ BattleGameplayEventType::ProjectileCancelled, BattlePresentationCurrentFrame, 1, -1, 0, 10, {}, "", 20 });
 
     const auto& frame = recorder.frame();
-    REQUIRE(frame.gameplayEvents.size() == 3);
+    REQUIRE(frame.gameplayEvents.size() == 4);
     CHECK(frame.presentationEvents.empty());
     CHECK(frame.gameplayEvents[0].frame == 42);
     CHECK(frame.gameplayEvents[0].type == BattleGameplayEventType::CastStarted);
@@ -47,6 +48,9 @@ TEST_CASE("BattlePresentationRecorder_StampsAndPreservesGameplayEventOrder", "[b
     CHECK(frame.gameplayEvents[2].frame == 42);
     CHECK(frame.gameplayEvents[2].type == BattleGameplayEventType::UnitDied);
     CHECK(frame.gameplayEvents[2].targetUnitId == 2);
+    CHECK(frame.gameplayEvents[3].type == BattleGameplayEventType::ProjectileCancelled);
+    CHECK(frame.gameplayEvents[3].effectId == 10);
+    CHECK(frame.gameplayEvents[3].otherAttackId == 20);
 }
 
 TEST_CASE("BattlePresentationRecorder_ConsumeFrameMovesCurrentFrameAndResets", "[battle][presentation][unit]")
