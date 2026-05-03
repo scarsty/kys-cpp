@@ -3953,11 +3953,24 @@ void BattleSceneHades::Action(Role* r)
                 {
                     // auto target = findNearestEnemy(r->Team, r->Pos);
                     auto& blinkState = sit->second;
-                    auto target = blinkState.blinkAttackUseWeakest ? findWeakestVulnerableEnemy(r->Team) : findRandomEnemy(r->Team);
-                    if (!target)
+                    auto targetWorld = makeBattleProjectileTargetWorld(battle_roles_);
+                    int targetId = blinkState.blinkAttackUseWeakest
+                        ? KysChess::Battle::BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(
+                            targetWorld,
+                            r->Team,
+                            BLINK_WEAK_TARGET_DEF_WEIGHT)
+                        : KysChess::Battle::BattleProjectileTargetingSystem().selectRandomEnemy(
+                            targetWorld,
+                            r->Team,
+                            rand_.rand_int(std::numeric_limits<int>::max()));
+                    if (targetId < 0)
                     {
-                        target = findRandomEnemy(r->Team);
+                        targetId = KysChess::Battle::BattleProjectileTargetingSystem().selectRandomEnemy(
+                            targetWorld,
+                            r->Team,
+                            rand_.rand_int(std::numeric_limits<int>::max()));
                     }
+                    auto* target = targetId >= 0 ? findRoleByBattleId(battle_roles_, targetId) : nullptr;
                     if (target)
                     {
                         logBattleStatus(r, target, blinkState.blinkAttackUseWeakest ? "閃擊追殺" : "閃擊突襲");
@@ -5303,28 +5316,6 @@ Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
         }
     }
     return r0;
-}
-
-Role* BattleSceneHades::findRandomEnemy(int team)
-{
-    int targetId = KysChess::Battle::BattleProjectileTargetingSystem().selectRandomEnemy(
-        makeBattleProjectileTargetWorld(battle_roles_),
-        team,
-        rand_.rand_int(std::numeric_limits<int>::max()));
-    if (targetId < 0)
-    {
-        return nullptr;
-    }
-    return findRoleByBattleId(battle_roles_, targetId);
-}
-
-Role* BattleSceneHades::findWeakestVulnerableEnemy(int team)
-{
-    int targetId = KysChess::Battle::BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(
-        makeBattleProjectileTargetWorld(battle_roles_),
-        team,
-        BLINK_WEAK_TARGET_DEF_WEIGHT);
-    return targetId >= 0 ? findRoleByBattleId(battle_roles_, targetId) : nullptr;
 }
 
 //前搖
