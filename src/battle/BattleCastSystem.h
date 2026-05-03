@@ -56,6 +56,11 @@ struct BattleCastSkillState
     bool rangedStyle = false;
 };
 
+int advanceOperationCountAfterCommittedCast(int operationCount,
+                                            bool ultimate,
+                                            BattleOperationType operationType,
+                                            int strengthenedMeleeOperationCountThreshold);
+
 struct BattleCastGeometry
 {
     double meleeAttackEffectOffset{};

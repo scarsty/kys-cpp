@@ -743,3 +743,27 @@ TEST_CASE("BattleCastSystem_OutputIsDeterministicForSameSeedAndInput", "[battle]
     REQUIRE(second.decision.canCast);
     checkResultEquals(first, second);
 }
+
+TEST_CASE("BattleCastSystem_AdvanceOperationCountAfterCommittedMeleeCast", "[battle][cast][unit]")
+{
+    CHECK(advanceOperationCountAfterCommittedCast(
+              0,
+              false,
+              BattleOperationType::Melee,
+              LegacyStrengthenedMeleeOperationCountThreshold) == 1);
+    CHECK(advanceOperationCountAfterCommittedCast(
+              2,
+              false,
+              BattleOperationType::Melee,
+              LegacyStrengthenedMeleeOperationCountThreshold) == 0);
+    CHECK(advanceOperationCountAfterCommittedCast(
+              1,
+              true,
+              BattleOperationType::Melee,
+              LegacyStrengthenedMeleeOperationCountThreshold) == 0);
+    CHECK(advanceOperationCountAfterCommittedCast(
+              2,
+              false,
+              BattleOperationType::TrackingProjectile,
+              LegacyStrengthenedMeleeOperationCountThreshold) == 2);
+}

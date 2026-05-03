@@ -4055,17 +4055,11 @@ void BattleSceneHades::Action(Role* r)
                 attachProjectileBouncePrime(request);
                 queueCoreAttackSpawn(std::move(request));
             }
-            if (castResult.decision.operationType == KysChess::Battle::BattleOperationType::Melee)
-            {
-                if (castResult.decision.ultimate || r->OperationCount >= 2)
-                {
-                    r->OperationCount = 0;
-                }
-                else
-                {
-                    r->OperationCount++;
-                }
-            }
+            r->OperationCount = KysChess::Battle::advanceOperationCountAfterCommittedCast(
+                r->OperationCount,
+                castResult.decision.ultimate,
+                castResult.decision.operationType,
+                2);
             applyBattleCastCommit(r, castResult);
             pending_cast_results_.erase(pendingCast);
             ultCasters_.erase(r);
@@ -4212,17 +4206,11 @@ void BattleSceneHades::queueCoreSkillAttackSpawn(Role* r, Magic* magic, bool isU
             attachProjectileBouncePrime(request);
             queueCoreAttackSpawn(std::move(request));
         }
-        if (castResult.decision.operationType == KysChess::Battle::BattleOperationType::Melee)
-        {
-            if (castResult.decision.ultimate || r->OperationCount >= 2)
-            {
-                r->OperationCount = 0;
-            }
-            else
-            {
-                r->OperationCount++;
-            }
-        }
+        r->OperationCount = KysChess::Battle::advanceOperationCountAfterCommittedCast(
+            r->OperationCount,
+            castResult.decision.ultimate,
+            castResult.decision.operationType,
+            2);
         return;
     }
 

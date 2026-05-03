@@ -10,6 +10,25 @@
 namespace KysChess::Battle
 {
 
+int advanceOperationCountAfterCommittedCast(int operationCount,
+                                            bool ultimate,
+                                            BattleOperationType operationType,
+                                            int strengthenedMeleeOperationCountThreshold)
+{
+    assert(operationCount >= 0);
+    assert(strengthenedMeleeOperationCountThreshold > 0);
+
+    if (operationType != BattleOperationType::Melee)
+    {
+        return operationCount;
+    }
+    if (ultimate || operationCount >= strengthenedMeleeOperationCountThreshold)
+    {
+        return 0;
+    }
+    return operationCount + 1;
+}
+
 namespace
 {
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
