@@ -26,8 +26,8 @@ struct BattleCastUnitState
     int speed = 0;
     int cooldownReductionPct = 0;
     int operationCount = 0;
-    double meleeAttackReach = 0.0;
-    double dashAttackReach = 0.0;
+    double meleeAttackReach{};
+    double dashAttackReach{};
     bool hasEquippedSkill = false;
     bool movementDashActive = false;
     bool dashAttackEnabled = false;
@@ -49,16 +49,16 @@ struct BattleCastSkillState
     int meleeSplashCount = 0;
     int extraProjectileCount = 0;
     bool strengthenedMelee = false;
-    double reach = 0.0;
+    double reach{};
     bool forceRanged = false;
     bool rangedStyle = false;
 };
 
 struct BattleCastGeometry
 {
-    int tileWidth = 0;
-    double meleeAttackEffectOffset = 0.0;
-    double projectileSpeed = 0.0;
+    int tileWidth{};
+    double meleeAttackEffectOffset{};
+    double projectileSpeed{};
 };
 
 struct BattleCastInput
@@ -69,7 +69,7 @@ struct BattleCastInput
     BattleCastSkillState ultimateSkill;
     int targetUnitId = -1;
     Pointf targetPosition;
-    double targetDistance = 0.0;
+    double targetDistance{};
 };
 
 enum class BattleCastBlockReason

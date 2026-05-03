@@ -46,31 +46,31 @@ enum class MovementAction
 
 struct BattleMovementConfig
 {
-    double tileWidth = 0.0;
+    double tileWidth{};
     int reservationHorizonFrames = 12;
     int dashFrames = 5;
     int dashCooldownFrames = 18;
     int slotSwitchCooldownFrames = 12;
-    double bodyRadius = 0.0;
-    double engagementDeadband = 0.0;
-    double engagementArriveDistance = 0.0;
-    double meleeAttackReach = 0.0;
-    double meleeLocalTargetRadius = 0.0;
-    double maxDashDistance = 0.0;
+    double bodyRadius{};
+    double engagementDeadband{};
+    double engagementArriveDistance{};
+    double meleeAttackReach{};
+    double meleeLocalTargetRadius{};
+    double maxDashDistance{};
     double maxRangedReach = 480.0;
-    double movementDashDistanceMultiplier = 0.0;
+    double movementDashDistanceMultiplier{};
 };
 
 struct BattleMovementGeometry
 {
-    double tileWidth = 0.0;
+    double tileWidth{};
     int reservationHorizonFrames = 12;
     int dashFrames = 5;
     int dashCooldownFrames = 18;
     int slotSwitchCooldownFrames = 12;
     double maxRangedReach = 480.0;
-    double meleeAttackEffectOffset = 0.0;
-    double meleeAttackHitRadius = 0.0;
+    double meleeAttackEffectOffset{};
+    double meleeAttackHitRadius{};
 };
 
 struct BattleUnitState
