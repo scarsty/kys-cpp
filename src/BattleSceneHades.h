@@ -64,7 +64,6 @@ protected:
     int calCoolDown(int act_type, int operation_type, Role* r);
 
     void applyLegacyMagicHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r);
-    void applyScriptedHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r);
     void queuePreResolvedHpDamage(Role* source,
                                   Role* target,
                                   int damage,

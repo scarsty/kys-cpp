@@ -3160,7 +3160,39 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                 if (scriptedImpact)
                 {
                     r->Shake = 5;
-                    applyScriptedHitTransaction(event, r);
+                    auto* attacker = findOptionalRoleByBattleId(battle_roles_, event.sourceUnitId);
+                    r->LastAttacker = attacker;
+                    auto request = KysChess::Battle::BattleDamageSystem().makeScriptedHitRequest({
+                        attacker ? attacker->ID : -1,
+                        r->ID,
+                        event.scriptedStunFrames,
+                        event.scriptedBleedStacks,
+                        event.scriptedBleedStacks > 0 ? getSharedBleedMaxStacks(attacker) : 0,
+                    });
+                    auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
+                    for (const auto& statusEvent : result.events)
+                    {
+                        if (statusEvent.type != KysChess::Battle::BattleDamageEventType::StatusApplied)
+                        {
+                            continue;
+                        }
+                        switch (statusEvent.statusType)
+                        {
+                        case KysChess::Battle::BattleDamageStatusType::Frozen:
+                            logBattleStatus(attacker, r, formatStatusFrames("眩暈", statusEvent.value));
+                            break;
+                        case KysChess::Battle::BattleDamageStatusType::Bleed:
+                            logBattleStatus(attacker, r, std::format("螺旋流血彈流血{}層", statusEvent.value));
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+
+                    if (event.scriptedDamage > 0)
+                    {
+                        queuePreResolvedHpDamage(attacker, r, event.scriptedDamage, false, false, false, "", "特效傷害");
+                    }
                     continue;
                 }
 
@@ -6031,45 +6063,6 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
         }
     }
     //LOG("{} attack {} with {} as {}, hurt {}\n", attacker->Name, r->Name, usingMagic->Name, operationType, int(hurt));
-}
-
-void BattleSceneHades::applyScriptedHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r)
-{
-    assert(r);
-
-    Role* attacker = findOptionalRoleByBattleId(battle_roles_, event.sourceUnitId);
-    r->LastAttacker = attacker;
-    KysChess::Battle::BattleDamageRequest request;
-    request.frozenFrames = event.scriptedStunFrames;
-    request.bleedStacks = event.scriptedBleedStacks;
-    request.bleedMaxStacks = event.scriptedBleedStacks > 0
-        ? getSharedBleedMaxStacks(attacker)
-        : 0;
-
-    auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-    for (const auto& event : result.events)
-    {
-        if (event.type != KysChess::Battle::BattleDamageEventType::StatusApplied)
-        {
-            continue;
-        }
-        switch (event.statusType)
-        {
-        case KysChess::Battle::BattleDamageStatusType::Frozen:
-            logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
-            break;
-        case KysChess::Battle::BattleDamageStatusType::Bleed:
-            logBattleStatus(attacker, r, std::format("螺旋流血彈流血{}層", event.value));
-            break;
-        default:
-            break;
-        }
-    }
-
-    if (event.scriptedDamage > 0)
-    {
-        queuePreResolvedHpDamage(attacker, r, event.scriptedDamage, false, false, false, "", "特效傷害");
-    }
 }
 
 int BattleSceneHades::calRolePic(Role* r, int style, int frame)

@@ -126,6 +126,25 @@ TEST_CASE("BattleDamageSystem_LegacyDashHitShapeEmitsFreezeAndReducedDashDamage"
     CHECK(result.knockbackVelocityCap == Catch::Approx(3.0));
 }
 
+TEST_CASE("BattleDamageSystem_ScriptedHitRequestCarriesAcceptedStatusPayloads", "[battle][damage][unit]")
+{
+    BattleScriptedHitRequestInput input;
+    input.attackerUnitId = 11;
+    input.defenderUnitId = 22;
+    input.stunFrames = 7;
+    input.bleedStacks = 3;
+    input.bleedMaxStacks = 9;
+
+    auto request = BattleDamageSystem().makeScriptedHitRequest(input);
+
+    CHECK(request.attackerUnitId == 11);
+    CHECK(request.defenderUnitId == 22);
+    CHECK(request.acceptedHit);
+    CHECK(request.frozenFrames == 7);
+    CHECK(request.bleedStacks == 3);
+    CHECK(request.bleedMaxStacks == 9);
+}
+
 TEST_CASE("BattleDamageSystem_Modifiers_RespectIgnoreDefenseAndMaxHitCap", "[battle][damage][unit]")
 {
     BattleDamageModifierInput input;

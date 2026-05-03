@@ -99,6 +99,15 @@ struct BattleLegacyHitShapeResult
     bool grantsHurtFrame = false;
 };
 
+struct BattleScriptedHitRequestInput
+{
+    int attackerUnitId = -1;
+    int defenderUnitId = -1;
+    int stunFrames = 0;
+    int bleedStacks = 0;
+    int bleedMaxStacks = 0;
+};
+
 struct BattleDamageDefenseInput
 {
     double damage = 0.0;
@@ -339,6 +348,7 @@ public:
     BattleStatusApplyResult applyDamageReduceDebuff(BattleStatusUnitState target, int durationFrames, int pct) const;
     int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
     BattleLegacyHitShapeResult shapeLegacyHitDamage(const BattleLegacyHitShapeInput& input) const;
+    BattleDamageRequest makeScriptedHitRequest(const BattleScriptedHitRequestInput& input) const;
 };
 
 }  // namespace KysChess::Battle

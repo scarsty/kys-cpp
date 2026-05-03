@@ -497,6 +497,24 @@ BattleLegacyHitShapeResult BattleDamageSystem::shapeLegacyHitDamage(const Battle
     return result;
 }
 
+BattleDamageRequest BattleDamageSystem::makeScriptedHitRequest(
+    const BattleScriptedHitRequestInput& input) const
+{
+    assert(input.defenderUnitId >= 0);
+    assert(input.stunFrames >= 0);
+    assert(input.bleedStacks >= 0);
+    assert(input.bleedMaxStacks >= 0);
+
+    BattleDamageRequest request;
+    request.attackerUnitId = input.attackerUnitId;
+    request.defenderUnitId = input.defenderUnitId;
+    request.acceptedHit = true;
+    request.frozenFrames = input.stunFrames;
+    request.bleedStacks = input.bleedStacks;
+    request.bleedMaxStacks = input.bleedMaxStacks;
+    return request;
+}
+
 BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageDefenseInput& input) const
 {
     BattleDamageDefenseResult result;
