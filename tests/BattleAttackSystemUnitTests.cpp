@@ -28,9 +28,9 @@ BattleAttackInstance attack(int id, int attackerId, double x, double y)
 {
     BattleAttackInstance state;
     state.id = id;
-    state.attackerUnitId = attackerId;
-    state.totalFrame = 30;
-    state.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
+    state.state.attackerUnitId = attackerId;
+    state.state.totalFrame = 30;
+    state.state.position = { static_cast<float>(x), static_cast<float>(y), 0.0f };
     return state;
 }
 
@@ -49,14 +49,14 @@ bool hasEvent(const std::vector<BattleAttackEvent>& events, BattleAttackEventTyp
 BattleAttackSpawnRequest spawnRequest()
 {
     BattleAttackSpawnRequest request;
-    request.attackerUnitId = 1;
-    request.skillId = 101;
-    request.operationType = 2;
-    request.visualEffectId = 33;
-    request.preferredTargetUnitId = 2;
-    request.position = { 10, 20, 0 };
-    request.velocity = { 3, 4, 0 };
-    request.totalFrame = 30;
+    request.initial.attackerUnitId = 1;
+    request.initial.skillId = 101;
+    request.initial.operationType = 2;
+    request.initial.visualEffectId = 33;
+    request.initial.preferredTargetUnitId = 2;
+    request.initial.position = { 10, 20, 0 };
+    request.initial.velocity = { 3, 4, 0 };
+    request.initial.totalFrame = 30;
     return request;
 }
 
@@ -84,8 +84,8 @@ TEST_CASE("BattleAttackSystem_DefaultAttackPayloadHasNoCastSubrequestKind", "[ba
     BattleAttackSpawnRequest request;
     BattleAttackInstance instance;
 
-    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::None);
-    CHECK(instance.castSubrequestKind == BattleAttackCastSubrequestKind::None);
+    CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::None);
+    CHECK(instance.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
 TEST_CASE("BattleAttackSystem_SpawnAssignsDeterministicAttackIds", "[battle][attack][unit]")
@@ -108,42 +108,42 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
 {
     auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
-    request.through = true;
-    request.track = true;
-    request.sharedHitGroupId = 7;
-    request.requirePreferredTarget = true;
-    request.bounceRemaining = 2;
-    request.bounceRange = 120;
-    request.bounceChancePct = 80;
-    request.bounceRollPct = 30;
-    request.executeCanHitInvincible = true;
-    request.ignoreProjectileCancel = true;
+    request.initial.through = true;
+    request.initial.track = true;
+    request.initial.sharedHitGroupId = 7;
+    request.initial.requirePreferredTarget = true;
+    request.initial.bounceRemaining = 2;
+    request.initial.bounceRange = 120;
+    request.initial.bounceChancePct = 80;
+    request.initial.bounceRollPct = 30;
+    request.initial.executeCanHitInvincible = true;
+    request.initial.ignoreProjectileCancel = true;
 
     BattleAttackSystem().spawn(world, request);
 
     REQUIRE(world.attacks.size() == 1);
     const auto& attack = world.attacks[0];
-    CHECK(attack.attackerUnitId == 1);
-    CHECK(attack.skillId == 101);
-    CHECK(attack.operationKind == 2);
-    CHECK(attack.visualEffectId == 33);
-    CHECK(attack.preferredTargetUnitId == 2);
-    CHECK(attack.position.x == 10.0f);
-    CHECK(attack.position.y == 20.0f);
-    CHECK(attack.velocity.x == 3.0f);
-    CHECK(attack.velocity.y == 4.0f);
-    CHECK(attack.totalFrame == 30);
-    CHECK(attack.through);
-    CHECK(attack.track);
-    CHECK(attack.sharedHitGroupId == 7);
-    CHECK(attack.requirePreferredTarget);
-    CHECK(attack.bounceRemaining == 2);
-    CHECK(attack.bounceRange == 120);
-    CHECK(attack.bounceChancePct == 80);
-    CHECK(attack.bounceRollPct == 30);
-    CHECK(attack.executeCanHitInvincible);
-    CHECK(attack.ignoreProjectileCancel);
-    CHECK(attack.castSubrequestKind == BattleAttackCastSubrequestKind::None);
+    CHECK(attack.state.attackerUnitId == 1);
+    CHECK(attack.state.skillId == 101);
+    CHECK(attack.state.operationType == 2);
+    CHECK(attack.state.visualEffectId == 33);
+    CHECK(attack.state.preferredTargetUnitId == 2);
+    CHECK(attack.state.position.x == 10.0f);
+    CHECK(attack.state.position.y == 20.0f);
+    CHECK(attack.state.velocity.x == 3.0f);
+    CHECK(attack.state.velocity.y == 4.0f);
+    CHECK(attack.state.totalFrame == 30);
+    CHECK(attack.state.through);
+    CHECK(attack.state.track);
+    CHECK(attack.state.sharedHitGroupId == 7);
+    CHECK(attack.state.requirePreferredTarget);
+    CHECK(attack.state.bounceRemaining == 2);
+    CHECK(attack.state.bounceRange == 120);
+    CHECK(attack.state.bounceChancePct == 80);
+    CHECK(attack.state.bounceRollPct == 30);
+    CHECK(attack.state.executeCanHitInvincible);
+    CHECK(attack.state.ignoreProjectileCancel);
+    CHECK(attack.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
 TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][attack][unit]")
@@ -151,27 +151,27 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][atta
     auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
     request.initialFrame = 6;
-    request.castSubrequestKind = BattleAttackCastSubrequestKind::DashHit;
-    request.strengthMultiplier = 2.0f;
+    request.initial.castSubrequestKind = BattleAttackCastSubrequestKind::DashHit;
+    request.initial.strengthMultiplier = 2.0f;
 
     BattleAttackSystem().spawn(world, request);
 
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].frame == 6);
-    CHECK(world.attacks[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
-    CHECK(world.attacks[0].strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(world.attacks[0].state.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
+    CHECK(world.attacks[0].state.strengthMultiplier == Catch::Approx(2.0f));
 }
 
 TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][attack][unit]")
 {
     auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
-    request.ultimate = true;
+    request.initial.ultimate = true;
 
     BattleAttackSystem().spawn(world, request);
 
     REQUIRE(world.attacks.size() == 1);
-    CHECK(world.attacks[0].ultimate);
+    CHECK(world.attacks[0].state.ultimate);
 }
 
 TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[battle][attack][unit]")
@@ -199,16 +199,16 @@ TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][uni
     auto world = attackWorld();
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 500, 0) };
     auto projectile = attack(10, 1, 0, 0);
-    projectile.velocity = { 3, 4, 0 };
-    projectile.totalFrame = 1;
+    projectile.state.velocity = { 3, 4, 0 };
+    projectile.state.totalFrame = 1;
     world.attacks.push_back(projectile);
 
     auto events = BattleAttackSystem().tick(world);
 
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].frame == 1);
-    CHECK(world.attacks[0].position.x == 3.0f);
-    CHECK(world.attacks[0].position.y == 4.0f);
+    CHECK(world.attacks[0].state.position.x == 3.0f);
+    CHECK(world.attacks[0].state.position.y == 4.0f);
     CHECK(hasEvent(events, BattleAttackEventType::Moved, 10));
     CHECK(hasEvent(events, BattleAttackEventType::Expired, 10));
 }
@@ -237,14 +237,14 @@ TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameT
     world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) };
     auto projectile = attack(10, 1, 0, 0);
-    projectile.through = true;
+    projectile.state.through = true;
     world.attacks.push_back(projectile);
 
     auto firstEvents = BattleAttackSystem().tick(world);
     CHECK(hasEvent(firstEvents, BattleAttackEventType::Hit, 10, 2));
     CHECK_FALSE(world.attacks[0].noHurt);
 
-    world.attacks[0].velocity = { 90, 0, 0 };
+    world.attacks[0].state.velocity = { 90, 0, 0 };
     auto secondEvents = BattleAttackSystem().tick(world);
     CHECK(hasEvent(secondEvents, BattleAttackEventType::Hit, 10, 3));
     CHECK(!hasEvent(secondEvents, BattleAttackEventType::Hit, 10, 2));
@@ -256,11 +256,11 @@ TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectil
     world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
     auto first = attack(10, 1, 0, 0);
-    first.sharedHitGroupId = 7;
-    first.through = true;
+    first.state.sharedHitGroupId = 7;
+    first.state.through = true;
     auto second = attack(11, 1, 0, 0);
-    second.sharedHitGroupId = 7;
-    second.through = true;
+    second.state.sharedHitGroupId = 7;
+    second.state.through = true;
     world.attacks = { first, second };
 
     auto events = BattleAttackSystem().tick(world);
@@ -277,9 +277,9 @@ TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", 
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
     world.units[1].alive = false;
     auto projectile = attack(10, 1, 0, 0);
-    projectile.preferredTargetUnitId = 2;
-    projectile.requirePreferredTarget = true;
-    projectile.totalFrame = 20;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.requirePreferredTarget = true;
+    projectile.state.totalFrame = 20;
     world.attacks.push_back(projectile);
 
     auto events = BattleAttackSystem().tick(world);
@@ -295,14 +295,14 @@ TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "
     world.hitRadius = TightTrackingHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 100, 100) };
     auto projectile = attack(10, 1, 0, 0);
-    projectile.track = true;
-    projectile.velocity = { 10, 0, 0 };
+    projectile.state.track = true;
+    projectile.state.velocity = { 10, 0, 0 };
     world.attacks.push_back(projectile);
 
     BattleAttackSystem().tick(world);
 
-    CHECK(world.attacks[0].velocity.y > 0.0f);
-    CHECK(world.attacks[0].velocity.x > 0.0f);
+    CHECK(world.attacks[0].state.velocity.y > 0.0f);
+    CHECK(world.attacks[0].state.velocity.x > 0.0f);
 }
 
 TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle][attack][unit]")
@@ -338,11 +338,11 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
         unit(5, 1, 260, 0),
     };
     auto projectile = attack(10, 1, 0, 0);
-    projectile.velocity = { 10, 0, 0 };
-    projectile.bounceRemaining = 2;
-    projectile.bounceRange = 120;
-    projectile.bounceChancePct = 100;
-    projectile.bounceRollPct = 0;
+    projectile.state.velocity = { 10, 0, 0 };
+    projectile.state.bounceRemaining = 2;
+    projectile.state.bounceRange = 120;
+    projectile.state.bounceChancePct = 100;
+    projectile.state.bounceRollPct = 0;
     projectile.hitUnitIds = { 4 };
     world.attacks.push_back(projectile);
 
@@ -351,19 +351,19 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
     REQUIRE(world.attacks.size() == 2);
     const auto& source = world.attacks[0];
     CHECK(source.noHurt);
-    CHECK(source.bounceRemaining == 0);
+    CHECK(source.state.bounceRemaining == 0);
 
     const auto& bounce = world.attacks[1];
     CHECK(bounce.id == 20);
-    CHECK(bounce.attackerUnitId == 1);
-    CHECK(bounce.preferredTargetUnitId == 3);
-    CHECK(bounce.requirePreferredTarget);
-    CHECK(bounce.track);
-    CHECK_FALSE(bounce.through);
-    CHECK(bounce.ignoreProjectileCancel);
-    CHECK(bounce.bounceRemaining == 1);
-    CHECK(bounce.position.x == 50.0f);
-    CHECK(bounce.velocity.x > 0.0f);
+    CHECK(bounce.state.attackerUnitId == 1);
+    CHECK(bounce.state.preferredTargetUnitId == 3);
+    CHECK(bounce.state.requirePreferredTarget);
+    CHECK(bounce.state.track);
+    CHECK_FALSE(bounce.state.through);
+    CHECK(bounce.state.ignoreProjectileCancel);
+    CHECK(bounce.state.bounceRemaining == 1);
+    CHECK(bounce.state.position.x == 50.0f);
+    CHECK(bounce.state.velocity.x > 0.0f);
 
     REQUIRE(events.back().type == BattleAttackEventType::Bounce);
     CHECK(events.back().attackId == 10);
@@ -377,16 +377,16 @@ TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[
     world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) };
     auto projectile = attack(10, 1, 0, 0);
-    projectile.bounceRemaining = 1;
-    projectile.bounceRange = 120;
-    projectile.bounceChancePct = 30;
-    projectile.bounceRollPct = 30;
+    projectile.state.bounceRemaining = 1;
+    projectile.state.bounceRange = 120;
+    projectile.state.bounceChancePct = 30;
+    projectile.state.bounceRollPct = 30;
     world.attacks.push_back(projectile);
 
     auto events = BattleAttackSystem().tick(world);
 
     REQUIRE(world.attacks.size() == 1);
     CHECK(world.attacks[0].noHurt);
-    CHECK(world.attacks[0].bounceRemaining == 0);
+    CHECK(world.attacks[0].state.bounceRemaining == 0);
     CHECK(!hasEvent(events, BattleAttackEventType::Bounce, 10, 3));
 }

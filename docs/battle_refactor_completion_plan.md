@@ -15,6 +15,7 @@
 ## Execution Rules
 
 - Execute tasks in order. Later tasks assume earlier ownership boundaries are in place.
+- Keep this document current as work proceeds. After each completed task, review loop, slice gate, or meaningful scope correction, update `## Current Progress` and append verification evidence under `## Verification Log` in the same branch.
 - For each task:
   - Write or update the focused test first.
   - Run the focused test and confirm it fails for the intended missing behavior.
@@ -52,6 +53,22 @@ Baseline verification history:
 - Last known `kys_tests` gate: passed, 70 test cases, 3141 assertions.
 - Last known `kys` Debug x64 build: passed.
 - These are baseline facts only. They do not complete any unfinished slice.
+
+---
+
+## Current Progress
+
+- Slice 1: Complete and slice gate recorded.
+- Slice 2: Complete and slice gate recorded.
+- Slice 3 Task 3.1: Complete. Cast state/planner exists and selection readiness is honored.
+- Slice 3 Task 3.2: Implementation and user-feedback fixes are complete in the worktree; pending required spec-compliance review and code-quality review before marking complete.
+- Slice 3 Task 3.3: Next task after Task 3.2 reviews pass.
+- Current user-feedback constraints carried forward:
+  - Do not add source-text tests that assert words/phrases are absent.
+  - Do not hard-code gameplay geometry when a source exists; derive scene geometry from `Scene::TILE_W` through the adapter.
+  - Prefer explicit `{}` placeholders for fields assigned later; keep only meaningful default/sentinel values.
+  - Prefer Traditional Chinese for source string literals.
+  - Express conditional invariants as single `assert(!condition || invariant)` expressions rather than `if` blocks wrapping `assert`.
 
 ---
 

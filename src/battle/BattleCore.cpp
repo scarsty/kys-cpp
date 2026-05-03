@@ -93,13 +93,13 @@ void applyAttackContext(BattlePresentationEvent& presentation, const BattleAttac
     presentation.effectId = attackId;
     if (const auto* attack = findAttack(world, attackId))
     {
-        presentation.sourceUnitId = attack->attackerUnitId;
-        presentation.targetUnitId = attack->preferredTargetUnitId;
-        presentation.durationFrames = attack->totalFrame;
-        presentation.visualEffectId = attack->visualEffectId;
-        presentation.position = attack->position;
-        presentation.velocity = attack->velocity;
-        presentation.operationKind = attack->operationKind;
+        presentation.sourceUnitId = attack->state.attackerUnitId;
+        presentation.targetUnitId = attack->state.preferredTargetUnitId;
+        presentation.durationFrames = attack->state.totalFrame;
+        presentation.visualEffectId = attack->state.visualEffectId;
+        presentation.position = attack->state.position;
+        presentation.velocity = attack->state.velocity;
+        presentation.operationKind = attack->state.operationType;
     }
 }
 
@@ -108,8 +108,8 @@ void applyAttackContext(BattleGameplayEvent& gameplay, const BattleAttackWorld& 
     gameplay.effectId = attackId;
     if (const auto* attack = findAttack(world, attackId))
     {
-        gameplay.sourceUnitId = attack->attackerUnitId;
-        gameplay.position = attack->position;
+        gameplay.sourceUnitId = attack->state.attackerUnitId;
+        gameplay.position = attack->state.position;
     }
 }
 
@@ -217,11 +217,11 @@ BattleGameplayEvent toGameplayEvent(
         gameplay.targetUnitId = event.unitId;
         if (const auto* sourceAttack = findAttack(world, event.attackId))
         {
-            gameplay.sourceUnitId = sourceAttack->attackerUnitId;
+            gameplay.sourceUnitId = sourceAttack->state.attackerUnitId;
         }
         if (const auto* spawnedAttack = findAttack(world, event.otherAttackId))
         {
-            gameplay.position = spawnedAttack->position;
+            gameplay.position = spawnedAttack->state.position;
         }
         break;
     }

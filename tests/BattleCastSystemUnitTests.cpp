@@ -93,28 +93,28 @@ void checkDecisionEquals(const BattleCastDecision& lhs, const BattleCastDecision
 
 void checkSpawnRequestEquals(const BattleAttackSpawnRequest& lhs, const BattleAttackSpawnRequest& rhs)
 {
-    CHECK(lhs.attackerUnitId == rhs.attackerUnitId);
-    CHECK(lhs.skillId == rhs.skillId);
-    CHECK(lhs.operationType == rhs.operationType);
-    CHECK(lhs.visualEffectId == rhs.visualEffectId);
-    CHECK(lhs.preferredTargetUnitId == rhs.preferredTargetUnitId);
-    checkPoint(lhs.position, rhs.position);
-    checkPoint(lhs.velocity, rhs.velocity);
-    CHECK(lhs.totalFrame == rhs.totalFrame);
-    CHECK(lhs.through == rhs.through);
-    CHECK(lhs.track == rhs.track);
-    CHECK(lhs.requirePreferredTarget == rhs.requirePreferredTarget);
-    CHECK(lhs.executeCanHitInvincible == rhs.executeCanHitInvincible);
-    CHECK(lhs.ignoreProjectileCancel == rhs.ignoreProjectileCancel);
-    CHECK(lhs.sharedHitGroupId == rhs.sharedHitGroupId);
-    CHECK(lhs.bounceRemaining == rhs.bounceRemaining);
-    CHECK(lhs.bounceRange == rhs.bounceRange);
-    CHECK(lhs.bounceChancePct == rhs.bounceChancePct);
-    CHECK(lhs.bounceRollPct == rhs.bounceRollPct);
-    CHECK(lhs.ultimate == rhs.ultimate);
+    CHECK(lhs.initial.attackerUnitId == rhs.initial.attackerUnitId);
+    CHECK(lhs.initial.skillId == rhs.initial.skillId);
+    CHECK(lhs.initial.operationType == rhs.initial.operationType);
+    CHECK(lhs.initial.visualEffectId == rhs.initial.visualEffectId);
+    CHECK(lhs.initial.preferredTargetUnitId == rhs.initial.preferredTargetUnitId);
+    checkPoint(lhs.initial.position, rhs.initial.position);
+    checkPoint(lhs.initial.velocity, rhs.initial.velocity);
+    CHECK(lhs.initial.totalFrame == rhs.initial.totalFrame);
+    CHECK(lhs.initial.through == rhs.initial.through);
+    CHECK(lhs.initial.track == rhs.initial.track);
+    CHECK(lhs.initial.requirePreferredTarget == rhs.initial.requirePreferredTarget);
+    CHECK(lhs.initial.executeCanHitInvincible == rhs.initial.executeCanHitInvincible);
+    CHECK(lhs.initial.ignoreProjectileCancel == rhs.initial.ignoreProjectileCancel);
+    CHECK(lhs.initial.sharedHitGroupId == rhs.initial.sharedHitGroupId);
+    CHECK(lhs.initial.bounceRemaining == rhs.initial.bounceRemaining);
+    CHECK(lhs.initial.bounceRange == rhs.initial.bounceRange);
+    CHECK(lhs.initial.bounceChancePct == rhs.initial.bounceChancePct);
+    CHECK(lhs.initial.bounceRollPct == rhs.initial.bounceRollPct);
+    CHECK(lhs.initial.ultimate == rhs.initial.ultimate);
     CHECK(lhs.initialFrame == rhs.initialFrame);
-    CHECK(lhs.castSubrequestKind == rhs.castSubrequestKind);
-    CHECK(lhs.strengthMultiplier == Catch::Approx(rhs.strengthMultiplier));
+    CHECK(lhs.initial.castSubrequestKind == rhs.initial.castSubrequestKind);
+    CHECK(lhs.initial.strengthMultiplier == Catch::Approx(rhs.initial.strengthMultiplier));
 }
 
 void checkGameplayEventEquals(const BattleGameplayEvent& lhs, const BattleGameplayEvent& rhs)
@@ -342,18 +342,18 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     REQUIRE(result.decision.canCast);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.attackerUnitId == 1);
-    CHECK(request.skillId == 107);
-    CHECK(request.operationType == 2);
-    CHECK(request.visualEffectId == 88);
-    CHECK(request.preferredTargetUnitId == 2);
-    CHECK(request.position.x == Catch::Approx(82.0f));
-    CHECK(request.position.y == Catch::Approx(20.0f));
-    CHECK(request.velocity.x > 0.0f);
-    CHECK(request.velocity.y == Catch::Approx(0.0f));
-    CHECK(request.totalFrame == 24);
-    CHECK(request.through);
-    CHECK_FALSE(request.ultimate);
+    CHECK(request.initial.attackerUnitId == 1);
+    CHECK(request.initial.skillId == 107);
+    CHECK(request.initial.operationType == 2);
+    CHECK(request.initial.visualEffectId == 88);
+    CHECK(request.initial.preferredTargetUnitId == 2);
+    CHECK(request.initial.position.x == Catch::Approx(82.0f));
+    CHECK(request.initial.position.y == Catch::Approx(20.0f));
+    CHECK(request.initial.velocity.x > 0.0f);
+    CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
+    CHECK(request.initial.totalFrame == 24);
+    CHECK(request.initial.through);
+    CHECK_FALSE(request.initial.ultimate);
 }
 
 TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][cast]")
@@ -366,16 +366,16 @@ TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][
     REQUIRE(result.decision.operationType == 0);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.position.x == Catch::Approx(82.0f));
-    CHECK(request.position.y == Catch::Approx(20.0f));
-    CHECK(request.velocity.x == Catch::Approx(0.0f));
-    CHECK(request.velocity.y == Catch::Approx(0.0f));
-    CHECK(request.totalFrame == 10);
-    CHECK_FALSE(request.track);
-    CHECK_FALSE(request.through);
-    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(request.initial.position.x == Catch::Approx(82.0f));
+    CHECK(request.initial.position.y == Catch::Approx(20.0f));
+    CHECK(request.initial.velocity.x == Catch::Approx(0.0f));
+    CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
+    CHECK(request.initial.totalFrame == 10);
+    CHECK_FALSE(request.initial.track);
+    CHECK_FALSE(request.initial.through);
+    CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
     CHECK(request.initialFrame == 0);
-    CHECK(request.strengthMultiplier == Catch::Approx(1.0f));
+    CHECK(request.initial.strengthMultiplier == Catch::Approx(1.0f));
 }
 
 TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesLegacyTrackingProjectileShape", "[battle][cast]")
@@ -390,12 +390,12 @@ TEST_CASE("BattleCastSystem_StrengthenedMeleeSpawnUsesLegacyTrackingProjectileSh
     REQUIRE(result.decision.operationType == 0);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.totalFrame == 30);
-    CHECK(request.track);
-    CHECK(request.velocity.x == Catch::Approx(3.0f));
-    CHECK(request.velocity.y == Catch::Approx(0.0f));
-    CHECK(request.strengthMultiplier == Catch::Approx(2.0f));
-    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(request.initial.totalFrame == 30);
+    CHECK(request.initial.track);
+    CHECK(request.initial.velocity.x == Catch::Approx(3.0f));
+    CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
+    CHECK(request.initial.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
 }
 
 TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectiles", "[battle][cast]")
@@ -411,19 +411,19 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
 
     REQUIRE(result.decision.operationType == 0);
     REQUIRE(result.attackSpawnRequests.size() == 4);
-    CHECK(result.attackSpawnRequests[0].strengthMultiplier == Catch::Approx(2.0f));
-    CHECK(result.attackSpawnRequests[0].track);
-    CHECK(result.attackSpawnRequests[0].totalFrame == 30);
+    CHECK(result.attackSpawnRequests[0].initial.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(result.attackSpawnRequests[0].initial.track);
+    CHECK(result.attackSpawnRequests[0].initial.totalFrame == 30);
 
-    CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::MeleeSplash);
-    CHECK(result.attackSpawnRequests[1].strengthMultiplier == Catch::Approx(0.5f));
-    CHECK(result.attackSpawnRequests[1].track);
-    CHECK(result.attackSpawnRequests[1].totalFrame == 60);
+    CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::MeleeSplash);
+    CHECK(result.attackSpawnRequests[1].initial.strengthMultiplier == Catch::Approx(0.5f));
+    CHECK(result.attackSpawnRequests[1].initial.track);
+    CHECK(result.attackSpawnRequests[1].initial.totalFrame == 60);
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
-    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(LegacyMeleeSplashProjectileSpeed));
+    CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(LegacyMeleeSplashProjectileSpeed));
 
-    CHECK(result.attackSpawnRequests[2].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(result.attackSpawnRequests[3].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[3].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
 }
 
 TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battle][cast]")
@@ -437,13 +437,13 @@ TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battl
     REQUIRE(result.decision.operationType == 1);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.position.x == Catch::Approx(82.0f));
-    CHECK(request.velocity.x == Catch::Approx(12.0f));
-    CHECK(request.velocity.y == Catch::Approx(0.0f));
-    CHECK(request.totalFrame == 120);
-    CHECK(request.track);
-    CHECK_FALSE(request.through);
-    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(request.initial.position.x == Catch::Approx(82.0f));
+    CHECK(request.initial.velocity.x == Catch::Approx(12.0f));
+    CHECK(request.initial.velocity.y == Catch::Approx(0.0f));
+    CHECK(request.initial.totalFrame == 120);
+    CHECK(request.initial.track);
+    CHECK_FALSE(request.initial.through);
+    CHECK(request.initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
 }
 
 TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle][cast]")
@@ -458,19 +458,19 @@ TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle
 
     REQUIRE(result.decision.operationType == 2);
     REQUIRE(result.attackSpawnRequests.size() == 3);
-    CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
-    CHECK(result.attackSpawnRequests[0].operationType == 2);
-    CHECK(result.attackSpawnRequests[0].totalFrame == 24);
-    CHECK(result.attackSpawnRequests[0].through);
+    CHECK(result.attackSpawnRequests[0].initial.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(result.attackSpawnRequests[0].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[0].initial.totalFrame == 24);
+    CHECK(result.attackSpawnRequests[0].initial.through);
 
-    CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(result.attackSpawnRequests[1].operationType == 2);
-    CHECK(result.attackSpawnRequests[1].totalFrame == 24);
-    CHECK(result.attackSpawnRequests[1].through);
-    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(12.0f));
+    CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[1].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
+    CHECK(result.attackSpawnRequests[1].initial.through);
+    CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
 
-    CHECK(result.attackSpawnRequests[2].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(result.attackSpawnRequests[2].operationType == 2);
+    CHECK(result.attackSpawnRequests[2].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[2].initial.operationType == 2);
 }
 
 TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[battle][cast]")
@@ -486,8 +486,8 @@ TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[
 
     REQUIRE(trackingResult.decision.operationType == 1);
     REQUIRE(trackingResult.attackSpawnRequests.size() == 1);
-    CHECK(trackingResult.attackSpawnRequests[0].position.x == Catch::Approx(118.0f));
-    CHECK(trackingResult.attackSpawnRequests[0].position.y == Catch::Approx(20.0f));
+    CHECK(trackingResult.attackSpawnRequests[0].initial.position.x == Catch::Approx(118.0f));
+    CHECK(trackingResult.attackSpawnRequests[0].initial.position.y == Catch::Approx(20.0f));
 
     input = basicInput();
     input.geometry.meleeAttackEffectOffset = 72.0;
@@ -501,11 +501,11 @@ TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[
 
     REQUIRE(rangedResult.decision.operationType == 2);
     REQUIRE(rangedResult.attackSpawnRequests.size() == 2);
-    CHECK(rangedResult.attackSpawnRequests[0].position.x == Catch::Approx(118.0f));
-    CHECK(rangedResult.attackSpawnRequests[0].position.y == Catch::Approx(20.0f));
-    CHECK(rangedResult.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
-    CHECK(rangedResult.attackSpawnRequests[1].position.x == Catch::Approx(118.0f));
-    CHECK(rangedResult.attackSpawnRequests[1].position.y == Catch::Approx(20.0f));
+    CHECK(rangedResult.attackSpawnRequests[0].initial.position.x == Catch::Approx(118.0f));
+    CHECK(rangedResult.attackSpawnRequests[0].initial.position.y == Catch::Approx(20.0f));
+    CHECK(rangedResult.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(rangedResult.attackSpawnRequests[1].initial.position.x == Catch::Approx(118.0f));
+    CHECK(rangedResult.attackSpawnRequests[1].initial.position.y == Catch::Approx(20.0f));
 }
 
 TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[battle][cast]")
@@ -526,28 +526,28 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(result.animation.recoveryFrames == 5);
     REQUIRE(result.attackSpawnRequests.size() == 3);
 
-    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(80.5f));
+    CHECK(result.attackSpawnRequests[0].initial.position.x == Catch::Approx(80.5f));
     CHECK(result.attackSpawnRequests[0].initialFrame == 4);
-    CHECK(result.attackSpawnRequests[0].velocity.x == Catch::Approx(4.0f));
-    CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
+    CHECK(result.attackSpawnRequests[0].initial.velocity.x == Catch::Approx(4.0f));
+    CHECK(result.attackSpawnRequests[0].initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
 
-    CHECK(result.attackSpawnRequests[1].position.x == Catch::Approx(82.0f));
+    CHECK(result.attackSpawnRequests[1].initial.position.x == Catch::Approx(82.0f));
     CHECK(result.attackSpawnRequests[1].initialFrame == 8);
 
-    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(83.5f));
+    CHECK(result.attackSpawnRequests[2].initial.position.x == Catch::Approx(83.5f));
     CHECK(result.attackSpawnRequests[2].initialFrame == 12);
-    CHECK(result.attackSpawnRequests[2].totalFrame == 30);
-    CHECK_FALSE(result.attackSpawnRequests[2].track);
-    CHECK_FALSE(result.attackSpawnRequests[2].through);
+    CHECK(result.attackSpawnRequests[2].initial.totalFrame == 30);
+    CHECK_FALSE(result.attackSpawnRequests[2].initial.track);
+    CHECK_FALSE(result.attackSpawnRequests[2].initial.through);
 
     input.unit.dashVelocity = { 8.0f, 0.0f, 0.0f };
     auto fasterResult = BattleCastPlanner().plan(input);
 
     REQUIRE(fasterResult.attackSpawnRequests.size() == 3);
-    CHECK(fasterResult.attackSpawnRequests[0].position.x == Catch::Approx(result.attackSpawnRequests[0].position.x));
-    CHECK(fasterResult.attackSpawnRequests[1].position.x == Catch::Approx(result.attackSpawnRequests[1].position.x));
-    CHECK(fasterResult.attackSpawnRequests[2].position.x == Catch::Approx(result.attackSpawnRequests[2].position.x));
-    CHECK(fasterResult.attackSpawnRequests[0].velocity.x == Catch::Approx(8.0f));
+    CHECK(fasterResult.attackSpawnRequests[0].initial.position.x == Catch::Approx(result.attackSpawnRequests[0].initial.position.x));
+    CHECK(fasterResult.attackSpawnRequests[1].initial.position.x == Catch::Approx(result.attackSpawnRequests[1].initial.position.x));
+    CHECK(fasterResult.attackSpawnRequests[2].initial.position.x == Catch::Approx(result.attackSpawnRequests[2].initial.position.x));
+    CHECK(fasterResult.attackSpawnRequests[0].initial.velocity.x == Catch::Approx(8.0f));
 }
 
 TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[battle][cast]")
@@ -567,11 +567,11 @@ TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[batt
 
     REQUIRE(result.decision.operationType == 3);
     REQUIRE(result.attackSpawnRequests.size() == 2);
-    CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
-    CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::DashFollowUpSkill);
-    CHECK(result.attackSpawnRequests[1].operationType == 2);
-    CHECK(result.attackSpawnRequests[1].totalFrame == 24);
-    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(12.0f));
+    CHECK(result.attackSpawnRequests[0].initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
+    CHECK(result.attackSpawnRequests[1].initial.castSubrequestKind == BattleAttackCastSubrequestKind::DashFollowUpSkill);
+    CHECK(result.attackSpawnRequests[1].initial.operationType == 2);
+    CHECK(result.attackSpawnRequests[1].initial.totalFrame == 24);
+    CHECK(result.attackSpawnRequests[1].initial.velocity.x == Catch::Approx(12.0f));
 }
 
 TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[battle][cast]")

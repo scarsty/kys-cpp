@@ -28,16 +28,13 @@ enum class BattleAttackCastSubrequestKind
     ExtraProjectile,
 };
 
-struct BattleAttackInstance
+struct BattleAttackState
 {
-    int id = -1;
     int attackerUnitId = -1;
     int skillId = -1;
     int preferredTargetUnitId = -1;
     bool requirePreferredTarget = false;
-    int frame = 0;
     int totalFrame = 1;
-    bool noHurt = false;
     bool track = false;
     bool through = false;
     bool ultimate = false;
@@ -50,12 +47,21 @@ struct BattleAttackInstance
     int bounceChancePct = 0;
     int bounceRollPct = 0;
     int visualEffectId = -1;
-    int operationKind = -1;
+    int operationType = -1;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
-    std::vector<int> hitUnitIds;
     Pointf position;
     Pointf velocity;
+};
+
+struct BattleAttackInstance
+{
+    int id = -1;
+    BattleAttackState state;
+    int frame = 0;
+    bool noHurt = false;
+    int spawnedFromAttackId = -1;
+    std::vector<int> hitUnitIds;
     Pointf acceleration;
     bool spiralMotion = false;
     Pointf spiralCenter;
@@ -67,28 +73,8 @@ struct BattleAttackInstance
 
 struct BattleAttackSpawnRequest
 {
-    int attackerUnitId = -1;
-    int skillId = -1;
-    int operationType = -1;
-    int visualEffectId = -1;
-    int preferredTargetUnitId = -1;
-    Pointf position;
-    Pointf velocity;
+    BattleAttackState initial;
     int initialFrame = 0;
-    int totalFrame = 1;
-    bool through = false;
-    bool track = false;
-    bool requirePreferredTarget = false;
-    bool executeCanHitInvincible = false;
-    bool ignoreProjectileCancel = false;
-    int sharedHitGroupId = 0;
-    int bounceRemaining = 0;
-    int bounceRange = 0;
-    int bounceChancePct = 0;
-    int bounceRollPct = 0;
-    bool ultimate = false;
-    BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
-    float strengthMultiplier = 1.0f;
 };
 
 enum class BattleAttackEventType

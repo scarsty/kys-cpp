@@ -59,22 +59,22 @@ Battle::BattleAttackInstance makeBattleAttackInstance(
 {
     Battle::BattleAttackInstance attack;
     attack.id = attackId;
-    attack.attackerUnitId = effect.Attacker ? effect.Attacker->ID : -1;
-    attack.preferredTargetUnitId = effect.PreferredTarget ? effect.PreferredTarget->ID : -1;
-    attack.requirePreferredTarget = effect.RequirePreferredTarget != 0;
+    attack.state.attackerUnitId = effect.Attacker ? effect.Attacker->ID : -1;
+    attack.state.preferredTargetUnitId = effect.PreferredTarget ? effect.PreferredTarget->ID : -1;
+    attack.state.requirePreferredTarget = effect.RequirePreferredTarget != 0;
     attack.frame = effect.Frame;
-    attack.totalFrame = effect.TotalFrame;
+    attack.state.totalFrame = effect.TotalFrame;
     attack.noHurt = effect.NoHurt != 0;
-    attack.track = effect.Track != 0;
-    attack.through = effect.Through != 0;
-    attack.ultimate = effect.IsUltimate != 0;
-    attack.executeCanHitInvincible = attackHasExecuteEffect(effect);
-    attack.ignoreProjectileCancel = effect.IgnoreProjectileCancel != 0 || effect.UsingMagic == nullptr;
-    attack.sharedHitGroupId = effect.SharedHitGroupId;
-    attack.visualEffectId = effect.VisualEffectId;
-    attack.operationKind = effect.OperationType;
-    attack.position = effect.Pos;
-    attack.velocity = effect.Velocity;
+    attack.state.track = effect.Track != 0;
+    attack.state.through = effect.Through != 0;
+    attack.state.ultimate = effect.IsUltimate != 0;
+    attack.state.executeCanHitInvincible = attackHasExecuteEffect(effect);
+    attack.state.ignoreProjectileCancel = effect.IgnoreProjectileCancel != 0 || effect.UsingMagic == nullptr;
+    attack.state.sharedHitGroupId = effect.SharedHitGroupId;
+    attack.state.visualEffectId = effect.VisualEffectId;
+    attack.state.operationType = effect.OperationType;
+    attack.state.position = effect.Pos;
+    attack.state.velocity = effect.Velocity;
     attack.acceleration = effect.Acceleration;
     attack.spiralMotion = effect.SpiralMotion != 0;
     attack.spiralCenter = effect.SpiralCenter;
@@ -99,8 +99,8 @@ void writeBattleAttackInstance(
 {
     effect.Frame = attack.frame;
     effect.NoHurt = attack.noHurt ? 1 : 0;
-    effect.Pos = attack.position;
-    effect.Velocity = attack.velocity;
+    effect.Pos = attack.state.position;
+    effect.Velocity = attack.state.velocity;
     effect.Acceleration = attack.acceleration;
     effect.SpiralCenter = attack.spiralCenter;
     effect.SpiralRadius = attack.spiralRadius;

@@ -80,17 +80,17 @@ BattleSkillState skill(int attackAreaType, double reach = 400.0, bool forceRange
 BattleAttackSpawnRequest attackSpawnRequest()
 {
     BattleAttackSpawnRequest request;
-    request.attackerUnitId = 1;
-    request.skillId = 101;
-    request.operationType = 2;
-    request.visualEffectId = 44;
-    request.preferredTargetUnitId = 2;
-    request.position = { 100, 120, 0 };
-    request.velocity = { 6, 0, 0 };
-    request.totalFrame = 30;
-    request.track = true;
-    request.through = true;
-    request.sharedHitGroupId = 7;
+    request.initial.attackerUnitId = 1;
+    request.initial.skillId = 101;
+    request.initial.operationType = 2;
+    request.initial.visualEffectId = 44;
+    request.initial.preferredTargetUnitId = 2;
+    request.initial.position = { 100, 120, 0 };
+    request.initial.velocity = { 6, 0, 0 };
+    request.initial.totalFrame = 30;
+    request.initial.track = true;
+    request.initial.through = true;
+    request.initial.sharedHitGroupId = 7;
     return request;
 }
 
@@ -346,13 +346,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
 
     BattleAttackInstance projectile;
     projectile.id = 10;
-    projectile.attackerUnitId = 1;
-    projectile.preferredTargetUnitId = 2;
-    projectile.totalFrame = 30;
-    projectile.visualEffectId = 33;
-    projectile.operationKind = 2;
-    projectile.position = { 0, 0, 0 };
-    projectile.velocity = { 5, 0, 0 };
+    projectile.state.attackerUnitId = 1;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.totalFrame = 30;
+    projectile.state.visualEffectId = 33;
+    projectile.state.operationType = 2;
+    projectile.state.position = { 0, 0, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
 
     state.attacks.units = {
         { 1, 0, true, false, false, { 100, 100, 0 } },
@@ -406,7 +406,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
     CHECK(state.pendingAttackSpawns.empty());
     REQUIRE(state.attacks.attacks.size() == 1);
     CHECK(state.attacks.attacks[0].id == 50);
-    CHECK(state.attacks.attacks[0].position.x == 106.0f);
+    CHECK(state.attacks.attacks[0].state.position.x == 106.0f);
     CHECK(state.attacks.nextAttackId == 51);
 
     REQUIRE(result.frame.gameplayEvents.size() == 3);
@@ -459,18 +459,18 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
 
     BattleAttackInstance projectile;
     projectile.id = 10;
-    projectile.attackerUnitId = 1;
-    projectile.totalFrame = 30;
-    projectile.position = { 100, 100, 0 };
-    projectile.velocity = { 5, 0, 0 };
+    projectile.state.attackerUnitId = 1;
+    projectile.state.totalFrame = 30;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
 
     BattleAttackInstance expiringProjectile;
     expiringProjectile.id = 20;
-    expiringProjectile.attackerUnitId = 1;
-    expiringProjectile.totalFrame = 1;
+    expiringProjectile.state.attackerUnitId = 1;
+    expiringProjectile.state.totalFrame = 1;
     expiringProjectile.noHurt = true;
-    expiringProjectile.position = { 300, 100, 0 };
-    expiringProjectile.velocity = { 5, 0, 0 };
+    expiringProjectile.state.position = { 300, 100, 0 };
+    expiringProjectile.state.velocity = { 5, 0, 0 };
 
     state.attacks.units = {
         { 1, 0, true, false, false, { 100, 100, 0 } },
@@ -520,12 +520,12 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
 
     BattleAttackInstance projectile;
     projectile.id = 10;
-    projectile.attackerUnitId = 1;
-    projectile.preferredTargetUnitId = 2;
-    projectile.requirePreferredTarget = true;
-    projectile.totalFrame = 30;
-    projectile.position = { 100, 100, 0 };
-    projectile.velocity = { 5, 0, 0 };
+    projectile.state.attackerUnitId = 1;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.requirePreferredTarget = true;
+    projectile.state.totalFrame = 30;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
 
     state.attacks.units = {
         { 1, 0, true, false, false, { 100, 100, 0 } },
@@ -558,17 +558,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
 
     BattleAttackInstance first;
     first.id = 10;
-    first.attackerUnitId = 1;
+    first.state.attackerUnitId = 1;
     first.frame = 5;
-    first.totalFrame = 30;
-    first.position = { 500, 500, 0 };
+    first.state.totalFrame = 30;
+    first.state.position = { 500, 500, 0 };
 
     BattleAttackInstance second;
     second.id = 20;
-    second.attackerUnitId = 2;
+    second.state.attackerUnitId = 2;
     second.frame = 5;
-    second.totalFrame = 30;
-    second.position = { 500, 500, 0 };
+    second.state.totalFrame = 30;
+    second.state.position = { 500, 500, 0 };
 
     state.attacks.units = {
         { 1, 0, true, false, false, { 100, 100, 0 } },
@@ -602,17 +602,17 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
 
     BattleAttackInstance projectile;
     projectile.id = 10;
-    projectile.attackerUnitId = 1;
-    projectile.preferredTargetUnitId = 2;
-    projectile.totalFrame = 30;
-    projectile.visualEffectId = 44;
-    projectile.operationKind = 2;
-    projectile.bounceRemaining = 1;
-    projectile.bounceRange = 500;
-    projectile.bounceChancePct = 100;
-    projectile.bounceRollPct = 0;
-    projectile.position = { 100, 100, 0 };
-    projectile.velocity = { 5, 0, 0 };
+    projectile.state.attackerUnitId = 1;
+    projectile.state.preferredTargetUnitId = 2;
+    projectile.state.totalFrame = 30;
+    projectile.state.visualEffectId = 44;
+    projectile.state.operationType = 2;
+    projectile.state.bounceRemaining = 1;
+    projectile.state.bounceRange = 500;
+    projectile.state.bounceChancePct = 100;
+    projectile.state.bounceRollPct = 0;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
 
     state.attacks.nextAttackId = 30;
     state.attacks.units = {

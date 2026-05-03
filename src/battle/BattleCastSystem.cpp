@@ -57,10 +57,7 @@ void assertCastIntentInput(const BattleCastInput& input, const BattleCastSkillSt
     assert(input.targetUnitId >= 0);
     assert(input.targetDistance > 0.0);
     assert(input.unit.meleeAttackReach > 0.0);
-    if (input.unit.dashAttackEnabled)
-    {
-        assert(input.unit.dashAttackReach > 0.0);
-    }
+    assert(!input.unit.dashAttackEnabled || input.unit.dashAttackReach > 0.0);
     assert(selectedSkill.id >= 0);
     assert(selectedSkill.reach > 0.0);
     assert(selectedSkill.selectDistance > 0);
@@ -156,14 +153,14 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     auto facing = castFacing(input);
 
     BattleAttackSpawnRequest request;
-    request.attackerUnitId = input.unit.id;
-    request.skillId = selectedSkill.id;
-    request.operationType = operationType;
-    request.visualEffectId = selectedSkill.visualEffectId;
-    request.preferredTargetUnitId = input.targetUnitId;
-    request.position = input.unit.position + scaled(facing, spawnOffsetForOperation(input.geometry, operationType));
-    request.ultimate = result.decision.ultimate;
-    request.castSubrequestKind = kind;
+    request.initial.attackerUnitId = input.unit.id;
+    request.initial.skillId = selectedSkill.id;
+    request.initial.operationType = operationType;
+    request.initial.visualEffectId = selectedSkill.visualEffectId;
+    request.initial.preferredTargetUnitId = input.targetUnitId;
+    request.initial.position = input.unit.position + scaled(facing, spawnOffsetForOperation(input.geometry, operationType));
+    request.initial.ultimate = result.decision.ultimate;
+    request.initial.castSubrequestKind = kind;
     return request;
 }
 
@@ -178,20 +175,20 @@ void applyOperationShape(BattleAttackSpawnRequest& request,
     switch (operationType)
     {
     case 0:
-        request.totalFrame = 10;
+        request.initial.totalFrame = 10;
         break;
     case 1:
-        request.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
-        request.totalFrame = 120;
-        request.track = true;
+        request.initial.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
+        request.initial.totalFrame = 120;
+        request.initial.track = true;
         break;
     case 2:
-        request.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
-        request.totalFrame = projectileFramesForSelectDistance(geometry, selectedSkill.selectDistance);
-        request.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
+        request.initial.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
+        request.initial.totalFrame = projectileFramesForSelectDistance(geometry, selectedSkill.selectDistance);
+        request.initial.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
         break;
     case 3:
-        request.totalFrame = 30;
+        request.initial.totalFrame = 30;
         break;
     default:
         assert(false);
@@ -226,7 +223,7 @@ void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
     for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
     {
         auto extra = prototype;
-        extra.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
+        extra.initial.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
         requests.push_back(extra);
     }
 }
@@ -241,14 +238,14 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     auto main = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::SkillHit);
     if (isStrengthenedMelee(result, input, selectedSkill))
     {
-        main.totalFrame = 30;
-        main.track = true;
-        main.velocity = normalizedTo(facing, strengthenedMeleeSpeed(selectedSkill));
-        main.strengthMultiplier = 2.0f;
+        main.initial.totalFrame = 30;
+        main.initial.track = true;
+        main.initial.velocity = normalizedTo(facing, strengthenedMeleeSpeed(selectedSkill));
+        main.initial.strengthMultiplier = 2.0f;
     }
     else
     {
-        main.totalFrame = 10;
+        main.initial.totalFrame = 10;
     }
     requests.push_back(main);
 
@@ -256,12 +253,12 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     for (int i = 0; i < selectedSkill.meleeSplashCount; ++i)
     {
         auto splash = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::MeleeSplash);
-        splash.totalFrame = 60;
-        splash.track = true;
+        splash.initial.totalFrame = 60;
+        splash.initial.track = true;
         splash.initialFrame = 5;
         assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
-        splash.velocity = normalizedTo(facing, input.geometry.meleeSplashProjectileSpeed);
-        splash.strengthMultiplier = 0.5f;
+        splash.initial.velocity = normalizedTo(facing, input.geometry.meleeSplashProjectileSpeed);
+        splash.initial.strengthMultiplier = 0.5f;
         requests.push_back(splash);
     }
 
@@ -285,10 +282,10 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
     for (int i = 0; i < input.unit.dashHitCount; ++i)
     {
         auto hit = base;
-        hit.position = base.position + scaled(dashHitOffset, i - 1);
-        hit.velocity = input.unit.dashVelocity;
+        hit.initial.position = base.initial.position + scaled(dashHitOffset, i - 1);
+        hit.initial.velocity = input.unit.dashVelocity;
         hit.initialFrame = (i + 1) * input.geometry.dashHitFrameStep;
-        hit.totalFrame = 30;
+        hit.initial.totalFrame = 30;
         requests.push_back(hit);
     }
 
