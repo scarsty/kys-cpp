@@ -59,6 +59,10 @@ struct BattleCastGeometry
     int tileWidth{};
     double meleeAttackEffectOffset{};
     double projectileSpeed{};
+    double projectileSpawnOffset{};
+    double projectileBaseTravel{};
+    double projectileTravelPerSelectDistance{};
+    double meleeSplashProjectileSpeed{};
 };
 
 struct BattleCastInput

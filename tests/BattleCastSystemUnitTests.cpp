@@ -11,6 +11,7 @@ namespace
 {
 
 constexpr int SceneTileWidth = 36;
+constexpr double LegacyMeleeSplashProjectileSpeed = 3.0;
 
 BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceRanged = false)
 {
@@ -31,6 +32,10 @@ BattleCastInput basicInput()
     input.geometry.tileWidth = SceneTileWidth;
     input.geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
     input.geometry.projectileSpeed = SceneTileWidth / 3.0;
+    input.geometry.projectileSpawnOffset = SceneTileWidth * 2.0;
+    input.geometry.projectileBaseTravel = SceneTileWidth * 5.0;
+    input.geometry.projectileTravelPerSelectDistance = SceneTileWidth;
+    input.geometry.meleeSplashProjectileSpeed = LegacyMeleeSplashProjectileSpeed;
     input.unit.id = 1;
     input.unit.position = { 10.0f, 20.0f, 0.0f };
     input.unit.facing = { 1.0f, 0.0f, 0.0f };
@@ -412,7 +417,7 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
     CHECK(result.attackSpawnRequests[1].track);
     CHECK(result.attackSpawnRequests[1].totalFrame == 60);
     CHECK(result.attackSpawnRequests[1].initialFrame == 5);
-    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(3.0f));
+    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(LegacyMeleeSplashProjectileSpeed));
 
     CHECK(result.attackSpawnRequests[2].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
     CHECK(result.attackSpawnRequests[3].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);

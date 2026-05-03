@@ -82,9 +82,13 @@ int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int se
     assert(selectDistance > 0);
     assert(geometry.tileWidth > 0);
     assert(geometry.projectileSpeed > 0.0);
-    const auto spawnOffset = static_cast<int>(geometry.tileWidth * 2);
-    const int reach = spawnOffset + geometry.tileWidth * 5 + (selectDistance - 1) * geometry.tileWidth;
-    return static_cast<int>((reach - spawnOffset) / geometry.projectileSpeed);
+    assert(geometry.projectileSpawnOffset > 0.0);
+    assert(geometry.projectileBaseTravel > 0.0);
+    assert(geometry.projectileTravelPerSelectDistance > 0.0);
+    const double reach = geometry.projectileSpawnOffset
+        + geometry.projectileBaseTravel
+        + (selectDistance - 1) * geometry.projectileTravelPerSelectDistance;
+    return static_cast<int>((reach - geometry.projectileSpawnOffset) / geometry.projectileSpeed);
 }
 
 double projectileSpeedForSkill(const BattleCastGeometry& geometry, const BattleCastSkillState& skill)
@@ -221,7 +225,8 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
         splash.totalFrame = 60;
         splash.track = true;
         splash.initialFrame = 5;
-        splash.velocity = normalizedTo(facing, 3.0);
+        assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
+        splash.velocity = normalizedTo(facing, input.geometry.meleeSplashProjectileSpeed);
         splash.strengthMultiplier = 0.5f;
         requests.push_back(splash);
     }
