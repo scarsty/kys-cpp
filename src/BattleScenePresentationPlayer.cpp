@@ -87,6 +87,27 @@ BattleSceneAct::AttackEffect& createProjectile(
     return bindings.attackEffects->back();
 }
 
+void applyProjectilePayload(
+    BattleSceneAct::AttackEffect& effect,
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const BattleScenePresentationPlayer::Bindings& bindings)
+{
+    effect.Attacker = resolveRole(bindings, command.projectileSourceUnitId);
+    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
+    effect.Pos = command.projectilePosition;
+    effect.Velocity = command.projectileVelocity;
+    effect.TotalFrame = std::max(1, command.projectileDurationFrames);
+    effect.OperationType = command.projectileOperationKind;
+    if (command.visualEffectId >= 0)
+    {
+        if (effect.VisualEffectId != command.visualEffectId)
+        {
+            effect.setEft(command.visualEffectId);
+        }
+        effect.TotalFrame = std::max(effect.TotalFrame, effect.TotalEffectFrame);
+    }
+}
+
 BattleSceneAct::AttackEffect& upsertProjectile(
     const KysChess::Battle::BattlePresentationCommand& command,
     const BattleScenePresentationPlayer::Bindings& bindings)
@@ -261,7 +282,11 @@ void BattleScenePresentationPlayer::spawnProjectile(
     const KysChess::Battle::BattlePresentationCommand& command,
     const Bindings& bindings) const
 {
-    createProjectile(command, bindings);
+    auto& effect = upsertProjectile(command, bindings);
+    applyProjectilePayload(effect, command, bindings);
+    effect.NoHurt = 1;
+    effect.IsMain = 0;
+    effect.IgnoreProjectileCancel = 1;
 }
 
 void BattleScenePresentationPlayer::moveProjectile(
@@ -301,9 +326,12 @@ void BattleScenePresentationPlayer::cancelProjectile(
     {
         finishProjectile(*effect, 5);
     }
-    if (auto* other = findProjectile(bindings, command.projectileRelatedAttackId))
+    if (command.projectileRelatedAttackId >= 0)
     {
-        finishProjectile(*other, 5);
+        if (auto* other = findProjectile(bindings, command.projectileRelatedAttackId))
+        {
+            finishProjectile(*other, 5);
+        }
     }
 }
 

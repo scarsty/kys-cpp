@@ -70,6 +70,32 @@ bool isProjectileEvent(BattlePresentationEventType type)
     assert(false);
     return false;
 }
+
+int projectileRelatedAttackIdFor(const BattlePresentationEvent& event)
+{
+    switch (event.type)
+    {
+    case BattlePresentationEventType::ProjectileCancelled:
+    case BattlePresentationEventType::ProjectileBounced:
+        return event.amount;
+    case BattlePresentationEventType::ProjectileSpawned:
+    case BattlePresentationEventType::ProjectileMoved:
+    case BattlePresentationEventType::ProjectileHit:
+    case BattlePresentationEventType::ProjectileExpired:
+    case BattlePresentationEventType::ProjectileTargetLost:
+    case BattlePresentationEventType::DamageLog:
+    case BattlePresentationEventType::HealLog:
+    case BattlePresentationEventType::StatusLog:
+    case BattlePresentationEventType::FloatingText:
+    case BattlePresentationEventType::RoleEffect:
+    case BattlePresentationEventType::DamageNumber:
+    case BattlePresentationEventType::CameraFocus:
+        return -1;
+    }
+
+    assert(false);
+    return -1;
+}
 }  // namespace
 
 BattlePresentationPlaybackPlan BattlePresentationPlaybackPlanner::build(const BattlePresentationFrame& frame) const
@@ -103,7 +129,7 @@ BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const B
     command.position = event.position;
     command.visualEffectId = isProjectileEvent(event.type) ? event.visualEffectId : event.effectId;
     command.projectileAttackId = event.effectId;
-    command.projectileRelatedAttackId = event.amount;
+    command.projectileRelatedAttackId = projectileRelatedAttackIdFor(event);
     command.projectileSourceUnitId = event.sourceUnitId;
     command.projectileTargetUnitId = event.targetUnitId;
     command.projectilePosition = event.position;

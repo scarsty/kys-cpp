@@ -430,6 +430,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
     CHECK(result.frame.gameplayEvents[1].targetUnitId == -1);
     CHECK(result.frame.gameplayEvents[1].otherAttackId == -1);
     CHECK(result.frame.presentationEvents[result.movement.events.size() + 1].type == BattlePresentationEventType::ProjectileTargetLost);
+    CHECK(result.frame.presentationEvents[result.movement.events.size() + 1].amount == -1);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAttackId", "[battle][core]")

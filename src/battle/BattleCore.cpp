@@ -144,6 +144,7 @@ std::vector<BattlePresentationEvent> toPresentationEvents(
     case BattleAttackEventType::TargetLost:
         presentation.type = BattlePresentationEventType::ProjectileTargetLost;
         presentation.targetUnitId = event.unitId;
+        presentation.amount = -1;
         break;
     case BattleAttackEventType::ProjectileCancel:
         presentation.type = BattlePresentationEventType::ProjectileCancelled;

@@ -25,6 +25,7 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryCommittedPresentationEvent
         { BattlePresentationEventType::ProjectileMoved, 18, 1, 2, 0, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
         { BattlePresentationEventType::ProjectileHit, 18, 1, 2, 0, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
         { BattlePresentationEventType::ProjectileExpired, 18, 1, -1, 0, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
+        { BattlePresentationEventType::ProjectileTargetLost, 18, 1, -1, -1, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
         { BattlePresentationEventType::ProjectileCancelled, 18, 1, 2, 20, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
         { BattlePresentationEventType::ProjectileBounced, 18, 1, 3, 20, 30, 10, 0, 0, "", "", "", {}, { 11, 12, 0 }, 33, { 2, 0, 0 }, 2 },
     };
@@ -73,11 +74,13 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryCommittedPresentationEvent
     CHECK(plan.commands[9].projectileAttackId == 10);
     CHECK(plan.commands[10].type == BattlePresentationCommandType::ExpireProjectile);
     CHECK(plan.commands[11].type == BattlePresentationCommandType::CancelProjectile);
-    CHECK(plan.commands[11].projectileRelatedAttackId == 20);
-    CHECK(plan.commands[12].type == BattlePresentationCommandType::BounceProjectile);
-    CHECK(plan.commands[12].projectileAttackId == 10);
-    CHECK(plan.commands[12].projectileTargetUnitId == 3);
+    CHECK(plan.commands[11].projectileRelatedAttackId == -1);
+    CHECK(plan.commands[12].type == BattlePresentationCommandType::CancelProjectile);
     CHECK(plan.commands[12].projectileRelatedAttackId == 20);
+    CHECK(plan.commands[13].type == BattlePresentationCommandType::BounceProjectile);
+    CHECK(plan.commands[13].projectileAttackId == 10);
+    CHECK(plan.commands[13].projectileTargetUnitId == 3);
+    CHECK(plan.commands[13].projectileRelatedAttackId == 20);
 }
 
 TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][presentation][unit]")
@@ -125,4 +128,25 @@ TEST_CASE("BattlePresentationPlaybackPlanner_IgnoresGameplayEvents", "[battle][p
     REQUIRE(plan.commands.size() == 1);
     CHECK(plan.commands[0].type == BattlePresentationCommandType::RecordStatus);
     CHECK(plan.commands[0].text == "presentation-only");
+}
+
+TEST_CASE("BattlePresentationPlaybackPlanner_TargetLostCancelHasNoRelatedProjectile", "[battle][presentation][unit]")
+{
+    BattlePresentationFrame frame;
+    frame.snapshot.frame = 9;
+    frame.presentationEvents = {
+        { BattlePresentationEventType::ProjectileTargetLost, 9, 1, -1, 0, 20, 10, 0, 0, "", "", "", {}, { 30, 40, 0 }, 12, { 1, 0, 0 }, 2 },
+    };
+
+    BattlePresentationPlaybackPlanner planner;
+    auto plan = planner.build(frame);
+
+    REQUIRE(plan.commands.size() == 1);
+    CHECK(plan.commands[0].type == BattlePresentationCommandType::CancelProjectile);
+    CHECK(plan.commands[0].projectileAttackId == 10);
+    CHECK(plan.commands[0].projectileRelatedAttackId == -1);
+    CHECK(plan.commands[0].visualEffectId == 12);
+    CHECK(plan.commands[0].projectileVelocity.x == 1);
+    CHECK(plan.commands[0].projectileDurationFrames == 20);
+    CHECK(plan.commands[0].projectileOperationKind == 2);
 }
