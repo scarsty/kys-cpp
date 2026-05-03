@@ -852,3 +852,4 @@ Append entries here after each slice gate. Do not use this log as a completion c
 
 - 2026-05-03 baseline before executable-plan rewrite: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 70 test cases / 3141 assertions; `kys` Debug x64 build passed.
 - 2026-05-03 Slice 1 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 77 test cases / 3259 assertions; `kys` Debug x64 build passed after restoring local `mlcc` submodule files in the isolated worktree.
+- 2026-05-03 Slice 2 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 84 test cases / 3349 assertions; `kys` Debug x64 build passed.
