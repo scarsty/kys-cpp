@@ -1436,14 +1436,9 @@ bool BattleSceneHades::attackCanHitInvincible(Role* role) const
         return false;
     }
 
-    auto effects = KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
+    return KysChess::Battle::BattleComboTriggerSystem().hasExecuteCombo(
         it->second,
-        { KysChess::Battle::BattleComboTriggerHook::ProjectileHitEnemy, role->ID, -1 },
-        { KysChess::EffectType::Execute });
-    return std::any_of(effects.begin(), effects.end(), [](const auto& event)
-        {
-            return event.effect.triggerValue > 0 && event.effect.value > 0;
-        });
+        role->ID);
 }
 
 void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request)
@@ -6081,24 +6076,10 @@ int BattleSceneHades::resolveLegacyMagicBaseDamage(Role* attacker, Role* defende
     auto it = cs.find(attacker->ID);
     if (it != cs.end())
     {
-        auto& as = it->second;
-        // Legacy armor pen
-        if (as.armorPenChancePct > 0 && rand_.rand() * 100 < as.armorPenChancePct)
-        {
-            defence *= (1.0 - as.armorPenPct / 100.0);
-        }
-        // New unified armor pen
-        for (const auto& triggerEvent : KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
-                 as,
-                 { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, defender->ID },
-                 { KysChess::EffectType::ArmorPen }))
-        {
-            const auto& eff = triggerEvent.effect;
-            if (rand_.rand() * 100 < eff.triggerValue)
-            {
-                defence *= (1.0 - eff.value / 100.0);
-            }
-        }
+        defence = KysChess::Battle::BattleComboTriggerSystem().resolveArmorPenetratedDefense(
+            it->second,
+            { attacker->ID, defender->ID, defence },
+            [&]() { return rand_.rand() * 100.0; }).defense;
     }
 
     return KysChess::Battle::BattleDamageSystem().resolveMagicBaseDamage({

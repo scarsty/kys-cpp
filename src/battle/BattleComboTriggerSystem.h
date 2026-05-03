@@ -208,6 +208,18 @@ struct BattleProjectileBouncePrime
     int range = 0;
 };
 
+struct BattleArmorPenetrationInput
+{
+    int attackerUnitId = -1;
+    int targetUnitId = -1;
+    double defense = 0.0;
+};
+
+struct BattleArmorPenetrationResult
+{
+    double defense = 0.0;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -359,6 +371,13 @@ public:
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         int baseCount,
+        const std::function<double()>& rollPercent) const;
+
+    bool hasExecuteCombo(const RoleComboState& state, int attackerUnitId) const;
+
+    BattleArmorPenetrationResult resolveArmorPenetratedDefense(
+        const RoleComboState& state,
+        const BattleArmorPenetrationInput& input,
         const std::function<double()>& rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;

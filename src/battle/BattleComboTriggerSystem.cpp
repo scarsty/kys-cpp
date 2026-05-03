@@ -919,4 +919,49 @@ int BattleComboTriggerSystem::collectExtraProjectileCount(
     return count;
 }
 
+bool BattleComboTriggerSystem::hasExecuteCombo(
+    const RoleComboState& state,
+    int attackerUnitId) const
+{
+    assert(attackerUnitId >= 0);
+    auto effects = matchingTriggerEffects(
+        state,
+        { BattleComboTriggerHook::ProjectileHitEnemy, attackerUnitId, -1 },
+        { EffectType::Execute });
+    return std::any_of(effects.begin(), effects.end(), [](const auto& event)
+        {
+            return event.effect.triggerValue > 0 && event.effect.value > 0;
+        });
+}
+
+BattleArmorPenetrationResult BattleComboTriggerSystem::resolveArmorPenetratedDefense(
+    const RoleComboState& state,
+    const BattleArmorPenetrationInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    assert(input.attackerUnitId >= 0);
+    assert(input.targetUnitId >= 0);
+    assert(input.defense >= 0.0);
+    assert(static_cast<bool>(rollPercent));
+
+    BattleArmorPenetrationResult result;
+    result.defense = input.defense;
+    if (state.armorPenChancePct > 0 && rollPercent() < state.armorPenChancePct)
+    {
+        result.defense *= (1.0 - state.armorPenPct / 100.0);
+    }
+
+    for (const auto& event : matchingTriggerEffects(
+             state,
+             { BattleComboTriggerHook::DamageDealt, input.attackerUnitId, input.targetUnitId },
+             { EffectType::ArmorPen }))
+    {
+        if (rollPercent() < event.effect.triggerValue)
+        {
+            result.defense *= (1.0 - event.effect.value / 100.0);
+        }
+    }
+    return result;
+}
+
 }  // namespace KysChess::Battle

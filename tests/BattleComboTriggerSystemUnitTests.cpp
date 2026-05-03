@@ -776,3 +776,31 @@ TEST_CASE("BattleComboTriggerSystem_ExtraProjectileCount_AddsFlatAndTriggeredEff
     CHECK(state.effectActivationCounts[0] == 1);
     CHECK(state.effectActivationCounts.count(1) == 0);
 }
+
+TEST_CASE("BattleComboTriggerSystem_ExecuteCapability_DetectsExecuteEffect", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Execute, Trigger::OnHit, 20, 50));
+
+    CHECK(BattleComboTriggerSystem().hasExecuteCombo(state, 4));
+}
+
+TEST_CASE("BattleComboTriggerSystem_ArmorPenetration_AppliesLegacyAndTriggeredPen", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.armorPenChancePct = 100;
+    state.armorPenPct = 25;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::ArmorPen, Trigger::OnHit, 40, 100));
+
+    std::vector<double> rolls = { 0.0, 0.0 };
+    size_t nextRoll = 0;
+    auto result = BattleComboTriggerSystem().resolveArmorPenetratedDefense(
+        state,
+        { 4, 8, 100.0 },
+        [&]() { return rolls[nextRoll++]; });
+
+    CHECK(result.defense == Catch::Approx(45.0));
+    CHECK(nextRoll == 2);
+}
