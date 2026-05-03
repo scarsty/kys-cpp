@@ -469,6 +469,41 @@ TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle
     CHECK(result.attackSpawnRequests[2].operationType == 2);
 }
 
+TEST_CASE("BattleCastSystem_ProjectileCastsUseExplicitProjectileSpawnOffset", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.geometry.meleeAttackEffectOffset = 72.0;
+    input.geometry.projectileSpawnOffset = 108.0;
+
+    input.normalSkill = skill(116, 3, 180.0);
+    input.targetDistance = 150.0;
+
+    auto trackingResult = BattleCastPlanner().plan(input);
+
+    REQUIRE(trackingResult.decision.operationType == 1);
+    REQUIRE(trackingResult.attackSpawnRequests.size() == 1);
+    CHECK(trackingResult.attackSpawnRequests[0].position.x == Catch::Approx(118.0f));
+    CHECK(trackingResult.attackSpawnRequests[0].position.y == Catch::Approx(20.0f));
+
+    input = basicInput();
+    input.geometry.meleeAttackEffectOffset = 72.0;
+    input.geometry.projectileSpawnOffset = 108.0;
+    input.normalSkill = skill(116, 1, 400.0);
+    input.normalSkill.selectDistance = 4;
+    input.normalSkill.extraProjectileCount = 1;
+    input.targetDistance = 300.0;
+
+    auto rangedResult = BattleCastPlanner().plan(input);
+
+    REQUIRE(rangedResult.decision.operationType == 2);
+    REQUIRE(rangedResult.attackSpawnRequests.size() == 2);
+    CHECK(rangedResult.attackSpawnRequests[0].position.x == Catch::Approx(118.0f));
+    CHECK(rangedResult.attackSpawnRequests[0].position.y == Catch::Approx(20.0f));
+    CHECK(rangedResult.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(rangedResult.attackSpawnRequests[1].position.x == Catch::Approx(118.0f));
+    CHECK(rangedResult.attackSpawnRequests[1].position.y == Catch::Approx(20.0f));
+}
+
 TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[battle][cast]")
 {
     auto input = basicInput();

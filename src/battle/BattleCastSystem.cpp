@@ -111,6 +111,19 @@ BattlePresentationColor ultimateTextColor()
     return { 255, 215, 0, 255 };
 }
 
+double spawnOffsetForOperation(const BattleCastGeometry& geometry, int operationType)
+{
+    assert(operationType >= 0 && operationType <= 3);
+    if (operationType == 1 || operationType == 2)
+    {
+        assert(geometry.projectileSpawnOffset > 0.0);
+        return geometry.projectileSpawnOffset;
+    }
+
+    assert(geometry.meleeAttackEffectOffset > 0.0);
+    return geometry.meleeAttackEffectOffset;
+}
+
 BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
                                          const BattleCastInput& input,
                                          const BattleCastSkillState& selectedSkill,
@@ -126,8 +139,7 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     request.visualEffectId = selectedSkill.visualEffectId;
     request.preferredTargetUnitId = input.targetUnitId;
     assert(input.geometry.tileWidth > 0);
-    assert(input.geometry.meleeAttackEffectOffset > 0.0);
-    request.position = input.unit.position + scaled(facing, input.geometry.meleeAttackEffectOffset);
+    request.position = input.unit.position + scaled(facing, spawnOffsetForOperation(input.geometry, operationType));
     request.ultimate = result.decision.ultimate;
     request.castSubrequestKind = kind;
     return request;
