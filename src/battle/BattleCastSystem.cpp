@@ -12,7 +12,10 @@ namespace KysChess::Battle
 namespace
 {
 constexpr int ActionRecoveryFrames = 4;
-constexpr double DefaultProjectileSpeed = 12.0;
+constexpr int DashMomentumFrames = 5;
+constexpr int BattleTileWidth = 50;
+constexpr int ProjectileSpeed = BattleTileWidth / 3;
+constexpr double MeleeAttackEffectOffset = BattleTileWidth * 2.0;
 
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
@@ -85,14 +88,73 @@ int cooldownForOperation(const BattleCastInput& input, int operationType)
     return cooldown;
 }
 
+int recoveryFramesForOperation(int operationType)
+{
+    assert(operationType >= 0 && operationType <= 3);
+    return operationType == 3 ? DashMomentumFrames : ActionRecoveryFrames;
+}
+
 int mpDeltaForCast(const BattleCastInput& input, bool ultimate)
 {
     return ultimate ? -input.unit.maxMp : 5;
 }
 
+int projectileFramesForSelectDistance(int selectDistance)
+{
+    assert(selectDistance > 0);
+    constexpr int spawnOffset = BattleTileWidth * 2;
+    const int reach = spawnOffset + BattleTileWidth * 5 + (selectDistance - 1) * BattleTileWidth;
+    return (reach - spawnOffset) / ProjectileSpeed;
+}
+
 BattlePresentationColor ultimateTextColor()
 {
     return { 255, 215, 0, 255 };
+}
+
+BattleAttackSpawnRequest makeAttackSpawnRequest(
+    const BattleCastResult& result,
+    const BattleCastInput& input,
+    const BattleCastSkillState& selectedSkill)
+{
+    auto facing = castFacing(input);
+
+    BattleAttackSpawnRequest request;
+    request.attackerUnitId = input.unit.id;
+    request.skillId = selectedSkill.id;
+    request.operationType = result.decision.operationType;
+    request.visualEffectId = selectedSkill.visualEffectId;
+    request.preferredTargetUnitId = input.targetUnitId;
+    request.position = input.unit.position + Pointf{
+        static_cast<float>(facing.x * MeleeAttackEffectOffset),
+        static_cast<float>(facing.y * MeleeAttackEffectOffset),
+        static_cast<float>(facing.z * MeleeAttackEffectOffset),
+    };
+    request.ultimate = result.decision.ultimate;
+
+    switch (result.decision.operationType)
+    {
+    case 0:
+        request.totalFrame = 10;
+        break;
+    case 1:
+        request.velocity = normalizedTo(facing, ProjectileSpeed);
+        request.totalFrame = 120;
+        request.track = true;
+        break;
+    case 2:
+        request.velocity = normalizedTo(facing, ProjectileSpeed);
+        request.totalFrame = projectileFramesForSelectDistance(selectedSkill.selectDistance);
+        request.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
+        break;
+    case 3:
+        request.totalFrame = 30;
+        break;
+    default:
+        assert(false);
+        break;
+    }
+    return request;
 }
 
 }  // namespace
@@ -190,23 +252,11 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
 
     result.animation.castFrame = castFrameForOperation(result.decision.operationType);
     result.animation.cooldownFrames = cooldownForOperation(input, result.decision.operationType);
-    result.animation.recoveryFrames = ActionRecoveryFrames;
+    result.animation.recoveryFrames = recoveryFramesForOperation(result.decision.operationType);
     result.cooldownDelta = result.animation.cooldownFrames;
     result.mpDelta = mpDeltaForCast(input, result.decision.ultimate);
 
-    BattleAttackSpawnRequest request;
-    request.attackerUnitId = input.unit.id;
-    request.skillId = selectedSkill.id;
-    request.operationType = result.decision.operationType;
-    request.visualEffectId = selectedSkill.visualEffectId;
-    request.preferredTargetUnitId = input.targetUnitId;
-    request.position = input.unit.position;
-    request.velocity = normalizedTo(castFacing(input), DefaultProjectileSpeed);
-    request.totalFrame = std::max(1, static_cast<int>(std::ceil(std::max(selectedSkill.reach, 1.0) / DefaultProjectileSpeed)));
-    request.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
-    request.track = result.decision.operationType == 1;
-    request.ultimate = result.decision.ultimate;
-    result.attackSpawnRequests.push_back(request);
+    result.attackSpawnRequests.push_back(makeAttackSpawnRequest(result, input, selectedSkill));
 
     BattleGameplayEvent gameplayEvent;
     gameplayEvent.type = BattleGameplayEventType::CastStarted;

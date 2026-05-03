@@ -5,7 +5,6 @@
 #include "BattleEffectSystem.h"
 #include "BattlePresentation.h"
 
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -40,6 +39,7 @@ struct BattleCastSkillState
     int attackAreaType = -1;
     int magicType = -1;
     int visualEffectId = -1;
+    int selectDistance = 1;
     double reach = 0.0;
     bool forceRanged = false;
     bool rangedStyle = false;
@@ -53,7 +53,6 @@ struct BattleCastInput
     int targetUnitId = -1;
     Pointf targetPosition;
     double targetDistance = 0.0;
-    std::uint32_t randomSeed = 0;
 };
 
 enum class BattleCastBlockReason
