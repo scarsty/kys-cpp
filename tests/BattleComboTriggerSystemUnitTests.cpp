@@ -456,3 +456,36 @@ TEST_CASE("BattleComboTriggerSystem_FrameTriggerEffects_FilterActiveConditionsWi
     REQUIRE(inactive.size() == 1);
     CHECK(inactive[0].effectIndex == 2);
 }
+
+TEST_CASE("BattleComboTriggerSystem_DodgeResolutionAddsAdaptationStacksAndConsumesExplicitRoll", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.dodgeChancePct = 10;
+    state.dodgeAdaptations.push_back({ 5, 4 });
+    state.dodgeAdaptations.push_back({ 20, 3 });
+    state.dodgeAdaptationStacks.resize(2);
+    state.dodgeAdaptationStacks[0][7] = 3;
+    state.dodgeAdaptationStacks[1][7] = 2;
+
+    auto dodged = BattleComboTriggerSystem().resolveDodge(state, 7, 64.9);
+    CHECK(dodged.chancePct == 65);
+    CHECK(dodged.dodged);
+
+    auto hit = BattleComboTriggerSystem().resolveDodge(state, 7, 65.0);
+    CHECK(hit.chancePct == 65);
+    CHECK_FALSE(hit.dodged);
+}
+
+TEST_CASE("BattleComboTriggerSystem_DodgeResolutionClampsChance", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.dodgeChancePct = 95;
+    state.dodgeAdaptations.push_back({ 20, 10 });
+    state.dodgeAdaptationStacks.resize(1);
+    state.dodgeAdaptationStacks[0][3] = 2;
+
+    auto result = BattleComboTriggerSystem().resolveDodge(state, 3, 99.5);
+
+    CHECK(result.chancePct == 100);
+    CHECK(result.dodged);
+}

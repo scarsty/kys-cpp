@@ -437,4 +437,30 @@ std::vector<BattleComboTriggerEvent> BattleComboTriggerSystem::activeFrameTrigge
     return result;
 }
 
+BattleDodgeResolution BattleComboTriggerSystem::resolveDodge(
+    const RoleComboState& state,
+    int attackerUnitId,
+    double rollPercent) const
+{
+    assert(attackerUnitId >= 0);
+    assert(rollPercent >= 0.0 && rollPercent < 100.0);
+
+    int dodgeChancePct = state.dodgeChancePct;
+    for (size_t i = 0; i < state.dodgeAdaptations.size(); ++i)
+    {
+        assert(i < state.dodgeAdaptationStacks.size());
+        const auto& evade = state.dodgeAdaptations[i];
+        auto stackIt = state.dodgeAdaptationStacks[i].find(attackerUnitId);
+        if (stackIt != state.dodgeAdaptationStacks[i].end())
+        {
+            dodgeChancePct += stackIt->second * evade.pctPerStack;
+        }
+    }
+
+    BattleDodgeResolution result;
+    result.chancePct = std::clamp(dodgeChancePct, 0, 100);
+    result.dodged = result.chancePct > 0 && rollPercent < result.chancePct;
+    return result;
+}
+
 }  // namespace KysChess::Battle

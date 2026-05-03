@@ -97,6 +97,12 @@ struct BattleTriggeredTeamHeal
     std::vector<int> activatedEffectIndices;
 };
 
+struct BattleDodgeResolution
+{
+    int chancePct = 0;
+    bool dodged = false;
+};
+
 struct BattleActivatedComboEffect
 {
     int effectIndex = -1;
@@ -153,6 +159,10 @@ public:
         const RoleComboState& state,
         const BattleComboFrameUnit& unit,
         std::initializer_list<EffectType> effectTypes) const;
+
+    BattleDodgeResolution resolveDodge(const RoleComboState& state,
+                                       int attackerUnitId,
+                                       double rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 

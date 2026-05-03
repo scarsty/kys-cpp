@@ -3175,19 +3175,11 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     auto dit = cs.find(r->ID);
                     if (dit != cs.end())
                     {
-                        int dodgeChancePct = dit->second.dodgeChancePct;
-                        for (size_t i = 0; i < dit->second.dodgeAdaptations.size(); ++i)
-                        {
-                            auto& evade = dit->second.dodgeAdaptations[i];
-                            auto sit = dit->second.dodgeAdaptationStacks[i].find(attacker->ID);
-                            if (sit != dit->second.dodgeAdaptationStacks[i].end())
-                            {
-                                dodgeChancePct += sit->second * evade.pctPerStack;
-                            }
-                        }
-
-                        dodgeChancePct = std::clamp(dodgeChancePct, 0, 100);
-                        if (dodgeChancePct > 0 && rand_.rand() * 100 < dodgeChancePct)
+                        auto dodge = KysChess::Battle::BattleComboTriggerSystem().resolveDodge(
+                            dit->second,
+                            attacker->ID,
+                            rand_.rand() * 100.0);
+                        if (dodge.dodged)
                         {
                             dit->second.dodgedLast = true;
                             addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
