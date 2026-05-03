@@ -179,6 +179,20 @@ BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
     return request;
 }
 
+void appendExtraProjectiles(std::vector<BattleAttackSpawnRequest>& requests,
+                            const BattleCastSkillState& selectedSkill)
+{
+    assert(selectedSkill.extraProjectileCount >= 0);
+    assert(!requests.empty());
+    const auto prototype = requests.front();
+    for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
+    {
+        auto extra = prototype;
+        extra.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
+        requests.push_back(extra);
+    }
+}
+
 std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     const BattleCastResult& result,
     const BattleCastInput& input,
@@ -206,18 +220,13 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
         auto splash = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::MeleeSplash);
         splash.totalFrame = 60;
         splash.track = true;
+        splash.initialFrame = 5;
         splash.velocity = normalizedTo(facing, 3.0);
         splash.strengthMultiplier = 0.5f;
         requests.push_back(splash);
     }
 
-    assert(selectedSkill.extraProjectileCount >= 0);
-    for (int i = 0; i < selectedSkill.extraProjectileCount; ++i)
-    {
-        auto extra = main;
-        extra.castSubrequestKind = BattleAttackCastSubrequestKind::ExtraProjectile;
-        requests.push_back(extra);
-    }
+    appendExtraProjectiles(requests, selectedSkill);
     return requests;
 }
 
@@ -264,7 +273,8 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
         return makeMeleeRequests(result, input, selectedSkill);
     case 1:
     case 2:
-        return {
+    {
+        std::vector<BattleAttackSpawnRequest> requests = {
             makeOperationRequest(
                 result,
                 input,
@@ -272,6 +282,9 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
                 result.decision.operationType,
                 BattleAttackCastSubrequestKind::SkillHit),
         };
+        appendExtraProjectiles(requests, selectedSkill);
+        return requests;
+    }
     case 3:
         return makeDashRequests(result, input, selectedSkill);
     default:

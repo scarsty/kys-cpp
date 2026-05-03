@@ -411,6 +411,7 @@ TEST_CASE("BattleCastSystem_UltimateMeleeCanEmitExplicitSplashAndExtraProjectile
     CHECK(result.attackSpawnRequests[1].strengthMultiplier == Catch::Approx(0.5f));
     CHECK(result.attackSpawnRequests[1].track);
     CHECK(result.attackSpawnRequests[1].totalFrame == 60);
+    CHECK(result.attackSpawnRequests[1].initialFrame == 5);
     CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(3.0f));
 
     CHECK(result.attackSpawnRequests[2].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
@@ -434,6 +435,33 @@ TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battl
     CHECK(request.totalFrame == 120);
     CHECK(request.track);
     CHECK_FALSE(request.through);
+}
+
+TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.normalSkill = skill(115, 1, 400.0);
+    input.normalSkill.selectDistance = 4;
+    input.normalSkill.extraProjectileCount = 2;
+    input.targetDistance = 300.0;
+
+    auto result = BattleCastPlanner().plan(input);
+
+    REQUIRE(result.decision.operationType == 2);
+    REQUIRE(result.attackSpawnRequests.size() == 3);
+    CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
+    CHECK(result.attackSpawnRequests[0].operationType == 2);
+    CHECK(result.attackSpawnRequests[0].totalFrame == 24);
+    CHECK(result.attackSpawnRequests[0].through);
+
+    CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[1].operationType == 2);
+    CHECK(result.attackSpawnRequests[1].totalFrame == 24);
+    CHECK(result.attackSpawnRequests[1].through);
+    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(12.0f));
+
+    CHECK(result.attackSpawnRequests[2].castSubrequestKind == BattleAttackCastSubrequestKind::ExtraProjectile);
+    CHECK(result.attackSpawnRequests[2].operationType == 2);
 }
 
 TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[battle][cast]")
