@@ -40,9 +40,6 @@ void assertCommittedCastInput(
     const BattleCastSkillState& selectedSkill,
     int operationType)
 {
-    assert(input.unit.id >= 0);
-    assert(input.targetUnitId >= 0);
-    assert(selectedSkill.id >= 0);
     assert(operationType >= 0 && operationType <= 3);
     assert(pointNorm(input.targetPosition - input.unit.position) > MinimumFacingNorm);
     assert(input.geometry.meleeAttackEffectOffset > 0.0);
@@ -53,6 +50,20 @@ void assertCommittedCastInput(
     assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
     assert(input.geometry.dashHitPositionSpacing > 0.0);
     assert(input.geometry.dashHitFrameStep > 0);
+}
+
+void assertCastIntentInput(const BattleCastInput& input, const BattleCastSkillState& selectedSkill)
+{
+    assert(input.targetUnitId >= 0);
+    assert(input.targetDistance > 0.0);
+    assert(input.unit.meleeAttackReach > 0.0);
+    if (input.unit.dashAttackEnabled)
+    {
+        assert(input.unit.dashAttackReach > 0.0);
+    }
+    assert(selectedSkill.id >= 0);
+    assert(selectedSkill.reach > 0.0);
+    assert(selectedSkill.selectDistance > 0);
 }
 
 int castFrameForOperation(int operationType)
@@ -329,6 +340,8 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
 
 BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
 {
+    assert(input.unit.id >= 0);
+
     BattleCastResult result;
     auto& decision = result.decision;
     decision.unitId = input.unit.id;
@@ -350,6 +363,8 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
         decision.reason = BattleCastBlockReason::NoSkill;
         return result;
     }
+
+    assertCastIntentInput(input, selectedSkill);
 
     CombatIntentInput intentInput;
     intentInput.canStartAttack = input.unit.canStartAttack;
