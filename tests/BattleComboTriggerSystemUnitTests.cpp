@@ -639,3 +639,30 @@ TEST_CASE("BattleComboTriggerSystem_AttackerHitDamage_AppliesCritNthAndRampingSt
     CHECK(state.rampingStacks[0] == 2);
     CHECK(state.rampingIdleTimers[0] == 90);
 }
+
+TEST_CASE("BattleComboTriggerSystem_DefenderHitDamage_AppliesReductionAndAdaptationState", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::DmgReductionPct, Trigger::Always, 20));
+    state.adaptations.push_back({ 10, 3 });
+    state.adaptationStacks.resize(1);
+    state.adaptationStacks[0][7] = 1;
+    state.dodgeAdaptations.push_back({ 5, 4 });
+    state.dodgeAdaptationStacks.resize(1);
+
+    auto result = BattleComboTriggerSystem().shapeDefenderHitDamage(
+        state,
+        { 100.0, 40, 100, false, 7 });
+
+    CHECK(result.damage == Catch::Approx(64.0));
+    REQUIRE(result.events.size() == 2);
+    CHECK(result.events[0].type == BattleDefenderHitDamageEventType::DamageAdaptationStack);
+    CHECK(result.events[0].value == 10);
+    CHECK(result.events[0].value2 == 2);
+    CHECK(result.events[1].type == BattleDefenderHitDamageEventType::DodgeAdaptationStack);
+    CHECK(result.events[1].value == 5);
+    CHECK(result.events[1].value2 == 1);
+    CHECK(state.adaptationStacks[0][7] == 2);
+    CHECK(state.dodgeAdaptationStacks[0][7] == 1);
+}

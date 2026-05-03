@@ -702,4 +702,60 @@ BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
     return result;
 }
 
+BattleDefenderHitDamageResult BattleComboTriggerSystem::shapeDefenderHitDamage(
+    RoleComboState& state,
+    const BattleDefenderHitDamageInput& input) const
+{
+    assert(input.maxHp > 0);
+    assert(input.attackerUnitId >= 0);
+    assert(state.adaptationStacks.size() == state.adaptations.size());
+    assert(state.dodgeAdaptationStacks.size() == state.dodgeAdaptations.size());
+
+    BattleDefenderHitDamageResult result;
+    result.damage = input.damage;
+
+    for (const auto& event : activeFrameTriggerEffects(
+             state,
+             { input.hp, input.maxHp, input.lastAlive },
+             { EffectType::DmgReductionPct }))
+    {
+        result.damage *= (1.0 - event.effect.value / 100.0);
+    }
+
+    for (size_t i = 0; i < state.adaptations.size(); ++i)
+    {
+        const auto& adapt = state.adaptations[i];
+        int& stacks = state.adaptationStacks[i][input.attackerUnitId];
+        int beforeStacks = stacks;
+        stacks = std::min(stacks + 1, adapt.maxStacks);
+        result.damage *= (1.0 - stacks * adapt.pctPerStack / 100.0);
+        if (stacks > beforeStacks)
+        {
+            result.events.push_back({
+                BattleDefenderHitDamageEventType::DamageAdaptationStack,
+                adapt.pctPerStack,
+                stacks,
+            });
+        }
+    }
+
+    for (size_t i = 0; i < state.dodgeAdaptations.size(); ++i)
+    {
+        const auto& evade = state.dodgeAdaptations[i];
+        int& stacks = state.dodgeAdaptationStacks[i][input.attackerUnitId];
+        int beforeStacks = stacks;
+        stacks = std::min(stacks + 1, evade.maxStacks);
+        if (stacks > beforeStacks)
+        {
+            result.events.push_back({
+                BattleDefenderHitDamageEventType::DodgeAdaptationStack,
+                evade.pctPerStack,
+                stacks,
+            });
+        }
+    }
+
+    return result;
+}
+
 }  // namespace KysChess::Battle

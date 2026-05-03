@@ -5643,41 +5643,24 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                     makeBattleDamageUnit(r, &ds),
                 }).damage;
 
-                // Triggered defender effects (DmgReductionPct with triggers)
-                for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().activeFrameTriggerEffects(
-                         ds,
-                         { r->HP, r->MaxHP, ds.lastAliveFlag },
-                         { KysChess::EffectType::DmgReductionPct }))
+                auto defenderDamage = KysChess::Battle::BattleComboTriggerSystem().shapeDefenderHitDamage(
+                    ds,
+                    { hurt, r->HP, r->MaxHP, ds.lastAliveFlag, attacker->ID });
+                hurt = defenderDamage.damage;
+                for (const auto& damageEvent : defenderDamage.events)
                 {
-                    hurt *= (1.0 - event.effect.value / 100.0);
-                }
-
-                // Adaptation: reduce damage from repeated attacker
-                for (size_t i = 0; i < ds.adaptations.size(); i++)
-                {
-                    auto& adapt = ds.adaptations[i];
-                    int& stacks = ds.adaptationStacks[i][attacker->ID];
-                    int beforeStacks = stacks;
-                    stacks = std::min(stacks + 1, adapt.maxStacks);
-                    hurt *= (1.0 - stacks * adapt.pctPerStack / 100.0);
-                    if (stacks > beforeStacks)
+                    switch (damageEvent.type)
                     {
+                    case KysChess::Battle::BattleDefenderHitDamageEventType::DamageAdaptationStack:
                         logBattleStatus(r, attacker,
-                            formatStackingEffectStatus("同敵減傷", adapt.pctPerStack, stacks));
-                    }
-                }
-
-                // Dodge adaptation: build evasion against the same attacker
-                for (size_t i = 0; i < ds.dodgeAdaptations.size(); ++i)
-                {
-                    auto& evade = ds.dodgeAdaptations[i];
-                    int& stacks = ds.dodgeAdaptationStacks[i][attacker->ID];
-                    int beforeStacks = stacks;
-                    stacks = std::min(stacks + 1, evade.maxStacks);
-                    if (stacks > beforeStacks)
-                    {
+                            formatStackingEffectStatus("同敵減傷", damageEvent.value, damageEvent.value2));
+                        break;
+                    case KysChess::Battle::BattleDefenderHitDamageEventType::DodgeAdaptationStack:
                         logBattleStatus(r, attacker,
-                            formatStackingEffectStatus("同敵閃避", evade.pctPerStack, stacks));
+                            formatStackingEffectStatus("同敵閃避", damageEvent.value, damageEvent.value2));
+                        break;
+                    default:
+                        assert(false);
                     }
                 }
             }

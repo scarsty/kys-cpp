@@ -130,6 +130,34 @@ struct BattleAttackerHitDamageResult
     std::vector<BattleAttackerHitDamageEvent> events;
 };
 
+struct BattleDefenderHitDamageInput
+{
+    double damage = 0.0;
+    int hp = 0;
+    int maxHp = 0;
+    bool lastAlive = false;
+    int attackerUnitId = -1;
+};
+
+enum class BattleDefenderHitDamageEventType
+{
+    DamageAdaptationStack,
+    DodgeAdaptationStack,
+};
+
+struct BattleDefenderHitDamageEvent
+{
+    BattleDefenderHitDamageEventType type = BattleDefenderHitDamageEventType::DamageAdaptationStack;
+    int value = 0;
+    int value2 = 0;
+};
+
+struct BattleDefenderHitDamageResult
+{
+    double damage = 0.0;
+    std::vector<BattleDefenderHitDamageEvent> events;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -249,6 +277,10 @@ public:
         RoleComboState& state,
         const BattleAttackerHitDamageInput& input,
         const std::function<double()>& rollPercent) const;
+
+    BattleDefenderHitDamageResult shapeDefenderHitDamage(
+        RoleComboState& state,
+        const BattleDefenderHitDamageInput& input) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 
