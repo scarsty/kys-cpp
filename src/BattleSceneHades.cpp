@@ -1454,113 +1454,8 @@ void BattleSceneHades::primeProjectileBounce(AttackEffect& ae)
 
     ae.BounceRemaining = bounceCount;
     ae.BounceChancePct = bounceChance;
+    ae.BounceRollPct = static_cast<int>(rand_.rand() * 100);
     ae.BounceRange = bounceRange > 0 ? bounceRange : static_cast<int>(PROJECTILE_BOUNCE_RANGE);
-}
-
-void BattleSceneHades::spawnProjectileBounce(AttackEffect& source, Role* hitTarget)
-{
-    if (!hitTarget || !source.Attacker)
-    {
-        return;
-    }
-
-    int remainingBounces = source.BounceRemaining;
-    if (remainingBounces <= 0)
-    {
-        return;
-    }
-
-    int bounceChancePct = source.BounceChancePct;
-    int bounceRange = source.BounceRange > 0 ? source.BounceRange : static_cast<int>(PROJECTILE_BOUNCE_RANGE);
-
-    source.BounceRemaining = 0;
-
-    source.NoHurt = 1;
-    source.Frame = std::max(source.TotalFrame - 15, source.Frame);
-
-    if (bounceChancePct <= 0 || rand_.rand() * 100 >= bounceChancePct)
-    {
-        return;
-    }
-
-    Role* nextTarget = nullptr;
-    double nextDistance = static_cast<double>(bounceRange);
-    for (auto enemy : battle_roles_)
-    {
-        if (!enemy || enemy->Dead != 0 || enemy->Team == source.Attacker->Team || enemy == hitTarget)
-        {
-            continue;
-        }
-        if (source.Defender.count(enemy) > 0)
-        {
-            continue;
-        }
-
-        double distance = EuclidDis(hitTarget->Pos, enemy->Pos);
-        if (distance > nextDistance)
-        {
-            continue;
-        }
-        if (!nextTarget || distance < nextDistance)
-        {
-            nextTarget = enemy;
-            nextDistance = distance;
-        }
-    }
-
-    if (!nextTarget)
-    {
-        logBattleStatus(source.Attacker, hitTarget,
-            std::format("連鎖彈中止（搜尋半徑 {}，沒有符合條件的目標）",
-                bounceRange));
-        return;
-    }
-
-    logBattleStatus(source.Attacker, nextTarget,
-        std::format("彈道連鎖（再跳 {} 次，搜尋半徑 {}，距離 {:.0f}）",
-            std::max(0, remainingBounces - 1), bounceRange, nextDistance));
-
-    AttackEffect bounce = source;
-    bounce.BounceRemaining = std::max(0, remainingBounces - 1);
-    bounce.PreferredTarget = nextTarget;
-    bounce.RequirePreferredTarget = 1;
-    bounce.Track = 1;
-    bounce.IsMain = 0;
-    bounce.IgnoreProjectileCancel = 1;
-    bounce.Through = 0;
-    bounce.NoHurt = 0;
-    bounce.Weaken = 0;
-    bounce.Frame = 0;
-
-    double speed = source.Velocity.norm();
-    if (speed <= 0.01)
-    {
-        speed = PROJECTILE_SPEED;
-    }
-
-    auto direction = nextTarget->Pos - hitTarget->Pos;
-    if (direction.norm() <= 0.01)
-    {
-        direction = nextTarget->Pos - source.Pos;
-    }
-    if (direction.norm() <= 0.01)
-    {
-        direction = { 1, 0, 0 };
-    }
-    direction.normTo(1);
-
-    auto spawnOffset = direction;
-    spawnOffset.normTo(TILE_W * 1.5);
-    bounce.Pos = hitTarget->Pos + spawnOffset;
-    bounce.Velocity = nextTarget->Pos - bounce.Pos;
-    if (bounce.Velocity.norm() <= 0.01)
-    {
-        bounce.Velocity = direction;
-    }
-    bounce.Velocity.normTo(speed);
-    bounce.TotalFrame = std::max(20,
-        static_cast<int>(std::ceil(EuclidDis(nextTarget->Pos, bounce.Pos) / std::max(speed, 1.0))) + 20);
-    attack_effects_.push_back(std::move(bounce));
 }
 
 void BattleSceneHades::draw()
@@ -3445,7 +3340,6 @@ void BattleSceneHades::backRun1()
                         defaultMagicEffect(ae, r);
                     }
                 }
-                spawnProjectileBounce(ae, r);
                 //std::vector<std::string> = {};
             }
             else if (event.type == KysChess::Battle::BattleAttackEventType::ProjectileCancel)

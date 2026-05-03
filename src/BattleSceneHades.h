@@ -103,7 +103,6 @@ protected:
                                   int& pctHeal);
     int getProjectileBounceCount(Role* r) const;
     void primeProjectileBounce(AttackEffect& ae);
-    void spawnProjectileBounce(AttackEffect& source, Role* hitTarget);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
     virtual int calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis = -1) override;

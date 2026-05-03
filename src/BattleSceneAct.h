@@ -45,6 +45,7 @@ public:
         int SuppressNearbyTrackingProjectileProc = 0;
         int BounceRemaining = 0;
         int BounceChancePct = 0;
+        int BounceRollPct = 0;
         int BounceRange = 0;
         int VisualAttackId = -1;
         int VisualEffectId = -1;

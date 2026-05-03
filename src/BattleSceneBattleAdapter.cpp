@@ -97,6 +97,10 @@ Battle::BattleAttackInstance makeBattleAttackInstance(
     attack.state.scriptedDamage = effect.ScriptedDamage;
     attack.state.scriptedStunFrames = effect.ScriptedStunFrames;
     attack.state.scriptedBleedStacks = effect.ScriptedBleedStacks;
+    attack.state.bounceRemaining = effect.BounceRemaining;
+    attack.state.bounceRange = effect.BounceRange;
+    attack.state.bounceChancePct = effect.BounceChancePct;
+    attack.state.bounceRollPct = effect.BounceRollPct;
     attack.state.position = effect.Pos;
     attack.state.velocity = effect.Velocity;
     attack.acceleration = effect.Acceleration;
@@ -137,6 +141,37 @@ void writeBattleAttackInstance(
     {
         effect.Defender[findRoleByBattleId(roles, unitId)] = 1;
     }
+}
+
+BattleSceneAct::AttackEffect makeSpawnedBattleAttackEffect(
+    const std::deque<BattleSceneAct::AttackEffect>& effects,
+    const Battle::BattleAttackInstance& attack,
+    const std::vector<Role*>& roles)
+{
+    assert(attack.spawnedFromAttackId >= 0);
+    assert(static_cast<size_t>(attack.spawnedFromAttackId) < effects.size());
+
+    auto effect = effects[attack.spawnedFromAttackId];
+    effect.PreferredTarget = attack.state.preferredTargetUnitId >= 0
+        ? findRoleByBattleId(roles, attack.state.preferredTargetUnitId)
+        : nullptr;
+    effect.RequirePreferredTarget = attack.state.requirePreferredTarget ? 1 : 0;
+    effect.OperationType = attack.state.operationType;
+    effect.TotalFrame = attack.state.totalFrame;
+    effect.Track = attack.state.track ? 1 : 0;
+    effect.Through = attack.state.through ? 1 : 0;
+    effect.IsUltimate = attack.state.ultimate ? 1 : 0;
+    effect.IsMain = 0;
+    effect.Weaken = 0;
+    effect.SharedHitGroupId = attack.state.sharedHitGroupId;
+    effect.IgnoreProjectileCancel = attack.state.ignoreProjectileCancel ? 1 : 0;
+    effect.BounceRemaining = attack.state.bounceRemaining;
+    effect.BounceChancePct = attack.state.bounceChancePct;
+    effect.BounceRollPct = attack.state.bounceRollPct;
+    effect.BounceRange = attack.state.bounceRange;
+    effect.VisualEffectId = attack.state.visualEffectId;
+    writeBattleAttackInstance(effect, attack, roles);
+    return effect;
 }
 
 }  // namespace
@@ -317,6 +352,7 @@ std::vector<BattleSceneAct::AttackEffect> makeBattleCastAttackEffects(
         effect.IgnoreProjectileCancel = state.ignoreProjectileCancel ? 1 : 0;
         effect.BounceRemaining = state.bounceRemaining;
         effect.BounceChancePct = state.bounceChancePct;
+        effect.BounceRollPct = state.bounceRollPct;
         effect.BounceRange = state.bounceRange;
         effect.setEft(state.visualEffectId);
         effects.push_back(std::move(effect));
@@ -337,6 +373,7 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     world.bounceSpawnDistance = BATTLE_TILE_W * 1.5;
     world.defaultProjectileSpeed = BATTLE_TILE_W / 3.0;
     world.spendNonThroughOnHit = false;
+    world.nextAttackId = static_cast<int>(effectCount);
     for (auto role : roles)
     {
         if (role)
@@ -368,12 +405,17 @@ void writeBattleAttackWorld(
     const std::vector<Role*>& roles,
     std::unordered_map<int, std::set<int>>& sharedHitGroupTargets)
 {
-    assert(world.attacks.size() <= effects.size());
     for (const auto& attack : world.attacks)
     {
         assert(attack.id >= 0);
-        assert(static_cast<size_t>(attack.id) < effects.size());
-        writeBattleAttackInstance(effects[attack.id], attack, roles);
+        if (static_cast<size_t>(attack.id) < effects.size())
+        {
+            writeBattleAttackInstance(effects[attack.id], attack, roles);
+            continue;
+        }
+
+        assert(static_cast<size_t>(attack.id) == effects.size());
+        effects.push_back(makeSpawnedBattleAttackEffect(effects, attack, roles));
     }
 
     sharedHitGroupTargets.clear();
