@@ -29,7 +29,7 @@ Pointf castFacing(const BattleCastInput& input)
     auto facing = input.targetPosition - input.unit.position;
     assert(input.config.minimumFacingNorm > 0.0);
     assert(pointNorm(facing) > input.config.minimumFacingNorm);
-    return normalizedTo(facing, 1.0);
+    return normalizedTo(facing, 1.0, input.config.minimumFacingNorm);
 }
 
 void assertCastConfig(const BattleCastConfig& config)
@@ -213,12 +213,18 @@ void applyOperationShape(BattleAttackSpawnRequest& request,
         request.initial.totalFrame = config.meleeHitTotalFrame;
         break;
     case 1:
-        request.initial.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
+        request.initial.velocity = normalizedTo(
+            facing,
+            projectileSpeedForSkill(geometry, selectedSkill),
+            config.minimumFacingNorm);
         request.initial.totalFrame = config.trackingProjectileTotalFrame;
         request.initial.track = true;
         break;
     case 2:
-        request.initial.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
+        request.initial.velocity = normalizedTo(
+            facing,
+            projectileSpeedForSkill(geometry, selectedSkill),
+            config.minimumFacingNorm);
         request.initial.totalFrame = projectileFramesForSelectDistance(geometry, selectedSkill.selectDistance);
         request.initial.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
         break;
@@ -277,7 +283,10 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     {
         main.initial.totalFrame = input.config.strengthenedMeleeTotalFrame;
         main.initial.track = true;
-        main.initial.velocity = normalizedTo(facing, strengthenedMeleeSpeed(input.config, selectedSkill));
+        main.initial.velocity = normalizedTo(
+            facing,
+            strengthenedMeleeSpeed(input.config, selectedSkill),
+            input.config.minimumFacingNorm);
         main.initial.strengthMultiplier = input.config.strengthenedMeleeMultiplier;
     }
     else
@@ -294,7 +303,10 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
         splash.initial.track = true;
         splash.initialFrame = input.config.meleeSplashInitialFrame;
         assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
-        splash.initial.velocity = normalizedTo(facing, input.geometry.meleeSplashProjectileSpeed);
+        splash.initial.velocity = normalizedTo(
+            facing,
+            input.geometry.meleeSplashProjectileSpeed,
+            input.config.minimumFacingNorm);
         splash.initial.strengthMultiplier = input.config.meleeSplashStrengthMultiplier;
         requests.push_back(splash);
     }
@@ -317,7 +329,10 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
     std::vector<BattleAttackSpawnRequest> requests;
     auto base = makeBaseRequest(result, input, selectedSkill, 3, BattleAttackCastSubrequestKind::DashHit);
     assert(pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm);
-    const auto dashHitOffset = normalizedTo(input.unit.dashVelocity, input.geometry.dashHitPositionSpacing);
+    const auto dashHitOffset = normalizedTo(
+        input.unit.dashVelocity,
+        input.geometry.dashHitPositionSpacing,
+        input.config.minimumFacingNorm);
     for (int i = 0; i < input.unit.dashHitCount; ++i)
     {
         auto hit = base;

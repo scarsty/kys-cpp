@@ -11,6 +11,7 @@ namespace KysChess::BattleSceneBattleAdapter
 namespace
 {
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
+constexpr double MINIMUM_VECTOR_NORM = 0.0001;
 
 bool attackHasExecuteEffect(const BattleSceneAct::AttackEffect& ae)
 {
@@ -136,6 +137,7 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
 {
     Battle::BattleAttackWorld world;
     world.hitRadius = BATTLE_TILE_W * 2.0;
+    world.minimumVectorNorm = MINIMUM_VECTOR_NORM;
     world.projectileGraceFrames = 5;
     world.bounceSpawnDistance = BATTLE_TILE_W * 1.5;
     world.defaultProjectileSpeed = BATTLE_TILE_W / 3.0;

@@ -19,6 +19,7 @@ constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double SceneAttackHitRadius = SceneTileWidth * 2.0;
 constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
+constexpr double LegacyMinimumVectorNorm = 0.0001;
 
 BattleMovementConfig testConfig()
 {
@@ -59,6 +60,7 @@ BattleAttackWorld attackWorld()
 {
     BattleAttackWorld world;
     world.hitRadius = SceneAttackHitRadius;
+    world.minimumVectorNorm = LegacyMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
     world.defaultProjectileSpeed = SceneProjectileSpeed;
     return world;

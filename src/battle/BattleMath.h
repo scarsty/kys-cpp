@@ -2,6 +2,7 @@
 
 #include "../Point.h"
 
+#include <cassert>
 #include <cmath>
 
 namespace KysChess::Battle
@@ -21,10 +22,11 @@ inline double pointNorm(const Pointf& point)
         + static_cast<double>(point.z) * point.z);
 }
 
-inline Pointf normalizedTo(Pointf point, double length)
+inline Pointf normalizedTo(Pointf point, double length, double minimumNorm)
 {
+    assert(minimumNorm > 0.0);
     const double current = pointNorm(point);
-    if (current <= 0.0001)
+    if (current <= minimumNorm)
     {
         return {};
     }

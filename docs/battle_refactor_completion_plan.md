@@ -61,8 +61,9 @@ Baseline verification history:
 - Slice 1: Complete and slice gate recorded.
 - Slice 2: Complete and slice gate recorded.
 - Slice 3 Task 3.1: Complete. Cast state/planner exists and selection readiness is honored.
-- Slice 3 Task 3.2: Implementation and user-feedback fixes are complete in the worktree; pending required spec-compliance review and code-quality review before marking complete.
-- Slice 3 Task 3.3: Next task after Task 3.2 reviews pass.
+- Slice 3 Task 3.2: Complete under manual review flow. Cast outputs include committed deltas/events/spawn requests, cast constants are explicit input config, attack vector thresholds are explicit adapter/test config, and focused/full tests pass.
+- Slice 3 Task 3.3: Next task.
+- Workflow note: Subagent dispatch is paused because the review agents were unstable. Continue manually while preserving the same task order, local review discipline, and verification gates.
 - Current user-feedback constraints carried forward:
   - Do not add source-text tests that assert words/phrases are absent.
   - Do not hard-code gameplay geometry when a source exists; derive scene geometry from `Scene::TILE_W` through the adapter.
@@ -870,3 +871,4 @@ Append entries here after each slice gate. Do not use this log as a completion c
 - 2026-05-03 baseline before executable-plan rewrite: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 70 test cases / 3141 assertions; `kys` Debug x64 build passed.
 - 2026-05-03 Slice 1 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 77 test cases / 3259 assertions; `kys` Debug x64 build passed after restoring local `mlcc` submodule files in the isolated worktree.
 - 2026-05-03 Slice 2 gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe` passed 84 test cases / 3349 assertions; `kys` Debug x64 build passed.
+- 2026-05-03 Slice 3 Task 3.2 manual gate: `kys_tests` Debug x64 build passed; `x64\Debug\kys_tests.exe "[battle][cast],[battle][attack],[battle][core]"` passed 51 test cases / 527 assertions; `x64\Debug\kys_tests.exe` passed 107 test cases / 3637 assertions; `rg -n "Role\*|Magic\*|Item\*|Engine|TextureManager|Font|Scene|SDL" src\battle` returned no matches; hidden cast constants and vector thresholds are explicit config/input.

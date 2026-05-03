@@ -248,6 +248,7 @@ void syncAttackUnitsFromWorld(BattleFrameState& state)
 void assertFrameAttackWorldConfigured(const BattleAttackWorld& attacks)
 {
     assert(attacks.hitRadius > 0.0);
+    assert(attacks.minimumVectorNorm > 0.0);
     assert(attacks.projectileGraceFrames >= 0);
     assert(attacks.bounceSpawnDistance > 0.0);
     assert(attacks.defaultProjectileSpeed > 0.0);

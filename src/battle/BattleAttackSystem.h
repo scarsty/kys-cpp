@@ -107,6 +107,7 @@ struct BattleAttackWorld
 {
     int frame = 0;
     double hitRadius{};
+    double minimumVectorNorm{};
     int projectileGraceFrames = 5;
     int nextAttackId = 0;
     double bounceSpawnDistance{};
@@ -132,7 +133,7 @@ private:
     bool hasSharedHit(const BattleAttackWorld& world, int sharedHitGroupId, int unitId) const;
     void markHit(BattleAttackWorld& world, BattleAttackInstance& attack, int unitId) const;
     void moveAttack(BattleAttackInstance& attack) const;
-    void trackTarget(BattleAttackInstance& attack, const BattleAttackUnit& target) const;
+    void trackTarget(BattleAttackInstance& attack, const BattleAttackUnit& target, double minimumVectorNorm) const;
     bool canHit(const BattleAttackWorld& world, const BattleAttackInstance& attack, const BattleAttackUnit& target) const;
     const BattleAttackUnit* selectBounceTarget(
         const BattleAttackWorld& world,

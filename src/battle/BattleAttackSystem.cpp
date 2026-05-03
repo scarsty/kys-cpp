@@ -54,6 +54,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
 std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world) const
 {
     assert(world.hitRadius > 0.0);
+    assert(world.minimumVectorNorm > 0.0);
     assert(world.projectileGraceFrames >= 0);
     assert(world.bounceSpawnDistance > 0.0);
     assert(world.defaultProjectileSpeed > 0.0);
@@ -87,7 +88,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
 
         if (target && attack.state.track)
         {
-            trackTarget(attack, *target);
+            trackTarget(attack, *target, world.minimumVectorNorm);
         }
 
         if (target && canHit(world, attack, *target))
@@ -268,16 +269,19 @@ void BattleAttackSystem::moveAttack(BattleAttackInstance& attack) const
     attack.state.position += attack.state.velocity;
 }
 
-void BattleAttackSystem::trackTarget(BattleAttackInstance& attack, const BattleAttackUnit& target) const
+void BattleAttackSystem::trackTarget(
+    BattleAttackInstance& attack,
+    const BattleAttackUnit& target,
+    double minimumVectorNorm) const
 {
     const double speed = pointNorm(attack.state.velocity);
-    if (speed <= 0.0001)
+    if (speed <= minimumVectorNorm)
     {
         return;
     }
-    auto correction = normalizedTo(target.position - attack.state.position, speed / 20.0);
+    auto correction = normalizedTo(target.position - attack.state.position, speed / 20.0, minimumVectorNorm);
     attack.state.velocity += correction;
-    attack.state.velocity = normalizedTo(attack.state.velocity, speed);
+    attack.state.velocity = normalizedTo(attack.state.velocity, speed, minimumVectorNorm);
 }
 
 bool BattleAttackSystem::canHit(
@@ -371,17 +375,17 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
     bounce.state.bounceRemaining = std::max(0, source.state.bounceRemaining - 1);
 
     double speed = pointNorm(source.state.velocity);
-    if (speed <= 0.0001)
+    if (speed <= world.minimumVectorNorm)
     {
         speed = world.defaultProjectileSpeed;
     }
 
-    auto direction = normalizedTo(nextTarget.position - hitTarget.position, 1.0);
-    if (pointNorm(direction) <= 0.0001)
+    auto direction = normalizedTo(nextTarget.position - hitTarget.position, 1.0, world.minimumVectorNorm);
+    if (pointNorm(direction) <= world.minimumVectorNorm)
     {
-        direction = normalizedTo(nextTarget.position - source.state.position, 1.0);
+        direction = normalizedTo(nextTarget.position - source.state.position, 1.0, world.minimumVectorNorm);
     }
-    if (pointNorm(direction) <= 0.0001)
+    if (pointNorm(direction) <= world.minimumVectorNorm)
     {
         direction = { 1.0f, 0.0f, 0.0f };
     }
@@ -392,10 +396,10 @@ BattleAttackInstance BattleAttackSystem::makeBounceAttack(
         direction.y * spawnDistance,
         direction.z * spawnDistance,
     };
-    bounce.state.velocity = normalizedTo(nextTarget.position - bounce.state.position, speed);
-    if (pointNorm(bounce.state.velocity) <= 0.0001)
+    bounce.state.velocity = normalizedTo(nextTarget.position - bounce.state.position, speed, world.minimumVectorNorm);
+    if (pointNorm(bounce.state.velocity) <= world.minimumVectorNorm)
     {
-        bounce.state.velocity = normalizedTo(direction, speed);
+        bounce.state.velocity = normalizedTo(direction, speed, world.minimumVectorNorm);
     }
     bounce.state.totalFrame = std::max(
         world.minimumBounceTotalFrame,

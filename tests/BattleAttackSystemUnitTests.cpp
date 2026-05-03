@@ -11,6 +11,7 @@ constexpr double SceneTileWidth = 36.0;
 constexpr double SceneHitRadius = SceneTileWidth * 2.0;
 constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
+constexpr double LegacyMinimumVectorNorm = 0.0001;
 constexpr double TestHitRadius = 50.0;
 constexpr double TightTrackingHitRadius = 5.0;
 constexpr double TestBounceSpawnDistance = 30.0;
@@ -64,6 +65,7 @@ BattleAttackWorld attackWorld()
 {
     BattleAttackWorld world;
     world.hitRadius = SceneHitRadius;
+    world.minimumVectorNorm = LegacyMinimumVectorNorm;
     world.bounceSpawnDistance = SceneBounceSpawnDistance;
     world.defaultProjectileSpeed = SceneProjectileSpeed;
     return world;
@@ -75,6 +77,7 @@ TEST_CASE("BattleAttackSystem_WorldGeometryStartsEmptyUntilSupplied", "[battle][
     BattleAttackWorld world;
 
     CHECK(world.hitRadius == Catch::Approx(0.0));
+    CHECK(world.minimumVectorNorm == Catch::Approx(0.0));
     CHECK(world.bounceSpawnDistance == Catch::Approx(0.0));
     CHECK(world.defaultProjectileSpeed == Catch::Approx(0.0));
 }
