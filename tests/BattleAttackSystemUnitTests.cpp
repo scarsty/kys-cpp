@@ -79,6 +79,15 @@ TEST_CASE("BattleAttackSystem_WorldGeometryStartsEmptyUntilSupplied", "[battle][
     CHECK(world.defaultProjectileSpeed == Catch::Approx(0.0));
 }
 
+TEST_CASE("BattleAttackSystem_DefaultAttackPayloadHasNoCastSubrequestKind", "[battle][attack][unit]")
+{
+    BattleAttackSpawnRequest request;
+    BattleAttackInstance instance;
+
+    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::None);
+    CHECK(instance.castSubrequestKind == BattleAttackCastSubrequestKind::None);
+}
+
 TEST_CASE("BattleAttackSystem_SpawnAssignsDeterministicAttackIds", "[battle][attack][unit]")
 {
     auto world = attackWorld();
@@ -134,6 +143,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.bounceRollPct == 30);
     CHECK(attack.executeCanHitInvincible);
     CHECK(attack.ignoreProjectileCancel);
+    CHECK(attack.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
 TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][attack][unit]")

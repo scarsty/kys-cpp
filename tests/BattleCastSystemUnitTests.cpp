@@ -443,6 +443,7 @@ TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battl
     CHECK(request.totalFrame == 120);
     CHECK(request.track);
     CHECK_FALSE(request.through);
+    CHECK(request.castSubrequestKind == BattleAttackCastSubrequestKind::SkillHit);
 }
 
 TEST_CASE("BattleCastSystem_RangedCastExpandsExplicitExtraProjectiles", "[battle][cast]")

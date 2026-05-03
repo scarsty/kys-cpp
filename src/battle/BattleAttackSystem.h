@@ -20,6 +20,7 @@ struct BattleAttackUnit
 
 enum class BattleAttackCastSubrequestKind
 {
+    None,
     SkillHit,
     DashHit,
     DashFollowUpSkill,
@@ -50,7 +51,7 @@ struct BattleAttackInstance
     int bounceRollPct = 0;
     int visualEffectId = -1;
     int operationKind = -1;
-    BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::SkillHit;
+    BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
     std::vector<int> hitUnitIds;
     Pointf position;
@@ -86,7 +87,7 @@ struct BattleAttackSpawnRequest
     int bounceChancePct = 0;
     int bounceRollPct = 0;
     bool ultimate = false;
-    BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::SkillHit;
+    BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
 };
 
