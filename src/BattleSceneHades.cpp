@@ -711,6 +711,8 @@ KysChess::Battle::BattleAttackInstance makeBattleAttackInstance(
     attack.executeCanHitInvincible = attackHasExecuteEffect(effect);
     attack.ignoreProjectileCancel = effect.IgnoreProjectileCancel != 0 || effect.UsingMagic == nullptr;
     attack.sharedHitGroupId = effect.SharedHitGroupId;
+    attack.visualEffectId = effect.VisualEffectId;
+    attack.operationKind = effect.OperationType;
     attack.position = effect.Pos;
     attack.velocity = effect.Velocity;
     attack.acceleration = effect.Acceleration;

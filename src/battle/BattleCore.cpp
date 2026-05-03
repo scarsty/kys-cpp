@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
+#include <vector>
 
 namespace KysChess::Battle
 {
@@ -91,7 +93,12 @@ void applyAttackContext(BattlePresentationEvent& presentation, const BattleAttac
     if (const auto* attack = findAttack(world, attackId))
     {
         presentation.sourceUnitId = attack->attackerUnitId;
+        presentation.targetUnitId = attack->preferredTargetUnitId;
+        presentation.durationFrames = attack->totalFrame;
+        presentation.visualEffectId = attack->visualEffectId;
         presentation.position = attack->position;
+        presentation.velocity = attack->velocity;
+        presentation.operationKind = attack->operationKind;
     }
 }
 
@@ -105,7 +112,17 @@ void applyAttackContext(BattleGameplayEvent& gameplay, const BattleAttackWorld& 
     }
 }
 
-BattlePresentationEvent toPresentationEvent(
+BattlePresentationEvent toProjectileSpawnPresentationEvent(
+    const BattleAttackWorld& world,
+    int attackId)
+{
+    BattlePresentationEvent presentation;
+    presentation.type = BattlePresentationEventType::ProjectileSpawned;
+    applyAttackContext(presentation, world, attackId);
+    return presentation;
+}
+
+std::vector<BattlePresentationEvent> toPresentationEvents(
     const BattleAttackEvent& event,
     const BattleAttackWorld& world)
 {
@@ -138,7 +155,13 @@ BattlePresentationEvent toPresentationEvent(
         presentation.amount = event.otherAttackId;
         break;
     }
-    return presentation;
+    std::vector<BattlePresentationEvent> presentations;
+    presentations.push_back(std::move(presentation));
+    if (event.type == BattleAttackEventType::Bounce)
+    {
+        presentations.push_back(toProjectileSpawnPresentationEvent(world, event.otherAttackId));
+    }
+    return presentations;
 }
 
 BattleGameplayEvent toGameplayEvent(
@@ -231,7 +254,10 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     for (const auto& event : result.attackEvents)
     {
         recorder.recordGameplay(toGameplayEvent(event, state.attacks));
-        recorder.recordPresentation(toPresentationEvent(event, state.attacks));
+        for (auto presentation : toPresentationEvents(event, state.attacks))
+        {
+            recorder.recordPresentation(std::move(presentation));
+        }
     }
     result.frame = recorder.consumeFrame();
     return result;

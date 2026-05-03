@@ -84,8 +84,10 @@ void assertValidEvent(const BattlePresentationEvent& event)
     case BattlePresentationEventType::CameraFocus:
         assert(event.durationFrames >= 0);
         break;
+    case BattlePresentationEventType::ProjectileSpawned:
     case BattlePresentationEventType::ProjectileMoved:
         assert(event.effectId >= 0);
+        assert(event.durationFrames >= 0);
         break;
     case BattlePresentationEventType::ProjectileHit:
         assert(event.effectId >= 0);

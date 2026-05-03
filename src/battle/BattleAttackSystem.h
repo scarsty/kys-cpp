@@ -38,6 +38,8 @@ struct BattleAttackInstance
     int bounceRange = 0;
     int bounceChancePct = 0;
     int bounceRollPct = 0;
+    int visualEffectId = -1;
+    int operationKind = -1;
     std::vector<int> hitUnitIds;
     Pointf position;
     Pointf velocity;

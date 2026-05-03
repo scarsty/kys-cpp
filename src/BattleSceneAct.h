@@ -47,6 +47,7 @@ public:
         int BounceChancePct = 0;
         int BounceRange = 0;
         int VisualAttackId = -1;
+        int VisualEffectId = -1;
         int SpiralMotion = 0;
         Pointf SpiralCenter;
         float SpiralRadius = 0.0f;
@@ -56,6 +57,7 @@ public:
 
         void setEft(int num)
         {
+            VisualEffectId = num;
             setPath(std::format("eft/eft{:03}", num));
         }
 

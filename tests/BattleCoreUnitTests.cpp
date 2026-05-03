@@ -303,7 +303,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     BattleAttackInstance projectile;
     projectile.id = 10;
     projectile.attackerUnitId = 1;
+    projectile.preferredTargetUnitId = 2;
     projectile.totalFrame = 30;
+    projectile.visualEffectId = 33;
+    projectile.operationKind = 2;
     projectile.position = { 0, 0, 0 };
     projectile.velocity = { 5, 0, 0 };
 
@@ -324,7 +327,13 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     const auto& firstProjectileEvent = result.frame.presentationEvents[result.movement.events.size()];
     CHECK(firstProjectileEvent.type == BattlePresentationEventType::ProjectileMoved);
     CHECK(firstProjectileEvent.effectId == 10);
+    CHECK(firstProjectileEvent.sourceUnitId == 1);
+    CHECK(firstProjectileEvent.targetUnitId == 2);
+    CHECK(firstProjectileEvent.durationFrames == 30);
+    CHECK(firstProjectileEvent.visualEffectId == 33);
     CHECK(firstProjectileEvent.position.x == 5.0f);
+    CHECK(firstProjectileEvent.velocity.x == 5.0f);
+    CHECK(firstProjectileEvent.operationKind == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparatelyFromPresentation", "[battle][core]")
@@ -477,7 +486,10 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     BattleAttackInstance projectile;
     projectile.id = 10;
     projectile.attackerUnitId = 1;
+    projectile.preferredTargetUnitId = 2;
     projectile.totalFrame = 30;
+    projectile.visualEffectId = 44;
+    projectile.operationKind = 2;
     projectile.bounceRemaining = 1;
     projectile.bounceRange = 500;
     projectile.bounceChancePct = 100;
@@ -497,6 +509,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
 
     REQUIRE(result.attackEvents.size() == 3);
     REQUIRE(result.frame.gameplayEvents.size() == 3);
+    REQUIRE(result.frame.presentationEvents.size() == result.movement.events.size() + result.attackEvents.size() + 1);
     CHECK(result.attackEvents[2].type == BattleAttackEventType::Bounce);
     CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::AttackSpawned);
     CHECK(result.frame.gameplayEvents[2].effectId == 30);
@@ -505,4 +518,14 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
     CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].type == BattlePresentationEventType::ProjectileBounced);
     CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].effectId == 10);
     CHECK(result.frame.presentationEvents[result.movement.events.size() + 2].amount == 30);
+    const auto& spawnEvent = result.frame.presentationEvents[result.movement.events.size() + 3];
+    CHECK(spawnEvent.type == BattlePresentationEventType::ProjectileSpawned);
+    CHECK(spawnEvent.effectId == 30);
+    CHECK(spawnEvent.sourceUnitId == 1);
+    CHECK(spawnEvent.targetUnitId == 3);
+    CHECK(spawnEvent.durationFrames >= 20);
+    CHECK(spawnEvent.visualEffectId == 44);
+    CHECK(spawnEvent.position.x != 0.0f);
+    CHECK(spawnEvent.velocity.x > 0.0f);
+    CHECK(spawnEvent.operationKind == 2);
 }

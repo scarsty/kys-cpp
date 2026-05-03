@@ -28,6 +28,7 @@ enum class BattlePresentationEventType
     RoleEffect,
     DamageNumber,
     CameraFocus,
+    ProjectileSpawned,
     ProjectileMoved,
     ProjectileHit,
     ProjectileExpired,
@@ -80,6 +81,9 @@ struct BattlePresentationEvent
     std::string detailText;
     BattlePresentationColor color;
     Pointf position;
+    int visualEffectId = -1;
+    Pointf velocity;
+    int operationKind = -1;
 };
 
 struct BattlePresentationUnitSnapshot

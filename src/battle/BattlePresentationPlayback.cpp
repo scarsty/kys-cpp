@@ -25,6 +25,8 @@ BattlePresentationCommandType commandTypeFor(BattlePresentationEventType type)
         return BattlePresentationCommandType::SpawnDamageNumber;
     case BattlePresentationEventType::CameraFocus:
         return BattlePresentationCommandType::FocusCamera;
+    case BattlePresentationEventType::ProjectileSpawned:
+        return BattlePresentationCommandType::SpawnProjectile;
     case BattlePresentationEventType::ProjectileMoved:
         return BattlePresentationCommandType::MoveProjectile;
     case BattlePresentationEventType::ProjectileHit:
@@ -47,6 +49,7 @@ bool isProjectileEvent(BattlePresentationEventType type)
 {
     switch (type)
     {
+    case BattlePresentationEventType::ProjectileSpawned:
     case BattlePresentationEventType::ProjectileMoved:
     case BattlePresentationEventType::ProjectileHit:
     case BattlePresentationEventType::ProjectileExpired:
@@ -98,13 +101,15 @@ BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const B
     command.detailText = event.detailText;
     command.color = event.color;
     command.position = event.position;
-    command.visualEffectId = isProjectileEvent(event.type) ? -1 : event.effectId;
+    command.visualEffectId = isProjectileEvent(event.type) ? event.visualEffectId : event.effectId;
     command.projectileAttackId = event.effectId;
     command.projectileRelatedAttackId = event.amount;
     command.projectileSourceUnitId = event.sourceUnitId;
     command.projectileTargetUnitId = event.targetUnitId;
     command.projectilePosition = event.position;
+    command.projectileVelocity = event.velocity;
     command.projectileDurationFrames = event.durationFrames;
+    command.projectileOperationKind = event.operationKind;
     return command;
 }
 
