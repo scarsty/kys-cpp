@@ -899,4 +899,24 @@ BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePri
     return prime;
 }
 
+int BattleComboTriggerSystem::collectExtraProjectileCount(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    int baseCount,
+    const std::function<double()>& rollPercent) const
+{
+    assert(baseCount >= 0);
+    int count = baseCount;
+    for (const auto& event : collectTriggerEvents(
+             state,
+             input,
+             { EffectType::UltimateExtraProjectiles },
+             rollPercent))
+    {
+        assert(event.effect.value > 0);
+        count += event.effect.value;
+    }
+    return count;
+}
+
 }  // namespace KysChess::Battle

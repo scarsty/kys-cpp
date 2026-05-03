@@ -4444,19 +4444,11 @@ int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
     assert(it != cs.end());
 
     auto& s = it->second;
-    int flatCount = std::max(0, s.ultimateExtraProjectiles);
-
-    for (const auto& activatedEffect : KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
-             s,
-             { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
-             { KysChess::EffectType::UltimateExtraProjectiles },
-             []() { return 0.0; }))
-    {
-        assert(activatedEffect.effect.value > 0);
-        flatCount += activatedEffect.effect.value;
-    }
-
-    return flatCount;
+    return KysChess::Battle::BattleComboTriggerSystem().collectExtraProjectileCount(
+        s,
+        { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
+        std::max(0, s.ultimateExtraProjectiles),
+        []() { return 0.0; });
 }
 
 int BattleSceneHades::getHitExtraProjectileCount(Role* r)
@@ -4466,20 +4458,11 @@ int BattleSceneHades::getHitExtraProjectileCount(Role* r)
     auto it = cs.find(r->ID);
     assert(it != cs.end());
 
-    auto& s = it->second;
-    int flatCount = 0;
-
-    for (const auto& activatedEffect : KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
-             s,
-             { KysChess::Battle::BattleComboTriggerHook::DamageDealt, r->ID, -1 },
-             { KysChess::EffectType::UltimateExtraProjectiles },
-             [&]() { return rand_.rand() * 100.0; }))
-    {
-        assert(activatedEffect.effect.value > 0);
-        flatCount += activatedEffect.effect.value;
-    }
-
-    return flatCount;
+    return KysChess::Battle::BattleComboTriggerSystem().collectExtraProjectileCount(
+        it->second,
+        { KysChess::Battle::BattleComboTriggerHook::DamageDealt, r->ID, -1 },
+        0,
+        [&]() { return rand_.rand() * 100.0; });
 }
 
 void BattleSceneHades::spawnUltimateExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount)

@@ -355,6 +355,12 @@ public:
         const RoleComboState& state,
         const BattleProjectileBouncePrimeInput& input) const;
 
+    int collectExtraProjectileCount(
+        RoleComboState& state,
+        const BattleComboTriggerInput& input,
+        int baseCount,
+        const std::function<double()>& rollPercent) const;
+
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 
 private:

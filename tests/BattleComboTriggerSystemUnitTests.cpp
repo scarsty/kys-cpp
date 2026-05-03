@@ -757,3 +757,22 @@ TEST_CASE("BattleComboTriggerSystem_ProjectileBouncePrime_AggregatesBounceEffect
     CHECK(prime.range == 120);
     CHECK(state.effectActivationCounts.empty());
 }
+
+TEST_CASE("BattleComboTriggerSystem_ExtraProjectileCount_AddsFlatAndTriggeredEffects", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::UltimateExtraProjectiles, Trigger::OnUltimate, 2, 100, 0, 1));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnUltimate, 5, 100));
+
+    auto count = BattleComboTriggerSystem().collectExtraProjectileCount(
+        state,
+        { BattleComboTriggerHook::AfterSkillCast, 4, -1 },
+        3,
+        []() { return 0.0; });
+
+    CHECK(count == 5);
+    CHECK(state.effectActivationCounts[0] == 1);
+    CHECK(state.effectActivationCounts.count(1) == 0);
+}
