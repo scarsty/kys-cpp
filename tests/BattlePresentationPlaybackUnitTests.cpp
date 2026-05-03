@@ -3,7 +3,20 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <fstream>
+#include <iterator>
+#include <string>
+
 using namespace KysChess::Battle;
+
+namespace
+{
+std::string readTextFile(const char* path)
+{
+    std::ifstream file(path);
+    return { std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
+}
+}  // namespace
 
 TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryCommittedPresentationEvent", "[battle][presentation][unit]")
 {
@@ -165,4 +178,24 @@ TEST_CASE("BattleSceneAct_AttackEffectRenderTeamFallsBackToLegacyAttacker", "[ba
     effect.VisualTeam = 1;
 
     CHECK(effect.renderTeam() == 1);
+}
+
+TEST_CASE("BattleScenePresentationPlayer_ProjectilePlaybackDoesNotWriteGameplayFields", "[battle][presentation][unit]")
+{
+    const auto source = readTextFile("src/BattleScenePresentationPlayer.cpp");
+    REQUIRE_FALSE(source.empty());
+
+    CHECK(source.find("PreferredTarget") == std::string::npos);
+    CHECK(source.find(".Attacker") == std::string::npos);
+    CHECK(source.find(".Defender") == std::string::npos);
+    CHECK(source.find(".UsingMagic") == std::string::npos);
+    CHECK(source.find(".UsingHiddenWeapon") == std::string::npos);
+    CHECK(source.find(".OperationType") == std::string::npos);
+    CHECK(source.find(".NoHurt") == std::string::npos);
+    CHECK(source.find(".Track") == std::string::npos);
+    CHECK(source.find(".Through") == std::string::npos);
+    CHECK(source.find("ScriptedDamage") == std::string::npos);
+    CHECK(source.find("ScriptedStunFrames") == std::string::npos);
+    CHECK(source.find("ScriptedBleedStacks") == std::string::npos);
+    CHECK(source.find("BounceRemaining") == std::string::npos);
 }

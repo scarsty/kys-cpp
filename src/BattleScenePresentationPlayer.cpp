@@ -76,7 +76,6 @@ BattleSceneAct::AttackEffect& createProjectile(
     effect.VisualAttackId = command.projectileAttackId;
     effect.VisualOnly = 1;
     effect.VisualTeam = resolveVisualTeam(bindings, command.projectileSourceUnitId);
-    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
     effect.Pos = command.projectilePosition;
     effect.Velocity = command.projectileVelocity;
     effect.TotalFrame = std::max(1, command.projectileDurationFrames);
@@ -98,7 +97,6 @@ void applyProjectilePayload(
 {
     effect.VisualOnly = 1;
     effect.VisualTeam = resolveVisualTeam(bindings, command.projectileSourceUnitId);
-    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
     effect.Pos = command.projectilePosition;
     effect.Velocity = command.projectileVelocity;
     effect.TotalFrame = std::max(1, command.projectileDurationFrames);
@@ -297,7 +295,6 @@ void BattleScenePresentationPlayer::moveProjectile(
     auto& effect = upsertProjectile(command, bindings);
     effect.Pos = command.projectilePosition;
     effect.Velocity = command.projectileVelocity;
-    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
 }
 
 void BattleScenePresentationPlayer::impactProjectile(
@@ -306,7 +303,6 @@ void BattleScenePresentationPlayer::impactProjectile(
 {
     auto& effect = upsertProjectile(command, bindings);
     effect.Pos = command.projectilePosition;
-    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
     finishProjectile(effect, 15);
 }
 
@@ -342,6 +338,5 @@ void BattleScenePresentationPlayer::bounceProjectile(
 {
     auto& effect = upsertProjectile(command, bindings);
     effect.Pos = command.projectilePosition;
-    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
     finishProjectile(effect, 15);
 }
