@@ -199,3 +199,40 @@ TEST_CASE("BattleScenePresentationPlayer_ProjectilePlaybackDoesNotWriteGameplayF
     CHECK(source.find("ScriptedBleedStacks") == std::string::npos);
     CHECK(source.find("BounceRemaining") == std::string::npos);
 }
+
+TEST_CASE("BattleSceneAct_AdvanceVisualOnlyEffectsTicksOnlyVisualLifetime", "[battle][presentation][unit]")
+{
+    std::deque<BattleSceneAct::AttackEffect> effects;
+
+    BattleSceneAct::AttackEffect visualRoleEffect;
+    visualRoleEffect.VisualOnly = 1;
+    visualRoleEffect.TotalFrame = 3;
+    effects.push_back(visualRoleEffect);
+
+    BattleSceneAct::AttackEffect legacyGameplayProjectile;
+    legacyGameplayProjectile.TotalFrame = 3;
+    effects.push_back(legacyGameplayProjectile);
+
+    BattleSceneAct::advanceVisualOnlyEffects(effects);
+
+    CHECK(effects[0].Frame == 1);
+    CHECK(effects[1].Frame == 0);
+}
+
+TEST_CASE("BattleSceneAct_VisualOnlyProjectileFadeAdvancesToExpiry", "[battle][presentation][unit]")
+{
+    std::deque<BattleSceneAct::AttackEffect> effects;
+
+    BattleSceneAct::AttackEffect impactedVisualProjectile;
+    impactedVisualProjectile.VisualOnly = 1;
+    impactedVisualProjectile.TotalFrame = 30;
+    impactedVisualProjectile.Frame = 28;
+    effects.push_back(impactedVisualProjectile);
+
+    BattleSceneAct::advanceVisualOnlyEffects(effects);
+    CHECK(effects.front().Frame == 29);
+
+    BattleSceneAct::advanceVisualOnlyEffects(effects);
+    CHECK(effects.front().Frame == 30);
+    CHECK(effects.front().Frame >= effects.front().TotalFrame);
+}

@@ -3392,6 +3392,7 @@ void BattleSceneHades::backRun1()
         auto attackWorld = makeBattleAttackWorld(battle_roles_, attack_effects_, initialCount, shared_hit_group_targets_);
         auto attackEvents = KysChess::Battle::BattleAttackSystem().tick(attackWorld);
         writeBattleAttackWorld(attackWorld, attack_effects_, battle_roles_, shared_hit_group_targets_);
+        advanceVisualOnlyEffects(attack_effects_);
 
         for (const auto& event : attackEvents)
         {
