@@ -109,6 +109,18 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.ignoreProjectileCancel);
 }
 
+TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][attack][unit]")
+{
+    BattleAttackWorld world;
+    BattleAttackSpawnRequest request = spawnRequest();
+    request.ultimate = true;
+
+    BattleAttackSystem().spawn(world, request);
+
+    REQUIRE(world.attacks.size() == 1);
+    CHECK(world.attacks[0].ultimate);
+}
+
 TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[battle][attack][unit]")
 {
     BattleAttackWorld world;

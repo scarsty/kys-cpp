@@ -73,6 +73,7 @@ struct BattleAttackSpawnRequest
     int bounceRange = 0;
     int bounceChancePct = 0;
     int bounceRollPct = 0;
+    bool ultimate = false;
 };
 
 enum class BattleAttackEventType

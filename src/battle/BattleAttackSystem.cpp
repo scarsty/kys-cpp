@@ -75,6 +75,7 @@ BattleAttackEvent BattleAttackSystem::spawn(
     attack.bounceRange = request.bounceRange;
     attack.bounceChancePct = request.bounceChancePct;
     attack.bounceRollPct = request.bounceRollPct;
+    attack.ultimate = request.ultimate;
     world.attacks.push_back(attack);
 
     BattleAttackEvent event;
