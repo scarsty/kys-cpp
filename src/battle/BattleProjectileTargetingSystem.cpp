@@ -132,4 +132,51 @@ std::vector<int> BattleProjectileTargetingSystem::selectAreaImpactTargets(
     return ids;
 }
 
+int BattleProjectileTargetingSystem::selectRandomEnemy(
+    const BattleProjectileTargetWorld& world,
+    int sourceTeam,
+    int randomIndex) const
+{
+    assert(randomIndex >= 0);
+
+    std::vector<int> ids;
+    for (const auto& unit : world.units)
+    {
+        if (unit.alive && unit.team != sourceTeam)
+        {
+            ids.push_back(unit.id);
+        }
+    }
+    if (ids.empty())
+    {
+        return -1;
+    }
+    return ids[randomIndex % ids.size()];
+}
+
+int BattleProjectileTargetingSystem::selectWeakestVulnerableEnemy(
+    const BattleProjectileTargetWorld& world,
+    int sourceTeam,
+    double defenseWeight) const
+{
+    assert(defenseWeight >= 0.0);
+
+    const BattleProjectileTargetUnit* weakest = nullptr;
+    double weakestEffectiveHp = 0.0;
+    for (const auto& unit : world.units)
+    {
+        if (!unit.alive || unit.team == sourceTeam || unit.invincible > 0)
+        {
+            continue;
+        }
+        const double effectiveHp = unit.maxHp + unit.defense * defenseWeight;
+        if (!weakest || effectiveHp < weakestEffectiveHp)
+        {
+            weakest = &unit;
+            weakestEffectiveHp = effectiveHp;
+        }
+    }
+    return weakest ? weakest->id : -1;
+}
+
 }  // namespace KysChess::Battle

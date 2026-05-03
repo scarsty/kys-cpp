@@ -783,15 +783,19 @@ KysChess::Battle::BattleProjectileTargetWorld makeBattleProjectileTargetWorld(co
     {
         assert(role);
         auto grid = battlePos90To45(role->Pos.x, role->Pos.y);
-        world.units.push_back({
-            role->ID,
-            role->Team,
-            role->Dead == 0,
-            role->Pos.x,
-            role->Pos.y,
-            grid.x,
-            grid.y,
-        });
+        KysChess::Battle::BattleProjectileTargetUnit unit;
+        unit.id = role->ID;
+        unit.team = role->Team;
+        unit.alive = role->Dead == 0;
+        unit.hp = role->HP;
+        unit.maxHp = role->MaxHP;
+        unit.defense = role->Defence;
+        unit.invincible = role->Invincible;
+        unit.x = role->Pos.x;
+        unit.y = role->Pos.y;
+        unit.gridX = grid.x;
+        unit.gridY = grid.y;
+        world.units.push_back(unit);
     }
     return world;
 }
@@ -5303,40 +5307,24 @@ Role* BattleSceneHades::findFarthestEnemy(int team, Pointf p)
 
 Role* BattleSceneHades::findRandomEnemy(int team)
 {
-    std::vector<Role*> candidates;
-    for (auto r1 : battle_roles_)
-    {
-        if (r1->Dead == 0 && team != r1->Team)
-        {
-            candidates.push_back(r1);
-        }
-    }
-    if (candidates.empty())
+    int targetId = KysChess::Battle::BattleProjectileTargetingSystem().selectRandomEnemy(
+        makeBattleProjectileTargetWorld(battle_roles_),
+        team,
+        rand_.rand_int(std::numeric_limits<int>::max()));
+    if (targetId < 0)
     {
         return nullptr;
     }
-    return candidates[rand_.rand_int(static_cast<int>(candidates.size()))];
+    return findRoleByBattleId(battle_roles_, targetId);
 }
 
 Role* BattleSceneHades::findWeakestVulnerableEnemy(int team)
 {
-    Role* target = nullptr;
-    double bestScore = std::numeric_limits<double>::max();
-    for (auto r1 : battle_roles_)
-    {
-        if (r1->Dead != 0 || team == r1->Team || r1->Invincible > 0)
-        {
-            continue;
-        }
-
-        double effectiveHp = r1->MaxHP + r1->Defence * BLINK_WEAK_TARGET_DEF_WEIGHT;
-        if (effectiveHp < bestScore)
-        {
-            bestScore = effectiveHp;
-            target = r1;
-        }
-    }
-    return target;
+    int targetId = KysChess::Battle::BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(
+        makeBattleProjectileTargetWorld(battle_roles_),
+        team,
+        BLINK_WEAK_TARGET_DEF_WEIGHT);
+    return targetId >= 0 ? findRoleByBattleId(battle_roles_, targetId) : nullptr;
 }
 
 //前搖

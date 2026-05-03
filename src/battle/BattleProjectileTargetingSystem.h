@@ -10,6 +10,10 @@ struct BattleProjectileTargetUnit
     int id = -1;
     int team = 0;
     bool alive = true;
+    int hp = 0;
+    int maxHp = 0;
+    int defense = 0;
+    int invincible = 0;
     double x = 0.0;
     double y = 0.0;
     int gridX = 0;
@@ -34,6 +38,14 @@ public:
                                              int areaSize,
                                              int maxTargets,
                                              int trackedTargetUnitId) const;
+
+    int selectRandomEnemy(const BattleProjectileTargetWorld& world,
+                          int sourceTeam,
+                          int randomIndex) const;
+
+    int selectWeakestVulnerableEnemy(const BattleProjectileTargetWorld& world,
+                                     int sourceTeam,
+                                     double defenseWeight) const;
 
 private:
     const BattleProjectileTargetUnit& unitById(const BattleProjectileTargetWorld& world, int unitId) const;

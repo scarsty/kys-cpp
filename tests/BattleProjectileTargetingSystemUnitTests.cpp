@@ -20,6 +20,16 @@ BattleProjectileTargetUnit unit(int id, int team, double x, double y, int gridX,
     return state;
 }
 
+BattleProjectileTargetUnit combatUnit(int id, int team, int hp, int maxHp, int defense, int invincible)
+{
+    auto state = unit(id, team, 0.0, 0.0, 0, 0);
+    state.hp = hp;
+    state.maxHp = maxHp;
+    state.defense = defense;
+    state.invincible = invincible;
+    return state;
+}
+
 }  // namespace
 
 TEST_CASE("BattleProjectileTargetingSystem_NearbyTargets_AreEnemiesSortedByDistance", "[battle][projectile][unit]")
@@ -72,4 +82,35 @@ TEST_CASE("BattleProjectileTargetingSystem_AreaImpact_DoesNotDuplicateTrackedTar
     REQUIRE(ids.size() == 2);
     CHECK(ids[0] == 2);
     CHECK(ids[1] == 3);
+}
+
+TEST_CASE("BattleProjectileTargetingSystem_RandomEnemy_UsesExplicitIndex", "[battle][projectile][unit]")
+{
+    BattleProjectileTargetWorld world;
+    world.units = {
+        unit(1, 0, 0.0, 0.0, 0, 0),
+        unit(2, 1, 10.0, 0.0, 1, 0),
+        unit(3, 1, 20.0, 0.0, 2, 0),
+        unit(4, 0, 30.0, 0.0, 3, 0),
+    };
+
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(world, 0, 0) == 2);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(world, 0, 1) == 3);
+    CHECK(BattleProjectileTargetingSystem().selectRandomEnemy(world, 0, 2) == 2);
+}
+
+TEST_CASE("BattleProjectileTargetingSystem_WeakestVulnerableEnemy_UsesEffectiveHp", "[battle][projectile][unit]")
+{
+    BattleProjectileTargetWorld world;
+    world.units = {
+        combatUnit(1, 0, 100, 100, 0, 0),
+        combatUnit(2, 1, 60, 200, 1, 0),
+        combatUnit(3, 1, 70, 100, 20, 0),
+        combatUnit(4, 1, 5, 100, 0, 3),
+        combatUnit(5, 1, 1, 100, 0, 0),
+    };
+    world.units[4].alive = false;
+
+    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(world, 0, 4.0) == 3);
+    CHECK(BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(world, 1, 4.0) == 1);
 }
