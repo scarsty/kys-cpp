@@ -57,7 +57,7 @@ struct BattleMovementConfig
     double meleeAttackReach{};
     double meleeLocalTargetRadius{};
     double maxDashDistance{};
-    double maxRangedReach = 480.0;
+    double maxRangedReach{};
     double movementDashDistanceMultiplier{};
 };
 
@@ -68,7 +68,7 @@ struct BattleMovementGeometry
     int dashFrames = 5;
     int dashCooldownFrames = 18;
     int slotSwitchCooldownFrames = 12;
-    double maxRangedReach = 480.0;
+    double maxRangedReach{};
     double meleeAttackEffectOffset{};
     double meleeAttackHitRadius{};
 };

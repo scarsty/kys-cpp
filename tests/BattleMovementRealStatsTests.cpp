@@ -14,6 +14,7 @@ namespace
 {
 
 constexpr double SceneTileWidth = 36.0;
+constexpr double MaxEffectiveBattleReach = 480.0;
 
 struct PinnedRoleMovement
 {
@@ -56,6 +57,7 @@ BattleMovementConfig pinnedConfig()
     geometry.tileWidth = SceneTileWidth;
     geometry.meleeAttackEffectOffset = geometry.tileWidth * 2.0;
     geometry.meleeAttackHitRadius = geometry.tileWidth * 2.0;
+    geometry.maxRangedReach = MaxEffectiveBattleReach;
     return BattleGeometry(geometry).movementConfig();
 }
 

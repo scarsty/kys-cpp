@@ -244,6 +244,15 @@ void syncAttackUnitsFromWorld(BattleFrameState& state)
         }
     }
 }
+
+void assertFrameAttackWorldConfigured(const BattleAttackWorld& attacks)
+{
+    assert(attacks.hitRadius > 0.0);
+    assert(attacks.projectileGraceFrames >= 0);
+    assert(attacks.bounceSpawnDistance > 0.0);
+    assert(attacks.defaultProjectileSpeed > 0.0);
+    assert(attacks.minimumBounceTotalFrame > 0);
+}
 }  // namespace
 
 BattleCore::BattleCore(BattleWorldState& world)
@@ -258,6 +267,8 @@ BattleTickResult BattleCore::tickMovement()
 
 BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
 {
+    assertFrameAttackWorldConfigured(state.attacks);
+
     BattleFrameResult result;
 
     result.movement = BattleCore(state.world).tickMovement();

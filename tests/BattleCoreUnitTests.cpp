@@ -15,6 +15,7 @@ namespace
 {
 
 constexpr double SceneTileWidth = 36.0;
+constexpr double MaxEffectiveBattleReach = 480.0;
 constexpr double SceneAttackHitRadius = SceneTileWidth * 2.0;
 constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
 constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
@@ -27,6 +28,7 @@ BattleMovementConfig testConfig()
     geometry.meleeAttackHitRadius = SceneTileWidth * 2.0;
     geometry.dashFrames = 5;
     geometry.dashCooldownFrames = 18;
+    geometry.maxRangedReach = MaxEffectiveBattleReach;
     return BattleGeometry(geometry).movementConfig();
 }
 
@@ -93,6 +95,15 @@ BattleAttackSpawnRequest attackSpawnRequest()
 }
 
 }  // namespace
+
+TEST_CASE("BattleMovementGeometryAndConfig_MaxRangedReachStartsEmptyUntilSupplied", "[battle][core]")
+{
+    BattleMovementGeometry geometry;
+    BattleMovementConfig config;
+
+    CHECK(geometry.maxRangedReach == 0.0);
+    CHECK(config.maxRangedReach == 0.0);
+}
 
 TEST_CASE("BattleCombatIntent_OperationTypeMapping_MatchesSceneAnimationTypes", "[battle][intent]")
 {
