@@ -28,6 +28,12 @@ private:
     void spawnFloatingText(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
     void spawnRoleEffect(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
     void spawnDamageNumber(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
+    void spawnProjectile(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
+    void moveProjectile(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
+    void impactProjectile(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
+    void expireProjectile(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
+    void cancelProjectile(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
+    void bounceProjectile(const KysChess::Battle::BattlePresentationCommand& command, const Bindings& bindings) const;
 
     KysChess::Battle::BattlePresentationPlaybackPlanner planner_;
 };

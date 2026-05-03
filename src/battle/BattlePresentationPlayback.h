@@ -16,10 +16,10 @@ enum class BattlePresentationCommandType
     SpawnRoleEffect,
     SpawnDamageNumber,
     FocusCamera,
+    SpawnProjectile,
     MoveProjectile,
-    HitProjectile,
+    ImpactProjectile,
     ExpireProjectile,
-    LoseProjectileTarget,
     CancelProjectile,
     BounceProjectile,
 };
@@ -40,6 +40,15 @@ struct BattlePresentationCommand
     std::string detailText;
     BattlePresentationColor color;
     Pointf position;
+    int visualEffectId = -1;
+    int projectileAttackId = -1;
+    int projectileRelatedAttackId = -1;
+    int projectileSourceUnitId = -1;
+    int projectileTargetUnitId = -1;
+    Pointf projectilePosition;
+    Pointf projectileVelocity;
+    int projectileDurationFrames = 0;
+    int projectileOperationKind = -1;
 };
 
 struct BattlePresentationPlaybackPlan

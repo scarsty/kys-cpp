@@ -47,6 +47,62 @@ Role* resolveRole(const BattleScenePresentationPlayer::Bindings& bindings, int u
     }
     return bindings.resolveRole(unitId);
 }
+
+BattleSceneAct::AttackEffect* findProjectile(
+    const BattleScenePresentationPlayer::Bindings& bindings,
+    int projectileAttackId)
+{
+    assert(bindings.attackEffects);
+    auto it = std::find_if(bindings.attackEffects->begin(), bindings.attackEffects->end(), [&](const auto& effect)
+        {
+            return effect.VisualAttackId == projectileAttackId;
+        });
+    return it == bindings.attackEffects->end() ? nullptr : &*it;
+}
+
+BattleSceneAct::AttackEffect& createProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const BattleScenePresentationPlayer::Bindings& bindings)
+{
+    assert(command.projectileAttackId >= 0);
+
+    BattleSceneAct::AttackEffect effect;
+    effect.VisualAttackId = command.projectileAttackId;
+    effect.Attacker = resolveRole(bindings, command.projectileSourceUnitId);
+    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
+    effect.Pos = command.projectilePosition;
+    effect.Velocity = command.projectileVelocity;
+    effect.TotalFrame = std::max(1, command.projectileDurationFrames);
+    effect.Frame = 0;
+    effect.OperationType = command.projectileOperationKind;
+    effect.NoHurt = 1;
+    effect.IsMain = 0;
+    effect.IgnoreProjectileCancel = 1;
+    if (command.visualEffectId >= 0)
+    {
+        effect.setEft(command.visualEffectId);
+        effect.TotalFrame = std::max(effect.TotalFrame, effect.TotalEffectFrame);
+    }
+    bindings.attackEffects->push_back(std::move(effect));
+    return bindings.attackEffects->back();
+}
+
+BattleSceneAct::AttackEffect& upsertProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const BattleScenePresentationPlayer::Bindings& bindings)
+{
+    if (auto* effect = findProjectile(bindings, command.projectileAttackId))
+    {
+        return *effect;
+    }
+    return createProjectile(command, bindings);
+}
+
+void finishProjectile(BattleSceneAct::AttackEffect& effect, int fadeFrames)
+{
+    effect.NoHurt = 1;
+    effect.Frame = std::max(effect.Frame, effect.TotalFrame - fadeFrames);
+}
 }  // namespace
 
 void BattleScenePresentationPlayer::play(
@@ -92,12 +148,23 @@ void BattleScenePresentationPlayer::playCommand(
         break;
     case BattlePresentationCommandType::FocusCamera:
         break;
+    case BattlePresentationCommandType::SpawnProjectile:
+        spawnProjectile(command, bindings);
+        break;
     case BattlePresentationCommandType::MoveProjectile:
-    case BattlePresentationCommandType::HitProjectile:
+        moveProjectile(command, bindings);
+        break;
+    case BattlePresentationCommandType::ImpactProjectile:
+        impactProjectile(command, bindings);
+        break;
     case BattlePresentationCommandType::ExpireProjectile:
-    case BattlePresentationCommandType::LoseProjectileTarget:
+        expireProjectile(command, bindings);
+        break;
     case BattlePresentationCommandType::CancelProjectile:
+        cancelProjectile(command, bindings);
+        break;
     case BattlePresentationCommandType::BounceProjectile:
+        bounceProjectile(command, bindings);
         break;
     }
 }
@@ -188,4 +255,64 @@ void BattleScenePresentationPlayer::spawnDamageNumber(
     effect.Size = damageTextSize(command.textSize, command.amount, role->MaxHP);
     effect.color.a = damageTextAlpha(command.amount, role->MaxHP);
     bindings.textEffects->push_back(std::move(effect));
+}
+
+void BattleScenePresentationPlayer::spawnProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const Bindings& bindings) const
+{
+    createProjectile(command, bindings);
+}
+
+void BattleScenePresentationPlayer::moveProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const Bindings& bindings) const
+{
+    auto& effect = upsertProjectile(command, bindings);
+    effect.Pos = command.projectilePosition;
+    effect.Velocity = command.projectileVelocity;
+    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
+}
+
+void BattleScenePresentationPlayer::impactProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const Bindings& bindings) const
+{
+    auto& effect = upsertProjectile(command, bindings);
+    effect.Pos = command.projectilePosition;
+    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
+    finishProjectile(effect, 15);
+}
+
+void BattleScenePresentationPlayer::expireProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const Bindings& bindings) const
+{
+    auto& effect = upsertProjectile(command, bindings);
+    effect.Pos = command.projectilePosition;
+    finishProjectile(effect, 5);
+}
+
+void BattleScenePresentationPlayer::cancelProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const Bindings& bindings) const
+{
+    if (auto* effect = findProjectile(bindings, command.projectileAttackId))
+    {
+        finishProjectile(*effect, 5);
+    }
+    if (auto* other = findProjectile(bindings, command.projectileRelatedAttackId))
+    {
+        finishProjectile(*other, 5);
+    }
+}
+
+void BattleScenePresentationPlayer::bounceProjectile(
+    const KysChess::Battle::BattlePresentationCommand& command,
+    const Bindings& bindings) const
+{
+    auto& effect = upsertProjectile(command, bindings);
+    effect.Pos = command.projectilePosition;
+    effect.PreferredTarget = resolveRole(bindings, command.projectileTargetUnitId);
+    finishProjectile(effect, 15);
 }

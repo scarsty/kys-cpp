@@ -53,12 +53,18 @@ TEST_CASE("BattlePresentationPlaybackPlanner_MapsEveryCommittedPresentationEvent
     CHECK(plan.commands[6].type == BattlePresentationCommandType::FocusCamera);
     CHECK(plan.commands[6].position.x == 9);
     CHECK(plan.commands[7].type == BattlePresentationCommandType::MoveProjectile);
-    CHECK(plan.commands[7].effectId == 10);
-    CHECK(plan.commands[7].position.x == 11);
-    CHECK(plan.commands[8].type == BattlePresentationCommandType::HitProjectile);
+    CHECK(plan.commands[7].projectileAttackId == 10);
+    CHECK(plan.commands[7].projectileSourceUnitId == 1);
+    CHECK(plan.commands[7].projectileTargetUnitId == 2);
+    CHECK(plan.commands[7].projectilePosition.x == 11);
+    CHECK(plan.commands[8].type == BattlePresentationCommandType::ImpactProjectile);
+    CHECK(plan.commands[8].projectileAttackId == 10);
     CHECK(plan.commands[9].type == BattlePresentationCommandType::ExpireProjectile);
     CHECK(plan.commands[10].type == BattlePresentationCommandType::CancelProjectile);
     CHECK(plan.commands[11].type == BattlePresentationCommandType::BounceProjectile);
+    CHECK(plan.commands[11].projectileAttackId == 10);
+    CHECK(plan.commands[11].projectileTargetUnitId == 3);
+    CHECK(plan.commands[11].projectileRelatedAttackId == 0);
 }
 
 TEST_CASE("BattlePresentationPlaybackPlanner_PreservesCommandOrder", "[battle][presentation][unit]")

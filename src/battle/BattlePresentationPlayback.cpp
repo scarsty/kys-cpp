@@ -28,11 +28,11 @@ BattlePresentationCommandType commandTypeFor(BattlePresentationEventType type)
     case BattlePresentationEventType::ProjectileMoved:
         return BattlePresentationCommandType::MoveProjectile;
     case BattlePresentationEventType::ProjectileHit:
-        return BattlePresentationCommandType::HitProjectile;
+        return BattlePresentationCommandType::ImpactProjectile;
     case BattlePresentationEventType::ProjectileExpired:
         return BattlePresentationCommandType::ExpireProjectile;
     case BattlePresentationEventType::ProjectileTargetLost:
-        return BattlePresentationCommandType::LoseProjectileTarget;
+        return BattlePresentationCommandType::CancelProjectile;
     case BattlePresentationEventType::ProjectileCancelled:
         return BattlePresentationCommandType::CancelProjectile;
     case BattlePresentationEventType::ProjectileBounced:
@@ -41,6 +41,31 @@ BattlePresentationCommandType commandTypeFor(BattlePresentationEventType type)
 
     assert(false);
     return BattlePresentationCommandType::RecordStatus;
+}
+
+bool isProjectileEvent(BattlePresentationEventType type)
+{
+    switch (type)
+    {
+    case BattlePresentationEventType::ProjectileMoved:
+    case BattlePresentationEventType::ProjectileHit:
+    case BattlePresentationEventType::ProjectileExpired:
+    case BattlePresentationEventType::ProjectileTargetLost:
+    case BattlePresentationEventType::ProjectileCancelled:
+    case BattlePresentationEventType::ProjectileBounced:
+        return true;
+    case BattlePresentationEventType::DamageLog:
+    case BattlePresentationEventType::HealLog:
+    case BattlePresentationEventType::StatusLog:
+    case BattlePresentationEventType::FloatingText:
+    case BattlePresentationEventType::RoleEffect:
+    case BattlePresentationEventType::DamageNumber:
+    case BattlePresentationEventType::CameraFocus:
+        return false;
+    }
+
+    assert(false);
+    return false;
 }
 }  // namespace
 
@@ -58,22 +83,29 @@ BattlePresentationPlaybackPlan BattlePresentationPlaybackPlanner::build(const Ba
 
 BattlePresentationCommand BattlePresentationPlaybackPlanner::makeCommand(const BattlePresentationEvent& event) const
 {
-    return {
-        commandTypeFor(event.type),
-        event.frame,
-        event.sourceUnitId,
-        event.targetUnitId,
-        event.amount,
-        event.durationFrames,
-        event.effectId,
-        event.textSize,
-        event.textMotionType,
-        event.text,
-        event.skillName,
-        event.detailText,
-        event.color,
-        event.position,
-    };
+    BattlePresentationCommand command;
+    command.type = commandTypeFor(event.type);
+    command.frame = event.frame;
+    command.sourceUnitId = event.sourceUnitId;
+    command.targetUnitId = event.targetUnitId;
+    command.amount = event.amount;
+    command.durationFrames = event.durationFrames;
+    command.effectId = event.effectId;
+    command.textSize = event.textSize;
+    command.textMotionType = event.textMotionType;
+    command.text = event.text;
+    command.skillName = event.skillName;
+    command.detailText = event.detailText;
+    command.color = event.color;
+    command.position = event.position;
+    command.visualEffectId = isProjectileEvent(event.type) ? -1 : event.effectId;
+    command.projectileAttackId = event.effectId;
+    command.projectileRelatedAttackId = event.amount;
+    command.projectileSourceUnitId = event.sourceUnitId;
+    command.projectileTargetUnitId = event.targetUnitId;
+    command.projectilePosition = event.position;
+    command.projectileDurationFrames = event.durationFrames;
+    return command;
 }
 
 }  // namespace KysChess::Battle

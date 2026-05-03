@@ -46,6 +46,7 @@ public:
         int BounceRemaining = 0;
         int BounceChancePct = 0;
         int BounceRange = 0;
+        int VisualAttackId = -1;
         int SpiralMotion = 0;
         Pointf SpiralCenter;
         float SpiralRadius = 0.0f;
