@@ -99,27 +99,41 @@ TEST_CASE("BattleCastSystem_DoesNotRewriteNormalAttackRangeFromUltimate", "[batt
     CHECK(result.decision.operationType == -1);
 }
 
+TEST_CASE("BattleCastSystem_BlocksCastWhenUnitIsNotAttackReady", "[battle][cast]")
+{
+    auto input = basicInput();
+    input.unit.canStartAttack = false;
+    input.targetDistance = 100.0;
+    input.normalSkill = skill(105, 0, 137.5);
+
+    auto result = BattleCastPlanner().plan(input);
+    CHECK_FALSE(result.decision.canCast);
+    CHECK(result.decision.reason == BattleCastBlockReason::AttackNotReady);
+    CHECK(result.decision.skillId == 105);
+    CHECK(result.decision.operationType == -1);
+}
+
 TEST_CASE("BattleCastSystem_BlocksCastWhileDeadFrozenStunnedOrWithoutTarget", "[battle][cast]")
 {
-    auto assertNoCast = [](BattleCastInput input) {
+    auto assertNoCast = [](BattleCastInput input, BattleCastBlockReason reason) {
         auto result = BattleCastPlanner().plan(input);
         CHECK_FALSE(result.decision.canCast);
-        CHECK(result.decision.reason != BattleCastBlockReason::None);
+        CHECK(result.decision.reason == reason);
     };
 
     auto input = basicInput();
     input.unit.alive = false;
-    assertNoCast(input);
+    assertNoCast(input, BattleCastBlockReason::Dead);
 
     input = basicInput();
     input.unit.frozen = true;
-    assertNoCast(input);
+    assertNoCast(input, BattleCastBlockReason::Frozen);
 
     input = basicInput();
     input.unit.stunned = true;
-    assertNoCast(input);
+    assertNoCast(input, BattleCastBlockReason::Stunned);
 
     input = basicInput();
     input.targetUnitId = -1;
-    assertNoCast(input);
+    assertNoCast(input, BattleCastBlockReason::NoTarget);
 }

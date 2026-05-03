@@ -9,6 +9,7 @@ struct BattleCastUnitState
     bool alive = true;
     bool frozen = false;
     bool stunned = false;
+    bool canStartAttack = true;
     int mp = 0;
     int maxMp = 0;
     double meleeAttackReach = 0.0;
@@ -45,6 +46,7 @@ enum class BattleCastBlockReason
     Stunned,
     NoTarget,
     NoSkill,
+    AttackNotReady,
     OutOfRange,
     MovementDashActive
 };

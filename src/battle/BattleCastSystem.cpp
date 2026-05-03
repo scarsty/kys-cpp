@@ -47,7 +47,7 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
     }
 
     CombatIntentInput intentInput;
-    intentInput.canStartAttack = true;
+    intentInput.canStartAttack = input.unit.canStartAttack;
     intentInput.hasEquippedSkill = input.unit.hasEquippedSkill;
     intentInput.ultimateReady = ultimate;
     intentInput.movementDashActive = input.unit.movementDashActive;
@@ -66,7 +66,9 @@ BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
     {
         decision.reason = input.unit.movementDashActive
             ? BattleCastBlockReason::MovementDashActive
-            : BattleCastBlockReason::OutOfRange;
+            : !input.unit.canStartAttack
+                ? BattleCastBlockReason::AttackNotReady
+                : BattleCastBlockReason::OutOfRange;
     }
     return result;
 }
