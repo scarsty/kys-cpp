@@ -91,6 +91,31 @@ TEST_CASE("BattleAttackSystem_DefaultAttackPayloadHasNoCastSubrequestKind", "[ba
     CHECK(instance.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
+TEST_CASE("BattleAttackSystem_AppliesAuthorizedBouncePrimeToSpawnRequest", "[battle][attack][unit]")
+{
+    BattleAttackSpawnRequest request = spawnRequest();
+
+    applyProjectileBouncePrime(request, { 2, 80, 30, 120 });
+
+    CHECK(request.initial.bounceRemaining == 2);
+    CHECK(request.initial.bounceChancePct == 80);
+    CHECK(request.initial.bounceRollPct == 30);
+    CHECK(request.initial.bounceRange == 120);
+}
+
+TEST_CASE("BattleAttackSystem_AppliesBouncePrimeOnlyToEligibleRequests", "[battle][attack][unit]")
+{
+    BattleAttackSpawnRequest request = spawnRequest();
+    request.initial.scriptedDamage = 10;
+
+    CHECK_FALSE(tryApplyProjectileBouncePrime(request, { 2, 80, 30, 120 }));
+
+    CHECK(request.initial.bounceRemaining == 0);
+    CHECK(request.initial.bounceChancePct == 0);
+    CHECK(request.initial.bounceRollPct == 0);
+    CHECK(request.initial.bounceRange == 0);
+}
+
 TEST_CASE("BattleAttackSystem_SpawnAssignsDeterministicAttackIds", "[battle][attack][unit]")
 {
     auto world = attackWorld();
@@ -126,6 +151,18 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     request.initial.scriptedStunFrames = 12;
     request.initial.scriptedBleedStacks = 4;
     request.initial.projectileCancelDamage = 90;
+    request.initial.projectileCancelWeaken = 13;
+    request.initial.strengthMultiplier = 2.0f;
+    request.initial.suppressNearbyTrackingProjectileProc = true;
+    request.initial.mainProjectile = false;
+    request.initialFrame = 4;
+    request.acceleration = { 1, 2, 3 };
+    request.spiralMotion = true;
+    request.spiralCenter = { 7, 8, 9 };
+    request.spiralRadius = 10.0f;
+    request.spiralRadiusGrowth = 0.5f;
+    request.spiralAngle = 1.25f;
+    request.spiralAngularVelocity = 0.75f;
 
     BattleAttackSystem().spawn(world, request);
 
@@ -156,6 +193,22 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
     CHECK(attack.state.scriptedStunFrames == 12);
     CHECK(attack.state.scriptedBleedStacks == 4);
     CHECK(attack.state.projectileCancelDamage == 90);
+    CHECK(attack.state.projectileCancelWeaken == 13);
+    CHECK(attack.state.strengthMultiplier == Catch::Approx(2.0f));
+    CHECK(attack.state.suppressNearbyTrackingProjectileProc);
+    CHECK_FALSE(attack.state.mainProjectile);
+    CHECK(attack.frame == 4);
+    CHECK(attack.acceleration.x == 1.0f);
+    CHECK(attack.acceleration.y == 2.0f);
+    CHECK(attack.acceleration.z == 3.0f);
+    CHECK(attack.spiralMotion);
+    CHECK(attack.spiralCenter.x == 7.0f);
+    CHECK(attack.spiralCenter.y == 8.0f);
+    CHECK(attack.spiralCenter.z == 9.0f);
+    CHECK(attack.spiralRadius == 10.0f);
+    CHECK(attack.spiralRadiusGrowth == 0.5f);
+    CHECK(attack.spiralAngle == 1.25f);
+    CHECK(attack.spiralAngularVelocity == 0.75f);
     CHECK(attack.state.castSubrequestKind == BattleAttackCastSubrequestKind::None);
 }
 
@@ -220,6 +273,17 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     projectile.state.scriptedStunFrames = 12;
     projectile.state.scriptedBleedStacks = 4;
     projectile.state.executeCanHitInvincible = true;
+    projectile.state.projectileCancelWeaken = 6;
+    projectile.state.strengthMultiplier = 1.75f;
+    projectile.state.suppressNearbyTrackingProjectileProc = true;
+    projectile.state.mainProjectile = false;
+    projectile.state.track = true;
+    projectile.state.sharedHitGroupId = 17;
+    projectile.state.through = true;
+    projectile.state.ultimate = true;
+    projectile.state.position = { 12, 5, 0 };
+    projectile.state.velocity = { 9, 0, 0 };
+    projectile.frame = 7;
     world.attacks.push_back(projectile);
 
     auto events = BattleAttackSystem().tick(world);
@@ -238,6 +302,18 @@ TEST_CASE("BattleAttackSystem_HitEventCarriesDamageRequestPayload", "[battle][at
     CHECK(hit->scriptedStunFrames == 12);
     CHECK(hit->scriptedBleedStacks == 4);
     CHECK(hit->executeCanHitInvincible);
+    CHECK(hit->projectileCancelDamage == 6);
+    CHECK(hit->strengthMultiplier == 1.75f);
+    CHECK(hit->suppressNearbyTrackingProjectileProc);
+    CHECK_FALSE(hit->mainProjectile);
+    CHECK(hit->track);
+    CHECK(hit->sharedHitGroupId == 17);
+    CHECK(hit->through);
+    CHECK(hit->ultimate);
+    CHECK(hit->frame == 8);
+    CHECK(hit->totalFrame == 30);
+    CHECK(hit->position.x == Catch::Approx(21.0f));
+    CHECK(hit->velocity.x == Catch::Approx(9.0f).margin(0.01));
 }
 
 TEST_CASE("BattleAttackSystem_MeleeHitOnlyEmitsAfterHitVolumeReachesTarget", "[battle][attack][unit]")
@@ -432,6 +508,36 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventCarriesSourceIdsAndScaledDama
     CHECK(events.back().otherSourceUnitId == 2);
     CHECK(events.back().projectileCancelDamage == 17);
     CHECK(events.back().otherProjectileCancelDamage == 10);
+}
+
+TEST_CASE("BattleAttackSystem_ApplyProjectileCancelDamageCommitsLegacyWeakenRules", "[battle][attack][unit]")
+{
+    auto world = attackWorld();
+    auto lhs = attack(10, 1, 0, 0);
+    lhs.frame = 8;
+    lhs.state.totalFrame = 30;
+    lhs.state.projectileCancelWeaken = 6;
+    auto rhs = attack(11, 2, 20, 0);
+    rhs.frame = 9;
+    rhs.state.totalFrame = 35;
+    world.attacks = { lhs, rhs };
+
+    BattleAttackEvent event;
+    event.type = BattleAttackEventType::ProjectileCancel;
+    event.attackId = 10;
+    event.otherAttackId = 11;
+    event.projectileCancelDamage = 6;
+    event.otherProjectileCancelDamage = 7;
+
+    BattleAttackSystem().applyProjectileCancelDamage(world, event);
+
+    REQUIRE(world.attacks.size() == 2);
+    CHECK(world.attacks[0].state.projectileCancelWeaken == 13);
+    CHECK(world.attacks[0].frame == 25);
+    CHECK(world.attacks[0].noHurt);
+    CHECK(world.attacks[1].state.projectileCancelWeaken == 6);
+    CHECK(world.attacks[1].frame == 9);
+    CHECK_FALSE(world.attacks[1].noHurt);
 }
 
 TEST_CASE("BattleAttackSystem_UltimateProjectileDoesNotCancel", "[battle][attack][unit]")

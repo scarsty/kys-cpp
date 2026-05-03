@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -29,14 +30,33 @@ BattlePresentationUnitSnapshot toPresentationUnit(const BattleUnitState& unit)
     };
 }
 
-BattlePresentationSnapshot makePresentationSnapshot(const BattleWorldState& world)
+void applyStatusSnapshot(BattlePresentationUnitSnapshot& snapshot, const std::vector<BattleStatusUnitState>& statusUnits)
+{
+    auto it = std::find_if(statusUnits.begin(), statusUnits.end(), [&](const BattleStatusUnitState& unit)
+        {
+            return unit.id == snapshot.id;
+        });
+    if (it == statusUnits.end())
+    {
+        return;
+    }
+
+    snapshot.alive = it->alive;
+    snapshot.hp = it->hp;
+    snapshot.maxHp = it->maxHp;
+    snapshot.invincible = it->invincible;
+}
+
+BattlePresentationSnapshot makePresentationSnapshot(const BattleFrameState& state)
 {
     BattlePresentationSnapshot snapshot;
-    snapshot.frame = world.frame;
-    snapshot.units.reserve(world.units.size());
-    for (const auto& unit : world.units)
+    snapshot.frame = state.world.frame;
+    snapshot.units.reserve(state.world.units.size());
+    for (const auto& unit : state.world.units)
     {
-        snapshot.units.push_back(toPresentationUnit(unit));
+        auto presentationUnit = toPresentationUnit(unit);
+        applyStatusSnapshot(presentationUnit, state.status.units);
+        snapshot.units.push_back(std::move(presentationUnit));
     }
     return snapshot;
 }
@@ -271,6 +291,222 @@ void assertFrameMovementConfigConfigured(const BattleMovementConfig& config)
     assert(config.maxRangedReach > 0.0);
     assert(config.movementDashDistanceMultiplier > 0.0);
 }
+
+BattleStatusUnitState* findStatusUnit(std::vector<BattleStatusUnitState>& units, int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
+BattleUnitState* findWorldUnit(BattleWorldState& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != world.units.end() ? &*it : nullptr;
+}
+
+const BattleUnitState* findWorldUnit(const BattleWorldState& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != world.units.end() ? &*it : nullptr;
+}
+
+const BattleStatusUnitState* findStatusUnit(const std::vector<BattleStatusUnitState>& units, int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleStatusUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
+BattleDeathEffectUnit* findDeathEffectUnit(BattleDeathEffectWorld& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleDeathEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != world.units.end() ? &*it : nullptr;
+}
+
+void applyDamageUnitToDeathEffectUnit(BattleDeathEffectUnit& deathUnit, const BattleDamageUnitState& damageUnit)
+{
+    deathUnit.alive = damageUnit.alive;
+    deathUnit.hp = damageUnit.hp;
+    deathUnit.maxHp = damageUnit.maxHp;
+    deathUnit.attack = damageUnit.attack;
+    deathUnit.shield = damageUnit.shield;
+}
+
+double distance2d(Pointf lhs, Pointf rhs)
+{
+    return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
+}
+
+BattleCastInput refreshedCastInput(const BattleFrameState& state,
+                                   const BattleTickResult& movement,
+                                   BattleCastInput input)
+{
+    if (const auto* source = findWorldUnit(state.world, input.unit.id))
+    {
+        input.unit.position = source->position;
+        input.unit.alive = source->alive;
+        input.unit.canStartAttack = source->canAttack;
+        if (auto decision = movement.decisions.find(source->id); decision != movement.decisions.end())
+        {
+            input.unit.canStartAttack = decision->second.action == MovementAction::AttackReady;
+        }
+    }
+    if (const auto* status = findStatusUnit(state.status.units, input.unit.id))
+    {
+        input.unit.alive = status->alive;
+        input.unit.frozen = status->frozenTimer > 0;
+    }
+    if (const auto* target = findWorldUnit(state.world, input.targetUnitId))
+    {
+        if (target->alive)
+        {
+            input.targetPosition = target->position;
+            input.targetDistance = distance2d(input.unit.position, target->position);
+        }
+        else
+        {
+            input.targetUnitId = -1;
+        }
+    }
+    else
+    {
+        input.targetUnitId = -1;
+    }
+    return input;
+}
+
+BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
+{
+    BattleGameplayEvent gameplay;
+    gameplay.sourceUnitId = event.sourceUnitId;
+    gameplay.targetUnitId = event.targetUnitId;
+    gameplay.amount = event.value;
+    switch (event.type)
+    {
+    case BattleDamageEventType::DamageApplied:
+    case BattleDamageEventType::MpDamageApplied:
+    case BattleDamageEventType::ShieldAbsorbed:
+        gameplay.type = BattleGameplayEventType::DamageApplied;
+        break;
+    case BattleDamageEventType::UnitDied:
+        gameplay.type = BattleGameplayEventType::UnitDied;
+        break;
+    case BattleDamageEventType::StatusApplied:
+        gameplay.type = BattleGameplayEventType::StatusApplied;
+        break;
+    case BattleDamageEventType::HpRestored:
+    case BattleDamageEventType::MpRestored:
+    case BattleDamageEventType::MpDrained:
+    case BattleDamageEventType::CooldownExtended:
+    case BattleDamageEventType::KillRewardApplied:
+        gameplay.type = BattleGameplayEventType::ResourceChanged;
+        break;
+    case BattleDamageEventType::BlockedByInvincible:
+    case BattleDamageEventType::DeathPrevented:
+    case BattleDamageEventType::ExecuteTriggered:
+        gameplay.type = BattleGameplayEventType::StatusApplied;
+        break;
+    }
+    return gameplay;
+}
+
+void applyDamageResultToFrameState(BattleFrameState& state, const BattleDamageTransactionResult& transaction)
+{
+    if (auto* attacker = findWorldUnit(state.world, transaction.attacker.id))
+    {
+        attacker->alive = transaction.attacker.alive;
+    }
+    if (auto* defender = findWorldUnit(state.world, transaction.defender.id))
+    {
+        defender->alive = transaction.defender.alive;
+    }
+    if (auto* status = findStatusUnit(state.status.units, transaction.defender.id))
+    {
+        *status = transaction.defenderStatus;
+        status->alive = transaction.defender.alive;
+        status->hp = transaction.defender.hp;
+        status->maxHp = transaction.defender.maxHp;
+        status->invincible = transaction.defender.invincible;
+    }
+    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, transaction.defender.id))
+    {
+        applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.defender);
+    }
+    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, transaction.attacker.id))
+    {
+        applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.attacker);
+    }
+}
+
+std::vector<int> unitDeathsIn(const std::vector<BattleDamageEvent>& events)
+{
+    std::vector<int> deadUnitIds;
+    for (const auto& event : events)
+    {
+        if (event.type == BattleDamageEventType::UnitDied)
+        {
+            deadUnitIds.push_back(event.targetUnitId);
+        }
+    }
+    return deadUnitIds;
+}
+
+void updateBattleResult(BattleFrameState& state, std::vector<BattleGameplayEvent>& gameplayEvents)
+{
+    if (state.result.ended)
+    {
+        return;
+    }
+
+    std::set<int> aliveTeams;
+    for (const auto& unit : state.world.units)
+    {
+        if (unit.alive)
+        {
+            aliveTeams.insert(unit.team);
+        }
+    }
+    for (const auto& [team, count] : state.result.pendingAliveByTeam)
+    {
+        if (count > 0)
+        {
+            aliveTeams.insert(team);
+        }
+    }
+    if (aliveTeams.size() != 1)
+    {
+        return;
+    }
+
+    state.result.ended = true;
+    state.result.winningTeam = *aliveTeams.begin();
+    state.result.endedFrame = state.world.frame;
+    if (!state.result.eventEmitted)
+    {
+        gameplayEvents.push_back({
+            BattleGameplayEventType::BattleEnded,
+            BattlePresentationCurrentFrame,
+            -1,
+            -1,
+            state.result.winningTeam,
+        });
+        state.result.eventEmitted = true;
+    }
+}
 }  // namespace
 
 BattleCore::BattleCore(BattleWorldState& world)
@@ -283,14 +519,80 @@ BattleTickResult BattleCore::tickMovement()
     return BattleMovementPlanner(world_).tick();
 }
 
+BattleFrameUnitRuntimeResult BattleFrameUnitRuntimeSystem::advance(
+    const BattleFrameUnitRuntimeInput& input) const
+{
+    assert(input.frame >= 0);
+    assert(input.mpRegenIntervalFrames > 0);
+    assert(input.physicalPowerRegenIntervalFrames > 0);
+    assert(input.state.cooldown >= 0);
+    assert(input.state.physicalPower >= 0);
+
+    BattleFrameUnitRuntimeResult result;
+    result.state = input.state;
+
+    const int previousCooldown = result.state.cooldown;
+    if (!input.frozen && result.state.cooldown > 0)
+    {
+        --result.state.cooldown;
+    }
+    result.skillFinished = previousCooldown > 0 && result.state.cooldown == 0;
+
+    if (result.state.cooldown == 0)
+    {
+        if (input.frame % input.physicalPowerRegenIntervalFrames == 0)
+        {
+            ++result.state.physicalPower;
+        }
+        result.state.actFrame = 0;
+        result.resetDashVelocity = result.state.operationType == BattleOperationType::Dash;
+        result.state.operationType = BattleOperationType::None;
+        result.state.actType = -1;
+        result.state.haveAction = false;
+    }
+
+    if (input.frame % input.mpRegenIntervalFrames == 0)
+    {
+        result.mpDelta = 1;
+    }
+
+    return result;
+}
+
 BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
 {
     assertFrameMovementConfigConfigured(state.world.config);
     assertFrameAttackWorldConfigured(state.attacks);
 
     BattleFrameResult result;
+    std::vector<BattleGameplayEvent> gameplayEvents;
+    std::vector<BattlePresentationEvent> presentationEvents;
+
+    state.status.config.frame = state.world.frame;
+    auto statusTick = BattleStatusSystem(state.status.config).tick(state.status.units);
+    state.status.events.insert(
+        state.status.events.end(),
+        statusTick.events.begin(),
+        statusTick.events.end());
 
     result.movement = BattleCore(state.world).tickMovement();
+
+    for (const auto& input : state.casts.pendingInputs)
+    {
+        auto cast = BattleCastPlanner().plan(refreshedCastInput(state, result.movement, input));
+        gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
+        presentationEvents.insert(presentationEvents.end(), cast.presentationEvents.begin(), cast.presentationEvents.end());
+        if (cast.decision.canCast)
+        {
+            state.pendingAttackSpawns.insert(
+                state.pendingAttackSpawns.end(),
+                cast.attackSpawnRequests.begin(),
+                cast.attackSpawnRequests.end());
+        }
+        state.casts.committedResults.push_back(std::move(cast));
+    }
+    state.casts.pendingInputs.clear();
+
     syncAttackUnitsFromWorld(state);
     state.attacks.frame = state.world.frame;
     BattleAttackSystem attackSystem;
@@ -305,8 +607,40 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
         std::make_move_iterator(tickEvents.begin()),
         std::make_move_iterator(tickEvents.end()));
 
+    for (const auto& input : state.damage.pendingTransactions)
+    {
+        auto transaction = BattleDamageSystem().resolveTransaction(input);
+        auto deadUnitIds = unitDeathsIn(transaction.events);
+        applyDamageResultToFrameState(state, transaction);
+        for (const auto& event : transaction.events)
+        {
+            gameplayEvents.push_back(toGameplayEvent(event));
+        }
+        state.damage.committedTransactions.push_back(std::move(transaction));
+        for (int deadUnitId : deadUnitIds)
+        {
+            if (!findDeathEffectUnit(state.deathEffects.world, deadUnitId))
+            {
+                continue;
+            }
+            auto events = BattleDeathEffectSystem().applyAllyDeathEffects(state.deathEffects.world, deadUnitId);
+            state.deathEffects.events.insert(state.deathEffects.events.end(), events.begin(), events.end());
+        }
+    }
+    state.damage.pendingTransactions.clear();
+
+    updateBattleResult(state, gameplayEvents);
+
     BattlePresentationRecorder recorder;
-    recorder.beginFrame(makePresentationSnapshot(state.world));
+    recorder.beginFrame(makePresentationSnapshot(state));
+    for (auto event : gameplayEvents)
+    {
+        recorder.recordGameplay(std::move(event));
+    }
+    for (auto event : presentationEvents)
+    {
+        recorder.recordPresentation(std::move(event));
+    }
     for (const auto& event : result.movement.events)
     {
         recorder.recordPresentation(toPresentationEvent(event));

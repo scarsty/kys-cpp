@@ -54,8 +54,11 @@ struct BattleAttackState
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
     int projectileCancelDamage = 0;
+    int projectileCancelWeaken = 0;
     BattleAttackCastSubrequestKind castSubrequestKind = BattleAttackCastSubrequestKind::None;
     float strengthMultiplier = 1.0f;
+    bool suppressNearbyTrackingProjectileProc = false;
+    bool mainProjectile = true;
     Pointf position;
     Pointf velocity;
 };
@@ -81,7 +84,25 @@ struct BattleAttackSpawnRequest
 {
     BattleAttackState initial;
     int initialFrame = 0;
+    Pointf acceleration;
+    bool spiralMotion = false;
+    Pointf spiralCenter;
+    float spiralRadius = 0.0f;
+    float spiralRadiusGrowth = 0.0f;
+    float spiralAngle = 0.0f;
+    float spiralAngularVelocity = 0.0f;
 };
+
+struct BattleAttackBouncePrime
+{
+    int count = 0;
+    int chancePct = 0;
+    int rollPct = 0;
+    int range = 0;
+};
+
+void applyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime);
+bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime);
 
 enum class BattleAttackEventType
 {
@@ -110,10 +131,18 @@ struct BattleAttackEvent
     int scriptedStunFrames = 0;
     int scriptedBleedStacks = 0;
     bool executeCanHitInvincible = false;
+    bool track = false;
+    bool through = false;
+    bool ultimate = false;
+    float strengthMultiplier = 1.0f;
+    bool suppressNearbyTrackingProjectileProc = false;
+    bool mainProjectile = true;
+    int sharedHitGroupId = 0;
     int projectileCancelDamage = 0;
     int otherProjectileCancelDamage = 0;
     Pointf position;
     Pointf velocity;
+    int frame = 0;
     int totalFrame = 0;
 };
 
@@ -138,6 +167,7 @@ class BattleAttackSystem
 public:
     BattleAttackEvent spawn(BattleAttackWorld& world, const BattleAttackSpawnRequest& request) const;
     std::vector<BattleAttackEvent> tick(BattleAttackWorld& world) const;
+    void applyProjectileCancelDamage(BattleAttackWorld& world, const BattleAttackEvent& event) const;
 
 private:
     int allocateAttackId(BattleAttackWorld& world) const;

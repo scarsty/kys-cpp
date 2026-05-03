@@ -1,5 +1,6 @@
 #include "battle/BattleMovement.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -113,6 +114,42 @@ TEST_CASE("YanJi_AllyBlock_RecoversBeforeStall", "[battle][movement]")
     CHECK(stats.consecutiveNoProgressFrames < 45);
     CHECK(stats.consecutiveAllyBlockedFrames < 12);
     CHECK((stats.dashCount > 0 || stats.slotSwitches > 0 || stats.attackReadyFrames > 0));
+}
+
+TEST_CASE("BattleMovementPhysicsSystem_SlidesAndTicksDashRuntime", "[battle][movement]")
+{
+    BattleMovementPhysicsInput input;
+    input.state.position = { 10, 10, 0 };
+    input.state.velocity = { 5, 2, 0 };
+    input.state.movementDashFrames = 1;
+    input.state.movementDashCooldown = 3;
+    input.config.gravity = -4.0f;
+    input.config.friction = 0.1f;
+    input.config.postDashSpreadFrames = 12;
+    input.actionDashActive = true;
+    std::vector<int> requestedDistances;
+    input.canMove = [&](Pointf position, int separationDistance)
+    {
+        requestedDistances.push_back(separationDistance);
+        return position.x == 15.0f && position.y == 10.0f;
+    };
+
+    auto state = BattleMovementPhysicsSystem().advance(input);
+
+    REQUIRE(requestedDistances.size() == 2);
+    CHECK(requestedDistances[0] == 1);
+    CHECK(requestedDistances[1] == 1);
+    CHECK(state.position.x == 15.0f);
+    CHECK(state.position.y == 10.0f);
+    CHECK(state.velocity.x == Catch::Approx(4.9));
+    CHECK(state.velocity.y == 0.0f);
+    CHECK(state.velocity.z == 0.0f);
+    CHECK(state.acceleration.x == Catch::Approx(-0.1));
+    CHECK(state.acceleration.y == 0.0f);
+    CHECK(state.acceleration.z == -4.0f);
+    CHECK(state.movementDashFrames == 0);
+    CHECK(state.movementDashSpreadFrames == 12);
+    CHECK(state.movementDashCooldown == 2);
 }
 
 TEST_CASE("SaoDi_MeleeJitter_DoesNotIdleHundredsOfFrames", "[battle][movement]")

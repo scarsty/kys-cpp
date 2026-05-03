@@ -430,6 +430,19 @@ BattleDamageModifierResult BattleDamageSystem::applyModifiers(const BattleDamage
     return result;
 }
 
+int BattleDamageSystem::resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const
+{
+    double attack = input.attackerAttack + input.magicPower / 3.0;
+    if (attack + input.defenderDefense <= 0.0)
+    {
+        return 1;
+    }
+
+    int damage = static_cast<int>(attack * attack / (attack + input.defenderDefense) / 4.0);
+    damage += input.randomVariance;
+    return std::max(1, damage);
+}
+
 BattleDamageDefenseResult BattleDamageSystem::resolveDefense(const BattleDamageDefenseInput& input) const
 {
     BattleDamageDefenseResult result;

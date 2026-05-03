@@ -1,6 +1,5 @@
 #include "BattleSceneBattleAdapter.h"
 
-#include "ChessCombo.h"
 #include "Scene.h"
 
 #include <algorithm>
@@ -32,33 +31,6 @@ constexpr int DASH_HIT_TOTAL_FRAME = 30;
 constexpr double DASH_HIT_POSITION_SPACING = 2.0;
 constexpr int DASH_HIT_FRAME_STEP = 3;
 
-bool attackHasExecuteEffect(const BattleSceneAct::AttackEffect& ae)
-{
-    if (!ae.Attacker)
-    {
-        return false;
-    }
-
-    auto& cs = KysChess::ChessCombo::getActiveStates();
-    auto it = cs.find(ae.Attacker->ID);
-    if (it == cs.end())
-    {
-        return false;
-    }
-
-    for (auto& effect : it->second.triggeredEffects)
-    {
-        if (effect.trigger == KysChess::Trigger::OnHit
-            && effect.type == KysChess::EffectType::Execute
-            && effect.triggerValue > 0
-            && effect.value > 0)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 Battle::BattleAttackUnit makeBattleAttackUnit(Role* role)
 {
     assert(role);
@@ -71,107 +43,6 @@ Battle::BattleAttackUnit makeBattleAttackUnit(Role* role)
     unit.hurtFrame = role->HurtFrame != 0;
     unit.position = role->Pos;
     return unit;
-}
-
-Battle::BattleAttackInstance makeBattleAttackInstance(
-    const BattleSceneAct::AttackEffect& effect,
-    int attackId)
-{
-    Battle::BattleAttackInstance attack;
-    attack.id = attackId;
-    attack.state.attackerUnitId = effect.Attacker ? effect.Attacker->ID : -1;
-    attack.state.preferredTargetUnitId = effect.PreferredTarget ? effect.PreferredTarget->ID : -1;
-    attack.state.requirePreferredTarget = effect.RequirePreferredTarget != 0;
-    attack.frame = effect.Frame;
-    attack.state.totalFrame = effect.TotalFrame;
-    attack.noHurt = effect.NoHurt != 0;
-    attack.state.track = effect.Track != 0;
-    attack.state.through = effect.Through != 0;
-    attack.state.ultimate = effect.IsUltimate != 0;
-    attack.state.executeCanHitInvincible = attackHasExecuteEffect(effect);
-    attack.state.ignoreProjectileCancel = effect.IgnoreProjectileCancel != 0 || effect.UsingMagic == nullptr;
-    attack.state.sharedHitGroupId = effect.SharedHitGroupId;
-    attack.state.visualEffectId = effect.VisualEffectId;
-    attack.state.operationType = Battle::battleOperationFromLegacy(effect.OperationType);
-    attack.state.hiddenWeaponItemId = effect.UsingHiddenWeapon ? effect.UsingHiddenWeapon->ID : -1;
-    attack.state.scriptedDamage = effect.ScriptedDamage;
-    attack.state.scriptedStunFrames = effect.ScriptedStunFrames;
-    attack.state.scriptedBleedStacks = effect.ScriptedBleedStacks;
-    attack.state.bounceRemaining = effect.BounceRemaining;
-    attack.state.bounceRange = effect.BounceRange;
-    attack.state.bounceChancePct = effect.BounceChancePct;
-    attack.state.bounceRollPct = effect.BounceRollPct;
-    attack.state.position = effect.Pos;
-    attack.state.velocity = effect.Velocity;
-    attack.acceleration = effect.Acceleration;
-    attack.spiralMotion = effect.SpiralMotion != 0;
-    attack.spiralCenter = effect.SpiralCenter;
-    attack.spiralRadius = effect.SpiralRadius;
-    attack.spiralRadiusGrowth = effect.SpiralRadiusGrowth;
-    attack.spiralAngle = effect.SpiralAngle;
-    attack.spiralAngularVelocity = effect.SpiralAngularVelocity;
-    for (const auto& [role, count] : effect.Defender)
-    {
-        if (role && count > 0)
-        {
-            attack.hitUnitIds.push_back(role->ID);
-        }
-    }
-    return attack;
-}
-
-void writeBattleAttackInstance(
-    BattleSceneAct::AttackEffect& effect,
-    const Battle::BattleAttackInstance& attack,
-    const std::vector<Role*>& roles)
-{
-    effect.Frame = attack.frame;
-    effect.NoHurt = attack.noHurt ? 1 : 0;
-    effect.Pos = attack.state.position;
-    effect.Velocity = attack.state.velocity;
-    effect.Acceleration = attack.acceleration;
-    effect.SpiralCenter = attack.spiralCenter;
-    effect.SpiralRadius = attack.spiralRadius;
-    effect.SpiralRadiusGrowth = attack.spiralRadiusGrowth;
-    effect.SpiralAngle = attack.spiralAngle;
-    effect.SpiralAngularVelocity = attack.spiralAngularVelocity;
-
-    effect.Defender.clear();
-    for (int unitId : attack.hitUnitIds)
-    {
-        effect.Defender[findRoleByBattleId(roles, unitId)] = 1;
-    }
-}
-
-BattleSceneAct::AttackEffect makeSpawnedBattleAttackEffect(
-    const std::deque<BattleSceneAct::AttackEffect>& effects,
-    const Battle::BattleAttackInstance& attack,
-    const std::vector<Role*>& roles)
-{
-    assert(attack.spawnedFromAttackId >= 0);
-    assert(static_cast<size_t>(attack.spawnedFromAttackId) < effects.size());
-
-    auto effect = effects[attack.spawnedFromAttackId];
-    effect.PreferredTarget = attack.state.preferredTargetUnitId >= 0
-        ? findRoleByBattleId(roles, attack.state.preferredTargetUnitId)
-        : nullptr;
-    effect.RequirePreferredTarget = attack.state.requirePreferredTarget ? 1 : 0;
-    effect.OperationType = Battle::toLegacyOperationType(attack.state.operationType);
-    effect.TotalFrame = attack.state.totalFrame;
-    effect.Track = attack.state.track ? 1 : 0;
-    effect.Through = attack.state.through ? 1 : 0;
-    effect.IsUltimate = attack.state.ultimate ? 1 : 0;
-    effect.IsMain = 0;
-    effect.Weaken = 0;
-    effect.SharedHitGroupId = attack.state.sharedHitGroupId;
-    effect.IgnoreProjectileCancel = attack.state.ignoreProjectileCancel ? 1 : 0;
-    effect.BounceRemaining = attack.state.bounceRemaining;
-    effect.BounceChancePct = attack.state.bounceChancePct;
-    effect.BounceRollPct = attack.state.bounceRollPct;
-    effect.BounceRange = attack.state.bounceRange;
-    effect.VisualEffectId = attack.state.visualEffectId;
-    writeBattleAttackInstance(effect, attack, roles);
-    return effect;
 }
 
 }  // namespace
@@ -315,65 +186,19 @@ void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result)
     unit->UsingMagic = nullptr;
 }
 
-std::vector<BattleSceneAct::AttackEffect> makeBattleCastAttackEffects(
-    Role* unit,
-    Magic* magic,
-    const Battle::BattleCastResult& result,
-    const std::vector<Role*>& roles)
-{
-    assert(unit);
-    assert(magic);
-    assert(result.decision.canCast);
-
-    std::vector<BattleSceneAct::AttackEffect> effects;
-    effects.reserve(result.attackSpawnRequests.size());
-    for (const auto& request : result.attackSpawnRequests)
-    {
-        const auto& state = request.initial;
-        assert(state.totalFrame > 0);
-
-        BattleSceneAct::AttackEffect effect;
-        effect.Pos = state.position;
-        effect.Velocity = state.velocity;
-        effect.Attacker = unit;
-        effect.PreferredTarget = state.preferredTargetUnitId >= 0
-            ? findRoleByBattleId(roles, state.preferredTargetUnitId)
-            : nullptr;
-        effect.RequirePreferredTarget = state.requirePreferredTarget ? 1 : 0;
-        effect.UsingMagic = magic;
-        effect.Frame = request.initialFrame;
-        effect.TotalFrame = state.totalFrame;
-        effect.OperationType = Battle::toLegacyOperationType(state.operationType);
-        effect.Strengthen = state.strengthMultiplier;
-        effect.Track = state.track ? 1 : 0;
-        effect.Through = state.through ? 1 : 0;
-        effect.IsUltimate = state.ultimate ? 1 : 0;
-        effect.SharedHitGroupId = state.sharedHitGroupId;
-        effect.IgnoreProjectileCancel = state.ignoreProjectileCancel ? 1 : 0;
-        effect.BounceRemaining = state.bounceRemaining;
-        effect.BounceChancePct = state.bounceChancePct;
-        effect.BounceRollPct = state.bounceRollPct;
-        effect.BounceRange = state.bounceRange;
-        effect.setEft(state.visualEffectId);
-        effects.push_back(std::move(effect));
-    }
-    return effects;
-}
-
 Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
-    const std::deque<BattleSceneAct::AttackEffect>& effects,
-    size_t effectCount,
+    const Battle::BattleAttackWorld& activeWorld,
     const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets)
 {
-    Battle::BattleAttackWorld world;
+    Battle::BattleAttackWorld world = activeWorld;
     world.hitRadius = BATTLE_TILE_W * 2.0;
     world.minimumVectorNorm = MINIMUM_VECTOR_NORM;
     world.projectileGraceFrames = 5;
     world.bounceSpawnDistance = BATTLE_TILE_W * 1.5;
     world.defaultProjectileSpeed = BATTLE_TILE_W / 3.0;
     world.spendNonThroughOnHit = false;
-    world.nextAttackId = static_cast<int>(effectCount);
+    world.units.clear();
     for (auto role : roles)
     {
         if (role)
@@ -382,48 +207,13 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
         }
     }
 
-    for (size_t i = 0; i < effectCount; ++i)
-    {
-        if (effects[i].VisualOnly)
-        {
-            continue;
-        }
-        world.attacks.push_back(makeBattleAttackInstance(effects[i], static_cast<int>(i)));
-    }
-
+    world.sharedHitGroupTargets.clear();
     for (const auto& [groupId, targets] : sharedHitGroupTargets)
     {
         auto& output = world.sharedHitGroupTargets[groupId];
         output.insert(output.end(), targets.begin(), targets.end());
     }
     return world;
-}
-
-void writeBattleAttackWorld(
-    const Battle::BattleAttackWorld& world,
-    std::deque<BattleSceneAct::AttackEffect>& effects,
-    const std::vector<Role*>& roles,
-    std::unordered_map<int, std::set<int>>& sharedHitGroupTargets)
-{
-    for (const auto& attack : world.attacks)
-    {
-        assert(attack.id >= 0);
-        if (static_cast<size_t>(attack.id) < effects.size())
-        {
-            writeBattleAttackInstance(effects[attack.id], attack, roles);
-            continue;
-        }
-
-        assert(static_cast<size_t>(attack.id) == effects.size());
-        effects.push_back(makeSpawnedBattleAttackEffect(effects, attack, roles));
-    }
-
-    sharedHitGroupTargets.clear();
-    for (const auto& [groupId, targets] : world.sharedHitGroupTargets)
-    {
-        auto& output = sharedHitGroupTargets[groupId];
-        output.insert(targets.begin(), targets.end());
-    }
 }
 
 }  // namespace KysChess::BattleSceneBattleAdapter

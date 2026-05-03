@@ -1,4 +1,4 @@
-﻿#include "BattleSceneHades.h"
+#include "BattleSceneHades.h"
 #include "Audio.h"
 #include "BattleRoleManager.h"
 #include "BattleSceneBattleAdapter.h"
@@ -6,6 +6,7 @@
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleComboTriggerSystem.h"
+#include "battle/BattleCore.h"
 #include "battle/BattleDamageSystem.h"
 #include "battle/BattleDeathEffectSystem.h"
 #include "battle/BattleProjectileTargetingSystem.h"
@@ -39,10 +40,8 @@ using KysChess::BattleSceneBattleAdapter::applyBattleCastCommit;
 using KysChess::BattleSceneBattleAdapter::applyBattleCastStart;
 using KysChess::BattleSceneBattleAdapter::BattleCastAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleCastSkillAdapterInput;
-using KysChess::BattleSceneBattleAdapter::makeBattleCastAttackEffects;
 using KysChess::BattleSceneBattleAdapter::makeBattleCastInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
-using KysChess::BattleSceneBattleAdapter::writeBattleAttackWorld;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -346,22 +345,22 @@ std::string formatCooldownIncreaseStatus(int pct, int before, int after)
 {
     if (pct <= 0)
     {
-        return "冷却延长";
+        return "冷卻延長";
     }
     if (before > 0 && after > 0)
     {
-        return std::format("冷却延长（+{}%，{}→{}幀）", pct, before, after);
+        return std::format("冷卻延長（+{}%，{}→{}幀）", pct, before, after);
     }
-    return std::format("冷却延长（+{}%）", pct);
+    return std::format("冷卻延長（+{}%）", pct);
 }
 
 std::string formatExecuteStatus(int thresholdPct)
 {
     if (thresholdPct <= 0)
     {
-        return "触发处决";
+        return "觸發處決";
     }
-    return std::format("触发处决（斩杀线{}%）", thresholdPct);
+    return std::format("觸發處決（斬殺線{}%）", thresholdPct);
 }
 
 double calcBlinkReach(const Magic* magic)
@@ -434,9 +433,73 @@ bool hasMPBlock(const Role* r)
     return it != cs.end() && it->second.mpBlockTimer > 0;
 }
 
-bool hasScriptedImpact(const BattleSceneAct::AttackEffect& ae)
+bool hasScriptedImpact(const KysChess::Battle::BattleAttackEvent& event)
 {
-    return ae.ScriptedDamage > 0 || ae.ScriptedStunFrames > 0 || ae.ScriptedBleedStacks > 0;
+    return event.scriptedDamage > 0 || event.scriptedStunFrames > 0 || event.scriptedBleedStacks > 0;
+}
+
+struct ProjectileBouncePrime
+{
+    int count = 0;
+    int chancePct = 0;
+    int range = 0;
+};
+
+ProjectileBouncePrime collectProjectileBouncePrime(int attackerUnitId)
+{
+    ProjectileBouncePrime prime;
+    auto& states = KysChess::ChessCombo::getActiveStates();
+    auto it = states.find(attackerUnitId);
+    if (it == states.end())
+    {
+        return prime;
+    }
+
+    for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
+             it->second,
+             { KysChess::Battle::BattleComboTriggerHook::ProjectileHitEnemy, attackerUnitId, -1 },
+             { KysChess::EffectType::ProjectileBounce }))
+    {
+        const auto& effect = event.effect;
+        if (effect.value > 0)
+        {
+            prime.count += effect.value;
+        }
+        if (effect.triggerValue > 0)
+        {
+            prime.chancePct = std::min(100, prime.chancePct + effect.triggerValue);
+        }
+        if (effect.value2 > 0)
+        {
+            prime.range = std::max(prime.range, effect.value2);
+        }
+    }
+    return prime;
+}
+
+Role* findOptionalRoleByBattleId(const std::vector<Role*>& roles, int unitId)
+{
+    if (unitId < 0)
+    {
+        return nullptr;
+    }
+    auto it = std::find_if(roles.begin(), roles.end(), [&](Role* role)
+        {
+            return role && role->ID == unitId;
+    });
+    return it != roles.end() ? *it : nullptr;
+}
+
+const KysChess::Battle::BattleAttackInstance& findBattleAttackById(
+    const KysChess::Battle::BattleAttackWorld& world,
+    int attackId)
+{
+    auto it = std::find_if(world.attacks.begin(), world.attacks.end(), [&](const auto& attack)
+        {
+            return attack.id == attackId;
+        });
+    assert(it != world.attacks.end());
+    return *it;
 }
 
 void changeRoleMP(Role* r, double delta)
@@ -814,7 +877,7 @@ Magic* BattleSceneHades::triggerAutoUltimate(Role* role, bool consumeMP)
         return nullptr;
     }
 
-    createSkillAttackEffect(role, magic, true);
+    queueCoreSkillAttackSpawn(role, magic, true);
     if (consumeMP)
     {
         changeRoleMP(role, -role->MaxMP);
@@ -871,9 +934,9 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
 
     int shieldExplosionPct = 0;
     KysChess::Battle::BattleComboTriggerSystem triggerSystem;
-    for (const auto& activatedEffect : triggerSystem.collectChanceEffects(
+    for (const auto& activatedEffect : triggerSystem.collectTriggerEvents(
              state,
-             KysChess::Trigger::OnShieldBreak,
+             { KysChess::Battle::BattleComboTriggerHook::ShieldBreak, role->ID, role->ID },
              {
                  KysChess::EffectType::ShieldExplosion,
                  KysChess::EffectType::AutoUltimate,
@@ -897,7 +960,7 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
             if (auto* magic = this->triggerAutoUltimate(role, false))
             {
                 addFloatingText(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
-                logBattleStatus(role, nullptr, std::format("护盾爆炸·自动绝招·{}", std::string(magic->Name)));
+                logBattleStatus(role, nullptr, std::format("護盾爆炸·自動絕招·{}", std::string(magic->Name)));
                 activated = true;
             }
             break;
@@ -906,7 +969,7 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
             assert(effect.duration > 0);
             assert(effect.value != 0);
             applyTempAttackBuff(role, state, effect.value, effect.duration,
-                std::format("护盾爆炸（临时攻+{}，{}幀）", effect.value, effect.duration));
+                std::format("護盾爆炸（臨時攻+{}，{}幀）", effect.value, effect.duration));
             activated = true;
             break;
         case KysChess::EffectType::MPRestore:
@@ -916,7 +979,7 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
                 if (restored > 0)
                 {
                     role->MP += restored;
-                    logBattleStatus(role, role, std::format("护盾爆炸·回内力+{}", restored));
+                    logBattleStatus(role, role, std::format("護盾爆炸·回內力+{}", restored));
                     activated = true;
                 }
             }
@@ -935,7 +998,7 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
     {
         int explosionDmg = std::max(1, state.shieldPctMaxHP * role->MaxHP / 100 * shieldExplosionPct / 100);
         spawnAreaImpactProjectiles(role, role, 5, KysChess::EFT_SHIELD_BLAST, explosionDmg);
-        logBattleStatus(role, nullptr, formatStatusValue("护盾爆炸", explosionDmg, "伤害"));
+        logBattleStatus(role, nullptr, formatStatusValue("護盾爆炸", explosionDmg, "傷害"));
     }
 }
 
@@ -1378,84 +1441,52 @@ void BattleSceneHades::logBattleStatus(Role* source, Role* target, const std::st
     });
 }
 
-int BattleSceneHades::getProjectileBounceCount(Role* r) const
+void BattleSceneHades::attachProjectileBouncePrime(KysChess::Battle::BattleAttackSpawnRequest& request)
 {
-    if (!r)
+    auto& attack = request.initial;
+    assert(attack.attackerUnitId >= 0);
+
+    auto prime = collectProjectileBouncePrime(attack.attackerUnitId);
+    if (prime.count <= 0)
     {
-        return 0;
+        return;
     }
 
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto it = states.find(r->ID);
-    if (it == states.end())
-    {
-        return 0;
-    }
-
-    int bounceCount = 0;
-    for (const auto& effect : it->second.triggeredEffects)
-    {
-        if (effect.trigger == KysChess::Trigger::OnHit
-            && effect.type == KysChess::EffectType::ProjectileBounce
-            && effect.value > 0)
+    KysChess::Battle::tryApplyProjectileBouncePrime(request,
         {
-            bounceCount += effect.value;
-        }
-    }
-    return bounceCount;
+            prime.count,
+            prime.chancePct,
+            static_cast<int>(rand_.rand() * 100),
+            prime.range > 0 ? prime.range : static_cast<int>(PROJECTILE_BOUNCE_RANGE),
+        });
 }
 
-void BattleSceneHades::primeProjectileBounce(AttackEffect& ae)
+bool BattleSceneHades::attackCanHitInvincible(Role* role) const
 {
-    if (ae.BounceRemaining > 0 || !ae.Attacker || ae.NoHurt || ae.FollowRole || ae.ScriptedDamage > 0)
+    assert(role);
+    auto& cs = KysChess::ChessCombo::getActiveStates();
+    auto it = cs.find(role->ID);
+    if (it == cs.end())
     {
-        return;
+        return false;
     }
 
-    if (!(ae.Track || ae.OperationType == 2 || ae.UsingHiddenWeapon != nullptr))
-    {
-        return;
-    }
-
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto it = states.find(ae.Attacker->ID);
-    if (it == states.end())
-    {
-        return;
-    }
-
-    int bounceCount = 0;
-    int bounceChance = 0;
-    int bounceRange = 0;
-    for (const auto& effect : it->second.triggeredEffects)
-    {
-        if (effect.trigger != KysChess::Trigger::OnHit || effect.type != KysChess::EffectType::ProjectileBounce)
+    auto effects = KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
+        it->second,
+        { KysChess::Battle::BattleComboTriggerHook::ProjectileHitEnemy, role->ID, -1 },
+        { KysChess::EffectType::Execute });
+    return std::any_of(effects.begin(), effects.end(), [](const auto& event)
         {
-            continue;
-        }
-        if (effect.value > 0)
-        {
-            bounceCount += effect.value;
-        }
-        if (effect.triggerValue > 0)
-        {
-            bounceChance = std::min(100, bounceChance + effect.triggerValue);
-        }
-        if (effect.value2 > 0)
-        {
-            bounceRange = std::max(bounceRange, effect.value2);
-        }
-    }
+            return event.effect.triggerValue > 0 && event.effect.value > 0;
+        });
+}
 
-    if (bounceCount <= 0)
-    {
-        return;
-    }
-
-    ae.BounceRemaining = bounceCount;
-    ae.BounceChancePct = bounceChance;
-    ae.BounceRollPct = static_cast<int>(rand_.rand() * 100);
-    ae.BounceRange = bounceRange > 0 ? bounceRange : static_cast<int>(PROJECTILE_BOUNCE_RANGE);
+void BattleSceneHades::queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request)
+{
+    assert(request.initial.attackerUnitId >= 0);
+    auto* attacker = findRoleByBattleId(battle_roles_, request.initial.attackerUnitId);
+    request.initial.executeCanHitInvincible = attackCanHitInvincible(attacker);
+    pending_core_attack_spawns_.push_back(std::move(request));
 }
 
 void BattleSceneHades::draw()
@@ -1713,7 +1744,7 @@ void BattleSceneHades::draw()
             info.alpha = 255 - r->Attention * 4;
         }
 
-        // 应用受击闪红
+        // 應用受击闪红
         info.color = calculateHurtFlashColor(r, info.color);
 
         info.shadow = 1;
@@ -2075,7 +2106,7 @@ void BattleSceneHades::onEntrance()
         }
     }
 
-    //判断是不是有自动战斗人物
+    //判断是不是有自動战斗人物
     if (!extended_teammates_.empty())
     {
         for (const auto& teammate_info : extended_teammates_)
@@ -2288,7 +2319,7 @@ void BattleSceneHades::onEntrance()
             {
                 s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
                 logBattleStatus(&r, nullptr,
-                    formatStatusValue("获取", s.shield, "护盾"));
+                    formatStatusValue("獲取", s.shield, "護盾"));
             }
         };
         auto applyEquipmentEffects = [&](KysChess::RoleComboState& state, int roleId, int weaponId, int armorId)
@@ -2358,7 +2389,7 @@ void BattleSceneHades::onEntrance()
                 {
                     battleState.shield += teamFlatShield;
                     logBattleStatus(&r, nullptr,
-                        formatStatusValue("全队获取", teamFlatShield, "护盾"));
+                        formatStatusValue("全隊獲取", teamFlatShield, "護盾"));
                 }
                 initializeTimedEffects(battleState);
                 battleState.blockFirstHitsRemaining = battleState.blockFirstHitsCount;
@@ -2553,7 +2584,6 @@ void BattleSceneHades::onEntrance()
             clone->FrozenMax = 0;
             clone->Invincible = 0;
             clone->HurtFrame = 0;
-            clone->HurtThisFrame = 0;
             clone->Shake = 0;
             clone->FindingWay = 0;
             clone->OperationCount = 0;
@@ -2630,7 +2660,6 @@ void BattleSceneHades::onExit()
     use_whole_scene_ = false;
 
     // hurt_flash_timers_.clear();
-    // execution_popup_roles_.clear();
     // Engine::getInstance()->hideBattleLogWindow();
 }
 
@@ -2866,22 +2895,15 @@ void BattleSceneHades::runListBasedSwap()
 
 void BattleSceneHades::backRun1()
 {
-    auto findBattleRoleById = [&](int roleId) -> Role*
+    if (!advanceBattleFrameBeforeDamage())
     {
-        if (roleId < 0)
-        {
-            return nullptr;
-        }
-
-        for (auto role : battle_roles_)
-        {
-            if (role && role->ID == roleId)
-            {
-                return role;
-            }
-        }
-        return nullptr;
-    };
+        return;
+    }
+    applyPendingPreResolvedDamageFrame();
+    advanceBattleFrameAfterDamage();
+}
+bool BattleSceneHades::advanceBattleFrameBeforeDamage()
+{
 
     // 更新受击闪红计时器
     for (auto it = hurt_flash_timers_.begin(); it != hurt_flash_timers_.end();)
@@ -2899,17 +2921,24 @@ void BattleSceneHades::backRun1()
 
     if (slow_ > 0)
     {
-        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL) { return; }
+        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL) { return false; }
         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
     }
     ultHitRoles_.clear();
     criticalHitRoles_.clear();
-    semanticDamageTextAmounts_.clear();
+
+    {
+        auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
+        populateCoreStatusState(frameState);
+        KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
+        applyCoreStatusState(frameState);
+        handleCoreStatusEvents(frameState.status.events);
+    }
+
     for (auto r : battle_roles_)
     {
-        r->HurtThisFrame = 0;
         for (auto m : r->getLearnedMagics())
         {
             if (special_magic_effect_every_frame_.count(m->Name))
@@ -2924,156 +2953,19 @@ void BattleSceneHades::backRun1()
         {
             auto& cs = KysChess::ChessCombo::getMutableStates();
             auto it = cs.find(r->ID);
-            if (it != cs.end() && r->Dead == 0)
+            if (it != cs.end())
             {
-                auto& s = it->second;
-
-                auto statusUnit = makeBattleStatusUnit(r, s);
-                auto statusTick = KysChess::Battle::BattleStatusSystem({ battle_frame_ }).tick(statusUnit);
-                writeBattleStatusUnit(r, s, statusUnit);
-                for (const auto& event : statusTick.events)
+                for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().advanceFrameRuntime(
+                         it->second,
+                         {
+                             battle_frame_,
+                             r->HP,
+                             r->MaxHP,
+                             r->Dead == 0,
+                             isLastAliveInTeam(r),
+                         }))
                 {
-                    switch (event.type)
-                    {
-                    case KysChess::Battle::BattleStatusEventType::PoisonDamage:
-                        queuePreResolvedHpDamage(findBattleRoleById(event.sourceUnitId), r, event.value, false, false, false);
-                        addDamageNumber(r, event.value, poisonDamageTextColor());
-                        semanticDamageTextAmounts_[r] += event.value;
-                        logBattleDamage(findBattleRoleById(event.sourceUnitId), r, event.value, "", "中毒");
-                        break;
-                    case KysChess::Battle::BattleStatusEventType::BleedDamage:
-                        queuePreResolvedHpDamage(findBattleRoleById(event.sourceUnitId), r, event.value, false, false, false);
-                        addDamageNumber(r, event.value, bleedDamageTextColor());
-                        semanticDamageTextAmounts_[r] += event.value;
-                        logBattleDamage(findBattleRoleById(event.sourceUnitId), r, event.value, "", "流血");
-                        break;
-                    case KysChess::Battle::BattleStatusEventType::InvincibilityGranted:
-                        logBattleStatus(r, r, formatStatusFrames("周期免伤", event.value));
-                        break;
-                    case KysChess::Battle::BattleStatusEventType::TempAttackExpired:
-                        break;
-                    }
-                }
-
-                // Periodic auto ultimate
-                if (s.autoUltimateAfterFrames > 0 && r->Dead == 0)
-                {
-                    if (s.autoUltimateTimer > 0)
-                    {
-                        s.autoUltimateTimer--;
-                    }
-                    if (s.autoUltimateTimer <= 0)
-                    {
-                        if (auto magic = this->triggerAutoUltimate(r, false))
-                        {
-                            addFloatingText(r, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
-                            logBattleStatus(r, nullptr, std::format("自动绝招·{}", std::string(magic->Name)));
-                        }
-                        s.autoUltimateTimer = s.autoUltimateAfterFrames;
-                    }
-                }
-
-                // HP regen
-                if (s.hpRegenPct > 0 && s.hpRegenInterval > 0 && battle_frame_ % s.hpRegenInterval == 0)
-                {
-                    auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-                    auto events = KysChess::Battle::BattleTeamEffectSystem().applySelfHeal(world, r->ID, s.hpRegenPct);
-                    writeBattleTeamEffectWorld(world, battle_roles_, cs);
-                    for (const auto& event : events)
-                    {
-                        assert(event.type == KysChess::Battle::BattleTeamEffectEventType::Heal);
-                        logBattleHeal(r, r, event.value, "生命回复");
-                    }
-                }
-
-                // Heal aura (heal nearby allies)
-                if ((s.healAuraPct > 0 || s.healAuraFlat > 0) && s.healAuraInterval > 0 && battle_frame_ % s.healAuraInterval == 0)
-                {
-                    auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-                    auto events = KysChess::Battle::BattleTeamEffectSystem().applyHealAura(
-                        world,
-                        r->ID,
-                        s.healAuraFlat,
-                        s.healAuraPct,
-                        TILE_W * 6.0,
-                        s.healedATKSPDBoostPct);
-                    writeBattleTeamEffectWorld(world, battle_roles_, cs);
-                    for (const auto& event : events)
-                    {
-                        if (event.type == KysChess::Battle::BattleTeamEffectEventType::Heal)
-                        {
-                            logBattleHeal(r, findRoleByBattleId(battle_roles_, event.targetUnitId), event.value, "治疗光环");
-                        }
-                        else
-                        {
-                            assert(event.type == KysChess::Battle::BattleTeamEffectEventType::CooldownReduced);
-                        }
-                    }
-                }
-
-                // Compute lastAliveFlag
-                {
-                    s.lastAliveFlag = true;
-                    for (auto ally : battle_roles_)
-                    {
-                        if (ally->Team == r->Team && ally != r && ally->Dead == 0)
-                        {
-                            s.lastAliveFlag = false;
-                            break;
-                        }
-                    }
-                }
-
-                for (const auto& action : KysChess::Battle::BattleComboTriggerSystem().updateFrameTriggers(
-                         s,
-                         { r->HP, r->MaxHP, s.lastAliveFlag }))
-                {
-                    if (action.type == KysChess::Battle::BattleComboTriggerActionType::HealPercentSelf)
-                    {
-                        assert(action.value > 0);
-                        int hpBefore = r->HP;
-                        r->HP = std::min(r->MaxHP, r->HP + r->MaxHP * action.value / 100);
-                        if (r->HP > hpBefore)
-                        {
-                            addRoleEffect(r, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                            logBattleHeal(r, r, r->HP - hpBefore, "爆发治疗");
-                        }
-                    }
-                    else if (action.type == KysChess::Battle::BattleComboTriggerActionType::BroadcastTriggerTimer)
-                    {
-                        assert(action.durationFrames > 0);
-                        for (auto ally : battle_roles_)
-                        {
-                            if (ally->Team == r->Team && ally != r && ally->Dead == 0)
-                            {
-                                auto ait2 = cs.find(ally->ID);
-                                assert(ait2 != cs.end());
-                                ait2->second.triggerTimers[action.trigger] = action.durationFrames;
-                            }
-                        }
-                    }
-                }
-
-                // Ramping damage idle decay
-                for (size_t i = 0; i < s.rampings.size(); i++)
-                {
-                    if (s.rampingIdleTimers[i] > 0)
-                    {
-                        s.rampingIdleTimers[i]--;
-                    }
-                    else
-                    {
-                        s.rampingStacks[i] = 0;
-                    }
-                }
-
-                // Trigger timer countdowns
-                for (auto& [trig, timer] : s.triggerTimers)
-                {
-                    if (timer > 0)
-                    {
-                        timer--;
-                    }
+                    applyComboFrameRuntimeEvent(r, it->second, event, cs);
                 }
             }
         }
@@ -3084,6 +2976,63 @@ void BattleSceneHades::backRun1()
         decreaseToZero(r->HurtFrame);
         decreaseToZero(r->Attention);
         decreaseToZero(r->Invincible);
+
+        KysChess::Battle::BattleFrameUnitRuntimeInput runtimeInput;
+        runtimeInput.state.cooldown = r->CoolDown;
+        runtimeInput.state.actFrame = r->ActFrame;
+        runtimeInput.state.actType = r->ActType;
+        runtimeInput.state.operationType = KysChess::Battle::battleOperationFromLegacy(r->OperationType);
+        runtimeInput.state.haveAction = r->HaveAction != 0;
+        runtimeInput.state.physicalPower = r->PhysicalPower;
+        runtimeInput.frame = battle_frame_;
+        runtimeInput.frozen = r->Frozen > 0;
+        runtimeInput.mpRegenIntervalFrames = 3;
+        runtimeInput.physicalPowerRegenIntervalFrames = 3;
+        auto runtimeResult = KysChess::Battle::BattleFrameUnitRuntimeSystem().advance(runtimeInput);
+        r->CoolDown = runtimeResult.state.cooldown;
+        r->ActFrame = runtimeResult.state.actFrame;
+        r->ActType = runtimeResult.state.actType;
+        r->OperationType = KysChess::Battle::toLegacyOperationType(runtimeResult.state.operationType);
+        r->HaveAction = runtimeResult.state.haveAction ? 1 : 0;
+        r->PhysicalPower = runtimeResult.state.physicalPower;
+        if (runtimeResult.resetDashVelocity)
+        {
+            r->Velocity = { 0, 0, 0 };
+        }
+        if (runtimeResult.skillFinished)
+        {
+            auto& cs = KysChess::ChessCombo::getMutableStates();
+            auto it = cs.find(r->ID);
+            if (it != cs.end())
+            {
+                for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().collectSkillFinishedRuntimeEvents(
+                         it->second,
+                         r->Dead == 0))
+                {
+                    assert(event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::PostSkillInvincibility);
+                    applyComboFrameRuntimeEvent(r, it->second, event, cs);
+                }
+                if (it->second.onSkillTeamHealPending)
+                {
+                    int flatHeal = it->second.onSkillTeamHeal;
+                    int pctHeal = it->second.onSkillTeamHealPct;
+                    collectTriggeredTeamHeal(
+                        it->second,
+                        { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
+                        flatHeal,
+                        pctHeal);
+                    if (flatHeal > 0 || pctHeal > 0)
+                    {
+                        applyTeamHeal(r, flatHeal, pctHeal, "技能群療");
+                    }
+                }
+                it->second.onSkillTeamHealPending = false;
+            }
+        }
+        if (runtimeResult.mpDelta != 0)
+        {
+            changeRoleMP(r, runtimeResult.mpDelta);
+        }
 
         if (r->Frozen > 0)
         {
@@ -3104,88 +3053,29 @@ void BattleSceneHades::backRun1()
                     r->Velocity = { 0, 0, 0 };
                 }
             }
-            auto p = r->Pos + r->Velocity;
-            int dis = -1;
-            bool actionDashActive = dashStartFrame >= 0 && r->ActFrame >= dashStartFrame && r->ActFrame <= dashEndFrame;
-            bool movementDashActive = movementRuntime.movement_dash_frames > 0;
-            bool movementDashEnding = movementRuntime.movement_dash_frames == 1;
-            if (actionDashActive || movementDashActive)
+            KysChess::Battle::BattleMovementPhysicsInput input;
+            input.state.position = r->Pos;
+            input.state.velocity = r->Velocity;
+            input.state.acceleration = r->Acceleration;
+            input.state.movementDashFrames = movementRuntime.movement_dash_frames;
+            input.state.movementDashCooldown = movementRuntime.movement_dash_cooldown;
+            input.state.movementDashSpreadFrames = movementRuntime.movement_dash_spread_frames;
+            input.config.gravity = gravity_;
+            input.config.friction = friction_;
+            input.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
+            input.actionDashActive = dashStartFrame >= 0 && r->ActFrame >= dashStartFrame && r->ActFrame <= dashEndFrame;
+            input.canMove = [this, r](Pointf position, int separationDistance)
             {
-                dis = 1;
-            }
+                return canWalk90(position, r, separationDistance);
+            };
 
-            if (canWalk90(p, r, dis))
-            {
-                r->Pos = p;
-            }
-            else
-            {
-                // Try sliding along obstacles
-                bool can_slide = false;
-
-                // Try X-only movement
-                auto px = r->Pos;
-                px.x = p.x;
-                if (canWalk90(px, r, dis))
-                {
-                    r->Pos = px;
-                    r->Velocity.y = 0;
-                    can_slide = true;
-                }
-                // Try Y-only movement
-                else
-                {
-                    auto py = r->Pos;
-                    py.y = p.y;
-                    if (canWalk90(py, r, dis))
-                    {
-                        r->Pos = py;
-                        r->Velocity.x = 0;
-                        can_slide = true;
-                    }
-                }
-
-                if (!can_slide)
-                {
-                    r->Velocity = { 0, 0, 0 };
-                    movementRuntime.movement_dash_frames = 0;
-                }
-            }
-            decreaseToZero(movementRuntime.movement_dash_frames);
-            if (movementDashEnding)
-            {
-                movementRuntime.movement_dash_spread_frames = POST_DASH_SPREAD_FRAMES;
-            }
-            else if (!movementDashActive)
-            {
-                decreaseToZero(movementRuntime.movement_dash_spread_frames);
-            }
-            decreaseToZero(movementRuntime.movement_dash_cooldown);
-            //r->FaceTowards = rand_.rand() * 4;
-            if (r->Pos.z < 0)
-            {
-                r->Pos.z = 0;
-            }
-            if (r->Pos.z == 0 && r->Velocity.norm() != 0)
-            {
-                auto f = -r->Velocity;
-                f.normTo(friction_);
-                r->Acceleration = { f.x, f.y, gravity_ };
-            }
-            else
-            {
-                r->Acceleration = { 0, 0, gravity_ };
-            }
-            r->Velocity += r->Acceleration;
-            if (r->Pos.z == 0)
-            {
-                r->Velocity.z = 0;
-            }
-            if (r->Velocity.norm() < 0.1)
-            {
-                r->Velocity.x = 0;
-                r->Velocity.y = 0;
-            }
+            auto state = KysChess::Battle::BattleMovementPhysicsSystem().advance(input);
+            r->Pos = state.position;
+            r->Velocity = state.velocity;
+            r->Acceleration = state.acceleration;
+            movementRuntime.movement_dash_frames = state.movementDashFrames;
+            movementRuntime.movement_dash_cooldown = state.movementDashCooldown;
+            movementRuntime.movement_dash_spread_frames = state.movementDashSpreadFrames;
         }
         //else
         //{
@@ -3193,64 +3083,9 @@ void BattleSceneHades::backRun1()
         //    if (r->HP <= 0)
         //    {
         //        r->Dead = 1;
-        //        //此处只为严格化，但与击退部分可能冲突
+        //        //此處只為嚴格化，但與擊退部分可能衝突
         //    }
         //}
-        {
-            int prevCD = r->CoolDown;
-            if (r->Frozen == 0)
-            {
-                decreaseToZero(r->CoolDown);
-            }
-            // Combo: post-skill invincibility (逍遥至尊)
-            if (prevCD > 0 && r->CoolDown == 0)
-            {
-                auto& cs = KysChess::ChessCombo::getMutableStates();
-                auto it = cs.find(r->ID);
-                if (it != cs.end() && r->Dead == 0)
-                {
-                    if (it->second.postSkillInvincFrames > 0)
-                    {
-                        int invincibleBefore = r->Invincible;
-                        r->Invincible = std::max(r->Invincible, it->second.postSkillInvincFrames);
-                        if (r->Invincible > invincibleBefore)
-                        {
-                            logBattleStatus(r, r, formatStatusFrames("技能后无敌", it->second.postSkillInvincFrames));
-                        }
-                    }
-                    if (it->second.onSkillTeamHealPending)
-                    {
-                        int flatHeal = it->second.onSkillTeamHeal;
-                        int pctHeal = it->second.onSkillTeamHealPct;
-                        collectTriggeredTeamHeal(it->second, KysChess::Trigger::OnUltimate, flatHeal, pctHeal);
-                        if (flatHeal > 0 || pctHeal > 0)
-                        {
-                            applyTeamHeal(r, flatHeal, pctHeal, "技能群疗");
-                        }
-                    }
-                    it->second.onSkillTeamHealPending = false;
-                }
-            }
-        }
-        if (r->CoolDown == 0)
-        {
-            if (battle_frame_ % 3 == 0)
-            {
-                r->PhysicalPower += 1;
-            }
-            r->ActFrame = 0;
-            if (r->OperationType == 3)
-            {
-                r->Velocity = { 0, 0, 0 };
-            }
-            r->OperationType = -1;
-            r->ActType = -1;
-            r->HaveAction = 0;
-        }
-        if (battle_frame_ % 3 == 0)
-        {
-            changeRoleMP(r, 1);
-        }
     }
 
     //if (current_frame_ % 2 == 0)
@@ -3268,117 +3103,127 @@ void BattleSceneHades::backRun1()
     //效果
     //if (current_frame_ % 2 == 0)
     {
-        const size_t initialCount = attack_effects_.size();
-        auto attackWorld = makeBattleAttackWorld(battle_roles_, attack_effects_, initialCount, shared_hit_group_targets_);
-        auto attackEvents = KysChess::Battle::BattleAttackSystem().tick(attackWorld);
-        writeBattleAttackWorld(attackWorld, attack_effects_, battle_roles_, shared_hit_group_targets_);
+        auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
+        frameState.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
+        pending_core_attack_spawns_.clear();
+        auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
+        auto attackEvents = std::move(frameResult.attackEvents);
+        for (auto& event : attackEvents)
+        {
+            if (event.type != KysChess::Battle::BattleAttackEventType::ProjectileCancel)
+            {
+                continue;
+            }
+
+            assert(event.attackId >= 0);
+            assert(event.otherAttackId >= 0);
+            const auto& attack1 = findBattleAttackById(frameState.attacks, event.attackId);
+            const auto& attack2 = findBattleAttackById(frameState.attacks, event.otherAttackId);
+            auto* attacker1 = findRoleByBattleId(battle_roles_, attack1.state.attackerUnitId);
+            auto* attacker2 = findRoleByBattleId(battle_roles_, attack2.state.attackerUnitId);
+            auto* skill1 = Save::getInstance()->getMagic(attack1.state.skillId);
+            auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
+            assert(skill1);
+            assert(skill2);
+            event.projectileCancelDamage = KysChess::Battle::scaleProjectileCancelDamage(
+                resolveLegacyMagicBaseDamage(attacker1, attacker2, skill1),
+                attack1.state.operationType);
+            event.otherProjectileCancelDamage = KysChess::Battle::scaleProjectileCancelDamage(
+                resolveLegacyMagicBaseDamage(attacker2, attacker1, skill2),
+                attack2.state.operationType);
+            attacker1->CancelDmg += event.projectileCancelDamage;
+            attacker2->CancelDmg += event.otherProjectileCancelDamage;
+            KysChess::Battle::BattleAttackSystem().applyProjectileCancelDamage(frameState.attacks, event);
+        }
+        shared_hit_group_targets_.clear();
+        for (const auto& [groupId, targets] : frameState.attacks.sharedHitGroupTargets)
+        {
+            auto& output = shared_hit_group_targets_[groupId];
+            output.insert(targets.begin(), targets.end());
+        }
+        for (const auto& event : frameResult.frame.presentationEvents)
+        {
+            presentation_recorder_.recordPresentation(event);
+        }
         advanceVisualOnlyEffects(attack_effects_);
 
         for (const auto& event : attackEvents)
         {
             if (event.type == KysChess::Battle::BattleAttackEventType::Hit)
             {
-                assert(event.attackId >= 0);
-                assert(static_cast<size_t>(event.attackId) < attack_effects_.size());
-                auto& ae = attack_effects_[event.attackId];
                 auto* r = findRoleByBattleId(battle_roles_, event.unitId);
-                bool scriptedImpact = hasScriptedImpact(ae);
+                bool scriptedImpact = hasScriptedImpact(event);
 
-                if (ae.UsingMagic)
+                if (event.skillId >= 0)
                 {
-                    Audio::getInstance()->playESound(ae.UsingMagic->EffectID);
+                    auto* skill = Save::getInstance()->getMagic(event.skillId);
+                    assert(skill);
+                    Audio::getInstance()->playESound(skill->EffectID);
                 }
-                if (!scriptedImpact)
+                if (scriptedImpact)
                 {
-                    // Combo: dodge check
-                    {
-                        auto& cs = KysChess::ChessCombo::getMutableStates();
-                        auto dit = cs.find(r->ID);
-                        if (dit != cs.end())
-                        {
-                            int dodgeChancePct = dit->second.dodgeChancePct;
-                            for (size_t i = 0; i < dit->second.dodgeAdaptations.size(); ++i)
-                            {
-                                auto& evade = dit->second.dodgeAdaptations[i];
-                                auto sit = dit->second.dodgeAdaptationStacks[i].find(ae.Attacker->ID);
-                                if (sit != dit->second.dodgeAdaptationStacks[i].end())
-                                {
-                                    dodgeChancePct += sit->second * evade.pctPerStack;
-                                }
-                            }
+                    r->Shake = 5;
+                    applyScriptedHitTransaction(event, r);
+                    continue;
+                }
 
-                            dodgeChancePct = std::clamp(dodgeChancePct, 0, 100);
-                            if (dodgeChancePct > 0 && rand_.rand() * 100 < dodgeChancePct)
+                auto* attacker = findRoleByBattleId(battle_roles_, event.sourceUnitId);
+
+                // Combo: dodge check
+                {
+                    auto& cs = KysChess::ChessCombo::getMutableStates();
+                    auto dit = cs.find(r->ID);
+                    if (dit != cs.end())
+                    {
+                        int dodgeChancePct = dit->second.dodgeChancePct;
+                        for (size_t i = 0; i < dit->second.dodgeAdaptations.size(); ++i)
+                        {
+                            auto& evade = dit->second.dodgeAdaptations[i];
+                            auto sit = dit->second.dodgeAdaptationStacks[i].find(attacker->ID);
+                            if (sit != dit->second.dodgeAdaptationStacks[i].end())
                             {
-                                dit->second.dodgedLast = true;
-                                addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
-                                logBattleStatus(r, ae.Attacker, "闪避了来袭攻击");
-                                continue;
+                                dodgeChancePct += sit->second * evade.pctPerStack;
                             }
+                        }
+
+                        dodgeChancePct = std::clamp(dodgeChancePct, 0, 100);
+                        if (dodgeChancePct > 0 && rand_.rand() * 100 < dodgeChancePct)
+                        {
+                            dit->second.dodgedLast = true;
+                            addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
+                            logBattleStatus(r, attacker, "閃避了來襲攻擊");
+                            continue;
                         }
                     }
                 }
 
-                if (scriptedImpact)
+                shake_ = event.ultimate ? 10 : 0;
+                r->Frozen = 0;
+                if (event.mainProjectile)
                 {
-                    r->Shake = 5;
-                    applyScriptedHitTransaction(ae, r);
+                    applyFrozen(r, event.ultimate ? 10 : 5);
                 }
-                else
+                r->Shake = event.ultimate ? 10 : 5;
+                if (event.ultimate) { ultHitRoles_.insert(r); }
+                if (event.operationType != KysChess::Battle::BattleOperationType::None
+                    || event.hiddenWeaponItemId >= 0)
                 {
-                    shake_ = ae.IsUltimate ? 10 : 0;
-                    r->Frozen = 0;
-                    if (ae.IsMain)
-                    {
-                        applyFrozen(r, ae.IsUltimate ? 10 : 5);
-                    }
-                    r->Shake = ae.IsUltimate ? 10 : 5;
-                    if (ae.IsUltimate) { ultHitRoles_.insert(r); }
-                    if (ae.OperationType >= 0)
-                    {
-                        Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                        applyLegacyMagicHitTransaction(ae, r);
-                    }
+                    Engine::getInstance()->gameControllerRumble(100, 100, 50);
+                    applyLegacyMagicHitTransaction(event, r);
                 }
                 //std::vector<std::string> = {};
             }
-            else if (event.type == KysChess::Battle::BattleAttackEventType::ProjectileCancel)
-            {
-                assert(event.attackId >= 0);
-                assert(event.otherAttackId >= 0);
-                assert(static_cast<size_t>(event.attackId) < attack_effects_.size());
-                assert(static_cast<size_t>(event.otherAttackId) < attack_effects_.size());
-                auto& ae1 = attack_effects_[event.attackId];
-                auto& ae2 = attack_effects_[event.otherAttackId];
-                assert(ae1.Attacker);
-                assert(ae2.Attacker);
-                assert(ae1.UsingMagic);
-                assert(ae2.UsingMagic);
-
-                //LOG("{} beat {}, ", ae1.UsingMagic->Name, ae2.UsingMagic->Name);
-                int hurt1 = KysChess::Battle::scaleProjectileCancelDamage(
-                    calMagicHurt(ae1.Attacker, ae2.Attacker, ae1.UsingMagic),
-                    KysChess::Battle::battleOperationFromLegacy(ae1.OperationType));
-                int hurt2 = KysChess::Battle::scaleProjectileCancelDamage(
-                    calMagicHurt(ae2.Attacker, ae1.Attacker, ae2.UsingMagic),
-                    KysChess::Battle::battleOperationFromLegacy(ae2.OperationType));
-                ae1.Weaken += hurt2;
-                ae2.Weaken += hurt1;
-                ae1.Attacker->CancelDmg += hurt1;
-                ae2.Attacker->CancelDmg += hurt2;
-                if (ae1.Weaken > hurt1)
-                {
-                    //直接设置帧数，后面就会删掉了
-                    ae1.NoHurt = 1;
-                    ae1.Frame = std::max(ae1.TotalFrame - 5, ae1.Frame);
-                }
-                if (ae2.Weaken > hurt2)
-                {
-                    ae2.NoHurt = 1;
-                    ae2.Frame = std::max(ae2.TotalFrame - 5, ae2.Frame);
-                }
-            }
         }
+        active_attack_world_ = std::move(frameState.attacks);
+        active_attack_world_.attacks.erase(
+            std::remove_if(
+                active_attack_world_.attacks.begin(),
+                active_attack_world_.attacks.end(),
+                [](const auto& attack)
+                {
+                    return attack.frame >= attack.state.totalFrame;
+                }),
+            active_attack_world_.attacks.end());
         //删除播放完毕的
         for (auto it = attack_effects_.begin(); it != attack_effects_.end();)
         {
@@ -3393,7 +3238,13 @@ void BattleSceneHades::backRun1()
         }
     }
 
-    //此处计算累积伤害
+
+    return true;
+}
+
+void BattleSceneHades::applyPendingPreResolvedDamageFrame()
+{
+    //此處计算累积傷害
     auto isOccupied45 = [&](int x, int y, const Role* ignore)
     {
         for (auto role : battle_roles_)
@@ -3448,27 +3299,25 @@ void BattleSceneHades::backRun1()
         attacker->RealTowards = direction;
         setFaceTowardsNearest(attacker);
 
-        AttackEffect projectile;
-        projectile.Attacker = attacker;
-        projectile.UsingMagic = basicMagic;
-        projectile.PreferredTarget = target;
-        projectile.RequirePreferredTarget = 1;
-        projectile.Track = 1;
-        projectile.IsMain = 0;
-        projectile.OperationType = 0;
-        projectile.setEft(11);
-        projectile.Pos = attacker->Pos + MELEE_ATTACK_EFFECT_OFFSET * direction;
-        projectile.Velocity = target->Pos - projectile.Pos;
-        if (projectile.Velocity.norm() <= 0.01)
+        KysChess::Battle::BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = attacker->ID;
+        request.initial.skillId = basicMagic->ID;
+        request.initial.preferredTargetUnitId = target->ID;
+        request.initial.requirePreferredTarget = true;
+        request.initial.track = true;
+        request.initial.operationType = KysChess::Battle::BattleOperationType::Melee;
+        request.initial.visualEffectId = 11;
+        request.initial.position = attacker->Pos + MELEE_ATTACK_EFFECT_OFFSET * direction;
+        request.initial.velocity = target->Pos - request.initial.position;
+        if (request.initial.velocity.norm() <= 0.01)
         {
-            projectile.Velocity = direction;
+            request.initial.velocity = direction;
         }
-        projectile.Velocity.normTo(PROJECTILE_SPEED);
-        projectile.TotalFrame = std::max(20,
-            static_cast<int>(std::ceil(EuclidDis(target->Pos, projectile.Pos) / static_cast<double>(PROJECTILE_SPEED))) + 15);
-        primeProjectileBounce(projectile);
-        projectile.Frame = 0;
-        attack_effects_.push_back(std::move(projectile));
+        request.initial.velocity.normTo(PROJECTILE_SPEED);
+        request.initial.totalFrame = std::max(20,
+            static_cast<int>(std::ceil(EuclidDis(target->Pos, request.initial.position) / static_cast<double>(PROJECTILE_SPEED))) + 15);
+        attachProjectileBouncePrime(request);
+        queueCoreAttackSpawn(std::move(request));
         Audio::getInstance()->playESound(attacker->ActType);
     };
     auto tryForcePull = [&](Role* pulled, int pullerTeam, Role* reference, bool executeMode)
@@ -3574,7 +3423,7 @@ void BattleSceneHades::backRun1()
                 auto& pullState = cs[puller->ID];
                 pullState.forcePullExecuteRemaining = std::max(0, pullState.forcePullExecuteRemaining - 1);
                 spawnBasicAttackProjectile(puller, pulled);
-                logBattleStatus(puller, pulled, "处决挪移");
+                logBattleStatus(puller, pulled, "處決挪移");
 
                 addFloatingText(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
                 return true;
@@ -3771,72 +3620,112 @@ void BattleSceneHades::backRun1()
         if (pulled->HP > hpBefore)
         {
             addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-            logBattleHeal(bestChoice.puller, pulled, pulled->HP - hpBefore, "保护挪移");
+            logBattleHeal(bestChoice.puller, pulled, pulled->HP - hpBefore, "保護挪移");
         }
-        logBattleStatus(bestChoice.puller, pulled, "保护挪移");
-        logBattleStatus(bestChoice.puller, pulled, formatStatusFrames("短暂无敌", 10));
+        logBattleStatus(bestChoice.puller, pulled, "保護挪移");
+        logBattleStatus(bestChoice.puller, pulled, formatStatusFrames("短暫無敵", 10));
 
         addFloatingText(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
         return true;
     };
-    std::unordered_map<Role*, int> pendingDamageByTarget;
-    std::unordered_map<Role*, Role*> pendingSourceByTarget;
+    std::vector<PendingPreResolvedHpDamage> pendingPreResolvedHpDamage;
+    std::unordered_map<Role*, size_t> pendingDamageIndexByTarget;
     for (const auto& pending : pending_pre_resolved_hp_damage_)
     {
         assert(pending.target);
         assert(pending.damage > 0);
 
-        pendingDamageByTarget[pending.target] += pending.damage;
-        pendingSourceByTarget[pending.target] = pending.source;
-        if (pending.critical)
+        auto it = pendingDamageIndexByTarget.find(pending.target);
+        if (it == pendingDamageIndexByTarget.end())
         {
-            criticalHitRoles_.insert(pending.target);
+            pendingDamageIndexByTarget[pending.target] = pendingPreResolvedHpDamage.size();
+            pendingPreResolvedHpDamage.push_back(pending);
+            continue;
         }
-        if (pending.ultimate)
+
+        auto& aggregate = pendingPreResolvedHpDamage[it->second];
+        aggregate.source = pending.source;
+        aggregate.damage += pending.damage;
+        aggregate.critical = aggregate.critical || pending.critical;
+        aggregate.ultimate = aggregate.ultimate || pending.ultimate;
+        aggregate.executed = aggregate.executed || pending.executed;
+        if (!pending.skillName.empty())
         {
-            ultHitRoles_.insert(pending.target);
+            aggregate.skillName = pending.skillName;
         }
-        if (pending.executed)
+        if (!pending.detailText.empty())
         {
-            pendingDamageByTarget[pending.target] = std::max(pendingDamageByTarget[pending.target], pending.target->HP);
-            execution_popup_roles_.insert(pending.target->ID);
+            aggregate.detailText = pending.detailText;
+        }
+        if (pending.damageTextSize > 0)
+        {
+            aggregate.damageColor = pending.damageColor;
+            aggregate.damageTextSize = pending.damageTextSize;
         }
     }
     pending_pre_resolved_hp_damage_.clear();
 
-    for (auto r : battle_roles_)
+    for (const auto& pending : pendingPreResolvedHpDamage)
     {
-        int hurt = pendingDamageByTarget[r];
-        if (hurt > 0)
-        {
-            r->LastAttacker = pendingSourceByTarget[r];
+        assert(pending.target);
+        assert(pending.damage > 0);
 
-            int hpBefore = r->HP;
-            bool isUlt = ultHitRoles_.count(r) > 0;
-            bool isCritical = criticalHitRoles_.count(r) > 0;
-            bool executedHit = execution_popup_roles_.erase(r->ID) > 0;
-            if (executedHit)
+        auto r = pending.target;
+        r->LastAttacker = pending.source;
+        int hpBefore = r->HP;
+
+        auto& cs = KysChess::ChessCombo::getMutableStates();
+        auto sit = cs.find(r->ID);
+        auto kit = r->LastAttacker ? cs.find(r->LastAttacker->ID) : cs.end();
+        KysChess::Battle::BattleDamageTransactionInput damageInput;
+        damageInput.request.attackerUnitId = r->LastAttacker ? r->LastAttacker->ID : -1;
+        damageInput.request.defenderUnitId = r->ID;
+        damageInput.request.baseDamage = pending.executed ? std::max(pending.damage, r->HP) : pending.damage;
+        damageInput.request.preResolvedDamage = true;
+        damageInput.attacker = makeBattleDamageUnit(r->LastAttacker, kit != cs.end() ? &kit->second : nullptr);
+        damageInput.defender = makeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr);
+        auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
+        frameState.deathEffects.world = makeBattleDeathEffectWorld(battle_roles_, cs);
+        frameState.damage.pendingTransactions.push_back(std::move(damageInput));
+        KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
+        assert(frameState.damage.committedTransactions.size() == 1);
+        auto deathWorld = std::move(frameState.deathEffects.world);
+        auto deathEvents = std::move(frameState.deathEffects.events);
+        auto damageTaken = std::move(frameState.damage.committedTransactions.front());
+        if (kit != cs.end())
+        {
+            writeBattleDamageUnit(r->LastAttacker, &kit->second, damageTaken.attacker);
+        }
+        writeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr, damageTaken.defender);
+
+        int committedHpDamage = 0;
+        for (const auto& event : damageTaken.events)
+        {
+            if (event.type == KysChess::Battle::BattleDamageEventType::DamageApplied)
+            {
+                committedHpDamage += event.value;
+            }
+        }
+
+        if (committedHpDamage > 0)
+        {
+            if (pending.executed)
             {
                 addFloatingText(r, "處決！", { 255, 136, 48, 255 }, ULT_DAMAGE_TEXT_SIZE);
             }
             else
             {
-                bool emphasized = isUlt || isCritical;
-                int semanticHurt = 0;
-                if (auto it = semanticDamageTextAmounts_.find(r); it != semanticDamageTextAmounts_.end())
-                {
-                    semanticHurt = it->second;
-                }
-                int displayHurt = std::max(0, hurt - semanticHurt);
-                if (displayHurt > 0)
-                {
-                    addDamageNumber(
-                        r,
-                        displayHurt,
-                        damageTextColor(r, emphasized),
-                        emphasized ? ULT_DAMAGE_TEXT_SIZE : NORMAL_DAMAGE_TEXT_SIZE);
-                }
+                bool emphasized = pending.ultimate || pending.critical;
+                Color numberColor = pending.damageTextSize > 0
+                    ? pending.damageColor
+                    : damageTextColor(r, emphasized);
+                int numberSize = pending.damageTextSize > 0
+                    ? pending.damageTextSize
+                    : (emphasized ? ULT_DAMAGE_TEXT_SIZE : NORMAL_DAMAGE_TEXT_SIZE);
+                addDamageNumber(r, committedHpDamage, numberColor, numberSize);
             }
+            logBattleDamage(r->LastAttacker, r, committedHpDamage, pending.skillName, pending.detailText);
+
             AttackEffect ae1;
             ae1.FollowRole = r;
             //ae1.EffectNumber = eft[rand_.rand() * eft.size()];
@@ -3845,144 +3734,133 @@ void BattleSceneHades::backRun1()
             ae1.Frame = 0;
             attack_effects_.push_back(std::move(ae1));
             hurt_flash_timers_[r->ID] = HURT_FLASH_DURATION;
-            double mpGain = (hurt / r->MaxHP) * 75.0;
+            double mpGain = static_cast<double>(committedHpDamage) / r->MaxHP * 75.0;
             changeRoleMP(r, mpGain);
-            auto& cs = KysChess::ChessCombo::getMutableStates();
-            auto sit = cs.find(r->ID);
-            auto kit = r->LastAttacker ? cs.find(r->LastAttacker->ID) : cs.end();
-            KysChess::Battle::BattleDamageTransactionInput damageInput;
-            damageInput.request.attackerUnitId = r->LastAttacker ? r->LastAttacker->ID : -1;
-            damageInput.request.defenderUnitId = r->ID;
-            damageInput.request.baseDamage = hurt;
-            damageInput.request.preResolvedDamage = true;
-            damageInput.attacker = makeBattleDamageUnit(r->LastAttacker, kit != cs.end() ? &kit->second : nullptr);
-            damageInput.defender = makeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr);
-            auto damageTaken = KysChess::Battle::BattleDamageSystem().resolveTransaction(damageInput);
-            if (kit != cs.end())
+        }
+
+        if (damageTaken.hurtInvincGranted)
+        {
+            logBattleStatus(r, r, formatStatusFrames("受傷無敵", damageTaken.invincibilityGranted));
+        }
+        if (damageTaken.deathPrevented)
+        {
+            logBattleStatus(r, r, formatStatusFrames("死亡庇護", damageTaken.invincibilityGranted));
+        }
+        if (damageTaken.killed)
+        {
+            //LOG("{} has been beat\n", r->Name);
+            if (sit != cs.end())
             {
-                writeBattleDamageUnit(r->LastAttacker, &kit->second, damageTaken.attacker);
+                sit->second.onSkillTeamHealPending = false;
             }
-            writeBattleDamageUnit(r, sit != cs.end() ? &sit->second : nullptr, damageTaken.defender);
-            if (damageTaken.hurtInvincGranted)
+            tracker_.recordKill(r->LastAttacker, r, battle_frame_);
+            tracker_.recordDeath(r, battle_frame_);
+            refreshEnemyTopDebuffs();
+
+            if (r->LastAttacker && kit != cs.end())
             {
-                logBattleStatus(r, r, formatStatusFrames("受伤无敌", damageTaken.invincibilityGranted));
-            }
-            if (damageTaken.deathPrevented)
-            {
-                logBattleStatus(r, r, formatStatusFrames("死亡庇护", damageTaken.invincibilityGranted));
-            }
-            if (damageTaken.killed)
-            {
-                    //LOG("{} has been beat\n", r->Name);
-                    if (sit != cs.end())
-                    {
-                        sit->second.onSkillTeamHealPending = false;
-                    }
-                    tracker_.recordKill(r->LastAttacker, r, battle_frame_);
-                    tracker_.recordDeath(r, battle_frame_);
-                    refreshEnemyTopDebuffs();
-
-                    if (r->LastAttacker && kit != cs.end())
-                    {
-                        if (damageTaken.attackerDelta.hpDelta > 0)
-                        {
-                            logBattleHeal(r->LastAttacker, r->LastAttacker, damageTaken.attackerDelta.hpDelta,
-                                std::format("击杀回复 {}%", kit->second.killHealPct));
-                        }
-                        if (damageTaken.attackerDelta.invincibleDelta > 0)
-                        {
-                            logBattleStatus(r->LastAttacker, r->LastAttacker,
-                                formatStatusFrames("击杀无敌", damageTaken.attackerDelta.invincibleDelta));
-                        }
-                        if (damageTaken.attackerDelta.attackDelta > 0)
-                        {
-                            logBattleStatus(r->LastAttacker, r->LastAttacker,
-                                std::format("嗜血（+{}攻）", damageTaken.attackerDelta.attackDelta));
-                        }
-                    }
-
-                    if (sit != cs.end() && sit->second.deathAOEPct > 0)
-                    {
-                        int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
-                        logBattleStatus(r, nullptr,
-                            formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
-                        spawnAreaImpactProjectiles(r, r, 7, KysChess::EFT_DEATH_BLAST, aoeDmg,
-                            sit->second.deathAOEStunFrames, r->LastAttacker, sit->second.deathAOEMaxTargets);
-                    }
-
-                    {
-                        auto deathWorld = makeBattleDeathEffectWorld(battle_roles_, cs);
-                        auto deathEvents = KysChess::Battle::BattleDeathEffectSystem().applyAllyDeathEffects(
-                            deathWorld,
-                            r->ID);
-                        writeBattleDeathEffectWorld(deathWorld, battle_roles_, cs);
-
-                        for (const auto& event : deathEvents)
-                        {
-                            auto ally = findRoleByBattleId(battle_roles_, event.targetUnitId);
-                            switch (event.type)
-                            {
-                            case KysChess::Battle::BattleDeathEffectEventType::AllyStatBoost:
-                                logBattleStatus(r, ally, std::format("同袍之死（攻防+{}）", event.value));
-                                break;
-                            case KysChess::Battle::BattleDeathEffectEventType::DeathMedicalHeal:
-                                addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                                logBattleHeal(r, ally, event.value, "死亡医疗");
-                                break;
-                            case KysChess::Battle::BattleDeathEffectEventType::ShieldOnAllyDeath:
-                                logBattleStatus(r, ally, formatStatusValue("护盾重获", event.value, "护盾"));
-                                break;
-                            }
-                        }
-                    }
-
-                    // Transfer 独行 to next strongest alive member
-                    KysChess::ChessCombo::transferAntiCombo(r->ID, battle_roles_);
-
-                    //r->Velocity = r->Pos - ae1.Attacker->Pos;
-                    r->Velocity.normTo(15);    //因为已经有击退速度，可以直接利用
-                    r->Velocity.z = 12;
-                    //r->Velocity.normTo(std::min(hurt / 1.0, 15.0));
-                    r->Velocity.normTo(hurt / 2.0);
-                    r->Frozen = 0;
-                    applyFrozen(r, 5);
-                    x_ = rand_.rand_int(2) - rand_.rand_int(2);
-                    y_ = rand_.rand_int(2) - rand_.rand_int(2);
-                    if (!isManualCameraEnabled())
-                    {
-                        focusCameraOn(r->Pos, CAMERA_DEATH_ZOOM_FRAMES);
-                    }
-                    frozen_ = 5;
-                    shake_ = 10;
-                    slow_ = CAMERA_DEATH_SLOW_FRAMES;
-                    if (!isManualCameraEnabled())
-                    {
-                        close_up_ = std::max(close_up_, CAMERA_DEATH_ZOOM_FRAMES);
-                        close_up_total_ = std::max(close_up_total_, close_up_);
-                    }
-                }
-
-            if (r->Dead == 0)
-            {
-                if (r->MaxHP > 0
-                    && hpBefore * 4 > r->MaxHP
-                    && r->HP * 4 <= r->MaxHP
-                    && r->LastAttacker
-                    && r->LastAttacker->Dead == 0
-                    && r->LastAttacker->Team != r->Team)
+                if (damageTaken.attackerDelta.hpDelta > 0)
                 {
-                    tryForcePull(r, r->Team, r, false);
+                    logBattleHeal(r->LastAttacker, r->LastAttacker, damageTaken.attackerDelta.hpDelta,
+                        std::format("擊殺回復 {}%", kit->second.killHealPct));
                 }
-
-                if (r->MaxHP > 0
-                    && hpBefore * 100 > r->MaxHP * 15
-                    && r->HP * 100 <= r->MaxHP * 15
-                    && isUnattended(r, 1 - r->Team))
+                if (damageTaken.attackerDelta.invincibleDelta > 0)
                 {
-                    tryForcePull(r, 1 - r->Team, r, true);
+                    logBattleStatus(r->LastAttacker, r->LastAttacker,
+                        formatStatusFrames("擊殺無敵", damageTaken.attackerDelta.invincibleDelta));
                 }
+                if (damageTaken.attackerDelta.attackDelta > 0)
+                {
+                    logBattleStatus(r->LastAttacker, r->LastAttacker,
+                        std::format("嗜血（+{}攻）", damageTaken.attackerDelta.attackDelta));
+                }
+            }
+
+            if (sit != cs.end() && sit->second.deathAOEPct > 0)
+            {
+                int aoeDmg = std::max(1, r->MaxHP * sit->second.deathAOEPct / 100);
+                logBattleStatus(r, nullptr,
+                    formatStatusPercentFrames("殉爆", sit->second.deathAOEPct, sit->second.deathAOEStunFrames));
+                spawnAreaImpactProjectiles(r, r, 7, KysChess::EFT_DEATH_BLAST, aoeDmg,
+                    sit->second.deathAOEStunFrames, r->LastAttacker, sit->second.deathAOEMaxTargets);
+            }
+
+            {
+                writeBattleDeathEffectWorld(deathWorld, battle_roles_, cs);
+
+                for (const auto& event : deathEvents)
+                {
+                    auto ally = findRoleByBattleId(battle_roles_, event.targetUnitId);
+                    switch (event.type)
+                    {
+                    case KysChess::Battle::BattleDeathEffectEventType::AllyStatBoost:
+                        logBattleStatus(r, ally, std::format("同袍之死（攻防+{}）", event.value));
+                        break;
+                    case KysChess::Battle::BattleDeathEffectEventType::DeathMedicalHeal:
+                        addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                        logBattleHeal(r, ally, event.value, "死亡醫療");
+                        break;
+                    case KysChess::Battle::BattleDeathEffectEventType::ShieldOnAllyDeath:
+                        logBattleStatus(r, ally, formatStatusValue("護盾重獲", event.value, "護盾"));
+                        break;
+                    }
+                }
+            }
+
+            // Transfer 独行 to next strongest alive member
+            KysChess::ChessCombo::transferAntiCombo(r->ID, battle_roles_);
+
+            //r->Velocity = r->Pos - ae1.Attacker->Pos;
+            r->Velocity.normTo(15);    //因為已經有擊退速度，可以直接利用
+            r->Velocity.z = 12;
+            //r->Velocity.normTo(std::min(committedHpDamage / 1.0, 15.0));
+            r->Velocity.normTo(committedHpDamage / 2.0);
+            r->Frozen = 0;
+            applyFrozen(r, 5);
+            x_ = rand_.rand_int(2) - rand_.rand_int(2);
+            y_ = rand_.rand_int(2) - rand_.rand_int(2);
+            if (!isManualCameraEnabled())
+            {
+                focusCameraOn(r->Pos, CAMERA_DEATH_ZOOM_FRAMES);
+            }
+            frozen_ = 5;
+            shake_ = 10;
+            slow_ = CAMERA_DEATH_SLOW_FRAMES;
+            if (!isManualCameraEnabled())
+            {
+                close_up_ = std::max(close_up_, CAMERA_DEATH_ZOOM_FRAMES);
+                close_up_total_ = std::max(close_up_total_, close_up_);
             }
         }
+
+        if (r->Dead == 0)
+        {
+            if (r->MaxHP > 0
+                && hpBefore * 4 > r->MaxHP
+                && r->HP * 4 <= r->MaxHP
+                && r->LastAttacker
+                && r->LastAttacker->Dead == 0
+                && r->LastAttacker->Team != r->Team)
+            {
+                tryForcePull(r, r->Team, r, false);
+            }
+
+            if (r->MaxHP > 0
+                && hpBefore * 100 > r->MaxHP * 15
+                && r->HP * 100 <= r->MaxHP * 15
+                && isUnattended(r, 1 - r->Team))
+            {
+                tryForcePull(r, 1 - r->Team, r, true);
+            }
+        }
+    }
+
+}
+
+void BattleSceneHades::advanceBattleFrameAfterDamage()
+{
+    for (auto r : battle_roles_)
+    {
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
         r->MP = GameUtil::limit(r->MP, 0, GameUtil::MAX_MP);
         r->PhysicalPower = GameUtil::limit(r->PhysicalPower, 0, 100);
@@ -4028,7 +3906,7 @@ void BattleSceneHades::backRun1()
             }
         }
         //检测战斗结果
-        int battle_result = checkResult();
+        int battle_result = resolveCoreBattleResult();
 
         if (battle_result >= 0)
         {
@@ -4093,7 +3971,7 @@ void BattleSceneHades::Action(Role* r)
                     }
                     if (target)
                     {
-                        logBattleStatus(r, target, blinkState.blinkAttackUseWeakest ? "闪击追杀" : "闪击突袭");
+                        logBattleStatus(r, target, blinkState.blinkAttackUseWeakest ? "閃擊追殺" : "閃擊突襲");
                         blinkState.blinkAttackUseWeakest = !blinkState.blinkAttackUseWeakest;
                         auto targetPos45 = pos90To45(target->Pos.x, target->Pos.y);
                         auto currentPos45 = pos90To45(r->Pos.x, r->Pos.y);
@@ -4186,11 +4064,11 @@ void BattleSceneHades::Action(Role* r)
             {
                 presentation_recorder_.recordPresentation(event);
             }
-            auto effects = makeBattleCastAttackEffects(r, magic, castResult, battle_roles_);
-            for (auto& effect : effects)
+            auto spawnRequests = castResult.attackSpawnRequests;
+            for (auto& request : spawnRequests)
             {
-                primeProjectileBounce(effect);
-                attack_effects_.push_back(std::move(effect));
+                attachProjectileBouncePrime(request);
+                queueCoreAttackSpawn(std::move(request));
             }
             if (castResult.decision.operationType == KysChess::Battle::BattleOperationType::Melee)
             {
@@ -4213,7 +4091,7 @@ void BattleSceneHades::Action(Role* r)
             Item* item = r->UsingItem;
             if (item->ItemType == 3)
             {
-                // 药品直接服用
+                // 藥品直接服用
                 r->useItem(item);
                 //TextEffect te;
                 //BP_Color c = { 255, 255, 255, 255 };
@@ -4222,33 +4100,32 @@ void BattleSceneHades::Action(Role* r)
                 //    c = { 255, 20, 220, 20 };
                 //}
                 //const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
-                //te.set(std::format("服用{}，剩余{}", item->Name, left), c, r);
+                //te.set(std::format("服用{}，剩餘{}", item->Name, left), c, r);
                 //text_effects_.push_back(std::move(te));
             }
             else if (item->ItemType == 4)
             {
                 // 暗器
-                AttackEffect ae1;
+                KysChess::Battle::BattleAttackSpawnRequest request;
                 auto r0 = findFarthestEnemy(r->Team, r->Pos);
                 if (r0)
                 {
-                    ae1.Velocity = r0->Pos - r->Pos;
+                    request.initial.velocity = r0->Pos - r->Pos;
                 }
                 else
                 {
-                    ae1.Velocity = r->RealTowards;
+                    request.initial.velocity = r->RealTowards;
                 }
-                ae1.Velocity.normTo(10);
-                ae1.Attacker = r;
-                ae1.Pos = r->Pos;
-                ae1.UsingHiddenWeapon = item;
-                ae1.Through = 0;
-                ae1.setEft(item->HiddenWeaponEffectID);
-                ae1.TotalFrame = 100;
-                ae1.Frame = 0;
-                ae1.OperationType = 4;
-                primeProjectileBounce(ae1);
-                attack_effects_.push_back(std::move(ae1));
+                request.initial.velocity.normTo(10);
+                request.initial.attackerUnitId = r->ID;
+                request.initial.position = r->Pos;
+                request.initial.hiddenWeaponItemId = item->ID;
+                request.initial.visualEffectId = item->HiddenWeaponEffectID;
+                request.initial.totalFrame = 100;
+                request.initial.operationType = KysChess::Battle::BattleOperationType::None;
+                request.initial.ignoreProjectileCancel = true;
+                attachProjectileBouncePrime(request);
+                queueCoreAttackSpawn(std::move(request));
             }
             // 减少数量
             Event::getInstance()->addItemWithoutHint(item->ID, -1);
@@ -4268,7 +4145,7 @@ void BattleSceneHades::Action(Role* r)
     }
 }
 
-void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, int operationType)
+void BattleSceneHades::queueCoreSkillAttackSpawn(Role* r, Magic* magic, bool isUltimate, int operationType)
 {
     if (!r || !magic)
     {
@@ -4344,11 +4221,11 @@ void BattleSceneHades::createSkillAttackEffect(Role* r, Magic* magic, bool isUlt
         {
             presentation_recorder_.recordPresentation(event);
         }
-        auto effects = makeBattleCastAttackEffects(r, magic, castResult, battle_roles_);
-        for (auto& effect : effects)
+        auto spawnRequests = castResult.attackSpawnRequests;
+        for (auto& request : spawnRequests)
         {
-            primeProjectileBounce(effect);
-            attack_effects_.push_back(std::move(effect));
+            attachProjectileBouncePrime(request);
+            queueCoreAttackSpawn(std::move(request));
         }
         if (castResult.decision.operationType == KysChess::Battle::BattleOperationType::Melee)
         {
@@ -4372,7 +4249,7 @@ void BattleSceneHades::applyTeamHeal(Role* source, int flatHeal, int pctHeal, co
     assert(source);
     assert(flatHeal > 0 || pctHeal > 0);
 
-    const char* healReason = reason ? reason : "群疗";
+    const char* healReason = reason ? reason : "群療";
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
     auto events = KysChess::Battle::BattleTeamEffectSystem().applyTeamHeal(world, source->ID, flatHeal, pctHeal);
@@ -4411,7 +4288,7 @@ void BattleSceneHades::applyTeamShield(Role* source, int amount, const char* rea
     assert(source);
     assert(amount > 0);
 
-    const char* shieldReason = reason ? reason : "全队护盾";
+    const char* shieldReason = reason ? reason : "全隊護盾";
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
     auto events = KysChess::Battle::BattleTeamEffectSystem().applyTeamShield(world, source->ID, amount, refreshOnly);
@@ -4421,7 +4298,7 @@ void BattleSceneHades::applyTeamShield(Role* source, int amount, const char* rea
     {
         assert(event.type == KysChess::Battle::BattleTeamEffectEventType::ShieldGain);
         auto ally = findRoleByBattleId(battle_roles_, event.targetUnitId);
-        logBattleStatus(source, ally, formatStatusValue(shieldReason, event.value, "护盾"));
+        logBattleStatus(source, ally, formatStatusValue(shieldReason, event.value, "護盾"));
     }
 }
 
@@ -4443,16 +4320,161 @@ int BattleSceneHades::getSharedBleedMaxStacks(Role* source) const
 }
 
 void BattleSceneHades::collectTriggeredTeamHeal(KysChess::RoleComboState& state,
-    KysChess::Trigger trigger,
+    const KysChess::Battle::BattleComboTriggerInput& input,
     int& flatHeal,
     int& pctHeal)
 {
-    auto result = KysChess::Battle::BattleComboTriggerSystem().collectTeamHeal(
+    auto result = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
         state,
-        trigger,
+        input,
+        { KysChess::EffectType::OnSkillTeamHeal, KysChess::EffectType::OnSkillTeamHealPct },
         [&]() { return rand_.rand() * 100.0; });
-    flatHeal += result.flatHeal;
-    pctHeal += result.pctHeal;
+    for (const auto& event : result)
+    {
+        if (event.effect.type == KysChess::EffectType::OnSkillTeamHeal)
+        {
+            flatHeal += event.effect.value;
+        }
+        else
+        {
+            assert(event.effect.type == KysChess::EffectType::OnSkillTeamHealPct);
+            pctHeal += event.effect.value;
+        }
+    }
+}
+
+bool BattleSceneHades::isLastAliveInTeam(Role* role) const
+{
+    assert(role);
+    for (auto ally : battle_roles_)
+    {
+        if (ally->Team == role->Team && ally != role && ally->Dead == 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void BattleSceneHades::applyComboFrameRuntimeEvent(
+    Role* role,
+    KysChess::RoleComboState& state,
+    const KysChess::Battle::BattleComboFrameRuntimeEvent& event,
+    std::map<int, KysChess::RoleComboState>& comboStates)
+{
+    assert(role);
+
+    switch (event.type)
+    {
+    case KysChess::Battle::BattleComboFrameRuntimeEventType::AutoUltimateReady:
+        if (auto magic = triggerAutoUltimate(role, false))
+        {
+            addFloatingText(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
+            logBattleStatus(role, nullptr, std::format("自動絕招·{}", std::string(magic->Name)));
+        }
+        break;
+    case KysChess::Battle::BattleComboFrameRuntimeEventType::SelfHpRegen:
+    {
+        assert(event.value > 0);
+        auto world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
+        auto events = KysChess::Battle::BattleTeamEffectSystem().applySelfHeal(world, role->ID, event.value);
+        writeBattleTeamEffectWorld(world, battle_roles_, comboStates);
+        for (const auto& teamEvent : events)
+        {
+            assert(teamEvent.type == KysChess::Battle::BattleTeamEffectEventType::Heal);
+            logBattleHeal(role, role, teamEvent.value, "生命回復");
+        }
+        break;
+    }
+    case KysChess::Battle::BattleComboFrameRuntimeEventType::HealAura:
+    {
+        auto world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
+        auto events = KysChess::Battle::BattleTeamEffectSystem().applyHealAura(
+            world,
+            role->ID,
+            event.value,
+            event.value2,
+            TILE_W * 6.0,
+            event.durationFrames);
+        writeBattleTeamEffectWorld(world, battle_roles_, comboStates);
+        for (const auto& teamEvent : events)
+        {
+            if (teamEvent.type == KysChess::Battle::BattleTeamEffectEventType::Heal)
+            {
+                logBattleHeal(role, findRoleByBattleId(battle_roles_, teamEvent.targetUnitId), teamEvent.value, "治療光環");
+            }
+            else
+            {
+                assert(teamEvent.type == KysChess::Battle::BattleTeamEffectEventType::CooldownReduced);
+            }
+        }
+        break;
+    }
+    case KysChess::Battle::BattleComboFrameRuntimeEventType::HealPercentSelf:
+    {
+        assert(event.value > 0);
+        int hpBefore = role->HP;
+        role->HP = std::min(role->MaxHP, role->HP + role->MaxHP * event.value / 100);
+        if (role->HP > hpBefore)
+        {
+            addRoleEffect(role, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            logBattleHeal(role, role, role->HP - hpBefore, "爆發治療");
+        }
+        break;
+    }
+    case KysChess::Battle::BattleComboFrameRuntimeEventType::BroadcastTriggerTimer:
+        assert(event.durationFrames > 0);
+        for (auto ally : battle_roles_)
+        {
+            if (ally->Team == role->Team && ally != role && ally->Dead == 0)
+            {
+                auto allyState = comboStates.find(ally->ID);
+                assert(allyState != comboStates.end());
+                allyState->second.triggerTimers[event.trigger] = event.durationFrames;
+            }
+        }
+        break;
+    case KysChess::Battle::BattleComboFrameRuntimeEventType::PostSkillInvincibility:
+    {
+        assert(event.value > 0);
+        KysChess::Battle::BattleEffectWorld world;
+        world.units.push_back({
+            role->ID,
+            role->Team,
+            role->Dead == 0,
+            role->HP,
+            role->MaxHP,
+            role->MP,
+            role->MaxMP,
+            role->CoolDown,
+            role->Invincible,
+            state.shield,
+        });
+        KysChess::Battle::BattleEffectRegistry registry;
+        KysChess::Battle::BattleEffectDispatcher dispatcher(registry);
+        dispatcher.addEffect({
+            role->ID,
+            "技能後無敵",
+            KysChess::Battle::BattleHook::SkillFinished,
+            KysChess::Battle::BattleEffectTarget::Source,
+            "技能後無敵",
+            event.value,
+        });
+        auto commands = dispatcher.dispatch(
+            world,
+            { KysChess::Battle::BattleHook::SkillFinished, role->ID, -1 });
+        role->Invincible = world.units.front().invincible;
+        for (const auto& command : commands)
+        {
+            assert(command.type == KysChess::Battle::BattleEffectCommandType::AddInvincibility);
+            logBattleStatus(role, role, formatStatusFrames("技能後無敵", command.value));
+        }
+        break;
+    }
+    default:
+        assert(false);
+        break;
+    }
 }
 
 int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
@@ -4465,9 +4487,9 @@ int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
     auto& s = it->second;
     int flatCount = std::max(0, s.ultimateExtraProjectiles);
 
-    for (const auto& activatedEffect : KysChess::Battle::BattleComboTriggerSystem().collectChanceEffects(
+    for (const auto& activatedEffect : KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
              s,
-             KysChess::Trigger::OnUltimate,
+             { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
              { KysChess::EffectType::UltimateExtraProjectiles },
              []() { return 0.0; }))
     {
@@ -4488,9 +4510,9 @@ int BattleSceneHades::getHitExtraProjectileCount(Role* r)
     auto& s = it->second;
     int flatCount = 0;
 
-    for (const auto& activatedEffect : KysChess::Battle::BattleComboTriggerSystem().collectChanceEffects(
+    for (const auto& activatedEffect : KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
              s,
-             KysChess::Trigger::OnHit,
+             { KysChess::Battle::BattleComboTriggerHook::DamageDealt, r->ID, -1 },
              { KysChess::EffectType::UltimateExtraProjectiles },
              [&]() { return rand_.rand() * 100.0; }))
     {
@@ -4501,64 +4523,62 @@ int BattleSceneHades::getHitExtraProjectileCount(Role* r)
     return flatCount;
 }
 
-void BattleSceneHades::spawnUltimateExtraProjectiles(const AttackEffect& prototype, int extraCount)
+void BattleSceneHades::spawnUltimateExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount)
 {
-    if (extraCount <= 0 || !prototype.IsUltimate || !prototype.Attacker)
-    {
-        return;
-    }
+    assert(extraCount > 0);
+    assert(prototype.ultimate);
+    assert(prototype.sourceUnitId >= 0);
 
-    spawnExtraProjectiles(prototype, extraCount, "绝招追加弹", nullptr);
+    spawnExtraProjectiles(prototype, extraCount, "絕招追加彈", nullptr);
 }
 
-void BattleSceneHades::spawnHitExtraProjectiles(const AttackEffect& prototype, int extraCount, Role* target)
+void BattleSceneHades::spawnHitExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount, Role* target)
 {
-    if (extraCount <= 0 || !prototype.Attacker)
-    {
-        return;
-    }
+    assert(extraCount > 0);
+    assert(prototype.sourceUnitId >= 0);
 
-    spawnExtraProjectiles(prototype, extraCount, "命中追加弹", target);
+    spawnExtraProjectiles(prototype, extraCount, "命中追加彈", target);
 }
 
-void BattleSceneHades::spawnExtraProjectiles(const AttackEffect& prototype, int extraCount, const char* logLabel, Role* target)
+void BattleSceneHades::spawnExtraProjectiles(
+    const KysChess::Battle::BattleAttackEvent& prototype,
+    int extraCount,
+    const char* logLabel,
+    Role* target)
 {
-    if (extraCount <= 0 || !prototype.Attacker || !logLabel)
-    {
-        return;
-    }
+    assert(extraCount > 0);
+    assert(prototype.sourceUnitId >= 0);
+    assert(logLabel);
 
-    if (prototype.UsingMagic)
+    auto* attacker = findRoleByBattleId(battle_roles_, prototype.sourceUnitId);
+    auto* usingMagic = prototype.skillId >= 0 ? Save::getInstance()->getMagic(prototype.skillId) : nullptr;
+    if (usingMagic)
     {
-        logBattleStatus(prototype.Attacker, target,
-            std::format("{}·{}（{}发）", logLabel, prototype.UsingMagic->Name, extraCount));
+        logBattleStatus(attacker, target,
+            std::format("{}·{}（{}發）", logLabel, usingMagic->Name, extraCount));
     }
     else
     {
-        logBattleStatus(prototype.Attacker, target,
-            std::format("{}（{}发）", logLabel, extraCount));
+        logBattleStatus(attacker, target,
+            std::format("{}（{}發）", logLabel, extraCount));
     }
 
-    auto launch = prototype;
-    launch.Defender.clear();
-    launch.NoHurt = 0;
-    launch.Weaken = 0;
-    launch.IsMain = 0;
-    spawnTrackingProjectileSpread(launch, extraCount);
+    spawnTrackingProjectileSpread(prototype, extraCount);
 }
 
-void BattleSceneHades::spawnNearbyTrackingProjectiles(const AttackEffect& prototype,
+void BattleSceneHades::spawnNearbyTrackingProjectiles(const KysChess::Battle::BattleAttackEvent& prototype,
     Role* centerTarget,
     int rangePixels,
     int damagePct)
 {
-    assert(prototype.Attacker);
+    assert(prototype.sourceUnitId >= 0);
     assert(centerTarget);
     assert(rangePixels > 0);
 
+    auto* attacker = findRoleByBattleId(battle_roles_, prototype.sourceUnitId);
     auto targetIds = KysChess::Battle::BattleProjectileTargetingSystem().selectNearbyTargets(
         makeBattleProjectileTargetWorld(battle_roles_),
-        prototype.Attacker->ID,
+        attacker->ID,
         centerTarget->ID,
         rangePixels);
     if (targetIds.empty())
@@ -4566,50 +4586,56 @@ void BattleSceneHades::spawnNearbyTrackingProjectiles(const AttackEffect& protot
         return;
     }
 
-    if (prototype.UsingMagic)
+    auto* usingMagic = prototype.skillId >= 0 ? Save::getInstance()->getMagic(prototype.skillId) : nullptr;
+    if (usingMagic)
     {
-        logBattleStatus(prototype.Attacker, centerTarget,
-            std::format("范围追踪弹·{}（{}发）", prototype.UsingMagic->Name, targetIds.size()));
+        logBattleStatus(attacker, centerTarget,
+            std::format("範圍追蹤彈·{}（{}發）", usingMagic->Name, targetIds.size()));
     }
     else
     {
-        logBattleStatus(prototype.Attacker, centerTarget,
-            std::format("范围追踪弹（{}发）", targetIds.size()));
+        logBattleStatus(attacker, centerTarget,
+            std::format("範圍追蹤彈（{}發）", targetIds.size()));
     }
 
-    double projectileSpeed = PROJECTILE_SPEED * getProjectileSpeedMultiplierPct(prototype.Attacker) / 100.0;
+    double projectileSpeed = PROJECTILE_SPEED * getProjectileSpeedMultiplierPct(attacker) / 100.0;
     double damageScale = std::max(1, damagePct) / 100.0;
     for (int targetId : targetIds)
     {
         auto target = findRoleByBattleId(battle_roles_, targetId);
-        auto extra = prototype;
-        extra.Defender.clear();
-        extra.NoHurt = 0;
-        extra.Weaken = 0;
-        extra.IsMain = 0;
-        extra.Track = 1;
-        extra.Through = 0;
-        extra.OperationType = 2;
-        extra.RequirePreferredTarget = 1;
-        extra.PreferredTarget = target;
-        extra.SuppressNearbyTrackingProjectileProc = 1;
-        extra.Frame = 0;
-        extra.Acceleration = { 0, 0, 0 };
-        extra.Strengthen *= damageScale;
-        extra.Velocity = target->Pos - extra.Pos;
-        if (extra.Velocity.norm() <= 0.01)
+        KysChess::Battle::BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = attacker->ID;
+        request.initial.skillId = prototype.skillId;
+        request.initial.preferredTargetUnitId = target->ID;
+        request.initial.requirePreferredTarget = true;
+        request.initial.track = true;
+        request.initial.operationType = KysChess::Battle::BattleOperationType::RangedProjectile;
+        request.initial.visualEffectId = prototype.visualEffectId;
+        request.initial.ultimate = prototype.ultimate;
+        request.initial.ignoreProjectileCancel = prototype.skillId < 0;
+        request.initial.hiddenWeaponItemId = prototype.hiddenWeaponItemId;
+        request.initial.scriptedDamage = prototype.scriptedDamage;
+        request.initial.scriptedStunFrames = prototype.scriptedStunFrames;
+        request.initial.scriptedBleedStacks = prototype.scriptedBleedStacks;
+        request.initial.sharedHitGroupId = prototype.sharedHitGroupId;
+        request.initial.strengthMultiplier = prototype.strengthMultiplier * static_cast<float>(damageScale);
+        request.initial.suppressNearbyTrackingProjectileProc = true;
+        request.initial.mainProjectile = false;
+        request.initial.position = prototype.position;
+        request.initial.velocity = target->Pos - request.initial.position;
+        if (request.initial.velocity.norm() <= 0.01)
         {
-            extra.Velocity = prototype.Attacker->RealTowards;
+            request.initial.velocity = attacker->RealTowards;
         }
-        if (extra.Velocity.norm() <= 0.01)
+        if (request.initial.velocity.norm() <= 0.01)
         {
-            extra.Velocity = { 1, 0, 0 };
+            request.initial.velocity = { 1, 0, 0 };
         }
-        extra.Velocity.normTo(projectileSpeed);
-        extra.TotalFrame = std::max(20,
-            static_cast<int>(std::ceil(EuclidDis(target->Pos, extra.Pos) / std::max(1.0, projectileSpeed))) + 18);
-        primeProjectileBounce(extra);
-        attack_effects_.push_back(std::move(extra));
+        request.initial.velocity.normTo(projectileSpeed);
+        request.initial.totalFrame = std::max(20,
+            static_cast<int>(std::ceil(EuclidDis(target->Pos, request.initial.position) / std::max(1.0, projectileSpeed))) + 18);
+        attachProjectileBouncePrime(request);
+        queueCoreAttackSpawn(std::move(request));
     }
 }
 
@@ -4631,24 +4657,23 @@ void BattleSceneHades::spawnSpiralBleedProjectiles(Role* attacker, int bleedStac
 
     for (int i = 0; i < projectileCount; ++i)
     {
-        AttackEffect projectile;
-        projectile.Attacker = attacker;
-        projectile.Pos = attacker->Pos;
-        projectile.TotalFrame = totalFrames;
-        projectile.Frame = 0;
-        projectile.OperationType = 2;
-        projectile.ScriptedBleedStacks = bleedStacks;
-        projectile.SharedHitGroupId = sharedHitGroupId;
-        projectile.IgnoreProjectileCancel = 1;
-        projectile.Through = 1;
-        projectile.SpiralMotion = 1;
-        projectile.SpiralCenter = attacker->Pos;
-        projectile.SpiralRadius = 0.0f;
-        projectile.SpiralRadiusGrowth = radiusGrowth;
-        projectile.SpiralAngle = baseAngle + static_cast<float>(2.0 * M_PI * i / projectileCount);
-        projectile.SpiralAngularVelocity = angularVelocity;
-        projectile.setEft(48);
-        attack_effects_.push_back(std::move(projectile));
+        KysChess::Battle::BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = attacker->ID;
+        request.initial.operationType = KysChess::Battle::BattleOperationType::RangedProjectile;
+        request.initial.visualEffectId = 48;
+        request.initial.position = attacker->Pos;
+        request.initial.totalFrame = totalFrames;
+        request.initial.scriptedBleedStacks = bleedStacks;
+        request.initial.sharedHitGroupId = sharedHitGroupId;
+        request.initial.ignoreProjectileCancel = true;
+        request.initial.through = true;
+        request.spiralMotion = true;
+        request.spiralCenter = attacker->Pos;
+        request.spiralRadius = 0.0f;
+        request.spiralRadiusGrowth = radiusGrowth;
+        request.spiralAngle = baseAngle + static_cast<float>(2.0 * M_PI * i / projectileCount);
+        request.spiralAngularVelocity = angularVelocity;
+        queueCoreAttackSpawn(std::move(request));
     }
 }
 
@@ -4780,30 +4805,27 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         }
         direction.normTo(1);
 
-        AttackEffect blast;
-        blast.Attacker = source;
-        blast.PreferredTarget = target;
-        blast.ScriptedDamage = damage;
-        blast.ScriptedStunFrames = stunFrames;
-        blast.Track = 1;
-        blast.Through = 0;
-        blast.IsMain = 0;
-        blast.OperationType = 2;
-        blast.IgnoreProjectileCancel = true;
-        blast.setEft(eftId);
         auto spawnOffset = direction;
         spawnOffset.normTo(TILE_W * 1.5);
-        blast.Pos = origin->Pos + spawnOffset;
-        blast.Velocity = target->Pos - blast.Pos;
-        if (blast.Velocity.norm() <= 0.01)
+        KysChess::Battle::BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = source->ID;
+        request.initial.preferredTargetUnitId = target->ID;
+        request.initial.scriptedDamage = damage;
+        request.initial.scriptedStunFrames = stunFrames;
+        request.initial.track = true;
+        request.initial.operationType = KysChess::Battle::BattleOperationType::RangedProjectile;
+        request.initial.ignoreProjectileCancel = true;
+        request.initial.visualEffectId = eftId;
+        request.initial.position = origin->Pos + spawnOffset;
+        request.initial.velocity = target->Pos - request.initial.position;
+        if (request.initial.velocity.norm() <= 0.01)
         {
-            blast.Velocity = direction;
+            request.initial.velocity = direction;
         }
-        blast.Velocity.normTo(PROJECTILE_SPEED);
-        int travelFrames = static_cast<int>(std::ceil(EuclidDis(target->Pos, blast.Pos) / static_cast<double>(PROJECTILE_SPEED)));
-        blast.TotalFrame = std::max(15, travelFrames + 15);
-        blast.Frame = 0;
-        attack_effects_.push_back(std::move(blast));
+        request.initial.velocity.normTo(PROJECTILE_SPEED);
+        int travelFrames = static_cast<int>(std::ceil(EuclidDis(target->Pos, request.initial.position) / static_cast<double>(PROJECTILE_SPEED)));
+        request.initial.totalFrame = std::max(15, travelFrames + 15);
+        queueCoreAttackSpawn(std::move(request));
     };
 
     auto targetIds = KysChess::Battle::BattleProjectileTargetingSystem().selectAreaImpactTargets(
@@ -4819,54 +4841,54 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
     }
 }
 
-void BattleSceneHades::spawnTrackingProjectileSpread(const AttackEffect& prototype,
+void BattleSceneHades::spawnTrackingProjectileSpread(const KysChess::Battle::BattleAttackEvent& prototype,
     int projectileCount,
     int initialFrame,
     int frameStep,
     int randomFrameRange)
 {
-    if (projectileCount <= 0 || !prototype.Attacker)
-    {
-        return;
-    }
+    assert(projectileCount > 0);
+    assert(prototype.sourceUnitId >= 0);
 
-    auto launch = prototype;
-    double speed = launch.Velocity.norm();
+    auto* attacker = findRoleByBattleId(battle_roles_, prototype.sourceUnitId);
+    auto direction = prototype.velocity;
+    double speed = direction.norm();
     if (speed <= 0.01)
     {
-        speed = (launch.OperationType == 2) ? PROJECTILE_SPEED : 3.0;
+        speed = (prototype.operationType == KysChess::Battle::BattleOperationType::RangedProjectile) ? PROJECTILE_SPEED : 3.0;
     }
 
-    auto direction = launch.Velocity;
     if (direction.norm() <= 0.01)
     {
-        direction = launch.Attacker->RealTowards;
+        direction = attacker->RealTowards;
         if (direction.norm() <= 0.01)
         {
-            if (auto target = findNearestEnemy(launch.Attacker->Team, launch.Pos))
+            if (auto target = findNearestEnemy(attacker->Team, prototype.position))
             {
-                direction = target->Pos - launch.Pos;
+                direction = target->Pos - prototype.position;
             }
         }
     }
-    if (direction.norm() <= 0.01)
-    {
-        return;
-    }
+    assert(direction.norm() > 0.01);
 
     direction.normTo(1);
     double baseAngle = direction.getAngle();
-    double spreadRadians = ((launch.Track || launch.OperationType == 1 || launch.OperationType == 2) ? 12.0 : 20.0) / 180.0 * M_PI;
-    Role* primaryTarget = findNearestEnemy(launch.Attacker->Team, launch.Pos);
-    double maxTravel = speed * std::max(1, launch.TotalFrame - launch.Frame) + TILE_W * 2;
+    double spreadRadians = ((prototype.track
+                                || prototype.operationType == KysChess::Battle::BattleOperationType::TrackingProjectile
+                                || prototype.operationType == KysChess::Battle::BattleOperationType::RangedProjectile)
+                                ? 12.0
+                                : 20.0)
+        / 180.0 * M_PI;
+    Role* primaryTarget = findNearestEnemy(attacker->Team, prototype.position);
+    double maxTravel = speed * std::max(1, prototype.totalFrame - prototype.frame) + TILE_W * 2;
     std::vector<Role*> alternateTargets;
     for (auto enemy : battle_roles_)
     {
-        if (!enemy || enemy->Dead != 0 || enemy->Team == launch.Attacker->Team || enemy == primaryTarget)
+        if (!enemy || enemy->Dead != 0 || enemy->Team == attacker->Team || enemy == primaryTarget)
         {
             continue;
         }
-        if (EuclidDis(enemy->Pos, launch.Pos) > maxTravel)
+        if (EuclidDis(enemy->Pos, prototype.position) > maxTravel)
         {
             continue;
         }
@@ -4874,8 +4896,8 @@ void BattleSceneHades::spawnTrackingProjectileSpread(const AttackEffect& prototy
     }
     std::sort(alternateTargets.begin(), alternateTargets.end(), [&](Role* lhs, Role* rhs)
         {
-            auto lhsDir = lhs->Pos - launch.Pos;
-            auto rhsDir = rhs->Pos - launch.Pos;
+            auto lhsDir = lhs->Pos - prototype.position;
+            auto rhsDir = rhs->Pos - prototype.position;
             double lhsAngle = lhsDir.norm() > 0.01 ? lhsDir.getAngle() : baseAngle;
             double rhsAngle = rhsDir.norm() > 0.01 ? rhsDir.getAngle() : baseAngle;
             double lhsDelta = std::abs(std::atan2(std::sin(lhsAngle - baseAngle), std::cos(lhsAngle - baseAngle)));
@@ -4884,22 +4906,22 @@ void BattleSceneHades::spawnTrackingProjectileSpread(const AttackEffect& prototy
             {
                 return lhsDelta < rhsDelta;
             }
-            return EuclidDis(lhs->Pos, launch.Pos) < EuclidDis(rhs->Pos, launch.Pos);
+            return EuclidDis(lhs->Pos, prototype.position) < EuclidDis(rhs->Pos, prototype.position);
         });
 
     for (int i = 0; i < projectileCount; ++i)
     {
-        auto extra = launch;
         Role* assignedTarget = i < static_cast<int>(alternateTargets.size()) ? alternateTargets[i] : primaryTarget;
         double angle = baseAngle;
+        int preferredTargetId = -1;
         if (assignedTarget)
         {
-            auto targetDir = assignedTarget->Pos - launch.Pos;
+            auto targetDir = assignedTarget->Pos - prototype.position;
             if (targetDir.norm() > 0.01)
             {
                 angle = targetDir.getAngle();
             }
-            extra.PreferredTarget = assignedTarget;
+            preferredTargetId = assignedTarget->ID;
         }
         else if (projectileCount > 1)
         {
@@ -4907,25 +4929,47 @@ void BattleSceneHades::spawnTrackingProjectileSpread(const AttackEffect& prototy
             angle += offset;
         }
 
-        extra.Velocity = { static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)) };
-        extra.Velocity.normTo(speed);
+        Pointf velocity = { static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)) };
+        velocity.normTo(speed);
+        int requestFrame = initialFrame + i * frameStep;
         if (randomFrameRange > 0)
         {
-            extra.Frame = initialFrame + rand_.rand_int(randomFrameRange);
+            requestFrame = initialFrame + rand_.rand_int(randomFrameRange);
         }
-        else
+        bool requestTracks = prototype.track
+            || prototype.operationType == KysChess::Battle::BattleOperationType::Melee
+            || prototype.operationType == KysChess::Battle::BattleOperationType::Dash;
+        int totalFrame = prototype.totalFrame;
+        if (prototype.operationType == KysChess::Battle::BattleOperationType::Melee
+            || prototype.operationType == KysChess::Battle::BattleOperationType::Dash)
         {
-            extra.Frame = initialFrame + i * frameStep;
+            totalFrame = std::max(totalFrame, 60);
         }
-        if (extra.Track || extra.OperationType == 0 || extra.OperationType == 3)
-        {
-            extra.Track = 1;
-        }
-        if (extra.OperationType == 0 || extra.OperationType == 3)
-        {
-            extra.TotalFrame = std::max(extra.TotalFrame, 60);
-        }
-        attack_effects_.push_back(extra);
+
+        KysChess::Battle::BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = attacker->ID;
+        request.initial.skillId = prototype.skillId;
+        request.initial.preferredTargetUnitId = preferredTargetId;
+        request.initial.requirePreferredTarget = false;
+        request.initial.totalFrame = totalFrame;
+        request.initial.track = requestTracks;
+        request.initial.through = prototype.through;
+        request.initial.ultimate = prototype.ultimate;
+        request.initial.ignoreProjectileCancel = prototype.skillId < 0;
+        request.initial.sharedHitGroupId = prototype.sharedHitGroupId;
+        request.initial.visualEffectId = prototype.visualEffectId;
+        request.initial.operationType = prototype.operationType;
+        request.initial.hiddenWeaponItemId = prototype.hiddenWeaponItemId;
+        request.initial.scriptedDamage = prototype.scriptedDamage;
+        request.initial.scriptedStunFrames = prototype.scriptedStunFrames;
+        request.initial.scriptedBleedStacks = prototype.scriptedBleedStacks;
+        request.initial.strengthMultiplier = prototype.strengthMultiplier;
+        request.initial.suppressNearbyTrackingProjectileProc = prototype.suppressNearbyTrackingProjectileProc;
+        request.initial.mainProjectile = false;
+        request.initial.position = prototype.position;
+        request.initial.velocity = velocity;
+        request.initialFrame = requestFrame;
+        queueCoreAttackSpawn(std::move(request));
     }
 }
 
@@ -5346,7 +5390,7 @@ Role* BattleSceneHades::findWeakestVulnerableEnemy(int team)
     return target;
 }
 
-//前摇
+//前搖
 int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
 {
     int v[4] = { 25, 30, 20, 25 };
@@ -5357,8 +5401,8 @@ int BattleSceneHades::calCast(int act_type, int operation_type, Role* r)
     return 0;
 }
 
-//冷却减去前摇就是后摇
-//需注意攻击判定可能仍然存在，严格来说攻击判定存在的时间加上前摇应小于冷却
+//冷卻减去前搖就是後搖
+//需注意攻擊判定可能仍然存在，嚴格來說攻擊判定存在的時間加上前搖應小於冷卻
 int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
 {
     int i = r->getActProperty(act_type);
@@ -5387,12 +5431,19 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
     }
 }
 
-void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
+void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r)
 {
-    if (ae.NoHurt)
-    {
-        return;
-    }
+    assert(r);
+    auto* attacker = findRoleByBattleId(battle_roles_, event.sourceUnitId);
+    auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
+    auto* usingHiddenWeapon = event.hiddenWeaponItemId >= 0 ? Save::getInstance()->getItem(event.hiddenWeaponItemId) : nullptr;
+    assert(usingHiddenWeapon || usingMagic);
+    assert(event.totalFrame > 0);
+    const int operationType = usingHiddenWeapon
+        ? 4
+        : KysChess::Battle::toLegacyOperationType(event.operationType);
+    const bool rangedProjectile = usingHiddenWeapon != nullptr || operationType == 2;
+
     double hurt;
     bool critted = false;
     bool reflectToAttacker = false;
@@ -5412,21 +5463,20 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
         }
         damageDetail += text;
     };
-    bool rangedProjectile = ae.UsingHiddenWeapon != nullptr || ae.OperationType == 2;
     //先特别处理暗器
-    if (ae.UsingHiddenWeapon != nullptr)
+    if (usingHiddenWeapon != nullptr)
     {
-        hurt = calHiddenWeaponHurt(ae.Attacker, r, ae.UsingHiddenWeapon) / 5;
+        hurt = calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) / 5;
     }
     else
     {
-        hurt = calMagicHurt(ae.Attacker, r, ae.UsingMagic);
+        hurt = resolveLegacyMagicBaseDamage(attacker, r, usingMagic);
     }
-    hurt -= ae.Weaken;                             //弱化
-    hurt *= ae.Strengthen;                         //强化
-    hurt *= 1 - 0.3 * ae.Frame / ae.TotalFrame;    //距离衰减
+    hurt -= event.projectileCancelDamage;                             //弱化
+    hurt *= event.strengthMultiplier;                         //强化
+    hurt *= 1 - 0.3 * event.frame / event.totalFrame;    //距离衰减
     //角度
-    auto atk_dir = ae.Pos - r->Pos;
+    auto atk_dir = event.position - r->Pos;
     auto angle = acos((atk_dir.x * r->RealTowards.x + atk_dir.y * r->RealTowards.y) / atk_dir.norm() / r->RealTowards.norm());
     if (angle >= M_PI * 0.25 && angle < M_PI * 0.75)
     {
@@ -5436,22 +5486,22 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
     {
         hurt *= 1.5;
     }
-    //操作类型的伤害效果
+    //操作类型的傷害效果
     hurt *= KysChess::Battle::projectileOperationDamageMultiplier(
-        KysChess::Battle::battleOperationFromLegacy(ae.OperationType));
-    if (ae.OperationType == 3)
+        KysChess::Battle::battleOperationFromLegacy(operationType));
+    if (operationType == 3)
     {
         hurt /= 1.5;
         KysChess::Battle::BattleDamageRequest request;
         request.frozenFrames = 5;
-        applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+        applyAcceptedHitSideEffectTransaction(attacker, r, request);
     }
-    //击退
-    auto v = r->Pos - ae.Attacker->Pos;
-    double pushStr = (ae.OperationType == 2) ? 0.5 : 2.0;
+    //擊退
+    auto v = r->Pos - attacker->Pos;
+    double pushStr = (operationType == 2) ? 0.5 : 2.0;
     v.normTo(pushStr);
     r->Velocity += v;
-    double pushCap = (ae.OperationType == 2) ? 1.5 : 3.0;
+    double pushCap = (operationType == 2) ? 1.5 : 3.0;
     if (r->Velocity.norm() > pushCap)
     {
         r->Velocity.normTo(pushCap);
@@ -5459,27 +5509,27 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
     r->HurtFrame = 1;    //相当于无敌时间
 
     //武功类型特殊效果
-    if (ae.UsingMagic)
+    if (usingMagic)
     {
         // 简化
-        int actType = ae.UsingMagic->MagicType;
-        int actDiff = ae.Attacker->getActProperty(actType) - r->getActProperty(actType);
+        int actType = usingMagic->MagicType;
+        int actDiff = attacker->getActProperty(actType) - r->getActProperty(actType);
         hurt *= 1 + std::clamp((actDiff / 200.0), -0.25, 0.25);
     }
 
-    if (ae.UsingMagic && ae.Attacker && ae.Attacker->MaxMP > 0)
+    if (usingMagic && attacker->MaxMP > 0)
     {
         auto& cs = KysChess::ChessCombo::getMutableStates();
-        auto it = cs.find(ae.Attacker->ID);
+        auto it = cs.find(attacker->ID);
         if (it != cs.end() && it->second.mpRatioDmgBoostPct > 0)
         {
-            double mpRatio = static_cast<double>(ae.Attacker->MP) / ae.Attacker->MaxMP;
+            double mpRatio = static_cast<double>(attacker->MP) / attacker->MaxMP;
             double boostPct = mpRatio * it->second.mpRatioDmgBoostPct;
             if (boostPct > 0.0)
             {
                 hurt *= 1.0 + boostPct / 100.0;
-                logBattleStatus(ae.Attacker, r,
-                    std::format("内力加伤 +{:.1f}%（当前内力 {}%）",
+                logBattleStatus(attacker, r,
+                    std::format("內力加傷 +{:.1f}%（目前內力 {}%）",
                                 boostPct,
                                 static_cast<int>(std::round(mpRatio * 100.0))));
             }
@@ -5491,14 +5541,14 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
         auto& cs = KysChess::ChessCombo::getMutableStates();
 
         // Attacker effects
-        auto ait = cs.find(ae.Attacker->ID);
+        auto ait = cs.find(attacker->ID);
         if (ait != cs.end())
         {
             auto& as = ait->second;
 
             hurt = KysChess::Battle::BattleDamageSystem().applyModifiers({
                 hurt,
-                ae.UsingMagic != nullptr,
+                usingMagic != nullptr,
                 true,
                 makeBattleDamageModifier(&as),
                 {},
@@ -5506,29 +5556,12 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             }).damage;
 
             // Triggered effect damage modifiers
-            for (auto& te : as.triggeredEffects)
+            for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().activeFrameTriggerEffects(
+                     as,
+                     { attacker->HP, attacker->MaxHP, as.lastAliveFlag },
+                     { KysChess::EffectType::PctATK }))
             {
-                bool trigActive = false;
-                if (te.trigger == KysChess::Trigger::WhileLowHP)
-                {
-                    trigActive = ae.Attacker->HP * 100 / std::max(1, ae.Attacker->MaxHP) < te.triggerValue;
-                }
-                else if (te.trigger == KysChess::Trigger::LastAlive)
-                {
-                    trigActive = as.lastAliveFlag;
-                }
-                else if (te.trigger == KysChess::Trigger::AllyLowHPBurst)
-                {
-                    trigActive = as.triggerTimers.count(te.trigger) && as.triggerTimers.at(te.trigger) > 0;
-                }
-
-                if (trigActive)
-                {
-                    if (te.type == KysChess::EffectType::PctATK)
-                    {
-                        hurt *= (1.0 + te.value / 100.0);
-                    }
-                }
+                hurt *= (1.0 + event.effect.value / 100.0);
             }
 
             // Crit
@@ -5545,8 +5578,8 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             if (critted)
             {
                 hurt *= as.critMultiplier / 100.0;
-                // addFloatingText(ae.Attacker, "暴击", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
-                logBattleStatus(ae.Attacker, r, formatStatusPercent("暴击", as.critMultiplier));
+                // addFloatingText(attacker, "暴擊", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
+                logBattleStatus(attacker, r, formatStatusPercent("暴擊", as.critMultiplier));
             }
 
             // Every-Nth-hit double
@@ -5571,8 +5604,8 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 hurt *= (1.0 + as.rampingStacks[i] * ramp.pctPerStack / 100.0);
                 if (as.rampingStacks[i] > beforeStacks)
                 {
-                    logBattleStatus(ae.Attacker, r,
-                        formatStackingEffectStatus("连击增伤", ramp.pctPerStack, as.rampingStacks[i]));
+                    logBattleStatus(attacker, r,
+                        formatStackingEffectStatus("連擊增傷", ramp.pctPerStack, as.rampingStacks[i]));
                 }
             }
 
@@ -5582,13 +5615,13 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 request.mpOnHit = as.mpOnHit;
                 request.hpOnHit = as.hpOnHit;
                 request.mpDrain = as.mpDrain;
-                auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
                     if (event.type == KysChess::Battle::BattleDamageEventType::HpRestored)
                     {
-                        addRoleEffect(ae.Attacker, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                        logBattleHeal(ae.Attacker, ae.Attacker, event.value, "命中回血");
+                        addRoleEffect(attacker, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                        logBattleHeal(attacker, attacker, event.value, "命中回血");
                     }
                 }
             }
@@ -5598,14 +5631,14 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 KysChess::Battle::BattleDamageRequest request;
                 request.poisonPct = as.poisonDOTPct;
                 request.poisonDurationFrames = as.poisonDuration;
-                auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 auto applied = std::find_if(result.events.begin(), result.events.end(), [](const auto& event)
                     {
                         return event.statusType == KysChess::Battle::BattleDamageStatusType::Poison;
                     });
                 if (applied != result.events.end())
                 {
-                    logBattleStatus(ae.Attacker, r,
+                    logBattleStatus(attacker, r,
                         formatStatusPercentFrames("中毒", as.poisonDOTPct, as.poisonDuration));
                 }
             }
@@ -5615,39 +5648,38 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             {
                 KysChess::Battle::BattleDamageRequest request;
                 request.frozenFrames = as.stunFrames;
-                auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
                     if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
                     {
-                        logBattleStatus(ae.Attacker, r, formatStatusFrames("眩暈", event.value));
+                        logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
                     }
                 }
             }
 
             // OnHit triggered effects
-            for (auto& eff : as.triggeredEffects)
+            auto hitStatusEvents = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
+                as,
+                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
+                { KysChess::EffectType::Stun },
+                [&]() { return rand_.rand() * 100.0; },
+                KysChess::Battle::BattleComboActivationRecording::CallerRecords);
+            for (const auto& triggerEvent : hitStatusEvents)
             {
-                if (eff.trigger != KysChess::Trigger::OnHit)
+                const auto& eff = triggerEvent.effect;
+                assert(eff.type == KysChess::EffectType::Stun);
+                KysChess::Battle::BattleDamageRequest request;
+                request.frozenFrames = eff.value;
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
+                for (const auto& event : result.events)
                 {
-                    continue;
-                }
-
-                if (eff.type == KysChess::EffectType::ArmorPen)
-                {
-                    // Applied in calMagicHurt
-                }
-                else if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
-                {
-                    KysChess::Battle::BattleDamageRequest request;
-                    request.frozenFrames = eff.value;
-                    auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
-                    for (const auto& event : result.events)
+                    if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
                     {
-                        if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
-                        {
-                            logBattleStatus(ae.Attacker, r, formatStatusFrames("眩暈", event.value));
-                        }
+                        logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
+                        KysChess::Battle::BattleComboTriggerSystem().recordActivation(
+                            as,
+                            static_cast<size_t>(triggerEvent.effectIndex));
                     }
                 }
             }
@@ -5655,7 +5687,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             // Knockback (extra)
             if (as.knockbackChancePct > 0 && rand_.rand() * 100 < as.knockbackChancePct)
             {
-                auto kb = r->Pos - ae.Attacker->Pos;
+                auto kb = r->Pos - attacker->Pos;
                 kb.normTo(5);
                 r->Velocity += kb;
             }
@@ -5665,21 +5697,25 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             {
                 KysChess::Battle::BattleDamageRequest request;
                 request.cooldownExtendPct = as.charmCDRAmountPct;
-                auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 if (result.cooldownDelta > 0)
                 {
                     int before = result.defenderCooldown.cooldown - result.cooldownDelta;
-                    logBattleStatus(ae.Attacker, r,
+                    logBattleStatus(attacker, r,
                         formatCooldownIncreaseStatus(as.charmCDRAmountPct, before, result.defenderCooldown.cooldown));
                 }
             }
 
             int teamHealFlat = 0;
             int teamHealPct = 0;
-            collectTriggeredTeamHeal(as, KysChess::Trigger::OnHit, teamHealFlat, teamHealPct);
+            collectTriggeredTeamHeal(
+                as,
+                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
+                teamHealFlat,
+                teamHealPct);
             if (teamHealFlat > 0 || teamHealPct > 0)
             {
-                applyTeamHeal(ae.Attacker, teamHealFlat, teamHealPct, "命中群疗");
+                applyTeamHeal(attacker, teamHealFlat, teamHealPct, "命中群療");
             }
         }
 
@@ -5705,35 +5741,26 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 }).damage;
 
                 // Triggered defender effects (DmgReductionPct with triggers)
-                for (auto& te : ds.triggeredEffects)
+                for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().activeFrameTriggerEffects(
+                         ds,
+                         { r->HP, r->MaxHP, ds.lastAliveFlag },
+                         { KysChess::EffectType::DmgReductionPct }))
                 {
-                    bool trigActive = false;
-                    if (te.trigger == KysChess::Trigger::WhileLowHP)
-                    {
-                        trigActive = r->HP * 100 / std::max(1, r->MaxHP) < te.triggerValue;
-                    }
-                    else if (te.trigger == KysChess::Trigger::LastAlive)
-                    {
-                        trigActive = ds.lastAliveFlag;
-                    }
-                    if (trigActive && te.type == KysChess::EffectType::DmgReductionPct)
-                    {
-                        hurt *= (1.0 - te.value / 100.0);
-                    }
+                    hurt *= (1.0 - event.effect.value / 100.0);
                 }
 
                 // Adaptation: reduce damage from repeated attacker
                 for (size_t i = 0; i < ds.adaptations.size(); i++)
                 {
                     auto& adapt = ds.adaptations[i];
-                    int& stacks = ds.adaptationStacks[i][ae.Attacker->ID];
+                    int& stacks = ds.adaptationStacks[i][attacker->ID];
                     int beforeStacks = stacks;
                     stacks = std::min(stacks + 1, adapt.maxStacks);
                     hurt *= (1.0 - stacks * adapt.pctPerStack / 100.0);
                     if (stacks > beforeStacks)
                     {
-                        logBattleStatus(r, ae.Attacker,
-                            formatStackingEffectStatus("同敌减伤", adapt.pctPerStack, stacks));
+                        logBattleStatus(r, attacker,
+                            formatStackingEffectStatus("同敵減傷", adapt.pctPerStack, stacks));
                     }
                 }
 
@@ -5741,13 +5768,13 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 for (size_t i = 0; i < ds.dodgeAdaptations.size(); ++i)
                 {
                     auto& evade = ds.dodgeAdaptations[i];
-                    int& stacks = ds.dodgeAdaptationStacks[i][ae.Attacker->ID];
+                    int& stacks = ds.dodgeAdaptationStacks[i][attacker->ID];
                     int beforeStacks = stacks;
                     stacks = std::min(stacks + 1, evade.maxStacks);
                     if (stacks > beforeStacks)
                     {
-                        logBattleStatus(r, ae.Attacker,
-                            formatStackingEffectStatus("同敌闪避", evade.pctPerStack, stacks));
+                        logBattleStatus(r, attacker,
+                            formatStackingEffectStatus("同敵閃避", evade.pctPerStack, stacks));
                     }
                 }
             }
@@ -5771,8 +5798,8 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             hurt = lateDamage.damage;
             if (lateDamage.maxHitCapped)
             {
-                logBattleStatus(r, ae.Attacker,
-                    std::format("单次承伤封顶{}%最大生命", lateDamage.maxHitPct));
+                logBattleStatus(r, attacker,
+                    std::format("單次承傷封頂{}%最大生命", lateDamage.maxHitPct));
             }
 
             if (ds.charmCDRChancePct > 0
@@ -5780,34 +5807,37 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             {
                 KysChess::Battle::BattleDamageRequest request;
                 request.cooldownExtendPct = ds.charmCDRAmountPct;
-                auto result = applyAcceptedHitSideEffectTransaction(r, ae.Attacker, request);
+                auto result = applyAcceptedHitSideEffectTransaction(r, attacker, request);
                 if (result.cooldownDelta > 0)
                 {
                     int before = result.defenderCooldown.cooldown - result.cooldownDelta;
-                    logBattleStatus(r, ae.Attacker,
+                    logBattleStatus(r, attacker,
                         formatCooldownIncreaseStatus(ds.charmCDRAmountPct, before, result.defenderCooldown.cooldown));
                 }
             }
 
             // OnBeingHit triggered effects
-            for (auto& eff : ds.triggeredEffects)
+            auto beingHitStatusEvents = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
+                ds,
+                { KysChess::Battle::BattleComboTriggerHook::DamageTaken, r->ID, attacker->ID },
+                { KysChess::EffectType::Stun },
+                [&]() { return rand_.rand() * 100.0; },
+                KysChess::Battle::BattleComboActivationRecording::CallerRecords);
+            for (const auto& triggerEvent : beingHitStatusEvents)
             {
-                if (eff.trigger != KysChess::Trigger::OnBeingHit)
+                const auto& eff = triggerEvent.effect;
+                assert(eff.type == KysChess::EffectType::Stun);
+                KysChess::Battle::BattleDamageRequest request;
+                request.frozenFrames = eff.value;
+                auto result = applyAcceptedHitSideEffectTransaction(r, attacker, request);
+                for (const auto& event : result.events)
                 {
-                    continue;
-                }
-
-                if (eff.type == KysChess::EffectType::Stun && rand_.rand() * 100 < eff.triggerValue)
-                {
-                    KysChess::Battle::BattleDamageRequest request;
-                    request.frozenFrames = eff.value;
-                    auto result = applyAcceptedHitSideEffectTransaction(r, ae.Attacker, request);
-                    for (const auto& event : result.events)
+                    if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
                     {
-                        if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
-                        {
-                            logBattleStatus(r, ae.Attacker, formatStatusFrames("反制並眩暈對手", event.value));
-                        }
+                        logBattleStatus(r, attacker, formatStatusFrames("反制並眩暈對手", event.value));
+                        KysChess::Battle::BattleComboTriggerSystem().recordActivation(
+                            ds,
+                            static_cast<size_t>(triggerEvent.effectIndex));
                     }
                 }
             }
@@ -5817,19 +5847,18 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             {
                 reflectToAttacker = true;
                 addFloatingText(r, "彈反", { 180, 150, 255, 255 }, STATUS_TEXT_SIZE);
-                logBattleStatus(r, ae.Attacker, "彈反了遠程攻擊");
+                logBattleStatus(r, attacker, "彈反了遠程攻擊");
             }
 
             if (!reflectToAttacker && ait != cs.end())
             {
                 auto& as = ait->second;
-                for (auto& eff : as.triggeredEffects)
+                for (const auto& triggerEvent : KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
+                         as,
+                         { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
+                         { KysChess::EffectType::Execute }))
                 {
-                    if (eff.trigger != KysChess::Trigger::OnHit || eff.type != KysChess::EffectType::Execute)
-                    {
-                        continue;
-                    }
-
+                    const auto& eff = triggerEvent.effect;
                     int executeChance = eff.triggerValue;
                     int executeThreshold = eff.value;
                     if (executeChance <= 0 || executeThreshold <= 0 || hurt <= 0)
@@ -5841,13 +5870,16 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                             r->HP - pendingPreResolvedHpDamage(r),
                             r->MaxHP,
                             hurt,
-                            ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0,
+                            usingHiddenWeapon || usingMagic->HurtType == 0,
                             executeThreshold,
                         })
                         && rand_.rand() * 100 < executeChance)
                     {
                         executed = true;
-                        logBattleStatus(ae.Attacker, r, formatExecuteStatus(executeThreshold));
+                        KysChess::Battle::BattleComboTriggerSystem().recordActivation(
+                            as,
+                            static_cast<size_t>(triggerEvent.effectIndex));
+                        logBattleStatus(attacker, r, formatExecuteStatus(executeThreshold));
                         break;
                     }
                 }
@@ -5867,7 +5899,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             {
                 hurt = 0;
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
-                logBattleStatus(r, ae.Attacker, "格挡后释放绝招");
+                logBattleStatus(r, attacker, "格擋後釋放絕招");
                 triggerAutoUltimate(r, false);
             }
 
@@ -5875,7 +5907,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             {
                 hurt = 0;
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
-                logBattleStatus(r, ae.Attacker, "格挡了本次攻击");
+                logBattleStatus(r, attacker, "格擋了本次攻擊");
             }
 
             auto defense = KysChess::Battle::BattleDamageSystem().resolveDefense({
@@ -5890,7 +5922,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             if (defense.blockedByFirstHit)
             {
                 addRoleEffect(r, KysChess::EFT_BLOCK, ROLE_STATUS_EFT_FRAMES);
-                logBattleStatus(r, ae.Attacker, "格挡了首轮伤害");
+                logBattleStatus(r, attacker, "格擋了首轮傷害");
             }
             if (defense.shieldAbsorbed > 0)
             {
@@ -5901,13 +5933,12 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 triggerShieldBreakEffects(r, ds);
             }
 
-            if (!reflectToAttacker && ae.UsingMagic && ds.skillReflectPct > 0)
+            if (!reflectToAttacker && usingMagic && ds.skillReflectPct > 0)
             {
                 int reflectedDamage = static_cast<int>(hurt * ds.skillReflectPct / 100.0);
                 if (reflectedDamage > 0)
                 {
-                    queuePreResolvedHpDamage(r, ae.Attacker, reflectedDamage, false, false, false);
-                    logBattleDamage(r, ae.Attacker, reflectedDamage, "", "技能反彈");
+                    queuePreResolvedHpDamage(r, attacker, reflectedDamage, false, false, false, "", "技能反彈");
                 }
             }
         }
@@ -5921,17 +5952,17 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 KysChess::Battle::BattleDamageRequest request;
                 request.bleedStacks = 1;
                 request.bleedMaxStacks = as.bleedMaxStacks;
-                auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
                     if (event.statusType == KysChess::Battle::BattleDamageStatusType::Bleed)
                     {
-                        logBattleStatus(ae.Attacker, r, formatStatusRange("流血", event.value, std::max(1, as.bleedMaxStacks), "層"));
+                        logBattleStatus(attacker, r, formatStatusRange("流血", event.value, std::max(1, as.bleedMaxStacks), "層"));
                     }
                 }
             }
 
-            // Damage reduce debuff (伤害降低): mark target on hit to reduce outgoing damage
+            // Damage reduce debuff (傷害降低): mark target on hit to reduce outgoing damage
             if (hurt > 0 && as.dmgReduceDebuffChancePct > 0
                 && as.dmgReduceDebuffDurationFrames > 0
                 && rand_.rand() * 100 < as.dmgReduceDebuffChancePct)
@@ -5939,22 +5970,22 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 KysChess::Battle::BattleDamageRequest request;
                 request.damageReduceDebuffDurationFrames = as.dmgReduceDebuffDurationFrames;
                 request.damageReduceDebuffPct = as.dmgReduceDebuffPct;
-                auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                 for (const auto& event : result.events)
                 {
                     if (event.statusType == KysChess::Battle::BattleDamageStatusType::DamageReduceDebuff)
                     {
-                        logBattleStatus(ae.Attacker, r,
+                        logBattleStatus(attacker, r,
                             formatStatusPercentFrames("傷害降低", as.dmgReduceDebuffPct, as.dmgReduceDebuffDurationFrames));
                     }
                 }
             }
 
             KysChess::Battle::BattleComboTriggerSystem triggerSystem;
-            auto activatedEffects = ae.SuppressNearbyTrackingProjectileProc
-                ? triggerSystem.collectChanceEffects(
+            auto activatedEffects = event.suppressNearbyTrackingProjectileProc
+                ? triggerSystem.collectTriggerEvents(
                     as,
-                    KysChess::Trigger::OnHit,
+                    { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
                     {
                         KysChess::EffectType::MPBlock,
                         KysChess::EffectType::CurrentHPPctBlast,
@@ -5964,9 +5995,9 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                     },
                     [&]() { return rand_.rand() * 100.0; },
                     KysChess::Battle::BattleComboActivationRecording::CallerRecords)
-                : triggerSystem.collectChanceEffects(
+                : triggerSystem.collectTriggerEvents(
                     as,
-                    KysChess::Trigger::OnHit,
+                    { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
                     {
                         KysChess::EffectType::MPBlock,
                         KysChess::EffectType::CurrentHPPctBlast,
@@ -5990,12 +6021,12 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                     int frames = eff.value;
                     KysChess::Battle::BattleDamageRequest request;
                     request.mpBlockFrames = frames;
-                    auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+                    auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
                     for (const auto& event : result.events)
                     {
                         if (event.statusType == KysChess::Battle::BattleDamageStatusType::MpBlocked)
                         {
-                            logBattleStatus(ae.Attacker, r, formatStatusFrames("封內", frames));
+                            logBattleStatus(attacker, r, formatStatusFrames("封內", frames));
                         }
                     }
                     activated = true;
@@ -6004,34 +6035,33 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 {
                     for (auto enemy : battle_roles_)
                     {
-                        if (!enemy || enemy->Team == ae.Attacker->Team || enemy->Dead != 0)
+                        if (!enemy || enemy->Team == attacker->Team || enemy->Dead != 0)
                         {
                             continue;
                         }
                         int damage = std::max(1, enemy->HP * eff.value / 100);
-                        queuePreResolvedHpDamage(ae.Attacker, enemy, damage, false, false, false);
-                        logBattleDamage(ae.Attacker, enemy, damage, "", "當前生命傷害");
+                        queuePreResolvedHpDamage(attacker, enemy, damage, false, false, false, "", "當前生命傷害");
                     }
                     activated = true;
                 }
                 else if (eff.type == KysChess::EffectType::TeamMPRestore)
                 {
-                    applyTeamMP(ae.Attacker, eff.value, "琴棋书画");
+                    applyTeamMP(attacker, eff.value, "琴棋書畫");
                     activated = true;
                 }
                 else if (eff.type == KysChess::EffectType::FlatShield)
                 {
-                    applyTeamShield(ae.Attacker, eff.value, "全队护盾重整", true);
+                    applyTeamShield(attacker, eff.value, "全隊護盾重整", true);
                     activated = true;
                 }
                 else if (eff.type == KysChess::EffectType::SpiralBleedProjectile)
                 {
-                    spawnSpiralBleedProjectiles(ae.Attacker, eff.value, eff.value2 > 0 ? eff.value2 : 6);
+                    spawnSpiralBleedProjectiles(attacker, eff.value, eff.value2 > 0 ? eff.value2 : 6);
                     activated = true;
                 }
                 else if (eff.type == KysChess::EffectType::NearbyTrackingProjectiles)
                 {
-                    spawnNearbyTrackingProjectiles(ae, r, eff.value, eff.value2 > 0 ? eff.value2 : 40);
+                    spawnNearbyTrackingProjectiles(event, r, eff.value, eff.value2 > 0 ? eff.value2 : 40);
                     activated = true;
                 }
                 else
@@ -6045,18 +6075,18 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 }
             }
 
-            int extraProjectiles = getHitExtraProjectileCount(ae.Attacker);
+            int extraProjectiles = getHitExtraProjectileCount(attacker);
             if (extraProjectiles > 0)
             {
-                spawnHitExtraProjectiles(ae, extraProjectiles, r);
+                spawnHitExtraProjectiles(event, extraProjectiles, r);
             }
         }
 
         // Track last attacker for kill attribution
-        r->LastAttacker = ae.Attacker;
+        r->LastAttacker = attacker;
         if (reflectToAttacker)
         {
-            ae.Attacker->LastAttacker = r;
+            attacker->LastAttacker = r;
         }
     }
 
@@ -6070,21 +6100,14 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
     {
         hurt = 0;
     }
-    //无贯穿则后面不会再造成伤害，再播放一下
-    if (ae.Through == 0)
-    {
-        ae.NoHurt = 1;
-        ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
-    }
-
     //扣HP或MP
-    Role* actualSource = reflectToAttacker ? r : ae.Attacker;
-    Role* actualTarget = reflectToAttacker ? ae.Attacker : r;
-    if (critted && actualTarget && (!ae.UsingMagic || ae.UsingMagic->HurtType != 1))
+    Role* actualSource = reflectToAttacker ? r : attacker;
+    Role* actualTarget = reflectToAttacker ? attacker : r;
+    if (critted && actualTarget && (!usingMagic || usingMagic->HurtType != 1))
     {
         criticalHitRoles_.insert(actualTarget);
     }
-    if (ae.UsingHiddenWeapon)
+    if (usingHiddenWeapon)
     {
         appendDamageDetail("暗器");
     }
@@ -6104,18 +6127,19 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
     {
         appendDamageDetail("彈反");
     }
-    if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
+    if (hurt > 0 && (usingHiddenWeapon || usingMagic->HurtType == 0))
     {
+        std::string skillName = usingMagic ? std::string(usingMagic->Name) : "";
         queuePreResolvedHpDamage(actualSource,
                                  actualTarget,
                                  static_cast<int>(hurt),
                                  critted,
                                  ultHitRoles_.count(actualTarget) > 0,
-                                 !reflectToAttacker && executed);
-        std::string skillName = ae.UsingMagic ? std::string(ae.UsingMagic->Name) : "";
-        logBattleDamage(actualSource, actualTarget, (int)hurt, skillName, damageDetail);
+                                 !reflectToAttacker && executed,
+                                 skillName,
+                                 damageDetail);
     }
-    if (ae.UsingMagic && ae.UsingMagic->HurtType == 1)
+    if (usingMagic && usingMagic->HurtType == 1)
     {
         KysChess::Battle::BattleDamageRequest request;
         request.mpDamage = static_cast<int>(hurt);
@@ -6129,28 +6153,23 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
             }
         }
     }
-    //LOG("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
+    //LOG("{} attack {} with {} as {}, hurt {}\n", attacker->Name, r->Name, usingMagic->Name, operationType, int(hurt));
 }
 
-void BattleSceneHades::applyScriptedHitTransaction(AttackEffect& ae, Role* r)
+void BattleSceneHades::applyScriptedHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r)
 {
     assert(r);
 
-    if (ae.Through == 0)
-    {
-        ae.NoHurt = 1;
-        ae.Frame = std::max(ae.TotalFrame - 15, ae.Frame);
-    }
-
-    r->LastAttacker = ae.Attacker;
+    Role* attacker = findOptionalRoleByBattleId(battle_roles_, event.sourceUnitId);
+    r->LastAttacker = attacker;
     KysChess::Battle::BattleDamageRequest request;
-    request.frozenFrames = ae.ScriptedStunFrames;
-    request.bleedStacks = ae.ScriptedBleedStacks;
-    request.bleedMaxStacks = ae.ScriptedBleedStacks > 0
-        ? getSharedBleedMaxStacks(ae.Attacker)
+    request.frozenFrames = event.scriptedStunFrames;
+    request.bleedStacks = event.scriptedBleedStacks;
+    request.bleedMaxStacks = event.scriptedBleedStacks > 0
+        ? getSharedBleedMaxStacks(attacker)
         : 0;
 
-    auto result = applyAcceptedHitSideEffectTransaction(ae.Attacker, r, request);
+    auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
     for (const auto& event : result.events)
     {
         if (event.type != KysChess::Battle::BattleDamageEventType::StatusApplied)
@@ -6160,20 +6179,19 @@ void BattleSceneHades::applyScriptedHitTransaction(AttackEffect& ae, Role* r)
         switch (event.statusType)
         {
         case KysChess::Battle::BattleDamageStatusType::Frozen:
-            logBattleStatus(ae.Attacker, r, formatStatusFrames("眩暈", event.value));
+            logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
             break;
         case KysChess::Battle::BattleDamageStatusType::Bleed:
-            logBattleStatus(ae.Attacker, r, std::format("螺旋流血彈流血{}層", event.value));
+            logBattleStatus(attacker, r, std::format("螺旋流血彈流血{}層", event.value));
             break;
         default:
             break;
         }
     }
 
-    if (ae.ScriptedDamage > 0)
+    if (event.scriptedDamage > 0)
     {
-        queuePreResolvedHpDamage(ae.Attacker, r, ae.ScriptedDamage, false, false, false);
-        logBattleDamage(ae.Attacker, r, ae.ScriptedDamage, "", "特效傷害");
+        queuePreResolvedHpDamage(attacker, r, event.scriptedDamage, false, false, false, "", "特效傷害");
     }
 }
 
@@ -6224,7 +6242,11 @@ void BattleSceneHades::queuePreResolvedHpDamage(Role* source,
                                                 int damage,
                                                 bool critical,
                                                 bool ultimate,
-                                                bool executed)
+                                                bool executed,
+                                                const std::string& skillName,
+                                                const std::string& detailText,
+                                                Color damageColor,
+                                                int damageTextSize)
 {
     assert(target);
     assert(damage > 0);
@@ -6236,6 +6258,10 @@ void BattleSceneHades::queuePreResolvedHpDamage(Role* source,
         critical,
         ultimate,
         executed,
+        skillName,
+        detailText,
+        damageColor,
+        damageTextSize,
     });
 }
 
@@ -6275,7 +6301,11 @@ KysChess::Battle::BattleDamageTransactionResult BattleSceneHades::applyAcceptedH
     input.defenderStatus = makeBattleStatusUnit(target, targetState);
     input.defenderCooldown = makeBattleCooldownState(target);
 
-    auto result = KysChess::Battle::BattleDamageSystem().resolveTransaction(input);
+    auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
+    frameState.damage.pendingTransactions.push_back(std::move(input));
+    KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
+    assert(frameState.damage.committedTransactions.size() == 1);
+    auto result = std::move(frameState.damage.committedTransactions.front());
     if (source)
     {
         writeBattleDamageUnit(
@@ -6289,14 +6319,16 @@ KysChess::Battle::BattleDamageTransactionResult BattleSceneHades::applyAcceptedH
     return result;
 }
 
-int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
+int BattleSceneHades::resolveLegacyMagicBaseDamage(Role* attacker, Role* defender, Magic* magic)
 {
-    int power = r1->getMagicPower(magic);
-    double attack = r1->Attack + power / 3.0;
-    double defence = r2->Defence;
+    assert(attacker);
+    assert(defender);
+    assert(magic);
+
+    double defence = defender->Defence;
     // Armor penetration: reduce effective defence
     auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto it = cs.find(r1->ID);
+    auto it = cs.find(attacker->ID);
     if (it != cs.end())
     {
         auto& as = it->second;
@@ -6306,28 +6338,25 @@ int BattleSceneHades::calMagicHurt(Role* r1, Role* r2, Magic* magic, int dis)
             defence *= (1.0 - as.armorPenPct / 100.0);
         }
         // New unified armor pen
-        for (auto& eff : as.triggeredEffects)
+        for (const auto& triggerEvent : KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
+                 as,
+                 { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, defender->ID },
+                 { KysChess::EffectType::ArmorPen }))
         {
-            if (eff.trigger == KysChess::Trigger::OnHit && eff.type == KysChess::EffectType::ArmorPen)
+            const auto& eff = triggerEvent.effect;
+            if (rand_.rand() * 100 < eff.triggerValue)
             {
-                if (rand_.rand() * 100 < eff.triggerValue)
-                {
-                    defence *= (1.0 - eff.value / 100.0);
-                }
+                defence *= (1.0 - eff.value / 100.0);
             }
         }
     }
-    if (attack + defence <= 0)
-    {
-        return 1;
-    }
-    int v = static_cast<int>(attack * attack / (attack + defence) / 4.0);
-    v += rand_.rand_int(10) - rand_.rand_int(10);
-    if (v < 1)
-    {
-        v = 1;
-    }
-    return v;
+
+    return KysChess::Battle::BattleDamageSystem().resolveMagicBaseDamage({
+        attacker->Attack,
+        attacker->getMagicPower(magic),
+        defence,
+        rand_.rand_int(10) - rand_.rand_int(10),
+    });
 }
 
 KysChess::Battle::BattleMovementConfig BattleSceneHades::makeCoreMovementConfig() const
@@ -6406,6 +6435,122 @@ void BattleSceneHades::applyCoreMovementSnapshot(const KysChess::Battle::BattleT
     }
 }
 
+KysChess::Battle::BattleFrameState BattleSceneHades::makeCoreFrameState(
+    KysChess::Battle::BattleWorldState world)
+{
+    KysChess::Battle::BattleFrameState frameState;
+    frameState.world = std::move(world);
+    frameState.attacks = makeBattleAttackWorld(
+        battle_roles_,
+        active_attack_world_,
+        shared_hit_group_targets_);
+    return frameState;
+}
+
+void BattleSceneHades::populateCoreStatusState(KysChess::Battle::BattleFrameState& frameState)
+{
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    for (auto role : battle_roles_)
+    {
+        assert(role);
+        auto stateIt = comboStates.find(role->ID);
+        if (stateIt != comboStates.end() && role->Dead == 0)
+        {
+            frameState.status.units.push_back(makeBattleStatusUnit(role, stateIt->second));
+        }
+    }
+}
+
+void BattleSceneHades::applyCoreStatusState(const KysChess::Battle::BattleFrameState& frameState)
+{
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    for (const auto& unit : frameState.status.units)
+    {
+        auto role = findRoleByBattleId(battle_roles_, unit.id);
+        assert(role);
+        auto stateIt = comboStates.find(unit.id);
+        assert(stateIt != comboStates.end());
+        writeBattleStatusUnit(role, stateIt->second, unit);
+    }
+}
+
+void BattleSceneHades::handleCoreStatusEvents(const std::vector<KysChess::Battle::BattleStatusEvent>& events)
+{
+    for (const auto& event : events)
+    {
+        auto target = findRoleByBattleId(battle_roles_, event.unitId);
+        auto source = findOptionalRoleByBattleId(battle_roles_, event.sourceUnitId);
+        switch (event.type)
+        {
+        case KysChess::Battle::BattleStatusEventType::PoisonDamage:
+            queuePreResolvedHpDamage(source,
+                                     target,
+                                     event.value,
+                                     false,
+                                     false,
+                                     false,
+                                     "",
+                                     "中毒",
+                                     poisonDamageTextColor(),
+                                     NORMAL_DAMAGE_TEXT_SIZE);
+            break;
+        case KysChess::Battle::BattleStatusEventType::BleedDamage:
+            queuePreResolvedHpDamage(source,
+                                     target,
+                                     event.value,
+                                     false,
+                                     false,
+                                     false,
+                                     "",
+                                     "流血",
+                                     bleedDamageTextColor(),
+                                     NORMAL_DAMAGE_TEXT_SIZE);
+            break;
+        case KysChess::Battle::BattleStatusEventType::InvincibilityGranted:
+            logBattleStatus(target, target, formatStatusFrames("週期免傷", event.value));
+            break;
+        case KysChess::Battle::BattleStatusEventType::TempAttackExpired:
+            break;
+        }
+    }
+}
+
+KysChess::Battle::BattleWorldState BattleSceneHades::makeNoOpCoreWorld() const
+{
+    KysChess::Battle::BattleWorldState world;
+    world.frame = battle_frame_;
+    world.config = makeCoreMovementConfig();
+    world.canStandAt = [](Pointf) { return true; };
+    return world;
+}
+
+KysChess::Battle::BattleFrameState BattleSceneHades::makeCoreResultFrameState()
+{
+    auto world = makeNoOpCoreWorld();
+    for (auto role : battle_roles_)
+    {
+        assert(role);
+        auto movementIt = movement_runtime_.find(role);
+        world.units.push_back(makeCoreMovementUnit(role, movementIt != movement_runtime_.end() ? &movementIt->second : nullptr));
+    }
+
+    auto frameState = makeCoreFrameState(std::move(world));
+    frameState.result.pendingAliveByTeam[1] = static_cast<int>(enemies_.size());
+    return frameState;
+}
+
+int BattleSceneHades::resolveCoreBattleResult()
+{
+    if (result_ >= 0)
+    {
+        return result_;
+    }
+
+    auto frameState = makeCoreResultFrameState();
+    KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
+    return frameState.result.ended ? frameState.result.winningTeam : -1;
+}
+
 void BattleSceneHades::prepareCoreMovementDecisions()
 {
     if (core_movement_frame_ == battle_frame_)
@@ -6437,7 +6582,8 @@ void BattleSceneHades::prepareCoreMovementDecisions()
         rolesByBattleId[role->ID] = role;
     }
 
-    auto result = KysChess::Battle::BattleMovementPlanner(world).tick();
+    auto frameState = makeCoreFrameState(std::move(world));
+    auto result = KysChess::Battle::BattleFrameRunner().advanceFrame(frameState).movement;
     applyCoreMovementSnapshot(result, rolesByBattleId);
     for (const auto& [battleId, decision] : result.decisions)
     {

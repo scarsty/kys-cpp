@@ -29,6 +29,17 @@ void applyAttackPayload(BattleAttackEvent& event, const BattleAttackState& state
     event.scriptedStunFrames = state.scriptedStunFrames;
     event.scriptedBleedStacks = state.scriptedBleedStacks;
     event.executeCanHitInvincible = state.executeCanHitInvincible;
+    event.track = state.track;
+    event.through = state.through;
+    event.ultimate = state.ultimate;
+    event.strengthMultiplier = state.strengthMultiplier;
+    event.suppressNearbyTrackingProjectileProc = state.suppressNearbyTrackingProjectileProc;
+    event.mainProjectile = state.mainProjectile;
+    event.sharedHitGroupId = state.sharedHitGroupId;
+    event.projectileCancelDamage = state.projectileCancelWeaken;
+    event.position = state.position;
+    event.velocity = state.velocity;
+    event.totalFrame = state.totalFrame;
 }
 
 BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, const BattleAttackInstance& rhs)
@@ -46,6 +57,16 @@ BattleAttackEvent makeProjectileCancelEvent(const BattleAttackInstance& lhs, con
         rhs.state.projectileCancelDamage,
         rhs.state.operationType);
     return event;
+}
+
+BattleAttackInstance& findAttackById(BattleAttackWorld& world, int attackId)
+{
+    auto it = std::find_if(world.attacks.begin(), world.attacks.end(), [&](const BattleAttackInstance& attack)
+        {
+            return attack.id == attackId;
+        });
+    assert(it != world.attacks.end());
+    return *it;
 }
 }  // namespace
 
@@ -70,6 +91,44 @@ int scaleProjectileCancelDamage(int damage, BattleOperationType operationType)
     return std::max(1, static_cast<int>(std::ceil(damage * projectileOperationDamageMultiplier(operationType))));
 }
 
+void applyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime)
+{
+    assert(request.initial.attackerUnitId >= 0);
+    assert(request.initial.bounceRemaining == 0);
+    assert(prime.count > 0);
+    assert(prime.chancePct >= 0 && prime.chancePct <= 100);
+    assert(prime.rollPct >= 0 && prime.rollPct < 100);
+    assert(prime.range > 0);
+
+    request.initial.bounceRemaining = prime.count;
+    request.initial.bounceChancePct = prime.chancePct;
+    request.initial.bounceRollPct = prime.rollPct;
+    request.initial.bounceRange = prime.range;
+}
+
+bool tryApplyProjectileBouncePrime(BattleAttackSpawnRequest& request, BattleAttackBouncePrime prime)
+{
+    assert(request.initial.attackerUnitId >= 0);
+    assert(request.initial.bounceRemaining == 0);
+    assert(prime.count > 0);
+    assert(prime.chancePct >= 0 && prime.chancePct <= 100);
+    assert(prime.rollPct >= 0 && prime.rollPct < 100);
+    assert(prime.range > 0);
+
+    const auto& attack = request.initial;
+    const bool eligible = attack.scriptedDamage == 0
+        && (attack.track
+            || attack.operationType == BattleOperationType::RangedProjectile
+            || attack.hiddenWeaponItemId >= 0);
+    if (!eligible)
+    {
+        return false;
+    }
+
+    applyProjectileBouncePrime(request, prime);
+    return true;
+}
+
 BattleAttackEvent BattleAttackSystem::spawn(
     BattleAttackWorld& world,
     const BattleAttackSpawnRequest& request) const
@@ -86,6 +145,13 @@ BattleAttackEvent BattleAttackSystem::spawn(
     attack.id = allocateAttackId(world);
     attack.state = request.initial;
     attack.frame = request.initialFrame;
+    attack.acceleration = request.acceleration;
+    attack.spiralMotion = request.spiralMotion;
+    attack.spiralCenter = request.spiralCenter;
+    attack.spiralRadius = request.spiralRadius;
+    attack.spiralRadiusGrowth = request.spiralRadiusGrowth;
+    attack.spiralAngle = request.spiralAngle;
+    attack.spiralAngularVelocity = request.spiralAngularVelocity;
     world.attacks.push_back(attack);
 
     BattleAttackEvent event;
@@ -147,6 +213,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
             hit.attackId = attack.id;
             hit.unitId = target->id;
             applyAttackPayload(hit, attack.state);
+            hit.frame = attack.frame;
             events.push_back(hit);
 
             if (attack.state.bounceRemaining > 0)
@@ -196,6 +263,32 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
 
     collectProjectileCancelEvents(world, events);
     return events;
+}
+
+void BattleAttackSystem::applyProjectileCancelDamage(
+    BattleAttackWorld& world,
+    const BattleAttackEvent& event) const
+{
+    assert(event.type == BattleAttackEventType::ProjectileCancel);
+    assert(event.attackId >= 0);
+    assert(event.otherAttackId >= 0);
+    assert(event.projectileCancelDamage >= 0);
+    assert(event.otherProjectileCancelDamage >= 0);
+
+    auto& lhs = findAttackById(world, event.attackId);
+    auto& rhs = findAttackById(world, event.otherAttackId);
+    lhs.state.projectileCancelWeaken += event.otherProjectileCancelDamage;
+    rhs.state.projectileCancelWeaken += event.projectileCancelDamage;
+    if (lhs.state.projectileCancelWeaken > event.projectileCancelDamage)
+    {
+        lhs.noHurt = true;
+        lhs.frame = std::max(lhs.state.totalFrame - 5, lhs.frame);
+    }
+    if (rhs.state.projectileCancelWeaken > event.otherProjectileCancelDamage)
+    {
+        rhs.noHurt = true;
+        rhs.frame = std::max(rhs.state.totalFrame - 5, rhs.frame);
+    }
 }
 
 int BattleAttackSystem::allocateAttackId(BattleAttackWorld& world) const

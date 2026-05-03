@@ -53,22 +53,10 @@ Battle::BattleCastSkillState makeBattleCastSkillState(Role* unit, const BattleCa
 Battle::BattleCastInput makeBattleCastInput(const BattleCastAdapterInput& input);
 void applyBattleCastStart(Role* unit, const Battle::BattleCastResult& result, int actType);
 void applyBattleCastCommit(Role* unit, const Battle::BattleCastResult& result);
-std::vector<BattleSceneAct::AttackEffect> makeBattleCastAttackEffects(
-    Role* unit,
-    Magic* magic,
-    const Battle::BattleCastResult& result,
-    const std::vector<Role*>& roles);
 
 Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
-    const std::deque<BattleSceneAct::AttackEffect>& effects,
-    size_t effectCount,
+    const Battle::BattleAttackWorld& activeWorld,
     const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets);
-
-void writeBattleAttackWorld(
-    const Battle::BattleAttackWorld& world,
-    std::deque<BattleSceneAct::AttackEffect>& effects,
-    const std::vector<Role*>& roles,
-    std::unordered_map<int, std::set<int>>& sharedHitGroupTargets);
 
 }  // namespace KysChess::BattleSceneBattleAdapter

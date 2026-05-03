@@ -1,6 +1,7 @@
 #include "BattleMovement.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -330,6 +331,93 @@ void recordEvent(std::vector<BattleEvent>& events,
 BattleMovementPlanner::BattleMovementPlanner(BattleWorldState& world)
     : world_(world)
 {
+}
+
+BattleMovementPhysicsState BattleMovementPhysicsSystem::advance(const BattleMovementPhysicsInput& input) const
+{
+    assert(input.canMove);
+
+    auto state = input.state;
+    const bool movementDashActive = state.movementDashFrames > 0;
+    const bool movementDashEnding = state.movementDashFrames == 1;
+    const int separationDistance = input.actionDashActive || movementDashActive ? 1 : -1;
+    auto nextPosition = state.position + state.velocity;
+
+    if (input.canMove(nextPosition, separationDistance))
+    {
+        state.position = nextPosition;
+    }
+    else
+    {
+        bool canSlide = false;
+        auto xOnly = state.position;
+        xOnly.x = nextPosition.x;
+        if (input.canMove(xOnly, separationDistance))
+        {
+            state.position = xOnly;
+            state.velocity.y = 0;
+            canSlide = true;
+        }
+        else
+        {
+            auto yOnly = state.position;
+            yOnly.y = nextPosition.y;
+            if (input.canMove(yOnly, separationDistance))
+            {
+                state.position = yOnly;
+                state.velocity.x = 0;
+                canSlide = true;
+            }
+        }
+
+        if (!canSlide)
+        {
+            state.velocity = { 0, 0, 0 };
+            state.movementDashFrames = 0;
+        }
+    }
+
+    if (state.movementDashFrames > 0)
+    {
+        --state.movementDashFrames;
+    }
+    if (movementDashEnding)
+    {
+        state.movementDashSpreadFrames = input.config.postDashSpreadFrames;
+    }
+    else if (!movementDashActive && state.movementDashSpreadFrames > 0)
+    {
+        --state.movementDashSpreadFrames;
+    }
+    if (state.movementDashCooldown > 0)
+    {
+        --state.movementDashCooldown;
+    }
+    if (state.position.z < 0)
+    {
+        state.position.z = 0;
+    }
+    if (state.position.z == 0 && state.velocity.norm() != 0)
+    {
+        auto friction = -state.velocity;
+        friction.normTo(input.config.friction);
+        state.acceleration = { friction.x, friction.y, input.config.gravity };
+    }
+    else
+    {
+        state.acceleration = { 0, 0, input.config.gravity };
+    }
+    state.velocity += state.acceleration;
+    if (state.position.z == 0)
+    {
+        state.velocity.z = 0;
+    }
+    if (state.velocity.norm() < 0.1)
+    {
+        state.velocity.x = 0;
+        state.velocity.y = 0;
+    }
+    return state;
 }
 
 MoveProbe BattleMovementPlanner::probeMove(const BattleUnitState& unit,

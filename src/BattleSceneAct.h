@@ -5,6 +5,7 @@
 #include "Font.h"
 #include "TextureManager.h"
 #include "UIKeyConfig.h"
+#include "battle/BattleAttackSystem.h"
 
 //在即时战斗场景中，使用的是物理坐标，在画面上显示时y方向需要除以2
 //x和y方向的最大值都是地面的宽度，即TILE_W * 64 * 2
@@ -136,7 +137,7 @@ public:
 
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
     std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
-    std::unordered_map<std::string, std::function<void(AttackEffect&, Role* r)>> special_magic_effect_beat_;    //被打中
+    std::unordered_map<std::string, std::function<void(const KysChess::Battle::BattleAttackEvent&, Role* r)>> special_magic_effect_beat_;    //被打中
 
     void setID(int id);
 

@@ -1,6 +1,7 @@
 #include "battle/BattleComboTriggerSystem.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <random>
 
 using namespace KysChess;
 using namespace KysChess::Battle;
@@ -65,6 +66,75 @@ TEST_CASE("BattleComboTriggerSystem_FrameTriggers_BroadcastsAllyLowHpTimer", "[b
     auto blockedByTimer = system.updateFrameTriggers(state, { 20, 100, false });
     CHECK(blockedByTimer.empty());
     CHECK(state.effectActivationCounts[0] == 1);
+}
+
+TEST_CASE("BattleComboTriggerSystem_FrameRuntime_AdvancesTimersAndEmitsPeriodicEffects", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.autoUltimateAfterFrames = 3;
+    state.autoUltimateTimer = 1;
+    state.hpRegenPct = 12;
+    state.hpRegenInterval = 5;
+    state.healAuraFlat = 7;
+    state.healAuraPct = 9;
+    state.healAuraInterval = 5;
+    state.healedATKSPDBoostPct = 15;
+    state.triggerTimers[Trigger::AllyLowHPBurst] = 2;
+    state.rampings.push_back({ 10, 3 });
+    state.rampingStacks.push_back(2);
+    state.rampingIdleTimers.push_back(0);
+
+    auto events = BattleComboTriggerSystem().advanceFrameRuntime(
+        state,
+        { 10, 40, 100, true, false });
+
+    REQUIRE(events.size() == 3);
+    CHECK(events[0].type == BattleComboFrameRuntimeEventType::AutoUltimateReady);
+    CHECK(events[1].type == BattleComboFrameRuntimeEventType::SelfHpRegen);
+    CHECK(events[1].value == 12);
+    CHECK(events[2].type == BattleComboFrameRuntimeEventType::HealAura);
+    CHECK(events[2].value == 7);
+    CHECK(events[2].value2 == 9);
+    CHECK(events[2].durationFrames == 15);
+    CHECK(state.autoUltimateTimer == 3);
+    CHECK(state.triggerTimers[Trigger::AllyLowHPBurst] == 1);
+    CHECK(state.rampingStacks[0] == 0);
+}
+
+TEST_CASE("BattleComboTriggerSystem_FrameRuntime_EmitsFrameTriggers", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::HealBurst, Trigger::WhileLowHP, 25, 50, 0, 1));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 40, 45, 60, 1));
+
+    auto events = BattleComboTriggerSystem().advanceFrameRuntime(
+        state,
+        { 20, 40, 100, true, false });
+
+    REQUIRE(events.size() == 2);
+    CHECK(events[0].type == BattleComboFrameRuntimeEventType::HealPercentSelf);
+    CHECK(events[0].value == 25);
+    CHECK(events[1].type == BattleComboFrameRuntimeEventType::BroadcastTriggerTimer);
+    CHECK(events[1].trigger == Trigger::AllyLowHPBurst);
+    CHECK(events[1].durationFrames == 60);
+    CHECK(state.effectActivationCounts[0] == 1);
+    CHECK(state.effectActivationCounts[1] == 1);
+}
+
+TEST_CASE("BattleComboTriggerSystem_SkillFinishedRuntime_EmitsPostSkillInvincibility", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.postSkillInvincFrames = 8;
+
+    auto events = BattleComboTriggerSystem().collectSkillFinishedRuntimeEvents(state, true);
+
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].type == BattleComboFrameRuntimeEventType::PostSkillInvincibility);
+    CHECK(events[0].value == 8);
+
+    CHECK(BattleComboTriggerSystem().collectSkillFinishedRuntimeEvents(state, false).empty());
 }
 
 TEST_CASE("BattleComboTriggerSystem_TeamHeal_CollectsMatchingHookAndCountsActivations", "[battle][combo][unit]")
@@ -171,4 +241,218 @@ TEST_CASE("BattleComboTriggerSystem_ChanceEffects_CallerCanRecordAfterSceneActio
 
     system.recordActivation(state, static_cast<size_t>(candidates[0].effectIndex));
     CHECK(state.effectActivationCounts[0] == 1);
+}
+
+TEST_CASE("BattleComboTriggerSystem_Hooks_CoverBattleRuntimeEvents", "[battle][combo][unit]")
+{
+    std::vector<BattleComboTriggerHook> hooks = {
+        BattleComboTriggerHook::FrameTick,
+        BattleComboTriggerHook::BeforeCast,
+        BattleComboTriggerHook::AfterSkillCast,
+        BattleComboTriggerHook::AttackLaunched,
+        BattleComboTriggerHook::ProjectileHitEnemy,
+        BattleComboTriggerHook::ProjectileHitAllyOrSource,
+        BattleComboTriggerHook::DamageTaken,
+        BattleComboTriggerHook::DamageDealt,
+        BattleComboTriggerHook::ShieldBreak,
+        BattleComboTriggerHook::UnitDeath,
+        BattleComboTriggerHook::AllyDeath,
+        BattleComboTriggerHook::BattleStart,
+        BattleComboTriggerHook::BattleEnd,
+    };
+
+    CHECK(hooks.size() == 13);
+}
+
+TEST_CASE("BattleComboTriggerSystem_TriggerEvents_EmitInEffectOrder", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 12, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::MPBlock, Trigger::OnHit, 30, 50));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::DmgReductionPct, Trigger::OnBeingHit, 25, 100));
+
+    std::vector<double> rolls = { 0.0, 49.0 };
+    size_t nextRoll = 0;
+    auto events = BattleComboTriggerSystem().collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::ProjectileHitEnemy, 7, 9 },
+        { EffectType::Stun, EffectType::MPBlock },
+        [&]() { return rolls[nextRoll++]; });
+
+    REQUIRE(events.size() == 2);
+    CHECK(events[0].hook == BattleComboTriggerHook::ProjectileHitEnemy);
+    CHECK(events[0].sourceUnitId == 7);
+    CHECK(events[0].targetUnitId == 9);
+    CHECK(events[0].effectIndex == 0);
+    CHECK(events[0].effect.type == EffectType::Stun);
+    CHECK(events[1].effectIndex == 1);
+    CHECK(events[1].effect.type == EffectType::MPBlock);
+    CHECK(nextRoll == 2);
+}
+
+TEST_CASE("BattleComboTriggerSystem_TriggerEvents_SameSeedProducesSameEventStream", "[battle][combo][unit]")
+{
+    auto makeState = []() {
+        RoleComboState state;
+        state.triggeredEffects.push_back(
+            triggeredEffect(EffectType::Stun, Trigger::OnHit, 12, 100));
+        state.triggeredEffects.push_back(
+            triggeredEffect(EffectType::MPBlock, Trigger::OnHit, 30, 55));
+        state.triggeredEffects.push_back(
+            triggeredEffect(EffectType::Execute, Trigger::OnHit, 15, 20));
+        return state;
+    };
+    auto collectWithSeed = [&](unsigned int seed, RoleComboState& state) {
+        std::mt19937 rng(seed);
+        std::uniform_real_distribution<double> roll(0.0, 100.0);
+        return BattleComboTriggerSystem().collectTriggerEvents(
+            state,
+            { BattleComboTriggerHook::ProjectileHitEnemy, 4, 8 },
+            { EffectType::Stun, EffectType::MPBlock, EffectType::Execute },
+            [&]() { return roll(rng); });
+    };
+
+    auto firstState = makeState();
+    auto secondState = makeState();
+    auto first = collectWithSeed(12345, firstState);
+    auto second = collectWithSeed(12345, secondState);
+
+    REQUIRE(first.size() == second.size());
+    REQUIRE_FALSE(first.empty());
+    for (size_t i = 0; i < first.size(); ++i)
+    {
+        CHECK(first[i].hook == second[i].hook);
+        CHECK(first[i].sourceUnitId == second[i].sourceUnitId);
+        CHECK(first[i].targetUnitId == second[i].targetUnitId);
+        CHECK(first[i].effectIndex == second[i].effectIndex);
+        CHECK(first[i].effect.type == second[i].effect.type);
+        CHECK(first[i].effect.value == second[i].effect.value);
+    }
+    CHECK(firstState.effectActivationCounts == secondState.effectActivationCounts);
+}
+
+TEST_CASE("BattleComboTriggerSystem_TriggerEvents_MaxCountConsumesOnlyOnActivation", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 12, 50, 0, 1));
+
+    BattleComboTriggerSystem system;
+    auto missed = system.collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
+        { EffectType::Stun },
+        []() { return 60.0; });
+    CHECK(missed.empty());
+    CHECK(state.effectActivationCounts[0] == 0);
+
+    auto activated = system.collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
+        { EffectType::Stun },
+        []() { return 40.0; });
+    REQUIRE(activated.size() == 1);
+    CHECK(state.effectActivationCounts[0] == 1);
+
+    auto capped = system.collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
+        { EffectType::Stun },
+        []() { return 0.0; });
+    CHECK(capped.empty());
+    CHECK(state.effectActivationCounts[0] == 1);
+}
+
+TEST_CASE("BattleComboTriggerSystem_QueryMatchingTriggerEffects_DoesNotConsumeActivationCounts", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::ProjectileBounce, Trigger::OnHit, 2, 40, 0, 1));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Execute, Trigger::OnHit, 15, 25));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnBeingHit, 5, 100));
+
+    auto onHit = BattleComboTriggerSystem().matchingTriggerEffects(
+        state,
+        { BattleComboTriggerHook::ProjectileHitEnemy, 1, 2 },
+        { EffectType::ProjectileBounce, EffectType::Execute });
+
+    REQUIRE(onHit.size() == 2);
+    CHECK(onHit[0].effectIndex == 0);
+    CHECK(onHit[0].effect.type == EffectType::ProjectileBounce);
+    CHECK(onHit[1].effectIndex == 1);
+    CHECK(onHit[1].effect.type == EffectType::Execute);
+    CHECK(state.effectActivationCounts.empty());
+
+    auto beingHit = BattleComboTriggerSystem().matchingTriggerEffects(
+        state,
+        { BattleComboTriggerHook::DamageTaken, 2, 1 },
+        { EffectType::Stun });
+    REQUIRE(beingHit.size() == 1);
+    CHECK(beingHit[0].effectIndex == 2);
+    CHECK(beingHit[0].effect.type == EffectType::Stun);
+    CHECK(state.effectActivationCounts.empty());
+}
+
+TEST_CASE("BattleComboTriggerSystem_TriggerEvents_MapsShieldBreakHook", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::ShieldExplosion, Trigger::OnShieldBreak, 30, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 5, 100));
+
+    auto events = BattleComboTriggerSystem().collectTriggerEvents(
+        state,
+        { BattleComboTriggerHook::ShieldBreak, 2, 2 },
+        { EffectType::ShieldExplosion },
+        []() { return 0.0; },
+        BattleComboActivationRecording::CallerRecords);
+
+    REQUIRE(events.size() == 1);
+    CHECK(events[0].hook == BattleComboTriggerHook::ShieldBreak);
+    CHECK(events[0].sourceUnitId == 2);
+    CHECK(events[0].targetUnitId == 2);
+    CHECK(events[0].effect.type == EffectType::ShieldExplosion);
+    CHECK(state.effectActivationCounts.empty());
+}
+
+TEST_CASE("BattleComboTriggerSystem_FrameTriggerEffects_FilterActiveConditionsWithoutConsumingCounts", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.lastAliveFlag = true;
+    state.triggerTimers[Trigger::AllyLowHPBurst] = 3;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::WhileLowHP, 30, 50));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::DmgReductionPct, Trigger::LastAlive, 20));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::AllyLowHPBurst, 10));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 5, 100));
+
+    auto active = BattleComboTriggerSystem().activeFrameTriggerEffects(
+        state,
+        { 40, 100, state.lastAliveFlag },
+        { EffectType::PctATK, EffectType::DmgReductionPct });
+
+    REQUIRE(active.size() == 3);
+    CHECK(active[0].effectIndex == 0);
+    CHECK(active[0].effect.type == EffectType::PctATK);
+    CHECK(active[1].effectIndex == 1);
+    CHECK(active[1].effect.type == EffectType::DmgReductionPct);
+    CHECK(active[2].effectIndex == 2);
+    CHECK(active[2].effect.type == EffectType::PctATK);
+    CHECK(state.effectActivationCounts.empty());
+
+    auto inactive = BattleComboTriggerSystem().activeFrameTriggerEffects(
+        state,
+        { 80, 100, false },
+        { EffectType::PctATK, EffectType::DmgReductionPct });
+    REQUIRE(inactive.size() == 1);
+    CHECK(inactive[0].effectIndex == 2);
 }

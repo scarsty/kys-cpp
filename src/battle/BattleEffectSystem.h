@@ -40,6 +40,7 @@ enum class BattleEffectCommandType
     Heal,
     AddShield,
     AddInvincibility,
+    ModifyResource,
     ModifyCooldown,
     DedicatedEffect,
 };
@@ -139,6 +140,12 @@ public:
 };
 
 class AddInvincibilityExecutor final : public IBattleEffectExecutor
+{
+public:
+    void execute(BattleEffectContext& context) const override;
+};
+
+class RestoreMpExecutor final : public IBattleEffectExecutor
 {
 public:
     void execute(BattleEffectContext& context) const override;

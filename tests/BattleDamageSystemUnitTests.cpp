@@ -62,6 +62,24 @@ TEST_CASE("BattleDamageSystem_Modifiers_ApplyPerUnitAttackerAndDefenderRules", "
     CHECK_FALSE(result.maxHitCapped);
 }
 
+TEST_CASE("BattleDamageSystem_MagicBaseDamageUsesLegacyAttackDefenseCurve", "[battle][damage][unit]")
+{
+    BattleMagicBaseDamageInput input;
+    input.attackerAttack = 90;
+    input.magicPower = 60;
+    input.defenderDefense = 30;
+    input.randomVariance = -3;
+
+    CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 18);
+
+    input.defenderDefense = -200;
+    CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 1);
+
+    input.defenderDefense = 10000;
+    input.randomVariance = -100;
+    CHECK(BattleDamageSystem().resolveMagicBaseDamage(input) == 1);
+}
+
 TEST_CASE("BattleDamageSystem_Modifiers_RespectIgnoreDefenseAndMaxHitCap", "[battle][damage][unit]")
 {
     BattleDamageModifierInput input;

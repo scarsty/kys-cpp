@@ -65,6 +65,14 @@ struct BattleDamageModifierResult
     int maxHitPct = 0;
 };
 
+struct BattleMagicBaseDamageInput
+{
+    int attackerAttack = 0;
+    int magicPower = 0;
+    double defenderDefense = 0.0;
+    int randomVariance = 0;
+};
+
 struct BattleDamageDefenseInput
 {
     double damage = 0.0;
@@ -303,6 +311,7 @@ public:
     BattleStatusApplyResult applyPoisonIfStronger(const BattlePoisonApplyInput& input) const;
     BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
     BattleStatusApplyResult applyDamageReduceDebuff(BattleStatusUnitState target, int durationFrames, int pct) const;
+    int resolveMagicBaseDamage(const BattleMagicBaseDamageInput& input) const;
 };
 
 }  // namespace KysChess::Battle

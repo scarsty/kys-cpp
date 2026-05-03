@@ -158,6 +158,27 @@ void AddInvincibilityExecutor::execute(BattleEffectContext& context) const
     }
 }
 
+void RestoreMpExecutor::execute(BattleEffectContext& context) const
+{
+    for (auto* target : context.targets())
+    {
+        int before = target->mp;
+        target->mp = std::min(target->maxMp, target->mp + std::max(0, context.effect().value));
+        int restored = target->mp - before;
+        if (restored > 0)
+        {
+            context.emit({
+                BattleEffectCommandType::ModifyResource,
+                context.effect().id,
+                context.event().sourceUnitId,
+                target->id,
+                restored,
+                context.effect().type,
+            });
+        }
+    }
+}
+
 void ModifyCooldownPercentExecutor::execute(BattleEffectContext& context) const
 {
     for (auto* target : context.targets())
@@ -201,11 +222,15 @@ void DedicatedEffectExecutor::execute(BattleEffectContext& context) const
 
 BattleEffectRegistry::BattleEffectRegistry()
 {
-    registerExecutor("治疗百分比", std::make_unique<HealPercentExecutor>());
-    registerExecutor("添加护盾", std::make_unique<AddShieldExecutor>());
-    registerExecutor("添加无敌帧", std::make_unique<AddInvincibilityExecutor>());
-    registerExecutor("冷却百分比修正", std::make_unique<ModifyCooldownPercentExecutor>());
-    registerExecutor("专用执行器", std::make_unique<DedicatedEffectExecutor>());
+    registerExecutor("治療百分比", std::make_unique<HealPercentExecutor>());
+    registerExecutor("添加護盾", std::make_unique<AddShieldExecutor>());
+    registerExecutor("添加無敵幀", std::make_unique<AddInvincibilityExecutor>());
+    registerExecutor("受傷無敵", std::make_unique<AddInvincibilityExecutor>());
+    registerExecutor("死亡無敵", std::make_unique<AddInvincibilityExecutor>());
+    registerExecutor("技能後無敵", std::make_unique<AddInvincibilityExecutor>());
+    registerExecutor("回內力", std::make_unique<RestoreMpExecutor>());
+    registerExecutor("冷卻百分比修正", std::make_unique<ModifyCooldownPercentExecutor>());
+    registerExecutor("專用執行器", std::make_unique<DedicatedEffectExecutor>());
 }
 
 void BattleEffectRegistry::registerExecutor(std::string key, std::unique_ptr<IBattleEffectExecutor> executor)

@@ -81,7 +81,7 @@ TEST_CASE("BattleEffectDispatcher_TargetSelectors_OperateAtPerUnitLevel", "[batt
         dispatcher.addEffect(effect(static_cast<int>(i + 1),
             BattleHook::AttackHit,
             cases[i].target,
-            "添加护盾",
+            "添加護盾",
             25));
 
         auto commands = dispatcher.dispatch(world, { BattleHook::AttackHit, 1, 3 });
@@ -101,7 +101,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
     {
         auto world = effectWorld();
         BattleEffectDispatcher dispatcher(registry);
-        dispatcher.addEffect(effect(10, BattleHook::AfterHeal, BattleEffectTarget::Target, "治疗百分比", 80));
+        dispatcher.addEffect(effect(10, BattleHook::AfterHeal, BattleEffectTarget::Target, "治療百分比", 80));
 
         auto commands = dispatcher.dispatch(world, { BattleHook::AfterHeal, 1, 3 });
         REQUIRE(commands.size() == 1);
@@ -117,7 +117,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
         auto world = effectWorld();
         world.units[2].invincible = 12;
         BattleEffectDispatcher dispatcher(registry);
-        dispatcher.addEffect(effect(11, BattleHook::SkillFinished, BattleEffectTarget::Source, "添加无敌帧", 30));
+        dispatcher.addEffect(effect(11, BattleHook::SkillFinished, BattleEffectTarget::Source, "添加無敵幀", 30));
 
         auto commands = dispatcher.dispatch(world, { BattleHook::SkillFinished, 3, -1 });
         REQUIRE(commands.size() == 1);
@@ -131,7 +131,7 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
         world.units[0].cooldown = 100;
         world.units[1].cooldown = 0;
         BattleEffectDispatcher dispatcher(registry);
-        dispatcher.addEffect(effect(12, BattleHook::AfterHeal, BattleEffectTarget::SourceTeam, "冷却百分比修正", 25));
+        dispatcher.addEffect(effect(12, BattleHook::AfterHeal, BattleEffectTarget::SourceTeam, "冷卻百分比修正", 25));
 
         auto commands = dispatcher.dispatch(world, { BattleHook::AfterHeal, 1, 3 });
         REQUIRE(commands.size() == 1);
@@ -141,13 +141,57 @@ TEST_CASE("BattleEffectDispatcher_SharedExecutors_MutateOnlyResolvedTargets", "[
     }
 }
 
+TEST_CASE("BattleEffectDispatcher_SharedExecutors_CoverNamedBattleInvincibilityEffects", "[battle][effects][unit]")
+{
+    const std::vector<std::string> invincibilityExecutors = {
+        "受傷無敵",
+        "死亡無敵",
+        "技能後無敵",
+    };
+
+    for (size_t i = 0; i < invincibilityExecutors.size(); ++i)
+    {
+        auto world = effectWorld();
+        BattleEffectRegistry registry;
+        BattleEffectDispatcher dispatcher(registry);
+        dispatcher.addEffect(effect(static_cast<int>(30 + i),
+            BattleHook::SkillFinished,
+            BattleEffectTarget::Source,
+            invincibilityExecutors[i],
+            20));
+
+        auto commands = dispatcher.dispatch(world, { BattleHook::SkillFinished, 1, -1 });
+        REQUIRE(commands.size() == 1);
+        CHECK(commands[0].type == BattleEffectCommandType::AddInvincibility);
+        CHECK(commands[0].label == invincibilityExecutors[i]);
+        CHECK(unitById(world, 1).invincible == 20);
+    }
+}
+
+TEST_CASE("BattleEffectDispatcher_SharedExecutors_RestoreResourceAndEmitDelta", "[battle][effects][unit]")
+{
+    auto world = effectWorld();
+    world.units[0].mp = 85;
+    BattleEffectRegistry registry;
+    BattleEffectDispatcher dispatcher(registry);
+    dispatcher.addEffect(effect(40, BattleHook::AfterHeal, BattleEffectTarget::Source, "回內力", 30));
+
+    auto commands = dispatcher.dispatch(world, { BattleHook::AfterHeal, 1, 3 });
+    REQUIRE(commands.size() == 1);
+    CHECK(commands[0].type == BattleEffectCommandType::ModifyResource);
+    CHECK(commands[0].sourceUnitId == 1);
+    CHECK(commands[0].targetUnitId == 1);
+    CHECK(commands[0].value == 15);
+    CHECK(unitById(world, 1).mp == 100);
+}
+
 TEST_CASE("BattleEffectDispatcher_HookAndActivationLimit_AreDeterministic", "[battle][effects][unit]")
 {
     auto world = effectWorld();
     BattleEffectRegistry registry;
     BattleEffectDispatcher dispatcher(registry);
-    dispatcher.addEffect(effect(20, BattleHook::AttackHit, BattleEffectTarget::Target, "专用执行器", 7, 1));
-    dispatcher.addEffect(effect(21, BattleHook::Frame, BattleEffectTarget::Target, "专用执行器", 99));
+    dispatcher.addEffect(effect(20, BattleHook::AttackHit, BattleEffectTarget::Target, "專用執行器", 7, 1));
+    dispatcher.addEffect(effect(21, BattleHook::Frame, BattleEffectTarget::Target, "專用執行器", 99));
 
     auto first = dispatcher.dispatch(world, { BattleHook::AttackHit, 1, 3 });
     auto second = dispatcher.dispatch(world, { BattleHook::AttackHit, 1, 3 });
@@ -155,6 +199,9 @@ TEST_CASE("BattleEffectDispatcher_HookAndActivationLimit_AreDeterministic", "[ba
 
     REQUIRE(first.size() == 1);
     CHECK(first[0].type == BattleEffectCommandType::DedicatedEffect);
+    CHECK(first[0].effectId == 20);
+    CHECK(first[0].sourceUnitId == 1);
+    CHECK(first[0].targetUnitId == 3);
     CHECK(first[0].value == 7);
     CHECK(second.empty());
     CHECK(wrongHook.empty());
@@ -219,4 +266,3 @@ TEST_CASE("BattleStatusSystem_DeadUnitsDoNotTickOrEmit", "[battle][status][unit]
     CHECK(unit.attack == 100);
     CHECK(unit.bleedStacks == 5);
 }
-
