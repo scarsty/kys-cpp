@@ -2936,13 +2936,13 @@ void BattleSceneHades::backRun1()
                     switch (event.type)
                     {
                     case KysChess::Battle::BattleStatusEventType::PoisonDamage:
-                        r->HurtThisFrame += event.value;
+                        queuePreResolvedHpDamage(findBattleRoleById(event.sourceUnitId), r, event.value, false, false, false);
                         addDamageNumber(r, event.value, poisonDamageTextColor());
                         semanticDamageTextAmounts_[r] += event.value;
                         logBattleDamage(findBattleRoleById(event.sourceUnitId), r, event.value, "", "中毒");
                         break;
                     case KysChess::Battle::BattleStatusEventType::BleedDamage:
-                        r->HurtThisFrame += event.value;
+                        queuePreResolvedHpDamage(findBattleRoleById(event.sourceUnitId), r, event.value, false, false, false);
                         addDamageNumber(r, event.value, bleedDamageTextColor());
                         semanticDamageTextAmounts_[r] += event.value;
                         logBattleDamage(findBattleRoleById(event.sourceUnitId), r, event.value, "", "流血");
@@ -3779,12 +3779,37 @@ void BattleSceneHades::backRun1()
         addFloatingText(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
         return true;
     };
+    std::unordered_map<Role*, int> pendingDamageByTarget;
+    std::unordered_map<Role*, Role*> pendingSourceByTarget;
+    for (const auto& pending : pending_pre_resolved_hp_damage_)
+    {
+        assert(pending.target);
+        assert(pending.damage > 0);
+
+        pendingDamageByTarget[pending.target] += pending.damage;
+        pendingSourceByTarget[pending.target] = pending.source;
+        if (pending.critical)
+        {
+            criticalHitRoles_.insert(pending.target);
+        }
+        if (pending.ultimate)
+        {
+            ultHitRoles_.insert(pending.target);
+        }
+        if (pending.executed)
+        {
+            pendingDamageByTarget[pending.target] = std::max(pendingDamageByTarget[pending.target], pending.target->HP);
+            execution_popup_roles_.insert(pending.target->ID);
+        }
+    }
+    pending_pre_resolved_hp_damage_.clear();
+
     for (auto r : battle_roles_)
     {
-        int hurt = r->HurtThisFrame;
+        int hurt = pendingDamageByTarget[r];
         if (hurt > 0)
         {
-            r->HurtThisFrame = 0;
+            r->LastAttacker = pendingSourceByTarget[r];
 
             int hpBefore = r->HP;
             bool isUlt = ultHitRoles_.count(r) > 0;
@@ -5813,7 +5838,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                     }
 
                     if (KysChess::Battle::BattleDamageSystem().shouldExecute({
-                            r->HP - r->HurtThisFrame,
+                            r->HP - pendingPreResolvedHpDamage(r),
                             r->MaxHP,
                             hurt,
                             ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0,
@@ -5881,8 +5906,8 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                 int reflectedDamage = static_cast<int>(hurt * ds.skillReflectPct / 100.0);
                 if (reflectedDamage > 0)
                 {
-                    ae.Attacker->HurtThisFrame += reflectedDamage;
-                    logBattleDamage(r, ae.Attacker, reflectedDamage, "", "技能反弹");
+                    queuePreResolvedHpDamage(r, ae.Attacker, reflectedDamage, false, false, false);
+                    logBattleDamage(r, ae.Attacker, reflectedDamage, "", "技能反彈");
                 }
             }
         }
@@ -5984,8 +6009,8 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
                             continue;
                         }
                         int damage = std::max(1, enemy->HP * eff.value / 100);
-                        enemy->HurtThisFrame += damage;
-                        logBattleDamage(ae.Attacker, enemy, damage, "", "当前生命伤害");
+                        queuePreResolvedHpDamage(ae.Attacker, enemy, damage, false, false, false);
+                        logBattleDamage(ae.Attacker, enemy, damage, "", "當前生命傷害");
                     }
                     activated = true;
                 }
@@ -6081,12 +6106,12 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
     }
     if (ae.UsingHiddenWeapon || ae.UsingMagic->HurtType == 0)
     {
-        actualTarget->HurtThisFrame += hurt;
-        if (!reflectToAttacker && executed)
-        {
-            actualTarget->HurtThisFrame = std::max(actualTarget->HurtThisFrame, actualTarget->HP);
-            execution_popup_roles_.insert(actualTarget->ID);
-        }
+        queuePreResolvedHpDamage(actualSource,
+                                 actualTarget,
+                                 static_cast<int>(hurt),
+                                 critted,
+                                 ultHitRoles_.count(actualTarget) > 0,
+                                 !reflectToAttacker && executed);
         std::string skillName = ae.UsingMagic ? std::string(ae.UsingMagic->Name) : "";
         logBattleDamage(actualSource, actualTarget, (int)hurt, skillName, damageDetail);
     }
@@ -6147,7 +6172,7 @@ void BattleSceneHades::applyScriptedHitTransaction(AttackEffect& ae, Role* r)
 
     if (ae.ScriptedDamage > 0)
     {
-        r->HurtThisFrame += ae.ScriptedDamage;
+        queuePreResolvedHpDamage(ae.Attacker, r, ae.ScriptedDamage, false, false, false);
         logBattleDamage(ae.Attacker, r, ae.ScriptedDamage, "", "特效傷害");
     }
 }
@@ -6192,6 +6217,41 @@ int BattleSceneHades::calRolePic(Role* r, int style, int frame)
 
 void BattleSceneHades::makeSpecialMagicEffect()
 {
+}
+
+void BattleSceneHades::queuePreResolvedHpDamage(Role* source,
+                                                Role* target,
+                                                int damage,
+                                                bool critical,
+                                                bool ultimate,
+                                                bool executed)
+{
+    assert(target);
+    assert(damage > 0);
+
+    pending_pre_resolved_hp_damage_.push_back({
+        source,
+        target,
+        damage,
+        critical,
+        ultimate,
+        executed,
+    });
+}
+
+int BattleSceneHades::pendingPreResolvedHpDamage(Role* target) const
+{
+    assert(target);
+
+    int damage = 0;
+    for (const auto& pending : pending_pre_resolved_hp_damage_)
+    {
+        if (pending.target == target)
+        {
+            damage += pending.damage;
+        }
+    }
+    return damage;
 }
 
 KysChess::Battle::BattleDamageTransactionResult BattleSceneHades::applyAcceptedHitSideEffectTransaction(

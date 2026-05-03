@@ -14,6 +14,7 @@
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <vector>
 
 namespace KysChess
 {
@@ -61,6 +62,8 @@ protected:
 
     void applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r);
     void applyScriptedHitTransaction(AttackEffect& ae, Role* r);
+    void queuePreResolvedHpDamage(Role* source, Role* target, int damage, bool critical, bool ultimate, bool executed);
+    int pendingPreResolvedHpDamage(Role* target) const;
     KysChess::Battle::BattleDamageTransactionResult applyAcceptedHitSideEffectTransaction(
         Role* source,
         Role* target,
@@ -191,6 +194,16 @@ protected:
     KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
+
+    struct PendingPreResolvedHpDamage {
+        Role* source = nullptr;
+        Role* target = nullptr;
+        int damage = 0;
+        bool critical = false;
+        bool ultimate = false;
+        bool executed = false;
+    };
+    std::vector<PendingPreResolvedHpDamage> pending_pre_resolved_hp_damage_;
 
     struct MovementRuntime {
         int core_assigned_slot = 0;
