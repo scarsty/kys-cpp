@@ -5493,57 +5493,25 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 makeBattleDamageUnit(r, nullptr),
             }).damage;
 
-            // Triggered effect damage modifiers
-            for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().activeFrameTriggerEffects(
-                     as,
-                     { attacker->HP, attacker->MaxHP, as.lastAliveFlag },
-                     { KysChess::EffectType::PctATK }))
+            auto attackerDamage = KysChess::Battle::BattleComboTriggerSystem().shapeAttackerHitDamage(
+                as,
+                { hurt, attacker->HP, attacker->MaxHP, as.lastAliveFlag },
+                [&]() { return rand_.rand() * 100.0; });
+            hurt = attackerDamage.damage;
+            for (const auto& damageEvent : attackerDamage.events)
             {
-                hurt *= (1.0 + event.effect.value / 100.0);
-            }
-
-            // Crit
-            // bool critted = false;
-            if (as.dodgedLast && as.dodgeThenCrit)
-            {
-                critted = true;
-                as.dodgedLast = false;
-            }
-            if (!critted && as.critChancePct > 0 && rand_.rand() * 100 < as.critChancePct)
-            {
-                critted = true;
-            }
-            if (critted)
-            {
-                hurt *= as.critMultiplier / 100.0;
-                // addFloatingText(attacker, "暴擊", {255, 100, 0, 255}, STATUS_TEXT_SIZE);
-                logBattleStatus(attacker, r, formatStatusPercent("暴擊", as.critMultiplier));
-            }
-
-            // Every-Nth-hit double
-            for (int n : as.everyNthDoubles)
-            {
-                auto& counter = as.everyNthCounters[n];
-                counter++;
-                if (counter >= n)
+                switch (damageEvent.type)
                 {
-                    hurt *= 2.0;
-                    counter = 0;
-                }
-            }
-
-            // Ramping damage: each hit stacks bonus damage
-            for (size_t i = 0; i < as.rampings.size(); i++)
-            {
-                auto& ramp = as.rampings[i];
-                int beforeStacks = as.rampingStacks[i];
-                as.rampingStacks[i] = std::min(as.rampingStacks[i] + 1, ramp.maxStacks);
-                as.rampingIdleTimers[i] = 90;
-                hurt *= (1.0 + as.rampingStacks[i] * ramp.pctPerStack / 100.0);
-                if (as.rampingStacks[i] > beforeStacks)
-                {
+                case KysChess::Battle::BattleAttackerHitDamageEventType::Crit:
+                    critted = true;
+                    logBattleStatus(attacker, r, formatStatusPercent("暴擊", damageEvent.value));
+                    break;
+                case KysChess::Battle::BattleAttackerHitDamageEventType::RampingStack:
                     logBattleStatus(attacker, r,
-                        formatStackingEffectStatus("連擊增傷", ramp.pctPerStack, as.rampingStacks[i]));
+                        formatStackingEffectStatus("連擊增傷", damageEvent.value, damageEvent.value2));
+                    break;
+                default:
+                    assert(false);
                 }
             }
 

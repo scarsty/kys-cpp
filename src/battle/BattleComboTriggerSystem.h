@@ -103,6 +103,33 @@ struct BattleDodgeResolution
     bool dodged = false;
 };
 
+struct BattleAttackerHitDamageInput
+{
+    double damage = 0.0;
+    int hp = 0;
+    int maxHp = 0;
+    bool lastAlive = false;
+};
+
+enum class BattleAttackerHitDamageEventType
+{
+    Crit,
+    RampingStack,
+};
+
+struct BattleAttackerHitDamageEvent
+{
+    BattleAttackerHitDamageEventType type = BattleAttackerHitDamageEventType::Crit;
+    int value = 0;
+    int value2 = 0;
+};
+
+struct BattleAttackerHitDamageResult
+{
+    double damage = 0.0;
+    std::vector<BattleAttackerHitDamageEvent> events;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -217,6 +244,11 @@ public:
     BattleDodgeResolution resolveDodge(const RoleComboState& state,
                                        int attackerUnitId,
                                        double rollPercent) const;
+
+    BattleAttackerHitDamageResult shapeAttackerHitDamage(
+        RoleComboState& state,
+        const BattleAttackerHitDamageInput& input,
+        const std::function<double()>& rollPercent) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 

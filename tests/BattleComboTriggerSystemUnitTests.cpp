@@ -1,5 +1,6 @@
 #include "battle/BattleComboTriggerSystem.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <random>
 
@@ -607,4 +608,34 @@ TEST_CASE("BattleComboTriggerSystem_DodgeResolutionClampsChance", "[battle][comb
 
     CHECK(result.chancePct == 100);
     CHECK(result.dodged);
+}
+
+TEST_CASE("BattleComboTriggerSystem_AttackerHitDamage_AppliesCritNthAndRampingState", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.critChancePct = 50;
+    state.critMultiplier = 200;
+    state.everyNthDoubles.push_back(2);
+    state.everyNthCounters[2] = 1;
+    state.rampings.push_back({ 25, 3 });
+    state.rampingStacks.push_back(1);
+    state.rampingIdleTimers.push_back(0);
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::PctATK, Trigger::Always, 50));
+
+    auto result = BattleComboTriggerSystem().shapeAttackerHitDamage(
+        state,
+        { 100.0, 80, 100, false },
+        []() { return 10.0; });
+
+    CHECK(result.damage == Catch::Approx(900.0));
+    REQUIRE(result.events.size() == 2);
+    CHECK(result.events[0].type == BattleAttackerHitDamageEventType::Crit);
+    CHECK(result.events[0].value == 200);
+    CHECK(result.events[1].type == BattleAttackerHitDamageEventType::RampingStack);
+    CHECK(result.events[1].value == 25);
+    CHECK(result.events[1].value2 == 2);
+    CHECK(state.everyNthCounters[2] == 0);
+    CHECK(state.rampingStacks[0] == 2);
+    CHECK(state.rampingIdleTimers[0] == 90);
 }

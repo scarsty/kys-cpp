@@ -631,4 +631,75 @@ BattleDodgeResolution BattleComboTriggerSystem::resolveDodge(
     return result;
 }
 
+BattleAttackerHitDamageResult BattleComboTriggerSystem::shapeAttackerHitDamage(
+    RoleComboState& state,
+    const BattleAttackerHitDamageInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    assert(input.maxHp > 0);
+    assert(static_cast<bool>(rollPercent));
+    assert(state.rampingStacks.size() == state.rampingIdleTimers.size());
+    assert(state.rampings.empty() || state.rampings.size() == state.rampingStacks.size());
+
+    BattleAttackerHitDamageResult result;
+    result.damage = input.damage;
+
+    for (const auto& event : activeFrameTriggerEffects(
+             state,
+             { input.hp, input.maxHp, input.lastAlive },
+             { EffectType::PctATK }))
+    {
+        result.damage *= (1.0 + event.effect.value / 100.0);
+    }
+
+    bool critted = false;
+    if (state.dodgedLast && state.dodgeThenCrit)
+    {
+        critted = true;
+        state.dodgedLast = false;
+    }
+    if (!critted && state.critChancePct > 0 && rollPercent() < state.critChancePct)
+    {
+        critted = true;
+    }
+    if (critted)
+    {
+        result.damage *= state.critMultiplier / 100.0;
+        result.events.push_back({
+            BattleAttackerHitDamageEventType::Crit,
+            state.critMultiplier,
+        });
+    }
+
+    for (int n : state.everyNthDoubles)
+    {
+        auto& counter = state.everyNthCounters[n];
+        counter++;
+        if (counter >= n)
+        {
+            result.damage *= 2.0;
+            counter = 0;
+        }
+    }
+
+    for (size_t i = 0; i < state.rampings.size(); ++i)
+    {
+        const auto& ramp = state.rampings[i];
+        int beforeStacks = state.rampingStacks[i];
+        state.rampingStacks[i] = std::min(state.rampingStacks[i] + 1, ramp.maxStacks);
+        state.rampingIdleTimers[i] = 90;
+        result.damage *= (1.0 + state.rampingStacks[i] * ramp.pctPerStack / 100.0);
+        if (state.rampingStacks[i] > beforeStacks)
+        {
+            result.events.push_back({
+                BattleAttackerHitDamageEventType::RampingStack,
+                ramp.pctPerStack,
+                state.rampingStacks[i],
+            });
+        }
+    }
+
+    return result;
+}
+
 }  // namespace KysChess::Battle
