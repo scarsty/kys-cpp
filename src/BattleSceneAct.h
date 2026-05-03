@@ -68,6 +68,11 @@ public:
             Path = p;
             TotalEffectFrame = TextureManager::getInstance()->getTextureGroupCount(Path);
         }
+
+        int renderTeam() const
+        {
+            return VisualTeam >= 0 ? VisualTeam : (Attacker ? Attacker->Team : -1);
+        }
     };
 
     struct TextEffect

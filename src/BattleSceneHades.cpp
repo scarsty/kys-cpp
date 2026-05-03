@@ -1868,7 +1868,7 @@ void BattleSceneHades::draw()
             info.color = { 255, 255, 255, 255 };
             info.alpha = ae.FollowRole ? 255 : 192;
             info.shadow = ae.FollowRole ? 0 : 1;
-            if (!ae.FollowRole && ae.VisualTeam == 0)
+            if (!ae.FollowRole && ae.renderTeam() == 0)
             {
                 info.shadow = 2;
             }

@@ -1,4 +1,5 @@
 #include "battle/BattlePresentationPlayback.h"
+#include "BattleSceneAct.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -149,4 +150,19 @@ TEST_CASE("BattlePresentationPlaybackPlanner_TargetLostCancelHasNoRelatedProject
     CHECK(plan.commands[0].projectileVelocity.x == 1);
     CHECK(plan.commands[0].projectileDurationFrames == 20);
     CHECK(plan.commands[0].projectileOperationKind == 2);
+}
+
+TEST_CASE("BattleSceneAct_AttackEffectRenderTeamFallsBackToLegacyAttacker", "[battle][presentation][unit]")
+{
+    Role attacker;
+    attacker.Team = 0;
+
+    BattleSceneAct::AttackEffect effect;
+    effect.Attacker = &attacker;
+
+    CHECK(effect.renderTeam() == 0);
+
+    effect.VisualTeam = 1;
+
+    CHECK(effect.renderTeam() == 1);
 }
