@@ -938,28 +938,19 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
 
     int shieldExplosionPct = 0;
     KysChess::Battle::BattleComboTriggerSystem triggerSystem;
-    for (const auto& activatedEffect : triggerSystem.collectTriggerEvents(
+    for (const auto& command : triggerSystem.collectShieldBreakCommands(
              state,
              { KysChess::Battle::BattleComboTriggerHook::ShieldBreak, role->ID, role->ID },
-             {
-                 KysChess::EffectType::ShieldExplosion,
-                 KysChess::EffectType::AutoUltimate,
-                 KysChess::EffectType::TempFlatATK,
-                 KysChess::EffectType::MPRestore,
-             },
-             [&]() { return rand_.rand() * 100.0; },
-             KysChess::Battle::BattleComboActivationRecording::CallerRecords))
+             [&]() { return rand_.rand() * 100.0; }))
     {
-        const auto& effect = activatedEffect.effect;
         bool activated = false;
-        switch (effect.type)
+        switch (command.type)
         {
-        case KysChess::EffectType::ShieldExplosion:
-            assert(effect.value > 0);
-            shieldExplosionPct = std::max(shieldExplosionPct, effect.value);
+        case KysChess::Battle::BattleShieldBreakCommandType::ShieldExplosion:
+            shieldExplosionPct = std::max(shieldExplosionPct, command.value);
             activated = true;
             break;
-        case KysChess::EffectType::AutoUltimate:
+        case KysChess::Battle::BattleShieldBreakCommandType::AutoUltimate:
         {
             if (auto* magic = this->triggerAutoUltimate(role, false))
             {
@@ -969,17 +960,14 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
             }
             break;
         }
-        case KysChess::EffectType::TempFlatATK:
-            assert(effect.duration > 0);
-            assert(effect.value != 0);
-            applyTempAttackBuff(role, state, effect.value, effect.duration,
-                std::format("護盾爆炸（臨時攻+{}，{}幀）", effect.value, effect.duration));
+        case KysChess::Battle::BattleShieldBreakCommandType::TempFlatAttack:
+            applyTempAttackBuff(role, state, command.value, command.durationFrames,
+                std::format("護盾爆炸（臨時攻+{}，{}幀）", command.value, command.durationFrames));
             activated = true;
             break;
-        case KysChess::EffectType::MPRestore:
-            assert(effect.value > 0);
+        case KysChess::Battle::BattleShieldBreakCommandType::MpRestore:
             {
-                int restored = std::min(effect.value, std::max(0, role->MaxMP - role->MP));
+                int restored = std::min(command.value, std::max(0, role->MaxMP - role->MP));
                 if (restored > 0)
                 {
                     role->MP += restored;
@@ -994,7 +982,7 @@ void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleCombo
 
         if (activated)
         {
-            triggerSystem.recordActivation(state, static_cast<size_t>(activatedEffect.effectIndex));
+            triggerSystem.recordActivation(state, static_cast<size_t>(command.effectIndex));
         }
     }
 

@@ -505,6 +505,41 @@ TEST_CASE("BattleComboTriggerSystem_TriggerEvents_MapsShieldBreakHook", "[battle
     CHECK(state.effectActivationCounts.empty());
 }
 
+TEST_CASE("BattleComboTriggerSystem_ShieldBreakCommands_MapEffectsWithoutRecording", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::ShieldExplosion, Trigger::OnShieldBreak, 30, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::AutoUltimate, Trigger::OnShieldBreak, 1, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::TempFlatATK, Trigger::OnShieldBreak, 14, 100, 45));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::MPRestore, Trigger::OnShieldBreak, 25, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 5, 100));
+
+    auto commands = BattleComboTriggerSystem().collectShieldBreakCommands(
+        state,
+        { BattleComboTriggerHook::ShieldBreak, 2, 2 },
+        []() { return 0.0; });
+
+    REQUIRE(commands.size() == 4);
+    CHECK(commands[0].type == BattleShieldBreakCommandType::ShieldExplosion);
+    CHECK(commands[0].value == 30);
+    CHECK(commands[0].effectIndex == 0);
+    CHECK(commands[1].type == BattleShieldBreakCommandType::AutoUltimate);
+    CHECK(commands[1].effectIndex == 1);
+    CHECK(commands[2].type == BattleShieldBreakCommandType::TempFlatAttack);
+    CHECK(commands[2].value == 14);
+    CHECK(commands[2].durationFrames == 45);
+    CHECK(commands[2].effectIndex == 2);
+    CHECK(commands[3].type == BattleShieldBreakCommandType::MpRestore);
+    CHECK(commands[3].value == 25);
+    CHECK(commands[3].effectIndex == 3);
+    CHECK(state.effectActivationCounts.empty());
+}
+
 TEST_CASE("BattleComboTriggerSystem_FrameTriggerEffects_FilterActiveConditionsWithoutConsumingCounts", "[battle][combo][unit]")
 {
     RoleComboState state;

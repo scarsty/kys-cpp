@@ -414,6 +414,56 @@ std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitCombo
     return commands;
 }
 
+std::vector<BattleShieldBreakCommand> BattleComboTriggerSystem::collectShieldBreakCommands(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    const std::function<double()>& rollPercent) const
+{
+    auto events = collectTriggerEvents(
+        state,
+        input,
+        {
+            EffectType::ShieldExplosion,
+            EffectType::AutoUltimate,
+            EffectType::TempFlatATK,
+            EffectType::MPRestore,
+        },
+        rollPercent,
+        BattleComboActivationRecording::CallerRecords);
+
+    std::vector<BattleShieldBreakCommand> commands;
+    for (const auto& event : events)
+    {
+        BattleShieldBreakCommand command;
+        command.value = event.effect.value;
+        command.durationFrames = event.effect.duration;
+        command.effectIndex = event.effectIndex;
+        switch (event.effect.type)
+        {
+        case EffectType::ShieldExplosion:
+            assert(event.effect.value > 0);
+            command.type = BattleShieldBreakCommandType::ShieldExplosion;
+            break;
+        case EffectType::AutoUltimate:
+            command.type = BattleShieldBreakCommandType::AutoUltimate;
+            break;
+        case EffectType::TempFlatATK:
+            assert(event.effect.value != 0);
+            assert(event.effect.duration > 0);
+            command.type = BattleShieldBreakCommandType::TempFlatAttack;
+            break;
+        case EffectType::MPRestore:
+            assert(event.effect.value > 0);
+            command.type = BattleShieldBreakCommandType::MpRestore;
+            break;
+        default:
+            assert(false);
+        }
+        commands.push_back(command);
+    }
+    return commands;
+}
+
 std::vector<BattleActivatedComboEffect> BattleComboTriggerSystem::collectChanceEffects(
     RoleComboState& state,
     Trigger trigger,

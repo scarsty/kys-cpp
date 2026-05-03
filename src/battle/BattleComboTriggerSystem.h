@@ -113,11 +113,27 @@ enum class BattleOnHitComboCommandType
     NearbyTrackingProjectiles,
 };
 
+enum class BattleShieldBreakCommandType
+{
+    ShieldExplosion,
+    AutoUltimate,
+    TempFlatAttack,
+    MpRestore,
+};
+
 struct BattleOnHitComboCommand
 {
     BattleOnHitComboCommandType type = BattleOnHitComboCommandType::MpBlock;
     int value = 0;
     int value2 = 0;
+};
+
+struct BattleShieldBreakCommand
+{
+    BattleShieldBreakCommandType type = BattleShieldBreakCommandType::ShieldExplosion;
+    int value = 0;
+    int durationFrames = 0;
+    int effectIndex = -1;
 };
 
 struct BattleActivatedComboEffect
@@ -167,6 +183,11 @@ public:
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         bool suppressNearbyTrackingProjectiles,
+        const std::function<double()>& rollPercent) const;
+
+    std::vector<BattleShieldBreakCommand> collectShieldBreakCommands(
+        RoleComboState& state,
+        const BattleComboTriggerInput& input,
         const std::function<double()>& rollPercent) const;
 
     std::vector<BattleActivatedComboEffect> collectChanceEffects(
