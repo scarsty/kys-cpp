@@ -5,6 +5,7 @@
 #include "BattleEffectSystem.h"
 #include "BattlePresentation.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -66,8 +67,33 @@ struct BattleCastGeometry
     int dashHitFrameStep{};
 };
 
+struct BattleCastConfig
+{
+    std::array<int, 4> castFrames{};
+    std::array<int, 4> baseCooldownFrames{};
+    std::array<int, 4> minimumCooldownFrames{};
+    std::array<int, 4> cooldownActPropertyDivisors{};
+    std::array<int, 4> recoveryFrames{};
+    double maxCooldownSpeed{};
+    double speedCooldownReductionRatio{};
+    int minimumCooldownAfterCastPadding{};
+    int normalCastMpDelta{};
+    double minimumFacingNorm{};
+    int meleeHitTotalFrame{};
+    int strengthenedMeleeTotalFrame{};
+    double strengthenedMeleeSelectDistanceDivisor{};
+    float strengthenedMeleeMultiplier{};
+    int meleeSplashTotalFrame{};
+    int meleeSplashInitialFrame{};
+    float meleeSplashStrengthMultiplier{};
+    int trackingProjectileTotalFrame{};
+    int dashHitTotalFrame{};
+    int strengthenedMeleeOperationCountThreshold{};
+};
+
 struct BattleCastInput
 {
+    BattleCastConfig config;
     BattleCastGeometry geometry;
     BattleCastUnitState unit;
     BattleCastSkillState normalSkill;

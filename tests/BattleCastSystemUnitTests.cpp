@@ -11,9 +11,57 @@ namespace
 {
 
 constexpr int SceneTileWidth = 36;
+constexpr double LegacyMinimumFacingNorm = 0.0001;
+constexpr int LegacyActionRecoveryFrames = 4;
+constexpr int LegacyDashMomentumFrames = 5;
+constexpr int LegacyNormalCastMpDelta = 5;
+constexpr int LegacyCooldownAfterCastPadding = 2;
+constexpr int LegacyCooldownMaxSpeed = 150;
+constexpr double LegacySpeedCooldownReductionRatio = 0.5;
+constexpr int LegacyMeleeHitTotalFrame = 10;
+constexpr int LegacyStrengthenedMeleeTotalFrame = 30;
+constexpr double LegacyStrengthenedMeleeSelectDistanceDivisor = 2.0;
+constexpr float LegacyStrengthenedMeleeMultiplier = 2.0f;
+constexpr int LegacyStrengthenedMeleeOperationCountThreshold = 2;
+constexpr int LegacyMeleeSplashTotalFrame = 60;
+constexpr int LegacyMeleeSplashInitialFrame = 5;
+constexpr float LegacyMeleeSplashStrengthMultiplier = 0.5f;
+constexpr int LegacyTrackingProjectileTotalFrame = 120;
+constexpr int LegacyDashHitTotalFrame = 30;
 constexpr double LegacyMeleeSplashProjectileSpeed = 3.0;
 constexpr double LegacyDashHitPositionSpacing = 2.0;
 constexpr int LegacyDashHitFrameStep = 3;
+
+BattleCastConfig legacyCastConfig()
+{
+    BattleCastConfig config;
+    config.castFrames = { 25, 30, 20, 25 };
+    config.baseCooldownFrames = { 105, 185, 115, 45 };
+    config.minimumCooldownFrames = { 60, 70, 70, 45 };
+    config.cooldownActPropertyDivisors = { 2, 1, 2, 0 };
+    config.recoveryFrames = {
+        LegacyActionRecoveryFrames,
+        LegacyActionRecoveryFrames,
+        LegacyActionRecoveryFrames,
+        LegacyDashMomentumFrames,
+    };
+    config.maxCooldownSpeed = LegacyCooldownMaxSpeed;
+    config.speedCooldownReductionRatio = LegacySpeedCooldownReductionRatio;
+    config.minimumCooldownAfterCastPadding = LegacyCooldownAfterCastPadding;
+    config.normalCastMpDelta = LegacyNormalCastMpDelta;
+    config.minimumFacingNorm = LegacyMinimumFacingNorm;
+    config.meleeHitTotalFrame = LegacyMeleeHitTotalFrame;
+    config.strengthenedMeleeTotalFrame = LegacyStrengthenedMeleeTotalFrame;
+    config.strengthenedMeleeSelectDistanceDivisor = LegacyStrengthenedMeleeSelectDistanceDivisor;
+    config.strengthenedMeleeMultiplier = LegacyStrengthenedMeleeMultiplier;
+    config.meleeSplashTotalFrame = LegacyMeleeSplashTotalFrame;
+    config.meleeSplashInitialFrame = LegacyMeleeSplashInitialFrame;
+    config.meleeSplashStrengthMultiplier = LegacyMeleeSplashStrengthMultiplier;
+    config.trackingProjectileTotalFrame = LegacyTrackingProjectileTotalFrame;
+    config.dashHitTotalFrame = LegacyDashHitTotalFrame;
+    config.strengthenedMeleeOperationCountThreshold = LegacyStrengthenedMeleeOperationCountThreshold;
+    return config;
+}
 
 BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceRanged = false)
 {
@@ -31,6 +79,7 @@ BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceR
 BattleCastInput basicInput()
 {
     BattleCastInput input;
+    input.config = legacyCastConfig();
     input.geometry.meleeAttackEffectOffset = SceneTileWidth * 2.0;
     input.geometry.projectileSpeed = SceneTileWidth / 3.0;
     input.geometry.projectileSpawnOffset = SceneTileWidth * 2.0;

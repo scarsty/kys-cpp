@@ -12,10 +12,6 @@ namespace KysChess::Battle
 
 namespace
 {
-constexpr int ActionRecoveryFrames = 4;
-constexpr int DashMomentumFrames = 5;
-constexpr double MinimumFacingNorm = 0.0001;
-
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
     BattleSkillState combatSkill;
@@ -31,8 +27,36 @@ BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 Pointf castFacing(const BattleCastInput& input)
 {
     auto facing = input.targetPosition - input.unit.position;
-    assert(pointNorm(facing) > MinimumFacingNorm);
+    assert(input.config.minimumFacingNorm > 0.0);
+    assert(pointNorm(facing) > input.config.minimumFacingNorm);
     return normalizedTo(facing, 1.0);
+}
+
+void assertCastConfig(const BattleCastConfig& config)
+{
+    for (int operationType = 0; operationType < 4; ++operationType)
+    {
+        assert(config.castFrames[operationType] > 0);
+        assert(config.baseCooldownFrames[operationType] > 0);
+        assert(config.minimumCooldownFrames[operationType] > 0);
+        assert(config.cooldownActPropertyDivisors[operationType] >= 0);
+        assert(config.recoveryFrames[operationType] >= 0);
+    }
+    assert(config.maxCooldownSpeed > 0.0);
+    assert(config.speedCooldownReductionRatio >= 0.0);
+    assert(config.minimumCooldownAfterCastPadding >= 0);
+    assert(config.normalCastMpDelta >= 0);
+    assert(config.minimumFacingNorm > 0.0);
+    assert(config.meleeHitTotalFrame > 0);
+    assert(config.strengthenedMeleeTotalFrame > 0);
+    assert(config.strengthenedMeleeSelectDistanceDivisor > 0.0);
+    assert(config.strengthenedMeleeMultiplier > 0.0f);
+    assert(config.meleeSplashTotalFrame > 0);
+    assert(config.meleeSplashInitialFrame >= 0);
+    assert(config.meleeSplashStrengthMultiplier > 0.0f);
+    assert(config.trackingProjectileTotalFrame > 0);
+    assert(config.dashHitTotalFrame > 0);
+    assert(config.strengthenedMeleeOperationCountThreshold >= 0);
 }
 
 void assertCommittedCastInput(
@@ -40,8 +64,9 @@ void assertCommittedCastInput(
     const BattleCastSkillState& selectedSkill,
     int operationType)
 {
+    assertCastConfig(input.config);
     assert(operationType >= 0 && operationType <= 3);
-    assert(pointNorm(input.targetPosition - input.unit.position) > MinimumFacingNorm);
+    assert(pointNorm(input.targetPosition - input.unit.position) > input.config.minimumFacingNorm);
     assert(input.geometry.meleeAttackEffectOffset > 0.0);
     assert(input.geometry.projectileSpeed > 0.0);
     assert(input.geometry.projectileSpawnOffset > 0.0);
@@ -54,6 +79,7 @@ void assertCommittedCastInput(
 
 void assertCastIntentInput(const BattleCastInput& input, const BattleCastSkillState& selectedSkill)
 {
+    assertCastConfig(input.config);
     assert(input.targetUnitId >= 0);
     assert(input.targetDistance > 0.0);
     assert(input.unit.meleeAttackReach > 0.0);
@@ -63,40 +89,46 @@ void assertCastIntentInput(const BattleCastInput& input, const BattleCastSkillSt
     assert(selectedSkill.selectDistance > 0);
 }
 
-int castFrameForOperation(int operationType)
+int castFrameForOperation(const BattleCastConfig& config, int operationType)
 {
-    constexpr int CastFrames[] = { 25, 30, 20, 25 };
     assert(operationType >= 0 && operationType <= 3);
-    return CastFrames[operationType];
+    assert(config.castFrames[operationType] > 0);
+    return config.castFrames[operationType];
 }
 
 int cooldownForOperation(const BattleCastInput& input, int operationType)
 {
-    constexpr int BaseCooldowns[] = { 105, 185, 115, 45 };
-    constexpr int MinCooldowns[] = { 60, 70, 70, 45 };
     assert(operationType >= 0 && operationType <= 3);
 
-    int cooldown = std::max(MinCooldowns[operationType], BaseCooldowns[operationType] - input.unit.actProperty / (operationType == 1 ? 1 : 2));
-    const int speed = std::min(150, input.unit.speed);
-    cooldown = static_cast<int>(cooldown * (1.0 - 0.5 * speed / 150.0));
-    cooldown = std::max(castFrameForOperation(operationType) + 2, cooldown);
+    const auto& config = input.config;
+    int cooldown = config.baseCooldownFrames[operationType];
+    const int actPropertyDivisor = config.cooldownActPropertyDivisors[operationType];
+    if (actPropertyDivisor > 0)
+    {
+        cooldown -= input.unit.actProperty / actPropertyDivisor;
+    }
+    cooldown = std::max(config.minimumCooldownFrames[operationType], cooldown);
+    const int speed = std::min(static_cast<int>(config.maxCooldownSpeed), input.unit.speed);
+    cooldown = static_cast<int>(cooldown * (1.0 - config.speedCooldownReductionRatio * speed / config.maxCooldownSpeed));
+    cooldown = std::max(castFrameForOperation(config, operationType) + config.minimumCooldownAfterCastPadding, cooldown);
     if (input.unit.cooldownReductionPct > 0)
     {
         cooldown = static_cast<int>(cooldown * (1.0 - input.unit.cooldownReductionPct / 100.0));
-        cooldown = std::max(castFrameForOperation(operationType) + 2, cooldown);
+        cooldown = std::max(castFrameForOperation(config, operationType) + config.minimumCooldownAfterCastPadding, cooldown);
     }
     return cooldown;
 }
 
-int recoveryFramesForOperation(int operationType)
+int recoveryFramesForOperation(const BattleCastConfig& config, int operationType)
 {
     assert(operationType >= 0 && operationType <= 3);
-    return operationType == 3 ? DashMomentumFrames : ActionRecoveryFrames;
+    assert(config.recoveryFrames[operationType] >= 0);
+    return config.recoveryFrames[operationType];
 }
 
 int mpDeltaForCast(const BattleCastInput& input, bool ultimate)
 {
-    return ultimate ? -input.unit.maxMp : 5;
+    return ultimate ? -input.unit.maxMp : input.config.normalCastMpDelta;
 }
 
 int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int selectDistance)
@@ -119,11 +151,13 @@ double projectileSpeedForSkill(const BattleCastGeometry& geometry, const BattleC
     return geometry.projectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
 }
 
-double strengthenedMeleeSpeed(const BattleCastSkillState& skill)
+double strengthenedMeleeSpeed(const BattleCastConfig& config, const BattleCastSkillState& skill)
 {
     assert(skill.selectDistance > 0);
     assert(skill.projectileSpeedMultiplierPct > 0);
-    return skill.selectDistance / 2.0 * skill.projectileSpeedMultiplierPct / 100.0;
+    assert(config.strengthenedMeleeSelectDistanceDivisor > 0.0);
+    return skill.selectDistance / config.strengthenedMeleeSelectDistanceDivisor
+        * skill.projectileSpeedMultiplierPct / 100.0;
 }
 
 BattlePresentationColor ultimateTextColor()
@@ -165,6 +199,7 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
 }
 
 void applyOperationShape(BattleAttackSpawnRequest& request,
+                         const BattleCastConfig& config,
                          const BattleCastGeometry& geometry,
                          int operationType,
                          const BattleCastSkillState& selectedSkill,
@@ -175,11 +210,11 @@ void applyOperationShape(BattleAttackSpawnRequest& request,
     switch (operationType)
     {
     case 0:
-        request.initial.totalFrame = 10;
+        request.initial.totalFrame = config.meleeHitTotalFrame;
         break;
     case 1:
         request.initial.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
-        request.initial.totalFrame = 120;
+        request.initial.totalFrame = config.trackingProjectileTotalFrame;
         request.initial.track = true;
         break;
     case 2:
@@ -188,7 +223,7 @@ void applyOperationShape(BattleAttackSpawnRequest& request,
         request.initial.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
         break;
     case 3:
-        request.initial.totalFrame = 30;
+        request.initial.totalFrame = config.dashHitTotalFrame;
         break;
     default:
         assert(false);
@@ -200,7 +235,9 @@ bool isStrengthenedMelee(const BattleCastResult& result,
                          const BattleCastInput& input,
                          const BattleCastSkillState& selectedSkill)
 {
-    return result.decision.ultimate || input.unit.operationCount >= 2 || selectedSkill.strengthenedMelee;
+    return result.decision.ultimate
+        || input.unit.operationCount >= input.config.strengthenedMeleeOperationCountThreshold
+        || selectedSkill.strengthenedMelee;
 }
 
 BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
@@ -210,7 +247,7 @@ BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
                                               BattleAttackCastSubrequestKind kind)
 {
     auto request = makeBaseRequest(result, input, selectedSkill, operationType, kind);
-    applyOperationShape(request, input.geometry, operationType, selectedSkill, castFacing(input));
+    applyOperationShape(request, input.config, input.geometry, operationType, selectedSkill, castFacing(input));
     return request;
 }
 
@@ -238,14 +275,14 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     auto main = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::SkillHit);
     if (isStrengthenedMelee(result, input, selectedSkill))
     {
-        main.initial.totalFrame = 30;
+        main.initial.totalFrame = input.config.strengthenedMeleeTotalFrame;
         main.initial.track = true;
-        main.initial.velocity = normalizedTo(facing, strengthenedMeleeSpeed(selectedSkill));
-        main.initial.strengthMultiplier = 2.0f;
+        main.initial.velocity = normalizedTo(facing, strengthenedMeleeSpeed(input.config, selectedSkill));
+        main.initial.strengthMultiplier = input.config.strengthenedMeleeMultiplier;
     }
     else
     {
-        main.initial.totalFrame = 10;
+        main.initial.totalFrame = input.config.meleeHitTotalFrame;
     }
     requests.push_back(main);
 
@@ -253,12 +290,12 @@ std::vector<BattleAttackSpawnRequest> makeMeleeRequests(
     for (int i = 0; i < selectedSkill.meleeSplashCount; ++i)
     {
         auto splash = makeBaseRequest(result, input, selectedSkill, 0, BattleAttackCastSubrequestKind::MeleeSplash);
-        splash.initial.totalFrame = 60;
+        splash.initial.totalFrame = input.config.meleeSplashTotalFrame;
         splash.initial.track = true;
-        splash.initialFrame = 5;
+        splash.initialFrame = input.config.meleeSplashInitialFrame;
         assert(input.geometry.meleeSplashProjectileSpeed > 0.0);
         splash.initial.velocity = normalizedTo(facing, input.geometry.meleeSplashProjectileSpeed);
-        splash.initial.strengthMultiplier = 0.5f;
+        splash.initial.strengthMultiplier = input.config.meleeSplashStrengthMultiplier;
         requests.push_back(splash);
     }
 
@@ -274,10 +311,12 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
     assert(input.unit.dashHitCount > 0);
     assert(input.geometry.dashHitPositionSpacing > 0.0);
     assert(input.geometry.dashHitFrameStep > 0);
+    assert(!input.unit.emitDashFollowUpSkillAttack
+        || (input.unit.dashFollowUpOperationType >= 0 && input.unit.dashFollowUpOperationType <= 2));
 
     std::vector<BattleAttackSpawnRequest> requests;
     auto base = makeBaseRequest(result, input, selectedSkill, 3, BattleAttackCastSubrequestKind::DashHit);
-    assert(pointNorm(input.unit.dashVelocity) > MinimumFacingNorm);
+    assert(pointNorm(input.unit.dashVelocity) > input.config.minimumFacingNorm);
     const auto dashHitOffset = normalizedTo(input.unit.dashVelocity, input.geometry.dashHitPositionSpacing);
     for (int i = 0; i < input.unit.dashHitCount; ++i)
     {
@@ -285,13 +324,12 @@ std::vector<BattleAttackSpawnRequest> makeDashRequests(
         hit.initial.position = base.initial.position + scaled(dashHitOffset, i - 1);
         hit.initial.velocity = input.unit.dashVelocity;
         hit.initialFrame = (i + 1) * input.geometry.dashHitFrameStep;
-        hit.initial.totalFrame = 30;
+        hit.initial.totalFrame = input.config.dashHitTotalFrame;
         requests.push_back(hit);
     }
 
     if (input.unit.emitDashFollowUpSkillAttack)
     {
-        assert(input.unit.dashFollowUpOperationType >= 0 && input.unit.dashFollowUpOperationType <= 2);
         requests.push_back(makeOperationRequest(
             result,
             input,
@@ -431,9 +469,9 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     assert(result.decision.operationType >= 0 && result.decision.operationType <= 3);
     assertCommittedCastInput(input, selectedSkill, result.decision.operationType);
 
-    result.animation.castFrame = castFrameForOperation(result.decision.operationType);
+    result.animation.castFrame = castFrameForOperation(input.config, result.decision.operationType);
     result.animation.cooldownFrames = cooldownForOperation(input, result.decision.operationType);
-    result.animation.recoveryFrames = recoveryFramesForOperation(result.decision.operationType);
+    result.animation.recoveryFrames = recoveryFramesForOperation(input.config, result.decision.operationType);
     result.cooldownDelta = result.animation.cooldownFrames;
     result.mpDelta = mpDeltaForCast(input, result.decision.ultimate);
 
