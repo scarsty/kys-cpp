@@ -26,6 +26,9 @@ BattleCastSkillState skill(int id, int attackAreaType, double reach, bool forceR
 BattleCastInput basicInput()
 {
     BattleCastInput input;
+    input.geometry.tileWidth = 36;
+    input.geometry.meleeAttackEffectOffset = 72.0;
+    input.geometry.projectileSpeed = 12.0;
     input.unit.id = 1;
     input.unit.position = { 10.0f, 20.0f, 0.0f };
     input.unit.facing = { 1.0f, 0.0f, 0.0f };
@@ -35,7 +38,7 @@ BattleCastInput basicInput()
     input.unit.actProperty = 0;
     input.unit.speed = 0;
     input.targetUnitId = 2;
-    input.targetPosition = { 110.0f, 20.0f, 0.0f };
+    input.targetPosition = { 82.0f, 20.0f, 0.0f };
     input.targetDistance = 100.0;
     input.normalSkill = skill(101, 0, 137.5);
     input.ultimateSkill = skill(201, 1, 400.0);
@@ -334,11 +337,11 @@ TEST_CASE("BattleCastSystem_CommittedCastReturnsAttackSpawnRequest", "[battle][c
     CHECK(request.operationType == 2);
     CHECK(request.visualEffectId == 88);
     CHECK(request.preferredTargetUnitId == 2);
-    CHECK(request.position.x == Catch::Approx(110.0f));
+    CHECK(request.position.x == Catch::Approx(82.0f));
     CHECK(request.position.y == Catch::Approx(20.0f));
     CHECK(request.velocity.x > 0.0f);
     CHECK(request.velocity.y == Catch::Approx(0.0f));
-    CHECK(request.totalFrame == 25);
+    CHECK(request.totalFrame == 24);
     CHECK(request.through);
     CHECK_FALSE(request.ultimate);
 }
@@ -353,7 +356,7 @@ TEST_CASE("BattleCastSystem_MeleeSpawnUsesLegacyOriginAndFrameCount", "[battle][
     REQUIRE(result.decision.operationType == 0);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.position.x == Catch::Approx(110.0f));
+    CHECK(request.position.x == Catch::Approx(82.0f));
     CHECK(request.position.y == Catch::Approx(20.0f));
     CHECK(request.velocity.x == Catch::Approx(0.0f));
     CHECK(request.velocity.y == Catch::Approx(0.0f));
@@ -423,8 +426,8 @@ TEST_CASE("BattleCastSystem_OperationOneSpawnTracksForLegacyFrameCount", "[battl
     REQUIRE(result.decision.operationType == 1);
     REQUIRE(result.attackSpawnRequests.size() == 1);
     const auto& request = result.attackSpawnRequests[0];
-    CHECK(request.position.x == Catch::Approx(110.0f));
-    CHECK(request.velocity.x == Catch::Approx(16.0f));
+    CHECK(request.position.x == Catch::Approx(82.0f));
+    CHECK(request.velocity.x == Catch::Approx(12.0f));
     CHECK(request.velocity.y == Catch::Approx(0.0f));
     CHECK(request.totalFrame == 120);
     CHECK(request.track);
@@ -447,15 +450,15 @@ TEST_CASE("BattleCastSystem_DashCastUsesDashRecoveryAndHitEffectRequest", "[batt
     CHECK(result.animation.recoveryFrames == 5);
     REQUIRE(result.attackSpawnRequests.size() == 3);
 
-    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(102.0f));
+    CHECK(result.attackSpawnRequests[0].position.x == Catch::Approx(74.0f));
     CHECK(result.attackSpawnRequests[0].initialFrame == 3);
     CHECK(result.attackSpawnRequests[0].velocity.x == Catch::Approx(4.0f));
     CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
 
-    CHECK(result.attackSpawnRequests[1].position.x == Catch::Approx(110.0f));
+    CHECK(result.attackSpawnRequests[1].position.x == Catch::Approx(82.0f));
     CHECK(result.attackSpawnRequests[1].initialFrame == 6);
 
-    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(118.0f));
+    CHECK(result.attackSpawnRequests[2].position.x == Catch::Approx(90.0f));
     CHECK(result.attackSpawnRequests[2].initialFrame == 9);
     CHECK(result.attackSpawnRequests[2].totalFrame == 30);
     CHECK_FALSE(result.attackSpawnRequests[2].track);
@@ -482,8 +485,8 @@ TEST_CASE("BattleCastSystem_DashCastCanEmitExplicitFollowUpSkillRequest", "[batt
     CHECK(result.attackSpawnRequests[0].castSubrequestKind == BattleAttackCastSubrequestKind::DashHit);
     CHECK(result.attackSpawnRequests[1].castSubrequestKind == BattleAttackCastSubrequestKind::DashFollowUpSkill);
     CHECK(result.attackSpawnRequests[1].operationType == 2);
-    CHECK(result.attackSpawnRequests[1].totalFrame == 25);
-    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(16.0f));
+    CHECK(result.attackSpawnRequests[1].totalFrame == 24);
+    CHECK(result.attackSpawnRequests[1].velocity.x == Catch::Approx(12.0f));
 }
 
 TEST_CASE("BattleCastSystem_PostSkillHookIsEmittedForNormalAndUltimateCasts", "[battle][cast]")

@@ -54,8 +54,16 @@ struct BattleCastSkillState
     bool rangedStyle = false;
 };
 
+struct BattleCastGeometry
+{
+    int tileWidth = 36;
+    double meleeAttackEffectOffset = 0.0;
+    double projectileSpeed = 0.0;
+};
+
 struct BattleCastInput
 {
+    BattleCastGeometry geometry;
     BattleCastUnitState unit;
     BattleCastSkillState normalSkill;
     BattleCastSkillState ultimateSkill;

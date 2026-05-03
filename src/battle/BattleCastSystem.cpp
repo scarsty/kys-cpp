@@ -14,9 +14,6 @@ namespace
 {
 constexpr int ActionRecoveryFrames = 4;
 constexpr int DashMomentumFrames = 5;
-constexpr int BattleTileWidth = 50;
-constexpr int ProjectileSpeed = BattleTileWidth / 3;
-constexpr double MeleeAttackEffectOffset = BattleTileWidth * 2.0;
 
 BattleSkillState toCombatSkill(const BattleCastSkillState& skill)
 {
@@ -80,18 +77,28 @@ int mpDeltaForCast(const BattleCastInput& input, bool ultimate)
     return ultimate ? -input.unit.maxMp : 5;
 }
 
-int projectileFramesForSelectDistance(int selectDistance)
+int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int selectDistance)
 {
     assert(selectDistance > 0);
-    constexpr int spawnOffset = BattleTileWidth * 2;
-    const int reach = spawnOffset + BattleTileWidth * 5 + (selectDistance - 1) * BattleTileWidth;
-    return (reach - spawnOffset) / ProjectileSpeed;
+    assert(geometry.tileWidth > 0);
+    const double projectileSpeed = geometry.projectileSpeed > 0.0
+        ? geometry.projectileSpeed
+        : geometry.tileWidth / 3.0;
+    assert(projectileSpeed > 0.0);
+    const auto spawnOffset = static_cast<int>(geometry.tileWidth * 2);
+    const int reach = spawnOffset + geometry.tileWidth * 5 + (selectDistance - 1) * geometry.tileWidth;
+    return static_cast<int>((reach - spawnOffset) / projectileSpeed);
 }
 
-double projectileSpeedForSkill(const BattleCastSkillState& skill)
+double projectileSpeedForSkill(const BattleCastGeometry& geometry, const BattleCastSkillState& skill)
 {
+    assert(geometry.tileWidth > 0);
+    const double projectileSpeed = geometry.projectileSpeed > 0.0
+        ? geometry.projectileSpeed
+        : geometry.tileWidth / 3.0;
+    assert(projectileSpeed > 0.0);
     assert(skill.projectileSpeedMultiplierPct > 0);
-    return ProjectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
+    return projectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
 }
 
 double strengthenedMeleeSpeed(const BattleCastSkillState& skill)
@@ -120,13 +127,19 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     request.operationType = operationType;
     request.visualEffectId = selectedSkill.visualEffectId;
     request.preferredTargetUnitId = input.targetUnitId;
-    request.position = input.unit.position + scaled(facing, MeleeAttackEffectOffset);
+    assert(input.geometry.tileWidth > 0);
+    const double meleeAttackEffectOffset = input.geometry.meleeAttackEffectOffset > 0.0
+        ? input.geometry.meleeAttackEffectOffset
+        : input.geometry.tileWidth * 2.0;
+    assert(meleeAttackEffectOffset > 0.0);
+    request.position = input.unit.position + scaled(facing, meleeAttackEffectOffset);
     request.ultimate = result.decision.ultimate;
     request.castSubrequestKind = kind;
     return request;
 }
 
 void applyOperationShape(BattleAttackSpawnRequest& request,
+                         const BattleCastGeometry& geometry,
                          int operationType,
                          const BattleCastSkillState& selectedSkill,
                          Pointf facing)
@@ -139,13 +152,13 @@ void applyOperationShape(BattleAttackSpawnRequest& request,
         request.totalFrame = 10;
         break;
     case 1:
-        request.velocity = normalizedTo(facing, projectileSpeedForSkill(selectedSkill));
+        request.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
         request.totalFrame = 120;
         request.track = true;
         break;
     case 2:
-        request.velocity = normalizedTo(facing, projectileSpeedForSkill(selectedSkill));
-        request.totalFrame = projectileFramesForSelectDistance(selectedSkill.selectDistance);
+        request.velocity = normalizedTo(facing, projectileSpeedForSkill(geometry, selectedSkill));
+        request.totalFrame = projectileFramesForSelectDistance(geometry, selectedSkill.selectDistance);
         request.through = selectedSkill.attackAreaType == 1 || selectedSkill.attackAreaType == 2;
         break;
     case 3:
@@ -171,7 +184,7 @@ BattleAttackSpawnRequest makeOperationRequest(const BattleCastResult& result,
                                               BattleAttackCastSubrequestKind kind)
 {
     auto request = makeBaseRequest(result, input, selectedSkill, operationType, kind);
-    applyOperationShape(request, operationType, selectedSkill, castFacing(input));
+    applyOperationShape(request, input.geometry, operationType, selectedSkill, castFacing(input));
     return request;
 }
 
