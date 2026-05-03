@@ -75,17 +75,8 @@ BattleSceneAct::AttackEffect& createProjectile(
     BattleSceneAct::AttackEffect effect;
     effect.VisualAttackId = command.projectileAttackId;
     effect.VisualOnly = 1;
-    effect.VisualTeam = resolveVisualTeam(bindings, command.projectileSourceUnitId);
-    effect.Pos = command.projectilePosition;
-    effect.Velocity = command.projectileVelocity;
-    effect.TotalFrame = std::max(1, command.projectileDurationFrames);
     effect.Frame = 0;
     effect.IsMain = 0;
-    if (command.visualEffectId >= 0)
-    {
-        effect.setEft(command.visualEffectId);
-        effect.TotalFrame = std::max(effect.TotalFrame, effect.TotalEffectFrame);
-    }
     bindings.attackEffects->push_back(std::move(effect));
     return bindings.attackEffects->back();
 }
@@ -293,8 +284,7 @@ void BattleScenePresentationPlayer::moveProjectile(
     const Bindings& bindings) const
 {
     auto& effect = upsertProjectile(command, bindings);
-    effect.Pos = command.projectilePosition;
-    effect.Velocity = command.projectileVelocity;
+    applyProjectilePayload(effect, command, bindings);
 }
 
 void BattleScenePresentationPlayer::impactProjectile(
@@ -302,7 +292,7 @@ void BattleScenePresentationPlayer::impactProjectile(
     const Bindings& bindings) const
 {
     auto& effect = upsertProjectile(command, bindings);
-    effect.Pos = command.projectilePosition;
+    applyProjectilePayload(effect, command, bindings);
     finishProjectile(effect, 15);
 }
 
@@ -311,7 +301,7 @@ void BattleScenePresentationPlayer::expireProjectile(
     const Bindings& bindings) const
 {
     auto& effect = upsertProjectile(command, bindings);
-    effect.Pos = command.projectilePosition;
+    applyProjectilePayload(effect, command, bindings);
     finishProjectile(effect, 5);
 }
 
@@ -337,6 +327,6 @@ void BattleScenePresentationPlayer::bounceProjectile(
     const Bindings& bindings) const
 {
     auto& effect = upsertProjectile(command, bindings);
-    effect.Pos = command.projectilePosition;
+    applyProjectilePayload(effect, command, bindings);
     finishProjectile(effect, 15);
 }
