@@ -58,8 +58,8 @@ protected:
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
 
-    void defaultMagicEffect(AttackEffect& ae, Role* r);
-    void applyScriptedAttackEffect(AttackEffect& ae, Role* r);
+    void applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r);
+    void applyScriptedHitTransaction(AttackEffect& ae, Role* r);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
     void createSkillAttackEffect(Role* r, Magic* magic, bool isUltimate, int operationType = -1);
     Magic* triggerAutoUltimate(Role* r, bool consumeMP);

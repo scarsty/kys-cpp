@@ -600,3 +600,63 @@ TEST_CASE("傷害交易_較弱中毒不會刷新交易目標", "[battle][damage]
         CHECK_FALSE(event.statusType == BattleDamageStatusType::Poison);
     }
 }
+
+TEST_CASE("傷害交易_已確認命中的零傷害特效仍可套用狀態", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.acceptedHit = true;
+    input.request.frozenFrames = 6;
+    input.request.bleedStacks = 1;
+    input.request.bleedMaxStacks = 3;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defenderStatus = statusUnit(2);
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.finalHpDamage == 0);
+    CHECK(result.defenderStatus.frozenTimer == 6);
+    CHECK(result.defenderStatus.bleedStacks == 1);
+    REQUIRE(result.events.size() == 2);
+    CHECK(result.events[0].statusType == BattleDamageStatusType::Bleed);
+    CHECK(result.events[1].statusType == BattleDamageStatusType::Frozen);
+}
+
+TEST_CASE("傷害交易_冰凍套用抗性與控制免疫", "[battle][damage][unit]")
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = 1;
+    input.request.defenderUnitId = 2;
+    input.request.acceptedHit = true;
+    input.request.frozenFrames = 10;
+    input.attacker = unit();
+    input.attacker.id = 1;
+    input.defender = unit();
+    input.defender.id = 2;
+    input.defender.shield = 1;
+    input.defenderStatus = statusUnit(2);
+    input.defenderStatus.freezeReductionPct = 20;
+    input.defenderStatus.shieldFreezeResPct = 30;
+    input.defenderStatus.controlImmunityFrames = 3;
+
+    auto result = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(result.defenderStatus.controlImmunityFrames == 0);
+    CHECK(result.defenderStatus.frozenTimer == 2);
+    CHECK(result.defenderStatus.frozenMaxTimer == 2);
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events[0].statusType == BattleDamageStatusType::Frozen);
+    CHECK(result.events[0].value == 2);
+
+    input.defenderStatus.hp = 40;
+    input.defenderStatus.maxHp = 200;
+    auto lowHp = BattleDamageSystem().resolveTransaction(input);
+
+    CHECK(lowHp.defenderStatus.frozenTimer == 0);
+    CHECK(lowHp.defenderStatus.controlImmunityFrames == 3);
+    CHECK(lowHp.events.empty());
+}

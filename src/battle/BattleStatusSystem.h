@@ -37,6 +37,9 @@ struct BattleStatusUnitState
 
     int frozenTimer = 0;
     int frozenMaxTimer = 0;
+    int freezeReductionPct = 0;
+    int shieldFreezeResPct = 0;
+    int controlImmunityFrames = 0;
     int mpBlockTimer = 0;
 
     int damageImmunityAfterFrames = 0;

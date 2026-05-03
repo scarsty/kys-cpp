@@ -215,6 +215,7 @@ struct BattleDamageRequest
     int defenderUnitId = -1;
     double baseDamage = 0.0;
     int mpDamage = 0;
+    bool acceptedHit = false;
     bool usingSkill = false;
     bool ignoreDefense = false;
     bool reflected = false;
@@ -227,6 +228,7 @@ struct BattleDamageRequest
     int cooldownExtendPct = 0;
 
     int frozenFrames = 0;
+    int frozenLowHpImmunityPct = 25;
     int poisonPct = 0;
     int poisonDurationFrames = 0;
     int bleedStacks = 0;

@@ -72,7 +72,7 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
     result.defender = input.defender;
     result.defenderStatus = input.defenderStatus;
     result.defenderCooldown = input.defenderCooldown;
-    bool acceptedHit = false;
+    bool acceptedHit = input.request.acceptedHit;
 
     if (input.request.baseDamage > 0.0)
     {
@@ -313,13 +313,36 @@ BattleDamageTransactionResult BattleDamageSystem::resolveTransaction(const Battl
         if (input.request.frozenFrames > 0)
         {
             assert(input.defenderStatus.id == input.request.defenderUnitId);
-            result.defenderStatus.frozenTimer += input.request.frozenFrames;
-            result.defenderStatus.frozenMaxTimer = result.defenderStatus.frozenTimer;
-            recordBattleStatusEvent(result.events,
-                                    BattleDamageStatusType::Frozen,
-                                    input.request.attackerUnitId,
-                                    input.request.defenderUnitId,
-                                    input.request.frozenFrames);
+            int frames = input.request.frozenFrames;
+            if (!(result.defenderStatus.maxHp > 0
+                    && result.defenderStatus.hp * 100 < result.defenderStatus.maxHp * input.request.frozenLowHpImmunityPct))
+            {
+                int freezeReduction = result.defenderStatus.freezeReductionPct;
+                if (result.defender.shield > 0)
+                {
+                    freezeReduction += result.defenderStatus.shieldFreezeResPct;
+                }
+                freezeReduction = std::clamp(freezeReduction, 0, 100);
+                frames = frames * (100 - freezeReduction) / 100;
+
+                if (result.defenderStatus.controlImmunityFrames > 0)
+                {
+                    int absorbed = std::min(frames, result.defenderStatus.controlImmunityFrames);
+                    result.defenderStatus.controlImmunityFrames -= absorbed;
+                    frames -= absorbed;
+                }
+
+                if (frames > 0)
+                {
+                    result.defenderStatus.frozenTimer += frames;
+                    result.defenderStatus.frozenMaxTimer = result.defenderStatus.frozenTimer;
+                    recordBattleStatusEvent(result.events,
+                                            BattleDamageStatusType::Frozen,
+                                            input.request.attackerUnitId,
+                                            input.request.defenderUnitId,
+                                            frames);
+                }
+            }
         }
 
         if (input.request.mpBlockFrames > 0)

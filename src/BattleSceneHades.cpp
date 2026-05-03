@@ -484,6 +484,11 @@ KysChess::Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const K
     unit.bleedStacks = state.bleedStacks;
     unit.bleedTimer = state.bleedTimer;
     unit.bleedSourceId = state.bleedSourceId;
+    unit.frozenTimer = role ? role->Frozen : 0;
+    unit.frozenMaxTimer = role ? role->FrozenMax : 0;
+    unit.freezeReductionPct = state.freezeReductionPct;
+    unit.shieldFreezeResPct = state.shieldFreezeResPct;
+    unit.controlImmunityFrames = state.controlImmunityFrames;
     unit.mpBlockTimer = state.mpBlockTimer;
     unit.damageImmunityAfterFrames = state.damageImmunityAfterFrames;
     unit.damageImmunityDuration = state.damageImmunityDuration;
@@ -506,6 +511,8 @@ void writeBattleStatusUnit(Role* role, KysChess::RoleComboState& state, const Ky
     {
         role->Attack = unit.attack;
         role->Invincible = unit.invincible;
+        role->Frozen = unit.frozenTimer;
+        role->FrozenMax = unit.frozenMaxTimer;
     }
 
     state.poisonTimer = unit.poisonTimer;
@@ -514,6 +521,7 @@ void writeBattleStatusUnit(Role* role, KysChess::RoleComboState& state, const Ky
     state.bleedStacks = unit.bleedStacks;
     state.bleedTimer = unit.bleedTimer;
     state.bleedSourceId = unit.bleedSourceId;
+    state.controlImmunityFrames = unit.controlImmunityFrames;
     state.mpBlockTimer = unit.mpBlockTimer;
     state.damageImmunityTimer = unit.damageImmunityTimer;
 
@@ -537,6 +545,8 @@ KysChess::Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const K
     unit.alive = role && role->Dead == 0;
     unit.hp = role ? role->HP : 0;
     unit.maxHp = role ? role->MaxHP : 0;
+    unit.mp = role ? role->MP : 0;
+    unit.maxMp = role ? role->MaxMP : 0;
     unit.attack = role ? role->Attack : 0;
     unit.invincible = role ? role->Invincible : 0;
     if (!state)
@@ -561,6 +571,7 @@ void writeBattleDamageUnit(Role* role, KysChess::RoleComboState* state, const Ky
     if (role)
     {
         role->HP = unit.hp;
+        role->MP = unit.mp;
         role->Attack = unit.attack;
         role->Invincible = unit.invincible;
         role->Dead = unit.alive ? 0 : 1;
@@ -3323,7 +3334,7 @@ void BattleSceneHades::backRun1()
                 if (scriptedImpact)
                 {
                     r->Shake = 5;
-                    applyScriptedAttackEffect(ae, r);
+                    applyScriptedHitTransaction(ae, r);
                 }
                 else
                 {
@@ -3338,7 +3349,7 @@ void BattleSceneHades::backRun1()
                     if (ae.OperationType >= 0)
                     {
                         Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                        defaultMagicEffect(ae, r);
+                        applyLegacyMagicHitTransaction(ae, r);
                     }
                 }
                 //std::vector<std::string> = {};
@@ -5385,7 +5396,7 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
     }
 }
 
-void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
+void BattleSceneHades::applyLegacyMagicHitTransaction(AttackEffect& ae, Role* r)
 {
     if (ae.NoHurt)
     {
@@ -6080,18 +6091,9 @@ void BattleSceneHades::defaultMagicEffect(AttackEffect& ae, Role* r)
     //LOG("{} attack {} with {} as {}, hurt {}\n", ae.Attacker->Name, r->Name, ae.UsingMagic->Name, ae.OperationType, int(hurt));
 }
 
-void BattleSceneHades::applyScriptedAttackEffect(AttackEffect& ae, Role* r)
+void BattleSceneHades::applyScriptedHitTransaction(AttackEffect& ae, Role* r)
 {
-    if (!r)
-    {
-        return;
-    }
-
-    if (ae.ScriptedStunFrames > 0)
-    {
-        applyFrozen(r, ae.ScriptedStunFrames);
-        logBattleStatus(ae.Attacker, r, formatStatusFrames("眩晕", ae.ScriptedStunFrames));
-    }
+    assert(r);
 
     if (ae.Through == 0)
     {
@@ -6100,14 +6102,49 @@ void BattleSceneHades::applyScriptedAttackEffect(AttackEffect& ae, Role* r)
     }
 
     r->LastAttacker = ae.Attacker;
+    auto& states = KysChess::ChessCombo::getMutableStates();
+    auto attackerStateIt = ae.Attacker ? states.find(ae.Attacker->ID) : states.end();
+    auto& targetState = states[r->ID];
+    KysChess::Battle::BattleDamageTransactionInput input;
+    input.request.attackerUnitId = ae.Attacker ? ae.Attacker->ID : -1;
+    input.request.defenderUnitId = r->ID;
+    input.request.acceptedHit = true;
+    input.request.frozenFrames = ae.ScriptedStunFrames;
+    input.request.bleedStacks = ae.ScriptedBleedStacks;
+    input.request.bleedMaxStacks = ae.ScriptedBleedStacks > 0
+        ? getSharedBleedMaxStacks(ae.Attacker)
+        : 0;
+    input.attacker = makeBattleDamageUnit(
+        ae.Attacker,
+        attackerStateIt != states.end() ? &attackerStateIt->second : nullptr);
+    input.defender = makeBattleDamageUnit(r, &targetState);
+    input.defenderStatus = makeBattleStatusUnit(r, targetState);
+
+    auto result = KysChess::Battle::BattleDamageSystem().resolveTransaction(input);
+    writeBattleStatusUnit(r, targetState, result.defenderStatus);
+    for (const auto& event : result.events)
+    {
+        if (event.type != KysChess::Battle::BattleDamageEventType::StatusApplied)
+        {
+            continue;
+        }
+        switch (event.statusType)
+        {
+        case KysChess::Battle::BattleDamageStatusType::Frozen:
+            logBattleStatus(ae.Attacker, r, formatStatusFrames("眩暈", event.value));
+            break;
+        case KysChess::Battle::BattleDamageStatusType::Bleed:
+            logBattleStatus(ae.Attacker, r, std::format("螺旋流血彈流血{}層", event.value));
+            break;
+        default:
+            break;
+        }
+    }
+
     if (ae.ScriptedDamage > 0)
     {
         r->HurtThisFrame += ae.ScriptedDamage;
         logBattleDamage(ae.Attacker, r, ae.ScriptedDamage, "", "特效傷害");
-    }
-    if (ae.ScriptedBleedStacks > 0)
-    {
-        applyBleed(ae.Attacker, r, ae.ScriptedBleedStacks, getSharedBleedMaxStacks(ae.Attacker), "螺旋流血彈");
     }
 }
 
