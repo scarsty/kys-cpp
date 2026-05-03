@@ -44,6 +44,53 @@ Pointf normalizedTo(Pointf point, double length)
 }
 }  // namespace
 
+BattleAttackEvent BattleAttackSystem::spawn(
+    BattleAttackWorld& world,
+    const BattleAttackSpawnRequest& request) const
+{
+    assert(request.attackerUnitId >= 0);
+    assert(request.totalFrame > 0);
+    assert(request.bounceRemaining >= 0);
+    assert(request.bounceRange >= 0);
+    assert(request.bounceChancePct >= 0 && request.bounceChancePct <= 100);
+    assert(request.bounceRollPct >= 0 && request.bounceRollPct < 100);
+
+    BattleAttackInstance attack;
+    attack.id = allocateAttackId(world);
+    attack.attackerUnitId = request.attackerUnitId;
+    attack.skillId = request.skillId;
+    attack.operationKind = request.operationType;
+    attack.visualEffectId = request.visualEffectId;
+    attack.preferredTargetUnitId = request.preferredTargetUnitId;
+    attack.position = request.position;
+    attack.velocity = request.velocity;
+    attack.totalFrame = request.totalFrame;
+    attack.through = request.through;
+    attack.track = request.track;
+    attack.requirePreferredTarget = request.requirePreferredTarget;
+    attack.executeCanHitInvincible = request.executeCanHitInvincible;
+    attack.ignoreProjectileCancel = request.ignoreProjectileCancel;
+    attack.sharedHitGroupId = request.sharedHitGroupId;
+    attack.bounceRemaining = request.bounceRemaining;
+    attack.bounceRange = request.bounceRange;
+    attack.bounceChancePct = request.bounceChancePct;
+    attack.bounceRollPct = request.bounceRollPct;
+    world.attacks.push_back(attack);
+
+    BattleAttackEvent event;
+    event.type = BattleAttackEventType::AttackSpawned;
+    event.attackId = attack.id;
+    event.unitId = attack.preferredTargetUnitId;
+    event.sourceUnitId = attack.attackerUnitId;
+    event.skillId = attack.skillId;
+    event.operationType = request.operationType;
+    event.visualEffectId = attack.visualEffectId;
+    event.position = attack.position;
+    event.velocity = attack.velocity;
+    event.totalFrame = attack.totalFrame;
+    return event;
+}
+
 std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world) const
 {
     assert(world.hitRadius > 0.0);
@@ -144,6 +191,22 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
 
     collectProjectileCancelEvents(world, events);
     return events;
+}
+
+int BattleAttackSystem::allocateAttackId(BattleAttackWorld& world) const
+{
+    assert(world.nextAttackId >= 0);
+    if (world.nextAttackId == 0 && !world.attacks.empty())
+    {
+        auto maxId = world.attacks.front().id;
+        for (const auto& attack : world.attacks)
+        {
+            assert(attack.id >= 0);
+            maxId = std::max(maxId, attack.id);
+        }
+        world.nextAttackId = maxId + 1;
+    }
+    return world.nextAttackId++;
 }
 
 const BattleAttackUnit* BattleAttackSystem::unitById(const BattleAttackWorld& world, int unitId) const

@@ -22,6 +22,7 @@ struct BattleAttackInstance
 {
     int id = -1;
     int attackerUnitId = -1;
+    int skillId = -1;
     int preferredTargetUnitId = -1;
     bool requirePreferredTarget = false;
     int frame = 0;
@@ -52,8 +53,31 @@ struct BattleAttackInstance
     float spiralAngularVelocity = 0.0f;
 };
 
+struct BattleAttackSpawnRequest
+{
+    int attackerUnitId = -1;
+    int skillId = -1;
+    int operationType = -1;
+    int visualEffectId = -1;
+    int preferredTargetUnitId = -1;
+    Pointf position;
+    Pointf velocity;
+    int totalFrame = 1;
+    bool through = false;
+    bool track = false;
+    bool requirePreferredTarget = false;
+    bool executeCanHitInvincible = false;
+    bool ignoreProjectileCancel = false;
+    int sharedHitGroupId = 0;
+    int bounceRemaining = 0;
+    int bounceRange = 0;
+    int bounceChancePct = 0;
+    int bounceRollPct = 0;
+};
+
 enum class BattleAttackEventType
 {
+    AttackSpawned,
     Moved,
     Hit,
     Expired,
@@ -68,6 +92,13 @@ struct BattleAttackEvent
     int attackId = -1;
     int otherAttackId = -1;
     int unitId = -1;
+    int sourceUnitId = -1;
+    int skillId = -1;
+    int operationType = -1;
+    int visualEffectId = -1;
+    Pointf position;
+    Pointf velocity;
+    int totalFrame = 0;
 };
 
 struct BattleAttackWorld
@@ -88,9 +119,11 @@ struct BattleAttackWorld
 class BattleAttackSystem
 {
 public:
+    BattleAttackEvent spawn(BattleAttackWorld& world, const BattleAttackSpawnRequest& request) const;
     std::vector<BattleAttackEvent> tick(BattleAttackWorld& world) const;
 
 private:
+    int allocateAttackId(BattleAttackWorld& world) const;
     const BattleAttackUnit* unitById(const BattleAttackWorld& world, int unitId) const;
     const BattleAttackUnit* selectTarget(const BattleAttackWorld& world, const BattleAttackInstance& attack) const;
     bool hasHitUnit(const BattleAttackInstance& attack, int unitId) const;

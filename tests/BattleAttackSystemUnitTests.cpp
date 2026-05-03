@@ -36,7 +36,98 @@ bool hasEvent(const std::vector<BattleAttackEvent>& events, BattleAttackEventTyp
     }
     return false;
 }
+
+BattleAttackSpawnRequest spawnRequest()
+{
+    BattleAttackSpawnRequest request;
+    request.attackerUnitId = 1;
+    request.skillId = 101;
+    request.operationType = 2;
+    request.visualEffectId = 33;
+    request.preferredTargetUnitId = 2;
+    request.position = { 10, 20, 0 };
+    request.velocity = { 3, 4, 0 };
+    request.totalFrame = 30;
+    return request;
+}
 }  // namespace
+
+TEST_CASE("BattleAttackSystem_SpawnAssignsDeterministicAttackIds", "[battle][attack][unit]")
+{
+    BattleAttackWorld world;
+    world.nextAttackId = 40;
+
+    auto first = BattleAttackSystem().spawn(world, spawnRequest());
+    auto second = BattleAttackSystem().spawn(world, spawnRequest());
+
+    REQUIRE(world.attacks.size() == 2);
+    CHECK(world.attacks[0].id == 40);
+    CHECK(world.attacks[1].id == 41);
+    CHECK(first.attackId == 40);
+    CHECK(second.attackId == 41);
+    CHECK(world.nextAttackId == 42);
+}
+
+TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][unit]")
+{
+    BattleAttackWorld world;
+    BattleAttackSpawnRequest request = spawnRequest();
+    request.through = true;
+    request.track = true;
+    request.sharedHitGroupId = 7;
+    request.requirePreferredTarget = true;
+    request.bounceRemaining = 2;
+    request.bounceRange = 120;
+    request.bounceChancePct = 80;
+    request.bounceRollPct = 30;
+    request.executeCanHitInvincible = true;
+    request.ignoreProjectileCancel = true;
+
+    BattleAttackSystem().spawn(world, request);
+
+    REQUIRE(world.attacks.size() == 1);
+    const auto& attack = world.attacks[0];
+    CHECK(attack.attackerUnitId == 1);
+    CHECK(attack.skillId == 101);
+    CHECK(attack.operationKind == 2);
+    CHECK(attack.visualEffectId == 33);
+    CHECK(attack.preferredTargetUnitId == 2);
+    CHECK(attack.position.x == 10.0f);
+    CHECK(attack.position.y == 20.0f);
+    CHECK(attack.velocity.x == 3.0f);
+    CHECK(attack.velocity.y == 4.0f);
+    CHECK(attack.totalFrame == 30);
+    CHECK(attack.through);
+    CHECK(attack.track);
+    CHECK(attack.sharedHitGroupId == 7);
+    CHECK(attack.requirePreferredTarget);
+    CHECK(attack.bounceRemaining == 2);
+    CHECK(attack.bounceRange == 120);
+    CHECK(attack.bounceChancePct == 80);
+    CHECK(attack.bounceRollPct == 30);
+    CHECK(attack.executeCanHitInvincible);
+    CHECK(attack.ignoreProjectileCancel);
+}
+
+TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[battle][attack][unit]")
+{
+    BattleAttackWorld world;
+
+    auto event = BattleAttackSystem().spawn(world, spawnRequest());
+
+    CHECK(event.type == BattleAttackEventType::AttackSpawned);
+    CHECK(event.attackId == 0);
+    CHECK(event.sourceUnitId == 1);
+    CHECK(event.unitId == 2);
+    CHECK(event.skillId == 101);
+    CHECK(event.operationType == 2);
+    CHECK(event.visualEffectId == 33);
+    CHECK(event.position.x == 10.0f);
+    CHECK(event.position.y == 20.0f);
+    CHECK(event.velocity.x == 3.0f);
+    CHECK(event.velocity.y == 4.0f);
+    CHECK(event.totalFrame == 30);
+}
 
 TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][unit]")
 {
