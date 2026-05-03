@@ -43,7 +43,7 @@ static const std::map<std::string, EffectType> effectTypeMap = {
     {"适应", EffectType::Adaptation}, {"同敌减伤", EffectType::Adaptation},
     {"连击蓄力", EffectType::RampingDmg}, {"连击增伤", EffectType::RampingDmg},
     {"回血", EffectType::HealBurst},
-    {"流血", EffectType::BleedChance}, {"流血持续", EffectType::BleedPersist},
+    {"流血", EffectType::BleedChance},
     {"绝招后退", EffectType::PostSkillDash}, {"敌方攻防削弱", EffectType::EnemyTopDebuff},
     {"闪击", EffectType::BlinkAttack}, {"同袍之死", EffectType::AllyDeathStatBoost},
     {"七截分身", EffectType::CloneSummon}, {"弹反", EffectType::ProjectileReflect},
@@ -285,7 +285,6 @@ void ChessBattleEffects::applyEffect(RoleComboState& s, const ComboEffect& e, in
         s.bleedChancePct += e.value;
         if (e.value2 > 0) s.bleedMaxStacks = e.value2;
         break;
-    case EffectType::BleedPersist: s.bleedPersist = true; break;
     case EffectType::PostSkillDash:
         s.postSkillDash = true;
         s.postSkillDashFrames = std::max(s.postSkillDashFrames, e.value);

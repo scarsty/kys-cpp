@@ -178,7 +178,6 @@ std::string comboEffectLabel(const ComboEffect& eff, bool compact)
     case EffectType::RampingDmg: desc = std::format("連擊增傷+{}%({}層)", eff.value, eff.value2); break;
     case EffectType::HealBurst: desc = std::format("回血{}%", eff.value); break;
     case EffectType::BleedChance: desc = std::format("{}%流血{}層", eff.value, eff.value2); break;
-    case EffectType::BleedPersist: desc = "流血持續"; break;
     case EffectType::PostSkillDash: desc = "絕招後疾退"; break;
     case EffectType::EnemyTopDebuff: desc = std::format("敵方前{}名攻防-{}×存活數", eff.value, eff.value2); break;
     case EffectType::BlinkAttack: desc = "閃現攻擊"; break;

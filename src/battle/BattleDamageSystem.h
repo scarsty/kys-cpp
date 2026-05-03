@@ -1,0 +1,188 @@
+#pragma once
+
+#include "BattleStatusSystem.h"
+
+#include <vector>
+
+namespace KysChess::Battle
+{
+
+struct BattleDamageUnitState
+{
+    int id = -1;
+    bool alive = true;
+    int hp = 0;
+    int maxHp = 0;
+    int attack = 0;
+    int invincible = 0;
+    int hurtInvincFrames = 0;
+
+    int shield = 0;
+    int blockFirstHitsRemaining = 0;
+
+    bool deathPrevention = false;
+    bool deathPreventionUsed = false;
+    int deathPreventionFrames = 0;
+
+    int killHealPct = 0;
+    int killInvincFrames = 0;
+    int bloodlustAttackPerKill = 0;
+};
+
+struct BattleDamageModifierState
+{
+    int flatDamageIncrease = 0;
+    int skillDamagePct = 0;
+    int poisonDamageAmpPct = 0;
+    std::vector<DamageReduceDebuff> outgoingDamageReduceDebuffs;
+
+    int flatDamageReduction = 0;
+    int damageReductionPct = 0;
+    int poisonTimer = 0;
+    int maxHitPctMaxHp = 0;
+};
+
+struct BattleDamageModifierInput
+{
+    double damage = 0.0;
+    bool usingSkill = false;
+    bool ignoreDefense = false;
+    BattleDamageModifierState attacker;
+    BattleDamageModifierState defender;
+    BattleDamageUnitState defenderUnit;
+};
+
+struct BattleDamageModifierResult
+{
+    double damage = 0.0;
+    bool maxHitCapped = false;
+    int maxHitPct = 0;
+};
+
+struct BattleDamageDefenseInput
+{
+    double damage = 0.0;
+    bool executed = false;
+    bool reflected = false;
+    bool defenderWasInvincible = false;
+    BattleDamageUnitState defender;
+};
+
+struct BattleDamageDefenseResult
+{
+    double damage = 0.0;
+    BattleDamageUnitState defender;
+    int shieldAbsorbed = 0;
+    bool blockedByInvincible = false;
+    bool blockedByFirstHit = false;
+    bool shieldBroken = false;
+};
+
+struct BattleDamageTakenResult
+{
+    BattleDamageUnitState defender;
+    bool hurtInvincGranted = false;
+    bool deathPrevented = false;
+    bool died = false;
+    int invincibilityGranted = 0;
+};
+
+struct BattleKillRewardInput
+{
+    BattleDamageUnitState killer;
+};
+
+struct BattleKillRewardResult
+{
+    BattleDamageUnitState killer;
+    int healed = 0;
+    int invincibilityGranted = 0;
+    int attackGranted = 0;
+};
+
+struct BattleCooldownState
+{
+    bool alive = true;
+    int cooldown = 0;
+    int cooldownMax = 0;
+    bool haveAction = false;
+    int operationType = -1;
+    int actType = -1;
+};
+
+struct BattleCooldownIncreaseResult
+{
+    BattleCooldownState unit;
+    bool increased = false;
+    int before = 0;
+    int after = 0;
+};
+
+struct BattleExecuteInput
+{
+    int projectedHpBeforeDamage = 0;
+    int maxHp = 0;
+    double pendingDamage = 0.0;
+    bool appliesHpDamage = true;
+    int thresholdPct = 0;
+};
+
+struct BattleResourceUnitState
+{
+    int id = -1;
+    bool alive = true;
+    int hp = 0;
+    int maxHp = 0;
+    int mp = 0;
+    int maxMp = 0;
+};
+
+struct BattleOnHitResourceInput
+{
+    BattleResourceUnitState attacker;
+    BattleResourceUnitState target;
+    int mpOnHit = 0;
+    int hpOnHit = 0;
+    int mpDrain = 0;
+};
+
+struct BattleOnHitResourceResult
+{
+    BattleResourceUnitState attacker;
+    BattleResourceUnitState target;
+    int mpRestored = 0;
+    int hpHealed = 0;
+    int mpDrained = 0;
+};
+
+struct BattlePoisonApplyInput
+{
+    BattleStatusUnitState target;
+    int sourceUnitId = -1;
+    int poisonPct = 0;
+    int durationFrames = 0;
+};
+
+struct BattleStatusApplyResult
+{
+    BattleStatusUnitState target;
+    bool applied = false;
+    int value = 0;
+};
+
+class BattleDamageSystem
+{
+public:
+    BattleDamageModifierResult applyModifiers(const BattleDamageModifierInput& input) const;
+    BattleDamageDefenseResult resolveDefense(const BattleDamageDefenseInput& input) const;
+    BattleDamageTakenResult applyDamageTaken(BattleDamageUnitState defender, int damage) const;
+    BattleKillRewardResult applyKillReward(const BattleKillRewardInput& input) const;
+    BattleCooldownIncreaseResult extendActiveCooldown(BattleCooldownState unit, int pct) const;
+    bool shouldExecute(const BattleExecuteInput& input) const;
+    BattleOnHitResourceResult applyOnHitResources(const BattleOnHitResourceInput& input) const;
+    BattleStatusApplyResult applyPoisonIfStronger(const BattlePoisonApplyInput& input) const;
+    BattleStatusApplyResult applyBleed(BattleStatusUnitState target, int sourceUnitId, int stacks, int maxStacks) const;
+    BattleStatusApplyResult applyDamageReduceDebuff(BattleStatusUnitState target, int durationFrames, int pct) const;
+};
+
+}  // namespace KysChess::Battle

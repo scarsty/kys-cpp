@@ -1,11 +1,15 @@
 ﻿#pragma once
+#include "battle/BattleMovement.h"
+#include "battle/BattlePresentation.h"
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
+#include "BattleScenePresentationPlayer.h"
 #include "ChessManager.h"
 #include "ChessProgress.h"
 #include "ChessRoleSave.h"
 #include "Head.h"
 #include <deque>
+#include <map>
 #include <set>
 #include <unordered_map>
 
@@ -41,6 +45,7 @@ public:
     virtual void onPressedCancel() override;
 
 protected:
+    struct MovementRuntime;
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
@@ -84,13 +89,12 @@ protected:
     void applyTeamMP(Role* source, int amount, const char* reason);
     void applyTeamShield(Role* source, int amount, const char* reason, bool refreshOnly);
     int getSharedBleedMaxStacks(Role* source) const;
-    void applyBleed(Role* source, Role* target, int stacks, int maxStacks, bool persist, const char* reason);
+    void applyBleed(Role* source, Role* target, int stacks, int maxStacks, const char* reason);
     void applyTempAttackBuff(Role* role,
                              KysChess::RoleComboState& state,
                              int attackBonus,
                              int durationFrames,
                              const std::string& reason);
-    void tickTempAttackBuffs(Role* role, KysChess::RoleComboState& state);
     void triggerShieldBreakEffects(Role* role, KysChess::RoleComboState& state);
     void collectTriggeredTeamHeal(KysChess::RoleComboState& state,
                                   KysChess::Trigger trigger,
@@ -114,13 +118,17 @@ protected:
     void focusCameraOn(const Pointf& focusPoint, int zoomFrames);
     void updateAutoCamera();
     void clampCameraCenter();
-    Role* assignFlankTarget(Role* r);
-    bool isCellOccupied45(int x, int y, const Role* ignore = nullptr) const;
-    Point findEngagementCell(Role* chaser, Role* target, int minTargetDistance, int preferredTargetDistance, int maxTargetDistance, bool avoidApproachReservations, bool avoidWallPressure, Point avoidCell = Point(-1, -1));
-    Point findApproachCell(Role* chaser, Role* target);
+    void prepareCoreMovementDecisions();
+    KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
+    KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);
+    void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::map<int, Role*>& rolesByBattleId);
+    KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
+    void beginPresentationFrame();
+    void publishPresentationFrame();
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
     void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
     void addRoleEffect(Role* role, int eftId, int totalFrames = 0);
+    void addDamageNumber(Role* role, int damage, Color color, int baseSize = 15);
     void logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName = "", const std::string& detailText = "");
     void logBattleHeal(Role* source, Role* target, int amount, const std::string& reason = "");
     void logBattleStatus(Role* source, Role* target, const std::string& text);
@@ -128,9 +136,6 @@ protected:
     bool roleForcesRangedMagic(Role* role) const;
     int getForcedRangedMinSelectDistance(Role* role) const;
     int getProjectileSpeedMultiplierPct(Role* role) const;
-
-    std::vector<Point> findPath(Point start45, Point goal45, Role* traveler = nullptr);
-    std::vector<Pointf> smoothPath(const std::vector<Point>& path45);
 
 public:
     BattleTracker& getTracker() { return tracker_; }
@@ -176,28 +181,20 @@ protected:
     Pointf camera_target_;
     int close_up_total_ = 0;
     bool count_fights_won_ = true;
+    int core_movement_frame_ = -1;
+    std::unordered_map<Role*, KysChess::Battle::MovementDecision> core_movement_decisions_;
+    KysChess::Battle::BattlePresentationRecorder presentation_recorder_;
+    BattleScenePresentationPlayer presentation_player_;
+    KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
 
-    struct PathInfo {
-        std::vector<Pointf> waypoints;
-        int current_waypoint = 0;
-        int frames_since_update = 0;
-        Role* target = nullptr;
-        Point target_cell;
-        bool has_target_cell = false;
-        bool reserves_approach_cell = false;
-        int target_lock_until = 0;
-        int position_hold_until = 0;
+    struct MovementRuntime {
+        int core_assigned_slot = 0;
+        int core_slot_switch_cooldown = 0;
         int movement_dash_frames = 0;
         int movement_dash_cooldown = 0;
         int movement_dash_spread_frames = 0;
-        int frames_following = 0;
-        int frames_sliding = 0;
-        int frames_stuck = 0;
-        int frames_gap_closing = 0;
-        int frames_no_gap_progress = 0;
-        double last_gap_distance = -1.0;
     };
-    std::unordered_map<Role*, PathInfo> paths_;
+    std::unordered_map<Role*, MovementRuntime> movement_runtime_;
 };
 
 template<typename Cmp>

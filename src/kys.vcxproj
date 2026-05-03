@@ -21,13 +21,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -158,7 +158,22 @@
     <ClCompile Include="BattleCursor.cpp" />
     <ClCompile Include="BattleNetwork.cpp" />
     <ClCompile Include="BattleRoleManager.cpp" />
+    <ClCompile Include="battle\BattleAttackSystem.cpp" />
+    <ClCompile Include="battle\BattleComboTriggerSystem.cpp" />
+    <ClCompile Include="battle\BattleCore.cpp" />
+    <ClCompile Include="battle\BattleCombatIntent.cpp" />
+    <ClCompile Include="battle\BattleDamageSystem.cpp" />
+    <ClCompile Include="battle\BattleDeathEffectSystem.cpp" />
+    <ClCompile Include="battle\BattleEffectSystem.cpp" />
+    <ClCompile Include="battle\BattleGeometry.cpp" />
+    <ClCompile Include="battle\BattleMovement.cpp" />
+    <ClCompile Include="battle\BattlePresentation.cpp" />
+    <ClCompile Include="battle\BattlePresentationPlayback.cpp" />
+    <ClCompile Include="battle\BattleProjectileTargetingSystem.cpp" />
+    <ClCompile Include="battle\BattleStatusSystem.cpp" />
+    <ClCompile Include="battle\BattleTeamEffectSystem.cpp" />
     <ClCompile Include="BattleScene.cpp" />
+    <ClCompile Include="BattleScenePresentationPlayer.cpp" />
     <ClCompile Include="BattleMenu.cpp" />
     <ClCompile Include="BattleSceneHades.cpp" />
     <ClCompile Include="Button.cpp" />
@@ -262,6 +277,8 @@
     <ClInclude Include="..\mlcc\strfunc.h" />
     <ClInclude Include="..\others\Hanz2Piny.h" />
     <ClInclude Include="BattleSceneHades.h" />
+    <ClInclude Include="BattleScenePresentationConstants.h" />
+    <ClInclude Include="BattleScenePresentationPlayer.h" />
     <ClInclude Include="DrawNode.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="ChessBalance.h" />
@@ -279,6 +296,21 @@
     <ClInclude Include="BattleCursor.h" />
     <ClInclude Include="BattleNetwork.h" />
     <ClInclude Include="BattleRoleManager.h" />
+    <ClInclude Include="battle\BattleAttackSystem.h" />
+    <ClInclude Include="battle\BattleComboTriggerSystem.h" />
+    <ClInclude Include="battle\BattleCore.h" />
+    <ClInclude Include="battle\BattleCombatIntent.h" />
+    <ClInclude Include="battle\BattleDamageSystem.h" />
+    <ClInclude Include="battle\BattleDeathEffectSystem.h" />
+    <ClInclude Include="battle\BattleEffectSystem.h" />
+    <ClInclude Include="battle\BattleGeometry.h" />
+    <ClInclude Include="battle\BattleMovement.h" />
+    <ClInclude Include="battle\BattlePresentation.h" />
+    <ClInclude Include="battle\BattlePresentationPlayback.h" />
+    <ClInclude Include="battle\BattleProjectileTargetingSystem.h" />
+    <ClInclude Include="battle\BattleStatusSystem.h" />
+    <ClInclude Include="battle\BattleTeamEffectSystem.h" />
+    <ClInclude Include="battle\BattleTypes.h" />
     <ClInclude Include="BattleScene.h" />
     <ClInclude Include="BattleMenu.h" />
     <ClInclude Include="Button.h" />

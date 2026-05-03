@@ -76,7 +76,6 @@ enum class EffectType
     HealBurst,
     // === New effects for expanded chess pool ===
     BleedChance,
-    BleedPersist,
     PostSkillDash,
     EnemyTopDebuff,
     BlinkAttack,
@@ -197,7 +196,6 @@ struct RoleComboState
     std::vector<RampingInstance> rampings;
     // --- New effects (expanded pool) ---
     int bleedChancePct = 0;
-    bool bleedPersist = false;
     int bleedMaxStacks = 5;
     bool postSkillDash = false;
     int postSkillDashFrames = 0;
@@ -250,7 +248,6 @@ struct RoleComboState
     std::vector<int> rampingIdleTimers;  // per instance
     int bleedStacks = 0;
     int bleedTimer = 0;
-    bool bleedPersistFlag = false;
     int bleedSourceId = -1;
     int mpBlockTimer = 0;
     bool deathPreventionUsed = false;
