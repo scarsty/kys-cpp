@@ -103,6 +103,23 @@ struct BattleDodgeResolution
     bool dodged = false;
 };
 
+enum class BattleOnHitComboCommandType
+{
+    MpBlock,
+    CurrentHpPctBlast,
+    TeamMpRestore,
+    FlatShield,
+    SpiralBleedProjectile,
+    NearbyTrackingProjectiles,
+};
+
+struct BattleOnHitComboCommand
+{
+    BattleOnHitComboCommandType type = BattleOnHitComboCommandType::MpBlock;
+    int value = 0;
+    int value2 = 0;
+};
+
 struct BattleActivatedComboEffect
 {
     int effectIndex = -1;
@@ -144,6 +161,12 @@ public:
     BattleTriggeredTeamHeal collectPendingSkillTeamHeal(
         RoleComboState& state,
         const BattleComboTriggerInput& input,
+        const std::function<double()>& rollPercent) const;
+
+    std::vector<BattleOnHitComboCommand> collectOnHitComboCommands(
+        RoleComboState& state,
+        const BattleComboTriggerInput& input,
+        bool suppressNearbyTrackingProjectiles,
         const std::function<double()>& rollPercent) const;
 
     std::vector<BattleActivatedComboEffect> collectChanceEffects(

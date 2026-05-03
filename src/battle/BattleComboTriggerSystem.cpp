@@ -346,6 +346,74 @@ BattleTriggeredTeamHeal BattleComboTriggerSystem::collectPendingSkillTeamHeal(
     return result;
 }
 
+std::vector<BattleOnHitComboCommand> BattleComboTriggerSystem::collectOnHitComboCommands(
+    RoleComboState& state,
+    const BattleComboTriggerInput& input,
+    bool suppressNearbyTrackingProjectiles,
+    const std::function<double()>& rollPercent) const
+{
+    auto events = suppressNearbyTrackingProjectiles
+        ? collectTriggerEvents(
+            state,
+            input,
+            {
+                EffectType::MPBlock,
+                EffectType::CurrentHPPctBlast,
+                EffectType::TeamMPRestore,
+                EffectType::FlatShield,
+                EffectType::SpiralBleedProjectile,
+            },
+            rollPercent)
+        : collectTriggerEvents(
+            state,
+            input,
+            {
+                EffectType::MPBlock,
+                EffectType::CurrentHPPctBlast,
+                EffectType::TeamMPRestore,
+                EffectType::FlatShield,
+                EffectType::SpiralBleedProjectile,
+                EffectType::NearbyTrackingProjectiles,
+            },
+            rollPercent);
+
+    std::vector<BattleOnHitComboCommand> commands;
+    for (const auto& event : events)
+    {
+        assert(event.effect.triggerValue > 0);
+        assert(event.effect.value > 0);
+
+        BattleOnHitComboCommand command;
+        command.value = event.effect.value;
+        command.value2 = event.effect.value2;
+        switch (event.effect.type)
+        {
+        case EffectType::MPBlock:
+            command.type = BattleOnHitComboCommandType::MpBlock;
+            break;
+        case EffectType::CurrentHPPctBlast:
+            command.type = BattleOnHitComboCommandType::CurrentHpPctBlast;
+            break;
+        case EffectType::TeamMPRestore:
+            command.type = BattleOnHitComboCommandType::TeamMpRestore;
+            break;
+        case EffectType::FlatShield:
+            command.type = BattleOnHitComboCommandType::FlatShield;
+            break;
+        case EffectType::SpiralBleedProjectile:
+            command.type = BattleOnHitComboCommandType::SpiralBleedProjectile;
+            break;
+        case EffectType::NearbyTrackingProjectiles:
+            command.type = BattleOnHitComboCommandType::NearbyTrackingProjectiles;
+            break;
+        default:
+            assert(false);
+        }
+        commands.push_back(command);
+    }
+    return commands;
+}
+
 std::vector<BattleActivatedComboEffect> BattleComboTriggerSystem::collectChanceEffects(
     RoleComboState& state,
     Trigger trigger,

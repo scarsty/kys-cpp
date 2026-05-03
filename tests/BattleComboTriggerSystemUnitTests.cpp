@@ -228,6 +228,45 @@ TEST_CASE("BattleComboTriggerSystem_PendingSkillTeamHeal_ConsumesPendingBaseHeal
     CHECK(state.effectActivationCounts[0] == 1);
 }
 
+TEST_CASE("BattleComboTriggerSystem_OnHitComboCommands_FilterNearbyTrackingWhenSuppressed", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::MPBlock, Trigger::OnHit, 4, 100));
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::NearbyTrackingProjectiles, Trigger::OnHit, 80, 100));
+    state.triggeredEffects.back().value2 = 30;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::FlatShield, Trigger::OnHit, 12, 100));
+
+    auto suppressed = BattleComboTriggerSystem().collectOnHitComboCommands(
+        state,
+        { BattleComboTriggerHook::DamageDealt, 1, 2 },
+        true,
+        []() { return 0.0; });
+
+    REQUIRE(suppressed.size() == 2);
+    CHECK(suppressed[0].type == BattleOnHitComboCommandType::MpBlock);
+    CHECK(suppressed[0].value == 4);
+    CHECK(suppressed[1].type == BattleOnHitComboCommandType::FlatShield);
+    CHECK(suppressed[1].value == 12);
+    CHECK(state.effectActivationCounts[0] == 1);
+    CHECK(state.effectActivationCounts[1] == 0);
+    CHECK(state.effectActivationCounts[2] == 1);
+
+    auto allowed = BattleComboTriggerSystem().collectOnHitComboCommands(
+        state,
+        { BattleComboTriggerHook::DamageDealt, 1, 2 },
+        false,
+        []() { return 0.0; });
+
+    REQUIRE(allowed.size() == 3);
+    CHECK(allowed[1].type == BattleOnHitComboCommandType::NearbyTrackingProjectiles);
+    CHECK(allowed[1].value == 80);
+    CHECK(allowed[1].value2 == 30);
+    CHECK(state.effectActivationCounts[1] == 1);
+}
+
 TEST_CASE("BattleComboTriggerSystem_ChanceEffects_FilterTypesAndRecordOnlyActivatedEffects", "[battle][combo][unit]")
 {
     RoleComboState state;

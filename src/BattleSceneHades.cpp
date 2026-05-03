@@ -5905,44 +5905,17 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 }
             }
 
-            KysChess::Battle::BattleComboTriggerSystem triggerSystem;
-            auto activatedEffects = event.suppressNearbyTrackingProjectileProc
-                ? triggerSystem.collectTriggerEvents(
-                    as,
-                    { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                    {
-                        KysChess::EffectType::MPBlock,
-                        KysChess::EffectType::CurrentHPPctBlast,
-                        KysChess::EffectType::TeamMPRestore,
-                        KysChess::EffectType::FlatShield,
-                        KysChess::EffectType::SpiralBleedProjectile,
-                    },
-                    [&]() { return rand_.rand() * 100.0; },
-                    KysChess::Battle::BattleComboActivationRecording::CallerRecords)
-                : triggerSystem.collectTriggerEvents(
-                    as,
-                    { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                    {
-                        KysChess::EffectType::MPBlock,
-                        KysChess::EffectType::CurrentHPPctBlast,
-                        KysChess::EffectType::TeamMPRestore,
-                        KysChess::EffectType::FlatShield,
-                        KysChess::EffectType::SpiralBleedProjectile,
-                        KysChess::EffectType::NearbyTrackingProjectiles,
-                    },
-                    [&]() { return rand_.rand() * 100.0; },
-                    KysChess::Battle::BattleComboActivationRecording::CallerRecords);
+            auto comboCommands = KysChess::Battle::BattleComboTriggerSystem().collectOnHitComboCommands(
+                as,
+                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
+                event.suppressNearbyTrackingProjectileProc,
+                [&]() { return rand_.rand() * 100.0; });
 
-            for (const auto& activatedEffect : activatedEffects)
+            for (const auto& command : comboCommands)
             {
-                const auto& eff = activatedEffect.effect;
-                assert(eff.triggerValue > 0);
-                assert(eff.value > 0);
-                bool activated = false;
-
-                if (eff.type == KysChess::EffectType::MPBlock)
+                if (command.type == KysChess::Battle::BattleOnHitComboCommandType::MpBlock)
                 {
-                    int frames = eff.value;
+                    int frames = command.value;
                     KysChess::Battle::BattleDamageRequest request;
                     request.mpBlockFrames = frames;
                     auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
@@ -5953,9 +5926,8 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                             logBattleStatus(attacker, r, formatStatusFrames("封內", frames));
                         }
                     }
-                    activated = true;
                 }
-                else if (eff.type == KysChess::EffectType::CurrentHPPctBlast)
+                else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::CurrentHpPctBlast)
                 {
                     for (auto enemy : battle_roles_)
                     {
@@ -5963,39 +5935,29 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                         {
                             continue;
                         }
-                        int damage = std::max(1, enemy->HP * eff.value / 100);
+                        int damage = std::max(1, enemy->HP * command.value / 100);
                         queuePreResolvedHpDamage(attacker, enemy, damage, false, false, false, "", "當前生命傷害");
                     }
-                    activated = true;
                 }
-                else if (eff.type == KysChess::EffectType::TeamMPRestore)
+                else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::TeamMpRestore)
                 {
-                    applyTeamMP(attacker, eff.value, "琴棋書畫");
-                    activated = true;
+                    applyTeamMP(attacker, command.value, "琴棋書畫");
                 }
-                else if (eff.type == KysChess::EffectType::FlatShield)
+                else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::FlatShield)
                 {
-                    applyTeamShield(attacker, eff.value, "全隊護盾重整", true);
-                    activated = true;
+                    applyTeamShield(attacker, command.value, "全隊護盾重整", true);
                 }
-                else if (eff.type == KysChess::EffectType::SpiralBleedProjectile)
+                else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::SpiralBleedProjectile)
                 {
-                    spawnSpiralBleedProjectiles(attacker, eff.value, eff.value2 > 0 ? eff.value2 : 6);
-                    activated = true;
+                    spawnSpiralBleedProjectiles(attacker, command.value, command.value2 > 0 ? command.value2 : 6);
                 }
-                else if (eff.type == KysChess::EffectType::NearbyTrackingProjectiles)
+                else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::NearbyTrackingProjectiles)
                 {
-                    spawnNearbyTrackingProjectiles(event, r, eff.value, eff.value2 > 0 ? eff.value2 : 40);
-                    activated = true;
+                    spawnNearbyTrackingProjectiles(event, r, command.value, command.value2 > 0 ? command.value2 : 40);
                 }
                 else
                 {
                     assert(false);
-                }
-
-                if (activated)
-                {
-                    triggerSystem.recordActivation(as, static_cast<size_t>(activatedEffect.effectIndex));
                 }
             }
 
