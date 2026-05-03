@@ -147,16 +147,7 @@ std::vector<BattleAttackEvent> BattleAttackSystem::tick(BattleAttackWorld& world
                 attack.frame = std::max(attack.totalFrame - 15, attack.frame);
                 if (nextTarget)
                 {
-                    if (world.nextAttackId <= 0)
-                    {
-                        auto maxId = attack.id;
-                        for (const auto& existingAttack : world.attacks)
-                        {
-                            maxId = std::max(maxId, existingAttack.id);
-                        }
-                        world.nextAttackId = maxId + 1;
-                    }
-                    const int bounceAttackId = world.nextAttackId++;
+                    const int bounceAttackId = allocateAttackId(world);
                     pendingBounces.push_back({
                         makeBounceAttack(world, bounceSource, *target, *nextTarget, bounceAttackId),
                         attack.id,

@@ -1,6 +1,7 @@
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleCore.h"
 #include "battle/BattleMovement.h"
+#include "battle/BattlePresentationPlayback.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -353,24 +354,35 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     CHECK(firstProjectileEvent.operationKind == 2);
 }
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[battle][core]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[battle][core][presentation]")
 {
     BattleFrameState state;
     state.world = worldWith({});
+    state.attacks.hitRadius = 10.0;
     state.attacks.nextAttackId = 50;
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 0, 0, 0 } },
+        { 2, 1, true, false, false, { 106, 120, 0 } },
+    };
     state.pendingAttackSpawns.push_back(attackSpawnRequest());
 
     auto result = BattleFrameRunner().advanceFrame(state);
 
-    REQUIRE(result.attackEvents.size() == 1);
+    REQUIRE(result.attackEvents.size() == 3);
     CHECK(result.attackEvents[0].type == BattleAttackEventType::AttackSpawned);
     CHECK(result.attackEvents[0].attackId == 50);
+    CHECK(result.attackEvents[1].type == BattleAttackEventType::Moved);
+    CHECK(result.attackEvents[1].attackId == 50);
+    CHECK(result.attackEvents[2].type == BattleAttackEventType::Hit);
+    CHECK(result.attackEvents[2].attackId == 50);
+    CHECK(result.attackEvents[2].unitId == 2);
     CHECK(state.pendingAttackSpawns.empty());
     REQUIRE(state.attacks.attacks.size() == 1);
     CHECK(state.attacks.attacks[0].id == 50);
+    CHECK(state.attacks.attacks[0].position.x == 106.0f);
     CHECK(state.attacks.nextAttackId == 51);
 
-    REQUIRE(result.frame.gameplayEvents.size() == 1);
+    REQUIRE(result.frame.gameplayEvents.size() == 3);
     const auto& gameplay = result.frame.gameplayEvents[0];
     CHECK(gameplay.type == BattleGameplayEventType::AttackSpawned);
     CHECK(gameplay.effectId == 50);
@@ -379,7 +391,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
     CHECK(gameplay.position.x == 100.0f);
     CHECK(gameplay.position.y == 120.0f);
 
-    REQUIRE(result.frame.presentationEvents.size() == 1);
+    REQUIRE(result.frame.presentationEvents.size() == 3);
     const auto& presentation = result.frame.presentationEvents[0];
     CHECK(presentation.type == BattlePresentationEventType::ProjectileSpawned);
     CHECK(presentation.effectId == 50);
@@ -391,6 +403,22 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
     CHECK(presentation.position.y == 120.0f);
     CHECK(presentation.velocity.x == 6.0f);
     CHECK(presentation.operationKind == 2);
+
+    CHECK(result.frame.presentationEvents[1].type == BattlePresentationEventType::ProjectileMoved);
+    CHECK(result.frame.presentationEvents[1].position.x == 106.0f);
+    CHECK(result.frame.presentationEvents[2].type == BattlePresentationEventType::ProjectileHit);
+    CHECK(result.frame.gameplayEvents[2].type == BattleGameplayEventType::ProjectileHit);
+    CHECK(result.frame.gameplayEvents[2].targetUnitId == 2);
+
+    auto plan = BattlePresentationPlaybackPlanner().build(result.frame);
+    REQUIRE(plan.commands.size() == 3);
+    CHECK(plan.commands[0].type == BattlePresentationCommandType::SpawnProjectile);
+    CHECK(plan.commands[0].projectileAttackId == 50);
+    CHECK(plan.commands[0].visualEffectId == 44);
+    CHECK(plan.commands[0].projectilePosition.x == 100.0f);
+    CHECK(plan.commands[0].projectileVelocity.x == 6.0f);
+    CHECK(plan.commands[0].projectileDurationFrames == 30);
+    CHECK(plan.commands[0].projectileOperationKind == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparatelyFromPresentation", "[battle][core]")

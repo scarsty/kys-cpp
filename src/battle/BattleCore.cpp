@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -133,6 +134,14 @@ std::vector<BattlePresentationEvent> toPresentationEvents(
     {
     case BattleAttackEventType::AttackSpawned:
         presentation.type = BattlePresentationEventType::ProjectileSpawned;
+        presentation.effectId = event.attackId;
+        presentation.sourceUnitId = event.sourceUnitId;
+        presentation.targetUnitId = event.unitId;
+        presentation.durationFrames = event.totalFrame;
+        presentation.visualEffectId = event.visualEffectId;
+        presentation.position = event.position;
+        presentation.velocity = event.velocity;
+        presentation.operationKind = event.operationType;
         break;
     case BattleAttackEventType::Moved:
         presentation.type = BattlePresentationEventType::ProjectileMoved;
@@ -255,12 +264,16 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     syncAttackUnitsFromWorld(state);
     state.attacks.frame = state.world.frame;
     BattleAttackSystem attackSystem;
-    result.attackEvents = attackSystem.tick(state.attacks);
     for (const auto& request : state.pendingAttackSpawns)
     {
         result.attackEvents.push_back(attackSystem.spawn(state.attacks, request));
     }
     state.pendingAttackSpawns.clear();
+    auto tickEvents = attackSystem.tick(state.attacks);
+    result.attackEvents.insert(
+        result.attackEvents.end(),
+        std::make_move_iterator(tickEvents.begin()),
+        std::make_move_iterator(tickEvents.end()));
 
     BattlePresentationRecorder recorder;
     recorder.beginFrame(makePresentationSnapshot(state.world));
