@@ -131,6 +131,9 @@ std::vector<BattlePresentationEvent> toPresentationEvents(
 
     switch (event.type)
     {
+    case BattleAttackEventType::AttackSpawned:
+        presentation.type = BattlePresentationEventType::ProjectileSpawned;
+        break;
     case BattleAttackEventType::Moved:
         presentation.type = BattlePresentationEventType::ProjectileMoved;
         break;
@@ -174,6 +177,13 @@ BattleGameplayEvent toGameplayEvent(
 
     switch (event.type)
     {
+    case BattleAttackEventType::AttackSpawned:
+        gameplay.type = BattleGameplayEventType::AttackSpawned;
+        gameplay.effectId = event.attackId;
+        gameplay.sourceUnitId = event.sourceUnitId;
+        gameplay.targetUnitId = event.unitId;
+        gameplay.position = event.position;
+        break;
     case BattleAttackEventType::Moved:
         gameplay.type = BattleGameplayEventType::ProjectileMoved;
         break;
@@ -244,7 +254,13 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     result.movement = BattleCore(state.world).tickMovement();
     syncAttackUnitsFromWorld(state);
     state.attacks.frame = state.world.frame;
-    result.attackEvents = BattleAttackSystem().tick(state.attacks);
+    BattleAttackSystem attackSystem;
+    result.attackEvents = attackSystem.tick(state.attacks);
+    for (const auto& request : state.pendingAttackSpawns)
+    {
+        result.attackEvents.push_back(attackSystem.spawn(state.attacks, request));
+    }
+    state.pendingAttackSpawns.clear();
 
     BattlePresentationRecorder recorder;
     recorder.beginFrame(makePresentationSnapshot(state.world));

@@ -4,6 +4,8 @@
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
 
+#include <vector>
+
 namespace KysChess::Battle
 {
 
@@ -22,6 +24,7 @@ struct BattleFrameState
 {
     BattleWorldState world;
     BattleAttackWorld attacks;
+    std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
 struct BattleFrameResult

@@ -60,6 +60,23 @@ BattleSkillState skill(int attackAreaType, double reach = 400.0, bool forceRange
     return state;
 }
 
+BattleAttackSpawnRequest attackSpawnRequest()
+{
+    BattleAttackSpawnRequest request;
+    request.attackerUnitId = 1;
+    request.skillId = 101;
+    request.operationType = 2;
+    request.visualEffectId = 44;
+    request.preferredTargetUnitId = 2;
+    request.position = { 100, 120, 0 };
+    request.velocity = { 6, 0, 0 };
+    request.totalFrame = 30;
+    request.track = true;
+    request.through = true;
+    request.sharedHitGroupId = 7;
+    return request;
+}
+
 }  // namespace
 
 TEST_CASE("BattleCombatIntent_OperationTypeMapping_MatchesSceneAnimationTypes", "[battle][intent]")
@@ -334,6 +351,46 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
     CHECK(firstProjectileEvent.position.x == 5.0f);
     CHECK(firstProjectileEvent.velocity.x == 5.0f);
     CHECK(firstProjectileEvent.operationKind == 2);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[battle][core]")
+{
+    BattleFrameState state;
+    state.world = worldWith({});
+    state.attacks.nextAttackId = 50;
+    state.pendingAttackSpawns.push_back(attackSpawnRequest());
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(result.attackEvents.size() == 1);
+    CHECK(result.attackEvents[0].type == BattleAttackEventType::AttackSpawned);
+    CHECK(result.attackEvents[0].attackId == 50);
+    CHECK(state.pendingAttackSpawns.empty());
+    REQUIRE(state.attacks.attacks.size() == 1);
+    CHECK(state.attacks.attacks[0].id == 50);
+    CHECK(state.attacks.nextAttackId == 51);
+
+    REQUIRE(result.frame.gameplayEvents.size() == 1);
+    const auto& gameplay = result.frame.gameplayEvents[0];
+    CHECK(gameplay.type == BattleGameplayEventType::AttackSpawned);
+    CHECK(gameplay.effectId == 50);
+    CHECK(gameplay.sourceUnitId == 1);
+    CHECK(gameplay.targetUnitId == 2);
+    CHECK(gameplay.position.x == 100.0f);
+    CHECK(gameplay.position.y == 120.0f);
+
+    REQUIRE(result.frame.presentationEvents.size() == 1);
+    const auto& presentation = result.frame.presentationEvents[0];
+    CHECK(presentation.type == BattlePresentationEventType::ProjectileSpawned);
+    CHECK(presentation.effectId == 50);
+    CHECK(presentation.sourceUnitId == 1);
+    CHECK(presentation.targetUnitId == 2);
+    CHECK(presentation.durationFrames == 30);
+    CHECK(presentation.visualEffectId == 44);
+    CHECK(presentation.position.x == 100.0f);
+    CHECK(presentation.position.y == 120.0f);
+    CHECK(presentation.velocity.x == 6.0f);
+    CHECK(presentation.operationKind == 2);
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparatelyFromPresentation", "[battle][core]")
