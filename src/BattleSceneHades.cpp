@@ -438,45 +438,6 @@ bool hasScriptedImpact(const KysChess::Battle::BattleAttackEvent& event)
     return event.scriptedDamage > 0 || event.scriptedStunFrames > 0 || event.scriptedBleedStacks > 0;
 }
 
-struct ProjectileBouncePrime
-{
-    int count = 0;
-    int chancePct = 0;
-    int range = 0;
-};
-
-ProjectileBouncePrime collectProjectileBouncePrime(int attackerUnitId)
-{
-    ProjectileBouncePrime prime;
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto it = states.find(attackerUnitId);
-    if (it == states.end())
-    {
-        return prime;
-    }
-
-    for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().matchingTriggerEffects(
-             it->second,
-             { KysChess::Battle::BattleComboTriggerHook::ProjectileHitEnemy, attackerUnitId, -1 },
-             { KysChess::EffectType::ProjectileBounce }))
-    {
-        const auto& effect = event.effect;
-        if (effect.value > 0)
-        {
-            prime.count += effect.value;
-        }
-        if (effect.triggerValue > 0)
-        {
-            prime.chancePct = std::min(100, prime.chancePct + effect.triggerValue);
-        }
-        if (effect.value2 > 0)
-        {
-            prime.range = std::max(prime.range, effect.value2);
-        }
-    }
-    return prime;
-}
-
 Role* findOptionalRoleByBattleId(const std::vector<Role*>& roles, int unitId)
 {
     if (unitId < 0)
@@ -1438,7 +1399,19 @@ void BattleSceneHades::attachProjectileBouncePrime(KysChess::Battle::BattleAttac
     auto& attack = request.initial;
     assert(attack.attackerUnitId >= 0);
 
-    auto prime = collectProjectileBouncePrime(attack.attackerUnitId);
+    auto& states = KysChess::ChessCombo::getActiveStates();
+    auto stateIt = states.find(attack.attackerUnitId);
+    if (stateIt == states.end())
+    {
+        return;
+    }
+    auto prime = KysChess::Battle::BattleComboTriggerSystem().collectProjectileBouncePrime(
+        stateIt->second,
+        {
+            attack.attackerUnitId,
+            static_cast<int>(rand_.rand() * 100),
+            static_cast<int>(PROJECTILE_BOUNCE_RANGE),
+        });
     if (prime.count <= 0)
     {
         return;
@@ -1448,8 +1421,8 @@ void BattleSceneHades::attachProjectileBouncePrime(KysChess::Battle::BattleAttac
         {
             prime.count,
             prime.chancePct,
-            static_cast<int>(rand_.rand() * 100),
-            prime.range > 0 ? prime.range : static_cast<int>(PROJECTILE_BOUNCE_RANGE),
+            prime.rollPct,
+            prime.range,
         });
 }
 

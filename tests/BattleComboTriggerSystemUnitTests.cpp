@@ -734,3 +734,26 @@ TEST_CASE("BattleComboTriggerSystem_StunCommands_CollectWithoutRecordingActivati
     CHECK(commands[0].effectIndex == 0);
     CHECK(state.effectActivationCounts.empty());
 }
+
+TEST_CASE("BattleComboTriggerSystem_ProjectileBouncePrime_AggregatesBounceEffects", "[battle][combo][unit]")
+{
+    RoleComboState state;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::ProjectileBounce, Trigger::OnHit, 2, 40));
+    state.triggeredEffects.back().value2 = 90;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::ProjectileBounce, Trigger::OnHit, 1, 70));
+    state.triggeredEffects.back().value2 = 120;
+    state.triggeredEffects.push_back(
+        triggeredEffect(EffectType::Stun, Trigger::OnHit, 5, 100));
+
+    auto prime = BattleComboTriggerSystem().collectProjectileBouncePrime(
+        state,
+        { 4, 25, 80 });
+
+    CHECK(prime.count == 3);
+    CHECK(prime.chancePct == 100);
+    CHECK(prime.rollPct == 25);
+    CHECK(prime.range == 120);
+    CHECK(state.effectActivationCounts.empty());
+}

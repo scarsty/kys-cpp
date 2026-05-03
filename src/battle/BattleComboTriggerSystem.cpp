@@ -863,4 +863,40 @@ std::vector<BattleStunCommand> BattleComboTriggerSystem::collectStunCommands(
     return commands;
 }
 
+BattleProjectileBouncePrime BattleComboTriggerSystem::collectProjectileBouncePrime(
+    const RoleComboState& state,
+    const BattleProjectileBouncePrimeInput& input) const
+{
+    assert(input.attackerUnitId >= 0);
+    assert(input.rollPct >= 0 && input.rollPct < 100);
+    assert(input.defaultRange > 0);
+
+    BattleProjectileBouncePrime prime;
+    prime.rollPct = input.rollPct;
+    for (const auto& event : matchingTriggerEffects(
+             state,
+             { BattleComboTriggerHook::ProjectileHitEnemy, input.attackerUnitId, -1 },
+             { EffectType::ProjectileBounce }))
+    {
+        const auto& effect = event.effect;
+        if (effect.value > 0)
+        {
+            prime.count += effect.value;
+        }
+        if (effect.triggerValue > 0)
+        {
+            prime.chancePct = std::min(100, prime.chancePct + effect.triggerValue);
+        }
+        if (effect.value2 > 0)
+        {
+            prime.range = std::max(prime.range, effect.value2);
+        }
+    }
+    if (prime.count > 0 && prime.range <= 0)
+    {
+        prime.range = input.defaultRange;
+    }
+    return prime;
+}
+
 }  // namespace KysChess::Battle

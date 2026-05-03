@@ -193,6 +193,21 @@ struct BattleStunCommand
     int effectIndex = -1;
 };
 
+struct BattleProjectileBouncePrimeInput
+{
+    int attackerUnitId = -1;
+    int rollPct = 0;
+    int defaultRange = 0;
+};
+
+struct BattleProjectileBouncePrime
+{
+    int count = 0;
+    int chancePct = 0;
+    int rollPct = 0;
+    int range = 0;
+};
+
 enum class BattleOnHitComboCommandType
 {
     MpBlock,
@@ -335,6 +350,10 @@ public:
         RoleComboState& state,
         const BattleComboTriggerInput& input,
         const std::function<double()>& rollPercent) const;
+
+    BattleProjectileBouncePrime collectProjectileBouncePrime(
+        const RoleComboState& state,
+        const BattleProjectileBouncePrimeInput& input) const;
 
     void recordActivation(RoleComboState& state, size_t effectIndex) const;
 
