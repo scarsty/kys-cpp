@@ -81,24 +81,18 @@ int projectileFramesForSelectDistance(const BattleCastGeometry& geometry, int se
 {
     assert(selectDistance > 0);
     assert(geometry.tileWidth > 0);
-    const double projectileSpeed = geometry.projectileSpeed > 0.0
-        ? geometry.projectileSpeed
-        : geometry.tileWidth / 3.0;
-    assert(projectileSpeed > 0.0);
+    assert(geometry.projectileSpeed > 0.0);
     const auto spawnOffset = static_cast<int>(geometry.tileWidth * 2);
     const int reach = spawnOffset + geometry.tileWidth * 5 + (selectDistance - 1) * geometry.tileWidth;
-    return static_cast<int>((reach - spawnOffset) / projectileSpeed);
+    return static_cast<int>((reach - spawnOffset) / geometry.projectileSpeed);
 }
 
 double projectileSpeedForSkill(const BattleCastGeometry& geometry, const BattleCastSkillState& skill)
 {
     assert(geometry.tileWidth > 0);
-    const double projectileSpeed = geometry.projectileSpeed > 0.0
-        ? geometry.projectileSpeed
-        : geometry.tileWidth / 3.0;
-    assert(projectileSpeed > 0.0);
+    assert(geometry.projectileSpeed > 0.0);
     assert(skill.projectileSpeedMultiplierPct > 0);
-    return projectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
+    return geometry.projectileSpeed * skill.projectileSpeedMultiplierPct / 100.0;
 }
 
 double strengthenedMeleeSpeed(const BattleCastSkillState& skill)
@@ -128,11 +122,8 @@ BattleAttackSpawnRequest makeBaseRequest(const BattleCastResult& result,
     request.visualEffectId = selectedSkill.visualEffectId;
     request.preferredTargetUnitId = input.targetUnitId;
     assert(input.geometry.tileWidth > 0);
-    const double meleeAttackEffectOffset = input.geometry.meleeAttackEffectOffset > 0.0
-        ? input.geometry.meleeAttackEffectOffset
-        : input.geometry.tileWidth * 2.0;
-    assert(meleeAttackEffectOffset > 0.0);
-    request.position = input.unit.position + scaled(facing, meleeAttackEffectOffset);
+    assert(input.geometry.meleeAttackEffectOffset > 0.0);
+    request.position = input.unit.position + scaled(facing, input.geometry.meleeAttackEffectOffset);
     request.ultimate = result.decision.ultimate;
     request.castSubrequestKind = kind;
     return request;
