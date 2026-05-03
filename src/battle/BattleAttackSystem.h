@@ -119,11 +119,11 @@ struct BattleAttackEvent
 struct BattleAttackWorld
 {
     int frame = 0;
-    double hitRadius = 100.0;
+    double hitRadius{};
     int projectileGraceFrames = 5;
     int nextAttackId = 0;
-    double bounceSpawnDistance = 54.0;
-    double defaultProjectileSpeed = 12.0;
+    double bounceSpawnDistance{};
+    double defaultProjectileSpeed{};
     int minimumBounceTotalFrame = 20;
     bool spendNonThroughOnHit = true;
     std::vector<BattleAttackUnit> units;

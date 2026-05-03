@@ -7,6 +7,14 @@ using namespace KysChess::Battle;
 
 namespace
 {
+constexpr double SceneTileWidth = 36.0;
+constexpr double SceneHitRadius = SceneTileWidth * 2.0;
+constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
+constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
+constexpr double TestHitRadius = 50.0;
+constexpr double TightTrackingHitRadius = 5.0;
+constexpr double TestBounceSpawnDistance = 30.0;
+
 BattleAttackUnit unit(int id, int team, double x, double y)
 {
     BattleAttackUnit state;
@@ -51,11 +59,29 @@ BattleAttackSpawnRequest spawnRequest()
     request.totalFrame = 30;
     return request;
 }
+
+BattleAttackWorld attackWorld()
+{
+    BattleAttackWorld world;
+    world.hitRadius = SceneHitRadius;
+    world.bounceSpawnDistance = SceneBounceSpawnDistance;
+    world.defaultProjectileSpeed = SceneProjectileSpeed;
+    return world;
+}
 }  // namespace
+
+TEST_CASE("BattleAttackSystem_WorldGeometryStartsEmptyUntilSupplied", "[battle][attack][unit]")
+{
+    BattleAttackWorld world;
+
+    CHECK(world.hitRadius == Catch::Approx(0.0));
+    CHECK(world.bounceSpawnDistance == Catch::Approx(0.0));
+    CHECK(world.defaultProjectileSpeed == Catch::Approx(0.0));
+}
 
 TEST_CASE("BattleAttackSystem_SpawnAssignsDeterministicAttackIds", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
     world.nextAttackId = 40;
 
     auto first = BattleAttackSystem().spawn(world, spawnRequest());
@@ -71,7 +97,7 @@ TEST_CASE("BattleAttackSystem_SpawnAssignsDeterministicAttackIds", "[battle][att
 
 TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
     request.through = true;
     request.track = true;
@@ -112,7 +138,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCoreAttackPayload", "[battle][attack][u
 
 TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
     request.initialFrame = 6;
     request.castSubrequestKind = BattleAttackCastSubrequestKind::DashHit;
@@ -128,7 +154,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresCastSubrequestMetadata", "[battle][atta
 
 TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
     BattleAttackSpawnRequest request = spawnRequest();
     request.ultimate = true;
 
@@ -140,7 +166,7 @@ TEST_CASE("BattleAttackSystem_SpawnStoresUltimateFlagFromRequest", "[battle][att
 
 TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
 
     auto event = BattleAttackSystem().spawn(world, spawnRequest());
 
@@ -160,7 +186,7 @@ TEST_CASE("BattleAttackSystem_SpawnEmitsVisualPayloadWithoutScenePointers", "[ba
 
 TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 500, 0) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.velocity = { 3, 4, 0 };
@@ -179,8 +205,8 @@ TEST_CASE("BattleAttackSystem_MovesAndExpiresProjectiles", "[battle][attack][uni
 
 TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 50.0;
+    auto world = attackWorld();
+    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 40, 0), unit(3, 1, 45, 0) };
     world.attacks.push_back(attack(10, 1, 0, 0));
 
@@ -197,8 +223,8 @@ TEST_CASE("BattleAttackSystem_HitsNearestEnemyOnceAndMarksNonThroughSpent", "[ba
 
 TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameTargetTwice", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 50.0;
+    auto world = attackWorld();
+    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0), unit(3, 1, 120, 0) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.through = true;
@@ -216,8 +242,8 @@ TEST_CASE("BattleAttackSystem_ThroughProjectileCanHitDifferentEnemiesButNotSameT
 
 TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectiles", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 50.0;
+    auto world = attackWorld();
+    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
     auto first = attack(10, 1, 0, 0);
     first.sharedHitGroupId = 7;
@@ -237,7 +263,7 @@ TEST_CASE("BattleAttackSystem_SharedHitGroupPreventsDuplicateHitsAcrossProjectil
 
 TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
+    auto world = attackWorld();
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 30, 0) };
     world.units[1].alive = false;
     auto projectile = attack(10, 1, 0, 0);
@@ -255,8 +281,8 @@ TEST_CASE("BattleAttackSystem_RequiredPreferredTargetExpiresWhenTargetInvalid", 
 
 TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 5.0;
+    auto world = attackWorld();
+    world.hitRadius = TightTrackingHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 100, 100) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.track = true;
@@ -271,8 +297,8 @@ TEST_CASE("BattleAttackSystem_TrackingPreservesSpeedWhileTurningTowardTarget", "
 
 TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 50.0;
+    auto world = attackWorld();
+    world.hitRadius = TestHitRadius;
     world.projectileGraceFrames = 5;
     world.units = { unit(1, 0, -1000, 0), unit(2, 1, 1000, 0) };
     auto lhs = attack(10, 1, 0, 0);
@@ -290,10 +316,10 @@ TEST_CASE("BattleAttackSystem_ProjectileCancelEventsAreDeterministic", "[battle]
 
 TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTarget", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 50.0;
+    auto world = attackWorld();
+    world.hitRadius = TestHitRadius;
     world.nextAttackId = 20;
-    world.bounceSpawnDistance = 30.0;
+    world.bounceSpawnDistance = TestBounceSpawnDistance;
     world.units = {
         unit(1, 0, 0, 0),
         unit(2, 1, 20, 0),
@@ -337,8 +363,8 @@ TEST_CASE("BattleAttackSystem_BounceSpawnsTrackingProjectileAtNearestEligibleTar
 
 TEST_CASE("BattleAttackSystem_BounceChanceMissConsumesSourceWithoutSpawning", "[battle][attack][unit]")
 {
-    BattleAttackWorld world;
-    world.hitRadius = 50.0;
+    auto world = attackWorld();
+    world.hitRadius = TestHitRadius;
     world.units = { unit(1, 0, 0, 0), unit(2, 1, 20, 0), unit(3, 1, 80, 0) };
     auto projectile = attack(10, 1, 0, 0);
     projectile.bounceRemaining = 1;

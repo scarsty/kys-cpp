@@ -15,6 +15,9 @@ namespace
 {
 
 constexpr double SceneTileWidth = 36.0;
+constexpr double SceneAttackHitRadius = SceneTileWidth * 2.0;
+constexpr double SceneBounceSpawnDistance = SceneTileWidth * 1.5;
+constexpr double SceneProjectileSpeed = SceneTileWidth / 3.0;
 
 BattleMovementConfig testConfig()
 {
@@ -47,6 +50,15 @@ BattleWorldState worldWith(std::vector<BattleUnitState> units)
     world.config = testConfig();
     world.units = std::move(units);
     world.canStandAt = [](Pointf) { return true; };
+    return world;
+}
+
+BattleAttackWorld attackWorld()
+{
+    BattleAttackWorld world;
+    world.hitRadius = SceneAttackHitRadius;
+    world.bounceSpawnDistance = SceneBounceSpawnDistance;
+    world.defaultProjectileSpeed = SceneProjectileSpeed;
     return world;
 }
 
@@ -319,6 +331,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_CommitsMovementBeforeProjectileEvents"
         unit(1, 0, { 100, 100, 0 }),
         unit(2, 1, { 600, 100, 0 }),
     });
+    state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
     projectile.id = 10;
@@ -360,6 +373,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsPendingAttackSpawnRequest", "[b
 {
     BattleFrameState state;
     state.world = worldWith({});
+    state.attacks = attackWorld();
     state.attacks.hitRadius = 10.0;
     state.attacks.nextAttackId = 50;
     state.attacks.units = {
@@ -430,6 +444,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileGameplayEventsSeparat
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 105, 100, 0 }),
     });
+    state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
     projectile.id = 10;
@@ -490,6 +505,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsTargetLostCancellationWithoutPa
     state.world = worldWith({
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
     });
+    state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
     projectile.id = 10;
@@ -527,6 +543,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsProjectileCancelPairWithOtherAt
         unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
         unit(2, 1, { 900, 900, 0 }, CombatStyle::Ranged),
     });
+    state.attacks = attackWorld();
 
     BattleAttackInstance first;
     first.id = 10;
@@ -570,6 +587,7 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_RecordsBounceAsAttackSpawnedGameplay",
         unit(2, 1, { 105, 100, 0 }),
         unit(3, 1, { 180, 100, 0 }),
     });
+    state.attacks = attackWorld();
 
     BattleAttackInstance projectile;
     projectile.id = 10;

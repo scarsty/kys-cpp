@@ -137,6 +137,8 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     Battle::BattleAttackWorld world;
     world.hitRadius = BATTLE_TILE_W * 2.0;
     world.projectileGraceFrames = 5;
+    world.bounceSpawnDistance = BATTLE_TILE_W * 1.5;
+    world.defaultProjectileSpeed = BATTLE_TILE_W / 3.0;
     world.spendNonThroughOnHit = false;
     for (auto role : roles)
     {

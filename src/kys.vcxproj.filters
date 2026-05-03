@@ -371,6 +371,9 @@
     <ClInclude Include="BattleSceneBattleAdapter.h">
       <Filter>battle</Filter>
     </ClInclude>
+    <ClInclude Include="battle\BattleMath.h">
+      <Filter>battle</Filter>
+    </ClInclude>
     <ClInclude Include="Font.h">
       <Filter>font</Filter>
     </ClInclude>
