@@ -193,6 +193,16 @@ struct BattleRumbleCommand
     int durationMs = 0;
 };
 
+struct BattleProjectileCancelDamageCommand
+{
+    int attackId = -1;
+    int otherAttackId = -1;
+    int sourceUnitId = -1;
+    int otherSourceUnitId = -1;
+    int damage = 0;
+    int otherDamage = 0;
+};
+
 using BattleGameplayCommand = std::variant<
     BattleHpDamageCommand,
     BattleMpDamageCommand,
@@ -211,7 +221,8 @@ using BattleGameplayCommand = std::variant<
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,
     BattleLastAttackerCommand,
-    BattleRumbleCommand>;
+    BattleRumbleCommand,
+    BattleProjectileCancelDamageCommand>;
 
 struct BattleHitResolutionInput
 {

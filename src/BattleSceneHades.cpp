@@ -32,16 +32,20 @@
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <variant>
 
 namespace
 {
 using KysChess::BattleSceneBattleAdapter::findRoleByBattleId;
 using KysChess::BattleSceneBattleAdapter::applyBattleCastCommit;
 using KysChess::BattleSceneBattleAdapter::applyBattleCastStart;
+using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
+using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleCastAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleCastSkillAdapterInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleCastInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
+using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitItemSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitSkillSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitUnitSnapshot;
@@ -452,18 +456,6 @@ Role* findOptionalRoleByBattleId(const std::vector<Role*>& roles, int unitId)
             return role && role->ID == unitId;
     });
     return it != roles.end() ? *it : nullptr;
-}
-
-const KysChess::Battle::BattleAttackInstance& findBattleAttackById(
-    const KysChess::Battle::BattleAttackWorld& world,
-    int attackId)
-{
-    auto it = std::find_if(world.attacks.begin(), world.attacks.end(), [&](const auto& attack)
-        {
-            return attack.id == attackId;
-        });
-    assert(it != world.attacks.end());
-    return *it;
 }
 
 void changeRoleMP(Role* r, double delta)
@@ -2860,60 +2852,59 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
         decreaseToZero(r->Attention);
         decreaseToZero(r->Invincible);
 
-        KysChess::Battle::BattleFrameUnitRuntimeInput runtimeInput;
-        runtimeInput.state.cooldown = r->CoolDown;
-        runtimeInput.state.actFrame = r->ActFrame;
-        runtimeInput.state.actType = r->ActType;
-        runtimeInput.state.operationType = KysChess::Battle::battleOperationFromLegacy(r->OperationType);
-        runtimeInput.state.haveAction = r->HaveAction != 0;
-        runtimeInput.state.physicalPower = r->PhysicalPower;
-        runtimeInput.frame = battle_frame_;
-        runtimeInput.frozen = r->Frozen > 0;
-        runtimeInput.mpRegenIntervalFrames = 3;
-        runtimeInput.physicalPowerRegenIntervalFrames = 3;
-        auto runtimeResult = KysChess::Battle::BattleFrameUnitRuntimeSystem().advance(runtimeInput);
-        r->CoolDown = runtimeResult.state.cooldown;
-        r->ActFrame = runtimeResult.state.actFrame;
-        r->ActType = runtimeResult.state.actType;
-        r->OperationType = KysChess::Battle::toLegacyOperationType(runtimeResult.state.operationType);
-        r->HaveAction = runtimeResult.state.haveAction ? 1 : 0;
-        r->PhysicalPower = runtimeResult.state.physicalPower;
-        if (runtimeResult.resetDashVelocity)
+        auto runtimeFrameState = makeCoreFrameState(makeNoOpCoreWorld());
+        runtimeFrameState.attacks.attacks.clear();
+        runtimeFrameState.attacks.sharedHitGroupTargets.clear();
+        auto& comboStatesForRuntime = KysChess::ChessCombo::getMutableStates();
+        auto comboForRuntime = comboStatesForRuntime.find(r->ID);
+        if (comboForRuntime != comboStatesForRuntime.end())
         {
-            r->Velocity = { 0, 0, 0 };
-        }
-        if (runtimeResult.skillFinished)
-        {
-            auto& cs = KysChess::ChessCombo::getMutableStates();
-            auto it = cs.find(r->ID);
-            if (it != cs.end())
+            runtimeFrameState.combo.units.emplace(r->ID, comboForRuntime->second);
+            runtimeFrameState.runtime.percentRolls.reserve(comboForRuntime->second.triggeredEffects.size() + 1);
+            for (size_t i = 0; i <= comboForRuntime->second.triggeredEffects.size(); ++i)
             {
-                for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().collectSkillFinishedRuntimeEvents(
-                         it->second,
-                         r->Dead == 0))
-                {
-                    assert(event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::PostSkillInvincibility);
-                    applyComboFrameRuntimeEvent(r, it->second, event, cs);
-                }
-                auto teamHeal = KysChess::Battle::BattleComboTriggerSystem().collectPendingSkillTeamHeal(
-                    it->second,
-                    { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
-                    [&]() { return rand_.rand() * 100.0; });
-                if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
-                {
-                    LegacyTeamEffectCommitRequest request;
-                    request.type = LegacyTeamEffectCommitType::Heal;
-                    request.sourceUnitId = r->ID;
-                    request.flatHeal = teamHeal.flatHeal;
-                    request.pctHeal = teamHeal.pctHeal;
-                    auto teamEvents = commitLegacyTeamEffect(request);
-                    playCommittedTeamEffectEvents(r, teamEvents, "技能群療");
-                }
+                runtimeFrameState.runtime.percentRolls.push_back(rand_.rand() * 100.0);
             }
         }
-        if (runtimeResult.mpDelta != 0)
+        KysChess::Battle::BattleFrameRuntimeUnitInput runtimeInput;
+        runtimeInput.unitId = r->ID;
+        runtimeInput.input = makeBattleFrameUnitRuntimeInput(r, battle_frame_, 3, 3);
+        runtimeInput.hp = r->HP;
+        runtimeInput.maxHp = r->MaxHP;
+        runtimeInput.alive = r->Dead == 0;
+        runtimeInput.lastAlive = isLastAliveInTeam(r);
+        runtimeFrameState.runtime.units.push_back(runtimeInput);
+
+        auto runtimeFrameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(runtimeFrameState);
+        assert(runtimeFrameState.runtime.committedResults.size() == 1);
+        const auto& runtimeUnitResult = runtimeFrameState.runtime.committedResults.front();
+        applyBattleFrameUnitRuntimeResult(r, runtimeUnitResult.result);
+        if (comboForRuntime != comboStatesForRuntime.end())
         {
-            changeRoleMP(r, runtimeResult.mpDelta);
+            auto committedCombo = runtimeFrameState.combo.units.find(r->ID);
+            assert(committedCombo != runtimeFrameState.combo.units.end());
+            comboForRuntime->second = committedCombo->second;
+            for (const auto& event : runtimeUnitResult.comboEvents)
+            {
+                assert(event.type == KysChess::Battle::BattleComboFrameRuntimeEventType::PostSkillInvincibility);
+                applyComboFrameRuntimeEvent(r, comboForRuntime->second, event, comboStatesForRuntime);
+            }
+        }
+        for (const auto& command : runtimeFrameResult.commands)
+        {
+            const auto* teamHeal = std::get_if<KysChess::Battle::BattleTeamHealCommand>(&command);
+            assert(teamHeal);
+            LegacyTeamEffectCommitRequest request;
+            request.type = LegacyTeamEffectCommitType::Heal;
+            request.sourceUnitId = teamHeal->sourceUnitId;
+            request.flatHeal = teamHeal->flatHeal;
+            request.pctHeal = teamHeal->pctHeal;
+            auto teamEvents = commitLegacyTeamEffect(request);
+            playCommittedTeamEffectEvents(r, teamEvents, teamHeal->reason.c_str());
+        }
+        if (runtimeUnitResult.result.mpDelta != 0)
+        {
+            changeRoleMP(r, runtimeUnitResult.result.mpDelta);
         }
 
         if (r->Frozen > 0)
@@ -2988,34 +2979,48 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
         auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
         frameState.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
         pending_core_attack_spawns_.clear();
+        for (size_t i = 0; i + 1 < frameState.attacks.attacks.size(); ++i)
+        {
+            const auto& attack1 = frameState.attacks.attacks[i];
+            auto* attacker1 = findRoleByBattleId(battle_roles_, attack1.state.attackerUnitId);
+            auto* skill1 = Save::getInstance()->getMagic(attack1.state.skillId);
+            for (size_t j = i + 1; j < frameState.attacks.attacks.size(); ++j)
+            {
+                const auto& attack2 = frameState.attacks.attacks[j];
+                auto* attacker2 = findRoleByBattleId(battle_roles_, attack2.state.attackerUnitId);
+                if (attacker1->Team == attacker2->Team)
+                {
+                    continue;
+                }
+                auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
+                if (skill1)
+                {
+                    frameState.projectileCancel.baseDamages.push_back({
+                        attack1.id,
+                        attack2.id,
+                        resolveLegacyMagicBaseDamage(attacker1, attacker2, skill1),
+                    });
+                }
+                if (skill2)
+                {
+                    frameState.projectileCancel.baseDamages.push_back({
+                        attack2.id,
+                        attack1.id,
+                        resolveLegacyMagicBaseDamage(attacker2, attacker1, skill2),
+                    });
+                }
+            }
+        }
         auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
         auto attackEvents = std::move(frameResult.attackEvents);
-        for (auto& event : attackEvents)
+        for (const auto& command : frameState.projectileCancel.committedCommands)
         {
-            if (event.type != KysChess::Battle::BattleAttackEventType::ProjectileCancel)
-            {
-                continue;
-            }
-
-            assert(event.attackId >= 0);
-            assert(event.otherAttackId >= 0);
-            const auto& attack1 = findBattleAttackById(frameState.attacks, event.attackId);
-            const auto& attack2 = findBattleAttackById(frameState.attacks, event.otherAttackId);
-            auto* attacker1 = findRoleByBattleId(battle_roles_, attack1.state.attackerUnitId);
-            auto* attacker2 = findRoleByBattleId(battle_roles_, attack2.state.attackerUnitId);
-            auto* skill1 = Save::getInstance()->getMagic(attack1.state.skillId);
-            auto* skill2 = Save::getInstance()->getMagic(attack2.state.skillId);
-            assert(skill1);
-            assert(skill2);
-            event.projectileCancelDamage = KysChess::Battle::scaleProjectileCancelDamage(
-                resolveLegacyMagicBaseDamage(attacker1, attacker2, skill1),
-                attack1.state.operationType);
-            event.otherProjectileCancelDamage = KysChess::Battle::scaleProjectileCancelDamage(
-                resolveLegacyMagicBaseDamage(attacker2, attacker1, skill2),
-                attack2.state.operationType);
-            attacker1->CancelDmg += event.projectileCancelDamage;
-            attacker2->CancelDmg += event.otherProjectileCancelDamage;
-            KysChess::Battle::BattleAttackSystem().applyProjectileCancelDamage(frameState.attacks, event);
+            applyBattleProjectileCancelDamage(
+                findRoleByBattleId(battle_roles_, command.sourceUnitId),
+                command.damage);
+            applyBattleProjectileCancelDamage(
+                findRoleByBattleId(battle_roles_, command.otherSourceUnitId),
+                command.otherDamage);
         }
         shared_hit_group_targets_.clear();
         for (const auto& [groupId, targets] : frameState.attacks.sharedHitGroupTargets)

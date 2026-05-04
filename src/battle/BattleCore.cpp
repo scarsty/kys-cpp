@@ -108,6 +108,33 @@ const BattleAttackInstance* findAttack(const BattleAttackWorld& world, int attac
     return nullptr;
 }
 
+const BattleProjectileCancelBaseDamage* findProjectileCancelBaseDamage(
+    const BattleFrameState& state,
+    int attackId,
+    int otherAttackId)
+{
+    auto it = std::find_if(
+        state.projectileCancel.baseDamages.begin(),
+        state.projectileCancel.baseDamages.end(),
+        [&](const BattleProjectileCancelBaseDamage& input)
+        {
+            return input.attackId == attackId
+                && (input.otherAttackId < 0 || input.otherAttackId == otherAttackId);
+        });
+    return it != state.projectileCancel.baseDamages.end() ? &*it : nullptr;
+}
+
+double takeRuntimePercentRoll(BattleFrameState& state)
+{
+    if (state.runtime.nextPercentRoll < state.runtime.percentRolls.size())
+    {
+        const double roll = state.runtime.percentRolls[state.runtime.nextPercentRoll++];
+        assert(roll >= 0.0 && roll < 100.0);
+        return roll;
+    }
+    return 0.0;
+}
+
 void applyAttackContext(BattlePresentationEvent& presentation, const BattleAttackWorld& world, int attackId)
 {
     presentation.effectId = attackId;
@@ -262,6 +289,91 @@ void syncAttackUnitsFromWorld(BattleFrameState& state)
             attackUnit.team = it->team;
             attackUnit.position = it->position;
         }
+    }
+}
+
+void advanceRuntimeUnits(BattleFrameState& state, std::vector<BattleGameplayCommand>& commands)
+{
+    BattleComboTriggerSystem comboSystem;
+    state.runtime.committedResults.clear();
+    for (const auto& input : state.runtime.units)
+    {
+        assert(input.unitId >= 0);
+
+        BattleFrameRuntimeUnitResult committed;
+        committed.unitId = input.unitId;
+        committed.result = BattleFrameUnitRuntimeSystem().advance(input.input);
+
+        auto comboIt = state.combo.units.find(input.unitId);
+        if (committed.result.skillFinished && comboIt != state.combo.units.end())
+        {
+            committed.comboEvents = comboSystem.collectSkillFinishedRuntimeEvents(
+                comboIt->second,
+                input.alive);
+
+            auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
+                comboIt->second,
+                { BattleComboTriggerHook::AfterSkillCast, input.unitId, -1 },
+                [&]() { return takeRuntimePercentRoll(state); });
+            if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
+            {
+                commands.push_back(BattleTeamHealCommand{
+                    input.unitId,
+                    teamHeal.flatHeal,
+                    teamHeal.pctHeal,
+                    "技能群療",
+                });
+            }
+            committed.comboState = comboIt->second;
+        }
+        state.runtime.committedResults.push_back(std::move(committed));
+    }
+}
+
+void applyProjectileCancelDamageResults(
+    BattleFrameState& state,
+    std::vector<BattleAttackEvent>& events,
+    std::vector<BattleGameplayCommand>& commands)
+{
+    BattleAttackSystem attackSystem;
+    state.projectileCancel.committedCommands.clear();
+    for (auto& event : events)
+    {
+        if (event.type != BattleAttackEventType::ProjectileCancel)
+        {
+            continue;
+        }
+
+        assert(event.attackId >= 0);
+        assert(event.otherAttackId >= 0);
+        const auto* attack = findAttack(state.attacks, event.attackId);
+        const auto* otherAttack = findAttack(state.attacks, event.otherAttackId);
+        assert(attack);
+        assert(otherAttack);
+
+        if (const auto* damage = findProjectileCancelBaseDamage(state, event.attackId, event.otherAttackId))
+        {
+            event.projectileCancelDamage = scaleProjectileCancelDamage(
+                damage->baseDamage,
+                attack->state.operationType);
+        }
+        if (const auto* damage = findProjectileCancelBaseDamage(state, event.otherAttackId, event.attackId))
+        {
+            event.otherProjectileCancelDamage = scaleProjectileCancelDamage(
+                damage->baseDamage,
+                otherAttack->state.operationType);
+        }
+
+        BattleProjectileCancelDamageCommand command;
+        command.attackId = event.attackId;
+        command.otherAttackId = event.otherAttackId;
+        command.sourceUnitId = event.sourceUnitId;
+        command.otherSourceUnitId = event.otherSourceUnitId;
+        command.damage = event.projectileCancelDamage;
+        command.otherDamage = event.otherProjectileCancelDamage;
+        commands.push_back(command);
+        state.projectileCancel.committedCommands.push_back(command);
+        attackSystem.applyProjectileCancelDamage(state.attacks, event);
     }
 }
 
@@ -575,6 +687,8 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
         statusTick.events.begin(),
         statusTick.events.end());
 
+    advanceRuntimeUnits(state, result.commands);
+
     result.movement = BattleCore(state.world).tickMovement();
 
     for (const auto& input : state.casts.pendingInputs)
@@ -606,6 +720,7 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
         result.attackEvents.end(),
         std::make_move_iterator(tickEvents.begin()),
         std::make_move_iterator(tickEvents.end()));
+    applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
 
     for (const auto& input : state.damage.pendingTransactions)
     {

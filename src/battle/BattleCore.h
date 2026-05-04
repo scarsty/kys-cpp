@@ -5,10 +5,12 @@
 #include "BattleComboTriggerSystem.h"
 #include "BattleDamageSystem.h"
 #include "BattleDeathEffectSystem.h"
+#include "BattleHitResolver.h"
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
 #include "BattleStatusSystem.h"
 
+#include <cstddef>
 #include <map>
 #include <vector>
 
@@ -59,10 +61,43 @@ public:
     BattleFrameUnitRuntimeResult advance(const BattleFrameUnitRuntimeInput& input) const;
 };
 
+struct BattleFrameRuntimeUnitInput
+{
+    int unitId = -1;
+    BattleFrameUnitRuntimeInput input;
+    int hp = 0;
+    int maxHp = 0;
+    bool alive = false;
+    bool lastAlive = false;
+};
+
+struct BattleFrameRuntimeUnitResult
+{
+    int unitId = -1;
+    BattleFrameUnitRuntimeResult result;
+    std::vector<BattleComboFrameRuntimeEvent> comboEvents;
+    RoleComboState comboState;
+};
+
+struct BattleProjectileCancelBaseDamage
+{
+    int attackId = -1;
+    int otherAttackId = -1;
+    int baseDamage = 0;
+};
+
 struct BattleFrameState
 {
     BattleWorldState world;
     BattleAttackWorld attacks;
+    struct RuntimeState
+    {
+        std::vector<BattleFrameRuntimeUnitInput> units;
+        std::vector<BattleFrameRuntimeUnitResult> committedResults;
+        std::vector<double> percentRolls;
+        std::size_t nextPercentRoll = 0;
+    } runtime;
+
     struct CastState
     {
         std::vector<BattleCastInput> pendingInputs;
@@ -103,6 +138,12 @@ struct BattleFrameState
         std::map<int, int> pendingAliveByTeam;
     } result;
 
+    struct ProjectileCancelState
+    {
+        std::vector<BattleProjectileCancelBaseDamage> baseDamages;
+        std::vector<BattleProjectileCancelDamageCommand> committedCommands;
+    } projectileCancel;
+
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
@@ -111,6 +152,7 @@ struct BattleFrameResult
     BattlePresentationFrame frame;
     BattleTickResult movement;
     std::vector<BattleAttackEvent> attackEvents;
+    std::vector<BattleGameplayCommand> commands;
 };
 
 class BattleFrameRunner

@@ -3,6 +3,7 @@
 #include "BattleSceneAct.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCastSystem.h"
+#include "battle/BattleCore.h"
 #include "battle/BattleHitResolver.h"
 
 #include <cstddef>
@@ -59,6 +60,14 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
     const Battle::BattleAttackWorld& activeWorld,
     const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets);
+
+Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
+    Role* role,
+    int frame,
+    int mpRegenIntervalFrames,
+    int physicalPowerRegenIntervalFrames);
+void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result);
+void applyBattleProjectileCancelDamage(Role* role, int damage);
 
 Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit);
 Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,

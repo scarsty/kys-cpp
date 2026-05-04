@@ -216,6 +216,51 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     return world;
 }
 
+Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
+    Role* role,
+    int frame,
+    int mpRegenIntervalFrames,
+    int physicalPowerRegenIntervalFrames)
+{
+    assert(role);
+
+    Battle::BattleFrameUnitRuntimeInput input;
+    input.state.cooldown = role->CoolDown;
+    input.state.actFrame = role->ActFrame;
+    input.state.actType = role->ActType;
+    input.state.operationType = Battle::battleOperationFromLegacy(role->OperationType);
+    input.state.haveAction = role->HaveAction != 0;
+    input.state.physicalPower = role->PhysicalPower;
+    input.frame = frame;
+    input.frozen = role->Frozen > 0;
+    input.mpRegenIntervalFrames = mpRegenIntervalFrames;
+    input.physicalPowerRegenIntervalFrames = physicalPowerRegenIntervalFrames;
+    return input;
+}
+
+void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result)
+{
+    assert(role);
+
+    role->CoolDown = result.state.cooldown;
+    role->ActFrame = result.state.actFrame;
+    role->ActType = result.state.actType;
+    role->OperationType = Battle::toLegacyOperationType(result.state.operationType);
+    role->HaveAction = result.state.haveAction ? 1 : 0;
+    role->PhysicalPower = result.state.physicalPower;
+    if (result.resetDashVelocity)
+    {
+        role->Velocity = { 0, 0, 0 };
+    }
+}
+
+void applyBattleProjectileCancelDamage(Role* role, int damage)
+{
+    assert(role);
+    assert(damage >= 0);
+    role->CancelDmg += damage;
+}
+
 Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit)
 {
     assert(unit);
