@@ -66,6 +66,7 @@ protected:
     int calCoolDown(int act_type, int operation_type, Role* r);
 
     void applyResolvedBattleHit(const KysChess::Battle::BattleHitResolutionResult& result);
+    void applyBattleGameplayCommand(const KysChess::Battle::BattleGameplayCommand& command);
     void queuePreResolvedHpDamage(Role* source,
                                   Role* target,
                                   int damage,
@@ -171,8 +172,6 @@ protected:
     void applyCoreStatusState(const KysChess::Battle::BattleFrameState& frameState);
     void handleCoreStatusEvents(const std::vector<KysChess::Battle::BattleStatusEvent>& events);
     KysChess::Battle::BattleWorldState makeNoOpCoreWorld() const;
-    KysChess::Battle::BattleFrameState makeCoreResultFrameState();
-    int resolveCoreBattleResult();
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);
     void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::map<int, Role*>& rolesByBattleId);

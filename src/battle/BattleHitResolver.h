@@ -178,6 +178,8 @@ struct BattleTempAttackBuffCommand
     int attackBonus = 0;
     int durationFrames = 0;
     std::string reason;
+    int defenceBonus = 0;
+    bool permanent = false;
 };
 
 struct BattleLastAttackerCommand
@@ -203,6 +205,32 @@ struct BattleProjectileCancelDamageCommand
     int otherDamage = 0;
 };
 
+struct BattleDeathAoeProjectileCommand
+{
+    int sourceUnitId = -1;
+    int trackedTargetUnitId = -1;
+    int damage = 0;
+    int damagePct = 0;
+    int stunFrames = 0;
+    int maxTargets = 0;
+};
+
+struct BattleUnitHealCommand
+{
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int amount = 0;
+    std::string reason;
+};
+
+struct BattleUnitShieldCommand
+{
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int amount = 0;
+    std::string reason;
+};
+
 using BattleGameplayCommand = std::variant<
     BattleHpDamageCommand,
     BattleMpDamageCommand,
@@ -222,7 +250,10 @@ using BattleGameplayCommand = std::variant<
     BattleTempAttackBuffCommand,
     BattleLastAttackerCommand,
     BattleRumbleCommand,
-    BattleProjectileCancelDamageCommand>;
+    BattleProjectileCancelDamageCommand,
+    BattleDeathAoeProjectileCommand,
+    BattleUnitHealCommand,
+    BattleUnitShieldCommand>;
 
 struct BattleHitResolutionInput
 {

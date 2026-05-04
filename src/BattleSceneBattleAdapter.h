@@ -4,10 +4,12 @@
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
+#include "battle/BattleDamageApplicationSystem.h"
 #include "battle/BattleHitResolver.h"
 
 #include <cstddef>
 #include <deque>
+#include <optional>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -79,5 +81,7 @@ Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
                                                           int resolvedBaseDamage);
 Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolvedDamage);
 Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage);
+std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplicationUnitEffects(
+    const RoleComboState& state);
 
 }  // namespace KysChess::BattleSceneBattleAdapter

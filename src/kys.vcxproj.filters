@@ -139,6 +139,9 @@
     <ClCompile Include="battle\BattleHitResolver.cpp">
       <Filter>battle</Filter>
     </ClCompile>
+    <ClCompile Include="battle\BattleDamageApplicationSystem.cpp">
+      <Filter>battle</Filter>
+    </ClCompile>
     <ClCompile Include="Font.cpp">
       <Filter>font</Filter>
     </ClCompile>

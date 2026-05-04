@@ -24,6 +24,7 @@ add_library(kys_battle_core
     battle/BattleComboTriggerSystem.cpp
     battle/BattleCore.cpp
     battle/BattleCombatIntent.cpp
+    battle/BattleDamageApplicationSystem.cpp
     battle/BattleDamageSystem.cpp
     battle/BattleDeathEffectSystem.cpp
     battle/BattleEffectSystem.cpp

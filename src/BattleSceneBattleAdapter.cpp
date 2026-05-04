@@ -378,4 +378,19 @@ Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage)
     return request;
 }
 
+std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplicationUnitEffects(
+    const RoleComboState& state)
+{
+    if (state.deathAOEPct <= 0)
+    {
+        return std::nullopt;
+    }
+
+    return Battle::BattleDamageApplicationUnitEffects{
+        state.deathAOEPct,
+        state.deathAOEStunFrames,
+        state.deathAOEMaxTargets,
+    };
+}
+
 }  // namespace KysChess::BattleSceneBattleAdapter

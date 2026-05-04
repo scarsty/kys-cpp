@@ -163,6 +163,7 @@
     <ClCompile Include="battle\BattleComboTriggerSystem.cpp" />
     <ClCompile Include="battle\BattleCore.cpp" />
     <ClCompile Include="battle\BattleCombatIntent.cpp" />
+    <ClCompile Include="battle\BattleDamageApplicationSystem.cpp" />
     <ClCompile Include="battle\BattleDamageSystem.cpp" />
     <ClCompile Include="battle\BattleDeathEffectSystem.cpp" />
     <ClCompile Include="battle\BattleEffectSystem.cpp" />
