@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../ChessBattleEffects.h"
 #include "../Point.h"
 #include "BattleAttackSystem.h"
 #include "BattleEffectSystem.h"
@@ -154,6 +155,82 @@ struct BattleCastResult
     std::vector<BattleEffectEvent> effectEvents;
 };
 
+struct BattleActionCommitUnitSnapshot
+{
+    int id = -1;
+    int team = 0;
+    Pointf position;
+    Pointf facing = { 1.0f, 0.0f, 0.0f };
+    int operationCount = 0;
+};
+
+struct BattleActionTargetSnapshot
+{
+    int id = -1;
+    int team = 0;
+    bool alive = true;
+    int hp = 0;
+    int maxHp = 0;
+    double defence = 0.0;
+    int invincible = 0;
+    Pointf position;
+};
+
+struct BattleActionItemSnapshot
+{
+    int id = -1;
+    int itemType = 0;
+    int hiddenWeaponEffectId = -1;
+};
+
+struct BattleBlinkAttackCommand
+{
+    int unitId = -1;
+    int targetUnitId = -1;
+    bool selectedWeakest = false;
+    double reach = 0.0;
+};
+
+struct BattleItemUseCommand
+{
+    int unitId = -1;
+    int itemId = -1;
+};
+
+struct BattleItemCountDelta
+{
+    int itemId = -1;
+    int delta = 0;
+};
+
+struct BattleActionCommitInput
+{
+    BattleActionCommitUnitSnapshot unit;
+    RoleComboState combo;
+    std::vector<BattleActionTargetSnapshot> targets;
+    bool hasCast = false;
+    BattleCastResult cast;
+    bool hasItem = false;
+    BattleActionItemSnapshot item;
+    Pointf hiddenWeaponVelocity;
+    int hiddenWeaponTotalFrame = 0;
+    int blinkRandomRoll = 0;
+    double blinkReach = 0.0;
+    double blinkWeakTargetDefWeight = 0.0;
+    int strengthenedMeleeOperationCountThreshold = 0;
+};
+
+struct BattleActionCommitResult
+{
+    RoleComboState combo;
+    int operationCount = 0;
+    std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
+    std::vector<BattleBlinkAttackCommand> blinkCommands;
+    std::vector<BattleItemUseCommand> itemUseCommands;
+    std::vector<BattleItemCountDelta> itemCountDeltas;
+    std::vector<BattlePresentationEvent> presentationEvents;
+};
+
 class BattleCastPlanner
 {
 public:
@@ -166,6 +243,12 @@ private:
     void appendCommittedCastOutput(BattleCastResult& result,
                                    const BattleCastInput& input,
                                    const BattleCastSkillState& selectedSkill) const;
+};
+
+class BattleActionCommitSystem
+{
+public:
+    BattleActionCommitResult commit(const BattleActionCommitInput& input) const;
 };
 
 }  // namespace KysChess::Battle

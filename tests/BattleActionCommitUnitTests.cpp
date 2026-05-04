@@ -1,0 +1,128 @@
+#include "ChessBattleEffects.h"
+#include "battle/BattleCastSystem.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+using namespace KysChess::Battle;
+
+namespace
+{
+
+BattleCastResult committedCast(bool ultimate, BattleOperationType operationType)
+{
+    BattleCastResult result;
+    result.decision.canCast = true;
+    result.decision.ultimate = ultimate;
+    result.decision.unitId = 1;
+    result.decision.targetUnitId = 2;
+    result.decision.skillId = ultimate ? 201 : 101;
+    result.decision.operationType = operationType;
+    return result;
+}
+
+BattleActionCommitInput basicActionInput()
+{
+    BattleActionCommitInput input;
+    input.unit.id = 1;
+    input.unit.team = 0;
+    input.unit.position = { 10.0f, 20.0f, 0.0f };
+    input.unit.facing = { 1.0f, 0.0f, 0.0f };
+    input.unit.operationCount = 0;
+    input.strengthenedMeleeOperationCountThreshold = 2;
+    input.blinkWeakTargetDefWeight = 100;
+    input.hiddenWeaponTotalFrame = 100;
+    input.hiddenWeaponVelocity = { 10.0f, 0.0f, 0.0f };
+    return input;
+}
+
+BattleActionTargetSnapshot target(int id, int hp, double defence, Pointf position)
+{
+    BattleActionTargetSnapshot snapshot;
+    snapshot.id = id;
+    snapshot.team = 1;
+    snapshot.alive = true;
+    snapshot.hp = hp;
+    snapshot.maxHp = hp;
+    snapshot.defence = defence;
+    snapshot.position = position;
+    return snapshot;
+}
+
+}  // namespace
+
+TEST_CASE("BattleActionCommit_UltimateCastSetsPendingSkillTeamHeal", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.hasCast = true;
+    input.cast = committedCast(true, BattleOperationType::RangedProjectile);
+
+    auto result = BattleActionCommitSystem().commit(input);
+
+    CHECK(result.combo.onSkillTeamHealPending);
+}
+
+TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.combo.blinkAttack = true;
+    input.combo.blinkAttackUseWeakest = true;
+    input.blinkReach = 144.0;
+    input.targets = {
+        target(2, 90, 0.0, { 100, 20, 0 }),
+        target(3, 30, 0.0, { 120, 20, 0 }),
+    };
+
+    auto weakest = BattleActionCommitSystem().commit(input);
+
+    REQUIRE(weakest.blinkCommands.size() == 1);
+    CHECK(weakest.blinkCommands[0].unitId == 1);
+    CHECK(weakest.blinkCommands[0].targetUnitId == 3);
+    CHECK(weakest.blinkCommands[0].selectedWeakest);
+    CHECK(weakest.blinkCommands[0].reach == 144.0);
+    CHECK_FALSE(weakest.combo.blinkAttackUseWeakest);
+
+    input.combo = weakest.combo;
+    input.blinkRandomRoll = 1;
+    auto random = BattleActionCommitSystem().commit(input);
+
+    REQUIRE(random.blinkCommands.size() == 1);
+    CHECK(random.blinkCommands[0].targetUnitId == 3);
+    CHECK_FALSE(random.blinkCommands[0].selectedWeakest);
+    CHECK(random.combo.blinkAttackUseWeakest);
+}
+
+TEST_CASE("BattleActionCommit_HiddenWeaponItemEmitsProjectileAndItemCountDelta", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.hasItem = true;
+    input.item.id = 501;
+    input.item.itemType = 4;
+    input.item.hiddenWeaponEffectId = 77;
+
+    auto result = BattleActionCommitSystem().commit(input);
+
+    REQUIRE(result.attackSpawnRequests.size() == 1);
+    const auto& request = result.attackSpawnRequests[0];
+    CHECK(request.initial.attackerUnitId == 1);
+    CHECK(request.initial.hiddenWeaponItemId == 501);
+    CHECK(request.initial.visualEffectId == 77);
+    CHECK(request.initial.totalFrame == 100);
+    CHECK(request.initial.operationType == BattleOperationType::None);
+    CHECK(request.initial.ignoreProjectileCancel);
+    CHECK(request.initial.velocity.x == 10.0f);
+
+    REQUIRE(result.itemCountDeltas.size() == 1);
+    CHECK(result.itemCountDeltas[0].itemId == 501);
+    CHECK(result.itemCountDeltas[0].delta == -1);
+}
+
+TEST_CASE("BattleActionCommit_CommittedMeleeCastAdvancesOperationCount", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.hasCast = true;
+    input.cast = committedCast(false, BattleOperationType::Melee);
+
+    auto result = BattleActionCommitSystem().commit(input);
+
+    CHECK(result.operationCount == 1);
+}

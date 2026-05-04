@@ -2,6 +2,7 @@
 
 #include "BattleMath.h"
 #include "BattleCombatIntent.h"
+#include "BattleProjectileTargetingSystem.h"
 
 #include <algorithm>
 #include <cassert>
@@ -401,6 +402,103 @@ std::vector<BattleAttackSpawnRequest> makeAttackSpawnRequests(
     }
 }
 
+BattleProjectileTargetWorld makeActionTargetWorld(const BattleActionCommitInput& input)
+{
+    BattleProjectileTargetWorld world;
+    world.units.reserve(input.targets.size());
+    for (const auto& target : input.targets)
+    {
+        world.units.push_back({
+            target.id,
+            target.team,
+            target.alive,
+            target.hp,
+            target.maxHp,
+            static_cast<int>(target.defence),
+            target.invincible,
+            target.position.x,
+            target.position.y,
+        });
+    }
+    return world;
+}
+
+void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleActionCommitResult& result)
+{
+    if (!result.combo.blinkAttack)
+    {
+        return;
+    }
+
+    auto targetWorld = makeActionTargetWorld(input);
+    BattleProjectileTargetingSystem targeting;
+    const bool useWeakest = result.combo.blinkAttackUseWeakest;
+    int targetId = useWeakest
+        ? targeting.selectWeakestVulnerableEnemy(
+            targetWorld,
+            input.unit.team,
+            input.blinkWeakTargetDefWeight)
+        : targeting.selectRandomEnemy(
+            targetWorld,
+            input.unit.team,
+            input.blinkRandomRoll);
+    if (targetId < 0 && useWeakest)
+    {
+        targetId = targeting.selectRandomEnemy(
+            targetWorld,
+            input.unit.team,
+            input.blinkRandomRoll);
+    }
+    if (targetId < 0)
+    {
+        return;
+    }
+
+    result.blinkCommands.push_back({
+        input.unit.id,
+        targetId,
+        useWeakest,
+        input.blinkReach,
+    });
+    result.combo.blinkAttackUseWeakest = !useWeakest;
+}
+
+void appendItemCommands(const BattleActionCommitInput& input, BattleActionCommitResult& result)
+{
+    if (!input.hasItem)
+    {
+        return;
+    }
+
+    assert(input.item.id >= 0);
+    if (input.item.itemType == 3)
+    {
+        result.itemUseCommands.push_back({
+            input.unit.id,
+            input.item.id,
+        });
+    }
+    else if (input.item.itemType == 4)
+    {
+        assert(input.hiddenWeaponTotalFrame > 0);
+        BattleAttackSpawnRequest request;
+        request.initial.attackerUnitId = input.unit.id;
+        request.initial.position = input.unit.position;
+        request.initial.velocity = input.hiddenWeaponVelocity;
+        request.initial.hiddenWeaponItemId = input.item.id;
+        request.initial.visualEffectId = input.item.hiddenWeaponEffectId;
+        request.initial.totalFrame = input.hiddenWeaponTotalFrame;
+        request.initial.operationType = BattleOperationType::None;
+        request.initial.ignoreProjectileCancel = true;
+        result.attackSpawnRequests.push_back(request);
+    }
+
+    result.itemCountDeltas.push_back({
+        input.item.id,
+        -1,
+    });
+}
+
 }  // namespace
 
 BattleCastResult BattleCastPlanner::plan(const BattleCastInput& input) const
@@ -567,6 +665,41 @@ void BattleCastPlanner::appendCommittedCastOutput(BattleCastResult& result,
     {
         result.effectEvents.push_back({ BattleHook::UltimateCast, input.unit.id, input.targetUnitId });
     }
+}
+
+BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionCommitInput& input) const
+{
+    assert(input.unit.id >= 0);
+    assert(input.unit.operationCount >= 0);
+    assert(input.blinkRandomRoll >= 0);
+    assert(input.strengthenedMeleeOperationCountThreshold > 0);
+
+    BattleActionCommitResult result;
+    result.combo = input.combo;
+    result.operationCount = input.unit.operationCount;
+
+    if (input.hasCast)
+    {
+        assert(input.cast.decision.canCast);
+        result.presentationEvents = input.cast.presentationEvents;
+        result.attackSpawnRequests.insert(
+            result.attackSpawnRequests.end(),
+            input.cast.attackSpawnRequests.begin(),
+            input.cast.attackSpawnRequests.end());
+        if (input.cast.decision.ultimate)
+        {
+            result.combo.onSkillTeamHealPending = true;
+        }
+        result.operationCount = advanceOperationCountAfterCommittedCast(
+            input.unit.operationCount,
+            input.cast.decision.ultimate,
+            input.cast.decision.operationType,
+            input.strengthenedMeleeOperationCountThreshold);
+    }
+
+    appendBlinkAttackCommand(input, result);
+    appendItemCommands(input, result);
+    return result;
 }
 
 }  // namespace KysChess::Battle

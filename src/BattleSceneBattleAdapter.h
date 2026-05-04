@@ -68,6 +68,9 @@ Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
     int physicalPowerRegenIntervalFrames);
 void applyBattleFrameUnitRuntimeResult(Role* role, const Battle::BattleFrameUnitRuntimeResult& result);
 void applyBattleProjectileCancelDamage(Role* role, int damage);
+Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* role);
+Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role);
+Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item);
 
 Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit);
 Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,

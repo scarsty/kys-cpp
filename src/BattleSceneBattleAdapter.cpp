@@ -261,6 +261,46 @@ void applyBattleProjectileCancelDamage(Role* role, int damage)
     role->CancelDmg += damage;
 }
 
+Battle::BattleActionCommitUnitSnapshot makeBattleActionCommitUnitSnapshot(Role* role)
+{
+    assert(role);
+
+    Battle::BattleActionCommitUnitSnapshot snapshot;
+    snapshot.id = role->ID;
+    snapshot.team = role->Team;
+    snapshot.position = role->Pos;
+    snapshot.facing = role->RealTowards;
+    snapshot.operationCount = role->OperationCount;
+    return snapshot;
+}
+
+Battle::BattleActionTargetSnapshot makeBattleActionTargetSnapshot(Role* role)
+{
+    assert(role);
+
+    Battle::BattleActionTargetSnapshot snapshot;
+    snapshot.id = role->ID;
+    snapshot.team = role->Team;
+    snapshot.alive = role->Dead == 0;
+    snapshot.hp = role->HP;
+    snapshot.maxHp = role->MaxHP;
+    snapshot.defence = role->Defence;
+    snapshot.invincible = role->Invincible;
+    snapshot.position = role->Pos;
+    return snapshot;
+}
+
+Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item)
+{
+    assert(item);
+
+    Battle::BattleActionItemSnapshot snapshot;
+    snapshot.id = item->ID;
+    snapshot.itemType = item->ItemType;
+    snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
+    return snapshot;
+}
+
 Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit)
 {
     assert(unit);

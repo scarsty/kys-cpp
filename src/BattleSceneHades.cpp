@@ -45,6 +45,9 @@ using KysChess::BattleSceneBattleAdapter::BattleCastAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleCastSkillAdapterInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleCastInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
+using KysChess::BattleSceneBattleAdapter::makeBattleActionCommitUnitSnapshot;
+using KysChess::BattleSceneBattleAdapter::makeBattleActionItemSnapshot;
+using KysChess::BattleSceneBattleAdapter::makeBattleActionTargetSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitItemSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitSkillSnapshot;
@@ -3886,137 +3889,124 @@ void BattleSceneHades::Action(Role* r)
             }
             Magic* magic = r->UsingMagic;
 
-            {
-                auto& cs = KysChess::ChessCombo::getMutableStates();
-                auto sit = cs.find(r->ID);
-                if (sit != cs.end() && sit->second.blinkAttack)
-                {
-                    // auto target = findNearestEnemy(r->Team, r->Pos);
-                    auto& blinkState = sit->second;
-                    auto targetWorld = makeBattleProjectileTargetWorld(battle_roles_);
-                    int targetId = blinkState.blinkAttackUseWeakest
-                        ? KysChess::Battle::BattleProjectileTargetingSystem().selectWeakestVulnerableEnemy(
-                            targetWorld,
-                            r->Team,
-                            BLINK_WEAK_TARGET_DEF_WEIGHT)
-                        : KysChess::Battle::BattleProjectileTargetingSystem().selectRandomEnemy(
-                            targetWorld,
-                            r->Team,
-                            rand_.rand_int(std::numeric_limits<int>::max()));
-                    if (targetId < 0)
-                    {
-                        targetId = KysChess::Battle::BattleProjectileTargetingSystem().selectRandomEnemy(
-                            targetWorld,
-                            r->Team,
-                            rand_.rand_int(std::numeric_limits<int>::max()));
-                    }
-                    auto* target = targetId >= 0 ? findRoleByBattleId(battle_roles_, targetId) : nullptr;
-                    if (target)
-                    {
-                        logBattleStatus(r, target, blinkState.blinkAttackUseWeakest ? "閃擊追殺" : "閃擊突襲");
-                        blinkState.blinkAttackUseWeakest = !blinkState.blinkAttackUseWeakest;
-                        auto targetPos45 = pos90To45(target->Pos.x, target->Pos.y);
-                        auto currentPos45 = pos90To45(r->Pos.x, r->Pos.y);
-                        int gridReach = std::max(1, static_cast<int>(calcBlinkReach(magic) / TILE_W) + 1);
-                        double blinkReach = calcBlinkReach(magic);
-                        std::vector<Point> cells;
-                        for (int dx = -gridReach; dx <= gridReach; ++dx)
-                        {
-                            for (int dy = -gridReach; dy <= gridReach; ++dy)
-                            {
-                                int x = targetPos45.x + dx;
-                                int y = targetPos45.y + dy;
-                                if (x == currentPos45.x && y == currentPos45.y)
-                                {
-                                    continue;
-                                }
-                                if (!canWalk45(x, y))
-                                {
-                                    continue;
-                                }
-
-                                auto pos = pos45To90(x, y);
-                                if (EuclidDis(pos, target->Pos) > blinkReach)
-                                {
-                                    continue;
-                                }
-
-                                bool occupied = false;
-                                for (auto role : battle_roles_)
-                                {
-                                    if (role == r || role->Dead != 0)
-                                    {
-                                        continue;
-                                    }
-                                    auto rolePos45 = pos90To45(role->Pos.x, role->Pos.y);
-                                    if (rolePos45.x == x && rolePos45.y == y)
-                                    {
-                                        occupied = true;
-                                        break;
-                                    }
-                                }
-                                if (!occupied)
-                                {
-                                    cells.push_back({ x, y });
-                                }
-                            }
-                        }
-
-                        if (!cells.empty())
-                        {
-                            const auto& cell = cells[rand_.rand_int(static_cast<int>(cells.size()))];
-                            int x = cell.x;
-                            int y = cell.y;
-                            auto pos = pos45To90(x, y);
-                            r->setPositionOnly(x, y);
-                            r->Pos.x = pos.x;
-                            r->Pos.y = pos.y;
-                            r->Pos.z = 0;
-                            r->Velocity = { 0, 0, 0 };
-                            r->Acceleration = { 0, 0, gravity_ };
-                            r->FindingWay = 0;
-                            Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
-                            setFaceTowardsNearest(r);
-                            r->RealTowards = target->Pos - r->Pos;
-                            if (r->RealTowards.norm() > 0.01)
-                            {
-                                r->RealTowards.normTo(1);
-                            }
-                        }
-                    }
-                }
-            }
-
             auto pendingCast = pending_cast_results_.find(r);
             assert(pendingCast != pending_cast_results_.end());
             assert(magic);
             const auto& castResult = pendingCast->second;
             assert(castResult.decision.canCast);
-            Audio::getInstance()->playASound(magic->SoundID);
-            if (castResult.decision.ultimate)
+            KysChess::Battle::BattleActionCommitInput actionInput;
+            actionInput.unit = makeBattleActionCommitUnitSnapshot(r);
+            actionInput.hasCast = true;
+            actionInput.cast = castResult;
+            actionInput.blinkRandomRoll = rand_.rand_int(std::numeric_limits<int>::max());
+            actionInput.blinkReach = calcBlinkReach(magic);
+            actionInput.blinkWeakTargetDefWeight = BLINK_WEAK_TARGET_DEF_WEIGHT;
+            actionInput.strengthenedMeleeOperationCountThreshold = 2;
+            for (auto role : battle_roles_)
             {
-                auto& cs = KysChess::ChessCombo::getMutableStates();
-                auto it = cs.find(r->ID);
-                if (it != cs.end())
+                if (role)
                 {
-                    it->second.onSkillTeamHealPending = true;
+                    actionInput.targets.push_back(makeBattleActionTargetSnapshot(role));
                 }
             }
-            for (const auto& event : castResult.presentationEvents)
+
+            auto& comboStates = KysChess::ChessCombo::getMutableStates();
+            auto comboIt = comboStates.find(r->ID);
+            if (comboIt != comboStates.end())
+            {
+                actionInput.combo = comboIt->second;
+            }
+            auto actionResult = KysChess::Battle::BattleActionCommitSystem().commit(actionInput);
+            if (comboIt != comboStates.end())
+            {
+                comboIt->second = actionResult.combo;
+            }
+
+            for (const auto& command : actionResult.blinkCommands)
+            {
+                auto* target = findRoleByBattleId(battle_roles_, command.targetUnitId);
+                logBattleStatus(r, target, command.selectedWeakest ? "閃擊追殺" : "閃擊突襲");
+                auto targetPos45 = pos90To45(target->Pos.x, target->Pos.y);
+                auto currentPos45 = pos90To45(r->Pos.x, r->Pos.y);
+                int gridReach = std::max(1, static_cast<int>(command.reach / TILE_W) + 1);
+                std::vector<Point> cells;
+                for (int dx = -gridReach; dx <= gridReach; ++dx)
+                {
+                    for (int dy = -gridReach; dy <= gridReach; ++dy)
+                    {
+                        int x = targetPos45.x + dx;
+                        int y = targetPos45.y + dy;
+                        if (x == currentPos45.x && y == currentPos45.y)
+                        {
+                            continue;
+                        }
+                        if (!canWalk45(x, y))
+                        {
+                            continue;
+                        }
+
+                        auto pos = pos45To90(x, y);
+                        if (EuclidDis(pos, target->Pos) > command.reach)
+                        {
+                            continue;
+                        }
+
+                        bool occupied = false;
+                        for (auto role : battle_roles_)
+                        {
+                            if (role == r || role->Dead != 0)
+                            {
+                                continue;
+                            }
+                            auto rolePos45 = pos90To45(role->Pos.x, role->Pos.y);
+                            if (rolePos45.x == x && rolePos45.y == y)
+                            {
+                                occupied = true;
+                                break;
+                            }
+                        }
+                        if (!occupied)
+                        {
+                            cells.push_back({ x, y });
+                        }
+                    }
+                }
+
+                if (!cells.empty())
+                {
+                    const auto& cell = cells[rand_.rand_int(static_cast<int>(cells.size()))];
+                    int x = cell.x;
+                    int y = cell.y;
+                    auto pos = pos45To90(x, y);
+                    r->setPositionOnly(x, y);
+                    r->Pos.x = pos.x;
+                    r->Pos.y = pos.y;
+                    r->Pos.z = 0;
+                    r->Velocity = { 0, 0, 0 };
+                    r->Acceleration = { 0, 0, gravity_ };
+                    r->FindingWay = 0;
+                    Audio::getInstance()->playESound(BLINK_SOUND_EFFECT_ID);
+                    setFaceTowardsNearest(r);
+                    r->RealTowards = target->Pos - r->Pos;
+                    if (r->RealTowards.norm() > 0.01)
+                    {
+                        r->RealTowards.normTo(1);
+                    }
+                }
+            }
+
+            Audio::getInstance()->playASound(magic->SoundID);
+            for (const auto& event : actionResult.presentationEvents)
             {
                 presentation_recorder_.recordPresentation(event);
             }
-            auto spawnRequests = castResult.attackSpawnRequests;
+            auto spawnRequests = actionResult.attackSpawnRequests;
             for (auto& request : spawnRequests)
             {
                 attachProjectileBouncePrime(request);
                 queueCoreAttackSpawn(std::move(request));
             }
-            r->OperationCount = KysChess::Battle::advanceOperationCountAfterCommittedCast(
-                r->OperationCount,
-                castResult.decision.ultimate,
-                castResult.decision.operationType,
-                2);
+            r->OperationCount = actionResult.operationCount;
             applyBattleCastCommit(r, castResult);
             pending_cast_results_.erase(pendingCast);
             ultCasters_.erase(r);
@@ -4025,46 +4015,36 @@ void BattleSceneHades::Action(Role* r)
         if (r->UsingItem)
         {
             Item* item = r->UsingItem;
-            if (item->ItemType == 3)
+            KysChess::Battle::BattleActionCommitInput actionInput;
+            actionInput.unit = makeBattleActionCommitUnitSnapshot(r);
+            actionInput.hasItem = true;
+            actionInput.item = makeBattleActionItemSnapshot(item);
+            actionInput.strengthenedMeleeOperationCountThreshold = 2;
+            actionInput.hiddenWeaponTotalFrame = 100;
+            auto hiddenWeaponVelocity = r->RealTowards;
+            if (auto r0 = findFarthestEnemy(r->Team, r->Pos))
             {
-                // 藥品直接服用
-                r->useItem(item);
-                //TextEffect te;
-                //BP_Color c = { 255, 255, 255, 255 };
-                //if (r->Team == 0)
-                //{
-                //    c = { 255, 20, 220, 20 };
-                //}
-                //const int left = std::max(0, Save::getInstance()->getItemCountInBag(item->ID) - 1);
-                //te.set(std::format("服用{}，剩餘{}", item->Name, left), c, r);
-                //text_effects_.push_back(std::move(te));
+                hiddenWeaponVelocity = r0->Pos - r->Pos;
             }
-            else if (item->ItemType == 4)
+            hiddenWeaponVelocity.normTo(10);
+            actionInput.hiddenWeaponVelocity = hiddenWeaponVelocity;
+
+            auto actionResult = KysChess::Battle::BattleActionCommitSystem().commit(actionInput);
+            for (const auto& command : actionResult.itemUseCommands)
             {
-                // 暗器
-                KysChess::Battle::BattleAttackSpawnRequest request;
-                auto r0 = findFarthestEnemy(r->Team, r->Pos);
-                if (r0)
-                {
-                    request.initial.velocity = r0->Pos - r->Pos;
-                }
-                else
-                {
-                    request.initial.velocity = r->RealTowards;
-                }
-                request.initial.velocity.normTo(10);
-                request.initial.attackerUnitId = r->ID;
-                request.initial.position = r->Pos;
-                request.initial.hiddenWeaponItemId = item->ID;
-                request.initial.visualEffectId = item->HiddenWeaponEffectID;
-                request.initial.totalFrame = 100;
-                request.initial.operationType = KysChess::Battle::BattleOperationType::None;
-                request.initial.ignoreProjectileCancel = true;
+                assert(command.itemId == item->ID);
+                r->useItem(item);
+            }
+            auto spawnRequests = actionResult.attackSpawnRequests;
+            for (auto& request : spawnRequests)
+            {
                 attachProjectileBouncePrime(request);
                 queueCoreAttackSpawn(std::move(request));
             }
-            // 减少数量
-            Event::getInstance()->addItemWithoutHint(item->ID, -1);
+            for (const auto& delta : actionResult.itemCountDeltas)
+            {
+                Event::getInstance()->addItemWithoutHint(delta.itemId, delta.delta);
+            }
             r->UsingItem = nullptr;
         }
         r->ActFrame++;
@@ -4148,26 +4128,33 @@ void BattleSceneHades::queueCoreSkillAttackSpawn(Role* r, Magic* magic, bool isU
             isUltimate,
             KysChess::Battle::battleOperationFromLegacy(resolvedOperationType));
 
-        Audio::getInstance()->playASound(magic->SoundID);
-        if (isUltimate && comboIt != comboStates.end())
+        KysChess::Battle::BattleActionCommitInput actionInput;
+        actionInput.unit = makeBattleActionCommitUnitSnapshot(r);
+        actionInput.hasCast = true;
+        actionInput.cast = castResult;
+        actionInput.strengthenedMeleeOperationCountThreshold = 2;
+        if (comboIt != comboStates.end())
         {
-            comboIt->second.onSkillTeamHealPending = true;
+            actionInput.combo = comboIt->second;
         }
-        for (const auto& event : castResult.presentationEvents)
+        auto actionResult = KysChess::Battle::BattleActionCommitSystem().commit(actionInput);
+        if (comboIt != comboStates.end())
+        {
+            comboIt->second = actionResult.combo;
+        }
+
+        Audio::getInstance()->playASound(magic->SoundID);
+        for (const auto& event : actionResult.presentationEvents)
         {
             presentation_recorder_.recordPresentation(event);
         }
-        auto spawnRequests = castResult.attackSpawnRequests;
+        auto spawnRequests = actionResult.attackSpawnRequests;
         for (auto& request : spawnRequests)
         {
             attachProjectileBouncePrime(request);
             queueCoreAttackSpawn(std::move(request));
         }
-        r->OperationCount = KysChess::Battle::advanceOperationCountAfterCommittedCast(
-            r->OperationCount,
-            castResult.decision.ultimate,
-            castResult.decision.operationType,
-            2);
+        r->OperationCount = actionResult.operationCount;
         return;
     }
 
