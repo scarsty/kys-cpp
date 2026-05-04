@@ -42,9 +42,6 @@ using KysChess::BattleSceneBattleAdapter::BattleCastAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleCastSkillAdapterInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleCastInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
-using KysChess::BattleSceneBattleAdapter::commitTeamBarrier;
-using KysChess::BattleSceneBattleAdapter::commitTeamFocus;
-using KysChess::BattleSceneBattleAdapter::commitTeamRecovery;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -2981,10 +2978,12 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     [&]() { return rand_.rand() * 100.0; });
                 if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
                 {
-                    auto teamEvents = commitTeamEffectEvents([&](auto& world)
-                        {
-                            return commitTeamRecovery(world, r->ID, teamHeal.flatHeal, teamHeal.pctHeal);
-                        });
+                    LegacyTeamEffectCommitRequest request;
+                    request.type = LegacyTeamEffectCommitType::Heal;
+                    request.sourceUnitId = r->ID;
+                    request.flatHeal = teamHeal.flatHeal;
+                    request.pctHeal = teamHeal.pctHeal;
+                    auto teamEvents = commitLegacyTeamEffect(request);
                     playCommittedTeamEffectEvents(r, teamEvents, "技能群療");
                 }
             }
@@ -4229,15 +4228,39 @@ void BattleSceneHades::queueCoreSkillAttackSpawn(Role* r, Magic* magic, bool isU
     return;
 }
 
-std::vector<KysChess::Battle::BattleTeamEffectEvent> BattleSceneHades::commitTeamEffectEvents(
-    const std::function<std::vector<KysChess::Battle::BattleTeamEffectEvent>(
-        KysChess::Battle::BattleTeamEffectWorld&)>& commit)
+std::vector<KysChess::Battle::BattleTeamEffectEvent> BattleSceneHades::commitLegacyTeamEffect(
+    const LegacyTeamEffectCommitRequest& request)
 {
-    assert(static_cast<bool>(commit));
+    assert(request.sourceUnitId >= 0);
 
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-    auto events = commit(world);
+    std::vector<KysChess::Battle::BattleTeamEffectEvent> events;
+    switch (request.type)
+    {
+    case LegacyTeamEffectCommitType::Heal:
+        events = KysChess::Battle::BattleTeamEffectSystem().applyTeamHeal(
+            world,
+            request.sourceUnitId,
+            request.flatHeal,
+            request.pctHeal);
+        break;
+    case LegacyTeamEffectCommitType::MpRestore:
+        events = KysChess::Battle::BattleTeamEffectSystem().applyTeamMp(
+            world,
+            request.sourceUnitId,
+            request.amount);
+        break;
+    case LegacyTeamEffectCommitType::Shield:
+        events = KysChess::Battle::BattleTeamEffectSystem().applyTeamShield(
+            world,
+            request.sourceUnitId,
+            request.amount,
+            request.refreshOnly);
+        break;
+    default:
+        assert(false);
+    }
     writeBattleTeamEffectWorld(world, battle_roles_, cs);
     return events;
 }
@@ -5562,10 +5585,12 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
                 [&]() { return rand_.rand() * 100.0; });
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
-                auto teamEvents = commitTeamEffectEvents([&](auto& world)
-                    {
-                        return commitTeamRecovery(world, attacker->ID, teamHeal.flatHeal, teamHeal.pctHeal);
-                    });
+                LegacyTeamEffectCommitRequest request;
+                request.type = LegacyTeamEffectCommitType::Heal;
+                request.sourceUnitId = attacker->ID;
+                request.flatHeal = teamHeal.flatHeal;
+                request.pctHeal = teamHeal.pctHeal;
+                auto teamEvents = commitLegacyTeamEffect(request);
                 playCommittedTeamEffectEvents(attacker, teamEvents, "命中群療");
             }
         }
@@ -5848,18 +5873,21 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
                 }
                 else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::TeamMpRestore)
                 {
-                    auto teamEvents = commitTeamEffectEvents([&](auto& world)
-                        {
-                            return commitTeamFocus(world, attacker->ID, command.value);
-                        });
+                    LegacyTeamEffectCommitRequest request;
+                    request.type = LegacyTeamEffectCommitType::MpRestore;
+                    request.sourceUnitId = attacker->ID;
+                    request.amount = command.value;
+                    auto teamEvents = commitLegacyTeamEffect(request);
                     playCommittedTeamEffectEvents(attacker, teamEvents, "琴棋書畫");
                 }
                 else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::FlatShield)
                 {
-                    auto teamEvents = commitTeamEffectEvents([&](auto& world)
-                        {
-                            return commitTeamBarrier(world, attacker->ID, command.value, true);
-                        });
+                    LegacyTeamEffectCommitRequest request;
+                    request.type = LegacyTeamEffectCommitType::Shield;
+                    request.sourceUnitId = attacker->ID;
+                    request.amount = command.value;
+                    request.refreshOnly = true;
+                    auto teamEvents = commitLegacyTeamEffect(request);
                     playCommittedTeamEffectEvents(attacker, teamEvents, "全隊護盾重整");
                 }
                 else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::SpiralBleedProjectile)

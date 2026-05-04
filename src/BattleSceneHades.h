@@ -14,7 +14,6 @@
 #include "ChessRoleSave.h"
 #include "Head.h"
 #include <deque>
-#include <functional>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -111,9 +110,25 @@ protected:
                                         int rangePixels,
                                         int damagePct = 40);
     void refreshEnemyTopDebuffs();
-    std::vector<KysChess::Battle::BattleTeamEffectEvent> commitTeamEffectEvents(
-        const std::function<std::vector<KysChess::Battle::BattleTeamEffectEvent>(
-            KysChess::Battle::BattleTeamEffectWorld&)>& commit);
+    enum class LegacyTeamEffectCommitType
+    {
+        Heal,
+        MpRestore,
+        Shield,
+    };
+
+    struct LegacyTeamEffectCommitRequest
+    {
+        LegacyTeamEffectCommitType type = LegacyTeamEffectCommitType::Heal;
+        int sourceUnitId = -1;
+        int flatHeal = 0;
+        int pctHeal = 0;
+        int amount = 0;
+        bool refreshOnly = false;
+    };
+
+    std::vector<KysChess::Battle::BattleTeamEffectEvent> commitLegacyTeamEffect(
+        const LegacyTeamEffectCommitRequest& request);
     void playCommittedTeamEffectEvents(
         Role* source,
         const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events,
