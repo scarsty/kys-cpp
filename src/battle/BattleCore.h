@@ -5,10 +5,12 @@
 #include "BattleComboTriggerSystem.h"
 #include "BattleDamageSystem.h"
 #include "BattleDeathEffectSystem.h"
+#include "BattleEffectSystem.h"
 #include "BattleHitResolver.h"
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
 #include "BattleStatusSystem.h"
+#include "BattleTeamEffectSystem.h"
 
 #include <cstddef>
 #include <map>
@@ -86,6 +88,73 @@ struct BattleProjectileCancelBaseDamage
     int baseDamage = 0;
 };
 
+struct BattleFrameActionUnitState
+{
+    bool haveAction = false;
+    int actFrame = 0;
+    int actType = -1;
+    int castFrame = 0;
+    BattleOperationType operationType = BattleOperationType::None;
+    int cooldownFrames = 0;
+    int recoveryFrames = 0;
+};
+
+struct BattleFrameActionUnitInput
+{
+    int unitId = -1;
+    BattleFrameActionUnitState state;
+    bool canPlanCast = false;
+    BattleCastInput castInput;
+    bool hasSelectedCastInput = false;
+    BattleCastInput selectedCastInput;
+    bool selectedCastUltimate = false;
+    BattleOperationType selectedOperationType = BattleOperationType::None;
+    BattleActionCommitInput selectedActionInput;
+    bool hasPendingActionInput = false;
+    BattleActionCommitInput pendingActionInput;
+};
+
+struct BattleFrameActionUnitResult
+{
+    int unitId = -1;
+    BattleFrameActionUnitState state;
+    bool castStarted = false;
+    bool actionCommitted = false;
+    bool castCommitted = false;
+    BattleActionCommitInput actionInput;
+    BattleCastResult castResult;
+    BattleActionCommitResult actionResult;
+};
+
+struct BattleFrameHitScalarInput
+{
+    int attackId = -1;
+    int attackerUnitId = -1;
+    int defenderUnitId = -1;
+    int resolvedMagicBaseDamage = 0;
+    int resolvedHiddenWeaponDamage = 0;
+    int sharedBleedMaxStacks = 1;
+    int randomDamageVariance = 0;
+    std::vector<double> percentRolls;
+    int pendingDefenderHpDamage = 0;
+};
+
+struct BattleFrameHitSkillInput
+{
+    int attackId = -1;
+    int attackerUnitId = -1;
+    int defenderUnitId = -1;
+    BattleHitSkillSnapshot skill;
+};
+
+struct BattleFrameHitItemInput
+{
+    int attackId = -1;
+    int attackerUnitId = -1;
+    int defenderUnitId = -1;
+    BattleHitItemSnapshot item;
+};
+
 struct BattleFrameState
 {
     BattleWorldState world;
@@ -98,14 +167,10 @@ struct BattleFrameState
         std::size_t nextPercentRoll = 0;
     } runtime;
 
-    struct CastState
-    {
-        std::vector<BattleCastInput> pendingInputs;
-        std::vector<BattleCastResult> committedResults;
-    } casts;
-
     struct DamageState
     {
+        std::vector<BattleDamageUnitState> units;
+        std::map<int, BattleCooldownState> cooldowns;
         std::vector<BattleDamageTransactionInput> pendingTransactions;
         std::vector<BattleDamageTransactionResult> committedTransactions;
     } damage;
@@ -144,6 +209,37 @@ struct BattleFrameState
         std::vector<BattleProjectileCancelDamageCommand> committedCommands;
     } projectileCancel;
 
+    struct TeamEffectState
+    {
+        BattleTeamEffectWorld world;
+        double healAuraRadius = 0.0;
+        std::vector<BattleGameplayCommand> pendingCommands;
+        std::vector<BattleTeamEffectEvent> committedEvents;
+    } teamEffects;
+
+    struct EffectState
+    {
+        BattleEffectWorld world;
+        std::vector<BattleEffectCommand> committedCommands;
+    } effects;
+
+    struct ActionState
+    {
+        std::vector<BattleFrameActionUnitInput> units;
+        std::vector<BattleFrameActionUnitResult> unitResults;
+    } actions;
+
+    struct HitState
+    {
+        std::vector<BattleHitUnitSnapshot> units;
+        std::vector<BattleFrameHitSkillInput> skills;
+        std::vector<BattleFrameHitItemInput> items;
+        std::vector<BattleFrameHitScalarInput> scalars;
+        std::vector<BattleHitResolutionResult> committedResults;
+    } hits;
+
+    BattleProjectileFollowUpContext projectileFollowUps;
+
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
@@ -154,6 +250,16 @@ struct BattleFrameResult
     std::vector<BattleAttackEvent> attackEvents;
     std::vector<BattleGameplayCommand> commands;
 };
+
+struct BattleTeamEffectCommandApplication
+{
+    std::vector<BattleTeamEffectEvent> events;
+    std::vector<BattlePresentationEvent> presentationEvents;
+};
+
+BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
+    BattleTeamEffectWorld& world,
+    const BattleGameplayCommand& command);
 
 class BattleFrameRunner
 {

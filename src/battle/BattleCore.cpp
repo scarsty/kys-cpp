@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <format>
 #include <iterator>
 #include <set>
+#include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace KysChess::Battle
@@ -84,6 +87,15 @@ const char* textForMovementEvent(BattleEventType type)
     return "movement";
 }
 
+std::string formatStatusValue(const std::string& label, int value, const char* unit)
+{
+    if (value <= 0)
+    {
+        return label;
+    }
+    return std::format("{}（{}{}）", label, value, unit);
+}
+
 BattlePresentationEvent toPresentationEvent(const BattleEvent& event)
 {
     BattlePresentationEvent presentation;
@@ -122,6 +134,82 @@ const BattleProjectileCancelBaseDamage* findProjectileCancelBaseDamage(
                 && (input.otherAttackId < 0 || input.otherAttackId == otherAttackId);
         });
     return it != state.projectileCancel.baseDamages.end() ? &*it : nullptr;
+}
+
+const BattleFrameHitScalarInput* findHitScalar(
+    const BattleFrameState& state,
+    int attackId,
+    int attackerUnitId,
+    int defenderUnitId)
+{
+    auto it = std::find_if(
+        state.hits.scalars.begin(),
+        state.hits.scalars.end(),
+        [&](const BattleFrameHitScalarInput& input)
+        {
+            return input.attackId == attackId
+                && input.attackerUnitId == attackerUnitId
+                && input.defenderUnitId == defenderUnitId;
+        });
+    return it != state.hits.scalars.end() ? &*it : nullptr;
+}
+
+const BattleHitUnitSnapshot* findHitUnit(const BattleFrameState& state, int unitId)
+{
+    auto it = std::find_if(
+        state.hits.units.begin(),
+        state.hits.units.end(),
+        [&](const BattleHitUnitSnapshot& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != state.hits.units.end() ? &*it : nullptr;
+}
+
+const BattleFrameHitSkillInput* findHitSkill(
+    const BattleFrameState& state,
+    int attackId,
+    int attackerUnitId,
+    int defenderUnitId)
+{
+    auto it = std::find_if(
+        state.hits.skills.begin(),
+        state.hits.skills.end(),
+        [&](const BattleFrameHitSkillInput& input)
+        {
+            return input.attackId == attackId
+                && input.attackerUnitId == attackerUnitId
+                && input.defenderUnitId == defenderUnitId;
+        });
+    return it != state.hits.skills.end() ? &*it : nullptr;
+}
+
+const BattleFrameHitItemInput* findHitItem(
+    const BattleFrameState& state,
+    int attackId,
+    int attackerUnitId,
+    int defenderUnitId)
+{
+    auto it = std::find_if(
+        state.hits.items.begin(),
+        state.hits.items.end(),
+        [&](const BattleFrameHitItemInput& input)
+        {
+            return input.attackId == attackId
+                && input.attackerUnitId == attackerUnitId
+                && input.defenderUnitId == defenderUnitId;
+        });
+    return it != state.hits.items.end() ? &*it : nullptr;
+}
+
+BattlePresentationEvent dodgeStatusEvent(int defenderUnitId, int attackerUnitId)
+{
+    BattlePresentationEvent event;
+    event.type = BattlePresentationEventType::StatusLog;
+    event.sourceUnitId = defenderUnitId;
+    event.targetUnitId = attackerUnitId;
+    event.text = "閃避了來襲攻擊";
+    return event;
 }
 
 double takeRuntimePercentRoll(BattleFrameState& state)
@@ -305,11 +393,31 @@ void advanceRuntimeUnits(BattleFrameState& state, std::vector<BattleGameplayComm
         committed.result = BattleFrameUnitRuntimeSystem().advance(input.input);
 
         auto comboIt = state.combo.units.find(input.unitId);
+        if (comboIt != state.combo.units.end())
+        {
+            auto frameEvents = comboSystem.advanceFrameRuntime(
+                comboIt->second,
+                {
+                    state.world.frame,
+                    input.hp,
+                    input.maxHp,
+                    input.alive,
+                    input.lastAlive,
+                });
+            committed.comboEvents.insert(
+                committed.comboEvents.end(),
+                frameEvents.begin(),
+                frameEvents.end());
+        }
         if (committed.result.skillFinished && comboIt != state.combo.units.end())
         {
-            committed.comboEvents = comboSystem.collectSkillFinishedRuntimeEvents(
+            auto skillFinishedEvents = comboSystem.collectSkillFinishedRuntimeEvents(
                 comboIt->second,
                 input.alive);
+            committed.comboEvents.insert(
+                committed.comboEvents.end(),
+                skillFinishedEvents.begin(),
+                skillFinishedEvents.end());
 
             auto teamHeal = comboSystem.collectPendingSkillTeamHeal(
                 comboIt->second,
@@ -317,13 +425,18 @@ void advanceRuntimeUnits(BattleFrameState& state, std::vector<BattleGameplayComm
                 [&]() { return takeRuntimePercentRoll(state); });
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
-                commands.push_back(BattleTeamHealCommand{
+                BattleTeamHealCommand command{
                     input.unitId,
                     teamHeal.flatHeal,
                     teamHeal.pctHeal,
                     "技能群療",
-                });
+                };
+                commands.push_back(command);
+                state.teamEffects.pendingCommands.push_back(std::move(command));
             }
+        }
+        if (comboIt != state.combo.units.end())
+        {
             committed.comboState = comboIt->second;
         }
         state.runtime.committedResults.push_back(std::move(committed));
@@ -374,6 +487,157 @@ void applyProjectileCancelDamageResults(
         commands.push_back(command);
         state.projectileCancel.committedCommands.push_back(command);
         attackSystem.applyProjectileCancelDamage(state.attacks, event);
+    }
+}
+
+std::vector<double> hitResolverRolls(
+    const BattleFrameHitScalarInput& scalar,
+    bool consumedDodgeRoll)
+{
+    if (!consumedDodgeRoll || scalar.percentRolls.empty())
+    {
+        return scalar.percentRolls;
+    }
+    return { std::next(scalar.percentRolls.begin()), scalar.percentRolls.end() };
+}
+
+void updateCommittedHitCombos(BattleFrameState& state, const BattleHitResolutionResult& result)
+{
+    if (auto it = state.combo.units.find(result.attackerUnitId); it != state.combo.units.end())
+    {
+        it->second = result.attackerCombo;
+    }
+    if (auto it = state.combo.units.find(result.defenderUnitId); it != state.combo.units.end())
+    {
+        it->second = result.defenderCombo;
+    }
+}
+
+BattleHitResolutionInput makeHitResolutionInput(
+    const BattleFrameState& state,
+    const BattleAttackEvent& event,
+    const BattleFrameHitScalarInput& scalar,
+    bool consumedDodgeRoll)
+{
+    const auto* attacker = findHitUnit(state, event.sourceUnitId);
+    const auto* defender = findHitUnit(state, event.unitId);
+    assert(attacker);
+    assert(defender);
+
+    BattleHitResolutionInput input;
+    input.attackEvent = event;
+    input.attacker = *attacker;
+    input.defender = *defender;
+    if ((input.attackEvent.position - input.defender.position).norm() == 0.0)
+    {
+        assert(input.defender.facing.norm() > 0.0);
+        input.attackEvent.position = input.defender.position + input.defender.facing;
+    }
+    input.sharedBleedMaxStacks = scalar.sharedBleedMaxStacks;
+    input.randomDamageVariance = scalar.randomDamageVariance;
+    input.pendingDefenderHpDamage = scalar.pendingDefenderHpDamage;
+    input.percentRolls = hitResolverRolls(scalar, consumedDodgeRoll);
+
+    if (const auto* skill = findHitSkill(state, event.attackId, event.sourceUnitId, event.unitId))
+    {
+        input.skill = skill->skill;
+        input.skill.resolvedBaseDamage = scalar.resolvedMagicBaseDamage;
+    }
+    if (const auto* item = findHitItem(state, event.attackId, event.sourceUnitId, event.unitId))
+    {
+        input.item = item->item;
+        input.item.resolvedDamage = scalar.resolvedHiddenWeaponDamage;
+    }
+    if (auto comboIt = state.combo.units.find(event.sourceUnitId); comboIt != state.combo.units.end())
+    {
+        input.attackerCombo = comboIt->second;
+    }
+    if (auto comboIt = state.combo.units.find(event.unitId); comboIt != state.combo.units.end())
+    {
+        input.defenderCombo = comboIt->second;
+    }
+    return input;
+}
+
+bool tryResolveDodgeHit(
+    BattleFrameState& state,
+    const BattleAttackEvent& event,
+    const BattleFrameHitScalarInput& scalar,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    auto defenderComboIt = state.combo.units.find(event.unitId);
+    if (defenderComboIt == state.combo.units.end())
+    {
+        return false;
+    }
+
+    const double roll = scalar.percentRolls.empty() ? 0.0 : scalar.percentRolls.front();
+    auto dodge = BattleComboTriggerSystem().resolveDodge(defenderComboIt->second, event.sourceUnitId, roll);
+    if (!dodge.dodged)
+    {
+        return false;
+    }
+
+    defenderComboIt->second.dodgedLast = true;
+
+    BattleHitResolutionResult result;
+    result.attackerUnitId = event.sourceUnitId;
+    result.defenderUnitId = event.unitId;
+    if (auto attackerComboIt = state.combo.units.find(event.sourceUnitId); attackerComboIt != state.combo.units.end())
+    {
+        result.attackerCombo = attackerComboIt->second;
+    }
+    result.defenderCombo = defenderComboIt->second;
+    result.dodged = true;
+    result.presentationEvents.push_back(dodgeStatusEvent(event.unitId, event.sourceUnitId));
+    presentationEvents.insert(
+        presentationEvents.end(),
+        result.presentationEvents.begin(),
+        result.presentationEvents.end());
+    state.hits.committedResults.push_back(std::move(result));
+    return true;
+}
+
+void resolveHitEvents(
+    BattleFrameState& state,
+    const std::vector<BattleAttackEvent>& events,
+    std::vector<BattleGameplayCommand>& commands,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    for (const auto& event : events)
+    {
+        if (event.type != BattleAttackEventType::Hit)
+        {
+            continue;
+        }
+
+        const auto* scalar = findHitScalar(state, event.attackId, event.sourceUnitId, event.unitId);
+        if (!scalar)
+        {
+            continue;
+        }
+
+        const bool consumedDodgeRoll = state.combo.units.find(event.unitId) != state.combo.units.end();
+        if (tryResolveDodgeHit(state, event, *scalar, presentationEvents))
+        {
+            continue;
+        }
+
+        auto input = makeHitResolutionInput(state, event, *scalar, consumedDodgeRoll);
+        auto result = BattleHitResolver().resolve(input);
+        auto followUps = expandBattleProjectileFollowUpCommands(result.commands, state.projectileFollowUps);
+        result.commands = std::move(followUps.commands);
+        result.presentationEvents.insert(
+            result.presentationEvents.end(),
+            followUps.presentationEvents.begin(),
+            followUps.presentationEvents.end());
+        updateCommittedHitCombos(state, result);
+        commands.insert(commands.end(), result.commands.begin(), result.commands.end());
+        presentationEvents.insert(
+            presentationEvents.end(),
+            result.presentationEvents.begin(),
+            result.presentationEvents.end());
+        state.hits.committedResults.push_back(std::move(result));
     }
 }
 
@@ -438,6 +702,42 @@ const BattleStatusUnitState* findStatusUnit(const std::vector<BattleStatusUnitSt
             return unit.id == unitId;
         });
     return it != units.end() ? &*it : nullptr;
+}
+
+BattleDamageUnitState* findDamageUnit(std::vector<BattleDamageUnitState>& units, int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
+BattleTeamEffectUnit* findTeamEffectUnit(BattleTeamEffectWorld& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != world.units.end() ? &*it : nullptr;
+}
+
+const BattleTeamEffectUnit* findTeamEffectUnit(const BattleTeamEffectWorld& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != world.units.end() ? &*it : nullptr;
+}
+
+BattleEffectUnit* findEffectUnit(BattleEffectWorld& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != world.units.end() ? &*it : nullptr;
 }
 
 BattleDeathEffectUnit* findDeathEffectUnit(BattleDeathEffectWorld& world, int unitId)
@@ -619,7 +919,521 @@ void updateBattleResult(BattleFrameState& state, std::vector<BattleGameplayEvent
         state.result.eventEmitted = true;
     }
 }
+
+void advanceStatus(BattleFrameState& state)
+{
+    state.status.config.frame = state.world.frame;
+    auto statusTick = BattleStatusSystem(state.status.config).tick(state.status.units);
+    state.status.events.insert(
+        state.status.events.end(),
+        statusTick.events.begin(),
+        statusTick.events.end());
+
+    for (const auto& event : statusTick.events)
+    {
+        if (event.type != BattleStatusEventType::PoisonDamage
+            && event.type != BattleStatusEventType::BleedDamage)
+        {
+            continue;
+        }
+
+        auto* attacker = findDamageUnit(state.damage.units, event.sourceUnitId);
+        auto* defender = findDamageUnit(state.damage.units, event.unitId);
+        auto* defenderStatus = findStatusUnit(state.status.units, event.unitId);
+        auto cooldownIt = state.damage.cooldowns.find(event.unitId);
+        if (!attacker || !defender || !defenderStatus || cooldownIt == state.damage.cooldowns.end())
+        {
+            continue;
+        }
+
+        BattleDamageTransactionInput transaction;
+        transaction.request.attackerUnitId = event.sourceUnitId;
+        transaction.request.defenderUnitId = event.unitId;
+        transaction.request.baseDamage = event.value;
+        transaction.request.preResolvedDamage = true;
+        transaction.attacker = *attacker;
+        transaction.defender = *defender;
+        transaction.defenderStatus = *defenderStatus;
+        transaction.defenderCooldown = cooldownIt->second;
+        state.damage.pendingTransactions.push_back(std::move(transaction));
+    }
+}
+
+void appendTeamEffectPresentationEvents(
+    std::vector<BattlePresentationEvent>& presentationEvents,
+    const std::vector<BattleTeamEffectEvent>& events,
+    const std::string& reason)
+{
+    for (const auto& event : events)
+    {
+        BattlePresentationEvent presentation;
+        presentation.sourceUnitId = event.sourceUnitId;
+        presentation.targetUnitId = event.targetUnitId;
+        presentation.amount = event.value;
+        presentation.text = reason;
+        switch (event.type)
+        {
+        case BattleTeamEffectEventType::Heal:
+            presentation.type = BattlePresentationEventType::HealLog;
+            presentation.text = reason;
+            break;
+        case BattleTeamEffectEventType::MpRestore:
+            presentation.type = BattlePresentationEventType::StatusLog;
+            presentation.text = std::format("{}+{}MP", reason, event.value);
+            break;
+        case BattleTeamEffectEventType::ShieldGain:
+            presentation.type = BattlePresentationEventType::StatusLog;
+            presentation.text = formatStatusValue(reason, event.value, "護盾");
+            break;
+        case BattleTeamEffectEventType::CooldownReduced:
+            presentation.type = BattlePresentationEventType::StatusLog;
+            presentation.text = formatStatusValue(reason, event.value, "冷卻");
+            break;
+        }
+        presentationEvents.push_back(std::move(presentation));
+    }
+}
+
+void appendEffectCommandPresentationEvents(
+    std::vector<BattlePresentationEvent>& presentationEvents,
+    const std::vector<BattleEffectCommand>& commands)
+{
+    for (const auto& command : commands)
+    {
+        BattlePresentationEvent presentation;
+        presentation.sourceUnitId = command.sourceUnitId;
+        presentation.targetUnitId = command.targetUnitId;
+        presentation.amount = command.value;
+        presentation.text = command.label;
+        switch (command.type)
+        {
+        case BattleEffectCommandType::Heal:
+            presentation.type = BattlePresentationEventType::HealLog;
+            break;
+        case BattleEffectCommandType::AddShield:
+        case BattleEffectCommandType::AddInvincibility:
+        case BattleEffectCommandType::ModifyResource:
+        case BattleEffectCommandType::ModifyCooldown:
+        case BattleEffectCommandType::DedicatedEffect:
+            presentation.type = BattlePresentationEventType::StatusLog;
+            break;
+        }
+        presentationEvents.push_back(std::move(presentation));
+    }
+}
+
+void applyRuntimeTeamEvents(
+    BattleFrameState& state,
+    int sourceUnitId,
+    const BattleComboFrameRuntimeEvent& event,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    if (state.teamEffects.world.units.empty())
+    {
+        return;
+    }
+
+    BattleTeamEffectSystem system;
+    std::vector<BattleTeamEffectEvent> events;
+    std::string reason;
+    switch (event.type)
+    {
+    case BattleComboFrameRuntimeEventType::SelfHpRegen:
+        events = system.applySelfHeal(state.teamEffects.world, sourceUnitId, event.value);
+        reason = "生命回復";
+        break;
+    case BattleComboFrameRuntimeEventType::HealAura:
+        assert(state.teamEffects.healAuraRadius > 0.0);
+        events = system.applyHealAura(
+            state.teamEffects.world,
+            sourceUnitId,
+            event.value,
+            event.value2,
+            state.teamEffects.healAuraRadius,
+            event.durationFrames);
+        reason = "治療光環";
+        break;
+    case BattleComboFrameRuntimeEventType::HealPercentSelf:
+        events = system.applySelfHeal(state.teamEffects.world, sourceUnitId, event.value);
+        reason = "爆發治療";
+        break;
+    default:
+        assert(false);
+        break;
+    }
+
+    appendTeamEffectPresentationEvents(presentationEvents, events, reason);
+    state.teamEffects.committedEvents.insert(
+        state.teamEffects.committedEvents.end(),
+        events.begin(),
+        events.end());
+}
+
+void applyBroadcastTriggerTimer(BattleFrameState& state, int sourceUnitId, const BattleComboFrameRuntimeEvent& event)
+{
+    assert(event.durationFrames > 0);
+    const auto* source = findTeamEffectUnit(state.teamEffects.world, sourceUnitId);
+    if (!source)
+    {
+        return;
+    }
+    for (const auto& unit : state.teamEffects.world.units)
+    {
+        if (!unit.alive || unit.id == sourceUnitId || unit.team != source->team)
+        {
+            continue;
+        }
+        auto comboIt = state.combo.units.find(unit.id);
+        assert(comboIt != state.combo.units.end());
+        comboIt->second.triggerTimers[event.trigger] = event.durationFrames;
+    }
+}
+
+void applyPostSkillInvincibility(
+    BattleFrameState& state,
+    int sourceUnitId,
+    const BattleComboFrameRuntimeEvent& event,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    assert(event.value > 0);
+    if (state.effects.world.units.empty())
+    {
+        return;
+    }
+
+    BattleEffectRegistry registry;
+    BattleEffectDispatcher dispatcher(registry);
+    dispatcher.addEffect({
+        event.effectIndex,
+        "技能後無敵",
+        BattleHook::SkillFinished,
+        BattleEffectTarget::Source,
+        "技能後無敵",
+        event.value,
+    });
+    auto commands = dispatcher.dispatch(
+        state.effects.world,
+        { BattleHook::SkillFinished, sourceUnitId, -1 });
+    appendEffectCommandPresentationEvents(presentationEvents, commands);
+    state.effects.committedCommands.insert(
+        state.effects.committedCommands.end(),
+        commands.begin(),
+        commands.end());
+
+    if (auto* effectUnit = findEffectUnit(state.effects.world, sourceUnitId))
+    {
+        if (auto* statusUnit = findStatusUnit(state.status.units, sourceUnitId))
+        {
+            statusUnit->invincible = effectUnit->invincible;
+        }
+    }
+}
+
+void applyRuntimeComboEvents(BattleFrameState& state, std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    for (const auto& result : state.runtime.committedResults)
+    {
+        for (const auto& event : result.comboEvents)
+        {
+            switch (event.type)
+            {
+            case BattleComboFrameRuntimeEventType::SelfHpRegen:
+            case BattleComboFrameRuntimeEventType::HealAura:
+            case BattleComboFrameRuntimeEventType::HealPercentSelf:
+                applyRuntimeTeamEvents(state, result.unitId, event, presentationEvents);
+                break;
+            case BattleComboFrameRuntimeEventType::BroadcastTriggerTimer:
+                applyBroadcastTriggerTimer(state, result.unitId, event);
+                break;
+            case BattleComboFrameRuntimeEventType::PostSkillInvincibility:
+                applyPostSkillInvincibility(state, result.unitId, event, presentationEvents);
+                break;
+            case BattleComboFrameRuntimeEventType::AutoUltimateReady:
+                break;
+            }
+        }
+        auto comboIt = state.combo.units.find(result.unitId);
+        if (comboIt != state.combo.units.end())
+        {
+            auto committed = result.comboState;
+            committed.triggerTimers = comboIt->second.triggerTimers;
+            comboIt->second = std::move(committed);
+        }
+    }
+}
+
+void applyPendingTeamEffects(
+    BattleFrameState& state,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    if (state.teamEffects.world.units.empty())
+    {
+        return;
+    }
+
+    std::vector<BattleGameplayCommand> unappliedCommands;
+    for (const auto& command : state.teamEffects.pendingCommands)
+    {
+        const int sourceUnitId = std::visit([](const auto& typedCommand) -> int
+            {
+                using Command = std::decay_t<decltype(typedCommand)>;
+                if constexpr (std::is_same_v<Command, BattleTeamHealCommand>
+                    || std::is_same_v<Command, BattleTeamMpRestoreCommand>
+                    || std::is_same_v<Command, BattleTeamShieldCommand>)
+                {
+                    return typedCommand.sourceUnitId;
+                }
+                return -1;
+            }, command);
+        if (sourceUnitId >= 0)
+        {
+            if (!findTeamEffectUnit(state.teamEffects.world, sourceUnitId))
+            {
+                unappliedCommands.push_back(command);
+                continue;
+            }
+            auto application = applyBattleTeamEffectCommand(state.teamEffects.world, command);
+            presentationEvents.insert(
+                presentationEvents.end(),
+                application.presentationEvents.begin(),
+                application.presentationEvents.end());
+            state.teamEffects.committedEvents.insert(
+                state.teamEffects.committedEvents.end(),
+                application.events.begin(),
+                application.events.end());
+            continue;
+        }
+        unappliedCommands.push_back(command);
+    }
+    state.teamEffects.pendingCommands = std::move(unappliedCommands);
+}
+
+void advanceMovement(BattleFrameState& state, BattleFrameResult& result)
+{
+    result.movement = BattleCore(state.world).tickMovement();
+}
+
+void advanceActionFrameUnits(
+    BattleFrameState& state,
+    const BattleTickResult& movement,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    state.actions.unitResults.clear();
+    for (const auto& input : state.actions.units)
+    {
+        assert(input.unitId >= 0);
+
+        BattleFrameActionUnitResult result;
+        result.unitId = input.unitId;
+        result.state = input.state;
+
+        if (input.hasSelectedCastInput)
+        {
+            assert(input.selectedOperationType != BattleOperationType::None);
+            auto cast = BattleCastPlanner().commitSelectedCast(
+                refreshedCastInput(state, movement, input.selectedCastInput),
+                input.selectedCastUltimate,
+                input.selectedOperationType);
+            gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
+            presentationEvents.insert(presentationEvents.end(), cast.presentationEvents.begin(), cast.presentationEvents.end());
+            result.castResult = cast;
+
+            if (cast.decision.canCast)
+            {
+                result.actionCommitted = true;
+                result.castCommitted = true;
+                result.actionInput = input.selectedActionInput;
+                result.actionInput.hasCast = true;
+                result.actionInput.cast = std::move(cast);
+                result.actionResult = BattleActionCommitSystem().commit(result.actionInput);
+                state.pendingAttackSpawns.insert(
+                    state.pendingAttackSpawns.end(),
+                    result.actionResult.attackSpawnRequests.begin(),
+                    result.actionResult.attackSpawnRequests.end());
+                presentationEvents.insert(
+                    presentationEvents.end(),
+                    result.actionResult.presentationEvents.begin(),
+                    result.actionResult.presentationEvents.end());
+            }
+        }
+        else if (!input.state.haveAction && input.canPlanCast)
+        {
+            auto cast = BattleCastPlanner().plan(refreshedCastInput(state, movement, input.castInput));
+            gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
+            presentationEvents.insert(presentationEvents.end(), cast.presentationEvents.begin(), cast.presentationEvents.end());
+            if (cast.decision.canCast)
+            {
+                result.castStarted = true;
+                result.state.haveAction = true;
+                result.state.actFrame = 0;
+                result.state.operationType = cast.decision.operationType;
+                result.state.cooldownFrames = cast.animation.cooldownFrames;
+                result.state.recoveryFrames = cast.animation.recoveryFrames;
+            }
+            result.castResult = std::move(cast);
+        }
+        else if (input.state.haveAction && input.hasPendingActionInput)
+        {
+            assert(input.state.castFrame >= 0);
+            if (input.state.actFrame == input.state.castFrame)
+            {
+                result.actionCommitted = true;
+                result.castCommitted = input.pendingActionInput.hasCast;
+                result.actionInput = input.pendingActionInput;
+                result.actionResult = BattleActionCommitSystem().commit(input.pendingActionInput);
+                state.pendingAttackSpawns.insert(
+                    state.pendingAttackSpawns.end(),
+                    result.actionResult.attackSpawnRequests.begin(),
+                    result.actionResult.attackSpawnRequests.end());
+                presentationEvents.insert(
+                    presentationEvents.end(),
+                    result.actionResult.presentationEvents.begin(),
+                    result.actionResult.presentationEvents.end());
+            }
+        }
+
+        if (input.state.haveAction)
+        {
+            ++result.state.actFrame;
+            if (result.state.cooldownFrames > 0
+                && result.state.actType >= 0
+                && result.state.operationType != BattleOperationType::None
+                && result.state.actFrame > result.state.castFrame + result.state.recoveryFrames)
+            {
+                result.state.haveAction = false;
+                result.state.operationType = BattleOperationType::None;
+                result.state.actType = -1;
+            }
+        }
+
+        state.actions.unitResults.push_back(std::move(result));
+    }
+    state.actions.units.clear();
+}
+
+void advanceAttacksAndResolveHits(
+    BattleFrameState& state,
+    BattleFrameResult& result,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    syncAttackUnitsFromWorld(state);
+    state.attacks.frame = state.world.frame;
+    BattleAttackSystem attackSystem;
+    for (const auto& request : state.pendingAttackSpawns)
+    {
+        result.attackEvents.push_back(attackSystem.spawn(state.attacks, request));
+    }
+    state.pendingAttackSpawns.clear();
+    auto tickEvents = attackSystem.tick(state.attacks);
+    result.attackEvents.insert(
+        result.attackEvents.end(),
+        std::make_move_iterator(tickEvents.begin()),
+        std::make_move_iterator(tickEvents.end()));
+    applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
+    resolveHitEvents(state, result.attackEvents, result.commands, presentationEvents);
+}
+
+void applyDamageAndLifecycle(BattleFrameState& state, std::vector<BattleGameplayEvent>& gameplayEvents)
+{
+    for (const auto& input : state.damage.pendingTransactions)
+    {
+        auto transaction = BattleDamageSystem().resolveTransaction(input);
+        auto deadUnitIds = unitDeathsIn(transaction.events);
+        applyDamageResultToFrameState(state, transaction);
+        for (const auto& event : transaction.events)
+        {
+            gameplayEvents.push_back(toGameplayEvent(event));
+        }
+        state.damage.committedTransactions.push_back(std::move(transaction));
+        for (int deadUnitId : deadUnitIds)
+        {
+            if (!findDeathEffectUnit(state.deathEffects.world, deadUnitId))
+            {
+                continue;
+            }
+            auto events = BattleDeathEffectSystem().applyAllyDeathEffects(state.deathEffects.world, deadUnitId);
+            state.deathEffects.events.insert(state.deathEffects.events.end(), events.begin(), events.end());
+        }
+    }
+    state.damage.pendingTransactions.clear();
+
+    updateBattleResult(state, gameplayEvents);
+}
+
+void emitPresentationFrame(
+    BattleFrameState& state,
+    BattleFrameResult& result,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    BattlePresentationRecorder recorder;
+    recorder.beginFrame(makePresentationSnapshot(state));
+    for (auto event : gameplayEvents)
+    {
+        recorder.recordGameplay(std::move(event));
+    }
+    for (auto event : presentationEvents)
+    {
+        recorder.recordPresentation(std::move(event));
+    }
+    for (const auto& event : result.movement.events)
+    {
+        recorder.recordPresentation(toPresentationEvent(event));
+    }
+    for (const auto& event : result.attackEvents)
+    {
+        recorder.recordGameplay(toGameplayEvent(event, state.attacks));
+        for (auto presentation : toPresentationEvents(event, state.attacks))
+        {
+            recorder.recordPresentation(std::move(presentation));
+        }
+    }
+    result.frame = recorder.consumeFrame();
+}
 }  // namespace
+
+BattleTeamEffectCommandApplication applyBattleTeamEffectCommand(
+    BattleTeamEffectWorld& world,
+    const BattleGameplayCommand& command)
+{
+    BattleTeamEffectCommandApplication result;
+    BattleTeamEffectSystem system;
+    if (const auto* heal = std::get_if<BattleTeamHealCommand>(&command))
+    {
+        assert(heal->sourceUnitId >= 0);
+        result.events = system.applyTeamHeal(
+            world,
+            heal->sourceUnitId,
+            heal->flatHeal,
+            heal->pctHeal);
+        appendTeamEffectPresentationEvents(result.presentationEvents, result.events, heal->reason);
+        return result;
+    }
+    if (const auto* mp = std::get_if<BattleTeamMpRestoreCommand>(&command))
+    {
+        assert(mp->sourceUnitId >= 0);
+        result.events = system.applyTeamMp(
+            world,
+            mp->sourceUnitId,
+            mp->amount);
+        appendTeamEffectPresentationEvents(result.presentationEvents, result.events, mp->reason);
+        return result;
+    }
+    if (const auto* shield = std::get_if<BattleTeamShieldCommand>(&command))
+    {
+        assert(shield->sourceUnitId >= 0);
+        result.events = system.applyTeamShield(
+            world,
+            shield->sourceUnitId,
+            shield->amount,
+            shield->refreshOnly);
+        appendTeamEffectPresentationEvents(result.presentationEvents, result.events, shield->reason);
+        return result;
+    }
+    assert(false);
+    return result;
+}
 
 BattleCore::BattleCore(BattleWorldState& world)
     : world_(world)
@@ -680,95 +1494,18 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     std::vector<BattleGameplayEvent> gameplayEvents;
     std::vector<BattlePresentationEvent> presentationEvents;
 
-    state.status.config.frame = state.world.frame;
-    auto statusTick = BattleStatusSystem(state.status.config).tick(state.status.units);
-    state.status.events.insert(
-        state.status.events.end(),
-        statusTick.events.begin(),
-        statusTick.events.end());
-
+    state.teamEffects.committedEvents.clear();
+    state.effects.committedCommands.clear();
+    state.hits.committedResults.clear();
+    advanceStatus(state);
     advanceRuntimeUnits(state, result.commands);
-
-    result.movement = BattleCore(state.world).tickMovement();
-
-    for (const auto& input : state.casts.pendingInputs)
-    {
-        auto cast = BattleCastPlanner().plan(refreshedCastInput(state, result.movement, input));
-        gameplayEvents.insert(gameplayEvents.end(), cast.gameplayEvents.begin(), cast.gameplayEvents.end());
-        presentationEvents.insert(presentationEvents.end(), cast.presentationEvents.begin(), cast.presentationEvents.end());
-        if (cast.decision.canCast)
-        {
-            state.pendingAttackSpawns.insert(
-                state.pendingAttackSpawns.end(),
-                cast.attackSpawnRequests.begin(),
-                cast.attackSpawnRequests.end());
-        }
-        state.casts.committedResults.push_back(std::move(cast));
-    }
-    state.casts.pendingInputs.clear();
-
-    syncAttackUnitsFromWorld(state);
-    state.attacks.frame = state.world.frame;
-    BattleAttackSystem attackSystem;
-    for (const auto& request : state.pendingAttackSpawns)
-    {
-        result.attackEvents.push_back(attackSystem.spawn(state.attacks, request));
-    }
-    state.pendingAttackSpawns.clear();
-    auto tickEvents = attackSystem.tick(state.attacks);
-    result.attackEvents.insert(
-        result.attackEvents.end(),
-        std::make_move_iterator(tickEvents.begin()),
-        std::make_move_iterator(tickEvents.end()));
-    applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
-
-    for (const auto& input : state.damage.pendingTransactions)
-    {
-        auto transaction = BattleDamageSystem().resolveTransaction(input);
-        auto deadUnitIds = unitDeathsIn(transaction.events);
-        applyDamageResultToFrameState(state, transaction);
-        for (const auto& event : transaction.events)
-        {
-            gameplayEvents.push_back(toGameplayEvent(event));
-        }
-        state.damage.committedTransactions.push_back(std::move(transaction));
-        for (int deadUnitId : deadUnitIds)
-        {
-            if (!findDeathEffectUnit(state.deathEffects.world, deadUnitId))
-            {
-                continue;
-            }
-            auto events = BattleDeathEffectSystem().applyAllyDeathEffects(state.deathEffects.world, deadUnitId);
-            state.deathEffects.events.insert(state.deathEffects.events.end(), events.begin(), events.end());
-        }
-    }
-    state.damage.pendingTransactions.clear();
-
-    updateBattleResult(state, gameplayEvents);
-
-    BattlePresentationRecorder recorder;
-    recorder.beginFrame(makePresentationSnapshot(state));
-    for (auto event : gameplayEvents)
-    {
-        recorder.recordGameplay(std::move(event));
-    }
-    for (auto event : presentationEvents)
-    {
-        recorder.recordPresentation(std::move(event));
-    }
-    for (const auto& event : result.movement.events)
-    {
-        recorder.recordPresentation(toPresentationEvent(event));
-    }
-    for (const auto& event : result.attackEvents)
-    {
-        recorder.recordGameplay(toGameplayEvent(event, state.attacks));
-        for (auto presentation : toPresentationEvents(event, state.attacks))
-        {
-            recorder.recordPresentation(std::move(presentation));
-        }
-    }
-    result.frame = recorder.consumeFrame();
+    applyRuntimeComboEvents(state, presentationEvents);
+    applyPendingTeamEffects(state, presentationEvents);
+    advanceMovement(state, result);
+    advanceActionFrameUnits(state, result.movement, gameplayEvents, presentationEvents);
+    advanceAttacksAndResolveHits(state, result, presentationEvents);
+    applyDamageAndLifecycle(state, gameplayEvents);
+    emitPresentationFrame(state, result, gameplayEvents, presentationEvents);
     return result;
 }
 

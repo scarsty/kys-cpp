@@ -423,6 +423,72 @@ BattleProjectileTargetWorld makeActionTargetWorld(const BattleActionCommitInput&
     return world;
 }
 
+const BattleActionTargetSnapshot* findActionTarget(const BattleActionCommitInput& input, int targetId)
+{
+    auto it = std::find_if(
+        input.targets.begin(),
+        input.targets.end(),
+        [targetId](const BattleActionTargetSnapshot& target)
+        {
+            return target.id == targetId;
+        });
+    return it != input.targets.end() ? &*it : nullptr;
+}
+
+void appendBlinkTeleportDelta(
+    const BattleActionCommitInput& input,
+    const BattleBlinkAttackCommand& command,
+    BattleActionCommitResult& result)
+{
+    const auto* target = findActionTarget(input, command.targetUnitId);
+    if (!target)
+    {
+        return;
+    }
+
+    std::vector<const BattleBlinkCell*> candidates;
+    for (const auto& cell : input.blinkGeometry.cells)
+    {
+        if (!cell.walkable || cell.occupied)
+        {
+            continue;
+        }
+        if (cell.gridX == input.blinkGeometry.currentGridX
+            && cell.gridY == input.blinkGeometry.currentGridY)
+        {
+            continue;
+        }
+        if (pointDistance(cell.position, target->position) > command.reach)
+        {
+            continue;
+        }
+        candidates.push_back(&cell);
+    }
+
+    if (candidates.empty())
+    {
+        return;
+    }
+
+    const int selectedIndex = input.blinkCellRandomRoll % static_cast<int>(candidates.size());
+    const auto& cell = *candidates[selectedIndex];
+    auto facing = target->position - cell.position;
+    if (pointNorm(facing) > 0.01)
+    {
+        facing = normalizedTo(facing, 1.0, 0.01);
+    }
+
+    result.blinkTeleports.push_back({
+        input.unit.id,
+        command.targetUnitId,
+        command.selectedWeakest,
+        cell.gridX,
+        cell.gridY,
+        cell.position,
+        facing,
+    });
+}
+
 void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleActionCommitResult& result)
 {
     if (!result.combo.blinkAttack)
@@ -454,12 +520,14 @@ void appendBlinkAttackCommand(const BattleActionCommitInput& input, BattleAction
         return;
     }
 
-    result.blinkCommands.push_back({
+    BattleBlinkAttackCommand command{
         input.unit.id,
         targetId,
         useWeakest,
         input.blinkReach,
-    });
+    };
+    result.blinkCommands.push_back(command);
+    appendBlinkTeleportDelta(input, command, result);
     result.combo.blinkAttackUseWeakest = !useWeakest;
 }
 

@@ -191,6 +191,33 @@ struct BattleBlinkAttackCommand
     double reach = 0.0;
 };
 
+struct BattleBlinkCell
+{
+    int gridX = 0;
+    int gridY = 0;
+    Pointf position;
+    bool walkable = true;
+    bool occupied = false;
+};
+
+struct BattleBlinkGeometryInput
+{
+    int currentGridX = 0;
+    int currentGridY = 0;
+    std::vector<BattleBlinkCell> cells;
+};
+
+struct BattleBlinkTeleportDelta
+{
+    int unitId = -1;
+    int targetUnitId = -1;
+    bool selectedWeakest = false;
+    int gridX = 0;
+    int gridY = 0;
+    Pointf position;
+    Pointf facing;
+};
+
 struct BattleItemUseCommand
 {
     int unitId = -1;
@@ -215,8 +242,10 @@ struct BattleActionCommitInput
     Pointf hiddenWeaponVelocity;
     int hiddenWeaponTotalFrame = 0;
     int blinkRandomRoll = 0;
+    int blinkCellRandomRoll = 0;
     double blinkReach = 0.0;
     double blinkWeakTargetDefWeight = 0.0;
+    BattleBlinkGeometryInput blinkGeometry;
     int strengthenedMeleeOperationCountThreshold = 0;
 };
 
@@ -226,6 +255,7 @@ struct BattleActionCommitResult
     int operationCount = 0;
     std::vector<BattleAttackSpawnRequest> attackSpawnRequests;
     std::vector<BattleBlinkAttackCommand> blinkCommands;
+    std::vector<BattleBlinkTeleportDelta> blinkTeleports;
     std::vector<BattleItemUseCommand> itemUseCommands;
     std::vector<BattleItemCountDelta> itemCountDeltas;
     std::vector<BattlePresentationEvent> presentationEvents;

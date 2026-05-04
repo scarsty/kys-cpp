@@ -34,6 +34,7 @@ add_library(kys_battle_core
     battle/BattlePresentation.cpp
     battle/BattlePresentationPlayback.cpp
     battle/BattleProjectileTargetingSystem.cpp
+    battle/BattleRescueRepositionSystem.cpp
     battle/BattleStatusSystem.cpp
     battle/BattleTeamEffectSystem.cpp
 )
@@ -56,6 +57,7 @@ add_executable(kys_tests
     ../tests/BattlePresentationPlaybackUnitTests.cpp
     ../tests/BattlePresentationUnitTests.cpp
     ../tests/BattleProjectileTargetingSystemUnitTests.cpp
+    ../tests/BattleRescueRepositionSystemUnitTests.cpp
     ../tests/BattleTeamEffectSystemUnitTests.cpp
 )
 target_include_directories(kys_tests PRIVATE . ../mlcc ../mod ../local/include)

@@ -1,13 +1,24 @@
 #include "BattleSceneBattleAdapter.h"
 
 #include "Scene.h"
+#include "Event.h"
+#include "Save.h"
+#include "BattleScenePresentationConstants.h"
+#include "BattleStatsView.h"
+#include "ChessEftIds.h"
+#include "GameUtil.h"
+#include "battle/BattleCombatIntent.h"
 #include "battle/BattleComboTriggerSystem.h"
 #include "battle/BattleDamageSystem.h"
 #include "battle/BattleProjectileTargetingSystem.h"
-#include "battle/BattleTeamEffectSystem.h"
 
 #include <algorithm>
 #include <cassert>
+#include <format>
+#include <iterator>
+#include <limits>
+#include <set>
+#include <utility>
 
 namespace KysChess::BattleSceneBattleAdapter
 {
@@ -49,6 +60,109 @@ Battle::BattleAttackUnit makeBattleAttackUnit(Role* role)
     return unit;
 }
 
+Color damageTextColor(const Role* role, bool emphasized)
+{
+    bool friendlyTarget = role && role->Team == 0;
+    if (friendlyTarget)
+    {
+        return emphasized ? Color{ 255, 45, 85, 255 } : Color{ 255, 90, 79, 255 };
+    }
+    return emphasized ? Color{ 47, 128, 255, 255 } : Color{ 102, 207, 255, 255 };
+}
+
+Battle::BattlePresentationEvent makeRoleEffectPresentation(int frame, Role* role, int effectId, int totalFrames)
+{
+    assert(role);
+
+    Battle::BattlePresentationEvent event;
+    event.type = Battle::BattlePresentationEventType::RoleEffect;
+    event.frame = frame;
+    event.targetUnitId = role->ID;
+    event.durationFrames = totalFrames;
+    event.effectId = effectId;
+    return event;
+}
+
+Battle::BattlePresentationEvent makeStatusLogPresentation(int frame, Role* source, Role* target, std::string text)
+{
+    Battle::BattlePresentationEvent event;
+    event.type = Battle::BattlePresentationEventType::StatusLog;
+    event.frame = frame;
+    event.sourceUnitId = source ? source->ID : -1;
+    event.targetUnitId = target ? target->ID : -1;
+    event.text = std::move(text);
+    return event;
+}
+
+Battle::BattlePresentationEvent makeHealLogPresentation(
+    int frame,
+    Role* source,
+    Role* target,
+    int amount,
+    std::string reason)
+{
+    Battle::BattlePresentationEvent event;
+    event.type = Battle::BattlePresentationEventType::HealLog;
+    event.frame = frame;
+    event.sourceUnitId = source ? source->ID : -1;
+    event.targetUnitId = target ? target->ID : -1;
+    event.amount = amount;
+    event.text = std::move(reason);
+    return event;
+}
+
+Battle::BattlePresentationEvent makeDamageNumberPresentation(
+    int frame,
+    Role* role,
+    int damage,
+    Color color,
+    int baseSize)
+{
+    assert(role);
+    assert(damage > 0);
+
+    Battle::BattlePresentationEvent event;
+    event.type = Battle::BattlePresentationEventType::DamageNumber;
+    event.frame = frame;
+    event.targetUnitId = role->ID;
+    event.amount = damage;
+    event.textSize = baseSize;
+    event.color = { color.r, color.g, color.b, color.a };
+    event.position = role->Pos;
+    return event;
+}
+
+std::string formatStatusValue(const char* label, int value, const char* unit)
+{
+    if (value <= 0)
+    {
+        return label;
+    }
+    return std::format("{}（{}{}）", label, value, unit);
+}
+
+void mergeBattleCommandApplication(
+    BattleCommandApplicationResult& result,
+    BattleCommandApplicationResult next)
+{
+    result.criticalHitUnitIds.insert(
+        result.criticalHitUnitIds.end(),
+        next.criticalHitUnitIds.begin(),
+        next.criticalHitUnitIds.end());
+    result.presentationEvents.insert(
+        result.presentationEvents.end(),
+        std::make_move_iterator(next.presentationEvents.begin()),
+        std::make_move_iterator(next.presentationEvents.end()));
+    result.attackSpawnRequests.insert(
+        result.attackSpawnRequests.end(),
+        std::make_move_iterator(next.attackSpawnRequests.begin()),
+        std::make_move_iterator(next.attackSpawnRequests.end()));
+    result.autoUltimateRequests.insert(
+        result.autoUltimateRequests.end(),
+        next.autoUltimateRequests.begin(),
+        next.autoUltimateRequests.end());
+}
+
 }  // namespace
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
@@ -60,6 +174,11 @@ Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId)
     assert(it != roles.end());
     assert(*it);
     return *it;
+}
+
+Battle::BattlePresentationColor makeBattlePresentationColor(Color color)
+{
+    return { color.r, color.g, color.b, color.a };
 }
 
 Battle::BattleCastConfig makeBattleCastConfig()
@@ -220,6 +339,65 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     return world;
 }
 
+Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
+    const std::vector<Role*>& roles,
+    const std::map<int, RoleComboState>& states)
+{
+    Battle::BattleTeamEffectWorld world;
+    for (auto role : roles)
+    {
+        assert(role);
+        auto stateIt = states.find(role->ID);
+        assert(stateIt != states.end());
+
+        Battle::BattleTeamEffectUnit unit;
+        unit.id = role->ID;
+        unit.team = role->Team;
+        unit.alive = role->Dead == 0;
+        unit.hp = role->HP;
+        unit.maxHp = role->MaxHP;
+        unit.mp = role->MP;
+        unit.maxMp = GameUtil::MAX_MP;
+        unit.cooldown = role->CoolDown;
+        unit.shield = stateIt->second.shield;
+        unit.mpBlocked = stateIt->second.mpBlockTimer > 0;
+        unit.mpRecoveryBonusPct = stateIt->second.mpRecoveryBonusPct;
+        unit.x = role->Pos.x;
+        unit.y = role->Pos.y;
+        world.units.push_back(unit);
+    }
+    return world;
+}
+
+const Battle::BattleTeamEffectUnit& findBattleTeamEffectUnit(
+    const Battle::BattleTeamEffectWorld& world,
+    int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const Battle::BattleTeamEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    assert(it != world.units.end());
+    return *it;
+}
+
+void writeBattleTeamEffectWorld(const Battle::BattleTeamEffectWorld& world,
+                                const std::vector<Role*>& roles,
+                                std::map<int, RoleComboState>& states)
+{
+    for (auto role : roles)
+    {
+        assert(role);
+        const auto& unit = findBattleTeamEffectUnit(world, role->ID);
+        role->HP = unit.hp;
+        role->MP = unit.mp;
+        role->CoolDown = unit.cooldown;
+        auto stateIt = states.find(role->ID);
+        assert(stateIt != states.end());
+        stateIt->second.shield = unit.shield;
+    }
+}
+
 Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
     Role* role,
     int frame,
@@ -305,6 +483,150 @@ Battle::BattleActionItemSnapshot makeBattleActionItemSnapshot(Item* item)
     return snapshot;
 }
 
+Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state)
+{
+    Battle::BattleStatusUnitState unit;
+    unit.id = role ? role->ID : -1;
+    unit.alive = role && role->Dead == 0;
+    unit.hp = role ? role->HP : 0;
+    unit.maxHp = role ? role->MaxHP : 0;
+    unit.attack = role ? role->Attack : 0;
+    unit.invincible = role ? role->Invincible : 0;
+    unit.poisonTimer = state.poisonTimer;
+    unit.poisonTickPct = state.poisonTickDmg;
+    unit.poisonSourceId = state.poisonSourceId;
+    unit.bleedStacks = state.bleedStacks;
+    unit.bleedTimer = state.bleedTimer;
+    unit.bleedSourceId = state.bleedSourceId;
+    unit.frozenTimer = role ? role->Frozen : 0;
+    unit.frozenMaxTimer = role ? role->FrozenMax : 0;
+    unit.freezeReductionPct = state.freezeReductionPct;
+    unit.shieldFreezeResPct = state.shieldFreezeResPct;
+    unit.controlImmunityFrames = state.controlImmunityFrames;
+    unit.mpBlockTimer = state.mpBlockTimer;
+    unit.damageImmunityAfterFrames = state.damageImmunityAfterFrames;
+    unit.damageImmunityDuration = state.damageImmunityDuration;
+    unit.damageImmunityTimer = state.damageImmunityTimer;
+
+    for (const auto& buff : state.tempAttackBuffs)
+    {
+        unit.tempAttackBuffs.push_back({ buff.attackBonus, buff.remainingFrames });
+    }
+    for (const auto& debuff : state.dmgReduceDebuffs)
+    {
+        unit.damageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
+    }
+    return unit;
+}
+
+void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit)
+{
+    if (role)
+    {
+        role->Attack = unit.attack;
+        role->Invincible = unit.invincible;
+        role->Frozen = unit.frozenTimer;
+        role->FrozenMax = unit.frozenMaxTimer;
+    }
+
+    state.poisonTimer = unit.poisonTimer;
+    state.poisonTickDmg = unit.poisonTickPct;
+    state.poisonSourceId = unit.poisonSourceId;
+    state.bleedStacks = unit.bleedStacks;
+    state.bleedTimer = unit.bleedTimer;
+    state.bleedSourceId = unit.bleedSourceId;
+    state.controlImmunityFrames = unit.controlImmunityFrames;
+    state.mpBlockTimer = unit.mpBlockTimer;
+    state.damageImmunityTimer = unit.damageImmunityTimer;
+
+    state.tempAttackBuffs.clear();
+    for (const auto& buff : unit.tempAttackBuffs)
+    {
+        state.tempAttackBuffs.push_back({ buff.attackBonus, buff.remainingFrames });
+    }
+
+    state.dmgReduceDebuffs.clear();
+    for (const auto& debuff : unit.damageReduceDebuffs)
+    {
+        state.dmgReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
+    }
+}
+
+Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state)
+{
+    Battle::BattleDamageUnitState unit;
+    unit.id = role ? role->ID : -1;
+    unit.alive = role && role->Dead == 0;
+    unit.hp = role ? role->HP : 0;
+    unit.maxHp = role ? role->MaxHP : 0;
+    unit.mp = role ? role->MP : 0;
+    unit.maxMp = role ? role->MaxMP : 0;
+    unit.attack = role ? role->Attack : 0;
+    unit.invincible = role ? role->Invincible : 0;
+    if (!state)
+    {
+        return unit;
+    }
+
+    unit.hurtInvincFrames = state->hurtInvincFrames;
+    unit.shield = state->shield;
+    unit.blockFirstHitsRemaining = state->blockFirstHitsRemaining;
+    unit.deathPrevention = state->deathPrevention;
+    unit.deathPreventionUsed = state->deathPreventionUsed;
+    unit.deathPreventionFrames = state->deathPreventionFrames;
+    unit.killHealPct = state->killHealPct;
+    unit.killInvincFrames = state->killInvincFrames;
+    unit.bloodlustAttackPerKill = state->bloodlustATKPerKill;
+    unit.mpBlocked = state->mpBlockTimer > 0;
+    unit.mpRecoveryBonusPct = state->mpRecoveryBonusPct;
+    return unit;
+}
+
+void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit)
+{
+    if (role)
+    {
+        role->HP = unit.hp;
+        role->MP = unit.mp;
+        role->Attack = unit.attack;
+        role->Invincible = unit.invincible;
+        role->Dead = unit.alive ? 0 : 1;
+    }
+
+    if (!state)
+    {
+        return;
+    }
+    state->shield = unit.shield;
+    state->blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
+    state->deathPreventionUsed = unit.deathPreventionUsed;
+}
+
+Battle::BattleCooldownState makeBattleCooldownState(Role* role)
+{
+    Battle::BattleCooldownState state;
+    if (!role)
+    {
+        state.alive = false;
+        return state;
+    }
+    state.alive = role->Dead == 0;
+    state.cooldown = role->CoolDown;
+    state.cooldownMax = role->CoolDownMax;
+    state.haveAction = role->HaveAction;
+    state.operationType = Battle::battleOperationFromLegacy(role->OperationType);
+    state.actType = role->ActType;
+    return state;
+}
+
+void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& state)
+{
+    if (role)
+    {
+        role->CoolDown = state.cooldown;
+    }
+}
+
 Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit)
 {
     assert(unit);
@@ -370,6 +692,1040 @@ Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolved
     snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
     snapshot.resolvedDamage = resolvedDamage;
     return snapshot;
+}
+
+void populateBattleFrameHitUnits(
+    Battle::BattleFrameState& frameState,
+    const std::vector<Role*>& roles)
+{
+    frameState.hits.units.clear();
+    frameState.hits.units.reserve(roles.size());
+    for (auto* role : roles)
+    {
+        frameState.hits.units.push_back(makeBattleHitUnitSnapshot(role));
+    }
+}
+
+void appendBattleFrameHitInput(
+    Battle::BattleFrameState& frameState,
+    const BattleFrameHitAdapterInput& input)
+{
+    assert(input.attackId >= 0);
+    assert(input.attacker);
+    assert(input.defender);
+
+    frameState.hits.scalars.push_back({
+        input.attackId,
+        input.attacker->ID,
+        input.defender->ID,
+        input.resolvedMagicBaseDamage,
+        input.resolvedHiddenWeaponDamage,
+        input.sharedBleedMaxStacks,
+        input.randomDamageVariance,
+        input.percentRolls,
+        input.pendingDefenderHpDamage,
+    });
+    frameState.hits.skills.push_back({
+        input.attackId,
+        input.attacker->ID,
+        input.defender->ID,
+        makeBattleHitSkillSnapshot(
+            input.attacker,
+            input.defender,
+            input.magic,
+            input.resolvedMagicBaseDamage),
+    });
+    frameState.hits.items.push_back({
+        input.attackId,
+        input.attacker->ID,
+        input.defender->ID,
+        makeBattleHitItemSnapshot(
+            input.hiddenWeapon,
+            input.resolvedHiddenWeaponDamage),
+    });
+}
+
+int legacyOperationForAttackArea(int attackAreaType)
+{
+    return Battle::toLegacyOperationType(
+        Battle::BattleCombatIntentPlanner().operationTypeForAttackArea(attackAreaType));
+}
+
+BattleCastSkillAdapterInput makeActionFrameSkillInput(
+    Role* role,
+    Magic* magic,
+    bool ultimate,
+    const BattleActionFrameAdapterContext& context)
+{
+    BattleCastSkillAdapterInput skill;
+    if (!magic)
+    {
+        return skill;
+    }
+
+    const bool forceRanged = context.callbacks.forceRangedMagic(role);
+    const int forcedRangedMinSelectDistance = context.callbacks.forcedRangedMinSelectDistance(role);
+    const int projectileSpeedMultiplierPct = context.callbacks.projectileSpeedMultiplierPct(role);
+    skill.magic = magic;
+    skill.reach = std::min(
+        context.callbacks.effectiveReach(
+            magic,
+            forceRanged,
+            forcedRangedMinSelectDistance,
+            projectileSpeedMultiplierPct),
+        context.config.maxEffectiveBattleReach);
+    skill.forceRanged = forceRanged;
+    skill.rangedStyle = context.callbacks.rangedStyleMagic(magic, forceRanged);
+    skill.projectileSpeedMultiplierPct = projectileSpeedMultiplierPct;
+    skill.meleeSplashCount = ultimate && magic->AttackAreaType == 0 ? 1 : 0;
+    skill.extraProjectileCount = ultimate ? context.callbacks.ultimateExtraProjectileCount(role) : 0;
+    return skill;
+}
+
+int rollDashHitCount(Role* role, Magic* selectedMagic, const BattleActionFrameAdapterContext& context)
+{
+    int dashHitCount = 1;
+    if (selectedMagic)
+    {
+        const double multiHitScore = (role->Speed + role->getActProperty(selectedMagic->MagicType)) / 180.0;
+        if (context.callbacks.randomUnit() < multiHitScore)
+        {
+            dashHitCount++;
+        }
+        if (context.callbacks.randomUnit() < multiHitScore * 0.5)
+        {
+            dashHitCount++;
+        }
+    }
+    return dashHitCount;
+}
+
+Battle::BattleCastInput makeActionFrameCastInput(
+    Role* role,
+    Role* target,
+    Magic* normalMagic,
+    Magic* ultimateMagic,
+    bool canStartAttack,
+    bool movementDashActive,
+    const BattleActionFrameAdapterContext& context)
+{
+    assert(role);
+    assert(target);
+    assert(context.comboStates);
+
+    const bool isUltimate = role->MP >= role->MaxMP;
+    Magic* selectedMagic = isUltimate && ultimateMagic ? ultimateMagic : normalMagic;
+    Pointf dashVelocity = target->Pos - role->Pos;
+    if (dashVelocity.norm() > 0.01)
+    {
+        dashVelocity.normTo(context.config.meleeAttackHitRadius / context.config.dashMomentumFrames);
+    }
+
+    bool dashAttackEnabled = false;
+    int cooldownReductionPct = 0;
+    auto comboIt = context.comboStates->find(role->ID);
+    if (comboIt != context.comboStates->end())
+    {
+        dashAttackEnabled = comboIt->second.dashAttack;
+        cooldownReductionPct = comboIt->second.cdrPct;
+    }
+
+    BattleCastAdapterInput castAdapterInput;
+    castAdapterInput.unit = role;
+    castAdapterInput.target = target;
+    castAdapterInput.normalSkill = makeActionFrameSkillInput(role, normalMagic, false, context);
+    castAdapterInput.ultimateSkill = makeActionFrameSkillInput(role, ultimateMagic, true, context);
+    castAdapterInput.canStartAttack = canStartAttack;
+    castAdapterInput.movementDashActive = movementDashActive;
+    castAdapterInput.dashAttackEnabled = dashAttackEnabled;
+    castAdapterInput.dashVelocity = dashVelocity;
+    castAdapterInput.dashHitCount = rollDashHitCount(role, selectedMagic, context);
+    castAdapterInput.emitDashFollowUpSkillAttack = dashAttackEnabled && selectedMagic;
+    castAdapterInput.dashFollowUpOperationType = selectedMagic ? legacyOperationForAttackArea(selectedMagic->AttackAreaType) : -1;
+    castAdapterInput.targetDistance = EuclidDis(role->Pos, target->Pos);
+    castAdapterInput.meleeAttackReach = context.config.meleeAttackReach;
+    castAdapterInput.dashAttackReach = context.config.dashAttackMeleeReach;
+    castAdapterInput.operationCount = role->OperationCount;
+    castAdapterInput.cooldownReductionPct = cooldownReductionPct;
+    return makeBattleCastInput(castAdapterInput);
+}
+
+Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
+    Role* role,
+    double reach,
+    const BattleActionFrameAdapterContext& context);
+
+void populateActionCommitInputForRole(
+    Battle::BattleFrameActionUnitInput& unitInput,
+    Role* role,
+    const BattleActionFrameAdapterContext& context)
+{
+    if (!role->HaveAction)
+    {
+        return;
+    }
+
+    if (role->OperationType != 3)
+    {
+        role->Velocity = { 0, 0, 0 };
+    }
+
+    if (role->OperationType >= 0 && role->OperationType <= 3
+        && role->ActFrame == unitInput.state.castFrame)
+    {
+        role->PreActTimer = context.config.battleFrame;
+        Magic* magic = role->UsingMagic;
+        auto pendingCast = context.pendingCastResults->find(role);
+        assert(pendingCast != context.pendingCastResults->end());
+        assert(magic);
+        auto castResult = pendingCast->second;
+        assert(castResult.decision.canCast);
+        for (auto& request : castResult.attackSpawnRequests)
+        {
+            context.callbacks.attachProjectileBouncePrime(request);
+        }
+
+        Battle::BattleActionCommitInput actionInput;
+        actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
+        actionInput.hasCast = true;
+        actionInput.cast = std::move(castResult);
+        actionInput.blinkRandomRoll = context.callbacks.randomInt(std::numeric_limits<int>::max());
+        actionInput.blinkCellRandomRoll = context.callbacks.randomInt(std::numeric_limits<int>::max());
+        actionInput.blinkReach = context.callbacks.blinkReach(magic);
+        actionInput.blinkWeakTargetDefWeight = context.config.blinkWeakTargetDefWeight;
+        actionInput.blinkGeometry = makeBlinkGeometryInput(role, actionInput.blinkReach, context);
+        actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
+        for (auto target : *context.roles)
+        {
+            actionInput.targets.push_back(makeBattleActionTargetSnapshot(target));
+        }
+
+        auto comboIt = context.comboStates->find(role->ID);
+        if (comboIt != context.comboStates->end())
+        {
+            actionInput.combo = comboIt->second;
+        }
+        unitInput.hasPendingActionInput = true;
+        unitInput.pendingActionInput = std::move(actionInput);
+    }
+
+    if (role->UsingItem)
+    {
+        Item* item = role->UsingItem;
+        Battle::BattleActionCommitInput actionInput;
+        actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
+        actionInput.hasItem = true;
+        actionInput.item = makeBattleActionItemSnapshot(item);
+        actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
+        actionInput.hiddenWeaponTotalFrame = context.config.hiddenWeaponTotalFrame;
+        auto hiddenWeaponVelocity = role->RealTowards;
+        if (auto target = context.callbacks.findFarthestEnemy(role->Team, role->Pos))
+        {
+            hiddenWeaponVelocity = target->Pos - role->Pos;
+        }
+        hiddenWeaponVelocity.normTo(10);
+        actionInput.hiddenWeaponVelocity = hiddenWeaponVelocity;
+        unitInput.state.castFrame = role->ActFrame;
+        unitInput.hasPendingActionInput = true;
+        unitInput.pendingActionInput = std::move(actionInput);
+    }
+}
+
+void populateCastPlanInputForRole(
+    Battle::BattleFrameActionUnitInput& unitInput,
+    Role* role,
+    const BattleActionFrameAdapterContext& context)
+{
+    if (role->Dead != 0 || role->HaveAction)
+    {
+        return;
+    }
+
+    bool canStartAttack = role->CoolDown == 0;
+    Magic* equippedMagic = role->UsingMagic;
+    Magic* normalMagic = equippedMagic ? equippedMagic : context.callbacks.selectNormalMagic(role);
+    Magic* ultimateMagic = equippedMagic ? equippedMagic : context.callbacks.selectUltimateMagic(role);
+    Role* target = context.callbacks.findNearestEnemy(role->Team, role->Pos);
+    if (!target)
+    {
+        role->Velocity = { 0, 0, 0 };
+        role->FindingWay = 0;
+        role->OperationType = -1;
+        return;
+    }
+
+    if (context.callbacks.movementDashFrames(role) > 0)
+    {
+        return;
+    }
+
+    auto coreDecisionIt = context.movementDecisions->find(role);
+    if (coreDecisionIt != context.movementDecisions->end())
+    {
+        const auto& coreDecision = coreDecisionIt->second;
+        bool coreWantsMove = coreDecision.action == Battle::MovementAction::Move
+            || coreDecision.action == Battle::MovementAction::Dash;
+        auto coreVelocity = coreDecision.velocity;
+        if (coreWantsMove && coreVelocity.norm() > 0.01)
+        {
+            role->OperationType = -1;
+            role->FindingWay = 0;
+            role->Velocity = coreDecision.velocity;
+            role->RealTowards = coreDecision.velocity;
+            role->RealTowards.normTo(1);
+            if (coreDecision.action == Battle::MovementAction::Dash)
+            {
+                context.callbacks.beginMovementDash(role);
+            }
+            return;
+        }
+    }
+
+    role->RealTowards = target->Pos - role->Pos;
+    if (role->RealTowards.norm() > 0.01)
+    {
+        role->RealTowards.normTo(1);
+    }
+
+    unitInput.canPlanCast = true;
+    unitInput.castInput = makeActionFrameCastInput(
+        role,
+        target,
+        normalMagic,
+        ultimateMagic,
+        canStartAttack,
+        false,
+        context);
+}
+
+Battle::BattleFrameActionUnitState makeActionFrameUnitState(
+    Role* role,
+    const BattleActionFrameAdapterContext& context)
+{
+    assert(role);
+
+    Battle::BattleFrameActionUnitState state;
+    state.haveAction = role->HaveAction != 0;
+    state.actFrame = role->ActFrame;
+    state.actType = role->ActType;
+    state.operationType = Battle::battleOperationFromLegacy(role->OperationType);
+    state.cooldownFrames = role->CoolDown;
+    state.recoveryFrames = role->OperationType == 3
+        ? context.config.dashMomentumFrames
+        : context.config.actionRecoveryFrames;
+    if (role->OperationType >= 0 && role->OperationType <= 3 && role->ActType >= 0)
+    {
+        state.castFrame = context.callbacks.castFrame(role, role->ActType, role->OperationType);
+    }
+    return state;
+}
+
+Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
+    Role* role,
+    double reach,
+    const BattleActionFrameAdapterContext& context)
+{
+    assert(role);
+
+    Battle::BattleBlinkGeometryInput geometry;
+    auto current = context.callbacks.toGrid(role->Pos.x, role->Pos.y);
+    geometry.currentGridX = current.x;
+    geometry.currentGridY = current.y;
+
+    int gridReach = std::max(1, static_cast<int>(reach / BATTLE_TILE_W) + 1);
+    std::set<std::pair<int, int>> visited;
+    for (auto target : *context.roles)
+    {
+        if (target == role || target->Dead != 0 || target->Team == role->Team)
+        {
+            continue;
+        }
+
+        auto targetPos45 = context.callbacks.toGrid(target->Pos.x, target->Pos.y);
+        for (int dx = -gridReach; dx <= gridReach; ++dx)
+        {
+            for (int dy = -gridReach; dy <= gridReach; ++dy)
+            {
+                int x = targetPos45.x + dx;
+                int y = targetPos45.y + dy;
+                if (!visited.emplace(x, y).second)
+                {
+                    continue;
+                }
+
+                bool occupied = false;
+                for (auto other : *context.roles)
+                {
+                    if (other == role || other->Dead != 0)
+                    {
+                        continue;
+                    }
+                    auto rolePos45 = context.callbacks.toGrid(other->Pos.x, other->Pos.y);
+                    if (rolePos45.x == x && rolePos45.y == y)
+                    {
+                        occupied = true;
+                        break;
+                    }
+                }
+
+                geometry.cells.push_back({
+                    x,
+                    y,
+                    context.callbacks.toPosition(x, y),
+                    context.callbacks.canWalk(x, y),
+                    occupied,
+                });
+            }
+        }
+    }
+    return geometry;
+}
+
+void applyActionFrameUnitState(Role* role, const Battle::BattleFrameActionUnitState& state)
+{
+    assert(role);
+
+    role->HaveAction = state.haveAction ? 1 : 0;
+    role->ActFrame = state.actFrame;
+    role->ActType = state.actType;
+    role->OperationType = Battle::toLegacyOperationType(state.operationType);
+}
+
+void applyBlinkTeleportDelta(
+    Role* role,
+    const Battle::BattleBlinkTeleportDelta& teleport,
+    const BattleActionFrameAdapterContext& context,
+    BattleActionFrameApplyResult& result)
+{
+    assert(role);
+    auto* target = findRoleByBattleId(*context.roles, teleport.targetUnitId);
+    Battle::BattlePresentationEvent presentation;
+    presentation.type = Battle::BattlePresentationEventType::StatusLog;
+    presentation.sourceUnitId = role->ID;
+    presentation.targetUnitId = target->ID;
+    presentation.text = teleport.selectedWeakest ? "閃擊追殺" : "閃擊突襲";
+    result.presentationEvents.push_back(std::move(presentation));
+
+    role->setPositionOnly(teleport.gridX, teleport.gridY);
+    role->Pos.x = teleport.position.x;
+    role->Pos.y = teleport.position.y;
+    role->Pos.z = 0;
+    role->Velocity = { 0, 0, 0 };
+    role->Acceleration = { 0, 0, context.config.gravity };
+    role->FindingWay = 0;
+    context.callbacks.faceTowardsNearest(role);
+    role->RealTowards = teleport.facing;
+    result.blinkSoundCount++;
+}
+
+void populateBattleActionFrame(
+    Battle::BattleFrameState& frameState,
+    const BattleActionFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.pendingCastResults);
+    assert(context.comboStates);
+    assert(context.movementDecisions);
+
+    frameState.actions.units.clear();
+    frameState.actions.units.reserve(context.roles->size());
+    for (auto role : *context.roles)
+    {
+        assert(role);
+        Battle::BattleFrameActionUnitInput unitInput;
+        unitInput.unitId = role->ID;
+        unitInput.state = makeActionFrameUnitState(role, context);
+        populateActionCommitInputForRole(unitInput, role, context);
+        populateCastPlanInputForRole(unitInput, role, context);
+        frameState.actions.units.push_back(std::move(unitInput));
+    }
+}
+
+BattleActionFrameApplyResult applyBattleActionFrameResults(
+    const Battle::BattleFrameState& frameState,
+    const BattleActionFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.pendingCastResults);
+    assert(context.comboStates);
+    assert(context.ultimateCasters);
+
+    BattleActionFrameApplyResult result;
+    for (const auto& action : frameState.actions.unitResults)
+    {
+        auto* role = findRoleByBattleId(*context.roles, action.unitId);
+
+        if (action.castStarted)
+        {
+            auto* magic = action.castResult.decision.skillId >= 0
+                ? Save::getInstance()->getMagic(action.castResult.decision.skillId)
+                : nullptr;
+            if (action.castResult.decision.equipSkill)
+            {
+                assert(magic);
+                role->UsingMagic = magic;
+            }
+            assert(magic);
+            role->UsingMagic = magic;
+            applyBattleCastStart(role, action.castResult, magic->MagicType);
+            (*context.pendingCastResults)[role] = action.castResult;
+            context.callbacks.clearMovementDashSpread(role);
+        }
+        else
+        {
+            applyActionFrameUnitState(role, action.state);
+        }
+
+        if (!action.actionCommitted)
+        {
+            continue;
+        }
+
+        auto comboIt = context.comboStates->find(role->ID);
+        if (comboIt != context.comboStates->end())
+        {
+            comboIt->second = action.actionResult.combo;
+        }
+
+        for (const auto& teleport : action.actionResult.blinkTeleports)
+        {
+            applyBlinkTeleportDelta(role, teleport, context, result);
+        }
+
+        if (action.actionInput.hasCast)
+        {
+            Magic* magic = role->UsingMagic;
+            assert(magic);
+            result.attackSoundIds.push_back(magic->SoundID);
+            role->OperationCount = action.actionResult.operationCount;
+            applyBattleCastCommit(role, action.actionInput.cast);
+            context.pendingCastResults->erase(role);
+            context.ultimateCasters->erase(role);
+        }
+
+        if (action.actionInput.hasItem)
+        {
+            Item* item = role->UsingItem;
+            assert(item);
+            for (const auto& command : action.actionResult.itemUseCommands)
+            {
+                assert(command.itemId == item->ID);
+                role->useItem(item);
+            }
+            for (const auto& delta : action.actionResult.itemCountDeltas)
+            {
+                Event::getInstance()->addItemWithoutHint(delta.itemId, delta.delta);
+            }
+            role->UsingItem = nullptr;
+        }
+    }
+    return result;
+}
+
+BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
+    Role* role,
+    Magic* magic,
+    bool isUltimate,
+    int operationType,
+    const BattleActionFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.comboStates);
+
+    BattleSelectedSkillActionResult result;
+    if (!role || !magic)
+    {
+        return result;
+    }
+
+    auto* target = context.callbacks.findNearestEnemy(role->Team, role->Pos);
+    if (!target)
+    {
+        return result;
+    }
+
+    auto castInput = makeActionFrameCastInput(
+        role,
+        target,
+        magic,
+        magic,
+        true,
+        false,
+        context);
+    const int resolvedOperationType = operationType >= 0
+        ? operationType
+        : legacyOperationForAttackArea(magic->AttackAreaType);
+
+    Battle::BattleActionCommitInput actionInput;
+    actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
+    actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
+    auto comboIt = context.comboStates->find(role->ID);
+    if (comboIt != context.comboStates->end())
+    {
+        actionInput.combo = comboIt->second;
+    }
+
+    Battle::BattleFrameState actionFrameState;
+    Battle::BattleFrameActionUnitInput unitInput;
+    unitInput.unitId = role->ID;
+    unitInput.hasSelectedCastInput = true;
+    unitInput.selectedCastInput = std::move(castInput);
+    unitInput.selectedCastUltimate = isUltimate;
+    unitInput.selectedOperationType = Battle::battleOperationFromLegacy(resolvedOperationType);
+    unitInput.selectedActionInput = std::move(actionInput);
+    actionFrameState.actions.units.push_back(std::move(unitInput));
+    auto actionFrameResult = Battle::BattleFrameRunner().advanceFrame(actionFrameState);
+    assert(actionFrameState.actions.unitResults.size() == 1);
+    const auto& actionUnitResult = actionFrameState.actions.unitResults.front();
+    assert(actionUnitResult.actionCommitted);
+    const auto& actionResult = actionUnitResult.actionResult;
+    if (comboIt != context.comboStates->end())
+    {
+        comboIt->second = actionResult.combo;
+    }
+
+    result.magic = magic;
+    result.applyResult.attackSoundIds.push_back(magic->SoundID);
+    result.applyResult.presentationEvents.insert(
+        result.applyResult.presentationEvents.end(),
+        actionFrameResult.frame.presentationEvents.begin(),
+        actionFrameResult.frame.presentationEvents.end());
+    result.applyResult.attackSpawnRequests = actionResult.attackSpawnRequests;
+    for (auto& request : result.applyResult.attackSpawnRequests)
+    {
+        context.callbacks.attachProjectileBouncePrime(request);
+    }
+    role->OperationCount = actionResult.operationCount;
+    return result;
+}
+
+BattleLifecycleApplicationResult applyBattleLifecycleEvents(
+    const BattleLifecycleApplicationContext& context,
+    const std::vector<Battle::BattleGameplayEvent>& events)
+{
+    assert(context.tracker);
+    assert(context.roles);
+
+    BattleLifecycleApplicationResult result;
+    for (const auto& event : events)
+    {
+        switch (event.type)
+        {
+        case Battle::BattleGameplayEventType::UnitDied:
+        {
+            auto* killer = event.sourceUnitId >= 0
+                ? findRoleByBattleId(*context.roles, event.sourceUnitId)
+                : nullptr;
+            auto* victim = findRoleByBattleId(*context.roles, event.targetUnitId);
+            context.tracker->recordKill(killer, victim, event.frame);
+            context.tracker->recordDeath(victim, event.frame);
+            if (context.onUnitDied)
+            {
+                context.onUnitDied();
+            }
+            break;
+        }
+        case Battle::BattleGameplayEventType::BattleEnded:
+            if (context.currentBattleResult == -1)
+            {
+                result.battleEnded = true;
+                result.battleResult = event.amount;
+                context.tracker->recordBattleEnd(event.frame, event.amount);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    return result;
+}
+
+void appendBattlePendingDamage(
+    std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
+    BattlePendingDamageAdapterInput damage)
+{
+    assert(damage.target);
+    assert(damage.damage > 0);
+    pendingDamage.push_back(std::move(damage));
+}
+
+int calculateBattlePendingHpDamage(
+    const std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
+    Role* target)
+{
+    assert(target);
+
+    int damage = 0;
+    for (const auto& pending : pendingDamage)
+    {
+        if (pending.target == target)
+        {
+            damage += pending.damage;
+        }
+    }
+    return damage;
+}
+
+Battle::BattleDamageApplicationInput makeBattleDamageApplicationInput(
+    const BattleDamageApplicationAdapterInput& input)
+{
+    assert(input.roles);
+    assert(input.pendingDamage);
+    assert(input.comboStates);
+
+    Battle::BattleDamageApplicationInput damageApplicationInput;
+    damageApplicationInput.frame = input.frame;
+    damageApplicationInput.aggregatePendingTransactionsByDefender = true;
+    damageApplicationInput.deathEffects = input.deathEffects;
+    damageApplicationInput.projectileFollowUps = input.projectileFollowUps;
+    damageApplicationInput.pendingAliveByTeam = input.pendingAliveByTeam;
+    for (auto role : *input.roles)
+    {
+        assert(role);
+        damageApplicationInput.units.push_back({ role->ID, role->Team, role->Dead == 0 });
+    }
+
+    for (const auto& pending : *input.pendingDamage)
+    {
+        assert(pending.target);
+        assert(pending.damage > 0);
+
+        auto target = pending.target;
+        auto defenderStateIt = input.comboStates->find(target->ID);
+        auto attackerStateIt = pending.source
+            ? input.comboStates->find(pending.source->ID)
+            : input.comboStates->end();
+
+        Battle::BattleDamageTransactionInput damageInput;
+        damageInput.request.attackerUnitId = pending.source ? pending.source->ID : -1;
+        damageInput.request.defenderUnitId = target->ID;
+        damageInput.request.baseDamage = pending.executed ? std::max(pending.damage, target->HP) : pending.damage;
+        damageInput.request.preResolvedDamage = true;
+        damageInput.attacker = makeBattleDamageUnit(
+            pending.source,
+            attackerStateIt != input.comboStates->end() ? &attackerStateIt->second : nullptr);
+        damageInput.defender = makeBattleDamageUnit(
+            target,
+            defenderStateIt != input.comboStates->end() ? &defenderStateIt->second : nullptr);
+        damageApplicationInput.pendingTransactions.push_back(std::move(damageInput));
+
+        Battle::BattleDamagePresentationInput presentation;
+        presentation.enabled = true;
+        presentation.critical = pending.critical;
+        presentation.ultimate = pending.ultimate;
+        presentation.executed = pending.executed;
+        presentation.skillName = pending.skillName;
+        presentation.detailText = pending.detailText;
+        presentation.normalDamageColor = makeBattlePresentationColor(pending.damageTextSize > 0
+            ? pending.damageColor
+            : damageTextColor(target, false));
+        presentation.emphasizedDamageColor = makeBattlePresentationColor(pending.damageTextSize > 0
+            ? pending.damageColor
+            : damageTextColor(target, true));
+        presentation.executeTextColor = makeBattlePresentationColor({ 255, 136, 48, 255 });
+        presentation.normalDamageTextSize = pending.damageTextSize > 0
+            ? pending.damageTextSize
+            : NORMAL_DAMAGE_TEXT_SIZE;
+        presentation.emphasizedDamageTextSize = pending.damageTextSize > 0
+            ? pending.damageTextSize
+            : ULT_DAMAGE_TEXT_SIZE;
+        presentation.executeTextSize = ULT_DAMAGE_TEXT_SIZE;
+        damageApplicationInput.pendingPresentation.push_back(std::move(presentation));
+
+        if (defenderStateIt != input.comboStates->end())
+        {
+            auto effects = makeBattleDamageApplicationUnitEffects(defenderStateIt->second);
+            if (effects)
+            {
+                damageApplicationInput.unitEffects[target->ID] = *effects;
+            }
+        }
+    }
+
+    return damageApplicationInput;
+}
+
+Battle::BattleDamageApplicationResult applyBattleDamageApplication(
+    const Battle::BattleDamageApplicationInput& input)
+{
+    return Battle::BattleDamageApplicationSystem().apply(input);
+}
+
+Battle::BattleDamageTransactionResult applyBattleAcceptedHitSideEffectTransaction(
+    Role* source,
+    Role* target,
+    Battle::BattleDamageRequest request,
+    std::map<int, RoleComboState>& states)
+{
+    assert(target);
+
+    auto sourceStateIt = source ? states.find(source->ID) : states.end();
+    auto& targetState = states[target->ID];
+    request.attackerUnitId = source ? source->ID : -1;
+    request.defenderUnitId = target->ID;
+    request.acceptedHit = true;
+
+    Battle::BattleDamageTransactionInput transactionInput;
+    transactionInput.request = request;
+    transactionInput.attacker = makeBattleDamageUnit(
+        source,
+        sourceStateIt != states.end() ? &sourceStateIt->second : nullptr);
+    transactionInput.defender = makeBattleDamageUnit(target, &targetState);
+    transactionInput.defenderStatus = makeBattleStatusUnit(target, targetState);
+    transactionInput.defenderCooldown = makeBattleCooldownState(target);
+
+    Battle::BattleDamageApplicationInput applicationInput;
+    applicationInput.units.push_back({ target->ID, target->Team, target->Dead == 0 });
+    if (source)
+    {
+        applicationInput.units.push_back({ source->ID, source->Team, source->Dead == 0 });
+    }
+    applicationInput.pendingTransactions.push_back(std::move(transactionInput));
+    auto applicationResult = Battle::BattleDamageApplicationSystem().apply(applicationInput);
+    assert(applicationResult.transactions.size() == 1);
+    auto result = std::move(applicationResult.transactions.front());
+
+    if (source)
+    {
+        writeBattleDamageUnit(
+            source,
+            sourceStateIt != states.end() ? &sourceStateIt->second : nullptr,
+            result.attacker);
+    }
+    writeBattleDamageUnit(target, &targetState, result.defender);
+    writeBattleStatusUnit(target, targetState, result.defenderStatus);
+    writeBattleCooldownState(target, result.defenderCooldown);
+    return result;
+}
+
+BattleCommandApplicationResult applyBattleCommand(
+    const BattleCommandApplicationContext& context,
+    const Battle::BattleGameplayCommand& command)
+{
+    assert(context.roles);
+    assert(context.comboStates);
+    assert(context.pendingDamage);
+
+    BattleCommandApplicationResult result;
+
+    auto applyTeamEffectGameplayCommand = [&]()
+    {
+        auto world = makeBattleTeamEffectWorld(*context.roles, *context.comboStates);
+        auto application = Battle::applyBattleTeamEffectCommand(world, command);
+        writeBattleTeamEffectWorld(world, *context.roles, *context.comboStates);
+        for (const auto& event : application.events)
+        {
+            if (event.type == Battle::BattleTeamEffectEventType::Heal)
+            {
+                result.presentationEvents.push_back(makeRoleEffectPresentation(
+                    context.frame,
+                    findRoleByBattleId(*context.roles, event.targetUnitId),
+                    KysChess::EFT_HEAL,
+                    ROLE_STATUS_EFT_FRAMES));
+            }
+        }
+        result.presentationEvents.insert(
+            result.presentationEvents.end(),
+            application.presentationEvents.begin(),
+            application.presentationEvents.end());
+    };
+
+    if (const auto* hpDamage = std::get_if<Battle::BattleHpDamageCommand>(&command))
+    {
+        auto source = hpDamage->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, hpDamage->sourceUnitId) : nullptr;
+        auto target = findRoleByBattleId(*context.roles, hpDamage->targetUnitId);
+        if (hpDamage->critical)
+        {
+            result.criticalHitUnitIds.push_back(target->ID);
+        }
+        appendBattlePendingDamage(
+            *context.pendingDamage,
+            BattlePendingDamageAdapterInput{
+                source,
+                target,
+                hpDamage->damage,
+                hpDamage->critical,
+                hpDamage->ultimate,
+                hpDamage->executed,
+                hpDamage->skillName,
+                hpDamage->detailText,
+            });
+    }
+    else if (const auto* sideEffect = std::get_if<Battle::BattleAcceptedHitSideEffectCommand>(&command))
+    {
+        auto source = sideEffect->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, sideEffect->sourceUnitId) : nullptr;
+        auto target = findRoleByBattleId(*context.roles, sideEffect->targetUnitId);
+        applyBattleAcceptedHitSideEffectTransaction(source, target, sideEffect->damage, *context.comboStates);
+    }
+    else if (const auto* mpDamage = std::get_if<Battle::BattleMpDamageCommand>(&command))
+    {
+        auto source = mpDamage->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, mpDamage->sourceUnitId) : nullptr;
+        auto target = findRoleByBattleId(*context.roles, mpDamage->targetUnitId);
+        auto damageResult = applyBattleAcceptedHitSideEffectTransaction(
+            source,
+            target,
+            mpDamage->damage,
+            *context.comboStates);
+        for (const auto& event : damageResult.events)
+        {
+            if (event.type == Battle::BattleDamageEventType::MpDamageApplied)
+            {
+                result.presentationEvents.push_back(makeDamageNumberPresentation(
+                    context.frame,
+                    target,
+                    event.value,
+                    { 160, 32, 240, 255 },
+                    15));
+            }
+        }
+    }
+    else if (const auto* knockback = std::get_if<Battle::BattleKnockbackCommand>(&command))
+    {
+        auto target = findRoleByBattleId(*context.roles, knockback->targetUnitId);
+        target->Velocity += knockback->velocityDelta;
+        if (knockback->velocityCap > 0.0 && target->Velocity.norm() > knockback->velocityCap)
+        {
+            target->Velocity.normTo(static_cast<float>(knockback->velocityCap));
+        }
+        if (knockback->grantHurtFrame) { target->HurtFrame = 1; }
+    }
+    else if (std::get_if<Battle::BattleTeamHealCommand>(&command))
+    {
+        applyTeamEffectGameplayCommand();
+    }
+    else if (std::get_if<Battle::BattleTeamMpRestoreCommand>(&command))
+    {
+        applyTeamEffectGameplayCommand();
+    }
+    else if (std::get_if<Battle::BattleTeamShieldCommand>(&command))
+    {
+        applyTeamEffectGameplayCommand();
+    }
+    else if (const auto* projectileSpawn = std::get_if<Battle::BattleProjectileSpawnCommand>(&command))
+    {
+        result.attackSpawnRequests.push_back(projectileSpawn->request);
+    }
+    else if (const auto* mpRestore = std::get_if<Battle::BattleMpRestoreCommand>(&command))
+    {
+        auto role = findRoleByBattleId(*context.roles, mpRestore->unitId);
+        int restored = std::min(mpRestore->amount, std::max(0, role->MaxMP - role->MP));
+        if (restored > 0)
+        {
+            role->MP += restored;
+            result.presentationEvents.push_back(makeStatusLogPresentation(
+                context.frame,
+                role,
+                role,
+                mpRestore->reason));
+        }
+    }
+    else if (const auto* autoUltimate = std::get_if<Battle::BattleAutoUltimateCommand>(&command))
+    {
+        result.autoUltimateRequests.push_back({ autoUltimate->unitId, autoUltimate->consumeMp });
+    }
+    else if (const auto* tempAttack = std::get_if<Battle::BattleTempAttackBuffCommand>(&command))
+    {
+        auto role = findRoleByBattleId(*context.roles, tempAttack->unitId);
+        if (tempAttack->permanent)
+        {
+            role->Attack += tempAttack->attackBonus;
+            role->Defence += tempAttack->defenceBonus;
+            if (!tempAttack->reason.empty())
+            {
+                result.presentationEvents.push_back(makeStatusLogPresentation(
+                    context.frame,
+                    role,
+                    role,
+                    std::format("{}（攻防+{}）", tempAttack->reason, tempAttack->attackBonus)));
+            }
+        }
+        else
+        {
+            auto& state = (*context.comboStates)[role->ID];
+            if (tempAttack->attackBonus != 0 && tempAttack->durationFrames > 0)
+            {
+                role->Attack += tempAttack->attackBonus;
+                state.tempAttackBuffs.push_back({ tempAttack->attackBonus, tempAttack->durationFrames });
+                if (!tempAttack->reason.empty())
+                {
+                    result.presentationEvents.push_back(makeStatusLogPresentation(
+                        context.frame,
+                        role,
+                        role,
+                        tempAttack->reason));
+                }
+            }
+        }
+    }
+    else if (const auto* heal = std::get_if<Battle::BattleUnitHealCommand>(&command))
+    {
+        auto source = heal->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, heal->sourceUnitId) : nullptr;
+        auto target = findRoleByBattleId(*context.roles, heal->targetUnitId);
+        int before = target->HP;
+        target->HP = std::min(target->MaxHP, target->HP + heal->amount);
+        if (target->HP > before)
+        {
+            result.presentationEvents.push_back(makeRoleEffectPresentation(
+                context.frame,
+                target,
+                KysChess::EFT_HEAL,
+                ROLE_STATUS_EFT_FRAMES));
+            result.presentationEvents.push_back(makeHealLogPresentation(
+                context.frame,
+                source,
+                target,
+                target->HP - before,
+                heal->reason));
+        }
+    }
+    else if (const auto* shield = std::get_if<Battle::BattleUnitShieldCommand>(&command))
+    {
+        auto source = shield->sourceUnitId >= 0 ? findRoleByBattleId(*context.roles, shield->sourceUnitId) : nullptr;
+        auto target = findRoleByBattleId(*context.roles, shield->targetUnitId);
+        auto& state = (*context.comboStates)[target->ID];
+        state.shield += shield->amount;
+        result.presentationEvents.push_back(makeStatusLogPresentation(
+            context.frame,
+            source,
+            target,
+            formatStatusValue(shield->reason.c_str(), shield->amount, "護盾")));
+    }
+    else if (const auto* lastAttacker = std::get_if<Battle::BattleLastAttackerCommand>(&command))
+    {
+        auto target = findRoleByBattleId(*context.roles, lastAttacker->targetUnitId);
+        target->LastAttacker = findRoleByBattleId(*context.roles, lastAttacker->attackerUnitId);
+    }
+    else
+    {
+        assert(false);
+    }
+
+    return result;
+}
+
+BattleCommandApplicationResult applyBattleHitApplication(
+    const BattleCommandApplicationContext& context,
+    const Battle::BattleHitResolutionResult& hitResolution)
+{
+    assert(context.comboStates);
+
+    auto attackerComboIt = context.comboStates->find(hitResolution.attackerUnitId);
+    auto defenderComboIt = context.comboStates->find(hitResolution.defenderUnitId);
+    if (attackerComboIt != context.comboStates->end())
+    {
+        attackerComboIt->second = hitResolution.attackerCombo;
+    }
+    if (defenderComboIt != context.comboStates->end())
+    {
+        defenderComboIt->second = hitResolution.defenderCombo;
+    }
+
+    BattleCommandApplicationResult result;
+    for (const auto& command : hitResolution.commands)
+    {
+        mergeBattleCommandApplication(result, applyBattleCommand(context, command));
+    }
+    return result;
 }
 
 Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage)
@@ -457,60 +1813,6 @@ double resolveBattleArmorPenetratedDefense(
 int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input)
 {
     return Battle::BattleDamageSystem().resolveMagicBaseDamage(input);
-}
-
-std::vector<Battle::BattleTeamEffectEvent> applyBattleTeamEffect(
-    Battle::BattleTeamEffectWorld& world,
-    const BattleTeamEffectCommitRequest& request)
-{
-    assert(request.sourceUnitId >= 0);
-    switch (request.type)
-    {
-    case BattleTeamEffectCommitType::Heal:
-        return Battle::BattleTeamEffectSystem().applyTeamHeal(
-            world,
-            request.sourceUnitId,
-            request.flatHeal,
-            request.pctHeal);
-    case BattleTeamEffectCommitType::MpRestore:
-        return Battle::BattleTeamEffectSystem().applyTeamMp(
-            world,
-            request.sourceUnitId,
-            request.amount);
-    case BattleTeamEffectCommitType::Shield:
-        return Battle::BattleTeamEffectSystem().applyTeamShield(
-            world,
-            request.sourceUnitId,
-            request.amount,
-            request.refreshOnly);
-    }
-    assert(false);
-    return {};
-}
-
-std::vector<Battle::BattleTeamEffectEvent> applyBattleSelfHeal(
-    Battle::BattleTeamEffectWorld& world,
-    int sourceUnitId,
-    int pctHeal)
-{
-    return Battle::BattleTeamEffectSystem().applySelfHeal(world, sourceUnitId, pctHeal);
-}
-
-std::vector<Battle::BattleTeamEffectEvent> applyBattleHealAura(
-    Battle::BattleTeamEffectWorld& world,
-    int sourceUnitId,
-    int pctHeal,
-    int flatHeal,
-    double range,
-    int cooldownReductionPct)
-{
-    return Battle::BattleTeamEffectSystem().applyHealAura(
-        world,
-        sourceUnitId,
-        pctHeal,
-        flatHeal,
-        range,
-        cooldownReductionPct);
 }
 
 std::vector<int> selectBattleNearbyProjectileTargets(

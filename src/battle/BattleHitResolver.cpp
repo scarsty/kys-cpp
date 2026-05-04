@@ -14,6 +14,7 @@ namespace
 {
 
 constexpr int RoleStatusEffectFrames = 45;
+constexpr double FollowUpPi = 3.14159265358979323846;
 
 class BattleHitRollStream
 {
@@ -210,6 +211,121 @@ BattlePresentationEvent floatingTextEvent(int targetUnitId,
     return event;
 }
 
+const BattleProjectileTargetUnit& followUpUnitById(
+    const BattleProjectileTargetWorld& world,
+    int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleProjectileTargetUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    assert(it != world.units.end());
+    return *it;
+}
+
+Pointf followUpPosition(const BattleProjectileTargetUnit& unit)
+{
+    return { static_cast<float>(unit.x), static_cast<float>(unit.y), 0.0f };
+}
+
+double followUpDistance(Pointf lhs, Pointf rhs)
+{
+    return EuclidDis(lhs.x - rhs.x, lhs.y - rhs.y);
+}
+
+Pointf normalizedFollowUpVelocity(Pointf from, Pointf to, double speed)
+{
+    assert(speed > 0.0);
+    auto velocity = to - from;
+    if (velocity.norm() <= 0.01)
+    {
+        velocity = { 1, 0, 0 };
+    }
+    velocity.normTo(static_cast<float>(speed));
+    return velocity;
+}
+
+BattleAttackSpawnRequest makeNearbyFollowUpSpawn(
+    const BattleNearbyTrackingProjectilesCommand& command,
+    const BattleProjectileTargetUnit& target,
+    const BattleProjectileFollowUpContext& context)
+{
+    const auto targetPosition = followUpPosition(target);
+    BattleAttackSpawnRequest request;
+    request.initial.attackerUnitId = command.prototype.sourceUnitId;
+    request.initial.skillId = command.prototype.skillId;
+    request.initial.preferredTargetUnitId = target.id;
+    request.initial.requirePreferredTarget = true;
+    request.initial.track = true;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
+    request.initial.visualEffectId = command.prototype.visualEffectId;
+    request.initial.ultimate = command.prototype.ultimate;
+    request.initial.ignoreProjectileCancel = command.prototype.skillId < 0;
+    request.initial.hiddenWeaponItemId = command.prototype.hiddenWeaponItemId;
+    request.initial.scriptedDamage = command.prototype.scriptedDamage;
+    request.initial.scriptedStunFrames = command.prototype.scriptedStunFrames;
+    request.initial.scriptedBleedStacks = command.prototype.scriptedBleedStacks;
+    request.initial.sharedHitGroupId = command.prototype.sharedHitGroupId;
+    request.initial.strengthMultiplier = command.prototype.strengthMultiplier
+        * static_cast<float>(std::max(1, command.damagePct) / 100.0);
+    request.initial.suppressNearbyTrackingProjectileProc = true;
+    request.initial.mainProjectile = false;
+    request.initial.position = command.prototype.position;
+    request.initial.velocity = normalizedFollowUpVelocity(
+        request.initial.position,
+        targetPosition,
+        context.projectileSpeed);
+    request.initial.totalFrame = std::max(
+        context.minimumProjectileFrames,
+        static_cast<int>(std::ceil(followUpDistance(targetPosition, request.initial.position)
+                                   / std::max(1.0, context.projectileSpeed)))
+            + context.nearbyProjectileFramePadding);
+    return request;
+}
+
+BattleAttackSpawnRequest makeAreaFollowUpSpawn(
+    int sourceUnitId,
+    int targetUnitId,
+    int damage,
+    int stunFrames,
+    int visualEffectId,
+    const BattleProjectileFollowUpContext& context)
+{
+    const auto& source = followUpUnitById(context.targets, sourceUnitId);
+    const auto& target = followUpUnitById(context.targets, targetUnitId);
+    auto sourcePosition = followUpPosition(source);
+    auto targetPosition = followUpPosition(target);
+    auto direction = targetPosition - sourcePosition;
+    if (direction.norm() <= 0.01)
+    {
+        direction = { 1, 0, 0 };
+    }
+    direction.normTo(1);
+    auto spawnOffset = direction;
+    spawnOffset.normTo(static_cast<float>(context.areaSpawnDistance));
+
+    BattleAttackSpawnRequest request;
+    request.initial.attackerUnitId = sourceUnitId;
+    request.initial.preferredTargetUnitId = targetUnitId;
+    request.initial.scriptedDamage = damage;
+    request.initial.scriptedStunFrames = stunFrames;
+    request.initial.track = true;
+    request.initial.operationType = BattleOperationType::RangedProjectile;
+    request.initial.ignoreProjectileCancel = true;
+    request.initial.visualEffectId = visualEffectId;
+    request.initial.position = sourcePosition + spawnOffset;
+    request.initial.velocity = normalizedFollowUpVelocity(
+        request.initial.position,
+        targetPosition,
+        context.projectileSpeed);
+    request.initial.totalFrame = std::max(
+        15,
+        static_cast<int>(std::ceil(followUpDistance(targetPosition, request.initial.position)
+                                   / std::max(1.0, context.projectileSpeed)))
+            + context.areaProjectileFramePadding);
+    return request;
+}
+
 BattleAcceptedHitSideEffectCommand acceptedHitCommand(int sourceUnitId,
                                                       int targetUnitId,
                                                       BattleDamageRequest request)
@@ -242,6 +358,181 @@ std::string appendDetail(std::string detail, const std::string& text)
 }
 
 }  // namespace
+
+BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
+    const std::vector<BattleGameplayCommand>& commands,
+    BattleProjectileFollowUpContext& context)
+{
+    assert(context.projectileSpeed > 0.0);
+    assert(context.minimumProjectileFrames > 0);
+
+    BattleProjectileFollowUpExpansion expansion;
+    BattleProjectileTargetingSystem targeting;
+    for (const auto& command : commands)
+    {
+        if (const auto* currentHp = std::get_if<BattleCurrentHpBlastCommand>(&command))
+        {
+            const auto& source = followUpUnitById(context.targets, currentHp->sourceUnitId);
+            for (const auto& unit : context.targets.units)
+            {
+                if (!unit.alive || unit.team == source.team)
+                {
+                    continue;
+                }
+                expansion.commands.push_back(BattleHpDamageCommand{
+                    currentHp->sourceUnitId,
+                    unit.id,
+                    std::max(1, unit.hp * currentHp->damagePct / 100),
+                    false,
+                    false,
+                    false,
+                    "",
+                    currentHp->reason,
+                });
+            }
+            continue;
+        }
+        if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
+        {
+            const auto& source = followUpUnitById(context.targets, spiral->sourceUnitId);
+            const auto sourcePosition = followUpPosition(source);
+            const int sharedHitGroupId = context.nextSharedHitGroupId++;
+            const int projectileCount = std::max(1, spiral->projectileCount);
+            for (int i = 0; i < projectileCount; ++i)
+            {
+                BattleAttackSpawnRequest request;
+                request.initial.attackerUnitId = spiral->sourceUnitId;
+                request.initial.operationType = BattleOperationType::RangedProjectile;
+                request.initial.visualEffectId = 48;
+                request.initial.position = sourcePosition;
+                request.initial.totalFrame = 35;
+                request.initial.scriptedBleedStacks = spiral->bleedStacks;
+                request.initial.sharedHitGroupId = sharedHitGroupId;
+                request.initial.ignoreProjectileCancel = true;
+                request.initial.through = true;
+                request.spiralMotion = true;
+                request.spiralCenter = sourcePosition;
+                request.spiralRadius = 0.0f;
+                request.spiralRadiusGrowth = static_cast<float>(context.projectileSpeed * 0.9);
+                request.spiralAngle = static_cast<float>(2.0 * FollowUpPi * i / projectileCount);
+                request.spiralAngularVelocity = 0.42f;
+                expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "螺旋流血彈" });
+            }
+            continue;
+        }
+        if (const auto* nearby = std::get_if<BattleNearbyTrackingProjectilesCommand>(&command))
+        {
+            auto targetIds = targeting.selectNearbyTargets(
+                context.targets,
+                nearby->prototype.sourceUnitId,
+                nearby->centerTargetUnitId,
+                nearby->rangePixels);
+            for (int targetId : targetIds)
+            {
+                expansion.commands.push_back(BattleProjectileSpawnCommand{
+                    makeNearbyFollowUpSpawn(
+                        *nearby,
+                        followUpUnitById(context.targets, targetId),
+                        context),
+                    "範圍追蹤彈",
+                });
+            }
+            continue;
+        }
+        if (const auto* extra = std::get_if<BattleHitExtraProjectilesCommand>(&command))
+        {
+            for (int i = 0; i < extra->extraCount; ++i)
+            {
+                BattleAttackSpawnRequest request;
+                request.initial.attackerUnitId = extra->prototype.sourceUnitId;
+                request.initial.skillId = extra->prototype.skillId;
+                request.initial.preferredTargetUnitId = extra->targetUnitId;
+                request.initial.totalFrame = extra->prototype.totalFrame;
+                request.initial.track = extra->prototype.track
+                    || extra->prototype.operationType == BattleOperationType::Melee
+                    || extra->prototype.operationType == BattleOperationType::Dash;
+                request.initial.through = extra->prototype.through;
+                request.initial.ultimate = extra->prototype.ultimate;
+                request.initial.ignoreProjectileCancel = extra->prototype.skillId < 0;
+                request.initial.sharedHitGroupId = extra->prototype.sharedHitGroupId;
+                request.initial.visualEffectId = extra->prototype.visualEffectId;
+                request.initial.operationType = extra->prototype.operationType;
+                request.initial.hiddenWeaponItemId = extra->prototype.hiddenWeaponItemId;
+                request.initial.scriptedDamage = extra->prototype.scriptedDamage;
+                request.initial.scriptedStunFrames = extra->prototype.scriptedStunFrames;
+                request.initial.scriptedBleedStacks = extra->prototype.scriptedBleedStacks;
+                request.initial.strengthMultiplier = extra->prototype.strengthMultiplier;
+                request.initial.suppressNearbyTrackingProjectileProc = extra->prototype.suppressNearbyTrackingProjectileProc;
+                request.initial.mainProjectile = false;
+                request.initial.position = extra->prototype.position;
+                auto prototypeVelocity = extra->prototype.velocity;
+                const double prototypeSpeed = prototypeVelocity.norm();
+                request.initial.velocity = normalizedFollowUpVelocity(
+                    extra->prototype.position,
+                    followUpPosition(followUpUnitById(context.targets, extra->targetUnitId)),
+                    prototypeSpeed > 0.01 ? prototypeSpeed : context.projectileSpeed);
+                expansion.commands.push_back(BattleProjectileSpawnCommand{ std::move(request), "命中追加彈" });
+            }
+            continue;
+        }
+        if (const auto* shieldExplosion = std::get_if<BattleShieldExplosionCommand>(&command))
+        {
+            auto targetIds = targeting.selectAreaImpactTargets(
+                context.targets,
+                shieldExplosion->sourceUnitId,
+                shieldExplosion->areaSize,
+                0,
+                -1);
+            for (int targetId : targetIds)
+            {
+                expansion.commands.push_back(BattleProjectileSpawnCommand{
+                    makeAreaFollowUpSpawn(
+                        shieldExplosion->sourceUnitId,
+                        targetId,
+                        shieldExplosion->damage,
+                        0,
+                        shieldExplosion->effectId,
+                        context),
+                    shieldExplosion->reason,
+                });
+            }
+            expansion.presentationEvents.push_back(statusEvent(
+                shieldExplosion->sourceUnitId,
+                -1,
+                std::format("{}（{}傷害）", shieldExplosion->reason, shieldExplosion->damage)));
+            continue;
+        }
+        if (const auto* deathAoe = std::get_if<BattleDeathAoeProjectileCommand>(&command))
+        {
+            auto targetIds = targeting.selectAreaImpactTargets(
+                context.targets,
+                deathAoe->sourceUnitId,
+                7,
+                deathAoe->maxTargets,
+                deathAoe->trackedTargetUnitId);
+            for (int targetId : targetIds)
+            {
+                expansion.commands.push_back(BattleProjectileSpawnCommand{
+                    makeAreaFollowUpSpawn(
+                        deathAoe->sourceUnitId,
+                        targetId,
+                        deathAoe->damage,
+                        deathAoe->stunFrames,
+                        KysChess::EFT_DEATH_BLAST,
+                        context),
+                    "殉爆",
+                });
+            }
+            expansion.presentationEvents.push_back(statusEvent(
+                deathAoe->sourceUnitId,
+                -1,
+                std::format("殉爆{}%（{}幀）", deathAoe->damagePct, deathAoe->stunFrames)));
+            continue;
+        }
+        expansion.commands.push_back(command);
+    }
+    return expansion;
+}
 
 BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionInput& input) const
 {

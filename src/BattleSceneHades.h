@@ -1,13 +1,9 @@
 ﻿#pragma once
-#include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
-#include "battle/BattleComboTriggerSystem.h"
-#include "battle/BattleDamageSystem.h"
-#include "battle/BattleHitResolver.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
-#include "battle/BattleTeamEffectSystem.h"
 #include "BattleSceneAct.h"
+#include "BattleSceneBattleAdapter.h"
 #include "BattleStatsView.h"
 #include "BattleScenePresentationPlayer.h"
 #include "ChessManager.h"
@@ -47,8 +43,6 @@ public:
     virtual void backRun() override {}
 
     virtual void backRun1();
-    void Action(Role* r);
-    void AI(Role* r);
     virtual void onPressedCancel() override;
 
 protected:
@@ -75,94 +69,24 @@ protected:
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
 
-    void applyResolvedBattleHit(const KysChess::Battle::BattleHitResolutionResult& result);
-    void applyBattleGameplayCommand(const KysChess::Battle::BattleGameplayCommand& command);
-    void queuePreResolvedHpDamage(Role* source,
-                                  Role* target,
-                                  int damage,
-                                  bool critical,
-                                  bool ultimate,
-                                  bool executed,
-                                  const std::string& skillName = "",
-                                  const std::string& detailText = "",
-                                  Color damageColor = {},
-                                  int damageTextSize = 0);
-    int pendingPreResolvedHpDamage(Role* target) const;
-    KysChess::Battle::BattleDamageTransactionResult applyAcceptedHitSideEffectTransaction(
-        Role* source,
-        Role* target,
-        KysChess::Battle::BattleDamageRequest request);
     template<typename Cmp> Magic* selectMagic(Role* r, Cmp cmp);
-    void queueCoreSkillAttackSpawn(Role* r, Magic* magic, bool isUltimate, int operationType = -1);
-    Magic* triggerAutoUltimate(Role* r, bool consumeMP);
     int getUltimateExtraProjectileCount(Role* r);
-    void spawnAreaImpactProjectiles(Role* attacker,
-                                    Role* origin,
-                                    int areaSize,
-                                    int eftId,
-                                    int damage,
-                                    int stunFrames = 0,
-                                    Role* trackedTarget = nullptr,
-                                    int maxTargets = 0);
-    void spawnTrackingProjectileSpread(const KysChess::Battle::BattleAttackEvent& prototype,
-                                       int projectileCount,
-                                       int initialFrame = 0,
-                                       int frameStep = 0,
-                                       int randomFrameRange = 0);
-    void spawnUltimateExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount);
-    void spawnHitExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount, Role* target);
-    void spawnExtraProjectiles(
-        const KysChess::Battle::BattleAttackEvent& prototype,
-        int extraCount,
-        const char* logLabel,
-        Role* target);
-    void spawnSpiralBleedProjectiles(Role* attacker, int bleedStacks, int projectileCount = 6);
-    void spawnNearbyTrackingProjectiles(const KysChess::Battle::BattleAttackEvent& prototype,
-                                        Role* centerTarget,
-                                        int rangePixels,
-                                        int damagePct = 40);
-    void refreshEnemyTopDebuffs();
-    enum class LegacyTeamEffectCommitType
-    {
-        Heal,
-        MpRestore,
-        Shield,
-    };
-
-    struct LegacyTeamEffectCommitRequest
-    {
-        LegacyTeamEffectCommitType type = LegacyTeamEffectCommitType::Heal;
-        int sourceUnitId = -1;
-        int flatHeal = 0;
-        int pctHeal = 0;
-        int amount = 0;
-        bool refreshOnly = false;
-    };
-
-    std::vector<KysChess::Battle::BattleTeamEffectEvent> commitLegacyTeamEffect(
-        const LegacyTeamEffectCommitRequest& request);
-    void playCommittedTeamEffectEvents(
-        Role* source,
-        const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events,
-        const char* reason);
+    void updateEnemyTopDebuffState();
     int getSharedBleedMaxStacks(Role* source) const;
-    void applyTempAttackBuff(Role* role,
-                             KysChess::RoleComboState& state,
-                             int attackBonus,
-                             int durationFrames,
-                             const std::string& reason);
     bool isLastAliveInTeam(Role* role) const;
     bool attackCanHitInvincible(Role* role) const;
-    void applyComboFrameRuntimeEvent(
-        Role* role,
-        KysChess::RoleComboState& state,
-        const KysChess::Battle::BattleComboFrameRuntimeEvent& event,
-        std::map<int, KysChess::RoleComboState>& comboStates);
+    Magic* commitAutoUltimate(Role* role, bool consumeMP);
+    void playAutoUltimateReady(Role* role);
     void attachProjectileBouncePrime(KysChess::Battle::BattleAttackSpawnRequest& request);
     void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
-    int resolveLegacyMagicBaseDamage(Role* attacker, Role* defender, Magic* magic);
+    int calculateHitMagicBaseDamage(Role* attacker, Role* defender, Magic* magic);
+    void populateCoreHitState(KysChess::Battle::BattleFrameState& frameState);
+    void appendCoreHitInputsForAttack(KysChess::Battle::BattleFrameState& frameState,
+                                      int attackId,
+                                      const KysChess::Battle::BattleAttackState& attackState);
+    KysChess::Battle::BattleProjectileFollowUpContext makeCoreProjectileFollowUpContext() const;
 
 
     void makeSpecialMagicEffect();
@@ -180,12 +104,17 @@ protected:
         KysChess::Battle::BattleWorldState world);
     void populateCoreStatusState(KysChess::Battle::BattleFrameState& frameState);
     void applyCoreStatusState(const KysChess::Battle::BattleFrameState& frameState);
-    void handleCoreStatusEvents(const std::vector<KysChess::Battle::BattleStatusEvent>& events);
+    void populateCoreStatusDamageState(KysChess::Battle::BattleFrameState& frameState);
+    void applyCoreStatusDamageState(const KysChess::Battle::BattleFrameState& frameState);
+    KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
     KysChess::Battle::BattleWorldState makeNoOpCoreWorld() const;
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);
     void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::map<int, Role*>& rolesByBattleId);
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
+    KysChess::BattleSceneBattleAdapter::BattleCommandApplicationContext makeBattleCommandApplicationContext();
+    void applyBattleCommandApplicationResult(
+        const KysChess::BattleSceneBattleAdapter::BattleCommandApplicationResult& result);
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
@@ -250,19 +179,7 @@ protected:
     BattleScenePresentationPlayer presentation_player_;
     KysChess::Battle::BattlePresentationFrame last_presentation_frame_;
 
-    struct PendingPreResolvedHpDamage {
-        Role* source = nullptr;
-        Role* target = nullptr;
-        int damage = 0;
-        bool critical = false;
-        bool ultimate = false;
-        bool executed = false;
-        std::string skillName;
-        std::string detailText;
-        Color damageColor;
-        int damageTextSize = 0;
-    };
-    std::vector<PendingPreResolvedHpDamage> pending_pre_resolved_hp_damage_;
+    std::vector<KysChess::BattleSceneBattleAdapter::BattlePendingDamageAdapterInput> pending_battle_damage_;
 
     struct MovementRuntime {
         int core_assigned_slot = 0;

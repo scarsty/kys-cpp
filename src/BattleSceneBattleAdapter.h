@@ -6,15 +6,19 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleDamageApplicationSystem.h"
 #include "battle/BattleProjectileTargetingSystem.h"
-#include "battle/BattleTeamEffectSystem.h"
 #include "battle/BattleHitResolver.h"
 
 #include <cstddef>
 #include <deque>
+#include <functional>
+#include <map>
 #include <optional>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+class BattleTracker;
 
 namespace KysChess::BattleSceneBattleAdapter
 {
@@ -51,21 +55,153 @@ struct BattleCastAdapterInput
     int cooldownReductionPct = 0;
 };
 
-enum class BattleTeamEffectCommitType
+struct BattleSceneFrameBundle
 {
-    Heal,
-    MpRestore,
-    Shield,
+    Battle::BattleFrameState state;
+    std::unordered_map<int, Role*> rolesByBattleId;
+    std::vector<Battle::BattlePresentationEvent> pendingPresentationEvents;
 };
 
-struct BattleTeamEffectCommitRequest
+struct BattleFrameHitAdapterInput
 {
-    BattleTeamEffectCommitType type = BattleTeamEffectCommitType::Heal;
-    int sourceUnitId = -1;
-    int flatHeal = 0;
-    int pctHeal = 0;
-    int amount = 0;
-    bool refreshOnly = false;
+    int attackId = -1;
+    Role* attacker = nullptr;
+    Role* defender = nullptr;
+    Magic* magic = nullptr;
+    Item* hiddenWeapon = nullptr;
+    int resolvedMagicBaseDamage = 0;
+    int resolvedHiddenWeaponDamage = 0;
+    int sharedBleedMaxStacks = 1;
+    int randomDamageVariance = 0;
+    std::vector<double> percentRolls;
+    int pendingDefenderHpDamage = 0;
+};
+
+struct BattlePendingDamageAdapterInput
+{
+    Role* source = nullptr;
+    Role* target = nullptr;
+    int damage = 0;
+    bool critical = false;
+    bool ultimate = false;
+    bool executed = false;
+    std::string skillName;
+    std::string detailText;
+    Color damageColor;
+    int damageTextSize = 0;
+};
+
+struct BattleDamageApplicationAdapterInput
+{
+    int frame = 0;
+    const std::vector<Role*>* roles = nullptr;
+    const std::vector<BattlePendingDamageAdapterInput>* pendingDamage = nullptr;
+    const std::map<int, RoleComboState>* comboStates = nullptr;
+    Battle::BattleDeathEffectWorld deathEffects;
+    Battle::BattleProjectileFollowUpContext projectileFollowUps;
+    std::map<int, int> pendingAliveByTeam;
+};
+
+struct BattleActionFrameAdapterConfig
+{
+    double maxEffectiveBattleReach = 0.0;
+    double meleeAttackHitRadius = 0.0;
+    double meleeAttackReach = 0.0;
+    double dashAttackMeleeReach = 0.0;
+    double blinkWeakTargetDefWeight = 0.0;
+    int dashMomentumFrames = 0;
+    int movementDashCooldownFrames = 0;
+    int actionRecoveryFrames = 0;
+    int hiddenWeaponTotalFrame = 0;
+    int battleFrame = 0;
+    float gravity = 0.0f;
+};
+
+struct BattleActionFrameAdapterCallbacks
+{
+    std::function<Role*(int, Pointf)> findNearestEnemy;
+    std::function<Role*(int, Pointf)> findFarthestEnemy;
+    std::function<Magic*(Role*)> selectNormalMagic;
+    std::function<Magic*(Role*)> selectUltimateMagic;
+    std::function<int(Role*, int, int)> castFrame;
+    std::function<bool(Role*)> forceRangedMagic;
+    std::function<int(Role*)> forcedRangedMinSelectDistance;
+    std::function<int(Role*)> projectileSpeedMultiplierPct;
+    std::function<int(Role*)> ultimateExtraProjectileCount;
+    std::function<double(Magic*, bool, int, int)> effectiveReach;
+    std::function<bool(Magic*, bool)> rangedStyleMagic;
+    std::function<double(Magic*)> blinkReach;
+    std::function<int(int)> randomInt;
+    std::function<double()> randomUnit;
+    std::function<int(Role*)> movementDashFrames;
+    std::function<void(Role*)> beginMovementDash;
+    std::function<void(Role*)> clearMovementDashSpread;
+    std::function<Point(double, double)> toGrid;
+    std::function<Pointf(int, int)> toPosition;
+    std::function<bool(int, int)> canWalk;
+    std::function<void(Role*)> faceTowardsNearest;
+    std::function<void(Battle::BattleAttackSpawnRequest&)> attachProjectileBouncePrime;
+};
+
+struct BattleActionFrameAdapterContext
+{
+    const std::vector<Role*>* roles = nullptr;
+    std::unordered_map<Role*, Battle::BattleCastResult>* pendingCastResults = nullptr;
+    std::map<int, RoleComboState>* comboStates = nullptr;
+    const std::unordered_map<Role*, Battle::MovementDecision>* movementDecisions = nullptr;
+    std::set<Role*>* ultimateCasters = nullptr;
+    BattleActionFrameAdapterConfig config;
+    BattleActionFrameAdapterCallbacks callbacks;
+};
+
+struct BattleActionFrameApplyResult
+{
+    std::vector<int> attackSoundIds;
+    int blinkSoundCount = 0;
+    std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
+    std::vector<Battle::BattlePresentationEvent> presentationEvents;
+};
+
+struct BattleSelectedSkillActionResult
+{
+    Magic* magic = nullptr;
+    BattleActionFrameApplyResult applyResult;
+};
+
+struct BattleLifecycleApplicationContext
+{
+    BattleTracker* tracker = nullptr;
+    const std::vector<Role*>* roles = nullptr;
+    int currentBattleResult = -1;
+    std::function<void()> onUnitDied;
+};
+
+struct BattleLifecycleApplicationResult
+{
+    bool battleEnded = false;
+    int battleResult = -1;
+};
+
+struct BattleAutoUltimateApplicationRequest
+{
+    int unitId = -1;
+    bool consumeMp = false;
+};
+
+struct BattleCommandApplicationContext
+{
+    int frame = 0;
+    const std::vector<Role*>* roles = nullptr;
+    std::map<int, RoleComboState>* comboStates = nullptr;
+    std::vector<BattlePendingDamageAdapterInput>* pendingDamage = nullptr;
+};
+
+struct BattleCommandApplicationResult
+{
+    std::vector<int> criticalHitUnitIds;
+    std::vector<Battle::BattlePresentationEvent> presentationEvents;
+    std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
+    std::vector<BattleAutoUltimateApplicationRequest> autoUltimateRequests;
 };
 
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
@@ -81,6 +217,17 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
     const Battle::BattleAttackWorld& activeWorld,
     const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets);
+Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
+    const std::vector<Role*>& roles,
+    const std::map<int, RoleComboState>& states);
+const Battle::BattleTeamEffectUnit& findBattleTeamEffectUnit(
+    const Battle::BattleTeamEffectWorld& world,
+    int unitId);
+void writeBattleTeamEffectWorld(
+    const Battle::BattleTeamEffectWorld& world,
+    const std::vector<Role*>& roles,
+    std::map<int, RoleComboState>& states);
+Battle::BattlePresentationColor makeBattlePresentationColor(Color color);
 
 Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
     Role* role,
@@ -99,6 +246,54 @@ Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
                                                           Magic* magic,
                                                           int resolvedBaseDamage);
 Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolvedDamage);
+Battle::BattleStatusUnitState makeBattleStatusUnit(Role* role, const RoleComboState& state);
+void writeBattleStatusUnit(Role* role, RoleComboState& state, const Battle::BattleStatusUnitState& unit);
+Battle::BattleDamageUnitState makeBattleDamageUnit(Role* role, const RoleComboState* state);
+void writeBattleDamageUnit(Role* role, RoleComboState* state, const Battle::BattleDamageUnitState& unit);
+Battle::BattleCooldownState makeBattleCooldownState(Role* role);
+void writeBattleCooldownState(Role* role, const Battle::BattleCooldownState& state);
+void populateBattleFrameHitUnits(
+    Battle::BattleFrameState& frameState,
+    const std::vector<Role*>& roles);
+void appendBattleFrameHitInput(
+    Battle::BattleFrameState& frameState,
+    const BattleFrameHitAdapterInput& input);
+void populateBattleActionFrame(
+    Battle::BattleFrameState& frameState,
+    const BattleActionFrameAdapterContext& context);
+BattleActionFrameApplyResult applyBattleActionFrameResults(
+    const Battle::BattleFrameState& frameState,
+    const BattleActionFrameAdapterContext& context);
+BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
+    Role* role,
+    Magic* magic,
+    bool isUltimate,
+    int operationType,
+    const BattleActionFrameAdapterContext& context);
+BattleLifecycleApplicationResult applyBattleLifecycleEvents(
+    const BattleLifecycleApplicationContext& context,
+    const std::vector<Battle::BattleGameplayEvent>& events);
+void appendBattlePendingDamage(
+    std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
+    BattlePendingDamageAdapterInput damage);
+int calculateBattlePendingHpDamage(
+    const std::vector<BattlePendingDamageAdapterInput>& pendingDamage,
+    Role* target);
+Battle::BattleDamageApplicationInput makeBattleDamageApplicationInput(
+    const BattleDamageApplicationAdapterInput& input);
+Battle::BattleDamageApplicationResult applyBattleDamageApplication(
+    const Battle::BattleDamageApplicationInput& input);
+Battle::BattleDamageTransactionResult applyBattleAcceptedHitSideEffectTransaction(
+    Role* source,
+    Role* target,
+    Battle::BattleDamageRequest request,
+    std::map<int, RoleComboState>& states);
+BattleCommandApplicationResult applyBattleCommand(
+    const BattleCommandApplicationContext& context,
+    const Battle::BattleGameplayCommand& command);
+BattleCommandApplicationResult applyBattleHitApplication(
+    const BattleCommandApplicationContext& context,
+    const Battle::BattleHitResolutionResult& hitResolution);
 Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage);
 std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplicationUnitEffects(
     const RoleComboState& state);
@@ -123,20 +318,6 @@ double resolveBattleArmorPenetratedDefense(
     double defense,
     double rollPercent);
 int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input);
-std::vector<Battle::BattleTeamEffectEvent> applyBattleTeamEffect(
-    Battle::BattleTeamEffectWorld& world,
-    const BattleTeamEffectCommitRequest& request);
-std::vector<Battle::BattleTeamEffectEvent> applyBattleSelfHeal(
-    Battle::BattleTeamEffectWorld& world,
-    int sourceUnitId,
-    int pctHeal);
-std::vector<Battle::BattleTeamEffectEvent> applyBattleHealAura(
-    Battle::BattleTeamEffectWorld& world,
-    int sourceUnitId,
-    int pctHeal,
-    int flatHeal,
-    double range,
-    int cooldownReductionPct);
 std::vector<int> selectBattleNearbyProjectileTargets(
     const Battle::BattleProjectileTargetWorld& world,
     int sourceUnitId,

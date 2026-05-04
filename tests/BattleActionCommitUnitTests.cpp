@@ -91,6 +91,41 @@ TEST_CASE("BattleActionCommit_BlinkAttackAlternatesWeakestAndRandomIntent", "[ba
     CHECK(random.combo.blinkAttackUseWeakest);
 }
 
+TEST_CASE("BattleActionCommit_BlinkAttackResolvesDestinationFromGeometry", "[battle][action_commit][unit]")
+{
+    auto input = basicActionInput();
+    input.combo.blinkAttack = true;
+    input.combo.blinkAttackUseWeakest = true;
+    input.blinkReach = 64.0;
+    input.blinkCellRandomRoll = 1;
+    input.targets = {
+        target(2, 30, 0.0, { 100, 20, 0 }),
+    };
+    input.blinkGeometry.currentGridX = 1;
+    input.blinkGeometry.currentGridY = 1;
+    input.blinkGeometry.cells = {
+        { 1, 1, { 96, 20, 0 }, true, false },
+        { 2, 1, { 108, 20, 0 }, false, false },
+        { 3, 1, { 100, 84, 0 }, true, false },
+        { 4, 1, { 132, 20, 0 }, true, false },
+        { 5, 1, { 140, 20, 0 }, true, true },
+    };
+
+    auto result = BattleActionCommitSystem().commit(input);
+
+    REQUIRE(result.blinkCommands.size() == 1);
+    REQUIRE(result.blinkTeleports.size() == 1);
+    const auto& teleport = result.blinkTeleports[0];
+    CHECK(teleport.unitId == 1);
+    CHECK(teleport.targetUnitId == 2);
+    CHECK(teleport.gridX == 4);
+    CHECK(teleport.gridY == 1);
+    CHECK(teleport.position.x == 132.0f);
+    CHECK(teleport.position.y == 20.0f);
+    CHECK(teleport.facing.x == -1.0f);
+    CHECK(teleport.facing.y == 0.0f);
+}
+
 TEST_CASE("BattleActionCommit_HiddenWeaponItemEmitsProjectileAndItemCountDelta", "[battle][action_commit][unit]")
 {
     auto input = basicActionInput();

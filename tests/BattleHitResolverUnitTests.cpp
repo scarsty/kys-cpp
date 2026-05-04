@@ -464,8 +464,52 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
     auto nearby = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
         {
             return std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command);
-        });
+    });
     CHECK(nearby == result.commands.end());
+}
+
+TEST_CASE("BattleProjectileFollowUpResolver_ExpandsNearbyTrackingIntoSpawnCommands", "[battle][hit_resolver][unit]")
+{
+    BattleProjectileFollowUpContext context;
+    context.targets.units = {
+        { 1, 0, true, 100, 100, 0, 0, 0.0, 0.0, 0, 0 },
+        { 2, 1, true, 100, 100, 0, 0, 40.0, 0.0, 1, 0 },
+        { 3, 1, true, 100, 100, 0, 0, 80.0, 0.0, 2, 0 },
+    };
+    context.projectileSpeed = 10.0;
+
+    BattleAttackEvent prototype;
+    prototype.type = BattleAttackEventType::Hit;
+    prototype.attackId = 10;
+    prototype.sourceUnitId = 1;
+    prototype.unitId = 2;
+    prototype.skillId = 101;
+    prototype.visualEffectId = 44;
+    prototype.position = { 0, 0, 0 };
+    prototype.velocity = { 5, 0, 0 };
+    prototype.totalFrame = 30;
+    prototype.operationType = BattleOperationType::RangedProjectile;
+
+    std::vector<BattleGameplayCommand> commands;
+    commands.push_back(BattleNearbyTrackingProjectilesCommand{
+        prototype,
+        2,
+        100,
+        40,
+    });
+
+    auto expanded = expandBattleProjectileFollowUpCommands(commands, context);
+
+    REQUIRE(expanded.commands.size() == 2);
+    const auto* first = std::get_if<BattleProjectileSpawnCommand>(&expanded.commands[0]);
+    const auto* second = std::get_if<BattleProjectileSpawnCommand>(&expanded.commands[1]);
+    REQUIRE(first);
+    REQUIRE(second);
+    CHECK(first->request.initial.preferredTargetUnitId == 2);
+    CHECK(second->request.initial.preferredTargetUnitId == 3);
+    CHECK(first->request.initial.suppressNearbyTrackingProjectileProc);
+    CHECK_FALSE(first->request.initial.mainProjectile);
+    CHECK(first->request.initial.strengthMultiplier == Catch::Approx(0.4f));
 }
 
 TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_resolver][unit]")

@@ -6,6 +6,7 @@
 #include "BattleDamageSystem.h"
 #include "BattleOperation.h"
 #include "BattlePresentation.h"
+#include "BattleProjectileTargetingSystem.h"
 
 #include <string>
 #include <variant>
@@ -286,6 +287,27 @@ struct BattleHitResolutionResult
     int finalHpDamage = 0;
     int finalMpDamage = 0;
 };
+
+struct BattleProjectileFollowUpContext
+{
+    BattleProjectileTargetWorld targets;
+    double projectileSpeed = 1.0;
+    int minimumProjectileFrames = 20;
+    int nearbyProjectileFramePadding = 18;
+    int areaProjectileFramePadding = 15;
+    double areaSpawnDistance = 54.0;
+    int nextSharedHitGroupId = 1;
+};
+
+struct BattleProjectileFollowUpExpansion
+{
+    std::vector<BattleGameplayCommand> commands;
+    std::vector<BattlePresentationEvent> presentationEvents;
+};
+
+BattleProjectileFollowUpExpansion expandBattleProjectileFollowUpCommands(
+    const std::vector<BattleGameplayCommand>& commands,
+    BattleProjectileFollowUpContext& context);
 
 class BattleHitResolver
 {

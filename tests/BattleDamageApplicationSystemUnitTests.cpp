@@ -42,6 +42,11 @@ BattleDamageApplicationInput applicationInput()
         { 1, 0, true },
         { 2, 1, true },
     };
+    input.projectileFollowUps.targets.units = {
+        { 1, 0, true, 40, 100, 0, 0, 0.0, 0.0, 0, 0 },
+        { 2, 1, true, 10, 100, 0, 0, 36.0, 0.0, 1, 0 },
+    };
+    input.projectileFollowUps.projectileSpeed = 12.0;
     return input;
 }
 
@@ -79,6 +84,78 @@ TEST_CASE("BattleDamageApplication_FatalDamageEmitsDeathAndKillRewardEvents", "[
     CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::KillRecorded)->sourceUnitId == 1);
     CHECK(result.transactions[0].attacker.hp == 65);
     CHECK(result.transactions[0].attacker.attack == 19);
+    REQUIRE(result.gameplayEvents.size() >= 1);
+    CHECK(result.gameplayEvents[0].type == BattleGameplayEventType::UnitDied);
+    CHECK(result.gameplayEvents[0].frame == 77);
+    CHECK(result.gameplayEvents[0].sourceUnitId == 1);
+    CHECK(result.gameplayEvents[0].targetUnitId == 2);
+}
+
+TEST_CASE("BattleDamageApplication_AggregatesPendingDamageByDefenderWhenRequested", "[battle][damage_application][unit]")
+{
+    auto input = applicationInput();
+    input.aggregatePendingTransactionsByDefender = true;
+    input.units.push_back({ 3, 0, true });
+
+    auto first = damageInput(1, 2, 3);
+    auto second = damageInput(3, 2, 4);
+    second.attacker.id = 3;
+    second.attacker.hp = 80;
+    second.attacker.maxHp = 100;
+    input.pendingTransactions.push_back(first);
+    input.pendingTransactions.push_back(second);
+
+    auto result = BattleDamageApplicationSystem().apply(input);
+
+    REQUIRE(result.transactions.size() == 1);
+    CHECK(result.transactions[0].attacker.id == 3);
+    CHECK(result.transactions[0].defender.hp == 3);
+}
+
+TEST_CASE("BattleDamageApplication_AggregatedPendingDamageUsesLastPresentationMetadata", "[battle][damage_application][unit]")
+{
+    auto input = applicationInput();
+    input.aggregatePendingTransactionsByDefender = true;
+    input.units.push_back({ 3, 0, true });
+
+    auto first = damageInput(1, 2, 3);
+    auto second = damageInput(3, 2, 4);
+    second.attacker.id = 3;
+    input.pendingTransactions.push_back(first);
+    input.pendingTransactions.push_back(second);
+
+    BattleDamagePresentationInput firstPresentation;
+    firstPresentation.enabled = true;
+    firstPresentation.skillName = "先手";
+    firstPresentation.detailText = "第一段";
+    firstPresentation.normalDamageColor = { 10, 20, 30, 255 };
+    firstPresentation.normalDamageTextSize = 22;
+
+    BattleDamagePresentationInput secondPresentation;
+    secondPresentation.enabled = true;
+    secondPresentation.skillName = "終段";
+    secondPresentation.detailText = "第二段";
+    secondPresentation.critical = true;
+    secondPresentation.emphasizedDamageColor = { 40, 50, 60, 255 };
+    secondPresentation.emphasizedDamageTextSize = 33;
+    input.pendingPresentation.push_back(firstPresentation);
+    input.pendingPresentation.push_back(secondPresentation);
+
+    auto result = BattleDamageApplicationSystem().apply(input);
+
+    REQUIRE(result.transactions.size() == 1);
+    REQUIRE(result.presentationEvents.size() == 2);
+    CHECK(result.presentationEvents[0].type == BattlePresentationEventType::DamageNumber);
+    CHECK(result.presentationEvents[0].targetUnitId == 2);
+    CHECK(result.presentationEvents[0].amount == 7);
+    CHECK(result.presentationEvents[0].textSize == 33);
+    CHECK(result.presentationEvents[0].color.r == 40);
+    CHECK(result.presentationEvents[1].type == BattlePresentationEventType::DamageLog);
+    CHECK(result.presentationEvents[1].sourceUnitId == 3);
+    CHECK(result.presentationEvents[1].targetUnitId == 2);
+    CHECK(result.presentationEvents[1].amount == 7);
+    CHECK(result.presentationEvents[1].skillName == "終段");
+    CHECK(result.presentationEvents[1].detailText == "第二段");
 }
 
 TEST_CASE("BattleDamageApplication_DeathPreventionLeavesUnitAliveAndEmitsPresentation", "[battle][damage_application][unit]")
@@ -112,14 +189,13 @@ TEST_CASE("BattleDamageApplication_DeathAoeBecomesProjectileCommand", "[battle][
     auto result = BattleDamageApplicationSystem().apply(input);
 
     REQUIRE(result.commands.size() == 1);
-    const auto* command = std::get_if<BattleDeathAoeProjectileCommand>(&result.commands[0]);
+    const auto* command = std::get_if<BattleProjectileSpawnCommand>(&result.commands[0]);
     REQUIRE(command);
-    CHECK(command->sourceUnitId == 2);
-    CHECK(command->trackedTargetUnitId == 1);
-    CHECK(command->damage == 40);
-    CHECK(command->damagePct == 40);
-    CHECK(command->stunFrames == 5);
-    CHECK(command->maxTargets == 3);
+    CHECK(command->request.initial.attackerUnitId == 2);
+    CHECK(command->request.initial.preferredTargetUnitId == 1);
+    CHECK(command->request.initial.scriptedDamage == 40);
+    CHECK(command->request.initial.scriptedStunFrames == 5);
+    CHECK(command->request.initial.track);
 }
 
 TEST_CASE("BattleDamageApplication_AllyDeathEffectsBecomeExplicitCommands", "[battle][damage_application][unit]")
@@ -172,4 +248,8 @@ TEST_CASE("BattleDamageApplication_ReturnsBattleResultWithoutSceneTeamScan", "[b
     CHECK(result.winningTeam == 0);
     REQUIRE(findLifecycleEvent(result, BattleDamageLifecycleEventType::BattleEnded));
     CHECK(findLifecycleEvent(result, BattleDamageLifecycleEventType::BattleEnded)->value == 0);
+    REQUIRE(result.gameplayEvents.size() == 2);
+    CHECK(result.gameplayEvents[1].type == BattleGameplayEventType::BattleEnded);
+    CHECK(result.gameplayEvents[1].frame == 77);
+    CHECK(result.gameplayEvents[1].amount == 0);
 }
