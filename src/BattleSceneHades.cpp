@@ -42,6 +42,9 @@ using KysChess::BattleSceneBattleAdapter::BattleCastAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleCastSkillAdapterInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleCastInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
+using KysChess::BattleSceneBattleAdapter::makeBattleHitItemSnapshot;
+using KysChess::BattleSceneBattleAdapter::makeBattleHitSkillSnapshot;
+using KysChess::BattleSceneBattleAdapter::makeBattleHitUnitSnapshot;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -5376,49 +5379,34 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
         }
         damageDetail += text;
     };
-    //先特別處理暗器
-    if (usingHiddenWeapon != nullptr)
+    const int hiddenWeaponDamage = usingHiddenWeapon ? calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) : 0;
+    const int magicBaseDamage = usingMagic ? resolveLegacyMagicBaseDamage(attacker, r, usingMagic) : 0;
+    KysChess::Battle::BattleHitResolutionInput hitInput;
+    hitInput.attackEvent = event;
+    hitInput.attacker = makeBattleHitUnitSnapshot(attacker);
+    hitInput.defender = makeBattleHitUnitSnapshot(r);
+    hitInput.skill = makeBattleHitSkillSnapshot(attacker, r, usingMagic, magicBaseDamage);
+    hitInput.item = makeBattleHitItemSnapshot(usingHiddenWeapon, hiddenWeaponDamage);
+    auto hitResolution = KysChess::Battle::BattleHitResolver().resolve(hitInput);
+    hurt = hitResolution.shapedHpDamage;
+    for (const auto& command : hitResolution.commands)
     {
-        hurt = calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) / 5;
+        if (const auto* sideEffect = std::get_if<KysChess::Battle::BattleAcceptedHitSideEffectCommand>(&command))
+        {
+            applyAcceptedHitSideEffectTransaction(attacker, r, sideEffect->damage);
+        }
+        else if (const auto* knockback = std::get_if<KysChess::Battle::BattleKnockbackCommand>(&command))
+        {
+            auto target = findRoleByBattleId(battle_roles_, knockback->targetUnitId);
+            assert(knockback->velocityCap > 0.0);
+            target->Velocity += knockback->velocityDelta;
+            if (target->Velocity.norm() > knockback->velocityCap)
+            {
+                target->Velocity.normTo(static_cast<float>(knockback->velocityCap));
+            }
+            if (knockback->grantHurtFrame) { target->HurtFrame = 1; }
+        }
     }
-    else
-    {
-        hurt = resolveLegacyMagicBaseDamage(attacker, r, usingMagic);
-    }
-    KysChess::Battle::BattleLegacyHitShapeInput hitShapeInput;
-    hitShapeInput.baseDamage = hurt;
-    hitShapeInput.projectileCancelDamage = event.projectileCancelDamage;
-    hitShapeInput.strengthMultiplier = event.strengthMultiplier;
-    hitShapeInput.frame = event.frame;
-    hitShapeInput.totalFrame = event.totalFrame;
-    hitShapeInput.impactPosition = event.position;
-    hitShapeInput.defenderPosition = r->Pos;
-    hitShapeInput.defenderFacing = r->RealTowards;
-    hitShapeInput.operationType = KysChess::Battle::battleOperationFromLegacy(operationType);
-    hitShapeInput.usingSkill = usingMagic != nullptr;
-    if (usingMagic)
-    {
-        const int actType = usingMagic->MagicType;
-        hitShapeInput.attackerActProperty = attacker->getActProperty(actType);
-        hitShapeInput.defenderActProperty = r->getActProperty(actType);
-    }
-    const auto hitShape = KysChess::Battle::BattleDamageSystem().shapeLegacyHitDamage(hitShapeInput);
-    hurt = hitShape.damage;
-    if (hitShape.frozenFrames > 0)
-    {
-        KysChess::Battle::BattleDamageRequest request;
-        request.frozenFrames = hitShape.frozenFrames;
-        applyAcceptedHitSideEffectTransaction(attacker, r, request);
-    }
-    //擊退
-    auto v = r->Pos - attacker->Pos;
-    v.normTo(hitShape.knockbackStrength);
-    r->Velocity += v;
-    if (r->Velocity.norm() > hitShape.knockbackVelocityCap)
-    {
-        r->Velocity.normTo(hitShape.knockbackVelocityCap);
-    }
-    if (hitShape.grantsHurtFrame) { r->HurtFrame = 1; }
 
     if (usingMagic && attacker->MaxMP > 0)
     {

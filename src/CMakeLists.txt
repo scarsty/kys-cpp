@@ -28,6 +28,7 @@ add_library(kys_battle_core
     battle/BattleDeathEffectSystem.cpp
     battle/BattleEffectSystem.cpp
     battle/BattleGeometry.cpp
+    battle/BattleHitResolver.cpp
     battle/BattleMovement.cpp
     battle/BattlePresentation.cpp
     battle/BattlePresentationPlayback.cpp
@@ -49,6 +50,7 @@ add_executable(kys_tests
     ../tests/BattleDamageSystemUnitTests.cpp
     ../tests/BattleDeathEffectSystemUnitTests.cpp
     ../tests/BattleEffectSystemUnitTests.cpp
+    ../tests/BattleHitResolverUnitTests.cpp
     ../tests/BattleMovementRealStatsTests.cpp
     ../tests/BattlePresentationPlaybackUnitTests.cpp
     ../tests/BattlePresentationUnitTests.cpp

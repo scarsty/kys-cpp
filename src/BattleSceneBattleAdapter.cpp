@@ -216,4 +216,71 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     return world;
 }
 
+Battle::BattleHitUnitSnapshot makeBattleHitUnitSnapshot(Role* unit)
+{
+    assert(unit);
+
+    Battle::BattleHitUnitSnapshot snapshot;
+    snapshot.id = unit->ID;
+    snapshot.team = unit->Team;
+    snapshot.alive = unit->Dead == 0;
+    snapshot.hp = unit->HP;
+    snapshot.maxHp = unit->MaxHP;
+    snapshot.mp = unit->MP;
+    snapshot.maxMp = unit->MaxMP;
+    snapshot.attack = unit->Attack;
+    snapshot.defence = unit->Defence;
+    snapshot.speed = unit->Speed;
+    snapshot.invincible = unit->Invincible;
+    snapshot.hurtFrame = unit->HurtFrame;
+    snapshot.cooldown = unit->CoolDown;
+    snapshot.cooldownMax = unit->CoolDownMax;
+    snapshot.haveAction = unit->HaveAction != 0;
+    snapshot.operationType = Battle::battleOperationFromLegacy(unit->OperationType);
+    snapshot.actType = unit->ActType;
+    snapshot.position = unit->Pos;
+    snapshot.facing = unit->RealTowards;
+    return snapshot;
+}
+
+Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
+                                                          Role* defender,
+                                                          Magic* magic,
+                                                          int resolvedBaseDamage)
+{
+    Battle::BattleHitSkillSnapshot snapshot;
+    if (!magic)
+    {
+        return snapshot;
+    }
+    assert(attacker);
+    assert(defender);
+
+    snapshot.id = magic->ID;
+    snapshot.name = magic->Name;
+    snapshot.hurtType = magic->HurtType;
+    snapshot.magicType = magic->MagicType;
+    snapshot.effectId = magic->EffectID;
+    snapshot.attackerActProperty = attacker->getActProperty(magic->MagicType);
+    snapshot.defenderActProperty = defender->getActProperty(magic->MagicType);
+    snapshot.magicPower = attacker->getMagicPower(magic);
+    snapshot.resolvedBaseDamage = resolvedBaseDamage;
+    return snapshot;
+}
+
+Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolvedDamage)
+{
+    Battle::BattleHitItemSnapshot snapshot;
+    if (!item)
+    {
+        return snapshot;
+    }
+
+    snapshot.id = item->ID;
+    snapshot.name = item->Name;
+    snapshot.hiddenWeaponEffectId = item->HiddenWeaponEffectID;
+    snapshot.resolvedDamage = resolvedDamage;
+    return snapshot;
+}
+
 }  // namespace KysChess::BattleSceneBattleAdapter

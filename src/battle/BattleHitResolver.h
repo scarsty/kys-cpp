@@ -123,6 +123,7 @@ struct BattleKnockbackCommand
 {
     int targetUnitId = -1;
     Pointf velocityDelta;
+    double velocityCap = 0.0;
     bool grantHurtFrame = false;
 };
 
@@ -186,6 +187,7 @@ struct BattleHitResolutionResult
     bool reflected = false;
     bool critical = false;
     bool executed = false;
+    double shapedHpDamage = 0.0;
     int finalHpDamage = 0;
     int finalMpDamage = 0;
 };
