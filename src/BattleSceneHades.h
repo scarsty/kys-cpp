@@ -53,13 +53,23 @@ public:
 
 protected:
     struct MovementRuntime;
+    struct SceneBattleFrameInput
+    {
+        bool shouldAdvance = true;
+    };
+    struct SceneBattleFrameResult
+    {
+        bool advanced = false;
+    };
     void renderExtraRoleInfo(Role* r, double x, double y);
     //int calHurt(Role* r0, Role* r1);
     virtual int checkResult() override;
     virtual void setRoleInitState(Role* r) override;
-    bool advanceBattleFrameBeforeDamage();
-    void applyPendingPreResolvedDamageFrame();
-    void advanceBattleFrameAfterDamage();
+    SceneBattleFrameInput buildBattleFrameInput();
+    SceneBattleFrameResult advanceCoreBattleFrame(const SceneBattleFrameInput& input);
+    void applyCoreBattleFrameResult(const SceneBattleFrameResult& result);
+    void playCorePresentationFrame(const SceneBattleFrameResult& result);
+    void cleanupVisualOnlyBattleFrameState(const SceneBattleFrameResult& result);
     Role* findNearestEnemy(int team, Pointf p);
     Role* findFarthestEnemy(int team, Pointf p);
     int calCast(int act_type, int operation_type, Role* r);

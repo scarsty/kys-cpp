@@ -1,6 +1,10 @@
 #include "BattleSceneBattleAdapter.h"
 
 #include "Scene.h"
+#include "battle/BattleComboTriggerSystem.h"
+#include "battle/BattleDamageSystem.h"
+#include "battle/BattleProjectileTargetingSystem.h"
+#include "battle/BattleTeamEffectSystem.h"
 
 #include <algorithm>
 #include <cassert>
@@ -391,6 +395,150 @@ std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplic
         state.deathAOEStunFrames,
         state.deathAOEMaxTargets,
     };
+}
+
+std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(
+    RoleComboState& state,
+    const Battle::BattleComboFrameRuntimeInput& input)
+{
+    return Battle::BattleComboTriggerSystem().advanceFrameRuntime(state, input);
+}
+
+Battle::BattleDodgeResolution resolveBattleDodge(
+    const RoleComboState& state,
+    int attackerUnitId,
+    double rollPercent)
+{
+    return Battle::BattleComboTriggerSystem().resolveDodge(state, attackerUnitId, rollPercent);
+}
+
+Battle::BattleProjectileBouncePrime collectBattleProjectileBouncePrime(
+    const RoleComboState& state,
+    int attackerUnitId,
+    int rollPct,
+    int defaultRange)
+{
+    return Battle::BattleComboTriggerSystem().collectProjectileBouncePrime(
+        state,
+        {
+            attackerUnitId,
+            rollPct,
+            defaultRange,
+        });
+}
+
+int collectBattleExtraProjectileCount(RoleComboState& state, int unitId, int baseCount)
+{
+    return Battle::BattleComboTriggerSystem().collectExtraProjectileCount(
+        state,
+        { Battle::BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
+        baseCount,
+        []() { return 0.0; });
+}
+
+bool battleComboHasExecute(const RoleComboState& state, int attackerUnitId)
+{
+    return Battle::BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
+}
+
+double resolveBattleArmorPenetratedDefense(
+    const RoleComboState& state,
+    int attackerUnitId,
+    int targetUnitId,
+    double defense,
+    double rollPercent)
+{
+    return Battle::BattleComboTriggerSystem().resolveArmorPenetratedDefense(
+        state,
+        { attackerUnitId, targetUnitId, defense },
+        [rollPercent]() { return rollPercent; }).defense;
+}
+
+int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input)
+{
+    return Battle::BattleDamageSystem().resolveMagicBaseDamage(input);
+}
+
+std::vector<Battle::BattleTeamEffectEvent> applyBattleTeamEffect(
+    Battle::BattleTeamEffectWorld& world,
+    const BattleTeamEffectCommitRequest& request)
+{
+    assert(request.sourceUnitId >= 0);
+    switch (request.type)
+    {
+    case BattleTeamEffectCommitType::Heal:
+        return Battle::BattleTeamEffectSystem().applyTeamHeal(
+            world,
+            request.sourceUnitId,
+            request.flatHeal,
+            request.pctHeal);
+    case BattleTeamEffectCommitType::MpRestore:
+        return Battle::BattleTeamEffectSystem().applyTeamMp(
+            world,
+            request.sourceUnitId,
+            request.amount);
+    case BattleTeamEffectCommitType::Shield:
+        return Battle::BattleTeamEffectSystem().applyTeamShield(
+            world,
+            request.sourceUnitId,
+            request.amount,
+            request.refreshOnly);
+    }
+    assert(false);
+    return {};
+}
+
+std::vector<Battle::BattleTeamEffectEvent> applyBattleSelfHeal(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int pctHeal)
+{
+    return Battle::BattleTeamEffectSystem().applySelfHeal(world, sourceUnitId, pctHeal);
+}
+
+std::vector<Battle::BattleTeamEffectEvent> applyBattleHealAura(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int pctHeal,
+    int flatHeal,
+    double range,
+    int cooldownReductionPct)
+{
+    return Battle::BattleTeamEffectSystem().applyHealAura(
+        world,
+        sourceUnitId,
+        pctHeal,
+        flatHeal,
+        range,
+        cooldownReductionPct);
+}
+
+std::vector<int> selectBattleNearbyProjectileTargets(
+    const Battle::BattleProjectileTargetWorld& world,
+    int sourceUnitId,
+    int centerTargetUnitId,
+    int rangePixels)
+{
+    return Battle::BattleProjectileTargetingSystem().selectNearbyTargets(
+        world,
+        sourceUnitId,
+        centerTargetUnitId,
+        rangePixels);
+}
+
+std::vector<int> selectBattleAreaImpactTargets(
+    const Battle::BattleProjectileTargetWorld& world,
+    int originUnitId,
+    int areaSize,
+    int maxTargets,
+    int trackedTargetUnitId)
+{
+    return Battle::BattleProjectileTargetingSystem().selectAreaImpactTargets(
+        world,
+        originUnitId,
+        areaSize,
+        maxTargets,
+        trackedTargetUnitId);
 }
 
 }  // namespace KysChess::BattleSceneBattleAdapter

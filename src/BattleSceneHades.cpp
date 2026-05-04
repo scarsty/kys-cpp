@@ -5,13 +5,9 @@
 #include "BattleScenePresentationConstants.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCombatIntent.h"
-#include "battle/BattleComboTriggerSystem.h"
 #include "battle/BattleCore.h"
 #include "battle/BattleDamageApplicationSystem.h"
-#include "battle/BattleDamageSystem.h"
-#include "battle/BattleProjectileTargetingSystem.h"
 #include "battle/BattleStatusSystem.h"
-#include "battle/BattleTeamEffectSystem.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
 #include "ChessEftIds.h"
@@ -53,6 +49,18 @@ using KysChess::BattleSceneBattleAdapter::makeBattleHitItemSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitSkillSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitUnitSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleDamageApplicationUnitEffects;
+using KysChess::BattleSceneBattleAdapter::advanceBattleComboFrameRuntime;
+using KysChess::BattleSceneBattleAdapter::resolveBattleDodge;
+using KysChess::BattleSceneBattleAdapter::collectBattleProjectileBouncePrime;
+using KysChess::BattleSceneBattleAdapter::collectBattleExtraProjectileCount;
+using KysChess::BattleSceneBattleAdapter::battleComboHasExecute;
+using KysChess::BattleSceneBattleAdapter::resolveBattleArmorPenetratedDefense;
+using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
+using KysChess::BattleSceneBattleAdapter::applyBattleTeamEffect;
+using KysChess::BattleSceneBattleAdapter::applyBattleSelfHeal;
+using KysChess::BattleSceneBattleAdapter::applyBattleHealAura;
+using KysChess::BattleSceneBattleAdapter::selectBattleNearbyProjectileTargets;
+using KysChess::BattleSceneBattleAdapter::selectBattleAreaImpactTargets;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -1320,13 +1328,11 @@ void BattleSceneHades::attachProjectileBouncePrime(KysChess::Battle::BattleAttac
     {
         return;
     }
-    auto prime = KysChess::Battle::BattleComboTriggerSystem().collectProjectileBouncePrime(
+    auto prime = collectBattleProjectileBouncePrime(
         stateIt->second,
-        {
-            attack.attackerUnitId,
-            static_cast<int>(rand_.rand() * 100),
-            static_cast<int>(PROJECTILE_BOUNCE_RANGE),
-        });
+        attack.attackerUnitId,
+        static_cast<int>(rand_.rand() * 100),
+        static_cast<int>(PROJECTILE_BOUNCE_RANGE));
     if (prime.count <= 0)
     {
         return;
@@ -1351,7 +1357,7 @@ bool BattleSceneHades::attackCanHitInvincible(Role* role) const
         return false;
     }
 
-    return KysChess::Battle::BattleComboTriggerSystem().hasExecuteCombo(
+    return battleComboHasExecute(
         it->second,
         role->ID);
 }
@@ -1879,7 +1885,6 @@ void BattleSceneHades::advanceBattleFrame()
     }
 
     backRun1();
-    publishPresentationFrame();
     battle_frame_++;
 }
 
@@ -2770,15 +2775,16 @@ void BattleSceneHades::runListBasedSwap()
 
 void BattleSceneHades::backRun1()
 {
-    if (!advanceBattleFrameBeforeDamage())
-    {
-        return;
-    }
-    applyPendingPreResolvedDamageFrame();
-    advanceBattleFrameAfterDamage();
+    auto input = buildBattleFrameInput();
+    auto result = advanceCoreBattleFrame(input);
+    applyCoreBattleFrameResult(result);
+    playCorePresentationFrame(result);
+    cleanupVisualOnlyBattleFrameState(result);
 }
-bool BattleSceneHades::advanceBattleFrameBeforeDamage()
+
+BattleSceneHades::SceneBattleFrameInput BattleSceneHades::buildBattleFrameInput()
 {
+    SceneBattleFrameInput input;
 
     // 更新受击闪红计时器
     for (auto it = hurt_flash_timers_.begin(); it != hurt_flash_timers_.end();)
@@ -2796,13 +2802,29 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
 
     if (slow_ > 0)
     {
-        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL) { return false; }
+        if (battle_frame_ % CAMERA_SLOW_STEP_INTERVAL)
+        {
+            input.shouldAdvance = false;
+            return input;
+        }
         //x_ = rand_.rand_int(2) - rand_.rand_int(2);
         //y_ = rand_.rand_int(2) - rand_.rand_int(2);
         slow_--;
     }
     ultHitRoles_.clear();
     criticalHitRoles_.clear();
+    return input;
+}
+
+BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFrame(
+    const SceneBattleFrameInput& input)
+{
+    SceneBattleFrameResult result;
+    if (!input.shouldAdvance)
+    {
+        return result;
+    }
+    result.advanced = true;
 
     {
         auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
@@ -2830,7 +2852,7 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
             auto it = cs.find(r->ID);
             if (it != cs.end())
             {
-                for (const auto& event : KysChess::Battle::BattleComboTriggerSystem().advanceFrameRuntime(
+                for (const auto& event : advanceBattleComboFrameRuntime(
                          it->second,
                          {
                              battle_frame_,
@@ -3075,7 +3097,7 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     auto dit = cs.find(r->ID);
                     if (dit != cs.end())
                     {
-                        auto dodge = KysChess::Battle::BattleComboTriggerSystem().resolveDodge(
+                        auto dodge = resolveBattleDodge(
                             dit->second,
                             attacker->ID,
                             rand_.rand() * 100.0);
@@ -3168,11 +3190,15 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
     }
 
 
-    return true;
+    return result;
 }
 
-void BattleSceneHades::applyPendingPreResolvedDamageFrame()
+void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& result)
 {
+    if (!result.advanced)
+    {
+        return;
+    }
     //此處计算累积傷害
     auto isOccupied45 = [&](int x, int y, const Role* ignore)
     {
@@ -3823,10 +3849,6 @@ void BattleSceneHades::applyPendingPreResolvedDamageFrame()
         }
     }
 
-}
-
-void BattleSceneHades::advanceBattleFrameAfterDamage()
-{
     for (auto r : battle_roles_)
     {
         r->HP = GameUtil::limit(r->HP, 0, r->MaxHP);
@@ -3879,6 +3901,15 @@ void BattleSceneHades::advanceBattleFrameAfterDamage()
             setExit(true);
         }
     }
+}
+
+void BattleSceneHades::playCorePresentationFrame(const SceneBattleFrameResult& result)
+{
+    publishPresentationFrame();
+}
+
+void BattleSceneHades::cleanupVisualOnlyBattleFrameState(const SceneBattleFrameResult& result)
+{
 }
 
 void BattleSceneHades::Action(Role* r)
@@ -4184,32 +4215,27 @@ std::vector<KysChess::Battle::BattleTeamEffectEvent> BattleSceneHades::commitLeg
 
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-    std::vector<KysChess::Battle::BattleTeamEffectEvent> events;
+    KysChess::BattleSceneBattleAdapter::BattleTeamEffectCommitRequest adapterRequest;
+    adapterRequest.sourceUnitId = request.sourceUnitId;
+    adapterRequest.flatHeal = request.flatHeal;
+    adapterRequest.pctHeal = request.pctHeal;
+    adapterRequest.amount = request.amount;
+    adapterRequest.refreshOnly = request.refreshOnly;
     switch (request.type)
     {
     case LegacyTeamEffectCommitType::Heal:
-        events = KysChess::Battle::BattleTeamEffectSystem().applyTeamHeal(
-            world,
-            request.sourceUnitId,
-            request.flatHeal,
-            request.pctHeal);
+        adapterRequest.type = KysChess::BattleSceneBattleAdapter::BattleTeamEffectCommitType::Heal;
         break;
     case LegacyTeamEffectCommitType::MpRestore:
-        events = KysChess::Battle::BattleTeamEffectSystem().applyTeamMp(
-            world,
-            request.sourceUnitId,
-            request.amount);
+        adapterRequest.type = KysChess::BattleSceneBattleAdapter::BattleTeamEffectCommitType::MpRestore;
         break;
     case LegacyTeamEffectCommitType::Shield:
-        events = KysChess::Battle::BattleTeamEffectSystem().applyTeamShield(
-            world,
-            request.sourceUnitId,
-            request.amount,
-            request.refreshOnly);
+        adapterRequest.type = KysChess::BattleSceneBattleAdapter::BattleTeamEffectCommitType::Shield;
         break;
     default:
         assert(false);
     }
+    auto events = applyBattleTeamEffect(world, adapterRequest);
     writeBattleTeamEffectWorld(world, battle_roles_, cs);
     return events;
 }
@@ -4294,7 +4320,7 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
     {
         assert(event.value > 0);
         auto world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
-        auto events = KysChess::Battle::BattleTeamEffectSystem().applySelfHeal(world, role->ID, event.value);
+        auto events = applyBattleSelfHeal(world, role->ID, event.value);
         writeBattleTeamEffectWorld(world, battle_roles_, comboStates);
         for (const auto& teamEvent : events)
         {
@@ -4306,7 +4332,7 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
     case KysChess::Battle::BattleComboFrameRuntimeEventType::HealAura:
     {
         auto world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
-        auto events = KysChess::Battle::BattleTeamEffectSystem().applyHealAura(
+        auto events = applyBattleHealAura(
             world,
             role->ID,
             event.value,
@@ -4402,11 +4428,10 @@ int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
     assert(it != cs.end());
 
     auto& s = it->second;
-    return KysChess::Battle::BattleComboTriggerSystem().collectExtraProjectileCount(
+    return collectBattleExtraProjectileCount(
         s,
-        { KysChess::Battle::BattleComboTriggerHook::AfterSkillCast, r->ID, -1 },
-        std::max(0, s.ultimateExtraProjectiles),
-        []() { return 0.0; });
+        r->ID,
+        std::max(0, s.ultimateExtraProjectiles));
 }
 
 void BattleSceneHades::spawnUltimateExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount)
@@ -4462,7 +4487,7 @@ void BattleSceneHades::spawnNearbyTrackingProjectiles(const KysChess::Battle::Ba
     assert(rangePixels > 0);
 
     auto* attacker = findRoleByBattleId(battle_roles_, prototype.sourceUnitId);
-    auto targetIds = KysChess::Battle::BattleProjectileTargetingSystem().selectNearbyTargets(
+    auto targetIds = selectBattleNearbyProjectileTargets(
         makeBattleProjectileTargetWorld(battle_roles_),
         attacker->ID,
         centerTarget->ID,
@@ -4714,7 +4739,7 @@ void BattleSceneHades::spawnAreaImpactProjectiles(Role* attacker,
         queueCoreAttackSpawn(std::move(request));
     };
 
-    auto targetIds = KysChess::Battle::BattleProjectileTargetingSystem().selectAreaImpactTargets(
+    auto targetIds = selectBattleAreaImpactTargets(
         makeBattleProjectileTargetWorld(battle_roles_),
         origin->ID,
         areaSize,
@@ -5650,13 +5675,15 @@ int BattleSceneHades::resolveLegacyMagicBaseDamage(Role* attacker, Role* defende
     auto it = cs.find(attacker->ID);
     if (it != cs.end())
     {
-        defence = KysChess::Battle::BattleComboTriggerSystem().resolveArmorPenetratedDefense(
+        defence = resolveBattleArmorPenetratedDefense(
             it->second,
-            { attacker->ID, defender->ID, defence },
-            [&]() { return rand_.rand() * 100.0; }).defense;
+            attacker->ID,
+            defender->ID,
+            defence,
+            rand_.rand() * 100.0);
     }
 
-    return KysChess::Battle::BattleDamageSystem().resolveMagicBaseDamage({
+    return resolveBattleMagicBaseDamage({
         attacker->Attack,
         attacker->getMagicPower(magic),
         defence,

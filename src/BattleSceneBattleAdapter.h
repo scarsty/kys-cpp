@@ -5,6 +5,8 @@
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
 #include "battle/BattleDamageApplicationSystem.h"
+#include "battle/BattleProjectileTargetingSystem.h"
+#include "battle/BattleTeamEffectSystem.h"
 #include "battle/BattleHitResolver.h"
 
 #include <cstddef>
@@ -49,6 +51,23 @@ struct BattleCastAdapterInput
     int cooldownReductionPct = 0;
 };
 
+enum class BattleTeamEffectCommitType
+{
+    Heal,
+    MpRestore,
+    Shield,
+};
+
+struct BattleTeamEffectCommitRequest
+{
+    BattleTeamEffectCommitType type = BattleTeamEffectCommitType::Heal;
+    int sourceUnitId = -1;
+    int flatHeal = 0;
+    int pctHeal = 0;
+    int amount = 0;
+    bool refreshOnly = false;
+};
+
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 
 Battle::BattleCastConfig makeBattleCastConfig();
@@ -83,5 +102,51 @@ Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolved
 Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage);
 std::optional<Battle::BattleDamageApplicationUnitEffects> makeBattleDamageApplicationUnitEffects(
     const RoleComboState& state);
+std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(
+    RoleComboState& state,
+    const Battle::BattleComboFrameRuntimeInput& input);
+Battle::BattleDodgeResolution resolveBattleDodge(
+    const RoleComboState& state,
+    int attackerUnitId,
+    double rollPercent);
+Battle::BattleProjectileBouncePrime collectBattleProjectileBouncePrime(
+    const RoleComboState& state,
+    int attackerUnitId,
+    int rollPct,
+    int defaultRange);
+int collectBattleExtraProjectileCount(RoleComboState& state, int unitId, int baseCount);
+bool battleComboHasExecute(const RoleComboState& state, int attackerUnitId);
+double resolveBattleArmorPenetratedDefense(
+    const RoleComboState& state,
+    int attackerUnitId,
+    int targetUnitId,
+    double defense,
+    double rollPercent);
+int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input);
+std::vector<Battle::BattleTeamEffectEvent> applyBattleTeamEffect(
+    Battle::BattleTeamEffectWorld& world,
+    const BattleTeamEffectCommitRequest& request);
+std::vector<Battle::BattleTeamEffectEvent> applyBattleSelfHeal(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int pctHeal);
+std::vector<Battle::BattleTeamEffectEvent> applyBattleHealAura(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int pctHeal,
+    int flatHeal,
+    double range,
+    int cooldownReductionPct);
+std::vector<int> selectBattleNearbyProjectileTargets(
+    const Battle::BattleProjectileTargetWorld& world,
+    int sourceUnitId,
+    int centerTargetUnitId,
+    int rangePixels);
+std::vector<int> selectBattleAreaImpactTargets(
+    const Battle::BattleProjectileTargetWorld& world,
+    int originUnitId,
+    int areaSize,
+    int maxTargets,
+    int trackedTargetUnitId);
 
 }  // namespace KysChess::BattleSceneBattleAdapter
