@@ -45,7 +45,6 @@ using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitItemSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitSkillSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitUnitSnapshot;
-using KysChess::BattleSceneBattleAdapter::makeBattleMpLeechDamageRequest;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -3179,7 +3178,44 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     || event.hiddenWeaponItemId >= 0)
                 {
                     Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                    commitBattleHitImpact(event, r);
+                    auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
+                    auto* usingHiddenWeapon = event.hiddenWeaponItemId >= 0 ? Save::getInstance()->getItem(event.hiddenWeaponItemId) : nullptr;
+                    assert(usingHiddenWeapon || usingMagic);
+                    assert(event.totalFrame > 0);
+
+                    KysChess::Battle::BattleHitResolutionInput hitInput;
+                    hitInput.attackEvent = event;
+                    hitInput.attacker = makeBattleHitUnitSnapshot(attacker);
+                    hitInput.defender = makeBattleHitUnitSnapshot(r);
+                    hitInput.skill = makeBattleHitSkillSnapshot(
+                        attacker,
+                        r,
+                        usingMagic,
+                        usingMagic ? resolveLegacyMagicBaseDamage(attacker, r, usingMagic) : 0);
+                    hitInput.item = makeBattleHitItemSnapshot(
+                        usingHiddenWeapon,
+                        usingHiddenWeapon ? calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) : 0);
+                    hitInput.pendingDefenderHpDamage = pendingPreResolvedHpDamage(r);
+                    hitInput.randomDamageVariance = static_cast<int>(5 * (rand_.rand() - rand_.rand()));
+
+                    auto& cs = KysChess::ChessCombo::getMutableStates();
+                    auto attackerComboIt = cs.find(attacker->ID);
+                    auto defenderComboIt = cs.find(r->ID);
+                    if (attackerComboIt != cs.end())
+                    {
+                        hitInput.attackerCombo = attackerComboIt->second;
+                    }
+                    if (defenderComboIt != cs.end())
+                    {
+                        hitInput.defenderCombo = defenderComboIt->second;
+                    }
+                    for (int i = 0; i < 64; ++i)
+                    {
+                        hitInput.percentRolls.push_back(rand_.rand() * 100.0);
+                    }
+
+                    auto hitResolution = KysChess::Battle::BattleHitResolver().resolve(hitInput);
+                    applyResolvedBattleHit(hitResolution);
                 }
                 //std::vector<std::string> = {};
             }
@@ -5317,41 +5353,11 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
     }
 }
 
-void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttackEvent& event, Role* r)
+void BattleSceneHades::applyResolvedBattleHit(const KysChess::Battle::BattleHitResolutionResult& hitResolution)
 {
-    assert(r);
-    auto* attacker = findRoleByBattleId(battle_roles_, event.sourceUnitId);
-    auto* usingMagic = event.skillId >= 0 ? Save::getInstance()->getMagic(event.skillId) : nullptr;
-    auto* usingHiddenWeapon = event.hiddenWeaponItemId >= 0 ? Save::getInstance()->getItem(event.hiddenWeaponItemId) : nullptr;
-    assert(usingHiddenWeapon || usingMagic);
-    assert(event.totalFrame > 0);
-    const int hiddenWeaponDamage = usingHiddenWeapon ? calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) : 0;
-    const int magicBaseDamage = usingMagic ? resolveLegacyMagicBaseDamage(attacker, r, usingMagic) : 0;
-    const int randomDamageVariance = static_cast<int>(5 * (rand_.rand() - rand_.rand()));
     auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto attackerComboIt = cs.find(attacker->ID);
-    auto defenderComboIt = cs.find(r->ID);
-    KysChess::Battle::BattleHitResolutionInput hitInput;
-    hitInput.attackEvent = event;
-    hitInput.attacker = makeBattleHitUnitSnapshot(attacker);
-    hitInput.defender = makeBattleHitUnitSnapshot(r);
-    hitInput.skill = makeBattleHitSkillSnapshot(attacker, r, usingMagic, magicBaseDamage);
-    hitInput.item = makeBattleHitItemSnapshot(usingHiddenWeapon, hiddenWeaponDamage);
-    hitInput.pendingDefenderHpDamage = pendingPreResolvedHpDamage(r);
-    hitInput.randomDamageVariance = randomDamageVariance;
-    if (attackerComboIt != cs.end())
-    {
-        hitInput.attackerCombo = attackerComboIt->second;
-    }
-    if (defenderComboIt != cs.end())
-    {
-        hitInput.defenderCombo = defenderComboIt->second;
-    }
-    for (int i = 0; i < 64; ++i)
-    {
-        hitInput.percentRolls.push_back(rand_.rand() * 100.0);
-    }
-    auto hitResolution = KysChess::Battle::BattleHitResolver().resolve(hitInput);
+    auto attackerComboIt = cs.find(hitResolution.attackerUnitId);
+    auto defenderComboIt = cs.find(hitResolution.defenderUnitId);
     if (attackerComboIt != cs.end())
     {
         attackerComboIt->second = hitResolution.attackerCombo;
@@ -5384,6 +5390,19 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
             auto source = sideEffect->sourceUnitId >= 0 ? findRoleByBattleId(battle_roles_, sideEffect->sourceUnitId) : nullptr;
             auto target = findRoleByBattleId(battle_roles_, sideEffect->targetUnitId);
             applyAcceptedHitSideEffectTransaction(source, target, sideEffect->damage);
+        }
+        else if (const auto* mpDamage = std::get_if<KysChess::Battle::BattleMpDamageCommand>(&command))
+        {
+            auto source = mpDamage->sourceUnitId >= 0 ? findRoleByBattleId(battle_roles_, mpDamage->sourceUnitId) : nullptr;
+            auto target = findRoleByBattleId(battle_roles_, mpDamage->targetUnitId);
+            auto result = applyAcceptedHitSideEffectTransaction(source, target, mpDamage->damage);
+            for (const auto& event : result.events)
+            {
+                if (event.type == KysChess::Battle::BattleDamageEventType::MpDamageApplied)
+                {
+                    addDamageNumber(target, event.value, { 160, 32, 240, 255 });
+                }
+            }
         }
         else if (const auto* knockback = std::get_if<KysChess::Battle::BattleKnockbackCommand>(&command))
         {
@@ -5486,23 +5505,6 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
     {
         presentation_recorder_.recordPresentation(presentationEvent);
     }
-
-    Role* actualSource = hitResolution.reflected ? r : attacker;
-    Role* actualTarget = hitResolution.reflected ? attacker : r;
-    if (usingMagic && usingMagic->HurtType == 1)
-    {
-        const int mpDamage = std::max(0, static_cast<int>(hitResolution.shapedHpDamage) + randomDamageVariance);
-        auto request = makeBattleMpLeechDamageRequest(mpDamage);
-        auto result = applyAcceptedHitSideEffectTransaction(actualSource, actualTarget, request);
-        for (const auto& event : result.events)
-        {
-            if (event.type == KysChess::Battle::BattleDamageEventType::MpDamageApplied)
-            {
-                addDamageNumber(actualTarget, event.value, { 160, 32, 240, 255 });
-            }
-        }
-    }
-    //LOG("{} attack {} with {} as {}, hurt {}\n", attacker->Name, r->Name, usingMagic->Name, operationType, int(hurt));
 }
 
 int BattleSceneHades::calRolePic(Role* r, int style, int frame)

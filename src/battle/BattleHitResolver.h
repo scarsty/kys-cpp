@@ -212,6 +212,8 @@ struct BattleHitResolutionInput
 
 struct BattleHitResolutionResult
 {
+    int attackerUnitId = -1;
+    int defenderUnitId = -1;
     RoleComboState attackerCombo;
     RoleComboState defenderCombo;
     std::vector<BattleGameplayCommand> commands;

@@ -466,3 +466,27 @@ TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCo
         });
     CHECK(nearby == result.commands.end());
 }
+
+TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 1;
+    input.skill.resolvedBaseDamage = 50;
+    input.randomDamageVariance = -5;
+
+    auto result = BattleHitResolver().resolve(input);
+
+    auto mpDamage = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
+        {
+            return std::holds_alternative<BattleMpDamageCommand>(command);
+        });
+    REQUIRE(mpDamage != result.commands.end());
+    const auto& command = std::get<BattleMpDamageCommand>(*mpDamage);
+    CHECK(command.sourceUnitId == 1);
+    CHECK(command.targetUnitId == 2);
+    CHECK(command.damage.mpDamage == 45);
+    CHECK(command.damage.mpOnHit == 36);
+    CHECK(result.finalHpDamage == 0);
+    CHECK(result.finalMpDamage == 45);
+}

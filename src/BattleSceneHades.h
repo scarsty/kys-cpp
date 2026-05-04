@@ -3,6 +3,7 @@
 #include "battle/BattleCore.h"
 #include "battle/BattleComboTriggerSystem.h"
 #include "battle/BattleDamageSystem.h"
+#include "battle/BattleHitResolver.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
 #include "battle/BattleTeamEffectSystem.h"
@@ -64,7 +65,7 @@ protected:
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
 
-    void commitBattleHitImpact(const KysChess::Battle::BattleAttackEvent& event, Role* r);
+    void applyResolvedBattleHit(const KysChess::Battle::BattleHitResolutionResult& result);
     void queuePreResolvedHpDamage(Role* source,
                                   Role* target,
                                   int damage,

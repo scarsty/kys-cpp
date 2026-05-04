@@ -248,6 +248,8 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     assert(input.defender.id >= 0);
 
     BattleHitResolutionResult result;
+    result.attackerUnitId = input.attacker.id;
+    result.defenderUnitId = input.defender.id;
     result.attackerCombo = input.attackerCombo;
     result.defenderCombo = input.defenderCombo;
 
@@ -839,6 +841,25 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 damageDetail,
             });
             result.finalHpDamage = damage;
+        }
+    }
+    else if (!usingHpDamage && result.shapedHpDamage > 0)
+    {
+        int damage = static_cast<int>(result.shapedHpDamage) + input.randomDamageVariance;
+        damage = std::max(0, damage);
+        if (damage > 0)
+        {
+            BattleDamageRequest request;
+            request.mpDamage = damage;
+            request.mpOnHit = static_cast<int>(damage * 0.8);
+            const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
+            const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
+            result.commands.push_back(BattleMpDamageCommand{
+                sourceUnitId,
+                targetUnitId,
+                request,
+            });
+            result.finalMpDamage = damage;
         }
     }
 
