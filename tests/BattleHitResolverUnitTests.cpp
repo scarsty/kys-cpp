@@ -63,6 +63,15 @@ const BattleAcceptedHitSideEffectCommand* firstAcceptedHitCommand(const BattleHi
     return it == result.commands.end() ? nullptr : &std::get<BattleAcceptedHitSideEffectCommand>(*it);
 }
 
+const BattleHpDamageCommand* firstHpDamageCommand(const BattleHitResolutionResult& result)
+{
+    auto it = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
+        {
+            return std::holds_alternative<BattleHpDamageCommand>(command);
+        });
+    return it == result.commands.end() ? nullptr : &std::get<BattleHpDamageCommand>(*it);
+}
+
 }  // namespace
 
 TEST_CASE("BattleHitResolver_NonHitEvent_ReturnsNoGameplayCommands", "[battle][hit_resolver][unit]")
@@ -244,4 +253,125 @@ TEST_CASE("BattleHitResolver_TriggeredTeamHealEmitsCommandWithoutApplyingTeamWor
     CHECK(command.flatHeal == 12);
     CHECK(command.pctHeal == 0);
     CHECK(command.reason == "命中群療");
+}
+
+TEST_CASE("BattleHitResolver_ReflectedRangedProjectileChangesActualSourceAndTarget", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.attackEvent.operationType = BattleOperationType::RangedProjectile;
+    input.skill.id = 101;
+    input.skill.resolvedBaseDamage = 40;
+    input.defenderCombo.projectileReflectPct = 100;
+    input.percentRolls = { 0.0 };
+
+    auto result = BattleHitResolver().resolve(input);
+
+    CHECK(result.reflected);
+    const auto* command = firstHpDamageCommand(result);
+    REQUIRE(command);
+    CHECK(command->sourceUnitId == 2);
+    CHECK(command->targetUnitId == 1);
+    CHECK(command->detailText == "彈反");
+
+    auto reflectedAttribution = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
+        {
+            const auto* lastAttacker = std::get_if<BattleLastAttackerCommand>(&command);
+            return lastAttacker && lastAttacker->targetUnitId == 1 && lastAttacker->attackerUnitId == 2;
+        });
+    REQUIRE(reflectedAttribution != result.commands.end());
+}
+
+TEST_CASE("BattleHitResolver_ExecuteTurnsFinalDamageIntoExecutedHpCommand", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 20;
+    input.defender.hp = 30;
+    input.defender.maxHp = 100;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::Execute, KysChess::Trigger::OnHit, 50, 100));
+    input.percentRolls = { 0.0 };
+
+    auto result = BattleHitResolver().resolve(input);
+
+    CHECK(result.executed);
+    const auto* command = firstHpDamageCommand(result);
+    REQUIRE(command);
+    CHECK(command->sourceUnitId == 1);
+    CHECK(command->targetUnitId == 2);
+    CHECK(command->executed);
+    CHECK(command->damage == 30);
+    CHECK(command->detailText == "處決");
+}
+
+TEST_CASE("BattleHitResolver_FirstHitBlockZerosDamageAndEmitsBlockPresentation", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.defenderCombo.blockFirstHitsRemaining = 1;
+
+    auto result = BattleHitResolver().resolve(input);
+
+    CHECK(result.finalHpDamage == 0);
+    CHECK_FALSE(firstHpDamageCommand(result));
+    CHECK(result.defenderCombo.blockFirstHitsRemaining == 0);
+    auto block = std::find_if(result.presentationEvents.begin(), result.presentationEvents.end(), [](const BattlePresentationEvent& event)
+        {
+            return event.type == BattlePresentationEventType::StatusLog && event.text == "格擋了首轮傷害";
+        });
+    REQUIRE(block != result.presentationEvents.end());
+}
+
+TEST_CASE("BattleHitResolver_SkillReflectEmitsReflectedHpDamageCommand", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.defenderCombo.skillReflectPct = 20;
+
+    auto result = BattleHitResolver().resolve(input);
+
+    auto reflected = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
+        {
+            const auto* hp = std::get_if<BattleHpDamageCommand>(&command);
+            return hp && hp->sourceUnitId == 2 && hp->targetUnitId == 1;
+        });
+    REQUIRE(reflected != result.commands.end());
+    const auto& command = std::get<BattleHpDamageCommand>(*reflected);
+    CHECK(command.damage == 10);
+    CHECK(command.detailText == "技能反彈");
+}
+
+TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackerCombo.bleedChancePct = 100;
+    input.attackerCombo.bleedMaxStacks = 3;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::MPBlock, KysChess::Trigger::OnHit, 9, 100));
+    input.percentRolls = { 0.0, 0.0 };
+
+    auto result = BattleHitResolver().resolve(input);
+
+    bool sawBleed = false;
+    bool sawMpBlock = false;
+    for (const auto& command : result.commands)
+    {
+        const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command);
+        if (!sideEffect)
+        {
+            continue;
+        }
+        sawBleed = sawBleed || sideEffect->damage.bleedStacks == 1;
+        sawMpBlock = sawMpBlock || sideEffect->damage.mpBlockFrames == 9;
+    }
+    CHECK(sawBleed);
+    CHECK(sawMpBlock);
 }

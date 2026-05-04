@@ -75,6 +75,15 @@ std::string formatStackingEffectStatus(const char* label, int pctPerStack, int s
     return std::format("{} +{}%（{}層）", label, pctPerStack * stacks, stacks);
 }
 
+std::string formatStatusRange(const char* label, int current, int maxValue, const char* unit)
+{
+    if (current <= 0 || maxValue <= 0)
+    {
+        return label;
+    }
+    return std::format("{}（{}/{}{}）", label, current, maxValue, unit);
+}
+
 std::string formatCooldownIncreaseStatus(int pct, int before, int after)
 {
     if (pct <= 0)
@@ -86,6 +95,15 @@ std::string formatCooldownIncreaseStatus(int pct, int before, int after)
         return std::format("冷卻延長（+{}%，{}→{}幀）", pct, before, after);
     }
     return std::format("冷卻延長（+{}%）", pct);
+}
+
+std::string formatExecuteStatus(int thresholdPct)
+{
+    if (thresholdPct <= 0)
+    {
+        return "觸發處決";
+    }
+    return std::format("觸發處決（斬殺線{}%）", thresholdPct);
 }
 
 BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const RoleComboState* combo)
@@ -101,8 +119,17 @@ BattleDamageUnitState makeDamageUnit(const BattleHitUnitSnapshot& unit, const Ro
     damageUnit.invincible = unit.invincible;
     if (combo)
     {
+        damageUnit.shield = combo->shield;
+        damageUnit.blockFirstHitsRemaining = combo->blockFirstHitsRemaining;
+        damageUnit.deathPrevention = combo->deathPrevention;
+        damageUnit.deathPreventionUsed = combo->deathPreventionUsed;
+        damageUnit.deathPreventionFrames = combo->deathPreventionFrames;
+        damageUnit.killHealPct = combo->killHealPct;
+        damageUnit.killInvincFrames = combo->killInvincFrames;
+        damageUnit.bloodlustAttackPerKill = combo->bloodlustATKPerKill;
         damageUnit.mpBlocked = combo->mpBlockTimer > 0;
         damageUnit.mpRecoveryBonusPct = combo->mpRecoveryBonusPct;
+        damageUnit.hurtInvincFrames = combo->hurtInvincFrames;
     }
     return damageUnit;
 }
@@ -168,6 +195,20 @@ BattlePresentationEvent roleEffectEvent(int targetUnitId, int effectId, int dura
     return event;
 }
 
+BattlePresentationEvent floatingTextEvent(int targetUnitId,
+                                          std::string text,
+                                          BattlePresentationColor color,
+                                          int textSize)
+{
+    BattlePresentationEvent event;
+    event.type = BattlePresentationEventType::FloatingText;
+    event.targetUnitId = targetUnitId;
+    event.text = std::move(text);
+    event.color = color;
+    event.textSize = textSize;
+    return event;
+}
+
 BattleAcceptedHitSideEffectCommand acceptedHitCommand(int sourceUnitId,
                                                       int targetUnitId,
                                                       BattleDamageRequest request)
@@ -176,6 +217,27 @@ BattleAcceptedHitSideEffectCommand acceptedHitCommand(int sourceUnitId,
     request.defenderUnitId = targetUnitId;
     request.acceptedHit = true;
     return { sourceUnitId, targetUnitId, request };
+}
+
+void writeDefenseState(RoleComboState& combo, const BattleDamageUnitState& unit)
+{
+    combo.shield = unit.shield;
+    combo.blockFirstHitsRemaining = unit.blockFirstHitsRemaining;
+    combo.deathPreventionUsed = unit.deathPreventionUsed;
+}
+
+std::string appendDetail(std::string detail, const std::string& text)
+{
+    if (text.empty())
+    {
+        return detail;
+    }
+    if (!detail.empty())
+    {
+        detail += "、";
+    }
+    detail += text;
+    return detail;
 }
 
 }  // namespace
@@ -216,7 +278,6 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     const auto shaped = BattleDamageSystem().shapeLegacyHitDamage(shapeInput);
     result.shapedHpDamage = shaped.damage;
-    result.finalHpDamage = static_cast<int>(shaped.damage);
     BattleHitRollStream rolls(input.percentRolls);
 
     if (shaped.frozenFrames > 0)
@@ -401,8 +462,308 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
         });
     }
 
+    auto defenderCombo = input.defenderCombo;
+    const bool rangedProjectile = usingHiddenWeapon || input.attackEvent.operationType == BattleOperationType::RangedProjectile;
+    const bool usingHpDamage = usingHiddenWeapon || input.skill.hurtType == 0;
+
+    result.shapedHpDamage = BattleDamageSystem().applyModifiers({
+        result.shapedHpDamage,
+        false,
+        false,
+        {},
+        makeBattleDamageModifierState(&defenderCombo),
+        makeDamageUnit(input.defender, &defenderCombo),
+    }).damage;
+
+    auto defenderDamage = BattleComboTriggerSystem().shapeDefenderHitDamage(
+        defenderCombo,
+        { result.shapedHpDamage, input.defender.hp, input.defender.maxHp, defenderCombo.lastAliveFlag, input.attacker.id });
+    result.shapedHpDamage = defenderDamage.damage;
+    for (const auto& damageEvent : defenderDamage.events)
+    {
+        switch (damageEvent.type)
+        {
+        case BattleDefenderHitDamageEventType::DamageAdaptationStack:
+            result.presentationEvents.push_back(statusEvent(
+                input.defender.id,
+                input.attacker.id,
+                formatStackingEffectStatus("同敵減傷", damageEvent.value, damageEvent.value2)));
+            break;
+        case BattleDefenderHitDamageEventType::DodgeAdaptationStack:
+            result.presentationEvents.push_back(statusEvent(
+                input.defender.id,
+                input.attacker.id,
+                formatStackingEffectStatus("同敵閃避", damageEvent.value, damageEvent.value2)));
+            break;
+        default:
+            assert(false);
+        }
+    }
+
+    BattleDamageModifierState lateAttackerModifier;
+    lateAttackerModifier.poisonDamageAmpPct = attackerCombo.poisonDmgAmpPct;
+    BattleDamageModifierState lateDefenderModifier;
+    lateDefenderModifier.poisonTimer = defenderCombo.poisonTimer;
+    lateDefenderModifier.maxHitPctMaxHp = defenderCombo.maxHitPctCurrentHP;
+    auto lateDamage = BattleDamageSystem().applyModifiers({
+        result.shapedHpDamage,
+        false,
+        true,
+        lateAttackerModifier,
+        lateDefenderModifier,
+        makeDamageUnit(input.defender, &defenderCombo),
+    });
+    result.shapedHpDamage = lateDamage.damage;
+    if (lateDamage.maxHitCapped)
+    {
+        result.presentationEvents.push_back(statusEvent(
+            input.defender.id,
+            input.attacker.id,
+            std::format("單次承傷封頂{}%最大生命", lateDamage.maxHitPct)));
+    }
+
+    int defensiveCooldownExtendPct = BattleComboTriggerSystem().resolveDefensiveCooldownExtendPct(
+        defenderCombo,
+        [&]() { return rolls.next(); });
+    if (defensiveCooldownExtendPct > 0)
+    {
+        BattleDamageRequest request;
+        request.cooldownExtendPct = defensiveCooldownExtendPct;
+        result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
+
+        auto cooldown = BattleDamageSystem().extendActiveCooldown(
+            makeCooldownState(input.attacker),
+            defensiveCooldownExtendPct);
+        if (cooldown.increased)
+        {
+            result.presentationEvents.push_back(statusEvent(
+                input.defender.id,
+                input.attacker.id,
+                formatCooldownIncreaseStatus(defensiveCooldownExtendPct, cooldown.before, cooldown.after)));
+        }
+    }
+
+    auto beingHitStunCommands = BattleComboTriggerSystem().collectStunCommands(
+        defenderCombo,
+        { BattleComboTriggerHook::DamageTaken, input.defender.id, input.attacker.id },
+        [&]() { return rolls.next(); });
+    for (const auto& stunCommand : beingHitStunCommands)
+    {
+        BattleDamageRequest request;
+        request.frozenFrames = stunCommand.frames;
+        result.commands.push_back(acceptedHitCommand(input.defender.id, input.attacker.id, request));
+        result.presentationEvents.push_back(statusEvent(
+            input.defender.id,
+            input.attacker.id,
+            formatStatusFrames("反制並眩暈對手", stunCommand.frames)));
+        BattleComboTriggerSystem().recordActivation(
+            defenderCombo,
+            static_cast<size_t>(stunCommand.effectIndex));
+    }
+
+    result.reflected = BattleComboTriggerSystem().resolveProjectileReflect(
+        defenderCombo,
+        rangedProjectile,
+        [&]() { return rolls.next(); });
+    if (result.reflected)
+    {
+        result.presentationEvents.push_back(floatingTextEvent(
+            input.defender.id,
+            "彈反",
+            { 180, 150, 255, 255 },
+            24));
+        result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "彈反了遠程攻擊"));
+    }
+
+    if (!result.reflected)
+    {
+        auto executeResult = BattleComboTriggerSystem().resolveExecuteCombo(
+            attackerCombo,
+            {
+                input.attacker.id,
+                input.defender.id,
+                input.defender.hp - input.pendingDefenderHpDamage,
+                input.defender.maxHp,
+                result.shapedHpDamage,
+                usingHpDamage,
+            },
+            [&]() { return rolls.next(); });
+        if (executeResult.executed)
+        {
+            result.executed = true;
+            result.presentationEvents.push_back(statusEvent(
+                input.attacker.id,
+                input.defender.id,
+                formatExecuteStatus(executeResult.thresholdPct)));
+        }
+    }
+
+    auto blockCommands = BattleComboTriggerSystem().collectDefenderBlockCommands(
+        defenderCombo,
+        { result.executed, result.reflected },
+        [&]() { return rolls.next(); });
+    for (auto blockCommand : blockCommands)
+    {
+        result.shapedHpDamage = 0;
+        switch (blockCommand)
+        {
+        case BattleDefenderBlockCommand::CounterUltimateBlock:
+            result.presentationEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+            result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋後釋放絕招"));
+            result.commands.push_back(BattleAutoUltimateCommand{ input.defender.id, false });
+            break;
+        case BattleDefenderBlockCommand::Block:
+            result.presentationEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+            result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了本次攻擊"));
+            break;
+        default:
+            assert(false);
+        }
+    }
+
+    auto defense = BattleDamageSystem().resolveDefense({
+        result.shapedHpDamage,
+        result.executed,
+        result.reflected,
+        input.defender.invincible > 0,
+        makeDamageUnit(input.defender, &defenderCombo),
+    });
+    result.shapedHpDamage = defense.damage;
+    writeDefenseState(defenderCombo, defense.defender);
+    if (defense.blockedByFirstHit)
+    {
+        result.presentationEvents.push_back(roleEffectEvent(input.defender.id, KysChess::EFT_BLOCK, RoleStatusEffectFrames));
+        result.presentationEvents.push_back(statusEvent(input.defender.id, input.attacker.id, "格擋了首轮傷害"));
+    }
+    std::string damageDetail;
+    if (usingHiddenWeapon)
+    {
+        damageDetail = appendDetail(std::move(damageDetail), "暗器");
+    }
+    if (result.critical)
+    {
+        damageDetail = appendDetail(std::move(damageDetail), "暴擊");
+    }
+    if (defense.shieldAbsorbed > 0)
+    {
+        damageDetail = appendDetail(std::move(damageDetail), std::format("護盾吸收 {}", defense.shieldAbsorbed));
+    }
+    if (result.executed)
+    {
+        damageDetail = appendDetail(std::move(damageDetail), "處決");
+    }
+    if (result.reflected)
+    {
+        damageDetail = appendDetail(std::move(damageDetail), "彈反");
+    }
+
+    if (!result.reflected && usingSkill && defenderCombo.skillReflectPct > 0)
+    {
+        int reflectedDamage = static_cast<int>(result.shapedHpDamage * defenderCombo.skillReflectPct / 100.0);
+        if (reflectedDamage > 0)
+        {
+            result.commands.push_back(BattleHpDamageCommand{
+                input.defender.id,
+                input.attacker.id,
+                reflectedDamage,
+                false,
+                false,
+                false,
+                "",
+                "技能反彈",
+            });
+        }
+    }
+
+    if (!result.reflected)
+    {
+        auto bleedProc = BattleComboTriggerSystem().resolveBleedProc(
+            attackerCombo,
+            result.shapedHpDamage > 0,
+            [&]() { return rolls.next(); });
+        if (bleedProc.applies)
+        {
+            BattleDamageRequest request;
+            request.bleedStacks = bleedProc.stacks;
+            request.bleedMaxStacks = bleedProc.maxStacks;
+            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+            result.presentationEvents.push_back(statusEvent(
+                input.attacker.id,
+                input.defender.id,
+                formatStatusRange("流血", bleedProc.stacks, std::max(1, bleedProc.maxStacks), "層")));
+        }
+
+        auto damageReduceDebuff = BattleComboTriggerSystem().resolveDamageReduceDebuffProc(
+            attackerCombo,
+            result.shapedHpDamage > 0,
+            [&]() { return rolls.next(); });
+        if (damageReduceDebuff.applies)
+        {
+            BattleDamageRequest request;
+            request.damageReduceDebuffDurationFrames = damageReduceDebuff.durationFrames;
+            request.damageReduceDebuffPct = damageReduceDebuff.pct;
+            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+            result.presentationEvents.push_back(statusEvent(
+                input.attacker.id,
+                input.defender.id,
+                formatStatusPercentFrames("傷害降低", damageReduceDebuff.pct, damageReduceDebuff.durationFrames)));
+        }
+
+        auto mpBlockEvents = BattleComboTriggerSystem().collectTriggerEvents(
+            attackerCombo,
+            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+            { KysChess::EffectType::MPBlock },
+            [&]() { return rolls.next(); });
+        for (const auto& mpBlock : mpBlockEvents)
+        {
+            BattleDamageRequest request;
+            request.mpBlockFrames = mpBlock.effect.value;
+            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+            result.presentationEvents.push_back(statusEvent(
+                input.attacker.id,
+                input.defender.id,
+                formatStatusFrames("封內", mpBlock.effect.value)));
+        }
+    }
+
+    if (usingHpDamage && result.shapedHpDamage > 0)
+    {
+        int damage = static_cast<int>(result.shapedHpDamage) + input.randomDamageVariance;
+        damage = std::max(0, damage);
+        if (result.executed)
+        {
+            damage = std::max(damage, input.defender.hp);
+        }
+        if (damage > 0)
+        {
+            const int sourceUnitId = result.reflected ? input.defender.id : input.attacker.id;
+            const int targetUnitId = result.reflected ? input.attacker.id : input.defender.id;
+            result.commands.push_back(BattleHpDamageCommand{
+                sourceUnitId,
+                targetUnitId,
+                damage,
+                result.critical,
+                input.attackEvent.ultimate,
+                !result.reflected && result.executed,
+                input.skill.name,
+                damageDetail,
+            });
+            result.finalHpDamage = damage;
+        }
+    }
+
+    result.commands.push_back(BattleLastAttackerCommand{ input.defender.id, input.attacker.id });
+    if (result.reflected)
+    {
+        result.commands.push_back(BattleLastAttackerCommand{ input.attacker.id, input.defender.id });
+    }
+
     result.attackerCombo = std::move(attackerCombo);
-    result.finalHpDamage = static_cast<int>(result.shapedHpDamage);
+    result.defenderCombo = std::move(defenderCombo);
+    if (!usingHpDamage)
+    {
+        result.finalHpDamage = 0;
+    }
     return result;
 }
 
