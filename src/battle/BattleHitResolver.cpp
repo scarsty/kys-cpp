@@ -245,8 +245,11 @@ std::string appendDetail(std::string detail, const std::string& text)
 
 BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionInput& input) const
 {
-    assert(input.attacker.id >= 0);
     assert(input.defender.id >= 0);
+    const bool scriptedInput = input.attackEvent.scriptedDamage > 0
+        || input.attackEvent.scriptedStunFrames > 0
+        || input.attackEvent.scriptedBleedStacks > 0;
+    assert(input.attacker.id >= 0 || scriptedInput);
 
     BattleHitResolutionResult result;
     result.attackerUnitId = input.attacker.id;
@@ -256,6 +259,54 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
 
     if (input.attackEvent.type != BattleAttackEventType::Hit)
     {
+        return result;
+    }
+
+    const bool scriptedImpact = scriptedInput;
+    if (scriptedImpact)
+    {
+        if (input.attackEvent.scriptedStunFrames > 0 || input.attackEvent.scriptedBleedStacks > 0)
+        {
+            BattleDamageRequest request;
+            request.frozenFrames = input.attackEvent.scriptedStunFrames;
+            request.bleedStacks = input.attackEvent.scriptedBleedStacks;
+            request.bleedMaxStacks = input.attackEvent.scriptedBleedStacks > 0
+                ? input.sharedBleedMaxStacks
+                : 0;
+            result.commands.push_back(acceptedHitCommand(input.attacker.id, input.defender.id, request));
+            if (input.attackEvent.scriptedStunFrames > 0)
+            {
+                result.presentationEvents.push_back(statusEvent(
+                    input.attacker.id,
+                    input.defender.id,
+                    formatStatusFrames("眩暈", input.attackEvent.scriptedStunFrames)));
+            }
+            if (input.attackEvent.scriptedBleedStacks > 0)
+            {
+                result.presentationEvents.push_back(statusEvent(
+                    input.attacker.id,
+                    input.defender.id,
+                    std::format("螺旋流血彈流血{}層", input.attackEvent.scriptedBleedStacks)));
+            }
+        }
+        if (input.attackEvent.scriptedDamage > 0)
+        {
+            result.commands.push_back(BattleHpDamageCommand{
+                input.attacker.id,
+                input.defender.id,
+                input.attackEvent.scriptedDamage,
+                false,
+                false,
+                false,
+                "",
+                "特效傷害",
+            });
+            result.finalHpDamage = input.attackEvent.scriptedDamage;
+        }
+        if (input.attacker.id >= 0)
+        {
+            result.commands.push_back(BattleLastAttackerCommand{ input.defender.id, input.attacker.id });
+        }
         return result;
     }
 

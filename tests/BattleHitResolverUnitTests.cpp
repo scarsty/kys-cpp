@@ -546,3 +546,49 @@ TEST_CASE("BattleHitResolver_ShieldBreakEmitsShieldBreakCommands", "[battle][hit
     CHECK(sawAttackBuff);
     CHECK(sawMpRestore);
 }
+
+TEST_CASE("BattleHitResolver_ScriptedImpactEmitsStatusAndDamageCommands", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = -1;
+    input.attackEvent.operationType = BattleOperationType::None;
+    input.attackEvent.scriptedStunFrames = 12;
+    input.attackEvent.scriptedBleedStacks = 2;
+    input.attackEvent.scriptedDamage = 35;
+    input.sharedBleedMaxStacks = 4;
+
+    auto result = BattleHitResolver().resolve(input);
+
+    bool sawStatus = false;
+    bool sawDamage = false;
+    bool sawStunLog = false;
+    bool sawBleedLog = false;
+    for (const auto& command : result.commands)
+    {
+        if (const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command))
+        {
+            sawStatus = sideEffect->sourceUnitId == 1
+                && sideEffect->targetUnitId == 2
+                && sideEffect->damage.frozenFrames == 12
+                && sideEffect->damage.bleedStacks == 2
+                && sideEffect->damage.bleedMaxStacks == 4;
+        }
+        else if (const auto* hp = std::get_if<BattleHpDamageCommand>(&command))
+        {
+            sawDamage = hp->sourceUnitId == 1
+                && hp->targetUnitId == 2
+                && hp->damage == 35
+                && hp->detailText == "特效傷害";
+        }
+    }
+    for (const auto& event : result.presentationEvents)
+    {
+        sawStunLog = sawStunLog || (event.type == BattlePresentationEventType::StatusLog && event.text == "眩暈（12幀）");
+        sawBleedLog = sawBleedLog || (event.type == BattlePresentationEventType::StatusLog && event.text == "螺旋流血彈流血2層");
+    }
+
+    CHECK(sawStatus);
+    CHECK(sawDamage);
+    CHECK(sawStunLog);
+    CHECK(sawBleedLog);
+}

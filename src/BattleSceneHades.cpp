@@ -3046,38 +3046,19 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                 {
                     r->Shake = 5;
                     auto* attacker = findOptionalRoleByBattleId(battle_roles_, event.sourceUnitId);
-                    r->LastAttacker = attacker;
-                    auto request = KysChess::Battle::BattleDamageSystem().makeScriptedHitRequest({
-                        attacker ? attacker->ID : -1,
-                        r->ID,
-                        event.scriptedStunFrames,
-                        event.scriptedBleedStacks,
-                        event.scriptedBleedStacks > 0 ? getSharedBleedMaxStacks(attacker) : 0,
-                    });
-                    auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-                    for (const auto& statusEvent : result.events)
+                    KysChess::Battle::BattleHitResolutionInput hitInput;
+                    hitInput.attackEvent = event;
+                    if (attacker)
                     {
-                        if (statusEvent.type != KysChess::Battle::BattleDamageEventType::StatusApplied)
-                        {
-                            continue;
-                        }
-                        switch (statusEvent.statusType)
-                        {
-                        case KysChess::Battle::BattleDamageStatusType::Frozen:
-                            logBattleStatus(attacker, r, formatStatusFrames("眩暈", statusEvent.value));
-                            break;
-                        case KysChess::Battle::BattleDamageStatusType::Bleed:
-                            logBattleStatus(attacker, r, std::format("螺旋流血彈流血{}層", statusEvent.value));
-                            break;
-                        default:
-                            break;
-                        }
+                        hitInput.attacker = makeBattleHitUnitSnapshot(attacker);
                     }
-
-                    if (event.scriptedDamage > 0)
+                    else
                     {
-                        queuePreResolvedHpDamage(attacker, r, event.scriptedDamage, false, false, false, "", "特效傷害");
+                        hitInput.attacker.id = event.sourceUnitId;
                     }
+                    hitInput.defender = makeBattleHitUnitSnapshot(r);
+                    hitInput.sharedBleedMaxStacks = event.scriptedBleedStacks > 0 ? getSharedBleedMaxStacks(attacker) : 0;
+                    applyResolvedBattleHit(KysChess::Battle::BattleHitResolver().resolve(hitInput));
                     continue;
                 }
 
