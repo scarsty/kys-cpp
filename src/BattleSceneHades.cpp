@@ -42,6 +42,9 @@ using KysChess::BattleSceneBattleAdapter::BattleCastAdapterInput;
 using KysChess::BattleSceneBattleAdapter::BattleCastSkillAdapterInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleCastInput;
 using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
+using KysChess::BattleSceneBattleAdapter::commitTeamBarrier;
+using KysChess::BattleSceneBattleAdapter::commitTeamFocus;
+using KysChess::BattleSceneBattleAdapter::commitTeamRecovery;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -892,7 +895,7 @@ int BattleSceneHades::getProjectileSpeedMultiplierPct(Role* role) const
     return std::max(100, it->second.projectileSpeedMultiplierPct);
 }
 
-void BattleSceneHades::triggerShieldBreakEffects(Role* role, KysChess::RoleComboState& state)
+void BattleSceneHades::playCommittedShieldBreakCommands(Role* role, KysChess::RoleComboState& state)
 {
     assert(role);
     assert(role->Dead == 0);
@@ -2978,7 +2981,11 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     [&]() { return rand_.rand() * 100.0; });
                 if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
                 {
-                    applyTeamHeal(r, teamHeal.flatHeal, teamHeal.pctHeal, "技能群療");
+                    auto teamEvents = commitTeamEffectEvents([&](auto& world)
+                        {
+                            return commitTeamRecovery(world, r->ID, teamHeal.flatHeal, teamHeal.pctHeal);
+                        });
+                    playCommittedTeamEffectEvents(r, teamEvents, "技能群療");
                 }
             }
         }
@@ -3186,7 +3193,7 @@ bool BattleSceneHades::advanceBattleFrameBeforeDamage()
                     || event.hiddenWeaponItemId >= 0)
                 {
                     Engine::getInstance()->gameControllerRumble(100, 100, 50);
-                    applyLegacyMagicHitTransaction(event, r);
+                    commitBattleHitImpact(event, r);
                 }
                 //std::vector<std::string> = {};
             }
@@ -4222,61 +4229,45 @@ void BattleSceneHades::queueCoreSkillAttackSpawn(Role* r, Magic* magic, bool isU
     return;
 }
 
-void BattleSceneHades::applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason)
+std::vector<KysChess::Battle::BattleTeamEffectEvent> BattleSceneHades::commitTeamEffectEvents(
+    const std::function<std::vector<KysChess::Battle::BattleTeamEffectEvent>(
+        KysChess::Battle::BattleTeamEffectWorld&)>& commit)
 {
-    assert(source);
-    assert(flatHeal > 0 || pctHeal > 0);
+    assert(static_cast<bool>(commit));
 
-    const char* healReason = reason ? reason : "群療";
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-    auto events = KysChess::Battle::BattleTeamEffectSystem().applyTeamHeal(world, source->ID, flatHeal, pctHeal);
+    auto events = commit(world);
     writeBattleTeamEffectWorld(world, battle_roles_, cs);
-
-    for (const auto& event : events)
-    {
-        assert(event.type == KysChess::Battle::BattleTeamEffectEventType::Heal);
-        auto ally = findRoleByBattleId(battle_roles_, event.targetUnitId);
-        addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-        logBattleHeal(source, ally, event.value, healReason);
-    }
+    return events;
 }
 
-void BattleSceneHades::applyTeamMP(Role* source, int amount, const char* reason)
+void BattleSceneHades::playCommittedTeamEffectEvents(
+    Role* source,
+    const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events,
+    const char* reason)
 {
     assert(source);
-    assert(amount > 0);
-
-    const char* mpReason = reason ? reason : "回内";
-    auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-    auto events = KysChess::Battle::BattleTeamEffectSystem().applyTeamMp(world, source->ID, amount);
-    writeBattleTeamEffectWorld(world, battle_roles_, cs);
+    assert(reason);
 
     for (const auto& event : events)
     {
-        assert(event.type == KysChess::Battle::BattleTeamEffectEventType::MpRestore);
         auto ally = findRoleByBattleId(battle_roles_, event.targetUnitId);
-        logBattleStatus(source, ally, std::format("{}+{}MP", mpReason, event.value));
-    }
-}
-
-void BattleSceneHades::applyTeamShield(Role* source, int amount, const char* reason, bool refreshOnly)
-{
-    assert(source);
-    assert(amount > 0);
-
-    const char* shieldReason = reason ? reason : "全隊護盾";
-    auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto world = makeBattleTeamEffectWorld(battle_roles_, cs);
-    auto events = KysChess::Battle::BattleTeamEffectSystem().applyTeamShield(world, source->ID, amount, refreshOnly);
-    writeBattleTeamEffectWorld(world, battle_roles_, cs);
-
-    for (const auto& event : events)
-    {
-        assert(event.type == KysChess::Battle::BattleTeamEffectEventType::ShieldGain);
-        auto ally = findRoleByBattleId(battle_roles_, event.targetUnitId);
-        logBattleStatus(source, ally, formatStatusValue(shieldReason, event.value, "護盾"));
+        switch (event.type)
+        {
+        case KysChess::Battle::BattleTeamEffectEventType::Heal:
+            addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            logBattleHeal(source, ally, event.value, reason);
+            break;
+        case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
+            logBattleStatus(source, ally, std::format("{}+{}MP", reason, event.value));
+            break;
+        case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
+            logBattleStatus(source, ally, formatStatusValue(reason, event.value, "護盾"));
+            break;
+        default:
+            assert(false);
+        }
     }
 }
 
@@ -5330,7 +5321,7 @@ int BattleSceneHades::calCoolDown(int act_type, int operation_type, Role* r)
     }
 }
 
-void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r)
+void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttackEvent& event, Role* r)
 {
     assert(r);
     auto* attacker = findRoleByBattleId(battle_roles_, event.sourceUnitId);
@@ -5362,7 +5353,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
         }
         damageDetail += text;
     };
-    //先特别处理暗器
+    //先特別處理暗器
     if (usingHiddenWeapon != nullptr)
     {
         hurt = calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) / 5;
@@ -5571,7 +5562,11 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 [&]() { return rand_.rand() * 100.0; });
             if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
             {
-                applyTeamHeal(attacker, teamHeal.flatHeal, teamHeal.pctHeal, "命中群療");
+                auto teamEvents = commitTeamEffectEvents([&](auto& world)
+                    {
+                        return commitTeamRecovery(world, attacker->ID, teamHeal.flatHeal, teamHeal.pctHeal);
+                    });
+                playCommittedTeamEffectEvents(attacker, teamEvents, "命中群療");
             }
         }
 
@@ -5761,7 +5756,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
             }
             if (defense.shieldBroken)
             {
-                triggerShieldBreakEffects(r, ds);
+                playCommittedShieldBreakCommands(r, ds);
             }
 
             if (!reflectToAttacker && usingMagic && ds.skillReflectPct > 0)
@@ -5853,11 +5848,19 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
                 }
                 else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::TeamMpRestore)
                 {
-                    applyTeamMP(attacker, command.value, "琴棋書畫");
+                    auto teamEvents = commitTeamEffectEvents([&](auto& world)
+                        {
+                            return commitTeamFocus(world, attacker->ID, command.value);
+                        });
+                    playCommittedTeamEffectEvents(attacker, teamEvents, "琴棋書畫");
                 }
                 else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::FlatShield)
                 {
-                    applyTeamShield(attacker, command.value, "全隊護盾重整", true);
+                    auto teamEvents = commitTeamEffectEvents([&](auto& world)
+                        {
+                            return commitTeamBarrier(world, attacker->ID, command.value, true);
+                        });
+                    playCommittedTeamEffectEvents(attacker, teamEvents, "全隊護盾重整");
                 }
                 else if (command.type == KysChess::Battle::BattleOnHitComboCommandType::SpiralBleedProjectile)
                 {
@@ -5890,7 +5893,7 @@ void BattleSceneHades::applyLegacyMagicHitTransaction(const KysChess::Battle::Ba
 
     if (hurt != 0)
     {
-        //添加一点随机性
+        //添加一點隨機性
         hurt += 5 * (rand_.rand() - rand_.rand());
     }
 

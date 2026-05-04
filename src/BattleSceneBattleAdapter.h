@@ -3,6 +3,7 @@
 #include "BattleSceneAct.h"
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCastSystem.h"
+#include "battle/BattleTeamEffectSystem.h"
 
 #include <cstddef>
 #include <deque>
@@ -58,5 +59,20 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     const std::vector<Role*>& roles,
     const Battle::BattleAttackWorld& activeWorld,
     const std::unordered_map<int, std::set<int>>& sharedHitGroupTargets);
+
+std::vector<Battle::BattleTeamEffectEvent> commitTeamRecovery(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int flatHeal,
+    int pctHeal);
+std::vector<Battle::BattleTeamEffectEvent> commitTeamFocus(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int amount);
+std::vector<Battle::BattleTeamEffectEvent> commitTeamBarrier(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int amount,
+    bool refreshOnly);
 
 }  // namespace KysChess::BattleSceneBattleAdapter

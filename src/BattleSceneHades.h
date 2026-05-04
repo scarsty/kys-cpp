@@ -5,6 +5,7 @@
 #include "battle/BattleDamageSystem.h"
 #include "battle/BattleMovement.h"
 #include "battle/BattlePresentation.h"
+#include "battle/BattleTeamEffectSystem.h"
 #include "BattleSceneAct.h"
 #include "BattleStatsView.h"
 #include "BattleScenePresentationPlayer.h"
@@ -13,6 +14,7 @@
 #include "ChessRoleSave.h"
 #include "Head.h"
 #include <deque>
+#include <functional>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -63,7 +65,7 @@ protected:
     int calCast(int act_type, int operation_type, Role* r);
     int calCoolDown(int act_type, int operation_type, Role* r);
 
-    void applyLegacyMagicHitTransaction(const KysChess::Battle::BattleAttackEvent& event, Role* r);
+    void commitBattleHitImpact(const KysChess::Battle::BattleAttackEvent& event, Role* r);
     void queuePreResolvedHpDamage(Role* source,
                                   Role* target,
                                   int damage,
@@ -109,16 +111,20 @@ protected:
                                         int rangePixels,
                                         int damagePct = 40);
     void refreshEnemyTopDebuffs();
-    void applyTeamHeal(Role* source, int flatHeal, int pctHeal, const char* reason);
-    void applyTeamMP(Role* source, int amount, const char* reason);
-    void applyTeamShield(Role* source, int amount, const char* reason, bool refreshOnly);
+    std::vector<KysChess::Battle::BattleTeamEffectEvent> commitTeamEffectEvents(
+        const std::function<std::vector<KysChess::Battle::BattleTeamEffectEvent>(
+            KysChess::Battle::BattleTeamEffectWorld&)>& commit);
+    void playCommittedTeamEffectEvents(
+        Role* source,
+        const std::vector<KysChess::Battle::BattleTeamEffectEvent>& events,
+        const char* reason);
     int getSharedBleedMaxStacks(Role* source) const;
     void applyTempAttackBuff(Role* role,
                              KysChess::RoleComboState& state,
                              int attackBonus,
                              int durationFrames,
                              const std::string& reason);
-    void triggerShieldBreakEffects(Role* role, KysChess::RoleComboState& state);
+    void playCommittedShieldBreakCommands(Role* role, KysChess::RoleComboState& state);
     bool isLastAliveInTeam(Role* role) const;
     bool attackCanHitInvincible(Role* role) const;
     void applyComboFrameRuntimeEvent(

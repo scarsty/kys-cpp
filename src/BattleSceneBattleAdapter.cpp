@@ -216,4 +216,30 @@ Battle::BattleAttackWorld makeBattleAttackWorld(
     return world;
 }
 
+std::vector<Battle::BattleTeamEffectEvent> commitTeamRecovery(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int flatHeal,
+    int pctHeal)
+{
+    return Battle::BattleTeamEffectSystem().applyTeamHeal(world, sourceUnitId, flatHeal, pctHeal);
+}
+
+std::vector<Battle::BattleTeamEffectEvent> commitTeamFocus(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int amount)
+{
+    return Battle::BattleTeamEffectSystem().applyTeamMp(world, sourceUnitId, amount);
+}
+
+std::vector<Battle::BattleTeamEffectEvent> commitTeamBarrier(
+    Battle::BattleTeamEffectWorld& world,
+    int sourceUnitId,
+    int amount,
+    bool refreshOnly)
+{
+    return Battle::BattleTeamEffectSystem().applyTeamShield(world, sourceUnitId, amount, refreshOnly);
+}
+
 }  // namespace KysChess::BattleSceneBattleAdapter
