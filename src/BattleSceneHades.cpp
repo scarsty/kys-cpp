@@ -811,7 +811,7 @@ void BattleSceneHades::applyTempAttackBuff(Role* role,
     state.tempAttackBuffs.push_back({ attackBonus, durationFrames });
     if (!reason.empty())
     {
-        logBattleStatus(role, role, reason);
+        recordStatusLogPresentation(role, role, reason);
     }
 }
 
@@ -1209,7 +1209,7 @@ void BattleSceneHades::publishPresentationFrame()
     });
 }
 
-void BattleSceneHades::addFloatingText(Role* role, const std::string& text, Color color, int size, int type)
+void BattleSceneHades::recordFloatingTextPresentation(Role* role, const std::string& text, Color color, int size, int type)
 {
     presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::FloatingText,
@@ -1229,7 +1229,7 @@ void BattleSceneHades::addFloatingText(Role* role, const std::string& text, Colo
     });
 }
 
-void BattleSceneHades::addRoleEffect(Role* role, int eftId, int totalFrames)
+void BattleSceneHades::recordRoleEffectPresentation(Role* role, int eftId, int totalFrames)
 {
     assert(role);
 
@@ -1244,7 +1244,7 @@ void BattleSceneHades::addRoleEffect(Role* role, int eftId, int totalFrames)
     });
 }
 
-void BattleSceneHades::addDamageNumber(Role* role, int damage, Color color, int baseSize)
+void BattleSceneHades::recordDamageNumberPresentation(Role* role, int damage, Color color, int baseSize)
 {
     assert(role);
     assert(damage > 0);
@@ -1267,7 +1267,7 @@ void BattleSceneHades::addDamageNumber(Role* role, int damage, Color color, int 
     });
 }
 
-void BattleSceneHades::logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName, const std::string& detailText)
+void BattleSceneHades::recordDamageLogPresentation(Role* source, Role* target, int amount, const std::string& skillName, const std::string& detailText)
 {
     presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::DamageLog,
@@ -1285,7 +1285,7 @@ void BattleSceneHades::logBattleDamage(Role* source, Role* target, int amount, c
     });
 }
 
-void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, const std::string& reason)
+void BattleSceneHades::recordHealLogPresentation(Role* source, Role* target, int amount, const std::string& reason)
 {
     presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::HealLog,
@@ -1301,7 +1301,7 @@ void BattleSceneHades::logBattleHeal(Role* source, Role* target, int amount, con
     });
 }
 
-void BattleSceneHades::logBattleStatus(Role* source, Role* target, const std::string& text)
+void BattleSceneHades::recordStatusLogPresentation(Role* source, Role* target, const std::string& text)
 {
     presentation_recorder_.recordPresentation({
         KysChess::Battle::BattlePresentationEventType::StatusLog,
@@ -2198,7 +2198,7 @@ void BattleSceneHades::onEntrance()
             if (s.shieldPctMaxHP > 0)
             {
                 s.shield = r.MaxHP * s.shieldPctMaxHP / 100;
-                logBattleStatus(&r, nullptr,
+                recordStatusLogPresentation(&r, nullptr,
                     formatStatusValue("獲取", s.shield, "護盾"));
             }
         };
@@ -2268,7 +2268,7 @@ void BattleSceneHades::onEntrance()
                 if (teamFlatShield > 0)
                 {
                     battleState.shield += teamFlatShield;
-                    logBattleStatus(&r, nullptr,
+                    recordStatusLogPresentation(&r, nullptr,
                         formatStatusValue("全隊獲取", teamFlatShield, "護盾"));
                 }
                 initializeTimedEffects(battleState);
@@ -2471,7 +2471,7 @@ void BattleSceneHades::onEntrance()
             setRoleInitState(clone);
             battle_roles_.push_back(clone);
             cs[clone->ID] = makeSummonedCloneState(sourceState->second, clone->MaxHP);
-            logBattleStatus(source, clone, std::format("七截分身（落点 {}, {}）", x, y));
+            recordStatusLogPresentation(source, clone, std::format("七截分身（落點 {}, {}）", x, y));
             spawned++;
         }
     }
@@ -3104,8 +3104,8 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
                         if (dodge.dodged)
                         {
                             dit->second.dodgedLast = true;
-                            addRoleEffect(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
-                            logBattleStatus(r, attacker, "閃避了來襲攻擊");
+                            recordRoleEffectPresentation(r, KysChess::EFT_EVADE, ROLE_STATUS_EFT_FRAMES);
+                            recordStatusLogPresentation(r, attacker, "閃避了來襲攻擊");
                             continue;
                         }
                     }
@@ -3378,9 +3378,9 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
                 auto& pullState = cs[puller->ID];
                 pullState.forcePullExecuteRemaining = std::max(0, pullState.forcePullExecuteRemaining - 1);
                 spawnBasicAttackProjectile(puller, pulled);
-                logBattleStatus(puller, pulled, "處決挪移");
+                recordStatusLogPresentation(puller, pulled, "處決挪移");
 
-                addFloatingText(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
+                recordFloatingTextPresentation(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
                 return true;
             }
 
@@ -3574,13 +3574,13 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
         pulled->Invincible += 10;
         if (pulled->HP > hpBefore)
         {
-            addRoleEffect(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-            logBattleHeal(bestChoice.puller, pulled, pulled->HP - hpBefore, "保護挪移");
+            recordRoleEffectPresentation(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            recordHealLogPresentation(bestChoice.puller, pulled, pulled->HP - hpBefore, "保護挪移");
         }
-        logBattleStatus(bestChoice.puller, pulled, "保護挪移");
-        logBattleStatus(bestChoice.puller, pulled, formatStatusFrames("短暫無敵", 10));
+        recordStatusLogPresentation(bestChoice.puller, pulled, "保護挪移");
+        recordStatusLogPresentation(bestChoice.puller, pulled, formatStatusFrames("短暫無敵", 10));
 
-        addFloatingText(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
+        recordFloatingTextPresentation(pulled, "挪移", { 160, 220, 255, 255 }, STATUS_TEXT_SIZE);
         return true;
     };
     std::vector<PendingPreResolvedHpDamage> pendingPreResolvedHpDamage;
@@ -3700,7 +3700,7 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
         {
             if (pending.executed)
             {
-                addFloatingText(r, "處決！", { 255, 136, 48, 255 }, ULT_DAMAGE_TEXT_SIZE);
+                recordFloatingTextPresentation(r, "處決！", { 255, 136, 48, 255 }, ULT_DAMAGE_TEXT_SIZE);
             }
             else
             {
@@ -3711,9 +3711,9 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
                 int numberSize = pending.damageTextSize > 0
                     ? pending.damageTextSize
                     : (emphasized ? ULT_DAMAGE_TEXT_SIZE : NORMAL_DAMAGE_TEXT_SIZE);
-                addDamageNumber(r, committedHpDamage, numberColor, numberSize);
+                recordDamageNumberPresentation(r, committedHpDamage, numberColor, numberSize);
             }
-            logBattleDamage(r->LastAttacker, r, committedHpDamage, pending.skillName, pending.detailText);
+            recordDamageLogPresentation(r->LastAttacker, r, committedHpDamage, pending.skillName, pending.detailText);
 
             AttackEffect ae1;
             ae1.FollowRole = r;
@@ -3729,7 +3729,7 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
 
         if (damageTaken.hurtInvincGranted)
         {
-            logBattleStatus(r, r, formatStatusFrames("受傷無敵", damageTaken.invincibilityGranted));
+            recordStatusLogPresentation(r, r, formatStatusFrames("受傷無敵", damageTaken.invincibilityGranted));
         }
         if (damageTaken.deathPrevented)
         {
@@ -3759,17 +3759,17 @@ void BattleSceneHades::applyCoreBattleFrameResult(const SceneBattleFrameResult& 
             {
                 if (damageTaken.attackerDelta.hpDelta > 0)
                 {
-                    logBattleHeal(r->LastAttacker, r->LastAttacker, damageTaken.attackerDelta.hpDelta,
+                    recordHealLogPresentation(r->LastAttacker, r->LastAttacker, damageTaken.attackerDelta.hpDelta,
                         std::format("擊殺回復 {}%", kit->second.killHealPct));
                 }
                 if (damageTaken.attackerDelta.invincibleDelta > 0)
                 {
-                    logBattleStatus(r->LastAttacker, r->LastAttacker,
+                    recordStatusLogPresentation(r->LastAttacker, r->LastAttacker,
                         formatStatusFrames("擊殺無敵", damageTaken.attackerDelta.invincibleDelta));
                 }
                 if (damageTaken.attackerDelta.attackDelta > 0)
                 {
-                    logBattleStatus(r->LastAttacker, r->LastAttacker,
+                    recordStatusLogPresentation(r->LastAttacker, r->LastAttacker,
                         std::format("嗜血（+{}攻）", damageTaken.attackerDelta.attackDelta));
                 }
             }
@@ -3972,7 +3972,7 @@ void BattleSceneHades::Action(Role* r)
             for (const auto& command : actionResult.blinkCommands)
             {
                 auto* target = findRoleByBattleId(battle_roles_, command.targetUnitId);
-                logBattleStatus(r, target, command.selectedWeakest ? "閃擊追殺" : "閃擊突襲");
+                recordStatusLogPresentation(r, target, command.selectedWeakest ? "閃擊追殺" : "閃擊突襲");
                 auto targetPos45 = pos90To45(target->Pos.x, target->Pos.y);
                 auto currentPos45 = pos90To45(r->Pos.x, r->Pos.y);
                 int gridReach = std::max(1, static_cast<int>(command.reach / TILE_W) + 1);
@@ -4254,14 +4254,14 @@ void BattleSceneHades::playCommittedTeamEffectEvents(
         switch (event.type)
         {
         case KysChess::Battle::BattleTeamEffectEventType::Heal:
-            addRoleEffect(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-            logBattleHeal(source, ally, event.value, reason);
+            recordRoleEffectPresentation(ally, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            recordHealLogPresentation(source, ally, event.value, reason);
             break;
         case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
-            logBattleStatus(source, ally, std::format("{}+{}MP", reason, event.value));
+            recordStatusLogPresentation(source, ally, std::format("{}+{}MP", reason, event.value));
             break;
         case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
-            logBattleStatus(source, ally, formatStatusValue(reason, event.value, "護盾"));
+            recordStatusLogPresentation(source, ally, formatStatusValue(reason, event.value, "護盾"));
             break;
         default:
             assert(false);
@@ -4312,8 +4312,8 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
     case KysChess::Battle::BattleComboFrameRuntimeEventType::AutoUltimateReady:
         if (auto magic = triggerAutoUltimate(role, false))
         {
-            addFloatingText(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
-            logBattleStatus(role, nullptr, std::format("自動絕招·{}", std::string(magic->Name)));
+            recordFloatingTextPresentation(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
+            recordStatusLogPresentation(role, nullptr, std::format("自動絕招·{}", std::string(magic->Name)));
         }
         break;
     case KysChess::Battle::BattleComboFrameRuntimeEventType::SelfHpRegen:
@@ -4325,7 +4325,7 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
         for (const auto& teamEvent : events)
         {
             assert(teamEvent.type == KysChess::Battle::BattleTeamEffectEventType::Heal);
-            logBattleHeal(role, role, teamEvent.value, "生命回復");
+            recordHealLogPresentation(role, role, teamEvent.value, "生命回復");
         }
         break;
     }
@@ -4344,7 +4344,7 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
         {
             if (teamEvent.type == KysChess::Battle::BattleTeamEffectEventType::Heal)
             {
-                logBattleHeal(role, findRoleByBattleId(battle_roles_, teamEvent.targetUnitId), teamEvent.value, "治療光環");
+                recordHealLogPresentation(role, findRoleByBattleId(battle_roles_, teamEvent.targetUnitId), teamEvent.value, "治療光環");
             }
             else
             {
@@ -4360,8 +4360,8 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
         role->HP = std::min(role->MaxHP, role->HP + role->MaxHP * event.value / 100);
         if (role->HP > hpBefore)
         {
-            addRoleEffect(role, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-            logBattleHeal(role, role, role->HP - hpBefore, "爆發治療");
+            recordRoleEffectPresentation(role, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+            recordHealLogPresentation(role, role, role->HP - hpBefore, "爆發治療");
         }
         break;
     }
@@ -4410,7 +4410,7 @@ void BattleSceneHades::applyComboFrameRuntimeEvent(
         for (const auto& command : commands)
         {
             assert(command.type == KysChess::Battle::BattleEffectCommandType::AddInvincibility);
-            logBattleStatus(role, role, formatStatusFrames("技能後無敵", command.value));
+            recordStatusLogPresentation(role, role, formatStatusFrames("技能後無敵", command.value));
         }
         break;
     }
@@ -4465,12 +4465,12 @@ void BattleSceneHades::spawnExtraProjectiles(
     auto* usingMagic = prototype.skillId >= 0 ? Save::getInstance()->getMagic(prototype.skillId) : nullptr;
     if (usingMagic)
     {
-        logBattleStatus(attacker, target,
+        recordStatusLogPresentation(attacker, target,
             std::format("{}·{}（{}發）", logLabel, usingMagic->Name, extraCount));
     }
     else
     {
-        logBattleStatus(attacker, target,
+        recordStatusLogPresentation(attacker, target,
             std::format("{}（{}發）", logLabel, extraCount));
     }
 
@@ -4500,12 +4500,12 @@ void BattleSceneHades::spawnNearbyTrackingProjectiles(const KysChess::Battle::Ba
     auto* usingMagic = prototype.skillId >= 0 ? Save::getInstance()->getMagic(prototype.skillId) : nullptr;
     if (usingMagic)
     {
-        logBattleStatus(attacker, centerTarget,
+        recordStatusLogPresentation(attacker, centerTarget,
             std::format("範圍追蹤彈·{}（{}發）", usingMagic->Name, targetIds.size()));
     }
     else
     {
-        logBattleStatus(attacker, centerTarget,
+        recordStatusLogPresentation(attacker, centerTarget,
             std::format("範圍追蹤彈（{}發）", targetIds.size()));
     }
 
@@ -4678,7 +4678,7 @@ void BattleSceneHades::refreshEnemyTopDebuffs()
             enemy.Attack = std::max(0, enemy.Attack - delta);
             enemy.Defence = std::max(0, enemy.Defence - delta);
             state.enemyTopDebuffApplied = desired;
-            logBattleStatus(nullptr,
+            recordStatusLogPresentation(nullptr,
                 &enemy,
                 std::format("陰险：前{}名攻防{}{}（{}名存活）",
                     topTargets,
@@ -5361,7 +5361,7 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
             {
                 if (event.type == KysChess::Battle::BattleDamageEventType::MpDamageApplied)
                 {
-                    addDamageNumber(target, event.value, { 160, 32, 240, 255 });
+                    recordDamageNumberPresentation(target, event.value, { 160, 32, 240, 255 });
                 }
             }
         }
@@ -5457,7 +5457,7 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
                 shieldExplosion->areaSize,
                 shieldExplosion->effectId,
                 shieldExplosion->damage);
-            logBattleStatus(source, nullptr, formatStatusValue(shieldExplosion->reason.c_str(), shieldExplosion->damage, "傷害"));
+            recordStatusLogPresentation(source, nullptr, formatStatusValue(shieldExplosion->reason.c_str(), shieldExplosion->damage, "傷害"));
         }
         else if (const auto* mpRestore = std::get_if<KysChess::Battle::BattleMpRestoreCommand>(&command))
         {
@@ -5466,7 +5466,7 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
             if (restored > 0)
             {
                 role->MP += restored;
-                logBattleStatus(role, role, mpRestore->reason);
+                recordStatusLogPresentation(role, role, mpRestore->reason);
             }
         }
         else if (const auto* autoUltimate = std::get_if<KysChess::Battle::BattleAutoUltimateCommand>(&command))
@@ -5482,7 +5482,7 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
                 role->Defence += tempAttack->defenceBonus;
                 if (!tempAttack->reason.empty())
                 {
-                    logBattleStatus(role, role, std::format("{}（攻防+{}）", tempAttack->reason, tempAttack->attackBonus));
+                    recordStatusLogPresentation(role, role, std::format("{}（攻防+{}）", tempAttack->reason, tempAttack->attackBonus));
                 }
             }
             else
@@ -5497,7 +5497,7 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
             auto trackedTarget = deathAoe->trackedTargetUnitId >= 0
                 ? findRoleByBattleId(battle_roles_, deathAoe->trackedTargetUnitId)
                 : nullptr;
-            logBattleStatus(source, nullptr,
+            recordStatusLogPresentation(source, nullptr,
                 formatStatusPercentFrames("殉爆", deathAoe->damagePct, deathAoe->stunFrames));
             spawnAreaImpactProjectiles(source,
                                        source,
@@ -5516,8 +5516,8 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
             target->HP = std::min(target->MaxHP, target->HP + heal->amount);
             if (target->HP > before)
             {
-                addRoleEffect(target, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                logBattleHeal(source, target, target->HP - before, heal->reason);
+                recordRoleEffectPresentation(target, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+                recordHealLogPresentation(source, target, target->HP - before, heal->reason);
             }
         }
         else if (const auto* shield = std::get_if<KysChess::Battle::BattleUnitShieldCommand>(&command))
@@ -5526,7 +5526,7 @@ void BattleSceneHades::applyBattleGameplayCommand(const KysChess::Battle::Battle
             auto target = findRoleByBattleId(battle_roles_, shield->targetUnitId);
             auto& state = KysChess::ChessCombo::getMutableStates()[target->ID];
             state.shield += shield->amount;
-            logBattleStatus(source, target, formatStatusValue(shield->reason.c_str(), shield->amount, "護盾"));
+            recordStatusLogPresentation(source, target, formatStatusValue(shield->reason.c_str(), shield->amount, "護盾"));
         }
         else if (const auto* lastAttacker = std::get_if<KysChess::Battle::BattleLastAttackerCommand>(&command))
         {
@@ -5839,7 +5839,7 @@ void BattleSceneHades::handleCoreStatusEvents(const std::vector<KysChess::Battle
                                      NORMAL_DAMAGE_TEXT_SIZE);
             break;
         case KysChess::Battle::BattleStatusEventType::InvincibilityGranted:
-            logBattleStatus(target, target, formatStatusFrames("週期免傷", event.value));
+            recordStatusLogPresentation(target, target, formatStatusFrames("週期免傷", event.value));
             break;
         case KysChess::Battle::BattleStatusEventType::TempAttackExpired:
             break;

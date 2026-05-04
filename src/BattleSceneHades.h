@@ -189,12 +189,12 @@ protected:
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;
-    void addFloatingText(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
-    void addRoleEffect(Role* role, int eftId, int totalFrames = 0);
-    void addDamageNumber(Role* role, int damage, Color color, int baseSize = 15);
-    void logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName = "", const std::string& detailText = "");
-    void logBattleHeal(Role* source, Role* target, int amount, const std::string& reason = "");
-    void logBattleStatus(Role* source, Role* target, const std::string& text);
+    void recordFloatingTextPresentation(Role* role, const std::string& text, Color color, int size = 12, int type = 0);
+    void recordRoleEffectPresentation(Role* role, int eftId, int totalFrames = 0);
+    void recordDamageNumberPresentation(Role* role, int damage, Color color, int baseSize = 15);
+    void recordDamageLogPresentation(Role* source, Role* target, int amount, const std::string& skillName = "", const std::string& detailText = "");
+    void recordHealLogPresentation(Role* source, Role* target, int amount, const std::string& reason = "");
+    void recordStatusLogPresentation(Role* source, Role* target, const std::string& text);
     bool roleForcesRangedMagic(Role* role) const;
     int getForcedRangedMinSelectDistance(Role* role) const;
     int getProjectileSpeedMultiplierPct(Role* role) const;
