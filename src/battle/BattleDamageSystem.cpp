@@ -1,5 +1,6 @@
 #include "BattleDamageSystem.h"
 
+#include "../ChessBattleEffects.h"
 #include "BattleResourceRules.h"
 
 #include <algorithm>
@@ -794,6 +795,28 @@ BattleStatusApplyResult BattleDamageSystem::applyDamageReduceDebuff(BattleStatus
     result.applied = true;
     result.value = pct;
     return result;
+}
+
+BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state)
+{
+    BattleDamageModifierState modifier;
+    if (!state)
+    {
+        return modifier;
+    }
+
+    modifier.flatDamageIncrease = state->flatDmgIncrease;
+    modifier.skillDamagePct = state->skillDmgPct;
+    modifier.poisonDamageAmpPct = state->poisonDmgAmpPct;
+    for (const auto& debuff : state->dmgReduceDebuffs)
+    {
+        modifier.outgoingDamageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
+    }
+    modifier.flatDamageReduction = state->flatDmgReduction;
+    modifier.damageReductionPct = state->dmgReductionPct;
+    modifier.poisonTimer = state->poisonTimer;
+    modifier.maxHitPctMaxHp = state->maxHitPctCurrentHP;
+    return modifier;
 }
 
 }  // namespace KysChess::Battle

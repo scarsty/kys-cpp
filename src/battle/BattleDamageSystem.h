@@ -6,6 +6,11 @@
 
 #include <vector>
 
+namespace KysChess
+{
+struct RoleComboState;
+}
+
 namespace KysChess::Battle
 {
 
@@ -350,5 +355,7 @@ public:
     BattleLegacyHitShapeResult shapeLegacyHitDamage(const BattleLegacyHitShapeInput& input) const;
     BattleDamageRequest makeScriptedHitRequest(const BattleScriptedHitRequestInput& input) const;
 };
+
+BattleDamageModifierState makeBattleDamageModifierState(const RoleComboState* state);
 
 }  // namespace KysChess::Battle

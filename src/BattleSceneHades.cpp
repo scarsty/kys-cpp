@@ -45,6 +45,7 @@ using KysChess::BattleSceneBattleAdapter::makeBattleAttackWorld;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitItemSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitSkillSnapshot;
 using KysChess::BattleSceneBattleAdapter::makeBattleHitUnitSnapshot;
+using KysChess::BattleSceneBattleAdapter::makeBattleMpLeechDamageRequest;
 
 constexpr int BATTLE_TILE_W = Scene::TILE_W;
 constexpr int PROJECTILE_SPEED = BATTLE_TILE_W / 3;
@@ -791,24 +792,7 @@ void writeBattleCooldownState(Role* role, const KysChess::Battle::BattleCooldown
 
 KysChess::Battle::BattleDamageModifierState makeBattleDamageModifier(const KysChess::RoleComboState* state)
 {
-    KysChess::Battle::BattleDamageModifierState modifier;
-    if (!state)
-    {
-        return modifier;
-    }
-
-    modifier.flatDamageIncrease = state->flatDmgIncrease;
-    modifier.skillDamagePct = state->skillDmgPct;
-    modifier.poisonDamageAmpPct = state->poisonDmgAmpPct;
-    for (const auto& debuff : state->dmgReduceDebuffs)
-    {
-        modifier.outgoingDamageReduceDebuffs.push_back({ debuff.remainingFrames, debuff.pct });
-    }
-    modifier.flatDamageReduction = state->flatDmgReduction;
-    modifier.damageReductionPct = state->dmgReductionPct;
-    modifier.poisonTimer = state->poisonTimer;
-    modifier.maxHitPctMaxHp = state->maxHitPctCurrentHP;
-    return modifier;
+    return KysChess::Battle::makeBattleDamageModifierState(state);
 }
 
 }    // namespace
@@ -5381,207 +5365,82 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
     };
     const int hiddenWeaponDamage = usingHiddenWeapon ? calHiddenWeaponHurt(attacker, r, usingHiddenWeapon) : 0;
     const int magicBaseDamage = usingMagic ? resolveLegacyMagicBaseDamage(attacker, r, usingMagic) : 0;
+    auto& cs = KysChess::ChessCombo::getMutableStates();
+    auto attackerComboIt = cs.find(attacker->ID);
+    auto defenderComboIt = cs.find(r->ID);
     KysChess::Battle::BattleHitResolutionInput hitInput;
     hitInput.attackEvent = event;
     hitInput.attacker = makeBattleHitUnitSnapshot(attacker);
     hitInput.defender = makeBattleHitUnitSnapshot(r);
     hitInput.skill = makeBattleHitSkillSnapshot(attacker, r, usingMagic, magicBaseDamage);
     hitInput.item = makeBattleHitItemSnapshot(usingHiddenWeapon, hiddenWeaponDamage);
+    if (attackerComboIt != cs.end())
+    {
+        hitInput.attackerCombo = attackerComboIt->second;
+    }
+    if (defenderComboIt != cs.end())
+    {
+        hitInput.defenderCombo = defenderComboIt->second;
+    }
+    for (int i = 0; i < 64; ++i)
+    {
+        hitInput.percentRolls.push_back(rand_.rand() * 100.0);
+    }
     auto hitResolution = KysChess::Battle::BattleHitResolver().resolve(hitInput);
+    if (attackerComboIt != cs.end())
+    {
+        attackerComboIt->second = hitResolution.attackerCombo;
+    }
+    if (defenderComboIt != cs.end())
+    {
+        defenderComboIt->second = hitResolution.defenderCombo;
+    }
     hurt = hitResolution.shapedHpDamage;
+    critted = hitResolution.critical;
     for (const auto& command : hitResolution.commands)
     {
         if (const auto* sideEffect = std::get_if<KysChess::Battle::BattleAcceptedHitSideEffectCommand>(&command))
         {
-            applyAcceptedHitSideEffectTransaction(attacker, r, sideEffect->damage);
+            auto source = sideEffect->sourceUnitId >= 0 ? findRoleByBattleId(battle_roles_, sideEffect->sourceUnitId) : nullptr;
+            auto target = findRoleByBattleId(battle_roles_, sideEffect->targetUnitId);
+            applyAcceptedHitSideEffectTransaction(source, target, sideEffect->damage);
         }
         else if (const auto* knockback = std::get_if<KysChess::Battle::BattleKnockbackCommand>(&command))
         {
             auto target = findRoleByBattleId(battle_roles_, knockback->targetUnitId);
-            assert(knockback->velocityCap > 0.0);
             target->Velocity += knockback->velocityDelta;
-            if (target->Velocity.norm() > knockback->velocityCap)
+            if (knockback->velocityCap > 0.0 && target->Velocity.norm() > knockback->velocityCap)
             {
                 target->Velocity.normTo(static_cast<float>(knockback->velocityCap));
             }
             if (knockback->grantHurtFrame) { target->HurtFrame = 1; }
         }
-    }
-
-    if (usingMagic && attacker->MaxMP > 0)
-    {
-        auto& cs = KysChess::ChessCombo::getMutableStates();
-        auto it = cs.find(attacker->ID);
-        if (it != cs.end() && it->second.mpRatioDmgBoostPct > 0)
+        else if (const auto* teamHeal = std::get_if<KysChess::Battle::BattleTeamHealCommand>(&command))
         {
-            double mpRatio = static_cast<double>(attacker->MP) / attacker->MaxMP;
-            double boostPct = mpRatio * it->second.mpRatioDmgBoostPct;
-            if (boostPct > 0.0)
-            {
-                hurt *= 1.0 + boostPct / 100.0;
-                logBattleStatus(attacker, r,
-                    std::format("內力加傷 +{:.1f}%（目前內力 {}%）",
-                                boostPct,
-                                static_cast<int>(std::round(mpRatio * 100.0))));
-            }
+            LegacyTeamEffectCommitRequest request;
+            request.type = LegacyTeamEffectCommitType::Heal;
+            request.sourceUnitId = teamHeal->sourceUnitId;
+            request.flatHeal = teamHeal->flatHeal;
+            request.pctHeal = teamHeal->pctHeal;
+            auto teamEvents = commitLegacyTeamEffect(request);
+            playCommittedTeamEffectEvents(
+                findRoleByBattleId(battle_roles_, teamHeal->sourceUnitId),
+                teamEvents,
+                teamHeal->reason.c_str());
         }
+        else
+        {
+            assert(false);
+        }
+    }
+    for (const auto& presentationEvent : hitResolution.presentationEvents)
+    {
+        presentation_recorder_.recordPresentation(presentationEvent);
     }
 
     // === Combo trigger effects ===
     {
-        auto& cs = KysChess::ChessCombo::getMutableStates();
-
-        // Attacker effects
         auto ait = cs.find(attacker->ID);
-        if (ait != cs.end())
-        {
-            auto& as = ait->second;
-
-            hurt = KysChess::Battle::BattleDamageSystem().applyModifiers({
-                hurt,
-                usingMagic != nullptr,
-                true,
-                makeBattleDamageModifier(&as),
-                {},
-                makeBattleDamageUnit(r, nullptr),
-            }).damage;
-
-            auto attackerDamage = KysChess::Battle::BattleComboTriggerSystem().shapeAttackerHitDamage(
-                as,
-                { hurt, attacker->HP, attacker->MaxHP, as.lastAliveFlag },
-                [&]() { return rand_.rand() * 100.0; });
-            hurt = attackerDamage.damage;
-            for (const auto& damageEvent : attackerDamage.events)
-            {
-                switch (damageEvent.type)
-                {
-                case KysChess::Battle::BattleAttackerHitDamageEventType::Crit:
-                    critted = true;
-                    logBattleStatus(attacker, r, formatStatusPercent("暴擊", damageEvent.value));
-                    break;
-                case KysChess::Battle::BattleAttackerHitDamageEventType::RampingStack:
-                    logBattleStatus(attacker, r,
-                        formatStackingEffectStatus("連擊增傷", damageEvent.value, damageEvent.value2));
-                    break;
-                default:
-                    assert(false);
-                }
-            }
-
-            if (as.mpOnHit > 0 || as.hpOnHit > 0 || as.mpDrain > 0)
-            {
-                KysChess::Battle::BattleDamageRequest request;
-                request.mpOnHit = as.mpOnHit;
-                request.hpOnHit = as.hpOnHit;
-                request.mpDrain = as.mpDrain;
-                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-                for (const auto& event : result.events)
-                {
-                    if (event.type == KysChess::Battle::BattleDamageEventType::HpRestored)
-                    {
-                        addRoleEffect(attacker, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-                        logBattleHeal(attacker, attacker, event.value, "命中回血");
-                    }
-                }
-            }
-
-            if (as.poisonDOTPct > 0)
-            {
-                KysChess::Battle::BattleDamageRequest request;
-                request.poisonPct = as.poisonDOTPct;
-                request.poisonDurationFrames = as.poisonDuration;
-                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-                auto applied = std::find_if(result.events.begin(), result.events.end(), [](const auto& event)
-                    {
-                        return event.statusType == KysChess::Battle::BattleDamageStatusType::Poison;
-                    });
-                if (applied != result.events.end())
-                {
-                    logBattleStatus(attacker, r,
-                        formatStatusPercentFrames("中毒", as.poisonDOTPct, as.poisonDuration));
-                }
-            }
-
-            // Stun (legacy)
-            int legacyStunFrames = KysChess::Battle::BattleComboTriggerSystem().resolveLegacyStunFrames(
-                as,
-                [&]() { return rand_.rand() * 100.0; });
-            if (legacyStunFrames > 0)
-            {
-                KysChess::Battle::BattleDamageRequest request;
-                request.frozenFrames = legacyStunFrames;
-                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-                for (const auto& event : result.events)
-                {
-                    if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
-                    {
-                        logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
-                    }
-                }
-            }
-
-            auto hitStunCommands = KysChess::Battle::BattleComboTriggerSystem().collectStunCommands(
-                as,
-                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                [&]() { return rand_.rand() * 100.0; });
-            for (const auto& stunCommand : hitStunCommands)
-            {
-                KysChess::Battle::BattleDamageRequest request;
-                request.frozenFrames = stunCommand.frames;
-                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-                for (const auto& event : result.events)
-                {
-                    if (event.statusType == KysChess::Battle::BattleDamageStatusType::Frozen)
-                    {
-                        logBattleStatus(attacker, r, formatStatusFrames("眩暈", event.value));
-                        KysChess::Battle::BattleComboTriggerSystem().recordActivation(
-                            as,
-                            static_cast<size_t>(stunCommand.effectIndex));
-                    }
-                }
-            }
-
-            // Knockback (extra)
-            if (KysChess::Battle::BattleComboTriggerSystem().shouldApplyKnockback(
-                    as,
-                    [&]() { return rand_.rand() * 100.0; }))
-            {
-                auto kb = r->Pos - attacker->Pos;
-                kb.normTo(5);
-                r->Velocity += kb;
-            }
-
-            int offensiveCooldownExtendPct = KysChess::Battle::BattleComboTriggerSystem().resolveOffensiveCooldownExtendPct(
-                as,
-                [&]() { return rand_.rand() * 100.0; });
-            if (offensiveCooldownExtendPct > 0)
-            {
-                KysChess::Battle::BattleDamageRequest request;
-                request.cooldownExtendPct = offensiveCooldownExtendPct;
-                auto result = applyAcceptedHitSideEffectTransaction(attacker, r, request);
-                if (result.cooldownDelta > 0)
-                {
-                    int before = result.defenderCooldown.cooldown - result.cooldownDelta;
-                    logBattleStatus(attacker, r,
-                        formatCooldownIncreaseStatus(offensiveCooldownExtendPct, before, result.defenderCooldown.cooldown));
-                }
-            }
-
-            auto teamHeal = KysChess::Battle::BattleComboTriggerSystem().collectTriggeredTeamHeal(
-                as,
-                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                [&]() { return rand_.rand() * 100.0; });
-            if (teamHeal.flatHeal > 0 || teamHeal.pctHeal > 0)
-            {
-                LegacyTeamEffectCommitRequest request;
-                request.type = LegacyTeamEffectCommitType::Heal;
-                request.sourceUnitId = attacker->ID;
-                request.flatHeal = teamHeal.flatHeal;
-                request.pctHeal = teamHeal.pctHeal;
-                auto teamEvents = commitLegacyTeamEffect(request);
-                playCommittedTeamEffectEvents(attacker, teamEvents, "命中群療");
-            }
-        }
 
         // Defender effects
         auto dit = cs.find(r->ID);
@@ -5958,9 +5817,7 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
     }
     if (usingMagic && usingMagic->HurtType == 1)
     {
-        KysChess::Battle::BattleDamageRequest request;
-        request.mpDamage = static_cast<int>(hurt);
-        request.mpOnHit = static_cast<int>(hurt * 0.8);
+        auto request = makeBattleMpLeechDamageRequest(static_cast<int>(hurt));
         auto result = applyAcceptedHitSideEffectTransaction(actualSource, actualTarget, request);
         for (const auto& event : result.events)
         {

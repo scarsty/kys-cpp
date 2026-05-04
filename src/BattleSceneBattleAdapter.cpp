@@ -283,4 +283,14 @@ Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolved
     return snapshot;
 }
 
+Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage)
+{
+    assert(damage >= 0);
+
+    Battle::BattleDamageRequest request;
+    request.mpDamage = damage;
+    request.mpOnHit = static_cast<int>(damage * 0.8);
+    return request;
+}
+
 }  // namespace KysChess::BattleSceneBattleAdapter

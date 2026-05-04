@@ -66,5 +66,6 @@ Battle::BattleHitSkillSnapshot makeBattleHitSkillSnapshot(Role* attacker,
                                                           Magic* magic,
                                                           int resolvedBaseDamage);
 Battle::BattleHitItemSnapshot makeBattleHitItemSnapshot(Item* item, int resolvedDamage);
+Battle::BattleDamageRequest makeBattleMpLeechDamageRequest(int damage);
 
 }  // namespace KysChess::BattleSceneBattleAdapter
