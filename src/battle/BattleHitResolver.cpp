@@ -3,6 +3,7 @@
 #include "../ChessEftIds.h"
 #include "BattleComboTriggerSystem.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <format>
@@ -649,6 +650,74 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
     if (defense.shieldAbsorbed > 0)
     {
         damageDetail = appendDetail(std::move(damageDetail), std::format("護盾吸收 {}", defense.shieldAbsorbed));
+    }
+    if (defense.shieldBroken)
+    {
+        int shieldExplosionPct = 0;
+        auto shieldBreakCommands = BattleComboTriggerSystem().collectShieldBreakCommands(
+            defenderCombo,
+            { BattleComboTriggerHook::ShieldBreak, input.defender.id, input.defender.id },
+            [&]() { return rolls.next(); });
+        for (const auto& shieldBreak : shieldBreakCommands)
+        {
+            bool activated = true;
+            switch (shieldBreak.type)
+            {
+            case BattleShieldBreakCommandType::ShieldExplosion:
+                shieldExplosionPct = std::max(shieldExplosionPct, shieldBreak.value);
+                break;
+            case BattleShieldBreakCommandType::AutoUltimate:
+                result.commands.push_back(BattleAutoUltimateCommand{ input.defender.id, false });
+                break;
+            case BattleShieldBreakCommandType::TempFlatAttack:
+                result.commands.push_back(BattleTempAttackBuffCommand{
+                    input.defender.id,
+                    shieldBreak.value,
+                    shieldBreak.durationFrames,
+                    std::format("護盾爆炸（臨時攻+{}，{}幀）", shieldBreak.value, shieldBreak.durationFrames),
+                });
+                break;
+            case BattleShieldBreakCommandType::MpRestore:
+            {
+                int restored = std::min(shieldBreak.value, std::max(0, input.defender.maxMp - input.defender.mp));
+                if (restored > 0)
+                {
+                    result.commands.push_back(BattleMpRestoreCommand{
+                        input.defender.id,
+                        restored,
+                        std::format("護盾爆炸·回內力+{}", restored),
+                    });
+                }
+                else
+                {
+                    activated = false;
+                }
+                break;
+            }
+            default:
+                assert(false);
+            }
+
+            if (activated)
+            {
+                BattleComboTriggerSystem().recordActivation(
+                    defenderCombo,
+                    static_cast<size_t>(shieldBreak.effectIndex));
+            }
+        }
+        if (shieldExplosionPct > 0)
+        {
+            int explosionDamage = std::max(
+                1,
+                defenderCombo.shieldPctMaxHP * input.defender.maxHp / 100 * shieldExplosionPct / 100);
+            result.commands.push_back(BattleShieldExplosionCommand{
+                input.defender.id,
+                5,
+                KysChess::EFT_SHIELD_BLAST,
+                explosionDamage,
+                "護盾爆炸",
+            });
+        }
     }
     if (result.executed)
     {

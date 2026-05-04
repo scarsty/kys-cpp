@@ -140,7 +140,6 @@ protected:
                              int attackBonus,
                              int durationFrames,
                              const std::string& reason);
-    void playCommittedShieldBreakCommands(Role* role, KysChess::RoleComboState& state);
     bool isLastAliveInTeam(Role* role) const;
     bool attackCanHitInvincible(Role* role) const;
     void applyComboFrameRuntimeEvent(

@@ -142,6 +142,22 @@ struct BattleHitExtraProjectilesCommand
     int targetUnitId = -1;
 };
 
+struct BattleShieldExplosionCommand
+{
+    int sourceUnitId = -1;
+    int areaSize = 0;
+    int effectId = -1;
+    int damage = 0;
+    std::string reason;
+};
+
+struct BattleMpRestoreCommand
+{
+    int unitId = -1;
+    int amount = 0;
+    std::string reason;
+};
+
 struct BattleAutoUltimateCommand
 {
     int unitId = -1;
@@ -189,6 +205,8 @@ using BattleGameplayCommand = std::variant<
     BattleSpiralBleedProjectileCommand,
     BattleNearbyTrackingProjectilesCommand,
     BattleHitExtraProjectilesCommand,
+    BattleShieldExplosionCommand,
+    BattleMpRestoreCommand,
     BattleAutoUltimateCommand,
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,

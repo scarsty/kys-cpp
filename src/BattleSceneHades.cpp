@@ -878,69 +878,6 @@ int BattleSceneHades::getProjectileSpeedMultiplierPct(Role* role) const
     return std::max(100, it->second.projectileSpeedMultiplierPct);
 }
 
-void BattleSceneHades::playCommittedShieldBreakCommands(Role* role, KysChess::RoleComboState& state)
-{
-    assert(role);
-    assert(role->Dead == 0);
-
-    int shieldExplosionPct = 0;
-    KysChess::Battle::BattleComboTriggerSystem triggerSystem;
-    for (const auto& command : triggerSystem.collectShieldBreakCommands(
-             state,
-             { KysChess::Battle::BattleComboTriggerHook::ShieldBreak, role->ID, role->ID },
-             [&]() { return rand_.rand() * 100.0; }))
-    {
-        bool activated = false;
-        switch (command.type)
-        {
-        case KysChess::Battle::BattleShieldBreakCommandType::ShieldExplosion:
-            shieldExplosionPct = std::max(shieldExplosionPct, command.value);
-            activated = true;
-            break;
-        case KysChess::Battle::BattleShieldBreakCommandType::AutoUltimate:
-        {
-            if (auto* magic = this->triggerAutoUltimate(role, false))
-            {
-                addFloatingText(role, std::string(magic->Name), { 255, 215, 0, 255 }, EMPHASIS_TEXT_SIZE);
-                logBattleStatus(role, nullptr, std::format("護盾爆炸·自動絕招·{}", std::string(magic->Name)));
-                activated = true;
-            }
-            break;
-        }
-        case KysChess::Battle::BattleShieldBreakCommandType::TempFlatAttack:
-            applyTempAttackBuff(role, state, command.value, command.durationFrames,
-                std::format("護盾爆炸（臨時攻+{}，{}幀）", command.value, command.durationFrames));
-            activated = true;
-            break;
-        case KysChess::Battle::BattleShieldBreakCommandType::MpRestore:
-            {
-                int restored = std::min(command.value, std::max(0, role->MaxMP - role->MP));
-                if (restored > 0)
-                {
-                    role->MP += restored;
-                    logBattleStatus(role, role, std::format("護盾爆炸·回內力+{}", restored));
-                    activated = true;
-                }
-            }
-            break;
-        default:
-            assert(false);
-        }
-
-        if (activated)
-        {
-            triggerSystem.recordActivation(state, static_cast<size_t>(command.effectIndex));
-        }
-    }
-
-    if (shieldExplosionPct > 0)
-    {
-        int explosionDmg = std::max(1, state.shieldPctMaxHP * role->MaxHP / 100 * shieldExplosionPct / 100);
-        spawnAreaImpactProjectiles(role, role, 5, KysChess::EFT_SHIELD_BLAST, explosionDmg);
-        logBattleStatus(role, nullptr, formatStatusValue("護盾爆炸", explosionDmg, "傷害"));
-    }
-}
-
 // Apply freeze frames to a role, accounting for low-HP immunity and freeze shield
 void applyFrozen(Role* r, int frames)
 {
@@ -5487,9 +5424,36 @@ void BattleSceneHades::applyResolvedBattleHit(const KysChess::Battle::BattleHitR
                 extra->extraCount,
                 findRoleByBattleId(battle_roles_, extra->targetUnitId));
         }
+        else if (const auto* shieldExplosion = std::get_if<KysChess::Battle::BattleShieldExplosionCommand>(&command))
+        {
+            auto source = findRoleByBattleId(battle_roles_, shieldExplosion->sourceUnitId);
+            spawnAreaImpactProjectiles(
+                source,
+                source,
+                shieldExplosion->areaSize,
+                shieldExplosion->effectId,
+                shieldExplosion->damage);
+            logBattleStatus(source, nullptr, formatStatusValue(shieldExplosion->reason.c_str(), shieldExplosion->damage, "傷害"));
+        }
+        else if (const auto* mpRestore = std::get_if<KysChess::Battle::BattleMpRestoreCommand>(&command))
+        {
+            auto role = findRoleByBattleId(battle_roles_, mpRestore->unitId);
+            int restored = std::min(mpRestore->amount, std::max(0, role->MaxMP - role->MP));
+            if (restored > 0)
+            {
+                role->MP += restored;
+                logBattleStatus(role, role, mpRestore->reason);
+            }
+        }
         else if (const auto* autoUltimate = std::get_if<KysChess::Battle::BattleAutoUltimateCommand>(&command))
         {
             triggerAutoUltimate(findRoleByBattleId(battle_roles_, autoUltimate->unitId), autoUltimate->consumeMp);
+        }
+        else if (const auto* tempAttack = std::get_if<KysChess::Battle::BattleTempAttackBuffCommand>(&command))
+        {
+            auto role = findRoleByBattleId(battle_roles_, tempAttack->unitId);
+            auto& state = KysChess::ChessCombo::getMutableStates()[role->ID];
+            applyTempAttackBuff(role, state, tempAttack->attackBonus, tempAttack->durationFrames, tempAttack->reason);
         }
         else if (const auto* lastAttacker = std::get_if<KysChess::Battle::BattleLastAttackerCommand>(&command))
         {

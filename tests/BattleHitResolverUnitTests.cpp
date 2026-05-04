@@ -1,4 +1,5 @@
 #include "battle/BattleHitResolver.h"
+#include "ChessEftIds.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -489,4 +490,59 @@ TEST_CASE("BattleHitResolver_MpDamageSkillEmitsMpDamageCommand", "[battle][hit_r
     CHECK(command.damage.mpOnHit == 36);
     CHECK(result.finalHpDamage == 0);
     CHECK(result.finalMpDamage == 45);
+}
+
+TEST_CASE("BattleHitResolver_ShieldBreakEmitsShieldBreakCommands", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.defenderCombo.shield = 30;
+    input.defenderCombo.shieldPctMaxHP = 20;
+    input.defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::ShieldExplosion, KysChess::Trigger::OnShieldBreak, 50, 100));
+    input.defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::AutoUltimate, KysChess::Trigger::OnShieldBreak, 1, 100));
+    input.defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
+    input.defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::MPRestore, KysChess::Trigger::OnShieldBreak, 25, 100));
+    input.percentRolls = { 0.0, 0.0, 0.0, 0.0 };
+
+    auto result = BattleHitResolver().resolve(input);
+
+    bool sawExplosion = false;
+    bool sawUltimate = false;
+    bool sawAttackBuff = false;
+    bool sawMpRestore = false;
+    for (const auto& command : result.commands)
+    {
+        if (const auto* explosion = std::get_if<BattleShieldExplosionCommand>(&command))
+        {
+            sawExplosion = explosion->sourceUnitId == 2
+                && explosion->areaSize == 5
+                && explosion->effectId == KysChess::EFT_SHIELD_BLAST
+                && explosion->damage == 10;
+        }
+        else if (const auto* ultimate = std::get_if<BattleAutoUltimateCommand>(&command))
+        {
+            sawUltimate = ultimate->unitId == 2 && !ultimate->consumeMp;
+        }
+        else if (const auto* attackBuff = std::get_if<BattleTempAttackBuffCommand>(&command))
+        {
+            sawAttackBuff = attackBuff->unitId == 2
+                && attackBuff->attackBonus == 14
+                && attackBuff->durationFrames == 45;
+        }
+        else if (const auto* mpRestore = std::get_if<BattleMpRestoreCommand>(&command))
+        {
+            sawMpRestore = mpRestore->unitId == 2 && mpRestore->amount == 25;
+        }
+    }
+
+    CHECK(sawExplosion);
+    CHECK(sawUltimate);
+    CHECK(sawAttackBuff);
+    CHECK(sawMpRestore);
 }
