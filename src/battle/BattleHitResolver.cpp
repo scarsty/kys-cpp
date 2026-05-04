@@ -724,6 +724,96 @@ BattleHitResolutionResult BattleHitResolver::resolve(const BattleHitResolutionIn
                 input.defender.id,
                 formatStatusFrames("封內", mpBlock.effect.value)));
         }
+
+        std::vector<BattleComboTriggerEvent> followUpEvents;
+        if (input.attackEvent.suppressNearbyTrackingProjectileProc)
+        {
+            followUpEvents = BattleComboTriggerSystem().collectTriggerEvents(
+                attackerCombo,
+                { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+                {
+                    KysChess::EffectType::CurrentHPPctBlast,
+                    KysChess::EffectType::TeamMPRestore,
+                    KysChess::EffectType::FlatShield,
+                    KysChess::EffectType::SpiralBleedProjectile,
+                },
+                [&]() { return rolls.next(); });
+        }
+        else
+        {
+            followUpEvents = BattleComboTriggerSystem().collectTriggerEvents(
+                attackerCombo,
+                { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+                {
+                    KysChess::EffectType::CurrentHPPctBlast,
+                    KysChess::EffectType::TeamMPRestore,
+                    KysChess::EffectType::FlatShield,
+                    KysChess::EffectType::SpiralBleedProjectile,
+                    KysChess::EffectType::NearbyTrackingProjectiles,
+                },
+                [&]() { return rolls.next(); });
+        }
+
+        for (const auto& followUp : followUpEvents)
+        {
+            assert(followUp.effect.value > 0);
+            switch (followUp.effect.type)
+            {
+            case KysChess::EffectType::CurrentHPPctBlast:
+                result.commands.push_back(BattleCurrentHpBlastCommand{
+                    input.attacker.id,
+                    followUp.effect.value,
+                    "當前生命傷害",
+                });
+                break;
+            case KysChess::EffectType::TeamMPRestore:
+                result.commands.push_back(BattleTeamMpRestoreCommand{
+                    input.attacker.id,
+                    followUp.effect.value,
+                    "琴棋書畫",
+                });
+                break;
+            case KysChess::EffectType::FlatShield:
+                result.commands.push_back(BattleTeamShieldCommand{
+                    input.attacker.id,
+                    followUp.effect.value,
+                    true,
+                    "全隊護盾重整",
+                });
+                break;
+            case KysChess::EffectType::SpiralBleedProjectile:
+                result.commands.push_back(BattleSpiralBleedProjectileCommand{
+                    input.attacker.id,
+                    followUp.effect.value,
+                    followUp.effect.value2 > 0 ? followUp.effect.value2 : 6,
+                });
+                break;
+            case KysChess::EffectType::NearbyTrackingProjectiles:
+                result.commands.push_back(BattleNearbyTrackingProjectilesCommand{
+                    input.attackEvent,
+                    input.defender.id,
+                    followUp.effect.value,
+                    followUp.effect.value2 > 0 ? followUp.effect.value2 : 40,
+                });
+                break;
+            default:
+                assert(false);
+            }
+        }
+
+        int extraProjectiles = BattleComboTriggerSystem().collectExtraProjectileCount(
+            attackerCombo,
+            { BattleComboTriggerHook::DamageDealt, input.attacker.id, input.defender.id },
+            0,
+            [&]() { return rolls.next(); });
+        if (extraProjectiles > 0)
+        {
+            result.commands.push_back(BattleHitExtraProjectilesCommand{
+                input.attackEvent,
+                extraProjectiles,
+                input.defender.id,
+            });
+        }
     }
 
     if (usingHpDamage && result.shapedHpDamage > 0)

@@ -375,3 +375,94 @@ TEST_CASE("BattleHitResolver_BleedAndMpBlockEmitAcceptedHitCommands", "[battle][
     CHECK(sawBleed);
     CHECK(sawMpBlock);
 }
+
+TEST_CASE("BattleHitResolver_OnHitFollowUpsEmitGameplayCommands", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::CurrentHPPctBlast, KysChess::Trigger::OnHit, 15, 100));
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::TeamMPRestore, KysChess::Trigger::OnHit, 8, 100));
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::FlatShield, KysChess::Trigger::OnHit, 12, 100));
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::SpiralBleedProjectile, KysChess::Trigger::OnHit, 2, 100));
+    input.attackerCombo.triggeredEffects.back().value2 = 7;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
+    input.attackerCombo.triggeredEffects.back().value2 = 45;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::UltimateExtraProjectiles, KysChess::Trigger::OnHit, 2, 100));
+    input.percentRolls = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+    auto result = BattleHitResolver().resolve(input);
+
+    bool sawCurrentHpBlast = false;
+    bool sawTeamMpRestore = false;
+    bool sawTeamShield = false;
+    bool sawSpiral = false;
+    bool sawNearby = false;
+    bool sawExtra = false;
+    for (const auto& command : result.commands)
+    {
+        if (const auto* currentHp = std::get_if<BattleCurrentHpBlastCommand>(&command))
+        {
+            sawCurrentHpBlast = currentHp->sourceUnitId == 1 && currentHp->damagePct == 15;
+        }
+        else if (const auto* teamMp = std::get_if<BattleTeamMpRestoreCommand>(&command))
+        {
+            sawTeamMpRestore = teamMp->sourceUnitId == 1 && teamMp->amount == 8 && teamMp->reason == "琴棋書畫";
+        }
+        else if (const auto* shield = std::get_if<BattleTeamShieldCommand>(&command))
+        {
+            sawTeamShield = shield->sourceUnitId == 1 && shield->amount == 12 && shield->refreshOnly;
+        }
+        else if (const auto* spiral = std::get_if<BattleSpiralBleedProjectileCommand>(&command))
+        {
+            sawSpiral = spiral->sourceUnitId == 1 && spiral->bleedStacks == 2 && spiral->projectileCount == 7;
+        }
+        else if (const auto* nearby = std::get_if<BattleNearbyTrackingProjectilesCommand>(&command))
+        {
+            sawNearby = nearby->prototype.sourceUnitId == 1
+                && nearby->centerTargetUnitId == 2
+                && nearby->rangePixels == 80
+                && nearby->damagePct == 45;
+        }
+        else if (const auto* extra = std::get_if<BattleHitExtraProjectilesCommand>(&command))
+        {
+            sawExtra = extra->prototype.sourceUnitId == 1
+                && extra->targetUnitId == 2
+                && extra->extraCount == 2;
+        }
+    }
+
+    CHECK(sawCurrentHpBlast);
+    CHECK(sawTeamMpRestore);
+    CHECK(sawTeamShield);
+    CHECK(sawSpiral);
+    CHECK(sawNearby);
+    CHECK(sawExtra);
+}
+
+TEST_CASE("BattleHitResolver_SuppressedNearbyTrackingFollowUpDoesNotEmitNearbyCommand", "[battle][hit_resolver][unit]")
+{
+    auto input = hitInput();
+    input.skill.id = 101;
+    input.skill.hurtType = 0;
+    input.skill.resolvedBaseDamage = 50;
+    input.attackEvent.suppressNearbyTrackingProjectileProc = true;
+    input.attackerCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::NearbyTrackingProjectiles, KysChess::Trigger::OnHit, 80, 100));
+    input.percentRolls = { 0.0 };
+
+    auto result = BattleHitResolver().resolve(input);
+
+    auto nearby = std::find_if(result.commands.begin(), result.commands.end(), [](const BattleGameplayCommand& command)
+        {
+            return std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command);
+        });
+    CHECK(nearby == result.commands.end());
+}

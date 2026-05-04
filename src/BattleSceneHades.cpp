@@ -4447,20 +4447,6 @@ int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
         []() { return 0.0; });
 }
 
-int BattleSceneHades::getHitExtraProjectileCount(Role* r)
-{
-    assert(r);
-    auto& cs = KysChess::ChessCombo::getMutableStates();
-    auto it = cs.find(r->ID);
-    assert(it != cs.end());
-
-    return KysChess::Battle::BattleComboTriggerSystem().collectExtraProjectileCount(
-        it->second,
-        { KysChess::Battle::BattleComboTriggerHook::DamageDealt, r->ID, -1 },
-        0,
-        [&]() { return rand_.rand() * 100.0; });
-}
-
 void BattleSceneHades::spawnUltimateExtraProjectiles(const KysChess::Battle::BattleAttackEvent& prototype, int extraCount)
 {
     assert(extraCount > 0);
@@ -5422,6 +5408,66 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
                 teamEvents,
                 teamHeal->reason.c_str());
         }
+        else if (const auto* teamMp = std::get_if<KysChess::Battle::BattleTeamMpRestoreCommand>(&command))
+        {
+            LegacyTeamEffectCommitRequest request;
+            request.type = LegacyTeamEffectCommitType::MpRestore;
+            request.sourceUnitId = teamMp->sourceUnitId;
+            request.amount = teamMp->amount;
+            auto teamEvents = commitLegacyTeamEffect(request);
+            playCommittedTeamEffectEvents(
+                findRoleByBattleId(battle_roles_, teamMp->sourceUnitId),
+                teamEvents,
+                teamMp->reason.c_str());
+        }
+        else if (const auto* teamShield = std::get_if<KysChess::Battle::BattleTeamShieldCommand>(&command))
+        {
+            LegacyTeamEffectCommitRequest request;
+            request.type = LegacyTeamEffectCommitType::Shield;
+            request.sourceUnitId = teamShield->sourceUnitId;
+            request.amount = teamShield->amount;
+            request.refreshOnly = teamShield->refreshOnly;
+            auto teamEvents = commitLegacyTeamEffect(request);
+            playCommittedTeamEffectEvents(
+                findRoleByBattleId(battle_roles_, teamShield->sourceUnitId),
+                teamEvents,
+                teamShield->reason.c_str());
+        }
+        else if (const auto* currentHp = std::get_if<KysChess::Battle::BattleCurrentHpBlastCommand>(&command))
+        {
+            auto source = findRoleByBattleId(battle_roles_, currentHp->sourceUnitId);
+            for (auto enemy : battle_roles_)
+            {
+                if (!enemy || enemy->Team == source->Team || enemy->Dead != 0)
+                {
+                    continue;
+                }
+                int damage = std::max(1, enemy->HP * currentHp->damagePct / 100);
+                queuePreResolvedHpDamage(source, enemy, damage, false, false, false, "", currentHp->reason);
+            }
+        }
+        else if (const auto* spiral = std::get_if<KysChess::Battle::BattleSpiralBleedProjectileCommand>(&command))
+        {
+            spawnSpiralBleedProjectiles(
+                findRoleByBattleId(battle_roles_, spiral->sourceUnitId),
+                spiral->bleedStacks,
+                spiral->projectileCount);
+        }
+        else if (const auto* nearby = std::get_if<KysChess::Battle::BattleNearbyTrackingProjectilesCommand>(&command))
+        {
+            spawnNearbyTrackingProjectiles(
+                nearby->prototype,
+                findRoleByBattleId(battle_roles_, nearby->centerTargetUnitId),
+                nearby->rangePixels,
+                nearby->damagePct);
+        }
+        else if (const auto* extra = std::get_if<KysChess::Battle::BattleHitExtraProjectilesCommand>(&command))
+        {
+            spawnHitExtraProjectiles(
+                extra->prototype,
+                extra->extraCount,
+                findRoleByBattleId(battle_roles_, extra->targetUnitId));
+        }
         else if (const auto* autoUltimate = std::get_if<KysChess::Battle::BattleAutoUltimateCommand>(&command))
         {
             triggerAutoUltimate(findRoleByBattleId(battle_roles_, autoUltimate->unitId), autoUltimate->consumeMp);
@@ -5439,99 +5485,6 @@ void BattleSceneHades::commitBattleHitImpact(const KysChess::Battle::BattleAttac
     for (const auto& presentationEvent : hitResolution.presentationEvents)
     {
         presentation_recorder_.recordPresentation(presentationEvent);
-    }
-
-    if (!hitResolution.reflected && attackerComboIt != cs.end())
-    {
-        auto& as = attackerComboIt->second;
-        std::vector<KysChess::Battle::BattleComboTriggerEvent> comboEvents;
-        if (event.suppressNearbyTrackingProjectileProc)
-        {
-            comboEvents = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
-                as,
-                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                {
-                    KysChess::EffectType::CurrentHPPctBlast,
-                    KysChess::EffectType::TeamMPRestore,
-                    KysChess::EffectType::FlatShield,
-                    KysChess::EffectType::SpiralBleedProjectile,
-                },
-                [&]() { return rand_.rand() * 100.0; });
-        }
-        else
-        {
-            comboEvents = KysChess::Battle::BattleComboTriggerSystem().collectTriggerEvents(
-                as,
-                { KysChess::Battle::BattleComboTriggerHook::DamageDealt, attacker->ID, r->ID },
-                {
-                    KysChess::EffectType::CurrentHPPctBlast,
-                    KysChess::EffectType::TeamMPRestore,
-                    KysChess::EffectType::FlatShield,
-                    KysChess::EffectType::SpiralBleedProjectile,
-                    KysChess::EffectType::NearbyTrackingProjectiles,
-                },
-                [&]() { return rand_.rand() * 100.0; });
-        }
-
-        for (const auto& comboEvent : comboEvents)
-        {
-            switch (comboEvent.effect.type)
-            {
-            case KysChess::EffectType::CurrentHPPctBlast:
-                for (auto enemy : battle_roles_)
-                {
-                    if (!enemy || enemy->Team == attacker->Team || enemy->Dead != 0)
-                    {
-                        continue;
-                    }
-                    int damage = std::max(1, enemy->HP * comboEvent.effect.value / 100);
-                    queuePreResolvedHpDamage(attacker, enemy, damage, false, false, false, "", "當前生命傷害");
-                }
-                break;
-            case KysChess::EffectType::TeamMPRestore:
-            {
-                LegacyTeamEffectCommitRequest request;
-                request.type = LegacyTeamEffectCommitType::MpRestore;
-                request.sourceUnitId = attacker->ID;
-                request.amount = comboEvent.effect.value;
-                auto teamEvents = commitLegacyTeamEffect(request);
-                playCommittedTeamEffectEvents(attacker, teamEvents, "琴棋書畫");
-                break;
-            }
-            case KysChess::EffectType::FlatShield:
-            {
-                LegacyTeamEffectCommitRequest request;
-                request.type = LegacyTeamEffectCommitType::Shield;
-                request.sourceUnitId = attacker->ID;
-                request.amount = comboEvent.effect.value;
-                request.refreshOnly = true;
-                auto teamEvents = commitLegacyTeamEffect(request);
-                playCommittedTeamEffectEvents(attacker, teamEvents, "全隊護盾重整");
-                break;
-            }
-            case KysChess::EffectType::SpiralBleedProjectile:
-                spawnSpiralBleedProjectiles(
-                    attacker,
-                    comboEvent.effect.value,
-                    comboEvent.effect.value2 > 0 ? comboEvent.effect.value2 : 6);
-                break;
-            case KysChess::EffectType::NearbyTrackingProjectiles:
-                spawnNearbyTrackingProjectiles(
-                    event,
-                    r,
-                    comboEvent.effect.value,
-                    comboEvent.effect.value2 > 0 ? comboEvent.effect.value2 : 40);
-                break;
-            default:
-                assert(false);
-            }
-        }
-
-        int extraProjectiles = getHitExtraProjectileCount(attacker);
-        if (extraProjectiles > 0)
-        {
-            spawnHitExtraProjectiles(event, extraProjectiles, r);
-        }
     }
 
     Role* actualSource = hitResolution.reflected ? r : attacker;

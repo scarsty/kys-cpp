@@ -113,6 +113,35 @@ struct BattleProjectileSpawnCommand
     std::string reason;
 };
 
+struct BattleCurrentHpBlastCommand
+{
+    int sourceUnitId = -1;
+    int damagePct = 0;
+    std::string reason;
+};
+
+struct BattleSpiralBleedProjectileCommand
+{
+    int sourceUnitId = -1;
+    int bleedStacks = 0;
+    int projectileCount = 0;
+};
+
+struct BattleNearbyTrackingProjectilesCommand
+{
+    BattleAttackEvent prototype;
+    int centerTargetUnitId = -1;
+    int rangePixels = 0;
+    int damagePct = 0;
+};
+
+struct BattleHitExtraProjectilesCommand
+{
+    BattleAttackEvent prototype;
+    int extraCount = 0;
+    int targetUnitId = -1;
+};
+
 struct BattleAutoUltimateCommand
 {
     int unitId = -1;
@@ -156,6 +185,10 @@ using BattleGameplayCommand = std::variant<
     BattleTeamMpRestoreCommand,
     BattleTeamShieldCommand,
     BattleProjectileSpawnCommand,
+    BattleCurrentHpBlastCommand,
+    BattleSpiralBleedProjectileCommand,
+    BattleNearbyTrackingProjectilesCommand,
+    BattleHitExtraProjectilesCommand,
     BattleAutoUltimateCommand,
     BattleKnockbackCommand,
     BattleTempAttackBuffCommand,

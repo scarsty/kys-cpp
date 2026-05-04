@@ -186,7 +186,6 @@ protected:
     void logBattleDamage(Role* source, Role* target, int amount, const std::string& skillName = "", const std::string& detailText = "");
     void logBattleHeal(Role* source, Role* target, int amount, const std::string& reason = "");
     void logBattleStatus(Role* source, Role* target, const std::string& text);
-    int getHitExtraProjectileCount(Role* r);
     bool roleForcesRangedMagic(Role* role) const;
     int getForcedRangedMinSelectDistance(Role* role) const;
     int getProjectileSpeedMultiplierPct(Role* role) const;
