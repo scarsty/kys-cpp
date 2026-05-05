@@ -6,7 +6,6 @@
 #include "battle/BattleAttackSystem.h"
 #include "battle/BattleCombatIntent.h"
 #include "battle/BattleCore.h"
-#include "battle/BattleRescueRepositionSystem.h"
 #include "battle/BattleStatusSystem.h"
 #include "ChessBalance.h"
 #include "ChessCombo.h"
@@ -37,6 +36,7 @@ using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::BattleFrameHitAdapterInput;
+using KysChess::BattleSceneBattleAdapter::BattleRescueFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
@@ -50,6 +50,7 @@ using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleTeamEffectWorld;
 using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
+using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameHitUnits;
 using KysChess::BattleSceneBattleAdapter::collectBattleProjectileBouncePrime;
 using KysChess::BattleSceneBattleAdapter::collectBattleExtraProjectileCount;
@@ -210,37 +211,6 @@ float shakeJitter(int battleFrame, int roleId)
     state *= 0x846ca68bu;
     state ^= state >> 16;
     return -2.5f + static_cast<float>(state & 0xffffu) * (5.0f / 65535.0f);
-}
-
-KysChess::RoleComboState makeSummonedCloneState(const KysChess::RoleComboState& sourceState, int cloneMaxHP)
-{
-    KysChess::RoleComboState cloneState;
-    for (const auto& effect : sourceState.appliedEffects)
-    {
-        KysChess::ChessBattleEffects::applyEffect(cloneState, effect, effect.sourceComboId);
-    }
-
-    cloneState.cloneSummonCount = 0;
-    cloneState.forcePullProtectRemaining = cloneState.forcePullProtectCharges;
-    cloneState.forcePullExecuteRemaining = cloneState.forcePullExecuteCharges;
-    cloneState.onSkillTeamHealPending = false;
-    cloneState.isSummonedClone = true;
-
-    if (cloneState.shieldPctMaxHP > 0 && cloneMaxHP > 0)
-    {
-        cloneState.shield = cloneMaxHP * cloneState.shieldPctMaxHP / 100;
-    }
-    if (cloneState.damageImmunityAfterFrames > 0)
-    {
-        cloneState.damageImmunityTimer = cloneState.damageImmunityAfterFrames;
-    }
-    if (cloneState.autoUltimateAfterFrames > 0)
-    {
-        cloneState.autoUltimateTimer = cloneState.autoUltimateAfterFrames;
-    }
-    cloneState.blockFirstHitsRemaining = cloneState.blockFirstHitsCount;
-
-    return cloneState;
 }
 
 Color poisonDamageTextColor()
@@ -2339,7 +2309,7 @@ void BattleSceneHades::onEntrance()
             clone->setPositionOnly(x, y);
             setRoleInitState(clone);
             battle_roles_.push_back(clone);
-            cs[clone->ID] = makeSummonedCloneState(sourceState->second, clone->MaxHP);
+            cs[clone->ID] = KysChess::ChessBattleEffects::makeSummonedCloneState(sourceState->second, clone->MaxHP);
             recordStatusLogPresentation(source, clone, std::format("七截分身（落點 {}, {}）", x, y));
             spawned++;
         }
@@ -2868,6 +2838,49 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
         auto& comboStates = KysChess::ChessCombo::getMutableStates();
         frameState.combo.units = comboStates;
         frameState.teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
+        BattleRescueFrameAdapterContext rescueContext;
+        rescueContext.roles = &battle_roles_;
+        rescueContext.comboStates = &comboStates;
+        for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
+        {
+            for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
+            {
+                int occupantUnitId = -1;
+                for (auto role : battle_roles_)
+                {
+                    assert(role);
+                    if (role->Dead != 0)
+                    {
+                        continue;
+                    }
+                    auto roleCell = pos90To45(role->Pos.x, role->Pos.y);
+                    if (roleCell.x == x && roleCell.y == y)
+                    {
+                        occupantUnitId = role->ID;
+                        break;
+                    }
+                }
+                rescueContext.cells.push_back({
+                    x,
+                    y,
+                    canWalk45(x, y),
+                    occupantUnitId >= 0,
+                    occupantUnitId,
+                });
+            }
+        }
+        auto* basicMagic = Save::getInstance()->getMagic(1);
+        assert(basicMagic);
+        rescueContext.config.executeUnattendedRadius = TILE_W * 3.0;
+        rescueContext.config.counterAttackSkillId = basicMagic->ID;
+        rescueContext.config.counterAttackVisualEffectId = 11;
+        rescueContext.config.counterAttackProjectileSpeed = PROJECTILE_SPEED;
+        rescueContext.config.counterAttackMeleeOffset = MELEE_ATTACK_EFFECT_OFFSET;
+        rescueContext.config.counterAttackMinimumTotalFrames = 20;
+        rescueContext.config.counterAttackTotalFramePadding = 15;
+        rescueContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
+        rescueContext.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
+        populateBattleFrameRescueState(frameState, rescueContext);
         frameState.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
         pending_core_attack_spawns_.clear();
         auto actionContext = makeBattleActionFrameAdapterContext();
@@ -3844,186 +3857,6 @@ void BattleSceneHades::applyCoreDamageTransactions(const KysChess::Battle::Battl
         }
     }
 
-    auto isOccupied45 = [&](int x, int y, const Role* ignore)
-    {
-        for (auto role : battle_roles_)
-        {
-            if (role == ignore || role->Dead != 0)
-            {
-                continue;
-            }
-            auto pos = pos90To45(role->Pos.x, role->Pos.y);
-            if (pos.x == x && pos.y == y)
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-    auto isUnattended = [&](Role* target, int team)
-    {
-        for (auto role : battle_roles_)
-        {
-            if (role->Dead != 0 || role->Team != team)
-            {
-                continue;
-            }
-            if (EuclidDis(role->Pos, target->Pos) <= TILE_W * 3)
-            {
-                return false;
-            }
-        }
-        return true;
-    };
-    auto spawnBasicAttackProjectile = [&](Role* attacker, Role* target)
-    {
-        if (!attacker || !target || attacker->Dead != 0 || target->Dead != 0)
-        {
-            return;
-        }
-
-        Magic* basicMagic = Save::getInstance()->getMagic(1);
-        if (!basicMagic)
-        {
-            return;
-        }
-
-        auto direction = target->Pos - attacker->Pos;
-        if (direction.norm() <= 0.01)
-        {
-            return;
-        }
-
-        direction.normTo(1);
-        attacker->RealTowards = direction;
-        setFaceTowardsNearest(attacker);
-
-        KysChess::Battle::BattleAttackSpawnRequest request;
-        request.initial.attackerUnitId = attacker->ID;
-        request.initial.skillId = basicMagic->ID;
-        request.initial.preferredTargetUnitId = target->ID;
-        request.initial.requirePreferredTarget = true;
-        request.initial.track = true;
-        request.initial.operationType = KysChess::Battle::BattleOperationType::Melee;
-        request.initial.visualEffectId = 11;
-        request.initial.position = attacker->Pos + MELEE_ATTACK_EFFECT_OFFSET * direction;
-        request.initial.velocity = target->Pos - request.initial.position;
-        if (request.initial.velocity.norm() <= 0.01)
-        {
-            request.initial.velocity = direction;
-        }
-        request.initial.velocity.normTo(PROJECTILE_SPEED);
-        request.initial.totalFrame = std::max(20,
-            static_cast<int>(std::ceil(EuclidDis(target->Pos, request.initial.position) / static_cast<double>(PROJECTILE_SPEED))) + 15);
-        attachProjectileBouncePrime(request);
-        queueCoreAttackSpawn(std::move(request));
-        Audio::getInstance()->playESound(attacker->ActType);
-    };
-    auto applyRescueReposition = [&](Role* pulled, int pullerTeam, bool executeMode)
-    {
-        assert(pulled);
-        if (pulled->Dead != 0)
-        {
-            return false;
-        }
-
-        auto& cs = KysChess::ChessCombo::getMutableStates();
-        KysChess::Battle::BattleRescueRepositionInput input;
-        input.mode = executeMode
-            ? KysChess::Battle::BattleRescuePullMode::Execute
-            : KysChess::Battle::BattleRescuePullMode::Protect;
-        input.pulledUnitId = pulled->ID;
-        input.pullerTeam = pullerTeam;
-        for (auto role : battle_roles_)
-        {
-            assert(role);
-            auto cell = pos90To45(role->Pos.x, role->Pos.y);
-            KysChess::Battle::BattleRescueUnitSnapshot unit;
-            unit.id = role->ID;
-            unit.team = role->Team;
-            unit.alive = role->Dead == 0;
-            unit.hp = role->HP;
-            unit.maxHp = role->MaxHP;
-            unit.invincible = role->Invincible;
-            unit.cell = cell;
-            auto it = cs.find(role->ID);
-            if (it != cs.end())
-            {
-                unit.isSummonedClone = it->second.isSummonedClone;
-                unit.forcePullProtect = it->second.forcePullProtect;
-                unit.forcePullProtectRemaining = it->second.forcePullProtectRemaining;
-                unit.forcePullExecute = it->second.forcePullExecute;
-                unit.forcePullExecuteRemaining = it->second.forcePullExecuteRemaining;
-            }
-            input.units.push_back(unit);
-        }
-
-        for (int x = 0; x < BATTLE_COORD_COUNT; ++x)
-        {
-            for (int y = 0; y < BATTLE_COORD_COUNT; ++y)
-            {
-                input.cells.push_back({
-                    x,
-                    y,
-                    canWalk45(x, y),
-                    isOccupied45(x, y, pulled),
-                    -1,
-                });
-            }
-        }
-
-        auto rescue = KysChess::Battle::BattleRescueRepositionSystem().resolve(input);
-        if (!rescue.teleport)
-        {
-            return false;
-        }
-
-        auto* puller = findRoleByBattleId(battle_roles_, rescue.teleport->pullerUnitId);
-        const auto& destination = rescue.teleport->destinationCell;
-        auto pos = pos45To90(destination.x, destination.y);
-        pulled->setPositionOnly(destination.x, destination.y);
-        pulled->Pos.x = pos.x;
-        pulled->Pos.y = pos.y;
-        pulled->Pos.z = 0;
-        pulled->Velocity = { 0, 0, 0 };
-        pulled->Acceleration = { 0, 0, gravity_ };
-        pulled->FindingWay = 0;
-        setFaceTowardsNearest(pulled);
-        setFaceTowardsNearest(puller);
-
-        auto& pullState = cs[rescue.counterDelta.unitId];
-        if (rescue.counterDelta.protectRemainingDelta != 0)
-        {
-            pullState.forcePullProtectRemaining = std::max(
-                0,
-                pullState.forcePullProtectRemaining + rescue.counterDelta.protectRemainingDelta);
-        }
-        if (rescue.counterDelta.executeRemainingDelta != 0)
-        {
-            pullState.forcePullExecuteRemaining = std::max(
-                0,
-                pullState.forcePullExecuteRemaining + rescue.counterDelta.executeRemainingDelta);
-        }
-        if (rescue.heal.amount > 0)
-        {
-            pulled->HP = std::min(pulled->MaxHP, pulled->HP + rescue.heal.amount);
-            recordRoleEffectPresentation(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
-        }
-        if (rescue.invincibility.frames > 0)
-        {
-            pulled->Invincible += rescue.invincibility.frames;
-        }
-        if (rescue.basicCounterAttack)
-        {
-            spawnBasicAttackProjectile(puller, pulled);
-        }
-        for (const auto& event : rescue.presentationEvents)
-        {
-            presentation_recorder_.recordPresentation(event);
-        }
-        return true;
-    };
-
     auto& cs = KysChess::ChessCombo::getMutableStates();
     std::set<int> diedUnitIds;
     std::vector<KysChess::Battle::BattleGameplayEvent> lifecycleEvents;
@@ -4062,7 +3895,6 @@ void BattleSceneHades::applyCoreDamageTransactions(const KysChess::Battle::Battl
             ? findRoleByBattleId(battle_roles_, damageTaken.attacker.id)
             : nullptr;
         r->LastAttacker = attacker;
-        int hpBefore = r->HP;
         auto sit = cs.find(r->ID);
         auto kit = attacker ? cs.find(attacker->ID) : cs.end();
         if (attacker && kit != cs.end())
@@ -4149,26 +3981,35 @@ void BattleSceneHades::applyCoreDamageTransactions(const KysChess::Battle::Battl
                 close_up_total_ = std::max(close_up_total_, close_up_);
             }
         }
+    }
 
-        if (r->Dead == 0)
+    for (const auto& rescue : frameState.rescue.committedResults)
+    {
+        assert(rescue.teleport);
+        auto* pulled = findRoleByBattleId(battle_roles_, rescue.teleport->unitId);
+        auto* puller = findRoleByBattleId(battle_roles_, rescue.teleport->pullerUnitId);
+        const auto& destination = rescue.teleport->destinationCell;
+        auto pos = pos45To90(destination.x, destination.y);
+        pulled->setPositionOnly(destination.x, destination.y);
+        pulled->Pos.x = pos.x;
+        pulled->Pos.y = pos.y;
+        pulled->Pos.z = 0;
+        pulled->Velocity = { 0, 0, 0 };
+        pulled->Acceleration = { 0, 0, gravity_ };
+        pulled->FindingWay = 0;
+        setFaceTowardsNearest(pulled);
+        setFaceTowardsNearest(puller);
+
+        if (rescue.heal.amount > 0)
         {
-            if (r->MaxHP > 0
-                && hpBefore * 4 > r->MaxHP
-                && r->HP * 4 <= r->MaxHP
-                && r->LastAttacker
-                && r->LastAttacker->Dead == 0
-                && r->LastAttacker->Team != r->Team)
-            {
-                applyRescueReposition(r, r->Team, false);
-            }
-
-            if (r->MaxHP > 0
-                && hpBefore * 100 > r->MaxHP * 15
-                && r->HP * 100 <= r->MaxHP * 15
-                && isUnattended(r, 1 - r->Team))
-            {
-                applyRescueReposition(r, 1 - r->Team, true);
-            }
+            assert(rescue.heal.targetUnitId == pulled->ID);
+            pulled->HP = std::min(pulled->MaxHP, pulled->HP + rescue.heal.amount);
+            recordRoleEffectPresentation(pulled, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+        }
+        if (rescue.invincibility.frames > 0)
+        {
+            assert(rescue.invincibility.targetUnitId == pulled->ID);
+            pulled->Invincible += rescue.invincibility.frames;
         }
     }
 

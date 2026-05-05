@@ -375,6 +375,93 @@ BattleDamageTransactionInput lethalDamageInput(int attackerUnitId, int defenderU
     return input;
 }
 
+BattleDamageTransactionInput preResolvedDamageInput(int attackerUnitId, int defenderUnitId, int hpBefore, int damage)
+{
+    BattleDamageTransactionInput input;
+    input.request.attackerUnitId = attackerUnitId;
+    input.request.defenderUnitId = defenderUnitId;
+    input.request.baseDamage = damage;
+    input.request.preResolvedDamage = true;
+    input.attacker.id = attackerUnitId;
+    input.attacker.alive = true;
+    input.attacker.hp = 100;
+    input.attacker.maxHp = 100;
+    input.defender.id = defenderUnitId;
+    input.defender.alive = true;
+    input.defender.hp = hpBefore;
+    input.defender.maxHp = 100;
+    input.defenderStatus.id = defenderUnitId;
+    input.defenderStatus.alive = true;
+    input.defenderStatus.hp = hpBefore;
+    input.defenderStatus.maxHp = 100;
+    return input;
+}
+
+BattleFrameRescueUnitSnapshot rescueUnit(int id, int team, Point cell, Pointf position, int hp)
+{
+    BattleFrameRescueUnitSnapshot snapshot;
+    snapshot.unit.id = id;
+    snapshot.unit.team = team;
+    snapshot.unit.alive = true;
+    snapshot.unit.hp = hp;
+    snapshot.unit.maxHp = 100;
+    snapshot.unit.cell = cell;
+    snapshot.position = position;
+    return snapshot;
+}
+
+BattleRescueCellSnapshot rescueCell(int x, int y, bool walkable = true, bool occupied = false)
+{
+    return { x, y, walkable, occupied, occupied ? 99 : -1 };
+}
+
+BattleFrameState rescueDamageFrameState(int defenderHp, int damage)
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 180, 180, 0 }),
+        unit(3, 1, { 72, 72, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.damage.units = {
+        damageUnitSnapshot(1, 100),
+        damageUnitSnapshot(2, defenderHp),
+        damageUnitSnapshot(3, 100),
+    };
+    state.status.units = {
+        statusUnitSnapshot(1, 100),
+        statusUnitSnapshot(2, defenderHp),
+        statusUnitSnapshot(3, 100),
+    };
+    state.damage.cooldowns.emplace(1, BattleCooldownState{});
+    state.damage.cooldowns.emplace(2, BattleCooldownState{});
+    state.damage.cooldowns.emplace(3, BattleCooldownState{});
+    state.damage.pendingTransactions.push_back(preResolvedDamageInput(1, 2, defenderHp, damage));
+    state.rescue.units = {
+        rescueUnit(1, 0, { 10, 10 }, { 360, 360, 0 }, 100),
+        rescueUnit(2, 1, { 5, 5 }, { 180, 180, 0 }, defenderHp),
+        rescueUnit(3, 1, { 2, 2 }, { 72, 72, 0 }, 100),
+    };
+    state.rescue.units[2].unit.forcePullProtect = true;
+    state.rescue.units[2].unit.forcePullProtectRemaining = 1;
+    state.rescue.cells = {
+        rescueCell(2, 3),
+        rescueCell(3, 2, true, true),
+        rescueCell(5, 5),
+    };
+    state.combo.units[3].forcePullProtect = true;
+    state.combo.units[3].forcePullProtectRemaining = 1;
+    state.rescue.executeUnattendedRadius = SceneTileWidth * 3.0;
+    state.rescue.counterAttack.skillId = 1;
+    state.rescue.counterAttack.visualEffectId = 11;
+    state.rescue.counterAttack.projectileSpeed = SceneProjectileSpeed;
+    state.rescue.counterAttack.meleeAttackEffectOffset = SceneTileWidth * 2.0;
+    state.rescue.counterAttack.minimumTotalFrames = 20;
+    state.rescue.counterAttack.totalFramePadding = 15;
+    return state;
+}
+
 }  // namespace
 
 TEST_CASE("BattleMovementGeometryAndConfig_MaxRangedReachStartsEmptyUntilSupplied", "[battle][core]")
@@ -1438,6 +1525,88 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore",
     REQUIRE(state.applications.autoUltimateRequests.size() == 1);
     CHECK(state.applications.autoUltimateRequests[0].unitId == 2);
     CHECK_FALSE(state.applications.autoUltimateRequests[0].consumeMp);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsProtectRescueInsideDamageLifecycle", "[battle][core][breakthrough]")
+{
+    auto state = rescueDamageFrameState(50, 30);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.damage.committedTransactions.size() == 1);
+    REQUIRE(state.rescue.committedResults.size() == 1);
+    const auto& rescue = state.rescue.committedResults.front();
+    REQUIRE(rescue.teleport.has_value());
+    CHECK(rescue.teleport->unitId == 2);
+    CHECK(rescue.teleport->pullerUnitId == 3);
+    CHECK(rescue.teleport->destinationCell.x == 2);
+    CHECK(rescue.teleport->destinationCell.y == 3);
+    CHECK(rescue.counterDelta.unitId == 3);
+    CHECK(rescue.counterDelta.protectRemainingDelta == -1);
+    CHECK(rescue.heal.targetUnitId == 2);
+    CHECK(rescue.heal.amount == 10);
+    CHECK(rescue.invincibility.targetUnitId == 2);
+    CHECK(rescue.invincibility.frames == 10);
+    CHECK(state.damage.units[1].hp == 30);
+    CHECK(state.status.units[1].hp == 30);
+    CHECK(state.status.units[1].invincible == 10);
+    CHECK(state.combo.units.at(3).forcePullProtectRemaining == 0);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsExecuteRescueAndQueuesCounterAttackInsideDamageLifecycle", "[battle][core][breakthrough]")
+{
+    auto state = rescueDamageFrameState(20, 10);
+    state.rescue.units[2].unit.forcePullProtect = false;
+    state.rescue.units[2].unit.forcePullProtectRemaining = 0;
+    state.combo.units[3].forcePullProtect = false;
+    state.combo.units[3].forcePullProtectRemaining = 0;
+    state.rescue.units[0].unit.forcePullExecute = true;
+    state.rescue.units[0].unit.forcePullExecuteRemaining = 2;
+    state.combo.units[1].forcePullExecute = true;
+    state.combo.units[1].forcePullExecuteRemaining = 2;
+    state.rescue.cells = {
+        rescueCell(9, 10),
+        rescueCell(10, 9),
+        rescueCell(10, 10, true, true),
+    };
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.rescue.committedResults.size() == 1);
+    const auto& rescue = state.rescue.committedResults.front();
+    REQUIRE(rescue.teleport.has_value());
+    CHECK(rescue.teleport->unitId == 2);
+    CHECK(rescue.teleport->pullerUnitId == 1);
+    CHECK(rescue.counterDelta.unitId == 1);
+    CHECK(rescue.counterDelta.executeRemainingDelta == -1);
+    REQUIRE(rescue.basicCounterAttack.has_value());
+    CHECK(rescue.basicCounterAttack->attackerUnitId == 1);
+    CHECK(rescue.basicCounterAttack->targetUnitId == 2);
+    CHECK(state.combo.units.at(1).forcePullExecuteRemaining == 1);
+    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    CHECK(state.pendingAttackSpawns.front().initial.attackerUnitId == 1);
+    CHECK(state.pendingAttackSpawns.front().initial.preferredTargetUnitId == 2);
+    CHECK(state.pendingAttackSpawns.front().initial.skillId == 1);
+    CHECK(state.pendingAttackSpawns.front().initial.visualEffectId == 11);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_DoesNotEmitRescueDeltaWithoutLegalCell", "[battle][core][breakthrough]")
+{
+    auto state = rescueDamageFrameState(50, 30);
+    state.rescue.cells = {
+        rescueCell(2, 3, false),
+        rescueCell(5, 5),
+    };
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.damage.committedTransactions.size() == 1);
+    CHECK(state.rescue.committedResults.empty());
+    CHECK(state.combo.units.at(3).forcePullProtectRemaining == 1);
+    CHECK(state.damage.units[1].hp == 20);
     CHECK(result.commands.empty());
 }
 

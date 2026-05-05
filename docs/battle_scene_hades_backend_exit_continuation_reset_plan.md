@@ -385,18 +385,18 @@ Task 4 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x
 - Modify: `src/BattleSceneBattleAdapter.cpp`
 - Modify: `src/BattleSceneBattleAdapter.h`
 
-- [ ] Add rescue input snapshots to `BattleFrameState`, using the existing `BattleRescueRepositionSystem` input types where practical:
+- [x] Add rescue input snapshots to `BattleFrameState`, using the existing `BattleRescueRepositionSystem` input types where practical:
   - unit/team snapshots;
   - force-pull counters;
   - legal grid cells;
   - occupancy;
   - deterministic tie-break inputs.
 
-- [ ] In the runner damage/lifecycle phase, detect the same conditions currently handled after damage:
+- [x] In the runner damage/lifecycle phase, detect the same conditions currently handled after damage:
   - HP crosses below 25 percent for protect pull;
   - HP crosses below 15 percent and unattended for execute pull.
 
-- [ ] Run `BattleRescueRepositionSystem` inside the runner and return explicit committed deltas:
+- [x] Run `BattleRescueRepositionSystem` inside the runner and return explicit committed deltas:
   - teleport destination;
   - counter decrement;
   - protection heal;
@@ -404,14 +404,14 @@ Task 4 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x
   - basic counterattack spawn request;
   - presentation facts.
 
-- [ ] Add core tests proving:
+- [x] Add core tests proving:
   - protect pull is emitted in the same frame as damage;
   - execute pull decrements execute counter and queues the basic counterattack spawn;
   - no rescue delta is emitted when no legal cell exists;
   - scene does not decide unattended/position selection after the runner.
 
-- [ ] Delete scene calls to `BattleRescueRepositionSystem`.
-- [ ] Run:
+- [x] Delete scene calls to `BattleRescueRepositionSystem`.
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -421,12 +421,14 @@ rg -n "BattleRescueRepositionSystem|tryForcePull|forcePullProtect|forcePullExecu
 
 Expected: focused tests pass. Search returns no scene-owned rescue decision path.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\battle\BattleCore.h src\battle\BattleCore.cpp tests\BattleCoreUnitTests.cpp src\BattleSceneHades.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
 git commit -m "refactor: move rescue reposition into frame runner"
 ```
+
+Task 5 verification on May 5, 2026: The red build failed first because `BattleFrameState` had no rescue state/API. After adding frame rescue snapshots, committed rescue results, and runner-side rescue reduction, `kys_tests` Debug x64 built successfully. `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][rescue_reposition][unit],[battle][core]"` passed 435 assertions in 54 test cases, and full `x64\Debug\kys_tests.exe` passed 4662 assertions in 246 test cases. The Task 5 boundary search for `BattleRescueRepositionSystem|tryForcePull|forcePullProtect|forcePullExecute|isUnattended` across `BattleSceneHades.cpp` and `BattleSceneHades.h` returned no matches.
 
 ## Task 6: Move Movement Physics Into Frame State
 

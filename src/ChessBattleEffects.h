@@ -283,6 +283,7 @@ public:
     static const std::map<std::string, EffectType>& getEffectTypeMap();
     static bool parseEffect(const YAML::Node& eNode, ComboEffect& out, const std::string& context);
     static void applyEffect(RoleComboState& s, const ComboEffect& e, int sourceComboId = -1);
+    static RoleComboState makeSummonedCloneState(const RoleComboState& sourceState, int cloneMaxHP);
     static void mergeEffects(std::map<int, RoleComboState>& states,
                               const std::vector<ComboEffect>& effects,
                              const std::vector<int>& roleIds,

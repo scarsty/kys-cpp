@@ -127,6 +127,32 @@ struct BattleActionFrameAdapterContext
     BattleActionFrameAdapterCallbacks callbacks;
 };
 
+struct BattleRescueFrameAdapterConfig
+{
+    double executeUnattendedRadius = 0.0;
+    int counterAttackSkillId = -1;
+    int counterAttackVisualEffectId = -1;
+    double counterAttackProjectileSpeed = 0.0;
+    double counterAttackMeleeOffset = 0.0;
+    int counterAttackMinimumTotalFrames = 20;
+    int counterAttackTotalFramePadding = 15;
+};
+
+struct BattleRescueFrameAdapterCallbacks
+{
+    std::function<Point(double, double)> toGrid;
+    std::function<Pointf(int, int)> toPosition;
+};
+
+struct BattleRescueFrameAdapterContext
+{
+    const std::vector<Role*>* roles = nullptr;
+    const std::map<int, RoleComboState>* comboStates = nullptr;
+    std::vector<Battle::BattleRescueCellSnapshot> cells;
+    BattleRescueFrameAdapterConfig config;
+    BattleRescueFrameAdapterCallbacks callbacks;
+};
+
 struct BattleActionFrameApplyResult
 {
     std::vector<int> attackSoundIds;
@@ -206,6 +232,9 @@ void populateBattleFrameHitUnits(
 void appendBattleFrameHitInput(
     Battle::BattleFrameState& frameState,
     const BattleFrameHitAdapterInput& input);
+void populateBattleFrameRescueState(
+    Battle::BattleFrameState& frameState,
+    const BattleRescueFrameAdapterContext& context);
 void populateBattleActionFrame(
     Battle::BattleFrameState& frameState,
     const BattleActionFrameAdapterContext& context);

@@ -1022,6 +1022,58 @@ void applyBlinkTeleportDelta(
     result.blinkSoundCount++;
 }
 
+void populateBattleFrameRescueState(
+    Battle::BattleFrameState& frameState,
+    const BattleRescueFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.comboStates);
+    assert(context.callbacks.toGrid);
+    assert(context.callbacks.toPosition);
+
+    frameState.rescue.units.clear();
+    frameState.rescue.cells = context.cells;
+    frameState.rescue.positionsByCell.clear();
+    for (const auto& cell : context.cells)
+    {
+        frameState.rescue.positionsByCell.emplace(
+            std::pair{ cell.x, cell.y },
+            context.callbacks.toPosition(cell.x, cell.y));
+    }
+    frameState.rescue.executeUnattendedRadius = context.config.executeUnattendedRadius;
+    frameState.rescue.counterAttack.skillId = context.config.counterAttackSkillId;
+    frameState.rescue.counterAttack.visualEffectId = context.config.counterAttackVisualEffectId;
+    frameState.rescue.counterAttack.projectileSpeed = context.config.counterAttackProjectileSpeed;
+    frameState.rescue.counterAttack.meleeAttackEffectOffset = context.config.counterAttackMeleeOffset;
+    frameState.rescue.counterAttack.minimumTotalFrames = context.config.counterAttackMinimumTotalFrames;
+    frameState.rescue.counterAttack.totalFramePadding = context.config.counterAttackTotalFramePadding;
+
+    frameState.rescue.units.reserve(context.roles->size());
+    for (auto role : *context.roles)
+    {
+        assert(role);
+        Battle::BattleFrameRescueUnitSnapshot snapshot;
+        snapshot.unit.id = role->ID;
+        snapshot.unit.team = role->Team;
+        snapshot.unit.alive = role->Dead == 0;
+        snapshot.unit.hp = role->HP;
+        snapshot.unit.maxHp = role->MaxHP;
+        snapshot.unit.invincible = role->Invincible;
+        snapshot.unit.cell = context.callbacks.toGrid(role->Pos.x, role->Pos.y);
+        snapshot.position = role->Pos;
+        auto stateIt = context.comboStates->find(role->ID);
+        if (stateIt != context.comboStates->end())
+        {
+            snapshot.unit.isSummonedClone = stateIt->second.isSummonedClone;
+            snapshot.unit.forcePullProtect = stateIt->second.forcePullProtect;
+            snapshot.unit.forcePullProtectRemaining = stateIt->second.forcePullProtectRemaining;
+            snapshot.unit.forcePullExecute = stateIt->second.forcePullExecute;
+            snapshot.unit.forcePullExecuteRemaining = stateIt->second.forcePullExecuteRemaining;
+        }
+        frameState.rescue.units.push_back(std::move(snapshot));
+    }
+}
+
 void populateBattleActionFrame(
     Battle::BattleFrameState& frameState,
     const BattleActionFrameAdapterContext& context)

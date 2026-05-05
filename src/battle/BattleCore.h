@@ -10,6 +10,7 @@
 #include "BattleHitResolver.h"
 #include "BattleMovement.h"
 #include "BattlePresentation.h"
+#include "BattleRescueRepositionSystem.h"
 #include "BattleStatusSystem.h"
 #include "BattleTeamEffectSystem.h"
 
@@ -212,6 +213,22 @@ struct BattleFrameRumbleEvent
     int durationMs = 0;
 };
 
+struct BattleFrameRescueUnitSnapshot
+{
+    BattleRescueUnitSnapshot unit;
+    Pointf position;
+};
+
+struct BattleFrameRescueCounterAttackConfig
+{
+    int skillId = -1;
+    int visualEffectId = -1;
+    double projectileSpeed = 0.0;
+    double meleeAttackEffectOffset = 0.0;
+    int minimumTotalFrames = 20;
+    int totalFramePadding = 15;
+};
+
 struct BattleFrameState
 {
     BattleWorldState world;
@@ -257,6 +274,16 @@ struct BattleFrameState
         BattleDeathEffectWorld world;
         std::vector<BattleDeathEffectEvent> events;
     } deathEffects;
+
+    struct RescueState
+    {
+        std::vector<BattleFrameRescueUnitSnapshot> units;
+        std::vector<BattleRescueCellSnapshot> cells;
+        std::map<std::pair<int, int>, Pointf> positionsByCell;
+        double executeUnattendedRadius = 0.0;
+        BattleFrameRescueCounterAttackConfig counterAttack;
+        std::vector<BattleRescueRepositionResult> committedResults;
+    } rescue;
 
     struct BattleResultState
     {
