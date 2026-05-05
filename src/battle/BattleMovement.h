@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <map>
+#include <vector>
 
 namespace KysChess::Battle
 {
@@ -31,6 +32,45 @@ struct BattleMovementPhysicsInput
     BattleMovementPhysicsConfig config;
     bool actionDashActive = false;
     std::function<bool(Pointf, int)> canMove;
+};
+
+struct BattleMovementPhysicsCollisionUnitSnapshot
+{
+    int id = -1;
+    bool alive = true;
+    Pointf position;
+};
+
+struct BattleMovementPhysicsCollisionCellSnapshot
+{
+    int x = 0;
+    int y = 0;
+    bool walkable = false;
+};
+
+struct BattleMovementPhysicsCollisionWorld
+{
+    double tileWidth = 0.0;
+    int coordCount = 0;
+    double defaultSeparationDistance = 0.0;
+    std::vector<BattleMovementPhysicsCollisionUnitSnapshot> units;
+    std::vector<BattleMovementPhysicsCollisionCellSnapshot> cells;
+};
+
+struct BattleFrameMovementPhysicsUnitInput
+{
+    int unitId = -1;
+    int frozenFrames = 0;
+    bool actionDashActive = false;
+    BattleMovementPhysicsState state;
+};
+
+struct BattleFrameMovementPhysicsUnitResult
+{
+    int unitId = -1;
+    int frozenFrames = 0;
+    bool physicsAdvanced = false;
+    BattleMovementPhysicsState state;
 };
 
 class BattleMovementPhysicsSystem

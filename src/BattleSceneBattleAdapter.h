@@ -153,6 +153,35 @@ struct BattleRescueFrameAdapterContext
     BattleRescueFrameAdapterCallbacks callbacks;
 };
 
+struct BattleMovementPhysicsFrameAdapterConfig
+{
+    float gravity = -4.0f;
+    float friction = 0.1f;
+    int postDashSpreadFrames = 0;
+    double tileWidth = 0.0;
+    int coordCount = 0;
+    double defaultSeparationDistance = 0.0;
+    int dashMomentumFrames = 0;
+};
+
+struct BattleMovementPhysicsFrameAdapterCallbacks
+{
+    std::function<Point(double, double)> toGrid;
+    std::function<bool(int, int)> canWalk;
+    std::function<int(Role*)> castFrame;
+    std::function<int(Role*)> movementDashFrames;
+    std::function<int(Role*)> movementDashCooldown;
+    std::function<int(Role*)> movementDashSpreadFrames;
+    std::function<void(Role*, int, int, int)> setMovementDashRuntime;
+};
+
+struct BattleMovementPhysicsFrameAdapterContext
+{
+    const std::vector<Role*>* roles = nullptr;
+    BattleMovementPhysicsFrameAdapterConfig config;
+    BattleMovementPhysicsFrameAdapterCallbacks callbacks;
+};
+
 struct BattleActionFrameApplyResult
 {
     std::vector<int> attackSoundIds;
@@ -235,6 +264,12 @@ void appendBattleFrameHitInput(
 void populateBattleFrameRescueState(
     Battle::BattleFrameState& frameState,
     const BattleRescueFrameAdapterContext& context);
+void populateBattleMovementPhysicsFrame(
+    Battle::BattleFrameState& frameState,
+    const BattleMovementPhysicsFrameAdapterContext& context);
+void applyBattleMovementPhysicsFrameResults(
+    const Battle::BattleFrameState& frameState,
+    const BattleMovementPhysicsFrameAdapterContext& context);
 void populateBattleActionFrame(
     Battle::BattleFrameState& frameState,
     const BattleActionFrameAdapterContext& context);

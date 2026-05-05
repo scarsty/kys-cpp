@@ -1074,6 +1074,99 @@ void populateBattleFrameRescueState(
     }
 }
 
+void populateBattleMovementPhysicsFrame(
+    Battle::BattleFrameState& frameState,
+    const BattleMovementPhysicsFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.callbacks.toGrid);
+    assert(context.callbacks.canWalk);
+    assert(context.callbacks.castFrame);
+    assert(context.callbacks.movementDashFrames);
+    assert(context.callbacks.movementDashCooldown);
+    assert(context.callbacks.movementDashSpreadFrames);
+
+    frameState.movementPhysics.config.gravity = context.config.gravity;
+    frameState.movementPhysics.config.friction = context.config.friction;
+    frameState.movementPhysics.config.postDashSpreadFrames = context.config.postDashSpreadFrames;
+    frameState.movementPhysics.collision.tileWidth = context.config.tileWidth;
+    frameState.movementPhysics.collision.coordCount = context.config.coordCount;
+    frameState.movementPhysics.collision.defaultSeparationDistance = context.config.defaultSeparationDistance;
+    frameState.movementPhysics.collision.units.clear();
+    frameState.movementPhysics.collision.cells.clear();
+    frameState.movementPhysics.units.clear();
+
+    for (auto role : *context.roles)
+    {
+        assert(role);
+        frameState.movementPhysics.collision.units.push_back({
+            role->ID,
+            role->Dead == 0,
+            role->Pos,
+        });
+    }
+    for (int x = 0; x < context.config.coordCount; ++x)
+    {
+        for (int y = 0; y < context.config.coordCount; ++y)
+        {
+            frameState.movementPhysics.collision.cells.push_back({
+                x,
+                y,
+                context.callbacks.canWalk(x, y),
+            });
+        }
+    }
+
+    for (auto role : *context.roles)
+    {
+        assert(role);
+        Battle::BattleFrameMovementPhysicsUnitInput input;
+        input.unitId = role->ID;
+        input.frozenFrames = role->Frozen;
+        input.state.position = role->Pos;
+        input.state.velocity = role->Velocity;
+        input.state.acceleration = role->Acceleration;
+        input.state.movementDashFrames = context.callbacks.movementDashFrames(role);
+        input.state.movementDashCooldown = context.callbacks.movementDashCooldown(role);
+        input.state.movementDashSpreadFrames = context.callbacks.movementDashSpreadFrames(role);
+
+        if (role->OperationType == 3 && role->HaveAction)
+        {
+            const int dashStartFrame = context.callbacks.castFrame(role);
+            const int dashEndFrame = dashStartFrame + context.config.dashMomentumFrames;
+            input.actionDashActive = role->ActFrame >= dashStartFrame && role->ActFrame <= dashEndFrame;
+            if (role->ActFrame > dashEndFrame)
+            {
+                input.state.velocity = { 0, 0, 0 };
+            }
+        }
+
+        frameState.movementPhysics.units.push_back(std::move(input));
+    }
+}
+
+void applyBattleMovementPhysicsFrameResults(
+    const Battle::BattleFrameState& frameState,
+    const BattleMovementPhysicsFrameAdapterContext& context)
+{
+    assert(context.roles);
+    assert(context.callbacks.setMovementDashRuntime);
+
+    for (const auto& result : frameState.movementPhysics.committedResults)
+    {
+        auto* role = findRoleByBattleId(*context.roles, result.unitId);
+        role->Frozen = result.frozenFrames;
+        role->Pos = result.state.position;
+        role->Velocity = result.state.velocity;
+        role->Acceleration = result.state.acceleration;
+        context.callbacks.setMovementDashRuntime(
+            role,
+            result.state.movementDashFrames,
+            result.state.movementDashCooldown,
+            result.state.movementDashSpreadFrames);
+    }
+}
+
 void populateBattleActionFrame(
     Battle::BattleFrameState& frameState,
     const BattleActionFrameAdapterContext& context)

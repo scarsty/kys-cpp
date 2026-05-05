@@ -36,6 +36,7 @@ using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::BattleFrameHitAdapterInput;
+using KysChess::BattleSceneBattleAdapter::BattleMovementPhysicsFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::BattleRescueFrameAdapterContext;
 using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
@@ -49,8 +50,10 @@ using KysChess::BattleSceneBattleAdapter::makeBattleFrameUnitRuntimeInput;
 using KysChess::BattleSceneBattleAdapter::makeBattlePresentationColor;
 using KysChess::BattleSceneBattleAdapter::makeBattleStatusUnit;
 using KysChess::BattleSceneBattleAdapter::makeBattleTeamEffectWorld;
+using KysChess::BattleSceneBattleAdapter::applyBattleMovementPhysicsFrameResults;
 using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
+using KysChess::BattleSceneBattleAdapter::populateBattleMovementPhysicsFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameHitUnits;
 using KysChess::BattleSceneBattleAdapter::collectBattleProjectileBouncePrime;
 using KysChess::BattleSceneBattleAdapter::collectBattleExtraProjectileCount;
@@ -2676,7 +2679,6 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
 
     for (auto r : battle_roles_)
     {
-        decreaseToZero(r->Frozen);
         decreaseToZero(r->Shake);
 
         // Defensive timers should expire in real battle ticks even when control
@@ -2770,58 +2772,6 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
             presentation_recorder_.recordPresentation(event);
         }
 
-        if (r->Frozen > 0)
-        {
-            continue;
-        }
-
-        //更新速度，加速度，力学位置
-        {
-            auto& movementRuntime = movement_runtime_[r];
-            int dashStartFrame = -1;
-            int dashEndFrame = -1;
-            if (r->OperationType == 3 && r->HaveAction)
-            {
-                dashStartFrame = calCast(r->ActType, r->OperationType, r);
-                dashEndFrame = dashStartFrame + DASH_MOMENTUM_FRAMES;
-                if (r->ActFrame > dashEndFrame)
-                {
-                    r->Velocity = { 0, 0, 0 };
-                }
-            }
-            KysChess::Battle::BattleMovementPhysicsInput input;
-            input.state.position = r->Pos;
-            input.state.velocity = r->Velocity;
-            input.state.acceleration = r->Acceleration;
-            input.state.movementDashFrames = movementRuntime.movement_dash_frames;
-            input.state.movementDashCooldown = movementRuntime.movement_dash_cooldown;
-            input.state.movementDashSpreadFrames = movementRuntime.movement_dash_spread_frames;
-            input.config.gravity = gravity_;
-            input.config.friction = friction_;
-            input.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
-            input.actionDashActive = dashStartFrame >= 0 && r->ActFrame >= dashStartFrame && r->ActFrame <= dashEndFrame;
-            input.canMove = [this, r](Pointf position, int separationDistance)
-            {
-                return canWalk90(position, r, separationDistance);
-            };
-
-            auto state = KysChess::Battle::BattleMovementPhysicsSystem().advance(input);
-            r->Pos = state.position;
-            r->Velocity = state.velocity;
-            r->Acceleration = state.acceleration;
-            movementRuntime.movement_dash_frames = state.movementDashFrames;
-            movementRuntime.movement_dash_cooldown = state.movementDashCooldown;
-            movementRuntime.movement_dash_spread_frames = state.movementDashSpreadFrames;
-        }
-        //else
-        //{
-        //    r->Velocity = { 0, 0 };
-        //    if (r->HP <= 0)
-        //    {
-        //        r->Dead = 1;
-        //        //此處只為嚴格化，但與擊退部分可能衝突
-        //    }
-        //}
     }
 
     //if (current_frame_ % 2 == 0)
@@ -2881,6 +2831,41 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
         rescueContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
         rescueContext.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
         populateBattleFrameRescueState(frameState, rescueContext);
+        BattleMovementPhysicsFrameAdapterContext movementPhysicsContext;
+        movementPhysicsContext.roles = &battle_roles_;
+        movementPhysicsContext.config.gravity = gravity_;
+        movementPhysicsContext.config.friction = friction_;
+        movementPhysicsContext.config.postDashSpreadFrames = POST_DASH_SPREAD_FRAMES;
+        movementPhysicsContext.config.tileWidth = TILE_W;
+        movementPhysicsContext.config.coordCount = BATTLE_COORD_COUNT;
+        movementPhysicsContext.config.defaultSeparationDistance = TILE_W * 1.5;
+        movementPhysicsContext.config.dashMomentumFrames = DASH_MOMENTUM_FRAMES;
+        movementPhysicsContext.callbacks.toGrid = [this](double x, double y) { return pos90To45(x, y); };
+        movementPhysicsContext.callbacks.canWalk = [this](int x, int y) { return canWalk45(x, y); };
+        movementPhysicsContext.callbacks.castFrame = [this](Role* role)
+        {
+            return calCast(role->ActType, role->OperationType, role);
+        };
+        movementPhysicsContext.callbacks.movementDashFrames = [this](Role* role)
+        {
+            return movement_runtime_[role].movement_dash_frames;
+        };
+        movementPhysicsContext.callbacks.movementDashCooldown = [this](Role* role)
+        {
+            return movement_runtime_[role].movement_dash_cooldown;
+        };
+        movementPhysicsContext.callbacks.movementDashSpreadFrames = [this](Role* role)
+        {
+            return movement_runtime_[role].movement_dash_spread_frames;
+        };
+        movementPhysicsContext.callbacks.setMovementDashRuntime = [this](Role* role, int frames, int cooldown, int spreadFrames)
+        {
+            auto& movementRuntime = movement_runtime_[role];
+            movementRuntime.movement_dash_frames = frames;
+            movementRuntime.movement_dash_cooldown = cooldown;
+            movementRuntime.movement_dash_spread_frames = spreadFrames;
+        };
+        populateBattleMovementPhysicsFrame(frameState, movementPhysicsContext);
         frameState.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
         pending_core_attack_spawns_.clear();
         auto actionContext = makeBattleActionFrameAdapterContext();
@@ -2924,6 +2909,7 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
         applyCoreDamageTransactions(frameState);
         applyCoreTeamEffectState(frameState);
         applyCoreFrameApplications(frameState);
+        applyBattleMovementPhysicsFrameResults(frameState, movementPhysicsContext);
         auto actionApply = applyBattleActionFrameResults(frameState, actionContext);
         for (int soundId : actionApply.attackSoundIds)
         {
@@ -3390,43 +3376,43 @@ int BattleSceneHades::checkResult()
     return -1;
 }
 
-void BattleSceneHades::setRoleInitState(Role* r)
+void BattleSceneHades::setRoleInitState(Role* role)
 {
-    BattleScene::setRoleInitState(r);
-    if (r->Team == 0)
+    BattleScene::setRoleInitState(role);
+    if (role->Team == 0)
     {
-        r->HP = r->MaxHP;
-        r->MP = 0;
-        r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
+        role->HP = role->MaxHP;
+        role->MP = 0;
+        role->PhysicalPower = (std::max)(role->PhysicalPower, 90);
     }
     else
     {
-        r->HP = r->MaxHP;
-        r->MP = 0;
-        r->PhysicalPower = (std::max)(r->PhysicalPower, 90);
+        role->HP = role->MaxHP;
+        role->MP = 0;
+        role->PhysicalPower = (std::max)(role->PhysicalPower, 90);
     }
 
-    auto p = pos45To90(r->X(), r->Y());
+    auto p = pos45To90(role->X(), role->Y());
 
-    r->Pos.x = p.x;
-    r->Pos.y = p.y;
-    if (r->FaceTowards == Towards_RightDown)
+    role->Pos.x = p.x;
+    role->Pos.y = p.y;
+    if (role->FaceTowards == Towards_RightDown)
     {
-        r->RealTowards = { 1, 1 };
+        role->RealTowards = { 1, 1 };
     }
-    if (r->FaceTowards == Towards_RightUp)
+    if (role->FaceTowards == Towards_RightUp)
     {
-        r->RealTowards = { 1, -1 };
+        role->RealTowards = { 1, -1 };
     }
-    if (r->FaceTowards == Towards_LeftDown)
+    if (role->FaceTowards == Towards_LeftDown)
     {
-        r->RealTowards = { -1, 1 };
+        role->RealTowards = { -1, 1 };
     }
-    if (r->FaceTowards == Towards_LeftUp)
+    if (role->FaceTowards == Towards_LeftUp)
     {
-        r->RealTowards = { -1, -1 };
+        role->RealTowards = { -1, -1 };
     }
-    r->Acceleration = { 0, 0, gravity_ };
+    role->Acceleration = { 0, 0, gravity_ };
 }
 
 Role* BattleSceneHades::findNearestEnemy(int team, Pointf p)

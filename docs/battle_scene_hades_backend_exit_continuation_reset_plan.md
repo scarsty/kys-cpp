@@ -446,7 +446,7 @@ Task 5 verification on May 5, 2026: The red build failed first because `BattleFr
 - Modify: `src/BattleSceneBattleAdapter.cpp`
 - Modify: `src/BattleSceneBattleAdapter.h`
 
-- [ ] Add frame-owned movement physics input for each unit:
+- [x] Add frame-owned movement physics input for each unit:
   - position;
   - velocity;
   - acceleration;
@@ -454,11 +454,11 @@ Task 5 verification on May 5, 2026: The red build failed first because `BattleFr
   - gravity/friction config;
   - legal movement/standability snapshot, not scene callback.
 
-- [ ] Move the current scene `BattleMovementPhysicsSystem().advance(...)` loop into `BattleFrameRunner`.
-- [ ] Return committed movement physics deltas and apply them through adapter after the runner.
-- [ ] Ensure the scene build path snapshots movement state without mutating `Role::Pos`, `Role::Velocity`, or `Role::Acceleration`.
-- [ ] Add a core test proving frozen units tick timers but do not run movement physics, while non-frozen units commit position/velocity in the same frame.
-- [ ] Run:
+- [x] Move the current scene `BattleMovementPhysicsSystem().advance(...)` loop into `BattleFrameRunner`.
+- [x] Return committed movement physics deltas and apply them through adapter after the runner.
+- [x] Ensure the scene build path snapshots movement state without mutating `Role::Pos`, `Role::Velocity`, or `Role::Acceleration`.
+- [x] Add a core test proving frozen units tick timers but do not run movement physics, while non-frozen units commit position/velocity in the same frame.
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -468,12 +468,14 @@ rg -n "BattleMovementPhysicsSystem|decreaseToZero\\(r->Frozen\\)|r->Pos =|r->Vel
 
 Expected: no pre-runner movement physics mutation remains in `BattleSceneHades`.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\battle\BattleCore.h src\battle\BattleCore.cpp src\battle\BattleMovement.h src\battle\BattleMovement.cpp tests\BattleCoreUnitTests.cpp tests\BattleMovementRealStatsTests.cpp src\BattleSceneHades.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
 git commit -m "refactor: advance movement physics inside frame runner"
 ```
+
+Task 6 verification on May 5, 2026: The red build failed first because `BattleFrameState` had no movement physics state/API. After adding frame movement physics snapshots, collision cell/unit snapshots, runner-side physics advancement, and adapter committed-result application, `kys_tests` Debug x64 built successfully. `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][movement]"` passed 2873 assertions in 19 test cases, and full `x64\Debug\kys_tests.exe` passed 4674 assertions in 247 test cases. The Task 6 boundary search for `BattleMovementPhysicsSystem|decreaseToZero\(r->Frozen\)|r->Pos =|r->Velocity =|r->Acceleration =` in `BattleSceneHades.cpp` returned no matches.
 
 ## Task 7: Collapse Scene Frame Path To Bundle/Advance/Apply
 

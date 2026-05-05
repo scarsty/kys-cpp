@@ -1366,6 +1366,68 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     CHECK(gameplayTypes[gameplayTypes.size() - 1] == BattleGameplayEventType::BattleEnded);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_RunsMovementPhysicsInsideCore", "[battle][core][movement]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 200, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.movementPhysics.config.gravity = -4.0f;
+    state.movementPhysics.config.friction = 0.1f;
+    state.movementPhysics.config.postDashSpreadFrames = 6;
+    state.movementPhysics.collision.tileWidth = SceneTileWidth;
+    state.movementPhysics.collision.coordCount = 64;
+    state.movementPhysics.collision.defaultSeparationDistance = SceneTileWidth * 1.5;
+    state.movementPhysics.collision.units = {
+        { 1, true, { 100, 100, 0 } },
+        { 2, true, { 200, 100, 0 } },
+    };
+    for (int x = -64; x < 64; ++x)
+    {
+        for (int y = -64; y < 64; ++y)
+        {
+            state.movementPhysics.collision.cells.push_back({ x, y, true });
+        }
+    }
+
+    BattleFrameMovementPhysicsUnitInput moving;
+    moving.unitId = 1;
+    moving.frozenFrames = 0;
+    moving.state.position = { 100, 100, 0 };
+    moving.state.velocity = { 5, 0, 0 };
+    moving.state.acceleration = { 0, 0, -4 };
+    moving.state.movementDashFrames = 1;
+    state.movementPhysics.units.push_back(moving);
+
+    BattleFrameMovementPhysicsUnitInput frozen;
+    frozen.unitId = 2;
+    frozen.frozenFrames = 2;
+    frozen.state.position = { 200, 100, 0 };
+    frozen.state.velocity = { 5, 0, 0 };
+    frozen.state.acceleration = { 0, 0, -4 };
+    state.movementPhysics.units.push_back(frozen);
+
+    BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.movementPhysics.committedResults.size() == 2);
+    const auto& moved = state.movementPhysics.committedResults[0];
+    CHECK(moved.unitId == 1);
+    CHECK(moved.physicsAdvanced);
+    CHECK(moved.frozenFrames == 0);
+    CHECK(moved.state.position.x == 105.0f);
+    CHECK(moved.state.movementDashFrames == 0);
+    CHECK(moved.state.movementDashSpreadFrames == 6);
+
+    const auto& stopped = state.movementPhysics.committedResults[1];
+    CHECK(stopped.unitId == 2);
+    CHECK_FALSE(stopped.physicsAdvanced);
+    CHECK(stopped.frozenFrames == 1);
+    CHECK(stopped.state.position.x == 200.0f);
+    CHECK(stopped.state.velocity.x == 5.0f);
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameState", "[battle][core][breakthrough]")
 {
     BattleFrameState state;

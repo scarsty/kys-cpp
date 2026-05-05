@@ -1009,6 +1009,61 @@ bool rescueUnitUnattendedByTeam(const BattleFrameState& state, int targetUnitId,
     return true;
 }
 
+Point movementPhysicsCell(const BattleMovementPhysicsCollisionWorld& world, Pointf position)
+{
+    assert(world.tileWidth > 0.0);
+    assert(world.coordCount > 0);
+    double x = position.x - world.coordCount * world.tileWidth;
+    Point cell;
+    cell.x = static_cast<int>(std::round((x / world.tileWidth + position.y / world.tileWidth) / 2.0));
+    cell.y = static_cast<int>(std::round((-x / world.tileWidth + position.y / world.tileWidth) / 2.0));
+    return cell;
+}
+
+bool movementPhysicsCellWalkable(const BattleMovementPhysicsCollisionWorld& world, Point cell)
+{
+    auto it = std::find_if(world.cells.begin(), world.cells.end(), [&](const BattleMovementPhysicsCollisionCellSnapshot& snapshot)
+        {
+            return snapshot.x == cell.x && snapshot.y == cell.y;
+        });
+    return it != world.cells.end() && it->walkable;
+}
+
+bool canMoveInPhysicsSnapshot(
+    const BattleMovementPhysicsCollisionWorld& world,
+    int unitId,
+    Pointf currentPosition,
+    Pointf nextPosition,
+    int separationDistance)
+{
+    if (currentPosition.z > 1.0f)
+    {
+        return true;
+    }
+
+    const double separation = separationDistance == -1
+        ? world.defaultSeparationDistance
+        : static_cast<double>(separationDistance);
+    for (const auto& unit : world.units)
+    {
+        if (!unit.alive || unit.id == unitId)
+        {
+            continue;
+        }
+        const double nextDistance = distance2d(nextPosition, unit.position);
+        if (nextDistance < separation)
+        {
+            const double currentDistance = distance2d(currentPosition, unit.position);
+            if (currentDistance >= nextDistance)
+            {
+                return false;
+            }
+        }
+    }
+
+    return movementPhysicsCellWalkable(world, movementPhysicsCell(world, nextPosition));
+}
+
 BattleAttackSpawnRequest makeRescueCounterAttackSpawn(
     const BattleFrameState& state,
     const BattleRescueBasicCounterAttackCommand& command)
@@ -2104,6 +2159,70 @@ void applyPendingTeamEffects(
     state.teamEffects.pendingCommands = std::move(unappliedCommands);
 }
 
+void advanceMovementPhysics(BattleFrameState& state)
+{
+    state.movementPhysics.committedResults.clear();
+    if (state.movementPhysics.units.empty())
+    {
+        return;
+    }
+
+    assert(state.movementPhysics.collision.tileWidth > 0.0);
+    assert(state.movementPhysics.collision.coordCount > 0);
+    assert(state.movementPhysics.collision.defaultSeparationDistance > 0.0);
+
+    for (const auto& input : state.movementPhysics.units)
+    {
+        assert(input.unitId >= 0);
+        BattleFrameMovementPhysicsUnitResult result;
+        result.unitId = input.unitId;
+        result.state = input.state;
+        result.frozenFrames = input.frozenFrames;
+
+        if (result.frozenFrames > 0)
+        {
+            --result.frozenFrames;
+            state.movementPhysics.committedResults.push_back(std::move(result));
+            continue;
+        }
+
+        BattleMovementPhysicsInput physicsInput;
+        physicsInput.state = input.state;
+        physicsInput.config = state.movementPhysics.config;
+        physicsInput.actionDashActive = input.actionDashActive;
+        physicsInput.canMove = [&](Pointf position, int separationDistance)
+        {
+            return canMoveInPhysicsSnapshot(
+                state.movementPhysics.collision,
+                input.unitId,
+                input.state.position,
+                position,
+                separationDistance);
+        };
+        result.state = BattleMovementPhysicsSystem().advance(physicsInput);
+        result.physicsAdvanced = true;
+
+        if (auto* unit = findWorldUnit(state.world, input.unitId))
+        {
+            unit->position = result.state.position;
+            unit->velocity = result.state.velocity;
+        }
+        auto collisionIt = std::find_if(
+            state.movementPhysics.collision.units.begin(),
+            state.movementPhysics.collision.units.end(),
+            [&](const BattleMovementPhysicsCollisionUnitSnapshot& unit)
+            {
+                return unit.id == input.unitId;
+            });
+        if (collisionIt != state.movementPhysics.collision.units.end())
+        {
+            collisionIt->position = result.state.position;
+        }
+        state.movementPhysics.committedResults.push_back(std::move(result));
+    }
+    state.movementPhysics.units.clear();
+}
+
 void advanceMovement(BattleFrameState& state, BattleFrameResult& result)
 {
     result.movement = BattleCore(state.world).tickMovement();
@@ -2435,6 +2554,7 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     applyRuntimeComboEvents(state, presentationEvents);
     applyPendingTeamEffects(state, presentationEvents);
     reduceFrameGameplayCommands(state, result.commands, presentationEvents);
+    advanceMovementPhysics(state);
     advanceMovement(state, result);
     advanceActionFrameUnits(state, result.movement, gameplayEvents, presentationEvents);
     advanceAttacksAndResolveHits(state, result, presentationEvents);

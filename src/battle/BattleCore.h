@@ -320,6 +320,14 @@ struct BattleFrameState
         std::vector<BattleFrameActionUnitResult> unitResults;
     } actions;
 
+    struct MovementPhysicsState
+    {
+        BattleMovementPhysicsConfig config;
+        BattleMovementPhysicsCollisionWorld collision;
+        std::vector<BattleFrameMovementPhysicsUnitInput> units;
+        std::vector<BattleFrameMovementPhysicsUnitResult> committedResults;
+    } movementPhysics;
+
     struct HitState
     {
         std::vector<BattleHitUnitSnapshot> units;
