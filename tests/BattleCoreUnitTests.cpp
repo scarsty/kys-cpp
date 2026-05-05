@@ -147,6 +147,71 @@ BattleHitItemSnapshot hitItemSnapshot(int id, int resolvedDamage)
     return snapshot;
 }
 
+BattleDamageUnitState damageUnitSnapshot(int id, int hp)
+{
+    BattleDamageUnitState state;
+    state.id = id;
+    state.alive = true;
+    state.hp = hp;
+    state.maxHp = 100;
+    state.mp = 50;
+    state.maxMp = 100;
+    state.attack = 30;
+    return state;
+}
+
+BattleStatusUnitState statusUnitSnapshot(int id, int hp)
+{
+    BattleStatusUnitState state;
+    state.id = id;
+    state.alive = true;
+    state.hp = hp;
+    state.maxHp = 100;
+    return state;
+}
+
+BattleFrameState hitDamageFrameState(int resolvedBaseDamage, int defenderHp)
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }, CombatStyle::Ranged),
+        unit(2, 1, { 105, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.attacks.units = {
+        { 1, 0, true, false, false, { 100, 100, 0 } },
+        { 2, 1, true, false, false, { 105, 100, 0 } },
+    };
+
+    BattleAttackInstance projectile;
+    projectile.id = 10;
+    projectile.state.attackerUnitId = 1;
+    projectile.state.skillId = 101;
+    projectile.state.totalFrame = 30;
+    projectile.state.operationType = BattleOperationType::RangedProjectile;
+    projectile.state.position = { 100, 100, 0 };
+    projectile.state.velocity = { 5, 0, 0 };
+    state.attacks.attacks.push_back(projectile);
+
+    state.hits.units = {
+        hitUnitSnapshot(1, 0, 80, { 100, 100, 0 }),
+        hitUnitSnapshot(2, 1, defenderHp, { 105, 100, 0 }),
+    };
+    state.hits.skills.push_back({ 10, 1, 2, hitSkillSnapshot(101, resolvedBaseDamage) });
+    state.hits.scalars.push_back({ 10, 1, 2, resolvedBaseDamage, 0, 1, 0, {} });
+    state.damage.units = {
+        damageUnitSnapshot(1, 80),
+        damageUnitSnapshot(2, defenderHp),
+    };
+    state.status.units = {
+        statusUnitSnapshot(1, 80),
+        statusUnitSnapshot(2, defenderHp),
+    };
+    state.damage.cooldowns.emplace(1, BattleCooldownState{});
+    state.damage.cooldowns.emplace(2, BattleCooldownState{});
+    return state;
+}
+
 BattleCastConfig frameCastConfig()
 {
     BattleCastConfig config;
@@ -1384,6 +1449,55 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_ResolvesHitEventsWithFrameHitInputs", 
         });
     REQUIRE(hpDamage != result.commands.end());
     CHECK(std::get<BattleHpDamageCommand>(*hpDamage).damage == state.hits.committedResults[0].finalHpDamage);
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[battle][core][breakthrough]")
+{
+    auto state = hitDamageFrameState(70, 100);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.hits.committedResults.size() == 1);
+    REQUIRE(state.damage.committedTransactions.size() == 1);
+    CHECK(state.damage.committedTransactions.front().defender.id == 2);
+    CHECK(state.damage.committedTransactions.front().finalHpDamage > 0);
+    CHECK(state.damage.committedTransactions.front().defender.hp < 100);
+    CHECK(std::none_of(
+        result.commands.begin(),
+        result.commands.end(),
+        [](const BattleGameplayCommand& command)
+        {
+            return std::holds_alternative<BattleHpDamageCommand>(command);
+        }));
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndInsideSameFrame", "[battle][core][breakthrough]")
+{
+    auto state = hitDamageFrameState(120, 20);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.damage.committedTransactions.size() == 1);
+    CHECK_FALSE(state.damage.committedTransactions.front().defender.alive);
+    CHECK(state.result.ended);
+    CHECK(state.result.winningTeam == 0);
+    CHECK(std::any_of(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::UnitDied
+                && event.sourceUnitId == 1
+                && event.targetUnitId == 2;
+        }));
+    CHECK(std::any_of(
+        result.frame.gameplayEvents.begin(),
+        result.frame.gameplayEvents.end(),
+        [](const BattleGameplayEvent& event)
+        {
+            return event.type == BattleGameplayEventType::BattleEnded
+                && event.amount == 0;
+        }));
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DodgeConsumesHitBeforeDamage", "[battle][core]")

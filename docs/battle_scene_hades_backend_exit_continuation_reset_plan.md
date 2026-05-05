@@ -109,10 +109,10 @@ An implementation has not achieved the breakthrough if:
 - Modify: `docs/battle_scene_hades_backend_exit_continuation_plan.md`
 - Create: `docs/battle_scene_hades_backend_exit_continuation_reset_plan.md`
 
-- [ ] Add a superseded notice to `docs/battle_scene_hades_backend_exit_continuation_plan.md` that points here.
-- [ ] Update `docs/battle_refactor_completion_plan.md` Slice 7.3 references to point here.
-- [ ] Update `docs/battle_scene_hades_backend_exit_plan.md` superseded notice to point here.
-- [ ] Run:
+- [x] Add a superseded notice to `docs/battle_scene_hades_backend_exit_continuation_plan.md` that points here.
+- [x] Update `docs/battle_refactor_completion_plan.md` Slice 7.3 references to point here.
+- [x] Update `docs/battle_scene_hades_backend_exit_plan.md` superseded notice to point here.
+- [x] Run:
 
 ```powershell
 git diff --check -- docs\battle_refactor_completion_plan.md docs\battle_scene_hades_backend_exit_plan.md docs\battle_scene_hades_backend_exit_continuation_plan.md docs\battle_scene_hades_backend_exit_continuation_reset_plan.md
@@ -120,6 +120,8 @@ rg -n "battle_scene_hades_backend_exit_continuation_plan\.md|battle_scene_hades_
 ```
 
 Expected: diff check passes. Any matches for old plan names are historical/superseded context only, not active execution instructions.
+
+Task 0 verification on May 5, 2026: `git diff --check -- docs\battle_refactor_completion_plan.md docs\battle_scene_hades_backend_exit_plan.md docs\battle_scene_hades_backend_exit_continuation_plan.md docs\battle_scene_hades_backend_exit_continuation_reset_plan.md` passed. The old-plan reference search returned only historical references inside superseded plan bodies.
 
 ## Task 1: Prove Same-Frame Hit-To-Damage Reduction In Core
 
@@ -131,7 +133,7 @@ Expected: diff check passes. Any matches for old plan names are historical/super
 - Modify: `src/battle/BattleCore.h`
 - Modify: `src/battle/BattleCore.cpp`
 
-- [ ] Add a focused test named:
+- [x] Add a focused test named:
 
 ```cpp
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesHitDamageInsideSameFrame", "[battle][core][breakthrough]")
@@ -169,7 +171,7 @@ CHECK(std::none_of(
     }));
 ```
 
-- [ ] Add a second focused test named:
+- [x] Add a second focused test named:
 
 ```cpp
 TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesLethalHitToDeathAndBattleEndInsideSameFrame", "[battle][core][breakthrough]")
@@ -201,7 +203,7 @@ CHECK(std::any_of(
     }));
 ```
 
-- [ ] Run the focused tests before implementation:
+- [x] Run the focused tests before implementation:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -210,13 +212,13 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough]"
 
 Expected before implementation: tests fail because hit damage still exits as `BattleHpDamageCommand` instead of being committed inside the frame.
 
-- [ ] Implement the minimal core change:
+- [x] Implement the minimal core change:
   - add a private reducer in `BattleCore.cpp` that converts `BattleHpDamageCommand`, `BattleMpDamageCommand`, and `BattleAcceptedHitSideEffectCommand` into `BattleDamageTransactionInput` using `state.damage.units`, `state.damage.cooldowns`, `state.status.units`, and combo/modifier state already present in `BattleFrameState`;
   - call this reducer between `resolveHitEvents(...)` and `applyDamageAndLifecycle(...)`;
   - leave non-damage commands in an internal remainder only if they cannot be reduced yet;
   - do not call adapter or scene helpers.
 
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -225,12 +227,14 @@ x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core]"
 
 Expected after implementation: breakthrough tests and existing core tests pass.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\battle\BattleCore.h src\battle\BattleCore.cpp tests\BattleCoreUnitTests.cpp
 git commit -m "refactor: reduce hit damage inside battle frame runner"
 ```
+
+Task 1 verification on May 5, 2026: The first focused run failed for the intended reason: both breakthrough tests had `state.damage.committedTransactions.size() == 0` after the runner. After implementing frame damage-command reduction in `BattleFrameRunner`, `kys_tests` Debug x64 built successfully and `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core]"` passed 340 assertions in 43 test cases.
 
 ## Task 2: Move Damage Application Result Shape Fully Into `BattleFrameState`
 

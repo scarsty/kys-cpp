@@ -713,6 +713,15 @@ BattleDamageUnitState* findDamageUnit(std::vector<BattleDamageUnitState>& units,
     return it != units.end() ? &*it : nullptr;
 }
 
+const BattleDamageUnitState* findDamageUnit(const std::vector<BattleDamageUnitState>& units, int unitId)
+{
+    auto it = std::find_if(units.begin(), units.end(), [&](const BattleDamageUnitState& unit)
+        {
+            return unit.id == unitId;
+        });
+    return it != units.end() ? &*it : nullptr;
+}
+
 BattleTeamEffectUnit* findTeamEffectUnit(BattleTeamEffectWorld& world, int unitId)
 {
     auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
@@ -836,8 +845,32 @@ BattleGameplayEvent toGameplayEvent(const BattleDamageEvent& event)
     return gameplay;
 }
 
+BattleStatusUnitState makeFallbackStatusUnit(const BattleDamageUnitState& unit)
+{
+    BattleStatusUnitState status;
+    status.id = unit.id;
+    status.alive = unit.alive;
+    status.hp = unit.hp;
+    status.maxHp = unit.maxHp;
+    status.invincible = unit.invincible;
+    return status;
+}
+
 void applyDamageResultToFrameState(BattleFrameState& state, const BattleDamageTransactionResult& transaction)
 {
+    if (auto* attacker = findDamageUnit(state.damage.units, transaction.attacker.id))
+    {
+        *attacker = transaction.attacker;
+    }
+    if (auto* defender = findDamageUnit(state.damage.units, transaction.defender.id))
+    {
+        *defender = transaction.defender;
+    }
+    if (auto cooldownIt = state.damage.cooldowns.find(transaction.defender.id);
+        cooldownIt != state.damage.cooldowns.end())
+    {
+        cooldownIt->second = transaction.defenderCooldown;
+    }
     if (auto* attacker = findWorldUnit(state.world, transaction.attacker.id))
     {
         attacker->alive = transaction.attacker.alive;
@@ -862,6 +895,146 @@ void applyDamageResultToFrameState(BattleFrameState& state, const BattleDamageTr
     {
         applyDamageUnitToDeathEffectUnit(*deathUnit, transaction.attacker);
     }
+}
+
+bool buildFrameDamageTransaction(
+    const BattleFrameState& state,
+    const BattleDamageRequest& request,
+    BattleDamageTransactionInput& transaction)
+{
+    assert(request.defenderUnitId >= 0);
+
+    const auto* defender = findDamageUnit(state.damage.units, request.defenderUnitId);
+    if (!defender)
+    {
+        return false;
+    }
+
+    transaction.request = request;
+    if (request.attackerUnitId >= 0)
+    {
+        const auto* attacker = findDamageUnit(state.damage.units, request.attackerUnitId);
+        if (!attacker)
+        {
+            return false;
+        }
+        transaction.attacker = *attacker;
+    }
+    else
+    {
+        transaction.attacker.id = request.attackerUnitId;
+    }
+    transaction.defender = *defender;
+    if (const auto* status = findStatusUnit(state.status.units, request.defenderUnitId))
+    {
+        transaction.defenderStatus = *status;
+    }
+    else
+    {
+        transaction.defenderStatus = makeFallbackStatusUnit(*defender);
+    }
+    if (auto cooldownIt = state.damage.cooldowns.find(request.defenderUnitId);
+        cooldownIt != state.damage.cooldowns.end())
+    {
+        transaction.defenderCooldown = cooldownIt->second;
+    }
+    return true;
+}
+
+bool tryAppendFrameDamageTransaction(
+    BattleFrameState& state,
+    const BattleHpDamageCommand& command)
+{
+    const auto* defender = findDamageUnit(state.damage.units, command.targetUnitId);
+    if (!defender)
+    {
+        return false;
+    }
+
+    BattleDamageRequest request;
+    request.attackerUnitId = command.sourceUnitId;
+    request.defenderUnitId = command.targetUnitId;
+    request.baseDamage = command.executed
+        ? std::max(command.damage, defender->hp)
+        : command.damage;
+    request.preResolvedDamage = true;
+
+    BattleDamageTransactionInput transaction;
+    if (!buildFrameDamageTransaction(state, request, transaction))
+    {
+        return false;
+    }
+    state.damage.pendingTransactions.push_back(std::move(transaction));
+    return true;
+}
+
+bool tryAppendFrameDamageTransaction(
+    BattleFrameState& state,
+    const BattleMpDamageCommand& command)
+{
+    auto request = command.damage;
+    request.attackerUnitId = command.sourceUnitId;
+    request.defenderUnitId = command.targetUnitId;
+
+    BattleDamageTransactionInput transaction;
+    if (!buildFrameDamageTransaction(state, request, transaction))
+    {
+        return false;
+    }
+    state.damage.pendingTransactions.push_back(std::move(transaction));
+    return true;
+}
+
+bool tryAppendFrameDamageTransaction(
+    BattleFrameState& state,
+    const BattleAcceptedHitSideEffectCommand& command)
+{
+    auto request = command.damage;
+    request.attackerUnitId = command.sourceUnitId;
+    request.defenderUnitId = command.targetUnitId;
+    request.acceptedHit = true;
+
+    BattleDamageTransactionInput transaction;
+    if (!buildFrameDamageTransaction(state, request, transaction))
+    {
+        return false;
+    }
+    state.damage.pendingTransactions.push_back(std::move(transaction));
+    return true;
+}
+
+void reduceFrameDamageCommands(BattleFrameState& state, std::vector<BattleGameplayCommand>& commands)
+{
+    std::vector<BattleGameplayCommand> unreduced;
+    for (const auto& command : commands)
+    {
+        if (const auto* hp = std::get_if<BattleHpDamageCommand>(&command))
+        {
+            if (!tryAppendFrameDamageTransaction(state, *hp))
+            {
+                unreduced.push_back(command);
+            }
+            continue;
+        }
+        if (const auto* mp = std::get_if<BattleMpDamageCommand>(&command))
+        {
+            if (!tryAppendFrameDamageTransaction(state, *mp))
+            {
+                unreduced.push_back(command);
+            }
+            continue;
+        }
+        if (const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command))
+        {
+            if (!tryAppendFrameDamageTransaction(state, *sideEffect))
+            {
+                unreduced.push_back(command);
+            }
+            continue;
+        }
+        unreduced.push_back(command);
+    }
+    commands = std::move(unreduced);
 }
 
 std::vector<int> unitDeathsIn(const std::vector<BattleDamageEvent>& events)
@@ -1332,6 +1505,7 @@ void advanceAttacksAndResolveHits(
         std::make_move_iterator(tickEvents.end()));
     applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
     resolveHitEvents(state, result.attackEvents, result.commands, presentationEvents);
+    reduceFrameDamageCommands(state, result.commands);
 }
 
 void applyDamageAndLifecycle(BattleFrameState& state, std::vector<BattleGameplayEvent>& gameplayEvents)
