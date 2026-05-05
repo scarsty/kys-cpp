@@ -305,7 +305,7 @@ Task 2 verification on May 5, 2026: The focused red build failed because `Battle
 - [x] Delete adapter helpers whose only job is to run `BattleDamageApplicationSystem` after the frame.
 - [x] Delete scene-owned pending HP damage drain after the runner. Pending legacy damage may be adapted into `state.damage.pendingTransactions` before the runner only.
 - [x] Ensure `BattleSceneBattleAdapter` applies committed damage deltas but does not re-run damage calculation.
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -315,7 +315,7 @@ rg -n "BattleDamageApplicationSystem|makeBattleDamageApplicationInput|applyBattl
 
 Expected: tests pass. Search returns no scene/adapter post-runner damage application path. If a name remains only in historical comments, delete the comment.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\BattleSceneHades.cpp src\BattleSceneHades.h src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
@@ -336,7 +336,7 @@ Task 3 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x
 - Modify: `src/BattleSceneBattleAdapter.cpp`
 - Modify: `src/BattleSceneBattleAdapter.h`
 
-- [ ] Add a core-only command reducer in `BattleCore.cpp` that handles each `BattleGameplayCommand` alternative:
+- [x] Add a core-only command reducer in `BattleCore.cpp` that handles each `BattleGameplayCommand` alternative:
   - HP/MP/accepted-hit damage: append frame damage transaction;
   - team heal/MP/shield: mutate `state.teamEffects.world` and append committed events;
   - projectile spawn: append `state.pendingAttackSpawns`;
@@ -345,14 +345,14 @@ Task 3 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x
   - auto ultimate: append an explicit frame action request consumed in the action phase, not a scene callback;
   - rumble: append presentation/application fact only.
 
-- [ ] Add tests for at least these command classes in `BattleCoreUnitTests.cpp`:
+- [x] Add tests for at least these command classes in `BattleCoreUnitTests.cpp`:
   - team heal mutates frame team-effect world and emits presentation;
   - projectile spawn becomes a same-frame pending attack spawn;
   - temp attack buff mutates combo/frame unit state without adapter dispatch;
   - auto ultimate does not leave the runner as a command to scene.
 
-- [ ] Change `BattleFrameResult` so `commands` is not the normal gameplay output. If it remains temporarily, document it as `unreducedCommandsForMigration` and assert it is empty in breakthrough tests.
-- [ ] Delete adapter command variant dispatch for any command reduced in core.
+- [x] Change `BattleFrameResult` so `commands` is not the normal gameplay output. If it remains temporarily, document it as `unreducedCommandsForMigration` and assert it is empty in breakthrough tests.
+- [x] Delete adapter command variant dispatch for any command reduced in core.
 - [ ] Run:
 
 ```powershell
@@ -369,6 +369,8 @@ Expected: no command variant dispatch remains in scene or adapter. Remaining `Ba
 git add src\battle\BattleCore.h src\battle\BattleCore.cpp tests\BattleCoreUnitTests.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
 git commit -m "refactor: reduce gameplay commands inside battle core"
 ```
+
+Task 4 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][team_effect]"` passed 415 assertions in 53 test cases, and full `x64\Debug\kys_tests.exe` passed 4623 assertions in 243 test cases. The Task 4 boundary search for `std::get_if<.*Battle.*Command|BattleGameplayCommand` across `BattleSceneHades` and `BattleSceneBattleAdapter` returned no matches.
 
 ## Task 5: Move Rescue Reposition Into The Damage/Lifecycle Phase
 

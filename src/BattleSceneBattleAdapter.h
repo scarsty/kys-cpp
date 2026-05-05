@@ -155,26 +155,6 @@ struct BattleLifecycleApplicationResult
     int battleResult = -1;
 };
 
-struct BattleAutoUltimateApplicationRequest
-{
-    int unitId = -1;
-    bool consumeMp = false;
-};
-
-struct BattleCommandApplicationContext
-{
-    int frame = 0;
-    const std::vector<Role*>* roles = nullptr;
-    std::map<int, RoleComboState>* comboStates = nullptr;
-};
-
-struct BattleCommandApplicationResult
-{
-    std::vector<Battle::BattlePresentationEvent> presentationEvents;
-    std::vector<Battle::BattleAttackSpawnRequest> attackSpawnRequests;
-    std::vector<BattleAutoUltimateApplicationRequest> autoUltimateRequests;
-};
-
 Role* findRoleByBattleId(const std::vector<Role*>& roles, int unitId);
 
 Battle::BattleCastConfig makeBattleCastConfig();
@@ -194,10 +174,6 @@ Battle::BattleTeamEffectWorld makeBattleTeamEffectWorld(
 const Battle::BattleTeamEffectUnit& findBattleTeamEffectUnit(
     const Battle::BattleTeamEffectWorld& world,
     int unitId);
-void writeBattleTeamEffectWorld(
-    const Battle::BattleTeamEffectWorld& world,
-    const std::vector<Role*>& roles,
-    std::map<int, RoleComboState>& states);
 Battle::BattlePresentationColor makeBattlePresentationColor(Color color);
 
 Battle::BattleFrameUnitRuntimeInput makeBattleFrameUnitRuntimeInput(
@@ -245,9 +221,6 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
 BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,
     const std::vector<Battle::BattleGameplayEvent>& events);
-BattleCommandApplicationResult applyBattleCommand(
-    const BattleCommandApplicationContext& context,
-    const Battle::BattleGameplayCommand& command);
 std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(
     RoleComboState& state,
     const Battle::BattleComboFrameRuntimeInput& input);

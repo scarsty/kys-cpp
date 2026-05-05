@@ -36,11 +36,8 @@ using KysChess::BattleSceneBattleAdapter::applyBattleActionFrameResults;
 using KysChess::BattleSceneBattleAdapter::applyBattleFrameUnitRuntimeResult;
 using KysChess::BattleSceneBattleAdapter::applyBattleProjectileCancelDamage;
 using KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext;
-using KysChess::BattleSceneBattleAdapter::BattleCommandApplicationContext;
-using KysChess::BattleSceneBattleAdapter::BattleCommandApplicationResult;
 using KysChess::BattleSceneBattleAdapter::BattleFrameHitAdapterInput;
 using KysChess::BattleSceneBattleAdapter::appendBattleFrameHitInput;
-using KysChess::BattleSceneBattleAdapter::applyBattleCommand;
 using KysChess::BattleSceneBattleAdapter::applyBattleLifecycleEvents;
 using KysChess::BattleSceneBattleAdapter::commitBattleSelectedSkillAction;
 using KysChess::BattleSceneBattleAdapter::findBattleTeamEffectUnit;
@@ -2868,6 +2865,9 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
         auto frameState = makeCoreFrameState(makeNoOpCoreWorld());
         populateCoreStatusDamageState(frameState);
         frameState.damage.aggregatePendingTransactionsByDefender = true;
+        auto& comboStates = KysChess::ChessCombo::getMutableStates();
+        frameState.combo.units = comboStates;
+        frameState.teamEffects.world = makeBattleTeamEffectWorld(battle_roles_, comboStates);
         frameState.pendingAttackSpawns = std::move(pending_core_attack_spawns_);
         pending_core_attack_spawns_.clear();
         auto actionContext = makeBattleActionFrameAdapterContext();
@@ -2907,7 +2907,10 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
         populateCoreHitState(frameState);
         auto frameResult = KysChess::Battle::BattleFrameRunner().advanceFrame(frameState);
         auto attackEvents = std::move(frameResult.attackEvents);
+        comboStates = frameState.combo.units;
         applyCoreDamageTransactions(frameState);
+        applyCoreTeamEffectState(frameState);
+        applyCoreFrameApplications(frameState);
         auto actionApply = applyBattleActionFrameResults(frameState, actionContext);
         for (int soundId : actionApply.attackSoundIds)
         {
@@ -2983,10 +2986,9 @@ BattleSceneHades::SceneBattleFrameResult BattleSceneHades::advanceCoreBattleFram
                 //std::vector<std::string> = {};
             }
         }
-        for (const auto& command : frameResult.commands)
+        for (auto request : frameState.pendingAttackSpawns)
         {
-            applyBattleCommandApplicationResult(
-                applyBattleCommand(makeBattleCommandApplicationContext(), command));
+            queueCoreAttackSpawn(std::move(request));
         }
         next_shared_hit_group_id_ = frameState.projectileFollowUps.nextSharedHitGroupId;
         active_attack_world_ = std::move(frameState.attacks);
@@ -3728,32 +3730,6 @@ KysChess::Battle::BattleFrameState BattleSceneHades::makeCoreFrameState(
     return frameState;
 }
 
-BattleCommandApplicationContext BattleSceneHades::makeBattleCommandApplicationContext()
-{
-    return {
-        battle_frame_,
-        &battle_roles_,
-        &KysChess::ChessCombo::getMutableStates(),
-    };
-}
-
-void BattleSceneHades::applyBattleCommandApplicationResult(
-    const BattleCommandApplicationResult& result)
-{
-    for (const auto& event : result.presentationEvents)
-    {
-        presentation_recorder_.recordPresentation(event);
-    }
-    for (auto request : result.attackSpawnRequests)
-    {
-        queueCoreAttackSpawn(std::move(request));
-    }
-    for (const auto& request : result.autoUltimateRequests)
-    {
-        commitAutoUltimate(findRoleByBattleId(battle_roles_, request.unitId), request.consumeMp);
-    }
-}
-
 void BattleSceneHades::populateCoreStatusState(KysChess::Battle::BattleFrameState& frameState)
 {
     auto& comboStates = KysChess::ChessCombo::getMutableStates();
@@ -4220,6 +4196,81 @@ void BattleSceneHades::applyCoreDamageTransactions(const KysChess::Battle::Battl
         slow_ = CAMERA_BATTLE_END_SLOW_FRAMES;
         shake_ = 60;
         result_ = lifecycleApply.battleResult;
+    }
+}
+
+void BattleSceneHades::applyCoreTeamEffectState(const KysChess::Battle::BattleFrameState& frameState)
+{
+    auto& comboStates = KysChess::ChessCombo::getMutableStates();
+    for (const auto& event : frameState.teamEffects.committedEvents)
+    {
+        auto* target = findRoleByBattleId(battle_roles_, event.targetUnitId);
+        const auto& unit = findBattleTeamEffectUnit(frameState.teamEffects.world, event.targetUnitId);
+        switch (event.type)
+        {
+        case KysChess::Battle::BattleTeamEffectEventType::Heal:
+            target->HP = unit.hp;
+            break;
+        case KysChess::Battle::BattleTeamEffectEventType::MpRestore:
+            target->MP = unit.mp;
+            break;
+        case KysChess::Battle::BattleTeamEffectEventType::ShieldGain:
+            comboStates[target->ID].shield = unit.shield;
+            break;
+        case KysChess::Battle::BattleTeamEffectEventType::CooldownReduced:
+            target->CoolDown = unit.cooldown;
+            break;
+        }
+    }
+}
+
+void BattleSceneHades::applyCoreFrameApplications(const KysChess::Battle::BattleFrameState& frameState)
+{
+    for (const auto& knockback : frameState.applications.knockbacks)
+    {
+        auto* target = findRoleByBattleId(battle_roles_, knockback.targetUnitId);
+        target->Velocity += knockback.velocityDelta;
+        if (knockback.velocityCap > 0.0 && target->Velocity.norm() > knockback.velocityCap)
+        {
+            target->Velocity.normTo(static_cast<float>(knockback.velocityCap));
+        }
+        if (knockback.grantHurtFrame)
+        {
+            target->HurtFrame = 1;
+        }
+    }
+    for (const auto& restore : frameState.applications.mpRestores)
+    {
+        auto* target = findRoleByBattleId(battle_roles_, restore.unitId);
+        target->MP = std::min(GameUtil::MAX_MP, target->MP + restore.amount);
+    }
+    for (const auto& heal : frameState.applications.unitHeals)
+    {
+        auto* target = findRoleByBattleId(battle_roles_, heal.targetUnitId);
+        target->HP = std::min(target->MaxHP, target->HP + heal.amount);
+        recordRoleEffectPresentation(target, KysChess::EFT_HEAL, ROLE_STATUS_EFT_FRAMES);
+    }
+    for (const auto& buff : frameState.applications.tempAttackBuffs)
+    {
+        auto* target = findRoleByBattleId(battle_roles_, buff.unitId);
+        target->Attack += buff.attackBonus;
+        target->Defence += buff.defenceBonus;
+    }
+    for (const auto& lastAttacker : frameState.applications.lastAttackers)
+    {
+        auto* target = findRoleByBattleId(battle_roles_, lastAttacker.targetUnitId);
+        target->LastAttacker = findRoleByBattleId(battle_roles_, lastAttacker.attackerUnitId);
+    }
+    for (const auto& request : frameState.applications.autoUltimateRequests)
+    {
+        commitAutoUltimate(findRoleByBattleId(battle_roles_, request.unitId), request.consumeMp);
+    }
+    for (const auto& rumble : frameState.applications.rumbles)
+    {
+        Engine::getInstance()->gameControllerRumble(
+            rumble.lowFrequency,
+            rumble.highFrequency,
+            rumble.durationMs);
     }
 }
 

@@ -156,6 +156,62 @@ struct BattleFrameHitItemInput
     BattleHitItemSnapshot item;
 };
 
+struct BattleFrameKnockbackDelta
+{
+    int targetUnitId = -1;
+    Pointf velocityDelta;
+    double velocityCap = 0.0;
+    bool grantHurtFrame = false;
+};
+
+struct BattleFrameMpRestoreDelta
+{
+    int unitId = -1;
+    int amount = 0;
+};
+
+struct BattleFrameUnitHealDelta
+{
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int amount = 0;
+};
+
+struct BattleFrameUnitShieldDelta
+{
+    int sourceUnitId = -1;
+    int targetUnitId = -1;
+    int amount = 0;
+};
+
+struct BattleFrameTempAttackBuffDelta
+{
+    int unitId = -1;
+    int attackBonus = 0;
+    int defenceBonus = 0;
+    int durationFrames = 0;
+    bool permanent = false;
+};
+
+struct BattleFrameLastAttackerDelta
+{
+    int targetUnitId = -1;
+    int attackerUnitId = -1;
+};
+
+struct BattleFrameAutoUltimateRequest
+{
+    int unitId = -1;
+    bool consumeMp = false;
+};
+
+struct BattleFrameRumbleEvent
+{
+    int lowFrequency = 0;
+    int highFrequency = 0;
+    int durationMs = 0;
+};
+
 struct BattleFrameState
 {
     BattleWorldState world;
@@ -248,6 +304,18 @@ struct BattleFrameState
 
     BattleProjectileFollowUpContext projectileFollowUps;
 
+    struct ApplicationState
+    {
+        std::vector<BattleFrameKnockbackDelta> knockbacks;
+        std::vector<BattleFrameMpRestoreDelta> mpRestores;
+        std::vector<BattleFrameUnitHealDelta> unitHeals;
+        std::vector<BattleFrameUnitShieldDelta> unitShields;
+        std::vector<BattleFrameTempAttackBuffDelta> tempAttackBuffs;
+        std::vector<BattleFrameLastAttackerDelta> lastAttackers;
+        std::vector<BattleFrameAutoUltimateRequest> autoUltimateRequests;
+        std::vector<BattleFrameRumbleEvent> rumbles;
+    } applications;
+
     std::vector<BattleAttackSpawnRequest> pendingAttackSpawns;
 };
 
@@ -256,6 +324,7 @@ struct BattleFrameResult
     BattlePresentationFrame frame;
     BattleTickResult movement;
     std::vector<BattleAttackEvent> attackEvents;
+    // 遷移期間的不完整快照退路；場景與 adapter 不得消費這些命令。
     std::vector<BattleGameplayCommand> commands;
 };
 

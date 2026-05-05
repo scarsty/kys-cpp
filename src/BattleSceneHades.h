@@ -107,15 +107,14 @@ protected:
     void populateCoreStatusDamageState(KysChess::Battle::BattleFrameState& frameState);
     void applyCoreStatusDamageState(const KysChess::Battle::BattleFrameState& frameState);
     void applyCoreDamageTransactions(const KysChess::Battle::BattleFrameState& frameState);
+    void applyCoreTeamEffectState(const KysChess::Battle::BattleFrameState& frameState);
+    void applyCoreFrameApplications(const KysChess::Battle::BattleFrameState& frameState);
     KysChess::BattleSceneBattleAdapter::BattleActionFrameAdapterContext makeBattleActionFrameAdapterContext();
     KysChess::Battle::BattleWorldState makeNoOpCoreWorld() const;
     KysChess::Battle::BattleMovementConfig makeCoreMovementConfig() const;
     KysChess::Battle::BattleUnitState makeCoreMovementUnit(Role* role, const MovementRuntime* movementRuntime);
     void applyCoreMovementSnapshot(const KysChess::Battle::BattleTickResult& result, const std::map<int, Role*>& rolesByBattleId);
     KysChess::Battle::BattlePresentationSnapshot makePresentationSnapshot() const;
-    KysChess::BattleSceneBattleAdapter::BattleCommandApplicationContext makeBattleCommandApplicationContext();
-    void applyBattleCommandApplicationResult(
-        const KysChess::BattleSceneBattleAdapter::BattleCommandApplicationResult& result);
     void beginPresentationFrame();
     void publishPresentationFrame();
     Color calculateHurtFlashColor(const Role* r, const Color& base_color) const;

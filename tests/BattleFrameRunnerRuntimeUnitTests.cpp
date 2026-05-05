@@ -159,7 +159,7 @@ const BattleEffectUnit& effectUnitById(const BattleEffectWorld& world, int id)
 
 }  // namespace
 
-TEST_CASE("BattleFrameRunner_AdvanceFrame_EmitsSkillFinishedTeamHealCommand", "[battle][frame_runner][runtime][unit]")
+TEST_CASE("BattleFrameRunner_AdvanceFrame_QueuesSkillFinishedTeamHealInsideFrameState", "[battle][frame_runner][runtime][unit]")
 {
     auto state = runtimeFrameState();
 
@@ -186,8 +186,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_EmitsSkillFinishedTeamHealCommand", "[
     REQUIRE(state.runtime.committedResults[0].comboEvents.size() == 1);
     CHECK(state.runtime.committedResults[0].comboEvents[0].type == BattleComboFrameRuntimeEventType::PostSkillInvincibility);
 
-    REQUIRE(result.commands.size() == 1);
-    const auto* command = std::get_if<BattleTeamHealCommand>(&result.commands[0]);
+    REQUIRE(result.commands.empty());
+    REQUIRE(state.teamEffects.pendingCommands.size() == 1);
+    const auto* command = std::get_if<BattleTeamHealCommand>(&state.teamEffects.pendingCommands[0]);
     REQUIRE(command);
     CHECK(command->sourceUnitId == 1);
     CHECK(command->flatHeal == 7);
@@ -488,8 +489,9 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_AppliesProjectileCancelDamageCommand",
     CHECK(cancel.projectileCancelDamage == 25);
     CHECK(cancel.otherProjectileCancelDamage == 12);
 
-    REQUIRE(result.commands.size() == 1);
-    const auto* command = std::get_if<BattleProjectileCancelDamageCommand>(&result.commands[0]);
+    REQUIRE(result.commands.empty());
+    REQUIRE(state.projectileCancel.committedCommands.size() == 1);
+    const auto* command = &state.projectileCancel.committedCommands[0];
     REQUIRE(command);
     CHECK(command->attackId == 10);
     CHECK(command->otherAttackId == 20);

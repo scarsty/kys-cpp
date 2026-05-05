@@ -81,6 +81,31 @@ BattleTeamEffectUnit adapterTeamEffectUnit(int id, int team, int hp, int mp, int
     return unit;
 }
 
+const BattleTeamEffectUnit& teamEffectUnitById(const BattleTeamEffectWorld& world, int unitId)
+{
+    auto it = std::find_if(world.units.begin(), world.units.end(), [&](const BattleTeamEffectUnit& unit)
+        {
+            return unit.id == unitId;
+        });
+    REQUIRE(it != world.units.end());
+    return *it;
+}
+
+KysChess::AppliedEffectInstance triggeredEffect(KysChess::EffectType type,
+                                                KysChess::Trigger trigger,
+                                                int value,
+                                                int triggerValue = 0,
+                                                int duration = 0)
+{
+    KysChess::AppliedEffectInstance effect;
+    effect.type = type;
+    effect.trigger = trigger;
+    effect.value = value;
+    effect.triggerValue = triggerValue;
+    effect.duration = duration;
+    return effect;
+}
+
 BattleSkillState skill(int attackAreaType, double reach = 400.0, bool forceRanged = false)
 {
     BattleSkillState state;
@@ -1319,6 +1344,101 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameSt
                 && event.amount == 7;
         }));
     CHECK(state.damage.lifecycleEvents.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTeamHealCommandInsideCore", "[battle][core][breakthrough]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 0, { 120, 100, 0 }),
+        unit(3, 1, { 180, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.teamEffects.world.units = {
+        adapterTeamEffectUnit(1, 0, 50, 10),
+        adapterTeamEffectUnit(2, 0, 70, 20),
+        adapterTeamEffectUnit(3, 1, 80, 30),
+    };
+    state.damage.units = {
+        damageUnitSnapshot(1, 50),
+        damageUnitSnapshot(2, 70),
+        damageUnitSnapshot(3, 80),
+    };
+    state.teamEffects.pendingCommands.push_back(BattleTeamHealCommand{ 1, 10, 0, "技能群療" });
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.teamEffects.committedEvents.size() == 2);
+    CHECK(teamEffectUnitById(state.teamEffects.world, 1).hp == 60);
+    CHECK(teamEffectUnitById(state.teamEffects.world, 2).hp == 80);
+    CHECK(state.damage.units[0].hp == 60);
+    CHECK(state.damage.units[1].hp == 80);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesDeathAoeToPendingProjectileSpawn", "[battle][core][breakthrough]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.damage.pendingTransactions.push_back(lethalDamageInput(1, 2));
+    state.damage.unitEffects[2] = { 50, 6, 1 };
+    state.projectileFollowUps.projectileSpeed = SceneProjectileSpeed;
+    state.projectileFollowUps.minimumProjectileFrames = 20;
+    state.projectileFollowUps.areaProjectileFramePadding = 15;
+    state.projectileFollowUps.areaSpawnDistance = SceneTileWidth;
+    state.projectileFollowUps.targets.units = {
+        { 1, 0, true, 100, 100, 0, 0, 100, 100, 0, 0 },
+        { 2, 1, true, 10, 100, 0, 0, 120, 100, 0, 0 },
+    };
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.pendingAttackSpawns.size() == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.attackerUnitId == 2);
+    CHECK(state.pendingAttackSpawns[0].initial.preferredTargetUnitId == 1);
+    CHECK(state.pendingAttackSpawns[0].initial.scriptedStunFrames == 6);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesTempAttackBuffInsideCore", "[battle][core][breakthrough]")
+{
+    auto state = hitDamageFrameState(70, 100);
+    KysChess::RoleComboState defenderCombo;
+    defenderCombo.shield = 10;
+    defenderCombo.triggeredEffects.push_back(
+        triggeredEffect(KysChess::EffectType::TempFlatATK, KysChess::Trigger::OnShieldBreak, 14, 100, 45));
+    state.combo.units.emplace(2, defenderCombo);
+    state.hits.scalars[0].percentRolls.assign(16, 0.0);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.applications.tempAttackBuffs.size() == 1);
+    CHECK(state.applications.tempAttackBuffs[0].unitId == 2);
+    CHECK(state.applications.tempAttackBuffs[0].attackBonus == 14);
+    REQUIRE(state.combo.units.at(2).tempAttackBuffs.size() == 1);
+    CHECK(state.combo.units.at(2).tempAttackBuffs[0].remainingFrames == 45);
+    CHECK(result.commands.empty());
+}
+
+TEST_CASE("BattleFrameRunner_AdvanceFrame_ReducesAutoUltimateCommandInsideCore", "[battle][core][breakthrough]")
+{
+    auto state = hitDamageFrameState(70, 100);
+    KysChess::RoleComboState defenderCombo;
+    defenderCombo.counterUltimateBlockChancePct = 100;
+    state.combo.units.emplace(2, defenderCombo);
+    state.hits.scalars[0].percentRolls.assign(16, 0.0);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.applications.autoUltimateRequests.size() == 1);
+    CHECK(state.applications.autoUltimateRequests[0].unitId == 2);
+    CHECK_FALSE(state.applications.autoUltimateRequests[0].consumeMp);
+    CHECK(result.commands.empty());
 }
 
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathEffectWorldSeesCommittedDamageRewards", "[battle][core]")

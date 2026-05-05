@@ -432,7 +432,6 @@ void advanceRuntimeUnits(BattleFrameState& state, std::vector<BattleGameplayComm
                     teamHeal.pctHeal,
                     "技能群療",
                 };
-                commands.push_back(command);
                 state.teamEffects.pendingCommands.push_back(std::move(command));
             }
         }
@@ -1044,36 +1043,373 @@ bool tryAppendFrameDamageTransaction(
     return true;
 }
 
-void reduceFrameDamageCommands(BattleFrameState& state, std::vector<BattleGameplayCommand>& commands)
+BattleStatusUnitState* findFrameStatusUnit(BattleFrameState& state, int unitId)
 {
-    std::vector<BattleGameplayCommand> unreduced;
-    for (const auto& command : commands)
+    if (auto* status = findStatusUnit(state.damage.statusUnits, unitId))
     {
-        if (const auto* hp = std::get_if<BattleHpDamageCommand>(&command))
+        return status;
+    }
+    return findStatusUnit(state.status.units, unitId);
+}
+
+void syncTeamEffectEventsToFrameState(
+    BattleFrameState& state,
+    const std::vector<BattleTeamEffectEvent>& events)
+{
+    for (const auto& event : events)
+    {
+        const auto* unit = findTeamEffectUnit(state.teamEffects.world, event.targetUnitId);
+        assert(unit);
+        if (auto* damageUnit = findDamageUnit(state.damage.units, event.targetUnitId))
         {
-            if (!tryAppendFrameDamageTransaction(state, *hp))
-            {
-                unreduced.push_back(command);
-            }
-            continue;
+            damageUnit->hp = unit->hp;
+            damageUnit->mp = unit->mp;
+            damageUnit->shield = unit->shield;
         }
-        if (const auto* mp = std::get_if<BattleMpDamageCommand>(&command))
+        if (auto* status = findFrameStatusUnit(state, event.targetUnitId))
         {
-            if (!tryAppendFrameDamageTransaction(state, *mp))
-            {
-                unreduced.push_back(command);
-            }
-            continue;
+            status->hp = unit->hp;
         }
-        if (const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command))
+        if (auto cooldownIt = state.damage.cooldowns.find(event.targetUnitId);
+            cooldownIt != state.damage.cooldowns.end())
         {
-            if (!tryAppendFrameDamageTransaction(state, *sideEffect))
-            {
-                unreduced.push_back(command);
-            }
-            continue;
+            cooldownIt->second.cooldown = unit->cooldown;
         }
-        unreduced.push_back(command);
+        if (auto comboIt = state.combo.units.find(event.targetUnitId);
+            comboIt != state.combo.units.end())
+        {
+            comboIt->second.shield = unit->shield;
+        }
+        if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, event.targetUnitId))
+        {
+            deathUnit->hp = unit->hp;
+            deathUnit->shield = unit->shield;
+        }
+    }
+}
+
+void appendStatusPresentation(
+    std::vector<BattlePresentationEvent>& presentationEvents,
+    int sourceUnitId,
+    int targetUnitId,
+    std::string text)
+{
+    BattlePresentationEvent presentation;
+    presentation.type = BattlePresentationEventType::StatusLog;
+    presentation.sourceUnitId = sourceUnitId;
+    presentation.targetUnitId = targetUnitId;
+    presentation.text = std::move(text);
+    presentationEvents.push_back(std::move(presentation));
+}
+
+void appendHealPresentation(
+    std::vector<BattlePresentationEvent>& presentationEvents,
+    int sourceUnitId,
+    int targetUnitId,
+    int amount,
+    std::string text)
+{
+    BattlePresentationEvent presentation;
+    presentation.type = BattlePresentationEventType::HealLog;
+    presentation.sourceUnitId = sourceUnitId;
+    presentation.targetUnitId = targetUnitId;
+    presentation.amount = amount;
+    presentation.text = std::move(text);
+    presentationEvents.push_back(std::move(presentation));
+}
+
+bool applyFrameTeamEffectCommand(
+    BattleFrameState& state,
+    const BattleGameplayCommand& command,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    if (state.teamEffects.world.units.empty())
+    {
+        return false;
+    }
+
+    auto application = applyBattleTeamEffectCommand(state.teamEffects.world, command);
+    presentationEvents.insert(
+        presentationEvents.end(),
+        application.presentationEvents.begin(),
+        application.presentationEvents.end());
+    syncTeamEffectEventsToFrameState(state, application.events);
+    state.teamEffects.committedEvents.insert(
+        state.teamEffects.committedEvents.end(),
+        application.events.begin(),
+        application.events.end());
+    return true;
+}
+
+bool applyFrameMpRestoreCommand(
+    BattleFrameState& state,
+    const BattleMpRestoreCommand& command,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    auto* unit = findDamageUnit(state.damage.units, command.unitId);
+    if (!unit)
+    {
+        return false;
+    }
+
+    const int restored = std::min(command.amount, std::max(0, unit->maxMp - unit->mp));
+    if (restored <= 0)
+    {
+        return true;
+    }
+
+    unit->mp += restored;
+    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.unitId))
+    {
+        teamUnit->mp = unit->mp;
+    }
+    state.applications.mpRestores.push_back({ command.unitId, restored });
+    appendStatusPresentation(presentationEvents, command.unitId, command.unitId, command.reason);
+    return true;
+}
+
+bool applyFrameUnitHealCommand(
+    BattleFrameState& state,
+    const BattleUnitHealCommand& command,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    auto* unit = findDamageUnit(state.damage.units, command.targetUnitId);
+    if (!unit)
+    {
+        return false;
+    }
+
+    const int before = unit->hp;
+    unit->hp = std::min(unit->maxHp, unit->hp + command.amount);
+    const int healed = unit->hp - before;
+    if (healed <= 0)
+    {
+        return true;
+    }
+
+    if (auto* status = findFrameStatusUnit(state, command.targetUnitId))
+    {
+        status->hp = unit->hp;
+    }
+    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.targetUnitId))
+    {
+        teamUnit->hp = unit->hp;
+    }
+    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
+    {
+        deathUnit->hp = unit->hp;
+    }
+    state.applications.unitHeals.push_back({ command.sourceUnitId, command.targetUnitId, healed });
+    appendHealPresentation(presentationEvents, command.sourceUnitId, command.targetUnitId, healed, command.reason);
+    return true;
+}
+
+bool applyFrameUnitShieldCommand(
+    BattleFrameState& state,
+    const BattleUnitShieldCommand& command,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    auto comboIt = state.combo.units.find(command.targetUnitId);
+    if (comboIt == state.combo.units.end() && !findDamageUnit(state.damage.units, command.targetUnitId))
+    {
+        return false;
+    }
+
+    if (comboIt != state.combo.units.end())
+    {
+        comboIt->second.shield += command.amount;
+    }
+    if (auto* damageUnit = findDamageUnit(state.damage.units, command.targetUnitId))
+    {
+        damageUnit->shield += command.amount;
+    }
+    if (auto* teamUnit = findTeamEffectUnit(state.teamEffects.world, command.targetUnitId))
+    {
+        teamUnit->shield += command.amount;
+    }
+    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.targetUnitId))
+    {
+        deathUnit->shield += command.amount;
+    }
+    state.applications.unitShields.push_back({ command.sourceUnitId, command.targetUnitId, command.amount });
+    appendStatusPresentation(
+        presentationEvents,
+        command.sourceUnitId,
+        command.targetUnitId,
+        formatStatusValue(command.reason, command.amount, "護盾"));
+    return true;
+}
+
+bool applyFrameTempAttackBuffCommand(
+    BattleFrameState& state,
+    const BattleTempAttackBuffCommand& command,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    auto* unit = findDamageUnit(state.damage.units, command.unitId);
+    auto comboIt = state.combo.units.find(command.unitId);
+    if (!unit && comboIt == state.combo.units.end())
+    {
+        return false;
+    }
+
+    if (unit)
+    {
+        unit->attack += command.attackBonus;
+    }
+    if (!command.permanent && comboIt != state.combo.units.end())
+    {
+        if (command.attackBonus != 0 && command.durationFrames > 0)
+        {
+            comboIt->second.tempAttackBuffs.push_back({ command.attackBonus, command.durationFrames });
+        }
+    }
+    if (auto* deathUnit = findDeathEffectUnit(state.deathEffects.world, command.unitId))
+    {
+        deathUnit->attack += command.attackBonus;
+        deathUnit->defence += command.defenceBonus;
+    }
+
+    state.applications.tempAttackBuffs.push_back({
+        command.unitId,
+        command.attackBonus,
+        command.defenceBonus,
+        command.durationFrames,
+        command.permanent,
+    });
+    if (!command.reason.empty())
+    {
+        appendStatusPresentation(
+            presentationEvents,
+            command.unitId,
+            command.unitId,
+            command.permanent
+                ? std::format("{}（攻防+{}）", command.reason, command.attackBonus)
+                : command.reason);
+    }
+    return true;
+}
+
+bool reduceFrameGameplayCommand(
+    BattleFrameState& state,
+    const BattleGameplayCommand& command,
+    std::vector<BattleGameplayCommand>& pending,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    if (const auto* hp = std::get_if<BattleHpDamageCommand>(&command))
+    {
+        return tryAppendFrameDamageTransaction(state, *hp);
+    }
+    if (const auto* mp = std::get_if<BattleMpDamageCommand>(&command))
+    {
+        return tryAppendFrameDamageTransaction(state, *mp);
+    }
+    if (const auto* sideEffect = std::get_if<BattleAcceptedHitSideEffectCommand>(&command))
+    {
+        return tryAppendFrameDamageTransaction(state, *sideEffect);
+    }
+    if (std::holds_alternative<BattleTeamHealCommand>(command)
+        || std::holds_alternative<BattleTeamMpRestoreCommand>(command)
+        || std::holds_alternative<BattleTeamShieldCommand>(command))
+    {
+        return applyFrameTeamEffectCommand(state, command, presentationEvents);
+    }
+    if (const auto* projectile = std::get_if<BattleProjectileSpawnCommand>(&command))
+    {
+        state.pendingAttackSpawns.push_back(projectile->request);
+        return true;
+    }
+    if (std::holds_alternative<BattleCurrentHpBlastCommand>(command)
+        || std::holds_alternative<BattleSpiralBleedProjectileCommand>(command)
+        || std::holds_alternative<BattleNearbyTrackingProjectilesCommand>(command)
+        || std::holds_alternative<BattleHitExtraProjectilesCommand>(command)
+        || std::holds_alternative<BattleShieldExplosionCommand>(command)
+        || std::holds_alternative<BattleDeathAoeProjectileCommand>(command))
+    {
+        auto followUps = expandBattleProjectileFollowUpCommands({ command }, state.projectileFollowUps);
+        pending.insert(
+            pending.end(),
+            std::make_move_iterator(followUps.commands.begin()),
+            std::make_move_iterator(followUps.commands.end()));
+        presentationEvents.insert(
+            presentationEvents.end(),
+            std::make_move_iterator(followUps.presentationEvents.begin()),
+            std::make_move_iterator(followUps.presentationEvents.end()));
+        return true;
+    }
+    if (const auto* mpRestore = std::get_if<BattleMpRestoreCommand>(&command))
+    {
+        return applyFrameMpRestoreCommand(state, *mpRestore, presentationEvents);
+    }
+    if (const auto* autoUltimate = std::get_if<BattleAutoUltimateCommand>(&command))
+    {
+        state.applications.autoUltimateRequests.push_back({ autoUltimate->unitId, autoUltimate->consumeMp });
+        return true;
+    }
+    if (const auto* knockback = std::get_if<BattleKnockbackCommand>(&command))
+    {
+        state.applications.knockbacks.push_back({
+            knockback->targetUnitId,
+            knockback->velocityDelta,
+            knockback->velocityCap,
+            knockback->grantHurtFrame,
+        });
+        if (auto* unit = findWorldUnit(state.world, knockback->targetUnitId))
+        {
+            unit->velocity += knockback->velocityDelta;
+            if (knockback->velocityCap > 0.0 && unit->velocity.norm() > knockback->velocityCap)
+            {
+                unit->velocity.normTo(static_cast<float>(knockback->velocityCap));
+            }
+        }
+        return true;
+    }
+    if (const auto* tempAttack = std::get_if<BattleTempAttackBuffCommand>(&command))
+    {
+        return applyFrameTempAttackBuffCommand(state, *tempAttack, presentationEvents);
+    }
+    if (const auto* lastAttacker = std::get_if<BattleLastAttackerCommand>(&command))
+    {
+        state.applications.lastAttackers.push_back({ lastAttacker->targetUnitId, lastAttacker->attackerUnitId });
+        return true;
+    }
+    if (const auto* rumble = std::get_if<BattleRumbleCommand>(&command))
+    {
+        state.applications.rumbles.push_back({
+            rumble->lowFrequency,
+            rumble->highFrequency,
+            rumble->durationMs,
+        });
+        return true;
+    }
+    if (std::holds_alternative<BattleProjectileCancelDamageCommand>(command))
+    {
+        return true;
+    }
+    if (const auto* heal = std::get_if<BattleUnitHealCommand>(&command))
+    {
+        return applyFrameUnitHealCommand(state, *heal, presentationEvents);
+    }
+    if (const auto* shield = std::get_if<BattleUnitShieldCommand>(&command))
+    {
+        return applyFrameUnitShieldCommand(state, *shield, presentationEvents);
+    }
+    assert(false);
+    return false;
+}
+
+void reduceFrameGameplayCommands(
+    BattleFrameState& state,
+    std::vector<BattleGameplayCommand>& commands,
+    std::vector<BattlePresentationEvent>& presentationEvents)
+{
+    std::vector<BattleGameplayCommand> pending = std::move(commands);
+    std::vector<BattleGameplayCommand> unreduced;
+    for (std::size_t i = 0; i < pending.size(); ++i)
+    {
+        if (!reduceFrameGameplayCommand(state, pending[i], pending, presentationEvents))
+        {
+            unreduced.push_back(std::move(pending[i]));
+        }
     }
     commands = std::move(unreduced);
 }
@@ -1469,6 +1805,7 @@ void applyPendingTeamEffects(
                 presentationEvents.end(),
                 application.presentationEvents.begin(),
                 application.presentationEvents.end());
+            syncTeamEffectEventsToFrameState(state, application.events);
             state.teamEffects.committedEvents.insert(
                 state.teamEffects.committedEvents.end(),
                 application.events.begin(),
@@ -1604,7 +1941,7 @@ void advanceAttacksAndResolveHits(
         std::make_move_iterator(tickEvents.end()));
     applyProjectileCancelDamageResults(state, result.attackEvents, result.commands);
     resolveHitEvents(state, result.attackEvents, result.commands, presentationEvents);
-    reduceFrameDamageCommands(state, result.commands);
+    reduceFrameGameplayCommands(state, result.commands, presentationEvents);
 }
 
 void applyDamageAndLifecycle(
@@ -1803,14 +2140,17 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     state.teamEffects.committedEvents.clear();
     state.effects.committedCommands.clear();
     state.hits.committedResults.clear();
+    state.applications = {};
     advanceStatus(state);
     advanceRuntimeUnits(state, result.commands);
     applyRuntimeComboEvents(state, presentationEvents);
     applyPendingTeamEffects(state, presentationEvents);
+    reduceFrameGameplayCommands(state, result.commands, presentationEvents);
     advanceMovement(state, result);
     advanceActionFrameUnits(state, result.movement, gameplayEvents, presentationEvents);
     advanceAttacksAndResolveHits(state, result, presentationEvents);
     applyDamageAndLifecycle(state, result, gameplayEvents, presentationEvents);
+    reduceFrameGameplayCommands(state, result.commands, presentationEvents);
     emitPresentationFrame(state, result, gameplayEvents, presentationEvents);
     return result;
 }
