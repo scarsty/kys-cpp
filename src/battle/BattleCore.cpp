@@ -4,6 +4,7 @@
 #include <cassert>
 #include <format>
 #include <iterator>
+#include <map>
 #include <set>
 #include <type_traits>
 #include <utility>
@@ -1037,6 +1038,59 @@ void reduceFrameDamageCommands(BattleFrameState& state, std::vector<BattleGamepl
     commands = std::move(unreduced);
 }
 
+void appendDamageApplicationUnit(
+    std::vector<BattleDamageApplicationUnitSnapshot>& units,
+    std::map<int, std::size_t>& indexByUnitId,
+    int unitId,
+    int team,
+    bool alive)
+{
+    if (unitId < 0)
+    {
+        return;
+    }
+    if (indexByUnitId.contains(unitId))
+    {
+        return;
+    }
+    indexByUnitId[unitId] = units.size();
+    units.push_back({ unitId, team, alive });
+}
+
+BattleDamageApplicationInput makeFrameDamageApplicationInput(const BattleFrameState& state)
+{
+    BattleDamageApplicationInput input;
+    input.frame = state.world.frame;
+    input.aggregatePendingTransactionsByDefender = state.damage.aggregatePendingTransactionsByDefender;
+    input.pendingTransactions = state.damage.pendingTransactions;
+    input.pendingPresentation = state.damage.pendingPresentation;
+    input.pendingAliveByTeam = state.result.pendingAliveByTeam;
+    input.deathEffects = state.deathEffects.world;
+    input.projectileFollowUps = state.projectileFollowUps;
+
+    std::map<int, std::size_t> indexByUnitId;
+    for (const auto& unit : state.world.units)
+    {
+        appendDamageApplicationUnit(input.units, indexByUnitId, unit.id, unit.team, unit.alive);
+    }
+    for (const auto& transaction : state.damage.pendingTransactions)
+    {
+        appendDamageApplicationUnit(
+            input.units,
+            indexByUnitId,
+            transaction.attacker.id,
+            0,
+            transaction.attacker.alive);
+        appendDamageApplicationUnit(
+            input.units,
+            indexByUnitId,
+            transaction.defender.id,
+            1,
+            transaction.defender.alive);
+    }
+    return input;
+}
+
 std::vector<int> unitDeathsIn(const std::vector<BattleDamageEvent>& events)
 {
     std::vector<int> deadUnitIds;
@@ -1508,31 +1562,64 @@ void advanceAttacksAndResolveHits(
     reduceFrameDamageCommands(state, result.commands);
 }
 
-void applyDamageAndLifecycle(BattleFrameState& state, std::vector<BattleGameplayEvent>& gameplayEvents)
+void applyDamageAndLifecycle(
+    BattleFrameState& state,
+    BattleFrameResult& result,
+    std::vector<BattleGameplayEvent>& gameplayEvents,
+    std::vector<BattlePresentationEvent>& presentationEvents)
 {
-    for (const auto& input : state.damage.pendingTransactions)
+    if (state.result.ended && state.damage.pendingTransactions.empty())
     {
-        auto transaction = BattleDamageSystem().resolveTransaction(input);
-        auto deadUnitIds = unitDeathsIn(transaction.events);
+        return;
+    }
+
+    const bool battleEndAlreadyEmitted = state.result.eventEmitted;
+    auto application = BattleDamageApplicationSystem().apply(makeFrameDamageApplicationInput(state));
+
+    state.damage.lifecycleEvents = application.lifecycleEvents;
+    state.damage.presentationEvents = application.presentationEvents;
+    presentationEvents.insert(
+        presentationEvents.end(),
+        state.damage.presentationEvents.begin(),
+        state.damage.presentationEvents.end());
+    result.commands.insert(
+        result.commands.end(),
+        application.commands.begin(),
+        application.commands.end());
+
+    for (const auto& transaction : application.transactions)
+    {
         applyDamageResultToFrameState(state, transaction);
         for (const auto& event : transaction.events)
         {
-            gameplayEvents.push_back(toGameplayEvent(event));
-        }
-        state.damage.committedTransactions.push_back(std::move(transaction));
-        for (int deadUnitId : deadUnitIds)
-        {
-            if (!findDeathEffectUnit(state.deathEffects.world, deadUnitId))
+            if (event.type == BattleDamageEventType::UnitDied)
             {
                 continue;
             }
-            auto events = BattleDeathEffectSystem().applyAllyDeathEffects(state.deathEffects.world, deadUnitId);
-            state.deathEffects.events.insert(state.deathEffects.events.end(), events.begin(), events.end());
+            gameplayEvents.push_back(toGameplayEvent(event));
         }
+        state.damage.committedTransactions.push_back(transaction);
+    }
+    state.deathEffects.world = std::move(application.deathEffects);
+
+    for (const auto& event : application.gameplayEvents)
+    {
+        if (event.type == BattleGameplayEventType::BattleEnded && battleEndAlreadyEmitted)
+        {
+            continue;
+        }
+        gameplayEvents.push_back(event);
+    }
+
+    if (application.battleEnded)
+    {
+        state.result.ended = true;
+        state.result.winningTeam = application.winningTeam;
+        state.result.endedFrame = state.world.frame;
+        state.result.eventEmitted = true;
     }
     state.damage.pendingTransactions.clear();
-
-    updateBattleResult(state, gameplayEvents);
+    state.damage.pendingPresentation.clear();
 }
 
 void emitPresentationFrame(
@@ -1678,7 +1765,7 @@ BattleFrameResult BattleFrameRunner::advanceFrame(BattleFrameState& state) const
     advanceMovement(state, result);
     advanceActionFrameUnits(state, result.movement, gameplayEvents, presentationEvents);
     advanceAttacksAndResolveHits(state, result, presentationEvents);
-    applyDamageAndLifecycle(state, gameplayEvents);
+    applyDamageAndLifecycle(state, result, gameplayEvents, presentationEvents);
     emitPresentationFrame(state, result, gameplayEvents, presentationEvents);
     return result;
 }

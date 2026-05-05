@@ -3,6 +3,7 @@
 #include "BattleAttackSystem.h"
 #include "BattleCastSystem.h"
 #include "BattleComboTriggerSystem.h"
+#include "BattleDamageApplicationSystem.h"
 #include "BattleDamageSystem.h"
 #include "BattleDeathEffectSystem.h"
 #include "BattleEffectSystem.h"
@@ -169,10 +170,14 @@ struct BattleFrameState
 
     struct DamageState
     {
+        bool aggregatePendingTransactionsByDefender = false;
         std::vector<BattleDamageUnitState> units;
         std::map<int, BattleCooldownState> cooldowns;
         std::vector<BattleDamageTransactionInput> pendingTransactions;
+        std::vector<BattleDamagePresentationInput> pendingPresentation;
         std::vector<BattleDamageTransactionResult> committedTransactions;
+        std::vector<BattleDamageLifecycleEvent> lifecycleEvents;
+        std::vector<BattlePresentationEvent> presentationEvents;
     } damage;
 
     struct StatusState

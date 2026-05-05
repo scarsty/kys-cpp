@@ -246,7 +246,7 @@ Task 1 verification on May 5, 2026: The first focused run failed for the intende
 - Modify: `src/battle/BattleCore.cpp`
 - Modify: `tests/BattleCoreUnitTests.cpp`
 
-- [ ] Add or finalize frame-owned damage application state:
+- [x] Add or finalize frame-owned damage application state:
 
 ```cpp
 struct BattleFrameState::DamageState
@@ -262,30 +262,32 @@ struct BattleFrameState::DamageState
 
 Use the existing nested `DamageState` if it already exists; extend it instead of creating a duplicate state bag.
 
-- [ ] Add core tests proving:
+- [x] Add core tests proving:
   - pending damage transactions are aggregated inside the runner when configured;
   - damage presentation events are emitted by the frame result, not by scene helpers;
   - death-effect commands produced by damage application are reduced or queued for same-frame core reduction.
 
-- [ ] Implement by moving the reusable logic from `BattleDamageApplicationSystem` into the runner path, either by:
+- [x] Implement by moving the reusable logic from `BattleDamageApplicationSystem` into the runner path, either by:
   - calling `BattleDamageApplicationSystem` inside `BattleFrameRunner`, or
   - extracting shared pure helpers under `src/battle` and using them from the runner.
 
 Do not call `BattleDamageApplicationSystem` from scene or adapter after this task.
 
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
 x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][damage_application][unit]"
 ```
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\battle\BattleCore.h src\battle\BattleCore.cpp tests\BattleCoreUnitTests.cpp
 git commit -m "refactor: own damage application in battle frame state"
 ```
+
+Task 2 verification on May 5, 2026: The focused red build failed because `BattleFrameState::DamageState` had no aggregation, pending presentation, lifecycle, or presentation result fields. After extending `DamageState` and routing the frame damage phase through `BattleDamageApplicationSystem` inside `BattleFrameRunner`, `kys_tests` Debug x64 built successfully and `x64\Debug\kys_tests.exe "[battle][core][breakthrough],[battle][core],[battle][damage_application][unit]"` passed 409 assertions in 51 test cases.
 
 ## Task 3: Delete Post-Runner Damage Application From Scene And Adapter
 

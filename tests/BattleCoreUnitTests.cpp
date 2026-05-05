@@ -1254,6 +1254,73 @@ TEST_CASE("BattleFrameRunner_AdvanceFrame_DamageDeathPrecedesBattleEndEvent", "[
     CHECK(gameplayTypes[gameplayTypes.size() - 1] == BattleGameplayEventType::BattleEnded);
 }
 
+TEST_CASE("BattleFrameRunner_AdvanceFrame_StoresDamageApplicationResultInFrameState", "[battle][core][breakthrough]")
+{
+    BattleFrameState state;
+    state.world = worldWith({
+        unit(1, 0, { 100, 100, 0 }),
+        unit(2, 1, { 210, 100, 0 }),
+        unit(3, 0, { 120, 100, 0 }),
+    });
+    state.attacks = attackWorld();
+    state.damage.aggregatePendingTransactionsByDefender = true;
+
+    auto first = lethalDamageInput(1, 2);
+    first.request.baseDamage = 3;
+    first.defender.hp = 10;
+    first.defenderStatus.hp = 10;
+    auto second = lethalDamageInput(3, 2);
+    second.request.baseDamage = 4;
+    second.attacker.id = 3;
+    second.attacker.hp = 80;
+    second.attacker.maxHp = 100;
+    second.defender.hp = 10;
+    second.defenderStatus.hp = 10;
+    state.damage.pendingTransactions.push_back(first);
+    state.damage.pendingTransactions.push_back(second);
+
+    BattleDamagePresentationInput firstPresentation;
+    firstPresentation.enabled = true;
+    firstPresentation.skillName = "先手";
+    firstPresentation.detailText = "第一段";
+    firstPresentation.normalDamageColor = { 10, 20, 30, 255 };
+    firstPresentation.normalDamageTextSize = 22;
+
+    BattleDamagePresentationInput secondPresentation;
+    secondPresentation.enabled = true;
+    secondPresentation.skillName = "終段";
+    secondPresentation.detailText = "第二段";
+    secondPresentation.critical = true;
+    secondPresentation.emphasizedDamageColor = { 40, 50, 60, 255 };
+    secondPresentation.emphasizedDamageTextSize = 33;
+    state.damage.pendingPresentation.push_back(firstPresentation);
+    state.damage.pendingPresentation.push_back(secondPresentation);
+
+    auto result = BattleFrameRunner().advanceFrame(state);
+
+    REQUIRE(state.damage.committedTransactions.size() == 1);
+    CHECK(state.damage.committedTransactions[0].attacker.id == 3);
+    CHECK(state.damage.committedTransactions[0].defender.hp == 3);
+    REQUIRE(state.damage.presentationEvents.size() == 2);
+    CHECK(state.damage.presentationEvents[0].type == BattlePresentationEventType::DamageNumber);
+    CHECK(state.damage.presentationEvents[0].amount == 7);
+    CHECK(state.damage.presentationEvents[0].textSize == 33);
+    CHECK(state.damage.presentationEvents[0].color.r == 40);
+    CHECK(state.damage.presentationEvents[1].type == BattlePresentationEventType::DamageLog);
+    CHECK(state.damage.presentationEvents[1].skillName == "終段");
+    CHECK(state.damage.presentationEvents[1].detailText == "第二段");
+    CHECK(std::any_of(
+        result.frame.presentationEvents.begin(),
+        result.frame.presentationEvents.end(),
+        [](const BattlePresentationEvent& event)
+        {
+            return event.type == BattlePresentationEventType::DamageNumber
+                && event.targetUnitId == 2
+                && event.amount == 7;
+        }));
+    CHECK(state.damage.lifecycleEvents.empty());
+}
+
 TEST_CASE("BattleFrameRunner_AdvanceFrame_DeathEffectWorldSeesCommittedDamageRewards", "[battle][core]")
 {
     BattleFrameState state;
