@@ -353,7 +353,7 @@ Task 3 verification on May 5, 2026: `kys_tests` Debug x64 built successfully. `x
 
 - [x] Change `BattleFrameResult` so `commands` is not the normal gameplay output. If it remains temporarily, document it as `unreducedCommandsForMigration` and assert it is empty in breakthrough tests.
 - [x] Delete adapter command variant dispatch for any command reduced in core.
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 .github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal
@@ -363,7 +363,7 @@ rg -n "std::get_if<.*Battle.*Command|BattleGameplayCommand" src\BattleSceneHades
 
 Expected: no command variant dispatch remains in scene or adapter. Remaining `BattleGameplayCommand` mentions in adapter headers are not acceptable unless the task records a concrete migration blocker and a follow-up task deletes it.
 
-- [ ] Commit:
+- [x] Commit:
 
 ```powershell
 git add src\battle\BattleCore.h src\battle\BattleCore.cpp tests\BattleCoreUnitTests.cpp src\BattleSceneBattleAdapter.cpp src\BattleSceneBattleAdapter.h
@@ -535,7 +535,7 @@ Task 7 verification on May 6, 2026: `kys_tests` Debug x64 built successfully. `x
 - Modify only files required to fix verification failures.
 - Modify: `docs/battle_scene_hades_backend_exit_continuation_reset_plan.md`
 
-- [ ] Run:
+- [x] Run:
 
 ```powershell
 git diff --check
@@ -546,7 +546,7 @@ x64\Debug\kys_tests.exe
 
 Expected: diff check passes, all tests pass, and game target builds. If final link fails only because the running game locks the executable, record the exact linker message and treat compilation before link as the useful build evidence.
 
-- [ ] Run boundary searches:
+- [x] Run boundary searches:
 
 ```powershell
 rg -n "BattleFrameRunner\\(\\)\\.advanceFrame" src\BattleSceneHades.cpp
@@ -562,8 +562,8 @@ Expected:
 - `src/battle` has no legacy/render dependencies.
 - No second orchestrator, callback gameplay routing, or unreduced migration command queue remains.
 
-- [ ] Record the exact verification results in this file under `## Verification Log`.
-- [ ] Commit:
+- [x] Record the exact verification results in this file under `## Verification Log`.
+- [x] Commit:
 
 ```powershell
 git add docs\battle_scene_hades_backend_exit_continuation_reset_plan.md
@@ -583,3 +583,6 @@ git commit -m "docs: record battle backend exit verification"
 ## Verification Log
 
 - 2026-05-05 reset branch created from `42f5d5dc5401114803572b4a445d9b57f31f65ab` on `codex/battle-backend-exit-breakthrough`. This plan replaces the previous continuation approach because the prior implementation direction could satisfy runner call-count searches while still leaving gameplay split across scene and adapter passes.
+- 2026-05-06 final boundary cleanup removed adapter-side `BattleComboTriggerSystem` wrappers and the Battle-typed projectile-bounce callback. Projectile bounce prime is now captured as `BattleActionCommitInput` data and applied by core action commit, while scene call sites use frame-owned combo query helpers instead of adapter backend-system wrappers.
+- 2026-05-06 Task 8 verification: `git diff --check` passed. `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys_tests -Verbosity minimal` exited 0. `x64\Debug\kys_tests.exe` passed 4674 assertions in 247 test cases. `.github\build-command.ps1 -Solution "D:\projects\kys-cpp\kys-cpp\kys.sln" -Configuration Debug -Platform x64 -Target kys -Verbosity minimal` exited 0 and linked `D:\projects\kys-cpp\kys-cpp\x64\Debug\kys.exe`.
+- 2026-05-06 Task 8 boundary searches: `rg -n "BattleFrameRunner\(\)\.advanceFrame" src\BattleSceneHades.cpp` returned exactly one match at `src\BattleSceneHades.cpp:2591`. The scene/adapter backend-system search returned no matches. The `src\battle` legacy/render dependency search returned no matches. The orchestrator/callback/migration-queue search returned no matches.
