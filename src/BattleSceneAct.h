@@ -135,9 +135,8 @@ public:
     int shake_ = 0;
     int close_up_ = 0;
 
-    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每帧
-    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //发动攻击
-    std::unordered_map<std::string, std::function<void(const KysChess::Battle::BattleAttackEvent&, Role* r)>> special_magic_effect_beat_;    //被打中
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_every_frame_;            //每幀
+    std::unordered_map<std::string, std::function<void(Role* r)>> special_magic_effect_attack_;                 //發動攻擊
 
     void setID(int id);
 

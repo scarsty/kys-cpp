@@ -8,7 +8,6 @@
 #include "ChessEftIds.h"
 #include "GameUtil.h"
 #include "battle/BattleCombatIntent.h"
-#include "battle/BattleComboTriggerSystem.h"
 #include "battle/BattleDamageSystem.h"
 #include "battle/BattleProjectileTargetingSystem.h"
 
@@ -759,6 +758,31 @@ Battle::BattleBlinkGeometryInput makeBlinkGeometryInput(
     double reach,
     const BattleActionFrameAdapterContext& context);
 
+void captureActionComboState(
+    Battle::BattleActionCommitInput& actionInput,
+    Role* role,
+    const BattleActionFrameAdapterContext& context)
+{
+    auto comboIt = context.comboStates->find(role->ID);
+    if (comboIt == context.comboStates->end())
+    {
+        return;
+    }
+
+    actionInput.combo = comboIt->second;
+    auto prime = Battle::collectFrameProjectileBouncePrime(
+        actionInput.combo,
+        role->ID,
+        context.callbacks.randomInt(100),
+        context.config.projectileBounceRange);
+    actionInput.projectileBouncePrime = {
+        prime.count,
+        prime.chancePct,
+        prime.rollPct,
+        prime.range,
+    };
+}
+
 void populateActionCommitInputForRole(
     Battle::BattleFrameActionUnitInput& unitInput,
     Role* role,
@@ -784,10 +808,6 @@ void populateActionCommitInputForRole(
         assert(magic);
         auto castResult = pendingCast->second;
         assert(castResult.decision.canCast);
-        for (auto& request : castResult.attackSpawnRequests)
-        {
-            context.callbacks.attachProjectileBouncePrime(request);
-        }
 
         Battle::BattleActionCommitInput actionInput;
         actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
@@ -804,11 +824,7 @@ void populateActionCommitInputForRole(
             actionInput.targets.push_back(makeBattleActionTargetSnapshot(target));
         }
 
-        auto comboIt = context.comboStates->find(role->ID);
-        if (comboIt != context.comboStates->end())
-        {
-            actionInput.combo = comboIt->second;
-        }
+        captureActionComboState(actionInput, role, context);
         unitInput.hasPendingActionInput = true;
         unitInput.pendingActionInput = std::move(actionInput);
     }
@@ -1308,11 +1324,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     Battle::BattleActionCommitInput actionInput;
     actionInput.unit = makeBattleActionCommitUnitSnapshot(role);
     actionInput.strengthenedMeleeOperationCountThreshold = STRENGTHENED_MELEE_OPERATION_COUNT_THRESHOLD;
-    auto comboIt = context.comboStates->find(role->ID);
-    if (comboIt != context.comboStates->end())
-    {
-        actionInput.combo = comboIt->second;
-    }
+    captureActionComboState(actionInput, role, context);
 
     Battle::BattleFrameState actionFrameState;
     Battle::BattleFrameActionUnitInput unitInput;
@@ -1328,6 +1340,7 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
     const auto& actionUnitResult = actionFrameState.actions.unitResults.front();
     assert(actionUnitResult.actionCommitted);
     const auto& actionResult = actionUnitResult.actionResult;
+    auto comboIt = context.comboStates->find(role->ID);
     if (comboIt != context.comboStates->end())
     {
         comboIt->second = actionResult.combo;
@@ -1340,10 +1353,6 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
         actionFrameResult.frame.presentationEvents.begin(),
         actionFrameResult.frame.presentationEvents.end());
     result.applyResult.attackSpawnRequests = actionResult.attackSpawnRequests;
-    for (auto& request : result.applyResult.attackSpawnRequests)
-    {
-        context.callbacks.attachProjectileBouncePrime(request);
-    }
     role->OperationCount = actionResult.operationCount;
     return result;
 }
@@ -1387,63 +1396,6 @@ BattleLifecycleApplicationResult applyBattleLifecycleEvents(
         }
     }
     return result;
-}
-
-std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(
-    RoleComboState& state,
-    const Battle::BattleComboFrameRuntimeInput& input)
-{
-    return Battle::BattleComboTriggerSystem().advanceFrameRuntime(state, input);
-}
-
-Battle::BattleDodgeResolution resolveBattleDodge(
-    const RoleComboState& state,
-    int attackerUnitId,
-    double rollPercent)
-{
-    return Battle::BattleComboTriggerSystem().resolveDodge(state, attackerUnitId, rollPercent);
-}
-
-Battle::BattleProjectileBouncePrime collectBattleProjectileBouncePrime(
-    const RoleComboState& state,
-    int attackerUnitId,
-    int rollPct,
-    int defaultRange)
-{
-    return Battle::BattleComboTriggerSystem().collectProjectileBouncePrime(
-        state,
-        {
-            attackerUnitId,
-            rollPct,
-            defaultRange,
-        });
-}
-
-int collectBattleExtraProjectileCount(RoleComboState& state, int unitId, int baseCount)
-{
-    return Battle::BattleComboTriggerSystem().collectExtraProjectileCount(
-        state,
-        { Battle::BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
-        baseCount,
-        []() { return 0.0; });
-}
-
-bool battleComboHasExecute(const RoleComboState& state, int attackerUnitId)
-{
-    return Battle::BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
-}
-
-double resolveBattleArmorPenetratedDefense(
-    const RoleComboState& state,
-    int attackerUnitId,
-    int targetUnitId,
-    double defense,
-    double rollPercent)
-{
-    return Battle::BattleComboTriggerSystem().resolveArmorPenetratedDefense(
-        state,
-        { attackerUnitId, targetUnitId, defense },
-        [rollPercent]() { return rollPercent; }).defense;
 }
 
 int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input)

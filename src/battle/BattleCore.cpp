@@ -2495,6 +2495,48 @@ BattleTickResult BattleCore::tickMovement()
     return BattleMovementPlanner(world_).tick();
 }
 
+BattleProjectileBouncePrime collectFrameProjectileBouncePrime(
+    const KysChess::RoleComboState& state,
+    int attackerUnitId,
+    int rollPct,
+    int defaultRange)
+{
+    return BattleComboTriggerSystem().collectProjectileBouncePrime(
+        state,
+        {
+            attackerUnitId,
+            rollPct,
+            defaultRange,
+        });
+}
+
+int collectFrameExtraProjectileCount(KysChess::RoleComboState& state, int unitId, int baseCount)
+{
+    return BattleComboTriggerSystem().collectExtraProjectileCount(
+        state,
+        { BattleComboTriggerHook::AfterSkillCast, unitId, -1 },
+        baseCount,
+        []() { return 0.0; });
+}
+
+bool frameComboHasExecute(const KysChess::RoleComboState& state, int attackerUnitId)
+{
+    return BattleComboTriggerSystem().hasExecuteCombo(state, attackerUnitId);
+}
+
+double resolveFrameArmorPenetratedDefense(
+    const KysChess::RoleComboState& state,
+    int attackerUnitId,
+    int targetUnitId,
+    double defense,
+    double rollPercent)
+{
+    return BattleComboTriggerSystem().resolveArmorPenetratedDefense(
+        state,
+        { attackerUnitId, targetUnitId, defense },
+        [rollPercent]() { return rollPercent; }).defense;
+}
+
 BattleFrameUnitRuntimeResult BattleFrameUnitRuntimeSystem::advance(
     const BattleFrameUnitRuntimeInput& input) const
 {

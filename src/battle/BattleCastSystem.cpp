@@ -764,6 +764,13 @@ BattleActionCommitResult BattleActionCommitSystem::commit(const BattleActionComm
             input.cast.decision.operationType,
             input.strengthenedMeleeOperationCountThreshold);
     }
+    if (input.projectileBouncePrime.count > 0)
+    {
+        for (auto& request : result.attackSpawnRequests)
+        {
+            tryApplyProjectileBouncePrime(request, input.projectileBouncePrime);
+        }
+    }
 
     appendBlinkAttackCommand(input, result);
     appendItemCommands(input, result);

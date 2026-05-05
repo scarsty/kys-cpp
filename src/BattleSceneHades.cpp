@@ -55,10 +55,6 @@ using KysChess::BattleSceneBattleAdapter::populateBattleActionFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameRescueState;
 using KysChess::BattleSceneBattleAdapter::populateBattleMovementPhysicsFrame;
 using KysChess::BattleSceneBattleAdapter::populateBattleFrameHitUnits;
-using KysChess::BattleSceneBattleAdapter::collectBattleProjectileBouncePrime;
-using KysChess::BattleSceneBattleAdapter::collectBattleExtraProjectileCount;
-using KysChess::BattleSceneBattleAdapter::battleComboHasExecute;
-using KysChess::BattleSceneBattleAdapter::resolveBattleArmorPenetratedDefense;
 using KysChess::BattleSceneBattleAdapter::resolveBattleMagicBaseDamage;
 using KysChess::BattleSceneBattleAdapter::writeBattleCooldownState;
 using KysChess::BattleSceneBattleAdapter::writeBattleDamageUnit;
@@ -1100,36 +1096,6 @@ void BattleSceneHades::recordStatusLogPresentation(Role* source, Role* target, c
     });
 }
 
-void BattleSceneHades::attachProjectileBouncePrime(KysChess::Battle::BattleAttackSpawnRequest& request)
-{
-    auto& attack = request.initial;
-    assert(attack.attackerUnitId >= 0);
-
-    auto& states = KysChess::ChessCombo::getActiveStates();
-    auto stateIt = states.find(attack.attackerUnitId);
-    if (stateIt == states.end())
-    {
-        return;
-    }
-    auto prime = collectBattleProjectileBouncePrime(
-        stateIt->second,
-        attack.attackerUnitId,
-        static_cast<int>(rand_.rand() * 100),
-        static_cast<int>(PROJECTILE_BOUNCE_RANGE));
-    if (prime.count <= 0)
-    {
-        return;
-    }
-
-    KysChess::Battle::tryApplyProjectileBouncePrime(request,
-        {
-            prime.count,
-            prime.chancePct,
-            prime.rollPct,
-            prime.range,
-        });
-}
-
 bool BattleSceneHades::attackCanHitInvincible(Role* role) const
 {
     assert(role);
@@ -1140,7 +1106,7 @@ bool BattleSceneHades::attackCanHitInvincible(Role* role) const
         return false;
     }
 
-    return battleComboHasExecute(
+    return KysChess::Battle::frameComboHasExecute(
         it->second,
         role->ID);
 }
@@ -1172,6 +1138,7 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.config.hiddenWeaponTotalFrame = 100;
     context.config.battleFrame = battle_frame_;
     context.config.gravity = gravity_;
+    context.config.projectileBounceRange = static_cast<int>(PROJECTILE_BOUNCE_RANGE);
     context.callbacks.findNearestEnemy = [this](int team, Pointf pos) { return findNearestEnemy(team, pos); };
     context.callbacks.findFarthestEnemy = [this](int team, Pointf pos) { return findFarthestEnemy(team, pos); };
     context.callbacks.selectNormalMagic = [this](Role* role) { return selectMagic(role, std::less<double>{}); };
@@ -1205,10 +1172,6 @@ BattleActionFrameAdapterContext BattleSceneHades::makeBattleActionFrameAdapterCo
     context.callbacks.toPosition = [this](int x, int y) { return pos45To90(x, y); };
     context.callbacks.canWalk = [this](int x, int y) { return canWalk45(x, y); };
     context.callbacks.faceTowardsNearest = [this](Role* role) { setFaceTowardsNearest(role); };
-    context.callbacks.attachProjectileBouncePrime = [this](KysChess::Battle::BattleAttackSpawnRequest& request)
-    {
-        attachProjectileBouncePrime(request);
-    };
     return context;
 }
 
@@ -3108,7 +3071,7 @@ int BattleSceneHades::getUltimateExtraProjectileCount(Role* r)
     assert(it != cs.end());
 
     auto& s = it->second;
-    return collectBattleExtraProjectileCount(
+    return KysChess::Battle::collectFrameExtraProjectileCount(
         s,
         r->ID,
         std::max(0, s.ultimateExtraProjectiles));
@@ -3592,12 +3555,12 @@ int BattleSceneHades::calculateHitMagicBaseDamage(Role* attacker, Role* defender
     assert(magic);
 
     double defence = defender->Defence;
-    // Armor penetration: reduce effective defence
+    // 破甲：降低有效防禦
     auto& cs = KysChess::ChessCombo::getMutableStates();
     auto it = cs.find(attacker->ID);
     if (it != cs.end())
     {
-        defence = resolveBattleArmorPenetratedDefense(
+        defence = KysChess::Battle::resolveFrameArmorPenetratedDefense(
             it->second,
             attacker->ID,
             defender->ID,

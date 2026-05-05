@@ -5,7 +5,6 @@
 #include "battle/BattleCastSystem.h"
 #include "battle/BattleCore.h"
 #include "battle/BattleProjectileTargetingSystem.h"
-#include "battle/BattleHitResolver.h"
 
 #include <cstddef>
 #include <deque>
@@ -88,6 +87,7 @@ struct BattleActionFrameAdapterConfig
     int hiddenWeaponTotalFrame = 0;
     int battleFrame = 0;
     float gravity = 0.0f;
+    int projectileBounceRange = 0;
 };
 
 struct BattleActionFrameAdapterCallbacks
@@ -113,7 +113,6 @@ struct BattleActionFrameAdapterCallbacks
     std::function<Pointf(int, int)> toPosition;
     std::function<bool(int, int)> canWalk;
     std::function<void(Role*)> faceTowardsNearest;
-    std::function<void(Battle::BattleAttackSpawnRequest&)> attachProjectileBouncePrime;
 };
 
 struct BattleActionFrameAdapterContext
@@ -285,26 +284,6 @@ BattleSelectedSkillActionResult commitBattleSelectedSkillAction(
 BattleLifecycleApplicationResult applyBattleLifecycleEvents(
     const BattleLifecycleApplicationContext& context,
     const std::vector<Battle::BattleGameplayEvent>& events);
-std::vector<Battle::BattleComboFrameRuntimeEvent> advanceBattleComboFrameRuntime(
-    RoleComboState& state,
-    const Battle::BattleComboFrameRuntimeInput& input);
-Battle::BattleDodgeResolution resolveBattleDodge(
-    const RoleComboState& state,
-    int attackerUnitId,
-    double rollPercent);
-Battle::BattleProjectileBouncePrime collectBattleProjectileBouncePrime(
-    const RoleComboState& state,
-    int attackerUnitId,
-    int rollPct,
-    int defaultRange);
-int collectBattleExtraProjectileCount(RoleComboState& state, int unitId, int baseCount);
-bool battleComboHasExecute(const RoleComboState& state, int attackerUnitId);
-double resolveBattleArmorPenetratedDefense(
-    const RoleComboState& state,
-    int attackerUnitId,
-    int targetUnitId,
-    double defense,
-    double rollPercent);
 int resolveBattleMagicBaseDamage(const Battle::BattleMagicBaseDamageInput& input);
 std::vector<int> selectBattleNearbyProjectileTargets(
     const Battle::BattleProjectileTargetWorld& world,

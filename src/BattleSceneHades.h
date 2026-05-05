@@ -84,7 +84,6 @@ protected:
     bool attackCanHitInvincible(Role* role) const;
     Magic* commitAutoUltimate(Role* role, bool consumeMP);
     void playAutoUltimateReady(Role* role);
-    void attachProjectileBouncePrime(KysChess::Battle::BattleAttackSpawnRequest& request);
     void queueCoreAttackSpawn(KysChess::Battle::BattleAttackSpawnRequest request);
     virtual int calRolePic(Role* r, int style, int frame) override;
 
